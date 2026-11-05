@@ -1,6 +1,7 @@
 /* Bounded SHA-256 (FIPS 180-4) and canonical RFC 4648 base64. No platform crypto
  * dependency; callers limit decoded content to 1 MiB and JSON to 12 MiB. */
 #include "codec.h"
+#include "memory.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,16 +22,25 @@ static void block(uint32_t h[8],const unsigned char p[64]){
     for(unsigned i=0;i<64;i++){uint32_t t=z+(ror(e,6)^ror(e,11)^ror(e,25))+((e&f)^(~e&g))+k[i]+w[i];uint32_t u=(ror(a,2)^ror(a,13)^ror(a,22))+((a&b)^(a&c)^(b&c));z=g;g=f;f=e;e=d+t;d=c;c=b;b=a;a=t+u;}
     h[0]+=a;h[1]+=b;h[2]+=c;h[3]+=d;h[4]+=e;h[5]+=f;h[6]+=g;h[7]+=z;
 }
-void profile_sha256(const void *data,size_t size,char hex[65]){
-    uint32_t h[8]={0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
-    const unsigned char *p=data;size_t n=size;unsigned char tail[128]={0};
-    while(n>=64){block(h,p);p+=64;n-=64;}memcpy(tail,p,n);tail[n]=0x80;
-    size_t padded=n<56?64:128;uint64_t bits=(uint64_t)size*8;
-    for(unsigned i=0;i<8;i++)tail[padded-1-i]=(unsigned char)(bits>>(i*8));
-    block(h,tail);if(padded==128)block(h,tail+64);
-    static const char digits[]="0123456789abcdef";
-    for(unsigned i=0;i<32;i++){unsigned v=(h[i/4]>>(24-8*(i%4)))&255;hex[2*i]=digits[v>>4];hex[2*i+1]=digits[v&15];}hex[64]=0;
+void profile_sha256_init(struct profile_sha256_ctx *c){
+    static const uint32_t initial[8]={0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
+    memcpy(c->h,initial,sizeof(initial));c->total=0;c->used=0;
 }
+void profile_sha256_update(struct profile_sha256_ctx *c,const void *data,size_t size){
+    const unsigned char *p=data;c->total+=size;
+    if(c->used){size_t n=64-c->used;if(n>size)n=size;memcpy(c->tail+c->used,p,n);c->used+=(unsigned)n;p+=n;size-=n;if(c->used==64){block(c->h,c->tail);c->used=0;}}
+    while(size>=64){block(c->h,p);p+=64;size-=64;}
+    if(size){memcpy(c->tail,p,size);c->used=(unsigned)size;}
+}
+void profile_sha256_final(struct profile_sha256_ctx *c,char hex[65]){
+    unsigned char tail[128]={0};memcpy(tail,c->tail,c->used);tail[c->used]=0x80;
+    size_t padded=c->used<56?64:128;uint64_t bits=c->total*8;
+    for(unsigned i=0;i<8;i++)tail[padded-1-i]=(unsigned char)(bits>>(i*8));
+    block(c->h,tail);if(padded==128)block(c->h,tail+64);
+    static const char digits[]="0123456789abcdef";
+    for(unsigned i=0;i<32;i++){unsigned v=(c->h[i/4]>>(24-8*(i%4)))&255;hex[2*i]=digits[v>>4];hex[2*i+1]=digits[v&15];}hex[64]=0;
+}
+void profile_sha256(const void *data,size_t size,char hex[65]){struct profile_sha256_ctx c;profile_sha256_init(&c);profile_sha256_update(&c,data,size);profile_sha256_final(&c,hex);}
 static const char alphabet[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 char *profile_base64_encode(const unsigned char *data,size_t size){
     size_t len=4*((size+2)/3);char *s=malloc(len+1);if(!s)return NULL;
