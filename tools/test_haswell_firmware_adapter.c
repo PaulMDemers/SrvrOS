@@ -25,6 +25,7 @@ void *pmm_phys_to_virt(uint64_t pa){return pa==info.physical_address?bytes:NULL;
 uint64_t vmm_kernel_address_space(void){return 0x1000;}
 uint64_t vmm_current_address_space(void){return mode==3?0x2000:0x1000;}
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t va,uint64_t *out){(void)space;translated++;*out=info.physical_address+va-(uint64_t)(uintptr_t)bytes;return mode!=4;}
+uint64_t pmm_hhdm_offset(void){return 0xffff800000000000ull;}
 uint64_t timer_monotonic_us(void){return ticks+=100;}
 bool timer_reference_ready(void){return true;}
 void console_write(const char *s){fputs(s,stdout);}

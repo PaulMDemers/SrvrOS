@@ -163,7 +163,7 @@ def main():
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
     keyboard_negative=args.keyboard_timeout or (args.keyboard_fail and not keyboard_retry)
     if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
-    hfw_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-hfw-"))
+    hfw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hfw-","ram-usb-v2-hfw-")))
     hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-")))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
@@ -417,6 +417,7 @@ def main():
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         assert 'hsw-firmware-progress: exact Air6,1' in exit_log
                         assert 'laptop-capture: completed=NO' in exit_log
+                        if manifest['config_version'].startswith('ram-usb-v2-hfw-'): assert 'hsw-cache: v=1 status=2 samples=0' in exit_log
                     if hsw_capture:
                         exit_log=stored.read(folder+"/exit.log").decode()
                         from hardware_haswell_backing import backing_result

@@ -7272,3 +7272,17 @@ Actual native-receipt host replay passes the candidate audit with all cache,
 mapping/read permission, DMA-state and ownership fields false. Primary PDFs,
 source hashes and host output have a durable copy outside build. No kernel,
 policy, limit, installed payload or physical acceptance changes; no reboot armed.
+
+
+### Air6,1 read-only cache/alias context scope (2026-11-04)
+
+Base `d10a4e10`, prior firmware run collected/closed. PR301 common architectural
+cache core/header/tests are inspected at `e48abf79` and reused unchanged at the
+same paths to avoid a competing fork; its Broadwell adapter/gates/addresses and
+acceptance are not imported. Add an exact Air6,1 opt-in firmware/cache-context
+profile: bounded CPU0 PAT/MTRR/CR0 snapshots plus RAM-only x86 page-table walks
+of the known HHDM candidate alias and an unused proposed private window. Never
+dereference the VT-d virtual/physical target, map it or change cache policy.
+Require fresh pinned firmware/catalog/PCI guards, raw preservation, finite bounds,
+refusal tests and matched host/VM checks before preparing the automated trial.
+No native ownership, mapping grant or full-alias proof is claimed in advance.
