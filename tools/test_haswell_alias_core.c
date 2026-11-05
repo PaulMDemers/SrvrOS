@@ -17,7 +17,7 @@ int main(void){
  setup();words[1][0]=0xc0000083;assert(hac_capture(&r,&io,0x100000) && r.pages==2 && r.target_leaves==1);
  setup();words[2][0]=0xfec00083;assert(hac_capture(&r,&io,0x100000) && r.pages==3 && r.target_leaves==1);
  setup();words[0][1]=words[0][0];assert(hac_capture(&r,&io,0x100000) && r.pages==4);
- for(unsigned m=5;m<=8;m++){setup();mode=m;assert(!hac_capture(&r,&io,0x100000));}
+ for(unsigned m=5;m<=8;m++){setup();mode=m;assert(!hac_capture(&r,&io,0x100000));if(m==5)assert(r.cursor_expected!=r.cursor_observed);}
  setup();words[0][0]=0x100003;assert(!hac_capture(&r,&io,0x100000) && r.status==4);
  setup();words[1][0]=0xc0001083;assert(hac_capture(&r,&io,0x100000)); /* Huge PAT is not a PA bit. */
  setup();words[1][0]=0xc0002083;assert(!hac_capture(&r,&io,0x100000));

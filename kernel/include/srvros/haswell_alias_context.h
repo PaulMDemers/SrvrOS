@@ -6,7 +6,8 @@
 struct hac_page {uint64_t pa,word[512];unsigned level;};
 struct hac_result {
  unsigned status,pages,reads[2],bytes[2],target_leaves;
- uint64_t begin,end;
+ uint64_t begin,end,cursor_pa,cursor_expected,cursor_observed;
+ unsigned cursor_index;
  uint8_t data[2][HAC_DATA_CAP];
  struct hac_page table[HAC_TABLE_CAP];
 };

@@ -62,8 +62,8 @@ static bool hac_run(void) {
 #endif
 static void hac_report(bool complete) {
  unsigned status=complete?1:((hac_result.status && hac_result.status!=1)?hac_result.status:3);
- console_printf("hsw-alias: v=1 status=%u step=%u pages=%u reads=%u,%u bytes=%u,%u target_leaves=%u root=%x nx=%x,%x max=%x,%x efer=%x,%x irq=%x,%x begin=%u end=%u table_cap=64 entry_cap=32768 data_cap=4096 limit_us=100000 scope=sole-managed-root writes=0 maps=0 ownership=0\n",
- (uint64_t)status,(uint64_t)hac_step,(uint64_t)hac_result.pages,(uint64_t)hac_result.reads[0],(uint64_t)hac_result.reads[1],(uint64_t)hac_result.bytes[0],(uint64_t)hac_result.bytes[1],(uint64_t)hac_result.target_leaves,hac_root_pa,(uint64_t)hac_nx[0],(uint64_t)hac_nx[1],(uint64_t)hac_max[0],(uint64_t)hac_max[1],hac_efer[0],hac_efer[1],hac_irq_before,hac_irq_after,hac_result.begin,hac_result.end);
+ console_printf("hsw-alias: v=1 status=%u step=%u pages=%u reads=%u,%u bytes=%u,%u target_leaves=%u root=%x nx=%x,%x max=%x,%x efer=%x,%x irq=%x,%x begin=%u end=%u cursor=%x,%u,%x,%x table_cap=64 entry_cap=32768 data_cap=4096 limit_us=100000 scope=sole-managed-root writes=0 maps=0 ownership=0\n",
+ (uint64_t)status,(uint64_t)hac_step,(uint64_t)hac_result.pages,(uint64_t)hac_result.reads[0],(uint64_t)hac_result.reads[1],(uint64_t)hac_result.bytes[0],(uint64_t)hac_result.bytes[1],(uint64_t)hac_result.target_leaves,hac_root_pa,(uint64_t)hac_nx[0],(uint64_t)hac_nx[1],(uint64_t)hac_max[0],(uint64_t)hac_max[1],hac_efer[0],hac_efer[1],hac_irq_before,hac_irq_after,hac_result.begin,hac_result.end,hac_result.cursor_pa,(uint64_t)hac_result.cursor_index,hac_result.cursor_expected,hac_result.cursor_observed);
  if(!complete)return;
  static char data[700];
  for(unsigned pass=0;pass<2;pass++)for(unsigned at=0,chunk=0;at<hac_result.bytes[pass];chunk++) {

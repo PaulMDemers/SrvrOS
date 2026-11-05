@@ -27,14 +27,15 @@ static bool encode(struct hac_result *r,unsigned pass,const struct hac_page *p) 
 bool hac_capture(struct hac_result *r,const struct hac_io *io,uint64_t root) {
  if(!r)return false;
  /* Large table backing is static in callers; reset metadata, not via a stack copy. */
- r->status=3;r->pages=r->target_leaves=0;r->reads[0]=r->reads[1]=r->bytes[0]=r->bytes[1]=0;r->begin=r->end=0;
+ r->status=3;r->pages=r->target_leaves=0;r->reads[0]=r->reads[1]=r->bytes[0]=r->bytes[1]=0;r->begin=r->end=r->cursor_pa=r->cursor_expected=r->cursor_observed=0;r->cursor_index=0;
  if(!io || !io->read || !io->now)return false;
  r->begin=io->now(io->ctx);if(!room(r,io) || !add(r,root,0))return false;
  for(unsigned pass=0;pass<2;pass++)for(unsigned i=0;i<r->pages;i++) {
   struct hac_page *p=&r->table[i];
   for(unsigned j=0;j<512;j++) {
+   r->cursor_pa=p->pa;r->cursor_index=j;r->cursor_expected=pass?p->word[j]:0;r->cursor_observed=0;
    uint64_t v;if(!room(r,io))return false;
-   if(!io->read(io->ctx,p->pa,j,&v)){r->status=3;return false;}r->reads[pass]++;
+   if(!io->read(io->ctx,p->pa,j,&v)){r->status=3;return false;}r->reads[pass]++;r->cursor_observed=v;
    if(pass){if(v!=p->word[j]){r->status=5;return false;}continue;}
    p->word[j]=v;if(!(v&1))continue;
    if(v&0x000ffffffffff000ull&~ADDR || (!p->level && v&128)){r->status=4;return false;}

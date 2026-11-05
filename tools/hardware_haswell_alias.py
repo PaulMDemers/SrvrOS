@@ -8,7 +8,7 @@ from hardware_haswell_firmware import firmware_result
 SUMMARY = (r'hsw-alias: v=1 status=([1-5]) step=([0-6]) pages=(\d+) reads=(\d+),(\d+) bytes=(\d+),(\d+) '
            r'target_leaves=(\d+) root=0x([0-9a-f]{16}) nx=0x([0-9a-f]{16}),0x([0-9a-f]{16}) max=0x([0-9a-f]{16}),0x([0-9a-f]{16}) '
            r'efer=0x([0-9a-f]{16}),0x([0-9a-f]{16}) irq=0x([0-9a-f]{16}),0x([0-9a-f]{16}) begin=(\d+) end=(\d+) '
-           r'table_cap=64 entry_cap=32768 data_cap=4096 limit_us=100000 scope=sole-managed-root writes=0 maps=0 ownership=0')
+           r'cursor=0x([0-9a-f]{16}),(\d+),0x([0-9a-f]{16}),0x([0-9a-f]{16}) table_cap=64 entry_cap=32768 data_cap=4096 limit_us=100000 scope=sole-managed-root writes=0 maps=0 ownership=0')
 
 
 def decode_pages(data, count):
@@ -41,7 +41,8 @@ def _parse(text):
     if not m: return None
     vals = list(m.groups()); step=int(vals.pop(1)); status, count, r0, r1, b0, b1, targets = map(int, vals[:7])
     root, nx0, nx1, max0, max1, ef0, ef1, irq0, irq1 = (int(x, 16) for x in vals[7:16])
-    begin, end = map(int, vals[16:])
+    begin, end = map(int, vals[16:18])
+    cursor_pa, cursor_index, expected, observed = int(vals[18],16), int(vals[19]), int(vals[20],16), int(vals[21],16)
     chunks = {}
     for line in text.splitlines():
         if not line.startswith('hsw-alias-data:'): continue
@@ -53,7 +54,7 @@ def _parse(text):
     cache = cache_result(text)
     if status != 1:
         if chunks or 'laptop-capture: completed=yes' in text: return None
-        return dict(status='REFUSED' if cache and cache['status']=='REFUSED' else 'FAILED', source_status=status,
+        return dict(status='REFUSED' if cache and cache['status']=='REFUSED' else 'FAILED', source_status=status, step=step, cursor=dict(physical=cursor_pa,index=cursor_index,expected=expected,observed=observed),
                     hardware_authority=False, ownership=False, native_mapping_authorized=False)
     if step != 6 or not cache or cache['status'] != 'OBSERVED_CONTEXT' or not 1 <= count <= 64 or r0 != r1 or r0 != 512*count or not 1 <= b0 <= 4096 or b0 != b1:
         return None
@@ -70,6 +71,8 @@ def _parse(text):
         blobs.append(b''.join(chunks[phase, i] for i in range(n)))
     if len(chunks) != 2*((b0+511)//512) or blobs[0] != blobs[1]: raise ValueError('changed/extra raw census')
     pages = decode_pages(blobs[0], count)
+    if cursor_index != 511 or cursor_pa != next(reversed(pages)) or expected != observed or observed != pages[cursor_pa]['raw'][511]:
+        raise ValueError('final cursor')
     if root not in pages or pages[root]['level'] != 0: raise ValueError('root coverage')
     catalog = firmware_result(text)['samples'][0]['catalog']; addr = ((1 << 39)-1) & ~4095
     for pa in pages:

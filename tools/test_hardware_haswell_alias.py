@@ -26,7 +26,7 @@ def fixture_alias():
                 step = (words[i+1]-words[i]) & ((1<<64)-1);n = 2
                 while i+n < 512 and words[i+n] == (words[i]+step*n) & ((1<<64)-1):n += 1
             data += struct.pack('<HQQ', n, words[i], step);i += n
-    meta = f'hsw-alias: v=1 status=1 step=6 pages=4 reads=2048,2048 bytes={len(data)},{len(data)} target_leaves=1 root=0x0000000000100000 nx=0x0000000004100000,0x0000000004100000 max=0x0000000080000008,0x0000000080000008 efer=0x0000000000000d00,0x0000000000000d00 irq=0x0000000000000202,0x0000000000000202 begin=5100 end=5900 table_cap=64 entry_cap=32768 data_cap=4096 limit_us=100000 scope=sole-managed-root writes=0 maps=0 ownership=0\n'
+    meta = f'hsw-alias: v=1 status=1 step=6 pages=4 reads=2048,2048 bytes={len(data)},{len(data)} target_leaves=1 root=0x0000000000100000 nx=0x0000000004100000,0x0000000004100000 max=0x0000000080000008,0x0000000080000008 efer=0x0000000000000d00,0x0000000000000d00 irq=0x0000000000000202,0x0000000000000202 begin=5100 end=5900 cursor=0x0000000000103000,511,0x0000000000000000,0x0000000000000000 table_cap=64 entry_cap=32768 data_cap=4096 limit_us=100000 scope=sole-managed-root writes=0 maps=0 ownership=0\n'
     for phase in (0,1):
         for index, at in enumerate(range(0,len(data),512)):
             meta += f'hsw-alias-data: v=1 phase={phase} chunk={index} data='+base64.b64encode(data[at:at+512]).decode()+'\n'
