@@ -5,11 +5,31 @@ server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
 
+## Final local integration and workspace reset
+
+The subsequent workspace-reset request includes delivery of the bounded browser
+experiment and the previously unpublished proof-storage helper. The helper is
+merged in [OS #375](https://github.com/PaulMDemers/SrvrOS/pull/375), `d10a4e10`:
+19 host regressions, independent review, Python compilation and 1,030 local
+documentation links pass. Its cooperative storage limits and protected-evidence
+rules are documented in the [macOS guide](macos-development.md).
+
+Browser current-main integration and matched runtime qualification are in
+progress. Once delivered, the workspace will contain only a fresh main checkout
+with recursive pinned submodules. The user explicitly requested removal of old
+local checkouts, generated files, VM state and local raw proof artifacts.
+Published summaries and manifests remain in Git; archives already stored outside
+the workspace remain outside this cleanup. The historical retention statements
+below describe their earlier checkpoints, not the post-reset workspace.
+Physical-device PRs #301 and #19 remain separate blocked work with remote source
+preserved; no physical acceptance is inferred from this local cleanup.
+
 ## November 4 integration closeout
 
 The current local non-browser chat milestones are delivered, verified and
 recorded below. Their owners have stopped; new backlog milestones are deferred.
-Browser work is exempt and continues separately. Exact acceptance remains tied to
+Browser work was exempt at this earlier checkpoint; its final bounded delivery
+is tracked above. Exact acceptance remains tied to
 the source and payload in each linked record; this is not a new combined physical
 hardware qualification.
 
@@ -22,7 +42,7 @@ hardware qualification.
 | Filesystem tooling | Explicit partition-GUID selection merged in [OS #366](https://github.com/PaulMDemers/SrvrOS/pull/366), `7b1bfcb8`, after selector, installation, storage and sanitizer checks. Original media remains preserved. |
 | Ports | xz, GNU diff and GNU Patch are delivered. [Ports #12](https://github.com/PaulMDemers/SrvrPorts/pull/12) (`72f3d6fa`) and [OS #370](https://github.com/PaulMDemers/SrvrOS/pull/370) (`3e327513`) pass the final seven-guest Patch suite, including the corrected miniport example. Grep and sha256sum are deferred. |
 | Runtime audit | The bounded historical audit checkpoint is merged in [OS #365](https://github.com/PaulMDemers/SrvrOS/pull/365), `db95fc9b`. It does not qualify the ongoing browser experiment. |
-| Browser | Exempt, ongoing. The corrected WTF and utility guest cases passed; the first GC-control case exited 134 and later cases did not run. Page-quota messages were observed, but the final abort remains unattributed. Diagnostic investigation continues. No full WTF/JSC or browser acceptance is claimed. |
+| Browser | The initial GC abort was subsequently attributed to unavailable entropy. Provider-only entropy integration passed the bounded no-JIT JavaScript smoke on its experimental source. Current-main reconciliation and fresh qualification remain in progress; see [browser work](browser-port.md). No full browser or production capability acceptance is claimed. |
 
 Offline installation export and export-publication recovery remain canonical
 v1. The separate guest profile v2 streaming milestone does not add offline v2

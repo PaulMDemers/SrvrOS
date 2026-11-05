@@ -12,6 +12,25 @@ acceptance requirements. This checkpoint is in progress and does not claim that
 unmerged device work or local artifacts have already been removed.
 
 
+## Proof-storage retention — delivered November 4, 2026
+
+The user chose to finish the previously unpublished automatic proof cleanup
+prototype before the workspace reset. [PR375](https://github.com/PaulMDemers/SrvrOS/pull/375)
+merged as `d10a4e10`; its tree matches reviewed source `2a25a49c`.
+The chooser and installation-recovery harnesses now enforce cooperative storage
+budgets and retain at least two managed successful runs. Only inventoried,
+unchanged disposable images from older successes qualify for pruning; failed,
+incomplete, legacy, pinned, modified, linked and open proof data stays protected.
+See the [policy and usage](../macos-development.md).
+
+All 19 host-only temporary-fixture regressions, Python compilation, whitespace
+checks and 1,030 local documentation links pass. Independent implementation and
+integration review passed after correcting the nested-mount documentation.
+Imported chooser VM consumers remain compatible without storage arguments. This
+is host tooling acceptance; no VM or installed-media rerun is claimed. The older
+uncommitted prototype and its 16-test note are superseded by this reviewed
+replacement, rather than additional work to preserve in the reset workspace.
+
 ## Larger-document migration — qualified closeout November 4, 2026
 
 The bounded Apps11 → OS367 milestone passes its required native, matched-build,

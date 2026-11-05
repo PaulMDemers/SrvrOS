@@ -12,10 +12,10 @@ The subsequent user request is to integrate the remaining local deliverables,
 update their records, then replace the workspace with one fresh checkout of
 merged main and its pinned submodules, without build artifacts or VM state.
 The completed experimental browser smoke now requires current-main integration;
-production capability enablement remains outside that scope. The user also chose
-to finish and validate the previously unpublished proof-storage retention tool
-before cleanup. These are the remaining local delivery gates; new features are
-not added to this reset.
+production capability enablement remains outside that scope. The previously unpublished proof-storage retention tool is now delivered in
+[PR375](https://github.com/PaulMDemers/SrvrOS/pull/375), `d10a4e10`, after 19
+host regressions and independent review. Browser integration and final workspace
+verification remain the local delivery gates; new features are not added to this reset.
 
 Original checkouts and build inputs stay available until their code, integration
 checks and portable evidence are delivered. The reset removes local raw evidence
