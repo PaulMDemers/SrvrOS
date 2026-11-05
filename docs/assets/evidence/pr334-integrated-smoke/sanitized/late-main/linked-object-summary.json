@@ -1,0 +1,7 @@
+{
+  "scope": "all retained function bytes except relocation fields; relocation target semantics separate",
+  "matched_functions": 1488,
+  "mismatches": [],
+  "named_relocation_targets_checked": 5633,
+  "named_relocations_unbound": []
+}

@@ -7,6 +7,9 @@ was WTF opening unavailable `/dev/urandom`; a strict native entropy adapter fixe
 it. Normal public signal dispatch remains disabled. These results apply to the
 reviewed diskless single-CPU Q35 guests, with RDRAND exposed for JSC, and do not
 establish general public ABI, SMP, physical hardware or browser acceptance.
+Latest paired kernel qualification is at `a7f71411` / Ports `af1421b`, with
+all retained SDK/JSC inputs verified byte-identical to the fresh `0a3f5981`
+build. See the [integrated portable evidence](assets/evidence/pr334-integrated-smoke/README.md).
 The [public packet](signal-public-v1.md) and [logical I/O supplement](signal-logical-io-v1.md)
 record the reviewed contract and explicit experimental qualification boundary.
 
@@ -23,7 +26,7 @@ The selected recipes pin ICU79.1, WPEWebKit2.54.2 and Zig0.15.2. The source carr
 starts at SrvrOS main's ports pin `d760e5413edc8badd5c87d9b02b6c815f7169721` and
 adds55 libc++/ICU/libm/WebKit overlay blobs from
 `af466ba6888ad29904d1586bf574702ef53b9bed`, preserving all other base tree entries
-apart from a narrow README addition. See [the source integration draft](https://github.com/PaulMDemers/SrvrPorts/pull/9).
+apart from a narrow README addition. See [the source integration PR](https://github.com/PaulMDemers/SrvrPorts/pull/9).
 The matching OS carry includes threaded C++ lifetime/guards, real hyperbolic float
 math, C++ linkage declarations and the original build/proof fixtures.
 
@@ -33,19 +36,20 @@ fresh PR334 SDK acceptance. The earlier browser work is retained at
 [source185db570](https://github.com/PaulMDemers/SrvrOS/blob/185db570/docs/browser-port.md).
 Licenses, pinned source digests and original patch bytes are preserved.
 
-## Required matched verification
+## Matched verification workflow
 
-After the public contract is approved and implemented, rebuild the SDK and the
-threaded libc++, RTTI, math, filesystem and ICU dependencies against the exact
-same headers/archive/linker script. Regenerate receipts and run the current
-normal kernel with the runtime, filesystem, TLS and public signal/context probes.
+For each changed candidate, build the SDK and threaded libc++, RTTI, math,
+filesystem and ICU dependencies against matched headers/archive/linker script.
+Retained artifacts require exact verification of their complete build inputs and
+outputs with the original tested source attribution. Regenerate affected receipts
+and run the normal kernel with runtime, filesystem, TLS and signal-boundary probes.
 Then rebuild the pinned no-JIT JSC/WTF fixtures, qualify bounded suspension and
 the real conservative register/stack view, and run the minimal JavaScript smoke.
 A static link, old receipt or private signal hook cannot substitute for that run.
 
-Heavy output uses the task-owned external APFS volume. Preserve existing images,
-VMs and checkouts; check host, output and sparse-image backing reserves and keep
-temporary files/caches on the output volume. Maximum concurrency is two compiler
+Record task-owned output and backing storage for each run. Preserve existing
+images, VMs and checkouts while they are required; check host, output, temporary
+and sparse-image backing reserves before and throughout heavy work. Maximum concurrency is two compiler
 jobs or one private VM. No physical boot or hosted CI is authorized by this work.
 
 
@@ -57,7 +61,7 @@ zero-FD waits and threading. Unqualified storage/socket paths fail before effect
 A JavaScript failure that requires another path is evidence for the next bounded
 qualification; it must not be bypassed by broadening the gate without review.
 
-Current checkpoint: the owner independently accepted the bounded native context
+Historical public-context checkpoint: the owner independently accepted the bounded native context
 and nested-wait functional probe after source, linked-code, stack and exact guest
 configuration review. The corrected image exits0 with both required markers;
 boot serial proves no network device/worker before the payload, and the owned
@@ -135,7 +139,98 @@ preserves the reviewed synthetic logs and original/published hashes.
 Durable local result receipt `.local/pr334-entropy-guest-results/receipt.json`
 SHA256 `ce0ce2147666002e4deacb1b13b9a5e6a0f8183da54f13a2107b528ebe8aa6be`;
 exact input packet74470aae and signoff6acb68dc are retained outside build output.
-PR334/Ports9 remain drafts. Current-main reconciliation preserving streaming168
-and the owners' runtime changes is required before integration delivery. This
-checkpoint makes no production signal-capability, main-merge, physical-machine,
-full-browser or physical entropy-quality claim.
+At that historical checkpoint PR334/Ports9 remained drafts and current-main
+reconciliation was still required. The integrated qualification below supersedes
+that pending status. This historical result makes no production capability,
+main-merge, physical-machine, full-browser or physical entropy-quality claim.
+
+
+## Fresh current-main qualification — November 4, 2026
+
+OS `0a3f5981` / Ports `af1421b` reconciles actual OS main `d10a4e10` and
+Ports main `72f3d6fa`. Source review combines session-scope accounting and file
+stream168 with isolated signal164–167. The experimental gate refuses session163
+and stream168 at the outer dispatcher before namespace admission, IRQ changes,
+wait bookkeeping or backend effects. Normal builds retain those APIs. Actual
+dispatcher strict/ASan/UBSan cases and focused process/thread/signal/output/
+lifetime/stream/scope-service/loader regressions pass. Two earlier host-fixture
+integration failures remain recorded; their test seams were corrected without
+changing production behavior or weakening scope/trap assertions.
+
+The SDK and both kernels were rebuilt, then threaded libc++, RTTI, math, ICU79.1
+and filesystem dependencies were rebuilt against those exact SDK bytes. The
+fresh SDK exports the native entropy header. Normal guests pass17 runtime cases
+(15 exit0 and two intentional134 controls) and two filesystem cases, with an
+empty probe directory afterwards. Fresh JSC and four fixtures then compile/link
+with JIT, WebAssembly, remote inspector and sampling profiler disabled. No
+incremental resume or retained-SDK header transition is used in this fresh run.
+
+Exact review binds1,136 current identities,1,488 retained functions and5,633
+named relocation targets with zero mismatches or unbound targets. It recomputes
+the patched-source fingerprint and build identity and verifies dependencies,
+four ISO/configuration records and packed ELFs. Integration independently
+accepts the source/configuration/output review; the browser chat owns the
+user-transferred binary signoff.
+
+Four sequential guests pass in26.702s: normal strict-entropy absent/positive
+controls, experimental native context/nested waits, then all eight entropy/WTF/
+utility-footprint/GC-control/GP/FX/red-zone/JavaScript cases. Every case exits0;
+actual `jsc -e 'print(42)'` prints42 and returns to the monitor. Every guest stops
+and every owned process group retires. The quota fallback diagnostics remain
+visible; no quota, VFS, device or I/O gate was widened.
+
+The fresh JSC ELF SHA256 is
+`08dd2679eee6bac5ce701877005cd63e33bff5b28a5a3bf75e709f94f7ddf5a9`;
+its patched-source fingerprint is
+`35085fbc78b8cb816d59fc666a25edcd84d5349c8f259d761842a1b52ac051f4`.
+The [integrated portable evidence](assets/evidence/pr334-integrated-smoke/README.md)
+records exact SDK/kernels/fixtures/configurations and original/published hashes,
+separately from the historical initial smoke. Normal production signal
+capabilities remain disabled. General ABI, SMP, physical hardware/entropy and
+full-browser acceptance remain unclaimed.
+
+
+## Latest-main kernel qualification — November 4, 2026
+
+The later actual-main update `f11ce344` adds read-only cache diagnostics, an
+AP-probe-only boot branch and exFAT conditional line-layout fixes. It changes
+no shared/userspace SDK, signal/process/scheduler or port implementation. The
+conflict-free merge and evidence record produce clean `a7f71411` / Ports
+`af1421b`. The new cache/context tests, actual dispatcher strict/ASan/UBSan
+checks, focused lifecycle/stream/scope/loader checks and both kernel builds pass.
+
+An exact audit verifies715 SDK, dependency, JSC and fixture input/output
+identities, including the original patched-source fingerprint, with no changed
+bytes. The fresh JSC build at0a3f5981 is retained with its original attribution.
+New normal and experimental kernels are respectively SHA256
+`da470d92d4ae3921405f6fb14c40c39a76efc47213f994552d8b89328e3ccee2`
+and `796fe4092b514c0066b178315d7d5dddddf4b23bd81ba30bd83a0254a368964d`.
+
+Four newly prepared and exact-reviewed guests pass in28.022s on those kernels:
+normal absent/positive entropy, native contexts/nested waits, and all eight
+actual WTF/footprint/GC/JavaScript cases. The retained JSC prints42 and exits0.
+All owned guests stop and groups retire. Exact review again binds1,136
+identities,1,488 retained functions and5,633 named relocation targets with zero
+mismatches/unbound. Original A–E records remain separate from this later-kernel
+qualification in the portable evidence collection. Production signal capability
+and quota behavior are unchanged; no physical/SMP/full-browser claim is added.
+
+Integration delivery is tracked by [Ports9](https://github.com/PaulMDemers/SrvrPorts/pull/9)
+and [OS334](https://github.com/PaulMDemers/SrvrOS/pull/334), in that order.
+The user-authorized final workspace reset removes the local build/VM objects;
+the portable repository bundles retain the selected synthetic logs, receipts,
+original hashes and explicit limitations.
+
+
+## Normal desktop/session verification
+
+At clean a7f71411/af1421b the matched normal build, desktop shutdown and
+session guests pass in104.210s. All four shutdown choices, five expected file
+payloads, pre/post generator/allocation checks and restored process baseline
+pass. The matched/generated fixture has no independent fsck claim. Session
+checks include scopeprobe twice, live init, lifetime, PTY and syscall ABI. All
+guests stop and groups retire. Host setup failures (uninitialized submodules,
+compiler argv, ISO symlink, missing Pillow) remain failed and separately saved.
+The successful host test uses disposable Python3.14.6/Pillow13.0.0. Portable
+results are in the integrated smoke bundle; final docs/pin changes retain the
+runtime attribution above. No physical or broader browser acceptance is added.

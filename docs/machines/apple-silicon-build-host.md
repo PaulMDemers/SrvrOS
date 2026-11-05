@@ -5973,3 +5973,17 @@ symlink was retired while its external target stays intact. The prior kernels
 and original A–E evidence retain their attribution. New matched kernels, focused
 cache/admission/lifecycle checks, retained SDK/JSC input verification and fresh
 four-guest qualification are pending before the coordinator's normal-OS retry.
+
+
+### Final normal desktop/session verification — November 4, 2026
+
+At clean a7f71411/af1421b the matched normal build, desktop shutdown and
+session guests pass in104.210s. All four shutdown choices, five expected file
+payloads, pre/post generator/allocation checks and restored process baseline
+pass. The matched/generated fixture has no independent fsck claim. Session
+checks include scopeprobe twice, live init, lifetime, PTY and syscall ABI. All
+guests stop and groups retire. Host setup failures (uninitialized submodules,
+compiler argv, ISO symlink, missing Pillow) remain failed and separately saved.
+The successful host test uses disposable Python3.14.6/Pillow13.0.0. Portable
+results are in the integrated smoke bundle; final docs/pin changes retain the
+runtime attribution above. No physical or broader browser acceptance is added.

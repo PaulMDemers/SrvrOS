@@ -41,3 +41,9 @@ Four reviewed guests at source6b5ebaf7/Ports d99565f pass absent/positive native
 contracts, the native context regression, and the eight-case experimental WTF/GC/
 JavaScript smoke. See [the checkpoint](browser-port.md). Quota fallback messages
 remain; no resource limit was changed. These are emulator/contract observations.
+
+Fresh integrated guests at0a3f5981 and later kernels at a7f71411 repeat those
+controls and the complete GC/JavaScript suite. The new SDK exports the native
+header; the later kernel qualification retains715 byte-verified SDK/dependency/
+JSC/fixture identities. See the [integrated evidence](assets/evidence/pr334-integrated-smoke/README.md).
+Production signal capabilities and legacy random behavior remain unchanged.
