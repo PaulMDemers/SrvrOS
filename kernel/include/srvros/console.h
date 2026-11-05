@@ -30,6 +30,10 @@ struct console_stats {
     uint64_t framebuffer_bytes_written;
 };
 void console_write_n(const char *s, size_t length);
+/* Eligibility is checked under the existing short log-record IRQ exclusion,
+ * before each irreversible append. Already accepted records finish rendering
+ * with normal IRQ granularity. Returns the accepted byte prefix. */
+size_t console_write_n_checked(const char *,size_t,bool (*eligible)(void *),void *context);
 void console_flush(void);
 void console_emergency(void);
 bool console_sync(void);

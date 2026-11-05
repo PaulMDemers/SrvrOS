@@ -494,12 +494,14 @@ bool vmm_virt_to_phys_in_space(uint64_t address_space,
     return true;
 }
 
-static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_address, uint64_t *entry_out) {
+static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_address, uint64_t *entry_out,
+    uint64_t *leaf_size_out) {
     uint64_t *pdpt;
     uint64_t *pd;
     uint64_t *pt;
     uint64_t entry;
     uint64_t effective = VMM_PAGE_USER | VMM_PAGE_WRITABLE;
+    uint64_t no_execute = 0;
 
     if (entry_out == NULL) {
         return false;
@@ -510,10 +512,11 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
 
     uint64_t *pml4 = pmm_phys_to_virt(address_space);
     entry = pml4[pml4_index(virtual_address)];
-    if ((entry & VMM_PAGE_PRESENT) == 0) {
+    if ((entry & VMM_PAGE_PRESENT) == 0 || (entry & PAGE_LARGE) != 0) {
         return false;
     }
     effective &= entry;
+    no_execute |= entry & VMM_PAGE_NO_EXECUTE;
     pdpt = entry_table(entry);
     if (!is_canonical((uint64_t)pdpt)) {
         return false;
@@ -524,8 +527,10 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
         return false;
     }
     effective &= entry;
+    no_execute |= entry & VMM_PAGE_NO_EXECUTE;
     if ((entry & PAGE_LARGE) != 0) {
-        *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective;
+        *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective | no_execute;
+        if (leaf_size_out) *leaf_size_out = 1ull << 30;
         return true;
     }
     pd = entry_table(entry);
@@ -538,8 +543,10 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
         return false;
     }
     effective &= entry;
+    no_execute |= entry & VMM_PAGE_NO_EXECUTE;
     if ((entry & PAGE_LARGE) != 0) {
-        *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective;
+        *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective | no_execute;
+        if (leaf_size_out) *leaf_size_out = 1ull << 21;
         return true;
     }
 
@@ -553,8 +560,134 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
     }
 
     effective &= entry;
-    *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective;
+    no_execute |= entry & VMM_PAGE_NO_EXECUTE;
+    *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective | no_execute;
+    if (leaf_size_out) *leaf_size_out = PAGE_SIZE;
     return true;
+}
+
+
+/* Caller owns CPU0 IRQ exclusion through validation and publication. */
+bool vmm_prepare_user_kernel_mappings(uint64_t target_root) {
+    uint64_t flags;
+#ifdef SRVROS_VMM_HOST_TEST
+    flags=vmm_test_rflags();
+#else
+    __asm__ volatile ("pushfq; popq %0" : "=r"(flags) : : "memory");
+#endif
+    if ((flags & (1ull << 9)) || !target_root || (target_root & ~PAGE_MASK) ||
+        !kernel_cr3 || (kernel_cr3 & ~PAGE_MASK) || target_root == kernel_cr3 ||
+        !kernel_pml4 || kernel_pml4 != pmm_phys_to_virt(kernel_cr3) ||
+        !is_canonical((uint64_t)kernel_pml4) ||
+        !find_address_space_record(target_root) || kernel_mapping_count > VMM_MAX_KERNEL_MAPPINGS)
+        return false;
+    uint64_t *target=pmm_phys_to_virt(target_root);
+    if (!target || !is_canonical((uint64_t)target) || target == kernel_pml4) return false;
+    const uint64_t supported=VMM_PAGE_PRESENT | VMM_PAGE_WRITABLE |
+        VMM_PAGE_WRITE_THROUGH | VMM_PAGE_CACHE_DISABLE | VMM_PAGE_NO_EXECUTE;
+    bool needs_nx=false, needs_1g=false;
+    for (uint64_t i=0; i<kernel_mapping_count; ++i) {
+        const struct kernel_mapping *mapping=&kernel_mappings[i];
+        uint64_t va=mapping->virtual_address, entry, leaf;
+        if (!is_canonical(va) || (va >> 47) != 0x1ffff || (va & (PAGE_SIZE-1)) ||
+            (mapping->physical_address & ~PAGE_MASK) || (mapping->flags & ~supported) ||
+            !vmm_entry_for_address(kernel_cr3,va,&entry,&leaf)) return false;
+        /* Bit 7 is 4K PAT but large-page PS; large-page PAT is bit 12. */
+        uint64_t pat=leaf == PAGE_SIZE ? (1ull << 7) : (1ull << 12);
+        if ((entry & pat) || (entry & VMM_PAGE_USER) ||
+            ((entry ^ mapping->flags) & (VMM_PAGE_WRITABLE | VMM_PAGE_NO_EXECUTE |
+                VMM_PAGE_WRITE_THROUGH | VMM_PAGE_CACHE_DISABLE))) return false;
+        if (entry & VMM_PAGE_NO_EXECUTE) needs_nx=true;
+        if (leaf == (1ull << 30)) needs_1g=true;
+        uint64_t physical=leaf == (1ull << 30) ? (entry & PAGE_1G_MASK) :
+            leaf == (1ull << 21) ? (entry & PAGE_2M_MASK) : (entry & PAGE_MASK);
+        physical += va & (leaf - 1);
+        if (physical != mapping->physical_address) return false;
+    }
+    if (needs_nx || needs_1g) {
+        uint32_t eax, ebx, ecx, edx;
+#ifdef SRVROS_VMM_HOST_TEST
+        vmm_test_cpuid(0x80000000u,&eax,&ebx,&ecx,&edx);
+#else
+        __asm__ volatile ("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                          : "a"(0x80000000u), "c"(0));
+#endif
+        if (eax < 0x80000001u) return false;
+#ifdef SRVROS_VMM_HOST_TEST
+        vmm_test_cpuid(0x80000001u,&eax,&ebx,&ecx,&edx);
+#else
+        __asm__ volatile ("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                          : "a"(0x80000001u), "c"(0));
+#endif
+        if ((needs_nx && !(edx & (1u << 20))) ||
+            (needs_1g && !(edx & (1u << 26)))) return false;
+        if (needs_nx) {
+            uint64_t efer;
+#ifdef SRVROS_VMM_HOST_TEST
+            efer=vmm_test_efer();
+#else
+            uint32_t lo, hi;
+            __asm__ volatile ("rdmsr" : "=a"(lo), "=d"(hi) : "c"(0xc0000080u));
+            efer=((uint64_t)hi << 32) | lo;
+#endif
+            if (!(efer & (1ull << 11))) return false;
+        }
+    }
+    /* An active root may retain cached translations. It is safe here only as
+     * an already-identical no-op; no TLB-coherence claim is made. */
+    if ((read_cr3() & PAGE_MASK) == target_root) {
+        for (uint64_t i=ENTRIES_PER_TABLE/2; i<ENTRIES_PER_TABLE; ++i)
+            if (target[i] != kernel_pml4[i]) return false;
+        return true;
+    }
+    for (uint64_t i=ENTRIES_PER_TABLE/2; i<ENTRIES_PER_TABLE; ++i)
+        target[i]=kernel_pml4[i];
+    return true;
+}
+
+/* Entry permission only. CPU0, IRQs already masked; no scheduler or image
+ * lifetime guarantee. The registry proves a current user root, not identity. */
+bool vmm_user_exec_current(uint64_t address, uint64_t expected_cr3) {
+    uint64_t flags;
+#ifdef SRVROS_VMM_HOST_TEST
+    flags=vmm_test_rflags();
+#else
+    __asm__ volatile ("pushfq; popq %0" : "=r"(flags) : : "memory");
+#endif
+    if ((flags & (1ull << 9)) || !address || (address >> 47) ||
+        !expected_cr3 || (expected_cr3 & ~PAGE_MASK) || expected_cr3 == kernel_cr3)
+        return false;
+    uint64_t current=read_cr3() & PAGE_MASK;
+    if (!current || current != expected_cr3 || !find_address_space_record(current))
+        return false;
+    uint32_t eax, ebx, ecx, edx;
+#ifdef SRVROS_VMM_HOST_TEST
+    vmm_test_cpuid(0x80000000u,&eax,&ebx,&ecx,&edx);
+#else
+    __asm__ volatile ("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                      : "a"(0x80000000u), "c"(0));
+#endif
+    if (eax < 0x80000001u) return false;
+#ifdef SRVROS_VMM_HOST_TEST
+    vmm_test_cpuid(0x80000001u,&eax,&ebx,&ecx,&edx);
+#else
+    __asm__ volatile ("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                      : "a"(0x80000001u), "c"(0));
+#endif
+    if (!(edx & (1u << 20))) return false;
+    uint64_t efer;
+#ifdef SRVROS_VMM_HOST_TEST
+    efer=vmm_test_efer();
+#else
+    uint32_t lo, hi;
+    __asm__ volatile ("rdmsr" : "=a"(lo), "=d"(hi) : "c"(0xc0000080u));
+    efer=((uint64_t)hi << 32) | lo;
+#endif
+    if (!(efer & (1ull << 11))) return false;
+    uint64_t entry, leaf_size;
+    return vmm_entry_for_address(current,address,&entry,&leaf_size) &&
+        (leaf_size != (1ull << 30) || (edx & (1u << 26))) &&
+        (entry & VMM_PAGE_USER) && !(entry & VMM_PAGE_NO_EXECUTE);
 }
 
 bool vmm_user_range_mapped(uint64_t virtual_address, uint64_t length, bool writable) {
@@ -576,7 +709,7 @@ bool vmm_user_range_mapped(uint64_t virtual_address, uint64_t length, bool writa
 
     while (page <= end) {
         uint64_t entry = 0;
-        if (!vmm_entry_for_address(address_space, page, &entry) ||
+        if (!vmm_entry_for_address(address_space, page, &entry, NULL) ||
             (entry & VMM_PAGE_USER) == 0 ||
             (writable && (entry & VMM_PAGE_WRITABLE) == 0)) {
             return false;
@@ -609,29 +742,35 @@ void vmm_switch_address_space(uint64_t address_space) {
 }
 
 bool vmm_create_address_space(uint64_t *address_space_out) {
-    if (address_space_out == NULL || kernel_pml4 == NULL) {
-        return false;
-    }
+    if (address_space_out == NULL) return false;
+    *address_space_out = 0;
+    if (kernel_pml4 == NULL) return false;
 
+    /* PMM returns a fresh, uniquely owned frame or zero on failure. */
     uint64_t physical = pmm_alloc_frames_above_tagged(1,
         VMM_PAGE_TABLE_MIN_PHYSICAL,
         PMM_FRAME_PAGE_TABLE);
-    if (physical == 0) {
-        return false;
-    }
-
+    if (physical == 0) return false;
     uint64_t *pml4 = pmm_phys_to_virt(physical);
     zero_page(pml4);
 
-    *address_space_out = physical;
-    if (!register_address_space(physical)) {
-        pmm_free_frame(physical);
-        *address_space_out = 0;
-        return false;
-    }
-    vmm_refresh_kernel_mappings(physical);
-
-    return true;
+    uint64_t flags;
+#ifdef SRVROS_VMM_HOST_TEST
+    flags=vmm_test_irq_save();
+#else
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+#endif
+    bool registered=register_address_space(physical);
+    bool prepared=registered && vmm_prepare_user_kernel_mappings(physical);
+    if (prepared) *address_space_out=physical;
+    else if (registered) unregister_address_space(physical);
+#ifdef SRVROS_VMM_HOST_TEST
+    vmm_test_irq_restore(flags);
+#else
+    if (flags & (1ull << 9)) __asm__ volatile ("sti" : : : "memory");
+#endif
+    if (!prepared) pmm_free_frame(physical);
+    return prepared;
 }
 
 void vmm_refresh_kernel_mappings(uint64_t address_space) {
@@ -670,4 +809,263 @@ void vmm_destroy_address_space(uint64_t address_space) {
     }
     unregister_address_space(address_space);
     pmm_free_frame(address_space);
+}
+
+/* Private CPU0 signal-frame copy policy. No page tables are read here. */
+#include "../arch/x86_64/user_frame_copy.h"
+struct user_frame_copy_cpu {
+    uint64_t physical_limit;
+    bool nx, nx_enabled, page1g;
+};
+
+static bool user_frame_copy_cpu_policy(uint64_t root, struct user_frame_copy_cpu *out) {
+    uint64_t flags,cr0,cr4,efer,cr3,pat;
+    uint32_t a,b,c,d;
+#ifdef SRVROS_USER_FRAME_COPY_HOST_TEST
+    flags=user_frame_test_rflags();
+    cr0=user_frame_test_cr0();cr4=user_frame_test_cr4();
+    efer=user_frame_test_efer();cr3=user_frame_test_cr3();
+#else
+    uint32_t lo,hi;
+    __asm__ volatile("pushfq; popq %0" : "=r"(flags) : : "memory");
+    __asm__ volatile("mov %%cr0,%0" : "=r"(cr0));
+    __asm__ volatile("mov %%cr4,%0" : "=r"(cr4));
+    __asm__ volatile("mov %%cr3,%0" : "=r"(cr3));
+    __asm__ volatile("rdmsr" : "=a"(lo),"=d"(hi) : "c"(0xc0000080u));
+    efer=((uint64_t)hi<<32)|lo;
+#endif
+    const uint64_t required_cr0=(1ull<<0)|(1ull<<16)|(1ull<<31);
+    const uint64_t refused_cr4=(1ull<<12)|(1ull<<17)|(1ull<<21)|(1ull<<22)|(1ull<<23)|(1ull<<24);
+    if ((flags&(1ull<<9)) || (cr0&required_cr0)!=required_cr0 || !(cr4&(1ull<<5)) ||
+        (cr4&refused_cr4) || !(efer&(1ull<<10)) || !root || (root&~PAGE_MASK) ||
+        root==kernel_cr3 || cr3!=root || !find_address_space_record(root)) return false;
+#ifdef SRVROS_USER_FRAME_COPY_HOST_TEST
+    user_frame_test_cpuid(1,&a,&b,&c,&d);
+#else
+    __asm__ volatile("cpuid" : "=a"(a),"=b"(b),"=c"(c),"=d"(d) : "a"(1u),"c"(0u));
+#endif
+    if (!(d&(1u<<16))) return false;
+#ifdef SRVROS_USER_FRAME_COPY_HOST_TEST
+    pat=user_frame_test_pat();
+    user_frame_test_cpuid(0x80000000u,&a,&b,&c,&d);
+#else
+    __asm__ volatile("rdmsr" : "=a"(lo),"=d"(hi) : "c"(0x277u));
+    pat=((uint64_t)hi<<32)|lo;
+    __asm__ volatile("cpuid" : "=a"(a),"=b"(b),"=c"(c),"=d"(d) : "a"(0x80000000u),"c"(0u));
+#endif
+    if ((pat&0xff)!=6 || a<0x80000008u) return false;
+#ifdef SRVROS_USER_FRAME_COPY_HOST_TEST
+    user_frame_test_cpuid(0x80000001u,&a,&b,&c,&d);
+#else
+    __asm__ volatile("cpuid" : "=a"(a),"=b"(b),"=c"(c),"=d"(d) : "a"(0x80000001u),"c"(0u));
+#endif
+    bool nx=(d&(1u<<20))!=0, page1g=(d&(1u<<26))!=0;
+#ifdef SRVROS_USER_FRAME_COPY_HOST_TEST
+    user_frame_test_cpuid(0x80000008u,&a,&b,&c,&d);
+#else
+    __asm__ volatile("cpuid" : "=a"(a),"=b"(b),"=c"(c),"=d"(d) : "a"(0x80000008u),"c"(0u));
+#endif
+    unsigned width=a&0xff;
+    if (width<36 || width>52 || root >= (1ull<<width)) return false;
+    if (out) *out=(struct user_frame_copy_cpu){1ull<<width,nx,(efer&(1ull<<11))!=0,page1g};
+    return true;
+}
+
+bool vmm_user_frame_copy_policy_current(uint64_t root) {
+    return user_frame_copy_cpu_policy(root,NULL);
+}
+
+/* The caller owns CPU0 exclusion, including the subsequent copy. Page table
+ * frames are trusted kernel allocations; reject encodings before following. */
+static bool user_frame_walk(uint64_t root,uint64_t va,const struct user_frame_copy_cpu *cpu,
+    bool destination,uint64_t *physical,uint64_t *effective_nx) {
+    const uint64_t p=1, rw=2, user=4, accessed=1ull<<5, dirty=1ull<<6;
+    const uint64_t ps=1ull<<7, global=1ull<<8, nx=1ull<<63;
+    const uint64_t physical_bits=(cpu->physical_limit-1)&PAGE_MASK;
+    uint64_t table=root;
+    bool effective_rw=true,effective_user=true;
+    uint64_t seen_nx=0;
+    for (unsigned level=4;level;--level) {
+        if (!table || table>=cpu->physical_limit || table>cpu->physical_limit-PAGE_SIZE ||
+            (table & (PAGE_SIZE-1))) return false;
+        uint64_t *entries=pmm_phys_to_virt(table);
+        if (!entries || !is_canonical((uint64_t)entries)) return false;
+        unsigned shift=12+9*(level-1);
+        uint64_t entry=entries[(va>>shift)&511];
+        if (!(entry&p) || ((entry&nx) && (!cpu->nx || !cpu->nx_enabled))) return false;
+        seen_nx|=entry&nx;
+        bool large=(level==3 || level==2) && (entry&ps);
+        bool leaf=level==1 || large;
+        if (level==4 && (entry&ps)) return false;
+        if (destination && large) return false;
+        if (large && level==3 && !cpu->page1g) return false;
+        unsigned leaf_shift=large ? shift : 12;
+        uint64_t address_mask=physical_bits & ~((1ull<<leaf_shift)-1);
+        uint64_t allowed=(leaf ? address_mask : physical_bits)|p|rw|user|accessed|nx;
+        if (leaf) allowed|=dirty|(destination ? 0 : global)|(large ? ps : 0);
+        if (entry & ~allowed) return false;
+        effective_rw=effective_rw && (entry&rw);
+        effective_user=effective_user && (entry&user);
+        if (leaf) {
+            if (!effective_rw || (destination ? !effective_user : effective_user)) return false;
+            uint64_t base=entry&address_mask, offset=va&((1ull<<leaf_shift)-1);
+            if (base>=cpu->physical_limit || offset>=cpu->physical_limit-base) return false;
+            *physical=base+offset;
+            if (effective_nx) *effective_nx=seen_nx;
+            return true;
+        }
+        table=entry&physical_bits;
+    }
+    return false;
+}
+
+static bool user_frame_upper_extent(uint64_t base,uint64_t length) {
+    return length && base<=UINT64_MAX-(length-1) && (base>>47)==0x1ffff &&
+        ((base+length-1)>>47)==0x1ffff;
+}
+static bool user_frame_overlap(uint64_t a,uint64_t alen,uint64_t b,uint64_t blen) {
+    return a<=b ? b-a<alen : a-b<blen;
+}
+static uint64_t user_frame_kernel_address(const void *pointer) {
+#ifdef SRVROS_USER_FRAME_COPY_HOST_TEST
+    return user_frame_test_kernel_address(pointer);
+#else
+    return (uint64_t)(uintptr_t)pointer;
+#endif
+}
+static uint64_t user_frame_current_rsp(void) {
+#ifdef SRVROS_USER_FRAME_COPY_HOST_TEST
+    return user_frame_test_rsp();
+#else
+    uint64_t value;
+    __asm__ volatile("mov %%rsp,%0" : "=r"(value));
+    return value;
+#endif
+}
+
+/* Validate a complete resident kernel object and retain its physical page
+ * spans for destination-alias rejection. At most two pages per object. */
+struct user_frame_span { uint64_t base,length; };
+static bool user_frame_kernel_spans(uint64_t root,uint64_t start,uint64_t length,
+    const struct user_frame_copy_cpu *cpu,struct user_frame_span spans[2],unsigned *count) {
+    if (!user_frame_upper_extent(start,length)) return false;
+    unsigned n=0;
+    while (length) {
+        uint64_t physical;
+        uint64_t chunk=PAGE_SIZE-(start&(PAGE_SIZE-1));
+        if (chunk>length) chunk=length;
+        if (n==2 || !user_frame_walk(root,start,cpu,false,&physical,NULL) ||
+            physical>=cpu->physical_limit || chunk>cpu->physical_limit-physical) return false;
+        spans[n++]=(struct user_frame_span){physical,chunk};
+        start+=chunk;length-=chunk;
+    }
+    *count=n;
+    return true;
+}
+
+static bool user_frame_copy_exclusions(uint64_t root,uint64_t destination,
+    const struct user_frame_source *source,size_t length,
+    const struct user_frame_stack *stack,const struct user_frame_page pages[2],size_t page_count,
+    const struct isr_frame *frame,const struct fpu_state *user_fpu,const struct fpu_state *kernel_fpu,
+    const struct user_frame_exclusion *exclusions,size_t exclusion_count) {
+    if (exclusion_count>USER_FRAME_EXTENDED_EXCLUSION_MAX || (exclusion_count && !exclusions)) return false;
+    for(size_t i=0;i<exclusion_count;i++)
+        if(exclusions[i].length>PAGE_SIZE ||
+           !user_frame_upper_extent(exclusions[i].address,exclusions[i].length)) return false;
+    struct user_frame_copy_cpu cpu;
+    if (!user_frame_copy_cpu_policy(root,&cpu) || !source || !stack || !pages || !frame ||
+        !user_fpu || !kernel_fpu || !length || length>USER_FRAME_COPY_LIMIT ||
+        !destination || destination>UINT64_MAX-(length-1) || (destination>>47) ||
+        ((destination+length-1)>>47) || stack->frames!=USER_FRAME_STACK_FRAMES ||
+        !stack->physical || (stack->physical&(PAGE_SIZE-1)) ||
+        stack->physical>=cpu.physical_limit ||
+        USER_FRAME_STACK_FRAMES*PAGE_SIZE>cpu.physical_limit-stack->physical ||
+        (stack->base&(PAGE_SIZE-1)) ||
+        !user_frame_upper_extent(stack->base,USER_FRAME_STACK_FRAMES*PAGE_SIZE) ||
+        stack->base>UINT64_MAX-USER_FRAME_STACK_FRAMES*PAGE_SIZE ||
+        user_frame_kernel_address(pmm_phys_to_virt(stack->physical))!=stack->base) return false;
+    uint64_t stack_end=stack->base+USER_FRAME_STACK_FRAMES*PAGE_SIZE;
+    uint64_t src=user_frame_kernel_address(source), f=user_frame_kernel_address(frame);
+    uint64_t rsp=user_frame_current_rsp();
+    if ((src&15) || src<stack->base || src>stack_end-USER_FRAME_COPY_LIMIT ||
+        f<stack->base || f>stack_end-sizeof(*frame) || rsp<stack->base || rsp>=stack_end ||
+        (f&~15ull)<stack->base+FPU_COMMON_RESERVATION ||
+        src+USER_FRAME_COPY_LIMIT>(f&~15ull)-FPU_COMMON_RESERVATION) return false;
+    uint64_t start=destination&~(PAGE_SIZE-1), last=(destination+length-1)&~(PAGE_SIZE-1);
+    size_t required=1+(start!=last);
+    if (page_count!=required || (required==2 && pages[0].physical_address==pages[1].physical_address)) return false;
+    struct user_frame_span src_spans[2],ufpu_spans[2],kfpu_spans[2];
+    unsigned ns,nu,nk;
+    if (!user_frame_kernel_spans(root,src,USER_FRAME_COPY_LIMIT,&cpu,src_spans,&ns) ||
+        !user_frame_kernel_spans(root,user_frame_kernel_address(user_fpu),sizeof(*user_fpu),&cpu,ufpu_spans,&nu) ||
+        !user_frame_kernel_spans(root,user_frame_kernel_address(kernel_fpu),sizeof(*kernel_fpu),&cpu,kfpu_spans,&nk)) return false;
+    struct user_frame_span extra_spans[USER_FRAME_EXTENDED_EXCLUSION_MAX][2];
+    unsigned extra_count[USER_FRAME_EXTENDED_EXCLUSION_MAX];
+    for(size_t i=0;i<exclusion_count;i++)
+        if(!user_frame_kernel_spans(root,exclusions[i].address,exclusions[i].length,&cpu,extra_spans[i],&extra_count[i])) return false;
+    if (user_frame_overlap(src,USER_FRAME_COPY_LIMIT,user_frame_kernel_address(user_fpu),sizeof(*user_fpu)) ||
+        user_frame_overlap(src,USER_FRAME_COPY_LIMIT,user_frame_kernel_address(kernel_fpu),sizeof(*kernel_fpu))) return false;
+    for (unsigned i=0;i<ns;i++) {
+        for (unsigned j=0;j<nu;j++) if(user_frame_overlap(src_spans[i].base,src_spans[i].length,ufpu_spans[j].base,ufpu_spans[j].length)) return false;
+        for (unsigned j=0;j<nk;j++) if(user_frame_overlap(src_spans[i].base,src_spans[i].length,kfpu_spans[j].base,kfpu_spans[j].length)) return false;
+    }
+    uint64_t pos=src;
+    for (unsigned i=0;i<ns;i++) {
+        if (src_spans[i].base!=stack->physical+(pos-stack->base)) return false;
+        pos+=src_spans[i].length;
+    }
+    const uint64_t meta_allowed=VMM_PAGE_PRESENT|VMM_PAGE_USER|VMM_PAGE_WRITABLE|VMM_PAGE_NO_EXECUTE;
+    for (size_t i=0;i<required;i++) {
+        uint64_t page=start+i*PAGE_SIZE,phys,effective_nx;
+        if (pages[i].virtual_address!=page || !pages[i].physical_address ||
+            (pages[i].physical_address&(PAGE_SIZE-1)) || pages[i].physical_address>=cpu.physical_limit ||
+            PAGE_SIZE>cpu.physical_limit-pages[i].physical_address ||
+            (pages[i].flags&~meta_allowed) ||
+            (pages[i].flags&(VMM_PAGE_USER|VMM_PAGE_WRITABLE))!=(VMM_PAGE_USER|VMM_PAGE_WRITABLE) ||
+            !user_frame_walk(root,page,&cpu,true,&phys,&effective_nx) || phys!=pages[i].physical_address) return false;
+        /* Compare the leaf's effective NX against the trusted page metadata. */
+        if ((effective_nx^pages[i].flags)&VMM_PAGE_NO_EXECUTE) return false;
+        if (user_frame_overlap(phys,PAGE_SIZE,stack->physical,USER_FRAME_STACK_FRAMES*PAGE_SIZE)) return false;
+        for (unsigned j=0;j<nu;j++) if(user_frame_overlap(phys,PAGE_SIZE,ufpu_spans[j].base,ufpu_spans[j].length)) return false;
+        for (unsigned j=0;j<nk;j++) if(user_frame_overlap(phys,PAGE_SIZE,kfpu_spans[j].base,kfpu_spans[j].length)) return false;
+        for (size_t j=0;j<exclusion_count;j++)
+            for (unsigned k=0;k<extra_count[j];k++)
+                if(user_frame_overlap(phys,PAGE_SIZE,extra_spans[j][k].base,extra_spans[j][k].length)) return false;
+    }
+    /* No failure, callback, service window or IRQ transition after this point. */
+    for (size_t i=0;i<length;i++) {
+#ifdef SRVROS_USER_FRAME_COPY_HOST_TEST
+        *user_frame_test_user_pointer(destination+i)=source->bytes[i];
+#else
+        *(volatile uint8_t *)(uintptr_t)(destination+i)=source->bytes[i];
+#endif
+    }
+    return true;
+}
+
+bool vmm_copy_user_frame_excluding_current(uint64_t root,uint64_t destination,
+    const struct user_frame_source *source,size_t length,
+    const struct user_frame_stack *stack,const struct user_frame_page pages[2],size_t page_count,
+    const struct isr_frame *frame,const struct fpu_state *user_fpu,const struct fpu_state *kernel_fpu,
+    const struct user_frame_exclusion *exclusions,size_t exclusion_count) {
+    if (exclusion_count>USER_FRAME_EXCLUSION_MAX) return false;
+    return user_frame_copy_exclusions(root,destination,source,length,stack,pages,page_count,
+        frame,user_fpu,kernel_fpu,exclusions,exclusion_count);
+}
+
+bool vmm_copy_user_frame_extended_current(uint64_t root,uint64_t destination,
+    const struct user_frame_source *source,size_t length,
+    const struct user_frame_stack *stack,const struct user_frame_page pages[2],size_t page_count,
+    const struct isr_frame *frame,const struct fpu_state *user_fpu,const struct fpu_state *kernel_fpu,
+    const struct user_frame_exclusion *exclusions,size_t exclusion_count) {
+    return user_frame_copy_exclusions(root,destination,source,length,stack,pages,page_count,
+        frame,user_fpu,kernel_fpu,exclusions,exclusion_count);
+}
+
+bool vmm_copy_user_frame_current(uint64_t root,uint64_t destination,
+    const struct user_frame_source *source,size_t length,
+    const struct user_frame_stack *stack,const struct user_frame_page pages[2],size_t page_count,
+    const struct isr_frame *frame,const struct fpu_state *user_fpu,const struct fpu_state *kernel_fpu) {
+    return vmm_copy_user_frame_excluding_current(root,destination,source,length,stack,pages,page_count,
+        frame,user_fpu,kernel_fpu,NULL,0);
 }

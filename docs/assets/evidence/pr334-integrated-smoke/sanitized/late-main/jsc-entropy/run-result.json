@@ -1,0 +1,154 @@
+{
+  "result": "passed",
+  "guest_stopped": true,
+  "payload_send_attempted": true,
+  "prepare_sha256": "ae54afa222e55878f7c49d9a6953a2c6f0a6bd94e29582b24e8e1a6b6e4180dc",
+  "argv": [
+    "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+    "-name",
+    "SrvrOS experimental public signal",
+    "-machine",
+    "q35",
+    "-accel",
+    "tcg,thread=single",
+    "-cpu",
+    "qemu64,+rdrand",
+    "-smp",
+    "1",
+    "-m",
+    "1536M",
+    "-cdrom",
+    "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/late-main-guests/signal-public-s3spod4a/guest.iso",
+    "-boot",
+    "d",
+    "-display",
+    "none",
+    "-nic",
+    "none",
+    "-serial",
+    "unix:/tmp/srv-public-v2zdd707/uart,server=on,wait=off",
+    "-monitor",
+    "none",
+    "-no-reboot"
+  ],
+  "owned_qemu_pid": 64555,
+  "boot_serial_sha256": "0a31cd360ced6fcca43de529e0d66080f239469527218e71c0ea91059716d164",
+  "boot_network_state": {
+    "required_line_counts": {
+      "net: no supported network device, stack idle": 1,
+      "net: worker not started": 1
+    },
+    "unexpected_provider": false,
+    "allowed": true
+  },
+  "cases": [
+    {
+      "name": "entropy-rdrand",
+      "payload": "entropy",
+      "result": "passed",
+      "command": "run /entropy \"rdrand\"",
+      "pid": 3,
+      "exit_status": 0,
+      "markers": {
+        "random-entropy: rdrand contract ok": 1
+      },
+      "seconds": 0.021,
+      "serial_sha256": "80141e4e45d708899c2b0a30e651563d23809c4eab9d6f63692dc53cad7773e7"
+    },
+    {
+      "name": "wtf-suspend",
+      "payload": "wtf-signal",
+      "result": "passed",
+      "command": "run /wtf-signal",
+      "pid": 4,
+      "exit_status": 0,
+      "markers": {
+        "wtf-signal: main registers and red zone ok": 1,
+        "wtf-signal: two suspended targets and extra signal ok": 1,
+        "wtf-signal: startup and retirement cycles ok": 1,
+        "wtf-signal: ok": 1
+      },
+      "seconds": 5.725,
+      "serial_sha256": "188c914ec40724ec7001272f634392252f43d7d901044edc838121f14a7252d9"
+    },
+    {
+      "name": "wtf-utility",
+      "payload": "wtfprobe",
+      "result": "passed",
+      "command": "run /wtfprobe",
+      "pid": 5,
+      "exit_status": 0,
+      "markers": {
+        "wtfprobe: ok": 1
+      },
+      "seconds": 0.109,
+      "serial_sha256": "51f07c5221928227ae9e6035e7cb97cbd02cb02c03439d8e6098a349ef10d85a"
+    },
+    {
+      "name": "gc-control",
+      "payload": "gc-roots",
+      "result": "passed",
+      "command": "run /gc-roots \"control\"",
+      "pid": 6,
+      "exit_status": 0,
+      "markers": {
+        "jsc-gc-root: ok": 1
+      },
+      "seconds": 1.778,
+      "serial_sha256": "70f0ac0f0c958b9168af521667feac018bf1ca8b8b589a41c3d734b96c8af7da"
+    },
+    {
+      "name": "gc-gp",
+      "payload": "gc-roots",
+      "result": "passed",
+      "command": "run /gc-roots \"gp\"",
+      "pid": 7,
+      "exit_status": 0,
+      "markers": {
+        "jsc-gc-root: ok": 1
+      },
+      "seconds": 1.721,
+      "serial_sha256": "9219df596d4fa5e557dff7ab0467184a0bce3aa2fe9385262ae69deb3cde6e1a"
+    },
+    {
+      "name": "gc-fx",
+      "payload": "gc-roots",
+      "result": "passed",
+      "command": "run /gc-roots \"fx\"",
+      "pid": 8,
+      "exit_status": 0,
+      "markers": {
+        "jsc-gc-root: ok": 1
+      },
+      "seconds": 1.77,
+      "serial_sha256": "add660f6e50399966f77a79c158da2b18afefd288a77ee010c238f41da23cbef"
+    },
+    {
+      "name": "gc-redzone",
+      "payload": "gc-roots",
+      "result": "passed",
+      "command": "run /gc-roots \"redzone\"",
+      "pid": 9,
+      "exit_status": 0,
+      "markers": {
+        "jsc-gc-root: ok": 1
+      },
+      "seconds": 1.769,
+      "serial_sha256": "b048ea5565341cb28e2855205667d9dc0be06a8ac2187db84fc98ac7c9fcced2"
+    },
+    {
+      "name": "javascript",
+      "payload": "jsc",
+      "result": "passed",
+      "command": "run /jsc \"-e\" \"print(42)\"",
+      "pid": 10,
+      "exit_status": 0,
+      "markers": {
+        "42": 1
+      },
+      "seconds": 1.12,
+      "serial_sha256": "9e095baeca65984ab16dd73dbe5266d5b9e7d54236aff5ef2fbc970a6f4d28a6"
+    }
+  ],
+  "serial_sha256": "d765d704aa4b19e3590bfd7b29405c2f9bd825b632551f1f66e68b5b8918e373"
+}

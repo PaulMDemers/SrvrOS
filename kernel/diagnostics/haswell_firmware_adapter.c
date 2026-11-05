@@ -53,20 +53,21 @@ static void b64(const uint8_t *bytes,unsigned n,char *out) {
  out[j]=0;
 }
 static void put(uint8_t *out,unsigned *n,uint64_t v,unsigned bytes){for(unsigned i=0;i<bytes;i++)out[(*n)++]=(uint8_t)(v>>(8*i));}
-void hfw_report(const struct hfw_result *r) {
- console_printf("hsw-firmware: v=1 status=%u count=%u cap=128 dmar_bytes=136 limit_us=100000 mmio=0 writes=0 ownership=0\n",(uint64_t)r->status,(uint64_t)(r->status==1?r->sample[0].count:0));
+void hfw_report_named(const struct hfw_result *r,const char *prefix) {
+ console_printf("%s: v=1 status=%u count=%u cap=128 dmar_bytes=136 limit_us=100000 mmio=0 writes=0 ownership=0\n",prefix,(uint64_t)r->status,(uint64_t)(r->status==1?r->sample[0].count:0));
  if(r->status!=1)return;
  static uint8_t bytes[HFW_MAP_CAP*24];static char data[HFW_MAP_CAP*32+1];
  for(unsigned phase=0;phase<2;phase++) {
   const struct hfw_sample *s=&r->sample[phase];unsigned n=0;
   for(unsigned i=0;i<5;i++)put(bytes,&n,s->identity[i],4);
   put(bytes,&n,s->count,4);put(bytes,&n,s->table_pa,8);put(bytes,&n,s->begin,8);put(bytes,&n,s->end,8);
-  b64(bytes,n,data);console_printf("hsw-firmware-meta: v=1 phase=%u data=%s\n",(uint64_t)phase,data);
-  b64(s->dmar,HFW_DMAR_BYTES,data);console_printf("hsw-firmware-dmar: v=1 phase=%u data=%s\n",(uint64_t)phase,data);
+  b64(bytes,n,data);console_printf("%s-meta: v=1 phase=%u data=%s\n",prefix,(uint64_t)phase,data);
+  b64(s->dmar,HFW_DMAR_BYTES,data);console_printf("%s-dmar: v=1 phase=%u data=%s\n",prefix,(uint64_t)phase,data);
   n=0;for(unsigned i=0;i<s->count;i++){put(bytes,&n,s->entries[i].base,8);put(bytes,&n,s->entries[i].length,8);put(bytes,&n,s->entries[i].type,8);}
-  b64(bytes,n,data);console_printf("hsw-firmware-map: v=1 phase=%u data=%s\n",(uint64_t)phase,data);
+  b64(bytes,n,data);console_printf("%s-map: v=1 phase=%u data=%s\n",prefix,(uint64_t)phase,data);
  }
 }
+void hfw_report(const struct hfw_result *r){hfw_report_named(r,"hsw-firmware");}
 bool haswell_firmware_run(void) {
  static struct hfw_result result;
  console_write("hsw-firmware-progress: exact Air6,1 firmware-only preflight; no VT-d register access\n");
@@ -75,3 +76,5 @@ bool haswell_firmware_run(void) {
  if(!timer_reference_ready())result=(struct hfw_result){.status=6};
  hfw_report(&result);return ok;
 }
+
+#include "haswell_cache_context.inc"

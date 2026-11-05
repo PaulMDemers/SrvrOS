@@ -1,0 +1,74 @@
+{
+  "result": "PASS; no guest executed",
+  "checks": {
+    "jsc_build_identifier": "0ef592a3666ef64ae857d4508ed4943d624a5090f0ccdfe706d8e5ec4e186ecd",
+    "source_sha256": "35085fbc78b8cb816d59fc666a25edcd84d5349c8f259d761842a1b52ac051f4",
+    "random_contract": {
+      "native_path": "shared/include/srvros/random.h",
+      "native_sha256": "a36436954383c1b3e91b12b38ff230fe40a8ca7f1f875fed2a923e61599d1999",
+      "applied_path": "Source/WTF/wtf/srvros/RandomContract.h",
+      "applied_sha256": "a36436954383c1b3e91b12b38ff230fe40a8ca7f1f875fed2a923e61599d1999",
+      "source_commit": "0a3f5981cd23b8982c5a8656af55875b0aae4a40",
+      "ports_commit": "af1421b735b61cf47c4e6516730c30468020abc7",
+      "retained_sdk_syscall_numbers_sha256": "e2615a91c723eb2e80afdd6ac0fcbb8f1814d2d6d3b59718349e1f108900cab9",
+      "retained_sdk": "unchanged; new header is supplied by the reviewed WTF patch"
+    },
+    "prepared": [
+      {
+        "name": "normal-absent",
+        "path": "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/signal-public-kyrks6fs",
+        "prepare_sha256": "d2881aa8671d94de510cf26a6243fe0344fb616801fe2e2a1bcf05bab16b7e4b",
+        "cpu": "qemu64",
+        "kernel_sha256": "71466b0c6f30ea3c333c3fc6bd8b0ef791f7cd4295d2b67a31402f47a9885c81",
+        "iso_sha256": "8abcb3968ecad57bebbe9c66caeb85052d244875ae3ed89b284ad7bcb7b4e058",
+        "case_count": 1
+      },
+      {
+        "name": "normal-rdrand",
+        "path": "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/signal-public-swsgvzb3",
+        "prepare_sha256": "5c1c6d7b5d4dc7b79dba15e11fa912e9b4fd2e1cbffd07b08ddd61d65efa72bb",
+        "cpu": "qemu64,+rdrand",
+        "kernel_sha256": "71466b0c6f30ea3c333c3fc6bd8b0ef791f7cd4295d2b67a31402f47a9885c81",
+        "iso_sha256": "e0a1a9889944b4e91eab51b3847871fd33bc85a5296ae1439c979820ceed4e81",
+        "case_count": 1
+      },
+      {
+        "name": "native-context",
+        "path": "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/signal-public-1_svpvbm",
+        "prepare_sha256": "b8c44c8c4a87f9e6261393aac1ed5959c3cdb033d663d0e1ffbf946295daa1d1",
+        "cpu": "qemu64,+rdrand",
+        "kernel_sha256": "7503975865184a64953900bc8d37940516a851bdf83c7d7e29a1539d060e8e9e",
+        "iso_sha256": "93265a5d59aa414dcdfbb63f3faaee00262130203552185a0e8b9cf89c5ed744",
+        "case_count": 1
+      },
+      {
+        "name": "jsc-entropy",
+        "path": "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/signal-public-moey7r7v",
+        "prepare_sha256": "0c413fefc05a081881956cb0e8f55c73908e5672622fae4defe543d22ae3c2e5",
+        "cpu": "qemu64,+rdrand",
+        "kernel_sha256": "7503975865184a64953900bc8d37940516a851bdf83c7d7e29a1539d060e8e9e",
+        "iso_sha256": "6226ead870828409095bd645cd0475fa0dbe7dbc250c2fe14108d0c30caf1a60",
+        "case_count": 8
+      }
+    ],
+    "jsc_elf": {
+      "type": "ET_EXEC",
+      "machine": "x86_64",
+      "entry": 5242880,
+      "program_headers": 4,
+      "load_memory_sum": 51675115,
+      "tls": {
+        "file_bytes": 0,
+        "memory_bytes": 2112,
+        "alignment": 16,
+        "section_count": 1,
+        "all_sections_covered": true
+      }
+    },
+    "jsc_sha256": "08dd2679eee6bac5ce701877005cd63e33bff5b28a5a3bf75e709f94f7ddf5a9",
+    "linked_functions": 1488,
+    "named_relocation_targets": 5633,
+    "identities": 1135
+  },
+  "seconds": 9.89388887496898
+}

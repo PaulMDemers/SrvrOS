@@ -1,0 +1,58 @@
+{
+  "scope": "normal combined build and two sequential integration guests after f11ce344 current-main reconciliation; pending browser handoff",
+  "cwd": "$WORKSPACE/SrvrOS-signal-context",
+  "commands": [
+    [
+      "sh",
+      "tools/macos/build.sh",
+      "-j2",
+      "-o",
+      "$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig",
+      "ZIG=$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig",
+      "HOST_CC=$WORKSPACE/SrvrOS-signal-context/build/tooling/darwin-host-cc",
+      "all",
+      "build/tests/exfat-driver"
+    ],
+    [
+      "tools/host-env.sh",
+      "$WORKSPACE/SrvrOS-signal-context/build/tooling/closeout-venv/bin/python",
+      "tools/desktop_lifecycle_smoke.py",
+      "--shutdown",
+      "--generated-fixture"
+    ],
+    [
+      "tools/host-env.sh",
+      "$WORKSPACE/SrvrOS-signal-context/build/tooling/closeout-venv/bin/python",
+      "tools/session_scope_smoke.py"
+    ]
+  ],
+  "notes": [
+    "Set a short task-owned TMPDIR under /tmp for guest socket lengths; normal ISO/disks remain disposable.",
+    "Build with current clean source and pins; verify build manifest hashes before guests.",
+    "One heavy job and one guest at a time; stop on first failure; retain logs and ensure owned process groups empty.",
+    "Root owns execution after browser handoff."
+  ],
+  "source": "a7f71411c2d22343b9237cffb55d564b7defce9e",
+  "submodules": [
+    " af1421b735b61cf47c4e6516730c30468020abc7 ports (heads/port/browser-signal-context)",
+    " 5739fd79bcfc75ba7526773d0cf634521f8aca3c ports/upstream/awk (20260426)",
+    " c859b25da02955fef659d658b8f324b5cde87be3 ports/upstream/cjson (v1.7.15-48-gc859b25)",
+    " 26254ee9de7681f8825433415443e7116ff24b98 ports/upstream/inih (r62)",
+    " 1cfa32ff59c076ffb6ed735bbc8c18361558661f ports/upstream/libuv (v1.52.1)",
+    " dc83cc373ac2058030eb3cf5e404959a26fef112 ports/upstream/linenoise (dc83cc3)",
+    " 6e22fedb74cf0c9b6656e9fce8b7331db847c605 ports/upstream/lua (v5.4-beta-336-g6e22fedb)",
+    " c7d10158bc31036de6783d66beaaaf551e3167aa ports/upstream/node (v24.16.0)",
+    " da607da739fa6047df13e66a2af6b8bec7c2a498 ports/upstream/zlib (v1.3.2)",
+    " 24bc454198a7ee58a875df40e6bd5ee2b5cf52c7 userspace/apps (heads/main-21-g24bc454)",
+    " 3a695ce51e06af0a7ab9c21beedcb8dfe221be9c userspace/widgets (remotes/origin/HEAD)"
+  ],
+  "watcher_sha256": "45dda9c4b1c7b5d57e2d14e4f3f81f6a1e3664e1d1a5440af3d084fca17aa841",
+  "files_before": {
+    "build/tooling/darwin-host-cc.py": "d94133c8e1df0ce60eb2be5d56ca8e79c6e45141ac7e4669701ec1105755d28c",
+    "tools/macos/build.sh": "90c73dc467be3c98da62deb38b87cedcac690823c3091a3c427b10565baa7394",
+    "tools/desktop_lifecycle_smoke.py": "e85362e4671501ea4e8ae465792983ba29dd10966b253b173357f3614c8047d9",
+    "tools/session_scope_smoke.py": "adafe0b4c8f10c7920c7412c495ab7cc8464d0d1bc8cdf21e1e90aa12d1aea75",
+    "build/tooling/darwin-host-cc": "af6faa61bd1bf8e7b781a2fe90d60c0e4d7498c7089edd0498196beefbc2a2b2"
+  },
+  "host_python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]\nPillow 13.0.0"
+}

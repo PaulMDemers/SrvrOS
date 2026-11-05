@@ -1,0 +1,47 @@
+{
+  "scope": "Two preserved failed host-fixture integration attempts; no target build or guest was reached",
+  "attempts": [
+    {
+      "attempt": "stage-a",
+      "result": "failed",
+      "error": "RuntimeError('failed normal-lifecycle-stream')",
+      "seconds": 12.572625917033292,
+      "original_supervisor_sha256": "386a410b4d8f05b6a7ab0701d76a2bbf7a408c5d3edb968d50308627af3c0077",
+      "commands": [
+        {
+          "name": "outer-admission",
+          "status": 0,
+          "before_cleanup": {},
+          "remaining": {}
+        },
+        {
+          "name": "normal-lifecycle-stream",
+          "status": 2,
+          "before_cleanup": {},
+          "remaining": {}
+        }
+      ]
+    },
+    {
+      "attempt": "stage-a-retry",
+      "result": "failed",
+      "error": "RuntimeError('failed normal-lifecycle-stream')",
+      "seconds": 12.180487249977887,
+      "original_supervisor_sha256": "f5bf47f6e9ecaf669c7963698ef671585d33cd53f295289c790d6423864dfd66",
+      "commands": [
+        {
+          "name": "outer-admission",
+          "status": 0,
+          "before_cleanup": {},
+          "remaining": {}
+        },
+        {
+          "name": "normal-lifecycle-stream",
+          "status": 2,
+          "before_cleanup": {},
+          "remaining": {}
+        }
+      ]
+    }
+  ]
+}

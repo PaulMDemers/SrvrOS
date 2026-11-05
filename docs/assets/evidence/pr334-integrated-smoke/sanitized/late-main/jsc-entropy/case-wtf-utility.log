@@ -1,0 +1,14 @@
+srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /w[Ksrv> run /wsrv> run /wt[Ksrv> run /wtsrv> run /wtf[Ksrv> run /wtfsrv> run /wtfp[Ksrv> run /wtfpsrv> run /wtfpr[Ksrv> run /wtfprsrv> run /wtfpro[Ksrv> run /wtfprosrv> run /wtfprob[Ksrv> run /wtfprobsrv> run /wtfprobe[Ksrv> run /wtfprobe
+run: entering pid=5 /wtfprobe entry=0x0000000000500000 stack=0x000000000fffefe0
+wtfprobe: entered
+wtfprobe: footprint-before
+wtfprobe: mapped
+wtfprobe: footprint-checked
+wtfprobe: arithmetic-checked
+wtfprobe: printstream-checked
+wtfprobe: unicode-checked
+wtfprobe: ok
+
+process: exited status=0
+run: pid=5 exited status=0
+srv> 

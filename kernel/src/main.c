@@ -2,6 +2,7 @@
 #include <srvros/wifi_service.h>
 #include <srvros/haswell_backing.h>
 #include <srvros/haswell_firmware.h>
+#include <srvros/haswell_cache_context.h>
 #include <srvros/posix_capture.h>
 #include <srvros/acpi.h>
 #include <srvros/autotest.h>
@@ -961,7 +962,7 @@ void kmain(void) {
         }
         if(automatic_hfw && started && init_ready && timer_running) {
 #ifdef SRVROS_AP_PROBE
-            sampled=haswell_firmware_run();
+            sampled=cmdline_has_token(cmdline,"srvros.hsw-cache=context-only")?haswell_cache_context_run():haswell_firmware_run();
 #else
             console_write("hsw-firmware: ordinary-kernel refused\n");sampled=false;
 #endif

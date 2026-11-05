@@ -1,0 +1,22 @@
+GNU xorriso 1.5.8.pl02 : RockRidge filesystem manipulator, libburnia project.
+
+Drive current: -outdev 'stdio:$WORKSPACE/.local/pr334-build-volume/signal-public-7pc3lrr3/guest.iso'
+Media current: stdio file, overwriteable
+Media status : is blank
+Media summary: 0 sessions, 0 data blocks, 0 data, 4317m free
+Added to ISO image: directory '/'='$WORKSPACE/.local/pr334-build-volume/signal-public-7pc3lrr3/iso-root'
+xorriso : UPDATE :       7 files added in 1 seconds
+xorriso : UPDATE :       7 files added in 1 seconds
+ISO image produced: 2767 sectors
+Written to medium : 2767 sectors at LBA 0
+Writing to 'stdio:$WORKSPACE/.local/pr334-build-volume/signal-public-7pc3lrr3/guest.iso' completed successfully.
+
+Physical block size of 512 bytes.
+No active partition found, some systems may not boot.
+Setting partition 1 as active to work around the issue...
+Installing to MBR.
+Stage 2 to be located at byte offset 0x200.
+Reminder: Remember to copy the limine-bios.sys file in either
+          the root, /boot, /limine, or /boot/limine directories of
+          one of the partitions on the device, or boot will fail!
+Limine BIOS stages installed successfully.

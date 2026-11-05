@@ -1,0 +1,60 @@
+{
+  "result": "passed",
+  "guest_stopped": true,
+  "payload_send_attempted": true,
+  "prepare_sha256": "96e7fd1a8f9d11399a85636e6fcb66b4e68e8374b88fb6b40dccfd9fcd27dcc7",
+  "argv": [
+    "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+    "-name",
+    "SrvrOS experimental public signal",
+    "-machine",
+    "q35",
+    "-accel",
+    "tcg,thread=single",
+    "-cpu",
+    "qemu64",
+    "-smp",
+    "1",
+    "-m",
+    "1536M",
+    "-cdrom",
+    "$WORKSPACE/.local/pr334-build-volume/signal-public-7pc3lrr3/guest.iso",
+    "-boot",
+    "d",
+    "-display",
+    "none",
+    "-nic",
+    "none",
+    "-serial",
+    "unix:/tmp/srv-public-7y0lvobf/uart,server=on,wait=off",
+    "-monitor",
+    "none",
+    "-no-reboot"
+  ],
+  "owned_qemu_pid": 4532,
+  "boot_serial_sha256": "4341748ddcb89c5ed0d1b60e0e1d1aef4b0120bc73b5e3b560bc8e36efbf66aa",
+  "boot_network_state": {
+    "required_line_counts": {
+      "net: no supported network device, stack idle": 1,
+      "net: worker not started": 1
+    },
+    "unexpected_provider": false,
+    "allowed": true
+  },
+  "cases": [
+    {
+      "name": "entropy-absent",
+      "payload": "entropy",
+      "result": "passed",
+      "command": "run /entropy \"absent\"",
+      "pid": 3,
+      "exit_status": 0,
+      "markers": {
+        "random-entropy: absent provider closed": 1
+      },
+      "seconds": 0.014,
+      "serial_sha256": "e96a6a6cea36d74465a544a85d500a29669e250a7ed63120964c4fcc43ccf5d4"
+    }
+  ],
+  "serial_sha256": "8d325b8d5745c8017b8248333e5f93033b77392eb822d96340d3cce65dc80d63"
+}

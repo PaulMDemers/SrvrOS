@@ -168,7 +168,7 @@
 #define SYS_GFX_MODE_SET 161
 #define SYS_PIPE_MESSAGE 162
 #define SYS_SESSION_SCOPE 163
-/* 164..167 are reserved by the separately reviewed signal continuation. */
+#include <srvros/signal_syscall_numbers.h>
 #define SYS_FILE_STREAM 168
 
 /* Device branch Wi-Fi call moved from163;matched image required. */

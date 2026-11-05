@@ -1,0 +1,11 @@
+srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /g[Ksrv> run /gsrv> run /gc[Ksrv> run /gcsrv> run /gc-[Ksrv> run /gc-srv> run /gc-r[Ksrv> run /gc-rsrv> run /gc-ro[Ksrv> run /gc-rosrv> run /gc-roo[Ksrv> run /gc-roosrv> run /gc-root[Ksrv> run /gc-rootsrv> run /gc-roots[Ksrv> run /gc-rootssrv> run /gc-roots [Ksrv> run /gc-roots srv> run /gc-roots "[Ksrv> run /gc-roots "srv> run /gc-roots "g[Ksrv> run /gc-roots "gsrv> run /gc-roots "gp[Ksrv> run /gc-roots "gpsrv> run /gc-roots "gp"[Ksrv> run /gc-roots "gp"
+run: entering pid=7 /gc-roots entry=0x0000000000500000 stack=0x000000000fffefd0
+run: map page rejected process=0xffffffff805c55f0 count=65536 limit=65536 virt=0x000000001cccf000
+run: map page rejected process=0xffffffff805c55f0 count=65536 limit=65536 virt=0x000000001cccf000
+run: map page rejected process=0xffffffff805c55f0 count=65536 limit=65536 virt=0x000000001cccf000
+jsc-gc-root: gp retained; finalizers=1
+jsc-gc-root: ok
+
+process: exited status=0
+run: pid=7 exited status=0
+srv> 

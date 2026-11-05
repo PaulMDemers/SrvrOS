@@ -1,0 +1,22 @@
+{
+  "result": "passed",
+  "source": "0a3f5981",
+  "ports": "af1421b",
+  "seconds": 6.583968166029081,
+  "guests": [
+    {
+      "name": "normal-runtime17",
+      "receipt": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/guest-11spy7gz/receipt.json",
+      "sha256": "22de8fbb79966ff0d4d008c79488452aecae92938cc93355f3d07fdcc8674e75",
+      "tests": 17,
+      "serial_sha256": "2b77d70e8ca1f902984b9771ed2dd5a99f1350cd44a3c24aad3929d7b9168b47"
+    },
+    {
+      "name": "normal-filesystem2",
+      "receipt": "$WORKSPACE/SrvrOS-signal-context/build/browser-filesystem/guest-wxgxomlw/receipt.json",
+      "sha256": "9ddab1e7e2c8a673f6555a4a52e06ffd4bbafb2318c15f6b4aea8e501e76808a",
+      "tests": 2,
+      "serial_sha256": "a4ca37db1bfb1fb183e391dcd41756fd569f4db7a4fa4ee90cf29f181e040605"
+    }
+  ]
+}

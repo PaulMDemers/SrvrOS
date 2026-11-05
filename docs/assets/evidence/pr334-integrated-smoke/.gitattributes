@@ -1,0 +1,2 @@
+# Preserve captured CR and terminal control bytes exactly.
+sanitized/**/*.log binary

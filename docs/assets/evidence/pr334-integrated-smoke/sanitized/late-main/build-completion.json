@@ -1,0 +1,50 @@
+{
+  "result": "built and linked; not executed",
+  "source": "a7f71411c2d22343b9237cffb55d564b7defce9e",
+  "ports": "af1421b735b61cf47c4e6516730c30468020abc7",
+  "seconds": 38.79515533300582,
+  "commands": [
+    {
+      "name": "outer-admission",
+      "status": 0,
+      "before_cleanup": {},
+      "remaining": {},
+      "peak_rss_bytes": 24428544,
+      "seconds": 1.7924077920033596
+    },
+    {
+      "name": "cache-admission-lifecycle-stream",
+      "status": 0,
+      "before_cleanup": {},
+      "remaining": {},
+      "peak_rss_bytes": 289259520,
+      "seconds": 14.251564292004332
+    },
+    {
+      "name": "kernels-sdk-init-native",
+      "status": 0,
+      "before_cleanup": {},
+      "remaining": {},
+      "peak_rss_bytes": 229195776,
+      "seconds": 14.52158674999373
+    },
+    {
+      "name": "verify-retained-sdk-jsc",
+      "status": 0,
+      "before_cleanup": {},
+      "remaining": {},
+      "peak_rss_bytes": 125534208,
+      "seconds": 7.7841530840378255
+    }
+  ],
+  "artifacts": {
+    "build/kernel/srvros.elf": "da470d92d4ae3921405f6fb14c40c39a76efc47213f994552d8b89328e3ccee2",
+    "build/signal-context/integration-experimental/kernel.elf": "796fe4092b514c0066b178315d7d5dddddf4b23bd81ba30bd83a0254a368964d",
+    "build/signal-context/integration-experimental/probe.elf": "b546607c89f87533933f3709fede1d048d813678a16d0a84ffb7189322e46fe1",
+    "build/userspace/init.elf": "15d51cf99476c89596894d57f224a0e9eb7565f42b8b9779be66ad186e7c618b",
+    "build/sysroot/srvros/lib/libsrvros.a": "e7622f29497ee4de291910ace88cf90e7111a1a09029e1d0e6eb3e18c9853ea5"
+  },
+  "retained_input_count": 715,
+  "retained_inputs_sha256": "2f7018fa8e57f8f41baa50719aa8eaf53ede01e7d3be9fb7ab037c82b5c4676e",
+  "retained_result": "PASS; original SDK/dependency/JSC/fixture input and output bytes unchanged"
+}

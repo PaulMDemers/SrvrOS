@@ -1,0 +1,51 @@
+{
+  "result": "passed",
+  "guest_stopped": true,
+  "payload_send_attempted": true,
+  "prepare_sha256": "1d3bb933e903bfd03ba65b950fe08cb7b21a803e49c1f56c18a77b9c635ac3f3",
+  "argv": [
+    "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+    "-name",
+    "SrvrOS experimental public signal",
+    "-machine",
+    "q35",
+    "-accel",
+    "tcg,thread=single",
+    "-cpu",
+    "qemu64,+rdrand",
+    "-smp",
+    "1",
+    "-m",
+    "1536M",
+    "-cdrom",
+    "$WORKSPACE/.local/pr334-build-volume/signal-public-q1mfaj2m/guest.iso",
+    "-boot",
+    "d",
+    "-display",
+    "none",
+    "-nic",
+    "none",
+    "-serial",
+    "unix:/tmp/srv-public-4h1rbjpm/uart,server=on,wait=off",
+    "-monitor",
+    "none",
+    "-no-reboot"
+  ],
+  "owned_qemu_pid": 4542,
+  "boot_serial_sha256": "7149018c29b8f390467bb2e1ad2bf89cfde15ec0a06513cad71624f18c553c7e",
+  "boot_network_state": {
+    "required_line_counts": {
+      "net: no supported network device, stack idle": 1,
+      "net: worker not started": 1
+    },
+    "unexpected_provider": false,
+    "allowed": true
+  },
+  "pid": 3,
+  "exit_status": 0,
+  "markers": {
+    "signal-public: native main and worker context ok": 1,
+    "signal-public: nested suspend resume handshake ok": 1
+  },
+  "serial_sha256": "63b026a4c6d1a0e9a8c6cb8011f5d60ec08771210852460442354ea28fa93715"
+}

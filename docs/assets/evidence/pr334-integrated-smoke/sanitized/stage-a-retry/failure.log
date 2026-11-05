@@ -1,0 +1,29 @@
+mkdir -p build/tests
+mkdir -p build/tests
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_process_user_frame_copy.c -Wl,--gc-sections -o build/tests/process-user-frame-copy-host-integrated-a2
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_process_thread_ids.c kernel/src/vfs_namespace.c -Wl,--gc-sections -o build/tests/process-thread-ids-host-integrated-a2
+mkdir -p build/tests
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_process_signal_state.c kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o build/tests/process-signal-state-host-integrated-a2
+mkdir -p build/tests
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_process_signal_delivery.c kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o build/tests/process-signal-delivery-host-integrated-a2
+mkdir -p build/tests
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_process_signal_action_defaults.c kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o build/tests/process-signal-action-defaults-host-integrated-a2
+mkdir -p build/tests
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include -DSRVROS_PTY_HOST_TEST tools/test_process_output.c tools/test_process_teardown_fault.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o build/tests/process-output-host-integrated-a2
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I build/limine-protocol/include tools/test_process_lifetime.c -Wl,--gc-sections -o build/tests/process-lifetime-host-integrated-a2
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/test_file_stream.c -Wl,--gc-sections -o build/tests/file-stream-manager-host-integrated-a2
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_file_stream_syscall.c -Wl,--gc-sections -o build/tests/file-stream-syscall-host-integrated-a2
+ld: warning: alignment (1) of atom 'l___const.idt_init.idtr' ($WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-a-retry/tmp/test_process_teardown_fault-ebfa87.o) is too small and may result in unaligned pointers 
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include -DSRVROS_PTY_HOST_TEST tools/test_file_stream_process.c tools/test_process_teardown_fault.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o build/tests/file-stream-process-host-integrated-a2
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_file_stream_cleanup.c -Wl,--gc-sections -o build/tests/file-stream-cleanup-host-integrated-a2
+mkdir -p build/tests
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_process_service.c kernel/src/vfs_namespace.c -Wl,--gc-sections -o build/tests/process-service-host-integrated-a2
+Undefined symbols for architecture x86_64:
+  "_scheduler_invalidate_current_user_trap", referenced from:
+      _process_exit in test_process_service-f2d256.o
+      _process_thread_exit in test_process_service-f2d256.o
+ld: symbol(s) not found for architecture x86_64
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+gmake: *** [Makefile:3875: build/tests/process-service-host-integrated-a2] Error 1
+gmake: *** Waiting for unfinished jobs....
+ld: warning: alignment (1) of atom 'l___const.idt_init.idtr' ($WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-a-retry/tmp/test_process_teardown_fault-60e928.o) is too small and may result in unaligned pointers 

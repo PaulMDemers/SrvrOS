@@ -13,6 +13,9 @@
 #include <srvros/audio_abi.h>
 #include <srvros/audio_stream_abi.h>
 #include "isr_frame.h"
+#ifdef SRVROS_SIGNAL_PUBLIC_GUEST_TEST
+#include "../../process_signal.h"
+#endif
 
 #include <srvros/block.h>
 #include <srvros/console.h>
@@ -28,6 +31,7 @@
 #include <srvros/net.h>
 #include <srvros/pmm.h>
 #include <srvros/virtio_rng.h>
+#include <srvros/random.h>
 #include <srvros/process.h>
 #include <srvros/pty.h>
 #include <srvros/scheduler.h>
@@ -176,7 +180,7 @@ static uint64_t random_state;
 static uint64_t irq_save(void) {
 #if defined(SRVROS_SYSCALL_COPY_HOST_TEST)
     return syscall_copy_test_irq_save();
-#elif defined(SRVROS_SYSCALL_POLL_HOST_TEST) || defined(SRVROS_SYSCALL_IO_HOST_TEST)
+#elif defined(SRVROS_SYSCALL_POLL_HOST_TEST) || defined(SRVROS_SYSCALL_IO_HOST_TEST) || defined(SRVROS_SYSCALL_SLEEP_HOST_TEST)
     return 0;
 #else
     uint64_t flags;
@@ -188,7 +192,7 @@ static uint64_t irq_save(void) {
 static void irq_restore(uint64_t flags) {
 #if defined(SRVROS_SYSCALL_COPY_HOST_TEST)
     syscall_copy_test_irq_restore(flags);
-#elif defined(SRVROS_SYSCALL_POLL_HOST_TEST) || defined(SRVROS_SYSCALL_IO_HOST_TEST)
+#elif defined(SRVROS_SYSCALL_POLL_HOST_TEST) || defined(SRVROS_SYSCALL_IO_HOST_TEST) || defined(SRVROS_SYSCALL_SLEEP_HOST_TEST)
     (void)flags;
 #else
     if ((flags & (1ull << 9)) != 0) {
@@ -242,6 +246,11 @@ static bool copy_user_bytes(void *kernel, void *user, uint64_t length, bool to_u
 static bool copy_from_user(void *destination, const void *source, uint64_t length) {
     return copy_user_bytes(destination, (void *)source, length, false);
 }
+#ifdef SRVROS_SIGNAL_PUBLIC_GUEST_TEST
+bool syscall_signal_copy_input(void *out,uint64_t address,size_t length) {
+    return length<=1024 && (!length || copy_from_user(out,(const void *)address,length));
+}
+#endif
 
 static bool copy_to_user(void *destination, const void *source, uint64_t length) {
     return copy_user_bytes((void *)source, destination, length, true);
@@ -355,13 +364,53 @@ static uint64_t random_u64(void) {
     return value;
 }
 
+static bool random_entropy_u64(uint64_t *value) {
+    uint64_t flags = irq_save();
+    bool available = virtio_rng_take_u64(value) || rdrand64(value);
+    irq_restore(flags);
+    return available;
+}
+
 static int64_t syscall_random(void *buffer, uint64_t length, uint64_t flags) {
-    if (flags != 0 || length > MAX_SYSCALL_COPY || !user_buffer_ok(buffer, length, true)) {
+    if ((flags != 0 && flags != SRV_RANDOM_REQUIRE_ENTROPY) ||
+        length > MAX_SYSCALL_COPY || !user_buffer_ok(buffer, length, true)) {
         return -1;
     }
 
     uint8_t chunk[64];
     uint64_t copied = 0;
+    if (flags == SRV_RANDOM_REQUIRE_ENTROPY) {
+        while (copied < length) {
+            uint64_t remaining = length - copied;
+            uint64_t wanted = remaining < sizeof(chunk) ? remaining : sizeof(chunk);
+            uint64_t ready = 0;
+            while (ready < wanted) {
+                uint64_t value;
+                if (!random_entropy_u64(&value)) {
+                    break;
+                }
+                uint64_t count = wanted - ready;
+                if (count > sizeof(value)) {
+                    count = sizeof(value);
+                }
+                for (uint64_t i = 0; i < count; i++) {
+                    chunk[ready + i] = (uint8_t)(value >> (i * 8));
+                }
+                ready += count;
+            }
+            if (ready == 0) {
+                return copied ? (int64_t)copied : SRV_RANDOM_UNAVAILABLE;
+            }
+            if (!copy_to_user((uint8_t *)buffer + copied, chunk, ready)) {
+                return -1;
+            }
+            copied += ready;
+            if (ready < wanted) {
+                return (int64_t)copied;
+            }
+        }
+        return (int64_t)copied;
+    }
     while (copied < length) {
         for (uint64_t offset = 0; offset < sizeof(chunk); offset += sizeof(uint64_t)) {
             uint64_t value = random_u64();
@@ -383,26 +432,64 @@ static int64_t syscall_random(void *buffer, uint64_t length, uint64_t flags) {
 
 /* Copy while the caller's mappings are stable, then allow interrupts while
  * consuming only the owned chunk. Revalidate each subsequent user range. */
-static int64_t console_write_user(const char *buffer, uint64_t length) {
-    uint64_t written = 0;
-    while (written < length) {
-        char chunk[1024]; /* Match the bounded saved-console record size. */
-        uint64_t count = length - written;
-        if (count > sizeof(chunk)) count = sizeof(chunk);
-        if (!copy_from_user(chunk, buffer + written, count)) return written ? (int64_t)written : -1;
-        __asm__ volatile ("sti" : : : "memory");
-        console_write_n(chunk, count);
-        __asm__ volatile ("cli" : : : "memory");
-        written += count;
-        if (process_should_exit_current()) break;
+struct console_fd_guard {struct process *process;uint64_t fd,generation;int reason;};
+static int console_read_eligible(void *opaque) {
+    struct console_fd_guard *g=opaque;
+    if(!g->process || process_current()!=g->process || g->generation==UINT64_MAX ||
+       process_fd_generation(g->process,g->fd)!=g->generation || !process_fd_is_console(g->process,g->fd,true))
+        return g->reason=SRV_ERR_BADF;
+    if(process_should_exit_current())return g->reason=SRV_ERR_INTR;
+    if(process_signal_pending_current())return g->reason=SRV_ERR_INTR;
+    return 0;
+}
+static bool console_write_eligible(void *opaque) {
+    struct console_fd_guard *g=opaque;
+    if(!g->process || process_current()!=g->process || g->generation==UINT64_MAX ||
+       process_fd_generation(g->process,g->fd)!=g->generation || !process_fd_is_console(g->process,g->fd,false)) {
+        g->reason=SRV_ERR_BADF;return false;
+    }
+    if(process_should_exit_current()) {g->reason=SRV_ERR_INTR;return false;}
+    return true;
+}
+static int64_t console_write_checked(uint64_t fd,const char *buffer,uint64_t length,bool owned) {
+    struct console_fd_guard guard={.process=process_current(),.fd=fd};
+    guard.generation=process_fd_generation(guard.process,fd);uint64_t written=0;
+    while(written<length) {
+        char chunk[1024];uint64_t count=length-written;if(count>sizeof(chunk))count=sizeof(chunk);
+        if(owned) {for(uint64_t i=0;i<count;i++)chunk[i]=buffer[written+i];}
+        else if(!copy_from_user(chunk,buffer+written,count))return written?(int64_t)written:-1;
+        /* Rendering/UART must run with IRQs enabled. The helper performs its
+         * identity check atomically with each bounded bootlog publication. */
+        irq_restore(UINT64_C(1)<<9);
+        size_t accepted=console_write_n_checked(chunk,count,console_write_eligible,&guard);
+        (void)irq_save();
+        written+=accepted;
+        if(accepted<count)return written?(int64_t)written:(guard.reason?guard.reason:SRV_ERR_IO);
     }
     return (int64_t)written;
 }
 
+static bool syscall_pipe_write_type(uint64_t type) {
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+    return type == PROCESS_FILE_PIPE_WRITE;
+#else
+    return type == PROCESS_FILE_PIPE_WRITE || type == PROCESS_FILE_PIPE_DUPLEX;
+#endif
+}
+static bool syscall_pipe_read_type(uint64_t type) {
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+    return type == PROCESS_FILE_PIPE_READ;
+#else
+    return type == PROCESS_FILE_PIPE_READ || type == PROCESS_FILE_PIPE_DUPLEX;
+#endif
+}
 static bool io_try_pipe_write(uint64_t fd) {
     struct process_file *f=process_file_at(process_current(),fd);
-    return f && (f->type==PROCESS_FILE_PIPE_WRITE || f->type==PROCESS_FILE_PIPE_DUPLEX ||
-        f->type==PROCESS_FILE_PTY_MASTER || f->type==PROCESS_FILE_PTY_SLAVE) &&
+    return f && (syscall_pipe_write_type(f->type)
+#ifndef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+        || f->type==PROCESS_FILE_PTY_MASTER || f->type==PROCESS_FILE_PTY_SLAVE
+#endif
+        ) &&
         process_file_nonblocking(process_current(),fd);
 }
 static bool io_defer_pipe_write(uint64_t fd,uint64_t length) {
@@ -522,25 +609,21 @@ static int64_t write_buffer(uint64_t fd, const char *buffer, uint64_t length, bo
     if(!file) return SRV_ERR_BADF;
     if(file->type==PROCESS_FILE_STDIO) {
         if(file->handle!=1 && file->handle!=2) return SRV_ERR_BADF;
-        if(!owned) return console_write_user(buffer,length);
-        uint64_t written=0;
-        while(written<length) {
-            uint64_t count=length-written;
-            if(count>1024) count=1024;
-            __asm__ volatile ("sti" : : : "memory");
-            console_write_n(buffer+written,count);
-            __asm__ volatile ("cli" : : : "memory");
-            written+=count;
-            if(process_should_exit_current()) break;
-        }
-        return (int64_t)written;
+        return console_write_checked(fd,buffer,length,owned);
     }
+#ifndef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     if(file->type==PROCESS_FILE_VFS_WRITE || file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE)
         return process_file_write(process_current(),fd,(const uint8_t *)buffer,length);
-    if(file->type==PROCESS_FILE_PIPE_WRITE || file->type==PROCESS_FILE_PIPE_DUPLEX)
+#endif
+    if(syscall_pipe_write_type(file->type))
         return process_file_pipe_write(process_current(),fd,(const uint8_t *)buffer,length);
-    if(file->type==PROCESS_FILE_NET_CONNECTION)
+    if(file->type==PROCESS_FILE_NET_CONNECTION) {
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+        return SRV_ERR_NOTSUP;
+#else
         return network_send(fd,buffer,length,process_file_nonblocking(process_current(),fd),owned,false,0,0);
+#endif
+    }
     return SRV_ERR_BADF;
 }
 
@@ -553,12 +636,14 @@ static bool pipe_user_copyin(void *context, uint64_t offset, uint8_t *first,
     return true;
 }
 
+#ifndef SRVROS_SIGNAL_EXPERIMENTAL_INFO
 static bool pty_kernel_copyin(void *context,uint64_t offset,uint8_t *first,uint64_t first_length,uint8_t *second,uint64_t second_length) {
     const uint8_t *source=(const uint8_t *)context+offset;
     for(uint64_t i=0;i<first_length;i++) first[i]=source[i];
     for(uint64_t i=0;i<second_length;i++) second[i]=source[first_length+i];
     return true;
 }
+#endif
 /* Process file data operations are nonblocking and already execute with IRQs
  * masked internally. Include the mapping check in the same CPU0 exclusion so
  * the descriptor and mapping cannot change before their commit. */
@@ -583,14 +668,16 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
     if(io_defer_pipe_write(fd,length)) return length?SRV_ERR_AGAIN:0;
     if(!user_buffer_ok(buffer,length,false)) return SRV_ERR_FAULT;
     struct process_file *file = process_file_at(process_current(), fd);
-    if (file && (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX)) {
+    if (file && (syscall_pipe_write_type(file->type))) {
         return process_file_pipe_write_checked(process_current(), fd, length, false,
             pipe_user_copyin, (void *)buffer);
     }
+#ifndef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     if(file && (file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE))
         return process_file_pty_write_checked(process_current(),fd,length,pipe_user_copyin,(void *)buffer);
     if (file && file->type == PROCESS_FILE_VFS_WRITE)
         return regular_user_io(fd, (void *)buffer, length, true, false, 0);
+#endif
     return write_buffer(fd,buffer,length,false);
 }
 
@@ -601,98 +688,83 @@ static char tty_filter_input(char c) {
     return c;
 }
 
-static int64_t tty_read_console(char *buffer, uint64_t length, bool owned) {
-    if (length == 0) {
-        return 0;
+struct tty_checked_read {
+    struct console_fd_guard guard;
+    char *buffer;uint64_t length,count;bool owned,canonical,finished;
+    const struct srv_iovec *iov;uint64_t iov_count;
+    volatile char *destination;
+    char echo;bool echo_valid;uint64_t erase_echo;
+};
+static int tty_read_eligible(void *opaque) {
+    struct tty_checked_read *r=opaque;int status=console_read_eligible(&r->guard);if(status)return status;
+    if(r->count>=r->length)return SRV_ERR_FAULT;
+    uint64_t offset=r->count,address=(uint64_t)(uintptr_t)r->buffer;
+    if(r->iov) {
+        if(r->iov_count>SRV_IOV_MAX)return SRV_ERR_FAULT;
+        bool found=false;
+        for(uint64_t i=0;i<r->iov_count;i++) {
+            if(offset<r->iov[i].length) {address=(uint64_t)(uintptr_t)r->iov[i].base;found=true;break;}
+            offset-=r->iov[i].length;
+        }
+        if(!found)return SRV_ERR_FAULT;
     }
-
-    __asm__ volatile ("sti" : : : "memory");
-    if ((console_termios.lflag & SRV_TTY_LFLAG_ICANON) == 0) {
-        char c = 0;
-        if (process_should_exit_current()) {
-            return -1;
-        }
-        if (process_signal_pending_current()) {
-            return SRV_ERR_INTR;
-        }
-        if (console_termios.cc[SRV_TTY_VMIN] == 0 && !keyboard_scan_char(&c)) {
-            return 0;
-        }
-        if (c == 0) {
-            c = keyboard_read_char();
-        }
-        if (process_signal_pending_current()) {
-            return SRV_ERR_INTR;
-        }
-        if (process_should_exit_current()) {
-            return -1;
-        }
-        c = tty_filter_input(c);
-        if (owned) buffer[0] = c;
-        else if (!copy_to_user(buffer, &c, 1)) return SRV_ERR_FAULT;
-        if ((console_termios.lflag & SRV_TTY_LFLAG_ECHO) != 0) {
-            console_putc(c);
-        }
-        return 1;
-    }
-
-    uint64_t count = 0;
-    while (count < length) {
-        if (process_should_exit_current()) {
-            return -1;
-        }
-        char c = tty_filter_input(keyboard_read_char());
-        if (process_signal_pending_current()) {
-            return count == 0 ? SRV_ERR_INTR : (int64_t)count;
-        }
-        char erase = console_termios.cc[SRV_TTY_VERASE] != 0 ? (char)console_termios.cc[SRV_TTY_VERASE] : '\b';
-        char eof = console_termios.cc[SRV_TTY_VEOF] != 0 ? (char)console_termios.cc[SRV_TTY_VEOF] : 4;
-        char kill = console_termios.cc[SRV_TTY_VKILL] != 0 ? (char)console_termios.cc[SRV_TTY_VKILL] : 21;
-        char eol = console_termios.cc[SRV_TTY_VEOL] != 0 ? (char)console_termios.cc[SRV_TTY_VEOL] : '\n';
-
-        if (c == eof) {
-            return (int64_t)count;
-        }
-        if ((c == erase || c == '\b') && count > 0) {
-            count--;
-            if ((console_termios.lflag & SRV_TTY_LFLAG_ECHO) != 0) {
-                console_putc('\b');
-                console_putc(' ');
-                console_putc('\b');
-            }
-            continue;
-        }
-        if (c == kill) {
-            while (count > 0) {
-                count--;
-                if ((console_termios.lflag & SRV_TTY_LFLAG_ECHO) != 0) {
-                    console_putc('\b');
-                    console_putc(' ');
-                    console_putc('\b');
-                }
-            }
-            continue;
-        }
-
-        if (owned) buffer[count] = c;
-        else if (!copy_to_user(buffer + count, &c, 1)) return count ? (int64_t)count : SRV_ERR_FAULT;
-        count++;
-        if ((console_termios.lflag & SRV_TTY_LFLAG_ECHO) != 0) {
-            console_putc(c);
-        }
-        if (c == '\n' || c == eol) {
-            break;
+    if(offset>UINT64_MAX-address)return SRV_ERR_FAULT;
+    address+=offset;
+    /* Initial syscall validation is separate. This callback runs per byte
+     * under IF0: visit only the destination that this consume can publish. */
+    if((r->iov || !r->owned) && !user_buffer_ok((void *)(uintptr_t)address,1,true))return SRV_ERR_FAULT;
+    r->destination=(volatile char *)(uintptr_t)address;
+    return 0;
+}
+/* Eligibility established this byte's destination with IRQs excluded; no call,
+ * fault-recovery, scheduler, or fallible operation is permitted here. */
+static void tty_read_commit(void *opaque,char input) {
+    struct tty_checked_read *r=opaque;char c=tty_filter_input(input);r->echo=0;r->echo_valid=false;r->erase_echo=0;
+    if(r->canonical) {
+        char erase=console_termios.cc[SRV_TTY_VERASE]?(char)console_termios.cc[SRV_TTY_VERASE]:'\b';
+        char eof=console_termios.cc[SRV_TTY_VEOF]?(char)console_termios.cc[SRV_TTY_VEOF]:4;
+        char kill=console_termios.cc[SRV_TTY_VKILL]?(char)console_termios.cc[SRV_TTY_VKILL]:21;
+        char eol=console_termios.cc[SRV_TTY_VEOL]?(char)console_termios.cc[SRV_TTY_VEOL]:'\n';
+        if(c==eof) {r->finished=true;return;}
+        if((c==erase || c=='\b') && r->count) {r->count--;r->erase_echo=1;return;}
+        if(c==kill) {r->erase_echo=r->count;r->count=0;return;}
+        if(c=='\n' || c==eol)r->finished=true;
+    } else r->finished=true;
+    *r->destination=c;
+    r->count++;r->echo=c;r->echo_valid=true;
+}
+static int64_t tty_read_console_sink(uint64_t fd,char *buffer,uint64_t length,bool owned,
+    const struct srv_iovec *iov,uint64_t iov_count) {
+    if(!length)return 0;
+    struct tty_checked_read r={.guard={.process=process_current(),.fd=fd},.buffer=buffer,.length=length,
+        .owned=owned,.canonical=(console_termios.lflag&SRV_TTY_LFLAG_ICANON)!=0,.iov=iov,.iov_count=iov_count};
+    r.guard.generation=process_fd_generation(r.guard.process,fd);
+    irq_restore(UINT64_C(1)<<9);
+    while(r.count<length && !r.finished) {
+        char c;bool wait=r.canonical || console_termios.cc[SRV_TTY_VMIN]!=0;
+        int got=keyboard_read_char_commit(&c,wait,tty_read_eligible,tty_read_commit,&r);
+        if(got<0)return r.count?(int64_t)r.count:got;
+        if(!got)return (int64_t)r.count;
+        if(console_termios.lflag&SRV_TTY_LFLAG_ECHO) {
+            for(uint64_t i=0;i<r.erase_echo;i++){console_putc('\b');console_putc(' ');console_putc('\b');}
+            if(r.echo_valid)console_putc(r.echo);
         }
     }
-    return (int64_t)count;
+    return (int64_t)r.count;
+}
+static int64_t tty_read_console(uint64_t fd,char *buffer,uint64_t length,bool owned) {
+    return tty_read_console_sink(fd,buffer,length,owned,NULL,0);
 }
 
 /* Only explicit nonblocking pipe/PTY descriptors get the try-read path. No
  * redirected stdio guessing, network operations or regular-file reads. */
 static bool io_try_pipe_read(uint64_t fd) {
     struct process_file *f=process_file_at(process_current(),fd);
-    return f && (f->type==PROCESS_FILE_PIPE_READ || f->type==PROCESS_FILE_PIPE_DUPLEX ||
-        f->type==PROCESS_FILE_PTY_MASTER || f->type==PROCESS_FILE_PTY_SLAVE) &&
+    return f && (syscall_pipe_read_type(f->type)
+#ifndef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+        || f->type==PROCESS_FILE_PTY_MASTER || f->type==PROCESS_FILE_PTY_SLAVE
+#endif
+        ) &&
         process_file_nonblocking(process_current(),fd);
 }
 static bool io_defer_pipe_read(uint64_t fd,uint64_t length) {
@@ -713,23 +785,31 @@ static int64_t read_buffer(uint64_t fd, char *buffer, uint64_t length, bool owne
         return SRV_ERR_BADF;
     }
     if (file->type == PROCESS_FILE_STDIO && file->handle == 0) {
-        return tty_read_console(buffer, length, owned);
+        return tty_read_console(fd,buffer,length,owned);
     }
     if (file->type == PROCESS_FILE_NET_CONNECTION) {
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+        return SRV_ERR_NOTSUP;
+#else
         if (owned) return net_read(file->handle, buffer, length, process_file_nonblocking(process_current(), fd));
         struct srv_iovec iov = {.base=buffer, .length=length};
         struct network_user_io io = {.iov=&iov, .count=1};
         return network_receive(fd, &io, length, process_file_nonblocking(process_current(), fd), false, false);
+#endif
     }
-    if (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX) {
+    if (syscall_pipe_read_type(file->type)) {
         return process_file_pipe_read(process_current(), fd, (uint8_t *)buffer, length);
     }
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+    return SRV_ERR_NOTSUP;
+#else
     if (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE &&
         file->type != PROCESS_FILE_PTY_MASTER && file->type != PROCESS_FILE_PTY_SLAVE) {
         return SRV_ERR_BADF;
     }
 
     return process_file_read(process_current(), fd, (uint8_t *)buffer, length);
+#endif
 }
 
 struct pipe_user_iov {
@@ -767,11 +847,12 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
     if(io_defer_pipe_read(fd,length)) return length?SRV_ERR_AGAIN:0;
     if(!user_buffer_ok(buffer,length,true)) return SRV_ERR_FAULT;
     struct process_file *file = process_file_at(process_current(), fd);
-    if (file && (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX)) {
+    if (file && (syscall_pipe_read_type(file->type))) {
         struct srv_iovec iov = { .base = buffer, .length = length };
         struct pipe_user_iov out = { &iov, 1 };
         return process_file_pipe_read_checked(process_current(), fd, length, false, pipe_user_copyout, &out);
     }
+#ifndef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     if(file && (file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE)) {
         struct srv_iovec iov={.base=buffer,.length=length};
         struct pipe_user_iov out={&iov,1};
@@ -779,6 +860,7 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
     }
     if (file && (file->type == PROCESS_FILE_VFS || file->type == PROCESS_FILE_VFS_WRITE))
         return regular_user_io(fd, buffer, length, false, false, 0);
+#endif
     return read_buffer(fd,buffer,length,false);
 }
 
@@ -786,12 +868,16 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
  * Snapshot vector metadata and gather write data before any wait. Pipe reads
  * retain destination addresses and revalidate them at commit. Large requests
  * may return a bounded prefix, which the caller must handle like any short I/O. */
-static int64_t syscall_vector_io(uint64_t fd, const struct srv_iovec *user_iov,
-    uint64_t count, uint64_t operation, int64_t offset) {
+static int64_t syscall_vector_io_prepared(uint64_t fd, const struct srv_iovec *user_iov,
+    uint64_t count, uint64_t operation, int64_t offset,const struct srv_iovec *prepared) {
     if(count>SRV_IOV_MAX || operation>SRV_VECTOR_PWRITE ||
        (operation>=SRV_VECTOR_PREAD && offset<0)) return SRV_ERR_INVAL;
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+    if(operation!=SRV_VECTOR_READ && operation!=SRV_VECTOR_WRITE)return SRV_ERR_NOTSUP;
+#endif
     struct srv_iovec iov[SRV_IOV_MAX];
-    if(!copy_from_user(iov,user_iov,count*sizeof(*iov))) return SRV_ERR_FAULT;
+    if(prepared) { for(uint64_t i=0;i<count;i++) iov[i]=prepared[i]; }
+    else if(!copy_from_user(iov,user_iov,count*sizeof(*iov))) return SRV_ERR_FAULT;
     bool writing=operation==SRV_VECTOR_WRITE || operation==SRV_VECTOR_PWRITE;
     uint64_t total=0;
     for(uint64_t i=0;i<count;i++) {
@@ -802,19 +888,27 @@ static int64_t syscall_vector_io(uint64_t fd, const struct srv_iovec *user_iov,
         if(!user_buffer_ok(iov[i].base,iov[i].length,!writing)) return SRV_ERR_FAULT;
     uint64_t length=total>MAX_SYSCALL_COPY?MAX_SYSCALL_COPY:total;
     struct process_file *file = process_file_at(process_current(), fd);
+    if(operation==SRV_VECTOR_READ && file && file->type==PROCESS_FILE_STDIO && file->handle==0)
+        return tty_read_console_sink(fd,NULL,length,false,iov,count);
     if (operation == SRV_VECTOR_READ && file &&
-        (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX)) {
+        (syscall_pipe_read_type(file->type))) {
         struct pipe_user_iov out = { iov, count };
         return process_file_pipe_read_checked(process_current(), fd, length, false, pipe_user_copyout, &out);
     }
+#ifndef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     if(operation==SRV_VECTOR_READ && file && (file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE)) {
         struct pipe_user_iov out={iov,count};
         return process_file_pty_read_checked(process_current(),fd,length,pipe_user_copyout,&out);
     }
     if (operation == SRV_VECTOR_READ && file && file->type == PROCESS_FILE_NET_CONNECTION) {
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+        return SRV_ERR_NOTSUP;
+#else
         struct network_user_io io = {.iov=iov, .count=count};
         return network_receive(fd, &io, length, process_file_nonblocking(process_current(), fd), false, false);
+#endif
     }
+#endif
     uint8_t small[4096];
     uint8_t *buffer=length>sizeof(small)?kmalloc(length):small;
     if(!buffer) return SRV_ERR_NOMEM;
@@ -829,13 +923,16 @@ static int64_t syscall_vector_io(uint64_t fd, const struct srv_iovec *user_iov,
         copied+=size;
     }
     int64_t result;
+#ifndef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     if(operation==SRV_VECTOR_PREAD)
         result=process_file_pread(process_current(),fd,buffer,length,offset);
     else if(operation==SRV_VECTOR_PWRITE)
         result=process_file_pwrite(process_current(),fd,buffer,length,offset);
     else if(writing && file && (file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE))
         result=process_file_pty_write_checked(process_current(),fd,length,pty_kernel_copyin,buffer);
-    else if(writing) result=write_buffer(fd,(char *)buffer,length,true);
+    else
+#endif
+    if(writing) result=write_buffer(fd,(char *)buffer,length,true);
     else result=read_buffer(fd,(char *)buffer,length,true);
     /* Console/network waits may return with interrupts enabled. Revalidation
      * and copying must exclude a sibling unmapping the destination. */
@@ -855,6 +952,10 @@ static int64_t syscall_vector_io(uint64_t fd, const struct srv_iovec *user_iov,
     if(buffer!=small) kfree(buffer);
     irq_restore(irq);
     return result;
+}
+
+static int64_t syscall_vector_io(uint64_t fd,const struct srv_iovec *iov,uint64_t count,uint64_t operation,int64_t offset) {
+    return syscall_vector_io_prepared(fd,iov,count,operation,offset,NULL);
 }
 
 static bool syscall_tty_fd_ok(uint64_t fd) {
@@ -1791,24 +1892,43 @@ static bool pipe_message_copyout(void *context, const void *data, uint64_t lengt
     return copy_to_user(out->message, message, sizeof(*message));
 }
 
-static int64_t syscall_pipe_message(uint64_t fd, const struct srv_pipe_message_layout *layout,
-    struct srv_pipe_message *user_message, uint64_t operation) {
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+static bool signal_experimental_rights_allowed(const struct srv_pipe_message *message) {
+    if(!message || message->count>SRV_RIGHTS_MAX)return false;
+    for(uint32_t i=0;i<message->count;i++)
+        if(message->fds[i]>=0 && !process_signal_experimental_fd_allowed((uint64_t)message->fds[i]))return false;
+    return true;
+}
+#endif
+struct signal_pipe_snapshot {
+    struct srv_pipe_message message;
+    struct srv_pipe_message_layout layout;
+    struct srv_iovec iov[SRV_IOV_MAX];
+};
+static int64_t syscall_pipe_message_prepared(uint64_t fd, const struct srv_pipe_message_layout *layout,
+    struct srv_pipe_message *user_message, uint64_t operation,const struct signal_pipe_snapshot *prepared) {
     struct srv_pipe_message message;
     uint8_t buffer[SRV_PIPE_MESSAGE_MAX];
     struct pipe_message_copyout out = {0};
     if (operation != SRV_PIPE_MESSAGE_SEND && operation != SRV_PIPE_MESSAGE_RECV) return SRV_ERR_INVAL;
     bool receiving = operation == SRV_PIPE_MESSAGE_RECV;
-    if (!pipe_message_copy_from_user(&message, user_message, sizeof(message))) return SRV_ERR_FAULT;
+    if(prepared)message=prepared->message;
+    else if (!pipe_message_copy_from_user(&message, user_message, sizeof(message))) return SRV_ERR_FAULT;
     if (message.count > SRV_RIGHTS_MAX) return SRV_ERR_INVAL;
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+    if(!receiving && !signal_experimental_rights_allowed(&message))return SRV_ERR_NOTSUP;
+#endif
     uint32_t valid_flags = receiving ? (SRV_PIPE_MSG_DONTWAIT | SRV_PIPE_MSG_CLOEXEC | SRV_PIPE_MSG_PEEK) :
         (SRV_PIPE_MSG_DONTWAIT | SRV_PIPE_MSG_NOSIGNAL);
     if (message.flags & ~valid_flags) return SRV_ERR_INVAL;
-    if (!pipe_message_copy_from_user(&out.layout, layout, sizeof(out.layout))) return SRV_ERR_FAULT;
+    if(prepared)out.layout=prepared->layout;
+    else if (!pipe_message_copy_from_user(&out.layout, layout, sizeof(out.layout))) return SRV_ERR_FAULT;
     if (out.layout.iov_count > SRV_IOV_MAX ||
         (receiving && out.layout.header_length > SRV_PIPE_MESSAGE_AUX_MAX)) return SRV_ERR_INVAL;
     if (out.layout.control_length > SRV_PIPE_MESSAGE_AUX_MAX)
         out.layout.control_length = SRV_PIPE_MESSAGE_AUX_MAX;
-    if (!pipe_message_copy_from_user(out.iov, out.layout.iov, out.layout.iov_count * sizeof(out.iov[0])))
+    if(prepared) { for(uint64_t i=0;i<out.layout.iov_count;i++) out.iov[i]=prepared->iov[i]; }
+    else if (!pipe_message_copy_from_user(out.iov, out.layout.iov, out.layout.iov_count * sizeof(out.iov[0])))
         return SRV_ERR_FAULT;
     uint64_t length = 0;
     for (uint64_t i = 0; i < out.layout.iov_count; i++) {
@@ -1830,6 +1950,11 @@ static int64_t syscall_pipe_message(uint64_t fd, const struct srv_pipe_message_l
     if (!pipe_message_output_valid(&out)) return SRV_ERR_FAULT;
     return process_file_recv_message_checked(process_current(), fd, buffer, length,
         &message, pipe_message_copyout, &out);
+}
+
+static int64_t syscall_pipe_message(uint64_t fd,const struct srv_pipe_message_layout *layout,
+    struct srv_pipe_message *message,uint64_t operation) {
+    return syscall_pipe_message_prepared(fd,layout,message,operation,NULL);
 }
 
 static int64_t syscall_unix_bind(const char *user_path) {
@@ -1880,6 +2005,12 @@ static int64_t syscall_meminfo(struct srv_meminfo *info) {
     return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
 }
 
+static uint16_t poll_one_ready(struct process *process,int64_t fd,uint16_t events) {
+    if(process_fd_is_console(process,fd,true))
+        return (keyboard_buffered_count() || serial_has_char())?events&SRV_POLLIN:0;
+    return process_file_poll(process,fd,events);
+}
+
 static int64_t poll_once(struct process *process, struct syscall_pollfd *fds, uint64_t nfds) {
     uint64_t flags=irq_save();
     int64_t ready = 0;
@@ -1888,10 +2019,7 @@ static int64_t poll_once(struct process *process, struct syscall_pollfd *fds, ui
         if (fds[i].fd < 0) {
             continue;
         }
-        uint16_t revents;
-        if(process_fd_is_console(process,fds[i].fd,true))
-            revents=(keyboard_buffered_count() || serial_has_char())?fds[i].events&SRV_POLLIN:0;
-        else revents = process_file_poll(process, fds[i].fd, (uint16_t)fds[i].events);
+        uint16_t revents=poll_one_ready(process,fds[i].fd,(uint16_t)fds[i].events);
         fds[i].revents = (int16_t)revents;
         if (revents != 0) {
             ready++;
@@ -1946,6 +2074,9 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
     /* Admit only the copied, immutable console request during owned I/O. Never
      * classify a mutable userspace array and then read it again after yielding.
      * Everything else retains the original filesystem/process lifetime gate. */
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+    for(uint64_t i=0;i<nfds;i++)if(fds[i].fd>=0 && !process_signal_experimental_fd_allowed((uint64_t)fds[i].fd))return SRV_ERR_NOTSUP;
+#endif
     uint64_t deadline_us=poll_deadline_us(timeout_ms,timer_monotonic_us());
     struct syscall_poll_wait wait = {
         .process = process,
@@ -1988,6 +2119,90 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
         }
     }
 }
+
+#ifdef SRVROS_SIGNAL_PUBLIC_GUEST_TEST
+static int64_t poll_once_expected(struct process *process, struct syscall_pollfd *fds, uint64_t nfds,const uint64_t *generations) {
+    uint64_t flags=irq_save();
+    int64_t ready = 0;
+    for (uint64_t i = 0; i < nfds; i++) {
+        fds[i].revents = 0;
+        if (fds[i].fd < 0) {
+            continue;
+        }
+        uint16_t revents;
+        if(generations && (generations[i]==UINT64_MAX || process_fd_generation(process,(uint64_t)fds[i].fd)!=generations[i]))
+            revents=SRV_POLLNVAL;
+        else revents=poll_one_ready(process,fds[i].fd,(uint16_t)fds[i].events);
+        fds[i].revents = (int16_t)revents;
+        if (revents != 0) {
+            ready++;
+        }
+    }
+    irq_restore(flags);return ready;
+}
+
+struct signal_poll_wait {
+    struct process *process;
+    struct syscall_pollfd *fds;
+    uint64_t nfds;
+    const uint64_t *generations;
+};
+
+static bool signal_poll_wait_ready(void *arg) {
+    struct signal_poll_wait *wait = arg;
+    return wait == NULL ||
+        process_should_exit_current() ||
+        process_signal_pending_current() ||
+        /* A sibling may redirect/replace a descriptor while we sleep. Wake
+         * into the gate instead of examining a newly non-console handle
+         * inside someone else's storage operation. */
+        (scheduler_io_busy() && !poll_console_only(wait->process,wait->fds,wait->nfds)) ||
+        poll_once_expected(wait->process, wait->fds, wait->nfds,wait->generations) != 0;
+}
+
+/* prepared/generations are trusted same-entry snapshots. NULL keeps raw
+ * syscall semantics, including legacy pending-signal handling. */
+static int64_t syscall_poll_prepared(struct syscall_pollfd *user_fds,uint64_t nfds,int64_t timeout_ms,
+    const struct syscall_pollfd *prepared,const uint64_t *generations) {
+    if (nfds > MAX_POLL_FDS || (nfds && !user_buffer_ok(user_fds,nfds*sizeof(*user_fds),true))) return -1;
+    struct syscall_pollfd fds[MAX_POLL_FDS];
+    if(prepared) {for(uint64_t i=0;i<nfds;i++)fds[i]=prepared[i];}
+    else if(nfds && !copy_from_user(fds,user_fds,nfds*sizeof(*fds)))return -1;
+    struct process *process=process_current();
+    uint64_t deadline_us=poll_deadline_us(timeout_ms,timer_monotonic_us());
+    struct signal_poll_wait wait={.process=process,.fds=fds,.nfds=nfds,.generations=generations};
+#ifndef SRVROS_SYSCALL_POLL_HOST_TEST
+    __asm__ volatile ("sti" : : : "memory");
+#endif
+    for(;;) {
+        if(process_should_exit_current())return -1;
+        if(!prepared && process_signal_pending_current())
+            return copy_to_user(user_fds,fds,nfds*sizeof(*fds))?0:-1;
+        uint64_t flags=irq_save();
+        if(!poll_console_only(process,fds,nfds)) {scheduler_io_set_user_safe(false);scheduler_io_wait();}
+        int64_t ready=poll_once_expected(process,fds,nfds,generations);
+        uint64_t now_us=timer_monotonic_us();
+        bool timeout=timeout_ms==0 || (timeout_ms>0 && now_us>=deadline_us);
+#ifdef SRVROS_SIGNAL_PUBLIC_GUEST_TEST
+        bool interrupted=prepared && process_signal_info_pending_current();
+        bool legacy=prepared && !interrupted && process_signal_pending_current();
+#else
+        bool interrupted=false,legacy=false;
+#endif
+        if(ready!=0 || timeout || legacy) {
+            bool copied=copy_to_user(user_fds,fds,nfds*sizeof(*fds));
+            irq_restore(flags);return copied?ready:-1;
+        }
+        irq_restore(flags);
+        if(interrupted)return SRV_ERR_INTR;
+        uint64_t remaining=timeout_ms>0?deadline_us-now_us:100000;
+        uint64_t ticks=remaining/10000+(remaining%10000!=0),now_ticks=timer_ticks();
+        uint64_t wait_deadline=ticks>UINT64_MAX-now_ticks?UINT64_MAX:now_ticks+ticks;
+        if(!scheduler_wait_timeout(process_file_poll_wait_queue(),signal_poll_wait_ready,&wait,wait_deadline))scheduler_yield();
+    }
+}
+
+#endif
 
 static int64_t syscall_fcntl(uint64_t fd, uint64_t command, uint64_t arg) {
     if(command==SRV_F_DUPFD || command==SRV_F_DUPFD_CLOEXEC)
@@ -2636,32 +2851,28 @@ static bool io_defer_wait(uint64_t flags) {
     }
     return false;
 }
-static int64_t syscall_wait(uint64_t pid, uint64_t *status_out, uint64_t flags) {
-    if(flags & ~(SRV_WAIT_NOHANG|SRV_WAIT_POSIX)) return SRV_ERR_INVAL;
-    /* Validate before consuming the child: a bad output pointer must not lose
-     * a waitable result. */
-    if(status_out && !user_buffer_ok(status_out,sizeof(*status_out),true)) return SRV_ERR_FAULT;
-    uint64_t status=0;int64_t result=0;
-    if(!(flags&SRV_WAIT_POSIX) && process_try_wait_retired(pid,&status,&result))
-        return !status_out || copy_to_user(status_out,&status,sizeof(status))?result:-1;
-    if(io_defer_wait(flags)) return 0;
-    /* Reaping may free mappings/descriptors; never run that continuation under
-     * another owner's I/O after the function enables interrupts. */
-    scheduler_io_set_user_safe(false);
-    scheduler_io_wait();
+static bool syscall_wait_copy(void *context,uint64_t status) {
+    uint64_t *out=context;
+    if(!out)return true;
+    /* Process invokes this under IRQ0 before claiming the child. Validate the
+     * complete object before the first byte and keep exclusion through copy. */
+    if(!user_buffer_ok(out,sizeof(*out),true))return false;
+    for(size_t i=0;i<sizeof(status);i++)((volatile uint8_t *)out)[i]=((const uint8_t *)&status)[i];
+    return true;
+}
+static int64_t syscall_wait(uint64_t pid,uint64_t *status_out,uint64_t flags) {
+    if(flags&~(SRV_WAIT_NOHANG|SRV_WAIT_POSIX))return SRV_ERR_INVAL;
+    if(status_out && !user_buffer_ok(status_out,sizeof(*status_out),true))return SRV_ERR_FAULT;
+    int64_t result=0;
+    if(!(flags&SRV_WAIT_POSIX) && process_try_wait_retired_checked(pid,syscall_wait_copy,status_out,&result))return result;
+    if(io_defer_wait(flags))return 0;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();
 #ifndef SRVROS_SYSCALL_IO_HOST_TEST
-    if(!(flags & SRV_WAIT_NOHANG)) __asm__ volatile ("sti" : : : "memory");
+    if(!(flags&SRV_WAIT_NOHANG))__asm__ volatile("sti":::"memory");
 #endif
-    result=(flags & SRV_WAIT_POSIX)?
-        process_wait_posix((int64_t)pid,&status,(flags & SRV_WAIT_NOHANG)!=0):
-        process_wait(pid,&status,(flags & SRV_WAIT_NOHANG)!=0);
-    if (result > 0 && status_out != NULL && !copy_to_user(status_out, &status, sizeof(status))) {
-        result=-1;
-    }
-    uint64_t irq=irq_save();
-    scheduler_io_set_user_safe(true);scheduler_io_handoff();scheduler_io_set_user_safe(false);
-    irq_restore(irq);
-    return result;
+    result=process_wait_checked((int64_t)pid,flags,syscall_wait_copy,status_out);
+    uint64_t irq=irq_save();scheduler_io_set_user_safe(true);scheduler_io_handoff();scheduler_io_set_user_safe(false);
+    irq_restore(irq);return result;
 }
 
 static int64_t syscall_proc_exit_status(uint64_t pid, uint64_t *status_out) {
@@ -3022,28 +3233,31 @@ static bool sleep_finished(void *arg) {
     return timer_ticks()-wait->start>=wait->ticks || process_should_exit_current() || process_signal_pending_current();
 }
 
-static int64_t syscall_sleep_ticks(uint64_t ticks) {
-    uint64_t start = timer_ticks();
-    if(ticks>UINT64_MAX-start) return -1;
-    struct sleep_wait wait={start,ticks};
+struct signal_sleep_elapsed { uint64_t us,ticks;bool mono_valid; };
+static int64_t syscall_sleep_ticks_measured(uint64_t ticks,struct signal_sleep_elapsed *elapsed) {
+    uint64_t start=timer_ticks();
+    if(ticks>UINT64_MAX-start)return -1;
+    bool mono=elapsed && timer_reference_ready();uint64_t start_us=mono?timer_monotonic_us():0;
+    struct sleep_wait wait={start,ticks};int64_t result=0;
 #ifndef SRVROS_SYSCALL_SLEEP_HOST_TEST
     __asm__ volatile ("sti" : : : "memory");
 #endif
-    while (timer_ticks() - start < ticks) {
-        if (process_should_exit_current()) {
-            return -1;
+    for(;;) {
+        uint64_t irq=irq_save();uint64_t now=timer_ticks();
+        if(now-start>=ticks)result=0;
+        else if(process_should_exit_current())result=-1;
+        else if(process_signal_pending_current())result=SRV_ERR_INTR;
+        else {irq_restore(irq);if(!scheduler_wait_timeout(process_file_poll_wait_queue(),sleep_finished,&wait,start+ticks))scheduler_yield();continue;}
+        if(elapsed) {
+            elapsed->ticks=now-start;elapsed->mono_valid=mono;
+            uint64_t end=mono?timer_monotonic_us():0;
+            if(mono && end>=start_us)elapsed->us=end-start_us;
+            else {elapsed->mono_valid=false;elapsed->us=0;}
         }
-        if (process_signal_pending_current()) {
-            return SRV_ERR_INTR;
-        }
-        /* Signals and cancellation already wake file-poll waiters. Reuse that
-         * queue so a long sleep can be interrupted immediately; unrelated I/O
-         * wakeups simply recheck the deadline without completing the sleep. */
-        if(!scheduler_wait_timeout(process_file_poll_wait_queue(),sleep_finished,&wait,start+ticks))
-            scheduler_yield();
+        irq_restore(irq);return result;
     }
-    return 0;
 }
+static int64_t syscall_sleep_ticks(uint64_t ticks) {return syscall_sleep_ticks_measured(ticks,NULL);}
 
 /* Bounded to one timer tick: signal/exit delivery cannot be stranded on the
  * private pointer queue. Readiness is rechecked atomically by the scheduler. */
@@ -3415,8 +3629,75 @@ static int64_t syscall_audio(uint64_t operation,uint64_t value,struct srv_audio_
     return copy_to_user(out,&snapshot,sizeof(snapshot))?result:-1;
 }
 
+#include "signal_io_backend.inc"
+
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+static bool signal_experimental_raw_allowed(const struct isr_frame *frame) {
+    /* This exact test image admits local runtime qualification only. Reject
+     * every external/namespace socket entry before any backend effect. */
+    switch(frame->rax) {
+    case SYS_SESSION_SCOPE:case SYS_FILE_STREAM:return false;
+    case SYS_NET_LISTEN:case SYS_NET_ACCEPT:case SYS_NET_DHCP:case SYS_NET_STATUS:case SYS_NET_DNS:
+    case SYS_NET_CONNECT:case SYS_NET_UDP_OPEN:case SYS_NET_UDP_BIND:case SYS_NET_UDP_SENDTO:
+    case SYS_NET_UDP_RECVFROM:case SYS_NET_SOCKNAME:case SYS_NET_PEERNAME:case SYS_NET_SHUTDOWN:
+    case SYS_NET_ERROR:case SYS_NET_LIST:case SYS_NET_STATUS_INFO:case SYS_NET_ARP_LIST:case SYS_NET_PING:
+    case SYS_NET_PEEK:case SYS_UNIX_BIND:case SYS_UNIX_LISTEN:case SYS_UNIX_CONNECT:case SYS_UNIX_ACCEPT:
+    case SYS_UNIX_UNLINK:case SYS_SOCKET_TRY_IO:return false;
+    case SYS_PREAD:case SYS_PWRITE:case SYS_PIPE_MESSAGE:
+    case SYS_PIPE_SEND_RIGHTS:case SYS_PIPE_RECV_RIGHTS:case SYS_PIPE_PAIR:case SYS_PIPE_PAIR_FLAGS:return false;
+    case SYS_READ:case SYS_WRITE:case SYS_VECTOR_IO:return process_signal_experimental_fd_allowed(frame->rdi);
+    case SYS_FCNTL:return (frame->rsi==SRV_F_GETFD || frame->rsi==SRV_F_GETFL) &&
+        process_signal_experimental_fd_allowed(frame->rdi);
+    default:return true;
+    }
+}
+#endif
 static void syscall_dispatch_impl(struct isr_frame *frame) {
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+    if(!signal_experimental_raw_allowed(frame)){frame->rax=(uint64_t)SRV_ERR_NOTSUP;return;}
+#endif
+    uint64_t io_args[6]={frame->rdi,frame->rsi,frame->rdx,frame->rcx,frame->r8,frame->r9};
+    int64_t io_result;
+    if(signal_io_raw_backend(frame->rax,io_args,&io_result)) {frame->rax=(uint64_t)io_result;return;}
     switch (frame->rax) {
+#ifdef SRVROS_SIGNAL_PUBLIC_GUEST_TEST
+    case SYS_SIGNAL_CONTROL:
+    case SYS_SIGNAL_IO: {
+        bool control=frame->rax==SYS_SIGNAL_CONTROL;
+        uint64_t storage[16]={0};uint8_t *wire=(uint8_t *)storage;
+        size_t length=control?sizeof(struct srv_signal_control_v1):sizeof(struct srv_signal_io_v1);
+        if(frame->rsi!=length || frame->r8 || frame->r9) {frame->rax=(uint64_t)SRV_ERR_INVAL;return;}
+        if(!copy_from_user(wire,(const void *)frame->rdi,length)){frame->rax=(uint64_t)SRV_ERR_FAULT;return;}
+        uint64_t operation;
+        if(control)operation=((const struct srv_signal_control_v1 *)wire)->operation;
+        else operation=((const struct srv_signal_io_v1 *)wire)->operation;
+        if(!control && operation==SRV_SIGNAL_IO_CALL) {
+            if(frame->rdx || frame->rcx) {frame->rax=(uint64_t)SRV_ERR_INVAL;return;}
+            frame->rax=(uint64_t)signal_io_call(frame,(const struct srv_signal_io_v1 *)wire);return;
+        }
+        frame->rax=(uint64_t)process_signal_public_stage(frame,
+            control?SIGNAL_REQUEST_CONTROL:SIGNAL_REQUEST_IO,operation,wire,frame->rdx,frame->rcx);
+        return;
+    }
+    case SYS_SIGNAL_RETURN: {
+        if(frame->rdx || frame->rcx || frame->r8 || frame->r9){
+            (void)process_record_user_fault(SRV_SIGNAL_SEGV);frame->rax=(uint64_t)SRV_ERR_INVAL;return;
+        }
+        uint64_t wire[16]={frame->rdi,frame->rsi};
+        frame->rax=(uint64_t)process_signal_public_stage(frame,SIGNAL_REQUEST_RETURN,1,
+            (const uint8_t *)wire,0,0);
+        if((int64_t)frame->rax<0)(void)process_record_user_fault(SRV_SIGNAL_SEGV);
+        return;
+    }
+    case SYS_SIGNAL_SUSPEND: {
+        if(frame->rcx || frame->r8 || frame->r9){frame->rax=(uint64_t)SRV_ERR_INVAL;return;}
+        uint64_t wire[16]={frame->rdi,frame->rsi,frame->rdx};
+        frame->rax=(uint64_t)process_signal_public_stage(frame,SIGNAL_REQUEST_SUSPEND,frame->rdi,
+            (const uint8_t *)wire,0,0);
+        return;
+    }
+#endif
+
     case SYS_FILE_STREAM:
         frame->rax=(uint64_t)syscall_file_stream((const struct srv_file_stream_request *)frame->rdi);
         return;
@@ -3963,6 +4244,12 @@ static bool namespace_syscall(uint64_t number) {
     }
 }
 void syscall_dispatch(struct isr_frame *frame) {
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+    /* Unsupported extensions must not wait for namespace I/O ownership. */
+    if(frame->rax==SYS_SESSION_SCOPE || frame->rax==SYS_FILE_STREAM) {
+        frame->rax=(uint64_t)SRV_ERR_NOTSUP;return;
+    }
+#endif
     if(!namespace_syscall(frame->rax)) { syscall_dispatch_impl(frame);return; }
     uint64_t flags=irq_save();
     scheduler_io_set_user_safe(false);scheduler_io_wait();
