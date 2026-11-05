@@ -4226,6 +4226,12 @@ static bool namespace_syscall(uint64_t number) {
     }
 }
 void syscall_dispatch(struct isr_frame *frame) {
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+    /* Unsupported extensions must not wait for namespace I/O ownership. */
+    if(frame->rax==SYS_SESSION_SCOPE || frame->rax==SYS_FILE_STREAM) {
+        frame->rax=(uint64_t)SRV_ERR_NOTSUP;return;
+    }
+#endif
     if(!namespace_syscall(frame->rax)) { syscall_dispatch_impl(frame);return; }
     uint64_t flags=irq_save();
     scheduler_io_set_user_safe(false);scheduler_io_wait();
