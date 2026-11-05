@@ -816,7 +816,7 @@ void kmain(void) {
         }
         if(automatic_hfw && started && init_ready && timer_running) {
 #ifdef SRVROS_AP_PROBE
-            sampled=cmdline_has_token(cmdline,"srvros.hsw-cache=context-only")?haswell_cache_context_run():haswell_firmware_run();
+            sampled=cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx")?haswell_alias_context_run():cmdline_has_token(cmdline,"srvros.hsw-cache=context-only")?haswell_cache_context_run():haswell_firmware_run();
 #else
             console_write("hsw-firmware: ordinary-kernel refused\n");sampled=false;
 #endif

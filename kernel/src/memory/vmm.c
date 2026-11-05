@@ -237,6 +237,21 @@ void vmm_init(void) {
         (uint64_t)kernel_pml4);
 }
 
+bool vmm_diagnostic_sole_kernel_root(uint64_t expected) {
+    uint64_t flags;
+#ifdef SRVROS_VMM_HOST_TEST
+    flags=vmm_test_rflags();
+#else
+    __asm__ volatile ("pushfq; popq %0" : "=r"(flags));
+#endif
+    if ((flags & (1ull<<9)) || !expected || (expected & ~PAGE_MASK) ||
+        expected!=kernel_cr3 || read_cr3()!=expected || !kernel_pml4 ||
+        kernel_pml4!=pmm_phys_to_virt(expected) || address_space_count) return false;
+    for (unsigned i=0;i<VMM_MAX_ADDRESS_SPACES;i++)
+        if (address_space_records[i].used) return false;
+    return true;
+}
+
 static bool map_page_in_space(uint64_t address_space,
     uint64_t virtual_address,
     uint64_t physical_address,

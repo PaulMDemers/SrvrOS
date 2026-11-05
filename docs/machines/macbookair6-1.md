@@ -7380,3 +7380,17 @@ observation leave every live resource/alias/NX/leaf/retirement grant false.
 Audited source/reference hashes, replay output and local test logs are retained
 with a durable copy outside build. No payload installation or physical result
 changes; previous capture remains closed and no reboot is armed.
+
+### Bounded read-only alias/NX diagnostic scope (2026-11-05)
+
+Base `3f158022`; prior native run collected/closed. PR301 `7e33d1a5` remains
+independent GPU ownership work; no competing VMM edit is present in that branch.
+Add a separate v3 firmware/cache profile, retaining v1/v2 and their49-MSR,
+16-PTE context caps. New census has explicit64-table/32768-entry per-pass and
+4096-byte lossless encoding caps, two exact passes within100ms total, and refuses
+any nonkernel registered root. Read-only NX/EFER endpoints and CPU0 IRQ exclusion
+bracket the census. Keep complete raw RAM table data or refuse; no target data,
+new mapping, page-table/policy write or hardware ownership. Touched scope: isolated
+Haswell diagnostic/core/decoder, a read-only VMM sole-root guard, profile/harness,
+tests and own docs. Require max-tail, guard/overflow/change/fault tests and exact
+VM save/return/refusal checks before native installation under existing authority.

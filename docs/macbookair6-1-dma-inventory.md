@@ -374,3 +374,52 @@ diagnostic, with explicit completeness/refusal evidence and fresh guards. It mus
 not silently widen the16-PTE context capture or convert its known aliases into
 global coverage. The read sequence and100ms/two-pass/retirement contract above
 remain unchanged; actual VT-d reads and hardware ownership stay unimplemented.
+
+## Separate bounded alias/NX diagnostic candidate
+
+Add `--haswell-alias-context` to the explicit firmware and cache-context stage
+flags for `ram-usb-v3-hfw`. Versions1/2 are unchanged, including their49-MSR and
+16-PTE CPU-context caps. Version3 inserts a separate read-only census between
+those cache contexts, under the same fresh pinned firmware/catalog brackets.
+No VT-d target/alias data, device table, new mapping or control write is used.
+
+The VMM observational sole-root guard requires CPU0 IRQ exclusion, current
+untagged kernel CR3, matching kernel-root pointer and no registered nonkernel
+root or stale used root record. It allocates and writes nothing and grants no
+lease or SMP/firmware authority. Normal profile dispatch launches no AP test;
+staging refuses AP, battery, graphics or other unrelated modifiers. Other roots
+refuse instead of being ignored. Upper-half sharing cannot bypass this guard.
+
+The distinct census visits the full reachable four-level CPU RAM-table graph,
+including inherited/private mappings, rather than the public mapping list.
+It caps unique tables at64 and loads at32768 entries per pass, with two exact
+passes and100ms total. Four-KiB,2MiB and1GiB leaves are recognized, shared tables
+at the same level are retained once, and cross-level cycles, physical/reserved/
+large-leaf errors, unknown RAM, data changes and any exhausted bound refuse.
+Both declared device pages are forbidden as CPU table sources. No leaf's target
+is dereferenced. Exact translation checks precede each CPU table entry load.
+
+Raw tables are encoded losslessly into at most4096 bytes per pass. Each page is
+`<QB>` physical address/level followed by `<HQQ>` count/first/stride runs whose
+counts sum to512. Values advance modulo2^64, so zeros and arithmetic mapping
+runs compress without dropping any bit, including nonpresent/A/D/software bits.
+An incompressible graph refuses; it never falls back to a hash or sparse subset.
+Both pass payloads are emitted in512-byte Base64 chunks and must decode to
+identical raw words. The independent decoder verifies all RAM sources, full graph
+closure, leaf decoding and every overlapping point-walk record. Coverage means
+this sole managed root's CPU page-table graph, not stale TLBs, SMM/firmware roots,
+other hardware agents or an exclusive device resource claim.
+
+Read-only CPUID extended-NX/1GiB capabilities and IA32_EFER endpoints bracket
+this work; NX/LME/LMA must be enabled and stable, unknown EFER bits refuse.
+Unsupported1GiB leaves refuse. Two EFER reads are separate from the unchanged
+PAT/MTRR MSR budget. IRQ-enable state must restore on success and every refusal;
+step/status records identify source/root/NX/census/retirement failures. No NX,
+cache, interrupt-routing, power or hardware policy is changed. Ordinary boot
+excludes this opt-in diagnostic.
+
+The guest announces progress, then saves the complete receipt, unmounts and
+returns automatically. Completion requires both decoded cache contexts, both raw
+census passes, matching firmware/catalog guards and USB integrity; a return or
+bounded refusal alone is not acceptance. The unchanged64KiB tail must retain
+maximum fixtures plus the audited source postamble. Native result is pending.
