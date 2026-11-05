@@ -295,3 +295,82 @@ leaf-admission proof against these exact observations and current VMM behavior.
 Then require the separate bounded read/retirement contract above; no hardware
 ownership, native DMA translation state or full-path swizzle follows from this
 capture. Earlier RC6 timing failure and zero package-C3 residency remain open.
+
+## VT-d resource and CPU-alias admission audit (2026-11-05)
+
+Source baseline `379d6f8d`; accepted cache receipt remains source `57c6b416`.
+The host-only `tools/haswell_vtd_admission_audit.py` consumes the full raw receipt
+through the strict cache/firmware decoders. It models the prospective4KiB leaf
+and reports live admission as blocked. Saved observations never supply a live
+lease, complete alias census, EFER state or mapping lifetime. Unrelated appended
+claims and synthetic/foreign firmware cannot promote a receipt into permission.
+
+### Resource exclusion is distinct from an MMIO lease
+
+`kernel/src/memory/pmm.c:pmm_init` initializes the bitmap/tags as used/reserved,
+then frees only catalog USABLE entries; `pmm_free_frame_range` refuses reserved
+frames. The captured hole therefore supplies no ordinary allocatable RAM page.
+This explains allocator exclusion, without proving the current bitmap from a
+historical receipt. PMM has no exclusive MMIO-owner/token API. The pinned DMAR
+declaration and exact gap edges identify this unit's candidate page but establish
+neither competing-client exclusion nor firmware/DMA ownership. The other DRHD
+page remains excluded. PR301 `dc569037` adds independent Intel GPU boot-client
+exclusion; it is not a VT-d physical-page lease and is not imported here.
+
+An eventual diagnostic must keep a boot-scoped exact-page/window state with
+single admission and terminal poison on uncertain publication/retirement. All
+relevant callers must participate, or the test must run under explicit verified
+boot exclusion before competing clients. A token local to an adapter alone is
+not evidence that arbitrary existing mappers were excluded. No resource claim
+mechanism is added by this audit.
+
+### VMM lists and point lookups cannot enumerate aliases
+
+`kernel/src/memory/vmm.c:vmm_init` adopts inherited CR3. Its128-entry
+`kernel_mappings` list records only selected public kernel mappings; it does
+not enumerate the bootloader tree or `vmm_map_page_in_space` mappings. The latter
+uses strict absent-leaf admission, while `vmm_ensure_page_in_space` can accept an
+existing PA without checking requested attributes. Neither a successful PA
+lookup nor this list is an alias or cache-permission proof.
+
+`vmm_prepare_user_kernel_mappings` and `vmm_refresh_kernel_mappings` copy upper
+PML4 entries into other roots, potentially sharing lower tables. A private
+in-space call does not by itself isolate a kernel VA from other address spaces.
+Any census must prove its relevant-root and CPU coverage, retain raw4KiB/2MiB/
+1GiB leaf encodings and include inherited/private mappings under stable root and
+mapping-mutation exclusion. Missing coverage, unknown RAM, unsupported entries,
+changed paths or exhausted bounds must refuse. The current two-VA capture is
+intentionally incomplete; its16-PTE/context limit is unchanged and it must not
+be relabeled as a complete census. No alias is removed or retyped to obtain a pass.
+
+### Prospective leaf and retirement checks
+
+Intel SDM Vol3A sections4.5/4.6,12.5.2.2 and12.12.3 distinguish leaf encoding,
+effective memory type and enabled execute protection. A prospective fresh PTE
+`0x80000000fed90019` selects4KiB PAT index3 using PWT/PCD, sets present/XD and
+clears writable/user/global/PAT-leaf bits. Under the captured PAT/MTRR/CR0 state,
+that encoding classifies UC and CR0.WP is set. This is an encoding model, not an
+observed device leaf. The host model rejects every other PA/permission/cache/
+reserved encoding, missing WP, non-UC and undefined MTRR overlap.
+
+The cache wire format does not capture CPUID NX support or IA32_EFER.NXE.
+Setting an XD entry requires the latter enabled; an NX-looking bit alone is
+insufficient. Require fresh read-only feature/EFER observations and raw path
+permission/cache checks before a separately authorized mapper, preserving the
+existing snapshot limits and version compatibility. An old receipt never proves
+current state. No EFER write or cache-policy change is proposed.
+
+`vmm_map_page_in_space` may leave allocated intermediate tables on failure;
+`vmm_unmap_page_in_space` clears a4KiB leaf and invalidates locally only when the
+specified root is current. These functions alone prove neither expected leaf
+ownership nor remote/global TLB retirement. Use exact raw prevalidation, a
+current kernel root, supervisor RO/NX/non-global leaves, CPU/mutation exclusion,
+verified clear and local invalidation before reuse. Quarantine a possibly
+published window on failure; never free MMIO or borrowed CPU tables. Generic
+ensure/global-map APIs do not substitute for these checks.
+
+Next is a separately scoped bounded read-only relevant-root/alias and NX-state
+diagnostic, with explicit completeness/refusal evidence and fresh guards. It must
+not silently widen the16-PTE context capture or convert its known aliases into
+global coverage. The read sequence and100ms/two-pass/retirement contract above
+remain unchanged; actual VT-d reads and hardware ownership stay unimplemented.
