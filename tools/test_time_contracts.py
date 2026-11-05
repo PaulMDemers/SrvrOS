@@ -23,7 +23,7 @@ def main():
              'nanosleep clock_nanosleep gettimeofday utimes sleep usleep utimensat').split()
     renamed = out / 'rename.h'
     renamed.write_text(''.join(f'#define {name} audit_{name}\n' for name in names))
-    sources = [ROOT / path for path in ('tools/test_time_contracts.c', 'userspace/lib/src/posix_time.c')]
+    sources = [ROOT / path for path in ('tools/test_time_contracts.c', 'userspace/lib/src/posix_time.c', 'tools/test_signal_unavailable.c')]
     compiler = shlex.split(os.environ.get('CC', 'cc'))
     executable = out / 'time-contracts'
     # Use compiler-provided fundamental types with SrvrOS headers; hosted GCC

@@ -37,7 +37,7 @@ def main():
     sources = [ROOT / path for path in (
         'tools/test_sync_contracts.c',
         'userspace/lib/src/posix_pthread.c',
-        'tools/test_sync_semaphore.c')]
+        'tools/test_sync_semaphore.c', 'tools/test_signal_unavailable.c')]
     semaphore_source = ROOT / 'userspace/lib/src/posix_semaphore.c'
     compiler = shlex.split(os.environ.get('CC', 'cc'))
     shim = ROOT / 'tools/test_sync_host_threads.c'

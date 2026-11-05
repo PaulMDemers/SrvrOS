@@ -40,11 +40,14 @@ static struct isr_frame *frame_of(struct common_storage *s) {return (void *)(s->
 static struct fpu_user_trap_proof *proof_of(struct common_storage *s) {return (void *)(s->bytes+FPU_COMMON_PROOF);}
 static uint8_t *area_of(struct common_storage *s) {return s->bytes+FPU_COMMON_TRAP_AREA;}
 void console_write(const char *s) {(void)s;}
-bool scheduler_observe_user_entry(struct scheduler_user_return_observation *out) {
+/* Deliberately hostile test callback may use SSE;critical trap helpers
+ * remain compiled with the no-SSE policy under test. */
+__attribute__((target("sse2"))) bool scheduler_observe_user_entry(struct scheduler_user_return_observation *out) {
     entry_calls++;assert(!user_state_loaded);
     assert(!memcmp(current_user_state->fxsave_area,expected.bytes,512));
     if(query_clobber)__asm__ volatile("pcmpeqd %%xmm15, %%xmm15":::"xmm15");
-    if(!entry_ok)return false;*out=observation;
+    if(!entry_ok)return false;
+    *out=observation;
     if(corrupt_query_owner)current_user_state=&ub.state;
     return true;
 }
@@ -65,7 +68,7 @@ static CRITICAL void save_fx(struct fpu_user_snapshot *out) {
 static CRITICAL void load_fx(const struct fpu_user_snapshot *in) {
     __asm__ volatile("fxrstor64 (%0)"::"r"(in->bytes):"memory");
 }
-static CRITICAL void make_image(struct fpu_user_snapshot *out,uint16_t cw,uint32_t mxcsr,const uint64_t *xmm) {
+static CRITICAL __attribute__((target("sse2"))) void make_image(struct fpu_user_snapshot *out,uint16_t cw,uint32_t mxcsr,const uint64_t *xmm) {
     __asm__ volatile("fninit; fldcw %0; fld1; fldpi; ldmxcsr %1; movdqu %2, %%xmm15"
         ::"m"(cw),"m"(mxcsr),"m"(*(const uint64_t (*)[2])xmm):"memory","xmm15");
     save_fx(out);

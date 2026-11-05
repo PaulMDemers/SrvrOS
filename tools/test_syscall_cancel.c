@@ -72,7 +72,7 @@ static void outer_tests(void)
     static struct isr_frame frame;
     frame=(struct isr_frame){.cs=0x23,.vector=0x80,.rax=7};
     killed=kill_during_call=kill_while_waiting=kill_during_handoff=false;
-    unsigned c,w,h,k,u,e,s;
+    volatile unsigned c,w,h,k,u,e,s;
     for(unsigned initial_if=0;initial_if<2;initial_if++) for(unsigned safe=0;safe<2;safe++) {
         safe_call=safe;user_safe=true;simulated_if=initial_if;
         c=calls;w=waits;h=handoffs;k=kernel_entries;u=user_entries;e=exclusions;s=safe_publications;

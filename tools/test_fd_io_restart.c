@@ -58,6 +58,8 @@ int __posix_eventfd_is_pseudo(int fd) {
     (void)fd;
     return 0;
 }
+int __posix_eventfd_is_pseudo_safe(int fd){(void)fd;assert(!"unexpected public-I/O event query");return 0;}
+uint64_t __posix_event_capture_identity_locked(int fd){(void)fd;assert(!"unexpected public-I/O capture");return 0;}
 ssize_t __posix_eventfd_read(int fd, void *buffer, size_t length) {
     (void)fd; (void)buffer; (void)length;
     assert(!"unexpected eventfd read");

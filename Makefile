@@ -2569,9 +2569,9 @@ build/tests/tool-clipboard-host$(HOST_EXE): tools/test_tool_clipboard.c userspac
 test-core: test-posix-poll
 test-posix-poll: build/tests/posix-poll-host$(HOST_EXE)
 	$<
-build/tests/posix-poll-host$(HOST_EXE): tools/test_posix_poll.c userspace/lib/src/posix_poll.c userspace/lib/include/srvros/sys.h shared/include/srvros/syscall_numbers.h
+build/tests/posix-poll-host$(HOST_EXE): tools/test_posix_poll.c tools/test_signal_unavailable.c userspace/lib/src/posix_poll.c userspace/lib/src/signal_runtime.h userspace/lib/src/socket_signal.h userspace/lib/include/srvros/sys.h shared/include/srvros/syscall_numbers.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -I userspace/lib/include -I shared/include $< tools/test_signal_unavailable.c -o $@
 
 .PHONY: test-posix-dir
 test-core: test-posix-dir
@@ -4670,9 +4670,9 @@ test-fd-io-restart: build/tests/fd-io-restart-host$(HOST_EXE)
 build/tests/fd-io-restart-file.o: userspace/lib/src/posix_file.c tools/posix_file_host_names.h $(USER_SYSROOT_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -ffunction-sections -fdata-sections -I shared/include -I userspace/lib/include -include tools/posix_file_host_names.h -c $< -o $@
-build/tests/fd-io-restart-host$(HOST_EXE): tools/test_fd_io_restart.c build/tests/fd-io-restart-file.o $(USER_SYSROOT_HEADERS)
+build/tests/fd-io-restart-host$(HOST_EXE): tools/test_fd_io_restart.c tools/test_signal_unavailable.c userspace/lib/src/signal_runtime.h userspace/lib/src/socket_signal.h build/tests/fd-io-restart-file.o $(USER_SYSROOT_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< build/tests/fd-io-restart-file.o -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< tools/test_signal_unavailable.c build/tests/fd-io-restart-file.o -Wl,--gc-sections -o $@
 
 .PHONY: test-dns-response test-socket-calls test-socket-try-io
 DNS_RESPONSE_MODES := valid case question qtype qclass qr opcode tc rcode self-pointer forward-pointer bad-pointer unrelated trailing-answer trailing-additional bounds cname interior-pointer header-pointer cname-cycle cname-length cname-conflict unrelated-first

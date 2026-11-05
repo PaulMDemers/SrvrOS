@@ -22,6 +22,15 @@ long srv_poll(struct srv_pollfd *fds,size_t count,int64_t timeout) {
 int __posix_socket_poll_fd(int fd) { return fd==1000?7:fd; }
 short __posix_socket_poll_update(int fd,short wanted,short actual) { (void)fd;(void)wanted;return actual; }
 int __posix_signal_dispatch_pending(void) { int result=dispatch;dispatch=0;return result; }
+/* The legacy model advertises no logical signal-I/O capability. */
+void __posix_event_lock(void){assert(!"unexpected public poll lock");}
+void __posix_event_unlock(void){assert(!"unexpected public poll unlock");}
+uint64_t __posix_event_capture_identity_locked(int fd){(void)fd;assert(!"unexpected public poll capture");return 0;}
+int __posix_event_identity_matches_locked(int fd,uint64_t id){(void)fd;(void)id;assert(!"unexpected public poll identity");return 0;}
+int __posix_eventfd_poll_locked(int fd,short events,uint64_t *id){(void)fd;(void)events;(void)id;assert(!"unexpected public poll event");return -1;}
+long srv_monotonic_us(void){assert(!"unexpected public poll clock");return -1;}
+long srv_ticks(void){assert(!"unexpected public poll ticks");return -1;}
+long srv_signal_mask(uint64_t how,uint64_t mask,uint64_t *old){(void)how;(void)mask;(void)old;assert(!"unexpected public poll mask");return -1;}
 int main(void) {
     fd_set r,w,e;struct timeval timeout={0};
     FD_ZERO(&r);FD_ZERO(&w);FD_ZERO(&e);

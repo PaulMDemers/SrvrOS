@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
+#include <stdint.h>
 #define SRVROS_PROCESS_HOST_TEST
 #define SRVROS_PROCESS_IRQ_HOST_TEST
 static uint64_t simulated_flags=1ull<<9;
