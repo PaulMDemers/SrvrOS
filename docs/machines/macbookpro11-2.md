@@ -12761,10 +12761,19 @@ precedes the power transaction.
 
 The clean foundationd90d6f61 (main518175df) is independently sealed in a102-file
 host-only capsule outside build,including matched runtime/source/proofs. The
-new native child still needs committed exact-image/desktop VM rehearsal,storage/
-recovery preflight and a cold hardware run. No trial has been installed or armed
-by this paragraph. Current27a82f0daa89a62f/previous e47dca3a6b30c6c1 and v122
-native acceptance remain unchanged. Credentials remain unread/unpackaged.
+new native child passed committed exact-image GPT save/return and missing-
+workspace refusal VMs,ordinary desktop VM,fresh2MiB filesystem write/read/remount
+and fsck,full-prefix and recovery/writable/headroom preflight. Runtime source
+13c08048/main518175df stages released105a5d22539cf69;it is installed with Ubuntu
+default and e47dca3a6b30c6c1 still previous. The accepted v122 payload and
+failed/accepted v121 copies remain installed. Only the unreferenced v118 EFI
+copy62e3a5325065719e was retired after its full independent sealed backup was
+verified byte-for-byte. That backup remains outside build. The prior accepted
+v122 large session was also independently archived and verified before pruning
+its generated USB log copy,to avoid the older-session collector size refusal.
+The new selected/parent native frame maximum is616bytes. The physical power
+run is pending;there is no new native power acceptance. Wi-Fi credentials
+remain unread/unpackaged.
 The user authorizes automatic shutdown when ready;Wi-Fi still needs ten seconds
 unplugged while off,same-port reconnect and power-on,with workspace left attached.
 Collect the matching saved session before any next run. Management association,
