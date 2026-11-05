@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "date": "2026-11-05",
+  "status": "source/configuration audit and owner design review complete; target implementation unqualified",
+  "baseline_os": "88bdc382d50e7387d29ef75d26c03c65fbb16b37",
+  "baseline_ports": "89f22a967415297cc6af9229c2bee950932b4aee",
+  "baseline_ui": "3a695ce51e06af0a7ab9c21beedcb8dfe221be9c",
+  "archive": {
+    "url": "https://wpewebkit.org/releases/wpewebkit-2.54.2.tar.xz",
+    "sha256": "f3284e19e47fcb5ac8c63c2e1c113dbd65b2423eb8a545f5b345707829004f56",
+    "bytes": 49565492
+  },
+  "source_scope": "selected checksum-verified archive text, not complete build tree",
+  "inspected_upstream_sha256": {
+    "CMakeLists.txt": "6261cdbed79a26d31a1a4c04811eadddc69dbccb4d0770db63f6c348375890a4",
+    "Source/cmake/OptionsWPE.cmake": "886f92527e498ed07fd1d83ac6d759ac3002fe1b0cc6410c265aebaad90656df",
+    "Source/cmake/FindGLib.cmake": "1e73d3458fa32bb0346a7d29e6687ffa27b264627299990e753602e9767500ea",
+    "Source/cmake/WebKitCommon.cmake": "fd9902edefdcee19c623f6bb5d6e88bab4774245ac8042d188e16bae09963469",
+    "Source/cmake/WebKitFeatures.cmake": "1bb5a1869afd814bd914a98bb51dc404addfa861a7364340b342b0360ad089e4",
+    "Source/cmake/GStreamerDefinitions.cmake": "80dab571afc9a05773fd0df2b6da0fc14fdb4537283ff2008e942a3ee6e8a348",
+    "Source/cmake/GStreamerDependencies.cmake": "a8cefba4af2202a0b33b5e2c6e1afbd12e2994d37003e2d63664d79cc4e47056",
+    "Source/ThirdParty/skia/CMakeLists.txt": "571da2e001441b9f990e2cf6ce4009d0f722bdcc1b43730e609b7af20098fd54",
+    "Source/WTF/wtf/PlatformWPE.cmake": "232f27e40950eb87176a34127b20531e7de1043230e1e4bba5e1cb3b62bf7fa5",
+    "Source/WTF/wtf/PlatformUse.h": "3eaf865d131699e643e079a417a37d28ef88de525c6361d213e24c3460b075be",
+    "Source/WTF/wtf/glib/RunLoopGLib.cpp": "3e5406e4bd39a4fd56a1bb06b0a218dfcc20ff5b4d46915a782b18df9ef1d313",
+    "Source/WebCore/PlatformWPE.cmake": "00eecb12eba16376f09bb2d87426836ea6b253aa8d6185ddd1bff38c958e3854",
+    "Source/WebCore/platform/Skia.cmake": "bc56303a24546141eab94f6ec8a8357a7b58f041f14a09f332844687219741f2",
+    "Source/WebCore/platform/unix/SharedMemoryUnix.cpp": "f22fcd5914b390f057db6d976543ca6d4d31467f8d350df70d234f7380197cf4",
+    "Source/WebCore/platform/graphics/skia/ShareableBitmapSkia.cpp": "2224682f65a8e41e3f1c7f4bd053a9184b707abe26bfb2aa056361e78549f01c",
+    "Source/WebCore/platform/graphics/skia/ImageBufferSkiaUnacceleratedBackend.cpp": "d1aefa81b6fd19ae413fdd478f21697914914685c53c6fa186ba6b86b23696cb",
+    "Source/WebKit/WPEPlatform/CMakeLists.txt": "815683fff075174a96fb92664fc23a0bf5b513456ac59847ae7ccfbbe17c903b",
+    "Source/WebKit/WPEPlatform/wpe/WPEView.h": "b4270da453b4ea8d01583978142ed248ac5e3ab4f77caf37d70c667dd347366c",
+    "Source/WebKit/WPEPlatform/wpe/WPEView.cpp": "71c16a148b28501f144e1b56989d414790065844804e5ede0008e78edf3531d3",
+    "Source/WebKit/WPEPlatform/wpe/WPEBufferSHM.cpp": "724064bffd252111670d7c25083a1383d2bc39725ad6e9833ea52adaad662f46",
+    "Source/WebKit/WPEPlatform/wpe/headless/WPEDisplayHeadless.cpp": "3efdc71a181962075971117b872c144445d346b37e01dab580bf197611fedb1e",
+    "Source/WebKit/WPEPlatform/wpe/headless/WPEViewHeadless.cpp": "cbf2002aec6674da16fadf6cf515b3effd580baf9b8fa83189890f002cbeaf6c",
+    "Source/WebKit/UIProcess/API/glib/WebKitSettings.cpp": "a057af0cb5528cc4ad0afdb682e2962bbb745c9547dc479aaf7e004d8d5e4a7b",
+    "Source/WebKit/UIProcess/Launcher/glib/ProcessLauncherGLib.cpp": "a9d3ae65043e3d6a7871de71a125405b9cc13c9085d8804fd6bc4af7eef5f832",
+    "Source/WebKit/Platform/IPC/unix/ConnectionUnix.cpp": "6eb6b3a0058bc01b78d1dada38f4dd13fb551475615bf2d4e5a3bfa9e60dcb0a",
+    "Source/WebKit/UIProcess/wpe/AcceleratedBackingStore.cpp": "425e40244b2a8309f6ddb2a38120087b8c0be33fd0b7aa41c6e016b79f864f35",
+    "Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/DrawingAreaCoordinatedGraphicsGLib.cpp": "11f8a4fcb67720139f8d21dc1db39836d5e09422254b516be021b8b52121b9e7",
+    "Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/NonCompositedFrameRenderer.cpp": "5b5e327f96dc377e4ff15971fde7a1c3d4c5037478490cea53e01527c8a811d9",
+    "Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/AcceleratedSurface.h": "a495ae79e1b87b1ee48f7e93879ef1daf5aaf01433a59d11577738208cf40825",
+    "Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/AcceleratedSurface.cpp": "4c9411e46c67d3a657390d751139e804c8125c256300ca6220a9acd9df9c0f41",
+    "Source/WebKit/WebProcess/WebPage/CoordinatedGraphics/ThreadedCompositor.cpp": "7d80dcc34e7fdc73128aafda618dba15d8c52b9fcfcc3e20986474bd527a5a5c"
+  },
+  "inspected_local_sha256": {
+    "ports/srvros/webkit/toolchain.cmake": "2012ae6619d44e7464ab7c7554d64315919a26f7c7ac6440287efc4412a49cb0",
+    "ports/srvros/webkit/srvros-platform.patch": "461e60cb746fbf82bed400d8a47bbbf2e0dbff8a95cecc5fb8ed0c3b77111d82",
+    "userspace/lib/src/posix_mman.c": "adb90ab7ba5b7f7bf0d1c957efefa3ba4d6f4f14c7895c82399940efb768cd3a",
+    "userspace/lib/src/posix_dlfcn.c": "8ec50689e9b155296e7e6e6833e0fd09c9db622bcdc142b563d6ad93cece09d6",
+    "kernel/src/process_signal_public.inc": "b51139679b41823575fca7a7f7625d76b4d027c1d093142d19804e43a311ac8b",
+    "kernel/src/arch/x86_64/syscall.c": "98fd69af12dd80a963956e15fd551ae25e0ec3ec6dd3ef178564f5459ba15efa",
+    "userspace/lib/include/srvros/desk_app.h": "a3667beed4c4e6275aff330a0fbd87ed229653a2eb0ed39adc0fb85bd6a2c26b",
+    "userspace/lib/src/desk_app.c": "12346499633ce389cba6e5ed9ec43eeb28fc6b9fac698e53721609762e64c0ee",
+    "userspace/lib/include/srvros/desk_connection.h": "2e471644816265cf4cf64ae8385a1ddff9904bbcecfe7fb0ebb2169e9af11684",
+    "shared/include/srvros/desktop_protocol.h": "6a63a7c917b735d26aa0d5894f353eb78ad88379752900448406c0dd26575795",
+    "shared/include/srvros/gui_wait.h": "3320b24b0221de4b0b3b3cf13ef3f70c7b406fbef6d995ef06ea3d09a4e9113f",
+    "userspace/widgets/include/srvros/desk_render.h": "520b351044221d460c14802ef0c48ed0b1502057eb444fc8d9b5ea33d11c8a27",
+    "userspace/widgets/include/srvros/desk_image.h": "fb06fcf33032ee52013d5211b607f67c14668ad7d866e8f7e7844f23f5ae70ca",
+    "userspace/deskd/deskd.c": "4cda0fe14d29c57b3444aba4420d7f62c998248366e1de61f9cd4423d175bcc5",
+    "userspace/lib/src/posix_poll.c": "f8991afb47005e0a12e93931ecc572f29cd63cfe9a9cf3247223d01027102edb"
+  },
+  "dependency_probe": {
+    "scope": "isolated pinned FindGLib discovery, LANGUAGES NONE, deliberately empty target prefix; not full WebKit/target configure",
+    "observed_status": 1,
+    "observed_dependency_error": "glib-2.0 is required",
+    "module": "Source/cmake/FindGLib.cmake:165",
+    "no_compiler_enabled": true,
+    "no_guest_executed": true,
+    "collector_note": "The first collector expected a generic Could NOT find GLib message and stopped. The pinned module emits its own fatal diagnostic. This receipt classifies that retained invocation; no configure was retried or bypassed.",
+    "log_sha256": "0aaf531b4fd62393074e51f8c641849b8fadbf3d808bb5ca1f37d268b7e6cb16",
+    "cmake_version": "cmake version 4.4.0",
+    "pkg_config_version": "3.0.2"
+  },
+  "probe_published_log_sha256": "2c05eb48d3e7be0ecc2d1325f5445cbf70ba29d06cc1b4a47541db217990b53c",
+  "probe_redaction": "Only local checkout prefix replaced by $SRVROS_ROOT; original log hash is recorded in dependency_probe.",
+  "candidate_profile_sha256": "7751556d666e1337fc216a4cdb88ad55664443bee3a45fb0680f141e1fff4fe8",
+  "probe_project_sha256": "77bb42f21839203217baf77490ed19c035f28376aa6d1905f58dcce0e31fef8e",
+  "not_run": [
+    "full WPE target configure",
+    "dependency or engine compilation",
+    "shared runtime/UI changes",
+    "VM or hardware execution",
+    "actual software-rendered page"
+  ],
+  "owner_review": {
+    "runtime_integration": {
+      "chat": "Plan SrvrOS repository overhaul",
+      "disposition": "audit closure accepted with explicit implementation gates; no runtime implementation approval"
+    },
+    "ui": {
+      "chat": "SrvrUI cross-platform portability",
+      "disposition": "five findings addressed; no further source-audit corrections; no UI changes or adapter readiness claim"
+    },
+    "required_implementation_gates": [
+      "MAP_SHARED and engine IPC rights/lifetime",
+      "native publication versus retirement observation",
+      "accepted WPE frame cancellation and exact-once notifications",
+      "admissible GLib/GUI wait integration and bounded fallback"
+    ]
+  },
+  "publication_main_reconciled": "379d6f8dae0213e6de1fb292df17822750e84fd4",
+  "incoming_main_scope": "PR378 changes three Air6,1 documentation files only; inspected runtime/UI/port sources unchanged"
+}

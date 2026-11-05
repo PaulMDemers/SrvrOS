@@ -1,5 +1,31 @@
 # Apple Silicon macOS build host
 
+## WebCore dependency and software-backend audit — November 5, 2026
+
+The user resumed browser work with a source/configuration audit and backend
+design review. Baseline is clean actual main88bdc382, Ports89f22a96, UI3a695ce5
+and Apps24bc4541. Dedicated branch: device/apple-silicon/webcore-audit. Scope is
+the checksum-pinned WPEWebKit2.54.2 dependency/configuration graph and a proposed
+CPU-rendered local-page integration contract. This does not authorize a WebCore
+port, runtime/UI implementation, production signal-capability changes, native
+GPU work, full engine build, VM or hardware acceptance.
+
+Integration/runtime and SrvrUI read-only reviews are complete. The
+[durable audit](../browser-webcore-audit.md) records the dependency matrix and
+real noncomposited-Skia/SHM source path, without target rendering acceptance.
+The pinned archive and31 source-file hashes plus15 local contract hashes were
+verified; an isolated no-compiler FindGLib probe stops at missing glib-2.0.
+The initial collector diagnostic mismatch is preserved. Full WPE configure,
+compile, VM and hardware checks were not run.
+
+Owner findings correct release-versus-publication and WPE notification lifetime
+assumptions, and specify dirty/retry/resize/input/density and bounded wait gates.
+MAP_SHARED/IPC, honest frame outcomes/cancellation and GLib wait integration
+remain separately owned implementation dependencies. No shared code changed.
+The sole checkout is reused; bounded generated inputs are under ignored
+build/browser-webcore-audit. The next proposed slice is a pinned GLib
+prerequisite probe, not work started by this audit.
+
 ## Final integration and source-only workspace reset — November 4, 2026
 
 The local closeout includes the experimental no-JIT milestone through Ports #9

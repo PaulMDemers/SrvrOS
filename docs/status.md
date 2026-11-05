@@ -1,9 +1,19 @@
 # Current status
 
-Updated 2026-11-04. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-11-05. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
+
+## Current browser audit
+
+The user resumed browser work after the completed closeout. The source-backed
+[WebCore dependency and software-backend audit](browser-webcore-audit.md) is
+complete with runtime and SrvrUI owner review. A CPU/SHM rendering path exists
+in the pinned source; missing GLib dependencies, shared-memory/IPC, combined
+wait policy and frame completion/cancellation remain explicit implementation
+gates. No full target configure, engine build or rendered page is claimed.
+The proposed next slice is a pinned GLib prerequisite probe; it has not started.
 
 ## Final local integration and workspace reset
 
