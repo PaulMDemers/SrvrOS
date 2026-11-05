@@ -1,0 +1,379 @@
+{
+  "boot_network_requirements": [
+    "net: no supported network device, stack idle",
+    "net: worker not started"
+  ],
+  "commands": [
+    {
+      "argv": [
+        "/opt/homebrew/Cellar/xorriso/1.5.8.pl02/bin/xorriso",
+        "-as",
+        "mkisofs",
+        "-R",
+        "-r",
+        "-J",
+        "-b",
+        "boot/limine/limine-bios-cd.bin",
+        "-no-emul-boot",
+        "-boot-load-size",
+        "4",
+        "-boot-info-table",
+        "$WORKSPACE/.local/pr334-build-volume/signal-public-vq_nmcy_/iso-root",
+        "-o",
+        "$WORKSPACE/.local/pr334-build-volume/signal-public-vq_nmcy_/guest.iso"
+      ],
+      "seconds": 5.228,
+      "status": 0
+    },
+    {
+      "argv": [
+        "$WORKSPACE/SrvrOS-browser/build/limine-binary/limine",
+        "bios-install",
+        "$WORKSPACE/.local/pr334-build-volume/signal-public-vq_nmcy_/guest.iso"
+      ],
+      "seconds": 0.015,
+      "status": 0
+    }
+  ],
+  "config_sha256": "05d8650ae5a581619a032d7ef0a83925f359b2655346c1edb0c42b371f71a03f",
+  "created_utc": "2026-11-05T02:00:06Z",
+  "git_dirty": "",
+  "git_head": "6b5ebaf71fb72c5dd38175e1661ef92aa28728ad",
+  "initramfs_sha256": "952dac39a4e27bfc161f0d4d93020ce9b0dd8246a7c97c529389f1a5f309f3f0",
+  "inputs": {
+    "adapter:gc-roots": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/ports/srvros/webkit/build_jsc_gc_roots_probe.py",
+      "sha256": "6fb76d55a3fcdd5eed3acccbccafe469497d3140506b9e82cd888613bf7e3a75"
+    },
+    "adapter:wtf-signal": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/ports/srvros/webkit/build_wtf_signal_probe.py",
+      "sha256": "f4623074c5a3e10fa7abcb33417be72040cc1330b08ed9e8a1c20cf6c61bb6ac"
+    },
+    "fixture:entropy": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/random-entropy-_08b7wb1.json",
+      "sha256": "813ff3c7d8799e40ff05634cdb4165a2bf7c404efebb40788b0efa54c898e146"
+    },
+    "fixture:gc-roots": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/jsc-gc-roots-a_r379u4.json",
+      "sha256": "a9868cb43de35d9f537eadcbe034654445deafb0723f23c993ddda909c5c5bc6"
+    },
+    "fixture:wtf-signal": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/wtf-signal-orn8gnnh.json",
+      "sha256": "0578208979d90b293488e6d8b54306041bfc4625c8ed12dc598a97dd287f285a"
+    },
+    "fixture:wtfprobe": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/wtfprobe-256cnns9.json",
+      "sha256": "39d287fb76d7fef79f42c057d3c3dc45c1db9bd9ca4776ed786da4f2ee35253e"
+    },
+    "harness": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/tools/signal_public_guest.py",
+      "sha256": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045"
+    },
+    "init": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/userspace/init.elf",
+      "sha256": "41ec31cfd91bc4aed899e0c2df442aed1bef13ac5b11c605ae20f2806ebad370"
+    },
+    "kernel": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/signal-context/public-experimental/kernel.elf",
+      "sha256": "31431387060e050a123064c2a1108a78e6c89ecc5153e6c5310552dc9bb4472e"
+    },
+    "kernel/src/arch/x86_64/idt.c": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/kernel/src/arch/x86_64/idt.c",
+      "sha256": "60e2936b17968f6fb9952b47e2bd7d578980f8f11bf488c926ef4cd66e789d14"
+    },
+    "kernel/src/arch/x86_64/syscall.c": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/kernel/src/arch/x86_64/syscall.c",
+      "sha256": "9c5efe5e25af389a70641035e00f3d036e58acac854566a6a363c9ca2ec29ad3"
+    },
+    "kernel/src/process.c": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/kernel/src/process.c",
+      "sha256": "e48ab9aabc4d9d6798c0dd6eebae8f893cb2433e793d39628f32dfca4b1ab70e"
+    },
+    "kernel/src/process_signal_public.inc": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/kernel/src/process_signal_public.inc",
+      "sha256": "b51139679b41823575fca7a7f7625d76b4d027c1d093142d19804e43a311ac8b"
+    },
+    "limine_cd": {
+      "path": "$WORKSPACE/SrvrOS-browser/build/limine-binary/limine-bios-cd.bin",
+      "sha256": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2"
+    },
+    "limine_sys": {
+      "path": "$WORKSPACE/SrvrOS-browser/build/limine-binary/limine-bios.sys",
+      "sha256": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2"
+    },
+    "limine_tool": {
+      "path": "$WORKSPACE/SrvrOS-browser/build/limine-binary/limine",
+      "sha256": "6089b4d00d548946a528cbad43de35ee209c9dad9250518e0a6bd642fd2b155e"
+    },
+    "payload:entropy": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/random-entropy-_08b7wb1.elf",
+      "sha256": "74403af8ab94b0c1cf34c5a0b27f4d138eb5c71fe6580312f13fd9c8adb1d94a"
+    },
+    "payload:gc-roots": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/jsc-gc-roots-a_r379u4.elf",
+      "sha256": "dc3525afa080cf2132907d6d20ae85149ee89a877fbd05e2b804954ff6c27586"
+    },
+    "payload:jsc": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/cmake/bin/jsc",
+      "sha256": "d7caf7ddc2d144c8ed71618fde76fee73d0b4cff5eb92034c85a5b5de63b25a2"
+    },
+    "payload:wtf-signal": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/wtf-signal-orn8gnnh.elf",
+      "sha256": "700c99469b43f7d04ada6176042449a76b95d0eeba415ae42de27d61edc39d56"
+    },
+    "payload:wtfprobe": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/wtfprobe-256cnns9.elf",
+      "sha256": "da1b18443b314d91d2d7e28414759c43a454b826b4a34bef0388021265a59e41"
+    },
+    "qemu": {
+      "path": "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+      "sha256": "a1b97665fb9f341a65acf9b0e7dc4c7235972aae61182545ed1aacf5ffca87fa"
+    },
+    "runtime_packer": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/tools/pack_runtime_elf.py",
+      "sha256": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248"
+    },
+    "sdk_archive": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/sysroot/srvros/lib/libsrvros.a",
+      "sha256": "c5b66743edba6671485e15456dfacb1e37074d059fe44bd17b2b8712c5391e06"
+    },
+    "sdk_crt": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/sysroot/srvros/lib/crt0.o",
+      "sha256": "5220dc47ffca0175ce70eead8800b30e54e3c40300c305e2413aa0a0e1f96961"
+    },
+    "sdk_linker": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/sysroot/srvros/lib/app.ld",
+      "sha256": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912"
+    },
+    "shared/include/srvros/random.h": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/shared/include/srvros/random.h",
+      "sha256": "a36436954383c1b3e91b12b38ff230fe40a8ca7f1f875fed2a923e61599d1999"
+    },
+    "storage_guard": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/tools/browser_storage.py",
+      "sha256": "cd4febea4042eebac792bdced8529ce3ae452a87ccceb9630f2dbf783602e15c"
+    },
+    "suite_jsc_receipt": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/receipt.json",
+      "sha256": "a53d678ef3237758d2f81ffde48d6c6809466956c4fe83786984c5d63856f9e4"
+    },
+    "suite_manifest": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/public-suite-entropy.json",
+      "sha256": "4040f31a0c5edb37f40ac7c0768e7e11374117a734aa5a88a9ebce979a697660"
+    },
+    "suite_runtime_receipt": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-runtime/receipt.json",
+      "sha256": "f60e2387bd0d94a4087b1366e6c9d9e0f0effcea63a376236d7190fe695c0ba7"
+    },
+    "userspace/lib/src/posix_signal.c": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/userspace/lib/src/posix_signal.c",
+      "sha256": "7ba1bfced97f396e8699dae812fda9106ea576fbfca060a14f04546d62c27da9"
+    },
+    "userspace/lib/src/posix_signal_context.c": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/userspace/lib/src/posix_signal_context.c",
+      "sha256": "0c7154acba439c9c0a9b36640bb62c2dc5cec20d9e669b02fdf6e802a295d535"
+    },
+    "userspace/lib/src/signal_runtime.c": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/userspace/lib/src/signal_runtime.c",
+      "sha256": "93f88f6b381f6817890e9e39208e501bed576ea32d3ad131bf5be629dcb31770"
+    },
+    "xorriso": {
+      "path": "/opt/homebrew/Cellar/xorriso/1.5.8.pl02/bin/xorriso",
+      "sha256": "d217ca8e759699dcaf36953822bd508f13587c57a890d2c1a71b19f6d0e8da86"
+    }
+  },
+  "iso_sha256": "c18c4a1273800acd64283350260e15f7610c9bee0755eb09fa0af8b55c65af2f",
+  "packed": {
+    "entropy": {
+      "bytes": 43392,
+      "sha256": "48e4c51a424a951a24ab10a07d5cc665d0a8282041eb2d6d9f4c513a6ed796e8"
+    },
+    "gc-roots": {
+      "bytes": 51458096,
+      "sha256": "e698b86a7bbceb2b78a785689078c7397eda9cdc0e0073723fbf54fed95d015b"
+    },
+    "init": {
+      "bytes": 16400,
+      "sha256": "f42fca0f14612d7aa1941902da73b6bdfcc86c5e5762a0d2345ac813cfd4d2f7"
+    },
+    "jsc": {
+      "bytes": 51626032,
+      "sha256": "be2cecc35b7720535650611c2a78c191b412f0d0b869015052e0b35a7bdb1562"
+    },
+    "wtf-signal": {
+      "bytes": 36159488,
+      "sha256": "d21975d6238f399c8a439244e9605cdf744f7cc226e3a725e77644cea21f39ab"
+    },
+    "wtfprobe": {
+      "bytes": 36134912,
+      "sha256": "a6796e346cb3a3ca755c85fc2b173504af955a6a1ef1b342fa8aafd821d3c882"
+    }
+  },
+  "qemu_argv_template": [
+    "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+    "-name",
+    "SrvrOS experimental public signal",
+    "-machine",
+    "q35",
+    "-accel",
+    "tcg,thread=single",
+    "-cpu",
+    "qemu64,+rdrand",
+    "-smp",
+    "1",
+    "-m",
+    "1536M",
+    "-cdrom",
+    "$WORKSPACE/.local/pr334-build-volume/signal-public-vq_nmcy_/guest.iso",
+    "-boot",
+    "d",
+    "-display",
+    "none",
+    "-nic",
+    "none",
+    "-serial",
+    "unix:{private_uart},server=on,wait=off",
+    "-monitor",
+    "none",
+    "-no-reboot"
+  ],
+  "result": "prepared",
+  "schema": 1,
+  "scope": "experimental diskless Q35 suite; results apply only to recorded case markers",
+  "sdk": "$WORKSPACE/.local/pr334-build-volume/source/build/sysroot/srvros",
+  "sdk_headers_sha256": "032e0618ac8b4491130570a296e02a7975c1c8573d9ed81a7d6e2387c9148b61",
+  "storage": {
+    "host": {
+      "free_bytes": 14387613696,
+      "path": "$HOST_HOME",
+      "required_bytes": 2147483648
+    },
+    "output": {
+      "free_bytes": 4498812928,
+      "path": "$WORKSPACE/.local/pr334-build-volume",
+      "required_bytes": 2147483648
+    }
+  },
+  "suite": {
+    "cases": [
+      {
+        "args": [
+          "rdrand"
+        ],
+        "markers": [
+          "random-entropy: rdrand contract ok"
+        ],
+        "name": "entropy-rdrand",
+        "payload": "entropy",
+        "timeout": 30
+      },
+      {
+        "args": [],
+        "markers": [
+          "wtf-signal: main registers and red zone ok",
+          "wtf-signal: two suspended targets and extra signal ok",
+          "wtf-signal: startup and retirement cycles ok",
+          "wtf-signal: ok"
+        ],
+        "name": "wtf-suspend",
+        "payload": "wtf-signal",
+        "timeout": 150
+      },
+      {
+        "args": [],
+        "markers": [
+          "wtfprobe: ok"
+        ],
+        "name": "wtf-utility",
+        "payload": "wtfprobe",
+        "timeout": 150
+      },
+      {
+        "args": [
+          "control"
+        ],
+        "markers": [
+          "jsc-gc-root: ok"
+        ],
+        "name": "gc-control",
+        "payload": "gc-roots",
+        "timeout": 150
+      },
+      {
+        "args": [
+          "gp"
+        ],
+        "markers": [
+          "jsc-gc-root: ok"
+        ],
+        "name": "gc-gp",
+        "payload": "gc-roots",
+        "timeout": 150
+      },
+      {
+        "args": [
+          "fx"
+        ],
+        "markers": [
+          "jsc-gc-root: ok"
+        ],
+        "name": "gc-fx",
+        "payload": "gc-roots",
+        "timeout": 150
+      },
+      {
+        "args": [
+          "redzone"
+        ],
+        "markers": [
+          "jsc-gc-root: ok"
+        ],
+        "name": "gc-redzone",
+        "payload": "gc-roots",
+        "timeout": 150
+      },
+      {
+        "args": [
+          "-e",
+          "print(42)"
+        ],
+        "markers": [
+          "42"
+        ],
+        "name": "javascript",
+        "payload": "jsc",
+        "timeout": 150
+      }
+    ],
+    "jsc_build_identifier": "98f9b899fd628a0cea51b98660e83b565622e894b53809e56db16dc69521640f",
+    "jsc_receipt_sha256": "a53d678ef3237758d2f81ffde48d6c6809466956c4fe83786984c5d63856f9e4",
+    "payloads": [
+      {
+        "elf": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/random-entropy-_08b7wb1.elf",
+        "kind": "utility",
+        "name": "entropy"
+      },
+      {
+        "elf": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/wtf-signal-orn8gnnh.elf",
+        "kind": "wtf-signal",
+        "name": "wtf-signal"
+      },
+      {
+        "elf": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/wtfprobe-256cnns9.elf",
+        "kind": "utility",
+        "name": "wtfprobe"
+      },
+      {
+        "elf": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/jsc-gc-roots-a_r379u4.elf",
+        "kind": "gc-root",
+        "name": "gc-roots"
+      },
+      {
+        "elf": "$WORKSPACE/.local/pr334-build-volume/source/build/browser-jsc/run-48ivn2we/cmake/bin/jsc",
+        "kind": "utility",
+        "name": "jsc"
+      }
+    ],
+    "source_root": "$WORKSPACE/.local/pr334-build-volume/source"
+  }
+}

@@ -13,6 +13,10 @@ long srv_battery_control(unsigned operation,uint64_t expected_epoch,struct srv_b
 long srv_battery_status(struct srv_battery_status *out);
 
 #include <srvros/syscall_numbers.h>
+#include <srvros/session_scope.h>
+#include <srvros/file_stream.h>
+long srv_file_stream(const struct srv_file_stream_request *request);
+long srv_session_scope(unsigned operation,uint64_t token,void *payload);
 
 #define SRV_STDIN 0
 #define SRV_STDOUT 1

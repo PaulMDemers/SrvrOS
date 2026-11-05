@@ -1,0 +1,82 @@
+{
+  "result": "PASS for the four exact prepared bounded guests; NOT EXECUTED",
+  "authority": "human explicitly assigned remaining exact-binary/configuration signoff to this chat; shared source accepted separately by coordinator",
+  "source": "6b5ebaf7",
+  "ports": "d99565f",
+  "packet_sha256": "74470aae0cf568fd913832c6cf01de91bf251c58b9a9bc85782511536dd6c361",
+  "frozen_and_live_files": 757,
+  "matched_function_bindings": 839,
+  "named_relocation_targets": 3460,
+  "unbound_named_relocations": 0,
+  "archive_delta": {
+    "libWTF.a": {
+      "members": 172,
+      "changed": [
+        "RandomDevice.cpp.obj"
+      ]
+    },
+    "libJavaScriptCore.a": {
+      "members": 893,
+      "changed": [
+        "JSCBytecodeCacheVersion.cpp.obj"
+      ]
+    },
+    "libbmalloc.a": {
+      "members": 168,
+      "changed": []
+    }
+  },
+  "prepared": [
+    {
+      "name": "normal-absent",
+      "path": "$WORKSPACE/.local/pr334-build-volume/signal-public-7pc3lrr3",
+      "prepare_sha256": "96e7fd1a8f9d11399a85636e6fcb66b4e68e8374b88fb6b40dccfd9fcd27dcc7",
+      "cpu": "qemu64",
+      "kernel_sha256": "724c8b037b967f66522bb79129b8a3755bb23ea9f780ed5ae7a82f8325a08902",
+      "iso_sha256": "3f1300d83909b609e12e0c04e8c323bce88747edd4b8e104443e93b9fdca6539",
+      "case_count": 1
+    },
+    {
+      "name": "normal-rdrand",
+      "path": "$WORKSPACE/.local/pr334-build-volume/signal-public-fux9oq69",
+      "prepare_sha256": "1365933d187974c2839ed5d678288493c7469bb44aeb7b870b4cbe15171fb8f9",
+      "cpu": "qemu64,+rdrand",
+      "kernel_sha256": "724c8b037b967f66522bb79129b8a3755bb23ea9f780ed5ae7a82f8325a08902",
+      "iso_sha256": "b5d25ad551e4fa8862bfa722b231a2acfe604383be61549048a4b748cee58bc6",
+      "case_count": 1
+    },
+    {
+      "name": "native-context",
+      "path": "$WORKSPACE/.local/pr334-build-volume/signal-public-q1mfaj2m",
+      "prepare_sha256": "1d3bb933e903bfd03ba65b950fe08cb7b21a803e49c1f56c18a77b9c635ac3f3",
+      "cpu": "qemu64,+rdrand",
+      "kernel_sha256": "31431387060e050a123064c2a1108a78e6c89ecc5153e6c5310552dc9bb4472e",
+      "iso_sha256": "fa6f6ec46a53fb379834f8175a730ae83263d8633bb0cc78a598fae6ed363eba",
+      "case_count": 1
+    },
+    {
+      "name": "jsc-entropy",
+      "path": "$WORKSPACE/.local/pr334-build-volume/signal-public-vq_nmcy_",
+      "prepare_sha256": "e3cab56747e3da4a32cced9eee6ff1317e89962ba395f6b4909f4923f336dfc1",
+      "cpu": "qemu64,+rdrand",
+      "kernel_sha256": "31431387060e050a123064c2a1108a78e6c89ecc5153e6c5310552dc9bb4472e",
+      "iso_sha256": "c18c4a1273800acd64283350260e15f7610c9bee0755eb09fa0af8b55c65af2f",
+      "case_count": 8
+    }
+  ],
+  "jsc_sha256": "d7caf7ddc2d144c8ed71618fde76fee73d0b4cff5eb92034c85a5b5de63b25a2",
+  "configuration": "Q35/TCGsingle/1CPU1536/diskless/noNIC/noDebug; exact qemu64 or qemu64,+rdrand; no seed/replay/devices",
+  "review_files_sha256": {
+    "packet.json": "74470aae0cf568fd913832c6cf01de91bf251c58b9a9bc85782511536dd6c361",
+    "review.py": "624281e9c837e5f979686920899510ee4fbc8a6c92b839edcf319d76dd4e3515",
+    "bind_objects.py": "db4d41e7c6985f5cbdbe07da58566f6462fccd0132bcf51436532d3a2ad1accb",
+    "freeze.py": "bb31ba8e104b8e04ee71865eb5287192ba260d467bbe2ce2048d8b7b6437e106",
+    "linked-object-binding.json": "145aa392cede7f78acb5693515de2498a72672dcc5f57042619bd411be4c4498",
+    "integrity-review-first.json": "f1f1b126b67f640ab72d676bf37e4298d1068a0ebd3dc91f44b1d15fb5ec579b",
+    "integrity-review.json": "e96fd429e2ced0b17dff9c955b732082a54f11924a176e99552142c6293d43fd",
+    "support/entropy-linkage-continuation/supervisor.json": "20e9ddeb2fcfc861370ae6e1e984e56ba6f9a5fb7ceb3f5de894308758d914b9",
+    "support/entropy-linkage-continuation/completion-summary.json": "29bd02628e6bc1f5c8371798cf00a8127d21b928f3a293a308583948227d577b",
+    "support/entropy-host-actual-sdk/receipt.json": "fadc9b7e8631558a14f26e8a76c8b766a78ef79bf0999700ad84b10729002151"
+  },
+  "signed_epoch": 1793844521.480126
+}

@@ -1,0 +1,173 @@
+{
+  "result": "passed",
+  "scope": "four reviewed bounded emulated guests; strict native entropy and experimental no-JIT JSC; no production capability/main merge/physical/browser claim",
+  "source": "6b5ebaf71fb72c5dd38175e1661ef92aa28728ad",
+  "ports": "d99565fd4fe8875464b72418056c17ac669573fb",
+  "jsc_sha256": "d7caf7ddc2d144c8ed71618fde76fee73d0b4cff5eb92034c85a5b5de63b25a2",
+  "packet_sha256": "74470aae0cf568fd913832c6cf01de91bf251c58b9a9bc85782511536dd6c361",
+  "signoff_sha256": "6acb68dc12d2206c78f46e2c8a0ee1936855f41a5b973aa8db983d4218e9fc9c",
+  "supervisor_sha256": "3eef04ff40834dfef231e39e4f163442e884c8e2e76f20318639ad00b1a46c59",
+  "seconds": 27.864208500017412,
+  "cases": [
+    {
+      "name": "entropy-rdrand",
+      "exit_status": 0,
+      "markers": {
+        "random-entropy: rdrand contract ok": 1
+      },
+      "seconds": 0.021,
+      "serial_sha256": "80141e4e45d708899c2b0a30e651563d23809c4eab9d6f63692dc53cad7773e7"
+    },
+    {
+      "name": "wtf-suspend",
+      "exit_status": 0,
+      "markers": {
+        "wtf-signal: main registers and red zone ok": 1,
+        "wtf-signal: two suspended targets and extra signal ok": 1,
+        "wtf-signal: startup and retirement cycles ok": 1,
+        "wtf-signal: ok": 1
+      },
+      "seconds": 5.888,
+      "serial_sha256": "188c914ec40724ec7001272f634392252f43d7d901044edc838121f14a7252d9"
+    },
+    {
+      "name": "wtf-utility",
+      "exit_status": 0,
+      "markers": {
+        "wtfprobe: ok": 1
+      },
+      "seconds": 0.112,
+      "serial_sha256": "51f07c5221928227ae9e6035e7cb97cbd02cb02c03439d8e6098a349ef10d85a"
+    },
+    {
+      "name": "gc-control",
+      "exit_status": 0,
+      "markers": {
+        "jsc-gc-root: ok": 1
+      },
+      "seconds": 1.811,
+      "serial_sha256": "bce6e271c074af5495e7347d9b72f7e8a3c74a6c91d7c2dfe3b9ed46d5b25566"
+    },
+    {
+      "name": "gc-gp",
+      "exit_status": 0,
+      "markers": {
+        "jsc-gc-root: ok": 1
+      },
+      "seconds": 1.81,
+      "serial_sha256": "85007e146e206b791e7a92b2a12106b6be3a339c4a3ba6c76fceaf82bb7e87df"
+    },
+    {
+      "name": "gc-fx",
+      "exit_status": 0,
+      "markers": {
+        "jsc-gc-root: ok": 1
+      },
+      "seconds": 1.777,
+      "serial_sha256": "8a29a6bb170546d2700c6a7dab539e4f4e5dbfd4f8edfb99a5417425d55afc2b"
+    },
+    {
+      "name": "gc-redzone",
+      "exit_status": 0,
+      "markers": {
+        "jsc-gc-root: ok": 1
+      },
+      "seconds": 1.778,
+      "serial_sha256": "96a291f33b370a1291a0a15a8932be4c92f93f4e52206fa0c831fc036af68b2e"
+    },
+    {
+      "name": "javascript",
+      "exit_status": 0,
+      "markers": {
+        "42": 1
+      },
+      "seconds": 1.148,
+      "serial_sha256": "2f83888797f8fe36d382d30119ba1fab3894448fc69e954f445bc7d23d61956c"
+    }
+  ],
+  "stages": [
+    {
+      "name": "normal-absent",
+      "prepared": "$WORKSPACE/.local/pr334-build-volume/signal-public-7pc3lrr3",
+      "seconds": 2.3232781660044566,
+      "status": 0,
+      "remaining": {}
+    },
+    {
+      "name": "normal-rdrand",
+      "prepared": "$WORKSPACE/.local/pr334-build-volume/signal-public-fux9oq69",
+      "seconds": 1.8610197500092909,
+      "status": 0,
+      "remaining": {}
+    },
+    {
+      "name": "native-context",
+      "prepared": "$WORKSPACE/.local/pr334-build-volume/signal-public-q1mfaj2m",
+      "seconds": 1.2144404170103371,
+      "status": 0,
+      "remaining": {}
+    },
+    {
+      "name": "jsc-entropy",
+      "prepared": "$WORKSPACE/.local/pr334-build-volume/signal-public-vq_nmcy_",
+      "seconds": 20.787917000008747,
+      "status": 0,
+      "remaining": {}
+    }
+  ],
+  "files": {
+    "normal-absent/case-entropy-absent.log": "e96a6a6cea36d74465a544a85d500a29669e250a7ed63120964c4fcc43ccf5d4",
+    "normal-absent/serial.log": "8d325b8d5745c8017b8248333e5f93033b77392eb822d96340d3cce65dc80d63",
+    "normal-absent/boot-serial.log": "4341748ddcb89c5ed0d1b60e0e1d1aef4b0120bc73b5e3b560bc8e36efbf66aa",
+    "normal-absent/prepare-receipt.json": "96e7fd1a8f9d11399a85636e6fcb66b4e68e8374b88fb6b40dccfd9fcd27dcc7",
+    "normal-absent/prepare.log": "2537702c806fb6441671d8f40ac307adadf60eb8f88c0bda5eb9d3998421ce96",
+    "normal-absent/qemu.log": "f92b1631711647be016c97d47d2cf8c0166187baab0bc4b0b5d26bb0ab2f4b7d",
+    "normal-absent/supervised-qualification.log": "ccfcfef6beab8b0b0ed44693b63dcf25c5a05f5b1571d78571ff28efe3316d1b",
+    "normal-absent/prepare-receipt.sha256": "30019c43d7efd4b07c25a16f33c9bf8bd4c7b457394ca13cfacee4b31e0b8ac4",
+    "normal-absent/run-result.json": "ccfcfef6beab8b0b0ed44693b63dcf25c5a05f5b1571d78571ff28efe3316d1b",
+    "normal-rdrand/case-entropy-rdrand.log": "80141e4e45d708899c2b0a30e651563d23809c4eab9d6f63692dc53cad7773e7",
+    "normal-rdrand/serial.log": "38ebaea1cc34697c0e14391dcbe6d181aaee0d4cb40735f97d477a47724ba91b",
+    "normal-rdrand/boot-serial.log": "f4dda7602f681ec27a910490b6036e3bea9801df33c2b703effc5bb1e566620e",
+    "normal-rdrand/prepare-receipt.json": "1365933d187974c2839ed5d678288493c7469bb44aeb7b870b4cbe15171fb8f9",
+    "normal-rdrand/prepare.log": "739b51f46957e6a5acd98817af50c55500da25f05889288582494d7309a108f4",
+    "normal-rdrand/qemu.log": "1e6cbbbae526345526db965e709658e242f7c328ce8c0d8a834fa06daa98444a",
+    "normal-rdrand/supervised-qualification.log": "1c3f98ae8a60515fd0247773d82348cf35ac7a2510d0abf09c162158c324c7d0",
+    "normal-rdrand/prepare-receipt.sha256": "5c8e1f6488ee770891c8da9bc59a9b7c78081afb9e6312e31a1b99dcddbd3012",
+    "normal-rdrand/run-result.json": "1c3f98ae8a60515fd0247773d82348cf35ac7a2510d0abf09c162158c324c7d0",
+    "native-context/serial.log": "63b026a4c6d1a0e9a8c6cb8011f5d60ec08771210852460442354ea28fa93715",
+    "native-context/boot-serial.log": "7149018c29b8f390467bb2e1ad2bf89cfde15ec0a06513cad71624f18c553c7e",
+    "native-context/prepare-receipt.json": "1d3bb933e903bfd03ba65b950fe08cb7b21a803e49c1f56c18a77b9c635ac3f3",
+    "native-context/prepare.log": "3b0029f9dedad624f27940c56168393c817471dba83bbadea98b3c02f4672caf",
+    "native-context/qemu.log": "00302410c3f9abd819e1c26e6596e248510c6f642f6ddafbf5e561717c38b819",
+    "native-context/supervised-qualification.log": "9a4a6cc5e8ca7adc50d6f2188956041e69583038e462254141774a6c5a6827f0",
+    "native-context/prepare-receipt.sha256": "09e207827c64c2a1ff648e05834904becbaf2f455fb07085ba1ba158eeecda07",
+    "native-context/run-result.json": "9a4a6cc5e8ca7adc50d6f2188956041e69583038e462254141774a6c5a6827f0",
+    "jsc-entropy/case-entropy-rdrand.log": "80141e4e45d708899c2b0a30e651563d23809c4eab9d6f63692dc53cad7773e7",
+    "jsc-entropy/case-javascript.log": "2f83888797f8fe36d382d30119ba1fab3894448fc69e954f445bc7d23d61956c",
+    "jsc-entropy/case-gc-gp.log": "85007e146e206b791e7a92b2a12106b6be3a339c4a3ba6c76fceaf82bb7e87df",
+    "jsc-entropy/case-gc-control.log": "bce6e271c074af5495e7347d9b72f7e8a3c74a6c91d7c2dfe3b9ed46d5b25566",
+    "jsc-entropy/serial.log": "4621863edd41ddacf7d5833d8d73ff7fd8ca93e75398648c7ecb0c4645898b37",
+    "jsc-entropy/boot-serial.log": "6afc4ec6fa0b47bc6a492a1ee414efafe218ff76e98a41f0210096c2f337f66e",
+    "jsc-entropy/case-wtf-suspend.log": "188c914ec40724ec7001272f634392252f43d7d901044edc838121f14a7252d9",
+    "jsc-entropy/case-gc-redzone.log": "96a291f33b370a1291a0a15a8932be4c92f93f4e52206fa0c831fc036af68b2e",
+    "jsc-entropy/prepare-receipt.json": "e3cab56747e3da4a32cced9eee6ff1317e89962ba395f6b4909f4923f336dfc1",
+    "jsc-entropy/case-gc-fx.log": "8a29a6bb170546d2700c6a7dab539e4f4e5dbfd4f8edfb99a5417425d55afc2b",
+    "jsc-entropy/prepare.log": "69fe8a24ffd50f22f876708e032ee81485b5db991bc3812443b74df90ad2a234",
+    "jsc-entropy/case-wtf-utility.log": "51f07c5221928227ae9e6035e7cb97cbd02cb02c03439d8e6098a349ef10d85a",
+    "jsc-entropy/qemu.log": "40f08c0e5541447bd4217840bb931f5b87aa972ab89c830d99f653bfe218b979",
+    "jsc-entropy/supervised-qualification.log": "e974496e19b8713ddde2ada354cea7087b48531322027c4c3f824b3617992068",
+    "jsc-entropy/prepare-receipt.sha256": "83395233aecd61f623f5805755d3de1d66d2673dbd5fab1bd4ce05a35351564c",
+    "jsc-entropy/run-result.json": "e974496e19b8713ddde2ada354cea7087b48531322027c4c3f824b3617992068",
+    "supervisor.json": "3eef04ff40834dfef231e39e4f163442e884c8e2e76f20318639ad00b1a46c59",
+    "entropy-guest-grant.json": "91a2deab6c0d6d30bb4a428eedc06ebc254ac3036477f13375e1ad5ae420d5a0",
+    "review-signoff.json": "6acb68dc12d2206c78f46e2c8a0ee1936855f41a5b973aa8db983d4218e9fc9c",
+    "run_entropy_vm.py": "6aa71c7e2f4b398aadf9aefe8fca767715201b0d9a4963d22d359c6499813bf0"
+  },
+  "retained_failure_packets": [
+    "entropy-target-plan",
+    "entropy-target-retry",
+    "init-diagnostic-first-run-rfjlmgq1",
+    "retirement-suite-first-run-nif3a3cs"
+  ],
+  "created_epoch": 1793844844.595757
+}

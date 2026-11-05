@@ -2,11 +2,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 /* Exact Air6,1 pilot. No writer/data mapping/adoption API. All unknown
- * upper-fence/swizzle/ownership facts stay unknown, even on status 1. */
+ * reference-count/full-swizzle/ownership facts stay unresolved, even on status 1. */
 #define HWB_PTES 1536u
 #define HWB_FENCES 16u
+#define HWB_FENCES_MAX 32u
 #define HWB_WORDS 50u
 #define HWB_LIMIT_US 100000u
+#define HWB_MAPS 10u
 #define HWB_COLOR 0x0000080808100801ull
 enum hwb_field {
  HW_GPU,HW_REV,HW_SUB,HW_MMIO_LO,HW_MMIO_HI,HW_AP_LO,HW_AP_HI,HW_CMD,HW_PM,
@@ -19,11 +21,11 @@ enum hwb_field {
 struct hwb_endpoint {uint64_t v[HWB_WORDS];};
 struct hwb_sample {
  struct hwb_endpoint endpoint;
- uint64_t begin,end,hash,fence[HWB_FENCES];
- uint32_t reads,count,present,stolen,pte[HWB_PTES];
+ uint64_t begin,end,hash,fence[HWB_FENCES_MAX];
+ uint32_t reads,count,present,stolen,pte[HWB_PTES],tilectl;
 };
 struct hwb_result {
- uint32_t status,maps,retained,count;
+ uint32_t status,maps,retained,count,version,fences;
  uint64_t offset,bytes,table_bytes,stolen_base,stolen_end;
  struct hwb_sample sample[2];
 };
@@ -31,6 +33,8 @@ struct hwb_result {
  * changed;4 mapping/read failed;5 clock/deadline;6 mapping retained;7 PTE changed. */
 struct hwb_io {
  void *ctx;
+ bool linux_fences; /* Exact Haswell Linux-model 32-row experiment only. */
+ bool cpu_control; /* Explicit v2/v3 only; one raw TILECTL word per pass. */
  bool (*endpoint)(void *,struct hwb_endpoint *);
  bool (*map)(void *,uint32_t);
  bool (*unmap)(void *);
@@ -39,4 +43,4 @@ struct hwb_io {
  void (*progress)(void *,unsigned);
 };
 bool hwb_capture(struct hwb_result *,const struct hwb_io *);
-bool platform_haswell_backing_run(void);
+bool platform_haswell_backing_run(bool cpu_control,bool linux_fences);

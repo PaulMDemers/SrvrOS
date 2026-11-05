@@ -42,6 +42,25 @@ void xhci_init(void);
  * True verifies R/S clear, halted controller and drained software event ring.
  * No reset/restart or DMA/record free: block/worker/diagnostic references remain. */
 bool xhci_stop(void);
+/* Explicit subtree retirement: close admission, retire providers, disable children
+ * before their parent, at most one command per call. Retry false for progress,
+ * active owners or unproven commands.
+ * True retains all DMA/identity tombstones; no slot reuse or re-enumeration. */
+bool xhci_retire_slot(uint8_t slot);
+/* One explicit EP0 protocol-STALL recovery per slot: verified reset/fresh
+ * dequeue, with leased single-TT control cleanup where needed. No storage revival. */
+bool xhci_recover_control(uint8_t slot);
+/* Shared endpoint recovery entry; currently EP0 and HID STALL only.
+ * Non-control recovery clears the device halt before fresh dequeue publication. */
+bool xhci_recover_endpoint(uint8_t slot,uint8_t dci);
+bool xhci_test_endpoint_recovery(uint8_t slot);
+/* Explicit diagnostic: induce protocol STALL on a HID slot and verify recovery. */
+bool xhci_test_control_recovery(uint8_t slot);
+/* Terminal DMA reclaim after stop, storage/worker/diagnostic reference drain
+ * and PCI bus-master disable readback. At most 16 frames per call; retry false
+ * for pending owners, unproven hardware or progress. Metadata stays offline and
+ * stable; no record, MMIO mapping, block descriptor or network metadata free. */
+bool xhci_reclaim(void);
 bool xhci_is_present(void);
 uint64_t xhci_keyboard_count(void);
 uint64_t xhci_mouse_count(void);

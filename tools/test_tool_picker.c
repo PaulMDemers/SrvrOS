@@ -5,6 +5,11 @@
 static struct tool t;
 static int fail_start,cancels,opened,saved,requested,clipboard_target;
 static char destination[DESK_FILE_PATH];
+int tool_listing_decode(struct tool *tool) {
+    return desk_listing_decode(tool->entries,tool->items,tool->details,tool->job.incoming,tool->job.response.length,tool->job.response.count);
+}
+void tool_layout(struct tool *tool) { (void)tool; }
+void tool_files_transfer_accept(struct tool *tool,const char *path) { (void)tool;(void)path;assert(0); }
 void tool_text_search_close(struct tool *tool) { (void)tool; }
 void srv_puts(const char *s) { (void)s; }
 void tool_status(struct tool *tool,const char *s) { snprintf(tool->status,sizeof(tool->status),"%s",s); }
@@ -24,7 +29,7 @@ static void response(void) {
     tool_picker_finish(&t,1);
 }
 int main(void) {
-    desk_chooser_init(&t.chooser,&t.picker,&t.job,t.entries,t.items,t.details);
+    desk_chooser_init(&t.chooser,&t.picker,&t.job,t.chooser_entries,t.chooser_items,t.chooser_details);
     desk_ui_init(&t.ui);desk_picker_init(&t.picker);t.window.width=720;t.window.height=480;t.window.focused=1;
     desk_text_buffer_init(&t.path_text,t.path_store[0],t.path_store[1],DESK_FILE_PATH);
     desk_text_buffer_init(&t.body_text,t.body_store[0],t.body_store[1],DESK_FILE_BYTES+1);
@@ -35,7 +40,7 @@ int main(void) {
     tool_picker_cancel(&t);assert(!t.picker_mode && !t.pending && t.chooser.pending && t.job.busy);
     response();assert(!t.chooser.pending && !opened && !saved && !strcmp(t.body_text.data,"Keep this document"));
     tool_picker_open(&t,DESK_PICKER_SAVE);response();assert(!t.picker.busy && t.picker.list.count==2);
-    assert(t.items[0].folder && !strcmp(t.items[1].label,"notes.txt"));
+    assert(t.chooser_items[0].folder && !strcmp(t.chooser_items[1].label,"notes.txt"));
     tool_picker_result(&t,(struct desk_picker_result){.field=DESK_PICKER_FILENAME,.flags=DESK_EDIT_COPY});assert(clipboard_target==TOOL_PICK_NAME);
     desk_text_buffer_set(&t.picker.name_text,"new.txt",7);
     struct srv_key_event enter={.usage=SRV_KEY_ENTER,.flags=SRV_KEY_DOWN_EVENT};
@@ -43,6 +48,14 @@ int main(void) {
     tool_picker_open(&t,DESK_PICKER_OPEN);response();desk_list_select(&t.picker.list,1);
     tool_picker_result(&t,desk_picker_key(&t.picker,&enter));assert(opened==1 && !strcmp(destination,"/fat/notes.txt"));
     tool_picker_open(&t,DESK_PICKER_OPEN);tool_picker_cancel(&t);t.closing=1;response();assert(requested==TOOL_PENDING_CLOSE && !t.closing);
+    /* A programmatic Files close dismisses the picker without sending a
+     * cancel-close and waits for its already submitted browse to drain. */
+    t.role=DESK_APP_FILES;t.closing=0;requested=0;
+    tool_picker_open(&t,DESK_PICKER_OPEN);assert(t.chooser.pending && t.job.busy);
+    int prior_cancels=cancels;tool_picker_dismiss(&t);t.closing=1;
+    assert(!t.picker_mode && t.chooser.pending && cancels==prior_cancels);
+    response();assert(!t.chooser.pending && !t.job.busy && t.closing && !requested && cancels==prior_cancels);
+    t.closing=0;t.role=DESK_APP_TEXT;
     /* Invalid payload cannot replace existing borrowed listing entries. */
     struct desk_file_entry before=t.entries[0],bad={.name="../bad"};memcpy(t.job.incoming,&bad,sizeof(bad));
     t.job.response.count=1;t.job.response.length=sizeof(bad);assert(tool_listing_decode(&t)<0 && !memcmp(&before,&t.entries[0],sizeof(before)));

@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <srvros/sys.h>
+#include "cJSON.h"
 static char fixture[128],program[1024];
 static int fail_sync,fail_rename,fail_enumeration;
 static unsigned reads;
@@ -85,6 +86,31 @@ static int cli(char *const args[],const char *checkpoint) {
     char *env[]={stop,NULL};pid_t pid;assert(!posix_spawn(&pid,program,NULL,NULL,args,env));
     int status;assert(waitpid(pid,&status,0)==pid);assert(WIFEXITED(status));return WEXITSTATUS(status);
 }
+/* Drain the real CLI preview to EOF, retaining at most one bounded JSON frame. */
+static cJSON *create_preview(const char *home) {
+    int fds[2];assert(!pipe(fds));posix_spawn_file_actions_t actions;
+    assert(!posix_spawn_file_actions_init(&actions));
+    assert(!posix_spawn_file_actions_adddup2(&actions,fds[1],STDOUT_FILENO));
+    assert(!posix_spawn_file_actions_addclose(&actions,fds[0]));
+    assert(!posix_spawn_file_actions_addclose(&actions,fds[1]));
+    char *args[]={program,"preview-create",(char *)home,"created","Created Profile",NULL};
+    char *env[]={NULL};pid_t pid;assert(!posix_spawn(&pid,program,&actions,NULL,args,env));
+    assert(!posix_spawn_file_actions_destroy(&actions));assert(!close(fds[1]));
+    char out[4097];size_t used=0;for(;;){char chunk[512];ssize_t n=read(fds[0],chunk,sizeof(chunk));
+        if(n<0&&errno==EINTR)continue;
+        assert(n>=0);
+        if(!n)break;
+        assert(used+(size_t)n<=4096);memcpy(out+used,chunk,(size_t)n);used+=(size_t)n;}
+    assert(!close(fds[0]));int status;assert(waitpid(pid,&status,0)==pid && WIFEXITED(status) && !WEXITSTATUS(status));
+    out[used]=0;cJSON *json=cJSON_ParseWithLength(out,used+1);assert(json);return json;
+}
+static const char *review_string(cJSON *obj,const char *key) {
+    cJSON *v=cJSON_GetObjectItemCaseSensitive(obj,key);assert(cJSON_IsString(v)&&v->valuestring);return v->valuestring;
+}
+static unsigned json_uint(cJSON *obj,const char *key) {
+    cJSON *v=cJSON_GetObjectItemCaseSensitive(obj,key);assert(cJSON_IsNumber(v)&&v->valuedouble>0&&v->valuedouble<=2147483647);
+    unsigned n=(unsigned)v->valuedouble;assert(v->valuedouble==n);return n;
+}
 static void bundle(const char *path,unsigned number) {
     char text[700];snprintf(text,sizeof(text),"{\"format\":\"org.srvros.portable-profile\",\"schema_version\":1,\"profile\":{\"id\":\"12345678-1234-4234-8234-%012u\",\"display_name\":\"Profile %u\"},\"preferences\":{\"text_size\":20},\"documents\":[]}",number,number);put(path,text);
 }
@@ -95,6 +121,29 @@ static void imported(const char *slot,unsigned number,const char *checkpoint) {
     snprintf(alias,sizeof(alias),"p%u",number);snprintf(uid,sizeof(uid),"%u",2000+number);
     char *args[]={program,"import",source,actual_home,alias,uid,uid,NULL};
     assert(cli(args,checkpoint)==(checkpoint?86:0));
+}
+/* Fixed SHA-256 of 65536 ASCII x bytes; payload is written incrementally. */
+static void stream_bundle(const char *path,unsigned number) {
+    char text[700];int n=snprintf(text,sizeof(text),
+        "{\"format\":\"org.srvros.portable-profile\",\"schema_version\":2,"
+        "\"profile\":{\"id\":\"12345678-1234-4234-8234-%012u\",\"display_name\":\"Profile %u\"},"
+        "\"preferences\":{\"text_size\":20},\"documents\":[{\"path\":\"Documents/data.bin\","
+        "\"size\":65536,\"sha256\":\"1f8745f0d2d1387ec1af2211a3cf417b2e9e885e853472649c1d979d0e9370e3\"}]}",number,number);
+    assert(n>0 && (size_t)n<sizeof(text));
+    unsigned char header[24]="SRVROS-PROFILE2\n";
+    header[16]=(unsigned char)n;header[17]=(unsigned char)(n>>8);
+    header[18]=(unsigned char)(n>>16);header[19]=(unsigned char)(n>>24);
+    FILE *f=fopen(path,"wb");assert(f);
+    assert(fwrite(header,1,sizeof(header),f)==sizeof(header));assert(fwrite(text,1,(size_t)n,f)==(size_t)n);
+    char chunk[1024];memset(chunk,'x',sizeof(chunk));
+    for(unsigned i=0;i<64;i++)assert(fwrite(chunk,1,sizeof(chunk),f)==sizeof(chunk));
+    assert(!fclose(f));
+}
+static void stream_interrupted(const char *checkpoint,unsigned number,char source[160],char home[1024]) {
+    mapped("/fat/home/pending",home);snprintf(source,160,"%s/stream.bundle",fixture);
+    stream_bundle(source,number);char alias[32],uid[20];
+    snprintf(alias,sizeof(alias),"p%u",number);snprintf(uid,sizeof(uid),"%u",2000+number);
+    char *args[]={program,"import",source,home,alias,uid,uid,NULL};assert(cli(args,checkpoint)==86);
 }
 static struct profile_entry *entry(struct profile_catalog *c,const char *slot) {
     for(unsigned i=0;i<c->count;i++)if(!strcmp(strrchr(c->entries[i].home,'/')+1,slot))return &c->entries[i];
@@ -173,6 +222,50 @@ int main(int argc,char **argv) {
         put("/fat/home/pending.profile-import.json","{\"format\":");
         assert(!profile_catalog_scan(&c,"/fat/home") && c.count==1 && entry(&c,"pending")->state==PROFILE_BLOCKED);
         cleanup();
+    }
+    /* V2 recovery must validate its original source at every checkpoint. */
+    const char *stream_stops[]={"journal","directories","copy-partial","document","identity","commit-ready","published"};
+    for(unsigned i=0;i<sizeof(stream_stops)/sizeof(stream_stops[0]);i++) {
+        new_fixture();char source[160],saved[180],home[1024];
+        stream_interrupted(stream_stops[i],30+i,source,home);
+        assert(!profile_catalog_scan(&c,"/fat/home") && c.count==1 && entry(&c,"pending")->state==PROFILE_RECOVERABLE);
+        assert(snprintf(saved,sizeof(saved),"%s.saved",source)<(int)sizeof(saved));
+        assert(!rename(source,saved));
+        assert(!profile_catalog_scan(&c,"/fat/home") && entry(&c,"pending")->state==PROFILE_BLOCKED);
+        assert(!rename(saved,source));
+        assert(!profile_catalog_scan(&c,"/fat/home") && entry(&c,"pending")->state==PROFILE_RECOVERABLE);
+        char *recover_args[]={program,"recover",home,NULL};assert(cli(recover_args,NULL)==0);
+        assert(!profile_catalog_scan(&c,"/fat/home") && c.count==1 && entry(&c,"pending")->state==PROFILE_READY);
+        char document[1024];assert(snprintf(document,sizeof(document),"%s/Documents/data.bin",home)<(int)sizeof(document));
+        struct stat st;assert(!stat(document,&st) && st.st_size==65536);
+        cleanup();
+    }
+    /* Creation recovery is self-contained: no external portable bundle exists. */
+    const char *create_stops[]={"journal","directories","identity","commit-ready","published"};
+    for(unsigned i=0;i<5;i++) {
+        new_fixture();char actual_home[1024];mapped("/fat/home/created",actual_home);
+        cJSON *review=create_preview(actual_home);
+        assert(!strcmp(review_string(review,"operation"),"create"));
+        cJSON *who=cJSON_GetObjectItemCaseSensitive(review,"profile");
+        cJSON *dest=cJSON_GetObjectItemCaseSensitive(review,"destination");assert(cJSON_IsObject(who)&&cJSON_IsObject(dest));
+        const char *id=review_string(who,"id"),*name=review_string(who,"display_name"),*hash=review_string(review,"sha256");
+        assert(!strcmp(name,"Created Profile")&&!strcmp(review_string(dest,"home"),actual_home));
+        char uid[20],gid[20];snprintf(uid,sizeof(uid),"%u",json_uint(dest,"uid"));snprintf(gid,sizeof(gid),"%u",json_uint(dest,"gid"));
+        char *create_args[]={program,"create-reviewed",actual_home,(char *)review_string(dest,"alias"),(char *)name,uid,gid,(char *)id,(char *)hash,NULL};
+        assert(cli(create_args,create_stops[i])==86);
+        char actual_journal[1024],actual_pending[1024];mapped("/fat/home/created.profile-import.json",actual_journal);mapped("/fat/home/created/.profile-import-pending",actual_pending);
+        struct stat st;assert(!lstat(actual_journal,&st));if(!strcmp(create_stops[i],"published"))assert(lstat(actual_pending,&st)<0&&errno==ENOENT);
+        assert(!profile_catalog_scan(&c,"/fat/home") && c.count==1);
+        struct profile_entry *candidate=entry(&c,"created");assert(candidate->state==PROFILE_RECOVERABLE && !strcmp(candidate->id,id) && !strcmp(candidate->name,name));
+        char *recover_args[]={program,"recover",actual_home,NULL};assert(cli(recover_args,NULL)==0);
+        assert(!profile_catalog_scan(&c,"/fat/home") && c.count==1);
+        candidate=entry(&c,"created");assert(candidate->state==PROFILE_READY && !strcmp(candidate->id,id) && !strcmp(candidate->name,name));
+        assert(!profile_choice_save("/fat/home/.desktop-profile",candidate));
+        assert(profile_choice_load("/fat/home/.desktop-profile",&c,&index,reason)==1 && !strcmp(c.entries[index].id,id));
+        /* The fixture root contains only the mount tree, no source bundle. */
+        DIR *root=opendir(fixture);assert(root);struct dirent *de;unsigned entries=0;
+        while((de=readdir(root)))if(strcmp(de->d_name,".")&&strcmp(de->d_name,"..")){assert(!strcmp(de->d_name,"fat"));entries++;}
+        assert(entries==1 && !closedir(root));cJSON_Delete(review);cleanup();
     }
     new_fixture();imported("ready",20,NULL);imported("interrupted",21,"journal");
     put("/fat/home/ready/profile.id","srvros-profile-v1\n12345678-1234-4234-8234-000000000021\n");

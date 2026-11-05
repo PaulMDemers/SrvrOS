@@ -639,6 +639,25 @@ def main():
                                                    'image-linked', 'image-published', 'ready-written',
                                                    'ready-linked', 'ready-published'))
     sub.add_parser('inspect').add_argument('staging_dir')
+    installed = sub.add_parser('inspect-installed')
+    installed.add_argument('staging_dir')
+    installed.add_argument('--driver', required=True)
+    export = sub.add_parser('export-profile')
+    export.add_argument('staging_dir')
+    export.add_argument('output')
+    export.add_argument('--profile-id', required=True)
+    export.add_argument('--home', required=True)
+    export.add_argument('--document', action='append', default=[])
+    export.add_argument('--inspect-driver', required=True)
+    export.add_argument('--export-driver', required=True)
+    import installation_export_publication as export_publication
+    export.add_argument('--publication-dir')
+    export.add_argument('--interrupt-after', choices=export_publication.CHECKPOINTS)
+    export_inspect = sub.add_parser('inspect-export')
+    export_inspect.add_argument('publication_dir')
+    export_reconcile = sub.add_parser('reconcile-export')
+    export_reconcile.add_argument('publication_dir')
+    export_reconcile.add_argument('--interrupt-after', choices=export_publication.FINISH_CHECKPOINTS)
     recovery = sub.add_parser('reconcile')
     recovery.add_argument('staging_dir')
     recovery.add_argument('--interrupt-after', choices=('image-linked', 'image-published', 'ready-written',
@@ -657,12 +676,37 @@ def main():
             result = apply(args.staging_dir, checkpoint=checkpoint)
         elif args.action == 'inspect':
             result = inspect(args.staging_dir)
+        elif args.action == 'inspect-installed':
+            from installation_inspection import inspect_installed
+            result = inspect_installed(args.staging_dir, args.driver)
+        elif args.action == 'export-profile':
+            from installation_export import export_installed
+            if args.interrupt_after and not args.publication_dir:
+                parser.error('--interrupt-after requires --publication-dir')
+            def checkpoint(name):
+                if name == args.interrupt_after:
+                    os._exit(75)
+            result = export_installed(args.staging_dir, args.output, args.profile_id, args.home,
+                                      args.document, args.inspect_driver, args.export_driver,
+                                      args.publication_dir, checkpoint if args.publication_dir else None)
+        elif args.action == 'inspect-export':
+            result = export_publication.inspect(args.publication_dir)
+        elif args.action == 'reconcile-export':
+            def checkpoint(name):
+                if name == args.interrupt_after:
+                    os._exit(75)
+            result = export_publication.reconcile(args.publication_dir, checkpoint)
         else:
             def checkpoint(name):
                 if name == args.interrupt_after:
                     os._exit(75)
             result = reconcile(args.staging_dir, checkpoint=checkpoint)
         print(json.dumps(result, indent=2, sort_keys=True))
+        if ((args.action == 'inspect-installed' and not result['consistent']) or
+            (args.action == 'export-profile' and result['state'] != 'exported') or
+            (args.action == 'inspect-export' and result['state'] == 'refused') or
+            (args.action == 'reconcile-export' and result['state'] != 'complete')):
+            raise SystemExit(1)
     except (ValueError, OSError, KeyError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'error: {error}\n')
 

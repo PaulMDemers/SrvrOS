@@ -1,0 +1,124 @@
+{
+  "artifacts": {
+    "base": "59491e3007634f866d156e561c6931c45cf6d8aa078d373bd016a0593efb34a8",
+    "boot": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+    "export_driver": "970e17be9166be697ce8ac9d9c62d8bbb75b29f782e1d6eda8ff552eb2e7f23b",
+    "fs_driver": "a01fb58a854a20255806e64d638e14dbe75703214669872460ed7cc91510b5a1",
+    "init": "09a0f7749aacf0aa621eb242fea1b8d56030beceb676c4f6afdc576cd77ff3f8",
+    "inspect_driver": "61f9336c8347f825cf79ea815b943ef79714807160a9502d4869baec82c26aa7",
+    "kernel": "f2f41b6a57f72d891907f253f02259c24afa41ff865372a1651d65cd57fbf3a2",
+    "profile_driver": "b40880c0e5301810c0f593bdc3bd4bbdbc95a17196bd7a92def21b336654022d"
+  },
+  "checks": {
+    "bundle_groups": 13,
+    "installation_passed": 88,
+    "installation_ran": 89,
+    "matched_all_build": "PASS",
+    "native_export_groups": 16,
+    "optional_exhaustive_skips": 1,
+    "profile_cli_groups": 25,
+    "profile_image_groups": 7,
+    "publication_groups": 17,
+    "storage_session_desktop_fsync_docs": "PASS",
+    "workspace_groups": 27
+  },
+  "integrated_main": "88a95f9abb731c7c41c10fddd17b7c5e8667e0e1",
+  "limits": [
+    "Synthetic offline images and controlled process/syscall faults; no physical media or arbitrary power-loss acceptance",
+    "Integrity and cooperative ownership, not authentication",
+    "Runtime proof source remains bb43b8b2; later follow-up changes documentation/evidence only"
+  ],
+  "next_proposal": {
+    "acceptance": "Use selected larger documents within frozen bounds, fresh B binding and two boots; exact bytes/preferences/identity, bounded transfer memory, and malformed/truncated/corrupt/changed-source/low-space/pending refusals. No used-image upgrade or v2 export-recovery expansion.",
+    "dependencies": [
+      "Qualified/frozen PR367 codec, manifest bounds, full-container and per-document hashes, v2 journal semantics; keep v1 helpers unchanged",
+      "Independently qualified bounded range-I/O prerequisite and matched guest runtime; no ordinary FD cap increase",
+      "New bounded host/native installation adapter and adequate fresh-volume capacity; existing installer/exporter remain v1-only until qualified",
+      "Existing clean/GPT/original-baseline/pending-state refusal, UUID/local binding, exclusive installation publication and checked sync contracts"
+    ],
+    "milestone": "Offline streaming-v2 bundle admission and fresh-install restoration/reboot"
+  },
+  "pins": {
+    ".": "bb43b8b21d1b18edc1c66d6001c19873c73403b6",
+    "ports": "fc51ddb456bd359caee4b65e9a0e719496b6aaad",
+    "ports/upstream/awk": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+    "ports/upstream/cjson": "c859b25da02955fef659d658b8f324b5cde87be3",
+    "ports/upstream/inih": "26254ee9de7681f8825433415443e7116ff24b98",
+    "ports/upstream/libuv": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+    "ports/upstream/linenoise": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+    "ports/upstream/lua": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+    "ports/upstream/node": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+    "ports/upstream/zlib": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+    "userspace/apps": "7d72518acd2b4e7c28e2aad4cfce4954261ee2f2",
+    "userspace/widgets": "3a695ce51e06af0a7ab9c21beedcb8dfe221be9c"
+  },
+  "pr": 364,
+  "preservation": {
+    "inactive_prior_recovery_transport": "Exact size/SHA round-trip gzip with historical inode recorded; no adoption. All original source-proof raw A/B/transport and baselines remain unchanged.",
+    "original_a_and_all_prior_disks_baselines_paths_device_inodes_sizes_hashes_unchanged": true,
+    "original_a_and_baseline_times_unchanged_throughout_new_proof": true,
+    "original_a_receipt_sha256": "ae4b59b04257b38c9509141e1eb5b57b84fb9dd31f7b73c701b1de1bc25664cf",
+    "protected_vm_commands_unchanged": [
+      61610,
+      6233,
+      85869
+    ]
+  },
+  "proof": {
+    "audit_sha256": "99decda5b05d2395acbc3fc213bf5b6997f28ab52d2845a4e5d2676b922667a0",
+    "boots": [
+      "b1",
+      "b2"
+    ],
+    "bundle_sha256": "699d2271b048b2177831367aeaec66bccfc649c2ccad54a3fea5b0a83c484841",
+    "complete_publications": 18,
+    "fresh_b_gpt": {
+      "disk_guid": "68cc2b57-5bde-45cf-a7c4-20a4403da768",
+      "esp_partition_guid": "06c81d2d-2a42-4f39-a492-64558eee301f",
+      "exfat_partition_guid": "b03891bc-ab2c-4818-961a-203b28625a22"
+    },
+    "fresh_b_image_sha256": "3f7b598fa25077fb3005546836a6e0666ab84ac3b1da554c779b8ffa2ec51988",
+    "installed_base_files_verified": 166,
+    "io_fault_modes": 8,
+    "owned_qemu_remaining": 0,
+    "path": ".local/installation-evidence/guest-created-volume/export-publication-review/proof-apgpwd4j",
+    "publication_interruptions": 8,
+    "receipt_sha256": "94866e1656a3e2889d336cde80080ca912915d8a145258488ee9f45d653710a6",
+    "reconciliation_interruptions": 5,
+    "refusal_commands": 22,
+    "steps": 109
+  },
+  "reserves": {
+    "external_temp_cache_private": true,
+    "floors_bytes": {
+      "internal_temp": 2147483648,
+      "output_backing_external_temp_cache": 4294967296
+    },
+    "minimum_backing_bytes": 12199788544,
+    "minimum_external_temp_cache_bytes": 7907786752,
+    "minimum_internal_bytes": 6299389952,
+    "minimum_output_bytes": 7402475520,
+    "minimum_temp_bytes": 6299389952,
+    "original_internal_caches_retained": true,
+    "startup_output_bytes": 9073631232
+  },
+  "review": {
+    "blocking_findings": 0,
+    "reason_for_rerun": "Main advances consumed Apps/Widgets payload; fresh matched runtime and full proof required.",
+    "unresolved_review_threads": 0,
+    "v1_fs_profile_export_contracts_changed_on_main": false
+  },
+  "screenshot": {
+    "dimensions": [
+      1280,
+      800
+    ],
+    "exact_pixels_verified": true,
+    "expert_review": "Exact selected 24-byte Text document is readable after B reboot at the new local HOME; source PPM pixels preserved.",
+    "path": "installation-export-recovery-review-restored.png",
+    "png_sha256": "48d4e021b6e04b407f190bc053e46ab51cd8e257671a9c8f736e59686abdcc28",
+    "ppm_sha256": "56c42973c7b07594a322c7f798c5b2fd40f5b9ce2201086b886318a89ac1549a"
+  },
+  "status": "qualified-for-merge",
+  "tested_source": "bb43b8b21d1b18edc1c66d6001c19873c73403b6"
+}

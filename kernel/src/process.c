@@ -1,3 +1,4 @@
+#include <srvros/session_scope.h>
 #include <srvros/path_limits.h>
 #include <srvros/audio.h>
 #include "arch/x86_64/isr_frame.h"
@@ -14,6 +15,8 @@
 #include <srvros/net.h>
 #include <srvros/pmm.h>
 #include <srvros/process.h>
+#include <srvros/file_stream_kernel.h>
+#include <srvros/exfat_stream.h>
 #include <srvros/pty.h>
 #include <srvros/scheduler.h>
 #include <srvros/syscall_numbers.h>
@@ -233,9 +236,11 @@ struct process {
     char cwd_storage[PROCESS_PATH_MAX];
     uint64_t process_group;
     uint64_t lifetime; /* Immutable across exec, job control and orphaning. */
+    uint64_t owned_user_scope;
     uint64_t session_id;
     uint64_t controlling_tty;
     uint64_t pid;
+    uint64_t stream_instance; /* Never copied into a child or recycled slot. */
     uint64_t parent_pid;
     uint64_t exit_status;
     uint64_t entry;
@@ -350,12 +355,15 @@ static bool process_slots_busy[PROCESS_MAX_PROCESSES];
  * and destruction. Members include reservations and final resource release. */
 struct process_lifetime {
     uint64_t token, members, peak;
-    bool revoked, root_reserved;
+    bool revoked, root_reserved, user, reservation;
+    struct process *owner;
+    uint64_t nonzero_exits, first_exit_status;
 };
 static struct process_lifetime process_lifetimes[PROCESS_MAX_PROCESSES];
 static uint64_t next_lifetime = 1;
 static uint64_t next_image_generation;
 static uint64_t next_pid = 1;
+static uint64_t next_stream_instance = 1;
 static uint64_t next_exit_record_sequence;
 static struct scheduler_wait_queue process_wait_queue;
 static struct scheduler_wait_queue pipe_wait_queue;
@@ -825,6 +833,16 @@ static void process_latency_end(enum latency_work_site site,struct process_laten
     latency_work_record(site,span.start,span.entry_masked);
 #endif
 }
+/* Legacy host fixtures have no stream manager. The dedicated stream/process
+ * fixture enables these production hooks and supplies its backend seams. */
+static bool process_stream_busy(const char *path,bool subtree) {
+#if defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_STREAM_PROCESS_HOST_TEST)
+    (void)path;(void)subtree;return false;
+#else
+    return exfat_stream_busy(path,subtree);
+#endif
+}
+
 /* These are serialized service windows, not general preemption of a mutable
  * process/VFS operation. Only the existing audited GUI and kernel services may
  * run; siblings and unsafe entries wait behind the inherited owner gate. */
@@ -843,6 +861,18 @@ static void process_service_end(struct process_service_scope scope) {
 #else
     if(scope.held)scheduler_io_end();
     process_irq_restore(scope.flags);
+#endif
+}
+static bool process_stream_cleanup(uint64_t owner) {
+    if(!owner)return true;
+#if defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_STREAM_PROCESS_HOST_TEST)
+    (void)owner;return true;
+#elif defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    return file_stream_cleanup(owner);
+#else
+    struct process_service_scope scope=process_service_begin();
+    if(!scope.held) { process_service_end(scope);return false; }
+    bool okay=file_stream_cleanup(owner);process_service_end(scope);return okay;
 #endif
 }
 static void process_service_checkpoint(void) {
@@ -1213,6 +1243,76 @@ static struct process_lifetime *lifetime_find(uint64_t token) {
     return NULL;
 }
 
+/* Owner authority requires both the live process association and token. */
+static struct process_lifetime *user_scope_owned(uint64_t token) {
+    struct process *owner=process_current();
+    struct process_lifetime *life=lifetime_find(token);
+    return owner && owner->allocated && owner->active && !owner->exiting && !owner->killed &&
+        owner->owned_user_scope==token && life && life->user && life->owner==owner ? life : NULL;
+}
+static void user_scope_detach(struct process *owner) {
+    uint64_t flags=process_irq_save();
+    struct process_lifetime *life=owner?lifetime_find(owner->owned_user_scope):NULL;
+    if(life && life->user && life->owner==owner) {
+        life->revoked=true;life->owner=NULL;
+        if(life->reservation) {life->reservation=false;life->members--;}
+        if(!life->members) *life=(struct process_lifetime){0};
+    }
+    if(owner) owner->owned_user_scope=0;
+    process_irq_restore(flags);
+}
+static void user_scope_member_done(struct process_lifetime *life,uint64_t status,bool retired) {
+    if(!life) return;
+    if(life->user && retired && status) {
+        if(!life->nonzero_exits) life->first_exit_status=status;
+        if(life->nonzero_exits!=UINT64_MAX) life->nonzero_exits++;
+    }
+    if(life->members) life->members--;
+    if(life->user && !life->owner && life->revoked && !life->members)
+        *life=(struct process_lifetime){0};
+}
+int64_t process_scope_create(uint64_t *out) {
+    uint64_t flags=process_irq_save();struct process *owner=process_current();
+    int64_t result=SRV_ERR_AGAIN;
+    if(!out || !owner || !owner->allocated || !owner->active || owner->exiting || owner->killed) result=SRV_ERR_INVAL;
+    else if(owner->lifetime) result=SRV_ERR_NOTSUP;
+    else if(owner->owned_user_scope) result=SRV_ERR_BUSY;
+    else {
+        for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) {
+            struct process_lifetime *life=&process_lifetimes[i];
+            if(life->user && !life->owner && life->revoked && life->members) {result=SRV_ERR_BUSY;goto done;}
+        }
+        for(unsigned i=0;next_lifetime && i<PROCESS_MAX_PROCESSES;i++) if(!process_lifetimes[i].token) {
+            uint64_t token=next_lifetime++;
+            process_lifetimes[i]=(struct process_lifetime){.token=token,.user=true,.owner=owner};
+            owner->owned_user_scope=token;*out=token;result=0;break;
+        }
+    }
+done: process_irq_restore(flags);return result;
+}
+int64_t process_scope_reserve(uint64_t token) {
+    uint64_t flags=process_irq_save();struct process_lifetime *life=user_scope_owned(token);
+    int64_t result=!life?SRV_ERR_INVAL:(life->revoked || life->root_reserved?SRV_ERR_BUSY:0);
+    if(!result) {life->root_reserved=true;life->reservation=true;life->members++;life->peak=life->members;}
+    process_irq_restore(flags);return result;
+}
+void process_scope_cancel_reservation(uint64_t token) {
+    uint64_t flags=process_irq_save();struct process_lifetime *life=lifetime_find(token);
+    if(life && life->user && life->reservation) {life->reservation=false;user_scope_member_done(life,0,false);}
+    process_irq_restore(flags);
+}
+int64_t process_scope_control(unsigned op,uint64_t token,struct srv_scope_status *out) {
+    uint64_t flags=process_irq_save();struct process_lifetime *life=user_scope_owned(token);int64_t result=0;
+    if(!life) result=SRV_ERR_INVAL;
+    else if(op==SRV_SCOPE_REVOKE) life->revoked=true;
+    else if(op==SRV_SCOPE_STATUS && out) *out=(struct srv_scope_status){.version=SRV_SCOPE_VERSION,.size=sizeof(*out),.revoked=life->revoked,.members=life->members,.nonzero_exits=life->nonzero_exits,.first_exit_status=life->first_exit_status};
+    else if(op==SRV_SCOPE_RELEASE) {
+        if(!life->revoked || life->members) result=SRV_ERR_BUSY;
+        else {process_current()->owned_user_scope=0;*life=(struct process_lifetime){0};}
+    } else result=SRV_ERR_INVAL;
+    process_irq_restore(flags);return result;
+}
+
 uint64_t process_lifetime_create(void) {
     if (process_current()) return 0;
     uint64_t flags=process_irq_save(),token=0;
@@ -1259,11 +1359,11 @@ uint64_t process_lifetime_of(uint64_t pid) {
 
 static struct process *alloc_process_lifetime(const char *path,bool detached,uint64_t root_token) {
     struct process *parent=process_current();
-    if (root_token && parent) return NULL;
     uint64_t token=root_token?root_token:(parent?parent->lifetime:0);
     uint64_t flags=process_irq_save(),slot=PROCESS_MAX_PROCESSES,pid=0;
     struct process_lifetime *life=lifetime_find(token);
-    if (token && (!life || life->revoked || (root_token && life->root_reserved))) {
+    if (root_token && parent && !user_scope_owned(root_token)) {process_irq_restore(flags);return NULL;}
+    if (token && (!life || (life->revoked && !(root_token && life->reservation)) || (root_token && life->root_reserved && !life->reservation))) {
         process_irq_restore(flags);return NULL;
     }
     for(uint64_t i=0;i<PROCESS_MAX_PROCESSES;i++) {
@@ -1271,7 +1371,8 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
             slot=i;process_slots_busy[i]=true;pid=next_pid++;
             if(!next_pid) next_pid=1;
             if(life) {
-                life->members++;if(life->members>life->peak)life->peak=life->members;
+                if(root_token && life->reservation) life->reservation=false;
+                else {life->members++;if(life->members>life->peak)life->peak=life->members;}
                 if(root_token)life->root_reserved=true;
             }
             break;
@@ -1316,7 +1417,9 @@ static void release_process(struct process *process) {
         return;
     }
 
+    user_scope_detach(process);
     uint64_t token=process->lifetime;
+    bool retired=!process->active;uint64_t status=process->exit_status;
     uint64_t slot=(uint64_t)(process-processes),flags=process_irq_save();
     process_slots_busy[slot]=true;
     process_signal_retire_image(process);
@@ -1334,7 +1437,7 @@ static void release_process(struct process *process) {
     clear_process(process);
     flags=process_irq_save();
     struct process_lifetime *life=lifetime_find(token);
-    if(life) life->members--;
+    user_scope_member_done(life,status,retired);
     process_slots_busy[slot]=false;process_irq_restore(flags);
     /* A competing waiter may have slept after another reaper claimed the
      * zombie but before allocated was cleared. Publish target disappearance. */
@@ -1342,6 +1445,7 @@ static void release_process(struct process *process) {
 }
 
 static void release_process_runtime(struct process *process) {
+    user_scope_detach(process);
     if (process == NULL) {
         return;
     }
@@ -1844,7 +1948,7 @@ static bool cleanup_process_files(struct process *process) {
     if (process == NULL) {
         return true;
     }
-    bool ok = true;
+    bool ok = process_stream_cleanup(process->stream_instance);
     for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
         if (!process->files[i].used) {
             continue;
@@ -1871,6 +1975,9 @@ static void close_cloexec_files(struct process *process) {
     if (process == NULL) {
         return;
     }
+    /* Opaque stream resources are always close-on-exec, never inherited. This
+     * function runs after the successful image commit, not failed exec. */
+    (void)process_stream_cleanup(process->stream_instance);
     for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
         uint64_t fd = i;
         if (process->files[i].used &&
@@ -2461,7 +2568,7 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     return status;
 }
 
-int64_t process_spawn_exec(const char *path,
+int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
     uint64_t argc,
     const char *const *argv,
     uint64_t envc,
@@ -2485,7 +2592,7 @@ int64_t process_spawn_exec(const char *path,
     /* Detached children run on their own scheduler thread. */
     if (!detached && process_current_user_thread()) return SRV_ERR_NOTSUP;
 
-    struct process *child = alloc_process(path, detached);
+    struct process *child = alloc_process_lifetime(path, detached, scope_token);
     if (child == NULL) {
         console_write("exec: process table full\n");
         return SRV_ERR_AGAIN;
@@ -2567,6 +2674,16 @@ int64_t process_spawn_exec(const char *path,
     __asm__ volatile ("sti" : : : "memory");
     release_process(child);
     return status;
+}
+
+int64_t process_spawn_exec(const char *path,uint64_t argc,const char *const *argv,
+    uint64_t envc,const char *const *envp,bool detached,int64_t stdin_fd,
+    int64_t stdout_fd,int64_t stderr_fd,uint64_t process_group,bool foreground,
+    const struct process_spawn_file_action *file_actions,uint64_t file_action_count,
+    uint64_t signal_flags,uint64_t signal_mask,uint64_t signal_default) {
+    return process_spawn_exec_scoped(0,path,argc,argv,envc,envp,detached,stdin_fd,
+        stdout_fd,stderr_fd,process_group,foreground,file_actions,file_action_count,
+        signal_flags,signal_mask,signal_default);
 }
 
 static uint64_t load_process_u64(const uint64_t *value) {
@@ -2664,6 +2781,7 @@ int64_t process_exec_replace(const char *path,
 
     uint64_t commit_irq=process_irq_save();
     process_signal_retire_image(process);
+    user_scope_detach(process);
     scheduler_clear_user_context();
     process->image_generation=0;
     process_irq_restore(commit_irq);
@@ -3113,6 +3231,35 @@ static bool process_wait_owned(const struct process *candidate,uint64_t owner) {
         processes[i].pid==candidate->parent_pid && processes[i].active) return false;
     return true;
 }
+int64_t process_scope_reap(uint64_t token) {
+    uint64_t flags=process_irq_save();struct process_lifetime *life=user_scope_owned(token);
+    struct process *child=NULL;
+    if(!life) {process_irq_restore(flags);return SRV_ERR_INVAL;}
+    if(!life->revoked) {process_irq_restore(flags);return SRV_ERR_BUSY;}
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) {
+        struct process *candidate=&processes[i];
+        if(!candidate->allocated || candidate->lifetime!=token || !candidate->detached ||
+           !candidate->reapable || candidate->active || !candidate->parent_pid ||
+           candidate->address_space || candidate->mapping_count || candidate->kernel_stack ||
+           candidate->kernel_stack_physical || candidate->kernel_stack_frames ||
+           process_slots_busy[i] || !scheduler_io_process_retired(candidate)) continue;
+        bool resources=false;
+        for(unsigned j=0;j<PROCESS_MAX_OPEN_FILES;j++) if(candidate->files[j].used) {resources=true;break;}
+        for(unsigned j=0;j<PROCESS_MAX_USER_THREADS;j++) if(candidate->user_threads[j].used) {resources=true;break;}
+        if(resources) continue;
+        bool live_parent=false;
+        for(unsigned j=0;j<PROCESS_MAX_PROCESSES;j++) if(processes[j].allocated &&
+            processes[j].active && processes[j].pid==candidate->parent_pid) {live_parent=true;break;}
+        if(!live_parent) {child=candidate;child->reapable=false;break;}
+    }
+    process_irq_restore(flags);
+    if(!child) return 0;
+    process_record_exit_status(child->pid,child->exit_status);
+    process_account_child(process_current(),child);
+    release_process(child);
+    return 1;
+}
+
 static struct process *find_reapable_process(const struct process_wait_request *request) {
     for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
         struct process *process=&processes[i];
@@ -3156,7 +3303,7 @@ static bool process_try_wait_retired_impl(uint64_t pid,uint64_t *status,int64_t 
      * the empty record intact: alloc_process_lifetime clears its reserved slot
      * at the ordinary gate before reuse. Nothing is freed or yielded here. */
     child->image_generation=0;child->reapable=false;child->allocated=false;
-    if(life)life->members--;
+    user_scope_member_done(life,child->exit_status,true);
     struct process_wait_request any={.owner=parent->pid};
     if(!find_reapable_process(&any))process_clear_current_signal(SRV_SIGNAL_CHLD);
     scheduler_wake_all(&process_wait_queue);
@@ -3881,6 +4028,7 @@ int64_t process_resolve_storage_path(const char *input,char *out,uint64_t capaci
 }
 
 bool process_has_open_vfs_prefix(const char *prefix) {
+    if(process_stream_busy(prefix,true))return true;
     /* Keep the current pathname stable until directory identities can survive
      * rename/removal. This is an explicit busy boundary, not stale PWD state. */
     for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)
@@ -5005,6 +5153,7 @@ static bool ensure_write_capacity(struct process_write_file *file,uint64_t neede
 }
 
 int64_t process_unlink_file(const char *path) {
+    if(process_stream_busy(path,true))return SRV_ERR_BUSY;
     const struct vfs_node *node=vfs_lookup(path);
     if(!node) return SRV_ERR_NOENT;
     if(node->type!=VFS_NODE_FILE) return SRV_ERR_ISDIR;
@@ -5025,6 +5174,7 @@ int64_t process_unlink_file(const char *path) {
 }
 
 int64_t process_rename_file(const char *old_path,const char *new_path) {
+    if(process_stream_busy(old_path,true) || process_stream_busy(new_path,true))return SRV_ERR_BUSY;
     const struct vfs_node *source=vfs_lookup(old_path),*target=vfs_lookup(new_path);
     if(!source) return SRV_ERR_NOENT;
     if(process_path_equal(old_path,new_path)) return 0;
@@ -5093,6 +5243,7 @@ int64_t process_file_open_flags(struct process *process,const char *path,uint64_
     if(result<0) { process_service_end(scope);return result; }
     result=vfs_namespace_system_path(logical,storage,sizeof(storage));
     if(result<0) { process_service_end(scope);return result; }
+    if(process_stream_busy(storage,false)) { process_service_end(scope);return SRV_ERR_BUSY; }
     if(flags&(SRV_OPEN_WRITE|SRV_OPEN_CREATE)) result=process_file_open_write_raw(process,storage,flags);
     else {
         const struct vfs_node *node=vfs_lookup(storage);const uint8_t *data;uint64_t size;
@@ -5134,6 +5285,7 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
 }
 
 static int64_t process_file_open_write_raw(struct process *process, const char *path, uint64_t flags) {
+    if(process_stream_busy(path,false))return SRV_ERR_BUSY;
     if (process == NULL ||
         path == NULL ||
         (flags & (SRV_OPEN_READ|SRV_OPEN_WRITE)) == 0 ||
@@ -5221,6 +5373,22 @@ static int64_t process_fsize_write(struct process *process,uint64_t position,uin
     uint64_t limit=process->fsize_limit.current;
     if(position>=limit) { process_fsize_signal(process);return SRV_ERR_FBIG; }
     return (int64_t)(length>limit-position?limit-position:length);
+}
+
+uint64_t process_stream_identity(struct process *process) {
+    if(!process || !process->allocated || !process->active)return 0;
+    uint64_t flags=process_irq_save();
+    if(!process->stream_instance && next_stream_instance) {
+        process->stream_instance=next_stream_instance++;
+        /* Zero is permanent exhaustion, never a wrapped identity. */
+    }
+    uint64_t identity=process->stream_instance;process_irq_restore(flags);return identity;
+}
+
+int64_t process_stream_write_allowed(uint64_t position,uint64_t length) {
+    struct process *process=process_current();
+    if(!process || length>INT64_MAX || position>UINT64_MAX-length)return SRV_ERR_INVAL;
+    return process_fsize_write(process,position,length);
 }
 
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
@@ -8105,6 +8273,7 @@ void process_exit(uint64_t status) {
 
     scheduler_invalidate_current_user_trap();
     process_signal_clear_records(process);
+    user_scope_detach(process);
     struct process_user_thread *thread = process_current_user_thread();
     if (thread != NULL) {
         (void)process_irq_save();

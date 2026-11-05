@@ -6,7 +6,7 @@
 static const struct pci_device *hsw_host;
 static struct hwb_result hsw_result;
 static uint64_t hsw_window_pa;
-static bool hsw_window_live,hsw_window_poison,hsw_firmware;
+static bool hsw_window_live,hsw_window_poison,hsw_firmware,hsw_cpu_control,hsw_linux_fences;
 static bool hsw_safe_range(uint64_t base,uint64_t size,bool reserved) {
  const struct limine_memmap_response *m=memmap_request.response;
  if(!m || !m->entries || !m->entry_count || m->entry_count>4096 || !size || base>UINT64_MAX-size)return false;
@@ -73,7 +73,7 @@ static bool hsw_map(void *ctx,uint32_t off) {
  uint64_t first=(0x200000+(hsw_result.offset/4096)*4)&~4095ull;
  uint64_t last=(0x200000+(hsw_result.offset/4096+hsw_result.count)*4-1)&~4095ull;
  if(hsw_window_live || hsw_window_poison || !kernel || vmm_current_address_space()!=kernel ||
-    (off&4095) || (off!=0x100000 && (off<first || off>last || off>=0x400000)) ||
+    (off&4095) || (off!=0x100000 && !(hsw_cpu_control && off==0x101000) && (off<first || off>last || off>=0x400000)) ||
     !hsw_config_valid() || !hsw_safe_range(gpu_base,0x400000,false) ||
     vmm_virt_to_phys_in_space(kernel,HWB_VA,&existing))return false;
  hsw_window_pa=gpu_base+off;
@@ -93,7 +93,9 @@ static bool hsw_unmap(void *ctx) {
 static bool hsw_read(void *ctx,uint32_t off,uint32_t *v) {
  (void)ctx;
  if(!hsw_window_live || hsw_window_poison || vmm_current_address_space()!=vmm_kernel_address_space() ||
-    gpu_base+(off&~4095u)!=hsw_window_pa || (off&3))return false;
+    gpu_base+(off&~4095u)!=hsw_window_pa || (off&3) ||
+    (hsw_window_pa==gpu_base+0x101000 && (!hsw_cpu_control || off!=0x101000)) ||
+    (off>=0x100080 && off<0x101000 && (!hsw_linux_fences || off>=0x100100)))return false;
 #ifdef SRVROS_PLATFORM_HOST_TEST
  extern uint32_t platform_test_hsw_read(unsigned);*v=platform_test_hsw_read(off);
 #else
@@ -102,7 +104,7 @@ static bool hsw_read(void *ctx,uint32_t off,uint32_t *v) {
  return true;
 }
 static uint64_t hsw_now(void *ctx) {(void)ctx;return timer_monotonic_us();}
-static void hsw_progress(void *ctx,unsigned phase) {(void)ctx;console_printf("hsw-backing-progress: pass=%u/2 full-vector; no input required\n",(uint64_t)phase+1);}
+static void hsw_progress(void *ctx,unsigned phase) {(void)ctx;console_printf("hsw-backing-progress: pass=%u/2 full-vector%s%s; no input required\n",(uint64_t)phase+1,hsw_cpu_control?" + raw CPU TILECTL":"",hsw_linux_fences?" + Linux-model32 fences":"");}
 static void hsw_b64(const uint8_t *bytes,unsigned n,char *data) {
  static const char abc[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";unsigned j=0;
  for(unsigned i=0;i<n;i+=3) {
@@ -115,28 +117,30 @@ static void hsw_b64(const uint8_t *bytes,unsigned n,char *data) {
 }
 static void hsw_report(void) {
  const struct hwb_result *r=&hsw_result;
- console_printf("hsw-backing: v=1 status=%u count=%u cap=1536 fences=16 upper=unknown swizzle=partial maps=%u retained=%u offset=%u bytes=%u table=%u stolen=%u,%u limit_us=100000 writes=0 ownership=0\n",
- (uint64_t)r->status,(uint64_t)r->count,(uint64_t)r->maps,(uint64_t)r->retained,r->offset,r->bytes,r->table_bytes,r->stolen_base,r->stolen_end);
+ console_printf("hsw-backing: v=%u status=%u count=%u cap=1536 fences=%u upper=%s swizzle=partial maps=%u retained=%u offset=%u bytes=%u table=%u stolen=%u,%u limit_us=100000 writes=0 ownership=0\n",
+ (uint64_t)r->version,(uint64_t)r->status,(uint64_t)r->count,(uint64_t)r->fences,r->version==3?"linux-model-32":"unknown",(uint64_t)r->maps,(uint64_t)r->retained,r->offset,r->bytes,r->table_bytes,r->stolen_base,r->stolen_end);
  static uint8_t bytes[HWB_PTES*4];static char data[HWB_PTES*4/3*4+5];
  for(unsigned phase=0;phase<2;phase++) {
   const struct hwb_sample *s=&r->sample[phase];unsigned n=0;
   for(unsigned i=0;i<HWB_WORDS;i++)hda_put(bytes,&n,s->endpoint.v[i],8);
-  for(unsigned i=0;i<HWB_FENCES;i++)hda_put(bytes,&n,s->fence[i],8);
+  for(unsigned i=0;i<r->fences;i++)hda_put(bytes,&n,s->fence[i],8);
   hda_put(bytes,&n,s->begin,8);hda_put(bytes,&n,s->end,8);hda_put(bytes,&n,s->hash,8);
   hda_put(bytes,&n,s->reads,4);hda_put(bytes,&n,s->count,4);hda_put(bytes,&n,s->present,4);hda_put(bytes,&n,s->stolen,4);
-  hsw_b64(bytes,n,data);console_printf("hsw-backing-meta: v=1 phase=%u data=%s\n",(uint64_t)phase,data);
+  if(r->version>=2)hda_put(bytes,&n,s->tilectl,4);
+  hsw_b64(bytes,n,data);console_printf("hsw-backing-meta: v=%u phase=%u data=%s\n",(uint64_t)r->version,(uint64_t)phase,data);
   n=0;for(unsigned i=0;i<s->count;i++)hda_put(bytes,&n,s->pte[i],4);
-  hsw_b64(bytes,n,data);console_printf("hsw-backing-ptes: v=1 phase=%u data=%s\n",(uint64_t)phase,data);
+  hsw_b64(bytes,n,data);console_printf("hsw-backing-ptes: v=%u phase=%u data=%s\n",(uint64_t)r->version,(uint64_t)phase,data);
  }
 }
 static bool hsw_capture_bound(void) {
- struct hwb_io io={.endpoint=hsw_endpoint,.map=hsw_map,.unmap=hsw_unmap,.read=hsw_read,.now=hsw_now,.progress=hsw_progress};
+ struct hwb_io io={.linux_fences=hsw_linux_fences,.cpu_control=hsw_cpu_control,.endpoint=hsw_endpoint,.map=hsw_map,.unmap=hsw_unmap,.read=hsw_read,.now=hsw_now,.progress=hsw_progress};
  bool ok=hwb_capture(&hsw_result,&io);
  if(hsw_window_poison){hsw_result.retained=1;hsw_result.status=6;ok=false;}
  hsw_report();return ok;
 }
-bool platform_haswell_backing_run(void) {
- hsw_result.status=2;
+bool platform_haswell_backing_run(bool cpu_control,bool linux_fences) {
+ hsw_cpu_control=cpu_control;hsw_linux_fences=linux_fences;
+ hsw_result=(struct hwb_result){.status=2,.version=linux_fences?3:cpu_control?2:1,.fences=linux_fences?32:HWB_FENCES};
  console_write("hsw-backing-progress: exact Air6,1 read-only identity/config preflight\n");
  const struct pci_device *candidate=NULL;
  for(uint64_t i=0;i<pci_device_count();i++) {

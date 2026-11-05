@@ -1,3 +1,6 @@
+#include <srvros/session_scope.h>
+#include <srvros/file_stream_kernel.h>
+#include <srvros/exfat_stream.h>
 #include <srvros/path_limits.h>
 #include <srvros/devices.h>
 #include <srvros/thermal.h>
@@ -1077,11 +1080,69 @@ static int64_t copy_storage_path(const char *input,char *out,uint64_t capacity,b
     return vfs_namespace_system_path(normalized,out,capacity);
 }
 
+/* SYS_FILE_STREAM is admitted as one namespace operation. Its user request,
+ * bounded payload snapshot and final copyout all remain inside that window. */
+static int64_t syscall_file_stream(const struct srv_file_stream_request *user) {
+    struct srv_file_stream_request request;
+    if(!copy_from_user(&request,user,sizeof(request)))return SRV_ERR_FAULT;
+    if(request.version!=SRV_FILE_STREAM_VERSION || request.size!=sizeof(request) ||
+       request.flags || request.reserved[0] || request.reserved[1])return SRV_ERR_INVAL;
+    uint64_t owner=process_stream_identity(process_current());if(!owner)return SRV_ERR_INVAL;
+    unsigned op=request.operation;
+    if(op==SRV_FILE_STREAM_OPEN_READ || op==SRV_FILE_STREAM_CREATE_APPEND) {
+        if(request.handle || !request.path || request.buffer || request.length || request.offset ||
+           (op==SRV_FILE_STREAM_OPEN_READ && request.mode) || (request.mode&~07777ull))return SRV_ERR_INVAL;
+        char path[MAX_PATH_LENGTH];int64_t result=copy_storage_path((const char *)(uintptr_t)request.path,path,sizeof(path),false);
+        if(result<0)return result;
+        return file_stream_open(owner,path,op==SRV_FILE_STREAM_CREATE_APPEND,
+            op==SRV_FILE_STREAM_CREATE_APPEND?process_creation_mode(request.mode):0);
+    }
+    if(!request.handle || request.path || request.mode)return SRV_ERR_INVAL;
+    if(op==SRV_FILE_STREAM_PREAD || op==SRV_FILE_STREAM_APPEND) {
+        if(request.length>SRV_FILE_STREAM_CHUNK || (!request.buffer && request.length) ||
+           (op==SRV_FILE_STREAM_APPEND && request.offset) || request.offset>UINT64_MAX-request.length)return SRV_ERR_INVAL;
+        uint64_t length=request.length;
+        if(op==SRV_FILE_STREAM_APPEND) {
+            int64_t admitted=file_stream_append_count(owner,request.handle,length);
+            if(admitted<0)return admitted;
+            if((uint64_t)admitted>length)return SRV_ERR_IO;
+            length=(uint64_t)admitted;
+        }
+        void *output=(void *)(uintptr_t)request.buffer;
+        if(!user_buffer_ok(output,length,op==SRV_FILE_STREAM_PREAD))return SRV_ERR_FAULT;
+        if(!length)return op==SRV_FILE_STREAM_PREAD?
+            file_stream_pread(owner,request.handle,NULL,0,request.offset):0;
+        uint8_t *chunk=kmalloc(length);if(!chunk)return SRV_ERR_NOMEM;
+        int64_t result;
+        if(op==SRV_FILE_STREAM_APPEND) {
+            result=copy_from_user(chunk,output,length)?
+                file_stream_append(owner,request.handle,chunk,length):SRV_ERR_FAULT;
+        } else {
+            result=file_stream_pread(owner,request.handle,chunk,length,request.offset);
+            if(result>(int64_t)length)result=SRV_ERR_IO;
+            if(result>0 && !copy_to_user(output,chunk,(uint64_t)result))result=SRV_ERR_FAULT;
+        }
+        kfree(chunk);return result;
+    }
+    if(op==SRV_FILE_STREAM_STAT) {
+        if(!request.buffer || request.length!=sizeof(struct srv_file_stream_stat) || request.offset)return SRV_ERR_INVAL;
+        void *output=(void *)(uintptr_t)request.buffer;
+        if(!user_buffer_ok(output,request.length,true))return SRV_ERR_FAULT;
+        struct srv_file_stream_stat info;int64_t result=file_stream_stat(owner,request.handle,&info);
+        return result<0?result:copy_to_user(output,&info,sizeof(info))?0:SRV_ERR_FAULT;
+    }
+    if(request.buffer || request.length || request.offset)return SRV_ERR_INVAL;
+    if(op==SRV_FILE_STREAM_SYNC)return file_stream_sync(owner,request.handle);
+    if(op==SRV_FILE_STREAM_CLOSE)return file_stream_close(owner,request.handle);
+    return SRV_ERR_INVAL;
+}
+
 static int64_t syscall_open(const char *user_path) {
     char path[MAX_PATH_LENGTH];
     int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
     if(error) return error;
 
+    if(exfat_stream_busy(path,false))return SRV_ERR_BUSY;
     const struct vfs_node *node = vfs_lookup(path);
     const uint8_t *data;
     uint64_t size;
@@ -1262,7 +1323,7 @@ static int64_t copy_user_string_vector(char *const *user_vector,
     return SRV_ERR_2BIG;
 }
 
-static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
+static int64_t syscall_exec(const struct syscall_exec_request *user_request,uint64_t scope_token) {
     struct syscall_exec_request request;
     char path[MAX_PATH_LENGTH];
     char vector_storage[SRV_EXEC_BYTES_MAX];
@@ -1277,6 +1338,7 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
     int64_t result;
 
     if(!copy_from_user(&request,user_request,sizeof(request))) return SRV_ERR_FAULT;
+    if(scope_token && (!(request.flags&SRV_EXEC_BACKGROUND) || (request.flags&SRV_EXEC_REPLACE))) return SRV_ERR_INVAL;
     if(request.flags&~(SRV_EXEC_BACKGROUND|SRV_EXEC_REPLACE|SRV_EXEC_SET_SIGNAL_DEFAULT|SRV_EXEC_SET_SIGNAL_MASK|SRV_EXEC_INHERIT_FILES)) return SRV_ERR_INVAL;
     if((request.flags&SRV_EXEC_REPLACE) && (request.file_action_count || (request.flags&SRV_EXEC_INHERIT_FILES))) return SRV_ERR_INVAL;
     if((request.flags&SRV_EXEC_INHERIT_FILES) && (request.stdin_fd!=-1 || request.stdout_fd!=-1 || request.stderr_fd!=-1)) return SRV_ERR_INVAL;
@@ -1312,7 +1374,7 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
             request.signal_mask,
             request.signal_default);
     } else {
-        result = process_spawn_exec(path,
+        result = process_spawn_exec_scoped(scope_token,path,
             argc,
             argv,
             envc,
@@ -1332,6 +1394,44 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
     irq_restore(flags);
     process_refresh_mappings(process_current());
     return result;
+}
+
+static bool scope_publish(void *destination,const void *source,uint64_t size) {
+    uint64_t flags=irq_save();
+    bool ok=user_buffer_ok(destination,size,true) && copy_to_user(destination,source,size);
+    irq_restore(flags);return ok;
+}
+
+static int64_t syscall_session_scope(uint64_t op,uint64_t token,void *payload) {
+    if(op==SRV_SCOPE_CREATE) {
+        uint64_t created=0;if(token || !payload) return SRV_ERR_INVAL;
+        int64_t result=process_scope_create(&created);if(result) return result;
+        if(!scope_publish(payload,&created,sizeof(created))) {
+            (void)process_scope_control(SRV_SCOPE_REVOKE,created,NULL);
+            (void)process_scope_control(SRV_SCOPE_RELEASE,created,NULL);
+            return SRV_ERR_FAULT;
+        }
+        return 0;
+    }
+    if(op==SRV_SCOPE_EXEC) {
+        struct srv_scope_exec request;
+        if(!payload || !copy_from_user(&request,payload,sizeof(request))) return SRV_ERR_FAULT;
+        if(request.version!=SRV_SCOPE_VERSION || request.size!=sizeof(request) || request.reserved) return SRV_ERR_INVAL;
+        int64_t result=process_scope_reserve(token);if(result) return result;
+        result=syscall_exec((const struct syscall_exec_request *)request.request,token);
+        process_scope_cancel_reservation(token);return result;
+    }
+    if(op==SRV_SCOPE_STATUS) {
+        struct srv_scope_status status;
+        if(!payload || !copy_from_user(&status,payload,sizeof(status))) return SRV_ERR_FAULT;
+        if(status.version!=SRV_SCOPE_VERSION || status.size!=sizeof(status) || status.reserved) return SRV_ERR_INVAL;
+        int64_t result=process_scope_control(op,token,&status);
+        if(result) return result;
+        return scope_publish(payload,&status,sizeof(status))?0:SRV_ERR_FAULT;
+    }
+    if(payload) return SRV_ERR_INVAL;
+    if(op==SRV_SCOPE_REAP_RETIRED) return process_scope_reap(token);
+    return process_scope_control(op,token,NULL);
 }
 
 static int64_t syscall_fs_write(const char *user_path, const uint8_t *buffer, uint64_t length) {
@@ -1488,6 +1588,7 @@ static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
     char path[MAX_PATH_LENGTH];
     int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
     if(error) return error;
+    if(exfat_stream_busy(path,false))return SRV_ERR_BUSY;
     if(!vfs_lookup(path)) return SRV_ERR_NOENT;
     return vfs_chmod(path, mode) ? 0 : SRV_ERR_IO;
 }
@@ -1496,6 +1597,7 @@ static int64_t syscall_utime(const char *user_path, uint64_t atime, uint64_t mti
     char path[MAX_PATH_LENGTH];
     int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
     if(error) return error;
+    if(exfat_stream_busy(path,false))return SRV_ERR_BUSY;
     return process_path_utime(path,atime,mtime);
 }
 
@@ -3519,6 +3621,7 @@ static bool signal_experimental_raw_allowed(const struct isr_frame *frame) {
     /* This exact test image admits local runtime qualification only. Reject
      * every external/namespace socket entry before any backend effect. */
     switch(frame->rax) {
+    case SYS_SESSION_SCOPE:case SYS_FILE_STREAM:return false;
     case SYS_NET_LISTEN:case SYS_NET_ACCEPT:case SYS_NET_DHCP:case SYS_NET_STATUS:case SYS_NET_DNS:
     case SYS_NET_CONNECT:case SYS_NET_UDP_OPEN:case SYS_NET_UDP_BIND:case SYS_NET_UDP_SENDTO:
     case SYS_NET_UDP_RECVFROM:case SYS_NET_SOCKNAME:case SYS_NET_PEERNAME:case SYS_NET_SHUTDOWN:
@@ -3579,6 +3682,10 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
         return;
     }
 #endif
+
+    case SYS_FILE_STREAM:
+        frame->rax=(uint64_t)syscall_file_stream((const struct srv_file_stream_request *)frame->rdi);
+        return;
     case SYS_WRITE:
         frame->rax = (uint64_t)syscall_write(frame->rdi, (const char *)frame->rsi, frame->rdx);
         return;
@@ -3981,8 +4088,11 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
     case SYS_FSYNC:
         frame->rax = (uint64_t)syscall_fsync(frame->rdi);
         return;
+    case SYS_SESSION_SCOPE:
+        frame->rax = (uint64_t)syscall_session_scope(frame->rdi,frame->rsi,(void *)frame->rdx);
+        return;
     case SYS_EXEC:
-        frame->rax = (uint64_t)syscall_exec((const struct syscall_exec_request *)frame->rdi);
+        frame->rax = (uint64_t)syscall_exec((const struct syscall_exec_request *)frame->rdi,0);
         return;
     case SYS_TTY_GETATTR:
         frame->rax = (uint64_t)syscall_tty_getattr(frame->rdi, (struct srv_termios *)frame->rsi);
@@ -4107,7 +4217,7 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
  * This does not change syscall_io_safe or make filesystem operations I/O-safe. */
 static bool namespace_syscall(uint64_t number) {
     switch(number) {
-    case SYS_OPEN: case SYS_OPEN_MODE: case SYS_LIST:
+    case SYS_FILE_STREAM: case SYS_OPEN: case SYS_OPEN_MODE: case SYS_LIST:
     case SYS_FS_WRITE: case SYS_FS_APPEND: case SYS_STAT: case SYS_STATFS:
     case SYS_CHMOD: case SYS_UTIME: case SYS_UNLINK: case SYS_MKDIR:
     case SYS_MKDIR_MODE: case SYS_RMDIR: case SYS_RENAME: case SYS_FILE_CHANGE:

@@ -1,0 +1,41 @@
+{
+  "status": "PASS",
+  "qualified_source": "0e2bac73e97984a2ff2ea62ccba328acd6beaccc",
+  "content_audit_sha256": "44de822a94caa0b30bca78971058729f7e39f56d7580de463da305345aedc878",
+  "rendered_audit_sha256": "254e0cabb2a3aaca1af224b8645d3d324bc2a5c9ea3604a6c5cad13baf69eb72",
+  "visual_scope": "14 captured rendered views only; complete content/memory/recovery/archive correctness separately qualified",
+  "reviewed_views": [
+    "export-result-a-changed-review",
+    "import-result-b-changed-review",
+    "recoverable-recover-published",
+    "import-result-low-space",
+    "export-review-small-export",
+    "export-review-details-small-export",
+    "imported-chooser-b-choose",
+    "imported-text-b-restored",
+    "imported-bmp-b-restored"
+  ],
+  "independent_root_views": [
+    "export-review-details-a-export",
+    "import-review-details-b-host-import",
+    "import-result-b-host-import",
+    "export-review-small-export",
+    "export-review-details-small-export",
+    "export-result-small-export",
+    "imported-text-b-restored",
+    "imported-bmp-b-restored",
+    "recoverable-recover-copy-partial"
+  ],
+  "observed": [
+    "Exact source changed since review and bundle changed since review errors readable; Back and preservation/retry guidance visible",
+    "Published profile still marked Recovery needed with Recover profile action until reconciliation",
+    "Low-space case shows cannot create scratch and retained-original/recovery guidance; free-space cause established by storage evidence",
+    "B ready chooser names local_b; remembered restart opens exact migration text in Text and1024x768BMP inPreview",
+    "640x480 scrollable review top/details retain Back andExport, sourcecontent available throughscrolling; success separately reviewed byroot",
+    "Normal review lists allthreeexactselectedsizes/compatibilityconsequence;hostimportdestination/local_b andcompletionreviewedbyroot"
+  ],
+  "backup_sha256": "df99dcf8590d02147009570b4f25bf1750340a9b8de42abee4bba14f0d1be34a",
+  "backup_members_verified": 626,
+  "remaining_runtime_work": [],
+  "authentication_and_permission_enforcement": "separate"
+}

@@ -714,6 +714,1804 @@ acceptance. All task guests stopped; review VMs remained untouched. Evidence:
 nested-submodule license targets. Branch integration base remains `1f177761`;
 new main `10890eed` was inspected for scope, not merged into this candidate.
 
+## Block, worker and diagnostic retirement before xHCI DMA release
+
+Continuation from `c9f4f306` adds explicit `xhci_reclaim`/monitor `xhcireclaim`.
+It first completes terminal stop, then requires zero command/control/bulk and
+poll owners, a poll-worker retirement acknowledgement, zero active input-probe
+diagnostics, retired network registrations and retired USB-storage callbacks.
+The worker is allowed one retirement turn after operational admission closes;
+it acknowledges before returning and does not touch DMA afterward. Read-only
+status/snapshot paths retain static metadata and never dereference DMA backing.
+An active input probe holds a separate reference and exits on terminal stop.
+
+`usb_storage_retire` blocks new I/O/diagnostic admission and waits for initializer,
+request and diagnostic owners. Startup has a distinct owner because partition
+scanning itself needs ordinary block callbacks. A retirement request during
+startup cannot publish a successful live device. Once drained, transport and
+diagnostic context pointers detach. Block geometry/name/claims and storage
+records remain boot-lifetime tombstones, with context-free refusing callbacks;
+saved raw read/write/flush callbacks also safely reject a detached context.
+Write-enable/disable metadata publication is IRQ-serialized with retirement.
+
+Two retirement hazards were caught before publication: clearing `write` would
+hide an uncertain writable disk from `block_flush_all`, and allowing new
+post-request diagnostics could prevent reference drain. Writable tombstones now
+retain refusing write/flush markers, so global sync/reboot refusal remains; new
+diagnostic admission closes immediately. Private controls omitting either rule
+fail their intended assertions. No historical xHCI premature free is claimed:
+published backing was retained before this implementation.
+
+After software retirement, PCI bus mastering must read back disabled before
+freeing any DMA. Every reclaim call rechecks it. Each call frees at most sixteen
+4 KiB frames, returns false for further progress or unresolved proof, and keeps
+all remaining pages pinned. Partial progress cannot restart. Reclamation covers
+controller rings/DCBAA/ERST, scratchpad frames and their recorded metadata pages,
+per-device contexts/EP0/descriptor/HID/bulk/trackpad backing and network endpoint
+rings/buffers. Freed pointer/physical fields are cleared. Static records, MMIO
+mappings, block descriptors/claims and network metadata are retained; no slot
+reuse, controller reset/restart or hotplug re-enumeration is added.
+
+The actual-xHCI fixture allocates 513 scratchpads with two metadata pages plus
+controller/device/network backing. It poisons each released frame and requires
+exact-once accounting, no more than sixteen frees per call and refusal while
+worker/poll/probe/storage or PCI proof is unresolved. Repeated stop/reclaim and
+post-release polling/snapshots must stay safe. USB fixtures cover a retirement
+request from startup and diagnostics, saved callbacks and unchanged buffers.
+`test-usb-retire-block` combines actual USB retirement, block/cache and claim
+sources: cached parent/alias reads refuse, healthy cached reads survive, the
+claim releases once and global flush continues to fail. Hardware and worker
+scheduling remain modeled at those host boundaries.
+
+The QMP smoke's `--reclaim --usb-storage` mode attaches a disposable USB mass
+storage copy alongside keyboard/tablet, stops, retires/reclaims, repeats reclaim,
+then removes/replaces USB input and runs sysabi over serial. The storage disk is
+read-only in this guest; writable-failure visibility is covered by the combined
+host fixture. This does not qualify physical removal, SMP reclamation, managed
+workspace salvage/unmount or global reboot after uncertain writable-media loss.
+Automatic reclamation on a transport fault is not enabled; the separate managed
+USB fault/salvage proof remains under filesystem ownership.
+
+Normal/Rosetta, strict GCC14/Linux and ASan/UBSan USB, combined USB/block and
+xHCI fixtures pass; related block/AHCI, network registry and VirtIO net/PCI hosts
+also pass. Kernel compilation passes. The final Q35 guest initializes a USB
+mass-storage disk plus keyboard/tablet, acknowledges worker retirement and frees
+23 DMA frames; repeated reclaim leaves that count unchanged with poll/probe
+owners zero. QMP input removal/replacement and sysabi pass after reclamation.
+Separate E1000 netabi and full threadstress guests pass. Runtime files are retained
+PR313 artifacts, not a complete current-userspace build. All task guests stopped;
+review VMs stayed untouched. Evidence: `build/review/xhci-reclaim/`. Nine known
+missing nested-submodule license targets remain in documentation checking.
+
+## Per-slot retirement and reset/re-enumeration boundaries
+
+The startup audit confirmed that a rejected Run write could be accepted when
+USBSTS.HCH was already clear. `start_controller` now requires valid command and
+status readbacks, Run set, reset/interrupt-enable clear and Halted/Not Ready clear.
+The status wait helper rejects inaccessible all-ones MMIO. A negative control
+restoring the old startup helper fails the rejected-Run assertion. Boot reset
+refuses existing controller rings/DCBAA or terminal retirement state; startup
+requires complete runtime metadata and refuses terminal reclamation. These guards
+preserve the one-attempt initialization contract; they do not implement restart.
+
+`xhci_retire_slot` and monitor `xhcislot <1..255>` explicitly close admission on
+a slot and all descendants. Kernel address-space/controller ownership is required;
+synchronous, poll/probe, USB initializer/request/diagnostic and registered network
+callbacks must drain before Disable Slot. Each call submits at most one command,
+children before parents, requiring both exact command pointer and matching returned
+slot. False may mean bounded progress or pending/unproven ownership; retry explicitly.
+Timeouts retain command quarantine. True retains all DMA and stable offline block,
+claim, network and diagnostic records; only terminal halt/reclaim may free backing.
+Disabled records cannot receive new transfer events. Other slots remain available.
+No automatic retirement on ordinary BOT failure is introduced.
+
+Enable Slot now refuses a duplicate live slot before writing DCBAA; this is a
+malformed-controller-response containment check, not a QEMU-observed duplicate.
+Continuing the hub audit found a separate route-depth alias: a sixth downstream
+route nibble silently returned its parent's route. Exhausted/invalid routes now
+refuse before child reset/allocation rather than addressing an ambiguous path.
+
+Host coverage exercises a three-level subtree, child-first progress of one command
+per call, other-slot preservation, owner/provider refusal, command timeout, wrong
+returned slot, duplicate live-slot refusal, idempotence and zero per-slot frees.
+It also checks startup acknowledgements, inaccessible/CNR refusal, reset/restart
+refusal over retained backing and five valid hub-route nibbles followed by refusal.
+Runtime re-enumeration remains unavailable: root-port guards and permanent records
+prevent overwriting old identities; one-attempt init cannot revive reclaimed rings.
+Future restart requires a new controller generation and fresh worker/rings plus a
+policy for immutable block/network tombstones. Hub port-change processing, endpoint
+reset/dequeue recovery and physical/SMP validation remain separate audit work.
+
+Normal/Rosetta, strict GCC14 and ASan/UBSan fixtures pass, as do related USB,
+combined USB/block and network-registry host tests and kernel compilation. Controls
+restoring old startup and hub-route helpers fail their intended assertions. Final
+Q35 storage+keyboard+tablet retirement succeeds twice per slot, with exactly three
+new Disable Slot completions. Terminal halt/reclaim frees 23 frames and repeats
+without further frees; post-reclaim QMP unplug/replug remains contained and sysabi
+passes. Separate E1000 netabi and full threadstress guests pass. Runtime files are
+retained PR313 artifacts, not a complete current-userspace build. All task guests
+stopped; review VMs 61610, 6233 and 85869 remained untouched. Documentation checking
+covers 888 local links with only the nine known missing nested license targets.
+
+Evidence for this checkpoint is `build/review/xhci-slot/`. The current branch is
+still based on main `1f177761`; main `a37eb7b2` was inspected for overlap, not merged.
+PR338's managed USB fault/salvage proof remains independently owned; there are no
+filesystem/process/generic block or installer changes here.
+
+## Hub port changes and EP0 reset/dequeue recovery
+
+Confirmed three further driver defects: downstream hub changes were invisible
+while the root stayed connected; EP0 errors on Setup/Data TRBs were discarded
+because only the Status pointer was accepted; and hub reset could succeed with
+Enable set while Reset stayed asserted or without a fresh reset-change acknowledgement.
+
+USB2 hubs now receive asynchronous four-byte port-status requests from the existing
+worker, round-robin with at most one submission per turn. There is no synchronous
+control wait in the runtime poll loop. Each hub owns its EP0 TD/buffer until its
+completion; synchronous controls cannot overlap it. Connection/enable/reset,
+suspend/overcurrent or any latched change quarantines the affected port's existing
+child subtree, even if Connection is already high again. Sibling ports remain
+available. A failed/short status request or two-second unanswered TD quarantines
+the hub and descendants; unanswered TDs remain pending and pinned. Polling and
+worker service latency bound observation, not physical plug detection itself;
+this is containment, not zero-latency unplug or runtime re-enumeration. The worker
+also runs when a hub has no initial HID/network child. Change bits deliberately
+remain latched during runtime: old identities cannot be rebound or re-enumerated.
+SuperSpeed hubs require a separate descriptor/status contract and are refused.
+
+Control completion matching tracks all exact TRBs across ring wrap. Definite
+Setup/Data errors retire the active TD immediately. A successful Data event does
+not complete Status; Data short-packet events are requested and tracked so an
+incomplete status buffer cannot publish stale bytes. Hub boot reset clears old
+changes before reset, requires Connection+Enable, Reset clear and fresh reset
+change, then requires successful change acknowledgements before publishing a child.
+
+`xhci_recover_control` / `xhciep0 <slot>` permits one explicit recovery for an
+acknowledged EP0 protocol STALL on a root-attached device, with no active owners,
+command ambiguity, removed identity or published USB storage. Require Halted state,
+Reset Endpoint completion and Stopped state, then Set TR Dequeue completion and
+matching fresh ring pointer/cycle. Only after all proofs publish the new EP0 ring.
+The old ring remains tracked until terminal reclaim; a failed command retains both
+rings and the closed endpoint. Timeout, wrong state/slot/dequeue, repeated recovery,
+USB storage or hub-routed/TT recovery refuse. No failed request is replayed and
+no bulk/storage failure is revived. Other endpoint reset, device-side clear-halt,
+TT cleanup and generic dequeue/cancellation recovery remain unavailable. The
+[controller specification](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf)
+sections 4.6.8 and 4.8.3 describe the Halted/Stopped/dequeue and control-STALL contract.
+
+The explicit `xhciep0check <slot>` HID diagnostic requests an invalid descriptor,
+recovers the acknowledged STALL, then verifies a new device-descriptor request.
+It is an attended regression diagnostic, not automatic recovery or ordinary input
+startup. Host tests cover every control stage and wrap, short reads, subtree and
+sibling behavior, stalled reset, failed change acknowledgement, owners/storage/TT
+refusal, command timeout/error/wrong-slot/dequeue and retained-ring reclaim accounting.
+Normal/Rosetta, GCC14 and ASan/UBSan xHCI fixtures, related USB/block/registry
+hosts and kernel compilation pass. Negative controls restoring Status-only EP0
+matching, removing hub containment or restoring old hub reset fail their intended
+assertions. Final Q35 hub+keyboard+tablet proof passes downstream remove/replacement
+with hub/tablet survival, real protocol STALL followed by two recovery commands
+and a valid descriptor, child-first parent retirement, terminal reclaim of 21
+frames (including both EP0 rings), idempotence and sysabi. Separate storage+HID
+retire/reclaim/replug, E1000 netabi and full threadstress guests pass. Retained PR313
+runtime files were used; no complete current-userspace, physical/SMP, TT or USB3
+acceptance is claimed. Task guests stopped and review VMs 61610/6233/85869 stayed
+untouched. Docs check: 890 local links, nine known nested-license targets missing.
+Continuing topology review identifies nested USB2 translator ownership/port
+inheritance as the next source/specification checkpoint before any TT recovery.
+
+Evidence: `build/review/xhci-hub/`. Main `819956be` inspected, not merged into the
+branch's existing `1f177761` integration base. PR334 signal and the filesystem
+late-flush proof remain separately owned; no process/VMM/filesystem/block edits.
+
+## Nested USB2 translator ownership and shared endpoint recovery
+
+Three confirmed context defects followed the hub audit. Low/full-speed descendants
+used the immediate parent's slot/port as translator, including entirely full-speed
+chains with no translator. High-speed hubs did not publish their descriptor's TT
+think time. Hub/port metadata was sent via Evaluate Context rather than Configure
+Endpoint. `device_tt_context` now validates the whole retained ancestry (live
+configured hubs, valid ports/speeds/root consistency and no cycles) and selects
+the first high-speed boundary plus its downstream port across intermediate
+full-speed hubs. No high-speed boundary means zero TT fields. Invalid topology
+refuses before Enable Slot or context mutation. High-speed functions also use zero
+TT fields. Hub metadata uses Configure Endpoint with descriptor think time only
+on high-speed hubs; default alternate-zero single-TT mode stays selected, MTT zero.
+No multi-TT interface or USB3 hub policy is enabled. These fields follow sections
+4.5.2 and 6.2.2 of the
+[controller specification](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/extensible-host-controler-interface-usb-xhci.pdf).
+
+EP0 and HID interrupt recovery now share one fresh-ring transaction. An acknowledged
+HID STALL must have the exact terminal event, no pending TD/owners and Halted
+context; Reset Endpoint must acknowledge Stopped, then EP0 sends device-side
+CLEAR_FEATURE(ENDPOINT_HALT), then Set TR Dequeue acknowledges the new pointer/cycle.
+Only then publish a fresh poll. A failed clear-halt cannot reach Set Dequeue.
+Old/staged rings stay tracked until terminal reclaim, one attempt per endpoint;
+wrong state/slot/dequeue, timeout, removed identity, published storage, network and
+hub-routed/TT recovery refuse. `xhcireset <slot> <dci>` admits only EP0 or this HID
+policy; generic bulk/network/isochronous recovery and CLEAR_TT_BUFFER remain closed.
+An explicit, command-acknowledged Stop Endpoint may instead prove a root HID poll
+Stopped. That path rebases to a fresh dequeue without reset or device clear-halt,
+preserving both data toggles. A bare Stopped event or software flag supplied by a
+caller does not authorize it; only the owned stop diagnostic records this proof.
+No application transfer is replayed and no failed storage identity is revived.
+
+`xhciintrcheck <slot>` explicitly stops a root HID input poll, verifies command/slot
+and Stopped context, then requeues through the shared fresh-dequeue path. The initial
+QEMU probe rejected SET_FEATURE(ENDPOINT_HALT) and stalled EP0 instead; its evidence
+is a failed probe, not successful HID-STALL coverage. Host tests cover the actual
+STALL/reset/device-clear/dequeue order and all stage failures. The Q35 test uses
+Stop Endpoint and requires new tablet input after recovery. Both proofs are needed
+and neither claims native HID/TT acceptance.
+
+Host fixtures cover 32/64-byte contexts, nested high-speed/full-speed boundaries,
+no fictitious full-speed translator, malformed/retired/cyclic parents, unchanged
+failed context output and no Enable Slot submission, hub command type and all four
+think times. Recovery fixtures cover STALL and owned Stop paths, toggle-preserving
+ordering, failed clear-halt/commands, unchanged old ring, late old completions,
+storage/TT refusal, and terminal poison-accounted reclaim of both old/staged rings.
+The VM harness adds `--nested --interrupt-recovery` for two full-speed hubs plus
+root tablet, EP0 recovery, explicit interrupt stop/rebase, new input, removal and
+child-first retirement/reclaim/sysabi. Evidence: `build/review/xhci-tt/`.
+Final normal/Rosetta, strict GCC14 and ASan/UBSan xHCI fixtures, related USB,
+combined USB/block and network-registry hosts, and kernel compilation pass.
+Controls restoring immediate-parent TT selection, wrong hub command, omitted
+think time or omitted device clear-halt fail their intended assertions. Final
+Q35 nested-hub/EP0/interrupt-stop/dequeue/new-input/removal proof passes, including
+healthy/repeated/invalid monitor refusal, child-first retirement, 26-frame terminal
+reclaim and sysabi. Separate storage+HID retire/reclaim/replug, E1000 netabi and
+full threadstress guests pass. Retained PR313 runtime files used; no complete
+current-userspace or native/physical/SMP/HS-TT qualification. All task guests
+stopped, review VMs 61610/6233/85869 preserved. Docs check: 891 local links, nine
+known missing nested-license targets. Next audit boundary is shared translator
+buffer cleanup/error containment and class-specific dequeue cancellation; root
+HID admission does not establish those contracts.
+
+Main `7ef140ef` inspected without merging into the branch's `1f177761` base; PR334
+signal and PR345 managed late-flush work remain separately owned, with no process,
+VMM, generic block or filesystem edits here.
+
+## Shared single-TT cleanup and class cancellation
+
+Confirmed cancellation defects: root/slot removal marked bulk requests failed but
+neither woke a yielded waiter nor made its readiness predicate observe cancellation.
+XHCI mice also injected into the legacy PS/2 source and did not cancel their own
+held buttons on removal/endpoint failure. Removal now publishes failure, wakes the
+bulk queue and makes the predicate observe removal/failure/terminal stop. The
+transfer exits without claiming completion, copying output, recycling DMA or
+retrying. USB mouse input uses one stable source per software record, disjoint
+from PS/2, VirtIO and trackpad sources. Removal, endpoint failure and owned stop
+issue source cancellation, clear the report/absolute baseline and preserve other
+physical buttons. Existing MOUSE_CANCEL semantics discard ambiguous queued input
+without generating a click-producing release; the event ABI is unchanged.
+
+Explicit routed EP0/HID recovery now validates ancestry and hardware TT context.
+For a single-TT control endpoint, require the actual output-context USB address
+(nonzero 7-bit, Addressed/Configured), owner hub Configured/Hub/single-TT state,
+matching owner/downstream port, and an idle healthy owner EP0. Lease that EP0 against
+hub status work across Reset Endpoint, two targeted CLEAR_TT_BUFFER requests (OUT
+and IN, endpoint zero/type control, actual USB address, single-TT index one), then
+Set Dequeue. Revalidate identities before/after each cleanup. Never substitute
+slot ID for USB address or physical downstream port for single-TT request index.
+This follows the targeted control/bulk-buffer model described by the
+[USB core implementation](https://github.com/torvalds/linux/blob/master/drivers/usb/core/hub.c)
+and [USB host API](https://www.kernel.org/doc/html/latest/driver-api/usb/usb.html).
+Periodic HID recovery must not issue this nonperiodic buffer request; it retains
+its device clear-halt or owned Stop/toggle-preserving policy.
+
+Cleanup/identity failure leaves both rings tracked and closes the translator's
+slow-speed dependent branches. If hub EP0 itself failed, close the whole hub
+subtree. Unrelated HS siblings keep their admission metadata when the owner stays
+trustworthy; an ambiguous global command path remains closed independently.
+TT-backed bulk/network transport failure or removal with unproven nonperiodic
+ownership likewise quarantines dependents rather than resetting the shared TT,
+replaying a request or reviving a provider. No automatic cleanup, RESET_TT,
+multi-TT interface, published-storage recovery or bulk/network retry is enabled.
+Manual cleanup is modeled host coverage, not physical HS-TT acceptance.
+
+Tests cover a shared HS owner above an FS hub, slot/address mismatch, both control
+directions, index one, lease contention/poll exclusion, invalid context/address/MTT,
+first/second request failures, address change and command timeout, periodic
+exclusion and DMA retention. Bulk tests force cancellation inside the actual wait
+seam and require readiness plus wake; driver/pointer fixtures cover USB source
+identity, held-button cancellation and preserved PS/2/other-USB state. The Q35
+fixture adds `--routed-recovery` to existing nested removal/EP0/interrupt/new-input
+proof. Normal/Rosetta, GCC14 and ASan/UBSan xHCI/mouse fixtures, existing pointer/
+mouse ABI/VirtIO input and related USB/block/registry hosts, plus kernel compilation
+pass. Five controls removing a TT direction, using slot instead of USB address,
+ignoring the owner lease, omitting the bulk wake or omitting mouse cancellation
+fail their intended assertions. Final Q35 routed/nested EP0 and interrupt/new-input
+proof passes with child-first retirement, 27-frame reclaim and sysabi. Separate
+storage+HID retire/reclaim/replug, E1000 netabi and full threadstress guests pass.
+All final guests use a private read-only fixture disk clone with recorded hash;
+retained runtime fixtures are not a full current-userspace build. Task guests
+stopped, review VMs 61610/6233/85869 preserved. Docs: 893 local links, nine known
+missing nested-license targets. Evidence: `build/review/xhci-shared-tt/`.
+
+Main `d791b949` inspected at start and `83e5d1ad` at publication, with no upstream
+diff in the driver/mouse sources from the existing `1f177761` base; neither newer
+main was merged. No process/VMM/filesystem/generic block edits overlap PR334 or
+managed late-flush work. Continuing the audit leaves generic class recovery,
+physical TT failure scheduling, multi-TT/USB3 and restart generations open.
+
+## Class-report recovery and restart refusal checkpoint
+
+Three confirmed HID defects are fixed. Mouse parsing used endpoint packet capacity
+instead of actual transferred bytes, so short absolute reports could manufacture
+coordinates from the zeroed DMA tail. Short keyboard reports skipped input release
+and retained held-key/repeat state. Relative mouse reports were deduplicated like
+absolute state, dropping repeated equal movement deltas.
+
+Transfer dispatch now checks the accepted class minimum (keyboard 8, relative 3,
+absolute 5). Incomplete successful transfers increment class errors, cancel only
+that device's input/repeat and absolute baseline, then rearm the healthy endpoint.
+Mouse parsing receives actual length. Relative deltas are delivered on every
+accepted report; absolute state retains deduplication. This changes no event ABI,
+endpoint recovery command, provider identity or DMA reclamation rule.
+
+Actual-driver host fixtures deliver every length below each minimum, require
+keyboard release and repeat cancellation, no fabricated mouse event, local pointer
+cancellation, a fresh poll, repeated relative movement and valid-report recovery.
+Published storage, registered network, ambiguous bulk and unsupported trackpad
+recovery must refuse without commands, allocation or state changes. Inspection of
+BOT/network/trackpad failure paths found no further confirmed restart defect in
+this bounded pass: ambiguous transport ownership stays quarantined, and normal
+ECM link changes do not reset/replay a failed endpoint.
+
+Restart fixtures preserve the whole controller model, DMA/free accounting,
+provider count, worker/probe flags and discovery/MMIO counters at failed handoff,
+partial initialization, outstanding worker retirement, each reclaim batch and
+completed reclamation. Public initialization remains one-attempt, and terminal
+private start/reset refuses. These tests qualify refusal and retained identity;
+new-generation controller/provider restart remains unimplemented.
+
+Evidence: `build/review/xhci-class-restart/`. Initial fixtures reproduce short-HID
+and relative-dedup failures. Three private negative controls remove keyboard
+cancellation, bypass mouse short-report cancellation or restore relative dedup;
+each fails its intended regression assertion.
+
+
+Final normal/Rosetta, strict GCC14 and ASan/UBSan xHCI fixtures pass, with related
+pointer/mouse ABI/VirtIO input, USB storage/block-retirement and network registry
+hosts; kernel compilation passes. Rebuilt-kernel Q35 nested/routed EP0 and input
+recovery, new input, child-first retirement and 27-frame reclaim pass. Separate
+storage+HID retirement/reclaim/replug, E1000 netabi and full threadstress guests
+pass. Guests use a private read-only source disk clone with recorded SHA256;
+retained runtime fixtures are not a complete current-userspace rebuild. Malformed
+HID reports are injected deterministically in the actual-driver host fixture,
+not by physical hardware or the QEMU device. Task guests stopped; review VMs
+61610/6233/85869 preserved. Documentation check: 894 local links, nine known
+missing nested-license targets; no new missing link. Main `5ed7f015` inspected at
+publication (new less integration; xHCI/fixture unchanged), not merged into the
+existing `1f177761` integration base. Evidence: `build/review/xhci-class-restart/`.
+
+Continued isolation review independently checked PR334's unwired kernel-mapping
+preparation helper at `439d274d`: source plus strict Rosetta and ASan/UBSan fixtures
+pass. Its active-root path is a byte-identical no-store check; inactive publication
+follows complete registry validation. This accepts no live lifecycle wiring or
+signal delivery. Foreground worker spawn was separately confirmed to retain the
+parent worker association while switching the process binding; PR334 owns its
+bounded refusal fix and guest reproduction. No process/VMM edits overlap PR317.
+
+## November 4: coordinated worker-spawn review
+
+Independently reviewed PR334's `bfee424f` production change and `d3986f00`
+regressions. Synchronous worker spawn now refuses before allocation/actions/binding
+across all three implementations and their alias. Detached spawn remains admitted;
+its shared preparation-error cleanup no longer replaces the worker binding with
+the parent's main-thread FPU/stack selection. The matched guest source/artifact
+hashes and passing UART marker were verified. Actual-source foreground and real
+ELF-load/vector-rejection fixtures independently pass strict Rosetta and
+ASan/UBSan; the latter requires complete staged child cleanup and unchanged parent
+and modeled worker binding. Independent logs: `build/review/pr334-worker-review/`.
+PR334 retains production edits, full-thread evidence and its own documentation.
+
+The next checked-root design requires saved IRQ exclusion over registration,
+preflight and failure unregistration/success publication, with output zero until
+success and exact caller IRQ restoration. Allocation/zeroing precedes exclusion;
+failed roots unregister before free. Only this bounded creation slice proceeds
+with its owner. Generation/association and trusted setter wiring remain pending
+exact tuple/caller/error review. A bounded invariant diagnostic/halt is acceptable
+for an impossible trusted commit violation, not ordinary constructor refusal;
+no FPU proof minting or signal admission is approved.
+
+## November 4: checked-root qualification
+
+PR334's `d7466e1c` replaces root creation's unchecked mapping replay with saved
+IRQ exclusion spanning registration, checked preparation and output publication
+or rollback unregistration. Allocation/zeroing precedes exclusion; failure keeps
+output zero and unregisters before freeing only the new root. Legacy setter and
+process refresh paths remain unchanged in this slice. Independent actual-source
+preparation/creation and existing range/teardown fixtures pass strict Rosetta and
+ASan/UBSan; isolated logs: `build/review/pr334-root-review/`.
+
+Verified the owner's combined `vmm-create-receipt.json` SHA256
+`2c62e69c812f1dd671b912dec388474de28186bb15dbaaf03452474609693791`, its
+17 source/artifact hashes and nested guest hashes. Matched kernel worker binding/
+detached/TLS/FPU/stack probe, full threadstress and sysabi fault/reaping guests
+all report status zero and stopped. Retained userspace fixtures are not a complete
+current-userspace rebuild. This qualifies checked root creation; it does not
+qualify the next metadata implementation.
+
+Reviewed the `a0a7f474` design's exact process membership/image/root, main/worker
+FPU/TLS and owned stack tuple predicates, including valid killed-parent restoration
+and main atexit continuation. The next separately owned metadata-only slice must
+validate before any association/accounting/hardware mutation and preserve failed
+admission state. Fixed bounded serial diagnostic plus IF-disabled halt is accepted
+for violated trusted commit invariants; recoverable staging errors still return
+before publication. Its implementation remains subject to source/host/VM review.
+No FPU proof object, trap capture, assembly change or signal admission is approved.
+
+## November 4: image metadata source and host review
+
+PR334 candidate `fea6bbb1` implements nonreused committed image generations,
+process-owned membership/tuple resolution, staged preflight before publication or
+exec stdio replacement, and IRQ-excluded scheduler bind/clear validation. It
+invalidates opaque association metadata in stable scheduler kernel-FPU records
+before binding changes, kill and stack reuse; user-FPU records keep NULL. Failed
+staging preserves the caller's binding; exec invalidates/unbinds and retires the
+old generation before backing cleanup, then publishes the new image. Main
+pthread_exit retains the shared image for atexit, and worker clear precedes TLS
+free. Normal scheduler switching retains each slot's association. No proof is
+minted and no trap/assembly or signal-delivery path is enabled.
+
+Independent production-source review found no new blocking issue in this bounded
+candidate. All 20 strict Rosetta/ASan+UBSan host profiles independently pass,
+including actual process metadata/lifecycle, scheduler/FPU metadata and existing
+service/foreground/vector-failure/loader/lifetime/output/teardown fixtures.
+Verified the owner's metadata host receipt and all 32 recorded hashes. Independent
+commands/results/logs/source hashes: `build/review/pr334-metadata-review/`.
+Hardware and PMM hooks are explicit models; numeric worker stack checks use a
+logical HHDM test view. Source/host acceptance does not qualify target integration:
+matched build/guest evidence and current docs remain pending with PR334's owner.
+FPU proof capture, user copy/assembly and signals remain separate review gates.
+
+## November 4: metadata matched-guest qualification
+
+Closed `fea6bbb1` metadata qualification after independently verifying PR334's
+`metadata-vm-receipt.json` SHA256
+`066b793adf7a62522b82498d691ab0a51632f945a8ef359e5632657bc82d0451`,
+20 combined and 13 nested source/kernel/ISO/stage hashes, plus matching logs and
+zero-returncode harness results. Worker binding/detached/TLS/XMM15/stack probe,
+full threadstress (fork/exec/main-exit/atexit/lifecycle) and sysabi fault reaping
+pass. Final OVMF AHCI/USB contention covers typing, cancellation, copy comparison,
+fsck, three relaunches and intentional timeout/quarantine. All task guests stopped;
+review VMs 61610/6233/85869 confirmed live.
+
+Two packaging attempts failed: a BIOS-only ISO could not boot OVMF, and a minimal
+initramfs omitted `/sh`. Their evidence is retained. The final passing run uses
+all 17 packed retained matched apps, checked byte-for-byte, and the same candidate
+kernel. These fixture results are not a complete userspace rebuild or physical/
+SMP acceptance. PR334 publishes current qualification docs at `7ae7bceb`.
+The next entered-user FPU proof/query proposal remains design-only and requires
+separate exact frame/lifetime/save/invalidation/failure review before implementation.
+No saved-proof minting, trap assembly, user copy, context replacement or signal
+admission follows from metadata qualification.
+
+## November 4: entered-user FPU witness qualification
+
+Independently qualified PR334 candidate `2a3b1a89` after source, host, target
+code-generation and matched-guest review. Only common entry reserves the private
+64-byte witness alongside the existing trap area; genuine loaded-user FXSAVE
+precedes the ordinary entry query and witness publication. Derived association
+comparison precedes witness dereference. Internal snapshot/consume require fresh
+strict return ownership/preflight, disjoint resident caller-owned kernel output
+and read-only CR4/EFER completeness checks. No replacement operation or production
+snapshot/consume caller exists. Direct IRQ paths remain unchanged.
+
+Independent actual-FXSAVE and scheduler strict Rosetta/ASan+UBSan profiles pass
+4/4. Target disassembly confirms save-before-query, complete witness before
+association publication, no common-exit calls or compiler SIMD operands, and the
+direct IRQ macro is unchanged. Critical host save/restore functions exclude
+sanitizer prologues; operations remain instrumented, guarded extents are tested,
+privileged policy/address reads are modeled, and host patterns cover XMM15.
+Evidence: `build/review/pr334-fpu-proof-review/`.
+
+Verified the owner's final guest receipt SHA256
+`202b4ee99bbbd1cd638df96143002f16608c2d1d931e608a3581a3f23da8c6f1`,
+23 combined and four nested hashes, status-zero main/worker guest covering all
+16 XMM registers, nonempty x87/CW/MXCSR, selected GPR/FS/TLS/RSP, and full thread,
+sysabi fault/reaping and OVMF storage contention/three-relaunch/quarantine results.
+QMP records CR4 `0x620`, EFER `0xd00`. Timer/preemption progress is sampled across
+the test window, not attributed to an exact assembly interval. All 17 retained
+packed apps were byte-verified; this is not a full userspace rebuild. Task guests
+stopped; review VMs 61610/6233/85869 live. PR334's current qualification docs are
+at `b643077f`. Physical/SMP/NMI and unsupported inherited CPU policies are not
+accepted. Replacement image validation/alias/consume policy is the next separate
+design review; frame-copy/action/delivery ABI remains later. No signals enabled.
+
+## November 4: private FPU restore and continued runtime review
+
+Qualified PR334 `c27d018f` private restore after independent source/host/codegen
+review and matched regression receipt verification. Initialization invalidates
+old availability/mask state, explicitly zeroes the capture area, then samples
+actual FXSAVE MXCSR support with the defined zero-mask fallback. The helper checks
+current witness/ownership/policy, full private source extent and selected FPU-object
+nonoverlap before source reads; rejects unsupported/high MXCSR bits; copies only
+the saved 512-byte prefix and consumes once. Original unmodified kernel capture
+provenance remains a caller precondition, not authenticity from MXCSR checks.
+There is no production caller, editable context or signal integration.
+
+Independent init-mask and real-FXSAVE restore strict Rosetta/ASan+UBSan profiles
+pass 4/4; target codegen confirms zero/capture/mask-publication order, validation
+before reads/copy, scalar copy before consumption and no helper FXRSTOR or call
+after copying begins. Evidence: `build/review/pr334-fpu-restore-review/`.
+Verified final receipt SHA256
+`377c5a8062bf44a3579dc0d9b8126c74586a47900142e9fffe584584564ca224`,
+24 combined and four nested hashes, main/worker register status-zero, full thread,
+sysabi and OVMF contention regressions. CR4 `0x620`/EFER `0xd00` and retained 17-app
+payload attribution remain recorded. The private helper's actual restore is
+host-tested; guests exercise initialization/common preservation, not an unwired
+private call. Task guests stopped, review VMs preserved.
+
+The next bounded frame-copy packet remains design-only until exact paging/access
+policy, admitted encodings and non-DMA source/destination ownership are reviewed.
+A separate confirmed thread-ID defect can publish a worker while returning a
+negative signed ID after INT64_MAX; PR334 owns reproduction and the nonwrapping
+positive-ID admission fix, with no signal implementation implied.
+
+Read-only main `f7ec75e7` review for the separately human-authorized session-switch
+milestone confirms kernel lifetime membership survives descendants/orphaning and
+retains loading/I/O/teardown ownership, but there is no userspace empty-scope API.
+Existing drain forces cancellation and must not back graceful logout silently.
+A nongraphical supervisor/one scoped GUI root capability proposal is under
+integration/profiles review; no new kernel interface implementation is approved.
+It must preserve live-parent wait status, error attribution and legacy kernel
+lifetime diagnostics, with revocation plus true zero before profile replacement.
+
+## November 4: signed thread-ID qualification and session-scope review
+
+Qualified PR334 `783c4eb8` after independently reproducing the pre-fix defect on
+both ordinary and private routes: INT64_MIN returned while one active worker was
+published. The fixed IRQ-excluded range gate admits only IDs 2 through INT64_MAX
+before slot/TLS/allocation mutation, issues MAX once and leaves a nonwrapping
+exhausted state. Later creation returns AGAIN without publishing a worker.
+Actual-source boundary and existing service fixtures independently pass strict
+Rosetta/ASan+UBSan 4/4, including both inherited IRQ states and nested restoration.
+Independent logs: `build/review/pr334-thread-id-review/`.
+
+Verified normal-runtime receipt SHA256
+`966e54e35c01bc63422d5c54a60ce13510d83171aab5c1e14cc7795354d28df1`,
+14 combined/nested artifact references, main/worker register/TLS status zero,
+full threadstress and sysabi fault-reaping zero results. Boundary counter values
+are actual-source host tests, not seeded guest cases. The next owned frame-copy
+policy is accepted for an unwired helper/host-test slice only; test-kernel hook,
+whole publication/FPU commit and signal integration remain separate reviews.
+
+For the session-switch dependency, parent/profiles agreed a nongraphical
+supervisor outside one scoped GUI root, owner-bound noninherited handle, unchanged
+exec ABI, nonkilling revoke/reap and authoritative revoked+zero completion.
+SYS_SESSION_SCOPE 163 is reserved; PR334 reports no collision. Implementation is
+isolated in `SrvrOS-migration-review`; this audit owns independent review. Exact
+metadata-only exec/final-exit/release detach seams were also reviewed by PR334.
+Reconciliation must preserve its saved-IRQ clear/gen0/cleanup ordering.
+
+First draft review found an owner-death reservation leak, replacement of the
+ordinary kernel exec entry and insufficient reaping readiness checks; the owner
+has addressed these in the uncommitted draft and expanded tests. New reaping
+returns bounded progress, not a possibly negative signed PID. Actual owner-exit/
+exec hooks, converted/unpublished loading exclusion, syscall failure paths and
+matched runtime behavior remain under review; this is not interface acceptance
+or a session-switch completion claim. No silent kill/timeout success is allowed.
+
+## November 4: bounded session-scope runtime qualification
+
+Independently accepted PR354 head `6f272777` (production `cd93e1eb`, comment/test
+closure `e3eeaf21`) against `f7ec75e7`. Owner-bound noninherited full-width handles
+control one scoped GUI root and inherited descendants. Nonkilling revocation
+closes new reservations; admitted reservations remain counted through conversion,
+and owner detachment cancels an unconverted reservation atomically. Complete
+retirement and no live-parent wait right precede orphan reaping. Reaping reports
+bounded progress, preserves sticky exit errors and permits release only after
+revocation plus zero members. Owner exec/final-exit/release hooks preserve failed
+exec and main atexit ownership; legacy kernel/battery scope admission refuses.
+
+Initial six independent service/lifetime/syscall-validation profiles, four changed
+service/loader profiles and both final closure profiles pass strict Rosetta and
+ASan/UBSan within their recorded source versions. Actual exit/atexit/exec prefixes
+use host terminal traps before privileged instructions; syscall backend and
+hardware are explicit models. Source/IRQ/scheduler admission review and the
+converted-unpublished checkpoint cover loading exclusion. Independent evidence:
+`build/review/session-lifetime-{host,stable,final}-review/`.
+
+Verified original and closure source manifests and clean matched `cd93e1eb`
+kernel/initramfs hashes. Read the final harness and serial: twice scopeprobe
+holds a descendant after root/owner exit, refuses early release/new scope, then
+succeeds after natural retirement; init startup is complete and PID1 `/init`
+remains live before/after. Legacy lifetime, PTY and sysabi/fault-reaping checks
+pass. The first harness invoked sysabi at the monitor and failed; the corrected
+passing run explicitly runs `/fat/bin/sysabi`. This qualification requires the
+normal live init reaper and proves no new service or hidden kill. Task guest
+stopped, review VMs preserved. Integration owner retains merge responsibility.
+
+This is the bounded runtime dependency, not acceptance of graphical profile
+switching, unsaved-work decisions, settings isolation, physical/SMP behavior or
+combined PR334 image metadata. Reconciliation must retain PR334's saved-IRQ
+clear/gen0/cleanup ordering and separately reviewed signal boundaries. The
+profiles/integration owners continue the actual user workflow and matched proof.
+
+## November 4: unwired owned frame-copy review
+
+Independently reviewed PR334 source `641e6694` and maximum-table/test-hook closure
+`3381ea71`. The private helper admits only a current owned kernel-stack source
+and one or two ordinary writable user pages after strict current-root, hardware
+policy, mapping identity and physical-alias preflight. Every refusal precedes
+stores; the final bounded byte copy has no callback or fallible operation. The
+proof validator is read-only. There is no production caller, signal delivery or
+copy-to-FPU-consume transaction approved by this checkpoint.
+
+Ten independent strict Rosetta/ASan/UBSan host profiles cover the VMM helper,
+process wrapper, scheduler ownership, FPU proof and image metadata at the recorded
+source version. Both additional maximum-table wrapper profiles pass at closure:
+65,536 mappings, successful two-page copy, duplicate destination VA and a distant
+physical alias. Privileged paging/CPU state is modeled; these are not guest tests.
+Evidence is retained in `build/review/pr334-frame-copy-review/` and
+`build/review/pr334-frame-copy-max-review/` with source hashes and results.
+
+The wrapper can visit four full mapping tables: 262,144 records at the admitted
+maximum while IRQs remain disabled. A 1 KiB copy bound is not a total work bound.
+Target code-generation/build checks and an actual maximum-table helper-latency
+measurement remain required before a production caller. The separate flag-only
+INT3 test hook/build recipe has source review only: bounded serial diagnostics,
+a complete-last scalar record and reference-timer measurement. Its `helper_us`
+excludes source preparation and serial output, rather than measuring the entire
+IRQ-disabled hook. No target build or guest result is claimed here. Normal and
+test kernels must have distinct recorded artifacts. Integration released the
+heavy-test window after its context VM passed; the PR334 owner has begun separate
+normal/test builds, with guest evidence still pending. Existing review VMs remain
+untouched.
+
+The previously qualified session runtime PR354 merged as `f58e0725`; GitHub also
+confirms graphical integration PR355 merged as `82face72`. The integration owner
+reports Apps PR9 `c3ad11b1`, exact merged-tree/pin verification and three-VM
+composite acceptance: unsaved-work decisions, direct app-crash cancellation/retry,
+accepted I/O, natural orphan retirement, authoritative revoked-zero/release before
+chooser, A–B–A settings/environment/cwd isolation and 640-pixel keyboard handling.
+The original workflow failure is retained for a builtin-environment capture gap;
+a source-identical external-environment supplement passes. Those workflow results
+are owner-reported, not independently rerun by this audit. The separate PR334
+frame-copy target/latency and combined image-metadata boundaries remain unchanged.
+
+## November 4: effective-supervisor copy qualification
+
+The first isolated guest never entered the hook: production IDT3 is DPL0. A
+four-line test-flag-only DPL3 registration admits the private probe through the
+existing stub; normal gate policy is unchanged. The second guest reached the
+helper but refused before stores. Its Limine HHDM had U/S set in upper entries
+and clear at the supervisor 2 MiB leaf. The original every-level-supervisor rule
+was unnecessarily strict. The reviewed correction retains the accumulated U/S
+permission and requires effective supervisor access for source translations;
+destinations still require effective user access. Encoding, physical/cache/RW/NX,
+owned-stack and full-FPU alias checks are unchanged. This follows Intel SDM3A
+section 4.6's effective permission rule; no inherited page table is modified.
+
+Independent strict Rosetta and ASan/UBSan fixtures both pass for the corrected
+source. The permission matrix admits each sole supervisor level and rejects an
+all-user path for 4 KiB/2 MiB/1 GiB stack translations and independent user/kernel
+FPU spans. The owner retains an old-gate negative control failing the new admitted
+fixture. Qualification is bound to source hashes in
+`build/review/pr334-frame-copy-effective-review/` and final PR334 commit `6766c5ff`.
+The frozen receipt outside cleanable build output at
+`.local/pr334-evidence/6766c5ff/receipt.json` has SHA256
+`709da289646e8c82c4c41198d15c234c8da4f442f037d00dcfc343a4d9021857`;
+all 182 retained file hashes were independently verified. The owner also records
+normal main/worker FPU, full threadstress and sysabi passes at this closure.
+
+Verified the third isolated guest receipt's 19 artifact hashes and all 129 normal
+kernel/object hashes unchanged by the test build. Actual target disassembly shows
+scalar stores with no calls or failure path after the first user store. Main and
+worker success/refusal, canaries and FS/TLS/RSP/R12 checks pass; genuine ordinary
+mappings reach 65,536, the two-page copy succeeds and the guest exits zero/stops.
+Both failed admissions remain evidence. No production helper caller is enabled.
+
+The maximum-count sample reports 262,144 possible record visits and a 911 us
+ACPI-PM helper interval on single-CPU QEMU qemu64/TCG with 1,536 MiB RAM. The first
+small-count sample was 1,664 us. These are quantized observations from one guest,
+excluding preparation and serial, not a hard bound or the whole IRQ-disabled
+window. No numeric delivery budget was agreed. The required actual measurement
+is complete; a future production caller still needs an end-to-end exclusion budget
+and separately reviewed copy-to-infallible-state-commit transaction. No lookup
+redesign, signal delivery or physical/SMP acceptance is implied.
+
+## November 4: next internal action/state design boundary
+
+PR334 may implement an initially unwired SIGUSR1 action descriptor and four
+kernel-owned records per main/worker slot. This approves an implementation review,
+not a delivery mechanism or public ABI. Process/worker membership must precede
+access; image generation, nonreused public TID and observed scheduler ownership
+bind records. Bounded capacity/LIFO/nonreuse refusal and complete staged descriptor
+validation precede local nonfailing state commit. Existing legacy disposition
+mirrors, pending discard and cooperative INFO exclusion must remain coherent.
+
+Tests must cover whole-state rollback, reuse, worker/main retirement, ordinary
+fork inheritance with empty records, failed exec unchanged, successful exec reset,
+and active-record fork/exec refusal before side effects. Executable mapping checks
+are not a lease for future delivery. Static storage cost, CPU0 saved-IRQ exclusion
+and no asynchronous locks/allocations are explicit boundaries. No production
+copy-to-consume commit, sigreturn, SA_SIGINFO admission or syscall is approved.
+Session hooks in main `82face72` own separate fields: reconciliation must preserve
+exec detach within saved exclusion before clear/gen0/cleanup, final exit detach
+adjacent to trap invalidation, and release detach before backing retirement.
+Main pthread_exit retains its session owner/image while retiring its signal records.
+
+## November 4: internal action/state source and host review
+
+The PR334 owner implemented that bounded, initially unwired slice. Independent
+source review found no blocker in the private descriptor/exchange, four-record
+identity/LIFO/range state, INFO cooperative exclusion and lifecycle changes.
+All nine main/worker slots participate in active-record fork/exec refusal before
+allocation or file effects. Legacy/default/spawn/fork/exec paths keep descriptor
+and catch/ignore mirrors coherent. Actual process exit excludes IRQs before record
+cleanup; successful exec and backing retirement clear records before invalidation.
+
+Six independent strict Rosetta/ASan/UBSan module, actual process-wrapper and actual
+image-lifecycle profiles pass. A first lifecycle link omitted the existing VFS
+namespace dependency; corrected builds/executions pass and failed logs remain.
+Evidence with unchanged source and test hashes:
+`build/review/pr334-signal-state-review/results.json`. Privileged state and
+scheduler/paging backends are explicit host models. The declared host layout adds
+3,056 bytes per main/worker state and 1,763,328 bytes across 64 process slots;
+target ABI size verification, no-SIMD/generated-code review and normal VM evidence
+remain pending. Range checks establish shape/overlap only, not a user mapping
+lease or proof of a future serialized frame's complete extent. No production
+signal delivery, public ABI or fused state publication is accepted here.
+
+## November 4: main-thread record retirement exclusion correction
+
+Target review of the new PR334 internal state slice found that main
+`process_thread_exit` could enter with IRQs enabled; trap invalidation saves and
+restores that entry state, so the subsequent record clear lacked exclusion. The
+owner added explicit saved-IRQ exclusion immediately before invalidation/clear;
+the existing later enable for parking/atexit is retained. Both independently
+rerun strict Rosetta and ASan/UBSan lifecycle profiles pass at corrected source.
+Removing only that exclusion in a private negative control fails the new IF0-entry
+assertion at trap invalidation. Evidence and source hashes:
+`build/review/pr334-signal-state-irq-review/`. The earlier six profiles belong to
+the pre-correction source; fresh corrected target/normal-guest closure is pending.
+
+The owner reports target static-array growth of 1,764,352 bytes including
+alignment, versus 1,763,328 bytes of declared state payload. Per-slot target size
+grows 27,568 bytes to 1,701,280 bytes. These target figures await independent frozen
+artifact verification and do not replace the earlier explicitly host-only result.
+
+## November 4: internal state final target/guest qualification
+
+Accepted bounded PR334 internal slice `729e4a84` after independently verifying
+all 197 frozen files under `.local/pr334-evidence/729e4a84/`; receipt SHA256
+`30cb85b3e55f4e5ef7fb8ae9e684fa5f6f76e3c84a7f31a1cb8a98d20f7b112f`.
+Retained process/module/lifecycle sources match that commit. Actual module
+object disassembly has no SIMD/x87 register use. Main exit orders CLI before trap
+invalidation and record memset, with the later parking enable retained. Independent
+ELF symbol comparison confirms 1,764,352 bytes of actual process-array growth
+including padding. Evidence: `build/review/pr334-signal-state-final-review/`.
+
+Matched retained corrected kernel digest to the normal guest's loaded-kernel
+receipt. Its `kernel_source` names the pre-commit base `6766c5ff`; final source
+hashes and loaded artifact identity bind the corrected candidate, rather than
+claiming a clean `729e4a84` build. Main/worker FPU preservation exits zero, nested
+full-thread and syscall-ABI harness results are zero, and owned guests stopped.
+All 17 selected packed apps match the frozen earlier verified payload; the actual
+payload-equivalence receipt SHA256 is
+`902f6824c721485781016f24a158de4060cdf66819e22cebf078c8848bb1f8cb`.
+This is retained-payload normal regression, not a full current-userspace rebuild.
+
+Six independent pre-exclusion-correction host profiles and two corrected lifecycle
+profiles plus the single-call-removal negative control retain their source
+boundaries. The owner records 26 broader pre-correction and four affected final
+host profiles. New internal operations are host-tested only; there is no private
+operation guest caller, public signal ABI or asynchronous delivery. The next fused
+copy-to-infallible-publication design remains a separate review.
+
+## November 4: private fused-return pending-disposition finding
+
+The next initially unwired PR334 private delivery/return candidate is under
+review, with no public syscall, INFO registration or normal return hook. Its
+candidate stages the complete 760-byte frame and kernel-private state before
+copy, adds three bounded static-object physical exclusions and prepares a
+same-continuation FPU commit. This is not yet qualification of that transaction.
+
+Independent actual-source/model-backend reproduction confirms a return-path
+mask-transition defect: raw restoration of the interrupted mask bypasses existing
+handling of newly unblocked default pending signals. A USR2 masked by the handler
+remains pending after return (`killed=0`, pending `0x1000`, restored mask `0x20`).
+With RESET and both local/shared USR1 queued, delivery consumes local and resets
+the action; return leaves shared `0x400` pending, and the next delivery reports
+NONE under DEFAULT. That must follow the default disposition before user resume.
+Default-ignored pending signals also need the existing unblock discard semantics.
+Evidence with source hash: `build/review/pr334-signal-fused-review/return-mask-repro.json`
+and adjacent source/log. Scheduler/FPU/VMM backends are explicit host models.
+
+Final private-transaction acceptance is withheld pending staged restored-mask
+pending/disposition effects, nonfailing commit, and an explicit outer termination
+outcome before user resume. No fallible mask helper or admission query may be
+inserted after commit. Required regressions cover main/worker, mixed pending
+sources/RESET, default ignored/caught dispositions and unchanged-state refusal.
+Target/post-copy code generation, nested/private guest execution and complete
+maximum-mapping exclusion timings remain separate pending evidence.
+
+## November 4: staged restored-mask correction
+
+The PR334 owner corrected the private return candidate before final qualification.
+It computes visible pending bits under the restored mask, stages default-ignore
+discard, and selects the lowest fatal default bit with local-source priority.
+All classification precedes FPU preparation; refusal leaves state unchanged.
+Commit applies only prepared pending/mask/private-frame/FPU stores and any fatal
+metadata. The internal result is explicit: zero refuses, one restores, and
+128+signal requires the outer test caller to enter process exit directly before
+user resume. It performs no post-commit admission query or further delivery with
+the consumed proof.
+
+Independent strict Rosetta and ASan/UBSan matrix profiles both pass main/worker
+USR2 default-fatal handling, RESET mixed-source USR1, default-ignored CHLD/WINCH
+discard, caught-signal retention and whole-state rollback on FPU preparation
+refusal. Unchosen duplicate pending sources are retained. Evidence/source hashes:
+`build/review/pr334-signal-fused-mask-fix-review/`. The earlier six prerequisite
+profiles also pass independently for VMM exclusions, actual-FX prepare/commit and
+the original copy wrapper; those do not qualify the complete fused operation.
+Target suffix, expanded owner regressions and private/normal guest qualification
+remain pending. No public delivery or ABI is admitted.
+
+## November 4: first private fused target/guest checkpoint
+
+Independently verified all 29 frozen first-run input hashes against the private
+guest receipt retained outside cleanable build output at
+`.local/pr334-evidence/private-guest-1/receipt.json`, SHA256
+`a65166cb2728aca75dd5e2ade351f1380557644f52643f09b195d5d1e8faaabc`.
+Main/worker/repeated register/FPU preservation with complete public snapshot
+destruction passes, exits zero and stops. Pure user-loop delivery uses timer vector
+32. At 65,536 genuine mappings the two-page 760-byte transaction reports 262,144
+possible visits and 961 us for prepare/copy/commit. This quantized CPU0 TCG sample
+excludes outer hook admission/diagnostics, not the whole IRQ-disabled interval or
+a hard bound. No production hook or public signal capability is enabled.
+
+Fresh disassembly of the frozen process/FPU objects and linked private kernel
+confirms successful delivery/return suffixes contain bounded copies and prepared
+state/frame/mask/RESET/default-fatal stores plus FPU commit, with no fallible query.
+The FPU commit and linked memcpy are call-free; no FXRSTOR occurs while C continues.
+Delivery reserves `0x1938` bytes of local stack plus register saves. Independent
+evidence and available raw logs: `build/review/pr334-signal-fused-first-guest-review/`.
+Expanded actual heap-pointer register preservation, DF and four-deep nesting,
+fresh normal/I/O regressions and final immutable closure remain pending. This
+checkpoint is neither final fused acceptance nor a garbage-collector/root proof.
+
+## November 4: expanded private and normal/I/O evidence review
+
+Verified the expanded private guest receipt SHA256
+`1b5388ca31a4baadd46dbb3decca40ed0c469478bbb224a265dce757b67420ee`
+and all 34 frozen inputs/logs at `.local/pr334-evidence/private-guest-2/`.
+Main and worker allocated-pointer R15 preservation, handler DF clearing/original
+DF restoration, four-level nesting with a deferred fifth pending delivery, and
+public-snapshot destruction pass. Main/nesting/maximum markers are present,
+status is zero and the task guest stopped. Full-mapping transaction evidence
+again records `[65536, 262144, 961 us, vector 32]` under the same stated timing
+limits. This proves pointer preservation, not sole-register rooting or collector
+survival, and admits no atomic suspend or restart semantics.
+
+Independently verified all 130 normal kernel/object hashes unchanged across the
+isolated private build and the fresh normal loaded-kernel receipt hashes.
+Normal main/worker FPU, full-thread and syscall-ABI checks pass. The OVMF storage
+harness passes three relaunches, throttled writes, USB typing, Ctrl-C, copy
+comparison, fsck and deliberate timeout/quarantine. The tail's single AHCI failure
+belongs to that injected quarantine; it is not hidden as clean writable behavior.
+The driver confirms original ISO/output restoration. Independent evidence:
+`build/review/pr334-signal-fused-expanded-review/`.
+
+Target stack-usage output records delivery 6,504 bytes, return 4,520 bytes,
+copy preparation 264 bytes and ownership resolution 152 bytes. These individual
+frames are not the cumulative path budget. Complete stack-chain audit and final
+source/host immutable closure remain pending before final private-slice acceptance;
+normal kernel delivery/public ABI/libc/WTF remain unwired.
+
+## November 4: cumulative private-transaction stack audit
+
+Independently parsed actual and stack-audit ELF sections: all 38 relevant function
+bodies and relocation targets/addends match. Reconstructed the 37-node direct-call
+graph, verified compiler static stack sizes, and recomputed every cumulative bound.
+Actual disassembly has no indirect calls/jumps or recursive path; dispatcher stack
+usage is 184 bytes. Adding a conservative eight bytes per call edge and the
+983-byte common interrupt/frame/alignment/dispatcher prefix gives 12,207 bytes for
+delivery and 10,991 bytes for return against the owned 131,072-byte stack. The
+entered-user FPU save returns before the dispatcher rather than nesting on that
+path. Evidence: `build/review/pr334-signal-fused-stack-review/receipt.json`.
+This covers the fixed synchronous CPU0 IF0 transaction, not NMI/MCE or the entire
+kernel's stack usage. Final source/host immutable closure still remains pending.
+
+The next public contract may be proposed with INFO/optional RESETHAND and explicit
+pre-effect rejection of INFO|RESTART, preserving legacy RESTART. This permits a
+design packet, not public implementation/admission. An explicit SrvrOS WTF adapter
+choice must audit nonrestart EINTR/partial-I/O/deadline effects; ordinary caller
+flags must not be silently stripped. Source review confirms the kernel poll
+pending branch currently returns zero and libc relies on cooperative dispatch to
+turn it into EINTR, which needs an explicit contract once INFO is consumed before
+libc resumes. Real machine contexts, ticketed nested atomic suspend and bounded
+stop/resume remain mandatory separate reviews.
+
+## November 4: bounded private-operation final acceptance
+
+Closed the private test-only slice at PR334 `3afa5ee6`. Final receipt SHA256
+`dea8c230b970db632109effa59f14fb2931133ae92e477cc697577e7f35afba8`
+at `.local/pr334-evidence/3afa5ee6/receipt.json` and all 227 retained files verify;
+18 retained source files match the final commit byte-for-byte. Both separately
+frozen private-guest receipt digests verify. Precommit base/dirty-candidate labels
+remain explicit; exact source/ELF hashes establish attribution rather than a
+retrospective clean-build claim.
+
+Independently refreshed final state/copy compatibility profiles pass 4/4 strict
+Rosetta and ASan/UBSan. The earlier corrected-mask matrix source/header/IDT hashes
+match final; prerequisite FPU/VMM hashes match final, with pre-mask-fix original
+copy profiles retaining their recorded source scope. Independent suffix, cumulative
+stack, expanded private guest and normal/I/O checks above carry forward through
+verified final artifacts. Evidence: `build/review/pr334-signal-fused-final-review/`.
+Documentation checking in the owner's checkout reports 917 local links with the
+same eight missing nested-vendor license paths, not a wholly passing docs check.
+
+This closes internal private delivery/return only. No normal kernel delivery hook,
+public signal ABI, libc INFO registration, atomic nested suspend, restart epoch,
+collector-root survival or JSC success is qualified. The pinned WTF code explicitly
+requests RESTART|INFO and uses global semaphore waits; a future SrvrOS-specific
+adapter and bounded ticket/lifetime protocol require separate review. The public
+nonrestart subset remains design preparation only, with unchanged legacy behavior
+and full action/mask/wait/return transaction requirements.
+
+## November 4: public-v1 proposal review, implementation withheld
+
+Reviewed the PR334 owner's public-v1 preparation packet. Proposed CONTROL/RETURN/
+SUSPEND numbers 164–166 are not reserved: live main's syscall header blob
+`ddb22cf84c92f7713ed1c159f284ebc021c51ca9` ends at session scope 163; allocation must
+be rechecked/coordinated at implementation. Native 24-byte direct old-action
+output, fixed versioned requests, honest opaque-CATCH query refusal, explicit
+unsupported masked ppoll/pselect and INFO-without-RESTART remain proposals with
+unchanged-output/pre-effect failure requirements. No public code is approved.
+
+The proposed userspace INFO notification counter has a blocking design race:
+legacy interruption permits retry, libc checks the counter, INFO runs after that
+decision but before the next syscall, and the retry can block with INFO already
+consumed. Neither a per-attempt resnapshot nor a call-wide baseline closes that
+admission gap. Preserving mixed legacy RESTART and INFO nonrestart requires an
+exact kernel-bound attempt/retry protocol or another proven atomic design before
+implementation. This is a proposal counterexample, not a shipped-code regression.
+
+Parked INFO-only waits also need exact action-change phases, wake and once-only
+original-mask restoration; already delivered/INFO_DONE ownership cannot be reset
+by a competing action update. Existing stable scheduler wake is a candidate
+nonfailing primitive, with membership/lifetime, IF0 and capacity-scan costs audited.
+All output/mask transitions must precompute default-pending/exit effects, as the
+private-return fix does. Successful exec pending/default handling needs its own
+actual-source reproduction. WTF's bounded ticket/phase protocol must prove the
+last context/request access before matching RUNNING acknowledgement; skipping a
+retired target remains unapproved without a mutator-deregistration proof. Real
+native context layout, GOT-before-TLS, wrapper interruption/partial-I/O/deadline
+semantics and atomic nested waits remain required. Private acceptance above is
+unchanged while this public packet is revised.
+
+## November 4: nonrestart attempt scope extends beyond legacy restart
+
+A proposed sticky image profile would permanently exclude INFO after any legacy
+RESTART registration and reject future RESTART after INFO enrollment. That would
+honestly remove mixed registration but does not solve the whole admission gap.
+Source inspection finds logical blocking operations that retry without RESTART:
+event reads use internal 10 ms raw poll slices, epoll rebuilds after spurious or
+retired snapshots, and synthetic poll repeatedly slices until its outer deadline.
+An INFO handler can finish after a userspace retry decision and before the next
+raw wait, leaving that logical operation blocked with its notification consumed.
+An internal slice timeout is not completion of the enclosing logical operation.
+
+The public packet therefore remains prepare-only pending a kernel-bound logical
+attempt/retry protocol with atomic interrupted/stale admission before sleeping,
+independent nested-handler ownership, lifecycle cleanup and explicit outer
+progress/EOF/deadline rules. A userspace counter is not authority for that check.
+The sticky profile and broad migration of all legacy actions are not approved as
+a substitute. Existing legacy-only behavior and private-slice acceptance remain
+unchanged; no public code is authorized by this design review.
+
+## November 4: successful exec pending/default defect
+
+Actual lifecycle reproduction confirms successful exec could reset caught
+USR1/USR2 to DEFAULT yet reach the new image un-killed with those unblocked bits
+pending. Caught CHLD/WINCH similarly became default ignored but remained pending.
+This is an existing production-path issue, independent of public INFO admission.
+Failed exec remains unchanged. The PR334 owner's separate bounded fix evaluates
+pending/default handling after the new binding and exec diagnostic, with explicit
+IRQ exclusion through the final decision and user entry. It skips evaluation if
+already killed, preserving an earlier fatal cause, and enters existing process
+exit with the selected status. `usermode_enter` builds user flags with IF set;
+there is no intervening service/enable after the final decision.
+
+Independent strict Rosetta and ASan/UBSan normal/fatal/ignored lifecycle runs pass
+6/6. Current/shared ignored defaults clear, blocked and ignored dispositions stay
+pending, and the lowest fatal bit consumes only its local-priority source. A
+negative control removes just final evaluation/kill while retaining exclusion:
+both fatal and ignored regressions fail their intended user-entry assertions.
+Evidence/source hashes: `build/review/pr334-exec-pending-review/`. The terminal
+host trap observes the actual process-exit gate under the new binding before
+privileged/full teardown; no complete guest termination proof is inferred.
+Earlier-fatal checkpoint, target codegen/build and finite raw-syscall guest
+qualification remain pending. Explicit native exec signal-default attributes
+retain their own contract/audit boundary; this does not infer every attribute
+path from ordinary exec tests. Public-v1 design remains preparation only.
+
+## November 4: exec and GOT/TLS dependency closure
+
+Closed exec fix `1163ed75` after verifying all 65 frozen files and committed source
+hashes; receipt SHA256 `d6f39053008cdbd8183988a860946657fe448c868944ecda0a3e9f1feda67dc6`
+is retained at `.local/pr334-build-volume/evidence/exec-pending/receipt.json`.
+Independent six lifecycle profiles plus two earlier-fatal profiles pass: injected
+TERM at the final console checkpoint preserves status 143 over a lower pending
+USR1. The identical raw native guest on old normal kernel reaches fatal sentinel
+90 and fails ignored-state checking at 91; fixed kernel exits 138 before sentinel
+and clears CHLD/WINCH while retaining blocked USR2, status zero. Both normal FPU
+main/worker checks pass and guests stop. This now includes actual guest termination,
+with no alternate IDT/INFO hook; explicit native exec attributes remain unqualified.
+
+Closed exact GOT-before-TLS carry `8f446141` from browser `26e9e78f`, after live
+main's pre-fix `app.ld` blob `212f56212292148f846b2277f4fd43a5cf62bddc` showed no
+competing linker change. All 97 frozen files/committed source hashes verify;
+receipt SHA256 `8ce57965d33a6c4ce81682793cda0ea1ed58becea5d250934ea2154f778dd7f4`
+is at `.local/pr334-build-volume/evidence/got-tls/receipt.json`. Independent ELF
+parsing verifies virtual/file-offset TLS coverage: old zero/initialized layouts
+cover only 8/16 bytes; fixed layouts cover 2,148/2,164 bytes with the real 8-byte GOT
+before TLS. Both current-normal main/worker TLS/GOT fixtures and FPU probe pass,
+guests stopped. This is focused static layout/runtime evidence, not matched
+SDK/ICU/WTF/JSC acceptance. Evidence: `build/review/pr334-exec-got-final-review/`.
+
+## November 4: raw action-default fix and separate RESET peer finding
+
+Independent actual-source reproduction confirms raw CATCH-to-DEFAULT strands
+peer-local/shared USR1 and USR2 when the caller blocks the signal but a live peer
+unmasks it. The PR334 owner's bounded fix stages eligible main/lowest-public-TID
+local selection before shared selection, then commits exact pending/cause stores
+without callbacks. Blocked/inactive/foreign-owner state and an existing fatal cause
+are preserved; existing IGNORE and CHLD/WINCH discard behavior is unchanged.
+Independent strict Rosetta/sanitizer matrix profiles pass. Normal-kernel guests
+reproduce four old sentinel-90 cases; fixed exits are 138/138/140/140 with no
+sentinels, plus normal main/worker FPU passes. Task guests stop. Closed raw fix
+`2777eda7`: all 95 frozen files and five committed source hashes independently
+verify against receipt SHA256
+`47c5a5d9b4039c5d31bbfb444f9a5388c9f23178f4f422add0d8b0a47c96ee54`
+at `.local/pr334-build-volume/evidence/action-default/receipt.json`.
+Evidence: `build/review/pr334-action-default-review/`.
+
+A distinct unwired private RESET path still bypasses that explicit-action helper.
+Actual-source/model reproduction delivers main INFO|RESET with an unblocked peer's
+local USR1 pending, restores main, then observes the peer boundary return NONE
+under DEFAULT with `killed=0` and peer bit `0x400` stranded. This reopens that RESET
+peer scenario beyond prior bounded private coverage; nonreset/native preservation
+evidence is unchanged. Evidence: `build/review/pr334-reset-peer-review/`.
+Correction must stage the first signal's exact consumption and prospective handler
+self-mask before deciding peer defaults, with a reviewed exit outcome and complete
+physical exclusions; the raw helper cannot simply be called after user stores.
+The owner may implement that bounded correction for review: remove exactly the
+first selected bit in a prospective view, apply current handler self-blocking,
+then stage eligible peer defaults. A separate internal maximum-12-object copy
+entry retains the existing private maximum-three API/refusal rules. RESET uses
+the whole current state, process prefix including killed/cause and all eight
+worker mask/pending extents. Committed-and-exit status 138 must reach existing
+process exit before handler/user resume; refusal leaves every state unchanged.
+Full object/span alias, prospective-mask/pending, target suffix/stack and private
+guest regressions are required. This is implementation scope, not acceptance.
+
+The public design is still prepare-only. Revised same-ticket FINISH rewait avoids
+spurious clear/rearm gaps; pthread synchronization stays signal-transparent, and
+poll invalid entries retain POLLNVAL. Exact legacy nonlocal-unwind ownership,
+scoped masked-poll compatibility, fork constructor binding and public output
+coverage remain reviewed contracts requiring implementation-specific evidence.
+
+## November 4: private RESET prospective correction source/host review
+
+The PR334 owner implemented the bounded RESET correction, still uncommitted and
+without public admission. Its prospective view removes only the chosen initial
+local/shared bit and applies only the current handler's self-blocking mask before
+selecting a default-fatal peer. Successful copy commits prepared exact pending/
+cause stores and returns explicit status 138; the opt-in caller enters process
+exit before clock/diagnostics, accounting or handler/user resume. Current-only
+duplicates remain pending under self-block and retain return-time default handling.
+
+A separate internal maximum-12 exclusion entry protects the complete selected
+state, process prefix including killed/cause, and all eight worker mask/pending
+extents. Existing maximum-three API/count-four refusal and all original hardware,
+root, stack, FPU and unique-user-page checks remain. Independent strict Rosetta
+and ASan/UBSan VMM/delivery/raw-default profiles pass 6/6, including all 48 extended
+object/span/destination-page alias refusals, prospective priority and complete
+FPU/private/user rollback. New delivery tests against preserved `2777eda7` source
+fail exactly at the required committed-exit assertion, independently confirming
+regression sensitivity. Evidence/source hashes:
+`build/review/pr334-reset-peer-fix-review/`.
+
+The separately compiled test-only operation four installs INFO then invokes
+existing delivery in the same final IF0 continuation, pinning the selected target
+without a scheduler/user gap. Operations one/two/three and normal IDT are unchanged.
+This fixture installation is separate from delivery's refusal transaction; it is
+not a public fused-install contract. Updated whole-suffix/stack, mixed diagnostic
+negative/current native guests and normal closure remain pending before acceptance.
+
+## November 4: private RESET final qualification
+
+Closed the bounded correction at PR334 `63984900`. Final receipt SHA256
+`fa60ae294d585e5c6ebab3ad2e58e71b468e7d37de939a074f0aab3c3e4aa258`
+at `.local/pr334-build-volume/evidence/reset-peer/receipt.json` and all 317 retained
+files verify. All ten compiled/tested source hashes match the final commit.
+Independent six host-profile hashes bind to these sources, including prospective
+selection, complete refusal rollback, 48 alias controls and original three-object
+limits. Source attribution remains precommit base plus exact dirty hashes, with
+an explicit final commit closure rather than a retrospective clean-build claim.
+
+The mixed diagnostic negative retains new VMM/FPU/op-four IDT and the same packed
+payload while substituting the byte-matching frozen `2777eda7` process object;
+it is not a clean old-kernel build. Six main/worker peer-queue cases reach forbidden
+handler status 90 there. Fixed cases all exit 138 with no forbidden handler or
+continuation. In each current-only control, exactly one delayed handler runs,
+then private return exits 138. Both eight-case raw logs have complete exit lines,
+independently checked rather than trusting parsed receipt numbers. Nonreset real
+register/FPU/DF/pointer/red-zone preservation and depth-four/fifth-pending recovery
+pass. The 65,536-map sample is 936 us for the nonreset path only, not a RESET
+worst-case measurement, hard budget or complete IRQ-disabled-hook bound.
+
+Independent strengthened target analysis verifies 41 actual/audit function bodies
+and relocation identities, fully decodes all 40 reachable control graphs, rejects
+indirect/unknown transfers, and checks target addends land at function entries.
+Recomputed conservative stack bounds are 12,351/10,991 bytes including the 983-byte
+common prefix, within 131,072 bytes. Scope remains fixed CPU0 IF0 transaction;
+NMI/MCE and exit teardown are outside the bound. Actual suffix/IDT code routes
+committed 138 to process exit before post-call time/diagnostic work.
+
+Fresh normal closure two verifies complete exit-line/newline plus following
+prompt, and passes raw defaults, exec, both TLS layouts, default full threadstress,
+sysabi and main/worker FPU preservation. The first normal closure stopped on a
+partial status parse (13 before 138 completed); its failure/driver/logs remain,
+and no kernel pass/failure is inferred from that parser run. Task guests stopped;
+retained application payloads are not a full current-userspace rebuild.
+Evidence: `build/review/pr334-reset-peer-{native,stack,final}-review/`.
+This closes the reopened private RESET case; public ABI/libc/WTF, atomic waits,
+logical I/O gateway and nonlocal-unwind contracts remain preparation-only.
+
+SDK carry review also checked live main: the queried C++/statvfs/regex/semaphore
+files match pre-carry source and hyperbolic math is absent. However main's ports
+pin `d760e541` diverges from browser `af466ba` (13 ahead, seven behind). Future
+file-scoped dependency carries must preserve current ports integrations rather
+than replacing the whole tree/pin. No matched SDK/ICU/JSC success is inferred.
+
+## November 4: SDK source carry and reproducibility review
+
+Reviewed PR334's dependency carry without modifying its checkout. SrvrPorts
+`f88f1bd0` is pushed and is based on the actual root integration pin `d760e541`.
+All 55 added overlay paths have the exact mode/type/blob of browser ports
+`af466ba6`; all 1,230 pre-existing entries except README remain unchanged. README
+adds five explanatory lines. The initial root manifest's 25 files match browser
+`185db570` byte for byte, including executable bits. Kernel/shared signal and
+existing salvage sources are untouched. This qualifies source reconciliation,
+not a rebuilt SDK, ICU, JavaScript engine or guest runtime.
+
+A bounded source-dependency scan found a confirmed incomplete carry:
+`browser_math_probe.py`, `browser_evidence.py` and the ICU recipe require
+`tools/test_math_hyperbolic.c` and `tools/mathprobe.c`, but both fixtures are
+absent from the prepared root checkout and manifest. The implementation owner
+added both exact browser fixtures; the expanded 27-file manifest and executable
+modes independently verify. This closes the source omission, not fresh runtime
+qualification.
+Twenty Python helpers/recipes parse; the two fixtures are the only missing
+literal source references found, which does not prove dynamic/generated paths.
+Copied port notes also cite historical browser guest receipts and a root
+`docs/browser-port.md` that is absent here. A new current
+`docs/browser-port.md` explicitly attributes those runs to browser `185db570`
+and keeps PR334 matched SDK/guest/JSC acceptance pending.
+
+Independent host checks compile the carried hyperbolic source against the
+browser fixture: ARM64 strict, ARM64 ASan/UBSan and x86_64 strict/Rosetta pass
+threshold/edge values plus 200,000 deterministic float bit patterns within three
+ULP. The fixture was read from the browser checkout; these are independent host
+checks, not evidence that the corrected carry builds. Results and source hashes
+are retained under `build/review/pr334-sdk-carry-review/`. Fresh matched C++ guard,
+TLS destructor, linkage, SDK and guest qualification remains with PR334's owner.
+
+The public logical-I/O packet remains preparation-only. The owner identified a
+remaining interval between sticky kernel admission and a synthetic userspace
+readiness/effect commit, and proposed a bounded mask guard around that local
+commit. Review requires explicit guard state and prior-mask ownership, no waiting
+user lock or callback inside the guard, and exact restoration before subsequent
+admission. No public implementation or successful WTF/JSC suspension is inferred.
+Documentation checking covers 895 local links with the same nine missing nested
+submodule license targets; no new missing local link.
+
+## November 4: local commit guard and sleep-return ordering
+
+Reviewed the proposed LOCAL_END metadata path against current syscall admission.
+Existing signal metadata calls can overlap owned I/O because they only mutate
+fixed masks and cancellation state; process teardown remains gated in the IDT.
+A register-only SIGNAL_IO form can follow that boundary if classification uses
+only exact immutable registers and its helper independently checks live binding,
+thread identity, top ticket/depth and ACTIVE ownership under IF0. The owner must
+prove restoration does not wait behind foreign storage ownership, acquire a
+copy/FPU lease, invoke callbacks or allocate. Wire-pointer operations remain
+unsafe. This is design review, not implemented syscall admission.
+
+Socket poll update currently calls unsafe NET_ERROR and may trace through
+`fprintf`; neither belongs inside the proposed masked local commit. The owner
+will hoist observations/tracing and revalidate the same synthetic/native identity
+around bounded stores. A native-completion exception also needs immutable actual
+result storage, a fixed root-kind/backend table and one-shot finalization; a flag
+must not authorize another effect after interruption.
+
+Actual `posix_time.c` has a confirmed integration gap for future public INFO:
+its remainder clock sample occurs after `srv_sleep_ticks` returns. A handler at
+the common user-return seam has already run by that sample, unlike today's
+cooperative handler dispatch. An independent modeled-service fixture reproduces
+this ordering with the actual libc: request 1.000000123 s, interrupted after
+250 ms, handler 1.5 s. The cooperative control returns 0.750000123 s; moving the
+handler duration into syscall return yields zero and fails the intended check.
+The existing complete timing suite still passes. Public INFO is not enabled,
+so this is not a native runtime regression claim. The proposed gateway must
+capture interruption time/remainder before delivery, including tick fallback,
+with exact bounded storage and nesting/alias behavior. Implementation and passing
+matched regression remain with PR334's owner. Evidence/source hashes:
+`build/review/pr334-sleep-return-review/`. No shared implementation was edited.
+
+## November 4: immutable public protocol revision review
+
+Reviewed proposal `37cd7382`, retaining exact hashes of both packet files.
+Four 96-byte tickets capture signed native result, elapsed reference microseconds,
+elapsed ticks and a nonreused outcome cookie. Together with the separate 32-byte
+local guard, the stated selected-state arithmetic is 4,032 bytes. This is not a
+compiled layout assertion. The revised sleep backend captures elapsed time at its
+interrupt/completion decision before INFO, closing the modeled design finding;
+its implementation and passing regression remain pending.
+
+The local guard owns a separate nonreused cookie and original mask. Its compact
+exit validates exact registers and live ticket/binding ownership; an ACTIVE
+pre-admission filter rejects unsafe calls before waiting for I/O. The existing
+mutex release source uses only THREAD_SELF, atomic stores and FUTEX_WAKE with
+count one, matching the narrow exception. Native completion finalization is
+one-shot and tied to the captured result/cookie; EPOLL slices and SEM yields
+cannot declare their enclosing call complete. No new contract conflict found in
+this revision. Implementation must preserve all 96-byte outcomes across permitted
+fork, and delayed-handler tests must use supported monotonic/yield or nested wait
+operations rather than assume nanosleep is supported inside INFO.
+
+These findings are cleared for staged implementation review, not public runtime
+qualification. Actual syscall allocation, C layout/offset assertions, backend-kind
+mapping, target instruction/stack evidence and the full deterministic/native race
+matrix remain required. Evidence: `build/review/pr334-public-packet-review/`.
+Separately bound all 27 source manifest files to committed carry `68f18cd8`, with
+exact ports gitlink `f88f1bd0` and no kernel/shared/salvage change; source acceptance
+is closed, fresh matched SDK/ICU/WTF/JSC validation is still pending.
+
+## November 4: coordinated signal syscall reservation
+
+Freshly fetched actual main `7766ed5a6fae18b60fc96fe809a5eeabd7657504`
+and independently queried live GitHub header blob
+`ddb22cf84c92f7713ed1c159f284ebc021c51ca9` still assign through
+163 SESSION_SCOPE. Reserve the following numbers for the PR334 owner:
+
+| Number | Planned operation | Owner |
+| --- | --- | --- |
+| 164 | SIGNAL_CONTROL | PR334 |
+| 165 | SIGNAL_RETURN | PR334 |
+| 166 | SIGNAL_SUSPEND | PR334 |
+| 167 | SIGNAL_IO | PR334 |
+
+The shared integration owner was notified to prevent overlapping assignments.
+The implementation owner alone updates the shared header in its isolated branch;
+PR317 does not duplicate that source change. Initial work is fixed wire/layout
+and pure per-thread state helpers. This reservation does not enable normal public
+dispatch or qualify runtime support. Recheck actual allocation at wiring and
+integration; retain the target/layout/host/native verification boundaries from
+proposal `37cd7382`. Evidence: `build/review/pr334-public-packet-review/allocation.json`.
+
+## November 4: public foundation source qualification
+
+Reviewed PR334 `70ca1894` with normal public dispatch still disabled. Receipt
+SHA256 `b9e63c28c718a90004af16971b44d327e8420937e979b97d406255ea48f40188`
+at `.local/pr334-build-volume/evidence/public-foundation-70ca1894/receipt.json`
+and all 42 retained files verify; all 16 frozen source files match the commit.
+Extracted an independent exact-commit snapshot including unchanged context
+implementation/header dependencies. State, logical-runtime and native-context
+fixtures pass six independently compiled x86_64 strict/ASan/UBSan profiles.
+
+Wire assertions cover sizes, field offsets and alignment. Actual selected state
+now compiles at 4,032 bytes, context records at 752, wait slots 64, I/O slots 96,
+request 208 and guard 32. Pure transitions cover identity/LIFO/refusal rollback,
+shared ticket exhaustion, reserved outcomes, exact guard cookies, active request
+matching, nested mask-override and late-completion wait associations. These
+helpers consume trusted kernel objects; they do not authenticate user pointers,
+select backends, modify live masks or provide a user-output transaction.
+
+The native adapter supplies all general registers and an embedded owned FPU
+snapshot, preserves unavailable facts as zero with validity fields, and maintains
+bounded nesting. Four-level host context/layout tests and unchanged-output
+ENOSYS checks pass. The retained trampoline object has a 24-byte aligned call
+frame, preserves incoming R8/R9 token/identity, issues syscall 165 and ends in UD2.
+This is source/object inspection, not real kernel-delivered native context.
+
+No new confirmed foundation defect found. Integration must compose ordinary
+record push plus marking all I/O tickets on the same prepared state before output
+publication; the ordinary push helper does not mark tickets by itself. The
+standalone Zig adapter object imports default-instrumentation UBSan helpers, so
+it cannot substitute for final SDK link/code-generation evidence. Previous
+private target stack/static-memory bounds predate the enlarged state/records and
+must be recomputed. The corrected normal kernel target has a passing build log;
+no frozen matched kernel ELF or guest acceptance is inferred from that log.
+Backend ownership through sleeps/cancellation, fork cloning, actual public seam,
+WTF context/reference retirement and matched SDK/VM qualification remain open.
+Evidence: `build/review/pr334-public-foundation-review/`. The owner continues
+separately with a guest-gated seam; no duplicate implementation was introduced.
+
+## November 4: console consumption and signal wakeup finding
+
+The PR334 backend audit identifies console descriptor lifetime gaps: tty reads
+can wait with IRQs enabled, then consume keyboard/serial input without rechecking
+the enrolled descriptor generation. A check after consumption cannot restore the
+input. Writes similarly need generation admission at actual publication, not
+before enabling interrupts and calling console output.
+
+Reviewed the proposed narrow fix with the owner. A checked keyboard primitive
+must validate bounded process/fd/generation eligibility under the same IF0 scope
+as queue or serial consumption, including VMIN-zero scans. Report real NUL as a
+successful byte and distinguish retirement, pending interruption and no data.
+For output, console_write_n already commits each bounded bootlog record under
+short IRQ exclusion, then renders/presents and writes UART with interrupts
+restored. Put generation admission at that record commit; finish an accepted
+record and return its prefix once. Do not extend IRQ exclusion across rendering
+or UART, or introduce a check-then-STI publication gap.
+
+Independently confirmed an adjacent existing defect at exact `70ca1894`:
+keyboard_has_char wakes for pending signals, but keyboard_read_char's empty
+loop only checks process exit. The actual keyboard source with a modeled
+scheduler reenters wait a second time after pending becomes true in both strict
+and ASan/UBSan profiles. An explicit second-wait sentinel exits 42; this is not
+a test timeout. Process-exit and queued-Q controls return after one wait in both
+profiles. Unlike the earlier future public sleep-remainder gap, this affects the
+existing ordinary console path. The implementation owner has the reproduction
+and must route ordinary tty reads through the corrected wait as well.
+
+Tty's post-consumption pending check can also discard an already-consumed normal
+byte. Require explicit keyboard/serial ordering regressions and committed-byte
+preservation rather than a retroactive zero-progress EINTR. Proposed primitives
+and gateway integration remain under owner implementation; no fix/guest pass is
+claimed yet. Evidence: `build/review/pr334-console-lifetime-review/`, with exact
+source/fixture hashes and six deterministic results. PR317 introduces no competing
+keyboard/console implementation.
+
+## November 4: blocking record locks and wait-result ownership
+
+Reviewed PR334's proposed checked process backends. F_SETLKW caches a content
+identity before sleeping and does not revalidate the descriptor generation before
+later conflict/update. The new helper must check live fd/generation/content
+identity under IF0 before each use; stale pointer equality alone cannot admit
+reused content. The condition used for atomic wait enrollment must also include
+lock availability and cancellation after checking identity first.
+
+Independently reproduced three missing readiness conditions in exact `70ca1894`
+process source. A modeled scheduler changes state between the loop conflict check
+and its atomic condition evaluation: release the conflicting lock, retire the fd,
+or mark the process killed. All three conditions remain false and would park in
+both strict and ASan/UBSan profiles. An explicit bounded sentinel exits 42 instead
+of hanging. Pending-signal and nonblocking-conflict controls pass: EINTR after one
+wait and EAGAIN without waiting respectively. Ten results/source hashes are in
+`build/review/pr334-lock-wait-review/`. The outer retry loop must return on
+cancellation too; fixing only the enrollment predicate would still permit a spin.
+
+WAIT currently validates the status buffer before waiting, consumes/reaps the
+child, then performs a fallible copy. Independently reproduced this ordering with
+actual syscall_wait/usercopy and modeled mapping/reap services: invalidate the
+mapping at the I/O gate or inside the modeled wait after initial validation.
+Strict and sanitizer cases both return failure with status sentinel unchanged
+but the child already consumed. Valid-output and initially-invalid-output
+controls pass. Eight results are retained in `build/review/pr334-wait-copy-review/`;
+this is a modeled mapping race, not real guest unmapping.
+
+The proposed checked wait transaction selects the owned child, revalidates the
+entire eight-byte status output (including a two-page span) and completes its
+copy under IF0 before an infallible child claim. On refusal, child waitability,
+CHLD, accounting, history and lifetime state must remain unchanged. Cleanup after
+successful claim retains ordinary admission and may yield without replaying the
+result. NULL status and WNOHANG no-result preserve existing semantics. The owner
+will use this transaction for ordinary raw/POSIX WAIT as well as the typed gateway;
+the existing late-copy defect must not remain behind a guest-only correction.
+Concrete implementation/regressions and native qualification remain pending;
+PR317 does not duplicate the process source edits.
+
+## November 4: immutable integrated candidate and TTY byte bound
+
+Reviewed PR334 candidate `bb201307` (56 changed paths, pinned SrvrPorts `8d9b9b7`).
+Receipt SHA256 `fd8b912f02ebc2513d61df3ed08a1e4f41dabd2c11a87e3b407eb7ee586b4603`
+at `.local/pr334-build-volume/evidence/public-candidate-bb201307/receipt.json`
+and all 357 retained files verify. All 1,659 archived source files match the exact
+commit. Independently rebuilt 28 strict/ASan/UBSan host profiles from that separate
+archive: backend, process waits, keyboard commit, console, private delivery,
+raw defaults, public process, experimental public process, runtime, public libc,
+semaphore/sleep, eventfd, poll and epoll all pass. These are explicit host models,
+not native delivery or full backend qualification.
+
+Source review confirms the intended shared commit boundaries: keyboard/serial
+eligibility, consumption and byte commit share one IRQ scope; console checks
+identity at bootlog-record publication and finishes an accepted prefix outside
+long IRQ exclusion. Lock waits recheck identity, availability and cancellation at
+atomic enrollment; listener waits retain descriptor identity; status output is
+copied before child claim in ordinary raw/POSIX waits as well as the gateway.
+The experimental profile excludes VFS/PTY/network/record-lock/message backends;
+pipe reads use a separate rights-free branch and recheck that condition after
+wake and before consumption/publication. Normal dispatch/capabilities remain off.
+
+Found a new confirmed boundedness defect in tty_read_eligible: it validates the
+entire scalar buffer, or all complete iov spans, before every single-byte consume
+and atomic wait condition. Independent actual-helper instrumentation requests
+268,435,456 validation bytes for a one-byte scalar commit and refuses a valid
+current vector byte because an unrelated later 4,096-byte span is unmapped.
+Both strict and sanitizer profiles reproduce; the owned-kernel-sink control
+performs no user walk and passes. Counts measure requested validation work, not
+actual IRQ duration. The owner is preparing a current-byte-only address/length
+check and bounded iov scan, retaining initial syscall validation separately.
+
+The prepared diskless run at harness `2a72eb7f` has one TCG CPU, 1,536 MiB, no NIC,
+no data disk and headless output, but is superseded and will not run against this
+candidate. Updated source/objects/SDK/probe/ISO/config hashes must accompany the
+correction. The reported 22,575-byte transaction bound still has named scheduler
+and I/O cuts; complete blocking/common-gate callback qualification remains open.
+No VM or JSC pass/merge acceptance is inferred. Evidence:
+`build/review/pr334-public-candidate-review/`.
+
+## November 4: TTY byte correction and retained-stack review
+
+Closed the bounded TTY correction at PR334 `5c4b6942`. Receipt SHA256
+`809227738ed85d458dbde978d9140bc5e831d435953fff27fccffcc6f33ea22b`
+and all 19 retained correction artifacts verify, chaining the already-verified
+357-file base. Source and committed test match the correction commit. Independent
+strict/sanitizer instrumentation now requests exactly one validation byte for
+scalar and current-iov output, and zero for an owned sink. The committed mapping,
+wrap/count/iov and byte-commit regression passes both profiles. The same regression
+against frozen `bb201307` aborts at the intended first one-byte assertion in both
+profiles. Ten results retained: `build/review/pr334-tty-byte-fix-review/`.
+
+Verified all 142 frozen retained-stack files and receipt SHA256
+`97d4ee1136d94ed73e082b9b77ce9573715235b003da540438a37910155a0365`.
+Re-executed the analyzer using a private mirror without modifying frozen evidence:
+CALL 20,303 bytes and completion 22,575, within the owned 131,072-byte stack.
+Independent ELF/decoder checking covers 199 distinct function bodies (200 identities
+include the bounded serial carriage-return model), 22,551 decoded instructions,
+742 entry-target control relocations and 760 function-reference relocations bound
+to the actual linked `f5f12369` experimental kernel. Instruction coverage spans
+each complete function. All indirect sites match the declared reviewed sites.
+Non-code data relocation values are masked in this separate verifier (969 fields),
+so it does not independently prove readonly-data layout. Exact finite wait
+contexts, callback producers and scheduler save-RSP/load-RSP boundary are recorded
+by the retained analysis; context switches use another stack rather than recurse.
+
+The separate IRQ supplement SHA256
+`e86992e35b1bf194dd26829d4c1ed3be0c176fc6442425b8d9bd482e5a98cb33`
+and its 24 referenced hashes verify. Its conditional extra 1,311 bytes yields
+23,886 with completion. Source inventory supports timer, PS/2 and serial routes;
+PIC/IOAPIC entries start masked, xHCI polls with interrupter IE clear, and reserved
+IRQ lines cannot acquire legitimate completion callbacks. Twenty reachable STI
+sites are documented as saved-IF restores. The net-timer no-frame branch requires
+no selected provider/worker; no-NIC plus absent virtio/ECM flags is a device-model
+inference, not a current boot result. Require the actual network-idle/worker-not-
+started boot messages before sending the probe command. NMI/MCE, unrelated IRQs,
+terminal teardown and separately scheduled worker stacks remain outside this bound.
+
+Prepared source `5c4b6942` has rebuilt normal/experimental kernels and a new
+matched diskless preparation; the earlier image remains superseded. Final harness
+precondition/receipt verification and native execution remain pending. Normal
+public dispatch stays disabled; no JSC, general networking, merge or whole-codebase
+acceptance is inferred. Evidence: `build/review/pr334-public-stack-review/`.
+
+## November 4: bounded native probe readiness
+
+Reviewed harness-only `1db6652c` and independently ran its parser controls. Before
+sending the payload it requires exactly one complete idle-network line and one
+worker-not-started line, rejects provider/static initialization, records boot
+serial/hash, and stops only its owned QEMU on refusal or completion. It runs the
+recorded reviewed argv rather than independently reconstructing another command.
+The IRQ supplement's route/registry/saved-IF conditions support this configuration's
+conditional retained-stack plus one maskable IRQ bound of 23,886 bytes. This does
+not qualify unrelated IRQs, NMI/MCE, terminal teardown or arbitrary devices.
+
+Cleared one disposable diskless native-context/nested-wait functional probe once
+fresh host/output/backing storage preflight passes and the new preparation matches
+reviewed build-six kernel `f5f12369`, probe `6983ee5b`, init `41ec31cf`, SDK archive
+`1f62b203` and header-tree `032e0618`, with the same single-CPU TCG/no-NIC/headless
+argv and quiet command line. The full hashes are retained in prepared evidence
+and review correspondence. A storage-reserve refusal stopped regeneration before
+any VM; the owner is preserving/moving only its own stopped generated artifacts.
+No runtime or JSC pass is claimed at this checkpoint. Run/raw-log collection and
+independent final binding remain next. Protected review VMs stay untouched.
+Evidence: `build/review/pr334-public-stack-review/harness-review.json`.
+
+## November 4: authorized session-switch interface reconciliation
+
+Following explicit user authorization, coordinated read-only design review with
+both integration and profiles owners. Inspected delivered source `7766ed5a`:
+version-one session_scope header/syscall 163, live-owner-plus-token authority,
+owner detach and counted retirement, retired orphan reap, outside desktop
+supervisor and portable-profile documentation/composite receipt. Both owners and
+the bounded source review agree: GUI close decisions, accepted worker jobs and
+preference persistence precede exact root exit 42 (switch) or 43 (console).
+Cancellation cannot reconstruct already closed/discarded apps. The supervisor
+then revokes without killing, drains/reaps actual retained scope members, requires
+revoked plus zero and successful RELEASE, and only then opens a fresh chooser.
+Timeout, uncertain status and unknown exits never certify retirement or save
+success. Token possession alone does not grant owner authority; membership is
+inherited while owner authority is not.
+
+No new contract conflict found in this bounded reconciliation. No implementation
+reopened, new portable-profile reference-count API, authentication or concurrent
+desktop acceptance inferred. The delivered composite records three historical
+QEMU lifetimes and retains the original environment-capture workflow FAIL plus
+a separate matching external env/pwd supplement PASS. This chat did not rerun
+those guests for this checkpoint. Source hashes and reviewed documents are in
+`build/review/session-switch-contract-review/`.
+
+## November 4: first matched experimental native probe passes
+
+Independently bound the collected run `signal-public-7215z728` to preparation
+SHA256 `1d5c393cf85e05664cc379ab55bcc5a23b27fb05843e10573f9a864630312cd9`.
+All 24 input hashes verify, with clean harness `1db6652c`, reviewed build-six
+kernel/SDK/probe/init, header tree, ISO/config/initramfs and exact single-CPU TCG,
+1,536 MiB, diskless/no-NIC argv. Storage preflight passed before launch.
+
+Raw boot log SHA256 `f85b14d20c5db2d07949da4e4a8e8992210062465ce34982064db8981066021b`
+contains exactly one full idle-network line and worker-not-started line, with no
+provider/static initialization. Raw serial SHA256
+`76fb617cdb89f685f56736ab70f96f0e5d45bd478850481956600e3f986d9e94`
+contains exactly one complete main/worker-context marker, one nested-suspend-
+resume marker, one newline-terminated exit status zero and following monitor
+prompt. These lines were independently parsed, not inferred from receipt status.
+Owned QEMU PID 31408 is absent after collection. Protected review QEMUs 6233,
+61610 and 85869 were independently observed still alive and were not operated.
+
+The actual public probe validates main and worker general-register/FPU snapshots,
+x87 tags/control and MXCSR, all XMM payloads, original R15 pointer, DF, red zone,
+RSP, FS/TLS and private restoration despite overwriting the public context. It
+also completes a real nested atomic suspend/resume handshake. The pointer case
+is not a sole-root conservative-GC proof; the nested case is not full depth-four
+native coverage. This qualifies only the bounded experimental ABI probe, not
+normal public admission, general networking, WTF/JSC, physical hardware or SMP.
+The minimal image intentionally packages init plus the probe rather than a full
+installed userspace. Fresh normal-capability-zero dependency guests are next;
+new public runtime/profile or WTF payload changes retain exact review boundaries.
+Evidence: `build/review/pr334-public-stack-review/native-run-review.json`.
+
+## November 4: independent offline GPT adapter review
+
+Reviewed separately owned draft PR360 at `faf760d5`: six host-tool/build/documentation
+files, with no production kernel/shared changes. All 44 frozen artifacts hash-match;
+all 15 captured source files match the commit. The adapter reuses native GPT/claim
+validation, retains the validated primary header, requires matching CRC-checked
+backup headers and arrays, and exposes only read callbacks. A single Basic Data
+candidate is required; malformed or ambiguous maps have no fallback. The wrapper
+passes the same read-only descriptor to selection and workspace inspection, checks
+exact report schemas and verifies whole-image bytes/identity/permissions afterward.
+Selection grants no writable, repair, replay or authentication authority.
+
+Independently compiled exact source into private external artifacts: all 27 synthetic
+diagnostic groups pass strict x86_64 macOS and ASan/UBSan halt-on-error builds. A
+counterfactual omitting backup agreement fails the valid-CRC divergent-backup test
+as intended. Initial tests on the external exFAT volume lacked permission/hard-link
+semantics; retained failures are superseded by APFS-input passes. Explicit
+LeakSanitizer startup is unsupported on this macOS runtime; address/undefined
+sanitizers pass with leak detection disabled. No new confirmed issue found.
+
+Preserved-media report/manifest comparisons are frozen owner evidence only: this
+review did not reread those images, operate any VM or establish new guest/physical
+acceptance. Supported limits remain 512-byte sectors, offline regular whole images
+at most 8 GiB, selected volumes at most 2 GiB, and one Basic Data candidate. No merge
+approval inferred. Evidence: `build/review/pr360-gpt-review/review-result.json` and
+`manifest-review.json`; the private directory is backed by external storage.
+
+Also verified all 32 files in the native-public `1db6652c` frozen receipt (SHA256
+`9551e9c9a5e6322eda4ad3fdea0dd7cdf4bf05b234dd9c3fd810bff4f49be18e`).
+This preserves the previously bounded signal-probe acceptance. Fresh normal guests,
+new SDK equivalence and the JSC stack-bounds companion patch remain separate reviews.
+
+## November 4: JSC companion source and fresh SDK equivalence
+
+Reviewed ports `21bca3c` companion patches with root helper `a39341ba`.
+The SrvrOS-only current-thread StackBounds branch checks pthread_getattr_np,
+getstack and destroy before returning bounds. The existing target-side
+initialization/publication wait remains selected; the unavailable early
+new-thread query is not restored. MachineContext now constructs the optional
+CodePtr in place from the same captured RIP, resolving the pinned-libc++
+conversion ambiguity. These are bounded source conclusions, not finished JSC
+build or guest acceptance.
+
+Independently parsed old native-qualified SDK archive `1f62b203` and fresh
+`c5b66743`: all 67 member sets match, with identical allocated-section bytes,
+section geometry and normalized relocation offsets/types/addends plus referenced
+symbol identities/values/sizes. Archive and DWARF/path bytes differ; no fresh
+runtime/guest qualification inferred. The new GC fixture has no-root, GP, FX,
+red-zone and post-retirement controls, but exclusive root placement still requires
+final target caller/park assembly and actual collector/retired-thread evidence.
+No new payload run cleared. Exact source copies, hashes, independent parser and
+results: `build/review/pr334-jsc-companions-review/`.
+
+## November 4: final PR317 integration qualification
+
+User requested merge and continued audit. Candidate `4fa518eb` integrates main
+`6ee13fb8`, preserving session-scope v1 ownership, pending reservations, inherited
+membership and exit/exec detach hooks, plus current Apps/UI/Ports pins. Append
+conflicts retain both Makefile/journal sections and both process-service assertion
+sets. Main's exec-scope fixture needed kmalloc/scheduler_io_active stubs for the
+private image allocator; poisoned allocation now exercises real initialization.
+The original unresolved-symbol failure is retained.
+
+A clean full ordinary macOS build passes with freshly built kernel and userspace.
+Focused process/service/loader/lifetime/fault/dirty-writeback, PMM/VMM, xHCI,
+AHCI/E1000/VirtIO/provider/USB/input/display host checks pass. ASan/UBSan
+halt-on-error passes the affected process/allocator/xHCI/provider/scope tests
+(with unsupported macOS leak detection disabled); deterministic futex and current
+session/preferences/desktop chooser/file/tool-picker contracts pass. Initial
+missing dependency and incorrect test-alias setup failures remain in the logs.
+
+Fresh sequential Q35 guests pass session scope twice with live system init,
+held-orphan natural retirement/owner restart, lifetimetest, PTY and sysabi;
+nested/routed EP0 plus interrupt endpoint recovery/input, child-first disable
+and terminal reclamation; storage/HID removal and per-slot reclamation; full
+threadstress; and E1000 netabi. Every owned guest stopped. Original source image
+hashes match the clean build manifest after testing. Protected review VMs 6233,
+61610 and 85869 remain alive and untouched. Evidence/payload preserved under
+`.local/kernel-audit-evidence/pr317-merge/`, with review receipt also in
+`build/review/merge317/receipt.json`.
+
+Documentation checks 970 local links at the first integration checkpoint; only
+the known unavailable Node upstream license remains unresolved after initializing
+the other required dependencies. Physical HS-TT/MTT/USB3, SMP reclamation and
+new-generation reset/restart remain open. PR334 experimental public signals and
+JSC/GC probes retain their separate source/runtime qualification boundaries.
+This closes the PR317 merge qualification, not the entire codebase audit.
+
+## November 4: merged baseline and bounded WTF/JSC experiment review
+
+PR317 merged as `5f4f6fc6`; its tree matches reviewed head `d784705a` exactly.
+The latter differs from clean fully tested candidate `4fa518eb` only in three
+audit documents. Continued review uses a fresh branch from that actual merge.
+No PR334 implementation is imported into the merged kernel.
+
+Reviewed frozen experimental PR334 primary `ee207df0`/ports `e404d84`: all 568
+packet files verify against receipt SHA256
+`4e4f1dc1abf3c9bf16ad247bbca108457a8a2e1ac2ebd7a43370134be0cbff8d`.
+Primary/ports archives match 1,661/1,288 exact Git blobs and executable modes.
+Independent final ELF checks bind 292 retained strong/local function bodies to
+fixture/WTF/JSC/SDK objects and verify 1,058 named relocation values. Recognized
+GOT mov-to-LEA and TLSLD-to-local-exec FS0 transformations are checked explicitly;
+weak COMDAT selection and unnamed section/data relocations are outside that
+binding claim. The final symbol maps are not archive-member selection proofs.
+
+Actual target makeEncoded returns only a complemented pointer; its worker wrapper
+restores its frame and tail-jumps to the parked assembly. The parked window saves
+64 bytes of known caller/control state, clears the 128-byte red zone and non-root
+GP/FX/x87/MMX candidates, and decodes only into R12, XMM15.low64 or RSP-128. The
+collector copies the full 704-byte PlatformRegisters value and scans the original
+RSP-128 window. Reviewed real full-collection entry, JSLock VM-thread registration
+and Thread::didExit group removal before publishing exited state. Unprotect and
+weak-observation helpers join before later collection; no-root and post-retirement
+controls remain required runtime evidence. The linked WTF handler's final RUNNING
+stores precede errno restoration and sem_post; successful semaphore CAS is its
+last semaphore access, and successful handler return reaches only its epilogue.
+
+Prepared suite SHA256
+`e9c5112c75bc5f7c8263187642bd5682039ba2c4fa4419d8c281f347eaf5c770`
+independently verifies all 32 inputs, nested fixture/build/source/SDK receipts,
+headers, ISO/config/initramfs and parser controls. It retains the native-qualified
+kernel `f5f12369` and alloc-equivalent fresh SDK. Only the unchanged-input and
+storage preflight cleared for this single-CPU TCG, diskless, no-NIC, quiet,
+1,536 MiB seven-process experiment: WTF suspend, utility, GC control/GP/FX/red-zone
+and JSC print(42). The actual run failed in its first case with exit 134; the six
+remaining cases did not run. Observed network-idle/worker-off boot
+lines must precede payloads; require full LF markers, exit zero and later prompt,
+stop and preserve the first failure, and stop only the owned QEMU.
+
+No new payload guest result accepted at this checkpoint. Full public ABI,
+spurious/terminal uncertainty, SMP and normal public capability remain separate.
+Private review scripts/results: `build/review/pr334-jsc-companions-review/packet-ee207df0/`.
+PR317's accepted payload and actual merge receipt survive build cleanup in
+`.local/kernel-audit-evidence/pr317-merge/`.
+
+## November 4: first actual WTF suite run fails; later cases not run
+
+Independently reviewed the collected exact `signal-public-qvdnmbic` run, bound to
+prepare `e9c5112c` and frozen packet `4e4f1dc1`. Boot log SHA256
+`694b408d7ffb064814aa3df393bbd6b226d4704a9c9ba1f082101ba81f258041`
+has exactly one full idle-network and worker-not-started line with no provider.
+The first WTF case prints exactly one main-register/red-zone success line, then
+PID 3 exits status 134 with a full newline and later prompt. The two-target,
+startup/retirement and final markers are absent. Case SHA256
+`bd2ea763c73772332a1fbfa18789e3baf919ab0e3ca2290a440620dbb31cca62`;
+full serial SHA256
+`a5f676ff87cfa2653d204f63d53370a6716a9d2fc0c85a26928ba49006c31e46`.
+
+The harness correctly stops at that first failure after 5.695 seconds. Utility,
+all four GC modes and JavaScript print(42) did not run. Owned QEMU 11532 is absent;
+protected review QEMUs 6233/61610/85869 were alive and untouched at this observation.
+At later documentation closeout, those four PIDs are now absent; available evidence
+does not establish when or why the protected review QEMUs exited. No overall
+WTF/JSC or sole-root GC acceptance follows from the initial subphase marker.
+Raw logs and independent checks are retained in
+`build/review/pr334-jsc-companions-review/packet-ee207df0/first-run/`.
+
+Status 134 alone does not identify a defect: WTF fatal checks, fixture/assert
+abort and libc context/runtime terminal checks can share it. The PR334 owner
+owns bounded diagnosis and any implementation correction/regressions; this chat
+reviews independently without duplicate overlay edits. Next is terminal-site
+identification before attributing the failure or changing behavior. A diagnostic
+debugger replay can retain the exact payload; its timing is not qualification.
+The extra-signal fixture's finite yields do not acknowledge handler execution,
+so deterministic spurious-delivery coverage remains separate. Profiles now owns
+the heavy build/guest window; any repeat VM requires a coordinated resource
+handoff, not new human permission. No audit compiler or VM is currently running.
+
+## November 4: confirmed WTF retirement/acknowledgement race
+
+Independent actual-source scheduling reproducer confirms a distinct lifetime
+defect in the frozen `ee207df0` WTF overlay. The handler publishes srvRunning,
+posts its final semaphore acknowledgement and returns. Before the controller
+consumes that acknowledgement and publishes srvIdle, the resumed worker can
+finish its callback and reach the second Thread::destructTLS pass. The existing
+Idle-only check terminates this valid Running handoff. The main-thread fixture
+phase joins its controller, whereas the worker fixture immediately exits after
+resume; that difference is consistent with the observed failure boundary but
+does not yet attribute the native status 134.
+
+Compiled the verbatim frozen destructTLS body under strict and ASan/UBSan host
+profiles: both reject the valid Running+posted-ACK schedule (modeled sentinel
+42), while Idle retirement and active-Requested refusal controls pass. Source
+SHA256 `e925d20c6ab7d94f8a85c50a20c4b52ad8187191061a6c1ac2edd455362cbb73`;
+extracted body SHA256
+`b449aba83bf3d709105d000eb62d9bec9da2f906095560117ee4b4ea81b7730a`.
+The synthetic scheduling model is not a new native guest result. Evidence:
+`build/review/pr334-jsc-companions-review/packet-ee207df0/retirement-race/`.
+
+PR334 owner has the reproducer and owns the correction/regressions. Proposed
+contract keeps INFO blocked and boundedly drains only the exact Running-to-Idle
+controller handoff outside the handler before TLS/group/reference retirement.
+Pending INFO, foreign TLS, active requests, ticket changes and invalid/expired
+clock states remain terminal. Simply destroying storage with an outstanding
+controller acknowledgement is insufficient. Native pthread destructor callbacks
+run without the key lock; current WTF TLS remains installed until this retirement
+barrier, allowing a normal bounded service wait. Unchanged-payload debugger
+attribution and corrected target/guest validation remain pending.
+
+## November 4: canonical WTF retirement correction independently passes
+
+The PR334 owner published the correction in SrvrPorts `224ed6a`, staged by OS
+`7c59ab8e`. A separate companion patch preserves the previously qualified overlay
+and INFO handler. The controller now decrements its final suspend count before
+its release-store of Idle, then returns without another Thread-object access.
+TLS destruction blocks INFO, checks the live TLS/native-thread identity and
+matching ticket/acknowledgement, and retains its group/reference while the exact
+Running-to-Idle controller handoff completes. Retirement never consumes the
+controller's semaphore acknowledgement. It rechecks identity and pending INFO,
+rejects other phases or ticket changes, and uses a checked ten-second monotonic
+deadline plus 100,000 direct scheduler-yield attempts. It does not depend on the
+nanosleep-backed WTF Thread::yield for a stalled-clock fallback.
+
+Independently verified the eight-file review receipt and exact fuzz-zero patch
+application: patch SHA256
+`17d6dcc31f26ecb123582847427419298bdb11c1d3483721b77b3407aab37e51`,
+applied ThreadingPOSIX source SHA256
+`19aa0a7883955b97c7ae1e6805f3c8614d9c8eafda2b76a35356519ccae9a9cd`.
+All 35 actual-source cases pass independently in strict and ASan/UBSan builds
+(70 results), including posted/consumed ACK schedules, final resume publication,
+nested counts, untouched first destructor pass, identity/ticket/pending/phase
+refusals, invalid/backward/expired clocks and stopped-clock attempt exhaustion.
+Both valid handoff schedules fail against the old source in both profiles, at
+the intended retirement refusal. The INFO handler source remains byte-identical.
+Evidence: `build/review/pr334-jsc-companions-review/retirement-fix/canonical-review/`.
+
+Source correction and host regression coverage are accepted for a fresh target
+rebuild. New linked-code/prepare/guest evidence is still pending; no WTF suite,
+GC or JavaScript acceptance is implied. My separate noncanonical candidate was
+frozen and archived/stashed; the checkout's ports pin is restored to main. No
+experimental implementation is imported into PR365/main. PR334 retains canonical
+implementation ownership and the next exact target review.
+
+Diagnostic history correction: the owner later confirmed QEMU 24675 and LLDB
+had attempted the unchanged-payload diagnosis and stopped at a 100-second
+deadline, with no terminal capture or attribution. Earlier reports of no active
+VM were process snapshots, not proof that no attempt occurred. The source chat
+also encountered tool-reported system errors during diagnostic setup and a
+subsequent source-only resume: “This content was flagged for possible
+cybersecurity risk.” No blocked debugger operation was rerouted through another
+chat. The ordinary source correction proceeded with its own authorized scope
+and actual-source regression evidence. Original status 134 remains unattributed;
+the failed suite and unsuccessful diagnostic are preserved separately.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

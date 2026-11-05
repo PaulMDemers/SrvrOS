@@ -1,0 +1,733 @@
+{
+  "added_payloads": {
+    "build/userspace/bc.elf": "d73a1833b7550a7d15c4a084ba4305cf2386a035be6fd3600d9048f699708895"
+  },
+  "build": {
+    "built_at": "2026-11-04T03:39:19.466554+00:00",
+    "hashes": {
+      "build/initramfs.tar": "77bace8107f8c684b3f3442dfb2780c5920252e894fef59514bb848118afe07b",
+      "build/kernel/srvros.elf": "dd8bc16783c75c5e393867e715464a49cc793a8def717caeea422a6a84c01367",
+      "build/srvros.exfat": "d6d3bee53786b9a6437880d28b7f934543636185a857ce71686e7d78a4b94cca"
+    },
+    "repositories": {
+      ".": {
+        "dirty": false,
+        "head": "13a0ca82305eca964fddeba68a133283eaf8c410",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports": {
+        "dirty": false,
+        "head": "78fb81846dd6bfe5c2e3523c10bf59ae0d9dc337",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/awk": {
+        "dirty": false,
+        "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/cjson": {
+        "dirty": false,
+        "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/inih": {
+        "dirty": false,
+        "head": "26254ee9de7681f8825433415443e7116ff24b98",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/libuv": {
+        "dirty": false,
+        "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/linenoise": {
+        "dirty": false,
+        "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/lua": {
+        "dirty": false,
+        "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/node": {
+        "dirty": false,
+        "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/zlib": {
+        "dirty": false,
+        "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/apps": {
+        "dirty": false,
+        "head": "b2220909aded4d3f7ac051f33cfd578226450165",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/widgets": {
+        "dirty": false,
+        "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      }
+    },
+    "schema": 1,
+    "source": "13a0ca82305eca964fddeba68a133283eaf8c410",
+    "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worktree_dirty": false
+  },
+  "changed_payloads": [
+    "build/userspace/sysabi.elf"
+  ],
+  "checks": {
+    "build/profile-transfer/build-integrated-installer-main.log": "7682dc046f518e0e57a3f7e858e9d69ef1761ffb4b0ce8cb060f01cd48259c38",
+    "build/profile-transfer/host-integrated-installer-main-corrected.log": "da4d333edd4d5dcccffb58ab790bdcfbf48ea51a541feb6eca7f82ce41d6f8b3"
+  },
+  "checks_result": "Matched all build and profile chooser/catalog, profile desktop, desktop, fsync, installed-root/export and documentation checks PASS; installation unittest discovery: 70 pass, 1 optional skip.",
+  "corrected_invocation": {
+    "corrected_log": "build/profile-transfer/host-integrated-installer-main-corrected.log",
+    "initial_log": "build/profile-transfer/host-integrated-installer-main.log",
+    "issue": "test-installation-export is not a Make target; corrected to test-installed-root, which includes the exporter suite."
+  },
+  "host_image_helper_comparison": {
+    "changed_functions": [
+      "main"
+    ],
+    "method": "All top-level function names and ASTs compared against f2360267; only main differs.",
+    "proof_consumed_functions_unchanged": true
+  },
+  "independent_audit": {
+    "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-migration-review/.local/migration-review/gui-audit.json",
+    "sha256": "e839399dd8a669b45e04ab19efeba26a1256bedebe4d35f22aedffd8147fc6ac",
+    "status": "PASS"
+  },
+  "integrated_main": "a64661e91734a5b316a46762ffd5d2cf7cfb9379",
+  "limits": [
+    "Original 19-lifetime GUI proof remains attributed to f2360267; no new GUI VM run claimed on the integrated source.",
+    "Authentication and permission enforcement remain separate.",
+    "No physical media, real power-loss acceptance or external fsck.exfat qualification."
+  ],
+  "matched_source": "13a0ca82305eca964fddeba68a133283eaf8c410",
+  "previous_integration": {
+    "checks": {
+      "build/profile-transfer/build-integrated-bc-main.log": "c9099a78bb98def7a749ba2aca4c8e10648201fea82464a798e38d4cf5a10019",
+      "build/profile-transfer/host-integrated-bc-main.log": "6682b757e7bb6c79bb7599b7762dd116f3b97900f111207ca2293049d5239a1d"
+    },
+    "integrated_main": "7ef140ef3c6c7e8c88736cd4491064d11cad81e8",
+    "matched_source": "c813f078b54c3f2ba82c1574f24a9512dde5fc61"
+  },
+  "proof_backup": {
+    "archive_sha256": "4d7a2cda45b1742b643e8ec3a66c3f71b632ef44fc441ed6862d334df6a5bd41",
+    "manifest": ".local/profile-transfer/final-proof-yuylqeu1/manifest.json",
+    "manifest_sha256": "e10a58da5c1a9841de2b39ea324f3420a405fdddf6ba2db5f8b8d8e1ac7a5526"
+  },
+  "proof_receipt_sha256": "3f25ddb03c135e993746d12e44c0c637612f8add3ef4259e38ecb6c47f163926",
+  "proof_source": "f2360267c65f88e544751b3b5a937f90353fbb88",
+  "reason_no_repeated_gui_proof": "All143 other matched payloads, including kernel, bootstrap init, displayd, desktop, Profiles, profile engine, Text, Terminal and picker workers are byte-identical. The independent bc executable and sysabi diagnostic are not invoked by the GUI proof.",
+  "runtime_payloads": {
+    "build/kernel/srvros.elf": {
+      "current_sha256": "dd8bc16783c75c5e393867e715464a49cc793a8def717caeea422a6a84c01367",
+      "proof_sha256": "dd8bc16783c75c5e393867e715464a49cc793a8def717caeea422a6a84c01367"
+    },
+    "build/limine-binary/BOOTX64.EFI": {
+      "current_sha256": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+      "proof_sha256": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06"
+    },
+    "build/userspace/arp.elf": {
+      "current_sha256": "306297949f0d55beda310ce731d44c9deedb74d02b313a1b1a07e717a369fcbc",
+      "proof_sha256": "306297949f0d55beda310ce731d44c9deedb74d02b313a1b1a07e717a369fcbc"
+    },
+    "build/userspace/awk.elf": {
+      "current_sha256": "c50171ebeb99dd5352e47e7d7720a134abd71f124b331e02d4e6b6375aaa2e20",
+      "proof_sha256": "c50171ebeb99dd5352e47e7d7720a134abd71f124b331e02d4e6b6375aaa2e20"
+    },
+    "build/userspace/basename.elf": {
+      "current_sha256": "08fb9ea6c689e6f83774e68a34fc324df65c9c6b5b78ddbe6c4efb6ea2c87c13",
+      "proof_sha256": "08fb9ea6c689e6f83774e68a34fc324df65c9c6b5b78ddbe6c4efb6ea2c87c13"
+    },
+    "build/userspace/byacc.elf": {
+      "current_sha256": "86ccbb757d4cf59ab5a7167a254eba456be5e5b40732e9fa2379fa3382d5850b",
+      "proof_sha256": "86ccbb757d4cf59ab5a7167a254eba456be5e5b40732e9fa2379fa3382d5850b"
+    },
+    "build/userspace/calc.elf": {
+      "current_sha256": "1eb67f4ce70329c4a59e4ee5d7a88d39e9f8b9ca2be52ab707e34ac95509e002",
+      "proof_sha256": "1eb67f4ce70329c4a59e4ee5d7a88d39e9f8b9ca2be52ab707e34ac95509e002"
+    },
+    "build/userspace/cat.elf": {
+      "current_sha256": "953d9fc5fd7d42a6663c3394e740fd76c9623ab50102ec67a683cf9ff4e72c59",
+      "proof_sha256": "953d9fc5fd7d42a6663c3394e740fd76c9623ab50102ec67a683cf9ff4e72c59"
+    },
+    "build/userspace/chmod.elf": {
+      "current_sha256": "39fb34368807b98aefd16c358800c9e50bf6c4c5441f7a104b40983d2cb6c905",
+      "proof_sha256": "39fb34368807b98aefd16c358800c9e50bf6c4c5441f7a104b40983d2cb6c905"
+    },
+    "build/userspace/clear.elf": {
+      "current_sha256": "2af76b981a711dafaf8b6f4bb7094efa3583a35880e86011812572ec5070c66a",
+      "proof_sha256": "2af76b981a711dafaf8b6f4bb7094efa3583a35880e86011812572ec5070c66a"
+    },
+    "build/userspace/clockprobe.elf": {
+      "current_sha256": "248c6b8aaa50e4fbc289f5cc4e6f6d042f72666b4a4895f6ace1e2b691990112",
+      "proof_sha256": "248c6b8aaa50e4fbc289f5cc4e6f6d042f72666b4a4895f6ace1e2b691990112"
+    },
+    "build/userspace/cmp.elf": {
+      "current_sha256": "aaabd09e02e2abd9eed085767ab6158a320b49fa684d272415dc09fd4b2d4f2c",
+      "proof_sha256": "aaabd09e02e2abd9eed085767ab6158a320b49fa684d272415dc09fd4b2d4f2c"
+    },
+    "build/userspace/cp.elf": {
+      "current_sha256": "3de6b1cbafba97521ff67bd62b5e57794665a6271c1016c64e3c7b2dc81bf571",
+      "proof_sha256": "3de6b1cbafba97521ff67bd62b5e57794665a6271c1016c64e3c7b2dc81bf571"
+    },
+    "build/userspace/cut.elf": {
+      "current_sha256": "f8b0e2eea8ab917139ac772734acc3e4854ff8ae4b5d94a1ba759f0bab2313ca",
+      "proof_sha256": "f8b0e2eea8ab917139ac772734acc3e4854ff8ae4b5d94a1ba759f0bab2313ca"
+    },
+    "build/userspace/cxxprobe.elf": {
+      "current_sha256": "29250bc7c2234aa0a0ed008d729d4bdd08bdcc5ae1f99b263244f198d75d55ed",
+      "proof_sha256": "29250bc7c2234aa0a0ed008d729d4bdd08bdcc5ae1f99b263244f198d75d55ed"
+    },
+    "build/userspace/cxxstlprobe.elf": {
+      "current_sha256": "f6d5c521bf00e1b5498c7d1ae62013ecdc328f58cd5938c1747a6746db400309",
+      "proof_sha256": "f6d5c521bf00e1b5498c7d1ae62013ecdc328f58cd5938c1747a6746db400309"
+    },
+    "build/userspace/date.elf": {
+      "current_sha256": "641f985b00cb29fa9753fa0b6e49636c7c85f2bbc6da09d76791546994169f36",
+      "proof_sha256": "641f985b00cb29fa9753fa0b6e49636c7c85f2bbc6da09d76791546994169f36"
+    },
+    "build/userspace/dd.elf": {
+      "current_sha256": "d4fe62caec3d8c04ce64925545be4a5f57e109c2bb68d30f4ece20c7e36fe2c7",
+      "proof_sha256": "d4fe62caec3d8c04ce64925545be4a5f57e109c2bb68d30f4ece20c7e36fe2c7"
+    },
+    "build/userspace/deskclient.elf": {
+      "current_sha256": "031128bbce7190ee1831f26d4cb1367f615f2ab352d28d43d6c2bf68393a4e8e",
+      "proof_sha256": "031128bbce7190ee1831f26d4cb1367f615f2ab352d28d43d6c2bf68393a4e8e"
+    },
+    "build/userspace/deskclock.elf": {
+      "current_sha256": "025bf0fad53a876a0715fe1392193642385c2c8e53251ee2e6810ca46f05d5f3",
+      "proof_sha256": "025bf0fad53a876a0715fe1392193642385c2c8e53251ee2e6810ca46f05d5f3"
+    },
+    "build/userspace/deskd.elf": {
+      "current_sha256": "f446ad3c6aaafbee051d87ad5ed8ff9af275e20b2bc7ca26e4ef3042030b1eed",
+      "proof_sha256": "f446ad3c6aaafbee051d87ad5ed8ff9af275e20b2bc7ca26e4ef3042030b1eed"
+    },
+    "build/userspace/deskfind-worker.elf": {
+      "current_sha256": "bce64547ebc6e0bae39e4c81f3cf8917120ec633ff16c18d4a6ea499c89c6877",
+      "proof_sha256": "bce64547ebc6e0bae39e4c81f3cf8917120ec633ff16c18d4a6ea499c89c6877"
+    },
+    "build/userspace/deskfind.elf": {
+      "current_sha256": "9f86968a59543e93b15f572e586ec97ad4226045c2968e7a3311a9b0f646ace0",
+      "proof_sha256": "9f86968a59543e93b15f572e586ec97ad4226045c2968e7a3311a9b0f646ace0"
+    },
+    "build/userspace/deskfs.elf": {
+      "current_sha256": "ef99fb7643994dad4237e18a471bbeb17c985f46dbcaf44bd570286f258edec8",
+      "proof_sha256": "ef99fb7643994dad4237e18a471bbeb17c985f46dbcaf44bd570286f258edec8"
+    },
+    "build/userspace/deskhelp.elf": {
+      "current_sha256": "5f1744ce7631b482b867d7ff75e9f72bd44b5ad5d8a2c725330cee12d3a31353",
+      "proof_sha256": "5f1744ce7631b482b867d7ff75e9f72bd44b5ad5d8a2c725330cee12d3a31353"
+    },
+    "build/userspace/deskio.elf": {
+      "current_sha256": "42210de01d89bf3080d99dd1eed742e69866fb16f4cd71da16526da8959a2f40",
+      "proof_sha256": "42210de01d89bf3080d99dd1eed742e69866fb16f4cd71da16526da8959a2f40"
+    },
+    "build/userspace/desknet.elf": {
+      "current_sha256": "64e519f37d34ed16f80298c73b1992f18837f78c9006af3e3e519c3b9b4c3bbc",
+      "proof_sha256": "64e519f37d34ed16f80298c73b1992f18837f78c9006af3e3e519c3b9b4c3bbc"
+    },
+    "build/userspace/deskprofiles.elf": {
+      "current_sha256": "87ae89bd717b43855aac48ce8576c384b1f8238e701224dc642eb45ac2f8f2d7",
+      "proof_sha256": "87ae89bd717b43855aac48ce8576c384b1f8238e701224dc642eb45ac2f8f2d7"
+    },
+    "build/userspace/desksketch.elf": {
+      "current_sha256": "1a0d9694df8cc0c4ae116bc9c1894232eeb67b82626203a6505df25b3373c125",
+      "proof_sha256": "1a0d9694df8cc0c4ae116bc9c1894232eeb67b82626203a6505df25b3373c125"
+    },
+    "build/userspace/deskstudy.elf": {
+      "current_sha256": "9cc78a01c6e6901a7b4fa5545b9ac7b64ffb8cb3a43a91e08e2a5d2c2f520ceb",
+      "proof_sha256": "9cc78a01c6e6901a7b4fa5545b9ac7b64ffb8cb3a43a91e08e2a5d2c2f520ceb"
+    },
+    "build/userspace/deskterm.elf": {
+      "current_sha256": "1950e0a833e841eaa465e4100384660266b19807959603bc3bcefae3eaaf8da2",
+      "proof_sha256": "1950e0a833e841eaa465e4100384660266b19807959603bc3bcefae3eaaf8da2"
+    },
+    "build/userspace/desktools.elf": {
+      "current_sha256": "4ead8c1e347259d23e64e9614e89a26180f32af4bee202a8d2416becdcbf2bea",
+      "proof_sha256": "4ead8c1e347259d23e64e9614e89a26180f32af4bee202a8d2416becdcbf2bea"
+    },
+    "build/userspace/desktop.elf": {
+      "current_sha256": "2a0d4a3b9a0fc822900faaf084d351c1ea8c3d7b6ace69d4278f7ebe50426b9c",
+      "proof_sha256": "2a0d4a3b9a0fc822900faaf084d351c1ea8c3d7b6ace69d4278f7ebe50426b9c"
+    },
+    "build/userspace/deskview.elf": {
+      "current_sha256": "c3a59e90df6f642bff51da1d534f010babf257a5fd39c7f829119e5f36474f39",
+      "proof_sha256": "c3a59e90df6f642bff51da1d534f010babf257a5fd39c7f829119e5f36474f39"
+    },
+    "build/userspace/df.elf": {
+      "current_sha256": "7a2d036c91de8321efbb6e168d22a27be942fc44b4044b6916d7a98457f29b14",
+      "proof_sha256": "7a2d036c91de8321efbb6e168d22a27be942fc44b4044b6916d7a98457f29b14"
+    },
+    "build/userspace/diff.elf": {
+      "current_sha256": "6ce11baf1a53d0e5d10a1f9838ea8d2f6a5c093134173b4b416531c3ec17ade5",
+      "proof_sha256": "6ce11baf1a53d0e5d10a1f9838ea8d2f6a5c093134173b4b416531c3ec17ade5"
+    },
+    "build/userspace/dirname.elf": {
+      "current_sha256": "4d48e89995b7ef2fc44abcca47e0817c45958978e5731d70eaa8888b463372c4",
+      "proof_sha256": "4d48e89995b7ef2fc44abcca47e0817c45958978e5731d70eaa8888b463372c4"
+    },
+    "build/userspace/displayd.elf": {
+      "current_sha256": "7a575faa1d9b4e59d9827375c14dd8e0fdbfa8b64ba6966dacad59808be94efe",
+      "proof_sha256": "7a575faa1d9b4e59d9827375c14dd8e0fdbfa8b64ba6966dacad59808be94efe"
+    },
+    "build/userspace/du.elf": {
+      "current_sha256": "028e0b0dbaa1f92ef685614945ff4b0b27d56b11ce419f6f41e02d4fe8ecf5ae",
+      "proof_sha256": "028e0b0dbaa1f92ef685614945ff4b0b27d56b11ce419f6f41e02d4fe8ecf5ae"
+    },
+    "build/userspace/echo.elf": {
+      "current_sha256": "6a2a4b6d0e43441faef116a5fb3cb104e1a8ef2ea014b1f7ecdb2d951216966d",
+      "proof_sha256": "6a2a4b6d0e43441faef116a5fb3cb104e1a8ef2ea014b1f7ecdb2d951216966d"
+    },
+    "build/userspace/ed.elf": {
+      "current_sha256": "6979a26838f0cd7eb5f977a6c297a4ce7067242a50f213f4ce616d13cea3cee4",
+      "proof_sha256": "6979a26838f0cd7eb5f977a6c297a4ce7067242a50f213f4ce616d13cea3cee4"
+    },
+    "build/userspace/env.elf": {
+      "current_sha256": "7a7eb3efbb8c4f99f7d6bbe6a2c92d77cd019d9395b29d1f00f8adc3cfbfcc06",
+      "proof_sha256": "7a7eb3efbb8c4f99f7d6bbe6a2c92d77cd019d9395b29d1f00f8adc3cfbfcc06"
+    },
+    "build/userspace/execdemo.elf": {
+      "current_sha256": "e355603f4ed3ff03c79a866b7ac05a1cd4357256c737f11e6a688ee076b6b796",
+      "proof_sha256": "e355603f4ed3ff03c79a866b7ac05a1cd4357256c737f11e6a688ee076b6b796"
+    },
+    "build/userspace/expr.elf": {
+      "current_sha256": "2e4b2364151aa86d7b6180a95db5135df846f0a4b97356ad1d009d46730f4166",
+      "proof_sha256": "2e4b2364151aa86d7b6180a95db5135df846f0a4b97356ad1d009d46730f4166"
+    },
+    "build/userspace/false.elf": {
+      "current_sha256": "b2646653480b46c9b22a5648090f5c6f75d767fdf9b6d69b1ecda777a7d1da47",
+      "proof_sha256": "b2646653480b46c9b22a5648090f5c6f75d767fdf9b6d69b1ecda777a7d1da47"
+    },
+    "build/userspace/fdprobe.elf": {
+      "current_sha256": "9608b3c75cdc30e8c59491053a89c421dfc21129d7eb62dd0dfa068a337d7d0d",
+      "proof_sha256": "9608b3c75cdc30e8c59491053a89c421dfc21129d7eb62dd0dfa068a337d7d0d"
+    },
+    "build/userspace/fileman.elf": {
+      "current_sha256": "98bc72ec2c9a325715b5e7be4b9982bd9a1fa4af7982663aa13b1df85bf24fc8",
+      "proof_sha256": "98bc72ec2c9a325715b5e7be4b9982bd9a1fa4af7982663aa13b1df85bf24fc8"
+    },
+    "build/userspace/find.elf": {
+      "current_sha256": "368a1ce401e9591b5358702a3f6f00a15da530eb9d4f6a8e5e8529276f1ad108",
+      "proof_sha256": "368a1ce401e9591b5358702a3f6f00a15da530eb9d4f6a8e5e8529276f1ad108"
+    },
+    "build/userspace/fpdemo.elf": {
+      "current_sha256": "e9fc49b15404511702c28ce4bde87dbf2f8b716ca31f6dc2239889ba36c9d057",
+      "proof_sha256": "e9fc49b15404511702c28ce4bde87dbf2f8b716ca31f6dc2239889ba36c9d057"
+    },
+    "build/userspace/grep.elf": {
+      "current_sha256": "5dd27391b8a0d4d8e556a749371bdf19771b5a35b21663c43bbfdeeff7cdc6db",
+      "proof_sha256": "5dd27391b8a0d4d8e556a749371bdf19771b5a35b21663c43bbfdeeff7cdc6db"
+    },
+    "build/userspace/gui.elf": {
+      "current_sha256": "5a682c87c0a95b449922587940dcf6f2e45e7e9d5e0ccff3c7fb1b932ad3514b",
+      "proof_sha256": "5a682c87c0a95b449922587940dcf6f2e45e7e9d5e0ccff3c7fb1b932ad3514b"
+    },
+    "build/userspace/gui2demo.elf": {
+      "current_sha256": "0cba4c2e22fe3e328ff4a121cc435b585c947beb188d877a9b444eb8d59c27a8",
+      "proof_sha256": "0cba4c2e22fe3e328ff4a121cc435b585c947beb188d877a9b444eb8d59c27a8"
+    },
+    "build/userspace/guifail.elf": {
+      "current_sha256": "14340f268a313e7185505f929b99bf4b58533ffa5ea0497408f7b8a4dcdd0d4e",
+      "proof_sha256": "14340f268a313e7185505f929b99bf4b58533ffa5ea0497408f7b8a4dcdd0d4e"
+    },
+    "build/userspace/gzip.elf": {
+      "current_sha256": "a9feecfbf0f24b161389032ec50d49e1103aa3b6ebdefe70f328d4d62ccf15c5",
+      "proof_sha256": "a9feecfbf0f24b161389032ec50d49e1103aa3b6ebdefe70f328d4d62ccf15c5"
+    },
+    "build/userspace/head.elf": {
+      "current_sha256": "8c69f7cab3122828d690c4f03b7d7738720e4c8bd01cd8928b0c6c1a91bcaa22",
+      "proof_sha256": "8c69f7cab3122828d690c4f03b7d7738720e4c8bd01cd8928b0c6c1a91bcaa22"
+    },
+    "build/userspace/hello.elf": {
+      "current_sha256": "094bbe36bf9192f82b3d63ec314b527c73f7dc2202aa86ee9d1ff7f49fb55a77",
+      "proof_sha256": "094bbe36bf9192f82b3d63ec314b527c73f7dc2202aa86ee9d1ff7f49fb55a77"
+    },
+    "build/userspace/host.elf": {
+      "current_sha256": "a0b277061fb9d6e52d4e634e10d48bccbd53377fb65745c45568375adbbeff19",
+      "proof_sha256": "a0b277061fb9d6e52d4e634e10d48bccbd53377fb65745c45568375adbbeff19"
+    },
+    "build/userspace/hostname.elf": {
+      "current_sha256": "a83c9a7364d8de69b85dfc7ac603bf9a39a879d1d69926bc167ed6bf652353e4",
+      "proof_sha256": "a83c9a7364d8de69b85dfc7ac603bf9a39a879d1d69926bc167ed6bf652353e4"
+    },
+    "build/userspace/httpget.elf": {
+      "current_sha256": "b32a4e808a1edce256110b1edc6477c107c078fd40c641bfa1febf10382d3532",
+      "proof_sha256": "b32a4e808a1edce256110b1edc6477c107c078fd40c641bfa1febf10382d3532"
+    },
+    "build/userspace/id.elf": {
+      "current_sha256": "c84a31c526676748667c1f9cd5a84873e1adf1093dd8f1944a619122258a354e",
+      "proof_sha256": "c84a31c526676748667c1f9cd5a84873e1adf1093dd8f1944a619122258a354e"
+    },
+    "build/userspace/ifconfig.elf": {
+      "current_sha256": "8a5e2205d934dd60d8545572215bca094f8a875a8464dd05104b9bff8b0e9390",
+      "proof_sha256": "8a5e2205d934dd60d8545572215bca094f8a875a8464dd05104b9bff8b0e9390"
+    },
+    "build/userspace/imageworker.elf": {
+      "current_sha256": "f4e0dfbb87dcbbbe118f0fefa83bede9b69a9a90430df52c85483e9a5b5211a2",
+      "proof_sha256": "f4e0dfbb87dcbbbe118f0fefa83bede9b69a9a90430df52c85483e9a5b5211a2"
+    },
+    "build/userspace/inidemo.elf": {
+      "current_sha256": "16c1e3bf209c83d9a7917a4d403f437d78fb2cc5e101d18268807d2ac5c974d3",
+      "proof_sha256": "16c1e3bf209c83d9a7917a4d403f437d78fb2cc5e101d18268807d2ac5c974d3"
+    },
+    "build/userspace/init.elf": {
+      "current_sha256": "1aed0a1a41b5f0d28ccba67000dedcb69378dd4fd03f1b681d14775b084b0abf",
+      "proof_sha256": "1aed0a1a41b5f0d28ccba67000dedcb69378dd4fd03f1b681d14775b084b0abf"
+    },
+    "build/userspace/install.elf": {
+      "current_sha256": "192581f5d1be5b64988e49a4445aaec114542ebbc18534a6d39ee2a852fc5557",
+      "proof_sha256": "192581f5d1be5b64988e49a4445aaec114542ebbc18534a6d39ee2a852fc5557"
+    },
+    "build/userspace/jq.elf": {
+      "current_sha256": "8500261a03099e54330d9a8db268d151a60309fd395256f681e88d409b17bf68",
+      "proof_sha256": "8500261a03099e54330d9a8db268d151a60309fd395256f681e88d409b17bf68"
+    },
+    "build/userspace/jsondemo.elf": {
+      "current_sha256": "a71178e318cac7d1441a7a28b44fb3c0d680166f21ed1f0d66b5bac37f2c9698",
+      "proof_sha256": "a71178e318cac7d1441a7a28b44fb3c0d680166f21ed1f0d66b5bac37f2c9698"
+    },
+    "build/userspace/kill.elf": {
+      "current_sha256": "8c555082e925078ff01987a40af5e096ef9b954f3928cd38060aab2e0a1b703d",
+      "proof_sha256": "8c555082e925078ff01987a40af5e096ef9b954f3928cd38060aab2e0a1b703d"
+    },
+    "build/userspace/libcprobe.elf": {
+      "current_sha256": "f63c10621405aef11e497a72399111afd1ae7e3f6e7d56dd3743ae4ed8fc56d0",
+      "proof_sha256": "f63c10621405aef11e497a72399111afd1ae7e3f6e7d56dd3743ae4ed8fc56d0"
+    },
+    "build/userspace/libuvdemo.elf": {
+      "current_sha256": "8e84d3cd1aa0d149a08fbf37b014282339abff989627a49815e6cb08e9adf952",
+      "proof_sha256": "8e84d3cd1aa0d149a08fbf37b014282339abff989627a49815e6cb08e9adf952"
+    },
+    "build/userspace/lifetimeprobe.elf": {
+      "current_sha256": "589fd7df661ae85472bd9885aa25d2b0054bd84f147e287f5dcb8d8500bf6688",
+      "proof_sha256": "589fd7df661ae85472bd9885aa25d2b0054bd84f147e287f5dcb8d8500bf6688"
+    },
+    "build/userspace/linedemo.elf": {
+      "current_sha256": "d9a3b2e775eaa36aeeb813f1664ad8c4fdd9cd88a17932e25bcb7a2b94d68648",
+      "proof_sha256": "d9a3b2e775eaa36aeeb813f1664ad8c4fdd9cd88a17932e25bcb7a2b94d68648"
+    },
+    "build/userspace/lockprobe.elf": {
+      "current_sha256": "1769f01d67e76d598a83bae1b0cc2368076a8da3b4030a10b350307d8338a348",
+      "proof_sha256": "1769f01d67e76d598a83bae1b0cc2368076a8da3b4030a10b350307d8338a348"
+    },
+    "build/userspace/ls.elf": {
+      "current_sha256": "0a726cc7079858a261f8d164352e699b55cd7435b89fb93fddbedfbd29736141",
+      "proof_sha256": "0a726cc7079858a261f8d164352e699b55cd7435b89fb93fddbedfbd29736141"
+    },
+    "build/userspace/lua.elf": {
+      "current_sha256": "4aca938176f990eeaafb744c217e12e811c4b9762bb345d8c0d66694c20ce95b",
+      "proof_sha256": "4aca938176f990eeaafb744c217e12e811c4b9762bb345d8c0d66694c20ce95b"
+    },
+    "build/userspace/make.elf": {
+      "current_sha256": "2a8ab7104a5ceec5e22387ea5506525fcc2d0460b15c8724f48a8f07170684b3",
+      "proof_sha256": "2a8ab7104a5ceec5e22387ea5506525fcc2d0460b15c8724f48a8f07170684b3"
+    },
+    "build/userspace/miniunz.elf": {
+      "current_sha256": "680105681c7b05ed867e4a549fbedc1fd224c0b8c966d55cdcbf2c1c19abf53b",
+      "proof_sha256": "680105681c7b05ed867e4a549fbedc1fd224c0b8c966d55cdcbf2c1c19abf53b"
+    },
+    "build/userspace/minizip.elf": {
+      "current_sha256": "2058af6a23cbfb8922c1a7f05c1d41f4efa245643aff51ab2dd054af1db2cc5e",
+      "proof_sha256": "2058af6a23cbfb8922c1a7f05c1d41f4efa245643aff51ab2dd054af1db2cc5e"
+    },
+    "build/userspace/mkdir.elf": {
+      "current_sha256": "613e2e69c744875f4ccea841ff594c9f213483eb8cdb54a15dddd316e8564a67",
+      "proof_sha256": "613e2e69c744875f4ccea841ff594c9f213483eb8cdb54a15dddd316e8564a67"
+    },
+    "build/userspace/mktemp.elf": {
+      "current_sha256": "ce4db4ccf9800e1b4c1762c4bad1ea2d26c6a342a2a28c3e1f8cb2296449de5d",
+      "proof_sha256": "ce4db4ccf9800e1b4c1762c4bad1ea2d26c6a342a2a28c3e1f8cb2296449de5d"
+    },
+    "build/userspace/more.elf": {
+      "current_sha256": "4e1257bd392dca0afd7bc8bec11108fbfa4cb0f97ba4c957efc688ce3e47a03b",
+      "proof_sha256": "4e1257bd392dca0afd7bc8bec11108fbfa4cb0f97ba4c957efc688ce3e47a03b"
+    },
+    "build/userspace/mv.elf": {
+      "current_sha256": "e10954970687d80843f44310e8545493d355c964de6b89280850464f57b8103d",
+      "proof_sha256": "e10954970687d80843f44310e8545493d355c964de6b89280850464f57b8103d"
+    },
+    "build/userspace/netabi.elf": {
+      "current_sha256": "6ce55de893a9ecef5684adaae187e6e756bb2952be9bb9e5d1878811dae56863",
+      "proof_sha256": "6ce55de893a9ecef5684adaae187e6e756bb2952be9bb9e5d1878811dae56863"
+    },
+    "build/userspace/netcheck.elf": {
+      "current_sha256": "e955ef7e2c3345de1e9399aeccd9d3b08cd156d61615ea80a4d5439234ef4492",
+      "proof_sha256": "e955ef7e2c3345de1e9399aeccd9d3b08cd156d61615ea80a4d5439234ef4492"
+    },
+    "build/userspace/netstat.elf": {
+      "current_sha256": "cfcdcb1952c23d5ee746a41815f716fb509cbfa5b28aa8d8d9ed57f63e7d36a0",
+      "proof_sha256": "cfcdcb1952c23d5ee746a41815f716fb509cbfa5b28aa8d8d9ed57f63e7d36a0"
+    },
+    "build/userspace/nodeprobe.elf": {
+      "current_sha256": "77d903ceb201d27879c789853599428a112301b64ae44464e08ba4f92072e2ff",
+      "proof_sha256": "77d903ceb201d27879c789853599428a112301b64ae44464e08ba4f92072e2ff"
+    },
+    "build/userspace/notes.elf": {
+      "current_sha256": "27fb42a1c802b414bf33f7060775207c30ea0d69c1f95d770bdb79619e99d118",
+      "proof_sha256": "27fb42a1c802b414bf33f7060775207c30ea0d69c1f95d770bdb79619e99d118"
+    },
+    "build/userspace/paint.elf": {
+      "current_sha256": "50ed9258f0c78d72efb9363487d132395e18817157657e2209de3d1d856a4f24",
+      "proof_sha256": "50ed9258f0c78d72efb9363487d132395e18817157657e2209de3d1d856a4f24"
+    },
+    "build/userspace/patch.elf": {
+      "current_sha256": "f4f41b0ba9cb834dd19cd40c6cc845b09beb6a196c56b88fcdbe3e7cf0147747",
+      "proof_sha256": "f4f41b0ba9cb834dd19cd40c6cc845b09beb6a196c56b88fcdbe3e7cf0147747"
+    },
+    "build/userspace/ping.elf": {
+      "current_sha256": "831f9ae67af25069ad25904242ab2909061eb91ea693f5c7be9ed46d206393dc",
+      "proof_sha256": "831f9ae67af25069ad25904242ab2909061eb91ea693f5c7be9ed46d206393dc"
+    },
+    "build/userspace/playwav.elf": {
+      "current_sha256": "c1c4ce3377a746e4d3680527a0966485e78f4ec584a3d6dc4ffe8a2f41eb38e5",
+      "proof_sha256": "c1c4ce3377a746e4d3680527a0966485e78f4ec584a3d6dc4ffe8a2f41eb38e5"
+    },
+    "build/userspace/posixdemo.elf": {
+      "current_sha256": "ebc5c937bb5a6732f7fc7ac06235f18e874cec0d6627f4ce1515274e01845730",
+      "proof_sha256": "ebc5c937bb5a6732f7fc7ac06235f18e874cec0d6627f4ce1515274e01845730"
+    },
+    "build/userspace/posixutils.elf": {
+      "current_sha256": "f824b031b60cec17192f807f1cbf5a4726a19cf11105c3f86a229cb43d3f54a9",
+      "proof_sha256": "f824b031b60cec17192f807f1cbf5a4726a19cf11105c3f86a229cb43d3f54a9"
+    },
+    "build/userspace/printf.elf": {
+      "current_sha256": "ea7425159cf98242306abbded7197c1288d6c9b02d73201d8df911bb3fc8f1a7",
+      "proof_sha256": "ea7425159cf98242306abbded7197c1288d6c9b02d73201d8df911bb3fc8f1a7"
+    },
+    "build/userspace/profile.elf": {
+      "current_sha256": "c722ac5f50e7439845be83b1651bd71e3fa1bd221cbdb50e815079aac56f4cd3",
+      "proof_sha256": "c722ac5f50e7439845be83b1651bd71e3fa1bd221cbdb50e815079aac56f4cd3"
+    },
+    "build/userspace/ps.elf": {
+      "current_sha256": "6ef93da19f8989e05ed0abb13a329167bcc9b26a829596ff20e79ecc70a54e1f",
+      "proof_sha256": "6ef93da19f8989e05ed0abb13a329167bcc9b26a829596ff20e79ecc70a54e1f"
+    },
+    "build/userspace/ptyprobe.elf": {
+      "current_sha256": "806830a9e457bca94b7e7032d3a0f70b1fa0ca8fa2029df38d8a765ea96dacf8",
+      "proof_sha256": "806830a9e457bca94b7e7032d3a0f70b1fa0ca8fa2029df38d8a765ea96dacf8"
+    },
+    "build/userspace/pwd.elf": {
+      "current_sha256": "49c73026f93f88a291c8f720160da0891aff588fc194255657a7182629351d97",
+      "proof_sha256": "49c73026f93f88a291c8f720160da0891aff588fc194255657a7182629351d97"
+    },
+    "build/userspace/readlink.elf": {
+      "current_sha256": "8fd9e8def5c7c523ba29c37520a05ff74249636ddcc6493dde4078e851ea447a",
+      "proof_sha256": "8fd9e8def5c7c523ba29c37520a05ff74249636ddcc6493dde4078e851ea447a"
+    },
+    "build/userspace/realpath.elf": {
+      "current_sha256": "0f03fd060001480d021dd3147bc681926e715a490802f96559df5ef56d6cb8c8",
+      "proof_sha256": "0f03fd060001480d021dd3147bc681926e715a490802f96559df5ef56d6cb8c8"
+    },
+    "build/userspace/rm.elf": {
+      "current_sha256": "897af5dec2f2ebfa0df264a29e79f0ed70e9c798dc5a0704dc08eb2355383f38",
+      "proof_sha256": "897af5dec2f2ebfa0df264a29e79f0ed70e9c798dc5a0704dc08eb2355383f38"
+    },
+    "build/userspace/route.elf": {
+      "current_sha256": "c7d8304b0ec482fde2543794062df8a24b988b67c87184b831c221edebd98d86",
+      "proof_sha256": "c7d8304b0ec482fde2543794062df8a24b988b67c87184b831c221edebd98d86"
+    },
+    "build/userspace/salvage.elf": {
+      "current_sha256": "7f8e8c9a4aaa14b46ecac302072ac5c608a13cb446de08a67a207cfe0fbd7a69",
+      "proof_sha256": "7f8e8c9a4aaa14b46ecac302072ac5c608a13cb446de08a67a207cfe0fbd7a69"
+    },
+    "build/userspace/sed.elf": {
+      "current_sha256": "f62d2e1a32e295f47cacce2dec74c68c606ffb3570b335805c101fe1c88b84d0",
+      "proof_sha256": "f62d2e1a32e295f47cacce2dec74c68c606ffb3570b335805c101fe1c88b84d0"
+    },
+    "build/userspace/seq.elf": {
+      "current_sha256": "3bf29df35d456ef9aa67635a276d2888bfd291bb32fcd2629eda00a5b2ec8b21",
+      "proof_sha256": "3bf29df35d456ef9aa67635a276d2888bfd291bb32fcd2629eda00a5b2ec8b21"
+    },
+    "build/userspace/sh.elf": {
+      "current_sha256": "e76762465eb39d637b6bcba566a30af08cb61fe29fa0fee8e248e5084fe64b23",
+      "proof_sha256": "e76762465eb39d637b6bcba566a30af08cb61fe29fa0fee8e248e5084fe64b23"
+    },
+    "build/userspace/shotworker.elf": {
+      "current_sha256": "f15c1a416cf4dd31e595b3119dd4de762566aedc81fd4633f841b4bd04fcd3aa",
+      "proof_sha256": "f15c1a416cf4dd31e595b3119dd4de762566aedc81fd4633f841b4bd04fcd3aa"
+    },
+    "build/userspace/sleep.elf": {
+      "current_sha256": "64b62c50459701b1fb485947f2d43738d06ed36d17925ac0a2a5bb8d1487db72",
+      "proof_sha256": "64b62c50459701b1fb485947f2d43738d06ed36d17925ac0a2a5bb8d1487db72"
+    },
+    "build/userspace/sort.elf": {
+      "current_sha256": "bf52fa38ef7fd2b55054d43465eeb9880b85a0f77bd8941db13b8d54b2a08713",
+      "proof_sha256": "bf52fa38ef7fd2b55054d43465eeb9880b85a0f77bd8941db13b8d54b2a08713"
+    },
+    "build/userspace/spin.elf": {
+      "current_sha256": "c355258acc5d69ac6177290ab399d4d64047fe94be982672e694b6b3618acf4a",
+      "proof_sha256": "c355258acc5d69ac6177290ab399d4d64047fe94be982672e694b6b3618acf4a"
+    },
+    "build/userspace/sqlite3.elf": {
+      "current_sha256": "06d91632ad96d3aa1889adbfa664eb115e9886c8b6612ee2b629b6bf344e3536",
+      "proof_sha256": "06d91632ad96d3aa1889adbfa664eb115e9886c8b6612ee2b629b6bf344e3536"
+    },
+    "build/userspace/sqlitedemo.elf": {
+      "current_sha256": "629d64b759b18cdc7bc0333118575d9ff6c5bee8dd1e629f93df6b802070dd8f",
+      "proof_sha256": "629d64b759b18cdc7bc0333118575d9ff6c5bee8dd1e629f93df6b802070dd8f"
+    },
+    "build/userspace/stat.elf": {
+      "current_sha256": "e2b29cb26ae600d64796695899b99b84bd35fe26882ea2cbe8c445694dc6cd94",
+      "proof_sha256": "e2b29cb26ae600d64796695899b99b84bd35fe26882ea2cbe8c445694dc6cd94"
+    },
+    "build/userspace/surfacedemo.elf": {
+      "current_sha256": "8c3d1b974c207390dddac180661a18703c2b9d122274aededfd18954dbfb376e",
+      "proof_sha256": "8c3d1b974c207390dddac180661a18703c2b9d122274aededfd18954dbfb376e"
+    },
+    "build/userspace/svscan.elf": {
+      "current_sha256": "781d5cbbf189436ad5bd0ee24a30d3dc96036e1b3bc6b135192608e7e2bdbafc",
+      "proof_sha256": "781d5cbbf189436ad5bd0ee24a30d3dc96036e1b3bc6b135192608e7e2bdbafc"
+    },
+    "build/userspace/sysabi.elf": {
+      "current_sha256": "5814b0437853742c96f27dfd8a9bf47163187f422d621a257c8c3d34f155ddcf",
+      "proof_sha256": "a8fd2aa50ac1cb4a44c6db8a05dffd8ef7c46492be7f75beb60a5a579f81f139"
+    },
+    "build/userspace/tail.elf": {
+      "current_sha256": "fe98c92bfb8f78fee784c68a9079550068261219cfeffd1f5362d140e0e58799",
+      "proof_sha256": "fe98c92bfb8f78fee784c68a9079550068261219cfeffd1f5362d140e0e58799"
+    },
+    "build/userspace/tap.elf": {
+      "current_sha256": "e400592f54675710aa09abfab442e29920e2847877713f93a84c2cc322a03538",
+      "proof_sha256": "e400592f54675710aa09abfab442e29920e2847877713f93a84c2cc322a03538"
+    },
+    "build/userspace/tar.elf": {
+      "current_sha256": "876f5c399c5de4d56f7aac0d424e48dc66c9e3b086ecd98c10424c454915d260",
+      "proof_sha256": "876f5c399c5de4d56f7aac0d424e48dc66c9e3b086ecd98c10424c454915d260"
+    },
+    "build/userspace/tcpprobe.elf": {
+      "current_sha256": "3afc45ad79a976af1e1f3b3addadf0fe1eedfd70f1f4ef77cd494e7e125af91b",
+      "proof_sha256": "3afc45ad79a976af1e1f3b3addadf0fe1eedfd70f1f4ef77cd494e7e125af91b"
+    },
+    "build/userspace/tcpstress.elf": {
+      "current_sha256": "5583c88ca088fc06dbebe67cd248fc9b71190ce15139a6afb46ab5aadedc07da",
+      "proof_sha256": "5583c88ca088fc06dbebe67cd248fc9b71190ce15139a6afb46ab5aadedc07da"
+    },
+    "build/userspace/tee.elf": {
+      "current_sha256": "3127f1249fc56192bbf74df3c103f3d010e7f4e5a1920a0966d33a3ceb67ea92",
+      "proof_sha256": "3127f1249fc56192bbf74df3c103f3d010e7f4e5a1920a0966d33a3ceb67ea92"
+    },
+    "build/userspace/textedit.elf": {
+      "current_sha256": "bdb29e97f6d298d337f9f08ce3c0155b738f975d9585e62e5315b2d1e9d48a76",
+      "proof_sha256": "bdb29e97f6d298d337f9f08ce3c0155b738f975d9585e62e5315b2d1e9d48a76"
+    },
+    "build/userspace/threadstress.elf": {
+      "current_sha256": "041390dd89666660778b0bf0713bade05ff297d3a68c49a5d35ec00d6f94d300",
+      "proof_sha256": "041390dd89666660778b0bf0713bade05ff297d3a68c49a5d35ec00d6f94d300"
+    },
+    "build/userspace/tlsprobe.elf": {
+      "current_sha256": "3affdf815fee8c93aa339378c8b096588c0d1990f75fff096fb41c85394397ee",
+      "proof_sha256": "3affdf815fee8c93aa339378c8b096588c0d1990f75fff096fb41c85394397ee"
+    },
+    "build/userspace/touch.elf": {
+      "current_sha256": "29351f41f6a51a34bcc825af72447e9ff47cbe22693665d840584be946052360",
+      "proof_sha256": "29351f41f6a51a34bcc825af72447e9ff47cbe22693665d840584be946052360"
+    },
+    "build/userspace/tr.elf": {
+      "current_sha256": "1e2a9aca7140e530fcb2a1fbdd3c5db84cccb03203a5324852c3f3736c6e84a4",
+      "proof_sha256": "1e2a9aca7140e530fcb2a1fbdd3c5db84cccb03203a5324852c3f3736c6e84a4"
+    },
+    "build/userspace/true.elf": {
+      "current_sha256": "5ab810bdd493cf222cd2a90cc6e43032c263a4cbe494827727af660bd9e610ac",
+      "proof_sha256": "5ab810bdd493cf222cd2a90cc6e43032c263a4cbe494827727af660bd9e610ac"
+    },
+    "build/userspace/ttydemo.elf": {
+      "current_sha256": "7ca508393bc8dff0724902c04203188d81bf820c379d286e054cfdba723cc2c3",
+      "proof_sha256": "7ca508393bc8dff0724902c04203188d81bf820c379d286e054cfdba723cc2c3"
+    },
+    "build/userspace/udpdns.elf": {
+      "current_sha256": "807491461aff54bc6de879afa60c9ac3355b7c03e091eae64478bf215e509bb9",
+      "proof_sha256": "807491461aff54bc6de879afa60c9ac3355b7c03e091eae64478bf215e509bb9"
+    },
+    "build/userspace/udpecho.elf": {
+      "current_sha256": "c361c3102ee934acd26767127dd6db748de75727439c58e4e5ec32d4ee74203b",
+      "proof_sha256": "c361c3102ee934acd26767127dd6db748de75727439c58e4e5ec32d4ee74203b"
+    },
+    "build/userspace/ui.elf": {
+      "current_sha256": "15ae500ba5698c2ca4094c34b8607123518a6bffb44ed3c2d77e451331805e4c",
+      "proof_sha256": "15ae500ba5698c2ca4094c34b8607123518a6bffb44ed3c2d77e451331805e4c"
+    },
+    "build/userspace/uname.elf": {
+      "current_sha256": "a6dc028fd144635a0b357ce9a1a3dcc42611e5af7a04366801bd9f96a01b12f2",
+      "proof_sha256": "a6dc028fd144635a0b357ce9a1a3dcc42611e5af7a04366801bd9f96a01b12f2"
+    },
+    "build/userspace/uniq.elf": {
+      "current_sha256": "0c61e6d6fb97b9ddd7857173dafd2ba46ca48e8bafd8824daedaacdba5e9de16",
+      "proof_sha256": "0c61e6d6fb97b9ddd7857173dafd2ba46ca48e8bafd8824daedaacdba5e9de16"
+    },
+    "build/userspace/uptime.elf": {
+      "current_sha256": "1f3061ebb43909b30fa6327ae0aef2a146f90aa3a2d214941e14c2b0a3a15bb1",
+      "proof_sha256": "1f3061ebb43909b30fa6327ae0aef2a146f90aa3a2d214941e14c2b0a3a15bb1"
+    },
+    "build/userspace/uvdemo.elf": {
+      "current_sha256": "1d181ba33b7f55d19516520a4d4c5609776add097330d4af0968b4579448bb7b",
+      "proof_sha256": "1d181ba33b7f55d19516520a4d4c5609776add097330d4af0968b4579448bb7b"
+    },
+    "build/userspace/wc.elf": {
+      "current_sha256": "3c9690fb212c6ab6db0a23b2037bb4ede21a6dcf042bbedb3b09165053cc8539",
+      "proof_sha256": "3c9690fb212c6ab6db0a23b2037bb4ede21a6dcf042bbedb3b09165053cc8539"
+    },
+    "build/userspace/webd.elf": {
+      "current_sha256": "0e6f6cf39e73a5c804e939c23e78cd928afb6dc234fd5ab5fbd141616d27f4ab",
+      "proof_sha256": "0e6f6cf39e73a5c804e939c23e78cd928afb6dc234fd5ab5fbd141616d27f4ab"
+    },
+    "build/userspace/which.elf": {
+      "current_sha256": "7668bfe25c33d5afa34a66e404006b7fefae6edd60a74b75e50e989dcb810f04",
+      "proof_sha256": "7668bfe25c33d5afa34a66e404006b7fefae6edd60a74b75e50e989dcb810f04"
+    },
+    "build/userspace/whoami.elf": {
+      "current_sha256": "7e1ab0b8c803146cb9bbbf59b8b1b026c6863ca28c62411be0daf184a4916e3c",
+      "proof_sha256": "7e1ab0b8c803146cb9bbbf59b8b1b026c6863ca28c62411be0daf184a4916e3c"
+    },
+    "build/userspace/write.elf": {
+      "current_sha256": "d4a5e155b5c5c5f9fd97dfd5184c96e7eec3accece5855153bcd88d6e12bf059",
+      "proof_sha256": "d4a5e155b5c5c5f9fd97dfd5184c96e7eec3accece5855153bcd88d6e12bf059"
+    },
+    "build/userspace/xargs.elf": {
+      "current_sha256": "676f5fea4dab123a2591942f7c25292226c315a51f03284a9ca7369579387d58",
+      "proof_sha256": "676f5fea4dab123a2591942f7c25292226c315a51f03284a9ca7369579387d58"
+    },
+    "build/userspace/yes.elf": {
+      "current_sha256": "d78ef3afaff5b57f0ead15e63d18392308ee6c557649072b6992f6569256f6a9",
+      "proof_sha256": "d78ef3afaff5b57f0ead15e63d18392308ee6c557649072b6992f6569256f6a9"
+    },
+    "build/userspace/zlibdemo.elf": {
+      "current_sha256": "bb7b44795cda193144e08e6430c7087f5e32b169f19610b2ddf412a8ad7e28c0",
+      "proof_sha256": "bb7b44795cda193144e08e6430c7087f5e32b169f19610b2ddf412a8ad7e28c0"
+    }
+  },
+  "schema": "org.srvros.profile-transfer-integration.v1",
+  "source_scope": "Guest kernel/shared/desktop/profile/app/widget sources and profile proof scripts unchanged; userspace changes only add independent sysabi salvage diagnostics. The host installation_image.py CLI main dispatcher adds export-profile; all other top-level function ASTs, including prepare/apply/verification/publication, are identical to the GUI proof source.",
+  "status": "PASS",
+  "unchanged_payloads": 143
+}

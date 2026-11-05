@@ -1,10 +1,386 @@
 # Roadmap
 
-Updated November 3, 2026. The goal is a pleasant native desktop on the MacBook
+Updated November 4, 2026. The goal is a pleasant native desktop on the MacBook
 Air, with a solid shell and server foundation. The [current status](status.md)
 and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
+
+## Current work closeout — November 4, 2026
+
+The user requested finishing the current non-browser chat scopes, merging only
+verified changes in dependency order, then updating documentation and status.
+Browser work is explicitly exempt and remains ongoing. No deadline or reduced
+acceptance bar is implied. Later CLI queue rows and new feature milestones are
+not part of this closeout.
+
+Delivered current milestones:
+
+- Larger-document profiles: Apps #11 (`161f3850`) and OS #367 (`3ab8a6f7`)
+  are merged with exact reviewed trees and the tested app pin reachable from
+  application main. The integrated 31-guest proof, seven recovery checkpoints,
+  actual 64 MiB transfer across four 16 MiB files, 640×480 workflow and independent
+  content/rendered/archive audits pass. Guest mapped-memory peak is 2,461,696
+  bytes, 65,536 bytes above the small workload; this is not kernel-memory or
+  exact-heap accounting. The durable 626-member backup is readback-verified.
+  Earlier failed evidence remains failed. See [profiles](portable-profiles.md).
+- GNU Patch: delivered in Ports #12 (`72f3d6fa`) then OS #370 (`3e327513`).
+  All seven fresh guests pass on the retained final payload, including the
+  corrected miniport example; exact merge trees and reachable port pin are
+  verified. Earlier failed receipts remain preserved. The CLI queue stops here.
+- Filesystem GUID selection: OS #366 is merged as `7b1bfcb8`, with the exact
+  reviewed tree; 43 selector, 19 installation, storage and 43 sanitized selector
+  checks pass. Original media and completed streaming-review evidence remain
+  preserved.
+- Runtime audit: documentation checkpoint OS #365 is merged as `db95fc9b`;
+  browser target review and runtime acceptance remain separately owned.
+- Installation OS #364 (`70c3ea0f`), application quality OS #368 (`88a95f9a`)
+  and UI portability closeout OS #371 (`518175df`) are merged and verified.
+  Their owners are idle; optional follow-on work is deferred.
+
+The integration coordinator owns aggregate status consistency. Topic owners
+retain their evidence and unit records. Heavy compiler/VM/local-model windows
+remain serialized with explicit handoffs and resource reserves. Actions remain
+disabled. Original installations, review-disk evidence and accepted backups are
+retained. The three historical review VM PIDs are now absent; no cause is
+established by this closeout, and no restart is requested. Physical-device PRs
+#301/#19 have separate current-main integration gates and their owners are not
+reachable through the available local chat tools; no new physical trial is authorized
+by this record. PR #19's proposed syscall 164 conflicts with browser's reserved
+164–167 and cannot merge unchanged; profile streaming reserves 168.
+
+The current local non-browser scopes are delivered and verified. Their owners
+are stopped, and no further feature work is required for this closeout. Aggregate
+records are delivered through [OS #373](https://github.com/PaulMDemers/SrvrOS/pull/373).
+Browser work and the separately owned physical-device exceptions above remain
+open. Canonical offline installation export/recovery remains v1-only; offline
+v2 admission/export is deferred despite guest profile v2 support.
+
+## Automatic CLI queue — November 4, 2026
+
+The closeout instruction above supersedes automatic continuation. GNU Patch is
+delivered and the CLI queue is stopped. GNU grep and sha256sum remain deferred
+backlog entries.
+
+User authorized the bounded GNU diff milestone, then automatic research,
+implementation, independent review and dependency-order merge through a finite
+queue: GNU diff, GNU patch, GNU grep and GNU sha256sum. Detailed profiles,
+verification and resource ownership are in [the queue](cli-port-queue.md).
+
+GNU diff 3.12 is implemented and qualified in the isolated checkout. The useful
+profile is two regular C-locale text files, normal/quiet/three-line unified
+reports, labels, long and unterminated lines, actual-read caps and 0/1/2 statuses.
+The changed simultaneous 256 KiB/8192-line/64 KiB-line fixture passes both boots.
+Exact native GNU references and patch roundtrips, allocation recovery, repeated
+SIGINT/SIGTERM after comparison progress and observed held-output stall, output
+errors, preserved inputs, reboot bytes and fsck pass on clean `5796a9cd`.
+
+Actual Terminal/less/error/readback expert walkthrough and full CLI/ports
+regressions pass against the same payload hashes. Two clean GNU core/gnulib and
+diagnostic builds match against the same SDK objects; native upstream scripts
+have three PASS and one expected XFAIL. No independent SDK/whole-image rebuild,
+full guest upstream suite, RSS/true peak, in-call interruption latency, physical
+or user-study claim. Local compact patch remains a narrower tested subset.
+
+Independent review finds no blocker within the bounded profile. Delivery is
+port first, then OS: [SrvrPorts #11](https://github.com/PaulMDemers/SrvrPorts/pull/11)
+and [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369); linked PR states
+record the merge outcome. [Portable evidence](assets/screenshots/diff-manifest.json)
+and a verified ignored archive outside build cleanup retain source, failed and
+passing proofs. Integration checkout and review VMs remain untouched; no shared
+libc/kernel change. The following historical Patch preparation record predates
+the delivered result above; it does not reopen the stopped queue.
+
+## GNU Patch separate-output port — historical November 4 checkpoint
+
+This pre-delivery checkpoint is retained as history. The delivered seven-guest
+qualification and merge outcome in the closeout section above supersede its
+pending gates and resource requests.
+
+Next authorized queue row consumes delivered diff (ports PR11, OS PR369) in
+separate `SrvrOS-ports-patch`, reconciled with main `3fcf2630`. Genuine GNU Patch
+2.8.1 source/signature is authenticated and SDK cross-configuration plus both
+static targets link, without a shared libc/kernel change. The first dirty-source
+disposable guest passes basic/zero-count/header-like deletion/no-final-newline/
+leading-dash source cases, explicit-output refusals, failed-hunk cleanup, input
+preservation and fsck. This is initial compatibility, not full acceptance.
+
+The bounded profile uses existing regular source, one safe single-file unified
+patch and exclusive distinct output, forward-only/fuzz0 with no interactive,
+backup/reject/in-place or metadata behavior. Source/output are capped at
+256 KiB/8192 lines/64 KiB lines; patch at 1 MiB/32768 records/128 KiB records.
+Actual reads/writes and numeric hunk declarations are bounded. Full reference,
+snapshot-race, memory, output, cooperative-signal, reboot, Terminal, clean-build
+and regression gates remain. Inherited caller tests migrate to explicit new
+output. All owned jobs stopped and the first slice was released; qualification
+waits for another finite handoff. Review VMs/integration checkout remain untouched.
+
+## xz bounded stream interchange — November 4, 2026
+
+Authorized target: upstream XZ Utils 5.8.4 static single-threaded `xz`, preset-0
+compression, `.xz` decompression and integrity testing, regular files and finite
+stdin/stdout pipelines. Preserve inputs and require stdout for transformed data;
+refuse automatic file replacement/deletion and unaccepted modes. Proposed codec
+budgets are 8 MiB compression and 32 MiB decoding with no silent adjustment.
+
+Work starts from `f4ea0ccb` in isolated `SrvrOS-ports-xz` on `ports/xz`. Port-local
+allocator and cooperative signal recovery are explicit gates, not assumed SDK
+capabilities. Required checks: authenticated pristine source, real target link,
+host/guest byte interoperability and malformed/memory/write failures, repeated
+blocked-I/O and CPU-active interruption, exact second-boot saved bytes, actual
+Terminal workflow, supported tar interchange through an intermediate file, selected
+upstream regressions, two clean CLI builds and existing ports/fsck checks.
+
+Outside scope: threaded codecs, legacy/raw formats, helper scripts, custom filter
+CLI, automatic replacement/metadata/sparse-file behavior and job control. Keep
+integration checkout and review VM untouched; coordinate only a reproduced shared
+blocker. Status: implemented and verified for this bounded profile. No shared libc or
+kernel change was needed. Final guest receipt
+`build/review/xz/20261104-135556-m_qxupp7` passes both-boot byte interoperability,
+host preset-6 decode, zero-filled/multiblock/concatenated data, format/corruption/
+memory/output refusals and preserved inputs. Allocator failure at every tested
+site and 64 reuse cycles show zero net mapping growth. Repeated blocked I/O
+SIGINT/SIGTERM restore flags; cancellation after observed codec progress passes.
+This is cooperative recovery, not an in-call interruption-latency guarantee.
+
+The actual Terminal workflow and two Ctrl-C pipelines pass at
+`build/review/xz-terminal/proof-svpdq5tn`, with expert visual review. Six selected
+native-host upstream programs contain 22 passing subcases and two skipped threaded
+subcases; no guest full-upstream-suite claim. Two clean CLI builds match ELF hash
+`e0efaa0d2b08361a0c56d58c247cea01704a4e4b1ad30ba9c68a8d5cc4128e1f`.
+Existing ports smoke and guest fsck pass. All qualification is QEMU only; full
+image reproducibility and physical acceptance are not claimed. Milestone complete;
+draft PRs are open: [SrvrPorts #10](https://github.com/PaulMDemers/SrvrPorts/pull/10)
+and dependent [SrvrOS #363](https://github.com/PaulMDemers/SrvrOS/pull/363).
+Current-main merge review passes on clean `df34da93`, including the matched
+build, both-boot memory/signal probes, actual Terminal walkthrough and ports/fsck.
+Authorized delivery order is port first, OS second; linked PR state records delivery.
+
+## End session and switch profile — delivered and verified November 4, 2026
+
+The requested no-reboot session workflow is implemented and independently
+qualified: **SrvrOS → Switch Profile…** resolves unsaved work, drains
+accepted operations and retires the old session before opening a fresh chooser.
+**Return to console** uses the same cooperative shutdown. Cancel keeps the
+current profile; previously accepted closes may finish and closed apps stay closed.
+
+Acceptance covers Text/Sketch Save/Discard/Cancel and failed saves, Terminal
+confirmation, in-flight Files/Profiles work, direct app failure and retry,
+a naturally retiring orphan, repeated A → B → A, separate preferences and
+HOME/XDG/cwd, fresh clipboard/notifications, unchanged machine settings, exact
+saved data and 640 × 480 keyboard operation. Full matched builds, focused actual
+source host/sanitizer tests, independent source/storage/rendered review and three
+disposable QEMU lifetimes establish the bounded result. The original graphical
+receipt retains its environment-capture FAIL; a separate source-equivalent
+context proof closes that gap without relabeling it. See the
+[workflow and acceptance](portable-profiles.md#ending-sessions-and-switching-profiles)
+and [composite review](assets/screenshots/profile-switch-review.json).
+
+Runtime [OS #354](https://github.com/PaulMDemers/SrvrOS/pull/354) is merged as
+`f58e0725`. [Apps #9](https://github.com/PaulMDemers/SrvrApps/pull/9) merged first
+as `c3ad11b1`, then [OS #355](https://github.com/PaulMDemers/SrvrOS/pull/355) as
+`82face72`. Both merged trees equal their reviewed candidates; OS pins accepted
+Apps `2a8bc2d9`. Retained payload and host-source hashes match. No further work
+is required for this target. Existing installation/creation evidence
+and review VMs remain preserved; browser work has the heavy build/VM window.
+Authentication, permissions, concurrent logged-in desktops and physical-media or
+power-loss qualification remain separate. Actions remain disabled.
+
+## Desktop profile creation — delivered and verified November 4, 2026
+
+Users can create a portable profile from the startup chooser or Profiles app,
+review its identity and six default preferences, recover an interrupted creation,
+select it after reboot and migrate it to another QEMU installation. Merged
+[SrvrApps #8](https://github.com/PaulMDemers/SrvrApps/pull/8) first (`f4017137`),
+then [SrvrOS #348](https://github.com/PaulMDemers/SrvrOS/pull/348) (`0fb4ed6c`).
+The OS pins reviewed Apps `0bf8e137`; the Apps merge has the same tree.
+
+Acceptance passed on clean runtime source `1ef0ccdd`: matched build, 25 CLI test
+groups, production catalog/desktop/fsync checks and CLI/catalog ASan/UBSan.
+Twenty disposable VM lifetimes verify both creation entry points, empty initial
+Documents, distinct UUIDs, invalid/occupied/capacity refusals, all five interrupted
+creation/recovery boundaries, remembered reboot selection, and graphical export
+and import into independently installed B with chooser/reboot/Text readback.
+Identity, all six preferences and selected text/binary bytes survive; destination
+HOME/alias/UID/GID differ while machine settings, unrelated profiles, exclusions
+and legacy files remain local. The 640 × 480 chooser proof includes Ctrl-A,
+Undo/Redo and Tab navigation. Rendered form/review/recovery/refusal/readback states
+were independently inspected.
+
+The coordinator independently verified 37 compressed image streams, initial and
+final A/B filesystem contents, stopped/recovered profiles, and all 380 members of
+the preserved evidence backup. See the [creation acceptance](portable-profiles.md#desktop-profile-creation--qualified-for-review),
+[screenshots and source manifest](assets/screenshots/profile-create-manifest.json),
+and [independent merge review](assets/screenshots/profile-create-review.json).
+Later main `ba35d16c` adds host-only inspection: guest exFAT preprocessing is
+identical, other guest inputs/proof tools are unchanged, and all 148 retained
+artifacts/metadata match. This preserves the original runtime proof attribution;
+no repeat VM run is claimed.
+
+No further work is required for this target. Original A/B/transport/baseline
+images and existing review VMs remain preserved. The installation chat's separately
+authorized fresh-v2-B four-boot proof resumes after this resource handoff; it is
+not an unfulfilled creation requirement. Physical-media and arbitrary power-loss
+acceptance, authentication and permission enforcement remain separate work.
+
+## less Terminal report browsing — November 3, 2026
+
+Target: upstream less 710 static pager for plain ASCII text files and finite
+pipelines, backward/forward navigation, g/G/line movement, literal search and
+resize redraw. Work is isolated on `ports/less` from main `7ef140ef`; integration
+checkout/review VM remain untouched. Required gates: truthful vt100 capability
+adapter matching Terminal, returning signal callbacks with EINTR recovery,
+pipeline key input from the real terminal, repeated quit/interruption and
+termios/alternate-screen restoration, exact non-TTY output, selected upstream
+regressions, two clean CLI builds and existing ports checks. Compile secure,
+without regex; shell/editor/preprocessors/log writes/follow/job control and full
+Unicode-width correctness are outside initial acceptance.
+
+Implemented: the static pager, truthful local capability table, fd 2 keyboard
+validation and deferred signal processing in the generated port copy. No shared
+libc/kernel changes or concrete shared blockers were found. Guest PTY evidence
+`build/review/less/20261103-225541-00_67wtr` passes file/finite-pipe navigation,
+literal search, resize redraw, unknown TERM rejection, exact passthrough and two
+blocked-read interrupts with the pipe writer held open until successful quit
+and exact mode/screen restoration. The launcher inherits the PTY controlling
+terminal as the actual shell does. The initial direct pipe fixture did not;
+its failed signal receipt is retained and is not product acceptance.
+
+Actual graphical Terminal evidence `build/review/less-terminal` passes report
+browsing, pipeline keyboard input, resize redraw and shell continuation after
+quit/interruption. Expert visual inspection confirms additional report lines
+after resize and a restored usable shell; no user study is claimed. The two
+unchanged upstream `seq200.lt`/`wordwrap.lt` fixtures pass 106 steps with the
+native host LESSTEST runner in secure/no-regex mode. These are host regressions,
+separate from target PTY evidence, not a claim that the upstream runner works
+in the guest. Two clean target CLI builds are byte-identical (ELF SHA-256
+`65b16e3ff879ca892f9d9cd45c8f22b8881cc22b31accdae7691f18f619a7f4c`);
+whole-image reproducibility is not claimed. Existing `tools/ports_smoke.py` passes, including guest fsck with zero leaks,
+FAT errors or filesystem errors. The bounded milestone and current-main merge review are complete: [SrvrPorts #8](https://github.com/PaulMDemers/SrvrPorts/pull/8)
+and [SrvrOS #346](https://github.com/PaulMDemers/SrvrOS/pull/346). Merge dependency
+order is port first, OS second. Current-main `83e5d1ad` requalification on clean
+commit `1fa90b8c` passes matched build, guest PTY/held-open pipe signal gates,
+actual graphical Terminal and ports/fsck regressions. PR state records delivery.
+Only concrete shared blockers are coordinated with integration.
+
+## Installed-desktop migration — delivered November 3, 2026
+
+The coordinated QEMU milestone is complete. A used installed desktop can export
+selected portable data through the Profiles application or the offline installer
+CLI, then restore into a fresh installation with its own disk/home/local binding.
+SrvrApps [PR6](https://github.com/PaulMDemers/SrvrApps/pull/6) merged first
+(`2ebaca5e`), followed by SrvrOS [PR333](https://github.com/PaulMDemers/SrvrOS/pull/333)
+(`60618a4c`). The installation owner separately merged the offline exporter in
+[PR342](https://github.com/PaulMDemers/SrvrOS/pull/342) (`a64661e9`). Merge results
+retain the reviewed code and the pinned Apps revision is an ancestor of Apps main.
+
+Required outcomes and evidence:
+
+- Graphical transfer: 19 disposable VM lifetimes passed, including all five
+  interrupted-import recoveries, incomplete-export preservation, invalid and
+  duplicate refusals, remembered selection/reboot, Text readback and a real
+  640×480 review. Full identity/display name, six preferences and selected
+  text/binary bytes match; synthetic unselected documents, credential placeholders,
+  application data and caches stay on A and are absent from the bundle and B.
+- Final combined runtime: a fresh four-boot proof on merged `60618a4c` edits,
+  saves and reopens A, directly exports its stopped image, then provisions and
+  reboots B with different GPT/home/alias/UID/GID and machine settings. All
+  portable values and selected bytes survive; B retains destination-local state.
+  Sixteen reason-matched export refusals and 33 inspection/export steps preserve
+  the source, output and historical records as required.
+- Independent review: source and rendered-flow reviews found no remaining
+  blocker. All 40 graphical image archives were decompressed and hash-checked.
+  Direct final A/B filesystem reads independently verified identity, preferences,
+  documents, exclusions and local/machine separation. The combined images also
+  contain the matched new `profile` and `deskprofiles` binaries; A's final whole
+  image hash matches its export-source hash.
+- Matched build, 70 installation tests (one optional matrix entry skipped),
+  21 guest-profile groups, profile/session/fsync regressions and documentation
+  checks pass. The first combined attempt stopped for storage before any guest
+  boot and remains INCOMPLETE; it is separate from the subsequent passing run.
+
+[Qualification record](assets/screenshots/installed-migration-review.json) and
+[restored desktop](assets/screenshots/installed-migration-restored.png) identify
+exact sources and receipts. See [profile operations](portable-profiles.md) and
+[offline installation/export](disk-installation.md) for contracts and reproduction.
+Full proofs, matched artifacts and restoration mappings are retained outside
+build cleanup. Large inactive synthetic proof images were losslessly archived;
+open images, existing interactive review VMs and source changes were preserved.
+
+Acceptance is for the named QEMU runtime, not physical installation, arbitrary
+power-loss durability, authentication or permission enforcement. Later opt-in
+hardware diagnostics and salvage proofs retain their own acceptance. Hosted
+Actions remain disabled. No further work is required for this migration target;
+Unix filesystem semantics, account security and browser runtime remain separate
+future milestones.
+
+## bc exact decimal workflow — November 3, 2026
+
+Target: static bc 7.0.3 for scripts/files/stdin/pipelines, arbitrary-precision
+decimal calculations, scale/sqrt/bases and variables/functions/loops. Isolated
+`ports/bc` checkout begins at main `b78e3ed5`. First gate is safe signal recovery:
+handlers must return through the cooperative libc dispatcher before nonlocal
+recovery; compute-bound code needs bounded dispatch checkpoints. No blind
+SA_NODEFER or sigjmp stubs. Coordinate any shared-runtime need with integration.
+No dc, history/readline, NLS or extended-math acceptance initially. Required
+gates: selected upstream arithmetic cases, exact guest reports, repeated
+signal/error recovery, real stdout failures, clean CLI binary reproducibility
+and existing ports/docs checks. Implemented and verified: bc 7.0.3 static core arithmetic, scale/sqrt/bases,
+functions/loops and file/stdin/pipeline exact reports. The signal gate is
+resolved in the port's generated copy: callback records state and returns,
+libc restores dispatcher/mask state, and existing bc unwind paths run afterward.
+Bytecode loops poll via public sched_yield every 1024 instructions. A single
+long arithmetic instruction can delay signal delivery; interactive interrupt
+messages differ from upstream. No shared libc/kernel changes were needed.
+
+Guest probes pass same-process syntax/division-error recovery, repeated blocked
+input and busy-loop SIGINT with successful calculations afterward, busy-loop
+SIGTERM exit and actual stdout failure. Seven unchanged upstream arithmetic
+fixtures plus exact report save/reopen across two boots pass. Guest fsck and
+offline allocation pass; independent fsck.exfat is unavailable. Full build,
+existing ports regression and docs/whitespace checks pass. Two clean CLI builds
+match SHA256 `62c0737baafa6b569bd917303600e5aee341c5f09b24776fce49615e5fa6af61`.
+Receipts are under `build/bc-smoke/20261103-221517-z7lm_s73/` and
+`build/review/bc/accepted.json`. No full-suite, physical-device, full-image
+reproducibility or general asynchronous-signal acceptance is claimed.
+Status: bounded implementation complete and ready for review; no merge performed.
+
+Integration checkout/review VM remain untouched.
+
+## jq CLI workflow — November 3, 2026
+
+Target: jq 1.8.2 for offline JSON files/stdin/pipelines, filtering/aggregation,
+raw/compact output, filter files and CSV export consumed by SQLite. Separate
+`ports/jq` checkout begins at main `5634cd9d`; integration checkout and review
+VM remain untouched. Preserve upstream source, decimal-number defaults and
+licenses; omit Oniguruma regex functions. Port-local entropy adaptation uses
+existing getrandom. No shared libc/kernel edits without concrete gap coordination.
+Required gates: static build/link, selected unchanged upstream tests, guest
+JSON-to-CSV-to-SQLite workflow, Unicode/numeric/errors/pipeline checks, two clean
+CLI builds with identical binaries, existing ports regressions and docs checks.
+Implementation and scoped guest acceptance pass. The port builds static jq
+with upstream decNumber defaults and port-local entropy, dirname and UTC
+timezone-name adapters; no shared libc/kernel changes were needed. Oniguruma
+regex and optional configure-gated libm/date wrappers are outside this profile.
+The first run passed its 11 selected upstream cases but later aborted during
+the optional three-thread regression; that test-only feature gate is omitted
+for the single-thread CLI. Real pthread keys/once/atexit remain enabled. No
+multithreaded jq acceptance or allocator root cause is claimed.
+
+Two-boot JSON report/CSV-to-SQLite, exact Unicode/NUL and numeric literal output,
+exit statuses, invalid JSON/filter/files, unsupported regex, actual stdout error
+and recovery checks pass. The 11 unchanged upstream cases and remaining
+single-state internal tests complete. Guest fsck and offline allocation pass;
+independent fsck.exfat is unavailable. Two clean CLI builds match SHA256
+`286f8cbe0cd27f983881208981d5f29773197aa00641487d0f6087caf7ef1de8`.
+No whole-image reproducibility or physical-device acceptance is claimed.
+Evidence: `build/jq-smoke/20261103-214345-kx3nfg74/` and
+`build/review/jq/accepted.json`. Existing ports regression and documentation/whitespace checks pass.
+Status: independent review and fresh combined guest/ports validation pass.
+User authorized ports-first then OS merge. SrvrPorts PR6 is merged as
+`747cca28`; SrvrOS PR337 records integration. No further implementation is
+required for this bounded target; threaded jq remains separately unaccepted.
+
 
 ## Current HiDPI and display settings — November 3, 2026
 
@@ -57,6 +433,21 @@ source and limits. [PR292](https://github.com/PaulMDemers/SrvrOS/pull/292) recor
 combined image with merged awk also builds, starts and completes a live corner
 resize; its kernel/compositor hashes match the accepted runtime. No additional
 resize feature is required.
+
+## SQLite CLI port — November 3, 2026
+
+Active target: integrate SQLite 3.53.1 as a static `sqlite3` command for bounded
+single-connection, exclusive-access SQL scripts and CSV import/query/export,
+including database reopen. The CLI has a separate engine configuration so the
+existing `sqlitedemo` remains unchanged. WAL, process commands, extension loading
+and readline are excluded. Full build, host and guest VFS ownership/temp/error checks, and two-boot CSV
+workflow acceptance pass. Two clean CLI builds match SHA256
+`a23d90c8e8b49f7e36ff996e8cf009eee5ab7537faea6edabbe7a34cfd873b2f`.
+Guest fsck and offline allocation pass; independent fsck is unavailable. Evidence
+is under `build/sqlite-cli-smoke/` and `build/review/sqlite/`. No full-image
+reproducibility or power-loss atomicity claim is made. Implementation is ready
+for review; see
+[port usage and scope](ports.md). No native device acceptance is implied.
 
 ## Pinned awk port — November 3, 2026
 

@@ -163,7 +163,8 @@ def main():
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
     keyboard_negative=args.keyboard_timeout or (args.keyboard_fail and not keyboard_retry)
     if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
-    hsw_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-hsw-"))
+    hfw_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-hfw-"))
+    hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-")))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     if args.ap_c3_sim and not coord_capture: parser.error("C3 simulation requires coordinated diagnostic stage")
@@ -232,7 +233,7 @@ def main():
                    "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
-        if hsw_capture or ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
+        if hfw_capture or hsw_capture or ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
         if scaled_desktop:
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
         network_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v37-"))
@@ -374,7 +375,7 @@ def main():
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
                     if battery_preflight: assert "battery-preflight: REFUSED identity/resources; no register access" in text
-                    elif not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or hsw_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    elif not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or hsw_capture or hfw_capture): assert "laptop-probe: unsupported chipset; no register access" in text
                     if keyboard_retry and args.keyboard_fail: assert "keyboard-test: retries=10" in text
                     if keyboard_retry and args.keyboard_timeout: assert "keyboard-test: timeout step=1 limit_seconds=90" in text
                     if keyboard_capture:
@@ -401,7 +402,7 @@ def main():
                         assert release.encode() in contents
                         if keyboard_capture and filename=="exit.log":
                             assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
-                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or hsw_capture):
+                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or hsw_capture or hfw_capture):
                             assert (b"battery-preflight: REFUSED identity/resources; no register access" if battery_preflight else b"laptop-probe: unsupported chipset") in contents
                             assert b"USB INPUT DIAGNOSTIC" in contents
                             assert b"xhci: vendor=" in contents
@@ -409,11 +410,20 @@ def main():
                             assert b"Expected internal keyboard: 05ac:0291" not in contents
                         (logs/("laptop-capture-"+filename)).write_bytes(contents)
                     assert b"laptop-capture: diagnostics collected" in stored.read(folder+"/exit.log")
+                    if hfw_capture:
+                        from hardware_haswell_firmware import firmware_result
+                        exit_log=stored.read(folder+"/exit.log").decode()
+                        result=firmware_result(exit_log)
+                        assert result and result['status']=='REFUSED' and result['source_status']==2
+                        assert 'hsw-firmware-progress: exact Air6,1' in exit_log
+                        assert 'laptop-capture: completed=NO' in exit_log
                     if hsw_capture:
                         exit_log=stored.read(folder+"/exit.log").decode()
                         from hardware_haswell_backing import backing_result
                         result=backing_result(exit_log)
                         assert result and result['status']=='REFUSED' and result['source_status']==2
+                        if manifest['config_version'].startswith('ram-usb-v2-hsw-'):assert result['source_version']==2
+                        if manifest['config_version'].startswith('ram-usb-v3-hsw-'):assert result['source_version']==3
                         assert 'hsw-backing-progress: exact Air6,1' in exit_log
                         assert 'laptop-capture: completed=NO' in exit_log
                     if ap_capture:
@@ -543,7 +553,7 @@ def main():
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_home_work":battery_home_work,"battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "haswell_backing_capture":hsw_capture,"ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (hsw_capture or ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "haswell_firmware_capture":hfw_capture,"haswell_backing_capture":hsw_capture,"ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (hfw_capture or hsw_capture or ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "automatic reset"))

@@ -1,11 +1,46 @@
 #include <srvros/desk_ui.h>
+#include <srvros/desk_listing.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+static void listing_aliases(void) {
+    struct desk_file_entry input[3]={{.name="fat",.inode=7,.directory=1},{.name="usr",.inode=7,.directory=1},
+        {.name="other",.inode=9}};
+    struct desk_file_entry entries[DESK_FILE_ENTRIES];struct desk_list_item items[DESK_FILE_ENTRIES];
+    char details[DESK_FILE_ENTRIES][32];uint64_t first[3],reordered[3];
+    assert(!desk_listing_row_ids(input,3,first));
+    assert(first[0] && first[1] && first[0]!=first[1] && first[0]!=7 && first[1]!=7 && first[2]==9);
+    assert(desk_listing_decode(entries,items,details,input,sizeof(input),3)==3);
+    assert(!strcmp(entries[0].name,"fat") && !strcmp(entries[1].name,"usr") && items[0].id==first[0] && items[1].id==first[1]);
+    struct desk_file_entry swap=input[0];input[0]=input[1];input[1]=swap;
+    assert(!desk_listing_row_ids(input,3,reordered) && reordered[0]==first[1] && reordered[1]==first[0]);
+    input[2].inode=first[0];assert(!desk_listing_row_ids(input,3,reordered));
+    assert(reordered[0]!=first[0] && reordered[1]!=first[0] && reordered[2]==first[0]);
+    strcpy(input[1].name,input[0].name);assert(desk_listing_decode(entries,items,details,input,sizeof(input),3)<0);
+    strcpy(input[1].name,"fat");input[1].inode=0;assert(desk_listing_decode(entries,items,details,input,sizeof(input),3)<0);
+    struct desk_file_entry many[DESK_FILE_ENTRIES],reverse[DESK_FILE_ENTRIES];
+    struct { uint64_t before,ids[DESK_FILE_ENTRIES],after; } a={.before=41,.after=43},b={.before=47,.after=53};
+    for(unsigned i=0;i<DESK_FILE_ENTRIES;i++) {
+        many[i]=(struct desk_file_entry){.inode=7};
+        snprintf(many[i].name,sizeof(many[i].name),"item-%03u",i);
+    }
+    for(unsigned i=0;i<DESK_FILE_ENTRIES;i++) reverse[i]=many[DESK_FILE_ENTRIES-1-i];
+    assert(!desk_listing_row_ids(many,DESK_FILE_ENTRIES,a.ids));
+    assert(!desk_listing_row_ids(reverse,DESK_FILE_ENTRIES,b.ids));
+    for(unsigned i=0;i<DESK_FILE_ENTRIES;i++) {
+        assert(a.ids[i] && a.ids[i]!=7 && a.ids[i]==b.ids[DESK_FILE_ENTRIES-1-i]);
+        for(unsigned j=0;j<i;j++) assert(a.ids[i]!=a.ids[j]);
+    }
+    assert(a.before==41 && a.after==43 && b.before==47 && b.after==53);
+    uint64_t saved_ids[DESK_FILE_ENTRIES];memcpy(saved_ids,a.ids,sizeof(saved_ids));
+    assert(desk_listing_row_ids(many,DESK_FILE_ENTRIES+1,a.ids)<0);
+    assert(!memcmp(saved_ids,a.ids,sizeof(saved_ids)) && a.before==41 && a.after==43);
+}
 static struct srv_key_event key(unsigned usage,unsigned mods) {
     return (struct srv_key_event){.usage=usage,.modifiers=mods,.flags=SRV_KEY_DOWN_EVENT};
 }
 int main(void) {
+    listing_aliases();
     char data[64],undo[64];struct desk_text_buffer text;
     desk_text_buffer_init(&text,data,undo,64);
     struct desk_edit edit;desk_edit_init(&edit,&text,0);

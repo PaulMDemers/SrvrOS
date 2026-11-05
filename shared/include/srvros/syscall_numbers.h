@@ -167,9 +167,10 @@
 #define SYS_GFX_MODE_GET 160
 #define SYS_GFX_MODE_SET 161
 #define SYS_PIPE_MESSAGE 162
-/* Existing shared integration allocation; implementation is on main. */
 #define SYS_SESSION_SCOPE 163
 #include <srvros/signal_syscall_numbers.h>
+#define SYS_FILE_STREAM 168
+
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2
@@ -356,6 +357,7 @@ struct srv_winsize {
 #define SRV_ERR_MFILE -24
 #define SRV_ERR_NOTTY -25
 #define SRV_ERR_FBIG -27
+#define SRV_ERR_NOSPC -28
 #define SRV_ERR_SPIPE -29
 #define SRV_ERR_OVERFLOW -75
 

@@ -2,6 +2,8 @@
 #include <srvros/console.h>
 #include <srvros/block.h>
 #include <srvros/exfat.h>
+#include <srvros/exfat_stream.h>
+#include <srvros/syscall_numbers.h>
 #include <srvros/heap.h>
 #include <srvros/vfs.h>
 #include <srvros/scheduler.h>
@@ -173,6 +175,8 @@ struct exfat_mount {
 };
 
 static struct exfat_mount mounts[EXFAT_MAX_VOLUMES];
+/* Only while a stream operation owns filesystem admission. */
+static unsigned stream_mutation_depth;
 enum exfat_io_phase exfat_io_phase(const struct block_device *device) {
     if (device) for (unsigned i=0;i<EXFAT_MAX_VOLUMES;i++)
         if (mounts[i].used && mounts[i].volume.device==device)
@@ -618,6 +622,7 @@ static bool exfat_read_all_impl(const struct vfs_node *node, const uint8_t **dat
 }
 
 static bool exfat_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *size) {
+    if(!node || exfat_stream_busy(node->path,false))return false;
     struct fs_scope scope;if(!fs_enter(&scope))return false;
     bool ok=exfat_read_all_impl(node,data,size);fs_leave(&scope);return ok;
 }
@@ -1765,6 +1770,7 @@ static bool write_file_data_impl(struct exfat_file *file, const uint8_t *data, u
         struct block_device *device=block_parent(file->volume->device);
         uint64_t limit=device?device->max_transfer_bytes:0;
         if(limit>BLOCK_MAX_BATCH_BYTES)limit=BLOCK_MAX_BATCH_BYTES;
+        if(stream_mutation_depth && limit>SRV_FILE_STREAM_CHUNK)limit=SRV_FILE_STREAM_CHUNK;
         if(limit>cluster_size)buffer_bytes=limit-limit%cluster_size;
     }
     uint8_t *cluster_buffer = kcalloc(buffer_bytes, 1);
@@ -3378,7 +3384,7 @@ static bool unmount_impl(const char *mountpoint) {
 bool exfat_unmount(const char *mountpoint) {
     struct fs_scope scope;if(!fs_enter(&scope))return false;
     bool ok=fs_operations==1 && valid_mountpoint(mountpoint) &&
-        !process_has_open_vfs_prefix(mountpoint) && unmount_impl(mountpoint);
+        !process_has_open_vfs_prefix(mountpoint) && !exfat_stream_busy(mountpoint,true) && unmount_impl(mountpoint);
     fs_leave(&scope);return ok;
 }
 
@@ -3963,6 +3969,11 @@ static bool mount_image_impl(const char *mountpoint, const uint8_t *image, uint6
     return true;
 }
 
+#ifdef SRVROS_EXFAT_HOST_TEST
+/* Private native-inspector mode. Never compiled into the OS. */
+static bool host_inspection_readonly;
+#endif
+
 static bool mount_block_device(const char *mountpoint, struct block_device *device, uint64_t claim, bool clean) {
     uint64_t size = block_device_size(device);
     if (!valid_mountpoint(mountpoint) || device == NULL || size < sizeof(struct exfat_boot_sector)) {
@@ -4008,6 +4019,11 @@ static bool mount_block_device(const char *mountpoint, struct block_device *devi
         struct exfat_check_result check = {0};
         if (!check_mount(mount, &check)) mount->volume.write_blocked = true;
     }
+#ifdef SRVROS_EXFAT_HOST_TEST
+    /* load_mount_metadata(false) must return before parsing/replaying sidecars.
+     * The diagnostic caller also supplies no write/flush capabilities. */
+    if (host_inspection_readonly) mount->volume.write_blocked = true;
+#endif
     if (mount->volume.write_blocked)
         console_printf("exfat: %s requires filesystem recovery or unsupported bitmap; writes disabled\n", mountpoint);
     struct block_device *parent = block_parent(device);
@@ -4047,6 +4063,22 @@ bool exfat_mount_block_device_clean(const char *mountpoint, struct block_device 
     fs_leave(&scope);return ok;
 }
 
+#ifdef SRVROS_EXFAT_HOST_TEST
+bool exfat_host_inspect_readonly(const char *path, struct block_device *device, uint16_t *flags) {
+    if (!device || device->write || device->flush || !flags || host_inspection_readonly) return false;
+    host_inspection_readonly = true;
+    bool ok = exfat_mount_block_device(path, device);
+    host_inspection_readonly = false;
+    struct exfat_mount *mount = ok ? find_mount_for_path(path) : NULL;
+    if (!mount || !mount->volume.write_blocked) {
+        if (mount) (void)exfat_unmount(path);
+        return false;
+    }
+    *flags = mount->volume.flags;
+    return true;
+}
+#endif
+
 /* The supported entry set must fit one cluster. Reject impossible requests
  * before dirty marking or scratch allocation, including an oversized payload. */
 static bool mutation_shape(const char *path,uint64_t size) {
@@ -4063,6 +4095,7 @@ static bool write_file_mode_result(const char *path, const uint8_t *data, uint64
     uint64_t mode, bool *retryable) {
     if (retryable) *retryable = false;
     if(mode!=UINT64_MAX && (mode&~07777ull)) return false;
+    if(path && exfat_stream_busy(path,false)) return false;
     if (!valid_ascii_basename(path) || !mutation_shape(path,size) || (!data && size) ||
         (!find_file(path) && name_conflicts(path, NULL))) return false;
     struct mutation_scope scope;
@@ -4084,6 +4117,7 @@ bool exfat_create_directory(const char *path) {
 }
 bool exfat_create_directory_mode(const char *path,uint64_t mode) {
     if(mode!=UINT64_MAX && (mode&~07777ull)) return false;
+    if(path && exfat_stream_busy(path,false)) return false;
     if (!valid_ascii_basename(path) || !mutation_shape(path,0) || name_conflicts(path, NULL)) return false;
     struct mutation_scope scope;
     if (!mutation_begin(find_mount_for_path(path), &scope, path, 0, 1,"mkdir")) return false;
@@ -4091,21 +4125,22 @@ bool exfat_create_directory_mode(const char *path,uint64_t mode) {
         exfat_create_directory_impl(path,mode));
 }
 bool exfat_delete_file(const char *path) {
-    if (!path) return false;
+    if (!path || exfat_stream_busy(path,false)) return false;
     struct mutation_scope scope;
     if (!mutation_begin(find_mount_for_path(path), &scope, path, 0, 0,"delete-file")) return false;
     return mutation_end(&scope, mutation_capacity(find_mount_for_path(path), path, 0, 0) &&
         exfat_delete_file_impl(path));
 }
 bool exfat_delete_directory(const char *path) {
-    if (!path) return false;
+    if (!path || exfat_stream_busy(path,true)) return false;
     struct mutation_scope scope;
     if (!mutation_begin(find_mount_for_path(path), &scope, path, 0, 0,"delete-directory")) return false;
     return mutation_end(&scope, mutation_capacity(find_mount_for_path(path), path, 0, 0) &&
         exfat_delete_directory_impl(path));
 }
 bool exfat_rename(const char *old_path, const char *new_path) {
-    if (!old_path || !valid_ascii_basename(new_path) || !mutation_shape(new_path,0) || name_conflicts(new_path, old_path)) return false;
+    if (!old_path || !valid_ascii_basename(new_path) || !mutation_shape(new_path,0) || name_conflicts(new_path, old_path) ||
+        exfat_stream_busy(old_path,true) || exfat_stream_busy(new_path,true)) return false;
     struct mutation_scope scope;
     if (!mutation_begin(find_mount_for_path(old_path), &scope, old_path, 0, 0,"rename")) return false;
     return mutation_end(&scope, mutation_capacity(find_mount_for_path(old_path), old_path, 0, 0) &&
@@ -4120,7 +4155,7 @@ bool exfat_rename(const char *old_path, const char *new_path) {
 bool exfat_replace_file(const char *old_path,const char *new_path,bool *published) {
     if(!published) return false;
     *published=false;
-    if(!old_path || !new_path) return false;
+    if(!old_path || !new_path || exfat_stream_busy(old_path,true) || exfat_stream_busy(new_path,true)) return false;
     uint64_t source_index=0,target_index=0;
     struct exfat_mount *mount=find_mount_and_index_for_file(old_path,&source_index);
     if(!mount || mount!=find_mount_and_index_for_file(new_path,&target_index) ||
@@ -4188,3 +4223,5 @@ void exfat_print_costs(void) {
         }
     }
 }
+
+#include "exfat_stream.inc"

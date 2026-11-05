@@ -1,5 +1,6 @@
 #include <srvros/ap_probe.h>
 #include <srvros/haswell_backing.h>
+#include <srvros/haswell_firmware.h>
 #include <srvros/posix_capture.h>
 #include <srvros/acpi.h>
 #include <srvros/autotest.h>
@@ -495,6 +496,7 @@ void kmain(void) {
 
 #ifdef SRVROS_AP_PROBE
     if(!cmdline_has_token(cmdline,"srvros.capture=haswell-backing") &&
+       !cmdline_has_token(cmdline,"srvros.capture=haswell-firmware") &&
        !cmdline_has_token(cmdline,"srvros.capture=ap-ownership") &&
        !(cmdline_has_token(cmdline,"srvros.capture=cpu-load") && cmdline_has_token(cmdline,"srvros.ap=c3-test"))) {
         console_write("ap-owner: dedicated diagnostic requires capture token; memory retained\n");
@@ -598,7 +600,7 @@ void kmain(void) {
         pci_print_usb_controllers();
         xhci_print_status();
     }
-    if(!cmdline_has_token(cmdline,"srvros.capture=haswell-backing")) intel_gfx_init();
+    if(!cmdline_has_token(cmdline,"srvros.capture=haswell-backing") && !cmdline_has_token(cmdline,"srvros.capture=haswell-firmware")) intel_gfx_init();
     if(cmdline_has_token(cmdline,"srvros.sensors=cpu")) thermal_init();
     if(cmdline_has_token(cmdline,"srvros.power=read-only")) power_init();
     if (cmdline_has_token(cmdline, "srvros.storage=ram")) {
@@ -755,6 +757,7 @@ void kmain(void) {
     bool automatic_battery=home_battery||smbus_battery||query_battery||controls_battery||text_battery||desktop_battery||service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
     bool automatic_posix=cmdline_has_token(cmdline,"srvros.capture=posix");
     bool automatic_storage_wait=cmdline_has_token(cmdline,"srvros.capture=storage-wait");
+    bool automatic_hfw=cmdline_has_token(cmdline,"srvros.capture=haswell-firmware");
     bool automatic_hsw=cmdline_has_token(cmdline,"srvros.capture=haswell-backing");
     bool automatic_ap=cmdline_has_token(cmdline,"srvros.capture=ap-ownership");
     bool automatic_load=cmdline_has_token(cmdline,"srvros.capture=cpu-load");
@@ -777,11 +780,11 @@ void kmain(void) {
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_storage_wait || automatic_posix || automatic_ap || automatic_hsw) {
+    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_storage_wait || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
-        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix && !automatic_ap && !automatic_hsw;
+        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix && !automatic_ap && !automatic_hsw && !automatic_hfw;
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && !home_battery && return_on_failure && started) {
             console_write("laptop-capture: preparing unattended battery probe; missing final report means failure\n");
@@ -810,9 +813,16 @@ void kmain(void) {
             sampled=workspace_storage_wait_capture();
             console_printf("storage-wait-capture: returned=yes clean=%s\n",sampled?"yes":"NO");
         }
+        if(automatic_hfw && started && init_ready && timer_running) {
+#ifdef SRVROS_AP_PROBE
+            sampled=haswell_firmware_run();
+#else
+            console_write("hsw-firmware: ordinary-kernel refused\n");sampled=false;
+#endif
+        }
         if(automatic_hsw && started && init_ready && timer_running) {
 #ifdef SRVROS_AP_PROBE
-            sampled=platform_haswell_backing_run();
+            sampled=platform_haswell_backing_run(cmdline_has_token(cmdline,"srvros.hsw-cpu-control=read-only"),cmdline_has_token(cmdline,"srvros.hsw-fences=linux-model-32"));
 #else
             console_write("hsw-backing: ordinary-kernel refused\n");sampled=false;
 #endif

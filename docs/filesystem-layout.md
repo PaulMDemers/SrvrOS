@@ -1,7 +1,728 @@
 # Filesystem layout and root contract
 
-Updated November 3, 2026. Global activation follows the explicit namespace proof
+Updated November 4, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
+
+## PR366 closeout — November 4, 2026
+
+[PR366](https://github.com/PaulMDemers/SrvrOS/pull/366) completes explicit
+partition-GUID selection for offline multi-volume workspace images. Integrated
+actual main `db95fc9b` as `44d3375a`; independent source review at `7fac0705`
+found no blocker, and the intervening merge changes documentation only. Fresh
+qualification at `44d3375a` passes all 43 selector groups, 19 installation groups,
+storage lease/workspace/USB regressions, documentation and whitespace checks.
+All 43 selector groups also pass ASan/UBSan with halt-on-error and
+`detect_leaks=0`; no LeakSanitizer acceptance is claimed.
+
+The first closeout compile failed because the review command applied Darwin
+extension declarations to a POSIX-only storage fixture. Its receipt is preserved.
+Separating the established Darwin-enabled inspector-driver configuration from
+the POSIX storage configuration fixes the command without any source change.
+The corrected native gate took 133.28 seconds, and its owned process group is empty.
+Review evidence survives outside build at `.local/filesystem-evidence/pr366-review/`.
+
+Closeout did not open the five original media images. Their full identity,
+ownership, permission, size and modification/change-time stamps still match the
+original qualification; its recorded content hashes remain historical evidence.
+The three old review VM processes were already absent at closeout preflight,
+with cause unknown. They were not restarted or operated by this review; their
+historical live checks are not current liveness evidence. No new OS/VM,
+physical-media, writable-admission, repair or runtime acceptance is claimed.
+Actions remain disabled. This completes the bounded offline-selector topic;
+no further filesystem milestone is started by this closeout.
+
+## Explicit partition-GUID workspace selection — host qualified
+
+On actual main `5f4f6fc6` (merged PR317), extend the offline selector with
+`--partition-guid` for multi-volume images. Reuse Python's canonical UUID /
+`bytes_le` conversion already used by installation verification; the private
+native argument carries exactly 16 on-disk bytes as lowercase hex. No production
+GUID/parser/process/block/USB code is changed.
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE' test-workspace-inspection
+python3 tools/workspace_inspection.py IMAGE --driver build/tests/installation-inspect-driver --partition-guid 10203040-5060-7080-90a0-b0c0d0e0f001
+```
+
+The example GUID belongs to a synthetic fixture; supply the intended partition's
+identity from your reviewed image record. Input must be a nonzero canonical
+lowercase UUID with hyphens. An absent GUID, a GUID naming only the disk or an
+unsupported partition type, a prefix, uppercase, braced, zero or malformed value
+is refused. A GUID naming another eligible workspace selects that workspace; it
+cannot establish the caller's intended content. GUID identity is an observed
+lookup key, not authentication or admission authority.
+
+The native worker completes the existing primary/backup validation before
+matching the requested GUID to exactly one Basic Data partition. Full-map
+corruption, duplicate identities and overlaps remain refusals, including errors
+in unselected partitions. Wrong/missing GUIDs and unsupported partition types do
+not fall back to another partition. If the selected volume lacks a valid workspace
+marker/structure, inspection refuses without trying another workspace. Python
+independently checks the returned selected GUID before invoking the workspace
+inspector. Native descriptors retain O_RDONLY and null write/flush callbacks.
+
+Automatic selection still refuses multiple Basic Data candidates; paired explicit
+ranges remain compatible. A GUID cannot be combined with an explicit offset/range
+to bypass map validation. Guided output adds `requested_partition_guid` in standard
+UUID notation; existing GPT fields retain on-disk hex byte order, and `candidates`
+counts eligible matches for the requested selection. Automatic JSON remains
+unchanged. Native sector/table/attribute/size limits, skipped sidecars,
+metadata-only output and `admission: not-authorized` are retained.
+
+All three uncertain images, fault backup and clean control inspect with their
+recorded GUID and refuse a valid absent GUID. Correct-GUID, automatic and explicit
+range diagnostics match recorded PR360 results. Original whole-image SHA-256,
+device/inode, ownership, link count, mode, size, mtime and ctime are unchanged;
+reads may update atime. Uncertain images remain `0444`, dirty/four-leak with a
+28-byte source entry; clean control remains `0644`, clean with source size 12,289.
+No source/orphan data is exported and GUID selection grants no sidecar permission,
+repair, replay, transport recovery, writable remount or writable admission.
+
+43 diagnostic/selection groups pass, including a disposable two-workspace image
+with distinct content/marker identities and an asymmetric GUID byte-order case,
+real CLI success/refusals, automatic ambiguity, wrong/malformed/disk/type GUIDs,
+whole-map validation, no fallback and independent returned-identity enforcement.
+19 existing installation-inspection groups and storage lease/workspace/USB
+regressions pass. Address/undefined sanitizers with halt-on-error pass all 43
+and a retained uncertain input; macOS `detect_leaks=0` is explicit, with no
+LeakSanitizer claim. A native counterfactual that chooses the first partition
+instead of matching the requested GUID fails the direct wrong-GUID test as expected.
+Source/driver/report/log hashes and unchanged-media receipts survive outside
+build in `.local/filesystem-evidence/guid-workspace-selection/`.
+
+PR317 owner confirms no overlap; independent source review is separate from
+coordination. At the original `710f1b15` qualification, review VMs
+61610/6233/85869 remained running and untouched. This
+host-only milestone uses no new OS/VM boot or live/physical-media operation,
+and claims no new runtime or hardware acceptance.
+
+## PR360 current-main merge review — ready
+
+User authorizes review and merge if ready, preserving uncertain media and review
+VMs and coordinating PR317. Reviewed `faf760d5` with no blocking finding and
+integrated actual main `5f670602` as `ce5dd654`. The main delta adds Haswell audit
+tooling/documentation; native block/claim/exFAT/VFS, inspector, wrapper and tests
+match the qualified source. Production/runtime code is unchanged by this PR.
+
+Verified the frozen 44-file archive and all 15 captured sources against the
+immutable commit. Independently reviewed PR317 receipt/log hashes confirm its
+27 strict and 27 ASan/UBSan synthetic groups and successful omitted-backup
+negative control. Its initial exFAT fixture run could not preserve mode/hardlink
+semantics; the APFS rerun passes. macOS LeakSanitizer is unsupported: its supported
+sanitizer pass uses `detect_leaks=0`, with no leak-sanitizer acceptance claimed.
+The independent reviewer did not reread uncertain media or operate review VMs.
+
+Fresh current-main 27 diagnostic/selection groups, storage lease/workspace/USB
+regressions and documentation/whitespace checks pass. Reinspection of all three
+uncertain images, fault backup and clean control matches the original full-image
+SHA-256 and device/inode/ownership/link-count/mode/size/mtime/ctime stamps, plus
+PR349 explicit-range and PR360 GPT metadata. Diagnostic writes/flushes remain
+zero, uncertain images stay `0444`, and control stays `0644`. Review VMs
+61610/6233/85869 stay running and untouched. No new OS/VM or live/physical-media
+acceptance is claimed for this host-only change. Review evidence survives in
+`.local/filesystem-evidence/pr360-review/` outside `build`.
+
+PR317 owner confirms no new contract/lifetime overlap at `649e34df`, keeping
+scope coordination distinct from its independent source review. Published
+storage failure remains sticky; GPT/marker observations grant no authentication,
+repair, replay, transport recovery, remount or writable-admission authority.
+512-byte sectors, conservative native attribute policy and exactly one Basic
+Data candidate remain explicit limits. Review is ready for authorized merge.
+
+The merge guard subsequently held delivery when main advanced. Integrated
+Files folder-picker main `bc3d4933` as `f4769af5`, synchronizing Apps `b2b93f65`
+and Widgets `b3fa806a` and preserving its host record. All qualified native/tool
+sources remain identical. Fresh 27-group checks and retained-media comparisons
+pass again; no new runtime/UI acceptance is claimed by this host-only review.
+
+Next proposed bounded milestone: **explicit partition-GUID selection for offline
+multi-volume workspace images**. Add a caller-supplied GUID option which requires
+one matching Basic Data partition in the already validated primary/backup map,
+then retains the existing workspace marker/metadata inspection. This addresses
+the current conservative refusal of all multiple-Basic-Data images. Preserve
+that automatic ambiguity refusal; never select a first/alternate partition on
+missing/wrong GUID, unsupported type, corrupt map or failed workspace inspection.
+Research reuse of native GUID/map handling first, coordinate with PR317, and
+verify wrong/missing/duplicate identities plus multi-volume fixtures and unchanged
+retained-image hashes/permissions. No writable admission, repair, replay or
+source/orphan export. This proposal is not implemented by PR360.
+
+## GPT-aware read-only workspace selection — host qualified
+
+On main `f4ea0ccb`, extend the PR349 offline inspector with a separate native
+GPT adapter. `tools/workspace_gpt_driver.c` includes the existing `block.c` and
+`block_claim.c` in host-test mode. Native `block_gpt_scan` validates primary
+header/table CRC, identities, ranges and overlap before registering read-only
+views. A host-only supplement checks the backup-at-disk-end header CRC, swapped
+current/alternate LBAs, matching disk identity/usable range/entry geometry,
+bounded backup table and byte-identical entries plus CRC. No production parser,
+process, exFAT, USB/BOT, transport or admission-policy changes are introduced.
+
+Without offsets, the wrapper requires exactly one Microsoft Basic Data partition
+and then uses the existing native workspace diagnostic to validate marker syntax
+and report metadata. Multiple Basic Data partitions are refused even if only one
+would contain a workspace; zero candidates and parser/inspection failures are
+refused without fallback. GUIDs are structural observations, not authentication
+or permission to recover media. The existing native conservative GPT policy,
+including refusal of read-only partition attributes, remains in force.
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE' test-workspace-inspection
+python3 tools/workspace_inspection.py IMAGE --driver build/tests/installation-inspect-driver
+```
+
+The GPT driver defaults to `workspace-gpt-driver` beside the inspector; use
+`--gpt-driver PATH` for a separately located native build. This adapter supports
+512-byte logical sectors and offline regular whole-disk images up to 8 GiB,
+with selected volumes capped at 2 GiB. Native table/registry limits apply, and
+host metadata reads/calls are additionally capped at 4 MiB/8192. The prior paired
+`--offset`/`--length` interface remains available and explicitly reports
+`partition_table_validated: false`; it cannot be combined with `--gpt-driver`.
+Automatic output reports validated primary/backup agreement, observed GUID bytes
+in on-disk hex (`*_guid_le`), map count and selected range. It always retains
+`admission: not-authorized`, metadata-only output and skipped sidecars.
+
+All three preserved uncertain images, the accepted fault backup and clean
+control select the original 403,701,760-byte offset / 134,217,728-byte length.
+Their diagnostic output equals both explicit-range output and recorded PR349
+results. Whole-image hashes, device/inode, ownership, link count, mode, size,
+mtime and ctime match the original receipts before/after; reads may update atime.
+Uncertain images remain `0444`, dirty with four leaks and source entry size 28;
+control remains `0644`, clean with zero allocation errors and source size 12,289.
+No source/orphan content is exported and no write/flush capability is exposed.
+
+27 diagnostic/selection groups and storage lease/workspace/USB regressions pass.
+Corruption controls cover both header/table CRCs, valid-CRC divergent backups,
+current/alternate LBAs, backup bounds, usable/table overlap, oversized tables,
+LBA overflow, duplicate/zero GUIDs, hybrid MBR, overlapping ranges, ambiguous
+candidates, incomplete ranges, O_RDWR fds and no-fallback failures. ASan/UBSan
+with halt-on-error passes all groups and a preserved uncertain input. Omitting
+backup agreement makes the divergent-backup qualification fail as expected.
+Full source/driver/report/log hashes and unchanged-media receipts survive in
+`.local/filesystem-evidence/gpt-workspace-inspection/` outside `build`.
+
+PR317 confirms no scope/lifetime overlap and retains sticky published-storage
+failure. Its coordination is not independent source acceptance. Review VMs
+61610/6233/85869 remain running and untouched. This host-only milestone adds no
+runtime code; no new OS/VM or physical/live-media acceptance is claimed. There
+is no repair, replay, writable remount or writable admission.
+
+## PR349 current-main merge review — ready
+
+User authorizes review and merge if ready, preserving uncertain media and review
+VMs and coordinating PR317. Reviewed `7b40686a` with no blocking finding. Merged
+actual main `6225e4d1` as `e853ef90`, preserving Files/profile and Air6,1 records;
+Apps `2ddea666`, Widgets `586bd002`, Ports `d760e541` are synchronized. Inspector,
+shim, Python contracts and native exFAT/VFS sources match the qualified head.
+Production-preprocessed exFAT tokens match current main exactly. No new runtime
+filesystem/process/transport or admission-policy change is introduced.
+
+Fresh 14 diagnostic groups, 19 strict-inspection regression groups, storage
+lease/workspace/USB regressions and matched OS build pass on the integrated
+source. The unchanged-source ASan/UBSan and omitted-blocking negative-control
+evidence is verified and retained. Before/after whole-file SHA-256 and full
+identity/ownership/mode stamps for all three uncertain images, accepted fault
+backup and clean control match their original qualification. All diagnostic
+write/flush counts remain zero; uncertain images remain mode `0444`. Review VMs
+61610/6233/85869 stay running and untouched. Complete review evidence survives
+outside build in `.local/filesystem-evidence/pr349-review/`.
+
+PR317 owner confirms no new overlap or lifetime constraint at current published
+head `ae3b39b9`; this is scope coordination, not an independent diff review.
+Published-storage failure stays sticky; diagnostics confer no replay, transport
+recovery, repair, remount or writable-admission authority. No live/physical media,
+new VM, reboot or hosted Actions. Current-main review is ready for authorized
+merge; explicit ranges and unauthenticated marker syntax remain documented limits.
+
+Next proposed bounded milestone: **GPT-aware read-only workspace selection**.
+Remove manual offset entry for preserved whole-disk images by researching reuse
+of the existing native GPT map and host validation before adding an adapter.
+Require valid bounded partition metadata and one unambiguous workspace candidate;
+refuse corrupt/overlapping/ambiguous maps. Compare reports against the existing
+explicit-range results on retained clean/uncertain images; verify unchanged
+whole-file hashes/permissions and malformed-map refusals on disposable fixtures.
+Preserve strict admission, metadata-only output, review VMs and uncertain media;
+coordinate any block/GPT boundary with PR317. No repair, writable admission or
+source/orphan export. This proposal is not implemented by PR349.
+
+## Read-only uncertain-workspace inspection — host qualified
+
+On base `83e5d1ad`, integrated with main `5ed7f015` (less), reuse the native
+installation inspector and bounded inherited-O_RDONLY regular-file shim. The
+explicit `--workspace-fd` diagnostic uses a private `SRVROS_EXFAT_HOST_TEST`
+entry which forces write blocking before sidecar loading and supplies no write
+or flush callbacks. Default `--fd` clean installed-image admission stays strict.
+Production exFAT preprocessing is unchanged; no process.c, USB/BOT, namespace,
+transport, repair or writable-admission contract changes.
+
+The offline wrapper requires an explicit, sector-aligned bounded range:
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE' test-workspace-inspection
+python3 tools/workspace_inspection.py IMAGE --driver build/tests/installation-inspect-driver --offset 403701760 --length 134217728
+```
+
+The example range belongs to the retained managed-workspace fixture, not arbitrary
+media. The wrapper does **not** validate the partition table or discover volumes.
+Inputs must be offline regular images; symlinks, hardlinks, writable inherited
+fds and malformed/range failures are refused. Shared locking is cooperative.
+It hashes the entire image before/after and verifies device/inode, link count,
+mode, ownership, size, mtime and ctime; reads may update atime. A detected change
+is reported as refusal, never repaired. The report is diagnostic evidence and
+always says `admission: not-authorized`.
+
+All three retained uncertain whole disks (`proof-spfxutbi`, `proof-5mp6sngi`,
+`proof-dsbnzltn`) and the accepted fault backup inspect successfully with identical
+SHA-256 hashes, identity and mode `0444`. Each reports dirty flags, four leaked
+clusters, zero FAT/bitmap mismatches and a 28-byte source directory entry. The
+retained clean control reports clean flags, zero allocation errors and a
+12,289-byte source entry; its mode `0644` is unchanged. Both modes supply zero
+write/flush capabilities and report zero attempted writes/flushes. The separate
+strict installed-image inspector refuses all uncertain images; the clean-flags
+control also remains refused by that stricter independent admission path.
+Clean flags alone do not grant installed-image admission.
+
+Output contains observed workspace directory names/types/sizes and bounded
+marker syntax only. The marker UUID is unauthenticated. Sidecars are neither
+parsed, replayed nor cleaned; output does not establish POSIX permissions,
+identity binding, durable content, recovered source bytes or orphan ownership.
+No source/orphan payload is exported. Directory-entry size on uncertain media
+must not be confused with the unacknowledged raw payload retained by PR345.
+
+Validation: 14 diagnostic groups, 19 existing installation-inspection groups,
+storage lease/workspace/USB regressions, matched OS build, documentation checks,
+and ASan/UBSan with halt-on-error pass. An omitted-force-blocking negative
+control fails the clean diagnostic test as expected. Pending `meta.tmp` is
+untouched and strict inspection refuses it. Native read/heap/call/output/time
+budgets are reused. Full reports, stamps, driver/source hashes and logs survive
+outside `build` in `.local/filesystem-evidence/workspace-inspection/`.
+
+PR317 owner through `04b82bdd` confirms no lifetime overlap; published-storage/BOT
+failure remains sticky and inspection cannot authorize repair/remount/recovery.
+Review VMs 61610/6233/85869 remain running and untouched. No live USB, physical
+media, writable remount, reboot, new VM, repair or hosted Actions was used.
+
+## PR345 merge review and current-main requalification
+
+User authorized review, current-main integration/requalification and merge if
+ready, preserving review VMs/uncertain media and coordinating PR317. Reviewed
+`3fe543b3` with no blocking finding. Integrated bc main `7ef140ef` as `3349d780`,
+preserving both host notices in the conflict and pinning Ports `78fb8184`.
+The bc-only three-boot proof passes. A guarded compatibility attempt stopped
+for shared disk headroom after 10 cases; it remains INCOMPLETE, not a pass.
+Two inactive failed fixtures and that interrupted run were losslessly archived
+with restored content/size/mode verification before releasing raw copies;
+receipts/logs retain restoration indexes. Accepted/active/uncertain media and
+review VM images were not removed.
+
+Then integrated main `60618a4c` (PR333 desktop/profile migration) as `22fd9e9a`,
+with Apps `b2220909` and a matched rebuild. Fresh `proof-dsbnzltn` passes all three
+late-flush EFI lifetimes; fresh canonical/CLI `proof-psz75jdj` passes all 11
+cases, preserving `/fat` and `/work`. Independently verified matched `bin/bc`
+ELF bytes inside the installed GPT. Main `d791b949` (PR343 opt-in Haswell capture)
+subsequently merges as `fb8549be`; ordinary kernel, initramfs and filesystem
+hashes remain exactly equal to the fresh proofs, so no additional VM run is
+claimed. The native probe is not enabled or physically accepted by this work.
+
+Fresh storage-lease/workspace/USB, fsync, namespace, usercopy, I/O, helper/CLI,
+41 scope scenarios and Haswell host checks pass in documented POSIX host mode.
+An earlier invocation incorrectly applied the inspection driver's Darwin feature
+macro to a fixture helper named revoke; its failed compile is retained, and the
+correct documented invocation passes. Documentation/whitespace checks pass.
+No production filesystem, process, syscall, block, driver or recovery-policy
+change was needed for the review.
+
+Independent checks verify changed dirty media containing full payload, four
+successful writes/one successful flush/one failed flush, no post-quarantine I/O,
+retained-reader data/offset, two busy refusals, failed retirement after final
+close and exact healthy-copy readback with the USB source entirely detached.
+Protected regions remain unchanged. Complete fresh managed/canonical evidence
+is APFS-cloned and SHA-256 checked (153 files) under
+`.local/filesystem-evidence/pr345-review/`. The original, bc-only and current
+uncertain whole disks remain full raw read-only images with matching hashes;
+the original `.local/filesystem-evidence/late-flush/proof-spfxutbi/` is untouched.
+All review guests stopped and review VMs 61610/6233/85869 remain running.
+
+PR317 owner reports no storage/BOT conflict through checkpoint `17f0348e`.
+Published storage, bulk failure and ambiguous timeout recovery remain explicit
+refusals; per-slot/EP0/HID/terminal work stays independent and unmerged. This
+proof does not invoke or accept those paths. Current-main late-flush salvage
+requalification is complete and ready for authorized merge.
+
+Next proposed bounded milestone: **read-only inspection of preserved uncertain
+workspace media**. Research reuse of the merged native read-only inspection/
+export bridge before adding an adapter. Report dirty/admission state, allocation
+inconsistencies and committed-file metadata for the preserved USB image, clearly
+separating committed source data from unacknowledged raw payload. Verify clean,
+late-failed and malformed/refusal cases with unchanged image hashes/read-only
+modes, no write callbacks, repair, writable admission or orphan-data export.
+Reuse existing artifacts to bound disk allocation; coordinate shared inspector
+edits with its owner and any lifetime questions with PR317. This is proposed
+work, not implementation begun by this merge review.
+
+## Managed USB late-flush salvage — verified on recorded baseline
+
+User authorized this bounded proof on main `819956be`, with PR317 placement/
+lifetime review first, preserved uncertain media and review VMs. Matched source
+`8321de3b` passes clean managed control, late-flush failure/salvage and detached
+restart (three EFI lifetimes), plus all 11 ordinary canonical/CLI cases in
+`proof-cblo2yg3`. No kernel/process/workspace/syscall/block/driver implementation
+change or recovery-policy change was required.
+
+The existing source writer and independent reader open without creating or
+truncating the preseeded source. A counted host-only blkdebug rule admits the
+dirty-marker write and flush, activates a flush-only EIO on the next allocation
+write, admits payload writes, then fails the source flush. Local prefix controls
+prove the earlier flush succeeds and writes remain admitted after activation;
+legacy destination write/flush probes also pass after extending the helper to
+zero creation writes. The real USB flush issues SYNCHRONIZE CACHE. QMP records
+four successful writes, one successful flush, no failed write and one failed
+flush. The raw changed USB volume contains all 12,289 payload bytes and dirty
+flag 2, while its committed source entry still contains the original 28 bytes.
+Visible payload bytes do not constitute an acknowledged source writeback.
+
+PR317 owner confirmed that a failed SYNCHRONIZE CACHE must preserve sticky
+quarantine, with no replay, reset or provider revival. Current hub/EP0 recovery
+work does not revive published storage failures/bulk timeouts. This proof invokes
+no xhcistop/xhcireclaim, terminal/per-slot retirement, unplug, reset or DMA free;
+no unmerged PR317 implementation is consumed or accepted.
+
+Source fsync/writer close return EIO, while an independent reader retains every
+byte and offset 37. The real salvage CLI refuses a failed-work destination, then
+acknowledges the healthy `/home` copy; `/fat/home` reads identical bytes. Managed
+unmount refuses at both held-reader checkpoints. The reader is verified again
+after the second checkpoint, before deliberate final-close EIO. After final
+close, sync and clean retirement still refuse, the UUID stays write-failed,
+remount remains busy and raw unmount cannot bypass the controller. Every USB
+operation counter remains unchanged after quarantine through salvage and close.
+Normal reboot correctly refuses the failed managed workspace.
+
+Before restart, the changed USB image is independently cloned outside build,
+SHA-256 checked and made read-only, as is the task image. The harness stops only
+its owned VM and restarts from healthy installed root with **no USB source
+attached**. The guest verifies exact healthy-copy bytes through both aliases
+before cleanup; the uncertain source hash stays unchanged. There is no source
+repair, writable remount, fresh-driver admission or retry. This is controlled
+cold-restart persistence after healthy file fsync/close, not physical power-loss
+acceptance or a successful failed-source/global flush. No allocation-clean claim
+is made for the uncertain volume. Healthy allocation and protected GPT/ESP
+regions are clean; the clean USB control persists data and retires normally.
+
+Nine scope methods cover 41 scenarios, including late-save filter admission and
+complete source detachment on late restart. Fresh storage-lease/workspace/USB,
+fsync, namespace, usercopy, I/O, helper/CLI and docs checks pass. Independent
+checks verify raw original/payload bytes, dirty state, exact counters, two busy
+refusals, post-close refusal and detached restart command graph.
+
+Evidence is `build/review/late-flush/proof-spfxutbi/`. The uncertain whole disk was
+preserved before restart at
+`.local/filesystem-evidence/late-flush/proof-spfxutbi/uncertain-usb.img` (read-only).
+Complete managed and canonical proof files are independently APFS-cloned and
+SHA-256 verified (153 files) under that directory, with receipts, serial/QMP logs,
+rule, restart record, hashes and independent review. No hard links are used.
+
+Disk headroom limited further staging. The tangent workflow losslessly archived
+four raw files from two inactive failed dirty-salvage bring-up runs, verifying
+every archive member's restored content hash, size and mode before releasing the
+raw copies. This freed about 1.98 GiB. Logs/receipts remain in their original
+folders with `ARCHIVE.json` restoration instructions; archive/index are under
+`.local/filesystem-evidence/inactive-archives/`. Accepted evidence, active media
+and review VM images were not removed. Current uncertain media remain full raw,
+read-only images. The original compatibility verification then completed.
+
+The initial draft did not consume newer bc main `7ef140ef`; that source limit
+remains historical for `8321de3b`. The PR345 review above records the subsequent
+current-main integration and fresh runtime requalification. Do not relabel this
+original evidence as the later payload. Initial delivery was a scoped draft PR. All task VMs stopped;
+review VMs 61610, 6233 and 85869, primary checkout and physical media remain
+untouched. No hosted Actions or physical trial was run.
+
+Reproduce after a matched build:
+
+```sh
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/managed_salvage_smoke.py --late-flush --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+## PR338 merge review and next bounded milestone
+
+User authorized review/merge if ready, preserving review VMs and PR317
+coordination. Reviewed `f8f94e11` with no blocking finding. Integrated PR336's
+actual main `a37eb7b2` as `dcc089b0`; the shared host-record conflict preserves
+both filesystem and installation notices. Provisioning changes affect CLI
+dispatch only. All 154 original proof-file hashes and source-attributed refusal/
+restart evidence revalidate. Initial inspection-driver compilation omitted the
+documented Darwin feature macro; rebuilding with
+`HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE'` passes the
+fresh focused checks and all 19 installation-inspection tests. Both attempts
+remain recorded; no production fix was needed.
+
+Before merge, PR337 landed as main `f0c88a6d`, adding jq and advancing Ports to
+`747cca28`. Because runtime image hashes changed, integrate it as `1e83ee2c` and
+repeat the complete runtime qualification rather than relying on earlier payload
+equivalence. Fresh managed `proof-rbwbltjb` passes all three EFI lifetimes; fresh
+canonical/CLI `proof-zjxul7ag` passes all 11 cases. Fresh focused storage-lease,
+workspace/USB, fsync, namespace, usercopy, I/O, helper/CLI, 37 scope scenarios and
+documentation checks pass. Main `b78e3ed5` (PR339) then merges without conflict;
+its documentation/desktop-smoke changes do not affect runtime or proof inputs.
+Final matched payload hashes remain equal to the fresh `1e83ee2c` proofs.
+
+Independent checks verify raw source/healthy bytes, stable offline geometry and
+historical write capability, exactly one failed write, no post-quarantine I/O,
+two busy refusals and post-close retirement/remount/reboot refusal. Complete fresh
+managed and canonical proof files are independently APFS-cloned and SHA-256
+checked (154 files) under `.local/filesystem-evidence/pr338-review/`, alongside
+review records/logs; original acceptance evidence remains intact.
+
+PR317 remains draft. Its owner's latest `1350a055` checkpoint reports no new
+blocker and no automatic BOT-failure retirement, with stable permanent block
+tombstones/claims and independent explicit per-slot/terminal work. This proof
+does not consume or accept unmerged terminal/reclamation behavior. Review VMs
+61610, 6233 and 85869 remain running and untouched; all new review guests stopped.
+The managed first-write fault salvage and failed-retirement target is complete.
+
+Next proposed bounded milestone: **managed USB late-flush failure salvage
+qualification**. The current first-write EIO leaves media unchanged. First review
+fault placement and current PR317 lifetime assumptions, then admit dirty marking
+and payload writes before failing a USB flush. Require retained-reader bytes/
+offset and sticky source errors, unchanged post-quarantine I/O, managed failed
+retirement after final close, and exact acknowledged healthy-copy readback after
+restart. Preserve the changed/dirty USB image as uncertain evidence without
+repair, forced retirement or writable remount; this does not include terminal
+stop/reclaim or physical unplug. This is proposed work, not implementation
+started by the review.
+
+## Installed-root managed USB salvage — verified
+
+User authorized this bounded milestone on main `5634cd9d` (PR306 SQLite CLI),
+with PR317 fault/lifetime review first and review-VM preservation. The proof uses
+a prepared disposable GPT USB volume and actual `workspace mount/sync/unmount`
+alongside a separate installed AHCI root. Scope is sysabi handshake proof, host
+fixture/USB fault routing, guards and documentation. No production process,
+workspace, syscall, block or driver implementation changes were needed.
+
+### Fault placement and lifetime review
+
+The source file and workspace marker are preseeded offline. Existing source
+writer and independent reader open without create/truncate; the writer stages
+12,289 binary bytes in shared process RAM. A host-only blkdebug one-shot EIO
+wraps only the disposable USB disk. QMP requires zero writes through workspace
+mount and source admission, then exactly one failed write with zero successful
+writes. The fault hits the first fsync dirty-marker write and leaves the entire
+USB image unchanged. The published USB SCSI failure quarantines the device and
+invalidates its block cache; source fsync and writer close return EIO.
+
+Reviewed the current BOT, retained-content and workspace code before runtime.
+PR317's owner confirmed that BOT errors do not invoke the proposed explicit
+terminal reclamation path: block geometry/name/claim identities remain stable
+and offline, and retained readers use process RAM. Historical write capability
+must remain visible so global flushing cannot hide uncertain writable media.
+The owner advised avoiding xhcistop/xhcireclaim, unplug/reset and DMA reclamation;
+none is invoked. This proof qualifies main's fault path, not PR317's unmerged
+hardware/provider reclamation work, and that scope feedback is not independent
+approval of every filesystem claim.
+
+### Managed refusal and salvage outcome
+
+A healthy control writes and flushes the source, invokes the actual salvage CLI,
+then successfully syncs/unmounts through the managed controller. Offline USB
+source bytes persist and allocation checks are clean. The fault case instead
+uses a background reader with release controls exclusively on healthy `/home`.
+The monitor observes two busy-unmount refusals: before salvage and after the
+healthy copy while the source reader is still held. Failed-work destination
+creation also refuses without consuming the caller's reader or offset.
+
+The actual `/bin/salvage` copies every retained byte to
+`/home/.managed-salvage-copy`; the parent verifies its fd, offset 37, every source
+byte and healthy `/home`/`/fat/home` aliases before deliberately closing the last
+source reader with EIO. After final close, workspace sync and clean retirement
+still refuse, status retains the same UUID/write-failed mount, remount stays busy
+and raw `unmount /work` cannot bypass managed policy. No work references are
+silently kept through a control file on the failed volume.
+
+Raw USB disk and partition names/geometry remain stable, their reads become
+unreadable and historical write=yes remains visible. All QMP USB operation
+counters are unchanged from quarantine through monitor checks, salvage and final
+close: there is no backend read/write/flush retry against the failed device.
+Only the one initial failed write is recorded. Both first-boot healthy allocation
+and protected GPT/ESP regions check clean; the source's on-disk original remains
+28 bytes while the healthy copy contains 12,289 retained bytes.
+
+Normal reboot correctly refuses with `workspace could not be unmounted`. The
+harness records that refusal, QMP-stops only its own disposable VM, then starts
+fresh EFI with no filter. Exact healthy bytes read back before cleanup; the USB
+source still has its original bytes and image hash. The new driver lifetime can
+cleanly mount/read/sync/unmount the unchanged original media and reboot normally.
+This does not repair or forcibly retire the old failed lifetime. It demonstrates
+controlled cold-restart persistence after healthy file fsync/close, not a
+successful failed-workspace/global flush or physical power-loss acceptance.
+
+### Integration, guards and evidence
+
+Source `3c480516` passes all three EFI lifetimes: clean control, fault/save and
+restart/readback. Fresh ordinary canonical/CLI proof `proof-h0xipwky` passes all
+11 cases, preserving `/fat` and `/work` compatibility. Main `62b0708e` (PR335's
+host-only Haswell audit) subsequently merged as `351eb986`; matched kernel,
+initramfs and filesystem hashes remain identical. Fresh combined storage-lease,
+workspace/USB-storage, fsync, namespace, usercopy, I/O, helper/CLI and scope tests
+pass, as do seven new-base Haswell audit tests and documentation checks. The
+unchanged runtime evidence is retained with its actual tested source.
+
+Nine scope-test methods cover 37 scenarios. Managed cases require distinct,
+regular, fixture-owned files (including hard-link alias refusal), explicit mode
+and prepared UUID. Fault configuration belongs only to the first save boot;
+clean control and reopen have no filters. Mixed raw/target modes, external paths,
+invalid UUID syntax, reversed routing and later-boot faults refuse before QEMU. Command
+graph checks keep the system disk unfiltered and attach work only as USB storage.
+
+Evidence is `build/review/managed-salvage/proof-fse2oz1k/`, with raw images,
+commands, QMP counters, serial logs, rule, restart record and receipts. Independent
+checks verify raw healthy bytes, USB hash/geometry, operation counts and both
+refusal phases. Complete accepted managed and canonical proof images/logs are
+independently APFS-cloned and SHA-256 verified (154 files) outside build at
+`.local/filesystem-evidence/managed-salvage-3c480516/`. No hard links are used.
+Initial `proof-nfrng3he` used a legacy MBR USB fixture, correctly reached
+installed-root invalid-map recovery and timed out without starting apps; it
+remains retained. The retry uses a separately identified GPT fixture without
+weakening root admission. Failed-run logs are backed up beside acceptance data.
+
+All task VMs stopped; review VMs 61610, 6233 and 85869, primary checkout and
+physical media remain untouched. No hosted Actions, physical trial or merge was
+requested. The bounded proof is complete; delivery is a scoped draft PR.
+
+Reproduce after the matched build:
+
+```sh
+make HOST_CC='python3 build/tooling/darwin-host-cc.py' test-storage-leases test-file-fsync test-dirty-salvage-scope
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/managed_salvage_smoke.py --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+## PR332 merge review and next bounded milestone
+
+User authorized review and merge if ready. Reviewed `eba6b83b` against unchanged
+main `89c210db`; no blocking finding. The CLI must reach stage=flush with all
+12,289 accepted bytes and no offset-restore error; the host additionally checks
+ATA write/flush failure on the third target. Open refusal cannot pass. Scope
+validation confines both filters to distinct fixture images and leaves installed
+root unfiltered. Calibration and reopen carry no filters; default modes preserve
+their existing behavior. No kernel/process/block/driver implementation changes.
+
+Revalidated all 79 preserved final image/log hashes, raw healthy bytes, the
+flush case's unacknowledged payload, source/target hashes, failed-attempt output,
+explicit reboot refusal and both restart readbacks. The five-boot proof at
+`4c368c23` remains applicable: `eba6b83b` changes only documentation and builds
+identical guest payloads. The existing 11-case canonical/CLI proof also remains
+applicable. Fresh fsync/namespace/usercopy/I/O/helper/CLI/scope and documentation
+checks pass. Unchanged runtime evidence was inspected rather than relabeled as
+a new VM run. Review record and fresh host log are retained outside build at
+`.local/filesystem-evidence/pr332-review/`.
+
+PR317 at `c9f4f306` remains draft, with independent terminal xHCI stop/drain and
+network callback retirement. No overlap or dependency is established for this
+proof-only merge. Review VMs 61610, 6233 and 85869 remain running and untouched;
+no new VM, physical trial or hosted Actions run was needed for this review.
+The destination-writeback qualification target is complete.
+
+Next proposed bounded milestone: **installed-root managed USB workspace salvage
+and failed-retirement proof**. Current guest proofs use raw AHCI mounts; host
+coverage already exercises managed workspace refusal. Start by reviewing the
+prepared disposable USB source and write-fault placement, coordinating transport
+and lifetime assumptions with PR317. Boot from installed root, use the actual
+`workspace mount/sync/unmount` controller, retain dirty source data through CLI
+salvage to healthy `/home`, and verify failed sync/retirement both while the
+reader is held and after deliberate final close. Check healthy-copy bytes after
+controlled restart and preserve `/fat` and `/work` compatibility. No physical
+unplug/reset, forced retirement, automatic repair or backing reclamation is
+included. This is proposed work, not implementation started by the merge review.
+
+## Installed-root destination-writeback qualification — verified
+
+User authorized this bounded proof on main `10890eed`, with PR317 coordination
+and preservation of review VMs 61610, 6233 and 85869. The isolated filesystem
+checkout owns guest sysabi proof, a fixture-owned third target, host calibration/
+fault rules, scope guards and documentation. No process/syscall/block/driver
+implementation changes were needed. Manual GPT mounts remain separate from
+managed USB workspace retirement.
+
+### Reviewed fault placement
+
+A separate installed EFI calibration boot exclusively creates and closes the
+same empty target pathname with the CLI's flags/mode; QMP records 50 target
+writes. Each real case starts from fresh images. Counted blkdebug write states
+admit all creation writes and the fsync dirty-marker write. The write case fails
+the next allocation write (ATA 0x35). The flush case activates a flush-only EIO
+on that allocation write; ordinary writes continue, then the payload barrier
+fails (ATA 0xea). This avoids counting redundant flushes and rejects an open
+refusal as proof of writeback failure. The host probes require successful writes/
+flush before the boundary and the intended error afterward. qemu-io's flush
+reports failure through exit status without printing errno. Rules and events
+were reviewed against the [QEMU guide](https://www.qemu.org/docs/master/devel/testing/blkdebug.html)
+and [blkdebug implementation](https://github.com/qemu/qemu/blob/master/block/blkdebug.c).
+
+The healthy system disk is never filtered. Source and third target must be
+three distinct owned images; only first-boot fault cases accept the two owned
+configs. Calibration/reopen cannot carry faults. Eight unittest methods cover
+21 scope scenarios, including ordinary/later-boot, external/same-image and
+missing-filter refusals before launching QEMU; the positive graph checks unique
+boot priorities and the healthy disk's unfiltered path.
+
+### Guest outcome and restart
+
+Both cases use the actual `/bin/salvage` with the independently retained dirty
+source reader. After all 12,289 bytes are accepted, the CLI reports stage=flush,
+EIO, close EIO and restore-error=0, and explicitly retains an unacknowledged
+artifact. The parent verifies fd, offset 37 and every source byte, then explicitly
+copies to healthy `/home/.dirty-salvage-copy`. Source errors remain sticky until
+deliberate last-reader close after healthy acknowledgment. No automatic retry,
+repair or kernel fault hook is introduced.
+
+The failed target remains dirty with its committed empty directory entry.
+In the flush case the raw image also contains the full payload: visible bytes
+do not establish an acknowledged copy. Both uncertain target images are retained
+without repair or allocation-clean claims. Normal global reboot correctly refuses
+the failed disks; the harness QMP-stops only its disposable VM, then starts fresh
+EFI with reversed system/work order and no filters. The healthy copy reads back
+exactly and is cleaned up. Work is byte-identical throughout; the failed target
+is byte-identical across restart. Protected image regions and healthy allocation
+checks remain clean. This is controlled cold-restart persistence after healthy
+file fsync/close, not successful global flush or physical power-loss acceptance.
+
+### Integration and evidence
+
+Initial `bc5dde19` passes calibration plus both case pairs (five EFI lifetimes).
+Fresh ordinary installed-root canonical/CLI proof `proof-s4aavezy` passes all 11
+cases, including `/fat` and `/work`. Main `89c210db`, including PR330's host
+publication checks, then merged cleanly. Combined `4c368c23` preserves identical
+guest artifacts and passes a fresh five-boot proof `proof-etsium6m`, focused
+fsync/namespace/usercopy/I/O/helper/CLI/scope checks and documentation validation.
+Installation host discovery runs 31 tests with one opt-in exhaustive I/O matrix
+skipped (30 pass); it is not claimed as a fresh exhaustive PR330 rerun.
+
+Independent checks verify raw healthy bytes, isolated command graphs, target ATA
+error types and the flush case's unacknowledged payload. Evidence is in
+`build/review/destination-salvage/`; complete final proof images, receipts, rules,
+commands and serial logs are independently cloned and SHA-256 checked outside
+build at `.local/filesystem-evidence/destination-salvage-4c368c23/`. APFS clones
+are separate writable files, never hard links. Initial failed rule-probe
+expectations and `proof-wjm7h64c` (duplicate boot priority, rejected before guest
+boot) remain recorded; neither counts as a pass.
+
+PR317's owner reports independent terminal xHCI stop/drain and generic network
+callback retirement work, without process/syscall/block/installer overlap. Its
+hardware/provider audit stays separate and draft; scope feedback does not claim
+independent review of this proof. All task VMs stopped; review VMs 61610, 6233 and
+85869, primary checkout and physical media remain untouched. No hosted Actions,
+physical trial or merge was requested. The bounded qualification is complete;
+delivery is a scoped draft PR for independent review.
+
+Reproduce after the matched build:
+
+```sh
+make HOST_CC='python3 build/tooling/darwin-host-cc.py' test-file-fsync test-dirty-salvage-scope
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/destination_salvage_smoke.py --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
 
 ## PR329 merge review and next bounded milestone
 

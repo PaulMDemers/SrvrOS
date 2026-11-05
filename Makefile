@@ -112,6 +112,7 @@ USER_DESKTOOLS := build/userspace/desktools.elf
 USER_DESKTERM := build/userspace/deskterm.elf
 USER_CLOCKPROBE := build/userspace/clockprobe.elf
 USER_LIFETIMEPROBE := build/userspace/lifetimeprobe.elf
+USER_SCOPEPROBE := build/userspace/scopeprobe.elf
 USER_PTYPROBE := build/userspace/ptyprobe.elf
 USER_DESKSKETCH := build/userspace/desksketch.elf
 USER_SHOTWORKER := build/userspace/shotworker.elf
@@ -121,6 +122,7 @@ USER_DESKFIND := build/userspace/deskfind.elf
 USER_FINDFSWORKER := build/userspace/deskfind-worker.elf
 USER_DESKNET := build/userspace/desknet.elf
 USER_DESKCLOCK := build/userspace/deskclock.elf
+USER_DESKPROFILES := build/userspace/deskprofiles.elf
 USER_DESKHELP := build/userspace/deskhelp.elf
 USER_DESKVIEW := build/userspace/deskview.elf
 USER_GUI := build/userspace/gui.elf
@@ -143,6 +145,11 @@ USER_JSONDEMO := build/userspace/jsondemo.elf
 USER_INIDEMO := build/userspace/inidemo.elf
 USER_LINEDEMO := build/userspace/linedemo.elf
 USER_SQLITEDEMO := build/userspace/sqlitedemo.elf
+USER_SQLITE3 := build/userspace/sqlite3.elf
+USER_JQ := build/userspace/jq.elf
+USER_BC := build/userspace/bc.elf
+USER_LESS := build/userspace/less.elf
+USER_XZ := build/userspace/xz.elf
 USER_ZLIBDEMO := build/userspace/zlibdemo.elf
 USER_LUA := build/userspace/lua.elf
 USER_AWK := build/userspace/awk.elf
@@ -1297,9 +1304,7 @@ $(USER_INSTALL): $(ZIG) $(USER_CRT0_OBJ) $(USER_INSTALL_OBJ) $(USER_LIB_OBJ) use
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_INSTALL_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_DIFF): $(ZIG) $(USER_CRT0_OBJ) $(USER_DIFF_OBJ) $(USER_LIB_OBJ) userspace/app.ld
-	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_DIFF_OBJ) $(USER_LIB_OBJ) -o $@
+# GNU diff recipe is supplied by ports/srvros/diffutils/build.mk.
 
 $(USER_TAR): $(ZIG) $(USER_CRT0_OBJ) $(USER_TAR_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
@@ -1309,9 +1314,7 @@ $(USER_GZIP): $(ZIG) $(USER_CRT0_OBJ) $(USER_GZIP_OBJ) $(ZLIB_OBJ) $(USER_LIB_OB
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_GZIP_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_PATCH): $(ZIG) $(USER_CRT0_OBJ) $(USER_PATCH_OBJ) $(USER_LIB_OBJ) userspace/app.ld
-	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_PATCH_OBJ) $(USER_LIB_OBJ) -o $@
+# Genuine GNU Patch recipe is supplied by ports/srvros/patch/build.mk.
 
 $(USER_MAKE): $(ZIG) $(USER_CRT0_OBJ) $(USER_MAKE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
@@ -1705,9 +1708,9 @@ $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED) ports/srvr
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -include ports/srvros/lua_config.h -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
-$(EXFAT_IMAGE): $(USER_PROFILE) $(USER_LIFETIMEPROBE) userspace/examples/tap-diagnostics.sh userspace/examples/tap-checks.sh userspace/examples/trackpad-checks.sh userspace/examples/device-checks.sh userspace/examples/network-trial.sh tools/audio_fixture.py $(USER_DESKFIND) $(USER_FINDFSWORKER) $(USER_DESKNET) $(USER_DESKSKETCH) $(USER_SHOTWORKER) $(USER_DESKCLOCK) $(USER_DESKHELP) $(USER_DESKVIEW) $(USER_IMAGEWORKER) tools/pack_runtime_elf.py $(USER_CLOCKPROBE) $(USER_DESKTERM) $(USER_PTYPROBE) $(USER_DESKTOOLS) $(USER_DESKFS) $(USER_DESKIO) $(USER_DESKD) $(USER_DESKCLIENT) $(USER_DESKSTUDY) tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_AWK) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(USER_PLAYWAV)
+$(EXFAT_IMAGE): $(USER_SCOPEPROBE) $(USER_DESKPROFILES) $(USER_PROFILE) $(USER_LIFETIMEPROBE) userspace/examples/tap-diagnostics.sh userspace/examples/tap-checks.sh userspace/examples/trackpad-checks.sh userspace/examples/device-checks.sh userspace/examples/network-trial.sh tools/audio_fixture.py $(USER_DESKFIND) $(USER_FINDFSWORKER) $(USER_DESKNET) $(USER_DESKSKETCH) $(USER_SHOTWORKER) $(USER_DESKCLOCK) $(USER_DESKHELP) $(USER_DESKVIEW) $(USER_IMAGEWORKER) tools/pack_runtime_elf.py $(USER_CLOCKPROBE) $(USER_DESKTERM) $(USER_PTYPROBE) $(USER_DESKTOOLS) $(USER_DESKFS) $(USER_DESKIO) $(USER_DESKD) $(USER_DESKCLIENT) $(USER_DESKSTUDY) tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_SQLITE3) $(USER_JQ) $(USER_BC) $(USER_LESS) $(USER_XZ) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_AWK) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(USER_PLAYWAV)
 	mkdir -p $(dir $@)
-	$(PYTHON) tools/mk_exfat_image.py $@ salvage=$(USER_SALVAGE) profile=$(USER_PROFILE) hello=$(USER_HELLO) cat=$(USER_CAT) more=$(USER_MORE) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) seq=$(USER_SEQ) realpath=$(USER_REALPATH) id=$(USER_ID) whoami=$(USER_WHOAMI) readlink=$(USER_READLINK) cmp=$(USER_CMP) yes=$(USER_YES) install=$(USER_INSTALL) diff=$(USER_DIFF) tar=$(USER_TAR) gzip=$(USER_GZIP) gunzip=$(USER_GZIP) minizip=$(USER_MINIZIP) miniunz=$(USER_MINIUNZ) patch=$(USER_PATCH) make=$(USER_MAKE) byacc=$(USER_BYACC) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) dd=$(USER_DD) ed=$(USER_ED) ln=$(USER_POSIXUTILS) sync=$(USER_POSIXUTILS) test=$(USER_POSIXUTILS) '[=$(USER_POSIXUTILS)' cksum=$(USER_POSIXUTILS) sum=$(USER_POSIXUTILS) comm=$(USER_POSIXUTILS) paste=$(USER_POSIXUTILS) join=$(USER_POSIXUTILS) split=$(USER_POSIXUTILS) od=$(USER_POSIXUTILS) hexdump=$(USER_POSIXUTILS) strings=$(USER_POSIXUTILS) file=$(USER_POSIXUTILS) tty=$(USER_POSIXUTILS) stty=$(USER_POSIXUTILS) time=$(USER_POSIXUTILS) timeout=$(USER_POSIXUTILS) nohup=$(USER_POSIXUTILS) nice=$(USER_POSIXUTILS) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) svscan=$(USER_SVSCAN) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) tcpstress=$(USER_TCPSTRESS) tcpprobe=$(USER_TCPPROBE) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) displayd=$(USER_DISPLAYD) deskstudy=$(USER_DESKSTUDY) deskd=$(USER_DESKD) deskclient=$(USER_DESKCLIENT) deskio=$(USER_DESKIO) desktools=$(USER_DESKTOOLS) deskfs=$(USER_DESKFS) shotworker=$(USER_SHOTWORKER) desksketch=$(USER_DESKSKETCH) imageworker=$(USER_IMAGEWORKER) deskview=$(USER_DESKVIEW) deskhelp=$(USER_DESKHELP) deskfind=$(USER_DESKFIND) deskfind-worker=$(USER_FINDFSWORKER) desknet=$(USER_DESKNET) deskclock=$(USER_DESKCLOCK) clockprobe=$(USER_CLOCKPROBE) lifetimeprobe=$(USER_LIFETIMEPROBE) ptyprobe=$(USER_PTYPROBE) deskterm=$(USER_DESKTERM) gui=$(USER_GUI) surfacedemo=$(USER_SURFACEDEMO) gui2demo=$(USER_GUI2DEMO) guifail=$(USER_GUIFAIL) calc=$(USER_CALC) notes=$(USER_NOTES) textedit=$(USER_TEXTEDIT) paint=$(USER_PAINT) fileman=$(USER_FILEMAN) posixdemo=$(USER_POSIXDEMO) threadstress=$(USER_THREADSTRESS) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA) awk=$(USER_AWK) uvdemo=$(USER_UVDEMO) libuvdemo=$(USER_LIBUVDEMO) nodeprobe=$(USER_NODEPROBE) libcprobe=$(USER_LIBCPROBE) tlsprobe=$(USER_TLSPROBE) cxxprobe=$(USER_CXXPROBE) cxxstlprobe=$(USER_CXXSTLPROBE) playwav=$(USER_PLAYWAV)
+	$(PYTHON) tools/mk_exfat_image.py $@ deskprofiles=$(USER_DESKPROFILES) salvage=$(USER_SALVAGE) profile=$(USER_PROFILE) hello=$(USER_HELLO) cat=$(USER_CAT) more=$(USER_MORE) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) seq=$(USER_SEQ) realpath=$(USER_REALPATH) id=$(USER_ID) whoami=$(USER_WHOAMI) readlink=$(USER_READLINK) cmp=$(USER_CMP) yes=$(USER_YES) install=$(USER_INSTALL) diff=$(USER_DIFF) tar=$(USER_TAR) gzip=$(USER_GZIP) gunzip=$(USER_GZIP) minizip=$(USER_MINIZIP) miniunz=$(USER_MINIUNZ) patch=$(USER_PATCH) make=$(USER_MAKE) byacc=$(USER_BYACC) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) dd=$(USER_DD) ed=$(USER_ED) ln=$(USER_POSIXUTILS) sync=$(USER_POSIXUTILS) test=$(USER_POSIXUTILS) '[=$(USER_POSIXUTILS)' cksum=$(USER_POSIXUTILS) sum=$(USER_POSIXUTILS) comm=$(USER_POSIXUTILS) paste=$(USER_POSIXUTILS) join=$(USER_POSIXUTILS) split=$(USER_POSIXUTILS) od=$(USER_POSIXUTILS) hexdump=$(USER_POSIXUTILS) strings=$(USER_POSIXUTILS) file=$(USER_POSIXUTILS) tty=$(USER_POSIXUTILS) stty=$(USER_POSIXUTILS) time=$(USER_POSIXUTILS) timeout=$(USER_POSIXUTILS) nohup=$(USER_POSIXUTILS) nice=$(USER_POSIXUTILS) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) svscan=$(USER_SVSCAN) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) tcpstress=$(USER_TCPSTRESS) tcpprobe=$(USER_TCPPROBE) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) displayd=$(USER_DISPLAYD) deskstudy=$(USER_DESKSTUDY) deskd=$(USER_DESKD) deskclient=$(USER_DESKCLIENT) deskio=$(USER_DESKIO) desktools=$(USER_DESKTOOLS) deskfs=$(USER_DESKFS) shotworker=$(USER_SHOTWORKER) desksketch=$(USER_DESKSKETCH) imageworker=$(USER_IMAGEWORKER) deskview=$(USER_DESKVIEW) deskhelp=$(USER_DESKHELP) deskfind=$(USER_DESKFIND) deskfind-worker=$(USER_FINDFSWORKER) desknet=$(USER_DESKNET) deskclock=$(USER_DESKCLOCK) clockprobe=$(USER_CLOCKPROBE) lifetimeprobe=$(USER_LIFETIMEPROBE) scopeprobe=$(USER_SCOPEPROBE) ptyprobe=$(USER_PTYPROBE) deskterm=$(USER_DESKTERM) gui=$(USER_GUI) surfacedemo=$(USER_SURFACEDEMO) gui2demo=$(USER_GUI2DEMO) guifail=$(USER_GUIFAIL) calc=$(USER_CALC) notes=$(USER_NOTES) textedit=$(USER_TEXTEDIT) paint=$(USER_PAINT) fileman=$(USER_FILEMAN) posixdemo=$(USER_POSIXDEMO) threadstress=$(USER_THREADSTRESS) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) sqlite3=$(USER_SQLITE3) jq=$(USER_JQ) bc=$(USER_BC) less=$(USER_LESS) xz=$(USER_XZ) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA) awk=$(USER_AWK) uvdemo=$(USER_UVDEMO) libuvdemo=$(USER_LIBUVDEMO) nodeprobe=$(USER_NODEPROBE) libcprobe=$(USER_LIBCPROBE) tlsprobe=$(USER_TLSPROBE) cxxprobe=$(USER_CXXPROBE) cxxstlprobe=$(USER_CXXSTLPROBE) playwav=$(USER_PLAYWAV)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
@@ -1726,7 +1729,7 @@ $(NODE_RUNTIME_EXFAT): tools/mk_exfat_image.py $(NODE_RUNTIME_STRIPPED)
 .PHONY: node-runtime-image
 node-runtime-image: $(NODE_RUNTIME_EXFAT)
 
-$(INITRAMFS): tools/pack_runtime_elf.py $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_MORE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_AWK) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort) $(USER_PLAYWAV)
+$(INITRAMFS): tools/pack_runtime_elf.py $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_MORE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_SQLITE3) $(USER_JQ) $(USER_BC) $(USER_LESS) $(USER_XZ) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_AWK) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort) $(USER_PLAYWAV)
 	mkdir -p build
 	rm -rf $(INITRAMFS_ROOT)
 	mkdir -p $(INITRAMFS_ROOT)
@@ -1857,6 +1860,11 @@ $(INITRAMFS): tools/pack_runtime_elf.py $(USER_INIT) $(USER_SH) $(USER_LS) $(USE
 	cp $(USER_INIDEMO) $(INITRAMFS_ROOT)/inidemo
 	cp $(USER_LINEDEMO) $(INITRAMFS_ROOT)/linedemo
 	cp $(USER_SQLITEDEMO) $(INITRAMFS_ROOT)/sqlitedemo
+	cp $(USER_SQLITE3) $(INITRAMFS_ROOT)/sqlite3
+	cp $(USER_JQ) $(INITRAMFS_ROOT)/jq
+	cp $(USER_BC) $(INITRAMFS_ROOT)/bc
+	cp $(USER_LESS) $(INITRAMFS_ROOT)/less
+	cp $(USER_XZ) $(INITRAMFS_ROOT)/xz
 	cp $(USER_ZLIBDEMO) $(INITRAMFS_ROOT)/zlibdemo
 	cp $(USER_LUA) $(INITRAMFS_ROOT)/lua
 	cp $(USER_AWK) $(INITRAMFS_ROOT)/awk
@@ -2026,8 +2034,12 @@ test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
 	build/tests/block-host$(HOST_EXE)
 	build/tests/ahci-host$(HOST_EXE)
 
+.PHONY: test-workspace-inspection
+test-workspace-inspection: build/tests/installation-inspect-driver$(HOST_EXE) build/tests/workspace-gpt-driver$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_workspace_inspection.py -v
+
 .PHONY: test-installed-root
-test-installed-root: build/tests/exfat-driver$(HOST_EXE)
+test-installed-root: build/tests/exfat-driver$(HOST_EXE) build/tests/installation-export-driver$(HOST_EXE) build/tests/installation-inspect-driver$(HOST_EXE) build/tests/profile-image-driver$(HOST_EXE)
 	CC='$(HOST_CC)' $(PYTHON) tools/test_installed_root.py
 	$(PYTHON) -m unittest discover -s tools -p 'test_install*.py'
 	$(PYTHON) tools/test_installed_root_exfat.py --driver build/tests/exfat-driver$(HOST_EXE) --output build/review/installed-root-host
@@ -2238,20 +2250,20 @@ test-portable-profiles:
 .PHONY: test-exfat-entries
 test-exfat-entries: build/tests/exfat-entries-host$(HOST_EXE)
 	$<
-build/tests/exfat-entries-host$(HOST_EXE): tools/test_exfat_entries.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+build/tests/exfat-entries-host$(HOST_EXE): tools/test_exfat_entries.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-exfat-entries
 
 .PHONY: test-exfat-hardening
 .PHONY: test-workspace-image
-build/tests/workspace-image-host$(HOST_EXE): tools/workspace_image_host.c kernel/src/workspace_image.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/vfs.c $(KERNEL_HEADERS)
+build/tests/workspace-image-host$(HOST_EXE): tools/workspace_image_host.c kernel/src/workspace_image.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_image_host.c kernel/src/fs/exfat.c kernel/src/vfs.c -Wl,--gc-sections -o $@
 test-workspace-image: build/tests/workspace-image-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/test_workspace_image.py
 
-build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-hardening: build/tests/exfat-driver$(HOST_EXE)
@@ -2364,6 +2376,7 @@ build/tests/apple-trackpad-host$(HOST_EXE): tools/test_apple_trackpad.c kernel/s
 
 DESKD_NOTICE_SRC := userspace/deskd/notifications.c userspace/deskd/notification_view.c
 DESKD_OBJ := build/userspace/deskd/profile_catalog.c.o build/userspace/deskd/profile_chooser.c.o build/userspace/deskd/notifications.c.o build/userspace/deskd/notification_view.c.o build/userspace/deskd/preferences.c.o build/userspace/deskd/menus.c.o build/userspace/deskd/clipboard.c.o build/userspace/deskd/deskd.c.o build/userspace/deskd/scene.c.o build/userspace/deskd/io_trial.c.o
+DESKD_OBJ += build/userspace/deskd/session_supervisor.c.o
 DESKCLIENT_OBJ := build/userspace/deskclient/deskclient.c.o
 DESK_WIDGETS_INCLUDE := userspace/widgets/include
 DESK_WIDGETS_SRC := $(wildcard userspace/widgets/src/*.c)
@@ -2388,8 +2401,9 @@ $(DESKD_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_OBJ): USER_CFLAGS += -I $(DESK_WID
 $(DESK_WIDGETS_A): $(ZIG) $(DESK_WIDGETS_OBJ)
 	$(AR) rcs $@ $(DESK_WIDGETS_OBJ)
 -include $(DESK_WIDGETS_OBJ:.o=.d)
-$(USER_DESKD): $(ZIG) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
+build/userspace/deskd/profile_chooser.c.o: USER_CFLAGS += -I ports/upstream/cjson
+$(USER_DESKD): $(ZIG) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(CJSON_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(CJSON_OBJ) $(USER_LIB_OBJ) -o $@
 $(USER_DESKCLIENT): $(ZIG) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
 -include $(DESKD_OBJ:.o=.d) $(DESKCLIENT_OBJ:.o=.d)
@@ -2664,9 +2678,9 @@ build/tests/file-picker-host$(HOST_EXE): tools/test_file_picker.c $(HOST_DESK_WI
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_file_picker.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
 test-file-picker: build/tests/tool-picker-host$(HOST_EXE)
-build/tests/tool-picker-host$(HOST_EXE): userspace/lib/include/srvros/desk_chooser.h tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/tool-picker-host$(HOST_EXE): userspace/lib/include/srvros/desk_chooser.h tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c userspace/apps/desktools/files_app.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -Wl,--gc-sections -o $@
 
 .PHONY: test-rtc
 test-rtc: build/tests/rtc-host$(HOST_EXE)
@@ -2690,11 +2704,21 @@ build/tests/check-host$(HOST_EXE): tools/test_check.c $(HOST_DESK_WIDGETS_A) $(D
 test-widgets: test-check
 
 .PHONY: test-preferences
-test-preferences: build/tests/preferences-host$(HOST_EXE)
-	$<
+test-preferences: build/tests/preferences-host$(HOST_EXE) build/tests/preferences-finish-host$(HOST_EXE)
+	build/tests/preferences-host$(HOST_EXE)
+	build/tests/preferences-finish-host$(HOST_EXE)
 build/tests/preferences-host$(HOST_EXE): userspace/lib/include/srvros/profile_preferences.h tools/test_preferences.c userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/lib/include/srvros/desk_preferences.h shared/include/srvros/desktop_preferences.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_preferences.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c -o $@
+build/tests/preferences-finish-host$(HOST_EXE): tools/test_preferences_finish.c userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/lib/include/srvros/profile_preferences.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_preferences_finish.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c -o $@
+.PHONY: test-profile-switch
+test-profile-switch: test-preferences build/tests/session-supervisor-host$(HOST_EXE)
+	build/tests/session-supervisor-host$(HOST_EXE)
+build/tests/session-supervisor-host$(HOST_EXE): tools/test_session_supervisor.c userspace/deskd/session_supervisor.c userspace/deskd/session_supervisor.h userspace/lib/include/srvros/sys.h shared/include/srvros/session_scope.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Dchdir=fake_chdir -idirafter userspace/lib/include -I shared/include tools/test_session_supervisor.c userspace/deskd/session_supervisor.c -o $@
 test-desktop: test-preferences
 
 .PHONY: test-settings
@@ -2752,9 +2776,9 @@ test-core: test-file-change
 .PHONY: test-files
 test-files: build/tests/files-host$(HOST_EXE)
 	$<
-build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h shared/include/srvros/desktop_apps.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/apps/desktools/picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h shared/include/srvros/desktop_apps.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h userspace/lib/include/srvros/desk_theme_preferences.h
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_files.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_files.c userspace/desktop_runtime/chooser.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 test-desktop: test-files
 
 .PHONY: test-strftime
@@ -2925,6 +2949,12 @@ build/tests/time-model-host$(HOST_EXE): tools/test_time_model.c userspace/widget
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I $(DESK_WIDGETS_INCLUDE) tools/test_time_model.c userspace/widgets/src/time_model.c -o $@
 test-desktop: test-notices test-time-model
 
+DESKPROFILES_OBJ := $(patsubst %.c,build/%.c.o,$(wildcard userspace/apps/deskprofiles/*.c))
+$(DESKPROFILES_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE) -I ports/upstream/cjson
+$(USER_DESKPROFILES): $(ZIG) $(USER_CRT0_OBJ) $(DESKPROFILES_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(CJSON_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKPROFILES_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(CJSON_OBJ) $(USER_LIB_OBJ) -o $@
+-include $(DESKPROFILES_OBJ:.o=.d)
+
 DESKCLOCK_OBJ := build/userspace/apps/deskclock/deskclock.c.o
 $(DESKCLOCK_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
 $(USER_DESKCLOCK): $(ZIG) $(USER_CRT0_OBJ) $(DESKCLOCK_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
@@ -3092,12 +3122,12 @@ $(USER_FINDFSWORKER): $(ZIG) $(USER_CRT0_OBJ) $(FINDFSWORKER_OBJ) $(DESK_WIDGETS
 .PHONY: test-file-search test-find-worker
 test-file-search: build/tests/file-search-host$(HOST_EXE)
 	$<
-build/tests/file-search-host$(HOST_EXE): tools/test_file_search.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/file-search-host$(HOST_EXE): tools/test_file_search.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_search.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) -o $@
 test-find-worker: build/tests/find-worker-host$(HOST_EXE)
 	$<
-build/tests/find-worker-host$(HOST_EXE): tools/test_find_worker.c userspace/apps/deskfind/worker.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/find-worker-host$(HOST_EXE): tools/test_find_worker.c userspace/apps/deskfind/worker.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h shared/include/srvros/desktop_search.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) -o $@
 test-desktop: test-file-search test-find-worker
@@ -3105,7 +3135,7 @@ test-desktop: test-file-search test-find-worker
 .PHONY: test-find-app
 test-find-app: build/tests/find-app-host$(HOST_EXE)
 	$<
-build/tests/find-app-host$(HOST_EXE): tools/test_find_app.c userspace/apps/deskfind/deskfind.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/find-app-host$(HOST_EXE): tools/test_find_app.c userspace/apps/deskfind/deskfind.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h shared/include/srvros/desktop_search.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_find_app.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-find-app
@@ -3694,6 +3724,11 @@ $(USER_LIFETIMEPROBE): $(ZIG) $(USER_CRT0_OBJ) $(LIFETIMEPROBE_OBJ) $(USER_LIB_O
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(LIFETIMEPROBE_OBJ) $(USER_LIB_OBJ) -o $@
 -include $(LIFETIMEPROBE_OBJ:.o=.d)
 
+SCOPEPROBE_OBJ := build/userspace/scopeprobe/scopeprobe.c.o
+$(USER_SCOPEPROBE): $(ZIG) $(USER_CRT0_OBJ) $(SCOPEPROBE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(SCOPEPROBE_OBJ) $(USER_LIB_OBJ) -o $@
+-include $(SCOPEPROBE_OBJ:.o=.d)
+
 .PHONY: test-desktop-battery-trial
 test-core: test-desktop-battery-trial
 test-desktop-battery-trial: build/tests/desktop-battery-trial$(HOST_EXE)
@@ -4019,7 +4054,7 @@ build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
-AP_PROBE_OBJ := build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_OBJ := build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
 AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
@@ -4216,14 +4251,14 @@ build/tests/lifetime-trace-host$(HOST_EXE): tools/test_lifetime_trace.c userspac
 test-core: test-exfat-read-cache
 test-exfat-read-cache: build/tests/exfat-read-cache$(HOST_EXE)
 	$<
-build/tests/exfat-read-cache$(HOST_EXE): tools/test_exfat_read_cache.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+build/tests/exfat-read-cache$(HOST_EXE): tools/test_exfat_read_cache.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
 .PHONY: test-exfat-read-reuse
 test-exfat-read-reuse: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-uncached-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_read_reuse.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-uncached-driver$(HOST_EXE)
-build/tests/exfat-uncached-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-uncached-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_READ_CACHE_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
@@ -4236,19 +4271,19 @@ build/tests/desktop-probe$(HOST_EXE): tools/test_desktop_probe.c userspace/lib/s
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
 
 .PHONY: test-exfat-bitmap-span test-exfat-bitmap-io
-build/tests/exfat-bitmap-span-host$(HOST_EXE): tools/test_exfat_bitmap_span.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+build/tests/exfat-bitmap-span-host$(HOST_EXE): tools/test_exfat_bitmap_span.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-exfat-bitmap-span: build/tests/exfat-bitmap-span-host$(HOST_EXE)
 	$<
-build/tests/exfat-bitmap-full-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-bitmap-full-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_BITMAP_SPAN_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-bitmap-io: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-bitmap-full-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_bitmap_io.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-bitmap-full-driver$(HOST_EXE)
 test-core: test-exfat-bitmap-span
 
-build/tests/exfat-cost-host$(HOST_EXE): tools/test_exfat_cost.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+build/tests/exfat-cost-host$(HOST_EXE): tools/test_exfat_cost.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 .PHONY: test-exfat-cost
@@ -4257,7 +4292,7 @@ test-exfat-cost: build/tests/exfat-cost-host$(HOST_EXE)
 test-core: test-exfat-cost
 
 .PHONY: test-exfat-append
-build/tests/exfat-noappend-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-noappend-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_APPEND_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-append: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-noappend-driver$(HOST_EXE)
@@ -4378,6 +4413,13 @@ build/tests/shell-quoting-host$(HOST_EXE): tools/test_shell_quoting.c userspace/
 
 # Third-party source preparation and target compilation belong to SrvrPorts.
 include ports/srvros/awk/build.mk
+include ports/srvros/sqlite/build.mk
+include ports/srvros/jq/build.mk
+include ports/srvros/bc/build.mk
+include ports/srvros/less/build.mk
+include ports/srvros/xz/build.mk
+include ports/srvros/diffutils/build.mk
+include ports/srvros/patch/build.mk
 # Compatibility forwarding sources include the canonical SrvrUI implementation.
 # Keep incremental OS builds sensitive to changes to the included files.
 build/userspace/lib/src/desk_render.c.o: userspace/widgets/render/desk_render.c userspace/widgets/include/srvros/desk_render.h
@@ -4474,7 +4516,7 @@ test-profile-desktop: test-portable-profiles test-preferences build/tests/profil
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_startup.c userspace/lib/src/desk_preferences.c -o build/tests/profile-startup-host$(HOST_EXE)
 	build/tests/profile-startup-host$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_profile_image.py -v
-build/tests/profile-image-driver$(HOST_EXE): tools/profile_image_driver.c tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/profile-image-driver$(HOST_EXE): tools/profile_image_driver.c tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	@mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/profile_image_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
@@ -4483,7 +4525,7 @@ build/tests/profile-image-driver$(HOST_EXE): tools/profile_image_driver.c tools/
 .PHONY: test-guest-profiles
 test-guest-profiles: build/tests/guest-profile-host$(HOST_EXE)
 	$(PYTHON) tools/test_guest_profile.py $< -v
-build/tests/guest-profile-host$(HOST_EXE): $(USER_PROFILE_C) userspace/profile/codec.h ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
+build/tests/guest-profile-host$(HOST_EXE): $(USER_PROFILE_C) userspace/lib/include/srvros/profile_limits.h userspace/profile/codec.h userspace/profile/stream.h userspace/profile/memory.h ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -D_DARWIN_C_SOURCE -D_POSIX_C_SOURCE=200809L -DSRVROS_PROFILE_HOST_TEST -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson $(USER_PROFILE_C) ports/upstream/cjson/cJSON.c -o $@
 
@@ -4492,9 +4534,19 @@ test-core: test-haswell-backing
 test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing-adapter$(HOST_EXE)
 	build/tests/hsw-backing$(HOST_EXE)
 	build/tests/hsw-backing-adapter$(HOST_EXE) > build/tests/hsw-backing-producer.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) tilectl > build/tests/hsw-backing-producer-v2.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) tilectl max > build/tests/hsw-backing-producer-v2-max.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) fences32 > build/tests/hsw-backing-producer-v3.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) fences32 max > build/tests/hsw-backing-producer-v3-max.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_backing.py
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_tilectl.py
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_fences.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_backing_audit.py
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_path_audit.py
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_layout_proposal.py
 	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer.log --output build/tests/hsw-backing-tail.json
+	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer-v2-max.log --output build/tests/hsw-backing-tail-v2.json
+	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer-v3-max.log --output build/tests/hsw-backing-tail-v3.json
 build/tests/hsw-backing$(HOST_EXE): tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c kernel/include/srvros/haswell_backing.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c -o $@
@@ -4504,9 +4556,9 @@ build/tests/hsw-backing-adapter$(HOST_EXE): tools/test_hsw_backing_adapter.c too
 .PHONY: test-profile-chooser
 test-profile-chooser: test-guest-profiles build/tests/profile-catalog-host$(HOST_EXE)
 	build/tests/profile-catalog-host$(HOST_EXE) $(CURDIR)/build/tests/guest-profile-host$(HOST_EXE)
-build/tests/profile-catalog-host$(HOST_EXE): tools/test_profile_catalog.c userspace/deskd/profile_catalog.c userspace/deskd/profile_catalog.h userspace/deskd/profile_startup.h userspace/lib/src/desk_preferences.c
+build/tests/profile-catalog-host$(HOST_EXE): tools/test_profile_catalog.c userspace/deskd/profile_catalog.c userspace/deskd/profile_catalog.h userspace/lib/include/srvros/profile_limits.h userspace/deskd/profile_startup.h userspace/lib/src/desk_preferences.c ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c ports/upstream/cjson/cJSON.c -o $@
 
 .PHONY: test-e1000-init
 test-core: test-e1000-init
@@ -4527,6 +4579,13 @@ build/tests/salvage-host$(HOST_EXE): tools/test_salvage.c userspace/lib/src/salv
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< -o $@
 
+.PHONY: test-usb-retire-block
+test-core: test-usb-retire-block
+test-usb-retire-block: build/tests/usb-retire-block$(HOST_EXE)
+	$<
+build/tests/usb-retire-block$(HOST_EXE): tools/test_usb_retire_block.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/usb_storage.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 USER_SALVAGE := build/userspace/salvage.elf
 USER_SALVAGE_OBJ := build/userspace/salvage/salvage.c.o
 $(USER_SALVAGE): $(ZIG) $(USER_CRT0_OBJ) $(USER_SALVAGE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
@@ -4613,3 +4672,109 @@ build/tests/process-signal-action-defaults-host$(HOST_EXE): tools/test_process_s
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o $@
 test-core: test-process-signal-action-defaults
+
+.PHONY: test-signal-experimental-admission
+test-core: test-signal-experimental-admission
+test-signal-experimental-admission:
+	$(PYTHON) tools/test_signal_experimental_admission.py --output build/tests/signal-experimental-admission
+
+build/tests/installation-inspect-driver$(HOST_EXE): tools/installation_inspect_driver.c tools/installation_readonly_host.h kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/installation_inspect_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+
+build/tests/installation-export-driver$(HOST_EXE): tools/installation_export_driver.c tools/installation_readonly_host.h kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/installation_export_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+
+# Diagnostic helper injected only into disposable less-test images.
+build/userspace/test_less_probe.elf: tools/test_less_probe.c userspace/widgets/src/terminal.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/less-probe
+	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c tools/test_less_probe.c -o build/userspace/less-probe/probe.o
+	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c userspace/widgets/src/terminal.c -o build/userspace/less-probe/model.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/less-probe/probe.o build/userspace/less-probe/model.o $(USER_LIB_OBJ) -o $@
+
+# Firmware-only capture lives only in the dedicated diagnostic ELF.
+build/ap-probe/haswell-firmware-core.o: kernel/diagnostics/haswell_firmware_core.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/ap-probe/haswell-firmware-adapter.o: kernel/diagnostics/haswell_firmware_adapter.c $(ZIG) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: test-haswell-firmware
+test-core: test-haswell-firmware
+test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-firmware-adapter$(HOST_EXE)
+	build/tests/hsw-firmware-core$(HOST_EXE) > build/tests/hsw-firmware-core.log
+	build/tests/hsw-firmware-adapter$(HOST_EXE) > build/tests/hsw-firmware-refusal.log
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_firmware.py
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_read_audit.py
+build/tests/hsw-firmware-core$(HOST_EXE): tools/test_haswell_firmware.c kernel/diagnostics/haswell_firmware_core.c kernel/include/srvros/haswell_firmware.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/haswell_firmware_core.c -o $@
+build/tests/hsw-firmware-adapter$(HOST_EXE): tools/test_haswell_firmware_adapter.c kernel/diagnostics/haswell_firmware_core.c kernel/diagnostics/haswell_firmware_adapter.c kernel/include/srvros/haswell_firmware.h $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_core.c kernel/diagnostics/haswell_firmware_adapter.c -o $@
+
+# xz diagnostic helper is injected only into disposable qualification images.
+build/userspace/test_xz_probe.elf: tools/test_xz_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/xz-probe
+	$(CC) $(USER_CFLAGS) -c tools/test_xz_probe.c -o build/userspace/xz-probe/probe.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/xz-probe/probe.o $(USER_LIB_OBJ) -o $@
+
+build/userspace/test_xz_alloc_probe.elf: tools/test_xz_probe.c $(XZ_DIR)/allocator.o $(addprefix $(XZ_DIR)/,$(XZ_LZMA_SOURCES:.c=.o)) $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/xz-probe
+	$(CC) $(USER_CFLAGS) $(XZ_INCLUDES) $(XZ_DEFS) -DXZ_ALLOC_DIAGNOSTIC -c tools/test_xz_probe.c -o build/userspace/xz-probe/alloc-probe.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/xz-probe/alloc-probe.o $(XZ_DIR)/allocator.o $(addprefix $(XZ_DIR)/,$(XZ_LZMA_SOURCES:.c=.o)) $(USER_LIB_OBJ) -o $@
+
+build/tests/workspace-gpt-driver$(HOST_EXE): tools/workspace_gpt_driver.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-profile-stream
+test-profile-stream: test-portable-profiles test-profile-chooser test-file-stream build/tests/profile-ui-host$(HOST_EXE)
+	$(PYTHON) tools/test_guest_profile_stream.py build/tests/guest-profile-host$(HOST_EXE) -v
+	SRVROS_PROFILE_GUEST_TEST_BINARY=$(CURDIR)/build/tests/guest-profile-host$(HOST_EXE) $(PYTHON) tools/test_profile_stream.py -v
+	build/tests/profile-ui-host$(HOST_EXE)
+
+build/tests/profile-ui-host$(HOST_EXE): tools/test_profile_ui.c userspace/apps/deskprofiles/deskprofiles.c userspace/lib/include/srvros/profile_session.h $(wildcard userspace/widgets/include/srvros/*.h) ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -D_DARWIN_C_SOURCE -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include -I userspace/widgets/include -I ports/upstream/cjson tools/test_profile_ui.c ports/upstream/cjson/cJSON.c -Wl,--gc-sections -o $@
+
+.PHONY: test-file-stream test-exfat-stream
+test-file-stream: build/tests/file-stream-manager-host$(HOST_EXE) build/tests/file-stream-syscall-host$(HOST_EXE) build/tests/file-stream-process-host$(HOST_EXE) build/tests/file-stream-cleanup-host$(HOST_EXE)
+	build/tests/file-stream-manager-host$(HOST_EXE)
+	build/tests/file-stream-syscall-host$(HOST_EXE)
+	build/tests/file-stream-process-host$(HOST_EXE)
+	build/tests/file-stream-cleanup-host$(HOST_EXE)
+
+build/tests/file-stream-manager-host$(HOST_EXE): tools/test_file_stream.c kernel/src/file_stream.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+build/tests/file-stream-syscall-host$(HOST_EXE): tools/test_file_stream_syscall.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+build/tests/file-stream-process-host$(HOST_EXE): tools/test_file_stream_process.c tools/test_process_output.c tools/test_process_teardown.inc tools/test_process_teardown_fault.c kernel/src/process.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< tools/test_process_teardown_fault.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
+
+build/tests/file-stream-cleanup-host$(HOST_EXE): tools/test_file_stream_cleanup.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+test-exfat-stream:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_stream.py
+
+
+# Injected only into disposable GNU diff qualification images.
+build/userspace/test_diff_probe.elf: tools/test_diff_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/diff-probe
+	$(CC) $(USER_CFLAGS) -c tools/test_diff_probe.c -o build/userspace/diff-probe/probe.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/diff-probe/probe.o $(USER_LIB_OBJ) -o $@
+
+# Injected only into disposable GNU Patch qualification images.
+build/userspace/test_patch_probe.elf: tools/test_patch_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/patch-probe
+	$(CC) $(USER_CFLAGS) -c tools/test_patch_probe.c -o build/userspace/patch-probe/probe.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/patch-probe/probe.o $(USER_LIB_OBJ) -o $@

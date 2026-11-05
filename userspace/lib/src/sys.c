@@ -363,6 +363,10 @@ long srv_spawn_bg_args_fds(const char *path, const char *args, int stdin_fd, int
         stdout_fd);
 }
 
+long srv_session_scope(unsigned operation,uint64_t token,void *payload) {
+    return srv_syscall3(SYS_SESSION_SCOPE,operation,(long)token,(long)payload);
+}
+
 long srv_exec(const struct srv_exec_request *request) {
     if (request == 0 || request->path == 0) {
         return srv_syscall1(SYS_EXEC, (long)request);
@@ -662,4 +666,8 @@ long srv_path_context(uint64_t operation,const char *path,char *out,size_t capac
 
 long srv_directory(uint64_t operation,int fd,void *out,size_t capacity) {
     return srv_syscall4(SYS_DIRECTORY,(long)operation,fd,(long)out,(long)capacity);
+}
+
+long srv_file_stream(const struct srv_file_stream_request *request) {
+    return srv_syscall1(SYS_FILE_STREAM,(long)request);
 }
