@@ -66,6 +66,12 @@ differ only in PORT.md. Final exact-head/tree/pin verification belongs to the
 authorized port-first, OS-second delivery. [SrvrPorts #11](https://github.com/PaulMDemers/SrvrPorts/pull/11)
 and [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369) record its outcome.
 
+### Historical GNU Patch preparation and qualification checkpoints
+
+The following checkpoints preserve the initial failures and intermediate work.
+Their pending gates and handoff requests are superseded by the final qualification
+and delivered-and-stopped records below; they are not current launch instructions.
+
 GNU Patch 2.8.1 source is authenticated (578 regular files match the archive) and
 its adapter/tests are prepared in the separate checkout. Configuration, recipe,
 link and clean rebuild gates pass. Full snapshot/output/memory/signal guest

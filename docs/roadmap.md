@@ -51,8 +51,9 @@ the delivery checks.
 
 ## Automatic CLI queue — November 4, 2026
 
-The closeout instruction above supersedes automatic continuation: finish GNU
-Patch, then stop. GNU grep and sha256sum remain deferred backlog entries.
+The closeout instruction above supersedes automatic continuation. GNU Patch is
+delivered and the CLI queue is stopped. GNU grep and sha256sum remain deferred
+backlog entries.
 
 User authorized the bounded GNU diff milestone, then automatic research,
 implementation, independent review and dependency-order merge through a finite
@@ -80,10 +81,14 @@ and [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369); linked PR sta
 record the merge outcome. [Portable evidence](assets/screenshots/diff-manifest.json)
 and a verified ignored archive outside build cleanup retain source, failed and
 passing proofs. Integration checkout and review VMs remain untouched; no shared
-libc/kernel change. Source-only GNU patch preparation is isolated while delivery
-finishes; further builds require a fresh resource window.
+libc/kernel change. The following historical Patch preparation record predates
+the delivered result above; it does not reopen the stopped queue.
 
-## GNU Patch separate-output port — active November 4, 2026
+## GNU Patch separate-output port — historical November 4 checkpoint
+
+This pre-delivery checkpoint is retained as history. The delivered seven-guest
+qualification and merge outcome in the closeout section above supersede its
+pending gates and resource requests.
 
 Next authorized queue row consumes delivered diff (ports PR11, OS PR369) in
 separate `SrvrOS-ports-patch`, reconciled with main `3fcf2630`. Genuine GNU Patch
