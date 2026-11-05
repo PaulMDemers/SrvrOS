@@ -14,12 +14,16 @@ Browser work is explicitly exempt and remains ongoing. No deadline or reduced
 acceptance bar is implied. Later CLI queue rows and new feature milestones are
 not part of this closeout.
 
-Current delivery gates:
+Delivered current milestones:
 
-- Larger-document profiles: the corrected changed-bundle review test passes,
-  including its exact rendered refusal and preserved bytes. Complete the full
-  integrated GUI, recovery, storage and bounded-memory proof before Apps #11
-  and OS #367. The first full proof remains failed, not relabeled.
+- Larger-document profiles: Apps #11 (`161f3850`) and OS #367 (`3ab8a6f7`)
+  are merged with exact reviewed trees and the tested app pin reachable from
+  application main. The integrated 31-guest proof, seven recovery checkpoints,
+  actual 64 MiB transfer across four 16 MiB files, 640×480 workflow and independent
+  content/rendered/archive audits pass. Guest mapped-memory peak is 2,461,696
+  bytes, 65,536 bytes above the small workload; this is not kernel-memory or
+  exact-heap accounting. The durable 626-member backup is readback-verified.
+  Earlier failed evidence remains failed. See [profiles](portable-profiles.md).
 - GNU Patch: delivered in Ports #12 (`72f3d6fa`) then OS #370 (`3e327513`).
   All seven fresh guests pass on the retained final payload, including the
   corrected miniport example; exact merge trees and reachable port pin are
@@ -45,9 +49,12 @@ reachable through the available local chat tools; no new physical trial is autho
 by this record. PR #19's proposed syscall 164 conflicts with browser's reserved
 164–167 and cannot merge unchanged; profile streaming reserves 168.
 
-This is an in-progress closeout record, not a claim that pending PRs are merged
-or verified. Final merged hashes and remaining explicit exceptions follow after
-the delivery checks.
+The current local non-browser scopes are delivered and verified. Their owners
+are stopped, and no further feature work is required for this closeout. Aggregate
+records are delivered through [OS #373](https://github.com/PaulMDemers/SrvrOS/pull/373).
+Browser work and the separately owned physical-device exceptions above remain
+open. Canonical offline installation export/recovery remains v1-only; offline
+v2 admission/export is deferred despite guest profile v2 support.
 
 ## Automatic CLI queue — November 4, 2026
 
