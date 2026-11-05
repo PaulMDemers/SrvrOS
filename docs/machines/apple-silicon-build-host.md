@@ -3997,3 +3997,14 @@ is the absent-provider control. Neither is physical entropy acceptance. Current
 main d930ed3c has byte-identical entropy bodies to this qualified base; final
 delivery still requires main reconciliation preserving streaming syscall168.
 All earlier compiler/guest resource windows have been released.
+
+The strict entropy candidate passes actual kernel-body/mock-provider and actual
+patched WTF/class-header tests in strict and ASan/UBSan profiles (four sequential
+compile/runs,3.557s, no remaining process-group members). Receipt SHA256
+`36019f604d9bc10355246b9632561e93293c261814356dfc0d22b30da7bb7a23`.
+The first adapter compile's unused descriptor warning remains a retained failure;
+a SrvrOS-only destructor assertion now verifies the unchanged member stays-1.
+Unavailable uses existing SRV_ERR_AGAIN(-11). The coordinator accepts a generated
+exact ABI-header copy in the WTF patch; mandatory parity/hash checks preserve the
+retained SDK's attribution. Target constants, real providers, GC and JavaScript
+are still pending; no compiler or VM window remains reserved.

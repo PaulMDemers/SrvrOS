@@ -342,7 +342,8 @@ def prepare(args):
                 receipt['commands'].append({'argv':cmd,'status':result.returncode,'seconds':round(time.monotonic()-started,3)})
                 if result.returncode: raise RuntimeError(f'prepare command failed: {cmd[0]}')
         receipt['qemu_argv_template']=[str(qemu),'-name','SrvrOS experimental public signal',
-            '-machine','q35','-accel','tcg,thread=single','-cpu','qemu64','-smp','1','-m','1536M',
+            '-machine','q35','-accel','tcg,thread=single','-cpu',
+            'qemu64,+rdrand' if args.rdrand else 'qemu64','-smp','1','-m','1536M',
             '-cdrom',str(iso),'-boot','d','-display','none','-nic','none',
             '-serial','unix:{private_uart},server=on,wait=off','-monitor','none','-no-reboot']
         receipt['boot_network_requirements']=[line.decode() for line in BOOT_NETWORK_LINES]
@@ -482,6 +483,7 @@ def main():
     action.add_argument('--run',type=Path,metavar='PREPARED_DIR')
     action.add_argument('--self-test',action='store_true')
     p.add_argument('--suite-manifest',type=Path,help='JSON suite manifest for --prepare')
+    p.add_argument('--rdrand',action='store_true',help='prepare only: expose RDRAND for the reviewed entropy-provider guest')
     p.add_argument('--output-parent',type=Path,help='existing absolute task-owned APFS directory')
     p.add_argument('--kernel',type=Path,default=ROOT/'build/signal-context/public-experimental/kernel.elf')
     p.add_argument('--probe',type=Path,default=ROOT/'build/signal-context/public-experimental/probe.elf')
@@ -489,6 +491,7 @@ def main():
     p.add_argument('--sdk',type=Path,default=ROOT/'build/sysroot/srvros')
     a=p.parse_args()
     if a.suite_manifest and not a.prepare:p.error('--suite-manifest requires --prepare')
+    if a.rdrand and not a.prepare:p.error('--rdrand requires --prepare')
     if a.self_test: parser_selftest()
     elif a.prepare:
         if not a.output_parent or not a.output_parent.is_absolute() or not a.output_parent.is_dir():p.error('--output-parent must be an existing absolute task-owned directory')

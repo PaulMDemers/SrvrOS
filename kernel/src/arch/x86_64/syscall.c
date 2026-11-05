@@ -27,6 +27,7 @@
 #include <srvros/net.h>
 #include <srvros/pmm.h>
 #include <srvros/virtio_rng.h>
+#include <srvros/random.h>
 #include <srvros/process.h>
 #include <srvros/pty.h>
 #include <srvros/scheduler.h>
@@ -359,13 +360,53 @@ static uint64_t random_u64(void) {
     return value;
 }
 
+static bool random_entropy_u64(uint64_t *value) {
+    uint64_t flags = irq_save();
+    bool available = virtio_rng_take_u64(value) || rdrand64(value);
+    irq_restore(flags);
+    return available;
+}
+
 static int64_t syscall_random(void *buffer, uint64_t length, uint64_t flags) {
-    if (flags != 0 || length > MAX_SYSCALL_COPY || !user_buffer_ok(buffer, length, true)) {
+    if ((flags != 0 && flags != SRV_RANDOM_REQUIRE_ENTROPY) ||
+        length > MAX_SYSCALL_COPY || !user_buffer_ok(buffer, length, true)) {
         return -1;
     }
 
     uint8_t chunk[64];
     uint64_t copied = 0;
+    if (flags == SRV_RANDOM_REQUIRE_ENTROPY) {
+        while (copied < length) {
+            uint64_t remaining = length - copied;
+            uint64_t wanted = remaining < sizeof(chunk) ? remaining : sizeof(chunk);
+            uint64_t ready = 0;
+            while (ready < wanted) {
+                uint64_t value;
+                if (!random_entropy_u64(&value)) {
+                    break;
+                }
+                uint64_t count = wanted - ready;
+                if (count > sizeof(value)) {
+                    count = sizeof(value);
+                }
+                for (uint64_t i = 0; i < count; i++) {
+                    chunk[ready + i] = (uint8_t)(value >> (i * 8));
+                }
+                ready += count;
+            }
+            if (ready == 0) {
+                return copied ? (int64_t)copied : SRV_RANDOM_UNAVAILABLE;
+            }
+            if (!copy_to_user((uint8_t *)buffer + copied, chunk, ready)) {
+                return -1;
+            }
+            copied += ready;
+            if (ready < wanted) {
+                return (int64_t)copied;
+            }
+        }
+        return (int64_t)copied;
+    }
     while (copied < length) {
         for (uint64_t offset = 0; offset < sizeof(chunk); offset += sizeof(uint64_t)) {
             uint64_t value = random_u64();

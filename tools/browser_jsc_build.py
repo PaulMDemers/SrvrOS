@@ -18,6 +18,7 @@ from browser_probe import ARCHIVE, DIGEST, LIMIT, ROOT, SIZE, sha
 from browser_evidence import verify_runtime, verify_icu
 from browser_jsc_elf import inspect_target_elf
 from browser_storage import StorageGuard
+from browser_random_contract import verify_random_contract
 
 base = ROOT / 'build/browser-jsc'
 port = ROOT / 'ports/srvros/webkit'
@@ -237,7 +238,9 @@ try:
         raise RuntimeError('pinned WPE archive absent or invalid')
     receipt['source_observation_only'] = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     receipt['dirty_observation_only'] = subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True)
-    for path in [Path(__file__), ROOT/'tools/browser_jsc_elf.py', ROOT/'tools/browser_storage.py', ARCHIVE, *sorted(port.glob('*'))]:
+    for path in [Path(__file__), ROOT/'tools/browser_jsc_elf.py', ROOT/'tools/browser_storage.py',
+                 ROOT/'tools/browser_random_contract.py', ROOT/'shared/include/srvros/random.h',
+                 ARCHIVE, *sorted(port.glob('*'))]:
         if path.is_file(): receipt['inputs'][str(path.relative_to(ROOT))] = sha(path)
     if not args.resume:
         total = 0
@@ -271,7 +274,7 @@ try:
                    'target-archive-tools.patch', 'repatch-llint-includes.patch', 'jsc-math-provider.patch']
         if args.experimental_signal_context:
             patches.extend(('srvros-signal-context.patch', 'signal-stack-bounds.patch',
-                            'signal-machine-context.patch', 'signal-retirement.patch'))
+                            'signal-machine-context.patch', 'signal-retirement.patch', 'random-entropy.patch'))
         for name in patches:
             command('patch-' + name, ['patch','--batch','--fuzz=0','-p1','-d',source,'-i',port/name])
         state = {'patches': {name: sha(port/name) for name in patches},
@@ -420,9 +423,11 @@ try:
                 state['source_sha256'] = source_digest()
                 state_path.write_text(json.dumps(state, indent=2) + '\n')
     receipt['source_state'] = state
+    if 'random-entropy.patch' in state['patches']:
+        receipt['random_contract'] = verify_random_contract(ROOT, source)
     if args.experimental_signal_context and not all(name in state['patches'] for name in
             ('srvros-signal-context.patch', 'signal-stack-bounds.patch', 'signal-machine-context.patch',
-             'signal-retirement.patch')):
+             'signal-retirement.patch', 'random-entropy.patch')):
         raise RuntimeError('retained run lacks the experimental overlay; use explicit --add-patch or start a fresh run')
     receipt['experimental_signal_context'] = 'srvros-signal-context.patch' in state['patches']
     if state.get('last_runtime_transition'):
@@ -503,6 +508,8 @@ try:
             (build / 'lib' / name).unlink(missing_ok=True)
         (build / 'bin/jsc').unlink(missing_ok=True)
     command('build-jsc', ['cmake','--build',build,'--target','jsc','--parallel','2', *(['--', '-k', '10'] if args.keep_going else [])])
+    if 'random-entropy.patch' in state['patches'] and verify_random_contract(ROOT, source) != receipt['random_contract']:
+        raise RuntimeError('random ABI contract or source revision changed during build')
     actual_source = source_digest()
     if actual_source != state['source_sha256']:
         raise RuntimeError('source tree changed during build')
