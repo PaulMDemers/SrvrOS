@@ -12,43 +12,42 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v121 `285dad07e7a14417`, runtime `128c25b0`, on main
-`845f703c`, accepts matching session `session-00065f785b60016f-00`:15719
-operations and2004737 complete prefix bytes. The full v120 parent and101 new
-operations pass fresh5GHz admission/IBI9 effect/raw restoration, all five fixed
-R0/VCO161/FULL901/LC1/RXDCOC1 replies and timing, eight retained receive
-completions with seven decoded beacon/probe-response observations, MAC drain/
-disable/filter/TXOP restoration, exact endpoint cessation and inverse selected
-originals. One management observation is unsupported and is not counted as a
-beacon. The bounded window lasts190863us; it is not sustained receive/endurance.
-Observations can repeat APs; distinct AP count and Demers5 identity were not
-recorded. No analog-quality,authentication,network TX or IP acceptance follows.
-Offline USB fsck/allocation, installed recovery bytes and automatic Ubuntu
-return pass. The197-file sealed native capsule and separate accepted notes
-survive outside build. Workspace unmounted, Ubuntu default, unarmed.
-Prior v120 `019299c5a721fcda`/`e2bf7e3b` retains its1991045-byte/15618-operation
-selected-channel VCO/restoration acceptance and215-file capsule. Prior v119
-`ace4b3dcaa85e353`/`11689cfa` retains its1520120-byte/11774-operation common VCO
-acceptance and208-file capsule. The first v1213732593a failure remains failed
-and independently preserved; it does not inherit the corrected retry's result.
+Latest accepted native v122 `27a82f0daa89a62f`, runtime `bec108a3`, main
+`5f4f6fc6`, session `session-00065f7b53eeb5b0-00`, passes the full2007868-byte /
+15719-operation calibration/stopped retained RX/inverse-original parent and
+private unique Demers5 selection with a validated22-byte PSK/CCMP RSNE. Its
+213-file native capsule and58-file accepted notes survive outside build.
+No management/data OUT,authentication,keys,IP or data transfer was exercised.
 
-Prior v118 `62e3a5325065719e`/`4dd9cfd5`, session
-`session-00065f6a45979c71-00`, remains accepted for its1510049-byte/11669-operation
-fresh-trim/common DAC command and reset-word contract; its157-file capsule and
-separate accepted notes remain intact. Prior v117 `2a03a519eac62cbf`/`1fe64aac`,
-session `session-00065f693a903b08-00`, retains its1501530-byte/11578-operation
-fresh-trim/held-channel acceptance and154-file capsule.
+The first v123 power run `d105a5d22539cf69` / `13c08048`, session
+`session-00065f7e79f7528c-00`, FAILED CFG7 readback. All1868538 exit bytes and
+521-file failure capsule are preserved. Storage/recovery and automatic Ubuntu
+return passed;power/RF original restoration did not. That failure remains failed.
 
-Next: private5GHz discovery/cache and Demers5 identity selection using the
-verified selected-channel/calibration/receive contract, then live rescan/reattach,
-authentication/key lifecycle, network TX and DHCP/DNS/IP data with clean
-disconnect. Anonymous7-observation success is not a selectable network list or
-connection readiness. Actual runtime uses main845f703c; fetched5f670602's newer
-independent work is not integrated or native accepted here. Cold adapter unplug
-remains required for another physical trial; use shutdown under standing
-authority. Ordinary startup leaves radio diagnostics disabled. The separate bc
-VM allocation anomaly stays unaccepted. AP credentials remain unused;
-Demers2.4 requires compatible hardware. No new boot armed.
+Corrected v123 candidate `19e990a096e6209d`, runtime `25bf7bb2`,
+consumes actual main `d10a4e10`, Ports `cecd59c5`, Apps `f90cb7e6` and Widgets
+`3a695ce5`. It is installed with Ubuntu default and known-good e47d recovery
+previous,unarmed at this checkpoint. Full merged build/core/file-stream/exFAT-
+stream/profile-stream/docs qualification,fatal focused ASan/UBSan,matched169
+Wi-Fi callers,ordinary desktop VM,exact GPT save/return and missing-workspace
+VMs,complete synthetic parent/power proof,eight whole-prefix refusals and fresh
+2MiB real filesystem write/read/remount/fsck pass. This is qualification only;
+new native power acceptance is pending. Detailed result and current local run
+record are retained outside build. The previous large FAILED session was
+verified against its sealed failure collection,independently archived,then its
+generated USB log copy was pruned before another collection.
+
+Next: cold power/readback/reverse-original retry,then explicit fresh RX-context
+handoff and management association,strict-entropy WPA2/MIC/replay/key/PN lifecycle,
+authenticated bidirectional IP/data and clean disconnect. Demers2.4 requires
+compatible hardware;the current Edimax model is5GHz-only. Credentials remain
+unread/unpackaged. Live reattach and connection UI remain pending. Ordinary
+startup leaves radio diagnostics disabled. Cold unplug remains necessary:under
+standing user authority,shutdown when qualified,unplug only Wi-Fi10seconds while
+off,reconnect same port,power on,leave workspace attached. Collect the exact
+new session first after Ubuntu return. No commands,photos or repeat approval.
+
+## Earlier checkpoints
 
 Previous native v116 `466528fc7669566e`, runtime `c3088243`, main `1dad02c2`,
 passes the complete1063627-byte prefix in matching session
@@ -12813,7 +12812,7 @@ and explicit RX-context handoff remain open;Wi-Fi credentials are still unread.
 
 
 Integrated reviewed maind10a4e10 with exact upstream pins,then restored published
-local module merges:Portscecd59c5 and Apps643da993 (Widgets3a695ce5 unchanged).
+local module merges:Portscecd59c5 and Apps643da99a (Widgets3a695ce5 unchanged).
 The root merge used explicit final upstream pins after Git's history lookup
 requested an unavailable intermediate port object;local module branches and
 all logging/Wi-Fi changes were retained. Wi-Fi call169 now leaves the reserved
@@ -12830,3 +12829,35 @@ Actual-child modeled tests pass every selected-word mismatch with exact prefix
 restoration,uncertain cleanup I/O,202 normal I/O failure positions,614 ownership
 boundaries,busy/timeout and malformed cleanup-state refusals. Broader merged
 qualification and a new cold retry remain pending;no new power acceptance.
+
+### Corrected v123 qualified and installed (November 4)
+
+Runtime `25bf7bb2` stages `19e990a096e6209d` with the captured MT7610-specific
+CFG7/CFG9 packing correction and unchanged full32-bit selected readback checks.
+Completed semantic mismatches permit only exact guarded dirty-prefix reverse
+restoration;uncertain USB/guards/removal/restoration still quarantine. The full
+merged suite passes across source-checked resumed prerequisites,including streaming manager/syscall/process/cleanup,
+fragmented real exFAT streaming/profile cases and all remaining core targets.
+Four completed exhaustive radio sweeps are retained only after whole tracked
+radio/tool/lib input and binary equality checks;the changed app and remaining
+suite rerun. Three preceding failed host qualification attempts are preserved:main's compact
+exFAT streaming guards triggered GCC misleading-indentation errors,and its new
+fixture enabled POSIX features too late and had similar statement formatting.
+The Profiles UI also required the same statement separation for GCC. The
+committed fixes separate statements and enable POSIX APIs before system
+headers,without changing runtime stream behavior or weakening warnings.
+
+The synthetic whole prefix has2022067bytes with
+75085bytes total capture headroom,and all eight malformed
+whole-prefix cases refuse. The matched native compiler's maximum selected new/
+parent frame is616bytes. Exact source/kernel and
+independent normal-plus-firmware initramfs bytes match;library and linked System
+Wi-Fi calls emit169,file-stream emits168. Native power remains unaccepted until
+the saved retry passes the frozen full-parent checker and offline/recovery checks.
+
+Known-good e47d recovery,accepted v122 and failed/accepted v121 copies remain
+installed/backed up. The failed v123 payload is independently retained as well.
+Any older unreferenced EFI retirement is recorded with seal and full-byte equality
+before deletion of that EFI copy;independent native backups survive distclean.
+The current run record owns exact install/recovery/reboot state. Shutdown is
+already authorized when the final run record and recovery checks are sealed.
