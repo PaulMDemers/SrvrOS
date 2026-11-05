@@ -415,9 +415,14 @@ def main():
                         exit_log=stored.read(folder+"/exit.log").decode()
                         result=firmware_result(exit_log)
                         assert result and result['status']=='REFUSED' and result['source_status']==2
-                        assert 'hsw-firmware-progress: exact Air6,1' in exit_log
                         assert 'laptop-capture: completed=NO' in exit_log
-                        if manifest['config_version'].startswith('ram-usb-v2-hfw-'): assert 'hsw-cache: v=1 status=2 samples=0' in exit_log
+                        if manifest['config_version'].startswith('ram-usb-v2-hfw-'):
+                            from hardware_haswell_cache import cache_result
+                            cache=cache_result(exit_log)
+                            assert cache and cache['status']=='REFUSED' and cache['source_status']==2
+                            assert 'hsw-cache-progress: read-only Air6,1 CPU/cache and page-table RAM' in exit_log
+                        else:
+                            assert 'hsw-firmware-progress: exact Air6,1' in exit_log
                     if hsw_capture:
                         exit_log=stored.read(folder+"/exit.log").decode()
                         from hardware_haswell_backing import backing_result
