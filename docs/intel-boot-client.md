@@ -14,7 +14,7 @@ replace inherited translations.
 | Blocked (3) | Neither; used by the independent Haswell capture paths |
 | Unselected (0) | Neither; fail closed before a participating initializer |
 
-Selection succeeds once. A claim copies PCI BDF, vendor/device, revision,
+Selection succeeds once. A claim copies the enumerated PCI descriptor: BDF, vendor/device, revision,
 class/subclass/interface, header type and all six BAR values. Repeated claims
 must match both the selected client and that snapshot. Unknown clients, changed
 resources, foreign devices and policy changes refuse. Production has no release,
@@ -45,7 +45,7 @@ host/VM evidence alone is insufficient. Old releases keep their older readout
 acceptance only.
 
 This claim does **not** exclude firmware/SMM, console framebuffer writers,
-display HDA, GT engines, device DMA or another adapter's direct accesses. It
+backlight control, display HDA, GT engines, device DMA or another adapter's direct accesses. It
 does not pin private RAM, change PAT/MTRRs, encode/invalidate GGTT entries or
 grant a native `scanout_space` range. It sets none of those assurances. Actual
 handoff/admission must establish them separately before enabling a writer.
@@ -63,3 +63,24 @@ counters: forbidden policies, resource mutations, repeated/reentrant calls and
 each partial-map failure. Actual Air adapter tests exercise competing policies
 and cleanup after identity changes. Host tests use disposable boot state
 directly; production exports no reset function.
+
+## Validation checkpoint
+
+The full local host/core/profile/docs/build gate passes at `cb12a868`, including
+89 installation tests with one expected opt-in skip. Final `c0e03eb9` adds only a
+read-only console recovery diagnostic and its host/VM tests: kernel, ABI, libc,
+installer and drivers are unchanged. That full baseline is retained explicitly;
+new matched builds, actual-producer/claim/observer sanitizers, two compiled
+negative controls and251 collector/staging tests pass at the final source.
+
+The prior one-shot console assertion could run after a supervisor was reaped but
+before its scoped compositor had retired. `guifail --console-unmuted-wait` now
+observes the real mute state for at most200 ticks, with a finite poll cap and
+explicit clock/query/sleep errors. It never mutes/unmutes or acquires a presenter.
+The VirtIO trial starts one probe while the desktop is live/muted, then kills its
+supervisor through the monitor; the shell supplies argument-capable background
+execution. It measures4 ticks /3 polls and passes all five presenter acquisitions.
+The actual producer's host tests include delayed/boundary recovery, timeout,
+negative state queries and frozen/backward clocks. An error is never printed as
+console-muted=0. These results accept the diagnostic and VM lifecycle checks,
+not native GPU ownership. Native boot-client observation remains pending.

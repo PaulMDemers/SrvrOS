@@ -2,28 +2,54 @@
 
 Updated: 2026-11-05. State: **active reference machine; partial device acceptance**.
 
-### Active scope: boot-client exclusion before native ownership admission
+### Active scope: boot-client exclusion implemented; native readout prepared
 
-Main `88bdc382` is integrated as `28b17462`, retaining the Intel capture paths,
-Air6,1 cache-context diagnostic, scope-owner cancellation and current signal/
-streaming/browser changes. Open PR301 owns this Air's scanout foundation; PR19
-owns Pro Wi-Fi. Native acceptance remains attached to the receipts below.
+Main `88bdc382` is integrated through `28b17462`, retaining Air7,2 capture and
+scope-owner cancellation, Air6,1 cache-context diagnostics and current signal/
+streaming/browser changes. The [Intel boot-client contract](../intel-boot-client.md)
+now selects an immutable policy before initialization, binds one participating
+client to the enumerated PCI identity/resources and refuses competing legacy
+initialization before PCI writes or writable mappings. Repeated/reentrant init
+does not duplicate I/O; failed partial maps retain the claim. Air observer
+access rechecks it while cleanup remains possible after an identity mismatch.
+Haswell captures block the legacy initializer without acquiring an Air claim.
 
-Bounded next implementation: select a single immutable Intel boot-client policy
-before initialization, then bind its sole claim to the discovered PCI identity
-and resources. The legacy initializer must refuse before PCI writes or writable
-MMIO maps when the observer policy is selected; repeated initialization must
-not reset or duplicate its resources. Every Air observer access rechecks its
-claim, while cleanup remains possible after a refusal. Haswell captures block
-the legacy initializer without claiming Air7,2 ownership. Touches a new boot-
-claim mechanism, main policy selection, Intel legacy/observer adapters, tests
-and documentation. No HDA/firmware exclusion, native managed GGTT interval,
-PTE writer, hardware takeover or page-flip authority is inferred from this
-software claim. All16 observed entries remain protected as populated state.
+Code `c0e03eb9` is staged/installed as `d520f364934fb08d` for a no-input native
+boot-policy/client readout plus complete GGTT/cache/backing preservation. The
+claim sets no firmware/HDA/GT-reader assurance and grants no managed GGTT range.
+All16 observed populated entries remain protected. Actual native hardware
+ownership, private mapping writes and page flips remain unimplemented/unaccepted.
 
-Host side-effect/fault coverage and source-matched VM checks precede any future
-physical trial. Installed native remains collected0e1 with recovery9aa; no
-reboot is armed. Accepted evidence/payloads remain outside build cleanup.
+The full host/core/profile/docs and normal/AP/native/synthetic build gate passes
+at `cb12a868`, including89 installer tests (one expected opt-in skip). Integration
+repairs retain both cache suites and correct GCC fixture qualifications,
+missing declarations, explicit-XMM helper targets and legacy-signal harness
+binding; they do not disable public signal support in the OS. Subsequent changes
+are limited to the read-only console probe, its tests and appended test target;
+kernel/ABI/libc/driver/installer code is unchanged and the baseline receipt is
+explicitly retained. Fresh matched builds, producer/claim/observer ASan/UBSan,
+two detected compiled negative controls and251 collector/staging tests pass.
+
+Exact-image Q35 capture/refusal, saved return, missing-workspace visible halt,
+DMA/lifetime/Haswell3/firmware-only/cache-context recipes pass. VirtIO passes
+five presenter acquisitions, drag/scroll and compositor/supervisor recovery.
+The old one-shot assertion raced asynchronous child retirement after supervisor
+exit. A read-only bounded probe now checks actual unmuting without forcing it;
+a live-muted supervisor trial measures4 guest ticks /3 polls (about40ms), under
+a200-tick limit. Query errors, deadline, clock rollback/stall and sleep errors
+fail producer tests. Earlier failed/aborted attempts remain preserved.
+
+Preparation verifies1,333 existing USB files /99 sessions, exact local firmware/
+GPU/CPU/USB, offline fsck/allocation/writable/headroom and Ubuntu default.
+Inactive46b was archived/hash-verified before removing only its EFI copy for
+space. Recovery9aa, previous0e1, earlier07df/5346, shadowd79 and known-goodc497
+remain verified. The automatic run requires no input: saved/unmounted outcomes
+return to Ubuntu; persistence failure visibly halts. Volume1%, guest audio off.
+Evidence/checkpoints: `build/air-boot-claim-20261105/` and
+`build/air-claim-native-20261105/`, independently backed up before arming. The
+run record controls actual reboot state; collect its matching session first.
+Native boot-client acceptance is pending. Next is an explicit hardware/reader
+handoff and managed range, not treating a software claim as native authority.
 
 ### Native aperture and candidate-entry observation accepted
 
