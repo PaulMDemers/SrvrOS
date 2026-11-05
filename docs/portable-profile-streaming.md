@@ -1,6 +1,9 @@
-# Portable streaming bundle v2 — implementation contract (in progress)
+# Portable streaming bundle v2 — qualified contract
 
-This is the in-progress implementation contract, not an acceptance claim.
+This contract is qualified by the source-matched 31-guest proof at `0e2bac73`,
+with independently native-qualified core trees from `9f5816a5`. The
+[evidence manifest](assets/screenshots/profile-stream-manifest.json) records exact
+pins, hashes, separate memory measures and acceptance limits.
 
 **Runtime prerequisite discovered before VM qualification:** the existing guest
 ordinary descriptor path snapshots complete files in the kernel and refuses
@@ -8,8 +11,8 @@ writes above 16 MiB. A real `process.c` host reproduction reaches 16 MiB in
 64 KiB writes, then returns `SRV_ERR_FBIG` on the next byte. Legacy native append
 also reads and joins the complete file. The implementation now uses a separate
 opt-in bounded range-I/O path, described below. Native backend, manager, syscall
-and consumer checks pass; source-matched guest qualification remains pending.
-Independent runtime/filesystem qualification is separate. Raising the
+and consumer checks pass; source-matched guest transfer/recovery qualification
+also passes. Native allocation and guest mapped-memory evidence remain distinct. Raising the
 ordinary cap or relying only on userspace high-water evidence is insufficient.
 Authentication and permission enforcement remain separate.
 
@@ -209,4 +212,10 @@ The syscall owns at most one 65,536-byte transient payload copy. Existing block
 batching is capped at 16,384 bytes; AHCI uses its fixed page-sized DMA buffers.
 Existing filesystem metadata and block/read caches are separate allocations.
 No constant-memory claim is made for the whole kernel. Actual guest mapped
-high-water measurements and complete transfers/recovery remain release gates.
+high-water peaks are 2,396,160 bytes for the small/16 MiB/64 MiB previews and
+64 MiB export, and 2,461,696 bytes for import: 65,536 bytes growth. Complete
+transfer/recovery, exact content and 96 compressed-image readbacks pass in the
+31-guest disposable proof. The 64 MiB boundary consists of four 16 MiB files.
+Canonical offline installation export/recovery stays v1-only; offline v2 remains
+deferred. External runtime-owner peer acceptance and Linux exfatprogs conformance
+are not claimed by this local native/guest qualification.

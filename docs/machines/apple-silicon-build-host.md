@@ -1,75 +1,61 @@
 # Apple Silicon macOS build host
 
-## Larger-document migration — native and focused VM qualification
+## Larger-document migration — qualified closeout November 4, 2026
 
-The current bounded target is larger-document portable migration, preserving v1
-and verifying transfer/recovery between two disposable installations. Draft
-[Apps11](https://github.com/PaulMDemers/SrvrApps/pull/11) precedes
-[OS367](https://github.com/PaulMDemers/SrvrOS/pull/367). The user has authorized
-finishing verification, merging the current non-browser work and updating its
-records; this is not permission to skip the remaining full proof or start a new
-account/authentication milestone.
+The bounded Apps11 → OS367 milestone passes its required native, matched-build,
+31-guest transfer/recovery, independent content/rendered and durable-backup gates.
+The [current profile guide](../portable-profiles.md) and
+[evidence manifest](../assets/screenshots/profile-stream-manifest.json) distinguish
+guest v2 streaming from canonical offline installation export/recovery v1.
+Offline v2 admission/export remains deferred. Authentication and permission
+enforcement remain separate; no follow-on account milestone is started.
 
-The [streaming contract](../portable-profile-streaming.md) defines v2 framing,
-16 MiB per document, 64 MiB combined, 64 selected files and 64 KiB payload I/O.
-Existing v1 bytes, caps, default CLI export and creation remain compatible.
-Profiles chooses the format automatically and displays the compatibility
-requirement before confirmation. Import reuses the existing journal, including
-recovery from a durable partial copy. Native installer/offline installation
-export remain v1-only in this milestone. Authentication and permission
-enforcement remain separate.
+Production core is independently native-qualified at `9f5816a5`. Necessary
+syscall168 supplies process-owned opaque bounded stream handles without raising
+the ordinary 16 MiB buffered-write cap. Kernel/shared/userspace trees are exact
+matches at full qualified source `0e2bac73`, which incorporates actual main
+`3e327513` after Ports12/OS370 and PR366. Pins: Apps `24bc4541`, UI `3a695ce5`,
+Ports `6ff5edad`. The real matched build passes in 46.67 seconds; kernel and eight
+core/application ELF hashes match the previous qualified baseline. Only the
+expected merged-port/data changes affect initramfs/exFAT payloads.
 
-A necessary opt-in runtime prerequisite is implemented and independently native
-qualified at `9f5816a5`. Ordinary buffered writes keep their 16 MiB cap; their
-read-open payload snapshots also remain unchanged. The new syscall168 uses
-process-owned opaque stream handles, bounded range reads and append-only new
-output, checked durability, namespace conflict guards and lifecycle cleanup.
-Native actual-source manager/syscall/process/backend tests and selected
-ASan/UBSan checks pass. The 67,174,424-byte backend round trip includes
-fragmented/unaligned I/O, low-space refusal and injected write/flush failures.
-At 64 KiB geometry, incremental tracked backend allocation is 208,896 bytes;
-metadata/cache allocations and guest mapped high-water are separate measures.
-The Linux exfatprogs hardening/append suites remain unrun on this host. External
-runtime-owner peer acceptance remains unverified; local independent review and
-native qualification do not imply that external signoff.
+The normal clone `/Volumes/SrvrOSProfileStream/SrvrOS` uses the owned regular
+18 GiB APFS backing image under
+`/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109`. Full proof
+`build/review/profile-stream/proof-ybopi3tu` passes 31 sequential 1 GiB, one-CPU,
+no-NIC guest lifetimes. Total watched gate: 2878.96 seconds; sampled whole-group
+peak RSS 3,558,211,584 bytes; owned process group empty at completion. This is
+host resource accounting, not guest profile-memory evidence. Actual guest mapped
+peak is 2,461,696 bytes, growth 65,536 bytes from the small workload, including
+64 MiB total export/import across four 16 MiB documents. Native engine allocation
+and backend metadata/payload accounting remain separately recorded.
 
-A real matched build passed in the isolated normal clone
-`/Volumes/SrvrOSProfileStream/SrvrOS`, backed by the owned 18 GiB APFS image under
-`/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109`. Test-only followups through
-`0d8cdfad` preserve all kernel/shared/userspace/ports trees and three payload
-hashes. Pins are Apps `24bc4541`, UI `3a695ce5`, Ports `fc51ddb4`; the final full
-candidate will first incorporate the completed non-browser main baseline.
+All seven interrupted-import checkpoints, low-space refusal/journal recovery,
+v1 compatibility, both host/guest interoperability directions, unchanged-input
+protections, remembered B startup, Text/Preview readback and 640×480 workflow pass.
+Independent content audit passes; 96 compressed image streams and 14 captured
+rendered views are verified. Root's independent nine-view review and both
+conversion receipts are retained with the accepted proof. Linux exfatprogs
+hardening/append suites are unrun on this macOS host; external runtime-owner peer
+acceptance remains unverified. Local independent native and real guest evidence
+are the recorded acceptance, with no physical-device or arbitrary power-cut claim.
 
-The first full proof, `build/review/profile-stream/proof-wf_5uifj`, stopped at
-its eighth guest because the changed-bundle fixture tried to open an existing
-19,137,265-byte bundle through the ordinary buffered-write wrapper. That wrapper
-checks the old file size before truncation and correctly refused. The failed
-receipt and raw images remain intact; later checkpoints and memory workloads
-were not run. The fixture now metadata-renames the reviewed v2 bundle, creates a
-valid v1 replacement at the original path and checks each guest command's exit.
+The first full run `proof-wf_5uifj` remains FAILED: its test mutation opened an
+existing 19 MB bundle through ordinary buffered writes, correctly refused at
+the existing cap before truncation. Corrected focused and full fixtures preserve
+the original by metadata rename, replace it with valid v1 and visibly receive
+`profile: bundle changed since review`. Original failed/raw images were never
+modified, deleted or repaired by closeout.
 
-The focused corrected check passed in 140.94 seconds with one 1 GiB guest and
-sampled whole-owned-group peak RSS 1,223,376,896 bytes. The settled UI visibly
-reports `profile: bundle changed since review`. Independent readback confirms
-original v2 preservation, exact valid-v1 replacement, unchanged receiver
-namespace/file bytes except permitted atime and known service-log appends, and
-unchanged protected regions. All seven compressed evidence streams were
-independently restored and hashed. This is focused refusal qualification, not
-full migration or guest-memory acceptance. Its 25-file evidence packet is
-readback-verified outside the build tree at
-`/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109/narrow-changed-review-0d8cdfad`.
-All owned jobs stopped and their process group is empty.
-
-The remaining gate is the source-matched integrated build, full 31-guest serial
-transfer/recovery proof, actual small/16 MiB/64 MiB guest mapped measurements,
-independent rendered/content/storage audit and durable final evidence backup.
-The reviewed supervisor includes build, hashing, VMs and archive audit in one
-watched process group. Run only after the fresh coordinated resource handoff;
-stop and retain evidence on the first failure, reserve breach or deadline.
-Original accepted static build and session-audit device/inode/time/hash records
-remain unchanged. The three historical review VM PIDs are now absent with no
-established cause; their original disk paths/evidence remain retained, and no
-restart is requested.
+The complete accepted and failed evidence survives build cleanup in
+`/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109/final-evidence-9eif7dh7/`.
+Its 1,032,274,981-byte archive has 626 independently read-back member hashes and
+SHA256 `df99dcf8590d02147009570b4f25bf1750340a9b8de42abee4bba14f0d1be34a`.
+Closed content/backup guard receipts are separately copied and readback-verified
+beside it. All task-owned heavy jobs are stopped and the resource slot released.
+Original accepted static build/session audit records remain unchanged. The three
+historical review VM PIDs are absent with unknown cause; their original paths
+and evidence are retained and no restart is requested.
 
 ## PR366 offline GUID selector — closeout November 4, 2026
 
