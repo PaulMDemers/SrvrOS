@@ -23,6 +23,8 @@ enum mt76_power5_status mt76_power5_fields(const uint8_t *,size_t,uint64_t,struc
  * rate-power arithmetic,ceiling<=15dBm,no invalid-data fallback. Unrepresentable
  * signed6 deltas refuse instead of wrapping upward. Preserves ALC high bits
  * through explicit mask;remaining eight words are fixed rate-power registers.
+ * MT7610-specific CFG7/CFG9 reserved VHT positions are zero;VHT8/9
+ * belongs only in CFG8. Readback is still exact across the full word.
  * No I/O,caller-selected address,power measurement or analog-quality claim. */
 enum mt76_power5_status mt76_power5_plan(const struct mt76_power5_fields *,
  const uint8_t country[2],unsigned channel,unsigned bandwidth,unsigned limit_half_dbm,

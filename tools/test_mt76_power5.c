@@ -11,7 +11,7 @@ int main(void){
  struct mt76_power5_fields f=fields(),saved=f;struct mt76_power5_plan p;
  assert(plan(&f,30,&p)==MT76_POWER5_OK && p.valid && p.generation==1 && p.factory_base==19 && p.maximum_half_dbm==28);
  const uint32_t address[]={0x13b0,0x1314,0x1318,0x131c,0x1320,0x1324,0x13d4,0x13d8,0x13dc};
- const uint32_t values[]={0x1313,0x04050201,0x06070004,0x00000203,0x06070000,0x00000203,0x08020900,0x08090000,0x08090002};
+ const uint32_t values[]={0x1313,0x04050201,0x06070004,0x00000203,0x06070000,0x00000203,0x00020000,0x08090000,0x00000002};
  for(unsigned i=0;i<9;i++)assert(p.write[i].address==address[i] && p.write[i].value==values[i] && p.write[i].mask==(i?UINT32_MAX:0x3f3f));
  assert(((0x2f2f1b1b&~p.write[0].mask)|p.write[0].value)==0x2f2f1313 && !memcmp(&f,&saved,sizeof f));
  unsigned cases=0;
@@ -27,6 +27,13 @@ int main(void){
    int value=decode(p.write[i].value>>(8*b));assert(value>=-32 && value<=31);
   }}cases++;
  }
+ /* Captured v123 failure: shared x02 duplicated VHT -4 in CFG7,
+  * but MT7610 returned only the documented OFDM54/HT7 fields. */
+ f=fields();f.cck=0;f.ht_lo=0x0202;f.ht_hi=0x3e02;f.vht=0x3c3c;
+ assert(plan(&f,30,&p)==MT76_POWER5_OK);
+ assert(p.write[6].value==0x003e0000 && p.write[7].value==0x3c3c0000 && p.write[8].value==0x3e);
+ assert((0x3c3e3c00u&0x003f003fu)==p.write[6].value && p.write[6].value!=0x3c3e3c00);
+ for(unsigned i=6;i<9;i++)assert(p.write[i].mask==UINT32_MAX); /* exact readbacks stay */
  f=fields();
  for(unsigned field=0;field<3;field++)for(unsigned bit=0;bit<16;bit++){
   f=fields();if(field==0)f.chip^=1u<<bit;if(field==1)f.nic0^=1u<<bit;if(field==2)f.nic1^=1u<<bit;

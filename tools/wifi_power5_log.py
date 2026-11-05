@@ -23,7 +23,7 @@ def plan(f):
  rates[28:]=[signed(f['vht']),signed(f['vht']>>8)]
  clipped=[min(base+x,30) for x in rates];relative=[x-base for x in clipped]
  require(all(-32<=x<=31 for x in relative),'unrepresentable power adjustment')
- selectors=((0,2,4,6),(8,10,12,14),(16,18,20,22),(24,26,12,14),(16,18,None,None),(11,28,19,29),(26,None,28,29),(19,None,28,29))
+ selectors=((0,2,4,6),(8,10,12,14),(16,18,20,22),(24,26,12,14),(16,18,None,None),(11,None,19,None),(26,None,28,29),(19,None,None,None))
  words=[base|(base<<8)]
  for row in selectors:words.append(sum(((relative[i]&63) if i is not None else 0)<<(8*j) for j,i in enumerate(row)))
  return base,max([0]+clipped),words

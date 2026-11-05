@@ -39,8 +39,12 @@ enum mt76_power5_status mt76_power5_plan(const struct mt76_power5_fields *f,
  p.write[3].value=pack(rates[16],rates[18],rates[20],rates[22]);
  p.write[4].value=pack(rates[24],rates[26],rates[12],rates[14]);
  p.write[5].value=pack(rates[16],rates[18],0,0);
- p.write[6].value=pack(rates[11],rates[28],rates[19],rates[29]);
+ /* MT7610 CFG7 contains OFDM54 and HT7 only;the shared x02
+  * writer also fills x2 VHT bytes which this chip reads back as zero.
+  * MT76x0_WriteNewPerRatePwr/AsicExtraPowerOverMAC place VHT8/9
+  * solely in CFG8. Program reserved positions as zero,not masked success. */
+ p.write[6].value=pack(rates[11],0,rates[19],0);
  p.write[7].value=pack(rates[26],0,rates[28],rates[29]);
- p.write[8].value=pack(rates[19],0,rates[28],rates[29]);
+ p.write[8].value=pack(rates[19],0,0,0);
  *out=p;scrub(rates,sizeof rates);scrub(&p,sizeof p);return MT76_POWER5_OK;
 }
