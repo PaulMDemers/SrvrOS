@@ -7370,3 +7370,13 @@ as unproved; full raw receipt, malformed/changed/refused inputs, two absent VAs,
 external claims, leaf corruption, WP and UC-minus/WC/overlap refusal tests cover it.
 Next is bounded read-only relevant-root/alias and NX-state diagnostics with
 explicit completeness/refusal. Existing limits and hardware grants stay unchanged.
+
+Source `996fc363` passes `make test-haswell-firmware test-haswell-cache-context
+test-x86-cache check-docs`, including six new admission regressions and the
+existing actual firmware/cache adapters, raw decoders, RAM walker and architectural
+cache matrix. The accepted21,839-byte native receipt replays as
+`HOST_ADMISSION_AUDIT_BLOCKED`: its two absent candidate VAs and UC encoding
+observation leave every live resource/alias/NX/leaf/retirement grant false.
+Audited source/reference hashes, replay output and local test logs are retained
+with a durable copy outside build. No payload installation or physical result
+changes; previous capture remains closed and no reboot is armed.
