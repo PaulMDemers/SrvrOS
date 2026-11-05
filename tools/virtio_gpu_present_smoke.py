@@ -142,13 +142,16 @@ def main():
                     time.sleep(1)
                     serial.sendall(b"kill "+pid+b"\n");wait(b"kill: requested process stop")
                     wait_since(b"bg: pid="+supervisor+b" exited status=", crash_start)
-                    serial.sendall(b"run /fat/bin/guifail --console-muted\n")
-                    wait(b"guifail: console-muted=0");wait(b"srv> ")
+                    # A dead supervisor revokes its tree asynchronously. Its
+                    # reap receipt is not the compositor's retirement receipt.
+                    # Query the real mute state without forcing restoration.
+                    serial.sendall(b"run /fat/bin/guifail --console-unmuted-wait\n")
+                    wait(b"guifail: console-muted=0");wait(b"guifail: console-recovery ticks=");wait(b"srv> ")
                     serial.sendall(b"echo virtio-present-console-ok\n")
                     wait(b"\nvirtio-present-console-ok\r\n");wait(b"srv> ")
                     shot("console-after-kill-"+victim, min_colors=2)
                     killed_sessions.append({"victim":victim,"supervisor":int(supervisor),
-                                            "compositor":int(root[2]),"console_muted":False})
+                                            "compositor":int(root[2]),"console_muted":False,"recovery_limit_ticks":200})
                 restart_start=len(output)
                 serial.sendall(b"run /fat/bin/deskd --smoke\n")
                 wait(b"deskd: ready;");wait_since(b"deskd: gfx-present begin", restart_start)

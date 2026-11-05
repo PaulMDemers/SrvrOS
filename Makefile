@@ -4887,3 +4887,11 @@ test-intel-boot-claim: build/tests/intel-boot-claim$(HOST_EXE)
 build/tests/intel-boot-claim$(HOST_EXE): tools/test_intel_boot_claim.c kernel/src/intel_boot_claim.c kernel/src/drivers/intel_gfx.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-console-recovery
+test-core: test-console-recovery
+test-console-recovery: build/tests/console-recovery$(HOST_EXE)
+	$<
+build/tests/console-recovery$(HOST_EXE): tools/test_console_recovery.c userspace/guifail/guifail.c $(USER_SYSROOT_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -ffreestanding -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I userspace/lib/include $< -Wl,--gc-sections -o $@

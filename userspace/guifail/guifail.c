@@ -46,6 +46,37 @@ static void print_u64(uint64_t value) {
     }
 }
 
+/* Observe asynchronous presenter retirement; never change mute state. Keep a
+ * finite poll cap as well as a tick deadline so a frozen clock cannot pass. */
+static int console_recovery_probe(int wait) {
+    uint64_t start=0,last=0;
+    if(wait) {
+        long tick=srv_ticks();
+        if(tick<0){srv_puts("guifail: console-query-error clock\n");return 2;}
+        start=last=(uint64_t)tick;
+    }
+    for(unsigned poll=0;poll<=200;poll++) {
+        uint64_t elapsed=0;
+        if(wait) {
+            long tick=srv_ticks();
+            if(tick<0 || (uint64_t)tick<last){srv_puts("guifail: console-query-error clock\n");return 2;}
+            last=(uint64_t)tick;elapsed=last-start;
+            if(elapsed>200){srv_puts("guifail: console-recovery-timeout\n");return 1;}
+        }
+        int muted=gfx_console_muted();
+        if(muted<0){srv_puts("guifail: console-query-error state\n");return 2;}
+        if(!muted || !wait) {
+            srv_puts("guifail: console-muted=");print_u64(muted?1:0);srv_puts("\n");
+            if(wait){srv_puts("guifail: console-recovery ticks=");print_u64(elapsed);srv_puts(" polls=");print_u64(poll+1);srv_puts("\n");}
+            return muted?1:0;
+        }
+        if(elapsed==200){srv_puts("guifail: console-recovery-timeout\n");return 1;}
+        if(poll==200){srv_puts("guifail: console-query-error stalled-clock\n");return 2;}
+        if(srv_sleep_ticks(1)<0){srv_puts("guifail: console-query-error sleep\n");return 2;}
+    }
+    return 2;
+}
+
 static void draw_app(struct gui2_window *window, const char *mode) {
     const struct gui2_theme *theme = gui2_theme_default();
     gui2_clear(window, theme->canvas);
@@ -96,17 +127,15 @@ int main(int argc, char **argv) {
             mode = "FAULT";
         } else if (streq(argv[i], "--console-muted")) {
             console_probe = 1;
+        } else if (streq(argv[i], "--console-unmuted-wait")) {
+            console_probe = 2;
         } else if (streq(argv[i], "--exit-code") && i + 1 < argc) {
             exit_code = parse_u64(argv[++i], exit_code);
         }
     }
 
     if (console_probe) {
-        int muted = gfx_console_muted();
-        srv_puts("guifail: console-muted=");
-        print_u64(muted > 0 ? 1 : 0);
-        srv_puts("\n");
-        return muted > 0 ? 1 : 0;
+        return console_recovery_probe(console_probe==2);
     }
 
     struct gui2_window window;
