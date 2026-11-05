@@ -39,8 +39,8 @@ static bool wifi_handoff5_owned(void *c,bool cleanup){
  for(unsigned i=0;i<8;i++)if(wifi_handoff5.plan.protected_pages[i+9]!=wifi_cal5.plan.physical[i] || !wifi_handoff5_equal(wifi_cal5.plan.buffer[i],wifi_handoff5.old_pages[i],4096))return false;
  /* No producer ever touches the fresh ring in this recipe. Even its link
   * TRB must remain the exact initialized private image. */
- for(unsigned i=0;i<XHCI_RING_TRB_COUNT;i++){
-  const struct xhci_trb *t=&wifi_handoff5.ring[i];bool link=i==XHCI_RING_TRB_COUNT-1;
+ for(unsigned i=0;i<XHCI_TRB_COUNT;i++){
+  const struct xhci_trb *t=&wifi_handoff5.ring[i];bool link=i==XHCI_TRB_COUNT-1;
   if(t->parameter_low!=(link?(uint32_t)wifi_handoff5.plan.new_ring:0) || t->parameter_high!=(link?(uint32_t)(wifi_handoff5.plan.new_ring>>32):0) ||
   t->status || t->control!=(link?((XHCI_TRB_TYPE_LINK<<10)|(1u<<1)|1):0))return false;
  }
@@ -86,7 +86,7 @@ static bool wifi_handoff5_inspect(void){
  if(!wifi_power5_owned(&wifi_power5,false) || wifi_power5.step!=84 || !wifi_power5.inspected || !wifi_power5.cycle.selected ||
  wifi_power5.cycle.verified_mask!=511 || wifi_power5.cycle.modified_mask!=511 || wifi_cal5.posts!=8 || wifi_cal5.plan.ring!=wifi_cal5.pin_ring)return false;
  struct xhci_device *d=wifi_handoff5.d;void *ring=0;
- wifi_handoff5.plan=(struct mt76_handoff5_plan){.generation=wifi_power5.plan.generation,.old_ring=wifi_cal5.plan.ring,.old_dequeue=wifi_cal5.stop_dequeue,.old_posts=wifi_cal5.posts,.new_slots=64,.slot=d->slot_id};
+ wifi_handoff5.plan=(struct mt76_handoff5_plan){.generation=wifi_power5.plan.generation,.old_ring=wifi_cal5.plan.ring,.old_dequeue=wifi_cal5.stop_dequeue,.old_posts=wifi_cal5.posts,.new_slots=XHCI_TRB_COUNT-1,.slot=d->slot_id};
  for(unsigned i=0;i<8;i++)wifi_handoff5.endpoint[i]=context_read32(d->output_context,9,i);
  if((wifi_handoff5.endpoint[0]&7)!=3 || (wifi_handoff5.endpoint[2]|((uint64_t)wifi_handoff5.endpoint[3]<<32))!=wifi_cal5.stop_dequeue)return false;
  if(!alloc_frame_zero(&wifi_handoff5.plan.new_ring,&ring))return false;
@@ -96,8 +96,8 @@ static bool wifi_handoff5_inspect(void){
  for(unsigned i=0;i<8;i++)wifi_handoff5.plan.protected_pages[wifi_handoff5.plan.protected_count++]=wifi_cal5.plan.physical[i];
  if(!mt76_handoff5_plan_valid(&wifi_handoff5.plan) || !wifi_power5_owned(&wifi_power5,false))return false;
  wifi_handoff5.command_ring=xhci.command_ring_phys;wifi_handoff5.input=d->input_context_phys;wifi_handoff5.output=d->output_context_phys;wifi_handoff5.ep0=d->ep0_ring_phys;wifi_handoff5.descriptor=d->descriptor_buffer_phys;
- copy_bytes(wifi_handoff5.cal,&wifi_cal5,sizeof wifi_cal5);copy_bytes(wifi_handoff5.power,&wifi_power5,sizeof wifi_power5);
- copy_bytes(wifi_handoff5.old_ring,wifi_cal5.ep.ring,4096);
+ copy_bytes(wifi_handoff5.cal,(const uint8_t *)&wifi_cal5,sizeof wifi_cal5);copy_bytes(wifi_handoff5.power,(const uint8_t *)&wifi_power5,sizeof wifi_power5);
+ copy_bytes(wifi_handoff5.old_ring,(const uint8_t *)wifi_cal5.ep.ring,4096);
  for(unsigned i=0;i<8;i++)copy_bytes(wifi_handoff5.old_pages[i],wifi_cal5.plan.buffer[i],4096);
  wifi_handoff5.active=wifi_handoff5.frozen=true;
  console_write("wifi-handoff5-progress: frozen stopped parent;fresh empty RX ring;selected power readbacks;exact old context restoration;no TD/MAC start/network OUT\n");

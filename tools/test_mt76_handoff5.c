@@ -8,7 +8,7 @@ struct fake {
  bool apply_uncertain,lost;unsigned corrupt_read,corrupt_word;uint32_t corrupt_bits;
 };
 static struct mt76_handoff5_plan plan(void){
- struct mt76_handoff5_plan p={.generation=1,.slot=7,.old_ring=0x10000,.old_dequeue=0x10081,.new_ring=0x20000,.old_posts=8,.new_slots=64,.protected_count=3,.protected_pages={0x30000,0x40000,0x50000}};return p;
+ struct mt76_handoff5_plan p={.generation=1,.slot=7,.old_ring=0x10000,.old_dequeue=0x10081,.new_ring=0x20000,.old_posts=8,.new_slots=63,.protected_count=3,.protected_pages={0x30000,0x40000,0x50000}};return p;
 }
 static void init(struct fake *f,struct mt76_handoff5 *s,struct mt76_handoff5_plan *p){
  memset(s,0,sizeof *s);f->result=s;f->plan=p;f->calls=f->commands=f->auth=0;f->lost=false;
@@ -54,7 +54,7 @@ int main(void){
  }
  for(unsigned mode=1;mode<=68;mode++){
   f=(struct fake){.inspect_mode=mode};init(&f,&s,&p);bool ok=run(&f,&s,&p);
-  if(mode>=2 && mode<=66)assert(ok && s.restored && !memcmp(f.words,f.original,sizeof f.words));
+  if(mode>=2 && mode<=65)assert(ok && s.restored && !memcmp(f.words,f.original,sizeof f.words));
   else assert(!ok && s.unsafe && !s.restore_attempted && f.commands==1 && f.calls==5);
  }
  const unsigned reads[]={1,3,5,7};
@@ -78,7 +78,7 @@ int main(void){
   if(fault==6)p.new_ring=UINT64_MAX-4095;
   if(fault==7)p.old_posts=0;
   if(fault==8)p.old_posts=9;
-  if(fault==9)p.new_slots=63;
+  if(fault==9)p.new_slots=62;
   if(fault==10)p.old_dequeue^=1;
   if(fault==11)p.old_dequeue=p.old_ring+16*9+1;
   if(fault==12)p.protected_count=33;
@@ -95,5 +95,5 @@ int main(void){
  struct mt76_handoff5_io savedio=io;assert(!mt76_handoff5_run((void *)&io,&p,&io) && !memcmp(&io,&savedio,sizeof io));
  io.context=&s;assert(!mt76_handoff5_run(&s,&p,&io) && !s.attempted);io.context=&f;
  for(unsigned n=0;n<4;n++){struct mt76_handoff5_io bad=io;if(n==0)bad.owned=NULL;if(n==1)bad.read_context=NULL;if(n==2)bad.set_dequeue=NULL;if(n==3)bad.inspect=NULL;assert(!mt76_handoff5_run(&s,&p,&bad) && !s.attempted);}
- puts("handoff5: PASS exact stopped-context retarget/inspection/original restoration;all7 callback failures before/after uncertain writes,16 ownership losses,all context-bit mutations,65 fresh dequeue positions,alias/plan/replay and running/DCS/range refusals;no native authority or hardware I/O");return 0;
+ puts("handoff5: PASS exact stopped-context retarget/inspection/original restoration;all7 callback failures before/after uncertain writes,16 ownership losses,all context-bit mutations,64 fresh dequeue positions,alias/plan/replay and running/DCS/range refusals;no native authority or hardware I/O");return 0;
 }

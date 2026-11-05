@@ -12920,7 +12920,7 @@ quarantines and retains both rings;completed selected-power mismatches can
 restore the old context but remain failed. Nothing is recycled or replayed.
 
 The pure handoff model passes all seven callback failures before/after uncertain
-writes,16 ownership losses,every context-bit mutation,65 bounded fresh dequeue
+writes,16 ownership losses,every context-bit mutation,64 bounded fresh dequeue
 positions,plan/alias/reentry/running-state refusals and ASan/UBSan. Actual native-
 child modeled tests pass all17 transport fault positions,nine semantic selected
 power mismatches with exact context restoration,six guard failures,17 frozen

@@ -6,7 +6,10 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#define XHCI_RING_TRB_COUNT 256
+#include <stdarg.h>
+#include <stdlib.h>
+#include <inttypes.h>
+#define XHCI_TRB_COUNT 64
 #define XHCI_TRB_TYPE_LINK 6
 struct xhci_trb {uint32_t parameter_low,parameter_high,status,control;};
 struct xhci_device {
@@ -26,16 +29,29 @@ static struct {
  bool parent,allocation_fail,uncertain;uint32_t context[8];
 }fake;
 static struct xhci_device device;
-static void *pmm_phys_to_virt(uint64_t p){assert(p && !(p&4095) && p/4096<64);return fake.pages[p/4096];}
-static bool alloc_frame_zero(uint64_t *p,void **v){if(fake.allocation_fail)return false;assert(fake.next<64);*p=(uint64_t)fake.next++*4096;*v=pmm_phys_to_virt(*p);memset(*v,0,4096);return true;}
-static void write_link_trb(struct xhci_trb *r,uint64_t p,bool c){r[255]=(struct xhci_trb){.parameter_low=p,.parameter_high=p>>32,.control=(6u<<10)|2u|(c?1u:0u)};}
+static uint64_t physical_bias;
+static bool trace;
+static void *pmm_phys_to_virt(uint64_t p){assert(p>physical_bias && !(p&4095) && (p-physical_bias)/4096<64);return fake.pages[(p-physical_bias)/4096];}
+static bool alloc_frame_zero(uint64_t *p,void **v){if(fake.allocation_fail)return false;assert(fake.next<64);*p=physical_bias+(uint64_t)fake.next++*4096;*v=pmm_phys_to_virt(*p);memset(*v,0,4096);return true;}
+static void write_link_trb(struct xhci_trb *r,uint64_t p,bool c){r[XHCI_TRB_COUNT-1]=(struct xhci_trb){.parameter_low=p,.parameter_high=p>>32,.control=(6u<<10)|2u|(c?1u:0u)};}
 static uint32_t context_read32(void *p,unsigned dci,unsigned word){assert(p==fake.context && dci==9 && word<8);return fake.context[word];}
 static uint64_t event_irq_save(void){return 0;}
 static void event_irq_restore(uint64_t f){assert(!f);}
 static bool wifi_mcu_fail(struct xhci_device *d){assert(d==&device);d->ep0_quarantined=true;fake.quarantines++;return false;}
-static void copy_bytes(void *d,const void *s,size_t n){memcpy(d,s,n);}
-static void console_printf(const char *f,...){(void)f;}
-static void console_write(const char *f){(void)f;}
+static void copy_bytes(uint8_t *d,const uint8_t *s,uint64_t n){memcpy(d,s,n);}
+/* Native console varargs are uint64_t, including %u and %x. */
+static void console_printf(const char *f,...){
+ if(!trace)return;
+ va_list ap;va_start(ap,f);
+ for(;*f;f++){
+  if(*f!='%'){putchar(*f);continue;}
+  f++;uint64_t v=va_arg(ap,uint64_t);
+  if(*f=='u')printf("%" PRIu64,v);
+  else {assert(*f=='x');printf("0x%016" PRIx64,v);}
+ }
+ va_end(ap);
+}
+static void console_write(const char *f){if(trace)fputs(f,stdout);}
 static bool wifi_channel_vco5_owned(void *p){return p==&wifi_channel_vco5 && fake.parent;}
 static bool wifi_power5_owned(void *p,bool cleanup){(void)cleanup;return p==&wifi_power5 && fake.parent && !device.ep0_quarantined && wifi_power5.step==84 && (fake.context[2]|((uint64_t)fake.context[3]<<32))==wifi_cal5.stop_dequeue;}
 static void mutate(void);
@@ -80,7 +96,18 @@ static void setup(void){
  const uint32_t value[]={0x2f2f1313,0x04050000,0x02020004,0x00003e02,0x02020000,0x00003e02,0x003e0000,0x3c3c0000,0x3e};
  for(unsigned i=0;i<9;i++){wifi_power5.plan.write[i].address=address[i];wifi_power5.cycle.chosen[i]=value[i];}
 }
-int main(void){
+int main(int argc,char **argv){
+ if(argc==5 && !strcmp(argv[1],"--trace")){
+  char *end;physical_bias=strtoull(argv[2],&end,0);assert(!*end && !(physical_bias&4095));
+  setup();wifi_cal5.stop_dequeue=strtoull(argv[3],&end,0);assert(!*end);
+  fake.context[2]=wifi_cal5.stop_dequeue;fake.context[3]=wifi_cal5.stop_dequeue>>32;
+  unsigned long slot=strtoul(argv[4],&end,0);assert(!*end && slot && slot<=255);device.slot_id=slot;
+  trace=true;assert(xhci_wifi_capture_handoff5() && wifi_handoff5.result.complete);return 0;
+ }
+ assert(argc==1);
+ physical_bias=UINT64_C(0x100000000);setup();
+ assert(xhci_wifi_capture_handoff5() && wifi_handoff5.result.complete && fake.context[3]==1);
+ physical_bias=0;
  setup();assert(xhci_wifi_capture_handoff5());assert(fake.calls==17 && fake.commands==2 && !fake.quarantines && wifi_handoff5.op==7 && wifi_handoff5.controls==15 && wifi_handoff5.result.complete && wifi_handoff5.result.restored && !wifi_handoff5.active);
  assert(!xhci_wifi_capture_handoff5() && !wifi_handoff5_inspect() && fake.calls==17);
  for(unsigned n=1;n<=17;n++)for(unsigned after=0;after<2;after++){

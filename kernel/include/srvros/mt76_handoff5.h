@@ -6,7 +6,8 @@
 #define MT76_HANDOFF5_PROTECTED 32
 /* Mechanical offline plan only;no device/controller/parent/DMA authority.
  * Captured US161 native admission, allocation and retained page identity belong
- * to a separate owner. Old stopped ring is never rewritten or recycled. */
+ * to a separate owner. Old stopped ring is never rewritten or recycled.
+ * The captured ring has64 entries,one reserved for its link;new_slots is63. */
 struct mt76_handoff5_plan {
  uint64_t generation,old_ring,old_dequeue,new_ring;
  unsigned old_posts,new_slots,protected_count;
