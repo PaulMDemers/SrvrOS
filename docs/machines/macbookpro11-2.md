@@ -12756,7 +12756,8 @@ and an exact full prior native-prefix composition pass:2022067bytes,75085bytes
 headroom,eight whole-prefix failures. Early fixture failures are preserved;
 an overly strict fixture expected a completed inner transaction to become
 incomplete on later outer-owner loss. The outer result correctly remains failed.
-Explicit early null-parent and board-field admission were added before new I/O.
+Explicit null-parent admission precedes all new I/O;fresh board-field matching
+precedes the power transaction.
 
 The clean foundationd90d6f61 (main518175df) is independently sealed in a102-file
 host-only capsule outside build,including matched runtime/source/proofs. The
