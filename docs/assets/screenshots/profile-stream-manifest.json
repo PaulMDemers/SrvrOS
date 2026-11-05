@@ -1,0 +1,512 @@
+{
+  "status": "PASS_QUALIFIED_FOR_DEPENDENCY_ORDER_MERGE",
+  "qualified_source": "0e2bac73e97984a2ff2ea62ccba328acd6beaccc",
+  "native_qualified_source": "9f5816a5eddb86a9a71c9d59706a9fdfea3be22c",
+  "qualified_core_trees": {
+    "kernel": "6abfda825f1be5f6475f4c25e19ac642d0978f73",
+    "shared": "ea2194df337ae2c5929f7469ae8773bec58c8db6",
+    "userspace": "d7316d0c67bf58fb18e8a2ed310c54796686a0d3"
+  },
+  "pins": {
+    "ports": "6ff5edade20620dbaeeed367c4616e34a1c9194a",
+    "userspace/apps": "24bc454198a7ee58a875df40e6bd5ee2b5cf52c7",
+    "userspace/widgets": "3a695ce51e06af0a7ab9c21beedcb8dfe221be9c"
+  },
+  "build": {
+    "built_at": "2026-11-04T23:56:39.764252+00:00",
+    "hashes": {
+      "build/initramfs.tar": "f109fe4040174ffa234c6aee0b3312c7fad3aef2bcb998b9cb37d1ef271e56aa",
+      "build/kernel/srvros.elf": "ef81ced0312867e85735fc2d79d617983a551be7eee37457978148bfd14d35a4",
+      "build/srvros.exfat": "9abfc20113c3a0207626dd64bf200f1a17bdcc3adb44a09c3cdaf1cfdf4fcd93"
+    },
+    "repositories": {
+      ".": {
+        "dirty": false,
+        "head": "0e2bac73e97984a2ff2ea62ccba328acd6beaccc",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports": {
+        "dirty": false,
+        "head": "6ff5edade20620dbaeeed367c4616e34a1c9194a",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/awk": {
+        "dirty": false,
+        "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/cjson": {
+        "dirty": false,
+        "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/inih": {
+        "dirty": false,
+        "head": "26254ee9de7681f8825433415443e7116ff24b98",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/libuv": {
+        "dirty": false,
+        "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/linenoise": {
+        "dirty": false,
+        "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/lua": {
+        "dirty": false,
+        "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/node": {
+        "dirty": false,
+        "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/zlib": {
+        "dirty": false,
+        "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/apps": {
+        "dirty": false,
+        "head": "24bc454198a7ee58a875df40e6bd5ee2b5cf52c7",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/widgets": {
+        "dirty": false,
+        "head": "3a695ce51e06af0a7ab9c21beedcb8dfe221be9c",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      }
+    },
+    "schema": 1,
+    "source": "0e2bac73e97984a2ff2ea62ccba328acd6beaccc",
+    "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worktree_dirty": false
+  },
+  "guest_lifetimes": 31,
+  "one_guest_mib": 1024,
+  "one_cpu": true,
+  "no_network": true,
+  "actual_guest_export": {
+    "bytes": 19137265,
+    "documents": {
+      "Documents/large.bin": {
+        "sha256": "341aacac661ccb210720bedaa9ead5d668fe5ea41a73532fc147c71e34040df1",
+        "size": 16777216
+      },
+      "Documents/migration.txt": {
+        "sha256": "a17d6e8c3d3d78225487bc00dbd4f75ac890f8256708f680248f26516b4f1d5b",
+        "size": 36
+      },
+      "Documents/photo.bmp": {
+        "sha256": "382f4698ff86155d470b9088eddf4947439bcc2e00762a06603c64fe0761c005",
+        "size": 2359350
+      }
+    },
+    "existing_output_refused_and_preserved": true,
+    "path": "/Volumes/SrvrOSProfileStream/SrvrOS/build/review/profile-stream/proof-ybopi3tu/guest-export.srvrprofile",
+    "sha256": "b953187cdb4eaf585859a0121a60b7439acab5d92c288e128224f4365d565b8b",
+    "version": 2
+  },
+  "legacy_export": {
+    "bytes": 610,
+    "sha256": "818ce2abb8c75652c12e9d558afaf2ccef8aa590d464d103d5d7f6e6b24c2649",
+    "version": 1
+  },
+  "recovered_checkpoints": [
+    {
+      "binding": {
+        "alias": "local_b",
+        "gid": 1000,
+        "uid": 1000
+      },
+      "checkpoint": "journal",
+      "disk_sha256": "ac9ca4b0defb9e4271b05830a891074a11dc36a7a9a75412a014c2febf505eb9",
+      "journal_sha256": "dca4f4547fd71f18c3b406ab41b9ce0dc3cf764480de0decacbbd340151d434e"
+    },
+    {
+      "binding": {
+        "alias": "local_b",
+        "gid": 1000,
+        "uid": 1000
+      },
+      "checkpoint": "directories",
+      "disk_sha256": "5ab69d8b16a2986a8259e045f61e42edd0f0c4994886d06f006bf85c6a3cbef2",
+      "journal_sha256": "dca4f4547fd71f18c3b406ab41b9ce0dc3cf764480de0decacbbd340151d434e"
+    },
+    {
+      "binding": {
+        "alias": "local_b",
+        "gid": 1000,
+        "uid": 1000
+      },
+      "checkpoint": "copy-partial",
+      "disk_sha256": "3c760c84915714dc1027d5a3c7f0b1a2ca97e6d3ca621d0fd6038572bd9e4377",
+      "journal_sha256": "dca4f4547fd71f18c3b406ab41b9ce0dc3cf764480de0decacbbd340151d434e"
+    },
+    {
+      "binding": {
+        "alias": "local_b",
+        "gid": 1000,
+        "uid": 1000
+      },
+      "checkpoint": "document",
+      "disk_sha256": "1445be75f0cc279913cbc2a526ec95c8946c1f24374f42e5ce7d76edf4b48592",
+      "journal_sha256": "dca4f4547fd71f18c3b406ab41b9ce0dc3cf764480de0decacbbd340151d434e"
+    },
+    {
+      "binding": {
+        "alias": "local_b",
+        "gid": 1000,
+        "uid": 1000
+      },
+      "checkpoint": "identity",
+      "disk_sha256": "efbed98b57c018141930621cf19368712ef2f6a12dcd5f2611185bc7ab802372",
+      "journal_sha256": "dca4f4547fd71f18c3b406ab41b9ce0dc3cf764480de0decacbbd340151d434e"
+    },
+    {
+      "binding": {
+        "alias": "local_b",
+        "gid": 1000,
+        "uid": 1000
+      },
+      "checkpoint": "commit-ready",
+      "disk_sha256": "a0c63f6d2568ea16a3019b74190e45fba6eca545255261c88a60e0b03f9fbce3",
+      "journal_sha256": "dca4f4547fd71f18c3b406ab41b9ce0dc3cf764480de0decacbbd340151d434e"
+    },
+    {
+      "binding": {
+        "alias": "local_b",
+        "gid": 1000,
+        "uid": 1000
+      },
+      "checkpoint": "published",
+      "disk_sha256": "46ab5cb996e1bd5908e379379fd1679c5e97baa1efc54d7273a3e090d9b4f0b3",
+      "journal_sha256": "dca4f4547fd71f18c3b406ab41b9ce0dc3cf764480de0decacbbd340151d434e"
+    }
+  ],
+  "low_space": {
+    "binding": {
+      "alias": "local_b",
+      "gid": 1000,
+      "uid": 1000
+    },
+    "failure_observed": true,
+    "filler_bytes": 84410368,
+    "fillers": [
+      {
+        "bytes": 8388608,
+        "path": "home/space-fill-000.bin"
+      },
+      {
+        "bytes": 8388608,
+        "path": "home/space-fill-001.bin"
+      },
+      {
+        "bytes": 8388608,
+        "path": "home/space-fill-002.bin"
+      },
+      {
+        "bytes": 8388608,
+        "path": "home/space-fill-003.bin"
+      },
+      {
+        "bytes": 8388608,
+        "path": "home/space-fill-004.bin"
+      },
+      {
+        "bytes": 8388608,
+        "path": "home/space-fill-005.bin"
+      },
+      {
+        "bytes": 8388608,
+        "path": "home/space-fill-006.bin"
+      },
+      {
+        "bytes": 8388608,
+        "path": "home/space-fill-007.bin"
+      },
+      {
+        "bytes": 8388608,
+        "path": "home/space-fill-008.bin"
+      },
+      {
+        "bytes": 8388608,
+        "path": "home/space-fill-009.bin"
+      },
+      {
+        "bytes": 524288,
+        "path": "home/space-fill-010.bin"
+      }
+    ],
+    "free_after_cleanup": 90656768,
+    "free_before_import": 6299648,
+    "initial_free_bytes": 90714112,
+    "journal_retained": true,
+    "recovered": true,
+    "recovered_disk_sha256": "0a5378181e8c7b749ed6f643473d38970a3e921c21bb08c523d291dfab93db07",
+    "recovery_path": "chooser",
+    "space_restored": true
+  },
+  "memory": {
+    "absolute_limit_bytes": 33554432,
+    "actual_64m_export_import": true,
+    "bytes": {
+      "export_64m": 2396160,
+      "file_16m": 2396160,
+      "import_64m": 2461696,
+      "small": 2396160,
+      "total_64m": 2396160
+    },
+    "growth_limit_bytes": 4194304,
+    "kind": "srv_usage SELF peak_mapped_bytes",
+    "memory_bundle_sha256": "0075e3a272bff0128054fc0195cce52e5a99ec7529528356ca6c6dd640c8db21",
+    "memory_receiver_gpt": {
+      "disk_guid": "bb350548-f07a-44fe-8407-46e8a62824af",
+      "esp_partition_guid": "47c152da-b612-4e26-8894-41f1bde17a27",
+      "exfat_partition_guid": "ac6f894b-fc50-49ff-b089-0d0f74eccfa4"
+    },
+    "memory_transport_gpt": {
+      "disk_guid": "badc5745-2b0d-4d09-935e-2350ddb6f6ac",
+      "esp_partition_guid": "eb7dee03-8da0-44ee-a24a-286a8d664400",
+      "exfat_partition_guid": "6aee6443-8bbf-4b5d-aaf3-d5f0f5eeee8e"
+    },
+    "not_exact_heap_or_kernel_memory": true
+  },
+  "independent_archives": {
+    "count": 96,
+    "compressed_bytes": 751373755,
+    "all_member_roundtrips_verified": true
+  },
+  "host_resource_evidence": {
+    "elapsed_seconds": 2878.9563832500135,
+    "sampled_whole_group_rss_bytes": 3558211584,
+    "stages": [
+      {
+        "label": "matched-build",
+        "command": [
+          "sh",
+          "tools/macos/build.sh",
+          "-j2",
+          "all"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 46.66863204201218
+      },
+      {
+        "label": "full-vm",
+        "command": [
+          "python3",
+          "-u",
+          "tools/profile_stream_smoke.py",
+          "--ovmf",
+          "/opt/homebrew/share/qemu/edk2-x86_64-code.fd",
+          "--ovmf-vars",
+          "/opt/homebrew/share/qemu/edk2-i386-vars.fd"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2804.068169542006
+      },
+      {
+        "label": "archive-memory-audit",
+        "command": [
+          "python3",
+          "-u",
+          "/Volumes/SrvrOSProfileStream/SrvrOS/.local/profile-stream/audit_vm.py",
+          "/Volumes/SrvrOSProfileStream/SrvrOS/build/review/profile-stream/proof-ybopi3tu"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 18.665944291977212
+      }
+    ],
+    "remaining_group_processes": []
+  },
+  "audit_sha256": {
+    "receipt.json": "26412827760335ead83dcc02ad2b5c877adf1641fb6df6c16e0de3e426cb7110",
+    "independent-storage-memory-audit.json": "745824ffd3caef8fa0caf1b840ee145c5f024e965d7f3be4a00dcb0024c47f5f",
+    "independent-content-audit.json": "44de822a94caa0b30bca78971058729f7e39f56d7580de463da305345aedc878",
+    "rendered-audit.json": "254e0cabb2a3aaca1af224b8645d3d324bc2a5c9ea3604a6c5cad13baf69eb72",
+    "rendering-conversion.json": "e80fd5ddce66baedb0a6d828bd59daa3f6748d9cf4da535f17196ef03426e6fd"
+  },
+  "outside_build_backup": {
+    "directory": "/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109/final-evidence-9eif7dh7",
+    "archive": "/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109/final-evidence-9eif7dh7/evidence.tar.gz",
+    "archive_sha256": "df99dcf8590d02147009570b4f25bf1750340a9b8de42abee4bba14f0d1be34a",
+    "archive_bytes": 1032274981,
+    "verified_members": 626,
+    "manifest_sha256": "cee0bc272511723c5797a561f5ad3c1683677f6e3f70c52086a608ad59a56ee7",
+    "failed_first_proof_preserved_as_failure": true
+  },
+  "images": [
+    {
+      "path": "profile-stream-review.png",
+      "sha256": "57c8f9031401249c1bfae9bbab0d494f14f438fc2f52969ec0b540b720c3654e",
+      "source_ppm": "export-review-details-a-export.ppm",
+      "source_sha256": "93f0430be865101fc6fe54548634b799956eaaed08bfa85afd313ea1700626c5",
+      "dimensions": [
+        1280,
+        800
+      ],
+      "rgb_pixels_identical": true
+    },
+    {
+      "path": "profile-stream-import.png",
+      "sha256": "4f0d4a68d48e691652bf4922daa632582e55114a00e30503b4dd2d88b3883cbe",
+      "source_ppm": "import-review-details-b-host-import.ppm",
+      "source_sha256": "2938af51e93781d2451e177ad61fef5210b4271387cb8e642a56fe76c80af878",
+      "dimensions": [
+        1280,
+        800
+      ],
+      "rgb_pixels_identical": true
+    },
+    {
+      "path": "profile-stream-small.png",
+      "sha256": "5db5f3c4dca4b1b75ce4685feba763c3ca38183e699bdde49369cb193acfbae2",
+      "source_ppm": "export-review-details-small-export.ppm",
+      "source_sha256": "c0300140a33c326d76394ae554c5b3af11b490ba3bf553b81ec7524923caa3e7",
+      "dimensions": [
+        640,
+        480
+      ],
+      "rgb_pixels_identical": true
+    },
+    {
+      "path": "profile-stream-small-top.png",
+      "sha256": "402c239237bf384992a0c4a351fa2ec9ffbeb03237055ab626c7f082ec518162",
+      "source_ppm": "export-review-small-export.ppm",
+      "source_sha256": "43d580906a85333f61d148b368c4caf3a328d2024e2f84fcf2c3cf66e7cab0a2",
+      "dimensions": [
+        640,
+        480
+      ],
+      "rgb_pixels_identical": true
+    },
+    {
+      "path": "profile-stream-recovery.png",
+      "sha256": "9447fb4e0d7706aad4da2f49a101a0e62c15eaba5dff66d6292f305696c3c493",
+      "source_ppm": "recoverable-recover-copy-partial.ppm",
+      "source_sha256": "3dbc79e01a4588d2199aeb53948fa0afdcdb05e3419300e79a071aeb252dddfb",
+      "dimensions": [
+        1280,
+        800
+      ],
+      "rgb_pixels_identical": true
+    },
+    {
+      "path": "profile-stream-published.png",
+      "sha256": "9447fb4e0d7706aad4da2f49a101a0e62c15eaba5dff66d6292f305696c3c493",
+      "source_ppm": "recoverable-recover-published.ppm",
+      "source_sha256": "3dbc79e01a4588d2199aeb53948fa0afdcdb05e3419300e79a071aeb252dddfb",
+      "dimensions": [
+        1280,
+        800
+      ],
+      "rgb_pixels_identical": true
+    },
+    {
+      "path": "profile-stream-document.png",
+      "sha256": "c2466d5dc1dc550f3e9aca76e5edda9f911b2874d39d3037375215ef9bd27bfe",
+      "source_ppm": "imported-text-b-restored.ppm",
+      "source_sha256": "9e9a53f282c186810168cbdf2a185fa0a9b0a1cd8fef802d37741e75780238be",
+      "dimensions": [
+        1280,
+        800
+      ],
+      "rgb_pixels_identical": true
+    },
+    {
+      "path": "profile-stream-image.png",
+      "sha256": "f3f950c96d64b5597f6a9b24e411786c910428d348649f44a2f9bb626c2c706e",
+      "source_ppm": "imported-bmp-b-restored.ppm",
+      "source_sha256": "d114b2ce3df3794a2087f7f43ac0a4a7f6302a3ed3f2ff20b8b52feb4455e4dd",
+      "dimensions": [
+        1280,
+        800
+      ],
+      "rgb_pixels_identical": true
+    },
+    {
+      "path": "profile-stream-changed.png",
+      "sha256": "b4205a39a13a1fbe9abc25df4a6f6a594914988de88d8fee2abcc6a6d483d0e6",
+      "source_ppm": "import-result-b-changed-review.ppm",
+      "source_sha256": "3aec31029af80453be5fdaacb8de4315cf9da343f6a0d311c1da7c4cd52eb757",
+      "dimensions": [
+        1280,
+        800
+      ],
+      "rgb_pixels_identical": true
+    },
+    {
+      "path": "profile-stream-low-space.png",
+      "sha256": "4c5721a0ac00d71929e87192049f449591e0f223f78b39ed32400ef806bc8686",
+      "source_ppm": "import-result-low-space.ppm",
+      "source_sha256": "ca6b8dfc2f0206e41abba3f5057cd5b9533a5120793832ef84f313c94106ffa3",
+      "dimensions": [
+        1280,
+        800
+      ],
+      "rgb_pixels_identical": true
+    }
+  ],
+  "limits": [
+    "Guest v2 and Profiles; canonical offline installation export/recovery remains v1-only; offline v2 deferred",
+    "64MiB total consists of four16MiB documents, not one64MiB file",
+    "srv_usage mapped high-water is not exact heap or kernel memory",
+    "Native Linux exfatprogs suites unrun on this macOS host",
+    "External runtime-owner peer acceptance unverified; local independent/native and actual guest acceptance recorded",
+    "Disposable QEMU only; no arbitrary power-cut or physical-media acceptance",
+    "Authentication and permission enforcement separate"
+  ],
+  "failed_first_proof": {
+    "path": "proof-wf_5uifj",
+    "status": "FAIL",
+    "cause": "test fixture opened existing19MB bundle through ordinary buffered-write path; unchanged16MiB capacity check correctly refused before truncation",
+    "correction": "metadata-rename original v2, create validv1 replacement, independent command statuses; focused and full reruns pass"
+  },
+  "final_delivery": "Merged hashes are recorded by the linked PRs and integration closeout; qualification remains attributed to exact0e source.",
+  "firmware_sha256": "33090cc07675baa5190d9f1e84bf5176b33bcbfa9bacac522961150cdb6dbb2a",
+  "firmware_vars_sha256": "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e",
+  "qemu_version": "QEMU emulator version 11.1.2",
+  "native_qualification": {
+    "source": "9f5816a5eddb86a9a71c9d59706a9fdfea3be22c",
+    "status": "PASS_NATIVE_GATE_ONLY; actual guest qualification separately recorded",
+    "independent_report_sha256": "474cbde79a796ed20a6597404129a337b5c7553062d7c4c1b6ced8f9833780be",
+    "maximum_container_bytes": 67174424,
+    "maximum_payload_transfer_bytes": 65536,
+    "cluster_65536_incremental_tracked_backend_bytes": 208896,
+    "cluster_4096_incremental_tracked_backend_bytes": 86016,
+    "largest_single_metadata_allocation_bytes": 69632,
+    "native_engine_allocation_ceiling_bytes": 1048576,
+    "whole_kernel_constant_memory_claim": false,
+    "external_runtime_owner_peer_acceptance": "UNVERIFIED",
+    "linux_exfatprogs_suites": "UNRUN_PLATFORM_LIMITATION"
+  }
+}

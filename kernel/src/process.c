@@ -12,6 +12,8 @@
 #include <srvros/net.h>
 #include <srvros/pmm.h>
 #include <srvros/process.h>
+#include <srvros/file_stream_kernel.h>
+#include <srvros/exfat_stream.h>
 #include <srvros/pty.h>
 #include <srvros/scheduler.h>
 #include <srvros/syscall_numbers.h>
@@ -224,6 +226,7 @@ struct process {
     uint64_t session_id;
     uint64_t controlling_tty;
     uint64_t pid;
+    uint64_t stream_instance; /* Never copied into a child or recycled slot. */
     uint64_t parent_pid;
     uint64_t exit_status;
     uint64_t entry;
@@ -343,6 +346,7 @@ struct process_lifetime {
 static struct process_lifetime process_lifetimes[PROCESS_MAX_PROCESSES];
 static uint64_t next_lifetime = 1;
 static uint64_t next_pid = 1;
+static uint64_t next_stream_instance = 1;
 static uint64_t next_exit_record_sequence;
 static struct scheduler_wait_queue process_wait_queue;
 static struct scheduler_wait_queue pipe_wait_queue;
@@ -410,6 +414,16 @@ static void process_latency_end(enum latency_work_site site,struct process_laten
     latency_work_record(site,span.start,span.entry_masked);
 #endif
 }
+/* Legacy host fixtures have no stream manager. The dedicated stream/process
+ * fixture enables these production hooks and supplies its backend seams. */
+static bool process_stream_busy(const char *path,bool subtree) {
+#if defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_STREAM_PROCESS_HOST_TEST)
+    (void)path;(void)subtree;return false;
+#else
+    return exfat_stream_busy(path,subtree);
+#endif
+}
+
 /* These are serialized service windows, not general preemption of a mutable
  * process/VFS operation. Only the existing audited GUI and kernel services may
  * run; siblings and unsafe entries wait behind the inherited owner gate. */
@@ -428,6 +442,18 @@ static void process_service_end(struct process_service_scope scope) {
 #else
     if(scope.held)scheduler_io_end();
     process_irq_restore(scope.flags);
+#endif
+}
+static bool process_stream_cleanup(uint64_t owner) {
+    if(!owner)return true;
+#if defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_STREAM_PROCESS_HOST_TEST)
+    (void)owner;return true;
+#elif defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    return file_stream_cleanup(owner);
+#else
+    struct process_service_scope scope=process_service_begin();
+    if(!scope.held) { process_service_end(scope);return false; }
+    bool okay=file_stream_cleanup(owner);process_service_end(scope);return okay;
 #endif
 }
 static void process_service_checkpoint(void) {
@@ -1491,7 +1517,7 @@ static bool cleanup_process_files(struct process *process) {
     if (process == NULL) {
         return true;
     }
-    bool ok = true;
+    bool ok = process_stream_cleanup(process->stream_instance);
     for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
         if (!process->files[i].used) {
             continue;
@@ -1518,6 +1544,9 @@ static void close_cloexec_files(struct process *process) {
     if (process == NULL) {
         return;
     }
+    /* Opaque stream resources are always close-on-exec, never inherited. This
+     * function runs after the successful image commit, not failed exec. */
+    (void)process_stream_cleanup(process->stream_instance);
     for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
         uint64_t fd = i;
         if (process->files[i].used &&
@@ -3357,6 +3386,7 @@ int64_t process_resolve_storage_path(const char *input,char *out,uint64_t capaci
 }
 
 bool process_has_open_vfs_prefix(const char *prefix) {
+    if(process_stream_busy(prefix,true))return true;
     /* Keep the current pathname stable until directory identities can survive
      * rename/removal. This is an explicit busy boundary, not stale PWD state. */
     for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)
@@ -4473,6 +4503,7 @@ static bool ensure_write_capacity(struct process_write_file *file,uint64_t neede
 }
 
 int64_t process_unlink_file(const char *path) {
+    if(process_stream_busy(path,true))return SRV_ERR_BUSY;
     const struct vfs_node *node=vfs_lookup(path);
     if(!node) return SRV_ERR_NOENT;
     if(node->type!=VFS_NODE_FILE) return SRV_ERR_ISDIR;
@@ -4493,6 +4524,7 @@ int64_t process_unlink_file(const char *path) {
 }
 
 int64_t process_rename_file(const char *old_path,const char *new_path) {
+    if(process_stream_busy(old_path,true) || process_stream_busy(new_path,true))return SRV_ERR_BUSY;
     const struct vfs_node *source=vfs_lookup(old_path),*target=vfs_lookup(new_path);
     if(!source) return SRV_ERR_NOENT;
     if(process_path_equal(old_path,new_path)) return 0;
@@ -4561,6 +4593,7 @@ int64_t process_file_open_flags(struct process *process,const char *path,uint64_
     if(result<0) { process_service_end(scope);return result; }
     result=vfs_namespace_system_path(logical,storage,sizeof(storage));
     if(result<0) { process_service_end(scope);return result; }
+    if(process_stream_busy(storage,false)) { process_service_end(scope);return SRV_ERR_BUSY; }
     if(flags&(SRV_OPEN_WRITE|SRV_OPEN_CREATE)) result=process_file_open_write_raw(process,storage,flags);
     else {
         const struct vfs_node *node=vfs_lookup(storage);const uint8_t *data;uint64_t size;
@@ -4602,6 +4635,7 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
 }
 
 static int64_t process_file_open_write_raw(struct process *process, const char *path, uint64_t flags) {
+    if(process_stream_busy(path,false))return SRV_ERR_BUSY;
     if (process == NULL ||
         path == NULL ||
         (flags & (SRV_OPEN_READ|SRV_OPEN_WRITE)) == 0 ||
@@ -4689,6 +4723,22 @@ static int64_t process_fsize_write(struct process *process,uint64_t position,uin
     uint64_t limit=process->fsize_limit.current;
     if(position>=limit) { process_fsize_signal(process);return SRV_ERR_FBIG; }
     return (int64_t)(length>limit-position?limit-position:length);
+}
+
+uint64_t process_stream_identity(struct process *process) {
+    if(!process || !process->allocated || !process->active)return 0;
+    uint64_t flags=process_irq_save();
+    if(!process->stream_instance && next_stream_instance) {
+        process->stream_instance=next_stream_instance++;
+        /* Zero is permanent exhaustion, never a wrapped identity. */
+    }
+    uint64_t identity=process->stream_instance;process_irq_restore(flags);return identity;
+}
+
+int64_t process_stream_write_allowed(uint64_t position,uint64_t length) {
+    struct process *process=process_current();
+    if(!process || length>INT64_MAX || position>UINT64_MAX-length)return SRV_ERR_INVAL;
+    return process_fsize_write(process,position,length);
 }
 
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
