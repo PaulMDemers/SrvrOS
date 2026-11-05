@@ -7345,3 +7345,38 @@ Next is a bounded source audit of resource reservation and CPU alias/leaf admiss
 before implementing any separately opted-in VT-d read window. Actual ownership,
 reference-count discrepancy, GT/full-path swizzle and scanout/restore retirement
 remain separate. RC6 timing failure and zero package-C3 residency are unchanged.
+
+### VT-d resource/CPU-alias admission audit scope (2026-11-05)
+
+Base `379d6f8d`; native cache run collected and durably closed. Inspect current
+PMM/VMM and PR301 `dc569037` boot-client/cache work without editing its shared
+mechanisms. Add a host-only exact-cache-receipt admission audit and refusal
+regressions, plus this record and the current DMA guide. Distinguish a catalog
+gap and two absent VAs from an exclusive resource lease or complete CPU alias
+census. Audit prospective4KiB leaf cache/permission encoding and retirement
+requirements; keep EFER/NX enablement and live-root exclusion explicit. No kernel,
+new mapping/read, firmware method, policy, bound or physical acceptance change.
+
+Audit finding: PMM starts gaps reserved and only frees USABLE catalog entries;
+reserved-frame frees refuse, but no exclusive MMIO lease follows. Inherited and
+private in-space mappings are absent from the public kernel mapping list, and
+upper-half root copying can share lower tables. A two-VA lookup cannot supply a
+complete alias census. Current map/unmap helpers also need expected raw-leaf,
+root/CPU exclusion and explicit poisoned retirement checks before device use.
+The prospective PAT3 supervisor RO/XD/non-global4KiB leaf classifies UC under the
+accepted context, but NX capability/current EFER.NXE were not captured. The
+host-only audit models this encoding while retaining every live admission gate
+as unproved; full raw receipt, malformed/changed/refused inputs, two absent VAs,
+external claims, leaf corruption, WP and UC-minus/WC/overlap refusal tests cover it.
+Next is bounded read-only relevant-root/alias and NX-state diagnostics with
+explicit completeness/refusal. Existing limits and hardware grants stay unchanged.
+
+Source `996fc363` passes `make test-haswell-firmware test-haswell-cache-context
+test-x86-cache check-docs`, including six new admission regressions and the
+existing actual firmware/cache adapters, raw decoders, RAM walker and architectural
+cache matrix. The accepted21,839-byte native receipt replays as
+`HOST_ADMISSION_AUDIT_BLOCKED`: its two absent candidate VAs and UC encoding
+observation leave every live resource/alias/NX/leaf/retirement grant false.
+Audited source/reference hashes, replay output and local test logs are retained
+with a durable copy outside build. No payload installation or physical result
+changes; previous capture remains closed and no reboot is armed.
