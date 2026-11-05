@@ -1,5 +1,17 @@
 # Apple Silicon macOS build host
 
+## Final workspace reset — November 4, 2026
+
+The user requested final integration of the current work, updated documentation,
+and removal of the local workspace's old checkouts and generated artifacts.
+The integration coordinator is auditing unpublished changes, remaining PRs and
+mounted build volumes before cleanup. Browser's completed experimental no-JIT
+milestone now joins this final integration; no production capability enablement
+or new browser feature is implied. Physical-device work retains its own runtime
+acceptance requirements. This checkpoint is in progress and does not claim that
+unmerged device work or local artifacts have already been removed.
+
+
 ## Larger-document migration — qualified closeout November 4, 2026
 
 The bounded Apps11 → OS367 milestone passes its required native, matched-build,
