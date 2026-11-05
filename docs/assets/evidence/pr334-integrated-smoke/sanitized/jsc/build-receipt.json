@@ -1,0 +1,800 @@
+{
+  "scope": "target JSCOnly build; no guest runtime or browser claim",
+  "source_observation_only": "0a3f5981cd23b8982c5a8656af55875b0aae4a40",
+  "commands": [
+    {
+      "name": "patch-srvros-platform.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/srvros-platform.patch"
+      ],
+      "status": 0,
+      "seconds": 1.112,
+      "log": "build/browser-jsc/run-wku7pizp/patch-srvros-platform.patch-1793850066256654000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-bmalloc-stdlib.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/bmalloc-stdlib.patch"
+      ],
+      "status": 0,
+      "seconds": 1.096,
+      "log": "build/browser-jsc/run-wku7pizp/patch-bmalloc-stdlib.patch-1793850067465618000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-platform-registers.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/platform-registers.patch"
+      ],
+      "status": 0,
+      "seconds": 1.096,
+      "log": "build/browser-jsc/run-wku7pizp/patch-platform-registers.patch-1793850068658902000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-available-memory.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/available-memory.patch"
+      ],
+      "status": 0,
+      "seconds": 1.095,
+      "log": "build/browser-jsc/run-wku7pizp/patch-available-memory.patch-1793850069855699000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-filesystem-detection.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/filesystem-detection.patch"
+      ],
+      "status": 0,
+      "seconds": 1.089,
+      "log": "build/browser-jsc/run-wku7pizp/patch-filesystem-detection.patch-1793850071042083000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-filesystem-utf8.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/filesystem-utf8.patch"
+      ],
+      "status": 0,
+      "seconds": 1.095,
+      "log": "build/browser-jsc/run-wku7pizp/patch-filesystem-utf8.patch-1793850072237575000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-int128-streams.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/int128-streams.patch"
+      ],
+      "status": 0,
+      "seconds": 1.092,
+      "log": "build/browser-jsc/run-wku7pizp/patch-int128-streams.patch-1793850073423493000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-simdutf-icelake.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/simdutf-icelake.patch"
+      ],
+      "status": 0,
+      "seconds": 1.1,
+      "log": "build/browser-jsc/run-wku7pizp/patch-simdutf-icelake.patch-1793850074627304000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-simdutf-scalar.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/simdutf-scalar.patch"
+      ],
+      "status": 0,
+      "seconds": 1.099,
+      "log": "build/browser-jsc/run-wku7pizp/patch-simdutf-scalar.patch-1793850075825097000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-elf-local-labels.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/elf-local-labels.patch"
+      ],
+      "status": 0,
+      "seconds": 1.101,
+      "log": "build/browser-jsc/run-wku7pizp/patch-elf-local-labels.patch-1793850077024716000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-filelock-include.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/filelock-include.patch"
+      ],
+      "status": 0,
+      "seconds": 1.094,
+      "log": "build/browser-jsc/run-wku7pizp/patch-filelock-include.patch-1793850078232060000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-memory-footprint.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/memory-footprint.patch"
+      ],
+      "status": 0,
+      "seconds": 1.098,
+      "log": "build/browser-jsc/run-wku7pizp/patch-memory-footprint.patch-1793850079417891000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-file-map-flags.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/file-map-flags.patch"
+      ],
+      "status": 0,
+      "seconds": 1.091,
+      "log": "build/browser-jsc/run-wku7pizp/patch-file-map-flags.patch-1793850080622417000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-optional-signals.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/optional-signals.patch"
+      ],
+      "status": 0,
+      "seconds": 1.096,
+      "log": "build/browser-jsc/run-wku7pizp/patch-optional-signals.patch-1793850081801963000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-mincore-unavailable.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/mincore-unavailable.patch"
+      ],
+      "status": 0,
+      "seconds": 1.087,
+      "log": "build/browser-jsc/run-wku7pizp/patch-mincore-unavailable.patch-1793850082995362000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-cache-version.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/cache-version.patch"
+      ],
+      "status": 0,
+      "seconds": 1.095,
+      "log": "build/browser-jsc/run-wku7pizp/patch-cache-version.patch-1793850084187745000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-repatch-nojit.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/repatch-nojit.patch"
+      ],
+      "status": 0,
+      "seconds": 1.107,
+      "log": "build/browser-jsc/run-wku7pizp/patch-repatch-nojit.patch-1793850085373249000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-cache-build-id.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/cache-build-id.patch"
+      ],
+      "status": 0,
+      "seconds": 1.1,
+      "log": "build/browser-jsc/run-wku7pizp/patch-cache-build-id.patch-1793850086590714000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-target-archive-tools.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/target-archive-tools.patch"
+      ],
+      "status": 0,
+      "seconds": 1.093,
+      "log": "build/browser-jsc/run-wku7pizp/patch-target-archive-tools.patch-1793850087779743000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-repatch-llint-includes.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/repatch-llint-includes.patch"
+      ],
+      "status": 0,
+      "seconds": 1.097,
+      "log": "build/browser-jsc/run-wku7pizp/patch-repatch-llint-includes.patch-1793850088963117000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-jsc-math-provider.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/jsc-math-provider.patch"
+      ],
+      "status": 0,
+      "seconds": 1.094,
+      "log": "build/browser-jsc/run-wku7pizp/patch-jsc-math-provider.patch-1793850090166221000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-srvros-signal-context.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/srvros-signal-context.patch"
+      ],
+      "status": 0,
+      "seconds": 1.098,
+      "log": "build/browser-jsc/run-wku7pizp/patch-srvros-signal-context.patch-1793850091349656000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-signal-stack-bounds.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/signal-stack-bounds.patch"
+      ],
+      "status": 0,
+      "seconds": 1.086,
+      "log": "build/browser-jsc/run-wku7pizp/patch-signal-stack-bounds.patch-1793850092560997000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-signal-machine-context.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/signal-machine-context.patch"
+      ],
+      "status": 0,
+      "seconds": 1.095,
+      "log": "build/browser-jsc/run-wku7pizp/patch-signal-machine-context.patch-1793850093738118000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-signal-retirement.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/signal-retirement.patch"
+      ],
+      "status": 0,
+      "seconds": 1.095,
+      "log": "build/browser-jsc/run-wku7pizp/patch-signal-retirement.patch-1793850094927653000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-random-entropy.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/random-entropy.patch"
+      ],
+      "status": 0,
+      "seconds": 1.094,
+      "log": "build/browser-jsc/run-wku7pizp/patch-random-entropy.patch-1793850096128342000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "patch-random-native-linkage.patch",
+      "argv": [
+        "patch",
+        "--batch",
+        "--fuzz=0",
+        "-p1",
+        "-d",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-i",
+        "$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/random-native-linkage.patch"
+      ],
+      "status": 0,
+      "seconds": 1.091,
+      "log": "build/browser-jsc/run-wku7pizp/patch-random-native-linkage.patch-1793850097310383000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "configure",
+      "argv": [
+        "cmake",
+        "-S",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wpewebkit-2.54.2",
+        "-B",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/cmake",
+        "-G",
+        "Ninja",
+        "-DCMAKE_TOOLCHAIN_FILE=$WORKSPACE/SrvrOS-signal-context/ports/srvros/webkit/toolchain.cmake",
+        "-DPORT=JSCOnly",
+        "-DSRVROS_ICU_ROOT=$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot",
+        "-DICU_ROOT=$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot",
+        "-DSRVROS_JSC_FILESYSTEM=ON",
+        "-DSRVROS_JSC_BUILD_IDENTIFIER=0ef592a3666ef64ae857d4508ed4943d624a5090f0ccdfe706d8e5ec4e186ecd",
+        "-DENABLE_STATIC_JSC=ON",
+        "-DENABLE_JIT=OFF",
+        "-DENABLE_WEBASSEMBLY=OFF",
+        "-DENABLE_REMOTE_INSPECTOR=OFF",
+        "-DUSE_SYSTEM_MALLOC=ON",
+        "-DUSE_HEADER_MAPS=OFF",
+        "-DENABLE_UNIFIED_BUILDS=OFF",
+        "-DENABLE_SAMPLING_PROFILER=OFF",
+        "-DCMAKE_BUILD_TYPE=Release"
+      ],
+      "status": 0,
+      "seconds": 28.561,
+      "log": "build/browser-jsc/run-wku7pizp/configure-1793850100994491000.log",
+      "stop_reason": null
+    },
+    {
+      "name": "build-jsc",
+      "argv": [
+        "cmake",
+        "--build",
+        "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/cmake",
+        "--target",
+        "jsc",
+        "--parallel",
+        "2"
+      ],
+      "status": 0,
+      "seconds": 479.274,
+      "log": "build/browser-jsc/run-wku7pizp/build-jsc-1793850129684602000.log",
+      "stop_reason": null
+    }
+  ],
+  "result": "built; not executed",
+  "inputs": {
+    "tools/browser_jsc_build.py": "43acec33a098d01defd714fa49677cd4f8f5e7264717af19be37725b181d275a",
+    "tools/browser_jsc_elf.py": "f9d3ab2e32a63f0583fca77ea24d22ea29c792e4c0d3d85b8cf350b95053b8e7",
+    "tools/browser_storage.py": "cd4febea4042eebac792bdced8529ce3ae452a87ccceb9630f2dbf783602e15c",
+    "tools/browser_random_contract.py": "dd10fceb83f957c056a2fdc3733822f4bec19eb5f8a930710ffca8e71510a425",
+    "shared/include/srvros/random.h": "a36436954383c1b3e91b12b38ff230fe40a8ca7f1f875fed2a923e61599d1999",
+    "build/browser-probe/wpewebkit-2.54.2.tar.xz": "f3284e19e47fcb5ac8c63c2e1c113dbd65b2423eb8a545f5b345707829004f56",
+    "ports/srvros/webkit/PORT.md": "3b3a88d1bc16a47529a70796b24093849348a62d287eb6ccec40518d36edbdca",
+    "ports/srvros/webkit/SIGNAL-PORT-PROPOSAL.md": "7da0446b2884b85a553072d646f45a41b3f85e0eccd719e0c9055ff61f9e6ccc",
+    "ports/srvros/webkit/available-memory.patch": "9f9386e038881e9a26ad1f2ef6d06261524ed486bb487872bcec3224d79a9279",
+    "ports/srvros/webkit/bmalloc-stdlib.patch": "586548655e91c7505d148bc3ba429f741135f5cc21ed44a4343b11c210e9fd85",
+    "ports/srvros/webkit/build_jsc_gc_roots_probe.py": "6fb76d55a3fcdd5eed3acccbccafe469497d3140506b9e82cd888613bf7e3a75",
+    "ports/srvros/webkit/build_random_entropy_probe.py": "16c7539511508acce60919e9eb68ee88f9bfcc0dac744b97a9cf46d74de1a10e",
+    "ports/srvros/webkit/build_wtf_signal_probe.py": "f4623074c5a3e10fa7abcb33417be72040cc1330b08ed9e8a1c20cf6c61bb6ac",
+    "ports/srvros/webkit/cache-build-id.patch": "b3c9244d7be013c7ab860d443cbacd002cb666802c119b3985deb80cccf51757",
+    "ports/srvros/webkit/cache-version.patch": "409861d5f8617d493b2034901095e1577145bc0a68e21f87614df69f7135a47d",
+    "ports/srvros/webkit/cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+    "ports/srvros/webkit/compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+    "ports/srvros/webkit/cxx": "242c8448517c60c447da661c611561967e5e9e33040a6e5ac9d122546db6d7c9",
+    "ports/srvros/webkit/elf-local-labels.patch": "91d9927a459e9226680aaf3d268fd4c8a01330360246769c05e9cf006a570719",
+    "ports/srvros/webkit/file-map-flags.patch": "e6f8ae09893f68002348d1b38fef1c6905c4c4903a83d22af66351c405e8e75c",
+    "ports/srvros/webkit/filelock-include.patch": "5cde12b1162b10449bfe17732a026344a5a1c2fe7a221e84b5963fbecf6a076b",
+    "ports/srvros/webkit/filesystem-detection.patch": "6adf0441a4c8bafc3afcec3836c2c5ca4221ba8d768e07890080c728b5f97549",
+    "ports/srvros/webkit/filesystem-utf8.patch": "cb9bbc28fd84e97d36d0b6288b9adaefa21fa6fd88deb48be3a781716a44a1f9",
+    "ports/srvros/webkit/int128-streams.patch": "2bf76c4af828ee751a799ee6703b3b0db1193c8e0d0bcab0608adcef518e7e57",
+    "ports/srvros/webkit/jsc-math-provider.patch": "b4e76992d1f2a97b3d643453c1c2c376ce705eaee34843d970368971c812b48d",
+    "ports/srvros/webkit/jsc_gc_roots_guest.S": "ca0b454604e4c35657b5fd341172ce577d5caba8e72f8543ac7b7f9d68c1eeb9",
+    "ports/srvros/webkit/jsc_gc_roots_guest.cpp": "5fe12744549279d826082628dec7bec849be182dbc5e440056aa41c764a76b31",
+    "ports/srvros/webkit/memory-footprint.patch": "ba5b9f7c235f618318fe75ddb8e00cdd3d778f5065613a3f0676d336a3cf2e5b",
+    "ports/srvros/webkit/mincore-unavailable.patch": "2229d46f9fbdb2bca9d3051ff1aaed90e41c0d096f7a85565105f957ec5c75e2",
+    "ports/srvros/webkit/optional-signals.patch": "bda6250e1459630d476336308eb58ebd9f5e76818f8076dafb9abc25a050dd4b",
+    "ports/srvros/webkit/platform-registers.patch": "9084620fb7964e34610cf781e669fc213c0ffa578440f23b6fabf6448d2340f1",
+    "ports/srvros/webkit/random-entropy.patch": "a9a21a48b1eb1e84df1e23aff644db3b29d36fd25518ced1ad5b00479b3bb123",
+    "ports/srvros/webkit/random-native-linkage.patch": "0d68b0f6754cc1ff7c7b8dc28fbd79086295da3c6ccaf0d555e6edef1a88bad1",
+    "ports/srvros/webkit/random_entropy_guest.cpp": "5e2b0e59bf6d22efcde72e9839b1344068270d2c16799d56bd490d612a37e9d9",
+    "ports/srvros/webkit/repatch-llint-includes.patch": "5a20c3547e4074da2222e42d207a08aa348bd1e47074195c5d46822a1fa02b77",
+    "ports/srvros/webkit/repatch-nojit.patch": "869eadde3afb103c834518f286f2d20df6a4d9ba9ea96609ccfebcd491c4ca2e",
+    "ports/srvros/webkit/signal-machine-context.patch": "fcd55a5e6d047888abb99d82014e78ba8a684bb0634ad097fb290d4f975c88ae",
+    "ports/srvros/webkit/signal-retirement.patch": "17d6dcc31f26ecb123582847427419298bdb11c1d3483721b77b3407aab37e51",
+    "ports/srvros/webkit/signal-stack-bounds.patch": "8902400751cda57067868a6e1d7b05f3643fde2f961726ab093d84614f82617d",
+    "ports/srvros/webkit/simdutf-icelake.patch": "8fa60b7e6d37cc7e62df473ff505a3b92d3164fd64a2c9506b724dfafe9eea60",
+    "ports/srvros/webkit/simdutf-scalar.patch": "aa7f46816bc416ecdbc59068adbcb397b307e90ef1f787e75c3c34d94a2da3f0",
+    "ports/srvros/webkit/srvros-platform.patch": "461e60cb746fbf82bed400d8a47bbbf2e0dbff8a95cecc5fb8ed0c3b77111d82",
+    "ports/srvros/webkit/srvros-signal-context.patch": "2180dfda6375d540723ff7d28182284c602d25cc03ab3386d309fc63f7e70ead",
+    "ports/srvros/webkit/target-archive-tools.patch": "130a35398d083604994bb668b99c9835c834fb5b2bcaabee3101ff4073b06ad6",
+    "ports/srvros/webkit/test_signal_protocol.cc": "1b3283bdbbe836067af59b1d113ba2721892c688d3abb1c8b53fb4227f3366cd",
+    "ports/srvros/webkit/test_signal_retirement.py": "36bb9b16fa1e26dea1e3b3c46f3537026c6a59c14635d61b291c4e3285be2864",
+    "ports/srvros/webkit/toolchain.cmake": "2012ae6619d44e7464ab7c7554d64315919a26f7c7ac6440287efc4412a49cb0",
+    "ports/srvros/webkit/update_random_contract.py": "507154f8381e0dce4211e0dd2b82848785e1cf9babaadedb52342235c4bd15a0",
+    "ports/srvros/webkit/wtf_guest.cpp": "520e2a41150a085d000e29645bd49f313fc9b21ccec4064bae1b640353d8f50f",
+    "ports/srvros/webkit/wtf_signal_guest.cpp": "cbe9a2f13e52ab8f415de74ed5cc5c255c0ce185630233486b72d9a1599562e0"
+  },
+  "runtime": {
+    "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/receipt.json",
+    "sha256": "e6b9c331bf36ca643de0241d482e3c69efed30a6711458a562d9936a1972fac9",
+    "sdk_headers_sha256": "06f99b932ca66b7a3401e850dd2616056968ebddbae32c23cab06fbd4080a232"
+  },
+  "icu": {
+    "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/receipt.json",
+    "sha256": "1d14604eb60d1943655343266a86793b2027808bbdfd12c08cf9312babd3b5b2"
+  },
+  "filesystem": {
+    "build_receipt_sha256": "20223e5db355ce562f46c80f80298198023a2fad62b46f9b0b441992f4109d0b",
+    "guest_receipt": "build/browser-filesystem/guest-wxgxomlw/receipt.json",
+    "guest_receipt_sha256": "9ddab1e7e2c8a673f6555a4a52e06ffd4bbafb2318c15f6b4aea8e501e76808a",
+    "guest_serial_sha256": "a4ca37db1bfb1fb183e391dcd41756fd569f4db7a4fa4ee90cf29f181e040605"
+  },
+  "math_provider": {
+    "build_receipt_sha256": "c2d73e9f11e81978a7c5066ba5f50109352e8b1e9f5171d0ca81619b85705d11",
+    "extension_receipt_sha256": "f334b2def2b0e3f7c40ecdcf08eb765426bc111dc003625d90ae467c523d1bac",
+    "guest_receipt": "build/browser-runtime/guest-11spy7gz/receipt.json",
+    "guest_receipt_sha256": "22de8fbb79966ff0d4d008c79488452aecae92938cc93355f3d07fdcc8674e75",
+    "guest_serial_sha256": "2b77d70e8ca1f902984b9771ed2dd5a99f1350cd44a3c24aad3929d7b9168b47",
+    "math_archive_sha256": "65d28fc0f4264411fa32b4def4a72bcee177d6bbb0e8a562451a3c993501134a"
+  },
+  "dirty_observation_only": "",
+  "excluded_links": [
+    "wpewebkit-2.54.2/Source/ThirdParty/skia/src/ports/fontations/Cargo.toml"
+  ],
+  "extracted_bytes": 478809532,
+  "source_state": {
+    "patches": {
+      "srvros-platform.patch": "461e60cb746fbf82bed400d8a47bbbf2e0dbff8a95cecc5fb8ed0c3b77111d82",
+      "bmalloc-stdlib.patch": "586548655e91c7505d148bc3ba429f741135f5cc21ed44a4343b11c210e9fd85",
+      "platform-registers.patch": "9084620fb7964e34610cf781e669fc213c0ffa578440f23b6fabf6448d2340f1",
+      "available-memory.patch": "9f9386e038881e9a26ad1f2ef6d06261524ed486bb487872bcec3224d79a9279",
+      "filesystem-detection.patch": "6adf0441a4c8bafc3afcec3836c2c5ca4221ba8d768e07890080c728b5f97549",
+      "filesystem-utf8.patch": "cb9bbc28fd84e97d36d0b6288b9adaefa21fa6fd88deb48be3a781716a44a1f9",
+      "int128-streams.patch": "2bf76c4af828ee751a799ee6703b3b0db1193c8e0d0bcab0608adcef518e7e57",
+      "simdutf-icelake.patch": "8fa60b7e6d37cc7e62df473ff505a3b92d3164fd64a2c9506b724dfafe9eea60",
+      "simdutf-scalar.patch": "aa7f46816bc416ecdbc59068adbcb397b307e90ef1f787e75c3c34d94a2da3f0",
+      "elf-local-labels.patch": "91d9927a459e9226680aaf3d268fd4c8a01330360246769c05e9cf006a570719",
+      "filelock-include.patch": "5cde12b1162b10449bfe17732a026344a5a1c2fe7a221e84b5963fbecf6a076b",
+      "memory-footprint.patch": "ba5b9f7c235f618318fe75ddb8e00cdd3d778f5065613a3f0676d336a3cf2e5b",
+      "file-map-flags.patch": "e6f8ae09893f68002348d1b38fef1c6905c4c4903a83d22af66351c405e8e75c",
+      "optional-signals.patch": "bda6250e1459630d476336308eb58ebd9f5e76818f8076dafb9abc25a050dd4b",
+      "mincore-unavailable.patch": "2229d46f9fbdb2bca9d3051ff1aaed90e41c0d096f7a85565105f957ec5c75e2",
+      "cache-version.patch": "409861d5f8617d493b2034901095e1577145bc0a68e21f87614df69f7135a47d",
+      "repatch-nojit.patch": "869eadde3afb103c834518f286f2d20df6a4d9ba9ea96609ccfebcd491c4ca2e",
+      "cache-build-id.patch": "b3c9244d7be013c7ab860d443cbacd002cb666802c119b3985deb80cccf51757",
+      "target-archive-tools.patch": "130a35398d083604994bb668b99c9835c834fb5b2bcaabee3101ff4073b06ad6",
+      "repatch-llint-includes.patch": "5a20c3547e4074da2222e42d207a08aa348bd1e47074195c5d46822a1fa02b77",
+      "jsc-math-provider.patch": "b4e76992d1f2a97b3d643453c1c2c376ce705eaee34843d970368971c812b48d",
+      "srvros-signal-context.patch": "2180dfda6375d540723ff7d28182284c602d25cc03ab3386d309fc63f7e70ead",
+      "signal-stack-bounds.patch": "8902400751cda57067868a6e1d7b05f3643fde2f961726ab093d84614f82617d",
+      "signal-machine-context.patch": "fcd55a5e6d047888abb99d82014e78ba8a684bb0634ad097fb290d4f975c88ae",
+      "signal-retirement.patch": "17d6dcc31f26ecb123582847427419298bdb11c1d3483721b77b3407aab37e51",
+      "random-entropy.patch": "a9a21a48b1eb1e84df1e23aff644db3b29d36fd25518ced1ad5b00479b3bb123",
+      "random-native-linkage.patch": "0d68b0f6754cc1ff7c7b8dc28fbd79086295da3c6ccaf0d555e6edef1a88bad1"
+    },
+    "toolchain": {
+      "cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+      "cxx": "242c8448517c60c447da661c611561967e5e9e33040a6e5ac9d122546db6d7c9",
+      "compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+      "toolchain.cmake": "2012ae6619d44e7464ab7c7554d64315919a26f7c7ac6440287efc4412a49cb0"
+    },
+    "runtime_receipt_sha256": "e6b9c331bf36ca643de0241d482e3c69efed30a6711458a562d9936a1972fac9",
+    "icu_receipt_sha256": "1d14604eb60d1943655343266a86793b2027808bbdfd12c08cf9312babd3b5b2",
+    "filesystem_proof": {
+      "build_receipt_sha256": "20223e5db355ce562f46c80f80298198023a2fad62b46f9b0b441992f4109d0b",
+      "guest_receipt": "build/browser-filesystem/guest-wxgxomlw/receipt.json",
+      "guest_receipt_sha256": "9ddab1e7e2c8a673f6555a4a52e06ffd4bbafb2318c15f6b4aea8e501e76808a",
+      "guest_serial_sha256": "a4ca37db1bfb1fb183e391dcd41756fd569f4db7a4fa4ee90cf29f181e040605"
+    },
+    "math_proof": {
+      "build_receipt_sha256": "c2d73e9f11e81978a7c5066ba5f50109352e8b1e9f5171d0ca81619b85705d11",
+      "extension_receipt_sha256": "f334b2def2b0e3f7c40ecdcf08eb765426bc111dc003625d90ae467c523d1bac",
+      "guest_receipt": "build/browser-runtime/guest-11spy7gz/receipt.json",
+      "guest_receipt_sha256": "22de8fbb79966ff0d4d008c79488452aecae92938cc93355f3d07fdcc8674e75",
+      "guest_serial_sha256": "2b77d70e8ca1f902984b9771ed2dd5a99f1350cd44a3c24aad3929d7b9168b47",
+      "math_archive_sha256": "65d28fc0f4264411fa32b4def4a72bcee177d6bbb0e8a562451a3c993501134a"
+    },
+    "source_sha256": "35085fbc78b8cb816d59fc666a25edcd84d5349c8f259d761842a1b52ac051f4"
+  },
+  "random_contract": {
+    "native_path": "shared/include/srvros/random.h",
+    "native_sha256": "a36436954383c1b3e91b12b38ff230fe40a8ca7f1f875fed2a923e61599d1999",
+    "applied_path": "Source/WTF/wtf/srvros/RandomContract.h",
+    "applied_sha256": "a36436954383c1b3e91b12b38ff230fe40a8ca7f1f875fed2a923e61599d1999",
+    "source_commit": "0a3f5981cd23b8982c5a8656af55875b0aae4a40",
+    "ports_commit": "af1421b735b61cf47c4e6516730c30468020abc7",
+    "retained_sdk_syscall_numbers_sha256": "e2615a91c723eb2e80afdd6ac0fcbb8f1814d2d6d3b59718349e1f108900cab9",
+    "retained_sdk": "unchanged; new header is supplied by the reviewed WTF patch"
+  },
+  "experimental_signal_context": true,
+  "build_identifier": {
+    "sha256": "0ef592a3666ef64ae857d4508ed4943d624a5090f0ccdfe706d8e5ec4e186ecd",
+    "inputs": {
+      "source_sha256": "35085fbc78b8cb816d59fc666a25edcd84d5349c8f259d761842a1b52ac051f4",
+      "toolchain": {
+        "cc": "dfcd8687bba45133fe02f8a6b6583ac7d7cd7698508ed707f754a53aa90e99dc",
+        "cxx": "242c8448517c60c447da661c611561967e5e9e33040a6e5ac9d122546db6d7c9",
+        "compiler.py": "2064cecae32315a43ee038ae90f517cd8c34382cf7e4a5c867f5cbd12a33a89f",
+        "toolchain.cmake": "2012ae6619d44e7464ab7c7554d64315919a26f7c7ac6440287efc4412a49cb0"
+      },
+      "runtime_receipt_sha256": "e6b9c331bf36ca643de0241d482e3c69efed30a6711458a562d9936a1972fac9",
+      "icu_receipt_sha256": "1d14604eb60d1943655343266a86793b2027808bbdfd12c08cf9312babd3b5b2",
+      "filesystem_receipt_sha256": "20223e5db355ce562f46c80f80298198023a2fad62b46f9b0b441992f4109d0b",
+      "math_archive_sha256": "65d28fc0f4264411fa32b4def4a72bcee177d6bbb0e8a562451a3c993501134a",
+      "configuration": {
+        "port": "JSCOnly",
+        "static": true,
+        "jit": false,
+        "webassembly": false,
+        "remote_inspector": false,
+        "system_malloc": true,
+        "header_maps": false,
+        "unified_builds": false,
+        "sampling_profiler": false,
+        "build_type": "Release",
+        "filesystem": true,
+        "localization": false
+      }
+    }
+  },
+  "configuration": {
+    "ICU_INCLUDE_DIR": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot/include",
+    "ICU_DATA_LIBRARY_RELEASE": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot/lib/libicudata.a",
+    "ICU_I18N_LIBRARY_RELEASE": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot/lib/libicui18n.a",
+    "ICU_UC_LIBRARY_RELEASE": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot/lib/libicuuc.a",
+    "ENABLE_STATIC_JSC": "ON",
+    "ENABLE_JIT": "OFF",
+    "ENABLE_WEBASSEMBLY": "OFF",
+    "ENABLE_REMOTE_INSPECTOR": "OFF",
+    "USE_SYSTEM_MALLOC": "ON",
+    "USE_HEADER_MAPS": "OFF",
+    "ENABLE_UNIFIED_BUILDS": "OFF",
+    "ENABLE_SAMPLING_PROFILER": "OFF",
+    "CMAKE_BUILD_TYPE": "Release",
+    "SRVROS_JSC_FILESYSTEM": "ON",
+    "STD_FILESYSTEM_IS_AVAILABLE": "1",
+    "SRVROS_JSC_BUILD_IDENTIFIER": "0ef592a3666ef64ae857d4508ed4943d624a5090f0ccdfe706d8e5ec4e186ecd"
+  },
+  "filesystem_try_compile": {
+    "archive": "$WORKSPACE/SrvrOS-signal-context/build/browser-filesystem/libcxx-filesystem.a",
+    "log_sha256": "8a5a10b0ddcbeaa3354ce8f3c2db9dba52be2f29324d22c291109ccc0d8ae2e8"
+  },
+  "archive_rules": {
+    "sha256": "d1c1ebb7a8578802f7a1c7465ddc41ec2f9bec0bca41e6189811d08d2e47aecf",
+    "commands": {
+      "bmalloc": "$PRE_LINK && /opt/homebrew/bin/cmake -E rm -f $TARGET_FILE && \"$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig\" ar qc $TARGET_FILE $LINK_FLAGS $in && \"$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig\" ranlib $TARGET_FILE && /opt/homebrew/bin/cmake -E touch $TARGET_FILE && $POST_BUILD",
+      "WTF": "$PRE_LINK && /opt/homebrew/bin/cmake -E rm -f $TARGET_FILE && \"$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig\" ar qc $TARGET_FILE $LINK_FLAGS $in && \"$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig\" ranlib $TARGET_FILE && /opt/homebrew/bin/cmake -E touch $TARGET_FILE && $POST_BUILD",
+      "JavaScriptCore": "$PRE_LINK && /opt/homebrew/bin/cmake -E rm -f $TARGET_FILE && \"$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig\" ar qc $TARGET_FILE $LINK_FLAGS $in && \"$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig\" ranlib $TARGET_FILE && /opt/homebrew/bin/cmake -E touch $TARGET_FILE && $POST_BUILD"
+    }
+  },
+  "cmake_cache_sha256": "1d17dfac47f85a3990e4158f737bf634357449896949ca2bf617793010c5e369",
+  "verified_final_source_sha256": "35085fbc78b8cb816d59fc666a25edcd84d5349c8f259d761842a1b52ac051f4",
+  "jsc_elf": {
+    "type": "ET_EXEC",
+    "machine": "x86_64",
+    "entry": 5242880,
+    "program_headers": 4,
+    "load_memory_sum": 51675115,
+    "tls": {
+      "file_bytes": 0,
+      "memory_bytes": 2112,
+      "alignment": 16,
+      "section_count": 1,
+      "all_sections_covered": true
+    }
+  },
+  "target_archives": {
+    "libJavaScriptCore.a": {
+      "sha256": "a386963c75c4648aa0ddcaa9d4ef7e32b288fb79a1e998cd780ca6323ee1b347",
+      "elf64_x86_64_members": 893
+    },
+    "libWTF.a": {
+      "sha256": "b150f986450d97542a2241bd6c2d6e86f5b60aa9626729f1cf1b7c8fbd01cdaf",
+      "elf64_x86_64_members": 172
+    },
+    "libbmalloc.a": {
+      "sha256": "93d6451eb0e0f3fd23c1c66310ced870a5f481d1dd3d4647ea91a39d50100e90",
+      "elf64_x86_64_members": 168
+    }
+  },
+  "outputs": {
+    "build/browser-jsc/run-wku7pizp/cmake/bin/jsc": "08dd2679eee6bac5ce701877005cd63e33bff5b28a5a3bf75e709f94f7ddf5a9",
+    "build/browser-jsc/run-wku7pizp/cmake/lib/libJavaScriptCore.a": "a386963c75c4648aa0ddcaa9d4ef7e32b288fb79a1e998cd780ca6323ee1b347",
+    "build/browser-jsc/run-wku7pizp/cmake/lib/libWTF.a": "b150f986450d97542a2241bd6c2d6e86f5b60aa9626729f1cf1b7c8fbd01cdaf",
+    "build/browser-jsc/run-wku7pizp/cmake/lib/libbmalloc.a": "93d6451eb0e0f3fd23c1c66310ced870a5f481d1dd3d4647ea91a39d50100e90"
+  },
+  "storage_minimum": {
+    "host": {
+      "path": "$HOST_HOME",
+      "free_bytes": 32021176320
+    },
+    "output": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp",
+      "free_bytes": 32021176320
+    },
+    "backing": {
+      "path": "$BACKING_VOLUME",
+      "free_bytes": 8009809920
+    }
+  },
+  "storage_snapshot": {
+    "host": {
+      "path": "$HOST_HOME",
+      "free_bytes": 32021483520,
+      "required_bytes": 2147483648
+    },
+    "output": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp",
+      "free_bytes": 32021483520,
+      "required_bytes": 2147483648
+    },
+    "backing": {
+      "path": "$BACKING_VOLUME",
+      "free_bytes": 8010072064,
+      "required_bytes": 2147483648
+    }
+  },
+  "observed_target_archives": {
+    "libJavaScriptCore.a": {
+      "sha256": "a386963c75c4648aa0ddcaa9d4ef7e32b288fb79a1e998cd780ca6323ee1b347",
+      "elf64_x86_64_members": 893
+    },
+    "libWTF.a": {
+      "sha256": "b150f986450d97542a2241bd6c2d6e86f5b60aa9626729f1cf1b7c8fbd01cdaf",
+      "elf64_x86_64_members": 172
+    },
+    "libbmalloc.a": {
+      "sha256": "93d6451eb0e0f3fd23c1c66310ced870a5f481d1dd3d4647ea91a39d50100e90",
+      "elf64_x86_64_members": 168
+    }
+  },
+  "seconds": 564.447
+}

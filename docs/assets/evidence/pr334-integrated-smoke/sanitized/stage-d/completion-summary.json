@@ -1,0 +1,76 @@
+{
+  "result": "built and linked; not executed",
+  "source": "0a3f5981cd23b8982c5a8656af55875b0aae4a40",
+  "ports": "af1421b735b61cf47c4e6516730c30468020abc7",
+  "seconds": 587.8930399999954,
+  "commands": [
+    {
+      "name": "fresh-nojit-jsc",
+      "status": 0,
+      "seconds": 564.8086764590116,
+      "peak_rss_bytes": 1835384832,
+      "before_cleanup": {},
+      "remaining": {}
+    },
+    {
+      "name": "entropy-fixture",
+      "status": 0,
+      "seconds": 5.683032125001773,
+      "peak_rss_bytes": 234323968,
+      "before_cleanup": {},
+      "remaining": {}
+    },
+    {
+      "name": "wtf-signal",
+      "status": 0,
+      "seconds": 5.503459749976173,
+      "peak_rss_bytes": 285360128,
+      "before_cleanup": {},
+      "remaining": {}
+    },
+    {
+      "name": "utility",
+      "status": 0,
+      "seconds": 5.24369370797649,
+      "peak_rss_bytes": 278790144,
+      "before_cleanup": {},
+      "remaining": {}
+    },
+    {
+      "name": "gc-root",
+      "status": 0,
+      "seconds": 6.288768291997258,
+      "peak_rss_bytes": 907919360,
+      "before_cleanup": {},
+      "remaining": {}
+    }
+  ],
+  "jsc_receipt": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/receipt-1793850612509848000.json",
+  "jsc_receipt_sha256": "58c7fb49238f0b0be59faf4568e6610f9ef7a0dbb01a924ae4b9a563273e3fc3",
+  "jsc_outputs": {
+    "build/browser-jsc/run-wku7pizp/cmake/bin/jsc": "08dd2679eee6bac5ce701877005cd63e33bff5b28a5a3bf75e709f94f7ddf5a9",
+    "build/browser-jsc/run-wku7pizp/cmake/lib/libJavaScriptCore.a": "a386963c75c4648aa0ddcaa9d4ef7e32b288fb79a1e998cd780ca6323ee1b347",
+    "build/browser-jsc/run-wku7pizp/cmake/lib/libWTF.a": "b150f986450d97542a2241bd6c2d6e86f5b60aa9626729f1cf1b7c8fbd01cdaf",
+    "build/browser-jsc/run-wku7pizp/cmake/lib/libbmalloc.a": "93d6451eb0e0f3fd23c1c66310ced870a5f481d1dd3d4647ea91a39d50100e90"
+  },
+  "source_sha256": "35085fbc78b8cb816d59fc666a25edcd84d5349c8f259d761842a1b52ac051f4",
+  "build_identifier_sha256": "0ef592a3666ef64ae857d4508ed4943d624a5090f0ccdfe706d8e5ec4e186ecd",
+  "configuration": {
+    "ICU_INCLUDE_DIR": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot/include",
+    "ICU_DATA_LIBRARY_RELEASE": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot/lib/libicudata.a",
+    "ICU_I18N_LIBRARY_RELEASE": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot/lib/libicui18n.a",
+    "ICU_UC_LIBRARY_RELEASE": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot/lib/libicuuc.a",
+    "ENABLE_STATIC_JSC": "ON",
+    "ENABLE_JIT": "OFF",
+    "ENABLE_WEBASSEMBLY": "OFF",
+    "ENABLE_REMOTE_INSPECTOR": "OFF",
+    "USE_SYSTEM_MALLOC": "ON",
+    "USE_HEADER_MAPS": "OFF",
+    "ENABLE_UNIFIED_BUILDS": "OFF",
+    "ENABLE_SAMPLING_PROFILER": "OFF",
+    "CMAKE_BUILD_TYPE": "Release",
+    "SRVROS_JSC_FILESYSTEM": "ON",
+    "STD_FILESYSTEM_IS_AVAILABLE": "1",
+    "SRVROS_JSC_BUILD_IDENTIFIER": "0ef592a3666ef64ae857d4508ed4943d624a5090f0ccdfe706d8e5ec4e186ecd"
+  }
+}

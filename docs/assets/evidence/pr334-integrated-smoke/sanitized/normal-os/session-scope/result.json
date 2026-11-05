@@ -1,0 +1,46 @@
+{
+  "status": "PASS",
+  "build_source": "a7f71411c2d22343b9237cffb55d564b7defce9e",
+  "build_dirty": false,
+  "payload_sha256": {
+    "build/kernel/srvros.elf": "da470d92d4ae3921405f6fb14c40c39a76efc47213f994552d8b89328e3ccee2",
+    "build/initramfs.tar": "e756b075003b87ddf5429d4327c516a02f76d8989e91a08ead5ff7290e6e016e"
+  },
+  "checks": [
+    "ps",
+    "run /fat/bin/scopeprobe",
+    "ps",
+    "run /fat/bin/scopeprobe",
+    "ps",
+    "lifetimetest",
+    "run /fat/bin/ptyprobe",
+    "run /fat/bin/sysabi",
+    "ps"
+  ],
+  "system_init_pid": 1,
+  "orphan_progress": "Ownerless held descendant exits naturally; CREATE succeeds only after init retirement.",
+  "requires_live_system_init": true,
+  "physical_acceptance": false,
+  "qemu_command": [
+    "qemu-system-x86_64",
+    "-M",
+    "q35",
+    "-m",
+    "512M",
+    "-cdrom",
+    "$WORKSPACE/SrvrOS-signal-context/build/review/session-scope/scope-iso-bp5njdtf/srvros-1024x768.iso",
+    "-boot",
+    "d",
+    "-nic",
+    "none",
+    "-serial",
+    "unix:/tmp/sc-qsedxjnk/scope-8sq_svx9/serial,server=on,wait=off",
+    "-qmp",
+    "unix:/tmp/sc-qsedxjnk/scope-8sq_svx9/qmp,server=on,wait=off",
+    "-display",
+    "none",
+    "-monitor",
+    "none",
+    "-no-reboot"
+  ]
+}

@@ -4196,6 +4196,576 @@ worker reference release, physical acceptance and safe whole-xHCI reclamation
 remain open. No PR329/330/332 filesystem/installer implementation overlap.
 
 
+## Browser signal/context dependency — November 3, 2026
+
+Dedicated branch `device/apple-silicon/browser-signal-context` consumes main
+`89c210db` and PR317 `c9f4f306` through merge `af470fff`. The browser milestone
+needs real directed asynchronous delivery and interrupted register roots before
+JSC startup/GC can be accepted. The audit owner agreed this separate dependency
+branch and retains process/VMM/teardown integration review; browser PR310 should
+consume the reviewed dependency. The [design proposal](../signal-context.md)
+is for ABI/delivery/return review before implementation. No runtime code,
+physical work, kernel/SDK build or VM run is claimed by this design checkpoint.
+The separate browser checkout owns the demonstrated app.ld TLS correction and
+its utility/runtime proofs. Preserve the existing review VMs and all other
+owners' device/runtime scopes.
+
+
+### PR334 approved helper slice
+
+The process/VMM/teardown owner approved only internal unwired context layouts,
+explicit ISR mapping, pure validation/record helpers and host tests at design
+`d71c254c`. Implemented private 688-byte aligned snapshots, checked red-zone/frame
+planning, four-deep owner-checked LIFO/replay refusal and saturating generation
+allocation. Strict native host and ASan/UBSan checks pass, including a protected
+page immediately after the CPL0 frame prefix. The actual no-SSE freestanding
+x86-64 Makefile object compiles with pinned Zig 0.15.2 and isolated caches.
+Evidence: `build/signal-context/`. No live process/SDK/API admission or delivery
+hook is enabled; the owner has not approved the next scheduler/FPU/copy slice.
+The inner syscall `scheduler_user_enter()` must be resolved before any outer
+return-hook admission claim. Continue source-level review and primitive tests,
+then matched kernel/SDK and JSC smoke. Existing review VMs remain untouched.
+
+
+The owner independently reran the first helper tests and approved a second
+internal unwired slice: `scheduler_observe_user_return()` reports only opaque
+current scheduler identities under already-excluded IRQs, matching actual user
+CR3, unsafe/kernel accounting state and no I/O owner. Actual-source scheduler
+fixtures pass strict x86-64/Rosetta and ASan/UBSan, preserving all existing suites;
+new tests cover every specified refusal, initial/worker positives and no output
+or scheduler/IRQ mutation. The freestanding scheduler object compiles with Zig
+0.15.2. No production caller or live transition/FPU/copy/API change is enabled.
+Send the concrete query/tests for review before wiring; saved-FPU proof and
+image-generation/action/restart/nested-wait/lifetime gates remain open.
+
+PR334 transition code `fa69b4dc` preserves audited safe-syscall admission and the
+unsafe-call handoff while making common CPL3 entry unsafe and the final user
+transition singular/IRQ-excluded. Strict/sanitized actual cancellation and full
+scheduler fixtures pass, including nested CPL0 and eligible-service/foreign-owner
+progress. Fresh kernel plus selected current userspace compile with GNU Make4/
+Zig0.15.2 and pass full matched thread/accounting, sysabi and throttled AHCI/USB
+cancellation/relaunch/timeout guests. Receipt and exact scope are in
+[signal/context verification](../signal-context.md#matched-transition-verification-at-fa69b4dc).
+Task guests stopped; review VMs preserved. The source/test result is with the
+owner for review; FPU/image/lifetime/VMM copy and public signal admission remain
+unimplemented. New lifetime/executable-query packets are design only.
+
+
+The owner accepted standalone transition evidence and approved an unwired VMM
+executable-entry query. Actual all-level permission/root/capability host fixtures,
+sanitizers and the freestanding VMM object pass; no production query caller or
+policy mutation exists. A separate matched guest actually executes CPUID (NX=1,
+Page1GB=0); same-guest QMP readback shows NXE/WP on and SMAP off. Exact receipt and
+scope are in the signal/context guide. Lifecycle uses mandatory association
+invalidation as the owner's design preference; no binding epoch or FPU/lifetime
+implementation is authorized yet. Task guests stopped; review VMs preserved.
+
+
+### PR334 preparation and worker binding qualification — November 4
+
+Owner independently accepted unwired `vmm_prepare_user_kernel_mappings` at
+`439d274d` after source, strict Rosetta and sanitizer review. No live caller or
+creation/setter change yet. Lifecycle audit then reproduced foreground worker
+spawn corruption on the accepted baseline (worker never returned, status3).
+Owner-approved `bfee424f` refuses all user synchronous foreground spawn forms
+before effects and preserves detached spawn; it removes only a redundant
+preparation-error setter that selected the wrong parent/main binding.
+
+Fresh corrected kernel guest passes all four foreground syscall refusals,
+detached load/action failure and successful detached child/wait, with real
+FS:0, volatile TLS, XMM15, RSP/canary and refused-redirection absence checks.
+Full unchanged threadstress also passes. Fixtures at `d3986f00` pass strict
+Rosetta and ASan/UBSan independently: guard/no-effect checks, and real minimal
+ELF load followed by forced vector rejection with complete child cleanup and
+unchanged parent/modeled worker binding. Exact receipt and limitations are in
+[signal-context qualification](../signal-context.md#worker-foreground-spawn-binding-correction).
+Task guests stopped; protected review guests preserved. The owner independently qualified the production, guest and both strict/sanitized
+host fixtures, including the forced-vector failure.
+Checked image/binding/FPU metadata remains design-only, and the last JavaScript
+result remains JSC134 without42. Large JSC allocation remains serialized with the
+profile owner's proof; no new JSC build started.
+
+
+PR334 checked-root code `d7466e1c` now replaces creation's void replay with checked
+preparation inside one saved-IRQ registry/publication transaction. Owner source/
+host review passed independently. Fresh full kernel and matched worker regression,
+full threadstress and sysabi/fault-reaping guests pass; task guests stopped.
+[Exact qualification](../signal-context.md#checked-user-root-creation-at-d7466e1c)
+records the combined receipt and limits. Owner-approved next slice is metadata
+image-generation/association and atomic validated tuple wiring only, after root
+evidence publication; no FPU proof, assembly, signal API or JSC success yet.
+
+
+PR334 `fea6bbb1` implements reviewed image-generation and opaque kernel-FPU
+association metadata with atomic validated main/worker bindings. Owner source/
+host review accepted all20 independently rerun strict/sanitized profiles. Fresh
+kernel passes worker TLS/XMM/stack smoke, full threadstress including fork/exec/
+main atexit, sysabi reaping and OVMF AHCI/USB contention/relaunch/quarantine.
+[Exact scope and receipt](../signal-context.md#image-metadata-and-atomic-user-bindings-at-fea6bbb1)
+include retained packaging failures and host-model limitations. Task guests stopped;
+review VMs preserved. Final guest qualification is with the owner. No saved-FPU
+proof, assembly frame change, public signal admission or JSC success yet. The
+installation proof owns the next large resource window; no large JSC allocation
+has started. Duplicate task disks preserve independent paths/bytes through APFS
+copy-on-write storage sharing; no unrelated artifact was reclaimed.
+
+
+### PR334 entered-user FPU proof — implementation under review
+
+Owner approved the bounded common-entry witness and typed snapshot/consume
+contract in [the review packet](../fpu-user-trap-proof.md), including actual
+read-only CR4.OSFXSR/OSXSAVE and EFER.FFXSR proof gates. Implementation changes
+only the common assembly reservation/wrappers, adds the excluded scheduler entry
+observation and extends its return observation with exact FPU/FS/stack selection.
+Direct IRQ entry remains unchanged. No replacement, signal hook or public ABI is
+provided. Denied CPU policy grants no proof; this does not repair legacy FPU
+behavior under unsupported inherited policy.
+
+Real-FXSAVE strict Rosetta and ASan/UBSan fixtures pass x87/MXCSR/XMM15,
+save-before-query, nesting/short CPL0 guard pages, A→B→A, identity/alias/canonical
+refusals, consumption/replay and independent unsupported CPU policy transitions.
+Critical save/restore functions omit sanitizer prologues; validated operations
+remain instrumented. Actual pinned-Zig full kernel builds, and target disassembly
+shows save-before-query, integer-only pre-save work, complete proof fields before
+publication, and no calls after final restore. Host scheduler fixtures pass.
+Evidence is in `build/signal-context/fpu-*-policy-*.log` and
+`fpu-policy-codegen.txt`; stable source/codegen receipt and matched main/worker
+register/TLS/preemption plus unchanged thread/sysabi/I/O guests are the next
+qualification. Source is not yet independently accepted. JSC's latest required
+smoke remains134 without42; delivery/return and WTF integration remain required.
+Large JSC allocation remains held for the installation owner's resource window.
+
+
+The entered-user proof at `2a3b1a89` now has independent owner source/host/codegen
+acceptance and matched main/worker all16-XMM/x87/MXCSR/GPR/FS/TLS/RSP preservation,
+full threadstress, sysabi and OVMF storage-contention regression passes.
+[Exact evidence and limits](../signal-context.md#entered-user-fpu-snapshotconsume-at-2a3b1a89)
+include host/codegen receipt `881a9b6d…0794` and combined VM receipt
+`202b4ee9…c6f1`. Task guests stopped; protected review VMs preserved. Final guest
+qualification is with the owner. No replacement, production consumer or signal
+ABI/delivery/return/WTF adapter exists yet. Last JSC smoke remains134 without42.
+Resource/window request for eventual8GiB JSC build is pending; no large build has
+started. Fetched main `f7ec75e7`; no process/scheduler/VMM/FPU overlap since the
+recorded integration base was found, and main was not merged.
+
+
+The owner independently accepted all final `2a3b1a89` guest receipts, closing
+snapshot/consume qualification. They approved the separate
+[private restore contract](../fpu-private-restore.md) with explicit successful-
+hardware-sample validity and repeated-init failure handling. Its private helper
+and initialization/operation fixtures are implemented; strict Rosetta and
+ASan/UBSan profiles plus full target kernel/codegen pass. Source is being sent
+for independent review before matched regression guests. No production caller,
+signal/action/copy/public ABI or WTF change is included. The user target remains
+incomplete; large JSC resources/window are still pending.
+
+
+### PR334 signed thread-ID exhaustion correction
+
+The process owner assigned exclusive process_thread_create_impl ownership for a
+reproduced counter defect. Actual-source ordinary/private route negative controls
+at the previous process code both publish one active worker and return
+-9223372036854775808 when next_thread_id is INT64_MAX+1. Retained baseline source,
+fixture and logs are in `build/signal-context/thread-id-negative-control/` and
+`process-thread-ids-baseline-*.log`. The bounded correction validates the positive
+signed range2–INT64_MAX under saved IRQ exclusion before slot/TLS/allocation,
+permitsMAX once, retains exhaustion and returnsEAGAIN unchanged afterward.
+No image-reset, signal or unrelated admission change is included. Ordinary and
+private actual-source tests cover0/1/MAX/MAX+1/UINT64_MAX, successful real modeled
+TLS mapping/publication atMAX, subsequent exhaustion with a free slot, complete
+parent/allocation/publication preservation and both inherited IRQ states. Strict
+Rosetta and ASan/UBSan pass; existing service suite and target build are being
+checked before independent source/host review. No guest boundary-ID claim yet.
+Session scope163 is reserved by the separate runtime owner; PR334 allocates no
+signal syscall number and does not edit that owner's lifecycle hooks.
+
+
+Owner accepted final `c27d018f` restore qualification (receipt `377c5a80…ca224`),
+including all14 source/host/codegen and24 combined plus4 nested guest hashes.
+The private helper is real-FX host-tested and remains unwired. The separate
+thread-ID candidate `783c4eb8` now also passes normal main/worker register/TLS,
+full threadstress and sysabi guests. Boundary counters remain actual-source
+host-tested only. Final thread-ID review/qualification is with the owner.
+The frame-copy policy is revised at `1b571126` with strict control/PTE/PAT/
+MAXPHYADDR policy, owned current32-frame kernel-stack source, producer/retirement
+and physical alias constraints; no copy implementation is authorized yet.
+
+
+### PR334 owned user-frame copy — internal implementation under review
+
+The owner qualified signed-ID candidate `783c4eb8` after independent4/4 host
+profiles, both baseline negative reproductions and normal FPU/main-worker,
+thread/sysabi guests (combined receipt `966e54e3…28df1`). Exact16 accepted source/
+artifact files are retained under `build/signal-context/accepted-thread-ids-host/`.
+The next owner-approved copy contract is limited to an internal unwired helper,
+strict CPU/paging policy and current owned32-frame stack source; no signal hook,
+ABI/action code or consume/publication transaction is authorized. Implementing
+private VMM preflight/scalar copy, main/worker stack ownership observations and
+process tracking uniqueness checks in this branch. A read-only current-proof
+validator avoids unnecessary FPU snapshot copying; policy is checked before that
+validator's existing kernel-mapping preparation. Duplicate virtual and physical
+ownership, including aliases from any other tracked VA, refuse before writes.
+
+Strict/sanitized new VMM, process, scheduler, FPU-validator and existing binding
+fixtures pass. VMM source/paging/physical aliases use explicit host logical maps;
+process fixture mocks final VMM copy/proof and does not claim integration. The
+first alias fixture used nonoverlapping physical byte extents; its failed log is
+retained, and the corrected overlapping-page case passes. Target build/codegen
+and independent review remain pending. The session team owns the current heavy
+build/VM window; only bounded source/host checks run here. Host free remains about
+3GiB, and the human8GiB/JSC resource question is pending. No new JavaScript smoke,
+public signal admission or guest copy-helper coverage is claimed.
+
+
+Owner independently passed10/10 focused copy-source host profiles at `641e6694`
+and verified25 hashes. Maximum65536-record cases now pass strict/sanitized too:
+valid targets near the end and late duplicate VA/physical records. The current
+worst two-page scan is262144 record visits with IRQs excluded; latency is unmeasured
+and must be qualified before any production caller. The optional separate test
+kernel is approved only with fixed bounded serial failure output/scalar record
+and read-only timing; normal kernel remains separate, no signal integration.
+The session team still owns the heavy build/VM window after merging scope163;
+its finite graphical proof is running externally. Future integration must retain
+qualified image/FPU invalidation and session-detach ordering.
+
+
+November4 PR334 copy prerequisite: the session owner released the heavy window.
+The isolated test-kernel build preserves all129 normal artifacts. Debugging the
+first admission proved INT3 #GP (test-only DPL3 gate corrected); the second
+refused inherited HHDM upper USER1/supervisor leaf. Owner-approved effective
+supervisor checking now passes strict Rosetta/ASan+UBSan permission matrices,
+old-gate negative control and real main/worker private copy guest at65536 tracked
+pages (911us helper-only max-count sample; earlier small-count1664us, no hard
+bound). Normal FPU/thread/sysabi guests pass. Public signal delivery/return and
+JSC smoke remain incomplete. The8GiB JSC disk question is still pending; only
+an inactive duplicate toolchain accidentally downloaded by a build prerequisite
+was reclaimed, preserving the pinned browser Zig toolchain and all other VMs.
+
+
+PR334 internal signal-state follow-up adds coherent SIGUSR1 descriptors, four
+private records per main/worker, strict image/TID/scheduler identity, rollback,
+INFO exclusion from cooperative consumption, active-record fork/exec refusal
+and retirement before reuse. Pure/process/lifecycle + existing regression
+fixtures pass26 strict/sanitized profiles; a target audit found main pthread_exit
+needed explicit IRQ save before invalidation/clear, now corrected with affected
+four profiles and fresh normal FPU/thread/sysabi guests passing. Target module
+has no SIMD/x87. Static process-array cost is1,764,352B including alignment.
+Owner review continues; no public signal ABI, async delivery, sigreturn or new
+JSC success. Next review must fuse all prevalidation before user copy with an
+infallible private/FPU/live-frame commit and complete private-storage aliases.
+
+
+PR334 fused private-operation follow-up passes host/source/target review and
+first/expanded private guests. Timer vector32 delivers to pure main/worker loops;
+all GPR/FX/red-zone/FS/TLS/RSP and allocated R15 pointer restore despite destroyed
+public snapshots, including DF clear/restore. Main/worker depth4 retains a fifth
+pending signal until unwind. Genuine65536 two-page760B prepare/copy/commit sample
+is961us (emulated PM interval, no hard/full IRQ-off bound). Independent review
+found raw return-mask restoration stranded unblocked defaults; staged generic
+default-fatal/ignored/caught handling and explicit prepared exit outcome now pass
+main/worker rollback tests. Normal FPU/thread/sysabi and OVMF storage contention
+pass; expected injected timeout/quarantine is retained, original ISO/review files
+restore. All130 normal artifacts remain isolated. Cumulative audited stack bounds
+are12207/10991B vs128KiB, with actual function-body equivalence. Exact first and
+expanded guest source/raw evidence survives distclean in workspace .local.
+Public ABI/libc/atomic suspend and WTF integration remain incomplete; JSC still
+has no new required-success42. Next public flag subset/ABI design under review.
+
+PR334 exec follow-up reproduces retained pending defaults entering a new image:
+the old normal kernel reaches a forbidden sentinel (status90), and retains
+default-ignored CHLD/WINCH (status91). The corrected final exec boundary evaluates
+the committed dispositions/mask under IRQ exclusion through exit or user entry.
+Its normal-kernel guest exits138 before the fatal sentinel; the ignored case
+exits0 with CHLD/WINCH cleared and blocked USR2 retained. Both old/new guest runs
+also pass main/worker register preservation and stop cleanly. Eight strict and
+sanitized actual-source lifecycle profiles include failed-exec rollback and an
+earlier TERM retaining priority over lower pending defaults; target compile/link
+pass. Explicit native exec default/mask attributes remain unqualified. Frozen
+receipt `d6f39053008cdbd8183988a860946657fe448c868944ecda0a3e9f1feda67dc6`
+is retained outside distclean in the task-owned APFS build volume. Public signal
+implementation remains under owner design review: userspace counters cannot close
+the confirmed internal polling/retry gap, so kernel-bound logical I/O admission
+and atomic temporary-mask waiting must be reviewed before libc/WTF integration.
+
+The separately reviewed GOT-before-TLS linker correction from browser26e9e78f
+is now qualified in this dependency checkout. Both legacy negative ELF layouts
+describe only8/16 TLS bytes and fail coverage; the corrected layouts cover the
+actual2148/2164-byte zero/initialized TLS and place the real8-byte GOT first.
+The normal exec-corrected guest passes both main/worker TLS/GOT variants and
+register preservation, then stops. Source, link inputs, ELF layouts and raw guest
+logs are frozen outside distclean; receipt
+`8ce57965d33a6c4ce81682793cda0ea1ed58becea5d250934ea2154f778dd7f4`.
+This is linker/fixture qualification, not a newly rebuilt SDK/ICU/JSC claim.
+
+PR334 raw CATCH-to-DEFAULT correction now selects pending defaults process-wide,
+including an unblocked peer when the caller blocks that signal. Preparation
+chooses eligible local before shared, lowest live owner-matching publicTID, and
+preserves an earlier fatal cause. Inactive/all-blocked pending stays; IGNORE and
+CHLD/WINCH DEFAULT retain their existing discard semantics. Expanded actual-source
+strict/sanitized matrix and12 state/delivery/lifecycle regression profiles pass;
+target compile/link pass. The old normal guest reaches sentinel90 in all four
+USR1/USR2 × peer-local/shared cases; the fix terminates138/138/140/140 before all
+sentinels, with main/worker register preservation0 and both guests stopped.
+Frozen95-file receipt:
+`47c5a5d9b4039c5d31bbfb444f9a5388c9f23178f4f422add0d8b0a47c96ee54`.
+Owner review separately reproduced an unwired private INFO|RESET peer-pending
+case that still strands a default after automatic reset. That case remains open;
+this raw configuration correction does not close it or enable public signals.
+
+
+The subsequent private RESET peer correction stages exact first-source
+consumption and the handler's prospective self-mask before choosing peer defaults.
+A separate internal12-object copier protects all ten affected metadata extents,
+while the original3-object limit remains. Private committed-exit138 goes directly
+to terminal cleanup before handler/user resume. Six old forbidden-handler90
+controls become138 without handler entry; two current-only duplicate controls
+retain one handler then private-return138. Main/worker register/FX/redzone,
+nesting+pending recovery and genuine65536 mappings still pass; the nonreset
+maximum-mapping sample is936us/vector32, not a RESET latency or hard IRQ bound. Forty reachable actual functions match
+inspection code/relocations; cumulative delivery/return bounds12351/10991 are
+within128KiB. Current normal raw-default/exec/TLS/thread/sysabi/FPU closure passes.
+The first normal harness run failed on a partial serial line; its strict-line
+rerun passes and both records remain. Frozen317-file receipt outside distclean:
+`fa60ae294d585e5c6ebab3ad2e58e71b468e7d37de939a074f0aab3c3e4aa258`.
+Public ABI/libc/WTF review and required no-JIT JavaScript0+42 remain incomplete.
+
+SDK source reconciliation carries the existing browser185db570 threaded C++
+lifetime, hyperbolic math/linkage declarations and proof tools/fixtures. Ports
+`f88f1bd0` starts at current-main pin d760 and adds55 exact browser overlay blobs,
+preserving1,230 other tree entries and newer bc/jq/less work. SrvrPorts draft9
+owns that source integration. Imported port-manifest runtime claims are historical
+browser-checkout evidence; fresh matched SDK/ICU/JSC verification is pending.
+The [current browser checkpoint](../browser-port.md) records that distinction.
+
+
+PR334 public foundation follows owner-cleared staged source review at37cd7382.
+The owner reserved164 CONTROL,165 RETURN,166 SUSPEND and167 SIGNAL_IO; normal
+public dispatch remains disabled. Shared wire layouts preserve snapshot688 and
+add explicit info64/control96/I/O128; selected state is exactly4032 bytes with
+four waits, exact request identity/trap/sequence, logical I/O outcomes and local
+guard. Wait/I/O/guard/outcome IDs share one nonwrapping namespace. Bit55 marks
+an internal outcome reservation; no handler or user return is allowed before
+matching capture or terminal retirement. This is pure state, not backend proof.
+Strict and ASan/UBSan state matrices cover nested mask-override/late-completion
+waits, sticky I/O interruption, malformed associations, replay and exhaustion.
+The native ucontext adapter maps real GP/SP/IP/flags and embedded FX with a
+four-deep lock-free TLS marker. Unimplemented getcontext/swapcontext/makecontext
+honestly report ENOSYS without mutating outputs. Native host nesting/layout and
+pinned Zig object compilation pass; public kernel/libc/WTF wiring and fresh
+JavaScript exit0/output42 are still required.
+
+
+PR334 next experimental source slice stages CONTROL/RETURN/SUSPEND and logical
+I/O at the common CPL3 seam. Normal dispatch remains off; a separate guest flag
+requires PUBLIC_GUEST_TEST at compile time and enforces a console/simple byte-pipe
+and zero-FD wait profile before effects. VFS/PTY/positional/lock/message/network
+operations are excluded from that first qualification. Rights are rechecked on
+every pipe wake/consume/publication. Raw GETFD/GETFL remains bounded metadata for
+admitted descriptors. The kernel/source implements same-ticket wait rearming,
+late INFO completion association, captured native completion and dynamic epoll
+capture without clearing interruption. The selected state stays4032 bytes.
+
+Independent review closed foundation70ca1894 only. Host modeled fixtures cover
+public libc/kernel state, nested waits, descriptor/copy rollback, guarded local
+updates, timeout capture, pipe rights refusal and waitpid status formatting.
+Normal and experimental kernel plus current SDK/native-context probe link with
+pinned Zig. Earlier host compile attempts exposed missing new observer/timing
+mocks and renamed-main return handling; corrected attempts and failures are kept.
+Actual target code confirms unused RETURN registers zero and sem_post's successful
+publishing CAS as its last semaphore-storage access. Transaction-only stack proof
+passes; context-sensitive blocking/scheduler callback closure remains under review.
+No new public/native guest or JavaScript0+42 result is claimed at this checkpoint.
+
+SrvrPorts8d9b9b7 adds the unbuilt WTF context/handshake overlay and protocol model.
+It preserves original GP/SP/IP/FX/red-zone roots, uses per-target ticket/semaphore
+phases, bounds uncertain acknowledgements terminally and delays thread publication
+until target TLS/TID/stack initialization. The broader network prototype is
+preserved in ignored task evidence and excluded from the live implementation.
+No physical boot, merge or hosted CI is part of this source qualification.
+
+Owner review of bb201307 found that TTY per-byte eligibility revalidated the
+entire user buffer/vector with IRQs excluded. The correction resolves only the
+current destination byte from the owned bounded iovec metadata, checks one byte,
+and caches that address for the atomic commit. Owned kernel sinks perform no user
+walk. Initial syscall validation stays separate. The actual-helper negative
+control fails against bb201307; corrected strict and ASan/UBSan checks pass,
+including later unmapped vectors, current-byte refusal, NUL and address wrap.
+Normal and experimental target kernels relink. The first prepared public guest
+is superseded without running; a fresh configuration/evidence review is required.
+
+The owner independently verifies the corrected TTY negative/strict/sanitized
+results and the build6 linked target graph. Retained synchronous bounds are
+20303 bytes for CALL and22575 for completion/SUSPEND; the conditional named-IRQ
+supplement adds1311, giving23886 at completion against131072. This is bounded
+probe review material, excluding NMI/MCE, unlisted IRQs and terminal teardown;
+final callback/configuration clearance is still pending. Review execution was
+interrupted before that final decision. No corrected public guest has started.
+The exact corrected prepared receipt is retained on task APFS under
+`signal-public-3w5tycef/prepare-receipt.json`, SHA256
+`9c7af348811b50b2ac025f1b9a8cca99a7f0023bae90ee01a8774c7131ea13d0`.
+
+The task APFS `source` checkout at5c4b6942 freshly builds SDK/init, threaded
+libc++, RTTI, scalar math, pinned ICU79.1, libc++ filesystem, the math supplement,
+runtime extensions and C++ controls. Runtime/ICU provenance verification passes;
+new guest proofs are pending. Large output, caches and TMPDIR stay on that volume.
+SrvrPorts1a30fbe adds an unbuilt actual-WTF main/two-worker suspend/register probe
+and verified-profile link adapter. Its intended register/red-zone observations
+make no GC-only-root or forced-spurious-delivery claim. No JavaScript0+42 result,
+main merge, physical boot or hosted CI is claimed.
+
+The owner subsequently completed the bounded configuration review. Harness
+1db6652c requires actual full boot lines proving no supported network device and
+no network worker, and rejects an unexpected provider before sending the probe.
+The one reviewed diskless guest passes native main/worker GP/FX/x87/XMM/DF/TLS/SP/
+red-zone preservation despite public context destruction, then nested temporary-
+mask suspend/resume, with full exit0 and following prompt. Boot network guards
+pass, owned QEMU31408 stops, and protected review VMs remain alive. The owner
+independently binds all input/config/ISO/raw-serial hashes and accepts only this
+bounded functional scope, excluding SMP, only-root GC and general ABI admission.
+
+Frozen collection: task APFS `evidence/native-public-1db6652c/receipt.json`, SHA256
+`9551e9c9a5e6322eda4ad3fdea0dd7cdf4bf05b234dd9c3fd810bff4f49be18e`;
+prepared run `signal-public-7215z728`, prepare SHA256
+`1d5c393cf85e05664cc379ab55bcc5a23b27fb05843e10573f9a864630312cd9`;
+serial SHA256 `76fb617cdb89f685f56736ab70f96f0e5d45bd478850481956600e3f986d9e94`.
+Fresh normal-caps0 dependency guest `source/build/browser-runtime/guest-s8yi9nbf`
+passes14 cases including expected134 controls; filesystem `guest-3hgmtf0x` passes
+both runs. Both guests stop. Fresh no-JIT JSC with the experimental WTF overlay is
+building; JavaScript0+42 remains unpassed.
+
+Host pressure interrupted preparation at1.6GiB. The task's stopped historical VM
+artifacts (505 entries) were copied byte/type/mode-identically to a separate task
+APFS archive, with their original build path preserved by symlink. Receipt lives
+under `.local/pr334-archive-volume/relocation-receipt.json`; existing protected
+VMs, disks, checkouts and frozen evidence were not changed. Root free space
+recovers above the2GiB reserve; the build volume retains its JSC capacity.
+
+### PR334 actual-WTF failure and retirement candidate
+
+Fresh no-JIT JSC and all three WTF/utility/GC-root fixtures compile and link on
+the task APFS source ee207df0/ports e404d84. Owner-reviewed prepared suite
+`signal-public-qvdnmbic` passes its boot network guards, then the first WTF case
+exits134 after only the main-context marker. Remaining utility, four GC modes
+and JavaScript cases are NOT RUN. Owned QEMU11532 stops; the unchanged-ELF
+diagnostic also reproduces134 but captures no abort location, times out100s and
+stops owned QEMU24675. Original evidence remains frozen. Failure receipt SHA256
+`56459c4a9e956f3e6779d4c5f7a80a63543553cdbda155986030252184543b7b`.
+
+The runtime owner independently reproduces an ordinary C++ Running-to-Idle
+retirement race. After that chat encounters platform system errors, canonical
+implementation ownership returns here; its separate uncommitted candidate stays
+frozen. The new companion `signal-retirement.patch` preserves the previously
+applied overlay and handler, drains only the matching final controller handoff
+before releasing TLS/group ownership, and moves the suspend-count update before
+final Idle publication. No kernel/libc/header changes or capability expansion.
+Actual-source destructor/resume35 cases pass strict and ASan/UBSan; both valid
+posted/consumed schedules fail against the old source as expected. Candidate
+receipt `evidence/retirement-canonical/review-receipt.json` SHA256
+`362124ed2a22dd8b2bb8d8a2cbbca3f1905906b8cca201d85232336a7b66afc3`.
+Owner review, a separate resource handoff, target rebuild and a fresh bounded
+guest remain required. No JavaScript42, GC-only-root, normal capability flip,
+main merge, physical boot or hosted CI acceptance is claimed.
+
+### PR334 corrected WTF and footprint guest passes; GC control unresolved
+
+At unchanged source7c59ab8e/ports224ed6a, the user explicitly assigns this chat
+the remaining exact-binary/configuration signoff after the original owner chat
+becomes unavailable. Shared-source acceptance remains the owner's. Review passes
+509 frozen files/491 current identities,544 retained functions/1949 named
+relocation targets, exact two-object archive delta, and streamed ISO/packed-ELF
+identity. Signoff SHA256
+`55d9c999a5bf8865c96f5390aae5b12df5e04b1cbb7df95220540985168e07c8`.
+
+The coordinator's separate21-minute one1536MiB/1CPU/noNIC/diskless window runs
+prepared `signal-public-nif3a3cs` once. Fresh491-input preflight and both observed
+network boot guards pass. WTF suspend/register/extra-signal/startup-retirement
+checks pass all four full markers with exit0 in5.75s. Utility/memory footprint,
+int128 formatting and Unicode pass with exit0 in0.113s. GC control fails134 in
+0.904s after three page-quota messages (count/limit65536). Remaining GC modes
+and JavaScript are NOT RUN. Owned QEMU81020 stops, total window19.466s, and the
+resource slot is explicitly released. No rebuild or debugger operation ran.
+
+Frozen result: task APFS `evidence/retirement-suite-first-run-nif3a3cs/receipt.json`,
+SHA256 `9c4341ab17c9593dc891b4ebba62a4cc30d1c9ad735d44bf1ea4f9e318233628`;
+raw serial SHA256
+`ddc0752046d916cd01af807b2d3affb27d562938509f71e097d8a706ffce6345`.
+The original WTF134 and timed-out/unattributed diagnostic remain historical
+failures. The new GC abort is not attributed: pinned JSC shrinks failed aligned
+structure-heap reservations, so quota messages alone may be expected fallback.
+A source-level initialization/terminal-call-site diagnostic is prepared under
+ignored build output, awaiting separate finite build/guest windows. No shared
+allocator, kernel quota, mapping/I/O contract or GC-disable change is proposed.
+Only-root GC, JavaScript42, general ABI/SMP, main merge, physical boot and hosted
+CI acceptance remain unclaimed.
+
+### PR334 initialization diagnosis and strict entropy prerequisite
+
+The bounded initialization diagnostic confirms the terminal GC-control abort at
+WTF `crashUnableToOpenURandom`, reached from `JSContextGroupCreate` through VM
+construction. The 128 MiB structure-heap fallback succeeds before that abort;
+the preceding quota refusals are not its cause. The one-case guest exits134 and
+stops. Frozen diagnostic receipt SHA256
+`5a7900dfe9ccb726afee5478f7ff4a5a9a99533cc7603959e06091f32329aff3`.
+The prior WTF and utility passes remain valid; GC controls and JavaScript42
+remain incomplete.
+
+The shared integration coordinator designates PR334 as the canonical branch for
+the bounded strict-entropy prerequisite, with the WTF adapter in Ports9. Existing
+SYS_RANDOM92 flags0 can use clock/PID mixing and is unsuitable for WTF crypto.
+The next change adds a named opt-in provider-only flag and unavailable result,
+preserves flags0 and POSIX `getrandom` behavior, and uses existing virtio-RNG or
+successful bounded RDRAND only. No new syscall, worker, device, IRQ, quota or VFS
+authority is proposed. WTF will use the existing native forwarder, handle short
+reads, and fail closed on unavailable/old-kernel refusal or nonprogress.
+
+Before a new guest: review the source contract and actual-source negative/partial
+provider tests, preserve exact SDK/header provenance, rebuild matched artifacts,
+review the changed CPU configuration, and obtain a separate finite resource
+window. The proposed positive emulated profile is `qemu64,+rdrand`; plain qemu64
+is the absent-provider control. Neither is physical entropy acceptance. Current
+main d930ed3c has byte-identical entropy bodies to this qualified base; final
+delivery still requires main reconciliation preserving streaming syscall168.
+All earlier compiler/guest resource windows have been released.
+
+The strict entropy candidate passes actual kernel-body/mock-provider and actual
+patched WTF/class-header tests in strict and ASan/UBSan profiles (four sequential
+compile/runs,3.557s, no remaining process-group members). Receipt SHA256
+`36019f604d9bc10355246b9632561e93293c261814356dfc0d22b30da7bb7a23`.
+The first adapter compile's unused descriptor warning remains a retained failure;
+a SrvrOS-only destructor assertion now verifies the unchanged member stays-1.
+Unavailable uses existing SRV_ERR_AGAIN(-11). The coordinator accepts a generated
+exact ABI-header copy in the WTF patch; mandatory parity/hash checks preserve the
+retained SDK's attribution. Target constants, real providers, GC and JavaScript
+are still pending; no compiler or VM window remains reserved.
+
+### PR334 GC control and JavaScript smoke accepted in the bounded VM profile
+
+At implementation6b5ebaf7/Ports d99565f the `/dev/urandom` initialization abort is
+fixed by strict SYS_RANDOM92 provider-only mode plus a fail-closed WTF adapter.
+The SDK native header's missing C++ guards caused a retained final-link failure;
+a companion C-linkage include fixes both callers without changing the qualified
+SDK. Host tests now use actual SDK native declarations and pass strict/ASanUBSan.
+Target constants, normal/experimental kernels, JSC and four fixtures build/link.
+
+Source review passes. Exact signoff covers757 frozen/live identities,839 retained
+functions/3460 named relocation targets, exact two-object archive delta and all
+four prepared CPU/ISO configurations. Signoff6acb68dc uses the human's explicit
+review-authority transfer. All four guests pass in27.864s, boot network guards
+pass4/4, every owned process group is empty, and the resource window is released.
+Normal absent/positive entropy contracts and experimental native context/nested
+wait pass. The full eight-case experimental/+rdrand suite passes entropy, WTF,
+utility/footprint, GC control/GP/FX/red-zone and actual JavaScript42 with exit0.
+GC control collects; positive roots retain until retirement and then collect.
+Quota fallback messages remain visible and did not prevent these bounded passes.
+
+Durable result `.local/pr334-entropy-guest-results/receipt.json` SHA256
+`ce0ce2147666002e4deacb1b13b9a5e6a0f8183da54f13a2107b528ebe8aa6be`;
+exact packet74470aae/signoff6acb68dc and prior failed/partial runs remain retained.
+JSC SHA256 `d7caf7ddc2d144c8ed71618fde76fee73d0b4cff5eb92034c85a5b5de63b25a2`.
+Current-main reconciliation and integration review remain before delivery of the
+draft PRs. Normal public signal capabilities stay disabled; no main merge,
+physical boot, full browser, SMP/general ABI or physical entropy acceptance.
+
 ### xHCI block/worker/diagnostic retirement and DMA reclaim
 
 Continue PR317 from `c9f4f306` in the isolated kernel checkout. Add USB-storage
@@ -5410,3 +5980,70 @@ and receipt locations for aggregate PR373. All owned jobs stopped and resource
 windows released; protected integration checkout/review VMs remain untouched.
 No further bounded Patch feature is required. Stop under the later closeout
 instruction: Grep and sha256sum are deferred, with no new heavy reservation.
+
+
+### Final browser integration reconciliation — November 4, 2026
+
+The user now requests final merges, documentation and a fresh main checkout with
+recursive pinned submodules after all build/VM artifacts are removed. The
+coordinator owns aggregate cleanup; this browser checkout and borrowed toolchain
+remain required until integration verification finishes. No new browser feature
+or production signal-capability enablement is in scope.
+
+Actual OS main is d930ed3c and Ports main72f3d6fa, verified with explicit fetch,
+remote branch refs and the GitHub refs API. Ports cleanly merges main at e3c7067;
+its libc++/ICU/libm/WebKit implementation trees stay byte-identical to7d10cb5.
+The OS reconciliation combines both sets of test targets and dated records,
+keeps session163/stream168 and isolated signal164–167, and retains the session
+lifetime accounting alongside signal image/trap retirement in spawn/exec/reap/
+exit. The reviewed experimental gate now rejects session/stream calls before
+backend effects; normal builds retain both APIs. Actual-prefix admission and
+normal lifecycle/stream regressions, matched SDK/dependency/JSC rebuilds and
+fresh guest verification are pending in serialized resource windows.
+
+The initial accepted four-guest evidence is now portable under
+`docs/assets/evidence/pr334-initial-smoke`: local path spellings are replaced by
+named tokens, original and published hashes are explicit, and synthetic serial
+bytes remain intact. This is historical6b5ebaf7/d99565f acceptance, not a fresh
+main-integrated result. PR310/Ports4 are source predecessors carried by reviewed
+blob/recipe reconciliation rather than literal ancestry; their coverage must be
+checked before closing them as superseded by the merged replacements.
+
+
+### Late main browser reconciliation — November 4, 2026
+
+After fresh A–E verification at0a3f5981/af1421b, actual main advanced to
+f11ce344 through the Air6,1 read-only cache diagnostic. The coordinator released
+the checkout and serialized resource slot for a bounded reconciliation. The
+merge980590f7 is conflict-free. Incoming ordinary-kernel changes are the compiled
+cache-reader unit and exFAT conditional line layout; the new kmain diagnostic
+selection is AP-probe-only. Shared SDK, signal/process/scheduler and port source
+are unchanged. No physical-device acceptance is imported.
+
+The earlier normal-build attempts remain failed with no guest launched: the
+missing recursive modules, host-compiler argument split and an existing ISO
+symlink were setup failures. The exact pinned submodules are now initialized,
+the compiler wrapper uses one absolute executable token, and only the ISO
+symlink was retired while its external target stays intact. The prior kernels
+and original A–E evidence retain their attribution. New matched kernels, focused
+cache/admission/lifecycle checks, retained SDK/JSC input verification and fresh
+four-guest qualification are pending before the coordinator's normal-OS retry.
+
+
+### Final normal desktop/session verification — November 4, 2026
+
+At clean a7f71411/af1421b the matched normal build, desktop shutdown and
+session guests pass in104.210s. All four shutdown choices, five expected file
+payloads, pre/post generator/allocation checks and restored process baseline
+pass. The matched/generated fixture has no independent fsck claim. Session
+checks include scopeprobe twice, live init, lifetime, PTY and syscall ABI. All
+guests stop and groups retire. Host setup failures (uninitialized submodules,
+compiler argv, ISO symlink, missing Pillow) remain failed and separately saved.
+The successful host test uses disposable Python3.14.6/Pillow13.0.0. Portable
+results are in the integrated smoke bundle; final docs/pin changes retain the
+runtime attribution above. No physical or broader browser acceptance is added.
+
+Ports9 merged at `89f22a967415297cc6af9229c2bee950932b4aee`; its tree equals reviewed
+`eb8468df24044d63626a0c0f76b90f024dffc244`. The OS pin now names that actual
+merge commit. Relative to the qualified af1421b port implementation, only
+PORT.md documentation changed; this pin promotion adds no runtime code.

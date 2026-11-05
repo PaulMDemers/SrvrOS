@@ -12,6 +12,25 @@
 #include "descriptor_tables.h"
 #include "irq.h"
 #include "isr_frame.h"
+#ifdef SRVROS_SIGNAL_PUBLIC_GUEST_TEST
+#include "../../process_signal.h"
+#endif
+#ifdef SRVROS_USER_FRAME_COPY_GUEST_TEST
+#include "user_frame_copy.h"
+#include <srvros/serial.h>
+#include <srvros/timer.h>
+#endif
+#ifdef SRVROS_SIGNAL_CONTEXT_GUEST_TEST
+#include "../../process_signal.h"
+#include <srvros/serial.h>
+#include <srvros/timer.h>
+#endif
+#if defined(SRVROS_USER_FRAME_COPY_GUEST_TEST) && defined(SRVROS_SIGNAL_CONTEXT_GUEST_TEST)
+#error "Build each private diagnostic kernel separately"
+#endif
+#if defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST) && (defined(SRVROS_SIGNAL_CONTEXT_GUEST_TEST) || defined(SRVROS_USER_FRAME_COPY_GUEST_TEST))
+#error "Public and private guest fixtures require separate kernels"
+#endif
 
 #include <stdint.h>
 
@@ -96,10 +115,17 @@ static uint64_t read_cr2(void) {
     return value;
 }
 
+#ifdef SRVROS_SYSCALL_CANCEL_HOST_TEST
+uint64_t syscall_cancel_test_read_cr3(void);
+#endif
 static uint64_t read_cr3(void) {
+#ifdef SRVROS_SYSCALL_CANCEL_HOST_TEST
+    return syscall_cancel_test_read_cr3();
+#else
     uint64_t value;
     __asm__ volatile ("mov %%cr3, %0" : "=r"(value));
     return value;
+#endif
 }
 
 static void print_mapping(const char *label, uint64_t address) {
@@ -155,6 +181,10 @@ void idt_init(void) {
     idt_set_gate(8, irq0_legacy_stub, IDT_GATE_INTERRUPT);
     idt_set_gate(9, irq1_legacy_stub, IDT_GATE_INTERRUPT);
     idt_set_gate(0x80, isr128, IDT_GATE_USER_INTERRUPT);
+#if defined(SRVROS_USER_FRAME_COPY_GUEST_TEST) || defined(SRVROS_SIGNAL_CONTEXT_GUEST_TEST)
+    /* Disposable test kernel only: admit the private CPL3 INT3 probe. */
+    idt_set_gate(3, isr_stub_table[3], IDT_GATE_USER_INTERRUPT);
+#endif
 
     struct descriptor_pointer idtr = {
         .limit = sizeof(idt) - 1,
@@ -207,7 +237,6 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
             scheduler_io_wait();
             process_exit(process_current_kill_status());
         }
-        scheduler_user_enter();
     }
 }
 
@@ -308,9 +337,200 @@ static void isr_dispatch_inner(struct isr_frame *frame) {
 
 /* Account privilege transitions independently of I/O admission: syscall-safe
  * is not a CPU mode, and blocked time belongs to no userspace process. */
+#ifdef SRVROS_SYSCALL_CANCEL_HOST_TEST
+void syscall_cancel_test_exclude_irqs(void);
+#endif
+
+#ifdef SRVROS_USER_FRAME_COPY_GUEST_TEST
+/* Disposable test-kernel diagnostics only; no syscall/normal-build capability. */
+#define USER_FRAME_COPY_TEST_MAGIC UINT64_C(0x534947434f505931)
+static volatile struct {
+    uint64_t complete,sequence,success,reference_ready,helper_us,mappings,record_visit_bound;
+    uint64_t cr0,cr3,cr4,efer,rsp,frame,source,destination,length,io_active;
+} user_frame_copy_probe;
+static void user_frame_copy_probe_hex(uint64_t value) {
+    static const char digits[]="0123456789abcdef";
+    for(unsigned i=0;i<16;i++) serial_putc(digits[(value>>(60-4*i))&15]);
+}
+static void user_frame_copy_guest_test(struct isr_frame *frame) {
+    struct user_frame_source source;
+    for(size_t i=0;i<sizeof(source.bytes);i++) source.bytes[i]=(uint8_t)(0x5au^(i*13u));
+    user_frame_copy_probe.complete=0;
+    user_frame_copy_probe.sequence++;
+    user_frame_copy_probe.reference_ready=timer_reference_ready();
+    user_frame_copy_probe.mappings=UINT64_MAX;
+    struct scheduler_user_return_observation obs;
+    struct process_user_binding binding;
+    /* Entry observation is diagnostic only; helper still uses strict return admission. */
+    if(scheduler_observe_user_entry(&obs) && process_resolve_user_binding(obs.process,obs.user_thread,
+        obs.image_generation,obs.address_space,&binding)) {
+        uint64_t bytes=0,pid=process_pid(obs.process);
+        if(process_list_details(SRV_PROC_LIST_BY_PID|pid,NULL,NULL,NULL,NULL,&bytes))
+            user_frame_copy_probe.mappings=bytes/PMM_FRAME_SIZE;
+    }
+    user_frame_copy_probe.record_visit_bound=user_frame_copy_probe.mappings<=65536 ?
+        4*user_frame_copy_probe.mappings : UINT64_MAX;
+    uint64_t start=user_frame_copy_probe.reference_ready?timer_monotonic_us():0;
+    bool copied=process_copy_user_frame_current(frame,&source,frame->rdi,(size_t)frame->rsi);
+    user_frame_copy_probe.helper_us=user_frame_copy_probe.reference_ready?timer_monotonic_us()-start:UINT64_MAX;
+    user_frame_copy_probe.success=copied;
+    uint64_t cr0,cr3,cr4,rsp;uint32_t lo,hi;
+    __asm__ volatile("mov %%cr0,%0; mov %%cr3,%1; mov %%cr4,%2; mov %%rsp,%3"
+        : "=r"(cr0),"=r"(cr3),"=r"(cr4),"=r"(rsp));
+    __asm__ volatile("rdmsr" : "=a"(lo),"=d"(hi) : "c"(0xc0000080u));
+    user_frame_copy_probe.cr0=cr0;user_frame_copy_probe.cr3=cr3;user_frame_copy_probe.cr4=cr4;
+    user_frame_copy_probe.efer=((uint64_t)hi<<32)|lo;user_frame_copy_probe.rsp=rsp;
+    user_frame_copy_probe.frame=(uint64_t)frame;user_frame_copy_probe.source=(uint64_t)&source;
+    user_frame_copy_probe.destination=frame->rdi;user_frame_copy_probe.length=frame->rsi;
+    user_frame_copy_probe.io_active=scheduler_io_active();
+    user_frame_copy_probe.complete=1;
+    if((!copied && frame->rdx) || (frame->rdx==2 && !user_frame_copy_probe.reference_ready)) {
+        serial_write("user-frame-copy-test: unexpected admission/timing failure; stable probe record; halted\n");
+        for(;;) __asm__ volatile("cli; hlt" : : : "memory");
+    }
+    serial_write("user-frame-copy-test: ok=");user_frame_copy_probe_hex(copied);
+    serial_write(" maps=");user_frame_copy_probe_hex(user_frame_copy_probe.mappings);
+    serial_write(" visit_bound=");user_frame_copy_probe_hex(user_frame_copy_probe.record_visit_bound);
+    serial_write(" helper_us=");user_frame_copy_probe_hex(user_frame_copy_probe.helper_us);serial_putc('\n');
+    frame->rax=copied?0:(uint64_t)SRV_ERR_FAULT;
+}
+#endif
+
+#ifdef SRVROS_SIGNAL_CONTEXT_GUEST_TEST
+#define SIGNAL_PRIVATE_TEST_MAGIC UINT64_C(0x5349475452415031)
+static volatile struct {
+    uint64_t complete,sequence,operation,result,vector,elapsed_us,mappings,visit_bound;
+    uint64_t cr3,frame,from_rip,from_rsp,to_rip,to_rsp,io_active,measured;
+} signal_private_probe;
+static void signal_private_hex(uint64_t value) {
+    static const char digits[]="0123456789abcdef";
+    for(unsigned i=0;i<16;i++) serial_putc(digits[(value>>(60-4*i))&15]);
+}
+static void signal_private_fault(void) __attribute__((noreturn));
+static void signal_private_fault(void) {
+    /* Existing contained user-fault/process teardown, outside the transaction. */
+    bool recorded=process_record_user_fault(SRV_SIGNAL_SEGV);
+    process_exit(recorded?process_current_kill_status():128+SRV_SIGNAL_SEGV);
+}
+static uint64_t signal_private_mappings(void) {
+    uint64_t bytes=0,pid=process_pid(process_current());
+    if(!pid || !process_list_details(SRV_PROC_LIST_BY_PID|pid,NULL,NULL,NULL,NULL,&bytes)) return UINT64_MAX;
+    return bytes/PMM_FRAME_SIZE;
+}
+static void signal_private_common_return(struct isr_frame *frame,bool test) {
+    if(process_should_exit_current()) process_exit(process_current_kill_status());
+    uint64_t operation=test?frame->rdi:0;
+    if(test && (operation==1 || operation==4)) {
+        struct signal_action_descriptor action={.mode=SIGNAL_ACTION_INFO,
+            .handler=frame->rsi,.trampoline=frame->rdx,.flags=frame->rcx,.mask=frame->r8};
+        frame->rax=process_signal_action_exchange(&action,NULL,NULL)?0:(uint64_t)SRV_ERR_INVAL;
+        /* Operation4 pins a RESET regression's selected current thread: no
+         * user/scheduler gap between installing and testing private delivery. */
+        if(operation==1 || frame->rax!=0) return;
+    }
+    if(test && operation==3) {
+        if(frame->rsi!=1 || signal_private_mappings()!=65536 || !timer_reference_ready()) {
+            frame->rax=(uint64_t)SRV_ERR_INVAL;return;
+        }
+        /* Readiness check only: no queued request survives this trap/lifetime. */
+        frame->rax=0;return;
+    }
+    if(test && operation!=2 && operation!=4) {frame->rax=(uint64_t)SRV_ERR_INVAL;return;}
+    /* Read-only diagnostics gathered before the complete prepare/copy/commit. */
+    uint64_t mappings=signal_private_mappings();
+    uint64_t cr3,vector=frame->vector;
+    __asm__ volatile("mov %%cr3,%0":"=r"(cr3));
+    uint64_t from_rip=frame->rip,from_rsp=frame->rsp;
+    bool measured=!test && mappings==65536;
+    bool reference=timer_reference_ready();
+    uint64_t start=reference?timer_monotonic_us():0;
+    uint64_t returned=PROCESS_SIGNAL_RETURN_REFUSED;
+    enum process_signal_delivery_result result;
+    if(test && operation==2) {
+        returned=process_signal_return_private(frame,frame->rsi,frame->rdx);
+        if(returned>=PROCESS_SIGNAL_RETURN_EXIT_MIN) process_exit(returned);
+        result=returned==PROCESS_SIGNAL_RETURN_RESTORED?PROCESS_SIGNAL_DELIVERED:PROCESS_SIGNAL_FATAL;
+    } else {
+        result=process_signal_deliver_private(frame);
+        if(result==PROCESS_SIGNAL_DELIVERED_EXIT_USR1) process_exit((uint64_t)result);
+    }
+    uint64_t elapsed=reference?timer_monotonic_us()-start:UINT64_MAX;
+    if(result==PROCESS_SIGNAL_NONE || result==PROCESS_SIGNAL_DEFERRED) return;
+    signal_private_probe.complete=0;signal_private_probe.sequence++;
+    signal_private_probe.operation=operation;signal_private_probe.result=result;
+    signal_private_probe.vector=vector;signal_private_probe.elapsed_us=elapsed;
+    signal_private_probe.mappings=mappings;signal_private_probe.visit_bound=mappings<=65536?4*mappings:UINT64_MAX;
+    signal_private_probe.cr3=cr3;signal_private_probe.frame=(uint64_t)frame;
+    signal_private_probe.from_rip=from_rip;signal_private_probe.from_rsp=from_rsp;
+    signal_private_probe.to_rip=frame->rip;signal_private_probe.to_rsp=frame->rsp;
+    signal_private_probe.io_active=scheduler_io_active();signal_private_probe.measured=measured;
+    signal_private_probe.complete=1;
+    if(result==PROCESS_SIGNAL_FATAL) {serial_write("signal-private-test: contained transaction failure\n");signal_private_fault();}
+    if(!test && measured) {
+        if(!reference || mappings!=65536) signal_private_fault();
+        serial_write("signal-private-test: max maps=");signal_private_hex(mappings);
+        serial_write(" visits=");signal_private_hex(4*mappings);
+        serial_write(" transaction_us=");signal_private_hex(elapsed);
+        serial_write(" vector=");signal_private_hex(vector);serial_putc('\n');
+    }
+    /* Private return must skip another delivery with its consumed proof. */
+}
+#endif
+
 void isr_dispatch(struct isr_frame *frame) {
     bool user=(frame->cs & 3)==3;
-    if(user) scheduler_account_kernel_enter();
-    isr_dispatch_inner(frame);
-    if(user) scheduler_user_enter();
+    if(user) {
+        scheduler_account_kernel_enter();
+        scheduler_io_set_user_safe(false);
+    }
+#ifdef SRVROS_SIGNAL_PUBLIC_GUEST_TEST
+    uint64_t public_entry=0;
+    if(user) {
+        if(process_should_exit_current()){scheduler_io_wait();process_exit(process_current_kill_status());}
+        public_entry=process_signal_public_entry(frame);
+        if(public_entry>=PROCESS_SIGNAL_RETURN_EXIT_MIN){scheduler_io_wait();process_exit(public_entry);}
+    }
+    if(public_entry!=1 && public_entry!=3)
+#endif
+#ifdef SRVROS_USER_FRAME_COPY_GUEST_TEST
+    bool copy_test=user && frame->vector==3 && frame->rax==USER_FRAME_COPY_TEST_MAGIC;
+    if(!copy_test)
+#endif
+#ifdef SRVROS_SIGNAL_CONTEXT_GUEST_TEST
+    bool signal_test=user && frame->vector==3 && frame->rax==SIGNAL_PRIVATE_TEST_MAGIC;
+    if(!signal_test)
+#endif
+        isr_dispatch_inner(frame);
+    if(user) {
+#ifdef SRVROS_SYSCALL_CANCEL_HOST_TEST
+        syscall_cancel_test_exclude_irqs();
+#else
+        __asm__ volatile ("cli" : : : "memory");
+#endif
+#ifdef SRVROS_SIGNAL_PUBLIC_GUEST_TEST
+        /* All dispatcher continuations are unwound. Regain ordinary admission
+         * before fresh common-return proof, never during a publication suffix. */
+        if(public_entry!=2 && public_entry!=3 && public_entry!=4) {
+        scheduler_io_wait();
+        __asm__ volatile ("cli" : : : "memory");
+        scheduler_io_set_user_safe(false);
+        if(process_should_exit_current())process_exit(process_current_kill_status());
+        uint64_t signal_completion=process_signal_public_complete(frame);
+        if(signal_completion==UINT64_MAX)process_exit(128+SRV_SIGNAL_SEGV);
+        if(signal_completion>=PROCESS_SIGNAL_RETURN_EXIT_MIN)process_exit(signal_completion);
+        if(signal_completion!=PROCESS_SIGNAL_RETURN_RESTORED) {
+            enum process_signal_delivery_result delivered=process_signal_deliver_private(frame);
+            if(delivered==PROCESS_SIGNAL_DELIVERED_EXIT_USR1)process_exit((uint64_t)delivered);
+            if(delivered==PROCESS_SIGNAL_FATAL)process_exit(128+SRV_SIGNAL_SEGV);
+        }
+        }
+#endif
+#ifdef SRVROS_USER_FRAME_COPY_GUEST_TEST
+        if(copy_test) user_frame_copy_guest_test(frame);
+#endif
+#ifdef SRVROS_SIGNAL_CONTEXT_GUEST_TEST
+        signal_private_common_return(frame,signal_test);
+#endif
+        scheduler_user_enter();
+    }
 }

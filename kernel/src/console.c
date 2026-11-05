@@ -590,14 +590,17 @@ void console_init(struct limine_framebuffer *framebuffer) {
     console_clear();
 }
 
-void console_write_n(const char *s, size_t length) {
+size_t console_write_n_checked(const char *s,size_t length,bool (*eligible)(void *),void *context) {
+    size_t accepted=0;
     while (length != 0) {
         /* Save one bounded record before any rendering or UART can yield.
          * Long streams remain chunked; diagnostic records fit in this bound.
          * Do not extend IRQ exclusion over framebuffer work or serial waits. */
         size_t record = length < LOG_RECORD_BATCH ? length : LOG_RECORD_BATCH;
         uint64_t flags = console_irq_save();
+        if(eligible && !eligible(context)){console_irq_restore(flags);return accepted;}
         for (size_t i = 0; i < record; i++) bootlog_putc(s[i]);
+        accepted+=record;
         console_irq_restore(flags);
         for (size_t offset = 0; offset < record;) {
             size_t count = record - offset;
@@ -616,7 +619,10 @@ void console_write_n(const char *s, size_t length) {
         s += record;
         length -= record;
     }
+    return accepted;
 }
+
+void console_write_n(const char *s,size_t length) { (void)console_write_n_checked(s,length,NULL,NULL); }
 
 void console_putc(char c) { console_write_n(&c, 1); }
 

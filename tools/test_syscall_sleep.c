@@ -14,6 +14,8 @@ static bool arrive_at_check;
 static struct scheduler_wait_queue queue;
 struct scheduler_wait_queue *mouse_wait_queue(void) { return &queue; }
 uint64_t timer_ticks(void) { return now; }
+bool timer_reference_ready(void) { return false; }
+uint64_t timer_monotonic_us(void) { assert(!"Legacy sleep does not request reference timing");return 0; }
 bool process_should_exit_current(void) { return killed; }
 bool process_signal_pending_current(void) { return signaled; }
 struct scheduler_wait_queue *process_file_poll_wait_queue(void) { return &queue; }

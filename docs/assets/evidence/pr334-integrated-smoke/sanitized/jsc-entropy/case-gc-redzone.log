@@ -1,0 +1,11 @@
+srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /g[Ksrv> run /gsrv> run /gc[Ksrv> run /gcsrv> run /gc-[Ksrv> run /gc-srv> run /gc-r[Ksrv> run /gc-rsrv> run /gc-ro[Ksrv> run /gc-rosrv> run /gc-roo[Ksrv> run /gc-roosrv> run /gc-root[Ksrv> run /gc-rootsrv> run /gc-roots[Ksrv> run /gc-rootssrv> run /gc-roots [Ksrv> run /gc-roots srv> run /gc-roots "[Ksrv> run /gc-roots "srv> run /gc-roots "r[Ksrv> run /gc-roots "rsrv> run /gc-roots "re[Ksrv> run /gc-roots "resrv> run /gc-roots "red[Ksrv> run /gc-roots "redsrv> run /gc-roots "redz[Ksrv> run /gc-roots "redzsrv> run /gc-roots "redzo[Ksrv> run /gc-roots "redzosrv> run /gc-roots "redzon[Ksrv> run /gc-roots "redzonsrv> run /gc-roots "redzone[Ksrv> run /gc-roots "redzonesrv> run /gc-roots "redzone"[Ksrv> run /gc-roots "redzone"
+run: entering pid=9 /gc-roots entry=0x0000000000500000 stack=0x000000000fffefc0
+run: map page rejected process=0xffffffff805c55f0 count=65536 limit=65536 virt=0x000000001cccf000
+run: map page rejected process=0xffffffff805c55f0 count=65536 limit=65536 virt=0x000000001cccf000
+run: map page rejected process=0xffffffff805c55f0 count=65536 limit=65536 virt=0x000000001cccf000
+jsc-gc-root: redzone retained; finalizers=1
+jsc-gc-root: ok
+
+process: exited status=0
+run: pid=9 exited status=0
+srv> 

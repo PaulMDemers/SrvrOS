@@ -1,0 +1,202 @@
+limine: Loading executable `boot():/boot/srvros.elf`...
+limine: Loading module `boot():/boot/initramfs.tar`...
+
+
+srvros: entering kernel
+srvros: booting (quiet mode)
+cmdline: srvros.log=quiet
+bootloader: Limine 11.4.1
+hhdm offset: 0xffff800000000000
+block: registry ready slots=32 cache_entries=32
+gdt: loaded
+fpu: fxsave/sse/sse2 enabled
+idt: loaded
+irq: pic masked
+idt: testing breakpoint exception
+pmm: frames total=1037288 free=90595 used=946693 bitmap=0x0000000000100000 bytes=129661
+acpi: mcfg allocations=1
+acpi: ioapic id=0 addr=0x00000000fec00000 gsi_base=0
+initramfs: files=14 size=36751360 bytes
+pmm: test alloc phys=0x000000000021d000 virt=0xffff80000021d000 free_before=90595 free_after=90594
+pmm: test free complete free=90595
+heap: initialized total=16384 free=16336 used=0
+heap: test alloc a=0xffff80000021d030 b=0xffff80000021d0a0 first=0x0000000000001000 last=0x0000000000001007 free_before=16336 free_after=16144
+heap: test free complete free=16336 used=0
+vfs: mounted initramfs nodes=15 skipped=0
+scheduler: timer-preemptive kernel threads ready
+workqueue: ready slots=16
+vmm: active pml4 phys=0x000000001ffa1000 virt=0xffff80001ffa1000
+clock: reference=acpi-pm port=0x0000000000000608
+clock: UTC=rtc epoch=1793849581 century=50
+lapic: mapped phys=0x00000000fee00000 virt=0xffffc000fee00000
+lapic: timer vector=32 initial_count=624850 calibrated=yes target=100Hz
+keyboard: ps/2 controller drained, irq enabled, scanning enabled
+mouse: ps/2 auxiliary device enabled
+ioapic: id=0 max_redir=23 phys=0x00000000fec00000 gsi_base=0
+ioapic: irq=1 gsi=1 vector=33 flags=0x0000000000000000
+ioapic: irq=4 gsi=4 vector=36 flags=0x0000000000000000
+serial: com1 rx irq enabled
+ioapic: irq=12 gsi=12 vector=44 flags=0x0000000000000000
+pci: devices=5 config=ecam
+lpss-spi: disabled (experimental transport)
+xhci: no controller
+input: ps2_keyboard=yes ps2_mouse=yes usb_keyboards=0 usb_mice=0 usb_devices=0 usb_hubs=0
+input-ps2: enabled=1 irq=0 scancodes=0 last=0x0000000000000000 keybuf=0 pushed=0 dropped=0
+input: no ps2/usb keyboard path; pci input/xhci diagnostics follow
+input: lpss spi/topcase diagnostics follow
+lpss-spi: no Broadwell SPI1 controller detected
+acpi-input: scanning DSDT/SSDT for SPI/topcase markers
+acpi-input: no topcase markers found
+pci-input: bus=0 dev=31 fn=3 vendor=0x0000000000008086 device=0x0000000000002930 class=0x000000000000000c subclass=0x0000000000000005 if=0x0000000000000000 serial bus irq=10 pin=1 bar0=0x0000000000000000 bar1=0x0000000000000000
+pci-usb: none
+xhci: no controller detected
+intel-gfx: no Intel display controller
+ahci: abar=0x00000000febf1000 pi=0x000000000000003f cap=0x00000000c0141f05
+ahci: no sata disks
+exfat: trying initramfs fallback /srvros.exfat
+exfat: initramfs fallback /srvros.exfat not found
+bootlog: persist skipped
+namespace: activation refused; legacy storage paths retained
+e1000: no supported device
+net: no supported network device, stack idle
+net: worker not started
+vmm: test map virt=0xffffc00290000000 phys=0x0000000000261000 value=0x737276726f73564d
+irq: enabling interrupts
+timer: observed ticks=6
+input-ps2: enabled=1 irq=0 scancodes=0 last=0x0000000000000000 keybuf=0 pushed=0 dropped=0
+input-timing: queue-oldest count=0 mean_us=0 max_us=0
+input-timing: queue-latest count=0 mean_us=0 max_us=0
+input-usb: xhci=none
+input-ps2: enabled=1 irq=0 scancodes=0 last=0x0000000000000000 keybuf=0 pushed=0 dropped=0
+input-timing: queue-oldest count=0 mean_us=0 max_us=0
+input-timing: queue-latest count=0 mean_us=0 max_us=0
+input-usb: xhci=none
+framebuffer: 1280x800 pitch=5120 bpp=32
+srvros: kernel bootstrap complete
+init: started pid=1
+init: startup failed: /fat/bin/sh unavailable
+init: rescue shell is available from monitor with: run /sh
+init: readiness=ready elapsed_us=4937
+input-ps2: enabled=1 irq=0 scancodes=0 last=0x0000000000000000 keybuf=0 pushed=0 dropped=0
+input-timing: queue-oldest count=0 mean_us=0 max_us=0
+input-timing: queue-latest count=0 mean_us=0 max_us=0
+input-usb: xhci=none
+srvros: boot complete
+diagnostics: use dmesg, bootinfo, or reboot with srvros.log=debug
+
+
+srvros monitor ready. Type 'help'.
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /m[Ksrv> run /msrv> run /ma[Ksrv> run /masrv> run /mat[Ksrv> run /matsrv> run /math[Ksrv> run /mathsrv> run /mathp[Ksrv> run /mathpsrv> run /mathpr[Ksrv> run /mathprsrv> run /mathpro[Ksrv> run /mathprosrv> run /mathprob[Ksrv> run /mathprobsrv> run /mathprobe[Ksrv> run /mathprobe
+run: entering pid=3 /mathprobe entry=0x0000000000500000 stack=0x0000000000ffffe0
+mathprobe: ok
+
+process: exited status=0
+run: pid=3 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /r[Ksrv> run /rsrv> run /rt[Ksrv> run /rtsrv> run /rtt[Ksrv> run /rttsrv> run /rtti[Ksrv> run /rttisrv> run /rttip[Ksrv> run /rttipsrv> run /rttipr[Ksrv> run /rttiprsrv> run /rttipro[Ksrv> run /rttiprosrv> run /rttiprob[Ksrv> run /rttiprobsrv> run /rttiprobe[Ksrv> run /rttiprobe
+run: entering pid=4 /rttiprobe entry=0x0000000000500000 stack=0x0000000000ffffe0
+rttiprobe: ok
+
+process: exited status=0
+run: pid=4 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /r[Ksrv> run /rsrv> run /rt[Ksrv> run /rtsrv> run /rtt[Ksrv> run /rttsrv> run /rtti[Ksrv> run /rttisrv> run /rttip[Ksrv> run /rttipsrv> run /rttipr[Ksrv> run /rttiprsrv> run /rttipro[Ksrv> run /rttiprosrv> run /rttiprob[Ksrv> run /rttiprobsrv> run /rttiprobe[Ksrv> run /rttiprobesrv> run /rttiprobe [Ksrv> run /rttiprobe srv> run /rttiprobe b[Ksrv> run /rttiprobe bsrv> run /rttiprobe ba[Ksrv> run /rttiprobe basrv> run /rttiprobe bad[Ksrv> run /rttiprobe badsrv> run /rttiprobe badc[Ksrv> run /rttiprobe badcsrv> run /rttiprobe badca[Ksrv> run /rttiprobe badcasrv> run /rttiprobe badcas[Ksrv> run /rttiprobe badcassrv> run /rttiprobe badcast[Ksrv> run /rttiprobe badcast
+run: entering pid=5 /rttiprobe entry=0x0000000000500000 stack=0x0000000000ffffc0
+rttiprobe: badcast must abort
+libc++ terminate
+run: pid=5 exited status=134
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /i[Ksrv> run /isrv> run /ic[Ksrv> run /icsrv> run /icu[Ksrv> run /icusrv> run /icup[Ksrv> run /icupsrv> run /icupr[Ksrv> run /icuprsrv> run /icupro[Ksrv> run /icuprosrv> run /icuprob[Ksrv> run /icuprobsrv> run /icuprobe[Ksrv> run /icuprobe
+run: entering pid=6 /icuprobe entry=0x0000000000500000 stack=0x000000000fffefe0
+icuprobe: ok
+
+process: exited status=0
+run: pid=6 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /c[Ksrv> run /csrv> run /cx[Ksrv> run /cxsrv> run /cxx[Ksrv> run /cxxsrv> run /cxxp[Ksrv> run /cxxpsrv> run /cxxpr[Ksrv> run /cxxprsrv> run /cxxpro[Ksrv> run /cxxprosrv> run /cxxprob[Ksrv> run /cxxprobsrv> run /cxxprobe[Ksrv> run /cxxprobe
+run: entering pid=7 /cxxprobe entry=0x0000000000500000 stack=0x0000000000ffffe0
+cxxprobe: start
+cxxprobe: controller=0x63787870726f6265 ctor_count=1
+cxxprobe: ok
+
+process: exited status=0
+run: pid=7 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /c[Ksrv> run /csrv> run /cx[Ksrv> run /cxsrv> run /cxx[Ksrv> run /cxxsrv> run /cxxs[Ksrv> run /cxxssrv> run /cxxst[Ksrv> run /cxxstsrv> run /cxxstl[Ksrv> run /cxxstlsrv> run /cxxstlp[Ksrv> run /cxxstlpsrv> run /cxxstlpr[Ksrv> run /cxxstlprsrv> run /cxxstlpro[Ksrv> run /cxxstlprosrv> run /cxxstlprob[Ksrv> run /cxxstlprobsrv> run /cxxstlprobe[Ksrv> run /cxxstlprobe
+run: entering pid=8 /cxxstlprobe entry=0x0000000000500000 stack=0x0000000000ffffe0
+cxxstlprobe: start
+cxxstlprobe: sizeof(set<Region*>)=24
+cxxstlprobe: ok
+
+process: exited status=0
+run: pid=8 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /t[Ksrv> run /tsrv> run /tl[Ksrv> run /tlsrv> run /tls[Ksrv> run /tlssrv> run /tlsf[Ksrv> run /tlsfsrv> run /tlsfi[Ksrv> run /tlsfisrv> run /tlsfir[Ksrv> run /tlsfirsrv> run /tlsfirs[Ksrv> run /tlsfirssrv> run /tlsfirst[Ksrv> run /tlsfirst
+run: entering pid=9 /tlsfirst entry=0x0000000000500000 stack=0x0000000000ffffe0
+cxxthreads: tls-first registered
+cxxthreads: tls-first tls
+cxxthreads: tls-first global
+
+process: exited status=0
+run: pid=9 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /c[Ksrv> run /csrv> run /cx[Ksrv> run /cxsrv> run /cxx[Ksrv> run /cxxsrv> run /cxxt[Ksrv> run /cxxtsrv> run /cxxth[Ksrv> run /cxxthsrv> run /cxxthr[Ksrv> run /cxxthrsrv> run /cxxthre[Ksrv> run /cxxthresrv> run /cxxthrea[Ksrv> run /cxxthreasrv> run /cxxthread[Ksrv> run /cxxthreadsrv> run /cxxthreads[Ksrv> run /cxxthreadssrv> run /cxxthreads [Ksrv> run /cxxthreads srv> run /cxxthreads a[Ksrv> run /cxxthreads asrv> run /cxxthreads al[Ksrv> run /cxxthreads alsrv> run /cxxthreads all[Ksrv> run /cxxthreads all
+run: entering pid=10 /cxxthreads entry=0x0000000000500000 stack=0x0000000000ffffd0
+cxxthreads: start
+cxxthreads: ok
+cxxthreads: main tls destructor
+cxxthreads: static destructor
+
+process: exited status=0
+run: pid=10 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /c[Ksrv> run /csrv> run /cx[Ksrv> run /cxsrv> run /cxx[Ksrv> run /cxxsrv> run /cxxt[Ksrv> run /cxxtsrv> run /cxxth[Ksrv> run /cxxthsrv> run /cxxthr[Ksrv> run /cxxthrsrv> run /cxxthre[Ksrv> run /cxxthresrv> run /cxxthrea[Ksrv> run /cxxthreasrv> run /cxxthread[Ksrv> run /cxxthreadsrv> run /cxxthreads[Ksrv> run /cxxthreadssrv> run /cxxthreads [Ksrv> run /cxxthreads srv> run /cxxthreads e[Ksrv> run /cxxthreads esrv> run /cxxthreads ex[Ksrv> run /cxxthreads exsrv> run /cxxthreads exh[Ksrv> run /cxxthreads exhsrv> run /cxxthreads exha[Ksrv> run /cxxthreads exhasrv> run /cxxthreads exhau[Ksrv> run /cxxthreads exhausrv> run /cxxthreads exhaus[Ksrv> run /cxxthreads exhaussrv> run /cxxthreads exhaust[Ksrv> run /cxxthreads exhaust
+run: entering pid=11 /cxxthreads entry=0x0000000000500000 stack=0x0000000000ffffc0
+cxxthreads: start
+cxxthreads: capacity=8; next construction must abort
+libc++ system error 11: thread constructor failed
+run: pid=11 exited status=134
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /c[Ksrv> run /csrv> run /cx[Ksrv> run /cxsrv> run /cxx[Ksrv> run /cxxsrv> run /cxxt[Ksrv> run /cxxtsrv> run /cxxth[Ksrv> run /cxxthsrv> run /cxxthr[Ksrv> run /cxxthrsrv> run /cxxthre[Ksrv> run /cxxthresrv> run /cxxthrea[Ksrv> run /cxxthreasrv> run /cxxthread[Ksrv> run /cxxthreadsrv> run /cxxthreads[Ksrv> run /cxxthreadssrv> run /cxxthreads [Ksrv> run /cxxthreads srv> run /cxxthreads a[Ksrv> run /cxxthreads asrv> run /cxxthreads al[Ksrv> run /cxxthreads alsrv> run /cxxthreads all[Ksrv> run /cxxthreads all
+run: entering pid=12 /cxxthreads entry=0x0000000000500000 stack=0x0000000000ffffd0
+cxxthreads: start
+cxxthreads: ok
+cxxthreads: main tls destructor
+cxxthreads: static destructor
+
+process: exited status=0
+run: pid=12 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /i[Ksrv> run /isrv> run /ic[Ksrv> run /icsrv> run /icu[Ksrv> run /icusrv> run /icup[Ksrv> run /icupsrv> run /icupr[Ksrv> run /icuprsrv> run /icupro[Ksrv> run /icuprosrv> run /icuprob[Ksrv> run /icuprobsrv> run /icuprobe[Ksrv> run /icuprobe
+run: entering pid=13 /icuprobe entry=0x0000000000500000 stack=0x000000000fffefe0
+icuprobe: ok
+
+process: exited status=0
+run: pid=13 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /t[Ksrv> run /tsrv> run /tl[Ksrv> run /tlsrv> run /tls[Ksrv> run /tlssrv> run /tls-[Ksrv> run /tls-srv> run /tls-g[Ksrv> run /tls-gsrv> run /tls-go[Ksrv> run /tls-gosrv> run /tls-got[Ksrv> run /tls-gotsrv> run /tls-got-[Ksrv> run /tls-got-srv> run /tls-got-z[Ksrv> run /tls-got-zsrv> run /tls-got-ze[Ksrv> run /tls-got-zesrv> run /tls-got-zer[Ksrv> run /tls-got-zersrv> run /tls-got-zero[Ksrv> run /tls-got-zero
+run: entering pid=14 /tls-got-zero entry=0x0000000000500000 stack=0x0000000000ffffe0
+tls-got: ok
+
+process: exited status=0
+run: pid=14 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /t[Ksrv> run /tsrv> run /tl[Ksrv> run /tlsrv> run /tls[Ksrv> run /tlssrv> run /tls-[Ksrv> run /tls-srv> run /tls-g[Ksrv> run /tls-gsrv> run /tls-go[Ksrv> run /tls-gosrv> run /tls-got[Ksrv> run /tls-gotsrv> run /tls-got-[Ksrv> run /tls-got-srv> run /tls-got-i[Ksrv> run /tls-got-isrv> run /tls-got-in[Ksrv> run /tls-got-insrv> run /tls-got-ini[Ksrv> run /tls-got-inisrv> run /tls-got-init[Ksrv> run /tls-got-initsrv> run /tls-got-initi[Ksrv> run /tls-got-initisrv> run /tls-got-initia[Ksrv> run /tls-got-initiasrv> run /tls-got-initial[Ksrv> run /tls-got-initialsrv> run /tls-got-initiali[Ksrv> run /tls-got-initialisrv> run /tls-got-initializ[Ksrv> run /tls-got-initializsrv> run /tls-got-initialize[Ksrv> run /tls-got-initializesrv> run /tls-got-initialized[Ksrv> run /tls-got-initialized
+run: entering pid=15 /tls-got-initialized entry=0x0000000000500000 stack=0x0000000000ffffd0
+tls-got: ok
+
+process: exited status=0
+run: pid=15 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /l[Ksrv> run /lsrv> run /li[Ksrv> run /lisrv> run /lib[Ksrv> run /libsrv> run /libm[Ksrv> run /libmsrv> run /libmp[Ksrv> run /libmpsrv> run /libmpr[Ksrv> run /libmprsrv> run /libmpro[Ksrv> run /libmprosrv> run /libmprob[Ksrv> run /libmprobsrv> run /libmprobe[Ksrv> run /libmprobe
+run: entering pid=16 /libmprobe entry=0x0000000000500000 stack=0x0000000000ffffe0
+libmprobe: ok
+
+process: exited status=0
+run: pid=16 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /c[Ksrv> run /csrv> run /cp[Ksrv> run /cpsrv> run /cpp[Ksrv> run /cppsrv> run /cpp-[Ksrv> run /cpp-srv> run /cpp-l[Ksrv> run /cpp-lsrv> run /cpp-li[Ksrv> run /cpp-lisrv> run /cpp-lin[Ksrv> run /cpp-linsrv> run /cpp-link[Ksrv> run /cpp-linksrv> run /cpp-linka[Ksrv> run /cpp-linkasrv> run /cpp-linkag[Ksrv> run /cpp-linkagsrv> run /cpp-linkage[Ksrv> run /cpp-linkage
+run: entering pid=17 /cpp-linkage entry=0x0000000000500000 stack=0x0000000000ffffe0
+browser-c-linkage: ok
+
+process: exited status=0
+run: pid=17 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /a[Ksrv> run /asrv> run /al[Ksrv> run /alsrv> run /alg[Ksrv> run /algsrv> run /algo[Ksrv> run /algosrv> run /algor[Ksrv> run /algorsrv> run /algori[Ksrv> run /algorisrv> run /algorit[Ksrv> run /algoritsrv> run /algorith[Ksrv> run /algorithsrv> run /algorithm[Ksrv> run /algorithmsrv> run /algorithmp[Ksrv> run /algorithmpsrv> run /algorithmpr[Ksrv> run /algorithmprsrv> run /algorithmpro[Ksrv> run /algorithmprosrv> run /algorithmprob[Ksrv> run /algorithmprobsrv> run /algorithmprobe[Ksrv> run /algorithmprobe
+run: entering pid=18 /algorithmprobe entry=0x0000000000500000 stack=0x0000000000ffffe0
+browser-algorithm: ok
+
+process: exited status=0
+run: pid=18 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /s[Ksrv> run /ssrv> run /si[Ksrv> run /sisrv> run /sig[Ksrv> run /sigsrv> run /sign[Ksrv> run /signsrv> run /signa[Ksrv> run /signasrv> run /signal[Ksrv> run /signalsrv> run /signal-[Ksrv> run /signal-srv> run /signal-c[Ksrv> run /signal-csrv> run /signal-co[Ksrv> run /signal-cosrv> run /signal-con[Ksrv> run /signal-consrv> run /signal-cont[Ksrv> run /signal-contsrv> run /signal-contr[Ksrv> run /signal-contrsrv> run /signal-contra[Ksrv> run /signal-contrasrv> run /signal-contrac[Ksrv> run /signal-contracsrv> run /signal-contract[Ksrv> run /signal-contract
+run: entering pid=19 /signal-contract entry=0x0000000000500000 stack=0x0000000000ffffd0
+browser-signal-contract: siginfo rejected; handler preserved
+
+process: exited status=0
+run: pid=19 exited status=0
+srv> 

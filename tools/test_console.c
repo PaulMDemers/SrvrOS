@@ -253,7 +253,23 @@ static void test_graphics_framebuffer_routing(void) {
     console_set_graphics_framebuffer(NULL);
     assert(console_display_info(&info) && info.width==W && info.height==H);
 }
+static bool checked_record(void *context) {
+    unsigned *remaining=context;assert(!test_irqs);
+    if(!*remaining)return false;
+    --*remaining;return true;
+}
+static void test_checked_publication(void) {
+    setup(false);serial_count=saved_count=0;
+    char bytes[LOG_RECORD_BATCH*2+3];memset(bytes,'x',sizeof(bytes));
+    unsigned allowed=0;
+    assert(console_write_n_checked(bytes,sizeof(bytes),checked_record,&allowed)==0 && !saved_count && !serial_count && test_irqs);
+    allowed=1;
+    assert(console_write_n_checked(bytes,sizeof(bytes),checked_record,&allowed)==LOG_RECORD_BATCH);
+    assert(saved_count==LOG_RECORD_BATCH && serial_count==LOG_RECORD_BATCH && test_irqs);
+    for(size_t i=0;i<saved_count;i++)assert(saved_log[i]=='x' && serial_log[i]=='x');
+}
 int main(void) {
+    test_checked_publication();
     test_graphics_framebuffer_routing();
     test_saved_record_interleaving();
     test_graphics_damage();

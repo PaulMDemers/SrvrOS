@@ -1,0 +1,56 @@
+{
+  "result": "FAIL",
+  "commands": [
+    {
+      "name": "normal-build",
+      "argv": [
+        "sh",
+        "tools/macos/build.sh",
+        "-j2",
+        "-o",
+        "$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig",
+        "ZIG=$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig",
+        "HOST_CC=$WORKSPACE/SrvrOS-signal-context/build/tooling/darwin-host-cc",
+        "all",
+        "build/tests/exfat-driver"
+      ],
+      "cwd": "$WORKSPACE/SrvrOS-signal-context",
+      "owned_pid": 57713,
+      "peak_rss_bytes": 1148321792,
+      "before_cleanup": {},
+      "status_before_cleanup": 2,
+      "status": 2,
+      "owned_pgids": [
+        57713
+      ],
+      "remaining": {},
+      "seconds": 73.762780708028
+    }
+  ],
+  "scope": "normal OS build and two bounded guests",
+  "physical_acceptance": false,
+  "plan_sha256": "fd486e24cb8d708ee82bf9e78c13ee6ea509ba10c4e4584783bed5e166401815",
+  "source": "0a3f5981cd23b8982c5a8656af55875b0aae4a40",
+  "submodules": [
+    " af1421b735b61cf47c4e6516730c30468020abc7 ports (heads/port/browser-signal-context)",
+    " 5739fd79bcfc75ba7526773d0cf634521f8aca3c ports/upstream/awk (20260426)",
+    " c859b25da02955fef659d658b8f324b5cde87be3 ports/upstream/cjson (v1.7.15-48-gc859b25)",
+    " 26254ee9de7681f8825433415443e7116ff24b98 ports/upstream/inih (r62)",
+    " 1cfa32ff59c076ffb6ed735bbc8c18361558661f ports/upstream/libuv (v1.52.1)",
+    " dc83cc373ac2058030eb3cf5e404959a26fef112 ports/upstream/linenoise (dc83cc3)",
+    " 6e22fedb74cf0c9b6656e9fce8b7331db847c605 ports/upstream/lua (v5.4-beta-336-g6e22fedb)",
+    " c7d10158bc31036de6783d66beaaaf551e3167aa ports/upstream/node (v24.16.0)",
+    " da607da739fa6047df13e66a2af6b8bec7c2a498 ports/upstream/zlib (v1.3.2)",
+    " 24bc454198a7ee58a875df40e6bd5ee2b5cf52c7 userspace/apps (heads/main-21-g24bc454)",
+    " 3a695ce51e06af0a7ab9c21beedcb8dfe221be9c userspace/widgets (remotes/origin/HEAD)"
+  ],
+  "error": "RuntimeError('normal-build exited unsuccessfully')",
+  "seconds": 74.73702612501802,
+  "storage_minimum_bytes": {
+    "host": 27636383744,
+    "output": 27636383744,
+    "backing": 8009940992,
+    "short_tmp": 27636383744
+  },
+  "short_tmp_removed": true
+}

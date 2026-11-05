@@ -1,0 +1,7 @@
+srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /e[Ksrv> run /esrv> run /en[Ksrv> run /ensrv> run /ent[Ksrv> run /entsrv> run /entr[Ksrv> run /entrsrv> run /entro[Ksrv> run /entrosrv> run /entrop[Ksrv> run /entropsrv> run /entropy[Ksrv> run /entropysrv> run /entropy [Ksrv> run /entropy srv> run /entropy "[Ksrv> run /entropy "srv> run /entropy "r[Ksrv> run /entropy "rsrv> run /entropy "rd[Ksrv> run /entropy "rdsrv> run /entropy "rdr[Ksrv> run /entropy "rdrsrv> run /entropy "rdra[Ksrv> run /entropy "rdrasrv> run /entropy "rdran[Ksrv> run /entropy "rdransrv> run /entropy "rdrand[Ksrv> run /entropy "rdrandsrv> run /entropy "rdrand"[Ksrv> run /entropy "rdrand"
+run: entering pid=3 /entropy entry=0x0000000000500000 stack=0x0000000000ffffd0
+random-entropy: rdrand contract ok
+
+process: exited status=0
+run: pid=3 exited status=0
+srv> 
