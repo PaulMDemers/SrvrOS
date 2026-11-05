@@ -144,7 +144,7 @@ def main():
                     if victim=="supervisor":
                         # Establish a real muted observation before revoking
                         # its owner, so this also exercises the waiting path.
-                        serial.sendall(b"bg /fat/bin/guifail --console-unmuted-wait\n")
+                        serial.sendall(b'run /fat/bin/sh -c "/fat/bin/guifail --console-unmuted-wait &"\n')
                         wait_since(b"guifail: console-recovery waiting",probe_start)
                     serial.sendall(b"kill "+pid+b"\n");wait(b"kill: requested process stop")
                     wait_since(b"bg: pid="+supervisor+b" exited status=", crash_start)
