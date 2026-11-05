@@ -12940,3 +12940,43 @@ and consistent target basic-rate binding,a fresh running receive owner,dedicated
 data OUT ownership,matched AUTH/ASSOC replies and explicit leave/retirement,
 then strict WPA2/MIC/replay/key/PN and authenticated bidirectional IP/data.
 Credentials remain unread/unpackaged;Demers2.4 requires different hardware.
+
+### Empty stopped RX handoff qualification and cold trial (November 5)
+
+Candidate release `54d3bca0e34ff6fa` uses runtime source `34e24139` and integrated
+main379d6f8d, with Ports94758e7f, Apps f90cb7e6 and Widgets3a695ce5.
+The full clean-tree core/stream/profile attempt completed all independent
+prerequisites but exposed13 failed units. Those failures and their exact inputs
+are retained. The complete failed-unit closure, native build/USB image, full
+controller suite and changed-input checks now pass at this runtime source.
+Corrections match the actual64-entry ring (63 usable slots) and native byte-copy
+API; legacy fixtures now model the unavailable public signal backend explicitly
+and trap unexpected entry. Real enabled signal poll/semaphore/sleep checks pass
+separately. No production signal or FPU behavior was changed by these fixes.
+
+Fatal ASan/UBSan checks pass for the pure handoff, actual native child and retained
+power parent. The native fixture also checks physical addresses above4GiB.
+221 stage groups and four strict parser groups pass. Native compiler frame
+checks peak at616bytes. Production-C child output composed with the accepted
+v123 parent passes the complete15719-operation parser and eight whole-prefix
+refusals at2024707bytes, leaving72445bytes within the2MiB capture limit.
+This synthetic composition is not physical acceptance. Disposable real
+filesystem2MiB write/read/remount and external fsck pass. Ordinary desktop,
+exact staged GPT save/return and missing-workspace VMs pass; independently
+reconstructed firmware initramfs and kernel match the installed payload.
+
+The new payload is installed with Ubuntu default and e47d known-good recovery
+previous. Accepted power v123, accepted selection v122 and separate failed
+candidate evidence remain retained. The older unreferenced019299 EFI copy may
+be retired only after exact equality with its independent sealed backup.
+The generated accepted v123 USB session was independently archived and compared
+byte-for-byte against its immutable197-file native capsule before pruning.
+The separate32-file accepted notes and prior521-file failure capsule are unchanged.
+
+This v124 cold trial requires unplugging only Wi-Fi for10seconds while off,
+reconnecting the same port, then powering on with the workspace connected.
+It displays progress, saves its full result and returns to Ubuntu automatically.
+The matching session must be collected first after return. Handoff acceptance
+remains pending. No TD, MAC start or network OUT is authorized by this empty
+trial; authentication, dedicated live RX/data-OUT ownership, WPA2 keys/replay/PN,
+IP/data and disconnect remain open. Credentials remain unread and unpackaged.
