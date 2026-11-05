@@ -6834,3 +6834,19 @@ A changed guard,invalid request,ownership loss,uncertain USB transfer or failed
 restoration still refuses/quarantines. This does not free DMA or grant a network
 provider. A successful retry must still prove all nine words and inverse RF
 cleanup;the prior failed session cannot be reclassified by the new parser.
+
+### Pro11,2 fixed161 power acceptance (November 5)
+
+The captured MT7610 Edimax unit accepts corrected v123 release19e990a096e6209d,
+source25bf7bb2,session00065f8d6af998f0-00:the complete2022068-byte calibration/
+private requested-target selection parent,five fresh mapped board blocks and
+197 guarded power operations with all nine selected full-word readbacks and
+all nine inverse originals. MAC remained disabled and the old RX endpoint
+stopped;outer RF original readbacks,storage/recovery and automatic Ubuntu return
+pass. The197-file native capsule survives outside build. The earlier d105 failure
+remains failed;no masked readback or reclassification was used. Modeled maximum
+24 half-dBm is not radiated-power measurement or general regulatory acceptance.
+No network OUT,authentication,keys,IP or data ran. Next requires explicit fresh
+receive-context ownership handoff and source-audited management association;
+retain the old stopped-ring gates and all DMA on uncertainty. Credentials remain
+unread. This acceptance belongs only to the captured model/unit and source.

@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-04. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-11-05. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -24,28 +24,40 @@ The first v123 power run `d105a5d22539cf69` / `13c08048`, session
 521-file failure capsule are preserved. Storage/recovery and automatic Ubuntu
 return passed;power/RF original restoration did not. That failure remains failed.
 
-Corrected v123 candidate `19e990a096e6209d`, runtime `25bf7bb2`,
-consumes actual main `d10a4e10`, Ports `cecd59c5`, Apps `f90cb7e6` and Widgets
-`3a695ce5`. It is installed with Ubuntu default and known-good e47d recovery
-previous,unarmed at this checkpoint. Full merged build/core/file-stream/exFAT-
-stream/profile-stream/docs qualification,fatal focused ASan/UBSan,matched169
-Wi-Fi callers,ordinary desktop VM,exact GPT save/return and missing-workspace
-VMs,complete synthetic parent/power proof,eight whole-prefix refusals and fresh
-2MiB real filesystem write/read/remount/fsck pass. This is qualification only;
-new native power acceptance is pending. Detailed result and current local run
-record are retained outside build. The previous large FAILED session was
-verified against its sealed failure collection,independently archived,then its
-generated USB log copy was pruned before another collection.
+Corrected native v123 `19e990a096e6209d`, runtime `25bf7bb2`, main
+`d10a4e10`, session `session-00065f8d6af998f0-00`, now accepts all2022068 saved prefix bytes:
+the complete15719-operation parent,private unique Demers5 selection,five fresh
+mapped board blocks,197 new power USB operations,five polls,all nine selected
+full-word readbacks and all nine inverse original readbacks. Outer RF originals,
+MAC-disabled/stopped receive retirement,offline fsck/allocation,payload/recovery
+equality and automatic Ubuntu return pass. The197-file native capsule remains
+sealed outside build;separate accepted notes preserve the new scope. Source-model
+maximum24 half-dBm is not an analog output-power measurement. No network OUT,
+authentication,key installation,IP or data transfer was exercised. The original
+v123 failure remains failed and independently preserved.
 
-Next: cold power/readback/reverse-original retry,then explicit fresh RX-context
-handoff and management association,strict-entropy WPA2/MIC/replay/key/PN lifecycle,
-authenticated bidirectional IP/data and clean disconnect. Demers2.4 requires
+Next bounded work: consume reviewed main379d6f8d and recursive module pins,then
+explicitly transfer the stopped DCI9 receive endpoint to a fresh private ring,
+prove exact stop/dequeue restoration and retained-DMA ownership,and add fixed
+management authentication/association under the held selected power/RF parent.
+Do not broaden old stopped-ring parent gates to admit a new ring. Re-audit Linux
+TXWI/manual sequence/queue semantics before first network OUT. Touch fixed MT76
+plan/native owner,staging and proof/fault tests;shared signal/stream/FPU changes
+are integration dependencies,not new hardware grants. Main now owns signal
+calls164..167,file-stream168;private Wi-Fi remains169. PR379 owns browser/WebCore
+source audit and301 Air scanout;no other Wi-Fi owner is active. No cross-chat
+contact is authorized. Validate matched artifacts and relevant host/VM changes
+before a new physical run;do not transfer this source25bf acceptance forward.
+
+Strict-entropy WPA2/MIC/replay/key/PN lifecycle,authenticated bidirectional
+IP/data and clean disconnect/reconnect follow association. Demers2.4 needs
 compatible hardware;the current Edimax model is5GHz-only. Credentials remain
 unread/unpackaged. Live reattach and connection UI remain pending. Ordinary
 startup leaves radio diagnostics disabled. Cold unplug remains necessary:under
 standing user authority,shutdown when qualified,unplug only Wi-Fi10seconds while
 off,reconnect same port,power on,leave workspace attached. Collect the exact
 new session first after Ubuntu return. No commands,photos or repeat approval.
+Current workspace unmounted,Ubuntu default,one-shot consumed,unarmed.
 
 ## Earlier checkpoints
 
@@ -12861,3 +12873,24 @@ Any older unreferenced EFI retirement is recorded with seal and full-byte equali
 before deletion of that EFI copy;independent native backups survive distclean.
 The current run record owns exact install/recovery/reboot state. Shutdown is
 already authorized when the final run record and recovery checks are sealed.
+
+### Corrected v123 physical power acceptance (November 5)
+
+Release19e990a096e6209d/source25bf7bb2 passed matching session
+session-00065f8d6af998f0-00 with2022068 complete exit bytes. Fresh fields matched
+the same-board profile;full-word CFG7 selected003e0000,CFG8 selected3c3c0000 and
+CFG9 selected0000003e all read back exactly,along with the other six words.
+Every saved power original was restored before the enclosing RF inverse
+completed. The strict unchanged preboot frozen checker passes;storage,recovery
+and saved automatic Ubuntu return pass. Five beacon/probe observations produced
+three private candidates and one consistent22-byte PSK/CCMP requested target.
+The197-file native capsule is separate from the prior failed521-file capsule.
+No network frame or key was submitted. Board power-register control and exact
+restoration are accepted;analog power,authentication,IP and data remain open.
+
+Fetched actual main379d6f8d after collection:merged signal continuation and
+logical-I/O/FPU/user-frame lifetimes,ports/browser delivery,workspace-reset
+recording and read-only Air6,1 cache-context observation. It does not change MT76
+or accept Pro hardware. Reconcile published Ports and retain local logging and
+Wi-Fi UI Apps pins. Rebuild/test the matched syscall/FPU/stream context before
+new native association work. The existing accepted payload remains installed.
