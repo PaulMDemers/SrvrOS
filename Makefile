@@ -4152,7 +4152,7 @@ test-fd-io-restart: build/tests/fd-io-restart-host$(HOST_EXE)
 build/tests/fd-io-restart-file.o: userspace/lib/src/posix_file.c tools/posix_file_host_names.h $(USER_SYSROOT_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -ffunction-sections -fdata-sections -I shared/include -I userspace/lib/include -include tools/posix_file_host_names.h -c $< -o $@
-build/tests/fd-io-restart-host$(HOST_EXE): tools/test_fd_io_restart.c build/tests/fd-io-restart-file.o $(USER_SYSROOT_HEADERS)
+build/tests/fd-io-restart-host$(HOST_EXE): tools/test_fd_io_restart.c tools/legacy_signal_fixture.h build/tests/fd-io-restart-file.o $(USER_SYSROOT_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< build/tests/fd-io-restart-file.o -Wl,--gc-sections -o $@
 
