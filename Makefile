@@ -1084,7 +1084,7 @@ $(KERNEL): $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_OBJ) kernel/linker.ld
 
 # Early-boot paths and trap-state helpers/diagnostics must not use compiler
 # SSE: it may run before CR4.OSFXSR or clobber registers before they are saved.
-build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/arch/x86_64/signal_context.c.o build/kernel/src/arch/x86_64/signal_state.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -mno-sse -mno-sse2 -c $< -o $@
 
@@ -2148,6 +2148,16 @@ build/tests/fpu-host$(HOST_EXE): tools/test_fpu.c kernel/src/arch/x86_64/fpu.c k
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-fpu
 
+.PHONY: test-signal-context
+test-signal-context: build/tests/signal-context-host$(HOST_EXE)
+	$<
+build/tests/signal-context-host$(HOST_EXE): tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c -o $@
+build/kernel/src/arch/x86_64/signal_context.c.o: kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/isr.S.o: kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/isr_frame.h
+test-core: test-signal-context
+
 .PHONY: test-pmm interrupt-smoke
 test-pmm: build/tests/pmm-host$(HOST_EXE)
 	$<
@@ -2168,6 +2178,14 @@ build/tests/vmm-user-range-host$(HOST_EXE): tools/test_vmm_user_range.c kernel/s
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-initramfs test-vmm-user-range
+
+.PHONY: test-vmm-prepare
+test-vmm-prepare: build/tests/vmm-prepare-host$(HOST_EXE)
+	$<
+build/tests/vmm-prepare-host$(HOST_EXE): tools/test_vmm_prepare.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+test-core: test-vmm-prepare
 
 .PHONY: test-user-fault test-process-fault
 test-user-fault: build/tests/user-fault-host$(HOST_EXE)
@@ -3857,6 +3875,46 @@ build/tests/process-service-host$(HOST_EXE): tools/test_process_service.c kernel
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
 test-core: test-process-service
 
+.PHONY: test-process-foreground
+test-process-foreground: build/tests/process-foreground-host$(HOST_EXE)
+	$<
+build/tests/process-foreground-host$(HOST_EXE): tools/test_process_foreground.c tools/test_process_service.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+test-core: test-process-foreground
+
+.PHONY: test-process-spawn-failure
+test-process-spawn-failure: build/tests/process-spawn-failure-host$(HOST_EXE)
+	$<
+build/tests/process-spawn-failure-host$(HOST_EXE): tools/test_process_spawn_failure.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+test-core: test-process-spawn-failure
+
+.PHONY: test-process-image-metadata test-process-image-lifecycle test-fpu-metadata test-fpu-user-trap
+test-process-image-metadata: build/tests/process-image-metadata-host$(HOST_EXE)
+	$<
+build/tests/process-image-metadata-host$(HOST_EXE): tools/test_process_image_metadata.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-process-image-lifecycle: build/tests/process-image-lifecycle-host$(HOST_EXE)
+	$<
+build/tests/process-image-lifecycle-host$(HOST_EXE): tools/test_process_image_lifecycle.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+test-fpu-metadata: build/tests/fpu-metadata-host$(HOST_EXE)
+	$<
+build/tests/fpu-metadata-host$(HOST_EXE): tools/test_fpu_metadata.c kernel/src/arch/x86_64/fpu.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -mno-mmx -mno-80387 -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-process-image-metadata test-process-image-lifecycle test-fpu-metadata
+test-fpu-user-trap: build/tests/fpu-user-trap-host$(HOST_EXE)
+	$<
+build/tests/fpu-user-trap-host$(HOST_EXE): tools/test_fpu_user_trap.c kernel/src/arch/x86_64/fpu.c kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/isr_frame.h $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -mno-mmx -mno-80387 -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-fpu-user-trap
+
 .PHONY: test-graphics-service
 test-graphics-service: build/tests/graphics-service-host$(HOST_EXE)
 	$<
@@ -4556,6 +4614,69 @@ build/tests/file-fsync-host$(HOST_EXE): tools/test_syscall_fsync.c kernel/src/ar
 test-core: test-dirty-salvage-scope
 test-dirty-salvage-scope:
 	$(PYTHON) -m unittest discover -s tools -p test_dirty_salvage_scope.py -v
+
+.PHONY: test-fpu-init-mask
+test-fpu-init-mask: build/tests/fpu-init-mask-host$(HOST_EXE)
+	$<
+build/tests/fpu-init-mask-host$(HOST_EXE): tools/test_fpu_init_mask.c kernel/src/arch/x86_64/fpu.c kernel/src/arch/x86_64/fpu_trap.h $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -mno-mmx -mno-80387 -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-fpu-init-mask
+
+.PHONY: test-process-thread-ids
+test-process-thread-ids: build/tests/process-thread-ids-host$(HOST_EXE)
+	$<
+build/tests/process-thread-ids-host$(HOST_EXE): tools/test_process_thread_ids.c tools/test_process_service.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+test-core: test-process-thread-ids
+
+.PHONY: test-vmm-user-frame-copy test-process-user-frame-copy
+test-vmm-user-frame-copy: build/tests/vmm-user-frame-copy-host$(HOST_EXE)
+	$<
+build/tests/vmm-user-frame-copy-host$(HOST_EXE): tools/test_vmm_user_frame_copy.c kernel/src/memory/vmm.c kernel/src/arch/x86_64/user_frame_copy.h kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/isr_frame.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+test-process-user-frame-copy: build/tests/process-user-frame-copy-host$(HOST_EXE)
+	$<
+build/tests/process-user-frame-copy-host$(HOST_EXE): tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/arch/x86_64/user_frame_copy.h kernel/src/arch/x86_64/fpu_trap.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+test-core: test-vmm-user-frame-copy test-process-user-frame-copy
+
+.PHONY: test-signal-state test-process-signal-state
+test-signal-state: build/tests/signal-state-host$(HOST_EXE)
+	$<
+build/tests/signal-state-host$(HOST_EXE): tools/test_signal_state.c kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_state.h kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -o $@
+test-process-signal-state: build/tests/process-signal-state-host$(HOST_EXE)
+	$<
+build/tests/process-signal-state-host$(HOST_EXE): tools/test_process_signal_state.c tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/process_signal.h kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_state.h kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o $@
+test-core: test-signal-state test-process-signal-state
+
+.PHONY: test-process-signal-delivery
+test-process-signal-delivery: build/tests/process-signal-delivery-host$(HOST_EXE)
+	$<
+build/tests/process-signal-delivery-host$(HOST_EXE): tools/test_process_signal_delivery.c tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/process_signal.h kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_state.h kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/user_frame_copy.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o $@
+test-core: test-process-signal-delivery
+
+.PHONY: test-process-signal-action-defaults
+test-process-signal-action-defaults: build/tests/process-signal-action-defaults-host$(HOST_EXE)
+	$<
+build/tests/process-signal-action-defaults-host$(HOST_EXE): tools/test_process_signal_action_defaults.c tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/process_signal.h kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o $@
+test-core: test-process-signal-action-defaults
+
+.PHONY: test-signal-experimental-admission
+test-core: test-signal-experimental-admission
+test-signal-experimental-admission:
+	$(PYTHON) tools/test_signal_experimental_admission.py --output build/tests/signal-experimental-admission
 
 build/tests/installation-inspect-driver$(HOST_EXE): tools/installation_inspect_driver.c tools/installation_readonly_host.h kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)

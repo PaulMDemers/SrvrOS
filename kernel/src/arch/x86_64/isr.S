@@ -1,3 +1,5 @@
+#include "fpu_trap.h"
+
 .section .text
 
 .macro ISR_NOERR vector
@@ -176,21 +178,22 @@ isr_common:
 
     /* Keep an aligned, private FXSAVE area alive through dispatch, including
      * nested traps and scheduler switches. The GPR/iret frame stays unchanged. */
-    movq 144(%rsp), %rdi
     movq %rsp, %rax
     andq $-16, %rsp
-    subq $528, %rsp
-    movq %rax, (%rsp)
-    leaq 16(%rsp), %rsi
-    call fpu_trap_enter
+    subq $FPU_COMMON_RESERVATION, %rsp
+    movq %rax, FPU_COMMON_SAVED_RSP(%rsp)
+    movq %rax, %rdi
+    leaq FPU_COMMON_TRAP_AREA(%rsp), %rsi
+    leaq FPU_COMMON_PROOF(%rsp), %rdx
+    call fpu_common_trap_enter
 
     movq (%rsp), %rdi
     call isr_dispatch
 
-    movq (%rsp), %rax
-    movq 144(%rax), %rdi
-    leaq 16(%rsp), %rsi
-    call fpu_trap_exit
+    movq FPU_COMMON_SAVED_RSP(%rsp), %rdi
+    leaq FPU_COMMON_TRAP_AREA(%rsp), %rsi
+    leaq FPU_COMMON_PROOF(%rsp), %rdx
+    call fpu_common_trap_exit
     movq (%rsp), %rsp
 
     popq %r15

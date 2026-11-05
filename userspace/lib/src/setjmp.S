@@ -24,6 +24,15 @@ setjmp:
 .type _longjmp, @function
 _longjmp:
 longjmp:
+    /* SysV entry RSP%16=8. Keep the existing 64-byte buffer unchanged. */
+    sub $24, %rsp
+    mov %rdi, 0(%rsp)
+    mov %esi, 8(%rsp)
+    mov 48(%rdi), %rdi
+    call __posix_signal_unwind
+    mov 0(%rsp), %rdi
+    mov 8(%rsp), %esi
+    add $24, %rsp
     mov 0(%rdi), %rbx
     mov 8(%rdi), %rbp
     mov 16(%rdi), %r12

@@ -1,0 +1,210 @@
+{
+  "result": "PASS normal OS build and both guests",
+  "commands": [
+    {
+      "name": "normal-build",
+      "argv": [
+        "sh",
+        "tools/macos/build.sh",
+        "-j2",
+        "-o",
+        "$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig",
+        "ZIG=$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig",
+        "HOST_CC=$WORKSPACE/SrvrOS-signal-context/build/tooling/darwin-host-cc",
+        "all",
+        "build/tests/exfat-driver"
+      ],
+      "cwd": "$WORKSPACE/SrvrOS-signal-context",
+      "owned_pid": 66609,
+      "peak_rss_bytes": 51544064,
+      "before_cleanup": {},
+      "status_before_cleanup": 0,
+      "status": 0,
+      "owned_pgids": [
+        66609
+      ],
+      "remaining": {},
+      "seconds": 4.925374124955852,
+      "payload_sha256": {
+        "build/kernel/srvros.elf": "da470d92d4ae3921405f6fb14c40c39a76efc47213f994552d8b89328e3ccee2",
+        "build/initramfs.tar": "e756b075003b87ddf5429d4327c516a02f76d8989e91a08ead5ff7290e6e016e",
+        "build/srvros.exfat": "da8f731acd8564ebe4e92c75e988f938f9774f55d56c42c29446532217d23ef5"
+      }
+    },
+    {
+      "name": "desktop-shutdown-generated",
+      "argv": [
+        "tools/host-env.sh",
+        "$WORKSPACE/SrvrOS-signal-context/build/tooling/closeout-venv/bin/python",
+        "tools/desktop_lifecycle_smoke.py",
+        "--shutdown",
+        "--generated-fixture"
+      ],
+      "cwd": "$WORKSPACE/SrvrOS-signal-context",
+      "owned_pid": 67618,
+      "peak_rss_bytes": 847511552,
+      "before_cleanup": {},
+      "status_before_cleanup": 0,
+      "status": 0,
+      "owned_pgids": [
+        67618
+      ],
+      "remaining": {},
+      "seconds": 81.72217074997025,
+      "guest_result": {
+        "status": "PASS",
+        "open_with": false,
+        "crash": false,
+        "refused_dialogs": false,
+        "physical_acceptance": false,
+        "shutdown_actions": [
+          "Cancel-exit",
+          "Cancel-save-picker",
+          "Save-and-exit",
+          "Discard-existing-prompt-and-exit"
+        ],
+        "pointer_actions": [
+          "Shutdown-cancel",
+          "Shutdown-save-to-picker",
+          "Shutdown-cancel-picker",
+          "Shutdown-save",
+          "Shutdown-discard"
+        ],
+        "source": "a7f71411c2d22343b9237cffb55d564b7defce9e",
+        "source_submodules_recursive": [
+          " af1421b735b61cf47c4e6516730c30468020abc7 ports (heads/port/browser-signal-context)",
+          " 5739fd79bcfc75ba7526773d0cf634521f8aca3c ports/upstream/awk (20260426)",
+          " c859b25da02955fef659d658b8f324b5cde87be3 ports/upstream/cjson (v1.7.15-48-gc859b25)",
+          " 26254ee9de7681f8825433415443e7116ff24b98 ports/upstream/inih (r62)",
+          " 1cfa32ff59c076ffb6ed735bbc8c18361558661f ports/upstream/libuv (v1.52.1)",
+          " dc83cc373ac2058030eb3cf5e404959a26fef112 ports/upstream/linenoise (dc83cc3)",
+          " 6e22fedb74cf0c9b6656e9fce8b7331db847c605 ports/upstream/lua (v5.4-beta-336-g6e22fedb)",
+          " c7d10158bc31036de6783d66beaaaf551e3167aa ports/upstream/node (v24.16.0)",
+          " da607da739fa6047df13e66a2af6b8bec7c2a498 ports/upstream/zlib (v1.3.2)",
+          " 24bc454198a7ee58a875df40e6bd5ee2b5cf52c7 userspace/apps (heads/main-21-g24bc454)",
+          " 3a695ce51e06af0a7ab9c21beedcb8dfe221be9c userspace/widgets (remotes/origin/HEAD)"
+        ],
+        "fixture_format": "matched-generated",
+        "independent_fsck": "not run",
+        "generator_checks": "pre and post PASS",
+        "initial_offline_allocation": "PASS",
+        "source_dirty": false,
+        "saved_files": {
+          "exit-retained.txt": "d47798cfbe09cc46ad6cd37b5e8022f6e1bb4714db4e9d873426fbfd23bd3eba",
+          "sibling.txt": "de03661baa17ec4b972b8958d4eef06676d76914b9a177090758c15057a66ce3",
+          "survivor.txt": "67f18fb8a000c025ab8c8e16e8de54a6e78e3c0661d6c7e8664ec54ccb5d498e",
+          "routed-copy.txt": "85b7d483c4cb5357701ab225be2f17f3c9a9636eb91f93a0ffde0856c7913eaf",
+          "route-text/Routed.txt": "2f8e8c612c1256670ca7593ef559505c8ca1b82f4b733e6d11bc94252197c298"
+        },
+        "process_baseline_restored": true,
+        "offline_allocation": "PASS",
+        "screenshots": [
+          "owned-unsaved-dialog.ppm",
+          "quit-prompts-next-document.ppm",
+          "failed-save-retains-document.ppm",
+          "preview-owned-picker.ppm",
+          "shutdown-unsaved-stable.ppm",
+          "shutdown-save-prompt.ppm",
+          "shutdown-save-existing.ppm",
+          "shutdown-existing-prompt.ppm"
+        ],
+        "payload_sha256": {
+          "build/kernel/srvros.elf": "da470d92d4ae3921405f6fb14c40c39a76efc47213f994552d8b89328e3ccee2",
+          "build/initramfs.tar": "e756b075003b87ddf5429d4327c516a02f76d8989e91a08ead5ff7290e6e016e",
+          "build/srvros.exfat": "da8f731acd8564ebe4e92c75e988f938f9774f55d56c42c29446532217d23ef5"
+        },
+        "iso_sha256": "d80602e844958153121ca65dff42558acfd20f4edadfde7befaf2806d30fbd80"
+      }
+    },
+    {
+      "name": "session-scope",
+      "argv": [
+        "tools/host-env.sh",
+        "$WORKSPACE/SrvrOS-signal-context/build/tooling/closeout-venv/bin/python",
+        "tools/session_scope_smoke.py"
+      ],
+      "cwd": "$WORKSPACE/SrvrOS-signal-context",
+      "owned_pid": 68370,
+      "peak_rss_bytes": 536674304,
+      "before_cleanup": {},
+      "status_before_cleanup": 0,
+      "status": 0,
+      "owned_pgids": [
+        68370
+      ],
+      "remaining": {},
+      "seconds": 13.42545916698873,
+      "guest_result": {
+        "status": "PASS",
+        "build_source": "a7f71411c2d22343b9237cffb55d564b7defce9e",
+        "build_dirty": false,
+        "payload_sha256": {
+          "build/kernel/srvros.elf": "da470d92d4ae3921405f6fb14c40c39a76efc47213f994552d8b89328e3ccee2",
+          "build/initramfs.tar": "e756b075003b87ddf5429d4327c516a02f76d8989e91a08ead5ff7290e6e016e"
+        },
+        "checks": [
+          "ps",
+          "run /fat/bin/scopeprobe",
+          "ps",
+          "run /fat/bin/scopeprobe",
+          "ps",
+          "lifetimetest",
+          "run /fat/bin/ptyprobe",
+          "run /fat/bin/sysabi",
+          "ps"
+        ],
+        "system_init_pid": 1,
+        "orphan_progress": "Ownerless held descendant exits naturally; CREATE succeeds only after init retirement.",
+        "requires_live_system_init": true,
+        "physical_acceptance": false,
+        "qemu_command": [
+          "qemu-system-x86_64",
+          "-M",
+          "q35",
+          "-m",
+          "512M",
+          "-cdrom",
+          "$WORKSPACE/SrvrOS-signal-context/build/review/session-scope/scope-iso-bp5njdtf/srvros-1024x768.iso",
+          "-boot",
+          "d",
+          "-nic",
+          "none",
+          "-serial",
+          "unix:/tmp/sc-qsedxjnk/scope-8sq_svx9/serial,server=on,wait=off",
+          "-qmp",
+          "unix:/tmp/sc-qsedxjnk/scope-8sq_svx9/qmp,server=on,wait=off",
+          "-display",
+          "none",
+          "-monitor",
+          "none",
+          "-no-reboot"
+        ]
+      }
+    }
+  ],
+  "scope": "normal OS build and two bounded guests",
+  "physical_acceptance": false,
+  "plan_sha256": "ccc325d8febed7566daada397bafe0a94717a4d21e1261f363a53490c9a979d1",
+  "source": "a7f71411c2d22343b9237cffb55d564b7defce9e",
+  "submodules": [
+    " af1421b735b61cf47c4e6516730c30468020abc7 ports (heads/port/browser-signal-context)",
+    " 5739fd79bcfc75ba7526773d0cf634521f8aca3c ports/upstream/awk (20260426)",
+    " c859b25da02955fef659d658b8f324b5cde87be3 ports/upstream/cjson (v1.7.15-48-gc859b25)",
+    " 26254ee9de7681f8825433415443e7116ff24b98 ports/upstream/inih (r62)",
+    " 1cfa32ff59c076ffb6ed735bbc8c18361558661f ports/upstream/libuv (v1.52.1)",
+    " dc83cc373ac2058030eb3cf5e404959a26fef112 ports/upstream/linenoise (dc83cc3)",
+    " 6e22fedb74cf0c9b6656e9fce8b7331db847c605 ports/upstream/lua (v5.4-beta-336-g6e22fedb)",
+    " c7d10158bc31036de6783d66beaaaf551e3167aa ports/upstream/node (v24.16.0)",
+    " da607da739fa6047df13e66a2af6b8bec7c2a498 ports/upstream/zlib (v1.3.2)",
+    " 24bc454198a7ee58a875df40e6bd5ee2b5cf52c7 userspace/apps (heads/main-21-g24bc454)",
+    " 3a695ce51e06af0a7ab9c21beedcb8dfe221be9c userspace/widgets (remotes/origin/HEAD)"
+  ],
+  "seconds": 104.20988466596464,
+  "storage_minimum_bytes": {
+    "host": 23170584576,
+    "output": 23170584576,
+    "backing": 8009940992,
+    "short_tmp": 23170584576
+  },
+  "short_tmp_removed": true
+}

@@ -3,6 +3,7 @@
 
 #include <signal.h>
 #include <stdint.h>
+#include <srvros/signal_abi.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,6 +42,7 @@ typedef struct {
     gregset_t gregs;
     void *fpregs;
     uint64_t __reserved1[8];
+    struct signal_context_snapshot __srvros_snapshot;
 } mcontext_t;
 
 typedef struct ucontext {

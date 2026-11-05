@@ -1,3 +1,4 @@
+#include "signal_runtime.h"
 #include <errno.h>
 #include <poll.h>
 #include <signal.h>
@@ -7,6 +8,8 @@
 
 int __posix_poll_ms(struct pollfd *,nfds_t,int64_t);
 int __posix_select_ms(int,fd_set *,fd_set *,fd_set *,int64_t);
+int __posix_poll_signal_masked_ms(struct pollfd *,nfds_t,int64_t,const sigset_t *);
+int __posix_select_signal_masked_ms(int,fd_set *,fd_set *,fd_set *,int64_t,const sigset_t *);
 
 static int timeout_ms(const struct timespec *timeout,int64_t *out) {
     *out=-1;
@@ -36,12 +39,18 @@ static int mask_leave(const sigset_t *mask,uint64_t old,int result) {
     errno=saved;return result;
 }
 int ppoll(struct pollfd *fds,nfds_t count,const struct timespec *timeout,const sigset_t *mask) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
     int64_t ms;uint64_t old=0;
-    if(timeout_ms(timeout,&ms)<0 || mask_enter(mask,&old)<0) return -1;
+    if(timeout_ms(timeout,&ms)<0) return -1;
+    if(__posix_signal_public_available()) return __posix_poll_signal_masked_ms(fds,count,ms,mask);
+    if(mask_enter(mask,&old)<0) return -1;
     return mask_leave(mask,old,__posix_poll_ms(fds,count,ms));
 }
 int pselect(int count,fd_set *read,fd_set *write,fd_set *except,const struct timespec *timeout,const sigset_t *mask) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
     int64_t ms;uint64_t old=0;
-    if(timeout_ms(timeout,&ms)<0 || mask_enter(mask,&old)<0) return -1;
+    if(timeout_ms(timeout,&ms)<0) return -1;
+    if(__posix_signal_public_available()) return __posix_select_signal_masked_ms(count,read,write,except,ms,mask);
+    if(mask_enter(mask,&old)<0) return -1;
     return mask_leave(mask,old,__posix_select_ms(count,read,write,except,ms));
 }

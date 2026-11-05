@@ -1,0 +1,26 @@
+mkdir -p build/tests
+mkdir -p build/tests
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_process_user_frame_copy.c -Wl,--gc-sections -o build/tests/process-user-frame-copy-host
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_process_thread_ids.c kernel/src/vfs_namespace.c -Wl,--gc-sections -o build/tests/process-thread-ids-host
+mkdir -p build/tests
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_process_signal_state.c kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o build/tests/process-signal-state-host
+mkdir -p build/tests
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_process_signal_delivery.c kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o build/tests/process-signal-delivery-host
+mkdir -p build/tests
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_process_signal_action_defaults.c kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o build/tests/process-signal-action-defaults-host
+mkdir -p build/tests
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include -DSRVROS_PTY_HOST_TEST tools/test_process_output.c tools/test_process_teardown_fault.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o build/tests/process-output-host
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I build/limine-protocol/include tools/test_process_lifetime.c -Wl,--gc-sections -o build/tests/process-lifetime-host
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/test_file_stream.c -Wl,--gc-sections -o build/tests/file-stream-manager-host
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_file_stream_syscall.c -Wl,--gc-sections -o build/tests/file-stream-syscall-host
+ld: warning: alignment (1) of atom 'l___const.idt_init.idtr' ($WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-a/tmp/test_process_teardown_fault-0be968.o) is too small and may result in unaligned pointers 
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include -DSRVROS_PTY_HOST_TEST tools/test_file_stream_process.c tools/test_process_teardown_fault.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o build/tests/file-stream-process-host
+python3 build/tooling/darwin-host-cc.py -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include tools/test_file_stream_cleanup.c -Wl,--gc-sections -o build/tests/file-stream-cleanup-host
+In file included from tools/test_file_stream_cleanup.c:11:
+tools/../kernel/src/process.c:459:11: error: call to undeclared function 'process_test_rflags'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  459 |     flags=process_test_rflags();
+      |           ^
+1 error generated.
+gmake: *** [Makefile:4764: build/tests/file-stream-cleanup-host] Error 1
+gmake: *** Waiting for unfinished jobs....
+ld: warning: alignment (1) of atom 'l___const.idt_init.idtr' ($WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-a/tmp/test_process_teardown_fault-9ab226.o) is too small and may result in unaligned pointers 

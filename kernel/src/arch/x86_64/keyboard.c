@@ -104,7 +104,11 @@ static const char hid_usage_shift[256] = {
 
 static uint64_t keyboard_irq_save(void) {
 #ifdef SRVROS_KEYBOARD_HOST_TEST
+#ifdef SRVROS_KEYBOARD_TEST_IRQ_SAVE
+    return SRVROS_KEYBOARD_TEST_IRQ_SAVE();
+#else
     return 0;
+#endif
 #else
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
@@ -113,7 +117,11 @@ static uint64_t keyboard_irq_save(void) {
 }
 static void keyboard_irq_restore(uint64_t flags) {
 #ifdef SRVROS_KEYBOARD_HOST_TEST
+#ifdef SRVROS_KEYBOARD_TEST_IRQ_RESTORE
+    SRVROS_KEYBOARD_TEST_IRQ_RESTORE(flags);
+#else
     (void)flags;
+#endif
 #else
     if (flags & (1ull << 9)) __asm__ volatile ("sti" : : : "memory");
 #endif
@@ -602,6 +610,30 @@ char keyboard_read_char(void) {
     }
 
     return c;
+}
+
+struct keyboard_checked_wait { int (*eligible)(void *);void *context; };
+static bool keyboard_checked_ready(void *context) {
+    struct keyboard_checked_wait *wait=context;
+    return wait->eligible(wait->context)!=0 || read_index!=write_index || serial_has_char();
+}
+int keyboard_read_char_commit(char *out,bool block,int (*eligible)(void *),void (*commit)(void *,char),void *context) {
+    if(!out || !eligible)return -1;
+    struct keyboard_checked_wait wait={eligible,context};
+    for(;;) {
+        uint64_t flags=keyboard_irq_save();
+        int status=eligible(context);
+        if(status){keyboard_irq_restore(flags);return status;}
+        bool consumed=keyboard_scan_char(out);
+        if(consumed && commit)commit(context,*out);
+        keyboard_irq_restore(flags);
+        if(consumed)return 1;
+        if(!block)return 0;
+        if(!scheduler_wait(&keyboard_wait_queue,keyboard_checked_ready,&wait))__asm__ volatile("pause");
+    }
+}
+int keyboard_read_char_checked(char *out,bool block,int (*eligible)(void *),void *context) {
+    return keyboard_read_char_commit(out,block,eligible,NULL,context);
 }
 
 uint64_t keyboard_buffered_count(void) {

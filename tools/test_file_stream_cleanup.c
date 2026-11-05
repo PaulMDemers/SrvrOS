@@ -4,6 +4,7 @@
 #include <stdio.h>
 static uint64_t process_test_irq_save(void);
 static void process_test_irq_restore(uint64_t flags);
+static uint64_t process_test_rflags(void);
 #define SRVROS_PROCESS_HOST_TEST
 #define SRVROS_STREAM_PROCESS_HOST_TEST
 #define SRVROS_PROCESS_SERVICE_HOST_TEST
@@ -14,6 +15,7 @@ static unsigned saves,restores,begins,ends,manager_calls,depth;
 static uint64_t last_owner;
 static uint64_t process_test_irq_save(void){uint64_t flags=irq_enabled?(1ull<<9):0;irq_enabled=false;saves++;return flags;}
 static void process_test_irq_restore(uint64_t flags){irq_enabled=(flags&(1ull<<9))!=0;restores++;}
+static uint64_t process_test_rflags(void){return irq_enabled?(1ull<<9):0;}
 bool scheduler_io_begin(void){assert(!irq_enabled);begins++;if(!admit)return false;depth++;return true;}
 void scheduler_io_end(void){assert(!irq_enabled && depth);ends++;depth--;}
 bool file_stream_cleanup(uint64_t owner){assert(!irq_enabled && depth);manager_calls++;last_owner=owner;return manager_ok;}

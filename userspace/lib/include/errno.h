@@ -52,6 +52,7 @@
 #define ENOPROTOOPT 92
 #define EPROTONOSUPPORT 93
 #define EOPNOTSUPP 95
+#define ENOTSUP EOPNOTSUPP
 #define EOWNERDEAD 130
 
 #ifdef __cplusplus

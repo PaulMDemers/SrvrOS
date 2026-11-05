@@ -1,0 +1,76 @@
+{
+  "result": "failed",
+  "commands": [
+    {
+      "name": "outer-admission",
+      "argv": [
+        "python3",
+        "tools/test_signal_experimental_admission.py",
+        "--output",
+        "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-a-retry/admission",
+        "--sanitizers"
+      ],
+      "cwd": "$WORKSPACE/SrvrOS-signal-context",
+      "owned_pid": 26606,
+      "peak_rss_bytes": 63324160,
+      "before_cleanup": {},
+      "status_before_cleanup": 0,
+      "status": 0,
+      "owned_pgids": [
+        26606
+      ],
+      "remaining": {},
+      "seconds": 2.201702833001036
+    },
+    {
+      "name": "normal-lifecycle-stream",
+      "argv": [
+        "/opt/homebrew/bin/gmake",
+        "-j2",
+        "-o",
+        "$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig",
+        "ZIG=$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig",
+        "HOST_CC=python3 build/tooling/darwin-host-cc.py",
+        "test-process-thread-ids",
+        "test-process-user-frame-copy",
+        "test-process-signal-state",
+        "test-process-signal-delivery",
+        "test-process-signal-action-defaults",
+        "test-process-output",
+        "test-process-lifetime",
+        "test-file-stream",
+        "HOST_EXE=-integrated-a2",
+        "test-process-service",
+        "test-process-loader"
+      ],
+      "cwd": "$WORKSPACE/SrvrOS-signal-context",
+      "owned_pid": 26642,
+      "peak_rss_bytes": 283770880,
+      "before_cleanup": {},
+      "status_before_cleanup": 2,
+      "status": 2,
+      "owned_pgids": [
+        26642
+      ],
+      "remaining": {},
+      "seconds": 9.652230584004428
+    }
+  ],
+  "plan_sha256": "020fd3b4423cdc7526b4a528f084ece3ffbb7a0ff7b82a9c0ed09a39364774bc",
+  "error": "RuntimeError('failed normal-lifecycle-stream')",
+  "seconds": 12.180487249977887,
+  "storage_minimum": {
+    "host": {
+      "path": "$HOST_HOME",
+      "free_bytes": 36117893120
+    },
+    "output": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-a-retry",
+      "free_bytes": 36117893120
+    },
+    "backing": {
+      "path": "$BACKING_VOLUME",
+      "free_bytes": 8010203136
+    }
+  }
+}

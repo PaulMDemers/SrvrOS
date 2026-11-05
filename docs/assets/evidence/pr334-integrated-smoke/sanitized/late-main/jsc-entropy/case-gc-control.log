@@ -1,0 +1,11 @@
+srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /g[Ksrv> run /gsrv> run /gc[Ksrv> run /gcsrv> run /gc-[Ksrv> run /gc-srv> run /gc-r[Ksrv> run /gc-rsrv> run /gc-ro[Ksrv> run /gc-rosrv> run /gc-roo[Ksrv> run /gc-roosrv> run /gc-root[Ksrv> run /gc-rootsrv> run /gc-roots[Ksrv> run /gc-rootssrv> run /gc-roots [Ksrv> run /gc-roots srv> run /gc-roots "[Ksrv> run /gc-roots "srv> run /gc-roots "c[Ksrv> run /gc-roots "csrv> run /gc-roots "co[Ksrv> run /gc-roots "cosrv> run /gc-roots "con[Ksrv> run /gc-roots "consrv> run /gc-roots "cont[Ksrv> run /gc-roots "contsrv> run /gc-roots "contr[Ksrv> run /gc-roots "contrsrv> run /gc-roots "contro[Ksrv> run /gc-roots "controsrv> run /gc-roots "control[Ksrv> run /gc-roots "controlsrv> run /gc-roots "control"[Ksrv> run /gc-roots "control"
+run: entering pid=6 /gc-roots entry=0x0000000000500000 stack=0x000000000fffefc0
+run: map page rejected process=0xffffffff805c55f0 count=65536 limit=65536 virt=0x000000001cccf000
+run: map page rejected process=0xffffffff805c55f0 count=65536 limit=65536 virt=0x000000001cccf000
+run: map page rejected process=0xffffffff805c55f0 count=65536 limit=65536 virt=0x000000001cccf000
+jsc-gc-root: control collected; finalizers=1
+jsc-gc-root: ok
+
+process: exited status=0
+run: pid=6 exited status=0
+srv> 

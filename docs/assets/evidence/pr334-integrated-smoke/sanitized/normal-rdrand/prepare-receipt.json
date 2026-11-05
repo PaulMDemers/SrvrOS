@@ -1,0 +1,230 @@
+{
+  "boot_network_requirements": [
+    "net: no supported network device, stack idle",
+    "net: worker not started"
+  ],
+  "commands": [
+    {
+      "argv": [
+        "/opt/homebrew/Cellar/xorriso/1.5.8.pl02/bin/xorriso",
+        "-as",
+        "mkisofs",
+        "-R",
+        "-r",
+        "-J",
+        "-b",
+        "boot/limine/limine-bios-cd.bin",
+        "-no-emul-boot",
+        "-boot-load-size",
+        "4",
+        "-boot-info-table",
+        "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/signal-public-swsgvzb3/iso-root",
+        "-o",
+        "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/signal-public-swsgvzb3/guest.iso"
+      ],
+      "seconds": 0.139,
+      "status": 0
+    },
+    {
+      "argv": [
+        "$WORKSPACE/SrvrOS-browser/build/limine-binary/limine",
+        "bios-install",
+        "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/signal-public-swsgvzb3/guest.iso"
+      ],
+      "seconds": 0.008,
+      "status": 0
+    }
+  ],
+  "config_sha256": "05d8650ae5a581619a032d7ef0a83925f359b2655346c1edb0c42b371f71a03f",
+  "created_utc": "2026-11-05T03:50:45Z",
+  "git_dirty": "",
+  "git_head": "0a3f5981cd23b8982c5a8656af55875b0aae4a40",
+  "initramfs_sha256": "78fd73d668420088545812569cc236265a1b01fa2ae7056b5196d88fe75c1edf",
+  "inputs": {
+    "fixture:entropy": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/random-entropy-b8s0jkn6.json",
+      "sha256": "54a59ad84a743abc0678fba6310dc2a3fb45b36bfa0146b55a348a75e9a4e90d"
+    },
+    "harness": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/tools/signal_public_guest.py",
+      "sha256": "8d5dacfe236550c9ecd5f16850b4f743308e7aac599e5e6d57b663a90197b045"
+    },
+    "init": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/userspace/init.elf",
+      "sha256": "15d51cf99476c89596894d57f224a0e9eb7565f42b8b9779be66ad186e7c618b"
+    },
+    "kernel": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/kernel/srvros.elf",
+      "sha256": "71466b0c6f30ea3c333c3fc6bd8b0ef791f7cd4295d2b67a31402f47a9885c81"
+    },
+    "kernel/src/arch/x86_64/idt.c": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/kernel/src/arch/x86_64/idt.c",
+      "sha256": "60e2936b17968f6fb9952b47e2bd7d578980f8f11bf488c926ef4cd66e789d14"
+    },
+    "kernel/src/arch/x86_64/syscall.c": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/kernel/src/arch/x86_64/syscall.c",
+      "sha256": "98fd69af12dd80a963956e15fd551ae25e0ec3ec6dd3ef178564f5459ba15efa"
+    },
+    "kernel/src/process.c": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/kernel/src/process.c",
+      "sha256": "19f585e37500fa0b1ab4a40d4ef2f551f1d64bcb70c310621d0b097d2685bad5"
+    },
+    "kernel/src/process_signal_public.inc": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/kernel/src/process_signal_public.inc",
+      "sha256": "b51139679b41823575fca7a7f7625d76b4d027c1d093142d19804e43a311ac8b"
+    },
+    "limine_cd": {
+      "path": "$WORKSPACE/SrvrOS-browser/build/limine-binary/limine-bios-cd.bin",
+      "sha256": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2"
+    },
+    "limine_sys": {
+      "path": "$WORKSPACE/SrvrOS-browser/build/limine-binary/limine-bios.sys",
+      "sha256": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2"
+    },
+    "limine_tool": {
+      "path": "$WORKSPACE/SrvrOS-browser/build/limine-binary/limine",
+      "sha256": "6089b4d00d548946a528cbad43de35ee209c9dad9250518e0a6bd642fd2b155e"
+    },
+    "payload:entropy": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/random-entropy-b8s0jkn6.elf",
+      "sha256": "a2eab9f8e9012cd48080f017724348cdebf6d4dc5532ddb09c13a3ea49bd4c01"
+    },
+    "qemu": {
+      "path": "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+      "sha256": "a1b97665fb9f341a65acf9b0e7dc4c7235972aae61182545ed1aacf5ffca87fa"
+    },
+    "runtime_packer": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/tools/pack_runtime_elf.py",
+      "sha256": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248"
+    },
+    "sdk_archive": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/sysroot/srvros/lib/libsrvros.a",
+      "sha256": "e7622f29497ee4de291910ace88cf90e7111a1a09029e1d0e6eb3e18c9853ea5"
+    },
+    "sdk_crt": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/sysroot/srvros/lib/crt0.o",
+      "sha256": "96502b809c4f7a004fdc4a3a68824830f512efd787f890e2def33f30ebfe7669"
+    },
+    "sdk_linker": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/sysroot/srvros/lib/app.ld",
+      "sha256": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912"
+    },
+    "shared/include/srvros/random.h": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/shared/include/srvros/random.h",
+      "sha256": "a36436954383c1b3e91b12b38ff230fe40a8ca7f1f875fed2a923e61599d1999"
+    },
+    "storage_guard": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/tools/browser_storage.py",
+      "sha256": "cd4febea4042eebac792bdced8529ce3ae452a87ccceb9630f2dbf783602e15c"
+    },
+    "suite_jsc_receipt": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/receipt-1793850612509848000.json",
+      "sha256": "58c7fb49238f0b0be59faf4568e6610f9ef7a0dbb01a924ae4b9a563273e3fc3"
+    },
+    "suite_manifest": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/entropy-rdrand-suite.json",
+      "sha256": "0d577d898c117519f5495db449411909ef074d7cba5d98443df206fb3ead97f8"
+    },
+    "suite_runtime_receipt": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/receipt.json",
+      "sha256": "e6b9c331bf36ca643de0241d482e3c69efed30a6711458a562d9936a1972fac9"
+    },
+    "userspace/lib/src/posix_signal.c": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/userspace/lib/src/posix_signal.c",
+      "sha256": "7ba1bfced97f396e8699dae812fda9106ea576fbfca060a14f04546d62c27da9"
+    },
+    "userspace/lib/src/posix_signal_context.c": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/userspace/lib/src/posix_signal_context.c",
+      "sha256": "0c7154acba439c9c0a9b36640bb62c2dc5cec20d9e669b02fdf6e802a295d535"
+    },
+    "userspace/lib/src/signal_runtime.c": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/userspace/lib/src/signal_runtime.c",
+      "sha256": "93f88f6b381f6817890e9e39208e501bed576ea32d3ad131bf5be629dcb31770"
+    },
+    "xorriso": {
+      "path": "/opt/homebrew/Cellar/xorriso/1.5.8.pl02/bin/xorriso",
+      "sha256": "d217ca8e759699dcaf36953822bd508f13587c57a890d2c1a71b19f6d0e8da86"
+    }
+  },
+  "iso_sha256": "e0a1a9889944b4e91eab51b3847871fd33bc85a5296ae1439c979820ceed4e81",
+  "packed": {
+    "entropy": {
+      "bytes": 43392,
+      "sha256": "48e4c51a424a951a24ab10a07d5cc665d0a8282041eb2d6d9f4c513a6ed796e8"
+    },
+    "init": {
+      "bytes": 16400,
+      "sha256": "f42fca0f14612d7aa1941902da73b6bdfcc86c5e5762a0d2345ac813cfd4d2f7"
+    }
+  },
+  "qemu_argv_template": [
+    "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+    "-name",
+    "SrvrOS experimental public signal",
+    "-machine",
+    "q35",
+    "-accel",
+    "tcg,thread=single",
+    "-cpu",
+    "qemu64,+rdrand",
+    "-smp",
+    "1",
+    "-m",
+    "1536M",
+    "-cdrom",
+    "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/signal-public-swsgvzb3/guest.iso",
+    "-boot",
+    "d",
+    "-display",
+    "none",
+    "-nic",
+    "none",
+    "-serial",
+    "unix:{private_uart},server=on,wait=off",
+    "-monitor",
+    "none",
+    "-no-reboot"
+  ],
+  "result": "prepared",
+  "schema": 1,
+  "scope": "experimental diskless Q35 suite; results apply only to recorded case markers",
+  "sdk": "$WORKSPACE/SrvrOS-signal-context/build/sysroot/srvros",
+  "sdk_headers_sha256": "06f99b932ca66b7a3401e850dd2616056968ebddbae32c23cab06fbd4080a232",
+  "storage": {
+    "host": {
+      "free_bytes": 31318409216,
+      "path": "$HOST_HOME",
+      "required_bytes": 2147483648
+    },
+    "output": {
+      "free_bytes": 31318409216,
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e",
+      "required_bytes": 2147483648
+    }
+  },
+  "suite": {
+    "cases": [
+      {
+        "args": [
+          "rdrand"
+        ],
+        "markers": [
+          "random-entropy: rdrand contract ok"
+        ],
+        "name": "entropy-rdrand",
+        "payload": "entropy",
+        "timeout": 30
+      }
+    ],
+    "jsc_build_identifier": "0ef592a3666ef64ae857d4508ed4943d624a5090f0ccdfe706d8e5ec4e186ecd",
+    "jsc_receipt_sha256": "58c7fb49238f0b0be59faf4568e6610f9ef7a0dbb01a924ae4b9a563273e3fc3",
+    "payloads": [
+      {
+        "elf": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/random-entropy-b8s0jkn6.elf",
+        "kind": "utility",
+        "name": "entropy"
+      }
+    ],
+    "source_root": "$WORKSPACE/SrvrOS-signal-context"
+  }
+}

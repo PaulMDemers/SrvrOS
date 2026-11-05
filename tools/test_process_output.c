@@ -7,6 +7,7 @@
 static void teardown_writeback_check(void);
 static uint64_t process_test_irq_save(void);
 static void process_test_irq_restore(uint64_t flags);
+static uint64_t process_test_rflags(void);
 #define SRVROS_PROCESS_IRQ_HOST_TEST
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"

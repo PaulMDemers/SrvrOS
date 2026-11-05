@@ -57,4 +57,5 @@ int main(void) {
     safe=true;user[0]=(struct syscall_pollfd){.fd=0,.events=SRV_POLLIN};redirect_on_wait=true;
     assert(syscall_poll(user,1,120)==1 && !safe && gates==3 && polls==3);
     puts("syscall-poll: PASS monotonic deadline across partial ticks, console readiness/deadline/wake, immutable request across yield, non-console/mixed gate and validation");
+    return 0;
 }

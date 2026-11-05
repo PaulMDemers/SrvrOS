@@ -1,0 +1,89 @@
+limine: Loading executable `boot():/boot/srvros.elf`...
+limine: Loading module `boot():/boot/initramfs.tar`...
+
+
+srvros: entering kernel
+srvros: booting (quiet mode)
+cmdline: srvros.log=quiet
+bootloader: Limine 11.4.1
+hhdm offset: 0xffff800000000000
+block: registry ready slots=32 cache_entries=32
+gdt: loaded
+fpu: fxsave/sse/sse2 enabled
+idt: loaded
+irq: pic masked
+idt: testing breakpoint exception
+pmm: frames total=1037288 free=318922 used=718366 bitmap=0x0000000000100000 bytes=129661
+acpi: mcfg allocations=1
+acpi: ioapic id=0 addr=0x00000000fec00000 gsi_base=0
+initramfs: files=6 size=175452160 bytes
+pmm: test alloc phys=0x000000000021d000 virt=0xffff80000021d000 free_before=318922 free_after=318921
+pmm: test free complete free=318922
+heap: initialized total=16384 free=16336 used=0
+heap: test alloc a=0xffff80000021d030 b=0xffff80000021d0a0 first=0x0000000000001000 last=0x0000000000001007 free_before=16336 free_after=16144
+heap: test free complete free=16336 used=0
+vfs: mounted initramfs nodes=7 skipped=0
+scheduler: timer-preemptive kernel threads ready
+workqueue: ready slots=16
+vmm: active pml4 phys=0x000000005ffa1000 virt=0xffff80005ffa1000
+clock: reference=acpi-pm port=0x0000000000000608
+clock: UTC=rtc epoch=1793844742 century=50
+lapic: mapped phys=0x00000000fee00000 virt=0xffffc000fee00000
+lapic: timer vector=32 initial_count=624862 calibrated=yes target=100Hz
+keyboard: ps/2 controller drained, irq enabled, scanning enabled
+mouse: ps/2 auxiliary device enabled
+ioapic: id=0 max_redir=23 phys=0x00000000fec00000 gsi_base=0
+ioapic: irq=1 gsi=1 vector=33 flags=0x0000000000000000
+ioapic: irq=4 gsi=4 vector=36 flags=0x0000000000000000
+serial: com1 rx irq enabled
+ioapic: irq=12 gsi=12 vector=44 flags=0x0000000000000000
+pci: devices=5 config=ecam
+lpss-spi: disabled (experimental transport)
+xhci: no controller
+input: ps2_keyboard=yes ps2_mouse=yes usb_keyboards=0 usb_mice=0 usb_devices=0 usb_hubs=0
+input-ps2: enabled=1 irq=0 scancodes=0 last=0x0000000000000000 keybuf=0 pushed=0 dropped=0
+input: no ps2/usb keyboard path; pci input/xhci diagnostics follow
+input: lpss spi/topcase diagnostics follow
+lpss-spi: no Broadwell SPI1 controller detected
+acpi-input: scanning DSDT/SSDT for SPI/topcase markers
+acpi-input: no topcase markers found
+pci-input: bus=0 dev=31 fn=3 vendor=0x0000000000008086 device=0x0000000000002930 class=0x000000000000000c subclass=0x0000000000000005 if=0x0000000000000000 serial bus irq=10 pin=1 bar0=0x0000000000000000 bar1=0x0000000000000000
+pci-usb: none
+xhci: no controller detected
+intel-gfx: no Intel display controller
+ahci: abar=0x00000000febf1000 pi=0x000000000000003f cap=0x00000000c0141f05
+ahci: no sata disks
+exfat: trying initramfs fallback /srvros.exfat
+exfat: initramfs fallback /srvros.exfat not found
+bootlog: persist skipped
+namespace: activation refused; legacy storage paths retained
+e1000: no supported device
+net: no supported network device, stack idle
+net: worker not started
+vmm: test map virt=0xffffc00290000000 phys=0x0000000000261000 value=0x737276726f73564d
+irq: enabling interrupts
+timer: observed ticks=6
+input-ps2: enabled=1 irq=0 scancodes=0 last=0x0000000000000000 keybuf=0 pushed=0 dropped=0
+input-timing: queue-oldest count=0 mean_us=0 max_us=0
+input-timing: queue-latest count=0 mean_us=0 max_us=0
+input-usb: xhci=none
+input-ps2: enabled=1 irq=0 scancodes=0 last=0x0000000000000000 keybuf=0 pushed=0 dropped=0
+input-timing: queue-oldest count=0 mean_us=0 max_us=0
+input-timing: queue-latest count=0 mean_us=0 max_us=0
+input-usb: xhci=none
+framebuffer: 1280x800 pitch=5120 bpp=32
+srvros: kernel bootstrap complete
+init: started pid=1
+init: startup failed: /fat/bin/sh unavailable
+init: rescue shell is available from monitor with: run /sh
+init: readiness=ready elapsed_us=6881
+input-ps2: enabled=1 irq=0 scancodes=0 last=0x0000000000000000 keybuf=0 pushed=0 dropped=0
+input-timing: queue-oldest count=0 mean_us=0 max_us=0
+input-timing: queue-latest count=0 mean_us=0 max_us=0
+input-usb: xhci=none
+srvros: boot complete
+diagnostics: use dmesg, bootinfo, or reboot with srvros.log=debug
+
+
+srvros monitor ready. Type 'help'.
+srv> 

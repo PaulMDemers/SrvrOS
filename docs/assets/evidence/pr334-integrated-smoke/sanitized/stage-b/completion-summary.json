@@ -1,0 +1,67 @@
+{
+  "result": "StageB built; no guest executed",
+  "source": "0a3f5981",
+  "ports": "af1421b",
+  "seconds": 233.99834666703828,
+  "runtime": {
+    "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/receipt.json",
+    "sha256": "e6b9c331bf36ca643de0241d482e3c69efed30a6711458a562d9936a1972fac9",
+    "sdk_headers_sha256": "06f99b932ca66b7a3401e850dd2616056968ebddbae32c23cab06fbd4080a232"
+  },
+  "icu": {
+    "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/receipt.json",
+    "sha256": "1d14604eb60d1943655343266a86793b2027808bbdfd12c08cf9312babd3b5b2"
+  },
+  "commands": [
+    {
+      "name": "threaded-libcxx",
+      "seconds": 4.793705000018235,
+      "peak_rss_bytes": 168509440
+    },
+    {
+      "name": "rtti",
+      "seconds": 1.4990091670188121,
+      "peak_rss_bytes": 116178944
+    },
+    {
+      "name": "math",
+      "seconds": 3.1548297079862095,
+      "peak_rss_bytes": 245186560
+    },
+    {
+      "name": "pinned-icu",
+      "seconds": 194.20533487503417,
+      "peak_rss_bytes": 442499072
+    },
+    {
+      "name": "filesystem",
+      "seconds": 8.928135542024393,
+      "peak_rss_bytes": 268075008
+    },
+    {
+      "name": "libm",
+      "seconds": 12.836618792032823,
+      "peak_rss_bytes": 242450432
+    },
+    {
+      "name": "extensions",
+      "seconds": 2.7606066250009462,
+      "peak_rss_bytes": 246005760
+    },
+    {
+      "name": "normal-signal-boundary",
+      "seconds": 2.138410457991995,
+      "peak_rss_bytes": 248496128
+    },
+    {
+      "name": "tls-got-linker",
+      "seconds": 1.1279920000233687,
+      "peak_rss_bytes": 215924736
+    },
+    {
+      "name": "normal-cxx-controls",
+      "seconds": 2.344536999997217,
+      "peak_rss_bytes": 130842624
+    }
+  ]
+}

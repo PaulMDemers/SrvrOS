@@ -1,0 +1,82 @@
+{
+  "result": "FAIL",
+  "commands": [
+    {
+      "name": "normal-build",
+      "argv": [
+        "sh",
+        "tools/macos/build.sh",
+        "-j2",
+        "-o",
+        "$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig",
+        "ZIG=$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig",
+        "HOST_CC=$WORKSPACE/SrvrOS-signal-context/build/tooling/darwin-host-cc",
+        "all",
+        "build/tests/exfat-driver"
+      ],
+      "cwd": "$WORKSPACE/SrvrOS-signal-context",
+      "owned_pid": 64935,
+      "peak_rss_bytes": 115261440,
+      "before_cleanup": {},
+      "status_before_cleanup": 0,
+      "status": 0,
+      "owned_pgids": [
+        64935
+      ],
+      "remaining": {},
+      "seconds": 6.81975483399583,
+      "payload_sha256": {
+        "build/kernel/srvros.elf": "da470d92d4ae3921405f6fb14c40c39a76efc47213f994552d8b89328e3ccee2",
+        "build/initramfs.tar": "e756b075003b87ddf5429d4327c516a02f76d8989e91a08ead5ff7290e6e016e",
+        "build/srvros.exfat": "da8f731acd8564ebe4e92c75e988f938f9774f55d56c42c29446532217d23ef5"
+      }
+    },
+    {
+      "name": "desktop-shutdown-generated",
+      "argv": [
+        "tools/host-env.sh",
+        "python3",
+        "tools/desktop_lifecycle_smoke.py",
+        "--shutdown",
+        "--generated-fixture"
+      ],
+      "cwd": "$WORKSPACE/SrvrOS-signal-context",
+      "owned_pid": 66013,
+      "peak_rss_bytes": 863010816,
+      "before_cleanup": {},
+      "status_before_cleanup": 1,
+      "status": 1,
+      "owned_pgids": [
+        66013
+      ],
+      "remaining": {},
+      "seconds": 44.54496304196073
+    }
+  ],
+  "scope": "normal OS build and two bounded guests",
+  "physical_acceptance": false,
+  "plan_sha256": "813ae0d4d9d7bfeed881eaaa472e5dacb91c1314fb1de96e6eab0d6a2bd40451",
+  "source": "a7f71411c2d22343b9237cffb55d564b7defce9e",
+  "submodules": [
+    " af1421b735b61cf47c4e6516730c30468020abc7 ports (heads/port/browser-signal-context)",
+    " 5739fd79bcfc75ba7526773d0cf634521f8aca3c ports/upstream/awk (20260426)",
+    " c859b25da02955fef659d658b8f324b5cde87be3 ports/upstream/cjson (v1.7.15-48-gc859b25)",
+    " 26254ee9de7681f8825433415443e7116ff24b98 ports/upstream/inih (r62)",
+    " 1cfa32ff59c076ffb6ed735bbc8c18361558661f ports/upstream/libuv (v1.52.1)",
+    " dc83cc373ac2058030eb3cf5e404959a26fef112 ports/upstream/linenoise (dc83cc3)",
+    " 6e22fedb74cf0c9b6656e9fce8b7331db847c605 ports/upstream/lua (v5.4-beta-336-g6e22fedb)",
+    " c7d10158bc31036de6783d66beaaaf551e3167aa ports/upstream/node (v24.16.0)",
+    " da607da739fa6047df13e66a2af6b8bec7c2a498 ports/upstream/zlib (v1.3.2)",
+    " 24bc454198a7ee58a875df40e6bd5ee2b5cf52c7 userspace/apps (heads/main-21-g24bc454)",
+    " 3a695ce51e06af0a7ab9c21beedcb8dfe221be9c userspace/widgets (remotes/origin/HEAD)"
+  ],
+  "error": "RuntimeError('desktop-shutdown-generated exited unsuccessfully')",
+  "seconds": 55.202321249991655,
+  "storage_minimum_bytes": {
+    "host": 23331758080,
+    "output": 23331758080,
+    "backing": 8009940992,
+    "short_tmp": 23331758080
+  },
+  "short_tmp_removed": true
+}

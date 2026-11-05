@@ -7,6 +7,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <utime.h>
+#include "signal_runtime.h"
 
 #define SRVROS_TICKS_PER_SECOND 100
 
@@ -89,7 +90,7 @@ int clock_getres(int clock_id, struct timespec *tp) {
     return 0;
 }
 
-int nanosleep(const struct timespec *request, struct timespec *remaining) {
+__attribute__((noinline)) int nanosleep(const struct timespec *request, struct timespec *remaining) {
     if (request == 0 ||
         request->tv_sec < 0 ||
         request->tv_nsec < 0 ||
@@ -100,6 +101,7 @@ int nanosleep(const struct timespec *request, struct timespec *remaining) {
     /* Preserve an aliased request/remainder and check arithmetic before the
      * kernel converts the relative interval into an absolute tick deadline. */
     struct timespec interval=*request;
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
     uint64_t fraction=((uint64_t)interval.tv_nsec*SRVROS_TICKS_PER_SECOND+999999999ull)/1000000000ull;
     uint64_t now=(uint64_t)srv_ticks();
     if (now>UINT64_MAX-fraction-1 ||
@@ -111,6 +113,47 @@ int nanosleep(const struct timespec *request, struct timespec *remaining) {
     /* We may enter part way through the current tick. Include that partial
      * tick so the sleep cannot finish earlier than the requested interval. */
     ticks++;
+    if (__posix_signal_public_available()) {
+        struct posix_signal_io root;
+        int status=__posix_signal_io_begin(&root,SRV_SIGNAL_ROOT_SLEEP,SYS_SLEEP_TICKS,0,
+            (uint64_t)(uintptr_t)__builtin_frame_address(0),0,0,0,0,0);
+        if(status<0) { errno=-status; return -1; }
+        if (__posix_signal_dispatch_pending()) {
+            __posix_signal_io_end(&root);
+            if (remaining) *remaining=interval;
+            errno=EINTR; return -1;
+        }
+        const uint64_t args[6]={ticks,0,0,0,0,0};
+        long slept=__posix_signal_io_call(&root,SYS_SLEEP_TICKS,args,0,0);
+        struct srv_signal_io_result_v1 outcome={0};
+        if (__posix_signal_io_result(&root,&outcome)<0 || outcome.size!=sizeof(outcome) || outcome.version!=1)
+            __posix_signal_runtime_failure();
+        if (slept>=0 && (!outcome.cookie || outcome.syscall_number!=SYS_SLEEP_TICKS || outcome.result!=slept))
+            __posix_signal_runtime_failure();
+        struct timespec unslept=interval;
+        if (slept<0 && outcome.cookie) {
+            if (outcome.syscall_number!=SYS_SLEEP_TICKS || outcome.result!=slept || (outcome.validity&~(SRV_SIGNAL_IO_RESULT_MONO_VALID|SRV_SIGNAL_IO_RESULT_TICKS_VALID)))
+                __posix_signal_runtime_failure();
+            uint64_t seconds, nanos;
+            if (outcome.validity&SRV_SIGNAL_IO_RESULT_MONO_VALID) { seconds=outcome.elapsed_us/1000000; nanos=(outcome.elapsed_us%1000000)*1000; }
+            else if (outcome.validity&SRV_SIGNAL_IO_RESULT_TICKS_VALID) { seconds=outcome.elapsed_ticks/SRVROS_TICKS_PER_SECOND; nanos=(outcome.elapsed_ticks%SRVROS_TICKS_PER_SECOND)*10000000; }
+            else __posix_signal_runtime_failure();
+            if (seconds>(uint64_t)interval.tv_sec || (seconds==(uint64_t)interval.tv_sec && nanos>=(uint64_t)interval.tv_nsec))
+                unslept=(struct timespec){0};
+            else {
+                unslept.tv_sec=interval.tv_sec-(time_t)seconds;
+                unslept.tv_nsec=interval.tv_nsec-(long)nanos;
+                if(unslept.tv_nsec<0) { --unslept.tv_sec; unslept.tv_nsec+=1000000000L; }
+            }
+        }
+        (void)__posix_signal_dispatch_pending();
+        __posix_signal_io_end(&root);
+        if(slept<0) {
+            if(slept==SRV_ERR_INTR && remaining) *remaining=unslept;
+            errno=(int)-slept; return -1;
+        }
+        return 0;
+    }
     long start=srv_monotonic_us();
     int dispatched_before = __posix_signal_dispatch_pending();
     long slept = dispatched_before ? SRV_ERR_INTR : srv_sleep_ticks(ticks);

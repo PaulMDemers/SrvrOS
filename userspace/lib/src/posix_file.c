@@ -1,3 +1,4 @@
+#include "signal_runtime.h"
 #include <srvros/path_limits.h>
 #include <srvros/vector_io.h>
 #include <errno.h>
@@ -26,6 +27,7 @@ void __posix_socket_note_close(int fd);
 void __posix_socket_note_dup(int old_fd, int new_fd);
 int __posix_socket_real_fd(int fd);
 int __posix_eventfd_is_pseudo(int fd);
+int __posix_eventfd_is_pseudo_safe(int fd);
 ssize_t __posix_eventfd_read(int fd, void *buffer, size_t length);
 ssize_t __posix_eventfd_write(int fd, const void *buffer, size_t length);
 int __posix_eventfd_close(int fd);
@@ -35,6 +37,7 @@ int __posix_signal_dispatch_pending_restartable(void);
 long srv_unix_unlink(const char *path);
 int __posix_socket_pending_error(int fd);
 uint64_t __posix_event_capture_identity(int fd);
+uint64_t __posix_event_capture_identity_locked(int fd);
 int __posix_event_identity_current(int fd, uint64_t identity);
 
 #define POSIX_PATH_MAX SRV_PATH_MAX
@@ -94,6 +97,7 @@ int __posix_translate_open_flags(int flags, uint64_t *srv_flags) {
 }
 
 int open(const char *path, int flags, ...) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
     char full[POSIX_PATH_MAX];
     uint64_t srv_flags = 0;
     mode_t create_mode = 0666;
@@ -145,7 +149,11 @@ static int io_restart_after_signal(int fd, int native_fd) {
     return 1;
 }
 
-ssize_t __posix_read_with_socket_error(int fd, void *buffer, size_t length, int *socket_error) {
+static ssize_t signal_native_rw(int,void *,size_t,int,uint64_t,int *);
+__attribute__((noinline)) ssize_t __posix_read_with_socket_error(int fd, void *buffer, size_t length, int *socket_error) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
+    if (__posix_signal_public_available() && !__posix_eventfd_is_pseudo_safe(fd))
+        return signal_native_rw(fd,buffer,length,0,(uint64_t)(uintptr_t)__builtin_frame_address(0),socket_error);
     if (__posix_eventfd_is_pseudo(fd)) {
         return __posix_eventfd_read(fd, buffer, length);
     }
@@ -180,11 +188,47 @@ ssize_t __posix_read_with_socket_error(int fd, void *buffer, size_t length, int 
     }
 }
 
+static ssize_t signal_native_rw(int fd, void *buffer, size_t length, int writing, uint64_t anchor, int *socket_error) {
+    struct posix_signal_io root;
+    int original=fd;
+    __posix_event_lock();
+    if (__posix_eventfd_is_pseudo(fd)) { __posix_event_unlock(); errno=EBADF; return -1; }
+    uint64_t identity=__posix_socket_is_pseudo(fd)?__posix_event_capture_identity_locked(fd):0;
+    if (__posix_socket_is_pseudo(fd) && !identity) { __posix_event_unlock(); return -1; }
+    int native=__posix_socket_real_fd(fd);
+    if(native<0) { __posix_event_unlock(); errno=EBADF; return -1; }
+    int64_t descriptor=native;
+    uint64_t number=writing?SYS_WRITE:SYS_READ;
+    int status=__posix_signal_io_begin(&root,writing?SRV_SIGNAL_ROOT_WRITE:SRV_SIGNAL_ROOT_READ,
+        number,0,anchor,0,&descriptor,1,0,0);
+    __posix_event_unlock();
+    if(status<0) { errno=-status; return -1; }
+    const uint64_t args[6]={(uint64_t)native,(uint64_t)(uintptr_t)buffer,length,0,0,0};
+    for (;;) {
+        long result=__posix_signal_io_call(&root,number,args,root.descriptors,root.count);
+        if(result==SRV_ERR_INTR && __posix_signal_dispatch_pending_restartable()) {
+            if (identity && !__posix_event_identity_current(original,identity)) {
+                __posix_signal_io_end(&root); errno=EBADF; return -1;
+            }
+            continue;
+        }
+        if(socket_error && (result == -1 || result == SRV_ERR_BADF))
+            *socket_error=__posix_socket_pending_error(native);
+        if(result!=SRV_ERR_INTR) (void)__posix_signal_dispatch_pending();
+        __posix_signal_io_end(&root);
+        if(result<0) { errno=result < -1 ? (int)-result : EBADF; return -1; }
+        return (ssize_t)result;
+    }
+}
+
 ssize_t read(int fd, void *buffer, size_t length) {
     return __posix_read_with_socket_error(fd, buffer, length, 0);
 }
 
-ssize_t __posix_write_with_socket_error(int fd, const void *buffer, size_t length, int *socket_error) {
+__attribute__((noinline)) ssize_t __posix_write_with_socket_error(int fd, const void *buffer, size_t length, int *socket_error) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
+    if (__posix_signal_public_available() && !__posix_eventfd_is_pseudo_safe(fd))
+        return signal_native_rw(fd,(void *)buffer,length,1,(uint64_t)(uintptr_t)__builtin_frame_address(0),socket_error);
     if (__posix_eventfd_is_pseudo(fd)) {
         return __posix_eventfd_write(fd, buffer, length);
     }
@@ -223,15 +267,32 @@ ssize_t write(int fd, const void *buffer, size_t length) {
     return __posix_write_with_socket_error(fd, buffer, length, 0);
 }
 
-ssize_t pread(int fd, void *buffer, size_t length, off_t offset) {
+__attribute__((noinline)) ssize_t pread(int fd, void *buffer, size_t length, off_t offset) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
     if (offset < 0) {
         errno = EINVAL;
         return -1;
     }
-    if (__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) {
+    if (!__posix_signal_public_available() && (__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd))) {
         errno = ESPIPE; return -1;
     }
-    long result = srv_pread(fd,buffer,length,offset);
+    long result;
+    if (__posix_signal_public_available()) {
+        struct posix_signal_io root;
+        int64_t native_fd=fd;
+        __posix_event_lock();
+        if (__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) {
+            __posix_event_unlock(); errno=ESPIPE; return -1;
+        }
+        int status=__posix_signal_io_begin(&root, SRV_SIGNAL_ROOT_RAW, SYS_PREAD, 0,
+            (uint64_t)(uintptr_t)__builtin_frame_address(0),0,&native_fd,1,0,0);
+        __posix_event_unlock();
+        if(status<0) { errno=-status; return -1; }
+        const uint64_t args[6]={(uint64_t)fd,(uint64_t)(uintptr_t)buffer,length,(uint64_t)offset,0,0};
+        result=__posix_signal_io_call(&root,SYS_PREAD,args,root.descriptors,root.count);
+        __posix_signal_io_end(&root);
+    } else
+        result = srv_pread(fd,buffer,length,offset);
     if (result<0) { errno=(int)-result; return -1; }
     return (ssize_t)result;
 }
@@ -240,15 +301,32 @@ ssize_t pread64(int fd, void *buffer, size_t length, off_t offset) {
     return pread(fd, buffer, length, offset);
 }
 
-ssize_t pwrite(int fd, const void *buffer, size_t length, off_t offset) {
+__attribute__((noinline)) ssize_t pwrite(int fd, const void *buffer, size_t length, off_t offset) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
     if (offset < 0) {
         errno = EINVAL;
         return -1;
     }
-    if (__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) {
+    if (!__posix_signal_public_available() && (__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd))) {
         errno = ESPIPE; return -1;
     }
-    long result = srv_pwrite(fd,buffer,length,offset);
+    long result;
+    if (__posix_signal_public_available()) {
+        struct posix_signal_io root;
+        int64_t native_fd=fd;
+        __posix_event_lock();
+        if (__posix_socket_is_pseudo(fd) || __posix_eventfd_is_pseudo(fd)) {
+            __posix_event_unlock(); errno=ESPIPE; return -1;
+        }
+        int status=__posix_signal_io_begin(&root, SRV_SIGNAL_ROOT_RAW, SYS_PWRITE, 0,
+            (uint64_t)(uintptr_t)__builtin_frame_address(0),0,&native_fd,1,0,0);
+        __posix_event_unlock();
+        if(status<0) { errno=-status; return -1; }
+        const uint64_t args[6]={(uint64_t)fd,(uint64_t)(uintptr_t)buffer,length,(uint64_t)offset,0,0};
+        result=__posix_signal_io_call(&root,SYS_PWRITE,args,root.descriptors,root.count);
+        __posix_signal_io_end(&root);
+    } else
+        result = srv_pwrite(fd,buffer,length,offset);
     (void)__posix_signal_dispatch_pending();
     if (result<0) { errno=(int)-result; return -1; }
     return (ssize_t)result;
@@ -263,15 +341,49 @@ _Static_assert(offsetof(struct iovec,iov_base)==offsetof(struct srv_iovec,base),
 _Static_assert(offsetof(struct iovec,iov_len)==offsetof(struct srv_iovec,length), "iovec ABI length");
 _Static_assert(IOV_MAX==SRV_IOV_MAX, "iovec ABI count");
 
-static ssize_t vector_io(int fd,const struct iovec *iov,int count,unsigned operation,off_t offset) {
+__attribute__((noinline)) static ssize_t vector_io(int fd,const struct iovec *iov,int count,unsigned operation,off_t offset) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
     if(count<0 || count>IOV_MAX || (operation>=SRV_VECTOR_PREAD && offset<0)) {
         errno=EINVAL;return -1;
     }
     /* eventfd is a libc-owned extension, not a kernel descriptor. Do not
      * dereference unvalidated vectors here to emulate a kernel operation. */
-    if(__posix_eventfd_is_pseudo(fd)) { errno=EOPNOTSUPP;return -1; }
-    if(operation>=SRV_VECTOR_PREAD && __posix_socket_is_pseudo(fd)) { errno=ESPIPE;return -1; }
+    if (!__posix_signal_public_available()) {
+        if(__posix_eventfd_is_pseudo(fd)) { errno=EOPNOTSUPP;return -1; }
+        if(operation>=SRV_VECTOR_PREAD && __posix_socket_is_pseudo(fd)) { errno=ESPIPE;return -1; }
+    }
     int original_fd=fd;
+    if (__posix_signal_public_available()) {
+        struct posix_signal_io root;
+        __posix_event_lock();
+        if (__posix_eventfd_is_pseudo(fd)) { __posix_event_unlock(); errno=EOPNOTSUPP; return -1; }
+        if (operation>=SRV_VECTOR_PREAD && __posix_socket_is_pseudo(fd)) { __posix_event_unlock(); errno=ESPIPE; return -1; }
+        uint64_t identity=__posix_socket_is_pseudo(fd)?__posix_event_capture_identity_locked(fd):0;
+        if (__posix_socket_is_pseudo(fd) && !identity) { __posix_event_unlock(); return -1; }
+        fd=__posix_socket_real_fd(fd);
+        if(fd<0) { __posix_event_unlock(); errno=EBADF; return -1; }
+        int64_t descriptor=fd;
+        uint64_t kind=operation==SRV_VECTOR_READ?SRV_SIGNAL_ROOT_READ:
+            operation==SRV_VECTOR_WRITE?SRV_SIGNAL_ROOT_WRITE:SRV_SIGNAL_ROOT_RAW;
+        int status=__posix_signal_io_begin(&root,kind,SYS_VECTOR_IO,operation,
+            (uint64_t)(uintptr_t)__builtin_frame_address(0),0,&descriptor,1,0,0);
+        __posix_event_unlock();
+        if(status<0) { errno=-status; return -1; }
+        const uint64_t args[6]={(uint64_t)fd,(uint64_t)(uintptr_t)iov,(uint64_t)count,operation,(uint64_t)offset,0};
+        for (;;) {
+            long result=__posix_signal_io_call(&root,SYS_VECTOR_IO,args,root.descriptors,root.count);
+            if(result==SRV_ERR_INTR && operation<SRV_VECTOR_PREAD && __posix_signal_dispatch_pending_restartable()) {
+                if (identity && !__posix_event_identity_current(original_fd,identity)) {
+                    __posix_signal_io_end(&root); errno=EBADF; return -1;
+                }
+                continue;
+            }
+            if(result!=SRV_ERR_INTR) (void)__posix_signal_dispatch_pending();
+            __posix_signal_io_end(&root);
+            if(result<0) { errno=result < -1?(int)-result:EBADF; return -1; }
+            return (ssize_t)result;
+        }
+    }
     fd=__posix_socket_real_fd(fd);
     if(fd<0) { errno=EBADF;return -1; }
     for(;;) {
@@ -299,6 +411,7 @@ ssize_t pwritev(int fd,const struct iovec *iov,int count,off_t offset) {
 }
 
 int close(int fd) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
     if (__posix_eventfd_is_pseudo(fd)) {
         return __posix_eventfd_close(fd);
     }
@@ -348,6 +461,7 @@ static int dup_locked(int fd) {
     return (int)result;
 }
 int dup(int fd) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
     __posix_event_lock();
     int result = dup_locked(fd);
     __posix_event_unlock();
@@ -371,6 +485,7 @@ static int dup2_locked(int old_fd, int new_fd) {
     return (int)result;
 }
 int dup2(int old_fd, int new_fd) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
     if (old_fd == new_fd) {
         if (fcntl(old_fd, F_GETFD) < 0) return -1;
         return new_fd;
@@ -399,6 +514,7 @@ static int dup3_locked(int old_fd, int new_fd, int flags) {
     return (int)result;
 }
 int dup3(int old_fd, int new_fd, int flags) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
     __posix_event_lock();
     int result = dup3_locked(old_fd, new_fd, flags);
     __posix_event_unlock();
@@ -437,7 +553,36 @@ static int fcntl_dupfd(int fd,int minimum,int cloexec) {
 }
 
 
+__attribute__((noinline)) static int signal_setlkw(int fd,const struct srv_flock *input) {
+    struct srv_flock lock=*input;
+    struct posix_signal_io root;
+    __posix_event_lock();
+    uint64_t identity=__posix_event_capture_identity_locked(fd);
+    if(!identity) { __posix_event_unlock(); return -1; }
+    int64_t descriptor=fd;
+    int status=__posix_signal_io_begin(&root,SRV_SIGNAL_ROOT_RAW,SYS_FCNTL,0,
+        (uint64_t)(uintptr_t)__builtin_frame_address(0),0,&descriptor,1,0,0);
+    __posix_event_unlock();
+    if(status<0) {errno=-status;return -1;}
+    const uint64_t args[6]={(uint64_t)fd,SRV_F_SETLKW,(uint64_t)(uintptr_t)&lock,0,0,0};
+    for (;;) {
+        long result=__posix_signal_io_call(&root,SYS_FCNTL,args,root.descriptors,root.count);
+        if(result==SRV_ERR_INTR && __posix_signal_dispatch_pending_restartable()) {
+            if(!__posix_event_identity_current(fd,identity)) {
+                __posix_signal_io_end(&root);errno=EBADF;return -1;
+            }
+            continue;
+        }
+        if(result<0 && result!=SRV_ERR_INTR && result!=SRV_ERR_AGAIN && __posix_signal_dispatch_pending())
+            result=SRV_ERR_INTR;
+        __posix_signal_io_end(&root);
+        if(result<0) {errno=result < -1?(int)-result:EBADF;return -1;}
+        return 0;
+    }
+}
+
 int fcntl(int fd, int command, ...) {
+    if (__posix_signal_info_depth()) { errno=EOPNOTSUPP; return -1; }
     if (command == F_DUPFD || command == F_DUPFD_CLOEXEC) {
         va_list args;
         va_start(args, command);
@@ -551,6 +696,7 @@ int fcntl(int fd, int command, ...) {
 
         int srv_command = command == F_GETLK ? SRV_F_GETLK :
             command == F_SETLK ? SRV_F_SETLK : SRV_F_SETLKW;
+        if (command==F_SETLKW && __posix_signal_public_available()) return signal_setlkw(fd,&srv_lock);
         for (;;) {
             long result = srv_fcntl(fd, srv_command, (uint64_t)&srv_lock);
             if (result < 0) {
