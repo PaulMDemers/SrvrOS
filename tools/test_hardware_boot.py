@@ -14,6 +14,33 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_power5_profile(self):
+        version='ram-usb-wifi-fw-v123-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v123-','v122-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-discovery5=1','srvros.wifi-discovery5=1 srvros.wifi-power5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+
+    def test_power5_stage_complete_parent(self):
+        flags="mac_startup mcu_probe radio_reset write_probe pair_probe timing_probe mac_basics mac_format bbp_ready bbp_core bbp_front bbp_agc bbp_batch compact agc_more agc_next agc_tail rxc_start rxc_tail txbe_start bbp_table mac_route mac_policy mac_policy_validate mac_protect mac_contention mac_txsw mac_beacon mac_vht mac_buffer mac_fce_observe mac_fce_validate mac_ampdu bbp_after_mac bbp_switch dcoc skey wcid mac_tail mac_fixed efuse_map mac_address mac_address_validate mac_board ant_snapshot ant_init rf_probe rf_table rf_bank5 rf_bank6 rf_vga 5ghz_prereq 5ghz_band 5ghz_channel a20_cycle frontend pa5_cycle bbp5_cycle held_channel trim5_channel dac5 vco5 channel_vco5 cal5 discovery5 power5".split()
+        args={'wifi_'+k:True for k in flags}
+        args.update(laptop_probe_volume='12345678',wifi_firmware_package=self.root/'package')
+        args['wifi_firmware_package'].mkdir()
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']),patch('wifi_firmware_package.add_to_initramfs') as add,patch('wifi_firmware_package.verify_initramfs'):
+            release=boot.stage(**args)
+            add.assert_called_once()
+            manifest=boot.verify(self.stage/release)
+        self.assertEqual(manifest['config_version'],'ram-usb-wifi-fw-v123-laptop-probe-12345678-auto-return')
+        self.assertIn('srvros.wifi-power5=1',(self.stage/release/'limine.conf').read_text())
+        for missing in ('wifi_discovery5','wifi_cal5','wifi_channel_vco5','wifi_vco5','wifi_rf_vga'):
+            with self.subTest(missing=missing),self.assertRaises(ValueError):boot.stage(**dict(args,**{missing:False}))
+        for extra in ('hold_on_failure','wifi_desktop_trial','wifi_rf_g20','wifi_scan','haswell_firmware_capture'):
+            with self.subTest(extra=extra),self.assertRaises(ValueError):boot.stage(**dict(args,**{extra:True}))
+
     def test_discovery5_profile(self):
         version='ram-usb-wifi-fw-v122-laptop-probe-0e535900-auto-return'
         base=boot.limine_config('0123456789abcdef',version.replace('v122-','v121-'))

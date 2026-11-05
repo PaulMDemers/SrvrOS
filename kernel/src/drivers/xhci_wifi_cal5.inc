@@ -203,6 +203,7 @@ static bool wifi_discovery5_inspect(void){
   * The strict saved trial checker separately requires successful selection. */
  return complete && status!=MT76_DISC5_OWNERSHIP;
 }
+#include "xhci_wifi_power5.inc"
 static bool wifi_cal5_inspect(void *context){
  if(context!=&wifi_channel_vco5 || wifi_cal5.attempted || !wifi_cal5_requested || !wifi_channel_vco5_owned(context) || !mt76_channel_vco5_selected(&wifi_channel_vco5.state) || !mt76_cvco5_valid(&wifi_channel_vco5.state.vco))return false;
  struct xhci_device *d=wifi_channel_vco5.d;wifi_cal5.d=d;wifi_cal5.attempted=wifi_cal5.active=true;wifi_cal5.command_ring=xhci.command_ring_phys;wifi_cal5.output=d->output_context_phys;wifi_cal5.input=d->input_context_phys;wifi_cal5.ep0=d->ep0_ring_phys;wifi_cal5.descriptor=d->descriptor_buffer_phys;
@@ -216,6 +217,7 @@ static bool wifi_cal5_inspect(void *context){
  ok=ok && stopped && !wifi_cal5.failed && wifi_cal5.cal.complete && wifi_cal5.mac.complete && wifi_cal5.mac.mac_disabled && wifi_cal5.mac.rx_drained && wifi_cal5.mac.tx_drained && wifi_cal5.window.complete;
  console_printf("wifi-cal5: ok=%u operations=%u commands=%u probe=%u calibration=%u mac=%u disabled=%u tx_drained=%u rx_drained=%u filter_restored=%u txop_restored=%u stopped=%u window=%u attempts=%u completions=%u beacons=%u elapsed_us=%u retained=1 network_out=0\n",(uint64_t)ok,(uint64_t)wifi_cal5.operations,(uint64_t)wifi_cal5.commands,(uint64_t)wifi_cal5.probe.complete,(uint64_t)wifi_cal5.cal.complete,(uint64_t)wifi_cal5.mac.complete,(uint64_t)wifi_cal5.mac.mac_disabled,(uint64_t)wifi_cal5.mac.tx_drained,(uint64_t)wifi_cal5.mac.rx_drained,(uint64_t)wifi_cal5.mac.filter_restored,(uint64_t)wifi_cal5.mac.txop_restored,(uint64_t)wifi_cal5.stopped,(uint64_t)wifi_cal5.window.complete,(uint64_t)wifi_cal5.window.attempts,(uint64_t)wifi_cal5.window.completions,(uint64_t)wifi_cal5.window.beacons,wifi_cal5.window.elapsed_us);
  if(wifi_discovery5_requested && ok)ok=wifi_discovery5_inspect();
+ if(wifi_power5_requested && ok)ok=wifi_power5_inspect();
  wifi_cal5.active=false;return ok;
 }
 bool xhci_wifi_capture_cal5(void){if(wifi_cal5_requested || wifi_cal5.attempted)return false;wifi_cal5_requested=true;bool ok=xhci_wifi_capture_channel_vco5();wifi_cal5_requested=false;return ok;}

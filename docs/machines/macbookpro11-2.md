@@ -12734,3 +12734,37 @@ mapped/read-write gate to the still-selected161 calibration owner and qualify
 a grouped hardware power checkpoint before management OUT. Association,WPA2,
 key/PN/replay lifecycle,authenticated provider/data and disconnect remain open;
 credentials are still unread/unpackaged. No source-only helper accepts hardware.
+
+
+### Opt-in grouped power checkpoint (v123,not physically accepted)
+
+Implemented the separate `--wifi-power5` child of complete v122 discovery.
+The same selected161 calibration parent and stopped retained RX remain live
+while independent mapped and132-operation ledgers admit fresh fields and
+nine guarded power words. The first ALC snapshot must match the calibration's
+saved original;selected values and reverse original readbacks are exact. MAC
+stays disabled throughout this child;no new endpoint,network frame,key or IP
+provider is created. Existing DMA is retained on success and failure.
+
+Full current-image/USB-image build,existing xHCI regression,new actual-child
+modeled tests (202 I/O failure positions with before/after-write uncertainty,
+614 ownership boundaries,busy completion/1024-poll timeout,absent/mismatched
+parents,guards/readbacks/quarantine/replay) and fatal ASan/UBSan pass. The
+219 staging/rollback tests pass,including the complete new positive API path
+and omitted-parent/mixed-profile refusals. Every-row/key/order parser refusals
+and an exact full prior native-prefix composition pass:2022067bytes,75085bytes
+headroom,eight whole-prefix failures. Early fixture failures are preserved;
+an overly strict fixture expected a completed inner transaction to become
+incomplete on later outer-owner loss. The outer result correctly remains failed.
+Explicit early null-parent and board-field admission were added before new I/O.
+
+The clean foundationd90d6f61 (main518175df) is independently sealed in a102-file
+host-only capsule outside build,including matched runtime/source/proofs. The
+new native child still needs committed exact-image/desktop VM rehearsal,storage/
+recovery preflight and a cold hardware run. No trial has been installed or armed
+by this paragraph. Current27a82f0daa89a62f/previous e47dca3a6b30c6c1 and v122
+native acceptance remain unchanged. Credentials remain unread/unpackaged.
+The user authorizes automatic shutdown when ready;Wi-Fi still needs ten seconds
+unplugged while off,same-port reconnect and power-on,with workspace left attached.
+Collect the matching saved session before any next run. Management association,
+WPA2/key/replay,authenticated bidirectional data and disconnect remain open.

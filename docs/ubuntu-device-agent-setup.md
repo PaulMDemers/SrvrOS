@@ -1216,3 +1216,16 @@ authenticated/IP provider. See [USB Wi-Fi](usb-wifi.md) and the local unit's
 record for acceptance. Pro11,2 still needs a cold adapter unplug;use shutdown
 under the user's existing authorization rather than silently substituting a
 warm reboot. Retain the workspace drive and collect the matching session first.
+
+
+### Pro11,2 grouped power-only child (v123)
+
+`--wifi-power5` requires the complete automatic `--wifi-discovery5` and calibration
+chain. It admits fresh mapped power fields and a guarded nine-word apply/readback/
+reverse-restore transaction while the same selected161 parent remains held and
+MAC is disabled. It submits no network frames or keys. Follow matched build,
+exact-stage VM,recovery and run-record preflight before a physical boot;collect
+with the strict full-parent power checker before accepting hardware. Host tests
+are not native acceptance. Progress and results are automatic;the captured
+adapter still requires the local cold-unplug/shutdown sequence. See the unit
+record and [USB Wi-Fi](usb-wifi.md) for current scope and limitations.
