@@ -6,6 +6,24 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Final integration and workspace reset — November 4, 2026
+
+The subsequent user request is to integrate the remaining local deliverables,
+update their records, then replace the workspace with one fresh checkout of
+merged main and its pinned submodules, without build artifacts or VM state.
+The completed experimental browser smoke now requires current-main integration;
+production capability enablement remains outside that scope. The user also chose
+to finish and validate the previously unpublished proof-storage retention tool
+before cleanup. These are the remaining local delivery gates; new features are
+not added to this reset.
+
+Original checkouts and build inputs stay available until their code, integration
+checks and portable evidence are delivered. The reset removes local raw evidence
+inside the workspace by explicit user request. Historical local evidence paths
+will not be usable after reset; published manifests and separately retained
+external archives keep their stated attribution. Physical-device PRs #301/#19
+remain separate integration blockers, not automatically accepted by cleanup.
+
 ## Current work closeout — November 4, 2026
 
 The user requested finishing the current non-browser chat scopes, merging only
