@@ -304,7 +304,7 @@ def prepare(args):
         for name in ('kernel/src/process.c','kernel/src/process_signal_public.inc',
                      'kernel/src/arch/x86_64/idt.c','kernel/src/arch/x86_64/syscall.c',
                      'userspace/lib/src/posix_signal.c','userspace/lib/src/signal_runtime.c',
-                     'userspace/lib/src/posix_signal_context.c'):
+                     'userspace/lib/src/posix_signal_context.c','shared/include/srvros/random.h'):
             inputs[name] = required_file(ROOT/name)
         xorriso = required_file(shutil.which('xorriso') or '')
         qemu = required_file(shutil.which('qemu-system-x86_64') or '')
