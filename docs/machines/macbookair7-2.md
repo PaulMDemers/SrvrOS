@@ -2,6 +2,20 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
+### Active scope: bounded idle blitter disable and reader audit
+
+Main `e1a30e1e` is integrated as `b59f49aa`; PR19 remains Pro Wi-Fi, PR379
+WebCore. PR301 continues from the collected native census at531/ac9. Add an
+explicit compiled/recipe-gated boot BCS submission-domain handoff assumption,
+then admit only an already-idle, empty, exact captured ring. One control write
+may clear its enable bit; no Stop Ring, reset, submission, head/tail or restore
+writes. Uncertain issued writes retain wake/exclusion/mappings until reset.
+Observe primary/sprite/cursor controls and surfaces without changing display;
+keep audio/DMA and memory authority unresolved. Touch the dedicated adapter,
+new protocol/decoder, staging/collection/tests and docs. Preserve ordinary and
+prior diagnostic gates. Validate a matched source and exact stage, prepare
+recovery/run/backup, and stop ready for a hardware test; no reboot this block.
+
 ### Native awake engine census accepted
 
 Release `3d8c0e9688408a25`, source `531bc9dd`, completes as
