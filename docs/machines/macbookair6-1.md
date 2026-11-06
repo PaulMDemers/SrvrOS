@@ -7507,3 +7507,31 @@ Inspect current PR301 GPU/VMM admission and PR19 Wi-Fi work without duplicating
 them. Preserve the failed64-table receipt; do not stage a rerun that cannot
 establish full coverage under its existing32768-entry-per-pass ceiling.
 Next checkpoint: reviewable feasibility result, local tests and durable evidence.
+
+
+### ECAM census feasibility audit complete (2026-11-05)
+
+Source audit identifies kernel-created PCI ECAM mappings before the v4 capture,
+not merely inherited bootloader tables. The archived MCFG and byte-identical
+current Linux table declare156 buses at `0xe0000000`. Current4KiB mapping requires
+78 PT pages plus at least3 upper tables:81 pages /41472 loads per full pass,
+already beyond the unchanged64-table/32768-entry bounds. Native v4 retains no
+full graph/raw MCFG, so this is a source-derived lower bound, not direct attribution
+of every native table or the exact failed cursor. The native65th-table refusal
+remains the direct observation.
+
+Actual PCI/VMM-source fixtures verify every ECAM physical translation and exact
+P/RW/PCD/NX leaf, saturation of the incomplete128-entry public mapping registry,
+unchanged RAM tables during census,64-page full two-pass success and65/81/131-page
+mandatory refusal. The separate host-only strict MCFG model has six tests; core,
+adapter/decoder, PCI and VMM checks and ECAM ASan/UBSan pass. No source limits,
+policy, mapping or boot order change; no new native test is staged or armed.
+
+See the [current layout audit](../macbookair6-1-dma-inventory.md#ecam-layout-and-fixed-bound-feasibility-audit-2026-11-05).
+Next is a separately reviewed exact2MiB ECAM mapping-footprint design with
+permission/cache equivalence, conflict refusal and rollback tests. This could
+remove78 leaf-table pages without shrinking mapped coverage; whether the entire
+remaining native graph fits is still unknown. An earlier snapshot, source intent
+or partial census cannot establish current full-root admission. Raw evidence and
+source-matched validation have durable copies outside build; prior physical
+acceptance and recovery remain unchanged.

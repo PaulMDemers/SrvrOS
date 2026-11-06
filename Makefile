@@ -4817,3 +4817,12 @@ build/tests/hsw-alias-core$(HOST_EXE): tools/test_haswell_alias_core.c kernel/di
 build/tests/hsw-alias-adapter$(HOST_EXE): tools/test_haswell_cache_adapter.c kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_context.inc kernel/diagnostics/haswell_alias_adapter.inc kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_HCC_HOST_TEST -DSRVROS_HAC_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -o $@
+
+.PHONY: test-haswell-alias-layout
+test-haswell-alias-context: test-haswell-alias-layout
+test-haswell-alias-layout: build/tests/hsw-alias-ecam$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_alias_layout.py
+build/tests/hsw-alias-ecam$(HOST_EXE): tools/test_haswell_alias_ecam.c kernel/src/arch/x86_64/pci.c kernel/src/arch/x86_64/io.h kernel/src/memory/vmm.c kernel/diagnostics/haswell_alias_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_alias_core.c -Wl,--gc-sections -o $@
