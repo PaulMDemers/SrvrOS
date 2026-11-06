@@ -7688,3 +7688,27 @@ Sanitizer/ARM compile and sequential exact-stage VMs remain pending here. No
 new install or reboot is armed; the old native v4 failure remains failed. Next
 freeze the source, complete those checks, self-review/merge and prepare the
 exact-unit one-shot with known-good recovery and all prior USB files preserved.
+
+
+### v5 source/VM validation closeout (2026-11-06)
+
+Implementation `2f53e475`, PR387, passes matched normal/AP/USB/ISO builds, the
+actual backend/gate/adoption/formatter/collector tests and affected PMM/VMM/PCI/
+firmware/cache/alias/logger suites. Four actual-source ASan/UBSan fixtures pass;
+new formatter and PCI fixtures also cross-compile to ARM64. Two ordinary VMs
+pass syscall ABI and UEFI USB keyboard checks. Seven sequential staged AP VMs
+pass legacy firmware/cache/v3-alias/32-fence/v4 paths plus v5 exact refusal/save/
+return and missing-workspace handling. These are workflow/refusal checks, not
+native positive acceptance. Complete dual-file host fixture output also passes
+for maximum128-row firmware catalogs and49-MSR snapshots within unchanged tails.
+
+A decoder-only review follow-up explicitly requires protected paging and complete
+admitted firmware source pages, matching the actual gate's checks. Its host
+regressions pass; boot binaries are unchanged. Final exact-stage rehearsal with
+that collector is next. The local USB preflight verifies all602 prior files,
+1673 allocated clusters, no leaks/mismatches and session-creation headroom.
+Current native result remains the failed v4 census. Preserve its full payload
+and failure evidence outside build; only its obsolete EFI copy may be retired
+for space, retaining Ubuntu and all accepted fallbacks. No reboot is armed at
+this checkpoint. Native v5 success still requires both complete receipts and
+matching post-return file/allocation checks.

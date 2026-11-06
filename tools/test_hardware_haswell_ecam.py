@@ -115,7 +115,7 @@ class EcamTests(unittest.TestCase):
     def test_raw_corruption_rejected(self):
         a,b=fixture();data,_,_=ecam.blob(a)
         with patch('hardware_haswell_firmware.PIN', PIN):
-            for i in (0,8,12,20,28,36,52,60,72,76,80,84,88,92,100,108,len(data)-1):
+            for i in (0,8,12,20,28,36,52,60,72,76,80,84,88,92,100,108,18938,len(data)-1):
                 damaged=bytearray(data);damaged[i]^=1
                 with self.assertRaises(ValueError,msg=str(i)):ecam.decode(damaged)
 

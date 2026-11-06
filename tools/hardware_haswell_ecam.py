@@ -113,7 +113,8 @@ def decode(data):
     cache_raw = [r.take('6I6Q4I43Q') for _ in range(2)]
     cpus = []
     for phase, c in enumerate(cache_raw):
-        if c[12] != 1 or c[4] & 0x11028 != 0x11028: raise ValueError('MSR snapshot status/features')
+        if c[12] != 1 or c[4] & 0x11028 != 0x11028 or c[6] & 0x80010001 != 0x80010001:
+            raise ValueError('MSR snapshot status/features/protected paging')
         expanded = list(c[:12])+[root, policy[phase][9], hhdm, begin, end]+[c[13], c[14], c[15], 0]+list(c[16:])
         cpus.append(cpu_record(expanded, msr_only=True))
     if any(cache_raw[0][i] != cache_raw[1][i] for i in range(len(cache_raw[0])) if i not in (10, 11)) or (reads0, reads1) != tuple(c['msr_reads'] for c in cpus): raise ValueError('changed cache or read counts')
@@ -125,6 +126,12 @@ def decode(data):
     if not begin <= a['pm_us'][0] <= fw[0]['samples'][1]['pm_us'][1] <= cpus[0]['pm_us'][0] < cpus[0]['pm_us'][1] <= b['pm_us'][0] <= fw[1]['samples'][1]['pm_us'][1] <= cpus[1]['pm_us'][0] < cpus[1]['pm_us'][1] <= end:
         raise ValueError('fresh operation ordering')
     catalog = a['catalog']
+    for pa, size in ((a['table_pa'],136), (mcfg_pa[0],60)):
+        if not 0 < pa < pa+size <= 1 << 39: raise ValueError('firmware source width')
+        for page in range(pa & ~4095, (pa+size+4095) & ~4095, 4096):
+            rows = [x for x in catalog if x[0] < page+4096 and page < x[0]+x[1]]
+            if len(rows) != 1 or not rows[0][0] <= page < page+4096 <= sum(rows[0][:2]) or rows[0][2] not in (2,3):
+                raise ValueError('complete firmware source page')
     for pa in (root, pdpt, frame):
         rows = [x for x in catalog if x[0] < pa+4096 and pa < x[0]+x[1]]
         if len(rows) != 1 or not rows[0][0] <= pa < pa+4096 <= sum(rows[0][:2]) or rows[0][2] not in (0, 2, 3, 5, 6) or PA <= pa < PA+SIZE or pa in (0xfed90000, 0xfed91000): raise ValueError('table RAM source')
