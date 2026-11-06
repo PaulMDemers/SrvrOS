@@ -13192,3 +13192,24 @@ session first after return. No TD,doorbell,MAC start or network frame is publish
 dedicated OUT configure/stop/disable and shared input restoration are the pending
 physical scope. Live RX/TX and matched AUTH/ASSOC/leave,WPA2 keys/replay/PN and
 bidirectional authenticated IP/data/disconnect remain open. Credentials unread.
+
+### First dedicated OUT owner native refusal (November 6)
+
+V126 release187489cff7f66fe7/sourcea2fb142e saved1875827 complete failure bytes in
+session00065fa20952ec21-00. Calibration and copied peer binding completed;the
+new empty OUT04 endpoint configured exactly and all15 guard/power reads matched.
+The exact Stop Endpoint command completed on the expected slot,but its subsequent
+ownership/context postcondition failed before disable or input restoration.
+No TD or doorbell was published. Full original restoration is not accepted for
+this run. The537-file failure capsule is independently sealed;offline storage,
+recovery equality and automatic Ubuntu return passed. Accepted v125 remains
+separate. No timeout or admission comparison is relaxed.
+
+The next comparison adds only a failure-time read-only endpoint snapshot and
+parent/input/unrelated-context difference receipt immediately after a completed
+command fails ownership. It will identify the mismatch hidden by the previous
+summary. It issues no extra USB or controller command,does not recover or replay,
+and still quarantines at the first failed check. Rebuild/fault/sanitizer/whole-
+prefix/exact-image qualification precedes the new cold diagnostic trial. Live
+management publication remains blocked on this retirement proof;credentials
+remain unread/unpackaged. No native OUT ownership acceptance is claimed.

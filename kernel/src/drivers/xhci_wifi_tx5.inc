@@ -38,6 +38,22 @@ static void wifi_tx5_context(unsigned op){
  struct xhci_device *d=wifi_tx5.d;
  console_printf("wifi-tx5-context: op=%u w0=%x w1=%x w2=%x w3=%x w4=%x w5=%x w6=%x w7=%x\n",(uint64_t)op,(uint64_t)context_read32(d->output_context,8,0),(uint64_t)context_read32(d->output_context,8,1),(uint64_t)context_read32(d->output_context,8,2),(uint64_t)context_read32(d->output_context,8,3),(uint64_t)context_read32(d->output_context,8,4),(uint64_t)context_read32(d->output_context,8,5),(uint64_t)context_read32(d->output_context,8,6),(uint64_t)context_read32(d->output_context,8,7));
 }
+/* Failure-only read-only receipt. It never changes admission or issues a
+ * recovery command;retain the first failed owner even if a later read differs. */
+static void wifi_tx5_diagnostic(unsigned op){
+ struct xhci_device *d=wifi_tx5.d;
+ if(!d || !d->input_context || !d->output_context){console_write("wifi-tx5-diagnostic: context_unavailable=1\n");return;}
+ wifi_tx5_context(wifi_tx5.phase);
+ bool parent=wifi_peer5_owned(&wifi_peer5,&wifi_cal5.window);
+ bool peer=wifi_handoff5_equal(&wifi_peer5.binding,&wifi_tx5.peer,sizeof wifi_tx5.peer);
+ bool input=wifi_handoff5_equal(d->input_context,wifi_tx5.expected,4096);
+ console_printf("wifi-tx5-diagnostic: op=%u phase=%u parent=%u peer=%u input=%u failed=%u command_failed=%u phys=%x pin=%x pointer=%u\n",(uint64_t)op,(uint64_t)wifi_tx5.phase,(uint64_t)parent,(uint64_t)peer,(uint64_t)input,(uint64_t)wifi_tx5.failed,(uint64_t)firmware_command_failed,wifi_tx5.ring_phys,wifi_tx5.pin_phys,(uint64_t)((uintptr_t)wifi_tx5.ring==wifi_tx5.pin_pointer));
+ const unsigned dci[]={0,9,11,16};
+ for(unsigned n=0;n<4;n++)for(unsigned j=0;j<8;j++){
+  uint32_t value=context_read32(d->output_context,dci[n],j);
+  if(value!=wifi_tx5.other[n][j])console_printf("wifi-tx5-other-diff: dci=%u word=%u expected=%x observed=%x\n",(uint64_t)dci[n],(uint64_t)j,(uint64_t)wifi_tx5.other[n][j],(uint64_t)value);
+ }
+}
 static bool wifi_tx5_command(unsigned op){
  struct xhci_device *d=wifi_tx5.d;
  if(op!=wifi_tx5.phase || !(op==1 || op==3 || op==5) || !wifi_tx5_owned())return wifi_tx5_fail();
@@ -51,7 +67,9 @@ static bool wifi_tx5_command(unsigned op){
  if(ok)wifi_tx5.phase++;
  event_irq_restore(flags);
  console_printf("wifi-tx5-command: op=%u type=%u slot=%u dci=8 ok=%u\n",(uint64_t)op,(uint64_t)type,slot,(uint64_t)ok);
- return ok && wifi_tx5_owned()?true:wifi_tx5_fail();
+ bool owned=ok && wifi_tx5_owned();
+ if(ok && !owned)wifi_tx5_diagnostic(op);
+ return owned?true:wifi_tx5_fail();
 }
 static bool wifi_tx5_inspect(void){
  if(!wifi_tx5_requested || wifi_tx5.attempted)return false;
