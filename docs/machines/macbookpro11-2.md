@@ -36,18 +36,23 @@ maximum24 half-dBm is not an analog output-power measurement. No network OUT,
 authentication,key installation,IP or data transfer was exercised. The original
 v123 failure remains failed and independently preserved.
 
-Next bounded work: consume reviewed main379d6f8d and recursive module pins,then
-explicitly transfer the stopped DCI9 receive endpoint to a fresh private ring,
-prove exact stop/dequeue restoration and retained-DMA ownership,and add fixed
-management authentication/association under the held selected power/RF parent.
-Do not broaden old stopped-ring parent gates to admit a new ring. Re-audit Linux
-TXWI/manual sequence/queue semantics before first network OUT. Touch fixed MT76
-plan/native owner,staging and proof/fault tests;shared signal/stream/FPU changes
-are integration dependencies,not new hardware grants. Main now owns signal
-calls164..167,file-stream168;private Wi-Fi remains169. PR379 owns browser/WebCore
-source audit and301 Air scanout;no other Wi-Fi owner is active. No cross-chat
-contact is authorized. Validate matched artifacts and relevant host/VM changes
-before a new physical run;do not transfer this source25bf acceptance forward.
+Reviewed main379d6f8d and recursive module integration are complete. The first
+merged v124 release54d3bca0e34ff6fa/source34e24139 run saved a complete failure
+session00065f90d7b31e88-00,1854059bytes. The fifth firmware calibration command
+received no response within500ms;the new handoff was never entered. Calibration
+and enclosing RF original restoration are not accepted for this run. Its549-file
+failure capsule is independently sealed;offline storage,recovery equality and
+automatic Ubuntu return pass. Accepted source25bf power evidence remains separate.
+
+Next bounded work is one unchanged-payload cold retry. Reuse the exact qualified
+image and strict parent gates;do not increase timeouts,skip calibration or admit
+the handoff after failure. The failed generated session is separately archived
+against its immutable failure capsule before a new collection. If the fifth
+response timeout repeats,inspect that transport/firmware path before advancing.
+Handoff must prove exact stopped-context retarget and old-context/power/RF
+restoration before dedicated live RX/data OUT and management association work.
+No cross-chat contact is authorized. Shared signal/stream/FPU dependencies have
+host/VM regression coverage;this failed run transfers no native acceptance.
 
 Strict-entropy WPA2/MIC/replay/key/PN lifecycle,authenticated bidirectional
 IP/data and clean disconnect/reconnect follow association. Demers2.4 needs
@@ -12980,3 +12985,17 @@ The matching session must be collected first after return. Handoff acceptance
 remains pending. No TD, MAC start or network OUT is authorized by this empty
 trial; authentication, dedicated live RX/data-OUT ownership, WPA2 keys/replay/PN,
 IP/data and disconnect remain open. Credentials remain unread and unpackaged.
+
+### First merged v124 native refusal (November 5)
+
+Release54d3bca0e34ff6fa/source34e24139 saved1854059bytes in matching
+session00065f90d7b31e88-00. Calibration command op59/step4 sent16bytes but its
+response timed out after500069us with no completion. Earlier four command
+replies and temporary calibration-register restoration were recorded;the full
+calibration and enclosing RF inverse were not completed. There are no handoff
+records,TD publication or network OUT. The strict collector refused completion
+and preserved all evidence. The549-file native failure capsule remains immutable.
+Ubuntu default,unarmed state,installed recovery equality and offline filesystem/
+allocation checks pass. One exact-image cold retry is prepared under existing
+shutdown authority;no source,gate or timeout is changed. This failure remains
+failed regardless of the retry result.
