@@ -97,14 +97,20 @@ static void hcc_report(unsigned status) {
   }
  }
 }
-bool haswell_cache_context_run(void) {
+#include "haswell_alias_adapter.inc"
+static bool hcc_prepared,hcc_reported;
+static unsigned hcc_saved_status;
+static uint64_t hcc_pre_begin,hcc_pre_end;
+static bool hcc_run(bool alias,bool deferred) {
  unsigned status=2;const struct hfw_io fw_io={.identity=identity,.catalog=catalog,.table=table,.now=now,.progress=progress};
  console_write("hsw-cache-progress: read-only Air6,1 CPU/cache and page-table RAM; VT-d target never dereferenced\n");
  if(!hfw_capture(&hcc_fw[0],&fw_io,pin))goto done;
- hfw_report(&hcc_fw[0]);status=3;
+ if(!deferred)hfw_report(&hcc_fw[0]);
+ status=3;
  if(!hcc_resource_catalog())goto done;
  for(unsigned phase=0;phase<2;phase++) {
   console_printf("hsw-cache-progress: context=%u/2 no mappings or policy writes\n",(uint64_t)phase+1);
+  if(alias && phase==1 && !hac_run())goto done;
   hcc_bounds[phase][0]=timer_monotonic_us();
   if(phase && (hcc_bounds[phase][0]<hcc_bounds[0][1] || hcc_bounds[phase][0]-hcc_bounds[0][1]>100000))goto done;
   hcc_cr3[phase]=hcc_root();hcc_cr4[phase]=hcc_control();hcc_hhdm[phase]=pmm_hhdm_offset();
@@ -124,6 +130,27 @@ bool haswell_cache_context_run(void) {
  if(!x86_cache_equal(&hcc_cpu[0],&hcc_cpu[1]) || hcc_cr3[0]!=hcc_cr3[1] || hcc_cr4[0]!=hcc_cr4[1] || hcc_hhdm[0]!=hcc_hhdm[1])goto done;
  for(unsigned alias=0;alias<2;alias++)if(!hcc_walk_equal(&hcc_walks[0][0][alias],&hcc_walks[1][0][alias]))goto done;
  status=4;if(!hfw_capture(&hcc_fw[1],&fw_io,pin) || !hcc_fw_equal())goto done;
- hfw_report_named(&hcc_fw[1],"hcache-firmware-post");status=1;
- done: if(status==2)hfw_report(&hcc_fw[0]);hcc_report(status);return status==1;
+ if(!deferred)hfw_report_named(&hcc_fw[1],"hcache-firmware-post");
+ status=1;
+ done: hcc_saved_status=status;
+ if(!deferred){if(status==2)hfw_report(&hcc_fw[0]);hcc_report(status);if(alias)hac_report(status==1);}
+ return status==1;
+}
+
+bool haswell_cache_context_run(void){return !hcc_prepared && hcc_run(false,false);}
+bool haswell_alias_context_run(void){return !hcc_prepared && hcc_run(true,false);}
+bool haswell_alias_context_prepare(void) {
+ if(hcc_prepared)return false;
+ hcc_prepared=true;hcc_pre_begin=timer_monotonic_us();
+ console_write("hsw-alias-progress: capturing before the first user root; raw report deferred until logger startup\n");
+ bool ok=hcc_run(true,true);hcc_pre_end=timer_monotonic_us();return ok;
+}
+bool haswell_alias_context_report(void) {
+ if(!hcc_prepared || hcc_reported)return false;
+ hcc_reported=true;
+ hfw_report(&hcc_fw[0]);
+ if(hcc_saved_status==1)hfw_report_named(&hcc_fw[1],"hcache-firmware-post");
+ hcc_report(hcc_saved_status);hac_report(hcc_saved_status==1);
+ console_printf("hsw-alias-epoch: v=1 phase=pre-user-init begin=%u end=%u report=%u attempted=1\n",hcc_pre_begin,hcc_pre_end,timer_monotonic_us());
+ return hcc_saved_status==1;
 }

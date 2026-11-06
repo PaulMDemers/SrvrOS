@@ -1,4 +1,7 @@
 #define _XOPEN_SOURCE 700
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE 1
+#endif
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>

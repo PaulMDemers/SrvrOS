@@ -2569,9 +2569,9 @@ build/tests/tool-clipboard-host$(HOST_EXE): tools/test_tool_clipboard.c userspac
 test-core: test-posix-poll
 test-posix-poll: build/tests/posix-poll-host$(HOST_EXE)
 	$<
-build/tests/posix-poll-host$(HOST_EXE): tools/test_posix_poll.c tools/test_signal_unavailable.c userspace/lib/src/posix_poll.c userspace/lib/src/signal_runtime.h userspace/lib/src/socket_signal.h userspace/lib/include/srvros/sys.h shared/include/srvros/syscall_numbers.h
+build/tests/posix-poll-host$(HOST_EXE): tools/test_posix_poll.c tools/legacy_signal_fixture.h userspace/lib/src/posix_poll.c userspace/lib/include/srvros/sys.h shared/include/srvros/syscall_numbers.h userspace/lib/src/signal_runtime.h userspace/lib/src/socket_signal.h shared/include/srvros/signal_abi.h userspace/lib/include/signal.h userspace/lib/include/sys/select.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -I userspace/lib/include -I shared/include $< tools/test_signal_unavailable.c -o $@
+	$(HOST_CC) -std=c11 -ffreestanding -O2 -Wall -Wextra -Werror -I userspace/lib/include -I shared/include $< -o $@
 
 .PHONY: test-posix-dir
 test-core: test-posix-dir
@@ -4568,7 +4568,7 @@ build/tests/wifi-syscall-host$(HOST_EXE): tools/test_wifi_syscall.c kernel/src/a
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
-AP_PROBE_OBJ := build/ap-probe/haswell-cache-walk.o build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_OBJ := build/ap-probe/haswell-alias-core.o build/ap-probe/haswell-cache-walk.o build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
 AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
@@ -4670,9 +4670,9 @@ test-fd-io-restart: build/tests/fd-io-restart-host$(HOST_EXE)
 build/tests/fd-io-restart-file.o: userspace/lib/src/posix_file.c tools/posix_file_host_names.h $(USER_SYSROOT_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -ffunction-sections -fdata-sections -I shared/include -I userspace/lib/include -include tools/posix_file_host_names.h -c $< -o $@
-build/tests/fd-io-restart-host$(HOST_EXE): tools/test_fd_io_restart.c tools/test_signal_unavailable.c userspace/lib/src/signal_runtime.h userspace/lib/src/socket_signal.h build/tests/fd-io-restart-file.o $(USER_SYSROOT_HEADERS)
+build/tests/fd-io-restart-host$(HOST_EXE): tools/test_fd_io_restart.c tools/legacy_signal_fixture.h build/tests/fd-io-restart-file.o $(USER_SYSROOT_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< tools/test_signal_unavailable.c build/tests/fd-io-restart-file.o -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< build/tests/fd-io-restart-file.o -Wl,--gc-sections -o $@
 
 .PHONY: test-dns-response test-socket-calls test-socket-try-io
 DNS_RESPONSE_MODES := valid case question qtype qclass qr opcode tc rcode self-pointer forward-pointer bad-pointer unrelated trailing-answer trailing-additional bounds cname interior-pointer header-pointer cname-cycle cname-length cname-conflict unrelated-first
@@ -5431,7 +5431,7 @@ test-wifi-cal5-log:
 build/ap-probe/haswell-firmware-core.o: kernel/diagnostics/haswell_firmware_core.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
-build/ap-probe/haswell-firmware-adapter.o: kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_context.inc $(ZIG) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/ap-probe/haswell-firmware-adapter.o: kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_context.inc kernel/diagnostics/haswell_alias_adapter.inc $(ZIG) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -5442,12 +5442,13 @@ test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-
 	build/tests/hsw-firmware-adapter$(HOST_EXE) > build/tests/hsw-firmware-refusal.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_firmware.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_read_audit.py
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_admission_audit.py
 build/tests/hsw-firmware-core$(HOST_EXE): tools/test_haswell_firmware.c kernel/diagnostics/haswell_firmware_core.c kernel/include/srvros/haswell_firmware.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/haswell_firmware_core.c -o $@
-build/tests/hsw-firmware-adapter$(HOST_EXE): tools/test_haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_context.inc kernel/diagnostics/haswell_cache_walk.c kernel/src/x86_cache.c kernel/diagnostics/haswell_firmware_core.c kernel/diagnostics/haswell_firmware_adapter.c kernel/include/srvros/haswell_firmware.h $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/hsw-firmware-adapter$(HOST_EXE): tools/test_haswell_firmware_adapter.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_cache_context.inc kernel/diagnostics/haswell_alias_adapter.inc kernel/diagnostics/haswell_cache_walk.c kernel/src/x86_cache.c kernel/diagnostics/haswell_firmware_core.c kernel/diagnostics/haswell_firmware_adapter.c kernel/include/srvros/haswell_firmware.h $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_core.c kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_walk.c kernel/src/x86_cache.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_core.c kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_walk.c kernel/src/x86_cache.c kernel/diagnostics/haswell_alias_core.c -o $@
 
 # xz diagnostic helper is injected only into disposable qualification images.
 build/userspace/test_xz_probe.elf: tools/test_xz_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
@@ -5598,7 +5599,7 @@ test-haswell-cache-context: build/tests/hsw-cache-walk$(HOST_EXE) build/tests/hs
 build/tests/hsw-cache-walk$(HOST_EXE): tools/test_haswell_cache_walk.c kernel/diagnostics/haswell_cache_walk.c kernel/include/srvros/haswell_cache_context.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/haswell_cache_walk.c -o $@
-build/tests/hsw-cache-adapter$(HOST_EXE): tools/test_haswell_cache_adapter.c kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_context.inc kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/hsw-cache-adapter$(HOST_EXE): tools/test_haswell_cache_adapter.c kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_context.inc kernel/diagnostics/haswell_alias_adapter.inc kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_HCC_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -o $@
 
@@ -5622,3 +5623,29 @@ build/tests/xhci-handoff5-host$(HOST_EXE): tools/test_xhci_wifi_handoff5.c kerne
 test-core: test-wifi-handoff5-log
 test-wifi-handoff5-log:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_handoff5_log.py
+
+build/ap-probe/haswell-alias-core.o: kernel/diagnostics/haswell_alias_core.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: test-haswell-alias-context
+test-core: test-haswell-alias-context
+test-haswell-alias-context: build/tests/hsw-alias-core$(HOST_EXE) build/tests/hsw-alias-adapter$(HOST_EXE)
+	build/tests/hsw-alias-core$(HOST_EXE)
+	build/tests/hsw-alias-adapter$(HOST_EXE) > build/tests/hsw-alias-refusal.log
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_alias.py
+build/tests/hsw-alias-core$(HOST_EXE): tools/test_haswell_alias_core.c kernel/diagnostics/haswell_alias_core.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/haswell_alias_core.c -o $@
+build/tests/hsw-alias-adapter$(HOST_EXE): tools/test_haswell_cache_adapter.c kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_context.inc kernel/diagnostics/haswell_alias_adapter.inc kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_HCC_HOST_TEST -DSRVROS_HAC_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -o $@
+
+.PHONY: test-haswell-alias-layout
+test-haswell-alias-context: test-haswell-alias-layout
+test-haswell-alias-layout: build/tests/hsw-alias-ecam$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_alias_layout.py
+build/tests/hsw-alias-ecam$(HOST_EXE): tools/test_haswell_alias_ecam.c kernel/src/arch/x86_64/pci.c kernel/src/arch/x86_64/io.h kernel/src/memory/vmm.c kernel/diagnostics/haswell_alias_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_alias_core.c -Wl,--gc-sections -o $@

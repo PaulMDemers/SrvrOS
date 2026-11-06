@@ -40,8 +40,8 @@ static struct isr_frame *frame_of(struct common_storage *s) {return (void *)(s->
 static struct fpu_user_trap_proof *proof_of(struct common_storage *s) {return (void *)(s->bytes+FPU_COMMON_PROOF);}
 static uint8_t *area_of(struct common_storage *s) {return s->bytes+FPU_COMMON_TRAP_AREA;}
 void console_write(const char *s) {(void)s;}
-/* Deliberately hostile test callback may use SSE;critical trap helpers
- * remain compiled with the no-SSE policy under test. */
+/* GCC requires SSE enabled on explicit-XMM host helpers. Kernel critical
+ * functions in this translation unit retain the no-SSE compilation flags. */
 __attribute__((target("sse2"))) bool scheduler_observe_user_entry(struct scheduler_user_return_observation *out) {
     entry_calls++;assert(!user_state_loaded);
     assert(!memcmp(current_user_state->fxsave_area,expected.bytes,512));

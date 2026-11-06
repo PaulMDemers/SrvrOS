@@ -43,3 +43,5 @@ int main(int argc,char **argv){
  mode=0;response.entry_count=129;assert(!haswell_firmware_run());
  puts("haswell-firmware adapter refusal PASS");return 0;
 }
+
+bool vmm_diagnostic_sole_kernel_root(uint64_t expected){(void)expected;return false;}

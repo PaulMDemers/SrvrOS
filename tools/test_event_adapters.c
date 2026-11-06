@@ -30,9 +30,6 @@ static void (*during_sleep)(void);
 static uint64_t now_ns = 2999500000ULL;
 static int poll_error, clock_error, delayed_calls;
 static int64_t advance_ms = -1;
-/* This fixture exercises legacy waits; public-signal clocks must remain unused. */
-long srv_monotonic_us(void) { CHECK(0); return -1; }
-long srv_ticks(void) { CHECK(0); return -1; }
 int clock_gettime(int clock, struct timespec *ts) {
     CHECK(!lock_depth && clock==CLOCK_MONOTONIC);
     if (clock_error) { errno=clock_error; return -1; }
@@ -774,3 +771,7 @@ int main(int argc, char **argv) {
     printf("event-adapters: %s PASS\n",mode);
     return 0;
 }
+
+#define LEGACY_SIGNAL_STUB_MONOTONIC
+#define LEGACY_SIGNAL_HAS_IO_DISPATCH
+#include "legacy_signal_fixture.h"

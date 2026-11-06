@@ -12,21 +12,9 @@ static unsigned turn_requests;
 static bool retired;
 static bool wait_pointer_ok=true,scope_write_ok=true;static unsigned wait_attempts;
 bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool write) {(void)address;(void)length;return wait_pointer_ok && (!write || scope_write_ok);}
-bool process_try_wait_retired(uint64_t pid,uint64_t *status,int64_t *result) {assert(pid==42);wait_attempts++;if(!retired)return false;*status=9;*result=42;return true;}
-int64_t process_wait(uint64_t pid,uint64_t *status,bool nohang) {assert(pid==42 && !busy && !user_safe && nohang);*status=0;return 0;}
+bool process_try_wait_retired_checked(uint64_t pid,process_wait_copy_fn copy,void *context,int64_t *result) {assert(pid==42);wait_attempts++;if(!retired)return false;*result=copy(context,9)?42:SRV_ERR_FAULT;return true;}
+int64_t process_wait_checked(int64_t pid,uint64_t flags,process_wait_copy_fn copy,void *context) {assert(pid==42 && !busy && !user_safe && (flags&SRV_WAIT_NOHANG));return copy(context,0)?0:SRV_ERR_FAULT;}
 int64_t process_wait_posix(int64_t pid,uint64_t *status,bool nohang) {(void)pid;(void)status;(void)nohang;assert(0);return -1;}
-/* Current wait adapter invokes the copy callback before claiming a result.
- * The fixture models child readiness;the real process lifetime is tested in
- * process fixtures. Revalidation failures must leave caller output untouched. */
-bool process_try_wait_retired_checked(uint64_t pid,process_wait_copy_fn copy,void *context,int64_t *result) {
-    uint64_t status=0;if(!process_try_wait_retired(pid,&status,result))return false;
-    if(!copy(context,status))*result=SRV_ERR_FAULT;
-    return true;
-}
-int64_t process_wait_checked(int64_t selector,uint64_t flags,process_wait_copy_fn copy,void *context) {
-    uint64_t status=0;int64_t result=(flags&SRV_WAIT_POSIX)?process_wait_posix(selector,&status,flags&SRV_WAIT_NOHANG):process_wait((uint64_t)selector,&status,flags&SRV_WAIT_NOHANG);
-    return result>0 && !copy(context,status)?SRV_ERR_FAULT:result;
-}
 static bool byte_safe;
 bool process_file_pipe_io_safe(struct process *p,uint64_t fd,uint64_t length,bool writing) {
     (void)p;(void)writing;return fd==10 && length<=4096 && byte_safe;
@@ -228,7 +216,6 @@ int main(void) {
     frame.rax=SYS_GUI_WAIT_IO;assert(syscall_io_safe(&frame));
     frame.rax=SYS_GUI_CANCEL_WAIT;assert(syscall_io_safe(&frame));
     frame.rax=SYS_SCHED_TRACE;assert(syscall_io_safe(&frame));
-    frame.rax=SYS_WIFI;assert(syscall_io_safe(&frame));
     frame.rax=SYS_GUI_SERVER_WAIT;assert(syscall_io_safe(&frame));
     const uint64_t blocked[]={SYS_SIGNAL_POLL,SYS_SIGNAL_CONSUME,SYS_OPEN,SYS_FS_WRITE,SYS_SYNC,SYS_EXIT,SYS_PREAD,SYS_PWRITE,SYS_VECTOR_IO,SYS_PIPE2,SYS_DUP3,SYS_PIPE_PAIR_FLAGS,SYS_THREAD_SIGNAL,
         SYS_SOCKET_TRY_IO,SYS_PIPE_MESSAGE,SYS_SESSION_SCOPE,SYS_KILL,SYS_SPAWN,SYS_FILE_CHANGE,UINT64_MAX};

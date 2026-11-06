@@ -37,7 +37,7 @@ def main():
     sources = [ROOT / path for path in (
         'tools/test_sync_contracts.c',
         'userspace/lib/src/posix_pthread.c',
-        'tools/test_sync_semaphore.c', 'tools/test_signal_unavailable.c')]
+        'tools/test_sync_semaphore.c')]
     semaphore_source = ROOT / 'userspace/lib/src/posix_semaphore.c'
     compiler = shlex.split(os.environ.get('CC', 'cc'))
     shim = ROOT / 'tools/test_sync_host_threads.c'
@@ -73,7 +73,7 @@ def main():
               'platform': platform.platform(), 'compile_command': command, 'shim_compile_command': shim_command,
               'exit': exit_code, 'cases': results,
               'sha256': {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
-                         for path in sources + headers + [shim, semaphore_source]}}
+                         for path in sources + headers + [shim, semaphore_source] + [ROOT / "tools/legacy_signal_fixture.h"]}}
     (out / 'result.json').write_text(json.dumps(record, indent=2) + '\n')
     return exit_code
 

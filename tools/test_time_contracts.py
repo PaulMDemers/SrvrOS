@@ -23,7 +23,7 @@ def main():
              'nanosleep clock_nanosleep gettimeofday utimes sleep usleep utimensat').split()
     renamed = out / 'rename.h'
     renamed.write_text(''.join(f'#define {name} audit_{name}\n' for name in names))
-    sources = [ROOT / path for path in ('tools/test_time_contracts.c', 'userspace/lib/src/posix_time.c', 'tools/test_signal_unavailable.c')]
+    sources = [ROOT / path for path in ('tools/test_time_contracts.c', 'userspace/lib/src/posix_time.c')]
     compiler = shlex.split(os.environ.get('CC', 'cc'))
     executable = out / 'time-contracts'
     # Use compiler-provided fundamental types with SrvrOS headers; hosted GCC
@@ -41,7 +41,7 @@ def main():
               'platform': platform.platform(), 'compile_command': command,
               'exit': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr,
               'sha256': {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
-                         for path in sources}}
+                         for path in sources + [ROOT / "tools/legacy_signal_fixture.h"]}}
     (out / 'result.json').write_text(json.dumps(record, indent=2) + '\n')
     return result.returncode
 
