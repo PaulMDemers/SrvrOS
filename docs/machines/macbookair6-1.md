@@ -7795,3 +7795,40 @@ physical width/CR0. Table/index and expected/observed fields are authoritative
 only when their detail flags are set. No new reboot is armed at this checkpoint.
 Next complete ordinary VM checks, self-merge and verify the unit's installation,
 run record, USB baseline and recovery before its authorized one-shot trial.
+
+
+### Instrumented v5 return — early adoption observed, full census failed (2026-11-06)
+
+Release `a85cf3e1549a1928`, implementation `d97c36f3`/PR389, returned with the
+matching saved boot, ECAM and exit files. The complete early raw blob validates
+prepare/handoff and one-use adoption:36268 checked words,98684us across the
+unchanged100000us lifetime (1316us remaining),37+37 cache MSRs and the pinned
+42-row firmware catalog. Session/epoch/root/frame/adoption/save references agree.
+The preceding adoption halt did not reproduce; this near-deadline success does
+not identify its cause or establish repeatable timing headroom.
+
+The **overall trial remains failed**: the later pre-user-init alias census hit
+64 tables after5678 first-pass reads, with zero second-pass reads and945 partial
+encoded bytes. The source writes `completed=NO`; the strict dual-file collector
+correctly returns no completed proof. No full-root, exhaustive-alias, VT-d resource
+or ownership acceptance follows from the early component observation. The ECAM
+representation change alone is insufficient to establish that this native graph
+fits the unchanged census caps.
+
+A read-only check of the exact staged ELF finds115.160MiB BSS, including the
+104.375MiB static `processes` array and its embedded per-process mapping arrays.
+The saved root has HHDM, I/O and kernel branches, but the failed census does not
+retain a complete native graph. Large static kernel storage is therefore a
+source-backed candidate for remaining table pressure, not proven native branch
+attribution. Next audit that storage and mapping lifetimes for deferred backing
+without reducing process/mapping capacities, and attribute startup cost before
+changing it. Review concurrent shared process work before implementation; do
+not mask A/D changes, increase caps or restart deadlines.
+
+All602 prior paths remain present:601 files are byte-identical and only expected
+internal `.srvros/meta` changed. Three new session logs were saved. Both fsck and
+independent allocation pass (605 files,1677 clusters,zero leaks/mismatches/errors).
+All raw files, ELF inspection and assessment are hash-verified outside build.
+Ubuntu/recovery/fallback hashes verify; collector disabled, timer inactive and
+one-shot cleared. No boot is armed. The installed diagnostic remains unaccepted
+as a complete profile; prior independent device acceptance is unchanged.

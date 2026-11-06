@@ -268,3 +268,24 @@ Backward-clock and deadline-expiry output are distinguished. Existing normal
 and maximum-catalog v5 success receipts remain byte-identical in the fixture;
 the raw wire schema, dual-file checks and all old census/context limits stay
 unchanged. Host/VM checks do not identify or fix the earlier native adoption cause.
+
+
+## Instrumented native return
+
+The subsequent instrumented release `a85cf3e1549a1928` saved a complete valid
+early raw component and matching adoption/save reference:36268 words,98684us
+within100000us,37+37 cache MSRs and the pinned42-row catalog. The prior adoption
+halt did not reproduce; its cause remains unknown and timing margin is only
+1316us on this observation. The later census still exhausted64 tables after
+5678 first-pass/zero second-pass reads, with945 partial encoded bytes. Actual
+whole-trial completion is NO and the strict dual-file proof remains absent.
+Do not promote the early component to complete-root or ownership acceptance.
+
+Exact staged ELF inspection shows115.160MiB BSS, of which the static process
+array is104.375MiB with embedded mapping storage. This motivates a source and
+native-branch audit of static kernel/HHDM mapping pressure and deferred backing
+while preserving capacity/ownership/integrity checks. The saved partial graph is
+insufficient to prove attribution. The original ECAM-only graph estimate was
+not a complete native-layout result; its successful compact subtree does not
+make the remaining graph fit. Keep the census/lifetime limits unchanged and
+also investigate startup timing headroom before another implementation/trial.
