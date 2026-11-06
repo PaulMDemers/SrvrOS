@@ -12,6 +12,10 @@ static struct hfw_entry eg_ram[HFW_MAP_CAP];
 static unsigned eg_count,eg_phase;
 static bool eg_started,eg_broken;
 static uint64_t eg_root;
+struct eg_mp_input {
+ uint64_t revision,flags,count,bsp;
+ struct {uint32_t id;bool present,launched;} cpu[4];
+};
 static const uint8_t eg_dmar_pin[32]={0xaa,0xfa,0x82,0x6c,0xe5,0x0c,0x10,0x38,0x8f,0x2c,0x41,0x98,0xde,0x9a,0x42,0x9a,0xb5,0x1a,0x55,0x73,0xad,0x1c,0x5d,0x28,0x56,0xea,0x32,0xed,0x07,0x8b,0x63,0x07};
 static const uint8_t eg_mcfg_pin[60]={
  0x4d,0x43,0x46,0x47,0x3c,0,0,0,1,0x58,0x41,0x50,0x50,0x4c,0x45,0x20,
@@ -24,12 +28,14 @@ extern bool eg_test_msr(uint32_t,uint64_t *);
 extern uint32_t eg_test_port_read(uint16_t);
 extern void eg_test_port_write(uint16_t,uint32_t);
 extern uint8_t eg_test_dmar_pin[32];
+extern bool eg_test_mp_input(struct eg_mp_input *);
 #define eg_cpuid eg_test_cpuid
 #define eg_cr0 eg_test_cr0
 #define eg_cr4 eg_test_cr4
 #define eg_flags eg_test_flags
 #define eg_port_read eg_test_port_read
 #define eg_port_write eg_test_port_write
+#define eg_mp_input_read eg_test_mp_input
 #else
 #include "../src/arch/x86_64/io.h"
 static void eg_cpuid(uint32_t n,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d){__asm__ volatile("cpuid":"=a"(*a),"=b"(*b),"=c"(*c),"=d"(*d):"a"(n),"c"(0));}
@@ -38,16 +44,29 @@ static uint64_t eg_cr4(void){uint64_t v;__asm__ volatile("mov %%cr4,%0":"=r"(v))
 static uint64_t eg_flags(void){uint64_t v;__asm__ volatile("pushfq; popq %0":"=r"(v));return v;}
 #define eg_port_read inl
 #define eg_port_write outl
-#endif
 extern volatile struct limine_mp_request ap_probe_request;
-static bool eg_mp(void) {
+static bool eg_mp_input_read(struct eg_mp_input *out) {
  const struct limine_mp_response *r=ap_probe_request.response;
  if(!r || r->revision || r->flags || !r->cpus || r->cpu_count!=4 || r->bsp_lapic_id)return false;
+ *out=(struct eg_mp_input){.revision=r->revision,.flags=r->flags,.count=r->cpu_count,.bsp=r->bsp_lapic_id};
  unsigned mask=0;
  for(unsigned i=0;i<4;i++) {
   const struct limine_mp_info *p=r->cpus[i];
   if(!p || p->lapic_id>=4 || (mask&(1u<<p->lapic_id)) || (p->lapic_id && p->goto_address))return false;
   mask|=1u<<p->lapic_id;
+  out->cpu[i].present=true;out->cpu[i].id=p->lapic_id;out->cpu[i].launched=p->goto_address!=NULL;
+ }
+ return true;
+}
+#endif
+static bool eg_mp(void) {
+ struct eg_mp_input r;
+ if(!eg_mp_input_read(&r) || r.revision || r.flags || r.count!=4 || r.bsp)return false;
+ unsigned mask=0;
+ for(unsigned i=0;i<4;i++) {
+  unsigned id=r.cpu[i].id;
+  if(!r.cpu[i].present || id>=4 || (mask&(1u<<id)) || (id && r.cpu[i].launched))return false;
+  mask|=1u<<id;
  }
  return mask==15;
 }

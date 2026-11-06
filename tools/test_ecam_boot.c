@@ -1,8 +1,12 @@
 /* Actual VMM backend, fault-injected physical primitives; RAM only. */
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 static uint64_t pages[8][512],tags[8],clock_ticks,cr3=0x2000000,irq_flags=2;
 static unsigned allocs,frees,loads,stores,invalidates,event_fault,event_index,load_fault,store_fault;
@@ -18,6 +22,19 @@ static void vmm_test_cpuid(uint32_t l,uint32_t *a,uint32_t *b,uint32_t *c,uint32
 static uint64_t vmm_test_efer(void){assert(false);return 0;}
 static uint64_t vmm_test_irq_save(void){assert(false);return 0;}
 static void vmm_test_irq_restore(uint64_t n){(void)n;assert(false);}
+/* Unrelated user-frame machinery must never execute in this fixture. Its
+ * existing host hooks also keep x86 instructions out of ARM host builds. */
+static _Noreturn void ecam_unexpected_user_frame(void){assert(!"unexpected user-frame route");abort();}
+static uint64_t user_frame_test_rflags(void){ecam_unexpected_user_frame();}
+static uint64_t user_frame_test_cr0(void){ecam_unexpected_user_frame();}
+static uint64_t user_frame_test_cr4(void){ecam_unexpected_user_frame();}
+static uint64_t user_frame_test_cr3(void){ecam_unexpected_user_frame();}
+static uint64_t user_frame_test_efer(void){ecam_unexpected_user_frame();}
+static uint64_t user_frame_test_pat(void){ecam_unexpected_user_frame();}
+static uint64_t user_frame_test_rsp(void){ecam_unexpected_user_frame();}
+static uint64_t user_frame_test_kernel_address(const void *p){(void)p;ecam_unexpected_user_frame();}
+static uint8_t *user_frame_test_user_pointer(uint64_t p){(void)p;ecam_unexpected_user_frame();}
+static void user_frame_test_cpuid(uint32_t n,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d){(void)n;(void)a;(void)b;(void)c;(void)d;ecam_unexpected_user_frame();}
 static unsigned frame_index(uint64_t pa){assert(pa>=0x2000000 && pa<0x2008000);return (pa-0x2000000)/4096;}
 static uint64_t ecam_test_virtual(uint64_t pa){return 0xffff800000000000ull+pa;}
 static bool ecam_test_load(uint64_t pa,unsigned i,uint64_t *out){
@@ -46,6 +63,7 @@ static bool ecam_test_event(unsigned event,unsigned n){
  return !(event_fault==event && event_index==n);
 }
 #define SRVROS_VMM_HOST_TEST
+#define SRVROS_USER_FRAME_COPY_HOST_TEST
 #define SRVROS_ECAM_BOOT
 #define SRVROS_ECAM_HOST_TEST
 #include "../kernel/src/memory/vmm.c"
@@ -92,17 +110,27 @@ int main(void){
  for(unsigned i=0;i<512;i++)assert(pages[5][i]==eb_leaf(i));
  assert(vmm_ecam_boot_retire() && eb.r.state==ECAM_RETIRED && frees==1 && invalidates==79872 && !pages[1][12]);
  assert(!vmm_ecam_boot_retire());
+ for(unsigned mode=1;mode<=2;mode++) {
+  reset();
+  if(mode==1)pages[3][16]=0x2000083; /* HHDM2MiB leaf. */
+  else pages[2][0]=0x83; /* HHDM1GiB leaf, supported by the native gate. */
+  assert(vmm_ecam_boot_prepare(&io));unsigned prepare_words=eb.r.words;
+  assert(vmm_ecam_boot_retire() && frees==1 && invalidates==79872);
+  printf("checked RAM walker shift=%u prepare_words=%u lifetime_words=%u cap=%u\n",mode==1?21:30,prepare_words,eb.r.words,ECAM_BOOT_WORD_CAP);
+ }
  reset();kernel_mapping_count=1;kernel_mappings[0]=(struct kernel_mapping){0xffffc000fee00000ull,0xfee00000,0x12};
  struct kernel_mapping saved=kernel_mappings[0];assert(vmm_ecam_boot_prepare(&io));assert(vmm_ecam_boot_handoff());
  assert(eb.r.state==ECAM_ACTIVE && eb.r.metadata_attempts==39936 && kernel_mapping_count==128 && !memcmp(&saved,kernel_mappings,sizeof(saved)));
  for(unsigned i=1;i<128;i++)assert(kernel_mappings[i].virtual_address==ECAM_BOOT_VA+(i-1)*4096ull);
  assert(!vmm_ecam_boot_retire() && !frees);
- for(unsigned mode=0;mode<8;mode++){
+ for(unsigned mode=0;mode<10;mode++){
   reset();if(mode==0)irq_flags|=512;if(mode==1)admit_fail=true;if(mode==2)ram_fail=true;if(mode==3)cr3|=1;
   if(mode==4)address_space_count=1;
   if(mode==5)pages[1][12]=2;
   if(mode==6)alloc_fail=true;
   if(mode==7)kernel_mappings[127].virtual_address=ECAM_BOOT_VA;
+  if(mode==8)pages[2][0]|=1ull<<52;
+  if(mode==9)pages[2][0]=0xfed90003; /* Device page cannot be a table source. */
   assert(!vmm_ecam_boot_prepare(&io) && eb.r.state==ECAM_REFUSED && !frees && !stores);
  }
  reset();alloc_borrowed=true;assert(!vmm_ecam_boot_prepare(&io));retained();
@@ -136,6 +164,8 @@ int main(void){
  reset();stop_clock=true;assert(!vmm_ecam_boot_prepare(&io) && eb.r.state==ECAM_REFUSED && frees==1 && !pages[1][12]);
  reset();assert(vmm_ecam_boot_prepare(&io));frozen_time=eb.last;stop_clock=true;assert(!vmm_ecam_boot_retire());retained();
  reset();assert(vmm_ecam_boot_prepare(&io));eb.r.words=ECAM_BOOT_WORD_CAP;assert(!vmm_ecam_boot_retire());retained();
+ reset();assert(vmm_ecam_boot_prepare(&io));tags[5]=PMM_FRAME_DMA;assert(!vmm_ecam_boot_retire());retained();
+ reset();assert(vmm_ecam_boot_prepare(&io));frozen_time=eb.last-1;stop_clock=true;assert(!vmm_ecam_boot_retire());retained();
  reset();assert(vmm_ecam_boot_prepare(&io));frozen_time=eb.last;stop_clock=true;assert(!vmm_ecam_boot_handoff());retained();
  for(unsigned i=1;i<=3;i++){reset();stage_mutation=i;assert(!vmm_ecam_boot_prepare(&io));retained();}
  puts("actual ECAM backend PASS: 4-level RAM walks, 512 detached-store faults before/after, parent ambiguity, full invalidation, guards, registry handoff, exact cleanup and retained poison");
