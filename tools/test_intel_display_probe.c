@@ -10,6 +10,12 @@
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 static const char *engine_mode="report";
 #endif
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+static uint32_t bcs_ctl=0xf001;static unsigned bcs_reads,bcs_writes,reader_calls;
+static bool intel_display_test_blitter_read(uint32_t *);
+static enum intel_gt_write intel_display_test_blitter_write(uint32_t);
+static bool intel_display_test_reader_read(unsigned,unsigned,uint32_t *);
+#endif
 static bool wake_mode,wake_cache_fail,wake_map_fail,wake_retire_fail,wake_uncertain,wake_no_ack,wake_foreign,wake_busy,wake_thread_stuck,wake_late_foreign,wake_fw_after;
 static uint32_t wake_request __attribute__((unused))=0x10000,wake_ack __attribute__((unused));static unsigned wake_writes;static bool wake_irq __attribute__((unused));
 #ifdef SRVROS_INTEL_WAKE_TRIAL
@@ -18,6 +24,10 @@ static bool intel_display_test_wake_irq_off(void){return wake_irq;}
 static void intel_display_test_wake_irq_restore(uint64_t flags){assert(flags==512);wake_irq=false;}
 static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc0000000ull+o && (o==0xa000 || o==0x130000 || o==0x138000
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
+
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+ || o==0x70000 || o==0x71000 || o==0x72000
+#endif
  || o==0x2000 || o==0x12000 || o==0x1a000 || o==0x1c000 || o==0x22000
 #endif
 ));
@@ -36,6 +46,10 @@ static bool intel_display_test_engine_read(unsigned e,unsigned w,uint32_t *v) {
  engine_calls++;
  if(!strcmp(engine_mode,"late-foreign"))wake_request|=2;
  *v=w==4?1:0;
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+ if(e==4 && w==2)*v=0x3eef000;
+ if(e==4 && w==3)*v=bcs_ctl;
+#endif
  if(!strcmp(engine_mode,"active") && e==0 && w==3)*v=1;
  if(!strcmp(engine_mode,"pending") && e==2 && w==4)*v=0x10;
  if(!strcmp(engine_mode,"changed") && engine_calls>30 && e==1 && w==2)*v=4096;
@@ -74,6 +88,37 @@ volatile struct limine_bootloader_info_request bootloader_info_request={.respons
 volatile struct limine_executable_cmdline_request executable_cmdline_request={.response=&wake_cmd};
 #endif
 
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+static bool intel_display_test_blitter_read(uint32_t *v) {
+ assert(wake_irq && !display_access_allowed() && wake_ack==1);bcs_reads++;
+ const uint32_t words[8]={0,0,0x3eef000,bcs_ctl,1,0,0x200,1};
+ for(unsigned i=0;i<8;i++)v[i]=words[i];
+ if(!strcmp(engine_mode,"blit-notidle"))v[6]=0;
+ if(!strcmp(engine_mode,"blit-execlist"))v[7]|=0x8000;
+ if(!strcmp(engine_mode,"blit-ppgtt"))v[7]|=0x200;
+ if(!strcmp(engine_mode,"blit-mode-change") && bcs_writes)v[7]=0;
+ if(!strcmp(engine_mode,"blit-busy"))v[0]=8;
+ if(!strcmp(engine_mode,"blit-start"))v[2]=0x3eee000;
+ if(!strcmp(engine_mode,"blit-change") && bcs_reads==2)v[6]|=1u<<16;
+ if(!strcmp(engine_mode,"blit-float"))v[0]=UINT32_MAX;
+ if(!strcmp(engine_mode,"blit-late-foreign") && bcs_writes)wake_request|=2;
+ return strcmp(engine_mode,"blit-read-fail")!=0;
+}
+static enum intel_gt_write intel_display_test_blitter_write(uint32_t value) {
+ assert(wake_irq && !display_access_allowed() && wake_ack==1 && value==0xf000 && bcs_ctl==0xf001);
+ for(unsigned i=0;i<WAKE_MAPS;i++){uint64_t physical;assert(vmm_virt_to_phys_in_space(0x1000,WAKE_VA+4096*i,&physical) && physical==0xc0000000ull+wake_pages[i]);}
+ bcs_writes++;assert(bcs_writes==1);
+ if(!strcmp(engine_mode,"blit-unissued"))return GT_WRITE_NONE;
+ if(strcmp(engine_mode,"blit-readback"))bcs_ctl=value;
+ return !strcmp(engine_mode,"blit-uncertain")?GT_WRITE_UNCERTAIN:GT_WRITE_DONE;
+}
+static bool intel_display_test_reader_read(unsigned p,unsigned w,uint32_t *out) {
+ assert(p<3 && w<9 && wake_irq && !display_access_allowed() && wake_ack==1);reader_calls++;
+ *out=!p && !w?0xd8000400:0;
+ if(!strcmp(engine_mode,"blit-reader-change") && reader_calls>27 && !p && w==1)*out=4096;
+ return strcmp(engine_mode,"blit-reader-fail")!=0;
+}
+#endif
 bool console_sync(void){return true;}
 void console_flush(void){assert(display_access_allowed());}
 bool display_present_handoff_idle(void){return true;}
@@ -86,9 +131,9 @@ static bool intel_display_test_fw_read(uint32_t offset,uint32_t *v){
  assert(0);return false;
 }
 static unsigned config_reads,mmio_reads,map_calls,unmap_calls;
-static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+9];
+static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+12];
 static bool firmware_ok,clock_ok,alias,malformed,reporting,backing_mode,translation_gap,dma_unmap_fail;
-static struct pci_device devices[3];
+static struct pci_device devices[4];
 static struct acpi_table_info dsdt,extra_dmar;
 static bool extra_table;
 static uint8_t extra_bytes[136];
@@ -100,10 +145,19 @@ static struct limine_framebuffer frame;
 static const uint64_t fb_virtual=0xffff8000b0000000ull;
 static bool intel_display_test_uc(uint64_t p){assert(p==0xc0811000);return !window_cache_fail;}
 uint8_t pci_read_config8(const struct pci_device *d,uint8_t off){assert(d==&devices[0] && off==0x62);return 1;}
-uint64_t pci_device_count(void){return 3;}
-const struct pci_device *pci_device_at(uint64_t i){return i<3?&devices[i]:NULL;}
+uint64_t pci_device_count(void){
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+ return 4;
+#else
+ return 3;
+#endif
+}
+const struct pci_device *pci_device_at(uint64_t i){return i<pci_device_count()?&devices[i]:NULL;}
 uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
     config_reads++;assert(config_reads<(wake_mode?10000000:gt_mode?20000:window_mode?5000:1000));
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+    if(d==&devices[3]){switch(off){case 0:return 0x160c8086;case 4:return 0x00100006;case 8:return 0x04030001;case 0x34:return 0x40;case 0x40:return 0x00030001;case 0x44:return reader_calls>27 && !strcmp(engine_mode,"blit-audio-change")?0:3;default:return 0;}}
+#endif
     if(d==&devices[2]){switch(off){case 0:return 0x16048086;case 0x50:return window_mode?0x2c0:0x140;case 0xb0:return window_mode?0x8c000001:0x90000001;case 0xb4:return window_mode?0x8b800001:0x8fe00001;case 0xbc:return window_mode?0x90000001:0x92000001;default:return 0;}}
     if(d==&devices[1])return off==0?0x9cc38086:0;
     switch(off) {
@@ -122,10 +176,14 @@ bool laptop_firmware_match(const uint8_t *p,size_t n){assert((uintptr_t)p==0x100
 uint64_t vmm_kernel_address_space(void){return 0x1000;}
 uint64_t vmm_current_address_space(void){return current;}
 bool vmm_virt_to_phys(uint64_t v,uint64_t *p){assert(v==fb_virtual);*p=0xb0000000;return true;}
-static unsigned index_of(uint64_t v){if(v>=BACKING_VA+0x10000 && v<BACKING_VA+0x18000)return INTEL_CAPTURE_PAGES+1+(unsigned)((v-BACKING_VA-0x10000)/4096);if(v==BACKING_VA)return INTEL_CAPTURE_PAGES;assert(v>=CAPTURE_VA && v<CAPTURE_VA+4096*INTEL_CAPTURE_PAGES && !(v&4095));return (unsigned)((v-CAPTURE_VA)/4096);}
+static unsigned index_of(uint64_t v){if(v>=BACKING_VA+0x10000 && v<BACKING_VA+0x1b000)return INTEL_CAPTURE_PAGES+1+(unsigned)((v-BACKING_VA-0x10000)/4096);if(v==BACKING_VA)return INTEL_CAPTURE_PAGES;assert(v>=CAPTURE_VA && v<CAPTURE_VA+4096*INTEL_CAPTURE_PAGES && !(v&4095));return (unsigned)((v-CAPTURE_VA)/4096);}
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t v,uint64_t *p){assert(space==0x1000);if(backing_mode && v>=fb_virtual && v<fb_virtual+6144*900){if(translation_gap && v==fb_virtual+4096)return false;*p=0xb0000000+v-fb_virtual;return true;}unsigned n=index_of(v);*p=pa[n];return pa[n]!=0;}
 bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) {
-    assert(space==0x1000 && flags==((wake_mode && v==BACKING_VA+0x10000)?(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITABLE):(fw_mode && p==0x12345000)?VMM_PAGE_NO_EXECUTE:(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)));unsigned n=index_of(v);
+    bool writable=wake_mode && v==BACKING_VA+0x10000;
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+    writable=writable || (wake_mode && v==BACKING_VA+0x17000);
+#endif
+    assert(space==0x1000 && flags==(writable?(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITABLE):(fw_mode && p==0x12345000)?VMM_PAGE_NO_EXECUTE:(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)));unsigned n=index_of(v);
     assert(!pa[n]);if(n>=INTEL_CAPTURE_PAGES)assert((p>=0xc0000000 && p<0xc1000000) || p==0xfed90000 || (fw_mode && p==0x12345000));else assert(p==0xc0000000ull+intel_capture_pages[n]);pa[n]=p;map_calls++;
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
  if(!strcmp(engine_mode,"map-last") && v==BACKING_VA+0x17000)return false;
@@ -204,6 +262,9 @@ static void reset(void) {
     dsdt=(struct acpi_table_info){.physical_address=0x100000,.length=35034};memcpy(dsdt.signature,"DSDT",4);
     ram=(struct limine_memmap_entry){.base=0x100000,.length=0x70000000,.type=LIMINE_MEMMAP_USABLE};
     devices[2]=(struct pci_device){.device=0,.class_code=6};
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+    devices[3]=(struct pci_device){.device=3,.vendor_id=0x8086,.device_id=0x160c,.class_code=4,.subclass=3};
+#endif
     aperture=(struct limine_memmap_entry){.base=0xb0000000,.length=0x10000000,.type=LIMINE_MEMMAP_FRAMEBUFFER};
     stolen_region=(struct limine_memmap_entry){.base=0x90000000,.length=0x2000000,.type=LIMINE_MEMMAP_RESERVED};
     memory=(struct limine_memmap_response){.entry_count=1,.entries=entries};memmap_request.response=&memory;
@@ -253,6 +314,9 @@ int main(int argc,char **argv) {
     static char engine_recipe[1024];
     snprintf(engine_recipe,sizeof(engine_recipe),"%s srvros.intel-engines=read-only",wake_cmd.cmdline);
     wake_cmd.cmdline=engine_recipe;
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+    static char blitter_recipe[1200];snprintf(blitter_recipe,sizeof(blitter_recipe),"%s srvros.intel-blitter=retire",engine_recipe);wake_cmd.cmdline=blitter_recipe;
+#endif
 #endif
     reset();wake_mode=argc==2 && !strncmp(argv[1],"--wake-",7);wake_cache_fail=wake_mode && !strcmp(argv[1],"--wake-cache");wake_map_fail=wake_mode && !strcmp(argv[1],"--wake-map");wake_retire_fail=wake_mode && !strcmp(argv[1],"--wake-retire");wake_uncertain=wake_mode && !strcmp(argv[1],"--wake-uncertain");wake_no_ack=wake_mode && !strcmp(argv[1],"--wake-no-ack");wake_foreign=wake_mode && !strcmp(argv[1],"--wake-foreign");wake_busy=wake_mode && !strcmp(argv[1],"--wake-busy");wake_thread_stuck=wake_mode && !strcmp(argv[1],"--wake-c0");wake_late_foreign=wake_mode && !strcmp(argv[1],"--wake-late-foreign");wake_fw_after=wake_mode && !strcmp(argv[1],"--wake-fw-after");fw_mode=wake_mode || (argc==2 && !strncmp(argv[1],"--fw-",5));fw_bad_signature=fw_mode && !strcmp(argv[1],"--fw-signature");fw_changed=fw_mode && !strcmp(argv[1],"--fw-changed");fw_cache_fail=fw_mode && !strcmp(argv[1],"--fw-cache");fw_map_fail=fw_mode && !strcmp(argv[1],"--fw-map");fw_retire_fail=fw_mode && !strcmp(argv[1],"--fw-retire");gt_mode=fw_mode || (argc==2 && !strncmp(argv[1],"--gt-",5));gt_cache_fail=gt_mode && !strcmp(argv[1],"--gt-cache-failed");gt_map_fail=gt_mode && !strcmp(argv[1],"--gt-map-failed");gt_retire_fail=gt_mode && !strcmp(argv[1],"--gt-retire-failed");gt_changed=gt_mode && !strcmp(argv[1],"--gt-changed");gt_bad_pci=gt_mode && !strcmp(argv[1],"--gt-pci-failed");gt_float=gt_mode && !strcmp(argv[1],"--gt-float-read");window_mode=gt_mode || (argc==2 && !strncmp(argv[1],"--window-",9));window_map_fail=window_mode && !strcmp(argv[1],"--window-map-failed");window_retire_fail=window_mode && !strcmp(argv[1],"--window-retire-failed");window_cache_fail=window_mode && !strcmp(argv[1],"--window-cache-refused");cache_mode=window_mode || (argc==2 && !strcmp(argv[1],"--cache-backing-report"));backing_mode=cache_mode || (argc==2 && !strcmp(argv[1],"--backing-report"));reporting=argc==2 && (!strcmp(argv[1],"--report") || backing_mode);if(window_mode){stolen_region.base=0x8c000000;stolen_region.length=0x4000000;}
     if(backing_mode)memory.entry_count=3;
@@ -266,7 +330,16 @@ int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
  good=good && strcmp(engine_mode,"float-last") && strcmp(engine_mode,"read-fail-last") && strcmp(engine_mode,"float") && strcmp(engine_mode,"read-fail") && strcmp(engine_mode,"cache-last") && strcmp(engine_mode,"map-last") && strcmp(engine_mode,"retire-last") && strcmp(engine_mode,"late-foreign") && strcmp(engine_mode,"slow") && strcmp(engine_mode,"frozen");
 #endif
- assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);if(good){assert(wake_writes==3 && !wake_ack && (wake_request&0xffff)==0 && display_access_allowed());}}
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+ if(!strncmp(engine_mode,"blit-",5))good=good && !strcmp(engine_mode,"blit-report");
+#endif
+ assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+ if(!strcmp(engine_mode,"blit-uncertain") || !strcmp(engine_mode,"blit-readback") || !strcmp(engine_mode,"blit-late-foreign") || !strcmp(engine_mode,"blit-reader-change") || !strcmp(engine_mode,"blit-audio-change") || !strcmp(engine_mode,"blit-mode-change")) {
+  assert(!display_access_allowed());for(unsigned j=0;j<WAKE_MAPS;j++)assert(pa[INTEL_CAPTURE_PAGES+1+j]);
+ }
+#endif
+if(good){assert(wake_writes==3 && !wake_ack && (wake_request&0xffff)==0 && display_access_allowed());}}
 #else
  if(wake_mode){assert(!intel_gt_wake_probe_report() && !wake_writes && display_access_allowed());}
 #endif

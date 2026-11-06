@@ -99,7 +99,7 @@ Before a native range transfer:
    device-reader retirement before releasing either address or physical memory.
    Then integrate publication and native vblank flips.
 
-The next physical test is this automated census, with volume1%, no audio or
+The original physical test was this automated census, with volume1%, no audio or
 human input, persisted progress and automatic return after handled outcomes.
 It is an evidence step toward handoff, not a tear-free desktop acceptance.
 
@@ -129,3 +129,8 @@ raw observations do not retire the ring or certify the absence of prefetched
 work or other readers. Next is a documented bounded BCS retirement protocol and
 remaining reader/translation/cache obligations before any native range transfer.
 No GPU PTE writer or managed-memory assurance is enabled.
+
+The next separate [idle BCS disable and reader trial](intel-blitter-retirement.md)
+adds one guarded front-end control transition under a new explicit boot policy.
+It cannot promote these observations into general engine/reader or memory
+ownership.

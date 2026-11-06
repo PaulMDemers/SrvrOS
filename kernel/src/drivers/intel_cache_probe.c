@@ -112,3 +112,11 @@ bool intel_cache_probe_engine_uc_page(uint64_t physical,uint32_t offset) {
        !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
     return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
 }
+
+bool intel_cache_probe_reader_uc_page(uint64_t physical,uint32_t offset) {
+    struct x86_cache_snapshot current;unsigned m,p,e;uint64_t pages[3];
+    if((offset!=0x70000 && offset!=0x71000 && offset!=0x72000) || !report_ok ||
+       !intel_scanout_trial_cache_pages(pages) || pages[0]<0x101000 || physical!=pages[0]-0x101000+offset ||
+       !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
+    return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
+}

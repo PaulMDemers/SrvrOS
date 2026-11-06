@@ -573,6 +573,12 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-blitter-summary:'):
+        from intel_blitter import blitter_summary_complete
+        try:
+            return not blitter_summary_complete(line)
+        except ValueError:
+            return True
     # Successful wake receipts carry reason=0. Decode the entire receipt;
     # malformed, refused and retained leases must still attract attention.
     if line.startswith('intel-wake-summary:'):
@@ -907,7 +913,15 @@ def collect(mount, volume, output):
                 intel_engines=engine_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not intel_engines or not intel_engines['observation_complete'] or not intel_wake or not intel_wake['native_wake_complete']:attention.append('Intel engine census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel engine census: '+str(error))
+        intel_blitter=None
+        if 'srvros.intel-blitter=retire' in text:
+            from intel_blitter import blitter_result
+            try:
+                intel_blitter=blitter_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not intel_blitter or not intel_blitter['complete'] or not intel_wake or not intel_wake['native_wake_complete']:attention.append('Intel blitter/reader trial incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel blitter/reader trial: '+str(error))
         records.append({
+            "intel_blitter":intel_blitter,
             "intel_engines":intel_engines,
             "intel_display_capture": intel_display,
             "intel_display_backing": intel_backing,

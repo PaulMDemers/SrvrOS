@@ -12,6 +12,9 @@ int main(void) {
  snprintf(bad_engine,sizeof(bad_engine),"%s srvros.intel-engines=read-only",recipe);
  assert(intel_gt_boot_engine_recipe(bad_engine));assert(!intel_gt_boot_recipe(bad_engine));
  assert(!intel_gt_boot_engine_recipe(recipe));
+ char blitter[2200];snprintf(blitter,sizeof(blitter),"%s srvros.intel-blitter=retire",bad_engine);
+ assert(intel_gt_boot_blitter_recipe(blitter));assert(!intel_gt_boot_engine_recipe(blitter) && !intel_gt_boot_recipe(blitter));assert(!intel_gt_boot_blitter_recipe(bad_engine));
+ strcat(blitter," srvros.intel-blitter=retire");assert(!intel_gt_boot_blitter_recipe(blitter));
  strcat(bad_engine," srvros.intel-engines=read-only");assert(!intel_gt_boot_engine_recipe(bad_engine));
  assert(intel_gt_boot_recipe(recipe));assert(!intel_gt_boot_recipe(NULL) && !intel_gt_boot_recipe(" "));
  char bad[4096];

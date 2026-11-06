@@ -7,11 +7,20 @@ extern volatile struct limine_firmware_type_request intel_wake_firmware_request;
 extern volatile struct limine_bootloader_info_request bootloader_info_request;
 extern volatile struct limine_executable_cmdline_request executable_cmdline_request;
 #define WAKE_VA (BACKING_VA+0x10000)
+#if defined(SRVROS_INTEL_BLITTER_TRIAL) && !defined(SRVROS_INTEL_ENGINE_TRIAL)
+#error "Blitter trial requires the engine census capability"
+#endif
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 #include <srvros/intel_engine_census.h>
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+#define WAKE_MAPS 11u
+#define WAKE_VERSION 3u
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x70000,0x71000,0x72000};
+#else
 #define WAKE_MAPS 8u
 #define WAKE_VERSION 2u
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000};
+#endif
 #else
 #define WAKE_MAPS 3u
 #define WAKE_VERSION 1u
@@ -60,10 +69,13 @@ static bool wake_map(struct wake_adapter *a,unsigned i) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
     if(!intel_display_test_wake_uc(physical,wake_pages[i]))return false;
 #else
-    if(!(i<3?intel_cache_probe_wake_uc_page(physical,wake_pages[i]):intel_cache_probe_engine_uc_page(physical,wake_pages[i])))return false;
+    if(!(i<3?intel_cache_probe_wake_uc_page(physical,wake_pages[i]):i<8?intel_cache_probe_engine_uc_page(physical,wake_pages[i]):intel_cache_probe_reader_uc_page(physical,wake_pages[i])))return false;
 #endif
     if(!backing_range_reserved(physical,4096))return false;
     uint64_t flags=VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|(i?0:VMM_PAGE_WRITABLE);
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+    if(i==7)flags|=VMM_PAGE_WRITABLE;
+#endif
     if(!vmm_map_page_in_space(a->fw.gt.a.common.cr3,va,physical,flags)) {
         if(vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,va,&old))a->uncertain=true;
         return false;
@@ -143,6 +155,9 @@ static void engine_report(const struct intel_engine_census *r,bool retired) {
         (uint64_t)r->samples,(uint64_t)r->reads,(uint64_t)r->stable,(uint64_t)r->enabled,(uint64_t)r->pending,r->begin_us,r->end_us,(uint64_t)r->complete,(uint64_t)retired);
 }
 #endif
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+#include "intel_blitter_trial.inc"
+#endif
 static bool wake_fw_quiet(const struct intel_fw_result *r) {
     if(r->status!=IFW_OBSERVED || r->endpoint.swsci!=0x8000 || r->sample[0].words[5]!=0x02000000 || r->sample[0].words[6]!=31)return false;
     for(unsigned n=0;n<2;n++)for(unsigned i=7;i<INTEL_FW_WORDS;i++)if(r->sample[n].words[i])return false;
@@ -158,7 +173,10 @@ bool intel_gt_wake_probe_report(void) {
     const struct limine_executable_cmdline_response *cmd=executable_cmdline_request.response;
     f.efi64=firmware && !firmware->revision && firmware->firmware_type==LIMINE_FIRMWARE_TYPE_EFI64;
     f.loader=loader && !loader->revision && wake_text(loader->name,"Limine") && wake_text(loader->version,"11.4.1");
-    #ifdef SRVROS_INTEL_ENGINE_TRIAL
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_blitter_recipe(cmd->cmdline);
+    struct intel_engine_census engines={0};struct intel_blitter_result blitter={0};struct reader_audit readers={0};
+#elif defined(SRVROS_INTEL_ENGINE_TRIAL)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_engine_recipe(cmd->cmdline);
     struct intel_engine_census engines={0};
 #else
@@ -169,7 +187,11 @@ bool intel_gt_wake_probe_report(void) {
     struct intel_fw_result fresh_fw={0};struct intel_gt_preflight_result fresh_gt={0};
     bool acquired=false,before=false,after=false,released=false,opened=false,checked=false,closed=false,fw_after=false;
     uint32_t grants=0;uint64_t begin=0,end=0;
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+    console_write("intel-blitter: cooperative boot BCS handoff; idle-only single disable; no Stop Ring/reset, GPU PTE write or memory transfer\n");
+#else
     console_write("intel-wake: bounded cooperative-UEFI wake lease; no engine control, PTE writes or GPU range transfer\n");
+#endif
     uint64_t flags=wake_irq_save();
     f.serialized=wake_irq_off();
     if(f.efi64 && f.loader && f.recipe && f.prerequisites && f.serialized && console_sync() &&
@@ -193,7 +215,20 @@ bool intel_gt_wake_probe_report(void) {
                 #ifdef SRVROS_INTEL_ENGINE_TRIAL
                 if(checked)(void)intel_engine_observe(&engines,&owner,(struct intel_engine_io){&a,engine_guard,engine_group,now});
 #endif
-                if(checked)closed=intel_gt_access_close(&owner);
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+                bool initial=engines.complete && engines.stable && engines.enabled==16 && !engines.pending;
+                if(checked && initial && reader_pass(&a,&owner,&readers,0)) {
+                    /* Separate explicitly compiled/recipe-gated BCS submission
+                     * handoff policy; quiet fields alone are not authority. */
+                    (void)intel_blitter_disable(&blitter,&owner,grants==7 && f.recipe,
+                        (struct intel_blitter_io){&a,engine_guard,blitter_group,blitter_store,now});
+                    if(blitter.uncertain)a.uncertain=true;
+                    if(!a.uncertain)(void)reader_pass(&a,&owner,&readers,1);
+                    reader_finish(&readers);
+                    if(blitter.writes && !readers.complete)a.uncertain=true;
+                }
+#endif
+                if(checked && !a.uncertain)closed=intel_gt_access_close(&owner);
             }
         }
         if(!owner.pinned && !a.uncertain && !a.fw.uncertain && !trial_mapping_fault) {
@@ -217,6 +252,10 @@ bool intel_gt_wake_probe_report(void) {
     engine_reads=engines.reads;
     engine_report(&engines,!retained && a.maps==a.retired);
     complete=complete && engines.complete;
+#endif
+#ifdef SRVROS_INTEL_BLITTER_TRIAL
+    engine_reads+=blitter.reads;blitter_report(&blitter,&readers);
+    complete=complete && blitter.disabled && !blitter.uncertain && readers.complete;
 #endif
     console_printf("intel-wake-summary: v=%u compiled=1 contract=1 efi64=%u loader=%u recipe=%u serialized=%u prerequisites=%u profile=%u fw_quiet=%u req_quiet=%u initial_req=%x initial_ack=%x grants=%u acquired=%u before=%u opened=%u checked=%u closed=%u fw_after=%u after=%u released=%u maps=%u retired=%u cache_checks=%u guards=%u retained=%u state=%u reason=%u writes=%u attempts=%u requests=%x ack=%x thread=%x begin_us=%u end_us=%u complete=%u engine_reads=%u pte_writes=0 managed_pages=0 smm_retired=0 hardware_ownership=0\n",
         (uint64_t)WAKE_VERSION,(uint64_t)f.efi64,(uint64_t)f.loader,(uint64_t)f.recipe,(uint64_t)f.serialized,(uint64_t)f.prerequisites,(uint64_t)f.profile,(uint64_t)f.firmware_quiet,(uint64_t)f.requesters_quiet,(uint64_t)fresh_gt.sample[0].requests,(uint64_t)fresh_gt.sample[0].ack,(uint64_t)grants,(uint64_t)acquired,(uint64_t)before,(uint64_t)opened,(uint64_t)checked,(uint64_t)closed,(uint64_t)fw_after,(uint64_t)after,(uint64_t)released,(uint64_t)a.maps,(uint64_t)a.retired,(uint64_t)a.cache_checks,(uint64_t)a.guards,(uint64_t)retained,(uint64_t)owner.state,(uint64_t)owner.reason,(uint64_t)owner.writes,(uint64_t)owner.write_attempts,(uint64_t)owner.requests,(uint64_t)owner.ack,(uint64_t)owner.thread,begin,end,(uint64_t)complete,(uint64_t)engine_reads);

@@ -16,6 +16,21 @@ new protocol/decoder, staging/collection/tests and docs. Preserve ordinary and
 prior diagnostic gates. Validate a matched source and exact stage, prepare
 recovery/run/backup, and stop ready for a hardware test; no reboot this block.
 
+### Blitter/reader implementation checkpoint (native trial pending)
+
+A separately compiled14-token boot profile now admits one BCS control disable
+under an explicit cooperative submission-domain handoff assumption. It requires
+the complete stable native engine preflight, exact idle/empty captured ring,
+a live owned wake lease, fresh deadline/resource guards and verified readback.
+Uncertain issued writes or changed subsequent reader state retain resources.
+The profile brackets it with54 read-only primary/cursor/sprite DWORDs and two
+config-only display-HDA snapshots. No HDA power/MMIO/stream change, engine
+Stop Ring/reset, GPU PTE or managed-memory transfer is introduced. The
+[BCS contract](../intel-blitter-retirement.md) records precise authority,
+eligibility, budgets, reader coverage and remaining gaps. Focused host/model
+and provenance tests precede full matched-source validation and preparation;
+no hardware test is armed.
+
 ### Native awake engine census accepted
 
 Release `3d8c0e9688408a25`, source `531bc9dd`, completes as
