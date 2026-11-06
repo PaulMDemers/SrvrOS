@@ -7652,3 +7652,18 @@ hash-verified copy outside build. Next is the distinct dispatcher/checked PCI-wi
 adoption and full raw receipt/decoder/tail profile. No new payload is installed,
 no reboot is armed and the failed native v4 census remains the current hardware
 result. Existing recovery/Ubuntu default and all prior device evidence are retained.
+
+
+### Opt-in ECAM adoption and dual-receipt scope (2026-11-06)
+
+Base `ca43ce23`; prior native failure collected, backend/gate merged and dormant.
+Add a distinct v5 profile, pre-PCI dispatch and checked one-use adoption of the
+active exact ECAM window. Preserve ordinary PCI and v1–v4. Poison is terminal
+before PCI/USB access; clean foreign refusal follows the old path but cannot pass.
+Retain complete fresh backend/gate raw proof in a separate64KiB `ecam.log`, then
+report the unchanged pre-init alias/cache proof into `exit.log`, with a strict
+same-session/epoch reference and cross-proof checks. No hash-only or partial
+proof substitutes, no context/census/tail limit changes. Scope: guarded main/PCI,
+backend snapshots/formatter, logger checkpoint, profile/decoder/collector/fixtures
+and own docs. PR301 GPU and PR19 Wi-Fi remain separate; publish bounded changes
+and rehearse matched stages before physical install/one-shot under existing auth.
