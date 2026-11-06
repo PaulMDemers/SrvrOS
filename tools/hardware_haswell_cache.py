@@ -50,7 +50,15 @@ def cpu_record(v):
 
 
 def effective(cpu, index):
-    seen={t for b,n,t in cpu['variables'] if b <= UNIT < b+n}
+    return effective_at(cpu, index, UNIT)
+
+
+def effective_at(cpu, index, physical):
+    """Historical classification above fixed-MTRR space; no live permission."""
+    if (type(index) is not int or not 0 <= index < 8 or type(physical) is not int or
+            not 0x100000 <= physical < 1 << 39):
+        raise ValueError('PAT index or modeled variable-MTRR address')
+    seen={t for b,n,t in cpu['variables'] if b <= physical < b+n}
     if not cpu['default'] & 0x800:
         m=0
     elif not seen:

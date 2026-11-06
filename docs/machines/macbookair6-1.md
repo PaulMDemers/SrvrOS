@@ -7535,3 +7535,120 @@ remaining native graph fits is still unknown. An earlier snapshot, source intent
 or partial census cannot establish current full-root admission. Raw evidence and
 source-matched validation have durable copies outside build; prior physical
 acceptance and recovery remain unchanged.
+
+
+### Checked2MiB ECAM mapping design scope (2026-11-05)
+
+Base `4cc0408b`; native v4 failure is collected and the layout audit is merged.
+Develop a host-only exact-unit mapping proposal and fault-tested publication/
+retirement model before a kernel mapper or native activation. Scope: tools,
+affected cache-decoder host helper/tests, host-test recipes and this unit's
+current design docs. Preserve mapped coverage, P/RW/PCD/NX attributes, all existing
+census limits and ordinary PCI/VMM behavior. Require homogeneous MTRR coverage
+inside each large leaf, explicit PAT-bit placement, zero-slot admission and
+precise failure/rollback/quarantine rules. Historical evidence cannot authorize
+live publication. Current PR301 GPU and PR19 Wi-Fi remain separate; inspect their
+actual heads and do not duplicate production VMM/main/PCI changes. No new boot is
+armed. Next checkpoint is a reviewable design with host evidence and open native
+backend requirements, not a hardware-acceptance claim.
+
+
+### Checked ECAM mapping design complete (2026-11-05)
+
+The [host-only proposal and backend contract](../macbookair6-1-ecam-mapping-design.md)
+preserve all39936 ECAM4KiB physical mappings and P/RW/PCD/NX attributes using78
+prospective2MiB leaves. The accepted older CPU/cache receipt classifies each
+large leaf's complete4KiB granules uniformly UC; historical data grants no live
+permission. Large-leaf PAT bit12 remains clear, PS bit7 is set, and no cache/control
+writer is introduced. The original strict cache receipt still replays identically.
+
+Twelve host proposal/lifetime test groups cover cache/geometry/input failures,
+zero-slot and exclusion guards, detached failures, uncertain publication and
+retirement, exact A-bit changes, terminal retention and permanent handoff.
+Actual-source VMM synthetic layout tests verify all mappings/end bytes, exact
+attributes, public-registry behavior and checked user-root preparation/refresh;
+the unchanged census accepts its three reachable tables/1536 loads per pass.
+Original4KiB boundary refusals, cache/alias/layout, PCI/VMM and sanitizer checks
+remain passing. These are host design proofs, not a native mapper or rollback.
+
+Next implement the narrow checked boot backend and fresh pre-PCI identity/cache/
+NX admission with real fault-injected publication/retirement tests, explicit
+bounded read accounting and unchanged ordinary PCI behavior. The design uses
+one detached PD and one checked parent link; every original4KiB VA is invalidated
+before handoff/free, and uncertainty retains the owned frame without fallback.
+Registry updates occur only at final handoff. No kernel mapping or policy changes,
+new payload or reboot is armed. The failed native v4 receipt remains failed;
+all accepted device/recovery evidence remains unchanged and durably retained.
+
+
+### Checked ECAM backend implementation scope (2026-11-05)
+
+Base `27f805bc`; all earlier native runs collected, no boot armed. Implement the
+real boot-only checked mapper and fresh pre-PCI admission for the exact captured
+Air6,1 geometry. Keep activation opt-in and the ordinary PCI path, profile budgets
+and census limits unchanged. Scope: isolated AP-diagnostic backend/adapter,
+minimal guarded VMM/PMM/PCI integration as needed, actual-source fault fixtures,
+build recipes and current unit/design docs. Require exact source/RAM/zero-slot
+admission, detached staging, ordered single-link publication, full4KiB invalidation,
+verified pre-handoff cleanup and retained poison after uncertainty. Fresh CPU/cache/
+NX, full raw MCFG/catalog and pre-enumeration legacy PCI identity checks must
+replace historical assumptions. Inspect PR301/19 overlap before production edits;
+no GPU, Wi-Fi or unrelated ownership changes. Next checkpoint: source-matched
+backend/gate tests and matched builds before any opt-in native profile/test.
+
+
+### Actual checked ECAM backend/gate candidate (2026-11-05)
+
+The real AP-only backend stages a private PD, checks the complete borrowed path,
+zero parent slot and registry, atomically publishes one link, invalidates all39936
+original4KiB VAs and either retires with verified unlink/invalidation/free or
+hands off permanently with the original registry semantics. Detached failure
+cleanup also rechecks the borrowed path; unknown state and broken fresh admission
+retain the frame. Actual-source fault injection covers all512 private stores
+before/after acknowledgement and publication/unlink, source, invalidation,
+metadata, clock, ownership and cleanup errors. No A/D masking or relaxed check.
+
+The fresh gate verifies captured CPU/control/NX state, BSP0 and parked four-CPU
+entrypoints, restored legacy PCI identity selection, full pinned MCFG/DMAR/catalog
+copies and two stable bounded cache/EFER observations. Its maximum49+49 cache
+MSRs/two EFER reads and20 identity reads/40 CF8 selection/restoration writes are
+explicitly separate from existing capture accounting. The new mapper lifetime is
+bounded at65536 RAM words and100ms across prepare/retire-or-handoff; existing
+49-MSR/16-PTE and64-table/32768-entry/4096-byte bounds are unchanged. PMM adds only
+a read-only bitmap/tag observation with IRQ-preservation tests.
+
+Matched normal/AP/USB builds, affected host suites and actual backend/gate
+ASan/UBSan pass. Entry points are retained only in the AP ELF and have no startup
+caller; ordinary PCI/main behavior remains unchanged. Native CPU exceptions remain
+terminal, not resumable rollback. Existing-profile VM regressions are pending
+at this candidate checkpoint. See the [current implementation contract](../macbookair6-1-ecam-mapping-design.md).
+Next add the separate versioned opt-in dispatcher, poison handling and complete
+raw receipt/tail/VM checks before a physical trial. No new payload is installed or
+reboot armed; the native v4 census is still failed and earlier acceptance unchanged.
+
+
+### ECAM backend validation closeout (2026-11-05)
+
+Implementation `db002799` passes matched normal/AP/USB builds, actual backend/gate
+and affected PMM/VMM/firmware/cache/alias/layout/PCI suites, and both ASan/UBSan
+fixtures. Eight sequential VMs pass normal syscall ABI, normal UEFI USB keyboard,
+legacy firmware/cache/v3-alias/32-fence profiles, exact v4 refusal/save/return and
+missing-workspace handling. These exercise the existing paths; the new backend
+has no startup caller and gains no native acceptance from them.
+
+Follow-up `54718be4` adds direct2MiB/1GiB RAM-walk cases, rejected device/reserved
+sources, lost tags/backward clocks and missing architectural features. The topology
+fixture is host-neutral, with identical native early checks, and assertions stay
+on even under a compiler's release defaults; unrelated privileged user-frame
+routes abort via existing test hooks. New fixture ARM64 cross-compilation passes;
+the initial compile failure is retained and is not macOS/ARM runtime acceptance.
+All affected checks and ASan/UBSan pass again, followed by six sequential exact-stage
+AP profile rehearsals on this source. Ordinary inputs remain unchanged from the
+two passing normal VMs. The new helper remains uncalled in all those profiles.
+
+Native pins match the captured complete MCFG and existing DMAR pin; ordinary ELF
+exclusion and AP symbol retention verify. Raw/source/VM/validation evidence has a
+hash-verified copy outside build. Next is the distinct dispatcher/checked PCI-window
+adoption and full raw receipt/decoder/tail profile. No new payload is installed,
+no reboot is armed and the failed native v4 census remains the current hardware
+result. Existing recovery/Ubuntu default and all prior device evidence are retained.
