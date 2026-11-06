@@ -13267,3 +13267,28 @@ was separately archived and compared before pruning;the537-file failure and
 Progress,results and Ubuntu return are automatic. Collect this matching session
 first. Corrected OUT-owner acceptance,live management association,WPA2 keys,
 authenticated IP/data and disconnect remain pending;credentials unread.
+
+### Corrected v126 target-window refusal and unchanged retry (November 6)
+
+Release `bdc5d02d78ad4e15` / runtime `af88d9f1` saved session
+`00065fa2af1597b2-00`, with 1,860,650 complete failure bytes. All five
+calibration replies and eight retained receive completions passed; three parsed
+beacons produced two private candidates but zero requested Demers5 matches.
+Target selection refused before power,peer or dedicated OUT ownership entry.
+The forced stop-event correction was not exercised and remains unaccepted.
+The complete541-file failure capsule is sealed independently; offline filesystem
+and allocation checks,recovery equality and Ubuntu automatic return passed.
+This is a failed prerequisite window,not an endpoint result or full RF-original
+restoration acceptance. No TD,doorbell or network frame was published.
+
+The bounded next step repeats the identical installed image once,with unchanged
+receive limits,target checks,endpoint comparisons and timeout policy. A separate
+run record and capsule preserve both attempts;the generated prior session is
+archived and byte-compared before pruning. Existing source-bound build,controller,
+sanitizer,composition and VM qualification is retained and hash-verified;storage,
+recovery and host identity are rechecked before the cold shutdown. Collect the
+retry first after return. Live management,WPA2/key/IP/data remain pending and
+credentials unread. Fetched main `305f9b0b` adds bounded opt-in ECAM timing/first-
+failure diagnostics and Air evidence;it remains deferred with the preceding ECAM
+adoption changes to isolate this unchanged Wi-Fi comparison. Open301/379 scopes
+remain graphics/browser;no competing Wi-Fi owner was found.
