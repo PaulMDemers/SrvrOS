@@ -66,6 +66,7 @@ static bool submit_command_trb(const struct xhci_trb *c,unsigned type,uint64_t *
 static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v);
 bool xhci_wifi_capture_power5(void);
 #include "../kernel/src/drivers/xhci_wifi_handoff5.inc"
+static bool wifi_peer5_inspect(void){assert(!"unexpected peer child");return false;}
 static void mutate(void){
  switch(fake.mutate){case 1:wifi_power5.step++;break;case 2:wifi_cal5.posts--;break;case 3:wifi_cal5.ep.ring[0].status^=1;break;case 4:((uint8_t *)wifi_cal5.plan.buffer[0])[0]^=1;break;case 5:xhci.command_ring_phys+=4096;break;case 6:device.slot_id++;break;case 7:device.input_context_phys+=4096;break;case 8:device.removed=true;break;case 9:device.vendor_id^=1;break;case 10:fake.parent=false;break;case 11:wifi_handoff5.plan.old_dequeue^=16;break;case 12:wifi_handoff5.plan.old_ring+=4096;break;case 13:wifi_handoff5.plan.protected_pages[0]=0x30000;break;case 14:wifi_handoff5.plan.new_ring+=4096;break;case 15:wifi_handoff5.plan.generation++;break;case 16:wifi_handoff5.new_physical+=4096;break;case 17:wifi_handoff5.new_pointer+=4096;break;default:break;}
 }

@@ -6883,3 +6883,12 @@ The unchanged cold retry passed;the first calibration-response timeout remains
 failed separately. This grants no TD publication,MAC start,network OUT,
 association,keys,IP or data authority. See the unit record for exact session,
 source,independent capsules and next live-owner scope.
+
+### Private peer binding candidate (v125)
+
+`--wifi-peer5` adds guarded stable current-station reads and same-retained-target
+basic-rate binding after the full stopped empty RX handoff/restoration. All
+matching advertisements must agree on supported/basic OFDM masks;unknown basic
+rates,missing basic6Mbps,duplicates and conflicts refuse. Address bytes and
+constructed management frames stay private. No TD,MAC start,network OUT,
+authentication,key,IP or data is authorized by this read-only candidate.

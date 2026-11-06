@@ -13035,3 +13035,27 @@ coverage,not a physical acceptance transfer. Installed accepted runtime stays
 Next work remains private station/target rate binding and dedicated live
 RX/data OUT for management AUTH/ASSOC/leave,then WPA2/key/replay/PN and
 bidirectional authenticated data/disconnect. No new trial is armed.
+
+### Private current peer binding candidate (November 5)
+
+Next bounded v125 `--wifi-peer5` requires the complete automatic empty-handoff
+parent after main4cc0408b integration. It adds10 read-only controls:disabled
+MAC/core/DMA guards around two identical current-station low/high reads. The
+captured7610 high-word readback control must remain zero. It uses the current
+address,not the cleared earlier factory header,and logs no address bytes.
+No retained parent object,page or endpoint context is changed. The selected
+Demers5 cache is rebuilt against the same immutable stopped window;all matching
+advertisements must agree on supported/basic OFDM masks and include basic6Mbps.
+Unknown basic rates,duplicates,malformed IEs,selection/security/rate conflicts,
+invalid station addresses,aliases,replay and ownership loss refuse publication.
+
+A successful copied peer can encode fixed AUTH/ASSOC/leave packets privately,
+but this trial sends none. Native guard/transport loss quarantines;completed
+address/rate semantic refusal remains failed and permits only the unchanged
+parent cleanup. Focused pure/native fault and strict saved-ledger tests pass;
+matched controller/build,sanitizer,exact-stage/storage/recovery and physical
+peer acceptance remain pending. Changes touch fixed MT76 peer/codec binding,
+its opt-in native child,staging and proof/tests. Other machines' alias/graphics
+and browser scopes remain independent;no cross-chat contact. Dedicated live
+RX/data OUT,matched management replies,WPA2/key/replay/PN and authenticated
+IP/data/disconnect remain open. Credentials remain unread/unpackaged.

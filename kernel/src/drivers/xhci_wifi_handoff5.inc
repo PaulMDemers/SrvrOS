@@ -1,4 +1,6 @@
 #include <srvros/mt76_handoff5.h>
+static bool wifi_peer5_requested;
+static bool wifi_peer5_inspect(void);
 /* Empty stopped-ring handoff only. No TD publication,MAC enable or network
  * OUT. Old parent predicates remain unchanged and refuse the fresh context.
  * Static snapshots/frames are retained on every outcome,never recycled. */
@@ -107,6 +109,7 @@ static bool wifi_handoff5_inspect(void){
  struct mt76_handoff5 *s=&wifi_handoff5.result;
  if(!ok && s->unsafe && !wifi_handoff5.failed)wifi_handoff5_fail();
  console_printf("wifi-handoff5: ok=%u complete=%u retargeted=%u inspected=%u restored=%u unsafe=%u reads=%u commands=%u controls=%u steps=%u generation=%u old_ring=%x old_dequeue=%x new_ring=%x protected=%u retained=1 posted=0 network_out=0\n",(uint64_t)ok,(uint64_t)s->complete,(uint64_t)s->retargeted,(uint64_t)s->inspected,(uint64_t)s->restored,(uint64_t)s->unsafe,(uint64_t)s->reads,(uint64_t)s->commands,(uint64_t)wifi_handoff5.controls,(uint64_t)wifi_handoff5.op,s->generation,wifi_handoff5.plan.old_ring,wifi_handoff5.plan.old_dequeue,wifi_handoff5.plan.new_ring,(uint64_t)wifi_handoff5.plan.protected_count);
+ if(ok && wifi_peer5_requested)ok=wifi_peer5_inspect();
  wifi_handoff5.active=false;return ok;
 }
 bool xhci_wifi_capture_handoff5(void){
