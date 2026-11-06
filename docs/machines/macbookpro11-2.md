@@ -13230,3 +13230,40 @@ only endpoint/parent/input/difference receipts remain enabled,without recovery,
 replay or additional hardware operations. Host/model tests cover all new refusal
 cases;physical correction acceptance is pending. The first537-file failure
 capsule remains immutable and failed. No network frame or key is submitted.
+
+### Qualified forced empty-ring stop correction trial (November 6)
+
+Corrected v126 `bdc5d02d78ad4e15` uses runtime `af88d9f1` and the same
+reviewed mainca43ce23/module pins. It requires one exact forced CC27 stop event
+at the pinned empty-ring base while Stop Endpoint is in flight,followed by the
+unchanged stopped-context,disable,input/other-context and full RF original
+checks. Missing,duplicate,mistimed or mismatched receipts fail and quarantine.
+Failure-only diagnostics add context and parent/input/difference snapshots;
+there is no replay or new TD/doorbell/frame. The first187489 stop-postcondition
+failure remains failed in its independent537-file capsule. Its exact original
+event was not logged,so the cause remains an inference until this trial observes
+it. The accepted v125 admission remains independent and unchanged. Newly fetched
+main26e3b161 adds separate opt-in Air ECAM adoption/receipt work and records its
+native halt;it is reviewed and deferred to isolate this Wi-Fi correction. Open
+PR301 remains Air graphics and379 browser audit;no other Wi-Fi owner is active.
+
+Matched kernel/USB image,complete controller suite,focused owner/management/
+parent/parser/namespace/docs regressions and six fatal ASan/UBSan groups pass.
+Unchanged225 stage groups remain source-bound;no new full-core run is claimed.
+Native compiler frames peak at616bytes. Production-C
+child/full accepted-parent synthetic composition passes at
+2028552bytes with68600bytes headroom and eight
+whole-prefix refusals. Fresh real2MiB filesystem roundtrip/fsck,ordinary desktop
+and exact GPT save/return/missing-workspace VMs pass. Kernel and independently
+reconstructed firmware initramfs match the installed payload.
+
+Ubuntu remains default and e47d previous. Accepted v125/v124/v123/v122 and the
+failed first v126 payload remain installed. If space requires retiring the older
+unreferenced285dad v121 EFI copy,it is first compared against its independent
+sealed native backup,which remains retained. The failed generated USB session
+was separately archived and compared before pruning;the537-file failure and
+153-file accepted admission capsules remain unchanged. Cold unplug only Wi-Fi
+10seconds while off,reconnect same port,power on with workspace connected.
+Progress,results and Ubuntu return are automatic. Collect this matching session
+first. Corrected OUT-owner acceptance,live management association,WPA2 keys,
+authenticated IP/data and disconnect remain pending;credentials unread.
