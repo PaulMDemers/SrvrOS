@@ -79,9 +79,11 @@ static bool wifi_join5_context(void){
 }
 static bool wifi_join5_owned(void *c,bool cleanup){
  (void)cleanup;struct xhci_device *d=wifi_join5.d;
- return c==&wifi_join5 && wifi_join5_frozen() && d && !d->control_pending && !d->firmware.pending && !d->firmware.mcu.pending && !xhci.sync_users && !xhci.command_pending && !xhci.command_failed && !strict_control.device &&
+ bool good=c==&wifi_join5 && wifi_join5_frozen() && d && !d->control_pending && !d->firmware.pending && !d->firmware.mcu.pending && !xhci.sync_users && !xhci.command_pending && !xhci.command_failed && !strict_control.device &&
  wifi_join5.posts<=WIFI_JOIN5_RX && wifi_join5.sends<=3 && wifi_join5.rx_enqueue==wifi_join5.posts && wifi_join5.tx_enqueue==wifi_join5.sends && wifi_join5.rx_cycle && wifi_join5.tx_cycle &&
  wifi_join5_ring(wifi_join5.rx,wifi_join5.rx_phys,wifi_join5.posts,true) && wifi_join5_ring(wifi_join5.tx,wifi_join5.tx_phys,wifi_join5.sends,false) && wifi_join5_context();
+ if(!good && wifi_join5.active)wifi_join5_fail();
+ return good;
 }
 static bool wifi_join5_event(struct xhci_device *d,const struct xhci_trb *e){
  if(!wifi_join5.active)return false;

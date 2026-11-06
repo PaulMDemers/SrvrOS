@@ -116,7 +116,7 @@ int main(int argc,char **argv){
  for(unsigned n=1;n<=6;n++){setup();fake.command_mutate=n;assert(!xhci_wifi_capture_join5() && fake.quarantine && fake.commands==n);}
  for(unsigned n=1;n<=3;n++){setup();fake.fail_send=n;assert(!xhci_wifi_capture_join5() && fake.sends==n && fake.quarantine && !wifi_join5.restored);}
  for(unsigned n=1;n<=controls;n++){setup();fake.fail_control=n;assert(!xhci_wifi_capture_join5() && fake.quarantine && !wifi_join5.restored);}
- for(unsigned n=1;n<=checks;n++){setup();fake.lose=n;assert(!xhci_wifi_capture_join5());}
+ for(unsigned n=1;n<=checks;n++){setup();fake.lose=n;assert(!xhci_wifi_capture_join5() && fake.quarantine && !wifi_join5.restored);}
  for(unsigned n=1;n<=12;n++){setup();fake.mutate=n;assert(!xhci_wifi_capture_join5() && fake.quarantine);}
  for(unsigned n=1;n<=5;n++){setup();fake.event_fault=n;assert(!xhci_wifi_capture_join5() && fake.quarantine && !wifi_join5.restored);}
  setup();fake.bad_guard=true;assert(!xhci_wifi_capture_join5() && fake.quarantine && !wifi_join5.restored && !fake.sends);

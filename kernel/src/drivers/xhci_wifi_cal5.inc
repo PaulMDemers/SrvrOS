@@ -205,6 +205,8 @@ static bool wifi_discovery5_inspect(void){
 }
 #include "xhci_wifi_power5.inc"
 #include "xhci_wifi_handoff5.inc"
+static bool wifi_join5_requested;
+static bool wifi_join5_inspect(void);
 #include "xhci_wifi_peer5.inc"
 #include "xhci_wifi_tx5.inc"
 #include "xhci_wifi_join5.inc"
