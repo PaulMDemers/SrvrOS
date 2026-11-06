@@ -293,3 +293,19 @@ provenance, a saved-preflight marker and independent UC derivation for all three
 pages. `native_wake_complete` can accept this bounded lease; `smm_retirement`,
 `engine_retirement`, `hardware_ownership`, `managed_range` and `physical_tearfree`
 remain false. No native wake or broader ownership acceptance exists yet.
+
+## Prepared first native lease trial
+
+`93b497d37af24dae` is installed with recovery preserved and no reboot armed.
+Its payload source`d5ff462d` passes the full host/core/profile/build matrix and
+sanitizers; host-only decoder follow-up`8a528a0c` corrects padded hex handling
+with independent DWORD bounds. The payload bytes are unchanged. All261
+collection/staging tests, the decoder regressions, seven detected compiled
+negative controls, partial-map preparation cleanup and exact-stage checkpoint/
+refusal/return and missing-workspace behavior pass. Existing presentation and
+Intel/Haswell profiles pass. The ordinary image matrix has no wake protocol or
+new firmware-type request; the dedicated staged image has both.
+
+This is ready for its first physical bounded cooperative wake lease. It is not
+physically accepted yet. The unit record identifies recovery, exact source,
+assumptions, run/checkpoint, preflight state and independently preserved evidence.

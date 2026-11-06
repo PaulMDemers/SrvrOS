@@ -2,7 +2,56 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
-### Active scope: explicit cooperative-UEFI wake lease
+### Ready: first bounded cooperative native wake trial
+
+Release `93b497d37af24dae` is installed, with recovery9aa retained and Ubuntu
+default. No reboot is armed. The payload source is`d5ff462d`; host decoder/test
+follow-up`8a528a0c` accepts the kernel's padded16-digit hex format while still
+rejecting values outside a DWORD. Kernel, initramfs and loader bytes are identical
+to the full-tested payload. This host-only correction is part of the branch and
+must accompany collection; it does not change the native write capability.
+
+The full host/core/profile/docs and normal/AP/native/synthetic/wake build gate
+passes at d5ff (89 installer tests, one expected opt-in skip). Fatal sanitizers
+pass the protocol, boot-contract core,14 actual wake-adapter modes, previous
+observer variants and four cache scenarios. Four compiled protocol controls and
+three admission controls detect removed initialization/C0/foreign/uncertainty and
+EFI/quiet-firmware/serialization gates. An actual last-page cache refusal retires
+both prepared aliases with zero stores. The final host decoder suite and all261
+collector/staging tests pass. The exact-stage VM verifies the real EFI64/loader/
+recipe/serialization facts, durable pre-write checkpoint and zero-write
+missing-Intel refusal with saved/unmounted return. Missing workspace halts.
+VirtIO and all existing firmware/handoff/window/DMA/lifetime and independent
+Haswell3/cache-context profiles pass. These are host/VM evidence only.
+
+The exact ELF links the native wake protocol and firmware-type request; ordinary,
+AP, native-AML and synthetic-AML images omit both. The trial uses the explicit
+cooperative-UEFI policy described in [GT access](../intel-gt-access.md#opt-in-cooperative-efi-wake-contract):
+conforming firmware yields boot-time requester control. This is not inferred from
+quiet fields and is not SMM absence or general reader/memory ownership.
+
+Fresh media checks preserve all1,341 files /103 sessions; fsck/allocation/writable/
+headroom pass and the read-only inventory retires with unchanged boot sectors.
+Prior458, df5, recovery9aa, cache07df, DMA5346 and known-goodc497 remain verified.
+Only the inactive, GRUB/NVRAM-unreferenced8b EFI copy is retired after full SHA
+equality with its durable payload and independent archive under
+`~/.local/share/srvros/efi-archives/20261106-native-wake`. Archived0e/d520/d79 also
+remain verified. Source-qualified stages, validation, run/checkpoint and references
+live in `build/air-native-wake-20261106`, with a full independently SHA-verified
+copy outside build cleanup.
+
+The next physical round is automated, with guest recovery instructions and a
+verified `session-a.log` before any write. It needs no input, keeps volume1% and
+audio off, saves/unmounts/returns on handled outcomes and halts on missing
+persistence. Expected success is a complete native lease: all admission and
+protocol/closeout flags1, grants7, maps/retired/cache checks/writes/attempts3,
+state3/reason0, no retained uncertainty, low16 initial/final requests and ACK0,
+C0 low3bits0, preserved inherited state and the full bracket within500ms.
+Require the matching checkpoint and native prerequisite chain before acceptance.
+No native wake acceptance, engine/DMA/display/audio reader handoff, GPU interval
+or physical tear-free flip is claimed before that round.
+
+### Implementation scope: explicit cooperative-UEFI wake lease
 
 Main `ca43ce23` is integrated as `625ce504`, preserving the Air6 ECAM/alias
 work; PR19 remains Pro Wi-Fi and PR379 WebCore. PR301 owns this slice.
