@@ -46,3 +46,12 @@ def native_wake_result(text):
    if decoded is None or decoded[0]!=0 or decoded[2]!=0:raise ValueError('wake UC MTRR/effective type')
  r['native_wake_complete']=True
  return r
+
+def verify_wake_checkpoint(pre,text,native=False):
+ if 'workspace-log: snapshot=session-a.log' not in pre or 'intel-wake-summary:' in pre:raise ValueError('missing or late wake preflight checkpoint')
+ if text.count('intel-wake: preflight checkpoint saved')!=1:raise ValueError('wake preflight not committed')
+ if native:
+  from intel_gt_firmware import native_firmware_result
+  before=native_firmware_result(pre);after=native_firmware_result(text)
+  if not before or not before['native_observation_complete'] or not after or before['rows']!=after['rows']:raise ValueError('wake checkpoint native prerequisites mismatch')
+ return True

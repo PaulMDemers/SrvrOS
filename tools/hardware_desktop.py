@@ -811,15 +811,12 @@ def collect(mount, volume, output):
         intel_wake=None
         if 'srvros.intel-wake=trial' in text:
             try:
-                from intel_gt_wake import native_wake_result
+                from intel_gt_wake import native_wake_result,verify_wake_checkpoint
                 intel_wake=native_wake_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
                 if not intel_wake or not intel_wake['native_wake_complete']:attention.append("Intel cooperative wake lease incomplete or refused")
                 else:
                     pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
-                    from intel_gt_firmware import native_firmware_result
-                    if 'workspace-log: snapshot=session-a.log' not in pre or 'intel-wake-summary:' in pre:raise ValueError("missing or late wake preflight checkpoint")
-                    pre_result=native_firmware_result(pre)
-                    if not pre_result or not pre_result['native_observation_complete']:raise ValueError("wake checkpoint lacks native prerequisites")
+                    verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
             except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
         intel_firmware=None
         if 'srvros.intel-firmware=read-only' in text:

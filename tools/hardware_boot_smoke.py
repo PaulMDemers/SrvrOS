@@ -553,12 +553,11 @@ def main():
                                 assert publication and publication['complete'] and not publication['dma_authority']
                                 (logs/'scanout-publish-model-result.json').write_text(json.dumps(publication,indent=2)+"\n")
                         if 'srvros.intel-wake=trial' in text:
-                            from intel_gt_wake import native_wake_result
+                            from intel_gt_wake import native_wake_result,verify_wake_checkpoint
                             wake=native_wake_result(stored.read(folder+"/exit.log").decode())
                             pre=stored.read(folder+"/session-a.log").decode()
-                            assert 'workspace-log: snapshot=session-a.log' in pre and 'intel-firmware-summary:' in pre
-                            assert 'intel-wake-summary:' not in pre
-                            assert 'intel-wake: preflight checkpoint saved' in stored.read(folder+"/exit.log").decode()
+                            assert 'intel-firmware-summary:' in pre
+                            verify_wake_checkpoint(pre,stored.read(folder+"/exit.log").decode())
                             (logs/'intel-wake-preflight.log').write_text(pre)
                             assert wake and wake['summary']['compiled'] and not wake['native_wake_complete']
                             assert not wake['summary']['maps'] and not wake['summary']['attempts']

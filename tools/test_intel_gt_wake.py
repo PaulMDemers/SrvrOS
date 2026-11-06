@@ -1,6 +1,6 @@
 from pathlib import Path
 import subprocess,unittest,resource
-from intel_gt_wake import wake_result,native_wake_result
+from intel_gt_wake import wake_result,native_wake_result,verify_wake_checkpoint
 ROOT=Path(__file__).resolve().parents[1]
 class WakeTests(unittest.TestCase):
  @classmethod
@@ -32,6 +32,13 @@ class WakeTests(unittest.TestCase):
    with self.subTest(old=old),self.assertRaises(ValueError):wake_result(self.raw.replace(old,new,1))
   for t in (self.raw+self.raw,self.raw.replace('v=1','v=2'),self.raw.replace('grants=7','grants=7 grants=7')):
    with self.assertRaises(ValueError):wake_result(t)
+ def test_saved_checkpoint_binding(self):
+  prefix=self.loader+self.cache+self.claim+self.handoff
+  pre=prefix+self.text.partition('intel-wake: bounded')[0]+'workspace-log: snapshot=session-a.log\n'
+  post=prefix+self.text.replace('intel-wake: bounded',self.checkpoint+'intel-wake: bounded')
+  self.assertTrue(verify_wake_checkpoint(pre,post,native=True))
+  for bad_pre,bad_post in (('',post),(pre+self.raw,post),(pre,post.replace(self.checkpoint,'')),(pre.replace('value=0x1f','value=0x7',1),post)):
+   with self.assertRaises(ValueError):verify_wake_checkpoint(bad_pre,bad_post,native=True)
  def test_cache_wake_pages(self):subprocess.check_call([str(ROOT/'build/tests/intel-cache-probe'),'wake-uc'],stdout=subprocess.DEVNULL)
  def test_none(self):self.assertIsNone(wake_result('ordinary boot'))
 if __name__=='__main__':unittest.main()
