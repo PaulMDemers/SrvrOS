@@ -37,6 +37,7 @@ static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uin
 }
 bool xhci_wifi_capture_handoff5(void);
 #include "../kernel/src/drivers/xhci_wifi_peer5.inc"
+static bool wifi_tx5_inspect(void){assert(!"unexpected TX child");return false;}
 enum mt76_peer5_status mt76_peer5_bind(struct mt76_peer5 *out,const uint8_t station[6],const struct mt76_discovery5_choice *choice,const struct mt76_discovery *cache,const struct mt76_rx_window *w,const struct mt76_discovery_io *io){
  assert(choice==&wifi_cal5.choice && cache==&wifi_cal5.discovery && w==&wifi_cal5.window && io->context==&wifi_peer5);
  assert(station[0]==2 && station[1]==1 && station[2]==2 && station[3]==3 && station[4]==4 && station[5]==5);

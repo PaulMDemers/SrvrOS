@@ -1,4 +1,6 @@
 #include <srvros/mt76_peer5.h>
+static bool wifi_tx5_requested;
+static bool wifi_tx5_inspect(void);
 /* Current-address/read-only peer binding. The accepted empty handoff has
  * already restored DCI9. No TD,MAC start,network OUT or key is published. */
 static struct {
@@ -43,6 +45,7 @@ static bool wifi_peer5_inspect(void){
  for(unsigned i=0;i<sizeof packet;i++)((volatile uint8_t *)packet)[i]=0;
  console_printf("wifi-peer5: ok=%u status=%u complete=%u controls=%u station_reads=4 guards=6 stable=%u observations=%u rates=%u basic=%u generation=%u auth_bytes=%u assoc_bytes=%u leave_bytes=%u private=1 retained=1 posted=0 network_out=0 authenticated=0\n",(uint64_t)ok,(uint64_t)status,(uint64_t)wifi_peer5.binding.complete,(uint64_t)wifi_peer5.controls,(uint64_t)stable,(uint64_t)wifi_peer5.binding.observations,(uint64_t)wifi_peer5.binding.rates,(uint64_t)wifi_peer5.binding.peer.basic_rates,wifi_peer5.binding.generation,(uint64_t)sizes[0],(uint64_t)sizes[1],(uint64_t)sizes[2]);
  if(!ok)for(unsigned i=0;i<sizeof wifi_peer5.binding;i++)((volatile uint8_t *)&wifi_peer5.binding)[i]=0;
+ if(ok && wifi_tx5_requested)ok=wifi_tx5_inspect();
  wifi_peer5.active=false;return ok;
 }
 bool xhci_wifi_capture_peer5(void){

@@ -6904,3 +6904,12 @@ endpoint context,power and RF originals and storage/recovery pass. This posts
 no TD and sends no management frame;live RX/data-OUT ownership and matched
 AUTH/ASSOC/leave precede WPA2/key/replay/PN and authenticated IP/data. The unit
 record owns exact session and independently sealed native acceptance.
+
+### Dedicated data OUT ownership candidate (v126)
+
+`--wifi-tx5-owner` requires the complete automatic private peer/handoff/power
+parent. A distinct empty OUT04/DCI8 ring is configured,stopped and disabled with
+three exact commands;shared input bytes and unrelated contexts are preserved.
+No TD,doorbell or frame is published. Full parent cleanup must still pass.
+The separate pure AUTH/ASSOC/leave model does not grant native transmission or
+WPA2/data authority. Live receive/transmit publication follows endpoint acceptance.

@@ -121,6 +121,7 @@ bool xhci_wifi_capture_discovery5(void);
 bool xhci_wifi_capture_power5(void);
 bool xhci_wifi_capture_handoff5(void);
 bool xhci_wifi_capture_peer5(void);
+bool xhci_wifi_capture_tx5(void);
 bool xhci_wifi_capture_vco5(void);
 bool xhci_wifi_capture_dac5(void);
 bool xhci_wifi_capture_rf_g20(void);

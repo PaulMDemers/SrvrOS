@@ -13137,3 +13137,26 @@ Touches fixed MT76 session/endpoint owner,staging,dispatch and proof/tests.
 PMM/VMM/ECAM integration is a dependency,not part of the Wi-Fi authority.
 Air graphics/alias and browser scopes remain independent;no cross-chat contact.
 No new image or boot is armed. Credentials remain unread/unpackaged.
+
+### Empty dedicated OUT owner candidate (November 6)
+
+The pure management session now models fixed manual-sequence AUTH/ASSOC/leave,
+matched RA/TA/BSSID/subtype replies,explicit AP refusal,spoof filtering,bounded
+750ms waits,clock regression,no replay/leave after uncertain DMA and private
+scratch clearing. It grants no native or WPA2/data authority. Before wiring its
+first frame,the v126 `--wifi-tx5-owner` child creates a separate empty OUT04/DCI8
+ring after the complete private-peer parent,uses three exact configure/stop/drop
+commands,and restores all4096 shared input-context bytes. Output slot,old RX,
+MCU and firmware contexts must remain unchanged. Input Slot DW3 stays reserved
+zero;the observed output slot address/state is not copied into it. No TD or
+doorbell is published. A drop requires Disabled state;reserved output endpoint
+words are neither software-written nor assumed zero. See Intel xHCI1.22 §4.6.6
+[Configure Endpoint semantics](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/extensible-host-controler-interface-usb-xhci.pdf).
+
+Fifteen controls check disabled MAC/core/DMA and all nine held power words.
+Semantic selected-word mismatches permit retirement but remain failed;uncertain
+command,guard/transport loss,frozen-parent/input/context/ring mutation or an
+unexpected DCI8 event quarantine and retain DMA. Actual native-owner fault
+fixtures and225 staging groups pass. The physical OUT lifecycle remains pending;
+no network frame,MAC restart,association,key,IP or data is accepted. This bounded
+lifecycle precedes live RX/data publication and the modeled management exchange.
