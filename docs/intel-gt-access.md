@@ -106,18 +106,26 @@ python3 tools/hardware_boot_smoke.py --probe-check
 Host tests cover protocol/C0, grants and tokens, foreign requests, unissued and
 uncertain writes, all I/O failure boundaries, frozen/backward clocks and retained
 pins. Actual observation-adapter fixtures cover cache/map/retirement failures,
-floating PCI/MMIO values and changed raw observations. Native acceptance is
-pending a matched physical round. Initial source/readiness and independent
+floating PCI/MMIO values and changed raw observations. The matched native read-only round is accepted below; hardware ownership
+remains unaccepted. Initial source/readiness and independent
 recovery stay in the [unit record](machines/macbookair7-2.md).
 
-## Prepared candidate
+## Matched native read-only result
 
 Release `df5ca792434d9145` (`251a912b`) passes full local host/core/profile/build/
 docs checks, fatal sanitizers, four detected compiled negative controls and
 exact-stage refusal/save/return and missing-workspace VMs. Existing VirtIO,
 Intel and Haswell profiles pass. The staged native ELF's SHA matches its manifest;
 only the preflight is linked, with no wake-protocol entry points or writer.
-It is installed with recovery retained and no reboot armed. Fresh media and
-prior-file integrity checks pass; source-qualified artifacts/checkpoints and
-independent copies are identified in the unit record. Native readout and every
-hardware ownership grant remain pending the next physical round.
+It remains installed with recovery retained. Native session
+`00065f90dd5e19b5-00` completes with both matching raw observations:
+request `0x00010000`, ACK zero, ASLS `0x8ad03190`, SWSCI `0x00008000`.
+The passes take4,117us and4,113us; all four aliases retire, all five guards and
+four fresh UC checks pass, and before/after preservation and exclusion release
+complete. The strict decoder binds the full native prerequisites. The report has
+completed=yes and no collector attention.
+
+This accepts only the bounded read-only requester observation. No firmware,
+engine or other hardware reader is retired; no request initialization, wake,
+engine inspection or GPU address transfer is authorized by these raw values.
+Recovery, media integrity and independent evidence are tracked in the unit record.

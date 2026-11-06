@@ -2,7 +2,34 @@
 
 Updated: 2026-11-05. State: **active reference machine; partial device acceptance**.
 
-### Active scope: Broadwell GT access and firmware/requester preflight
+### Native read-only GT requester preflight accepted
+
+Release `df5ca792434d9145`, source `251a912b`, returned as
+`session-00065f90dd5e19b5-00` with completed=yes and no collector attention.
+The strict native decoder accepts both observations and their complete native
+handoff/window/cache/display/backing prerequisites. The new receipt is status1,
+maps4/retained0, acquired/before/after/released/complete1, guards5,
+cache_checks4 and guard_retained0. Both raw request DWORDs are `0x00010000`,
+both ACKs zero; their durations are4,117us and4,113us. PCI ASLS is `0x8ad03190`
+and SWSCI `0x00008000`. These are raw observations, not ownership grants.
+
+Fresh UC MTRR/effective-type checks and full original-window/inherited-backing
+preservation pass under CPU exclusion. Forcewake writes, engine reads, OpRegion
+maps and PTE writes remain zero. The wake protocol remains absent from the native
+ELF. Neither the nonzero raw request nor a zero ACK establishes requester
+retirement, firmware exclusion, engine quiescence or an available GPU range.
+Actual hardware handoff and physical tear-free flips remain pending.
+
+All1,337 prior files are preserved except expected `.srvros/meta`; both new logs
+copy/hash-verify, giving1,339 files and102 sessions. Offline fsck/allocation/
+writable/headroom, consumed one-shot, Ubuntu default and independent installed/
+durable/archive recovery checks pass. USB is unmounted and no reboot is armed.
+Matching run/return records and SHA-verified evidence are independently preserved
+outside build cleanup. The next task is to resolve explicit firmware/requester
+ownership and the raw masked-request semantics before a native wake adapter;
+these samples alone authorize neither initialization nor engine inspection.
+
+### Completed scope: Broadwell GT access and firmware/requester preflight
 
 Baseline main remains `3f158022`; native8b9e is collected and backed up.
 PR301 owns this slice. PR381 owns Air6,1 managed-root/NX census, PR19 Pro
@@ -22,7 +49,7 @@ GT engine reads require a separately owned acknowledged wake and C0 proof;
 firmware/engine/DMA/display/audio ownership and range grants remain unaccepted.
 Prepare matched host/VM evidence before another physical round. No reboot armed.
 
-### Ready: read-only GT requester preflight
+### Historical preparation: read-only GT requester preflight
 
 Candidate `df5ca792434d9145` (`251a912b`) is installed with9aa8 recovery and
 Ubuntu default. No reboot is armed. The exact staged ELF has the read-only
