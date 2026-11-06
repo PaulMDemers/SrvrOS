@@ -112,3 +112,23 @@ def _parse(text):
                 all_hardware_aliases_proven=False, resource_lease_proven=False, native_translation_observed=False,
                 native_mapping_authorized=False, vt_d_reads=0, mappings=0, msr_writes=0,
                 hardware_authority=False, ownership=False)
+
+
+def alias_preinit_result(text):
+    """Separate pre-user-init epoch; reporting later never re-reads live tables."""
+    try:
+        proof = alias_result(text)
+        epochs = [x for x in text.splitlines() if x.startswith('hsw-alias-epoch:')]
+        if not proof or len(epochs) != 1: return None
+        m = re.fullmatch(r'hsw-alias-epoch: v=1 phase=pre-user-init begin=(\d+) end=(\d+) report=(\d+) attempted=1', epochs[0])
+        if not m: return None
+        begin, end, report = map(int, m.groups())
+        if not 0 < begin < end <= report < 1 << 64: return None
+        if proof['status'] == 'OBSERVED_MANAGED_ROOT_CONTEXT':
+            from hardware_haswell_firmware import firmware_result
+            fw = firmware_result(text)
+            post = firmware_result('\n'.join(x.replace('hcache-firmware-post','hsw-firmware') for x in text.splitlines() if x.startswith(('hcache-firmware-post','laptop-capture: completed=')))+'\n')
+            if not begin <= fw['samples'][0]['pm_us'][0] or post['samples'][1]['pm_us'][1] > end: return None
+        return dict(proof, capture_epoch='pre-user-init', preparation_us=[begin,end], report_us=report,
+                    live_post_init_admission=False)
+    except (ValueError,KeyError,IndexError): return None

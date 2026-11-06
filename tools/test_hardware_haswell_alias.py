@@ -6,7 +6,7 @@ from unittest.mock import patch
 from pathlib import Path
 
 import hardware_boot as boot
-from hardware_haswell_alias import alias_result, decode_pages
+from hardware_haswell_alias import alias_result, alias_preinit_result, decode_pages
 from test_hardware_haswell_cache import fixture, mutate
 
 
@@ -68,6 +68,19 @@ class AliasTests(unittest.TestCase):
         if not exe.exists():self.skipTest('build actual adapter target first')
         refused=subprocess.check_output([str(exe)],text=True)
         self.assertEqual(alias_result(refused)['status'],'REFUSED')
+
+    def test_preinit_epoch_requires_complete_containment_and_single_report(self):
+        text,pin=fixture_alias()
+        epoch='hsw-alias-epoch: v=1 phase=pre-user-init begin=1 end=20000 report=30000 attempted=1\n'
+        with patch('hardware_haswell_firmware.PIN',pin):
+            self.assertIsNone(alias_preinit_result(text))
+            p=alias_preinit_result(text+epoch);self.assertEqual(p['capture_epoch'],'pre-user-init')
+            self.assertFalse(p['live_post_init_admission'])
+            for bad in (epoch+epoch,epoch.replace('begin=1','begin=30000'),epoch.replace('end=20000','end=5'),epoch.replace('report=30000','report=19999')):
+                self.assertIsNone(alias_preinit_result(text+bad))
+        conf=boot.limine_config('x','ram-usb-v4-hfw-laptop-probe-1234abcd-auto-return')
+        self.assertIn('srvros.hsw-cache=alias-nx-preinit',conf)
+        self.assertRaises(ValueError,boot.stage,haswell_alias_preinit=True)
 
     def test_profile_keeps_legacy_and_requires_all_explicit_flags(self):
         conf=boot.limine_config('x','ram-usb-v3-hfw-laptop-probe-1234abcd-auto-return')

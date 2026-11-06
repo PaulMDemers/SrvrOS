@@ -7433,3 +7433,32 @@ Its affected suites, actual producer/sanitizer fixtures and maximum-tail checks
 pass; the saved exact VM refusal receipt redecodes correctly. Native payload,
 profile and VM harness remain byte-identical to the tested `dbb1756c` candidate.
 The run record distinguishes these tool and native source revisions explicitly.
+
+### Pre-init scheduling correction before native alias trial (2026-11-05)
+
+PR381 candidate715cee81b804a3ab was installed but never armed or booted. Source
+review confirms main starts persistent `/init --system` before the late capture;
+the sole-root guard would therefore refuse as intended. Preserve that guard,
+v3 history and all budgets. Add a distinct v4/pre-init modifier: capture before
+creating the first user root, retain immutable raw results, and emit once after
+normal init readiness and USB logger startup. Require an explicit pre-user-init
+receipt epoch, actual prepare/report ordering tests and matched VM save/return
+checks. No root is ignored, killed or temporarily hidden, and no policy/ownership
+or native acceptance is granted. Previous candidate evidence is retained locally.
+
+PR382 source `81d1013f`, v4 release `6d59e033859033b9`, passes current matched
+normal/AP/USB builds and affected firmware/cache/alias/VMM/docs checks. Broader
+PR381 desktop/core/installer receipts remain named historical evidence; no
+unrelated runtime/filesystem source changed in this scheduling correction.
+Actual adapter prepare/report tests, ASan/UBSan and independent epoch/raw decoders
+pass, including new-root rejection after capture without any reread on report,
+single emission,64-table/32768-entry passes and4095-byte lossless output within
+the unchanged64KiB tail. No guard or budget was weakened.
+
+Six sequential exact-stage VM trials pass v1 firmware, v2 cache, v3 alias,
+legacy32 fences, v4 refusal/save/unmount/return and missing workspace. The v4
+serial order proves capture progress before init starts and raw reporting after
+init/logger startup. Fresh AC/model/USB600-file hash and1670-cluster headroom/
+allocation checks pass with zero leaks/errors. The v3 payload and110 development
+evidence files are independently archived as superseded-unbooted; no physical
+alias/NX result is claimed. V4 native pre-user-init acceptance remains pending.
