@@ -7535,3 +7535,19 @@ remaining native graph fits is still unknown. An earlier snapshot, source intent
 or partial census cannot establish current full-root admission. Raw evidence and
 source-matched validation have durable copies outside build; prior physical
 acceptance and recovery remain unchanged.
+
+
+### Checked2MiB ECAM mapping design scope (2026-11-05)
+
+Base `4cc0408b`; native v4 failure is collected and the layout audit is merged.
+Develop a host-only exact-unit mapping proposal and fault-tested publication/
+retirement model before a kernel mapper or native activation. Scope: tools,
+affected cache-decoder host helper/tests, host-test recipes and this unit's
+current design docs. Preserve mapped coverage, P/RW/PCD/NX attributes, all existing
+census limits and ordinary PCI/VMM behavior. Require homogeneous MTRR coverage
+inside each large leaf, explicit PAT-bit placement, zero-slot admission and
+precise failure/rollback/quarantine rules. Historical evidence cannot authorize
+live publication. Current PR301 GPU and PR19 Wi-Fi remain separate; inspect their
+actual heads and do not duplicate production VMM/main/PCI changes. No new boot is
+armed. Next checkpoint is a reviewable design with host evidence and open native
+backend requirements, not a hardware-acceptance claim.
