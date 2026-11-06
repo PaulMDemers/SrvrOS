@@ -22,6 +22,7 @@ static char directory[128],path[160],snapshot[65536];
 static bool enabled,started,busy,healthy;
 static unsigned checkpoint;
 static bool retain_checkpoints;
+static bool ecam_saved;
 static uint64_t due;
 static struct scheduler_wait_queue wake;
 static uint64_t lock(void) {
@@ -201,7 +202,7 @@ static bool start_log(bool retain) {
     end(flags);
     if(!ok || !created) { console_write("workspace-log: cannot create session directory\n");return false; }
     console_printf("workspace-log: directory=%s periodic_seconds=10\n",directory);
-    retain_checkpoints=retain;checkpoint=0;healthy=save("boot.log");
+    retain_checkpoints=retain;checkpoint=0;ecam_saved=false;healthy=save("boot.log");
     if(!healthy) return false;
     if(!started) started=scheduler_spawn("workspace-log",worker,NULL);
     enabled=started;due=timer_ticks()+1000;scheduler_wake_all(&wake);
@@ -235,6 +236,11 @@ bool workspace_log_pause(void) {
     while(busy) scheduler_wait(&wake,idle,NULL);
     if(!directory[0] || !workspace_active())return false;
     return save("session-a.log") && healthy;
+}
+const char *workspace_log_directory(void){return directory[0]?directory:NULL;}
+bool workspace_log_ecam_snapshot(void) {
+ if(enabled || busy || ecam_saved || !directory[0] || !workspace_active() || !healthy)return false;
+ healthy=save("ecam.log");ecam_saved=healthy;return healthy;
 }
 
 /* Fixed payload and balanced order avoid comparing different-size log snapshots.

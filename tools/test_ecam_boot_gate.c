@@ -7,8 +7,8 @@
 #include "../kernel/diagnostics/haswell_ecam_boot.c"
 volatile struct limine_memmap_request memmap_request;
 uint8_t eg_test_dmar_pin[32];
-static struct limine_memmap_entry map_entries[2];
-static struct limine_memmap_entry *map_ptrs[2];
+static struct limine_memmap_entry map_entries[128];
+static struct limine_memmap_entry *map_ptrs[128];
 static struct limine_memmap_response map_response;
 static struct eg_mp_input mp_input;
 static struct acpi_table_info table_info[2];
@@ -61,7 +61,7 @@ const struct acpi_table_info *acpi_table_at(uint64_t i){assert(i<2);return table
 uint64_t acpi_mcfg_allocation_count(void){return 1;}
 const struct srv_acpi_mcfg_allocation *acpi_mcfg_allocation_at(uint64_t i){assert(!i);return &allocation;}
 static void setup(void) {
- reset();memset(&eg,0,sizeof(eg));eg_count=eg_phase=0;eg_started=eg_broken=false;eg_root=0;
+ reset();memset(&eg,0,sizeof(eg));memset(eg_policy_ready,0,sizeof(eg_policy_ready));eg_count=eg_phase=0;eg_started=eg_broken=false;eg_root=0;
  no_reference=foreign_cpu=foreign_identity=no_nx=wrong_width=changed_cache=changed_efer=mixed_mtrr=false;
  cr0_value=0x80010033;cr4_value=0x620;feature_mask=0x11028;msrs=port_reads=port_writes=0;selector=0x12340000;
  map_entries[0]=(struct limine_memmap_entry){.base=0x2000000,.length=6*4096,.type=0};
@@ -77,6 +77,7 @@ static void setup(void) {
  unsigned sum=0;for(unsigned i=0;i<136;i++)sum+=data[i];data[9]=(uint8_t)-sum;hfw_sha256(data,eg_test_dmar_pin);
  memcpy(pages[7],eg_mcfg_pin,60);
 }
+#ifndef ECAM_GATE_FIXTURE_LIBRARY
 int main(void) {
  setup();assert(haswell_ecam_boot_prepare());
  assert(eg.phases==2 && eg.cache_reads[0]==49 && eg.cache_reads[1]==49 && eg.efer_reads==2 && msrs==100);
@@ -116,3 +117,4 @@ int main(void) {
  puts("actual pre-PCI gate PASS: maximum49+49 cache MSRs,2 EFER reads,20 exact legacy IDs, CF8 restored, pinned MCFG/DMAR, BSP/parked APs, RAM sources, cache uniformity and fresh-change refusals; synthetic DMAR pin");
  return 0;
 }
+#endif

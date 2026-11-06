@@ -3,6 +3,9 @@
 #include <srvros/pci.h>
 #include <srvros/vmm.h>
 #include <srvros/timer.h>
+#ifdef SRVROS_ECAM_BOOT
+#include <srvros/ecam_boot.h>
+#endif
 
 #include "io.h"
 
@@ -207,6 +210,19 @@ static void scan_device(uint8_t bus, uint8_t device) {
 
 static bool map_ecam_windows(void) {
     uint64_t count = acpi_mcfg_allocation_count();
+#ifdef SRVROS_ECAM_BOOT
+    const struct ecam_boot_result *boot=vmm_ecam_boot_result();
+    if(boot->state==ECAM_POISONED || boot->state==ECAM_READY)haswell_ecam_boot_fail_closed("PCI unconsumed/poisoned window");
+    if(boot->state==ECAM_ACTIVE) {
+        const struct srv_acpi_mcfg_allocation *m=count==1?acpi_mcfg_allocation_at(0):NULL;
+        if(!m || !m->present || m->pci_segment || m->start_bus || m->end_bus!=155 ||
+           !haswell_ecam_boot_adopt(PCI_ECAM_VIRTUAL_BASE,m->base_address,((uint64_t)m->end_bus+1)<<20))
+            haswell_ecam_boot_fail_closed("PCI window adoption failed");
+        ecam_virtual_base[0]=PCI_ECAM_VIRTUAL_BASE;
+        console_write("ecam-boot-progress: checked PCI window adopted; no 4KiB remap\n");
+        return true;
+    }
+#endif
     bool any_mapped = false;
     for (uint64_t i = 0; i < count && i < sizeof(ecam_virtual_base) / sizeof(ecam_virtual_base[0]); i++) {
         const struct srv_acpi_mcfg_allocation *mcfg = acpi_mcfg_allocation_at(i);

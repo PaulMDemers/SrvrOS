@@ -121,5 +121,15 @@ int main(void) {
     assert(periodic_save() && strstr(path,"session-a.log"));
     assert(periodic_save() && strstr(path,"session-b.log"));
     assert(workspace_log_stop());
+    assert(workspace_log_start());
+    assert(!workspace_log_ecam_snapshot()); /* Periodic writer must be quiesced. */
+    assert(workspace_log_quiesce(5000));
+    busy=true;assert(!workspace_log_ecam_snapshot());busy=false;
+    assert(workspace_log_ecam_snapshot() && ecam_saved && strstr(path,"/ecam.log"));
+    old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
+    assert(workspace_log_stop());
+    assert(workspace_log_start() && !ecam_saved && workspace_log_quiesce(5000));
+    corrupt=true;assert(!workspace_log_ecam_snapshot() && !ecam_saved && !healthy);corrupt=false;
+    old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
 }
