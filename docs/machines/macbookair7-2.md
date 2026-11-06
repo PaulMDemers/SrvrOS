@@ -18,6 +18,51 @@ new firmware observation core/adapter/decoder, explicit recipe/collection/tests
 and this unit's docs. Preserve recovery and the independent Air6 mappings.
 Stop with matched host/VM validation and a prepared test; no reboot this block.
 
+### Ready: automated firmware handoff census (native wake unbound)
+
+Release `45815233908f2d02` (`4ca8f490`) is installed with9aa recovery and
+Ubuntu default; no reboot is armed. The exact staged ELF links the firmware
+and GT observers but no wake-protocol entry point or writer. Its kernel SHA
+matches its immutable source-qualified manifest.
+
+Full host/core/profile/docs and normal/AP/native/synthetic builds pass at4ca,
+including89 installer tests with one expected opt-in skip. ASan/UBSan passes
+the wake core, firmware and GT observer cores, all16 actual-adapter variants
+and three cache scenarios. All260 collector/staging tests pass. Four compiled
+wake controls and three firmware controls detect removed initial clear,
+foreign-request refusal, C0, uncertain-write pinning, NVS, extent and header
+gates. Exact-stage Q35 saves/unmounts/returns on missing-Intel refusal and
+halts on missing workspace; neither accepts native firmware behavior. VirtIO
+presentation/recovery and the existing handoff/window/DMA/lifetime and
+independent Haswell3/cache-context profiles pass.
+
+A read-only Ubuntu reference confirms the8KiB v2 OpRegion in ACPI NVS and
+matching fixed-field layout. Linux has DRDY/ARDY1; those are Linux-owned values,
+not native firmware retirement. The exact captured DSDT defines the same IGDM
+extent/offsets and readiness/graphics-SCI methods; no AML was executed. Both
+prior native CPU contexts independently derive WB MTRR/PAT/effective type for
+the header page. These references improve test targeting but remain cached or
+host evidence; the candidate must establish fresh native readout and checks.
+
+All1,339 prior files /102 sessions verify through a read-only mount; offline
+fsck/allocation/writable/headroom pass and the volume is left unmounted. The
+inactive, GRUB/NVRAM-unreferenced d520 EFI copy is retired only after full SHA
+equality with its durable payload and independent EFI archive under
+`~/.local/share/srvros/efi-archives/20261105-firmware-handoff`. Current/prior,
+8b CPU qualification, recovery9aa, cache07df, DMA5346 and known-goodc497 remain
+verified; archived0e/d79 also remain verified. Matching source, stages, run,
+checkpoints and validation live in `build/air-firmware-handoff-20261105`, with
+an independent SHA-verified copy outside build cleanup.
+
+The next automated physical test needs no typing, keeps volume1%/guest audio
+off, displays progress and saves/unmounts/returns on handled outcomes. Require
+a matching completed native firmware observation with valid resource/header,
+advertised-field coverage, two retired WB maps/two fresh cache checks, five
+guards, before/after preservation and CPU exclusion release, plus all native
+GT/handoff/window/cache/backing/display prerequisites. Quiet mailboxes and
+low16 requester zeros still grant no firmware/requester retirement. Native
+wake, engine access, managed ranges and physical tear-free flips remain pending.
+
 ### Firmware census implementation checkpoint (physical acceptance pending)
 
 The wake core now treats only low16 bits as requester state; the readable

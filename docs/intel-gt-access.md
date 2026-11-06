@@ -181,3 +181,21 @@ bounds, timings, native prerequisite ordering and independent WB derivation.
 It reports unresolved firmware/requester retirement even for all-zero mailboxes.
 A native wake writer remains intentionally unbound until those lifecycle facts
 can be established; its bounded protocol is ready for integration once they are.
+
+## Firmware-census candidate ready for native observation
+
+Release `45815233908f2d02` (source `4ca8f490`, merged main `7b887bbe`) is
+installed with recovery retained and no reboot armed. Full local validation,
+fatal sanitizers, all260 collector/staging tests, seven detected compiled
+negative controls and exact-stage refusal/save/return and missing-workspace
+VM behavior pass; existing Intel/Haswell and VirtIO recovery profiles pass.
+Its native ELF links the observers and omits every wake-protocol entry point.
+
+Ubuntu's read-only i915 reference and the exact captured DSDT confirm the fixed
+OpRegion layout. Both prior native CPU/cache contexts derive WB for the proposed
+header page. Those references are independently retained but do not accept the
+new native observation or grant runtime firmware/requester retirement. The next
+physical test is the automated read-only census, at volume1% with guest audio
+disabled. Its matching session must be collected and verified before moving to
+a supported ownership contract and native wake adapter. See the current unit
+record for source, recovery, run/checkpoint and independent evidence locations.
