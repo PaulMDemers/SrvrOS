@@ -13017,3 +13017,21 @@ separate from the first549-file timeout failure capsule. No new TD,MAC start,
 management frame,authentication,key,IP or data transfer is accepted by this
 empty-context trial. A fresh live receive/data-OUT owner and matched protocol
 replies remain necessary. Credentials remain unread/unpackaged.
+
+### Main4cc0408b integration after accepted handoff (November 5)
+
+Merge9b861b3b consumes actual main4cc0408b. Its Air6,1 read-only alias/NX
+scheduling and table-bound audits remain explicit opt-ins;no native Pro ownership
+or sibling acceptance is inferred. The merge preserves complete Wi-Fi recipes
+and all Haswell firmware/cache/alias variants. Published canonical legacy-signal
+fixture support replaces the equivalent local test-only fallback file;unexpected
+public-signal entry still aborts. The complete volatile setjmp snapshots remain.
+
+Matched native build/USB image,POSIX poll/time/sync/event/fd-restart,syscall wait,
+scheduler/FPU,profile streaming/UI,Haswell alias/cache and focused handoff/parser
+checks pass on9b861b3b. All221 staging groups pass. This is host integration
+coverage,not a physical acceptance transfer. Installed accepted runtime stays
+34e24139/release54d3bca0e34ff6fa,Ubuntu default,workspace unmounted and unarmed.
+Next work remains private station/target rate binding and dedicated live
+RX/data OUT for management AUTH/ASSOC/leave,then WPA2/key/replay/PN and
+bidirectional authenticated data/disconnect. No new trial is armed.
