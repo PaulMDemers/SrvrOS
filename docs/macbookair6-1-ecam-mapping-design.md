@@ -305,3 +305,21 @@ restart. Generic PCI registration is unchanged. Real-source fixtures compare
 every initial count0–128, including unordered/duplicate old VAs outside the span,
 and retain failure/poison coverage. Native timing improvement still needs a
 matching hardware receipt.
+
+
+### Census measurement first-touch preparation
+
+The opt-in RAM-only alias census now primes its private result backing and
+performs one bounded guarded graph preparation before its original two exact
+snapshots. Loading a later table through HHDM can set A in an earlier mapping;
+preparation exercises those source paths before observations. It uses the same
+RAM-catalog, sole-root and exact-translation accessor, no PTE/device writes.
+Preparation and both measured snapshots share the original100ms lifetime with
+no clock restart or failed-pass retry. Each traversal retains64 tables and
+32768 reads; measured snapshots retain4096 lossless bytes each. Preparation
+is additional read-only work, separately counted, not extra accepted raw proof.
+Graph expansion after preparation fails closed. Every measured entry, including
+A/D bits, must still compare exactly. The preparation receipt shares the census
+begin timestamp and records its own completion, read and table counts; the
+collector validates it when present while retaining old saved-report compatibility.
+Native timing/stability require a fresh complete matching capture.

@@ -7946,3 +7946,60 @@ only three matching logs were added. Offline checks pass at608 files /1681
 clusters, zero leaks/FAT-bitmap mismatches/errors. Raw failed evidence and exact
 payload are hash-verified outside build. One-shot state is clear and collection
 disabled; Ubuntu and protected accepted recovery remain. No new boot is armed.
+
+
+### Raw-census first-touch scope (2026-11-06)
+
+Base `6896aa9d`; prior failed native run collected, no boot armed. Audit the
+walker/result-storage first-touch path and add a guarded, bounded RAM-only
+preparation traversal before the original two exact snapshots. Preparation and
+both snapshots share the original100ms clock; each traversal retains64 tables
+and32768 maximum reads, and measured output remains4096 bytes/pass. Record
+preparation separately; it is additional read-only prerequisite work, not a
+third accepted snapshot, a failed-pass retry or a restarted deadline. Prime
+private result backing before observations; never write page tables or mask
+A/D changes. Fail closed on preparation errors or graph expansion afterward.
+
+Touched scope: diagnostic alias core/adapter/result contract, host/core/collector
+regressions and own machine/design records. Normal startup remains unchanged.
+PR301 owns separate Air7,2 scanout/process revocation work and PR19 owns Wi-Fi;
+actual open PRs and current integration baseline inspected, no conflicting
+alias-core changes published. Next checkpoint: reproduced first-touch race,
+exact-comparison negative tests, matched build/staged VM validation and bounded
+automated native capture under existing reboot authorization.
+
+
+### First-touch preparation candidate (2026-11-06)
+
+The original core fails the targeted HHDM first-touch reproducer at the first
+comparison (status5,2049 reads); the new core completes guarded preparation
+and both exact snapshots (6144 reads for four tables). Private result backing
+is primed inside the shared lifetime before source observations. Preparation
+retains the same RAM/root/translation accessor and discovers the graph once;
+expansion afterward is refused. Measured A-bit, D-bit and address changes still
+fail, as do preparation/source failures, shared-clock expiry, malformed graphs
+and all existing table/output bounds. The maximum64-table fixture still passes.
+
+Affected alias/cache/firmware/ECAM core, adapter, strict collector, layout and
+proposal suites pass, including legacy receipt compatibility and malformed
+preparation refusal. Matched normal/AP/USB/ISO images build; actual core/fixture
+ASan/UBSan checks pass and both compile for ARM64 with assertions enabled.
+Exact-stage VMs and native acceptance remain next. No measured raw-bit masking,
+PTE write, changed cap, restarted deadline or failed-snapshot retry is introduced.
+
+
+### Frozen first-touch stage (2026-11-06)
+
+Runtime/collector `0b9b303e`, exact release `ab360d3ce2d281e4`: all seven
+legacy/new staged VM rehearsals pass, including v5 refusal and missing
+workspace. Normal image symbols exclude the diagnostics and the AP image
+retains them. Original v5 producer receipts remain byte-identical; joint
+collector checks retain the new preparation proof, reject a bad receipt and
+fit the unchanged65536-byte log-tail budget, including maximum fixtures.
+Native complete root/timing acceptance remains pending. Additional preparation
+work is counted separately while sharing the original census lifetime.
+
+Ordinary syscall, UEFI USB keyboard, fork, exec-vector and scheduler-yield VM
+checks also pass against the matched normal image. The automated native trial
+will require complete same-session raw proofs, preparation accounting, final
+completion and clean USB save/unmount/return; prior failures remain retained.
