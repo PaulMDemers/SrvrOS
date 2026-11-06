@@ -7712,3 +7712,31 @@ and failure evidence outside build; only its obsolete EFI copy may be retired
 for space, retaining Ubuntu and all accepted fallbacks. No reboot is armed at
 this checkpoint. Native v5 success still requires both complete receipts and
 matching post-return file/allocation checks.
+
+
+### Native v5 adoption halt — failed (2026-11-06)
+
+Release `56308db224d9e6ab`, compiled implementation `2f53e475` with collector
+`f57b5f0f` (merged PR387), stopped visibly at **PCI window adoption failed**.
+The supplied photograph records retained-poison state5,35949 checked words and
+one parent publication attempt. The dispatch path establishes that prepare and
+handoff reached ACTIVE before adoption failed; it does not accept adoption,
+continued PCI access or the later complete-root census. No matching USB session
+was created, consistent with the pre-PCI/USB terminal screen.
+
+The word cap65536 was not reached. Elapsed lifetime, first failed guard and
+expected/observed readback values are absent, so this evidence cannot distinguish
+a deadline from a changed table, source/ownership/metadata or other guard. Do not
+mask A/D bits, restart the lifetime or relax a bound based on this photograph.
+Next add bounded stage/elapsed/first-mismatch diagnostics for adoption and its
+fresh stable gate, with failure-path regression coverage before another trial.
+
+On Ubuntu return, all602 prior USB files are byte-identical with no new files;
+fsck is clean and independent allocation confirms1673 clusters, zero leaks,
+zero FAT/bitmap mismatches and zero errors. The supplied photo, failed run record
+and complete collection/integrity evidence are hash-verified outside build.
+Ubuntu default and installed recovery/accepted fallback hashes verify. The
+collector is disabled, reboot timer inactive and one-shot cleared; no new boot
+is armed. Native v5 remains failed; earlier independent device acceptance stays
+unchanged. The installed current is this failed diagnostic, with known-good
+recovery retained; it must not be called an accepted payload.
