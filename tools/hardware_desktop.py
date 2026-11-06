@@ -808,6 +808,13 @@ def collect(mount, volume, output):
                     attention.append('collection: Intel backing observation refused, failed or incomplete')
             except ValueError as error:
                 attention.append('collection: invalid Intel backing observation: '+str(error))
+        intel_wake=None
+        if 'srvros.intel-wake=trial' in text:
+            try:
+                from intel_gt_wake import native_wake_result
+                intel_wake=native_wake_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_wake or not intel_wake['native_wake_complete']:attention.append("Intel cooperative wake lease incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
         intel_firmware=None
         if 'srvros.intel-firmware=read-only' in text:
             try:
@@ -878,7 +885,7 @@ def collect(mount, volume, output):
             "intel_display_capture": intel_display,
             "intel_display_backing": intel_backing,
             "intel_scanout_lifetime": intel_lifetime,
-            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,"intel_gt_firmware":intel_firmware,
+            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,"intel_gt_firmware":intel_firmware,"intel_gt_wake":intel_wake,
             "posix_capture": posix_proof,
             "storage_wait": storage_wait,
             "battery_preflight": preflight,

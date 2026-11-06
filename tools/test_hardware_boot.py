@@ -14,6 +14,20 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_intel_wake_dedicated_image(self):
+        version='ram-usb-v1-intel-wake-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        for token in ('srvros.intel-wake=trial','srvros.intel-firmware=read-only','srvros.intel-gt-preflight=read-only','srvros.intel-handoff=qualify','srvros.capture-failure=reboot'):
+            self.assertIn(token,config)
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',intel_gt_firmware_capture=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',aml_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(intel_wake_trial=True,**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-wake/srvros.elf','initramfs.tar'):
+            p=self.root/'build'/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_wake_trial=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-wake/srvros.elf')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
     def test_intel_firmware_observation_profile(self):
         version='ram-usb-v1-intel-gt-firmware-laptop-probe-37d8c5d0-auto-return'
         config=boot.limine_config('0123456789abcdef',version)

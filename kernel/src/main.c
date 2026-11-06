@@ -3,6 +3,7 @@
 #include <srvros/intel_handoff.h>
 #include <srvros/intel_gt_preflight.h>
 #include <srvros/intel_gt_firmware.h>
+#include <srvros/intel_gt_boot.h>
 #include <srvros/haswell_backing.h>
 #include <srvros/haswell_firmware.h>
 #include <srvros/haswell_cache_context.h>
@@ -826,6 +827,13 @@ void kmain(void) {
             if(cmdline_has_token(cmdline,"srvros.intel-handoff=qualify")){bool handoff_ok=started && intel_handoff_probe_report();sampled=sampled && handoff_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-gt-preflight=read-only")){bool gt_ok=started && intel_gt_preflight_probe_report();sampled=sampled && gt_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-firmware=read-only")){bool fw_ok=started && intel_gt_firmware_probe_report();sampled=sampled && fw_ok;}
+            if(cmdline_has_token(cmdline,"srvros.intel-wake=trial")) {
+                console_write("intel-wake: saving preflight checkpoint; no input needed. If this screen stops, photograph it and restart manually.\n");
+                bool checkpoint=started && workspace_log_pause();
+                if(checkpoint)console_write("intel-wake: preflight checkpoint saved\n");
+                else console_write("intel-wake: checkpoint failed; wake refused\n");
+                bool wake_ok=checkpoint && intel_gt_wake_probe_report();sampled=sampled && wake_ok;
+            }
             bool fixture=cmdline_has_token(cmdline,"srvros.intel-lifetime=fixture");
             if(fixture || cmdline_has_token(cmdline,"srvros.intel-lifetime=shadow")) {
                 struct limine_framebuffer_response *r=framebuffer_request.response;

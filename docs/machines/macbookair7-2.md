@@ -21,6 +21,24 @@ validate source-matched host/VM evidence before preparing a physical trial.
 No reboot this work block. Touch GT boot contract/adapter, Limine request,
 explicit build/staging/collector/decoders/tests and these docs; no sibling gates.
 
+### Cooperative wake implementation checkpoint (native trial pending)
+
+A separate native diagnostic adapter now requires the explicit cooperative EFI
+policy, exact12-token recipe, pinned Limine11.4.1/EFI64 handoff, CPU0/interrupt
+serialization, exact profile, excluded clients, full native prerequisites and
+fresh quiet firmware/requester state. This is an explicit conforming-firmware
+assumption, not a proof of SMM absence. Only the dedicated wake ELF contains the
+writer; ordinary kernels retain the stub/refusal and no firmware-type request.
+
+All three UC aliases must be ready before the only allowed stores to`0xa188`.
+The existing core owns initialization/request/ACK/C0/clear/retirement; faults
+retain uncertainty. A durable preflight checkpoint drains periodic logging before
+entry. Closeout retires aliases and revalidates firmware/original backing before
+release. Host tests pass missing facts/recipes/provenance, active and late foreign
+requesters, failed cache/map/retirement, uncertain writes, missing ACK/C0 and
+post-write firmware changes. Both ordinary and dedicated kernels build.
+Full matched-source validation and candidate preparation follow; no reboot armed.
+
 ### Native read-only firmware handoff census accepted
 
 Release `45815233908f2d02`, source `4ca8f490`, completes as

@@ -670,6 +670,8 @@ bool intel_window_handoff_clean(void) {return !trial_mapping_fault;}
 #include <srvros/intel_gt_preflight.h>
 #include <srvros/console.h>
 #include <srvros/display_present.h>
+static struct intel_gt_preflight_result gt_saved;
+static bool gt_saved_complete;
 struct gt_observer {struct backing_adapter a;struct display_access_token token;unsigned guards,cache_checks;bool uncertain;};
 static bool gt_guard(void *context) {
     struct gt_observer *g=context;struct backing_adapter fresh;uint64_t old;
@@ -732,10 +734,13 @@ bool intel_gt_preflight_probe_report(void) {
         (uint64_t)r.status,(uint64_t)r.maps,(uint64_t)r.retained,(uint64_t)acquired,(uint64_t)before,(uint64_t)after,(uint64_t)released,(uint64_t)g.guards,(uint64_t)g.cache_checks,(uint64_t)(trial_mapping_fault && !r.retained),r.endpoint.mmio,(uint64_t)r.endpoint.asls,(uint64_t)r.endpoint.swsci,(uint64_t)complete);
     for(unsigned n=0;n<2;n++)console_printf("intel-gt-sample: v=1 sample=%u begin_us=%u end_us=%u requests=%x ack=%x reads=%u\n",
         (uint64_t)n,r.sample[n].begin_us,r.sample[n].end_us,(uint64_t)r.sample[n].requests,(uint64_t)r.sample[n].ack,(uint64_t)r.sample[n].reads);
+    gt_saved=r;gt_saved_complete=complete;
     return complete;
 }
 
 #include <srvros/intel_gt_firmware.h>
+static struct intel_fw_result fw_saved;
+static bool fw_saved_complete;
 struct fw_observer {struct gt_observer gt;struct intel_fw_endpoint endpoint;uint64_t page;unsigned guards,cache_checks;bool mapped,uncertain;};
 static bool fw_endpoint(void *ctx,struct intel_fw_endpoint *out) {
     struct fw_observer *f=ctx;struct intel_gt_endpoint e={0};
@@ -816,5 +821,8 @@ bool intel_gt_firmware_probe_report(void) {
         console_printf("intel-firmware-sample: v=1 sample=%u begin_us=%u end_us=%u reads=%u\n",(uint64_t)n,r.sample[n].begin_us,r.sample[n].end_us,(uint64_t)r.sample[n].reads);
         for(unsigned i=0;i<INTEL_FW_WORDS;i++)console_printf("intel-firmware-word: v=1 sample=%u index=%u offset=%x value=%x\n",(uint64_t)n,(uint64_t)i,(uint64_t)intel_fw_offsets[i],(uint64_t)r.sample[n].words[i]);
     }
+    fw_saved=r;fw_saved_complete=complete;
     return complete;
 }
+
+#include "intel_gt_wake.inc"

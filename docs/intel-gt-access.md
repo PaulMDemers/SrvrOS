@@ -1,9 +1,10 @@
 # Broadwell GT access and requester preflight
 
 The accepted Air7,2 CPU-client qualification does not provide GT register-access
-or firmware ownership. This slice adds the missing wake transaction contract and
-a separate **read-only** native preflight. It does not yet wire a native writer,
-read engine controls, retire engines or grant a GPU interval.
+or firmware ownership. The read-only qualification and firmware census below are accepted. A new
+explicit cooperative-EFI contract adds a separately compiled, opt-in bounded
+native wake trial. Native wake is not yet physically accepted. Engine control,
+reader retirement, GPU intervals and physical tear-free flips remain separate.
 
 ## Audited hardware obligations
 
@@ -65,8 +66,9 @@ code. Owners bind their object address and CPU exclusion epoch; accidental struc
 copies cannot operate or retire the original owner. An awake clock lease would still not retire engines, transfer addresses
 or establish firmware/display/audio/DMA ownership.
 
-The transaction is exercised against synthetic host I/O only. No native caller
-supplies its grants or writer callback. Ordinary startup cannot enter it.
+The original transaction was exercised against synthetic host I/O only. The
+new opt-in cooperative policy below supplies a distinct native adapter; ordinary
+startup still cannot enter it.
 
 ## Native preflight
 
@@ -212,3 +214,82 @@ requester retirement and kernel-bit grants remain absent, and the wake writer
 remains unlinked. Quiet firmware words are not a runtime firmware/SMM exclusion
 contract; this acceptance does not permit forcewake, engine inspection, GPU
 range transfer or physical tear-free flips.
+
+## Opt-in cooperative EFI wake contract
+
+The read-only captures above establish observations, not retirement of opaque
+firmware. The new version1 **cooperative EFI boot policy** is an explicit driver
+contract: conforming firmware yields boot-time GT requester control to the OS.
+It assumes firmware/SMM does not independently reuse the OS-owned requester
+while this bounded lease is live. It does not assert that SMM is absent, stopped,
+or generally excluded. Uncooperative firmware lies outside this policy; visible
+foreign activity or changed state faults the lease and retains uncertainty.
+This is a stated platform assumption, not a conclusion drawn from quiet bits.
+
+The [pinned Limine protocol's x86-64 entry contract](https://github.com/limine-bootloader/limine-protocol/blob/3a0526b700e356f0eac1b71a77697b3fd1c707a3/PROTOCOL.md#x86-64-1)
+guarantees exited boot services on EFI entry. The
+[UEFI boot-services contract](https://uefi.org/specs/UEFI/2.10/07_Services_Boot_Services.html)
+assigns resource management to the OS at that handoff; runtime services remain
+separate. The diagnostic requires an EFI64 response with revision0 and the
+pinned Limine11.4.1 identity. Staging verifies the pinned loader binary alongside
+the source-qualified kernel. A loader identity string alone is not attestation
+against a malicious loader; these are trusted boot-chain assumptions.
+
+Only `build/intel-wake/srvros.elf` contains the native writer and new firmware-type
+request. Ordinary, read-only observer and AML/AP builds keep the writer absent.
+`--intel-wake-trial` selects that distinct binary and recipe; an ordinary image
+cannot gain a writer by adding a command-line token. The kernel independently
+requires all12 expected recipe fields exactly once, valid volume/release hex,
+and no other tokens. This excludes AML, battery, audio, AP and interactive modes.
+The immutable observer claim still grants no write authority by itself.
+
+All ten independent admission facts are required:
+
+- The dedicated compiled capability and exact explicit recipe.
+- The pinned loader identity and EFI64 handoff.
+- Exact Air7,2 firmware/GPU/resource profile and CPU0 serialization.
+- A live participating-client exclusion lease and full native prerequisites.
+- Fresh quiet firmware fields and zero low16 request/ACK state under that lease.
+
+These facts assign initialization authority under the explicit cooperative boot
+policy, retire participating boot/OS requesters for this transaction, and assign
+kernel bit0 to its only driver owner. They are not firmware/engine/DMA/display/
+audio reader grants for a GPU memory interval. Any missing fact refuses before
+write-capable mappings or writes. The existing GT protocol still independently
+refuses active initial request/ACK bits even if its caller supplies all grants.
+
+The main capture saves and verifies `session-a.log` before entering the trial,
+using the existing logger pause path; this also drains/disables periodic logging.
+The guest displays recovery instructions before that checkpoint. Missing durable
+preflight refuses the wake attempt. CPU0 interrupts stay masked only through the
+bounded lease/mapping work and are restored on every handled outcome; optional
+firmware/runtime callbacks and other GT drivers cannot be entered on that CPU.
+An opaque SMI can still execute, as stated by the cooperative policy above.
+
+Under the new lease, the adapter repeats firmware and request/ACK observations
+and original-window/full-backing preservation. It prepares all three pages before
+any store: request`0xa000` RW/NX/UC, ACK`0x130000` RO/NX/UC, and thread-C0
+`0x138000` RO/NX/UC. Each requires a fresh matching MTRR/effective-UC context and
+an absent, separately tracked virtual alias. The old observation/cache allowlists
+stay unchanged. The only store destination is request register`0xa188`, using
+the three masked values required by the core. Ordered UC stores are followed by
+ACK/C0 checks. No engine register, reset/stop, GGTT PTE, private GPU buffer,
+OpRegion readiness or command write is available.
+
+Closing verifies own-bit retirement before unpinning, retires every known alias,
+then repeats the firmware and inherited-state checks before releasing CPU
+exclusion. Uncertain maps, writes, failed ACK/C0 or changed state retain the
+appropriate mappings/exclusion until reset. There are no retries, forced lease
+release or fallback request bits. Per-phase100ms, core-total300ms and finite
+poll limits remain; physical acceptance additionally requires the complete
+bracket within500ms. A closed but slow bracket is incomplete evidence, not
+hardware uncertainty or a license to repeat it.
+
+Receipts distinguish the cooperative contract, admission facts, fresh initial
+request/ACK, issued-write attempts, confirmed writes, protocol state/reason,
+map/cache/retirement counts and complete closeout. The strict decoder requires
+the native firmware/GT/handoff/window/cache/backing/display chain, loader
+provenance, a saved-preflight marker and independent UC derivation for all three
+pages. `native_wake_complete` can accept this bounded lease; `smm_retirement`,
+`engine_retirement`, `hardware_ownership`, `managed_range` and `physical_tearfree`
+remain false. No native wake or broader ownership acceptance exists yet.

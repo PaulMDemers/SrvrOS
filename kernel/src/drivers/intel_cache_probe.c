@@ -94,3 +94,12 @@ bool intel_cache_probe_firmware_wb_page(uint64_t physical) {
        !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
     return x86_cache_page(&current,physical,0,&m,&p,&e) && m==6 && p==6 && e==6;
 }
+
+/* Dedicated wake adapter only. Existing read-only allowlists stay unchanged. */
+bool intel_cache_probe_wake_uc_page(uint64_t physical,uint32_t offset) {
+    struct x86_cache_snapshot current;unsigned m,p,e;uint64_t pages[3];
+    if((offset!=0xa000 && offset!=0x130000 && offset!=0x138000) || !report_ok ||
+       !intel_scanout_trial_cache_pages(pages) || pages[0]<0x101000 || physical!=pages[0]-0x101000+offset ||
+       !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
+    return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
+}

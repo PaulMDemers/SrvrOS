@@ -10,6 +10,14 @@ volatile struct limine_bootloader_info_request bootloader_info_request = {
     .revision = 0
 };
 
+#ifdef SRVROS_INTEL_WAKE_TRIAL
+/* Separate diagnostic image only; ordinary boot has no new request or writer. */
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_firmware_type_request intel_wake_firmware_request = {
+    .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0
+};
+#endif
+
 __attribute__((used, section(".limine_requests")))
 volatile struct limine_executable_cmdline_request executable_cmdline_request = {
     .id = LIMINE_EXECUTABLE_CMDLINE_REQUEST_ID,

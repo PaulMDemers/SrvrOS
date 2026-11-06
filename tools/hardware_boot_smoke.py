@@ -172,7 +172,7 @@ def main():
     if args.ap_inject and args.ap_inject.startswith("c3-") and not args.ap_c3_sim: parser.error("C3 injections require simulation")
     cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
-    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")))
+    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
@@ -236,7 +236,7 @@ def main():
                    "-monitor", "none", "-display", "none", "-no-reboot"]
         # Explicit cache-only CPU observation in TCG; absent Intel GPU still
         # refuses native address binding and aggregate display acceptance.
-        if manifest["config_version"].startswith(("ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-")):
+        if manifest["config_version"].startswith(("ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-")):
             command += ["-cpu","Broadwell"]
         if hfw_capture or ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
         if scaled_desktop:
@@ -552,6 +552,12 @@ def main():
                                 publication=model_result(stored.read(folder+"/exit.log").decode())
                                 assert publication and publication['complete'] and not publication['dma_authority']
                                 (logs/'scanout-publish-model-result.json').write_text(json.dumps(publication,indent=2)+"\n")
+                        if 'srvros.intel-wake=trial' in text:
+                            from intel_gt_wake import native_wake_result
+                            wake=native_wake_result(stored.read(folder+"/exit.log").decode())
+                            assert wake and wake['summary']['compiled'] and not wake['native_wake_complete']
+                            assert not wake['summary']['maps'] and not wake['summary']['attempts']
+                            (logs/'intel-wake-result.json').write_text(json.dumps(wake,indent=2)+"\n")
                         if 'srvros.intel-firmware=read-only' in text:
                             from intel_gt_firmware import native_firmware_result
                             fw=native_firmware_result(stored.read(folder+"/exit.log").decode())
