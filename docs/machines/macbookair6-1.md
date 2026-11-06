@@ -7494,3 +7494,16 @@ also cannot enumerate65 full512-entry pages. Preserve failure evidence and
 separate any future coverage design from resource/leaf/retirement admission.
 No VT-d target access, mapping, policy write or ownership is authorized by this
 receipt; prior accepted CPU/cache observations remain historical and unchanged.
+
+
+### Alias census layout/feasibility audit scope (2026-11-05)
+
+Base `7b887bbe`; v4 failed native run collected and closed. Audit the pre-init
+mapping producers and saved firmware/receipt evidence, distinguish inherited
+from kernel-added tables, and reproduce the capacity lower bound with host-only
+fixtures. Touch scope: source-only/host-only audit, regression fixtures and own
+current docs; no native producer, mapping, boot order, power policy or limit change.
+Inspect current PR301 GPU/VMM admission and PR19 Wi-Fi work without duplicating
+them. Preserve the failed64-table receipt; do not stage a rerun that cannot
+establish full coverage under its existing32768-entry-per-pass ceiling.
+Next checkpoint: reviewable feasibility result, local tests and durable evidence.
