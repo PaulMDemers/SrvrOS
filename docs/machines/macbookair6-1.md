@@ -7740,3 +7740,17 @@ collector is disabled, reboot timer inactive and one-shot cleared; no new boot
 is armed. Native v5 remains failed; earlier independent device acceptance stays
 unchanged. The installed current is this failed diagnostic, with known-good
 recovery retained; it must not be called an accepted payload.
+
+
+### Adoption failure diagnostics scope (2026-11-06)
+
+Base `26e3b161`, failed native v5 fully collected; no reboot armed. Add bounded,
+first-failure stage/reason, existing lifetime-clock observations and exact
+expected/observed values to the checked mapper/adoption and fresh stable gate.
+Show these on the existing pre-PCI terminal screen, without target rereads,
+new control writes, retries, A/D masking, restarted deadlines or changed limits.
+Keep the v5 success raw proof and normal/legacy paths compatible. Scope: AP-only
+ECAM backend/adapter/terminal formatter, real fault/formatter fixtures and own
+current docs. PR301 GPU and PR19 Wi-Fi scopes remain separate. Next freeze and
+validate source, sequential exact-stage refusal/return rehearsals, self-merge,
+then prepare a new unit-specific trial with all602 prior files/recovery retained.
