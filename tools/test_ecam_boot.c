@@ -126,6 +126,21 @@ int main(void){
  assert(eb.r.state==ECAM_ACTIVE && eb.r.metadata_attempts==39936 && kernel_mapping_count==128 && !memcmp(&saved,kernel_mappings,sizeof(saved)));
  for(unsigned i=1;i<128;i++)assert(kernel_mappings[i].virtual_address==ECAM_BOOT_VA+(i-1)*4096ull);
  assert(!vmm_ecam_boot_retire() && !frees);
+ /* Every possible initial registry count has the exact old append/truncate
+  * result, even for unordered/duplicate old VAs outside the ECAM span. */
+ for(unsigned count=0;count<=128;count++) {
+  reset();kernel_mapping_count=count;
+  for(unsigned i=0;i<count;i++)kernel_mappings[i]=(struct kernel_mapping){0xffffc00000000000ull+4096*((i*37)%17),0x100000ull+i*4096,0x12+i};
+  struct kernel_mapping before[128];memcpy(before,kernel_mappings,sizeof(before));
+  assert(vmm_ecam_boot_prepare(&io) && vmm_ecam_boot_handoff());
+  assert(kernel_mapping_count==128 && eb.r.metadata_attempts==39936 && !frees);
+  for(unsigned i=0;i<128;i++) {
+   struct kernel_mapping want=i<count?before[i]:(struct kernel_mapping){ECAM_BOOT_VA+(i-count)*4096ull,ECAM_BOOT_PA+(i-count)*4096ull,0x8000000000000012ull};
+   assert(!memcmp(&want,&kernel_mappings[i],sizeof(want)));
+  }
+ }
+ reset();kernel_mapping_count=1;kernel_mappings[0]=saved;
+ assert(vmm_ecam_boot_prepare(&io) && vmm_ecam_boot_handoff());
  assert(vmm_ecam_boot_adopt(ECAM_BOOT_VA,ECAM_BOOT_PA,ECAM_BOOT_BYTES));
  assert(eb.r.adoptions==1 && eb.r.adopted_us==eb.r.end && eb.r.words<65536);
  unsigned adopted_loads=loads;assert(!vmm_ecam_boot_adopt(ECAM_BOOT_VA,ECAM_BOOT_PA,ECAM_BOOT_BYTES) && loads==adopted_loads);

@@ -542,3 +542,28 @@ VM collector requires whole saved audio/lifecycle records agreeing with the
 separate durable result; it rejects missing, truncated, conflicting and failed
 records instead of reconstructing damaged UART output. The UI500ms and whole
 lifetime10s bounds, screenshot workload, global sync and retirement remain intact.
+
+
+## Deferred process mapping backing
+
+A process image keeps the original65536-entry tracking capacity, but unused
+process slots no longer embed those arrays in the kernel ELF. The first
+ordinary/private user-page mapping reserves the entire array through the
+checked heap allocator and zeros it privately in64KiB service batches. The
+pointer is published before any user page; only the initialized live prefix
+is tracked. Allocation failure publishes no page. Atomic growth requires the
+image's existing backing and cannot allocate or yield for new tracking storage.
+
+Cleanup retires all tracked user frames before detaching/freeing the backing.
+Exec transfers the unique backing and image fields under IRQ exclusion after
+old-image cleanup; the source loses pointer/count/root ownership. Fork allocates
+its own backing through ordinary checked page loading. Fresh-image, signal-frame
+and retired-child checks account for missing or still-owned storage. Slot and
+lifetime publication, heap validation passes,64 process slots and all mapping,
+thread, descriptor and I/O limits remain unchanged. Out-of-memory admission is
+handled before page publication and partial-image cleanup remains mandatory.
+
+This removes96MiB of unused static reservation and its boot mapping pressure;
+it does not establish a native complete-root census or bound heap fragmentation.
+Capacity, failure, fork/exec, signals, teardown and reuse are covered by the real
+process fixtures. The Air6,1 record owns its independent native acceptance.

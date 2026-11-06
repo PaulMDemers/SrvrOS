@@ -289,3 +289,19 @@ insufficient to prove attribution. The original ECAM-only graph estimate was
 not a complete native-layout result; its successful compact subtree does not
 make the remaining graph fit. Keep the census/lifetime limits unchanged and
 also investigate startup timing headroom before another implementation/trial.
+
+
+## Unique-span registry bookkeeping
+
+The checked handoff keeps39936 attempts and fault hooks, capacity128 and complete
+pre/post registry verification. Prepare excludes every old registry VA from the
+whole ECAM span, handoff revalidates the snapshot and the new VAs increase
+strictly. No new VA can update an old or previously appended row. The private
+handoff therefore appends the available prefix directly and leaves its full
+registry tail unchanged, instead of searching128 rows for every provable no-op.
+Each attempt also checks the expected count. All original root/clock checks,
+full invalidation, post-readback and strict comparisons remain, with no deadline
+restart. Generic PCI registration is unchanged. Real-source fixtures compare
+every initial count0–128, including unordered/duplicate old VAs outside the span,
+and retain failure/poison coverage. Native timing improvement still needs a
+matching hardware receipt.

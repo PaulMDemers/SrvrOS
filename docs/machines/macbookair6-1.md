@@ -7832,3 +7832,88 @@ All raw files, ELF inspection and assessment are hash-verified outside build.
 Ubuntu/recovery/fallback hashes verify; collector disabled, timer inactive and
 one-shot cleared. No boot is armed. The installed diagnostic remains unaccepted
 as a complete profile; prior independent device acceptance is unchanged.
+
+
+### Mapping-storage and handoff scope (2026-11-06)
+
+Base `e1a30e1e`; prior native v5 collected failed overall, no boot armed. Replace
+unused embedded mapping arrays with image-owned deferred full-capacity backing,
+retaining65536 mappings per process, all64 slots and existing publication,
+ownership and teardown checks. Cover allocation failure before page publication,
+fork/exec transfer/rollback, cleanup and slot reuse. Scope: private process
+mapping field/helpers, map/cleanup/image-transfer code and real host fixtures;
+leave slot/lifetime publication and PR301 owner-revocation work unchanged. PR19
+has no process.c delta against this baseline; PR301's process edits concern
+scope-owner revocation/publication, not mapping backing. Publish bounded commits
+and preserve those independent changes.
+
+Also remove redundant registry duplicate searches for the freshly proved unique
+ECAM span, keeping39936 attempts/events, capacity128, complete pre/post registry
+verification and the original root/source/clock checks and100ms lifetime. No
+policy, ownership gate, A/D mask or limit change. Measure the exact ELF reduction
+and source-matched host/VM results before a new physical stage; native graph fit
+and timing improvement remain unaccepted until a complete matching receipt.
+
+
+### Deferred backing and handoff candidate (2026-11-06)
+
+Unused process slots no longer embed65536 mapping records each. A private image
+reserves its full original capacity through the checked heap and zeros it in
+64KiB service batches before the first user-page publication. Failed allocation
+publishes no page. Exec transfers unique backing under IRQ exclusion after old
+image retirement; cleanup frees it after the tracked prefix is empty. Atomic
+growth requires existing backing; fresh-image, frame-copy and reaping checks
+reject inconsistent or still-owned storage.64 slots,65536 mappings and all
+other capacities remain unchanged. Slot/lifetime ownership and PR301's separate
+owner-revocation changes are untouched.
+
+The AP-only ECAM span now appends the available registry prefix without repeated
+duplicate searches after proving the old VAs are excluded and new VAs unique.
+All39936 attempts/events,128-row capacity, original root/source/clock checks,
+invalidation and complete pre/post verification remain. Every starting count
+0–128 matches the old registry result. This does not restart the100ms deadline
+or change the65536-word cap, old census/context limits or any policy.
+
+All17 process suites, full-capacity storage/ownership failures and actual ECAM
+fault/oracle tests pass. Matched images and the full local core suite pass
+(one optional exhaustive I/O test skipped by default). The measured AP ELF BSS
+drops exactly96MiB to20090472 bytes (about19.160MiB); its process array is8781824
+bytes. Sanitizers, frozen-source builds and staged VM checks remain next at
+this checkpoint. Native graph fit/timing improvement remain unaccepted; the
+prior failed run/evidence/recovery are retained and no new boot is armed.
+
+The final native sanitizer checks pass for full-capacity mapping storage, image
+lifecycle, loader and checked ECAM backend/gate. The new storage fixture and
+ECAM gate also cross-compile to ARM64. Initial cross-compilation exposed old
+unrelated STI/HLT instructions emitted by process host fixtures; those unexpected
+host paths now trap, while native disassembly and relocations compare identical.
+All process suites were rerun after that host-only adaptation. Native runtime
+acceptance and exact-stage VM checks remain pending at this source checkpoint.
+
+
+### Frozen mapping-storage validation (2026-11-06)
+
+[PR391](https://github.com/PaulMDemers/SrvrOS/pull/391), compiled/tested runtime
+`ad1d6199`, exact v5 release `83ef1c984bb62a79`: full local core/build checks
+passed, including the89-test installed-root matrix (one optional exhaustive
+I/O case skipped by default). After the host-only privileged-instruction
+adaptation, all17 process suites and the actual ECAM backend passed again;
+native disassembly/relocations stayed identical. Five actual-source ASan/UBSan
+fixtures pass, and mapping-storage/ECAM-gate fixtures compile for ARM64.
+
+Seven sequential staged Q35 checks passed: legacy firmware, cache context,
+alias-v3, fences32, v4, exact-v5 refusal and v5 missing workspace. The v5 success
+formatter fixtures remain byte-identical to the original. Normal images exclude
+AP diagnostic symbols; the AP image retains them. These VM results validate
+refusal/collection and shared runtime behavior, not Haswell native admission.
+
+Next native run checks the unchanged early100ms/65536-word handoff and later
+64-table/two-pass full managed-root census with the smaller image. Require both
+matching raw receipts and complete final save/unmount/return. An early halt or
+missing completion remains failed/incomplete. Ubuntu stays default; protected
+accepted recovery and full prior failed payload/evidence remain outside build.
+No power policy, mapping permission, integrity check or limit was widened.
+
+Ordinary syscall, UEFI USB keyboard, fork, exec-vector and scheduler-yield VM
+checks also passed against the matched normal image. Native graph/timing
+acceptance is pending the automated run; no result is inferred from Q35.
