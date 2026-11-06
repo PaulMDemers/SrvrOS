@@ -11,9 +11,10 @@ def wake_result(text):
  s={}
  for word in lines[0].removeprefix('intel-wake-summary: ').split():
   k,sep,v=word.partition('=')
-  if not sep or k in s or not re.fullmatch(r'(?:0|0x[0-9a-fA-F]{1,8})' if k in HEX else r'[0-9]{1,20}',v):raise ValueError('wake field encoding')
+  if not sep or k in s or not re.fullmatch(r'(?:0|0x[0-9a-fA-F]{1,16})' if k in HEX else r'[0-9]{1,20}',v):raise ValueError('wake field encoding')
   s[k]=int(v,16 if k in HEX else 10)
   if s[k]>=1<<64:raise ValueError('wake overflow')
+ if any(s.get(k,0)>=1<<32 for k in HEX):raise ValueError('wake DWORD width')
  if set(s)!=set(FIELDS) or s['v']!=1 or any(s[k]>1 for k in BOOL):raise ValueError('wake schema/boolean')
  if any(s[k] for k in ('engine_reads','pte_writes','managed_pages','smm_retired','hardware_ownership')):raise ValueError('wake unsupported ownership')
  if s['grants'] not in (0,7) or s['maps']>3 or s['retired']>s['maps'] or s['cache_checks']>3 or s['writes']>3 or s['attempts']>3 or s['writes']>s['attempts'] or s['state']>4 or s['reason']&~2047 or s['guards']>200000:raise ValueError('wake counts')

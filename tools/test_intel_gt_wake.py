@@ -1,5 +1,5 @@
 from pathlib import Path
-import subprocess,unittest,resource
+import subprocess,unittest,resource,re
 from intel_gt_wake import wake_result,native_wake_result,verify_wake_checkpoint
 ROOT=Path(__file__).resolve().parents[1]
 class WakeTests(unittest.TestCase):
@@ -32,6 +32,12 @@ class WakeTests(unittest.TestCase):
    with self.subTest(old=old),self.assertRaises(ValueError):wake_result(self.raw.replace(old,new,1))
   for t in (self.raw+self.raw,self.raw.replace('v=1','v=2'),self.raw.replace('grants=7','grants=7 grants=7')):
    with self.assertRaises(ValueError):wake_result(t)
+ def test_native_padded_dword_format(self):
+  padded=re.sub(r'(?<!\S)(initial_req|initial_ack|requests|ack|thread)=(0x[0-9a-fA-F]+|0)',lambda m:m[1]+'='+format(int(m[2],0),'#018x'),self.raw)
+  self.assertTrue(wake_result(padded)['lease_complete'])
+  for key in ('initial_req','initial_ack','requests','ack','thread'):
+   bad=re.sub(r'(?<!\S)'+key+r'=\S+',key+'=0x0000000100000000',padded)
+   with self.assertRaises(ValueError):wake_result(bad)
  def test_saved_checkpoint_binding(self):
   prefix=self.loader+self.cache+self.claim+self.handoff
   pre=prefix+self.text.partition('intel-wake: bounded')[0]+'workspace-log: snapshot=session-a.log\n'
