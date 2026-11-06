@@ -39,8 +39,8 @@ static bool intel_display_test_engine_read(unsigned e,unsigned w,uint32_t *v) {
  if(!strcmp(engine_mode,"active") && e==0 && w==3)*v=1;
  if(!strcmp(engine_mode,"pending") && e==2 && w==4)*v=0x10;
  if(!strcmp(engine_mode,"changed") && engine_calls>30 && e==1 && w==2)*v=4096;
- if(!strcmp(engine_mode,"float") && e==0 && w==0)*v=UINT32_MAX;
- return strcmp(engine_mode,"read-fail")!=0;
+ if((!strcmp(engine_mode,"float") && e==0 && w==0) || (!strcmp(engine_mode,"float-last") && engine_calls==60))*v=UINT32_MAX;
+ return strcmp(engine_mode,"read-fail")!=0 && (strcmp(engine_mode,"read-fail-last")!=0 || engine_calls!=60);
 }
 #endif
 static bool fw_mode,fw_bad_signature,fw_changed,fw_cache_fail,fw_map_fail,fw_retire_fail;
@@ -264,7 +264,7 @@ int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_WAKE_TRIAL
  if(wake_mode){config_reads=0;if(!strcmp(argv[1],"--wake-loader"))wake_loader.version="unknown";if(!strcmp(argv[1],"--wake-efi"))wake_firmware.firmware_type=1;if(!strcmp(argv[1],"--wake-recipe"))wake_cmd.cmdline="srvros.intel-wake=trial";bool good=!(wake_cache_fail || wake_map_fail || wake_retire_fail || wake_uncertain || wake_no_ack || wake_foreign || wake_busy || wake_thread_stuck || wake_late_foreign || wake_fw_after || !strcmp(argv[1],"--wake-loader") || !strcmp(argv[1],"--wake-efi") || !strcmp(argv[1],"--wake-recipe"));
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
- good=good && strcmp(engine_mode,"float") && strcmp(engine_mode,"read-fail") && strcmp(engine_mode,"cache-last") && strcmp(engine_mode,"map-last") && strcmp(engine_mode,"retire-last") && strcmp(engine_mode,"late-foreign") && strcmp(engine_mode,"slow") && strcmp(engine_mode,"frozen");
+ good=good && strcmp(engine_mode,"float-last") && strcmp(engine_mode,"read-fail-last") && strcmp(engine_mode,"float") && strcmp(engine_mode,"read-fail") && strcmp(engine_mode,"cache-last") && strcmp(engine_mode,"map-last") && strcmp(engine_mode,"retire-last") && strcmp(engine_mode,"late-foreign") && strcmp(engine_mode,"slow") && strcmp(engine_mode,"frozen");
 #endif
  assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);if(good){assert(wake_writes==3 && !wake_ack && (wake_request&0xffff)==0 && display_access_allowed());}}
 #else

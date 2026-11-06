@@ -23,7 +23,7 @@ class EngineTests(unittest.TestCase):
    r=engine_result(self.run_adapter(mode));self.assertTrue(r['observation_complete']);self.assertEqual(r[key],value)
    self.assertFalse(r['reader_retirement'] or r['managed_range'])
  def test_failed_reads_close_without_promoting(self):
-  for mode in ('float','read-fail'):
+  for mode in ('float','read-fail','float-last','read-fail-last'):
    t=self.run_adapter(mode);r=engine_result(t);w=wake_result(t)
    self.assertFalse(r['observation_complete'] or w['lease_complete'])
    self.assertEqual(w['summary']['closed'],1);self.assertEqual(w['summary']['retained'],0)

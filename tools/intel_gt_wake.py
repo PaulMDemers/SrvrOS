@@ -24,7 +24,11 @@ def wake_result(text):
  if s['state']==4 and not s['retained']:raise ValueError('wake fault not retained')
  if not s['compiled'] and any(v for k,v in s.items() if k!='v'):raise ValueError('wake ordinary writer')
  complete=all(s[k] for k in ('compiled','contract','efi64','loader','recipe','serialized','prerequisites','profile','fw_quiet','req_quiet','acquired','before','opened','checked','closed','fw_after','after','released')) and s['grants']==7 and s['maps']==s['retired']==s['cache_checks']==(8 if s['v']==2 else 3) and s['writes']==s['attempts']==3 and s['engine_reads']==(60 if s['v']==2 else 0) and not s['retained'] and s['state']==3 and not s['reason'] and not s['initial_req']&65535 and not s['initial_ack'] and not s['requests']&65535 and not s['ack'] and not s['thread']&7 and 0<s['begin_us']<s['end_us']<=s['begin_us']+500000 and s['guards']>0
- if s['complete']!=int(complete):raise ValueError('wake completion')
+ # A v2 census can refuse after completing all60 DWORDs (for example the
+ # final word floats). A declared incomplete census may never become a pass
+ # merely because the wake protocol and its resource closeout succeeded.
+ if s['complete']!=int(complete) and not (s['v']==2 and not s['complete']):raise ValueError('wake completion')
+ complete=complete and bool(s['complete'])
  return dict(lease_complete=complete,native_wake_complete=False,cooperative_firmware_contract=bool(s['contract']),smm_retirement=False,engine_retirement=False,hardware_ownership=False,managed_range=False,physical_tearfree=False,summary=s)
 def native_wake_result(text):
  r=wake_result(text)
