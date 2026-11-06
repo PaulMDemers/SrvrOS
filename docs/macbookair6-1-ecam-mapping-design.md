@@ -160,7 +160,8 @@ Fresh gate counters permit at most49 cache MSRs per snapshot, two EFER reads,
 The RAM-copy entry is usable only within an active admission callback and rejects
 ECAM/VT-d device pages. IRQ state and all control/cache policy remain unchanged.
 
-Actual-source fixtures inject every one of512 detached stores before/after an
+Actual-source fixtures exercise4KiB/2MiB/1GiB checked RAM translations and inject
+every one of512 detached stores before/after an
 ambiguous acknowledgement, parent-store/unlink ambiguity, source failures after
 publication/unlink, invalidation/metadata failures, stale/changed borrowed paths,
 A-bit/private-page changes, PMM/free failures, exhausted words and stopped/backward/
@@ -170,6 +171,10 @@ logic, firmware checks, CPU/AP topology checks, maximum49+49 cache MSRs, two EFE
 reads, wrong identity/geometry/RAM/pin and changed-cache refusals. Its synthetic
 DMAR pin is explicitly host-only; the native pin remains byte-identical to the
 prior exact-unit firmware gate. ASan/UBSan covers both actual-source fixtures.
+The new fixture also cross-compiles to ARM64 using a host-neutral topology input;
+its native Limine projection keeps the same early refusal checks. Assertions stay
+enabled, and unexpected unrelated user-frame routes abort through existing host
+hooks. This is compile coverage, not ARM hardware or macOS runtime acceptance.
 Callback-return faults are contained by the backend; native CPU exceptions remain
 terminal kernel faults, not resumable recovery or proof of hardware rollback.
 
@@ -178,7 +183,8 @@ terminal kernel faults, not resumable recovery or proof of hardware rollback.
 The backend entrypoints are linked only into the AP diagnostic ELF; the ordinary
 kernel excludes them. Neither `main` nor PCI enumeration calls them yet. Build
 a distinct versioned opt-in pre-PCI dispatch/receipt profile next, including explicit
-poison handling, immediate handoff/retire before PCI access, all raw fresh proofs,
+poison handling, immediate handoff/retire before PCI access, checked PCI-window
+adoption that skips the old4KiB mapper only for the admitted active window, all raw fresh proofs,
 strict decoding, tail retention and exact-stage VM coverage. Do not silently
 change v1–v4 or claim their existing receipts exercise this backend.
 

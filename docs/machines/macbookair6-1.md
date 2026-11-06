@@ -7625,3 +7625,30 @@ at this candidate checkpoint. See the [current implementation contract](../macbo
 Next add the separate versioned opt-in dispatcher, poison handling and complete
 raw receipt/tail/VM checks before a physical trial. No new payload is installed or
 reboot armed; the native v4 census is still failed and earlier acceptance unchanged.
+
+
+### ECAM backend validation closeout (2026-11-05)
+
+Implementation `db002799` passes matched normal/AP/USB builds, actual backend/gate
+and affected PMM/VMM/firmware/cache/alias/layout/PCI suites, and both ASan/UBSan
+fixtures. Eight sequential VMs pass normal syscall ABI, normal UEFI USB keyboard,
+legacy firmware/cache/v3-alias/32-fence profiles, exact v4 refusal/save/return and
+missing-workspace handling. These exercise the existing paths; the new backend
+has no startup caller and gains no native acceptance from them.
+
+Follow-up `54718be4` adds direct2MiB/1GiB RAM-walk cases, rejected device/reserved
+sources, lost tags/backward clocks and missing architectural features. The topology
+fixture is host-neutral, with identical native early checks, and assertions stay
+on even under a compiler's release defaults; unrelated privileged user-frame
+routes abort via existing test hooks. New fixture ARM64 cross-compilation passes;
+the initial compile failure is retained and is not macOS/ARM runtime acceptance.
+All affected checks and ASan/UBSan pass again, followed by six sequential exact-stage
+AP profile rehearsals on this source. Ordinary inputs remain unchanged from the
+two passing normal VMs. The new helper remains uncalled in all those profiles.
+
+Native pins match the captured complete MCFG and existing DMAR pin; ordinary ELF
+exclusion and AP symbol retention verify. Raw/source/VM/validation evidence has a
+hash-verified copy outside build. Next is the distinct dispatcher/checked PCI-window
+adoption and full raw receipt/decoder/tail profile. No new payload is installed,
+no reboot is armed and the failed native v4 census remains the current hardware
+result. Existing recovery/Ubuntu default and all prior device evidence are retained.
