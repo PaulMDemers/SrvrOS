@@ -13121,3 +13121,19 @@ is independently sealed;accepted notes retain only this bounded scope. Live
 management transmission,matched AUTH/ASSOC/leave,WPA2 keys,replay/PN,IP and data
 remain open. Credentials remain unread/unpackaged. Ubuntu remains default and
 unarmed;workspace is unmounted. Historical failed candidates remain failed.
+
+### Live management owner work scope (November 6)
+
+Accepted v125 source2290c938 remains installed and independently sealed.
+Reviewed mainca43ce23 adds a dormant AP-only checked ECAM backend and fresh
+pre-PCI gate plus host fixtures;it changes no Wi-Fi code and grants no native
+Pro ECAM or sibling acceptance. Merge d6413898 retains both test families.
+The next bounded objective is a separate live owner for captured OUT04/DCI8
+and IN84/DCI9,using the accepted private Demers5 peer and held calibrated
+161/20MHz selected power. It must preserve old stopped/empty/read-only gates,
+retain all new/old DMA on uncertainty,distinguish USB completion from matched
+AUTH/ASSOC responses,and retire safely after leave before restoring originals.
+Touches fixed MT76 session/endpoint owner,staging,dispatch and proof/tests.
+PMM/VMM/ECAM integration is a dependency,not part of the Wi-Fi authority.
+Air graphics/alias and browser scopes remain independent;no cross-chat contact.
+No new image or boot is armed. Credentials remain unread/unpackaged.
