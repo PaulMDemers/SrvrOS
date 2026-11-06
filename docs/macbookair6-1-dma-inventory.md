@@ -466,3 +466,104 @@ Next audit the inherited layout and whether a complete proof can fit existing
 bounds. A streaming implementation alone would not remove the32768-entry
 per-pass ceiling:65 full tables already require33280 entries. Do not widen
 limits or substitute a sparse/partial graph for exhaustive coverage.
+
+
+## ECAM layout and fixed-bound feasibility audit (2026-11-05)
+
+Base `7b887bbe`, after collecting the failed v4 trial. This is an offline/source
+result. No kernel producer, mapping, initialization order, policy or limit changes.
+Current open PR301 GPU admission and PR19 Wi-Fi work remain separate; the only
+shared build-file addition here is a host-test target.
+
+### Kernel-created mappings already exceed the census
+
+`main` calls `pci_init` before the pre-user-init capture. PCI's
+`map_ecam_windows` maps every declared bus window with `vmm_map_page`, one4KiB
+page at a time, beginning at `0xffffc00300000000`. VMM's `ensure_next_table`
+creates ordinary4KiB tables and refuses a preexisting large leaf; no coalescing
+occurs. The kernel inherits CR3, but the capture also includes these kernel-added
+mappings. Calling this only an inherited-bootloader footprint problem is incorrect.
+
+The unit's archived60-byte MCFG (SHA256
+`0e097004696cfc23012f877d7aeecf5652fe60b5f131a6775e24be8c83fe7abb`)
+is checksummed revision1 and declares one segment0 window at `0xe0000000`,
+buses0–155 inclusive. The current Linux-exported MCFG is byte-identical.
+The native failed trial reports one MCFG allocation and successful ECAM config;
+it does not retain raw MCFG or a complete table graph. Therefore the exact
+81-page footprint below is a source-derived lower bound using archived firmware,
+not a newly observed native raw graph or attribution of its exact failure cursor.
+
+| Quantity | Source-derived minimum |
+| --- | --- |
+| PCI configuration window |156MiB /39936 distinct4KiB leaf entries |
+| Leaf-table pages,512 entries each |78 |
+| Upper levels, including the root |3 |
+| Full root graph |81 tables /41472 entry loads per pass |
+| Existing full-graph bounds |64 tables /32768 entry loads per pass |
+
+Every distinct2MiB virtual region needs a distinct PT because its PTEs map a
+different physical range. Other inherited mappings and bootstrap devices can
+only increase this minimum. The128-entry public kernel mapping registry is
+saturated while all39936 ECAM leaves still map successfully; its count is not
+an alias census. The lower bound already exceeds both independent limits.
+Streaming tables or improving raw compression alone cannot fix this diagnostic.
+
+### Actual-source regression and reproducible host audit
+
+`tools/test_haswell_alias_ecam.c` includes the actual PCI and VMM source and runs
+the unchanged census core over simulated RAM. Port operations abort if reached;
+no PCI target is read/written. It verifies every mapped physical address and
+exact original P/RW/PCD/NX leaf flags, the saturated mapping registry, full
+RAM-table immutability during census, successful two-pass boundary cases and
+mandatory overflow refusal. It does not emulate hardware A/D changes or accept
+native timing.
+
+| Buses | Complete simulated graph | Census result |
+| --- | --- | --- |
+|1 |4 tables |two passes,2048 entries each |
+|120 |63 tables |two passes,32256 entries each |
+|122 |64 tables |two passes,32768 entries each |
+|123 |65 tables |refuses at64, no second pass |
+|156 |81 tables |refuses at64, no second pass |
+|256 |131 tables |refuses at64, no second pass |
+
+`tools/haswell_alias_layout_audit.py` independently parses a complete checksummed
+MCFG, rejects unsupported/malformed/overlapping/out-of-width allocations and
+computes the source-derived virtual PT-region lower bound. Six Python tests
+cover the captured layout, exact boundary, nonzero/odd bus start, multiple windows,
+maximum bus range and malformed/overlap/width refusals. Its result is always
+`HOST_LAYOUT_AUDIT_ONLY`; even a layout within bounds is not native coverage,
+resource reservation, mapping permission or ownership. Run locally with:
+
+```sh
+python3 tools/haswell_alias_layout_audit.py --mcfg /absolute/path/MCFG.dat --output /absolute/path/layout.json
+make test-haswell-alias-layout
+```
+
+### Decision and next design
+
+Do not rerun unchanged v4 expecting success. It cannot produce the required
+complete two-pass raw graph within the fixed read/table bounds on the modeled
+current ECAM layout. Skipping ECAM or other branches because their intended
+physical ranges differ is not a proof of their actual leaf contents; the public
+registry, source intent, sparse excerpts and hashes cannot replace required raw
+coverage. No table is removed, rewritten, or hidden to make the capture pass.
+
+Next design an explicit ECAM mapping-footprint improvement separately from the
+census: this captured window's physical/virtual bases and length are2MiB-aligned,
+so a carefully checked large-leaf implementation could remove78 PT pages while
+preserving the mapping's physical coverage and effective permissions/cache type.
+It needs absent-entry admission, large-leaf PAT-bit handling, precise failure/
+rollback behavior and existing-client regressions before any runtime change.
+It must refuse conflicting inherited leaves and keep ordinary mapping semantics
+and all diagnostic limits intact. A smaller ECAM footprint does not promise the
+remaining native graph fits, and does not close resource/leaf/retirement admission.
+An earlier pre-PCI capture is a different epoch with narrower scope, not evidence
+for the post-bootstrap root; the existing exact-unit gate also depends on PCI
+inventory. No such boot-order/profile change is implemented by this audit.
+
+Local actual-source/core/adapter/decoder, PCI-config and VMM tests pass, including
+ASan/UBSan on the ECAM fixture. Documentation links and diff checks pass.
+Raw MCFG, failure receipt, source hashes and validation logs remain local with
+a hash-verified copy outside build. Ubuntu recovery and the installed release
+remain unchanged; no reboot is armed and no new physical acceptance is claimed.
