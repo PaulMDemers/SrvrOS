@@ -1,6 +1,25 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-05. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
+
+### Active scope: explicit cooperative-UEFI wake lease
+
+Main `ca43ce23` is integrated as `625ce504`, preserving the Air6 ECAM/alias
+work; PR19 remains Pro Wi-Fi and PR379 WebCore. PR301 owns this slice.
+The firmware census4581 is collected and independently preserved.
+
+Define a boot-only cooperative-firmware contract: pinned Limine EFI64 handoff
+(the protocol requires exited boot services), strict diagnostic-only recipe,
+exact Air7,2 firmware/GPU/resources, CPU0 serialization, excluded local clients,
+fresh quiet firmware/requester prerequisites and a separately compiled native
+wake adapter. The contract explicitly assumes conforming firmware yields the
+boot-time GT requester domain; it does not prove SMM absence or retire engine,
+DMA, display/audio readers. This is a new opt-in policy, not a promotion of zeros
+into grants. Default observers and ordinary desktop retain no wake writer.
+Implement bounded init/request/ACK/C0/retirement with sticky uncertainty, then
+validate source-matched host/VM evidence before preparing a physical trial.
+No reboot this work block. Touch GT boot contract/adapter, Limine request,
+explicit build/staging/collector/decoders/tests and these docs; no sibling gates.
 
 ### Native read-only firmware handoff census accepted
 
