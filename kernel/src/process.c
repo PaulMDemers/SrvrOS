@@ -272,7 +272,9 @@ struct process {
     struct fpu_state fpu;
     struct process_file files[PROCESS_MAX_OPEN_FILES];
     uint64_t file_generations[PROCESS_MAX_OPEN_FILES];
-    struct process_mapping mappings[PROCESS_MAX_MAPPINGS];
+    /* Full-capacity image-owned backing, acquired before its first user page.
+     * Only [0,mapping_count) is published. Empty slots own none. */
+    struct process_mapping *mappings;
     uint64_t mapping_count;
     struct process_mmap_region mmap_regions[PROCESS_MAX_MMAP_REGIONS];
     uint64_t mmap_next;
@@ -390,6 +392,16 @@ static bool process_apply_stdio_fds(struct process *process,
     int64_t stdin_fd,
     int64_t stdout_fd,
     int64_t stderr_fd);
+
+/* These privileged transitions are not host fixture operations. Keep native
+ * instructions exact; unexpected host entry must fail rather than emulate it. */
+#ifdef SRVROS_PROCESS_HOST_TEST
+#define PROCESS_ARCH_STI() __builtin_trap()
+#define PROCESS_ARCH_HALT() __builtin_trap()
+#else
+#define PROCESS_ARCH_STI() __asm__ volatile ("sti" : : : "memory")
+#define PROCESS_ARCH_HALT() __asm__ volatile ("hlt")
+#endif
 
 static uint64_t process_irq_save(void) {
 #ifdef SRVROS_PROCESS_IRQ_HOST_TEST
@@ -615,7 +627,7 @@ static bool process_prepare_frame_copy(const struct isr_frame *frame,
      * narrower here: an exiting image cannot publish a future signal frame. */
     struct process *process=observed.process;
     if (!binding.new_worker_allowed || (!observed.user_thread && process->main_thread_exited) ||
-        process->mapping_count>PROCESS_MAX_MAPPINGS) return false;
+        (process->mapping_count>PROCESS_MAX_MAPPINGS || (process->mapping_count && !process->mappings))) return false;
     struct user_frame_stack stack;
     if (observed.user_thread) {
         struct scheduler_user_worker_stack worker;
@@ -1815,13 +1827,31 @@ static bool validate_elf(const uint8_t *data, uint64_t size, const struct elf64_
 }
 
 static bool map_process_page_mode(struct process *process, uint64_t virtual_page, uint64_t flags,bool service) {
-    if (process == NULL || process->mapping_count >= PROCESS_MAX_MAPPINGS) {
+    if (process == NULL || process->mapping_count >= PROCESS_MAX_MAPPINGS ||
+        (process->mapping_count && !process->mappings)) {
         if(service)console_printf("run: map page rejected process=%x count=%u limit=%u virt=%x\n",
             (uint64_t)process,
             process != NULL ? process->mapping_count : 0,
             (uint64_t)PROCESS_MAX_MAPPINGS,
             virtual_page);
         return false;
+    }
+
+    /* Ordinary/private image loading owns this record. Atomic growth requires
+     * its existing backing and never allocates a tracking array here. The full
+     * original capacity is reserved in one checked heap allocation; entries
+     * are fully zeroed privately in bounded service batches before publication. */
+    if (!process->mappings) {
+        if (!service) return false;
+        uint64_t bytes=sizeof(*process->mappings)*PROCESS_MAX_MAPPINGS;
+        struct process_mapping *backing=kmalloc(bytes);
+        if (!backing) return false;
+        for(uint64_t at=0;at<bytes;) {
+            uint64_t end=at+65536;if(end>bytes)end=bytes;
+            while(at<end)((uint8_t *)backing)[at++]=0;
+            process_service_checkpoint();
+        }
+        process->mappings=backing;
     }
 
     /* Atomic callers return failure silently: console rendering may yield. */
@@ -1862,7 +1892,7 @@ static bool map_process_page(struct process *process,uint64_t page,uint64_t flag
 }
 
 static int64_t process_mapping_index(struct process *process, uint64_t virtual_page) {
-    if (process == NULL) {
+    if (process == NULL || (process->mapping_count && !process->mappings)) {
         return -1;
     }
     for (uint64_t i = 0; i < process->mapping_count; i++) {
@@ -1916,6 +1946,9 @@ static void cleanup_process_mappings(struct process *process) {
         process_unmap_mapping_at(process,process->mapping_count-1);
         if(!(++batch&31))process_service_checkpoint();
     }
+    struct process_mapping *retired=process->mappings;
+    process->mappings=NULL;
+    if(retired) kfree(retired);
     for (uint64_t i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
         process->mmap_regions[i].used = false;
     }
@@ -2309,7 +2342,7 @@ static struct process_service_scope process_spawn_image_scope(struct process *pa
     struct process_service_scope scope={0};
     bool private=parent && child && child!=parent && child->allocated && child->active &&
         child->parent_pid==parent->pid && !child->startup_ready && !child->entry &&
-        !child->address_space && !child->mapping_count && !child->killed && !child->exiting;
+        !child->address_space && !child->mapping_count && !child->mappings && !child->killed && !child->exiting;
     if(private)for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)
         if(child->user_threads[i].used)private=false;
     if(!copy_process_path(snapshot,capacity,path)) {if(snapshot && capacity)snapshot[0]=0;private=false;}
@@ -2421,7 +2454,7 @@ static bool enter_process(struct process *process, const char *label) {
     }
 
     scheduler_clear_user_context();
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     return process->exit_status == 0;
 }
 
@@ -2508,7 +2541,7 @@ int64_t process_spawn_elf_args(const char *path, const char *args) {
     int64_t status = (int64_t)child->exit_status;
     process_account_child(parent,child);
     scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top, parent->image_generation);
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     release_process(child);
     return status;
 }
@@ -2563,7 +2596,7 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     int64_t status = (int64_t)child->exit_status;
     process_account_child(parent,child);
     scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top, parent->image_generation);
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     release_process(child);
     return status;
 }
@@ -2671,7 +2704,7 @@ int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
     int64_t status = (int64_t)child->exit_status;
     process_account_child(parent,child);
     scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top, parent->image_generation);
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     release_process(child);
     return status;
 }
@@ -2692,6 +2725,7 @@ static uint64_t load_process_u64(const uint64_t *value) {
 }
 
 static void move_process_image(struct process *destination, struct process *source) {
+    uint64_t irq=process_irq_save();
     destination->entry = load_process_u64(&source->entry);
     destination->stack_top = load_process_u64(&source->stack_top);
     destination->argc = load_process_u64(&source->argc);
@@ -2715,14 +2749,12 @@ static void move_process_image(struct process *destination, struct process *sour
     destination->mapping_count = load_process_u64(&source->mapping_count);
     if(source->peak_mapped_bytes>destination->peak_mapped_bytes)
         destination->peak_mapped_bytes=source->peak_mapped_bytes;
-    for (uint64_t i = 0; i < source->mapping_count; i++) {
-        destination->mappings[i].virtual_address = load_process_u64(&source->mappings[i].virtual_address);
-        destination->mappings[i].physical_address = load_process_u64(&source->mappings[i].physical_address);
-        destination->mappings[i].flags = load_process_u64(&source->mappings[i].flags);
-    }
+    destination->mappings=source->mappings;
+    source->mappings=NULL;
 
     source->address_space = 0;
     source->mapping_count = 0;
+    process_irq_restore(irq);
 }
 
 /* The exec image is private until fully loaded. Heap mutation stays atomic;
@@ -3240,7 +3272,7 @@ int64_t process_scope_reap(uint64_t token) {
         struct process *candidate=&processes[i];
         if(!candidate->allocated || candidate->lifetime!=token || !candidate->detached ||
            !candidate->reapable || candidate->active || !candidate->parent_pid ||
-           candidate->address_space || candidate->mapping_count || candidate->kernel_stack ||
+           candidate->address_space || candidate->mapping_count || candidate->mappings || candidate->kernel_stack ||
            candidate->kernel_stack_physical || candidate->kernel_stack_frames ||
            process_slots_busy[i] || !scheduler_io_process_retired(candidate)) continue;
         bool resources=false;
@@ -3285,7 +3317,7 @@ static bool process_try_wait_retired_impl(uint64_t pid,uint64_t *status,int64_t 
     if(!parent || !parent->allocated || !parent->active)goto refused;
     for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)if(processes[i].allocated && processes[i].pid==pid) {child=&processes[i];break;}
     if(!child || child==parent || !child->detached || !child->reapable || child->active ||
-       child->parent_pid!=parent->pid || child->address_space || child->mapping_count ||
+       child->parent_pid!=parent->pid || child->address_space || child->mapping_count || child->mappings ||
        child->kernel_stack || child->kernel_stack_physical || child->kernel_stack_frames ||
        process_slots_busy[child-processes] || !scheduler_io_process_retired(child))goto refused;
     for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++)if(child->files[i].used)goto refused;
@@ -4244,7 +4276,7 @@ static int64_t process_main_thread_join(struct process *process, uint64_t *value
     }
     process->main_thread_join_claimed = true;
     process_irq_restore(irq);
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     int64_t result = 0;
     while (!process->main_thread_exited) {
         if (process_should_exit_current()) { result = -1; break; }
@@ -4276,7 +4308,7 @@ int64_t process_thread_join(uint64_t tid, uint64_t *value_out) {
         return -1;
     }
 
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     while (thread->active) {
         if (process_should_exit_current()) {
             return -1;
@@ -4455,7 +4487,7 @@ int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeou
     if (futex == NULL) return SRV_ERR_AGAIN;
 
     int64_t result;
-    __asm__ volatile ("sti" : : : "memory");
+    PROCESS_ARCH_STI();
     for (;;) {
         if (process_should_exit_current()) {
             result = -1; break;
@@ -8267,7 +8299,7 @@ void process_exit(uint64_t status) {
     struct process *process = process_current();
     if (process == NULL || !process->active) {
         for (;;) {
-            __asm__ volatile ("hlt");
+            PROCESS_ARCH_HALT();
         }
     }
 

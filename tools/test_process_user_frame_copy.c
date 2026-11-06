@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #define SRVROS_PROCESS_HOST_TEST
 #define SRVROS_PROCESS_IRQ_HOST_TEST
 static uint64_t test_flags;
@@ -52,7 +53,7 @@ bool vmm_copy_user_frame_current(uint64_t root,uint64_t dst,const struct user_fr
     memcpy(destination_bytes+4080,source->bytes,length);return true;
 }
 static void setup(struct process *p) {
-    memset(p,0,sizeof(*p));p->allocated=p->active=true;p->image_generation=1;p->address_space=0x2000;
+    free(p->mappings);memset(p,0,sizeof(*p));p->mappings=calloc(PROCESS_MAX_MAPPINGS,sizeof(*p->mappings));assert(p->mappings);p->allocated=p->active=true;p->image_generation=1;p->address_space=0x2000;
     p->kernel_stack_physical=0x4000000;p->kernel_stack_frames=32;
     p->kernel_stack=pmm_phys_to_virt(p->kernel_stack_physical);p->kernel_stack_top=(uint64_t)p->kernel_stack+PROCESS_KERNEL_STACK_SIZE;
     p->mapping_count=2;p->mappings[0]=(struct process_mapping){0x1000,0x8000,VMM_PAGE_USER|VMM_PAGE_WRITABLE|VMM_PAGE_NO_EXECUTE};
@@ -71,6 +72,8 @@ int main(void) {
     struct process *p=&processes[0];struct isr_frame frame={0};struct user_frame_source source={{0}};
     for(unsigned i=0;i<32;i++)source.bytes[i]=(uint8_t)(i+1);
     setup(p);struct process_user_binding initial;
+    struct process_mapping *backing=p->mappings;p->mappings=NULL;
+    refused(p,&frame,&source);p->mappings=backing;
     assert(process_resolve_user_binding(p,NULL,1,0x2000,&initial));
     assert(initial.kernel_stack_base==0xffff800004000000ull && initial.kernel_stack_physical==0x4000000 && initial.kernel_stack_frames==32);
     unsigned n=proofs;policy_ok=false;refused(p,&frame,&source);assert(proofs==n);policy_ok=true;

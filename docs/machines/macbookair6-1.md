@@ -7853,3 +7853,39 @@ verification and the original root/source/clock checks and100ms lifetime. No
 policy, ownership gate, A/D mask or limit change. Measure the exact ELF reduction
 and source-matched host/VM results before a new physical stage; native graph fit
 and timing improvement remain unaccepted until a complete matching receipt.
+
+
+### Deferred backing and handoff candidate (2026-11-06)
+
+Unused process slots no longer embed65536 mapping records each. A private image
+reserves its full original capacity through the checked heap and zeros it in
+64KiB service batches before the first user-page publication. Failed allocation
+publishes no page. Exec transfers unique backing under IRQ exclusion after old
+image retirement; cleanup frees it after the tracked prefix is empty. Atomic
+growth requires existing backing; fresh-image, frame-copy and reaping checks
+reject inconsistent or still-owned storage.64 slots,65536 mappings and all
+other capacities remain unchanged. Slot/lifetime ownership and PR301's separate
+owner-revocation changes are untouched.
+
+The AP-only ECAM span now appends the available registry prefix without repeated
+duplicate searches after proving the old VAs are excluded and new VAs unique.
+All39936 attempts/events,128-row capacity, original root/source/clock checks,
+invalidation and complete pre/post verification remain. Every starting count
+0–128 matches the old registry result. This does not restart the100ms deadline
+or change the65536-word cap, old census/context limits or any policy.
+
+All17 process suites, full-capacity storage/ownership failures and actual ECAM
+fault/oracle tests pass. Matched images and the full local core suite pass
+(one optional exhaustive I/O test skipped by default). The measured AP ELF BSS
+drops exactly96MiB to20090472 bytes (about19.160MiB); its process array is8781824
+bytes. Sanitizers, frozen-source builds and staged VM checks remain next at
+this checkpoint. Native graph fit/timing improvement remain unaccepted; the
+prior failed run/evidence/recovery are retained and no new boot is armed.
+
+The final native sanitizer checks pass for full-capacity mapping storage, image
+lifecycle, loader and checked ECAM backend/gate. The new storage fixture and
+ECAM gate also cross-compile to ARM64. Initial cross-compilation exposed old
+unrelated STI/HLT instructions emitted by process host fixtures; those unexpected
+host paths now trap, while native disassembly and relocations compare identical.
+All process suites were rerun after that host-only adaptation. Native runtime
+acceptance and exact-stage VM checks remain pending at this source checkpoint.

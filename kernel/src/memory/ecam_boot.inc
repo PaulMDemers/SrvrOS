@@ -221,7 +221,15 @@ bool vmm_ecam_boot_handoff(void) {
  const uint64_t flags=VMM_PAGE_WRITABLE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_NO_EXECUTE;
  for(unsigned i=0;i<ECAM_BOOT_GRANULES;i++) {
   if(!eb_event(3,i) || (i%512==0 && (!eb_tick() || !eb_guard())))return false;
-  register_kernel_mapping(ECAM_BOOT_VA+(uint64_t)i*4096,ECAM_BOOT_PA+(uint64_t)i*4096,flags);
+  /* Prepare excludes every old registry VA from this entire span, and the
+   * span is strictly increasing. Thus no iteration can update an old row or
+   * any previously appended row. Preserve all attempts/events and the exact
+   * capacity behavior without re-searching128 rows for each no-op tail item. */
+  uint64_t expected=eb.metadata_count+i;
+  if(expected>VMM_MAX_KERNEL_MAPPINGS)expected=VMM_MAX_KERNEL_MAPPINGS;
+  if(kernel_mapping_count!=expected)return eb_fault("metadata-count",1,0,i,0,expected,kernel_mapping_count);
+  if(kernel_mapping_count<VMM_MAX_KERNEL_MAPPINGS)
+   kernel_mappings[kernel_mapping_count++]=(struct kernel_mapping){ECAM_BOOT_VA+(uint64_t)i*4096,ECAM_BOOT_PA+(uint64_t)i*4096,flags};
   eb.r.metadata_attempts++;
  }
  if(kernel_mapping_count!=VMM_MAX_KERNEL_MAPPINGS || !eb_guard() || !eb_tick() || eb.r.end<=start || !eb_check(2))return false;

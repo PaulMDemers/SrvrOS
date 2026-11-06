@@ -262,7 +262,7 @@ static void private_unmap_contract(void) {
     assert(freed==65 && p->mapping_count==1 && !p->mmap_regions[0].used && p->mmap_next==base);
     assert(depth==1 && begins==old_begin && ends==old_end && checkpoints==old_checks);
     assert(!released[p->mappings[0].physical_address/4096]);depth=0;
-    cleanup_process_address_space(p);assert(freed==66 && !p->mapping_count);free(p);
+    cleanup_process_address_space(p);assert(!p->mappings);assert(freed==66 && !p->mapping_count);free(p->mappings);free(p);
     /* Negative control on the original code refuses this real helper request.
      * With foreign I/O held, retire exact anonymous pages without any service
      * checkpoint, allocator callback, gate handoff or premature completion. */
@@ -280,7 +280,7 @@ static void private_unmap_contract(void) {
     assert(process_try_munmap_private(p,base,length,&result) && !result);
     assert(freed==65 && !p->mapping_count && !p->mmap_regions[0].used);
     assert(depth==1 && begins==worker_begins && ends==worker_ends && checkpoints==worker_checks);
-    current_user_thread=NULL;depth=0;free(p);
+    current_user_thread=NULL;depth=0;free(p->mappings);free(p);
     /* Region splitting preserves anonymous provenance; PROT_NONE has no frames. */
     reset();p=calloc(1,sizeof(*p));assert(p);observed=p;p->allocated=p->active=true;p->address_space=0x1000;independent=true;
     assert(mmap_record_region(p,base,3*4096,true));mmap_forget_range(p,base+4096,4096);
@@ -291,11 +291,11 @@ static void private_unmap_contract(void) {
     assert(process_try_munmap_private(p,base,2*1024*1024,&result) && !result && !freed);
     assert(mmap_record_region(p,base,3*4096,false));mmap_forget_range(p,base+4096,4096);
     assert(!p->mmap_regions[0].anonymous && !p->mmap_regions[1].anonymous);
-    free(p);observed=NULL;
+    free(p->mappings);free(p);observed=NULL;
     puts("private-unmap: PASS bounded/provenance/owner refusal unchanged, foreign gate retention, futex-before-free, partial failure ownership/retry, split and PROT_NONE");
 }
 static struct process *startup_process(void) {
-    reset();struct process *p=calloc(1,sizeof(*p));assert(p);current=observed=p;
+    reset();struct process *p=calloc(1,sizeof(*p));assert(p);p->mappings=calloc(PROCESS_MAX_MAPPINGS,sizeof(*p->mappings));assert(p->mappings);current=observed=p;
     p->allocated=p->active=true;p->address_space=0x1000;p->image_generation=1;p->mmap_next=USER_MMAP_BASE;
     p->tls_align=16;p->tls_memsz=4096;p->tls_filesz=4;p->next_thread_id=2;
     memcpy(p->tls_template,"TLS!",4);independent=true;return p;
@@ -323,7 +323,7 @@ static void startup_map_contract(void) {
     assert(result==USER_MMAP_BASE && p->mapping_count==512 && p->mmap_regions[0].anonymous && !checkpoints && !begins && !ends && depth==1);
     for(unsigned i=0;i<512;i++)for(unsigned j=0;j<4096;j++)assert(!backing[p->mappings[i].physical_address+j]);
     assert(process_try_munmap_private(p,USER_MMAP_BASE,2*1024*1024,&result) && !result && freed==512);
-    depth=0;free(p);
+    depth=0;free(p->mappings);free(p);
     for(unsigned failure=0;failure<3;failure++) {
         p=startup_process();depth=1;
         if(failure==1)fail_map_at=4;else fail_alloc_at=4;
@@ -334,7 +334,7 @@ static void startup_map_contract(void) {
             assert(p->mapping_count==3 && p->mmap_regions[0].used && !freed);
             fail_at_unmap=0;assert(process_try_munmap_private(p,USER_MMAP_BASE,65*4096,&result) && !result && freed==3);
         } else assert(!p->mapping_count && !p->mmap_regions[0].used && freed==(failure==1?4:3));
-        depth=0;free(p);
+        depth=0;free(p->mappings);free(p);
     }
     current=observed=NULL;
     puts("startup-anonymous-map: PASS sole-main refusal, bounded zeroed allocation, foreign gate retention, PMM/PTE failure rollback and failed-unmap ownership");
@@ -380,7 +380,7 @@ static void startup_thread_contract(void) {
             } else assert(p->mapping_count==2 && freed==(failure==1?1:2));
         }
         for(uint64_t i=0;i<p->mapping_count;i++)assert(!released[p->mappings[i].physical_address/4096]);
-        depth=0;cleanup_process_address_space(p);free(p);
+        depth=0;cleanup_process_address_space(p);assert(!p->mappings);free(p->mappings);free(p);
     }
     current=observed=NULL;
     puts("startup-thread: PASS sole-main/entry/stack/TLS refusal, complete context publication, no service window, TLS/stack failure cleanup and retained failed-unmap ownership");
@@ -393,9 +393,9 @@ static void image_init_contract(void) {
     struct process *p=process_allocate_exec_image();assert(p && !depth && begins==ends);
     assert(checkpoints-before>1);
     for(size_t i=0;i<sizeof(*p);i++)assert(!((uint8_t *)p)[i]);
-    free(p);
+    free(p->mappings);free(p);
     struct process_service_scope outer=process_service_begin();
-    p=process_allocate_exec_image();assert(p && depth==1);free(p);
+    p=process_allocate_exec_image();assert(p && depth==1);free(p->mappings);free(p);
     fail_image=true;assert(!process_allocate_exec_image() && depth==1);fail_image=false;
     available=false;before=ends;assert(!process_allocate_exec_image() && depth==1 && ends==before);
     available=true;process_service_end(outer);
@@ -434,7 +434,7 @@ static void free_range_contract(void) {
             assert(mmap_find_free_range(p,count*page,base+hint_page*page)==expected);
         }
     }
-    process_service_end(outer);assert(!depth && begins==ends);free(p);observed=NULL;
+    process_service_end(outer);assert(!depth && begins==ends);free(p->mappings);free(p);observed=NULL;
     puts("mapping-search: PASS off-stride gap, bounded exhaustion, retained owner and 3072 independent mask/length/hint cases");
 }
 static void protection_contract(void) {
@@ -473,7 +473,7 @@ static void protection_contract(void) {
     assert(process_msync(p,base,65*4096,SRV_MS_SYNC)==-1 && depth==1 && ends==old_ends);
     available=true;
     process_service_end(outer);protection_watch=false;
-    cleanup_process_address_space(p);assert(freed==65);free(p);observed=NULL;
+    cleanup_process_address_space(p);assert(!p->mappings);assert(freed==65);free(p->mappings);free(p);observed=NULL;
     reset();p=calloc(1,sizeof(*p));assert(p);observed=p;p->address_space=0x1000;
     assert(mmap_record_region(p,base,65*4096,true));
     assert(!process_mprotect(p,base,65*4096,SRV_PROT_NONE) && !p->mapping_count);
@@ -482,14 +482,14 @@ static void protection_contract(void) {
     fail_alloc_at=0;protection_watch=true;protected_at_checkpoint=protects;
     for(uint64_t i=0;i<p->mapping_count;i++)leaf_flags[p->mappings[i].physical_address/4096]=p->mappings[i].flags;
     assert(!process_mprotect(p,base,65*4096,SRV_PROT_READ) && p->mapping_count==65);
-    protection_watch=false;cleanup_process_address_space(p);assert(freed==65);free(p);observed=NULL;
+    protection_watch=false;cleanup_process_address_space(p);assert(!p->mappings);assert(freed==65);free(p->mappings);free(p);observed=NULL;
     reset();p=calloc(1,sizeof(*p));assert(p);observed=p;p->address_space=0x1000;
     uint64_t length=USER_MMAP_LIMIT-base;
     assert(mmap_record_region(p,base,length,true));
     assert(!process_mprotect(p,base,length,SRV_PROT_NONE) && !p->mapping_count && yields);
     assert(process_msync(p,base,length,SRV_MS_SYNC)==-1);
     assert(!process_munmap(p,base,length) && !p->mmap_regions[0].used && !p->mapping_count);
-    assert(!depth && begins==ends);free(p);observed=NULL;
+    assert(!depth && begins==ends);free(p->mappings);free(p);observed=NULL;
     reset();p=calloc(1,sizeof(*p));assert(p);observed=p;p->address_space=0x1000;
     outer=process_service_begin();
     assert(map_process_page(p,0x400000,VMM_PAGE_USER));
@@ -498,7 +498,7 @@ static void protection_contract(void) {
     assert(process_mmap(p,0,96*4096,SRV_PROT_READ|SRV_PROT_WRITE,SRV_MAP_PRIVATE|SRV_MAP_ANONYMOUS,-1,0)==-1);
     assert(p->mapping_count==2 && freed==65 && rollback_checks>=2 && !depth);
     assert(p->mappings[0].virtual_address==0x400000 && p->mappings[1].virtual_address==0x401000);
-    cleanup_process_address_space(p);assert(freed==67);free(p);observed=NULL;
+    cleanup_process_address_space(p);assert(!p->mappings);assert(freed==67);free(p->mappings);free(p);observed=NULL;
     puts("mapping-protection: PASS service windows, inherited owner and coherent PTE/tracking publication");
 }
 
@@ -529,6 +529,9 @@ static void session_scope_contract(void) {
     child->active=false;child->reapable=true;child->exit_status=7;
     memset(child->files,0,sizeof(child->files));
     independent=true;uint64_t status=0;int64_t result=0;
+    struct process_mapping retained={0};child->mappings=&retained;
+    assert(!process_try_wait_retired(child->pid,&status,&result) && child->allocated && child->reapable);
+    child->mappings=NULL;
     assert(process_try_wait_retired(child->pid,&status,&result));
     assert(!process_scope_control(SRV_SCOPE_STATUS,token,&st) && !st.members && st.nonzero_exits==1 && st.first_exit_status==7);
     assert(!process_scope_control(SRV_SCOPE_RELEASE,token,NULL));
@@ -657,7 +660,7 @@ int main(void) {
     for(unsigned i=4096;i<66*4096;i++)assert(backing[i]==0);
     /* Mapping retirement invalidates/wakes a futex before its frame is freed. */
     futexes[0]=(struct process_futex){.used=true,.process=p,.address=0x500000,.wait_queue={.waiters=1}};
-    unsigned before=yields;cleanup_process_address_space(p);
+    unsigned before=yields;cleanup_process_address_space(p);assert(!p->mappings);
     assert(wakes==1 && futexes[0].invalidated && !futexes[0].wait_queue.waiters);
     assert(depth==1 && p->address_space==0 && !p->mapping_count && freed==65 && destroyed==1 && yields>=before+2);
     process_service_end(outer);assert(!depth && begins==ends);
@@ -666,11 +669,11 @@ int main(void) {
     reset();p->address_space=0x1000;fail_unmap=true;
     outer=process_service_begin();
     for(unsigned i=0;i<33;i++)assert(map_process_page(p,0x600000+i*4096,VMM_PAGE_USER));
-    process_service_end(outer);cleanup_process_address_space(p);
+    process_service_end(outer);cleanup_process_address_space(p);assert(!p->mappings);
     assert(freed==33 && destroyed==1 && !depth && begins==ends);fail_unmap=false;
     /* Early boot/unavailable gate retains bounded synchronous fallback, and
      * must not end an ownership scope it never acquired. */
     reset();available=false;observed=NULL;clear_process(p);assert(!depth && !ends && !yields && begins==1);
-    free(p);puts("process-service: PASS private publication, batched mapping retirement, inherited gate, fallback and refusal ownership");
+    free(p->mappings);free(p);puts("process-service: PASS private publication, batched mapping retirement, inherited gate, fallback and refusal ownership");
     return 0;
 }
