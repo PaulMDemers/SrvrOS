@@ -105,6 +105,20 @@ static void wake_pause(void *context){(void)context;
 #endif
 }
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
+static bool engine_guard(void *context) {
+    struct wake_adapter *a=context;uint32_t request,ack,thread;
+    if(!wake_guard(a) || !a->mapped[0] || !a->mapped[1] || !a->mapped[2])return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    if(!intel_display_test_wake_read(INTEL_GT_REQUEST,&request) ||
+       !intel_display_test_wake_read(INTEL_GT_ACK,&ack) ||
+       !intel_display_test_wake_read(INTEL_GT_THREAD,&thread))return false;
+#else
+    request=*(volatile const uint32_t *)(WAKE_VA+(INTEL_GT_REQUEST&4095));
+    ack=*(volatile const uint32_t *)(WAKE_VA+4096+(INTEL_GT_ACK&4095));
+    thread=*(volatile const uint32_t *)(WAKE_VA+8192+(INTEL_GT_THREAD&4095));
+#endif
+    return (request&0xffffu)==1 && ack==1 && !(thread&7);
+}
 static bool engine_group(void *context,unsigned engine,uint32_t out[INTEL_ENGINE_WORDS]) {
     struct wake_adapter *a=context;
     if(engine>=INTEL_ENGINE_COUNT || !a->mapped[engine+3] || !wake_guard(a))return false;
@@ -177,7 +191,7 @@ bool intel_gt_wake_probe_report(void) {
                 opened=intel_gt_access_open(&owner,&a.fw.gt.token,grants,(struct intel_gt_io){&a,wake_guard,wake_read,wake_write,now,wake_pause});
                 if(opened)checked=intel_gt_access_check(&owner);
                 #ifdef SRVROS_INTEL_ENGINE_TRIAL
-                if(checked)(void)intel_engine_observe(&engines,&owner,(struct intel_engine_io){&a,wake_guard,engine_group,now});
+                if(checked)(void)intel_engine_observe(&engines,&owner,(struct intel_engine_io){&a,engine_guard,engine_group,now});
 #endif
                 if(checked)closed=intel_gt_access_close(&owner);
             }

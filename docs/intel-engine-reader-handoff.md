@@ -44,7 +44,7 @@ Every new page requires exact physical identity, reserved resource coverage,
 fresh unchanged CPU cache context and independently derived MTRR/effective UC.
 The exact page list is separate from the earlier observer allowlists.
 
-The census core checks the owned lease on both sides, guards every page group,
+The census core checks the owned lease on both sides, guards every page group with fresh owned-request/ACK/C0 reads,
 and refuses zero/backward/frozen or over100ms census time. The unchanged wake
 phase100ms/total300ms and full bracket500ms bounds still apply. Reads remain
 bounded even if hardware never becomes quiet; there is no retry-until-idle loop.

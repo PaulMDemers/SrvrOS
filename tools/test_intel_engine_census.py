@@ -34,6 +34,7 @@ class EngineTests(unittest.TestCase):
     self.assertFalse(r['observation_complete'] and w['lease_complete'])
     self.assertFalse(w['lease_complete'])
     if mode in ('cache-last','map-last'):self.assertEqual(w['summary']['attempts'],0)
+    if mode=='late-foreign':self.assertEqual(r['summary']['reads'],6)
     if mode=='cache-last':
      self.assertEqual(w['summary']['maps'],7);self.assertEqual(w['summary']['retired'],7);self.assertEqual(w['summary']['retained'],0)
     else:self.assertTrue(w['summary']['retained'])
