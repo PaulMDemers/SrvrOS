@@ -7551,3 +7551,31 @@ live publication. Current PR301 GPU and PR19 Wi-Fi remain separate; inspect thei
 actual heads and do not duplicate production VMM/main/PCI changes. No new boot is
 armed. Next checkpoint is a reviewable design with host evidence and open native
 backend requirements, not a hardware-acceptance claim.
+
+
+### Checked ECAM mapping design complete (2026-11-05)
+
+The [host-only proposal and backend contract](../macbookair6-1-ecam-mapping-design.md)
+preserve all39936 ECAM4KiB physical mappings and P/RW/PCD/NX attributes using78
+prospective2MiB leaves. The accepted older CPU/cache receipt classifies each
+large leaf's complete4KiB granules uniformly UC; historical data grants no live
+permission. Large-leaf PAT bit12 remains clear, PS bit7 is set, and no cache/control
+writer is introduced. The original strict cache receipt still replays identically.
+
+Twelve host proposal/lifetime test groups cover cache/geometry/input failures,
+zero-slot and exclusion guards, detached failures, uncertain publication and
+retirement, exact A-bit changes, terminal retention and permanent handoff.
+Actual-source VMM synthetic layout tests verify all mappings/end bytes, exact
+attributes, public-registry behavior and checked user-root preparation/refresh;
+the unchanged census accepts its three reachable tables/1536 loads per pass.
+Original4KiB boundary refusals, cache/alias/layout, PCI/VMM and sanitizer checks
+remain passing. These are host design proofs, not a native mapper or rollback.
+
+Next implement the narrow checked boot backend and fresh pre-PCI identity/cache/
+NX admission with real fault-injected publication/retirement tests, explicit
+bounded read accounting and unchanged ordinary PCI behavior. The design uses
+one detached PD and one checked parent link; every original4KiB VA is invalidated
+before handoff/free, and uncertainty retains the owned frame without fallback.
+Registry updates occur only at final handoff. No kernel mapping or policy changes,
+new payload or reboot is armed. The failed native v4 receipt remains failed;
+all accepted device/recovery evidence remains unchanged and durably retained.
