@@ -447,3 +447,22 @@ limits remain. Versions1–3 and their dispatch stay available unchanged. Tests
 must prove no raw receipt before simulated init, one complete deferred receipt
 after it, immutable reporting despite a newly registered-root refusal, both raw
 passes retained at maximum size, and exact-stage init/logger/return ordering.
+
+
+### Native v4 result: table-bound refusal (2026-11-05)
+
+Source `81d1013f`, release `6d59e033859033b9`, session
+`session-00065f90c3adc353-00` saves the deferred pre-user-init receipt and returns
+to Ubuntu, but reports `completed=NO`: census status2/step3,64 tables,
+5166 first-pass reads, no second pass and882 encoded bytes. The4698us preparation
+is below100ms. The failure cursor (`0x02004000`, index45, raw `0x02032023`)
+and source control flow identify an attempted65th unique table, exhausting the
+unchanged64-table cap. The complete graph size is unknown. No full-graph alias,
+NX endpoint-pair, live admission or mapping permission is accepted.
+
+USB preservation, offline fsck/allocation/headroom and recovery checks pass;
+raw failed evidence is durably retained. See the [unit closeout](machines/macbookair6-1.md#native-pre-init-alias-census-refusal-2026-11-05).
+Next audit the inherited layout and whether a complete proof can fit existing
+bounds. A streaming implementation alone would not remove the32768-entry
+per-pass ceiling:65 full tables already require33280 entries. Do not widen
+limits or substitute a sparse/partial graph for exhaustive coverage.
