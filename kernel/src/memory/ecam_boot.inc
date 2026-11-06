@@ -9,15 +9,34 @@ static struct {
  bool callback_active;
 } eb;
 static struct ecam_boot_evidence eb_evidence;
+static struct ecam_boot_diagnostic eb_diagnostic;
+static const char *eb_stage="none";
+static bool eb_fault(const char *reason,unsigned details,uint64_t table,unsigned index,
+                     unsigned component,uint64_t expected,uint64_t observed) {
+ if(!eb_diagnostic.reason) {
+  eb_diagnostic.stage=eb_stage;eb_diagnostic.reason=reason;eb_diagnostic.sample_us=eb.last;
+  eb_diagnostic.table=table;eb_diagnostic.index=index;eb_diagnostic.component=component;
+  eb_diagnostic.expected=expected;eb_diagnostic.observed=observed;
+  eb_diagnostic.details=details;eb_diagnostic.words=eb.r.words;
+  eb_diagnostic.sample_clock_valid=eb.r.begin && eb.last>=eb.r.begin;
+ }
+ return false;
+}
+const struct ecam_boot_diagnostic *vmm_ecam_boot_diagnostic(void){return &eb_diagnostic;}
 static bool eb_poison(void) {eb.r.state=ECAM_POISONED;return false;}
-static bool eb_guard(void) {return vmm_diagnostic_sole_kernel_root(eb.r.root);}
+static bool eb_guard(void) {return vmm_diagnostic_sole_kernel_root(eb.r.root) || eb_fault("sole-root",0,0,0,0,0,0);}
 static bool eb_check(unsigned phase) {
- if(eb.callback_active)return false;
- eb.callback_active=true;bool ok=eb.io.check(eb.io.ctx,phase);eb.callback_active=false;return ok;
+ if(eb.callback_active)return eb_fault("recursive-gate",0,0,0,0,0,0);
+ eb.callback_active=true;bool ok=eb.io.check(eb.io.ctx,phase);eb.callback_active=false;return ok || eb_fault("fresh-gate",1,0,0,0,1,0);
 }
 static bool eb_tick(void) {
  uint64_t t=eb.io.now(eb.io.ctx);
- if(!t || t<eb.last || t<eb.r.begin || t-eb.r.begin>=ECAM_BOOT_LIMIT_US)return false;
+ if(!t || t<eb.last || t<eb.r.begin || t-eb.r.begin>=ECAM_BOOT_LIMIT_US) {
+  bool first=!eb_diagnostic.reason;
+  eb_fault(!t || t<eb.last || t<eb.r.begin ? "clock-invalid" : "lifetime-deadline",1,0,0,0,eb.last,t);
+  if(first){eb_diagnostic.sample_us=t;eb_diagnostic.rejected_clock=true;eb_diagnostic.sample_clock_valid=t && t>=eb.last && t>=eb.r.begin;}
+  return false;
+ }
  eb.last=t;eb.r.end=t;return true;
 }
 static bool eb_event(unsigned event,unsigned n) {
@@ -31,37 +50,41 @@ static bool eb_event(unsigned event,unsigned n) {
  * are charged to this operation's separate fixed bound. Bootstrap HHDM is the
  * same trusted RAM accessor used by PMM; no target/MMIO data load is provided. */
 static bool eb_raw(uint64_t pa,unsigned i,uint64_t *v) {
- if(i>=512 || !pa || (pa&4095) || pa>=(1ull<<39) ||
-    eb.r.words>=ECAM_BOOT_WORD_CAP || !eb_guard() || !eb_tick() || !eb.io.ram(eb.io.ctx,pa))return false;
+ if(i>=512 || !pa || (pa&4095) || pa>=(1ull<<39))return eb_fault("read-address",2,pa,i,0,0,0);
+ if(eb.r.words>=ECAM_BOOT_WORD_CAP)return eb_fault("word-cap",3,pa,i,0,ECAM_BOOT_WORD_CAP,eb.r.words);
+ if(!eb_guard() || !eb_tick())return false;
+ if(!eb.io.ram(eb.io.ctx,pa))return eb_fault("RAM-source",2,pa,i,0,0,0);
  eb.r.words++;
 #ifdef SRVROS_ECAM_HOST_TEST
- return ecam_test_load(pa,i,v);
+ return ecam_test_load(pa,i,v) || eb_fault("read-failed",2,pa,i,0,0,0);
 #else
  volatile uint64_t *p=pmm_phys_to_virt(pa);
- if(!p || !is_canonical((uint64_t)(uintptr_t)p))return false;
+ if(!p || !is_canonical((uint64_t)(uintptr_t)p))return eb_fault("RAM-pointer",2,pa,i,0,0,0);
  *v=p[i];return true;
 #endif
 }
 static bool eb_address(uint64_t pa,unsigned i,volatile uint64_t **out) {
- if(i>=512 || !eb.io.ram(eb.io.ctx,pa))return false;
+ if(i>=512 || !eb.io.ram(eb.io.ctx,pa))return eb_fault("RAM-source",2,pa,i,0,0,0);
  uint64_t va=(uint64_t)(uintptr_t)pmm_phys_to_virt(pa+i*8);
 #ifdef SRVROS_ECAM_HOST_TEST
  va=ecam_test_virtual(pa+i*8);
 #endif
- if(!eb.r.hhdm || eb.r.hhdm>UINT64_MAX-(pa+i*8) || va!=eb.r.hhdm+pa+i*8)return false;
- if(!is_canonical(va))return false;
+ if(!eb.r.hhdm || eb.r.hhdm>UINT64_MAX-(pa+i*8))return eb_fault("HHDM-offset",6,pa,i,0,0,eb.r.hhdm);
+ if(va!=eb.r.hhdm+pa+i*8)return eb_fault("HHDM-pointer",3,pa,i,0,eb.r.hhdm+pa+i*8,va);
+ if(!is_canonical(va))return eb_fault("HHDM-canonical",6,pa,i,0,0,va);
  uint64_t table=eb.r.root;
  const uint64_t addr=((1ull<<39)-1)&~4095ull;
  for(unsigned level=0;level<4;level++) {
   unsigned shift=39-9*level;uint64_t word;
-  if(!eb_raw(table,(va>>shift)&511,&word) || !(word&1) ||
-     (word&~(addr|0x8000000000000fffull)) ||
-     (word&0x000ffffffffff000ull&~addr) || (!level && (word&128)))return false;
+  unsigned slot=(va>>shift)&511;
+  if(!eb_raw(table,slot,&word))return false;
+  if(!(word&1) || (word&~(addr|0x8000000000000fffull)) ||
+     (word&0x000ffffffffff000ull&~addr) || (!level && (word&128)))return eb_fault("HHDM-entry",6,table,slot,level,0,word);
   if(level==3 || ((level==1 || level==2) && (word&128))) {
    unsigned bits=level==1?30:level==2?21:12;
    uint64_t low=(1ull<<bits)-1;
-   if(level!=3 && (word&addr&low&~4096ull))return false;
-   if(((word&addr&~low)|(va&low))!=pa+i*8)return false;
+   if(level!=3 && (word&addr&low&~4096ull))return eb_fault("HHDM-alignment",6,table,slot,level,0,word);
+   if(((word&addr&~low)|(va&low))!=pa+i*8)return eb_fault("HHDM-translation",3,table,slot,level,pa+i*8,(word&addr&~low)|(va&low));
    *out=(volatile uint64_t *)(uintptr_t)va;return true;
   }
   table=word&addr;
@@ -146,6 +169,7 @@ static bool eb_invalidate(void) {
  return true;
 }
 bool vmm_ecam_boot_prepare(const struct ecam_boot_env *io) {
+ eb_stage="prepare";
  if(eb.r.state!=ECAM_NEW)return false;
  eb.r.state=ECAM_REFUSED;
  if(!io || !io->check || !io->ram || !io->now)return false;
@@ -177,9 +201,10 @@ bool vmm_ecam_boot_prepare(const struct ecam_boot_env *io) {
  /* Terminal retention is set BEFORE the first potentially visible store. */
  eb.r.state=ECAM_POISONED;eb.r.parent_attempts++;
  if(!eb_store(eb.r.pdpt,12,0,eb.r.frame|3) || !eb_invalidate() || !eb_verify(true,true))return false;
- eb.r.state=ECAM_READY;return true;
+ eb.r.state=ECAM_READY;eb_diagnostic.prepared_us=eb.r.end;return true;
 }
 bool vmm_ecam_boot_retire(void) {
+ eb_stage="retire";
  if(eb.r.state!=ECAM_READY)return false;
  uint64_t start=eb.last;
  if(!eb_verify(true,true))return eb_poison();
@@ -188,6 +213,7 @@ bool vmm_ecam_boot_retire(void) {
  eb.r.state=ECAM_RETIRED;return true;
 }
 bool vmm_ecam_boot_handoff(void) {
+ eb_stage="handoff";
  if(eb.r.state!=ECAM_READY)return false;
  uint64_t start=eb.last;
  if(!eb_verify(true,true) || eb.r.end<=start)return eb_poison();
@@ -205,21 +231,39 @@ bool vmm_ecam_boot_handoff(void) {
   eb_evidence.metadata_after[i][0]=kernel_mappings[i].virtual_address;eb_evidence.metadata_after[i][1]=kernel_mappings[i].physical_address;eb_evidence.metadata_after[i][2]=kernel_mappings[i].flags;
  }
  eb_evidence.count_after=kernel_mapping_count;
- eb.r.state=ECAM_ACTIVE;return true;
+ eb.r.state=ECAM_ACTIVE;eb_diagnostic.handoff_us=eb.r.end;return true;
 }
 const struct ecam_boot_result *vmm_ecam_boot_result(void) {return &eb.r;}
 const struct ecam_boot_evidence *vmm_ecam_boot_evidence(void){return &eb_evidence;}
 bool vmm_ecam_boot_adopt(uint64_t va,uint64_t pa,uint64_t bytes) {
- if(eb.r.state!=ECAM_ACTIVE || eb.r.adoptions)return false;
- if(va!=ECAM_BOOT_VA || pa!=ECAM_BOOT_PA || bytes!=ECAM_BOOT_BYTES || !eb_guard() || !eb_owned() || !eb_check(2))return eb_poison();
- for(unsigned i=0;i<128;i++)if(kernel_mappings[i].virtual_address!=eb_evidence.metadata_after[i][0] || kernel_mappings[i].physical_address!=eb_evidence.metadata_after[i][1] || kernel_mappings[i].flags!=eb_evidence.metadata_after[i][2])return eb_poison();
- if(kernel_mapping_count!=eb_evidence.count_after)return eb_poison();
+ eb_stage="adopt-enter";
+ if(eb.r.state!=ECAM_ACTIVE || eb.r.adoptions)return eb_fault("state-or-consumed",1,0,0,0,ECAM_ACTIVE,eb.r.state);
+ eb_diagnostic.adopt_entry_last_us=eb.last;
+ if(va!=ECAM_BOOT_VA || pa!=ECAM_BOOT_PA || bytes!=ECAM_BOOT_BYTES) {
+  unsigned n=va!=ECAM_BOOT_VA?0:pa!=ECAM_BOOT_PA?1:2;
+  eb_fault("geometry",1,0,0,n,n==0?ECAM_BOOT_VA:n==1?ECAM_BOOT_PA:ECAM_BOOT_BYTES,n==0?va:n==1?pa:bytes);return eb_poison();
+ }
+ if(!eb_guard())return eb_poison();
+ if(!eb_owned()){eb_fault("frame-ownership",2,eb.r.frame,0,0,0,0);return eb_poison();}
+ eb_stage="adopt-gate";
+ if(!eb_check(2))return eb_poison();
+ eb_stage="adopt-metadata";
+ for(unsigned i=0;i<128;i++) {
+  const uint64_t actual[]={kernel_mappings[i].virtual_address,kernel_mappings[i].physical_address,kernel_mappings[i].flags};
+  for(unsigned j=0;j<3;j++)if(actual[j]!=eb_evidence.metadata_after[i][j]){eb_fault("metadata-word",1,0,i,j,eb_evidence.metadata_after[i][j],actual[j]);return eb_poison();}
+ }
+ if(kernel_mapping_count!=eb_evidence.count_after){eb_fault("metadata-count",1,0,0,0,eb_evidence.count_after,kernel_mapping_count);return eb_poison();}
  uint64_t start=eb.last;
+ eb_stage="adopt-tables";
  for(unsigned i=0;i<512;i++) {
   uint64_t a,b,c;
-  if(!eb_word(eb.r.root,i,&a) || !eb_word(eb.r.pdpt,i,&b) || !eb_word(eb.r.frame,i,&c) ||
-     a!=eb_evidence.root_after[i] || b!=eb_evidence.pdpt_after[i] || c!=eb_evidence.pd[i])return eb_poison();
+  if(!eb_word(eb.r.root,i,&a) || !eb_word(eb.r.pdpt,i,&b) || !eb_word(eb.r.frame,i,&c))return eb_poison();
+  if(a!=eb_evidence.root_after[i]){eb_fault("root-word",3,eb.r.root,i,0,eb_evidence.root_after[i],a);return eb_poison();}
+  if(b!=eb_evidence.pdpt_after[i]){eb_fault("pdpt-word",3,eb.r.pdpt,i,0,eb_evidence.pdpt_after[i],b);return eb_poison();}
+  if(c!=eb_evidence.pd[i]){eb_fault("PD-word",3,eb.r.frame,i,0,eb_evidence.pd[i],c);return eb_poison();}
  }
- if(!eb_guard() || !eb_tick() || eb.r.end<=start)return eb_poison();
+ eb_stage="adopt-finish";
+ if(!eb_guard() || !eb_tick())return eb_poison();
+ if(eb.r.end<=start){eb_fault("clock-no-progress",1,0,0,0,start,eb.r.end);eb_diagnostic.sample_clock_valid=false;return eb_poison();}
  eb.r.adopted_us=eb.r.end;eb.r.adoptions=1;return true;
 }

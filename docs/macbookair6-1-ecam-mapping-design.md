@@ -234,3 +234,58 @@ check/readback, so the cause is unresolved. All prior USB files and offline
 allocation integrity verify on return. This is a failed native attempt, not
 adoption or complete-root acceptance. Preserve strict comparisons and limits;
 add bounded first-failure and timing observations before another physical trial.
+
+
+## Bounded adoption failure diagnostics
+
+The AP helper now latches the first failing stage/reason, checked-word count,
+existing clock sample and available exact expected/observed values. Adoption
+identifies geometry, sole-root/ownership, fresh gate, registry/count, complete
+root/PDPT/PD readback and final progress checks. Read primitives identify bounded
+RAM/HHDM sources, word-cap and clock failures. The stable adapter separately
+latches its first CPU/control/catalog/MCFG/DMAR failure and the exact changed
+component/byte where available. Secondary cleanup/refusal cannot overwrite it.
+All comparisons, source permissions, ordering and limits remain unchanged.
+
+The existing terminal screen prints these fixed-size records after uncertainty
+has already stopped PCI/USB continuation. Detail flags mean1=expected/observed
+pair,2=table/index,4=observed-only data; a zero flag means values are unavailable,
+not equal. Prepared/handoff/entry/last-good clocks come from existing operation
+samples, with no new timer read in the successful critical path. A rejected
+clock sample is retained separately; backward/invalid/stopped clocks cannot
+produce a valid elapsed claim. Display time is sampled once after failure and
+labelled separately; it never restarts the operation or its100ms deadline.
+No hardware reread, free, retry, fallback remap or policy change is added.
+Native CPU exceptions remain terminal; this is branch-failure instrumentation,
+not resumable fault handling or proof of rollback.
+
+Actual-source regressions check first-failure preservation after poisoned retry,
+raw A/D differences (still rejected), registry/ownership/geometry/source faults,
+cap/clock failures and fresh-gate changed-byte/component failures. The real
+terminal path executes under fixture hardware, halts via a host test hook and
+asserts zero table rereads/writes/frees and only one later display-clock sample.
+Backward-clock and deadline-expiry output are distinguished. Existing normal
+and maximum-catalog v5 success receipts remain byte-identical in the fixture;
+the raw wire schema, dual-file checks and all old census/context limits stay
+unchanged. Host/VM checks do not identify or fix the earlier native adoption cause.
+
+
+## Instrumented native return
+
+The subsequent instrumented release `a85cf3e1549a1928` saved a complete valid
+early raw component and matching adoption/save reference:36268 words,98684us
+within100000us,37+37 cache MSRs and the pinned42-row catalog. The prior adoption
+halt did not reproduce; its cause remains unknown and timing margin is only
+1316us on this observation. The later census still exhausted64 tables after
+5678 first-pass/zero second-pass reads, with945 partial encoded bytes. Actual
+whole-trial completion is NO and the strict dual-file proof remains absent.
+Do not promote the early component to complete-root or ownership acceptance.
+
+Exact staged ELF inspection shows115.160MiB BSS, of which the static process
+array is104.375MiB with embedded mapping storage. This motivates a source and
+native-branch audit of static kernel/HHDM mapping pressure and deferred backing
+while preserving capacity/ownership/integrity checks. The saved partial graph is
+insufficient to prove attribution. The original ECAM-only graph estimate was
+not a complete native-layout result; its successful compact subtree does not
+make the remaining graph fit. Keep the census/lifetime limits unchanged and
+also investigate startup timing headroom before another implementation/trial.

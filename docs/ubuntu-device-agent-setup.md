@@ -1196,3 +1196,13 @@ non-null completed `ecam_boot` collection proof, offline allocation/file checks
 and automatic Ubuntu return. A Q35 refusal pass cannot accept the native mapper,
 full native census, VT-d resource/alias admission or device ownership. See the
 [exact-unit mapping contract](macbookair6-1-ecam-mapping-design.md).
+
+
+For a v5 pre-PCI terminal halt, capture the entire diagnostic screen. It now
+includes first-failed stage/reason, prepared/handoff/last-good and rejected clock
+samples, elapsed validity, available raw expected/observed values and fresh-gate
+context. The later display timestamp is labelled separately. A missing detail
+flag is unavailable evidence, not a match. Restart into Ubuntu and collect the
+recorded run before staging again; absence of USB receipts remains failure.
+No deadline, word/census/log cap, strict comparison or source gate is relaxed by
+these diagnostics.
