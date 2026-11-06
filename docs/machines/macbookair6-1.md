@@ -7595,3 +7595,33 @@ NX, full raw MCFG/catalog and pre-enumeration legacy PCI identity checks must
 replace historical assumptions. Inspect PR301/19 overlap before production edits;
 no GPU, Wi-Fi or unrelated ownership changes. Next checkpoint: source-matched
 backend/gate tests and matched builds before any opt-in native profile/test.
+
+
+### Actual checked ECAM backend/gate candidate (2026-11-05)
+
+The real AP-only backend stages a private PD, checks the complete borrowed path,
+zero parent slot and registry, atomically publishes one link, invalidates all39936
+original4KiB VAs and either retires with verified unlink/invalidation/free or
+hands off permanently with the original registry semantics. Detached failure
+cleanup also rechecks the borrowed path; unknown state and broken fresh admission
+retain the frame. Actual-source fault injection covers all512 private stores
+before/after acknowledgement and publication/unlink, source, invalidation,
+metadata, clock, ownership and cleanup errors. No A/D masking or relaxed check.
+
+The fresh gate verifies captured CPU/control/NX state, BSP0 and parked four-CPU
+entrypoints, restored legacy PCI identity selection, full pinned MCFG/DMAR/catalog
+copies and two stable bounded cache/EFER observations. Its maximum49+49 cache
+MSRs/two EFER reads and20 identity reads/40 CF8 selection/restoration writes are
+explicitly separate from existing capture accounting. The new mapper lifetime is
+bounded at65536 RAM words and100ms across prepare/retire-or-handoff; existing
+49-MSR/16-PTE and64-table/32768-entry/4096-byte bounds are unchanged. PMM adds only
+a read-only bitmap/tag observation with IRQ-preservation tests.
+
+Matched normal/AP/USB builds, affected host suites and actual backend/gate
+ASan/UBSan pass. Entry points are retained only in the AP ELF and have no startup
+caller; ordinary PCI/main behavior remains unchanged. Native CPU exceptions remain
+terminal, not resumable rollback. Existing-profile VM regressions are pending
+at this candidate checkpoint. See the [current implementation contract](../macbookair6-1-ecam-mapping-design.md).
+Next add the separate versioned opt-in dispatcher, poison handling and complete
+raw receipt/tail/VM checks before a physical trial. No new payload is installed or
+reboot armed; the native v4 census is still failed and earlier acceptance unchanged.

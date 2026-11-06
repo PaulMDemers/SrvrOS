@@ -1084,3 +1084,7 @@ bool vmm_copy_user_frame_current(uint64_t root,uint64_t destination,
     return vmm_copy_user_frame_excluding_current(root,destination,source,length,stack,pages,page_count,
         frame,user_fpu,kernel_fpu,NULL,0);
 }
+
+#ifdef SRVROS_ECAM_BOOT
+#include "ecam_boot.inc"
+#endif

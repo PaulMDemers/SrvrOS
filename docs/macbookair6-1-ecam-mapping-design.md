@@ -6,7 +6,9 @@ Host-only design on integration base `4cc0408b`. The [layout audit](macbookair6-
 shows that the existing156-bus4KiB ECAM mapping alone needs at least81 tables,
 beyond the unchanged64-table/32768-entry census bounds. This proposal preserves
 all39936 physical4KiB mappings, attributes and PCI config address calculations,
-using78 prospective2MiB leaves. It does not implement or activate a kernel mapper.
+using78 prospective2MiB leaves. The actual backend and fresh pre-PCI gate are now
+implemented in the isolated AP ELF, with no boot-dispatcher caller or hardware
+activation yet. The host proposal remains a historical/input model, not a grant.
 
 `tools/haswell_ecam_mapping_proposal.py` consumes a complete exact-unit raw
 CPU/cache receipt through its existing strict decoder and a complete checksummed
@@ -43,7 +45,7 @@ and their hashes remain in local evidence; no PAT, MTRR, CR0/CR4 or EFER writer
 is proposed. This equivalence design changes the representation of the existing
 PCI mapping policy; it does not supply the separate VT-d full-alias/resource grant.
 
-## Future backend contract
+## Checked backend contract
 
 The intended backend is a narrow boot-only checked operation, separate from the
 generic4KiB map/ensure/unmap APIs. It must provide three distinguishable results:
@@ -121,15 +123,67 @@ make test-haswell-ecam-proposal
 python3 tools/haswell_ecam_mapping_proposal.py --exit-log /absolute/path/accepted-cache-exit.log --mcfg /absolute/path/MCFG.dat --output /absolute/path/proposal.json
 ```
 
-## Remaining implementation and native proof
+## Actual backend and pre-PCI gate implementation
 
-Next implement the private checked boot mapper and fresh pre-PCI admission gate
-against this contract with actual-source allocation/publication/invalidation/
-retirement fault injection. Fresh pre-PCI observations need explicit bounded
-accounting; do not silently append reads to accepted v4 records or widen their
-49-MSR/16-PTE/100ms or64-table/32768-entry/4096-byte bounds. Keep ordinary PCI
-behavior until a separate explicit candidate is built and rehearsed, then collect
-its exact native result and USB/recovery integrity. A three-table synthetic
-ECAM subtree does not prove the remaining native graph fits. Full-root coverage,
-actual VT-d admission and hardware ownership remain separate and unaccepted.
-No payload is installed or reboot armed by this design.
+`kernel/src/memory/ecam_boot.inc` is compiled with the AP-only VMM variant.
+Prepare validates current sole-root IRQ exclusion, admitted RAM/HHDM walks,
+complete borrowed root/PDPT words, exact-zero slot and registry snapshot. It
+allocates one checked PAGE_TABLE frame, stages all512 entries privately, rechecks
+fresh admission, publishes one ordered atomic parent link and invalidates every
+original4KiB VA before reporting READY. Before a clean detached free it also
+reverifies the borrowed path and zero slot. Changed/ambiguous admission, ownership,
+A/D bits, readback, invalidation or metadata never turns into a free/retry.
+Retire verifies unlink/full invalidation before free; handoff preserves the original
+39936 registration attempts and128-entry registry behavior, then becomes permanent.
+A read-only PMM observation checks both allocation bitmap and frame tag under
+saved IRQ exclusion; no allocator policy changes.
+
+`kernel/diagnostics/haswell_ecam_boot.c` supplies a real fresh gate before PCI
+inventory. It requires captured Intel40651/39-bit controls, NX/1GiB support, BSP0,
+the four-CPU mask and untouched parked AP entrypoints. It reads the exact five
+PCI identity words by legacy config access, restoring CF8 after every selection
+and never writing config data. Two complete pinned DMAR/catalog captures per
+admission phase and the full pinned60-byte MCFG replace historical assumptions.
+Both cache snapshots, EFER values and every2MiB leaf's per4KiB uniform UC typing
+must agree. Failed fresh admission latches broken and retains any allocated
+frame; it cannot be followed by cleanup under the earlier successful check.
+
+The existing49-MSR/16-PTE context caps,100ms sample caps and64-table/32768-entry/
+4096-byte census remain unchanged. **Separate new mapper accounting** caps the
+whole prepare/retire-or-handoff lifetime at100ms and65536 software RAM words,
+including checked HHDM walk words and firmware copies. The larger RAM-word bound
+belongs to this new lifetime operation, not the alias census: it includes multiple
+full verification/cleanup passes. Fixed invalidation loops cover39936 VAs for
+publication and again for retirement; no deadline is restarted between calls.
+Fresh gate counters permit at most49 cache MSRs per snapshot, two EFER reads,
+20 PCI identity reads/40 restored CF8 selector writes and4096 firmware bytes.
+The RAM-copy entry is usable only within an active admission callback and rejects
+ECAM/VT-d device pages. IRQ state and all control/cache policy remain unchanged.
+
+Actual-source fixtures inject every one of512 detached stores before/after an
+ambiguous acknowledgement, parent-store/unlink ambiguity, source failures after
+publication/unlink, invalidation/metadata failures, stale/changed borrowed paths,
+A-bit/private-page changes, PMM/free failures, exhausted words and stopped/backward/
+expired clocks. Successful retirement and permanent handoff also execute the
+real backend. The adapter fixture executes its real port-selection/restoration
+logic, firmware checks, CPU/AP topology checks, maximum49+49 cache MSRs, two EFER
+reads, wrong identity/geometry/RAM/pin and changed-cache refusals. Its synthetic
+DMAR pin is explicitly host-only; the native pin remains byte-identical to the
+prior exact-unit firmware gate. ASan/UBSan covers both actual-source fixtures.
+Callback-return faults are contained by the backend; native CPU exceptions remain
+terminal kernel faults, not resumable recovery or proof of hardware rollback.
+
+## Next integration and native proof
+
+The backend entrypoints are linked only into the AP diagnostic ELF; the ordinary
+kernel excludes them. Neither `main` nor PCI enumeration calls them yet. Build
+a distinct versioned opt-in pre-PCI dispatch/receipt profile next, including explicit
+poison handling, immediate handoff/retire before PCI access, all raw fresh proofs,
+strict decoding, tail retention and exact-stage VM coverage. Do not silently
+change v1–v4 or claim their existing receipts exercise this backend.
+
+A native trial then needs the normal exact-stage rehearsal, saved run record,
+recovery/install/one-shot and matching return/USB integrity sequence. A three-table
+synthetic ECAM subtree does not prove the remaining native graph fits. Full-root
+coverage, actual VT-d admission and hardware ownership remain separate and
+unaccepted. No payload is installed or reboot armed by this implementation.
