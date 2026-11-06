@@ -48,7 +48,7 @@ def audit_mcfg(data):
                 minimum_root_graph_pages=minimum_pages,
                 minimum_entry_loads_per_full_pass=512*minimum_pages,
                 table_cap=64, entry_cap_per_pass=32768,
-                fits_current_full_graph_bounds=minimum_pages <= 64,
+                ecam_lower_bound_fits_caps=minimum_pages <= 64,
                 live_table_graph_observed=False, all_aliases_proven=False,
                 native_mapping_authorized=False, hardware_authority=False, ownership=False,
                 device_reads=0, mappings=0, policy_writes=0)

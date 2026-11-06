@@ -21,13 +21,13 @@ class LayoutAudit(unittest.TestCase):
         self.assertEqual(a['minimum_root_graph_pages'], 81)
         self.assertEqual(a['minimum_entry_loads_per_full_pass'], 41472)
         self.assertEqual(a['windows'][0]['mapped_4k_leaves'], 39936)
-        for key in ('fits_current_full_graph_bounds', 'live_table_graph_observed',
+        for key in ('ecam_lower_bound_fits_caps', 'live_table_graph_observed',
                     'all_aliases_proven', 'native_mapping_authorized', 'ownership', 'hardware_authority'):
             self.assertFalse(a[key])
 
     def test_exact_boundary(self):
-        self.assertTrue(audit_mcfg(mcfg(121))['fits_current_full_graph_bounds'])
-        self.assertFalse(audit_mcfg(mcfg(122))['fits_current_full_graph_bounds'])
+        self.assertTrue(audit_mcfg(mcfg(121))['ecam_lower_bound_fits_caps'])
+        self.assertFalse(audit_mcfg(mcfg(122))['ecam_lower_bound_fits_caps'])
 
     def test_odd_nonzero_bus_start(self):
         a = audit_mcfg(mcfg(4, 2))
