@@ -6872,3 +6872,14 @@ command endpoint and preserve explicit sequence handling;the primary
 and [mac80211 sequence contract](https://github.com/torvalds/linux/blob/v7.0/include/net/mac80211.h)
 were pinned and checked against this descriptor. Pure packet formatting grants
 no endpoint,radio,association or controlled-port authority.
+
+### Pro11,2 empty stopped RX context acceptance (November 5)
+
+Native v124 `54d3bca0e34ff6fa`/source34e24139 passes the full2024708-byte
+parent plus empty stopped DCI9 handoff:two exact Set TR Dequeue commands,four
+context snapshots,15 guard/selected-power reads and all old endpoint context,
+power and RF originals restored. Both rings and all retained DMA survive.
+The unchanged cold retry passed;the first calibration-response timeout remains
+failed separately. This grants no TD publication,MAC start,network OUT,
+association,keys,IP or data authority. See the unit record for exact session,
+source,independent capsules and next live-owner scope.

@@ -36,23 +36,26 @@ maximum24 half-dBm is not an analog output-power measurement. No network OUT,
 authentication,key installation,IP or data transfer was exercised. The original
 v123 failure remains failed and independently preserved.
 
-Reviewed main379d6f8d and recursive module integration are complete. The first
-merged v124 release54d3bca0e34ff6fa/source34e24139 run saved a complete failure
-session00065f90d7b31e88-00,1854059bytes. The fifth firmware calibration command
-received no response within500ms;the new handoff was never entered. Calibration
-and enclosing RF original restoration are not accepted for this run. Its549-file
-failure capsule is independently sealed;offline storage,recovery equality and
-automatic Ubuntu return pass. Accepted source25bf power evidence remains separate.
+Native v124 `54d3bca0e34ff6fa`, runtime `34e24139`, integrated main379d6f8d,
+session `session-00065f91111950b2-00` accepts all2024708 exit bytes:the complete
+calibration/private unique Demers5/selected-power parent,two exact Set TR Dequeue
+commands,four endpoint snapshots,15 guard/selected-power reads and all eight old
+endpoint context words restored. Both rings and all prior DMA remain retained;
+no TD was posted and no MAC/network OUT was started by the handoff. Exact power
+and RF originals,storage/recovery and automatic Ubuntu return pass. The166-file
+native capsule is independently sealed outside build. The first v124 run's
+calibration-response timeout remains failed in its separate549-file capsule;
+the unchanged cold retry passed without any gate or timeout modification.
 
-Next bounded work is one unchanged-payload cold retry. Reuse the exact qualified
-image and strict parent gates;do not increase timeouts,skip calibration or admit
-the handoff after failure. The failed generated session is separately archived
-against its immutable failure capsule before a new collection. If the fifth
-response timeout repeats,inspect that transport/firmware path before advancing.
-Handoff must prove exact stopped-context retarget and old-context/power/RF
-restoration before dedicated live RX/data OUT and management association work.
-No cross-chat contact is authorized. Shared signal/stream/FPU dependencies have
-host/VM regression coverage;this failed run transfers no native acceptance.
+Next bounded work:private current station MAC and selected target basic-rate
+binding,then dedicated live RX/data OUT ownership and matched management
+AUTH/ASSOC/leave. Empty/stopped parent predicates remain unchanged. Reuse the
+pinned TXWI/sequence/queue source audit. Touch fixed MT76 peer/native owner,
+codec/staging/proof/fault tests;other machines' alias/graphics and browser work
+remain independent. No cross-chat contact is authorized. Newly fetched main
+4cc0408b includes Air6,1 read-only alias scheduling/audits and published fixture
+compatibility reuse;inspect and merge before the next matched build. No Wi-Fi
+change or sibling acceptance is inferred from those commits.
 
 Strict-entropy WPA2/MIC/replay/key/PN lifecycle,authenticated bidirectional
 IP/data and clean disconnect/reconnect follow association. Demers2.4 needs
@@ -12999,3 +13002,18 @@ Ubuntu default,unarmed state,installed recovery equality and offline filesystem/
 allocation checks pass. One exact-image cold retry is prepared under existing
 shutdown authority;no source,gate or timeout is changed. This failure remains
 failed regardless of the retry result.
+
+### Empty stopped RX handoff physically accepted (November 5)
+
+The exact unchanged v124 cold retry `54d3bca0e34ff6fa`/source34e24139 passed
+matching `session-00065f91111950b2-00` with2024708 complete saved bytes.
+All five calibration replies and eight retained completions completed;private
+Demers5 PSK/CCMP selection and mapped selected power checks passed. Two stopped
+DCI9 Set TR Dequeue commands retargeted to a distinct empty ring and restored
+the exact original context;four context snapshots and15 guard/selected-power
+reads pass the strict preboot-frozen checker. Outer power/RF originals and
+storage/recovery/automatic return pass. Its166-file native capsule remains
+separate from the first549-file timeout failure capsule. No new TD,MAC start,
+management frame,authentication,key,IP or data transfer is accepted by this
+empty-context trial. A fresh live receive/data-OUT owner and matched protocol
+replies remain necessary. Credentials remain unread/unpackaged.
