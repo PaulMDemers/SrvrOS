@@ -2,6 +2,22 @@
 
 Updated: 2026-11-05. State: **active reference machine; partial device acceptance**.
 
+### Active scope: firmware handoff census and wake admission
+
+Main `7b887bbe` is integrated as `a59f9007`, including Air6,1's separate
+pre-init alias-context work; no sibling acceptance is inherited. PR301 owns
+this Air's GT work; PR19 remains Pro Wi-Fi and PR379 WebCore audit.
+The native df5 requester preflight is collected with integrity verified.
+
+Correct masked request semantics in the host wake core, then inspect the
+firmware OpRegion handoff fields through a bounded read-only catalog-validated
+window. Preserve raw values and explicit unresolved ownership reasons. Only
+independently established ownership may admit a native wake writer; quiet
+mailboxes or boot-services exit alone cannot establish it. Touch GT protocol,
+new firmware observation core/adapter/decoder, explicit recipe/collection/tests
+and this unit's docs. Preserve recovery and the independent Air6 mappings.
+Stop with matched host/VM validation and a prepared test; no reboot this block.
+
 ### Native read-only GT requester preflight accepted
 
 Release `df5ca792434d9145`, source `251a912b`, returned as
