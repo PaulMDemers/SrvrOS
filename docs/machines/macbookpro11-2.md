@@ -13292,3 +13292,38 @@ credentials unread. Fetched main `305f9b0b` adds bounded opt-in ECAM timing/firs
 failure diagnostics and Air evidence;it remains deferred with the preceding ECAM
 adoption changes to isolate this unchanged Wi-Fi comparison. Open301/379 scopes
 remain graphics/browser;no competing Wi-Fi owner was found.
+
+### Corrected empty data-OUT ownership accepted on unchanged retry (November 6)
+
+V126 `bdc5d02d78ad4e15` / runtime `af88d9f1` saved session
+`00065fa2def26b48-00` with 2,028,556 complete bytes. The unchanged cold retry
+passed the full15,719-operation parent,five calibration replies,eight retained
+receive completions,six beacons and unique Demers5 selection. Three matching
+advertisements agreed on private station/target-rate binding. All selected-power
+and stopped-RX handoff predicates remained exact.
+
+The dedicated empty OUT04/DCI8 ring passed configure,15 read-only guard/power
+checks,one exact forced empty-ring CC27/zero-length/non-ED stop event at its
+pinned base during Stop Endpoint,the unchanged stopped-context comparison,and
+drop/disable. All three commands completed for the expected slot. The owner
+restored all4096 shared input bytes and preserved the four unrelated slot/RX/MCU/
+firmware contexts. The full old RX context,selected power and outer RF originals
+were restored. All DMA remains retained;no TD,endpoint doorbell,MAC start or
+network frame was published by this child. The native receipt confirms that this
+controller emits the required forced stop event. The first unlogged failure's
+exact event remains unavailable and is not retroactively relabelled.
+
+Strict full-prefix collection,offline fsck/allocation,recovery equality and
+automatic Ubuntu return passed. The161-file native capsule and separate
+acceptance notes are preserved outside build. The preceding541-file zero-target
+window failure and537-file first Stop-postcondition failure remain independently
+sealed and failed. Ubuntu is default,e47d recovery previous,and no boot is armed.
+
+This accepts empty endpoint ownership/retirement and input restoration only.
+The next bounded implementation owns fresh live RX and dedicated data OUT under
+the frozen accepted peer/handoff/power parent,then submits matched AUTH/ASSOC/
+leave without replay after uncertain transport. Existing stopped/read-only
+admission predicates must remain unchanged. WPA2 entropy/MIC/replay/key/PN,
+authenticated DHCP/DNS/bidirectional data/disconnect and live reattach remain
+open. Credentials remain unread/unpackaged. This5GHz-only adapter cannot accept
+Demers2.4;compatible hardware is still required.

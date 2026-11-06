@@ -6919,3 +6919,17 @@ specified by Intel xHCI1.22 §4.6.9/table4-2:one CC27 event,zero length,no ED,
 matching pinned ring/slot/DCI8 during the issued Stop Endpoint command. It still
 requires exact stopped context,subsequent disable and shared-input restoration.
 Other,duplicate,missing or mistimed events refuse;no TD or network frame is sent.
+
+### Pro11,2 empty data-OUT ownership acceptance (November 6)
+
+The unchanged corrected v126 `bdc5d02d78ad4e15` / source `af88d9f1` passed
+2,028,556 saved native bytes:full peer/handoff/power parent,three exact
+configure/Stop/drop commands,15 read-only guard/selected-power reads,one required
+CC27 forced stop event at the pinned empty ring,exact stopped context,disable
+and restoration of all4096 shared input bytes. Four unrelated contexts and the
+full old RX/power/RF originals remained intact. Storage/recovery and automatic
+return passed. The unit record owns the matching session and independent
+161-file native capsule. The prior zero-target window and original stop failure
+remain failed. No TD,doorbell,MAC start or network frame was published by the
+empty owner;live RX/data publication,matched AUTH/ASSOC/leave,WPA2 and
+authenticated IP/data/disconnect remain separate pending milestones.
