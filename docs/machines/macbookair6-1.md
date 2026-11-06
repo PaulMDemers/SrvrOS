@@ -7889,3 +7889,31 @@ unrelated STI/HLT instructions emitted by process host fixtures; those unexpecte
 host paths now trap, while native disassembly and relocations compare identical.
 All process suites were rerun after that host-only adaptation. Native runtime
 acceptance and exact-stage VM checks remain pending at this source checkpoint.
+
+
+### Frozen mapping-storage validation (2026-11-06)
+
+[PR391](https://github.com/PaulMDemers/SrvrOS/pull/391), compiled/tested runtime
+`ad1d6199`, exact v5 release `83ef1c984bb62a79`: full local core/build checks
+passed, including the89-test installed-root matrix (one optional exhaustive
+I/O case skipped by default). After the host-only privileged-instruction
+adaptation, all17 process suites and the actual ECAM backend passed again;
+native disassembly/relocations stayed identical. Five actual-source ASan/UBSan
+fixtures pass, and mapping-storage/ECAM-gate fixtures compile for ARM64.
+
+Seven sequential staged Q35 checks passed: legacy firmware, cache context,
+alias-v3, fences32, v4, exact-v5 refusal and v5 missing workspace. The v5 success
+formatter fixtures remain byte-identical to the original. Normal images exclude
+AP diagnostic symbols; the AP image retains them. These VM results validate
+refusal/collection and shared runtime behavior, not Haswell native admission.
+
+Next native run checks the unchanged early100ms/65536-word handoff and later
+64-table/two-pass full managed-root census with the smaller image. Require both
+matching raw receipts and complete final save/unmount/return. An early halt or
+missing completion remains failed/incomplete. Ubuntu stays default; protected
+accepted recovery and full prior failed payload/evidence remain outside build.
+No power policy, mapping permission, integrity check or limit was widened.
+
+Ordinary syscall, UEFI USB keyboard, fork, exec-vector and scheduler-yield VM
+checks also passed against the matched normal image. Native graph/timing
+acceptance is pending the automated run; no result is inferred from Q35.
