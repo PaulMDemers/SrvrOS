@@ -900,7 +900,15 @@ def collect(mount, volume, output):
                                    payload.get('exit.log',b'').decode('utf-8',errors='replace'),name)
             if not ecam_proof or not ecam_proof['source_completed']:
                 attention.append('collection: boot ECAM and alias dual-file proof missing, refused or incomplete')
+        intel_engines=None
+        if 'srvros.intel-engines=read-only' in text:
+            from intel_engine_census import engine_result
+            try:
+                intel_engines=engine_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not intel_engines or not intel_engines['observation_complete'] or not intel_wake or not intel_wake['native_wake_complete']:attention.append('Intel engine census incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel engine census: '+str(error))
         records.append({
+            "intel_engines":intel_engines,
             "intel_display_capture": intel_display,
             "intel_display_backing": intel_backing,
             "intel_scanout_lifetime": intel_lifetime,

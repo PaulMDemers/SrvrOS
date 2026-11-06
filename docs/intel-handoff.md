@@ -110,3 +110,9 @@ range transfer remain pending before a native writer or tear-free flip.
 The next [GT access/requester preflight](intel-gt-access.md) audits mandatory
 initialization and owned wake retirement without admitting native writes or
 borrowing a firmware request as engine-access permission.
+
+The accepted cooperative wake lease now permits the separate
+[awake engine census](intel-engine-reader-handoff.md). That census records
+command-streamer state; it supplies no range assurances and preserves the
+populated candidate interval. See its roadmap for display/audio/DMA readers,
+translation retirement and managed-memory transfer.

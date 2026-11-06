@@ -103,3 +103,12 @@ bool intel_cache_probe_wake_uc_page(uint64_t physical,uint32_t offset) {
        !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
     return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
 }
+
+/* Exact read-only engine pages; no widening of earlier observer/wake gates. */
+bool intel_cache_probe_engine_uc_page(uint64_t physical,uint32_t offset) {
+    struct x86_cache_snapshot current;unsigned m,p,e;uint64_t pages[3];
+    if((offset!=0x2000 && offset!=0x12000 && offset!=0x1a000 && offset!=0x1c000 && offset!=0x22000) || !report_ok ||
+       !intel_scanout_trial_cache_pages(pages) || pages[0]<0x101000 || physical!=pages[0]-0x101000+offset ||
+       !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
+    return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
+}

@@ -49,7 +49,7 @@ int main(int argc,char **argv) {
         const char *names[]={"native-model","cpu-only","refused","changed","preserve-failed"};
         for(unsigned i=0;i<5;i++)if(!strcmp(argv[1],names[i]))scenario=i;
     }
-    gt_mtrr_uc=argc>1 && (!strcmp(argv[1],"fresh-uc") || !strcmp(argv[1],"wake-uc"));
+    gt_mtrr_uc=argc>1 && (!strcmp(argv[1],"fresh-uc") || !strcmp(argv[1],"wake-uc") || !strcmp(argv[1],"engine-uc"));
     intel_cache_probe_boot();intel_cache_probe_boot();
     assert(!intel_cache_probe_uc_page(0xc0811000));
     bool ok=intel_cache_probe_report();assert(ok==(scenario==0));
@@ -79,6 +79,14 @@ int main(int argc,char **argv) {
         assert(intel_cache_probe_wake_uc_page(0xc0130000,0x130000) && reads==40);
         assert(intel_cache_probe_wake_uc_page(0xc0138000,0x138000) && reads==50);
         scenario=3;assert(!intel_cache_probe_wake_uc_page(0xc0138000,0x138000) && reads==60);
+    }
+    if(argc>1 && !strcmp(argv[1],"engine-uc")) {
+        assert(!intel_cache_probe_engine_uc_page(0xc000a000,0xa000) && reads==20);
+        assert(!intel_cache_probe_engine_uc_page(0xc0003000,0x2000) && reads==20);
+        const uint32_t pages[]={0x2000,0x12000,0x1a000,0x1c000,0x22000};
+        for(unsigned i=0;i<5;i++)assert(intel_cache_probe_engine_uc_page(0xc0000000ull+pages[i],pages[i]));
+        assert(reads==70);scenario=3;
+        assert(!intel_cache_probe_engine_uc_page(0xc0022000,0x22000) && reads==80);
     }
     return 0;
 }

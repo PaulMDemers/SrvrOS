@@ -7,16 +7,41 @@
 /* Each host case models a fresh boot; production supplies no reset entry. */
 #include "../kernel/src/intel_boot_claim.c"
 #include "../kernel/src/display_access.c"
+#ifdef SRVROS_INTEL_ENGINE_TRIAL
+static const char *engine_mode="report";
+#endif
 static bool wake_mode,wake_cache_fail,wake_map_fail,wake_retire_fail,wake_uncertain,wake_no_ack,wake_foreign,wake_busy,wake_thread_stuck,wake_late_foreign,wake_fw_after;
 static uint32_t wake_request __attribute__((unused))=0x10000,wake_ack __attribute__((unused));static unsigned wake_writes;static bool wake_irq __attribute__((unused));
 #ifdef SRVROS_INTEL_WAKE_TRIAL
 static uint64_t intel_display_test_wake_irq_save(void){wake_irq=true;return 512;}
 static bool intel_display_test_wake_irq_off(void){return wake_irq;}
 static void intel_display_test_wake_irq_restore(uint64_t flags){assert(flags==512);wake_irq=false;}
-static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc0000000ull+o && (o==0xa000 || o==0x130000 || o==0x138000));return !wake_cache_fail;}
+static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc0000000ull+o && (o==0xa000 || o==0x130000 || o==0x138000
+#ifdef SRVROS_INTEL_ENGINE_TRIAL
+ || o==0x2000 || o==0x12000 || o==0x1a000 || o==0x1c000 || o==0x22000
+#endif
+));
+#ifdef SRVROS_INTEL_ENGINE_TRIAL
+ if(!strcmp(engine_mode,"cache-last") && o==0x22000)return false;
+#endif
+ return !wake_cache_fail;}
 static bool intel_display_test_wake_read(uint32_t reg,uint32_t *v){assert(wake_irq && !display_access_allowed());*v=reg==0xa188?wake_request:reg==0x130044?wake_ack:wake_thread_stuck?1:0;return true;}
 static enum intel_gt_write intel_display_test_wake_write(uint32_t);
 static void intel_display_test_wake_pause(void){}
+#endif
+#ifdef SRVROS_INTEL_ENGINE_TRIAL
+static unsigned engine_calls;
+static bool intel_display_test_engine_read(unsigned e,unsigned w,uint32_t *v) {
+ assert(wake_irq && !display_access_allowed() && wake_ack==1 && (wake_request&1)==1);
+ engine_calls++;
+ if(!strcmp(engine_mode,"late-foreign"))wake_request|=2;
+ *v=w==4?1:0;
+ if(!strcmp(engine_mode,"active") && e==0 && w==3)*v=1;
+ if(!strcmp(engine_mode,"pending") && e==2 && w==4)*v=0x10;
+ if(!strcmp(engine_mode,"changed") && engine_calls>30 && e==1 && w==2)*v=4096;
+ if(!strcmp(engine_mode,"float") && e==0 && w==0)*v=UINT32_MAX;
+ return strcmp(engine_mode,"read-fail")!=0;
+}
 #endif
 static bool fw_mode,fw_bad_signature,fw_changed,fw_cache_fail,fw_map_fail,fw_retire_fail;
 static unsigned fw_reads;
@@ -61,7 +86,7 @@ static bool intel_display_test_fw_read(uint32_t offset,uint32_t *v){
  assert(0);return false;
 }
 static unsigned config_reads,mmio_reads,map_calls,unmap_calls;
-static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+4];
+static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+9];
 static bool firmware_ok,clock_ok,alias,malformed,reporting,backing_mode,translation_gap,dma_unmap_fail;
 static struct pci_device devices[3];
 static struct acpi_table_info dsdt,extra_dmar;
@@ -97,15 +122,30 @@ bool laptop_firmware_match(const uint8_t *p,size_t n){assert((uintptr_t)p==0x100
 uint64_t vmm_kernel_address_space(void){return 0x1000;}
 uint64_t vmm_current_address_space(void){return current;}
 bool vmm_virt_to_phys(uint64_t v,uint64_t *p){assert(v==fb_virtual);*p=0xb0000000;return true;}
-static unsigned index_of(uint64_t v){if(v>=BACKING_VA+0x10000 && v<BACKING_VA+0x13000)return INTEL_CAPTURE_PAGES+1+(unsigned)((v-BACKING_VA-0x10000)/4096);if(v==BACKING_VA)return INTEL_CAPTURE_PAGES;assert(v>=CAPTURE_VA && v<CAPTURE_VA+4096*INTEL_CAPTURE_PAGES && !(v&4095));return (unsigned)((v-CAPTURE_VA)/4096);}
+static unsigned index_of(uint64_t v){if(v>=BACKING_VA+0x10000 && v<BACKING_VA+0x18000)return INTEL_CAPTURE_PAGES+1+(unsigned)((v-BACKING_VA-0x10000)/4096);if(v==BACKING_VA)return INTEL_CAPTURE_PAGES;assert(v>=CAPTURE_VA && v<CAPTURE_VA+4096*INTEL_CAPTURE_PAGES && !(v&4095));return (unsigned)((v-CAPTURE_VA)/4096);}
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t v,uint64_t *p){assert(space==0x1000);if(backing_mode && v>=fb_virtual && v<fb_virtual+6144*900){if(translation_gap && v==fb_virtual+4096)return false;*p=0xb0000000+v-fb_virtual;return true;}unsigned n=index_of(v);*p=pa[n];return pa[n]!=0;}
 bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) {
     assert(space==0x1000 && flags==((wake_mode && v==BACKING_VA+0x10000)?(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITABLE):(fw_mode && p==0x12345000)?VMM_PAGE_NO_EXECUTE:(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)));unsigned n=index_of(v);
-    assert(!pa[n]);if(n>=INTEL_CAPTURE_PAGES)assert((p>=0xc0000000 && p<0xc1000000) || p==0xfed90000 || (fw_mode && p==0x12345000));else assert(p==0xc0000000ull+intel_capture_pages[n]);pa[n]=p;map_calls++;if((window_map_fail && p==0xc0811000) || (gt_map_fail && p==0xc000a000) || (fw_map_fail && p==0x12345000) || (wake_map_fail && v==BACKING_VA+0x10000))return false;return true;
+    assert(!pa[n]);if(n>=INTEL_CAPTURE_PAGES)assert((p>=0xc0000000 && p<0xc1000000) || p==0xfed90000 || (fw_mode && p==0x12345000));else assert(p==0xc0000000ull+intel_capture_pages[n]);pa[n]=p;map_calls++;
+#ifdef SRVROS_INTEL_ENGINE_TRIAL
+ if(!strcmp(engine_mode,"map-last") && v==BACKING_VA+0x17000)return false;
+#endif
+ if((window_map_fail && p==0xc0811000) || (gt_map_fail && p==0xc000a000) || (fw_map_fail && p==0x12345000) || (wake_map_fail && v==BACKING_VA+0x10000))return false;
+ return true;
 }
-bool vmm_unmap_page_in_space(uint64_t space,uint64_t v,uint64_t *p){assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);if((wake_retire_fail && v==BACKING_VA+0x10000) || (fw_retire_fail && pa[n]==0x12345000) || dma_unmap_fail || (window_retire_fail && pa[n]==0xc0811000) || (gt_retire_fail && pa[n]==0xc000a000))return false;*p=pa[n];pa[n]=0;unmap_calls++;return true;}
+bool vmm_unmap_page_in_space(uint64_t space,uint64_t v,uint64_t *p){assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);
+#ifdef SRVROS_INTEL_ENGINE_TRIAL
+ if(!strcmp(engine_mode,"retire-last") && v==BACKING_VA+0x17000)return false;
+#endif
+ if((wake_retire_fail && v==BACKING_VA+0x10000) || (fw_retire_fail && pa[n]==0x12345000) || dma_unmap_fail || (window_retire_fail && pa[n]==0xc0811000) || (gt_retire_fail && pa[n]==0xc000a000))return false;
+ *p=pa[n];pa[n]=0;unmap_calls++;return true;}
 bool timer_reference_ready(void){return clock_ok;}
-uint64_t timer_monotonic_us(void){ticks+=wake_irq?1:100;return ticks;}
+uint64_t timer_monotonic_us(void){
+#ifdef SRVROS_INTEL_ENGINE_TRIAL
+ if(engine_calls && !strcmp(engine_mode,"slow"))ticks+=200000;
+ if(engine_calls && !strcmp(engine_mode,"frozen"))return ticks;
+#endif
+ ticks+=wake_irq?1:100;return ticks;}
 void console_write(const char *s){if(reporting)fputs(s,stdout);}
 /* Kernel %u/%x arguments are uint64_t; adapt those conversions for host libc. */
 void console_printf(const char *format,...) {
@@ -208,6 +248,12 @@ int main(int argc,char **argv) {
         dma_checked=63;dma_passed=31;dma_failed=32;dma_guards=1;
         dma_attempted=true;dma_result.status=DMA_ACCESS;reporting=true;assert(!intel_dma_probe_report());return 0;
     }
+#ifdef SRVROS_INTEL_ENGINE_TRIAL
+    if(argc==2 && !strncmp(argv[1],"--wake-engine-",14))engine_mode=argv[1]+14;
+    static char engine_recipe[1024];
+    snprintf(engine_recipe,sizeof(engine_recipe),"%s srvros.intel-engines=read-only",wake_cmd.cmdline);
+    wake_cmd.cmdline=engine_recipe;
+#endif
     reset();wake_mode=argc==2 && !strncmp(argv[1],"--wake-",7);wake_cache_fail=wake_mode && !strcmp(argv[1],"--wake-cache");wake_map_fail=wake_mode && !strcmp(argv[1],"--wake-map");wake_retire_fail=wake_mode && !strcmp(argv[1],"--wake-retire");wake_uncertain=wake_mode && !strcmp(argv[1],"--wake-uncertain");wake_no_ack=wake_mode && !strcmp(argv[1],"--wake-no-ack");wake_foreign=wake_mode && !strcmp(argv[1],"--wake-foreign");wake_busy=wake_mode && !strcmp(argv[1],"--wake-busy");wake_thread_stuck=wake_mode && !strcmp(argv[1],"--wake-c0");wake_late_foreign=wake_mode && !strcmp(argv[1],"--wake-late-foreign");wake_fw_after=wake_mode && !strcmp(argv[1],"--wake-fw-after");fw_mode=wake_mode || (argc==2 && !strncmp(argv[1],"--fw-",5));fw_bad_signature=fw_mode && !strcmp(argv[1],"--fw-signature");fw_changed=fw_mode && !strcmp(argv[1],"--fw-changed");fw_cache_fail=fw_mode && !strcmp(argv[1],"--fw-cache");fw_map_fail=fw_mode && !strcmp(argv[1],"--fw-map");fw_retire_fail=fw_mode && !strcmp(argv[1],"--fw-retire");gt_mode=fw_mode || (argc==2 && !strncmp(argv[1],"--gt-",5));gt_cache_fail=gt_mode && !strcmp(argv[1],"--gt-cache-failed");gt_map_fail=gt_mode && !strcmp(argv[1],"--gt-map-failed");gt_retire_fail=gt_mode && !strcmp(argv[1],"--gt-retire-failed");gt_changed=gt_mode && !strcmp(argv[1],"--gt-changed");gt_bad_pci=gt_mode && !strcmp(argv[1],"--gt-pci-failed");gt_float=gt_mode && !strcmp(argv[1],"--gt-float-read");window_mode=gt_mode || (argc==2 && !strncmp(argv[1],"--window-",9));window_map_fail=window_mode && !strcmp(argv[1],"--window-map-failed");window_retire_fail=window_mode && !strcmp(argv[1],"--window-retire-failed");window_cache_fail=window_mode && !strcmp(argv[1],"--window-cache-refused");cache_mode=window_mode || (argc==2 && !strcmp(argv[1],"--cache-backing-report"));backing_mode=cache_mode || (argc==2 && !strcmp(argv[1],"--backing-report"));reporting=argc==2 && (!strcmp(argv[1],"--report") || backing_mode);if(window_mode){stolen_region.base=0x8c000000;stolen_region.length=0x4000000;}
     if(backing_mode)memory.entry_count=3;
     if(fw_mode){ram.length=0x10000000;firmware_region=(struct limine_memmap_entry){.base=0x12345000,.length=0x3000,.type=3};memory.entry_count=4;if(!strcmp(argv[1],"--fw-usable"))firmware_region.type=0;if(!strcmp(argv[1],"--fw-short"))firmware_region.length=4096;}
@@ -216,7 +262,11 @@ int main(int argc,char **argv) {
     assert(intel_display_probe_report());unsigned old_reads=mmio_reads;intel_display_probe_boot(&frame);assert(mmio_reads==old_reads);
     if(backing_mode){intel_display_backing_probe_boot(&frame);assert(backing.status==1 && backing.count==1356 && backing.sample[0].present==1356 && backing.fence_matches==1 && !backing.retained && map_calls==unmap_calls);struct scanout_profile profile;struct intel_scanout_clock clock;assert(intel_scanout_trial_profile(&profile) && !profile.assured && !profile.physical[1]);assert(intel_scanout_trial_ram(0x1000000,1350));assert(!intel_scanout_trial_ram(0x8c000000,1350));assert(!intel_scanout_trial_ram(0xb0000000,1350));assert(intel_scanout_trial_clock(&clock));assert(intel_scanout_trial_revalidate());uint64_t pages[3]={0};assert(intel_scanout_trial_cache_pages(pages)==cache_mode);if(cache_mode)assert(pages[0]==0xc0101000 && pages[1]==0xc0811000 && pages[2]==0xb2200000);assert(intel_display_backing_probe_report());if(window_mode){assert(intel_ggtt_window_probe_report()==!(window_map_fail || window_retire_fail || window_cache_fail));assert((pa[INTEL_CAPTURE_PAGES]!=0)==(window_map_fail || window_retire_fail));if(!window_map_fail && !window_retire_fail && !window_cache_fail){struct scanout_handoff_snapshot s;assert(intel_window_handoff_snapshot(&s) && !s.assurances);config_reads=0;assert(intel_window_handoff_revalidate(&s) && intel_window_handoff_clean());unsigned old=config_reads;s.original[15]^=1;assert(!intel_window_handoff_revalidate(&s) && config_reads==old);s.original[15]^=1;config_reads=0;handoff_drift=true;assert(!intel_window_handoff_revalidate(&s) && intel_window_handoff_clean() && !pa[INTEL_CAPTURE_PAGES]);handoff_drift=false;config_reads=0;window_cache_fail=true;assert(!intel_window_handoff_revalidate(&s) && intel_window_handoff_clean() && !pa[INTEL_CAPTURE_PAGES]);window_cache_fail=false;}}if(gt_mode){config_reads=0;bool ok=intel_gt_preflight_probe_report();assert(ok==!(gt_cache_fail || gt_map_fail || gt_retire_fail || gt_changed || gt_bad_pci || gt_float));assert((pa[INTEL_CAPTURE_PAGES]!=0)==(gt_map_fail || gt_retire_fail));assert(display_access_allowed()==!(gt_map_fail || gt_retire_fail));}if(fw_mode){config_reads=0;assert(intel_gt_firmware_probe_report()==!(fw_bad_signature || fw_changed || fw_cache_fail || fw_map_fail || fw_retire_fail || !strcmp(argv[1],"--fw-usable") || !strcmp(argv[1],"--fw-short")));assert((pa[INTEL_CAPTURE_PAGES]!=0)==(fw_map_fail || fw_retire_fail));assert(display_access_allowed()==!(fw_map_fail || fw_retire_fail));}
 #ifdef SRVROS_INTEL_WAKE_TRIAL
- if(wake_mode){config_reads=0;if(!strcmp(argv[1],"--wake-loader"))wake_loader.version="unknown";if(!strcmp(argv[1],"--wake-efi"))wake_firmware.firmware_type=1;if(!strcmp(argv[1],"--wake-recipe"))wake_cmd.cmdline="srvros.intel-wake=trial";bool good=!(wake_cache_fail || wake_map_fail || wake_retire_fail || wake_uncertain || wake_no_ack || wake_foreign || wake_busy || wake_thread_stuck || wake_late_foreign || wake_fw_after || !strcmp(argv[1],"--wake-loader") || !strcmp(argv[1],"--wake-efi") || !strcmp(argv[1],"--wake-recipe"));assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);if(good){assert(wake_writes==3 && !wake_ack && (wake_request&0xffff)==0 && display_access_allowed());}}
+ if(wake_mode){config_reads=0;if(!strcmp(argv[1],"--wake-loader"))wake_loader.version="unknown";if(!strcmp(argv[1],"--wake-efi"))wake_firmware.firmware_type=1;if(!strcmp(argv[1],"--wake-recipe"))wake_cmd.cmdline="srvros.intel-wake=trial";bool good=!(wake_cache_fail || wake_map_fail || wake_retire_fail || wake_uncertain || wake_no_ack || wake_foreign || wake_busy || wake_thread_stuck || wake_late_foreign || wake_fw_after || !strcmp(argv[1],"--wake-loader") || !strcmp(argv[1],"--wake-efi") || !strcmp(argv[1],"--wake-recipe"));
+#ifdef SRVROS_INTEL_ENGINE_TRIAL
+ good=good && strcmp(engine_mode,"float") && strcmp(engine_mode,"read-fail") && strcmp(engine_mode,"cache-last") && strcmp(engine_mode,"map-last") && strcmp(engine_mode,"retire-last") && strcmp(engine_mode,"late-foreign") && strcmp(engine_mode,"slow") && strcmp(engine_mode,"frozen");
+#endif
+ assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);if(good){assert(wake_writes==3 && !wake_ack && (wake_request&0xffff)==0 && display_access_allowed());}}
 #else
  if(wake_mode){assert(!intel_gt_wake_probe_report() && !wake_writes && display_access_allowed());}
 #endif

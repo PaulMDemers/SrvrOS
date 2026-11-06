@@ -8,24 +8,28 @@ static bool suffix_hex(const char *p,unsigned n,const char *prefix,unsigned hex)
  for(;k<n;k++)if(!((p[k]>='0' && p[k]<='9') || (p[k]>='a' && p[k]<='f')))return false;
  return true;
 }
-bool intel_gt_boot_recipe(const char *p) {
+static bool recipe(const char *p,bool engines) {
  if(!p)return false;
  static const char *const names[]={"srvros.storage=ram","srvros.capture=intel-display","srvros.intel-backing=read-only","srvros.intel-cache=read-only","srvros.intel-window=read-only","srvros.intel-handoff=qualify","srvros.intel-gt-preflight=read-only","srvros.intel-firmware=read-only","srvros.intel-wake=trial","srvros.capture-failure=reboot"};
  unsigned seen=0,total=0;
  while(*p) {
   if(++total>2048)return false;
   if(*p==' '){p++;continue;}
-  const char *start=p;unsigned n=0,bit=12;
+  const char *start=p;unsigned n=0,bit=13;
   while(*p && *p!=' '){p++;if(++n>80 || ++total>2048)return false;}
   for(unsigned i=0;i<10;i++)if(equal(start,n,names[i]))bit=i;
   if(suffix_hex(start,n,"srvros.workspace-volume=",8))bit=10;
   if(suffix_hex(start,n,"srvros.desktop-release=",16))bit=11;
-  if(bit==12 || (seen&(1u<<bit)))return false;
+  if(engines && equal(start,n,"srvros.intel-engines=read-only"))bit=12;
+  if(bit==13 || (seen&(1u<<bit)))return false;
   seen|=1u<<bit;
  }
- return seen==0xfffu;
+ return seen==(engines?0x1fffu:0xfffu);
 }
 uint32_t intel_gt_boot_grants(const struct intel_gt_boot_facts *f) {
  if(!f || !f->compiled || !f->recipe || !f->loader || !f->efi64 || !f->profile || !f->serialized || !f->excluded || !f->prerequisites || !f->firmware_quiet || !f->requesters_quiet)return 0;
  return GT_ACCESS_REQUIRED;
 }
+
+bool intel_gt_boot_recipe(const char *p){return recipe(p,false);}
+bool intel_gt_boot_engine_recipe(const char *p){return recipe(p,true);}

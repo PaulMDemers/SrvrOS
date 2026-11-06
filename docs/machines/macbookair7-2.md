@@ -15,6 +15,22 @@ and the accepted wake-only recipe remain unchanged. Populated candidate PTEs
 remain protected until reader/engine/DMA/cache assurances exist. Stop after
 matched host/VM validation and durable readiness; do not reboot this work block.
 
+### Engine census implementation checkpoint (native test pending)
+
+The dedicated engine ELF now extends the cooperative wake lease with five exact
+RO/NX/UC command-streamer pages, two six-DWORD passes per engine and versioned
+raw/summary receipts. All eight aliases prepare before the first wake store.
+The unchanged timing limits, durable pre-write checkpoint, exact profile and
+fresh firmware/requester/cache/inherited-state checks remain mandatory. The
+census closes a still-valid wake lease after a read failure; ownership faults
+retain resources. Separate staging/collection requires the13-token recipe and
+complete native chain. Host fixtures cover active, pending, changing and floating
+state, failed reads, last-page cache/map/retirement failures, late foreign
+requesters and slow/frozen clocks. Quiet observations grant no handoff bits.
+See the [engine/reader contract](../intel-engine-reader-handoff.md) for sources,
+field semantics and the managed-memory roadmap. Full source-matched validation,
+exact-stage VM and preparation follow; no hardware test is armed.
+
 ### Native bounded cooperative wake trial accepted
 
 Release `93b497d37af24dae`, payload source `d5ff462d` with host decoder

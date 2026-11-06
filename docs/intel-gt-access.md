@@ -3,7 +3,7 @@
 The accepted Air7,2 CPU-client qualification does not provide GT register-access
 or firmware ownership. The read-only qualification and firmware census below are accepted. A new
 explicit cooperative-EFI contract adds a separately compiled, opt-in bounded
-native wake trial. Native wake is not yet physically accepted. Engine control,
+native wake trial. The bounded native wake lease is now physically accepted. Engine control,
 reader retirement, GPU intervals and physical tear-free flips remain separate.
 
 ## Audited hardware obligations
@@ -320,3 +320,7 @@ This accepts this lease under the explicit cooperative-firmware assumption only.
 SMM retirement, engine/reader handoff, managed GPU memory and physical tear-free
 presentation remain open. The unit record and independently preserved local
 run/return evidence identify the source and recovery boundary.
+
+The next [engine/reader census](intel-engine-reader-handoff.md) adds read-only
+command-streamer observations inside the owned lease and records the remaining
+managed-memory obligations. It does not grant a native GPU interval.
