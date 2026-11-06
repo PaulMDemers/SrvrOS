@@ -4055,8 +4055,8 @@ build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
-AP_PROBE_OBJ := build/ap-probe/haswell-alias-core.o build/ap-probe/haswell-cache-walk.o build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
-AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o build/kernel/diagnostics/package_audit_core.c.o,$(KERNEL_OBJ))
+AP_PROBE_OBJ := build/ap-probe/ecam-vmm.o build/ap-probe/ecam-gate.o build/ap-probe/haswell-alias-core.o build/ap-probe/haswell-cache-walk.o build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_BASE := $(filter-out build/kernel/src/memory/vmm.c.o build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o build/kernel/diagnostics/package_audit_core.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
 build/ap-probe/main.o: kernel/src/main.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
@@ -4072,7 +4072,13 @@ build/ap-probe/entry.o: kernel/diagnostics/ap_probe.S $(ZIG)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 build/ap-probe/srvros.elf: $(AP_PROBE_OBJ) $(AP_PROBE_BASE) kernel/linker.ld
-	$(LD) $(LDFLAGS) $(AP_PROBE_OBJ) $(AP_PROBE_BASE) -o $@
+	$(LD) $(LDFLAGS) --undefined=haswell_ecam_boot_prepare --undefined=haswell_ecam_boot_handoff --undefined=haswell_ecam_boot_retire --undefined=haswell_ecam_boot_gate_result --undefined=vmm_ecam_boot_result $(AP_PROBE_OBJ) $(AP_PROBE_BASE) -o $@
+build/ap-probe/ecam-vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -c $< -o $@
+build/ap-probe/ecam-gate.o: kernel/diagnostics/haswell_ecam_boot.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: test-ap-probe
 test-ap-probe: build/tests/ap-probe-host$(HOST_EXE)
@@ -4961,3 +4967,29 @@ test-intel-gt-firmware: build/tests/intel-gt-firmware$(HOST_EXE) build/tests/int
 build/tests/intel-gt-firmware$(HOST_EXE): tools/test_intel_gt_firmware.c kernel/src/drivers/intel_gt_firmware.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/intel_gt_firmware.c -o $@
+
+.PHONY: test-haswell-alias-layout
+test-haswell-alias-context: test-haswell-alias-layout
+test-haswell-alias-layout: build/tests/hsw-alias-ecam$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_alias_layout.py
+build/tests/hsw-alias-ecam$(HOST_EXE): tools/test_haswell_alias_ecam.c kernel/src/arch/x86_64/pci.c kernel/src/arch/x86_64/io.h kernel/src/memory/vmm.c kernel/diagnostics/haswell_alias_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_alias_core.c -Wl,--gc-sections -o $@
+
+.PHONY: test-haswell-ecam-proposal
+test-haswell-alias-context: test-haswell-ecam-proposal
+test-haswell-ecam-proposal: test-haswell-alias-layout
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_ecam_proposal.py
+
+.PHONY: test-ecam-boot
+test-core: test-ecam-boot
+test-ecam-boot: build/tests/ecam-boot$(HOST_EXE) build/tests/ecam-boot-gate$(HOST_EXE)
+	build/tests/ecam-boot$(HOST_EXE)
+	build/tests/ecam-boot-gate$(HOST_EXE)
+build/tests/ecam-boot$(HOST_EXE): tools/test_ecam_boot.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+build/tests/ecam-boot-gate$(HOST_EXE): tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/diagnostics/haswell_ecam_boot.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@

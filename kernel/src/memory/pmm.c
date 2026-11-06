@@ -447,6 +447,15 @@ uint64_t pmm_tagged_frames(enum pmm_frame_tag tag) {
     return tag_valid(tag) ? tag_counts[tag] : 0;
 }
 
+bool pmm_frame_has_tag(uint64_t pa, enum pmm_frame_tag tag) {
+    if (!bitmap || !frame_tags || !tag_valid(tag) || (pa & (PMM_FRAME_SIZE-1)) ||
+        pa / PMM_FRAME_SIZE >= frame_count) return false;
+    uint64_t flags=irq_save(), frame=pa/PMM_FRAME_SIZE;
+    bool result=frame_tags[frame]==tag && bitmap_get(frame)==(tag!=PMM_FRAME_FREE);
+    irq_restore(flags);
+    return result;
+}
+
 const char *pmm_tag_name(enum pmm_frame_tag tag) {
     switch (tag) {
     case PMM_FRAME_FREE:
