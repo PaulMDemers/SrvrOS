@@ -28,24 +28,54 @@ bool hac_capture(struct hac_result *r,const struct hac_io *io,uint64_t root) {
  if(!r)return false;
  /* Large table backing is static in callers; reset metadata, not via a stack copy. */
  r->status=3;r->pages=r->target_leaves=0;r->reads[0]=r->reads[1]=r->bytes[0]=r->bytes[1]=0;r->begin=r->end=r->cursor_pa=r->cursor_expected=r->cursor_observed=0;r->cursor_index=0;
+ r->prepare_reads=r->prepare_pages=0;r->prepare_end=0;
  if(!io || !io->read || !io->now)return false;
- r->begin=io->now(io->ctx);if(!room(r,io) || !add(r,root,0))return false;
- for(unsigned pass=0;pass<2;pass++)for(unsigned i=0;i<r->pages;i++) {
+ r->begin=io->now(io->ctx);if(!room(r,io))return false;
+ /* First-touch private output and table backing before observing live entries.
+  * The clock already runs; no warmup can restart or escape the lifetime cap. */
+ volatile uint8_t *backing=(volatile uint8_t *)r->table;
+ for(unsigned i=0;i<sizeof(r->table);i++) {
+  if(!(i&4095) && !room(r,io))return false;
+  backing[i]=0;
+ }
+ backing=(volatile uint8_t *)r->data;
+ for(unsigned i=0;i<sizeof(r->data);i++) {
+  if(!(i&4095) && !room(r,io))return false;
+  backing[i]=0;
+ }
+ if(!add(r,root,0))return false;
+ /* Discover/touch every table through the same guarded RAM accessor before
+  * either exact snapshot. A later table's first HHDM load may set A in an
+  * earlier table. Preparation is not compared, encoded or retried. */
+ for(unsigned stage=0;stage<3;stage++) {
+ unsigned pass=stage?stage-1:0;
+ for(unsigned i=0;i<r->pages;i++) {
   struct hac_page *p=&r->table[i];
   for(unsigned j=0;j<512;j++) {
-   r->cursor_pa=p->pa;r->cursor_index=j;r->cursor_expected=pass?p->word[j]:0;r->cursor_observed=0;
+   r->cursor_pa=p->pa;r->cursor_index=j;r->cursor_expected=stage==2?p->word[j]:0;r->cursor_observed=0;
    uint64_t v;if(!room(r,io))return false;
-   if(!io->read(io->ctx,p->pa,j,&v)){r->status=3;return false;}r->reads[pass]++;r->cursor_observed=v;
-   if(pass){if(v!=p->word[j]){r->status=5;return false;}continue;}
+   if(!io->read(io->ctx,p->pa,j,&v)){r->status=3;return false;}
+   if(stage)r->reads[pass]++;else r->prepare_reads++;
+   r->cursor_observed=v;
+   if(stage==2){if(v!=p->word[j]){r->status=5;return false;}continue;}
    p->word[j]=v;if(!(v&1))continue;
    if(v&0x000ffffffffff000ull&~ADDR || (!p->level && v&128)){r->status=4;return false;}
    if(p->level==3 || (v&128 && (p->level==1 || p->level==2))) {
     unsigned shift=p->level==1?30:p->level==2?21:12;uint64_t low=(1ull<<shift)-1;
     if(p->level!=3 && (v&ADDR&low&~4096ull)){r->status=4;return false;}
-    uint64_t base=v&ADDR&~low;if(base<=0xfed90000ull && 0xfed90000ull-base<=low)r->target_leaves++;
-   }else if(!add(r,v&ADDR,p->level+1))return false;
+    uint64_t base=v&ADDR&~low;if(stage && base<=0xfed90000ull && 0xfed90000ull-base<=low)r->target_leaves++;
+   }else {
+    if(!add(r,v&ADDR,p->level+1))return false;
+    if(stage && r->pages!=r->prepare_pages){r->status=5;return false;}
+   }
   }
-  if(!encode(r,pass,p))return false;
+  if(stage && !encode(r,pass,p))return false;
+ }
+ if(!stage){
+  r->prepare_pages=r->pages;r->prepare_end=io->now(io->ctx);
+  if(r->prepare_end<=r->begin || r->prepare_end-r->begin>=100000){r->status=2;return false;}
+  if(!room(r,io))return false;
+ }
  }
  r->end=io->now(io->ctx);
  if(!r->end || r->end<=r->begin || r->end-r->begin>=100000){r->status=2;return false;}

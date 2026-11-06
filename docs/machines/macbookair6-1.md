@@ -7967,3 +7967,22 @@ actual open PRs and current integration baseline inspected, no conflicting
 alias-core changes published. Next checkpoint: reproduced first-touch race,
 exact-comparison negative tests, matched build/staged VM validation and bounded
 automated native capture under existing reboot authorization.
+
+
+### First-touch preparation candidate (2026-11-06)
+
+The original core fails the targeted HHDM first-touch reproducer at the first
+comparison (status5,2049 reads); the new core completes guarded preparation
+and both exact snapshots (6144 reads for four tables). Private result backing
+is primed inside the shared lifetime before source observations. Preparation
+retains the same RAM/root/translation accessor and discovers the graph once;
+expansion afterward is refused. Measured A-bit, D-bit and address changes still
+fail, as do preparation/source failures, shared-clock expiry, malformed graphs
+and all existing table/output bounds. The maximum64-table fixture still passes.
+
+Affected alias/cache/firmware/ECAM core, adapter, strict collector, layout and
+proposal suites pass, including legacy receipt compatibility and malformed
+preparation refusal. Matched normal/AP/USB/ISO images build; actual core/fixture
+ASan/UBSan checks pass and both compile for ARM64 with assertions enabled.
+Exact-stage VMs and native acceptance remain next. No measured raw-bit masking,
+PTE write, changed cap, restarted deadline or failed-snapshot retry is introduced.

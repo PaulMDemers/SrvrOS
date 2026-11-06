@@ -34,6 +34,15 @@ def fixture_alias():
 
 
 class AliasTests(unittest.TestCase):
+    def test_bounded_preparation_receipt_and_legacy_compatibility(self):
+        text,pin=fixture_alias()
+        prep='hsw-alias-preparation: v=1 reads=2048 pages=4 begin=5100 end=5200 table_cap=64 entry_cap=32768 limit_us=100000 shared_deadline=1 pte_writes=0 retries=0\n'
+        with patch('hardware_haswell_firmware.PIN',pin):
+            self.assertIsNone(alias_result(text)['preparation'])
+            self.assertEqual(alias_result(text+prep)['preparation']['reads'],2048)
+            for bad in (prep+prep,prep.replace('reads=2048','reads=32769'),prep.replace('pages=4','pages=65'),prep.replace('reads=2048','reads=2047'),prep.replace('begin=5100','begin=5101'),prep.replace('end=5200','end=5100'),prep.replace('end=5200','end=5900'),prep.replace('shared_deadline=1','shared_deadline=0'),prep.replace('pte_writes=0','pte_writes=1'),prep.replace('retries=0','retries=1')):
+                self.assertIsNone(alias_result(text+bad),bad)
+
     def test_synthetic_pin_full_raw_graph_and_scope(self):
         text,pin=fixture_alias();self.assertIsNone(alias_result(text))
         with patch('hardware_haswell_firmware.PIN',pin):p=alias_result(text)

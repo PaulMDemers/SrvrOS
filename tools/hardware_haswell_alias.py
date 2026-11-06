@@ -43,6 +43,16 @@ def _parse(text):
     root, nx0, nx1, max0, max1, ef0, ef1, irq0, irq1 = (int(x, 16) for x in vals[7:16])
     begin, end = map(int, vals[16:18])
     cursor_pa, cursor_index, expected, observed = int(vals[18],16), int(vals[19]), int(vals[20],16), int(vals[21],16)
+    preparation = None
+    prep = [x for x in text.splitlines() if x.startswith('hsw-alias-preparation:')]
+    if prep:
+        if len(prep) != 1: raise ValueError('preparation count')
+        pm = re.fullmatch(r'hsw-alias-preparation: v=1 reads=(\d+) pages=(\d+) begin=(\d+) end=(\d+) table_cap=64 entry_cap=32768 limit_us=100000 shared_deadline=1 pte_writes=0 retries=0', prep[0])
+        if not pm: raise ValueError('preparation syntax')
+        pr, pc, pb, pe = map(int, pm.groups())
+        if pr > 32768 or pc > 64 or pb != begin: raise ValueError('preparation bounds')
+        if status == 1 and (pc != count or pr != 512*pc or not begin < pe < end): raise ValueError('preparation completion')
+        preparation = dict(reads=pr, pages=pc, begin=pb, end=pe, shared_deadline=True)
     chunks = {}
     for line in text.splitlines():
         if not line.startswith('hsw-alias-data:'): continue
@@ -104,7 +114,7 @@ def _parse(text):
                 if child not in pages or pages[child]['level'] != level+1: raise ValueError('incomplete/cyclic graph')
                 if child not in reached: reached.add(child); todo.append(child)
     if len(reached) != len(pages) or len(leaves) != targets: raise ValueError('coverage/count')
-    return dict(status='OBSERVED_MANAGED_ROOT_CONTEXT', source_completed=True, root=root, pages=count,
+    return dict(status='OBSERVED_MANAGED_ROOT_CONTEXT', preparation=preparation, source_completed=True, root=root, pages=count,
                 reads_per_pass=r0, raw_encoded_bytes_per_pass=b0, begin_us=begin, end_us=end,
                 nx_edx=nx0, cpuid_max=max0, efer=ef0, irq_before=irq0, irq_after=irq1,
                 raw_pages=[dict(physical=p, **v) for p, v in pages.items()], target_leaves=leaves,

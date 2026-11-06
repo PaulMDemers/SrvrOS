@@ -60,7 +60,7 @@ bool hcc_test_entry(uint64_t pa,unsigned index,uint64_t *v){
   else if(pa==0x101000){if(index==0)*v=0x103003;}
   else if(pa==0x103000)*v=((uint64_t)index<<21)|0x83;
   else if(pa!=0x102000)return false;
-  if(mode==25 && pa==0x100000 && index==0 && ptes>2052)*v^=32;
+  if(mode==25 && pa==0x100000 && index==0 && ptes>4100)*v^=32;
   return true;
  }
  if(pa==0x100000){if(index==384 && mode==13){*v=0x104003;return true;}if(index==384 && mode!=7){*v=0;return true;}*v=mode==8?0xfed90003:0x101003;}
