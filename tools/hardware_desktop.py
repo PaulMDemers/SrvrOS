@@ -644,7 +644,7 @@ def collect(mount, volume, output):
         if folder.is_symlink() or not folder.is_dir():
             raise ValueError(f"Unsafe session path: {folder.name}")
         payload = {}
-        for name in (*FILES, *(f"checkpoint-{i:02x}.log" for i in range(32))):
+        for name in (*FILES, "ecam.log", *(f"checkpoint-{i:02x}.log" for i in range(32))):
             source = folder / name
             if source.is_symlink():
                 raise ValueError(f"Unsafe log path: {folder.name}/{name}")
@@ -893,11 +893,19 @@ def collect(mount, volume, output):
                 storage_wait['payload_verified']=True
         if 'srvros.capture=storage-wait' in text and storage_wait is None:
             attention.append('collection: storage wait comparison missing or invalid')
+        ecam_proof=None
+        if 'srvros.ecam=air61-2m-test' in text or 'ecam.log' in payload:
+            from hardware_haswell_ecam import ecam_result
+            ecam_proof=ecam_result(payload.get('ecam.log',b'').decode('utf-8',errors='replace'),
+                                   payload.get('exit.log',b'').decode('utf-8',errors='replace'),name)
+            if not ecam_proof or not ecam_proof['source_completed']:
+                attention.append('collection: boot ECAM and alias dual-file proof missing, refused or incomplete')
         records.append({
             "intel_display_capture": intel_display,
             "intel_display_backing": intel_backing,
             "intel_scanout_lifetime": intel_lifetime,
             "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,"intel_gt_firmware":intel_firmware,"intel_gt_wake":intel_wake,
+            "ecam_boot": ecam_proof,
             "posix_capture": posix_proof,
             "storage_wait": storage_wait,
             "battery_preflight": preflight,

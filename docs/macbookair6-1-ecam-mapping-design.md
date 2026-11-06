@@ -178,18 +178,59 @@ hooks. This is compile coverage, not ARM hardware or macOS runtime acceptance.
 Callback-return faults are contained by the backend; native CPU exceptions remain
 terminal kernel faults, not resumable recovery or proof of hardware rollback.
 
-## Next integration and native proof
+## Opt-in adoption and dual-file proof (v5)
 
-The backend entrypoints are linked only into the AP diagnostic ELF; the ordinary
-kernel excludes them. Neither `main` nor PCI enumeration calls them yet. Build
-a distinct versioned opt-in pre-PCI dispatch/receipt profile next, including explicit
-poison handling, immediate handoff/retire before PCI access, checked PCI-window
-adoption that skips the old4KiB mapper only for the admitted active window, all raw fresh proofs,
-strict decoding, tail retention and exact-stage VM coverage. Do not silently
-change v1–v4 or claim their existing receipts exercise this backend.
+The normal kernel excludes the mapper and refuses its explicit command-line token.
+The AP diagnostic ELF calls prepare and immediate handoff before PCI only for
+`--haswell-ecam-boot`, with all four firmware/cache/alias/pre-init flags required.
+The ordinary PCI path and v1–v4 retain their mapping behavior. Clean foreign
+refusal may follow that path but cannot complete the capture. READY/POISONED,
+wrong geometry, changed source or failed adoption stops before PCI/USB; uncertain
+frames remain live. A visible terminal screen requests a photograph and Ubuntu
+restart. No fallback remap or retry follows an uncertain publication.
 
-A native trial then needs the normal exact-stage rehearsal, saved run record,
-recovery/install/one-shot and matching return/USB integrity sequence. A three-table
-synthetic ECAM subtree does not prove the remaining native graph fits. Full-root
-coverage, actual VT-d admission and hardware ownership remain separate and
-unaccepted. No payload is installed or reboot armed by this implementation.
+PCI consumes ACTIVE exactly once after fresh stable admission, exact geometry,
+registry/ownership and complete borrowed-path/private-PD readback. It adopts the
+same156MiB window without adding4KiB tables. Adoption shares the original100ms
+lifetime and65536 checked software-word cap, with no restarted deadline. Full
+raw equality is required throughout this operation; A/D changes also refuse.
+
+After startup the logger is quiesced. The real formatter saves the complete early
+root/PDPT observations (unchanged words plus canonical lossless observed deltas),
+512 private-PD words, both complete128-row registry vectors, two raw CPU/cache/
+EFER/topology/MCFG observations, four full pinned DMAR/catalog observations and
+all operation counters into `ecam.log`. Every byte is retained; Base64 chunks have
+strict sequence/extent and a33000-byte raw cap. There is no hash-only substitute.
+Existing committed-data flush and readback apply. The unchanged pre-user-init
+cache/alias census is then reported to `exit.log`; session, epoch, root, frame,
+adoption and durable-save reference bind the files. Both must complete.
+
+The decoder requires complete old two-pass raw equality under the unchanged
+64-table/32768-entry/4096-byte caps, full cross-file CPU/cache/firmware agreement
+and ECAM branch/leaf correspondence. Only the cross-epoch correspondence allows
+explicit PCI-induced A/D transitions after adoption; it does not mask either
+census pass or relax the mapper's own equality checks. Raw native firmware pins
+remain exact. VM fixtures use a synthetic DMAR pin only in host test builds.
+
+Actual-source host tests cover adoption, changed tables/metadata/controls,
+duplicate consumption, terminal PCI refusal, log quiescence/readback/failure,
+real formatter-to-decoder round trips and missing/duplicate/corrupt/cross-session
+records. Maximum128-catalog/49-MSR output is46213 bytes; with the16514-byte
+postamble allowance it stays within65536. The old proof plus the maximum census
+and postamble also fits independently. New and old files keep the same tail cap.
+No payload or native acceptance follows from these host fixtures. Exact-stage
+VM, recovery/install/one-shot and matching collection are required before a
+native result. Native whole-graph fit and actual VT-d resource/alias/ownership
+admission remain separate and unaccepted; no VT-d data load is provided here.
+
+
+## First native v5 outcome
+
+The first native v5 trial (`56308db224d9e6ab`, implementation `2f53e475`) halted
+before PCI/USB continuation during checked adoption: retained-poison state5,
+35949 words and one parent attempt. No dual-file receipt was produced. The
+word cap was not exhausted; the photograph lacks elapsed time and first failed
+check/readback, so the cause is unresolved. All prior USB files and offline
+allocation integrity verify on return. This is a failed native attempt, not
+adoption or complete-root acceptance. Preserve strict comparisons and limits;
+add bounded first-failure and timing observations before another physical trial.

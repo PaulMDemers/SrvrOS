@@ -1173,3 +1173,26 @@ no tester input. It does not enable mappings or DMA/scanout authority. Run its
 exact-stage Q35 refusal/save/return and missing-workspace checks before native
 installation; collect the matching release plus all display/backing/DMA receipts.
 Other Mac profiles are not admitted by this capture.
+
+### Air6,1 opt-in checked ECAM/census trial
+
+The separate AP diagnostic **v5 hfw** profile uses the complete explicit flag set:
+
+```sh
+tools/host-env.sh make kernel initramfs ap-probe-kernel usb-image
+python3 tools/hardware_boot.py stage --laptop-probe-volume YOUR_VOLUME --haswell-firmware-capture --haswell-cache-context --haswell-alias-context --haswell-alias-preinit --haswell-ecam-boot
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check --workspace-table gpt
+```
+
+Use this unit's UUID and actual partition table, retain recovery and follow the
+saved run/install/one-shot/collection sequence above. This explicitly changes
+only the diagnostic boot's ECAM CPU mapping before PCI; ordinary boot and v1–v4
+remain unchanged. The native fresh gate must admit prepare/handoff and checked
+one-use PCI adoption. Clean foreign refusal saves failure and returns; uncertain
+publication/adoption stops visibly before PCI/USB. Photograph a terminal screen
+and restart into Ubuntu if that occurs. No input is needed otherwise; keep AC
+and USB connected. Require same-session complete `ecam.log` and `exit.log`, a
+non-null completed `ecam_boot` collection proof, offline allocation/file checks
+and automatic Ubuntu return. A Q35 refusal pass cannot accept the native mapper,
+full native census, VT-d resource/alias admission or device ownership. See the
+[exact-unit mapping contract](macbookair6-1-ecam-mapping-design.md).

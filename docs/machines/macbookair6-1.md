@@ -7652,3 +7652,91 @@ hash-verified copy outside build. Next is the distinct dispatcher/checked PCI-wi
 adoption and full raw receipt/decoder/tail profile. No new payload is installed,
 no reboot is armed and the failed native v4 census remains the current hardware
 result. Existing recovery/Ubuntu default and all prior device evidence are retained.
+
+
+### Opt-in ECAM adoption and dual-receipt scope (2026-11-06)
+
+Base `ca43ce23`; prior native failure collected, backend/gate merged and dormant.
+Add a distinct v5 profile, pre-PCI dispatch and checked one-use adoption of the
+active exact ECAM window. Preserve ordinary PCI and v1–v4. Poison is terminal
+before PCI/USB access; clean foreign refusal follows the old path but cannot pass.
+Retain complete fresh backend/gate raw proof in a separate64KiB `ecam.log`, then
+report the unchanged pre-init alias/cache proof into `exit.log`, with a strict
+same-session/epoch reference and cross-proof checks. No hash-only or partial
+proof substitutes, no context/census/tail limit changes. Scope: guarded main/PCI,
+backend snapshots/formatter, logger checkpoint, profile/decoder/collector/fixtures
+and own docs. PR301 GPU and PR19 Wi-Fi remain separate; publish bounded changes
+and rehearse matched stages before physical install/one-shot under existing auth.
+
+
+### v5 opt-in adoption candidate (2026-11-06)
+
+The isolated AP profile now dispatches the checked mapper before PCI, consumes
+its exact window once with fresh RAM/registry/control verification, and stops
+visibly before PCI/USB on uncertain publication or adoption. Normal kernel/PCI
+and v1–v4 remain separate. Adoption shares the100ms/65536-word lifetime; the
+old64-table/32768-entry/4096-byte census and49-MSR/16-PTE checks are unchanged.
+Full early raw proof goes to a separately verified64KiB `ecam.log`, followed by
+the old cache/alias proof in `exit.log` and a same-session/epoch reference. The
+collector requires both and matches their controls, firmware and ECAM branch.
+
+Matched normal/AP/USB builds and affected host tests pass at this checkpoint.
+Actual-source PCI/adoption and formatter fixtures, maximum catalog/MSR output,
+4KiB/2MiB/1GiB RAM walks, complete dual-proof decoder and separate-file collector
+checks pass. Maximum early output plus postamble fits without tail enlargement.
+Sanitizer/ARM compile and sequential exact-stage VMs remain pending here. No
+new install or reboot is armed; the old native v4 failure remains failed. Next
+freeze the source, complete those checks, self-review/merge and prepare the
+exact-unit one-shot with known-good recovery and all prior USB files preserved.
+
+
+### v5 source/VM validation closeout (2026-11-06)
+
+Implementation `2f53e475`, PR387, passes matched normal/AP/USB/ISO builds, the
+actual backend/gate/adoption/formatter/collector tests and affected PMM/VMM/PCI/
+firmware/cache/alias/logger suites. Four actual-source ASan/UBSan fixtures pass;
+new formatter and PCI fixtures also cross-compile to ARM64. Two ordinary VMs
+pass syscall ABI and UEFI USB keyboard checks. Seven sequential staged AP VMs
+pass legacy firmware/cache/v3-alias/32-fence/v4 paths plus v5 exact refusal/save/
+return and missing-workspace handling. These are workflow/refusal checks, not
+native positive acceptance. Complete dual-file host fixture output also passes
+for maximum128-row firmware catalogs and49-MSR snapshots within unchanged tails.
+
+A decoder-only review follow-up explicitly requires protected paging and complete
+admitted firmware source pages, matching the actual gate's checks. Its host
+regressions pass; boot binaries are unchanged. Final exact-stage rehearsal with
+that collector is next. The local USB preflight verifies all602 prior files,
+1673 allocated clusters, no leaks/mismatches and session-creation headroom.
+Current native result remains the failed v4 census. Preserve its full payload
+and failure evidence outside build; only its obsolete EFI copy may be retired
+for space, retaining Ubuntu and all accepted fallbacks. No reboot is armed at
+this checkpoint. Native v5 success still requires both complete receipts and
+matching post-return file/allocation checks.
+
+
+### Native v5 adoption halt — failed (2026-11-06)
+
+Release `56308db224d9e6ab`, compiled implementation `2f53e475` with collector
+`f57b5f0f` (merged PR387), stopped visibly at **PCI window adoption failed**.
+The supplied photograph records retained-poison state5,35949 checked words and
+one parent publication attempt. The dispatch path establishes that prepare and
+handoff reached ACTIVE before adoption failed; it does not accept adoption,
+continued PCI access or the later complete-root census. No matching USB session
+was created, consistent with the pre-PCI/USB terminal screen.
+
+The word cap65536 was not reached. Elapsed lifetime, first failed guard and
+expected/observed readback values are absent, so this evidence cannot distinguish
+a deadline from a changed table, source/ownership/metadata or other guard. Do not
+mask A/D bits, restart the lifetime or relax a bound based on this photograph.
+Next add bounded stage/elapsed/first-mismatch diagnostics for adoption and its
+fresh stable gate, with failure-path regression coverage before another trial.
+
+On Ubuntu return, all602 prior USB files are byte-identical with no new files;
+fsck is clean and independent allocation confirms1673 clusters, zero leaks,
+zero FAT/bitmap mismatches and zero errors. The supplied photo, failed run record
+and complete collection/integrity evidence are hash-verified outside build.
+Ubuntu default and installed recovery/accepted fallback hashes verify. The
+collector is disabled, reboot timer inactive and one-shot cleared; no new boot
+is armed. Native v5 remains failed; earlier independent device acceptance stays
+unchanged. The installed current is this failed diagnostic, with known-good
+recovery retained; it must not be called an accepted payload.

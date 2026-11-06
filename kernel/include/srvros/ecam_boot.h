@@ -21,8 +21,12 @@ struct ecam_boot_env {
 };
 struct ecam_boot_result {
  enum ecam_boot_state state;
- uint64_t root,pdpt,frame,begin,end;
- unsigned words,private_writes,parent_attempts,invalidations,metadata_attempts,frees;
+ uint64_t root,pdpt,frame,hhdm,begin,end,adopted_us;
+ unsigned words,private_writes,parent_attempts,invalidations,metadata_attempts,frees,adoptions;
+};
+struct ecam_boot_evidence {
+ uint64_t root_before[512],pdpt_before[512],root_after[512],pdpt_after[512],pd[512];
+ uint64_t metadata_before[128][3],metadata_after[128][3],count_before,count_after;
 };
 /* AP diagnostic ELF only. Caller retains CPU0 IRQ/mutation exclusion and live
  * env storage through pre-handoff retirement or permanent handoff. A single
@@ -31,18 +35,28 @@ bool vmm_ecam_boot_prepare(const struct ecam_boot_env *);
 bool vmm_ecam_boot_retire(void);
 bool vmm_ecam_boot_handoff(void);
 const struct ecam_boot_result *vmm_ecam_boot_result(void);
+const struct ecam_boot_evidence *vmm_ecam_boot_evidence(void);
+bool vmm_ecam_boot_adopt(uint64_t va,uint64_t pa,uint64_t bytes);
 /* Private adapter bootstrap-RAM copy, available only inside a live operation.
  * Entire physical source pages must be admitted; max136 bytes/call. */
 bool vmm_ecam_boot_copy_ram(uint64_t physical,void *,unsigned);
-/* Fresh exact-unit pre-PCI adapter. No ordinary boot caller is installed. */
+/* Fresh exact-unit pre-PCI adapter. Only the explicit v5 AP profile calls it. */
 bool haswell_ecam_boot_prepare(void);
 bool haswell_ecam_boot_handoff(void);
 bool haswell_ecam_boot_retire(void);
+bool haswell_ecam_boot_adopt(uint64_t va,uint64_t pa,uint64_t bytes);
+_Noreturn void haswell_ecam_boot_fail_closed(const char *reason);
+bool haswell_ecam_boot_report(const char *session);
+void haswell_ecam_boot_reference(const char *session,bool saved);
 struct ecam_boot_gate_result {
  unsigned phases,firmware_bytes,config_reads,selector_writes,efer_reads,cache_reads[2];
  uint64_t efer[2],mcfg_pa[2];
  uint8_t mcfg[2][60];
  struct x86_cache_snapshot cache[2];
  struct hfw_result firmware[2];
+ struct ecam_boot_policy {
+  uint32_t extended_max,nx_edx,apic,ids[4],present_mask,launch_mask;
+  uint64_t cr4,irq,revision,flags,count,bsp;
+ } policy[2];
 };
 const struct ecam_boot_gate_result *haswell_ecam_boot_gate_result(void);

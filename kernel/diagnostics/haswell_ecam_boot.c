@@ -12,6 +12,8 @@ static struct hfw_entry eg_ram[HFW_MAP_CAP];
 static unsigned eg_count,eg_phase;
 static bool eg_started,eg_broken;
 static uint64_t eg_root;
+static struct ecam_boot_policy eg_last_policy;
+static bool eg_policy_ready[2];
 struct eg_mp_input {
  uint64_t revision,flags,count,bsp;
  struct {uint32_t id;bool present,launched;} cpu[4];
@@ -59,14 +61,16 @@ static bool eg_mp_input_read(struct eg_mp_input *out) {
  return true;
 }
 #endif
-static bool eg_mp(void) {
+static bool eg_mp(struct ecam_boot_policy *p) {
  struct eg_mp_input r;
  if(!eg_mp_input_read(&r) || r.revision || r.flags || r.count!=4 || r.bsp)return false;
  unsigned mask=0;
+ p->revision=r.revision;p->flags=r.flags;p->count=r.count;p->bsp=r.bsp;
  for(unsigned i=0;i<4;i++) {
   unsigned id=r.cpu[i].id;
   if(!r.cpu[i].present || id>=4 || (mask&(1u<<id)) || (id && r.cpu[i].launched))return false;
   mask|=1u<<id;
+  p->ids[i]=id;p->present_mask|=(unsigned)r.cpu[i].present<<i;p->launch_mask|=(unsigned)r.cpu[i].launched<<i;
  }
  return mask==15;
 }
@@ -77,12 +81,18 @@ static bool eg_cpu(void *ctx,struct x86_cache_cpu *cpu) {
  if(b!=0x756e6547 || d!=0x49656e69 || c!=0x6c65746e)return false;
  eg_cpuid(1,&a,&b,&c,&d);cpu->signature=a;cpu->features=d;
  if(a!=0x40651 || b>>24 || (d&0x11028)!=0x11028)return false;
- eg_cpuid(0x80000000,&a,&b,&c,&d);if(a<0x80000008)return false;
- eg_cpuid(0x80000001,&a,&b,&c,&d);if((d&((1u<<20)|(1u<<26)))!=((1u<<20)|(1u<<26)))return false;
+ struct ecam_boot_policy p={.apic=b>>24};
+ eg_cpuid(0x80000000,&a,&b,&c,&d);if(a<0x80000008)return false;p.extended_max=a;
+ eg_cpuid(0x80000001,&a,&b,&c,&d);if((d&((1u<<20)|(1u<<26)))!=((1u<<20)|(1u<<26)))return false;p.nx_edx=d;
  eg_cpuid(0x80000008,&a,&b,&c,&d);cpu->physical_bits=a&255;cpu->cr0=eg_cr0();
- return cpu->physical_bits==39 && !(cpu->cr0&(3ull<<29)) &&
-        (cpu->cr0&0x80010001ull)==0x80010001ull && eg_cr4()==0x620 &&
-        !(eg_flags()&512) && eg_mp();
+ p.cr4=eg_cr4();p.irq=eg_flags();
+ if(cpu->physical_bits!=39 || cpu->cr0&(3ull<<29) || (cpu->cr0&0x80010001ull)!=0x80010001ull || p.cr4!=0x620 || (p.irq&512) || !eg_mp(&p))return false;
+ if(eg_phase<2 && eg_policy_ready[eg_phase]) {
+  const struct ecam_boot_policy *old=eg.policy+eg_phase;
+  if(p.extended_max!=old->extended_max || p.nx_edx!=old->nx_edx || p.apic!=old->apic || p.cr4!=old->cr4 || p.revision!=old->revision || p.flags!=old->flags || p.count!=old->count || p.bsp!=old->bsp || p.present_mask!=old->present_mask || p.launch_mask!=old->launch_mask)return false;
+  for(unsigned i=0;i<4;i++)if(p.ids[i]!=old->ids[i])return false;
+ }
+ eg_last_policy=p;return true;
 }
 static bool eg_msr(void *ctx,uint32_t n,uint64_t *v) {
  (void)ctx;
@@ -181,6 +191,7 @@ static bool eg_check_inner(void *ctx,unsigned phase) {
  if(phase>1 || phase!=eg.phases)return false;
  eg_phase=phase;struct x86_cache_cpu cpu={0};
  if(!eg_cpu(NULL,&cpu) || !vmm_diagnostic_sole_kernel_root(eg_root))return false;
+ eg.policy[phase]=eg_last_policy;eg_policy_ready[phase]=true;
  if(!phase && !eg_catalog(NULL,eg_ram,&eg_count))return false;
  const struct hfw_io fw={.identity=eg_identity,.catalog=eg_catalog,.table=eg_table,.now=eg_now};
  const struct x86_cache_io cache={.cpu=eg_cpu,.msr=eg_msr,.now=eg_now};
@@ -224,3 +235,4 @@ bool haswell_ecam_boot_prepare(void) {
 bool haswell_ecam_boot_handoff(void){return eg_started && vmm_ecam_boot_handoff();}
 bool haswell_ecam_boot_retire(void){return eg_started && vmm_ecam_boot_retire();}
 const struct ecam_boot_gate_result *haswell_ecam_boot_gate_result(void){return &eg;}
+bool haswell_ecam_boot_adopt(uint64_t va,uint64_t pa,uint64_t bytes){return eg_started && !eg_broken && vmm_ecam_boot_adopt(va,pa,bytes);}
