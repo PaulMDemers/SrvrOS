@@ -7774,3 +7774,24 @@ success receipts are byte-identical to the prior producer. Matched images and
 affected host suites pass; final frozen builds, sanitizers/ARM compile and exact
 staged VMs are required before the next install. The previous native v5 halt is
 still failed with cause unknown; no new native result or reboot is implied.
+
+
+### Instrumented v5 validation checkpoint (2026-11-06)
+
+Implementation `d97c36f3` (PR389) passes frozen normal/AP/USB/ISO builds, affected
+PMM/VMM/PCI/firmware/cache/alias suites and actual-source first-failure/terminal
+regressions. Four actual-source ASan/UBSan fixtures, including mismatch,
+backward-clock and deadline terminal variants, pass; profile/PCI fixtures also
+cross-compile to ARM64. Seven sequential staged VMs pass legacy firmware/cache/
+v3-alias/32-fence/v4 paths and the instrumented v5 refusal/save/return and
+missing-workspace paths. The exact stage is `a85cf3e1549a1928`; its byte-verified
+payload is retained outside build. These checks do not accept native adoption
+or identify the cause of the earlier halt. Normal ELF exclusion/AP-only retention
+also verify. The prior native failure and all accepted recovery remain retained.
+
+Metadata component0/1/2 identifies VA/PA/flags; catalog component0/1/2 identifies
+base/length/type. Stable CPU-state component0–3 identifies signature/features/
+physical width/CR0. Table/index and expected/observed fields are authoritative
+only when their detail flags are set. No new reboot is armed at this checkpoint.
+Next complete ordinary VM checks, self-merge and verify the unit's installation,
+run record, USB baseline and recovery before its authorized one-shot trial.
