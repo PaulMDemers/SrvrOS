@@ -7832,3 +7832,24 @@ All raw files, ELF inspection and assessment are hash-verified outside build.
 Ubuntu/recovery/fallback hashes verify; collector disabled, timer inactive and
 one-shot cleared. No boot is armed. The installed diagnostic remains unaccepted
 as a complete profile; prior independent device acceptance is unchanged.
+
+
+### Mapping-storage and handoff scope (2026-11-06)
+
+Base `e1a30e1e`; prior native v5 collected failed overall, no boot armed. Replace
+unused embedded mapping arrays with image-owned deferred full-capacity backing,
+retaining65536 mappings per process, all64 slots and existing publication,
+ownership and teardown checks. Cover allocation failure before page publication,
+fork/exec transfer/rollback, cleanup and slot reuse. Scope: private process
+mapping field/helpers, map/cleanup/image-transfer code and real host fixtures;
+leave slot/lifetime publication and PR301 owner-revocation work unchanged. PR19
+has no process.c delta against this baseline; PR301's process edits concern
+scope-owner revocation/publication, not mapping backing. Publish bounded commits
+and preserve those independent changes.
+
+Also remove redundant registry duplicate searches for the freshly proved unique
+ECAM span, keeping39936 attempts/events, capacity128, complete pre/post registry
+verification and the original root/source/clock checks and100ms lifetime. No
+policy, ownership gate, A/D mask or limit change. Measure the exact ELF reduction
+and source-matched host/VM results before a new physical stage; native graph fit
+and timing improvement remain unaccepted until a complete matching receipt.
