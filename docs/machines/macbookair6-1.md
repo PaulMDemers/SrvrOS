@@ -7462,3 +7462,35 @@ init/logger startup. Fresh AC/model/USB600-file hash and1670-cluster headroom/
 allocation checks pass with zero leaks/errors. The v3 payload and110 development
 evidence files are independently archived as superseded-unbooted; no physical
 alias/NX result is claimed. V4 native pre-user-init acceptance remains pending.
+
+
+### Native pre-init alias census refusal (2026-11-05)
+
+Collected run `0aad811f8a2f4140`, source `81d1013f`, release
+`6d59e033859033b9`, session `session-00065f90c3adc353-00`. The v4 preparation
+runs before user init and the immutable receipt survives deferred logging, but
+the diagnostic does **not** pass: `status=2 step=3 pages=64 reads=5166,0`,
+`bytes=882,0`, and `completed=NO`. Preparation spans4698us, well below100ms.
+The cursor is table `0x02004000`, entry45, raw `0x02032023`. At that first-pass
+nonfinal entry, the source attempts to add a new table with all64 slots occupied;
+this is table-cap exhaustion, not a deadline, encoding-cap or second-pass change.
+The full graph has at least65 distinct tables; its exact size is not established.
+No complete two-pass raw graph or bracketed NX/cache proof is accepted.
+
+Independent strict v4 replay matches the collector's failure. The16006-byte
+exit receipt is retained with SHA256
+`c79d1bac23910235e7659f4f6314a1e88c78e9ee9766c13d9c96948643dec908`.
+All600 prior file contents are preserved apart from expected workspace metadata;
+only two new session logs appear. Offline fsck, independent allocation and fresh
+headroom checks pass:602 files,1673 clusters, zero leaks/mismatches/errors.
+Installed and durable payload hashes, console recovery, Ubuntu default and the
+consumed empty one-shot verify. Automatic collector is disabled; no boot is armed.
+The523-file automatic evidence archive was independently rehashed outside build.
+
+Next is a source/layout audit of the inherited table graph and feasibility of
+complete alias coverage at the existing bounds. Do not increase caps, omit roots
+or silently count a partial graph as complete. The current32768-entry pass cap
+also cannot enumerate65 full512-entry pages. Preserve failure evidence and
+separate any future coverage design from resource/leaf/retirement admission.
+No VT-d target access, mapping, policy write or ownership is authorized by this
+receipt; prior accepted CPU/cache observations remain historical and unchanged.
