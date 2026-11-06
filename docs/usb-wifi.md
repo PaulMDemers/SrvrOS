@@ -6973,3 +6973,13 @@ results and returns automatically. The captured adapter still requires shutdown
 and Wi-Fi-only unplug10seconds while off,reconnection to the same port and
 power-on with workspace connected. Credentials remain unread. Collect first
 after Ubuntu return;VM/model results do not accept native exchange or WPA2/data.
+
+The live management child also records bounded read-only completed-RX metadata:
+view result,length/frame control,private peer-match boolean,open-auth algorithm/
+transaction/status and parser result,plus exchange elapsed time. No addresses,
+SSID,IE/packet or credential bytes are logged. These receipts diagnose refused
+replies without relaxing the exact parser,deadline or ownership gates and add
+no USB/controller request or retry. The first v127 run completed AUTH/leave USB
+transport and endpoint/input retirement but did not validate authentication;
+association was not sent and full RF restoration was not accepted. Its failure
+capsule remains separate from empty-OUT acceptance.

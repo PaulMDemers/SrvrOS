@@ -6,7 +6,7 @@ from wifi_power5_log import fields
 from wifi_held_log import require
 PROGRESS='wifi-join5-progress: frozen parent;fresh live RX/data OUT;matched AUTH ASSOC leave;MAC disable;stop/drop/restore;no keys or IP data'
 def check(log):
- require('srvros.wifi-join5=1' in log,'missing live management profile');r=parent(log);lines=log.splitlines();rows=[s for s in lines if s.startswith('wifi-join5')];i=0
+ require('srvros.wifi-join5=1' in log,'missing live management profile');r=parent(log);lines=log.splitlines();aux=[s for s in lines if s.startswith(('wifi-join5-rx:','wifi-join5-exchange:'))];rows=[s for s in lines if s.startswith('wifi-join5') and s not in aux];i=0
  def take(prefix):
   nonlocal i
   require(i<len(rows),'missing live management receipt');line=rows[i];i+=1;return fields(line,prefix)
@@ -42,6 +42,21 @@ def check(log):
  s=take('wifi-join5');fixed=dict(ok=1,exchange=1,auth=1,assoc=1,leave=1,unsafe=0,sends=3,status=0,commands=6,restored=1,phase=9,retained=1,authenticated=0,ip_data=0)
  require(set(s)==set(fixed)|{'polls','ignored','aid','posts','controls'} and all(s[k]==v for k,v in fixed.items()) and 2<=s['polls']<=16384 and 0<=s['ignored']<=s['polls'] and 1<=s['aid']<=2007 and 3<=s['posts']<=48 and s['controls']==m['reads']+m['writes'],'incomplete matched management or retirement')
  require(i==len(rows),'extra live management receipt')
+ rxrows=[x for x in aux if x.startswith('wifi-join5-rx:')];exrows=[x for x in aux if x.startswith('wifi-join5-exchange:')]
+ require(2<=len(rxrows)<=s['posts'] and len(exrows)==1,'missing/extra private RX/exchange diagnostics')
+ ex=fields(exrows[0],'wifi-join5-exchange');require(set(ex)=={'complete','clock_valid','elapsed_us'} and ex['complete']==ex['clock_valid']==1 and 0<=ex['elapsed_us']<=5000000,'incomplete exchange timing')
+ sends=[x for x in rows if x.startswith('wifi-join5-send:')];mac=next(x for x in rows if x.startswith('wifi-join5-mac:'))
+ require(lines.index(sends[-1])<lines.index(exrows[0])<lines.index(mac),'exchange timing outside lifetime')
+ matched=[]
+ for n,line in enumerate(rxrows):
+  a=fields(line,'wifi-join5-rx');require(set(a)=={'index','bytes','view','mpdu','fc','body','peer','algorithm','transaction','code','parser'} and a['index']==n and 0<=a['bytes']<=4096 and 0<=a['view']<=3 and 0<=a['peer']<=1 and 0<=a['parser']<=3 and all(0<=a[k]<=65535 for k in ('fc','algorithm','transaction','code')),'wrong RX diagnostic schema/range/order')
+  require(lines.index(sends[0])<lines.index(line)<lines.index(sends[-1]),'RX diagnostic outside reply interval')
+  if a['view']:
+   require(all(a[k]==0 for k in ('mpdu','fc','body','peer','algorithm','transaction','code')) and a['parser']==3,'invalid RX view leaked decoded fields')
+  else:require(24<=a['mpdu']<=4096 and a['body']==a['mpdu']-24 and a['bytes']>=a['mpdu']+36,'invalid normalized RX dimensions')
+  if a['peer'] and a['parser']==0 and a['fc']&0xfc in (0xb0,0x10):matched.append((a,line))
+ require(any(a['fc']&0xfc==0xb0 and a['mpdu']==30 and a['algorithm']==0 and a['transaction']==2 and a['code']==0 and lines.index(line)<lines.index(sends[1]) for a,line in matched),'missing diagnostic proof of matched AUTH')
+ require(any(a['fc']&0xfc==0x10 and a['code']==0 and lines.index(sends[1])<lines.index(line) for a,line in matched),'missing diagnostic proof of matched association')
  for phase in (5,6):
   a=fields(next(x for x in rows if x.startswith(f'wifi-join5-context: phase={phase} dci=9 ')),'wifi-join5-context');deq=(a['w2']|a['w3']<<32)&~15;require(rx<=deq<=rx+16*s['posts'] and deq==stop['pointer'],'RX stop beyond publications or different from stop event')
  require(stop['pointer']<=rx+16*s['posts'] and (stop['cc']==27 or stop['pointer']==rx+16*(s['posts']-1)),'RX stop receipt not bound to posted TD')

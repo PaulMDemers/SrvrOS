@@ -184,6 +184,14 @@ static bool wifi_join5_poll(void *c,uint8_t *out,size_t cap,size_t *size,bool *p
   enum mt76_rx_status status=mt76_rx_usb_view(wifi_join5.buffer[i],bytes,&v);
   wifi_join5.rx_delivered=true;
   if(status==MT76_RX_OK && v.mpdu_size>=24 && v.mpdu_size<=cap && v.body_size==v.mpdu_size-24){copy_bytes(out,v.header,24);copy_bytes(out+24,v.body,v.body_size);*size=v.mpdu_size;*present=true;}
+  /* Read-only bounded diagnostic;no address,SSID,IE or packet bytes. The
+   * actual exchange still applies its unchanged parser and deadline. */
+  bool peer=*present && wifi_handoff5_equal(v.header+4,wifi_join5.peer.peer.station,6) && wifi_handoff5_equal(v.header+10,wifi_join5.peer.peer.bssid,6) && wifi_handoff5_equal(v.header+16,wifi_join5.peer.peer.bssid,6);
+  unsigned type=v.frame_control&0xfc,algorithm=0,transaction=0,code=0,parser=3;
+  if(*present && type==0xb0 && v.body_size>=6){algorithm=v.body[0]|((unsigned)v.body[1]<<8);transaction=v.body[2]|((unsigned)v.body[3]<<8);code=v.body[4]|((unsigned)v.body[5]<<8);}
+  else if(*present && type==0x10 && v.body_size>=4)code=v.body[2]|((unsigned)v.body[3]<<8);
+  if(peer && (type==0xb0 || type==0x10)){struct mt76_mgmt5_response r={0};parser=mt76_mgmt5_response(&wifi_join5.peer.peer,type==0xb0?MT76_MGMT5_AUTH:MT76_MGMT5_ASSOC,out,*size,&r);}
+  console_printf("wifi-join5-rx: index=%u bytes=%u view=%u mpdu=%u fc=%x body=%u peer=%u algorithm=%u transaction=%u code=%u parser=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)status,(uint64_t)v.mpdu_size,(uint64_t)v.frame_control,(uint64_t)v.body_size,(uint64_t)peer,(uint64_t)algorithm,(uint64_t)transaction,(uint64_t)code,(uint64_t)parser);
   if(wifi_join5.posts<WIFI_JOIN5_RX && !wifi_join5_post())return false;
  }
  return true;
@@ -202,7 +210,9 @@ static bool wifi_join5_mac_delay(void *c,unsigned us,bool cleanup){return us<=10
 static bool wifi_join5_inspection(void *c,uint32_t alc,uint32_t ibi){
  if(c!=&wifi_join5 || alc!=wifi_power5.cycle.chosen[0] || ibi!=UINT32_MAX || !wifi_join5_owned(c,false))return false;
  const struct mt76_join5_io io={c,wifi_join5_owned,wifi_join5_send,wifi_join5_poll,wifi_join5_delay,wifi_join5_now};
- return mt76_join5_run(&wifi_join5.exchange,&wifi_join5.peer,&io);
+ uint64_t start=timer_monotonic_us();bool complete=mt76_join5_run(&wifi_join5.exchange,&wifi_join5.peer,&io);uint64_t end=timer_monotonic_us();
+ console_printf("wifi-join5-exchange: complete=%u clock_valid=%u elapsed_us=%u\n",(uint64_t)complete,(uint64_t)(end>=start),end>=start?end-start:0);
+ return complete;
 }
 static bool wifi_join5_inspect(void){
  if(!wifi_join5_requested || wifi_join5.attempted)return false;

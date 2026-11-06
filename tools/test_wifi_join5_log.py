@@ -29,7 +29,7 @@ class Tests(unittest.TestCase):
    if not s.startswith('wifi-join5') or ': ' not in s:continue
    b=r.copy();b[i]+=' unexpected=1'
    with self.subTest(extra=i),self.assertRaises((ValueError,AssertionError)):self.check(b)
-  mutations=[('wifi-join5:','auth',0),('wifi-join5:','assoc',0),('wifi-join5:','leave',0),('wifi-join5:','restored',0),('wifi-join5:','unsafe',1),('wifi-join5:','posts',49),('wifi-join5:','aid',2008),('wifi-join5:','polls',16385),('wifi-join5:','authenticated',1),('wifi-join5:','ip_data',1),('wifi-join5-mac:','disabled',0),('wifi-join5-mac:','filter_restored',0),('wifi-join5-mac:','alc',0),('wifi-join5-command:','slot',8),('wifi-join5-send:','completed',0),('wifi-join5-stop-event:','ok',0)]
+  mutations=[('wifi-join5-rx:','algorithm',1),('wifi-join5-rx:','peer',0),('wifi-join5-rx:','parser',1),('wifi-join5-rx:','index',1),('wifi-join5-rx:','bytes',4097),('wifi-join5-exchange:','complete',0),('wifi-join5-exchange:','clock_valid',0),('wifi-join5-exchange:','elapsed_us',5000001),('wifi-join5:','auth',0),('wifi-join5:','assoc',0),('wifi-join5:','leave',0),('wifi-join5:','restored',0),('wifi-join5:','unsafe',1),('wifi-join5:','posts',49),('wifi-join5:','aid',2008),('wifi-join5:','polls',16385),('wifi-join5:','authenticated',1),('wifi-join5:','ip_data',1),('wifi-join5-mac:','disabled',0),('wifi-join5-mac:','filter_restored',0),('wifi-join5-mac:','alc',0),('wifi-join5-command:','slot',8),('wifi-join5-send:','completed',0),('wifi-join5-stop-event:','ok',0)]
   for prefix,k,v in mutations:
    b=r.copy();i=next(i for i,s in enumerate(b) if s.startswith(prefix));b[i]=re.sub(r'\b'+k+r'=(?:0x[0-9a-f]+|\d+)',k+'='+str(v),b[i])
    with self.subTest(prefix=prefix,k=k),self.assertRaises((ValueError,AssertionError)):self.check(b)
