@@ -103,7 +103,7 @@ The next physical test is this automated census, with volume1%, no audio or
 human input, persisted progress and automatic return after handled outcomes.
 It is an evidence step toward handoff, not a tear-free desktop acceptance.
 
-## Prepared native candidate
+## Validated candidate and native result
 
 Air7,2 release `3d8c0e9688408a25` (source `531bc9dd`) passes the full local
 host/core/profile/build gate, fatal sanitizers including14 actual engine-adapter
@@ -112,6 +112,20 @@ controls. The exact MBR stage verifies the EFI64/loader/recipe/checkpoint path
 and no-write Q35 refusal/save/unmount/return; missing workspace halts. Existing
 Intel/Haswell and VirtIO regressions pass. Only the census ELF links the engine
 observer. The unit record identifies installed recovery and independent backups.
-It is ready, not physically accepted; no reboot is armed. The next test requires
-no input, keeps volume1% and audio off, and collects command-streamer observations
-without promoting them into reader retirement or a managed GPU range.
+Native session `00065fa38652c31d-00` now accepts the bounded read-only census:
+both30-DWORD passes match,60 reads total, stable1, enabled16, pending0. Census
+time is38,269us; the complete bracket is222,667us. All eight aliases/cache
+checks retire, three wake stores complete,89 guards pass, no uncertainty remains,
+and firmware/inherited-state preservation and CPU exclusion release verify. The
+matching saved preflight and full native prerequisite chain pass; collector
+attention0. Prior-file/media/recovery/automatic-return checks pass. No reboot
+is armed; the trial needed no input and used volume1% with audio off.
+
+RCS/VCS0/VECS/VCS1 ring controls are zero. BCS remains enabled with raw
+start`0x03eef000`, control`0x0000f001`, head=tail0 and execlist low/high1/0 in
+both passes. The start exceeds the inherited display-fence end`0x02200000`;
+that display fence is not a complete firmware-allocation inventory. These
+raw observations do not retire the ring or certify the absence of prefetched
+work or other readers. Next is a documented bounded BCS retirement protocol and
+remaining reader/translation/cache obligations before any native range transfer.
+No GPU PTE writer or managed-memory assurance is enabled.

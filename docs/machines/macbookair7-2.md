@@ -2,7 +2,46 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
-### Ready: bounded awake engine census
+### Native awake engine census accepted
+
+Release `3d8c0e9688408a25`, source `531bc9dd`, completes as
+`session-00065fa38652c31d-00`. The saved pre-write `session-a.log`, exact native
+prerequisite chain and version2 wake/engine receipts verify; completed=yes and
+collector attention0. Both30-DWORD passes match (60 reads total). The census
+takes38,269us and the full bracket222,667us, within unchanged100ms/500ms limits.
+All eight RO/UC and wake aliases/cache checks retire, all three permitted wake
+stores complete, all89 guards pass, requester/C0/firmware/inherited-state checks
+and CPU exclusion release complete, state3/reason0 and retained0.
+
+Enabled mask16 identifies the firmware blitter ring (BCS); pending mask0.
+RCS/VCS0/VECS/VCS1 ring controls are zero. BCS raw values are start`0x03eef000`,
+control`0x0000f001`, head=tail=0 and execlist low/high1/0 in both passes.
+This accepts read-only command-streamer observation under the cooperative wake
+contract. It does not retire the enabled ring, prefetched work, display/audio/
+DMA readers or SMM. No engine control, GPU PTE write, managed GPU interval or
+physical tear-free flip is accepted.
+
+The raw BCS start is beyond the inherited display-fence end`0x02200000`.
+Consequently that display fence cannot be treated as a complete inventory of
+firmware graphics allocations. Keep the candidate range and all inherited PTEs
+protected until a concrete reader/engine/cache/translation handoff is established.
+The [engine/reader contract](../intel-engine-reader-handoff.md) records the next
+retirement and managed-memory obligations.
+
+All1,344 prior files are preserved except expected workspace metadata. Three new
+logs hash-verify, giving1,347 files/105 sessions; offline fsck/allocation/writable/
+headroom, installed/durable/archive recovery, consumed one-shot and Ubuntu-default
+checks pass. The USB is unmounted and no reboot is armed. Current3d8, recovery9aa,
+prior93b and known-goodc497 remain verified. The automated trial required no
+input, with volume1% and audio off. Matching return/run/checkpoint and full
+source-qualified evidence have an independent SHA-verified backup outside build
+cleanup under `reviewed-evidence/air-engine-readers-20261106`.
+
+Origin/main `e1a30e1e` and current PR scopes were inspected after collection;
+the tested source remains531. Integrate that new main before further shared-code
+implementation, preserving this unit's acceptance boundary and sibling gates.
+
+### Historical readiness: bounded awake engine census
 
 Release `3d8c0e9688408a25`, source `531bc9dd`, is installed with recovery9aa,
 accepted wake93b and known-goodc497 retained; Ubuntu remains default and no
@@ -44,7 +83,7 @@ two complete six-DWORD passes across five engines, bounded timing and inherited
 preservation. Enabled/pending/changing engines are observations only. No engine
 control, reader retirement, managed GPU interval or tear-free flip is enabled.
 
-### Active scope: awake engine census and managed-range prerequisites
+### Completed scope: awake engine census and managed-range prerequisites
 
 PR301 continues from accepted wake source d5ff/host8a. Main `26e3b161` is
 integrated as `700d55f1`, preserving Air6's checked ECAM adoption and dual-file
@@ -57,7 +96,7 @@ and the accepted wake-only recipe remain unchanged. Populated candidate PTEs
 remain protected until reader/engine/DMA/cache assurances exist. Stop after
 matched host/VM validation and durable readiness; do not reboot this work block.
 
-### Engine census implementation checkpoint (native test pending)
+### Historical engine census implementation checkpoint (before native trial)
 
 The dedicated engine ELF now extends the cooperative wake lease with five exact
 RO/NX/UC command-streamer pages, two six-DWORD passes per engine and versioned
@@ -71,7 +110,7 @@ state, failed reads, last-page cache/map/retirement failures, late foreign
 requesters and slow/frozen clocks. Quiet observations grant no handoff bits.
 See the [engine/reader contract](../intel-engine-reader-handoff.md) for sources,
 field semantics and the managed-memory roadmap. The readiness checkpoint above records completed source-matched validation,
-exact-stage VM and preparation; native engine observation remains pending.
+exact-stage VM and preparation; the native census is accepted above.
 
 ### Native bounded cooperative wake trial accepted
 
