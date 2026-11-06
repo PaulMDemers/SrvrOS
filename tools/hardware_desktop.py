@@ -573,6 +573,15 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    # Successful wake receipts carry reason=0. Decode the entire receipt;
+    # malformed, refused and retained leases must still attract attention.
+    if line.startswith('intel-wake-summary:'):
+        from intel_gt_wake import wake_result
+        try:
+            result = wake_result(line)
+            return not result or not result['lease_complete']
+        except ValueError:
+            return True
     # App tracing emits accounting on normal admission/retirement. Match the
     # entire schema so refusal reasons or appended error details stay visible.
     if re.fullmatch(r"deskd: resources reason=(?:opened|retired) clients=\d+ children=\d+ clipboard_peers=\d+ window_capacity=\d+ cache_bytes=\d+ cache_budget=\d+ gui_queue_budget=\d+ gui_queue_depth=\d+ gui_surface_record_budget=\d+ gui_surface_pixel_budget=\d+", line):

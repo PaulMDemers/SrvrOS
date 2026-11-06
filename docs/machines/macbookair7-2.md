@@ -2,54 +2,39 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
-### Ready: first bounded cooperative native wake trial
+### Native bounded cooperative wake trial accepted
 
-Release `93b497d37af24dae` is installed, with recovery9aa retained and Ubuntu
-default. No reboot is armed. The payload source is`d5ff462d`; host decoder/test
-follow-up`8a528a0c` accepts the kernel's padded16-digit hex format while still
-rejecting values outside a DWORD. Kernel, initramfs and loader bytes are identical
-to the full-tested payload. This host-only correction is part of the branch and
-must accompany collection; it does not change the native write capability.
+Release `93b497d37af24dae`, payload source `d5ff462d` with host decoder
+`8a528a0c`, returned as `session-00065fa25a829a4e-00`. The saved pre-write
+`session-a.log` matches the complete native firmware prerequisite transcript in
+`exit.log`. The strict native decoder accepts the cooperative lease: all ten
+admission facts, grants7, acquisition/preservation/open/check/close/release flags1,
+three UC cache checks, three maps retired, three attempted/confirmed stores,
+46 guards, state3/reason0 and no retained uncertainty. The complete bracket takes
+139,640us, within the unchanged500ms bound. Initial/final active request bits
+and ACK are zero; C0 low three bits are zero. Raw final request `0xffff0000`
+contains mask bits only, with no live low16 request.
 
-The full host/core/profile/docs and normal/AP/native/synthetic/wake build gate
-passes at d5ff (89 installer tests, one expected opt-in skip). Fatal sanitizers
-pass the protocol, boot-contract core,14 actual wake-adapter modes, previous
-observer variants and four cache scenarios. Four compiled protocol controls and
-three admission controls detect removed initialization/C0/foreign/uncertainty and
-EFI/quiet-firmware/serialization gates. An actual last-page cache refusal retires
-both prepared aliases with zero stores. The final host decoder suite and all261
-collector/staging tests pass. The exact-stage VM verifies the real EFI64/loader/
-recipe/serialization facts, durable pre-write checkpoint and zero-write
-missing-Intel refusal with saved/unmounted return. Missing workspace halts.
-VirtIO and all existing firmware/handoff/window/DMA/lifetime and independent
-Haswell3/cache-context profiles pass. These are host/VM evidence only.
+This accepts a bounded cooperative-firmware wake lease on this Air only. It
+assumes conforming EFI firmware yields the boot-time requester domain; it does
+not prove SMM absence or retire engine/DMA/display/audio readers. No engines,
+GPU PTEs or managed GPU memory were accessed. Physical tear-free presentation
+remains pending. Ordinary kernels still omit the native writer.
 
-The exact ELF links the native wake protocol and firmware-type request; ordinary,
-AP, native-AML and synthetic-AML images omit both. The trial uses the explicit
-cooperative-UEFI policy described in [GT access](../intel-gt-access.md#opt-in-cooperative-efi-wake-contract):
-conforming firmware yields boot-time requester control. This is not inferred from
-quiet fields and is not SMM absence or general reader/memory ownership.
+The generic collector initially flagged `reason=0` as a warning despite a
+successful strict wake proof. A host-only fix decodes the entire wake receipt;
+complete leases are quiet and malformed/refused/uncertain receipts stay flagged.
+The successful collection and media/recovery proof are retained with the original
+warning evidence under `build/air-native-wake-20261106`, with an independent
+SHA-verified copy outside build cleanup. All1,341 prior files except expected
+workspace metadata are preserved; all three new logs hash-verify. Offline
+fsck/allocation/writable/headroom and recovery/Ubuntu-default/consumed-one-shot
+checks pass; the local return record is complete and USB is unmounted.
 
-Fresh media checks preserve all1,341 files /103 sessions; fsck/allocation/writable/
-headroom pass and the read-only inventory retires with unchanged boot sectors.
-Prior458, df5, recovery9aa, cache07df, DMA5346 and known-goodc497 remain verified.
-Only the inactive, GRUB/NVRAM-unreferenced8b EFI copy is retired after full SHA
-equality with its durable payload and independent archive under
-`~/.local/share/srvros/efi-archives/20261106-native-wake`. Archived0e/d520/d79 also
-remain verified. Source-qualified stages, validation, run/checkpoint and references
-live in `build/air-native-wake-20261106`, with a full independently SHA-verified
-copy outside build cleanup.
-
-The next physical round is automated, with guest recovery instructions and a
-verified `session-a.log` before any write. It needs no input, keeps volume1% and
-audio off, saves/unmounts/returns on handled outcomes and halts on missing
-persistence. Expected success is a complete native lease: all admission and
-protocol/closeout flags1, grants7, maps/retired/cache checks/writes/attempts3,
-state3/reason0, no retained uncertainty, low16 initial/final requests and ACK0,
-C0 low3bits0, preserved inherited state and the full bracket within500ms.
-Require the matching checkpoint and native prerequisite chain before acceptance.
-No native wake acceptance, engine/DMA/display/audio reader handoff, GPU interval
-or physical tear-free flip is claimed before that round.
+Recovery9aa, prior458 and known-goodc497 remain retained. The automated trial
+needed no input, played no audio, and host volume stayed1%. No new reboot is
+armed. The source-qualified full build/sanitizer/negative-control and exact-stage
+VM validation remains attributed to d5ff/8a, rather than the later collection fix.
 
 ### Implementation scope: explicit cooperative-UEFI wake lease
 
@@ -70,7 +55,7 @@ validate source-matched host/VM evidence before preparing a physical trial.
 No reboot this work block. Touch GT boot contract/adapter, Limine request,
 explicit build/staging/collector/decoders/tests and these docs; no sibling gates.
 
-### Cooperative wake implementation checkpoint (native trial pending)
+### Historical cooperative wake implementation checkpoint (before native trial)
 
 A separate native diagnostic adapter now requires the explicit cooperative EFI
 policy, exact12-token recipe, pinned Limine11.4.1/EFI64 handoff, CPU0/interrupt

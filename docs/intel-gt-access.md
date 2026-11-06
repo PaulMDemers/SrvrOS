@@ -292,9 +292,10 @@ the native firmware/GT/handoff/window/cache/backing/display chain, loader
 provenance, a saved-preflight marker and independent UC derivation for all three
 pages. `native_wake_complete` can accept this bounded lease; `smm_retirement`,
 `engine_retirement`, `hardware_ownership`, `managed_range` and `physical_tearfree`
-remain false. No native wake or broader ownership acceptance exists yet.
+remain false. The bounded native wake lease is now accepted below; broader
+ownership remains unaccepted.
 
-## Prepared first native lease trial
+## First native lease trial and result
 
 `93b497d37af24dae` is installed with recovery preserved and no reboot armed.
 Its payload source`d5ff462d` passes the full host/core/profile/build matrix and
@@ -306,6 +307,16 @@ refusal/return and missing-workspace behavior pass. Existing presentation and
 Intel/Haswell profiles pass. The ordinary image matrix has no wake protocol or
 new firmware-type request; the dedicated staged image has both.
 
-This is ready for its first physical bounded cooperative wake lease. It is not
-physically accepted yet. The unit record identifies recovery, exact source,
-assumptions, run/checkpoint, preflight state and independently preserved evidence.
+Native session `00065fa25a829a4e-00` accepts the bounded cooperative wake lease:
+all admission and closeout flags1, grants7, maps/retired/cache checks/writes/
+attempts3, guards46, state3/reason0, retained0, zero active initial/final requests
+and ACK, and C0 low3bits0. The full bracket is139,640us within500ms. The saved
+preflight file matches the native firmware transcript. The collector now avoids
+flagging a strictly valid complete receipt solely because it includes `reason=0`;
+malformed, refused and uncertain receipts remain actionable. This host-only
+classification fix does not alter the tested payload.
+
+This accepts this lease under the explicit cooperative-firmware assumption only.
+SMM retirement, engine/reader handoff, managed GPU memory and physical tear-free
+presentation remain open. The unit record and independently preserved local
+run/return evidence identify the source and recovery boundary.

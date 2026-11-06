@@ -47,4 +47,13 @@ class WakeTests(unittest.TestCase):
    with self.assertRaises(ValueError):verify_wake_checkpoint(bad_pre,bad_post,native=True)
  def test_cache_wake_pages(self):subprocess.check_call([str(ROOT/'build/tests/intel-cache-probe'),'wake-uc'],stdout=subprocess.DEVNULL)
  def test_none(self):self.assertIsNone(wake_result('ordinary boot'))
+ def test_collector_attention_uses_complete_receipt(self):
+  from hardware_desktop import needs_attention
+  self.assertFalse(needs_attention(self.raw.strip()))
+  for bad in (self.raw.replace('complete=1','complete=0'),self.raw.strip()+' unknown=1','intel-wake-summary: reason=0'):
+   self.assertTrue(needs_attention(bad.strip()))
+  for mode in ('cache','uncertain','no-ack','foreign'):
+   text=subprocess.check_output([str(ROOT/'build/tests/intel-wake-adapter'),'--wake-'+mode],text=True)
+   line=next(l for l in text.splitlines() if l.startswith('intel-wake-summary:'))
+   self.assertTrue(needs_attention(line))
 if __name__=='__main__':unittest.main()
