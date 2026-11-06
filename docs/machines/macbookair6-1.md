@@ -7427,3 +7427,9 @@ retains console recovery and independent payload/evidence backups. It must save
 both complete raw census passes, cache/NX/firmware guards and clean integrity
 results before acceptance. No device target read, new mapping, firmware ownership,
 power-policy change or hardware-alias completeness follows; physical result pending.
+
+Final host-only decoder revision `7f08b972` also rejects out-of-width CPUID words.
+Its affected suites, actual producer/sanitizer fixtures and maximum-tail checks
+pass; the saved exact VM refusal receipt redecodes correctly. Native payload,
+profile and VM harness remain byte-identical to the tested `dbb1756c` candidate.
+The run record distinguishes these tool and native source revisions explicitly.
