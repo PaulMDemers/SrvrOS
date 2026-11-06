@@ -2,6 +2,48 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
+### Ready: bounded awake engine census
+
+Release `3d8c0e9688408a25`, source `531bc9dd`, is installed with recovery9aa,
+accepted wake93b and known-goodc497 retained; Ubuntu remains default and no
+reboot is armed. The next trial is automated: no typing, volume1%, audio off,
+a durable pre-write checkpoint, and saved/unmounted automatic return on handled
+outcomes. Persistence failure still halts with recovery instructions visible.
+
+The complete local host/core/profile/docs and normal/AP/native-AML/synthetic-AML/
+wake/engine build gate passes (89 installer cases, one expected opt-in skip).
+Fatal ASan/UBSan passes14 actual engine-adapter modes,14 wake modes, the prior
+observer/core/cache cases and the new five-page UC gate. Nine compiled controls
+detect protocol, boot-admission, foreign-request cutoff and RO-alias mutations.
+Last-page cache refusal retires seven prepared engine-trial aliases with zero
+stores. All267 collector/staging tests pass. The exact MBR stage verifies real
+EFI64/loader/recipe/serialization and saved preflight, then safely refuses before
+any store on Q35 and saves/unmounts/returns. Missing workspace halts. VirtIO
+presentation/drag/scroll/recovery and prior wake/handoff/window/DMA/lifetime/
+Haswell3/cache-context profiles pass. The census entry point appears only in the
+new ELF; the wake-only and ordinary/AP/AML images omit it.
+
+The initial merge dropped Air6's ECAM staging dependency check. Its full-gate
+failure was preserved, the exact check restored, and the full gate rerun cleanly
+at531. Final-word floating/failed census reads remain incomplete even if the
+wake closes cleanly. These are host/VM results, not native engine acceptance.
+
+The local run/checkpoint, exact stage, negative controls and validation live in
+`build/air-engine-readers-20261106`, with an independent full SHA-verified backup
+outside build cleanup. Fresh identity/USB checks preserve1,344 files/104 sessions;
+offline fsck/allocation/writable/headroom and read-only inventory retirement pass.
+The USB is MBR and unmounted. Inactive df5 is retired only from EFI after full
+SHA equality with its durable payload and independent archive under
+`~/.local/share/srvros/efi-archives/20261106-engine-census`, with GRUB/NVRAM
+references excluded. Prior458, cache07df, DMA5346 and existing archives remain
+verified. No accepted evidence or durable payload was deleted.
+
+Native acceptance requires the matching saved preflight, full native chain,
+version2 wake closeout, eight maps/cache checks retired, three allowed wake stores,
+two complete six-DWORD passes across five engines, bounded timing and inherited
+preservation. Enabled/pending/changing engines are observations only. No engine
+control, reader retirement, managed GPU interval or tear-free flip is enabled.
+
 ### Active scope: awake engine census and managed-range prerequisites
 
 PR301 continues from accepted wake source d5ff/host8a. Main `26e3b161` is
@@ -9,7 +51,7 @@ integrated as `700d55f1`, preserving Air6's checked ECAM adoption and dual-file
 collector. PR19 remains Pro Wi-Fi; PR379 remains WebCore. No sibling GPU gate
 or acceptance is copied. Work touches the dedicated Intel diagnostic adapter,
 engine census core/decoder, explicit staging/VM/collection, managed-range
-prerequisites and these docs. The next candidate will inspect documented engine
+prerequisites and these docs. The prepared candidate inspects documented engine
 status only while the exclusive cooperative wake lease is live; ordinary boot
 and the accepted wake-only recipe remain unchanged. Populated candidate PTEs
 remain protected until reader/engine/DMA/cache assurances exist. Stop after
@@ -28,8 +70,8 @@ complete native chain. Host fixtures cover active, pending, changing and floatin
 state, failed reads, last-page cache/map/retirement failures, late foreign
 requesters and slow/frozen clocks. Quiet observations grant no handoff bits.
 See the [engine/reader contract](../intel-engine-reader-handoff.md) for sources,
-field semantics and the managed-memory roadmap. Full source-matched validation,
-exact-stage VM and preparation follow; no hardware test is armed.
+field semantics and the managed-memory roadmap. The readiness checkpoint above records completed source-matched validation,
+exact-stage VM and preparation; native engine observation remains pending.
 
 ### Native bounded cooperative wake trial accepted
 

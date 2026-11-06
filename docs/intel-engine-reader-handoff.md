@@ -37,6 +37,19 @@ cannot read engine pages. Normal/AP/AML images omit the native wake and census
 entry points. The main capture still verifies a durable `session-a.log` before
 any store and drains periodic logging before IRQ-masked entry.
 
+Build and stage using this unit's actual volume serial:
+
+```sh
+make -j2 all test-intel-engines build/intel-engines/srvros.elf
+python3 tools/hardware_boot.py stage --laptop-probe-volume YOUR_VOLUME --intel-engine-capture
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check --workspace-table mbr
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check --probe-missing-workspace --workspace-table mbr
+```
+
+Match the physical partition table; use `gpt` for a GPT workspace. Follow the
+[Ubuntu device-agent guide](ubuntu-device-agent-setup.md) for durable payloads,
+recovery, explicit-release installation, saved run, one-shot boot and collection.
+
 After fresh native firmware/requester prerequisites and CPU exclusion, prepare
 all eight aliases before the first wake store. The first three retain the
 accepted request/ACK/C0 mapping contract; the five engine pages are RO/NX/UC.
@@ -89,3 +102,16 @@ Before a native range transfer:
 The next physical test is this automated census, with volume1%, no audio or
 human input, persisted progress and automatic return after handled outcomes.
 It is an evidence step toward handoff, not a tear-free desktop acceptance.
+
+## Prepared native candidate
+
+Air7,2 release `3d8c0e9688408a25` (source `531bc9dd`) passes the full local
+host/core/profile/build gate, fatal sanitizers including14 actual engine-adapter
+modes, all267 collector/staging cases and nine detected compiled negative
+controls. The exact MBR stage verifies the EFI64/loader/recipe/checkpoint path
+and no-write Q35 refusal/save/unmount/return; missing workspace halts. Existing
+Intel/Haswell and VirtIO regressions pass. Only the census ELF links the engine
+observer. The unit record identifies installed recovery and independent backups.
+It is ready, not physically accepted; no reboot is armed. The next test requires
+no input, keeps volume1% and audio off, and collects command-streamer observations
+without promoting them into reader retirement or a managed GPU range.
