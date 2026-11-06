@@ -6892,3 +6892,15 @@ matching advertisements must agree on supported/basic OFDM masks;unknown basic
 rates,missing basic6Mbps,duplicates and conflicts refuse. Address bytes and
 constructed management frames stay private. No TD,MAC start,network OUT,
 authentication,key,IP or data is authorized by this read-only candidate.
+
+### Pro11,2 private peer binding acceptance (November 5)
+
+Native v125 release1213593607fe767a/source2290c938 accepts2025981 saved prefix
+bytes:the complete handoff/calibration/selected-power parent plus10 read-only
+controls for stable current-station binding and consistent retained target rates.
+Two Demers5 advertisements agree on supported OFDM mask255 and basic mask21
+(6/12/24Mbps). Address bytes and constructed frames remain private. Exact old
+endpoint context,power and RF originals and storage/recovery pass. This posts
+no TD and sends no management frame;live RX/data-OUT ownership and matched
+AUTH/ASSOC/leave precede WPA2/key/replay/PN and authenticated IP/data. The unit
+record owns exact session and independently sealed native acceptance.

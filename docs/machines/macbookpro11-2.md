@@ -12,7 +12,7 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest accepted native v122 `27a82f0daa89a62f`, runtime `bec108a3`, main
+Earlier accepted native v122 `27a82f0daa89a62f`, runtime `bec108a3`, main
 `5f4f6fc6`, session `session-00065f7b53eeb5b0-00`, passes the full2007868-byte /
 15719-operation calibration/stopped retained RX/inverse-original parent and
 private unique Demers5 selection with a validated22-byte PSK/CCMP RSNE. Its
@@ -47,15 +47,26 @@ native capsule is independently sealed outside build. The first v124 run's
 calibration-response timeout remains failed in its separate549-file capsule;
 the unchanged cold retry passed without any gate or timeout modification.
 
-Next bounded work:private current station MAC and selected target basic-rate
-binding,then dedicated live RX/data OUT ownership and matched management
-AUTH/ASSOC/leave. Empty/stopped parent predicates remain unchanged. Reuse the
-pinned TXWI/sequence/queue source audit. Touch fixed MT76 peer/native owner,
+Latest native v125 `1213593607fe767a`, runtime `2290c938`, integrated
+main4cc0408b,session `session-00065f92476697b1-00` accepts all2025981 saved
+exit bytes. Ten read-only controls prove disabled MAC/core/DMA and two identical
+current station-address pairs under the captured high-word profile. Two retained
+Demers5 observations agree on all eight OFDM rates (mask255) and basic6/12/24Mbps
+(mask21). Private AUTH/ASSOC/leave codec sizes60/100/56 were constructed but not
+submitted. Full stopped handoff,selected power and exact context/power/RF
+originals,storage/recovery and automatic Ubuntu return pass. No identifiers were
+logged. The153-file native capsule is independently sealed outside build.
+
+Next bounded work:dedicated live RX/data OUT ownership and matched management
+AUTH/ASSOC/leave using the accepted private peer. Keep stopped/empty/read-only
+parent predicates unchanged. Reuse pinned TXWI/manual-sequence/queue semantics,
+retain every DMA allocation on uncertain ownership,and distinguish USB completion
+from a matched AP protocol response. Touch fixed MT76 transport/native owner,
 codec/staging/proof/fault tests;other machines' alias/graphics and browser work
-remain independent. No cross-chat contact is authorized. Newly fetched main
-4cc0408b includes Air6,1 read-only alias scheduling/audits and published fixture
-compatibility reuse;inspect and merge before the next matched build. No Wi-Fi
-change or sibling acceptance is inferred from those commits.
+remain independent. No cross-chat contact is authorized. Main4cc0408b integration
+and relevant wait/signal/FPU/profile/cache/alias regressions have passed;no sibling
+acceptance is inferred. The next matched live-owner candidate still needs its
+own exact-stage/storage/recovery qualification and physical evidence.
 
 Strict-entropy WPA2/MIC/replay/key/PN lifecycle,authenticated bidirectional
 IP/data and clean disconnect/reconnect follow association. Demers2.4 needs
@@ -13093,3 +13104,20 @@ Peer acceptance remains pending. This trial posts no TD,starts no MAC and sends
 no frame;the next step is dedicated live RX/data OUT and matched management
 AUTH/ASSOC/leave,then WPA2/key/replay/PN and authenticated bidirectional data and
 disconnect. Credentials remain unread/unpackaged. The adapter remains5GHz-only.
+
+### Private current station/target rates physically accepted (November 5)
+
+Release1213593607fe767a/source2290c938/main4cc0408b passed matching
+`session-00065f92476697b1-00` with2025981 complete saved bytes. The full
+15719-operation parent,five calibration replies,eight retained RX completions,
+unique Demers5 PSK/CCMP choice,nine selected power readbacks,empty stopped DCI9
+handoff and all exact originals pass. Four station reads agree;the captured
+high-word controls remain zero. Two matching retained target observations agree
+on supported255/basic21 OFDM masks. Copied management codec sizes60/100/56 pass
+without TD publication,MAC start or network OUT. All10 read-only controls and
+strict preboot-frozen whole-prefix checks pass. Offline filesystem/allocation,
+payload/recovery and automatic Ubuntu return pass. The153-file native capsule
+is independently sealed;accepted notes retain only this bounded scope. Live
+management transmission,matched AUTH/ASSOC/leave,WPA2 keys,replay/PN,IP and data
+remain open. Credentials remain unread/unpackaged. Ubuntu remains default and
+unarmed;workspace is unmounted. Historical failed candidates remain failed.
