@@ -7579,3 +7579,19 @@ before handoff/free, and uncertainty retains the owned frame without fallback.
 Registry updates occur only at final handoff. No kernel mapping or policy changes,
 new payload or reboot is armed. The failed native v4 receipt remains failed;
 all accepted device/recovery evidence remains unchanged and durably retained.
+
+
+### Checked ECAM backend implementation scope (2026-11-05)
+
+Base `27f805bc`; all earlier native runs collected, no boot armed. Implement the
+real boot-only checked mapper and fresh pre-PCI admission for the exact captured
+Air6,1 geometry. Keep activation opt-in and the ordinary PCI path, profile budgets
+and census limits unchanged. Scope: isolated AP-diagnostic backend/adapter,
+minimal guarded VMM/PMM/PCI integration as needed, actual-source fault fixtures,
+build recipes and current unit/design docs. Require exact source/RAM/zero-slot
+admission, detached staging, ordered single-link publication, full4KiB invalidation,
+verified pre-handoff cleanup and retained poison after uncertainty. Fresh CPU/cache/
+NX, full raw MCFG/catalog and pre-enumeration legacy PCI identity checks must
+replace historical assumptions. Inspect PR301/19 overlap before production edits;
+no GPU, Wi-Fi or unrelated ownership changes. Next checkpoint: source-matched
+backend/gate tests and matched builds before any opt-in native profile/test.
