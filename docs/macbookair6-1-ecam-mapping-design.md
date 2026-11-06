@@ -222,3 +222,15 @@ No payload or native acceptance follows from these host fixtures. Exact-stage
 VM, recovery/install/one-shot and matching collection are required before a
 native result. Native whole-graph fit and actual VT-d resource/alias/ownership
 admission remain separate and unaccepted; no VT-d data load is provided here.
+
+
+## First native v5 outcome
+
+The first native v5 trial (`56308db224d9e6ab`, implementation `2f53e475`) halted
+before PCI/USB continuation during checked adoption: retained-poison state5,
+35949 words and one parent attempt. No dual-file receipt was produced. The
+word cap was not exhausted; the photograph lacks elapsed time and first failed
+check/readback, so the cause is unresolved. All prior USB files and offline
+allocation integrity verify on return. This is a failed native attempt, not
+adoption or complete-root acceptance. Preserve strict comparisons and limits;
+add bounded first-failure and timing observations before another physical trial.
