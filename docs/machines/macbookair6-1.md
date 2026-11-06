@@ -7754,3 +7754,23 @@ ECAM backend/adapter/terminal formatter, real fault/formatter fixtures and own
 current docs. PR301 GPU and PR19 Wi-Fi scopes remain separate. Next freeze and
 validate source, sequential exact-stage refusal/return rehearsals, self-merge,
 then prepare a new unit-specific trial with all602 prior files/recovery retained.
+
+
+### First-failure instrumentation candidate (2026-11-06)
+
+The AP helper now retains the first stage/reason, existing lifetime sample and
+exact available expected/observed values for adoption, checked RAM/HHDM reads
+and the fresh stable gate. The existing terminal screen reports those records
+without target rereads or extra successful-path timer samples. Invalid/backward
+clock samples cannot claim valid elapsed time; the later display clock remains
+separate. Strict A/D/word comparisons, IRQ/root/ownership/source checks,100ms/
+65536-word lifetime and all context/census/log limits are unchanged.
+
+Actual backend/gate/adoption and terminal-format regressions pass, including
+first-failure immutability, changed raw words/metadata/firmware, lost ownership,
+cap/deadline/backward-clock failures, no diagnostic table rereads/writes/frees
+and one post-failure display-clock call. Existing default and maximum-catalog
+success receipts are byte-identical to the prior producer. Matched images and
+affected host suites pass; final frozen builds, sanitizers/ARM compile and exact
+staged VMs are required before the next install. The previous native v5 halt is
+still failed with cause unknown; no new native result or reboot is implied.

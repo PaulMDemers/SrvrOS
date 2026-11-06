@@ -82,10 +82,30 @@ void haswell_ecam_boot_reference(const char *directory,bool saved) {
  const struct ecam_boot_result *r=vmm_ecam_boot_result();
  console_printf("hsw-ecam-ref: v=5 session=%s epoch=%u root=%x frame=%x state=%u adopted=%u saved=%u\n",s,r->begin,r->root,r->frame,(uint64_t)r->state,(uint64_t)r->adoptions,(uint64_t)saved);
 }
+/* Only after terminal failure. The display clock is sampled once, separately
+ * from the latched operation sample; it cannot restart or extend the lifetime. */
+void haswell_ecam_boot_failure_report(void) {
+ const struct ecam_boot_result *r=vmm_ecam_boot_result();
+ const struct ecam_boot_diagnostic *d=vmm_ecam_boot_diagnostic();
+ const struct ecam_boot_gate_diagnostic *g=haswell_ecam_boot_gate_diagnostic();
+ const struct ecam_boot_gate_result *gate=haswell_ecam_boot_gate_result();
+ uint64_t display=timer_monotonic_us();
+ bool elapsed=d->reason && d->sample_clock_valid && d->sample_us>=r->begin && r->begin;
+ console_printf("ecam-failure: v=1 stage=%s reason=%s\n",d->stage?d->stage:"unrecorded",d->reason?d->reason:"unrecorded");
+ console_printf("ecam-failure-time: begin=%u prepared=%u handoff=%u adopt_entry_last=%u\n",r->begin,d->prepared_us,d->handoff_us,d->adopt_entry_last_us);
+ console_printf("ecam-failure-time: last_ok=%u sample=%u rejected_clock=%u elapsed_valid=%u elapsed=%u display=%u\n",r->end,d->sample_us,(uint64_t)d->rejected_clock,(uint64_t)elapsed,elapsed?d->sample_us-r->begin:0,display);
+ console_printf("ecam-failure-detail: flags=%u table=%x index=%u component=%u\n",(uint64_t)d->details,d->table,(uint64_t)d->index,(uint64_t)d->component);
+ console_printf("ecam-failure-detail: expected=%x observed=%x words_at_failure=%u\n",d->expected,d->observed,(uint64_t)d->words);
+ console_printf("ecam-gate-failure: stage=%s flags=%u index=%u component=%u\n",g->stage?g->stage:"none",(uint64_t)g->details,(uint64_t)g->index,(uint64_t)g->component);
+ console_printf("ecam-gate-failure: expected=%x observed=%x\n",g->expected,g->observed);
+ console_printf("ecam-failure-progress: invalidations=%u metadata=%u firmware_bytes=%u phases=%u\n",(uint64_t)r->invalidations,(uint64_t)r->metadata_attempts,(uint64_t)gate->firmware_bytes,(uint64_t)gate->phases);
+ console_write("Detail flags: 1=expected/observed pair, 2=table/index, 4=observed only. Clock sample is latched; display time is later.\n");
+}
 _Noreturn void haswell_ecam_boot_fail_closed(const char *reason) {
  console_set_framebuffer_muted(false);console_clear();
  const struct ecam_boot_result *r=vmm_ecam_boot_result();
  console_printf("ECAM BOOT HALTED: %s\nstate=%u root=%x frame=%x words=%u parent_attempts=%u\n",reason,(uint64_t)r->state,r->root,r->frame,(uint64_t)r->words,(uint64_t)r->parent_attempts);
+ haswell_ecam_boot_failure_report();
  console_write("No PCI/USB continuation or table reuse. Photograph this screen, then restart into Ubuntu.\n");console_sync();
  for(;;)halt_forever();
 }
