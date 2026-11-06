@@ -8,6 +8,7 @@ static struct {
  uint64_t metadata_count;
  bool callback_active;
 } eb;
+static struct ecam_boot_evidence eb_evidence;
 static bool eb_poison(void) {eb.r.state=ECAM_POISONED;return false;}
 static bool eb_guard(void) {return vmm_diagnostic_sole_kernel_root(eb.r.root);}
 static bool eb_check(unsigned phase) {
@@ -47,6 +48,7 @@ static bool eb_address(uint64_t pa,unsigned i,volatile uint64_t **out) {
 #ifdef SRVROS_ECAM_HOST_TEST
  va=ecam_test_virtual(pa+i*8);
 #endif
+ if(!eb.r.hhdm || eb.r.hhdm>UINT64_MAX-(pa+i*8) || va!=eb.r.hhdm+pa+i*8)return false;
  if(!is_canonical(va))return false;
  uint64_t table=eb.r.root;
  const uint64_t addr=((1ull<<39)-1)&~4095ull;
@@ -113,10 +115,11 @@ static bool eb_verify(bool linked,bool private_page) {
   uint64_t a,b;
   if(!eb_word(eb.r.root,i,&a) || !eb_word(eb.r.pdpt,i,&b) || a!=eb.root_words[i] ||
      b!=(i==12 ? (linked?eb.r.frame|3:0) : eb.pdpt_words[i]))return false;
+  if(linked){eb_evidence.root_after[i]=a;eb_evidence.pdpt_after[i]=b;}
  }
  if(private_page) {
   if(!eb_owned())return false;
-  for(unsigned i=0;i<512;i++){uint64_t word;if(!eb_word(eb.r.frame,i,&word) || word!=eb_leaf(i))return false;}
+  for(unsigned i=0;i<512;i++){uint64_t word;if(!eb_word(eb.r.frame,i,&word) || word!=eb_leaf(i))return false;eb_evidence.pd[i]=word;}
  }
  return true;
 }
@@ -146,11 +149,12 @@ bool vmm_ecam_boot_prepare(const struct ecam_boot_env *io) {
  if(eb.r.state!=ECAM_NEW)return false;
  eb.r.state=ECAM_REFUSED;
  if(!io || !io->check || !io->ram || !io->now)return false;
- eb.io=*io;eb.r.root=kernel_cr3;eb.r.begin=eb.last=io->now(io->ctx);
+ eb.io=*io;eb.r.root=kernel_cr3;eb.r.hhdm=pmm_hhdm_offset();eb.r.begin=eb.last=io->now(io->ctx);
  if(!eb_guard() || !eb_tick() || !eb_check(0) || kernel_mapping_count>VMM_MAX_KERNEL_MAPPINGS)return false;
  eb.metadata_count=kernel_mapping_count;
  for(unsigned i=0;i<VMM_MAX_KERNEL_MAPPINGS;i++) {
   eb.metadata[i]=kernel_mappings[i];uint64_t va=kernel_mappings[i].virtual_address;
+  eb_evidence.metadata_before[i][0]=va;eb_evidence.metadata_before[i][1]=kernel_mappings[i].physical_address;eb_evidence.metadata_before[i][2]=kernel_mappings[i].flags;
   if(va>=ECAM_BOOT_VA && va<ECAM_BOOT_VA+ECAM_BOOT_BYTES)return false;
  }
  for(unsigned i=0;i<512;i++)if(!eb_word(eb.r.root,i,&eb.root_words[i]))return false;
@@ -160,6 +164,8 @@ bool vmm_ecam_boot_prepare(const struct ecam_boot_env *io) {
  if(eb.r.pdpt==eb.r.root)return false;
  for(unsigned i=0;i<512;i++)if(!eb_word(eb.r.pdpt,i,&eb.pdpt_words[i]))return false;
  if(eb.pdpt_words[12])return false;
+ eb_evidence.count_before=eb.metadata_count;
+ for(unsigned i=0;i<512;i++){eb_evidence.root_before[i]=eb.root_words[i];eb_evidence.pdpt_before[i]=eb.pdpt_words[i];}
  eb.r.frame=pmm_alloc_frames_above_tagged(1,VMM_PAGE_TABLE_MIN_PHYSICAL,PMM_FRAME_PAGE_TABLE);
  if(!eb.r.frame)return false;
  if(!eb_owned() || !eb.io.ram(eb.io.ctx,eb.r.frame))return eb_poison();
@@ -196,7 +202,24 @@ bool vmm_ecam_boot_handoff(void) {
  for(unsigned i=0;i<VMM_MAX_KERNEL_MAPPINGS;i++) {
   struct kernel_mapping want=i<eb.metadata_count ? eb.metadata[i] : (struct kernel_mapping){ECAM_BOOT_VA+(i-eb.metadata_count)*4096,ECAM_BOOT_PA+(i-eb.metadata_count)*4096,flags};
   if(kernel_mappings[i].virtual_address!=want.virtual_address || kernel_mappings[i].physical_address!=want.physical_address || kernel_mappings[i].flags!=want.flags)return false;
+  eb_evidence.metadata_after[i][0]=kernel_mappings[i].virtual_address;eb_evidence.metadata_after[i][1]=kernel_mappings[i].physical_address;eb_evidence.metadata_after[i][2]=kernel_mappings[i].flags;
  }
+ eb_evidence.count_after=kernel_mapping_count;
  eb.r.state=ECAM_ACTIVE;return true;
 }
 const struct ecam_boot_result *vmm_ecam_boot_result(void) {return &eb.r;}
+const struct ecam_boot_evidence *vmm_ecam_boot_evidence(void){return &eb_evidence;}
+bool vmm_ecam_boot_adopt(uint64_t va,uint64_t pa,uint64_t bytes) {
+ if(eb.r.state!=ECAM_ACTIVE || eb.r.adoptions)return false;
+ if(va!=ECAM_BOOT_VA || pa!=ECAM_BOOT_PA || bytes!=ECAM_BOOT_BYTES || !eb_guard() || !eb_owned() || !eb_check(2))return eb_poison();
+ for(unsigned i=0;i<128;i++)if(kernel_mappings[i].virtual_address!=eb_evidence.metadata_after[i][0] || kernel_mappings[i].physical_address!=eb_evidence.metadata_after[i][1] || kernel_mappings[i].flags!=eb_evidence.metadata_after[i][2])return eb_poison();
+ if(kernel_mapping_count!=eb_evidence.count_after)return eb_poison();
+ uint64_t start=eb.last;
+ for(unsigned i=0;i<512;i++) {
+  uint64_t a,b,c;
+  if(!eb_word(eb.r.root,i,&a) || !eb_word(eb.r.pdpt,i,&b) || !eb_word(eb.r.frame,i,&c) ||
+     a!=eb_evidence.root_after[i] || b!=eb_evidence.pdpt_after[i] || c!=eb_evidence.pd[i])return eb_poison();
+ }
+ if(!eb_guard() || !eb_tick() || eb.r.end<=start)return eb_poison();
+ eb.r.adopted_us=eb.r.end;eb.r.adoptions=1;return true;
+}

@@ -7667,3 +7667,24 @@ proof substitutes, no context/census/tail limit changes. Scope: guarded main/PCI
 backend snapshots/formatter, logger checkpoint, profile/decoder/collector/fixtures
 and own docs. PR301 GPU and PR19 Wi-Fi remain separate; publish bounded changes
 and rehearse matched stages before physical install/one-shot under existing auth.
+
+
+### v5 opt-in adoption candidate (2026-11-06)
+
+The isolated AP profile now dispatches the checked mapper before PCI, consumes
+its exact window once with fresh RAM/registry/control verification, and stops
+visibly before PCI/USB on uncertain publication or adoption. Normal kernel/PCI
+and v1–v4 remain separate. Adoption shares the100ms/65536-word lifetime; the
+old64-table/32768-entry/4096-byte census and49-MSR/16-PTE checks are unchanged.
+Full early raw proof goes to a separately verified64KiB `ecam.log`, followed by
+the old cache/alias proof in `exit.log` and a same-session/epoch reference. The
+collector requires both and matches their controls, firmware and ECAM branch.
+
+Matched normal/AP/USB builds and affected host tests pass at this checkpoint.
+Actual-source PCI/adoption and formatter fixtures, maximum catalog/MSR output,
+4KiB/2MiB/1GiB RAM walks, complete dual-proof decoder and separate-file collector
+checks pass. Maximum early output plus postamble fits without tail enlargement.
+Sanitizer/ARM compile and sequential exact-stage VMs remain pending here. No
+new install or reboot is armed; the old native v4 failure remains failed. Next
+freeze the source, complete those checks, self-review/merge and prepare the
+exact-unit one-shot with known-good recovery and all prior USB files preserved.
