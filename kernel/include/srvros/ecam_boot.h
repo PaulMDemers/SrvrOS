@@ -28,6 +28,22 @@ struct ecam_boot_evidence {
  uint64_t root_before[512],pdpt_before[512],root_after[512],pdpt_after[512],pd[512];
  uint64_t metadata_before[128][3],metadata_after[128][3],count_before,count_after;
 };
+/* First failure only; separate from the immutable v5 success wire format.
+ * detail flags: 1=expected/observed, 2=table/index, 4=observed only. No diagnostic target reread. */
+struct ecam_boot_diagnostic {
+ const char *stage,*reason;
+ uint64_t prepared_us,handoff_us,adopt_entry_last_us,sample_us;
+ uint64_t table,expected,observed;
+ unsigned index,component,details,words;
+ bool rejected_clock,sample_clock_valid;
+};
+const struct ecam_boot_diagnostic *vmm_ecam_boot_diagnostic(void);
+struct ecam_boot_gate_diagnostic {
+ const char *stage;
+ unsigned index,component,details;
+ uint64_t expected,observed;
+};
+const struct ecam_boot_gate_diagnostic *haswell_ecam_boot_gate_diagnostic(void);
 /* AP diagnostic ELF only. Caller retains CPU0 IRQ/mutation exclusion and live
  * env storage through pre-handoff retirement or permanent handoff. A single
  * attempt; poisoned state never frees/retries. Not a device-resource lease. */
@@ -46,6 +62,7 @@ bool haswell_ecam_boot_handoff(void);
 bool haswell_ecam_boot_retire(void);
 bool haswell_ecam_boot_adopt(uint64_t va,uint64_t pa,uint64_t bytes);
 _Noreturn void haswell_ecam_boot_fail_closed(const char *reason);
+void haswell_ecam_boot_failure_report(void);
 bool haswell_ecam_boot_report(const char *session);
 void haswell_ecam_boot_reference(const char *session,bool saved);
 struct ecam_boot_gate_result {

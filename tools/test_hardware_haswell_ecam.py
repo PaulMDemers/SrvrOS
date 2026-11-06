@@ -126,6 +126,22 @@ class EcamTests(unittest.TestCase):
             with patch('hardware_haswell_firmware.PIN',PIN):p=ecam.decode(data)
             self.assertLess(p['words'],65536)
 
+    def test_actual_terminal_report_preserves_first_failure_without_reread(self):
+        a=subprocess.check_output([str(EXE),'failure'],text=True)
+        self.assertIn('ECAM BOOT HALTED: fixture adoption failed\nstate=5 ',a)
+        self.assertIn('ecam-failure: v=1 stage=adopt-tables reason=pdpt-word\n',a)
+        self.assertIn('flags=3 table=0x0000000002001000 index=12 component=0\n',a)
+        self.assertIn('expected=0x0000000002005003 observed=0x0000000002005023',a)
+        self.assertIn('rejected_clock=0 elapsed_valid=1',a)
+        self.assertIn('invalidations=39936 metadata=39936 firmware_bytes=1840 phases=2',a)
+        self.assertIn('No PCI/USB continuation or table reuse.',a)
+        self.assertNotIn('hsw-ecam: v=5',a)
+        for mode, reason, valid in [('failure-clock','clock-invalid',0),('failure-deadline','lifetime-deadline',1)]:
+            a=subprocess.check_output([str(EXE),mode],text=True)
+            self.assertIn('stage=adopt-gate reason='+reason,a)
+            self.assertIn(f'rejected_clock=1 elapsed_valid={valid}',a)
+            if valid:self.assertIn('elapsed=100000 ',a)
+
     def test_v5_profile_requires_explicit_dependencies(self):
         conf=boot.limine_config('x','ram-usb-v5-hfw-laptop-probe-1234abcd-auto-return')
         self.assertIn('srvros.ecam=air61-2m-test',conf)

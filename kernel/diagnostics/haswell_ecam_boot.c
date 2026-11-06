@@ -1,4 +1,4 @@
-/* Exact Air6,1 pre-PCI admission. AP ELF only; no boot dispatcher calls yet.
+/* Exact Air6,1 pre-PCI admission. AP ELF only; explicit v5 pre-PCI dispatcher.
  * Legacy CF8 selection is restored; no PCI config-data/firmware/policy writes.
  * These observations authorize only equivalent ECAM representation, not VT-d. */
 #include <srvros/ecam_boot.h>
@@ -8,6 +8,12 @@
 #include <srvros/timer.h>
 #include <stddef.h>
 static struct ecam_boot_gate_result eg;
+static struct ecam_boot_gate_diagnostic eg_diagnostic;
+static bool eg_fail(const char *stage,unsigned details,unsigned index,unsigned component,uint64_t expected,uint64_t observed) {
+ if(!eg_diagnostic.stage)eg_diagnostic=(struct ecam_boot_gate_diagnostic){stage,index,component,details,expected,observed};
+ return false;
+}
+const struct ecam_boot_gate_diagnostic *haswell_ecam_boot_gate_diagnostic(void){return &eg_diagnostic;}
 static struct hfw_entry eg_ram[HFW_MAP_CAP];
 static unsigned eg_count,eg_phase;
 static bool eg_started,eg_broken;
@@ -125,7 +131,7 @@ static bool eg_ram_page(void *ctx,uint64_t pa) {
  return overlaps==1 && good;
 }
 static bool eg_copy(uint64_t pa,uint8_t *out,unsigned length) {
- if(length>4096-eg.firmware_bytes)return false;
+ if(length>4096-eg.firmware_bytes)return eg_fail("firmware-byte-cap",1,0,0,4096,eg.firmware_bytes+length);
  eg.firmware_bytes+=length;return vmm_ecam_boot_copy_ram(pa,out,length);
 }
 static const struct acpi_table_info *eg_find(const char *signature,unsigned length) {
@@ -169,24 +175,34 @@ static bool eg_mcfg(unsigned phase) {
 }
 static bool eg_stable(void) {
  struct x86_cache_cpu cpu={0};
- if(!eg_cpu(NULL,&cpu) || !vmm_diagnostic_sole_kernel_root(eg_root))return false;
+ if(!eg_cpu(NULL,&cpu))return eg_fail("stable-cpu-controls",0,0,0,0,0);
+ if(!vmm_diagnostic_sole_kernel_root(eg_root))return eg_fail("stable-sole-root",0,0,0,0,0);
  const struct x86_cache_cpu *old=&eg.cache[0].cpu;
- if(cpu.signature!=old->signature || cpu.features!=old->features || cpu.physical_bits!=old->physical_bits || cpu.cr0!=old->cr0)return false;
+ const uint64_t expected[]={old->signature,old->features,old->physical_bits,old->cr0};
+ const uint64_t actual[]={cpu.signature,cpu.features,cpu.physical_bits,cpu.cr0};
+ for(unsigned i=0;i<4;i++)if(expected[i]!=actual[i])return eg_fail("stable-cpu-state",1,0,i,expected[i],actual[i]);
  struct hfw_entry entries[HFW_MAP_CAP];unsigned count;
- if(!eg_catalog(NULL,entries,&count) || count!=eg_count)return false;
- for(unsigned i=0;i<count;i++)if(entries[i].base!=eg_ram[i].base || entries[i].length!=eg_ram[i].length || entries[i].type!=eg_ram[i].type)return false;
+ if(!eg_catalog(NULL,entries,&count))return eg_fail("stable-catalog-source",0,0,0,0,0);
+ if(count!=eg_count)return eg_fail("stable-catalog-count",1,0,0,eg_count,count);
+ for(unsigned i=0;i<count;i++) {
+  const uint64_t want[]={eg_ram[i].base,eg_ram[i].length,eg_ram[i].type};
+  const uint64_t got[]={entries[i].base,entries[i].length,entries[i].type};
+  for(unsigned j=0;j<3;j++)if(want[j]!=got[j])return eg_fail("stable-catalog-word",1,i,j,want[j],got[j]);
+ }
  const struct acpi_table_info *m=eg_find("MCFG",60),*d=eg_find("DMAR",136);
- if(!m || !d || m->physical_address!=eg.mcfg_pa[0] || d->physical_address!=eg.firmware[0].sample[0].table_pa)return false;
+ if(!m || !d)return eg_fail("stable-table-identity",0,0,0,0,0);
+ if(m->physical_address!=eg.mcfg_pa[0])return eg_fail("stable-MCFG-address",1,0,0,eg.mcfg_pa[0],m->physical_address);
+ if(d->physical_address!=eg.firmware[0].sample[0].table_pa)return eg_fail("stable-DMAR-address",1,0,0,eg.firmware[0].sample[0].table_pa,d->physical_address);
  uint8_t bytes[136];
- if(!eg_copy(m->physical_address,bytes,60))return false;
- for(unsigned i=0;i<60;i++)if(bytes[i]!=eg.mcfg[0][i])return false;
- if(!eg_copy(d->physical_address,bytes,136))return false;
- for(unsigned i=0;i<136;i++)if(bytes[i]!=eg.firmware[0].sample[0].dmar[i])return false;
+ if(!eg_copy(m->physical_address,bytes,60))return eg_fail("stable-MCFG-copy",0,0,0,0,0);
+ for(unsigned i=0;i<60;i++)if(bytes[i]!=eg.mcfg[0][i])return eg_fail("stable-MCFG-byte",1,i,0,eg.mcfg[0][i],bytes[i]);
+ if(!eg_copy(d->physical_address,bytes,136))return eg_fail("stable-DMAR-copy",0,0,0,0,0);
+ for(unsigned i=0;i<136;i++)if(bytes[i]!=eg.firmware[0].sample[0].dmar[i])return eg_fail("stable-DMAR-byte",1,i,0,eg.firmware[0].sample[0].dmar[i],bytes[i]);
  return true;
 }
 static bool eg_check_inner(void *ctx,unsigned phase) {
  (void)ctx;
- if(!timer_reference_ready())return false;
+ if(!timer_reference_ready())return eg_fail("reference-clock",0,0,0,0,0);
  if(phase==2)return eg.phases>=1 && eg_stable();
  if(phase>1 || phase!=eg.phases)return false;
  eg_phase=phase;struct x86_cache_cpu cpu={0};
@@ -222,7 +238,7 @@ static bool eg_check_inner(void *ctx,unsigned phase) {
 static bool eg_check(void *ctx,unsigned phase) {
  if(eg_broken)return false;
  bool ok=eg_check_inner(ctx,phase);
- if(!ok)eg_broken=true;
+ if(!ok){eg_fail("admission-phase",1,phase,0,1,0);eg_broken=true;}
  return ok;
 }
 bool haswell_ecam_boot_prepare(void) {

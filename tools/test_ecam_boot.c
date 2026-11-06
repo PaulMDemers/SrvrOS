@@ -85,7 +85,7 @@ static bool ram(void *ctx,uint64_t pa){(void)ctx;return !ram_fail && !(pa&4095) 
 static bool check(void *ctx,unsigned phase){(void)ctx;assert(phase<3);checks[phase]++;return !admit_fail;}
 static const struct ecam_boot_env io={.check=check,.ram=ram,.now=now};
 static void reset(void){
- memset(&eb,0,sizeof(eb));memset(&eb_evidence,0,sizeof(eb_evidence));memset(pages,0,sizeof(pages));memset(tags,PMM_FRAME_RESERVED,sizeof(tags));
+ memset(&eb,0,sizeof(eb));memset(&eb_diagnostic,0,sizeof(eb_diagnostic));eb_stage="none";memset(&eb_evidence,0,sizeof(eb_evidence));memset(pages,0,sizeof(pages));memset(tags,PMM_FRAME_RESERVED,sizeof(tags));
  for(unsigned i=0;i<8;i++)tags[i]=PMM_FRAME_PAGE_TABLE;
  clock_ticks=allocs=frees=loads=stores=invalidates=event_fault=event_index=load_fault=store_fault=0;
  store_after=alloc_fail=alloc_borrowed=ram_fail=admit_fail=clock_fail=free_fail=false;
@@ -146,7 +146,14 @@ int main(void){
   if(mode==11)eb.r.words=65536;
   if(mode==12){stop_clock=true;frozen_time=eb.r.begin-1;}
   if(mode==13){stop_clock=true;frozen_time=eb.r.begin+100000;}
-  assert(!vmm_ecam_boot_adopt(va,pa,bytes) && !eb.r.adoptions);retained();
+  assert(!vmm_ecam_boot_adopt(va,pa,bytes) && !eb.r.adoptions);
+  const char *reason[]={"geometry","geometry","geometry","root-word","pdpt-word","PD-word","frame-ownership","metadata-word","metadata-count","sole-root","fresh-gate","word-cap","clock-invalid","lifetime-deadline"};
+  assert(eb_diagnostic.reason && !strcmp(eb_diagnostic.reason,reason[mode]));
+  assert(eb_diagnostic.prepared_us && eb_diagnostic.handoff_us && eb_diagnostic.adopt_entry_last_us && eb_diagnostic.words==eb.r.words);
+  if(mode>=3 && mode<=5){assert(eb_diagnostic.details==3);assert((eb_diagnostic.expected^eb_diagnostic.observed)==(mode==5?64:32));}
+  if(mode>=12)assert(eb_diagnostic.rejected_clock && eb_diagnostic.sample_us==frozen_time && eb_diagnostic.sample_clock_valid==(mode==13));
+  struct ecam_boot_diagnostic first=eb_diagnostic;
+  retained();assert(!memcmp(&first,&eb_diagnostic,sizeof(first)));
  }
  for(unsigned mode=0;mode<10;mode++){
   reset();if(mode==0)irq_flags|=512;if(mode==1)admit_fail=true;if(mode==2)ram_fail=true;if(mode==3)cr3|=1;
