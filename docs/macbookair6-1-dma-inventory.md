@@ -423,3 +423,27 @@ returns automatically. Completion requires both decoded cache contexts, both raw
 census passes, matching firmware/catalog guards and USB integrity; a return or
 bounded refusal alone is not acceptance. The unchanged64KiB tail must retain
 maximum fixtures plus the audited source postamble. Native result is pending.
+
+### Pre-user-init capture, deferred logging (v4 candidate)
+
+The v3 prototype's late dispatch follows `/init --system`, which creates a user
+root. Its sole-root guard must refuse that state; v3 was installed but never
+armed or physically tested. Do not weaken the guard or omit registered roots.
+The distinct `--haswell-alias-preinit` modifier additionally requires all three
+firmware/cache/alias flags and selects `ram-usb-v4-hfw`.
+
+Version4 captures before the first user-root creation, after kernel/device/timer
+bootstrap. It saves immutable full firmware/cache/census/NX results without
+emitting raw records yet. Normal init and logger startup then proceed unchanged;
+the late capture branch reports those results exactly once. Repeated prepare or
+report attempts refuse, and a later live sole-root failure cannot alter the saved
+capture. The new epoch record encloses all saved firmware/cache observations and
+identifies reporting as later than preparation. Scope is explicitly pre-user-init;
+no live post-init mapping admission follows. Failure remains failure, and missing
+logger/readiness/completion is not accepted.
+
+All existing64-table/32768-entry/4096-byte/100ms census and49-MSR/16-PTE context
+limits remain. Versions1–3 and their dispatch stay available unchanged. Tests
+must prove no raw receipt before simulated init, one complete deferred receipt
+after it, immutable reporting despite a newly registered-root refusal, both raw
+passes retained at maximum size, and exact-stage init/logger/return ordering.

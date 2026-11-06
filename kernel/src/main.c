@@ -702,6 +702,11 @@ void kmain(void) {
     }
 
     console_write("srvros: kernel bootstrap complete\n");
+#ifdef SRVROS_AP_PROBE
+    if(timer_running && cmdline_has_token(cmdline,"srvros.capture=haswell-firmware") &&
+       cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx-preinit"))
+        (void)haswell_alias_context_prepare();
+#endif
     bool init_ready = false;
     int64_t init_pid = process_spawn_background_elf_args_quiet("/init", "--system");
     if (init_pid >= 0) {
@@ -816,7 +821,7 @@ void kmain(void) {
         }
         if(automatic_hfw && started && init_ready && timer_running) {
 #ifdef SRVROS_AP_PROBE
-            sampled=cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx")?haswell_alias_context_run():cmdline_has_token(cmdline,"srvros.hsw-cache=context-only")?haswell_cache_context_run():haswell_firmware_run();
+            sampled=cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx-preinit")?haswell_alias_context_report():cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx")?haswell_alias_context_run():cmdline_has_token(cmdline,"srvros.hsw-cache=context-only")?haswell_cache_context_run():haswell_firmware_run();
 #else
             console_write("hsw-firmware: ordinary-kernel refused\n");sampled=false;
 #endif

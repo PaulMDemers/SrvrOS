@@ -84,11 +84,16 @@ int main(int argc,char **argv){
  if(argc==1)mode=1;
  if(mode==14)entry[120]=(struct limine_memmap_entry){.base=0xfed90000,.length=4096,.type=0};
  if(mode==15)entry[127].base=0xffd70000;
- bool ok=
+ bool ok;
 #ifdef SRVROS_HAC_HOST_TEST
-haswell_alias_context_run();
+ if(argc>3) {
+  unsigned requested=mode;ok=haswell_alias_context_prepare();
+  console_write("fixture: init starts after capture\n");mode=21; /* A live repeat would now fail sole-root admission. */
+  bool reported=haswell_alias_context_report();assert(reported==ok);
+  assert(!haswell_alias_context_report() && !haswell_alias_context_prepare());mode=requested;
+ }else ok=haswell_alias_context_run();
 #else
-haswell_cache_context_run();
+ ok=haswell_cache_context_run();
 #endif
 
  if(argc==2 || mode==13 || mode==20 || mode==27 || mode==28){assert(ok);puts("laptop-capture: completed=yes");}

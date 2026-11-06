@@ -7433,3 +7433,15 @@ Its affected suites, actual producer/sanitizer fixtures and maximum-tail checks
 pass; the saved exact VM refusal receipt redecodes correctly. Native payload,
 profile and VM harness remain byte-identical to the tested `dbb1756c` candidate.
 The run record distinguishes these tool and native source revisions explicitly.
+
+### Pre-init scheduling correction before native alias trial (2026-11-05)
+
+PR381 candidate715cee81b804a3ab was installed but never armed or booted. Source
+review confirms main starts persistent `/init --system` before the late capture;
+the sole-root guard would therefore refuse as intended. Preserve that guard,
+v3 history and all budgets. Add a distinct v4/pre-init modifier: capture before
+creating the first user root, retain immutable raw results, and emit once after
+normal init readiness and USB logger startup. Require an explicit pre-user-init
+receipt epoch, actual prepare/report ordering tests and matched VM save/return
+checks. No root is ignored, killed or temporarily hidden, and no policy/ownership
+or native acceptance is granted. Previous candidate evidence is retained locally.

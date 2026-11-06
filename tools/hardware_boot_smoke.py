@@ -163,7 +163,7 @@ def main():
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
     keyboard_negative=args.keyboard_timeout or (args.keyboard_fail and not keyboard_retry)
     if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
-    hfw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hfw-","ram-usb-v2-hfw-","ram-usb-v3-hfw-")))
+    hfw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hfw-","ram-usb-v2-hfw-","ram-usb-v3-hfw-","ram-usb-v4-hfw-")))
     hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-")))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
@@ -416,8 +416,12 @@ def main():
                         result=firmware_result(exit_log)
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         assert 'laptop-capture: completed=NO' in exit_log
-                        if manifest['config_version'].startswith(('ram-usb-v2-hfw-','ram-usb-v3-hfw-')):
+                        if manifest['config_version'].startswith(('ram-usb-v2-hfw-','ram-usb-v3-hfw-','ram-usb-v4-hfw-')):
                             from hardware_haswell_cache import cache_result
+                            if manifest['config_version'].startswith('ram-usb-v4-hfw-'):
+                                from hardware_haswell_alias import alias_preinit_result
+                                assert alias_preinit_result(exit_log)['status']=='REFUSED'
+                                assert text.index('hsw-alias-progress: capturing before')<text.index('init: started pid=')<text.index('hsw-alias:')
                             if manifest['config_version'].startswith('ram-usb-v3-hfw-'):
                                 from hardware_haswell_alias import alias_result
                                 assert alias_result(exit_log)['status']=='REFUSED'
