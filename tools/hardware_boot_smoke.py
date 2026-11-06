@@ -555,6 +555,11 @@ def main():
                         if 'srvros.intel-wake=trial' in text:
                             from intel_gt_wake import native_wake_result
                             wake=native_wake_result(stored.read(folder+"/exit.log").decode())
+                            pre=stored.read(folder+"/session-a.log").decode()
+                            assert 'workspace-log: snapshot=session-a.log' in pre and 'intel-firmware-summary:' in pre
+                            assert 'intel-wake-summary:' not in pre
+                            assert 'intel-wake: preflight checkpoint saved' in stored.read(folder+"/exit.log").decode()
+                            (logs/'intel-wake-preflight.log').write_text(pre)
                             assert wake and wake['summary']['compiled'] and not wake['native_wake_complete']
                             assert not wake['summary']['maps'] and not wake['summary']['attempts']
                             (logs/'intel-wake-result.json').write_text(json.dumps(wake,indent=2)+"\n")
