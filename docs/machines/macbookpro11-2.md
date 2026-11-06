@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-05. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-11-06. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -13160,3 +13160,35 @@ unexpected DCI8 event quarantine and retain DMA. Actual native-owner fault
 fixtures and225 staging groups pass. The physical OUT lifecycle remains pending;
 no network frame,MAC restart,association,key,IP or data is accepted. This bounded
 lifecycle precedes live RX/data publication and the modeled management exchange.
+
+### Qualified dedicated empty data OUT cold trial (November 6)
+
+Candidate `187489cff7f66fe7` uses runtime `a2fb142e` and reviewed
+mainca43ce23,with Ports94758e7f,Apps f90cb7e6 and Widgets3a695ce5 unchanged.
+The dormant checked ECAM backend and PMM/VMM/gate/alias tests pass;an initially
+mistyped standalone gate target is preserved as failed harness evidence and the
+correct target closure passes. Matched kernel/USB image,complete controller
+suite,pure management-session and native empty-OUT fault fixtures,retained peer/
+handoff/power/discovery parents,strict parsers,namespace and docs pass. This is
+relevant regression coverage,not a new full-core run or physical acceptance.
+Six fatal ASan/UBSan groups and225 staging groups pass. Native compiler frames
+peak at616bytes. Production-C child/accepted full-parent
+synthetic composition passes at2028443bytes,leaving
+68709bytes capture headroom,with eight whole-prefix refusals.
+Fresh real filesystem2MiB write/read/remount/fsck,ordinary desktop and exact staged
+GPT save/return/missing-workspace VMs pass. Independent kernel/firmware initramfs
+reconstruction matches the installed payload.
+
+Ubuntu remains default and e47d known-good recovery previous. Accepted v125 peer,
+v124 handoff,v123 power,v122 selection and v121 calibration payloads remain.
+An unreferenced failed d105a5 EFI copy may be retired for space only after exact
+comparison with its independent sealed failure backup,which remains retained.
+The accepted153-file peer capsule and27-file notes remain unchanged. Its generated
+large USB session was separately archived and byte-compared before pruning.
+The new cold trial requires only Wi-Fi unplugged10seconds while off,reconnected
+to the same port,then power on with workspace attached. Guest progress/full result
+saving and automatic Ubuntu return need no commands or photos. Collect this exact
+session first after return. No TD,doorbell,MAC start or network frame is published;
+dedicated OUT configure/stop/disable and shared input restoration are the pending
+physical scope. Live RX/TX and matched AUTH/ASSOC/leave,WPA2 keys/replay/PN and
+bidirectional authenticated IP/data/disconnect remain open. Credentials unread.
