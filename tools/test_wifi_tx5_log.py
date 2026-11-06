@@ -13,8 +13,9 @@ class Tests(unittest.TestCase):
   context(0,[0]*8);command(1,12);w=[1,(3<<1)|(2<<3)|(512<<16),ring|1,0,124,0,0,0];context(2,w)
   for i in range(15):
    g=i if i<3 else i-12 if i>=12 else 3;a,v=((0x1004,0),(0x2000,0xf000f200),(0x208,0x40000050))[g] if g<3 else (c.ADDRESSES[i-3],values[i-3]);r.append(f'wifi-tx5-usb: op={i} address={a} value={v} ok=1')
+  r.append(f'wifi-tx5-stop-event: phase=3 slot=7 dci=8 pointer={ring} cc=27 residue=0 ed=0 ok=1')
   command(3,15);w[0]=3;context(4,w);command(5,12);w[0]=0;context(6,w)
-  r+= [f'wifi-tx5: ok=1 configured=1 stopped=1 disabled=1 input_restored=1 semantic=0 commands=3 controls=15 phase=7 ring={ring} others=4 retained=1 posted=0 doorbells=0 network_out=0','wifi-power5-usb: cleanup=1'];return r
+  r+= [f'wifi-tx5: ok=1 configured=1 stopped=1 disabled=1 input_restored=1 semantic=0 commands=3 controls=15 phase=7 ring={ring} stop_events=1 others=4 retained=1 posted=0 doorbells=0 network_out=0','wifi-power5-usb: cleanup=1'];return r
  def check(self,r):
   with patch.object(c,'parent',return_value={'peer5_complete':True}):return c.check('\n'.join(r))
  def test_good_and_disabled_reserved(self):

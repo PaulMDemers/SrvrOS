@@ -13213,3 +13213,20 @@ and still quarantines at the first failed check. Rebuild/fault/sanitizer/whole-
 prefix/exact-image qualification precedes the new cold diagnostic trial. Live
 management publication remains blocked on this retirement proof;credentials
 remain unread/unpackaged. No native OUT ownership acceptance is claimed.
+
+### Forced empty-ring stop-event correction (November 6)
+
+Intel xHCI1.22 §4.6.9/table4-2 requires a forced Stopped-Length-Invalid event
+when an empty ring is stopped. The old v126 handler rejected every DCI8 event;
+that is a concrete source defect consistent with the completed-stop failure,
+but the old log did not retain the event so its exact native cause is not yet
+proved. The correction admits exactly one CC27/zero-residue/non-ED event at the
+pinned empty ring base,for the captured slot/DCI8,only while its exact Stop
+command is in flight. Reserved control bits,wrong pointer/slot/code/residue/ED,
+missing or duplicate events and events outside that transition still quarantine.
+The stopped endpoint and all unrelated context/input/ring checks remain exact.
+The saved ledger now requires this receipt before the stop completion. Failure-
+only endpoint/parent/input/difference receipts remain enabled,without recovery,
+replay or additional hardware operations. Host/model tests cover all new refusal
+cases;physical correction acceptance is pending. The first537-file failure
+capsule remains immutable and failed. No network frame or key is submitted.

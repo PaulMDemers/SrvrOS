@@ -16,7 +16,7 @@ static struct {struct mt76_peer5 binding;}wifi_peer5;
 static struct {struct {struct {uint32_t address;}write[9];}plan;struct {uint32_t chosen[9];}cycle;}wifi_power5;
 static struct xhci_device device;
 static bool wifi_tx5_requested,firmware_command_failed,firmware_command_exact,trace;
-static struct {uint32_t input[128][8],output[32][8];uint8_t pages[64][4096];unsigned next,commands,reads,owned,lose,fail_command,fail_read,bad_read,mutate;bool parent,quarantine,uncertain,clear_disabled,allocate_fail;}fake;
+static struct {uint32_t input[128][8],output[32][8];uint8_t pages[64][4096];unsigned next,commands,reads,owned,lose,fail_command,fail_read,bad_read,mutate;bool parent,quarantine,uncertain,clear_disabled,allocate_fail,skip_stop_event;unsigned stop_fault;}fake;
 static bool wifi_handoff5_equal(const void *a,const void *b,size_t n){return !memcmp(a,b,n);}
 static bool wifi_peer5_owned(void *p,void *w){assert(p==&wifi_peer5 && w==&wifi_cal5.window);return ++fake.owned!=fake.lose && fake.parent && !fake.quarantine;}
 static bool wifi_mcu_fail(struct xhci_device *d){assert(d==&device);fake.quarantine=true;return false;}
@@ -31,6 +31,7 @@ static uint64_t event_irq_save(void){return 0;}
 static void event_irq_restore(uint64_t f){assert(!f);}
 static void console_write(const char *s){if(trace)fputs(s,stdout);}
 static void console_printf(const char *s,...){if(!trace)return;va_list ap;va_start(ap,s);for(;*s;s++){if(*s!='%'){putchar(*s);continue;}s++;uint64_t v=va_arg(ap,uint64_t);if(*s=='u')printf("%" PRIu64,v);else{assert(*s=='x');printf("0x%016" PRIx64,v);}}va_end(ap);}
+static void force_stop_event(void);
 static bool submit_command_trb(const struct xhci_trb *t,unsigned type,uint64_t *slot){
  assert(firmware_command_exact && !firmware_command_failed && !fake.quarantine);fake.commands++;assert(fake.commands<=3 && t->control>>24==7 && !t->status);
  assert(type==(fake.commands==2?15:12) && (t->control>>10&63)==type);
@@ -39,7 +40,7 @@ static bool submit_command_trb(const struct xhci_trb *t,unsigned type,uint64_t *
  bool fail=fake.commands==fake.fail_command;
  if(!fail || fake.uncertain){
   if(fake.commands==1){memcpy(fake.output[8],fake.input[9],32);fake.output[8][0]=1;}
-  if(fake.commands==2)fake.output[8][0]=3;
+  if(fake.commands==2){fake.output[8][0]=3;if(!fake.skip_stop_event)force_stop_event();}
   if(fake.commands==3){if(fake.clear_disabled)memset(fake.output[8],0,32);else fake.output[8][0]=0;}
  }
  *slot=7;return !fail;
@@ -47,6 +48,17 @@ static bool submit_command_trb(const struct xhci_trb *t,unsigned type,uint64_t *
 static bool wifi_mac_private_usb(struct xhci_device *,bool,uint32_t,uint32_t *);
 bool xhci_wifi_capture_peer5(void);
 #include "../kernel/src/drivers/xhci_wifi_tx5.inc"
+static void force_stop_event(void){
+ struct xhci_trb e={.parameter_low=(uint32_t)wifi_tx5.ring_phys,.parameter_high=wifi_tx5.ring_phys>>32,.status=27u<<24,.control=(32u<<10)|(8u<<16)|(7u<<24)};
+ if(fake.stop_fault==1)e.parameter_low+=16;
+ if(fake.stop_fault==2)e.status=26u<<24;
+ if(fake.stop_fault==3)e.status|=1;
+ if(fake.stop_fault==4)e.control|=4;
+ if(fake.stop_fault==5)e.control^=1u<<24;
+ if(fake.stop_fault==6)e.control|=1u<<5;
+ assert(wifi_tx5_event(&device,&e));
+ if(fake.stop_fault==7)assert(wifi_tx5_event(&device,&e));
+}
 static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v){
  assert(d==&device && !write && !fake.quarantine);unsigned i=fake.reads++,g=i<3?i:i>=12?i-12:3;assert(i<15);
  assert(a==(g==0?0x1004:g==1?0x2000:g==2?0x208:wifi_power5.plan.write[i-3].address));
@@ -76,6 +88,8 @@ int main(int argc,char **argv){
  }
  for(unsigned i=1;i<=checks;i++){setup();fake.lose=i;assert(!xhci_wifi_capture_tx5());}
  for(unsigned i=1;i<=8;i++){setup();fake.mutate=i;assert(!xhci_wifi_capture_tx5() && fake.quarantine && fake.commands==1);}
+ for(unsigned i=1;i<=7;i++){setup();fake.stop_fault=i;assert(!xhci_wifi_capture_tx5() && fake.quarantine && fake.commands==2 && !wifi_tx5.input_restored);}
+ setup();fake.skip_stop_event=true;assert(!xhci_wifi_capture_tx5() && fake.commands==2 && fake.quarantine);
  setup();fake.allocate_fail=true;assert(!xhci_wifi_capture_tx5() && !fake.commands);
  setup();fake.parent=false;assert(!xhci_wifi_capture_tx5() && !fake.commands);
  setup();wifi_tx5.d=&device;wifi_tx5.active=true;struct xhci_trb event={.control=8u<<16};assert(wifi_tx5_event(&device,&event) && fake.quarantine);

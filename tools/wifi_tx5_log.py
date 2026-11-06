@@ -5,8 +5,8 @@ from wifi_held_log import require
 PROGRESS='wifi-tx5-progress: dedicated OUT04 empty ring;configure stop disable;preserve RX/MCU/slot and restore input;no TD/doorbell/MAC/network OUT'
 def check(log):
  require('srvros.wifi-tx5-owner=1' in log,'missing TX owner profile');r=parent(log);lines=log.splitlines();rows=[s for s in lines if s.startswith('wifi-tx5')]
- require(len(rows)==24 and rows[0]==PROGRESS,'missing/extra TX ownership ledger')
- s=fields(rows[-1],'wifi-tx5');expected=dict(ok=1,configured=1,stopped=1,disabled=1,input_restored=1,semantic=0,commands=3,controls=15,phase=7,others=4,retained=1,posted=0,doorbells=0,network_out=0)
+ require(len(rows)==25 and rows[0]==PROGRESS,'missing/extra TX ownership ledger')
+ s=fields(rows[-1],'wifi-tx5');expected=dict(ok=1,configured=1,stopped=1,disabled=1,input_restored=1,semantic=0,commands=3,controls=15,phase=7,stop_events=1,others=4,retained=1,posted=0,doorbells=0,network_out=0)
  require(set(s)==set(expected)|{'ring'} and all(s[k]==v for k,v in expected.items()),'incomplete/unknown TX ownership summary');ring=s['ring']
  old=fields(next(x for x in lines if x.startswith('wifi-handoff5:')),'wifi-handoff5')
  require(0<ring<=2**64-4096 and not ring%4096 and ring not in (old['old_ring'],old['new_ring']),'invalid/aliased TX ring')
@@ -22,8 +22,9 @@ def check(log):
  for i in range(15):
   g=i if i<3 else i-12 if i>=12 else 3;a,v=((0x1004,0),(0x2000,0xf000f200),(0x208,0x40000050))[g] if g<3 else (ADDRESSES[i-3],selected[i-3]['value'])
   require(fields(rows[4+i],'wifi-tx5-usb')==dict(op=i,address=a,value=v,ok=1),'wrong guard/selected power read')
- command(19,3,15);stopped=configured.copy();stopped[0]=3;require(context(20,4)==stopped,'TX context not identically stopped')
- command(21,5,12);require(context(22,6)[0]&7==0,'TX endpoint not disabled')
+ require(fields(rows[19],'wifi-tx5-stop-event')==dict(phase=3,slot=slot,dci=8,pointer=ring,cc=27,residue=0,ed=0,ok=1),'missing/mismatched forced empty-ring stop event')
+ command(20,3,15);stopped=configured.copy();stopped[0]=3;require(context(21,4)==stopped,'TX context not identically stopped')
+ command(22,5,12);require(context(23,6)[0]&7==0,'TX endpoint not disabled')
  peer=next(x for x in lines if x.startswith('wifi-peer5:'));cleanup=next(x for x in lines if x.startswith('wifi-power5-usb:') and fields(x,'wifi-power5-usb')['cleanup']==1)
  require(lines.index(peer)<lines.index(PROGRESS)<lines.index(rows[-1])<lines.index(cleanup),'TX owner outside copied peer/held power lifetime')
  r.update(tx5_complete=True,tx5_commands=3,tx5_controls=15,tx5_input_restored=True,tx5_disabled=True,scope='dedicated OUT04 empty endpoint configure/stop/disable and shared-input restoration under accepted peer/handoff/power parent;no TD,doorbell,MAC start,network frame,association,key,IP or data')

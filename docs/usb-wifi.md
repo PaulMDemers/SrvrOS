@@ -6913,3 +6913,9 @@ three exact commands;shared input bytes and unrelated contexts are preserved.
 No TD,doorbell or frame is published. Full parent cleanup must still pass.
 The separate pure AUTH/ASSOC/leave model does not grant native transmission or
 WPA2/data authority. Live receive/transmit publication follows endpoint acceptance.
+
+The corrected v126 empty-OUT owner requires the forced empty-ring stop receipt
+specified by Intel xHCI1.22 §4.6.9/table4-2:one CC27 event,zero length,no ED,
+matching pinned ring/slot/DCI8 during the issued Stop Endpoint command. It still
+requires exact stopped context,subsequent disable and shared-input restoration.
+Other,duplicate,missing or mistimed events refuse;no TD or network frame is sent.

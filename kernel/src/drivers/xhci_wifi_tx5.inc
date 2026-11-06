@@ -6,8 +6,8 @@ static struct {
  uint64_t ring_phys,pin_phys;uintptr_t pin_pointer;struct xhci_trb *ring;
  uint8_t input[4096],expected[4096];struct mt76_peer5 peer;
  uint32_t other[4][8];
- unsigned phase,commands,controls;
- bool attempted,active,failed,semantic,configured,stopped,disabled,input_restored;
+ unsigned phase,commands,controls,stop_events;
+ bool attempted,active,failed,semantic,configured,stopped,disabled,input_restored,stopping;
 }wifi_tx5;
 static bool wifi_tx5_fail(void){wifi_tx5.failed=true;return wifi_tx5.d?wifi_mcu_fail(wifi_tx5.d):false;}
 static bool wifi_tx5_owned(void){
@@ -32,7 +32,18 @@ static bool wifi_tx5_owned(void){
 }
 static bool wifi_tx5_event(struct xhci_device *d,const struct xhci_trb *e){
  if(!wifi_tx5.active || d!=wifi_tx5.d || ((e->control>>16)&31)!=8)return false;
- wifi_tx5_fail();return true;
+ uint64_t pointer=e->parameter_low|((uint64_t)e->parameter_high<<32);
+ const uint32_t allowed=1u|(63u<<10)|(31u<<16)|(255u<<24);
+ bool ok=wifi_tx5.stopping && wifi_tx5.phase==3 && wifi_tx5.commands==2 && !wifi_tx5.stop_events &&
+ firmware_command_exact && !firmware_command_failed && !wifi_tx5.failed &&
+ ((e->control>>10)&63)==32 && (e->control>>24)==d->slot_id && !(e->control&~allowed) &&
+ e->status==(27u<<24) && pointer==wifi_tx5.ring_phys && wifi_tx5.ring_phys==wifi_tx5.pin_phys &&
+ (uintptr_t)wifi_tx5.ring==wifi_tx5.pin_pointer && wifi_handoff5_equal(d->input_context,wifi_tx5.expected,4096) &&
+ wifi_handoff5_equal(&wifi_peer5.binding,&wifi_tx5.peer,sizeof wifi_tx5.peer);
+ wifi_tx5.stop_events++;
+ console_printf("wifi-tx5-stop-event: phase=%u slot=%u dci=8 pointer=%x cc=%u residue=%u ed=%u ok=%u\n",(uint64_t)wifi_tx5.phase,(uint64_t)(e->control>>24),pointer,(uint64_t)(e->status>>24),(uint64_t)(e->status&0xffffff),(uint64_t)((e->control>>2)&1),(uint64_t)ok);
+ if(!ok)wifi_tx5_fail();
+ return true;
 }
 static void wifi_tx5_context(unsigned op){
  struct xhci_device *d=wifi_tx5.d;
@@ -62,7 +73,9 @@ static bool wifi_tx5_command(unsigned op){
  if(op==3)command.control|=8u<<16;
  else {command.parameter_low=d->input_context_phys;command.parameter_high=d->input_context_phys>>32;}
  uint64_t flags=event_irq_save(),slot=0;firmware_command_exact=true;wifi_tx5.commands++;
- bool ok=submit_command_trb(&command,type,&slot) && slot==d->slot_id;firmware_command_exact=false;
+ wifi_tx5.stopping=op==3;
+ bool ok=submit_command_trb(&command,type,&slot) && slot==d->slot_id;wifi_tx5.stopping=false;firmware_command_exact=false;
+ if(op==3)ok=ok && wifi_tx5.stop_events==1 && !wifi_tx5.failed;
  if(!ok)firmware_command_failed=true;
  if(ok)wifi_tx5.phase++;
  event_irq_restore(flags);
@@ -112,7 +125,7 @@ static bool wifi_tx5_inspect(void){
   copy_bytes(wifi_tx5.expected,d->input_context,4096);wifi_tx5.phase=5;ok=wifi_tx5_command(5);wifi_tx5.disabled=ok;if(ok)wifi_tx5_context(6);
  }
  if(ok){copy_bytes(d->input_context,wifi_tx5.input,4096);copy_bytes(wifi_tx5.expected,wifi_tx5.input,4096);wifi_tx5.phase=7;wifi_tx5.input_restored=wifi_tx5_owned();ok=wifi_tx5.input_restored && !wifi_tx5.semantic;}
- console_printf("wifi-tx5: ok=%u configured=%u stopped=%u disabled=%u input_restored=%u semantic=%u commands=%u controls=%u phase=%u ring=%x others=4 retained=1 posted=0 doorbells=0 network_out=0\n",(uint64_t)ok,(uint64_t)wifi_tx5.configured,(uint64_t)wifi_tx5.stopped,(uint64_t)wifi_tx5.disabled,(uint64_t)wifi_tx5.input_restored,(uint64_t)wifi_tx5.semantic,(uint64_t)wifi_tx5.commands,(uint64_t)wifi_tx5.controls,(uint64_t)wifi_tx5.phase,wifi_tx5.ring_phys);
+ console_printf("wifi-tx5: ok=%u configured=%u stopped=%u disabled=%u input_restored=%u semantic=%u commands=%u controls=%u phase=%u ring=%x stop_events=%u others=4 retained=1 posted=0 doorbells=0 network_out=0\n",(uint64_t)ok,(uint64_t)wifi_tx5.configured,(uint64_t)wifi_tx5.stopped,(uint64_t)wifi_tx5.disabled,(uint64_t)wifi_tx5.input_restored,(uint64_t)wifi_tx5.semantic,(uint64_t)wifi_tx5.commands,(uint64_t)wifi_tx5.controls,(uint64_t)wifi_tx5.phase,wifi_tx5.ring_phys,(uint64_t)wifi_tx5.stop_events);
  wifi_tx5.active=false;return ok;
 }
 bool xhci_wifi_capture_tx5(void){if(wifi_tx5_requested || wifi_tx5.attempted)return false;wifi_tx5_requested=true;bool ok=xhci_wifi_capture_peer5();wifi_tx5_requested=false;return ok;}
