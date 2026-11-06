@@ -13395,3 +13395,32 @@ return are automatic. Collect this exact new session first;missing completion
 or any failed parent/management/restoration receipt remains unaccepted. Native
 live exchange,WPA2 entropy/MIC/replay/key/PN and authenticated DHCP/DNS/data/
 disconnect remain pending. Demers2.4 still requires compatible hardware.
+
+### First live management trial refusal (November 6)
+
+V127 `5a5e6139f4930941` / runtime `73b1ede0` saved session
+`00065fa4011a2b22-00`,with1,885,378 complete failure bytes. Calibration,unique
+Demers5 selection,private peer binding and empty-OUT preview passed. The fresh
+OUT configuration and RX retarget succeeded. The60-byte AUTH request and56-byte
+leave each completed USB transport;no association request was sent. Four reply
+polls ignored one frame but did not validate authentication,status0,unsafe0.
+USB completion does not prove AP acknowledgement;the reason is not identifiable
+from this log because normalized reply length/frame-control/parser metadata and
+exchange elapsed time were not recorded. No parser or timeout rule is relaxed.
+
+MAC disabled/drained and filter/TXOP restored. Both exact stop receipts,six
+endpoint commands,old RX context/dequeue,OUT disable and all shared input bytes
+were restored. All nine selected-power originals were verified on inverse
+cleanup. Outer RF completion/restoration was not accepted;the overall capture
+remains failed. Its546-file capsule is sealed independently outside build.
+Offline filesystem/allocation,recovery equality and automatic Ubuntu return
+passed. Accepted empty-OUT v126 remains separate and unchanged.
+
+Next bounded correction adds only private read-only diagnostic receipts for
+completed copied RX views:decoded length/frame control,private peer-match boolean,
+open-auth algorithm/transaction/status and parser result,plus exchange elapsed
+time. No station/BSSID/SSID/packet/credential bytes are logged. It adds no USB/
+controller request,retry,frame type or broader admission. Existing exact peer/
+response/timing and lifetime predicates remain unchanged. Requalify the source
+and exact staged image before a new cold trial. Credentials remain unread;WPA2
+and authenticated IP/data remain pending.
