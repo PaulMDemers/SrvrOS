@@ -13424,3 +13424,52 @@ controller request,retry,frame type or broader admission. Existing exact peer/
 response/timing and lifetime predicates remain unchanged. Requalify the source
 and exact staged image before a new cold trial. Credentials remain unread;WPA2
 and authenticated IP/data remain pending.
+
+### Qualified private reply diagnostic trial (November 6)
+
+V127 `7181f95efd4fe34b` / runtime `0f6a89d9` retains the same reviewed
+mainca43ce23 and module pins. It adds only completed copied RX metadata and an
+exchange elapsed-time receipt. Fields are view/MPDU/body sizes,frame control,
+private peer-match boolean,open-auth algorithm/transaction/status and parser
+result. There are no station/BSSID/SSID/IE/packet/credential bytes,no new USB or
+controller request,no retry and no broader protocol/timeout/ownership authority.
+The strict saved checker now requires consistent diagnostic receipts as well as
+the complete historical parent,new matched exchange and exact retirement.
+
+The first73b1ede0 live attempt remains failed in its independent546-file capsule:
+AUTH/leave USB completions and endpoint/input restoration passed,but authentication
+was not validated,association was not sent and full RF restoration was not
+accepted. Its generated large session was separately archived and byte-compared
+before pruning. Accepted161-file empty-OUT evidence and23-file notes remain
+unchanged. Credentials remain unread/unpackaged;WPA2 and authenticated IP/data
+are still pending. Newly fetched main6896aa9d adds deferred process-mapping storage and checked ECAM bookkeeping plus Air evidence. It was inspected and remains deferred for this isolated
+Wi-Fi comparison;other machines retain their own scope and acceptance.
+
+Matched kernel/USB image,complete controller suite,all native child/pure exchange/
+parent/strict parser/namespace/docs regressions and227 staging cases pass. Seven
+fatal ASan/UBSan groups pass;native frames peak at616
+bytes. Actual production-C child/full accepted-parent synthetic composition
+passes at2033180bytes with eight whole-prefix refusals.
+An additional source-format-derived conservative bound for all48 RX metadata
+rows leaves57012bytes capture headroom. This is modeled
+child behavior,not native acceptance. Real2MiB filesystem write/read/remount/fsck,
+ordinary desktop and exact staged GPT save/return/missing-workspace VMs pass.
+Installed kernel/independently reconstructed firmware initramfs match source.
+
+Ubuntu remains default,e47d known-good previous,and accepted empty-OUT/handoff/
+power/selection payloads remain installed. Any unreferenced older peer/failure
+EFI retirement first byte-compares against its independent sealed backup,which
+remains retained. Cold-unplug only Wi-Fi10seconds while off,reconnect same port,
+then power on with workspace attached. Progress/results/Ubuntu return are
+automatic. Collect this exact trial first and inspect reply metadata/timing if
+it fails;do not widen admission merely to make the exchange complete.
+
+The installer initially encountered the already-retired187489 historical EFI
+copy before changing any installed payload;that failure and original helper
+were preserved. The corrected helper skips missing retirement candidates.
+The unreferenced121359 peer EFI copy was then retired only after complete byte
+equality against its independently sealed153-file native backup. That backup
+and27-file peer acceptance notes remain unchanged. Current is the new diagnostic
+release,e47d remains previous,and accepted empty-OUT/handoff/power/selection
+payloads stay installed. This EFI-space change does not relabel any native
+failure or remove its independent evidence.
