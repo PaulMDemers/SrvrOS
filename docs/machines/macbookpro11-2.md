@@ -13059,3 +13059,37 @@ its opt-in native child,staging and proof/tests. Other machines' alias/graphics
 and browser scopes remain independent;no cross-chat contact. Dedicated live
 RX/data OUT,matched management replies,WPA2/key/replay/PN and authenticated
 IP/data/disconnect remain open. Credentials remain unread/unpackaged.
+
+### Qualified private peer binding cold trial (November 5)
+
+Candidate `1213593607fe767a` uses committed runtime `2290c938` and integrated
+main4cc0408b,Ports94758e7f,Apps f90cb7e6 and Widgets3a695ce5. Matched native build/
+USB image,full controller suite,pure/native peer tests,management codec,retained
+handoff/power/discovery parents,strict parsers,namespace and docs pass. The
+preceding merged-main affected wait/signal/FPU/profile/cache/alias checks remain
+source-bound evidence;this round reruns affected regressions rather than claiming
+a new full-core run. Four fatal ASan/UBSan groups and223 staging groups pass.
+Native compiler frames peak at616bytes. Production-C
+peer-child output composed with the accepted v124 full parent passes at
+2025983bytes with71169bytes capture headroom
+and eight whole-prefix refusals. This synthetic proof is not native acceptance.
+Fresh real filesystem2MiB write/read/remount/fsck,ordinary desktop and exact
+staged GPT save/return/missing-workspace VMs pass. Independent kernel and firmware
+initramfs reconstruction match the installed payload.
+
+The new image is installed with Ubuntu default and e47d known-good recovery
+previous. Accepted54d3 handoff,19e99 power,27a82 selection and285d calibration
+payloads remain installed. If space requires retiring the unreferenced failed
+373259 EFI copy,its bytes are first compared with the independent sealed failure
+backup,which remains retained outside build. The accepted166-file handoff capsule,
+30-file accepted notes and separate549-file timeout failure remain unchanged.
+The generated accepted handoff session was independently archived and compared
+byte-for-byte before pruning for the next collector. Cold unplug remains required:
+unplug only Wi-Fi10seconds while off,reconnect same port,power on with workspace
+attached. Guest progress,full result saving and automatic Ubuntu return require
+no commands or photos. Collect this matching session first on return.
+
+Peer acceptance remains pending. This trial posts no TD,starts no MAC and sends
+no frame;the next step is dedicated live RX/data OUT and matched management
+AUTH/ASSOC/leave,then WPA2/key/replay/PN and authenticated bidirectional data and
+disconnect. Credentials remain unread/unpackaged. The adapter remains5GHz-only.
