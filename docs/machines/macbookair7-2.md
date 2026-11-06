@@ -2,6 +2,19 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
+### Active scope: awake engine census and managed-range prerequisites
+
+PR301 continues from accepted wake source d5ff/host8a. Main `26e3b161` is
+integrated as `700d55f1`, preserving Air6's checked ECAM adoption and dual-file
+collector. PR19 remains Pro Wi-Fi; PR379 remains WebCore. No sibling GPU gate
+or acceptance is copied. Work touches the dedicated Intel diagnostic adapter,
+engine census core/decoder, explicit staging/VM/collection, managed-range
+prerequisites and these docs. The next candidate will inspect documented engine
+status only while the exclusive cooperative wake lease is live; ordinary boot
+and the accepted wake-only recipe remain unchanged. Populated candidate PTEs
+remain protected until reader/engine/DMA/cache assurances exist. Stop after
+matched host/VM validation and durable readiness; do not reboot this work block.
+
 ### Native bounded cooperative wake trial accepted
 
 Release `93b497d37af24dae`, payload source `d5ff462d` with host decoder
