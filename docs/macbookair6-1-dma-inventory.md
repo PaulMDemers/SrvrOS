@@ -567,3 +567,15 @@ ASan/UBSan on the ECAM fixture. Documentation links and diff checks pass.
 Raw MCFG, failure receipt, source hashes and validation logs remain local with
 a hash-verified copy outside build. Ubuntu recovery and the installed release
 remain unchanged; no reboot is armed and no new physical acceptance is claimed.
+
+
+## Checked ECAM large-leaf design checkpoint (2026-11-05)
+
+The [separate mapping design](macbookair6-1-ecam-mapping-design.md) now specifies
+78 exact2MiB leaves, per4KiB historical cache equivalence and uniform MTRR typing,
+detached single-link publication, precise pre-handoff retirement and permanent
+boot ownership. Host fault tests and actual-VMM synthetic layout/root checks
+pass; no native mapper or publication mechanism is implemented. A fresh pre-PCI
+identity/cache/NX gate and actual-source backend fault tests remain required.
+No diagnostic cap, kernel mapping, policy, physical acceptance or reboot state
+changes. The native v4 table-cap failure remains the current census result.

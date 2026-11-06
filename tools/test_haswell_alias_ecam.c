@@ -14,10 +14,13 @@ static inline uint32_t inl(uint16_t p) {(void)p;assert(false);return 0;}
 static uint64_t vmm_test_cr3(void) {return 0x2000000;}
 static void vmm_test_write_cr3(uint64_t v) {(void)v;assert(false);}
 static uint64_t vmm_test_rflags(void) {return 2;}
+static bool model_features;
 static void vmm_test_cpuid(uint32_t l,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d) {
- (void)l;(void)a;(void)b;(void)c;(void)d;assert(false);
+ assert(model_features);*a=*b=*c=*d=0;
+ if(l==0x80000000u)*a=0x80000001u;
+ else {assert(l==0x80000001u);*d=1u<<20;}
 }
-static uint64_t vmm_test_efer(void) {assert(false);return 0;}
+static uint64_t vmm_test_efer(void) {assert(model_features);return 0xd00;}
 static uint64_t vmm_test_irq_save(void) {assert(false);return 0;}
 static void vmm_test_irq_restore(uint64_t v) {(void)v;assert(false);}
 #include "../kernel/src/memory/vmm.c"
@@ -71,8 +74,44 @@ static void check(unsigned buses,bool complete) {
  printf("ecam-layout buses=%u graph_pages=%u complete=%u census_pages=%u reads=%u,%u\n",
         buses,used,complete,result.pages,result.reads[0],result.reads[1]);
 }
+static void check_large_proposal(void) {
+ /* Only a synthetic staged layout: no new production mapper is called. */
+ memset(pool,0,sizeof(pool));used=4;ticks=0;
+ kernel_cr3=0x2000000;kernel_pml4=pool[0];kernel_mapping_count=0;
+ memset(address_space_records,0,sizeof(address_space_records));address_space_count=0;
+ const uint64_t va=PCI_ECAM_VIRTUAL_BASE,pa=0xe0000000;
+ const uint64_t flags=VMM_PAGE_WRITABLE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_NO_EXECUTE;
+ pool[0][pml4_index(va)]=0x2001003;pool[1][pdpt_index(va)]=0x2002003;
+ for(unsigned i=0;i<78;i++)pool[2][i]=(pa+((uint64_t)i<<21))|flags|PAGE_LARGE|VMM_PAGE_PRESENT;
+ for(unsigned i=0;i<39936;i++) {
+  uint64_t v=va+(uint64_t)i*4096,physical=0,entry=0,leaf=0;
+  assert(vmm_virt_to_phys_in_space(kernel_cr3,v,&physical) && physical==pa+(uint64_t)i*4096);
+  assert(vmm_virt_to_phys_in_space(kernel_cr3,v+4095,&physical) && physical==pa+(uint64_t)i*4096+4095);
+  assert(vmm_entry_for_address(kernel_cr3,v,&entry,&leaf) && leaf==(1ull<<21));
+  assert(entry==pool[2][i/512] && !(entry&(1ull<<12)) && !(entry&VMM_PAGE_USER));
+  register_kernel_mapping(v,pa+(uint64_t)i*4096,flags);
+ }
+ assert(kernel_mapping_count==128);
+ const struct hac_io io={.read=read_word,.now=now};
+ assert(hac_capture(&result,&io,kernel_cr3) && result.pages==3 && result.reads[0]==1536 && result.reads[1]==1536);
+ static uint64_t saved[3][512];memcpy(saved,pool,sizeof(saved));
+ address_space_records[0]=(struct address_space_record){.used=true,.root=0x2003000};
+ address_spaces[0]=0x2003000;address_space_count=1;model_features=true;
+ pool[3][0]=0x555000;
+ assert(vmm_prepare_user_kernel_mappings(0x2003000));
+ assert(pool[3][0]==0x555000 && !memcmp(pool[3]+256,pool[0]+256,2048));
+ assert(!memcmp(saved,pool,sizeof(saved)));
+ vmm_refresh_kernel_mappings(0x2003000);
+ assert(pool[3][0]==0x555000 && !memcmp(pool[3]+256,pool[0]+256,2048));
+ assert(used==4 && !memcmp(saved,pool,sizeof(saved)));
+ pool[2][0]|=1ull<<12;assert(!vmm_prepare_user_kernel_mappings(0x2003000));pool[2][0]&=~(1ull<<12);
+ pool[2][0]&=~VMM_PAGE_CACHE_DISABLE;assert(!vmm_prepare_user_kernel_mappings(0x2003000));
+ model_features=false;
+ puts("2MiB ECAM proposal layout: actual VMM translations/attributes/root preparation and 3-table census PASS; synthetic RAM only");
+}
 int main(void) {
  check(1,true);check(120,true);check(122,true);check(123,false);check(156,false);check(256,false);
+ check_large_proposal();
  puts("actual PCI/VMM ECAM layout and unchanged census bounds PASS; simulated RAM only");
  return 0;
 }
