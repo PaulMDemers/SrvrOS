@@ -109,3 +109,15 @@ pins. Actual observation-adapter fixtures cover cache/map/retirement failures,
 floating PCI/MMIO values and changed raw observations. Native acceptance is
 pending a matched physical round. Initial source/readiness and independent
 recovery stay in the [unit record](machines/macbookair7-2.md).
+
+## Prepared candidate
+
+Release `df5ca792434d9145` (`251a912b`) passes full local host/core/profile/build/
+docs checks, fatal sanitizers, four detected compiled negative controls and
+exact-stage refusal/save/return and missing-workspace VMs. Existing VirtIO,
+Intel and Haswell profiles pass. The staged native ELF's SHA matches its manifest;
+only the preflight is linked, with no wake-protocol entry points or writer.
+It is installed with recovery retained and no reboot armed. Fresh media and
+prior-file integrity checks pass; source-qualified artifacts/checkpoints and
+independent copies are identified in the unit record. Native readout and every
+hardware ownership grant remain pending the next physical round.

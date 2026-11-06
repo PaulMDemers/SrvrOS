@@ -22,6 +22,52 @@ GT engine reads require a separately owned acknowledged wake and C0 proof;
 firmware/engine/DMA/display/audio ownership and range grants remain unaccepted.
 Prepare matched host/VM evidence before another physical round. No reboot armed.
 
+### Ready: read-only GT requester preflight
+
+Candidate `df5ca792434d9145` (`251a912b`) is installed with9aa8 recovery and
+Ubuntu default. No reboot is armed. The exact staged ELF has the read-only
+preflight linked and the wake protocol/writer unlinked; its kernel SHA matches
+its immutable manifest. Ordinary/native code cannot enter the new control model.
+The mandatory all-request-clear protocol is implemented and tested against host
+callbacks only; native initialization/requester-retirement grants remain absent.
+
+The complete host/core/profile/docs and normal/AP/native/synthetic builds pass,
+including89 installer tests with one expected opt-in skip. Fatal ASan/UBSan passes
+the wake owner, observer core, all seven actual-adapter GT outcomes, the existing
+window adapter and new cache query. Four compiled controls detect omitted initial
+clear, borrowing foreign requests, skipped C0 and releasing an uncertain first
+write. All253 collector/staging tests pass. The exact-stage Q35 captures save/
+unmount/return on expected missing-Intel refusal, with no mapping or ownership;
+missing workspace halts. VirtIO drag/scroll/recovery and all five presenter
+acquisitions pass (live supervisor recovery1 guest tick /2 polls), along with
+existing handoff/window/DMA/lifetime-publication and independent Haswell3/firmware
+cache-context profiles. None of these fixtures accepts native GT access.
+
+Both proposed pages decode UC MTRR/effective types in both prior8b9e CPU contexts;
+this is cached eligibility only, not the new live readout. The candidate requires
+fresh checks and exact original-window/full-backing preservation under exclusion.
+It reads only request `0xa188`, always-on ACK `0x130044` and PCI ASLS/SWSCI;
+no GT thread/engine, OpRegion data, wake/reset/SCI or PTE access is enabled.
+
+Fresh offline fsck/allocation/writable/headroom and a read-only inventory verify
+all1,337 prior files /101 sessions. The mount retires with unchanged boot sectors.
+Prior current8b9e, d520, cache07df, DMA5346, recovery9aa and known-goodc497 remain
+verified. To fit the145MiB candidate and32MiB reserve, only the inactive,
+GRUB/NVRAM-unreferenced0e1 EFI copy is retired after full SHA verification against
+its durable payload and `/home/paul/.local/share/srvros/efi-archives/20261105-gt-preflight/0e1e37f7c62f68d9`.
+Archived shadowd79 also remains independently verified. Accepted payloads and
+evidence survive build cleanup. Complete qualification, stage/run/checkpoint and
+source references live under `build/air-hardware-handoff-20261105`, with a matching
+hash-verified reviewed-evidence backup outside build cleanup.
+
+The next action is the guarded automated preflight at volume1%, audio disabled;
+it needs no typing, saves/unmounts and returns on handled outcomes. Require the
+matching completed session, full native prerequisites, four retired new maps,
+five guards/four new-page cache checks, fresh preservation and clean release.
+Stable/zero request bits or ASLS do not supply requester/firmware retirement.
+Physical GT preflight, actual wake ownership, engines/readers and GPU interval
+transfer remain pending. See [the audited contract](../intel-gt-access.md).
+
 ### GT implementation checkpoint (native preflight pending)
 
 The bounded wake transaction now implements mandatory initial clear, masked
@@ -38,8 +84,9 @@ MTRR/effective types for both pages. The independent decoder derives those types
 from raw CPU context; PAT-only UC is refused. Core/actual-adapter/decoder tests
 cover all22 observer failure boundaries, cache and partial-map/retirement failures,
 changed endpoints/raw values and floating PCI/MMIO reads. Existing window/cache
-checks and docs pass. Full matched build/host/VM validation follows before native
-preparation. Current8b9e remains installed and collected; no reboot is armed.
+checks and docs pass. This focused checkpoint preceded the full matched
+build/host/VM validation and preparation recorded above.8b9e was then current
+and remains retained/collected; no reboot is armed.
 See [GT access/requester preflight](../intel-gt-access.md) for primary references,
 including the mandatory initialization and Stop Rings warning. No native GT,
 firmware, reader-retirement or GPU-range authority is accepted by this checkpoint.
