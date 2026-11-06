@@ -13344,3 +13344,54 @@ workspace VMs precede a cold native trial. Source remains based on ca43ce23;
 fetched maine1a30e1e adds Air ECAM evidence/guide changes atop the already reviewed
 305f9b0b optional diagnostics and is deferred while this Wi-Fi owner is isolated.
 PR301 is graphics and379 browser;no competing Wi-Fi owner was found.
+
+### Qualified native live management trial (November 6)
+
+V127 `5a5e6139f4930941` / runtime `73b1ede0` is installed for the
+first separately owned live RX/data-OUT management exchange. Runtime retains
+mainca43ce23 and published Ports94758e7f/Apps f90cb7e6/Widgets3a695ce5 pins.
+Newer optional Air ECAM diagnostics/evidence through e1a30e1e were inspected and
+deferred;301 is graphics,379 browser and no competing Wi-Fi owner was found.
+The independent accepted161-file empty-OUT capsule and23-file notes remain
+unchanged. Its generated large session was archived and byte-compared before
+pruning. Historical failed capsules remain failed and independently sealed.
+
+The new owner freezes historical parent/private-peer state,rings and retained
+pages;uses distinct single-lifetime RX/OUT rings,48 RX/three immutable TX pages;
+and retains all DMA on every outcome. Completed copied RX pages are frozen.
+It posts fresh RX,performs the existing guarded MAC lifecycle against selected
+power,sends fixed AUTH/ASSOC/leave without retry,and requires matched private
+replies and a valid association AID. MAC drain/disable and filter/TXOP restoration
+precede both endpoint stop receipts,exact old RX context/dequeue restoration,
+OUT disable and all4096 shared input bytes. Any ownership failure is latched;
+uncertain publication/control/command or malformed events quarantine without
+speculative restoration or replay. Completed semantic refusal/timeout may leave
+and retire but remains failure. USB completion is not an AP ACK;open-system
+management success is not WPA2 authentication. Credentials remain unread and
+no key/controlled data port is enabled.
+
+The first broader qualification found an unused forward declaration in the
+standalone historical peer fixture;that failure is retained. Declarations were
+isolated and transient ownership loss was made sticky. Final matched kernel/USB
+image,complete controller suite,actual native child fault fixtures,pure exchange,
+strict ledger/full-parent regressions,namespace,227 staging cases and docs pass.
+Seven fatal ASan/UBSan groups pass. Native compiler frames peak at
+616bytes. Production-C child/full accepted-parent
+synthetic composition passes at2032870bytes,leaving
+64282bytes capture headroom,with eight whole-prefix refusals.
+The fixture is parameterized with the accepted parent's exact old RX words and
+slot;its new MAC/endpoint/reply behavior remains modeled,not physical evidence.
+Fresh real2MiB filesystem roundtrip/fsck,ordinary desktop and exact staged GPT
+save/return/missing-workspace VMs pass. Installed kernel and independently
+reconstructed firmware initramfs match the source-bound qualification.
+
+Ubuntu remains default and e47d known-good recovery previous. Accepted empty-OUT,
+handoff,power and selection payloads remain installed. If space requires older
+unreferenced peer/failed-v126 EFI copies to be retired,each is first byte-compared
+against its independent sealed backup,which remains retained. The cold trial
+requires only Wi-Fi unplugged10seconds while off,reconnected to the same port,
+then power on with workspace attached. Progress/full saved results and Ubuntu
+return are automatic. Collect this exact new session first;missing completion
+or any failed parent/management/restoration receipt remains unaccepted. Native
+live exchange,WPA2 entropy/MIC/replay/key/PN and authenticated DHCP/DNS/data/
+disconnect remain pending. Demers2.4 still requires compatible hardware.

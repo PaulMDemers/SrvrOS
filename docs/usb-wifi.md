@@ -6938,7 +6938,7 @@ authenticated IP/data/disconnect remain separate pending milestones.
 
 `--wifi-join5` requires the complete automatic `--wifi-tx5-owner` parent. It
 freezes accepted calibration,power,handoff,private peer and empty-OUT preview
-state,old rings/pages and four original context images. Separate retained RX/OUT
+state,old rings/pages and five original context images. Separate retained RX/OUT
 rings and48 RX/three TX pages have a single nonwrapping lifetime. No existing
 stopped/read-only predicate is widened;the old owner must validate again after
 exact restoration. Current input bytes,unrelated contexts,DMA pins,unused TX/RX
