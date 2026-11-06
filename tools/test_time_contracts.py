@@ -41,7 +41,7 @@ def main():
               'platform': platform.platform(), 'compile_command': command,
               'exit': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr,
               'sha256': {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
-                         for path in sources}}
+                         for path in sources + [ROOT / "tools/legacy_signal_fixture.h"]}}
     (out / 'result.json').write_text(json.dumps(record, indent=2) + '\n')
     return result.returncode
 

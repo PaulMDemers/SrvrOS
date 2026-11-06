@@ -7380,3 +7380,56 @@ observation leave every live resource/alias/NX/leaf/retirement grant false.
 Audited source/reference hashes, replay output and local test logs are retained
 with a durable copy outside build. No payload installation or physical result
 changes; previous capture remains closed and no reboot is armed.
+
+### Bounded read-only alias/NX diagnostic scope (2026-11-05)
+
+Base `3f158022`; prior native run collected/closed. PR301 `7e33d1a5` remains
+independent GPU ownership work; no competing VMM edit is present in that branch.
+Add a separate v3 firmware/cache profile, retaining v1/v2 and their49-MSR,
+16-PTE context caps. New census has explicit64-table/32768-entry per-pass and
+4096-byte lossless encoding caps, two exact passes within100ms total, and refuses
+any nonkernel registered root. Read-only NX/EFER endpoints and CPU0 IRQ exclusion
+bracket the census. Keep complete raw RAM table data or refuse; no target data,
+new mapping, page-table/policy write or hardware ownership. Touched scope: isolated
+Haswell diagnostic/core/decoder, a read-only VMM sole-root guard, profile/harness,
+tests and own docs. Require max-tail, guard/overflow/change/fault tests and exact
+VM save/return/refusal checks before native installation under existing authority.
+
+PR381 candidate `dbb1756c`, release `715cee81b804a3ab`, now has complete local
+validation coverage. Broad build/core/desktop/widgets/profile/host/docs on
+`2db07928` completed89 installation tests (one existing opt-in skip) and the
+installed-root exFAT cases; its sole remaining failure was a legacy FD fixture
+link. The published fixture support and dependency were reused in `dbb1756c`.
+All other targets then passed again, explicitly retaining `test-installed-root`;
+its source inputs, driver binaries and both native kernels/initramfs are proven
+unchanged. The original failed run and successful retry remain separate evidence.
+
+The new runtime baseline needed GCC/legacy-signal fixture compatibility already
+published in PR301 `941f37eb`/`7e33d1a5`; reused fixture bodies and targeted recipes
+are identical to those revisions. The signal-state production change is verified
+whitespace-only. No warning, assertion, integrity gate or limit was disabled.
+An earlier fixture/kernel hex-format mismatch was corrected before this validation;
+the strict decoder now requires the actual fixed-width kernel spelling. Failure
+step/cursor records retain the exact last source/index and expected/read word.
+
+ASan/UBSan alias core, real VMM guard and actual adapter complete/refusal cases
+pass, including64 tables/32768 reads per pass and the4095-byte maximum lossless
+payload. Both raw passes survive directly in the unchanged64KiB tail with the
+audited16,514-byte source postamble plus8192-byte margin. Independent strict
+decoding and common-cache byte identity, ordinary-kernel exclusion and version1/2
+compatibility verify. Five sequential exact-stage VM trials pass: legacy firmware,
+legacy cache, legacy32 fences, new identity-refusal/save/unmount/return and missing
+workspace. Q35 refusal is not native alias/NX acceptance.
+
+Fresh local model, AC, USB identity/all600 prior file hashes,1670 clusters,
+headroom and zero allocation leaks/errors verify. The unattended native candidate
+retains console recovery and independent payload/evidence backups. It must save
+both complete raw census passes, cache/NX/firmware guards and clean integrity
+results before acceptance. No device target read, new mapping, firmware ownership,
+power-policy change or hardware-alias completeness follows; physical result pending.
+
+Final host-only decoder revision `7f08b972` also rejects out-of-width CPUID words.
+Its affected suites, actual producer/sanitizer fixtures and maximum-tail checks
+pass; the saved exact VM refusal receipt redecodes correctly. Native payload,
+profile and VM harness remain byte-identical to the tested `dbb1756c` candidate.
+The run record distinguishes these tool and native source revisions explicitly.

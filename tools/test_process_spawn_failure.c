@@ -90,3 +90,7 @@ int main(void) {
     assert(!processes[1].allocated && !process_slots_busy[1]);
     puts("process-spawn-vector-failure: PASS (real ELF load, child cleanup, modeled worker binding)");
 }
+
+void net_process_wake(struct process *p) { (void)p;assert(!"No live scope in failed-spawn fixture"); }
+void keyboard_wake_waiters(void) { assert(!"No live scope in failed-spawn fixture"); }
+void pty_wake(void) { assert(!"No live scope in failed-spawn fixture"); }

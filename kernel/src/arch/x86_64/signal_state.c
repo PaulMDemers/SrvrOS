@@ -370,7 +370,8 @@ bool signal_wait_push_record(struct signal_thread_state *s,struct signal_state_i
     next.ranges[depth]=range;next.waits[depth].phase_flags=(w->phase_flags&~UINT64_C(255))|SIGNAL_WAIT_HANDLER;
     next.waits[depth].record_token=rec.token;
     for(unsigned i=0;i<4;i++) if(next.io[i].flags&SIGNAL_IO_LIVE) next.io[i].flags|=SIGNAL_IO_INTERRUPTED;
-    if(!valid_bound(&next,id))return false;*s=next;return true;
+    if(!valid_bound(&next,id))return false;
+    *s=next;return true;
 }
 bool signal_wait_pop_record(struct signal_thread_state *s,struct signal_state_identity id,uint64_t token,uint64_t frame,
     struct signal_context_record *out,struct signal_context_range *range_out) {
@@ -384,5 +385,6 @@ bool signal_wait_pop_record(struct signal_thread_state *s,struct signal_state_id
     w->record_token=0;w->phase_flags=(w->phase_flags&~UINT64_C(255))|
         (rec.wait_mode==SIGNAL_WAIT_MASK_OVERRIDE?SIGNAL_WAIT_INFO_DONE:SIGNAL_WAIT_LEGACY_READY);
     if(rec.wait_mode==SIGNAL_WAIT_COMPLETION_ONLY)w->phase_flags|=SIGNAL_WAIT_INFO_COMPLETED;
-    if(!valid_bound(&next,id))return false;*s=next;*out=rec;*range_out=range;return true;
+    if(!valid_bound(&next,id))return false;
+    *s=next;*out=rec;*range_out=range;return true;
 }

@@ -20,7 +20,8 @@ static struct process original;
 static struct fpu_state kernel_fpu;
 #ifndef SRVROS_PROCESS_COPY_CUSTOM_OBSERVERS
 bool scheduler_observe_user_return(struct scheduler_user_return_observation *out) {
-    if(!observation_ok || (test_flags&0x200)) return false;*out=observation;return true;
+    if(!observation_ok || (test_flags&0x200)) return false;
+    *out=observation;return true;
 }
 bool scheduler_observe_user_entry(struct scheduler_user_return_observation *out) {
     (void)out;assert(!"Private frame operations must retain strict return admission");return false;

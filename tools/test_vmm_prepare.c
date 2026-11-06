@@ -152,6 +152,16 @@ int main(void)
         tables[i]=mmap(NULL,host_page,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0);
         assert(tables[i]!=MAP_FAILED);memset(tables[i],0xa5,host_page);
     }
+    reset_mapping();
+    address_space_count=0;memset(address_space_records,0,sizeof(address_space_records));
+    test_cr3=kernel_cr3;test_flags=2;
+    assert(vmm_diagnostic_sole_kernel_root(kernel_cr3));
+    assert(!vmm_diagnostic_sole_kernel_root(0));
+    assert(!vmm_diagnostic_sole_kernel_root(kernel_cr3|1));
+    test_flags|=1ull<<9;assert(!vmm_diagnostic_sole_kernel_root(kernel_cr3));test_flags=2;
+    test_cr3|=1;assert(!vmm_diagnostic_sole_kernel_root(kernel_cr3));test_cr3=kernel_cr3;
+    address_space_count=1;assert(!vmm_diagnostic_sole_kernel_root(kernel_cr3));address_space_count=0;
+    address_space_records[63].used=true;assert(!vmm_diagnostic_sole_kernel_root(kernel_cr3));address_space_records[63].used=false;
     reset_mapping();check(root(),true); /* Inactive differing target copies. */
     create_tests();reset_mapping();check(root(),true);
     test_cr3=root()|5;

@@ -27,19 +27,42 @@ uint64_t vmm_kernel_address_space(void){return 0x100000;}
 uint64_t vmm_current_address_space(void){return mode==3?0x2000:0x100000;}
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t va,uint64_t *out){(void)space;translated++;*out=info.physical_address+va-(uint64_t)(uintptr_t)bytes;return mode!=4;}
 uint64_t pmm_hhdm_offset(void){return 0xffff800000000000ull;}
-uint64_t timer_monotonic_us(void){return ticks+=100;}
+uint64_t timer_monotonic_us(void){return ticks+=
+#ifdef SRVROS_HAC_HOST_TEST
+1;
+#else
+100;
+#endif
+}
 bool timer_reference_ready(void){return true;}
 void console_write(const char *s){fputs(s,stdout);}
 /* Kernel formatter consumes uint64 for every numeric argument. */
-void console_printf(const char *fmt,...){va_list ap;va_start(ap,fmt);for(const char *p=fmt;*p;p++){if(*p!='%'){putchar(*p);continue;}p++;if(*p=='u')printf("%llu",(unsigned long long)va_arg(ap,uint64_t));else if(*p=='s')fputs(va_arg(ap,const char *),stdout);else assert(0);}va_end(ap);}
+void console_printf(const char *fmt,...){va_list ap;va_start(ap,fmt);for(const char *p=fmt;*p;p++){if(*p!='%'){putchar(*p);continue;}p++;if(*p=='u')printf("%llu",(unsigned long long)va_arg(ap,uint64_t));else if(*p=='x')printf("0x%016llx",(unsigned long long)va_arg(ap,uint64_t));else if(*p=='s')fputs(va_arg(ap,const char *),stdout);else assert(0);}va_end(ap);}
 
 static unsigned msrs,ptes;
+static uint64_t alias_flags=0x202;
+bool vmm_diagnostic_sole_kernel_root(uint64_t root){return root==0x100000 && !(alias_flags&512) && mode!=21;}
+uint64_t hac_test_save(void){uint64_t saved=alias_flags;alias_flags&=~512ull;return saved;}
+void hac_test_restore(uint64_t saved){alias_flags=saved;}
+bool hac_test_state(uint32_t *max,uint32_t *nx,uint64_t *efer){*max=0x80000008;*nx=mode==22?0:(1u<<20)|(1u<<26);if(!*nx)return false;*efer=mode==23?0x500:0xd00;return (*efer&0xd00)==0xd00;}
 bool hcc_test_cpu(void *ctx,struct x86_cache_cpu *c){(void)ctx;*c=(struct x86_cache_cpu){.vendor={0x756e6547,0x49656e69,0x6c65746e},.signature=mode==9?0x306d4:0x40651,.features=0x11020,.physical_bits=39};return true;}
-bool hcc_test_msr(void *ctx,uint32_t n,uint64_t *v){(void)ctx;msrs++;if(mode==11)return false;*v=n==0xfe?(mode==13?0x510:0x100):n==0x277?0x0007040600070406ull:n==0x2ff?0x806:0;return true;}
+bool hcc_test_msr(void *ctx,uint32_t n,uint64_t *v){(void)ctx;msrs++;if(mode==11)return false;*v=n==0xfe?((mode==13 || mode==27)?0x510:0x100):n==0x277?0x0007040600070406ull:n==0x2ff?0x806:0;return true;}
 uint64_t hcc_test_cr3(void){return 0x100000;}
 uint64_t hcc_test_cr4(void){return mode==10?1ull<<12:0;}
 bool hcc_test_entry(uint64_t pa,unsigned index,uint64_t *v){
  assert(pa!=0xfed90000);ptes++;
+ if(mode>=20) {
+  if(mode==27){assert(pa==0x100000);*v=index<452?((uint64_t)index*index*17)<<12:0;return true;}
+  if(mode==28){if(pa==0x100000)*v=index<63?(0x101000+4096*index)|3:0;else *v=0;return true;}
+  if(mode==24 && pa==0x103000)return false;
+  *v=0;
+  if(pa==0x100000){if(index==256)*v=0x101003;else if(index==384)*v=0x102003;}
+  else if(pa==0x101000){if(index==0)*v=0x103003;}
+  else if(pa==0x103000)*v=((uint64_t)index<<21)|0x83;
+  else if(pa!=0x102000)return false;
+  if(mode==25 && pa==0x100000 && index==0 && ptes>2052)*v^=32;
+  return true;
+ }
  if(pa==0x100000){if(index==384 && mode==13){*v=0x104003;return true;}if(index==384 && mode!=7){*v=0;return true;}*v=mode==8?0xfed90003:0x101003;}
  else if(pa==0x101000)*v=0x102003;
  else if(pa==0x102000)*v=0x103003;
@@ -61,9 +84,16 @@ int main(int argc,char **argv){
  if(argc==1)mode=1;
  if(mode==14)entry[120]=(struct limine_memmap_entry){.base=0xfed90000,.length=4096,.type=0};
  if(mode==15)entry[127].base=0xffd70000;
- bool ok=haswell_cache_context_run();
- if(argc==2 || mode==13){assert(ok);puts("laptop-capture: completed=yes");}
+ bool ok=
+#ifdef SRVROS_HAC_HOST_TEST
+haswell_alias_context_run();
+#else
+haswell_cache_context_run();
+#endif
+
+ if(argc==2 || mode==13 || mode==20 || mode==27 || mode==28){assert(ok);puts("laptop-capture: completed=yes");}
  else {assert(!ok);puts("laptop-capture: completed=NO");}
  if(mode==1 || mode==9 || mode==10 || mode==14 || mode==15)assert(!msrs && !ptes);
+ assert(alias_flags==0x202);
  return 0;
 }

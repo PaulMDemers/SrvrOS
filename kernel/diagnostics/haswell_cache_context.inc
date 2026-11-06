@@ -97,7 +97,8 @@ static void hcc_report(unsigned status) {
   }
  }
 }
-bool haswell_cache_context_run(void) {
+#include "haswell_alias_adapter.inc"
+static bool hcc_run(bool alias) {
  unsigned status=2;const struct hfw_io fw_io={.identity=identity,.catalog=catalog,.table=table,.now=now,.progress=progress};
  console_write("hsw-cache-progress: read-only Air6,1 CPU/cache and page-table RAM; VT-d target never dereferenced\n");
  if(!hfw_capture(&hcc_fw[0],&fw_io,pin))goto done;
@@ -105,6 +106,7 @@ bool haswell_cache_context_run(void) {
  if(!hcc_resource_catalog())goto done;
  for(unsigned phase=0;phase<2;phase++) {
   console_printf("hsw-cache-progress: context=%u/2 no mappings or policy writes\n",(uint64_t)phase+1);
+  if(alias && phase==1 && !hac_run())goto done;
   hcc_bounds[phase][0]=timer_monotonic_us();
   if(phase && (hcc_bounds[phase][0]<hcc_bounds[0][1] || hcc_bounds[phase][0]-hcc_bounds[0][1]>100000))goto done;
   hcc_cr3[phase]=hcc_root();hcc_cr4[phase]=hcc_control();hcc_hhdm[phase]=pmm_hhdm_offset();
@@ -125,5 +127,8 @@ bool haswell_cache_context_run(void) {
  for(unsigned alias=0;alias<2;alias++)if(!hcc_walk_equal(&hcc_walks[0][0][alias],&hcc_walks[1][0][alias]))goto done;
  status=4;if(!hfw_capture(&hcc_fw[1],&fw_io,pin) || !hcc_fw_equal())goto done;
  hfw_report_named(&hcc_fw[1],"hcache-firmware-post");status=1;
- done: if(status==2)hfw_report(&hcc_fw[0]);hcc_report(status);return status==1;
+ done: if(status==2)hfw_report(&hcc_fw[0]);hcc_report(status);if(alias)hac_report(status==1);return status==1;
 }
+
+bool haswell_cache_context_run(void){return hcc_run(false);}
+bool haswell_alias_context_run(void){return hcc_run(true);}
