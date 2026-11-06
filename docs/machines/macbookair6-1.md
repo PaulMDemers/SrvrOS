@@ -7946,3 +7946,24 @@ only three matching logs were added. Offline checks pass at608 files /1681
 clusters, zero leaks/FAT-bitmap mismatches/errors. Raw failed evidence and exact
 payload are hash-verified outside build. One-shot state is clear and collection
 disabled; Ubuntu and protected accepted recovery remain. No new boot is armed.
+
+
+### Raw-census first-touch scope (2026-11-06)
+
+Base `6896aa9d`; prior failed native run collected, no boot armed. Audit the
+walker/result-storage first-touch path and add a guarded, bounded RAM-only
+preparation traversal before the original two exact snapshots. Preparation and
+both snapshots share the original100ms clock; each traversal retains64 tables
+and32768 maximum reads, and measured output remains4096 bytes/pass. Record
+preparation separately; it is additional read-only prerequisite work, not a
+third accepted snapshot, a failed-pass retry or a restarted deadline. Prime
+private result backing before observations; never write page tables or mask
+A/D changes. Fail closed on preparation errors or graph expansion afterward.
+
+Touched scope: diagnostic alias core/adapter/result contract, host/core/collector
+regressions and own machine/design records. Normal startup remains unchanged.
+PR301 owns separate Air7,2 scanout/process revocation work and PR19 owns Wi-Fi;
+actual open PRs and current integration baseline inspected, no conflicting
+alias-core changes published. Next checkpoint: reproduced first-touch race,
+exact-comparison negative tests, matched build/staged VM validation and bounded
+automated native capture under existing reboot authorization.
