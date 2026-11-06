@@ -18,6 +18,28 @@ new firmware observation core/adapter/decoder, explicit recipe/collection/tests
 and this unit's docs. Preserve recovery and the independent Air6 mappings.
 Stop with matched host/VM validation and a prepared test; no reboot this block.
 
+### Firmware census implementation checkpoint (physical acceptance pending)
+
+The wake core now treats only low16 bits as requester state; the readable
+upper16 mask is preserved and all16 upper-bit cases pass through the full host
+clear/request/ACK/C0/release transaction. Independent grants remain mandatory.
+The native wake writer is still unbound; no firmware state is inferred retired.
+
+A new explicit `--intel-gt-firmware-capture` recipe adds a fixed OpRegion
+header/mailbox census to the accepted native GT prerequisites. It permits only
+one fully containing ACPI-NVS boot resource, a DWORD-aligned pointer with its
+fixed fields in one page, fresh matching WB MTRR/PAT/effective cache state,
+and temporary RO/NX aliases. Both passes require five guards, two retired
+mappings and full before/after inherited preservation under CPU exclusion.
+Only signature/size/version/mailbox-mask and advertised public readiness/
+command words are read; no mailbox call, readiness write, wake or engine access.
+Quiet fields still yield grants0. See [the ownership matrix](../intel-gt-access.md#firmware-handoff-census-and-native-wake-admission).
+
+Focused core/actual-adapter/decoder/cache tests pass, including40 I/O fault
+boundaries, malformed/unsupported headers, wrong/short resources, cache
+refusal, changed fields and retained uncertain aliases. Full matched-source
+host/VM validation and candidate preparation follow; no reboot is armed.
+
 ### Native read-only GT requester preflight accepted
 
 Release `df5ca792434d9145`, source `251a912b`, returned as

@@ -129,3 +129,55 @@ This accepts only the bounded read-only requester observation. No firmware,
 engine or other hardware reader is retired; no request initialization, wake,
 engine inspection or GPU address transfer is authorized by these raw values.
 Recovery, media integrity and independent evidence are tracked in the unit record.
+
+## Firmware handoff census and native-wake admission
+
+The accepted raw request `0x00010000` has zero active low16 bits and mask1
+in the upper16 bits. Those halves have different meanings in PRM2c; the wake
+core now compares only low16 requester state while preserving the raw value.
+Its host adapter models readable mask bits and tests each upper bit separately.
+This correction does not supply missing ownership grants.
+
+The next explicit recipe, `--intel-gt-firmware-capture`, adds a fixed-field
+OpRegion census after the accepted GT observer. It follows ASLS only when the
+complete8KiB extent and containing header page are covered by exactly one boot
+ACPI-NVS entry, with no overlapping entry or catalog gap. This first version
+supports DWORD-aligned pointers whose fixed fields fit one page; page alignment
+of ASLS itself is not required. A fresh matching CPU cache snapshot must derive
+WB MTRR/PAT/effective types before each RO/NX/WB mapping. It does not modify the
+old MMIO/GGTT/cache allowlists. Both aliases must retire, with five guards and
+before/after original-window/full-backing revalidation under CPU exclusion.
+
+The observer reads the16-byte signature, size, version and mailbox mask first.
+Only an8KiB v1/v2 header with the expected signature admits reads of advertised
+mailbox fields: ACPI DRDY/CSTS/CEVT, SWSCI SCIC, and ASLE ARDY/ASLC. No private
+firmware payload, VBT, EDID, mailbox arguments or pointer chains are copied.
+Every successful pass requires positive monotonic progress within100ms and
+stable endpoint/header/status values. Changed, unknown or inaccessible data
+refuses; uncertain mapping retirement retains CPU exclusion. The raw resource,
+fields and failure status remain diagnostic evidence, including when a valid
+firmware region cannot be established. This is a new physical acceptance target.
+
+The layout comes from the pinned upstream OpRegion structs linked above. The
+[UEFI runtime-services contract](https://uefi.org/specs/UEFI/2.10/08_Services_Runtime_Services.html)
+separates boot-services exit from runtime services. We therefore do not turn a
+Limine handoff, a quiet mailbox, low16 request zeros or absent ACKs into a claim
+that runtime firmware/SMM is retired. No OpRegion command, SCI/AML call, driver
+readiness write, forcewake write or GT engine access is enabled by this census.
+The staged native ELF must continue to omit all wake-protocol entry points.
+
+| Requirement | What exists | Still required before native wake |
+| --- | --- | --- |
+| CPU clients | Accepted bounded exclusion and preserved inherited state | Fresh same-boot lease through all issued/uncertain writes |
+| Request encoding | PRM-correct low16/mask split and bounded host transaction | Native grants independent of sampled zeros |
+| Firmware surface | Stable native ASLS/SWSCI; new catalog/header/mailbox census | Explicit supported firmware/requester lifecycle contract; quiet words are not retirement |
+| Initial clear | PRM-mandated `0xffff0000`, host-tested only | Initialization authority over all requester bits |
+| Kernel bit | Host-owned bit0 with ACK/C0 and exact release | Independently established exclusive bit ownership |
+| GPU memory/readers | Populated original slots and preserved fence | Separate firmware/engine/DMA/display/audio reader handoff and actual interval transfer |
+
+A successful census always emits grants0/writes0/wake0/ownership=none. The strict
+host decoder checks field coverage, advertised-mailbox read counts, resource
+bounds, timings, native prerequisite ordering and independent WB derivation.
+It reports unresolved firmware/requester retirement even for all-zero mailboxes.
+A native wake writer remains intentionally unbound until those lifecycle facts
+can be established; its bounded protocol is ready for integration once they are.

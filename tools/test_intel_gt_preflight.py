@@ -35,5 +35,10 @@ class GTTests(unittest.TestCase):
         row=next(x for x in self.raw.splitlines() if x.startswith('intel-gt-summary:'))
         for text in (self.raw+row+'\n',self.raw.replace(row+'\n',''),self.raw.replace('ownership=none','ownership=none extra=0'),self.raw.replace('status=1','status=-1'),self.raw.replace('status=1','status=1 status=1')):
             with self.assertRaises(ValueError):gt_result(text)
+    def test_mask_is_not_an_active_request_or_grant(self):
+        r=gt_result(self.raw.replace('requests=0x2','requests=0x10000'))
+        self.assertTrue(r['qualification_complete'])
+        self.assertEqual(r['request_fields'],[dict(active=0,mask=1)]*2)
+        self.assertFalse(r['forcewake_permission'])
     def test_no_receipt(self):self.assertIsNone(gt_result('ordinary desktop'))
 if __name__=='__main__':unittest.main()

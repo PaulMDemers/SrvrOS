@@ -808,6 +808,13 @@ def collect(mount, volume, output):
                     attention.append('collection: Intel backing observation refused, failed or incomplete')
             except ValueError as error:
                 attention.append('collection: invalid Intel backing observation: '+str(error))
+        intel_firmware=None
+        if 'srvros.intel-firmware=read-only' in text:
+            try:
+                from intel_gt_firmware import native_firmware_result
+                intel_firmware=native_firmware_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_firmware or not intel_firmware['native_observation_complete']:attention.append("Intel firmware census incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel firmware census receipt: "+str(error))
         intel_gt=None
         if 'srvros.intel-gt-preflight=read-only' in text:
             try:
@@ -871,7 +878,7 @@ def collect(mount, volume, output):
             "intel_display_capture": intel_display,
             "intel_display_backing": intel_backing,
             "intel_scanout_lifetime": intel_lifetime,
-            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,
+            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,"intel_gt_firmware":intel_firmware,
             "posix_capture": posix_proof,
             "storage_wait": storage_wait,
             "battery_preflight": preflight,

@@ -734,3 +734,87 @@ bool intel_gt_preflight_probe_report(void) {
         (uint64_t)n,r.sample[n].begin_us,r.sample[n].end_us,(uint64_t)r.sample[n].requests,(uint64_t)r.sample[n].ack,(uint64_t)r.sample[n].reads);
     return complete;
 }
+
+#include <srvros/intel_gt_firmware.h>
+struct fw_observer {struct gt_observer gt;struct intel_fw_endpoint endpoint;uint64_t page;unsigned guards,cache_checks;bool mapped,uncertain;};
+static bool fw_endpoint(void *ctx,struct intel_fw_endpoint *out) {
+    struct fw_observer *f=ctx;struct intel_gt_endpoint e={0};
+    if(f->mapped || !gt_endpoint(&f->gt,&e))return false;
+    *out=(struct intel_fw_endpoint){.asls=e.asls,.swsci=e.swsci};
+    const struct limine_memmap_response *m=memmap_request.response;unsigned overlaps=0;
+    uint64_t first=e.asls&~4095ull,last=(uint64_t)e.asls+8192;
+    if(!m || !m->entries || !m->entry_count || m->entry_count>4096)return false;
+    for(uint64_t i=0;i<m->entry_count;i++) {
+        const struct limine_memmap_entry *p=m->entries[i];
+        if(!p || !p->length || p->base>UINT64_MAX-p->length)return false;
+        if(p->base<last && first<p->base+p->length) {
+            overlaps++;
+            if(p->base<=first && last<=p->base+p->length){out->base=p->base;out->length=p->length;out->type=p->type;}
+        }
+    }
+    return overlaps==1 && out->length;
+}
+static bool fw_guard(void *ctx) {
+    struct fw_observer *f=ctx;f->guards++;
+    return !f->mapped && !f->uncertain && gt_guard(&f->gt);
+}
+static bool fw_map(void *ctx,uint64_t physical) {
+    struct fw_observer *f=ctx;uint64_t old;
+    if(f->mapped || f->uncertain || physical!=(f->endpoint.asls&~4095ull) ||
+       !display_access_held(&f->gt.token) || !intel_boot_check(INTEL_BOOT_OBSERVER,f->gt.a.common.gpu) ||
+       vmm_current_address_space()!=f->gt.a.common.cr3 || vmm_virt_to_phys_in_space(f->gt.a.common.cr3,BACKING_VA,&old))return false;
+    f->cache_checks++;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    if(!intel_display_test_fw_wb(physical))return false;
+#else
+    if(!intel_cache_probe_firmware_wb_page(physical))return false;
+#endif
+    if(!vmm_map_page_in_space(f->gt.a.common.cr3,BACKING_VA,physical,VMM_PAGE_NO_EXECUTE)) {
+        if(vmm_virt_to_phys_in_space(f->gt.a.common.cr3,BACKING_VA,&old)){f->uncertain=true;trial_mapping_fault=true;}
+        return false;
+    }
+    f->page=physical;f->mapped=true;return true;
+}
+static bool fw_read(void *ctx,uint32_t offset,uint32_t *out) {
+    struct fw_observer *f=ctx;uint64_t physical;bool allowed=false;
+    for(unsigned i=0;i<INTEL_FW_WORDS;i++)if(offset==intel_fw_offsets[i])allowed=true;
+    if(!allowed || !out || !f->mapped || !display_access_held(&f->gt.token) ||
+       !intel_boot_check(INTEL_BOOT_OBSERVER,f->gt.a.common.gpu) || vmm_current_address_space()!=f->gt.a.common.cr3 ||
+       !vmm_virt_to_phys_in_space(f->gt.a.common.cr3,BACKING_VA,&physical) || physical!=f->page)return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_fw_read(offset,out);
+#else
+    *out=*(volatile const uint32_t *)(BACKING_VA+(f->endpoint.asls&4095)+offset);return true;
+#endif
+}
+static bool fw_unmap(void *ctx) {
+    struct fw_observer *f=ctx;uint64_t physical;
+    if(!f->mapped || vmm_current_address_space()!=f->gt.a.common.cr3 ||
+       !vmm_virt_to_phys_in_space(f->gt.a.common.cr3,BACKING_VA,&physical) || physical!=f->page ||
+       !vmm_unmap_page_in_space(f->gt.a.common.cr3,BACKING_VA,&physical) || physical!=f->page){f->uncertain=true;trial_mapping_fault=true;return false;}
+    f->mapped=false;return true;
+}
+bool intel_gt_firmware_probe_report(void) {
+    static bool once;if(once)return false;once=true;
+    struct fw_observer f={0};struct intel_fw_result r={0};struct scanout_handoff_snapshot s={0};
+    console_write("intel-firmware: read-only fixed OpRegion handoff census; no mailbox commands, wake or ownership grant\n");
+    bool acquired=false,before=false,after=false,released=false;
+    if(intel_window_handoff_snapshot(&s) && console_sync() && trial_adapter(&f.gt.a))acquired=display_access_acquire(0x475446574full,&f.gt.token);
+    if(acquired && display_present_handoff_idle()) {
+        before=intel_window_handoff_revalidate(&s);
+        if(before && fw_endpoint(&f,&f.endpoint))
+            (void)intel_fw_observe(&r,&(struct intel_fw_io){&f,fw_guard,fw_endpoint,fw_map,fw_read,fw_unmap,now});
+        if(!f.uncertain)after=intel_window_handoff_revalidate(&s);
+    }
+    if(f.uncertain){r.retained=1;r.status=IFW_RETAINED;}
+    if(acquired)released=display_access_release(&f.gt.token,!trial_mapping_fault);
+    if(released)console_flush();
+    bool complete=r.status==IFW_OBSERVED && before && after && released && f.guards==5 && f.cache_checks==2;
+    console_printf("intel-firmware-summary: v=1 status=%u maps=%u retained=%u acquired=%u before=%u after=%u released=%u guards=%u cache_checks=%u guard_retained=%u asls=%x swsci=%x base=%x length=%x type=%u complete=%u grants=0 writes=0 wake=0 ownership=none\n",
+        (uint64_t)r.status,(uint64_t)r.maps,(uint64_t)r.retained,(uint64_t)acquired,(uint64_t)before,(uint64_t)after,(uint64_t)released,(uint64_t)f.guards,(uint64_t)f.cache_checks,(uint64_t)(trial_mapping_fault && !r.retained),(uint64_t)r.endpoint.asls,(uint64_t)r.endpoint.swsci,r.endpoint.base,r.endpoint.length,r.endpoint.type,(uint64_t)complete);
+    for(unsigned n=0;n<2;n++) {
+        console_printf("intel-firmware-sample: v=1 sample=%u begin_us=%u end_us=%u reads=%u\n",(uint64_t)n,r.sample[n].begin_us,r.sample[n].end_us,(uint64_t)r.sample[n].reads);
+        for(unsigned i=0;i<INTEL_FW_WORDS;i++)console_printf("intel-firmware-word: v=1 sample=%u index=%u offset=%x value=%x\n",(uint64_t)n,(uint64_t)i,(uint64_t)intel_fw_offsets[i],(uint64_t)r.sample[n].words[i]);
+    }
+    return complete;
+}

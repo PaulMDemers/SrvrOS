@@ -85,3 +85,12 @@ bool intel_cache_probe_gt_uc_page(uint64_t physical,uint32_t offset) {
        !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
     return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
 }
+
+/* Cache eligibility only: callers separately bind firmware catalog ownership,
+ * pointer, exact RO/NX mapping and lifetime; never accepts MMIO or UC aliases. */
+bool intel_cache_probe_firmware_wb_page(uint64_t physical) {
+    struct x86_cache_snapshot current;unsigned m,p,e;
+    if(!report_ok || physical<4096 || physical>=0x100000000ull || (physical&4095) ||
+       !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
+    return x86_cache_page(&current,physical,0,&m,&p,&e) && m==6 && p==6 && e==6;
+}

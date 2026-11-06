@@ -39,7 +39,7 @@ static bool wait_state(struct intel_gt_access *g,uint32_t desired,bool c0) {
         if(!clock_ok(g,phase) || !read_pair(g))return false;
         /* All other requesters were retired by the audited caller. Their
          * appearance is ownership loss, never a bit we may clear or borrow. */
-        if(g->requests!=desired || (g->ack&~1u))return fail(g,GT_ACCESS_FOREIGN);
+        if((g->requests&0xffffu)!=desired || (g->ack&~1u))return fail(g,GT_ACCESS_FOREIGN);
         if(g->ack==desired) {
             if(!c0)return guarded(g) && clock_ok(g,phase);
             if(!read_reg(g,INTEL_GT_THREAD,&g->thread))return false;
@@ -62,8 +62,8 @@ bool intel_gt_access_open(struct intel_gt_access *g,const struct display_access_
     if(!g->begin || g->begin==UINT64_MAX)return fail(g,GT_ACCESS_CLOCK);
     if(!read_pair(g))return false;
     /* Deliberately narrower than the hardware: do not clear somebody else's
-     * nonzero request even if the caller mistakenly supplies all grant bits. */
-    if(g->requests || g->ack)return fail(g,GT_ACCESS_FOREIGN);
+     * nonzero low-half request even if the caller mistakenly supplies all grant bits. */
+    if((g->requests&0xffffu) || g->ack)return fail(g,GT_ACCESS_FOREIGN);
     if(!clock_ok(g,g->begin))return false;
     if(!display_access_pin(&g->exclusion))return fail(g,GT_ACCESS_EXCLUSION);
     g->pinned=true;g->state=GT_ACCESS_OPENING;
@@ -79,7 +79,7 @@ bool intel_gt_access_check(struct intel_gt_access *g) {
     if(!guarded(g))return false;
     g->io.pause(g->io.context);
     if(!clock_ok(g,phase) || !read_pair(g) || !read_reg(g,INTEL_GT_THREAD,&g->thread))return false;
-    if(g->requests!=1 || g->ack!=1 || (g->thread&7))return fail(g,GT_ACCESS_FOREIGN);
+    if((g->requests&0xffffu)!=1 || g->ack!=1 || (g->thread&7))return fail(g,GT_ACCESS_FOREIGN);
     if(!guarded(g) || !clock_ok(g,phase))return false;
     return g->last>phase ? true : fail(g,GT_ACCESS_CLOCK);
 }

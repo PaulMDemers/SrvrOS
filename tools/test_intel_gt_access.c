@@ -21,14 +21,14 @@ static enum intel_gt_write write_reg(void *p,uint32_t reg,uint32_t value) {
     assert(p==&g && reg==INTEL_GT_REQUEST && !display_access_allowed());
     assert(write_calls<8);trace[write_calls++]=value;
     if(unissued)return GT_WRITE_NONE;
-    request=(request&~(value>>16))|(value&65535);ack_wait=2;
+    request=(value&0xffff0000u)|((request&0xffffu)&~(value>>16))|(value&65535);ack_wait=2;
     if(!step() || uncertain)return GT_WRITE_UNCERTAIN;
     return GT_WRITE_DONE;
 }
 static uint64_t now(void *p){assert(p==&g);if(backward)return ticks--;if(!frozen)ticks+=100;return ticks;}
 static void pause_io(void *p) {
     assert(p==&g);pause_calls++;
-    if(!never_ack && ack_wait && !--ack_wait)ack=request;
+    if(!never_ack && ack_wait && !--ack_wait)ack=request&0xffffu;
     if(ack==1 && !never_c0)thread=0;
 }
 static struct intel_gt_io io(void){return (struct intel_gt_io){&g,guard,read_reg,write_reg,now,pause_io};}
@@ -47,11 +47,12 @@ int main(void) {
     fresh();assert(intel_gt_access_open(&g,&token,7,io()) && g.state==GT_ACCESS_AWAKE);
     struct intel_gt_access copy=g;unsigned call_count=calls;
     assert(!intel_gt_access_check(&copy) && !intel_gt_access_close(&copy) && calls==call_count);
-    assert(request==1 && ack==1 && !thread && g.writes==2 && write_calls==2 && g.pinned);
+    assert((request&0xffffu)==1 && ack==1 && !thread && g.writes==2 && write_calls==2 && g.pinned);
     assert(!display_access_release(&token,true) && intel_gt_access_check(&g));
-    assert(intel_gt_access_close(&g) && !g.pinned && !request && !ack && g.writes==3);
+    assert(intel_gt_access_close(&g) && !g.pinned && !(request&0xffffu) && !ack && g.writes==3);
     assert(trace[0]==0xffff0000u && trace[1]==0x10001 && trace[2]==0x10000);
     unsigned total=calls;assert(!intel_gt_access_close(&g) && display_access_release(&token,true));
+    for(unsigned upper=0;upper<16;upper++){fresh();request=1u<<(16+upper);assert(intel_gt_access_open(&g,&token,7,io()));assert(intel_gt_access_close(&g) && display_access_release(&token,true));}
     for(unsigned bit=1;bit<=4;bit<<=1){fresh();assert(!intel_gt_access_open(&g,&token,7^bit,io()) && g.reason==bit && !calls && !write_calls && !g.pinned);assert(display_access_release(&token,true));}
     fresh();struct display_access_token wrong=token;wrong.epoch++;assert(!intel_gt_access_open(&g,&wrong,7,io()) && g.reason==GT_ACCESS_EXCLUSION && !calls);
     fresh();assert(!intel_gt_access_open(&g,&token,15,io()) && (g.reason&GT_ACCESS_INPUT) && !calls);

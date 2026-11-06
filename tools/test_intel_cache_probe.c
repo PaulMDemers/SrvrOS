@@ -65,5 +65,12 @@ int main(int argc,char **argv) {
         assert(!intel_cache_probe_uc_page(0xc0811000) && reads==70);
     }
     if(argc>1 && !strcmp(argv[1],"gt-pat-only"))assert(!intel_cache_probe_gt_uc_page(0xc000a000,0xa000) && reads==30);
+    if(argc>1 && !strcmp(argv[1],"firmware-wb")) {
+        assert(!intel_cache_probe_firmware_wb_page(0x12345001) && reads==20);
+        assert(!intel_cache_probe_firmware_wb_page(0x100000000ull) && reads==20);
+        assert(intel_cache_probe_firmware_wb_page(0x12345000) && reads==30);
+        assert(!intel_cache_probe_firmware_wb_page(0xb0000000) && reads==40);
+        scenario=3;assert(!intel_cache_probe_firmware_wb_page(0x12345000) && reads==50);
+    }
     return 0;
 }

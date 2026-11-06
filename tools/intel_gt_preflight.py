@@ -42,7 +42,7 @@ def gt_result(text):
         if (samples[0]['requests'],samples[0]['ack'])!=(samples[1]['requests'],samples[1]['ack']):raise ValueError('GT changed samples')
     complete=observed and s['before'] and s['after'] and s['released'] and not s['guard_retained']
     if s['complete']!=int(bool(complete)):raise ValueError('GT completion mismatch')
-    return dict(readout_complete=observed,qualification_complete=bool(complete),native_observation_complete=False,hardware_ownership=False,forcewake_permission=False,engine_retirement=False,managed_range=False,physical_tearfree=False,summary=s,rows=rows)
+    return dict(readout_complete=observed,qualification_complete=bool(complete),native_observation_complete=False,hardware_ownership=False,forcewake_permission=False,engine_retirement=False,managed_range=False,physical_tearfree=False,request_fields=[dict(active=x['requests']&0xffff,mask=x['requests']>>16) for x in samples],summary=s,rows=rows)
 
 def native_gt_result(text):
     r=gt_result(text)
