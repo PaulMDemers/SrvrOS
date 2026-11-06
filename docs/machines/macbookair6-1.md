@@ -7986,3 +7986,20 @@ preparation refusal. Matched normal/AP/USB/ISO images build; actual core/fixture
 ASan/UBSan checks pass and both compile for ARM64 with assertions enabled.
 Exact-stage VMs and native acceptance remain next. No measured raw-bit masking,
 PTE write, changed cap, restarted deadline or failed-snapshot retry is introduced.
+
+
+### Frozen first-touch stage (2026-11-06)
+
+Runtime/collector `0b9b303e`, exact release `ab360d3ce2d281e4`: all seven
+legacy/new staged VM rehearsals pass, including v5 refusal and missing
+workspace. Normal image symbols exclude the diagnostics and the AP image
+retains them. Original v5 producer receipts remain byte-identical; joint
+collector checks retain the new preparation proof, reject a bad receipt and
+fit the unchanged65536-byte log-tail budget, including maximum fixtures.
+Native complete root/timing acceptance remains pending. Additional preparation
+work is counted separately while sharing the original census lifetime.
+
+Ordinary syscall, UEFI USB keyboard, fork, exec-vector and scheduler-yield VM
+checks also pass against the matched normal image. The automated native trial
+will require complete same-session raw proofs, preparation accounting, final
+completion and clean USB save/unmount/return; prior failures remain retained.
