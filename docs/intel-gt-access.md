@@ -182,7 +182,7 @@ It reports unresolved firmware/requester retirement even for all-zero mailboxes.
 A native wake writer remains intentionally unbound until those lifecycle facts
 can be established; its bounded protocol is ready for integration once they are.
 
-## Firmware-census candidate ready for native observation
+## Firmware-census validation and native result
 
 Release `45815233908f2d02` (source `4ca8f490`, merged main `7b887bbe`) is
 installed with recovery retained and no reboot armed. Full local validation,
@@ -194,8 +194,21 @@ Its native ELF links the observers and omits every wake-protocol entry point.
 Ubuntu's read-only i915 reference and the exact captured DSDT confirm the fixed
 OpRegion layout. Both prior native CPU/cache contexts derive WB for the proposed
 header page. Those references are independently retained but do not accept the
-new native observation or grant runtime firmware/requester retirement. The next
-physical test is the automated read-only census, at volume1% with guest audio
-disabled. Its matching session must be collected and verified before moving to
-a supported ownership contract and native wake adapter. See the current unit
+new native observation or grant runtime firmware/requester retirement. The matched native census result is recorded below; a supported ownership
+contract and native wake adapter remain next. See the current unit
 record for source, recovery, run/checkpoint and independent evidence locations.
+
+Native session `00065f91ff581bbd-00` completes with both13-word passes equal
+(3,909us /3,911us), two retired mappings, five guards, two fresh WB cache checks,
+full inherited preservation and clean CPU exclusion release. The8KiB v2.0
+OpRegion has mailbox mask`0x1f`; all six selected readiness/command words are
+zero. Its complete resource is one ACPI-NVS entry at`0x8ad01000`, length`0x48000`.
+The strict decoder accepts all native prerequisites; the saved report has
+completed=yes and no collector attention. Offline return-integrity and recovery
+checks pass, with the matching evidence independently backed up.
+
+This accepts bounded read-only firmware observation only. Native initialization,
+requester retirement and kernel-bit grants remain absent, and the wake writer
+remains unlinked. Quiet firmware words are not a runtime firmware/SMM exclusion
+contract; this acceptance does not permit forcewake, engine inspection, GPU
+range transfer or physical tear-free flips.

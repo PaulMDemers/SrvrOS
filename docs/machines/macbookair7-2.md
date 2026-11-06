@@ -2,7 +2,39 @@
 
 Updated: 2026-11-05. State: **active reference machine; partial device acceptance**.
 
-### Active scope: firmware handoff census and wake admission
+### Native read-only firmware handoff census accepted
+
+Release `45815233908f2d02`, source `4ca8f490`, completes as
+`session-00065f91ff581bbd-00`, completed=yes with zero collector attention.
+The strict native decoder accepts the full firmware/GT/handoff/window/cache/
+backing/display chain. The firmware receipt is status1, maps2/retained0,
+acquired/before/after/released/complete1, guards5, cache_checks2 and
+guard_retained0. Both13-word passes match, taking3,909us and3,911us.
+
+ASLS `0x8ad03190` and SWSCI `0x8000` are stable. One ACPI-NVS entry at
+`0x8ad01000`, length`0x48000`, covers the full8KiB OpRegion and header page.
+The signature, size8KiB, version2.0 and mailbox mask`0x1f` match. DRDY/CSTS/
+CEVT/SCIC/ARDY/ASLC are zero in both native passes. Fresh WB MTRR/PAT/effective
+checks pass; both RO/NX/WB aliases retire. Exact original-window/full inherited
+backing preservation and CPU exclusion release complete. The GT observations
+still show low16 active requests0, raw mask1, ACK0. All grants, mailbox writes,
+wake and engine accesses remain zero; the native wake writer stays unlinked.
+
+This accepts the bounded read-only firmware census. Quiet fields describe this
+boot; they do not prove retirement of opaque runtime firmware/SMM or assign
+requester bits. The next implementation must define an explicit supported
+boot-time firmware/requester lifecycle contract before binding initialization/
+kernel-bit grants and a native wake writer. No engine/DMA/display/audio reader
+handoff, managed GPU range or physical tear-free flip is accepted here.
+
+All1,339 prior files are preserved except expected `.srvros/meta`; two new logs
+copy/hash-verify, giving1,341 files /103 sessions. Offline fsck/allocation/
+writable/headroom, consumed one-shot, Ubuntu default and installed/durable/
+archive recovery checks pass. USB is unmounted and no reboot is armed. Matching
+run/return records and complete evidence are independently SHA-verified outside
+build cleanup under `~/.local/share/srvros/reviewed-evidence/air-firmware-handoff-20261105`.
+
+### Completed scope: firmware handoff census and wake admission
 
 Main `7b887bbe` is integrated as `a59f9007`, including Air6,1's separate
 pre-init alias-context work; no sibling acceptance is inherited. PR301 owns
@@ -18,7 +50,7 @@ new firmware observation core/adapter/decoder, explicit recipe/collection/tests
 and this unit's docs. Preserve recovery and the independent Air6 mappings.
 Stop with matched host/VM validation and a prepared test; no reboot this block.
 
-### Ready: automated firmware handoff census (native wake unbound)
+### Historical preparation: automated firmware handoff census
 
 Release `45815233908f2d02` (`4ca8f490`) is installed with9aa recovery and
 Ubuntu default; no reboot is armed. The exact staged ELF links the firmware
