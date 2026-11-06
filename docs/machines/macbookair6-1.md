@@ -7917,3 +7917,32 @@ No power policy, mapping permission, integrity check or limit was widened.
 Ordinary syscall, UEFI USB keyboard, fork, exec-vector and scheduler-yield VM
 checks also passed against the matched normal image. Native graph/timing
 acceptance is pending the automated run; no result is inferred from Q35.
+
+
+### Smaller-image native closeout (2026-11-06)
+
+PR391 merged as `bcd75f13`; runtime `ad1d6199`, release `83ef1c984bb62a79`,
+session `session-00065fa40ca8a88a-00` returned automatically and was collected.
+The full profile **failed**, with its explicit `completed=NO` retained. The
+strictly decoded early raw proof observes successful checked ECAM adoption in
+93775us (6225us margin to the unchanged100ms limit),36268 checked words, one
+parent publication and the original39936 invalidations/metadata attempts. This
+is one bounded component observation, not full-profile acceptance or a native
+process-lifecycle stress pass.
+
+The smaller image removes the prior64-table exhaustion: pass one traversed all
+30 tables /15360 entries and encoded3870 bytes, within unchanged limits. Pass
+two refused at read6847, table `0x8cebf000` index190: expected
+`0x8cebe003`, observed `0x8cebe023`, a raw accessed-bit transition. Preserve
+that exact comparison; do not mask A/D bits or retry a failed measured pass.
+The source reads/writes its own static result backing while walking, so
+measurement-induced first access is a hypothesis to audit, not an established
+attribution. Next scope should identify the affected mapping and first-touch
+path and establish stable measurement prerequisites before the original bounded
+two-pass capture, retaining all RAM/root/translation guards and limits.
+
+All605 prior files are present and hash-identical except expected `.srvros/meta`;
+only three matching logs were added. Offline checks pass at608 files /1681
+clusters, zero leaks/FAT-bitmap mismatches/errors. Raw failed evidence and exact
+payload are hash-verified outside build. One-shot state is clear and collection
+disabled; Ubuntu and protected accepted recovery remain. No new boot is armed.
