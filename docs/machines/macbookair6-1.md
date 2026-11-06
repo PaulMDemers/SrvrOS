@@ -7380,3 +7380,117 @@ observation leave every live resource/alias/NX/leaf/retirement grant false.
 Audited source/reference hashes, replay output and local test logs are retained
 with a durable copy outside build. No payload installation or physical result
 changes; previous capture remains closed and no reboot is armed.
+
+### Bounded read-only alias/NX diagnostic scope (2026-11-05)
+
+Base `3f158022`; prior native run collected/closed. PR301 `7e33d1a5` remains
+independent GPU ownership work; no competing VMM edit is present in that branch.
+Add a separate v3 firmware/cache profile, retaining v1/v2 and their49-MSR,
+16-PTE context caps. New census has explicit64-table/32768-entry per-pass and
+4096-byte lossless encoding caps, two exact passes within100ms total, and refuses
+any nonkernel registered root. Read-only NX/EFER endpoints and CPU0 IRQ exclusion
+bracket the census. Keep complete raw RAM table data or refuse; no target data,
+new mapping, page-table/policy write or hardware ownership. Touched scope: isolated
+Haswell diagnostic/core/decoder, a read-only VMM sole-root guard, profile/harness,
+tests and own docs. Require max-tail, guard/overflow/change/fault tests and exact
+VM save/return/refusal checks before native installation under existing authority.
+
+PR381 candidate `dbb1756c`, release `715cee81b804a3ab`, now has complete local
+validation coverage. Broad build/core/desktop/widgets/profile/host/docs on
+`2db07928` completed89 installation tests (one existing opt-in skip) and the
+installed-root exFAT cases; its sole remaining failure was a legacy FD fixture
+link. The published fixture support and dependency were reused in `dbb1756c`.
+All other targets then passed again, explicitly retaining `test-installed-root`;
+its source inputs, driver binaries and both native kernels/initramfs are proven
+unchanged. The original failed run and successful retry remain separate evidence.
+
+The new runtime baseline needed GCC/legacy-signal fixture compatibility already
+published in PR301 `941f37eb`/`7e33d1a5`; reused fixture bodies and targeted recipes
+are identical to those revisions. The signal-state production change is verified
+whitespace-only. No warning, assertion, integrity gate or limit was disabled.
+An earlier fixture/kernel hex-format mismatch was corrected before this validation;
+the strict decoder now requires the actual fixed-width kernel spelling. Failure
+step/cursor records retain the exact last source/index and expected/read word.
+
+ASan/UBSan alias core, real VMM guard and actual adapter complete/refusal cases
+pass, including64 tables/32768 reads per pass and the4095-byte maximum lossless
+payload. Both raw passes survive directly in the unchanged64KiB tail with the
+audited16,514-byte source postamble plus8192-byte margin. Independent strict
+decoding and common-cache byte identity, ordinary-kernel exclusion and version1/2
+compatibility verify. Five sequential exact-stage VM trials pass: legacy firmware,
+legacy cache, legacy32 fences, new identity-refusal/save/unmount/return and missing
+workspace. Q35 refusal is not native alias/NX acceptance.
+
+Fresh local model, AC, USB identity/all600 prior file hashes,1670 clusters,
+headroom and zero allocation leaks/errors verify. The unattended native candidate
+retains console recovery and independent payload/evidence backups. It must save
+both complete raw census passes, cache/NX/firmware guards and clean integrity
+results before acceptance. No device target read, new mapping, firmware ownership,
+power-policy change or hardware-alias completeness follows; physical result pending.
+
+Final host-only decoder revision `7f08b972` also rejects out-of-width CPUID words.
+Its affected suites, actual producer/sanitizer fixtures and maximum-tail checks
+pass; the saved exact VM refusal receipt redecodes correctly. Native payload,
+profile and VM harness remain byte-identical to the tested `dbb1756c` candidate.
+The run record distinguishes these tool and native source revisions explicitly.
+
+### Pre-init scheduling correction before native alias trial (2026-11-05)
+
+PR381 candidate715cee81b804a3ab was installed but never armed or booted. Source
+review confirms main starts persistent `/init --system` before the late capture;
+the sole-root guard would therefore refuse as intended. Preserve that guard,
+v3 history and all budgets. Add a distinct v4/pre-init modifier: capture before
+creating the first user root, retain immutable raw results, and emit once after
+normal init readiness and USB logger startup. Require an explicit pre-user-init
+receipt epoch, actual prepare/report ordering tests and matched VM save/return
+checks. No root is ignored, killed or temporarily hidden, and no policy/ownership
+or native acceptance is granted. Previous candidate evidence is retained locally.
+
+PR382 source `81d1013f`, v4 release `6d59e033859033b9`, passes current matched
+normal/AP/USB builds and affected firmware/cache/alias/VMM/docs checks. Broader
+PR381 desktop/core/installer receipts remain named historical evidence; no
+unrelated runtime/filesystem source changed in this scheduling correction.
+Actual adapter prepare/report tests, ASan/UBSan and independent epoch/raw decoders
+pass, including new-root rejection after capture without any reread on report,
+single emission,64-table/32768-entry passes and4095-byte lossless output within
+the unchanged64KiB tail. No guard or budget was weakened.
+
+Six sequential exact-stage VM trials pass v1 firmware, v2 cache, v3 alias,
+legacy32 fences, v4 refusal/save/unmount/return and missing workspace. The v4
+serial order proves capture progress before init starts and raw reporting after
+init/logger startup. Fresh AC/model/USB600-file hash and1670-cluster headroom/
+allocation checks pass with zero leaks/errors. The v3 payload and110 development
+evidence files are independently archived as superseded-unbooted; no physical
+alias/NX result is claimed. V4 native pre-user-init acceptance remains pending.
+
+
+### Native pre-init alias census refusal (2026-11-05)
+
+Collected run `0aad811f8a2f4140`, source `81d1013f`, release
+`6d59e033859033b9`, session `session-00065f90c3adc353-00`. The v4 preparation
+runs before user init and the immutable receipt survives deferred logging, but
+the diagnostic does **not** pass: `status=2 step=3 pages=64 reads=5166,0`,
+`bytes=882,0`, and `completed=NO`. Preparation spans4698us, well below100ms.
+The cursor is table `0x02004000`, entry45, raw `0x02032023`. At that first-pass
+nonfinal entry, the source attempts to add a new table with all64 slots occupied;
+this is table-cap exhaustion, not a deadline, encoding-cap or second-pass change.
+The full graph has at least65 distinct tables; its exact size is not established.
+No complete two-pass raw graph or bracketed NX/cache proof is accepted.
+
+Independent strict v4 replay matches the collector's failure. The16006-byte
+exit receipt is retained with SHA256
+`c79d1bac23910235e7659f4f6314a1e88c78e9ee9766c13d9c96948643dec908`.
+All600 prior file contents are preserved apart from expected workspace metadata;
+only two new session logs appear. Offline fsck, independent allocation and fresh
+headroom checks pass:602 files,1673 clusters, zero leaks/mismatches/errors.
+Installed and durable payload hashes, console recovery, Ubuntu default and the
+consumed empty one-shot verify. Automatic collector is disabled; no boot is armed.
+The523-file automatic evidence archive was independently rehashed outside build.
+
+Next is a source/layout audit of the inherited table graph and feasibility of
+complete alias coverage at the existing bounds. Do not increase caps, omit roots
+or silently count a partial graph as complete. The current32768-entry pass cap
+also cannot enumerate65 full512-entry pages. Preserve failure evidence and
+separate any future coverage design from resource/leaf/retirement admission.
+No VT-d target access, mapping, policy write or ownership is authorized by this
+receipt; prior accepted CPU/cache observations remain historical and unchanged.

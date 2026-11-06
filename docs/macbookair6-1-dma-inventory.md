@@ -374,3 +374,95 @@ diagnostic, with explicit completeness/refusal evidence and fresh guards. It mus
 not silently widen the16-PTE context capture or convert its known aliases into
 global coverage. The read sequence and100ms/two-pass/retirement contract above
 remain unchanged; actual VT-d reads and hardware ownership stay unimplemented.
+
+## Separate bounded alias/NX diagnostic candidate
+
+Add `--haswell-alias-context` to the explicit firmware and cache-context stage
+flags for `ram-usb-v3-hfw`. Versions1/2 are unchanged, including their49-MSR and
+16-PTE CPU-context caps. Version3 inserts a separate read-only census between
+those cache contexts, under the same fresh pinned firmware/catalog brackets.
+No VT-d target/alias data, device table, new mapping or control write is used.
+
+The VMM observational sole-root guard requires CPU0 IRQ exclusion, current
+untagged kernel CR3, matching kernel-root pointer and no registered nonkernel
+root or stale used root record. It allocates and writes nothing and grants no
+lease or SMP/firmware authority. Normal profile dispatch launches no AP test;
+staging refuses AP, battery, graphics or other unrelated modifiers. Other roots
+refuse instead of being ignored. Upper-half sharing cannot bypass this guard.
+
+The distinct census visits the full reachable four-level CPU RAM-table graph,
+including inherited/private mappings, rather than the public mapping list.
+It caps unique tables at64 and loads at32768 entries per pass, with two exact
+passes and100ms total. Four-KiB,2MiB and1GiB leaves are recognized, shared tables
+at the same level are retained once, and cross-level cycles, physical/reserved/
+large-leaf errors, unknown RAM, data changes and any exhausted bound refuse.
+Both declared device pages are forbidden as CPU table sources. No leaf's target
+is dereferenced. Exact translation checks precede each CPU table entry load.
+
+Raw tables are encoded losslessly into at most4096 bytes per pass. Each page is
+`<QB>` physical address/level followed by `<HQQ>` count/first/stride runs whose
+counts sum to512. Values advance modulo2^64, so zeros and arithmetic mapping
+runs compress without dropping any bit, including nonpresent/A/D/software bits.
+An incompressible graph refuses; it never falls back to a hash or sparse subset.
+Both pass payloads are emitted in512-byte Base64 chunks and must decode to
+identical raw words. The independent decoder verifies all RAM sources, full graph
+closure, leaf decoding and every overlapping point-walk record. Coverage means
+this sole managed root's CPU page-table graph, not stale TLBs, SMM/firmware roots,
+other hardware agents or an exclusive device resource claim.
+
+Read-only CPUID extended-NX/1GiB capabilities and IA32_EFER endpoints bracket
+this work; NX/LME/LMA must be enabled and stable, unknown EFER bits refuse.
+Unsupported1GiB leaves refuse. Two EFER reads are separate from the unchanged
+PAT/MTRR MSR budget. IRQ-enable state must restore on success and every refusal;
+step/status records identify source/root/NX/census/retirement failures. No NX,
+cache, interrupt-routing, power or hardware policy is changed. Ordinary boot
+excludes this opt-in diagnostic.
+
+The guest announces progress, then saves the complete receipt, unmounts and
+returns automatically. Completion requires both decoded cache contexts, both raw
+census passes, matching firmware/catalog guards and USB integrity; a return or
+bounded refusal alone is not acceptance. The unchanged64KiB tail must retain
+maximum fixtures plus the audited source postamble. Native result is pending.
+
+### Pre-user-init capture, deferred logging (v4 candidate)
+
+The v3 prototype's late dispatch follows `/init --system`, which creates a user
+root. Its sole-root guard must refuse that state; v3 was installed but never
+armed or physically tested. Do not weaken the guard or omit registered roots.
+The distinct `--haswell-alias-preinit` modifier additionally requires all three
+firmware/cache/alias flags and selects `ram-usb-v4-hfw`.
+
+Version4 captures before the first user-root creation, after kernel/device/timer
+bootstrap. It saves immutable full firmware/cache/census/NX results without
+emitting raw records yet. Normal init and logger startup then proceed unchanged;
+the late capture branch reports those results exactly once. Repeated prepare or
+report attempts refuse, and a later live sole-root failure cannot alter the saved
+capture. The new epoch record encloses all saved firmware/cache observations and
+identifies reporting as later than preparation. Scope is explicitly pre-user-init;
+no live post-init mapping admission follows. Failure remains failure, and missing
+logger/readiness/completion is not accepted.
+
+All existing64-table/32768-entry/4096-byte/100ms census and49-MSR/16-PTE context
+limits remain. Versions1–3 and their dispatch stay available unchanged. Tests
+must prove no raw receipt before simulated init, one complete deferred receipt
+after it, immutable reporting despite a newly registered-root refusal, both raw
+passes retained at maximum size, and exact-stage init/logger/return ordering.
+
+
+### Native v4 result: table-bound refusal (2026-11-05)
+
+Source `81d1013f`, release `6d59e033859033b9`, session
+`session-00065f90c3adc353-00` saves the deferred pre-user-init receipt and returns
+to Ubuntu, but reports `completed=NO`: census status2/step3,64 tables,
+5166 first-pass reads, no second pass and882 encoded bytes. The4698us preparation
+is below100ms. The failure cursor (`0x02004000`, index45, raw `0x02032023`)
+and source control flow identify an attempted65th unique table, exhausting the
+unchanged64-table cap. The complete graph size is unknown. No full-graph alias,
+NX endpoint-pair, live admission or mapping permission is accepted.
+
+USB preservation, offline fsck/allocation/headroom and recovery checks pass;
+raw failed evidence is durably retained. See the [unit closeout](machines/macbookair6-1.md#native-pre-init-alias-census-refusal-2026-11-05).
+Next audit the inherited layout and whether a complete proof can fit existing
+bounds. A streaming implementation alone would not remove the32768-entry
+per-pass ceiling:65 full tables already require33280 entries. Do not widen
+limits or substitute a sparse/partial graph for exhaustive coverage.
