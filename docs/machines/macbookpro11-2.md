@@ -13327,3 +13327,20 @@ admission predicates must remain unchanged. WPA2 entropy/MIC/replay/key/PN,
 authenticated DHCP/DNS/bidirectional data/disconnect and live reattach remain
 open. Credentials remain unread/unpackaged. This5GHz-only adapter cannot accept
 Demers2.4;compatible hardware is still required.
+
+### Active live management ownership scope (November 6)
+
+Next bounded work:separate fresh live RX/data-OUT ownership under frozen accepted
+calibration,power,handoff and private peer snapshots. Touched subsystems are the
+xHCI Wi-Fi child,event dispatch,management transport lifecycle,strict saved-log
+checker and opt-in staging/main profile. Preserve old stopped/read-only parent
+predicates. Fresh retained rings/pages have one lifetime,no wrap/reuse and no
+replay after uncertain publication. Require matched private AUTH/ASSOC replies
+and leave,then MAC drain/disable,endpoint cessation,exact old RX context,input
+and outer RF restoration. USB completion alone is not AP acknowledgement or
+WPA2 authentication. No keys,credential packaging or controlled data port yet.
+Host fault and sanitizer coverage,full-prefix bounds,exact-stage and missing-
+workspace VMs precede a cold native trial. Source remains based on ca43ce23;
+fetched maine1a30e1e adds Air ECAM evidence/guide changes atop the already reviewed
+305f9b0b optional diagnostics and is deferred while this Wi-Fi owner is isolated.
+PR301 is graphics and379 browser;no competing Wi-Fi owner was found.
