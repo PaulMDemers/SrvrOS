@@ -1241,3 +1241,17 @@ standing cold-unplug shutdown procedure. Guest progress and results are saved;
 no commands/photos/attended UI checklist are needed. Require the full-parent
 handoff checker;host fixtures or a restored context after handled failure are
 not physical success. No live association/key/IP/data authority follows.
+
+### Pro11,2 live management child (v127 candidate)
+
+The opt-in `--wifi-join5` profile requires the complete automatic empty OUT
+preview/peer/handoff/power parent. It adds independent fresh RX/data-OUT rings,
+matched open-system authentication/association and leave submission,then MAC
+drain/disable,endpoint cessation and exact old RX/shared-input restoration.
+Follow the normal matched-build,exact-stage VM,independent recovery,workspace
+eligibility,run-record,one-shot and collection sequence. The local cold-unplug
+shutdown procedure remains required;progress,results and automatic return need
+no user commands/photos. The strict full-prefix checker requires the old parent
+and new exchange/retirement;USB completion alone is not a peer reply or WPA2.
+No keys,credentials or authenticated IP/data provider are enabled. See
+[USB Wi-Fi](usb-wifi.md) and the unit record for source-specific acceptance.

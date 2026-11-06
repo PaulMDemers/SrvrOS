@@ -15,6 +15,8 @@ static struct {struct {uint64_t new_ring;}plan;}wifi_handoff5;
 static struct {struct mt76_peer5 binding;}wifi_peer5;
 static struct {struct {struct {uint32_t address;}write[9];}plan;struct {uint32_t chosen[9];}cycle;}wifi_power5;
 static struct xhci_device device;
+static bool wifi_join5_requested;
+static bool wifi_join5_inspect(void){assert(0);return false;}
 static bool wifi_tx5_requested,firmware_command_failed,firmware_command_exact,trace;
 static struct {uint32_t input[128][8],output[32][8];uint8_t pages[64][4096];unsigned next,commands,reads,owned,lose,fail_command,fail_read,bad_read,mutate;bool parent,quarantine,uncertain,clear_disabled,allocate_fail,skip_stop_event;unsigned stop_fault;}fake;
 static bool wifi_handoff5_equal(const void *a,const void *b,size_t n){return !memcmp(a,b,n);}

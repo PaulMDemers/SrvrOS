@@ -6933,3 +6933,43 @@ return passed. The unit record owns the matching session and independent
 remain failed. No TD,doorbell,MAC start or network frame was published by the
 empty owner;live RX/data publication,matched AUTH/ASSOC/leave,WPA2 and
 authenticated IP/data/disconnect remain separate pending milestones.
+
+### Fixed161 live management candidate (v127)
+
+`--wifi-join5` requires the complete automatic `--wifi-tx5-owner` parent. It
+freezes accepted calibration,power,handoff,private peer and empty-OUT preview
+state,old rings/pages and four original context images. Separate retained RX/OUT
+rings and48 RX/three TX pages have a single nonwrapping lifetime. No existing
+stopped/read-only predicate is widened;the old owner must validate again after
+exact restoration. Current input bytes,unrelated contexts,DMA pins,unused TX/RX
+pages,posted TD images,completed RX snapshots and immutable TX pages are checked
+throughout the new lifetime. Out-of-owner/duplicate/mismatched events quarantine.
+
+The candidate configures data OUT04,retargets stopped main RX84,posts a fresh RX
+TD and runs the existing guarded MAC lifecycle against held selected power.
+It submits fixed manual-sequence AUTH,ASSOC and leave frames once each,normalizes
+copied completed RX MPDUs including optional padding,and requires exact private
+peer replies with success status and valid association AID. A completed refusal
+or timeout may submit leave and retire cleanly but still fails acceptance. An
+uncertain send/control/controller command or lost ownership ends publication,
+retains DMA and forbids speculative restoration or replay. MAC drain/disable
+and filter/TXOP restoration precede RX/OUT stop receipts,exact old RX dequeue/
+context restoration,OUT drop and all4096 original input bytes. Endpoint-disabled
+reserved fields are not software-cleared or presumed zero.
+
+The compact source-bound ledger records command/context/forced-stop receipts,
+management USB completions,MAC lifecycle/read/write/wait counters and final
+matched-reply/restoration status. It logs no station/BSSID/packet/credential
+bytes. Historical parent `network_out=0` counters describe their own earlier
+scopes;the new child separately counts management sends. USB completion is not
+an AP ACK,and matched open-system authentication/association is not WPA2. No
+keys or controlled data port are enabled. Full-prefix checking must require
+the complete old parent and new exchange/retirement before physical acceptance.
+
+Use the local unit's matched build,controller/fault/sanitizer/stack/full-prefix
+and filesystem checks,exact staged GPT and missing-workspace VMs,recovery/run
+record and one-shot sequence. This unattended cold trial shows progress,saves
+results and returns automatically. The captured adapter still requires shutdown
+and Wi-Fi-only unplug10seconds while off,reconnection to the same port and
+power-on with workspace connected. Credentials remain unread. Collect first
+after Ubuntu return;VM/model results do not accept native exchange or WPA2/data.

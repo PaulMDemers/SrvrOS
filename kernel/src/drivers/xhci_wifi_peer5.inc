@@ -1,5 +1,7 @@
 #include <srvros/mt76_peer5.h>
 static bool wifi_tx5_requested;
+static bool wifi_join5_requested;
+static bool wifi_join5_inspect(void);
 static bool wifi_tx5_inspect(void);
 /* Current-address/read-only peer binding. The accepted empty handoff has
  * already restored DCI9. No TD,MAC start,network OUT or key is published. */
