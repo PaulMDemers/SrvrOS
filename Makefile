@@ -4443,9 +4443,9 @@ test-intel-display-capture: build/tests/intel-display-capture$(HOST_EXE) build/t
 build/tests/intel-display-capture$(HOST_EXE): tools/test_intel_display_capture.c kernel/src/drivers/intel_display_capture.c kernel/include/srvros/intel_display_capture.h
 	mkdir -p $(dir $@)
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include tools/test_intel_display_capture.c kernel/src/drivers/intel_display_capture.c -o $@
-build/tests/intel-display-probe$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/intel_boot_claim.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/intel-display-probe$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/intel_boot_claim.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p $(dir $@)
-	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/diagnostics/package_audit_core.c -o $@
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/diagnostics/package_audit_core.c -o $@
 
 .PHONY: test-intel-display-backing
 test-core: test-intel-display-backing
@@ -4918,3 +4918,20 @@ test-intel-handoff: build/tests/intel-handoff-probe$(HOST_EXE) test-scanout-hand
 build/tests/intel-handoff-probe$(HOST_EXE): tools/test_intel_handoff_probe.c kernel/src/drivers/intel_handoff_probe.c kernel/src/display_access.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_handoff_probe.c kernel/src/drivers/intel_handoff_probe.c kernel/src/display_access.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c -o $@
+
+.PHONY: test-intel-gt-access
+test-core: test-intel-gt-access
+test-intel-gt-access: build/tests/intel-gt-access$(HOST_EXE)
+	$<
+build/tests/intel-gt-access$(HOST_EXE): tools/test_intel_gt_access.c kernel/src/drivers/intel_gt_access.c kernel/src/display_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_gt_access.c kernel/src/drivers/intel_gt_access.c -o $@
+
+.PHONY: test-intel-gt-preflight
+test-core: test-intel-gt-preflight
+test-intel-gt-preflight: build/tests/intel-gt-preflight$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_intel_gt_preflight.py
+build/tests/intel-gt-preflight$(HOST_EXE): tools/test_intel_gt_preflight.c kernel/src/drivers/intel_gt_preflight.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_gt_preflight.c kernel/src/drivers/intel_gt_preflight.c -o $@

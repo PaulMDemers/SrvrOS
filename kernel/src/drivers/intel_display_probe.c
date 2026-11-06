@@ -666,3 +666,71 @@ bool intel_window_handoff_revalidate(const struct scanout_handoff_snapshot *s) {
     return true;
 }
 bool intel_window_handoff_clean(void) {return !trial_mapping_fault;}
+
+#include <srvros/intel_gt_preflight.h>
+#include <srvros/console.h>
+#include <srvros/display_present.h>
+struct gt_observer {struct backing_adapter a;struct display_access_token token;unsigned guards,cache_checks;bool uncertain;};
+static bool gt_guard(void *context) {
+    struct gt_observer *g=context;struct backing_adapter fresh;uint64_t old;
+    if(g->a.mapped || !display_access_held(&g->token) || !trial_adapter(&fresh) ||
+       fresh.common.gpu!=g->a.common.gpu || fresh.common.cr3!=g->a.common.cr3 ||
+       vmm_virt_to_phys_in_space(g->a.common.cr3,BACKING_VA,&old))return false;
+    g->guards++;return intel_scanout_trial_revalidate();
+}
+static bool gt_endpoint(void *context,struct intel_gt_endpoint *out) {
+    struct gt_observer *g=context;struct intel_backing_endpoint b;
+    if(g->a.mapped || !backing_endpoint(&g->a,&b) || !trial_endpoint_same(&b))return false;
+    *out=(struct intel_gt_endpoint){result.mmio_base,pci_read_config32(g->a.common.gpu,0xfc),pci_read_config32(g->a.common.gpu,0xe8)};
+    return true;
+}
+static bool gt_map(void *context,uint32_t offset) {
+    struct gt_observer *g=context;uint64_t old;
+    if((offset!=0xa000 && offset!=0x130000) || g->a.mapped || !display_access_held(&g->token) ||
+       !intel_boot_check(INTEL_BOOT_OBSERVER,g->a.common.gpu) || vmm_current_address_space()!=g->a.common.cr3 ||
+       vmm_virt_to_phys_in_space(g->a.common.cr3,BACKING_VA,&old))return false;
+    uint64_t physical=result.mmio_base+offset;
+    g->cache_checks++;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    if(!intel_display_test_gt_uc(physical,offset))return false;
+#else
+    if(!intel_cache_probe_gt_uc_page(physical,offset))return false;
+#endif
+    if(!backing_range_reserved(physical,4096))return false;
+    if(!vmm_map_page_in_space(g->a.common.cr3,BACKING_VA,physical,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)) {
+        if(vmm_virt_to_phys_in_space(g->a.common.cr3,BACKING_VA,&old)){g->uncertain=true;trial_mapping_fault=true;}
+        return false;
+    }
+    g->a.physical=physical;g->a.page=offset;g->a.mapped=true;return true;
+}
+static bool gt_read(void *context,uint32_t offset,uint32_t *out) {
+    struct gt_observer *g=context;uint64_t p;
+    if((offset!=INTEL_GT_REQUEST && offset!=INTEL_GT_ACK) || !display_access_held(&g->token) ||
+       !vmm_virt_to_phys_in_space(g->a.common.cr3,BACKING_VA,&p) || p!=result.mmio_base+(offset&~4095u))return false;
+    return backing_read(&g->a,offset,out);
+}
+static bool gt_unmap(void *context) {
+    struct gt_observer *g=context;
+    if(!backing_unmap(&g->a)){trial_mapping_fault=true;return false;}return true;
+}
+bool intel_gt_preflight_probe_report(void) {
+    static bool once;if(once)return false;once=true;
+    struct gt_observer g={0};struct intel_gt_preflight_result r={0};struct scanout_handoff_snapshot s={0};
+    console_write("intel-gt: read-only request/ACK and ASLS/SWSCI preflight; no initial clear, wake, engine access or firmware calls\n");
+    bool snapshot=intel_window_handoff_snapshot(&s),acquired=false,before=false,after=false,released=false;
+    if(snapshot && console_sync() && trial_adapter(&g.a))acquired=display_access_acquire(0x4754505245ull,&g.token);
+    if(acquired && display_present_handoff_idle()) {
+        before=intel_window_handoff_revalidate(&s);
+        if(before)(void)intel_gt_preflight(&r,&(struct intel_gt_preflight_io){&g,gt_guard,gt_endpoint,gt_map,gt_read,gt_unmap,now});
+        after=intel_window_handoff_revalidate(&s);
+    }
+    if(g.uncertain){r.retained=1;r.status=GTP_RETAINED;}
+    if(acquired)released=display_access_release(&g.token,!trial_mapping_fault);
+    if(released)console_flush();
+    bool complete=r.status==GTP_OBSERVED && before && after && released && g.guards==5 && g.cache_checks==4;
+    console_printf("intel-gt-summary: v=1 status=%u maps=%u retained=%u acquired=%u before=%u after=%u released=%u guards=%u cache_checks=%u guard_retained=%u mmio=%x asls=%x swsci=%x complete=%u forcewake_writes=0 engine_reads=0 opregion_maps=0 pte_writes=0 ownership=none\n",
+        (uint64_t)r.status,(uint64_t)r.maps,(uint64_t)r.retained,(uint64_t)acquired,(uint64_t)before,(uint64_t)after,(uint64_t)released,(uint64_t)g.guards,(uint64_t)g.cache_checks,(uint64_t)(trial_mapping_fault && !r.retained),r.endpoint.mmio,(uint64_t)r.endpoint.asls,(uint64_t)r.endpoint.swsci,(uint64_t)complete);
+    for(unsigned n=0;n<2;n++)console_printf("intel-gt-sample: v=1 sample=%u begin_us=%u end_us=%u requests=%x ack=%x reads=%u\n",
+        (uint64_t)n,r.sample[n].begin_us,r.sample[n].end_us,(uint64_t)r.sample[n].requests,(uint64_t)r.sample[n].ack,(uint64_t)r.sample[n].reads);
+    return complete;
+}

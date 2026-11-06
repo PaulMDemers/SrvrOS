@@ -106,3 +106,7 @@ clean offline filesystem/allocation checks, recovery and return state verify.
 The [unit record](machines/macbookair7-2.md) identifies exact payloads, checkpoints
 and independent backups. Firmware/engine/DMA/display/audio handoff and actual
 range transfer remain pending before a native writer or tear-free flip.
+
+The next [GT access/requester preflight](intel-gt-access.md) audits mandatory
+initialization and owned wake retirement without admitting native writes or
+borrowing a firmware request as engine-access permission.

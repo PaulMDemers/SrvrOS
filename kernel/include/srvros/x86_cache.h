@@ -32,4 +32,6 @@ void intel_cache_probe_boot(void);
 bool intel_cache_probe_report(void);
 /* Fresh recheck against completed native observation; not mapping authority. */
 bool intel_cache_probe_uc_page(uint64_t physical);
+/* Only the separate BDW request/ACK observation pages; fresh CPU context. */
+bool intel_cache_probe_gt_uc_page(uint64_t physical,uint32_t offset);
 #endif

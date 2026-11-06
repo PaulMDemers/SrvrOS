@@ -6,6 +6,7 @@
 #include <string.h>
 #include <inttypes.h>
 static unsigned scenario,reads;
+static bool gt_mtrr_uc;
 static uint64_t us=100;
 bool timer_reference_ready(void){return true;}
 uint64_t timer_monotonic_us(void){return ++us;}
@@ -26,7 +27,8 @@ bool cache_test_msr(void *ctx,uint32_t n,uint64_t *v) {
     else if(n==0x2ff)*v=0x806;
     else if(n==0x200)*v=0xb0000001;
     else if(n==0x201)*v=0x7ff0000800ull;
-    else if(n==0x202 || n==0x203)*v=0;
+    else if(n==0x202)*v=gt_mtrr_uc?0xc0000000:0;
+    else if(n==0x203)*v=gt_mtrr_uc?0x7ff0000800ull:0;
     else {assert(0);return false;}
     if(scenario==3 && reads>10 && n==0x277)*v^=7;
     return true;
@@ -47,6 +49,7 @@ int main(int argc,char **argv) {
         const char *names[]={"native-model","cpu-only","refused","changed","preserve-failed"};
         for(unsigned i=0;i<5;i++)if(!strcmp(argv[1],names[i]))scenario=i;
     }
+    gt_mtrr_uc=argc>1 && !strcmp(argv[1],"fresh-uc");
     intel_cache_probe_boot();intel_cache_probe_boot();
     assert(!intel_cache_probe_uc_page(0xc0811000));
     bool ok=intel_cache_probe_report();assert(ok==(scenario==0));
@@ -54,7 +57,13 @@ int main(int argc,char **argv) {
     if(argc>1 && !strcmp(argv[1],"fresh-uc")) {
         assert(!intel_cache_probe_uc_page(0xc0812000) && reads==20);
         assert(intel_cache_probe_uc_page(0xc0811000) && reads==30);
-        scenario=3;assert(!intel_cache_probe_uc_page(0xc0811000) && reads==40);
+        assert(!intel_cache_probe_gt_uc_page(0xc000b000,0xb000) && reads==30);
+        assert(!intel_cache_probe_gt_uc_page(0xc000a000,0x130000) && reads==30);
+        assert(intel_cache_probe_gt_uc_page(0xc000a000,0xa000) && reads==40);
+        assert(intel_cache_probe_gt_uc_page(0xc0130000,0x130000) && reads==50);
+        scenario=3;assert(!intel_cache_probe_gt_uc_page(0xc000a000,0xa000) && reads==60);
+        assert(!intel_cache_probe_uc_page(0xc0811000) && reads==70);
     }
+    if(argc>1 && !strcmp(argv[1],"gt-pat-only"))assert(!intel_cache_probe_gt_uc_page(0xc000a000,0xa000) && reads==30);
     return 0;
 }

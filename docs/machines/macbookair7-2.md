@@ -22,6 +22,28 @@ GT engine reads require a separately owned acknowledged wake and C0 proof;
 firmware/engine/DMA/display/audio ownership and range grants remain unaccepted.
 Prepare matched host/VM evidence before another physical round. No reboot armed.
 
+### GT implementation checkpoint (native preflight pending)
+
+The bounded wake transaction now implements mandatory initial clear, masked
+kernel request/acknowledgement, C0 validation, exact own-bit retirement, object/
+CPU-epoch binding and retained-fault pins. It requires independent initialization,
+requester-retirement and kernel-bit grants; native supplies no writer or grants.
+Focused tests cover59 I/O failure boundaries, copied owners, foreign requests,
+unissued/uncertain writes, phase/total deadlines and frozen/backward clocks.
+
+A separate native two-page RO/NX/PCD preflight observes request/ACK plus PCI
+ASLS/SWSCI without following the pointer or invoking firmware. It repeats fresh
+original-window/backing checks under CPU exclusion and requires matching UC
+MTRR/effective types for both pages. The independent decoder derives those types
+from raw CPU context; PAT-only UC is refused. Core/actual-adapter/decoder tests
+cover all22 observer failure boundaries, cache and partial-map/retirement failures,
+changed endpoints/raw values and floating PCI/MMIO reads. Existing window/cache
+checks and docs pass. Full matched build/host/VM validation follows before native
+preparation. Current8b9e remains installed and collected; no reboot is armed.
+See [GT access/requester preflight](../intel-gt-access.md) for primary references,
+including the mandatory initialization and Stop Rings warning. No native GT,
+firmware, reader-retirement or GPU-range authority is accepted by this checkpoint.
+
 ### Native CPU-client/range-refusal qualification accepted
 
 Release `8b9e57e43ae025d3`, source `7e33d1a5`, completes as

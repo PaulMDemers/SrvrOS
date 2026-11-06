@@ -75,3 +75,13 @@ bool intel_cache_probe_uc_page(uint64_t physical) {
        !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
     return x86_cache_page(&current,physical,2,&m,&p,&e) && e==0;
 }
+
+/* Keep the accepted candidate-page checker unchanged. These two explicitly
+ * audited pages are only cache eligibility, never MMIO or hardware authority. */
+bool intel_cache_probe_gt_uc_page(uint64_t physical,uint32_t offset) {
+    struct x86_cache_snapshot current;unsigned m,p,e;uint64_t pages[3];
+    if((offset!=0xa000 && offset!=0x130000) || !report_ok || !intel_scanout_trial_cache_pages(pages) ||
+       pages[0]<0x101000 || physical!=pages[0]-0x101000+offset ||
+       !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
+    return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
+}
