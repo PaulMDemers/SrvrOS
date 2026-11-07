@@ -2,7 +2,7 @@ from pathlib import Path
 import subprocess,unittest,re
 from intel_reset_ready import reset_ready_result,native_reset_ready_result
 ROOT=Path(__file__).resolve().parents[1]
-CORE='normal delay borrow policy stale active pending copy zero frozen backward clock-jump guard late-guard initial reserved float read late-read timeout cancel-timeout request-lost cancel-foreign deadline busy drift group-read none cancel-none uncertain foreign'.split()
+CORE='normal delay borrow policy stale active pending copy zero frozen backward clock-jump guard late-guard initial reserved float read late-read timeout cancel-timeout request-lost cancel-foreign deadline return-deadline busy drift group-read none cancel-none uncertain foreign'.split()
 ADAPTER='report ready-delay ready-read ready-initial ready-reserved ready-float ready-late-read ready-busy ready-drift ready-none ready-cancel-none ready-timeout ready-cancel-timeout ready-uncertain ready-foreign active pending flip-wait tlb-pending changed float read-fail cache-last map-last retire-last late-foreign slow frozen tlb-cache tlb-map tlb-retire'.split()
 def adapter(mode='report'):
  return subprocess.check_output([str(ROOT/'build/tests/intel-reset-ready-adapter'),'--wake-engine-'+mode],text=True)

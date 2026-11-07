@@ -2,7 +2,7 @@
 #include "test_intel_completion_audit.c"
 #undef main
 #include <srvros/intel_reset_ready.h>
-struct ready_model {struct model m;struct intel_gt_access *parent;const char *mode;uint32_t ctl;unsigned writes,reads,phase,groups,guards;};
+struct ready_model {struct model m;struct intel_gt_access *parent;const char *mode;uint32_t ctl;unsigned writes,reads,phase,groups,guards,closing;};
 static bool mode(struct ready_model *m,const char *s){return !strcmp(m->mode,s);}
 static uint64_t rnow(void *p) {
  struct ready_model *m=p;
@@ -33,7 +33,7 @@ static bool rcontrol(void *p,uint32_t *v) {
  return true;
 }
 static bool rgroup(void *p,uint32_t w[8]) {
- struct ready_model *m=p;++m->groups;memset(w,0,8*sizeof(*w));w[4]=1;w[6]=512;
+ struct ready_model *m=p;++m->groups;if(mode(m,"return-deadline") && m->groups==1)m->m.t+=20000;memset(w,0,8*sizeof(*w));w[4]=1;w[6]=512;
  if(mode(m,"busy"))w[0]=8;
  if(mode(m,"drift") && m->groups==2)w[7]=1;
  return !mode(m,"group-read");
@@ -45,10 +45,14 @@ static enum intel_gt_write rwrite(void *p,uint32_t value) {
  return mode(m,"uncertain")?GT_WRITE_UNCERTAIN:GT_WRITE_DONE;
 }
 static void rpause(void *p){struct ready_model *m=p;if(mode(m,"deadline"))m->m.t+=10001;}
+static void parent_pause(void *p) {
+ struct ready_model *m=p;
+ if(mode(m,"return-deadline") && m->groups==2 && ++m->closing==2)m->m.t+=90000;
+}
 int main(int argc,char **argv) {
  struct ready_model m={.m={.t=1000,.mode="normal"},.mode=argc>1?argv[1]:"normal"};
  struct display_access_token token;assert(display_access_acquire(18,&token));struct intel_gt_access g={0};m.parent=&g;
- assert(intel_gt_access_open(&g,&token,7,(struct intel_gt_io){&m.m,guard,read_gt,write_gt,now,pause_gt}));
+ assert(intel_gt_access_open(&g,&token,7,(struct intel_gt_io){&m.m,guard,read_gt,write_gt,now,parent_pause}));
  struct intel_completion_result c={0};assert(intel_completion_observe(&c,&g,(struct intel_completion_io){&m.m,obs_guard,group,context,obs_now}));
  if(mode(&m,"borrow")) {
   struct intel_gt_borrow a={0},b={0};assert(intel_gt_access_borrow(&g,&a));assert(intel_gt_access_borrow(&g,&b));
@@ -65,9 +69,10 @@ int main(int argc,char **argv) {
  if(mode(&m,"pending"))c.pending=1;
  bool ok=intel_reset_ready(&r,&g,mode(&m,"copy")?&copied:&c,!mode(&m,"policy"),(struct intel_reset_ready_io){&m,rguard,rcontrol,rgroup,rwrite,rnow,rpause});
  bool expected=mode(&m,"normal") || mode(&m,"delay");assert(ok==expected);
- if(m.writes && !ok)assert(r.uncertain && r.borrow.active && g.borrows==1 && !intel_gt_access_close(&g));
+ if(m.writes && !ok && !mode(&m,"return-deadline"))assert(r.uncertain && r.borrow.active && g.borrows==1 && !intel_gt_access_close(&g));
  struct intel_reset_ready_result rcopy=r;assert(!intel_reset_ready(&r,&g,&c,true,(struct intel_reset_ready_io){0}));assert(!intel_reset_ready(&rcopy,&g,&c,true,(struct intel_reset_ready_io){0}));
  if(ok){assert(r.complete && r.ready && r.cancelled && r.blocked_close && r.writes==2 && r.samples==2 && r.controls_read==4 && r.reads==r.polls+18 && !r.uncertain && !g.borrows);}
+ if(mode(&m,"return-deadline"))assert(!ok && r.reason==IRR_CLOCK && !r.uncertain && !r.borrow.active && r.end_us-r.begin_us>100000);
  if(r.uncertain || r.borrow.active) {assert(g.borrows==1 && g.pinned && !intel_gt_access_close(&g) && m.m.writes==2);assert(!display_access_release(&token,true));}
  else if(g.state==GT_ACCESS_AWAKE){assert(!g.borrows && intel_gt_access_close(&g));assert(display_access_release(&token,true));}
  puts("reset ready PASS; no reset/drain/cache authority");return 0;

@@ -84,6 +84,15 @@ bool intel_reset_ready(struct intel_reset_ready_result *r,struct intel_gt_access
 done:
  if(!r->uncertain) {
   if(!intel_gt_access_return(&r->borrow)){r->uncertain=true;fail(r,IRR_PARENT);}
+  else if(r->end_us) {
+   /* The dependent budget includes returning its pin, not just the last MMIO.
+    * A late but verified clean return is incomplete timing evidence, not an
+    * invented outstanding hardware ownership or forced re-pin. */
+   uint64_t finished=io.now(io.ctx);
+   if(!finished || finished<=r->end_us || finished<r->last_us ||
+      finished-r->begin_us>INTEL_RESET_READY_TOTAL_US)fail(r,IRR_CLOCK);
+   r->end_us=finished;r->last_us=finished;
+  }
  }
  r->complete=r->admitted && r->ready && r->cancelled && !r->uncertain && !r->reason && r->samples==2 && r->controls_read==4 && r->writes==2;
  return r->complete;

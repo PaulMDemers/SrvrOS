@@ -45,15 +45,16 @@ parent. Parent close is exercised and must refuse without issuing a store while
 the borrow is live. Copied, stale, forged, mismatched and reused borrows cannot
 return a pin. Clean cancellation and unchanged post-state permit return. Any
 possibly issued request followed by an uncertain store, missing acknowledgement,
-clock/guard failure, state drift or unsafe cancellation retains the borrow,
+clock/guard failure while live, state drift or unsafe cancellation retains the borrow,
 requester/mappings and CPU exclusion until reset. There is no forced close,
 blind retry or cleanup store after such a fault. A sticky GT retained-state
 query also blocks the main automatic-return gate, alongside the existing HDA
 check; the pre-entry warning remains visible without bypassing display exclusion.
 
 Ready and cancellation each have a 10 ms/256-poll bound; the whole dependent
-has a 100 ms bound inside the unchanged 300 ms GT/500 ms outer lifetime.
-Failure does not increase a timeout. Raw BCS rows and all four control endpoints,
+has a 100 ms bound including verified borrow return, inside the unchanged 300 ms GT/500 ms outer lifetime.
+Failure does not increase a timeout. A late but verified clean return is
+incomplete timing evidence; it does not invent retained hardware ownership. Raw BCS rows and all four control endpoints,
 read/poll/write counts, timing, blocked close and borrow/return status are saved.
 The wake receipt is version 5; versions 1–4 keep their prior counts and meaning.
 The collector binds completion, dependent and native/UC/checkpoint evidence;
