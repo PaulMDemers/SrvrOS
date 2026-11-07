@@ -7363,3 +7363,14 @@ restoration checks still follow. Exhaustion is not an ownership failure and
 never permits a retry,ring reuse or a larger timeout. This shortens the period
 in which a spent receive window can accumulate hardware backlog;whether the
 remaining eight entries suffice on hardware remains unaccepted.
+
+The first receive-report/early-exhaustion native run did safely stop after40
+forward completions. It drained one reserved completion and restored the
+independent endpoint/input/MAC originals and all nine power words. The whole
+exchange and outer RF completion still failed,so this is partial evidence only.
+Of36 data-phase frames,33 refused the supported frame class,one refused RX flags
+and two authenticated into Ethernet. Neither passed the IP probe's OFFER gate.
+Frame size and successful CCMP alone do not identify DHCP message type or prove
+transaction/option/checksum acceptance. Next classify those protocol refusals
+without packet values and retain all existing cryptographic,wire and retirement
+checks. ARP,DNS,echo and general connectivity remain unaccepted in this run.

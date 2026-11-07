@@ -14327,3 +14327,35 @@ exact256-byte echo,key erasure/leave and endpoint/input/MAC/power/RF originals
 for diagnostic acceptance. No filter/BSSID writes,ring reuse or larger limits
 are accepted by these fixtures. Ordinary provider/UI,TCP/HTTP and live reattach
 remain pending. PR19 stays draft and Actions remain disabled.
+
+### Native early exhaustion restored the independent owner; DHCP still refused (November 7)
+
+Runtime141a6cd6,session00065fb78852894c-00,saved1,894,313bytes and returned
+successfully to Ubuntu. The historical management/M1 parent passed,and the
+independent child again verified M3 MIC,completed local M4 and activated keys.
+Its one encrypted DHCP DISCOVER completed with PN1. Of36 data-phase completions,
+33 refused the supported protected-FromDS frame class,one refused RX flags and
+two authenticated into342-byte and62-byte Ethernet frames. Those two frames
+were ignored by the IP probe;no OFFER was accepted. Their message types and
+refusal causes are not identified by this receipt schema. They must not be
+called valid DHCP offers merely from size or authenticated transport.
+
+The40-entry forward budget ended safely with exhausted=1,unsafe=0 after345 IP
+polls. The independent exchange ended at1,167,666us,rather than waiting out the
+remaining timeout. Keys were erased and leave completed. MAC-disabled cleanup
+consumed only one reserved completion,posted42 total entries and passed both
+TX/RX drain and filter/TXOP restoration. All six endpoint commands and the
+independent endpoint/input originals passed with restored=1,phase9. All nine
+power originals were restored (511). This is direct partial native evidence
+for early exhaustion and independent-owner cleanup;the exchange and full outer
+RF completion predicate still failed. It is not full restoration/connectivity
+acceptance,and the accepted complete foundation remains v130.
+
+ARP,DNS and echo never ran. The new565-file failure capsule is sealed outside
+build. Prior564/581/564 failures and accepted177-file four-way evidence remain
+unchanged;offline filesystem/allocation and Ubuntu recovery pass. Next inspect
+authenticated IP/DHCP refusal causes with only categorical metadata,including
+wire spans/checksums,ports,transaction/station binding and option/message gates.
+Do not log packet/address/key values or relax a predicate to accept an unknown
+frame. Keep immediate safe exhaustion and every restoration requirement. No
+unchanged retry or new physical boot is armed.
