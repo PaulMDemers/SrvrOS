@@ -7,6 +7,16 @@ BOOL='compiled efi64 loader recipe prerequisites profile serialized acquired bef
 ZERO='mmio_writes status_writes wake reset ack dma_retirement managed_pages'.split()
 G=[f'g{i}' for i in range(11)]
 W=[f'w{i}' for i in range(5)]
+def phase_needs_attention(line):
+ """Recognize a complete idle phase header; full raw proof is checked separately."""
+ try:
+  p=_fields(line,'intel-hda-owner-phase:',PHASE,tuple(k for k in ENDPOINT if k not in ('state','reserved')))
+ except ValueError:return True
+ return not (p['phase']<=2 and p['command']==(2 if p['phase']==1 else 6) and
+  p['id']==0x160c8086 and p['class_rev']==0x04030009 and p['subsystem']==0x011b106b and
+  p['flags']&1 and p['pm']&3==0 and p['state']==p['reserved']==1 and p['bar']==0xc1610004 and p['bar_high']==0 and
+  p['maps']==p['retired']==p['stable']==p['complete']==1 and p['samples']==2 and p['reads']==58 and
+  p['retained']==p['run']==p['dma']==p['reason']==0 and 0<p['begin_us']<p['end_us']<=p['begin_us']+200000)
 def owner_summary(line):
  s=_fields(line,'intel-hda-owner-summary:',SUMMARY)
  if s['policy']!=1 or any(s[k]>1 for k in BOOL) or any(s[k] for k in ZERO):raise ValueError('HDA owner policy/authority')

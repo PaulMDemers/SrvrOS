@@ -6,6 +6,20 @@ CORE=('normal','facts','zero','frozen','backward','guard','late-guard','inspect-
 ADAPTER=('normal','active','changed','max','loader','efi','recipe','irq','id','revision','subsystem','bar','high','d3','decode','cache','late-cache','power-change','map','retire','over','float','read','slow','ram','cr3','alias','stolen','late-active','late-retire','store-none','store-uncertain','readback','restore-none','write-slow','store-cache','store-power','store-cr3','store-alias','store-parent','restore-readback','final-active')
 def adapter(mode):return subprocess.check_output([str(ROOT/'build/tests/intel-hda-owner-adapter'),mode],text=True)
 class OwnerTests(unittest.TestCase):
+ def test_successful_phase_reasons_do_not_warn_but_failures_still_do(self):
+  from hardware_desktop import needs_attention
+  text=adapter('normal')
+  rows=[l for l in text.splitlines() if l.startswith('intel-hda-owner-phase:')]
+  self.assertEqual(len(rows),3)
+  for line in rows:
+   self.assertFalse(needs_attention(line))
+   for old,new in [('reason=0','reason=1'),('complete=1','complete=0'),('retained=0','retained=1'),('reads=58','reads=57'),('stable=1','stable=0'),('run=0','run=1'),('dma=0','dma=1'),('samples=2','samples=1'),('retired=1','retired=0'),('bar=0xc1610004','bar=0xc1620004'),('state=1','state=0')]:
+    with self.subTest(field=old):self.assertTrue(needs_attention(line.replace(old,new)))
+   for bad in (line+' reason=0',line+' error=1',line.replace('v=1','v=2')):self.assertTrue(needs_attention(bad))
+  # A quiet header alone cannot suppress invalid raw controller/stream proof.
+  for old,new in [('g2=0','g2=0x1'),('w3=0','w3=0x1000')]:
+   bad=text.replace(old,new);self.assertNotEqual(text,bad)
+   with self.assertRaises(ValueError):owner_result(bad)
  def test_core(self):
   for m in CORE:
    with self.subTest(mode=m):subprocess.check_call([str(ROOT/'build/tests/intel-hda-owner-core'),m],stdout=subprocess.DEVNULL)

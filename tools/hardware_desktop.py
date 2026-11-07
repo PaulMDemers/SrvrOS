@@ -573,6 +573,9 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-hda-owner-phase:'):
+        from intel_hda_owner import phase_needs_attention
+        return phase_needs_attention(line)
     if line.startswith('intel-hda-owner-summary:'):
         from intel_hda_owner import owner_summary
         try:return not owner_summary(line)['complete']

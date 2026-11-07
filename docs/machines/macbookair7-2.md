@@ -2,6 +2,20 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
+### Return closeout in progress: host phase-warning classification
+
+Release `d6677f44c064979d` returned as session `session-00065fa8e62db698-00`.
+Strict native owner/checkpoint receipts pass with both command stores, all three
+stable phases and clean retirement. The first collector incorrectly flags the
+three complete phase headers solely because they contain `reason=0`; preserve
+that original collection/incomplete proof. Bound this follow-up to the host
+HDA phase-warning classifier and regression tests, then reclassify hash-verified
+saved bytes offline. Do not weaken native completion or timing checks, alter the
+kernel payload, rerun collection after unmount or reboot. Main `e8e56ee3` was
+fetched (Air6,1 HHDM-permission/window evidence) but is not integrated into this
+payload; PR19 remains Pro Wi-Fi and PR379 WebCore. Publish the classifier fix
+and this unit's corrected evidence without claiming DMA or memory retirement.
+
 ### Current trial ready: cooperative display-HDA requester inhibit/restore
 
 Main `e21292e2` is integrated; tested source `6277e99b` produced release
