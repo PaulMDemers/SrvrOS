@@ -416,7 +416,7 @@ def main():
                         result=firmware_result(exit_log)
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         assert 'laptop-capture: completed=NO' in exit_log
-                        if manifest['config_version'].startswith(tuple(f'ram-usb-v{i}-hfw-' for i in range(2,6))):
+                        if manifest['config_version'].startswith(tuple(f'ram-usb-v{i}-hfw-' for i in range(2,7))):
                             from hardware_haswell_cache import cache_result
                             if manifest['config_version'].startswith(('ram-usb-v4-hfw-','ram-usb-v5-hfw-','ram-usb-v6-hfw-')):
                                 from hardware_haswell_alias import alias_preinit_result

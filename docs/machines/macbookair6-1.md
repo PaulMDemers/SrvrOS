@@ -8210,3 +8210,10 @@ exact native macro and host-trap definitions, models only the macro boundary
 and preserves the extracted production function bodies verbatim. The prior
 failed full run is retained; rerun the real interleaving fixture and complete
 full-core validation before staging. No futex runtime or limit is changed.
+
+
+The first staged v6 VM exposed a harness-only version range that selected the
+old firmware-progress assertion instead of cache/ECAM/window checks. The guest
+saved refusal records and returned cleanly. Extend the version selector through
+v6 so all existing strict three-file refusal assertions execute; preserve that
+failed rehearsal and rerun the sequential matrix. No kernel or gate change.
