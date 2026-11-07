@@ -18,9 +18,49 @@ Touch the observer/core/cache predicate, staging/collector/tests and docs. The
 translation/cache obligations and evidence limits. Validate one matched source
 and exact stage, preserve all recovery/evidence and stop ready for a hardware trial.
 
-### Current checkpoint: already-disabled BCS/reader observation accepted
+### Read-only display-HDA candidate ready (native acceptance pending)
 
-Main `b9615fc5` is integrated; tested source `47a0db4e` is installed as
+Release `8185aa9875c61e9a`, tested source `7d7dfa56`, is installed and **not armed**.
+It is a distinct 12-token EFI64/Limine11.4.1 image with no GT wake, engine-census
+or BCS control writer linked. It requires the native GPU/cache/firmware/handoff
+chain before mapping display HDA. No analog audio setup or HDA config/MMIO data
+writes, power/reset, commands, stream stop or interrupt acknowledgements occur.
+The [HDA contract](../intel-display-hda-census.md) specifies exact identity/BAR/D0
+and memory/UC checks, a single RO/NX alias, two naturally aligned control/descriptor
+passes, the 8-stream evidence budget and 200ms/500ms bounds. Active or changing
+DMA controls are observations and cannot grant retirement or reusable memory.
+
+Full host/core/profile/docs/build checks pass, including 89 installer cases
+(one expected opt-in skip), 22 HDA core and 28 adapter fatal ASan/UBSan scenarios,
+prior GPU sanitizers, 34 compiled negative controls and 269 collector/staging
+cases. Exact-stage MBR Q35 confirms EFI/recipe and refusal before HDA MMIO,
+saved preflight/results, safe unmount/automatic return and missing-workspace halt.
+Prior blitter/engine/wake/handoff/window/DMA/lifetime/Haswell and VirtIO regressions
+pass. Exact image separation verifies HDA code/request are absent from the other
+images, and GT/BCS writers are absent from this image. Worst-case native log
+projection is 60,833/65,536 bytes at 8 streams, including 1,024 bytes of allowance.
+
+USB `37D8-C5D0` (MBR) has 1,353 inventoried files / 107 sessions, unchanged boot
+sectors and clean offline fsck/allocation/writable/headroom checks; it is unmounted.
+Ubuntu remains default. Recovery `9aa8dbf6fbda8252`, accepted BCS/reader baseline
+`32859f5868aedd46`, census `3d8c0e9688408a25` and known-good GUI `c497eb0cb48c1b01`
+remain verified. Inactive incomplete trial `16824812ea718910` was fully SHA-verified
+against its durable copy and independent archive before removal from EFI;
+accepted wake `93b497d37af24dae` retains its existing durable/archive copies.
+Local run/stage/validation/guard records and independent full SHA backup are under
+`build/air-display-hda-20261106` and
+`~/.local/share/srvros/reviewed-evidence/air-display-hda-20261106`.
+
+The next trial is automatic, volume 1%, audio off, no input needed. Handled safe
+outcomes save/unmount/return; unsafe persistence or retained mappings can halt.
+Collect the matching session and verify native receipts/checkpoint/UC, prior
+files, offline media/recovery and consumed one-shot before any new run. This
+candidate has no physical acceptance. No reboot is armed. No DMA/reader/cache/
+translation retirement, managed GPU interval or physical tear-free is enabled.
+
+### Accepted baseline: already-disabled BCS/reader observation
+
+Main `b9615fc5` was integrated; tested source `47a0db4e` produced release
 `32859f5868aedd46`. The bounded already-disabled observation and read-only reader
 audit now have matching native evidence. The separate enabled-ring control-write
 path remains physically untested. PR19 is Pro Wi-Fi and PR379 WebCore; neither

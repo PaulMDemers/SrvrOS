@@ -84,8 +84,12 @@ native firmware/cache chain, exact endpoint and independent HDA-page UC proof.
 It verifies read widths/counts, topology, derived RUN/DMA/stability masks,
 budgets and alias/exclusion closeout. Preserve prior files, check offline media,
 Ubuntu default/recovery and consumed one-shot before starting another run.
-Native acceptance is pending; the installed accepted BCS/reader release remains
-the prior baseline until a new candidate is prepared and tested.
+Candidate `8185aa9875c61e9a`, source `7d7dfa56`, is installed and not armed.
+The full local host/build/sanitizer/negative-control and exact-stage VM matrix
+passes; native acceptance is pending. The accepted BCS/reader baseline `32859f5868aedd46`
+and recovery are retained. Worst-case native log projection fits the existing tail.
+See the [unit readiness record](machines/macbookair7-2.md#read-only-display-hda-candidate-ready-native-acceptance-pending)
+for matching payloads, media and independently SHA-backed evidence.
 
 ## Remaining ownership obligations
 
