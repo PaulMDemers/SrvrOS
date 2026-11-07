@@ -8424,3 +8424,24 @@ All619 prior files survive except expected `.srvros/meta`; four new logs make
 FAT-bitmap mismatch. Raw/cost receipts and analysis remain outside build. Ubuntu
 default, accepted ECAM/root and recovery retained; one-shot entry empty and
 collector disabled after return. No next boot armed.
+
+
+### Live occupancy and catalog lookup scope (2026-11-07)
+
+Base `5e7116b4`; PR401 failure collected. Replace the64 per-record occupancy
+booleans with one authoritative64-slot bitmap, used by every registration,
+lookup, release and sole-root check. Keep live IRQ/CR3/root/count checks; do not
+add a cached empty-registry summary. Preserve64 slots,256 tables/space,128 kernel
+map limits, publication ordering and all ownership checks. Add full-slot capacity,
+stray-bit/count contradiction and teardown/snapshot regressions. Scope includes
+private VMM registry representation and affected host fixtures.
+
+The window-only gate may index its existing validated immutable catalog snapshot
+by sorted source-row indices. Reclassify actual row bounds/type on every call;
+retain fresh full-catalog continuation comparisons and all source/raw checks.
+Prove equivalence against the old full overlap scanner for unsorted catalogs,
+all types, gaps, boundaries and maximum/malformed inputs. Earlier ECAM lookup
+remains unchanged. Retain native lookup-step diagnostics, prior failures and all
+limits. PR301 currently has no overlapping VMM/window edits; PR19 Wi-Fi remains
+independent. Publish/test matched core, sanitizers and staged/ordinary VMs before
+merge and automatic native retry. Native100ms qualification remains pending.
