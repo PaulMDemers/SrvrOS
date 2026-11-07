@@ -2,20 +2,64 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
-### Active scope: maintained display-HDA inhibit lease
+### Maintained HDA inhibit lease ready for native trial
 
-Main `e8e56ee3` is integrated. PR401 owns Air6,1 census timing, PR19 Pro Wi-Fi
-and PR379 WebCore; no current HDA overlap was found. The [lease contract](../intel-display-hda-lease.md) splits the accepted bounded
-requester round trip into one-use open/pin/check/unpin/close operations with
-sealed owner/epoch tokens, a captured I/O context and fresh guards. Refuse restore
-while dependents are pinned; retain inhibited ownership on uncertain transitions
-or failed revalidation. Keep all existing bounds and the cooperative EFI policy;
-no outstanding-DMA drain or memory assurance is implied. Add a separate automated
-lease recipe/image to hold inhibition across a pinned read-only controller check,
-strict receipts/collection, fault tests and exact-stage VM validation. Touch HDA
-core/adapter, isolated build/boot/collector tooling and unit docs. Preserve the
-accepted round-trip payload/evidence and stop ready for another hardware test;
-no reboot is authorized by this work block alone.
+Main `e8e56ee3` is integrated. Tested source `ec233528` produces release
+`8859f4e6ad6862cf`, installed **not armed**, with no physical lease acceptance.
+PR401 owns Air6,1 timing; PR19 Pro Wi-Fi and PR379 WebCore; no HDA overlap was
+found. The [lease contract](../intel-display-hda-lease.md) adds captured I/O,
+one-use owner/epoch tokens and independent sealed dependent borrows. A copied
+or released borrow cannot unpin another dependent. Closing while pinned refuses
+without I/O; dependent revalidation faults retain inhibition/exclusion until
+reset. The existing one-shot wrapper preserves its separate three-phase recipe.
+
+The isolated lease image/request/13-token recipe qualifies open/pin/blocked-close/
+read-only-check/unpin/close: four two-pass controller snapshots at command6/2/2/6,
+232 reads, one dependent check, one blocked close and pins0 at clean close.
+Exactly two PCI command16 writes are permitted. Existing400ms core/500ms full
+and200ms per-census bounds stay unchanged; pinning never extends them. All memory
+stays protected. The same cooperative EFI submission assumption applies; neither
+a live lease nor clear controls prove outstanding-DMA, firmware/SMM, other-reader,
+translation/cache retirement or a reusable GPU interval.
+
+The matching host/core/profile/docs/build matrix passes (318 recorded jobs),
+including imported Air6,1 HHDM/window regressions. Fatal ASan/UBSan covers10 lease
+API and46 actual lease-adapter modes, legacy owner26/42 cases and earlier GPU
+protocols/observers. Four GT,14 owner and8 lease compiled negative controls are
+detected. One old pre-dispatch-retention mutant became equivalent because the
+new fault handler independently retains attempts; the harness now removes both
+redundant guards and retains the initial attempt/mutant. Production code did not
+change to satisfy that control. All277 collector/staging tests pass. The89
+unchanged installer cases (one opt-in skip) and C/exFAT installed-root receipt
+remain explicitly reused from `7c0c2fab`, with unchanged inputs/recipe verified.
+
+Exact-stage MBR Q35 verifies EFI64/Limine11.4.1, strict recipe, no-store refusal,
+saved checkpoint/results, safe unmount/automatic return and missing-workspace
+halt. Old owner/HDA/blitter/window/Haswell and VirtIO VM regressions pass. Ten-image
+symbol/hash checks isolate the pin/check writer and lease firmware request;
+GT/BCS writers are absent. Native-formatted projection is62,602/65,536 bytes with
+1,536 bytes allowance; new raw controller/stream words are decimal and endpoint
+fields remain hex. Typed phase warnings and full raw/checkpoint/lifetime proof
+stay mandatory. VM evidence grants no native write or ownership acceptance.
+
+USB `37D8-C5D0` (MBR) has1,359 inventoried files/109 sessions, preserved prior
+contents/boot sectors and clean offline fsck/allocation/writable/headroom checks;
+it is unmounted. Ubuntu remains default, recovery `9aa8dbf6fbda8252`, accepted
+round trip `d6677f44c064979d`, read-only HDA `8185aa9875c61e9a`, BCS/reader
+`32859f5868aedd46`, census `3d8c0e9688408a25` and GUI `c497eb0cb48c1b01` remain
+verified. Inactive DMA `53460fd7c2c0f337` was fully SHA-verified against durable/
+archive copies before unreferenced EFI removal. Sixteen inactive duplicate stages
+were removed only after complete durable/manifest/file SHA equality (about2.35GB);
+all contents survive outside `build`, and current/recovery/latest were protected.
+
+Evidence/run/stage/guards are under `build/air-hda-lease-20261107`, with independently
+SHA-verified full backup under `~/.local/share/srvros/reviewed-evidence/air-hda-lease-20261107`
+and a retained cleanup sidecar. The next trial is automatic, volume1%, audio off,
+no input needed. Safe completion/pre-write refusal saves/unmounts/returns;
+retained state or unsafe persistence halts. Reboot guards pass **check-only**;
+no one-shot is armed. Collect the matching session first after a future trial.
+Outstanding DMA/firmware/prefetch, other readers and translation/cache/backing
+remain necessary before managed GPU memory or native tear-free presentation.
 
 ### Current checkpoint: cooperative display-HDA requester trial accepted
 

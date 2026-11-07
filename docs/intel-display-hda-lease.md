@@ -77,3 +77,17 @@ After this lifetime is accepted, remaining work includes outstanding DMA and
 firmware/prefetch accounting, other GPU/display readers, exact backing ownership
 and translation/cache completion. A successful pinned lease alone grants no
 `scanout_handoff` assurance or physical tear-free presentation.
+
+## Validated candidate (native acceptance pending)
+
+Release `8859f4e6ad6862cf`, source `ec233528`, is installed and not armed. The
+[unit readiness record](machines/macbookair7-2.md#maintained-hda-inhibit-lease-ready-for-native-trial)
+records exact validation, recovery/media and independent evidence. Full matched
+host/core/profile/build, fatal sanitizers (10 API/46 actual lease-adapter modes,
+plus legacy owner26/42 and earlier GPU cases),26 compiled negative controls,
+277 collector/staging cases and10-image isolation pass. Unchanged installer/
+installed-root tests have an explicit earlier-source reuse receipt. Exact-stage
+Q35 refuses before writes, persists and returns; missing workspace halts. Prior
+owner/HDA/blitter/window/Haswell/VirtIO regressions pass. Native log projection is
+62,602 bytes with1,536 allowance, below the unchanged65,536 tail. No physical
+lease or memory authority follows from these host/VM results.
