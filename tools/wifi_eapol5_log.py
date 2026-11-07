@@ -13,7 +13,7 @@ def check(log):
  require(s['complete']==s['matched']==s['clock_valid']==1 and 1<=s['frames']<=46 and s['frames']==len(rx) and s['frames']<=s['polls']<=20000 and 0<=s['elapsed_us']<1700000 and s['eapol_tx']==s['keys']==s['authenticated']==0,'incomplete or unauthorized M1 capture')
  old=[fields(x,'wifi-join5-rx') for x in lines if x.startswith('wifi-join5-rx:')];start=len(old);matches=0
  for i,line in enumerate(rx):
-  a=fields(line,'wifi-eapol5-rx');require(set(a)=={'index','bytes','view','mpdu','fc','eapol','m1'} and a['index']==start+i and 0<=a['index']<48 and 0<=a['bytes']<=4096 and 0<=a['view']<=3 and a['m1'] in (0,1),'wrong M1 RX schema/index')
+  a=fields(line,'wifi-eapol5-rx');require(set(a)=={'index','bytes','view','rxinfo','mpdu','fc','eapol','m1'} and a['index']==start+i and 0<=a['index']<48 and 0<=a['bytes']<=4096 and 0<=a['view']<=3 and 0<=a['rxinfo']<=0xffffffff and a['m1'] in (0,1),'wrong M1 RX schema/index')
   if a['view']:require(a['mpdu']==a['fc']==a['eapol']==a['m1']==0,'invalid M1 view leaked fields')
   else:
    base=a['fc']&~0x2800;require(base in (0x0208,0x0288) and 99<=a['eapol']<=1123 and a['mpdu']==(26 if base==0x0288 else 24)+8+a['eapol'] and a['bytes']>=36+a['mpdu'],'invalid EAPOL dimensions')

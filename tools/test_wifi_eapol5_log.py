@@ -14,7 +14,7 @@ class Tests(unittest.TestCase):
    if not line.startswith('wifi-eapol5'):continue
    for bad in (rows[:i]+rows[i+1:],rows[:i]+[line]+rows[i:]):
     with self.subTest(i=i),self.assertRaises((AssertionError,ValueError)):self.check(bad)
-  for prefix,key,value in [('wifi-eapol5:','complete',0),('wifi-eapol5:','matched',2),('wifi-eapol5:','frames',2),('wifi-eapol5:','polls',20001),('wifi-eapol5:','elapsed_us',1700000),('wifi-eapol5:','keys',1),('wifi-eapol5:','eapol_tx',1),('wifi-eapol5-rx:','index',0),('wifi-eapol5-rx:','m1',0),('wifi-eapol5-rx:','eapol',98),('wifi-eapol5-rx:','view',1),('wifi-eapol5-rx:','fc',0x88)]:
+  for prefix,key,value in [('wifi-eapol5:','complete',0),('wifi-eapol5:','matched',2),('wifi-eapol5:','frames',2),('wifi-eapol5:','polls',20001),('wifi-eapol5:','elapsed_us',1700000),('wifi-eapol5:','keys',1),('wifi-eapol5:','eapol_tx',1),('wifi-eapol5-rx:','rxinfo',0x100000000),('wifi-eapol5-rx:','index',0),('wifi-eapol5-rx:','m1',0),('wifi-eapol5-rx:','eapol',98),('wifi-eapol5-rx:','view',1),('wifi-eapol5-rx:','fc',0x88)]:
    bad=rows.copy();i=next(i for i,x in enumerate(bad) if x.startswith(prefix));bad[i]=re.sub(r'\b'+key+r'=(0x[0-9a-f]+|\d+)',key+'='+str(value),bad[i])
    with self.subTest(key=key),self.assertRaises((AssertionError,ValueError)):self.check(bad)
   with self.assertRaises((AssertionError,ValueError)):self.check(rows+['wifi-eapol5-unknown: x=1'])

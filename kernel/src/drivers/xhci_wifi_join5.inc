@@ -188,9 +188,10 @@ static bool wifi_join5_poll(void *c,uint8_t *out,size_t cap,size_t *size,bool *p
    copy_bytes(p.station,wifi_join5.peer.peer.station,6);copy_bytes(p.bssid,wifi_join5.peer.peer.bssid,6);
    struct mt76_eapol5_view v={0};enum mt76_rx_status status=mt76_eapol5_rx(&p,wifi_join5.buffer[i],bytes,&v);
    wifi_join5.rx_delivered=true;wifi_eapol5.frames++;
+   uint32_t rxinfo=0;if(bytes>=8)for(unsigned k=0;k<4;k++)rxinfo|=(uint32_t)wifi_join5.buffer[i][4+k]<<(8*k);
    bool shape=status==MT76_RX_OK && mt76_eapol5_m1(v.eapol,v.eapol_size);
    if(status==MT76_RX_OK && v.eapol_size<=cap){copy_bytes(out,v.eapol,v.eapol_size);*size=v.eapol_size;*present=true;}
-   console_printf("wifi-eapol5-rx: index=%u bytes=%u view=%u mpdu=%u fc=%x eapol=%u m1=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)status,(uint64_t)v.mpdu_size,(uint64_t)v.frame_control,(uint64_t)v.eapol_size,(uint64_t)shape);
+   console_printf("wifi-eapol5-rx: index=%u bytes=%u view=%u rxinfo=%x mpdu=%u fc=%x eapol=%u m1=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)status,(uint64_t)rxinfo,(uint64_t)v.mpdu_size,(uint64_t)v.frame_control,(uint64_t)v.eapol_size,(uint64_t)shape);
    zero_bytes(&p,sizeof p);
   }else{
   struct mt76_rx_view v={0};
