@@ -106,3 +106,15 @@ Missing persistence halts visibly. Q35 must refuse before writes and cannot
 accept the native register path. Native acceptance requires all receipts,
 matching saved preflight, inherited-state/engine binding, independent UC proofs,
 clean closeout, prior-file preservation and offline media/recovery checks.
+
+## Air7,2 readiness checkpoint
+
+The installed candidate is `16824812ea718910`, source `b7cb3bc3`. Host/core/profile
+checks, fatal sanitizers,18 compiled negative controls, exact-stage Q35 refusal
+and persistence checks, and prior diagnostic/VirtIO regressions pass. It is not
+armed and has no native acceptance. The saved-log budget includes the additional
+BCS/reader receipts. Recovery and the previous accepted engine census are retained.
+See the [unit record](machines/macbookair7-2.md#blitterreader-candidate-ready-for-automated-hardware-trial)
+for exact local payloads, media and evidence paths. The next step is an automated
+native trial and matching return collection; no managed-memory authority follows
+from host/VM evidence or from a front-end disable alone.

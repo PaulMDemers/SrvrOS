@@ -31,6 +31,35 @@ eligibility, budgets, reader coverage and remaining gaps. Focused host/model
 and provenance tests precede full matched-source validation and preparation;
 no hardware test is armed.
 
+### Blitter/reader candidate ready for automated hardware trial
+
+Release `16824812ea718910`, payload source `b7cb3bc3`, is installed but **not
+armed or physically accepted**. The full host/core/profile/build matrix,
+fatal ASan/UBSan runs (17 adapter and11 BCS core scenarios),18 compiled negative
+controls, exact-stage Q35 refusal/missing-workspace checks and prior-profile/
+VirtIO regressions pass. Native-formatted receipt budgeting projects63,742 of
+65,536 saved-log bytes, including1,024 bytes of allowance. These checks do not
+establish native MMIO behavior or all-reader retirement.
+
+The automated trial needs no input: volume1%, guest audio off, visible progress,
+saved preflight/results and automatic return after handled save/unmount. An
+uncertain control write or reader-state change retains mappings/wake/exclusion;
+missing safe persistence halts visibly. Only verified idle BCS front-end disable
+is eligible; its firmware ring memory and every unretired reader remain protected.
+
+USB `37D8-C5D0` (MBR) has1,347 inventoried files/105 sessions and clean offline
+filesystem/allocation/write/headroom checks. Ubuntu stays default; recovery
+`9aa8dbf6fbda8252`, prior census `3d8c0e9688408a25`, wake `93b497d37af24dae`
+and known-good desktop `c497eb0cb48c1b01` remain available. Inactive EFI payload
+`45815233908f2d02` was SHA-verified against its durable copy and independent
+archive before removal from EFI. Run records, guarded reboot/return helpers,
+validation and independent evidence live under local
+`build/air-blitter-retire-20261106` and
+`~/.local/share/srvros/reviewed-evidence/air-blitter-retire-20261106`.
+Collect the matching new session before starting another run; refusals, retained
+state and missing completion remain incomplete evidence. Managed GPU memory,
+full engine/reader/DMA retirement and physical tear-free remain unaccepted.
+
 ### Native awake engine census accepted
 
 Release `3d8c0e9688408a25`, source `531bc9dd`, completes as
