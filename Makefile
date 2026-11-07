@@ -4897,3 +4897,21 @@ build/tests/air61-window-profile$(HOST_EXE): tools/test_air61_window_profile.c t
 build/tests/air61-window-combined$(HOST_EXE): tools/test_air61_window_combined.c tools/test_ecam_profile.c tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_ecam_boot.c kernel/src/memory/air61_window.inc kernel/diagnostics/haswell_ecam_report.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_ECAM_GATE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@
+
+.PHONY: test-air61-read-window air61-read-window-object
+test-core: test-air61-read-window
+test-air61-read-window: build/tests/air61-read-window$(HOST_EXE)
+	$<
+AIR61_READ_TEST_UNITS := kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c
+build/tests/air61-read-gate0.o: tools/test_air61_read_gate.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include -DAIR61_READ_GATE_PASS=0 -c $< -o $@
+build/tests/air61-read-gate1.o: tools/test_air61_read_gate.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include -DAIR61_READ_GATE_PASS=1 -c $< -o $@
+build/tests/air61-read-window$(HOST_EXE): tools/test_air61_read_window.c tools/test_air61_window_profile.c tools/test_air61_window.c kernel/src/memory/vmm.c kernel/src/memory/air61_window.inc kernel/src/memory/air61_read_window.inc build/tests/air61-read-gate0.o build/tests/air61-read-gate1.o $(AIR61_READ_TEST_UNITS) $(KERNEL_HEADERS)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< build/tests/air61-read-gate0.o build/tests/air61-read-gate1.o $(AIR61_READ_TEST_UNITS) -Wl,--gc-sections -o $@
+air61-read-window-object: build/air61-read-window/vmm.o
+build/air61-read-window/vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/src/memory/air61_window.inc kernel/src/memory/air61_read_window.inc $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -DSRVROS_AIR61_WINDOW -DSRVROS_AIR61_READ_WINDOW -c $< -o $@

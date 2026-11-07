@@ -56,7 +56,12 @@ static bool aw_test_free(uint64_t pa){unsigned i=frame_index(pa);assert(i==6 || 
 #define SRVROS_AIR61_WINDOW
 #define SRVROS_AIR61_WINDOW_HOST_TEST
 #include "../kernel/src/memory/vmm.c"
-static bool aw_census_active(void){return aw.in_census;}
+static bool aw_census_active(void){
+#ifdef AIR61_READ_WINDOW_FIXTURE
+ if(rw.result.busy)return rw.pass[rw.current].in_census;
+#endif
+ return aw.in_census;
+}
 void *pmm_phys_to_virt(uint64_t pa){return (char *)pages+(pa-0x2000000);}
 uint64_t pmm_hhdm_offset(void){return 0xffff800000000000ull;}
 uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t min,enum pmm_frame_tag tag){
@@ -64,14 +69,25 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t min,enum pmm_frame_ta
  if(allocs==alloc_fail_at)return 0;
  if(bad_alloc)return AIR61_WINDOW_PA;
  if(borrowed)return 0x2001000;
- unsigned f=duplicate?6:5+allocs;assert(f<8);tags[f]=tag;return 0x2000000+4096*f;
+#ifdef AIR61_READ_WINDOW_FIXTURE
+ unsigned f=6;
+ if(!duplicate)while(f<8 && tags[f]==PMM_FRAME_PAGE_TABLE)f++;
+#else
+ unsigned f=duplicate?6:5+allocs;
+#endif
+ assert(f<8);tags[f]=tag;return 0x2000000+4096*f;
 }
 bool pmm_frame_has_tag(uint64_t pa,enum pmm_frame_tag tag){return pa>=0x2000000 && pa<0x2008000 && !(pa&4095) && tags[frame_index(pa)]==(unsigned)tag;}
 void pmm_free_frame(uint64_t pa){(void)pa;assert(false);}
 #ifndef AIR61_WINDOW_PROFILE_FIXTURE
 void console_printf(const char *fmt,...){(void)fmt;assert(false);}
 #endif
-static uint64_t aw_clock_sample(void){return aw.last;}
+static uint64_t aw_clock_sample(void){
+#ifdef AIR61_READ_WINDOW_FIXTURE
+ if(rw.result.busy)return rw.pass[rw.current].last;
+#endif
+ return aw.last;
+}
 static uint64_t now(void *ctx){(void)ctx;if(stop_clock)return stopped_time;return zero_clock?0:1000+(++ticks)/16;}
 static bool ram(void *ctx,uint64_t pa){(void)ctx;if(census_change && aw.in_census && aw.census.reads[0]==2560 && !aw.census.reads[1]){census_change=false;pages[4][2]^=32;}return !ram_fail && !(pa&4095) && pa>=0x2000000 && pa<0x2008000;}
 static bool check(void *ctx,unsigned phase){

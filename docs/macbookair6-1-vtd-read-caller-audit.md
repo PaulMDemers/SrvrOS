@@ -115,3 +115,41 @@ paths. A separately opted-in register-read adapter and strict raw collector come
 after that qualification, with matched builds, VM refusal/save/return/missing-
 workspace checks. No read-enabled boot is prepared by this audit. Ordinary
 native desktop regression for the shared occupancy change remains independent.
+
+## Dormant backend qualification implementation
+
+`SRVROS_AIR61_READ_WINDOW` additionally compiles the separate VMM engine in
+`air61_read_window.inc`; `make air61-read-window-object` is compile-only. There
+is no production gate bridge, boot option, device-load callback or target-read
+API. The existing accepted profile cannot reset into this engine, and compiling
+both profiles enforces mutual exclusion. Normal and existing AP builds do not
+select the new flag.
+
+The engine owns two independent contexts with separate 100ms deadlines and
+one attempt each. Owned parent entries are exactly `frame|0x23`, the leaf is
+exactly `0x80000000fed90039`, and borrowed root A must already be set. It checks
+all raw bits, including A/D; it never masks hardware changes. Lifecycle checks
+retain full borrowed/private pages and the three-pass alias census. Each of the
+12 zero-load slots has a fresh source guard and exact four-word pre/post path.
+The offset markers are qualification evidence, not fabricated register data.
+
+One token bound to owner, epoch and root consumes only the immediately preceding
+phase-1 source guard; all remaining full guards execute. Two actual instances
+of the existing gate charge 3996 firmware bytes per pass. The fixture charges
+63476 mapper words per pass, within the unchanged 65536 cap, including a
+128-row catalog. A bounded wait before pass-1 publication measures the gap from
+pass-0's last slot; the first pass-1 marker rechecks the 20–100ms interval.
+Preparation and retirement count toward that interval and their own deadlines.
+
+Both complete raw census/page/path/counter views remain in bounded RAM. The
+second pass cannot update the first view. Callback-only RAM copies are current-
+pass and fresh-check scoped and cannot access either target page. Uncertain
+publication or cleanup poisons the context and retains ownership; no retry or
+best-effort cleanup is permitted. The trusted future bridge must maintain
+CPU0/IRQ/AP/root/client exclusion across both passes and the gap, and compare
+fresh source/control identity at second admission. Host fixtures exercise that
+obligation with actual gates; they do not accept native latency or ownership.
+
+Full raw serialization, a fresh native admission bridge and the separate
+no-target-load two-window physical qualification remain prerequisites to any
+register-reading adapter. The accepted installed payload remains unchanged.

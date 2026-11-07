@@ -8566,3 +8566,56 @@ admission/window-profile tests and docs checks pass. The normal/AP binary hashes
 remain identical to the accepted runtime; no kernel, boot recipe or installed
 payload changes and no reboot is armed. Ordinary native desktop regression for
 the shared occupancy representation remains independent pending work.
+
+
+### Dormant two-pass qualification backend scope (2026-11-07)
+
+Base `d0ded465`; accepted92d9f134639f509c retained, no pending run. Implement
+an isolated compile-flag-only VMM two-context engine with A-preseeded owned
+paths, fresh admission per pass, one attempt/pass/boot series, exact raw
+pre/post paths for12 qualification slots, zero target loads and independent
+100ms lifetimes. Gap includes teardown/repreparation, minimum wait before
+publication,20–100ms sample-marker interval and million-iteration cap. Hold
+CPU0 IRQ/AP/root/client exclusion throughout. Retain both complete census,
+borrowed/private/path/counter observations in bounded RAM; no hash substitutes.
+
+Qualify a one-use phase1 source-check ticket for only the immediately adjacent
+verification, preserving3996-byte source and65536-word limits through actual
+existing gate instances in host fixtures. Wrong roots/tokens/profiles, changed
+raw/source/cache state, delayed/stopped clocks, partial publication/cleanup and
+reentry retain existing refusal/poison ownership rules. Accepted no-read code
+has no behavior change in existing normal/AP builds; mutually exclusive profile
+checks exist only when the new flag is compiled. No native gate/boot caller,
+new target-read API, staging/install or reboot in this dormant step. Add actual
+VMM/gate fault tests, native compile-only object, sanitizer/ARM64 coverage and
+matched normal/AP/core/VM regression proof. Full raw serialization and a fresh
+native bridge precede the distinct no-target-load qualification. PR301/PR19
+retain independent scope; no competing VMM/window edit is listed there.
+
+### Dormant two-pass backend implemented (2026-11-07)
+
+The compile-only `SRVROS_AIR61_READ_WINDOW` engine now retains two complete raw
+contexts with independent100ms attempts, exact A-preseeded owned paths,12
+zero-load markers/pass and measured20–100ms inter-pass gap. Actual existing gate
+instances charge3996 firmware bytes and63476 mapper words/pass, including the
+128-row catalog. Neither budget changed. One adjacent phase1 source token is
+consumed exactly once; lifecycle page scans and per-slot exact paths remain.
+
+Host regressions cover both passes, raw path bits, fresh source/cache/root/token
+changes, IRQ exclusion, deadlines, reentry, allocation, invalidation, uncertain
+cleanup, retained first-pass evidence and profile mutual exclusion. No native
+bridge, boot caller, target-load API, installed payload change or reboot is
+introduced. Full raw serialization plus a fresh native bridge precede a distinct
+no-target-load qualification; existing read/ownership acceptance remains false.
+
+Validation of frozen runtime `fae9b02d`: normal/AP/USB/ISO builds and full
+`test-core` pass, including89 installed-root tests and one explicit opt-in skip.
+ASan/UBSan execution and the full ARM64 fixture link pass with assertions active;
+512 raw-path bit mutations fail closed. Existing producer proof, nine staged
+VM profiles and five ordinary syscall/UEFI USB keyboard/fork/exec/yield VMs pass.
+The normal ELF remains byte-identical; AP differences are debug-only, with
+byte-identical stripped files. Existing builds contain no new backend symbols.
+Dedicated raw retention is0x99188 bytes in the compile-only object. Accepted
+installed92d9f134639f509c/recoveryc35475f62f154f1e remain untouched. No reboot is
+armed. Native latency, raw serialization, fresh bridge admission and the later
+no-target-load two-pass qualification remain unaccepted separate work.
