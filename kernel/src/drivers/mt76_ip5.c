@@ -62,8 +62,20 @@ static size_t arp(struct mt76_ip5 *s,uint32_t target){
  ethernet(s,broadcast,0x806);uint8_t *p=s->tx+14;p16(p,1);p16(p+2,0x800);p[4]=6;p[5]=4;p16(p+6,1);copy(p+8,s->station,6);p32(p+14,s->address);p32(p+24,target);return 42;
 }
 static bool arp_reply(struct mt76_ip5 *s,const uint8_t *p,size_t n,uint32_t target,uint8_t mac[6]){
- if(n<42 || u16(p+12)!=0x806 || !equal(p,s->station,6) || u16(p+14)!=1 || u16(p+16)!=0x800 || p[18]!=6 || p[19]!=4 || u16(p+20)!=2 ||
-  !unicast(p+22) || !equal(p+6,p+22,6) || u32(p+28)!=target || !equal(p+32,s->station,6) || u32(p+38)!=s->address)return false;
+ unsigned reason=7;
+ if(n<14)reason=0;
+ else if(u16(p+12)!=0x806)reason=1;
+ else if(n<42)reason=0;
+ else if(u16(p+14)!=1 || u16(p+16)!=0x800 || p[18]!=6 || p[19]!=4)reason=2;
+ else if(u16(p+20)!=2){
+  reason=3;
+  if(u16(p+20)==1 && u32(p+38)==s->address && unicast(p+22) && equal(p+6,p+22,6) && ip(u32(p+28)) && (equal(p,s->station,6) || equal(p,broadcast,6)))s->arp_class[8]++;
+ }
+ else if(!equal(p,s->station,6))reason=4;
+ else if(!unicast(p+22) || !equal(p+6,p+22,6) || u32(p+28)!=target)reason=5;
+ else if(!equal(p+32,s->station,6) || u32(p+38)!=s->address)reason=6;
+ s->arp_class[reason]++;
+ if(reason!=7)return false;
  copy(mac,p+22,6);return true;
 }
 static bool ipv4_reply(struct mt76_ip5 *s,const uint8_t *p,size_t n,unsigned protocol,uint32_t src,bool boot,const uint8_t **body,size_t *length){
@@ -124,7 +136,7 @@ static bool wait_reply(struct mt76_ip5 *s,const struct mt76_ip5_io *io){
    bool enough=n>=14;
    if(enough && u16(s->rx+12)==0x800)enough=n>=34 && u16(s->rx+16)<=n-14;
    if(enough && u16(s->rx+12)==0x806)enough=n>=42;
-   if(enough && received(s,n))return true;
+   if((enough || s->phase==2 || s->phase==4) && received(s,n))return true;
    s->ignored++;
   }
   if(!io->delay(io->context,100)){s->unsafe=true;return false;}

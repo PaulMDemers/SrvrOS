@@ -7,7 +7,7 @@ from wifi_held_log import require
 PROGRESS='wifi-wpa5-progress: frozen parent;independent fresh RX/OUT;strict fresh nonce and bounded four-way;software key erase/leave;MAC disable and full restore;no IP data'
 def _check(log,data=False):
  require(("srvros.wifi-data5=1" in log)==data,"wrong encrypted data profile")
- require(data or not any(x.startswith('wifi-data5') for x in log.splitlines()),'data receipts in handshake-only run')
+ require(data or not any(x.startswith(('wifi-data5','wifi-retire5')) for x in log.splitlines()),'data receipts in handshake-only run')
  progress=PROGRESS.replace('bounded four-way;','bounded four-way and authenticated IP window;').replace(';no IP data','') if data else PROGRESS
  publications=11 if data else 5;packet_limit=1580 if data else 184
  require('srvros.wifi-wpa5=1' in log,'missing four-way profile');r=parent(log);lines=log.splitlines()

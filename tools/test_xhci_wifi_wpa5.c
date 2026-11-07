@@ -29,7 +29,7 @@ static struct {uint64_t ring_phys;void *ring;bool active,input_restored,disabled
 static int wifi_channel_vco5;
 static struct xhci_device device;
 static bool wifi_join5_requested,firmware_command_failed,firmware_command_exact;
-static struct {uint32_t input[128][8],output[32][8],initial_rx[8];uint8_t pages[256][4096];unsigned next,allocations,fail_alloc,alias_alloc,commands,controls,ownership,lose,fail_command,command_mutate,fail_control,fail_send,reply,sends,rx_events,mutate,event_fault,stop_fault,stop_fault_dci,wpa_m3_mutate,child_first,wpa_mutate,toggle_count,toggle_actual,data_mutate;uint64_t time;uint32_t mac,filter,txop;bool data_mode,data_empty,data_bad_mic,data_spoof,data_nonce_fail,quarantine,trace,parent,empty,empty_assoc,reject,reject_assoc,noise,bad_guard,auth_extra,auth_bad_ie,eapol_missing,eapol_bad,eapol_fault,eapol_done,pad,skip_stop,alloc_fail,uncertain_command,wrong_slot,clear_disabled,wpa_m1_done,wpa_m3_done,wpa_nonce_fail,wpa_no_m3,toggle_fail,toggle_lie,host_toggle,device_toggle;}fake;
+static struct {uint32_t input[128][8],output[32][8],initial_rx[8];uint8_t pages[256][4096];unsigned next,allocations,fail_alloc,alias_alloc,commands,controls,ownership,lose,fail_command,command_mutate,fail_control,fail_send,reply,sends,rx_events,mutate,event_fault,stop_fault,stop_fault_dci,wpa_m3_mutate,child_first,wpa_mutate,toggle_count,toggle_actual,data_mutate,drain_queue,drain_fault;uint64_t time;uint32_t mac,filter,txop;bool data_flood,data_mode,data_empty,data_bad_mic,data_spoof,data_nonce_fail,quarantine,trace,parent,empty,empty_assoc,reject,reject_assoc,noise,bad_guard,auth_extra,auth_bad_ie,eapol_missing,eapol_bad,eapol_fault,eapol_done,pad,skip_stop,alloc_fail,uncertain_command,wrong_slot,clear_disabled,wpa_m1_done,wpa_m3_done,wpa_nonce_fail,wpa_no_m3,toggle_fail,toggle_lie,host_toggle,device_toggle;}fake;
 static bool wifi_handoff5_equal(const void *a,const void *b,size_t n){return !memcmp(a,b,n);}
 static bool child_active(void);
 static bool wifi_channel_vco5_owned(void *c){assert(c==&wifi_channel_vco5);fake.ownership++;if(child_active() && !fake.child_first)fake.child_first=fake.ownership;return fake.ownership!=fake.lose && fake.parent && !fake.quarantine;}
@@ -141,6 +141,11 @@ static bool poll_event(struct xhci_trb *e){
  ((!wifi_wpa5.exchange.m1_matched && !fake.wpa_m1_done) || (wifi_wpa5.exchange.m2_sent && !fake.wpa_m3_done && !fake.wpa_no_m3))){
   uint64_t ptr=LIVE(rx_phys)+16*(LIVE(posts)-1);unsigned n=wpa_response();*e=(struct xhci_trb){ptr,ptr>>32,(13u<<24)|(4096-n),(32u<<10)|(9u<<16)|((uint32_t)device.slot_id<<24)};fake.output[9][2]=(ptr+16)|1;
  }
+ else if(wifi_wpa5.active && LIVE(rx_pending) && ((fake.data_flood && wifi_wpa5.data_active) || (wifi_wpa5.mac.mac_disabled && fake.drain_queue))){
+  uint64_t ptr=LIVE(rx_phys)+16*(LIVE(posts)-1);memset(wifi_wpa5.buffer[wifi_wpa5.posts-1],0,4096);
+  *e=(struct xhci_trb){ptr,ptr>>32,(13u<<24)|(4096-472),(32u<<10)|(9u<<16)|((uint32_t)device.slot_id<<24)};fake.output[9][2]=(ptr+16)|1;
+  if(wifi_wpa5.mac.mac_disabled){fake.drain_queue--;if(fake.drain_fault)wifi_wpa5.rx[0].control^=1;}
+ }
  else if(wifi_wpa5.active && wifi_wpa5.data_active && LIVE(rx_pending) && fake.reply==6 && !fake.data_empty){
   uint64_t ptr=LIVE(rx_phys)+16*(LIVE(posts)-1);unsigned n=data_response();*e=(struct xhci_trb){ptr,ptr>>32,(13u<<24)|(4096-n),(32u<<10)|(9u<<16)|((uint32_t)device.slot_id<<24)};fake.output[9][2]=(ptr+16)|1;
  }
@@ -154,6 +159,7 @@ static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uin
  assert(d==&device && !fake.quarantine);fake.controls++;
  if(write){if(a==0x1004)fake.mac=*v;else if(a==0x1400)fake.filter=*v;else{assert(a==0x1340);fake.txop=*v;}}
  else {*v=a==0x1004?fake.mac:a==0x2000?0xf000f200:a==0x208?0x40000050:a==0x1400?fake.filter:a==0x1340?fake.txop:a==0x13b0?0x2f2f1313:a==0x2124?~0u:0;}
+ if(!write && a==0x430 && wifi_wpa5.active && wifi_wpa5.mac.mac_disabled && fake.drain_queue)*v=1u<<16;
  if(fake.bad_guard && !write && a==0x1004 && fake.controls==1)*v=4;
  if(wifi_wpa5.active && fake.controls==65){switch(fake.wpa_mutate){
  case 1:wifi_join5.exchange.aid++;break;

@@ -17,7 +17,9 @@ struct mt76_ip5_io {
 };
 struct mt76_ip5 {
  bool attempted,complete,unsafe,discover,offer,request,ack,arp_dns,dns,arp_router,echo;
- unsigned phase,sends,polls,ignored;
+ /* First refusal class0..7;class8 counts valid requests for our address.
+  * Aggregate metadata only;no packet values. */
+ unsigned phase,sends,polls,ignored,arp_class[9];
  uint32_t xid,address,server,mask,router,resolver,answer;
  uint8_t station[6],dns_mac[6],router_mac[6],tx[1514],rx[1514];
 };

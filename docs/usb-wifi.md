@@ -7323,3 +7323,16 @@ causes without packet/address logging and reproduce bounded RX exhaustion with
 mandatory cleanup. Do not silently enlarge or recycle the ring as a substitute
 for proving retirement. The v130 complete-restoration acceptance remains the
 latest accepted foundation.
+
+The v131 correction reserves eight of those same48 RX entries by limiting
+forward publication to40. Once MAC disable is independently verified and keys
+are erased,cleanup may consume queued completions into unused retained pages.
+It snapshots each completion,posts only unused entries and proves the unchanged
+RX-quiet predicate before stopping/restoring endpoints. No ring/page reuse or
+larger poll/time limits are allowed. If the remaining entries cannot drain the
+queue,hardware restoration still refuses and retains DMA. Aggregate first-failure
+ARP classes distinguish short/non-ARP/format/opcode/destination/sender/target
+from matched replies,and count valid ARP requests for the assigned address,
+without recording packet values. Padding remains permitted;
+address,checksum,MIC,replay and target binding remain mandatory. These changes
+are not physically accepted until a matching saved run proves full retirement.

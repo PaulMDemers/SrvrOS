@@ -7,7 +7,7 @@ import sys
 
 U8=C.c_ubyte;V=C.c_void_p;N=C.c_size_t;G=C.c_uint64
 class State(C.Structure):
-    _fields_=[(n,C.c_bool) for n in ('attempted','complete','unsafe','discover','offer','request','ack','arp_dns','dns','arp_router','echo')]+[(n,C.c_uint) for n in ('phase','sends','polls','ignored')]+[(n,C.c_uint32) for n in ('xid','address','server','mask','router','resolver','answer')]+[(n,U8*6) for n in ('station','dns_mac','router_mac')]+[('tx',U8*1514),('rx',U8*1514)]
+    _fields_=[(n,C.c_bool) for n in ('attempted','complete','unsafe','discover','offer','request','ack','arp_dns','dns','arp_router','echo')]+[(n,C.c_uint) for n in ('phase','sends','polls','ignored')]+[('arp_class',C.c_uint*9)]+[(n,C.c_uint32) for n in ('xid','address','server','mask','router','resolver','answer')]+[(n,U8*6) for n in ('station','dns_mac','router_mac')]+[('tx',U8*1514),('rx',U8*1514)]
 Owned=C.CFUNCTYPE(C.c_bool,V);Send=C.CFUNCTYPE(C.c_int,V,V,N);Poll=C.CFUNCTYPE(C.c_bool,V,V,N,C.POINTER(N),C.POINTER(C.c_bool));Delay=C.CFUNCTYPE(C.c_bool,V,C.c_uint);Now=C.CFUNCTYPE(G,V)
 class IO(C.Structure):
     _fields_=[('context',V),('owned',Owned),('send',Send),('poll',Poll),('delay',Delay),('now',Now)]
@@ -153,4 +153,19 @@ for phase in range(6):
     def truncated(at,p):return p[:len(p)//2] if at==phase else p
     assert not trial(mutate=truncated)[0]
 for offset in range(42,298):assert not trial(mutate=changed(5,offset,1))[0]
+# ARP classification is aggregate,first refusal only,and never relaxes binding.
+for phase in (2,4):
+    for reason,offset in ((1,12),(2,14),(3,21),(4,0),(5,28),(6,38)):
+        ok,state,*_=trial(mutate=changed(phase,offset,1))
+        assert not ok and state.arp_class[reason]==1,(phase,reason,list(state.arp_class))
+        assert sum(state.arp_class[:8])==(1 if phase==2 else 2)
+    ok,state,*_=trial(mutate=lambda at,p:p[:20] if at==phase else p)
+    assert not ok and state.arp_class[0]==1
+def request_for_us(at,p):
+    if at!=2:return p
+    b=bytearray(p);b[20:22]=p16(1);b[:6]=bytes([255])*6;return bytes(b)
+ok,state,*_=trial(mutate=request_for_us)
+assert not ok and state.arp_class[3]==1 and state.arp_class[8]==1
+ok,state,*_=trial(mutate=lambda at,p:p+bytes(10) if at in (2,4) else p)
+assert ok and state.arp_class[7]==2 and sum(state.arp_class)==2
 print('mt76-ip5: PASS independent synthetic DHCP DORA,local/routed DNS ARP,shared strict DNS parser,256-byte echoed payload;all ownership/send/poll/time bounds and directed wire/checksum/span/payload refusals;no native IP acceptance')

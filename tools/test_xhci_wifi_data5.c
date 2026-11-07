@@ -4,8 +4,9 @@
 #undef main
 int main(int argc,char **argv){
  begin();fake.data_mode=true;
- if((argc==2 || argc==11) && !strcmp(argv[1],"--trace")){
+ if((argc==2 || argc==11) && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--trace-drain"))){
   if(argc==11){for(unsigned i=0;i<8;i++)fake.initial_rx[i]=strtoull(argv[i+2],0,0);memcpy(fake.output[9],fake.initial_rx,32);device.slot_id=strtoul(argv[10],0,0);}
+  if(!strcmp(argv[1],"--trace-drain"))fake.drain_queue=3;
   fake.auth_extra=true;fake.trace=true;assert(run());return 0;
  }
  assert(argc==1 && run() && wifi_wpa5.ip.complete && wifi_wpa5.ip.echo && wifi_wpa5.ip.sends==6 && wifi_wpa5.data_sends==6 && wifi_wpa5.data_received==6 && wifi_wpa5.exchange.keys.tx_pn==6);
@@ -15,6 +16,16 @@ int main(int argc,char **argv){
  for(unsigned i=0;i<sizeof wifi_wpa5.data_scratch;i++)assert(!((uint8_t *)&wifi_wpa5.data_scratch)[i]);
  for(unsigned i=0;i<sizeof wifi_wpa5.data_usb;i++)assert(!wifi_wpa5.data_usb[i]);
  begin();fake.data_mode=true;fake.pad=true;assert(run() && wifi_wpa5.ip.complete);
+ /* All forward pages can fill with irrelevant traffic. The same48 slots
+  * retain eight cleanup entries;no page/TD reuse or crypto parsing in drain. */
+ begin();fake.data_mode=true;fake.data_flood=true;fake.drain_queue=3;
+ assert(!run() && wifi_wpa5.restored && !fake.quarantine && wifi_wpa5.exchange.keys_erased && wifi_wpa5.exchange.leave_sent);
+ assert(wifi_wpa5.forward_completed==40 && wifi_wpa5.drain_completed==3 && wifi_wpa5.rx_copied==43 && wifi_wpa5.posts==44 && !fake.drain_queue && wifi_wpa5.rx_enqueue==44 && wifi_wpa5.rx_cycle);
+ begin();fake.data_mode=true;fake.data_flood=true;fake.drain_queue=9;
+ assert(!run() && !wifi_wpa5.restored && fake.quarantine && wifi_wpa5.exchange.keys_erased && wifi_wpa5.exchange.leave_sent);
+ assert(wifi_wpa5.forward_completed==40 && wifi_wpa5.drain_completed==8 && wifi_wpa5.rx_copied==48 && wifi_wpa5.posts==48 && fake.drain_queue==1 && wifi_wpa5.rx_enqueue==48 && wifi_wpa5.rx_cycle);
+ begin();fake.data_mode=true;fake.data_flood=true;fake.drain_queue=3;fake.drain_fault=1;
+ assert(!run() && !wifi_wpa5.restored && fake.quarantine && wifi_wpa5.exchange.keys_erased && wifi_wpa5.posts<=41);
  for(unsigned i=8;i<=14;i++){
   begin();fake.data_mode=true;fake.fail_send=i;assert(!run() && fake.quarantine && fake.sends==i && wifi_wpa5.exchange.keys_erased);
  }
@@ -36,6 +47,6 @@ int main(int argc,char **argv){
  for(unsigned i=first;i<=checks;i++){
   begin();fake.data_mode=true;fake.lose=i;assert(!run() && fake.quarantine && !wifi_wpa5.restored);
  }
- puts("xhci-data5: PASS real M1/four-way parent,independent AESCCM DHCP/DNS/echo frames,six monotonic TX PNs,group/unicast RX,padding,all encrypted sends/ownership and61 allocation/alias refusals,MIC/peer/timeouts,software erase/leave/full restoration;mocked AP/USB/RF/entropy,no physical data acceptance");
+ puts("xhci-data5: PASS real M1/four-way parent,independent AESCCM DHCP/DNS/echo frames,six monotonic TX PNs,group/unicast RX,padding,all encrypted sends/ownership and61 allocation/alias refusals,MIC/peer/timeouts,reserved RX cleanup,forward/reserve exhaustion and drain ownership loss,software erase/leave/full restoration;mocked AP/USB/RF/entropy,no physical data acceptance");
  return 0;
 }
