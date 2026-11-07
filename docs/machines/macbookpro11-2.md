@@ -13473,3 +13473,35 @@ and27-file peer acceptance notes remain unchanged. Current is the new diagnostic
 release,e47d remains previous,and accepted empty-OUT/handoff/power/selection
 payloads stay installed. This EFI-space change does not relabel any native
 failure or remove its independent evidence.
+
+### Reply diagnostic identifies exact-length rejection (November 6)
+
+V127 `7181f95efd4fe34b` / runtime `0f6a89d9` saved session
+`00065fa46c26fcae-00`,with1,885,562 complete failure bytes. Calibration,target
+selection,private peer and empty-OUT preview passed. The diagnostic copied a
+41-byte AUTH MPDU,frame control00b0,17-byte body,exact private peer match,
+algorithm0,transaction2,status0;the codec returned INVALID. The exchange ended
+in5,522us,so this was an exact-length parser rejection rather than a750ms
+reply timeout. The AP's successful fixed fields were observed;the11 trailing
+bytes were not logged and their contents remain unclassified. No association
+request was sent. AUTH/leave USB completion,MAC and endpoint/input retirement
+and all nine power-original readbacks passed;full outer RF restoration remains
+unaccepted. The547-file capsule is independently sealed and failed. Offline
+filesystem/allocation,recovery and automatic Ubuntu return passed.
+
+The pinned Linux v7.0 mac80211 authentication receiver uses a30-byte minimum,
+then checks algorithm/transaction/status for open-system authentication;it does
+not require an exactly30-byte MPDU. The local codec's exact-size gate therefore
+rejects a supported variable-length frame shape. Next bounded correction accepts
+a complete bounded trailing IE stream after the fixed30 bytes,while preserving
+all peer,frame-control,fragment,algorithm,transaction,status and ownership checks.
+It ignores optional IE contents for open authentication and grants no WPA2/key
+or capability authority. Truncated/malformed tails still refuse. Synthetic
+41-byte optional-IE fixtures are not copies of the unrecorded native tail.
+Host/fault/sanitizer/full-prefix and exact-stage qualification precedes a new
+cold test;the native tail must still pass the new structural validation.
+
+Fetched main4bba4b93 adds Air ECAM/raw-root evidence atop the reviewed deferred
+process/ECAM work;it is inspected and deferred to isolate this codec correction.
+Other open scopes remain301 graphics and379 browser,no competing Wi-Fi owner.
+Credentials remain unread/unpackaged and authenticated IP/data stays pending.
