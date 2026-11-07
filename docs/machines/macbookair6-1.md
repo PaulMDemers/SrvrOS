@@ -8086,3 +8086,25 @@ checks pass. No kernel/profile/policy/limit change or new physical acceptance;
 installed payload/recovery unchanged and no boot armed. Next implementation is
 a dormant checked resource/mapping backend with actual-source failure fixtures,
 then window-only qualification before any separately opted-in target reads.
+
+
+### Dormant checked window backend scope (2026-11-06)
+
+Base `b9615fc5`; accepted native run closed, no boot armed. Implement an AP-only
+VMM backend for the exact absent PDPT7 / PD409 / PT80 window, staging two private
+frames and one parent publication. Single-attempt owner/epoch token, fresh
+guard callbacks plus actual sole-root/translation/RAM checks, fresh bounded
+raw census, exact leaf/path verification, local invalidation and detached-frame
+retirement; latch poison and retain claims/backing on uncertain publication or
+cleanup. Keep the census bounds and a separate65536-word/100ms whole mapping
+lifetime; no target-load API. Native gate/receipt/profile integration remains
+separate, with no current hardware caller or grant.
+
+Scope: private VMM include/header, AP-only build retention, real VMM host fault
+fixture, dormant-backend docs and own record. No generic map/unmap semantics,
+CPU policy or installed payload change. Actual PR301 merge-base memory delta
+is empty; its scanout and PR19 Wi-Fi scopes stay separate. A local single-owner
+token is valid only within a caller-proved exclusive epoch; it is not a global
+MMIO lease against bypassing clients. Validate clean refusal, borrowed frames,
+raw/source/clock/root/IRQ failures, reentry/stale tokens, exact A/D changes and
+retained poison before considering a future window-only native qualifier.
