@@ -13585,3 +13585,23 @@ remains on reviewed mainca43ce23. Fetched mainb9615fc5 adds an Air live VT-d
 admission audit and host proof tooling atop deferred ECAM/process work;it has
 no new Pro authority and is deferred from this source-specific acceptance.
 Ubuntu is default,e47d remains known-good previous,and no one-shot is armed.
+
+### WPA2 key derivation and MIC scope (November 6)
+
+Following accepted v127 management exchange,the next bounded implementation is
+allocation-free WPA2-PSK/CCMP key derivation and descriptor-version2 EAPOL MIC
+handling. Touch only a private crypto helper/header,host tests,Makefile and this
+unit's/current Wi-Fi documentation. Validate SHA-1/HMAC/PBKDF2/PMK and the
+ordered-address/nonce PTK construction against public vectors and an independent
+host crypto implementation,including malformed lengths,alias refusal and secret
+scrubbing. This helper alone grants no EAPOL state/key installation or native
+transport authority. Credentials remain unread and the installed accepted v127
+payload stays unchanged/unarmed while these host-only primitives are validated.
+
+Fetched origin/main4cb7b5a7 adds dormant checked Air6,1 window lifetime support
+and host validation atop reviewed b9615fc5;no competing Wi-Fi owner appears in
+open PR19/301/379. Those memory/graphics/browser scopes remain independent and
+are deferred from this bounded helper. Runtime base remains ca43ce23. No other
+machine's physical or entropy acceptance is inferred. Subsequent handshake
+state must enforce peer binding,MIC,replay and one-time key installation before
+any controlled-port authority or physical secured-connection claim.
