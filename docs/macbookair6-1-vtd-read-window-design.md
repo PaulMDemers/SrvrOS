@@ -4,7 +4,8 @@
 
 Source audit on `4bba4b93`, after accepted boot capture `ab360d3ce2d281e4`.
 A dormant AP-only VMM window backend is now implemented and host-tested.
-There is no native admission bridge, dispatcher/receipt profile or target access.
+An explicit v6 window-only admission bridge and retained receipt profile now
+exist in the AP image; native acceptance is pending. Target access remains absent.
 The [ECAM/root capture](macbookair6-1-ecam-mapping-design.md) removes a diagnostic
 blocker; it does not grant a device resource. The backend qualifications below precede a fresh admission bridge and a
 window-only profile; a native register-read caller remains a later milestone.
@@ -175,3 +176,42 @@ changed A/D/permissions/physical entries, root/IRQ/frame ownership changes,
 reentry and partial cleanup with poison that survives retry. The fixture is
 also checked under ASan/UBSan and compiled for ARM64 with assertions enabled.
 Native lifetime, gate and caller qualification remain pending.
+
+
+## Explicit v6 window-only integration
+
+`--haswell-window` requires all v5 firmware/cache/pre-init/ECAM flags and automatic
+return. It adds only `srvros.vtd-window=air61-no-read`. The dispatcher holds CPU0
+IRQ exclusion across the existing pre-user-init context capture and the new
+window operation, before creating the first user root. The bridge uses a distinct
+instance of the existing exact-unit gate implementation, preserving early ECAM
+evidence. It rechecks Intel40651/39-bit/BSP0, CR4=0x620, WP/NXE, four unlaunched
+AP records, pinned DMAR/MCFG and complete catalog, exact adjacent gap resources
+and strong UC for the target with PAT3. Legacy CF8 selection is restored; no
+configuration-data or VT-d register write/read is added.
+
+All possible ordinary CPU clients are excluded for this pre-user epoch: CPU0
+IRQs stay masked, AP launch pointers stay null, the sole-root guard excludes user
+roots, and selected validators/PMM operations do not yield or invoke other mapping
+clients. The local claim is not exported as a general lease after this epoch.
+A clean refusal restores IRQ state and saves failure; poison retains IRQ
+exclusion/claim/backing and halts before user init or USB reuse. Its screen shows
+latched gate/backend/census progress for a photograph and Ubuntu recovery.
+
+The backend retains complete observed root/PDPT before, linked and retired
+arrays and verified private PD/PT words before freeing. A separate `window.log`
+uses canonical base64 chunks, lossless zero/delta encoding, at most33000 raw
+bytes and the unchanged65536-byte log tail. Firmware/cache/control records use
+the existing strict gate layout and caps. Both complete census blobs are kept.
+Reporting performs no table/device reread. `exit.log` binds its saved status,
+root, epoch and session; `ecam.log` retains the independent early proof.
+
+The collector requires all three raw proofs, final completion and exact binding
+to the pre-user context. Each measured census still compares every raw bit.
+Between the two distinct historical epochs, only monotonic hardware A changes
+on present entries and D changes on writable present leaves are accepted; any other
+graph/permission/cache/firmware change refuses. No such allowance exists inside
+either two-pass census or the owned window path. A successful result is only
+`OBSERVED_RETIRED_WINDOW_ONLY`, with zero target loads/writes and no register-read
+or graphics/device ownership authorization. Native timing/retirement acceptance
+requires the new exact-stage run, not host clocks or old accepted captures.

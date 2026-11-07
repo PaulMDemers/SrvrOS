@@ -22,7 +22,7 @@ struct air61_window_result {
  enum air61_window_state state;
  bool claimed;
  struct air61_window_token token;
- uint64_t pdpt,frames[2],begin,end;
+ uint64_t pdpt,frames[2],begin,end,hhdm;
  unsigned words,private_writes,parent_attempts,unlink_attempts,invalidations,frees;
  const char *fault;
 };
@@ -35,3 +35,19 @@ bool vmm_air61_window_prepare(const struct air61_window_env *,uint64_t owner,uin
 bool vmm_air61_window_retire(const struct air61_window_token *);
 const struct air61_window_result *vmm_air61_window_result(void);
 const struct hac_result *vmm_air61_window_census(void);
+
+struct air61_window_evidence {
+ uint64_t root_before[512],pdpt_before[512],root_linked[512],pdpt_linked[512];
+ uint64_t root_retired[512],pdpt_retired[512],pd[512],pt[512];
+ bool linked,retired;
+};
+const struct air61_window_evidence *vmm_air61_window_evidence(void);
+/* Gate callback only; guarded RAM copy, never a target read. */
+bool vmm_air61_window_copy_ram(uint64_t,void *,unsigned);
+struct ecam_boot_gate_result;
+struct ecam_boot_gate_diagnostic;
+const struct ecam_boot_gate_result *haswell_air61_window_gate_result(void);
+const struct ecam_boot_gate_diagnostic *haswell_air61_window_gate_diagnostic(void);
+bool haswell_air61_window_run(void);
+bool haswell_air61_window_report(const char *);
+void haswell_air61_window_reference(const char *,bool);

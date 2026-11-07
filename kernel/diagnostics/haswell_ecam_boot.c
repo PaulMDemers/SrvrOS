@@ -132,7 +132,12 @@ static bool eg_ram_page(void *ctx,uint64_t pa) {
 }
 static bool eg_copy(uint64_t pa,uint8_t *out,unsigned length) {
  if(length>4096-eg.firmware_bytes)return eg_fail("firmware-byte-cap",1,0,0,4096,eg.firmware_bytes+length);
- eg.firmware_bytes+=length;return vmm_ecam_boot_copy_ram(pa,out,length);
+ eg.firmware_bytes+=length;
+#ifdef SRVROS_AIR61_WINDOW_GATE
+ return vmm_air61_window_copy_ram(pa,out,length);
+#else
+ return vmm_ecam_boot_copy_ram(pa,out,length);
+#endif
 }
 static const struct acpi_table_info *eg_find(const char *signature,unsigned length) {
  const struct acpi_table_info *found=NULL;
@@ -200,6 +205,17 @@ static bool eg_stable(void) {
  for(unsigned i=0;i<136;i++)if(bytes[i]!=eg.firmware[0].sample[0].dmar[i])return eg_fail("stable-DMAR-byte",1,i,0,eg.firmware[0].sample[0].dmar[i],bytes[i]);
  return true;
 }
+#ifdef SRVROS_AIR61_WINDOW_GATE
+static bool eg_window_resource(void){
+ const struct hfw_entry *lo=NULL,*hi=NULL;
+ for(unsigned i=0;i<eg_count;i++){const struct hfw_entry *e=eg_ram+i;uint64_t end=e->base+e->length;
+  if(e->base<AIR61_WINDOW_PA+4096 && AIR61_WINDOW_PA<end)return false;
+  if(end<=AIR61_WINDOW_PA && (!lo || end>lo->base+lo->length))lo=e;
+  if(e->base>=AIR61_WINDOW_PA+4096 && (!hi || e->base<hi->base))hi=e;
+ }
+ return lo && hi && lo->base==0xfed1c000 && lo->length==0x4000 && lo->type==1 && hi->base==0xffe10000 && hi->length==0x30000 && hi->type==1;
+}
+#endif
 static bool eg_check_inner(void *ctx,unsigned phase) {
  (void)ctx;
  if(!timer_reference_ready())return eg_fail("reference-clock",0,0,0,0,0);
@@ -209,6 +225,9 @@ static bool eg_check_inner(void *ctx,unsigned phase) {
  if(!eg_cpu(NULL,&cpu) || !vmm_diagnostic_sole_kernel_root(eg_root))return false;
  eg.policy[phase]=eg_last_policy;eg_policy_ready[phase]=true;
  if(!phase && !eg_catalog(NULL,eg_ram,&eg_count))return false;
+#ifdef SRVROS_AIR61_WINDOW_GATE
+ if(!eg_window_resource())return false;
+#endif
  const struct hfw_io fw={.identity=eg_identity,.catalog=eg_catalog,.table=eg_table,.now=eg_now};
  const struct x86_cache_io cache={.cpu=eg_cpu,.msr=eg_msr,.now=eg_now};
  const uint8_t *pin=eg_dmar_pin;
@@ -218,6 +237,10 @@ static bool eg_check_inner(void *ctx,unsigned phase) {
  if(!hfw_capture(&eg.firmware[phase],&fw,pin) || !eg_mcfg(phase) ||
     !x86_cache_snapshot(&eg.cache[phase],&cache) || !eg_msr(NULL,0xc0000080,&eg.efer[phase]) ||
     (eg.efer[phase]&~0xd01ull) || (eg.efer[phase]&0xd00)!=0xd00)return false;
+#ifdef SRVROS_AIR61_WINDOW_GATE
+ unsigned m,p,e;
+ if(!x86_cache_page(&eg.cache[phase],AIR61_WINDOW_PA,3,&m,&p,&e) || e)return false;
+#else
  for(unsigned leaf=0;leaf<ECAM_BOOT_LEAVES;leaf++) {
   unsigned m0=255,p0=255,e0=255;
   for(unsigned page=0;page<512;page++) {
@@ -226,6 +249,7 @@ static bool eg_check_inner(void *ctx,unsigned phase) {
    if(!page){m0=m;p0=p;e0=e;}else if(m!=m0 || p!=p0 || e!=e0)return false;
   }
  }
+#endif
  if(phase) {
   if(!x86_cache_equal(eg.cache,eg.cache+1) || eg.efer[0]!=eg.efer[1] || eg.mcfg_pa[0]!=eg.mcfg_pa[1])return false;
   const struct hfw_sample *a=&eg.firmware[0].sample[0],*b=&eg.firmware[1].sample[0];
@@ -241,6 +265,7 @@ static bool eg_check(void *ctx,unsigned phase) {
  if(!ok){eg_fail("admission-phase",1,phase,0,1,0);eg_broken=true;}
  return ok;
 }
+#ifndef SRVROS_AIR61_WINDOW_GATE
 bool haswell_ecam_boot_prepare(void) {
  if(eg_started)return false;
  eg_started=true;
@@ -252,3 +277,5 @@ bool haswell_ecam_boot_handoff(void){return eg_started && vmm_ecam_boot_handoff(
 bool haswell_ecam_boot_retire(void){return eg_started && vmm_ecam_boot_retire();}
 const struct ecam_boot_gate_result *haswell_ecam_boot_gate_result(void){return &eg;}
 bool haswell_ecam_boot_adopt(uint64_t va,uint64_t pa,uint64_t bytes){return eg_started && !eg_broken && vmm_ecam_boot_adopt(va,pa,bytes);}
+
+#endif

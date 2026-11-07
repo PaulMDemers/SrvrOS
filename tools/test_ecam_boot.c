@@ -8,7 +8,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-static uint64_t pages[8][512],tags[8],clock_ticks,cr3=0x2000000,irq_flags=2;
+#ifndef ECAM_TEST_FRAMES
+#define ECAM_TEST_FRAMES 8
+#endif
+static uint64_t pages[ECAM_TEST_FRAMES][512],tags[ECAM_TEST_FRAMES],clock_ticks,cr3=0x2000000,irq_flags=2;
 static unsigned allocs,frees,loads,stores,invalidates,event_fault,event_index,load_fault,store_fault;
 static bool store_after,alloc_fail,alloc_borrowed,ram_fail,admit_fail,clock_fail,free_fail;
 static bool fail_load_after_parent,fail_invalidate_after,stop_clock;
@@ -35,7 +38,7 @@ static uint64_t user_frame_test_rsp(void){ecam_unexpected_user_frame();}
 static uint64_t user_frame_test_kernel_address(const void *p){(void)p;ecam_unexpected_user_frame();}
 static uint8_t *user_frame_test_user_pointer(uint64_t p){(void)p;ecam_unexpected_user_frame();}
 static void user_frame_test_cpuid(uint32_t n,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d){(void)n;(void)a;(void)b;(void)c;(void)d;ecam_unexpected_user_frame();}
-static unsigned frame_index(uint64_t pa){assert(pa>=0x2000000 && pa<0x2008000);return (pa-0x2000000)/4096;}
+static unsigned frame_index(uint64_t pa){assert(pa>=0x2000000 && pa<0x2000000+sizeof(pages));return (pa-0x2000000)/4096;}
 static uint64_t ecam_test_virtual(uint64_t pa){return 0xffff800000000000ull+pa;}
 static bool ecam_test_load(uint64_t pa,unsigned i,uint64_t *out){
  assert(!(pa&4095) && i<512);loads++;if(load_fault==loads)return false;
@@ -62,6 +65,15 @@ static bool ecam_test_event(unsigned event,unsigned n){
  if(event==4 && free_fail)return false;
  return !(event_fault==event && event_index==n);
 }
+#ifdef WINDOW_COMBINED_FIXTURE
+#define SRVROS_AIR61_WINDOW
+#define SRVROS_AIR61_WINDOW_HOST_TEST
+static bool aw_test_load(uint64_t pa,unsigned i,uint64_t *v){return ecam_test_load(pa,i,v);}
+static uint64_t aw_test_virtual(uint64_t pa){return ecam_test_virtual(pa);}
+static bool aw_test_store(uint64_t pa,unsigned i,uint64_t before,uint64_t after,bool private){if(private){pages[frame_index(pa)][i]=after;stores++;return true;}return ecam_test_store(pa,i,before,after);}
+static bool aw_test_invalidate(uint64_t va){assert(va==0xffffc001f3250000ull);invalidates++;return true;}
+static bool aw_test_free(uint64_t pa);
+#endif
 #define SRVROS_VMM_HOST_TEST
 #define SRVROS_USER_FRAME_COPY_HOST_TEST
 #define SRVROS_ECAM_BOOT
@@ -73,20 +85,33 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t m,enum pmm_frame_tag 
  assert(n==1 && m==0x2000000 && tag==PMM_FRAME_PAGE_TABLE);allocs++;
  if(alloc_fail)return 0;
  if(alloc_borrowed)return 0x2001000;
+#ifdef WINDOW_COMBINED_FIXTURE
+ unsigned f=4+allocs;assert(f<ECAM_TEST_FRAMES);tags[f]=tag;return 0x2000000+4096*f;
+#else
  tags[5]=tag;return 0x2005000;
+#endif
 }
 bool pmm_frame_has_tag(uint64_t pa,enum pmm_frame_tag tag){return tags[frame_index(pa)]==(unsigned)tag;}
-void pmm_free_frame(uint64_t pa){assert(pa==0x2005000 && tags[5]==PMM_FRAME_PAGE_TABLE);frees++;tags[5]=PMM_FRAME_FREE;memset(pages[5],0xcc,4096);}
+void pmm_free_frame(uint64_t pa){unsigned f=frame_index(pa);
+#ifdef WINDOW_COMBINED_FIXTURE
+ assert(f>=5 && tags[f]==PMM_FRAME_PAGE_TABLE);
+#else
+ assert(pa==0x2005000 && tags[f]==PMM_FRAME_PAGE_TABLE);
+#endif
+ frees++;tags[f]=PMM_FRAME_FREE;memset(pages[f],0xcc,4096);}
+#ifdef WINDOW_COMBINED_FIXTURE
+static bool aw_test_free(uint64_t pa){pmm_free_frame(pa);return true;}
+#endif
 #ifndef ECAM_PROFILE_FIXTURE
 void console_printf(const char *s,...){(void)s;assert(false);}
 #endif
 static uint64_t now(void *ctx){(void)ctx;return stop_clock?frozen_time:1000+(++clock_ticks)/(clock_fail?1:16)+(clock_fail?100001:0);}
-static bool ram(void *ctx,uint64_t pa){(void)ctx;return !ram_fail && !(pa&4095) && pa>=0x2000000 && pa<0x2008000;}
+static bool ram(void *ctx,uint64_t pa){(void)ctx;return !ram_fail && !(pa&4095) && pa>=0x2000000 && pa<0x2000000+sizeof(pages);}
 static bool check(void *ctx,unsigned phase){(void)ctx;assert(phase<3);checks[phase]++;return !admit_fail;}
 static const struct ecam_boot_env io={.check=check,.ram=ram,.now=now};
 static void reset(void){
  memset(&eb,0,sizeof(eb));memset(&eb_diagnostic,0,sizeof(eb_diagnostic));eb_stage="none";memset(&eb_evidence,0,sizeof(eb_evidence));memset(pages,0,sizeof(pages));memset(tags,PMM_FRAME_RESERVED,sizeof(tags));
- for(unsigned i=0;i<8;i++)tags[i]=PMM_FRAME_PAGE_TABLE;
+ for(unsigned i=0;i<ECAM_TEST_FRAMES;i++)tags[i]=PMM_FRAME_PAGE_TABLE;
  clock_ticks=allocs=frees=loads=stores=invalidates=event_fault=event_index=load_fault=store_fault=0;
  store_after=alloc_fail=alloc_borrowed=ram_fail=admit_fail=clock_fail=free_fail=false;
  fail_load_after_parent=fail_invalidate_after=stop_clock=false;frozen_time=1000;
@@ -96,7 +121,7 @@ static void reset(void){
  memset(kernel_mappings,0,sizeof(kernel_mappings));memset(address_space_records,0,sizeof(address_space_records));memset(address_spaces,0,sizeof(address_spaces));
  pages[0][384]=0x2001003;pages[0][256]=0x2002003;
  pages[2][0]=0x2003003;pages[3][16]=0x2004003;
- for(unsigned i=0;i<8;i++)pages[4][i]=(0x2000000+4096*i)|3;
+ for(unsigned i=0;i<ECAM_TEST_FRAMES;i++)pages[4][i]=(0x2000000+4096*i)|3;
  memset(pages[5],0xa5,4096);tags[5]=PMM_FRAME_FREE;
 }
 static void retained(void){
