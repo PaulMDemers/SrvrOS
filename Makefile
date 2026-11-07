@@ -5834,3 +5834,27 @@ build/tests/air61-window-profile$(HOST_EXE): tools/test_air61_window_profile.c t
 build/tests/air61-window-combined$(HOST_EXE): tools/test_air61_window_combined.c tools/test_ecam_profile.c tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_ecam_boot.c kernel/src/memory/air61_window.inc kernel/diagnostics/haswell_ecam_report.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_ECAM_GATE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@
+
+.PHONY: test-mt76-wpa5
+test-core: test-mt76-wpa5
+test-mt76-wpa5: build/tests/mt76-wpa5-host$(HOST_EXE)
+	$<
+WPA5_SOURCES := kernel/src/drivers/mt76_wpa5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c kernel/src/wpa2_handshake.c kernel/src/wpa2_ccmp.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c
+build/tests/mt76-wpa5-host$(HOST_EXE): tools/test_mt76_wpa5.c tools/fixtures/wpa2-handshake-synthetic.h $(WPA5_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< $(WPA5_SOURCES) -o $@
+
+.PHONY: test-xhci-wpa5
+test-core: test-xhci-wpa5
+test-xhci-wpa5: build/tests/xhci-wpa5-host$(HOST_EXE)
+	$<
+build/tests/xhci-wpa5-host$(HOST_EXE): tools/test_xhci_wifi_wpa5.c kernel/src/drivers/xhci_wifi_wpa5.inc kernel/src/drivers/xhci_wifi_join5.inc $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include $< $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c -o $@
+build/tests/xhci-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_wpa5.inc
+
+.PHONY: test-wifi-wpa5-log
+test-core: test-wifi-wpa5-log
+test-wifi-wpa5-log: build/tests/xhci-wpa5-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_wpa5_log.py
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_wpa5_credentials.py

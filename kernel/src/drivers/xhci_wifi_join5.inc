@@ -4,6 +4,7 @@
 #include <srvros/mt76_join5.h>
 #include <srvros/mt76_eapol5.h>
 static struct {bool requested,active,attempted,complete;unsigned polls,frames,matches;}wifi_eapol5;
+static bool (*wifi_join5_after)(void);
 #define WIFI_JOIN5_RX 48
 static struct {
  struct xhci_device *d;struct mt76_peer5 peer;struct mt76_join5 exchange;struct mt76_mac_cycle mac;
@@ -300,6 +301,7 @@ static bool wifi_join5_inspect(void){
  struct mt76_join5 *s=&wifi_join5.exchange;
  console_printf("wifi-join5: ok=%u exchange=%u auth=%u assoc=%u leave=%u unsafe=%u sends=%u polls=%u ignored=%u aid=%u status=%u commands=%u posts=%u controls=%u restored=%u phase=%u retained=1 authenticated=0 ip_data=0\n",(uint64_t)(good && exchanged),(uint64_t)s->complete,(uint64_t)s->auth_matched,(uint64_t)s->assoc_matched,(uint64_t)s->leave_sent,(uint64_t)s->unsafe,(uint64_t)wifi_join5.sends,(uint64_t)s->polls,(uint64_t)s->ignored,(uint64_t)s->aid,(uint64_t)s->status,(uint64_t)wifi_join5.commands,(uint64_t)wifi_join5.posts,(uint64_t)wifi_join5.usb_ops,(uint64_t)wifi_join5.restored,(uint64_t)wifi_join5.phase);
  if(!wifi_join5.restored && !wifi_join5.failed)wifi_join5_fail();
+ if(good && exchanged && wifi_join5_after)good=wifi_join5_after();
  wifi_join5.active=false;return good && exchanged;
 }
 bool xhci_wifi_capture_join5(void){if(wifi_join5_requested || wifi_join5.attempted)return false;wifi_join5_requested=true;bool good=xhci_wifi_capture_tx5();wifi_join5_requested=false;return good;}

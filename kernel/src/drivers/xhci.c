@@ -763,6 +763,7 @@ static bool wifi_rx_event(struct xhci_device *d,const struct xhci_trb *event);
 static bool wifi_cal5_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_tx5_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_join5_event(struct xhci_device *,const struct xhci_trb *);
+static bool wifi_wpa5_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_receive_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_receive_quiesced(struct xhci_device *);
 static void dispatch_transfer_event(const struct xhci_trb *event);
@@ -3124,6 +3125,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     xhci.last_slot_id = slot;
     if (dispatch_strict_control(event)) return;
     struct xhci_device *device = device_by_slot(slot);
+    if(wifi_wpa5_event(device,event)) return;
     if(wifi_join5_event(device,event)) return;
     if (!device) return;
     if(wifi_tx5_event(device,event)) return;

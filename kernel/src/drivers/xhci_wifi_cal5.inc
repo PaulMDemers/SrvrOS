@@ -210,6 +210,7 @@ static bool wifi_join5_inspect(void);
 #include "xhci_wifi_peer5.inc"
 #include "xhci_wifi_tx5.inc"
 #include "xhci_wifi_join5.inc"
+#include "xhci_wifi_wpa5.inc"
 static bool wifi_cal5_inspect(void *context){
  if(context!=&wifi_channel_vco5 || wifi_cal5.attempted || !wifi_cal5_requested || !wifi_channel_vco5_owned(context) || !mt76_channel_vco5_selected(&wifi_channel_vco5.state) || !mt76_cvco5_valid(&wifi_channel_vco5.state.vco))return false;
  struct xhci_device *d=wifi_channel_vco5.d;wifi_cal5.d=d;wifi_cal5.attempted=wifi_cal5.active=true;wifi_cal5.command_ring=xhci.command_ring_phys;wifi_cal5.output=d->output_context_phys;wifi_cal5.input=d->input_context_phys;wifi_cal5.ep0=d->ep0_ring_phys;wifi_cal5.descriptor=d->descriptor_buffer_phys;

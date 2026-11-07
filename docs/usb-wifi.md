@@ -7210,3 +7210,29 @@ encoding,mutations,replay and key lifetimes. The primary
 [mac80211 CCMP encoding](https://raw.githubusercontent.com/torvalds/linux/v7.0/net/mac80211/wpa.c)
 is preserved with hashed reference sources. Software cipher correctness does not
 establish native USB ciphertext handling,AP acceptance or an IP provider.
+
+### Bounded software-key four-way child (v129,not physically accepted)
+
+`--wifi-wpa5 --wifi-wpa5-pmk <private-record>` requires the complete automatic
+v128 parent. The native child freezes that restored owner's state/rings/pages
+and uses separate retained48-RX/five-TX rings. A strict RDRAND nonce precedes
+new AUTH/ASSOC;M2/M4 use sequences6/7 and separately retained immutable TDs.
+Exact M3 MIC/replay/nonce/RSNE/GTK validation precedes the unique software
+backend claim/install. Confirmed M4 USB completion permits local activation,
+then software key erasure and sequence8 leave. USB completion is not AP ACK.
+No hardware key table,encrypted data or IP provider is enabled in this trial.
+MAC drain/disable,exact RX restoration,OUT disable,all shared input bytes and
+the full selected-power/RF parent remain mandatory. Ownership uncertainty
+quarantines and retains DMA;it never authorizes replay or speculative cleanup.
+
+The explicit disposable stage accepts a bounded0600 derived PMK record from
+`tools/wifi_wpa5_credentials.py`;passphrases are not placed in command lines,
+Git or logs. The private initramfs config binds the selected SSID and stays a
+credential store;ephemeral TK/GTK erasure does not erase that store. Ordinary
+builds/profiles do not add this record. The strict checker requires every
+new receipt plus the complete historical M1/management/owner proof. Missing
+messages or cleanup fail even after automatic Ubuntu return. Follow the normal
+matched-build,sanitizer/stack/full-prefix/storage,exact-stage VM,recovery and
+run-record sequence before installation. The local cold Wi-Fi-only unplug
+procedure still requires shutdown under standing authorization. Native M3/M4,
+AP acceptance,encrypted bidirectional IP/data and reconnect remain unaccepted.

@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-06. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-11-07. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -71,8 +71,8 @@ contact is authorized. Host models do not accept a native secured connection.
 
 Strict-entropy WPA2/MIC/replay/key/PN lifecycle,authenticated bidirectional
 IP/data and clean disconnect/reconnect follow association. Demers2.4 needs
-compatible hardware;the current Edimax model is5GHz-only. Credentials remain
-unread/unpackaged. Live reattach and connection UI remain pending. Ordinary
+compatible hardware;the current Edimax model is5GHz-only. Credentials were inspected privately for provisioning;no passphrase is logged.
+The explicit four-way candidate will carry a derived private PMK record. Live reattach and connection UI remain pending. Ordinary
 startup leaves radio diagnostics disabled. Cold unplug remains necessary:under
 standing user authority,shutdown when qualified,unplug only Wi-Fi10seconds while
 off,reconnect same port,power on,leave workspace attached. Collect the exact
@@ -13882,3 +13882,26 @@ private credential provisioning and strict saved-log/staging/VM checks. Touch
 private Wi-Fi/WPA modules and their tests,then opt-in main/staging/native owner.
 No data provider or hardware key offload is accepted by host tests. Preserve
 accepted v128 and all recovery/evidence;no physical trial is armed.
+
+The new `mt76_wpa5` coordinator is implemented with strict nonce admission,
+AUTH/ASSOC/M2/M4/leave sequences4..8,exact M3 MIC/unwrap/RSNE/GTK validation,
+one software install/activation and terminal erasure before leave. Semantic
+refusal retires;uncertain DMA forbids further publication while local software
+keys are erased. Host fixtures pass the complete synthetic exchange,all23
+coordinator ownership checks,five send refusal/uncertainty points,all M3 byte
+corruptions,each receive deadline,frozen/backward clocks and nonce/poll/alias
+refusals. Fatal ASan/UBSan passes the coordinator. These are model results.
+
+The separate native child freezes the accepted M1 owner's complete state,rings
+and51 packet pages,allocates its own48 RX/five TX pages and retains everything
+through retirement. Its initial native fixture passes twelve parent/child
+commands,106 controls,padded RX and child command/control/send/ownership,
+allocation,prior-state/page and credential/MIC/nonce refusal cases. This does
+not accept hardware. An opt-in v129 profile,private0600 PMK record and strict
+full-parent saved-log checker are wired;231 staging tests and focused ledger/
+credential tests pass. Full matched-image/controller/sanitizer/stack/storage/
+exact-stage VM qualification remains required before installation or shutdown.
+The credential file has now been read privately;no credential values are logged
+or committed. The derived PMK belongs only in the explicit private candidate.
+Its initramfs credential store persists separately from ephemeral key erasure.
+Accepted v128/recovery/evidence remain unchanged,and no new boot is armed.
