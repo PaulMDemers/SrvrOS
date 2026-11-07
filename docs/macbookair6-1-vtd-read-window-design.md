@@ -3,11 +3,11 @@
 ## Status
 
 Source audit on `4bba4b93`, after accepted boot capture `ab360d3ce2d281e4`.
-This is a design and host audit, with no kernel implementation or target access.
+A dormant AP-only VMM window backend is now implemented and host-tested.
+There is no native admission bridge, dispatcher/receipt profile or target access.
 The [ECAM/root capture](macbookair6-1-ecam-mapping-design.md) removes a diagnostic
-blocker; it does not grant a device resource. The next implementation should be
-a dormant checked resource/mapping backend with actual-source failure tests,
-before adding any native register-read caller.
+blocker; it does not grant a device resource. The backend qualifications below precede a fresh admission bridge and a
+window-only profile; a native register-read caller remains a later milestone.
 
 ## Evidence and remaining obligations
 
@@ -117,3 +117,61 @@ missing, corrupted, mismatched or incomplete raw proof refuses without fallback.
 `HOST_BOOT_ADMISSION_AUDIT_BLOCKED` records observed history and receipt hashes.
 Top-level `*_proven`/authorization fields remain false for live admission,
 including `nx_enablement_proven`; historical NX is reported separately.
+
+
+## Dormant backend implementation
+
+[`air61_window.inc`](../kernel/src/memory/air61_window.inc) is included only by
+the dedicated diagnostic VMM build. The ordinary VMM instruction/relocation
+output remains identical and excludes the new entrypoints. The AP ELF retains
+prepare/retire, with no boot caller. The [header](../kernel/include/srvros/air61_window.h)
+requires the trusted caller already to hold CPU0/IRQ/AP/client exclusion before
+entry and supplies fresh gate/RAM/clock callbacks; that native bridge is not
+implemented. In particular, the software token is not a global MMIO lease
+against generic clients that bypass this epoch, and PAT3 encoding alone is not
+a fresh effective-UC proof. The host admission tool continues to deny live grants.
+
+The fixed path is PML4[384] / PDPT[7] / PD[409] / PT[80]. Existing nonzero
+PDPT[7] refuses, even if it describes an empty subtree or absent metadata. A
+fresh guarded census retains the original64-table/32768-entry/4096-byte and
+shared100ms bounds, refuses target aliases and records all existing table
+frames. Allocation must return two distinct tagged RAM frames outside that
+graph. Both VT-d pages are explicitly rejected as table sources or allocations.
+Private PD/PT pages are zeroed and checked before one atomic expected-zero
+parent publication. The exact leaf is `0x80000000fed90019`: supervisor, RO, XD,
+non-global, PAT slot3. Effective UC/NX/WP and firmware/CPU permission remain
+obligations of the fresh bridge. No target pointer or load operation is exposed.
+
+The separate mapper budget remains65536 checked RAM words; the census keeps
+its existing entry accounting, including its own checked HHDM paths. The
+100ms whole window lifetime also bounds the nested census and retirement;
+there is no clock restart. A host fixture's successful lifetime uses60451
+mapper words; its synthetic clock does not measure native performance.
+
+Preparation verifies borrowed root/PDPT contents, owned frames and every private
+word. Publication and unlink use expected-entry compare/exchange, immediate
+readback, fenced local invalidation and full path/private-page verification.
+Retirement unlinks only the exact owned parent, checks absence and frees only
+proven-detached owned pages through normal PMM integrity checks. Target reads
+are unsupported: any unexpected A/D change in the owned path/leaf poisons the
+operation. A future read caller needs its own explicit hardware-A/D contract;
+this backend does not silently mask it.
+
+One owner/epoch/root token and one attempt are allowed per boot, including after
+clean refusal or successful retirement. Invalid/stale tokens do not disturb the
+active owner. Before publication, a proven clean failure frees private frames
+and releases the local claim. An attempted uncertain publication, invalidation,
+readback or retirement latches first-failure poison, retains the claim and any
+still-owned backing, and rejects later prepare/retire calls without more I/O.
+Reentry is terminal poison. If the first detached free succeeds and the second
+fails, the remaining frame and claim stay retained; no duplicate free is tried.
+
+`make test-air61-window` includes the actual VMM and census with injected
+physical RAM/CAS/invalidation/free primitives. It covers exact translation and
+borrowed preservation, allocation/source/clock/word-cap failures, raw census
+changes, existing slots/aliases, borrowed/duplicate/MMIO allocations, stale
+tokens, failures before/after parent writes and clearing, readback corruption,
+changed A/D/permissions/physical entries, root/IRQ/frame ownership changes,
+reentry and partial cleanup with poison that survives retry. The fixture is
+also checked under ASan/UBSan and compiled for ARM64 with assertions enabled.
+Native lifetime, gate and caller qualification remain pending.

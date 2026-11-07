@@ -8086,3 +8086,69 @@ checks pass. No kernel/profile/policy/limit change or new physical acceptance;
 installed payload/recovery unchanged and no boot armed. Next implementation is
 a dormant checked resource/mapping backend with actual-source failure fixtures,
 then window-only qualification before any separately opted-in target reads.
+
+
+### Dormant checked window backend scope (2026-11-06)
+
+Base `b9615fc5`; accepted native run closed, no boot armed. Implement an AP-only
+VMM backend for the exact absent PDPT7 / PD409 / PT80 window, staging two private
+frames and one parent publication. Single-attempt owner/epoch token, fresh
+guard callbacks plus actual sole-root/translation/RAM checks, fresh bounded
+raw census, exact leaf/path verification, local invalidation and detached-frame
+retirement; latch poison and retain claims/backing on uncertain publication or
+cleanup. Keep the census bounds and a separate65536-word/100ms whole mapping
+lifetime; no target-load API. Native gate/receipt/profile integration remains
+separate, with no current hardware caller or grant.
+
+Scope: private VMM include/header, AP-only build retention, real VMM host fault
+fixture, dormant-backend docs and own record. No generic map/unmap semantics,
+CPU policy or installed payload change. Actual PR301 merge-base memory delta
+is empty; its scanout and PR19 Wi-Fi scopes stay separate. A local single-owner
+token is valid only within a caller-proved exclusive epoch; it is not a global
+MMIO lease against bypassing clients. Validate clean refusal, borrowed frames,
+raw/source/clock/root/IRQ failures, reentry/stale tokens, exact A/D changes and
+retained poison before considering a future window-only native qualifier.
+
+
+### Dormant window backend candidate (2026-11-06)
+
+The AP-only actual VMM backend now performs a fresh bounded census, stages two
+private tagged/nonborrowed pages, validates the exact RO/XD/PAT3 leaf/path and
+publishes a single expected-zero parent. Owner/epoch/root tokens,100ms whole
+lifetime, separate65536-word mapper accounting, immediate readback, fenced
+invalidation and checked detached-frame cleanup are enforced. Uncertainty
+retains claim/backing with first-failure poison and no retry. No target-load
+API, native gate, boot caller or new hardware grant is added. Effective UC and
+all-client exclusion remain the future trusted bridge's obligations; this
+local reservation alone is not a global MMIO lease.
+
+The actual VMM/census fault fixture passes clean/refused/poisoned lifetimes,
+including existing aliases/slots, borrowed/duplicate/MMIO allocations, changed
+raw data/A/D/permissions, source/root/IRQ/clock/cap failures, before/after parent
+publication, bad readback, reentry/stale tokens and partial cleanup. A successful
+fixture lifetime uses60451 mapper words, with untouched borrowed pages and zero
+target loads; synthetic clock values are not native latency acceptance.
+Matched images and affected ECAM/alias/cache/firmware/process mapping/image/
+service suites pass. Sanitizers/cross-compilation and frozen VM checks follow
+before integration. Installed accepted `ab360d3ce2d281e4` and recovery unchanged;
+no reboot armed and native window qualification remains pending.
+
+
+### Frozen dormant-backend checks (2026-11-06)
+
+Runtime `a1802859` passes the actual VMM/census fault suite under ASan/UBSan
+and compiles its full fixture for ARM64 with assertions enabled. Ordinary VMM
+disassembly and relocations are identical to the pre-change object; the normal
+image excludes the API while AP retains prepare/retire with no boot caller.
+Seven sequential legacy/new-profile staged VMs pass, including exact v5
+`5b83b22ff8bdfc8c` refusal and missing-workspace recovery. Those boots validate
+existing-profile regression, not execution or native acceptance of the new
+backend. Matched normal/AP/USB/ISO and affected process/image/service, ECAM,
+firmware/cache/alias/collector tests pass. Native timing and whole-client
+resource admission remain unmeasured; do not weaken bounds on their behalf.
+
+Ordinary syscall, UEFI USB keyboard, fork, exec-vector and scheduler-yield VMs
+also pass against the matched normal image. The validated code remains
+`a1802859`; this follow-up changes documentation only. No hardware run, install
+or reboot is performed for the dormant backend. The accepted native payload
+and its earlier evidence remain independent and retained.

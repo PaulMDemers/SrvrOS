@@ -4079,10 +4079,10 @@ build/ap-probe/entry.o: kernel/diagnostics/ap_probe.S $(ZIG)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 build/ap-probe/srvros.elf: $(AP_PROBE_OBJ) $(AP_PROBE_BASE) kernel/linker.ld
-	$(LD) $(LDFLAGS) --undefined=haswell_ecam_boot_prepare --undefined=haswell_ecam_boot_handoff --undefined=haswell_ecam_boot_retire --undefined=haswell_ecam_boot_gate_result --undefined=vmm_ecam_boot_result $(AP_PROBE_OBJ) $(AP_PROBE_BASE) -o $@
-build/ap-probe/ecam-vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	$(LD) $(LDFLAGS) --undefined=haswell_ecam_boot_prepare --undefined=haswell_ecam_boot_handoff --undefined=haswell_ecam_boot_retire --undefined=haswell_ecam_boot_gate_result --undefined=vmm_ecam_boot_result --undefined=vmm_air61_window_prepare --undefined=vmm_air61_window_retire $(AP_PROBE_OBJ) $(AP_PROBE_BASE) -o $@
+build/ap-probe/ecam-vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/src/memory/air61_window.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -c $< -o $@
+	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -DSRVROS_AIR61_WINDOW -c $< -o $@
 build/ap-probe/ecam-pci.o: kernel/src/arch/x86_64/pci.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -c $< -o $@
@@ -5070,3 +5070,10 @@ test-intel-blitter: build/tests/intel-blitter-adapter$(HOST_EXE) build/tests/int
 build/tests/intel-blitter-core$(HOST_EXE): tools/test_intel_blitter.c kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_gt_access.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_gt_access.c -o $@
+.PHONY: test-air61-window
+test-core: test-air61-window
+test-air61-window: build/tests/air61-window$(HOST_EXE)
+	build/tests/air61-window$(HOST_EXE)
+build/tests/air61-window$(HOST_EXE): tools/test_air61_window.c kernel/src/memory/vmm.c kernel/src/memory/air61_window.inc kernel/diagnostics/haswell_alias_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_alias_core.c -Wl,--gc-sections -o $@
