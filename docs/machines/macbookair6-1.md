@@ -8658,3 +8658,21 @@ malformed extents/compression, stale identities and altered path bits. It never
 promotes a retained observation to native/read/ownership acceptance. A native
 boot caller, joint saved-session binding and exact staged qualification remain
 separate next work; no installed payload or boot state is changed here.
+
+Frozen native/runtime source `1a8bd9f4` passes normal/AP/USB/ISO builds and full
+`test-core`, including89 installed-root tests and one explicit opt-in skip.
+The five native objects link together without host hooks;18 ASan/UBSan bridge/
+encoder cases and the complete ARM64 fixture link pass. Seven final consumer
+regressions include512 path-bit mutations plus29 coherently repeated root-flag
+changes forbidden by the existing native guard. Eleven existing window-profile
+tests, actual producer proof, nine staged diagnostic VMs and five ordinary
+syscall/UEFI USB keyboard/fork/exec/yield VMs pass. Both existing ELFs remain
+byte-identical to the preceding merged backend build.
+
+Normal/max-catalog receipts retain24701/48317 raw bytes in4864/22456 wire bytes.
+The full45000-byte wire cap with framing and a1024-byte envelope is64122 bytes,
+below65536. All limits stay unchanged. No native result is inferred. Native
+integration still needs a boot caller, strict joint saved-session binding and
+an audit of first-touch RAM/A-D effects under the existing bounded preparation;
+no raw masks, timing exclusions or limit increases are permitted. Installed
+92d9f134639f509c/recoveryc35475f62f154f1e remain untouched; no reboot is armed.

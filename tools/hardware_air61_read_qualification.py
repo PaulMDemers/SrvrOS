@@ -60,6 +60,8 @@ def _pass(data):
     if len({root,pdpt,pd,pt})!=4 or any(not p or p&4095 or p>=1<<39 or p in (PA,PA+4096) for p in (root,pdpt,pd,pt)):raise ValueError('frames')
     if not hhdm or hhdm&4095 or hhdm>>47!=0x1ffff or hhdm+((1<<39)-1)>=1<<64:raise ValueError('HHDM')
     root0,pdpt0=r.words(512),r.words(512)
+    allowed_root=(((1<<39)-1)&~4095)|0x800000000000003b
+    if root0[384]&~allowed_root:raise ValueError('forbidden borrowed root flags')
     root1,pdpt1,root2,pdpt2=r.delta(root0),r.delta(pdpt0),r.delta(root0),r.delta(pdpt0)
     pd_words,pt_words=r.delta([0]*512),r.delta([0]*512)
     expected=pdpt0.copy();expected[7]=pd|0x23

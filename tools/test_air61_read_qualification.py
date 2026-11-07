@@ -60,6 +60,17 @@ class Qualification(unittest.TestCase):
                 for bit in range(64):
                     raw=bytearray(original);raw[where+word*8+bit//8]^=1<<(bit%8)
                     with self.assertRaises(ValueError):self.decode(q.pack(raw))
+    def test_coherent_forbidden_root_flags(self):
+        # Change the full raw baseline, all path copies and census run first/
+        # negative-step fields together: graph binding alone cannot detect it.
+        raw=q.unpack(self.blobs['normal']);old=0x2001023;mask=(1<<64)-1
+        positive=struct.pack('<Q',old);negative=struct.pack('<Q',(-old)&mask)
+        self.assertGreater(raw.count(positive),0);self.assertGreater(raw.count(negative),0)
+        for bit in (6,8,9,10,11,*range(39,63)):
+            new=old|(1<<bit)
+            changed=raw.replace(positive,struct.pack('<Q',new)).replace(negative,struct.pack('<Q',(-new)&mask))
+            with self.subTest(bit=bit),self.assertRaisesRegex(ValueError,'forbidden borrowed root flags'):
+                self.decode(q.pack(changed))
     def test_guard_accounting_and_old_wire_separation(self):
         raw=q.unpack(self.blobs['normal']);header=struct.pack('<7I',2,3996,20,40,2,49,49)
         self.assertEqual(raw.count(header),2)

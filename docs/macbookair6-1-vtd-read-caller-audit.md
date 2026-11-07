@@ -201,3 +201,13 @@ observation only: source-completed/native-accepted, register-read authorization,
 hardware authority and ownership remain false. A boot caller and strict joint
 ECAM/exit/session persistence binding are still required before physical
 qualification can be accepted. No target load adapter exists.
+
+The final offline decoder also mirrors the native borrowed-root allowed-bit
+mask (`address|NX|0x3b`), independently of raw graph/path equality. Coherently
+repeating a forbidden flag in every raw copy is still invalid.29 flag variants
+and512 individual path-bit variants are refused by real-producer regressions.
+Before native boot integration, audit first-touch RAM/A-D effects against the
+strict retained graph comparisons. Preserve existing bounded preparation and
+all exact comparisons; do not hide differences with masks, timing exclusions
+or larger budgets. This compile-only qualification does not accept native
+startup, latency, source persistence or register access.
