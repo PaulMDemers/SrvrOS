@@ -8315,3 +8315,30 @@ native completion remains pending. Preserve the prior safe refusal and all raw
 evidence. A redundant unreferenced early-desktop EFI copy may be retired only
 after its exact payload and complete acceptance evidence outside build verify;
 retain accepted ECAM/root, stress/reopen and Ubuntu/recovery payloads.
+
+
+### Native HHDM fix advances to bounded census refusal (2026-11-07)
+
+PR399 release `951a5f67ad85ec0b`, source `182e7998`, returned automatically
+with matching session `session-00065fa8c779fe3e-00` and four saved logs. The
+HHDM permission fix passed the initial fresh gate. Window preparation touched
+all30 tables/15360 entries, then the first measured pass reached2588 entries
+before the unchanged100ms whole-lifetime deadline refused; second pass never
+started. Last retained good time is99999us after begin, census status3, gate
+phases1, firmware bytes332 and168 mapper words outside census. No parent, unlink,
+invalidation or free attempts occurred; no mapping was published and target
+reads/writes remain zero. Overall `completed=NO` correctly rejects this profile.
+The earlier ECAM and separate preinit census emitted complete raw subreports,
+but do not establish whole-profile acceptance for this failed run.
+
+Next audit: repeated per-word HHDM translation, RAM provenance, exclusion and
+clock-check cost in the window census. Attribute and reduce redundant work only
+while retaining raw A/D/permission/address comparisons, source/ownership proof,
+100ms lifetime and all existing word/table/entry/data caps. No deadline increase,
+retry or mapping authority is accepted by this observation.
+
+All615 prior files survive except expected `.srvros/meta`; four new logs make
+619 files/1695 clusters. Offline fsck, allocation and headroom pass with zero
+leaks/FAT-bitmap mismatches. Matching raw logs and analysis are retained outside
+build. Ubuntu remains default, one-shot entry empty, collector disabled after
+return; no next boot armed. Accepted ECAM/root and recovery remain retained.
