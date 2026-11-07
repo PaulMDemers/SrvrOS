@@ -93,11 +93,11 @@ deadlines and retained aliases. Separate build/symbol and negative controls must
 verify the writer stays absent from other images. Physical acceptance is pending;
 the unit record will identify the tested source/release and matched session.
 
-## Validated candidate
+## Validated candidate and native acceptance
 
 Release `d6677f44c064979d`, tested source `6277e99b`, is installed and not armed.
-The [unit readiness record](machines/macbookair7-2.md#current-trial-ready-cooperative-display-hda-requester-inhibitrestore)
-identifies the matched validation, independent evidence, recovery and media.
+The [unit record](machines/macbookair7-2.md#current-checkpoint-cooperative-display-hda-requester-trial-accepted)
+identifies matching validation, independent evidence, recovery and media.
 Host/core/profile/build checks, fatal sanitizers (26 core/42 adapter modes),
 14 owner compiled negative controls, nine-image isolation and277 collector/
 staging tests pass. The89 unchanged installer cases and installed-root/exFAT
@@ -107,8 +107,26 @@ saves its preflight/results and returns; missing workspace halts. Prior Intel,
 Haswell and VirtIO regressions pass. Native-formatted log projection is63,612
 bytes including1,536 bytes of allowance, within the65,536-byte tail.
 
-The automated physical trial needs no input and uses volume1% with audio off.
-Safe completed transitions or pre-write refusals persist/unmount and return;
-retained state halts. Physical command-write acceptance remains pending. No
-outstanding-DMA retirement, firmware/SMM exclusion or GPU memory grant follows
-from host/VM results or from a later successful command round trip alone.
+Native session `session-00065fa8e62db698-00` now accepts the bounded command16
+inhibit/restore under this cooperative policy: exact command6→2→6, three stable
+58-read phases (174 total),202 guards/20 cache checks, all aliases retired,
+original inherited state preserved and CPU exclusion released with retained0.
+Core56,170us/full78,049us and each415/415/414us census satisfy the existing bounds.
+There are exactly two PCI halfword stores, zero HDA MMIO/Status/reset/stop/codec/
+acknowledgement or GT/BCS/PTE writes. Saved preflight, full native/UC chain,
+prior-file preservation, offline media/recovery and automatic return verify.
+The62,549-byte exit log fits the existing tail.
+
+Host fix `619961ea` corrects generic warning classification of successful phase
+headers with `reason=0`; it does not change the native acceptance/checkpoint
+predicates. The original warnings/incomplete proof are preserved; offline
+reclassification binds identical raw file hashes and AST-identical strict native
+predicates to zero corrected attention. Six owner test groups and277 collector/
+staging cases pass, including malformed/failed/retained phase warnings and raw
+controller/buffer contradictions that still fail the full proof. No hardware
+repeat or USB write was needed for this host-only correction.
+
+The automated trial needed no input, used volume1% with audio off and returned
+after safe completion. No further trial is armed. Native acceptance remains
+limited to the round trip above: outstanding-DMA retirement, firmware/SMM
+exclusion, a maintained inhibited lifetime and GPU memory grants remain pending.

@@ -1,22 +1,55 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
-### Return closeout in progress: host phase-warning classification
+### Current checkpoint: cooperative display-HDA requester trial accepted
 
-Release `d6677f44c064979d` returned as session `session-00065fa8e62db698-00`.
-Strict native owner/checkpoint receipts pass with both command stores, all three
-stable phases and clean retirement. The first collector incorrectly flags the
-three complete phase headers solely because they contain `reason=0`; preserve
-that original collection/incomplete proof. Bound this follow-up to the host
-HDA phase-warning classifier and regression tests, then reclassify hash-verified
-saved bytes offline. Do not weaken native completion or timing checks, alter the
-kernel payload, rerun collection after unmount or reboot. Main `e8e56ee3` was
-fetched (Air6,1 HHDM-permission/window evidence) but is not integrated into this
-payload; PR19 remains Pro Wi-Fi and PR379 WebCore. Publish the classifier fix
-and this unit's corrected evidence without claiming DMA or memory retirement.
+Release `d6677f44c064979d`, payload source `6277e99b`, completed native session
+`session-00065fa8e62db698-00` and returned to Ubuntu. The strict native owner,
+independent UC and saved-preflight predicates pass. All three two-pass phases
+match the exact idle controller/three-output-stream state: command0006 before,
+0002 while inhibited and0006 restored, with58 reads per phase (174 total).
+All RUN/command/position DMA masks are0, buffers remain0, GCTL remains1 and the
+endpoint stays inD0. These observations and the command round trip remain
+conditional on the explicit cooperative EFI submission policy; they do not
+prove SMM absence, drained outstanding DMA, prefetch or reusable memory.
 
-### Current trial ready: cooperative display-HDA requester inhibit/restore
+The core completes in56,170us and the full exclusion bracket in78,049us, within
+the unchanged400ms/500ms limits; each census takes415/415/414us. Exactly two
+PCI command halfword attempts/stores complete. All202 guards and20 cache checks
+pass, all three HDA aliases retire, inherited backing/window revalidation passes
+and CPU exclusion releases with retained0. HDA MMIO/Status/wake/reset/acknowledgement,
+GT/BCS and GPU PTE writes remain0. The exit log is62,549 bytes, within the existing
+65,536-byte tail. No DMA/engine/reader/cache/translation retirement, managed GPU
+range or physical tear-free assurance is granted.
+
+The first general collection reported three false-positive warnings for successful
+phase headers containing `reason=0`. Host-only fix `619961ea` parses the entire
+phase header before bypassing the generic warning rule; malformed, refused,
+active, retained or failed phases still warn. All6 owner test groups and277
+collector/staging regressions pass. The original collection/incomplete proof
+are retained. Offline reclassification uses the same three SHA-verified hardware
+files, and AST equality proves the full native completion/checkpoint predicates
+are unchanged from payload source `6277e99b`. Corrected collector attention is0;
+there was no additional hardware trial or USB write for this correction.
+
+All1,356 prior files except expected workspace metadata are unchanged; three new
+logs verify (1,359 files/109 sessions). Offline fsck/allocation/writable/headroom,
+installed/durable/archive recovery, Ubuntu default and consumed one-shot checks
+pass. USB is unmounted; volume1%, guest audio off. Current/recovery and accepted
+payloads remain as documented below. No reboot is armed. Raw/corrected return
+proofs, initial warnings, source/predicate hashes and full evidence are retained
+under `build/air-hda-owner-20261106` and its independent SHA-verified backup in
+`~/.local/share/srvros/reviewed-evidence/air-hda-owner-20261106`.
+
+Main `e8e56ee3` was fetched after collection (Air6,1 HHDM permission/window
+changes and evidence), but is not integrated into this physically tested payload.
+PR19 remains Pro Wi-Fi and PR379 WebCore; this closeout changes only host HDA
+warning classification/tests and this unit's docs. Next work is a maintained
+inhibited-owner lifetime, outstanding DMA/firmware and other-reader accounting,
+then translation/cache/backing ownership before a managed interval or flips.
+
+### Historical requester trial readiness (before native acceptance)
 
 Main `e21292e2` is integrated; tested source `6277e99b` produced release
 `d6677f44c064979d`. It is installed, **not armed**, with no physical acceptance.

@@ -1233,3 +1233,10 @@ same exact-stage VM/install/run/collection sequence; volume1%, no input or audio
 playback, automatic safe return, retained uncertainty halts. Keep the accepted
 read-only `--intel-hda-capture` image and its evidence separate. The
 [unit record](machines/macbookair7-2.md) owns current physical acceptance.
+
+Successful `intel-hda-owner-phase:` rows include `reason=0`; collection must use
+host classifier `619961ea` or later so these exact complete headers are not
+mistaken for failures by the generic `reason=` rule. Full native/checkpoint/raw
+controller proof remains mandatory; do not filter all reason lines or discard
+an original collection when correcting host classification. Preserve raw hashes
+and explicitly record offline reclassification separately from a hardware rerun.
