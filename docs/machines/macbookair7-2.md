@@ -2,6 +2,21 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
+### Active scope: isolated read-only display-HDA DMA census
+
+Main `4cb7b5a7` is integrated; its dormant Air6,1 window backend does not enable
+Air7,2 GPU memory. PR19 is Pro Wi-Fi and PR379 WebCore; no current GPU/HDA overlap
+was found. Add a dedicated CPU0-only, EFI64/pinned-loader, exact-recipe image
+for display HDA00:03.0 (8086:160c rev09 / Apple011b). Capture two bounded passes
+of standard non-clearing global, command-DMA and stream descriptor controls/
+addresses through one private RO/NX/UC alias. Require exact captured BAR/resource,
+D0 and memory decode, native prerequisites and CPU-client exclusion. No MMIO or
+config writes, power/wake/reset, codec commands, ring/stream stop, DMA retirement
+or memory grant. Keep this separate from GT wake/BCS profiles and ordinary audio.
+Touch the observer/core/cache predicate, staging/collector/tests and docs. Audit
+remaining translation/cache obligations in the guide. Validate one matched source
+and exact stage, preserve all recovery/evidence and stop ready for a hardware trial.
+
 ### Current checkpoint: already-disabled BCS/reader observation accepted
 
 Main `b9615fc5` is integrated; tested source `47a0db4e` is installed as
