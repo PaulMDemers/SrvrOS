@@ -139,7 +139,7 @@ static bool intel_display_test_fw_read(uint32_t offset,uint32_t *v){
  assert(0);return false;
 }
 static unsigned config_reads,mmio_reads,map_calls,unmap_calls;
-static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+13];
+static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+14];
 static bool firmware_ok,clock_ok,alias,malformed,reporting,backing_mode,translation_gap,dma_unmap_fail;
 static struct pci_device devices[4];
 static struct acpi_table_info dsdt,extra_dmar;
@@ -188,6 +188,9 @@ uint64_t vmm_kernel_address_space(void){return 0x1000;}
 uint64_t vmm_current_address_space(void){return current;}
 bool vmm_virt_to_phys(uint64_t v,uint64_t *p){assert(v==fb_virtual);*p=0xb0000000;return true;}
 static unsigned index_of(uint64_t v){
+#ifdef SRVROS_INTEL_READER_TRIAL
+ if(v==READER_VA)return INTEL_CAPTURE_PAGES+13;
+#endif
 #if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
  if(v==HDA_VA)return INTEL_CAPTURE_PAGES+12;
 #endif
@@ -208,6 +211,10 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
  || (p==INTEL_HDA_BASE && v==HDA_VA)
 #endif
  || p==0xfed90000 || (fw_mode && p==0x12345000));else assert(p==0xc0000000ull+intel_capture_pages[n]);pa[n]=p;map_calls++;
+#ifdef SRVROS_INTEL_READER_TRIAL
+ if(v==READER_VA && !intel_display_test_pinned_map())return false;
+#endif
+
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
  if(!strcmp(engine_mode,"map-last") && v==BACKING_VA+0x17000)return false;
 #endif
@@ -218,6 +225,9 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
  return true;
 }
 bool vmm_unmap_page_in_space(uint64_t space,uint64_t v,uint64_t *p){
+#ifdef SRVROS_INTEL_READER_TRIAL
+ if(v==READER_VA && !intel_display_test_pinned_retire())return false;
+#endif
 #if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
  if(v==HDA_VA && !intel_display_test_hda_retire())return false;
 #endif

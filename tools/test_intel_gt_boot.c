@@ -58,4 +58,12 @@ int main(void) {
  }
  for(unsigned i=0;i<6;i++){snprintf(bad,sizeof(bad),"%s %s",lease,foreign[i]);assert(!intel_gt_boot_hda_lease_recipe(bad));}
  puts("intel-gt-boot: PASS explicit cooperative policy, all ten independent facts, strict complete recipe and untrusted/duplicate/long token refusal; not SMM retirement");
+ char readers[2200];snprintf(readers,sizeof(readers),"%s srvros.intel-readers=read-only",lease);
+ assert(intel_gt_boot_reader_recipe(readers) && !intel_gt_boot_hda_lease_recipe(readers) && !intel_gt_boot_reader_recipe(lease));
+ for(const char *start=readers;*start;) {
+  const char *end=start;while(*end && *end!=' ')end++;
+  snprintf(bad,sizeof(bad),"%.*s%s",(int)(start-readers),readers,*end?end+1:end);assert(!intel_gt_boot_reader_recipe(bad));
+  snprintf(bad,sizeof(bad),"%s %.*s",readers,(int)(end-start),start);assert(!intel_gt_boot_reader_recipe(bad));start=*end?end+1:end;
+ }
+ for(unsigned i=0;i<6;i++){snprintf(bad,sizeof(bad),"%s %s",readers,foreign[i]);assert(!intel_gt_boot_reader_recipe(bad));}
 }

@@ -871,6 +871,7 @@ void kmain(void) {
             }
             if(cmdline_has_token(cmdline,"srvros.intel-hda=owner-trial") || cmdline_has_token(cmdline,"srvros.intel-hda=lease-trial")) {
                 bool lease=cmdline_has_token(cmdline,"srvros.intel-hda=lease-trial");
+                if(cmdline_has_token(cmdline,"srvros.intel-readers=read-only"))console_write("intel-pinned: automatic TXP and three-pipe/stereo audit while HDA inhibited; no input required. Saving results before return.\n");
                 console_printf("%s: saving preflight; automatic requester inhibit/restore, no input needed. Uncertain state halts on this screen; photograph it.\n",lease?"intel-hda-lease":"intel-hda-owner");
                 bool checkpoint=started && workspace_log_pause();
                 if(checkpoint)console_printf("%s: preflight checkpoint saved\n",lease?"intel-hda-lease":"intel-hda-owner");

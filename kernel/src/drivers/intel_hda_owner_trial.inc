@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_READER_TRIAL) && (!defined(SRVROS_INTEL_HDA_OWNER) || !defined(SRVROS_INTEL_HDA_LEASE))
+#error "Pinned reader trial requires the isolated maintained HDA owner"
+#endif
 #include <srvros/intel_hda_owner.h>
 #ifdef SRVROS_INTEL_HDA_OWNER
 #ifdef SRVROS_INTEL_HDA_LEASE
@@ -9,6 +12,9 @@
 #endif
 static bool hda_owner_retained;
 struct hda_owner_adapter {struct hda_adapter h;struct scanout_handoff_snapshot snapshot;};
+#ifdef SRVROS_INTEL_READER_TRIAL
+#include "intel_reader_trial.inc"
+#endif
 static bool hda_owner_guard(void *ctx) {
  struct hda_owner_adapter *a=ctx;
  return !a->h.mapped && !a->h.uncertain && !trial_mapping_fault && hda_guard(&a->h) && intel_window_handoff_revalidate(&a->snapshot);
@@ -61,7 +67,11 @@ bool intel_display_hda_owner_report(void) {
 #ifdef SRVROS_INTEL_HDA_OWNER
  static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_HDA_LEASE
+#ifdef SRVROS_INTEL_READER_TRIAL
+ const struct limine_firmware_type_response *fw=intel_reader_firmware_request.response;
+#else
  const struct limine_firmware_type_response *fw=intel_hda_lease_firmware_request.response;
+#endif
 #else
  const struct limine_firmware_type_response *fw=intel_hda_owner_firmware_request.response;
 #endif
@@ -70,7 +80,11 @@ bool intel_display_hda_owner_report(void) {
  bool efi=fw && !fw->revision && fw->firmware_type==LIMINE_FIRMWARE_TYPE_EFI64;
  bool loader_ok=loader && !loader->revision && hda_text(loader->name,"Limine") && hda_text(loader->version,"11.4.1");
 #ifdef SRVROS_INTEL_HDA_LEASE
+#ifdef SRVROS_INTEL_READER_TRIAL
+ bool recipe=cmd && !cmd->revision && intel_gt_boot_reader_recipe(cmd->cmdline);
+#else
  bool recipe=cmd && !cmd->revision && intel_gt_boot_hda_lease_recipe(cmd->cmdline);
+#endif
 #else
  bool recipe=cmd && !cmd->revision && intel_gt_boot_hda_owner_recipe(cmd->cmdline);
 #endif
@@ -78,6 +92,9 @@ bool intel_display_hda_owner_report(void) {
  struct hda_owner_adapter a={0};struct intel_hda_owner_result r={0};struct intel_hda_result mid={0};
 #ifdef SRVROS_INTEL_HDA_LEASE
  bool pinned=false,blocked=false,checked=false,unpinned=false,live=false;
+#ifdef SRVROS_INTEL_READER_TRIAL
+ struct pinned_readers readers={.parent=&a,.owner=&r};
+#endif
 #endif
  bool acquired=false,before=false,after=false,released=false,profile=false;uint64_t begin=0,end=0;
  console_write(HDA_LABEL ": cooperative EFI submission policy v1; command16 BME inhibit/restore only, no outstanding-DMA or memory grant\n");
@@ -101,7 +118,12 @@ bool intel_display_hda_owner_report(void) {
    if(opened) {
     pinned=intel_hda_owner_pin(&r,&token,&borrow);
     blocked=pinned && !intel_hda_owner_close(&r,&token) && r.pins==1 && r.blocked_closes==1 && r.attempts==1;
+   #ifdef SRVROS_INTEL_READER_TRIAL
+    readers.token=&token;readers.borrow=&borrow;
+    checked=blocked && pinned_reader_run(&readers,&mid);
+#else
     checked=blocked && intel_hda_owner_check(&r,&borrow,&mid);
+#endif
     live=checked && intel_hda_owner_live(&r,&token);
     unpinned=live && intel_hda_owner_unpin(&r,&borrow);
     bool closed=unpinned && intel_hda_owner_close(&r,&token);
@@ -121,6 +143,9 @@ bool intel_display_hda_owner_report(void) {
  bool complete=r.complete && before && after && released && !retained && begin && end>begin && end-begin<=500000;
  hda_irq_restore(irq);if(released)console_flush();
  hda_owner_rows(&r,&mid);
+#ifdef SRVROS_INTEL_READER_TRIAL
+ pinned_reader_report(&readers);
+#endif
 #ifdef SRVROS_INTEL_HDA_LEASE
  console_printf(HDA_LABEL "-lifetime: v=1 epoch=%u pins=%u checks=%u blocked_closes=%u pin=%u blocked=%u checked=%u unpin=%u live=%u\n",r.epoch,(uint64_t)r.pins,(uint64_t)r.checks,(uint64_t)r.blocked_closes,(uint64_t)pinned,(uint64_t)blocked,(uint64_t)checked,(uint64_t)unpinned,(uint64_t)live);
 #endif

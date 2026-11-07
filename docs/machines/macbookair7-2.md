@@ -8,7 +8,8 @@ Baseline main `7c67a65f` is integrated after collecting the accepted8859 lease;
 PR403 Air6,1 live-occupancy/catalog and bounded-clock work is preserved. The next
 bounded objective adds a distinct isolated CPU0 reader image under the existing
 cooperative HDA inhibit lease: exact display-HDA PCIe capability/TXP reads and
-primary/cursor/sprite programmed/live plus stereo surface observations. Shared
+primary/cursor/sprite programmed/live plus stereo surface observations. The [audit contract](../intel-pinned-reader-audit.md) records the exact sources,
+limits and remaining obligations. Shared
 scope is the new core/adapter, isolated image/recipe, collector/staging tests and
 this unit's contract. Existing native writer recipes stay separate. No GT or
 display stores, reset, guessed drain delay, PTE change or memory reuse is planned.

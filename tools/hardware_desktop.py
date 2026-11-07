@@ -573,6 +573,11 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-pinned-summary:'):
+        from intel_pinned_readers import summary
+        try:return not summary(line)['complete']
+        except ValueError:return True
+
     if line.startswith('intel-hda-lease-phase:'):
         from intel_hda_lease import phase_needs_attention
         return phase_needs_attention(line)
@@ -933,6 +938,12 @@ def collect(mount, volume, output):
                 intel_engines=engine_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not intel_engines or not intel_engines['observation_complete'] or not intel_wake or not intel_wake['native_wake_complete']:attention.append('Intel engine census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel engine census: '+str(error))
+        if 'srvros.intel-readers=read-only' in text:
+            from intel_pinned_readers import native_reader_result,verify_reader_checkpoint
+            try:
+                result=native_reader_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not result or not result['native_trial_complete'] or not verify_reader_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Pinned HDA/display reader trial incomplete or refused')
+            except ValueError as error:attention.append('Invalid pinned HDA/display reader trial: '+str(error))
         if 'srvros.intel-hda=lease-trial' in text:
             from intel_hda_lease import native_lease_result,verify_lease_checkpoint
             try:

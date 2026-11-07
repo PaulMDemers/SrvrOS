@@ -96,7 +96,7 @@ the unit record will identify the tested source/release and matched session.
 ## Validated candidate and native acceptance
 
 Release `d6677f44c064979d`, tested source `6277e99b`, is installed and not armed.
-The [unit record](machines/macbookair7-2.md#current-checkpoint-cooperative-display-hda-requester-trial-accepted)
+The [unit record](machines/macbookair7-2.md#earlier-checkpoint-cooperative-display-hda-requester-trial-accepted)
 identifies matching validation, independent evidence, recovery and media.
 Host/core/profile/build checks, fatal sanitizers (26 core/42 adapter modes),
 14 owner compiled negative controls, nine-image isolation and277 collector/

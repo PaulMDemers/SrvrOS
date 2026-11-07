@@ -14,6 +14,17 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_pinned_reader_dedicated_image(self):
+        version='ram-usb-v1-intel-readers-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-readers/srvros.elf','initramfs.tar'):
+            p=self.root/'build'/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_reader_audit=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-readers/srvros.elf')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
     def test_intel_wake_dedicated_image(self):
         version='ram-usb-v1-intel-wake-laptop-probe-37d8c5d0-auto-return'
         config=boot.limine_config('0123456789abcdef',version)
