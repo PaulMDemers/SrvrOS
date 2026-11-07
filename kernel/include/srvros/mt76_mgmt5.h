@@ -19,7 +19,9 @@ size_t mt76_mgmt5_request(const struct mt76_mgmt5_peer *,enum mt76_mgmt5_kind,
  unsigned sequence,bool retry,uint8_t *,size_t);
 /* Normalized MPDU only,not borrowed DMA ownership. Exact RA/TA/BSSID,zero
  * fragments,expected subtype/transaction/status,whole bounded IE stream and
- * valid association AID. A response proves no WPA2 authentication or keys. */
+ * valid association AID. Open-auth accepts complete bounded optional IEs after
+ * its30 fixed bytes,without interpreting their contents as capabilities/keys.
+ * A response proves no WPA2 authentication or keys. */
 enum mt76_mgmt5_status mt76_mgmt5_response(const struct mt76_mgmt5_peer *,
  enum mt76_mgmt5_kind,const uint8_t *,size_t,struct mt76_mgmt5_response *);
 /* Pure USB/TXINFO+20-byte TXWI wrapper for the same management MPDU.

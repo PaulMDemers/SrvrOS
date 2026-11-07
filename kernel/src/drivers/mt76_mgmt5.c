@@ -51,7 +51,14 @@ enum mt76_mgmt5_status mt76_mgmt5_response(const struct mt76_mgmt5_peer *p,
  unsigned fc=get16(mpdu),want=kind==MT76_MGMT5_AUTH?0xb0:0x10;
  if((fc&~0x800u)!=want || (get16(mpdu+22)&15) || !equal(mpdu+4,p->station,6) || !equal(mpdu+10,p->bssid,6) || !equal(mpdu+16,p->bssid,6))return MT76_MGMT5_INVALID;
  if(kind==MT76_MGMT5_AUTH){
-  if(size!=30 || get16(mpdu+24)!=0 || get16(mpdu+26)!=2)return MT76_MGMT5_INVALID;
+  if(get16(mpdu+24)!=0 || get16(mpdu+26)!=2)return MT76_MGMT5_INVALID;
+  /* Linux v7.0 ieee80211_rx_mgmt_auth uses the30-byte fixed minimum.
+   * Optional complete IEs do not change open-auth or security authority.
+   * Retain a stricter whole-stream bound;never accept an orphan/truncated IE. */
+  for(size_t pos=30;pos<size;){
+   if(size-pos<2 || mpdu[pos+1]>size-pos-2)return MT76_MGMT5_INVALID;
+   pos+=2+mpdu[pos+1];
+  }
   out->status=(uint16_t)get16(mpdu+28);return out->status?MT76_MGMT5_REJECTED:MT76_MGMT5_OK;
  }
  unsigned cap=get16(mpdu+24),status=get16(mpdu+26),aid=get16(mpdu+28),seen=0;bool base=false,extra=false,rsn=false;

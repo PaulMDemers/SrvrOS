@@ -6983,3 +6983,18 @@ no USB/controller request or retry. The first v127 run completed AUTH/leave USB
 transport and endpoint/input retirement but did not validate authentication;
 association was not sent and full RF restoration was not accepted. Its failure
 capsule remains separate from empty-OUT acceptance.
+
+### Open authentication optional information elements
+
+A native Demers5 reply had41 MPDU bytes,matching private addresses,frame control
+00b0,open algorithm0,transaction2 and success0 within5,522us. The previous exact
+30-byte size check rejected it. Linux v7.0's
+[authentication receiver](https://raw.githubusercontent.com/torvalds/linux/v7.0/net/mac80211/mlme.c)
+uses a30-byte minimum before checking fixed authentication fields. The codec now
+permits a complete,bounded trailing IE stream after those fixed bytes. It ignores
+optional IE contents for open authentication;all peer/header/fragment/algorithm/
+transaction/status checks stay exact. Truncated TLVs and orphan bytes refuse,
+and no WPA2/key/capability authority follows. The native11-byte tail was not
+recorded,so its structure remains subject to the new validation on hardware.
+Synthetic41-byte optional-vendor-IE fixtures match dimensions only. Native
+management completion remains pending;prior547-file diagnostic failure is retained.

@@ -55,7 +55,7 @@ def check(log):
    require(all(a[k]==0 for k in ('mpdu','fc','body','peer','algorithm','transaction','code')) and a['parser']==3,'invalid RX view leaked decoded fields')
   else:require(24<=a['mpdu']<=4096 and a['body']==a['mpdu']-24 and a['bytes']>=a['mpdu']+36,'invalid normalized RX dimensions')
   if a['peer'] and a['parser']==0 and a['fc']&0xfc in (0xb0,0x10):matched.append((a,line))
- require(any(a['fc']&0xfc==0xb0 and a['mpdu']==30 and a['algorithm']==0 and a['transaction']==2 and a['code']==0 and lines.index(line)<lines.index(sends[1]) for a,line in matched),'missing diagnostic proof of matched AUTH')
+ require(any(a['fc']&0xfc==0xb0 and a['mpdu']>=30 and a['algorithm']==0 and a['transaction']==2 and a['code']==0 and lines.index(line)<lines.index(sends[1]) for a,line in matched),'missing diagnostic proof of matched AUTH')
  require(any(a['fc']&0xfc==0x10 and a['code']==0 and lines.index(sends[1])<lines.index(line) for a,line in matched),'missing diagnostic proof of matched association')
  for phase in (5,6):
   a=fields(next(x for x in rows if x.startswith(f'wifi-join5-context: phase={phase} dci=9 ')),'wifi-join5-context');deq=(a['w2']|a['w3']<<32)&~15;require(rx<=deq<=rx+16*s['posts'] and deq==stop['pointer'],'RX stop beyond publications or different from stop event')

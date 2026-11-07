@@ -58,6 +58,21 @@ int main(void){
   memcpy(r,b,n);put16(r+(kind?26:28),17);assert(parse(&p,kind,r,30)==MT76_MGMT5_REJECTED);
  }
  reply(b,false);b[24]=1;assert(parse(&p,MT76_MGMT5_AUTH,b,30)==MT76_MGMT5_INVALID);reply(b,false);b[26]=1;assert(parse(&p,MT76_MGMT5_AUTH,b,30)==MT76_MGMT5_INVALID);
+ /* Synthetic41-byte auth shape matching captured dimensions,not native IE
+  * contents. Unknown optional vendor data is ignored only as a whole TLV. */
+ reply(b,false);b[30]=221;b[31]=9;for(unsigned i=0;i<9;i++)b[32+i]=(uint8_t)(i+1);
+ assert(parse(&p,MT76_MGMT5_AUTH,b,41)==MT76_MGMT5_OK);
+ for(unsigned n=31;n<41;n++){uint8_t *short_frame=malloc(n);assert(short_frame);memcpy(short_frame,b,n);assert(parse(&p,MT76_MGMT5_AUTH,short_frame,n)==MT76_MGMT5_INVALID);free(short_frame);}
+ for(unsigned fault=0;fault<6;fault++){memcpy(r,b,41);r[fault<3?4+6*fault:fault==3?24:fault==4?26:22]^=1;assert(parse(&p,MT76_MGMT5_AUTH,r,41)==MT76_MGMT5_INVALID);}
+ b[31]=255;assert(parse(&p,MT76_MGMT5_AUTH,b,41)==MT76_MGMT5_INVALID);b[31]=9;
+ put16(b+28,17);assert(parse(&p,MT76_MGMT5_AUTH,b,41)==MT76_MGMT5_REJECTED);put16(b+28,0);
+ b[41]=222;b[42]=0;assert(parse(&p,MT76_MGMT5_AUTH,b,43)==MT76_MGMT5_OK);
+ b[41]=255;assert(parse(&p,MT76_MGMT5_AUTH,b,42)==MT76_MGMT5_INVALID);
+ uint8_t *maximum=calloc(1,4097);assert(maximum);reply(b,false);memcpy(maximum,b,30);
+ for(unsigned pos=30;pos<4096;pos+=2){maximum[pos]=222;maximum[pos+1]=0;}
+ assert(parse(&p,MT76_MGMT5_AUTH,maximum,4096)==MT76_MGMT5_OK);
+ assert(parse(&p,MT76_MGMT5_AUTH,maximum,4095)==MT76_MGMT5_INVALID);
+ assert(parse(&p,MT76_MGMT5_AUTH,maximum,4097)==MT76_MGMT5_INVALID);free(maximum);
  const unsigned aids[]={0,1,0xc000,0xc7d8,0xffff};
  for(unsigned i=0;i<sizeof aids/sizeof aids[0];i++){reply(b,true);put16(b+28,aids[i]);assert(parse(&p,MT76_MGMT5_ASSOC,b,40)==MT76_MGMT5_INVALID);}
  reply(b,true);put16(b+28,0xc7d7);assert(parse(&p,MT76_MGMT5_ASSOC,b,40)==MT76_MGMT5_OK);
