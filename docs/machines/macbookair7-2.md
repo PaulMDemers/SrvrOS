@@ -2,19 +2,47 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
-### Active scope: already-disabled BCS reader path
+### Current checkpoint: already-disabled BCS/reader observation accepted
 
-Actual main `b9615fc5` is integrated before this change; Air6,1 process-mapping,
-ECAM and raw-census changes do not grant Air7,2 device acceptance. PR19 is Pro
-Wi-Fi and PR379 WebCore; neither overlaps this bounded GPU diagnostic.
-Extend the dedicated BCS core/adapter, strict receipt decoder and host fixtures
-with an explicit already-disabled/no-control-write branch. Require exact zero
-ring geometry, idle legacy state, live parent lease, guards/deadlines and stable
-before/after snapshots. Preserve enabled-ring write eligibility and uncertainty
-retention. Distinguish observed disabled from a performed disable in receipts;
-run the same bounded reader audit without granting retirement or memory authority.
-Validate one exact source/stage, preserve recovery/USB evidence, prepare the
-next automated candidate and stop ready without rebooting.
+Main `b9615fc5` is integrated; tested source `47a0db4e` is installed as
+`32859f5868aedd46`. The bounded already-disabled observation and read-only reader
+audit now have matching native evidence. The separate enabled-ring control-write
+path remains physically untested. PR19 is Pro Wi-Fi and PR379 WebCore; neither
+provides GPU ownership acceptance here. Next work should audit the remaining
+reader/DMA and translation/cache obligations, especially display HDA's still-set
+bus-master bit, before granting any managed GPU memory or page-flip authority.
+No new trial is armed, and no additional hardware writes are implied.
+
+### Native already-disabled BCS and reader audit accepted
+
+Release `32859f5868aedd46`, source `47a0db4e`, completes as
+`session-00065fa60a2c5030-00`, completed=yes and collector attention0. Saved
+preflight and the strict native firmware/cache/census/inherited-state chain
+verify. Two 30-DWORD engine passes match, enabled0/pending0 (38,538us).
+All four eight-DWORD BCS snapshots match: tail/head/start/control0,
+execlist1/0, MI_MODE0200 and BLT_MODE0. The already-disabled API completes in
+48,109us, with **zero BCS attempts/stores**. It verifies state; SrvrOS did not
+perform a ring disable in this run.
+
+Both 27-DWORD plane passes match (54 reads,105,801us bracket including BCS).
+Only primary pipeA is enabled (mask1); all cursor/sprite controls are0.
+Programmed/live primary surface offsets are0; these are GGTT offsets, not proof
+of physical address0 or free backing. Both display-HDA config snapshots match:
+8086:160c, class040300, command0006, valid PM stateD0. Bus mastering remains
+**enabled**; no HDA MMIO/power/stream/acknowledgement or retirement is accepted.
+
+Full wake bracket366,842us stays inside500ms; all11 aliases/cache checks retire,
+all3 permitted wake stores complete,163 guards pass, state3/reason0/retained0,
+and requester/firmware/inherited-state/exclusion closeout is clean. BCS100ms,
+reader150ms and prior wake limits remain unchanged. Engine/reader/DMA/cache/
+translation retirement, managed GPU pages and physical tear-free remain false.
+
+All1,350 prior files except expected metadata remain unchanged;3 new logs
+hash-verify (1,353 files/107 sessions). Offline fsck/allocation/writable/headroom,
+installed/durable/archive recovery, Ubuntu default and consumed one-shot checks
+pass. USB is unmounted; volume1%; no reboot is armed. Native exit log62,644 bytes
+fits the unchanged65,536-byte tail. Full return proof/logs and independent SHA
+backup remain under the local `air-blitter-off-20261106` evidence paths below.
 
 ### Already-disabled reader candidate ready (native acceptance pending)
 

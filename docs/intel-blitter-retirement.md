@@ -135,22 +135,32 @@ accept the native register path. Native acceptance requires all receipts,
 matching saved preflight, inherited-state/engine binding, independent UC proofs,
 clean closeout, prior-file preservation and offline media/recovery checks.
 
-## Air7,2 readiness checkpoint
+## Air7,2 native checkpoint
 
-The current installed candidate is `32859f5868aedd46`, source `47a0db4e`.
-It supports both exact enabled-ring disable and separately verified zero-geometry
-already-disabled observation. Host/core/profile checks, fatal sanitizers (27
-adapter/25 core cases), 22 compiled negative controls, 269 collector/staging tests,
-exact-stage Q35 persistence/refusal checks and prior diagnostic/VirtIO regressions
-pass. Installed-root/89 installer cases are retained with exact unchanged-source
-and log-hash proofs; all other targets reran after the main-branch futex fixture
-was adapted to its architecture macro. The candidate is not armed and has no
-native acceptance. Recovery, previous trial and accepted engine census remain
-retained; the accepted wake image has a verified durable/archive copy.
-See the [unit record](machines/macbookair7-2.md#already-disabled-reader-candidate-ready-native-acceptance-pending)
-for local payloads, media and evidence paths. The next step is an automated
-native trial and matching return collection. No managed-memory authority follows
-from host/VM evidence, zero controls or a front-end disable alone.
+Release `32859f5868aedd46`, source `47a0db4e`, completed the already-disabled
+observation and read-only reader audit as `session-00065fa60a2c5030-00`.
+Four exact zero-geometry BCS snapshots match (MI_MODE0200/BLT_MODE0), with
+zero control attempts/stores and48,109us duration. Both27-DWORD plane passes
+match, primary mask1/cursor0/sprite0; display-HDA config is stableD0 with
+command0006, so its bus-master bit remains enabled. The reader bracket is
+105,801us; full native bracket366,842us, all11 aliases retired and clean
+wake/exclusion closeout. Native prerequisite/checkpoint/receipt binding,
+completed=yes, collector attention0, prior-file preservation and offline
+media/recovery/one-shot checks all pass. This accepts only the bounded
+already-disabled and reader-observation path. The enabled-ring control store
+still lacks native acceptance. All-reader/DMA/translation/cache retirement,
+managed memory and tear-free remain unaccepted.
+
+Host/core/profile checks, fatal sanitizers (27 adapter/25 core cases),22
+compiled negative controls,269 collector/staging cases, exact-stage Q35
+persistence/refusal checks and prior diagnostic/VirtIO regressions pass.
+Installed-root/89 installer cases are retained with exact unchanged-source
+and log-hash proofs; other targets reran after the main-branch futex fixture
+was adapted to its architecture macro. Recovery, prior trial and accepted
+engine census remain retained; accepted wake has verified durable/archive
+copies. See the [unit record](machines/macbookair7-2.md#native-already-disabled-bcs-and-reader-audit-accepted)
+for local media, payloads and independently SHA-backed evidence. No new reboot
+is armed. Zero GGTT surface offsets do not imply free physical backing.
 
 The first native trial returned with all five engines disabled at entry:
 `session-00065fa4adf643e3-00`, release `16824812ea718910`. The strict enabled16
