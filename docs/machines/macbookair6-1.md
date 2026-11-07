@@ -8203,3 +8203,10 @@ complete/refused/poisoned and maximum-catalog paths are included. Raw complete
 receipts explicitly record claim release, and failed saved receipts preserve
 census/gate/retirement progress without rereading hardware. Frozen full core
 and matched images/VM validation remain next at this checkpoint.
+
+Full-core validation exposed a stale futex extraction harness left by the
+earlier PROCESS_ARCH_STI portability change. The harness now verifies the
+exact native macro and host-trap definitions, models only the macro boundary
+and preserves the extracted production function bodies verbatim. The prior
+failed full run is retained; rerun the real interleaving fixture and complete
+full-core validation before staging. No futex runtime or limit is changed.
