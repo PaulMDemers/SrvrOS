@@ -57,16 +57,13 @@ submitted. Full stopped handoff,selected power and exact context/power/RF
 originals,storage/recovery and automatic Ubuntu return pass. No identifiers were
 logged. The153-file native capsule is independently sealed outside build.
 
-Next bounded work:dedicated live RX/data OUT ownership and matched management
-AUTH/ASSOC/leave using the accepted private peer. Keep stopped/empty/read-only
-parent predicates unchanged. Reuse pinned TXWI/manual-sequence/queue semantics,
-retain every DMA allocation on uncertain ownership,and distinguish USB completion
-from a matched AP protocol response. Touch fixed MT76 transport/native owner,
-codec/staging/proof/fault tests;other machines' alias/graphics and browser work
-remain independent. No cross-chat contact is authorized. Main4cc0408b integration
-and relevant wait/signal/FPU/profile/cache/alias regressions have passed;no sibling
-acceptance is inferred. The next matched live-owner candidate still needs its
-own exact-stage/storage/recovery qualification and physical evidence.
+Native v127 `3941cd6f08de149f`, runtime `a71b71c2`, now accepts matched
+open-system AUTH/ASSOC replies and leave submission,with complete MAC/endpoint/
+input/power/RF restoration. See the November6 acceptance below. The next bounded
+scope is WPA2 entropy/MIC/replay/key/PN groundwork before native key installation
+and authenticated data;existing ownership and refusal predicates remain exact.
+Other machines' graphics,VT-d and browser work remain independent. No cross-chat
+contact is authorized. Host models do not accept a native secured connection.
 
 Strict-entropy WPA2/MIC/replay/key/PN lifecycle,authenticated bidirectional
 IP/data and clean disconnect/reconnect follow association. Demers2.4 needs
@@ -13556,3 +13553,35 @@ retired only after complete byte equality with its independently sealed546-file
 failure backup. That native capsule stays unchanged. The547-file reply-diagnostic
 backup and its7181f95e EFI payload remain retained. Accepted empty-OUT/handoff/
 power/selection and e47d recovery remain installed;Ubuntu is still default.
+
+### Native open authentication and association accepted (November 6)
+
+V127 `3941cd6f08de149f` / runtime `a71b71c2`,session
+`00065fa4f5d6cb3c-00`,passes all2,033,170 saved prefix bytes and the full15,719-
+operation parent. The41-byte AUTH reply now passes the complete optional-IE
+structural check and private peer/algorithm0/transaction2/status0 checks. A95-byte
+association response matches the private peer with status0 and valid AID34.
+AUTH60/ASSOC100/leave56-byte USB submissions complete once each;the exchange
+completes in12,808us with zero ignored replies. Leave submission is accepted;
+there is no separate peer acknowledgement proof for leave.
+
+Six endpoint commands,three RX posts,53 ownership controls,both exact CC27/
+zero-residue stop receipts,old RX context/dequeue,OUT disable and all4096 shared
+input bytes pass. MAC drain/disable and filter/TXOP restoration pass. All nine
+selected-power originals and full outer RF originals are restored. DMA stays
+retained. Offline filesystem/allocation,payload/recovery equality and automatic
+Ubuntu return pass. The167-file native capsule remains independently sealed
+outside build;separate acceptance notes preserve the source-specific result.
+Earlier first-live and reply-diagnostic failures remain failed and unchanged.
+The actual optional IE contents remain unlogged;acceptance establishes structural
+validity,not a guessed vendor payload or security/capability authority.
+
+This accepts the open management exchange,not WPA2 authentication or an open
+controlled data port. Credentials remain unread/unpackaged. Strict entropy,
+PSK derivation,EAPOL/MIC/replay validation,key installation/retirement,CCMP packet
+numbers,authenticated DHCP/DNS/bidirectional data and disconnect/reconnect remain
+pending. The Edimax is5GHz-only;Demers2.4 requires compatible hardware. Runtime
+remains on reviewed mainca43ce23. Fetched mainb9615fc5 adds an Air live VT-d
+admission audit and host proof tooling atop deferred ECAM/process work;it has
+no new Pro authority and is deferred from this source-specific acceptance.
+Ubuntu is default,e47d remains known-good previous,and no one-shot is armed.

@@ -6934,7 +6934,7 @@ remain failed. No TD,doorbell,MAC start or network frame was published by the
 empty owner;live RX/data publication,matched AUTH/ASSOC/leave,WPA2 and
 authenticated IP/data/disconnect remain separate pending milestones.
 
-### Fixed161 live management candidate (v127)
+### Fixed161 live management owner (v127)
 
 `--wifi-join5` requires the complete automatic `--wifi-tx5-owner` parent. It
 freezes accepted calibration,power,handoff,private peer and empty-OUT preview
@@ -6995,6 +6995,11 @@ permits a complete,bounded trailing IE stream after those fixed bytes. It ignore
 optional IE contents for open authentication;all peer/header/fragment/algorithm/
 transaction/status checks stay exact. Truncated TLVs and orphan bytes refuse,
 and no WPA2/key/capability authority follows. The native11-byte tail was not
-recorded,so its structure remains subject to the new validation on hardware.
-Synthetic41-byte optional-vendor-IE fixtures match dimensions only. Native
-management completion remains pending;prior547-file diagnostic failure is retained.
+recorded. The corrected native v127 release3941cd6f08de149f subsequently validates
+that41-byte reply structurally,receives a matching95-byte successful association
+response and submits leave,with complete MAC/endpoint/input/power/RF restoration.
+All2,033,170 saved bytes and the full parent pass;see the Pro11,2 unit record
+for source/session and independently sealed acceptance. Optional contents remain
+unlogged and grant no security authority. Synthetic41-byte optional-vendor-IE
+fixtures match dimensions only;prior547-file diagnostic failure stays failed.
+WPA2,key installation and authenticated IP/data/disconnect remain pending.
