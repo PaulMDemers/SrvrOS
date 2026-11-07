@@ -8372,3 +8372,27 @@ a delayed actual gate/backend/report refusal with retained cost diagnostics.
 New regressions cover one-use clock tickets, delayed walks, immediate pre-store
 expiry, root/provenance changes during walks, post-publication expiry and retained
 poison; existing raw A/D, permission, ownership, cap and clock failures still pass.
+
+
+### Frozen bounded clock-scope checks (2026-11-07)
+
+Code `d5b45505` passes matched normal/AP/USB/ISO builds and complete test-core
+(one explicit opt-in test skipped). Actual backend, standalone gate/report and
+combined early-ECAM/window fixtures pass ASan/UBSan and ARM64 compilation,
+including delayed census refusal and retained terminal failure. Ten strict
+profile/collector tests pass. Actual three-file proof covers normal, maximum
+catalog and native HHDM shapes with cost records and unchanged raw comparisons.
+The ordinary image excludes diagnostic code/test pins. Host operation counts
+retain98851 raw loads/60451 mapper words while clock calls fall106618→33386;
+this is not native latency acceptance. Cost clock counters measure backend
+reference callbacks; independent firmware/cache clock calls remain outside
+that count. Phase times retain the shared reference clock.
+
+Nine sequential staged VMs pass legacy firmware/cache/alias/fence/v4/v5 plus
+v5/v6 missing-workspace and exact v6 refusal. Five ordinary syscall/UEFI USB
+keyboard/fork/exec-vector/yield VMs pass. Selected payload `a80942d96c7c830c`
+is hash-verified and backed up for an automatic native retry. Q35 refusal does
+not establish native completion. Preserve the previous deadline failure and
+unchanged100ms/word/census caps. Only an unreferenced failed-trial EFI copy may
+be retired after full payload/evidence hash verification outside build; accepted
+ECAM/root and Ubuntu/recovery payloads remain retained.
