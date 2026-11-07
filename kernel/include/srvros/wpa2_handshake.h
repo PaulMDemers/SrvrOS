@@ -44,6 +44,7 @@ bool wpa2_hs_tx_result(struct wpa2_handshake *,uint64_t generation,enum wpa2_hs_
  * COMPLETE is local model state,not AP ACK,controlled port or native acceptance. */
 bool wpa2_hs_take_keys(struct wpa2_handshake *,uint64_t generation,struct wpa2_hs_keys *);
 bool wpa2_hs_install_result(struct wpa2_handshake *,uint64_t generation,enum wpa2_hs_result);
+/* True only when this call aborts a current active lifetime. */
 bool wpa2_hs_abort(struct wpa2_handshake *,uint64_t generation);
 /* Scrub secrets on every current-lifetime retirement;return false and preserve
  * keys_may_live if external keys lack a removal proof. Caller must retain that

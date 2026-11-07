@@ -32,7 +32,7 @@ int main(void){
   assert(!wpa2_hs_receive(&s,10,hs_aa,hs_spa,hs_m1,sizeof hs_m1));assert(!wpa2_hs_emit(&s,10,out,sizeof out));assert(!wpa2_hs_tx_result(&s,10,WPA2_HS_CONFIRMED));assert(!wpa2_hs_take_keys(&s,10,&k));assert(!wpa2_hs_install_result(&s,10,WPA2_HS_CONFIRMED));assert(!wpa2_hs_abort(&s,10));assert(!wpa2_hs_retire(&s,10,true));assert(!memcmp(&old,&s,sizeof s) && !memcmp(&k,&kold,sizeof k));for(unsigned j=0;j<sizeof out;j++)assert(out[j]==0xa5);
   /* Aliased outputs/inputs cannot corrupt the live model. */
   assert(!wpa2_hs_emit(&s,9,s.scratch,121));assert(!wpa2_hs_take_keys(&s,9,(void *)s.scratch));assert(!wpa2_hs_receive(&s,9,s.peer.aa,hs_spa,hs_m1,sizeof hs_m1));assert(!wpa2_hs_receive(&s,9,hs_aa,hs_spa,s.scratch,99));assert(!memcmp(&old,&s,sizeof s));
-  assert(!wpa2_hs_abort(&s,9));assert(s.phase==WPA2_HS_FAILED);erased(&s);assert(s.keys_may_live==old.keys_may_live);assert(wpa2_hs_retire(&s,9,true));
+  assert(wpa2_hs_abort(&s,9));assert(!wpa2_hs_abort(&s,9));assert(s.phase==WPA2_HS_FAILED);erased(&s);assert(s.keys_may_live==old.keys_may_live);assert(wpa2_hs_retire(&s,9,true));
  }
  /* Duplicate/out-of-order messages never trigger a second key export. */
  for(unsigned i=0;i<count;i++){

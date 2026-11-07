@@ -105,7 +105,10 @@ bool wpa2_hs_install_result(struct wpa2_handshake *s,uint64_t g,enum wpa2_hs_res
  scrub(s->ptk+16,32);scrub(s->gtk,sizeof s->gtk);scrub(s->anonce,sizeof s->anonce);scrub(s->snonce,sizeof s->snonce);
  s->phase=WPA2_HS_M4_READY;return true;
 }
-bool wpa2_hs_abort(struct wpa2_handshake *s,uint64_t g){if(!same(s,g))return false;return fail(s);}
+bool wpa2_hs_abort(struct wpa2_handshake *s,uint64_t g){
+ if(!same(s,g) || s->phase==WPA2_HS_FAILED)return false;
+ fail(s);return true;
+}
 bool wpa2_hs_retire(struct wpa2_handshake *s,uint64_t g,bool removed){
  if(!same(s,g))return false;
  secrets(s);if(s->keys_may_live && !removed){s->phase=WPA2_HS_FAILED;return false;}

@@ -60,8 +60,10 @@ logged. The153-file native capsule is independently sealed outside build.
 Native v127 `3941cd6f08de149f`, runtime `a71b71c2`, now accepts matched
 open-system AUTH/ASSOC replies and leave submission,with complete MAC/endpoint/
 input/power/RF restoration. See the November6 acceptance below. The next bounded
-scope is WPA2 entropy/MIC/replay/key/PN groundwork before native key installation
-and authenticated data;existing ownership and refusal predicates remain exact.
+scope is native EAPOL transport/ownership and a guarded key-table installer,
+following host-qualified PMK/PTK/MIC,authenticated unwrap and one-shot handshake
+models. Packet-number/data ownership and authenticated traffic remain pending;
+existing ownership and refusal predicates remain exact.
 Other machines' graphics,VT-d and browser work remain independent. No cross-chat
 contact is authorized. Host models do not accept a native secured connection.
 
