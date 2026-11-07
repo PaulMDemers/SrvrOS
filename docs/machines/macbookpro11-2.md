@@ -14287,3 +14287,43 @@ reuse,no new hardware/filter/BSSID writes and all existing drain predicates.
 Reproduce early safe exhaustion,ownership loss and reserve exhaustion in the
 wire/native fixtures,then qualify one matched diagnostic image. This does not
 accept sustained reception or claim a solution to the observed frame refusals.
+
+### Qualified receive-report/early-exhaustion cold candidate (November 7)
+
+Runtime141a6cd6 retains integration baselinea1661937. The matched kernel/USB
+build,full controller and relevant crypto/protocol/DNS/ownership regressions,
+233 stage tests,16 fatal ASan/UBSan groups and native stack checks pass. The
+largest new frame remains1,240bytes. The independent wire fixture proves safe
+exhaustion after a failed poll and before a later send,and unsafe refusal on
+callback ownership loss. Native fixtures end the40-entry forward flood after
+36 data polls,erase keys/submit leave and prove finite reserved drain;reserve
+exhaustion and drain ownership loss still refuse restoration. Historical byte-
+count decoding and independent encrypted packet/oracle fixtures remain valid.
+
+The complete production-C/native-parent synthetic prefix passes2,039,842bytes
+and119 altered/incomplete cases. The conservative bound leaves42,149bytes under
+the unchanged2MiB capture limit,including the separate32KiB reserve. Real
+filesystem persistence/remount/fsck,ordinary desktop and exact-stage save/return
+and missing-workspace VMs pass. The compiled receive-report symbol and exact
+kernel plus independently reconstructed firmware/private-PMK initramfs match
+the candidate. This is not a full-core rerun or native receive acceptance.
+
+The latest564-file failure,prior581/564 failures,accepted177/24 four-way capsule/
+notes,failed569-file four-way and accepted178-file M1 seals remain unchanged.
+The generated latest failed session was archived,byte-verified and pruned only
+after preservation. Offline allocation,writable eligibility and headroom pass.
+EFI space was recovered from the unreferenced failed original v131 duplicate
+after exact verification against its complete external failure capsule. Latest
+accepted v130,M1 and e47d previous remain installed. The new candidate is
+installed,Ubuntu remains default,and no boot is armed yet.
+
+Next authorized action is cold shutdown,Wi-Fi-only10second unplug while off,
+same-port reconnect and power on with the workspace attached. Guest progress,
+saving and Ubuntu return are automatic. Collect this receive-report candidate
+first after return;read rejection categories and the exhaustion marker before
+choosing further receive work. CCMP refusal is not automatically MIC failure,
+and frame lengths do not identify packet contents. Require the full DHCP/DNS/
+exact256-byte echo,key erasure/leave and endpoint/input/MAC/power/RF originals
+for diagnostic acceptance. No filter/BSSID writes,ring reuse or larger limits
+are accepted by these fixtures. Ordinary provider/UI,TCP/HTTP and live reattach
+remain pending. PR19 stays draft and Actions remain disabled.
