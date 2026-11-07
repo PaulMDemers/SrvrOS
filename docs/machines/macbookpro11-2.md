@@ -14270,3 +14270,20 @@ parity fix. First distinguish envelope/frame/peer/crypto refusal classes and
 evaluate bounded continued receive service. Keep every crypto and
 retirement predicate. Actual maina35a1952 was fetched/inspected (dormant Air6,1
 window backend);this runtime still consumes a1661937. No new boot is armed.
+
+### Receive-view diagnostics and immediate bounded exhaustion scope (November 7)
+
+Actual maina35a1952 and PR407 Air6,1 admission,PR301 graphics and PR379 browser
+were inspected;none owns this Wi-Fi path. Retain a1661937 for this correction.
+Add a by-value receive-result classification around the unchanged Ethernet/
+CCMP codec,covering span/flags/shape/frame/header/peer/CCMP/LLC refusal versus
+authenticated delivery. Preserve the historical byte-count API and every
+admission,erasure,MIC/replay and PN check;no packet/address/key values in logs.
+Add an optional finite-input exhaustion callback to the disposable IP probe.
+End a spent forward window immediately and safely,instead of accumulating
+traffic during the remainder of its timeout;check ownership before/after that
+callback and before another send. Keep40 forward/48 total entries,no ring/page
+reuse,no new hardware/filter/BSSID writes and all existing drain predicates.
+Reproduce early safe exhaustion,ownership loss and reserve exhaustion in the
+wire/native fixtures,then qualify one matched diagnostic image. This does not
+accept sustained reception or claim a solution to the observed frame refusals.
