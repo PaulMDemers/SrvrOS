@@ -38,7 +38,7 @@ static bool response(struct mt76_join5 *s,const struct mt76_mgmt5_peer *p,const 
  }
  return false;
 }
-bool mt76_join5_run(struct mt76_join5 *s,const struct mt76_peer5 *peer,const struct mt76_join5_io *io){
+bool mt76_join5_run_after(struct mt76_join5 *s,const struct mt76_peer5 *peer,const struct mt76_join5_io *io,bool (*after_assoc)(void *,bool *)){
  if(!s || !peer || !io || !io->owned || !io->send || !io->poll || !io->delay || !io->now ||
  overlap(s,sizeof *s,peer,sizeof *peer) || overlap(s,sizeof *s,io,sizeof *io) || (io->context && overlap(s,sizeof *s,io->context,1)) ||
  s->attempted || !peer->attempted || !peer->complete || !peer->generation || !peer->observations || peer->observations>8 ||
@@ -50,9 +50,12 @@ bool mt76_join5_run(struct mt76_join5 *s,const struct mt76_peer5 *peer,const str
  if(ok){s->auth_matched=response(s,&p,io,MT76_MGMT5_AUTH);ok=s->auth_matched;}
  if(ok){s->assoc_sent=send(s,&p,io,MT76_MGMT5_ASSOC);ok=s->assoc_sent;}
  if(ok){s->assoc_matched=response(s,&p,io,MT76_MGMT5_ASSOC);ok=s->assoc_matched;}
+ if(ok && after_assoc){ok=after_assoc(io->context,&s->unsafe);if(!io->owned(io->context,false)){s->unsafe=true;ok=false;}}
  if(s->auth_sent && !s->unsafe){s->leave_sent=send(s,&p,io,MT76_MGMT5_LEAVE);ok=s->leave_sent && ok;}
  else ok=false;
  scrub(s->packet,sizeof s->packet);scrub(s->reply,sizeof s->reply);
  s->complete=ok && s->auth_matched && s->assoc_matched && s->leave_sent && io->owned(io->context,true);
  s->failed=!s->complete;return s->complete;
 }
+
+bool mt76_join5_run(struct mt76_join5 *s,const struct mt76_peer5 *p,const struct mt76_join5_io *io){return mt76_join5_run_after(s,p,io,0);}

@@ -19,6 +19,9 @@ static size_t rx(uint8_t *out,const uint8_t *frame,size_t n,bool qos,bool pad){
 }
 static void refuses(uint8_t *p,size_t n){struct mt76_eapol5_view v;memset(&v,0xa5,sizeof v);assert(mt76_eapol5_rx(&peer,p,n,&v)!=MT76_RX_OK);zero(&v,sizeof v);}
 int main(void){
+ assert(mt76_eapol5_m1(hs_m1,sizeof hs_m1) && !mt76_eapol5_m1(hs_m3,sizeof hs_m3) && !mt76_eapol5_m1(NULL,99));
+ uint8_t m1[121];memcpy(m1,hs_m1,99);for(unsigned i=49;i<97;i++){m1[i]=1;assert(!mt76_eapol5_m1(m1,99));m1[i]=0;}
+ memset(m1+17,0,32);assert(!mt76_eapol5_m1(m1,99));memset(m1+17,255,32);assert(!mt76_eapol5_m1(m1,99));memcpy(m1,hs_m1,99);memset(m1+9,255,8);assert(!mt76_eapol5_m1(m1,99));
  uint8_t packet[4096],copy[4096],out[4096];struct mt76_eapol5_view v;
  for(unsigned qos=0;qos<2;qos++)for(unsigned pad=0;pad<2;pad++)for(unsigned kind=0;kind<2;kind++){
   const uint8_t *frame=kind?hs_m3:hs_m1;size_t size=kind?sizeof hs_m3:sizeof hs_m1;

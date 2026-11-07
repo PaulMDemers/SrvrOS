@@ -7137,3 +7137,27 @@ a live key's PN through duplicate handshakes,and retain ownership on partial
 or uncertain writes. The new one-shot handshake model supplies no hardware
 readback or packet-number proof. Ordinary RX,desktop and accepted v127 remain
 unchanged until a separately qualified native implementation is staged.
+
+### Bounded native M1 capture candidate (v128)
+
+`--wifi-eapol5` requires the complete automatic `--wifi-join5` parent and adds
+an optional bounded post-association inspection before leave. The same retained
+RX/data-OUT owner stays live;no existing stopped/read-only gate is widened.
+During at most20,000 polls/1.5 seconds,completed RX entries are snapshotted and
+classified with the separate EAPOL codec. A privately copied,structurally valid
+M1 must have the supported descriptor/fixed fields,nonce shape,replay room and
+optional PMKID KDE shape. It proves neither AP authentication nor key possession.
+Only counters,lengths,frame control,view status and M1-shape booleans are saved;
+no nonce,replay,address,packet or credential bytes are logged. Missing/malformed
+M1 fails the capture. Ownership uncertainty quarantines and forbids speculative
+publication;semantic refusal may leave and retire but remains a failure.
+
+The historical three management submissions remain unchanged. There is no
+EAPOL reply,key installation,IP/data provider or new crypto hardware write.
+MAC drain/disable,exact endpoint stop/dequeue/drop,input and full RF/power
+originals remain required. v127 defaults to its original no-hook exchange.
+Follow matched build,full-parent/strict-log/fault/sanitizer/stack/storage checks,
+exact staged GPT/missing-workspace VMs,recovery and saved run record before a
+physical trial. Guest progress,save and Ubuntu return are automatic. The local
+cold Wi-Fi unplug/shutdown procedure remains required;collect the matching
+v128 session first on return. No new physical M1 acceptance is claimed yet.

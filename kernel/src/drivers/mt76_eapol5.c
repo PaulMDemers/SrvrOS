@@ -52,3 +52,12 @@ size_t mt76_eapol5_usb_tx(const struct mt76_eapol5_peer *peer,const uint8_t *fra
  for(size_t i=0;i<total;i++)out[i]=packet[i];
  scrub(packet,sizeof packet);scrub(station,sizeof station);return total;
 }
+
+bool mt76_eapol5_m1(const uint8_t *p,size_t n){
+ static const uint8_t pmkid[]={221,20,0,15,172,4};uint8_t nonff=0;
+ if(!eapol(p,n) || be16(p+5)!=0x008a || be16(p+7)!=16 || !zero(p+49,48) ||
+ (n!=99 && (n!=121 || !equal(p+99,pmkid,sizeof pmkid))) || zero(p+17,32))return false;
+ for(unsigned i=0;i<32;i++)nonff|=p[17+i]^255;
+ bool room=false;for(unsigned i=0;i<8;i++)room=room || p[9+i]!=255;
+ return nonff && room;
+}

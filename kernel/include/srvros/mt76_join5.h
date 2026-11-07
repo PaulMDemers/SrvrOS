@@ -27,4 +27,9 @@ struct mt76_join5 {
  * Completed failure can send leave only under independently valid ownership.
  * All packet/address scratch is scrubbed;results contain counters only. */
 bool mt76_join5_run(struct mt76_join5 *,const struct mt76_peer5 *,const struct mt76_join5_io *);
+/* Optional trusted,bounded post-association inspection before leave. A false
+ * result is a semantic failure unless unsafe is set or ownership is lost.
+ * Existing run() supplies no hook and retains its original behavior. */
+bool mt76_join5_run_after(struct mt76_join5 *,const struct mt76_peer5 *,
+ const struct mt76_join5_io *,bool (*after_assoc)(void *,bool *unsafe));
 #endif

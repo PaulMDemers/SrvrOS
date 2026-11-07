@@ -25,4 +25,6 @@ enum mt76_rx_status mt76_eapol5_rx(const struct mt76_eapol5_peer *,
  * refuses unchanged;other refusal clears capacity bytes. */
 size_t mt76_eapol5_usb_tx(const struct mt76_eapol5_peer *,const uint8_t *,size_t,
  unsigned sequence,uint8_t *,size_t capacity);
+/* Structural M1 check only;no peer authentication or key/port authority. */
+bool mt76_eapol5_m1(const uint8_t *,size_t);
 #endif

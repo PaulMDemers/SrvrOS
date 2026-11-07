@@ -2,6 +2,8 @@
  * Independent owner replaces,never weakens,the historical stopped-RX gates.
  * Every DMA page survives failure and terminal restoration until reset. */
 #include <srvros/mt76_join5.h>
+#include <srvros/mt76_eapol5.h>
+static struct {bool requested,active,attempted,complete;unsigned polls,frames,matches;}wifi_eapol5;
 #define WIFI_JOIN5_RX 48
 static struct {
  struct xhci_device *d;struct mt76_peer5 peer;struct mt76_join5 exchange;struct mt76_mac_cycle mac;
@@ -14,12 +16,12 @@ static struct {
  unsigned lengths[3],kinds[3];uint8_t packets[3][124];
  unsigned phase,commands,posts,sends,rx_cc,rx_residue,rx_events,tx_events,stop_events[2],stop_dci,usb_ops;
  uint64_t rx_enqueue,tx_enqueue;bool rx_cycle,tx_cycle;
- bool attempted,active,failed,rx_pending,rx_done,rx_delivered,tx_pending,tx_done,restored;
+ bool eapol_required,attempted,active,failed,rx_pending,rx_done,rx_delivered,tx_pending,tx_done,restored;
 }wifi_join5;
 static bool wifi_join5_fail(void){wifi_join5.failed=true;return wifi_join5.d?wifi_mcu_fail(wifi_join5.d):false;}
 static bool wifi_join5_frozen(void){
  struct xhci_device *d=wifi_join5.d;
- if(!wifi_join5_requested || !wifi_join5.active || wifi_join5.failed || !d || d!=wifi_cal5.d || !d->present || d->removed || d->retiring || d->ep0_quarantined || d->control_failed ||
+ if(wifi_join5.eapol_required!=wifi_eapol5.requested || !wifi_join5_requested || !wifi_join5.active || wifi_join5.failed || !d || d!=wifi_cal5.d || !d->present || d->removed || d->retiring || d->ep0_quarantined || d->control_failed ||
  d->vendor_id!=0x7392 || d->product_id!=0xa711 || d->device_bcd!=0x100 || !d->slot_id || d->slot_id!=wifi_join5.slot || xhci.stopping || firmware_command_failed ||
  !wifi_channel_vco5_owned(&wifi_channel_vco5) || !wifi_handoff5_equal(&wifi_cal5,wifi_join5.cal,sizeof wifi_cal5) ||
  !wifi_handoff5_equal(&wifi_power5,wifi_join5.power,sizeof wifi_power5) || !wifi_handoff5_equal(&wifi_handoff5,wifi_join5.handoff,sizeof wifi_handoff5) ||
@@ -180,7 +182,18 @@ static bool wifi_join5_poll(void *c,uint8_t *out,size_t cap,size_t *size,bool *p
   unsigned i=wifi_join5.posts-1;
   if(i!=wifi_join5.rx_copied)return wifi_join5_fail();
   copy_bytes(wifi_join5.rx_snapshot[i],wifi_join5.buffer[i],4096);wifi_join5.rx_copied++;
-  struct mt76_rx_view v={0};size_t bytes=4096-wifi_join5.rx_residue;
+  size_t bytes=4096-wifi_join5.rx_residue;
+  if(wifi_eapol5.active){
+   struct mt76_eapol5_peer p={.channel=161,.bandwidth=20};
+   copy_bytes(p.station,wifi_join5.peer.peer.station,6);copy_bytes(p.bssid,wifi_join5.peer.peer.bssid,6);
+   struct mt76_eapol5_view v={0};enum mt76_rx_status status=mt76_eapol5_rx(&p,wifi_join5.buffer[i],bytes,&v);
+   wifi_join5.rx_delivered=true;wifi_eapol5.frames++;
+   bool shape=status==MT76_RX_OK && mt76_eapol5_m1(v.eapol,v.eapol_size);
+   if(status==MT76_RX_OK && v.eapol_size<=cap){copy_bytes(out,v.eapol,v.eapol_size);*size=v.eapol_size;*present=true;}
+   console_printf("wifi-eapol5-rx: index=%u bytes=%u view=%u mpdu=%u fc=%x eapol=%u m1=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)status,(uint64_t)v.mpdu_size,(uint64_t)v.frame_control,(uint64_t)v.eapol_size,(uint64_t)shape);
+   zero_bytes(&p,sizeof p);
+  }else{
+  struct mt76_rx_view v={0};
   enum mt76_rx_status status=mt76_rx_usb_view(wifi_join5.buffer[i],bytes,&v);
   wifi_join5.rx_delivered=true;
   if(status==MT76_RX_OK && v.mpdu_size>=24 && v.mpdu_size<=cap && v.body_size==v.mpdu_size-24){copy_bytes(out,v.header,24);copy_bytes(out+24,v.body,v.body_size);*size=v.mpdu_size;*present=true;}
@@ -192,6 +205,7 @@ static bool wifi_join5_poll(void *c,uint8_t *out,size_t cap,size_t *size,bool *p
   else if(*present && type==0x10 && v.body_size>=4)code=v.body[2]|((unsigned)v.body[3]<<8);
   if(peer && (type==0xb0 || type==0x10)){struct mt76_mgmt5_response r={0};parser=mt76_mgmt5_response(&wifi_join5.peer.peer,type==0xb0?MT76_MGMT5_AUTH:MT76_MGMT5_ASSOC,out,*size,&r);}
   console_printf("wifi-join5-rx: index=%u bytes=%u view=%u mpdu=%u fc=%x body=%u peer=%u algorithm=%u transaction=%u code=%u parser=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)status,(uint64_t)v.mpdu_size,(uint64_t)v.frame_control,(uint64_t)v.body_size,(uint64_t)peer,(uint64_t)algorithm,(uint64_t)transaction,(uint64_t)code,(uint64_t)parser);
+  }
   if(wifi_join5.posts<WIFI_JOIN5_RX && !wifi_join5_post())return false;
  }
  return true;
@@ -207,16 +221,37 @@ static bool wifi_join5_usb(void *c,bool write,uint32_t a,uint32_t *v,bool cleanu
 static bool wifi_join5_read(void *c,uint32_t a,uint32_t *v,bool cleanup){if(!v)return false;*v=0;return wifi_join5_usb(c,false,a,v,cleanup);}
 static bool wifi_join5_write(void *c,uint32_t a,uint32_t v,bool cleanup){return wifi_join5_usb(c,true,a,&v,cleanup);}
 static bool wifi_join5_mac_delay(void *c,unsigned us,bool cleanup){return us<=10000 && wifi_join5_owned(c,cleanup) && timer_delay_us(us);}
+static bool wifi_eapol5_capture(void *c,bool *unsafe){
+ if(c!=&wifi_join5 || !unsafe || wifi_eapol5.attempted || !wifi_eapol5.requested || !wifi_join5_owned(c,false))return false;
+ wifi_eapol5.attempted=wifi_eapol5.active=true;
+ console_write("wifi-eapol5-progress: bounded post-association M1 receive;no keys or EAPOL TX;leave and full retirement follow\n");
+ uint64_t start=timer_monotonic_us(),previous=start;bool clock=true;
+ for(unsigned n=0;n<20000;n++){
+  size_t size=0;bool present=false;wifi_eapol5.polls++;
+  if(!wifi_join5_poll(c,wifi_join5.exchange.reply,sizeof wifi_join5.exchange.reply,&size,&present) || !wifi_join5_owned(c,false)){*unsafe=true;break;}
+  bool match=present && mt76_eapol5_m1(wifi_join5.exchange.reply,size);
+  zero_bytes(wifi_join5.exchange.reply,sizeof wifi_join5.exchange.reply);
+  uint64_t now=timer_monotonic_us();if(now<previous){clock=false;break;}previous=now;
+  if(match && now-start<1500000){wifi_eapol5.matches++;wifi_eapol5.complete=true;break;}
+  if(now-start>=1500000 || (wifi_join5.posts==WIFI_JOIN5_RX && !wifi_join5.rx_pending))break;
+  if(!wifi_join5_delay(c,100)){*unsafe=true;break;}
+ }
+ zero_bytes(wifi_join5.exchange.reply,sizeof wifi_join5.exchange.reply);wifi_eapol5.active=false;
+ uint64_t end=timer_monotonic_us();clock=clock && end>=start;
+ wifi_eapol5.complete=wifi_eapol5.complete && clock && !*unsafe && wifi_join5_owned(c,false);
+ console_printf("wifi-eapol5: complete=%u polls=%u frames=%u matched=%u clock_valid=%u elapsed_us=%u eapol_tx=0 keys=0 authenticated=0\n",(uint64_t)wifi_eapol5.complete,(uint64_t)wifi_eapol5.polls,(uint64_t)wifi_eapol5.frames,(uint64_t)wifi_eapol5.matches,(uint64_t)clock,clock?end-start:0);
+ return wifi_eapol5.complete;
+}
 static bool wifi_join5_inspection(void *c,uint32_t alc,uint32_t ibi){
  if(c!=&wifi_join5 || alc!=wifi_power5.cycle.chosen[0] || ibi!=UINT32_MAX || !wifi_join5_owned(c,false))return false;
  const struct mt76_join5_io io={c,wifi_join5_owned,wifi_join5_send,wifi_join5_poll,wifi_join5_delay,wifi_join5_now};
- uint64_t start=timer_monotonic_us();bool complete=mt76_join5_run(&wifi_join5.exchange,&wifi_join5.peer,&io);uint64_t end=timer_monotonic_us();
+ uint64_t start=timer_monotonic_us();bool complete=mt76_join5_run_after(&wifi_join5.exchange,&wifi_join5.peer,&io,wifi_eapol5.requested?wifi_eapol5_capture:0);uint64_t end=timer_monotonic_us();
  console_printf("wifi-join5-exchange: complete=%u clock_valid=%u elapsed_us=%u\n",(uint64_t)complete,(uint64_t)(end>=start),end>=start?end-start:0);
  return complete;
 }
 static bool wifi_join5_inspect(void){
  if(!wifi_join5_requested || wifi_join5.attempted)return false;
- wifi_join5.attempted=true;wifi_join5.d=wifi_cal5.d;
+ wifi_join5.attempted=true;wifi_join5.eapol_required=wifi_eapol5.requested;wifi_join5.d=wifi_cal5.d;
  if(!wifi_peer5_owned(&wifi_peer5,&wifi_cal5.window) || !wifi_tx5.input_restored || !wifi_tx5.disabled || wifi_tx5.phase!=7 || !wifi_tx5_owned())return false;
  struct xhci_device *d=wifi_join5.d;wifi_join5.slot=d->slot_id;const unsigned dcis[]={0,11,16,8,9};
  for(unsigned i=0;i<5;i++)for(unsigned j=0;j<8;j++)wifi_join5.context[i][j]=context_read32(d->output_context,dcis[i],j);
@@ -267,3 +302,5 @@ static bool wifi_join5_inspect(void){
  wifi_join5.active=false;return good && exchanged;
 }
 bool xhci_wifi_capture_join5(void){if(wifi_join5_requested || wifi_join5.attempted)return false;wifi_join5_requested=true;bool good=xhci_wifi_capture_tx5();wifi_join5_requested=false;return good;}
+
+bool xhci_wifi_capture_eapol5(void){if(wifi_eapol5.requested || wifi_eapol5.attempted)return false;wifi_eapol5.requested=true;bool good=xhci_wifi_capture_join5();wifi_eapol5.requested=false;return good;}
