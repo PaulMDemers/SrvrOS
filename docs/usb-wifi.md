@@ -7003,3 +7003,42 @@ for source/session and independently sealed acceptance. Optional contents remain
 unlogged and grant no security authority. Synthetic41-byte optional-vendor-IE
 fixtures match dimensions only;prior547-file diagnostic failure stays failed.
 WPA2,key installation and authenticated IP/data/disconnect remain pending.
+
+### Private WPA2-PSK derivation and EAPOL MIC helpers
+
+`wpa2_crypto.h` exposes allocation-free,explicit-length primitives for the
+PSK/CCMP profile. `wpa2_psk_pmk` accepts8..63 printable ASCII passphrase bytes
+and1..32 binary SSID bytes,then uses PBKDF2-HMAC-SHA1 with4096 iterations and a
+32-byte PMK. It does not parse a raw hexadecimal PSK or read credentials.
+`wpa2_ccmp_ptk` orders the distinct unicast station/AP addresses and distinct
+nonzero/non-ones nonces lexicographically,then derives48 CCMP PTK bytes as
+KCK16/KEK16/TK16. Its PRF includes the NUL-terminated pairwise-expansion label
+and counter starting at zero. Fresh nonce authority remains with the separate
+strict nonce source and the eventual handshake owner.
+
+`wpa2_eapol_mic` computes the first16 HMAC-SHA1 bytes over an exact bounded
+EAPOL-Key frame while logically zeroing the MIC field;the input stays immutable.
+It accepts only EAPOL1/2,type3,RSN descriptor2,descriptor-version2 and a set MIC
+bit,with exact body/key-data lengths and at most1024 key-data bytes. The verify
+helper compares all16 bytes without an early difference return. This is only
+framing and integrity:the future state owner must separately validate flags,
+key length,peer,replay,nonce,RSNE and one-time key installation. No successful
+primitive opens a controlled port or grants hardware authority.
+
+All outputs must be disjoint from inputs. Alias refusal leaves memory unchanged;
+other invalid inputs clear the output. Scratch hash,HMAC,PBKDF2 and PRF state is
+explicitly scrubbed;successful outputs belong to the caller's sole secret
+lifetime and must be scrubbed on retirement. No credential/key/nonce/frame
+logging is added. Ordinary desktop and the accepted v127 hardware payload do
+not call these helpers yet. No new physical connection is claimed.
+
+The protocol construction is cross-checked against the primary hostap sources
+for [PBKDF2](https://android.googlesource.com/platform/external/wpa_supplicant_8/+/refs/heads/main/src/crypto/sha1-pbkdf2.c),
+[SHA1 PRF](https://android.googlesource.com/platform/external/wpa_supplicant_8/+/refs/heads/main/src/crypto/sha1-prf.c)
+and [PTK/MIC handling](https://android.googlesource.com/platform/external/wpa_supplicant_8/+/refs/heads/main/src/common/wpa_common.c).
+Public [RFC2202 HMAC vectors](https://www.rfc-editor.org/rfc/rfc2202) and
+[RFC3174 SHA1 vectors](https://www.rfc-editor.org/rfc/rfc3174),WPA PMK vectors,
+independent Python/OpenSSL comparisons and exact-size truncation/alias/mutation
+checks cover these helpers. References and content hashes stay with local
+qualification evidence. SHA1 use here is confined to the existing WPA2-PSK
+protocol,not a general security-hash API or a different AKM/cipher profile.

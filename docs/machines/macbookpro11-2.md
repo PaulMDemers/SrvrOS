@@ -13605,3 +13605,25 @@ are deferred from this bounded helper. Runtime base remains ca43ce23. No other
 machine's physical or entropy acceptance is inferred. Subsequent handshake
 state must enforce peer binding,MIC,replay and one-time key installation before
 any controlled-port authority or physical secured-connection claim.
+
+The bounded helper is now implemented as `wpa2_crypto.h`/`wpa2_crypto.c`.
+Public SHA1/RFC2202 HMAC and WPA PMK vectors pass,including million-byte SHA1
+input and split-block updates. Independent Python/OpenSSL comparisons pass100
+synthetic PMKs,4,000 ordered PTK constructions and2,000 EAPOL MIC frames with
+256,000 MIC-bit refusals. Maximum/minimum passphrase/SSID lengths,binary SSIDs,
+all nonprintable passphrase bytes,peer/nonce refusals,overlap refusal,immutable
+input,exact-size truncated EAPOL allocations and full-frame MIC mutations pass.
+Fatal ASan/UBSan and native freestanding compilation pass;maximum compiler frame
+is600bytes. Full matched `all` build,nonce/management/pure exchange/native
+ownership and strict saved-ledger regressions and documentation checks pass.
+No full-core rerun or new native secured-connection acceptance is claimed.
+
+PMK/PTK/MIC scratch is explicitly erased,well-framed MIC comparisons inspect
+all16 bytes,and the helper has no logging or hardware/entropy/port authority.
+References and hashes,logs,source snapshots and a qualification receipt are
+retained outside build separately from the unchanged167-file native acceptance
+capsule and23-file notes. Credentials remain unread/unpackaged. Next is an
+EAPOL state owner with matched peer/nonce/replay/RSNE handling,then authenticated
+key-data unwrap and one-time hardware installation/retirement before encrypted
+traffic. The accepted v127 installed/recovery payloads remain unchanged and no
+one-shot boot is armed;this host-only helper needs no physical restart.

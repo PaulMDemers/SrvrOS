@@ -5727,3 +5727,15 @@ build/tests/xhci-join5-host$(HOST_EXE): tools/test_xhci_wifi_join5.c kernel/src/
 test-core: test-wifi-join5-log
 test-wifi-join5-log: build/tests/xhci-join5-host$(HOST_EXE)
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_join5_log.py
+
+.PHONY: test-wpa2-crypto
+test-core: test-wpa2-crypto
+test-wpa2-crypto: build/tests/wpa2-crypto-host$(HOST_EXE) build/tests/wpa2-crypto-shared.so
+	build/tests/wpa2-crypto-host$(HOST_EXE)
+	$(PYTHON) tools/test_wpa2_crypto.py build/tests/wpa2-crypto-shared.so
+build/tests/wpa2-crypto-host$(HOST_EXE): tools/test_wpa2_crypto.c kernel/src/wpa2_crypto.c kernel/include/srvros/wpa2_crypto.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+build/tests/wpa2-crypto-shared.so: kernel/src/wpa2_crypto.c kernel/include/srvros/wpa2_crypto.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include $< -o $@
