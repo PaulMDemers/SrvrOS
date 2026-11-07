@@ -8445,3 +8445,18 @@ remains unchanged. Retain native lookup-step diagnostics, prior failures and all
 limits. PR301 currently has no overlapping VMM/window edits; PR19 Wi-Fi remains
 independent. Publish/test matched core, sanitizers and staged/ordinary VMs before
 merge and automatic native retry. Native100ms qualification remains pending.
+
+
+Directed VMM prepare/range/user-frame and actual window tests pass. Occupancy
+coverage exercises every bit, the full64-slot capacity, refusal beyond capacity,
+permuted teardown, live count contradictions and unchanged-registry snapshots.
+57792 source-row queries match the old scanner across shuffled1–128-row catalogs,
+all types, gaps, boundaries and partial pages; malformed/stale index cases refuse.
+Fresh catalog mutation still produces retained terminal failure before mapping
+publication. All11 profile/collector tests pass with backward-readable cost data.
+
+One-million-call host probes observe root checks about60.17→4.29ms and128-row
+RAM queries127.16→24.24ms, with identical accepted RAM results. These isolated
+host measurements are diagnostic, not native timing acceptance. Shared VMM
+representation changed, so normal-image identity is not claimed. Matched full
+core/build, sanitizers/cross-compilation and ordinary/staged VMs precede retry.
