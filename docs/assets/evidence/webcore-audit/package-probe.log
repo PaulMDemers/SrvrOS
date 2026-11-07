@@ -1,0 +1,11 @@
+CMake Error at $SRVROS_ROOT/build/browser-webcore-audit/source/Source/cmake/FindGLib.cmake:165 (message):
+  glib-2.0 is required
+Call Stack (most recent call first):
+  $SRVROS_ROOT/build/browser-webcore-audit/source/Source/cmake/FindGLib.cmake:177 (GLib_HandleComponent)
+  $SRVROS_ROOT/build/browser-webcore-audit/source/Source/cmake/FindGLib.cmake:177 (GLib_HandleComponent)
+  $SRVROS_ROOT/build/browser-webcore-audit/source/Source/cmake/FindGLib.cmake:177 (GLib_HandleComponent)
+  $SRVROS_ROOT/build/browser-webcore-audit/source/Source/cmake/FindGLib.cmake:212 (GLib_HandleComponent)
+  CMakeLists.txt:26 (find_package)
+
+
+-- Configuring incomplete, errors occurred!

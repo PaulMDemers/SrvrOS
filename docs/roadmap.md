@@ -1,10 +1,31 @@
 # Roadmap
 
-Updated November 4, 2026. The goal is a pleasant native desktop on the MacBook
+Updated November 5, 2026. The goal is a pleasant native desktop on the MacBook
 Air, with a solid shell and server foundation. The [current status](status.md)
 and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
+
+## Current browser work — WebCore audit, November 5, 2026
+
+The user explicitly resumed the next browser milestone after the completed
+workspace reset: dependency/configuration audit and software-backend design
+review only. The [WebCore audit](browser-webcore-audit.md) records checksum-pinned
+WPE2.54.2 findings, a proposed CPU SHM frame adapter, runtime gaps and owner review.
+Source inspection confirms a noncomposited Skia raster path; the first mandatory
+WPE target-library lookup is GLib. Current MAP_SHARED/IPC and signal/session
+qualification boundaries prevent claiming that stock WPE can run. A full target
+configure, dependency/engine build and rendered page are not accepted by this
+audit. Runtime and SrvrUI owner reviews are complete with explicit shared-memory, IPC,
+wait and frame-completion implementation gates. No shared implementation or
+production capability change is in scope.
+
+Required audit outcomes are the dependency matrix, bounded discovery evidence,
+explicit buffer/event/lifetime contract and owner findings. The next proposed
+implementation slice is a pinned GLib prerequisite probe, with static bring-up
+contingent on real target links and a compatible main-context wait policy, and
+shared-memory/IPC design separately owned. It is a recommendation, not work
+started by this audit. The earlier closeout below remains completed history.
 
 ## Final integration and workspace reset — November 4, 2026
 
