@@ -20,6 +20,7 @@ bool air61_read_gates_equal(void){
 static bool read_check(void *ctx,unsigned pass,unsigned phase){
  (void)ctx;if(pass>=2 || phase>2)return false;
  bool ok=pass?air61_read_gate_check1(phase):air61_read_gate_check0(phase);
+ if(ok && !pass && !phase)ok=air61_read_gate_touch1();
  return ok && (!pass || phase || air61_read_gates_equal());
 }
 static bool read_ram(void *ctx,unsigned pass,uint64_t pa){(void)ctx;return pass<2 && (pass?air61_read_gate_ram1(pa):air61_read_gate_ram0(pa));}

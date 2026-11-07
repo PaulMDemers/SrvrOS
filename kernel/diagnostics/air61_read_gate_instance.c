@@ -22,6 +22,21 @@ bool FN(air61_read_gate_check)(unsigned phase){
 }
 uint64_t FN(air61_read_gate_ram_steps)(void){return eg_ram_steps;}
 bool FN(air61_read_gate_ram)(uint64_t pa){return eg_ram_page(NULL,pa);}
+static bool touch_private(void *base,unsigned length){
+ volatile uint8_t *p=base;
+ for(unsigned at=0;at<length;at+=4096){if(!vmm_air61_read_window_prime_room())return false;p[at]=p[at];}
+ if(!vmm_air61_read_window_prime_room())return false;
+ p[length-1]=p[length-1];
+ return true;
+}
+bool FN(air61_read_gate_touch)(void){
+ return !eg_started && touch_private(&eg,sizeof(eg)) && touch_private(&eg_diagnostic,sizeof(eg_diagnostic)) &&
+  touch_private(eg_ram,sizeof(eg_ram)) && touch_private(&eg_count,sizeof(eg_count)) && touch_private(&eg_phase,sizeof(eg_phase)) &&
+  touch_private(eg_ram_index,sizeof(eg_ram_index)) && touch_private(&eg_ram_index_count,sizeof(eg_ram_index_count)) &&
+  touch_private(&eg_ram_index_ready,sizeof(eg_ram_index_ready)) && touch_private(&eg_ram_steps,sizeof(eg_ram_steps)) &&
+  touch_private(&eg_started,sizeof(eg_started)) && touch_private(&eg_broken,sizeof(eg_broken)) && touch_private(&eg_root,sizeof(eg_root)) &&
+  touch_private(&eg_last_policy,sizeof(eg_last_policy)) && touch_private(eg_policy_ready,sizeof(eg_policy_ready));
+}
 #ifdef SRVROS_ECAM_GATE_HOST_TEST
 #include <string.h>
 void FN(air61_read_gate_reset)(void){

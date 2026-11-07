@@ -11,6 +11,7 @@ static uint8_t output[AIR61_READ_RECEIPT_CAP];
 int main(int argc,char **argv){
  assert(argc>=2);const char *mode=argv[1];
  rreset();air61_read_bridge_test_reset();air61_read_report_test_reset();irq_flags=0x202;
+ assert(!vmm_air61_read_window_prime_room() && !air61_read_gate_touch1());
  bool maximum=!strcmp(mode,"maximum") || !strcmp(mode,"source-change");
  if(maximum){for(unsigned i=5;i<128;i++){map_entries[i]=(struct limine_memmap_entry){.base=0x100000000ull+i*8192,.length=4096,.type=1};map_ptrs[i]=map_entries+i;}map_response.entry_count=128;}
  if(!strcmp(mode,"ancestry")){pages[0][256]|=4;pages[2][0]|=4;pages[3][16]|=4;}

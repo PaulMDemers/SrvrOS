@@ -43,3 +43,7 @@ const struct air61_read_series_result *vmm_air61_read_window_result(void);
 const struct air61_read_pass_result *vmm_air61_read_window_pass(unsigned);
 /* Current pass's gate callback only; RAM-only, never target data. */
 bool vmm_air61_read_window_copy_ram(unsigned,uint64_t,void *,unsigned);
+
+/* Pass0 gate callback only: charged deadline/root guard for first-touch of
+ * next-pass private RAM. Never a target-read or mapping permission. */
+bool vmm_air61_read_window_prime_room(void);

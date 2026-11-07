@@ -8676,3 +8676,63 @@ integration still needs a boot caller, strict joint saved-session binding and
 an audit of first-touch RAM/A-D effects under the existing bounded preparation;
 no raw masks, timing exclusions or limit increases are permitted. Installed
 92d9f134639f509c/recoveryc35475f62f154f1e remain untouched; no reboot is armed.
+
+### Native two-pass zero-load qualification scope (2026-11-07)
+
+Base `709c6ef4`; accepted `92d9f134639f509c` and recovery
+`c35475f62f154f1e` remain retained, with no pending run. Add a separate explicit
+v7 boot recipe/ELF for the two-pass bridge, early pre-user-init dispatch,
+bounded raw receipt framing, isolated saved read-window snapshot and strict
+joint ECAM/alias/exit/session persistence validation. Existing profiles remain
+separate; there is no target-load adapter or new hardware ownership.
+
+Audit first-touch effects and touch next-pass private RAM inside pass0's
+existing clock/root/IRQ guards before its census. Do not reset or move work
+outside either lifetime, mask A/D changes, or change mapper, source, census,
+gap, iteration or saved-tail limits. Keep all complete raw observations.
+Retain terminal ownership/IRQ exclusion on uncertain publication/cleanup.
+Add real producer/joint mutation/refusal tests, native/portable/sanitizer and
+matched build/core/exact staged VM checks. Merge, then preserve recovery and
+prior USB files, install/verify one-shot payload and collection records, and
+run the unattended qualification with visible progress and automatic return.
+Native acceptance requires the matching collected session; missing completion
+or a halt is not a pass. No policy or register-read permission is introduced.
+
+The v7 boot implementation now selects a separate ELF without the old window
+backend, enforces the explicit two-pass token and runs before user init. It
+charges next-pass private RAM first-touch to pass0 before its census with live
+per-page deadline/root guards; pass1 retains its full preparation. A bounded
+R1/Z1 envelope uses the existing quiesced isolated `window.log` save. Joint
+validation binds it to early ECAM and independent source/alias/exit proofs,
+requires matching saved references and whole-trial completion, and retains
+raw source-to-claim hardware A/D promotions under the existing W1 relation.
+Both claimed lifetimes and both claimed graph snapshots remain exact.
+
+Main/staging files are also present in PR301/PR19; this branch owns only the
+Haswell v7 dispatcher/recipe and dedicated ELF, separate from their device
+features. Their current hunks and unit scopes were inspected; no VMM/two-pass
+feature implementation is duplicated. No cross-task messages were sent.
+
+Frozen runtime `b5d9c92e` passes matched normal/AP/two-pass/USB/ISO builds and
+full `test-core`, including 89 installed-root tests with one explicit opt-in
+skip. Eighteen bridge/encoder and four real early-ECAM/two-pass ASan/UBSan modes
+pass, as do both complete ARM64 fixture links. Five joint persistence/profile
+tests, seven decoder/producer tests, backend bit/ownership failures and eleven
+legacy window-profile tests pass. All eleven sequential diagnostic VM cases
+and five ordinary syscall/UEFI USB keyboard/fork/exec/yield VMs pass.
+
+Exact v7 candidate `390c4221b5e50422` passes both unsupported-Q35 refusal and
+missing-workspace rehearsal. The native ELF contains both fresh gate instances
+and the new backend/envelope, without legacy window or host-hook symbols.
+Host fixtures retain 63476 mapper words/pass and the original firmware/time/
+census/gap bounds. They do not accept native timing or hardware behavior.
+
+The local immutable-artifact helper's same-inode rename corner case was caught
+by payload verification and corrected without changing payload bytes; failed
+harness evidence is retained and the remaining VM checks passed. Twenty-four
+verified duplicate host initramfs copies were hardlinked, preserving all bytes.
+Unreferenced EFI payload `a80942d96c7c830c` was retired only after verifying its
+independent complete backup and absence from current/recovery/GRUB references.
+Accepted current `92d9f134639f509c` and recovery `c35475f62f154f1e` remain intact.
+The automated native trial is being prepared; acceptance remains pending its
+matching collected raw session and all prior-file/offline-integrity checks.
