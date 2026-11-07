@@ -1,5 +1,6 @@
 #include <srvros/latency.h>
 #include <srvros/console.h>
+#include <srvros/display_access.h>
 #include <srvros/display_present.h>
 #include <srvros/bootlog.h>
 #include <srvros/serial.h>
@@ -27,7 +28,7 @@ enum ansi_state {
 
 static struct limine_framebuffer *fb;
 static struct limine_framebuffer *graphics_fb;
-void console_set_graphics_framebuffer(struct limine_framebuffer *framebuffer) { graphics_fb = framebuffer; }
+void console_set_graphics_framebuffer(struct limine_framebuffer *framebuffer) { if (display_access_allowed()) graphics_fb = framebuffer; }
 static uint64_t columns;
 static uint64_t rows;
 static uint64_t cursor_x;
@@ -53,6 +54,7 @@ static uint16_t dirty_left[MAX_ROWS], dirty_right[MAX_ROWS];
 static uint32_t glyph_cache[SRV_FONT_COUNT][CELL_HEIGHT][CELL_WIDTH];
 static uint32_t scanline[MAX_COLUMNS * CELL_WIDTH];
 static bool presenting;
+static bool margins_dirty;
 static bool deferred_output;
 static bool serial_output = true;
 static uint64_t previous_cursor_x, previous_cursor_y;
@@ -162,17 +164,30 @@ static void scroll_one_row(void) {
     stats.scrolls++;
 }
 
-void console_flush(void) {
+static void console_flush_inner(void) {
     uint64_t flags = console_irq_save();
     if (!framebuffer_console_ready || framebuffer_console_muted || presenting) {
         console_irq_restore(flags);
         return;
     }
     presenting = true;
+    bool margins = margins_dirty;
+    margins_dirty = false;
     dirty_range(previous_cursor_y, previous_cursor_x, previous_cursor_x + 1);
     dirty_range(cursor_y, cursor_x, cursor_x + 1);
     stats.presents++;
     console_irq_restore(flags);
+    /* Deferred clears retain their margins during exclusion. Keep IRQ latency
+     * bounded to a scanline, and do not paint over a newly muted owner. */
+    if (margins) for (uint64_t y=0;y<fb->height;y++) {
+        flags=console_irq_save();
+        if (framebuffer_console_muted) {
+            margins_dirty=true;presenting=false;console_irq_restore(flags);return;
+        }
+        if (y>=rows*CELL_HEIGHT) fill_rect(0,y,fb->width,1,bg_color());
+        else fill_rect(columns*CELL_WIDTH,y,fb->width-columns*CELL_WIDTH,1,bg_color());
+        console_irq_restore(flags);
+    }
     /* Snapshot one text row under a short critical section. IRQs/other writers
      * may update the model during rasterization; their damage stays queued.
      * Reentrant writers never wait for the presenter or reuse its scanline. */
@@ -221,6 +236,12 @@ void console_flush(void) {
     console_irq_restore(flags);
 }
 
+void console_flush(void) {
+    if (!display_access_enter()) return;
+    console_flush_inner();
+    display_access_leave();
+}
+
 static bool console_damage_pending(void) {
     for (uint64_t row = 0; row < rows; row++) {
         if (dirty_left[row] < dirty_right[row]) return true;
@@ -230,7 +251,7 @@ static bool console_damage_pending(void) {
 
 static void console_present_work(void *arg) {
     (void)arg;
-    if (framebuffer_console_muted) return;
+    if (framebuffer_console_muted || !display_access_allowed()) return;
     console_flush();
     uint64_t flags = console_irq_save();
     /* A preempting writer can dirty a row already presented. Queue another
@@ -254,7 +275,7 @@ void console_emergency(void) {
 /* Normal thread context, interrupts enabled. Wait for any preempted presenter,
  * then drain its remaining damage before reporting a completed benchmark. */
 bool console_sync(void) {
-    if (framebuffer_console_muted) return false;
+    if (framebuffer_console_muted || !display_access_allowed()) return false;
     for (unsigned attempt = 0; attempt < 1000; attempt++) {
         console_flush();
         uint64_t flags = console_irq_save();
@@ -474,11 +495,9 @@ void console_clear(void) {
     for (uint64_t row = 0; row < rows; row++) clear_row_range(row, 0, columns);
     cursor_x = cursor_y = 0;
     ansi_reset();
+    margins_dirty = true;
     console_irq_restore(flags);
     if (framebuffer_console_muted) return;
-    /* Clear unused margins once, not on every text update. */
-    fill_rect(columns * CELL_WIDTH, 0, fb->width - columns * CELL_WIDTH, fb->height, bg_color());
-    fill_rect(0, rows * CELL_HEIGHT, fb->width, fb->height - rows * CELL_HEIGHT, bg_color());
     console_flush();
 }
 
@@ -544,6 +563,7 @@ void console_set_cursor(uint64_t x, uint64_t y) {
 }
 
 void console_init(struct limine_framebuffer *framebuffer) {
+    if (!display_access_allowed()) return;
     fb = framebuffer;
     graphics_fb = NULL;
     framebuffer_console_ready = false;
@@ -747,7 +767,7 @@ bool console_display_info(struct console_display_info *info) {
     return true;
 }
 
-bool console_put_pixel(uint64_t x, uint64_t y, uint32_t rgb) {
+static bool console_put_pixel_inner(uint64_t x, uint64_t y, uint32_t rgb) {
     struct limine_framebuffer *fb = graphics_fb ? graphics_fb : console_inherited_framebuffer();
     if (fb == NULL || x >= fb->width || y >= fb->height) {
         return false;
@@ -759,7 +779,7 @@ bool console_put_pixel(uint64_t x, uint64_t y, uint32_t rgb) {
     return true;
 }
 
-bool console_fill_rectangle(uint64_t x, uint64_t y, uint64_t width, uint64_t height, uint32_t rgb) {
+static bool console_fill_rectangle_inner(uint64_t x, uint64_t y, uint64_t width, uint64_t height, uint32_t rgb) {
     struct limine_framebuffer *fb = graphics_fb ? graphics_fb : console_inherited_framebuffer();
     if (fb == NULL || x >= fb->width || y >= fb->height) {
         return false;
@@ -776,7 +796,7 @@ bool console_fill_rectangle(uint64_t x, uint64_t y, uint64_t width, uint64_t hei
     return true;
 }
 
-bool console_blit_rgb(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
+static bool console_blit_rgb_inner(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
     const uint32_t *rgb_pixels, uint64_t stride) {
     struct limine_framebuffer *fb = graphics_fb ? graphics_fb : console_inherited_framebuffer();
     if (fb == NULL || rgb_pixels == NULL || width == 0 || height == 0 ||
@@ -813,7 +833,7 @@ bool console_blit_rgb(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
 
 /* Expand directly into the write-only framebuffer. Keep application surfaces
  * logical-sized; neither a physical backbuffer nor framebuffer reads are needed. */
-bool console_blit_rgb_scaled(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
+static bool console_blit_rgb_scaled_inner(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
     const uint32_t *rgb_pixels, uint64_t stride, uint64_t scale) {
     struct limine_framebuffer *fb = graphics_fb ? graphics_fb : console_inherited_framebuffer();
     if ((scale != 1 && scale != 2) || fb == NULL || rgb_pixels == NULL ||
@@ -839,4 +859,32 @@ bool console_blit_rgb_scaled(uint64_t x, uint64_t y, uint64_t width, uint64_t he
     }
     display_present_damage(x, y, copy_width, copy_height);
     return true;
+}
+
+bool console_put_pixel(uint64_t x, uint64_t y, uint32_t rgb) {
+    if (!display_access_enter()) return false;
+    bool ok = console_put_pixel_inner(x,y,rgb);
+    display_access_leave();
+    return ok;
+}
+
+bool console_fill_rectangle(uint64_t x, uint64_t y, uint64_t width, uint64_t height, uint32_t rgb) {
+    if (!display_access_enter()) return false;
+    bool ok = console_fill_rectangle_inner(x,y,width,height,rgb);
+    display_access_leave();
+    return ok;
+}
+
+bool console_blit_rgb(uint64_t x, uint64_t y, uint64_t width, uint64_t height, const uint32_t *rgb_pixels, uint64_t stride) {
+    if (!display_access_enter()) return false;
+    bool ok = console_blit_rgb_inner(x,y,width,height,rgb_pixels,stride);
+    display_access_leave();
+    return ok;
+}
+
+bool console_blit_rgb_scaled(uint64_t x, uint64_t y, uint64_t width, uint64_t height, const uint32_t *rgb_pixels, uint64_t stride, uint64_t scale) {
+    if (!display_access_enter()) return false;
+    bool ok = console_blit_rgb_scaled_inner(x,y,width,height,rgb_pixels,stride,scale);
+    display_access_leave();
+    return ok;
 }

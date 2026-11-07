@@ -706,6 +706,18 @@ This does not enable normal startup or accept physical charging/gauge accuracy.
 Use the collector containing the `7f1438d` session-identity fix; earlier v49
 collection can mislabel the JSON session while leaving its saved logs intact.
 
+### Air7,2 inherited Intel display observation
+
+Use the separate [display capture guide](macbookair7-2-display-presentation.md#first-observation-implementation)
+for `stage --laptop-probe-volume VOLUME_SERIAL --intel-display-capture`.
+This unattended profile reads an exact hardware-gated register allowlist and
+skips normal Intel initialization; it performs no GPU control writes. Run the
+exact staged `hardware_boot_smoke.py --probe-check` and missing-workspace
+negative rehearsal before the normal install/recovery/one-shot sequence below.
+The report saves and returns automatically on a complete observation or handled
+identity/access refusal, while refusal remains failed evidence. Failed save or
+unmount halts. It needs no human input and does not exercise native page flips.
+
 ## 6. Install alongside Ubuntu and select one boot
 
 The installer requires UEFI Ubuntu, a separate writable FAT ESP at `/boot/efi`,
@@ -1126,6 +1138,41 @@ runtime ownership halts with the mount retained. Collect the strict
 contents (`AA`), prior-file hashes and offline allocation before another trial.
 Ordinary desktop startup and continuous battery admission remain disabled.
 
+### Air7,2 inherited display backing study
+
+After the first versioned display observation, the separate
+`--intel-backing-capture` profile adds a bounded read-only fence/GGTT study. Use
+it alone with `stage --laptop-probe-volume VOLUME_SERIAL`, then run the exact-stage
+`--probe-check` and `--probe-check --probe-missing-workspace` rehearsals. Follow
+the same durable recovery, one-shot boot, collection and offline integrity
+sequence. No tester input is required; handled refusal returns after successful
+save/unmount, while persistence failure halts. Inspect the collector's
+`intel_display_backing` result, not just automatic Ubuntu return. See the
+[display backing contract](macbookair7-2-display-presentation.md#bounded-backing-readout-implementation).
+This diagnostic grants no display or buffer ownership.
+
+### Air7,2 scanout lifetime trial
+
+The opt-in `--intel-lifetime-capture` stage exercises private PMM buffers and
+shadow publication after the accepted read-only backing prerequisites. No human
+input is needed. Follow exact-stage VM, durable payload/recovery, run-record and
+one-shot procedures above. Collect `intel_scanout_lifetime` plus full display/
+backing receipts, preserve prior USB files and run all offline integrity checks
+on return. Three injected faults deliberately retain six private buffers until
+reboot; their exact accounting is required, not an unexpected failure to ignore.
+The separate `--intel-lifetime-fixture` stage is synthetic QEMU evidence and
+cannot replace a native trial. Neither profile enables physical flips. See the
+[scanout buffer contract](scanout-buffer-lifetime.md).
+
+### Air7,2 DMA-state observation
+
+The isolated [read-only DMA capture](macbookair7-2-dma-observation.md) uses
+`--intel-dma-capture` with this unit's workspace serial. It saves two bounded
+VT-d status snapshots and automatically returns after clean save/unmount, with
+no tester input. It does not enable mappings or DMA/scanout authority. Run its
+exact-stage Q35 refusal/save/return and missing-workspace checks before native
+installation; collect the matching release plus all display/backing/DMA receipts.
+Other Mac profiles are not admitted by this capture.
 
 ### Air6,1 opt-in checked ECAM/census trial
 
@@ -1175,3 +1222,21 @@ photograph the complete screen and restart Ubuntu. Require matching window.log,
 ecam.log and exit.log with strict collection and offline USB integrity before
 acceptance. See the [window contract](macbookair6-1-vtd-read-window-design.md).
 No register read, write, DMA policy or sibling acceptance follows from v6.
+
+### Air7,2 isolated display-HDA requester trial
+
+The separate [cooperative HDA policy](intel-display-hda-ownership.md) stages with
+`--intel-hda-owner-trial`. It exercises only the exact Air7,2 display-audio PCI
+command16 bus-master inhibit/restore under an explicit firmware submission
+assumption. It is not ordinary audio setup or GPU memory ownership. Follow the
+same exact-stage VM/install/run/collection sequence; volume1%, no input or audio
+playback, automatic safe return, retained uncertainty halts. Keep the accepted
+read-only `--intel-hda-capture` image and its evidence separate. The
+[unit record](machines/macbookair7-2.md) owns current physical acceptance.
+
+Successful `intel-hda-owner-phase:` rows include `reason=0`; collection must use
+host classifier `619961ea` or later so these exact complete headers are not
+mistaken for failures by the generic `reason=` rule. Full native/checkpoint/raw
+controller proof remains mandatory; do not filter all reason lines or discard
+an original collection when correcting host classification. Preserve raw hashes
+and explicitly record offline reclassification separately from a hardware rerun.

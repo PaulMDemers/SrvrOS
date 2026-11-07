@@ -573,6 +573,41 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-hda-lease-phase:'):
+        from intel_hda_lease import phase_needs_attention
+        return phase_needs_attention(line)
+    if line.startswith('intel-hda-lease-summary:'):
+        from intel_hda_lease import lease_summary
+        try:return not lease_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-hda-owner-phase:'):
+        from intel_hda_owner import phase_needs_attention
+        return phase_needs_attention(line)
+    if line.startswith('intel-hda-owner-summary:'):
+        from intel_hda_owner import owner_summary
+        try:return not owner_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-hda-summary:'):
+        from intel_display_hda import summary_result
+        try:
+            return not summary_result(line)['complete']
+        except ValueError:
+            return True
+    if line.startswith('intel-blitter-summary:'):
+        from intel_blitter import blitter_summary_complete
+        try:
+            return not blitter_summary_complete(line)
+        except ValueError:
+            return True
+    # Successful wake receipts carry reason=0. Decode the entire receipt;
+    # malformed, refused and retained leases must still attract attention.
+    if line.startswith('intel-wake-summary:'):
+        from intel_gt_wake import wake_result
+        try:
+            result = wake_result(line)
+            return not result or not result['lease_complete']
+        except ValueError:
+            return True
     # App tracing emits accounting on normal admission/retirement. Match the
     # entire schema so refusal reasons or appended error details stay visible.
     if re.fullmatch(r"deskd: resources reason=(?:opened|retired) clients=\d+ children=\d+ clipboard_peers=\d+ window_capacity=\d+ cache_bytes=\d+ cache_budget=\d+ gui_queue_budget=\d+ gui_queue_depth=\d+ gui_surface_record_budget=\d+ gui_surface_pixel_budget=\d+", line):
@@ -790,6 +825,86 @@ def collect(mount, volume, output):
         posix_proof=posix_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if re.search(r'srvros\.capture=posix(?:\s|$)',text) and posix_proof is None:
             attention.append('collection: POSIX capture missing, failed or incomplete')
+        from intel_display_capture import capture_result as intel_display_result
+        intel_display=None
+        if re.search(r'srvros\.capture=intel-display(?:\s|$)',text):
+            try:
+                intel_display=intel_display_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if (not intel_display or not intel_display['observation_complete']) and 'srvros.intel-lifetime=fixture' not in text:
+                    attention.append('collection: Intel display observation refused, failed or incomplete')
+            except ValueError as error:
+                attention.append('collection: invalid Intel display observation: '+str(error))
+        intel_backing=None
+        if 'srvros.intel-backing=read-only' in text:
+            from intel_display_backing import backing_result
+            try:
+                intel_backing=backing_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_backing or not intel_backing['observation_complete']:
+                    attention.append('collection: Intel backing observation refused, failed or incomplete')
+            except ValueError as error:
+                attention.append('collection: invalid Intel backing observation: '+str(error))
+        intel_wake=None
+        if 'srvros.intel-wake=trial' in text:
+            try:
+                from intel_gt_wake import native_wake_result,verify_wake_checkpoint
+                intel_wake=native_wake_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_wake or not intel_wake['native_wake_complete']:attention.append("Intel cooperative wake lease incomplete or refused")
+                else:
+                    pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
+                    verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
+            except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
+        intel_firmware=None
+        if 'srvros.intel-firmware=read-only' in text:
+            try:
+                from intel_gt_firmware import native_firmware_result
+                intel_firmware=native_firmware_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_firmware or not intel_firmware['native_observation_complete']:attention.append("Intel firmware census incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel firmware census receipt: "+str(error))
+        intel_gt=None
+        if 'srvros.intel-gt-preflight=read-only' in text:
+            try:
+                from intel_gt_preflight import native_gt_result
+                intel_gt=native_gt_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_gt or not intel_gt['native_observation_complete']:attention.append("Intel GT preflight incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel GT preflight receipt: "+str(error))
+        intel_handoff=None
+        if 'srvros.intel-handoff=qualify' in text:
+            try:
+                from intel_handoff import native_handoff_result
+                intel_handoff=native_handoff_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_handoff or not intel_handoff['native_qualification_complete']:attention.append("Intel handoff qualification incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel handoff receipt: "+str(error))
+        intel_window=None
+        if 'srvros.intel-window=read-only' in text:
+            try:
+                from intel_ggtt_window import native_window_result
+                intel_window=native_window_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_window or not intel_window['native_observation_complete']: attention.append("Intel GGTT window observation incomplete or refused")
+            except ValueError as error: attention.append("Invalid Intel GGTT window receipt: "+str(error))
+        intel_cache=None
+        if 'srvros.intel-cache=read-only' in text:
+            try:
+                from intel_cache import native_cache_result
+                intel_cache=native_cache_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_cache or not intel_cache['native_observation_complete']: attention.append("Intel cache observation incomplete or refused")
+            except ValueError as error: attention.append("Invalid Intel cache receipt: "+str(error))
+        intel_dma=None
+        if 'srvros.intel-dma=read-only' in text:
+            try:
+                from intel_dma_observe import dma_result
+                intel_dma=dma_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_dma or not intel_dma['observation_complete']: attention.append("Intel DMA observation incomplete or refused")
+            except ValueError as error: attention.append("Invalid Intel DMA receipt: "+str(error))
+        intel_lifetime=None
+        if 'srvros.intel-lifetime=' in text:
+            from intel_scanout_lifetime import lifetime_result
+            try:
+                intel_lifetime=lifetime_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                expected='fixture' if 'srvros.intel-lifetime=fixture' in text else 'native'
+                if not intel_lifetime or not intel_lifetime['complete'] or intel_lifetime['kind']!=expected:
+                    attention.append('collection: shadow scanout lifecycle refused, failed, mismatched or incomplete')
+            except ValueError as error:
+                attention.append('collection: invalid shadow scanout lifecycle: '+str(error))
         from storage_wait_result import capture_result,PAYLOAD
         storage_wait=capture_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if storage_wait:
@@ -811,6 +926,38 @@ def collect(mount, volume, output):
                                    payload.get('exit.log',b'').decode('utf-8',errors='replace'),name)
             if not ecam_proof or not ecam_proof['source_completed']:
                 attention.append('collection: boot ECAM and alias dual-file proof missing, refused or incomplete')
+        intel_engines=None
+        if 'srvros.intel-engines=read-only' in text:
+            from intel_engine_census import engine_result
+            try:
+                intel_engines=engine_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not intel_engines or not intel_engines['observation_complete'] or not intel_wake or not intel_wake['native_wake_complete']:attention.append('Intel engine census incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel engine census: '+str(error))
+        if 'srvros.intel-hda=lease-trial' in text:
+            from intel_hda_lease import native_lease_result,verify_lease_checkpoint
+            try:
+                lease=native_lease_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not lease or not lease['native_trial_complete'] or not verify_lease_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA maintained lease incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel display-HDA maintained lease: '+str(error))
+        if 'srvros.intel-hda=owner-trial' in text:
+            from intel_hda_owner import native_owner_result,verify_owner_checkpoint
+            try:
+                hda_owner=native_owner_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not hda_owner or not hda_owner['native_trial_complete'] or not verify_owner_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA requester trial incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel display-HDA requester trial: '+str(error))
+        if 'srvros.intel-hda=read-only' in text:
+            from intel_display_hda import native_hda_result,verify_hda_checkpoint
+            try:
+                hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
+        intel_blitter=None
+        if 'srvros.intel-blitter=retire' in text:
+            from intel_blitter import blitter_result
+            try:
+                intel_blitter=blitter_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not intel_blitter or not intel_blitter['complete'] or not intel_wake or not intel_wake['native_wake_complete']:attention.append('Intel blitter/reader trial incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel blitter/reader trial: '+str(error))
         window_proof=None
         if 'srvros.vtd-window=air61-no-read' in text or 'window.log' in payload:
             from hardware_air61_window import window_result
@@ -818,6 +965,12 @@ def collect(mount, volume, output):
             if not window_proof or not window_proof['source_completed']:
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
         records.append({
+            "intel_blitter":intel_blitter,
+            "intel_engines":intel_engines,
+            "intel_display_capture": intel_display,
+            "intel_display_backing": intel_backing,
+            "intel_scanout_lifetime": intel_lifetime,
+            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,"intel_gt_firmware":intel_firmware,"intel_gt_wake":intel_wake,
             "air61_window": window_proof,
             "ecam_boot": ecam_proof,
             "posix_capture": posix_proof,

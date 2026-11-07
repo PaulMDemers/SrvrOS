@@ -1,6 +1,1604 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
+
+### Maintained HDA inhibit lease ready for native trial
+
+Main `e8e56ee3` is integrated. Tested source `ec233528` produces release
+`8859f4e6ad6862cf`, installed **not armed**, with no physical lease acceptance.
+PR401 owns Air6,1 timing; PR19 Pro Wi-Fi and PR379 WebCore; no HDA overlap was
+found. The [lease contract](../intel-display-hda-lease.md) adds captured I/O,
+one-use owner/epoch tokens and independent sealed dependent borrows. A copied
+or released borrow cannot unpin another dependent. Closing while pinned refuses
+without I/O; dependent revalidation faults retain inhibition/exclusion until
+reset. The existing one-shot wrapper preserves its separate three-phase recipe.
+
+The isolated lease image/request/13-token recipe qualifies open/pin/blocked-close/
+read-only-check/unpin/close: four two-pass controller snapshots at command6/2/2/6,
+232 reads, one dependent check, one blocked close and pins0 at clean close.
+Exactly two PCI command16 writes are permitted. Existing400ms core/500ms full
+and200ms per-census bounds stay unchanged; pinning never extends them. All memory
+stays protected. The same cooperative EFI submission assumption applies; neither
+a live lease nor clear controls prove outstanding-DMA, firmware/SMM, other-reader,
+translation/cache retirement or a reusable GPU interval.
+
+The matching host/core/profile/docs/build matrix passes (318 recorded jobs),
+including imported Air6,1 HHDM/window regressions. Fatal ASan/UBSan covers10 lease
+API and46 actual lease-adapter modes, legacy owner26/42 cases and earlier GPU
+protocols/observers. Four GT,14 owner and8 lease compiled negative controls are
+detected. One old pre-dispatch-retention mutant became equivalent because the
+new fault handler independently retains attempts; the harness now removes both
+redundant guards and retains the initial attempt/mutant. Production code did not
+change to satisfy that control. All277 collector/staging tests pass. The89
+unchanged installer cases (one opt-in skip) and C/exFAT installed-root receipt
+remain explicitly reused from `7c0c2fab`, with unchanged inputs/recipe verified.
+
+Exact-stage MBR Q35 verifies EFI64/Limine11.4.1, strict recipe, no-store refusal,
+saved checkpoint/results, safe unmount/automatic return and missing-workspace
+halt. Old owner/HDA/blitter/window/Haswell and VirtIO VM regressions pass. Ten-image
+symbol/hash checks isolate the pin/check writer and lease firmware request;
+GT/BCS writers are absent. Native-formatted projection is62,602/65,536 bytes with
+1,536 bytes allowance; new raw controller/stream words are decimal and endpoint
+fields remain hex. Typed phase warnings and full raw/checkpoint/lifetime proof
+stay mandatory. VM evidence grants no native write or ownership acceptance.
+
+USB `37D8-C5D0` (MBR) has1,359 inventoried files/109 sessions, preserved prior
+contents/boot sectors and clean offline fsck/allocation/writable/headroom checks;
+it is unmounted. Ubuntu remains default, recovery `9aa8dbf6fbda8252`, accepted
+round trip `d6677f44c064979d`, read-only HDA `8185aa9875c61e9a`, BCS/reader
+`32859f5868aedd46`, census `3d8c0e9688408a25` and GUI `c497eb0cb48c1b01` remain
+verified. Inactive DMA `53460fd7c2c0f337` was fully SHA-verified against durable/
+archive copies before unreferenced EFI removal. Sixteen inactive duplicate stages
+were removed only after complete durable/manifest/file SHA equality (about2.35GB);
+all contents survive outside `build`, and current/recovery/latest were protected.
+
+Evidence/run/stage/guards are under `build/air-hda-lease-20261107`, with independently
+SHA-verified full backup under `~/.local/share/srvros/reviewed-evidence/air-hda-lease-20261107`
+and a retained cleanup sidecar. The next trial is automatic, volume1%, audio off,
+no input needed. Safe completion/pre-write refusal saves/unmounts/returns;
+retained state or unsafe persistence halts. Reboot guards pass **check-only**;
+no one-shot is armed. Collect the matching session first after a future trial.
+Outstanding DMA/firmware/prefetch, other readers and translation/cache/backing
+remain necessary before managed GPU memory or native tear-free presentation.
+
+### Current checkpoint: cooperative display-HDA requester trial accepted
+
+Release `d6677f44c064979d`, payload source `6277e99b`, completed native session
+`session-00065fa8e62db698-00` and returned to Ubuntu. The strict native owner,
+independent UC and saved-preflight predicates pass. All three two-pass phases
+match the exact idle controller/three-output-stream state: command0006 before,
+0002 while inhibited and0006 restored, with58 reads per phase (174 total).
+All RUN/command/position DMA masks are0, buffers remain0, GCTL remains1 and the
+endpoint stays inD0. These observations and the command round trip remain
+conditional on the explicit cooperative EFI submission policy; they do not
+prove SMM absence, drained outstanding DMA, prefetch or reusable memory.
+
+The core completes in56,170us and the full exclusion bracket in78,049us, within
+the unchanged400ms/500ms limits; each census takes415/415/414us. Exactly two
+PCI command halfword attempts/stores complete. All202 guards and20 cache checks
+pass, all three HDA aliases retire, inherited backing/window revalidation passes
+and CPU exclusion releases with retained0. HDA MMIO/Status/wake/reset/acknowledgement,
+GT/BCS and GPU PTE writes remain0. The exit log is62,549 bytes, within the existing
+65,536-byte tail. No DMA/engine/reader/cache/translation retirement, managed GPU
+range or physical tear-free assurance is granted.
+
+The first general collection reported three false-positive warnings for successful
+phase headers containing `reason=0`. Host-only fix `619961ea` parses the entire
+phase header before bypassing the generic warning rule; malformed, refused,
+active, retained or failed phases still warn. All6 owner test groups and277
+collector/staging regressions pass. The original collection/incomplete proof
+are retained. Offline reclassification uses the same three SHA-verified hardware
+files, and AST equality proves the full native completion/checkpoint predicates
+are unchanged from payload source `6277e99b`. Corrected collector attention is0;
+there was no additional hardware trial or USB write for this correction.
+
+All1,356 prior files except expected workspace metadata are unchanged; three new
+logs verify (1,359 files/109 sessions). Offline fsck/allocation/writable/headroom,
+installed/durable/archive recovery, Ubuntu default and consumed one-shot checks
+pass. USB is unmounted; volume1%, guest audio off. Current/recovery and accepted
+payloads remain as documented below. No reboot is armed. Raw/corrected return
+proofs, initial warnings, source/predicate hashes and full evidence are retained
+under `build/air-hda-owner-20261106` and its independent SHA-verified backup in
+`~/.local/share/srvros/reviewed-evidence/air-hda-owner-20261106`.
+
+Main `e8e56ee3` was fetched after collection (Air6,1 HHDM permission/window
+changes and evidence), but is not integrated into this physically tested payload.
+PR19 remains Pro Wi-Fi and PR379 WebCore; this closeout changes only host HDA
+warning classification/tests and this unit's docs. Next work is a maintained
+inhibited-owner lifetime, outstanding DMA/firmware and other-reader accounting,
+then translation/cache/backing ownership before a managed interval or flips.
+
+### Historical requester trial readiness (before native acceptance)
+
+Main `e21292e2` is integrated; tested source `6277e99b` produced release
+`d6677f44c064979d`. It is installed, **not armed**, with no physical acceptance.
+The [requester policy and protocol](../intel-display-hda-ownership.md) are distinct
+from the accepted read-only census. This dedicated13-token EFI64/Limine11.4.1
+image assumes trusted cooperative firmware yields HDA submission during the
+bounded trial; it does not prove SMM absence or outstanding-DMA completion.
+No other model or ordinary audio path is enabled.
+
+The exact Air7,2 endpoint must have command0006 and the freshly captured idle
+GCAP3001/three-output-stream state before any mutation. Three two-pass censuses
+bracket command16 transitions0006→0002→0006, with exact readback and fresh
+resource/cache/exclusion guards. The only mutations are two PCI halfword command
+stores; adjacent Status, HDA MMIO, reset/stop/codec/IRQ acknowledgements, GT wake,
+BCS and GPU PTE writes remain unavailable. Failed or ambiguous transitions retain
+exclusion and halt; handled pre-write refusals and clean completed transitions
+save/unmount/return automatically. Core400ms/full500ms and each census200ms bounds
+are independent. All inherited memory stays protected; no DMA/reader/translation/
+cache retirement, managed GPU range or physical tear-free assurance is supplied.
+
+The corrected full host/core/profile/docs/build matrix passes, including the new
+Air6,1 window-only producer/collector and AP ELF. Integration fixes preserve both
+the AP package-object exclusion and `haswell_window` staging argument. The89
+installer cases (one expected opt-in skip), C installed-root and exFAT admission
+passed at `7c0c2fab`; their implementation/tests/recipe are unchanged by the four-file
+integration/fault-fixture follow-up, so their explicit receipt is reused while
+all remaining core/build/profile gates rerun at `6277e99b`. This avoids another
+unchanged installer run. The first failed build remains retained as evidence.
+
+Fatal ASan/UBSan passes26 owner-core and42 actual owner-adapter modes, including
+post-inhibit cache/power/CR3/foreign-alias/parent faults, failed restore/readback,
+final changed streams, one-use and finite clocks, plus all prior GPU protocol/
+observer regressions. Four prior GT and14 new owner compiled negative controls
+are detected. All277 collector/staging tests pass. Exact-stage MBR Q35 verifies
+EFI/recipe and refusal before command writes, saved preflight/results, unmount/
+automatic return and missing-workspace halt. Read-only HDA, blitter/engine/wake/
+handoff/window/DMA/lifetime/Haswell and VirtIO regressions pass. Exact nine-image
+symbol/hash checks keep the owner writer/request out of other images and GT/BCS
+writers out of the owner image. The largest native-formatted report projection
+is63,612/65,536 bytes, including1,024 general and512 command/header allowance.
+VM evidence does not accept native command writes or firmware ownership.
+
+All1,356 files/108 sessions on USB `37D8-C5D0` (MBR) are inventoried, prior files
+and boot sectors preserved, and offline fsck/allocation/writable/headroom checks
+pass. USB is unmounted. Ubuntu stays default; recovery `9aa8dbf6fbda8252`, prior
+HDA `8185aa9875c61e9a`, accepted BCS/reader `32859f5868aedd46`, census
+`3d8c0e9688408a25` and known-good GUI `c497eb0cb48c1b01` remain verified.
+Inactive cache `07df02f62d1074ac` was fully SHA-verified against durable/archive
+copies before its unreferenced EFI copy was removed for capacity. Ten duplicate
+inactive generated stage copies were removed only after complete manifest/file
+SHA equality with retained payloads outside `build`; no logs or payload contents
+were discarded. Installed current/recovery/latest and accepted baselines remain
+available. Reconstruct any removed generated stage from its retained payload
+before rerunning a tool that requires that particular global stage path.
+
+Local run/stage/test/guard/cleanup records are in `build/air-hda-owner-20261106`,
+with independently SHA-verified evidence under
+`~/.local/share/srvros/reviewed-evidence/air-hda-owner-20261106` and cleanup sidecars.
+The next physical trial is automated, volume1%, audio off, no input required;
+check-only reboot guards pass. Collect the matching session before another run.
+No reboot is armed. Remaining work after native acceptance is a maintained
+inhibited-owner lifetime, outstanding DMA/firmware and other-reader accounting,
+then translation/cache/backing ownership before a managed GPU interval or flips.
+
+### Current checkpoint: read-only display-HDA observation accepted
+
+PR301 includes main `4cb7b5a7`; tested source `7d7dfa56` produced release
+`8185aa9875c61e9a`. Its isolated native read-only display-HDA observation now
+passes. No new test is armed. The next scope is accounting for remaining
+firmware/DMA submission ownership and GPU/display readers before proposing
+managed GPU memory. The [HDA contract](../intel-display-hda-census.md) records
+these obligations; no hardware ownership or physical tear-free is granted.
+
+### Native display-HDA read-only census accepted
+
+Session `session-00065fa7f3c39876-00` completed and returned to Ubuntu, with the
+saved preflight binding verified and zero collector attention. Two snapshots
+match: GCAP3001 exposes three output streams; GCTL1 leaves the controller out
+of reset; INTCTL, CORB/RIRB controls and addresses, DMA-position controls and
+addresses are zero. All three stream controls are040000 (RUN clear), with zero
+CBL/LVI/BDL addresses. PCI command0006 still has bus mastering enabled.
+These are bounded observations, not proof of absent outstanding DMA, prefetch
+or firmware/SMM ownership.
+
+The core performed58 reads in415us; the full alias/exclusion bracket took22,180us,
+inside the unchanged200ms/500ms bounds. All64 guards and five cache-context checks
+pass; the single RO/NX/UC alias retires, exclusion releases, retained0. There
+were zero config/MMIO data writes, wake/reset/acknowledgement or GPU PTE writes.
+The exit log is58,140 bytes, within the unchanged65,536-byte tail.
+
+All1,353 prior files are preserved except expected workspace metadata; three new
+logs hash-verify (1,356 files /108 sessions). Offline fsck/allocation/writable/
+headroom, installed/durable/archive recovery, Ubuntu default and consumed
+one-shot checks pass. USB is unmounted; the requested host volume was1% and
+this guest profile initializes no audio playback. Run records, full return proof
+and independently SHA-verified backup remain in the local evidence paths below.
+No DMA/reader/engine retirement, managed GPU range or physical tear-free is
+accepted. Next work must resolve ownership rather than treating clear RUN bits
+as permission to reuse memory.
+
+### Historical read-only display-HDA readiness (before accepted trial)
+
+Release `8185aa9875c61e9a`, tested source `7d7dfa56`, is installed and **not armed**.
+It is a distinct 12-token EFI64/Limine11.4.1 image with no GT wake, engine-census
+or BCS control writer linked. It requires the native GPU/cache/firmware/handoff
+chain before mapping display HDA. No analog audio setup or HDA config/MMIO data
+writes, power/reset, commands, stream stop or interrupt acknowledgements occur.
+The [HDA contract](../intel-display-hda-census.md) specifies exact identity/BAR/D0
+and memory/UC checks, a single RO/NX alias, two naturally aligned control/descriptor
+passes, the 8-stream evidence budget and 200ms/500ms bounds. Active or changing
+DMA controls are observations and cannot grant retirement or reusable memory.
+
+Full host/core/profile/docs/build checks pass, including 89 installer cases
+(one expected opt-in skip), 22 HDA core and 28 adapter fatal ASan/UBSan scenarios,
+prior GPU sanitizers, 34 compiled negative controls and 269 collector/staging
+cases. Exact-stage MBR Q35 confirms EFI/recipe and refusal before HDA MMIO,
+saved preflight/results, safe unmount/automatic return and missing-workspace halt.
+Prior blitter/engine/wake/handoff/window/DMA/lifetime/Haswell and VirtIO regressions
+pass. Exact image separation verifies HDA code/request are absent from the other
+images, and GT/BCS writers are absent from this image. Worst-case native log
+projection is 60,833/65,536 bytes at 8 streams, including 1,024 bytes of allowance.
+
+USB `37D8-C5D0` (MBR) has 1,353 inventoried files / 107 sessions, unchanged boot
+sectors and clean offline fsck/allocation/writable/headroom checks; it is unmounted.
+Ubuntu remains default. Recovery `9aa8dbf6fbda8252`, accepted BCS/reader baseline
+`32859f5868aedd46`, census `3d8c0e9688408a25` and known-good GUI `c497eb0cb48c1b01`
+remain verified. Inactive incomplete trial `16824812ea718910` was fully SHA-verified
+against its durable copy and independent archive before removal from EFI;
+accepted wake `93b497d37af24dae` retains its existing durable/archive copies.
+Local run/stage/validation/guard records and independent full SHA backup are under
+`build/air-display-hda-20261106` and
+`~/.local/share/srvros/reviewed-evidence/air-display-hda-20261106`.
+
+The next trial is automatic, volume 1%, audio off, no input needed. Handled safe
+outcomes save/unmount/return; unsafe persistence or retained mappings can halt.
+Collect the matching session and verify native receipts/checkpoint/UC, prior
+files, offline media/recovery and consumed one-shot before any new run. This
+candidate has no physical acceptance. No reboot is armed. No DMA/reader/cache/
+translation retirement, managed GPU interval or physical tear-free is enabled.
+
+### Accepted baseline: already-disabled BCS/reader observation
+
+Main `b9615fc5` was integrated; tested source `47a0db4e` produced release
+`32859f5868aedd46`. The bounded already-disabled observation and read-only reader
+audit now have matching native evidence. The separate enabled-ring control-write
+path remains physically untested. PR19 is Pro Wi-Fi and PR379 WebCore; neither
+provides GPU ownership acceptance here. Next work should audit the remaining
+reader/DMA and translation/cache obligations, especially display HDA's still-set
+bus-master bit, before granting any managed GPU memory or page-flip authority.
+No new trial is armed, and no additional hardware writes are implied.
+
+### Native already-disabled BCS and reader audit accepted
+
+Release `32859f5868aedd46`, source `47a0db4e`, completes as
+`session-00065fa60a2c5030-00`, completed=yes and collector attention0. Saved
+preflight and the strict native firmware/cache/census/inherited-state chain
+verify. Two 30-DWORD engine passes match, enabled0/pending0 (38,538us).
+All four eight-DWORD BCS snapshots match: tail/head/start/control0,
+execlist1/0, MI_MODE0200 and BLT_MODE0. The already-disabled API completes in
+48,109us, with **zero BCS attempts/stores**. It verifies state; SrvrOS did not
+perform a ring disable in this run.
+
+Both 27-DWORD plane passes match (54 reads,105,801us bracket including BCS).
+Only primary pipeA is enabled (mask1); all cursor/sprite controls are0.
+Programmed/live primary surface offsets are0; these are GGTT offsets, not proof
+of physical address0 or free backing. Both display-HDA config snapshots match:
+8086:160c, class040300, command0006, valid PM stateD0. Bus mastering remains
+**enabled**; no HDA MMIO/power/stream/acknowledgement or retirement is accepted.
+
+Full wake bracket366,842us stays inside500ms; all11 aliases/cache checks retire,
+all3 permitted wake stores complete,163 guards pass, state3/reason0/retained0,
+and requester/firmware/inherited-state/exclusion closeout is clean. BCS100ms,
+reader150ms and prior wake limits remain unchanged. Engine/reader/DMA/cache/
+translation retirement, managed GPU pages and physical tear-free remain false.
+
+All1,350 prior files except expected metadata remain unchanged;3 new logs
+hash-verify (1,353 files/107 sessions). Offline fsck/allocation/writable/headroom,
+installed/durable/archive recovery, Ubuntu default and consumed one-shot checks
+pass. USB is unmounted; volume1%; no reboot is armed. Native exit log62,644 bytes
+fits the unchanged65,536-byte tail. Full return proof/logs and independent SHA
+backup remain under the local `air-blitter-off-20261106` evidence paths below.
+
+### Already-disabled reader candidate ready (native acceptance pending)
+
+Release `32859f5868aedd46`, tested source `47a0db4e`, is installed and **not
+armed**. Main `b9615fc5` is integrated. A separate no-control-write branch now
+covers the last boot's disabled-at-entry case: exact BCS tail/head/start/control 0,
+execlist 1/0, idle legacy mode, explicit submission handoff, live parent lease,
+fresh guards/deadlines and four matching snapshots. Its API requires a NULL
+write callback. Version2 summary records `entry_disabled`; decoders retain old
+version1 support and bind the branch to the native engine census. Observed
+state and a performed disable are distinct. The enabled mask 16 write branch keeps
+its exact f001/start03eef000 admission and one-store limit.
+
+Validation passes: host/core/profile/docs/build matrix, fatal ASan/UBSan for 27
+BCS adapter and 25 core scenarios plus prior GPU cores, 22 compiled negative
+controls, 269 collector/staging cases, exact-stage MBR Q35 boot/refusal/persistence/
+automatic-return and missing-workspace halt, prior diagnostic/Haswell and VirtIO
+regressions. The main update changed the native STI host seam; its extracted
+futex fixture now models that macro and passes the real interleaving cases.
+The 89 installer cases (one expected opt-in skip) and installed-root exFAT checks
+are retained from the initial matrix on identical production/installer source;
+a hash/path-qualified record proves the only follow-up was that test fixture.
+All other targets reran on 47a0. Native-formatted log projection 63,759/65,536
+includes 1,024 bytes of allowance. Host/VM evidence does not accept native MMIO.
+
+USB `37D8-C5D0` has 1,350 inventoried files / 106 sessions, clean offline checks
+and unchanged boot sectors; it is unmounted. Recovery `9aa8dbf6fbda8252`, prior
+trial `16824812ea718910`, accepted census `3d8c0e9688408a25` and known-good
+GUI `c497eb0cb48c1b01` remain verified. Inactive accepted wake `93b497d37af24dae`
+was fully SHA-verified against its durable copy and independent archive before
+removal from EFI; it remains recoverable. Ubuntu default/EFI order are unchanged.
+Run records and full SHA-backed evidence live under local
+`build/air-blitter-off-20261106` and
+`~/.local/share/srvros/reviewed-evidence/air-blitter-off-20261106`.
+
+Next is an automated native trial, volume 1%, guest audio off, no input required.
+Handled safe outcomes save/unmount/return; unsafe persistence or uncertain live
+state can halt visibly. Collect the matching session and verify native receipts,
+prior files, offline media and recovery before another run. No engine/reader/
+DMA/translation/cache retirement, managed GPU pages or physical tear-free is
+accepted by this candidate. No reboot is armed.
+
+### Blitter/reader implementation checkpoint (native trial pending)
+
+A separately compiled14-token boot profile now admits one BCS control disable
+under an explicit cooperative submission-domain handoff assumption. It requires
+the complete stable native engine preflight, exact idle/empty captured ring,
+a live owned wake lease, fresh deadline/resource guards and verified readback.
+Uncertain issued writes or changed subsequent reader state retain resources.
+The profile brackets it with54 read-only primary/cursor/sprite DWORDs and two
+config-only display-HDA snapshots. No HDA power/MMIO/stream change, engine
+Stop Ring/reset, GPU PTE or managed-memory transfer is introduced. The
+[BCS contract](../intel-blitter-retirement.md) records precise authority,
+eligibility, budgets, reader coverage and remaining gaps. Focused host/model
+and provenance tests precede full matched-source validation and preparation;
+no hardware test is armed.
+
+### Blitter trial returned: disabled-at-entry, no control write
+
+Release `16824812ea718910`, source `b7cb3bc3`, returned as
+`session-00065fa4adf643e3-00`. This is **incomplete diagnostic evidence**, not
+BCS-disable/reader acceptance. All five ring controls and starts were0 in both
+engine passes (enabled0/pending0,60 stable DWORDs,38,435us). This differs from
+the previous boot's enabled BCS; do not assume firmware ring state is constant.
+The exact enabled16 admission gate skipped BCS and reader work: no BCS attempts,
+stores or reader samples. The saved preflight verifies. The wake protocol
+closed cleanly with11 aliases/cache checks retired,92 guards,3 wake stores,
+retained0 and229,705us bracket; the combined trial correctly says completed=NO.
+
+All1,347 prior files except expected metadata remain unchanged;3 new logs
+hash-verify (1,350 files/106 sessions). Offline fsck/allocation/write/headroom,
+installed/durable/archive recovery, Ubuntu default and consumed one-shot checks
+pass. USB is unmounted; no new reboot is armed. Full return proof and logs are
+in the same independently backed-up trial directory. Next: explicitly model an
+already-disabled BCS without a control write and allow bounded read-only reader
+coverage for that separately validated state. Do not weaken the enabled-ring
+write conditions or infer memory/reader retirement from zero controls.
+
+### Blitter/reader candidate ready for automated hardware trial
+
+Release `16824812ea718910`, payload source `b7cb3bc3`, is installed but **not
+armed or physically accepted**. The full host/core/profile/build matrix,
+fatal ASan/UBSan runs (17 adapter and11 BCS core scenarios),18 compiled negative
+controls, exact-stage Q35 refusal/missing-workspace checks and prior-profile/
+VirtIO regressions pass. Native-formatted receipt budgeting projects63,742 of
+65,536 saved-log bytes, including1,024 bytes of allowance. These checks do not
+establish native MMIO behavior or all-reader retirement.
+
+The automated trial needs no input: volume1%, guest audio off, visible progress,
+saved preflight/results and automatic return after handled save/unmount. An
+uncertain control write or reader-state change retains mappings/wake/exclusion;
+missing safe persistence halts visibly. Only verified idle BCS front-end disable
+is eligible; its firmware ring memory and every unretired reader remain protected.
+
+USB `37D8-C5D0` (MBR) has1,347 inventoried files/105 sessions and clean offline
+filesystem/allocation/write/headroom checks. Ubuntu stays default; recovery
+`9aa8dbf6fbda8252`, prior census `3d8c0e9688408a25`, wake `93b497d37af24dae`
+and known-good desktop `c497eb0cb48c1b01` remain available. Inactive EFI payload
+`45815233908f2d02` was SHA-verified against its durable copy and independent
+archive before removal from EFI. Run records, guarded reboot/return helpers,
+validation and independent evidence live under local
+`build/air-blitter-retire-20261106` and
+`~/.local/share/srvros/reviewed-evidence/air-blitter-retire-20261106`.
+Collect the matching new session before starting another run; refusals, retained
+state and missing completion remain incomplete evidence. Managed GPU memory,
+full engine/reader/DMA retirement and physical tear-free remain unaccepted.
+
+### Native awake engine census accepted
+
+Release `3d8c0e9688408a25`, source `531bc9dd`, completes as
+`session-00065fa38652c31d-00`. The saved pre-write `session-a.log`, exact native
+prerequisite chain and version2 wake/engine receipts verify; completed=yes and
+collector attention0. Both30-DWORD passes match (60 reads total). The census
+takes38,269us and the full bracket222,667us, within unchanged100ms/500ms limits.
+All eight RO/UC and wake aliases/cache checks retire, all three permitted wake
+stores complete, all89 guards pass, requester/C0/firmware/inherited-state checks
+and CPU exclusion release complete, state3/reason0 and retained0.
+
+Enabled mask16 identifies the firmware blitter ring (BCS); pending mask0.
+RCS/VCS0/VECS/VCS1 ring controls are zero. BCS raw values are start`0x03eef000`,
+control`0x0000f001`, head=tail=0 and execlist low/high1/0 in both passes.
+This accepts read-only command-streamer observation under the cooperative wake
+contract. It does not retire the enabled ring, prefetched work, display/audio/
+DMA readers or SMM. No engine control, GPU PTE write, managed GPU interval or
+physical tear-free flip is accepted.
+
+The raw BCS start is beyond the inherited display-fence end`0x02200000`.
+Consequently that display fence cannot be treated as a complete inventory of
+firmware graphics allocations. Keep the candidate range and all inherited PTEs
+protected until a concrete reader/engine/cache/translation handoff is established.
+The [engine/reader contract](../intel-engine-reader-handoff.md) records the next
+retirement and managed-memory obligations.
+
+All1,344 prior files are preserved except expected workspace metadata. Three new
+logs hash-verify, giving1,347 files/105 sessions; offline fsck/allocation/writable/
+headroom, installed/durable/archive recovery, consumed one-shot and Ubuntu-default
+checks pass. The USB is unmounted and no reboot is armed. Current3d8, recovery9aa,
+prior93b and known-goodc497 remain verified. The automated trial required no
+input, with volume1% and audio off. Matching return/run/checkpoint and full
+source-qualified evidence have an independent SHA-verified backup outside build
+cleanup under `reviewed-evidence/air-engine-readers-20261106`.
+
+Origin/main `e1a30e1e` and current PR scopes were inspected after collection;
+the tested source remains531. Integrate that new main before further shared-code
+implementation, preserving this unit's acceptance boundary and sibling gates.
+
+### Historical readiness: bounded awake engine census
+
+Release `3d8c0e9688408a25`, source `531bc9dd`, is installed with recovery9aa,
+accepted wake93b and known-goodc497 retained; Ubuntu remains default and no
+reboot is armed. The next trial is automated: no typing, volume1%, audio off,
+a durable pre-write checkpoint, and saved/unmounted automatic return on handled
+outcomes. Persistence failure still halts with recovery instructions visible.
+
+The complete local host/core/profile/docs and normal/AP/native-AML/synthetic-AML/
+wake/engine build gate passes (89 installer cases, one expected opt-in skip).
+Fatal ASan/UBSan passes14 actual engine-adapter modes,14 wake modes, the prior
+observer/core/cache cases and the new five-page UC gate. Nine compiled controls
+detect protocol, boot-admission, foreign-request cutoff and RO-alias mutations.
+Last-page cache refusal retires seven prepared engine-trial aliases with zero
+stores. All267 collector/staging tests pass. The exact MBR stage verifies real
+EFI64/loader/recipe/serialization and saved preflight, then safely refuses before
+any store on Q35 and saves/unmounts/returns. Missing workspace halts. VirtIO
+presentation/drag/scroll/recovery and prior wake/handoff/window/DMA/lifetime/
+Haswell3/cache-context profiles pass. The census entry point appears only in the
+new ELF; the wake-only and ordinary/AP/AML images omit it.
+
+The initial merge dropped Air6's ECAM staging dependency check. Its full-gate
+failure was preserved, the exact check restored, and the full gate rerun cleanly
+at531. Final-word floating/failed census reads remain incomplete even if the
+wake closes cleanly. These are host/VM results, not native engine acceptance.
+
+The local run/checkpoint, exact stage, negative controls and validation live in
+`build/air-engine-readers-20261106`, with an independent full SHA-verified backup
+outside build cleanup. Fresh identity/USB checks preserve1,344 files/104 sessions;
+offline fsck/allocation/writable/headroom and read-only inventory retirement pass.
+The USB is MBR and unmounted. Inactive df5 is retired only from EFI after full
+SHA equality with its durable payload and independent archive under
+`~/.local/share/srvros/efi-archives/20261106-engine-census`, with GRUB/NVRAM
+references excluded. Prior458, cache07df, DMA5346 and existing archives remain
+verified. No accepted evidence or durable payload was deleted.
+
+Native acceptance requires the matching saved preflight, full native chain,
+version2 wake closeout, eight maps/cache checks retired, three allowed wake stores,
+two complete six-DWORD passes across five engines, bounded timing and inherited
+preservation. Enabled/pending/changing engines are observations only. No engine
+control, reader retirement, managed GPU interval or tear-free flip is enabled.
+
+### Completed scope: awake engine census and managed-range prerequisites
+
+PR301 continues from accepted wake source d5ff/host8a. Main `26e3b161` is
+integrated as `700d55f1`, preserving Air6's checked ECAM adoption and dual-file
+collector. PR19 remains Pro Wi-Fi; PR379 remains WebCore. No sibling GPU gate
+or acceptance is copied. Work touches the dedicated Intel diagnostic adapter,
+engine census core/decoder, explicit staging/VM/collection, managed-range
+prerequisites and these docs. The prepared candidate inspects documented engine
+status only while the exclusive cooperative wake lease is live; ordinary boot
+and the accepted wake-only recipe remain unchanged. Populated candidate PTEs
+remain protected until reader/engine/DMA/cache assurances exist. Stop after
+matched host/VM validation and durable readiness; do not reboot this work block.
+
+### Historical engine census implementation checkpoint (before native trial)
+
+The dedicated engine ELF now extends the cooperative wake lease with five exact
+RO/NX/UC command-streamer pages, two six-DWORD passes per engine and versioned
+raw/summary receipts. All eight aliases prepare before the first wake store.
+The unchanged timing limits, durable pre-write checkpoint, exact profile and
+fresh firmware/requester/cache/inherited-state checks remain mandatory. The
+census closes a still-valid wake lease after a read failure; ownership faults
+retain resources. Separate staging/collection requires the13-token recipe and
+complete native chain. Host fixtures cover active, pending, changing and floating
+state, failed reads, last-page cache/map/retirement failures, late foreign
+requesters and slow/frozen clocks. Quiet observations grant no handoff bits.
+See the [engine/reader contract](../intel-engine-reader-handoff.md) for sources,
+field semantics and the managed-memory roadmap. The readiness checkpoint above records completed source-matched validation,
+exact-stage VM and preparation; the native census is accepted above.
+
+### Native bounded cooperative wake trial accepted
+
+Release `93b497d37af24dae`, payload source `d5ff462d` with host decoder
+`8a528a0c`, returned as `session-00065fa25a829a4e-00`. The saved pre-write
+`session-a.log` matches the complete native firmware prerequisite transcript in
+`exit.log`. The strict native decoder accepts the cooperative lease: all ten
+admission facts, grants7, acquisition/preservation/open/check/close/release flags1,
+three UC cache checks, three maps retired, three attempted/confirmed stores,
+46 guards, state3/reason0 and no retained uncertainty. The complete bracket takes
+139,640us, within the unchanged500ms bound. Initial/final active request bits
+and ACK are zero; C0 low three bits are zero. Raw final request `0xffff0000`
+contains mask bits only, with no live low16 request.
+
+This accepts a bounded cooperative-firmware wake lease on this Air only. It
+assumes conforming EFI firmware yields the boot-time requester domain; it does
+not prove SMM absence or retire engine/DMA/display/audio readers. No engines,
+GPU PTEs or managed GPU memory were accessed. Physical tear-free presentation
+remains pending. Ordinary kernels still omit the native writer.
+
+The generic collector initially flagged `reason=0` as a warning despite a
+successful strict wake proof. A host-only fix decodes the entire wake receipt;
+complete leases are quiet and malformed/refused/uncertain receipts stay flagged.
+The successful collection and media/recovery proof are retained with the original
+warning evidence under `build/air-native-wake-20261106`, with an independent
+SHA-verified copy outside build cleanup. All1,341 prior files except expected
+workspace metadata are preserved; all three new logs hash-verify. Offline
+fsck/allocation/writable/headroom and recovery/Ubuntu-default/consumed-one-shot
+checks pass; the local return record is complete and USB is unmounted.
+
+Recovery9aa, prior458 and known-goodc497 remain retained. The automated trial
+needed no input, played no audio, and host volume stayed1%. No new reboot is
+armed. The source-qualified full build/sanitizer/negative-control and exact-stage
+VM validation remains attributed to d5ff/8a, rather than the later collection fix.
+
+### Implementation scope: explicit cooperative-UEFI wake lease
+
+Main `ca43ce23` is integrated as `625ce504`, preserving the Air6 ECAM/alias
+work; PR19 remains Pro Wi-Fi and PR379 WebCore. PR301 owns this slice.
+The firmware census4581 is collected and independently preserved.
+
+Define a boot-only cooperative-firmware contract: pinned Limine EFI64 handoff
+(the protocol requires exited boot services), strict diagnostic-only recipe,
+exact Air7,2 firmware/GPU/resources, CPU0 serialization, excluded local clients,
+fresh quiet firmware/requester prerequisites and a separately compiled native
+wake adapter. The contract explicitly assumes conforming firmware yields the
+boot-time GT requester domain; it does not prove SMM absence or retire engine,
+DMA, display/audio readers. This is a new opt-in policy, not a promotion of zeros
+into grants. Default observers and ordinary desktop retain no wake writer.
+Implement bounded init/request/ACK/C0/retirement with sticky uncertainty, then
+validate source-matched host/VM evidence before preparing a physical trial.
+No reboot this work block. Touch GT boot contract/adapter, Limine request,
+explicit build/staging/collector/decoders/tests and these docs; no sibling gates.
+
+### Historical cooperative wake implementation checkpoint (before native trial)
+
+A separate native diagnostic adapter now requires the explicit cooperative EFI
+policy, exact12-token recipe, pinned Limine11.4.1/EFI64 handoff, CPU0/interrupt
+serialization, exact profile, excluded clients, full native prerequisites and
+fresh quiet firmware/requester state. This is an explicit conforming-firmware
+assumption, not a proof of SMM absence. Only the dedicated wake ELF contains the
+writer; ordinary kernels retain the stub/refusal and no firmware-type request.
+
+All three UC aliases must be ready before the only allowed stores to`0xa188`.
+The existing core owns initialization/request/ACK/C0/clear/retirement; faults
+retain uncertainty. A durable preflight checkpoint drains periodic logging before
+entry. Closeout retires aliases and revalidates firmware/original backing before
+release. Host tests pass missing facts/recipes/provenance, active and late foreign
+requesters, failed cache/map/retirement, uncertain writes, missing ACK/C0 and
+post-write firmware changes. Both ordinary and dedicated kernels build.
+Full matched-source validation and candidate preparation follow; no reboot armed.
+
+### Native read-only firmware handoff census accepted
+
+Release `45815233908f2d02`, source `4ca8f490`, completes as
+`session-00065f91ff581bbd-00`, completed=yes with zero collector attention.
+The strict native decoder accepts the full firmware/GT/handoff/window/cache/
+backing/display chain. The firmware receipt is status1, maps2/retained0,
+acquired/before/after/released/complete1, guards5, cache_checks2 and
+guard_retained0. Both13-word passes match, taking3,909us and3,911us.
+
+ASLS `0x8ad03190` and SWSCI `0x8000` are stable. One ACPI-NVS entry at
+`0x8ad01000`, length`0x48000`, covers the full8KiB OpRegion and header page.
+The signature, size8KiB, version2.0 and mailbox mask`0x1f` match. DRDY/CSTS/
+CEVT/SCIC/ARDY/ASLC are zero in both native passes. Fresh WB MTRR/PAT/effective
+checks pass; both RO/NX/WB aliases retire. Exact original-window/full inherited
+backing preservation and CPU exclusion release complete. The GT observations
+still show low16 active requests0, raw mask1, ACK0. All grants, mailbox writes,
+wake and engine accesses remain zero; the native wake writer stays unlinked.
+
+This accepts the bounded read-only firmware census. Quiet fields describe this
+boot; they do not prove retirement of opaque runtime firmware/SMM or assign
+requester bits. The next implementation must define an explicit supported
+boot-time firmware/requester lifecycle contract before binding initialization/
+kernel-bit grants and a native wake writer. No engine/DMA/display/audio reader
+handoff, managed GPU range or physical tear-free flip is accepted here.
+
+All1,339 prior files are preserved except expected `.srvros/meta`; two new logs
+copy/hash-verify, giving1,341 files /103 sessions. Offline fsck/allocation/
+writable/headroom, consumed one-shot, Ubuntu default and installed/durable/
+archive recovery checks pass. USB is unmounted and no reboot is armed. Matching
+run/return records and complete evidence are independently SHA-verified outside
+build cleanup under `~/.local/share/srvros/reviewed-evidence/air-firmware-handoff-20261105`.
+
+### Completed scope: firmware handoff census and wake admission
+
+Main `7b887bbe` is integrated as `a59f9007`, including Air6,1's separate
+pre-init alias-context work; no sibling acceptance is inherited. PR301 owns
+this Air's GT work; PR19 remains Pro Wi-Fi and PR379 WebCore audit.
+The native df5 requester preflight is collected with integrity verified.
+
+Correct masked request semantics in the host wake core, then inspect the
+firmware OpRegion handoff fields through a bounded read-only catalog-validated
+window. Preserve raw values and explicit unresolved ownership reasons. Only
+independently established ownership may admit a native wake writer; quiet
+mailboxes or boot-services exit alone cannot establish it. Touch GT protocol,
+new firmware observation core/adapter/decoder, explicit recipe/collection/tests
+and this unit's docs. Preserve recovery and the independent Air6 mappings.
+Stop with matched host/VM validation and a prepared test; no reboot this block.
+
+### Historical preparation: automated firmware handoff census
+
+Release `45815233908f2d02` (`4ca8f490`) is installed with9aa recovery and
+Ubuntu default; no reboot is armed. The exact staged ELF links the firmware
+and GT observers but no wake-protocol entry point or writer. Its kernel SHA
+matches its immutable source-qualified manifest.
+
+Full host/core/profile/docs and normal/AP/native/synthetic builds pass at4ca,
+including89 installer tests with one expected opt-in skip. ASan/UBSan passes
+the wake core, firmware and GT observer cores, all16 actual-adapter variants
+and three cache scenarios. All260 collector/staging tests pass. Four compiled
+wake controls and three firmware controls detect removed initial clear,
+foreign-request refusal, C0, uncertain-write pinning, NVS, extent and header
+gates. Exact-stage Q35 saves/unmounts/returns on missing-Intel refusal and
+halts on missing workspace; neither accepts native firmware behavior. VirtIO
+presentation/recovery and the existing handoff/window/DMA/lifetime and
+independent Haswell3/cache-context profiles pass.
+
+A read-only Ubuntu reference confirms the8KiB v2 OpRegion in ACPI NVS and
+matching fixed-field layout. Linux has DRDY/ARDY1; those are Linux-owned values,
+not native firmware retirement. The exact captured DSDT defines the same IGDM
+extent/offsets and readiness/graphics-SCI methods; no AML was executed. Both
+prior native CPU contexts independently derive WB MTRR/PAT/effective type for
+the header page. These references improve test targeting but remain cached or
+host evidence; the candidate must establish fresh native readout and checks.
+
+All1,339 prior files /102 sessions verify through a read-only mount; offline
+fsck/allocation/writable/headroom pass and the volume is left unmounted. The
+inactive, GRUB/NVRAM-unreferenced d520 EFI copy is retired only after full SHA
+equality with its durable payload and independent EFI archive under
+`~/.local/share/srvros/efi-archives/20261105-firmware-handoff`. Current/prior,
+8b CPU qualification, recovery9aa, cache07df, DMA5346 and known-goodc497 remain
+verified; archived0e/d79 also remain verified. Matching source, stages, run,
+checkpoints and validation live in `build/air-firmware-handoff-20261105`, with
+an independent SHA-verified copy outside build cleanup.
+
+The next automated physical test needs no typing, keeps volume1%/guest audio
+off, displays progress and saves/unmounts/returns on handled outcomes. Require
+a matching completed native firmware observation with valid resource/header,
+advertised-field coverage, two retired WB maps/two fresh cache checks, five
+guards, before/after preservation and CPU exclusion release, plus all native
+GT/handoff/window/cache/backing/display prerequisites. Quiet mailboxes and
+low16 requester zeros still grant no firmware/requester retirement. Native
+wake, engine access, managed ranges and physical tear-free flips remain pending.
+
+### Firmware census implementation checkpoint (physical acceptance pending)
+
+The wake core now treats only low16 bits as requester state; the readable
+upper16 mask is preserved and all16 upper-bit cases pass through the full host
+clear/request/ACK/C0/release transaction. Independent grants remain mandatory.
+The native wake writer is still unbound; no firmware state is inferred retired.
+
+A new explicit `--intel-gt-firmware-capture` recipe adds a fixed OpRegion
+header/mailbox census to the accepted native GT prerequisites. It permits only
+one fully containing ACPI-NVS boot resource, a DWORD-aligned pointer with its
+fixed fields in one page, fresh matching WB MTRR/PAT/effective cache state,
+and temporary RO/NX aliases. Both passes require five guards, two retired
+mappings and full before/after inherited preservation under CPU exclusion.
+Only signature/size/version/mailbox-mask and advertised public readiness/
+command words are read; no mailbox call, readiness write, wake or engine access.
+Quiet fields still yield grants0. See [the ownership matrix](../intel-gt-access.md#firmware-handoff-census-and-native-wake-admission).
+
+Focused core/actual-adapter/decoder/cache tests pass, including40 I/O fault
+boundaries, malformed/unsupported headers, wrong/short resources, cache
+refusal, changed fields and retained uncertain aliases. Full matched-source
+host/VM validation and candidate preparation follow; no reboot is armed.
+
+### Native read-only GT requester preflight accepted
+
+Release `df5ca792434d9145`, source `251a912b`, returned as
+`session-00065f90dd5e19b5-00` with completed=yes and no collector attention.
+The strict native decoder accepts both observations and their complete native
+handoff/window/cache/display/backing prerequisites. The new receipt is status1,
+maps4/retained0, acquired/before/after/released/complete1, guards5,
+cache_checks4 and guard_retained0. Both raw request DWORDs are `0x00010000`,
+both ACKs zero; their durations are4,117us and4,113us. PCI ASLS is `0x8ad03190`
+and SWSCI `0x00008000`. These are raw observations, not ownership grants.
+
+Fresh UC MTRR/effective-type checks and full original-window/inherited-backing
+preservation pass under CPU exclusion. Forcewake writes, engine reads, OpRegion
+maps and PTE writes remain zero. The wake protocol remains absent from the native
+ELF. Neither the nonzero raw request nor a zero ACK establishes requester
+retirement, firmware exclusion, engine quiescence or an available GPU range.
+Actual hardware handoff and physical tear-free flips remain pending.
+
+All1,337 prior files are preserved except expected `.srvros/meta`; both new logs
+copy/hash-verify, giving1,339 files and102 sessions. Offline fsck/allocation/
+writable/headroom, consumed one-shot, Ubuntu default and independent installed/
+durable/archive recovery checks pass. USB is unmounted and no reboot is armed.
+Matching run/return records and SHA-verified evidence are independently preserved
+outside build cleanup. The next task is to resolve explicit firmware/requester
+ownership and the raw masked-request semantics before a native wake adapter;
+these samples alone authorize neither initialization nor engine inspection.
+
+### Completed scope: Broadwell GT access and firmware/requester preflight
+
+Baseline main remains `3f158022`; native8b9e is collected and backed up.
+PR301 owns this slice. PR381 owns Air6,1 managed-root/NX census, PR19 Pro
+Wi-Fi and PR379 WebCore audit; no edits to those owners' VMM/firmware gates.
+
+Audit Broadwell's actual forcewake/GT-access obligations, implement a bounded
+first-driver wake protocol with explicit requester-retirement/CPU-lease gates,
+and add a separate read-only native request/acknowledgement plus ASLS/SWSCI
+preflight. The PRM requires initial all-request clearing; an unknown requester
+cannot be treated as retired merely because a sampled bit is zero. No native
+forcewake/engine/PTE writer is admitted by this step. Positive wake/control
+transactions use audited synthetic host callbacks; native preflight has no
+writer callback or OpRegion-pointer traversal. Preserve full inherited backing,
+exact originals and current/recovery payloads. Touch new GT core/preflight,
+strict two-page RO/UC observation hooks, staging/decoder/collector/tests and docs.
+GT engine reads require a separately owned acknowledged wake and C0 proof;
+firmware/engine/DMA/display/audio ownership and range grants remain unaccepted.
+Prepare matched host/VM evidence before another physical round. No reboot armed.
+
+### Historical preparation: read-only GT requester preflight
+
+Candidate `df5ca792434d9145` (`251a912b`) is installed with9aa8 recovery and
+Ubuntu default. No reboot is armed. The exact staged ELF has the read-only
+preflight linked and the wake protocol/writer unlinked; its kernel SHA matches
+its immutable manifest. Ordinary/native code cannot enter the new control model.
+The mandatory all-request-clear protocol is implemented and tested against host
+callbacks only; native initialization/requester-retirement grants remain absent.
+
+The complete host/core/profile/docs and normal/AP/native/synthetic builds pass,
+including89 installer tests with one expected opt-in skip. Fatal ASan/UBSan passes
+the wake owner, observer core, all seven actual-adapter GT outcomes, the existing
+window adapter and new cache query. Four compiled controls detect omitted initial
+clear, borrowing foreign requests, skipped C0 and releasing an uncertain first
+write. All253 collector/staging tests pass. The exact-stage Q35 captures save/
+unmount/return on expected missing-Intel refusal, with no mapping or ownership;
+missing workspace halts. VirtIO drag/scroll/recovery and all five presenter
+acquisitions pass (live supervisor recovery1 guest tick /2 polls), along with
+existing handoff/window/DMA/lifetime-publication and independent Haswell3/firmware
+cache-context profiles. None of these fixtures accepts native GT access.
+
+Both proposed pages decode UC MTRR/effective types in both prior8b9e CPU contexts;
+this is cached eligibility only, not the new live readout. The candidate requires
+fresh checks and exact original-window/full-backing preservation under exclusion.
+It reads only request `0xa188`, always-on ACK `0x130044` and PCI ASLS/SWSCI;
+no GT thread/engine, OpRegion data, wake/reset/SCI or PTE access is enabled.
+
+Fresh offline fsck/allocation/writable/headroom and a read-only inventory verify
+all1,337 prior files /101 sessions. The mount retires with unchanged boot sectors.
+Prior current8b9e, d520, cache07df, DMA5346, recovery9aa and known-goodc497 remain
+verified. To fit the145MiB candidate and32MiB reserve, only the inactive,
+GRUB/NVRAM-unreferenced0e1 EFI copy is retired after full SHA verification against
+its durable payload and `/home/paul/.local/share/srvros/efi-archives/20261105-gt-preflight/0e1e37f7c62f68d9`.
+Archived shadowd79 also remains independently verified. Accepted payloads and
+evidence survive build cleanup. Complete qualification, stage/run/checkpoint and
+source references live under `build/air-hardware-handoff-20261105`, with a matching
+hash-verified reviewed-evidence backup outside build cleanup.
+
+The next action is the guarded automated preflight at volume1%, audio disabled;
+it needs no typing, saves/unmounts and returns on handled outcomes. Require the
+matching completed session, full native prerequisites, four retired new maps,
+five guards/four new-page cache checks, fresh preservation and clean release.
+Stable/zero request bits or ASLS do not supply requester/firmware retirement.
+Physical GT preflight, actual wake ownership, engines/readers and GPU interval
+transfer remain pending. See [the audited contract](../intel-gt-access.md).
+
+### GT implementation checkpoint (native preflight pending)
+
+The bounded wake transaction now implements mandatory initial clear, masked
+kernel request/acknowledgement, C0 validation, exact own-bit retirement, object/
+CPU-epoch binding and retained-fault pins. It requires independent initialization,
+requester-retirement and kernel-bit grants; native supplies no writer or grants.
+Focused tests cover59 I/O failure boundaries, copied owners, foreign requests,
+unissued/uncertain writes, phase/total deadlines and frozen/backward clocks.
+
+A separate native two-page RO/NX/PCD preflight observes request/ACK plus PCI
+ASLS/SWSCI without following the pointer or invoking firmware. It repeats fresh
+original-window/backing checks under CPU exclusion and requires matching UC
+MTRR/effective types for both pages. The independent decoder derives those types
+from raw CPU context; PAT-only UC is refused. Core/actual-adapter/decoder tests
+cover all22 observer failure boundaries, cache and partial-map/retirement failures,
+changed endpoints/raw values and floating PCI/MMIO reads. Existing window/cache
+checks and docs pass. This focused checkpoint preceded the full matched
+build/host/VM validation and preparation recorded above.8b9e was then current
+and remains retained/collected; no reboot is armed.
+See [GT access/requester preflight](../intel-gt-access.md) for primary references,
+including the mandatory initialization and Stop Rings warning. No native GT,
+firmware, reader-retirement or GPU-range authority is accepted by this checkpoint.
+
+### Native CPU-client/range-refusal qualification accepted
+
+Release `8b9e57e43ae025d3`, source `7e33d1a5`, completes as
+`session-00065f8fd143d595-00`. The exact native receipt is selected1/acquired1/
+idle1/blocked127/snapshot1/preserved1/released1/complete1, with missing31,
+managed_pages0, pte_writes0, aperture_mappings0 and hardware_ownership0.
+Participating operations refuse under the CPU lease; queued text resumes after
+release, and the actual legacy initializer's refused attempt is captured.
+Unavailable native presenter/brightness providers retain host causal side-effect
+checks. This accepts the bounded CPU-client/fresh-preservation qualification,
+not general hardware reader exclusion or a transferred GPU interval.
+
+The native window/cache/display/backing prerequisites all complete. Both48-read
+vectors agree (5,698us /4,383us), all five fresh guards pass, both aliases retire,
+and the complete1356 inherited PTEs/fences remain preserved. The additional
+under-exclusion revalidation matches both original16-entry vectors and repeats
+all fresh guards/full backing comparisons. All16 entries remain populated;
+MSAC1/256MiB, GGTT8MiB and the full34MiB inherited fence remain bound. The native
+provider still supplies no firmware/GT/DMA/display/audio reader assurances, so
+missing31 is the expected admission refusal, not an ownership grant.
+
+The saved report has completed=yes and zero collector attention. All1,335 prior
+files are preserved except expected `.srvros/meta`; two new logs copy/hash-verify.
+There are now1,337 files and101 sessions. Offline fsck/allocation/writable/headroom,
+Ubuntu default, consumed one-shot and independent current/recovery/known-good/
+prior payloads plus archived shadow all verify. USB is left unmounted, no reboot
+is armed, and matching evidence/checkpoints are backed up outside build cleanup.
+The next work is an audited hardware handoff and concrete range transfer before
+private mapping/restore or native tear-free flips; this qualification sets none
+of those hardware assurance bits.
+
+### Completed scope: handoff qualification and managed-range admission
+
+Main `3f158022` (Air6,1 read-only admission audit) is integrated as `2886c122`.
+PR301 owns this Air's scanout work; Pro Wi-Fi PR19 and WebCore PR379 retain
+independent scope. Native8b9e is collected; no reboot is armed.
+
+Implement a boot-only CPU reader/writer exclusion lease across the console,
+presenter and backlight, with exact token/epoch release and retained uncertainty.
+Bind a range-admission transaction to that lease, complete inherited backing,
+original candidate PTE values and explicit hardware-handoff assurances. Unknown
+firmware/engine/reader ownership must refuse native grants; populated entries
+are never inferred free. Native qualification will pause/resume participating
+clients, exercise their real refusal paths and revalidate the read-only snapshot.
+A positive host provider can test transferred-range reservation/retirement;
+the native provider must report unresolved assurances rather than manufacture
+an ownership grant. No PTE writer or forcewake/engine-control writes are part
+of this first hardware-test candidate. Touches handoff/range core, console/
+presenter/backlight admission hooks, an explicit native capture, decoder/tests
+and docs. Preserve independent Haswell gates and accepted recovery payloads.
+
+### Handoff implementation checkpoint (now natively qualified)
+
+The candidate now has CPU-client exclusion entries on console text/bulk pixel
+paths, presenter startup/transactions and brightness provider operations.
+Outstanding operations prevent acquisition; epoch tokens prevent stale release.
+`scanout_handoff` binds a range to that exclusion, exact original candidate PTEs,
+full inherited fence and an audited provider's hardware assurances. Active or
+uncertain ranges pin exclusion through retirement. Native hardware assurances
+remain absent, so managed-range admission refuses with mask31 and grants0 pages.
+
+The distinct `--intel-handoff-capture` profile repeats the native read-only window
+under exclusion, attempts participating forbidden operations, queues text and
+resumes safely. It saves and automatically returns on handled outcomes. No
+human input, PTE writes, forcewake/engine control, writable aperture mapping or
+native flip is part of this qualification. Positive admission is synthetic host
+evidence only. See [the contract](../intel-handoff.md).
+
+### Prepared candidate (now collected above)
+
+Release `8b9e57e43ae025d3`, source `7e33d1a5`, is installed with recovery
+`9aa8dbf6fbda8252`; Ubuntu remains default and no reboot is armed. The full
+host/core/profile/docs and normal/AP/native/synthetic build gate passes,
+including89 installer tests with one expected opt-in skip. ASan/UBSan passes the
+range transaction, all six native-producer fixture outcomes, actual window
+adapter/fresh preservation, console, presenter and backlight tests. Three
+compiled controls detect missing assurances, omitted original-state validation
+and premature exclusion release. All252 collector/staging tests pass.
+
+The exact-stage Q35 round saves/unmounts/returns on its expected missing-Intel
+refusal, with selected0/acquired0/complete0 and no ownership or managed pages.
+Missing workspace halts safely. VirtIO presentation/drag/scroll, normal console
+restore, compositor/supervisor termination and reacquisition pass; live supervisor
+retirement is observed within9 guest ticks. Existing window, DMA, lifetime/
+publication and independent Haswell3/cache-context firmware profiles pass.
+Neither those fixtures nor the producer's synthetic complete1 result accepts
+native handoff. The standalone RAM console benchmark is repaired and runs;
+`7190e6a2` changes only its link command, leaving the tested payload unchanged.
+
+Native identity/firmware, USB ancestry/clean flags, prior collection, all-file
+preservation, fsck/allocation/writable/headroom and recovery verify. A fresh
+read-only mount hashes1,335 files and100 sessions, then retires with unchanged
+boot sectors. Currentd520 is retained alongside previous0e1, cache07df, DMA5346
+and known-goodc497. To fit the145MiB candidate with the installer's32MiB reserve,
+only the inactive/unreferenced shadowd79 EFI copy is retired after full SHA256
+verification against both its durable payload and a new independent archive:
+`/home/paul/.local/share/srvros/efi-archives/20261105-handoff/d79f3ca9a74fa201`.
+The shadow's accepted evidence and durable payload remain preserved.
+
+Local checkpoint/run/candidate, exact manifests, complete validation and
+readiness evidence live under `build/air-handoff-20261105`, copied and hash-verified
+outside build cleanup in the matching reviewed-evidence directory. The source
+for this payload remains `7e33d1a5`; later benchmark-link/documentation commits do
+not alter it. The prepared action was a guarded one-shot automated qualification
+boot at requested volume1% (guest audio disabled); matching collection and
+integrity checks are now complete above. No human input is needed. Require native claim2/2,
+blocked127, full fresh preservation, missing31, released1 and complete1, plus
+completed=yes and clean unmount. Missing completion or retained uncertainty is
+incomplete/failure evidence. No native range grant or tear-free acceptance is
+claimed; firmware/GT/DMA/display/audio reader ownership remains unresolved.
+
+### Native boot-client observation accepted
+
+Release `d520f364934fb08d`, source `c0e03eb9`, completes as
+`session-00065f8e82862ce5-00`. Exactly one native receipt reports policy2/client2,
+immutable1, hardware_ownership0 and managed_pages0. The exact Air observer claim
+coexists with the complete native cache/display/backing/GGTT readout. Native
+acceptance covers that selection/claim and read-only coexistence; negative
+initializer side-effect tests retain their host provenance.
+
+Both48-read vectors agree; their phases take4,386us and4,379us. MSAC1 /256MiB,
+the8MiB GGTT and full34MiB fence remain bound. All16 sampled entries are still
+populated (`0x8e201001` through `0x8e210001`, raw bit0 set). Both temporary
+aliases retire, all five fresh cache/backing guards pass and the complete1356
+inherited PTEs/fences are preserved. GPU PTE writes, aperture-data mappings and
+retained uncertainty are zero. No managed range, private GPU mapping, firmware/
+HDA/engine exclusion or physical tear-free flip is accepted.
+
+The saved report has completed=yes and zero collector attention. All1,333 prior
+USB files are unchanged except expected `.srvros/meta`; the two new logs copy
+and hash-verify. Offline fsck/allocation/writable/headroom, independent current/
+recovery payloads, Ubuntu default and consumed one-shot pass. USB is left
+unmounted. Currentd520, recovery9aa, previous0e1, earlier07df/5346, shadowd79 and
+known-goodc497 remain verified. Evidence and payloads are retained outside
+build cleanup. Native GUI/input or another machine's acceptance is not broadened
+by this read-only trial.
+
+### Boot-client implementation and preparation (superseded above)
+
+Main `88bdc382` is integrated through `28b17462`, retaining Air7,2 capture and
+scope-owner cancellation, Air6,1 cache-context diagnostics and current signal/
+streaming/browser changes. The [Intel boot-client contract](../intel-boot-client.md)
+now selects an immutable policy before initialization, binds one participating
+client to the enumerated PCI identity/resources and refuses competing legacy
+initialization before PCI writes or writable mappings. Repeated/reentrant init
+does not duplicate I/O; failed partial maps retain the claim. Air observer
+access rechecks it while cleanup remains possible after an identity mismatch.
+Haswell captures block the legacy initializer without acquiring an Air claim.
+
+Code `c0e03eb9` is staged/installed as `d520f364934fb08d` for a no-input native
+boot-policy/client readout plus complete GGTT/cache/backing preservation. The
+claim sets no firmware/HDA/GT-reader assurance and grants no managed GGTT range.
+All16 observed populated entries remain protected. Actual native hardware
+ownership, private mapping writes and page flips remain unimplemented/unaccepted.
+
+The full host/core/profile/docs and normal/AP/native/synthetic build gate passes
+at `cb12a868`, including89 installer tests (one expected opt-in skip). Integration
+repairs retain both cache suites and correct GCC fixture qualifications,
+missing declarations, explicit-XMM helper targets and legacy-signal harness
+binding; they do not disable public signal support in the OS. Subsequent changes
+are limited to the read-only console probe, its tests and appended test target;
+kernel/ABI/libc/driver/installer code is unchanged and the baseline receipt is
+explicitly retained. Fresh matched builds, producer/claim/observer ASan/UBSan,
+two detected compiled negative controls and251 collector/staging tests pass.
+
+Exact-image Q35 capture/refusal, saved return, missing-workspace visible halt,
+DMA/lifetime/Haswell3/firmware-only/cache-context recipes pass. VirtIO passes
+five presenter acquisitions, drag/scroll and compositor/supervisor recovery.
+The old one-shot assertion raced asynchronous child retirement after supervisor
+exit. A read-only bounded probe now checks actual unmuting without forcing it;
+a live-muted supervisor trial measures4 guest ticks /3 polls (about40ms), under
+a200-tick limit. Query errors, deadline, clock rollback/stall and sleep errors
+fail producer tests. Earlier failed/aborted attempts remain preserved.
+
+Preparation verifies1,333 existing USB files /99 sessions, exact local firmware/
+GPU/CPU/USB, offline fsck/allocation/writable/headroom and Ubuntu default.
+Inactive46b was archived/hash-verified before removing only its EFI copy for
+space. Recovery9aa, previous0e1, earlier07df/5346, shadowd79 and known-goodc497
+remain verified. The automatic run requires no input: saved/unmounted outcomes
+return to Ubuntu; persistence failure visibly halts. Volume1%, guest audio off.
+Evidence/checkpoints: `build/air-boot-claim-20261105/` and
+`build/air-claim-native-20261105/`, independently backed up before arming. The
+run record controls actual reboot state; collect its matching session first.
+At preparation native boot-client acceptance was pending; its collected receipt
+is above. Next is an explicit hardware/reader
+handoff and managed range, not treating a software claim as native authority.
+
+### Native aperture and candidate-entry observation accepted
+
+Release `0e1e37f7c62f68d9`, source `120acb9a`, completes as
+`session-00065f7bf1c51b3b-00`. Raw MSAC is1: the observed aperture is256MiB
+at `0xb0000000`, with an8MiB GGTT. Both16-entry vectors at index8704 agree;
+each takes48 reads /4,228us. All16 values are nonzero with raw bit0 set:
+`0x8e201001` through `0x8e210001`, in4KiB steps. These are inherited populated
+entries, not available managed slots. No physical target was dereferenced.
+
+Both read-only candidate-window mappings retire; five fresh UC/cache and full
+inherited1356-PTE/fence guards pass, with final backing preservation and zero
+retained uncertainty. The same capture independently validates its native CPU
+cache/display/backing prerequisites. There are zero GPU PTE writes, aperture-
+data mappings or ownership grants. This accepts a bounded readout, not a native
+GPU writer, private buffer, managed GGTT range or physical tear-free flip.
+
+The saved capture reports completed=yes with zero collector attention. All1,331
+prior USB files remain intact except expected `.srvros/meta`; both new logs copy
+and hash-verify. Offline fsck/allocation/writable/headroom, independent current/
+recovery payloads, Ubuntu default and consumed one-shot checks pass. USB is left
+unmounted; no reboot is armed. Current native is0e1, recovery9aa, previous07df,
+preceding5346, shadowd79 and known-goodc497 remain verified. Evidence/payloads
+are retained outside build cleanup. Next admission must respect the populated
+entries; being beyond the visible backing or full inherited fence is not proof
+of an unused GPU address range.
+
+### Window readout preparation and validation (superseded above)
+
+Source `120acb9a` implements the explicit [read-only aperture/GGTT survey](../intel-ggtt-window.md),
+staged and installed as `0e1e37f7c62f68d9`. This reads raw MSAC and two16-entry
+vectors beyond the entire34MiB inherited fence, with five fresh CPU0 UC/cache
+and full inherited backing guards. Both temporary GGTT alias mappings must
+retire; mapping uncertainty stays latched until reset. There are zero GPU PTE
+writes, aperture-data mappings or managed-range grants. Empty/stable entries
+are not owned slots. Native GPU writes and physical tear-free flips remain
+unimplemented and unaccepted.
+
+The full local host/core/profile/docs suite and normal/AP/native/synthetic
+builds pass, including89 installer tests with one expected opt-in skip and245
+collector/staging tests. Core/native-adapter ASan/UBSan and fresh-cache tests
+pass; three compiled negative controls are detected. The exact-image Q35 run
+reads CPU cache state, refuses native GPU access, saves/unmounts and resets;
+missing-workspace visible halt, VirtIO compositor/supervisor recovery and older
+cache/DMA/lifetime/Haswell3/firmware-only profiles also pass. Those host/VM
+results did not accept the native observation; its later receipt is above.
+
+Preparation verifies1,331 prior USB files /98 sessions, exact local firmware,
+GPU/CPU and USB ancestry, offline fsck/allocation/writable/headroom, Ubuntu
+default and independent payload/recovery. Inactivec32 was fully archived and
+hash-verified before removing only its EFI copy for space. Recovery9aa,
+previous07df, preceding5346, shadowd79 and known-goodc497 remain verified.
+The prepared run needed no input: saved/unmounted handled outcomes return automatically;
+persistence failure visibly halts. Keep volume1%; guest audio is disabled.
+Evidence and checkpoint: `build/air-map-prerequisites-20261104/` and
+`build/air-window-native-20261104/`, with verified backups outside build before
+arming. The run record controls actual reboot state. Collect its exact matching
+session before staging another run. The later collected result supersedes the
+preparation state; the run record now reports returned/collected and unarmed.
+
+### Native read-only cache observation accepted
+
+Release `07df02f62d1074ac`, source `e9391d64`, completes as
+`session-00065f78ce4bd46c-00`. The two CPU0 snapshots match across37 reads each:
+ten variable MTRR pairs,11 fixed registers and architectural control endpoints.
+Each takes46us; snapshots are separated by about11.58 seconds. Physical width
+is39 bits, raw PAT is `0x0000010500070406`, MTRRCAP is `0xd0a` and DEF_TYPE is
+`0xc06`. All18 proposed-leaf classifications independently validate, with exact
+CPU/display/backing/address binding and final full1356-PTE/fence preservation.
+
+All three queried pages—flush-register page `0xc0101000`, proposed GGTT alias
+page `0xc0811000`, and proposed aperture page `0xb2200000`—have MTRR typeUC.
+Tested PAT indices0/2/3 resolve to effectiveUC in both snapshots. This accepts
+these bounded cache observations, not a page-table walk, mapped private buffer,
+managed range, immutable cache policy or GPU ownership. There are zero cache-
+policy/control writes and zero mappings of proposed pages. The inherited
+backing guard still uses its existing retired read-only windows. See the
+[cache audit contract](../x86-cache-audit.md) for exact limits.
+
+Saved capture has `completed=yes` and no collector attention. All1,329 prior
+files are preserved except expected `.srvros/meta`; the two new logs copy and
+hash-verify. Offline fsck/allocation/writable/headroom, independent payloads/
+recovery, Ubuntu default and consumed one-shot checks pass. USB is left
+unmounted; no reboot was armed at that cache closeout. Its current was07df,
+recovery9aa, preceding
+5346/shadowd79/known-goodc497 remain verified. Evidence and payloads are retained
+outside build cleanup.
+
+Next is boot-scoped sole ownership, a managed GGTT range, private RAM/alias cache
+publication and native write/invalidation/reader retirement, before a single-page
+aperture round-trip with exact restore. The earlier DMA observation belongs to
+a separate boot; revalidate writer-time conditions rather than combine old
+snapshots into a takeover grant. Actual private GPU mappings and tear-free flips
+remain unimplemented and unaccepted.
+
+### Cache readout preparation checkpoint (superseded above)
+
+Source `e9391d64`, consuming main `5f670602` through `8eac2536`, is staged and
+installed as `07df02f62d1074ac` for the [read-only CPU cache audit](../x86-cache-audit.md).
+At preparation, native cache acceptance was pending. This reads inherited PAT/MTRRs and
+classifies proposed4KiB leaf policies; it maps no proposed GPU pages and grants
+no GGTT range, DMA authority or physical tear-free acceptance. Final inherited
+backing verification still uses the existing temporary read-only windows.
+
+The full local host/core/profile/docs/build suite passes at `78908318`, including
+71 installation tests with one expected opt-in skip, cache-core/adapter
+ASan/UBSan, three compiled negative controls,237 hardware collector tests and
+DMA/shadow-lifetime/Haswell3 refusal/fixture checks. The subsequent `e9391d64`
+change only distinguishes candidate mappings in the receipt and bounds32-bit
+CPU decoder fields. Fresh matched normal/AP/native/synthetic builds, cache host
+and adapter sanitizer tests,237 collectors, real Q35 architectural CPU reads,
+missing-workspace visible halt and VirtIO compositor/supervisor recovery pass.
+The unchanged initial full-suite receipt is retained explicitly, with all prior
+attempts and exact payloads. Q35 observes two matching33-read CPU snapshots;
+its absent native GPU cannot pass address binding or aggregate acceptance.
+
+Preparation preserves1,329 files /97 sessions, exact native firmware/GPU/CPU
+profile, USB ancestry, offline fsck/allocation/writable/headroom, independent
+payloads/recovery and Ubuntu default. Older inactive5f6 was fully archived and
+hash-verified before retiring only its EFI copy for space. Recovery9aa,
+known-goodc497, accepted shadowd79 and previous native5346 remain held and
+verified. The new run is automatic and needs no input; saved/unmounted outcomes
+return to Ubuntu, while persistence failure visibly halts. Volume is1%; guest
+audio is not enabled. The run record controls actual arming/return state; collect
+it before any new installation. Evidence: `build/air-cache-20261104/` and
+`build/air-cache-native-20261104/`, backed up outside build before reboot.
+
+### Cache audit implementation scope
+
+
+Consumed main `5f670602` (Air6,1 read-only DMA/resource inventory) on this device
+branch. Before native GGTT writes, add a bounded read-only CPU PAT/MTRR snapshot
+and conservative classification of the exact MMIO and aperture aliases/private
+RAM. Existing temporary mappings specify PCD without PWT; no code currently
+reads inherited PAT/MTRRs, so calling that a strong-UC write-ordering proof would
+be premature. Touches a new x86 cache audit core/boot adapter, explicit Intel
+capture recipe/receipts, tests and documentation. No cache-policy MSR writes,
+GGTT/PTE/control writes or ordinary startup enablement. Existing native5346 and
+recovery remain installed; no reboot armed. PR317 VMM/allocator changes and
+Air6,1 native hardware gates remain independent. Next: source-bound host/VM
+checks, then an automatic saved native cache readout if ready.
+
+### Publication model validated; native mapping remains next
+
+Main `1fbec70d` is integrated as `b89e4e43`; exact code `4fb8fb33` passes the
+[publication transaction](../scanout-publication.md) host oracle, ASan/UBSan,
+four compiled negative controls, strict receipt tests and version2 Q35 fixture
+release `0ddd22b8f7fdc62e`. The fixture performs65 **model** write attempts,
+two flushes and retains32 model pages on its injected fault. Hardware writes,
+DMA authority and physical tear-free acceptance remain zero/false. There is no
+native managed arena, PTE writer, private GPU mapping or plane switch.
+
+Local host/core/profile/docs and normal/AP/native/synthetic builds pass. The
+71-test installation suite (one expected opt-in skip) and real exFAT admission
+pass at `b89e4e43`; only two unrelated process-fixture guards changed afterward,
+so that completed receipt is reused explicitly by the `4fb8fb33` run rather than
+rerunning it. All other current checks run at `4fb8fb33`. The236 hardware
+collector tests, missing-workspace halt, DMA Q35 refusal/save/return and all three
+Haswell capture recipe refusal/save/return checks pass. These are VM results,
+not sibling hardware acceptance. Actions remain disabled.
+
+Combined validation exposed a real main integration regression: terminating the
+new outer session supervisor left its scoped compositor holding the console
+mute. Owner exit/exec now revokes admission and requests unmaskable cancellation
+of active members, including a child published after a yielding allocation.
+References/resources remain until actual teardown/reaping; explicit normal
+session revoke stays graceful. Actual-source host/ASan/UBSan and two compiled
+negative controls pass. VirtIO now exercises separate compositor and supervisor
+deaths: both restore the console and permit reacquisition, across five presenter
+acquisitions. Failed baseline/linkage attempts remain retained. PR317 must retain
+the scope-detach hooks when integrating its separate exec/exit memory changes.
+
+Current native remains collected release5346/source `d5ad0c54`; recovery and
+accepted shadow/known-good copies are unchanged. No new payload is installed and
+no reboot is armed. Software fixture/payload/results are retained independently
+outside build. Next bounded objective is native owner/range/cache/invalidation
+admission, then a single private-page aperture round-trip with exact restore
+before attempting visible flips. Preserve the entire inherited34MiB fence.
+Local evidence: `build/air-publication-20261104/` and its reviewed-evidence backup.
+
+### Publication implementation scope (software checkpoint complete)
+
+Consumed main `7766ed5a` as `234f6039`, preserving Intel and all three Haswell
+capture variants and the current session/profile APIs. Bounded objective: model-
+validated private linear layout and GGTT publication/restore ordering tied to
+existing CPU0 address leases. Snapshot prior entries, pin before writes, require
+publication/invalidation/readback and retired readers, quarantine uncertainty.
+Touches new scanout publication core/tests and its documented adapter contract;
+no native GGTT importer/writer, plane controls or ordinary startup enablement.
+Native5346 is collected and backed up; no reboot armed. PR317 memory/driver
+retirement, Air6,1 fence/swizzle and Pro Wi-Fi keep their own scope. Next:
+source-bound host/sanitizer/VM validation before any hardware adapter proposal.
+
+### Publication validation: supervisor-death regression
+
+The new publication model passes host/sanitizer and exact Q35 fixture checks.
+Combined-tree VirtIO recovery fails on source `a784244c`: killing the new outer
+session supervisor leaves its live scoped compositor holding the console mute.
+Bounded additional scope: cancel active scope members when their authority owner
+exits/execs, including a reserved child published after a yielding allocation.
+Explicit revoke for normal session switching stays graceful. Process references
+and resources must survive until real teardown/reaping. Touches `process.c`, its
+actual-source host fixture, VirtIO recovery tests and session documentation.
+No native reboot is armed; this is a reproduced VM regression, not a hardware
+publication result. Other memory-isolation work in PR317 stays independent.
+
+### Native read-only DMA-state observation accepted
+
+Source `d5ad0c54` / release `53460fd7c2c0f337` completed and returned
+automatically as `session-00065f6cb059ee67-00`. All four admission guards pass
+(checked/passed127), including source2 exact declared-MMIO gap admission. The
+two12-read samples take4us and5us, separated by20,100us; raw VER/CAP/ECAP/
+RTADDR/GSTS values agree. VER is0x10; RTADDR and GSTS are0. The translation-enable
+bit is clear in both samples. Two temporary read-only mappings retire with
+zero retained mappings or control writes. Final full1356-PTE/fence backing
+revalidation passes; aggregate `completed=yes` and collector attention is empty.
+
+This accepts the bounded native **read-only observation**, including this unit's
+exact gap admission. It does not grant DMA/GGTT mapping authority, exclusive
+firmware ownership or private-buffer addressability, and does not implement or
+accept physical tear-free page flips. An observed disabled translation bit is
+not an ownership or lifetime guarantee.
+
+All1,327 prior files are preserved except expected workspace metadata; two new
+logs copy/hash-verify. Offline fsck/allocation/writable/headroom, independent
+payload/recovery checks, Ubuntu default and consumed one-shot all pass. Volume
+was1%; no guest playback was enabled. No reboot is armed. Current remains5346,
+recovery9aa, with the preceding and accepted shadow/known-good payloads held.
+Run/return proof: `build/air-dma-resource-native-20261104/returned/`; independent
+evidence and payload copies survive build cleanup.
+
+Next: audit scanout-compatible private layout, boot-scoped GGTT range ownership,
+PTE/cache publication and invalidation, exact flip completion and inherited-route
+restoration. The existing CPU0 reservation/lifetime cores remain the groundwork;
+no native managed range or writer is enabled. Keep the firmware's complete34MiB
+fence reservation intact. A controlled flip implementation needs source-bound
+host/VM checks before another physical trial.
+
+### Declared-MMIO preparation checkpoint (before native acceptance)
+
+Source `d5ad0c54` / release `53460fd7c2c0f337` is installed, consuming main
+`6225e4d1` at `16a9fd3e` and its exact Apps/UI/Ports pins. The DMA observer now
+admits either one enclosing reserved entry (source1) or the exact current DMAR
+DRHD page within this unit's captured non-RAM gap (source2). No conflicting,
+partial, duplicate, unknown or malformed map coverage is permitted. The full
+pinned table is revalidated before each gap mapping. Register offsets, read-only
+mapping, retirement and backing-preservation requirements remain unchanged.
+The [resource contract](../macbookair7-2-dma-observation.md) records the UEFI and
+Intel specification audit. There are no IOMMU commands, private GPU mappings,
+GGTT writes, ordinary startup changes or new ownership grants.
+
+Full local host/core/profile/docs and normal/AP/native/synthetic builds pass,
+as do DMA-core and actual-adapter ASan/UBSan, strict hardware collectors, exact
+Q35 refusal/save/return, missing-workspace halt, VirtIO presentation and both
+Haswell capture versions. The local pinned-DMAR mock adapter admits and retires
+one simulated page and rejects both invalid-checksum and valid-checksum changed
+headers. Synthetic references cannot bypass the production pin. The default
+installation suite's opt-in exhaustive matrix is skipped. Actions stay disabled.
+
+Preparation verifies1,327 files /96 prior sessions, offline fsck/allocation/
+writable/headroom, firmware/GPU identity, Ubuntu default and independent recovery,
+known-good, accepted-shadow and preceding diagnostic payloads. Older unused c9e
+was fully archived/hash-verified before removing only its EFI copy for space.
+Preflight also caught a missing older46b backup before deletion; a fresh,
+self-contained copy now verifies against the retained live payload. No existing
+backup was overwritten. Failed preparation/repair attempts are retained.
+
+The no-input native readout is ready; source2 admission and actual DMA-state
+observation remain **unaccepted** pending its matching session. It automatically
+returns after successful save/unmount, including a handled refusal; persistence
+failure visibly halts. Current is5346, recovery9aa; c32/5f6/d79/c497 remain held.
+Run/arming state: `build/air-dma-resource-native-20261104/run.json`; validation:
+`build/air-dma-resource-20261104/`. Evidence and payloads are backed up outside
+build before reboot. Collect this exact run before another install. PR317,
+Air6,1 Haswell/fence/TILECTL and Pro Wi-Fi work remain independent.
+
+### Native diagnostic identifies missing MMIO resource coverage
+
+Source `057b8d33` / release `c32abebf3401b572` returned automatically as
+`session-00065f6c2ff63eb2-00`. Initial admission fails specifically at the
+firmware-resource check: checked63 / passed31 / failed32. Profile, exact DMAR,
+unmapped window, mapping retirement and kernel CR3 checks pass; the later clock
+check is unreached. The complete34-entry firmware memory map is structurally
+valid, with **zero intersections** covering `[0xfed90000,0xfed91000)` and no
+conflicting entries. Its nearest disjoint entries are reserved ranges
+`[0xfed1c000,0xfed20000)` and `[0xffd70000,0xffda0000)`.
+
+This establishes missing boot-map coverage, not absence of the VT-d hardware.
+There are zero DMA maps, register reads, retained mappings or writes; aggregate
+capture correctly reports `completed=NO`. Display/full backing observations
+complete. DMA translation state and private-buffer GPU addressability remain
+unknown, and native tear-free presentation is not implemented or accepted.
+
+All1,325 prior files are preserved except expected workspace metadata; two new
+logs are copied/hash-verified. Offline fsck/allocation/writable/headroom,
+independent payloads/recovery, Ubuntu default and consumed one-shot checks pass.
+The matching run is collected; no reboot is armed. Evidence:
+`build/air-dma-admission-native-20261103/returned/`, backed up outside build.
+
+Next: audit fixed-MMIO admission against the exact firmware/device resource
+contract, keeping table identity and RAM-alias protection. Resolve this read-only
+inventory prerequisite before granting any private GPU mappings. The remaining
+presentation milestones are managed GGTT/DMA/layout ownership, inactive-buffer
+publication with matched vblank completion, and restore/owner-death/fault plus
+visible desktop-load acceptance. Existing shadow trials do not replace these.
+
+### Diagnostic preparation checkpoint (before the collected run)
+
+Source `057b8d33` / release `c32abebf3401b572` is installed for the next
+no-input capture, from main `a64661e9` merged as `fe078dba`. The adapter reports
+the first failed prerequisite and up to four firmware-map overlaps plus two
+nearest neighbours. Unreached checks remain distinct from failed classification.
+The reserved-page requirement and register access permissions are unchanged.
+An ASan/UBSan comparison against the previous gate matches all50,000 generated
+catalogs (573 admitted /49,427 refused), with zero maps or MMIO.
+
+Full local host/core/profile/docs and matched normal/AP/native/synthetic builds,
+DMA sanitizers,227 hardware collector tests, exact-stage Q35 refusal with saved
+new diagnostics and automatic return, missing-workspace halt, VirtIO presentation
+and separate Haswell refusal/save/return pass. The default installation suite's
+one opt-in exhaustive I/O matrix is skipped; Actions remain disabled. Host tests
+cover malformed/conflicting/partial/missing/duplicate/truncated resource reports,
+actual adapter checks and historical receipt compatibility. No native result for
+the new diagnostics or DMA-state observation is claimed.
+
+Preparation verifies1,325 prior files /95 sessions, offline filesystem/allocation/
+writable/headroom, exact firmware/GPU identity and independent payloads. Ubuntu
+stays default, USB is unmounted and **no reboot is armed**. Current is c32,
+recovery9aa; refused5f6, accepted shadowd79 and known-goodc497 remain preserved.
+Older62ed EFI payload was archived and fully hash-verified against its durable
+copy before removing only the EFI copy for space. Run record:
+`build/air-dma-admission-native-20261103/`; validation:
+`build/air-dma-admission-20261103/`. Both are backed up outside build.
+
+Next: run this exact automatic capture and collect its matching session before
+any further installation. A guard refusal remains incomplete DMA observation,
+even when reports, clean unmount and automatic Ubuntu return succeed. No input
+is needed; saving/unmount failure still halts visibly. PR317 allocator/VMM work,
+Air6,1 Haswell work and Pro Wi-Fi work retain independent scope and evidence.
+
+### Native DMA capture refused before MMIO; safe return verified
+
+Source `c7c3548d` / release `5f6ec95399aa9dcd` returned automatically as
+`session-00065f6af281f582-00`. The exact raw DMAR identity matched, but the
+first access guard refused (`DMA_ACCESS`, status2): zero mappings, register
+reads, retained mappings or writes. Display and the full1356-entry inherited
+backing observation completed; aggregate capture correctly reports
+`completed=NO`. **Native DMA-state observation is not accepted.**
+
+The resource receipt is all zero. Its current formatter cannot distinguish an
+unreached resource check from failed/missing/ambiguous firmware classification,
+so absence of a reserved entry is a hypothesis, not a proven cause. Next: make
+individual admission checks and relevant memory-map entries observable without
+MMIO or relaxing the reserved-page requirement. No private GPU mappings, control
+writes, root-table walk, DMA authority or physical tear-free output is accepted.
+See the [capture contract](../macbookair7-2-dma-observation.md).
+
+Consumed main `10890eed` at `06f1a23f`, preserving the independent Haswell
+capture and both Makefile test groups. Full local host/core/profile/docs and
+matched normal/AP/native/synthetic kernel builds pass. Pure DMA-core ASan/UBSan,
+all collector tests, exact-stage Q35 refusal with zero MMIO/save/unmount/reset,
+missing-workspace halt, ordinary VirtIO presentation and separate Haswell Q35
+refusal/save/return pass. The real Linux DMAR reference parses through the actual
+core with the pinned hash, without reading live registers. Tests cover exact
+scopes/checksum/pin separation, both TES states, torn/changed reads, every read/
+map/guard/unmap failure, clock rollback/freeze, actual adapter resource/window
+identity and sticky mapping retirement. Actions remain disabled.
+
+Collection preserves the1,323 prior files except expected workspace metadata,
+with exactly two new session logs copied and hash-verified. Offline filesystem,
+allocation, writable and headroom checks and installed/recovery payload checks
+pass. Ubuntu remains default; the one-shot is consumed and no reboot is armed.
+Host volume was verified at1% before reboot; this capture enabled no guest audio.
+Current remains diagnostic5f6; accepted shadowd79, known-goodc497 and recovery9aa
+remain independently preserved.
+
+Run record and return proof: `build/air-dma-observe-native-20261103/`; validation:
+`build/air-dma-observe-20261103/`. Both have independent evidence backups outside
+build. Refusal evidence remains distinct from passing display/backing and return
+integrity. No GUI/input/audible acceptance is claimed. PR317's allocator/VMM/
+DMA audit remains separate; Air6,1/device gates are not widened.
+
+### GPU address reservations implemented; host/VM validation complete
+
+Consumed integration main `1a5a6dee` at `9541ce4e`, retaining both appended
+Makefile test groups and exact recursive submodule revisions. SrvrPorts is
+explicitly advanced to merged `ca749517` for its reviewed strict-host spawn
+fix. Source `96b5cc0e` passes the full local host/core/profile/docs and matched
+normal/AP/native/synthetic kernel builds, hardware collectors, ASan/UBSan,
+three deliberately broken reservation controls, guest PMM shadow fixture,
+VirtIO owner-death/reacquisition and ordinary desktop/Open With regression.
+Actions remain disabled; no hosted CI pass is claimed.
+
+The new CPU0 address lease core defaults every page to unavailable. Explicit
+managed intervals are distinct from protected inherited/fence intervals;
+protected pages always win. Epoch/serial tokens survive owner/slot reuse,
+exposure blocks premature release, and uncertain exposure quarantines its range
+and blocks new admission. The independent 50,000-operation allocation oracle
+covers10,803 allocations/10,792 releases/17,564 refusals at193 distinct starts.
+Removing protection, serial identity or retirement proof makes the regressions
+fail. This is software groundwork: **no native managed range or GGTT writer**.
+See the [reservation contract](../native-scanout-reservations.md).
+
+Read-only Ubuntu DMAR reference identifies a GPU-scoped remapping unit and an
+RMRR covering the observed table/stolen data. It does not read live translation
+state or authorize private RAM DMA. The visible1350-page shadow allocation also
+is not the1356-page padded tiled scanout layout. Next: source-bound, read-only
+native DMA/ownership inventory and explicit padded-layout/route/restore audit
+before any writer. PR317's allocator/VMM/DMA audit and PR324's Haswell capture
+remain separate; their hardware gates are not widened.
+
+Current integration exposed strict Linux host-fixture declarations/formatting
+and a fortified profile-test path-buffer issue. The relevant published Air6,1
+fixes were consumed, the remaining profile declarations/statement boundaries
+corrected, and the fixture now uses libc's allocated realpath result. Warnings,
+fortification and assertions remain enabled. Failed/interrupted attempts are
+preserved; the final complete PASS is separately source-bound to96b5cc0e.
+
+Evidence and checkpoint: `build/air-ggtt-reservation-20261103/`, independently
+backed up outside build. VM-only fixture release `0bd51a1b900015ff` is staged,
+not installed. EFI current remains accepted shadow capture `d79f3ca9a74fa201`
+(source `ae598610`), recovery9aa, with current/recovery/known-good/prior payloads
+matching independent copies. Ubuntu remains default, USB is mounted, and no
+reboot is armed. New software is not physically accepted; PR301 is updated.
+
+### Native shadow scanout lifetime trial accepted
+
+Source `ae598610` / release `d79f3ca9a74fa201` returned automatically and is
+collected as `session-00065f687e92a7ff-00`. All eight private-RAM shadow cases
+pass:12 copies,13 requests,10 matched completions and3 restores. At1350 frames
+per buffer,21600 frames are allocated,13500 released and8100 deliberately
+retained by the three injected faults until reboot. DMA accounting matches
+57→8157. Native frame pacing takes169137us in total with1268 polls and a
+maximum wait16635us. Every completion retains its exact epoch/serial, targets,
+frame advance and timestamps. Final full fence/PTE revalidation passes.
+
+This accepts private PMM ownership and the bounded **shadow** lifetime trial.
+There are zero GPU control/GGTT/fence/plane writes, no private GPU mappings and
+no native desktop backend. Hardware ownership, real page-flip completion and
+visible tear-free output remain unaccepted. Ordinary console progress still
+uses the inherited framebuffer. See the [lifetime contract](../scanout-buffer-lifetime.md).
+
+All1321 prior files are preserved except expected filesystem metadata. The two
+new logs are copied/hash-verified, the matching collector has no attention flags,
+and offline fsck/allocation/writable/headroom checks pass. Ubuntu remains the
+default, the one-shot is consumed and current/prior/known-good/recovery payloads
+match independent copies. USB is remounted; no new boot is armed. Evidence:
+`build/air-scanout-lifetime-native-20261103/returned/`, independently backed up
+outside build. PR301 contains the scoped implementation and validation.
+
+Full host/core/profile/docs/build and ordinary VirtIO/Open With gates pass on
+`f714bbd9`, including VirtIO owner death and reacquisition. The final epoch-auth
+change at `ae598610` repeats directed tests, ASan/UBSan, matched kernels, guest
+PMM fixture, exact Q35 refusal/save/unmount/reset and missing-volume halt.
+The initial f714/41e candidate was superseded before boot; its evidence remains.
+Merged GCC portability fixes preserve warnings and assertions. Actions stay off.
+Next: establish an auditable GGTT reservation/DMA/firmware-exclusion and
+route/restore contract before implementing any native writer. Preserve the
+whole inherited34MiB fence and every firmware allocation.
+
+### Active scanout lifetime milestone
+
+Integration base `4c4c37a5`, merged at `396cc9c7`, consumes HiDPI/profile/install
+and independent Air6,1 audit work with exact recursive submodule pins. Preserve
+Air6,1's no-write owner and unknown assurances. Air7,2 now owns an isolated
+scanout lifetime core and opt-in native shadow-publication trial: private PMM
+buffers, epoch/serial identity, inactive-only CPU writes, queued publication,
+matching completion, cancellation/drain/restore and retained-fault behavior.
+No native GTT/plane writer or GUI capability is enabled by this milestone.
+Unknown GGTT/DMA/takeover authority remains a refusal for real publication.
+Shared touchpoints are the existing Intel capture adapter, boot/staging/collector
+and new pure lifetime code/tests; ordinary VirtIO and application APIs retain
+their behavior. PR301 is the review surface; PR252 audit, PR19 Wi-Fi and other
+agents' installed/profile/browser work remain separate. Host/VM validation and the bounded native shadow trial are complete. The next
+checkpoint is the explicit hardware-ownership contract; no further boot is armed.
+
+### Native backing readout accepted
+
+Release `3a3b2f00b9ff7eca` / source `10966846` returned automatically and is
+collected as `session-00065f66d0e1ad3c-00`. The complete39211-byte exit log
+retains both observations. All1356 raw PTEs match across two traversals, with
+4280 reads each in825us/822us, present and contiguous within captured64MiB
+stolen data memory. Firmware reserves the enclosing range. Unique X-fence0
+matches pitch6144 and covers34MiB; the visible/padded extents are5529600/
+5554176 bytes. All22 backing mappings retire, retained0/writes0. This accepts
+the bounded read-only backing relationship, not an allocator, ownership or flips.
+
+All1319 prior files are preserved except expected filesystem metadata. Both new
+logs are copied/hash-verified; offline fsck/allocation/writable/headroom pass with
+zero leaks/mismatches, the one-shot is consumed, Ubuntu stays default and retained
+payloads/recovery match independent copies. USB is remounted; no new boot is
+armed. Evidence: `build/air-intel-backing-native-20261103/returned/`, backed up
+outside build. Next: explicit scanout/buffer ownership and retirement design;
+preserve the full inherited fence and every firmware allocation, not just visible
+pixels. See the [native backing findings](../macbookair7-2-display-presentation.md#native-backing-observation-2026-11-03).
+
+### Bounded backing readout ready for automated native trial
+
+Source `10966846` / release `3a3b2f00b9ff7eca` implements the separate opt-in
+fence/GGTT readout described in the [display contract](../macbookair7-2-display-presentation.md#bounded-backing-readout-implementation).
+Local host/core/docs and normal/AP/native/synthetic kernel builds pass, as do
+staging/collector tests, exact-stage Q35 refusal/save/unmount/reset, missing-volume
+halt, default-off VirtIO presentation and ordinary Open With regressions.
+The first full gate exposed a merged shell host-test declaration issue on
+Ubuntu; a separate POSIX feature-macro fix passes its56-check fixture and the
+complete rerun. Both attempt logs are retained. Actions remain disabled.
+
+The proposed native trial needs no input. It observes32 fences, at most1536
+raw GGTT entries and framebuffer translations/classifications, then saves and
+returns automatically after clean unmount. No GPU/GTT/fence/control writes or
+buffer adoption occur. Collect and independently validate the matching raw
+vector, hashes, padded layout, covering fence and stolen-memory classification
+before claiming a recognized backing relationship. Exclusive ownership and
+tear-free output remain unaccepted. Preparation/reboot state belongs to
+`build/air-intel-backing-native-20261103/run.json`; validation and independent
+candidate backup are recorded in `build/air-intel-backing-20261103/`.
+
+Preparation passed on the local model/firmware: 1319 prior files and92 sessions
+are baselined, offline fsck/allocation/writable/headroom pass and USB is
+unmounted. Release3a3b is installed; preceding c605, accepted c497 and recovery9aa
+are retained and independently verified, with Ubuntu still default. The obsolete
+6ee EFI copy was archived and fully hash-verified before removing only that copy
+for space. The run record tracks one-shot arming and subsequent return; native
+backing acceptance is pending until its matching report is collected.
+
+### Active backing-readout scope
+
+Consumed main `bfdcab65` (Air6,1 backing readout, window snapping and Terminal
+quoting) at merge `df893f1f`. Next bounded Air7,2 objective: decode the accepted
+tiled primary plane, observe CPU aperture fences and narrowly bounded GGTT PTEs,
+and classify their relationship to PCI stolen-memory bounds and the inherited
+framebuffer translations. No pixel reads, allocator adoption, mapping/control
+writes or flips. Touch only isolated Intel observation code, its host/collector
+fixtures and the existing opt-in capture path; preserve version1 capture and
+Air6,1's independent diagnostic. PR303 owns HiDPI userspace, PR19 Wi-Fi and PR252
+audit. Validate host refusal/retirement and matched VM/default-off regressions
+before preparing a source-bound automated physical readout.
+
+### Native Intel read-only observation accepted
+
+Release `c60576b371caaab4` / compiled source `5c8c0569` returned automatically;
+matching `session-00065f6627117de5-00` contains complete boot/exit logs and a
+validated version1 report. Two58-read samples, 20084us apart, retain stable
+identity/access, power-well and non-counter state. All9 temporary mappings are
+retired with zero retained mappings and zero capture writes. One active plane
+reports1440×900/pitch6144; raw control `0xd8000400` and surface/live0 are saved.
+The numerical linear-relation check does not pass; GGTT backing remains unproven.
+See the [display evidence and next checkpoint](../macbookair7-2-display-presentation.md#first-native-observation-2026-11-03).
+
+All1317 prior files are preserved except expected filesystem metadata. Two new
+logs are copied/hash-verified. Offline fsck/allocation/writable/headroom pass,
+Ubuntu remains default, the one-shot is consumed and recovery/accepted/prior
+payloads match their independent copies. USB is remounted; no new boot is armed.
+The accepted scope is bounded read-only observation on this unit, not scanout
+ownership or tear-free output. PR301 remains the review surface; next work is a
+bounded read-only layout/GGTT/backing proof before mutating display state.
+Evidence: `build/air-intel-observe-native-20261103/returned/`, independently backed
+up under the unit's reviewed-evidence storage outside build.
+
+### Read-only Intel snapshot ready for native collection
+
+Draft PR301 implements the first display milestone on base `fa8e503f`.
+Compiled source `5c8c0569`, release `c60576b371caaab4`, passes local directed
+host tests and matched kernel builds. The preceding full gate at `72f2b934`
+also passes core, Open With and default-off VirtIO regressions; the final delta
+adds only clock-rollback refusal and its tests. Exact-stage Q35 refuses the
+hardware identity before mapping, saves its receipt, unmounts and resets. A
+missing workspace halts visibly. Actions remain disabled.
+
+The automated native snapshot is installed with USB `37D8-C5D0` unmounted and
+offline fsck/allocation/writable/headroom checks passing. Baseline: 1317 files,
+91 sessions. It needs no tester input and returns to Ubuntu after saved results
+and clean unmount, including handled observation refusal. Persistence failure
+halts visibly. Current one-shot state lives in the run record, not this prose.
+Recovery `9aa8dbf6fbda8252`, accepted `c497eb0cb48c1b01` and prior `6ee815bb354a4100`
+are retained and independently verified. Only obsolete EFI payload `f586e4a2d58cb3ab`
+was archived, fully hash-verified and removed from EFI to make space.
+
+Collect the matching boot/exit logs before another trial and validate the raw
+versioned report, stable endpoints, timing and mapping retirement, followed by
+file preservation and offline integrity/recovery. Native observation remains
+pending; no scanout ownership, page flips or tear-free acceptance is claimed.
+Run: `build/air-intel-observe-native-20261103/run.json`; local validation:
+`build/air-tearfree-20261103/observe-final-validation.json`.
+
+### Native display observation implementation scope
+
+Implementation base `fa8e503f` consumes Air6,1 PR296's independent no-write
+ownership model. Air7,2's bounded objective is an opt-in read-only inherited
+Broadwell capture: exact firmware/GPU/subsystem/PCH admission, existing D0/decode,
+fixed BAR and framebuffer validation, read-only page allowlist, stable access/well
+endpoints, and raw plane/timing/counter records. No native scanout mutation or
+power/HDA ownership is included. Reuse the existing pure PCI snapshot helper;
+keep the Haswell diagnostic/profile gates unchanged. Shared touchpoints are
+main boot dispatch, kernel build lists, capture staging/collection and new
+isolated Intel capture code/tests. PR297 owns window snapping, PR19 Wi-Fi and
+PR252 audit remain separate.
+
+Publish/validate host positive and refusal fixtures, default-off and absent-device
+VM behavior, complete captured receipts and ordinary desktop/VirtIO regressions.
+The physical snapshot is a later source-bound automated trial, with normal
+Ubuntu return after saved results and no human input required. Unknown display
+state is not ownership or flip acceptance. No physical test is armed yet.
+Evidence/checkpoint: `build/air-tearfree-20261103/`.
 
 ### Merged baseline and next native display scope
 

@@ -10,6 +10,35 @@ volatile struct limine_bootloader_info_request bootloader_info_request = {
     .revision = 0
 };
 
+#if defined(SRVROS_INTEL_HDA_OWNER) && !defined(SRVROS_INTEL_HDA_LEASE)
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_firmware_type_request intel_hda_owner_firmware_request = {
+    .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0
+};
+#endif
+
+#ifdef SRVROS_INTEL_HDA_LEASE
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_firmware_type_request intel_hda_lease_firmware_request = {
+    .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0
+};
+#endif
+
+#ifdef SRVROS_INTEL_HDA_OBSERVER
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_firmware_type_request intel_hda_firmware_request = {
+    .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0
+};
+#endif
+
+#ifdef SRVROS_INTEL_WAKE_TRIAL
+/* Separate diagnostic image only; ordinary boot has no new request or writer. */
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_firmware_type_request intel_wake_firmware_request = {
+    .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0
+};
+#endif
+
 __attribute__((used, section(".limine_requests")))
 volatile struct limine_executable_cmdline_request executable_cmdline_request = {
     .id = LIMINE_EXECUTABLE_CMDLINE_REQUEST_ID,

@@ -17,7 +17,11 @@ void gui_process_cleanup(uint64_t p) {(void)p;assert(0);}
 void kfree(void *p) {free(p);}
 int64_t net_close(uint64_t p) {(void)p;assert(0);return -1;}
 void net_process_cleanup(struct process *p) {(void)p;assert(0);}
-void net_process_wake(struct process *p) {(void)p;assert(0);}
+static bool scope_wakes,detach_during_clear;
+static unsigned scope_net_wakes;
+void net_process_wake(struct process *p) {assert(scope_wakes && p);scope_net_wakes++;}
+void keyboard_wake_waiters(void) {assert(scope_wakes);}
+void pty_wake(void) {assert(scope_wakes);}
 void process_context_restore(struct process_context *p,uint64_t v) {(void)p;(void)v;abort();}
 void pty_close(uint64_t p,bool master) {(void)p;(void)master;assert(0);}
 void scheduler_clear_user_context(void) {assert(0);}
@@ -70,6 +74,7 @@ static unsigned char backing[1024*4096];
 void console_printf(const char *format,...) {(void)format;console_prints++;}
 void scheduler_wake_all(struct scheduler_wait_queue *queue) {
     if(check_thread_hook) {assert(current && queue==&current->thread_wait_queue && current->owned_user_scope);longjmp(exit_hook,1);}
+    if(scope_wakes) {wakes++;return;}
     if(queue==&process_wait_queue){wakes++;return;}
     assert(queue==&futexes[0].wait_queue && futexes[0].invalidated && depth);
     int64_t i=process_mapping_index(observed,futexes[0].address);
@@ -84,6 +89,7 @@ void scheduler_io_checkpoint(void) {
     if(protection_watch) { assert(protects-protected_at_checkpoint<=32);protected_at_checkpoint=protects; }
     if(protection_watch)for(uint64_t i=0;i<observed->mapping_count;i++)
         assert(observed->mappings[i].flags==leaf_flags[observed->mappings[i].physical_address/4096]);
+    if(detach_during_clear) {detach_during_clear=false;user_scope_detach(current);}
     if(checkpoint_scope) {
         struct process_lifetime *life=lifetime_find(checkpoint_scope);
         assert(life && life->members==1 && !life->reservation && depth &&
@@ -543,7 +549,9 @@ static void session_scope_contract(void) {
     assert(!process_scope_control(SRV_SCOPE_RELEASE,token,NULL));
     assert(!process_scope_create(&token));assert(!process_scope_reserve(token));
     child=alloc_process_lifetime("root",true,token);assert(child);
+    scope_wakes=true;
     user_scope_detach(current);assert(!current->owned_user_scope);
+    assert(child->killed && child->kill_signal==SRV_SIGNAL_KILL && scope_net_wakes==1);
     assert(process_scope_create(&other)==SRV_ERR_BUSY);
     child->active=false;child->reapable=true;child->exit_status=0;
     memset(child->files,0,sizeof(child->files));
@@ -579,7 +587,7 @@ static void session_scope_contract(void) {
     check_thread_hook=false;assert(current->owned_user_scope==token && current->main_thread_exited);
     assert(trap_invalidations==1 && !current->main_signal_state.stack.depth);
     user_scope_detach(current);current->main_thread_exited=false;
-    /* Preserve the loop selector across the simulated process-exit longjmp. */
+    /* This loop resumes through longjmp; retain its counter explicitly. */
     for(volatile unsigned worker=0;worker<2;worker++) {
         assert(!process_scope_create(&token));
         assert(!process_scope_reserve(token));
@@ -597,9 +605,43 @@ static void session_scope_contract(void) {
     }
     assert(!process_scope_create(&other)); /* No stranded ownerless reservation. */
     user_scope_detach(current);
-    current=NULL;
+    /* Losing an owner cancels the whole capability-scoped tree, including
+     * children outside its process group; an unrelated process is untouched.
+     * Explicit revoke alone remains graceful. */
+    assert(!process_scope_create(&token));
+    assert(!process_scope_reserve(token));
+    child=alloc_process_lifetime("root",true,token);assert(child);
+    struct process *owner=current;current=child;
+    struct process *grandchild=alloc_process("descendant",true);assert(grandchild);
+    current=owner;grandchild->process_group=999;
+    child->signal_ignore_mask=UINT64_MAX;grandchild->main_signal_mask=UINT64_MAX;
+    processes[4]=(struct process){.allocated=true,.active=true,.pid=999};
+    assert(!process_scope_control(SRV_SCOPE_REVOKE,token,NULL));
+    assert(!child->killed && !grandchild->killed);
+    unsigned before=scope_net_wakes;
+    user_scope_detach(owner);
+    assert(child->killed && child->kill_signal==SRV_SIGNAL_KILL);
+    assert(grandchild->killed && grandchild->kill_signal==SRV_SIGNAL_KILL);
+    assert(scope_net_wakes==before+2 && !processes[4].killed);
+    assert(lifetime_find(token)->members==2 && !lifetime_find(token)->owner);
+    assert(process_scope_create(&other)==SRV_ERR_BUSY);
+    user_scope_detach(owner);assert(scope_net_wakes==before+2); /* idempotent */
+    child->active=false;child->exit_status=137;release_process(child);
+    assert(lifetime_find(token)->members==1);
+    grandchild->active=false;grandchild->exit_status=137;release_process(grandchild);
+    assert(!lifetime_find(token));
+    /* The owner can disappear while clear_process yields before the reserved
+     * child is published. Its reference must survive and it must start killed. */
+    assert(!process_scope_create(&token));assert(!process_scope_reserve(token));
+    detach_during_clear=true;
+    child=alloc_process_lifetime("late-root",true,token);assert(child && !detach_during_clear);
+    assert(child->killed && child->kill_signal==SRV_SIGNAL_KILL);
+    assert(lifetime_find(token)->members==1 && !lifetime_find(token)->owner);
+    child->active=false;child->exit_status=137;release_process(child);
+    assert(!lifetime_find(token));
+    scope_wakes=false;current=NULL;
     memset(processes,0,sizeof(processes));memset(process_lifetimes,0,sizeof(process_lifetimes));
-    puts("session-scope: PASS reservation/revoke, single root, fast reap errors, stale capability and ownerless zero retirement");
+    puts("session-scope: PASS reservation/revoke, single root, fast reap errors, stale capability, orphan tree cancellation and late publication");
 }
 
 int main(void) {

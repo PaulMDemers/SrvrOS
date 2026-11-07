@@ -1230,7 +1230,13 @@ zero membership before releasing the scope. A still-running descendant blocks
 the next desktop; a timeout is never interpreted as successful shutdown. After
 GUI exit, waiting/errors are shown on the console. Unknown root exits, scope
 errors or uncertain retirement do not open a new chooser. Ownerless revoked
-scopes need the normal live init reaper to make retirement progress.
+scopes cancel their active members with unmaskable kernel cancellation when the
+owner exits or replaces its image. This differs from explicit graceful revoke:
+a dead authority cannot finish the session protocol. Cancellation only requests
+exit and wakes waiters; it does not release live mappings, pending I/O or scope
+references. Children published after a yielding allocation also inherit that
+cancellation. The normal live init reaper completes actual retirement before a
+new scope is admitted.
 
 The next profile starts in a fresh process with its own HOME, profile ID,
 XDG config/data/cache paths and six portable preferences. Its clipboard,

@@ -121,22 +121,52 @@ def main():
                     raise AssertionError("scroll session exited before its screenshot")
                 shot("desktop-after-scroll", delay=.1)
                 wait(b"deskd: gfx-present end");wait(b"deskd: exited");wait(b"srv> ")
-                # Start a separate background owner and terminate it through the
-                # monitor, then prove ownership and console are recoverable.
-                crash_start=len(output)
-                serial.sendall(b"bg /fat/bin/deskd\n")
-                wait(b"bg: started pid=");wait(b" ")
-                match = re.findall(rb"bg: started pid=(\d+) /fat/bin/deskd", bytes(output))
-                if not match:
-                    wait(b"/fat/bin/deskd");match = re.findall(rb"bg: started pid=(\d+) /fat/bin/deskd", bytes(output))
-                if not match: raise AssertionError("background desktop PID missing")
-                pid = match[-1];wait(b"deskd: ready;");wait_since(b"deskd: gfx-present begin", crash_start);time.sleep(1)
-                serial.sendall(b"kill "+pid+b"\n");wait(b"kill: requested process stop");time.sleep(2)
-                serial.sendall(b"run /fat/bin/guifail --console-muted\n")
-                wait(b"guifail: console-muted=0");wait(b"srv> ")
-                serial.sendall(b"echo virtio-present-console-ok\n")
-                wait(b"\nvirtio-present-console-ok\r\n");wait(b"srv> ")
-                shot("console-after-kill", min_colors=2)
+                # Exercise both halves of the session architecture: the GUI
+                # root dies with its supervisor alive, then the supervisor dies
+                # while its root still owns the presenter. Each must restore the
+                # console through actual teardown before reacquisition.
+                killed_sessions=[]
+                for victim in ("compositor", "supervisor"):
+                    crash_start=len(output)
+                    serial.sendall(b"bg /fat/bin/deskd\n")
+                    wait(b"bg: started pid=");wait(b"/fat/bin/deskd")
+                    match=re.search(rb"bg: started pid=(\d+) /fat/bin/deskd", bytes(output[crash_start:]))
+                    if not match: raise AssertionError("background supervisor PID missing")
+                    supervisor=match[1]
+                    wait_since(b"session: phase=started", crash_start)
+                    wait(b"deskd: ready;");wait_since(b"deskd: gfx-present begin", crash_start)
+                    root=re.search(rb"session: phase=started token=(\d+) pid=(\d+)", bytes(output[crash_start:]))
+                    if not root or root[2]==supervisor:
+                        raise AssertionError("distinct scoped compositor PID missing")
+                    pid=root[2] if victim=="compositor" else supervisor
+                    time.sleep(1)
+                    probe_start=len(output)
+                    if victim=="supervisor":
+                        # Establish a real muted observation before revoking
+                        # its owner, so this also exercises the waiting path.
+                        serial.sendall(b'run /fat/bin/sh -c "/fat/bin/guifail --console-unmuted-wait &"\n')
+                        wait_since(b"guifail: console-recovery waiting",probe_start)
+                    serial.sendall(b"kill "+pid+b"\n");wait(b"kill: requested process stop")
+                    wait_since(b"bg: pid="+supervisor+b" exited status=", crash_start)
+                    # A dead supervisor revokes its tree asynchronously. Its
+                    # reap receipt is not the compositor's retirement receipt.
+                    # Query the real mute state without forcing restoration.
+                    if victim=="compositor":
+                        probe_start=len(output)
+                        serial.sendall(b"run /fat/bin/guifail --console-unmuted-wait\n")
+                    wait_since(b"guifail: console-muted=0",probe_start)
+                    wait_since(b"guifail: console-recovery ticks=",probe_start)
+                    serial.sendall(b"echo virtio-present-console-ok\n")
+                    wait(b"\nvirtio-present-console-ok\r\n");wait(b"srv> ")
+                    recovery=re.search(rb"guifail: console-recovery ticks=(\d+) polls=(\d+)",bytes(output[probe_start:]))
+                    if not recovery or int(recovery[1])>200 or not 1<=int(recovery[2])<=201:
+                        raise AssertionError("missing bounded console recovery measurement")
+                    if victim=="supervisor" and int(recovery[2])<2:
+                        raise AssertionError("supervisor recovery did not exercise a live wait")
+                    shot("console-after-kill-"+victim, min_colors=2)
+                    killed_sessions.append({"victim":victim,"supervisor":int(supervisor),
+                                            "compositor":int(root[2]),"console_muted":False,"recovery_limit_ticks":200,
+                                            "recovery_ticks":int(recovery[1]),"recovery_polls":int(recovery[2])})
                 restart_start=len(output)
                 serial.sendall(b"run /fat/bin/deskd --smoke\n")
                 wait(b"deskd: ready;");wait_since(b"deskd: gfx-present begin", restart_start)
@@ -149,13 +179,13 @@ def main():
                 if has_fatal_exception(decoded) or re.search(r"\b(?:FAIL|PANIC)\b", decoded) or "gfx-present frame failed" in decoded:
                     raise AssertionError("guest failure; see serial.log")
                 ends = re.findall(r"deskd: exited frames=(\d+)", decoded)
-                if bytes(output).count(b"deskd: gfx-present begin") != 4:
-                    raise AssertionError("expected four separate presenter acquisitions")
+                if bytes(output).count(b"deskd: gfx-present begin") != 5:
+                    raise AssertionError("expected five separate presenter acquisitions")
                 if len(ends)<3 or int(ends[0])<2:
                     raise AssertionError(f"missing repeated presented frames: {ends}")
                 (out / "result.json").write_text(json.dumps({"status":"PASS", "frame_counts":ends,
-                    "checks":["glass desktop", "drag updates", "scroll", "normal console restore", "abrupt owner termination", "reacquisition"],
-                    "provenance":metadata}, indent=2)+"\n")
+                    "checks":["glass desktop", "drag updates", "scroll", "normal console restore", "compositor termination", "supervisor termination", "reacquisition"],
+                    "killed_sessions":killed_sessions, "provenance":metadata}, indent=2)+"\n")
             except BaseException:
                 if qmp and process and process.poll() is None:
                     try: qmp.call("screendump", {"filename": str(out / "failure.ppm")})
