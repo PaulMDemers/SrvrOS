@@ -869,10 +869,11 @@ void kmain(void) {
                 if(checkpoint)console_write("intel-hda: preflight checkpoint saved\n");
                 bool hda_ok=checkpoint && intel_display_hda_probe_report();sampled=sampled && hda_ok;
             }
-            if(cmdline_has_token(cmdline,"srvros.intel-hda=owner-trial")) {
-                console_write("intel-hda-owner: saving preflight; automatic requester inhibit/restore, no input needed. Uncertain state halts on this screen; photograph it.\n");
+            if(cmdline_has_token(cmdline,"srvros.intel-hda=owner-trial") || cmdline_has_token(cmdline,"srvros.intel-hda=lease-trial")) {
+                bool lease=cmdline_has_token(cmdline,"srvros.intel-hda=lease-trial");
+                console_printf("%s: saving preflight; automatic requester inhibit/restore, no input needed. Uncertain state halts on this screen; photograph it.\n",lease?"intel-hda-lease":"intel-hda-owner");
                 bool checkpoint=started && workspace_log_pause();
-                if(checkpoint)console_write("intel-hda-owner: preflight checkpoint saved\n");
+                if(checkpoint)console_printf("%s: preflight checkpoint saved\n",lease?"intel-hda-lease":"intel-hda-owner");
                 bool hda_ok=checkpoint && intel_display_hda_owner_report();sampled=sampled && hda_ok;
             }
             bool fixture=cmdline_has_token(cmdline,"srvros.intel-lifetime=fixture");

@@ -10,9 +10,16 @@ volatile struct limine_bootloader_info_request bootloader_info_request = {
     .revision = 0
 };
 
-#ifdef SRVROS_INTEL_HDA_OWNER
+#if defined(SRVROS_INTEL_HDA_OWNER) && !defined(SRVROS_INTEL_HDA_LEASE)
 __attribute__((used, section(".limine_requests")))
 volatile struct limine_firmware_type_request intel_hda_owner_firmware_request = {
+    .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0
+};
+#endif
+
+#ifdef SRVROS_INTEL_HDA_LEASE
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_firmware_type_request intel_hda_lease_firmware_request = {
     .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0
 };
 #endif

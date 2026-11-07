@@ -5,7 +5,7 @@ Updated: 2026-11-07. State: **active reference machine; partial device acceptanc
 ### Active scope: maintained display-HDA inhibit lease
 
 Main `e8e56ee3` is integrated. PR401 owns Air6,1 census timing, PR19 Pro Wi-Fi
-and PR379 WebCore; no current HDA overlap was found. Split the accepted bounded
+and PR379 WebCore; no current HDA overlap was found. The [lease contract](../intel-display-hda-lease.md) splits the accepted bounded
 requester round trip into one-use open/pin/check/unpin/close operations with
 sealed owner/epoch tokens, a captured I/O context and fresh guards. Refuse restore
 while dependents are pinned; retain inhibited ownership on uncertain transitions

@@ -573,6 +573,13 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-hda-lease-phase:'):
+        from intel_hda_lease import phase_needs_attention
+        return phase_needs_attention(line)
+    if line.startswith('intel-hda-lease-summary:'):
+        from intel_hda_lease import lease_summary
+        try:return not lease_summary(line)['complete']
+        except ValueError:return True
     if line.startswith('intel-hda-owner-phase:'):
         from intel_hda_owner import phase_needs_attention
         return phase_needs_attention(line)
@@ -926,6 +933,12 @@ def collect(mount, volume, output):
                 intel_engines=engine_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not intel_engines or not intel_engines['observation_complete'] or not intel_wake or not intel_wake['native_wake_complete']:attention.append('Intel engine census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel engine census: '+str(error))
+        if 'srvros.intel-hda=lease-trial' in text:
+            from intel_hda_lease import native_lease_result,verify_lease_checkpoint
+            try:
+                lease=native_lease_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not lease or not lease['native_trial_complete'] or not verify_lease_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA maintained lease incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel display-HDA maintained lease: '+str(error))
         if 'srvros.intel-hda=owner-trial' in text:
             from intel_hda_owner import native_owner_result,verify_owner_checkpoint
             try:

@@ -48,5 +48,14 @@ int main(void) {
   assert(!intel_gt_boot_hda_owner_recipe(bad));start=*end?end+1:end;
  }
  for(unsigned i=0;i<6;i++){snprintf(bad,sizeof(bad),"%s %s",owner,foreign[i]);assert(!intel_gt_boot_hda_owner_recipe(bad));}
+ char lease[2048];const char *mode=strstr(owner,"srvros.intel-hda=owner-trial");
+ snprintf(lease,sizeof(lease),"%.*ssrvros.intel-hda=lease-trial%s",(int)(mode-owner),owner,mode+strlen("srvros.intel-hda=owner-trial"));
+ assert(intel_gt_boot_hda_lease_recipe(lease) && !intel_gt_boot_hda_owner_recipe(lease) && !intel_gt_boot_hda_lease_recipe(owner));
+ for(const char *start=lease;*start;) {
+  const char *end=start;while(*end && *end!=' ')end++;
+  snprintf(bad,sizeof(bad),"%.*s%s",(int)(start-lease),lease,*end?end+1:end);assert(!intel_gt_boot_hda_lease_recipe(bad));
+  snprintf(bad,sizeof(bad),"%s %.*s",lease,(int)(end-start),start);assert(!intel_gt_boot_hda_lease_recipe(bad));start=*end?end+1:end;
+ }
+ for(unsigned i=0;i<6;i++){snprintf(bad,sizeof(bad),"%s %s",lease,foreign[i]);assert(!intel_gt_boot_hda_lease_recipe(bad));}
  puts("intel-gt-boot: PASS explicit cooperative policy, all ten independent facts, strict complete recipe and untrusted/duplicate/long token refusal; not SMM retirement");
 }

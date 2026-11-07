@@ -53,17 +53,65 @@ static bool transition(struct intel_hda_owner_result *r,struct intel_hda_owner_i
  if(!guard(r,io,to))return false;
  return true;
 }
-bool intel_hda_owner_trial(struct intel_hda_owner_result *r,struct intel_hda_owner_facts f,struct intel_hda_owner_io io) {
+static uint64_t owner_epochs;
+static bool fault(struct intel_hda_owner_result *r) {
+ r->state=INTEL_HDA_OWNER_FAULT;
+ if(r->attempts)r->retained=true;
+ if(!r->reason)r->reason=4;
+ return false;
+}
+bool intel_hda_owner_live(const struct intel_hda_owner_result *r,const struct intel_hda_owner_token *t) {
+ return r && t && r->object==r && t->owner==r && t->epoch && t->epoch==r->epoch &&
+  r->state==INTEL_HDA_OWNER_LIVE && r->inhibited && !r->retained && !r->reason;
+}
+bool intel_hda_owner_open(struct intel_hda_owner_result *r,struct intel_hda_owner_facts f,struct intel_hda_owner_io io,struct intel_hda_owner_token *t) {
  if(!r || r->object)return false;
  *r=(struct intel_hda_owner_result){.object=r};
  r->admitted=f.compiled && f.recipe && f.efi64 && f.loader && f.profile && f.serialized && f.excluded && f.prerequisites;
- if(!r->admitted || !io.inspect || !io.guard || !io.endpoint || !io.command16 || !io.now){r->reason=1;return false;}
+ if(!t || !r->admitted || !io.inspect || !io.guard || !io.endpoint || !io.command16 || !io.now || owner_epochs==UINT64_MAX){r->reason=1;return fault(r);}
+ r->io=io;r->epoch=++owner_epochs;
  r->begin_us=r->last_us=io.now(io.ctx);
- if(!r->begin_us){r->reason=2;return false;}
- if(!inspect(r,io,6) || !transition(r,io,6,2) || !inspect(r,io,2))return false;
- r->inhibited=true;
- if(!transition(r,io,2,6) || !inspect(r,io,6) || !guard(r,io,6))return false;
+ if(!r->begin_us){r->reason=2;return fault(r);}
+ if(!inspect(r,io,6) || !transition(r,io,6,2) || !inspect(r,io,2))return fault(r);
+ r->inhibited=true;r->retained=false;r->state=INTEL_HDA_OWNER_LIVE;
+ *t=(struct intel_hda_owner_token){r,r->epoch};return true;
+}
+bool intel_hda_owner_pin(struct intel_hda_owner_result *r,const struct intel_hda_owner_token *t,struct intel_hda_owner_borrow *b) {
+ if(!intel_hda_owner_live(r,t) || !b || b->object || r->pins==UINT32_MAX)return false;
+ *b=(struct intel_hda_owner_borrow){.object=b,.owner=r,.epoch=r->epoch};
+ if(!guard(r,r->io,2))return fault(r);
+ r->pins++;b->active=true;return true;
+}
+static bool borrowed(struct intel_hda_owner_result *r,const struct intel_hda_owner_borrow *b) {
+ return b && b->object==b && b->owner==r && b->active &&
+  intel_hda_owner_live(r,&(struct intel_hda_owner_token){r,b->epoch}) && r->pins;
+}
+bool intel_hda_owner_check(struct intel_hda_owner_result *r,const struct intel_hda_owner_borrow *b,struct intel_hda_result *out) {
+ if(!borrowed(r,b) || !out || out->object ||
+    out==&r->phase[0] || out==&r->phase[1] || out==&r->phase[2] || r->checks==UINT32_MAX)return false;
+ if(!guard(r,r->io,2))return fault(r);
+ bool observed=r->io.inspect(r->io.ctx,out);
+ if(out->retained || out->maps!=out->retired)r->retained=true;
+ if(!observed || !intel_hda_owner_idle(out,2) || out->begin_us<r->last_us || !endpoint_ok(&r->phase[0].endpoint,&out->endpoint,2)){r->reason=3;return fault(r);}
+ if(!clock_ok(r,r->io))return fault(r);
+ if(out->end_us>r->last_us){r->reason=2;return fault(r);}
+ r->checks++;return true;
+}
+bool intel_hda_owner_unpin(struct intel_hda_owner_result *r,struct intel_hda_owner_borrow *b) {
+ if(!borrowed(r,b))return false;
+ if(!guard(r,r->io,2))return fault(r);
+ r->pins--;b->active=false;return true;
+}
+bool intel_hda_owner_close(struct intel_hda_owner_result *r,const struct intel_hda_owner_token *t) {
+ if(!intel_hda_owner_live(r,t))return false;
+ if(r->pins){if(r->blocked_closes==UINT32_MAX)return fault(r);r->blocked_closes++;return false;}
+ struct intel_hda_owner_io io=r->io;
+ if(!transition(r,io,2,6) || !inspect(r,io,6) || !guard(r,io,6))return fault(r);
  r->end_us=io.now(io.ctx);
- if(r->end_us<r->last_us || r->end_us<=r->begin_us || r->end_us-r->begin_us>400000){r->reason=2;return false;}
- r->restored=true;r->retained=false;r->complete=true;return true;
+ if(r->end_us<r->last_us || r->end_us<=r->begin_us || r->end_us-r->begin_us>400000){r->reason=2;return fault(r);}
+ r->restored=true;r->retained=false;r->complete=true;r->state=INTEL_HDA_OWNER_CLOSED;return true;
+}
+bool intel_hda_owner_trial(struct intel_hda_owner_result *r,struct intel_hda_owner_facts f,struct intel_hda_owner_io io) {
+ struct intel_hda_owner_token t={0};
+ return intel_hda_owner_open(r,f,io,&t) && intel_hda_owner_close(r,&t);
 }

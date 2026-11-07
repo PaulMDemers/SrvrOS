@@ -130,3 +130,7 @@ The automated trial needed no input, used volume1% with audio off and returned
 after safe completion. No further trial is armed. Native acceptance remains
 limited to the round trip above: outstanding-DMA retirement, firmware/SMM
 exclusion, a maintained inhibited lifetime and GPU memory grants remain pending.
+
+The next separate [maintained inhibit lease](intel-display-hda-lease.md) adds
+independent dependent pins, blocked restoration and a guarded read-only check
+while inhibited. The accepted round-trip image/recipe remains available.

@@ -7,7 +7,9 @@
 #if defined(SRVROS_INTEL_HDA_OBSERVER) && defined(SRVROS_INTEL_HDA_OWNER)
 #error "HDA observer and requester owner are distinct images"
 #endif
-#ifdef SRVROS_INTEL_HDA_OWNER
+#ifdef SRVROS_INTEL_HDA_LEASE
+extern volatile struct limine_firmware_type_request intel_hda_lease_firmware_request;
+#elif defined(SRVROS_INTEL_HDA_OWNER)
 extern volatile struct limine_firmware_type_request intel_hda_owner_firmware_request;
 #else
 extern volatile struct limine_firmware_type_request intel_hda_firmware_request;
