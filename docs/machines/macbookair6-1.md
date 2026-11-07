@@ -8676,3 +8676,24 @@ integration still needs a boot caller, strict joint saved-session binding and
 an audit of first-touch RAM/A-D effects under the existing bounded preparation;
 no raw masks, timing exclusions or limit increases are permitted. Installed
 92d9f134639f509c/recoveryc35475f62f154f1e remain untouched; no reboot is armed.
+
+### Native two-pass zero-load qualification scope (2026-11-07)
+
+Base `709c6ef4`; accepted `92d9f134639f509c` and recovery
+`c35475f62f154f1e` remain retained, with no pending run. Add a separate explicit
+v7 boot recipe/ELF for the two-pass bridge, early pre-user-init dispatch,
+bounded raw receipt framing, isolated saved read-window snapshot and strict
+joint ECAM/alias/exit/session persistence validation. Existing profiles remain
+separate; there is no target-load adapter or new hardware ownership.
+
+Audit first-touch effects and touch next-pass private RAM inside pass0's
+existing clock/root/IRQ guards before its census. Do not reset or move work
+outside either lifetime, mask A/D changes, or change mapper, source, census,
+gap, iteration or saved-tail limits. Keep all complete raw observations.
+Retain terminal ownership/IRQ exclusion on uncertain publication/cleanup.
+Add real producer/joint mutation/refusal tests, native/portable/sanitizer and
+matched build/core/exact staged VM checks. Merge, then preserve recovery and
+prior USB files, install/verify one-shot payload and collection records, and
+run the unattended qualification with visible progress and automatic return.
+Native acceptance requires the matching collected session; missing completion
+or a halt is not a pass. No policy or register-read permission is introduced.
