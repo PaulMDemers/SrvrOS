@@ -8396,3 +8396,31 @@ not establish native completion. Preserve the previous deadline failure and
 unchanged100ms/word/census caps. Only an unreferenced failed-trial EFI copy may
 be retired after full payload/evidence hash verification outside build; accepted
 ECAM/root and Ubuntu/recovery payloads remain retained.
+
+
+### Native bounded clock scopes advance into second pass (2026-11-07)
+
+PR401 release `a80942d96c7c830c`, source `d5b45505`, returned automatically
+with session `session-00065fb3e56b976e-00` and four saved logs. Initial gate
+completed in244us. Window census prepared30 tables/15360 entries, completed the
+first15360-entry pass (3924 encoded bytes), and read6857 entries of the second
+pass before the unchanged100ms whole lifetime refused. Last good elapsed time
+is99998us, with99754us in the census bracket. No publication/unlink/invalidation/
+free attempts or stores occurred; no mapping was published and no target
+loads/writes occurred. Overall `completed=NO`: this remains failed/pending.
+
+This run completed37577 census reads versus17948 previously (about2.09 times
+the progress at the same limit). Retained backend counts:37736 clock callbacks,
+176277 raw loads,465489 guard checks,213896 RAM classifications,37619 logical
+reads, zero stores; mapper words outside census168. These counts identify the
+remaining repeated root/exclusion and provenance work to audit, not per-category
+native latency attribution. Keep every live/raw/provenance/ownership check and
+all limits while investigating faster equivalent scans/lookups. No translated
+pointer or stale-source grant should be substituted for those checks. The
+earlier ECAM and preinit census subreports do not accept this failed profile.
+
+All619 prior files survive except expected `.srvros/meta`; four new logs make
+623 files/1700 clusters. Offline fsck/allocation/headroom pass, with no leaks or
+FAT-bitmap mismatch. Raw/cost receipts and analysis remain outside build. Ubuntu
+default, accepted ECAM/root and recovery retained; one-shot entry empty and
+collector disabled after return. No next boot armed.
