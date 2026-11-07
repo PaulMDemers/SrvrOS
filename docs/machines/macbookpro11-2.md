@@ -13944,3 +13944,29 @@ Collect this exact v129 session first after return. Require matched M3 MIC,local
 M4 completion,software key activation/erasure,leave and full MAC/endpoint/input/
 power/RF originals,storage and recovery. AP acknowledgement,encrypted IP/data,
 connection UI and reconnect remain pending. Demers2.4 needs compatible hardware.
+
+### First native four-way trial failed before AUTH reply (November 7)
+
+Runtime67628de3,session00065fb35ef3031b-00,saved1,892,407bytes and returned
+automatically. The historical open AUTH/ASSOC/M1 parent passed again:one matched
+M1 across two data completions,10 polls and7,207us;its endpoint/input restoration
+passed. The new child submitted AUTH and leave with successful USB completions,
+but received no matching AUTH reply in758,367us. It received unrelated beacons/
+action frames,never sent ASSOC/M2/M4 and never installed keys. New MAC drain/
+disable,endpoint/input restoration and software erasure receipts passed. Nine
+power originals were restored,but the full outer RF predicate failed;this is
+not a complete restoration or WPA2 pass. The569-file failed capsule is sealed
+independently outside build;storage/allocation and Ubuntu recovery passed.
+
+Investigate the endpoint's USB2 DATA toggle across disable/reconfigure. The old
+owner sent three bulk packets;the new host context resets transfer sequencing
+while no device-side CLEAR_FEATURE(ENDPOINT_HALT) was issued. A successful USB
+completion can therefore acknowledge a duplicate without delivering the first
+new AUTH to firmware. This is a standards-based hypothesis:the native wire
+toggle was not observed. Add one exact guarded device-side EP04 clear before
+new host configuration,while MAC is disabled and both rings are empty. Test a
+USB toggle/duplicate-ACK model reproducing the failure,one-shot clear/status/
+ownership failures and mandatory log receipts. Touch only the captured native
+child,its controller/ledger/profile tests and current guides;do not change WPA
+MIC/nonce/replay gates or timeouts. Preserve the accepted M1 and failed evidence.
+No new boot is armed. PR19 remains draft;Air graphics/browser scopes stay separate.
