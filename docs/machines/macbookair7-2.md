@@ -2,6 +2,45 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Current checkpoint: engine/flip-wait/cache prerequisite audit accepted
+
+Release `6c2fffbf241a110a`, tested source `a24c164a`, completed native session
+`session-00065fb6dba7b000-00` and returned automatically to Ubuntu. Strict native
+completion/wake, saved prerequisite checkpoint and independent UC proofs pass;
+collector attention and errors are zero. The 58,470-byte complete exit receipt
+fits the unchanged 65,536-byte saved tail.
+
+Both five-engine passes match, with 92 reads across ten groups and two context
+rows. Ring tail/head/start/control are zero for each engine, execlist low/high
+are 1/0, and saved flip-wait/TLB-control words are zero. Derived enabled,
+pending, saved-flip-wait and TLB-pending masks are zero; RCS/BCS parser-idle mask
+is 3. Context DWORDs agree at 512/24704/10240/512/0/0 (in the register order in
+[the completion contract](../intel-completion-prerequisites.md)). This accepts
+these sampled states only, not a pipeline flush or exhaustive live flip proof.
+
+The observation takes 63,525 us within the unchanged 100 ms bound. The surrounding
+wake lifetime takes 231,818 us within 300 ms, with nine aliases/cache checks,
+93 guards, three existing masked GT request stores, complete close/release and
+retained=0. No engine/reset/TLB/display/HDA/PTE or completion-buffer stores ran.
+All eight obligations remain open (255); posted/prefetch completion, pipeline/
+translation/cache/backing retirement, managed GPU memory and physical tear-free
+remain unaccepted. Earlier HDA/plane results are separate lifetimes.
+
+All 1,365 prior files except expected `.srvros/meta` are unchanged. Three new
+SHA-verified logs bring the inventory to 1,368 files/112 sessions. Offline
+fsck/allocation/writable/headroom, installed/durable/archive recovery, Ubuntu
+default and consumed one-shot checks pass. USB is unmounted; volume 1%, guest
+audio off, no reboot armed. Current6c2f/recovery `9aa8dbf6fbda8252`, earlier6efe
+and known-good GUI remain verified. Evidence is under
+`build/air-completion-20261107`, with a full independently SHA-verified backup
+under `~/.local/share/srvros/reviewed-evidence/air-completion-20261107`.
+
+Next work is selecting a documented completion or controlled-reset path with
+explicit outstanding-memory guarantees and private backing, then maintained
+translation/cache ownership. Empty sampled queues and initially clear controls
+must not be substituted for those proofs. The readiness record below is the
+historical pre-trial snapshot.
+
 ### Engine/flip-wait/cache prerequisite audit ready for hardware
 
 Main `d0ded465` is integrated. Tested source `a24c164a` produces release
@@ -59,7 +98,7 @@ armed. Collect the matching session first after any future trial. PR19 Pro Wi-Fi
 and PR379 WebCore retain independent scope. The accepted6efe checkpoint below
 remains the latest physical result; managed GPU memory/tear-free stay unavailable.
 
-### Current checkpoint: pinned transaction/display-reader audit accepted
+### Earlier accepted checkpoint: pinned transaction/display-reader audit accepted
 
 Release `6efeecb2a7eae7b3`, payload source `dd52f571`, completed native session
 `session-00065fb5e7cfced1-00` and returned automatically to Ubuntu. Strict native

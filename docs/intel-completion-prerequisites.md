@@ -2,7 +2,7 @@
 
 The accepted [pinned HDA/display-reader audit](intel-pinned-reader-audit.md)
 observes non-posted TXP clear and stable plane surfaces. It does not complete
-posted writes or prefetched GPU work. This next isolated image qualifies the
+posted writes or prefetched GPU work. The isolated image qualifies the
 remaining engine, saved flip-wait and translation/cache-control state under one
 cooperative GT wake lifetime. All eight completion obligations remain open.
 
@@ -100,10 +100,30 @@ halt on retained state or unsafe persistence. Q35 must refuse before stores,
 save and return; missing workspace halts. These VM results cannot accept native
 registers, completion, cache/engine ownership or physical tear-free presentation.
 
-## Validated Air7,2 candidate
+## Accepted Air7,2 observation
 
-Source `a24c164a`, release `6c2fffbf241a110a`, is installed and not armed; native
-acceptance remains pending. The [unit readiness record](machines/macbookair7-2.md#engineflip-waitcache-prerequisite-audit-ready-for-hardware)
+Release `6c2fffbf241a110a`, source `a24c164a`, completed native session
+`session-00065fb6dba7b000-00` and returned automatically. Both samples agree:
+all five engines have zero tail/head/start/control, execlist low/high 1/0,
+saved flip-wait zero and TLB-control zero. RCS/BCS context words are
+512/24704/10240/512/0/0 in the order above. Derived enabled/pending/flip-wait/
+TLB-pending masks are zero; parser-idle mask is 3. These are sampled states,
+not completion witnesses. All eight obligation bits remain open (255).
+
+The 92-read observation takes 63,525 us; the surrounding wake lifetime takes
+231,818 us, with nine retired aliases/cache checks, 93 guards, three existing
+wake stores and retained=0. Bounds remain unchanged. Native/checkpoint/UC,
+complete 58,470-byte saved exit, zero collector attention/errors, prior-file
+preservation, offline media, recovery/default/consumed one-shot all pass. The
+[unit checkpoint](machines/macbookair7-2.md#current-checkpoint-engineflip-waitcache-prerequisite-audit-accepted)
+records evidence and independent backup. No engine/TLB/reset/cache command ran;
+no posted/prefetch, pipeline, firmware, translation, backing or tear-free
+acceptance follows. Separate HDA/plane trials do not establish joint ownership.
+
+## Historical validated Air7,2 candidate
+
+Before the trial, source `a24c164a`, release `6c2fffbf241a110a`, was installed
+and not armed, with native acceptance pending. The [unit readiness record](machines/macbookair7-2.md#engineflip-waitcache-prerequisite-audit-ready-for-hardware)
 identifies451 passing validation jobs,21 core/25 actual-adapter fatal sanitizer
 modes,46 detected compiled negatives,282 collector/staging cases and12-image
 isolation. Exact-stage Q35 verifies no-store refusal/save/unmount/return and
