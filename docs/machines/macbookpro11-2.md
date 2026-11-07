@@ -14235,3 +14235,38 @@ power/RF originals before accepting the complete diagnostic. No blind retry or
 deadline/security/ownership relaxation. Ordinary provider/UI,TCP/HTTP and live
 reattach remain pending;Demers2.4 needs compatible hardware. PR19 stays draft
 and Actions remain disabled.
+
+### Reserved-RX native result: receive admission still exhausts the budget (November 7)
+
+Runtime56410985,session00065fb6d6ffb602-00,saved1,887,826bytes and returned
+automatically. The historical management/M1 parent passed,and the independent
+child again verified M3 MIC,completed local M4 and activated software keys.
+One encrypted DHCP DISCOVER completed with PN1,but no authenticated Ethernet
+frame was delivered before the existing timeout. The40 forward entries filled
+with rejected views,including one416-byte completion whose contents and refusal
+cause are unknown. No OFFER/ACK,ARP,DNS or echo passed in this run;all ARP
+classification counters stayed zero because that phase was never entered.
+
+Keys were erased and leave completed. After MAC disable,the reserved entries
+consumed eight more completions,indices40..47,without ring/page reuse. The
+unchanged RX-quiet predicate still failed once capacity was exhausted. TX drain,
+filter/TXOP restoration and MAC disable passed;endpoint/input and full power/RF
+restoration did not. This reproduces the bounded reserve-exhaustion refusal on
+hardware;it does not accept receive cleanup or connectivity. All DMA remained
+retained. Offline filesystem/allocation and Ubuntu recovery pass. The complete
+564-file failure capsule is sealed outside build;prior581/564 failures and the
+accepted177-file four-way foundation remain unchanged.
+
+Do not blindly repeat or enlarge the ring/deadline. Next scope is receive-view
+refusal classification and target-BSSID/filter admission,without addresses,
+packet contents or key logging. Existing MAC filter0x17f97 leaves the pinned
+OTHER_BSS drop bit clear;that makes unrelated receive traffic a hypothesis,
+not a classification of these saved views. Audit the matching BSSID controls
+before enabling that drop bit;do not confuse the base MAC/BSSID words with the
+AP-client BSSID table or make an unproved filter change. The pinned Linux
+[filter callback](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_util.c)
+also explicitly clears OTHER_BSS,so setting it is not an established Linux
+parity fix. First distinguish envelope/frame/peer/crypto refusal classes and
+evaluate bounded continued receive service. Keep every crypto and
+retirement predicate. Actual maina35a1952 was fetched/inspected (dormant Air6,1
+window backend);this runtime still consumes a1661937. No new boot is armed.

@@ -7336,3 +7336,12 @@ from matched replies,and count valid ARP requests for the assigned address,
 without recording packet values. Padding remains permitted;
 address,checksum,MIC,replay and target binding remain mandatory. These changes
 are not physically accepted until a matching saved run proves full retirement.
+
+The first native reserved-RX run reached M4 but exhausted its40 forward entries
+before any Ethernet frame authenticated,so it never reached ARP. Cleanup used
+all eight reserved entries and still failed the unchanged RX-quiet predicate;
+it correctly retained DMA and refused restoration. The full saved run remains
+failed. Next inspect receive-view refusal classes and exact target-BSSID/filter
+admission. Frame lengths alone do not identify beacons,DHCP or cryptographic
+failures. Do not enable OTHER_BSS dropping without proving the matching BSSID
+register/table setup,and do not treat a larger ring or timeout as a cleanup fix.
