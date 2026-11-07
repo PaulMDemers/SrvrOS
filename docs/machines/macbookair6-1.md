@@ -8266,3 +8266,19 @@ new logs make615 files/1690 clusters. Offline fsck/allocation/headroom are clean
 with zero leaks or FAT/bitmap mismatch. Raw failure/evidence remains backed up
 outside build. Ubuntu default and accepted ECAM/root plus recovery payloads are
 retained. Collector disabled after return; no next boot armed.
+
+
+### HHDM effective-permission correction scope (2026-11-06)
+
+Base `e8639e92`; collected PR397 failure retained. Audit only the diagnostic
+window backend's HHDM path validator, its real backend/combined fixtures and
+contract. Permit upper User bits only after the complete path establishes
+a supervisor leaf and cumulative writable access. Retain every presence,
+reserved-bit, canonicality, RAM provenance, physical translation, alignment,
+raw comparison, ownership and timeout/cap check. Own window publication still
+requires its original exact supervisor entries. Add mixed-upper positives for
+4KiB/2MiB/1GiB source leaves, effective-user/nonwritable and changed-raw refusal.
+PR301 scanout and PR19 Wi-Fi remain independent; no foreign branch is imported.
+Run actual fixtures/sanitizers, matched build/core and staged/ordinary VMs before
+self-merge and automatic v6 retry under standing authorization. Native status
+remains failed/pending until matching three-file completion and USB checks.
