@@ -8607,3 +8607,15 @@ cleanup, retained first-pass evidence and profile mutual exclusion. No native
 bridge, boot caller, target-load API, installed payload change or reboot is
 introduced. Full raw serialization plus a fresh native bridge precede a distinct
 no-target-load qualification; existing read/ownership acceptance remains false.
+
+Validation of frozen runtime `fae9b02d`: normal/AP/USB/ISO builds and full
+`test-core` pass, including89 installed-root tests and one explicit opt-in skip.
+ASan/UBSan execution and the full ARM64 fixture link pass with assertions active;
+512 raw-path bit mutations fail closed. Existing producer proof, nine staged
+VM profiles and five ordinary syscall/UEFI USB keyboard/fork/exec/yield VMs pass.
+The normal ELF remains byte-identical; AP differences are debug-only, with
+byte-identical stripped files. Existing builds contain no new backend symbols.
+Dedicated raw retention is0x99188 bytes in the compile-only object. Accepted
+installed92d9f134639f509c/recoveryc35475f62f154f1e remain untouched. No reboot is
+armed. Native latency, raw serialization, fresh bridge admission and the later
+no-target-load two-pass qualification remain unaccepted separate work.
