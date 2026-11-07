@@ -5745,30 +5745,45 @@ test-core: test-wpa2-handshake
 test-wpa2-handshake: build/tests/wpa2-keywrap-host$(HOST_EXE) build/tests/wpa2-handshake-host$(HOST_EXE)
 	build/tests/wpa2-keywrap-host$(HOST_EXE)
 	build/tests/wpa2-handshake-host$(HOST_EXE)
-build/tests/wpa2-keywrap-host$(HOST_EXE): tools/test_wpa2_keywrap.c kernel/src/wpa2_keywrap.c kernel/include/srvros/wpa2_keywrap.h
+build/tests/wpa2-keywrap-host$(HOST_EXE): tools/test_wpa2_keywrap.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c kernel/include/srvros/wpa2_keywrap.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
-build/tests/wpa2-handshake-host$(HOST_EXE): tools/test_wpa2_handshake.c tools/fixtures/wpa2-handshake-synthetic.h kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/wpa2_keywrap.c -o $@
+build/tests/wpa2-handshake-host$(HOST_EXE): tools/test_wpa2_handshake.c tools/fixtures/wpa2-handshake-synthetic.h kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c -o $@
 
 # Optional independent crypto oracle;requires host Python cryptography.
 .PHONY: test-wpa2-handshake-differential
 test-wpa2-handshake-differential: build/tests/wpa2-handshake-shared.so
 	$(PYTHON) tools/test_wpa2_handshake.py $<
-build/tests/wpa2-handshake-shared.so: tools/wpa2_handshake_probe.c kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+build/tests/wpa2-handshake-shared.so: tools/wpa2_handshake_probe.c kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include $< kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include $< kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c -o $@
 
 .PHONY: test-mt76-eapol5
 test-core: test-mt76-eapol5
 test-mt76-eapol5: build/tests/mt76-eapol5-host$(HOST_EXE)
 	$<
-build/tests/mt76-eapol5-host$(HOST_EXE): tools/test_mt76_eapol5.c tools/fixtures/wpa2-handshake-synthetic.h kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_rsn.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c $(KERNEL_HEADERS)
+build/tests/mt76-eapol5-host$(HOST_EXE): tools/test_mt76_eapol5.c tools/fixtures/wpa2-handshake-synthetic.h kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_rsn.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_rsn.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_rsn.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c -o $@
 
 .PHONY: test-wifi-eapol5-log
 test-core: test-wifi-eapol5-log
 test-wifi-eapol5-log: build/tests/xhci-join5-host$(HOST_EXE)
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_eapol5_log.py
+
+.PHONY: test-wpa2-ccmp
+test-core: test-wpa2-ccmp
+test-wpa2-ccmp: build/tests/wpa2-ccmp-host$(HOST_EXE)
+	$<
+build/tests/wpa2-ccmp-host$(HOST_EXE): tools/test_wpa2_ccmp.c tools/fixtures/wpa2-ccmp-synthetic.h tools/fixtures/wpa2-handshake-synthetic.h kernel/src/wpa2_ccmp.c kernel/src/wpa2_aes128.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/wpa2_ccmp.c kernel/src/wpa2_aes128.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/drivers/mt76_rsn.c -o $@
+
+.PHONY: test-wpa2-ccmp-differential
+test-wpa2-ccmp-differential: build/tests/wpa2-ccmp-shared.so
+	$(PYTHON) tools/test_wpa2_ccmp.py $<
+build/tests/wpa2-ccmp-shared.so: tools/wpa2_handshake_probe.c kernel/src/wpa2_ccmp.c kernel/src/wpa2_aes128.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include $< kernel/src/wpa2_ccmp.c kernel/src/wpa2_aes128.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/drivers/mt76_rsn.c -o $@

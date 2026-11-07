@@ -99,9 +99,13 @@ bool wpa2_hs_take_keys(struct wpa2_handshake *s,uint64_t g,struct wpa2_hs_keys *
  for(unsigned i=0;i<6;i++)out->group_rsc[i]=s->group_rsc[i];
  out->group_id=s->group_id;out->generation=g;s->install_handoffs++;s->keys_may_live=true;s->phase=WPA2_HS_INSTALL_PENDING;return true;
 }
+bool wpa2_hs_claim_keys(struct wpa2_handshake *s,uint64_t g,uintptr_t owner){
+ if(!same(s,g) || !owner || s->phase!=WPA2_HS_INSTALL_PENDING || s->install_handoffs!=1 || !s->keys_may_live || s->key_owner)return false;
+ s->key_owner=owner;return true;
+}
 bool wpa2_hs_install_result(struct wpa2_handshake *s,uint64_t g,enum wpa2_hs_result r){
  if(!same(s,g))return false;
- if(s->phase!=WPA2_HS_INSTALL_PENDING || s->install_handoffs!=1 || !s->keys_may_live || r!=WPA2_HS_CONFIRMED){if(r!=WPA2_HS_REFUSED)s->unsafe=true;return fail(s);}
+ if(s->phase!=WPA2_HS_INSTALL_PENDING || s->install_handoffs!=1 || !s->keys_may_live || !s->key_owner || r!=WPA2_HS_CONFIRMED){if(r!=WPA2_HS_REFUSED)s->unsafe=true;return fail(s);}
  scrub(s->ptk+16,32);scrub(s->gtk,sizeof s->gtk);scrub(s->anonce,sizeof s->anonce);scrub(s->snonce,sizeof s->snonce);
  s->phase=WPA2_HS_M4_READY;return true;
 }

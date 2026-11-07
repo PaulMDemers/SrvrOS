@@ -18,7 +18,7 @@ class Peer(C.Structure):
 
 
 class State(C.Structure):
-    _fields_ = [('phase', C.c_int), ('generation', C.c_uint64), ('replay', C.c_uint64),
+    _fields_ = [('phase', C.c_int), ('generation', C.c_uint64), ('replay', C.c_uint64), ('key_owner', C.c_size_t),
                 ('peer', Peer), ('emissions', C.c_uint), ('install_handoffs', C.c_uint),
                 ('keys_may_live', C.c_bool), ('unsafe', C.c_bool), ('version', U8),
                 ('group_id', U8), ('group_rsc', B6), ('pmk', B32), ('snonce', B32),
@@ -41,6 +41,7 @@ for name, result, args in (
     ('wpa2_hs_emit', C.c_size_t, [C.c_void_p, C.c_uint64, C.c_void_p, C.c_size_t]),
     ('wpa2_hs_tx_result', C.c_bool, [C.c_void_p, C.c_uint64, C.c_int]),
     ('wpa2_hs_take_keys', C.c_bool, [C.c_void_p, C.c_uint64, C.c_void_p]),
+    ('wpa2_hs_claim_keys', C.c_bool, [C.c_void_p, C.c_uint64, C.c_size_t]),
     ('wpa2_hs_install_result', C.c_bool, [C.c_void_p, C.c_uint64, C.c_int]),
     ('wpa2_hs_retire', C.c_bool, [C.c_void_p, C.c_uint64, C.c_bool]),
     ('wpa2_key_unwrap', C.c_size_t, [C.c_void_p, C.c_void_p, C.c_size_t, C.c_void_p, C.c_size_t]),
@@ -193,6 +194,7 @@ for info in range(8):
         assert lib.wpa2_hs_take_keys(C.byref(s), 9, C.byref(keys))
         assert keys.group_id == (info & 3) and bytes(keys.group) == GTK
         assert bytes(keys.pairwise) == PTK[32:] and bytes(keys.group_rsc) == M3[65:71]
+        assert lib.wpa2_hs_claim_keys(C.byref(s), 9, 0x1234)
         assert lib.wpa2_hs_install_result(C.byref(s), 9, 0)
         emit(s, M4)
         assert s.phase == 9 and s.install_handoffs == 1 and s.keys_may_live
@@ -207,6 +209,7 @@ emit(s, packet(0x010A, 7, SN, RSNE, version=1, key_length=0))
 assert receive(s, packet(0x13CA, 8, data=M3[99:], version=1))
 keys = Keys()
 assert lib.wpa2_hs_take_keys(C.byref(s), 9, C.byref(keys))
+assert lib.wpa2_hs_claim_keys(C.byref(s), 9, 0x1234)
 assert lib.wpa2_hs_install_result(C.byref(s), 9, 0)
 emit(s, packet(0x030A, 8, bytes(32), version=1, key_length=0))
 

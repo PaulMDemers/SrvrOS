@@ -7167,3 +7167,46 @@ FromDS (Retry set),without L2 padding;QoS/padding branches remain host-tested.
 M1 is unauthenticated input,not proof of AP key possession or freshness. Native
 EAPOL replies,key installation and authenticated data remain pending. See the
 unit record for the exact source/session and independently sealed evidence.
+
+### Initial MT76x0 software-key path
+
+The pinned Linux v7.0 `mt76x02_set_key` rejects all MT76x0 non-pairwise key
+offload,including this0x7610 family. Its nearby multiple-VIF comment does not
+narrow that unconditional source gate. Therefore the initial SrvrOS connection
+path uses software PTK/GTK ownership and CCMP;earlier proposed shared-key-table
+installation is deferred. This source restriction does not establish every
+possible hardware configuration's capability,and no new hardware key gate is
+widened. See the primary [MT76 key setup](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_util.c)
+and [family check](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02.h).
+
+`wpa2_ccmp` accepts one exact validated handshake key export in INSTALL_PENDING,
+claims that handshake's unique backend token and copies software keys/RSC into
+an exclusive private context. A second context cannot claim that export. Data
+operations stay disabled until confirmed M4 completion and matching activation.
+No firmware/register/table write or native transport is implemented by this
+helper. Key exports are scrubbed separately by their caller. Retirement erases
+keys/scratch,leaves a terminal non-reusable object and supplies a software-erasure
+proof;native DMA retirement remains a separate obligation. Active crypto objects
+must never be copied,reset or concurrently used in production.
+
+CCMP128 uses the shared table-free AES128 core extracted from keywrap. TX seals
+bounded non-QoS ToDS data with exact AP/station binding,Protected bit,CCMP header
+and MIC8. One global48-bit TX PN is reserved before encryption,including frames
+subsequently discarded or uncertain;exhaustion refuses without wrapping. RX
+accepts bounded Protected FromDS data or QoS TID0..7,normal ACK and optional EOSP,
+with exact AP transmitter and station-or-multicast receiver binding. Key ID,
+ExtIV/reserved fields,AAD/nonce/MIC and per-key/per-TID PN checks precede plaintext
+publication. The group replay floors come from M3 RSC. Invalid tags and replays
+do not advance counters. Scratch plaintext is erased and never copied out before
+MIC success. Header duration/sequence and Retry/PM/MoreData are masked as the
+protocol specifies;unsupported fragmentation,A-MSDU,A4,HT-control and PMF refuse.
+
+Payloads are1..2304 bytes. Outputs are disjoint from context/input spans;
+aliases/stale generations refuse unchanged,other failures clear bounded outputs.
+This is exclusive-owner code,not a concurrent application API. Source arithmetic
+has no secret-indexed tables;no formal timing audit is claimed. Public AES/keywrap
+vectors and independent AESCCM packet oracles test encryption/decryption,AAD/PN
+encoding,mutations,replay and key lifetimes. The primary
+[mac80211 CCMP encoding](https://raw.githubusercontent.com/torvalds/linux/v7.0/net/mac80211/wpa.c)
+is preserved with hashed reference sources. Software cipher correctness does not
+establish native USB ciphertext handling,AP acceptance or an IP provider.

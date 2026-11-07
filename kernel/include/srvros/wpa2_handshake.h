@@ -18,7 +18,7 @@ enum wpa2_hs_phase {WPA2_HS_EMPTY,WPA2_HS_M1,WPA2_HS_M2_READY,WPA2_HS_M2_PENDING
 enum wpa2_hs_result {WPA2_HS_CONFIRMED,WPA2_HS_REFUSED,WPA2_HS_UNCERTAIN};
 struct wpa2_hs_keys {uint8_t pairwise[16],group[16],group_rsc[6],group_id;uint64_t generation;};
 struct wpa2_handshake {
- enum wpa2_hs_phase phase;uint64_t generation,replay;
+ enum wpa2_hs_phase phase;uint64_t generation,replay;uintptr_t key_owner;
  struct wpa2_hs_peer peer;unsigned emissions,install_handoffs;
  bool keys_may_live,unsafe;uint8_t version,group_id,group_rsc[6];
  uint8_t pmk[32],snonce[32],anonce[32],ptk[48],gtk[16],scratch[1016];
@@ -43,6 +43,10 @@ bool wpa2_hs_tx_result(struct wpa2_handshake *,uint64_t generation,enum wpa2_hs_
  * Only confirmed install permits M4;only confirmed M4 TX permits COMPLETE.
  * COMPLETE is local model state,not AP ACK,controlled port or native acceptance. */
 bool wpa2_hs_take_keys(struct wpa2_handshake *,uint64_t generation,struct wpa2_hs_keys *);
+/* One backend claim after key export;opaque nonzero owner token persists
+ * through retirement. Active handshake objects must never be copied/reused.
+ * A confirmed install receipt requires the claim;claiming twice refuses. */
+bool wpa2_hs_claim_keys(struct wpa2_handshake *,uint64_t generation,uintptr_t owner);
 bool wpa2_hs_install_result(struct wpa2_handshake *,uint64_t generation,enum wpa2_hs_result);
 /* True only when this call aborts a current active lifetime. */
 bool wpa2_hs_abort(struct wpa2_handshake *,uint64_t generation);

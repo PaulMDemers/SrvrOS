@@ -2,12 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../kernel/src/wpa2_keywrap.c"
+#include "../kernel/src/wpa2_aes128.c"
+#include <srvros/wpa2_keywrap.h>
 static void zeros(const uint8_t *p,size_t n){for(size_t i=0;i<n;i++)assert(!p[i]);}
 int main(void){
  uint8_t key[16],rk[176],block[]={0x69,0xc4,0xe0,0xd8,0x6a,0x7b,0x04,0x30,0xd8,0xcd,0xb7,0x80,0x70,0xb4,0xc5,0x5a};
  uint8_t plain[16];for(unsigned i=0;i<16;i++){key[i]=(uint8_t)i;plain[i]=(uint8_t)(17*i);}
- expand(key,rk);decrypt(rk,block);assert(!memcmp(block,plain,16));
+ wpa2_aes128_expand(key,rk);wpa2_aes128_decrypt(rk,block);assert(!memcmp(block,plain,16));wpa2_aes128_encrypt(rk,block);assert(!memcmp(block,(const uint8_t[]){0x69,0xc4,0xe0,0xd8,0x6a,0x7b,0x04,0x30,0xd8,0xcd,0xb7,0x80,0x70,0xb4,0xc5,0x5a},16));
  for(unsigned i=0;i<256;i++)assert(invsub(sub((uint8_t)i))==i);
  const uint8_t wrapped[]={0x1f,0xa6,0x8b,0x0a,0x81,0x12,0xb4,0x47,0xae,0xf3,0x4b,0xd8,0xfb,0x5a,0x7b,0x82,0x9d,0x3e,0x86,0x23,0x71,0xd2,0xcf,0xe5};
  uint8_t out[1016];assert(wpa2_key_unwrap(key,wrapped,24,out,sizeof out)==16);assert(!memcmp(out,plain,16));zeros(out+16,1000);

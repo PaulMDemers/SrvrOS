@@ -17,7 +17,7 @@ static void m3phase(struct wpa2_handshake *s){
  uint8_t out[121];assert(wpa2_hs_emit(s,9,out,sizeof out)==sizeof hs_m2);assert(!memcmp(out,hs_m2,sizeof out));assert(wpa2_hs_tx_result(s,9,WPA2_HS_CONFIRMED));assert(s->phase==WPA2_HS_M3);
 }
 static void ready(struct wpa2_handshake *s){m3phase(s);assert(receive(s,hs_m3,sizeof hs_m3) && s->phase==WPA2_HS_KEYS_READY);assert(s->replay==8);zero(s->scratch,1016);}
-static void take(struct wpa2_handshake *s){struct wpa2_hs_keys k;assert(wpa2_hs_take_keys(s,9,&k));assert(k.generation==9 && k.group_id==1 && !memcmp(k.pairwise,hs_ptk+32,16) && !memcmp(k.group,hs_gtk,16));assert(!memcmp(k.group_rsc,"\1\2\3\4\5\6",6));memset(&k,0,sizeof k);assert(s->keys_may_live && s->install_handoffs==1);}
+static void take(struct wpa2_handshake *s){struct wpa2_hs_keys k;assert(wpa2_hs_take_keys(s,9,&k));assert(k.generation==9 && k.group_id==1 && !memcmp(k.pairwise,hs_ptk+32,16) && !memcmp(k.group,hs_gtk,16));assert(!memcmp(k.group_rsc,"\1\2\3\4\5\6",6));memset(&k,0,sizeof k);assert(s->keys_may_live && s->install_handoffs==1);assert(wpa2_hs_claim_keys(s,9,0x1234));assert(!wpa2_hs_claim_keys(s,9,0x5678));}
 int main(void){
  struct wpa2_handshake s,stages[10];unsigned count=0;begin(&s);stages[count++]=s;assert(receive(&s,hs_m1,sizeof hs_m1));stages[count++]=s;
  uint8_t out[121];assert(wpa2_hs_emit(&s,9,out,sizeof out)==121 && !memcmp(out,hs_m2,121));stages[count++]=s;assert(wpa2_hs_tx_result(&s,9,WPA2_HS_CONFIRMED));stages[count++]=s;
@@ -29,7 +29,7 @@ int main(void){
  /* Every stale generation leaves state/output untouched at every valid phase. */
  for(unsigned i=0;i<count;i++){
   s=stages[i];struct wpa2_handshake old=s;struct wpa2_hs_keys k,kold;memset(&k,0xa5,sizeof k);kold=k;memset(out,0xa5,sizeof out);
-  assert(!wpa2_hs_receive(&s,10,hs_aa,hs_spa,hs_m1,sizeof hs_m1));assert(!wpa2_hs_emit(&s,10,out,sizeof out));assert(!wpa2_hs_tx_result(&s,10,WPA2_HS_CONFIRMED));assert(!wpa2_hs_take_keys(&s,10,&k));assert(!wpa2_hs_install_result(&s,10,WPA2_HS_CONFIRMED));assert(!wpa2_hs_abort(&s,10));assert(!wpa2_hs_retire(&s,10,true));assert(!memcmp(&old,&s,sizeof s) && !memcmp(&k,&kold,sizeof k));for(unsigned j=0;j<sizeof out;j++)assert(out[j]==0xa5);
+  assert(!wpa2_hs_receive(&s,10,hs_aa,hs_spa,hs_m1,sizeof hs_m1));assert(!wpa2_hs_emit(&s,10,out,sizeof out));assert(!wpa2_hs_tx_result(&s,10,WPA2_HS_CONFIRMED));assert(!wpa2_hs_take_keys(&s,10,&k));assert(!wpa2_hs_install_result(&s,10,WPA2_HS_CONFIRMED));assert(!wpa2_hs_claim_keys(&s,10,0x1234));assert(!wpa2_hs_abort(&s,10));assert(!wpa2_hs_retire(&s,10,true));assert(!memcmp(&old,&s,sizeof s) && !memcmp(&k,&kold,sizeof k));for(unsigned j=0;j<sizeof out;j++)assert(out[j]==0xa5);
   /* Aliased outputs/inputs cannot corrupt the live model. */
   assert(!wpa2_hs_emit(&s,9,s.scratch,121));assert(!wpa2_hs_take_keys(&s,9,(void *)s.scratch));assert(!wpa2_hs_receive(&s,9,s.peer.aa,hs_spa,hs_m1,sizeof hs_m1));assert(!wpa2_hs_receive(&s,9,hs_aa,hs_spa,s.scratch,99));assert(!memcmp(&old,&s,sizeof s));
   assert(wpa2_hs_abort(&s,9));assert(!wpa2_hs_abort(&s,9));assert(s.phase==WPA2_HS_FAILED);erased(&s);assert(s.keys_may_live==old.keys_may_live);assert(wpa2_hs_retire(&s,9,true));
@@ -40,6 +40,8 @@ int main(void){
   assert(!receive(&s,p,n));assert(s.phase==WPA2_HS_FAILED);erased(&s);assert(s.install_handoffs<=1);
  }
  for(unsigned i=0;i<count;i++)if(i!=4){s=stages[i];struct wpa2_hs_keys k;assert(!wpa2_hs_take_keys(&s,9,&k));zero(&k,sizeof k);assert(s.phase==WPA2_HS_FAILED);erased(&s);}
+ /* No confirmed installation without a unique backend claim. */
+ s=stages[5];s.key_owner=0;assert(!wpa2_hs_claim_keys(&s,9,0));assert(!wpa2_hs_install_result(&s,9,WPA2_HS_CONFIRMED));assert(s.phase==WPA2_HS_FAILED && s.keys_may_live);erased(&s);
  for(unsigned result=1;result<4;result++){
   s=stages[2];assert(!wpa2_hs_tx_result(&s,9,(enum wpa2_hs_result)result));assert(!s.keys_may_live);erased(&s);
   ready(&s);take(&s);assert(!wpa2_hs_install_result(&s,9,(enum wpa2_hs_result)result));assert(s.keys_may_live);erased(&s);assert(!wpa2_hs_retire(&s,9,false));assert(wpa2_hs_retire(&s,9,true));

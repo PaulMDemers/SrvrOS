@@ -13841,3 +13841,20 @@ extractor correction,with shared main/staging/log helpers for that separate
 scope. It is inspected and deferred from this isolated crypto work;runtime
 baseline remains ca43ce23. PR399 window,301 graphics and379 browser remain
 independent;PR19 owns Wi-Fi. Accepted v128 and recovery stay installed/unarmed.
+
+The software owner and shared AES core are implemented. The handshake now
+requires a unique backend claim before a confirmed installation receipt;the
+software owner binds that token to its own address,blocking duplicate exports
+into another context and data before confirmed M4 activation. CCMP reserves TX
+PN before sealing,never wraps48 bits,authenticates before publishing plaintext
+or advancing per-key/per-TID RX replay state,and preserves M3 group RSC floors.
+Retirement erases keys/scratch without resetting/reusing the owned lifetime.
+This is host-only code;accepted native v128/recovery are untouched.
+
+Independent synthetic AESCCM comparisons pass146 TX seals and438 RX/replay/MIC
+triplets through2304-byte payloads,group RSC/key IDs,all supported priorities,
+masked header controls,wrong-key/MIC/header refusals and48-bit exhaustion.
+Public AES128/RFC3394 and prior131,072-flag handshake/106-unwrap differential
+regressions pass. Fatal ASan/UBSan passes CCMP and claimed-install/handshake
+lifetimes. Credentials remain unread. Native four-way/ciphertext/data acceptance
+still requires separately guarded transport integration and a new physical run.
