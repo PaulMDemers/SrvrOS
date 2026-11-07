@@ -52,8 +52,21 @@ class WindowTests(unittest.TestCase):
                 self.assertEqual(graph[pa]['raw'][index]&7,7)
             self.assertEqual(graph[0x2004000]['raw'][0]&7,3)
 
+    def test_cost_diagnostics_are_retained_strict_and_not_new_authority(self):
+        text,a,b=joint()
+        with patch('hardware_haswell_firmware.PIN',PIN):
+            p=window.window_result(text,a,b,SESSION);cost=p['cost']
+            self.assertEqual(cost['census_reads'],p['pages']*512*3)
+            self.assertLess(cost['clocks'],cost['loads'])
+            self.assertLess(cost['gate_end'],cost['census_end'])
+            line=next(x for x in text.splitlines() if x.startswith('hsw-window-cost:'))
+            self.assertIsNone(window.window_result(text+line+'\n',a,b,SESSION))
+            self.assertIsNone(window.window_result(text.replace(line,line.replace('census_reads=','census_reads=9')),a,b,SESSION))
+            legacy=window.window_result(text.replace(line+'\n',''),a,b,SESSION)
+            self.assertTrue(legacy['source_completed']);self.assertIsNone(legacy['cost'])
+
     def test_fresh_gate_refusal_and_terminal_retention(self):
-        for mode in ['refuse','no-nx','wp','ap','cr4','gap','mcfg']:
+        for mode in ['refuse','no-nx','wp','ap','cr4','gap','mcfg','delayed']:
             text=subprocess.check_output([str(PROFILE),mode],text=True)
             p=window.window_result(text,'',text,SESSION)
             self.assertEqual(p['status'],'REFUSED',mode);self.assertFalse(p['source_completed'])

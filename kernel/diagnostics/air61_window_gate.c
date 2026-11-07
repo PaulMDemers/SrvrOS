@@ -34,6 +34,7 @@ bool haswell_air61_window_run(void){
   console_printf("window-failure: begin=%u last=%u census_status=%u reads=%u,%u prepare=%u\n",r->begin,r->end,(uint64_t)c->status,(uint64_t)c->reads[0],(uint64_t)c->reads[1],(uint64_t)c->prepare_reads);
   console_printf("window-gate: stage=%s firmware_bytes=%u phases=%u\n",eg_diagnostic.stage?eg_diagnostic.stage:"none",(uint64_t)eg.firmware_bytes,(uint64_t)eg.phases);
   console_printf("window-retirement: parent_attempts=%u unlink_attempts=%u invalidations=%u frees=%u\n",(uint64_t)r->parent_attempts,(uint64_t)r->unlink_attempts,(uint64_t)r->invalidations,(uint64_t)r->frees);
+  console_printf("window-cost: clocks=%u loads=%u guards=%u ram=%u reads=%u stores=%u census_reads=%u gate_end=%u census_begin=%u census_end=%u\n",(uint64_t)r->clock_samples,(uint64_t)r->raw_loads,(uint64_t)r->guard_checks,(uint64_t)r->ram_checks,(uint64_t)r->logical_reads,(uint64_t)r->logical_stores,(uint64_t)r->census_reads,r->gate_end,r->census_begin,r->census_end);
   console_printf("window-gate-detail: index=%u component=%u expected=%x observed=%x\n",(uint64_t)eg_diagnostic.index,(uint64_t)eg_diagnostic.component,eg_diagnostic.expected,eg_diagnostic.observed);
   console_write("No target loads. Claim/backing retained; no user init or USB reuse. Photograph then restart Ubuntu.\n");console_sync();
 #ifdef SRVROS_ECAM_GATE_HOST_TEST

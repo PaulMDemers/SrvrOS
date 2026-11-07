@@ -8360,3 +8360,15 @@ VMM, policy or sibling gate change. PR301 scanout/PR19 Wi-Fi remain independent.
 Validate old/new actual-fixture clock counts, matched build/core, sanitizers and
 sequential staged/ordinary VMs before merge and automatic native retry. Native
 qualification remains pending under the unchanged100ms lifetime.
+
+
+The actual backend fixture measures106618 reference-clock calls before and
+33386 afterward, with exactly98851 raw source loads and60451 mapper words in
+both successful lifetimes. These are host operation counts, not native latency
+acceptance. Clock sampling is coalesced only within bounded logical accesses;
+all individual HHDM/raw/provenance/root checks remain. No generic clock, HAC,
+translation cache or policy changes. Ten strict profile tests pass, including
+a delayed actual gate/backend/report refusal with retained cost diagnostics.
+New regressions cover one-use clock tickets, delayed walks, immediate pre-store
+expiry, root/provenance changes during walks, post-publication expiry and retained
+poison; existing raw A/D, permission, ownership, cap and clock failures still pass.
