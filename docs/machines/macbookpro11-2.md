@@ -60,7 +60,8 @@ logged. The153-file native capsule is independently sealed outside build.
 Native v127 `3941cd6f08de149f`, runtime `a71b71c2`, now accepts matched
 open-system AUTH/ASSOC replies and leave submission,with complete MAC/endpoint/
 input/power/RF restoration. See the November6 acceptance below. The next bounded
-scope is a guarded native key-table/IV/PN installer and native four-way exchange,
+scope is the native four-way exchange using the software PTK/GTK/PN owner,
+with hardware offload separate,
 following physically accepted structural M1 receive and host-qualified PMK/PTK/
 MIC,authenticated unwrap and one-shot handshake models. Packet-number/data
 ownership and authenticated traffic remain pending;
@@ -13858,3 +13859,13 @@ Public AES128/RFC3394 and prior131,072-flag handshake/106-unwrap differential
 regressions pass. Fatal ASan/UBSan passes CCMP and claimed-install/handshake
 lifetimes. Credentials remain unread. Native four-way/ciphertext/data acceptance
 still requires separately guarded transport integration and a new physical run.
+
+
+Software CCMP qualification also passes256 independent random AES128 encrypt/
+decrypt pairs,matched kernel/USB build and prior crypto/nonce/EAPOL/management/
+owner/strict-ledger/namespace regressions. New native compiler frames peak at
+344bytes for CCMP/keywrap,72 for shared AES and88 for handshake. The software
+backend and claiming changes remain physically unaccepted. No full-core rerun
+is claimed. Source/reference hashes and local qualification artifacts are kept
+outside build before native integration;the accepted178-file v128 capsule and
+23-file acceptance notes remain unchanged and no reboot is armed.

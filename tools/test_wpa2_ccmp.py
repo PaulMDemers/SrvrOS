@@ -4,6 +4,7 @@ import ctypes as C
 from pathlib import Path
 import random
 import sys
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from wpa2_handshake_fixture import AA, SPA, PMK, SN, M1, M2, M3, M4, RSNE, GTK, PTK
 from wpa2_ccmp_fixture import DATA, RSC, header, encrypt, fixture_header
 
@@ -54,6 +55,14 @@ def open_packet(ctx,frame,expected=None,cap=2304):
  assert not any(ctx.scratch)
 
 r=random.Random(0xcc128)
+for name,args in (('wpa2_aes128_expand',[V,V]),('wpa2_aes128_encrypt',[V,V]),('wpa2_aes128_decrypt',[V,V])):
+ f=getattr(lib,name);f.restype=None;f.argtypes=args
+for _ in range(256):
+ key,plain=r.randbytes(16),r.randbytes(16);rk=(U8*176)();block=buf(plain)
+ lib.wpa2_aes128_expand(buf(key),rk);lib.wpa2_aes128_encrypt(rk,block)
+ enc=Cipher(algorithms.AES(key),modes.ECB()).encryptor();assert bytes(block)==enc.update(plain)+enc.finalize()
+ lib.wpa2_aes128_decrypt(rk,block);assert bytes(block)==plain
+
 lengths=[1,15,16,17,31,32,33,1500,2304]+[r.randint(1,2304) for _ in range(64)]
 count=0
 for i,n in enumerate(lengths):
@@ -92,4 +101,4 @@ assert bytes(out)[:40+len(DATA)]==encrypt(hh,DATA,PTK[32:],(1<<48)-1)
 assert not lib.wpa2_ccmp_seal(C.byref(ctx),9,buf(hh),buf(DATA),len(DATA),out,4096) and not any(out)
 assert lib.wpa2_ccmp_retire(C.byref(ctx),9) and lib.wpa2_ccmp_erased(C.byref(ctx),9)
 assert not any(ctx.tk) and not any(ctx.gtk) and not any(ctx.scratch)
-print(f'wpa2-ccmp differential: PASS {len(lengths)*2} TX seals,{count} RX/replay/MIC triplets,per-key/TID floors,group RSC,nonce/AAD/header/key-ID/capacity refusal,48-bit exhaustion and software erasure;synthetic keys only')
+print(f'wpa2-ccmp differential: PASS 256 random AES128 encrypt/decrypt pairs,{len(lengths)*2} TX seals,{count} RX/replay/MIC triplets,per-key/TID floors,group RSC,nonce/AAD/header/key-ID/capacity refusal,48-bit exhaustion and software erasure;synthetic keys only')
