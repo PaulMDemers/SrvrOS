@@ -13813,3 +13813,31 @@ bidirectional transfer and disconnect/reconnect remain pending. No controlled
 port or native WPA2 authentication is accepted. The current Edimax is5GHz-only;
 Demers2.4 still needs compatible hardware. Ubuntu is default,e47d remains known-
 good previous,and no one-shot boot is armed.
+
+### Software CCMP/key-owner scope after M1 acceptance (November 6)
+
+The key audit changes the initial installation plan:Linux v7.0
+`mt76x02_set_key` unconditionally returns EOPNOTSUPP for MT76x0 non-pairwise
+keys. Its comment discusses GTK/multiple-VIF limitations,but this pinned path
+rejects GTK offload outright. This is a source restriction,not new evidence
+that every hardware configuration is incapable. Do not silently force shared
+key tables to initialize. The initial connection will use one guarded software
+PTK/GTK owner with packet-number/replay ownership and CCMP,leaving optional
+hardware offload separate. Earlier hardware-installer plans are superseded for
+this initial path;no such installer was implemented or physically accepted.
+
+Bounded work now extracts the existing table-free AES128 core without changing
+keywrap behavior,adds CCMP128 data seal/open with exact peer/header/AAD/nonce/
+MIC/PN checks,and a one-time software install/activate/erase lifecycle bound to
+the validated handshake generation. No key/RF table or native profile write is
+added by these primitives. Test independent AESCCM vectors and packet framing,
+all MIC/header/ciphertext mutations,per-key/per-TID replay,PN exhaustion,bounds/
+alias refusal and secret erasure before native integration. Keep native DMA
+publication/retirement separately owned;uncertain sends must consume their PN
+and never reset a live key. Credentials remain unread during these host tests.
+
+Fetched maine8639e92 adds Air window-only diagnostics/evidence and a futex host
+extractor correction,with shared main/staging/log helpers for that separate
+scope. It is inspected and deferred from this isolated crypto work;runtime
+baseline remains ca43ce23. PR399 window,301 graphics and379 browser remain
+independent;PR19 owns Wi-Fi. Accepted v128 and recovery stay installed/unarmed.
