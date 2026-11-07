@@ -20,6 +20,9 @@ int main(int argc,char **argv){
  map_response.entry_count=count;
  memcpy(pages[8],pages[6],136);memcpy((uint8_t *)pages[8]+256,pages[7],60);
  table_info[0].physical_address=0x2008000;table_info[1].physical_address=0x2008100;
+ if(argc>1 && !strcmp(argv[1],"native-hhdm")){
+  pages[0][256]|=4;pages[2][0]|=4;pages[3][16]|=4;
+ }
  assert(haswell_ecam_boot_prepare() && haswell_ecam_boot_handoff() && haswell_ecam_boot_adopt(ECAM_BOOT_VA,ECAM_BOOT_PA,ECAM_BOOT_BYTES));
  if(argc>1 && !strcmp(argv[1],"ad-transition"))pages[4][2]|=32;
  clock_ticks+=160000;

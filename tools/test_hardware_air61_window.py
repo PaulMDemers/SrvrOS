@@ -15,8 +15,8 @@ COMBINED=Path('build/tests/air61-window-combined')
 def raw_blob(text):
     return b''.join(base64.b64decode(x.split('data=')[1]) for x in text.splitlines() if x.startswith('hsw-window-data:'))
 
-def joint(maximum=False):
-    text=subprocess.check_output([str(COMBINED),*(['max'] if maximum else [])],text=True)
+def joint(maximum=False,mode=None):
+    text=subprocess.check_output([str(COMBINED),*([mode] if mode else ['max'] if maximum else [])],text=True)
     with patch('hardware_haswell_firmware.PIN',PIN):p=window.decode(raw_blob(text))
     early='\n'.join(x for x in text.splitlines() if x.startswith('hsw-ecam'))+'\n'
     a,b=fixture(early=early,graph=p['_graph'])
@@ -41,6 +41,16 @@ class WindowTests(unittest.TestCase):
             self.assertLess(len('\n'.join(lines))+4096,65536)
             for k in ('target_reads','target_writes'):self.assertEqual(p[k],0)
             for k in ('register_read_authorized','hardware_authority','ownership'):self.assertFalse(p[k])
+
+    def test_native_user_ancestors_keep_raw_proof_and_supervisor_leaf(self):
+        text,a,b=joint(mode='native-hhdm')
+        with patch('hardware_haswell_firmware.PIN',PIN):
+            p=window.window_result(text,a,b,SESSION)
+            self.assertTrue(p['source_completed']);self.assertTrue(p['claim_released'])
+            graph=window.decode(raw_blob(text))['_graph']
+            for pa,index in [(0x2000000,256),(0x2002000,0),(0x2003000,16)]:
+                self.assertEqual(graph[pa]['raw'][index]&7,7)
+            self.assertEqual(graph[0x2004000]['raw'][0]&7,3)
 
     def test_fresh_gate_refusal_and_terminal_retention(self):
         for mode in ['refuse','no-nx','wp','ap','cr4','gap','mcfg']:
