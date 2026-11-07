@@ -2,13 +2,15 @@
 
 ## Status and scope
 
-Host-only design on integration base `4cc0408b`. The [layout audit](macbookair6-1-dma-inventory.md#ecam-layout-and-fixed-bound-feasibility-audit-2026-11-05)
+The original host design used integration base `4cc0408b`. The [layout audit](macbookair6-1-dma-inventory.md#ecam-layout-and-fixed-bound-feasibility-audit-2026-11-05)
 shows that the existing156-bus4KiB ECAM mapping alone needs at least81 tables,
 beyond the unchanged64-table/32768-entry census bounds. This proposal preserves
 all39936 physical4KiB mappings, attributes and PCI config address calculations,
-using78 prospective2MiB leaves. The actual backend and fresh pre-PCI gate are now
-implemented in the isolated AP ELF, with no boot-dispatcher caller or hardware
-activation yet. The host proposal remains a historical/input model, not a grant.
+using78 prospective2MiB leaves. The backend and fresh pre-PCI gate are implemented in the isolated AP ELF
+with an explicit opt-in v5 pre-PCI caller. The exact native release
+`ab360d3ce2d281e4` now accepts checked boot ECAM mapping and sole-managed-root
+context under the original bounds; ordinary boot and separate hardware grants
+remain unchanged. The host proposal remains a historical/input model, not a grant.
 
 `tools/haswell_ecam_mapping_proposal.py` consumes a complete exact-unit raw
 CPU/cache receipt through its existing strict decoder and a complete checksummed
@@ -178,18 +180,162 @@ hooks. This is compile coverage, not ARM hardware or macOS runtime acceptance.
 Callback-return faults are contained by the backend; native CPU exceptions remain
 terminal kernel faults, not resumable recovery or proof of hardware rollback.
 
-## Next integration and native proof
+## Opt-in adoption and dual-file proof (v5)
 
-The backend entrypoints are linked only into the AP diagnostic ELF; the ordinary
-kernel excludes them. Neither `main` nor PCI enumeration calls them yet. Build
-a distinct versioned opt-in pre-PCI dispatch/receipt profile next, including explicit
-poison handling, immediate handoff/retire before PCI access, checked PCI-window
-adoption that skips the old4KiB mapper only for the admitted active window, all raw fresh proofs,
-strict decoding, tail retention and exact-stage VM coverage. Do not silently
-change v1–v4 or claim their existing receipts exercise this backend.
+The normal kernel excludes the mapper and refuses its explicit command-line token.
+The AP diagnostic ELF calls prepare and immediate handoff before PCI only for
+`--haswell-ecam-boot`, with all four firmware/cache/alias/pre-init flags required.
+The ordinary PCI path and v1–v4 retain their mapping behavior. Clean foreign
+refusal may follow that path but cannot complete the capture. READY/POISONED,
+wrong geometry, changed source or failed adoption stops before PCI/USB; uncertain
+frames remain live. A visible terminal screen requests a photograph and Ubuntu
+restart. No fallback remap or retry follows an uncertain publication.
 
-A native trial then needs the normal exact-stage rehearsal, saved run record,
-recovery/install/one-shot and matching return/USB integrity sequence. A three-table
-synthetic ECAM subtree does not prove the remaining native graph fits. Full-root
-coverage, actual VT-d admission and hardware ownership remain separate and
-unaccepted. No payload is installed or reboot armed by this implementation.
+PCI consumes ACTIVE exactly once after fresh stable admission, exact geometry,
+registry/ownership and complete borrowed-path/private-PD readback. It adopts the
+same156MiB window without adding4KiB tables. Adoption shares the original100ms
+lifetime and65536 checked software-word cap, with no restarted deadline. Full
+raw equality is required throughout this operation; A/D changes also refuse.
+
+After startup the logger is quiesced. The real formatter saves the complete early
+root/PDPT observations (unchanged words plus canonical lossless observed deltas),
+512 private-PD words, both complete128-row registry vectors, two raw CPU/cache/
+EFER/topology/MCFG observations, four full pinned DMAR/catalog observations and
+all operation counters into `ecam.log`. Every byte is retained; Base64 chunks have
+strict sequence/extent and a33000-byte raw cap. There is no hash-only substitute.
+Existing committed-data flush and readback apply. The unchanged pre-user-init
+cache/alias census is then reported to `exit.log`; session, epoch, root, frame,
+adoption and durable-save reference bind the files. Both must complete.
+
+The decoder requires complete old two-pass raw equality under the unchanged
+64-table/32768-entry/4096-byte caps, full cross-file CPU/cache/firmware agreement
+and ECAM branch/leaf correspondence. Only the cross-epoch correspondence allows
+explicit PCI-induced A/D transitions after adoption; it does not mask either
+census pass or relax the mapper's own equality checks. Raw native firmware pins
+remain exact. VM fixtures use a synthetic DMAR pin only in host test builds.
+
+Actual-source host tests cover adoption, changed tables/metadata/controls,
+duplicate consumption, terminal PCI refusal, log quiescence/readback/failure,
+real formatter-to-decoder round trips and missing/duplicate/corrupt/cross-session
+records. Maximum128-catalog/49-MSR output is46213 bytes; with the16514-byte
+postamble allowance it stays within65536. The old proof plus the maximum census
+and postamble also fits independently. New and old files keep the same tail cap.
+No payload or native acceptance follows from these host fixtures. Exact-stage
+VM, recovery/install/one-shot and matching collection are required before a
+native result. Native whole-graph fit and actual VT-d resource/alias/ownership
+admission remain separate and unaccepted; no VT-d data load is provided here.
+
+
+## First native v5 outcome
+
+The first native v5 trial (`56308db224d9e6ab`, implementation `2f53e475`) halted
+before PCI/USB continuation during checked adoption: retained-poison state5,
+35949 words and one parent attempt. No dual-file receipt was produced. The
+word cap was not exhausted; the photograph lacks elapsed time and first failed
+check/readback, so the cause is unresolved. All prior USB files and offline
+allocation integrity verify on return. This is a failed native attempt, not
+adoption or complete-root acceptance. Preserve strict comparisons and limits;
+add bounded first-failure and timing observations before another physical trial.
+
+
+## Bounded adoption failure diagnostics
+
+The AP helper now latches the first failing stage/reason, checked-word count,
+existing clock sample and available exact expected/observed values. Adoption
+identifies geometry, sole-root/ownership, fresh gate, registry/count, complete
+root/PDPT/PD readback and final progress checks. Read primitives identify bounded
+RAM/HHDM sources, word-cap and clock failures. The stable adapter separately
+latches its first CPU/control/catalog/MCFG/DMAR failure and the exact changed
+component/byte where available. Secondary cleanup/refusal cannot overwrite it.
+All comparisons, source permissions, ordering and limits remain unchanged.
+
+The existing terminal screen prints these fixed-size records after uncertainty
+has already stopped PCI/USB continuation. Detail flags mean1=expected/observed
+pair,2=table/index,4=observed-only data; a zero flag means values are unavailable,
+not equal. Prepared/handoff/entry/last-good clocks come from existing operation
+samples, with no new timer read in the successful critical path. A rejected
+clock sample is retained separately; backward/invalid/stopped clocks cannot
+produce a valid elapsed claim. Display time is sampled once after failure and
+labelled separately; it never restarts the operation or its100ms deadline.
+No hardware reread, free, retry, fallback remap or policy change is added.
+Native CPU exceptions remain terminal; this is branch-failure instrumentation,
+not resumable fault handling or proof of rollback.
+
+Actual-source regressions check first-failure preservation after poisoned retry,
+raw A/D differences (still rejected), registry/ownership/geometry/source faults,
+cap/clock failures and fresh-gate changed-byte/component failures. The real
+terminal path executes under fixture hardware, halts via a host test hook and
+asserts zero table rereads/writes/frees and only one later display-clock sample.
+Backward-clock and deadline-expiry output are distinguished. Existing normal
+and maximum-catalog v5 success receipts remain byte-identical in the fixture;
+the raw wire schema, dual-file checks and all old census/context limits stay
+unchanged. Host/VM checks do not identify or fix the earlier native adoption cause.
+
+
+## Instrumented native return
+
+The subsequent instrumented release `a85cf3e1549a1928` saved a complete valid
+early raw component and matching adoption/save reference:36268 words,98684us
+within100000us,37+37 cache MSRs and the pinned42-row catalog. The prior adoption
+halt did not reproduce; its cause remains unknown and timing margin is only
+1316us on this observation. The later census still exhausted64 tables after
+5678 first-pass/zero second-pass reads, with945 partial encoded bytes. Actual
+whole-trial completion is NO and the strict dual-file proof remains absent.
+Do not promote the early component to complete-root or ownership acceptance.
+
+Exact staged ELF inspection shows115.160MiB BSS, of which the static process
+array is104.375MiB with embedded mapping storage. This motivates a source and
+native-branch audit of static kernel/HHDM mapping pressure and deferred backing
+while preserving capacity/ownership/integrity checks. The saved partial graph is
+insufficient to prove attribution. The original ECAM-only graph estimate was
+not a complete native-layout result; its successful compact subtree does not
+make the remaining graph fit. Keep the census/lifetime limits unchanged and
+also investigate startup timing headroom before another implementation/trial.
+
+
+## Unique-span registry bookkeeping
+
+The checked handoff keeps39936 attempts and fault hooks, capacity128 and complete
+pre/post registry verification. Prepare excludes every old registry VA from the
+whole ECAM span, handoff revalidates the snapshot and the new VAs increase
+strictly. No new VA can update an old or previously appended row. The private
+handoff therefore appends the available prefix directly and leaves its full
+registry tail unchanged, instead of searching128 rows for every provable no-op.
+Each attempt also checks the expected count. All original root/clock checks,
+full invalidation, post-readback and strict comparisons remain, with no deadline
+restart. Generic PCI registration is unchanged. Real-source fixtures compare
+every initial count0–128, including unordered/duplicate old VAs outside the span,
+and retain failure/poison coverage. Native timing improvement still needs a
+matching hardware receipt.
+
+
+### Census measurement first-touch preparation
+
+The opt-in RAM-only alias census now primes its private result backing and
+performs one bounded guarded graph preparation before its original two exact
+snapshots. Loading a later table through HHDM can set A in an earlier mapping;
+preparation exercises those source paths before observations. It uses the same
+RAM-catalog, sole-root and exact-translation accessor, no PTE/device writes.
+Preparation and both measured snapshots share the original100ms lifetime with
+no clock restart or failed-pass retry. Each traversal retains64 tables and
+32768 reads; measured snapshots retain4096 lossless bytes each. Preparation
+is additional read-only work, separately counted, not extra accepted raw proof.
+Graph expansion after preparation fails closed. Every measured entry, including
+A/D bits, must still compare exactly. The preparation receipt shares the census
+begin timestamp and records its own completion, read and table counts; the
+collector validates it when present while retaining old saved-report compatibility.
+Native timing/stability require a fresh complete matching capture.
+
+
+### Native first-touch closeout
+
+Runtime `0b9b303e`, release `ab360d3ce2d281e4` passed the complete matching
+dual-file profile:93608us /36268 words for early adoption, then guarded
+preparation and two exactly matching30-table snapshots in40181us total.
+Preparation read15360 entries in13658us; measured passes read15360 entries
+and encoded3816 bytes each, retaining every raw A/D bit. All original bounds,
+root/translation/catalog checks and final completion/save/unmount proofs pass.
+This is boot-only exact-unit CPU mapping/root-context evidence. It does not
+authorize a VT-d target load, live post-init mapping, resource lease or graphics
+ownership. Remaining admission/retirement mechanisms require their own audit
+and scoped validation. Prior failed attempts remain retained.

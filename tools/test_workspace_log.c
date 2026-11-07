@@ -227,4 +227,18 @@ int main(void) {
     lost_prefix=true;old_writes=writes;assert(!save("session-a.log") && writes==old_writes);lost_prefix=false;
     assert(workspace_log_stop());snapshot_bytes=8;count=0;assert(workspace_log_start() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);assert(workspace_log_stop());
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount;immutable full RF proof,rolling desktop tail and phase-boundary fault containment");
+count=0;snapshot_bytes=8;
+    assert(workspace_log_start());
+    assert(!workspace_log_ecam_snapshot()); /* Periodic writer must be quiesced. */
+    assert(workspace_log_quiesce(5000));
+    busy=true;assert(!workspace_log_ecam_snapshot());busy=false;
+    assert(workspace_log_ecam_snapshot() && ecam_saved && strstr(path,"/ecam.log"));
+    assert(workspace_log_window_snapshot() && window_saved && strstr(path,"/window.log"));
+    old_writes=writes;assert(!workspace_log_window_snapshot() && writes==old_writes);
+    old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
+    assert(workspace_log_stop());
+    assert(workspace_log_start() && !ecam_saved && workspace_log_quiesce(5000));
+    corrupt=true;assert(!workspace_log_ecam_snapshot() && !ecam_saved && !healthy);corrupt=false;
+    old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
+    puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
 }

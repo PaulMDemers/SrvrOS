@@ -13869,3 +13869,16 @@ backend and claiming changes remain physically unaccepted. No full-core rerun
 is claimed. Source/reference hashes and local qualification artifacts are kept
 outside build before native integration;the accepted178-file v128 capsule and
 23-file acceptance notes remain unchanged and no reboot is armed.
+
+### Native four-way integration scope (November 7)
+
+Consume maind5a9fbb3 before native handshake wiring. Preserve both Air window/
+ECAM and Pro Wi-Fi staging,workspace snapshots and strict gates when resolving
+shared-file conflicts. PR301 graphics and379 browser have independent scope;
+PR19 remains the Wi-Fi branch. First add a bounded pure management/EAPOL
+coordinator with fresh nonce,one software key owner,confirmed M2/M4 submission
+and explicit erasure/leave. Then bind independently retained native endpoints,
+private credential provisioning and strict saved-log/staging/VM checks. Touch
+private Wi-Fi/WPA modules and their tests,then opt-in main/staging/native owner.
+No data provider or hardware key offload is accepted by host tests. Preserve
+accepted v128 and all recovery/evidence;no physical trial is armed.

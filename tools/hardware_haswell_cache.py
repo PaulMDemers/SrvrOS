@@ -18,12 +18,13 @@ def unpack(text, fmt):
     return list(struct.unpack(fmt, raw))
 
 
-def cpu_record(v):
+def cpu_record(v, *, msr_only=False):
     if v[:4] != [0x756e6547, 0x49656e69, 0x6c65746e, 0x40651] or v[4] & 0x11020 != 0x11020 or v[5] != 39 or v[6] & (3 << 29):
         raise ValueError('exact Haswell CPU/features/cache mode')
     cr0, pat, cap, default, begin, end, root, cr4, hhdm, outer0, outer1 = v[6:17]
     reads, count, fixed, ptes = v[17:21]
-    if count != cap & 255 or count > 16 or fixed != (11 if cap & 256 else 0) or reads != 6 + 2*count + fixed or reads > 49 or not 1 <= ptes <= 16:
+    walks_valid = ptes == 0 if msr_only else 1 <= ptes <= 16
+    if count != cap & 255 or count > 16 or fixed != (11 if cap & 256 else 0) or reads != 6 + 2*count + fixed or reads > 49 or not walks_valid:
         raise ValueError('read/array bounds')
     if default & ~0xcff or default & 255 not in LEGAL or (default & 255 == 1 and not cap & 1024) or (default & 0x400 and not cap & 256):
         raise ValueError('MTRR default')

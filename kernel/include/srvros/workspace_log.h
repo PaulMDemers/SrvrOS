@@ -32,4 +32,8 @@ bool workspace_log_active(void);
 /* Drain the logger and persist a nonfinal checkpoint; stop can save exit.log
  * in the same directory after a later remount. */
 bool workspace_log_pause(void);
+/* Isolated capture only: caller first quiesces the periodic logger. */
+const char *workspace_log_directory(void);
+bool workspace_log_ecam_snapshot(void);
+bool workspace_log_window_snapshot(void);
 #endif

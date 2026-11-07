@@ -590,3 +590,33 @@ and all existing context/census caps remain unchanged. The new lifetime operatio
 has separate65536-word/100ms accounting; it does not enlarge the32768-entry census.
 Next is the distinct opt-in boot dispatcher and raw receipt profile, not a repeat
 of unchanged v4. No hardware activation or physical acceptance follows yet.
+
+
+## Post-census live-admission audit (2026-11-06)
+
+The complete native `ab360d3ce2d281e4` dual-file proof now observes30 tables,
+zero target leaves and enabled NX in the saved pre-user-init epoch. The updated
+host admission audit consumes that exact proof while keeping all live resource,
+mapping/read and ownership grants false. This supersedes the earlier incomplete
+census as the current observation, without relabeling any failed attempt.
+
+The [read-window design](macbookair6-1-vtd-read-window-design.md) records current
+PMM/VMM findings and a tokenized expected-leaf/poisoned-retirement contract.
+The next implementation is a dormant checked resource/mapping backend and
+actual-source failure tests, before any device-read profile. Existing register,
+read, time, mapping and receipt limits stay unchanged. Ordinary startup and
+the installed accepted payload are untouched.
+
+
+## Dormant window lifetime checkpoint (2026-11-06)
+
+The [checked window backend](macbookair6-1-vtd-read-window-design.md#dormant-backend-implementation)
+is implemented in the AP-only VMM and passes actual-source fault tests. It
+performs fresh raw census admission, private two-frame staging, one expected
+parent publication, fenced invalidation and verified detached retirement, with
+retained poison on uncertainty. There is no target-load API or native caller.
+A software token within a trusted exclusive epoch is not a global MMIO lease.
+The next milestone is the fresh exact-unit admission bridge, complete retained
+raw receipt and window-only profile; only afterward consider a register-read
+caller with an explicit A/D contract. Installed accepted hardware evidence is
+unchanged and does not accept the dormant backend natively.

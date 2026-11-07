@@ -3333,6 +3333,13 @@ build/tests/thermal-host$(HOST_EXE): tools/test_thermal.c kernel/src/drivers/the
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include tools/test_thermal.c kernel/src/drivers/thermal_core.c -o $@
 
 .PHONY: test-process-loader
+test-core: test-process-mapping-storage
+.PHONY: test-process-mapping-storage
+test-process-mapping-storage: build/tests/process-mapping-storage-host$(HOST_EXE)
+	$<
+build/tests/process-mapping-storage-host$(HOST_EXE): tools/test_process_mapping_storage.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-process-loader
 test-process-loader: build/tests/process-loader-host$(HOST_EXE)
 	$<
@@ -4568,8 +4575,8 @@ build/tests/wifi-syscall-host$(HOST_EXE): tools/test_wifi_syscall.c kernel/src/a
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
-AP_PROBE_OBJ := build/ap-probe/ecam-vmm.o build/ap-probe/ecam-gate.o build/ap-probe/haswell-alias-core.o build/ap-probe/haswell-cache-walk.o build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
-AP_PROBE_BASE := $(filter-out build/kernel/src/memory/vmm.c.o build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o,$(KERNEL_OBJ))
+AP_PROBE_OBJ := build/ap-probe/window-gate.o build/ap-probe/window-report.o build/ap-probe/ecam-report.o build/ap-probe/ecam-pci.o build/ap-probe/ecam-vmm.o build/ap-probe/ecam-gate.o build/ap-probe/haswell-alias-core.o build/ap-probe/haswell-cache-walk.o build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_BASE := $(filter-out build/kernel/src/arch/x86_64/pci.c.o build/kernel/src/memory/vmm.c.o build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
 build/ap-probe/main.o: kernel/src/main.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
@@ -4585,10 +4592,16 @@ build/ap-probe/entry.o: kernel/diagnostics/ap_probe.S $(ZIG)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 build/ap-probe/srvros.elf: $(AP_PROBE_OBJ) $(AP_PROBE_BASE) kernel/linker.ld
-	$(LD) $(LDFLAGS) --undefined=haswell_ecam_boot_prepare --undefined=haswell_ecam_boot_handoff --undefined=haswell_ecam_boot_retire --undefined=haswell_ecam_boot_gate_result --undefined=vmm_ecam_boot_result $(AP_PROBE_OBJ) $(AP_PROBE_BASE) -o $@
-build/ap-probe/ecam-vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	$(LD) $(LDFLAGS) --undefined=haswell_ecam_boot_prepare --undefined=haswell_ecam_boot_handoff --undefined=haswell_ecam_boot_retire --undefined=haswell_ecam_boot_gate_result --undefined=vmm_ecam_boot_result --undefined=vmm_air61_window_prepare --undefined=vmm_air61_window_retire $(AP_PROBE_OBJ) $(AP_PROBE_BASE) -o $@
+build/ap-probe/ecam-vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/src/memory/air61_window.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -DSRVROS_AIR61_WINDOW -c $< -o $@
+build/ap-probe/ecam-pci.o: kernel/src/arch/x86_64/pci.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -c $< -o $@
+build/ap-probe/ecam-report.o: kernel/diagnostics/haswell_ecam_report.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
 build/ap-probe/ecam-gate.o: kernel/diagnostics/haswell_ecam_boot.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -5443,7 +5456,7 @@ build/ap-probe/haswell-firmware-adapter.o: kernel/diagnostics/haswell_firmware_a
 
 .PHONY: test-haswell-firmware
 test-core: test-haswell-firmware
-test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-firmware-adapter$(HOST_EXE)
+test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-firmware-adapter$(HOST_EXE) build/tests/ecam-profile$(HOST_EXE)
 	build/tests/hsw-firmware-core$(HOST_EXE) > build/tests/hsw-firmware-core.log
 	build/tests/hsw-firmware-adapter$(HOST_EXE) > build/tests/hsw-firmware-refusal.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_firmware.py
@@ -5684,12 +5697,20 @@ test-haswell-ecam-proposal: test-haswell-alias-layout
 
 .PHONY: test-ecam-boot
 test-core: test-ecam-boot
-test-ecam-boot: build/tests/ecam-boot$(HOST_EXE) build/tests/ecam-boot-gate$(HOST_EXE)
+test-ecam-boot: build/tests/ecam-boot$(HOST_EXE) build/tests/ecam-boot-gate$(HOST_EXE) build/tests/ecam-profile$(HOST_EXE) build/tests/ecam-pci$(HOST_EXE)
 	build/tests/ecam-boot$(HOST_EXE)
 	build/tests/ecam-boot-gate$(HOST_EXE)
+	build/tests/ecam-pci$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_ecam.py
+build/tests/ecam-profile$(HOST_EXE): tools/test_ecam_profile.c tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/diagnostics/haswell_ecam_report.c kernel/diagnostics/haswell_ecam_boot.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@
 build/tests/ecam-boot$(HOST_EXE): tools/test_ecam_boot.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+build/tests/ecam-pci$(HOST_EXE): tools/test_ecam_pci.c tools/test_ecam_profile.c tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/src/arch/x86_64/pci.c kernel/diagnostics/haswell_ecam_report.c kernel/diagnostics/haswell_ecam_boot.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@
 build/tests/ecam-boot-gate$(HOST_EXE): tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/diagnostics/haswell_ecam_boot.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@
@@ -5787,3 +5808,29 @@ test-wpa2-ccmp-differential: build/tests/wpa2-ccmp-shared.so
 build/tests/wpa2-ccmp-shared.so: tools/wpa2_handshake_probe.c kernel/src/wpa2_ccmp.c kernel/src/wpa2_aes128.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include $< kernel/src/wpa2_ccmp.c kernel/src/wpa2_aes128.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/drivers/mt76_rsn.c -o $@
+
+.PHONY: test-air61-window
+test-core: test-air61-window
+test-air61-window: build/tests/air61-window$(HOST_EXE)
+	build/tests/air61-window$(HOST_EXE)
+build/tests/air61-window$(HOST_EXE): tools/test_air61_window.c kernel/src/memory/vmm.c kernel/src/memory/air61_window.inc kernel/diagnostics/haswell_alias_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_alias_core.c -Wl,--gc-sections -o $@
+
+build/ap-probe/window-gate.o: kernel/diagnostics/air61_window_gate.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/ap-probe/window-report.o: kernel/diagnostics/air61_window_report.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: test-air61-window-profile
+test-core: test-air61-window-profile
+test-air61-window-profile: build/tests/air61-window-profile$(HOST_EXE) build/tests/air61-window-combined$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_air61_window.py
+build/tests/air61-window-profile$(HOST_EXE): tools/test_air61_window_profile.c tools/test_air61_window.c kernel/src/memory/air61_window.inc kernel/src/memory/vmm.c kernel/diagnostics/air61_window_gate.c kernel/diagnostics/haswell_ecam_boot.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@
+build/tests/air61-window-combined$(HOST_EXE): tools/test_air61_window_combined.c tools/test_ecam_profile.c tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_ecam_boot.c kernel/src/memory/air61_window.inc kernel/diagnostics/haswell_ecam_report.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_ECAM_GATE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@

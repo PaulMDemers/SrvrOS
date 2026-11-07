@@ -3,6 +3,8 @@
 #include <srvros/haswell_backing.h>
 #include <srvros/haswell_firmware.h>
 #include <srvros/haswell_cache_context.h>
+#include <srvros/ecam_boot.h>
+#include <srvros/air61_window.h>
 #include <srvros/posix_capture.h>
 #include <srvros/acpi.h>
 #include <srvros/autotest.h>
@@ -570,6 +572,19 @@ void kmain(void) {
     if (mouse_ready) {
         ioapic_route_isa_irq(12, 44);
     }
+    bool window_test=cmdline_has_token(cmdline,"srvros.vtd-window=air61-no-read");
+    bool ecam_test=cmdline_has_token(cmdline,"srvros.ecam=air61-2m-test");
+    if(window_test && !ecam_test)halt_forever();
+    if(ecam_test) {
+#ifdef SRVROS_AP_PROBE
+        if(!cmdline_has_token(cmdline,"srvros.capture=haswell-firmware") || !cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx-preinit"))haswell_ecam_boot_fail_closed("invalid opt-in profile");
+        boot_status("ecam-boot-progress: fresh pre-PCI admission; no user input required\n");
+        bool prepared=haswell_ecam_boot_prepare();
+        if((prepared && !haswell_ecam_boot_handoff()) || vmm_ecam_boot_result()->state==ECAM_POISONED)haswell_ecam_boot_fail_closed("pre-PCI publication failed");
+#else
+        boot_set_framebuffer_quiet(false);console_write("ECAM test requires the isolated diagnostic kernel\n");halt_forever();
+#endif
+    }
     pci_init();
     bool virtio_baseline=cmdline_has_token(cmdline,"srvros.virtio=on");
     if(virtio_baseline) {
@@ -727,7 +742,19 @@ void kmain(void) {
 #ifdef SRVROS_AP_PROBE
     if(timer_running && cmdline_has_token(cmdline,"srvros.capture=haswell-firmware") &&
        cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx-preinit"))
-        (void)haswell_alias_context_prepare();
+    {
+        uint64_t window_irq=0;
+        if(window_test){
+            boot_status("window-progress: fresh bounded mapping/retirement, zero target loads; no input needed\n");
+            __asm__ volatile("pushfq; popq %0; cli":"=r"(window_irq)::"memory");
+        }
+        bool aliases_ready=haswell_alias_context_prepare();
+        if(window_test){
+            if(aliases_ready)(void)haswell_air61_window_run();
+            if(window_irq&512)__asm__ volatile("sti":::"memory");
+            boot_status("window-progress: safe outcome recorded; saving results and returning to Ubuntu\n");
+        }
+    }
 #endif
     bool init_ready = false;
     int64_t init_pid = process_spawn_background_elf_args_quiet("/init", "--system");
@@ -967,7 +994,20 @@ void kmain(void) {
         }
         if(automatic_hfw && started && init_ready && timer_running) {
 #ifdef SRVROS_AP_PROBE
-            sampled=cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx-preinit")?haswell_alias_context_report():cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx")?haswell_alias_context_run():cmdline_has_token(cmdline,"srvros.hsw-cache=context-only")?haswell_cache_context_run():haswell_firmware_run();
+            if(ecam_test) {
+                bool quiet=workspace_log_quiesce(5000);
+                const char *directory=workspace_log_directory();
+                bool proof=quiet && haswell_ecam_boot_report(directory);
+                console_printf("laptop-capture: boot options=%s\n",cmdline);
+                bool saved=quiet && workspace_log_ecam_snapshot();
+                bool window_proof=true,window_saved=true;
+                if(window_test){window_proof=haswell_air61_window_report(directory);window_saved=workspace_log_window_snapshot();}
+                bool aliases=haswell_alias_context_report();
+                if(window_test)haswell_air61_window_reference(directory,window_saved);
+                haswell_ecam_boot_reference(directory,saved);
+                console_printf("laptop-capture: boot options=%s\n",cmdline);
+                sampled=proof && saved && aliases && window_proof && window_saved;
+            } else sampled=cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx-preinit")?haswell_alias_context_report():cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx")?haswell_alias_context_run():cmdline_has_token(cmdline,"srvros.hsw-cache=context-only")?haswell_cache_context_run():haswell_firmware_run();
 #else
             console_write("hsw-firmware: ordinary-kernel refused\n");sampled=false;
 #endif

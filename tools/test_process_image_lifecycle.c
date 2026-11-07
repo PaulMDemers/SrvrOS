@@ -318,6 +318,7 @@ int main(void) {
      * observation, then select the complete new image exactly once. */
     allocated=1;freed=0;memset(freed_page,0,sizeof(freed_page));
     image_prepare_ok=true;next_image_generation=41;parent->image_generation=41;
+    if(!parent->mappings){parent->mappings=calloc(PROCESS_MAX_MAPPINGS,sizeof(*parent->mappings));assert(parent->mappings);}
     parent->mapping_count=1;parent->mappings[0]=(struct process_mapping){.virtual_address=0x500000,.physical_address=4096,.flags=VMM_PAGE_USER|VMM_PAGE_WRITABLE};
     parent->files[3]=(struct process_file){.used=true,.type=PROCESS_FILE_STDIO,.handle=1,.flags=SRV_FD_CLOEXEC};
     parent->fpu.active_user_trap=NULL;bound_fpu=&parent->fpu;bound_fs=parent->tls_thread_pointer;
@@ -355,6 +356,7 @@ int main(void) {
     /* A detached worker clears its binding before TLS backing and slot reuse. */
     parent->main_thread_exited=false;parent->tls_memsz=32;parent->tls_align=16;
     allocated=1;freed=0;memset(freed_page,0,sizeof(freed_page));
+    if(!parent->mappings){parent->mappings=calloc(PROCESS_MAX_MAPPINGS,sizeof(*parent->mappings));assert(parent->mappings);}
     parent->mapping_count=1;parent->mappings[0]=(struct process_mapping){.virtual_address=USER_TLS_BASE+PAGE_SIZE,.physical_address=4096,.flags=VMM_PAGE_USER|VMM_PAGE_WRITABLE};
     exiting_worker=&parent->user_threads[0];
     *exiting_worker=(struct process_user_thread){.used=true,.active=true,.detached=true,.owner=parent,.tid=2,.tls_base=USER_TLS_BASE+PAGE_SIZE,.tls_thread_pointer=USER_TLS_BASE+PAGE_SIZE+32};
@@ -386,7 +388,8 @@ int main(void) {
     parent->usr1_action_generation=17;parent->signal_catch_mask=1ull<<10;parent->main_signal_mask=1ull<<12;
     parent->pending_signals=parent->main_pending_signals=1ull<<10;
     parent->tls_filesz=parent->tls_memsz=parent->tls_base=parent->tls_thread_pointer=0;
-    parent->address_space=3;parent->mapping_count=1;
+    parent->address_space=3;if(!parent->mappings){parent->mappings=calloc(PROCESS_MAX_MAPPINGS,sizeof(*parent->mappings));assert(parent->mappings);}
+    parent->mapping_count=1;
     allocated=1;freed=0;memset(freed_page,0,sizeof(freed_page));
     parent->mappings[0]=(struct process_mapping){.virtual_address=0x500000,.physical_address=4096,.flags=VMM_PAGE_USER};
     memcpy(&parent_snapshot,parent,sizeof(*parent));fork_publish_expected=true;

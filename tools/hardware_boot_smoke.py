@@ -169,7 +169,7 @@ def main():
     wifi_firmware=wifi_firmware or wifi_ui_capture or wifi_5ghz_prereq
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
-    hfw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hfw-","ram-usb-v2-hfw-","ram-usb-v3-hfw-","ram-usb-v4-hfw-")))
+    hfw_capture=bool(probe and manifest["config_version"].startswith(tuple(f"ram-usb-v{i}-hfw-" for i in range(1,7))))
     hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-")))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
@@ -455,12 +455,25 @@ def main():
                         result=firmware_result(exit_log)
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         assert 'laptop-capture: completed=NO' in exit_log
-                        if manifest['config_version'].startswith(('ram-usb-v2-hfw-','ram-usb-v3-hfw-','ram-usb-v4-hfw-')):
+                        if manifest['config_version'].startswith(tuple(f'ram-usb-v{i}-hfw-' for i in range(2,7))):
                             from hardware_haswell_cache import cache_result
-                            if manifest['config_version'].startswith('ram-usb-v4-hfw-'):
+                            if manifest['config_version'].startswith(('ram-usb-v4-hfw-','ram-usb-v5-hfw-','ram-usb-v6-hfw-')):
                                 from hardware_haswell_alias import alias_preinit_result
                                 assert alias_preinit_result(exit_log)['status']=='REFUSED'
                                 assert text.index('hsw-alias-progress: capturing before')<text.index('init: started pid=')<text.index('hsw-alias:')
+                            if manifest['config_version'].startswith(('ram-usb-v5-hfw-','ram-usb-v6-hfw-')):
+                                from hardware_haswell_ecam import ecam_result
+                                ecam_log=stored.read(folder+'/ecam.log').decode()
+                                result=ecam_result(ecam_log,exit_log,folder.split('/')[-1])
+                                assert result and result['status']=='REFUSED' and not result['source_completed']
+                                assert text.index('ecam-boot-progress:')<text.index('pci:')<text.index('hsw-alias-progress:')
+                                (logs/'laptop-capture-ecam.log').write_text(ecam_log)
+                                if manifest['config_version'].startswith('ram-usb-v6-hfw-'):
+                                    from hardware_air61_window import window_result
+                                    window_log=stored.read(folder+'/window.log').decode()
+                                    w=window_result(window_log,ecam_log,exit_log,folder.split('/')[-1])
+                                    assert w and w['status']=='REFUSED' and not w['source_completed']
+                                    (logs/'laptop-capture-window.log').write_text(window_log)
                             if manifest['config_version'].startswith('ram-usb-v3-hfw-'):
                                 from hardware_haswell_alias import alias_result
                                 assert alias_result(exit_log)['status']=='REFUSED'

@@ -79,6 +79,7 @@ void halt_forever(void) { assert(0 && "unexpected kernel halt");abort(); }
 static void teardown_case(bool survivor,unsigned failure,bool fatal) {
     setup(1);subject.pid=77;subject.active=subject.allocated=true;
     subject.address_space=0x1000;subject.mapping_count=1;subject.image_generation=19;
+    subject.mappings=calloc(PROCESS_MAX_MAPPINGS,sizeof(*subject.mappings));assert(subject.mappings);
     subject.mappings[0]=(struct process_mapping){.virtual_address=0x5000,.physical_address=0x9000};
     subject.main_thread_exited=true;
     subject.user_threads[0]=(struct process_user_thread){.used=true,.active=true,.owner=&subject};

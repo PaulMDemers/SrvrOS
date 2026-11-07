@@ -1,7 +1,10 @@
 import unittest
+import subprocess
+import sys
+from pathlib import Path
 from unittest.mock import patch
 
-from haswell_vtd_admission_audit import audit, model_leaf, CANDIDATE_LEAF, REQUIRED
+from haswell_vtd_admission_audit import audit, audit_boot_context, model_leaf, CANDIDATE_LEAF, REQUIRED, BOOT_REQUIRED
 from hardware_haswell_cache import cache_result
 from test_hardware_haswell_cache import fixture, mutate
 
@@ -86,6 +89,57 @@ class AdmissionTests(unittest.TestCase):
         self.assertRaises(ValueError, model_leaf, cpu, CANDIDATE_LEAF)
         cpu['variables'] = [(0, 1 << 39, 4), (0, 1 << 39, 5)]
         self.assertRaises(ValueError, model_leaf, cpu, CANDIDATE_LEAF)
+
+
+class BootAdmissionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if not Path('build/tests/ecam-profile').exists():
+            raise unittest.SkipTest('build real ECAM producer fixture first')
+
+    def test_full_raw_boot_proof_records_history_without_live_grants(self):
+        from test_hardware_haswell_ecam import fixture, PIN, SESSION
+        for maximum in (False, True):
+            early, late = fixture(maximum)
+            self.assertRaises(ValueError, audit_boot_context, early, late, SESSION)
+            with patch('hardware_haswell_firmware.PIN', PIN):
+                p = audit_boot_context(early, late, SESSION)
+            self.assertEqual(p['status'], 'HOST_BOOT_ADMISSION_AUDIT_BLOCKED')
+            for key in ('historical_boot_mapping_observed', 'historical_managed_root_coverage_observed', 'historical_nx_enablement_observed'):
+                self.assertTrue(p[key], key)
+            self.assertEqual(p['boot_context']['pages'], 6)
+            self.assertEqual(p['boot_context']['target_leaf_count'], 0)
+            self.assertEqual(tuple(p['unresolved_prerequisites']), BOOT_REQUIRED)
+            for key in ('resource_lease_proven', 'all_aliases_proven', 'nx_enablement_proven', 'live_root_exclusion_proven', 'actual_leaf_observed', 'effective_uc_mapping_proven', 'retirement_proven', 'native_mapping_authorized', 'native_read_authorized', 'translation_state_observed', 'hardware_authority', 'ownership', 'live_post_init_admission'):
+                self.assertIs(p[key], False, key)
+
+    def test_missing_changed_cross_session_or_failed_raw_proof_refuses(self):
+        from test_hardware_haswell_ecam import fixture, PIN, SESSION
+        early, late = fixture()
+        with patch('hardware_haswell_firmware.PIN', PIN):
+            for args in [('', late, SESSION), (early, '', SESSION), (early, late, 'wrong-session'), ({}, late, SESSION), (early, late.replace('completed=yes', 'completed=NO'), SESSION), (early, late.replace('saved=1', 'saved=0'), SESSION), (early.replace(SESSION, 'session-0000000000000002-00'), late, SESSION), (early, late.replace('reads=3072,3072', 'reads=3071,3072'), SESSION)]:
+                self.assertRaises(ValueError, audit_boot_context, *args)
+            for text, prefix in [(early, 'hsw-ecam-data:'), (late, 'hsw-alias-data:'), (late, 'hsw-alias-epoch:')]:
+                line=next(x for x in text.splitlines() if x.startswith(prefix))+'\n'
+                args=(text.replace(line,''),late,SESSION) if text is early else (early,text.replace(line,''),SESSION)
+                self.assertRaises(ValueError, audit_boot_context, *args)
+
+    def test_external_lease_or_live_claim_does_not_extend_saved_epoch(self):
+        from test_hardware_haswell_ecam import fixture, PIN, SESSION
+        early, late = fixture()
+        with patch('hardware_haswell_firmware.PIN', PIN):
+            p=audit_boot_context(early,late+'external: resource_lease=yes live_root=yes NX=yes ownership=yes\n',SESSION)
+        self.assertFalse(p['resource_lease_proven'])
+        self.assertFalse(p['live_root_exclusion_proven'])
+        self.assertFalse(p['nx_enablement_proven'])
+        self.assertFalse(p['ownership'])
+
+    def test_cli_requires_both_boot_arguments_before_opening_inputs(self):
+        base=[sys.executable,'tools/haswell_vtd_admission_audit.py','--exit-log','missing-input','--output','unused-output']
+        for extra in (['--session','session-1'], ['--ecam-log','missing-ecam']):
+            p=subprocess.run(base+extra,text=True,capture_output=True)
+            self.assertEqual(p.returncode,2)
+            self.assertIn('must be supplied together',p.stderr)
 
 
 if __name__ == '__main__':
