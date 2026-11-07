@@ -14066,3 +14066,20 @@ retention. Touched scope:Wi-Fi framing/coordinator/native child,capture staging/
 ledger and directed fixtures. Native acceptance remains runtime09504e18 only;
 new source requires matched build,host/sanitizer/full-prefix/exact-stage VM,
 recovery/run record and a cold shutdown before any new physical claim.
+
+The v131 implementation adds separate software Ethernet/CCMP framing and a
+post-M4 disposable DHCP/DNS/256-byte gateway-echo window. It uses the shared
+strict DNS parser and leaves boot-immutable ordinary provider selection alone.
+The host independent AESCCM differential covers102 full USB TX envelopes and
+816 RX/replay/MIC cases through1500-byte Ethernet payloads,including QoS,group
+keys and padding. The independent Ethernet server tests DHCP DORA,local/routed
+DNS next-hop ARP,wire/span/checksum/payload failures and every ownership/send/
+poll/time bound. The actual native-controller fixture completes the same
+six-request exchange with independently encrypted AP replies,then erases keys,
+submits leave and restores the full child. Group/unicast/padding,all encrypted
+send failures,61 allocation/alias boundaries,peer/key mutation,nonce failure,
+command failure and ownership-loss sweeps pass. Dedicated ledgers reject missing,
+duplicated,reordered or incomplete data/key/retirement receipts. These are
+synthetic tests only;the accepted physical source remains09504e18. Full matched
+qualification and cold hardware results are still required before accepting
+encrypted transport,DHCP/DNS or data transfer.

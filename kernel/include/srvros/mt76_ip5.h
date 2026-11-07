@@ -1,0 +1,25 @@
+#ifndef SRVROS_MT76_IP5_H
+#define SRVROS_MT76_IP5_H
+#include <srvros/mt76_join5.h>
+/* Disposable controlled-port diagnostic,not an ordinary network provider.
+ * All input Ethernet frames must already be authenticated/decrypted by the
+ * live CCMP owner. No fallback static IP,ARP poisoning,packet logging or retry.
+ * One DHCP DORA,ARP for the configured DNS hop and router,example.com A query,
+ * and one256-byte gateway echo exchange. All waits are separately bounded.
+ * The caller retains peer/keys/DMA and performs erase/leave on every outcome. */
+struct mt76_ip5_io {
+ void *context;
+ bool (*owned)(void *);
+ enum mt76_join5_send (*send)(void *,const uint8_t *,size_t);
+ bool (*poll)(void *,uint8_t *,size_t,size_t *,bool *);
+ bool (*delay)(void *,unsigned);
+ uint64_t (*now)(void *);
+};
+struct mt76_ip5 {
+ bool attempted,complete,unsafe,discover,offer,request,ack,arp_dns,dns,arp_router,echo;
+ unsigned phase,sends,polls,ignored;
+ uint32_t xid,address,server,mask,router,resolver,answer;
+ uint8_t station[6],dns_mac[6],router_mac[6],tx[1514],rx[1514];
+};
+bool mt76_ip5_run(struct mt76_ip5 *,const uint8_t station[6],uint32_t fresh_xid,const struct mt76_ip5_io *);
+#endif

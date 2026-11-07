@@ -7272,3 +7272,41 @@ device profile. Persistent private PMK storage is not erased by ephemeral
 TK/GTK cleanup. A separate bounded post-M4 CCMP transport window must demonstrate
 authenticated encrypted RX/TX and PN/replay behavior before DHCP/DNS,data,
 disconnect and provider/UI reattach can be accepted.
+
+### Bounded encrypted Ethernet/IP diagnostic (v131 candidate)
+
+`--wifi-data5` requires the complete explicit WPA5 parent and private PMK stage,
+automatic save/return and no desktop. Historical v130 remains handshake-only.
+The new post-M4 callback retains the original exclusive software backend until
+its bounded diagnostic ends,then always erases keys and submits leave when
+ownership is certain. It neither registers nor switches the ordinary network
+provider;that boot-immutable interface is a separate integration step.
+
+`mt76_data5` bridges station-sourced IPv4/ARP Ethernet into non-QoS ToDS CCMP,
+reserving each TX PN once. Its USB envelope uses software IV/WIV and WCIDff,
+with no hardware key offload. RX validates the raw MT76 envelope,removes only
+declared L2 padding and authenticates the complete protected FromDS MPDU before
+Ethernet delivery. Hardware-decrypted/stripped-IV,fragment,aggregate,A4,HT and
+unsupported QoS shapes refuse;group and pairwise replay floors stay separate.
+No packet contents,keys,addresses or nonce values enter diagnostic receipts.
+
+The disposable `mt76_ip5` probe sends exactly six Ethernet requests:DHCP
+DISCOVER/REQUEST,ARP for the configured DNS hop,an example.com A query,ARP for
+the gateway and one256-byte gateway echo. DHCP replies must match the fresh
+strict-entropy transaction ID and station,with complete nonduplicated required
+options and consistent offer/ACK configuration. IPv4/UDP checksums,ports/spans
+and source/destination binding are checked;DNS reuses the shared strict
+`srv_dns_parse_a` parser. The entire returned echo payload must match. Each
+wait has a2-second/20,000-poll bound;there is no retransmit,static-IP fallback,
+lease renewal,general socket service or ordinary-provider claim. The final
+leave is the diagnostic disconnect;ordinary lease-release/reconnect policy
+remains separate. Unsupported server layouts or blocked echo fail this probe.
+
+The same native child owns at most48 retained RX pages and11 TX publications
+in data mode,five in the historical mode. Six separately retained ciphertext
+TDs use PNs1..6;the accepted device-toggle synchronization,exact endpoint/input/
+MAC restoration and full power/RF parent remain mandatory. Uncertain sends or
+lost key/peer ownership stop further publication and retain DMA. Dedicated
+saved-log validation requires every encrypted send,authenticated response,
+DHCP/DNS/echo result and final key erasure/leave/restoration;handshake-only
+logs cannot pass it. Local synthetic/oracle results do not accept native data.

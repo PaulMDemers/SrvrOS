@@ -49,14 +49,34 @@ static bool poll_reply(void *p,enum mt76_wpa5_rx kind,uint8_t *out,size_t cap,si
 static bool delay(void *p,unsigned us){assert(p==&fake && us==100);if(!fake.frozen_clock)fake.time+=us;return ++fake.delays!=fake.fail_delay;}
 static uint64_t now(void *p){assert(p==&fake);return fake.time;}
 static const struct mt76_wpa5_io io={&fake,owned,nonce,send_frame,poll_reply,delay,now};
+static bool use_data,data_lost;
+static unsigned data_bad_phase;
+static unsigned data_calls;
+static enum mt76_join5_send data_result;
+static enum mt76_join5_send data_window(void *c,struct wpa2_ccmp *k,uint64_t g,const struct mt76_peer5 *p){
+ assert(c==&fake && k==&s.keys && g==9 && p==&peer && !fake.lost);
+ assert(s.m4_sent && s.keys_activated && !s.keys_erased && !s.leave_sent && fake.sends==4 && k->phase==WPA2_CCMP_ACTIVE && s.handshake.phase==WPA2_HS_COMPLETE);
+ data_calls++;assert(data_calls==1);
+ assert(!mt76_wpa5_run_data(&s,&peer,hs_pmk,&io,(void *)&s));
+ uint8_t h[24]={8,1},plain[8]={0xaa,0xaa,3,0,0,0,8,0},out[64];memcpy(h+4,hs_aa,6);memcpy(h+10,hs_spa,6);memcpy(h+16,hs_aa,6);
+ assert(wpa2_ccmp_seal(k,g,h,plain,sizeof plain,out,sizeof out)==48 && k->tx_pn==1);
+ if(data_lost)fake.lost=true;
+ if(data_bad_phase==1)s.handshake.phase=WPA2_HS_CLOSED;
+ if(data_bad_phase==2)s.handshake.phase=WPA2_HS_EMPTY;
+ if(data_bad_phase==3)s.keys.phase=WPA2_CCMP_CLOSED;
+ if(data_bad_phase==4)s.keys.phase=WPA2_CCMP_EMPTY;
+ return data_result;
+}
+static const struct mt76_wpa5_data extension={&fake,data_window};
 static void setup(void){
  memset(&s,0,sizeof s);memset(&fake,0,sizeof fake);fake.time=1000;
+ use_data=data_lost=false;data_bad_phase=0;data_calls=0;data_result=MT76_JOIN5_SENT;
  peer=(struct mt76_peer5){.attempted=true,.complete=true,.generation=9,.observations=2,.rates=255,.peer={.ssid="Synthetic5",.ssid_size=10,.channel=161,.basic_rates=21,.rsn_size=sizeof hs_rsne}};
  memcpy(peer.peer.station,hs_spa,6);memcpy(peer.peer.bssid,hs_aa,6);memcpy(peer.peer.rsn,hs_rsne,sizeof hs_rsne);
 }
 static void zero(const void *p,size_t n){const uint8_t *v=p;while(n--)assert(!*v++);}
 static bool run(void){
- bool ok=mt76_wpa5_run(&s,&peer,hs_pmk,&io);
+ bool ok=use_data?mt76_wpa5_run_data(&s,&peer,hs_pmk,&io,&extension):mt76_wpa5_run(&s,&peer,hs_pmk,&io);
  zero(s.reply,sizeof s.reply);zero(s.packet,sizeof s.packet);zero(s.eapol,sizeof s.eapol);zero(s.snonce,sizeof s.snonce);
  zero(s.handshake.pmk,32);zero(s.handshake.snonce,32);zero(s.handshake.anonce,32);zero(s.handshake.ptk,48);zero(s.handshake.gtk,16);zero(s.handshake.scratch,sizeof s.handshake.scratch);
  zero(s.keys.tk,16);zero(s.keys.gtk,16);zero(s.keys.scratch,sizeof s.keys.scratch);
@@ -95,5 +115,16 @@ int main(void){
  setup();assert(!mt76_wpa5_run(&s,&peer,s.reply,&io) && !s.attempted);
  setup();assert(!mt76_wpa5_run(&s,(void *)&s,hs_pmk,&io) && !s.attempted);
  setup();struct mt76_wpa5_io alias=io;alias.context=&s;assert(!mt76_wpa5_run(&s,&peer,hs_pmk,&alias) && !s.attempted);
+ setup();use_data=true;assert(run() && data_calls==1 && s.keys.tx_pn==1 && s.leave_sent);
+ unsigned data_checks=fake.checks;
+ for(unsigned i=1;i<=data_checks;i++){setup();use_data=true;fake.lose=i;assert(!run() && s.unsafe);}
+ setup();use_data=true;data_result=MT76_JOIN5_REFUSED;assert(!run() && data_calls==1 && !s.unsafe && s.leave_sent && s.keys_erased);
+ setup();use_data=true;data_result=MT76_JOIN5_UNCERTAIN;assert(!run() && data_calls==1 && s.unsafe && !s.leave_sent && s.keys_erased);
+ setup();use_data=true;data_lost=true;assert(!run() && data_calls==1 && s.unsafe && !s.leave_sent && s.keys_erased);
+ setup();use_data=true;data_result=(enum mt76_join5_send)99;assert(!run() && s.unsafe && !s.leave_sent);
+ for(unsigned n=1;n<=4;n++){setup();use_data=true;data_bad_phase=n;assert(!run() && s.unsafe && !s.leave_sent && s.keys_erased);}
+ setup();assert(!mt76_wpa5_run_data(&s,&peer,hs_pmk,&io,NULL) && !s.attempted);
+ struct mt76_wpa5_data bad_extension=extension;bad_extension.context=&s;
+ assert(!mt76_wpa5_run_data(&s,&peer,hs_pmk,&io,&bad_extension) && !s.attempted);
  printf("mt76-wpa5: PASS synthetic AUTH/ASSOC/M1/M2/M3/M4/leave,unique software install/activation/erasure,%u ownership boundaries,all five send refusals/uncertainties,all M3 byte corruptions,nonce/clock/deadline/poll/alias refusals;no native or encrypted data acceptance\n",checks);
 }

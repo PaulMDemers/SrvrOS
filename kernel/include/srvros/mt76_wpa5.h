@@ -3,7 +3,7 @@
 #include <srvros/mt76_join5.h>
 #include <srvros/wpa2_ccmp.h>
 enum mt76_wpa5_tx {MT76_WPA5_AUTH,MT76_WPA5_ASSOC,MT76_WPA5_M2,MT76_WPA5_M4,MT76_WPA5_LEAVE};
-enum mt76_wpa5_rx {MT76_WPA5_MANAGEMENT,MT76_WPA5_EAPOL};
+enum mt76_wpa5_rx {MT76_WPA5_MANAGEMENT,MT76_WPA5_EAPOL,MT76_WPA5_DATA};
 struct mt76_wpa5_io {
  void *context;
  bool (*owned)(void *,bool cleanup);
@@ -34,4 +34,16 @@ struct mt76_wpa5 {
  * every admitted outcome scrubs local secret/packet scratch. Uncertain DMA
  * stops all publication,including leave,while software erasure still runs. */
 bool mt76_wpa5_run(struct mt76_wpa5 *,const struct mt76_peer5 *,const uint8_t pmk[32],const struct mt76_wpa5_io *);
+/* Explicit bounded extension only. Runs once after confirmed local M4 and
+ * activation,while the original key/backend/peer/generation remain exclusive.
+ * Callback must not copy/reinstall/retire keys or change the handshake. SENT
+ * means its complete diagnostic succeeded,not an AP ACK. REFUSED still permits
+ * normal erasure/leave;UNCERTAIN prohibits any further publication. The caller
+ * supplies all transport/time/packet bounds and independent result receipts.
+ * Historical mt76_wpa5_run never invokes a data callback. */
+struct mt76_wpa5_data {
+ void *context;
+ enum mt76_join5_send (*run)(void *,struct wpa2_ccmp *,uint64_t,const struct mt76_peer5 *);
+};
+bool mt76_wpa5_run_data(struct mt76_wpa5 *,const struct mt76_peer5 *,const uint8_t pmk[32],const struct mt76_wpa5_io *,const struct mt76_wpa5_data *);
 #endif
