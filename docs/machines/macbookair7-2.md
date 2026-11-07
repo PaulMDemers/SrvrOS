@@ -2,6 +2,45 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Current checkpoint: pinned transaction/display-reader audit accepted
+
+Release `6efeecb2a7eae7b3`, payload source `dd52f571`, completed native session
+`session-00065fb5e7cfced1-00` and returned automatically to Ubuntu. Strict native
+reader/HDA-lease, saved checkpoint and independent UC prerequisites pass, with
+zero collector attention/errors. Both exact PCIe-chain/config observations agree;
+DEVC/DEVS DWORD is0800, so TXP is clear in both inhibited samples. This accepts
+only the documented non-posted-request observation, not posted-write completion.
+
+Both39-DWORD plane passes match across all three pipes, including stereo left-eye
+programmed/live surfaces; primary mask1, cursor0, sprite0 and address mismatch0.
+Shared words match the inherited-display capture. Only primaryA is enabled;
+all programmed/live surface addresses are zero GGTT offsets, not evidence of
+free physical memory. Reader90 reads comprise12 config and78 plane words;
+its13,096us bracket satisfies the unchanged150ms bound. Six temporary RO/NX/UC
+aliases retire and12 fresh reader cache checks pass without display stores.
+
+The surrounding HDA lease observes command6/2/2/6 and232 reads, one blocked
+close/check, pins0, two PCI command halfword stores,311 guards/28 HDA cache checks,
+four retired HDA aliases and released CPU exclusion with retained0. HDA census
+durations414/414/412/413us, core90,658us and full112,361us meet unchanged limits.
+HDA MMIO/adjacent Status/reset/acknowledgement, GT/BCS and GPU PTE stores remain0.
+The62,400-byte complete exit receipt fits the existing65,536-byte tail.
+
+All1,362 prior files except expected `.srvros/meta` are unchanged; three new
+SHA-verified logs bring the inventory to1,365 files/111 sessions. Offline
+fsck/allocation/writable/headroom, installed/durable/archive recovery, Ubuntu
+default and consumed one-shot checks pass. USB is unmounted; volume1%, guest
+audio off, no reboot armed. Current6efe/recovery9aa8 and prior accepted8859/GUI
+remain verified. Evidence is under `build/air-pinned-readers-20261107`, with full
+independent SHA-verified backup under
+`~/.local/share/srvros/reviewed-evidence/air-pinned-readers-20261107`.
+
+This is bounded observation under the cooperative EFI submission assumption.
+Posted writes, prefetch/firmware/SMM, other engines/readers and pending flips,
+translation/cache/backing retirement and a reusable GPU interval remain open.
+No `scanout_handoff` assurance or physical tear-free acceptance is granted.
+The following readiness record is the historical pre-trial snapshot.
+
 ### Pinned non-posted-request and display-reader audit ready for hardware
 
 Main `7c67a65f` is integrated; tested source `dd52f571` produces release
@@ -54,7 +93,7 @@ PR19 Pro Wi-Fi and PR379 WebCore retain independent scope; no sibling acceptance
 is inferred. The earlier8859 physical checkpoint below remains the latest
 accepted maintained-lease result.
 
-### Current checkpoint: maintained HDA inhibit lease accepted
+### Earlier checkpoint: maintained HDA inhibit lease accepted
 
 Release `8859f4e6ad6862cf`, payload source `ec233528`, completed native session
 `session-00065fb4b21b8f3d-00` and returned automatically to Ubuntu. Strict native

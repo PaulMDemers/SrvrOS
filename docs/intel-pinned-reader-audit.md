@@ -81,13 +81,27 @@ pass. Remaining ownership work includes posted-write completion and prefetch,
 all-engine/flip/other-reader handoff, exact backing and translation/cache
 completion before a managed interval or physical tear-free presentation.
 
-## Validated Air7,2 candidate
+## Validated Air7,2 candidate and native result
 
 Source `dd52f571`, release `6efeecb2a7eae7b3`, is installed and not armed; native
-acceptance is pending. The [unit readiness record](machines/macbookair7-2.md#pinned-non-posted-request-and-display-reader-audit-ready-for-hardware)
+acceptance is recorded below. The [unit readiness record](machines/macbookair7-2.md#pinned-non-posted-request-and-display-reader-audit-ready-for-hardware)
 identifies398 passing jobs,21 core/57 actual-adapter fatal sanitizer modes,
 35 detected compiled negatives,281 collector/staging cases and11-image isolation.
 Exact-stage Q35 refusal/save/unmount/return and missing-workspace halt pass, as
 do prior Intel/Haswell/VirtIO regressions. The source-bound immutable payload,
 recovery/media checks and independently backed evidence are recorded there.
 These host/VM results do not accept native TXP/reader behavior or grant memory.
+
+Native session `session-00065fb5e7cfced1-00` accepts the bounded audit: both exact
+config samples agree with TXP clear (DEVC/DEVS0800), both39-word plane passes
+match, primary1/cursor0/sprite0/mismatch0, all shared inherited-display words
+preserved. Reader90 reads take13,096us, six aliases retire and12 fresh reader
+cache checks pass. The surrounding command6/2/2/6 HDA lease records232 reads,
+311 guards/28 HDA cache checks, one blocked close/check, pins0, two halfword
+stores and clean restoration/exclusion release. Core90,658us/full112,361us and
+all census intervals meet unchanged bounds. Saved checkpoint/full native/UC
+predicates, zero collector attention, complete62,400-byte exit, prior-file/media/
+recovery/default and automatic-return checks pass. See the
+[accepted unit checkpoint](machines/macbookair7-2.md#current-checkpoint-pinned-transactiondisplay-reader-audit-accepted).
+This grants no posted/prefetched DMA, all-reader/backing/translation/cache
+retirement, managed GPU memory or physical tear-free authority.

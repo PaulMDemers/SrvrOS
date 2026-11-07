@@ -100,6 +100,6 @@ all four census durations416/413/413/413us meet unchanged bounds. Four aliases
 retire and exclusion releases without retained state. Strict saved checkpoint
 and collector checks pass; the61,002-byte exit receipt is complete. Prior files,
 offline media/recovery/default and automatic-return checks pass. See the
-[accepted unit checkpoint](machines/macbookair7-2.md#current-checkpoint-maintained-hda-inhibit-lease-accepted).
+[accepted unit checkpoint](machines/macbookair7-2.md#earlier-checkpoint-maintained-hda-inhibit-lease-accepted).
 This does not extend acceptance to outstanding DMA, firmware/SMM retirement,
 other readers, reusable backing or physical tear-free presentation.
