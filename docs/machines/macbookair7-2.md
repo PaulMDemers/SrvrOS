@@ -2,22 +2,57 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
-### Active scope: pinned non-posted-request and display-reader audit
+### Pinned non-posted-request and display-reader audit ready for hardware
 
-Baseline main `7c67a65f` is integrated after collecting the accepted8859 lease;
-PR403 Air6,1 live-occupancy/catalog and bounded-clock work is preserved. The next
-bounded objective adds a distinct isolated CPU0 reader image under the existing
-cooperative HDA inhibit lease: exact display-HDA PCIe capability/TXP reads and
-primary/cursor/sprite programmed/live plus stereo surface observations. The [audit contract](../intel-pinned-reader-audit.md) records the exact sources,
-limits and remaining obligations. Shared
-scope is the new core/adapter, isolated image/recipe, collector/staging tests and
-this unit's contract. Existing native writer recipes stay separate. No GT or
-display stores, reset, guessed drain delay, PTE change or memory reuse is planned.
-TXP clear concerns non-posted completion only; posted writes, firmware/prefetch,
-other engines/readers and translation/cache/backing authority remain unresolved.
-Use source-bound host/sanitizer/fault and exact-stage VM gates before readiness;
-no reboot is authorized by this implementation block. PR19 Pro Wi-Fi and the
-other unit's power/census work retain independent scope and physical acceptance.
+Main `7c67a65f` is integrated; tested source `dd52f571` produces release
+`6efeecb2a7eae7b3`, installed **not armed**, with physical acceptance pending.
+The [audit contract](../intel-pinned-reader-audit.md) records exact sources,
+registers and lifetime. Under the accepted cooperative HDA inhibit/pin contract,
+this separate14-token image reads the exact PCIe capability/TXP and all three
+pipes' primary/cursor/sprite programmed/live plus stereo addresses. The reader
+bracket surrounds a complete HDA check:12 config plus78 display reads, six
+retired RO/NX/UC aliases,12 fresh reader-cache checks and unchanged150ms reader,
+400ms owner/500ms full bounds. HDA remains the same four-phase232-read/two-store
+command6/2/2/6 transaction. A failed dependent retains its pin/inhibition until
+reset. No GT/display/HDA-MMIO/PCI-Status/PTE store or guessed drain wait is added.
+
+All398 recorded validation jobs pass: matched full host/core/profile/docs/build,
+21 reader-core and57 actual adapter modes under fatal ASan/UBSan, legacy HDA/
+GT/BCS regressions,281 collector/staging cases and11-image symbol isolation.
+Thirty-five compiled negative controls are detected (4 GT,14 owner,8 lease,
+9 reader). Unchanged89-case installer/installed-root checks retain the explicit
+`7c0c2fab` reuse receipt; all other gates rerun. The immutable MBR stage verifies
+EFI64/pinned loader/exact recipe and Q35 refusal before stores, saved checkpoint/
+results, unmount and automatic return; missing workspace halts. Earlier owner,
+HDA, BCS, window, Haswell and VirtIO VM regressions pass. Conservative log
+projection with full-width raw words and1,536 allowance is65,223/65,536 bytes.
+
+USB `37D8-C5D0` has1,362 inventoried files/110 sessions; read-only inventory,
+prior-file/boot-sector preservation and offline fsck/allocation/writable/headroom
+pass. It is unmounted. Current is6efe, recovery `9aa8dbf6fbda8252`, prior accepted
+lease `8859f4e6ad6862cf`; round-trip, BCS/census and GUI payloads remain verified.
+Inactive read-only HDA `8185aa9875c61e9a` was fully SHA-verified against durable/
+archive copies before unreferenced EFI removal. Two old disposable VM image
+copies and two historical generated stage copies were SHA-verified against full
+outside backups before pruning. Five new uninstalled disposable Q35 regression
+stages were retired after their manifests/configs were saved and all payload
+hashes matched retained build outputs; the immutable native candidate, all
+physical logs and recovery/durable payloads were preserved.
+
+Run/validation/negative/guards are in `build/air-pinned-readers-20261107`, with
+full independent SHA-verified backup under
+`~/.local/share/srvros/reviewed-evidence/air-pinned-readers-20261107` and retained
+cleanup sidecars. The automated trial requires no input, uses volume1% with
+audio off and saves results before safe return; retained ownership or unsafe
+persistence halts visibly. Reboot checks are **check-only**; no one-shot is armed.
+Collect the matching new session first after any future trial.
+
+TXP concerns non-posted completion only. This image still grants no posted-write,
+prefetch/firmware/SMM, all-engine/pending-flip/other-reader, translation/cache or
+backing retirement, managed GPU interval or physical tear-free acceptance.
+PR19 Pro Wi-Fi and PR379 WebCore retain independent scope; no sibling acceptance
+is inferred. The earlier8859 physical checkpoint below remains the latest
+accepted maintained-lease result.
 
 ### Current checkpoint: maintained HDA inhibit lease accepted
 

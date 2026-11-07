@@ -80,3 +80,14 @@ consumed one-shot checks. A retained dependent or missing completion is not a
 pass. Remaining ownership work includes posted-write completion and prefetch,
 all-engine/flip/other-reader handoff, exact backing and translation/cache
 completion before a managed interval or physical tear-free presentation.
+
+## Validated Air7,2 candidate
+
+Source `dd52f571`, release `6efeecb2a7eae7b3`, is installed and not armed; native
+acceptance is pending. The [unit readiness record](machines/macbookair7-2.md#pinned-non-posted-request-and-display-reader-audit-ready-for-hardware)
+identifies398 passing jobs,21 core/57 actual-adapter fatal sanitizer modes,
+35 detected compiled negatives,281 collector/staging cases and11-image isolation.
+Exact-stage Q35 refusal/save/unmount/return and missing-workspace halt pass, as
+do prior Intel/Haswell/VirtIO regressions. The source-bound immutable payload,
+recovery/media checks and independently backed evidence are recorded there.
+These host/VM results do not accept native TXP/reader behavior or grant memory.
