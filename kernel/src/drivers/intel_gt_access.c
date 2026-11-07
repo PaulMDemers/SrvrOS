@@ -85,10 +85,31 @@ bool intel_gt_access_check(struct intel_gt_access *g) {
 }
 bool intel_gt_access_close(struct intel_gt_access *g) {
     if(!g)return false;
+    if(g->object!=g || g->borrows || g->dependents)return false;
     if(!intel_gt_access_check(g))return false;
     uint64_t phase=g->last;
     if(!write_reg(g,0x00010000u) || !wait_state(g,0,false))return false;
     if(g->last==phase)return fail(g,GT_ACCESS_CLOCK);
     if(!display_access_unpin(&g->exclusion))return fail(g,GT_ACCESS_EXCLUSION);
     g->pinned=false;g->state=GT_ACCESS_CLOSED;return true;
+}
+bool intel_gt_access_borrow(struct intel_gt_access *g,struct intel_gt_borrow *b) {
+    if(!b || b->object)return false;
+    *b=(struct intel_gt_borrow){.object=b};
+    if(!g || g->borrows==UINT32_MAX || !intel_gt_access_check(g))return false;
+    if(!display_access_pin(&g->exclusion))return false;
+    ++g->borrows;b->parent=g;b->active=true;
+    b->next=g->dependents;g->dependents=b;return true;
+}
+bool intel_gt_access_return(struct intel_gt_borrow *b) {
+    if(!b || b->object!=b || !b->active || !b->parent)return false;
+    struct intel_gt_access *g=b->parent;
+    if(g->object!=g || !g->borrows)return false;
+    struct intel_gt_borrow **link=&g->dependents;
+    for(unsigned n=0;*link && *link!=b && n<g->borrows;n++) {
+        if((*link)->object!=*link || (*link)->parent!=g || !(*link)->active)return false;
+        link=&(*link)->next;
+    }
+    if(*link!=b || !intel_gt_access_check(g) || !display_access_unpin(&g->exclusion))return false;
+    *link=b->next;--g->borrows;b->active=false;return true;
 }

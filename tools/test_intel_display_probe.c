@@ -7,6 +7,11 @@
 /* Each host case models a fresh boot; production supplies no reset entry. */
 #include "../kernel/src/intel_boot_claim.c"
 #include "../kernel/src/display_access.c"
+#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+#include <srvros/intel_reset_ready.h>
+static bool intel_display_test_reset_ready_read(uint32_t,uint32_t *);
+static enum intel_gt_write intel_display_test_reset_ready_write(uint32_t,uint32_t);
+#endif
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
 #include <srvros/intel_completion_audit.h>
 static bool intel_display_test_completion_read(unsigned,unsigned,uint32_t,uint32_t *);
@@ -119,7 +124,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+#define intel_wake_firmware_request intel_reset_ready_firmware_request
+#elif defined(SRVROS_INTEL_COMPLETION_TRIAL)
 #define intel_wake_firmware_request intel_completion_firmware_request
 #endif
 volatile struct limine_firmware_type_request intel_wake_firmware_request={.response=&wake_firmware};
@@ -240,7 +247,7 @@ static unsigned index_of(uint64_t v){
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t v,uint64_t *p){assert(space==0x1000);if(backing_mode && v>=fb_virtual && v<fb_virtual+6144*900){if(translation_gap && v==fb_virtual+4096)return false;*p=0xb0000000+v-fb_virtual;return true;}unsigned n=index_of(v);*p=pa[n];return pa[n]!=0;}
 bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) {
     bool writable=wake_mode && v==BACKING_VA+0x10000;
-#ifdef SRVROS_INTEL_BLITTER_TRIAL
+#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL)
     writable=writable || (wake_mode && v==BACKING_VA+0x17000);
 #endif
     assert(space==0x1000 && flags==(writable?(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITABLE):(fw_mode && p==0x12345000)?VMM_PAGE_NO_EXECUTE:(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)));unsigned n=index_of(v);
@@ -400,6 +407,9 @@ int main(int argc,char **argv) {
     wake_cmd.cmdline=engine_recipe;
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
+#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+    static char ready_recipe[1400];snprintf(ready_recipe,sizeof(ready_recipe),"%s srvros.intel-reset-ready=request-cancel",completion_recipe);wake_cmd.cmdline=ready_recipe;
+#endif
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
     bcs_entry_disabled=!strncmp(engine_mode,"blit-off-",9);if(bcs_entry_disabled)bcs_ctl=0;
@@ -424,6 +434,9 @@ int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
  if(!strncmp(engine_mode,"blit-",5))good=good && (!strcmp(engine_mode,"blit-report") || !strcmp(engine_mode,"blit-off-report"));
  if(bcs_entry_disabled)assert(!bcs_writes);
+#endif
+#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+ good=good && (!strcmp(engine_mode,"report") || !strcmp(engine_mode,"ready-delay"));
 #endif
  assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
@@ -507,3 +520,37 @@ if(good){assert(wake_writes==3 && !wake_ack && (wake_request&0xffff)==0 && displ
     puts("intel-display-probe: PASS actual adapter, read-only temporary mappings, existing-map/RAM alias refusal, firmware/PM/clock gates, boot-client refusal and cleanup after lost resource identity");
     return 0;
 }
+
+#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+static unsigned ready_writes,ready_reads,ready_group_words,ready_phase_reads;
+static uint32_t ready_control;
+static bool intel_display_test_reset_ready_read(uint32_t reg,uint32_t *out) {
+ assert(wake_irq && wake_ack==1 && (wake_request&65535)==1 && !display_access_allowed());
+ if(reg==0x220d0) {
+  ready_reads++;ready_phase_reads++;
+  if(!strcmp(engine_mode,"ready-read"))return false;
+  if(!strcmp(engine_mode,"ready-initial" ) && !ready_writes)ready_control=1;
+  if(!strcmp(engine_mode,"ready-delay") && ready_writes==1 && ready_phase_reads==3)ready_control=3;
+  if(!strcmp(engine_mode,"ready-reserved"))ready_control=4;
+  if(!strcmp(engine_mode,"ready-float"))ready_control=UINT32_MAX;
+  if(!strcmp(engine_mode,"ready-late-read") && ready_writes==2)return false;
+  *out=ready_control;return true;
+ }
+ static const uint32_t regs[8]={0x22030,0x22034,0x22038,0x2203c,0x22234,0x22238,0x2209c,0x2229c};
+ unsigned i=ready_group_words++%8;assert(reg==regs[i]);
+ *out=i==4?1:i==6?512:0;
+ if(!strcmp(engine_mode,"ready-busy") && i==0)*out=8;
+ if(!strcmp(engine_mode,"ready-drift") && ready_writes==2 && i==7)*out=1;
+ return true;
+}
+static enum intel_gt_write intel_display_test_reset_ready_write(uint32_t reg,uint32_t value) {
+ assert(reg==0x220d0 && wake_irq && wake_ack==1 && !display_access_allowed());
+ assert(value==(ready_writes?0x10000u:0x10001u));assert(ready_writes<2);
+ if(!strcmp(engine_mode,"ready-none") || (!strcmp(engine_mode,"ready-cancel-none") && ready_writes==1))return GT_WRITE_NONE;
+ ready_writes++;ready_phase_reads=0;ready_control=ready_writes==1?3:0;
+ if(ready_writes==1 && (!strcmp(engine_mode,"ready-timeout") || !strcmp(engine_mode,"ready-delay")))ready_control=1;
+ if(ready_writes==2 && !strcmp(engine_mode,"ready-cancel-timeout"))ready_control=2;
+ if(!strcmp(engine_mode,"ready-foreign"))wake_request|=2;
+ return !strcmp(engine_mode,"ready-uncertain")?GT_WRITE_UNCERTAIN:GT_WRITE_DONE;
+}
+#endif

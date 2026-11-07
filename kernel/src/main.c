@@ -857,6 +857,7 @@ void kmain(void) {
             if(cmdline_has_token(cmdline,"srvros.intel-gt-preflight=read-only")){bool gt_ok=started && intel_gt_preflight_probe_report();sampled=sampled && gt_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-firmware=read-only")){bool fw_ok=started && intel_gt_firmware_probe_report();sampled=sampled && fw_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-wake=trial")) {
+                if(cmdline_has_token(cmdline,"srvros.intel-reset-ready=request-cancel"))console_write("intel-reset-ready: automatic bounded BCS request/ready/cancel; no input needed; no actual reset or memory grant.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-completion=read-only"))console_write("intel-completion: automatic engine/flip-wait/cache prerequisites; no input required, no invalidation/reset or memory grant.\n");
                 console_write("intel-wake: saving preflight checkpoint; no input needed. If this screen stops, photograph it and restart manually.\n");
                 bool checkpoint=started && workspace_log_pause();

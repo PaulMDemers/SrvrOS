@@ -68,6 +68,10 @@ fields remain zero, regardless of the observed masks. No `scanout_handoff` grant
 or memory reuse follows. The HDA inhibit and plane audits retain their independent
 accepted lifetimes; combining separate boots cannot prove joint ownership.
 
+The next isolated step is [BCS reset readiness](intel-reset-readiness.md), a
+bounded request/ready/cancel handshake. It performs no actual reset or memory
+completion, and keeps all eight obligations open.
+
 ## Next implementation boundary
 
 Select a documented completion or controlled engine-reset path only after the

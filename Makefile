@@ -5215,3 +5215,23 @@ air61-read-window-object: build/air61-read-window/vmm.o
 build/air61-read-window/vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/src/memory/air61_window.inc kernel/src/memory/air61_read_window.inc $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -DSRVROS_AIR61_WINDOW -DSRVROS_AIR61_READ_WINDOW -c $< -o $@
+
+# Separate BDW BCS request/ready/cancel image; no GDRST/reset/TLB/cache writer.
+build/intel-reset-ready/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_reset_ready_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_RESET_READY_TRIAL -c $< -o $@
+build/intel-reset-ready/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_RESET_READY_TRIAL -c $< -o $@
+build/intel-reset-ready/srvros.elf: build/intel-reset-ready/probe.o build/intel-reset-ready/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-reset-ready/probe.o build/intel-reset-ready/requests.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-reset-ready-core$(HOST_EXE): tools/test_intel_reset_ready.c kernel/src/drivers/intel_reset_ready.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_reset_ready.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c -o $@
+build/tests/intel-reset-ready-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_reset_ready_trial.inc kernel/src/drivers/intel_reset_ready.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_RESET_READY_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_reset_ready.c kernel/diagnostics/package_audit_core.c -o $@
+.PHONY: test-intel-reset-ready
+test-core: test-intel-reset-ready
+test-intel-reset-ready: build/tests/intel-reset-ready-core$(HOST_EXE) build/tests/intel-reset-ready-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_reset_ready.py

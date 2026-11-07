@@ -12,7 +12,7 @@ static bool guard(struct intel_completion_result *r,struct intel_gt_access *g,st
 }
 bool intel_completion_observe(struct intel_completion_result *r,struct intel_gt_access *g,struct intel_completion_io io) {
  if(!r || r->object)return false;
- *r=(struct intel_completion_result){.object=r};
+ *r=(struct intel_completion_result){.object=r,.parent=g};
  if(!g || !io.guard || !io.group || !io.context || !io.now || !intel_gt_access_check(g)){r->reason=1;return false;}
  r->begin_us=r->last_us=io.now(io.ctx);
  for(unsigned n=0;n<2;n++) {

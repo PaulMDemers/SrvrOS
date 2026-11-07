@@ -46,7 +46,19 @@ struct intel_gt_access {
     uint64_t begin,last;
     uint32_t state,reason,requests,ack,thread,write_attempts,writes,polls;
     bool pinned;
+    unsigned borrows;
+    struct intel_gt_borrow *dependents;
 };
+struct intel_gt_borrow {
+    const struct intel_gt_borrow *object;
+    struct intel_gt_access *parent;
+    struct intel_gt_borrow *next;
+    bool active;
+};
+/* Address-sealed one-use dependent. A live/faulted dependent prevents parent
+ * close and requester restoration. Only a clean dependent may return its pin. */
+bool intel_gt_access_borrow(struct intel_gt_access *,struct intel_gt_borrow *);
+bool intel_gt_access_return(struct intel_gt_borrow *);
 bool intel_gt_access_open(struct intel_gt_access *,const struct display_access_token *,uint32_t grants,struct intel_gt_io);
 bool intel_gt_access_check(struct intel_gt_access *);
 /* Faults/uncertain completion retain the CPU exclusion pin until reset. No

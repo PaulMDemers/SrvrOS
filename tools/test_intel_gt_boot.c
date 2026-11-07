@@ -74,4 +74,12 @@ int main(void) {
   snprintf(bad,sizeof(bad),"%s %.*s",completion,(int)(end-start),start);assert(!intel_gt_boot_completion_recipe(bad));start=*end?end+1:end;
  }
  for(unsigned j=0;j<6;j++){snprintf(bad,sizeof(bad),"%s %s",completion,foreign[j]);assert(!intel_gt_boot_completion_recipe(bad));}
+ char ready[2400];snprintf(ready,sizeof(ready),"%s srvros.intel-reset-ready=request-cancel",completion);
+ assert(intel_gt_boot_reset_ready_recipe(ready) && !intel_gt_boot_completion_recipe(ready) && !intel_gt_boot_reset_ready_recipe(completion));
+ for(const char *start=ready;*start;) {
+  const char *end=start;while(*end && *end!=' ')end++;
+  snprintf(bad,sizeof(bad),"%.*s%s",(int)(start-ready),ready,*end?end+1:end);assert(!intel_gt_boot_reset_ready_recipe(bad));
+  snprintf(bad,sizeof(bad),"%s %.*s",ready,(int)(end-start),start);assert(!intel_gt_boot_reset_ready_recipe(bad));start=*end?end+1:end;
+ }
+ for(unsigned i=0;i<6;i++){snprintf(bad,sizeof(bad),"%s %s",ready,foreign[i]);assert(!intel_gt_boot_reset_ready_recipe(bad));}
 }

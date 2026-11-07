@@ -9,6 +9,7 @@ struct intel_gt_boot_facts {
 };
 #define INTEL_GT_BOOT_FACTS 10u
 bool intel_gt_boot_completion_recipe(const char *);
+bool intel_gt_boot_reset_ready_recipe(const char *);
 bool intel_gt_boot_reader_recipe(const char *);
 bool intel_gt_boot_hda_lease_recipe(const char *);
 bool intel_gt_boot_hda_owner_recipe(const char *);
