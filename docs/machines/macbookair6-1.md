@@ -8152,3 +8152,90 @@ also pass against the matched normal image. The validated code remains
 `a1802859`; this follow-up changes documentation only. No hardware run, install
 or reboot is performed for the dormant backend. The accepted native payload
 and its earlier evidence remain independent and retained.
+
+
+### Window-only native integration scope (2026-11-06)
+
+Base `4cb7b5a7`; installed accepted `ab360d3ce2d281e4` closed/collected, no
+boot armed. Add fresh exact-unit CPU0/parked-AP/cache/NX/WP/firmware gate to the
+dormant backend, retaining whole-lifetime CPU0 IRQ/mutation exclusion before
+first user root. Reuse the proven gate implementation through a distinct
+compile-time adapter without overwriting early ECAM evidence. Retain raw
+before/linked/retired/private-page observations before freeing frames; bounded
+separate window.log and strict same-session collector, new explicit v6 profile.
+No target loads, register writes, generic API/policy changes or widened limits.
+Poison halts before user init/USB reuse; clean refusal saves and returns.
+
+Scope: private backend evidence, gate/template/report, pre-user dispatcher,
+fixed-name quiesced log snapshot, staging/VM/collector and failure tests, own
+guides. PR301 scanout and PR19 Wi-Fi remain independent; inspect main/staging
+deltas before integration and preserve their profiles. Validate real gate and
+formatter, malformed/refused/raw/maximum receipt cases, existing profiles and
+exact-stage VM before installing one-shot under standing reboot authorization.
+
+
+### Window-only profile candidate (2026-11-06)
+
+The explicit v6 recipe now holds CPU0 interrupt/root/client exclusion before
+first user init and calls a separate instance of the exact-unit firmware/cache/
+NX/WP/parked-AP gate. It verifies the observed catalog gap and PAT3 strong-UC
+classification, publishes/retires the checked window, retains raw observations
+before PMM free and saves separate window.log plus matching exit reference.
+Neither target page is a permitted RAM source; there is no target-load API.
+Poison halts before init/USB reuse with latched progress; clean refusal saves
+and returns. Existing profile recipes and all limits remain unchanged.
+
+The combined actual ECAM + window gate/backend/formatter fixture passes strict
+three-file decoding, including a128-row catalog and log-tail bounds. Eight new
+Python tests cover raw fields, missing/duplicate/cross-session proof, separate
+file collection, profile dependencies, fresh CPU/NX/WP/AP/cache/gap/MCFG refusal
+and terminal retained failure. Existing ECAM, alias/cache/firmware and logger
+regressions pass. The updated shared decoder preserves its old strict rules;
+new cross-epoch checks never mask a measured census or owned window entry;
+monotonic hardware A/D transitions and unexpected EFER changes have dedicated
+positive/refusal regressions. Stopped clocks during verification retain poison.
+Native qualification remains pending; matched builds, sanitizers and frozen VM
+rehearsals precede the next automatic one-shot test.
+
+Actual backend, standalone gate/formatter and combined early-ECAM/window
+fixtures pass ASan/UBSan and compile for ARM64 with assertions enabled. The
+complete/refused/poisoned and maximum-catalog paths are included. Raw complete
+receipts explicitly record claim release, and failed saved receipts preserve
+census/gate/retirement progress without rereading hardware. Frozen full core
+and matched images/VM validation remain next at this checkpoint.
+
+Full-core validation exposed a stale futex extraction harness left by the
+earlier PROCESS_ARCH_STI portability change. The harness now verifies the
+exact native macro and host-trap definitions, models only the macro boundary
+and preserves the extracted production function bodies verbatim. The prior
+failed full run is retained; rerun the real interleaving fixture and complete
+full-core validation before staging. No futex runtime or limit is changed.
+
+
+The first staged v6 VM exposed a harness-only version range that selected the
+old firmware-progress assertion instead of cache/ECAM/window checks. The guest
+saved refusal records and returned cleanly. Extend the version selector through
+v6 so all existing strict three-file refusal assertions execute; preserve that
+failed rehearsal and rerun the sequential matrix. No kernel or gate change.
+
+
+### Frozen window-only profile validation (2026-11-06)
+
+Runtime `9a09ec3d` and fixture correction `c94297a8` pass matched normal/AP,
+USB/ISO builds and full `test-core`, including the installed-root matrix
+(one explicit opt-in test skipped). The earlier stale futex extractor failure
+is retained separately; the corrected real interleaving fixture passes without
+changing production futex code. Actual backend, standalone gate/report and
+combined early-ECAM/window fixtures pass ASan/UBSan and ARM64 compilation.
+The normal image excludes the diagnostic backend/gate/report; AP retains the
+real path and excludes synthetic test pins.
+
+Nine sequential staged VMs pass legacy firmware/cache/alias/fence/v4/v5
+regression, v5/v6 missing-workspace recovery and exact v6 safe refusal. Five
+ordinary syscall, UEFI USB keyboard, fork, exec-vector and scheduler-yield VMs
+also pass. The selected exact v6 payload is `fad46d637616b072`. Q35 refusal
+checks staging, saving and return only; native window qualification is pending.
+The successful VM harness revision is `d19ac35f`, with unchanged payload
+hashes from `c94297a8`. This docs-only follow-up does not change the tested code. Other machines'
+scanout and Wi-Fi scopes remain independent. Installed accepted ECAM/root and
+recovery payloads remain retained for the next automatic one-shot trial.

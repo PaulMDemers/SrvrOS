@@ -126,6 +126,8 @@ int main(void) {
     assert(workspace_log_quiesce(5000));
     busy=true;assert(!workspace_log_ecam_snapshot());busy=false;
     assert(workspace_log_ecam_snapshot() && ecam_saved && strstr(path,"/ecam.log"));
+    assert(workspace_log_window_snapshot() && window_saved && strstr(path,"/window.log"));
+    old_writes=writes;assert(!workspace_log_window_snapshot() && writes==old_writes);
     old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
     assert(workspace_log_stop());
     assert(workspace_log_start() && !ecam_saved && workspace_log_quiesce(5000));

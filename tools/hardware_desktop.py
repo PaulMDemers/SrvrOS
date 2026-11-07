@@ -656,7 +656,7 @@ def collect(mount, volume, output):
         if folder.is_symlink() or not folder.is_dir():
             raise ValueError(f"Unsafe session path: {folder.name}")
         payload = {}
-        for name in (*FILES, "ecam.log", *(f"checkpoint-{i:02x}.log" for i in range(32))):
+        for name in (*FILES, "ecam.log", "window.log", *(f"checkpoint-{i:02x}.log" for i in range(32))):
             source = folder / name
             if source.is_symlink():
                 raise ValueError(f"Unsafe log path: {folder.name}/{name}")
@@ -932,6 +932,12 @@ def collect(mount, volume, output):
                 intel_blitter=blitter_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not intel_blitter or not intel_blitter['complete'] or not intel_wake or not intel_wake['native_wake_complete']:attention.append('Intel blitter/reader trial incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel blitter/reader trial: '+str(error))
+        window_proof=None
+        if 'srvros.vtd-window=air61-no-read' in text or 'window.log' in payload:
+            from hardware_air61_window import window_result
+            window_proof=window_result(payload.get('window.log',b'').decode('utf-8',errors='replace'),payload.get('ecam.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),name)
+            if not window_proof or not window_proof['source_completed']:
+                attention.append('collection: window-only raw proof missing, refused or incomplete')
         records.append({
             "intel_blitter":intel_blitter,
             "intel_engines":intel_engines,
@@ -939,6 +945,7 @@ def collect(mount, volume, output):
             "intel_display_backing": intel_backing,
             "intel_scanout_lifetime": intel_lifetime,
             "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,"intel_gt_firmware":intel_firmware,"intel_gt_wake":intel_wake,
+            "air61_window": window_proof,
             "ecam_boot": ecam_proof,
             "posix_capture": posix_proof,
             "storage_wait": storage_wait,

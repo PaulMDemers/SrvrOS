@@ -4064,6 +4064,8 @@ build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src
 # boot requests are never overwritten. AP code has no C runtime dependencies.
 AP_PROBE_OBJ := build/ap-probe/ecam-report.o build/ap-probe/ecam-pci.o build/ap-probe/ecam-vmm.o build/ap-probe/ecam-gate.o build/ap-probe/haswell-alias-core.o build/ap-probe/haswell-cache-walk.o build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
 AP_PROBE_BASE := $(filter-out build/kernel/src/arch/x86_64/pci.c.o build/kernel/src/memory/vmm.c.o build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o build/kernel/diagnostics/package_audit_core.c.o,$(KERNEL_OBJ))
+AP_PROBE_OBJ := build/ap-probe/window-gate.o build/ap-probe/window-report.o build/ap-probe/ecam-report.o build/ap-probe/ecam-pci.o build/ap-probe/ecam-vmm.o build/ap-probe/ecam-gate.o build/ap-probe/haswell-alias-core.o build/ap-probe/haswell-cache-walk.o build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_BASE := $(filter-out build/kernel/src/arch/x86_64/pci.c.o build/kernel/src/memory/vmm.c.o build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
 build/ap-probe/main.o: kernel/src/main.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
@@ -5097,3 +5099,20 @@ build/tests/intel-hda-adapter$(HOST_EXE): tools/test_intel_hda_adapter.c tools/t
 test-core: test-intel-hda
 test-intel-hda: build/tests/intel-hda-core$(HOST_EXE) build/tests/intel-hda-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_display_hda.py
+build/ap-probe/window-gate.o: kernel/diagnostics/air61_window_gate.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/ap-probe/window-report.o: kernel/diagnostics/air61_window_report.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: test-air61-window-profile
+test-core: test-air61-window-profile
+test-air61-window-profile: build/tests/air61-window-profile$(HOST_EXE) build/tests/air61-window-combined$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_air61_window.py
+build/tests/air61-window-profile$(HOST_EXE): tools/test_air61_window_profile.c tools/test_air61_window.c kernel/src/memory/air61_window.inc kernel/src/memory/vmm.c kernel/diagnostics/air61_window_gate.c kernel/diagnostics/haswell_ecam_boot.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@
+build/tests/air61-window-combined$(HOST_EXE): tools/test_air61_window_combined.c tools/test_ecam_profile.c tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_ecam_boot.c kernel/src/memory/air61_window.inc kernel/diagnostics/haswell_ecam_report.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_ECAM_GATE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@

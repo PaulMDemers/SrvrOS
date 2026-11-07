@@ -72,6 +72,45 @@ def firmware(reader):
     return proof
 
 
+def decode_gate(r, root, hhdm, begin, end):
+    phases, fw_bytes, config, selectors, efer_reads, reads0, reads1 = r.take('7I')
+    if (phases, fw_bytes, config, selectors, efer_reads) != (2, 1840, 20, 40, 2): raise ValueError('fresh gate accounting')
+    efer = r.take('2Q'); mcfg_pa = r.take('2Q'); mcfg = [r.raw(60), r.raw(60)]
+    if efer[0] != efer[1] or efer[0] & ~0xd01 or efer[0] & 0xd00 != 0xd00: raise ValueError('NX enabled')
+    if mcfg[0] != mcfg[1] or hashlib.sha256(mcfg[0]).hexdigest() != MCFG_PIN or mcfg_pa[0] != mcfg_pa[1]: raise ValueError('MCFG pin/endpoints')
+    policy = [r.take('9I6Q') for _ in range(2)]
+    for p in policy:
+        if (p[0] < 0x80000008 or p[1] & 0x4100000 != 0x4100000 or p[2] or sorted(p[3:7]) != [0, 1, 2, 3] or
+                p[7] != 15 or p[8] > 15 or any(p[8] & (1 << i) for i in range(4) if p[3+i]) or
+                p[9] != 0x620 or p[10] & 512 or not p[10] & 2 or p[11:] != (0, 0, 4, 0)):
+            raise ValueError('CPU0/parked topology/control')
+    if policy[0][:10]+policy[0][11:] != policy[1][:10]+policy[1][11:]: raise ValueError('changed admission controls')
+    if r.take('2I') != (1, 1): raise ValueError('incomplete firmware phases')
+    cache_raw = [r.take('6I6Q4I43Q') for _ in range(2)]
+    cpus = []
+    for phase, c in enumerate(cache_raw):
+        if c[12] != 1 or c[4] & 0x11028 != 0x11028 or c[6] & 0x80010001 != 0x80010001:
+            raise ValueError('MSR snapshot status/features/protected paging')
+        expanded = list(c[:12])+[root, policy[phase][9], hhdm, begin, end]+[c[13], c[14], c[15], 0]+list(c[16:])
+        cpus.append(cpu_record(expanded, msr_only=True))
+    if any(cache_raw[0][i] != cache_raw[1][i] for i in range(len(cache_raw[0])) if i not in (10, 11)) or (reads0, reads1) != tuple(c['msr_reads'] for c in cpus): raise ValueError('changed cache or read counts')
+    fw = [firmware(r), firmware(r)]
+    if r.at != len(r.data): raise ValueError('trailing wire data')
+    a, b = fw[0]['samples'][0], fw[1]['samples'][0]
+    for key in ('identity', 'table_pa', 'dmar_base64', 'catalog'):
+        if a[key] != b[key]: raise ValueError('changed early firmware')
+    if not begin <= a['pm_us'][0] <= fw[0]['samples'][1]['pm_us'][1] <= cpus[0]['pm_us'][0] < cpus[0]['pm_us'][1] <= b['pm_us'][0] <= fw[1]['samples'][1]['pm_us'][1] <= cpus[1]['pm_us'][0] < cpus[1]['pm_us'][1] <= end:
+        raise ValueError('fresh operation ordering')
+    catalog = a['catalog']
+    for pa, size in ((a['table_pa'],136), (mcfg_pa[0],60)):
+        if not 0 < pa < pa+size <= 1 << 39: raise ValueError('firmware source width')
+        for page in range(pa & ~4095, (pa+size+4095) & ~4095, 4096):
+            rows = [x for x in catalog if x[0] < page+4096 and page < x[0]+x[1]]
+            if len(rows) != 1 or not rows[0][0] <= page < page+4096 <= sum(rows[0][:2]) or rows[0][2] not in (2,3):
+                raise ValueError('complete firmware source page')
+    return dict(policy=policy,efer=efer,cpus=cpus,firmware=fw,catalog=catalog,mcfg_pa=mcfg_pa)
+
+
 def decode(data):
     r = Reader(data)
     if r.raw(8) != b'E5ECAM01': raise ValueError('wire version')
@@ -97,41 +136,8 @@ def decode(data):
     if any(VA <= a < VA+SIZE for a, _, _ in old_meta): raise ValueError('stale registry overlap')
     expected_meta = old_meta[:before_count] + [(VA+i*4096, PA+i*4096, 0x8000000000000012) for i in range(128-before_count)]
     if new_meta != expected_meta: raise ValueError('registry preservation')
-    phases, fw_bytes, config, selectors, efer_reads, reads0, reads1 = r.take('7I')
-    if (phases, fw_bytes, config, selectors, efer_reads) != (2, 1840, 20, 40, 2): raise ValueError('fresh gate accounting')
-    efer = r.take('2Q'); mcfg_pa = r.take('2Q'); mcfg = [r.raw(60), r.raw(60)]
-    if efer[0] != efer[1] or efer[0] & ~0xd01 or efer[0] & 0xd00 != 0xd00: raise ValueError('NX enabled')
-    if mcfg[0] != mcfg[1] or hashlib.sha256(mcfg[0]).hexdigest() != MCFG_PIN or mcfg_pa[0] != mcfg_pa[1]: raise ValueError('MCFG pin/endpoints')
-    policy = [r.take('9I6Q') for _ in range(2)]
-    for p in policy:
-        if (p[0] < 0x80000008 or p[1] & 0x4100000 != 0x4100000 or p[2] or sorted(p[3:7]) != [0, 1, 2, 3] or
-                p[7] != 15 or p[8] > 15 or any(p[8] & (1 << i) for i in range(4) if p[3+i]) or
-                p[9] != 0x620 or p[10] & 512 or not p[10] & 2 or p[11:] != (0, 0, 4, 0)):
-            raise ValueError('CPU0/parked topology/control')
-    if policy[0][:10]+policy[0][11:] != policy[1][:10]+policy[1][11:]: raise ValueError('changed admission controls')
-    if r.take('2I') != (1, 1): raise ValueError('incomplete firmware phases')
-    cache_raw = [r.take('6I6Q4I43Q') for _ in range(2)]
-    cpus = []
-    for phase, c in enumerate(cache_raw):
-        if c[12] != 1 or c[4] & 0x11028 != 0x11028 or c[6] & 0x80010001 != 0x80010001:
-            raise ValueError('MSR snapshot status/features/protected paging')
-        expanded = list(c[:12])+[root, policy[phase][9], hhdm, begin, end]+[c[13], c[14], c[15], 0]+list(c[16:])
-        cpus.append(cpu_record(expanded, msr_only=True))
-    if any(cache_raw[0][i] != cache_raw[1][i] for i in range(len(cache_raw[0])) if i not in (10, 11)) or (reads0, reads1) != tuple(c['msr_reads'] for c in cpus): raise ValueError('changed cache or read counts')
-    fw = [firmware(r), firmware(r)]
-    if r.at != len(data): raise ValueError('trailing wire data')
-    a, b = fw[0]['samples'][0], fw[1]['samples'][0]
-    for key in ('identity', 'table_pa', 'dmar_base64', 'catalog'):
-        if a[key] != b[key]: raise ValueError('changed early firmware')
-    if not begin <= a['pm_us'][0] <= fw[0]['samples'][1]['pm_us'][1] <= cpus[0]['pm_us'][0] < cpus[0]['pm_us'][1] <= b['pm_us'][0] <= fw[1]['samples'][1]['pm_us'][1] <= cpus[1]['pm_us'][0] < cpus[1]['pm_us'][1] <= end:
-        raise ValueError('fresh operation ordering')
-    catalog = a['catalog']
-    for pa, size in ((a['table_pa'],136), (mcfg_pa[0],60)):
-        if not 0 < pa < pa+size <= 1 << 39: raise ValueError('firmware source width')
-        for page in range(pa & ~4095, (pa+size+4095) & ~4095, 4096):
-            rows = [x for x in catalog if x[0] < page+4096 and page < x[0]+x[1]]
-            if len(rows) != 1 or not rows[0][0] <= page < page+4096 <= sum(rows[0][:2]) or rows[0][2] not in (2,3):
-                raise ValueError('complete firmware source page')
+    g=decode_gate(r,root,hhdm,begin,end)
+    policy,efer,cpus,fw,catalog,mcfg_pa=(g[k] for k in ('policy','efer','cpus','firmware','catalog','mcfg_pa'))
     for pa in (root, pdpt, frame):
         rows = [x for x in catalog if x[0] < pa+4096 and pa < x[0]+x[1]]
         if len(rows) != 1 or not rows[0][0] <= pa < pa+4096 <= sum(rows[0][:2]) or rows[0][2] not in (0, 2, 3, 5, 6) or PA <= pa < PA+SIZE or pa in (0xfed90000, 0xfed91000): raise ValueError('table RAM source')

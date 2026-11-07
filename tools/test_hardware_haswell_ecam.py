@@ -21,8 +21,8 @@ def record(prefix, fmt, values):
     return prefix+' data='+base64.b64encode(struct.pack('<'+fmt, *values)).decode()+'\n'
 
 
-def fixture(maximum=False):
-    early = subprocess.check_output([str(EXE), *(['max'] if maximum else [])], text=True)
+def fixture(maximum=False, early=None, graph=None):
+    early = early if early is not None else subprocess.check_output([str(EXE), *(['max'] if maximum else [])], text=True)
     raw, report, _ = ecam.blob(early)
     with patch('hardware_haswell_firmware.PIN', PIN): p = ecam.decode(raw)
     ref = next(x for x in early.splitlines() if x.startswith('hsw-ecam-ref:'))+'\n'
@@ -50,6 +50,7 @@ def fixture(maximum=False):
     pages = [(p['root'],0,p['root_before']), (p['pdpt'],1,a), (0x2002000,1,[0x2003003]+[0]*511),
              (0x2003000,2,[0]*16+[0x2004003]+[0]*495), (p['frame'],2,p['pd']),
              (0x2004000,3,[0x2000003+4096*i for i in range(8)]+[0]*504)]
+    if graph is not None:pages=[(pa,row["level"],row["raw"]) for pa,row in graph.items()]
     data = bytearray()
     for pa, level, words in pages:
         data += struct.pack('<QB', pa, level); i=0

@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-hfw|2-hfw|3-hfw|4-hfw|5-hfw|1-hsw|2-hsw|3-hsw|1-intel-hda|1-intel-blitter|1-intel-engines|1-intel-wake|1-intel-gt-firmware|1-intel-gt-preflight|1-intel-handoff|1-intel-window|1-intel-cache|1-intel-dma|1-intel-lifetime-fixture|2-intel-lifetime-fixture|1-intel-lifetime|1-intel-backing|1-intel-display|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-hfw|2-hfw|3-hfw|4-hfw|5-hfw|6-hfw|1-hsw|2-hsw|3-hsw|1-intel-hda|1-intel-blitter|1-intel-engines|1-intel-wake|1-intel-gt-firmware|1-intel-gt-preflight|1-intel-handoff|1-intel-window|1-intel-cache|1-intel-dma|1-intel-lifetime-fixture|2-intel-lifetime-fixture|1-intel-lifetime|1-intel-backing|1-intel-display|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70|71|72|73|74|75|76|77|78|79|80|81|82)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -105,11 +105,12 @@ def limine_config(release, version=CONFIG_VERSION):
         if version.startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")): cmdline += " srvros.idle=mwait-c3-test srvros.ap=c3-test"
         if version.startswith(("ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")): cmdline += " srvros.ap-package=read-only"
         if version.startswith("ram-usb-v1-ap-platform-"): cmdline += " srvros.ap-platform=read-only"
-        if version.startswith(("ram-usb-v1-hfw-","ram-usb-v2-hfw-","ram-usb-v3-hfw-","ram-usb-v4-hfw-","ram-usb-v5-hfw-")):
+        if version.startswith(("ram-usb-v1-hfw-","ram-usb-v2-hfw-","ram-usb-v3-hfw-","ram-usb-v4-hfw-","ram-usb-v5-hfw-","ram-usb-v6-hfw-")):
             cmdline=(f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                      f"srvros.desktop-release={release} srvros.capture=haswell-firmware")
-        if version.startswith(("ram-usb-v4-hfw-","ram-usb-v5-hfw-")): cmdline += " srvros.hsw-cache=alias-nx-preinit"
-        if version.startswith("ram-usb-v5-hfw-"): cmdline += " srvros.ecam=air61-2m-test"
+        if version.startswith(("ram-usb-v4-hfw-","ram-usb-v5-hfw-","ram-usb-v6-hfw-")): cmdline += " srvros.hsw-cache=alias-nx-preinit"
+        if version.startswith(("ram-usb-v5-hfw-","ram-usb-v6-hfw-")): cmdline += " srvros.ecam=air61-2m-test"
+        if version.startswith("ram-usb-v6-hfw-"): cmdline += " srvros.vtd-window=air61-no-read"
         if version.startswith("ram-usb-v3-hfw-"): cmdline += " srvros.hsw-cache=alias-nx"
         if version.startswith("ram-usb-v2-hfw-"): cmdline += " srvros.hsw-cache=context-only"
         if version.startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-")):
@@ -254,7 +255,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
     if haswell_cache_context and not haswell_firmware_capture:
         raise ValueError("Cache context requires the dedicated firmware profile")
     if haswell_firmware_capture:
-        allowed={"haswell_ecam_boot","haswell_alias_preinit","haswell_alias_context","haswell_cache_context","haswell_firmware_capture","laptop_probe_volume","hold_on_failure","repeat","desktop_scale"}
+        allowed={"haswell_window","haswell_ecam_boot","haswell_alias_preinit","haswell_alias_context","haswell_cache_context","haswell_firmware_capture","laptop_probe_volume","hold_on_failure","repeat","desktop_scale"}
         if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
             raise ValueError("Haswell firmware capture requires its own explicit workspace profile")
     if haswell_linux_fences and not haswell_tilectl:
@@ -400,7 +401,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if ap_coordinated_c3: version=f"ram-usb-v1-ap-c3-laptop-probe-{laptop_probe_volume}"
         if ap_package_audit: version=f"ram-usb-v1-ap-package-laptop-probe-{laptop_probe_volume}"
         if ap_platform_audit: version=f"ram-usb-v1-ap-platform-laptop-probe-{laptop_probe_volume}"
-        if haswell_firmware_capture: version=f"ram-usb-v{5 if haswell_ecam_boot else 4 if haswell_alias_preinit else 3 if haswell_alias_context else 2 if haswell_cache_context else 1}-hfw-laptop-probe-{laptop_probe_volume}"
+        if haswell_firmware_capture: version=f"ram-usb-v{6 if haswell_window else 5 if haswell_ecam_boot else 4 if haswell_alias_preinit else 3 if haswell_alias_context else 2 if haswell_cache_context else 1}-hfw-laptop-probe-{laptop_probe_volume}"
         if haswell_backing_capture: version=f"ram-usb-v{3 if haswell_linux_fences else 2 if haswell_tilectl else 1}-hsw-laptop-probe-{laptop_probe_volume}"
         if ap_ownership_test: version=f"ram-usb-v1-ap-owner-laptop-probe-{laptop_probe_volume}"
         if posix_capture: version=f"ram-usb-v1-posix-laptop-probe-{laptop_probe_volume}"
@@ -646,6 +647,7 @@ def main():
     parser.add_argument("--posix-capture",action="store_true",help="automatic bounded POSIX, TLS, SQLite and desktop regression; saves and returns")
     capture=parser.add_mutually_exclusive_group()
     parser.add_argument("--ap-coordinated-c3",action="store_true",help="explicit coordinated C3 diagnostic; requires --cpu-load-capture")
+    parser.add_argument("--haswell-window",action="store_true",help="Explicit Air6,1 mapping/retirement only; zero VT-d target loads")
     parser.add_argument("--haswell-ecam-boot",action="store_true",help="Explicit Air6,1 checked 2MiB ECAM adoption and dual-file raw proof")
     parser.add_argument("--haswell-alias-preinit",action="store_true",help="Capture sole-root alias/NX state before user init; report once after USB logging starts")
     parser.add_argument("--haswell-alias-context",action="store_true",help="Separate bounded RAM-only sole-managed-root census and read-only NX/EFER; no VT-d target access")

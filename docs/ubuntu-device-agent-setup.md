@@ -1206,3 +1206,19 @@ flag is unavailable evidence, not a match. Restart into Ubuntu and collect the
 recorded run before staging again; absence of USB receipts remains failure.
 No deadline, word/census/log cap, strict comparison or source gate is relaxed by
 these diagnostics.
+
+
+## Air6,1 window-only qualifier (v6)
+
+After the exact-unit boot ECAM/root baseline, stage `--laptop-probe-volume
+<local-volume-id> --haswell-firmware-capture --haswell-cache-context
+--haswell-alias-context --haswell-alias-preinit --haswell-ecam-boot
+--haswell-window` against matched AP/userspace artifacts. Follow the existing
+exact-stage VM, recovery, run-record, preflight and one-shot collection sequence.
+Keep AC/USB connected and leave input alone. The guest shows progress, qualifies
+mapping and retirement without target loads, saves and returns automatically on
+clean outcomes. Poison retains the window resources and halts before user init;
+photograph the complete screen and restart Ubuntu. Require matching window.log,
+ecam.log and exit.log with strict collection and offline USB integrity before
+acceptance. See the [window contract](macbookair6-1-vtd-read-window-design.md).
+No register read, write, DMA policy or sibling acceptance follows from v6.
