@@ -8342,3 +8342,21 @@ All615 prior files survive except expected `.srvros/meta`; four new logs make
 leaks/FAT-bitmap mismatches. Matching raw logs and analysis are retained outside
 build. Ubuntu remains default, one-shot entry empty, collector disabled after
 return; no next boot armed. Accepted ECAM/root and recovery remain retained.
+
+
+### Bounded census clock-cost audit scope (2026-11-07)
+
+Base `e8e56ee3`, prior deadline refusal collected. Audit the opt-in window
+backend's repeated clock reads inside each guarded HHDM word operation. Keep
+every HHDM raw load, provenance/root/exclusion check, exact comparison and all
+limits. Coalesce only redundant reference-clock sampling into bounded logical
+access scopes: census reads consume their immediately preceding HAC clock
+check; ordinary reads/stores retain fresh entry/completion checks and stores
+check immediately before mutation. No cached translation or RAM grant. Add
+clock/load/provenance/guard counts and phase timing from existing timestamps,
+plus delayed/stopped-clock, changed-root/source/raw and publication regressions.
+Scope backend/header/report/decoder/tests/own guides; no generic clock, HAC,
+VMM, policy or sibling gate change. PR301 scanout/PR19 Wi-Fi remain independent.
+Validate old/new actual-fixture clock counts, matched build/core, sanitizers and
+sequential staged/ordinary VMs before merge and automatic native retry. Native
+qualification remains pending under the unchanged100ms lifetime.
