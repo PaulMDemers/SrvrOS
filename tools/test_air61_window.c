@@ -112,6 +112,48 @@ int main(void){
  assert(aw.r.words<AIR61_WINDOW_WORD_CAP && aw.r.end-aw.r.begin<AIR61_WINDOW_LIMIT_US && aw.r.parent_attempts==1 && aw.r.unlink_attempts==1);
  printf("air61-window successful lifetime words=%u elapsed=%llu\n",aw.r.words,(unsigned long long)(aw.r.end-aw.r.begin));
  assert(!open_window() && !vmm_air61_window_retire(&token));
+ /* Retained native ancestor pattern: U/S may be set above a supervisor
+  * leaf. Exercise every combination at each supported source leaf size. */
+ for(unsigned size=0;size<3;size++)for(unsigned mask=0;mask<8;mask++){
+  reset();
+  if(mask&1)pages[0][256]|=4;
+  if(mask&2)pages[2][0]|=4;
+  if(mask&4)pages[3][16]|=4;
+  if(size==1)pages[3][16]=0x2000083;
+  if(size==2)pages[2][0]=0x83;
+  memcpy(before[0],pages[0],4096);memcpy(before[1],pages[1],4096);
+  assert(open_window() && vmm_air61_window_retire(&token));
+  assert(!memcmp(before[0],pages[0],4096) && !memcmp(before[1],pages[1],4096));
+  assert(frees==2 && !aw.r.claimed && aw.r.words<=AIR61_WINDOW_WORD_CAP);
+ }
+ for(unsigned size=0;size<3;size++){
+  unsigned last=size==0?3:size==1?2:1;
+  /* Refuse user leaves even with a supervisor ancestor, and fully user paths. */
+  for(unsigned upper=0;upper<2;upper++){
+   reset();if(upper){pages[0][256]|=4;pages[2][0]|=4;pages[3][16]|=4;}
+   if(size==0)for(unsigned i=0;i<8;i++)pages[4][i]|=4;
+   if(size==1)pages[3][16]=0x2000087;
+   if(size==2)pages[2][0]=0x87;
+   assert(!open_window() && !allocs && !stores && !aw.r.claimed);
+   assert(!strcmp(aw.r.fault,"HHDM-permissions"));
+  }
+  /* A read-only ancestor or leaf cannot authorize a later source/store. */
+  for(unsigned level=0;level<=last;level++){
+   reset();pages[0][256]|=4;pages[2][0]|=4;pages[3][16]|=4;
+   if(size==1)pages[3][16]=0x2000083;
+   if(size==2)pages[2][0]=0x83;
+   if(level==0)pages[0][256]&=~2ull;
+   if(level==1)pages[2][0]&=~2ull;
+   if(level==2)pages[3][16]&=~2ull;
+   if(level==3)for(unsigned i=0;i<8;i++)pages[4][i]&=~2ull;
+   assert(!open_window() && !allocs && !stores && !aw.r.claimed);
+   assert(!strcmp(aw.r.fault,"HHDM-permissions"));
+  }
+ }
+ /* Even a newly permissible ancestor U/S change after publication must fail
+  * the exact retained raw comparison, with backing/claim held on uncertainty. */
+ reset();assert(open_window());pages[0][256]^=4;
+ assert(!vmm_air61_window_retire(&token) && !frees);poisoned();
  for(unsigned n=1;n<=2;n++){reset();alloc_fail_at=n;assert(!open_window() && aw.r.state==AIR61_WINDOW_REFUSED && !aw.r.claimed && frees==n-1 && !pages[1][7]);}
  reset();bad_alloc=true;assert(!open_window() && !frees);poisoned();
  reset();borrowed=true;assert(!open_window() && !frees);poisoned();

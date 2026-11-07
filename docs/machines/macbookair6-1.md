@@ -8282,3 +8282,16 @@ PR301 scanout and PR19 Wi-Fi remain independent; no foreign branch is imported.
 Run actual fixtures/sanitizers, matched build/core and staged/ordinary VMs before
 self-merge and automatic v6 retry under standing authorization. Native status
 remains failed/pending until matching three-file completion and USB checks.
+
+
+The candidate now validates the whole HHDM path before approving a pointer:
+presence/reserved bits at every level, cumulative R/W, effective supervisor
+access plus an explicitly supervisor leaf, then alignment/physical identity.
+All24 mixed-ancestor/leaf-size lifetimes pass with borrowed arrays unchanged.
+User-leaf (including supervisor ancestors) and read-only ancestor/leaf negatives
+refuse before allocation/stores. A post-publication upper U/S mutation still
+fails the exact raw comparison and retains poisoned ownership/backing. The
+combined real early-ECAM/window/gate/report fixture now also runs the captured
+upper7/leaf3 pattern through strict same-session decoding; all9 Python profile
+tests pass. Successful core mapper accounting remains60451 words. No limits,
+owned-window attributes, firmware/model gates or integrity comparisons change.

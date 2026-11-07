@@ -215,3 +215,15 @@ either two-pass census or the owned window path. A successful result is only
 `OBSERVED_RETIRED_WINDOW_ONLY`, with zero target loads/writes and no register-read
 or graphics/device ownership authorization. Native timing/retirement acceptance
 requires the new exact-stage run, not host clocks or old accepted captures.
+
+
+### HHDM effective-permission validation
+
+The dedicated window backend verifies each complete HHDM translation before
+returning a source/store pointer. Upper entries may carry U/S while supervisor
+leaves exclude user access. Require cumulative writable access and a supervisor
+leaf at4KiB/2MiB/1GiB; never accept an effectively user-accessible path. Presence,
+reserved bits, source provenance, canonicality, large-leaf alignment, exact
+physical translation and existing timing/accounting remain checked. No pointer
+is approved early. This changes no owned window entry or borrowed-page raw
+equality rule; post-publication U/S mutations still retain poison/backing.

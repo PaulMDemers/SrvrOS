@@ -1,4 +1,4 @@
-/* Included only in the dedicated diagnostic VMM. No native gate/caller yet. */
+/* Included only in the dedicated opt-in diagnostic VMM. */
 #include <srvros/air61_window.h>
 static struct {
  struct air61_window_result r;
@@ -49,12 +49,18 @@ static bool aw_address(uint64_t pa,unsigned i,volatile uint64_t **out){
  va=aw_test_virtual(address);
 #endif
  if(va!=aw.hhdm+address || !is_canonical(va))return aw_fault("HHDM-pointer");
- uint64_t table=aw.r.token.root;
+ uint64_t table=aw.r.token.root;bool writable=true,user=true;
  for(unsigned level=0;level<4;level++){
   unsigned shift=39-9*level;uint64_t word;
   if(!aw_raw(table,(va>>shift)&511,&word))return false;
-  if((word&7)!=3 || (word&~(AW_ADDR|0x8000000000000fffull)) || (!level && (word&128)))return aw_fault("HHDM-entry");
+  if(!(word&1) || (word&~(AW_ADDR|0x8000000000000fffull)) || (!level && (word&128)))return aw_fault("HHDM-entry");
+  /* x86 combines R/W and U/S through every level. Firmware can leave U/S
+   * set in ancestors of supervisor-only RAM leaves. Do not approve a pointer
+   * until the full translation is checked; stores additionally need all R/W
+   * bits. Keep a supervisor leaf even when an ancestor already excludes user. */
+  writable=writable && (word&2);user=user && (word&4);
   if(level==3 || ((level==1 || level==2) && (word&128))){
+   if(!writable || user || (word&4))return aw_fault("HHDM-permissions");
    unsigned bits=level==1?30:level==2?21:12;uint64_t low=(1ull<<bits)-1;
    if(level!=3 && (word&AW_ADDR&low&~4096ull))return aw_fault("HHDM-alignment");
    if(((word&AW_ADDR&~low)|(va&low))!=address)return aw_fault("HHDM-translation");
