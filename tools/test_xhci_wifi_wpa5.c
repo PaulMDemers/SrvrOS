@@ -15,8 +15,9 @@
 #define XHCI_TRB_TYPE_NORMAL 1
 #define XHCI_TRB_IOC (1u<<5)
 #define XHCI_TRB_ISP (1u<<2)
+struct usb_setup_packet{uint8_t request_type,request;uint16_t value,index,length;};
 struct xhci_trb{uint32_t parameter_low,parameter_high,status,control;};
-struct xhci_device{uint8_t slot_id;bool present,removed,retiring,ep0_quarantined,control_pending,control_failed;uint16_t vendor_id,product_id,device_bcd;void *input_context,*output_context;uint64_t input_context_phys,output_context_phys,ep0_ring_phys,descriptor_buffer_phys;struct {bool pending;uint64_t buffer_phys;struct {uint64_t ring_phys;}ep;struct {bool pending;uint64_t buffer_phys;struct {uint64_t ring_phys;}response;}mcu;}firmware;};
+struct xhci_device{uint8_t slot_id;bool present,removed,retiring,ep0_quarantined,control_pending,control_failed;uint16_t vendor_id,product_id,device_bcd;void *input_context,*output_context;uint64_t input_context_phys,output_context_phys,ep0_ring_phys,descriptor_buffer_phys;struct {bool pending,stop_attempted,stop_ok;unsigned stop_event_cc;uint64_t buffer_phys;struct {uint64_t ring_phys;}ep;struct {bool pending;uint64_t buffer_phys;struct {uint64_t ring_phys;}response;}mcu;}firmware;};
 static struct {uint64_t command_ring_phys;bool stopping,sync_users,command_pending,command_failed;}xhci;
 static struct {void *device;}strict_control;
 static struct {struct xhci_device *d;struct{void *ring;}ep;struct {uint64_t ring,physical[8];void *buffer[8];}plan;int window;}wifi_cal5;
@@ -27,7 +28,7 @@ static struct {uint64_t ring_phys;void *ring;bool active,input_restored,disabled
 static int wifi_channel_vco5;
 static struct xhci_device device;
 static bool wifi_join5_requested,firmware_command_failed,firmware_command_exact;
-static struct {uint32_t input[128][8],output[32][8],initial_rx[8];uint8_t pages[256][4096];unsigned next,allocations,fail_alloc,alias_alloc,commands,controls,ownership,lose,fail_command,command_mutate,fail_control,fail_send,reply,sends,rx_events,mutate,event_fault,stop_fault,stop_fault_dci,wpa_m3_mutate,child_first,wpa_mutate;uint64_t time;uint32_t mac,filter,txop;bool quarantine,trace,parent,empty,empty_assoc,reject,reject_assoc,noise,bad_guard,auth_extra,auth_bad_ie,eapol_missing,eapol_bad,eapol_fault,eapol_done,pad,skip_stop,alloc_fail,uncertain_command,wrong_slot,clear_disabled,wpa_m1_done,wpa_m3_done,wpa_nonce_fail,wpa_no_m3;}fake;
+static struct {uint32_t input[128][8],output[32][8],initial_rx[8];uint8_t pages[256][4096];unsigned next,allocations,fail_alloc,alias_alloc,commands,controls,ownership,lose,fail_command,command_mutate,fail_control,fail_send,reply,sends,rx_events,mutate,event_fault,stop_fault,stop_fault_dci,wpa_m3_mutate,child_first,wpa_mutate,toggle_count,toggle_actual;uint64_t time;uint32_t mac,filter,txop;bool quarantine,trace,parent,empty,empty_assoc,reject,reject_assoc,noise,bad_guard,auth_extra,auth_bad_ie,eapol_missing,eapol_bad,eapol_fault,eapol_done,pad,skip_stop,alloc_fail,uncertain_command,wrong_slot,clear_disabled,wpa_m1_done,wpa_m3_done,wpa_nonce_fail,wpa_no_m3,toggle_fail,toggle_lie,host_toggle,device_toggle;}fake;
 static bool wifi_handoff5_equal(const void *a,const void *b,size_t n){return !memcmp(a,b,n);}
 static bool child_active(void);
 static bool wifi_channel_vco5_owned(void *c){assert(c==&wifi_channel_vco5);fake.ownership++;if(child_active() && !fake.child_first)fake.child_first=fake.ownership;return fake.ownership!=fake.lose && fake.parent && !fake.quarantine;}
@@ -54,8 +55,18 @@ static void dispatch_transfer_event(const struct xhci_trb *e);
 static bool submit_command_trb(const struct xhci_trb *t,unsigned type,uint64_t *slot);
 static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v);
 bool xhci_wifi_capture_tx5(void);
+static bool wifi_fw_control_once(struct xhci_device *,const struct usb_setup_packet *,uint64_t,uint32_t,bool,int *);
 #include "../kernel/src/drivers/xhci_wifi_join5.inc"
 #include "../kernel/src/drivers/xhci_wifi_wpa5.inc"
+static bool wifi_fw_control_once(struct xhci_device *d,const struct usb_setup_packet *p,uint64_t buffer,uint32_t length,bool in,int *actual){
+ assert(d==&device && p && !buffer && !length && !in && actual && !fake.quarantine);
+ assert(p->request_type==2 && p->request==1 && !p->value && p->index==4 && !p->length);
+ assert(wifi_wpa5.active && wifi_wpa5.toggle_attempted && !wifi_wpa5.toggle_synced && !wifi_wpa5.phase && !wifi_wpa5.posts && !wifi_wpa5.sends && !wifi_wpa5.commands && !wifi_wpa5.mac.attempted && fake.sends==3);
+ assert(!wifi_wpa5_toggle()); /* In-flight reentry cannot reissue EP0. */
+ fake.toggle_count++;assert(fake.toggle_count==1);*actual=fake.toggle_actual;
+ if(!fake.toggle_fail && !fake.toggle_lie)fake.device_toggle=false;
+ return !fake.toggle_fail;
+}
 static bool child_active(void){return wifi_wpa5.active;}
 #define LIVE(field) (*(wifi_wpa5.active?&wifi_wpa5.field:&wifi_join5.field))
 static bool timer_delay_us(unsigned us){fake.time+=(wifi_eapol5.active && (fake.eapol_missing || fake.eapol_bad))?100000:us;return true;}
@@ -71,13 +82,13 @@ static void emit_stop(unsigned dci){
 static bool submit_command_trb(const struct xhci_trb *t,unsigned type,uint64_t *slot){
  assert(firmware_command_exact && !firmware_command_failed && !fake.quarantine);fake.commands++;unsigned dci=t->control>>16&31;assert(t->control>>24==device.slot_id && !t->status);*slot=fake.wrong_slot?device.slot_id+1:device.slot_id;
  bool fail=fake.commands==fake.fail_command;if(fail && !fake.uncertain_command)return false;
- if(type==12){assert(!fake.input[1][3]);if((fake.commands-1)%6==0){assert(fake.input[0][0]==0 && fake.input[0][1]==257);memcpy(fake.output[8],fake.input[9],32);fake.output[8][0]=1;}else{assert(fake.commands%6==0 && fake.input[0][0]==256 && fake.input[0][1]==1);if(fake.clear_disabled)memset(fake.output[8],0,32);else fake.output[8][0]=0;}}
+ if(type==12){assert(!fake.input[1][3]);if((fake.commands-1)%6==0){assert(fake.input[0][0]==0 && fake.input[0][1]==257);memcpy(fake.output[8],fake.input[9],32);fake.output[8][0]=1;fake.host_toggle=false;fake.reply=0;}else{assert(fake.commands%6==0 && fake.input[0][0]==256 && fake.input[0][1]==1);if(fake.clear_disabled)memset(fake.output[8],0,32);else fake.output[8][0]=0;}}
  else if(type==16){assert(dci==9 && (fake.output[9][0]&7)==3);fake.output[9][2]=t->parameter_low;fake.output[9][3]=t->parameter_high;}
  else {assert(type==15 && (dci==8 || dci==9));fake.output[dci][0]=3;emit_stop(dci);}
  if(fake.commands==fake.command_mutate)fake.output[11][4]^=1;
  return !fail;
 }
-static void db_write32(unsigned slot,unsigned dci){assert(slot==device.slot_id && !fake.quarantine);if(dci==9){fake.output[9][0]=1;}else{assert(dci==8);fake.sends++;fake.reply=LIVE(kinds[LIVE(sends)-1])+1;}}
+static void db_write32(unsigned slot,unsigned dci){assert(slot==device.slot_id && !fake.quarantine);if(dci==9){fake.output[9][0]=1;}else{assert(dci==8);fake.sends++;fake.reply=0;if(fake.host_toggle==fake.device_toggle){fake.reply=LIVE(kinds[LIVE(sends)-1])+1;fake.device_toggle=!fake.device_toggle;}fake.host_toggle=!fake.host_toggle;}}
 static void put16(uint8_t *p,unsigned v){p[0]=v;p[1]=v>>8;}
 static void put32(uint8_t *p,uint32_t v){put16(p,v);put16(p+2,v>>16);}
 static unsigned response(void){
@@ -130,6 +141,7 @@ static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uin
  case 6:fake.input[5][0]^=1;break;
  case 7:fake.output[11][4]^=1;break;
  case 8:wifi_wpa5.pointers[2]++;break;
+ case 9:wifi_wpa5.toggle_synced=false;break;
  default:break;}}
  if(fake.controls==12){switch(fake.mutate){case 1:wifi_peer5.binding.generation++;break;case 2:fake.output[11][4]^=1;break;case 3:fake.input[5][0]^=1;break;case 4:wifi_cal5.plan.buffer[0]=fake.pages[90];break;case 5:LIVE(rx_phys)+=4096;break;case 6:LIVE(rx)[40].control=1;break;case 7:device.output_context_phys+=4096;break;case 8:LIVE(buffer[WIFI_JOIN5_RX])[4000]=1;break;case 9:LIVE(buffer[47])[4000]=1;break;case 10:((uint8_t *)wifi_cal5.plan.buffer[0])[0]=1;break;case 11:LIVE(pointers[2])++;break;case 12:device.slot_id++;break;default:break;}}
  return fake.controls!=fake.fail_control;
@@ -159,7 +171,11 @@ int main(int argc,char **argv){
   if(argc==11){for(unsigned i=0;i<8;i++)fake.initial_rx[i]=strtoull(argv[i+2],0,0);memcpy(fake.output[9],fake.initial_rx,32);device.slot_id=strtoul(argv[10],0,0);}
   fake.auth_extra=true;fake.trace=true;assert(run());return 0;}assert(argc==1);
  assert(run() && wifi_wpa5.restored && wifi_wpa5.exchange.complete && wifi_wpa5.exchange.m3_mic && wifi_wpa5.exchange.keys_activated && wifi_wpa5.exchange.keys_erased && fake.sends==8 && fake.commands==12 && !fake.mac && !fake.quarantine);
+ assert(fake.toggle_count==1 && wifi_wpa5.toggle_synced);
  unsigned controls=fake.controls,checks=fake.ownership,child_first=fake.child_first;assert(!run());
+ begin();fake.toggle_lie=true;assert(!run() && wifi_wpa5.restored && !fake.quarantine && !wifi_wpa5.exchange.auth_matched && !wifi_wpa5.exchange.assoc_sent && wifi_wpa5.exchange.leave_sent && fake.sends==5);
+ begin();fake.toggle_fail=true;assert(!run() && fake.quarantine && fake.commands==6 && fake.sends==3 && !wifi_wpa5.sends);
+ begin();fake.toggle_actual=1;assert(!run() && fake.quarantine && fake.commands==6 && fake.sends==3);
  begin();fake.pad=true;fake.clear_disabled=true;assert(run());
  for(unsigned n=7;n<=12;n++)for(unsigned uncertain=0;uncertain<2;uncertain++){begin();fake.fail_command=n;fake.uncertain_command=uncertain;assert(!run() && fake.quarantine && fake.commands==n && !wifi_wpa5.restored);}
  for(unsigned n=4;n<=8;n++){begin();fake.fail_send=n;assert(!run() && fake.quarantine && !wifi_wpa5.restored && fake.sends==n);assert(wifi_wpa5.exchange.keys_erased);}
@@ -173,9 +189,9 @@ int main(int argc,char **argv){
   begin();fake.fail_alloc=n;assert(!run() && fake.commands==6);
   begin();fake.alias_alloc=n;assert(!run() && fake.commands==6);
  }
- for(unsigned n=1;n<=8;n++){begin();fake.wpa_mutate=n;assert(!run() && fake.quarantine && !wifi_wpa5.restored);}
+ for(unsigned n=1;n<=9;n++){begin();fake.wpa_mutate=n;assert(!run() && fake.quarantine && !wifi_wpa5.restored);}
  begin();credential_file.mode=0644;assert(!run() && fake.commands==6);
  begin();credential_file.size=72;assert(!run() && fake.commands==6);
  for(unsigned n=child_first;n<=checks;n++){begin();fake.lose=n;assert(!run() && fake.quarantine && !wifi_wpa5.restored);}
- printf("xhci-wpa5: PASS independent child after real M1 parent,synthetic four-way,software key erasure,retained distinct DMA,12 commands and %u controls,padded RX,child command/control/send/ownership failures,credential/MIC/nonce/deadline refusal and restoration;mocked RF/AP/entropy,no physical data acceptance\n",controls);
+ printf("xhci-wpa5: PASS independent child after real M1 parent,synthetic four-way,software key erasure,retained distinct DMA,12 commands and %u register controls,one guarded device toggle reset,duplicate-ACK/auth-timeout reproduction,padded RX,child command/control/send/ownership failures,credential/MIC/nonce/deadline refusal and restoration;mocked RF/AP/entropy,no physical data acceptance\n",controls);
 }

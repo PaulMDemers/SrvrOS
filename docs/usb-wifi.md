@@ -7236,3 +7236,26 @@ matched-build,sanitizer/stack/full-prefix/storage,exact-stage VM,recovery and
 run-record sequence before installation. The local cold Wi-Fi-only unplug
 procedure still requires shutdown under standing authorization. Native M3/M4,
 AP acceptance,encrypted bidirectional IP/data and reconnect remain unaccepted.
+
+### Synchronize the independent OUT window (v130 candidate)
+
+The first v129 native child timed out before an AUTH reply,despite successful
+USB completions and successful historical M1 reception. No native M2/M3/M4 or
+keys were exercised. Its failed capsule remains preserved. The independent
+window disabled/reconfigured the host OUT context after three parent packets
+without resetting device-side USB2 sequencing. This can acknowledge a duplicate
+packet without delivering its contents. The wire toggle was not captured,so
+this remains a diagnosis to validate on hardware.
+
+V130 adds exactly one standard CLEAR_FEATURE(ENDPOINT_HALT),recipient endpoint,
+index04,value/length0,while MAC is disabled and both new rings are empty,before
+the fresh host Configure Endpoint. No non-halted Reset Endpoint command or
+retry is issued. Publication requires a successful exact zero-length status
+and continued ownership;failure quarantines and retains DMA. A mandatory
+receipt and summary flag prevent a missing reset from passing collection.
+No WPA MIC/nonce/replay gate or timeout changes. The host fixture now models
+DATA0/DATA1 and duplicate ACKs,reproduces the old AUTH timeout when device reset
+is omitted,and tests reset failure,wrong completion length,reentry and loss
+of synchronization. See the primary [Linux USB clear-halt behavior](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/usb/core/message.c)
+and [xHCI endpoint-toggle reset](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/usb/host/xhci.c),
+and Intel xHCI1.22 section4.6.8. New native acceptance remains pending.

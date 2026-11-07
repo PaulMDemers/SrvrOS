@@ -20,7 +20,7 @@ static struct {
  uint8_t parent[sizeof wifi_join5],parent_rings[2][4096],parent_pages[WIFI_JOIN5_RX+3][4096],pmk[32];
  unsigned phase,commands,posts,sends,rx_cc,rx_residue,rx_events,tx_events,stop_events[2],stop_dci,usb_ops;
  uint64_t rx_enqueue,tx_enqueue;bool rx_cycle,tx_cycle;
- bool attempted,active,failed,rx_pending,rx_done,rx_delivered,tx_pending,tx_done,restored;
+ bool toggle_attempted,toggle_synced,attempted,active,failed,rx_pending,rx_done,rx_delivered,tx_pending,tx_done,restored;
 }wifi_wpa5;
 static bool wifi_wpa5_fail(void){wifi_wpa5.failed=true;return wifi_wpa5.d?wifi_mcu_fail(wifi_wpa5.d):false;}
 static bool wifi_wpa5_frozen(void){
@@ -44,6 +44,7 @@ static bool wifi_wpa5_frozen(void){
  if(!wifi_handoff5_equal(&wifi_join5,wifi_wpa5.parent,sizeof wifi_join5) ||
  !wifi_handoff5_equal(wifi_join5.rx,wifi_wpa5.parent_rings[0],4096) || !wifi_handoff5_equal(wifi_join5.tx,wifi_wpa5.parent_rings[1],4096))return false;
  for(unsigned i=0;i<WIFI_JOIN5_RX+3;i++)if(!wifi_handoff5_equal(wifi_join5.buffer[i],wifi_wpa5.parent_pages[i],4096))return false;
+ if(wifi_wpa5.phase && (!wifi_wpa5.toggle_attempted || !wifi_wpa5.toggle_synced))return false;
  if(wifi_wpa5.rx_copied>wifi_wpa5.posts)return false;
  for(unsigned i=0;i<wifi_wpa5.rx_copied;i++)if(!wifi_handoff5_equal(wifi_wpa5.buffer[i],wifi_wpa5.rx_snapshot[i],4096))return false;
  for(unsigned i=wifi_wpa5.posts;i<WIFI_WPA5_RX;i++)for(unsigned j=0;j<4096;j++)if(wifi_wpa5.buffer[i][j])return false;
@@ -128,8 +129,22 @@ static void wifi_wpa5_receipt(unsigned phase){
   console_printf("wifi-wpa5-context: phase=%u dci=%u w0=%x w1=%x w2=%x w3=%x w4=%x w5=%x w6=%x w7=%x\n",(uint64_t)phase,(uint64_t)dci,(uint64_t)context_read32(d->output_context,dci,0),(uint64_t)context_read32(d->output_context,dci,1),(uint64_t)context_read32(d->output_context,dci,2),(uint64_t)context_read32(d->output_context,dci,3),(uint64_t)context_read32(d->output_context,dci,4),(uint64_t)context_read32(d->output_context,dci,5),(uint64_t)context_read32(d->output_context,dci,6),(uint64_t)context_read32(d->output_context,dci,7));
  }
 }
+/* USB2 CLEAR_FEATURE(ENDPOINT_HALT) resets the device toggle even when it
+ * is not stalled. The following fresh host Configure Endpoint starts DATA0.
+ * No Reset Endpoint command on a non-halted context,no retry or extra TD. */
+static bool wifi_wpa5_toggle(void){
+ struct xhci_device *d=wifi_wpa5.d;
+ if(wifi_wpa5.phase || wifi_wpa5.commands || wifi_wpa5.posts || wifi_wpa5.sends || wifi_wpa5.mac.attempted || wifi_wpa5.toggle_attempted || !wifi_wpa5_owned(&wifi_wpa5,false))return false;
+ wifi_wpa5.toggle_attempted=true;
+ struct usb_setup_packet setup={.request_type=0x02,.request=1,.value=0,.index=4,.length=0};int actual=-1;
+ d->firmware.stop_attempted=d->firmware.stop_ok=false;d->firmware.stop_event_cc=0;
+ bool good=wifi_fw_control_once(d,&setup,0,0,false,&actual) && actual==0 && wifi_wpa5_owned(&wifi_wpa5,false);
+ wifi_wpa5.toggle_synced=good;
+ console_printf("wifi-wpa5-toggle: type=2 request=1 value=0 index=4 length=0 actual=%u ok=%u\n",(uint64_t)(actual<0?UINT32_MAX:(unsigned)actual),(uint64_t)good);
+ return good?true:wifi_wpa5_fail();
+}
 static bool wifi_wpa5_command(unsigned phase,unsigned type,unsigned dci,uint64_t deq){
- struct xhci_device *d=wifi_wpa5.d;if(wifi_wpa5.phase!=phase || !wifi_wpa5_owned(&wifi_wpa5,true))return wifi_wpa5_fail();
+ struct xhci_device *d=wifi_wpa5.d;if(!wifi_wpa5.toggle_synced || wifi_wpa5.phase!=phase || !wifi_wpa5_owned(&wifi_wpa5,true))return wifi_wpa5_fail();
  struct xhci_trb cmd={.control=(type<<10)|((uint32_t)d->slot_id<<24)};
  if(type==12){cmd.parameter_low=d->input_context_phys;cmd.parameter_high=d->input_context_phys>>32;}
  else {cmd.control|=dci<<16;cmd.parameter_low=deq;cmd.parameter_high=deq>>32;}
@@ -145,7 +160,7 @@ static bool wifi_wpa5_command(unsigned phase,unsigned type,unsigned dci,uint64_t
  return good && wifi_wpa5_owned(&wifi_wpa5,true)?true:wifi_wpa5_fail();
 }
 static bool wifi_wpa5_post(void){
- if(!wifi_wpa5_owned(&wifi_wpa5,false) || wifi_wpa5.posts>=WIFI_WPA5_RX || wifi_wpa5.rx_pending || (wifi_wpa5.rx_done && !wifi_wpa5.rx_delivered))return false;
+ if(!wifi_wpa5.toggle_synced || !wifi_wpa5_owned(&wifi_wpa5,false) || wifi_wpa5.posts>=WIFI_WPA5_RX || wifi_wpa5.rx_pending || (wifi_wpa5.rx_done && !wifi_wpa5.rx_delivered))return false;
  unsigned i=wifi_wpa5.posts;struct xhci_trb td={.parameter_low=wifi_wpa5.pages[i],.parameter_high=wifi_wpa5.pages[i]>>32,.status=4096,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
  uint64_t flags=event_irq_save();wifi_wpa5.posts++;wifi_wpa5.rx_pending=true;wifi_wpa5.rx_done=wifi_wpa5.rx_delivered=false;wifi_wpa5.rx_events=0;
  uint64_t ptr=ring_push(wifi_wpa5.rx,wifi_wpa5.rx_phys,&wifi_wpa5.rx_enqueue,&wifi_wpa5.rx_cycle,&td);
@@ -169,7 +184,7 @@ static enum mt76_join5_send wifi_wpa5_send(void *c,enum mt76_wpa5_tx kind,const 
   (kind==MT76_WPA5_M2 && n==2 && s->m1_matched && s->handshake.phase==WPA2_HS_M2_PENDING) ||
   (kind==MT76_WPA5_M4 && n==3 && s->m3_mic && s->keys_installed && s->keys.phase==WPA2_CCMP_INSTALLED && s->handshake.phase==WPA2_HS_M4_PENDING) ||
   (kind==MT76_WPA5_LEAVE && n>=1 && n<=4 && s->auth_sent && s->keys_erased && s->handshake.phase==WPA2_HS_CLOSED);
- if(c!=&wifi_wpa5 || packet!=s->packet || !order || length>184 || wifi_wpa5.phase!=3 || n>=5 || !wifi_wpa5.mac.started || !wifi_wpa5.mac.snapshot_complete || !wifi_wpa5_owned(c,false))return MT76_JOIN5_REFUSED;
+ if(!wifi_wpa5.toggle_synced || c!=&wifi_wpa5 || packet!=s->packet || !order || length>184 || wifi_wpa5.phase!=3 || n>=5 || !wifi_wpa5.mac.started || !wifi_wpa5.mac.snapshot_complete || !wifi_wpa5_owned(c,false))return MT76_JOIN5_REFUSED;
  if(kind==MT76_WPA5_M2 || kind==MT76_WPA5_M4){
   bool m2=kind==MT76_WPA5_M2;unsigned e=m2?121:99;
   struct mt76_eapol5_peer ep={.channel=161,.bandwidth=20};copy_bytes(ep.station,wifi_wpa5.peer.peer.station,6);copy_bytes(ep.bssid,wifi_wpa5.peer.peer.bssid,6);
@@ -283,6 +298,7 @@ static bool wifi_wpa5_inspect(void){
  wifi_wpa5.active=true;bool good=wifi_wpa5_owned(&wifi_wpa5,false);
  console_write("wifi-wpa5-progress: frozen parent;independent fresh RX/OUT;strict fresh nonce and bounded four-way;software key erase/leave;MAC disable and full restore;no IP data\n");
  console_printf("wifi-wpa5-plan: rx=%x tx=%x old=%x slot=%u max_rx=48\n",wifi_wpa5.rx_phys,wifi_wpa5.tx_phys,(uint64_t)wifi_wpa5.context[4][2]|((uint64_t)wifi_wpa5.context[4][3]<<32),(uint64_t)d->slot_id);wifi_wpa5_receipt(0);
+ if(good)good=wifi_wpa5_toggle();
  if(good){
   zero_bytes(d->input_context,4096);context_write32(d->input_context,0,1,1u|(1u<<8));for(unsigned j=0;j<3;j++)context_write32(d->input_context,1,j,wifi_wpa5.context[0][j]);
   context_write32(d->input_context,9,1,(3u<<1)|(2u<<3)|(512u<<16));context_write32(d->input_context,9,2,wifi_wpa5.tx_phys|1);context_write32(d->input_context,9,3,wifi_wpa5.tx_phys>>32);context_write32(d->input_context,9,4,184);copy_bytes(wifi_wpa5.expected,d->input_context,4096);
@@ -304,7 +320,7 @@ static bool wifi_wpa5_inspect(void){
  if(good){copy_bytes(d->input_context,wifi_wpa5.input,4096);copy_bytes(wifi_wpa5.expected,d->input_context,4096);wifi_wpa5.phase=9;wifi_wpa5.restored=wifi_wpa5_owned(&wifi_wpa5,true) && wifi_peer5_owned(&wifi_peer5,&wifi_cal5.window) && wifi_tx5_owned() && wifi_join5_owned(&wifi_join5,true);good=wifi_wpa5.restored;}
  zero_bytes(wifi_wpa5.pmk,sizeof wifi_wpa5.pmk);
  struct mt76_wpa5 *s=&wifi_wpa5.exchange;
- console_printf("wifi-wpa5: ok=%u exchange=%u auth=%u assoc=%u m1=%u m2=%u m3_mic=%u installed=%u m4=%u activated=%u erased=%u leave=%u unsafe=%u sends=%u polls=%u ignored=%u aid=%u status=%u commands=%u posts=%u controls=%u restored=%u phase=%u retained=1 hardware_keys=0 ip_data=0\n",(uint64_t)(good && exchanged),(uint64_t)s->complete,(uint64_t)s->auth_matched,(uint64_t)s->assoc_matched,(uint64_t)s->m1_matched,(uint64_t)s->m2_sent,(uint64_t)s->m3_mic,(uint64_t)s->keys_installed,(uint64_t)s->m4_sent,(uint64_t)s->keys_activated,(uint64_t)s->keys_erased,(uint64_t)s->leave_sent,(uint64_t)s->unsafe,(uint64_t)wifi_wpa5.sends,(uint64_t)s->polls,(uint64_t)s->ignored,(uint64_t)s->aid,(uint64_t)s->status,(uint64_t)wifi_wpa5.commands,(uint64_t)wifi_wpa5.posts,(uint64_t)wifi_wpa5.usb_ops,(uint64_t)wifi_wpa5.restored,(uint64_t)wifi_wpa5.phase);
+ console_printf("wifi-wpa5: ok=%u exchange=%u auth=%u assoc=%u m1=%u m2=%u m3_mic=%u installed=%u m4=%u activated=%u erased=%u leave=%u unsafe=%u sends=%u polls=%u ignored=%u aid=%u status=%u commands=%u posts=%u controls=%u restored=%u phase=%u toggle=%u retained=1 hardware_keys=0 ip_data=0\n",(uint64_t)(good && exchanged),(uint64_t)s->complete,(uint64_t)s->auth_matched,(uint64_t)s->assoc_matched,(uint64_t)s->m1_matched,(uint64_t)s->m2_sent,(uint64_t)s->m3_mic,(uint64_t)s->keys_installed,(uint64_t)s->m4_sent,(uint64_t)s->keys_activated,(uint64_t)s->keys_erased,(uint64_t)s->leave_sent,(uint64_t)s->unsafe,(uint64_t)wifi_wpa5.sends,(uint64_t)s->polls,(uint64_t)s->ignored,(uint64_t)s->aid,(uint64_t)s->status,(uint64_t)wifi_wpa5.commands,(uint64_t)wifi_wpa5.posts,(uint64_t)wifi_wpa5.usb_ops,(uint64_t)wifi_wpa5.restored,(uint64_t)wifi_wpa5.phase,(uint64_t)wifi_wpa5.toggle_synced);
  if(!wifi_wpa5.restored && !wifi_wpa5.failed)wifi_wpa5_fail();
  wifi_wpa5.active=false;return good && exchanged;
 }

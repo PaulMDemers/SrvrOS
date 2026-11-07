@@ -24,8 +24,8 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
 
     def test_wpa5_profile(self):
-        version="ram-usb-wifi-fw-v129-laptop-probe-0e535900-auto-return"
-        self.assertEqual(boot.limine_config("0123456789abcdef",version),boot.limine_config("0123456789abcdef",version.replace("v129-","v128-")).replace("srvros.wifi-eapol5=1","srvros.wifi-eapol5=1 srvros.wifi-wpa5=1"))
+        version="ram-usb-wifi-fw-v130-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",version),boot.limine_config("0123456789abcdef",version.replace("v130-","v128-")).replace("srvros.wifi-eapol5=1","srvros.wifi-eapol5=1 srvros.wifi-wpa5=1"))
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
         with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version.replace("-auto-return",""))
         with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version,legacy_wifi_calibration=True)
@@ -101,7 +101,7 @@ class InstallTests(unittest.TestCase):
             release=boot.stage(**args)
             add.assert_called_once()
             manifest=boot.verify(self.stage/release)
-        self.assertEqual(manifest['config_version'],f'ram-usb-wifi-fw-v{129 if wpa else 128 if eapol else 127 if join else 126 if tx else 125 if peer else 124 if handoff else 123}-laptop-probe-12345678-auto-return')
+        self.assertEqual(manifest['config_version'],f'ram-usb-wifi-fw-v{130 if wpa else 128 if eapol else 127 if join else 126 if tx else 125 if peer else 124 if handoff else 123}-laptop-probe-12345678-auto-return')
         self.assertIn('srvros.wifi-power5=1',(self.stage/release/'limine.conf').read_text())
         if handoff:self.assertIn('srvros.wifi-handoff5=1',(self.stage/release/'limine.conf').read_text())
         if peer:self.assertIn('srvros.wifi-peer5=1',(self.stage/release/'limine.conf').read_text())

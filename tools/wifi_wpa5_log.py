@@ -41,7 +41,7 @@ def check(log):
    require(b[0]==oldrx[0] and b[1]==oldrx[1] and b[4:]==oldrx[4:],'four-way RX not identically stopped')
    dq=b[2]|b[3]<<32;require(dq&15==1 and rx<=dq&~15<=rx+16*48,'four-way RX dequeue outside retained pages')
  def command(phase,kind,dci):require(take('wifi-wpa5-command')==dict(phase=phase,type=kind,dci=dci,slot=slot,ok=1),'wrong four-way command')
- contexts(0);command(0,12,8);contexts(1);command(1,16,9);contexts(2)
+ contexts(0);require(take('wifi-wpa5-toggle')==dict(type=2,request=1,value=0,index=4,length=0,actual=0,ok=1),'missing/invalid device-side toggle reset');command(0,12,8);contexts(1);command(1,16,9);contexts(2)
  for kind,length in enumerate((60,100,184,160,56)):require(take('wifi-wpa5-send')==dict(kind=kind,bytes=length,completed=1,replay=0),'missing/replayed four-way publication')
  m=take('wifi-wpa5-mac');fixed=dict(complete=1,started=1,snapshot=1,disabled=1,tx_drained=1,rx_drained=1,filter_restored=1,txop_restored=1,filter=0x17f97,ibi=0xffffffff)
  require(set(m)==set(fixed)|{'operations','reads','writes','waits','alc','txop','hold_us'} and all(m[k]==v for k,v in fixed.items()),'incomplete four-way MAC lifecycle')
@@ -52,7 +52,7 @@ def check(log):
  command(4,15,9);contexts(5)
  require(take('wifi-wpa5-stop-event')==dict(dci=8,cc=27,residue=0,pointer=tx+80,ok=1),'wrong four-way OUT stop')
  command(5,15,8);contexts(6);command(6,16,9);contexts(7);command(7,12,8);contexts(8)
- s=take('wifi-wpa5');fixed=dict(ok=1,exchange=1,auth=1,assoc=1,m1=1,m2=1,m3_mic=1,installed=1,m4=1,activated=1,erased=1,leave=1,unsafe=0,sends=5,status=0,commands=6,restored=1,phase=9,retained=1,hardware_keys=0,ip_data=0)
+ s=take('wifi-wpa5');fixed=dict(ok=1,exchange=1,auth=1,assoc=1,m1=1,m2=1,m3_mic=1,installed=1,m4=1,activated=1,erased=1,leave=1,unsafe=0,sends=5,status=0,commands=6,restored=1,phase=9,retained=1,hardware_keys=0,ip_data=0,toggle=1)
  require(set(s)==set(fixed)|{'polls','ignored','aid','posts','controls'} and all(s[k]==v for k,v in fixed.items()) and 4<=s['polls']<=80000 and 0<=s['ignored']<=s['polls'] and 1<=s['aid']<=2007 and 5<=s['posts']<=48 and s['controls']==m['reads']+m['writes'],'incomplete four-way/key retirement')
  require(i==len(rows),'extra four-way receipt')
  rxrows=[x for x in aux if x.startswith('wifi-wpa5-rx:')];exrows=[x for x in aux if x.startswith('wifi-wpa5-exchange:')]

@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-/* Pure one-shot PSK/CCMP model,no native caller. Exclusive owner serializes all
+/* Pure one-shot PSK/CCMP model with no I/O. Exclusive owner serializes all
  * steps,filters unrelated traffic and enforces deadlines/transport retirement.
  * Every call carries a nonzero external lifetime generation. Stale-generation
  * and alias calls refuse unchanged;current-lifetime protocol errors fail and

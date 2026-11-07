@@ -13970,3 +13970,13 @@ ownership failures and mandatory log receipts. Touch only the captured native
 child,its controller/ledger/profile tests and current guides;do not change WPA
 MIC/nonce/replay gates or timeouts. Preserve the accepted M1 and failed evidence.
 No new boot is armed. PR19 remains draft;Air graphics/browser scopes stay separate.
+
+Consumed maine8e56ee3,which adds only Air6,1's separate window-census deadline
+refusal record;its native runtime baseline is unchanged fromd5a9fbb3. PR301
+graphics and379 browser remain independent. The v130 candidate adds one exact
+EP04 device-toggle clear before new host configuration and requires its status
+receipt before any TD. Host USB DATA0/DATA1/duplicate-ACK modeling reproduces
+the previous missing-AUTH behavior without the clear. This validates the model
+and missing protocol step,not the native wire-level cause. Credential-bearing
+payload identities remain local. Full qualification/recovery/evidence checks
+are required before another standing cold shutdown.

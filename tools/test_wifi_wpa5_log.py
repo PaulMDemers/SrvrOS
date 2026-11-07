@@ -14,9 +14,12 @@ class Tests(unittest.TestCase):
    if not line.startswith('wifi-wpa5'):continue
    for bad in (rows[:i]+rows[i+1:],rows[:i]+[line]+rows[i:]):
     with self.subTest(i=i),self.assertRaises((AssertionError,ValueError)):self.check(bad)
-  for key,value in [('ok',0),('m3_mic',0),('m4',0),('activated',0),('erased',0),('unsafe',1),('sends',6),('posts',49),('hardware_keys',1),('ip_data',1),('restored',0),('commands',5)]:
+  for key,value in [('ok',0),('m3_mic',0),('m4',0),('activated',0),('erased',0),('unsafe',1),('sends',6),('posts',49),('hardware_keys',1),('ip_data',1),('restored',0),('commands',5),('toggle',0)]:
    bad=rows.copy();i=next(i for i,x in enumerate(bad) if x.startswith('wifi-wpa5:'));bad[i]=re.sub(r'\b'+key+r'=\d+',key+'='+str(value),bad[i])
    with self.subTest(key=key),self.assertRaises((AssertionError,ValueError)):self.check(bad)
+  for key,value in [('type',0),('request',0),('value',1),('index',5),('length',1),('actual',1),('ok',0)]:
+   bad=rows.copy();i=next(i for i,x in enumerate(bad) if x.startswith('wifi-wpa5-toggle:'));bad[i]=re.sub(r'\b'+key+r'=\d+',key+'='+str(value),bad[i])
+   with self.subTest(toggle=key),self.assertRaises((AssertionError,ValueError)):self.check(bad)
   bad=rows.copy();i=next(i for i,x in enumerate(bad) if x.startswith('wifi-wpa5-send: kind=3'));line=bad.pop(i);bad.insert(next(i for i,x in enumerate(bad) if x.startswith('wifi-wpa5-send: kind=2')),line)
   with self.assertRaises((AssertionError,ValueError)):self.check(bad)
   with self.assertRaises((AssertionError,ValueError)):self.check(rows+['wifi-wpa5-unknown: x=1'])
