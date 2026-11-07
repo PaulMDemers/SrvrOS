@@ -8619,3 +8619,24 @@ Dedicated raw retention is0x99188 bytes in the compile-only object. Accepted
 installed92d9f134639f509c/recoveryc35475f62f154f1e remain untouched. No reboot is
 armed. Native latency, raw serialization, fresh bridge admission and the later
 no-target-load two-pass qualification remain unaccepted separate work.
+
+### Fresh bridge and raw two-pass receipt scope (2026-11-07)
+
+Base `a35a1952`, accepted92d9f134639f509c/recoveryc35475f62f154f1e retained,
+no pending native run. Add two independent production gate instances and a
+compile-only native admission bridge for the dormant qualifier. Require current
+single-adopted ECAM state, fresh exact-unit admission and live CPU0/IRQ/AP/root/
+client exclusion throughout both lifetimes and gap. Compare fresh pass1 source
+and control observations against pass0; never use historical receipts as grants.
+Terminal poison retains ownership and cannot restore interrupts or resume clients.
+
+Add a bounded lossless two-pass receipt retaining complete raw page/census/gate/
+path/cost observations, with session/owner/root/epoch and gap binding, plus a
+strict nonpromoting offline decoder and real-producer mutation regressions.
+Keep all caps and exact raw A/D checks unchanged. Existing profile/decoder
+acceptance stays distinct. No native boot caller, default build selection,
+staging/install, reboot, register load or device ownership grant in this step.
+Native compilation, host actual-gate/failure tests, sanitizer/portable checks and
+matched existing-build/core/VM regressions precede merge. Native boot recipe and
+no-target-load qualification remain the next checkpoint. PR301/PR19 have no
+competing VMM/window/ECAM edits in their inspected file lists.
