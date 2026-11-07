@@ -198,6 +198,8 @@ static bool wake_fw_quiet(const struct intel_fw_result *r) {
     return true;
 }
 #endif
+static bool wake_terminal_retained;
+bool intel_gt_wake_retained(void) {return wake_terminal_retained;}
 bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
@@ -312,6 +314,7 @@ bool intel_gt_wake_probe_report(void) {
     wake_irq_restore(flags);
     if(released)console_flush();
     bool retained=owner.pinned || a.uncertain || a.fw.uncertain || trial_mapping_fault || (acquired && !released);
+    wake_terminal_retained=retained;
     bool complete=grants==7 && opened && checked && closed && after && released && a.maps==WAKE_MAPS && a.retired==WAKE_MAPS && !retained && begin && end>begin && end-begin<=500000;
     unsigned engine_reads=0;
 #ifdef SRVROS_INTEL_ENGINE_TRIAL

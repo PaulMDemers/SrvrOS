@@ -438,7 +438,7 @@ int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_RESET_READY_TRIAL
  good=good && (!strcmp(engine_mode,"report") || !strcmp(engine_mode,"ready-delay"));
 #endif
- assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);
+ assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
  if(!strcmp(engine_mode,"blit-uncertain") || !strcmp(engine_mode,"blit-readback") || !strcmp(engine_mode,"blit-late-foreign") || !strcmp(engine_mode,"blit-reader-change") || !strcmp(engine_mode,"blit-audio-change") || !strcmp(engine_mode,"blit-mode-change")) {
   assert(!display_access_allowed());for(unsigned j=0;j<WAKE_MAPS;j++)assert(pa[INTEL_CAPTURE_PAGES+1+j]);

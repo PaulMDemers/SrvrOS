@@ -47,7 +47,9 @@ return a pin. Clean cancellation and unchanged post-state permit return. Any
 possibly issued request followed by an uncertain store, missing acknowledgement,
 clock/guard failure, state drift or unsafe cancellation retains the borrow,
 requester/mappings and CPU exclusion until reset. There is no forced close,
-blind retry or cleanup store after such a fault.
+blind retry or cleanup store after such a fault. A sticky GT retained-state
+query also blocks the main automatic-return gate, alongside the existing HDA
+check; the pre-entry warning remains visible without bypassing display exclusion.
 
 Ready and cancellation each have a 10 ms/256-poll bound; the whole dependent
 has a 100 ms bound inside the unchanged 300 ms GT/500 ms outer lifetime.

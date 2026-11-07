@@ -65,6 +65,7 @@ int main(int argc,char **argv) {
  if(mode(&m,"pending"))c.pending=1;
  bool ok=intel_reset_ready(&r,&g,mode(&m,"copy")?&copied:&c,!mode(&m,"policy"),(struct intel_reset_ready_io){&m,rguard,rcontrol,rgroup,rwrite,rnow,rpause});
  bool expected=mode(&m,"normal") || mode(&m,"delay");assert(ok==expected);
+ if(m.writes && !ok)assert(r.uncertain && r.borrow.active && g.borrows==1 && !intel_gt_access_close(&g));
  struct intel_reset_ready_result rcopy=r;assert(!intel_reset_ready(&r,&g,&c,true,(struct intel_reset_ready_io){0}));assert(!intel_reset_ready(&rcopy,&g,&c,true,(struct intel_reset_ready_io){0}));
  if(ok){assert(r.complete && r.ready && r.cancelled && r.blocked_close && r.writes==2 && r.samples==2 && r.controls_read==4 && r.reads==r.polls+18 && !r.uncertain && !g.borrows);}
  if(r.uncertain || r.borrow.active) {assert(g.borrows==1 && g.pinned && !intel_gt_access_close(&g) && m.m.writes==2);assert(!display_access_release(&token,true));}

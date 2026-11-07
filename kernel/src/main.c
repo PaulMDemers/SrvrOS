@@ -1006,7 +1006,7 @@ void kmain(void) {
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
         /* The new read-only observation may save a handled refusal and return,
          * but never resets past a failed log save or workspace unmount. */
-        if(!intel_display_hda_owner_retained() &&
+        if(!intel_gt_wake_retained() && !intel_display_hda_owner_retained() &&
            (!intel_display_capture_requested || (saved && unmounted)) &&
            (return_on_failure || (saved && (sampled || automatic_load) && unmounted))) {
             console_write("laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n");
