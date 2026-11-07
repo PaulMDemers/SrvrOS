@@ -8460,3 +8460,28 @@ RAM queries127.16→24.24ms, with identical accepted RAM results. These isolated
 host measurements are diagnostic, not native timing acceptance. Shared VMM
 representation changed, so normal-image identity is not claimed. Matched full
 core/build, sanitizers/cross-compilation and ordinary/staged VMs precede retry.
+
+
+### Frozen live-lookup validation (2026-11-07)
+
+Code `cca4d31f` passes matched normal/AP/USB/ISO builds and complete test-core
+(one explicit opt-in test skipped). Six actual fixture families pass ASan/UBSan
+and ARM64 compilation with assertions enabled: backend, gate/report, combined
+ECAM/window, registry preparation, user ranges and guarded user-frame copying.
+The registry/range portable models bind unrelated x86-only frame helpers to
+traps at their existing test boundary; production bodies remain unchanged.
+The initial cross-harness failure is retained. All11 profile tests pass,
+including57792 indexed/full-scanner comparisons and retained fresh-catalog
+failure. Root/copy/range fixtures preserve bitmap state in snapshot assertions.
+
+The AP object proves a single live occupancy-word reference in its sole-root
+predicate. Actual producer/decoder proof covers normal/maximum/native HHDM
+shapes with ram_steps diagnostics and unchanged raw comparisons. Nine sequential
+staged VMs pass legacy firmware/cache/alias/fence/v4/v5 plus v5/v6 missing-volume
+and exact v6 refusal. Five ordinary syscall/UEFI USB keyboard/fork/exec-vector/
+yield VMs pass against the changed ordinary kernel. Selected payload
+`92d9f134639f509c` is verified/backed up. Native100ms completion and ordinary
+native desktop acceptance for the new shared representation remain pending.
+Preserve the prior failure, every source/root/ownership check and all limits;
+retire only an unreferenced failed-trial EFI copy after complete backup hashes
+verify. Accepted ECAM/root and Ubuntu/recovery remain retained.
