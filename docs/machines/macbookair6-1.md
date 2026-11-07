@@ -8152,3 +8152,23 @@ also pass against the matched normal image. The validated code remains
 `a1802859`; this follow-up changes documentation only. No hardware run, install
 or reboot is performed for the dormant backend. The accepted native payload
 and its earlier evidence remain independent and retained.
+
+
+### Window-only native integration scope (2026-11-06)
+
+Base `4cb7b5a7`; installed accepted `ab360d3ce2d281e4` closed/collected, no
+boot armed. Add fresh exact-unit CPU0/parked-AP/cache/NX/WP/firmware gate to the
+dormant backend, retaining whole-lifetime CPU0 IRQ/mutation exclusion before
+first user root. Reuse the proven gate implementation through a distinct
+compile-time adapter without overwriting early ECAM evidence. Retain raw
+before/linked/retired/private-page observations before freeing frames; bounded
+separate window.log and strict same-session collector, new explicit v6 profile.
+No target loads, register writes, generic API/policy changes or widened limits.
+Poison halts before user init/USB reuse; clean refusal saves and returns.
+
+Scope: private backend evidence, gate/template/report, pre-user dispatcher,
+fixed-name quiesced log snapshot, staging/VM/collector and failure tests, own
+guides. PR301 scanout and PR19 Wi-Fi remain independent; inspect main/staging
+deltas before integration and preserve their profiles. Validate real gate and
+formatter, malformed/refused/raw/maximum receipt cases, existing profiles and
+exact-stage VM before installing one-shot under standing reboot authorization.
