@@ -8520,3 +8520,49 @@ All623 prior files survive except expected `.srvros/meta`; four new logs make
 FAT-bitmap mismatch. Exact payload and full matching raw evidence are retained
 outside build with verified hashes. Ubuntu default and independent recovery
 remain retained, one-shot empty, collector disabled, no next boot armed.
+
+
+### Guarded read-caller contract audit scope (2026-11-07)
+
+Base `eefc5bfd`, accepted window payload92d9f134639f509c collected. Audit the
+next read caller as host-only protocol work: replay the strict accepted three-file
+window receipt, bind unchanged12-DWORD/two-sample limits, and test proposed exact
+A-preseeded owned entries with an already-accessed borrowed root. No A/D masks,
+source-proof reuse as a live grant, current backend reset or second lifetime
+inside the100ms no-read claim. Define two independently bounded100ms attempts
+and the20–100ms inter-sample interval including teardown/fresh preparation.
+Add pure host path/sample/timeline refusal models and regressions plus current
+guides. No native kernel/boot/staging/codec change, target I/O or new reboot for
+this audit. A separate dormant read-qualified backend and no-read A-preseed/two-
+window qualification precede any actual register-read adapter. PR301/PR19 retain
+independent hardware scopes. Existing windows and read/ownership grants remain
+unchanged. Publish the audit with exact replay evidence and targeted host checks.
+
+
+### Guarded read-caller audit complete (2026-11-07)
+
+The [caller audit](../macbookair6-1-vtd-read-caller-audit.md) and host-only models
+strictly replay accepted session `session-00065fb5328c9afc-00`, without creating
+live grants. The proposed owned parent flags0x23/leaf0x80000000fed90039 preseed A;
+borrowed root A must already be set in each fresh pass. No A/D masking or old
+no-load-state reset is allowed. Two independent100ms attempts preserve the
+12-DWORD/two-sample/two-map contract. The20–100ms inter-sample interval includes
+teardown and fresh preparation; blind extra20ms sleeps could violate it.
+
+A naive full-source pre-read wrapper would charge4192 firmware bytes, exceeding
+4096. A proposed adjacent-guard coalescing yields3996 bytes; actual-source proof
+is still required. Worst unaligned guard/path accounting from61621 fixture words
+estimates63586, without increasing65536. Repeated whole-private-page scans per
+load are unsuitable. Retain full lifecycle scans and exact pre/post read paths.
+A dormant bounded backend with raw retention and qualified guard scheduling,
+then a distinct two-window/A-preseed no-target-load native trial, precede any
+read-enabled adapter. Historical mapping is not current admission or DMA state.
+
+Nine new host tests cover fixed limits/encoding,256 individual raw-path bit
+changes, frame geometry, sequence/width/unavailable/torn/changed data, lifetimes,
+stale owner/root/epochs, overlap, gap/frozen clocks/iteration and receipt bounds,
+guard budgets and strict/nonpromoting receipt replay. Existing firmware/read/
+admission/window-profile tests and docs checks pass. The normal/AP binary hashes
+remain identical to the accepted runtime; no kernel, boot recipe or installed
+payload changes and no reboot is armed. Ordinary native desktop regression for
+the shared occupancy representation remains independent pending work.

@@ -278,3 +278,14 @@ Early ECAM uses its original scanner. `ram_steps` extends the optional cost
 record with row comparisons; previous records remain readable without it.
 Native trials require the new field along with the full raw proof. No alias,
 ownership, clock, word, table or data limits change.
+
+
+## Guarded read-caller audit (2026-11-07)
+
+The [next caller audit](macbookair6-1-vtd-read-caller-audit.md) records the strict
+A-preseeded path proposal, two independent100ms lifetimes and the inter-sample
+gap including teardown/fresh preparation. It also exposes a4096-byte firmware
+guard budget conflict in a naive read wrapper. The host models/replay grant no
+live permission; an actual-source dormant backend and separate no-target-load
+qualification are required before a read-enabled adapter. This changes no
+accepted v6 kernel or its one-attempt/raw/poison contract.
