@@ -8239,3 +8239,106 @@ The successful VM harness revision is `d19ac35f`, with unchanged payload
 hashes from `c94297a8`. This docs-only follow-up does not change the tested code. Other machines'
 scanout and Wi-Fi scopes remain independent. Installed accepted ECAM/root and
 recovery payloads remain retained for the next automatic one-shot trial.
+
+
+### Native window-only safe refusal (2026-11-06)
+
+PR397 release `fad46d637616b072`, compiled `c94297a8`, returned automatically
+with matching session `session-00065fa7691d63c7-00` and all four logs saved.
+The new window backend refused `HHDM-entry` in its first fresh gate: one mapper
+word, no census, allocation/publication/unlink/invalidation/free attempts and
+zero target loads/writes. This profile is failed, not physically accepted.
+The earlier ECAM raw receipt records adoption in95.552ms; preinit preparation
+and two exact30-table snapshots completed, but overall `completed=NO` correctly
+prevents joint ECAM/root acceptance for this run.
+
+The saved raw root HHDM entry has low permission bits7. Retained complete paths
+to root RAM and the DMAR source contain upper User bits but supervisor leaves:
+their effective permissions remain supervisor/writable. The backend currently
+requires low bits3 at every level, so rejects the first upper entry. Next scope
+is a full-path effective-permission audit/fix with supervisor leaf and cumulative
+write/User enforcement, reserved-bit/translation/source validation and exact raw
+comparisons retained; add positive mixed-upper/supervisor-leaf and negative
+effective-user/nonwritable regressions. No policy or deadline/cap change follows.
+
+All611 prior files survive byte-for-byte except expected `.srvros/meta`; four
+new logs make615 files/1690 clusters. Offline fsck/allocation/headroom are clean,
+with zero leaks or FAT/bitmap mismatch. Raw failure/evidence remains backed up
+outside build. Ubuntu default and accepted ECAM/root plus recovery payloads are
+retained. Collector disabled after return; no next boot armed.
+
+
+### HHDM effective-permission correction scope (2026-11-06)
+
+Base `e8639e92`; collected PR397 failure retained. Audit only the diagnostic
+window backend's HHDM path validator, its real backend/combined fixtures and
+contract. Permit upper User bits only after the complete path establishes
+a supervisor leaf and cumulative writable access. Retain every presence,
+reserved-bit, canonicality, RAM provenance, physical translation, alignment,
+raw comparison, ownership and timeout/cap check. Own window publication still
+requires its original exact supervisor entries. Add mixed-upper positives for
+4KiB/2MiB/1GiB source leaves, effective-user/nonwritable and changed-raw refusal.
+PR301 scanout and PR19 Wi-Fi remain independent; no foreign branch is imported.
+Run actual fixtures/sanitizers, matched build/core and staged/ordinary VMs before
+self-merge and automatic v6 retry under standing authorization. Native status
+remains failed/pending until matching three-file completion and USB checks.
+
+
+The candidate now validates the whole HHDM path before approving a pointer:
+presence/reserved bits at every level, cumulative R/W, effective supervisor
+access plus an explicitly supervisor leaf, then alignment/physical identity.
+All24 mixed-ancestor/leaf-size lifetimes pass with borrowed arrays unchanged.
+User-leaf (including supervisor ancestors) and read-only ancestor/leaf negatives
+refuse before allocation/stores. A post-publication upper U/S mutation still
+fails the exact raw comparison and retains poisoned ownership/backing. The
+combined real early-ECAM/window/gate/report fixture now also runs the captured
+upper7/leaf3 pattern through strict same-session decoding; all9 Python profile
+tests pass. Successful core mapper accounting remains60451 words. No limits,
+owned-window attributes, firmware/model gates or integrity comparisons change.
+
+
+### Frozen HHDM correction checks (2026-11-06)
+
+Code `182e7998` passes matched normal/AP/USB/ISO builds and complete test-core
+(one explicit opt-in test skipped). Actual backend, standalone gate/report and
+combined early-ECAM/window fixtures pass ASan/UBSan and ARM64 compilation,
+including the retained native upper-User/supervisor-leaf shape. All nine strict
+profile/collector tests pass. The source proof excludes the diagnostic path
+from ordinary images and test pins from native AP code. The mapper and census
+limits and exact borrowed/owned raw comparisons remain unchanged.
+
+Nine sequential staged VMs pass earlier firmware/cache/alias/fence/v4/v5
+profiles plus v5/v6 missing-workspace and exact v6 refusal; five ordinary
+syscall/UEFI USB keyboard/fork/exec-vector/yield VMs pass. The selected native
+payload is `951a5f67ad85ec0b`. These Q35 results exercise refusal/save/return;
+native completion remains pending. Preserve the prior safe refusal and all raw
+evidence. A redundant unreferenced early-desktop EFI copy may be retired only
+after its exact payload and complete acceptance evidence outside build verify;
+retain accepted ECAM/root, stress/reopen and Ubuntu/recovery payloads.
+
+
+### Native HHDM fix advances to bounded census refusal (2026-11-07)
+
+PR399 release `951a5f67ad85ec0b`, source `182e7998`, returned automatically
+with matching session `session-00065fa8c779fe3e-00` and four saved logs. The
+HHDM permission fix passed the initial fresh gate. Window preparation touched
+all30 tables/15360 entries, then the first measured pass reached2588 entries
+before the unchanged100ms whole-lifetime deadline refused; second pass never
+started. Last retained good time is99999us after begin, census status3, gate
+phases1, firmware bytes332 and168 mapper words outside census. No parent, unlink,
+invalidation or free attempts occurred; no mapping was published and target
+reads/writes remain zero. Overall `completed=NO` correctly rejects this profile.
+The earlier ECAM and separate preinit census emitted complete raw subreports,
+but do not establish whole-profile acceptance for this failed run.
+
+Next audit: repeated per-word HHDM translation, RAM provenance, exclusion and
+clock-check cost in the window census. Attribute and reduce redundant work only
+while retaining raw A/D/permission/address comparisons, source/ownership proof,
+100ms lifetime and all existing word/table/entry/data caps. No deadline increase,
+retry or mapping authority is accepted by this observation.
+
+All615 prior files survive except expected `.srvros/meta`; four new logs make
+619 files/1695 clusters. Offline fsck, allocation and headroom pass with zero
+leaks/FAT-bitmap mismatches. Matching raw logs and analysis are retained outside
+build. Ubuntu remains default, one-shot entry empty, collector disabled after
+return; no next boot armed. Accepted ECAM/root and recovery remain retained.
