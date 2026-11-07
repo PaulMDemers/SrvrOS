@@ -2,6 +2,25 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Active scope: engine, flip-wait and cache-completion prerequisites
+
+Main `d0ded465` (Air6,1 guarded read lifetime/audit) is integrated after the
+accepted6efe return. PR19 Pro Wi-Fi and PR379 WebCore retain independent scope.
+The next bounded objective is a separate CPU0 completion-audit image under the
+accepted cooperative GT wake lease: two full five-engine snapshots, saved
+flip-wait flags, all five documented TLB controls, RCS/BCS parser/cache-ordering
+context and explicit absence of pipeline/posted/prefetch completion authority.
+Shared scope is the new read-only core/adapter, isolated recipe/image/cache
+allowlist, strict collector/staging and fault tests. Existing HDA/reader and GT/
+BCS recipes stay independent. No TLB/reset/engine/display/PTE writer is planned:
+Broadwell requires pipelines flushed and clear of memory accesses before TLB
+invalidation; old INSTPM invalidation bits are reserved on this generation.
+Qualify actual state before selecting a documented completion/reset mechanism;
+quiet or self-cleared control bits cannot supply memory-reuse authority. Preserve
+all inherited backing. Host/VM validation precedes readiness; no reboot is armed
+or requested by this implementation block. Disk cleanup removes only verified
+inactive duplicate generated stages with complete outside durable counterparts.
+
 ### Current checkpoint: pinned transaction/display-reader audit accepted
 
 Release `6efeecb2a7eae7b3`, payload source `dd52f571`, completed native session
