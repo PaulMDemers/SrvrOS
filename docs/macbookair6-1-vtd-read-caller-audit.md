@@ -153,3 +153,51 @@ obligation with actual gates; they do not accept native latency or ownership.
 Full raw serialization, a fresh native admission bridge and the separate
 no-target-load two-window physical qualification remain prerequisites to any
 register-reading adapter. The accepted installed payload remains unchanged.
+
+## Fresh bridge and lossless receipt
+
+`make air61-read-qualification-objects` compiles the native bridge, its two
+independent production gate instances, the VMM backend and receipt encoder.
+No existing kernel target selects these objects, and there is no boot caller.
+The host fixture compiles the same gate-instance source with hardware hooks.
+Native instances have no reset entry point. The bridge permits one call, requires
+current ECAM ACTIVE/single adoption, disables interrupts for the whole series,
+and runs the unchanged exact-unit predicates afresh for each admission. Pass1
+admission also compares raw source/catalog/MCFG and cache/control observations
+against pass0. It restores the prior IRQ state only after a clean result. Poison
+prints both passes' progress and halts with ownership and IRQ exclusion retained.
+
+The RAM-only encoder is also one-shot after a clean complete series. It samples
+no clock, register, port or device. Its closed `R1PASS61` records preserve each
+pass's full borrowed/private page views, both raw census traversals, firmware/
+cache/control snapshots, cost counters, indexed-classifier work and all12 exact
+pre/post paths. Sparse page deltas refer to complete retained raw baselines;
+zero runs reconstruct bytes exactly. There are no hashes or padding/pointers
+in place of raw observations. Old W1 decoders refuse these distinct records.
+
+The outer raw format is `R1AIR610`,27 ASCII session bytes, six little-endian
+u64 values (owner,epoch,root,begin,end,gap), then three u32 counters
+(started,retired,gap-spins). Each pass has a u32 extent and its raw pass record,
+then slots/coalescings (u32), first/last slot times (u64), seven u32 cost counters,
+three u64 phase times, a u64 RAM-classifier step count, and12 repetitions of a
+u32 offset plus four u64 pre-path and four u64 post-path values. The raw cap is
+70000, with each existing-style pass body still bounded to33000 bytes.
+
+`Z1AIR610` wraps the raw length as a u32, followed by u16 run tags. Bit15 denotes
+zeros; bits0–14 give a positive length. Zero runs must contain at least four
+bytes; literal runs contain their following bytes. The canonical producer emits
+the longest next zero or literal run up to32767 bytes. The strict decoder
+requires exact canonical recompression, declared extents and no trailing bytes.
+Packed output is capped at45000 bytes, leaving base64/framing room in the
+unchanged65536-byte tail. Overflow yields no valid receipt and cannot retry.
+The eventual boot wrapper must also bound the entire saved envelope.
+
+`tools/hardware_air61_read_qualification.py` checks both complete raw proofs,
+independent100ms lifetimes,20–100ms marker gap including retirement/preparation,
+owner/root/epoch/session identity, source/cache/control stability, exact A/D/path
+bits, budgets, costs and clean retirement. It also requires identical borrowed
+census graphs across passes; any raw change refuses. This is an offline retained
+observation only: source-completed/native-accepted, register-read authorization,
+hardware authority and ownership remain false. A boot caller and strict joint
+ECAM/exit/session persistence binding are still required before physical
+qualification can be accepted. No target load adapter exists.

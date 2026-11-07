@@ -8640,3 +8640,21 @@ Native compilation, host actual-gate/failure tests, sanitizer/portable checks an
 matched existing-build/core/VM regressions precede merge. Native boot recipe and
 no-target-load qualification remain the next checkpoint. PR301/PR19 have no
 competing VMM/window/ECAM edits in their inspected file lists.
+
+### Fresh bridge and raw receipt implemented (2026-11-07)
+
+The compile-only native bridge now uses two production gate instances, fresh
+per-pass exact-unit checks and cross-pass raw source/cache/control comparison.
+It requires current ECAM ACTIVE/single adoption and holds IRQ exclusion across
+both lifetimes and gap. Poison prints retained progress and halts; it does not
+restore interrupts or resume clients. Native instances cannot reset.
+
+The one-shot RAM-only R1/Z1 encoder retains both complete raw pass proofs and
+all path/cost observations. Lossless canonical zero runs fit the combined
+45000-byte wire cap within the unchanged65536-byte tail allowance; per-pass
+33000-byte raw bodies and all mapper/firmware/time limits remain unchanged.
+The independent strict decoder rejects old-profile confusion, tampering,
+malformed extents/compression, stale identities and altered path bits. It never
+promotes a retained observation to native/read/ownership acceptance. A native
+boot caller, joint saved-session binding and exact staged qualification remain
+separate next work; no installed payload or boot state is changed here.
