@@ -14052,3 +14052,17 @@ part of this accepted runtime. PR402 Air6,1 census,PR301 graphics andPR379 brows
 remain separate;PR19 stays draft. Consume and qualify the actual main changes
 before staging another physical candidate. Cold trials still use shutdown and
 the standing Wi-Fi-only10second unplug procedure.
+
+### Post-M4 encrypted transport implementation scope (November 7)
+
+Consumed actual maina1661937 before shared work. PR402 remains Air6,1 clock
+census,PR301 graphics andPR379 browser;none claims this Wi-Fi transport.
+Implement a separate opt-in bounded post-M4 Ethernet/CCMP diagnostic window,
+without changing the accepted v130 four-way recipe or boot-immutable ordinary
+network provider selection. First prove software encrypted TX and authenticated
+RX,then DHCP/DNS/data on that same live key/endpoint owner. Reuse the existing
+CCMP primitive;do not bypass MIC/replay/PN,hardware gates or uncertain-DMA
+retention. Touched scope:Wi-Fi framing/coordinator/native child,capture staging/
+ledger and directed fixtures. Native acceptance remains runtime09504e18 only;
+new source requires matched build,host/sanitizer/full-prefix/exact-stage VM,
+recovery/run record and a cold shutdown before any new physical claim.
