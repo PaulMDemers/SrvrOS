@@ -5116,3 +5116,25 @@ build/tests/air61-window-profile$(HOST_EXE): tools/test_air61_window_profile.c t
 build/tests/air61-window-combined$(HOST_EXE): tools/test_air61_window_combined.c tools/test_ecam_profile.c tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_ecam_boot.c kernel/src/memory/air61_window.inc kernel/diagnostics/haswell_ecam_report.c kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_ECAM_GATE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/air61_window_gate.c kernel/diagnostics/air61_window_report.c kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -Wl,--gc-sections -o $@
+
+# Separate cooperative display-HDA requester image. No GT/BCS writers or AML.
+build/intel-hda-owner/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_hda_observer.inc kernel/src/drivers/intel_hda_owner_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_HDA_OWNER -c $< -o $@
+build/intel-hda-owner/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_HDA_OWNER -c $< -o $@
+build/intel-hda-owner/srvros.elf: build/intel-hda-owner/probe.o build/intel-hda-owner/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-hda-owner/probe.o build/intel-hda-owner/requests.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-hda-owner-core$(HOST_EXE): tools/test_intel_hda_owner.c kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_display_hda.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_display_hda.c -o $@
+build/tests/intel-hda-owner-adapter$(HOST_EXE): tools/test_intel_hda_owner_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_hda_observer.inc kernel/src/drivers/intel_hda_owner_trial.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_HDA_OWNER -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c kernel/diagnostics/package_audit_core.c -o $@
+.PHONY: test-intel-hda-owner
+test-core: test-intel-hda-owner
+test-intel-hda-owner: build/tests/intel-hda-owner-core$(HOST_EXE) build/tests/intel-hda-owner-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_hda_owner.py
+
+build/kernel/src/drivers/intel_display_probe.c.o build/intel-hda/probe.o build/intel-wake/probe.o build/intel-engines/probe.o build/intel-blitter/probe.o: kernel/src/drivers/intel_hda_owner_trial.inc kernel/src/drivers/intel_hda_observer.inc

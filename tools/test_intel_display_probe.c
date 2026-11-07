@@ -154,7 +154,7 @@ static const uint64_t fb_virtual=0xffff8000b0000000ull;
 static bool intel_display_test_uc(uint64_t p){assert(p==0xc0811000);return !window_cache_fail;}
 uint8_t pci_read_config8(const struct pci_device *d,uint8_t off){assert(d==&devices[0] && off==0x62);return 1;}
 uint64_t pci_device_count(void){
-#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_HDA_OBSERVER)
+#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
  return 4;
 #else
  return 3;
@@ -162,7 +162,7 @@ uint64_t pci_device_count(void){
 }
 const struct pci_device *pci_device_at(uint64_t i){return i<pci_device_count()?&devices[i]:NULL;}
 uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
-#ifdef SRVROS_INTEL_HDA_OBSERVER
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
     if(d==&devices[3])return intel_display_test_hda_config(off);
 #endif
     config_reads++;assert(config_reads<(wake_mode?10000000:gt_mode?20000:window_mode?5000:1000));
@@ -188,7 +188,7 @@ uint64_t vmm_kernel_address_space(void){return 0x1000;}
 uint64_t vmm_current_address_space(void){return current;}
 bool vmm_virt_to_phys(uint64_t v,uint64_t *p){assert(v==fb_virtual);*p=0xb0000000;return true;}
 static unsigned index_of(uint64_t v){
-#ifdef SRVROS_INTEL_HDA_OBSERVER
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
  if(v==HDA_VA)return INTEL_CAPTURE_PAGES+12;
 #endif
  if(v>=BACKING_VA+0x10000 && v<BACKING_VA+0x1b000)return INTEL_CAPTURE_PAGES+1+(unsigned)((v-BACKING_VA-0x10000)/4096);
@@ -204,21 +204,21 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
 #endif
     assert(space==0x1000 && flags==(writable?(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITABLE):(fw_mode && p==0x12345000)?VMM_PAGE_NO_EXECUTE:(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)));unsigned n=index_of(v);
     assert(!pa[n]);if(n>=INTEL_CAPTURE_PAGES)assert((p>=0xc0000000 && p<0xc1000000)
-#ifdef SRVROS_INTEL_HDA_OBSERVER
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
  || (p==INTEL_HDA_BASE && v==HDA_VA)
 #endif
  || p==0xfed90000 || (fw_mode && p==0x12345000));else assert(p==0xc0000000ull+intel_capture_pages[n]);pa[n]=p;map_calls++;
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
  if(!strcmp(engine_mode,"map-last") && v==BACKING_VA+0x17000)return false;
 #endif
-#ifdef SRVROS_INTEL_HDA_OBSERVER
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
  if(v==HDA_VA && !intel_display_test_hda_map())return false;
 #endif
  if((window_map_fail && p==0xc0811000) || (gt_map_fail && p==0xc000a000) || (fw_map_fail && p==0x12345000) || (wake_map_fail && v==BACKING_VA+0x10000))return false;
  return true;
 }
 bool vmm_unmap_page_in_space(uint64_t space,uint64_t v,uint64_t *p){
-#ifdef SRVROS_INTEL_HDA_OBSERVER
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
  if(v==HDA_VA && !intel_display_test_hda_retire())return false;
 #endif
 assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);

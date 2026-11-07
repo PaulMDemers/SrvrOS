@@ -573,6 +573,10 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-hda-owner-summary:'):
+        from intel_hda_owner import owner_summary
+        try:return not owner_summary(line)['complete']
+        except ValueError:return True
     if line.startswith('intel-hda-summary:'):
         from intel_display_hda import summary_result
         try:
@@ -919,6 +923,12 @@ def collect(mount, volume, output):
                 intel_engines=engine_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not intel_engines or not intel_engines['observation_complete'] or not intel_wake or not intel_wake['native_wake_complete']:attention.append('Intel engine census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel engine census: '+str(error))
+        if 'srvros.intel-hda=owner-trial' in text:
+            from intel_hda_owner import native_owner_result,verify_owner_checkpoint
+            try:
+                hda_owner=native_owner_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not hda_owner or not hda_owner['native_trial_complete'] or not verify_owner_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA requester trial incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel display-HDA requester trial: '+str(error))
         if 'srvros.intel-hda=read-only' in text:
             from intel_display_hda import native_hda_result,verify_hda_checkpoint
             try:

@@ -115,3 +115,8 @@ permission to reuse memory.
 The separately accepted BCS/plane observations in the
 [unit record](machines/macbookair7-2.md) remain narrow evidence. Physical tear-free,
 all-reader retirement and managed GPU memory are still unavailable.
+
+The next separate [cooperative requester inhibit/restore trial](intel-display-hda-ownership.md)
+exercises only the PCI command bus-master gate under an explicit EFI policy.
+It preserves this read-only image and supplies no outstanding-DMA retirement
+or managed-memory assurance.

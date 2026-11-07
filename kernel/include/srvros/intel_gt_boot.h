@@ -8,6 +8,7 @@ struct intel_gt_boot_facts {
  bool compiled,recipe,loader,efi64,profile,serialized,excluded,prerequisites,firmware_quiet,requesters_quiet;
 };
 #define INTEL_GT_BOOT_FACTS 10u
+bool intel_gt_boot_hda_owner_recipe(const char *);
 bool intel_gt_boot_hda_recipe(const char *);
 bool intel_gt_boot_blitter_recipe(const char *);
 bool intel_gt_boot_engine_recipe(const char *);

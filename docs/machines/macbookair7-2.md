@@ -9,7 +9,8 @@ integrated at `133d09a1`. PR19 remains Pro Wi-Fi, PR379 WebCore; no GPU/HDA over
 was found. Add a distinct opt-in CPU0 EFI64/pinned-loader image and cooperative
 EFI policy for Air7,2 display HDA00:03.0. Require fresh native prerequisites,
 participating-client exclusion and exact idle controller/stream observations.
-Exercise only the16-bit PCI command bus-master transition0006→0002→0006,
+The [requester contract](../intel-display-hda-ownership.md) exercises only the
+16-bit PCI command bus-master transition0006→0002→0006,
 with exact readback and fresh bounded observations at each phase. Never write
 adjacent PCI status or HDA MMIO, reset/stop/command hardware, reuse memory or
 supply DMA-retirement assurances. Uncertain transitions retain the lease;

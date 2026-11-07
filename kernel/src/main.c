@@ -1,4 +1,5 @@
 #include <srvros/intel_display_hda.h>
+#include <srvros/intel_hda_owner.h>
 #include <srvros/ap_probe.h>
 #include <srvros/intel_boot_claim.h>
 #include <srvros/intel_handoff.h>
@@ -868,6 +869,12 @@ void kmain(void) {
                 if(checkpoint)console_write("intel-hda: preflight checkpoint saved\n");
                 bool hda_ok=checkpoint && intel_display_hda_probe_report();sampled=sampled && hda_ok;
             }
+            if(cmdline_has_token(cmdline,"srvros.intel-hda=owner-trial")) {
+                console_write("intel-hda-owner: saving preflight; automatic requester inhibit/restore, no input needed. Uncertain state halts on this screen; photograph it.\n");
+                bool checkpoint=started && workspace_log_pause();
+                if(checkpoint)console_write("intel-hda-owner: preflight checkpoint saved\n");
+                bool hda_ok=checkpoint && intel_display_hda_owner_report();sampled=sampled && hda_ok;
+            }
             bool fixture=cmdline_has_token(cmdline,"srvros.intel-lifetime=fixture");
             if(fixture || cmdline_has_token(cmdline,"srvros.intel-lifetime=shadow")) {
                 struct limine_framebuffer_response *r=framebuffer_request.response;
@@ -995,7 +1002,8 @@ void kmain(void) {
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
         /* The new read-only observation may save a handled refusal and return,
          * but never resets past a failed log save or workspace unmount. */
-        if((!intel_display_capture_requested || (saved && unmounted)) &&
+        if(!intel_display_hda_owner_retained() &&
+           (!intel_display_capture_requested || (saved && unmounted)) &&
            (return_on_failure || (saved && (sampled || automatic_load) && unmounted))) {
             console_write("laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n");
             console_sync();timer_delay_us(250000);

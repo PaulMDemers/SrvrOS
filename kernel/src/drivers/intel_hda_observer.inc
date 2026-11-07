@@ -1,10 +1,17 @@
 #include <srvros/intel_display_hda.h>
-#ifdef SRVROS_INTEL_HDA_OBSERVER
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
 #if defined(SRVROS_INTEL_WAKE_TRIAL) || defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "HDA census is an independent read-only CPU0 image without GT writers or AML"
 #endif
 #include <srvros/intel_gt_boot.h>
+#if defined(SRVROS_INTEL_HDA_OBSERVER) && defined(SRVROS_INTEL_HDA_OWNER)
+#error "HDA observer and requester owner are distinct images"
+#endif
+#ifdef SRVROS_INTEL_HDA_OWNER
+extern volatile struct limine_firmware_type_request intel_hda_owner_firmware_request;
+#else
 extern volatile struct limine_firmware_type_request intel_hda_firmware_request;
+#endif
 extern volatile struct limine_bootloader_info_request bootloader_info_request;
 extern volatile struct limine_executable_cmdline_request executable_cmdline_request;
 #define HDA_VA (BACKING_VA+0x40000)
