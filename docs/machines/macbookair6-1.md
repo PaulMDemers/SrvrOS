@@ -8295,3 +8295,23 @@ combined real early-ECAM/window/gate/report fixture now also runs the captured
 upper7/leaf3 pattern through strict same-session decoding; all9 Python profile
 tests pass. Successful core mapper accounting remains60451 words. No limits,
 owned-window attributes, firmware/model gates or integrity comparisons change.
+
+
+### Frozen HHDM correction checks (2026-11-06)
+
+Code `182e7998` passes matched normal/AP/USB/ISO builds and complete test-core
+(one explicit opt-in test skipped). Actual backend, standalone gate/report and
+combined early-ECAM/window fixtures pass ASan/UBSan and ARM64 compilation,
+including the retained native upper-User/supervisor-leaf shape. All nine strict
+profile/collector tests pass. The source proof excludes the diagnostic path
+from ordinary images and test pins from native AP code. The mapper and census
+limits and exact borrowed/owned raw comparisons remain unchanged.
+
+Nine sequential staged VMs pass earlier firmware/cache/alias/fence/v4/v5
+profiles plus v5/v6 missing-workspace and exact v6 refusal; five ordinary
+syscall/UEFI USB keyboard/fork/exec-vector/yield VMs pass. The selected native
+payload is `951a5f67ad85ec0b`. These Q35 results exercise refusal/save/return;
+native completion remains pending. Preserve the prior safe refusal and all raw
+evidence. A redundant unreferenced early-desktop EFI copy may be retired only
+after its exact payload and complete acceptance evidence outside build verify;
+retain accepted ECAM/root, stress/reopen and Ubuntu/recovery payloads.
