@@ -2,6 +2,21 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Active scope: maintained display-HDA inhibit lease
+
+Main `e8e56ee3` is integrated. PR401 owns Air6,1 census timing, PR19 Pro Wi-Fi
+and PR379 WebCore; no current HDA overlap was found. Split the accepted bounded
+requester round trip into one-use open/pin/check/unpin/close operations with
+sealed owner/epoch tokens, a captured I/O context and fresh guards. Refuse restore
+while dependents are pinned; retain inhibited ownership on uncertain transitions
+or failed revalidation. Keep all existing bounds and the cooperative EFI policy;
+no outstanding-DMA drain or memory assurance is implied. Add a separate automated
+lease recipe/image to hold inhibition across a pinned read-only controller check,
+strict receipts/collection, fault tests and exact-stage VM validation. Touch HDA
+core/adapter, isolated build/boot/collector tooling and unit docs. Preserve the
+accepted round-trip payload/evidence and stop ready for another hardware test;
+no reboot is authorized by this work block alone.
+
 ### Current checkpoint: cooperative display-HDA requester trial accepted
 
 Release `d6677f44c064979d`, payload source `6277e99b`, completed native session
