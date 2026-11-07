@@ -1334,3 +1334,11 @@ from ephemeral key erasure. This unit still needs the standing cold shutdown
 and Wi-Fi-only10second unplug/reconnect while off;leave workspace connected.
 Guest progress/save/return are automatic. Collect the matching session first;
 missing or failed receipts stay unaccepted even after a successful reboot.
+
+The v130 revision retains those explicit WPA5 flags and adds one guarded
+standard EP04 device-toggle clear before the independent host OUT context is
+configured. Both rings must be empty and MAC disabled;an exact successful
+zero-length status is mandatory before publication. The collector requires
+that receipt as well as the unchanged full four-way/retirement proof. It
+changes no WPA security gate,RF recipe or timeout. Follow the same private
+provisioning,qualification,recovery,cold-shutdown and collect-first sequence.

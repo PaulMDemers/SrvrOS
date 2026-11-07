@@ -13980,3 +13980,40 @@ the previous missing-AUTH behavior without the clear. This validates the model
 and missing protocol step,not the native wire-level cause. Credential-bearing
 payload identities remain local. Full qualification/recovery/evidence checks
 are required before another standing cold shutdown.
+
+### Qualified paired-toggle cold retry (November 7)
+
+The private local v130 image uses runtime09504e18 on maine8e56ee3. Full matched
+kernel/USB build,full controller and relevant protocol/crypto/ownership
+regressions pass,with231 staging tests and13 fatal ASan/UBSan groups. The
+actual native-child fixture includes one exact device-side EP04 clear and
+fresh host configuration,106 parent/child register controls,padded receive,
+all child ownership/command/control/send/allocator boundaries and paired-toggle
+loss/reentry/status failures. Suppressing device reset reproduces USB success
+without an AUTH reply;this is a host model,not an observed native wire toggle.
+No WPA keys,nonce/replay rules,RF settings or reply deadlines were changed.
+
+The complete production-C/two-owner/native-parent synthetic prefix passes
+2,038,559bytes and87 whole-prefix refusals,with43,432bytes conservative headroom
+below the unchanged2MiB limit. Current native compiler frames peak at616bytes.
+Real2MiB filesystem persistence/fsck,ordinary desktop and exact staged GPT
+save/return and missing-workspace VMs pass. The installed kernel and independently
+reconstructed firmware/private-PMK initramfs match. No full-core rerun or new
+native AUTH/four-way acceptance is inferred.
+
+The569-file failed capsule and178-file accepted M1 capsule remain unchanged.
+The failed generated USB logs were byte-compared,archived and pruned;prior
+files and offline allocation remain clean. EFI space was recovered by first
+restoring the verified accepted M1 entry,then retiring only the now-unreferenced
+failed v129 duplicate after equality with its sealed backup. The corrected
+candidate is installed with all accepted recoveries and e47d retained,Ubuntu
+default,and no new native result. Credential-bearing identities stay local.
+
+The next authorized action remains shutdown and Wi-Fi-only10second unplug
+while off,reconnect same port,power on with workspace attached. Guest progress,
+full results and Ubuntu return are automatic. Collect this v130 session first;
+require the EP04 clear/status receipt before host configuration,matched
+AUTH/ASSOC/M3 MIC/local M4,software activation/erasure and complete MAC/endpoint/
+input/power/RF originals,storage and recovery. The earlier wire toggle was not
+observed. AP acknowledgement,encrypted IP/data and reconnect remain pending;
+Demers2.4 still needs compatible hardware.
