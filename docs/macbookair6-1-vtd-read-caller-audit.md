@@ -211,3 +211,14 @@ strict retained graph comparisons. Preserve existing bounded preparation and
 all exact comparisons; do not hide differences with masks, timing exclusions
 or larger budgets. This compile-only qualification does not accept native
 startup, latency, source persistence or register access.
+
+The separate v7 boot integration uses `--haswell-read-qualification` and its own
+ELF, refusing mixed/legacy opt-ins. Next-pass private context/gate RAM is first-
+touched inside pass0's original deadline before its census, with per-page live
+clock/root guards; pass1 still performs all of its own bounded preparation.
+Neither existing lifetime is reset or shortened by excluding work. The saved
+R1/Z1 `window.log`, `ecam.log` and `exit.log` are validated jointly. Inside each
+claim and across the two claimed snapshots all raw bits remain exact. The
+existing W1 source-to-claim one-way hardware A/D relation between distinct
+epochs is retained without expanding it; R1 explicitly returns every raw delta.
+This does not create an A/D mask or a live permission from historical evidence.

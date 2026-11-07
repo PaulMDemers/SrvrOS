@@ -65,8 +65,13 @@ static bool ecam_test_event(unsigned event,unsigned n){
  if(event==4 && free_fail)return false;
  return !(event_fault==event && event_index==n);
 }
+#ifdef READ_COMBINED_FIXTURE
+#define SRVROS_AIR61_READ_WINDOW
+#endif
 #ifdef WINDOW_COMBINED_FIXTURE
+#ifndef READ_ONLY_COMBINED_FIXTURE
 #define SRVROS_AIR61_WINDOW
+#endif
 #define SRVROS_AIR61_WINDOW_HOST_TEST
 static bool aw_test_load(uint64_t pa,unsigned i,uint64_t *v){return ecam_test_load(pa,i,v);}
 static uint64_t aw_test_virtual(uint64_t pa){return ecam_test_virtual(pa);}
@@ -86,7 +91,12 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t m,enum pmm_frame_tag 
  if(alloc_fail)return 0;
  if(alloc_borrowed)return 0x2001000;
 #ifdef WINDOW_COMBINED_FIXTURE
- unsigned f=4+allocs;assert(f<ECAM_TEST_FRAMES);tags[f]=tag;return 0x2000000+4096*f;
+#ifdef READ_COMBINED_FIXTURE
+ unsigned f=allocs==1?5:6;while(f<8 && tags[f]==PMM_FRAME_PAGE_TABLE)f++;assert(f<8);
+#else
+ unsigned f=4+allocs;
+#endif
+ assert(f<ECAM_TEST_FRAMES);tags[f]=tag;return 0x2000000+4096*f;
 #else
  tags[5]=tag;return 0x2005000;
 #endif

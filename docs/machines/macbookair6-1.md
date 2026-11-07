@@ -8697,3 +8697,18 @@ prior USB files, install/verify one-shot payload and collection records, and
 run the unattended qualification with visible progress and automatic return.
 Native acceptance requires the matching collected session; missing completion
 or a halt is not a pass. No policy or register-read permission is introduced.
+
+The v7 boot implementation now selects a separate ELF without the old window
+backend, enforces the explicit two-pass token and runs before user init. It
+charges next-pass private RAM first-touch to pass0 before its census with live
+per-page deadline/root guards; pass1 retains its full preparation. A bounded
+R1/Z1 envelope uses the existing quiesced isolated `window.log` save. Joint
+validation binds it to early ECAM and independent source/alias/exit proofs,
+requires matching saved references and whole-trial completion, and retains
+raw source-to-claim hardware A/D promotions under the existing W1 relation.
+Both claimed lifetimes and both claimed graph snapshots remain exact.
+
+Main/staging files are also present in PR301/PR19; this branch owns only the
+Haswell v7 dispatcher/recipe and dedicated ELF, separate from their device
+features. Their current hunks and unit scopes were inspected; no VMM/two-pass
+feature implementation is duplicated. No cross-task messages were sent.

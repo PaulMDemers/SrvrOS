@@ -178,3 +178,83 @@ def decode(blob,session):
         if i not in (10,11,15,16) and x!=y:raise ValueError('changed pass cache')
     if a['_graph']!=b['_graph']:raise ValueError('changed borrowed graph')
     return dict(status='RETAINED_QUALIFICATION_OBSERVATION',session=session,root=root,epoch=epoch,begin=begin,end=end,gap_us=gap,passes=passes,raw_payload=raw,wire_bytes=len(blob),target_reads=0,target_writes=0,source_completed=False,native_accepted=False,register_read_authorized=False,hardware_authority=False,ownership=False)
+
+
+def read_result(text,ecam_text,exit_text,session):
+    """Strict saved-session qualification only; never grants a target read."""
+    try:return _read_result(text,ecam_text,exit_text,session)
+    except (ValueError,KeyError,IndexError,TypeError,struct.error):return None
+
+
+def _read_result(text,ecam_text,exit_text,session):
+    import base64
+    from hardware_haswell_ecam import one,ecam_result
+    state,complete,saved_session,epoch,root=one(text,'hsw-read:',r'hsw-read: v=1 state=([0-4]) complete=([01]) session=(session-[0-9a-f]{16}-[0-9a-f]{2}) epoch=(\d+) root=0x([0-9a-f]{16})')
+    if session!=saved_session:raise ValueError('session mismatch')
+    parts=[]
+    for line in text.splitlines():
+        if not line.startswith('hsw-read-data:'):continue
+        m=re.fullmatch(r'hsw-read-data: v=1 chunk=(\d+) data=([A-Za-z0-9+/]*={0,2})',line)
+        if not m or int(m[1])!=len(parts) or len(parts)>=88:raise ValueError('chunk ordering')
+        b=base64.b64decode(m[2],validate=True)
+        if not 1<=len(b)<=512 or base64.b64encode(b).decode()!=m[2]:raise ValueError('chunk encoding')
+        parts.append(b)
+    size,chunks,report,ok=map(int,one(text,'hsw-read-end:',r'hsw-read-end: v=1 bytes=(\d+) chunks=(\d+) report=(\d+) ok=([01]) target_reads=0 target_writes=0'))
+    if chunks!=len(parts) or size!=sum(map(len,parts)) or size>45000 or not 0<report<1<<64 or any(len(p)!=min(512,size-i*512) for i,p in enumerate(parts)):raise ValueError('extent/report')
+    ref=one(exit_text,'hsw-read-ref:',r'hsw-read-ref: v=1 session=(session-[0-9a-f]{16}-[0-9a-f]{2}) epoch=(\d+) root=0x([0-9a-f]{16}) state=([0-4]) saved=([01]) target_reads=0 target_writes=0')
+    if ref!=(session,epoch,root,state,'1'):raise ValueError('saved reference')
+    reason,=one(text,'hsw-read-failure:',r'hsw-read-failure: reason=([A-Za-z0-9/_-]+)')
+    progress=[]
+    for line in text.splitlines():
+        if not line.startswith('hsw-read-pass:'):continue
+        m=re.fullmatch(r'hsw-read-pass: pass=([01]) state=([0-5]) begin=(\d+) end=(\d+) words=(\d+) slots=(\d+) first=(\d+) last=(\d+) claimed=([01])',line)
+        if not m or int(m[1])!=len(progress):raise ValueError('pass progress ordering')
+        row=tuple(map(int,m.groups()[1:]))
+        if row[4]>12 or row[3]>65536 or any(v>=1<<64 for v in row):raise ValueError('progress bounds')
+        progress.append(row)
+    if len(progress)!=2:raise ValueError('missing pass progress')
+    options=[line.split('boot options=',1)[1].split() for line in exit_text.splitlines() if line.startswith('laptop-capture: boot options=')]
+    required={'srvros.capture=haswell-firmware','srvros.hsw-cache=alias-nx-preinit','srvros.ecam=air61-2m-test','srvros.vtd-window=air61-two-pass-no-read'}
+    if not options or any(not required<=set(row) or row.count('srvros.vtd-window=air61-two-pass-no-read')!=1 or 'srvros.vtd-window=air61-no-read' in row for row in options):raise ValueError('explicit boot profile')
+    if complete=='0':
+        if parts or ok or 'laptop-capture: completed=yes' in exit_text:raise ValueError('incomplete source')
+        return dict(status='REFUSED' if state in ('0','2') else 'FAILED',source_completed=False,reason=reason,progress=progress,target_reads=0,target_writes=0,register_read_authorized=False,hardware_authority=False,ownership=False)
+    if state!='3' or not ok or reason!='none':raise ValueError('series completion')
+    p=decode(b''.join(parts),session)
+    if p['root']!=int(root,16) or p['epoch']!=int(epoch) or p['end']>=report:raise ValueError('header/report binding')
+    for v,row in zip(p['passes'],progress):
+        if row!=(4,v['begin'],v['end'],v['words'],12,v['slot_begin'],v['slot_end'],0):raise ValueError('progress binding')
+    early=ecam_result(ecam_text,exit_text,session)
+    if not early or not early['source_completed'] or early['root']!=p['root']:raise ValueError('early ECAM proof')
+    from hardware_haswell_alias import alias_preinit_result
+    from hardware_haswell_cache import cache_result
+    from hardware_haswell_firmware import firmware_result
+    alias=alias_preinit_result(exit_text)
+    if not alias or alias['status']!='OBSERVED_MANAGED_ROOT_CONTEXT' or alias['end_us']>p['begin']:raise ValueError('pre-user census ordering')
+    a=p['passes'][0]
+    if a['_controls']!=(alias['efer'],alias['cpuid_max'],alias['nx_edx']):raise ValueError('changed NX controls')
+    before={v['physical']:v for v in alias['raw_pages']};after=a['_graph']
+    if set(before)!=set(after):raise ValueError('changed graph pages')
+    changes=[]
+    # Same existing source-to-claim relation as W1: only one-way hardware A/D
+    # promotions between distinct epochs. Retain every raw delta. Inside each
+    # lifetime and between the two pass snapshots all comparisons stay exact.
+    for pa,row in before.items():
+        if row['level']!=after[pa]['level']:raise ValueError('changed graph level')
+        for index,(x,y) in enumerate(zip(row['raw'],after[pa]['raw'])):
+            leaf=row['level']==3 or row['level'] in (1,2) and x&128
+            allowed=(32|(64 if leaf and x&2 else 0)) if x&1 else 0
+            if (x^y)&~allowed or (x&allowed)&~y:raise ValueError('source-to-claim graph mutation')
+            if x!=y:changes.append(dict(page=pa,index=index,before=x,after=y))
+    source_cache=cache_result(exit_text)
+    source_fw=firmware_result(exit_text)
+    if not source_cache or not source_fw:raise ValueError('missing independent source')
+    base=source_cache['cpu_samples'][0]
+    fw=source_fw['samples'][0]
+    for v in p['passes']:
+        for cpu in v['_cpus']:
+            if any(cpu[k]!=base[k] for k in ('root','cr4','hhdm','pat','cap','default','variables')) or cpu['raw'][:10]!=base['raw'][:10] or cpu['raw'][21:]!=base['raw'][21:]:raise ValueError('source CPU/cache')
+        for pair in v['_firmware']:
+            for sample in pair['samples']:
+                if any(sample[key]!=fw[key] for key in ('identity','table_pa','dmar_base64','catalog')):raise ValueError('source firmware')
+    return dict(status='OBSERVED_RETIRED_TWO_PASS_ZERO_LOAD',source_completed=True,session=session,root=p['root'],epoch=p['epoch'],begin=p['begin'],end=p['end'],gap_us=p['gap_us'],passes=p['passes'],source_to_claim_ad_changes=changes,retirement_verified=True,claim_released=True,target_reads=0,target_writes=0,register_read_authorized=False,hardware_authority=False,ownership=False)

@@ -74,7 +74,8 @@ static bool run_series(void){return vmm_air61_read_window_qualify(&rio,0x6169727
 #define main read_backend_fixture_main
 #endif
 int main(void){
- rreset();assert(run_series());
+ rreset();assert(!vmm_air61_read_window_prime_room());assert(run_series());
+ assert(!vmm_air61_read_window_prime_room());
  assert(rw.result.state==AIR61_READ_COMPLETE && rw.result.started==2 && rw.result.retired==2);
  for(unsigned pass=0;pass<2;pass++){
   const struct air61_read_pass_result *v=vmm_air61_read_window_pass(pass);
