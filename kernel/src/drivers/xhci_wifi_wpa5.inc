@@ -235,7 +235,7 @@ static bool wifi_wpa5_poll(void *c,enum mt76_wpa5_rx type,uint8_t *out,size_t ca
   if(i!=wifi_wpa5.rx_copied)return wifi_wpa5_fail();
   copy_bytes(wifi_wpa5.rx_snapshot[i],wifi_wpa5.buffer[i],4096);wifi_wpa5.rx_copied++;
   size_t bytes=4096-wifi_wpa5.rx_residue;
-  unsigned view=MT76_RX_INVALID;size_t mpdu=0,eapol=0;unsigned fc=0;
+  unsigned view=MT76_RX_INVALID;enum mt76_data5_rx_reason reason=MT76_DATA5_ADMISSION;size_t mpdu=0,eapol=0;unsigned fc=0;
   if(type==MT76_WPA5_EAPOL){
    struct mt76_eapol5_peer p={.channel=161,.bandwidth=20};copy_bytes(p.station,wifi_wpa5.peer.peer.station,6);copy_bytes(p.bssid,wifi_wpa5.peer.peer.bssid,6);
    struct mt76_eapol5_view v={0};view=mt76_eapol5_rx(&p,wifi_wpa5.buffer[i],bytes,&v);mpdu=v.mpdu_size;fc=v.frame_control;eapol=v.eapol_size;
@@ -244,12 +244,13 @@ static bool wifi_wpa5_poll(void *c,enum mt76_wpa5_rx type,uint8_t *out,size_t ca
    struct mt76_rx_view v={0};view=mt76_rx_usb_view(wifi_wpa5.buffer[i],bytes,&v);mpdu=v.mpdu_size;fc=v.frame_control;
    if(view==MT76_RX_OK && mpdu>=24 && mpdu<=cap && v.body_size==mpdu-24){copy_bytes(out,v.header,24);copy_bytes(out+24,v.body,v.body_size);*size=mpdu;*present=true;}
   }else if(type==MT76_WPA5_DATA && wifi_wpa5.data_mode && wifi_wpa5.data_active && wifi_wpa5.exchange.keys_activated && wifi_wpa5.exchange.keys.phase==WPA2_CCMP_ACTIVE){
-   size_t n=mt76_data5_rx(&wifi_wpa5.data_scratch,&wifi_wpa5.exchange.keys,wifi_wpa5.peer.generation,wifi_wpa5.buffer[i],bytes,out,cap);
+   struct mt76_data5_rx_result report=mt76_data5_rx_report(&wifi_wpa5.data_scratch,&wifi_wpa5.exchange.keys,wifi_wpa5.peer.generation,wifi_wpa5.buffer[i],bytes,out,cap);
+   size_t n=report.bytes;reason=report.reason;if(reason==MT76_DATA5_ADMISSION)return wifi_wpa5_fail();
    view=n?MT76_RX_OK:MT76_RX_INVALID;
    if(n){*size=n;*present=true;wifi_wpa5.data_received++;}
   }else return wifi_wpa5_fail();
   wifi_wpa5.rx_delivered=true;
-  if(type==MT76_WPA5_DATA)console_printf("wifi-data5-rx: index=%u bytes=%u ethernet=%u present=%u view=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)*size,(uint64_t)*present,(uint64_t)view);
+  if(type==MT76_WPA5_DATA)console_printf("wifi-data5-rx: index=%u bytes=%u ethernet=%u present=%u view=%u reason=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)*size,(uint64_t)*present,(uint64_t)view,(uint64_t)reason);
   else console_printf("wifi-wpa5-rx: index=%u bytes=%u type=%u view=%u mpdu=%u fc=%x eapol=%u present=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)type,(uint64_t)view,(uint64_t)mpdu,(uint64_t)fc,(uint64_t)eapol,(uint64_t)*present);
   if(wifi_wpa5.posts<(wifi_wpa5.data_mode?WIFI_DATA5_FORWARD_RX:WIFI_WPA5_RX) && !wifi_wpa5_post())return false;
  }
@@ -303,19 +304,22 @@ static enum mt76_join5_send wifi_data5_send(void *c,const uint8_t *frame,size_t 
  if(result==MT76_JOIN5_SENT)wifi_wpa5.data_sends++;
  return result;
 }
+static bool wifi_data5_exhausted(void *c){
+ return wifi_data5_owned(c) && wifi_wpa5.posts==WIFI_DATA5_FORWARD_RX && !wifi_wpa5.rx_pending && wifi_wpa5.rx_done && wifi_wpa5.rx_delivered;
+}
 static bool wifi_data5_poll(void *c,uint8_t *out,size_t cap,size_t *n,bool *present){return wifi_data5_owned(c) && out==wifi_wpa5.ip.rx && cap==sizeof wifi_wpa5.ip.rx && wifi_wpa5_poll(c,MT76_WPA5_DATA,out,cap,n,present);}
 static enum mt76_join5_send wifi_data5_window(void *c,struct wpa2_ccmp *keys,uint64_t generation,const struct mt76_peer5 *peer){
  if(c!=&wifi_wpa5 || !wifi_wpa5.data_mode || wifi_wpa5.data_active || wifi_wpa5.ip.attempted || keys!=&wifi_wpa5.exchange.keys || generation!=wifi_wpa5.peer.generation || peer!=&wifi_wpa5.peer || wifi_wpa5.sends!=4 || !wifi_wpa5_owned(c,false))return MT76_JOIN5_REFUSED;
  wifi_wpa5.data_active=true;
  uint8_t entropy[32]={0};bool good=wifi_data5_owned(c) && wpa2_nonce_generate(entropy) && wifi_data5_owned(c);
  uint32_t xid=(uint32_t)entropy[0]<<24|(uint32_t)entropy[1]<<16|(uint32_t)entropy[2]<<8|entropy[3];zero_bytes(entropy,sizeof entropy);
- const struct mt76_ip5_io io={c,wifi_data5_owned,wifi_data5_send,wifi_data5_poll,wifi_wpa5_delay,wifi_wpa5_now};
+ const struct mt76_ip5_io io={c,wifi_data5_owned,wifi_data5_send,wifi_data5_poll,wifi_wpa5_delay,wifi_wpa5_now,wifi_data5_exhausted};
  console_write("wifi-data5-progress: authenticated encrypted DHCP,ARP,DNS example.com and256-byte gateway echo;bounded waits;then erase and leave\n");
  if(good)good=mt76_ip5_run(&wifi_wpa5.ip,peer->peer.station,xid,&io);
  bool unsafe=wifi_wpa5.ip.unsafe || !wifi_data5_owned(c);
  const struct mt76_ip5 *s=&wifi_wpa5.ip;
  console_printf("wifi-data5-arp: short=%u other=%u format=%u opcode=%u destination=%u sender=%u target=%u matched=%u request_us=%u\n",(uint64_t)s->arp_class[0],(uint64_t)s->arp_class[1],(uint64_t)s->arp_class[2],(uint64_t)s->arp_class[3],(uint64_t)s->arp_class[4],(uint64_t)s->arp_class[5],(uint64_t)s->arp_class[6],(uint64_t)s->arp_class[7],(uint64_t)s->arp_class[8]);
- console_printf("wifi-data5: complete=%u unsafe=%u phase=%u discover=%u offer=%u request=%u ack=%u arp_dns=%u dns=%u arp_router=%u echo=%u sends=%u polls=%u ignored=%u received=%u tx_pn=%u echo_bytes=256\n",(uint64_t)s->complete,(uint64_t)unsafe,(uint64_t)s->phase,(uint64_t)s->discover,(uint64_t)s->offer,(uint64_t)s->request,(uint64_t)s->ack,(uint64_t)s->arp_dns,(uint64_t)s->dns,(uint64_t)s->arp_router,(uint64_t)s->echo,(uint64_t)wifi_wpa5.data_sends,(uint64_t)s->polls,(uint64_t)s->ignored,(uint64_t)wifi_wpa5.data_received,keys->tx_pn);
+ console_printf("wifi-data5: complete=%u unsafe=%u phase=%u exhausted=%u discover=%u offer=%u request=%u ack=%u arp_dns=%u dns=%u arp_router=%u echo=%u sends=%u polls=%u ignored=%u received=%u tx_pn=%u echo_bytes=256\n",(uint64_t)s->complete,(uint64_t)unsafe,(uint64_t)s->phase,(uint64_t)s->exhausted,(uint64_t)s->discover,(uint64_t)s->offer,(uint64_t)s->request,(uint64_t)s->ack,(uint64_t)s->arp_dns,(uint64_t)s->dns,(uint64_t)s->arp_router,(uint64_t)s->echo,(uint64_t)wifi_wpa5.data_sends,(uint64_t)s->polls,(uint64_t)s->ignored,(uint64_t)wifi_wpa5.data_received,keys->tx_pn);
  wifi_wpa5.data_active=false;
  return unsafe?MT76_JOIN5_UNCERTAIN:good?MT76_JOIN5_SENT:MT76_JOIN5_REFUSED;
 }

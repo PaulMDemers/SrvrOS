@@ -7,10 +7,11 @@ import sys
 
 U8=C.c_ubyte;V=C.c_void_p;N=C.c_size_t;G=C.c_uint64
 class State(C.Structure):
-    _fields_=[(n,C.c_bool) for n in ('attempted','complete','unsafe','discover','offer','request','ack','arp_dns','dns','arp_router','echo')]+[(n,C.c_uint) for n in ('phase','sends','polls','ignored')]+[('arp_class',C.c_uint*9)]+[(n,C.c_uint32) for n in ('xid','address','server','mask','router','resolver','answer')]+[(n,U8*6) for n in ('station','dns_mac','router_mac')]+[('tx',U8*1514),('rx',U8*1514)]
+    _fields_=[(n,C.c_bool) for n in ('attempted','complete','unsafe','discover','offer','request','ack','arp_dns','dns','arp_router','echo','exhausted')]+[(n,C.c_uint) for n in ('phase','sends','polls','ignored')]+[('arp_class',C.c_uint*9)]+[(n,C.c_uint32) for n in ('xid','address','server','mask','router','resolver','answer')]+[(n,U8*6) for n in ('station','dns_mac','router_mac')]+[('tx',U8*1514),('rx',U8*1514)]
 Owned=C.CFUNCTYPE(C.c_bool,V);Send=C.CFUNCTYPE(C.c_int,V,V,N);Poll=C.CFUNCTYPE(C.c_bool,V,V,N,C.POINTER(N),C.POINTER(C.c_bool));Delay=C.CFUNCTYPE(C.c_bool,V,C.c_uint);Now=C.CFUNCTYPE(G,V)
+Exhausted=C.CFUNCTYPE(C.c_bool,V)
 class IO(C.Structure):
-    _fields_=[('context',V),('owned',Owned),('send',Send),('poll',Poll),('delay',Delay),('now',Now)]
+    _fields_=[('context',V),('owned',Owned),('send',Send),('poll',Poll),('delay',Delay),('now',Now),('exhausted',Exhausted)]
 lib=C.CDLL(str(Path(sys.argv[1]).resolve()));lib.mt76_ip5_probe_size.restype=N
 assert lib.mt76_ip5_probe_size()==C.sizeof(State)
 lib.mt76_ip5_run.restype=C.c_bool;lib.mt76_ip5_run.argtypes=[V,V,C.c_uint32,V]
@@ -58,7 +59,7 @@ def echo_reply(query):
     assert icmp[4:8]==p16(xid&65535)+p16(1) and icmp[8:]==bytes((i*73+0x51)&255 for i in range(256))
     icmp[:4]=bytes(4);icmp[2:4]=p16(check(bytes(icmp)));return ethernet(ip_packet(bytes(icmp),1,router,client))
 
-def trial(*,resolver=bytes([192,0,2,53]),fail_send=0,send_result=1,lose=0,fail_poll=0,fail_delay=False,empty=False,backward=False,late=False,mutate=None,bad_span=False,capture=None):
+def trial(*,finite=False,finite_loss=False,resolver=bytes([192,0,2,53]),fail_send=0,send_result=1,lose=0,fail_poll=0,fail_delay=False,empty=False,backward=False,late=False,mutate=None,bad_span=False,capture=None):
     state=State();time=1000;checks=0;sent=[];queued=None;errors=[];lost=False;polls=0
     def guard(function,default):
         def f(*args):
@@ -113,7 +114,11 @@ def trial(*,resolver=bytes([192,0,2,53]),fail_send=0,send_result=1,lose=0,fail_p
     def delay(_,us):
         nonlocal time
         assert us==100;time+=us;return not fail_delay
-    callbacks=(Owned(guard(owned,False)),Send(guard(send,2)),Poll(guard(poll,False)),Delay(guard(delay,False)),Now(lambda _:time))
+    def exhausted(_):
+        nonlocal lost
+        if finite_loss and polls:lost=True
+        return finite and bool(polls)
+    callbacks=(Owned(guard(owned,False)),Send(guard(send,2)),Poll(guard(poll,False)),Delay(guard(delay,False)),Now(lambda _:time),Exhausted(guard(exhausted,False)) if finite or finite_loss else Exhausted())
     io=IO(None,*callbacks);mac=(U8*6).from_buffer_copy(station)
     ok=lib.mt76_ip5_run(C.byref(state),mac,xid,C.byref(io))
     if errors:raise errors[0]
@@ -121,6 +126,9 @@ def trial(*,resolver=bytes([192,0,2,53]),fail_send=0,send_result=1,lose=0,fail_p
     return ok,state,checks
 
 ok,s,checks=trial();assert ok and s.sends==6 and s.polls==6 and s.answer==0xcb007107 and s.echo
+ok,s,_=trial(empty=True,finite=True);assert not ok and s.exhausted and not s.unsafe and s.polls==1 and s.sends==1
+ok,s,_=trial(finite=True);assert not ok and s.exhausted and not s.unsafe and s.phase==1 and s.polls==1 and s.sends==1
+ok,s,_=trial(empty=True,finite_loss=True);assert not ok and s.unsafe and not s.exhausted and s.polls==1
 assert trial(resolver=bytes([203,0,113,53]))[0]
 for i in range(1,checks+1):
     ok,s,_=trial(lose=i);assert not ok and s.unsafe

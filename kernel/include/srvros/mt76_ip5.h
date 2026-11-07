@@ -14,9 +14,11 @@ struct mt76_ip5_io {
  bool (*poll)(void *,uint8_t *,size_t,size_t *,bool *);
  bool (*delay)(void *,unsigned);
  uint64_t (*now)(void *);
+ /* Optional finite-input limit;true is a safe refusal,not lost ownership. */
+ bool (*exhausted)(void *);
 };
 struct mt76_ip5 {
- bool attempted,complete,unsafe,discover,offer,request,ack,arp_dns,dns,arp_router,echo;
+ bool attempted,complete,unsafe,discover,offer,request,ack,arp_dns,dns,arp_router,echo,exhausted;
  /* First refusal class0..7;class8 counts valid requests for our address.
   * Aggregate metadata only;no packet values. */
  unsigned phase,sends,polls,ignored,arp_class[9];

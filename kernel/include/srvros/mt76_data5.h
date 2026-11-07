@@ -19,6 +19,16 @@ size_t mt76_data5_tx(struct mt76_data5_scratch *,struct wpa2_ccmp *,uint64_t,
  * No hardware-decrypted/stripped-IV,aggregate,fragment,A4,HT or PMF admission.
  * CCMP advances replay state only on MIC success;an authenticated unsupported
  * EtherType consumes its PN but is not delivered. */
+/* Local diagnostic categories only;no packet values or crypto bypass.
+ * CCMP includes key/header/replay/MIC refusals,not a claimed MIC diagnosis. */
+enum mt76_data5_rx_reason {
+ MT76_DATA5_ADMISSION,MT76_DATA5_SPAN,MT76_DATA5_FLAGS,MT76_DATA5_SHAPE,
+ MT76_DATA5_FRAME,MT76_DATA5_HEADER,MT76_DATA5_PEER,MT76_DATA5_CCMP,
+ MT76_DATA5_LLC,MT76_DATA5_OK
+};
+struct mt76_data5_rx_result {size_t bytes;enum mt76_data5_rx_reason reason;};
+struct mt76_data5_rx_result mt76_data5_rx_report(struct mt76_data5_scratch *,struct wpa2_ccmp *,uint64_t,
+ const uint8_t *usb,size_t,uint8_t *ethernet,size_t capacity);
 size_t mt76_data5_rx(struct mt76_data5_scratch *,struct wpa2_ccmp *,uint64_t,
  const uint8_t *usb,size_t,uint8_t *ethernet,size_t capacity);
 #endif

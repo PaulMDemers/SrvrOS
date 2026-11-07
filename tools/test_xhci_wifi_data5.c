@@ -20,10 +20,10 @@ int main(int argc,char **argv){
   * retain eight cleanup entries;no page/TD reuse or crypto parsing in drain. */
  begin();fake.data_mode=true;fake.data_flood=true;fake.drain_queue=3;
  assert(!run() && wifi_wpa5.restored && !fake.quarantine && wifi_wpa5.exchange.keys_erased && wifi_wpa5.exchange.leave_sent);
- assert(wifi_wpa5.forward_completed==40 && wifi_wpa5.drain_completed==3 && wifi_wpa5.rx_copied==43 && wifi_wpa5.posts==44 && !fake.drain_queue && wifi_wpa5.rx_enqueue==44 && wifi_wpa5.rx_cycle);
+ assert(wifi_wpa5.ip.exhausted && !wifi_wpa5.ip.unsafe && wifi_wpa5.ip.polls==36 && wifi_wpa5.forward_completed==40 && wifi_wpa5.drain_completed==3 && wifi_wpa5.rx_copied==43 && wifi_wpa5.posts==44 && !fake.drain_queue && wifi_wpa5.rx_enqueue==44 && wifi_wpa5.rx_cycle);
  begin();fake.data_mode=true;fake.data_flood=true;fake.drain_queue=9;
  assert(!run() && !wifi_wpa5.restored && fake.quarantine && wifi_wpa5.exchange.keys_erased && wifi_wpa5.exchange.leave_sent);
- assert(wifi_wpa5.forward_completed==40 && wifi_wpa5.drain_completed==8 && wifi_wpa5.rx_copied==48 && wifi_wpa5.posts==48 && fake.drain_queue==1 && wifi_wpa5.rx_enqueue==48 && wifi_wpa5.rx_cycle);
+ assert(wifi_wpa5.ip.exhausted && !wifi_wpa5.ip.unsafe && wifi_wpa5.ip.polls==36 && wifi_wpa5.forward_completed==40 && wifi_wpa5.drain_completed==8 && wifi_wpa5.rx_copied==48 && wifi_wpa5.posts==48 && fake.drain_queue==1 && wifi_wpa5.rx_enqueue==48 && wifi_wpa5.rx_cycle);
  begin();fake.data_mode=true;fake.data_flood=true;fake.drain_queue=3;fake.drain_fault=1;
  assert(!run() && !wifi_wpa5.restored && fake.quarantine && wifi_wpa5.exchange.keys_erased && wifi_wpa5.posts<=41);
  for(unsigned i=8;i<=14;i++){

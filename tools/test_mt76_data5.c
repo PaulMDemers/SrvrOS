@@ -44,6 +44,20 @@ int main(void){
   assert(!memcmp(out,p+4,6) && !memcmp(out+6,p+16,6) && !memcmp(out+12,ccmp_data+6,n-12));zero(out+n,sizeof out-n);zero(&scratch,sizeof scratch);
   struct wpa2_ccmp used=keys;assert(!mt76_data5_rx(&scratch,&keys,9,usb,size,out,sizeof out));zero(out,sizeof out);assert(!memcmp(&keys,&used,sizeof keys));
  }
+ /* Classifications share the same parser and cryptographic acceptance. */
+ keys=base;size=usb_rx(usb,ccmp_rx,sizeof ccmp_rx,false);
+ struct mt76_data5_rx_result r=mt76_data5_rx_report(&scratch,&keys,9,usb,size,out,sizeof out);
+ assert(r.bytes==n && r.reason==MT76_DATA5_OK);
+ r=mt76_data5_rx_report(&scratch,&keys,9,usb,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_CCMP);zero(out,sizeof out);
+ keys=base;r=mt76_data5_rx_report(&scratch,&keys,8,usb,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_ADMISSION);
+ keys=base;r=mt76_data5_rx_report(&scratch,&keys,9,usb,12,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_SPAN);zero(out,sizeof out);
+ keys=base;memcpy(bad,usb,size);bad[4]|=1;r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_FLAGS);
+ keys=base;memcpy(bad,usb,size);bad[10]=0;bad[11]=0;r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_SHAPE);
+ keys=base;memcpy(bad,usb,size);put16(bad+36,0x80);r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_FRAME);
+ keys=base;memcpy(bad,usb,size);bad[58]|=1;r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_HEADER);
+ keys=base;memcpy(bad,usb,size);bad[46]^=2;r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_PEER);
+ keys=base;memcpy(bad,usb,size);bad[36+sizeof ccmp_rx-1]^=1;r=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_CCMP);
+ zero(&scratch,sizeof scratch);zero(out,sizeof out);assert(keys.rx_pairwise[16]==0);
  size=usb_rx(usb,ccmp_rx,sizeof ccmp_rx,true);
  for(unsigned off=0;off<size;off++){
   if(off>=12 && off<36)continue; /* unrelated RXWI metadata */

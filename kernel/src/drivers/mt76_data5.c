@@ -32,20 +32,36 @@ size_t mt76_data5_tx(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t g
  copy(out+24,s->mpdu,mpdu);result=total;
 done:scrub(s,sizeof *s);return result;
 }
-size_t mt76_data5_rx(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t g,const uint8_t *usb,size_t n,uint8_t *out,size_t cap){
+static size_t receive(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t g,const uint8_t *usb,size_t n,uint8_t *out,size_t cap,enum mt76_data5_rx_reason *reason){
+ *reason=MT76_DATA5_ADMISSION;
  if(!admission(s,k,g,usb,n,out,cap,MT76_DATA5_ETH_MAX))return 0;
  scrub(out,cap);scrub(s,sizeof *s);size_t result=0;
+ *reason=MT76_DATA5_SPAN;
  if(!usb || n<36+24+16+8 || n>4096)goto done;
  unsigned dma=le16(usb);if(!dma || (dma&3) || dma>n-4 || dma<32)goto done;
  const uint8_t *wi=usb+4;uint32_t info=le32(wi);size_t mpdu=(le32(wi+4)>>16)&0x3fff,pad=(info&(1u<<14))?2:0;
+ *reason=MT76_DATA5_FLAGS;
  if(info&(1u|(1u<<2)|(1u<<3)|(7u<<8)|(1u<<11)|(1u<<12)|(1u<<15)|(1u<<16)|(1u<<18)|(7u<<19)))goto done;
+ *reason=MT76_DATA5_SHAPE;
  if(mpdu<24+16+8 || mpdu>sizeof s->mpdu || mpdu>dma-32 || pad>dma-32-mpdu)goto done;
  const uint8_t *h=wi+32;unsigned fc=le16(h),base=fc&~0x3800u;bool qos=base==0x4288;
+ *reason=MT76_DATA5_FRAME;
  if(base!=0x4208 && !qos)goto done;
+ *reason=MT76_DATA5_HEADER;
  size_t header=qos?26:24;if(mpdu<header+16+8 || mpdu-header-16+6>cap || (le16(h+22)&15))goto done;
  copy(s->mpdu,h,header);copy(s->mpdu+header,h+header+pad,mpdu-header);
+ *reason=(!equal(h+10,k->peer.aa,6) || (!(h[4]&1) && !equal(h+4,k->peer.spa,6)))?MT76_DATA5_PEER:MT76_DATA5_CCMP;
  size_t plain=wpa2_ccmp_open(k,g,s->mpdu,mpdu,s->plain,sizeof s->plain);
+ if(!plain)goto done;
+ *reason=MT76_DATA5_LLC;
  if(plain<8 || plain>1508 || plain+6>cap || !equal(s->plain,snap,6) || !protocol(s->plain+6))goto done;
- copy(out,h+4,6);copy(out+6,h+16,6);copy(out+12,s->plain+6,plain-6);result=plain+6;
+ copy(out,h+4,6);copy(out+6,h+16,6);copy(out+12,s->plain+6,plain-6);result=plain+6;*reason=MT76_DATA5_OK;
 done:scrub(s,sizeof *s);return result;
+}
+
+struct mt76_data5_rx_result mt76_data5_rx_report(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t g,const uint8_t *usb,size_t n,uint8_t *out,size_t cap){
+ struct mt76_data5_rx_result r={0,MT76_DATA5_ADMISSION};r.bytes=receive(s,k,g,usb,n,out,cap,&r.reason);return r;
+}
+size_t mt76_data5_rx(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t g,const uint8_t *usb,size_t n,uint8_t *out,size_t cap){
+ return mt76_data5_rx_report(s,k,g,usb,n,out,cap).bytes;
 }

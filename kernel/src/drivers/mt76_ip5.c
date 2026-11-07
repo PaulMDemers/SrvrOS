@@ -123,6 +123,14 @@ static bool received(struct mt76_ip5 *s,size_t frame_size){
  }
  return false;
 }
+static bool available(struct mt76_ip5 *s,const struct mt76_ip5_io *io){
+ if(!owned(s,io))return false;
+ if(!io->exhausted)return true;
+ bool ended=io->exhausted(io->context);
+ if(!owned(s,io))return false;
+ if(ended)s->exhausted=true;
+ return !ended;
+}
 static bool wait_reply(struct mt76_ip5 *s,const struct mt76_ip5_io *io){
  uint64_t start=io->now(io->context),previous=start;
  for(unsigned i=0;i<20000;i++){
@@ -139,6 +147,7 @@ static bool wait_reply(struct mt76_ip5 *s,const struct mt76_ip5_io *io){
    if((enough || s->phase==2 || s->phase==4) && received(s,n))return true;
    s->ignored++;
   }
+  if(!available(s,io))return false;
   if(!io->delay(io->context,100)){s->unsafe=true;return false;}
  }
  return false;
@@ -148,7 +157,8 @@ bool mt76_ip5_run(struct mt76_ip5 *s,const uint8_t station[6],uint32_t xid,const
   overlap(s,sizeof *s,station,6) || overlap(s,sizeof *s,io,sizeof *io) || (io->context && overlap(s,sizeof *s,io->context,1)) || !zero(s,sizeof *s) || !unicast(station))return false;
  s->attempted=true;s->xid=xid;copy(s->station,station,6);bool good=owned(s,io);
  for(unsigned phase=0;good && phase<6;phase++){
-  s->phase=phase;size_t n=phase<2?dhcp(s,phase==1):phase==2?arp(s,(s->resolver&s->mask)==(s->address&s->mask)?s->resolver:s->router):phase==3?dns_query(s):phase==4?arp(s,s->router):echo(s);
+  s->phase=phase;if(!available(s,io)){good=false;break;}
+  size_t n=phase<2?dhcp(s,phase==1):phase==2?arp(s,(s->resolver&s->mask)==(s->address&s->mask)?s->resolver:s->router):phase==3?dns_query(s):phase==4?arp(s,s->router):echo(s);
   if(!n || !owned(s,io)){good=false;break;}
   s->sends++;enum mt76_join5_send sent=io->send(io->context,s->tx,n);scrub(s->tx,sizeof s->tx);
   if(sent!=MT76_JOIN5_SENT && sent!=MT76_JOIN5_REFUSED)s->unsafe=true;

@@ -7345,3 +7345,21 @@ failed. Next inspect receive-view refusal classes and exact target-BSSID/filter
 admission. Frame lengths alone do not identify beacons,DHCP or cryptographic
 failures. Do not enable OTHER_BSS dropping without proving the matching BSSID
 register/table setup,and do not treat a larger ring or timeout as a cleanup fix.
+
+The next v131 correction adds `mt76_data5_rx_report`,a by-value byte count and
+refusal category around the same parser and CCMP backend. The historical
+byte-count API delegates to it. Categories cover caller admission,USB span,
+RX flags,MPDU shape,frame class,header/capacity,peer binding,CCMP acceptance and
+LLC/EtherType versus authenticated delivery. CCMP refusal includes key/header/
+replay/MIC checks;it must not be described as a proven MIC failure. Neither
+API publishes unverified plaintext or changes key/PN lifecycle rules.
+
+The disposable IP probe now supports an optional finite-input exhaustion
+callback. It checks ownership around that callback and safely refuses before
+another send or delay once the input budget is spent. A matching final reply
+can still complete the diagnostic. The native owner uses the unchanged40-entry
+forward limit;key erasure/leave,MAC-disabled reserved drain and all original
+restoration checks still follow. Exhaustion is not an ownership failure and
+never permits a retry,ring reuse or a larger timeout. This shortens the period
+in which a spent receive window can accumulate hardware backlog;whether the
+remaining eight entries suffice on hardware remains unaccepted.
