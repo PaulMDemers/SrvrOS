@@ -14183,3 +14183,17 @@ deadlines alone do not establish safe retirement. Actual remote main now points
 to eefc5bfd (Air6,1 occupancy/catalog work);it was fetched and inspected but is
 not consumed by this runtime. No new physical boot is armed. General TCP/HTTP,
 ordinary provider/UI connect/disconnect and live reattach remain pending.
+
+### Bounded ARP classification and reserved RX retirement scope (November 7)
+
+Inspected actual maind0ded465 and open PR301 graphics/PR379 browser;neither
+claims the Wi-Fi owner. Keep the currently qualified baselinea1661937 for this
+bounded correction. Add aggregate authenticated ARP refusal classes without
+addresses/packet contents,and reserve eight of the existing48 immutable RX
+entries for MAC-disabled cleanup. Service those reserved entries while proving
+the existing RX-drain predicate;never reuse a TD/page,extend a deadline,skip a
+drain check or restore uncertain contexts. Historical handshake-only behavior
+and ordinary network selection remain unchanged. Reproduce forward exhaustion,
+finite queue drain,cleanup reserve exhaustion and ownership faults in the actual
+native-owner fixture before matched build/full-prefix/exact-stage qualification.
+This scope is diagnostic/retirement work,not new DHCP/DNS/data acceptance.
