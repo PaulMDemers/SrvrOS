@@ -13740,3 +13740,43 @@ the current guides. Qualify matched build,exact-stage VMs,complete saved prefix,
 independent recovery and workspace checks before the standing cold shutdown.
 Reviewed main4cb7b5a7 remains unchanged;remote Air graphics/window heads and
 PR301/379 have independent scope. Capture matching session first after return.
+
+### Qualified native M1 cold trial (November 6)
+
+V128 `edd097fada0634c3` / runtime `a9b37f58` is installed for the
+bounded post-association M1-shape capture. Full matched kernel/USB build and
+controller,private EAPOL/handshake/crypto/nonce,management/owner/strict-ledger
+and namespace regressions pass,with229 staging tests and nine fatal ASan/UBSan
+groups. Native compiler frames peak at616bytes. Production-C M1 child plus the
+complete accepted native parent passes a2,033,558-byte synthetic saved prefix
+and16 whole-prefix refusals. Both metadata row types share the same48 retained
+RX pages;the conservative bound,including fixed-message growth,leaves55,610
+bytes below the unchanged2MiB capture limit. This is modeled child evidence,
+not a physical M1 pass. Real2MiB filesystem write/read/unmount/remount/fsck,
+ordinary desktop and exact staged GPT save/return/missing-workspace VMs pass.
+The installed kernel and independently reconstructed firmware initramfs match.
+
+The first stack-check helper lacked an incremental-log compile template for
+an unchanged codec file;its failure was saved. The corrected helper uses the
+preserved full-build command to compile the current source and measure frames;
+all remaining checks then pass. No full-core rerun or native security result
+is inferred. Runtime remains on reviewed mainca43ce23;newer inspected Air
+window/VT-d/graphics work remains separate. Actions stay disabled.
+
+The167-file accepted management capsule and23-file notes are unchanged. Its
+large generated USB session was independently byte-compared,archived and pruned
+before the new run;prior private files remain preserved. For EFI space,only the
+unreferenced failed7181f95e diagnostic copy was retired after complete equality
+with its independently sealed547-file backup,which remains retained. Accepted
+3941cd6f management,empty-OUT/handoff/power/selection and e47d recovery stay
+installed. Ubuntu is default,and this candidate remains physically unaccepted.
+
+This unattended trial needs shutdown,Wi-Fi-only unplug10seconds while off,
+reconnect to the same port and power-on with the workspace drive connected.
+Guest progress,full results and Ubuntu return are automatic;no commands/photos
+are needed. Collect this exact candidate first after return. Require matched
+management,private structurally valid M1 and complete MAC/endpoint/input/power/
+RF restoration,storage and recovery. Missing/failed receipts stay unaccepted.
+Credentials remain unread/unpackaged;EAPOL replies,hardware keys,PN ownership,
+encrypted IP/data and live reconnect remain pending. Demers2.4 still needs
+compatible hardware.

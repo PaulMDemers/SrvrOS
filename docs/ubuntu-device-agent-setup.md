@@ -1255,3 +1255,16 @@ no user commands/photos. The strict full-prefix checker requires the old parent
 and new exchange/retirement;USB completion alone is not a peer reply or WPA2.
 No keys,credentials or authenticated IP/data provider are enabled. See
 [USB Wi-Fi](usb-wifi.md) and the unit record for source-specific acceptance.
+
+### Pro11,2 bounded native M1 capture (v128)
+
+`--wifi-eapol5` requires the complete automatic `--wifi-join5` chain. It adds
+one bounded private structural EAPOL M1 receive window after association,before
+leave and the existing exact MAC/endpoint/input/parent cleanup. It sends no
+EAPOL reply and installs no keys. Use matched build,strict complete-prefix,
+sanitisers/stack/storage,exact staged GPT/missing-workspace VMs and independent
+recovery/run-record checks before installation and one-shot boot. This local
+adapter still needs shutdown and10second Wi-Fi-only cold unplug/reconnection
+while off;leave workspace connected. Progress/save/return are automatic,with
+no commands/photos. Collect the matching session first. Structural M1 and VM
+success are not authenticated connectivity;the unit record owns acceptance.
