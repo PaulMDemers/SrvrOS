@@ -2,6 +2,42 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Current checkpoint: maintained HDA inhibit lease accepted
+
+Release `8859f4e6ad6862cf`, payload source `ec233528`, completed native session
+`session-00065fb4b21b8f3d-00` and returned automatically to Ubuntu. Strict native
+lease, saved checkpoint and prerequisite/UC checks pass with zero collector
+attention or errors. Open/pin/blocked-close/check/unpin/close observes four full
+two-pass controller/three-output-stream snapshots at command6/2/2/6:232 reads,
+one dependent check, one blocked early close and pins0 at clean restoration.
+All RUN/command/position DMA masks and buffer addresses remain0; GCTL stays1,
+the exact endpoint stays inD0, and inherited state is preserved.
+
+The core takes89,468us and full exclusion bracket111,314us, within the unchanged
+400ms/500ms limits. Census durations are416/413/413/413us. Exactly two command16
+attempts/stores complete; all270 guards and28 cache checks pass, four temporary
+HDA aliases retire, and CPU exclusion releases with retained0. HDA MMIO, adjacent
+PCI Status, reset/acknowledgement, GT/BCS and GPU PTE writes remain0. The saved
+exit log is61,002 bytes within the unchanged65,536-byte tail.
+
+All1,359 prior files except expected `.srvros/meta` are unchanged; three new
+SHA-verified logs bring the inventory to1,362 files/110 sessions. Offline
+fsck/allocation/writable/headroom, installed/durable/archive recovery, Ubuntu
+default and consumed one-shot checks pass. USB is unmounted, volume1%, guest
+audio off, and no reboot is armed. Current is8859, recovery9aa8; the accepted
+round trip/read-only/BCS/census/GUI payloads listed below remain verified.
+Evidence and the matching return proof are in `build/air-hda-lease-20261107`,
+with full SHA-verified backup outside build under
+`~/.local/share/srvros/reviewed-evidence/air-hda-lease-20261107`.
+
+This accepts the bounded participating-software lease under the explicit
+cooperative EFI submission assumption. It does not prove firmware/SMM absence,
+outstanding/prefetched DMA completion, other-reader or translation/cache
+retirement, reusable backing, a managed GPU interval or physical tear-free
+presentation. Those remain the next ownership work; no `scanout_handoff`
+assurance or memory-reuse authority is granted. The readiness details below
+are the historical pre-trial checkpoint, not an armed future run.
+
 ### Maintained HDA inhibit lease ready for native trial
 
 Main `e8e56ee3` is integrated. Tested source `ec233528` produces release
@@ -61,7 +97,7 @@ no one-shot is armed. Collect the matching session first after a future trial.
 Outstanding DMA/firmware/prefetch, other readers and translation/cache/backing
 remain necessary before managed GPU memory or native tear-free presentation.
 
-### Current checkpoint: cooperative display-HDA requester trial accepted
+### Earlier checkpoint: cooperative display-HDA requester trial accepted
 
 Release `d6677f44c064979d`, payload source `6277e99b`, completed native session
 `session-00065fa8e62db698-00` and returned to Ubuntu. The strict native owner,

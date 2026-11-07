@@ -71,14 +71,15 @@ Use the actual unit/partition table and the [Ubuntu workflow](ubuntu-device-agen
 Q35 must refuse before command stores and save/unmount/return; it cannot accept
 native inhibition. The physical trial needs no input, uses volume1% with audio
 off, and saves progress/results before automatic safe return. Retained ownership
-or unsafe persistence halts. Physical lease acceptance remains pending.
+or unsafe persistence halts. The bounded Air7,2 lease is physically accepted
+as recorded below.
 
 After this lifetime is accepted, remaining work includes outstanding DMA and
 firmware/prefetch accounting, other GPU/display readers, exact backing ownership
 and translation/cache completion. A successful pinned lease alone grants no
 `scanout_handoff` assurance or physical tear-free presentation.
 
-## Validated candidate (native acceptance pending)
+## Validated candidate and native acceptance
 
 Release `8859f4e6ad6862cf`, source `ec233528`, is installed and not armed. The
 [unit readiness record](machines/macbookair7-2.md#maintained-hda-inhibit-lease-ready-for-native-trial)
@@ -91,3 +92,14 @@ Q35 refuses before writes, persists and returns; missing workspace halts. Prior
 owner/HDA/blitter/window/Haswell/VirtIO regressions pass. Native log projection is
 62,602 bytes with1,536 allowance, below the unchanged65,536 tail. No physical
 lease or memory authority follows from these host/VM results.
+
+Native session `session-00065fb4b21b8f3d-00` accepts the bounded lease on this
+Air7,2: command6/2/2/6,232 reads, one checked dependent and blocked early close,
+pins0, two stores,270 guards and28 cache checks. Core89,468us/full111,314us and
+all four census durations416/413/413/413us meet unchanged bounds. Four aliases
+retire and exclusion releases without retained state. Strict saved checkpoint
+and collector checks pass; the61,002-byte exit receipt is complete. Prior files,
+offline media/recovery/default and automatic-return checks pass. See the
+[accepted unit checkpoint](machines/macbookair7-2.md#current-checkpoint-maintained-hda-inhibit-lease-accepted).
+This does not extend acceptance to outstanding DMA, firmware/SMM retirement,
+other readers, reusable backing or physical tear-free presentation.
