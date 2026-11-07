@@ -14122,3 +14122,31 @@ PN1..6,software erasure/leave and full endpoint/input/MAC/power/RF originals,
 storage and recovery. General TCP/HTTP,ordinary provider/UI connect/disconnect
 and live reattach remain separate follow-ups. Demers2.4 needs compatible
 hardware. PR19 remains draft and Actions remain disabled.
+
+### First v131 native trial stopped in prerequisite association (November 7)
+
+Runtimefe0c80f9,session00065fb5444f4efb-00,saved1,887,416bytes and returned to
+Ubuntu automatically. The historical management owner matched AUTH but received
+no recognized association response before its existing deadline;the exchange
+ended at767,846us. AUTH,ASSOC and leave all completed locally over USB. Fourteen
+RX completions included unrelated beacons/action frames and two unsupported
+views;one172-byte unsupported completion followed ASSOC,but its saved metadata
+does not identify its payload. No association status rejection was recorded.
+The independent four-way/data child never started,so encrypted traffic,DHCP,
+DNS and payload transfer remain NOT_TESTED on this image.
+
+The old owner's local MAC drain/disable/filter/TXOP and endpoint/input originals
+passed,and all nine power words were restored. The full outer RF predicate and
+firmware/laptop completion markers failed;this is not full restoration or a
+connectivity pass. Offline filesystem/allocation and installed Ubuntu recovery
+checks pass. The complete564-file failed capsule is sealed outside build and
+must remain failed regardless of a later result.
+
+Repeat the identical installed image once under the standing cold-shutdown
+authorization to check whether the missed prerequisite response repeats. Reuse
+the exact source,payload and already-passed host/VM qualification,with fresh
+run/session/evidence records and verified archive/pruning of only this generated
+session. Do not change association deadlines,USB/framing or cryptographic gates
+from this result alone. If the prerequisite failure repeats,inspect it before
+another blind retry. Preserve the accepted four-way/M1 and first v131 failure;
+the retry has no new native acceptance and remains automatic save/return.
