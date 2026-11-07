@@ -118,3 +118,11 @@ See the [unit record](machines/macbookair7-2.md#blitterreader-candidate-ready-fo
 for exact local payloads, media and evidence paths. The next step is an automated
 native trial and matching return collection; no managed-memory authority follows
 from host/VM evidence or from a front-end disable alone.
+
+The first native trial returned with all five engines disabled at entry:
+`session-00065fa4adf643e3-00`, release `16824812ea718910`. The strict enabled16
+gate correctly skipped BCS and reader work, with zero BCS stores and clean
+wake closeout. Persistence/media/recovery checks pass; combined acceptance
+remains incomplete. An already-disabled branch needs its own explicit
+validation before it can run the remaining reader audit. The earlier enabled
+BCS snapshot remains historical evidence, not a guaranteed boot precondition.

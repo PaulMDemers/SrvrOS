@@ -31,6 +31,27 @@ eligibility, budgets, reader coverage and remaining gaps. Focused host/model
 and provenance tests precede full matched-source validation and preparation;
 no hardware test is armed.
 
+### Blitter trial returned: disabled-at-entry, no control write
+
+Release `16824812ea718910`, source `b7cb3bc3`, returned as
+`session-00065fa4adf643e3-00`. This is **incomplete diagnostic evidence**, not
+BCS-disable/reader acceptance. All five ring controls and starts were0 in both
+engine passes (enabled0/pending0,60 stable DWORDs,38,435us). This differs from
+the previous boot's enabled BCS; do not assume firmware ring state is constant.
+The exact enabled16 admission gate skipped BCS and reader work: no BCS attempts,
+stores or reader samples. The saved preflight verifies. The wake protocol
+closed cleanly with11 aliases/cache checks retired,92 guards,3 wake stores,
+retained0 and229,705us bracket; the combined trial correctly says completed=NO.
+
+All1,347 prior files except expected metadata remain unchanged;3 new logs
+hash-verify (1,350 files/106 sessions). Offline fsck/allocation/write/headroom,
+installed/durable/archive recovery, Ubuntu default and consumed one-shot checks
+pass. USB is unmounted; no new reboot is armed. Full return proof and logs are
+in the same independently backed-up trial directory. Next: explicitly model an
+already-disabled BCS without a control write and allow bounded read-only reader
+coverage for that separately validated state. Do not weaken the enabled-ring
+write conditions or infer memory/reader retirement from zero controls.
+
 ### Blitter/reader candidate ready for automated hardware trial
 
 Release `16824812ea718910`, payload source `b7cb3bc3`, is installed but **not
