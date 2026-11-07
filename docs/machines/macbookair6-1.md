@@ -8003,3 +8003,38 @@ Ordinary syscall, UEFI USB keyboard, fork, exec-vector and scheduler-yield VM
 checks also pass against the matched normal image. The automated native trial
 will require complete same-session raw proofs, preparation accounting, final
 completion and clean USB save/unmount/return; prior failures remain retained.
+
+
+### Exact boot mapping/root context accepted (2026-11-06)
+
+PR393 merged as `30bcac81`; runtime/collector `0b9b303e`, release
+`ab360d3ce2d281e4`, session `session-00065fa46d93e81f-00` passed the full
+automated profile and strict matching dual-file decoder. Checked ECAM adoption
+took93608us with36268 checked words, within the unchanged100ms/65536-word
+lifetime. One parent publication,512 private writes,39936 invalidations and
+metadata attempts, zero frees and one adoption remain verified by the raw proof.
+
+Guarded preparation read15360 entries across30 tables in13658us. Both measured
+passes then read15360 entries and encoded3816 bytes each, matching exactly
+including A/D bits. Preparation plus both passes took40181us inside the original
+100ms clock, with64-table/32768-entry/4096-byte caps unchanged. NX/EFER/control
+endpoints, pinned firmware/cache context, same root/epoch and early adoption
+reference all passed. Target leaves are zero. This accepts the boot-only checked
+ECAM CPU mapping and pre-user-init sole-managed-root context on this exact unit;
+it does not grant live post-init admission, exhaustive hardware aliases, a
+VT-d resource lease/read, graphics ownership or another model's acceptance.
+The earlier raw-change failures remain failed; the targeted host reproducer
+and this native pass support first-touch preparation without proving every
+detail of the earlier native transition's cause.
+
+Completion was YES, final logs saved, USB unmounted and Ubuntu returned
+automatically. All608 prior files remain hash-identical except expected
+`.srvros/meta`; only the three matching logs were added. Offline checks pass
+at611 files /1685 clusters with zero leaks/FAT-bitmap mismatches/errors. Exact
+payload and full evidence are hash-verified outside build. Collection is
+disabled and one-shot state empty; Ubuntu and protected recovery are retained.
+
+Next is an audit of remaining live resource/alias/leaf admission and checked
+retirement before any separately opted-in VT-d read window. Keep ordinary
+startup and power policy unchanged. Actual ownership, reference-count discrepancy,
+GT/full-path swizzle, RC6 timing and package-C3 blockers remain separate.

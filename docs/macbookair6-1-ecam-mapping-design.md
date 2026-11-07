@@ -2,13 +2,15 @@
 
 ## Status and scope
 
-Host-only design on integration base `4cc0408b`. The [layout audit](macbookair6-1-dma-inventory.md#ecam-layout-and-fixed-bound-feasibility-audit-2026-11-05)
+The original host design used integration base `4cc0408b`. The [layout audit](macbookair6-1-dma-inventory.md#ecam-layout-and-fixed-bound-feasibility-audit-2026-11-05)
 shows that the existing156-bus4KiB ECAM mapping alone needs at least81 tables,
 beyond the unchanged64-table/32768-entry census bounds. This proposal preserves
 all39936 physical4KiB mappings, attributes and PCI config address calculations,
-using78 prospective2MiB leaves. The actual backend and fresh pre-PCI gate are now
-implemented in the isolated AP ELF, with no boot-dispatcher caller or hardware
-activation yet. The host proposal remains a historical/input model, not a grant.
+using78 prospective2MiB leaves. The backend and fresh pre-PCI gate are implemented in the isolated AP ELF
+with an explicit opt-in v5 pre-PCI caller. The exact native release
+`ab360d3ce2d281e4` now accepts checked boot ECAM mapping and sole-managed-root
+context under the original bounds; ordinary boot and separate hardware grants
+remain unchanged. The host proposal remains a historical/input model, not a grant.
 
 `tools/haswell_ecam_mapping_proposal.py` consumes a complete exact-unit raw
 CPU/cache receipt through its existing strict decoder and a complete checksummed
@@ -323,3 +325,17 @@ A/D bits, must still compare exactly. The preparation receipt shares the census
 begin timestamp and records its own completion, read and table counts; the
 collector validates it when present while retaining old saved-report compatibility.
 Native timing/stability require a fresh complete matching capture.
+
+
+### Native first-touch closeout
+
+Runtime `0b9b303e`, release `ab360d3ce2d281e4` passed the complete matching
+dual-file profile:93608us /36268 words for early adoption, then guarded
+preparation and two exactly matching30-table snapshots in40181us total.
+Preparation read15360 entries in13658us; measured passes read15360 entries
+and encoded3816 bytes each, retaining every raw A/D bit. All original bounds,
+root/translation/catalog checks and final completion/save/unmount proofs pass.
+This is boot-only exact-unit CPU mapping/root-context evidence. It does not
+authorize a VT-d target load, live post-init mapping, resource lease or graphics
+ownership. Remaining admission/retirement mechanisms require their own audit
+and scoped validation. Prior failed attempts remain retained.
