@@ -13686,3 +13686,23 @@ provider. Connection/data/disconnect,live reattach and group/pairwise rekey rema
 pending. Credentials remain unread/unpackaged;installed v127,e47d recovery and
 Ubuntu default are unchanged and no boot is armed. Further physical trials still
 use shutdown and10second Wi-Fi-only cold unplug under existing authorization.
+
+### Native EAPOL framing prerequisite scope (November 6)
+
+Native management receive deliberately rejects data headers. Before wiring the
+four-way model,add a separate fixed161/20MHz unprotected EAPOL codec for exact
+AP/station binding,non-QoS/QoS receive header lengths and hardware L2 padding,
+LLC/SNAP/EtherType and complete bounded EAPOL lengths. The old management/beacon
+parser and its gates stay unchanged. The new TX constructor is restricted to
+model-emitted M2/M4 with unprotected ToDS non-QoS framing and the pinned existing
+OFDM6/TXWI/USB envelope;it grants no endpoint publication or crypto authority.
+Touch private codec/header/tests/Makefile and current Wi-Fi/unit docs only.
+
+Pinned Linux v7.0 mt76x02 MAC/USB/header/register sources also expose distinct
+WCID key,IV/PN,attribute and shared-key tables. Their write ordering,hardware
+counter ownership and removal/readback proof need a separate guarded installer;
+none is silently admitted by a framing helper. Accepted empty/stopped/RF owners
+must remain frozen when native transport is introduced. Credentials remain
+unread and installed v127/recoveries remain unchanged/unarmed during host
+qualification. Reviewed main4cb7b5a7/open PR19/301/379 have no competing Wi-Fi
+scope;new remote device heads are independent Air window/graphics work.
