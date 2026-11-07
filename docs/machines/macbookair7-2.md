@@ -2,6 +2,22 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
+### Active scope: cooperative display-HDA requester inhibit trial
+
+Main `e21292e2` (Air6,1 no-target-load window gate and strict raw proof) is now
+integrated at `133d09a1`. PR19 remains Pro Wi-Fi, PR379 WebCore; no GPU/HDA overlap
+was found. Add a distinct opt-in CPU0 EFI64/pinned-loader image and cooperative
+EFI policy for Air7,2 display HDA00:03.0. Require fresh native prerequisites,
+participating-client exclusion and exact idle controller/stream observations.
+Exercise only the16-bit PCI command bus-master transition0006→0002→0006,
+with exact readback and fresh bounded observations at each phase. Never write
+adjacent PCI status or HDA MMIO, reset/stop/command hardware, reuse memory or
+supply DMA-retirement assurances. Uncertain transitions retain the lease;
+cooperative firmware submission exclusion is a stated policy assumption, not
+inferred from quiet controls. Touch the HDA protocol/adapter, independent image/
+recipe, strict stage/collection/VM fixtures and documentation. Validate on host/
+VM and stop ready for an automated physical trial, without arming a reboot.
+
 ### Current checkpoint: read-only display-HDA observation accepted
 
 PR301 includes main `4cb7b5a7`; tested source `7d7dfa56` produced release
