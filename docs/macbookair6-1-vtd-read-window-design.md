@@ -124,6 +124,10 @@ including `nx_enablement_proven`; historical NX is reported separately.
 
 ## Dormant backend implementation
 
+This section retains the initial PR396 dormant-backend checkpoint. The v6
+bridge and current native mapping-only qualification supersede its pending
+integration status below; register-read admission remains separate.
+
 [`air61_window.inc`](../kernel/src/memory/air61_window.inc) is included only by
 the dedicated diagnostic VMM build. The ordinary VMM instruction/relocation
 output remains identical and excludes the new entrypoints. The AP ELF retains
@@ -177,7 +181,9 @@ tokens, failures before/after parent writes and clearing, readback corruption,
 changed A/D/permissions/physical entries, root/IRQ/frame ownership changes,
 reentry and partial cleanup with poison that survives retry. The fixture is
 also checked under ASan/UBSan and compiled for ARM64 with assertions enabled.
-Native lifetime, gate and caller qualification remain pending.
+At that checkpoint native lifetime, gate and caller qualification were pending.
+Current window-only lifetime/gate qualification is recorded in Status; a
+register-read caller remains pending.
 
 
 ## Explicit v6 window-only integration
