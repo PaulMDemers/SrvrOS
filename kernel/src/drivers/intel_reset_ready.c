@@ -76,7 +76,7 @@ bool intel_reset_ready(struct intel_reset_ready_result *r,struct intel_gt_access
  r->cancelled=true;
  if(!group(r,io,1) || !control(r,io,&r->controls[3]))goto done;
  ++r->controls_read;
- if((r->controls[3]&3) || r->controls[0]!=r->controls[3]){fail(r,IRR_DRIFT);goto done;}
+ if((r->controls[3]&3) || (r->controls[0]&0xffffu)!=(r->controls[3]&0xffffu)){fail(r,IRR_DRIFT);goto done;}
  if(!guard(r,io) || !intel_gt_access_check(g) || !guard(r,io))goto done;
  r->end_us=io.now(io.ctx);
  if(r->end_us<=r->last_us || r->end_us-r->begin_us>INTEL_RESET_READY_TOTAL_US){fail(r,IRR_CLOCK);goto done;}

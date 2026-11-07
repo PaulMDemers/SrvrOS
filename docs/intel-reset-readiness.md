@@ -14,6 +14,9 @@ printed page 165, defines BCS_RESET_CTRL at `0x220d0`: request bit 0, ready bit 
 low bits 15:2 reserved, upper 16 write masks. The diagnostic writes only
 `0x00010001` to request readiness and `0x00010000` to cancel that request. It
 observes readiness then cancellation; it never writes the ready status bit.
+Raw upper mask halves are retained as observations, not compared as active
+request/status state; admission, acknowledgement and cancellation use the
+defined low half. A mask-change fixture checks this distinction.
 The [Linux v6.12 reset implementation](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_reset.c)
 provides an independent reference for masked request/cancel ordering. Its retry,
 catastrophic-error and forced-reset paths are deliberately not imported.

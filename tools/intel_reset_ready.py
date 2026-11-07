@@ -39,7 +39,7 @@ def reset_ready_result(text):
   if any([r[k] for k in W]!=[0,0,0,0,1,0,512,0] for r in rows):raise ValueError('reset readiness exact disabled BCS')
   if any(r[k]!=c['rows'][9][k] for r in rows for k in W[:6]) or any(r['w6']!=c['contexts'][1]['c3'] or r['w7']!=c['contexts'][1]['c5'] for r in rows):raise ValueError('reset readiness census binding')
   vals=[x['value'] for x in controls]
-  if [x&65535 for x in vals]!=[0,3,0,0] or vals[0]!=vals[3]:raise ValueError('reset readiness control acknowledgement')
+  if [x&65535 for x in vals]!=[0,3,0,0] or (vals[0]&65535)!=(vals[3]&65535):raise ValueError('reset readiness control acknowledgement')
   if not wake['summary']['begin_us']<c['summary']['end_us']<s['begin_us']<s['end_us']<wake['summary']['end_us']:raise ValueError('reset readiness parent ordering')
  return dict(complete=bool(s['complete'] and c and c['observation_complete'] and wake['lease_complete']),native_complete=False,engine_reset=False,posted_drain=False,prefetch_retired=False,pipeline_flushed=False,cache_ownership=False,managed_range=False,physical_tearfree=False,summary=s,rows=rows,controls=controls)
 def native_reset_ready_result(text):

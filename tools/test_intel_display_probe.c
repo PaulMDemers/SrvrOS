@@ -436,7 +436,7 @@ int main(int argc,char **argv) {
  if(bcs_entry_disabled)assert(!bcs_writes);
 #endif
 #ifdef SRVROS_INTEL_RESET_READY_TRIAL
- good=good && (!strcmp(engine_mode,"report") || !strcmp(engine_mode,"ready-delay"));
+ good=good && (!strcmp(engine_mode,"report") || !strcmp(engine_mode,"ready-delay") || !strcmp(engine_mode,"ready-mask"));
 #endif
  assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
@@ -547,7 +547,7 @@ static enum intel_gt_write intel_display_test_reset_ready_write(uint32_t reg,uin
  assert(reg==0x220d0 && wake_irq && wake_ack==1 && !display_access_allowed());
  assert(value==(ready_writes?0x10000u:0x10001u));assert(ready_writes<2);
  if(!strcmp(engine_mode,"ready-none") || (!strcmp(engine_mode,"ready-cancel-none") && ready_writes==1))return GT_WRITE_NONE;
- ready_writes++;ready_phase_reads=0;ready_control=ready_writes==1?3:0;
+ ready_writes++;ready_phase_reads=0;ready_control=(ready_writes==1?3:0)|(!strcmp(engine_mode,"ready-mask")?(value&0xffff0000u):0);
  if(ready_writes==1 && (!strcmp(engine_mode,"ready-timeout") || !strcmp(engine_mode,"ready-delay")))ready_control=1;
  if(ready_writes==2 && !strcmp(engine_mode,"ready-cancel-timeout"))ready_control=2;
  if(!strcmp(engine_mode,"ready-foreign"))wake_request|=2;
