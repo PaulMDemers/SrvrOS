@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Test the real process futex code with deterministic scheduler/IRQ interleavings.
 
-Extract verbatim declarations and functions; replace only privileged STI with a
-modeled interrupt-enable boundary. No production function body is reimplemented.
+Extract verbatim declarations and functions; replace only the architecture STI
+macro with a modeled interrupt-enable boundary. No function is reimplemented.
 """
 import argparse
 import hashlib
@@ -28,7 +28,11 @@ def main():
     declaration = text[text.index('struct process_futex {'):text.index('\nstruct process_exit_record {')]
     start = text.index('static struct process_futex *process_futex_find(')
     body = text[start:text.index('\nvoid process_mark_ready(', start)]
-    instruction = '__asm__ volatile ("sti" : : : "memory");'
+    # The shared process host seam traps unexpected privileged transitions.
+    # This fixture explicitly models only its single futex enable boundary;
+    # require the native macro to retain the exact instruction as well.
+    assert '#define PROCESS_ARCH_STI() __asm__ volatile ("sti" : : : "memory")' in text
+    instruction = 'PROCESS_ARCH_STI();'
     assert body.count(instruction) == 1
     body = body.replace(instruction, 'host_enable_interrupts();')
     helpers = ''
