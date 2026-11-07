@@ -2,6 +2,22 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Active scope: pinned non-posted-request and display-reader audit
+
+Baseline main `7c67a65f` is integrated after collecting the accepted8859 lease;
+PR403 Air6,1 live-occupancy/catalog and bounded-clock work is preserved. The next
+bounded objective adds a distinct isolated CPU0 reader image under the existing
+cooperative HDA inhibit lease: exact display-HDA PCIe capability/TXP reads and
+primary/cursor/sprite programmed/live plus stereo surface observations. Shared
+scope is the new core/adapter, isolated image/recipe, collector/staging tests and
+this unit's contract. Existing native writer recipes stay separate. No GT or
+display stores, reset, guessed drain delay, PTE change or memory reuse is planned.
+TXP clear concerns non-posted completion only; posted writes, firmware/prefetch,
+other engines/readers and translation/cache/backing authority remain unresolved.
+Use source-bound host/sanitizer/fault and exact-stage VM gates before readiness;
+no reboot is authorized by this implementation block. PR19 Pro Wi-Fi and the
+other unit's power/census work retain independent scope and physical acceptance.
+
 ### Current checkpoint: maintained HDA inhibit lease accepted
 
 Release `8859f4e6ad6862cf`, payload source `ec233528`, completed native session
