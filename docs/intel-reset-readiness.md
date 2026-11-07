@@ -84,3 +84,17 @@ and outstanding-memory guarantees before attempting it. Keep all firmware and
 inherited display allocations protected. Actual write/prefetch completion, GPU
 pipeline flush, maintained translation invalidation and CPU/GPU cache ordering
 must be established before transferring backing or enabling page flips.
+
+## Validated Air7,2 candidate
+
+Source `a54e2ebd`, release `46037d20cb190504`, is installed and not armed; native
+readiness remains pending. The [unit readiness record](machines/macbookair7-2.md#bcs-reset-readiness-ready-for-hardware)
+records72 current-source validation jobs, fatal33 core/32 adapter sanitizer cases,
+13-image isolation,64 detected compiled controls (including2 actual native MMIO/
+mapping-table controls), exact-stage Q35 and61,553-byte conservative log projection.
+Unchanged protocol evidence retains its original source and verified log hashes;
+full host/core and changed dependent tests rerun. The new upper-mask fixture,
+late clean-return deadline and retained-GT automatic-return gate are covered.
+Media/recovery/default and check-only reboot guards pass; volume1%, audio off,
+no human input required. Hardware readiness, actual reset/completion and cache/
+backing ownership remain unaccepted. No reboot is armed by this checkpoint.

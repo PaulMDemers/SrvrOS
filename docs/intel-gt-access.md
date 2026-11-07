@@ -324,3 +324,17 @@ run/return evidence identify the source and recovery boundary.
 The next [engine/reader census](intel-engine-reader-handoff.md) adds read-only
 command-streamer observations inside the owned lease and records the remaining
 managed-memory obligations. It does not grant a native GPU interval.
+
+
+## Registered dependent lifetime
+
+The isolated [BCS reset-readiness trial](intel-reset-readiness.md) adds one-use,
+address-sealed registered GT borrows. Each live dependent holds an additional
+CPU-exclusion pin; parent close refuses before requester I/O while any dependent
+is registered. Returning a copied, stale, forged, mismatched or reused token is
+refused. Clean return requires the original live parent and its normal fresh
+ACK/C0/resource/clock checks. An uncertain dependent retains its pin; there is
+no forced close or recovery API. Ordinary callers with no dependents retain
+their earlier protocol. The main automatic-return gate also checks sticky GT
+retained state, alongside HDA, before allowing reboot. These mechanisms convey
+no engine reset, outstanding-memory completion, cache or GPU backing authority.

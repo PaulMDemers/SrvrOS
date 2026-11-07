@@ -2,23 +2,65 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
-### Active scope: controlled engine-reset readiness
+### BCS reset readiness ready for hardware
 
-Main `a35a1952` (Air6,1 dormant two-pass window backend, PR406) is integrated;
-Makefile append-only conflict preserves both targets. Prior accepted source
-`a24c164a` / release6c2f remains the native baseline. Empty queues cannot establish
-write/prefetch/cache completion. Next scope is the documented Broadwell BCS
-request/ready/cancel handshake as a prerequisite to choosing a controlled-reset
-path, with exact register/mask matching, a pinned live wake owner, bounded polling,
-retained uncertain state and no GDRST/TLB/cache/PTE or GPU command writer.
+Main `a35a1952` is integrated. Tested source `a54e2ebd` produces release
+`46037d20cb190504`, installed **not armed**; physical acceptance is pending.
+The [reset-readiness contract](../intel-reset-readiness.md) describes the exact
+15-token image/request and two masked BCS request/cancel stores. The complete
+92-read census precedes a registered, one-use GT borrow; parent close is blocked
+while it is live. Fresh exact empty/disabled BCS and clear reset-control entry,
+ready acknowledgement, cancellation and unchanged post-state are required.
+Nine NX/UC aliases are prepared before wake; only the wake request and BCS pages
+are writable. Each phase is bounded to10ms/256polls, the dependent to100ms
+including verified pin return, inside unchanged GT300ms/outer500ms bounds.
+Raw upper write-mask halves survive in receipts but are not request/status bits.
 
-Touched subsystems: isolated Intel trial/core/cache/recipe and host/collector/
-staging fixtures; no ordinary desktop/driver policy or sibling profile widening.
-PR19 Wi-Fi and PR379 WebCore remain independent. Native readiness must precede
-any engine reset; readiness itself grants no memory completion or cache ownership.
-The independent HDA/plane audits are not combined into a same-boot ownership proof.
-No new trial is installed or armed. Next checkpoint is a source-bound host/VM
-validated automatic hardware trial; stop there for the user's next instruction.
+Uncertain issued requests retain their borrow/mappings/exclusion until reset;
+there is no forced cancellation or close. The main auto-return gate now checks
+sticky retained GT state alongside HDA, so it cannot reboot past that condition.
+A late but verified clean return is incomplete timing evidence, not invented
+retained ownership. This image adds no GDRST, Stop Ring, TLB-invalidation, cache-flush, GPU-command,
+display/HDA/PTE or completion-buffer store. All eight obligations stay open
+(255): no posted/prefetch/pipeline/translation/cache/backing retirement, managed
+GPU memory, hardware assurance or physical tear-free acceptance follows.
+
+All72 current-source validation jobs pass: matching full host/core/profile/docs/
+build, fatal ASan/UBSan across33 core/32 actual-adapter cases, collector/staging
+coverage and13-image capability separation. The final change is confined to the
+reset core, decoder, fixtures and contract; all518 original log hashes at prior
+source `b1b943a1` are verified with an explicit source-delta receipt retaining
+unchanged earlier protocol sanitizer/VM results. Full host/core checks rerun;
+the unchanged89-case installer checks retain their earlier input/recipe/log-hash
+receipt. All64 compiled negative controls are detected:4 unchanged GT controls
+from that validated source,14 HDA owner,8 lease,9 pinned reader,11 completion,
+16 readiness and2 real native-adapter controls. The latter independently check
+object/staged-kernel MMIO instructions and the actual nine-page mapping table,
+rejecting wrong control offsets and wrong physical BCS slots. Exact-stage MBR
+Q35 verifies EFI64/pinned loader/recipe, no-store refusal, saved checkpoint/results,
+unmount/automatic return and missing-workspace halt. Earlier Haswell/VirtIO and
+HDA/reader results retain their own source. No VM result accepts native readiness.
+The conservative saved-tail projection is61,553/65,536 bytes, including1,536
+allowance and full-width raw DWORDs. Local validation only; Actions stay disabled.
+
+The1,368-file/112-session workspace and boot sectors are preserved, with clean
+read-only inventory and offline fsck/allocation/writable/headroom. USB is unmounted.
+Current4603/recovery `9aa8dbf6fbda8252`, prior accepted6c2f and known-good GUI are
+verified against durable copies. Inactive6efe has full SHA-verified archive/
+durable copies before unreferenced EFI removal. Fourteen historical duplicate
+VM disks reclaimed1,879,048,192 bytes only after full outside hash equality.
+The superseded uninstalled b1 candidate retains its complete immutable stage;
+its duplicate global stage was verified before removal, and its old VM disk was
+losslessly compressed and verified. Native payloads/logs and recovery remain.
+
+Run/stage/validation/negative/guard records are under
+`build/air-retirement-20261107`, with full independently SHA-verified backup under
+`~/.local/share/srvros/reviewed-evidence/air-retirement-20261107` and cleanup
+sidecars. Volume1%, guest audio off, no human input required. Safe handled
+outcomes save/unmount/return; retained state or unsafe persistence halts at the
+visible pre-entry warning without bypassing display exclusion. Reboot guards
+are **check-only** and no one-shot is armed. Collect the matching session first
+after the next trial. PR19 Wi-Fi and PR379 WebCore retain independent scope.
 
 ### Current checkpoint: engine/flip-wait/cache prerequisite audit accepted
 
