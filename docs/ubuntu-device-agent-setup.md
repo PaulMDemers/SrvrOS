@@ -1318,3 +1318,19 @@ photograph the complete screen and restart Ubuntu. Require matching window.log,
 ecam.log and exit.log with strict collection and offline USB integrity before
 acceptance. See the [window contract](macbookair6-1-vtd-read-window-design.md).
 No register read, write, DMA policy or sibling acceptance follows from v6.
+
+### Pro11,2 bounded software-key four-way child (v129)
+
+`--wifi-wpa5 --wifi-wpa5-pmk <private-record>` requires the complete automatic
+v128 EAPOL parent. Provision the selected network's derived PMK privately with
+`tools/wifi_wpa5_credentials.py`;use a0600 record and keep all credential-bearing
+artifacts in protected local evidence. Ordinary builds do not add credentials.
+This child validates M3,submits M4,activates and erases software keys,then leaves
+and restores the retained endpoints/input/MAC/power/RF parent. It does not
+exercise encrypted data or prove AP acknowledgement. Follow matched build,
+strict complete-prefix,sanitizer/stack/storage,exact-stage VM,recovery and saved
+run checks before installation. The initramfs credential store persists apart
+from ephemeral key erasure. This unit still needs the standing cold shutdown
+and Wi-Fi-only10second unplug/reconnect while off;leave workspace connected.
+Guest progress/save/return are automatic. Collect the matching session first;
+missing or failed receipts stay unaccepted even after a successful reboot.

@@ -13905,3 +13905,42 @@ The credential file has now been read privately;no credential values are logged
 or committed. The derived PMK belongs only in the explicit private candidate.
 Its initramfs credential store persists separately from ephemeral key erasure.
 Accepted v128/recovery/evidence remain unchanged,and no new boot is armed.
+
+### Qualified software-key four-way cold trial (November 7)
+
+The private local v129 candidate uses runtime67628de3 on consumed maind5a9fbb3.
+Full matched kernel/USB build,full controller and relevant WPA/EAPOL/management/
+owner/namespace regressions pass. Independent cipher/handshake comparisons,231
+staging tests,13 fatal ASan/UBSan groups and current native compiler frames
+peaking at616bytes pass. The first full-controller link lacked the new crypto/
+initramfs dependencies;its failed5d4ab575 receipt is preserved. The corrected
+67628de3 target links those modules and passes the complete controller suite.
+No full-core rerun or native WPA2 result is inferred.
+
+Production-C old/new owners plus the full accepted15,719-operation native
+parent pass a2,038,476-byte synthetic prefix and85 whole-prefix refusals. The
+two independent owners each retain at most48 RX pages. Replacing existing
+metadata rows with maximum permitted widths and allowing4KiB fixed growth
+leaves43,515bytes below the unchanged2MiB capture limit,including a separate
+32KiB unmodeled reserve. Real2MiB filesystem write/read/unmount/remount/fsck,
+ordinary desktop and exact staged GPT save/return/missing-workspace VMs pass.
+The installed kernel and independently reconstructed firmware/private-PMK
+initramfs match. These are qualification results,not native handshake acceptance.
+
+The178-file accepted M1 capsule and23-file acceptance notes remain unchanged.
+Its large generated USB logs were byte-compared,archived and pruned before
+this trial;prior private files and clean allocation are preserved. EFI space
+required retiring only the unreferenced duplicate3941cd6f management payload
+after full equality with its independently sealed167-file backup. That backup
+remains retained,as do the newer accepted v128 M1 payload and e47d recovery.
+Ubuntu stays default. Private credential-bearing release identities and payload
+hashes remain in local run/evidence records. The candidate remains physically
+unaccepted;the next authorized action is the cold shutdown below.
+
+Shut down,unplug only Wi-Fi10seconds while off,reconnect to the same port and
+power on with the workspace connected. Guest progress,complete saved results
+and Ubuntu return are automatic;no commands/photos or repeated approval.
+Collect this exact v129 session first after return. Require matched M3 MIC,local
+M4 completion,software key activation/erasure,leave and full MAC/endpoint/input/
+power/RF originals,storage and recovery. AP acknowledgement,encrypted IP/data,
+connection UI and reconnect remain pending. Demers2.4 needs compatible hardware.
