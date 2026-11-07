@@ -58,10 +58,10 @@ isolated diagnostic boot; it never releases or overwrites its backing memory.
 
 Firmware state varies across boots. A complete stable engine census with
 **enabled0/pending0** selects a separate observation function. Its BCS endpoint
-must have tail/head/start/control0, execlist low/high1/0, parser idle and the
+must have tail/head/start/control0, execlist low/high 1/0, parser idle and the
 same legacy-mode restrictions as the write branch. It requires the same
 explicit cooperative submission handoff, identity-bound parent lease,
-guards, one-use result and100ms deadline. Four eight-DWORD snapshots must
+guards, one-use result and 100ms deadline. Four eight-DWORD snapshots must
 match exactly. A nonzero start, enabled control, nonidle parser or changed
 state refuses; there is no fallback to the write branch.
 
@@ -137,15 +137,20 @@ clean closeout, prior-file preservation and offline media/recovery checks.
 
 ## Air7,2 readiness checkpoint
 
-The installed candidate is `16824812ea718910`, source `b7cb3bc3`. Host/core/profile
-checks, fatal sanitizers,18 compiled negative controls, exact-stage Q35 refusal
-and persistence checks, and prior diagnostic/VirtIO regressions pass. It is not
-armed and has no native acceptance. The saved-log budget includes the additional
-BCS/reader receipts. Recovery and the previous accepted engine census are retained.
-See the [unit record](machines/macbookair7-2.md#blitterreader-candidate-ready-for-automated-hardware-trial)
-for exact local payloads, media and evidence paths. The next step is an automated
-native trial and matching return collection; no managed-memory authority follows
-from host/VM evidence or from a front-end disable alone.
+The current installed candidate is `32859f5868aedd46`, source `47a0db4e`.
+It supports both exact enabled-ring disable and separately verified zero-geometry
+already-disabled observation. Host/core/profile checks, fatal sanitizers (27
+adapter/25 core cases), 22 compiled negative controls, 269 collector/staging tests,
+exact-stage Q35 persistence/refusal checks and prior diagnostic/VirtIO regressions
+pass. Installed-root/89 installer cases are retained with exact unchanged-source
+and log-hash proofs; all other targets reran after the main-branch futex fixture
+was adapted to its architecture macro. The candidate is not armed and has no
+native acceptance. Recovery, previous trial and accepted engine census remain
+retained; the accepted wake image has a verified durable/archive copy.
+See the [unit record](machines/macbookair7-2.md#already-disabled-reader-candidate-ready-native-acceptance-pending)
+for local payloads, media and evidence paths. The next step is an automated
+native trial and matching return collection. No managed-memory authority follows
+from host/VM evidence, zero controls or a front-end disable alone.
 
 The first native trial returned with all five engines disabled at entry:
 `session-00065fa4adf643e3-00`, release `16824812ea718910`. The strict enabled16

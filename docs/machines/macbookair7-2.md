@@ -16,6 +16,47 @@ run the same bounded reader audit without granting retirement or memory authorit
 Validate one exact source/stage, preserve recovery/USB evidence, prepare the
 next automated candidate and stop ready without rebooting.
 
+### Already-disabled reader candidate ready (native acceptance pending)
+
+Release `32859f5868aedd46`, tested source `47a0db4e`, is installed and **not
+armed**. Main `b9615fc5` is integrated. A separate no-control-write branch now
+covers the last boot's disabled-at-entry case: exact BCS tail/head/start/control 0,
+execlist 1/0, idle legacy mode, explicit submission handoff, live parent lease,
+fresh guards/deadlines and four matching snapshots. Its API requires a NULL
+write callback. Version2 summary records `entry_disabled`; decoders retain old
+version1 support and bind the branch to the native engine census. Observed
+state and a performed disable are distinct. The enabled mask 16 write branch keeps
+its exact f001/start03eef000 admission and one-store limit.
+
+Validation passes: host/core/profile/docs/build matrix, fatal ASan/UBSan for 27
+BCS adapter and 25 core scenarios plus prior GPU cores, 22 compiled negative
+controls, 269 collector/staging cases, exact-stage MBR Q35 boot/refusal/persistence/
+automatic-return and missing-workspace halt, prior diagnostic/Haswell and VirtIO
+regressions. The main update changed the native STI host seam; its extracted
+futex fixture now models that macro and passes the real interleaving cases.
+The 89 installer cases (one expected opt-in skip) and installed-root exFAT checks
+are retained from the initial matrix on identical production/installer source;
+a hash/path-qualified record proves the only follow-up was that test fixture.
+All other targets reran on 47a0. Native-formatted log projection 63,759/65,536
+includes 1,024 bytes of allowance. Host/VM evidence does not accept native MMIO.
+
+USB `37D8-C5D0` has 1,350 inventoried files / 106 sessions, clean offline checks
+and unchanged boot sectors; it is unmounted. Recovery `9aa8dbf6fbda8252`, prior
+trial `16824812ea718910`, accepted census `3d8c0e9688408a25` and known-good
+GUI `c497eb0cb48c1b01` remain verified. Inactive accepted wake `93b497d37af24dae`
+was fully SHA-verified against its durable copy and independent archive before
+removal from EFI; it remains recoverable. Ubuntu default/EFI order are unchanged.
+Run records and full SHA-backed evidence live under local
+`build/air-blitter-off-20261106` and
+`~/.local/share/srvros/reviewed-evidence/air-blitter-off-20261106`.
+
+Next is an automated native trial, volume 1%, guest audio off, no input required.
+Handled safe outcomes save/unmount/return; unsafe persistence or uncertain live
+state can halt visibly. Collect the matching session and verify native receipts,
+prior files, offline media and recovery before another run. No engine/reader/
+DMA/translation/cache retirement, managed GPU pages or physical tear-free is
+accepted by this candidate. No reboot is armed.
+
 ### Blitter/reader implementation checkpoint (native trial pending)
 
 A separately compiled14-token boot profile now admits one BCS control disable
