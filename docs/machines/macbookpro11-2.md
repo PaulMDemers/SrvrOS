@@ -13505,3 +13505,54 @@ Fetched main4bba4b93 adds Air ECAM/raw-root evidence atop the reviewed deferred
 process/ECAM work;it is inspected and deferred to isolate this codec correction.
 Other open scopes remain301 graphics and379 browser,no competing Wi-Fi owner.
 Credentials remain unread/unpackaged and authenticated IP/data stays pending.
+
+### Qualified open-auth optional-IE correction (November 6)
+
+V127 `3941cd6f08de149f` / runtime `a71b71c2` corrects only the
+open-auth response size gate:30 fixed bytes followed by a complete bounded IE
+stream. Private peer,frame-control,fragment,algorithm0,transaction2,status and
+ownership/deadline rules remain exact. IE contents are ignored for this phase,
+with no WPA2/key/capability authority. There are no new endpoint/control commands,
+frame types or retries;valid extended AUTH can now advance the existing ASSOC
+stage. Pinned Linux v7.0 receiver source and SHA are preserved with the local
+references. Synthetic41-byte vendor-IE fixtures match captured dimensions only;
+the native11-byte tail remains subject to structural validation on the next run.
+
+Prior7181f95e diagnostic evidence remains failed in its547-file capsule. It
+observed the successful fixed AUTH fields from the private target in5,522us,
+but the exact-size gate rejected41 bytes. Endpoint/input/MAC retirement and
+nine power-original readbacks passed;full RF restoration was not accepted.
+That generated session was archived and byte-compared before pruning;native
+capsules and accepted empty-OUT161-file evidence/23-file notes stay unchanged.
+
+Matched kernel/USB build,complete controller suite,native child/pure exchange/
+codec/parent/strict parser/namespace/docs checks and227 staging cases pass.
+Eight fatal ASan/UBSan groups include codec hostile inputs,exact-size truncated
+allocations,maximum4096-byte tails,orphan/truncated TLVs and preserved peer/
+algorithm/transaction/status refusal. Native compiler frames peak at
+616bytes. Production-C41-byte-reply child/full accepted-
+parent synthetic composition passes at2033181bytes with
+8 refusals;the conservative48-row metadata bound leaves
+57011bytes capture headroom. These are modeled child
+responses,not native acceptance. Real2MiB filesystem roundtrip/fsck,ordinary
+desktop and exact staged GPT save/return/missing-workspace VMs pass. Installed
+kernel and independently reconstructed firmware initramfs match source.
+
+Runtime retains reviewed mainca43ce23 and module pins. Newer main4bba4b93 guarded
+raw-census preparation and Air ECAM/root evidence atop deferred process/ECAM
+work was inspected and deferred for this isolated codec correction. Open301
+remains graphics,379 browser,no competing Wi-Fi owner. Ubuntu stays default and
+e47d known-good previous. Accepted empty-OUT/handoff/power/selection payloads
+stay installed. Older unreferenced failure EFI copies may be retired only after
+byte equality against their independent sealed backups,which remain retained.
+Cold-unplug only Wi-Fi10seconds while off,reconnect same port,power on with
+workspace attached. Progress/full results/Ubuntu return are automatic. Collect
+this exact trial first;require full matched exchange and complete parent/RF
+retirement before acceptance. Credentials remain unread;WPA2 and authenticated
+IP/data/disconnect remain pending,and Demers2.4 needs compatible hardware.
+
+For this installation,the unreferenced first-live5a5e6139 EFI duplicate was
+retired only after complete byte equality with its independently sealed546-file
+failure backup. That native capsule stays unchanged. The547-file reply-diagnostic
+backup and its7181f95e EFI payload remain retained. Accepted empty-OUT/handoff/
+power/selection and e47d recovery remain installed;Ubuntu is still default.
