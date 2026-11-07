@@ -8239,3 +8239,30 @@ The successful VM harness revision is `d19ac35f`, with unchanged payload
 hashes from `c94297a8`. This docs-only follow-up does not change the tested code. Other machines'
 scanout and Wi-Fi scopes remain independent. Installed accepted ECAM/root and
 recovery payloads remain retained for the next automatic one-shot trial.
+
+
+### Native window-only safe refusal (2026-11-06)
+
+PR397 release `fad46d637616b072`, compiled `c94297a8`, returned automatically
+with matching session `session-00065fa7691d63c7-00` and all four logs saved.
+The new window backend refused `HHDM-entry` in its first fresh gate: one mapper
+word, no census, allocation/publication/unlink/invalidation/free attempts and
+zero target loads/writes. This profile is failed, not physically accepted.
+The earlier ECAM raw receipt records adoption in95.552ms; preinit preparation
+and two exact30-table snapshots completed, but overall `completed=NO` correctly
+prevents joint ECAM/root acceptance for this run.
+
+The saved raw root HHDM entry has low permission bits7. Retained complete paths
+to root RAM and the DMAR source contain upper User bits but supervisor leaves:
+their effective permissions remain supervisor/writable. The backend currently
+requires low bits3 at every level, so rejects the first upper entry. Next scope
+is a full-path effective-permission audit/fix with supervisor leaf and cumulative
+write/User enforcement, reserved-bit/translation/source validation and exact raw
+comparisons retained; add positive mixed-upper/supervisor-leaf and negative
+effective-user/nonwritable regressions. No policy or deadline/cap change follows.
+
+All611 prior files survive byte-for-byte except expected `.srvros/meta`; four
+new logs make615 files/1690 clusters. Offline fsck/allocation/headroom are clean,
+with zero leaks or FAT/bitmap mismatch. Raw failure/evidence remains backed up
+outside build. Ubuntu default and accepted ECAM/root plus recovery payloads are
+retained. Collector disabled after return; no next boot armed.
