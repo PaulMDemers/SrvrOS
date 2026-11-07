@@ -8132,3 +8132,23 @@ Matched images and affected ECAM/alias/cache/firmware/process mapping/image/
 service suites pass. Sanitizers/cross-compilation and frozen VM checks follow
 before integration. Installed accepted `ab360d3ce2d281e4` and recovery unchanged;
 no reboot armed and native window qualification remains pending.
+
+
+### Frozen dormant-backend checks (2026-11-06)
+
+Runtime `a1802859` passes the actual VMM/census fault suite under ASan/UBSan
+and compiles its full fixture for ARM64 with assertions enabled. Ordinary VMM
+disassembly and relocations are identical to the pre-change object; the normal
+image excludes the API while AP retains prepare/retire with no boot caller.
+Seven sequential legacy/new-profile staged VMs pass, including exact v5
+`5b83b22ff8bdfc8c` refusal and missing-workspace recovery. Those boots validate
+existing-profile regression, not execution or native acceptance of the new
+backend. Matched normal/AP/USB/ISO and affected process/image/service, ECAM,
+firmware/cache/alias/collector tests pass. Native timing and whole-client
+resource admission remain unmeasured; do not weaken bounds on their behalf.
+
+Ordinary syscall, UEFI USB keyboard, fork, exec-vector and scheduler-yield VMs
+also pass against the matched normal image. The validated code remains
+`a1802859`; this follow-up changes documentation only. No hardware run, install
+or reboot is performed for the dormant backend. The accepted native payload
+and its earlier evidence remain independent and retained.
