@@ -53,3 +53,5 @@ const struct ecam_boot_gate_diagnostic *haswell_air61_window_gate_diagnostic(voi
 bool haswell_air61_window_run(void);
 bool haswell_air61_window_report(const char *);
 void haswell_air61_window_reference(const char *,bool);
+
+uint64_t haswell_air61_window_ram_steps(void);

@@ -92,7 +92,7 @@ int main(void){
     uint8_t *fpu_pages=aligned_alloc(4096,3*PAGE_SIZE);assert(fpu_pages);memset(fpu_pages,0,3*PAGE_SIZE);
     uint8_t *extra_pages=aligned_alloc(4096,24*PAGE_SIZE);assert(extra_pages);memset(extra_pages,0x73,24*PAGE_SIZE);
     uint64_t *root=new_table();kernel_cr3=0x1000;cr3=(uint64_t)(uintptr_t)root;
-    address_space_records[0]=(struct address_space_record){.used=true,.root=cr3};
+    address_space_set_occupied(0,true);address_space_records[0]=(struct address_space_record){.root=cr3};
     struct user_frame_source *source=(void *)(stack+4096);
     struct isr_frame *frame=(void *)(stack+8192);
     struct fpu_state *uf=(void *)(fpu_pages+PAGE_SIZE-16),*kf=(void *)(fpu_pages+2*PAGE_SIZE+64);
@@ -110,6 +110,7 @@ int main(void){
     uint8_t original_source[1024];memcpy(original_source,source->bytes,1024);
     uint8_t table_snapshot[32][4096];unsigned tables_before=table_count;
     for(unsigned i=0;i<tables_before;i++)memcpy(table_snapshot[i],allocated_tables[i],4096);
+    uint64_t occupancy_before=address_space_occupancy;
     struct address_space_record registry_before=address_space_records[0];
     memset(destination_backing,0xa5,8192);uint8_t before[8192];memcpy(before,destination_backing,8192);
     uint8_t extra_before[24*PAGE_SIZE];memcpy(extra_before,extra_pages,sizeof(extra_before));
@@ -160,7 +161,7 @@ int main(void){
     assert(vmm_user_frame_copy_policy_current(cr3));
     assert(!vmm_user_frame_copy_policy_current(0));
     assert(!vmm_user_frame_copy_policy_current(kernel_cr3));
-    address_space_records[0].used=false;assert(!vmm_user_frame_copy_policy_current(cr3));address_space_records[0].used=true;
+    address_space_set_occupied(0,false);assert(!vmm_user_frame_copy_policy_current(cr3));address_space_set_occupied(0,true);
     assert(!vmm_copy_user_frame_current(cr3,0x400ff0,source,0,&owned,pages,2,frame,uf,kf));
     assert(!vmm_copy_user_frame_current(cr3,0x400ff0,source,1025,&owned,pages,2,frame,uf,kf));
     assert(!vmm_copy_user_frame_current(cr3,0,source,64,&owned,pages,1,frame,uf,kf));
@@ -287,6 +288,7 @@ int main(void){
     assert(!memcmp(destination_backing,before,0xff0) && !memcmp(destination_backing+0x1030,before+0x1030,8192-0x1030));
     assert(table_count==tables_before && cr3==(uint64_t)(uintptr_t)root && flags==0);
     for(unsigned i=0;i<tables_before;i++)assert(!memcmp(table_snapshot[i],allocated_tables[i],4096));
+    assert(address_space_occupancy==occupancy_before);
     assert(!memcmp(&registry_before,&address_space_records[0],sizeof(registry_before)));
     assert(!memcmp(original_source,source->bytes,1024));
     assert(!munmap(guard,16384));free(extra_pages);free(fpu_pages);free(stack);

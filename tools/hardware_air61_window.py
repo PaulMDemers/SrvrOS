@@ -87,9 +87,10 @@ def _result(text,ecam_text,exit_text,session):
     if progress[2]>5 or progress[3]>64 or any(x>32768 for x in progress[4:7]) or any(x>4096 for x in progress[7:9]) or progress[9]>2 or progress[10]>4096 or any(x>1 for x in progress[11:13]) or any(x>2 for x in progress[13:15]) or int(failed_words)>65536:raise ValueError('failure progress bounds')
     cost=None
     if any(x.startswith('hsw-window-cost:') for x in text.splitlines()):
-        values=tuple(map(int,one(text,'hsw-window-cost:',r'hsw-window-cost: v=1 clocks=(\d+) loads=(\d+) guards=(\d+) ram=(\d+) reads=(\d+) stores=(\d+) census_reads=(\d+) gate_end=(\d+) census_begin=(\d+) census_end=(\d+)')))
+        cost_parts=one(text,'hsw-window-cost:',r'hsw-window-cost: v=1 clocks=(\d+) loads=(\d+) guards=(\d+) ram=(\d+) reads=(\d+) stores=(\d+) census_reads=(\d+) gate_end=(\d+) census_begin=(\d+) census_end=(\d+)(?: ram_steps=(\d+))?')
+        values=tuple(int(x) for x in cost_parts if x is not None)
         if any(x>=1<<32 for x in values[:7]) or any(x>=1<<64 for x in values[7:]):raise ValueError('cost bounds')
-        cost=dict(zip(('clocks','loads','guards','ram','reads','stores','census_reads','gate_end','census_begin','census_end'),values))
+        cost=dict(zip(('clocks','loads','guards','ram','reads','stores','census_reads','gate_end','census_begin','census_end','ram_steps'),values))
         if cost['census_reads']!=sum(progress[4:7]) or cost['reads']<cost['census_reads'] or cost['loads']<int(failed_words)+cost['census_reads']:raise ValueError('cost read accounting')
         if not 0<=cost['gate_end']<=cost['census_begin']<=cost['census_end']<=progress[1]:raise ValueError('cost timing')
     if complete=='0':

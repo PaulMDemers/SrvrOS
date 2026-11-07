@@ -85,7 +85,7 @@ static void reset(void){
  memset(&aw,0,sizeof(aw));memset(pages,0,sizeof(pages));memset(tags,0,sizeof(tags));memset(&token,0,sizeof(token));
  for(unsigned i=0;i<6;i++)tags[i]=PMM_FRAME_PAGE_TABLE;
  cr3=kernel_cr3=0x2000000;irq_flags=2;kernel_pml4=pages[0];address_space_count=0;kernel_mapping_count=0;
- memset(address_space_records,0,sizeof(address_space_records));memset(address_spaces,0,sizeof(address_spaces));memset(kernel_mappings,0,sizeof(kernel_mappings));
+ address_space_occupancy=0;memset(address_space_records,0,sizeof(address_space_records));memset(address_spaces,0,sizeof(address_spaces));memset(kernel_mappings,0,sizeof(kernel_mappings));
  pages[0][384]=0x2001003;pages[0][256]=0x2002003;pages[2][0]=0x2003003;pages[3][16]=0x2004003;
  for(unsigned i=0;i<8;i++)pages[4][i]=(0x2000000+4096*i)|3;
  memset(pages[6],0xa5,4096);memset(pages[7],0xa5,4096);
