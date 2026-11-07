@@ -5,12 +5,21 @@
 #define SRVROS_AIR61_READ_WINDOW
 #define WINDOW_PROFILE_FIXTURE_LIBRARY
 #include "test_air61_window_profile.c"
-extern bool test_read_gate_check0(unsigned),test_read_gate_check1(unsigned);
-extern bool test_read_gate_ram0(uint64_t),test_read_gate_ram1(uint64_t);
-extern void test_read_gate_reset0(void),test_read_gate_reset1(void);
-extern const struct ecam_boot_gate_result *test_read_gate_result0(void),*test_read_gate_result1(void);
+extern bool air61_read_gate_check0(unsigned),air61_read_gate_check1(unsigned);
+extern bool air61_read_gate_ram0(uint64_t),air61_read_gate_ram1(uint64_t);
+extern void air61_read_gate_reset0(void),air61_read_gate_reset1(void);
+extern const struct ecam_boot_gate_result *air61_read_gate_result0(void),*air61_read_gate_result1(void);
+static unsigned read_phase_hook_mode;
+void air61_read_test_phase(unsigned pass,unsigned phase){
+ eg_phase=phase;eg.phases=phase?1:0;
+ if(pass && !phase && read_phase_hook_mode){
+  if(read_phase_hook_mode==1)cr0_value^=2;
+  if(read_phase_hook_mode==2)map_entries[127].type=2;
+  read_phase_hook_mode=0;
+ }
+}
 static bool gates_equal(void){
- const struct ecam_boot_gate_result *a=test_read_gate_result0(),*b=test_read_gate_result1();
+ const struct ecam_boot_gate_result *a=air61_read_gate_result0(),*b=air61_read_gate_result1();
  const struct hfw_sample *x=&a->firmware[0].sample[0],*y=&b->firmware[0].sample[0];
  if(!x86_cache_equal(&a->cache[0],&b->cache[0]) || a->efer[0]!=b->efer[0] || a->mcfg_pa[0]!=b->mcfg_pa[0] || x->count!=y->count || x->table_pa!=y->table_pa)return false;
  if(memcmp(x->identity,y->identity,sizeof(x->identity)) || memcmp(x->dmar,y->dmar,136) || memcmp(a->mcfg[0],b->mcfg[0],60))return false;
@@ -50,23 +59,26 @@ static bool rcheck(void *ctx,unsigned pass,unsigned phase){
   unsigned index[]={384,7,409,80};pages[frame_index(pa[path_level])][index[path_level]]^=1ull<<path_bit;path_pass=-1;
  }
  eg_phase=phase;eg.phases=phase?1:0; /* Existing hardware-model phase selector. */
- bool ok=pass?test_read_gate_check1(phase):test_read_gate_check0(phase);
+ bool ok=pass?air61_read_gate_check1(phase):air61_read_gate_check0(phase);
  return ok && (!pass || phase || gates_equal());
 }
-static bool rram(void *ctx,unsigned pass,uint64_t pa){(void)ctx;assert(pass<2);return pass?test_read_gate_ram1(pa):test_read_gate_ram0(pa);}
+static bool rram(void *ctx,unsigned pass,uint64_t pa){(void)ctx;assert(pass<2);return pass?air61_read_gate_ram1(pa):air61_read_gate_ram0(pa);}
 static const struct air61_read_window_env rio={.check=rcheck,.ram=rram,.now=now};
 static void rreset(void){
- setup();memset(&rw,0,sizeof(rw));test_read_gate_reset0();test_read_gate_reset1();
+ setup();memset(&rw,0,sizeof(rw));air61_read_gate_reset0();air61_read_gate_reset1();
  pages[0][384]|=32;irq_flags=2;changed_catalog=false;
- path_pass=-1;inject_pass=inject_phase=-1;inject_kind=0;memset(phase_calls,0,sizeof(phase_calls));retained_valid=false;
+ read_phase_hook_mode=0;path_pass=-1;inject_pass=inject_phase=-1;inject_kind=0;memset(phase_calls,0,sizeof(phase_calls));retained_valid=false;
 }
 static bool run_series(void){return vmm_air61_read_window_qualify(&rio,0x61697272656164,1000);}
+#ifdef AIR61_READ_WINDOW_LIBRARY
+#define main read_backend_fixture_main
+#endif
 int main(void){
  rreset();assert(run_series());
  assert(rw.result.state==AIR61_READ_COMPLETE && rw.result.started==2 && rw.result.retired==2);
  for(unsigned pass=0;pass<2;pass++){
   const struct air61_read_pass_result *v=vmm_air61_read_window_pass(pass);
-  const struct ecam_boot_gate_result *g=pass?test_read_gate_result1():test_read_gate_result0();
+  const struct ecam_boot_gate_result *g=pass?air61_read_gate_result1():air61_read_gate_result0();
   assert(v->window.state==AIR61_WINDOW_RETIRED && !v->window.claimed && v->slots==12 && v->source_coalescings==1);
   assert(v->window.words<=65536 && v->window.end-v->window.begin<100000 && g->firmware_bytes==3996);
   assert(v->window.frees==2 && g->cache_reads[0]==49 && g->cache_reads[1]==49);

@@ -8619,3 +8619,60 @@ Dedicated raw retention is0x99188 bytes in the compile-only object. Accepted
 installed92d9f134639f509c/recoveryc35475f62f154f1e remain untouched. No reboot is
 armed. Native latency, raw serialization, fresh bridge admission and the later
 no-target-load two-pass qualification remain unaccepted separate work.
+
+### Fresh bridge and raw two-pass receipt scope (2026-11-07)
+
+Base `a35a1952`, accepted92d9f134639f509c/recoveryc35475f62f154f1e retained,
+no pending native run. Add two independent production gate instances and a
+compile-only native admission bridge for the dormant qualifier. Require current
+single-adopted ECAM state, fresh exact-unit admission and live CPU0/IRQ/AP/root/
+client exclusion throughout both lifetimes and gap. Compare fresh pass1 source
+and control observations against pass0; never use historical receipts as grants.
+Terminal poison retains ownership and cannot restore interrupts or resume clients.
+
+Add a bounded lossless two-pass receipt retaining complete raw page/census/gate/
+path/cost observations, with session/owner/root/epoch and gap binding, plus a
+strict nonpromoting offline decoder and real-producer mutation regressions.
+Keep all caps and exact raw A/D checks unchanged. Existing profile/decoder
+acceptance stays distinct. No native boot caller, default build selection,
+staging/install, reboot, register load or device ownership grant in this step.
+Native compilation, host actual-gate/failure tests, sanitizer/portable checks and
+matched existing-build/core/VM regressions precede merge. Native boot recipe and
+no-target-load qualification remain the next checkpoint. PR301/PR19 have no
+competing VMM/window/ECAM edits in their inspected file lists.
+
+### Fresh bridge and raw receipt implemented (2026-11-07)
+
+The compile-only native bridge now uses two production gate instances, fresh
+per-pass exact-unit checks and cross-pass raw source/cache/control comparison.
+It requires current ECAM ACTIVE/single adoption and holds IRQ exclusion across
+both lifetimes and gap. Poison prints retained progress and halts; it does not
+restore interrupts or resume clients. Native instances cannot reset.
+
+The one-shot RAM-only R1/Z1 encoder retains both complete raw pass proofs and
+all path/cost observations. Lossless canonical zero runs fit the combined
+45000-byte wire cap within the unchanged65536-byte tail allowance; per-pass
+33000-byte raw bodies and all mapper/firmware/time limits remain unchanged.
+The independent strict decoder rejects old-profile confusion, tampering,
+malformed extents/compression, stale identities and altered path bits. It never
+promotes a retained observation to native/read/ownership acceptance. A native
+boot caller, joint saved-session binding and exact staged qualification remain
+separate next work; no installed payload or boot state is changed here.
+
+Frozen native/runtime source `1a8bd9f4` passes normal/AP/USB/ISO builds and full
+`test-core`, including89 installed-root tests and one explicit opt-in skip.
+The five native objects link together without host hooks;18 ASan/UBSan bridge/
+encoder cases and the complete ARM64 fixture link pass. Seven final consumer
+regressions include512 path-bit mutations plus29 coherently repeated root-flag
+changes forbidden by the existing native guard. Eleven existing window-profile
+tests, actual producer proof, nine staged diagnostic VMs and five ordinary
+syscall/UEFI USB keyboard/fork/exec/yield VMs pass. Both existing ELFs remain
+byte-identical to the preceding merged backend build.
+
+Normal/max-catalog receipts retain24701/48317 raw bytes in4864/22456 wire bytes.
+The full45000-byte wire cap with framing and a1024-byte envelope is64122 bytes,
+below65536. All limits stay unchanged. No native result is inferred. Native
+integration still needs a boot caller, strict joint saved-session binding and
+an audit of first-touch RAM/A-D effects under the existing bounded preparation;
+no raw masks, timing exclusions or limit increases are permitted. Installed
+92d9f134639f509c/recoveryc35475f62f154f1e remain untouched; no reboot is armed.
