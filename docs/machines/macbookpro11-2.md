@@ -14150,3 +14150,36 @@ session. Do not change association deadlines,USB/framing or cryptographic gates
 from this result alone. If the prerequisite failure repeats,inspect it before
 another blind retry. Preserve the accepted four-way/M1 and first v131 failure;
 the retry has no new native acceptance and remains automatic save/return.
+
+### Identical v131 retry reached encrypted DHCP; ARP and retirement failed (November 7)
+
+The unchanged runtimefe0c80f9 retry,session00065fb5e2fa3851-00,saved1,888,091bytes
+and returned automatically. The historical AUTH/ASSOC/M1 parent passed. The
+independent child matched AUTH/ASSOC and M1/M3,verified the M3 MIC,completed
+local M2/M4 and activated its unique software keys. Encrypted DISCOVER and
+REQUEST used PNs1/2;authenticated decrypted OFFER and ACK passed the strict
+DHCP checks. This is direct encrypted-traffic/DHCP progress within a failed
+trial,not acceptance of the complete data or restoration contract.
+
+The third encrypted send was the DNS-hop ARP request,PN3. No matching ARP
+reply was recognized. Of48 retained RX completions,six produced authenticated
+Ethernet frames;four52-byte frames during the ARP phase were ignored by the
+existing matcher. The saved metadata cannot distinguish unrelated ARP requests,
+wrong targets or another shape;do not infer an ARP parser defect or log packet
+contents. DNS,gateway ARP and the256-byte echo never ran.
+
+Software keys were erased and leave completed locally. MAC disable,TX drain,
+filter/TXOP restoration passed,but RX drain did not. The child stopped before
+endpoint/input restoration,and power originals and full outer RF restoration
+did not pass. All DMA remained retained. Offline filesystem/allocation and
+Ubuntu recovery passed;the581-file failure capsule is sealed outside build.
+Preserve it and the original564-file prerequisite failure unchanged.
+
+Next scope is bounded authenticated-ARP rejection metadata and receive-window/
+retirement ownership,with no credential/address/packet logging,no PN/MIC/replay
+relaxation and no blind repeat of this image. Reproduce exhaustion and cleanup
+under the existing ring bounds before selecting a fix;more RX pages or longer
+deadlines alone do not establish safe retirement. Actual remote main now points
+to eefc5bfd (Air6,1 occupancy/catalog work);it was fetched and inspected but is
+not consumed by this runtime. No new physical boot is armed. General TCP/HTTP,
+ordinary provider/UI connect/disconnect and live reattach remain pending.

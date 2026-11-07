@@ -7310,3 +7310,16 @@ lost key/peer ownership stop further publication and retain DMA. Dedicated
 saved-log validation requires every encrypted send,authenticated response,
 DHCP/DNS/echo result and final key erasure/leave/restoration;handshake-only
 logs cannot pass it. Local synthetic/oracle results do not accept native data.
+
+The second native v131 run on Pro11,2 did reach the child and validated encrypted
+DHCP OFFER/ACK after local M4,with TX PNs1..3. It failed waiting for the DNS-hop
+ARP reply and consumed all48 retained RX entries. Four authenticated52-byte
+Ethernet frames in that phase did not match;their contents were not logged and
+the cause is unresolved. Keys were erased and leave submitted,but RX drain,
+endpoint/input and outer power/RF restoration failed. DNS and echo were not
+tested. Treat the complete run as failed;retain its full evidence and unchanged
+security and ownership gates. Next diagnostic work must distinguish ARP refusal
+causes without packet/address logging and reproduce bounded RX exhaustion with
+mandatory cleanup. Do not silently enlarge or recycle the ring as a substitute
+for proving retirement. The v130 complete-restoration acceptance remains the
+latest accepted foundation.
