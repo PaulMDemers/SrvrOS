@@ -3,12 +3,14 @@
 ## Status
 
 Source audit on `4bba4b93`, after accepted boot capture `ab360d3ce2d281e4`.
-A dormant AP-only VMM window backend is now implemented and host-tested.
-An explicit v6 window-only admission bridge and retained receipt profile now
-exist in the AP image; native acceptance is pending. Target access remains absent.
-The [ECAM/root capture](macbookair6-1-ecam-mapping-design.md) removes a diagnostic
-blocker; it does not grant a device resource. The backend qualifications below precede a fresh admission bridge and a
-window-only profile; a native register-read caller remains a later milestone.
+The AP-only checked backend and explicit v6 admission bridge now have native
+window-only qualification: release `92d9f134639f509c`, source `cca4d31f`, completed
+mapping and verified retirement/claim release in77.402ms within100ms. Complete
+raw30-table census and matching ecam/window/exit receipts are retained. Target
+access remains absent and no register-read, global resource or ownership grant
+follows. The [ECAM/root capture](macbookair6-1-ecam-mapping-design.md) remains a
+separate prerequisite. A guarded register-read caller and its explicit A/D and
+live-admission contract are later milestones; saved receipts cannot grant them.
 
 ## Evidence and remaining obligations
 

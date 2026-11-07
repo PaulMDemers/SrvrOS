@@ -1,6 +1,11 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-11-03. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-11-07. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+
+Current diagnostic milestone: exact-source pre-user window-only mapping and
+verified retirement are physically accepted in77.402ms under the unchanged
+100ms lifetime, with zero target accesses. This grants no register-read or
+hardware ownership permission; see the dated native acceptance below.
 
 ## Initial inventory (2026-10-22)
 
@@ -61,6 +66,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
 | Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Bounded mounted Home Text/Start/Stop session accepted; three-minute continuous Home capture accepted; attended desktop AC transitions accepted; longer endurance and gauge accuracy remain open; ordinary startup stays off |
+| VT-d diagnostic window | Exact-source pre-user RO/NX/UC mapping and verified retirement accepted in77.402ms; claim released, zero target reads/writes | Fresh guarded register-read admission and A/D contract remain open; no device ownership; ordinary desktop regression for changed registry pending |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -8485,3 +8491,32 @@ native desktop acceptance for the new shared representation remain pending.
 Preserve the prior failure, every source/root/ownership check and all limits;
 retire only an unreferenced failed-trial EFI copy after complete backup hashes
 verify. Accepted ECAM/root and Ubuntu/recovery remain retained.
+
+
+### Native window-only qualification accepted (2026-11-07)
+
+PR403 payload `92d9f134639f509c`, compiled `cca4d31f`, session
+`session-00065fb5328c9afc-00` completed the strict three-file proof and returned
+to Ubuntu automatically. The complete claimed window lifetime is77.402ms,
+including an188us initial gate and54.524ms census. All30 tables were prepared
+and compared in two exact15360-entry passes;3888 encoded bytes/pass and52165
+mapper words stay inside the unchanged64-table/32768-entry/4096-byte and65536-word
+limits. The RO/NX/supervisor/non-global/PAT3 UC mapping was published and retired
+with1026 private writes, one parent publication, one unlink, two invalidations,
+two proven-owned frame frees and verified claim release. Retained raw records
+are22265 bytes. No target loads/writes occurred and every hardware/read/ownership
+grant remains false. Early ECAM adoption also completed in85.518ms.
+
+Retained cost:72254 backend clock callbacks,268741 raw loads,714449 root guards,
+327352 RAM classifications,57581 logical reads,1028 store attempts,46080 census
+reads and2172423 indexed-row comparisons. These are this exact native lifetime's
+observations, not a general latency guarantee. The result physically accepts
+only the bounded pre-user mapping/retirement profile; ordinary native desktop
+coverage for the changed shared registry and fresh register-read caller/A/D
+admission remain separate work. Prior refusals/halts remain historical failures.
+
+All623 prior files survive except expected `.srvros/meta`; four new logs make
+627 files/1705 clusters. Offline fsck/allocation/headroom pass with zero leaks or
+FAT-bitmap mismatch. Exact payload and full matching raw evidence are retained
+outside build with verified hashes. Ubuntu default and independent recovery
+remain retained, one-shot empty, collector disabled, no next boot armed.
