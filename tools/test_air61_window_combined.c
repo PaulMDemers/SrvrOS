@@ -23,6 +23,7 @@ int main(int argc,char **argv){
  if(argc>1 && !strcmp(argv[1],"native-hhdm")){
   pages[0][256]|=4;pages[2][0]|=4;pages[3][16]|=4;
  }
+ if(argc>1 && !strcmp(argv[1],"root-accessed"))pages[0][384]|=32;
  assert(haswell_ecam_boot_prepare() && haswell_ecam_boot_handoff() && haswell_ecam_boot_adopt(ECAM_BOOT_VA,ECAM_BOOT_PA,ECAM_BOOT_BYTES));
  if(argc>1 && !strcmp(argv[1],"ad-transition"))pages[4][2]|=32;
  clock_ticks+=160000;
