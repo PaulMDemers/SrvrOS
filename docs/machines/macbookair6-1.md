@@ -8712,3 +8712,27 @@ Main/staging files are also present in PR301/PR19; this branch owns only the
 Haswell v7 dispatcher/recipe and dedicated ELF, separate from their device
 features. Their current hunks and unit scopes were inspected; no VMM/two-pass
 feature implementation is duplicated. No cross-task messages were sent.
+
+Frozen runtime `b5d9c92e` passes matched normal/AP/two-pass/USB/ISO builds and
+full `test-core`, including 89 installed-root tests with one explicit opt-in
+skip. Eighteen bridge/encoder and four real early-ECAM/two-pass ASan/UBSan modes
+pass, as do both complete ARM64 fixture links. Five joint persistence/profile
+tests, seven decoder/producer tests, backend bit/ownership failures and eleven
+legacy window-profile tests pass. All eleven sequential diagnostic VM cases
+and five ordinary syscall/UEFI USB keyboard/fork/exec/yield VMs pass.
+
+Exact v7 candidate `390c4221b5e50422` passes both unsupported-Q35 refusal and
+missing-workspace rehearsal. The native ELF contains both fresh gate instances
+and the new backend/envelope, without legacy window or host-hook symbols.
+Host fixtures retain 63476 mapper words/pass and the original firmware/time/
+census/gap bounds. They do not accept native timing or hardware behavior.
+
+The local immutable-artifact helper's same-inode rename corner case was caught
+by payload verification and corrected without changing payload bytes; failed
+harness evidence is retained and the remaining VM checks passed. Twenty-four
+verified duplicate host initramfs copies were hardlinked, preserving all bytes.
+Unreferenced EFI payload `a80942d96c7c830c` was retired only after verifying its
+independent complete backup and absence from current/recovery/GRUB references.
+Accepted current `92d9f134639f509c` and recovery `c35475f62f154f1e` remain intact.
+The automated native trial is being prepared; acceptance remains pending its
+matching collected raw session and all prior-file/offline-integrity checks.
