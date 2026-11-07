@@ -5759,3 +5759,11 @@ test-wpa2-handshake-differential: build/tests/wpa2-handshake-shared.so
 build/tests/wpa2-handshake-shared.so: tools/wpa2_handshake_probe.c kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include $< kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c -o $@
+
+.PHONY: test-mt76-eapol5
+test-core: test-mt76-eapol5
+test-mt76-eapol5: build/tests/mt76-eapol5-host$(HOST_EXE)
+	$<
+build/tests/mt76-eapol5-host$(HOST_EXE): tools/test_mt76_eapol5.c tools/fixtures/wpa2-handshake-synthetic.h kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_rsn.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_rsn.c kernel/src/wpa2_handshake.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c -o $@

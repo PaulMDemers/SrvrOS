@@ -13706,3 +13706,20 @@ must remain frozen when native transport is introduced. Credentials remain
 unread and installed v127/recoveries remain unchanged/unarmed during host
 qualification. Reviewed main4cb7b5a7/open PR19/301/379 have no competing Wi-Fi
 scope;new remote device heads are independent Air window/graphics work.
+
+The separate `mt76_eapol5` host codec now preserves old management gates while
+handling exact private data/QoS/L2PAD EAPOL receive and M2/M4 USB construction.
+Tests cover131,072 FC/QoS control words,all address/LLC bit changes,blocked RX
+metadata,exact truncated allocations,maximum1123-byte EAPOL,overbound refusal,
+ignored trailing USB bytes,alias/capacity/null/channel/width refusals and100,000
+hostile inputs. Synthetic M1/M3 views advance the independent handshake model
+to KEYS_READY,without any installation handoff. M2/M4 wire construction is
+checked against complete model output and pinned descriptor/header semantics.
+Fatal ASan/UBSan passes. No new native EAPOL observation is claimed.
+
+Next native transport must classify and copy data completions separately from
+management,freeze distinct M2/M4 DMA pages and preserve existing endpoint/MAC/
+input/parent restoration. Its first saved capture must prove actual EAPOL shape
+and completion provenance before a guarded key-table installer is admitted.
+WCID/BSS reservation,cipher/IV/key/shared-mode readback,PN/replay ownership and
+full removal remain open. Credentials remain unread;no new trial is armed.

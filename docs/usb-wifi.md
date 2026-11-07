@@ -7090,3 +7090,50 @@ Protocol/reference qualification uses primary hostap
 [RFC3394](https://www.rfc-editor.org/rfc/rfc3394) and the
 [NIST AES specification](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197-upd1.pdf).
 No public fixture contains local credentials or hardware identifiers.
+
+### Separate pre-key EAPOL framing boundary
+
+`mt76_eapol5` adds a separate fixed161/20MHz codec;the existing management and
+beacon decoder remains unchanged and continues to refuse data frames. Its RX
+view accepts unprotected FromDS data or QoS-data with normal ACK,TID0..7 and
+optional EOSP. It accounts for24/26-byte headers and the captured RXWI L2PAD
+indicator before RFC1042 LLC/SNAP EtherType888e. RA,TA and source must exactly
+match the private station/AP/AP binding. EAPOL1/2,type3,RSN descriptor2,M1/M3
+flag words,key length16 and complete body/key-data lengths are required within
+1123 EAPOL bytes and4096 USB bytes. Views borrow only the completed bounded
+entry;trailing USB bytes are never guessed as another entry.
+
+Protected/decrypted/PN,WAPI,fragmented,null,aggregate and HT-control paths refuse.
+QoS A-MSDU and unsupported ACK/TID/control bits refuse. The codec does not
+validate MIC,nonce,replay,RSNE or state;those checks remain with the qualified
+handshake model. A structurally valid frame does not grant key or port authority.
+Output aliases refuse unchanged;other RX refusals clear the output view.
+
+The TX helper accepts only complete private M2/M4 model outputs with their
+canonical RSNE/nonce/key-length/reserved-field shapes. It constructs unprotected
+non-QoS ToDS,exact AP/station/AP addresses,manual sequence1..4095,no retry and
+the existing OFDM6/ACK/WCIDff USB/TXWI envelope. It emits184 M2 bytes or160 M4
+bytes and clears unused capacity. It does not prove a MIC,fresh nonce,AP ACK or
+transport ownership. A future live owner must freeze each packet in distinct
+retained DMA,validate exact completion and separately own all endpoint/MAC/key
+retirement. No native caller,profile or register write is added here.
+
+Pinned primary [Linux mt76x02 MAC processing](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)
+and [USB framing](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_usb_core.c)
+supply the RXWI/TXWI/header-padding boundary. Host tests preserve the old
+management refusal and compose borrowed synthetic M1/M3 views with the separate
+handshake model. No physical EAPOL or hardware-key acceptance follows.
+
+### Hardware key ownership audit before installation
+
+The pinned Linux v7.0 key code separates peer WCID key bytes,cipher attributes
+and IV/PN state from BSS shared-key slots/mode words. Clearing only key bytes
+is not a complete retirement proof. Source addresses for these tables are
+review inputs,not permission to write the captured device. The future owner
+must reserve and bind its WCID/BSS slots,validate their existing contents,
+keep unrelated contexts unchanged and verify its whole install/removal sequence.
+It must own TX PN allocation and RX replay state across all packets,never reset
+a live key's PN through duplicate handshakes,and retain ownership on partial
+or uncertain writes. The new one-shot handshake model supplies no hardware
+readback or packet-number proof. Ordinary RX,desktop and accepted v127 remain
+unchanged until a separately qualified native implementation is staged.
