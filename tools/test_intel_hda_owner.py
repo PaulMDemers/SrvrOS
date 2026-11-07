@@ -3,7 +3,7 @@ import re,subprocess,unittest
 from intel_hda_owner import owner_result,owner_summary,native_owner_result,verify_owner_checkpoint
 ROOT=Path(__file__).resolve().parents[1]
 CORE=('normal','facts','zero','frozen','backward','guard','late-guard','inspect-fail','inspect-slow','active','late-active','buffer','corb','intctl','reset','topology','changed','self-copy','map-retained','resource-change','power-change','unissued','uncertain','restore-fail','write-slow','readback')
-ADAPTER=('normal','active','changed','max','loader','efi','recipe','irq','id','revision','subsystem','bar','high','d3','decode','cache','late-cache','power-change','map','retire','over','float','read','slow','ram','cr3','alias','stolen','late-active','late-retire','store-none','store-uncertain','readback','restore-none','write-slow')
+ADAPTER=('normal','active','changed','max','loader','efi','recipe','irq','id','revision','subsystem','bar','high','d3','decode','cache','late-cache','power-change','map','retire','over','float','read','slow','ram','cr3','alias','stolen','late-active','late-retire','store-none','store-uncertain','readback','restore-none','write-slow','store-cache','store-power','store-cr3','store-alias','store-parent','restore-readback','final-active')
 def adapter(mode):return subprocess.check_output([str(ROOT/'build/tests/intel-hda-owner-adapter'),mode],text=True)
 class OwnerTests(unittest.TestCase):
  def test_core(self):
