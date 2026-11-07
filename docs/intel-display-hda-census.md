@@ -84,12 +84,21 @@ native firmware/cache chain, exact endpoint and independent HDA-page UC proof.
 It verifies read widths/counts, topology, derived RUN/DMA/stability masks,
 budgets and alias/exclusion closeout. Preserve prior files, check offline media,
 Ubuntu default/recovery and consumed one-shot before starting another run.
-Candidate `8185aa9875c61e9a`, source `7d7dfa56`, is installed and not armed.
-The full local host/build/sanitizer/negative-control and exact-stage VM matrix
-passes; native acceptance is pending. The accepted BCS/reader baseline `32859f5868aedd46`
-and recovery are retained. Worst-case native log projection fits the existing tail.
-See the [unit readiness record](machines/macbookair7-2.md#read-only-display-hda-candidate-ready-native-acceptance-pending)
-for matching payloads, media and independently SHA-backed evidence.
+Release `8185aa9875c61e9a`, source `7d7dfa56`, now has native observation
+acceptance in session `session-00065fa7f3c39876-00`. Both snapshots match across
+58 reads: GCAP3001, three output streams with RUN clear, command/response and
+position DMA enables clear, while PCI bus mastering remains enabled. The core
+completed in415us and the full bracket in22,180us; five cache checks and64 guards
+pass, the sole CPU alias retires, retained0 and zero device writes. Saved
+preflight, completed exit, prior-file preservation, offline media/recovery and
+automatic Ubuntu return verify. No further trial is armed.
+
+The full source-matched host/build/sanitizer/negative-control and exact-stage VM
+matrix also passes. The accepted BCS/reader baseline `32859f5868aedd46` and
+recovery remain retained. See the [unit acceptance record](machines/macbookair7-2.md#native-display-hda-read-only-census-accepted)
+for the matching evidence and limits. Clear controls in two snapshots do not
+establish hardware submission ownership, outstanding-transaction retirement or
+permission to reuse memory.
 
 ## Remaining ownership obligations
 

@@ -2,23 +2,43 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
-### Active scope: isolated read-only display-HDA DMA census
+### Current checkpoint: read-only display-HDA observation accepted
 
-Main `4cb7b5a7` is integrated; its dormant Air6,1 window backend does not enable
-Air7,2 GPU memory. PR19 is Pro Wi-Fi and PR379 WebCore; no current GPU/HDA overlap
-was found. Add a dedicated CPU0-only, EFI64/pinned-loader, exact-recipe image
-for display HDA00:03.0 (8086:160c rev09 / Apple011b). Capture two bounded passes
-of standard non-clearing global, command-DMA and stream descriptor controls/
-addresses through one private RO/NX/UC alias. Require exact captured BAR/resource,
-D0 and memory decode, native prerequisites and CPU-client exclusion. No MMIO or
-config writes, power/wake/reset, codec commands, ring/stream stop, DMA retirement
-or memory grant. Keep this separate from GT wake/BCS profiles and ordinary audio.
-Touch the observer/core/cache predicate, staging/collector/tests and docs. The
-[read-only HDA contract](../intel-display-hda-census.md) records remaining
-translation/cache obligations and evidence limits. Validate one matched source
-and exact stage, preserve all recovery/evidence and stop ready for a hardware trial.
+PR301 includes main `4cb7b5a7`; tested source `7d7dfa56` produced release
+`8185aa9875c61e9a`. Its isolated native read-only display-HDA observation now
+passes. No new test is armed. The next scope is accounting for remaining
+firmware/DMA submission ownership and GPU/display readers before proposing
+managed GPU memory. The [HDA contract](../intel-display-hda-census.md) records
+these obligations; no hardware ownership or physical tear-free is granted.
 
-### Read-only display-HDA candidate ready (native acceptance pending)
+### Native display-HDA read-only census accepted
+
+Session `session-00065fa7f3c39876-00` completed and returned to Ubuntu, with the
+saved preflight binding verified and zero collector attention. Two snapshots
+match: GCAP3001 exposes three output streams; GCTL1 leaves the controller out
+of reset; INTCTL, CORB/RIRB controls and addresses, DMA-position controls and
+addresses are zero. All three stream controls are040000 (RUN clear), with zero
+CBL/LVI/BDL addresses. PCI command0006 still has bus mastering enabled.
+These are bounded observations, not proof of absent outstanding DMA, prefetch
+or firmware/SMM ownership.
+
+The core performed58 reads in415us; the full alias/exclusion bracket took22,180us,
+inside the unchanged200ms/500ms bounds. All64 guards and five cache-context checks
+pass; the single RO/NX/UC alias retires, exclusion releases, retained0. There
+were zero config/MMIO data writes, wake/reset/acknowledgement or GPU PTE writes.
+The exit log is58,140 bytes, within the unchanged65,536-byte tail.
+
+All1,353 prior files are preserved except expected workspace metadata; three new
+logs hash-verify (1,356 files /108 sessions). Offline fsck/allocation/writable/
+headroom, installed/durable/archive recovery, Ubuntu default and consumed
+one-shot checks pass. USB is unmounted; the requested host volume was1% and
+this guest profile initializes no audio playback. Run records, full return proof
+and independently SHA-verified backup remain in the local evidence paths below.
+No DMA/reader/engine retirement, managed GPU range or physical tear-free is
+accepted. Next work must resolve ownership rather than treating clear RUN bits
+as permission to reuse memory.
+
+### Historical read-only display-HDA readiness (before accepted trial)
 
 Release `8185aa9875c61e9a`, tested source `7d7dfa56`, is installed and **not armed**.
 It is a distinct 12-token EFI64/Limine11.4.1 image with no GT wake, engine-census
