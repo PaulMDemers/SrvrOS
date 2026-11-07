@@ -8591,3 +8591,19 @@ VMM/gate fault tests, native compile-only object, sanitizer/ARM64 coverage and
 matched normal/AP/core/VM regression proof. Full raw serialization and a fresh
 native bridge precede the distinct no-target-load qualification. PR301/PR19
 retain independent scope; no competing VMM/window edit is listed there.
+
+### Dormant two-pass backend implemented (2026-11-07)
+
+The compile-only `SRVROS_AIR61_READ_WINDOW` engine now retains two complete raw
+contexts with independent100ms attempts, exact A-preseeded owned paths,12
+zero-load markers/pass and measured20–100ms inter-pass gap. Actual existing gate
+instances charge3996 firmware bytes and63476 mapper words/pass, including the
+128-row catalog. Neither budget changed. One adjacent phase1 source token is
+consumed exactly once; lifecycle page scans and per-slot exact paths remain.
+
+Host regressions cover both passes, raw path bits, fresh source/cache/root/token
+changes, IRQ exclusion, deadlines, reentry, allocation, invalidation, uncertain
+cleanup, retained first-pass evidence and profile mutual exclusion. No native
+bridge, boot caller, target-load API, installed payload change or reboot is
+introduced. Full raw serialization plus a fresh native bridge precede a distinct
+no-target-load qualification; existing read/ownership acceptance remains false.

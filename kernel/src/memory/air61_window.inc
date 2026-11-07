@@ -171,6 +171,9 @@ const struct hac_result *vmm_air61_window_census(void){return &aw.census;}
 const struct air61_window_evidence *vmm_air61_window_evidence(void){return &aw.evidence;}
 bool vmm_air61_window_prepare(const struct air61_window_env *io,uint64_t owner,uint64_t epoch,struct air61_window_token *out){
  if(aw.busy)return aw_reentry();
+#ifdef SRVROS_AIR61_READ_WINDOW
+ if(vmm_air61_read_window_result()->attempted)return false;
+#endif
  if(aw.r.state!=AIR61_WINDOW_NEW || !io || !io->check || !io->ram || !io->now || !owner || !epoch || !out)return false;
  aw.busy=true;aw.r.state=AIR61_WINDOW_CLAIMED;aw.r.claimed=true;aw.io=*io;
  aw.r.token=(struct air61_window_token){owner,epoch,kernel_cr3};aw.hhdm=pmm_hhdm_offset();aw.r.hhdm=aw.hhdm;
