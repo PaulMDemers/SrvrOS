@@ -85,10 +85,11 @@ inherited display allocations protected. Actual write/prefetch completion, GPU
 pipeline flush, maintained translation invalidation and CPU/GPU cache ordering
 must be established before transferring backing or enabling page flips.
 
-## Validated Air7,2 candidate
+## Accepted Air7,2 handshake
 
-Source `a54e2ebd`, release `46037d20cb190504`, is installed and not armed; native
-readiness remains pending. The [unit readiness record](machines/macbookair7-2.md#bcs-reset-readiness-ready-for-hardware)
+Source `a54e2ebd`, release `46037d20cb190504`, completed native session
+`session-00065fb8543ce79c-00` and returned automatically. The
+[unit acceptance record](machines/macbookair7-2.md#current-checkpoint-bcs-reset-readiness-accepted)
 records72 current-source validation jobs, fatal33 core/32 adapter sanitizer cases,
 13-image isolation,64 detected compiled controls (including2 actual native MMIO/
 mapping-table controls), exact-stage Q35 and61,553-byte conservative log projection.
@@ -96,5 +97,9 @@ Unchanged protocol evidence retains its original source and verified log hashes;
 full host/core and changed dependent tests rerun. The new upper-mask fixture,
 late clean-return deadline and retained-GT automatic-return gate are covered.
 Media/recovery/default and check-only reboot guards pass; volume1%, audio off,
-no human input required. Hardware readiness, actual reset/completion and cache/
-backing ownership remain unaccepted. No reboot is armed by this checkpoint.
+no human input required. Native readiness/cancellation now passes with control endpoints 0/3/0/0,
+20 reads/two polls/two masked stores and clean borrow return in80,407us.
+The full outer lifetime is341,736us within500ms, with nine aliases retired and
+retained=0. The59,184-byte exit receipt, preserved prior files, offline media,
+recovery and consumed one-shot checks pass. Actual reset/completion and cache/
+backing ownership remain unaccepted; obligations stay255. No reboot is armed.

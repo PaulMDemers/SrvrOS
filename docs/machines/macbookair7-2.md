@@ -2,7 +2,45 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
-### BCS reset readiness ready for hardware
+### Current checkpoint: BCS reset readiness accepted
+
+Release `46037d20cb190504`, tested source `a54e2ebd`, completed native session
+`session-00065fb8543ce79c-00` and returned automatically. Strict native/UC,
+completion census and saved checkpoint validation pass, with no collector
+attention or errors. The complete exit receipt is 59,184 bytes within the
+unchanged 65,536-byte tail.
+
+BCS request/ready/cancel control endpoints are 0/3/0/0. Both eight-word BCS
+snapshots match at 0/0/0/0/1/0/512/0. The dependent performs 20 reads, two polls
+and exactly two masked stores in 80,407 us, within its unchanged 100 ms bound.
+The registered borrow blocks parent close, returns cleanly and leaves no
+uncertainty. The preceding 92-read census completes in 63,228 us. The full outer
+wake receipt spans 341,736 us within 500 ms; this includes pre/post firmware and
+mapping work and is distinct from the internal 300 ms GT-owner bound. Nine
+aliases retire, nine cache checks and 151 guards pass, three existing GT stores
+run, and retained state is zero. No timeout was widened.
+
+This accepts only reset readiness/cancellation. There is no actual engine
+reset, posted-write/prefetch drain, pipeline flush, translation/cache/backing
+retirement, managed GPU allocation or physical tear-free acceptance. All eight
+obligations remain open (255); prior reader/HDA trials are separate lifetimes.
+
+All 1,368 prior files except expected `.srvros/meta` remain unchanged. Three new
+SHA-verified logs bring the inventory to 1,371 files/113 sessions. Offline fsck,
+allocation, writable/headroom, installed/durable/archive recovery, Ubuntu default
+and consumed one-shot checks pass. USB is unmounted, volume 1%, guest audio off,
+no reboot armed. Current4603/recovery `9aa8dbf6fbda8252` remain installed. Full
+returned proofs are under `build/air-retirement-20261107/returned`, with independent
+SHA-verified evidence backup under
+`~/.local/share/srvros/reviewed-evidence/air-retirement-20261107`.
+
+Next: qualify a documented controlled-reset domain and outstanding-memory
+completion guarantees, then maintained translation/cache ownership. Keep all
+inherited display/firmware backing protected. Newly fetched main `a9c1f714`
+(PR407/408 Air6,1 isolated two-pass qualification) is inspected but not integrated;
+this acceptance belongs to the exact source above.
+
+### Historical BCS reset readiness: ready for hardware
 
 Main `a35a1952` is integrated. Tested source `a54e2ebd` produces release
 `46037d20cb190504`, installed **not armed**; physical acceptance is pending.
@@ -62,7 +100,7 @@ visible pre-entry warning without bypassing display exclusion. Reboot guards
 are **check-only** and no one-shot is armed. Collect the matching session first
 after the next trial. PR19 Wi-Fi and PR379 WebCore retain independent scope.
 
-### Current checkpoint: engine/flip-wait/cache prerequisite audit accepted
+### Earlier engine/flip-wait/cache prerequisite audit accepted
 
 Release `6c2fffbf241a110a`, tested source `a24c164a`, completed native session
 `session-00065fb6dba7b000-00` and returned automatically to Ubuntu. Strict native
