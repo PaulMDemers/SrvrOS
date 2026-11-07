@@ -8057,3 +8057,32 @@ raw session/epoch/source linkage and reject missing/cross-session/changed proofs
 old context-only mode must remain blocked. Replay the exact accepted receipt,
 publish source findings and the next bounded implementation contract. No physical
 rerun is required for a host-only audit; retain accepted payload/recovery.
+
+
+### Post-census admission audit complete (2026-11-06)
+
+The host tool now requires both raw logs and the exact session for boot-proof
+mode and uses the existing strict joint decoder. The accepted `ab360d3ce2d281e4`
+receipt replays as `HOST_BOOT_ADMISSION_AUDIT_BLOCKED`: historical boot mapping,
+complete30-table managed-root coverage and enabled NX are observed, with zero
+target leaves; every live resource/mapping/read/ownership grant remains false.
+Legacy context-only replay remains blocked and unchanged.
+
+Source inspection confirms PMM reservation is not an exclusive device lease;
+the128-row public VMM list is partial; the sole-root predicate assumes its CPU0
+caller and does not validate AP state; generic existing-map acceptance checks
+PA rather than exact flags; generic unmap lacks an expected-leaf token, clear
+readback and retained poison. The ECAM boot backend owns a separate permanent
+window and is not a resource grant. The [read-window design](../macbookair6-1-vtd-read-window-design.md)
+specifies fresh whole-lifetime exclusion, exact-page token, absent-slot/owned
+publication, RO/NX/non-global/UC verification, per-load translation checks and
+expected-leaf/TLB retirement with retained claims/backing on uncertainty.
+
+Affected firmware/read/admission/cache/alias/ECAM/layout/collector suites pass,
+including four new boot-admission tests using the real producer, maximum
+fixture, missing/changed/cross-session/raw/completion refusal, external-claim
+non-authority and CLI argument pairing. Exact accepted native replay and docs
+checks pass. No kernel/profile/policy/limit change or new physical acceptance;
+installed payload/recovery unchanged and no boot armed. Next implementation is
+a dormant checked resource/mapping backend with actual-source failure fixtures,
+then window-only qualification before any separately opted-in target reads.

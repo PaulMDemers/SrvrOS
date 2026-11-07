@@ -4722,7 +4722,7 @@ build/ap-probe/haswell-firmware-adapter.o: kernel/diagnostics/haswell_firmware_a
 
 .PHONY: test-haswell-firmware
 test-core: test-haswell-firmware
-test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-firmware-adapter$(HOST_EXE)
+test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-firmware-adapter$(HOST_EXE) build/tests/ecam-profile$(HOST_EXE)
 	build/tests/hsw-firmware-core$(HOST_EXE) > build/tests/hsw-firmware-core.log
 	build/tests/hsw-firmware-adapter$(HOST_EXE) > build/tests/hsw-firmware-refusal.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_firmware.py
