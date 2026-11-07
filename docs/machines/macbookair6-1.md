@@ -8038,3 +8038,51 @@ Next is an audit of remaining live resource/alias/leaf admission and checked
 retirement before any separately opted-in VT-d read window. Keep ordinary
 startup and power policy unchanged. Actual ownership, reference-count discrepancy,
 GT/full-path swizzle, RC6 timing and package-C3 blockers remain separate.
+
+
+### Post-census admission audit scope (2026-11-06)
+
+Base `4bba4b93`; accepted release `ab360d3ce2d281e4` is collected and closed,
+no boot armed. Consume its strict same-session dual-file boot/root proof in the
+host-only VT-d admission audit. Distinguish observed boot-only30-table coverage
+and NX state from fresh live exclusion, a device-resource lease, actual RO/NX/UC
+leaf admission and poisoned retirement. Reinspect current PMM/VMM APIs and
+PR301's actual merge-base delta without editing its separate ownership work.
+Current PR301 has no new memory/alias-core delta from its integration ancestor;
+PR19 Wi-Fi and PR379 WebCore remain independent.
+
+Touched scope: host admission tool/refusal tests and own current machine/DMA
+guides. No kernel, profile, policy, limit, mapping or device-read change. Validate
+raw session/epoch/source linkage and reject missing/cross-session/changed proofs;
+old context-only mode must remain blocked. Replay the exact accepted receipt,
+publish source findings and the next bounded implementation contract. No physical
+rerun is required for a host-only audit; retain accepted payload/recovery.
+
+
+### Post-census admission audit complete (2026-11-06)
+
+The host tool now requires both raw logs and the exact session for boot-proof
+mode and uses the existing strict joint decoder. The accepted `ab360d3ce2d281e4`
+receipt replays as `HOST_BOOT_ADMISSION_AUDIT_BLOCKED`: historical boot mapping,
+complete30-table managed-root coverage and enabled NX are observed, with zero
+target leaves; every live resource/mapping/read/ownership grant remains false.
+Legacy context-only replay remains blocked and unchanged.
+
+Source inspection confirms PMM reservation is not an exclusive device lease;
+the128-row public VMM list is partial; the sole-root predicate assumes its CPU0
+caller and does not validate AP state; generic existing-map acceptance checks
+PA rather than exact flags; generic unmap lacks an expected-leaf token, clear
+readback and retained poison. The ECAM boot backend owns a separate permanent
+window and is not a resource grant. The [read-window design](../macbookair6-1-vtd-read-window-design.md)
+specifies fresh whole-lifetime exclusion, exact-page token, absent-slot/owned
+publication, RO/NX/non-global/UC verification, per-load translation checks and
+expected-leaf/TLB retirement with retained claims/backing on uncertainty.
+
+Affected firmware/read/admission/cache/alias/ECAM/layout/collector suites pass,
+including four new boot-admission tests using the real producer, maximum
+fixture, missing/changed/cross-session/raw/completion refusal, external-claim
+non-authority and CLI argument pairing. Exact accepted native replay and docs
+checks pass. No kernel/profile/policy/limit change or new physical acceptance;
+installed payload/recovery unchanged and no boot armed. Next implementation is
+a dormant checked resource/mapping backend with actual-source failure fixtures,
+then window-only qualification before any separately opted-in target reads.

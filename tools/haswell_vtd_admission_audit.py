@@ -8,6 +8,8 @@ from hardware_haswell_cache import cache_result, effective, UNIT, WINDOW
 from hardware_haswell_firmware import firmware_result
 from haswell_vtd_read_audit import candidate_resource
 from haswell_backing_audit import unsigned
+from hardware_haswell_alias import alias_preinit_result
+from hardware_haswell_ecam import ecam_result
 
 # A prospective fresh 4KiB PTE: P, PWT, PCD, XD. PAT=0 selects PAT slot3.
 # This is a model, not a PTE store or proof of EFER.NXE/current permissions.
@@ -21,6 +23,16 @@ REQUIRED = (
     'actual-supervisor-RO-NX-nonglobal-4KiB-leaf-and-effective-UC',
     'verified-clear-and-local-TLB-retirement-before-reuse',
     'uncertain-publication-or-retirement-poisons-window-until-reboot',
+)
+BOOT_REQUIRED = (
+    'exclusive-exact-page-resource-lease-and-competing-client-exclusion',
+    'fresh-CPU0-root-and-complete-alias-exclusion-through-retirement',
+    'fresh-firmware-cache-NX-and-CR0-WP-guards-at-use',
+    'expected-absent-slot-and-owned-frame-publication-with-readback',
+    'actual-supervisor-RO-NX-nonglobal-4KiB-leaf-and-effective-UC',
+    'exact-translation-before-each-audited-register-read',
+    'verified-expected-leaf-clear-and-local-TLB-retirement-before-reuse',
+    'uncertain-publication-or-retirement-retains-claim-and-poisons-until-reboot',
 )
 
 
@@ -73,11 +85,46 @@ def audit(text):
                 next_step='bounded read-only relevant-root/alias and NX-state diagnostics; no device mapping')
 
 
+def audit_boot_context(ecam_text, exit_text, session):
+    """Consume saved boot evidence; never convert it to a live resource grant."""
+    if not all(isinstance(v, str) and v for v in (ecam_text, exit_text, session)):
+        raise ValueError('both raw logs and their exact session required')
+    joint = ecam_result(ecam_text, exit_text, session)
+    if not joint or joint['status'] != 'OBSERVED_BOOT_ECAM_AND_MANAGED_ROOT' or not joint['source_completed']:
+        raise ValueError('complete same-session boot ECAM and managed-root proof required')
+    alias = alias_preinit_result(exit_text)
+    if not alias or alias['status'] != 'OBSERVED_MANAGED_ROOT_CONTEXT':
+        raise ValueError('complete pre-user-init raw root proof required')
+    report = audit(exit_text)
+    report.update(status='HOST_BOOT_ADMISSION_AUDIT_BLOCKED',
+                  ecam_receipt_sha256=hashlib.sha256(ecam_text.encode()).hexdigest(),
+                  historical_boot_mapping_observed=True,
+                  historical_managed_root_coverage_observed=True,
+                  historical_nx_enablement_observed=alias['nx_enablement_observed'],
+                  boot_context=dict(session=session, epoch=joint['epoch'], root=joint['root'],
+                                    pages=alias['pages'], reads_per_pass=alias['reads_per_pass'],
+                                    raw_encoded_bytes_per_pass=alias['raw_encoded_bytes_per_pass'],
+                                    begin_us=alias['begin_us'], end_us=alias['end_us'],
+                                    preparation=alias['preparation'],
+                                    target_leaf_count=len(alias['target_leaves']),
+                                    unchanged_two_pass_raw=alias['unchanged_two_pass_raw'],
+                                    scope='saved pre-user-init sole-managed-root epoch only'),
+                  live_post_init_admission=False,
+                  unresolved_prerequisites=list(BOOT_REQUIRED),
+                  next_step='design exact-page resource claim and checked RO/NX/UC mapping lifetime; no target access')
+    return report
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--exit-log', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--ecam-log', type=Path)
+    parser.add_argument('--session')
     args = parser.parse_args()
-    report = audit(args.exit_log.read_text())
+    if (args.ecam_log is None) != (args.session is None):
+        parser.error('--ecam-log and --session must be supplied together')
+    report = (audit_boot_context(args.ecam_log.read_text(), args.exit_log.read_text(), args.session)
+              if args.ecam_log else audit(args.exit_log.read_text()))
     args.output.write_text(json.dumps(report, indent=2) + '\n')
     print(report['status'] + ': historical context classified; live resource/alias/leaf admission remains unproved')
