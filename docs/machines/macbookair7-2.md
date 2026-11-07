@@ -2,19 +2,19 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
-### Active scope: bounded idle blitter disable and reader audit
+### Active scope: already-disabled BCS reader path
 
-Main `e1a30e1e` is integrated as `b59f49aa`; PR19 remains Pro Wi-Fi, PR379
-WebCore. PR301 continues from the collected native census at531/ac9. Add an
-explicit compiled/recipe-gated boot BCS submission-domain handoff assumption,
-then admit only an already-idle, empty, exact captured ring. One control write
-may clear its enable bit; no Stop Ring, reset, submission, head/tail or restore
-writes. Uncertain issued writes retain wake/exclusion/mappings until reset.
-Observe primary/sprite/cursor controls and surfaces without changing display;
-keep audio/DMA and memory authority unresolved. Touch the dedicated adapter,
-new protocol/decoder, staging/collection/tests and docs. Preserve ordinary and
-prior diagnostic gates. Validate a matched source and exact stage, prepare
-recovery/run/backup, and stop ready for a hardware test; no reboot this block.
+Actual main `b9615fc5` is integrated before this change; Air6,1 process-mapping,
+ECAM and raw-census changes do not grant Air7,2 device acceptance. PR19 is Pro
+Wi-Fi and PR379 WebCore; neither overlaps this bounded GPU diagnostic.
+Extend the dedicated BCS core/adapter, strict receipt decoder and host fixtures
+with an explicit already-disabled/no-control-write branch. Require exact zero
+ring geometry, idle legacy state, live parent lease, guards/deadlines and stable
+before/after snapshots. Preserve enabled-ring write eligibility and uncertainty
+retention. Distinguish observed disabled from a performed disable in receipts;
+run the same bounded reader audit without granting retirement or memory authority.
+Validate one exact source/stage, preserve recovery/USB evidence, prepare the
+next automated candidate and stop ready without rebooting.
 
 ### Blitter/reader implementation checkpoint (native trial pending)
 
