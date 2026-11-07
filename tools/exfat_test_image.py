@@ -81,6 +81,72 @@ class ExfatFixture:
         struct.pack_into('<H', entry, 2, value)
         return entry
 
+    def copy_file_aliases(self):
+        """Materialize exact file aliases in a disposable in-memory fixture.
+
+        The generated OS image deliberately shares immutable extents. External
+        exfatprogs does not support that extension. Allocate independent copies
+        before a standard-filesystem VM study; never change the source image.
+        Refuse directory aliases, partial overlap and insufficient space before
+        changing any bytes. Return the number of copied file entries.
+        """
+        def clusters(first, size=None, contiguous=False):
+            out, seen = [], set()
+            count = None if size is None else (size+self.cluster-1)//self.cluster
+            while first < 0xfffffff8 and (count is None or len(out)<count):
+                self.offset(first)
+                if first in seen: raise ValueError('Cluster loop')
+                seen.add(first);out.append(first)
+                first = first+1 if contiguous else self.u32(self.fat+first*4)
+            if count is not None and len(out)!=count: raise ValueError('Short chain')
+            return out
+
+        owners, directories, records, directory_clusters = {}, set(), [], set()
+        def walk(first, size=None, contiguous=False):
+            chain=clusters(first,size,contiguous)
+            if any(c in directory_clusters for c in chain): raise ValueError('Directory alias')
+            directory_clusters.update(chain)
+            raw=self.chain(first,size,contiguous);off=0
+            while off+32<=len(raw) and raw[off]:
+                if raw[off]!=0x85:off+=32;continue
+                length=(raw[off+1]+1)*32;entry=raw[off:off+length]
+                if len(entry)!=length or off%self.cluster+length>self.cluster: raise ValueError('Split entry')
+                child=struct.unpack_from('<I',entry,52)[0];n=struct.unpack_from('<Q',entry,56)[0]
+                allocated=clusters(child,n,bool(entry[33]&2)) if n else []
+                if struct.unpack_from('<H',entry,4)[0]&16:walk(child,n,bool(entry[33]&2))
+                elif n:
+                    key=(tuple(allocated),n,struct.unpack_from('<Q',entry,40)[0])
+                    overlap={owners[c] for c in allocated if c in owners}
+                    if overlap and overlap!={key}:raise ValueError('Partial file overlap')
+                    if overlap:records.append((self.offset(chain[off//self.cluster])+off%self.cluster,entry,self.chain(child,n,bool(entry[33]&2))))
+                    else:
+                        for c in allocated:owners[c]=key
+                off+=length
+        walk(self.root)
+        if directory_clusters.intersection(owners):raise ValueError('File/directory overlap')
+        root=self.chain(self.root);bitmap_entries=[root[i:i+32] for i in range(0,len(root),32) if root[i]==0x81]
+        if len(bitmap_entries)!=1:raise ValueError('Allocation bitmap count')
+        bitmap=self.offset(struct.unpack_from('<I',bitmap_entries[0],20)[0])
+        bitmap_size=struct.unpack_from('<Q',bitmap_entries[0],24)[0]
+        if bitmap_size>self.cluster or bitmap_size<(self.count+7)//8:raise ValueError('Unsupported bitmap span')
+        needed=sum((len(payload)+self.cluster-1)//self.cluster for _,_,payload in records)
+        free=[i+2 for i in range(self.count) if not self.data[bitmap+i//8]&(1<<(i%8))][:needed]
+        if len(free)!=needed:raise ValueError('Fixture full')
+        cursor=0
+        for offset,original,payload in records:
+            count=(len(payload)+self.cluster-1)//self.cluster;chain=free[cursor:cursor+count];cursor+=count
+            for i,c in enumerate(chain):
+                bit=c-2;self.data[bitmap+bit//8]|=1<<(bit%8)
+                struct.pack_into('<I',self.data,self.fat+c*4,chain[i+1] if i+1<count else 0xffffffff)
+                block=payload[i*self.cluster:(i+1)*self.cluster];at=self.offset(c)
+                self.data[at:at+self.cluster]=block+b'\0'*(self.cluster-len(block))
+            entry=bytearray(original);entry[33]&=~2;struct.pack_into('<I',entry,52,chain[0])
+            checksum=0
+            for i,b in enumerate(entry):
+                if i not in (2,3):checksum=(((checksum&1)<<15)|(checksum>>1))+b;checksum&=0xffff
+            struct.pack_into('<H',entry,2,checksum);self.data[offset:offset+len(entry)]=entry
+        return len(records)
+
     def add_request(self, run, version=1):
         self.add_directory_file('srvros-tests', f'{run}.req',
                                 f'SRVROS-AUTOTEST-V{version} {run}\n'.encode())

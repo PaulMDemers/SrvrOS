@@ -17,6 +17,7 @@ int main(int argc,char **argv) {
     }
     assert(help_topic_count<=DESK_PALETTE_ITEMS && help_topic_alias(NULL)->id==1 && help_topic_alias("unknown")->id==1);
     assert(desk_dock_count()==6 && !desk_application_info(DESK_APP_HELP)->dock);
+    assert(help_topic_alias("wifi-trial")->id==23);
     initialize();app.window.width=760;app.window.height=540;app.window.focused=1;app.window.server=42;
     for(unsigned i=0;i<help_topic_count;i++) {
         const struct help_topic *p=&help_topics[i];assert(help_topic(p->id)==p && help_topic_alias(p->alias)==p);

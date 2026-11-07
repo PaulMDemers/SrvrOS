@@ -1,0 +1,10 @@
+{
+  "source": "Linux v7.0 mt76x0/initvals_phy.h non-SDM channel161 row",
+  "frequency_mhz": 5805,
+  "sha256": "d55e35b3664c59ee93ef4eb4651bab0d518e9b95697381e380f7d4be4eb69978",
+  "native_called": false,
+  "radio_authorized": false,
+  "source_url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_phy.h",
+  "source_sha256": "5a1f239a47c22f2d5ac58c806fbf93d36a4f0467dea9d4faee6e9bab4be5d0f6",
+  "scope": "Frequency fields only;not 5GHz band/baseband/VCO/calibration/receive or TX authorization"
+}

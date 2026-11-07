@@ -1,4 +1,5 @@
 /* Real exFAT backend against a disposable synthetic volume. */
+#define _POSIX_C_SOURCE 200809L
 #include <stdlib.h>
 static size_t measured_max_malloc;
 static void *measured_malloc(size_t n) {
@@ -18,10 +19,12 @@ static void *measured_malloc(size_t n) {
 #include <srvros/syscall_numbers.h>
 static uint64_t max_read_transfer,max_write_transfer;
 bool block_read(struct block_device *d,uint64_t o,void *p,uint64_t n) {
-    if(n>max_read_transfer)max_read_transfer=n;assert(n<=65536);return stream_mock_read(d,o,p,n);
+    if(n>max_read_transfer)max_read_transfer=n;
+    assert(n<=65536);return stream_mock_read(d,o,p,n);
 }
 bool block_write(struct block_device *d,uint64_t o,const void *p,uint64_t n) {
-    if(n>max_write_transfer)max_write_transfer=n;assert(n<=65536);return stream_mock_write(d,o,p,n);
+    if(n>max_write_transfer)max_write_transfer=n;
+    assert(n<=65536);return stream_mock_write(d,o,p,n);
 }
 
 static unsigned ram_reads;
@@ -150,7 +153,8 @@ int main(int argc,char **argv) {
     for(at=0;at<count;) {
         uint64_t n=count-at;if(n>65536)n=65536;
         assert(exfat_stream_pread((uint64_t)h,buf,n,at)==(int64_t)n);
-        for(uint64_t j=0;j<n;j++)assert(buf[j]==pattern(at+j));at+=n;
+        for(uint64_t j=0;j<n;j++)assert(buf[j]==pattern(at+j));
+        at+=n;
     }
     assert(exfat_stream_pread((uint64_t)h,buf,1,count)==0);
     int64_t stale=h;assert(exfat_stream_close((uint64_t)h)==0);
@@ -161,7 +165,8 @@ int main(int argc,char **argv) {
     for(at=0;at<count;) {
         uint64_t n=count-at;if(n>65536)n=65536;
         assert(exfat_stream_pread((uint64_t)h,buf,n,at)==(int64_t)n);
-        for(uint64_t j=0;j<n;j++)assert(buf[j]==pattern(at+j));at+=n;
+        for(uint64_t j=0;j<n;j++)assert(buf[j]==pattern(at+j));
+        at+=n;
     }
     assert(exfat_stream_close((uint64_t)h)==0);
     struct exfat_check_result check={0};assert(exfat_check("/vol",&check));

@@ -11,7 +11,11 @@ from pathlib import Path
 import hardware_test as host
 
 SESSION = re.compile(r"session-[0-9a-f]{16}-[0-9a-f]{2}")
-FILES = ("boot.log", "session-a.log", "session-b.log", "exit.log")
+FILES = ("boot.log", "session-a.log", "session-b.log", "exit.log", "wifi-scan.log", "wifi-ui-begin.log")
+# Default transport bound; the explicit held-radio capture below has its own bound.
+# This transport ceiling does not establish capture completeness or acceptance.
+MAX_LOG_BYTES = 1024 * 1024
+RADIO_LOG_BYTES = 2 * 1024 * 1024
 
 
 def session_releases(text):
@@ -614,7 +618,14 @@ def battery_preflight_result(text):
     return dict(zip(('pm1_control','pm1_status','pm1_enable','ec_status'),values),gpe=[{'byte':int(i),'status':int(st,16),'enable':int(en,16)} for i,st,en in rows],hardware_acceptance='pending',battery_samples=False)
 
 
-def collect(mount, volume, output):
+def collect(mount, volume, output, *, radio_capture=None):
+    # Only one caller-identified session/release may use the fixed larger bound.
+    # This transports evidence; it does not establish hardware acceptance.
+    if radio_capture is not None:
+        if (not isinstance(radio_capture,tuple) or len(radio_capture)!=2 or
+                not all(isinstance(v,str) for v in radio_capture) or
+                not SESSION.fullmatch(radio_capture[0]) or not re.fullmatch(r"[0-9a-f]{16}",radio_capture[1])):
+            raise ValueError("Invalid explicit radio capture identity")
     workspace = mount / "srvros-work"
     marker = workspace / ".workspace"
     if workspace.is_symlink() or marker.is_symlink() or not marker.is_file():
@@ -641,14 +652,23 @@ def collect(mount, volume, output):
                 raise ValueError(f"Unsafe log path: {folder.name}/{name}")
             if not source.exists():
                 continue
-            if not source.is_file() or source.stat().st_size > 65536:
+            extended=radio_capture is not None and folder.name==radio_capture[0] and name in FILES
+            limit=RADIO_LOG_BYTES if extended else MAX_LOG_BYTES
+            if not source.is_file() or source.stat().st_size > limit:
                 raise ValueError(f"Invalid log: {folder.name}/{name}")
             total_bytes += source.stat().st_size
             if total_bytes > 64*1024*1024:
                 raise ValueError("Collection exceeds 64 MiB; archive older session folders first")
             payload[name] = source.read_bytes()
-            if len(payload[name]) > 65536:
+            if len(payload[name]) > limit:
                 raise ValueError("Log changed while reading")
+            if len(payload[name])>MAX_LOG_BYTES:
+                text=payload[name].decode("utf-8",errors="strict")
+                required={"srvros.desktop-release="+radio_capture[1],"srvros.wifi-held-channel=1","srvros.capture=wifi-firmware","srvros.capture-failure=reboot"}
+                records=(line[len(prefix):].split() for line in text.splitlines()
+                         for prefix in ("cmdline: ","laptop-capture: boot options=") if line.startswith(prefix))
+                if session_releases(text)!=[radio_capture[1]] or not any(required.issubset(tokens) for tokens in records):
+                    raise ValueError("Large radio log lacks matching boot identity/profile")
         snapshots.append((folder.name, payload))
     output.mkdir(parents=True, exist_ok=True)
     destination = Path(tempfile.mkdtemp(prefix="collection-", dir=output))

@@ -681,6 +681,15 @@ for an explicitly attended diagnostic. Existing installed recipes keep their
 original behavior; restage to obtain automatic failure return. The guided v32
 AC transition trial remains attended and must be announced in advance.
 
+For the captured Edimax USB Wi-Fi identity diagnostic, stage with
+`python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --wifi-capture`.
+The immutable v39 profile enables only the read-only identity probe and automatic
+capture/return. Run `python3 tools/hardware_boot_smoke.py --probe-check --workspace-table gpt`
+against that exact stage. An absent radio in QEMU must report unavailable identity,
+save `completed=NO`, unmount and reset. Require a saved matching native identity
+before accepting the hardware read; neither capture completion nor VM refusal
+accepts Wi-Fi connectivity. See [USB Wi-Fi](usb-wifi.md).
+
 ### Mounted Home battery boundary (Air diagnostic)
 
 After the parked battery/filesystem captures, the explicit v48 `--battery-home`
@@ -793,9 +802,78 @@ use `write /work/srvros-work/console-test.txt test-text` followed by
 filename and verify its contents after returning to Ubuntu.
 
 
-On a halt, photograph the complete diagnostics before manually restarting. After
-Ubuntu returns, mount the same volume and reload its UUID/release from the local
-record. Collect before preparing another run:
+For automatic diagnostics, use the default automatic-return recipe: results are
+logged to the workspace before sync/unmount and return to Ubuntu, including
+handled diagnostic failures. Do not require photographs when matching saved
+logs contain the needed evidence. Reserve an explicitly attended hold for a
+specific evidence gap, such as failure before persistent logging starts. Missing
+or incomplete logs remain incomplete evidence, never a pass. After Ubuntu
+returns, mount the same volume and reload its UUID/release from the local record.
+The v1085GHz prerequisite inventory retains a1MiB complete common-init and
+read-only MAC/PA/RF-selector prefix, shows progress and returns automatically.
+It stops before band programming, frequency/VCO, RX and network traffic; warm
+inventory completion does not accept cold reset or connectivity.
+The explicit full RF bank5/bank6/VGA/G20/trim diagnostic selects a256KiB startup-proof window to
+retain its complete command and guard receipts. Ordinary logging stays64KiB;
+previous firmware captures stay128KiB. The selected profile determines the exact
+`tail_limit`; require the whole prefix and matching byte count, and reject a
+lost/truncated prefix even when a completion marker is present.
+
+The v117 fresh-trim child inherits the held-channel2MiB prefix. Collect it with
+an explicit matching session/release bound; ordinary collection remains1MiB.
+Archive the byte-verified older large session first, preserving its accepted
+backup. Require the full parent and fresh-field/trim/channel/restoration trace;
+firmware completion alone does not accept this trial or Wi-Fi connectivity.
+
+The v118 common DAC child uses the same automatic2MiB transport after the full
+v117 fresh-field/trim/channel parent. Require the complete91-operation DAC
+sequence and independent final word reads; word restoration is not analog
+calibration or receiver acceptance. No VCO pulse or credential is part of v118.
+Pro11,2 accepted this bounded contract in release `62e3a5325065719e`:11669
+operations and1510049bytes, complete restoration/storage/recovery and automatic
+return. Require a new source-bound proof for later VCO or receive trials.
+
+The v119 common VCO child inherits the same full-prefix/automatic-return policy.
+Require the entire v118 parent,105 new I/O records and six exact delay receipts,
+monotonic self-clear, original RF word and inverse trim readbacks. Pending or
+reasserted triggers are failures; do not force-clear/replay or accept calibration
+from a cleared bit. Physical acceptance remains machine/source/release specific.
+Pro11,2 accepted release `ace4b3dcaa85e353`/`11689cfa`:11774 operations,
+1520120 complete bytes, immediate pending and all six delayed clear samples,
+independent restoration and storage/recovery/automatic-return checks. This does
+not accept a calibrated receiver or Wi-Fi connection.
+
+The opt-in v120 selected-channel VCO coordinator keeps the2MiB automatic capture
+bound. Require the complete v119 parent and3844 new I/O, with its77-operation
+child inserted before the first inverse BBP write, six exact wait receipts,
+monotonic trigger clear and all inverse originals. Pro11,2
+`019299c5a721fcda`/`e2bf7e3b` now accepts the matching saved session
+`session-00065f6d30db0147-00`:15618 operations and1991045bytes, trigger clear,
+selected-state/inverse-original proof, offline allocation/fsck and recovery.
+It does not accept MCU calibration or reception.
+
+The separate v121 `--wifi-cal5` automatic profile requires all v120 flags and
+keeps the2MiB limit. Inspect fresh IBI9 effect/raw restoration, exact R0/VCO161/
+FULL901/LC1/RXDCOC1 replies and timing, all receive attempts and anonymous
+metadata, MAC drain/disable/filter/TXOP restoration, exact endpoint cessation and
+inverse band/trim originals. The selected-state hook must bracket these before
+the first inverse BBP write. Missing completion, uncertain ownership or failed
+restoration is incomplete evidence. Zero decoded beacons accepts no RF or
+populated discovery. Firmware acknowledgements accept no analog calibration.
+Use the matching source-frozen full-prefix checker; no generic G-band recipe,
+network OUT or credentials. Cold shutdown/unplug remains required on this unit;
+automatic save/unmount/Ubuntu return and progress require no guest commands.
+
+Pro11,2 corrected v121 `285dad07e7a14417`/`128c25b0` now accepts session
+`session-00065f785b60016f-00`:15719 operations/2004737 complete bytes,all five
+firmware replies,eight retained receive transfers with seven decoded beacon/
+probe-response observations,terminal cleanup/inverse originals and storage/
+recovery/automatic return. The window is190863us;identifiers and distinct AP
+count are not recorded. Initial3732593a failed before MAC/calibration and remains
+preserved. This result accepts bounded command/restoration/management receive,
+not endurance,analog quality,authentication,network TX or IP data.
+
+Collect and inspect the matching session before preparing another run:
 
 ```sh
 python3 tools/hardware_desktop.py --uuid "$SRVROS_USB_UUID" \
@@ -1126,6 +1204,71 @@ runtime ownership halts with the mount retained. Collect the strict
 contents (`AA`), prior-file hashes and offline allocation before another trial.
 Ordinary desktop startup and continuous battery admission remain disabled.
 
+### Pro11,2 fixed161 private discovery candidate (v122)
+
+The opt-in `--wifi-discovery5` child requires `--wifi-cal5` and its complete
+existing automatic parent chain. It adds private copied aggregation and exact
+requested-target PSK/CCMP candidate selection after stopped retained receive,
+then inverse RF cleanup. Follow the normal matched build,exact-stage VM,recovery,
+run-record,one-shot and collection sequence. This is an unattended console trial
+with progress and complete saved results,not an attended desktop or an
+authenticated/IP provider. See [USB Wi-Fi](usb-wifi.md) and the local unit's
+record for acceptance. Pro11,2 still needs a cold adapter unplug;use shutdown
+under the user's existing authorization rather than silently substituting a
+warm reboot. Retain the workspace drive and collect the matching session first.
+
+
+### Pro11,2 grouped power-only child (v123)
+
+`--wifi-power5` requires the complete automatic `--wifi-discovery5` and calibration
+chain. It admits fresh mapped power fields and a guarded nine-word apply/readback/
+reverse-restore transaction while the same selected161 parent remains held and
+MAC is disabled. It submits no network frames or keys. Follow matched build,
+exact-stage VM,recovery and run-record preflight before a physical boot;collect
+with the strict full-parent power checker before accepting hardware. Host tests
+are not native acceptance. Progress and results are automatic;the captured
+adapter still requires the local cold-unplug/shutdown sequence. See the unit
+record and [USB Wi-Fi](usb-wifi.md) for current scope and limitations.
+
+### Pro11,2 empty stopped RX context handoff (v124 candidate)
+
+`--wifi-handoff5` requires the complete automatic `--wifi-power5` chain. It keeps
+MAC disabled and posts no TD while proving fresh empty-ring ownership,selected
+power readbacks and exact old stopped-context restoration. Follow matched build,
+exact GPT/missing-workspace VM,recovery/run-record/USB eligibility and one-shot
+collection rules before any native trial. The captured adapter still needs the
+standing cold-unplug shutdown procedure. Guest progress and results are saved;
+no commands/photos/attended UI checklist are needed. Require the full-parent
+handoff checker;host fixtures or a restored context after handled failure are
+not physical success. No live association/key/IP/data authority follows.
+
+### Pro11,2 live management child (v127 candidate)
+
+The opt-in `--wifi-join5` profile requires the complete automatic empty OUT
+preview/peer/handoff/power parent. It adds independent fresh RX/data-OUT rings,
+matched open-system authentication/association and leave submission,then MAC
+drain/disable,endpoint cessation and exact old RX/shared-input restoration.
+Follow the normal matched-build,exact-stage VM,independent recovery,workspace
+eligibility,run-record,one-shot and collection sequence. The local cold-unplug
+shutdown procedure remains required;progress,results and automatic return need
+no user commands/photos. The strict full-prefix checker requires the old parent
+and new exchange/retirement;USB completion alone is not a peer reply or WPA2.
+No keys,credentials or authenticated IP/data provider are enabled. See
+[USB Wi-Fi](usb-wifi.md) and the unit record for source-specific acceptance.
+
+### Pro11,2 bounded native M1 capture (v128)
+
+`--wifi-eapol5` requires the complete automatic `--wifi-join5` chain. It adds
+one bounded private structural EAPOL M1 receive window after association,before
+leave and the existing exact MAC/endpoint/input/parent cleanup. It sends no
+EAPOL reply and installs no keys. Use matched build,strict complete-prefix,
+sanitisers/stack/storage,exact staged GPT/missing-workspace VMs and independent
+recovery/run-record checks before installation and one-shot boot. This local
+adapter still needs shutdown and10second Wi-Fi-only cold unplug/reconnection
+while off;leave workspace connected. Progress/save/return are automatic,with
+no commands/photos. Collect the matching session first. Structural M1 and VM
+success are not authenticated connectivity;the unit record owns acceptance.
+
 
 ### Air6,1 opt-in checked ECAM/census trial
 
@@ -1175,3 +1318,27 @@ photograph the complete screen and restart Ubuntu. Require matching window.log,
 ecam.log and exit.log with strict collection and offline USB integrity before
 acceptance. See the [window contract](macbookair6-1-vtd-read-window-design.md).
 No register read, write, DMA policy or sibling acceptance follows from v6.
+
+### Pro11,2 bounded software-key four-way child (v129)
+
+`--wifi-wpa5 --wifi-wpa5-pmk <private-record>` requires the complete automatic
+v128 EAPOL parent. Provision the selected network's derived PMK privately with
+`tools/wifi_wpa5_credentials.py`;use a0600 record and keep all credential-bearing
+artifacts in protected local evidence. Ordinary builds do not add credentials.
+This child validates M3,submits M4,activates and erases software keys,then leaves
+and restores the retained endpoints/input/MAC/power/RF parent. It does not
+exercise encrypted data or prove AP acknowledgement. Follow matched build,
+strict complete-prefix,sanitizer/stack/storage,exact-stage VM,recovery and saved
+run checks before installation. The initramfs credential store persists apart
+from ephemeral key erasure. This unit still needs the standing cold shutdown
+and Wi-Fi-only10second unplug/reconnect while off;leave workspace connected.
+Guest progress/save/return are automatic. Collect the matching session first;
+missing or failed receipts stay unaccepted even after a successful reboot.
+
+The v130 revision retains those explicit WPA5 flags and adds one guarded
+standard EP04 device-toggle clear before the independent host OUT context is
+configured. Both rings must be empty and MAC disabled;an exact successful
+zero-length status is mandatory before publication. The collector requires
+that receipt as well as the unchanged full four-way/retirement proof. It
+changes no WPA security gate,RF recipe or timeout. Follow the same private
+provisioning,qualification,recovery,cold-shutdown and collect-first sequence.

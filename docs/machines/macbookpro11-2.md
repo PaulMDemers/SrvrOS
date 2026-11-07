@@ -1,25 +1,1654 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-21. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-11-07. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-The user considers the current Pro bring-up generally working and closes this
-phase on October 21. Installed release `2f8abe0e131023d8` remains unchanged;
-network/UI acceptance is confirmed on that release. Earlier desktop acceptance
-stands for its named payloads; the latest run did not repeat sound, brightness
-or Text saving. Closing this phase does not relabel skipped checks as passes.
-Battery work, headphone testing and further trackpad-latency tuning stay deferred.
-Ubuntu remains default and no reboot is armed.
+The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
+[corrected Wi-Fi scope](../usb-wifi.md). Generic Linux/EEPROM band hints were
+mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
+not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Next scope: the Ethernet adapter has been replaced by Edimax `7392:a711`, USB
-revision `0100`, bound by Linux to `mt76x0u`. Begin captured USB Wi-Fi inventory,
-firmware/protocol research and a separate bounded implementation plan. Preserve
-shared Ethernet behavior; coordinate through the unit record and reviewable PRs.
-Air PR #17 concerns SCI controller observation and does not overlap this scope.
+Earlier accepted native v122 `27a82f0daa89a62f`, runtime `bec108a3`, main
+`5f4f6fc6`, session `session-00065f7b53eeb5b0-00`, passes the full2007868-byte /
+15719-operation calibration/stopped retained RX/inverse-original parent and
+private unique Demers5 selection with a validated22-byte PSK/CCMP RSNE. Its
+213-file native capsule and58-file accepted notes survive outside build.
+No management/data OUT,authentication,keys,IP or data transfer was exercised.
+
+The first v123 power run `d105a5d22539cf69` / `13c08048`, session
+`session-00065f7e79f7528c-00`, FAILED CFG7 readback. All1868538 exit bytes and
+521-file failure capsule are preserved. Storage/recovery and automatic Ubuntu
+return passed;power/RF original restoration did not. That failure remains failed.
+
+Corrected native v123 `19e990a096e6209d`, runtime `25bf7bb2`, main
+`d10a4e10`, session `session-00065f8d6af998f0-00`, now accepts all2022068 saved prefix bytes:
+the complete15719-operation parent,private unique Demers5 selection,five fresh
+mapped board blocks,197 new power USB operations,five polls,all nine selected
+full-word readbacks and all nine inverse original readbacks. Outer RF originals,
+MAC-disabled/stopped receive retirement,offline fsck/allocation,payload/recovery
+equality and automatic Ubuntu return pass. The197-file native capsule remains
+sealed outside build;separate accepted notes preserve the new scope. Source-model
+maximum24 half-dBm is not an analog output-power measurement. No network OUT,
+authentication,key installation,IP or data transfer was exercised. The original
+v123 failure remains failed and independently preserved.
+
+Native v124 `54d3bca0e34ff6fa`, runtime `34e24139`, integrated main379d6f8d,
+session `session-00065f91111950b2-00` accepts all2024708 exit bytes:the complete
+calibration/private unique Demers5/selected-power parent,two exact Set TR Dequeue
+commands,four endpoint snapshots,15 guard/selected-power reads and all eight old
+endpoint context words restored. Both rings and all prior DMA remain retained;
+no TD was posted and no MAC/network OUT was started by the handoff. Exact power
+and RF originals,storage/recovery and automatic Ubuntu return pass. The166-file
+native capsule is independently sealed outside build. The first v124 run's
+calibration-response timeout remains failed in its separate549-file capsule;
+the unchanged cold retry passed without any gate or timeout modification.
+
+Latest native v125 `1213593607fe767a`, runtime `2290c938`, integrated
+main4cc0408b,session `session-00065f92476697b1-00` accepts all2025981 saved
+exit bytes. Ten read-only controls prove disabled MAC/core/DMA and two identical
+current station-address pairs under the captured high-word profile. Two retained
+Demers5 observations agree on all eight OFDM rates (mask255) and basic6/12/24Mbps
+(mask21). Private AUTH/ASSOC/leave codec sizes60/100/56 were constructed but not
+submitted. Full stopped handoff,selected power and exact context/power/RF
+originals,storage/recovery and automatic Ubuntu return pass. No identifiers were
+logged. The153-file native capsule is independently sealed outside build.
+
+Native v127 `3941cd6f08de149f`, runtime `a71b71c2`, now accepts matched
+open-system AUTH/ASSOC replies and leave submission,with complete MAC/endpoint/
+input/power/RF restoration. See the November6 acceptance below. The next bounded
+scope is the native four-way exchange using the software PTK/GTK/PN owner,
+with hardware offload separate,
+following physically accepted structural M1 receive and host-qualified PMK/PTK/
+MIC,authenticated unwrap and one-shot handshake models. Packet-number/data
+ownership and authenticated traffic remain pending;
+existing ownership and refusal predicates remain exact.
+Other machines' graphics,VT-d and browser work remain independent. No cross-chat
+contact is authorized. Host models do not accept a native secured connection.
+
+Strict-entropy WPA2/MIC/replay/key/PN lifecycle,authenticated bidirectional
+IP/data and clean disconnect/reconnect follow association. Demers2.4 needs
+compatible hardware;the current Edimax model is5GHz-only. Credentials were inspected privately for provisioning;no passphrase is logged.
+The explicit four-way candidate will carry a derived private PMK record. Live reattach and connection UI remain pending. Ordinary
+startup leaves radio diagnostics disabled. Cold unplug remains necessary:under
+standing user authority,shutdown when qualified,unplug only Wi-Fi10seconds while
+off,reconnect same port,power on,leave workspace attached. Collect the exact
+new session first after Ubuntu return. No commands,photos or repeat approval.
+Current workspace unmounted,Ubuntu default,one-shot consumed,unarmed.
+
+## Earlier checkpoints
+
+Previous native v116 `466528fc7669566e`, runtime `c3088243`, main `1dad02c2`,
+passes the complete1063627-byte prefix in matching session
+`session-00065f6683c07ec1-00`:7785 operations, including3732 new operations
+with band/frequency/A20 held around PA and gain-adjusted BBP selection. Selected
+readbacks and inverse BBP/PA/A20/frequency/band original readbacks pass. Fresh
+same-boot effective LNA is12 and AGC8 is122c3cf2. Full v115 parent/common-init,
+source/release/session, recovery bytes, offline fsck/allocation and saved automatic
+Ubuntu return pass. The140-file sealed native capsule `wifi-held-native-c3088243`
+survives outside build. Collected, workspace unmounted, Ubuntu default, unarmed.
+
+This accepts the explicit MAC-disabled combined command/state/restoration scope.
+It does not accept VCO/RF lock, calibrated reception, authentication or IP data.
+Credentials remain unread/unpackaged. Next: audit fresh trim/DAC/VCO ordering and
+bounded restoration/ownership before calibration and5GHz reception.
+
+The initial host collector refused the larger exit file at its old1MiB bound;
+that refusal is preserved. Host-only fix `94ed10ba` keeps default1MiB and64MiB
+aggregate/path protections and admits up to2MiB only for an explicit matching
+session/release with held-radio boot options.38 collector tests pass, covering
+exact limits, unrelated/echoed/mixed identities, large checkpoints and unsafe
+paths. The same native bytes then pass the unchanged preboot frozen radio
+checker. No kernel change or rerun was needed for collection recovery.
+
+Ubuntu default/EFI order and known-good previous `e47dca3a6b30c6c1` are unchanged.
+Unreferenced standalone v110–v112 EFI copies were retired only after full equality
+to independently sealed accepted backups; their evidence survives, and v113–v117
+remain installed/backed up. Full build/core/docs,207 staging groups,3732 transfer
+failures/3746 cancellation boundaries,256 gains and focused ASan/UBSan pass.
+Exact-stage save/readback/clean-unmount/automatic-reset and missing-workspace VMs,
+independent packaged artifact equality, a synthetic complete-prefix rehearsal
+and disposable real2MiB filesystem write/read/remount/fsck checks are preserved
+as separate preboot evidence, not substituted for this native result.
+
+The preceding warm session `session-00065f50a0330abf-00` remains FAILED before
+firmware preparation: first0730 read1, already-running MCU refusal. Cold adapter
+power cycling resolved admission for this run; repeatable warm takeover is not
+implemented or accepted. Future trials still require shutdown and10seconds
+Wi-Fi unplug while off, reconnect same port, power on, workspace retained.
+
+The user authorizes continuing through authenticated connection/disconnection
+and data transfer, with automatic ready-test reboots. If physical unplug is
+required, use shutdown and leave the machine off; do not issue a reboot for
+that case. The failed warm run shows that this retry needs a physical adapter
+power cycle; do not repeat a warm boot against its already-running MCU. Demers5 is the current5GHz target; Demers2.4 needs
+compatible hardware. Local credentials remain private and unused until the
+security stage. Do not report connection-ready until authentication, data
+exchange and clean disconnect actually pass.
+
+## Active common VCO scope
+
+Fetched main `7ef140ef` after accepted v118. New shared work adds installed-media
+inspection/publication/salvage qualification, SQLite/jq/bc and bounded Air6,1
+observations; no MT76 change. Open PR345 owns late-flush salvage,344 Files
+transfer,343 Air observation,342 profile export,333 profile transfer,334 signal
+context,317 isolation,310 browser and301 Air scanout. Preserve their scopes.
+Consume module pins before freezing a new physical image; v118 acceptance stays
+bound to `4dd9cfd5`/`10890eed`.
+
+Next bounded contract: fixed common RF0:4 bit7 trigger after completed fresh
+trim/common DAC proof, with newly selected trim44, exact30 before-read/b0 write
+acknowledgement, immediate and six delayed byte observations, and independent
+trim restoration only after exact original30 is independently observed. Never
+force-clear the trigger or replay a failed pulse. Observation-only completion
+must distinguish pending from self-cleared; neither means RF lock or calibrated
+RX. Preserve the separate later per-channel VCO after held band/synth/gain/BBP.
+Touch fixed MT76 engine/native owner, immutable opt-in automatic recipe and host/
+frozen-log tests. MAC stays disabled, no network OUT or credentials. Cold unplug
+and automatic save/Ubuntu return remain required for any physical candidate.
+
+## Active common DAC scope and integration dependency
+
+Fetch checkpoint main `10890eed` (PR329), with root-profile/recovery changes and
+isolated Air6,1 Haswell diagnostics. Ports advances to `ca749517`; reconcile that
+pin with local checkpoint logging while retaining the upstream spawn result
+repair. No MT76 or private Wi-Fi ABI allocation changed. PR330 owns installation
+publication I/O qualification, PR317 VMM, PR301 display and PR310/306 ports;
+no overlapping Wi-Fi owner was found. Keep accepted v117/source `1fe64aac` and
+its154-file native capsule independent of any new source validation.
+
+Bounded next implementation: fixed common DAC RF0:73 bit7 set/clear/set while
+fresh trim44 is selected, with each read/modify/write and independent final word
+readback, then trim0 restoration. Exact fresh same-boot fields and completed
+v117 parent are required before native I/O. This first pulse trial omits VCO,
+receiver and credentials so failure attribution remains bounded. Touch only a
+fixed MT76 engine/native owner, immutable automatic recipe, host fault/proof
+suites and frozen saved-log checker. Require unknown/reentrant-owner refusal,
+exact requests, MAC/CORE/DMA guards, no replay/speculative cleanup, complete
+prefix save and automatic return. RF word restoration does not reverse internal
+DAC reset effects or accept calibration. VCO/calibrated reception and security/IP
+stay separate. Validate integrated build/profile/salvage/installer checks before
+freezing the next native image. Cold adapter unplug remains required; shutdown
+under existing user authorization only after the complete candidate is ready.
+
+### Integrated main10890 and implemented common DAC child
+
+Merge `2eb00032` consumes actual main `10890eed`, reconciled published Ports
+`68422a8e`, unchanged Apps `f85c7107` and UI `9eaaa74e`. It preserves upstream
+profile selection, dirty-source salvage, publication/root hardening and isolated
+Haswell diagnostics, plus Wi-Fi controls and exact hardware gates. Matched
+build/USB image, desktop/I/O, profile/catalog/chooser, salvage CLI/scope,
+namespace, installed-root, Haswell and docs checks pass. Exact baseline
+save/return/missing-workspace, two-boot namespace, profile chooser/persistence/
+interruption recovery and dirty-source salvage VMs pass. This is host/VM
+integration coverage, separate from accepted native v117/source `1fe64aac`.
+
+The new common DAC child has one private static owner after the complete v117
+parent and same-boot fresh fields. It selects trim44, preserves the three RF0:73
+read/modify/write pairs (93,13,93), independently reads final DAC93 and trim44,
+then inversely writes/reads trim0. Thirteen fixed commands and MAC/CORE/DMA
+guards total91 I/O. No caller-selected plan or VCO register is exposed. Field,
+parent, counter, immutable packet and ownership checks precede I/O; failure
+retains existing quarantine without replay or speculative cleanup. Word
+restoration does not undo internal reset effects or establish calibration/RX.
+
+All91 transfer failure/corruption and92 cancellation/state-mutation boundaries,
+reply/guard proof bits, DMA faults, board/trim/admission/refusal and shared trim
+state checks pass in the host model. The source projection and tamper tests,
+independent C/saved-checker trace, four log-proof groups,212 staging/installer
+cases and full xHCI regression pass. Sanitizer/exact-stage/storage/equality checks
+and a source-bound run record are required before installation and cold trial;
+no new native acceptance is claimed by this implementation checkpoint.
+
+### v118 installed and ready for cold trial
+
+Release `62e3a5325065719e`, runtime source `4dd9cfd5`, passes normal exhaustive
+DAC engine/proof faults, all212 staging/installer cases, four log-proof groups,
+pinned-source/tamper audit, full xHCI regression and targeted xHCI/DAC ASan/UBSan.
+The exact native compiler reports1144bytes for the DAC engine frame; private
+native context is static. An independent C trace matches every91 new record.
+The1510049-byte synthetic full prefix passes11669 minimum-poll operations and
+five malformed whole-prefix refusals; it remains explicitly synthetic. Real
+kernel exFAT/VFS2MiB write/read/unmount/remount/fsck and both exact-stage
+save/readback/reset and missing-workspace refusal VMs pass. Kernel identity and
+independent firmware packaging match the committed source; no credentials.
+
+Before installation, the accepted v117 large USB session was compared with its
+154-file sealed native capsule, durably archived/verified elsewhere and then
+pruned from USB. Native accepted bytes and separate notes remain intact. Actual
+workspace extent/fsck, writable-admission and headroom checks pass. The
+unreferenced v112 EFI copy was removed only after equality with its sealed
+accepted backup; v113–v117 and the e47d previous recovery remain installed.
+Source/payload/frozen proof/run record and storage/recovery checks are sealed
+outside build. Ubuntu remains default. The authorized cold shutdown requires
+Wi-Fi unplug for10seconds while off, reconnect to the same port, power on,
+workspace retained; automatic progress/save/return, no commands/photos. Collect
+the matching session FIRST. Word restoration is not analog calibration or RX;
+VCO, security and IP remain pending, with no new physical acceptance yet.
+
+## Consumed renderer/apps/ports baseline checkpoint
+
+Consumed actual main `1dad02c2` in runtime merge `d9c28128`. Published module
+merges SrvrApps `1f5f894` and SrvrPorts `5aacedd` preserve Wi-Fi Help/System
+controls and checkpoint-only power logging with upstream Open With/Files
+recovery. SrvrUI is upstream `76deeb3`; seven previous upstream pins are unchanged
+and awk is `5739fd7`. Root validation fixes are `0dea148e`/`739d95b6`.
+
+Full matched build/USB image/core/desktop/I/O/awk/docs and206 staging groups
+pass. Staged v115 baseline `9ecaa96bdc9dced6` has the exact built kernel and
+independently firmware-packaged initramfs. Exact-stage probe save/return and
+missing-workspace refusal, compositor lifecycle/input/resize, Files/Open With,
+two-resolution resize and two-boot awk persistence/retirement VMs pass. Theme
+preview is visually checked. Host prerequisites now include Bison; this host
+installed Bison3.8.2 and m4. The initial missing-Bison refusal is retained.
+
+The old compositor smoke clicked inside the client, which the new outside-edge
+resize contract reserves for input. The corrected smoke drags the outside corner
+and requires the exact resized frame/client trace; its original refusal is kept.
+The initial awk fixture exposed production image exact-extent file aliases that
+SrvrOS supports but external exfatprogs rejects before boot. Its separate fresh
+VM fixture now copies aliases into independent extents in memory, verifies every
+source filename and byte, then requires external fsck before and after both
+boots. Seven generator tests include exact-alias copying, idempotence and atomic
+partial-overlap refusal. Neither the production image nor native USB was repaired
+or modified. Both failed VM receipts remain separate from the passing receipts.
+
+Evidence and staged payload are preserved outside build in
+`channel161-main-d9c28128`. At that baseline checkpoint this was host/VM integration only: native remained
+v115 `e405f17dd9a5449b`/`ec117c9e`, previous `e47dca3a6b30c6c1`, Ubuntu default,
+collected and unarmed. Do not repeat a baseline-only physical trial.
+
+The completed bounded v116 work owns channel161 band/frequency/A20/PA and fresh-gain
+BBP selected state together, with independent selected readbacks and reverse cleanup.
+Touched subsystems are the fixed MT76 engines, private native owner, immutable
+trial recipe, host fault/proof suites and saved-log collector. Existing restored
+transaction APIs remain separate. Audit pinned trim/DAC/VCO ordering before any
+pulse or RX; separate VCO/calibrated reception and authenticated IP milestones
+remain pending. PR252 retains resolver/socket scope; no other open Wi-Fi owner
+was found at this integration checkpoint. Preserve v115 and independent backups.
+
+## v116 collection recovery accepted
+
+Native session `session-00065f6683c07ec1-00` was recovered under an explicit
+session/release-bound2MiB transport option after the default collector refused
+its1063627-byte exit file. The original refusal and preboot frozen checker are
+preserved. All7785 operations,3732 held operations, joint selected readbacks and
+inverse originals pass on the same bytes, followed by payload/recovery equality,
+offline fsck/allocation and clean automatic Ubuntu return. The native capsule is
+sealed with140files; no reboot is armed. The host-only transport fix does not
+relax radio predicates or enlarge ordinary collection limits. Archive verified
+large sessions, or explicitly identify them, before a future ordinary collection;
+unknown large sessions remain refused rather than silently admitted.
+
+## Current integrated baseline and fresh-trim candidate
+
+Main `0cba30a1` is integrated as `e5731168`, with Apps `f85c7107`, Ports
+`2676a2ab` and UI `9eaaa74e`. Upstream namespace/profile/installation hardening,
+display controls and pipe-message ABI remain intact; private Wi-Fi now uses163.
+The matched Ubuntu image and core dependency run exposed GCC fixture/formatting/
+feature-declaration failures. All failed dependencies passed focused retries,
+alongside the final matched image/desktop/I/O/docs run; original refusals remain
+retained. The unchanged trim engine's exhaustive failure/cancellation sweep also
+passes. Exact-stage save/readback/automatic return and missing-workspace refusal,
+two-boot namespace, two-installation profile desktop, display mode/scale/persistence
+and1440x900 compositor VMs pass. The source-bound Ubuntu artifact receipt and
+integration evidence are sealed outside build. This is host/VM integration
+coverage, not new native acceptance; installed accepted v116 stays unchanged.
+
+The next v117 candidate binds fresh logical30/d0 trim fields to one private
+native static owner after the complete restored v116 parent. Exact field/board,
+parent, request and counter predicates guard every transfer. A fixed RF0:22
+0-to44-to0 lifetime encloses the3732-operation held channel161 plan, for3767
+combined I/O plus fresh-field reads. Raw factory blocks stay private; failed I/O
+retains existing quarantine/no-replay behavior. Automatic progress,2MiB complete
+prefix, frozen full-parent/new-trace checker and recovery checks precede a cold
+trial. No DAC/VCO/RX or credentials are included. New native acceptance remains
+pending; preserve the accepted v116 capsule and previous known-good payload.
+
+### v117 installed; cold native evidence pending
+
+Source `1fe64aac`, release `2a03a519eac62cbf`, is installed after matched native
+build/full xHCI regression,211 staging/installer cases, five saved-log groups,
+targeted xHCI/trim ASan/UBSan and exact native stack reports. An independent C
+shared-register-bank trace matches every3767 new request/reply/phase/direction
+record. A synthetic full common/parent/fresh-field/trim prefix is1501524bytes;
+all11578 minimum-poll operations and five malformed whole-prefix refusals pass.
+It is explicitly synthetic, not native acceptance. Disposable real kernel
+exFAT/VFS2MiB write/read/unmount/remount and external fsck pass. Exact staged
+save/readback/clean-unmount/automatic-reset and missing-workspace refusal VMs
+both pass. Firmware packaging is independently reproduced; credentials remain
+unread and unpackaged.
+
+The accepted v116 large USB session was matched byte-for-byte to its sealed
+native capsule, copied/flushed/verified to a separate Ubuntu archive and only
+then pruned from USB so the next collection can bind one new large session.
+Original preflight argument refusal remains recorded; corrected separate extent,
+headroom and writable-admission checks pass. The unreferenced v111 inventory EFI
+copy was retired only after equality with its separately sealed accepted backup;
+v112–v116 and the previous known-good desktop remain available. New source,
+payload, frozen complete-prefix checker, run record and recovery/storage proofs
+are sealed outside build. Ubuntu remains default. The authorized next action is
+cold shutdown,10-second Wi-Fi unplug/reconnect to the same port, power on, and
+automatic save/return. Collect that exact run before staging another. No new
+trim, DAC/VCO/RX, connectivity or sibling-model acceptance is claimed here.
+
+### v117 native collection accepted
+
+The unchanged preboot frozen checker accepts the complete physical session
+`session-00065f693a903b08-00`, release `2a03a519eac62cbf`/source `1fe64aac`.
+All11578 operations pass, including26 same-boot fresh-field operations and3767
+trim/channel operations. The guard/phase/direction/request/reply/readback sequence
+matches exactly; effective trim44 holds through all selected channel state, then
+trim0 and the parent originals return. Both fresh field blocks, MAC/CORE/DMA
+proofs and full prior common chain pass. Network OUT remains0. Offline filesystem
+and allocation checks, retained payload equality, Ubuntu default and clean
+unarmed automatic return pass. The154-file native capsule is sealed separately
+from accepted notes; the candidate's synthetic proof remains labeled synthetic.
+
+Reviewed actual newer main `1a5a6dee` after collection: profile chooser and fd-based
+salvage changes, no MT76, main dispatch, boot recipe or syscall-number overlap.
+No gitlink changed relative to consumed `0cba30a1`; keep current published pins.
+PR324 Air6,1 GGTT, PR317 VMM, PR301 display and PR310/306 port work remain separate.
+Do not promote this native result to a newer unbooted integration.
+
+Next bounded scope is the fixed common DAC/VCO contract after fresh trim, then
+separate calibrated per-channel receive startup. Pinned Linux common init orders
+trim write/read before RF0:73 bit7 set/clear/set and RF0:4 bit7 trigger; channel
+setup has a distinct VCO trigger after band/synth/filter/gain/BBP. Native originals
+are RF0:73=93 and RF0:4=30. Require fresh private fields, disabled-MAC ownership,
+immutable packets, independent guards/readbacks, bounded waits and explicit
+failure retirement; a self-cleared trigger is not RF-lock or receive acceptance.
+The existing generic bootstrap is not permission to enable the withdrawn2.4GHz
+model recipe. Consume reviewed main with focused namespace/profile/salvage checks
+before freezing another native image. No new pulse or reboot is armed here.
+
+## Active main integration and native trim scope
+
+Main now owns syscalls159–161 for display modes and162 for pipe messages. Move
+the private unmerged Wi-Fi snapshot/selection ABI to163; rebuild kernel and all
+userspace together. Preserve main's assignments and the self-contained accepted
+v116 payload/previous recovery. Existing frozen historical159 fixtures remain
+bound to their old images; they are not current ABI evidence. Native console
+bring-up does not use this syscall, but System/service/dispatch tests must cover
+the new assignment alongside display-mode/pipe regressions.
+
+
+Fetched actual main `0cba30a1` (PR322). Incoming pins are Apps `3cf32af2`,
+Ports `5e994f53`, UI `9eaaa74e`; current local Apps/Ports preserve Wi-Fi controls
+and checkpoint-only power logging. Merge those exact pins first and publish
+module merges before root gitlinks. Reconcile root build/main/installer paths,
+retaining upstream filesystem/profile/display and installer hardening alongside
+our fixed diagnostic recipes/strict evidence bounds. Read-only Air display and
+PR317 VMM audit remain independent; no MT76 owner overlap was found.
+
+Validate the matched build/core/desktop/I/O and focused global filesystem/profile/
+installation regressions, plus exact-stage save/return/missing-workspace and
+relevant UI VMs. Preserve accepted v116/previous recovery and native capsule.
+Only after baseline checks should fresh private logical30/d0 trim fields bind
+the host-tested trim/channel lifetime to one native static owner, an immutable
+automatic recipe and complete-prefix collector. Retain source/field/packet/
+cleanup refusal checks. No DAC/VCO/RX or credential use is part of that next
+trim trial. Native trim acceptance requires matching saved physical evidence;
+no reboot is armed by this source integration.
+
+## Current bounded trim/calibration scope
+
+Fetched/reviewed main `8f47f196` and active PRs314/313/310/309/308/306/301/252.
+New shared changes concern display/density, installation/namespace and portable
+profiles; MT76 engines and native Wi-Fi owner are unchanged. Keep accepted
+runtime `c3088243`/consumed main `1dad02c2` for this bounded radio foundation;
+review/reconcile the newer baseline separately before another physical stage.
+
+Pinned Linux v7.0 `mt76x0_phy_rf_init` applies EEPROM-derived RF0:22 before
+DAC0:73 set/clear/set and the common0:4 VCO pulse. Channel setup separately
+selects band/frequency/A20/PA/fresh-gain BBP before another0:4 trigger. These
+are different lifetimes; v116 does not accept either pulse or calibration.
+Do not reinstate withdrawn G-band radio recipes from generic common-init code.
+
+Current files are fixed MT76 trim/coordinator helpers, isolated host tests,
+pinned-source audit/fixture metadata and this unit/USB guide. Add a reversible
+exact-board0:22 transaction: require original0, write fresh validated44, read
+selected44, optionally run the fixed v116 engine while trim remains selected,
+restore0 and independently reread0. Native admission must later capture private
+logical30/d0 trim fields afresh; a numeric44 argument alone is not freshness.
+Preserve legacy APIs and the accepted payload. Test all I/O/cancel/proof/owner
+boundaries and shared-bank simultaneous trim/channel state before native wiring.
+This host foundation adds no DAC/VCO/RX, credentials, native profile or reboot.
+
+The implemented isolated35-operation lifetime and3767-operation nested lifetime
+pass all35/3767 transfer-failure and36/3782 cancellation boundaries,256 nested
+gains, immutable requests, board/owner/callback refusals, bad originals before
+write, short/invalid replies, stored reply/MAC/core proof bits and reserved DMA
+faults. A shared physical-register model keeps0:22=44 at every inner authorization,
+including the all-selected BBP boundary, then requires full original restoration.
+Pinned audit checks eight sources/five dependency hashes and rejects three altered
+source files and two damaged fixtures. At source `fbde2afe`, matched build/USB image/docs and the unchanged legacy
+channel trace pass. Focused ASan/UBSan passes isolated faults/proof checks and
+combined requests/all256 gains; the exhaustive combined fault sweep is separate
+normal-build evidence. New trim entry points are absent from the linked kernel,
+and every loaded ELF segment matches accepted v116 exactly. The installed
+payload and native140-file capsule are untouched. The source, executable,
+pinned reference and receipts are sealed outside build as
+`wifi-trim5-foundation-fbde2afe`. No physical trim acceptance, pulse or reboot is
+added by these host-only results. Next: integrate current main separately, bind
+fresh private trim fields to a native owner/recipe, and complete exact-image/
+collection/recovery checks before staging that combined trial.
+
+
+## Completed v116 native implementation scope
+
+Reviewed remote main `d5822348` and open PRs301/299/252: current work is display
+ownership, Terminal quoting and resolver/socket auditing, with no MT76 overlap.
+PR252 also hardens installer payload/path verification; the v116 change only
+adds profile/firmware-check admission and preserves current verification policy.
+Retain that hardening when consuming PR252; no competing installer rewrite is
+part of this trial. This bounded trial keeps consumed main `1dad02c2` and host foundation `1267acfa`
+to avoid conflating new desktop changes with radio results. Next implementation
+owns `xhci_wifi_mcu.inc`, fixed coordinator admission helpers, main/header opt-in
+dispatch, immutable boot/staging gates and complete phase-tagged saved-log proof.
+Add a new explicit automatic-return profile after the restored v115 parent.
+Fresh private board/gain and same-device proof must remain live before each I/O;
+revoke on uncertainty, with no retry. Validate all fixed requests, nested stack
+budget, invalid ownership, complete-prefix mutation and staging refusal cases,
+then matched build/sanitizers/exact-image VM/storage/recovery before installation.
+No trim/DAC/VCO/RX or credential use is in this trial. Installed v115/previous
+recovery remain untouched until every prerequisite passes; currently unarmed.
+
+## Native held-channel implementation and v116 validation
+
+The new explicit v116 automatic profile runs the fixed coordinator after the
+complete restored v115 chain. One static native context requires the same device,
+exact board, completed parent counts and this boot's private logical40 gain proof
+before every fixed read/write/packet. Public coordinator request helpers bind
+phase/local operation/address/direction/value; unknown/inactive/reentrant owners
+refuse before USB. A failed USB transaction quarantines through the existing
+failure path; no replay or speculative cleanup is introduced. Every operation
+logs its global index and fixed nested phase/local index, with a final selected/
+restored summary. The checker requires all3732 new operations after full v115
+proof, retaining all7785 operations with one EFUSE poll. The C simulated shared
+register-bank trace matches the independently fixture-derived Python plan.
+
+This explicit profile adds a fixed2MiB prefix option because the full common-init
+and nested trace can exceed1MiB. Ordinary/default and older profile limits remain
+unchanged; static ring/linear/workspace storage grows by3MiB. New boundary tests
+cover exact capacity, persistence/readback, wrap ordering and refusal after prefix
+loss, and a subsequent ordinary capture.207 staging tests pass. Exact native
+compiler stack reporting gives3776bytes for the nested coordinator/band/synth/A20/
+PA/BBP engine frames, with static state; existing transport/IRQ frames remain
+separate; scheduled task stacks are128KiB. Native command/state/restoration acceptance is recorded above; VCO/RX remains
+pending. Full regression/sanitizer/exact-stage VM/source/recovery checks preceded
+installation;
+source remains based on main `1dad02c2` with newer main reviewed separately.
+
+## Held-channel host foundation
+
+A fixed coordinator now nests PA at A20 operation504 while synth operation623
+and the band remain selected. It nests BBP at PA operation294 and records the
+joint selected boundary at BBP operation441. BBP, PA, A20, synth and band then
+restore in inverse order, each retaining its independent original readbacks.
+Legacy public capture APIs pass no private nesting context and keep their old
+transaction contracts. The coordinator accepts only the fixed board tuple and
+bounded gain scalar, one shared I/O context/authorizer, and no caller-selected
+register plan or selected-state callback. An uncertain transfer or cancellation
+stops immediately without speculative cleanup or replay.
+
+This is an uncalled host foundation, not a native profile or fresh-gain proof.
+The future private native owner must bind fresh board/gain and same-device parent
+proof before I/O. A shared simulated register bank checks simultaneous selected
+states and original restoration. Full matched build/USB image/core/docs pass
+at `1267acfa`:3732 transfer-failure and3746 cancellation boundaries, all256
+gain scalars, shared-bank selected/original checks, damaged nested proofs,
+exact board/shared-owner/callback refusals and no replay. The coordinator
+entry is absent from the linked native kernel. Focused ASan/UBSan checks pass
+all256 gains, selected-bank/restore, preflight refusals and damaged proofs;
+the exhaustive failure sweep is the separate normal build. Evidence/source
+and executable are sealed outside build in `wifi-channel5-engine-1267acfa`.
+No VCO, calibration, RX, credentials, installed payload or
+reboot state changes belong to this implementation. Next: native admission and strict saved-log
+coverage before any staged hardware trial.
+
+## v115 fresh5GHz gain/baseband restoration accepted
+
+Release `e405f17dd9a5449b`, runtime `ec117c9e`, main `105077d7`,
+requires full accepted parent/PA restoration and the exact21 v113 BBP originals.
+It reads logical40 afresh, privately selects the channel161 LNA/RSSI fields,
+then selects/independently reads/reverses/independently reads the21-row
+A-band/20MHz table. AGC8 derives from fresh high-band gain. The new child uses
+735 guarded direct operations,42 writes and736 authorization boundaries;
+fresh EFUSE transport adds12+polls operations (4053 combined with one poll).
+Bounded extra polls/delays must match the strict saved trace. Three fixed
+forward all-ones table rows do not relax any original/guard/calibration predicate.
+The engine has no RF exchange route. All native transfers require same private
+owner/device, fresh board/live parents, exact count/packet and matching gain.
+
+Full matched build/USB image/core/docs passes at `ec117c9e`, including new main's
+platform/HDA receipt fixtures without granting Pro HDA ownership. All206 staging
+groups,65536 LNA fallback pairs,65536 RSSI tuples, fresh-read I/O/cancellation/
+timeout/unmapped/scrub/no-replay, unchanged legacy gain,735 I/O/736 cancellation
+boundaries, all stored BBP proof bits,256 gain scalars, parent tuple and native
+unowned-I/O refusals pass. Saved-log deletion/duplication/field and repeated-poll
+cases pass. Both gain/BBP ASan/UBSan suites, eight pinned source/projection checks
+and four altered-source refusals pass. The637003-byte synthetic complete prefix
+passes; it is parser rehearsal, not native acceptance. Exact-stage diagnostic
+refusal/save/readback/preserved files/clean-unmount/automatic-return and
+missing-workspace VMs pass. Kernel and independently packaged initramfs match;
+new native gain/BBP ownership and proof validators are linked.
+
+Fresh local model/descriptors/UUID, capacity, offline fsck/allocation and write
+eligibility pass. Durable archive `wifi-bbp5-cycle-ec117c9e` contains payload,
+frozen whole-prefix collectors, source/fixture pins, accepted-parent binding and
+all receipts. Ubuntu default/EFI order and e47d previous remain unchanged;
+accepted v110–v114 remain installed/backed up. The unreferenced standalone v109
+band-only EFI copy was retired only after complete byte equality to its accepted
+independent backup; its native evidence and full backup remain preserved.
+
+Matching session `session-00065f64e70cadfc-00` passes all4053 operations,
+fresh effective LNA12/AGC8=122c3cf2,13 EFUSE I/Os with one poll,735 BBP operations,
+42 BBP writes, independent selected readback and21-target reverse/original
+readback. All three fixed all-ones forward entries match. Complete637002-byte
+prefix, source/release/session and full parent/PA proof pass; candidate/recovery
+byte equality, offline fsck/allocation and automatic saved Ubuntu return pass.
+The115-file native archive is sealed and the run is collected/unarmed. This
+accepts only the explicit MAC-disabled fresh-gain/command/restoration scope;
+it does not accept held-channel operation, VCO/calibrated RX or connectivity.
+The earlier warm refusal stays failed; no warm takeover is inferred.
+
+Next: integrate fixed band/frequency/A20, external PA and gain-adjusted BBP
+selected states under one bounded channel161 owner, with reverse cleanup and
+independent final originals. Existing successful transactions restore before
+the next begins; their individual completion does not establish simultaneous
+radio readiness. Audit pinned PHY trim/DAC/VCO/calibration ordering before any
+new pulse or receive window. Keep legacy APIs, exact board/transport guards,
+private fields, saved proof and failure/quarantine behavior intact. Only after
+that integrated state/calibration can5GHz passive RX/discovery, reattach and
+Demers5 association/security/connect-disconnect/IP data be accepted.
+
+Fetched main is now `eaf11488`: standalone SrvrUI rendering/fonts, pinned awk,
+Files/Open With/recovery and edge resizing landed, plus separate Air ownership
+design notes. No Wi-Fi driver file overlap was found; app, ports and widget pins
+and shared compositor/build paths need deliberate reconciliation. The next
+source block must consume the actual new baseline and preserve local Wi-Fi UI
+and checkpoint-only power logging inside their submodules, then rerun matched
+host/VM checks. This physical result remains bound to `ec117c9e`/`105077d7`;
+no new source or hardware capability is accepted from those remote changes.
+PR252 retains resolver/socket scope. Installed e405/e47d and accepted backups
+remain unchanged; no new stage or reboot is armed. Cold trials still require
+shutdown and10second Wi-Fi unplug while off. Credentials remain unread/private;
+Demers2.4 requires compatible hardware and connection-ready is unaccepted.
+
+## Fresh5GHz gain and baseband restoration implementation scope
+
+Consume main `105077d7` (separate Air6,1 display/HDA receipts, no Wi-Fi overlap).
+Next bounded source work captures logical40 afresh, privately decodes channel161
+high-band LNA/RSSI using pinned Linux v7.0 fallback/field-width rules, and adds
+one21-target A-band/20MHz BBP selection/readback/reverse-restoration transaction.
+All21 originals must match the captured v113 tuple before any new BBP write.
+The AGC8 forward value derives from fresh validated high-band gain, not the
+legacy G-band decoder or a stale captured12. Three fixed table entries select
+all-ones deliberately; no other sentinel/calibration gate is relaxed. Preserve
+legacy gain read/guard/cancellation behavior through shared capture plumbing.
+Scope is mt76 bringup/MCU helpers, explicit xHCI owner, main/staging, fixtures,
+strict saved proof and tests. No VCO/RX/network frame/credential is added.
+PR289 owns standalone UI rendering, PR288/278 own Files/app behavior and PR252
+owns resolver/socket lifetimes; these are separate from this radio transaction.
+Require matched build, sanitizer, source projection and exact-stage VM checks,
+local recovery/storage proof and durable record before cold physical testing.
+
+## v113 frontend capture accepted; modular baseline integration
+
+Release `efbdb378d6bd0974`, runtime `de6cef51`, main `88c56afa`, matching
+session `session-00065f54ca5964fa-00` passes the complete524449-byte prefix:
+2507 parent operations and308 read-only frontend operations, all41 changed
+registers restored, all44 fixed originals captured, fresh NIC0fd11/NIC11004
+and zero network output. Source/release/session, payload/recovery equality,
+offline filesystem/allocation and automatic Ubuntu return pass. The107-file
+sealed archive `wifi-frontend-de6cef51` survives outside build. IBI9 was raw
+all-ones; this remains an observation, not calibration readiness. Other captured
+values do not become generic reset assumptions. The run is collected and unarmed.
+
+Next bounded scope consumes fetched main `e376669c`, including pinned SrvrUI,
+SrvrApps and SrvrPorts extraction, desktop themes and VirtIO changes. Preserve
+local Wi-Fi UI/checklist and checkpoint logging changes in their extracted
+repositories; reconcile shared build/main/syscall paths by behavior. Validate
+the recursive matched source set locally before any new stage or hardware test.
+PR278 owns shared app descriptors/Files Open With; PR252 owns resolver/socket
+lifetime work. Neither grants this unit new native acceptance. Then continue
+external5GHz PA/baseband admission/restoration, calibration and reception toward
+Demers5 authenticated data. Cold shutdown/unplug remains required; no new boot
+is armed as part of source migration.
+
+## Modular integration verified locally
+
+Merged main `e376669c` in runtime source `dbe45945`. Matched dependencies are
+SrvrApps `b92f637` (Wi-Fi checklist and System cache/selection controls), SrvrUI
+`89fb6d9` (unchanged upstream pin), and SrvrPorts `588c79b` (checkpoint-only
+desktop power logging). All seven nested upstream pins are unchanged. The old
+port directories were retained locally before recursive checkout, and Node's
+existing local object store avoided a redundant network download. Module work
+is published before the OS pointers; no dependency uses floating `--remote`.
+
+Resolved shared main/build/compositor changes by preserving both behaviors.
+Main uses syscall156–158 for explicit presentation; Wi-Fi now uses159, with
+an explicit non-alias regression. Rebuild matched kernel/userspace together;
+do not mix old Wi-Fi userspace with the merged kernel. Full image/USB-image,
+core/desktop/docs, desktop I/O and seven source-manifest tests pass locally.
+Merged staged v113 `5b0146621aa2884e` passes exact-image diagnostic refusal,
+save/readback/preserved files/clean unmount/automatic return and missing-workspace
+VM checks. The1440x900 compositor workflow passes input, shared controls,
+scrolling, windows, focus, drag/resize/Close, process death/replacement, deliberate
+server exit and console return/relaunch. These VM results do not accept this
+new source on physical hardware. Only documentation changed after this tested
+runtime; source/recursive pins and all receipts are retained in local migration
+evidence, independently archived outside build.
+
+Installed v113 `efbdb378d6bd0974` and known-good recoveries remain unchanged.
+The merged stage is VM-tested only, not installed or armed. Ubuntu remains
+default and no reboot is pending. Next: use the accepted44-original tuple to
+implement a fixed external5GHz PA/baseband admission/readback/restoration
+contract with fresh high-band gain validation, then calibration and5GHz RX.
+Connection-ready remains unaccepted; credentials remain unread/private.
+
+## v114 external5GHz PA restoration accepted
+
+Release `bf9e136ebf72e6fe`, runtime `9e370a25`, main `e376669c`,
+requires the complete v113 parent/frontend proof and exact captured PA originals.
+It independently reads all14 originals, applies the external-A selector,
+11 fixed high-band RF settings and attenuation/ALC policy, independently reads
+all14 selected values, restores14 in reverse order and independently reads
+all14 originals. The490-operation child retains every guard/reply/count and
+requires491 authorization boundaries. Full parent plus child is3305 operations.
+Native callbacks require the exact static owner/device, fresh NIC0fd11/NIC11004,
+complete parent proofs and fixed requests before USB. No BBP gain, VCO pulse,
+RX, credential or network frame is added. It runs after parent restoration;
+this does not test PA operation inside an active channel or accept RF readiness.
+
+Full matched build/USB image/core/docs passes at `9e370a25`. All205 staging
+groups, engine I/O/cancellation/reply/proof/board/parent faults, native unowned
+USB refusal, saved-receipt deletion/duplication/field/parent mutations and
+ASan/UBSan pass. Pinned-source projection and four altered-source refusals pass.
+The complete571183-byte synthetic prefix passes the whole-source saved proof;
+it is parser rehearsal, not new native evidence. Exact-stage diagnostic
+refusal/save/readback/preserved files/clean unmount/automatic-return and
+missing-workspace VMs pass. Committed kernel and independently packaged firmware
+initramfs bytes match; native owner/proof validators are linked.
+
+Fresh model/descriptor/UUID, workspace capacity, offline fsck/allocation and
+write-eligibility checks pass. The durable archive `wifi-pa5-cycle-9e370a25`
+contains payload, frozen full-prefix proof, source/fixture pins, parent binding
+and all receipts. Ubuntu default and EFI order are unchanged. Previous e47d and
+accepted v109–v113 payloads remain installed and independently backed up. The
+unreferenced older empty-cache UI EFI copy b134 was retired only after complete
+byte equality to its independent accepted backup; all evidence/backup is retained.
+
+Matching session `session-00065f644da09d20-00` passes all3305 operations and
+28 PA writes (14 forward,14 reverse), independent selected/original readbacks,
+complete571183-byte prefix, full parent/frontend proof and automatic saved
+return. Payload/recovery byte equality and offline fsck/allocation pass. The
+105-file durable archive is sealed; the matching run is collected and unarmed.
+The earlier warm-admission refusal remains failed; no warm takeover is inferred.
+
+Next bounded scope: fresh mapped logical40 gain fields for channel161, then
+A-band/20MHz baseband selection/readback/restoration using the accepted v113
+originals. Pinned Linux v7.0 selects the high-band LNA byte at4d, falling back
+to45 only when4d is zero/ff; ff then normalizes to zero. The5GHz RSSI tuple
+starts at4a. AGC8 uses the A-band raw table122c54f2 and gain bits14:8, with
+8-bit subtraction of twice the fresh LNA before7-bit field insertion. Existing
+G-band gain decoding cannot substitute. Keep raw EFUSE blocks scrubbed/private,
+use exact board/live parent gates, and retain explicit all-ones policy solely
+for the three fixed A-band table values that require it. IBI9 raw all-ones
+still does not authorize calibration. Publish this source scope before shared
+implementation and validate the old gain path independently.
+
+Fetched main is now `adc25965`: it adds separate Air6,1 read-only display/HDA
+capture and encoded receipts; no Wi-Fi file overlap was found. The physically
+accepted runtime still uses `e376669c`. Consume the actual new baseline and
+rerun its affected checks before the next native stage; its Air-only results
+do not accept Pro HDA/firmware ownership. Installed bf9/e47d and accepted
+recovery copies remain unchanged. No new stage or reboot is armed. Continue
+from fresh gain/baseband to calibration and5GHz reception, then Demers5
+association/security/connect-disconnect/data. Demers2.4 needs compatible hardware.
+Credentials remain unread/private; connection-ready is unaccepted.
+
+## Historical v113 candidate validation —44 frontend observations
+
+The installed v113 `efbdb378d6bd0974`, runtime `de6cef51`, main `88c56afa`,
+requires full integrated v112/41-target restoration before reading44 fixed
+frontend originals:30 direct MAC/BBP and14 RF targets. Fresh same-unit NIC0fd11/
+NIC11004 is required; pinned Linux v7.0 identifies external5GHz PA. The snapshot
+includes11 external-PA RF originals,21 A-band/20MHz BBP originals, MAC power/
+attenuation, filter/channel/gain and trim/DAC/VCO controls. It adds no new
+register write, calibration, RX, credential use or network frame. AGC51/53/55
+and IBI9 permit raw all-ones observations only; these do not accept calibration.
+Legacy seven-target inventory targets, counts, framing and MAX refusal remain
+unchanged through private immutable reader plans. No caller plan is accepted.
+
+Full corrected build/USB image/core/docs,204 staging groups, old inventory/
+band/frequency/A20 regressions,308 I/O/309 cancellation boundaries, four raw
+slots, reply/proof/mode mutations, no replay and ASan/UBSan pass. The initial
+native name-collision compile refusal is retained; the corrected full rerun
+passes. Independent source/fixture projection/hash audits and four damaged-source
+refusals pass. A525302-byte synthetic whole-prefix proof and exact-image
+refusal/save/readback/clean-unmount/return and missing-workspace VMs pass.
+Kernel and independently firmware-packaged initramfs match exactly; new native
+owner/inventory validators are linked. Native v113 subsequently passed as recorded above.
+
+Ubuntu remains default; e47d previous and accepted v109-v112 remain installed
+and independently backed up. The unreferenced superseded scan EFI copy3337
+was retired only after full equality to its durable backup; its evidence and
+backup remain outside build. Shutdown for10seconds Wi-Fi unplug while off is
+authorized; reconnect same port and power on with workspace connected. Results
+and return are automatic. Local run record owns exact armed state. The frozen collector completed
+after return; durable archive `wifi-frontend-de6cef51` includes pinned primary sources and the frozen
+full-prefix proof. Require complete board/parent/44-original/source/session/
+storage proof before constructing PA/BBP admission and restoration. Connection-
+ready remains unaccepted; the local credentials are still private and unused.
+
+## v112 integrated channel161/high-band restoration accepted
+
+Release `5e26351cef7dc690`, source `e769cec6`, main `e1c05956`, matching
+session `session-00065f530fc8d4ba-00` passes the complete491136-byte prefix,
+all2507 operations, nested high-band selection inside held channel161/band,
+and independent41-target reverse restoration. Source/release/session, complete
+common proof, payload/recovery equality, offline fsck/allocation and automatic
+Ubuntu return pass. The86-file archive `wifi-a20-cycle-e769cec6` remains outside
+build; no reboot remains armed. This accepts command/readback/restoration only,
+not RF lock, VCO/calibration, reception, security or data transfer.
+
+## Active bounded scope —5GHz frontend prerequisite inventory
+
+Consumes actual main `88c56afa` (Air6,1 evidence/docs only since `e1c05956`);
+PR252/272 scopes remain independent. Audit pinned Linux v7.0 external-PA and
+A-band/20MHz BBP projections. Fresh captured NIC0=`fd11` has internal5GHz-PA
+bit9 clear, so the reference selects external5GHz PA; do not reuse the earlier
+2GHz PA policy or infer assembled band capability from EEPROM hints.
+Before new PA/BBP writes, capture the complete fixed frontend target set,
+including external-PA RF originals, A-band BBP originals, MAC attenuation/ALC,
+filter/channel controls and trim/VCO words, after full v112 restoration.
+No new RF/direct-register write, VCO, RX or network frame is added. Share the
+bounded read/guard/response mechanism through private immutable plans while
+preserving the old seven-target inventory and all legacy refusal gates.
+Explicit raw all-ones observations stay confined to documented BBP/sentinel
+slots and never authorize calibration. Require fresh same-unit board fields,
+static ownership, fixed requests/counts, cancellation/no replay and complete
+saved-prefix proof before cold shutdown. Publish numeric source fixtures and
+validate source hashes/projection, old/new parser/transport boundaries, full
+build, sanitizer and exact-stage save/return before installation.
+
+## v112 candidate validation and handoff history
+
+Installed v112 `5e26351cef7dc690`, runtime `e769cec6`, consumes actual main
+`e1c05956` as merge `0954cf5f`; its compact CPU-telemetry format is independent
+of Wi-Fi and both appended Makefile test groups were preserved. Full matched
+build/USB image/core/docs,203 staging groups, all2507 integrated I/O and2517
+authorization failure points,840/841 standalone A20 boundaries, original-tuple
+refusal, pinned fixture, reply/proof/mode mutations, no replay and ASan/UBSan
+pass. The physical model verifies selected band/frequency throughout table
+work and complete41-target reverse restoration. A491990-byte synthetic whole
+prefix and strict nested phase checker pass. Exact-image refusal/save/readback/
+clean-unmount/return and missing-workspace VMs pass; committed kernel and
+independently firmware-packaged initramfs bytes match. Native v112 evidence
+is pending; these checks do not accept RF lock, RX or connectivity.
+
+The child table transaction runs between synthesizer operations622/623, holding
+selected channel161/band. It requires all24 v111 originals before its first
+new write, applies the fixed A20 table, independently reads selection, reverses
+the24 originals and independently verifies them before frequency/band reversal
+resumes. Wire phases8/9/8 keep separate submitted counters under one static
+owner. No PA/attenuation, VCO pulse, receive, credentials or network frames are
+added. Failed/partial restoration stays failed with retained transport ownership.
+
+Ubuntu remains default; e47d previous and accepted v109/v110/v111 remain
+installed and independently backed up. The unreferenced superseded v105 EFI
+trial copy was retired only after complete equality to its durable backup;
+its evidence/backup remain outside build. The local run record owns exact
+armed state. Shutdown for10seconds Wi-Fi unplug while off is authorized;
+reconnect same port and power on with the workspace drive connected. Results/
+return are automatic. Collect `build/bringup/wifi-a20-cycle/return_collect.py`
+FIRST after return; durable archive `wifi-a20-cycle-e769cec6` also binds the
+v111 admission source/session/seal and original tuple. Require full common,
+band/frequency, nested table/restoration, source/release/session and storage
+proof before continuing PA/baseband/calibration/receive/security/data work.
+
+## v111 read-only high-band originals accepted
+
+Release `25cfffe9a41b7e9e`, source `9c132e3c`, session
+`session-00065f5262c07486-00` passes the complete423697-byte prefix, full
+common-init/channel161/17-word restoration and all168 inventory operations.
+The24 original bytes in pinned A20 fixture order are
+`00 10 10 00 10 10 8a 00 00 00 00 00 00 00 00 00 00 00 00 00 12 00 00 00`.
+These are observed after the matched cold initialization, not generic reset
+promises. Source/release/session, all payload/recovery bytes, offline fsck/
+allocation and automatic Ubuntu return pass;84 sealed archive files remain
+outside build in `wifi-a20-inventory-9c132e3c`. No reboot remains armed.
+
+## Active bounded scope — integrated high-band/20MHz table restoration
+
+Fetched main `e1c05956` adds compact Air6,1 CPU telemetry, independently of
+Wi-Fi; merge its actual changes and retain PR252/272 ownership boundaries.
+Add one fixed24-target write/readback/reverse-restore engine, gated by the
+complete v111 original tuple before any new write. Invoke it inside the
+channel161 synthesizer's independently verified selected state, before the
+13 frequency words and four band words are restored. Preserve existing
+band-only, frequency-only and inventory profiles. All41 touched targets must
+return to their originals. No PA/attenuation, VCO, RX, authentication or network
+frames are added. Use only immutable targets/values, one static native owner,
+per-phase packet/guard/count proof, retained transport on partial failure and
+strict full-prefix collection. Validate I/O/cancellation/mutation boundaries,
+matched build, sanitizer and exact-stage save/return before cold shutdown.
+
+## v111 candidate validation and handoff history
+
+Installed v111 `25cfffe9a41b7e9e`, source `9c132e3c`, main `c9235491`,
+appends168 guarded read-only operations for all24 pinned high-band/20MHz RF
+targets after the complete v110 channel161/17-word restoration transaction.
+All24 originals are absent from the four pinned common RF initialization
+tables; do not invent their reset values. The inventory permits byte-valued
+observations, exact read requests/replies and no replay, not new RF writes,
+VCO, RX, security or network frames. Each callback requires the same static
+owner/device, completed channel/restoration proof and matching submitted count.
+
+Full matched build/USB image/core/docs passes at `9c132e3c`, with202 staging
+groups,168 I/O/169 cancellation boundaries, all byte values, response lengths/
+header/address/trailer/upper-bit and proof mutations, and ASan/UBSan. The
+first compile's formatting refusal is preserved; the corrected source passes
+the full rerun. A424550-byte synthetic whole-prefix proof and exact-stage
+refusal/save/readback/clean-unmount/return and missing-workspace VMs pass.
+The staged kernel and independently firmware-packaged initramfs match exactly;
+new inventory/owner validators are linked and the unused A20 write engine is
+still absent. These are host/VM checks; native v111 evidence is pending.
+
+Ubuntu stays default; e47d remains previous, and accepted v109/v110 payloads
+remain installed and independently backed up. The unreferenced, superseded
+v108 inventory EFI copy was retired only after full equality to its durable
+backup; its accepted evidence and backup survive outside build. The local
+run record owns exact armed state. Shutdown for the required10second Wi-Fi
+unplug while off is authorized; reconnect same port and power on with the
+workspace drive connected. Results/return are automatic. On return collect
+`build/bringup/wifi-a20-inventory/return_collect.py` FIRST; the durable archive
+is `wifi-a20-inventory-9c132e3c`. Require the complete earlier proof and all24
+original observations before constructing a fixed table admission/restore
+contract. Credentials remain unused. Connection-ready is still not accepted.
+
+## v110 cold channel161 frequency-field transaction accepted
+
+Source `ff5b4c65`, release `960af51da95c68fd`, session
+`session-00065f51cc726e7c-00` passes the complete403219-byte prefix proof:
+common initialization, all1667 ordered operations, channel161 masked fields,
+independent13-word selected/original inventories and four band-word restoration.
+All17 touched words return to their original values; zero network frames.
+Matching source/release/session, all payload/recovery bytes, offline fsck and
+allocation and automatic Ubuntu return pass. Durable archive
+`wifi-5ghz-synth-ff5b4c65` retains81 sealed files; no reboot remains armed.
+This accepts programming/readback/restoration, not VCO lock, RF reception,
+authentication or data transfer. The earlier warm refusal remains separate.
+
+## Next bounded scope — complete high-band prerequisite inventory
+
+Before high-band/20MHz writes, capture all24 fixed RF targets from the pinned
+channel161 A20 table after the accepted v110 transaction restores its words.
+Many bank6/7 targets are absent from the common initialization tables, so do
+not invent their reset values or copy a Linux configured-radio snapshot.
+Read every target with exact MCU identity, MAC/core/DMA guards and a static
+one-shot owner; add no new RF writes or network frames. Record complete
+source-bound observations for the subsequent fixed admission/restore contract.
+Touch only Wi-Fi MCU inventory/native dispatch, automatic staging, strict
+saved-log checks and this unit/Wi-Fi guide. PR252/272 remain independent; main
+is still `c9235491`. Validate transport/cancellation/mutation/no-replay paths
+and exact-stage save/return before installation. Cold unplug trials still use
+shutdown under the user's standing authorization.
+
+## v110 candidate validation and handoff history
+
+Installed v110 `960af51da95c68fd`, source `ff5b4c65`, main `c9235491`,
+adds the fixed channel161 frequency-field transaction inside selected5GHz
+phase8. It observes all13 original RF0 words before any frequency write,
+requires the common-init tuple, applies21 masked fields in source order,
+independently verifies selection, reverses all13 words and independently verifies
+the original tuple before the four band words are restored. This is not a VCO,
+RF-lock, receiver, security or data trial. No credentials are read or packaged.
+
+The full runtime build/USB image/core/docs suite passes at `d82fc450`; final
+`ff5b4c65` only tightens the saved-log checker to reject unknown synthesizer
+receipts, with all five directed parser groups and final products/docs passing.
+All1667 integrated I/O and1676 authorization failures,896/897 standalone synth
+boundaries, original-state admission, reply/proof mutations, unchanged legacy
+synth1/band behavior, ASan/UBSan and201 staging groups pass. A synthetic404074-byte
+whole common-init/transaction prefix passes strict proof. Exact-stage VM
+refusal/save/readback/clean-unmount/return and missing-workspace tests pass;
+the staged kernel and independently firmware-packaged initramfs match exactly.
+These host/VM checks do not accept the new native frequency operation.
+
+Accepted v109 and known-good e47d remain installed and independently backed up.
+The failed, unreferenced isolated-logging v104 a21d EFI copy was retired only
+after complete byte/hash equality to its durable backup. Ubuntu remains default.
+The local run record owns exact armed state; shutdown is authorized for the
+required10second Wi-Fi unplug while off. Reconnect same port and power on with
+the workspace drive attached. Progress/results/return are automatic. On return,
+collect the matching v110 session FIRST using the frozen collector in
+`build/bringup/wifi-5ghz-synth/`; durable evidence is outside build in
+`wifi-5ghz-synth-ff5b4c65`. Do not repeat the warm takeover refusal or claim
+connection-ready before actual authenticated data exchange and disconnect.
+
+## v109 checked candidate, preserved warm refusal and accepted cold retry
+
+Retained v109 `4b58af1abfdc0fb5`, runtime `ecae82b5`, main `c9235491`,
+now has the accepted cold transaction described above, alongside the preserved
+warm pre-entry refusal. It admits only the v108 starting tuple, selects the
+fixed5GHz RF and MAC words, independently checks selection, restores the
+four changed words in reverse order and independently checks the original
+state. All771 I/O and779 authorization failure/cancellation boundaries,
+proof/receipt mutations, ASan/UBSan,200 staging groups, full build/core/docs,
+composed complete-prefix proof and exact-image refusal/save/unmount/return
+and missing-workspace VMs pass locally. Independent firmware packaging and
+kernel bytes match the stage. The final owner/attempted-proof tightening was
+included in the full rerun. No credentials are packaged or used.
+
+Ubuntu remains default and known-good e47d remains previous; v108 is still
+retained and backed up. The failed unreferenced v103 retry8524 EFI copy was
+retired only after full equality to its durable backup. The user's standing
+authority covers the cold retry; shutdown is required for the unplug. Collect matching
+source/release/session/storage proof first after automatic return. Successful
+band selection/restoration is not frequency/RX, authentication or IP/data
+acceptance. The local run record owns the exact armed/returned state.
+
+## Active bounded scope — reversible channel161 synthesizer
+
+On actual main `c9235491`, PR272 desktop/PCM and PR252 resolver/socket scopes
+remain separate. Implemented one fixed channel161/20MHz synthesizer transaction:
+read all13 RF0 words before writes, require the common-init reset tuple, apply
+21 reference masked fields in order, independently verify the final13 words,
+restore all13 in reverse order and independently verify the initial tuple.
+No VCO, PA policy, receive, arbitrary channel/target/value or network OUT.
+Use the existing immutable5GHz frequency projection and pinned numeric fixture;
+keep legacy synth1 behavior unchanged. Test I/O/cancellation/reply/ownership
+boundaries and full restoration before a native caller. Native integration must
+retain5GHz selection across the new phase and restore the four band words after
+it, with one static owner, saved receipts and cold shutdown/automatic return.
+
+## Active bounded scope — 2026-11-02, reversible5GHz band selection
+
+Use the native v108 starting-state tuple as an exact admission gate. Reuse the
+fixed40-setting5GHz RF engine and two MAC band words, then independently read
+back the result and restore the two MAC words and two RF selectors in reverse
+order, with a final original-state inventory. Add bounded fixed restore helpers,
+per-phase ownership/proof, a v109 automatic profile and strict host collectors.
+Touch only MCU/USB Wi-Fi capture, staging and current machine/Wi-Fi guides.
+No frequency/VCO, PA/attenuation, receive, authentication or network OUT is
+added here. Preserve legacy2GHz gates and refuse unknown starting state;
+partial/failed cleanup is a failure, not physical acceptance. Keep retained DMA
+quarantined on transport failure and preserve Ubuntu/recovery. Test source,
+fixed packets, failure/cancellation boundaries, restoration and complete-prefix
+proof before installing or automatically rebooting.
+
+## Active bounded scope — 2026-11-02, native5GHz prerequisite capture
+
+User now authorizes continuing through authenticated connection/disconnection
+and data transfer, and automatic restart for self-contained ready tests.
+Local credentials remain private; do not package or log them before an actual
+security test requires them. EW-7711MAC is5GHz-only; Demers2.4 needs compatible
+hardware, while Demers5 is the current target. Main remains `c9235491`.
+
+Implement a fixed read-only MAC/PA and RF-selector inventory after common
+RF/VGA initialization, stopping before legacy2GHz G20, trim, DAC/VCO, RX or
+network OUT. Touch MCU inventory/transport, kernel dispatch and v108 automatic
+capture/staging/validation only. PR252 socket/DNS and PR272 desktop/PCM work
+remain independent. Require exact descriptor/firmware/common-init proof,
+fixed targets and packets, bounded cancellation, per-operation ownership and
+no replay. Trial shows progress, saves results and returns to Ubuntu, including
+failure. A warm reboot is permitted for this inventory; it does not establish
+cold reset or RF acceptance. Keep Ubuntu default and known-good recovery.
+Collect matching source/release/session and storage evidence on return before
+another run. No connection-ready notification until association, security,
+data exchange and teardown actually pass.
+
+## Active bounded scope — 2026-11-02, high-band20MHz
+
+Fetched and merged main `c9235491` as `e14c550d`; its checkpoint-audit changes
+are independent of Wi-Fi. Open PR272 owns desktop directory/PCM controls and
+PR252 owns socket/DNS audit; this scope touches neither. Implement the fixed
+24-setting RF bandwidth/high-band table for channel161/20MHz in
+`mt76_mcu.c`/`.h`, with pinned source projection, numeric fixture and host
+regressions. Preserve existing MCU ownership, guard, cancellation, readback
+and no-replay contracts. Fixed whole-register table writes are distinguished
+from the synthesizer's masked fields. No PA policy, attenuation, frequency/VCO,
+baseband/calibration or native caller is implied by table completion. Validate
+all command/guard/failure boundaries, wrong-band readback proofs and unchanged
+legacy2GHz behavior, then build matched artifacts. No installation or reboot
+is planned; native prerequisite inventory and partial-write cleanup remain
+required before integrating these offline helpers.
+
+Source `815e47a1` implements the24-setting engine. The pinned reference audit
+passes and rejects wrong-band channel161 selection, changed fixture bytes
+and mismatched source hashes. New/legacy table tests,5GHz RF/MAC and
+channel161-plan regressions, ASan/UBSan, main's checkpoint-budget tests,
+`all usb-image` and documentation links pass. Tests cover all336 operations,
+337 authorization points, reply-bit/length mutations, complete readback and
+proof accounting, and no replay. The linked kernel omits this unused helper.
+No native acceptance is claimed. Next are PA policy/attenuation, baseband/
+calibration and a native prerequisite/cleanup design. Installed payload and
+recovery remain unchanged, with no reboot armed.
+
+
+## Active bounded scope — 2026-11-02
+
+Fetched main remains `95ddb8d6`; branch starts at `72119659`. PR271 owns Air6,1
+integration/display audit and PR252 owns DNS/socket work; neither overlaps this
+step. Implement the two fixed5GHz MAC band words in `mt76_mcu.c`/`.h`, sharing
+only the existing guarded transfer mechanism with the legacy2GHz helper.
+Preserve the original zero-before, MAC-disabled, DMA-idle, cancellation and
+no-replay gates. The zero-before condition is an offline prerequisite, not a
+newly accepted5GHz reset value. Validate pinned numeric addresses/values,
+all transfer/failure/cancellation boundaries, proof mutations, cross-band
+confusion and unchanged legacy behavior. No native caller, profile, install
+or reboot is added here. Channel161 bandwidth/baseband/calibration and a
+read-only prerequisite capture are the next integration dependencies.
+
+Source `44ccd837` implements the fixed words. New/legacy MAC tests, 5GHz
+RF-table and channel161-plan regressions, ASan/UBSan, `all usb-image`,
+documentation links and matched display-server VM boot/exit pass. Tests
+cover all18 transfer failures,19 authorization boundaries, read/guard bits,
+write payloads, state counters and cross-band refusals. Existing allowed DMA
+upper bits remain allowed; none of the four busy bits is relaxed. The helper
+is absent from the linked kernel because it has no native caller. No hardware
+trial is installed or armed. Evidence is durable outside build.
+
+
+## Active bounded scope — 2026-11-01
+
+Consumes actual main `95ddb8d6` (including desktop lifecycle/deferred I/O
+and Air6,1 process-admission work), merged as `4abc1469`. Open PR252 owns
+DNS/socket audit; this step does not change that contract. Merge resolution
+keeps Wi-Fi trace/Help startup and the upstream deferred UI logger together.
+
+Next shared implementation is a fixed, offline-testable 5GHz RF band-selection
+engine in `mt76_mcu.c`/`.h`, with independent numeric fixture and host tests.
+It replays the pinned Linux v7.0 bank6 table, then RF5:0=44/RF6:0=45;
+no configurable register targets, 2GHz fallback, frequency/VCO pulse, receive,
+network transmission or runtime caller is added. It depends on the existing
+bounded MCU/guard machinery and captured-model band restriction. Source `be1987e3` implements the40-setting engine. Exact command/readback,
+cancellation at all561 authorization points, all560 I/O/guard boundaries,
+malformed response/length, proof mutation and no-replay host checks pass,
+including ASan/UBSan. The merged `all usb-image test-core` build passes.
+The native caller remains absent; this is not physical radio acceptance.
+Display-server and Wi-Fi Help/System/clean-exit VM checks pass, including
+post-exit libcprobe with emulated Ethernet. The no-NIC run completed desktop
+checks but its later UDP readiness probe refused an uninitialized network;
+that full run remains incomplete and its original failure is retained. MAC band words,
+5GHz bandwidth/channel/baseband/calibration and native integration remain
+separate work. Installed payload and recovery remain unchanged and unarmed.
+
+## Historical handoff (superseded 2026-11-01)
+
+Latest accepted trial: v102 `3337af3753372b9d`, source `ebbb08cb`, actual
+main `052ebc18`, session `session-00065edbc19533a8-00`. All24 enabled-window
+receives completed across US1/6/11:23 beacon observations and one unrelated
+transfer, yielding six anonymous discovery rows. Each channel completed eight
+receives in less than0.88s. Channel6 rejected an observed early276-byte completion
+uninspected and used eight fresh pages under the original deadline. All30 fresh
+page identities stayed distinct and retained; all three independent MAC/endpoint
+stops and all13 original channel1 word restorations passed. Full799953-byte
+capture, seven complete payload equalities and offline integrity passed. Evidence
+is archived outside build. Ubuntu remains default, workspace unmounted and no
+reboot armed. No repeat is needed. Sustained endurance, FCS, physical BSSID
+deduplication, association/security and IP/UI remain unaccepted.
+
+Installed input-enabled attended candidate: v105 `4bc73cbb97c3166b`, source
+`032dc172`, runtime source `330c25b3` / main `02434766`. The v104 radio phase
+verified all three visits, complete isolation/cleanup and two cached rows, but
+its desktop lifetime is incomplete after manual poweroff. The trackpad was
+unavailable because that profile omitted the already-supported gesture option.
+v105 adds only `srvros.trackpad=gestures`; kernel and packaged apps are byte-for-
+byte identical. New profile/input proof and exact-stage/System/missing-workspace
+VMs pass. Native trackpad/UI selection/removal and clean exit still need testing.
+Fetched main `a8da6076` is deliberately deferred for this one-setting retest.
+Ubuntu remains default, workspace unmounted and no reboot armed. Durable archive:
+`~/.local/share/srvros/macbookpro11-2/wifi-ui-input-032dc172`.
+
+Latest accepted trial: v101 `f1015eeb7358f9c7`, source `6b12e4f2`, main
+`e4f8bf84`, session `session-00065edaa5a051a0-00`. The bounded pre-enable retry
+was exercised on channel11: its first normal completion carried120 bytes and
+was left uninspected; a fresh retained page/TD was posted after MAC enable.
+The original ten-second deadline stayed intact; that selected receive was quiet.
+Channel6 decoded one344-byte transfer/beacon after53262 us. Channel1 was quiet.
+All three independent stops and all13 original channel1 word restorations passed.
+Nine fresh pages remain distinct and retained, with no duplicate completion or
+network data OUT. Sustained reception, channel11 reception, FCS and connectivity
+remain unaccepted. Full native evidence and recovery checks are recorded below;
+Ubuntu remains default, workspace unmounted and reboot unarmed.
+
+Latest accepted bounded pilot: v100 `c80f3afe5d496f36`, source
+`57fede24`, main `108969f7`, session `session-00065ed915340ee5-00`.
+All three US1/6/11 visits completed with distinct retained RX resources,
+independent MAC retirement/endpoint stop and restoration of all13 original
+channel1 words between visits. Channel6 decoded one beacon after95026 us;
+channel1 was quiet and early channel11 data was deliberately uninspected.
+The complete782503-byte prefix, exact periodic-checkpoint bytes, seven payloads
+and offline storage/recovery checks passed. This accepts the bounded lifecycle
+and channel6 observation, not sustained scanning, channel11 reception or Wi-Fi
+connectivity. Ubuntu remains default; workspace unmounted, no reboot armed.
+
+The original collector refused a cached scheduler/device checkpoint interleaved
+with channel1's trace. A reviewed strict projection validates its exact profile
+and original byte offset while preserving the raw capture; all RF/USB/ownership
+proofs remain unchanged. The initial refusal is retained. An earlier v100
+`a7bc67f2d057e7d8` run refused immediate VCO clear before scanning. This successful
+run observed immediate0xb0, so native immediate0x30 admission remains unexercised;
+both cases pass the synthetic scan/timing regressions.
+
+Earlier accepted single-channel milestone: v99 `995dd64ae6135add`, source `87144160`, integrated main
+`fbb6eaa5`, session `session-00065ed6f4d568a5-00`. A fresh single-IN channel6
+receive decoded one beacon after 93435 us, then independently retired MAC/RX
+and restored all13 original channel1 frequency words. Exact proof validates
+494 tuning callbacks,154 RF exchanges,1000 ownership checks and both bounded
+VCO trigger-clear sequences. Fresh Set Dequeue, endpoint stop, four quiescence
+guards, saved filter/TXOP and retained DMA passed. This accepts the bounded
+channel6 beacon observation and cleanup, not sustained RF/FCS/scan/connection.
+The preceding ten-second channel1 window was quiet; V96 remains the latest
+positive AP-table evidence. The full627250-byte prefix and prior initialization/
+five power-on commands passed. At that acceptance checkpoint all seven payloads matched durable backups;
+Ubuntu default, consumed one-shot, unmounted/unarmed and offline integrity passed
+(349 files,880 clusters,146 directories, zero errors). Full evidence is archived
+outside build. No repeat run is needed.
+
+Next: an explicit attended scan-to-desktop profile to accept the new cache,
+selection and disconnect UI, then management TX, association/security and IP.
+Repeated receive is accepted only for the bounded v102 trial. Reject or drain pre-enable data without assigning
+it to the new channel. Keep separate retained RX ownership, explicit
+channel-aware parsing and independent endpoint stop/RF restoration on every
+failure. Original strict calibration helper remains unchanged; RF0:6 semantics
+remain unresolved. Battery, headphones and further trackpad latency work stay
+deferred. Main's merged desktop power checkpoint contract is preserved through
+a separate logger entry; no Pro battery trial was added.
+
+Earlier scope publications below are historical; the current acceptance above
+and dated result at the end supersede their pending-trial language.
+
+Active native tuning scope (2026-10-27): actual main `e283eecb` (Air6,1
+cached power checkpoints; no MT76 overlap), open filesystem PR182 inspected.
+Bind the unchanged `1ff74269` one-channel frequency/VCO excursion to a separate
+selector76/v98 automatic-return trial. Fixed US channel6/20MHz only, returning
+to channel1 with main RX stopped throughout; no receiver restart or scan UI.
+Use retained exact board/firmware/transport identities, fresh stopped context,
+an independent ordered callback/value gate, strict MCU response identities,
+bounded measured delays and independent cleanup. Save progress, callback trace
+and restoration outcomes. Touched: native xHCI tune state/adapter, main/staging/
+smoke, native fault fixtures, strict collection and unit/Wi-Fi guides. Preserve
+all v1-v97 behavior, accepted v97 and recovery payloads. Checkpoint: native
+failure/ownership/reply/wait/cleanup tests, sanitizers and full merged build,
+exact-stage saved/refusal VM, durable install/run/recovery before cold readiness.
+No physical acceptance or reboot armed by this scope publication.
+
+Implemented offline scope (2026-10-27): consume actual main `c07dc402` (Air6,1 CPU-power
+PR207/208; no MT76 overlap), with PR182 filesystem work inspected separately.
+Implement an independent transport-neutral one-channel frequency/VCO excursion
+and channel1 restoration before any native receiver restart. Restrict US1–11,
+20MHz, captured bank0 initial words and VCO byte; require fresh disabled-MAC/
+CORE/DMA/idle and independent cleanup ownership. Bound self-clearing VCO polls,
+preserve ambiguous writes, refuse cleanup RF changes while VCO remains busy,
+and re-settle restored channel1 before declaring cleanup complete. Touched:
+new MT76 tune header/source, host fault fixtures, Makefile and unit/Wi-Fi docs.
+Dependencies: unchanged accepted v97 preview, immutable frequency planner,
+pinned Linux scan-path RF/VCO order and later native band/baseband/stop adapter.
+Checkpoint: exhaustive I/O/ownership/readback/timeout/restore fault checks,
+sanitizers and merged core/image/desktop; no new boot profile or hardware
+acceptance in this block. Installed v97 and all recovery payloads stay retained.
+
+Validated native register-preview candidate (2026-10-27): actual main `e7953352` and
+open PR182 inspected; filesystem work does not overlap MT76. Add separate
+selector75/v97 after full v96 discovery, parent cleanup, exact main-RX stop and
+six guards. Bind all11 US/20MHz plans to bounded RF MCU reads/writes with exact
+wire identities, an independent callback-order/value gate, retained transport
+identities and fresh live stopped context. Keep cleanup independently admitted
+after forward proof/reply loss when transport remains safe. Save exact callback,
+readback and restoration evidence, omit identifiers, retain all DMA. No VCO pulse,
+MAC enable, main-RX restart/reuse, live multi-channel reception or network data
+OUT. Touched: xHCI preview state/adapter, main/staging/smoke, actual native fault
+fixtures, strict collection proof and unit/Wi-Fi guides. Dependency: unchanged
+`5672e4b5` preview engine and accepted v96 native cleanup/discovery. Checkpoint:
+full transport/order/board/ownership/reply/cleanup failures, sanitizers and core,
+exact-stage automatic save/refusal VM, durable recovery/run/archive before cold
+trial readiness. No reboot armed.
+
+Completed offline channel groundwork (2026-10-27): actual main `e7953352` includes PR204
+screenshot cleanup, PR205 native evidence and PR206 Files metadata batching.
+Open PR182 owns filesystem imports; no MT76 overlap. Build a separate US1–11,
+20MHz frequency-field planner and reversible preview transaction before native
+multi-channel tuning. Pin the reference21 synthesizer operations, preserve masked
+bits, save all13 distinct original registers before writes, require disabled MAC/
+CORE/DMA/idle guards and fresh ownership, independently verify writes, and restore
+all touched registers even after forward failure. No VCO pulse, MAC enable,
+main-RX restart/reuse, scan UI, native caller or boot profile changes in this block.
+Touched: new MT76 channel plan/preview header/source, focused host fault fixtures,
+Makefile and unit/Wi-Fi docs. Dependencies: unchanged v96 fixed-channel discovery,
+pinned Linux frequency table/order and later native stop/retune ownership proof.
+Checkpoint complete: all11 plans,12918 preview transactions and59136 masked
+words pass independent-reference and fault/ownership/cleanup checks plus
+ASan/UBSan.183 staging tests, merged core/image/desktop and GPT/OVMF USB-keyboard
+boot regression pass;192 older Wi-Fi and both desktop configurations remain
+unchanged. Native retuning/receiver work remains next. Installed v96/recovery
+stay unchanged; no reboot armed.
+
+Validated native discovery candidate (2026-10-27): actual main `6b6d2f4d` merges PR203
+Air screenshot evidence only; open PR182 owns filesystem imports, no MT76
+overlap. Bind the validated discovery helper to separate selector74/v96 after
+ten-second window finish, parent cleanup, exact stopped context and six guards.
+Retain copied identifiers privately; save only bounded counts and non-identifying
+row metadata. Keep all v1-v95 recipes/behavior and parser/calibration/RF setup
+unchanged. Touched: xHCI discovery callback/state/logging, main/staging/smoke,
+actual native fault fixtures, strict saved-proof checker and unit/Wi-Fi guides.
+Dependencies: v95 repeated-receive proof and `987fff2e` collector. Checkpoint:
+actual stop/ownership/ledger/no-replay failure tests, sanitizers, merged core/image,
+exact-stage save/refusal VM, durable recovery/run/evidence before cold-trial
+readiness. Native AP results are pending; no reboot armed.
+
+Completed offline implementation (2026-10-27): merged actual main `a247bef9` (PR202 bounded pipe
+copies/screenshot latency); open PR182 owns filesystem imports and does not
+overlap MT76. Prepare an allocation-free passive access-point result table
+consuming only a completed, stopped receive window under fresh cleanup ownership.
+Keep identifiers as bounded private memory copies, deduplicate BSSID, distinguish
+hidden SSIDs and advertised security from validated authentication, and publish
+results atomically only after all input/ownership checks. Fixed US channel1,
+eight input entries, no DMA reuse, retuning, transmit, UI or native profile change
+in this block. Touched: new MT76 discovery header/source, focused host fixtures,
+Makefile and unit/Wi-Fi guides. Dependencies: unchanged strict RX/beacon parser
+and accepted v95 normal-event/cleanup proof. Checkpoint:10,168 collection attempts, including10,000 hostile eight-input batches,
+all beacon truncations, deduplication/hidden/binary/conflict cases, atomic ownership
+loss and invalid lifecycle/ledger tests pass with ASan/UBSan.182 staging tests and
+merged core/image/desktop checks pass; GPT/OVMF boot/input and durable evidence
+complete this offline block. Native binding and discovery acceptance follow
+separately; installed v95 and recovery remain unchanged, no reboot armed.
+
+Validated candidate block (2026-10-26): merged actual main `eacb4ec4` (PR200 screenshot
+stress/worker receipts and desktop validation). Resolved the append-only
+Makefile conflict by keeping both MT76 and operation-timing test families.
+PR202 currently changes Air evidence only; PR182 owns filesystem imports;
+neither overlaps MT76. Prepare a separate explicit10s receive-window profile
+after v94's empty1s observation, retaining the eight-page/count limit and exact
+normal-completion, parent cleanup, stop and byte/phase proofs. Keep v94 and all
+older recipes/short deadlines unchanged. Touched: window budget validation,
+native selector/window adapter, main/staging/smoke and focused deadline/proof
+fixtures plus unit/Wi-Fi guides. No RF/channel/register changes. Checkpoint:
+long/short timeout and failure tests, sanitizers, merged core/image, exact-stage
+VM and preserved recovery/run/archive before cold-trial readiness.
+
+Validated native integration candidate (2026-10-26): actual main remains `a9d69554`;
+PR182 owns filesystem imports and has no MT76 overlap. Wire the retained-buffer
+receive window into a separate explicit native mode/profile. Split polling
+from final inspection so the accepted parent MAC drain/disable/restoration,
+exact endpoint stop and six guards all finish before any DMA read. Preallocate
+eight distinct pages, acknowledge the already posted first request after whole
+v92 calibration, then publish up to seven new non-wrapping TRBs one at a time.
+Keep old profiles unchanged. Touched: receive-window engine split API, xHCI
+window adapter/dispatcher/lifecycle/mode, main/staging/smoke, host/native/proof
+fixtures and unit/Wi-Fi guides. Dependencies: current v93 native beacon proof,
+accepted power-on/MAC ordering and retained DMA. Checkpoint: full fault/clock/
+event/stop coverage, sanitizer/core, exact-stage save/refusal VM, durable
+recovery/run/evidence before readiness for a cold trial. No new reboot armed.
+
+Completed offline block (2026-10-26): merged actual main `a9d69554` (PR199 Air
+attended-exit evidence only); PR182 owns filesystem imports and has no MT76
+overlap. Prepare an allocation-free bounded repeated receive engine using eight
+distinct retained4KiB buffers and non-wrapping TRB identities. Admit only one
+pending request, ignore foreign/stale events, stop on bounded count/deadline or
+failure, and inspect normal-completion bytes only after exact endpoint cessation
+and fresh cleanup ownership. Touched: new MT76 receive-window helper/header,
+host fixtures/Makefile and unit/Wi-Fi guides. Existing native v93 stays unchanged;
+no physical profile, adapter rearm or reboot in this block. Native callback
+integration and exact-stage/physical acceptance follow separately. Checkpoint complete:
+fault-injected ownership/event/clock/stop tests, sanitizers, core/image and GPT
+boot/input pass; durable archive accompanies the published implementation.
+
+Active block (2026-10-26): consumed actual main `a9e39e38` (PR197 attended
+load and PR198 keyboard navigation). Resolved hardware_boot.py conflicts by
+preserving all Wi-Fi recipes plus separate desktop v76/v77 flags/validation;
+179 staging tests pass. PR182 still owns filesystem imports; no MT76 overlap.
+Build explicit v93/profile71 passive main-RX observation after whole v92
+calibration proof: keep one4096-byte IN, poll events under active MAC up to1s,
+then drain/disable MAC and prove exact endpoint stop before reading bytes.
+Require normal CC1/13 and bounded residue for actual size; never decode stopped
+CC26/27/28. Parse only the first bounded entry; log copied non-identifying
+metadata, never SSID/address/payload bytes. Record event timing relative to the
+observation window; no rearm, extra IN, network data OUT, scan or association.
+Touched: native RX/inspection hook/selector, parser integration and host tests,
+main/staging/smoke and unit/Wi-Fi docs. Keep v1-v92 bytes/behavior and original
+calibration helpers. Checkpoint: fault/length/teardown tests, sanitizers, merged
+image/core, exact-stage VM, installed recovery/run/archive before cold trial.
+
+
+Completed physical block (2026-10-26): v92 on main `43aff7d5` consumed PR194
+window/dock and PR196 Air evidence; PR182 remains filesystem scope. Native
+fixed-command adapter, selector70, main/staging/smoke recipes and host/proof
+fixtures passed local/core/sanitizer/exact-stage VM and this unit's bounded
+transaction checks. No packet inspection/delivery, rearm or network data OUT.
+The earlier strict16-byte reply hypothesis is now observed for all five
+commands on this adapter; this does not authorize widening other device gates.
+No further physical run is staged or armed.
+
+
+Completed offline block (2026-10-26): consumed actual main `9465c68f` (PR192 private
+child-image ownership, PR193/195 evidence). PR194 owns window/dock behavior;
+PR182 filesystem imports; neither overlaps this scope. Implement a separate,
+allocation-free initial power-on calibration transaction for the captured
+MT7610 NICfd11/1004, US channel1/20MHz profile. Touched: new power-on helper,
+header, host tests/Makefile and unit/Wi-Fi docs. Reference requires R/VCO and
+10us delay before FULL/LC/15ms/restoration/RXDCOC; NIC_CONF1 bit13 is clear,
+so TSSI DC is excluded only for this exact profile. Require current ownership
+and fresh mapped board fields before every forward callback, independently
+verified temporary writes and reverse cleanup after failure. Preserve both old
+helpers. No native caller/profile change, calibration claim or reboot in this
+block. Checkpoint complete: host fault injection/sanitizers, merged core/image and
+GPT/OVMF boot/input validation, reference audit and durable archive. Native
+command adapter and physical trial remain next; installed v91 is unchanged.
+
+
+Completed block (2026-10-26): v91 on actual main `d24dbc11` (PR191 evidence
+only). Calibration-probe helper, optional MAC inspection hook, native selector,
+host/staging/smoke tests and docs validated locally and on this unit. Scope
+accepted only the reversible register observation and existing cleanup. Full
+dated results are retained below. No new trial staged or reboot armed.
+
+
+Completed physical block (2026-10-26): consumed actual main `4ee18f69` (PR190 scheduler/
+desktop wake attribution),preserving all Wi-Fi profiles; PR182 owns filesystem
+imports,no MT76 overlap. Build v90 bounded MAC startup/shutdown around one
+retained main-RX request,then fresh TX_ALC0/IBI9 observations. Touched: MT76 MAC
+cycle helper/host tests,xHCI callback adapter and actual selector,main/staging/
+smoke recipes and machine/Wi-Fi docs. Require full prior proof,independent
+MAC-disable cleanup,device TX/RX queue draining,exact endpoint stop and retained
+DMA. No calibration command,packet delivery,rearm,scan or association. Unknown
+IBI9 stays observational. Local/exact-stage VM,installed/recovery/run/archive checks and the native
+bounded MAC cycle now pass;acceptance limits and next scope are above.
+
+
+Completed offline block (2026-10-26): consumed actual main `ee5468f6` (PR186–189,
+Air6,1 desktop timing/evidence; PR190 continues timing attribution and PR182
+owns filesystem imports). No MT76 overlap found. Build an allocation-free,
+callback-driven FULL/LC/RXDCOC transaction for the fixed US channel1/20MHz
+profile,with fresh TX_ALC0/IBI9 capture,exact temporary writes,ordered waits,
+verified restoration and cleanup after cancellation/failure. Touched: new MT76
+transaction header/source,host tests/Makefile and unit/Wi-Fi docs. No native
+caller,MAC enable,calibration command or boot recipe change in this block.
+Dependencies: later native MAC/RX ownership and fresh board/power/TSSI proof;
+current IBI9/RF0:6 observations do not authorize calibration. Host/sanitizer/build/VM validation is complete; evidence is archived outside
+build. Native MAC startup/teardown and fresh IBI9/board/power context are next.
+
+
+Current development block (2026-10-26; local validation complete): consume actual main `0858e8e6` (PR181/185
+application window/progress fixes; both Makefile test families preserved).
+PR184 owns worker admission and PR182 filesystem imports; neither overlaps
+this MT76 scope. Built a bounded,allocation-free receive decoder for MT76x02
+USB/RXWI and passive beacon/probe-response observations,with malformed packet
+and sanitizer coverage. Touched subsystems: new MT76 receive header/source,
+host tests/Makefile and Wi-Fi guide. No native endpoint scheduling,MAC enable,
+calibration,transmit,scan UI or authentication yet. This is preparation for a
+controlled MAC/RX lifecycle; calibration requires MAC start in pinned reference
+USB ordering,save/restore and validated board/power context. The later corrected v89 native run below accepts bounded endpoint ownership;
+source main merges alone do not establish native acceptance.
+
+
+Active block: first controlled main-RX endpoint lifecycle after the whole v88
+proof. Actual main `5bcd061c` consumes merged PR184 worker-pipe admission;
+PR182 still owns filesystem imports and does not overlap. New explicit v89
+profile will configure captured endpoint84/DCI9,post one bounded4KiB IN,
+wait10ms,Stop Endpoint with exact command/slot and stopped-context proof,
+retain all DMA and verify disabled MAC/CORE/DMA guards before/after. No Set
+Dequeue,restart,retry,free,MAC enable,calibration or transmit. Unexpected
+payload is metadata-only and not receive acceptance. Touched: xHCI receive
+helper/dispatcher,host tests,main/staging/smoke recipes and unit/Wi-Fi docs.
+Bounded RX shutdown is a prerequisite to later MAC/calibration work; old
+profiles remain byte-identical. Corrected v89 now has bounded native endpoint lifecycle acceptance as recorded
+above. MAC enable,calibration and reception remain pending; no reboot is armed.
+
+
+
+The user considers the core Pro bring-up generally working. Named payloads below
+have native acceptance for desktop/input, brightness, speakers, CPU/two-fan
+telemetry and captured USB Ethernet DHCP/DNS/HTTP with live cable-status UI.
+Battery, headphones and further trackpad-latency work remain deferred.
+
+Active scope is the Edimax `7392:a711` USB MT7610 adapter. The central-table
+native release `257e68678e55ba49` (source `83152ee0`) completed all44 central RF
+writes and44 separate reads, with43 matches and only RF0:6 reading00 after41.
+All command/guard/recovery checks passed. Live Linux reads08 there after its
+initialization/calibration. Register semantics remain unresolved; the original
+strict engine is unchanged and full radio initialization remains unaccepted.
+
+Release `242e84b15d20babc` (source `8fbd311d`) completed the fixed68-entry
+RF bank5 write/read observation in native session `session-00065ead199515d2-00`.
+All68 readbacks matched:952 operations,816 guard reads,136 verified replies,
+68 ACKs and272 valid guard triplets; both mismatch fields zero. The complete
+159281-byte startup prefix and both completion markers were saved. Earlier
+central-table proof remained43/44 with only RF0:6=00. This accepts the bounded
+command/guard/readback observation, not calibrated radio operation.
+
+The return collector's old128KiB ceiling initially refused this larger log;
+its transport ceiling is now256KiB, with byte-preservation boundary tests.
+Strict full-prefix validation passed after collection. Ubuntu default, consumed
+one-shot and installed/recovery payload hashes verified. Known-good
+`e47dca3a6b30c6c1` remains recovery. Offline workspace checks are clean:
+277files/665clusters/112directories, zero leaks, mismatches or errors.
+Evidence is durably archived outside build.
+
+Release `7b329891c0606f1c` (source `00f04fb3`) completed the fixed38-entry
+RF bank6 observation in native session `session-00065ead98009e52-00`.
+All38 readbacks matched:532 operations,456 guard reads,76 verified replies,
+38 ACKs and152 valid guard triplets; both mismatch fields zero. Full prior
+central and bank5 proof passed. The entire191063-byte startup prefix and both
+completion markers were saved. Strict validation, consumed one-shot, Ubuntu
+default and installed/recovery hashes passed. Latest offline workspace checks:
+279files/669clusters/113directories, zero leaks, mismatches or errors;
+unmounted. This is command/guard/readback evidence, not calibrated radio
+acceptance.
+
+Release `de89daa6bdc3024e` (source `22f757bf`) completed the fixed35-entry
+RF VGA (bank7) observation in native session `session-00065eadd298077c-00`.
+All35 readbacks matched:490 operations,420 guard reads,70 verified replies,
+35 ACKs and140 valid guard triplets; both mismatch fields zero. Full central,
+bank5 and bank6 proof passed. The entire219878-byte startup prefix and both
+completion markers were saved. Strict validation, consumed one-shot, Ubuntu
+default and installed/recovery hashes passed. Latest offline workspace checks:
+281files/673clusters/114directories, zero leaks, mismatches or errors;
+unmounted. This is command/guard/readback evidence, not calibrated radio
+acceptance.
+
+Release `e75a52b56efa282b` (source `b4be310b`) completed the fixed19-target
+default20MHz/G-band observation in native session `session-00065eae3ac86feb-00`.
+All19 readbacks matched:266 operations,228 guard reads,38 verified replies,
+19 ACKs and76 valid guard triplets; both mismatch fields zero. Full central,
+bank5, bank6 and VGA proof passed. The entire235592-byte startup prefix and
+both completion markers were saved. Strict validation, consumed one-shot,
+Ubuntu default and installed/recovery hashes passed. Latest offline workspace
+checks:283files/677clusters/115directories, zero leaks, mismatches or errors;
+unmounted. This is command/guard/readback evidence, not calibrated radio
+acceptance.
+
+Release `4ec251f79c97532b` (source `b15867d7`) completed fresh mapped
+board-field verification and RF0:22 trim write/read in native session
+`session-00065eaec03cebac-00`. Fresh fields passed24 reads,2 writes,2 polls,
+2 blocks and26 submissions with no guard errors or raw data logs. Trim68
+read back68:14 operations,12 guard reads,2 verified replies,1 ACK and4 valid
+guard triplets; both mismatch fields zero. Full earlier initialization proof
+and both completion markers passed. Ubuntu default, consumed one-shot and
+installed/recovery payload hashes verified; offline workspace clean:
+285files/681clusters/116directories, zero leaks, mismatches or errors;
+unmounted. Evidence is durably archived.
+
+Release `d27f0d2f10e5ae0b` (source `cfc0cfdd`) completed the bounded DAC/VCO
+initiation observation in session `session-00065eaf209e71b6-00`. All70
+operations,60 guard reads,10 replies,4 ACKs,6 observations and20 guard triplets
+passed, with full prior proof. RF0:73 showed93 ->13 ->93 across the DAC pulse;
+RF0:4 showed30 ->b0 and remainedb0 at the final read. VCO self-clear was not
+observed, so successful calibration is unconfirmed. Complete241416-byte startup
+prefix and both completion markers saved. Recovery/default/one-shot/payload
+checks passed; offline workspace clean287files/685clusters/117directories,
+zero leaks/mismatches/errors, unmounted and unarmed.
+
+Release `cd775567c529231f` (source `70a3f45d`) completed six delayed VCO reads
+in session `session-00065eafa382c5ce-00`. All six values were30: bit7 was clear
+at the first delayed sample and remained clear. Fixed requested inter-sample
+delays totaled1000000us; transport/logging time is additional, so this does
+not measure a precise10ms completion deadline. All42 operations,36 guard reads,
+6 replies/delays and12 guard triplets passed with full prior proof. Entire
+244743-byte startup prefix and both completion markers saved. Recovery/default/
+one-shot/payload checks passed; offline workspace clean289files/689clusters/
+118directories, zero leaks/mismatches/errors, unmounted and unarmed. Evidence
+is durably archived. Release `0aaf20927414846c` (source `67e5e5af`) completed guarded one-chain
+RX-path/TX-DAC setup in session `session-00065eb0051574ff-00`. AGC0 at2300
+was21400 before/after; TXBE5 at2714 was0 before/after. Required bits were
+already clear; both fixed writes preserved all other bits and exact readback
+passed. All18 transfers,16 reads,2 writes,2 verified targets and4 guard
+triplets passed with full earlier proof. Entire247000-byte startup prefix
+and both completion markers saved. Recovery/default/one-shot/hashes verified;
+offline workspace clean291files/693clusters/119directories, zero leaks/
+mismatches/errors, unmounted and unarmed. Evidence durably archived. Release `80a6781c0b08290c` (source `4dd830fd`) failed the read-only inventory
+in session `session-00065eb0816b56d4-00`: IBI9 at2124 returnedffffffff on a
+successful4-byte USB read. The engine refused after12 reads/submissions;
+full inventory and postguards did not complete. Eight earlier targets were
+observed, including US_CYC2a4=0 and TXOP1340=583f. TX_ALC13b0, BCN_TIME1114,
+USB_DMA238 and final guards were NOT_READ; printed zero tail rows are
+placeholders. Full earlier path/RF proof verified separately against the actual
+failed log, and the strict success collector correctly refused it. Entire
+249442-byte prefix saved with both failure markers. Recovery/default/one-shot/
+hashes verified; offline workspace clean293files/697clusters/120directories,
+no leaks/mismatches/errors, unmounted and unarmed. Evidence archived as failure.
+Independent live Linux reads returned IBI9=ffffffff twelve times with valid
+ASIC/CORE and adjacent reads. Linux saves/restores this register around
+calibration; that value alone does not prove transport failure. The original
+strict profile remains unchanged. Separate v76 observation release
+`2351cfa9efee6bb1`, source `5426417e`, is installed and unarmed. Only fixed
+IBI9 may record all-ones; the other11 targets and every guard stay strict.
+All18 reads, full postguards, derived mask and both completion markers are
+required. Native v76 session `session-00065eb0f7e9e13b-00` stopped earlier:
+RF0:4 had already cleared fromb0 to30 at the initiation final read. All70
+initiation operations/guards/replies passed, but the historical pending-VCO
+profile requires finalb0, so the wait owner refused before any wait operation.
+Wait/path/inventory are NOT_RUN; no IBI9 observation obtained. Complete243533-byte
+prefix saved with both failure markers; strict success correctly refused it.
+Full prior proof through initiation verified separately on unchanged log.
+Recovery/default/one-shot/hashes passed; offline workspace clean295files/
+701clusters/121directories, zero leaks/mismatches/errors; unmounted/unarmed.
+Separate v77 release `b2369fab9ef32f11`, source `f5549279`, completed native
+session `session-00065eb1475df12a-00`. Early-clear receipt pending0/early_clear1
+passed; all six delayed reads remained30. Full earlier proof and all18 inventory
+reads/postguards passed, zero inventory writes. IBI9=ffffffff was recorded with
+mask100; all other targets and both guard triplets valid. Entire250364-byte
+prefix and both success markers saved. Recovery/default/one-shot/hashes passed;
+offline clean297files/705clusters/122directories, zero leaks/mismatches/errors;
+unmounted/unarmed. Observation evidence archived; original strict modes and
+v75/v76 failures unchanged. Release `5c86ad12e5f185ca`, source `da8b7fce`,
+completed USB-cycle setup in native session `session-00065eb17b66ef77-00`:
+fresh02a4=0, masked write/readback1e; all9 transfers,8 reads/1 write/1 verification
+and2 guard triplets passed. Full earlier proof and exact inventory passed.
+This run used pending1/early_clear0 and all six delayed reads30; v77 exercised
+the early-clear variant. Entire251629-byte prefix/both success markers saved.
+Recovery/default/one-shot/hashes passed; offline clean299files/709clusters/
+123directories, zero leaks/mismatches/errors; unmounted/unarmed. Timing setup
+accepted on the captured adapter. Release `4c8563c12db92578`, source `83a869fc`,
+completed bandwidth response observation in `session-00065eb1d61ee32d-00`:
+sequence15 returned16 bytes4a0f0008/2/0/4a0f0008, matching function ID2/value0
+with framing/trailer. All7 operations,6 guard reads/1 exchange and both guard
+triplets passed with full earlier proof. Entire252903-byte prefix/both success
+markers saved. Recovery/default/one-shot/hashes passed; offline clean301files/
+713clusters/124directories, zero leaks/mismatches/errors; unmounted/unarmed.
+Original v79 payload remains framing-only observation (ack_validated0).
+Release `6a9fd32642e92a7b`, source `a89af59a`, completed native v80 layout
+in `session-00065eb25d7baa54-00`. Exact bandwidth reply prerequisite passed;
+all45 transfers,40 reads/5 writes/5 verified and10 guard triplets passed.
+CORE1/AGC0/TXBE0/TX_BAND remained2/21400/0/4; EXT_CCA changedffe4->f1e4,
+preserving ED_CCA upper nibblef. Entire258464-byte prefix/both success markers
+saved. Recovery/default/one-shot/hashes passed; offline clean303files/717clusters/
+125directories, zero leaks/mismatches/errors; unmounted/unarmed. Captured layout
+accepted. Release `dde8fcb03f3ea0d5`, source `74d1599e`, completed v81 in
+`session-00065eb2f077e6da-00`:116 ordered operations,101 reads/15 RF replies,
+32 strict guard triplets and20 indexed observations, zero new data writes.
+The entire274888-byte prefix exceeded the old256KiB limit and was preserved
+with explicit512KiB capture; both completion markers and all prior proof passed.
+Ubuntu default, consumed one-shot and installed/recovery hashes verified;
+offline clean305files/722clusters/126directories, zero leaks/mismatches/errors;
+unmounted/unarmed. MAC/RF values remain observations. Next scope is bounded
+channel-band/synthesizer setup grounded in these fresh values and pinned source;
+frequency/calibrated radio/connectivity remain untested.
+
+
+Release `7e269653eebe03c3`, source `83edd6be`, completed v82 in
+`session-00065eb38500e72c-00`. All70 RF targets matched:980 operations,
+840 guard reads,140 exact replies,70 ACKs and280 strict guard triplets;
+both mismatch fields zero. The two MAC words changed from0 to13c8=50007 and
+13a0=3e0002(hex), with18 ordered transfers,16 reads/2 writes/2 verified and
+4 more guard triplets. Whole earlier proof and the complete402661-byte prefix
+with both completion markers passed. Ubuntu default, consumed one-shot and
+installed/recovery hashes verified. Offline clean307files/728clusters/
+127directories, zero leaks/mismatches/errors; unmounted/unarmed. Bounded
+2GHz band setup/readbacks passed; synthesizer/channel tuning and calibrated
+radio/connectivity remain untested. Next scope is pinned channel-frequency
+plan/RMW fields and their fresh prerequisites.
+Touched subsystems: fixed MT76 plan/MAC engine, gated xHCI diagnostic mode,
+boot recipe, directed tests and this unit/current Wi-Fi guide. Dependencies:
+v81 native proof, pinned Linux v7.0 set_band reference, explicit512KiB capture.
+Fetched integration main `aa7b7392`; new changes concern Air lifecycle timing
+and tools, with no MT76 overlap. Open PR172 owns desktop runtime; Pro PR19 owns
+this diagnostic scope. Retain intentional integration baseline `d5bc4b3`
+during this bounded trial. No remote task messaging or parallel staging.
+
+
+Release `be37d545e93f1aed`, source `0ee9efb3`, completed v83 in
+`session-00065eb3c5cb1785-00`. All21 fixed channel1 synthesizer steps passed
+fresh-read/masked-or-full-write/independent-readback checks:441 operations,
+378 guard reads,63 exact MCU replies,21 ACKs,42 observations and126 strict
+MAC0/COREf000f200/DMA40000050 triplets. All earlier proof and the complete
+458424-byte prefix/both completion markers passed. Ubuntu default, consumed
+one-shot and current/recovery hashes verified. Offline clean309files/
+734clusters/128directories, zero leaks/mismatches/errors; unmounted/unarmed.
+Bounded synthesizer field/readback setup passed; frequency lock, calibrated
+radio and connectivity remain untested. Next audit post-tune bandwidth/band
+tables and fresh PA/gain prerequisites before VCO or MAC enable.
+Touched: MT76 fixed engine, native diagnostic ownership, boot recipe/tests,
+this unit and current Wi-Fi guide. Dependencies: exact v82 band/MAC proof,
+v81 RF0:24=33hex and26..37=0 observations,512KiB full-prefix capture.
+Fetched main remains `aa7b7392`; PR172 desktop runtime,174 process admission
+and175 Apple Silicon documentation do not own this MT76 diagnostic. Pro PR19
+continues this bounded scope; integration base remains `d5bc4b3`.
+
+
+Release `e57afcf9eb1fab7e`, source `f67ee1be`, completed v84 in
+`session-00065eb40f2ab69b-00`. All19 post-tune20MHz/G-band readbacks matched:
+266 operations,228 guard reads,38 exact replies,19 ACKs and76 strict guard
+triplets, both mismatch masks zero. Same-boot internal2G PA proof passed;
+three fresh MAC targets independently read back518=1,13a8=63707400,
+13b4=89440000(hex):27 transfers,24 reads/3 writes/3 verified and6 triplets.
+Whole earlier proof and complete495284-byte prefix/both markers passed.
+Ubuntu default, consumed one-shot and current/recovery hashes verified;
+offline clean311files/740clusters/129directories, zero leaks/mismatches/errors;
+unmounted/unarmed. Bounded post-tune setup/readbacks passed; frequency lock,
+calibrated radio and connectivity remain untested. Next: channel-specific
+BBP/filter/gain prerequisites before VCO/calibration or MAC enable.
+Touched: MT76 private plan/MAC engine, gated native diagnostic, boot recipe,
+directed tests and unit/current Wi-Fi guides. Dependencies: whole exact v83
+synthesizer and earlier proof;512KiB capture. No VCO/calibration, MAC enable,
+scan or traffic. Fetched main `1eb60b8f` adds Air process admission; PR172
+owns desktop runtime and175 Apple Silicon setup/synchronization. No MT76
+scope overlap; Pro PR19 continues this work on integration base `d5bc4b3`.
+
+
+Installed/unarmed v85 candidate `2571de4ea5d87728`, source `e3ea53b3`,
+passed local/sanitizer and both exact-stage VM checks. It captures mapped
+logical40 RX LNA/RSSI fields and
+CORE1 plus20 fixed channel-BBP targets after exact v84 proof. Decode pinned
+reference gain arithmetic for observation only; no BBP/RF/MAC data writes.
+One mode-zero EFUSE read-select command is required; no programming mode.
+Touched: fixed EFUSE profile/capture, MT76 read-only inventory, gated native
+mode, boot recipe/tests and unit/current guide. Dependencies: whole post-tune
+proof and512KiB complete prefix; next gain writes wait for native fields.
+Fetched main `aa931093` merges shared Text/Preview runtime; no MT76 overlap.
+Open PR175 owns Apple Silicon synchronization; Pro PR19 continues this scope.
+Retain integration base `d5bc4b3` during this bounded trial.
+
+Calibration, channel setup, scanning, association/security and Wi-Fi
+connectivity/UI remain pending. The dated sections below preserve full scope,
+source, dependencies and evidence; observations are not radio acceptance.
 
 ## Original bring-up scope (historical)
 
@@ -1370,3 +2999,11070 @@ outside build. Offline exFAT/allocation checks pass: 28 directories, 109 files,
 Ubuntu remains default, one-shot consumed, no reboot armed. Network/UI recovery
 and the exercised persistence path are accepted on the updated tree. Battery,
 headphones and further trackpad-latency work remain deferred.
+
+USB Wi-Fi groundwork: captured Edimax `7392:a711` revision `0100`, high-speed,
+one ff/02/ff interface with two bulk IN and six bulk OUT endpoints. A read-only
+inventory utility and sanitized descriptor fixture validate this shape and
+reject truncations/identity/topology mutations. Linux binds `mt76x0u`. No reset,
+unbind, scan, firmware upload or SrvrOS reboot was performed. See
+[USB Wi-Fi scope](../usb-wifi.md) for staged driver/authentication/UI work.
+This phase touches inventory/tests/docs only; Air SCI work remains separate.
+
+Next bounded implementation on main base `6c6bf9e`, draft PR #19: add a pure
+MT76 identity-request/response contract and firmware layout validator, with
+host fault tests. Touch only the new protocol module, tests, Make target and
+Wi-Fi docs. Existing xHCI control completion lacks exact received lengths;
+native wiring is deferred until short replies and timeout DMA ownership are
+handled explicitly. No radio writes, firmware upload, IP provider or reboot.
+
+Protocol checkpoint: identity request generation and exact-length response
+validation plus firmware structural parsing are implemented and host-tested.
+`make test-mt76-probe`, ASan/UBSan contract tests, `make -j2 all test-xhci
+test-usb-ecm` and `make check-docs` pass. The module has no native caller; kernel
+build success is not hardware acceptance. No firmware is packaged and no Wi-Fi
+connectivity is claimed. Next: exact-byte EP0 completion and timeout ownership
+fixtures before wiring the opt-in native diagnostic. Installed payload/recovery
+remain unchanged, Linux still owns the adapter, and no reboot is armed.
+
+Next bounded checkpoint: consumed main `7761200` (Air SCI evidence only).
+Implement an opt-in `srvros.usb-wifi=probe` identity diagnostic for the captured
+Edimax profile. Shared scope is an isolated strict EP0 IN completion path in
+xHCI, new probe wiring in main, and host transport fixtures. Preserve existing
+control callers. Track short data events through status completion, reject malformed residue,
+and retain/quarantine the slot's EP0 ring and buffer on uncertain completion.
+No firmware upload, transmitter, networking provider or physical boot is armed.
+
+Opt-in identity implementation checkpoint: `srvros.usb-wifi=probe` now gates on
+captured Edimax identity/revision/high-speed/EP0/configuration shape and performs
+only ASIC/MAC vendor reads. Strict EP0 completion retains short-data length until
+successful status; errors/timeouts quarantine the endpoint with DMA retained.
+The diagnostic records raw identity or failure, never an active network provider.
+Native silicon values and physical acceptance remain pending. The next step is
+an immutable automatic-capture profile plus exact-stage VM rehearsal before any
+installation. Current/recovery payloads remain unchanged; no reboot is armed.
+
+Validation: full `make -j2 all usb-image test-core` passes; final guard/refusal
+additions pass `make -j2 all test-xhci`. Host fixtures cover lengths zero through
+four, malformed residue, setup/data/status errors, missing status, stale events,
+duplicate short events, ring wrap, retained DMA and profile/opt-in refusals.
+`python3 tools/usb_ecm_smoke.py --second-usb --wifi-probe` passes DHCP/DNS/HTTP,
+three outage/recovery cycles, 160 UDP echoes, ring wraps, keyboard and disconnect
+quarantine. `python3 tools/usb_storage_smoke.py` passes read/write/flush/reload and
+keyboard; docs checks pass. An earlier local VM wrapper accidentally emitted two
+command lines and failed to enable Ethernet; retained as harness failure evidence,
+then corrected to the explicit `--wifi-probe` option with a single command line.
+
+Authorized next run: prepare new immutable v39 Wi-Fi identity auto-capture,
+using main base `7761200`. Scope: staging/profile tests, the capture branch and
+exact-stage VM refusal/persistence checks. Air PR #21 is separate SCI observation;
+its changes are not consumed. Capture reports failure if no matching radio or
+identity read fails, saves diagnostics, and returns on handled failure. No manual
+commands, radio writes or authentication. Preserve Ubuntu and accepted recovery;
+verify actual USB UUID and both filesystem preflights before one-shot reboot.
+
+Wi-Fi capture release `5d65ddcc4ccbeaf2`, source `b1aa1ca`, is installed for
+the user-authorized automatic boot. New immutable v39 enables identity reads and
+capture/return only. All 43 installer/profile tests and build/xHCI tests pass.
+Exact-stage GPT rehearsal saved unavailable-radio/`completed=NO` evidence,
+verified offline log bytes and clean exFAT, and reset automatically. The separate
+missing-workspace rehearsal also returned. These are expected VM refusal paths,
+not radio acceptance. Native results remain pending collection after this boot.
+
+Preboot offline fsck and allocation checks pass. Current capture and accepted
+previous recovery are verified; Ubuntu remains default. One obsolete test payload
+was removed from ESP only after every file matched its durable archive. Payload,
+VM receipts, prior-session list, authorization and run/checkpoint records are
+archived outside build. The capture requires no keyboard input. After return,
+collect the new matching session before further work, inspect raw identity and
+quarantine/result markers, verify the consumed one-shot, and repeat offline
+filesystem checks. Battery and radio initialization/authentication remain off.
+
+
+Collected native Wi-Fi identity session `00065e52c454a4dd-00` from release
+`5d65ddcc4ccbeaf2` / source `b1aa1ca`. ASIC_VERSION is `0x76100002`; MAC_CSR0 is
+`0x76502000`. Both reads succeed with `quarantined=0`, and the matching saved exit
+snapshot records identity read and capture completed=yes. Collector attention=0.
+The two register reads are physically accepted for this adapter; no firmware,
+radio, authentication or connectivity acceptance is implied. Updated host probe
+fixture values reproduce the observed identity pair with distinct endian checks.
+
+Boot/exit bytes and collection hashes are archived outside build. Ubuntu default,
+consumed one-shot and current/previous payload hashes verify. Postboot fsck and
+allocation checks pass: 29 directories, 111 files, 415 clusters, no leaks/mismatches
+or errors. Capture is collected; no reboot is armed. Next: consume current main
+before firmware work, preserve immutable v39, then establish firmware provenance,
+hash and revision/calibration gates. Fetched main `8211ec1` includes Air v40/v41
+capture/collection and shared process/UI changes; it is not present in this
+physically tested payload. Preserve both Air recipes when resolving shared files.
+
+Next scope: integrate main `8211ec1`, preserving Pro Wi-Fi v39 and Air v40/v41
+exact recipes and refusal tests. Resolve shared staging/receipt/Make targets by
+combining behaviors, then build/core and exact v39 VM checks. Independently audit
+installed mt7610 firmware structure/hash/provenance and document calibration
+requirements; no firmware upload or radio writes in this checkpoint.
+
+Integration/audit checkpoint: merge `f1421f4` consumes main `8211ec1` and preserves
+all laptop recipes byte-for-byte against both parents, including Pro v39 and Air
+v40/v41. All 45 profile tests, full build/USB image/core suite and exact v39 GPT
+VM rehearsal pass. VM-only stage `de4ec051e0ee2f06` records dirty=true because the
+untracked host firmware-audit tools were being authored; it is not installed or
+promoted as a clean native candidate. Saved refusal evidence and reset pass;
+installed native identity release remains `5d65ddcc4ccbeaf2`.
+
+Both local decompressed mt7610e/u images match upstream commit `431e7f03` hashes
+and pass the actual kernel C layout parser and new host audit. The audit rejects
+unknown hashes/names and malformed sizes; four tests plus docs checks pass.
+Upstream WHENCE assigns LICENCE.mediatek. No firmware bytes are committed or
+packaged. See the Wi-Fi guide for hashes, lengths, source links and explicit
+calibration requirements. Next is a separately bounded EEPROM/EFUSE capture and
+MCU/reset/firmware ownership implementation; accepted identities do not authorize
+transmit without this adapter's validated calibration. No reboot is armed.
+
+Next bounded implementation at base `8211ec1`: a transport-independent EFUSE
+capture engine restricted to logical-read mode on the captured ASIC/MAC pair,
+plus firmware segment planning. Host fixtures must cover failed operations,
+busy/timeout/cancellation, erased blocks and clearing partial output. Do not
+wire control-register writes into ordinary enumeration; native capture needs
+separate opt-in transport, staging and exact-image rehearsal. Firmware planning
+is not upload permission or radio initialization. Air's active SCI/filesystem
+work is separate; main has not advanced since the previous integration.
+
+EFUSE/planning checkpoint: added the transport-independent logical-read engine
+for the accepted identity pair and a pure ILM/DLM/IVB firmware chunk planner.
+Capture has a shared poll budget, read-mode-only control writes, unmapped-block
+tracking and all-or-nothing private output. Host fixtures cover every operation
+failure, cancellation, busy/empty/unmapped data and cross-block timeout budgets.
+Firmware tests cover both pinned candidates' ILM lengths, alignment tails,
+address overlap, invalid lengths and end-of-plan refusal. Build, xHCI/probe host
+regressions, new engine tests and ASan/UBSan pass. Two early synthetic fixture
+bugs (byte carry and stale AOUT state) were corrected; no hardware was involved.
+There is no native caller, register-write transport or active upload yet.
+Next is strict OUT transport/ownership and an opt-in calibration capture profile;
+retain v39 unchanged. Installed release/recovery and reboot state are unchanged.
+
+Next native calibration scope: add strict four-byte OUT completion and a guarded
+EFUSE-only register transport. Run capture only after workspace logging starts,
+never in ordinary enumeration. Use new v43 automatic profile; Air's active
+branch already reserves v42 for battery load. Preserve v39 and all Air recipes.
+Host tests must cover write rejection, short/error/timeout quarantine and no
+retry. Log only MAC-redacted calibration bytes. No firmware upload or transmitter.
+
+Calibration transport checkpoint: `4f6bf1b` adds strict OUT completion, guarded
+logical EFUSE transport and opt-in v43. Shared event dispatch retains strict EP0
+completion for its owner when HID/storage workers consume the event. Short/error
+or uncertain completion quarantines the endpoint and retains DMA. Capture starts
+only after workspace logging; successful logs redact the MAC, and failures emit
+no partial calibration bytes. No firmware upload or transmitter is enabled.
+
+Merge `ac6b9a4` consumes main `421a69b`, preserving Air v42 and Pro v39/v43;
+all existing laptop recipes match both parents byte-for-byte. Full build/USB/core,
+47 profile tests and docs checks pass. Clean stage `47997cb8604043ff` passes exact
+GPT VM refusal/persistence/unmount/reset and missing-workspace automatic return.
+Native calibration remains pending; the earlier identity acceptance is unchanged.
+
+USB Ethernet VM regressions pass (DHCP/DNS/HTTP, three outage/recovery cycles,
+160 echoes and keyboard), as do USB storage read/write/flush/reload regressions.
+The clean v43 candidate is installed for the automated native trial. Ubuntu
+remains default and the accepted previous recovery payload is retained. An older
+network payload was removed from the EFI partition only after verifying every
+file against its durable archive; accepted identity payload remains installed.
+Preboot workspace fsck/allocation checks pass: 111 files, 415 clusters, zero leaks,
+mismatches or errors. Local run record and archived payload/evidence are saved;
+next is one-shot calibration capture and matching-session collection on return.
+
+
+Native calibration collection: release `47997cb8604043ff`, source `ac6b9a4`,
+session `00065e5e35f79801-00` saved all 32 logical EFUSE blocks (512 bytes),
+result=0, quarantined=0, unmapped mask `cf899c42`. All unmapped blocks contain
+FF bytes; MAC bytes 4–9 are zeroed. The matching exit log records both capture
+and overall completed=yes; collector attention=0. Raw evidence and a reconstructed
+MAC-redacted image are archived outside build. This accepts logical readout only;
+board/version/regulatory calibration validation, firmware and connectivity remain
+pending. Postboot fsck/allocation pass: 30 directories, 113 files, 418 clusters,
+zero leaks/mismatches/errors. Ubuntu default, consumed one-shot and installed/
+recovery manifests verify; no reboot is armed. Next: validate the captured layout
+and calibration requirements before bounded firmware upload/readiness work.
+
+Next scope at main `21a9fdf` (documentation-only update, merged locally): audit
+captured EEPROM structure and mapped fields without claiming regulatory/radio
+acceptance; add pure firmware packet encoding and a bounded, one-shot upload
+engine behind an explicitly prepared/authorized transport contract. Touch only
+mt76 bring-up helpers, host tests/audit, Makefile and Wi-Fi/unit docs. No native
+reset/upload wiring, firmware packaging, boot recipe changes or Air subsystem
+edits in this checkpoint. Preserve v43 physical read acceptance independently.
+
+Audit/prepared-upload checkpoint: actual captured calibration passes the new
+offline structural auditor (7610, version2/FAE1, one TX/RX chain, 15 consistently
+erased unmapped blocks). Region bytes 10/30 remain raw metadata; no channels or
+transmit permission inferred. Physical usage-map and power/gain/regulatory checks
+remain open. The new packet encoder and one-shot upload engine are host-tested
+only, requiring externally verified firmware and an exclusively prepared DMA/MCU
+transport. No native reset/upload caller or packaged firmware was added. Next is
+hardware preparation/ownership and pinned firmware packaging before a separate
+native MCU-readiness diagnostic. Installed v43 and recovery remain unchanged;
+no reboot is armed.
+
+Next bounded scope at unchanged main `21a9fdf`: strict zero-data EP0 completion
+for MCU reset/FCE setup, one-shot MCU/FCE preparation with fault injection, and
+an explicit pinned firmware/license package for future opt-in integration. Touch
+xHCI strict transport, mt76 helpers/tests, host package tool and unit/Wi-Fi docs.
+Ordinary enumeration and immutable boot profiles remain unchanged until complete
+native ownership and exact-stage rehearsal are available. No new physical run.
+
+Preparation checkpoint: strict zero-data xHCI control completion and one-shot
+MCU/FCE preparation are implemented with host fault tests. Inspection found that
+upstream's MAC control 0x2c enables TX/RX; the proposed readiness preparation uses
+0x20 with readback checks instead. Native compatibility remains unknown and no
+hardware writes were issued. A hash-pinned mt7610e/license package was produced
+locally; it is not in the boot image. Next: native endpoint/DMA ownership and
+kernel-side verified package consumption, then an immutable readiness profile
+and exact-image rehearsal. Installed calibration payload/recovery unchanged;
+no reboot armed. No firmware or radio acceptance is claimed.
+
+Integration at main `84cf41e`: Air PR #33 independently used v43 for battery app
+files, colliding with Pro's published/native calibration v43. Preserve verification
+of both exact historical recipes (config copies must agree); future calibration
+stages use v44, while main's battery-app-files stays v43. Historical bytes from
+both merge parents and installed-stage v43 verify. No host UUID is used to guess
+a recipe. New scope: kernel-side pinned firmware hash verification and dedicated
+native firmware EP08 DMA/control ownership; no shared battery implementation.
+
+Native firmware implementation now connects pinned SHA-256 verification,
+dedicated EP08 DMA, strict configure completion and guarded vendor callbacks to
+the prepared/upload engines. It runs only in a new descriptive wifi-fw-v1 capture
+with the explicitly staged firmware/license package. Runtime bulk waits share
+HID/storage dispatch and quarantine uncertain completion. MAC control stays 0x20
+in preparation and must read back 0x20 after MCU readiness; live-MCU preparation
+is refused. Native firmware acceptance remains pending exact-stage rehearsal
+and physical capture. No RF setup or network provider is enabled.
+
+Firmware readiness candidate: clean source `fdd8d02`, release `6ec5ab2ce67afaee`,
+profile `ram-usb-wifi-fw-v1`. Full build/USB/core suite and 50 boot-profile tests
+pass, including both historical v43 recipes and mismatched-copy refusal. Native
+transport fixtures cover EP08 context/aligned retained DMA, exact command pointer,
+control write/reset gates, FCE halfwords, bulk residue/Event-Data/timeout quarantine.
+Kernel SHA-256 vectors, actual pinned firmware mutations and actual staged
+initramfs lookup/hash checks pass, including ASan/UBSan. Exact-stage GPT VM saves
+the expected absent-adapter refusal, unmounts and resets; missing-workspace return
+also passes. Native firmware startup remains untested. Package and test evidence
+are archived outside build; existing physical v43 calibration acceptance remains
+historical, not firmware acceptance.
+
+Firmware candidate installation: Ethernet recovery and USB storage read/write/flush/
+reload VMs pass. Release `6ec5ab2ce67afaee` is installed for an unattended native
+readiness capture; Ubuntu remains default and recovery `e47dca3a6b30c6c1` is retained.
+Preboot offline filesystem/allocation checks pass. Prior identity payload was
+removed from EFI only after verifying its durable archive; accepted calibration
+payload remains retained. Run record, exact VM receipt, payload and logs are saved
+outside build. Next is the authorized one-shot capture, then matching-session
+collection before any further staging. No physical firmware acceptance yet.
+
+Native firmware trial `6ec5ab2ce67afaee`, session `00065e5f8a2199cf-00`,
+returned with preparation refused (result=1), zero chunks, mac_disabled=0 and
+quarantined=1; overall completed=NO. This is a failed readiness trial, not
+firmware acceptance. Logs archived; Ubuntu default and consumed one-shot verified.
+Offline checks pass: 115 files, 421 clusters, zero leaks/mismatches/errors.
+Next bounded scope: cache and report the last prerequisite register read and
+preparation/reset/upload progress in the explicit diagnostic, without additional
+register operations or relaxing refusal gates. Main remains `84cf41e`; Air PR #34
+owns separate desktop battery controls. No battery changes are needed here.
+
+Cached progress diagnostic source `11da4e0`, release `56b0d84701bc99ff`, passes
+build, xHCI transport, MCU preparation/upload and documentation checks. Exact GPT
+VM saves diagnostics, verifies offline bytes and unmounts/resets. Candidate is
+installed with Ubuntu default and previous recovery retained; preboot filesystem/
+allocation checks pass. Calibration payload was removed from EFI only after
+verifying its durable archive. Next authorized boot needs no input and will
+record the refusal prerequisite; physical firmware startup remains unaccepted.
+
+Native cached-progress trial `56b0d84701bc99ff`, session `00065e5fc1be293b-00`,
+identifies a live MCU: first/only read 0x730 returns 1, prepared=0, reset=0,
+upload=0. The explicit live-MCU refusal fires before firmware preparation writes.
+Completed=NO remains a failed readiness trial; no upload accepted. Logs archived,
+Ubuntu/consumed one-shot/recovery verified, offline checks pass (117 files, 424
+clusters, zero leaks/mismatches/errors). Ubuntu currently uses this adapter for
+its default network route, so unloading it would interrupt the agent connection.
+Next: reuse the exact tested image after an attended cold adapter power-cycle
+while Ubuntu is shut down. The local cold-run record/shutdown helper are prepared
+but unarmed; wait for user readiness, arm one-shot and shut down, then have the
+user unplug/reconnect only Wi-Fi while off and power on. No Linux driver blacklist
+or firmware takeover workaround is installed.
+
+The subsequent attended cold-start attempt returned to Ubuntu with the one-shot
+entry consumed but no new USB session (latest remains `00065e5fc1be293b-00`,
+the prior warm refusal). This is incomplete evidence, not upload acceptance.
+Collection is archived separately; installed/recovery manifests and Ubuntu default
+verify. Offline checks remain clean: 117 files, 424 clusters, zero allocation
+errors. No next boot is armed. Await the user's description of the boot screen
+and return path before deciding whether startup or workspace logging failed.
+
+Attended cold retry saved session `00065e606b547868-00` for `56b0d84701bc99ff`.
+The user saw SrvrOS console briefly and automatic Ubuntu return. Root port 1/slot 1
+timed out on EP0 at device-descriptor-prefix, before VID/PID or Wi-Fi identity
+detection; no firmware upload was attempted. Unlike the prior missing-session
+attempt, this run saved a matching exit log with completed=NO. Workspace storage
+initialized on SuperSpeed port 17 and remained healthy. Evidence archived;
+Ubuntu/recovery/consumed one-shot verified. Offline checks pass: 119 files, 427
+clusters, zero leaks/mismatches/errors. Next scope is cold-start USB enumeration
+and EP0 timing/completion diagnosis; do not relax firmware ownership gates or
+retry uncertain DMA blindly. No next boot is armed.
+
+Cold USB scope: diagnose post-address descriptor timing in xHCI and add host
+regressions without firmware gate changes. Fetched main `49ded19` (Air battery
+controls); integration overlaps staging and reuses v44, so it is deferred while
+isolating this USB change on the prior `84cf41e` baseline. The attempted merge
+was aborted without changing either branch. Reconcile immutable profiles before
+consuming that baseline; no Air EC or battery changes are part of this fix.
+
+Address-recovery candidate `296927c`, release `205e2cc2fb7e616c`, adds the
+10 ms controller-clock settling interval after Address Device, before descriptors.
+Build/xHCI/docs pass; the new test covers clock wrap, stall quarantine, failed
+address command and retained DMA. Exact GPT VM capture/save/unmount/reset passes,
+as do USB Ethernet DHCP/DNS/HTTP/recovery and storage read/write/flush/reload VMs.
+This is a plausible cold-start fix, not native acceptance. Main `49ded19` remains
+unmerged pending resolution of the v44 staging collision; prior baseline retained.
+
+Native address-recovery trial `205e2cc2fb7e616c`: the user observed brief console
+output and automatic Ubuntu return, but collection found no new session (latest
+remains `00065e606b547868-00` from the prior release). This is incomplete evidence;
+the timing fix is not physically accepted and the failure location is unknown.
+Installed/recovery manifests, Ubuntu default and consumed one-shot verify. Offline
+filesystem/allocation checks pass: 119 files, 427 clusters, no errors. Evidence
+and checkpoint archived. Next: prepare a visible failure-screen diagnostic so
+missing-workspace/early failures can be photographed; no further boot is armed.
+
+Next bounded scope: allow the existing firmware profile without auto-return via
+explicit hold-on-failure, preserving all prior recipes. Add a visible prerequisite
+summary and power-button recovery instructions after failed capture/save/unmount.
+Extend exact-image VM checks to require a live halted guest both with and without
+the workspace. No USB hardware or firmware gates change in this diagnostic.
+
+Held diagnostic source `835f2e9`, release `d18b0b2574ed8501`, passes build,
+50 profile tests and docs. Exact GPT VM saves/unmounts and remains halted on
+absent-radio failure; missing-workspace VM also remains halted with logging=0
+and manual recovery instructions. Installed with Ubuntu default, known-good
+previous recovery and preboot filesystem/allocation checks verified. Prior
+`56b0d84701bc99ff` was removed from EFI only after durable archive verification.
+Run record/evidence are archived; no reboot armed. Await attended cold-start
+readiness; on failure photograph the screen before manual power-button recovery.
+
+Held native trial `d18b0b2574ed8501`, session `00065e637e1d2a93-00`,
+successfully enumerated the adapter, read expected ASIC/MAC identity and configured
+the firmware endpoint. Preparation made four reads, last 0x238=0x00c00000,
+then failed with result=2 (I/O), reset_seen=1, prepared=0, upload=0, chunks=0,
+quarantined=1. reset_seen means attempted, not completed: the reset request or
+subsequent setup writes still need exact operation diagnostics. No firmware
+upload accepted. The photographed held screen shows saved/unmounted success and
+manual recovery instructions. Photo/logs archived. Offline checks pass (121 files,
+430 clusters, zero errors); Ubuntu/recovery/consumed one-shot verified. This run
+passes cold enumeration but does not establish repeatability or causation for the
+10 ms delay. Next: instrument preparation control request/completion failures;
+no further boot armed.
+
+Next scope: cache the exact firmware control setup packet, actual result, matched
+completion code/residue/stage and timeout, reporting after the attempt. Preserve
+all transfer guards, sequencing and timeout behavior; add fault regressions before
+staging another held diagnostic. Shared integration remains deferred as recorded.
+
+Control-detail candidate `ab82b8f`, release `dfd7ab3b39432e73`, passes build
+and xHCI regressions including reset setup/status errors, residue, timeout, stale
+completion followed by success, no retry and retained DMA. Exact GPT VM saves
+logs/unmounts and stays halted; missing-workspace also stays halted. Control
+sequence, deadlines and refusal rules are unchanged. Native result pending.
+
+Native control-detail release `dfd7ab3b39432e73`, session
+`00065e639cbb404d-00`, locates the failure at control request 9: type=0x40,
+request=6, value=0, index=0x800, length=4 (FCE enable write). actual=-1,
+cc=0, stage=0, timeout=1: no matched completion. The prior reset completed and
+its delay returned successfully, since the sequence reached this subsequent
+write. Firmware upload remains unattempted (zero chunks); quarantine retained.
+Photo/logs archived; Ubuntu/recovery/consumed one-shot verified. Offline checks
+pass: 123 files, 433 clusters, zero errors. Next investigate reset recovery timing
+and EP0 state before the first FCE write, without blind retries or weakening
+completion checks. No next boot armed.
+
+Next scope: firmware-only EP0 waits use a measured 300 ms deadline (the pinned
+Linux mt76 vendor timeout), retaining a bounded stalled-clock fallback and no
+retry. Existing generic control waits and reset delay remain unchanged. Cache
+request elapsed time and controller-owned EP0 state/dequeue after the wait to
+diagnose post-reset timeout; no endpoint recovery or new device writes.
+
+Deadline candidate `49375c8`, release `20ffa06db0f23758`, passes build/xHCI
+regressions, including delayed 250 ms completion, 300 ms timeout, frozen clock,
+endpoint snapshot and no mutation/retry after uncertainty. Exact GPT saved-log
+and missing-workspace held VMs pass. This measures the timeout and endpoint
+state; it does not yet establish why the device stops responding after reset.
+Native validation pending; recovery and the held-failure workflow are retained.
+
+Native measured-deadline trial `20ffa06db0f23758`, session
+`00065e63bd3755b9-00`, still times out on request9/write6/index0x800/length4
+with no matched completion. elapsed_us=300001, endpoint state=1, cached output
+dequeue=0x1eb001. Do not infer live ring progress solely from that context snapshot.
+Reset completed, preparation failed and upload remained unattempted; no firmware
+acceptance. Photo/logs archived, recovery/default/consumed one-shot verified.
+Offline checks pass: 125 files, 436 clusters, no errors. Next investigate device
+reset behavior and transport state rather than simply increasing the timeout.
+No further boot armed.
+
+Next bounded scope: add the missing MT7610 WLAN/clock enable prerequisite before
+MCU reset, based on Linux v6.18 mt76x0_chip_onoff/set_wlan_state. Preserve GPIO
+and antenna bits, refuse asserted reset/unreadable state, verify enable readback
+and bounded crystal/PLL readiness. Keep MAC TX/RX disabled and existing quarantine.
+Files: mt76 preparation engine, native xHCI allowlist/diagnostics, host fixtures.
+Fetched main 065546f (Air battery audit); no open competing PR besides #19.
+Integration remains deferred for the recorded immutable-profile collision.
+Native evidence is required; no further boot armed.
+
+Clock prerequisite candidate `7f06de6`, release `05573bcc8bb336a4`, passes build,
+xHCI/preparation/upload/firmware host tests and docs. Fixtures cover preserved
+GPIO bits, reset/unreadable/readback refusal, readiness timeout/cancellation and
+every-operation failure without retry. Exact GPT VM saves/unmounts and holds;
+missing-workspace VM holds with recovery instructions. Installed unarmed, Ubuntu
+default and accepted recovery retained; offline workspace checks clean. Native
+WLAN/clock and firmware readiness remain pending. Next: attended cold shutdown,
+then collect this release before further changes.
+
+Native clock trial `05573bcc8bb336a4`, session `00065e643293f201-00`, confirms
+WLAN enable/readback (`0xff000002` → `0xff000003`) and crystal/PLL readiness
+(CMB `0x00c017ff`). It still fails request13/write6/index0x800/length4, the
+first FCE write after completed MCU reset: no matched completion in 300003 µs,
+endpoint state=1, cached dequeue=0x1eb001. Preparation/upload remain incomplete,
+zero chunks and quarantine retained. Clock initialization is observed working;
+it did not resolve the post-reset failure. Photo/logs archived; Ubuntu default,
+consumed one-shot and recovery verified. Offline checks: 127 files, 439 clusters,
+zero leaks/mismatches/errors. Next investigate post-reset EP0/device behavior;
+no next boot armed and no firmware-readiness acceptance.
+
+Next scope: post-timeout Wi-Fi EP0 stop-and-snapshot diagnostic in xHCI, with
+exact command completion, cached submitted TRB addresses and stopped transfer
+event capture. Keep the endpoint quarantined, retain DMA, and never restart or
+retry the request. Host fault fixtures and exact-stage held VMs precede native
+test. Fetched main 961369b; only open PR remains #19. Prior integration/profile
+collision remains deferred; this does not change Air/battery or firmware gates.
+
+Stop-snapshot source `999cb37`, release `f617f5b921c5a71d`, passes build/xHCI
+host tests and docs. Fault cases cover stale command completion, wrong slot,
+command error/timeout, ineligible requests, one-shot execution and retained DMA.
+Exact GPT VM saves/unmounts and holds; missing-workspace VM holds with recovery
+instructions. Installed unarmed with Ubuntu default and accepted recovery intact.
+Offline checks remain clean (127 files, 439 clusters). Native result pending;
+this diagnostic does not claim a fix for the post-reset failure.
+
+Native stop-snapshot trial `f617f5b921c5a71d`, session
+`00065e64dd39e82b-00`, again times out at request13/FCE write0x800 after
+300003 µs. Stop Endpoint completed successfully: state=3, dequeue=0x1eb381,
+stopped transfer event cc26 at 0x1eb380 with residue4. Submitted setup/data/status
+addresses were 0x1eb370/0x1eb380/0x1eb390. This locates the outstanding transfer
+at the OUT data stage with its full four-byte payload remaining; it does not
+establish the cause or prove a particular USB handshake on the wire. Clock
+readiness passed; preparation/upload failed, zero chunks, quarantine retained.
+Photo/logs archived, consumed one-shot/Ubuntu default/recovery verified. Offline
+filesystem/allocation checks pass. Next compare post-reset OUT handling and
+adapter initialization requirements; no next boot armed.
+
+Next scope: separate opt-in wifi-fw-v2 MAC-startup trial. Linux v6.18 writes
+MAC control 0x2c before MCU reset; v1 deliberately used 0x20. v2 tests that
+startup prerequisite, restores/verifies 0x20 after FCE setup before upload, and
+retains exact device/firmware gates and quarantine. No channel/RF configuration
+or network frames. Files: preparation/transport, main opt-in, staging/VM recipes
+and host tests. Fetched main e946f5e; only PR #19 open, Air scope battery query
+receipt work. Integration profile collision remains deferred. Native proof is
+required; MAC startup may remain enabled on failed I/O until physical power-off.
+
+MAC-startup comparison source `75ea093`, v2 release `c18a4380b3f08235`,
+passes build, preparation/xHCI fault fixtures, 51 staging tests and docs. The
+fixtures preserve v1, require explicit one-shot startup ownership, verify final
+disable before preparation succeeds, and fail closed on each operation. Exact
+GPT saved-log and missing-workspace held VMs pass. Installed unarmed; Ubuntu
+default/recovery verified; offline checks clean (129 files, 442 clusters).
+Native result pending. Next attended cold trial compares the post-reset FCE
+write with the upstream MAC startup value; no firmware readiness accepted.
+
+Native MAC-startup comparison `c18a4380b3f08235`, session
+`00065e653266c290-00`, confirms requested=1/written=1 but still times out
+at request13/FCE write0x800 after 300000 µs. Stop Endpoint succeeds: state=3,
+dequeue=0x1eb381, stopped event at data TRB 0x1eb380, cc26/residue4. The full
+four-byte OUT payload remains outstanding, as in v1; MAC startup did not resolve
+the failure. The initial MAC readback passed before reset; restoration to 0x20
+was not reached. Preparation/upload remain incomplete, zero chunks, quarantine
+retained; RF/connectivity not tested. This does not prove a particular USB wire
+handshake or establish the cause. Matching logs/photo/run record archived in
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-75ea093`. Ubuntu default,
+consumed one-shot and installed/current recovery payloads verified. Offline
+checks pass: 131 files, 445 clusters, zero leaks/mismatches/errors. Next inspect
+post-reset USB OUT transaction handling; no new boot armed or firmware readiness
+accepted.
+
+Workflow correction after the MAC-startup trial: the saved matching exit log
+already includes control timeout, submitted TRBs, Stop Endpoint result, startup
+flags and failure markers. Photos are redundant for this handled failure. Future
+Wi-Fi trials use the existing default `-auto-return` recipe (omit
+`--hold-on-failure`), save/unmount and return to Ubuntu automatically. Collect
+and inspect the matching release/session on return; missing or incomplete logs
+remain incomplete evidence. No routine photo request. Cold adapter power cycling
+may still require the previously announced physical action. The installed held
+recipe is unchanged and unarmed; apply automatic return when staging the next
+candidate and verify that exact stage in the VM before installation. This is a
+workflow/documentation change only. Fetched main remains e946f5e; open Air PR44
+concerns battery query refusal with parked USB, outside this workflow change.
+
+Next bounded scope (2026-10-22): xHCI EP0 transaction publication. Current code
+publishes the setup cycle before building data/status; Linux queues setup with
+inverse ownership and publishes only after the whole transfer is ready. Fix this
+ordering with regression coverage for both cycles and ring wrap, leaving device
+initialization and retry policy unchanged. This is a correctness issue, not yet
+an established cause of the native stall. Files: xhci.c and host fixtures; then
+exact-stage automatic-return VM checks and a cold native trial. Fetched main
+24fd5f4 (Air SMBus ownership proof); only PR19 remains open. Integration profile
+collision stays deferred; no shared battery changes.
+
+EP0 publication candidate source `2389909`, release `5edf8b73bf8f8662`,
+passes build/docs and xHCI host tests. Publication checks cover both cycles,
+every ring start position, IN/OUT/no-data and existing strict completion/fault
+fixtures. Setup remains inverse-cycle until all stages and the exact completion
+owner exist; an ordered control store then releases ownership before doorbell.
+Exact GPT VM saves and verifies log bytes, unmounts and resets; missing workspace
+returns without starting the probe. Installed with automatic failure return,
+Ubuntu default and accepted recovery intact; offline workspace checks pass.
+Native result pending: no claim this fixes the stall. Next cold adapter trial
+requires unplugging Wi-Fi for 10 seconds while off, reconnecting and powering
+on; leave workspace connected. Logs replace photos. Installed unarmed pending
+user readiness for that physical step.
+
+Native EP0 publication trial `5edf8b73bf8f8662`, session
+`00065e71f460e55a-00`, saved a complete matching exit log without a photo.
+The change did not resolve the stall: request13/write6/index0x800/length4 times
+out after 300003 µs. Stop Endpoint succeeds with state3, dequeue0x1eb381,
+event0x1eb380, cc26/residue4; submitted setup/data/status remain
+0x1eb370/0x1eb380/0x1eb390. MAC startup and clock prerequisite passed, reset
+completed, preparation/upload did not; zero chunks and quarantine retained.
+Firmware readiness and RF/connectivity remain unaccepted. The saved snapshot
+locates the outstanding OUT data stage but does not establish a wire handshake
+or its cause. Evidence archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-publication-2389909`. One-shot consumed,
+Ubuntu default/current/recovery payloads verified; offline filesystem/allocation
+checks pass (133 files, 448 clusters, no leaks/mismatches/errors). No next boot
+armed. Next compare the small OUT data-stage representation and Linux's working
+control sequence; avoid treating this ordering fix as a native Wi-Fi fix.
+
+Next scope: compare immediate-data encoding for the firmware probe's four-byte
+vendor OUT writes with Linux xHCI. Restrict the change to the active configured
+Wi-Fi firmware owner and its descriptor buffer; keep IN, no-data, IVB and other
+devices unchanged. Preserve exact completion, publication ordering and timeout
+quarantine. Add a saved encoding flag and boundary/payload host tests, then
+build and verify automatic-return stage. This is not a proven native fix.
+Main remains 24fd5f4; Air PR46 covers SMBus/parked storage, outside this scope.
+
+Immediate-data candidate source `88d1cd0`, release `825373ebb599fa0d`, passes
+build/docs and xHCI host tests. Tests verify exact little-endian payload/high-word
+zeroing, unsupported ownership/buffer/direction/length/request refusal, and an
+actual guarded register transfer with IDT set. Saved diagnostics now include
+`wifi-firmware-data: immediate=...`. IN, no-data and 64-byte IVB remain buffered
+or unchanged. Exact GPT VM saved-log/automatic-reset and missing-workspace return
+checks pass. Installed unarmed with Ubuntu default and accepted recovery intact;
+offline checks pass (133 files, 448 clusters). Next cold hardware trial awaits
+readiness for adapter power cycling; no firmware-readiness acceptance yet.
+
+Native immediate-data trial `825373ebb599fa0d`, session
+`00065e7298d3f135-00`, confirms `wifi-firmware-data: immediate=1` but still
+fails request13/write6/index0x800/length4 after 300002 µs. Successful Stop
+Endpoint reports state3, dequeue0x1eb381, stopped event0x1eb380, cc26/residue4;
+setup/data/status addresses remain 0x1eb370/0x1eb380/0x1eb390. Clock and MAC
+startup passed, reset completed, preparation/upload did not; zero chunks,
+quarantine retained, RF/connectivity not tested. Immediate encoding did not
+resolve the native stall; this does not establish a wire handshake or cause.
+Matching exit log and run record archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-idt-88d1cd0`. Ubuntu default, consumed
+one-shot and installed/current recovery verified. Offline checks pass: 135 files,
+451 clusters, no leaks/mismatches/errors. No next boot armed. Next compare the
+working Linux cold initialization sequence with SrvrOS before another speculative
+hardware trial; preserve the live Linux network connection during investigation.
+
+Next scope: Linux cold-initialization evidence, not another kernel candidate.
+Fetched main 4ea10e1 (Air SMBus capture); only PR19 remains open. Compare the
+actual adapter's control setup/payload/status/timing via bounded usbmon capture.
+Linux source agrees on reset request1/value1, 5–6 ms delay and FCE write6/0x800;
+its earlier WLAN disable/enable sequence and vendor retries need native evidence.
+Add a host capture tool and parser fixtures; filter to initialization registers,
+exclude bulk/network payloads, preserve the current network until an announced
+physical replug. No driver unbind/reset or reboot as part of preparation.
+
+Source review confirms the captured v6.18 Linux path first calls
+`mt76x0_chip_onoff(false,false)`, waits for MAC, then enables WLAN during hardware
+initialization. Its register transport allows up to ten attempts, with 5–10 ms
+between failed 300 ms requests. SrvrOS intentionally quarantines after one
+uncertain request. Neither difference is yet proven causal; do not add blind
+retries or GPIO/RF writes. The new `tools/mt76_linux_capture.py` records only
+selected initialization-register control URBs and reset, correlates completion
+status/timing, and persists only addresses verified on this adapter's port.
+Bulk/network payloads are excluded. Four parser fixtures and a 30-second passive
+Ubuntu smoke run passed; no device reset or network disruption was performed.
+A user-operated 10-second unplug/replug in Ubuntu is next; capture survives the
+brief network loss locally. This observes host requests, not physical USB wire
+handshakes. No new SrvrOS boot is staged or armed.
+
+Linux cold-replug capture completed on kernel 7.0.0-38-generic, port1-1,
+address2→8, with 53 selected requests. The captured first FCE write6/0x800/value1
+has callback status -2, actual0, duration307755 µs; the identical next submission
+is 10013 µs after that callback and completes status0/actual4 in95 µs. Later the
+first MCU-ready read7/0x730 has status-2/actual0 after306038 µs; the next read,
+10027 µs later, returns value1 successfully in71 µs. Status-2 is a cancelled URB,
+consistent with Linux's 300 ms timeout/unlink path, not a wire-level error code.
+This strongly motivates bounded timeout recovery/retry rather than another
+payload-encoding change. A retry must first retire the old EP0 transaction,
+account for late events and retain DMA until ownership is proven; current SrvrOS
+quarantine must not simply be cleared. Both FCE setup and MCU-ready polling need
+consideration. No SrvrOS fix or new boot is accepted/armed by this observation.
+
+Capture limitations: some earlier setup records and a later completion are
+missing; an implausible WLAN read payload exposed a parser correlation weakness
+when Linux reuses an URB tag for an unselected submission. The original capture
+is preserved, not silently corrected. The tool now invalidates such stale owners
+and marks reuse, excludes transient address0, and passes five parser fixtures.
+The retry pattern above is evidence for the next direction, not a complete
+validated trace; repeat with the corrected parser before relying on exact values
+or accepting a recovery implementation. Raw capture lives in
+`~/.local/share/srvros/macbookpro11-2/linux-cold-1792696794998436335`.
+
+Corrected-parser Linux cold capture confirms the retry pattern on the same
+7.0.0-38-generic host, port1-1/address8→9. The first write6/0x800/value1
+has callback status-2/actual0 after303066 µs; identical resubmission follows
+10028 µs later and completes status0/actual4 in112 µs. The first read7/0x730
+has status-2/actual0 after305986 µs; retry after10024 µs completes in1065 µs
+with value1. These four records have matched completions and no tag-reuse
+ambiguity. Other early missing records are now explicitly marked instead of
+misattributed, so this remains a filtered, incomplete sequence rather than full
+wire evidence. The cancellation/retry observation is independently repeated.
+Archive: `~/.local/share/srvros/macbookpro11-2/linux-cold-1792697340613399648`,
+with source/tool digest, original capture, validated comparison and checksums.
+Linux default route recovered; no SrvrOS boot armed. Next bounded scope is safe
+EP0 timeout retirement and retry for these observed operations, including exact
+command ownership, stopped-ring dequeue advancement, late-event exclusion and
+retained DMA fault tests. Never simply clear quarantine or replay the reset.
+Native firmware acceptance remains pending.
+
+Recovery implementation scope: one retry each for post-reset FCE write0x800=1
+and post-IVB ready read0x730 only. Require successful Stop Endpoint with stopped
+state/data-stage evidence; switch EP0 to a fresh ring and buffer using exact
+Set TR Dequeue completion. Retain old/new DMA allocations on every failure;
+never reuse retired transfer addresses. Delay10 ms, retry once, quarantine on
+any uncertainty. Add fault/late-event fixtures and saved recovery diagnostics.
+Fetched main53a24a0; Air PR48 covers sustained SMBus/Text, outside this scope.
+
+Bounded-retry source `122fcda`, release `b7f7fb1c357d7ff5`, passes build/docs
+and xHCI host fixtures. Tests cover fresh ring/buffer and copied OUT/zeroed IN,
+exact Set Dequeue command failure/wrong-slot/timeout/context refusal, allocation
+and delay failure, identity/phase/stop-evidence gates, one-shot limits, and full
+write/read timeout→stop→dequeue→retry paths with stale old-TD events and a second
+failure. All DMA stays allocated; no stale completion can retire a fresh-address
+TD. Saved recovery diagnostics include attempts/successful/mask and ring/buffer.
+Exact GPT saved-log automatic return and missing-workspace return VMs pass.
+Installed unarmed; Ubuntu default and accepted recovery verified; offline checks
+pass (135 files, 451 clusters). Native acceptance pending. Next attended cold
+shutdown requires Wi-Fi unplugged10 seconds while off, reconnected before power
+on; workspace stays connected. Results save and return automatically, no photos.
+
+
+Native bounded-retry trial `b7f7fb1c357d7ff5`, session
+`00065e7310c09789-00`: **firmware upload and MCU readiness accepted** for the
+captured Edimax7392:a711 revision0100, ASIC76100002/MAC76502000. Recovery
+attempts2/successful2/mask3; preparation/reset/upload complete; result0, chunks6,
+mac_disabled1, quarantined0. Final MAC0x1004 read returns0x20 with exact status
+completion; firmware and laptop capture both completed=yes. This validates the
+bounded recovery path on this run, not Wi-Fi RF/network connectivity. No radio,
+scan, association, authentication or IP acceptance is implied.
+
+Logs, exact payload, run record and checksums retained outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-retry-122fcda`. Ubuntu default, consumed
+one-shot, current payload and accepted desktop recoverye47dca3a6b30c6c1 verified.
+Offline checks pass:137 files,454 clusters,zero leaks/mismatches/errors. No new
+boot armed. Next phase: interpret captured calibration/regulatory data and add
+bounded radio/receive initialization before scan, then authentication and IP.
+
+Next radio-phase scope: decode receive-side calibration from the accepted logical
+EEPROM capture before hardware writes. Extend the offline audit with board/band
+hints, PA/LNA flags, frequency correction and receive gain/RSSI/temperature data;
+track missing fields explicitly and retain radio_authorized=false. Raw region
+bytes do not select a country or authorize channels. Use synthetic boundary tests
+and the local redacted capture; do not publish raw calibration or MAC data.
+Fetched main598fe27; only PR19 open. No shared battery changes or reboot planned
+for this offline prerequisite. Native RF initialization remains a later step.
+
+Offline receive-calibration audit completed against the existing accepted
+redacted512-byte capture, SHA2563969e4b2817fd02c1d5285614abc92fd9987af6c07a2444fdf68b85460a16749.
+All required receive fields are mapped. Decoded frequency68, temperature−8,
+5GHz LNA12/12/12, RSSI2GHz1/1 and5GHz0/0; hardware RF control and TSSI flags
+are clear. Board hint both bands is not regulatory/channel authorization.
+Five audit tests cover signed correction, RSSI boundaries, gain fallback,
+missing/unmapped fields and band-hint separation. No radio registers changed;
+firmware readiness remains accepted, RF/scanning pending. Next: per-channel power
+and regulatory constraints, then a bounded native receive initialization path.
+No reboot armed for this offline work.
+
+Next bounded scope: offline 20MHz per-channel transmit calibration and signed
+per-rate offsets for the captured non-TSSI layout, preserving unmapped/invalid
+entries as unknown. EEPROM values are chipset calibration units, not dBm limits.
+Compare against this adapter's Linux channel flags; disabled/no-IR/DFS channels
+cannot become active-scan candidates merely because calibration exists. Country
+confirmation is pending; Linux's current US setting is evidence, not user locale.
+Main remains598fe27; only PR19 open. No hardware writes or reboot in this step.
+
+Offline non-TSSI 20MHz power audit completed against the accepted logical image.
+Values are5 for2GHz1–14 and17–20 across5GHz36–165; these are calibration units,
+not dBm. Channels169/173 are invalid and177 outside the decoded map. Signed rate
+offsets decoded without promoting erased/unmapped data. Eight audit tests pass,
+covering channel/byte mapping, signed endpoints, invalid/missing data and TSSI
+refusal. Linux PHY/regulatory snapshots saved locally; current Linux domainUS is
+not treated as user country confirmation. Country question remains pending.
+No regulatory policy applied, radio writes performed or reboot armed. Next work
+is a country-scoped policy and bounded native receive initialization; firmware
+readiness remains accepted, radio/network functionality remains pending.
+
+User confirmed United States testing on2026-10-22. Use explicit countryUS for
+the initial channel-policy work; the earlier pending-country question is resolved.
+This records location, not completed regulatory-policy integration or permission
+to bypass calibration/driver gates. No radio writes or reboot armed.
+
+Next bounded scope (2026-10-22): offline US 20MHz candidate filter in
+`tools/wifi_channel_policy.py` with synthetic refusal tests. Intersect a deliberately
+small development channel set with the captured Linux PHY restrictions and valid
+calibration. This is not a regulatory database or native transmit authorization;
+unknown flags, DFS, no-IR and missing evidence fail closed. Main598fe27 inspected;
+Air PR49 concerns battery UI, separate from this tool. Native RF/power validation
+remains a dependency. No installed payload changes or reboot planned.
+
+Offline US candidate filter completed against the existing paired Linux snapshots
+and accepted calibration audit:20 candidates (1–11,36/40/44/48,149/153/157/161/165).
+Snapshot ceilings are2dBm on2GHz,11dBm on36–48 and12dBm on149–165, distinct from
+chipset calibration units. All other decoded channels refuse; transmit permission
+remains false throughout. Five policy tests cover country/width, PHY flags,
+regulatory band edges/flags, calibration refusal, duplicate records and lower-cap
+selection. Calibration/firmware audit regressions also pass (12 tests). No native
+policy installed or reboot armed. Next: bounded native RF/receive initialization
+and power programming validation before any active scan.
+
+Next scope: native MCU command wire codec, required before radio initialization.
+Add freestanding bounded packet encoding and response correlation with host tests;
+no hardware commands or RF enables in this checkpoint. Linuxv6.18 mt76x02 USB
+command framing is the reference. Fetch shows main3c47b50 (merged battery PR49);
+inspected scope does not overlap this new driver module. Device branch still
+uses598fe27 integration baseline; no blind integration of capture-profile changes.
+Dependencies: exclusive bounded USB command transport, native calibration/power
+and RF tables remain unimplemented. No physical run or reboot armed.
+
+MCU prerequisite implemented: bounded freestanding packet codec and serialized
+non-reusing15-command diagnostic session. No xHCI command transport connection or
+radio initialization is claimed. Tests cover independently specified wire bytes,
+every payload length1–192, output canaries/padding, insufficient capacity,
+invalid fields, response bounds, outstanding-command exclusion, sequence
+exhaustion and uncertain/mismatched completion poisoning. Host and ASan/UBSan
+checks pass; US policy tests are now included in test-core. Next checkpoint is
+native command transport and saved response evidence, before RF initialization.
+No payload installed, USB adapter disturbed or reboot armed by this work.
+Full kernel build and existing preparation/upload/bring-up/xHCI regressions pass;
+documentation link checks pass. Native evidence remains firmware readiness only.
+
+Next scope: connect a one-shot MCU read diagnostic to xHCI for the captured
+Edimax descriptor. Reuse the retired firmware OUT endpoint, add a separate
+command-response IN endpoint/ring/buffer, and read only MAC_CSR0 through firmware.
+Require accepted firmware completion and disabled MAC; retain all DMA on failure.
+Record bounded transfer status and decoded response without accepting RF/network.
+Main3c47b50 inspected; Air branch5fe69fa remains battery work. No concurrent
+staging or physical run. Boot-profile integration follows transport tests.
+
+One-shot MCU xHCI transport implemented behind firmwarev3 opt-in. Fixed random
+read of MAC_CSR0 only; separate IN0x85/DCI11 response ring, existing OUT8 ring,
+500ms waits, exact transfer ownership, short-IN bounds and retained DMA on every
+failure. Saved header/first16bytes are evidence only (validated=0); final EP0 MAC
+check must remain0x20. Full build/xHCI regressions and52 staging tests pass,
+including new endpoint configuration, wrong slot/DCI/pointer, event errors,
+residue, allocation failure and unready-firmware refusal. No native acceptance
+or radio enablement claimed. Stage/VM checks precede any physical installation.
+
+MCU transport sourcec588228, release8e87dabf5c918f1c, staged and installed unarmed.
+Exact GPT saved-log/automatic-return VM and missing-workspace return VM pass;
+Ubuntu default, pinned descriptor, model, workspace0E53-5900 and retained recovery
+e47dca3a6b30c6c1 verified. Offline workspace fsck/allocation checks pass. Candidate,
+receipts and run record archived outside build under wifi-mcu-c588228. Accepted
+firmware payloadb7f7fb1c357d7ff5 remains retained; only the archive-verified older
+825373ebb599fa0d payload was removed for space. Await attended cold adapter cycle:
+shutdown, unplug Wi-Fi10 seconds, reconnect then power on, leave workspace drive
+connected. Logs save and return automatically; no photo or commands required.
+After return collect matching session first; MCU response/RF acceptance pending.
+
+Native MCU trial8e87dabf5c918f1c session00065e73f7f56ce9-00 collected: firmware
+readiness passes again (result0,chunks6,MAC0x20,recovery2/2). MCU OUT completes16
+bytes; IN times out with received=-1,cc0,decoded0,failed1. Diagnostic completed=NO;
+no MCU response or RF acceptance. Final mac_disabled0 denotes an unperformed
+post-timeout read after quarantine, not an observed enabled MAC. Matching logs
+archived under wifi-mcu-c588228/native-collection. Ubuntu default, consumed
+one-shot and current/recovery manifests verified. Offline workspace clean:
+139files,457clusters,zero leaks/mismatches/errors. Reboot unarmed.
+
+Reference follow-up: Linuxv6.18 mt76x0_init_hardware sends functionQ_SELECT=1,
+value1 before ordinary MCU operations; mt76x02_mcu_function_select deliberately
+uses no response for Q_SELECT. Our one-shot diagnostic omitted that routing
+setup. This is a candidate explanation for a successful OUT without an IN reply,
+not yet proven. Next bounded change: explicit queue-selection setup with sequence0
+(no expected reply), then the existing read-only command; preserve ordinary
+command sequence guards and native MAC-disable checks. No new trial installed.
+
+Next scope: add fixed Q_SELECT(1) command with sequence0/no expected reply before
+one-shot MCU random read, preserving ordinary command sequence1–15 validation.
+Extend host tests for wire bytes and ordered transport failures; retain firmwarev3
+capture semantics and disabled-MAC checks. Main85d5cb7 fetched; battery work remains
+separate. Native evidence remains prior IN timeout; this candidate is not accepted.
+
+Fixed no-reply Q_SELECT packet added before read; generic sequence0 remains
+refused. Full build, MCU codec, xHCI and52 staging regressions pass. New host
+coverage verifies exact setup bytes, capacity refusal and ordered setup/read/IN
+submission stopping after failure at each step, with DMA retention. Preparing
+exact-stage VM checks; native response acceptance remains pending.
+
+Queue-selection source456922b release4a47cd57ac90c504 installed unarmed. Exact
+GPT saved-log/automatic-return and missing-workspace VMs pass; offline workspace
+checks and Ubuntu/current/recovery verification pass. Durable archive:
+~/.local/share/srvros/macbookpro11-2/wifi-queue-456922b. Known-good desktop recovery
+e47dca3a6b30c6c1 retained; prior MCU trial8e87dabf5c918f1c retained. Accepted firmware
+payloadb7f7fb1c357d7ff5 removed from ESP only after exact archive verification;
+its durable payload/evidence remains available. Await attended cold adapter cycle,
+then collect matching session before further work. No photos or commands needed.
+
+Native queue-selection trial4a47cd57ac90c504, source456922b, session
+00065e74311ea511-00: firmware result0/chunks6; Q_SELECT OUT16; random-read OUT16;
+IN16,sequence1,event0,reported-length8,cc13,residue1008. Reply words are
+4a010008/00411000/76502000/4a010008: requested WLAN MAC_CSR0 address and expected
+chipset value, with repeated header trailer. Final MAC-disable check passes,
+failed0, capture completed=yes. This accepts the observed one-shot queue/read
+exchange on this adapter, not sustained MCU service or RF/network functionality.
+The native logger still reports validated=0: strict command-specific response
+validation is the next implementation step, using this evidence plus negative
+length/event/address/value/trailer fixtures.
+
+Matching collection archived under wifi-queue-456922b/native-collection. Ubuntu
+default, consumed one-shot and installed/current recovery manifests verified.
+Offline workspace clean:141files,460clusters,zero leaks/mismatches/errors. Run
+record and checkpoint collected/unarmed; no new physical trial prepared.
+
+Next bounded scope: strict validation of the native one-shot MCU identity reply
+captured in session00065e74311ea511-00. Match exact16-byte envelope,sequence1,
+event0,length8,register00411000,value76502000 and repeated header trailer. This
+contract is specific to the captured diagnostic, not a generic MCU response
+parser. Add truncation/extension and every-bit mutation tests, then require the
+validator in the diagnostic. Main85d5cb7 inspected; no battery overlap, no new
+radio writes or physical boot in this validation step.
+
+Strict one-shot reply validator implemented and required by diagnostic success.
+Host replay of the archived native response passes. All128 single-bit mutations,
+truncated/extended lengths and a consistent stale sequence refuse; ASan/UBSan,
+full build, MCU and xHCI regressions pass. This is host validation against native
+evidence; the new validator has not itself been physically booted. Installed
+release4a47cd57ac90c504 remains unchanged and unarmed. Next scope is bounded native
+radio initialization using per-operation completion contracts; no RF acceptance.
+
+Next scope: bounded MAC/BBP reset preparation engine, following the captured
+MT7610 identity and Linuxv6.18 initialization order. Require firmware ownership,
+idle WPDMA/MAC and disabled MAC before asserting CSR/BBP reset; bound the200ms
+hold and verify reset release. No RF table, channel, power or TX-enable writes.
+Host fault coverage before xHCI/native wiring. Main85d5cb7 remains integration
+head inspected; Air battery scope separate. Installed payload unchanged.
+
+MAC/BBP reset prerequisite engine completed with exact identity/disabled-state
+checks, bounded idle polls,200ms cancellable reset hold, release readback and
+post-reset idle checks. Full build, MCU and new reset tests pass; reset tests
+also pass ASan/UBSan. Every operation failure stops, every later retry refuses,
+and no write sets TX/RX bits. No xHCI binding or physical execution added yet;
+installed release remains4a47cd57ac90c504, reboot unarmed. Next connect this engine
+to a separately guarded native capture, then verify reset/MCU survival before
+loading MAC/BBP/RF tables. Calibration/power enforcement remains required for TX.
+
+Next scope: firmwarev4 opt-in native MAC/BBP reset capture, before the existing
+queue-selection/strict identity-read exchange. Bind only reset-engine register
+reads and ordered MAC_SYS_CTRL writes3 then0; never widen firmware write gates.
+Require exclusive prepared firmware transport; final MAC must be0 after reset.
+Preserve v1/v2/v3 recipes and automatic saved-log return. Host binding/profile
+checks and exact-stage VMs precede installation; cold trial requires readiness.
+Main85d5cb7 remains fetched baseline; Air changes remain separate.
+
+Reset binding build and host checks pass, including exact ordered write values,
+phase/identity/ownership refusals, early-release refusal and USB failure
+quarantine.53 staging tests pass and documentation links check clean. New reset
+engine and strict native reply validator are included in v4; hardware acceptance
+remains pending. Preparing stage/VM checks before installation.
+
+Native reset candidate source2bc3689 releasebfa7235c397175da installed unarmed.
+Exact GPT saved-log/automatic-return and missing-workspace VMs pass; workspace
+fsck/allocation and Ubuntu/current/recovery verification pass. Durable payload,
+receipts and run record in wifi-reset-2bc3689 outside build. Accepted queue/read
+payload4a47cd57ac90c504 and known-good desktop recoverye47dca3a6b30c6c1 retained;
+older failed MCU payload8e87dabf5c918f1c removed from ESP after archive equality
+verification. Await attended cold cycle; collect matching session first after
+return. Require reset result0/prepared1/released1 and MCU validated1, disabled MAC;
+no RF or connectivity acceptance follows from this trial alone.
+
+Native reset trialbfa7235c397175da/source2bc3689/session00065e747b16d8cb-00:
+**MAC/BBP reset and strict MCU identity exchange accepted** for this adapter.
+Reset result0,released1,prepared1,reads9,writes2,hold200000us; final idle MAC
+status1200=0. Queue OUT16/read OUT16/IN16, expected identity response, validated1,
+failed0 and final disabled MAC_SYS_CTRL=0. Firmware and laptop completed=yes.
+This accepts only this reset/identity sequence, not MAC/BBP tables, RF calibration,
+receive/scan, association, authentication or IP connectivity.
+
+Matching collection archived under wifi-reset-2bc3689/native-collection. Ubuntu
+default, consumed one-shot and current/recovery manifests verified. Offline
+workspace clean:143files,463clusters,zero leaks/mismatches/errors. Run record and
+checkpoint collected/unarmed. Next: bounded MAC/baseband table initialization
+with command-specific completions, then calibrated RF/receive setup.
+
+Next scope: bounded MCU register-pair packet encoder before MAC/baseband tables.
+Linuxv6.18 tables include PA and TX-power entries; do not treat them as uniformly
+receive-only. Implement at most24 aligned WLAN register pairs per command, with
+nonzero response sequence and atomic input validation. No table authorization or
+native writes added. First native write diagnostic must establish acknowledgement
+format with a disabled-MAC write before table execution. Main9ca1922 fetched and
+inspected (battery/Home changes include shared staging/main); integration remains
+598fe27 and profile reconciliation is deferred, not silently overwritten.
+
+
+Register-pair prerequisite implemented: one bounded1–24-pair read/write packet,
+complete validation before output, no implicit chunking or no-ACK writes. The
+existing native identity read uses the shared builder with identical wire bytes.
+Build, MCU/radio/xHCI host tests and MCU ASan/UBSan passed. No candidate installed
+or reboot armed for this pure encoding change; native write acknowledgement and
+MAC/baseband table execution remain pending.
+
+Active scope: opt-in firmwarev5 MCU write-response capture after the accepted
+reset and strict identity exchange. Permit exactly one sequence2 random write
+of MAC_SYS_CTRL1004=0, require disabled MAC before and after, retain bounded raw
+response words for inspection. No initialization tables or RF writes. Shared
+main remains9ca1922; current device branch inspected clean atf2dc195. Dependencies
+are accepted reset/identity transport and bounded register-pair encoder. Native
+write-response format remains unaccepted until the matching saved run is read.
+
+Write-response candidate source63d7714/released8dca7885de3c61f installed unarmed.
+Build, MCU/radio/xHCI tests,54 boot-profile tests and docs passed. Exact-stage GPT
+saved-log/clean-unmount/automatic-return VM and missing-workspace refusal passed.
+VM does not validate native MCU writes. Durable archive wifi-write-63d7714 has
+payload, receipts and run record. Workspace offline checks passed; Ubuntu remains
+default, recoverye47dca3a6b30c6c1 and accepted resetbfa7235c397175da retained.
+Older queue payload4a47cd57ac90c504 removed from ESP only after archive equality
+verification. Native write reply pending; readiness needed for cold adapter
+power cycle. Results will save automatically; no photograph or commands needed.
+
+Native write-response run d8dca7885de3c61f/source63d7714/session00065e74d8311f56-00
+collected and inspected. Reset and strict identity exchange passed. Fixed
+CMD_RANDOM_WRITE sequence2, register1004=0 returned16bytes with words4a020008,
+00411004,00000000,4a020008 (cc13,residue1008). EP0 readbacks before and after were0;
+MAC remained disabled. Firmware/laptop completion markers present. This records
+one fixed write's response format, not a general write/table acceptance. The
+installed diagnostic correctly logs ack_validated=0; a strict command-specific
+validator and mutation tests are next before table execution.
+
+Collection and hashes archived in wifi-write-63d7714/native-collection. Ubuntu
+default, consumed one-shot and current/recovery manifests verified. Workspace
+unmounted and clean:145files,466clusters,zero leaks/mismatches/errors. Run record
+and checkpoint collected/unarmed. RF, receive/scan and connectivity remain pending.
+
+Active scope: strict validator for the fixed sequence2 MAC_SYS_CTRL=0 MCU reply
+captured in session00065e74d8311f56-00, host mutation tests and diagnostic wiring.
+Touches mt76 MCU codec, xHCI diagnostic, tests and these guides; no table or RF
+writes. Main9ca1922 remains integration target; remote Air scopes inspected.
+Native validator acceptance is pending; replay validates the saved fixture only.
+
+Strict fixed-write ACK validator implemented and wired into v5 completion.
+Saved native16-byte response replay,128 single-bit mutations, stale sequences,
+length/address rejection, MCU ASan/UBSan, build and xHCI tests passed. This is
+source/host validation; installedd8dca7885de3c61f is unchanged. No reboot armed.
+Next table work must define bounded chunks, address/value policy and completion
+contracts without assuming the single-pair echo proves multi-pair behavior.
+
+Active scope: firmwarev6 two-pair MCU response capture, after strict single-write
+ACK validation. Two identical MAC_SYS_CTRL1004=0 pairs, sequence3; no additional
+registers/tables/RF. Capture bounded response words and disabled-MAC readbacks;
+do not presume a multi-pair echo contract. Main9ca1922 fetched, other machine
+scopes unchanged; touches MCU diagnostic, boot profile, tests and guides.
+
+Two-pair candidate sourcefe5c0a8/release101abba9feeb8cfa installed unarmed.
+Build, MCU/xHCI tests,55 boot-profile tests and docs passed. Exact-stage GPT
+saved-log/clean-filesystem/automatic-return VM and missing-workspace refusal
+passed. Durable archive wifi-pair-fe5c0a8 contains payload, receipts and run record.
+Workspace offline clean:145files/466clusters. Ubuntu default and known-good
+recoverye47dca3a6b30c6c1 preserved; prior single-write captured8dca7885de3c61f
+retained. Reset payloadbfa7235c397175da removed from ESP only after archive/hash
+verification. Cold hardware result pending; no multi-pair ACK or table acceptance.
+
+Native v6 sourcefe5c0a8/release101abba9feeb8cfa/session00065e751cdb49ed-00:
+strict single-write ACK accepted (ack_validated1), reset/identity prerequisites
+passed. Duplicate two-pair OUT24 returned IN16, words4a030008,00411004,00000000,
+4a030008; sequence3/event0/length8, cc13/residue1008. MAC before/after0. Capture
+completed. This proves a bounded response to this duplicate-pair diagnostic,
+not that arbitrary pairs are echoed or independently verified. Since both pairs
+were identical, first-versus-last echo cannot be determined. Next establish a
+distinguishing response/readback contract before initialization table execution.
+
+Matching collection archived in wifi-pair-fe5c0a8/native-collection. Ubuntu default,
+consumed one-shot and current/recovery manifests verified. Workspace unmounted,
+clean147files/469clusters,zero leaks/mismatches/errors. Run/checkpoint collected
+and unarmed. No RF, receive, scan or connectivity acceptance.
+
+Active scope: v7 distinct timing-pair diagnostic, XIFS1100=33a41010 and
+BKOFF1104=209 from Linuxv6.18 initialization/register definitions. Require strict
+single-write ACK and disabled MAC; capture before/after EP0 values independently
+of MCU reply. No RF/PA/power tables or TX/RX enable. Existing profiles retained.
+Main9ca1922 fetched; other Air scopes inspected separately from this USB work.
+
+Distinct timing candidate source607ad4f/release201acb491eb09532 installed unarmed.
+Build, MCU/xHCI tests (including fixed timing packet and scoped read binding),
+56 boot-profile tests and docs passed. Exact-stage GPT saved-log/clean-filesystem/
+automatic-return VM and missing-workspace refusal passed. Durable archive
+wifi-timing-607ad4f contains payload, receipts and run record. Workspace offline
+clean:147files/469clusters. Ubuntu default/recoverye47dca3a6b30c6c1 and prior
+pair capture101abba9feeb8cfa retained. Oldd8dca7885de3c61f removed from ESP only
+after equality with durable archive. Native distinct response/readbacks pending.
+
+Native timing source607ad4f/release201acb491eb09532/session00065e753e794b20-00:
+accepted exact two-entry transaction with independent changed readbacks. OUT24
+returned IN16, words4a030008,00411100,33a41010,4a030008: first entry echoed.
+XIFS1100 changed33a4100a->33a41010; BKOFF1104 changed214->209. readback_ok1,
+changed0/1 both1. Reset, identity and strict single-write ACK passed; MAC stayed0
+before/after. Firmware/laptop completed=yes. No larger-batch, general table or
+RF acceptance follows; installed pair ACK remains capture-only (validated0).
+Next: strict timing reply validator and bounded table completion with readbacks.
+
+Collection/hashes archived in wifi-timing-607ad4f/native-collection. Ubuntu
+default, consumed one-shot and current/recovery manifests verified. Workspace
+unmounted, clean149files/472clusters,zero leaks/mismatches/errors. Run/checkpoint
+collected and unarmed. Receive/scan/association/connectivity remain pending.
+
+Active scope: bounded timing initialization engine for the accepted exact pair,
+strict sequence3 first-entry ACK plus independent readbacks and disabled-MAC
+checks. No general table/register authorization or RF expansion. Main62067a1
+fetched; shared battery/main/staging changes inspected, integration still598fe27.
+Touches mt76 MCU engine, xHCI timing binding, tests and guides. Native evidence
+is session00065e753e794b20-00; new engine acceptance remains pending.
+
+Bounded timing initialization implemented: exact two-entry packet, strict
+first-entry ACK, both independent readbacks and MAC0 before/after. One attempt
+per session, authorization before every I/O and completion; failure quarantines
+through xHCI with no retry. v7 now uses this engine; v6 remains capture-only.
+Host checks passed: build, MCU/xHCI, per-operation failure/cancellation,
+second-readback mismatch despite valid ACK, enabled MAC refusal,128 reply-bit
+mutations,192 submitted-packet mutations, ASan/UBSan, native reply replay and docs.
+No new physical acceptance: installed201acb491eb09532 is unchanged and no boot
+is armed. General MAC/BBP tables, larger batches and RF remain pending.
+
+Timing-engine source48879c2/release0c12150fc75d830c installed unarmed. Exact-stage
+GPT saved-log/clean-filesystem/automatic-return VM and missing-workspace refusal
+passed. Prior build/MCU/xHCI/fault/sanitizer/native-replay checks are archived with
+payload and run record in wifi-timing-engine-48879c2. Workspace offline checks
+passed. Ubuntu default/recoverye47dca3a6b30c6c1 and prior timing capture201acb491eb09532
+retained; obsolete101abba9feeb8cfa removed only after durable archive equality.
+Next hardware acceptance requires wifi-timing-init status0, ack_validated1,
+complete1, reads6, both target readbacks and MAC0 before/after. Native pending.
+
+Native timing engine accepted: source48879c2/release0c12150fc75d830c/
+session00065e7570e64246-00. wifi-timing-init status0,attempted1,write_attempted1,
+sent24,received16,ack_validated1,complete1,reads6. MAC before/after0; XIFS changed
+33a4100a->33a41010 and BKOFF214->209. Firmware/reset/strict identity/single-write
+prerequisites passed and firmware/laptop completed=yes. This accepts the exact
+bounded two-register initialization only, not full MAC/BBP tables or RF.
+
+Matching collection/hashes archived in wifi-timing-engine-48879c2/native-collection.
+Ubuntu default, consumed one-shot and current/recovery manifests verified.
+Workspace unmounted and clean151files/475clusters,zero leaks/mismatches/errors.
+Run/checkpoint collected and unarmed. Next expand MAC/baseband initialization
+with bounded commands and register-specific readback policies; RF/scan/network
+connectivity remain pending.
+
+Active scope: fixed MAC basics engine after accepted timing, two pairs per
+command with sequences4/5. Targets legacy basic rate1408=13f, HT basic
+rate140c=4003 (model final value), RX filter1400=17f97, maximum length1018=a1fff,
+from Linuxv6.18 register/init definitions. No TX/RX enable, RF, PA/power or key
+writes. Require exact first-entry ACK plus per-register readbacks and MAC0 at
+each batch boundary. Pure engine/tests first; native binding remains separately
+gated until validated. Main1454cb7 fetched/inspected; integration still598fe27.
+
+Fixed four-register MAC basics engine implemented, with separate sequence4/5
+packets, exact first-entry replies, per-register readbacks and MAC0 boundaries.
+Host tests passed for all operation failures/authorization boundaries, reply
+mutations, stale batch replies and each readback mismatch. Build, MCU/xHCI,
+ASan/UBSan and docs checks passed. Not yet bound to native xHCI or accepted on
+hardware; installed0c12150fc75d830c remains unchanged and no reboot is armed.
+Next bind this fixed plan after accepted timing with exact packet/read allowlists,
+then stage and rehearse the candidate before native acceptance.
+
+Active scope: opt-in firmwarev8 binding of fixed MAC basics after accepted timing.
+Exact sequence4/5 packets only, one submission each in order, four-register/ MAC0
+read allowlist and prior timing completion required. Local transport/boot tests,
+exact-stage rehearsal and preserved recovery precede native test. Main1454cb7
+fetched, integration remains598fe27; no battery or sibling gates modified.
+
+Native binding implemented; build, MAC/MCU/xHCI host suites, 57 boot-profile
+tests and docs checks passed. Transport tests cover ordered submissions,
+prior-batch completion, exact packet mutations, read scope, stale events and
+retained-DMA quarantine. Preparing firmwarev8 exact-stage VM and hardware trial;
+new register responses/readbacks are still physically unaccepted.
+
+MAC basics native trial source facb862, release190ab5353ae2f8b6, firmwarev8:
+exact-stage GPT save/unmount/return and missing-workspace return VM checks passed.
+Installed unarmed with Ubuntu default and e47dca3a6b30c6c1 recovery preserved;
+accepted timing engine0c12150fc75d830c retained. Prior201acb491eb09532 payload
+removed from ESP only after matching its durable archive byte-for-byte.
+Workspace preboot filesystem/allocation checks passed. Payload, VM receipts,
+local checks and run record archived outside build in wifi-mac-native-facb862.
+Next cold trial requires Wi-Fi disconnected for10 seconds while off, then
+reconnected before power-on; workspace stays attached. Automatic log saving and
+return enabled. Accept only both unique replies, all four exact readbacks, MAC0
+and completion markers; RF/connectivity remain pending.
+
+Native MAC basics accepted, 2026-10-22: source facb862,
+release190ab5353ae2f8b6, session00065e75fad3378e-00. Firmware/reset/identity,
+single-write and timing prerequisites all passed. Sequence4 and5 each sent24,
+received16 with exact first-entry echoes. MAC initialization status0, submitted2,
+batches_attempted2/completed2, ack_mask3, complete1, reads12; MAC stayed0.
+Readbacks:1408 0->13f,140c 82008000->4003,1400 15f9f->17f97,
+1018 a7fff->a1fff. Firmware and laptop completion markers present.
+Matching collection archived in wifi-mac-native-facb862/native-collection.
+Ubuntu default, consumed one-shot and installed/recovery manifests verified.
+Workspace clean153files/478clusters with zero allocation errors; unmounted.
+Run/checkpoint collected and unarmed. Next extend remaining MAC/baseband setup
+with bounded commands and register-specific readbacks. RF, scan, association
+and connectivity remain pending; this accepts only the fixed four-register plan.
+
+Active scope: consume main22fd266 (PR55 shared service/workspace lifecycle and
+Air6,1 input support) before extending Wi-Fi initialization. Preserve Pro MCU
+commands/tests and all upstream battery profiles; no Pro battery acceptance.
+Resolve overlapping boot profile numbers with a namespaced Wi-Fi calibration
+recipe and exact historical verification. Build/core tests and exact fw-v8 VM
+rehearsal precede any new hardware candidate. Current accepted native release
+190ab5353ae2f8b6 and recovery remain installed and unarmed.
+
+Merged baseline22fd266: full build/test-core,64 boot-profile tests and docs checks
+passed. All48 upstream laptop profile variants generate identical configs.
+Historical v43/v44 Wi-Fi recipes still verify exactly; new calibration uses
+wifi-cal-v1 to avoid battery profile collisions. PR60 process-lifetime work is
+separate and remains unmerged. Next rehearse/install firmwarev8 for a regression
+of the accepted MAC plan on this baseline before extending initialization.
+
+Merged-baseline regression installed unarmed: source285aa45,
+releasecb8cc153be25dac9, firmwarev8. Exact GPT workspace/save/return and
+missing-workspace VM rehearsals passed. Accepted190ab5353ae2f8b6 and desktop
+recoverye47dca3a6b30c6c1 retained; prior timing-only0c12150fc75d830c removed
+from ESP after full durable archive equality. Workspace preboot checks passed.
+Run/payload/VM/local evidence archived outside build in wifi-main-merge-285aa45.
+Next cold native run repeats the accepted sequence4/5/readback plan against
+main22fd266. No new radio registers or physical battery acceptance in this run.
+
+Merged-baseline native regression accepted, 2026-10-22: source285aa45
+(main22fd266), releasecb8cc153be25dac9, session00065e765bdc87af-00.
+Firmware/reset/identity/single-write/timing prerequisites passed; both MAC
+commands sent24/received16 with exact sequence4/5 replies. Status0, submitted2,
+completed2, ack_mask3, complete1, reads12; all four before/after readbacks match
+the accepted facb862 run and MAC remained0. Completion markers present.
+Collection/hashes archived in wifi-main-merge-285aa45/native-collection.
+Ubuntu default, consumed one-shot and installed/recovery manifests verified;
+workspace clean155files/481clusters, zero allocation errors, unmounted.
+Run/checkpoint collected and unarmed. Remaining MAC/baseband initialization
+can now proceed on this merged baseline; RF/scan/connectivity remain pending.
+
+Active scope: fixed MAC frame-format plan after accepted basics. Disable TSO
+0250=0 and header translation0260=0, then set HT control1410=1ff and PN padding
+150c=3 using distinct sequences6/7. Values follow captured Linuxv6.18 model
+initialization; no RF/power/key or TX/RX enable writes. Require accepted basics,
+exact packets/replies, per-register readback and MAC0 boundaries. Native response
+shape remains pending for these commands. Main340f566 inspected (process lifetime
+work); this independent MCU step uses physically accepted integration22fd266.
+
+Frame-format engine/native binding implemented with fixed seq6/7 and separate
+phase ownership; prior basics must be complete. Build, basics/format/MCU/xHCI
+tests,65 boot-profile tests, ASan/UBSan format tests and docs checks passed.
+Firmwarev9 rehearsal is next; native replies/readbacks remain pending.
+
+Frame-format candidate installed unarmed: source7713556,
+release54d6def400fd2a6c, firmwarev9. Exact-stage GPT save/unmount/return and
+missing-workspace VM checks passed. Ubuntu default, accepted merged MAC image
+cb8cc153be25dac9 and desktop recoverye47dca3a6b30c6c1 retained. Original
+190ab5353ae2f8b6 removed from ESP only after durable archive equality.
+Workspace preboot checks clean. Payload/run/VM/local evidence archived outside
+build in wifi-mac-format-7713556. Next cold trial accepts only exact seq6/7
+replies, all four target readbacks, MAC0 boundaries and saved completion.
+Physical frame-format acceptance remains pending; RF/connectivity untested.
+
+Native frame-format initialization accepted, 2026-10-22: source7713556,
+release54d6def400fd2a6c, session00065e76901356a1-00. All prior prerequisites
+passed. Sequence6/7 each sent24/received16 with exact first-entry replies;
+status0, submitted2, attempted2/completed2, ack_mask3, complete1, reads12.
+MAC before/after0. Readbacks0250 0->0,0260 0->0,1410 100->1ff,150c 0->3.
+Firmware and laptop completion markers present. Full matching collection and
+hashes archived in wifi-mac-format-7713556/native-collection. Ubuntu default,
+consumed one-shot and current/recovery manifests verified; workspace unmounted
+and clean157files/484clusters with zero allocation errors. Run/checkpoint
+collected and unarmed. Next extend remaining MAC/baseband initialization;
+RF, scanning, association and network connectivity remain pending.
+
+Active scope: read-only baseband prerequisite capture after accepted frame format.
+Read MAC control/status, PBF clock control and BBP CORE0 (2000); bound zero-core
+polling to20 reads, reject all-ones and require MAC disabled/idle before/after.
+No write callback or new MCU sequences. Baseband readiness follows Linuxv6.18
+mt76x0/phy.c; it does not accept baseband tables or RF. Main105dffd fetched and
+inspected (Air lifecycle work); independent capture uses accepted base22fd266.
+
+Read-only BBP engine/native binding implemented. Build, BBP/basics/format/MCU/
+xHCI tests,66 boot-profile tests, BBP ASan/UBSan and docs passed. Native gate
+requires completed frame format and admits only four reads. Firmwarev10
+rehearsal follows; CORE0 value/readiness and clock observations remain pending.
+
+BBP readiness candidate installed unarmed: source6e0bd27,
+release6df00376834c37fd, firmwarev10. Exact GPT save/unmount/return and
+missing-workspace VM checks passed. Ubuntu default, accepted frame-format
+54d6def400fd2a6c and desktop recoverye47dca3a6b30c6c1 retained. Prior merged
+cb8cc153be25dac9 removed from ESP only after durable archive equality.
+Workspace preboot checks clean. Payload/run/VM/local evidence archived outside
+build in wifi-bbp-ready-6e0bd27. Next cold trial checks responding CORE0 and
+disabled/idle MAC before/after; PBF value is observation only. Baseband table
+initialization and RF/connectivity remain unaccepted.
+
+Read-only BBP readiness accepted, 2026-10-22: source6e0bd27,
+release6df00376834c37fd, session00065e76bf8562b4-00. Firmware, reset,
+identity, timing, basics and frame-format prerequisites passed. BBP status0,
+attempted1, complete1, reads6, core_reads1; CORE0=f000f200, PBF=00080000,
+MAC control/status0 before and after. Completion markers present. This accepts
+core readiness only, not clock programming, baseband tables or RF.
+Matching collection/hashes archived in wifi-bbp-ready-6e0bd27/native-collection.
+Ubuntu default, consumed one-shot and current/recovery manifests verified;
+workspace unmounted and clean159files/487clusters, zero allocation errors.
+Run/checkpoint collected and unarmed. Next implement bounded baseband setup
+with exact register readbacks; scanning/association/connectivity remain pending.
+
+Active scope: first bounded BBP CORE setup after native readiness. Fixed
+CORE1/4/24/32 offsets2004/2010/2060/2080 values2/0/0/4003000a from Linuxv6.18
+model initialization, sequences8/9. Require captured CORE0=f000f200 before/after
+each batch, MAC0 boundaries and all target readbacks. No RF, channel, power or
+MAC enable writes. Main105dffd unchanged; accepted integration22fd266 retained.
+
+BBP CORE implementation validation: full build, bounded engine and native xHCI
+fixtures, prior MCU/timing/MAC/frame-format/readiness regressions, ASan/UBSan
+and all 67 boot-profile tests pass. Physical acceptance remains pending.
+
+BBP CORE candidate source23b97f2 / release5f7b66b688f803cb installed unarmed.
+Exact-stage GPT save/return and missing-workspace refusal/return VM checks pass.
+Workspace fsck/allocation checks pass; Ubuntu default and desktop recovery
+e47dca3a6b30c6c1 retained, accepted readiness6df00376834c37fd retained. Old
+format54d6def400fd2a6c removed only after full durable-archive equality checks.
+Run record: build/bringup/wifi-bbp-core/run.json; durable evidence/payload in
+~/.local/share/srvros/macbookpro11-2/wifi-bbp-core-23b97f2. Await cold-trial
+readiness; collect the matching session first after return. RF remains untested.
+
+BBP CORE native acceptance (2026-10-22): source23b97f2, release5f7b66b688f803cb,
+session00065e76e3fff75c-00 passed exact sequence8/9 replies, both24-byte commands
+and16-byte responses, status0/submitted2/completed2/ack_mask3/reads16.
+CORE1 changed0->2, CORE4/24 stayed0, CORE32 changed40030001->4003000a;
+CORE0 stayedf000f200 and MAC stayed0. All prior setup regressions and both
+capture completion markers passed. Evidence and hashes archived outside build
+in wifi-bbp-core-23b97f2/native-collection. Ubuntu default, consumed one-shot,
+installed payload and desktop recovery verified. Workspace unmounted; clean
+161files/490clusters with zero leaked allocations or bitmap mismatches.
+Run/checkpoint collected and unarmed. Next scope is remaining bounded baseband
+configuration; RF, scanning, association and connectivity remain pending.
+
+Active scope: finish CORE42/44 and initialize IBI11/AGC0 with fixed values
+0/0/0fde8081/00021400 at20a8/20b0/212c/2300, sequences10/11. Reuse the
+bounded MCU engine with captured CORE identity and disabled-MAC guards,
+requiring completed native CORE setup. Touch MCU/xHCI, isolated capture/profile
+and tests only; no RF or transmit enable. Main105dffd inspected unchanged;
+Air PR63 at182ee78 adds independent battery capture (shared profile/main files,
+separate recipe). Retain integration22fd266 and preserve both scopes.
+
+Validation for BBP front: full build, fixed-plan/per-operation failure tests,
+xHCI prerequisites and transport quarantine, prior MCU/MAC/CORE/readiness
+regressions, ASan/UBSan, 68 boot profiles and documentation checks pass.
+Native acceptance remains pending.
+
+Remaining CORE / initial IBI/AGC trial installed: sourcedaffe4c,
+release1874caf6830abdc0. Exact-stage GPT save/return and missing-workspace
+refusal/return VM checks pass. Workspace fsck/allocation clean; Ubuntu default
+and desktop recoverye47dca3a6b30c6c1 retained, accepted CORE5f7b66b688f803cb
+retained. Readiness6df00376834c37fd removed from ESP only after full durable
+archive equality. Run record build/bringup/wifi-bbp-front/run.json; payload,
+VM receipts and prepared collector archived in
+~/.local/share/srvros/macbookpro11-2/wifi-bbp-front-daffe4c. Unarmed, awaiting
+cold-trial readiness. Collect the matching session first after return; native
+acceptance pending. No RF/scan/connectivity test is included.
+
+Remaining CORE / initial IBI/AGC native acceptance (2026-10-22): source daffe4c,
+release1874caf6830abdc0, session00065e772300653c-00 passed exact sequence10/11
+replies, both24-byte commands and16-byte responses, status0/submitted2/completed2/
+ack_mask3/reads16. CORE42/44 stayed0, IBI11 changed0->0fde8081, AGC0 changed
+7400->21400; CORE0 stayedf000f200 and MAC stayed0. All prior setup checks and
+both capture completion markers passed. Matching logs and hashes archived in
+wifi-bbp-front-daffe4c/native-collection outside build. Ubuntu default, consumed
+one-shot, installed payload and desktop recovery verified. Workspace unmounted;
+clean163files/493clusters with zero leaked allocations or bitmap mismatches.
+Run/checkpoint collected and unarmed. Next: remaining AGC/baseband initialization,
+then RF/scan/association/connectivity, which remain untested.
+
+Active scope: fixed initial AGC1/2/15/22 at2304/2308/233c/2358, values
+3/003a6464/88a28cb8/1e21, sequences12/13. Require completed prior IBI/AGC0
+setup, captured CORE identity and disabled MAC before/after each batch. Touch
+MCU/xHCI, isolated main/staging recipe and tests. RF remains disabled. Fetched
+main14f17d2 (PR63 battery capture) and PR64 Type feedback; neither adds Wi-Fi
+dependencies. Retain physically accepted integration22fd266 for this trial.
+The 4-bit command sequence space is not wrapped; larger remaining plans will
+need explicit batching/session design before exceeding sequence15.
+
+AGC validation: full build, all fixed MCU/MAC/baseband engines, xHCI
+prerequisite/transport/read-scope/quarantine fixtures, ASan/UBSan, 69 boot
+profiles and documentation checks pass. Physical acceptance remains pending.
+
+Initial AGC trial installed: source56bf5da, releaseb245ac895a7d9396. Exact-stage
+GPT save/return and missing-workspace refusal/return VM checks pass. Workspace
+fsck/allocation clean; Ubuntu default and desktop recoverye47dca3a6b30c6c1
+retained, accepted CORE/IBI/AGC0 release1874caf6830abdc0 retained. Earlier CORE
+release5f7b66b688f803cb removed from ESP only after full durable archive equality.
+Run record build/bringup/wifi-bbp-agc/run.json; payload, VM receipts and prepared
+collector archived in ~/.local/share/srvros/macbookpro11-2/wifi-bbp-agc-56bf5da.
+Unarmed, awaiting cold-trial readiness. Collect the matching session first on
+return. Native acceptance pending; no RF/scan/connectivity test included.
+
+Initial AGC native acceptance (2026-10-22): source56bf5da,
+releaseb245ac895a7d9396, session00065e777b83c006-00 passed exact sequence12/13
+replies, both24-byte commands/16-byte responses, status0/submitted2/completed2/
+ack_mask3/reads16. AGC1 changed1->3, AGC2 changed6464->3a6464; AGC15/22
+already matched88a28cb8/1e21. CORE0 stayedf000f200 and MAC stayed0. All prior
+setup checks and both capture completion markers passed. Logs/hashes archived
+in wifi-bbp-agc-56bf5da/native-collection outside build. Ubuntu default, consumed
+one-shot, installed payload and desktop recovery verified. Workspace unmounted;
+clean165files/496clusters, zero leaked allocations or bitmap mismatches.
+Run/checkpoint collected and unarmed. Next design bounded larger command batches
+and session sequencing before exhausting the4-bit sequence space, then finish
+AGC/baseband initialization. RF/scan/association/connectivity remain pending.
+
+Active scope: four-pair MCU batching comparison using accepted AGC1/2/15/22
+values, one40-byte command at sequence14 replacing sequence12/13 after IBI/AGC0.
+Order AGC15/22/1/2 puts changed targets last, proving the packet tail is applied.
+Generalize only the private fixed-plan engine to two or four pairs; public
+entry points retain fixed tables/sequences. Check every baseline/readback and
+MAC/CORE identity boundaries. No new register settings or RF enable. Main9256faa
+(PR64/65 Type feedback) and Air PR66 battery transitions inspected; independent
+Wi-Fi scope, retain accepted integration22fd266. Touch MCU/xHCI/main/profile
+and tests. Sequence reuse stays forbidden; successful batching can later
+consolidate setup commands without exhausting the four-bit space.
+
+Four-pair validation: full build, all shared fixed-plan regressions, new
+13-operation/14-authorization-boundary faults, native exact40-byte packet and
+quarantine fixtures, ASan/UBSan, 70 boot profiles and docs checks pass.
+The comparison skips the old AGC phase; native expected tail baselines1/6464
+must change to3/3a6464. Physical batching acceptance remains pending.
+
+Four-pair comparison installed: sourced1c0811, releaseb3eaadb9ad679dbb.
+Exact-stage GPT save/return and missing-workspace refusal/return VM checks pass.
+Workspace fsck/allocation clean; Ubuntu default and desktop recovery
+e47dca3a6b30c6c1 retained; accepted AGCb245ac895a7d9396 retained. Older
+CORE/IBI1874caf6830abdc0 removed only after full durable archive equality.
+Run record build/bringup/wifi-bbp-batch/run.json; payload, VM receipts and
+strict tail-change collector archived in
+~/.local/share/srvros/macbookpro11-2/wifi-bbp-batch-d1c0811. Unarmed, awaiting
+cold-trial readiness. Collect matching session first after return; no native
+batching acceptance yet. RF and connectivity remain untested.
+
+Four-pair native acceptance (2026-10-23): sourced1c0811,
+releaseb3eaadb9ad679dbb, session00065e7a17440518-00 passed one40-byte command,
+exact sequence14/16-byte reply, status0/submitted1/completed1/ack_mask1/reads12.
+AGC15/22 stayed88a28cb8/1e21; tail pairs AGC1/2 changed1/6464->3/3a6464.
+The earlier sequence12/13 AGC phase was absent, so tail readbacks prove full
+payload application. CORE0 stayedf000f200, MAC stayed0; preceding setup checks
+and both completion markers passed. Matching logs/hashes archived outside build
+in wifi-bbp-batch-d1c0811/native-collection. Ubuntu default, consumed one-shot,
+installed payload and desktop recovery verified. Workspace unmounted; clean
+167files/499clusters, zero leaked allocations/bitmap mismatches. Run/checkpoint
+collected and unarmed. Next consolidate setup using accepted four-pair batches
+to free command identifiers before remaining baseband work; sequence reuse,
+RF/scan/association/connectivity remain unaccepted.
+
+Active scope: consolidate five accepted four-register plans into sequences4..8
+after unchanged firmware/reset/identity/write/timing steps1..3. Preserve MAC
+basics -> format -> read-only BBP readiness -> CORE -> IBI/AGC0 -> AGC order.
+Each phase uses one40-byte command and all four readbacks; phases2..4 retain
+captured CORE identity guards. No new settings or sequence reuse. Touch fixed
+MCU engine, xHCI phase ownership, isolated capture/profile and tests. Inspected
+main80b567a and Air PR69: independent desktop/battery work, no Wi-Fi dependency;
+retain accepted integration22fd266. Native consolidation acceptance pending.
+
+Consolidation validation: full build, five-phase fixed engine and all older
+fixed-plan regressions, native xHCI phase/prefix/readiness/read-scope/packet
+fixtures, ASan/UBSan, 71 boot profiles and docs checks pass. No native
+consolidation acceptance yet; prepare exact-stage VM and automatic cold trial.
+
+Consolidated trial installed: source1b9bf8e, releasee459728ba57fea08. Exact-stage
+GPT save/return and missing-workspace refusal/return VM checks pass. Workspace
+fsck/allocation clean; Ubuntu default and desktop recoverye47dca3a6b30c6c1
+retained; accepted batchingb3eaadb9ad679dbb retained. Older AGCb245ac895a7d9396
+removed only after full durable archive equality. Run record
+build/bringup/wifi-compact/run.json; payload/receipts and strict five-phase
+collector archived in ~/.local/share/srvros/macbookpro11-2/wifi-compact-1b9bf8e.
+Unarmed awaiting cold-trial readiness. Collect matching session first after
+return; consolidated native acceptance pending. RF/connectivity remain untested.
+
+Consolidated initialization native acceptance (2026-10-23): source1b9bf8e,
+releasee459728ba57fea08, session00065e7a55ca88f1-00 passed all five40-byte
+commands, exact sequence4..8 replies, status0 and one completion/ACK per phase.
+Reads10/10/12/12/12 and all20 baselines/readbacks matched expectations; BBP
+readiness occurred between phases1/2, CORE0 stayedf000f200 in phases2..4 and
+MAC stayed0. Old phase log families absent; prior firmware/reset/identity/write/
+timing checks and both completion markers passed. Logs/hashes archived outside
+build in wifi-compact-1b9bf8e/native-collection. Ubuntu default, consumed one-shot,
+installed payload and desktop recovery verified. Workspace unmounted; clean
+169files/502clusters, zero leaked allocations/bitmap mismatches. Run/checkpoint
+collected and unarmed. Next add remaining baseband settings using unused command
+identifiers9..15; no sequence recycling or RF/connectivity acceptance.
+
+Active scope: add AGC23/24/25/26 as optional compact phase5, sequence9,
+addresses235c/2360/2364/2368 and values272c/2f3a/8000005a/007c2005 from
+Linuxv6.18 initial MT7610 settings. All prior phases, exact replies, readbacks
+and MAC/CORE guards required. Preserve five-phase v15 with explicit phase
+limit; new v16 permits six. Touch fixed MCU plan, native phase ownership,
+capture/profile and tests. Fetched main58b354f: Air desktop evidence only since
+last inspection; Air PR69 remains independent battery scope. Retain accepted
+integration22fd266. No RF or sequence reuse; native added settings pending.
+
+AGC extension validation: full build, six-phase fixed engine and prior
+regressions, native xHCI phase/limit/read-scope/transport checks, ASan/UBSan,
+72 boot profiles and docs checks pass. Native phase5 acceptance pending.
+
+AGC23..26 trial installed: sourcec9a84ec, release8bf9cd874ed0f02d. Exact-stage
+GPT save/return and missing-workspace refusal/return VM checks pass. Workspace
+fsck/allocation clean; Ubuntu default and desktop recoverye47dca3a6b30c6c1
+retained; accepted consolidatede459728ba57fea08 retained. Older batching
+b3eaadb9ad679dbb removed only after full durable archive equality. Run record
+build/bringup/wifi-agc-more/run.json; payload/receipts and six-phase collector
+archived in ~/.local/share/srvros/macbookpro11-2/wifi-agc-more-c9a84ec. Unarmed
+awaiting cold-trial readiness. Collect matching session first after return;
+new phase native acceptance pending. RF/connectivity remain untested.
+
+AGC23..26 native acceptance (2026-10-23): sourcec9a84ec,
+release8bf9cd874ed0f02d, session00065e7ad65bc92e-00 passed sequence9 sent40/
+received16, exact reply, status0/submitted1/completed1/ack_mask1/reads12.
+AGC23 changed272f->272c, AGC24 stayed2f3a, AGC25 changed0008005a->8000005a,
+AGC26 changed005a2004->007c2005. CORE0 stayedf000f200, MAC stayed0. All24
+readbacks, earlier phases, readiness ordering and both completion markers
+passed. Matching logs/hashes archived outside build in
+wifi-agc-more-c9a84ec/native-collection. Ubuntu default, consumed one-shot,
+installed payload and desktop recovery verified. Workspace unmounted; clean
+171files/505clusters, zero leaked allocations/bitmap mismatches. Run/checkpoint
+collected and unarmed. Next remaining AGC/baseband settings using identifiers
+10..15; RF/scan/association/connectivity remain pending.
+
+Active scope: optional compact phase6 for AGC33/34/37/41, sequence10,
+addresses2384/2388/2394/23a4 and values3238/000a0c0c/2121262c/38383e45
+from Linuxv6.18 initial MT7610 settings. Require preceding six phases and
+MAC/CORE boundaries; preserve v15/v16 phase limits, add v17 limit7. Touch
+fixed MCU plan, xHCI limits, capture/profile and tests. Fetched mainaddbd02;
+PR71 imported file-identity/workload replay fix inspected, outside isolated
+Wi-Fi capture; Air PR69 remains battery scope. Retain accepted integration
+22fd266 for this trial. No RF or sequence reuse; new settings native pending.
+
+AGC33/34/37/41 candidate b3e4ee1 / releaseff59ebda5a2483ae installed
+unarmed. Build, focused MCU/baseband/xHCI tests, sanitizer,73 profile tests
+and documentation checks pass. Exact-stage GPT VM saved/unmounted/reset;
+missing workspace returned without starting the probe. Payload, VM receipts,
+run record and collector archived outside build in wifi-agc-next-b3e4ee1.
+Current accepted8bf9cd874ed0f02d and desktope47dca3a6b30c6c1 retained;
+obsoletee459728ba57fea08 removed from ESP only after archive equality check.
+Workspace preboot filesystem/allocation checks pass, unmounted. Native
+acceptance pending an attended cold adapter power cycle; Ubuntu stays default.
+
+AGC33/34/37/41 first return is incomplete: one-shot consumed, but workspace
+collection contained no session for releaseff59ebda5a2483ae and no new
+session beyond00065e7ad65bc92e-00. Do not accept this phase. Installed
+candidate and known-good desktop recovery match their archived bytes;
+Ubuntu remains default. Workspace clean:171files/505clusters, zero leaks
+or allocation mismatches, then unmounted. Collection archived as
+wifi-agc-next-b3e4ee1/incomplete-return-collection; run/checkpoint now
+returned/unarmed. Await boot observation to distinguish an early boot or
+workspace discovery failure from a skipped test before scheduling a retry.
+
+AGC33/34/37/41 retry accepted on this captured adapter: sourceb3e4ee1,
+releaseff59ebda5a2483ae, session00065e8394ee6855-00. User observed SrvrOS
+start and return automatically. Phase6 sequence10 sent40/received16 with
+exact first-entry reply, status0, one submission/completion, ack_mask1 and
+12 reads. AGC33 changed003c->3238; AGC34 stayed000a0c0c; AGC37 stayed
+2121262c; AGC41 changed2727303a->38383e45. CORE0 stayedf000f200 and
+MAC stayed0. All preceding six phases, firmware/reset/identity/timing,
+readiness ordering,28 register readbacks and both completion markers passed.
+Collection archived outside build in wifi-agc-next-b3e4ee1/native-collection.
+Ubuntu default, consumed one-shot and candidate/desktop recovery verified.
+Workspace clean:173files/508clusters, zero leaks/allocation mismatches,
+unmounted. Run/checkpoint collected and unarmed. First attempt remains
+incomplete with no saved session; its cause is unknown. Next remaining
+AGC/baseband settings using unused identifiers11..15; no RF/connectivity
+acceptance and no sequence recycling.
+
+Active scope: phase7 AGC57/59/63 and TXC0 at sequence11, fixed offsets
+23e4/23ec/23fc/2400 and values1010/baa20e96/1/00280403 from pinned
+Linuxv6.18 MT7610 initialization. Require seven preceding phases and
+MAC/CORE boundaries; v18 limit8, earlier limits unchanged. Touch fixed MCU
+plan, xHCI limits, capture/profile/tests. Fetched main5089172; new PR72
+contains only Air6,1 file identity acceptance documentation. Air PR69
+remains independent battery work. Actual integrated base remains22fd266.
+RF/connectivity and sequence reuse remain outside scope.
+
+AGC57/59/63+TXC0 candidate sourcede17cb6 / releasec34215d727a60f08
+installed unarmed. Build, compact/xHCI host tests, sanitizer,74 boot-profile
+tests and documentation checks pass. Exact-stage GPT VM saved/unmounted
+and reset; missing-workspace VM returned without probing. Payload, VM
+receipts, run record and collector archived outside build in
+wifi-agc-tail-de17cb6. Acceptedff59ebda5a2483ae and known-good desktop
+e47dca3a6b30c6c1 retained. Obsolete8bf9cd874ed0f02d removed from ESP
+only after archived-byte equality verification. Workspace clean before
+install:173files/508clusters, zero allocation errors; unmounted. Native
+acceptance pending cold adapter power cycle; Ubuntu remains default.
+
+AGC57/59/63+TXC0 accepted on captured adapter: sourcede17cb6,
+releasec34215d727a60f08, session00065e83ccc7f06a-00. Phase7 sequence11
+sent40/received16 with exact reply, status0, one submission/completion,
+ack_mask1 and12 reads. AGC57 stayed1010; AGC59 changedbaa20e23->baa20e96;
+AGC63 changed0->1; TXC0 stayed00280403. CORE0 stayedf000f200 and MAC0.
+All preceding phases, firmware/reset/identity/timing, readiness ordering,
+32 register readbacks and both completion markers passed. Matching evidence
+archived outside build in wifi-agc-tail-de17cb6/native-collection. Ubuntu
+default, consumed one-shot and installed candidate/desktop recovery verified.
+Workspace clean:175files/511clusters, zero leaks/allocation mismatches,
+unmounted. Run/checkpoint collected and unarmed. Next remaining TXC/RXC
+and other baseband initialization; identifiers12..15 unused. RF, scanning
+and connectivity remain pending; no sequence recycling accepted.
+
+Active scope: phase8 TXC1 and RXC1/2/3 at sequence12, fixed offsets
+2404/2504/2508/250c and values0/12/11/5 from pinned Linuxv6.18 MT7610
+initialization. Require all eight accepted phases and MAC/CORE boundaries;
+v19 limit9, prior limits unchanged. Touch MCU plan, xHCI limits, capture,
+profile/tests. Fetched mainbd1e834; PR73 workload refusal evidence and
+ordinary desktop VM changes inspected, independent of Wi-Fi probe path.
+Air PR69 remains battery scope. Actual integrated base remains22fd266.
+No RF/connectivity or sequence recycling in this trial.
+
+TXC1/RXC1/2/3 candidate sourcedf537ea / release7d6ccc2fe96d530c
+installed unarmed. Build, compact/xHCI host tests, sanitizer,75 boot-profile
+tests and docs checks pass. Exact-stage GPT VM saved/unmounted/reset;
+missing-workspace VM returned without probing. Payload, receipts, run record
+and collector archived outside build in wifi-rxc-start-df537ea. Accepted
+c34215d727a60f08 and desktop recoverye47dca3a6b30c6c1 retained. Obsolete
+ff59ebda5a2483ae removed from ESP only after archive equality verification.
+Workspace clean before install:175files/511clusters, zero allocation errors,
+unmounted. Native acceptance pending cold adapter power cycle; Ubuntu default.
+
+TXC1/RXC1/2/3 accepted on captured adapter: sourcedf537ea,
+release7d6ccc2fe96d530c, session00065e84abf0e3e4-00. Phase8 sequence12
+sent40/received16 with exact reply, status0, one submission/completion,
+ack_mask1 and12 reads. TXC1 stayed0; RXC1 changed14->12; RXC2 stayed11;
+RXC3 stayed5. CORE0 stayedf000f200 and MAC0. All earlier phases,
+firmware/reset/identity/timing, readiness ordering,36 register readbacks
+and both completion markers passed. Evidence archived outside build in
+wifi-rxc-start-df537ea/native-collection. Ubuntu default, consumed one-shot
+and installed candidate/desktop recovery verified. Workspace clean:
+177files/514clusters, zero leaks/allocation mismatches, unmounted.
+Run/checkpoint collected and unarmed. Next remaining RXC/baseband settings
+using identifiers13..15; no sequence reuse, RF or connectivity acceptance.
+
+Active scope: phase9 RXC4/5/7 and TXO8 at sequence13, fixed offsets
+2510/2514/251c/2620 and values0/f977c4ec/90/0 from pinned Linuxv6.18
+MT7610 initialization. Require nine prior phases and MAC/CORE boundaries;
+v20 limit10, earlier limits preserved. Touch MCU plan, xHCI limits,
+capture/profile/tests. Refetched mainbd1e834 unchanged; Air PR69 battery
+and Air6,1 desktop evidence remain separate. Actual integrated base22fd266.
+No RF, connectivity or command identifier recycling. Native result pending.
+
+RXC4/5/7+TXO8 candidate sourcefd54365 / release492306b5fccc17b9
+installed unarmed. Build, compact/xHCI host tests, sanitizer,76 boot-profile
+tests and docs checks pass. Exact-stage GPT VM saved/unmounted/reset;
+missing-workspace VM returned without probing. Payload, receipts, run record
+and collector archived outside build in wifi-rxc-tail-fd54365. Accepted
+7d6ccc2fe96d530c and desktop recoverye47dca3a6b30c6c1 retained. Obsolete
+c34215d727a60f08 removed from ESP only after archive equality verification.
+Workspace clean before install:177files/514clusters, zero allocation errors,
+unmounted. Native acceptance pending cold adapter power cycle; Ubuntu default.
+
+RXC4/5/7+TXO8 accepted on captured adapter: sourcefd54365,
+release492306b5fccc17b9, session00065e84c6495273-00. Phase9 sequence13
+sent40/received16 with exact reply, status0, one submission/completion,
+ack_mask1 and12 reads. RXC4 stayed0; RXC5 changed71550400->f977c4ec;
+RXC7 changed0->90; TXO8 stayed0. CORE0 stayedf000f200 and MAC0.
+All preceding phases, firmware/reset/identity/timing, readiness ordering,
+40 register readbacks and both completion markers passed. Evidence archived
+outside build in wifi-rxc-tail-fd54365/native-collection. Ubuntu default,
+consumed one-shot and installed candidate/desktop recovery verified.
+Workspace clean:179files/517clusters, zero leaks/allocation mismatches,
+unmounted. Run/checkpoint collected and unarmed. Remaining TXBE/RXFE/RXO
+and other baseband settings pending; identifiers14..15 unused. Further
+expansion must respect sequence exhaustion. RF/connectivity not accepted.
+
+Active scope: phase10 TXBE0/4/6/8 at sequence14, fixed offsets
+2700/2710/2718/2720 and values0/4/0/14 from pinned Linuxv6.18 MT7610
+initialization. Require ten previous phases and MAC/CORE guards; v21 limit11,
+prior limits unchanged. Touch MCU plan, xHCI limits, capture/profile/tests.
+Fetched mainf5e1525; PR69 opt-in Home battery startup and PR74 Air6,1
+evidence inspected. Default battery remains off; those desktop paths are
+independent of this isolated capture. Retain integrated base22fd266. Preserve
+shared desktop recipes on future integration. No RF or identifier recycling.
+
+TXBE0/4/6/8 candidate source56e1f4a / release6477738b1d3cf7d5
+installed unarmed. Build, compact/xHCI host tests, sanitizer,77 boot-profile
+tests and docs checks pass. Exact-stage GPT VM saved/unmounted/reset;
+missing-workspace VM returned without probing. Payload, receipts, run record
+and collector archived outside build in wifi-txbe-start-56e1f4a. Accepted
+492306b5fccc17b9 and desktop recoverye47dca3a6b30c6c1 retained. Obsolete
+7d6ccc2fe96d530c removed from ESP only after archive equality verification.
+Workspace clean before install:179files/517clusters, zero allocation errors,
+unmounted. Native acceptance pending cold adapter power cycle; Ubuntu default.
+
+TXBE0/4/6/8 accepted on captured adapter: source56e1f4a,
+release6477738b1d3cf7d5, session00065e85c7b7d806-00. Phase10 sequence14
+sent40/received16 with exact reply, status0, one submission/completion,
+ack_mask1 and12 reads. TXBE0 stayed0; TXBE4 changed0->4; TXBE6 changed1->0;
+TXBE8 changed4014->14. CORE0 stayedf000f200 and MAC0. All prior phases,
+firmware/reset/identity/timing, readiness ordering,44 register readbacks
+and both completion markers passed. Evidence archived outside build in
+wifi-txbe-start-56e1f4a/native-collection. Ubuntu default, consumed one-shot
+and installed candidate/desktop recovery verified. Workspace clean:
+181files/520clusters, zero leaks/allocation mismatches, unmounted.
+Run/checkpoint collected and unarmed. Remaining TXBE/RXFE/RXO settings
+pending; identifier15 remains unused. Further expansion must address
+sequence exhaustion without recycling identifiers. RF/connectivity pending.
+
+Active scope: phase11 TXBE9/10/12/13 at sequence15, fixed offsets
+2724/2728/2730/2734 and values20000000/0/0/0 from pinned Linuxv6.18
+MT7610 initialization. Require eleven prior phases and MAC/CORE guards;
+v22 limit12, prior limits unchanged. This exhausts identifiers: compile-time
+plan bound and runtime refusal forbid phase12/sequence16. Touch fixed MCU
+plan, xHCI limits, capture/profile/tests. Fetched maind3670fe: Air6,1
+exact-profile PWM capture and preference evidence inspected; PR76 owns
+Home services/cached battery UI. No Wi-Fi overlap; retain base22fd266.
+No RF or identifier recycling. Remaining setup needs validated wider batches
+or a proven-drained new session before more commands can be added.
+
+TXBE9/10/12/13 candidate source5d5488c / release9cc1888913aa7ff5
+installed unarmed. Build, compact/MCU/xHCI host tests, sanitizer,78 boot-profile
+tests and docs checks pass, including identifier exhaustion refusal. Exact-stage
+GPT VM saved/unmounted/reset; missing-workspace VM returned without probing.
+Payload, receipts, run record and collector archived outside build in
+wifi-txbe-next-5d5488c. Accepted6477738b1d3cf7d5 and desktop recovery
+e47dca3a6b30c6c1 retained. Obsolete492306b5fccc17b9 removed from ESP
+only after archive equality verification. Workspace clean before install:
+181files/520clusters, zero allocation errors, unmounted. Native acceptance
+pending cold adapter power cycle; Ubuntu remains default.
+
+TXBE9/10/12/13 native trial FAILED readback: source5d5488c,
+release9cc1888913aa7ff5, session00065e85ec8dd3b8-00. Earlier eleven
+phases and44 readbacks passed. Phase11 sequence15 sent40/received16 with
+exact first-entry reply and ack_mask1; TXBE9 read0->20000000. TXBE10
+read37dff before and38e30 after, not requested0. Engine returned status4
+(MT76_TIMING_STATE), reads8, batches_completed0, complete0. TXBE12/13
+and final MAC/CORE reads were not reached; their zero log fields are not
+observations. Both capture completion markers are NO. No native acceptance
+of phase11, no retry/recycled identifier. Failure logs archived outside build
+in wifi-txbe-next-5d5488c/failed-native-collection. Ubuntu default, consumed
+one-shot and installed payload/recovery verified. Workspace clean:
+183files/523clusters, zero leaks/allocation mismatches; unmounted.
+Run/checkpoint collected failed/unarmed. Next bounded read-only TXBE10
+sampling to distinguish changing status/counter behavior from a write failure;
+keep strict gates until evidence establishes semantics. No new reboot armed.
+
+Active scope: read-only TXBE9/10/12/13 observation after the eleven accepted
+compact phases. Eight fixed samples bracketed by MAC/CORE guards, no phase11
+submission, retry or relaxed write verification. Touch pure MCU diagnostic,
+xHCI ownership, capture/profile and tests. Main83a3f59 inspected (Air6,1
+brightness documentation); PR76 Home services and PR79 Air6,1 brightness
+remain separate. Integrated base22fd266. Native register semantics unknown.
+
+Read-only TXBE observation candidate sourceffa4e17 / release70e0236472c320bc
+installed unarmed. Build, compact/MCU/xHCI tests, sanitizer,79 boot-profile
+checks and docs checks pass. Collector accepts a synthetic eight-sample receipt
+and rejects nine incomplete/corrupt variants; this is not native evidence.
+Exact-stage GPT VM saved/unmounted/reset; missing-workspace VM returned without
+probing. Payload, receipts, run record and collector archived outside build in
+wifi-txbe-observe-ffa4e17. Desktop recoverye47dca3a6b30c6c1 retained;
+failed9cc1888913aa7ff5 remains installed for comparison. Accepted6477738b1d3cf7d5
+removed from ESP only after archive equality verification. Workspace clean:
+183files/523clusters, zero allocation errors, unmounted. Native observation
+pending cold adapter power cycle; Ubuntu default and no reboot armed.
+
+Read-only TXBE capture completed: sourceffa4e17, release70e0236472c320bc,
+session00065e86348e7c75-00. All eleven compact phases/44 readbacks passed;
+observation status0 attempted1 complete1 reads64 samples8. TXBE10 stayed
+00037fff over2823351..2825238us (1.887ms); TXBE9/12/13 stayed0. MAC0 and
+COREf000f200 held at all sixteen sample boundaries. Exactly eleven compact
+commands; no phase11/sequence15. Both completion markers passed. No evidence
+of spontaneous change in this short window; register semantics and the earlier
+write mismatch remain unresolved, and phase11 is not accepted. Next audit
+register mapping and write/read transport before choosing a further write trial.
+Evidence archived in wifi-txbe-observe-ffa4e17/native-collection outside build.
+Ubuntu default, consumed one-shot, installed payload and desktop recovery
+verified. Workspace clean:185files/526clusters, zero leaks/mismatches/errors;
+unmounted. Run/checkpoint collected and unarmed. RF/connectivity not tested.
+
+TXBE mapping/transport audit completed without kernel or installed-payload changes.
+Pinned Linux v6.18 definitions independently reconstruct all40 phase11 bytes;
+USB request/index/value and MCU base/little-endian pairs agree. Compact/MCU tests
+pass. No mapping defect found; Linux completion checking does not establish exact
+readback semantics. Selected next bounded scope is TXBE9-only sequence15 with
+before/after guarded samples after phases0..10, leaving TXBE10/12/13 unwritten.
+Implementation and native evidence pending; do not relax failed v22 verification.
+Fetched mainab99517 (merged Air6,1 brightness PR79); inspected shared staging
+changes, preserve v56/basic brightness on future integration. PR76 remains Home
+services/battery, PR19 owns Wi-Fi. Actual integrated base22fd266 unchanged.
+Local audit receipts in build/bringup/txbe-audit, archived outside build.
+Current70e0236472c320bc and recoverye47dca3a6b30c6c1 unchanged; no boot armed.
+
+Active scope: implement TXBE9-only comparison after eleven accepted phases,
+eight guarded samples on either side of one sequence15 write. No writes to
+TXBE10/12/13, no identifier reuse, no v22 gate changes. Touch MCU/xHCI,
+main capture, staging and tests. Mainab99517/PR76 inspected in preceding audit;
+actual integrated base22fd266. Shared Air desktop profiles stay separate.
+
+TXBE9-only comparison sourcef1785c6 / releaseb3a29375623082db installed
+unarmed. Build, MCU/compact/xHCI tests, sanitizer,80 boot-profile tests and docs
+checks pass. Collector validated with synthetic16 samples and12 rejection
+fixtures. Exact-stage GPT VM saved/unmounted/reset; missing-workspace VM returned
+without probing. Payload/receipts/run/collector archived outside build in
+wifi-txbe-first-f1785c6. Accepted observation70e0236472c320bc and desktop
+recoverye47dca3a6b30c6c1 retained. Failed9cc1888913aa7ff5 removed from ESP only
+after archive equality verification. Workspace clean:185files/526clusters,
+zero leaks/mismatches/errors; unmounted. Ubuntu default, no reboot armed.
+Native result pending cold adapter power cycle; collect matching session first.
+
+TXBE9-only comparison accepted on captured adapter: sourcef1785c6,
+releaseb3a29375623082db, session00065e87131ed81c-00. Exact sequence15 reply,
+sent16/received16, status0 attempted1 write_attempted1 submitted1 ACK1 complete1.
+Both stages completed64 reads/eight samples. Before: TXBE9=0, TXBE10=37fff
+through2836302..2839177us. After: TXBE9=20000000, TXBE10=38e30 through
+2839544..2843407us. TXBE12/13 stayed0; all MAC0/COREf000f200 boundaries held.
+Eleven compact phases/44 readbacks and both completion markers passed. The
+TXBE9-only write reproduced the failed quartet's final TXBE10 value without
+writing TXBE10; its semantics and original write result remain unresolved.
+Next isolate TXBE10=0 with TXBE9 unchanged, retaining strict v22 verification.
+Evidence archived outside build in wifi-txbe-first-f1785c6/native-collection.
+Ubuntu default, consumed one-shot, installed payload/recovery verified. Workspace
+clean:187files/529clusters, zero leaks/mismatches/errors; unmounted. Run/checkpoint
+collected and unarmed. No further trial installed; RF/connectivity not tested.
+
+Active scope: TXBE10-only zero write after phases0..10, sequence15 once,
+TXBE9 required0 before/after, guarded samples and strict zero readback. No
+phase11 quartet or retry. MCU/xHCI/main/staging/tests; integrated base22fd266.
+Previous mainab99517/PR76 audit remains the coordination baseline. Native pending.
+Fetched mainb99bb5b: merged PR76 Home services/battery UI and Air6,1 audio
+changes inspected. They do not change this isolated Wi-Fi transport. PR83 owns
+attended audio/Ethernet/secondary-input acceptance. Preserve desktop v55/56/57
+and service dispatch on future integration; retain actual base22fd266 for this
+comparison against the accepted captures.
+
+TXBE10-only candidate sourcec96e810 / releasef8b4b41d736bd4e2 installed
+unarmed. Build, compact/MCU/xHCI tests, sanitizer,81 boot-profile tests and docs
+checks pass. Collector accepts synthetic16 samples and rejects14 corrupted
+fixtures, including nonzero target readback and changed TXBE9. Exact-stage GPT
+VM saved/unmounted/reset; missing-workspace VM returned without probing.
+Payload/receipts/run/collector archived outside build in wifi-txbe-second-c96e810.
+Accepted TXBE9 comparisonb3a29375623082db and desktop recoverye47dca3a6b30c6c1
+retained. Observation70e0236472c320bc removed from ESP only after archive equality
+verification. Workspace clean:187files/529clusters, zero allocation errors;
+unmounted. Ubuntu default, no reboot armed. Await cold adapter power cycle;
+collect matching session first and preserve failed readbacks as failures.
+
+TXBE10-only comparison collected with a failed readback: sourcec96e810,
+releasef8b4b41d736bd4e2, session00065e87382297d7-00. All eleven compact
+phases/44 readbacks passed; sequence15 sent16/received16 with exact reply and
+ACK1, but status4 complete0. Both stages completed64 reads/eight samples.
+TXBE10 remained37fff before2867128..2873127us and after2873493..2875377us;
+TXBE9/12/13 stayed0, all MAC0/COREf000f200 boundaries held. Both capture
+completion markers NO. Unlike the TXBE9-only comparison, this isolated zero
+write produced no observed TXBE10 change. Register semantics versus write/access
+behavior remains unresolved; no relaxed gate or further initialization accepted.
+Next scope is auditing that distinction before selecting another hardware trial.
+No shared source changes in this collection. RF/connectivity not tested.
+Evidence and failure-specific collector archived outside build in
+wifi-txbe-second-c96e810/failed-native-collection. Ubuntu default, consumed
+one-shot, installed payload and desktop recovery hashes verified. Workspace
+clean:189files/532clusters, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint collected with failure recorded and no reboot armed.
+
+TXBE10 access-path audit completed: Linux v6.18 MCU and vendor USB transport
+agree with the compiled address/byte encoding; an older vendor-source mirror
+corroborates the numeric table entry but supplies no readback semantics. Host
+independent packet reconstruction and MCU/compact regressions pass. Receipts
+in txbe-access-audit, archived outside build under wifi-txbe-second-c96e810.
+Selected next bounded scope: one command10 TXBE10 MCU read at sequence15 after
+phases0..10, bracketed by guarded EP0 observations, without a diagnostic write,
+retry, identifier reuse or relaxed initialization gate. Native result pending;
+no candidate installed in this audit. Currentf8b4b41d736bd4e2 and desktop
+recoverye47dca3a6b30c6c1 unchanged, no reboot armed. Mainb99bb5b and PR83
+attended-device scope rechecked; actual integrated base22fd266 unchanged.
+
+Active scope: implement the selected MCU-versus-EP0 TXBE10 read comparison.
+One command10 at unused sequence15, guarded before/after observations, exact
+response framing and address, explicit mismatch reporting. Touch MCU/xHCI,
+capture/profile and tests; no diagnostic register write or phase11 acceptance.
+Dependencies remain the eleven accepted phases and pinned firmware. Current
+mainb99bb5b/PR83 scope inspected; integrated base22fd266 retained for comparison.
+
+MCU/EP0 TXBE10 comparison sourceb4417eb / releaseeb362bcf6da9fdfb installed
+unarmed. Build, MCU/compact/xHCI tests, ASan/UBSan,82 boot-profile tests and docs
+checks pass. Collector accepts synthetic agreement and rejects14 corrupted or
+conflicting receipts. Exact-stage GPT VM saved/unmounted/reset; missing-workspace
+VM returned without starting the probe. Payload, receipts, run record and collector
+archived outside build in wifi-txbe-access-b4417eb. Desktop recoverye47dca3a6b30c6c1
+and failed v25f8b4b41d736bd4e2 retained. Accepted TXBE9 comparisonb3a29375623082db
+removed from ESP only after full archived-payload equality verification.
+Workspace clean:189files/532clusters, zero allocation errors; unmounted.
+Ubuntu remains default. Native comparison awaits cold adapter power cycle;
+collect the matching new session first on return. No reboot armed.
+
+Native MCU/EP0 TXBE10 comparison accepted: sourceb4417eb,
+releaseeb362bcf6da9fdfb, session00065e876ba24dc3-00. Sequence15 exact16-byte
+command/reply, status0 reply_validated1 complete1; MCU value37fff matched all16
+EP0 samples,64 reads/eight samples per side. Before2882205..2885095us,
+after2885446..2889299us; TXBE9/12/13 stayed0 and all MAC0/COREf000f200
+boundaries held. Eleven prerequisite phases/44 readbacks and both completion
+markers passed. This accepts only baseline read-path agreement; the v22/v25
+write failures and RF/connectivity remain unaccepted. Next investigate write
+behavior/register semantics before selecting another physical trial.
+Evidence archived outside build in wifi-txbe-access-b4417eb/native-collection.
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Workspace clean:191files/535clusters, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint collected and unarmed. Fetched maind3875c7 (Air6,1 audio PR84);
+actual integrated base22fd266 remains unchanged for these comparisons.
+
+Active scope: isolate the TXBE10 write transport with one EP0 request6 zero
+write after phases0..10 and guarded baseline samples, followed by one MCU read
+at unused sequence15 and guarded EP0 samples. Exact address/value, single attempt,
+no retry, TXBE9zero, MAC0/COREf000f200; nonzero readback remains failure.
+Linux v6.18 usb.c confirms request6, local index2728, value0, four LE payload
+bytes. Touch MCU/xHCI/main/profile/tests. Main nowd2d56a6 (Air6,1 audio work),
+PR83 attended acceptance inspected; actual base22fd266 unchanged. No native
+write or new candidate installed yet.
+
+Isolated EP0 TXBE10 zero-write candidate sourcee821968 / releaseacaea56aaa88d52f
+installed unarmed. Build, compact/MCU/xHCI tests, ASan/UBSan,83 boot-profile
+tests and docs checks pass. Collector accepts synthetic zero readback and rejects17
+corrupt/conflicting receipts. Exact-stage GPT VM saved/unmounted/reset;
+missing-workspace VM returned without starting the probe. Payload, receipts,
+run record and collector archived outside build in wifi-txbe-direct-e821968.
+Accepted read comparisoneb362bcf6da9fdfb and desktop recoverye47dca3a6b30c6c1
+retained. Failed v25f8b4b41d736bd4e2 removed from ESP only after full archived
+payload equality verification. Workspace clean:191files/535clusters, zero
+allocation errors; unmounted. Ubuntu default and no reboot armed. Await cold
+adapter power cycle; collect the matching new session first on return.
+
+Native direct TXBE10 zero-write readback failed: sourcee821968,
+releaseacaea56aaa88d52f, session00065e87a87d976c-00. EP0 index2728 zero transfer
+completed actual4; sequence15 MCU read returned37fff with exact framing/address.
+Eleven prerequisite phases/44 readbacks passed. Comparison status4 complete0,
+reply_validated1; both stages64 reads/eight samples. Before3106897..3108802us
+and after3109221..3115210us, TXBE10 stayed37fff; MCU matched all eight post-write
+samples. TXBE9/12/13 remained0, all MAC0/COREf000f200 boundaries held. Both
+capture completion markers NO. A second write path reproduced the mismatch;
+transport completion does not accept the register write. Next audit semantics
+and initialization prerequisites; no relaxed gate, RF or phase11 acceptance.
+Evidence archived outside build in wifi-txbe-direct-e821968/failed-native-collection.
+Ubuntu default, consumed one-shot and installed/recovery hashes verified.
+Workspace clean:193files/538clusters, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint collected with failure recorded; no reboot armed.
+
+Post-v27 prerequisite audit found missing PBF/MAC clock setup: Linux v6.18
+sets0400=80c00 before baseband initialization; current code only observes this
+register. Five native v23..v27 readiness receipts consistently show80000,
+missing bits11:10 (0c00), with MAC_SYS_CTRL0. Existing CORE readiness does not
+establish clock enablement. Receipt/script/source and log hashes archived in
+txbe-prerequisite-audit; reference ordering and all five receipts verified.
+Causality remains unproven and other MAC-table omissions remain separate.
+Selected next scope: exact80000->80c00 EP0 transition after MAC phases0/1,
+before baseband readiness, with disabled/idle MAC checks, one attempt and exact
+readback; then existing guarded phases and read-only TXBE10 comparison. No new
+TXBE write, MCU sequence reuse, relaxed CORE gate or RF enable. Implementation
+pending. No installed payload changed; currentacaea56aaa88d52f and recovery
+e47dca3a6b30c6c1 retained, no reboot armed. Maind2d56a6 and PR83 attended-device
+scope inspected; integrated base22fd266 unchanged. Shared implementation scope
+would be MCU/xHCI/main/profile/tests; current change is audit documentation only.
+
+Active implementation scope: opt-in PBF/MAC clock prerequisite before compact
+phase2, followed by the existing read-only TXBE10 comparison. Exact baseline,
+fixed one-time EP0 write and readback, MAC disabled/idle before and after;
+no TXBE write or change to historical profiles. Radio/MCU/xHCI/main/staging/tests.
+Fetched maind2d56a6; PR83 remains attended acceptance. Actual base22fd266.
+
+Clock prerequisite candidate source1b3e323 / release67f92f9c2a4d9365 installed
+unarmed. Build, radio/compact/MCU/xHCI tests, ASan/UBSan,84 profile tests and docs
+checks pass. Collector accepts synthetic clock/read agreement and rejects17
+corrupted, missing or out-of-order receipts. Exact-stage GPT VM saved/unmounted/
+reset; missing-workspace VM returned without starting the probe. Payload,
+receipts, run record and collector archived outside build in wifi-clock-1b3e323.
+Failed direct-writeacaea56aaa88d52f and desktop recoverye47dca3a6b30c6c1 retained.
+Accepted read comparisoneb362bcf6da9fdfb removed from ESP only after full archived
+payload equality verification. Workspace clean:193files/538clusters, zero
+allocation errors; unmounted. Ubuntu default, no reboot armed. Native clock
+transition and subsequent comparison await a cold adapter power cycle; collect
+matching session first after return. Existing TXBE write failures remain failures.
+
+
+Native clock prerequisite accepted: source `1b3e323`, release
+`67f92f9c2a4d9365`, session `00065e87eb5deca5-00`. Clock status0 complete1,
+six reads, PBF80000->80c00, MAC disabled/idle before and after; readiness
+retained80c00. Eleven compact phases/44 target readbacks passed. Sequence15
+MCU read matched all16 EP0 samples at TXBE10=37fff; TXBE9/12/13 stayed0,
+MAC0/COREf000f200 guards held. Before2866911..2872953us,
+after2873320..2876195us. Both completion markers YES. This accepts the clock
+prerequisite and read comparison only; no TXBE write or RF/connectivity acceptance.
+Next bounded scope is an isolated TXBE10 zero-write comparison with clocks enabled,
+keeping the exact zero-readback gate and historical failures intact.
+
+Evidence archived outside build in wifi-clock-1b3e323/native-collection.
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Workspace clean:195files/541clusters, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint collected and unarmed. Fetched maindf44fa0 (Air6,1 audio endurance);
+PR87 telemetry and PR83 attended acceptance remain separate scopes. Actual
+integrated base22fd266 unchanged. No new candidate staged or reboot armed.
+
+Active scope: separate v29 clock-plus-direct-write comparison, reusing the accepted
+clock engine and isolated EP0 TXBE10 writer. Require clock completion before
+access; one zero write, sequence15 MCU read and eight guarded post-write samples
+must read zero. Touch xHCI/main/profile/tests; dependencies are the accepted
+v28 prerequisite and eleven compact phases. Main df44fa0, PR83/87 inspected;
+actual base22fd266 retained for this comparison. No reboot armed.
+
+Clock-enabled isolated TXBE10 write candidate source `492fb20`, release
+`19f40e64c606d997` installed unarmed. Build, radio/compact/MCU/xHCI tests,
+xHCI ASan/UBSan, 85 boot-profile tests and documentation checks passed. The
+collector accepts synthetic zero readback and rejects21 missing/corrupted or
+conflicting receipts, including clock failures. Exact-stage GPT VM saved,
+unmounted and reset; missing-workspace VM returned without starting the probe.
+Payload, receipts, helpers and run record archived outside build in
+wifi-clock-direct-492fb20. Accepted clock67f92f9c2a4d9365 and desktop recovery
+e47dca3a6b30c6c1 retained. Failed direct-writeacaea56aaa88d52f removed from ESP
+only after complete archived-payload equality verification. Workspace clean:
+195files/541clusters, zero allocation errors; unmounted. Ubuntu remains default.
+Await cold adapter power cycle; collect the exact new session first on return.
+No reboot armed, no native write acceptance yet.
+
+
+Native clock-enabled TXBE10 zero-write failed: source `492fb20`, release
+`19f40e64c606d997`, session `00065e8821c93f58-00`. Clock status0 complete1,
+PBF80000->80c00 retained at readiness; eleven phases/44 readbacks passed.
+EP0 zero-write transport completed actual4. Sequence15 exact MCU reply returned
+37fff; comparison status4 complete0 reply_validated1, matches8 expected8.
+All16 EP0 samples retained37fff; TXBE9/12/13 zero, MAC0/COREf000f200 held.
+Before3096597..3100465us, after3100884..3104735us. Both completion markers NO.
+Clock enablement did not resolve this mismatch. Next audit remaining prerequisites
+and register semantics; do not relax zero-readback or accept phase11/RF.
+
+Failure archived outside build in wifi-clock-direct-492fb20/failed-native-collection;
+separate failure collector retains the original success predicate, which rejects
+this receipt. Ubuntu default, consumed one-shot and installed/recovery hashes
+verified. Workspace clean:197files/544clusters, zero leaks/mismatches/errors;
+unmounted. Run/checkpoint collected as failed and unarmed. Fetched main36dbc3d
+(Air6,1 telemetry); PR88 two-finger tap scope is separate. Actual integrated
+base22fd266 retained; no new candidate or reboot armed.
+
+
+Post-v29 audit captured eight read-only Linux observations from this exact
+7392:a711 adapter through mt76x0u debugfs. Kernel7.0.0-38-generic: TXBE10=0,
+TXBE9=20000000, PBF80c00, COREf000f200, MAC0c; TXBE12/13zero. MAC_STATUS0
+except one2. Selector restored; no register write, reset, unbind or connection
+change. Fully running Linux is not equivalent to SrvrOS disabled initialization.
+Numeric v6.18/v7.0 MAC/BBP tables match; TXBE9 precedes TXBE10. Additional
+MAC-table/EXT_CCA/FCE/WMM setup remains absent, with causality unproven.
+
+Next bounded implementation: accepted clocks plus TXBE9=20000000 followed by
+TXBE10=0, retaining disabled MAC and strict readback. v22 lacks clocks; v29
+keeps TXBE9zero, so neither tests this combination. Historical failures stand.
+Audit script checks eight Linux observations and six native trials; script,
+source hashes and raw receipt archived outside build in txbe-linux-audit-9d22c95.
+Current19f40e64c606d997/recoverye47dca3a6b30c6c1 unchanged; no reboot armed.
+Fetched main36dbc3d and inspected separate PR88 gesture scope. Integrated
+base22fd266 unchanged; this work changes audit documentation only.
+
+Active implementation scope: explicit clock-enabled TXBE9/TXBE10 ordered pair.
+Reuse compact phases0..10, accepted clocks before BBP, then one command12
+sequence15 containing only2724=20000000 followed by2728=0. Require both target
+readbacks and MAC0/COREf000f200 before/after. No TXBE12/13 writes, sequence
+reuse or RF enable. Touch MCU/xHCI/main/staging/tests; depend on accepted v28
+clock setup and retain historical profiles. No reboot armed.
+Fetched mainf310923 (Air6,1 telemetry acceptance); open PR90 passive battery
+preflight and PR88 gestures are separate scopes. Actual integrated base22fd266.
+
+Clock-enabled ordered-pair candidate source `0754633`, release
+`29504434a7bc5aa6` installed unarmed. Build, radio/MCU/MAC/compact/xHCI tests,
+compact ASan/UBSan, 86 boot-profile tests and documentation checks passed.
+The collector accepts synthetic pair completion and rejects15 corrupt/conflicting
+receipts. Exact-stage GPT VM saved/unmounted/reset; missing-workspace VM returned
+without starting the probe. Payload, receipts, helpers and run record archived
+outside build in wifi-clock-pair-0754633. Failed clock-direct19f40e64c606d997
+and desktop recoverye47dca3a6b30c6c1 retained. Accepted clock67f92f9c2a4d9365
+removed from ESP only after complete archived-payload equality verification.
+Workspace clean:197files/544clusters, zero allocation errors; unmounted.
+Ubuntu remains default. Await cold adapter power cycle; collect the exact new
+session first on return. No reboot armed or native ordered-pair acceptance yet.
+
+
+Native clock-enabled ordered pair failed: source `0754633`, release
+`29504434a7bc5aa6`, session `00065e8878bfdf27-00`. Clock80000->80c00 and
+readiness passed; phases0..10/44 target readbacks passed. Phase11 sequence15
+sent24 received16 exact first-pair ACK. TXBE9 before0 after20000000; TXBE10
+before37fff after38e30 instead of0. Status4 ack1 batches_completed0 complete0
+reads6. Final MAC/CORE guards not reached; their zero fields are not evidence.
+Both completion markers NO. Next investigate remaining initialization/state
+differences from Linux; no relaxed gate or TXBE12/13/RF acceptance.
+
+Failure archived outside build in wifi-clock-pair-0754633/failed-native-collection.
+Separate failure collector verifies this receipt; unchanged success checker rejects
+it. Ubuntu default, consumed one-shot and installed/recovery hashes verified.
+Workspace clean:199files/547clusters, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint collected as failed, no reboot armed. Fetched maind5491c0
+(Air6,1 battery preflight); PR88 tap diagnostics remains separate. Actual
+integrated base22fd266 unchanged; no new candidate installed.
+
+
+Post-v30 state audit: Linux sends the58-entry BBP table as24/24/10 pairs, only
+last chunk acknowledged. TXBE10 is index37, followed by20 entries; upstream does
+not perform our immediate target readback. Two read-only live snapshots of66
+registers confirm TXBE10zero and nine runtime values differing from the initial
+BBP table. Live Linux MAC0c/channel/calibration state differs from SrvrOS; no
+causal claim or acceptance follows. Selector restored, no device writes/reset.
+
+Selected next scope is a dedicated full-table observation diagnostic following
+accepted MAC phases/clocks, fixed200/200/88-byte packets with seq0/0/6, final ACK
+and post-table snapshots. Keep disabled-MAC/CORE guards, no RF/channel/MAC enable,
+private fixed-packet no-response admission, explicit mismatch accounting and
+historical strict tests unchanged. Do not equate snapshot completion with target
+acceptance. MAC-table omissions remain uncontrolled. Implementation is pending.
+Audit and proposed unsent packet fixtures archived in txbe-state-audit-e829cf1
+outside build. Current29504434a7bc5aa6/recoverye47dca3a6b30c6c1 unchanged;
+no reboot armed. Fetched main9bbc3b9 (Air6,1 preflight return), inspected separate
+PR88 tap diagnostics; actual integrated base22fd266 retained. Documentation only.
+
+Active scope: implement the separate full-BBP observation diagnostic with fixed
+24/24/10 entry packets, seq0/0/6 and only final ACK. Snapshot all58 targets with
+MAC0/COREf000f200 boundaries; mismatches are reported separately from completed
+capture and never imply accepted Wi-Fi initialization. No RF/MAC enable. Touch
+MCU/xHCI/main/staging/tests; reuse accepted reset/timing/MAC/clock prerequisites.
+
+Implementation uses only MAC phases0/1 before clocks/readiness, then three full-table
+commands and124 reads. Latest fetched main9bbc3b9 remains outside actual base22fd266.
+PR92 Air6,1 battery sampling and PR88 tap diagnostics are separate active scopes.
+Local packet/collector/sanitizer checks pass; exact-stage validation pending.
+
+Full-table observation candidate installed: source `eb832da`, release
+`4316c9963cb7ae6a`, firmware profile v31. Host build, MCU/compact/radio/MAC/xHCI
+regressions, 87 staging tests, sanitizer fault coverage, independent488-byte
+packet comparison and collector mismatch/rejection fixtures pass. Exact-stage
+GPT absent-radio save/unmount/reset and missing-workspace return VM checks pass.
+Physical table results remain pending; capture completion will not accept register
+values or RF/connectivity. Candidate and evidence archived outside build in
+wifi-bbp-table-eb832da. Previous known-good desktope47dca3a6b30c6c1 retained;
+Ubuntu default unchanged. Workspace preflight fsck/allocation clean, unmounted.
+Run record and strict observation collector ready. No one-shot armed; await cold
+adapter power cycle, then collect matching session before further changes.
+
+Native full-table observation completed: source `eb832da`, release
+`4316c9963cb7ae6a`, session `00065e88f3984844-00`. Firmware/reset/timing,
+MAC phases0/1, clock/readiness, all three200/200/88-byte commands (seq0/0/6)
+and final ACK passed. All124 reads and four disabled-MAC/COREf000f200 boundaries
+completed. Both capture markers yes; this accepts the observation workflow only.
+Four mismatches remain: TXBE10/2728 before37fff after38e30 expected0;
+TXBE17/2744 before/afterfb3fec3c expected0; RXO21/2954 before/after0 expected1;
+RXO24/2960 before/after0 expected6. Other54 table values matched. Full-table
+batching did not resolve TXBE10. Register initialization and RF/connectivity
+remain unaccepted; no cause is established by this comparison.
+
+Matching logs archived in wifi-bbp-table-eb832da/native-collection outside build.
+Collector checks passed after fixing a local Python variable that shadowed the
+hardware_boot module; no evidence predicates changed. Ubuntu default, consumed
+one-shot and current/recovery hashes verified. Workspace clean:201files/550clusters,
+zero leaks/mismatches/errors, unmounted. No reboot armed. Next audit the four
+mismatching registers and remaining reference initialization prerequisites before
+choosing another bounded trial; retain all earlier strict failure results.
+
+Active audit after v31: compare the four mismatches with pinned Linux v7.0
+initialization, later BBP tables and saved live-driver observations; inventory
+omitted MAC prerequisites before selecting another native write trial. Scope is
+source/evidence analysis and local numeric table fixtures, no device reset/write.
+Fetched main90a1db8 includes PR92 Air6,1 isolated battery runtime; actual integrated
+base22fd266 unchanged. PR88 tap diagnostics remains separate. Current/recovery
+and unarmed boot state remain unchanged.
+
+Post-v31 audit complete: RXO21/24 also read0 in both saved running-Linux samples;
+TXBE17 readsff3fef3c in Linux versusfb3fec3c here, and TXBE10 reads0 versus38e30.
+Neither later band-switch table nor DCOC table explicitly writes those four
+addresses. This does not establish register semantics or eliminate indirect
+calibration/state effects. Pinned Linux v7.0 MAC tables contain66 ordered writes
+to60 distinct addresses; current reset/timing/MAC/clock setup matches the final
+values at12 addresses, leaving48 table addresses unapplied. This is an inventory,
+not a causal finding or authorization to blindly write power/PA/LDO settings.
+
+Next bounded diagnostic selected: read-only prerequisite inventory of the60 MAC
+table addresses plus EXT_CCA/FCE_L2/WMM before the full BBP observation, retaining
+MAC-disabled/CORE guards. Use observed initial values to choose a justified write
+set. No new candidate installed or reboot armed. Audit scripts, numeric C-extracted
+MAC inventory, exact source copies and result hashes archived outside build in
+bbp-mismatch-audit-47ce3d4. No live device writes/reset/unbind performed.
+
+Implementation scope: separate v32 MAC snapshot profile before the existing full
+BBP observation. Fixed63-address read allowlist,67 reads including boundary guards,
+no write/exchange callback, cancellation/error/no-retry tests. BBP commands remain
+blocked until snapshot completion; existing v31 behavior stays separate. Touch
+MCU/xHCI/main/staging/tests and documentation; no new RF/channel/PA/LDO writes.
+
+Fetched mainb17b80e (PR93 Air6,1 bounded battery return) and inspected PR88 tap
+scope; neither is incorporated into the actual22fd266 base for this experiment.
+The snapshot candidate adds no shared battery/input changes. Local staging88
+cases and initial build/controller/MCU checks pass; final tests/VM pending.
+
+MAC prerequisite snapshot installed: source `f3ba99c`, release
+`b7a5985c12609971`, firmware profile v32. Build, MCU/xHCI fault/refusal/ownership
+regressions,88 staging tests, ASan/UBSan, collector success/seven mutations and
+docs checks pass. Exact-stage GPT absent-radio save/unmount/reset and
+missing-workspace automatic return VM checks pass. Physical acceptance pending.
+Candidate, VM receipts, collector/fixture and test logs archived outside build in
+wifi-mac-snapshot-f3ba99c; run record saved. Ubuntu default and recovery
+e47dca3a6b30c6c1 verified. Workspace201files/550clusters, zero allocation errors,
+clean fsck and unmounted. No boot armed; await cold adapter cycle. On return,
+collect the matching new session first, requiring complete63-value inventory and
+67 reads before interpreting the unchanged full-BBP observations.
+
+Native v32 snapshot incomplete: source `f3ba99c`, release `b7a5985c12609971`,
+session `00065e892754f5ff-00`. Firmware/reset/timing, MAC phases0/1 and clock/BBP
+readiness passed. Snapshot status4 complete0 reads37 writes0: initial MAC/CORE
+checks plus35 target reads; target index34/address1030 returnedffffffff and the
+all-ones policy stopped capture. Final guards and targets35..62 were not read;
+their printed zero fields are not observations. No BBP table command ran and
+both completion markers are NO. This is failed/incomplete evidence, not a pass.
+
+The preceding34 valid targets include23 differences from final reference MAC
+table settings: PBF_CFG0404=3fdc1cf5 vs77723c1f, WPDMA0208=40000050 vs30,
+FCE_PSE0800=5 vs1. These support the missing-prerequisite inventory but establish
+no cause of TXBE behavior. Pinned source identifies1030 as AMPDU_MAX_LEN_20M1S
+and writesaaa99887; it does not document its reset read value. Do not infer a USB
+transport failure or a legitimate reset value fromffffffff alone. Next distinguish
+returned register data from transport validity with independent checks before
+changing the snapshot admission policy or writing missing settings.
+
+Separate failure collector archived the exact prefix and failure; success checker
+unchanged. Ubuntu default, consumed one-shot and payload/recovery hashes verified.
+Offline workspace clean:203files/553clusters, zero allocation errors, unmounted.
+Evidence and partial comparison retained outside build in
+wifi-mac-snapshot-f3ba99c/failed-native-collection. No new candidate or reboot armed.
+
+Post-v32 AMPDU read audit: four read-only Linux samples show1030=aaa99887,
+ASIC76502000, COREf000f200 and enabled MAC0c. Linux initialization writesaaa99887,
+so this is not evidence of reset semantics. Debugfs selector restored; no register
+writes, reset or unbind. Source audit confirms Srvr snapshot callback checks
+successful control completion plus actual4 bytes before decoding; reads37/status4
+therefore indicates rejection of returnedffffffff by our value policy, not its
+transport-IO failure path. Individual transfer receipts were not logged, so this
+does not rule out a driver defect or prove a valid reset value. Linux's USB read
+API can itself return~0 on failed transfer, another reason not to infer semantics
+from debugfs all-ones data alone.
+
+Next scope selected: separate raw read-only inventory with explicit transfer
+receipts, repeated ASIC/MAC/CORE guards and1030 read; retain all-ones only as
+unvalidated observations and perform no subsequent BBP writes. Preserve v32's
+strict stop and historical failures. Audit/capture/source hashes retained outside
+build in ampdu-read-audit-6437ed0. Fetched mainbd55dd5 (PR94 Air6,1 failure display)
+but actual base22fd266 unchanged. No candidate installed or reboot armed.
+
+Active implementation: separate v33 raw read-only MAC inventory after the accepted
+firmware/MAC/clock prerequisites. Log per-read USB completion, actual length and
+residue, repeat ASIC/MAC/CORE guards and1030; record all-ones only as unvalidated
+observations. No subsequent BBP table commands are admitted in this mode. Keep
+v32 strict refusal behavior. Touch MCU/xHCI/main/staging/tests; no new RF or power
+writes. Physical acceptance pending.
+
+Fetched main6e608b0 (PR95 Air6,1 display return), inspected PR96 HPTC and PR88 tap
+scopes; actual integrated base22fd266 remains unchanged for this experiment.
+Initial build/MCU/xHCI regressions and89 staging cases pass. Separate collector
+accepts raw all-ones observations only with70 exact successful transfer receipts,
+all63 ordered values, repeated identity/guards and no BBP command; ten mutation
+cases reject incorrect/incomplete evidence. No physical v33 result yet.
+
+Raw MAC observation candidate installed: source `139f82c`, release
+`2d2630e3bbbbe8d8`, profile v33. Build, MCU/xHCI fault and write-refusal tests,
+89 staging cases, sanitizer checks, collector success/ten rejection cases and
+docs checks pass. Exact-stage GPT save/unmount/reset and missing-workspace return
+VM checks pass. Native results pending; no interpretation of all-ones as valid
+settings is accepted. Archive outside build: wifi-mac-raw-139f82c, with payload,
+VM receipts, collector/fixture and tests. Saved run record; Ubuntu default and
+known-good e47dca3a6b30c6c1 recovery verified. Workspace203files/553clusters clean,
+unmounted. No boot armed; await cold Wi-Fi cycle, then collect exact session first.
+
+Native v33 raw capture complete: source `139f82c`, release `2d2630e3bbbbe8d8`,
+session `00065e894bcf6265-00`. All70 ordered control transfers report ok1 actual4
+cc1 residue0 timeout0. Initial/final ASIC76502000, MAC0 and COREf000f200 match;
+all63 target values captured.1030 returnedffffffff on both reads (all_ones2).
+Both completion markers yes. No BBP table command ran. This accepts the bounded
+observation workflow, not register initialization, reset semantics or connectivity.
+It supports repeated returned data rather than an observed USB transfer error;
+no claim of independent bus-analyzer validation follows. v32 remains incomplete.
+
+Comparison:16 of60 final reference MAC table values match,44 differ. Additional
+controls: EXT_CCA141c=ffe4, FCE_L2_STUFF080c=3ff0233, WMM_CTRL0230=41040.
+PBF_CFG0404=3fdc1cf5 and WPDMA0208=40000050 retain the earlier observed differences.
+The inventory is now complete. Next select and audit a bounded MAC transport/
+format prerequisite initialization set, using the captured starting state and
+reference ordering, before returning to BBP comparison. No causal explanation of
+TXBE10 follows yet; do not blindly enable omitted power/PA/LDO settings or RF.
+
+Collector verified exact transfer/order/value/guard evidence and no table writes.
+Native logs and comparison.json archived in wifi-mac-raw-139f82c outside build.
+Ubuntu default, consumed one-shot and installed/recovery hashes verified; workspace
+clean205files/556clusters, zero allocation errors, unmounted. No reboot armed.
+
+Active scope: bounded FCE/WMM initialization after accepted MAC phases0/1 and
+clock/readiness. Captured080c=03ff0233 ->03ff0223 clears only bit4;0230=41040
+->41201 replaces low10 bits with201, preserving the rest. Reference init.c
+performs these operations in this order. Captured EXT_CCA already has f000 set.
+Exact initial-value gates, unused seq6 two-pair packet, strict ACK/readbacks and
+MAC0/COREf000f200 boundaries; no subsequent BBP table writes. Defer PBF/WPDMA,
+RF/power/PA/LDO changes. Touch MCU/xHCI/main/staging/tests; current base22fd266,
+fetched main9488193 (Air6,1 HPTC) remains separate. Native behavior pending.
+
+### 2026-10-23 — v34 MAC routing candidate installed, unarmed
+
+Source `7cc6fe3`, release `c929ce1b090b820d`: FCE/WMM fixed-pair trial described
+above. Build, compact/xHCI host tests, ASan/UBSan, 90 boot-profile tests and docs
+checks passed. Exact-stage GPT VM saved diagnostics, passed offline filesystem
+checks and returned automatically; missing-workspace VM returned without probing.
+The collector accepts exact command/ACK, eight reads and both target readbacks;
+synthetic success and five failure mutations passed. Hardware acceptance pending.
+
+Installed with Ubuntu default and known-good previous `e47dca3a6b30c6c1` unchanged.
+Raw inventory release `2d2630e3bbbbe8d8` retained; obsolete strict snapshot removed
+from ESP only after comparison with its durable archive. UUID `0E53-5900` passed
+preboot fsck and allocation checks (205 files, 556 clusters, no leaks), then was
+unmounted. No one-shot armed. Run record: `build/bringup/wifi-mac-route/run.json`;
+collector: `build/bringup/collect_wifi_mac_route_return.py`. Payload, evidence and
+helpers: `~/.local/share/srvros/macbookpro11-2/wifi-mac-route-7cc6fe3/`.
+Next: user-ready cold adapter power cycle, automatic capture/return, then collect
+matching session before further changes. RF/connectivity remains NOT_TESTED.
+
+
+### 2026-10-23 — v34 native FCE/WMM trial passed
+
+Collected release `c929ce1b090b820d` / source `7cc6fe3`, new session
+`00065e89795928b3-00`. The strict prepared collector passed: sequence6 sent24,
+received16, cc13/residue1008; exact four-word ACK; status0, complete1, eight reads,
+one submitted/completed batch and ack_mask1. FCE `03ff0233 -> 03ff0223` and WMM
+`00041040 -> 00041201` both matched. MAC0 and COREf000f200 remained unchanged at
+both boundaries. Firmware/reset/timing, compact0/1, clocks and readiness passed.
+Both capture completion markers were present; no BBP table/raw/snapshot ran.
+
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Workspace fsck clean (207 files), allocation check passed (559 clusters, no leaks
+or mismatches), then left unmounted. Full collection and result/checkpoint are
+archived under `~/.local/share/srvros/macbookpro11-2/wifi-mac-route-7cc6fe3/` with
+checksums. Local collection: `build/bringup/wifi-mac-route/collection/collection-5pta14ud`.
+No reboot armed. Acceptance is limited to these two MAC register operations;
+RF/connectivity and the earlier four BBP mismatches remain unresolved. Next work:
+review remaining reference MAC initialization prerequisites against the v33 raw
+inventory, then select a bounded addition before repeating full baseband setup.
+
+Active scope (2026-10-23): bounded common MAC policy group after accepted v34
+routing. Reference common_mac_reg_table order: TX_LINK1350=1020,
+TX_TIMEOUT1348=a2090, TX_RETRY134c=47d01f0f, AUTO_RSP1404=13. Captured starting
+values 7f0020/10f0a90/4bb80407/7 must match before submission. One sequence7
+four-pair command, exact ACK and all readbacks, MAC0/COREf000f200 boundaries.
+No BBP-table or RF enable; unrelated PBF/DMA/power settings remain deferred.
+Touch MCU/xHCI/main/staging/tests; retain integration base22fd266. Fetched
+main2e2eb2b (PR88 taps, PR97 Air6,1); PR99 log capacity and PR98 battery SMBus
+have separate active scope. No overlapping Wi-Fi implementation found.
+
+### 2026-10-23 — v35 common MAC policy candidate installed, unarmed
+
+Source `78f1944`, release `ee842dc8bcc56669`. Build, compact/xHCI host tests,
+ASan/UBSan, 91 boot-profile tests and docs checks passed. Exact-stage GPT VM saved
+diagnostics, passed offline checks and reset; missing-workspace VM returned
+without probing. Collector fixture success and eight failure mutations passed.
+Hardware acceptance pending for the four-register group; v34 prerequisites remain
+strict and are rechecked first.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved; accepted route
+`c929ce1b090b820d` retained. Raw inventory payload removed from ESP only after
+byte comparison with its durable archive. UUID0E53-5900 clean207files/559clusters,
+no allocation errors, unmounted. No one-shot armed. Run/collector:
+`build/bringup/wifi-mac-policy/run.json`, `build/bringup/collect_wifi_mac_policy_return.py`.
+Durable payload/evidence/helpers: `~/.local/share/srvros/macbookpro11-2/wifi-mac-policy-78f1944/`.
+Next: readiness-confirmed cold adapter power cycle, automatic capture/return,
+then collect matching session before any new run. RF/connectivity NOT_TESTED.
+
+
+### 2026-10-23 — v35 failed TX_LINK strict readback
+
+Collected release `ee842dc8bcc56669`, source `78f1944`, session
+`00065e89a75cfd3a-00`. Firmware/reset/timing, compact0/1, clock/readiness and v34
+FCE/WMM passed. Policy sequence7 sent40/received16, cc13/residue1008, exact ACK
+including first requested value1020. Native state: status4, attempted1,
+submitted1, complete0, reads7, batches_attempted1/completed0, ack_mask1.
+TX_LINK1350 before007f0020, requested00001020, observed007f1020. Upper bits
+remained set; no cause inferred. Other three target writes were submitted but
+their readbacks and final MAC/CORE guards were not reached. Zero fields are not
+observations. Both capture completion markers NO; RF/connectivity NOT_TESTED.
+
+Prepared success collector remains unchanged. Separate failure collector
+`build/bringup/collect_wifi_mac_policy_failure.py` verifies this exact failure
+and recovery state. Full matching collection archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-policy-78f1944/failed-native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean209files/562clusters, zero leaks/mismatches, unmounted. Run and
+checkpoint marked collected failure, no reboot armed. Next: inspect TX_LINK
+field semantics/reference behavior before relaxing exact readback or testing
+another write; remaining policy registers are unobserved.
+
+### 2026-10-23 — TX_LINK readback audit (no device-register writes)
+
+Read four live Linux samples from this exact7392:a711 adapter, mt76x0u, with
+original debugfs regidx restored. TX_LINK1350 consistently007f1020, identical to
+v35's native post-write value. Desired low control bits match1020; native changed
+bit12 while retaining007f0000. Linux v7.0 rt2800 definitions identify upper bits
+as remote feedback fields, but that related-chip definition is not a proven
+MT7610 writable mask. Evidence suggests the whole-word equality was too strict;
+it does not justify silently accepting v35 or ignoring arbitrary upper bits.
+
+Linux also reads timeout1348=a1990, retry134c=47d01f0f, AUTO_RSP1404=3. mt76x02
+runtime code updates ACK timeout and preamble selection after initialization,
+so these live values are not cold-init expected values. Native remaining three
+readbacks/final guards remain unknown. No driver reset/unbind or register writes.
+Audit sources/results/capture and hashes:
+`~/.local/share/srvros/macbookpro11-2/mac-policy-audit-44c2616/`.
+
+Next bounded scope: separate observational policy profile with unchanged command,
+ACK and initial-value gates; read all four targets plus final MAC/CORE guards,
+report mismatches without aborting solely on a target value, and explicitly keep
+register acceptance NOT_TESTED. Preserve v35 strict behavior. No new image
+installed or reboot armed. Fetched main249bb97 (log capacity), PR101 AC transitions
+separate; actual source integration base remains22fd266.
+
+Active scope 2026-10-23: v36 policy observation, unchanged four-pair sequence7
+command and initial-value gates after accepted FCE/WMM. Separate MCU entry point
+collects all target readbacks despite ordinary mismatch, reports mismatch mask,
+and requires final MAC/CORE guards. IO/cancellation/all-ones/ACK/ownership failures
+still fail. No register acceptance or subsequent BBP writes; preserve v35 strict
+behavior. Touch MCU/xHCI/main/staging/tests. Source base22fd266, fetched main249bb97;
+PR101 AC transitions separate, no overlapping Wi-Fi implementation.
+
+### 2026-10-23 — v36 policy observation candidate installed, unarmed
+
+Source `d8e246a`, release `76e71b07371c6185`. Build, compact/xHCI tests,
+ASan/UBSan, 92 boot-profile tests and docs checks passed. Observation tests cover
+all16 mismatch masks and failure/cancellation/guard/ACK paths while strict v35
+still fails mismatches. Collector covers all16 masks and seven invalid captures.
+Exact-stage GPT VM saved diagnostics and passed offline checks; missing-workspace
+VM returned without probing. Native observation result remains pending.
+
+Ubuntu default and previous known-good `e47dca3a6b30c6c1` preserved. Failed v35
+`ee842dc8bcc56669` retained; accepted route payload removed from ESP only after
+full equality with its durable archive. UUID0E53-5900 clean209files/562clusters,
+no allocation errors, unmounted; no one-shot armed. Run record/collector:
+`build/bringup/wifi-policy-observe/run.json`,
+`build/bringup/collect_wifi_policy_observe_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-policy-observe-d8e246a/`.
+Next: readiness-confirmed cold adapter power cycle, automatic capture/return,
+then collect matching session. Completion is observation only; register acceptance
+and RF/connectivity remain NOT_TESTED.
+
+
+### 2026-10-23 — v36 complete policy observations collected
+
+Release `76e71b07371c6185`, source `d8e246a`, new session
+`00065e89f951db06-00`. Firmware/reset/timing, compact0/1, clocks/readiness and
+FCE/WMM passed. Policy sequence7 sent40/received16 cc13/residue1008, exact ACK;
+status0 complete1 reads12 batches_attempted1/completed1 ack_mask1. All four
+readbacks collected: LINK007f0020->007f1020 (request1020), TIMEOUT010f0a90->000a2090,
+RETRY4bb80407->47d01f0f, AUTO_RSP7->13. Mismatch_mask1 correctly reports only
+TX_LINK. Initial/final MAC0 and COREf000f200 verified; both capture markers yes.
+Completion accepts observation only: register_acceptance=NOT_TESTED and
+RF/connectivity NOT_TESTED. No BBP table ran; prior strict failure stays recorded.
+
+Prepared observation collector passed unchanged. Complete collection and updated
+run/checkpoint archived with checksums under
+`~/.local/share/srvros/macbookpro11-2/wifi-policy-observe-d8e246a/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean211files/565clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: define an explicit bounded TX_LINK readback expectation supported
+by this native capture and same-adapter Linux evidence, keeping the remaining
+three exact checks and final guards; do not globally relax register comparison.
+
+Active scope 2026-10-23: v37 exact policy validation, unchanged write bytes,
+prerequisites/initial gates/ACK. Require LINK readback007f1020 (v36 native and
+same-adapter Linux evidence), other three exact requested values, all12 reads and
+final MAC0/COREf000f200. No ignored-bit mask; reject every other LINK value.
+Preserve v35 strict and v36 observation modes. Touch MCU/xHCI/main/staging/tests.
+Actual base22fd266; fetched maind753051 includes Air6,1 AC work, separate scope.
+
+### 2026-10-23 — v37 exact policy candidate installed, unarmed
+
+Source `c0ee877`, release `678a8d195cc57e83`. Build, compact/xHCI tests,
+ASan/UBSan, 93 boot-profile tests and docs checks passed. Tests reject every
+readback/final-guard bit mutation and retain IO/cancellation/no-retry behavior.
+Collector rejects128 target-bit mutations and six invalid capture variants.
+Exact-stage GPT VM saved diagnostics and returned with clean filesystem checks;
+missing-workspace VM returned without probing. Native validation pending.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Complete v36
+`76e71b07371c6185` retained; failed v35 removed from ESP only after comparison with
+its durable archive. UUID0E53-5900 clean211files/565clusters, no allocation errors,
+unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-policy-validate/run.json`,
+`build/bringup/collect_wifi_policy_validate_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-policy-validate-c0ee877/`.
+Next: readiness-confirmed cold adapter power cycle and automatic capture/return,
+then collect matching session. RF/connectivity NOT_TESTED.
+
+
+### 2026-10-23 — v37 exact policy validation passed natively
+
+Collected release `678a8d195cc57e83`, source `c0ee877`, new session
+`00065e8a2764f20b-00`. Firmware/reset/timing, compact0/1, clocks/readiness and
+FCE/WMM passed. Policy command sequence7 sent40/received16 cc13/residue1008,
+exact ACK; status0 complete1 reads12 batches_attempted1/completed1 ack_mask1.
+Readbacks exactly LINK007f1020, TIMEOUT000a2090, RETRY47d01f0f, AUTO_RSP00000013.
+Initial/final MAC0 and COREf000f200 verified. Validation complete1,
+write_mismatch_mask1 exact_profile1; both capture completion markers yes.
+No observation mode or BBP table ran. Prepared collector passed unchanged.
+Acceptance is limited to the exact bounded policy operation on captured7392:a711;
+RF/connectivity and remaining MAC/BBP initialization are still NOT_TESTED.
+
+Complete matching collection, run/checkpoint and hashes archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-policy-validate-c0ee877/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean213files/568clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: select remaining reference MAC prerequisites against captured
+inventory before revisiting full baseband initialization. Preserve all earlier
+failed/observational records and the exact profile's device gates.
+
+Active scope 2026-10-23: v38 bounded CCK/OFDM/GF20/GF40 protection group after
+accepted v37 policy. Reference relative order1364/1368/1374/1378, requested
+07f40003/07f42004/01742004/03f42084; captured starts00100003/00200003/01002004/
+02002084. Exact starts, sequence8 four-pair packet/ACK, twelve reads and final
+MAC0/COREf000f200. No PBF/DMA/RF changes or BBP-table writes. Touch MCU/xHCI/main/
+staging/tests; base22fd266, fetched maind7ed773; PR102 filesystem scaling separate.
+
+### 2026-10-23 — v38 CCK/OFDM/GF candidate installed, unarmed
+
+Source `1947345`, release `89ee4a2fc2121ce2`. Build, compact/xHCI tests,
+ASan/UBSan, 94 boot-profile tests and docs checks passed. Collector rejects128
+single-bit target mutations and three invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Native protection-group acceptance pending.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v37
+`678a8d195cc57e83` retained; v36 observation removed from ESP only after full
+comparison with its durable archive. UUID0E53-5900 clean213files/568clusters,
+no allocation errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-protect/run.json`, `build/bringup/collect_wifi_mac_protect_return.py`.
+Durable payload/evidence: `~/.local/share/srvros/macbookpro11-2/wifi-mac-protect-1947345/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return, then
+collect matching session. RF/connectivity NOT_TESTED.
+
+
+### 2026-10-23 — v38 protection group passed natively
+
+Collected release `89ee4a2fc2121ce2`, source `1947345`, new session
+`00065e8a54a2695f-00`. Firmware/reset/timing, compact0/1, clock/readiness,
+FCE/WMM and exact v37 policy passed. Protection sequence8 sent40/received16,
+cc13/residue1008, exact ACK; status0 complete1 reads12, one batch completed,
+ack_mask1. Exact before->after: CCK00100003->07f40003, OFDM00200003->07f42004,
+GF20_01002004->01742004, GF40_02002084->03f42084. Initial/final MAC0 and
+COREf000f200 verified. Both capture completion markers yes; no BBP table ran.
+Acceptance limited to this bounded protection group on captured7392:a711;
+remaining initialization and RF/connectivity NOT_TESTED.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint archived
+with hashes under `~/.local/share/srvros/macbookpro11-2/wifi-mac-protect-1947345/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean215files/571clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: select the remaining MAC/protection settings from the reference
+inventory before revisiting full baseband initialization.
+
+Active scope 2026-10-23: v39 mixed-mode/TXOP/RTS group after accepted v38.
+Reference order136c/1370/1340/1344, writes01742004/03f42084/0000583f/00ffff20;
+captured starts00402004/00802084/0400243f/00ffff07. Exact starts, sequence9 packet/
+ACK, twelve reads and final MAC0/COREf000f200; no subsequent BBP or RF enable.
+Touch MCU/xHCI/main/staging/tests; base22fd266, fetched mainf2e0945 battery-files;
+PR102 filesystem scale separate, no Wi-Fi overlap.
+
+### 2026-10-23 — v39 mixed-mode/TXOP/RTS candidate installed, unarmed
+
+Source `d4c5fbc`, release `2cfc6b033353005e`. Build, compact/xHCI tests,
+ASan/UBSan, 95 boot-profile tests and docs checks passed. Collector rejects128
+single-bit target mutations and three invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Native acceptance pending for this group.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v38
+`89ee4a2fc2121ce2` retained; v37 payload removed from ESP only after full equality
+with its durable archive. UUID0E53-5900 clean215files/571clusters, zero allocation
+errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-contention/run.json`,
+`build/bringup/collect_wifi_mac_contention_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-contention-d4c5fbc/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. RF/connectivity NOT_TESTED.
+
+
+### 2026-10-23 — v39 mixed-mode/TXOP/RTS passed natively
+
+Collected release `2cfc6b033353005e`, source `d4c5fbc`, new session
+`00065e8a97cf1e48-00`. Firmware/reset/timing, compact0/1, clock/readiness,
+FCE/WMM, exact policy and CCK/OFDM/GF protection all passed. Sequence9
+sent40/received16 cc13/residue1008, exact ACK; status0 complete1 reads12,
+one batch completed, ack_mask1. MM20_00402004->01742004,
+MM40_00802084->03f42084, TXOP0400243f->0000583f, RTS00ffff07->00ffff20.
+Initial/final MAC0 and COREf000f200 verified. Both capture markers yes; no BBP
+table ran. Acceptance is limited to this bounded group on captured7392:a711;
+remaining initialization and RF/connectivity NOT_TESTED.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint and hashes
+archived under `~/.local/share/srvros/macbookpro11-2/wifi-mac-contention-d4c5fbc/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean217files/574clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: select remaining reference MAC prerequisites against the captured
+inventory before revisiting full baseband initialization.
+
+Active scope 2026-10-23: v40 TX_SW0/1/2 and header-translation-disabled group after
+v39. Registers1330/1334/1338/0260 writes601/40000/0/0; captured starts0204080c/
+000c0808/000c0408/0. Four live Linux samples agree with TX_SW final values;
+active beacon offsets differ, deferred. Same-adapter read-only audit restored
+regidx, no register writes/reset/unbind. Exact gates, sequence10 packet,12reads
+and final MAC0/COREf000f200. Reference final table values, not replay of earlier
+common TX_SW intermediate writes. Touch MCU/xHCI/main/staging/tests; base22fd266,
+fetched mainc43d27c; PR106 power measurements separate.
+
+### 2026-10-23 — v40 TX software-control candidate installed, unarmed
+
+Source `e6e83ab`, release `656e4b9c37ae4baf`. Build, compact/xHCI tests,
+ASan/UBSan, 96 boot-profile tests and docs checks passed. Collector rejects128
+single-bit target mutations and three invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Native acceptance pending for this group.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v39
+`2cfc6b033353005e` retained; v38 payload removed from ESP only after full equality
+with its durable archive. UUID0E53-5900 clean217files/574clusters, zero allocation
+errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-txsw/run.json`,
+`build/bringup/collect_wifi_mac_txsw_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-txsw-e6e83ab/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. RF/connectivity NOT_TESTED.
+
+### 2026-10-23 — v40 TX software-control group passed natively
+
+Collected release `656e4b9c37ae4baf`, source `e6e83ab`, new session
+`00065e8acd64d0df-00`. Firmware/reset/timing, compact0/1, clock/readiness,
+FCE/WMM, exact policy, protection and contention prerequisites all passed.
+Sequence10 sent40/received16 cc13/residue1008 with exact ACK; status0 complete1,
+reads12, one batch completed, ack_mask1. TX_SW0 0204080c->00000601,
+TX_SW1 000c0808->00040000, TX_SW2 000c0408->00000000; header translation
+remained00000000. Initial/final MAC0 and COREf000f200 verified. Both capture
+completion markers present; no BBP table ran. Acceptance is limited to this
+bounded group on captured7392:a711; RF/connectivity NOT_TESTED.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint and hashes
+archived under `~/.local/share/srvros/macbookpro11-2/wifi-mac-txsw-e6e83ab/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean219files/577clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: review remaining reference MAC prerequisites, including beacon
+layout, before revisiting the full baseband table and its unresolved readbacks.
+
+Active scope 2026-10-23: v41 beacon-offset initialization after accepted v40.
+Captured041c/0420 starts ece8e4e0/fcf8f4f0; reference common table writes
+f8f0e8e0/6f77d0c8. Live Linux beacon offsets are later USB layout, not these
+initialization values. Sequence11 two-pair command, eight guarded reads; no
+beacon upload/timer enable, MAC TX/RX, RF or BBP table. Touch MCU/xHCI/main/
+staging/tests. Base22fd266; fetched main7d2b903, PR106 power and PR109 Air6,1
+Home policy remain separate; preserve their existing capture profiles.
+
+### 2026-10-23 — v41 beacon-offset candidate installed, unarmed
+
+Source `c9e2ab6`, release `015cce9347654d25`. Build, compact/xHCI tests,
+ASan/UBSan, 97 boot-profile tests and docs checks passed. Collector rejects64
+single-bit target mutations and three invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Normal VM repeated to retain its shared receipt after the
+missing-workspace run replaced it. Native acceptance pending for this pair.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v40
+`656e4b9c37ae4baf` retained; v39 payload removed from ESP only after full equality
+with its durable archive. UUID0E53-5900 clean219files/577clusters, zero allocation
+errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-beacon/run.json`,
+`build/bringup/collect_wifi_mac_beacon_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-beacon-c9e2ab6/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. RF/connectivity NOT_TESTED.
+
+### 2026-10-23 — v41 beacon-offset initialization passed natively
+
+Collected release `015cce9347654d25`, source `c9e2ab6`, new session
+`00065e8b0501527d-00`. All preceding firmware/reset/timing, compact0/1,
+clock/readiness and bounded MAC groups passed. Sequence11 sent24/received16
+cc13/residue1008 with exact ACK; status0 complete1 reads8, one batch completed,
+ack_mask1. BCN_OFFSET0 ece8e4e0->f8f0e8e0 and BCN_OFFSET1 fcf8f4f0->6f77d0c8
+matched exactly. Initial/final MAC0 and COREf000f200 verified. Both completion
+markers saved; no BBP table ran. This accepts the initialization pair only on
+captured7392:a711; operational beacon layout and RF/connectivity NOT_TESTED.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint and hashes
+archived under `~/.local/share/srvros/macbookpro11-2/wifi-mac-beacon-c9e2ab6/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean221files/580clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: review remaining reference MAC prerequisites before revisiting the
+full baseband table and its unresolved readbacks.
+
+Active scope 2026-10-23: v42 VHT protection/fallback after accepted v41.
+Registers13e0/13e4/13e8/1358: captured startse3f02004/e3f02084/e3f02104/edcba988,
+reference targetse3f42004/e3f42084/e3f42104/edcba980. Four live Linux samples
+match first/fourth; middle targets have extra10000 in active Linux, not a
+cold-init expectation. Keep exact reference targets; no widened mask. Read-only
+audit restored regidx and did not reset/unbind/write device registers. Sequence12,
+four-pair packet,12reads and final MAC0/COREf000f200; no BBP table or RF enable.
+Touch MCU/xHCI/main/staging/tests. Base22fd266; fetched mainde449b3 (Air6,1 Home),
+PR106 Text polling/power separate; existing battery capture profiles preserved.
+
+### 2026-10-23 — v42 VHT protection/fallback candidate installed, unarmed
+
+Source `af42f25`, release `a5200b9a725a2ae5`. Build, compact/xHCI tests,
+ASan/UBSan, 98 boot-profile tests and docs checks passed. Collector rejects128
+single-bit target mutations and three invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Native acceptance pending for this group.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v41
+`015cce9347654d25` retained; v40 payload removed from ESP only after full equality
+with its durable archive. UUID0E53-5900 clean221files/580clusters, zero allocation
+errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-vht/run.json`,
+`build/bringup/collect_wifi_mac_vht_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-vht-af42f25/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. RF/connectivity NOT_TESTED.
+
+### 2026-10-23 — v42 VHT protection/fallback passed natively
+
+Collected release `a5200b9a725a2ae5`, source `af42f25`, new session
+`00065e8b2132c5a9-00`. All preceding firmware/reset/timing, compact0/1,
+clock/readiness and bounded MAC groups passed. Sequence12 sent40/received16
+cc13/residue1008 with exact ACK; status0 complete1 reads12, one batch completed,
+ack_mask1. TX_PROT_CFG6/7/8 changed e3f02004/e3f02084/e3f02104 to
+ e3f42004/e3f42084/e3f42104; VHT_HT_FBK_CFG1 edcba988->edcba980.
+All four matched exact reference targets, including the two that differed under
+active Linux. Initial/final MAC0 and COREf000f200 verified. Both completion
+markers saved; no BBP table ran. Acceptance is limited to this bounded group on
+captured7392:a711; RF/connectivity NOT_TESTED.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint and hashes
+archived under `~/.local/share/srvros/macbookpro11-2/wifi-mac-vht-af42f25/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean223files/583clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: review remaining reference MAC prerequisites before revisiting the
+full baseband table and its unresolved readbacks.
+
+Active scope 2026-10-23: v43 packet-buffer limits/configuration after accepted v42.
+Registers0408/040c/0404/0250: captured starts1f9f1f1f/fe9f/3fdc1cf5/0,
+reference targets1fbf1f1f/fe9f/77723c1f/0. Four live Linux samples agree;
+FCE0800 remains5 under Linux versus table1, deferred separately. Audit restores
+regidx without device writes/reset/unbind. Sequence13 four-pair command,12reads,
+final MAC0/COREf000f200. No PBF reset, DMA configuration, BBP table or RF enable.
+Touch MCU/xHCI/main/staging/tests. Base22fd266; fetched maince1c0a6; Air6,1
+Home-session PR111 and Air7,2 compositor-idle work separate.
+
+### 2026-10-23 — v43 packet-buffer candidate installed, unarmed
+
+Source `9d1ba79`, release `246fade6686cd2fa`. Build, compact/xHCI tests,
+ASan/UBSan, 99 boot-profile tests and docs checks passed. Collector rejects128
+single-bit target mutations and three invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Native acceptance pending for this group.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v42
+`a5200b9a725a2ae5` retained; v41 payload removed from ESP only after full equality
+with its durable archive. UUID0E53-5900 clean223files/583clusters, zero allocation
+errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-buffer/run.json`,
+`build/bringup/collect_wifi_mac_buffer_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-buffer-9d1ba79/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. RF/connectivity NOT_TESTED.
+
+### 2026-10-23 — v43 packet-buffer configuration passed natively
+
+Collected release `246fade6686cd2fa`, source `9d1ba79`, new session
+`00065e8b57f9a360-00`. All preceding firmware/reset/timing, compact0/1,
+clock/readiness and bounded MAC groups passed. Sequence13 sent40/received16
+cc13/residue1008 with exact ACK; status0 complete1 reads12, one batch completed,
+ack_mask1. TX_MAX_PCNT1f9f1f1f->1fbf1f1f; RX_MAX_PCNT remainedfe9f;
+PBF_CFG3fdc1cf5->77723c1f; TSO_CTRL remained0. All four matched exact targets.
+Initial/final MAC0 and COREf000f200 verified. Both completion markers saved;
+no BBP table ran. Acceptance is limited to this bounded group on captured7392:a711;
+frame-engine control0800 and RF/connectivity remain untested.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint and hashes
+archived under `~/.local/share/srvros/macbookpro11-2/wifi-mac-buffer-9d1ba79/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean225files/586clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: audit remaining frame-engine/MAC prerequisites before revisiting the
+full baseband table and its unresolved readbacks.
+
+Active scope 2026-10-23: v44 FCE control observation after accepted v43.
+FCE0800 is already written1 during firmware preparation, yet raw native and live
+Linux later read5. Linux/vendor MAC table also writes1; no sourced bit2 writable
+mask found. Observe a sequence14 pair0800=1/080c=03ff0223, retaining accepted
+L2 routing. Captured starts5/03ff0223 mandatory; eight reads and final MAC0/
+COREf000f200. First target differences are reported, never accepted; second target
+must remain exact. No retry, BBP table or RF enable. Touch MCU/xHCI/main/staging/
+tests. Base22fd266, fetched maindb10404; Air compositor PR112 separate.
+
+### 2026-10-23 — v44 FCE control observation installed, unarmed
+
+Source `8294ee1`, release `6e342f3cdd9f35db`. Build, compact/xHCI tests,
+ASan/UBSan, 100 boot-profile tests and docs checks passed. Collector validates
+raw first-target values with matching mismatch flags and rejects32 L2 mutations
+and six invalid captures. Exact-stage GPT VM saved diagnostics, passed offline
+checks and returned; missing-workspace VM returned without probing. Native
+observation pending; completion cannot accept the FCE control register.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Accepted v43
+`246fade6686cd2fa` retained; v42 payload removed from ESP only after full equality
+with its durable archive. UUID0E53-5900 clean225files/586clusters, zero allocation
+errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-mac-fce/run.json`,
+`build/bringup/collect_wifi_mac_fce_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-fce-8294ee1/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. FCE register acceptance and RF/connectivity
+NOT_TESTED; do not promote a captured difference into a writable-bit mask.
+
+### 2026-10-23 — v44 FCE control observation completed natively
+
+Collected release `6e342f3cdd9f35db`, source `8294ee1`, new session
+`00065e8b8555a943-00`. All preceding firmware/reset/timing, compact0/1,
+clock/readiness and bounded MAC groups passed. Sequence14 sent24/received16
+cc13/residue1008 with exact ACK echoing the requested0800=1. Status0 complete1
+reads8, one batch completed, ack_mask1. FCE control0800 remained5 before/after;
+L2 routing080c remained03ff0223. Observation mismatch_mask1 and explicit
+register_acceptance=NOT_TESTED saved. Initial/final MAC0 and COREf000f200 verified.
+Both completion markers saved; no BBP table ran. This is complete diagnostic
+evidence, not exact target acceptance or proof that bit2 is read-only.
+
+Prepared observation collector passed unchanged. Complete collection/run/checkpoint
+and hashes archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-fce-8294ee1/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean227files/589clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: use the captured write1/read5 evidence when defining strict profile
+validation; do not infer a general writable-bit mask. Remaining MAC/baseband
+initialization and RF/connectivity remain untested.
+
+Active scope 2026-10-23: v45 exact FCE captured-profile validation after v44.
+Reuse sequence14 pair0800=1/080c=03ff0223 with the same captured starts and
+MAC/CORE guards. Require complete readback5/03ff0223 and mismatch_mask1;
+reject every other full word, no masked bits. Preserve v44 observation semantics.
+Touch MCU/xHCI/main/staging/tests. Base22fd266; fetched main180b542 with compositor
+idle changes; PR114 battery Start/save and PR115 logger timing remain separate.
+No new register writes, BBP table or RF enable in this trial.
+
+### 2026-10-23 — v45 exact FCE profile validator installed, unarmed
+
+Source `538fee1`, release `7301441289281aaf`. Build, compact/xHCI tests,
+ASan/UBSan, 101 boot-profile tests and docs checks passed. Collector rejects64
+single-bit readback mutations and five invalid captures. Exact-stage GPT VM saved
+diagnostics, passed offline checks and returned; missing-workspace VM returned
+without probing. Native validation pending for this exact captured profile.
+
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved. Completed
+v44 observation `6e342f3cdd9f35db` retained; v43 payload removed from ESP only
+after full equality with its durable archive. UUID0E53-5900 clean227files/589clusters,
+zero allocation errors, unmounted; no one-shot armed. Run/collector:
+`build/bringup/wifi-fce-validate/run.json`,
+`build/bringup/collect_wifi_fce_validate_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-fce-validate-538fee1/`.
+Next: readiness-confirmed cold adapter cycle, automatic capture/return and
+collection of matching session. Full-word5/03ff0223 validation only; no generalized
+bit mask, BBP table or RF/connectivity acceptance.
+
+
+### 2026-10-23 — v45 exact FCE profile validation passed natively
+
+Collected release `7301441289281aaf`, source `538fee1`, new session
+`00065e8bc3faaa90-00`. All preceding firmware/reset/timing, compact0/1,
+clock/readiness and bounded MAC groups passed. Sequence14 sent24/received16
+cc13/residue1008 with exact ACK; status0 complete1 reads8, one batch completed,
+ack_mask1. FCE0800 remained5 and L2 routing080c remained03ff0223. Exact validation
+reported complete1, write_mismatch_mask1, exact_profile1; observation marker absent.
+Initial/final MAC0 and COREf000f200 verified, with both completion markers saved.
+No BBP table ran. Acceptance is limited to the captured write1/read5 profile on
+7392:a711; no generalized bit mask or RF/connectivity acceptance.
+
+Prepared collector passed unchanged. Complete collection/run/checkpoint and hashes
+archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-fce-validate-538fee1/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace clean229files/592clusters, zero leaks/mismatches, unmounted. No reboot
+armed. Next: review remaining MAC prerequisites before revisiting the full baseband
+table and its four unresolved readbacks. Scanning and connectivity remain untested.
+
+Active scope 2026-10-23: integrate fetched main4a991df into the local device
+branch before adding further MAC prerequisites. Preserve accepted v45 FCE sequence
+and all historical Wi-Fi recipes. Shared baseline includes USB callback/logger
+measurement, storage scaling and GUI waits; Air6,1 Home acceptance remains
+model-specific and does not accept Pro battery ownership. PR19 is the only open
+PR; no other active shared edit was requested. Resolve integration overlaps,
+run local host and exact-stage VM checks, then prepare an unchanged-sequence
+native regression. Installed7301441289281aaf and known-good recovery remain
+untouched until the integrated candidate passes. No new RF or register scope.
+
+### 2026-10-23 — integrated v45 regression installed, unarmed
+
+Merged main `4a991df` as source `e1e595c`; staged/installed release
+`9fadb1185a7592ea`, unchanged v45 firmware/FCE recipe. Full build and test-core
+passed, alongside119 boot-profile tests and493 documentation links. All90
+historical firmware and91 main boot configurations compare exactly against their
+respective parents. Wi-Fi MCU sequence/native model gates are unchanged.
+Exact-stage GPT VM verified saved/offline file bytes, clean allocation and automatic
+return; missing-workspace VM returned without probing. Combined ECM device-checks
+and Wi-Fi-probe VM passed DHCP/DNS/HTTP, three outage/recovery cycles,160 UDP echoes,
+TCP serving, shared keyboard and disconnect quarantine. Human audio/gesture
+acceptance is not implied by scripted VM answers.
+
+Prepared collector retains all v45 predicates, passes the prior complete native
+fixture with new release identity and rejects64 readback mutations plus three
+incomplete captures. Run/collector:
+`build/bringup/wifi-integrated/run.json`,
+`build/bringup/collect_wifi_integrated_return.py`. Payload and test evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-integrated-e1e595c/`.
+Ubuntu remains default, known-good previous `e47dca3a6b30c6c1` and accepted
+v45 `7301441289281aaf` retained. Older v44 was removed from ESP only after full
+archive equality. Workspace0E53-5900 clean229files/592clusters, zero allocation
+errors and unmounted. No one-shot armed; native integrated acceptance pending.
+Next: readiness-confirmed cold adapter cycle, automatic save/return, collect the
+matching session before further implementation. RF/connectivity remains untested.
+
+
+### 2026-10-23 — integrated v45 regression passed natively
+
+Collected release `9fadb1185a7592ea`, source `e1e595c` (main4a991df integrated),
+new session `00065e8c5588a9b9-00`. Prepared collector passed unchanged: all prior
+firmware/reset/timing, compact0/1, clock/readiness and bounded MAC groups passed.
+FCE sequence14 sent24/received16 cc13/residue1008 with exact ACK, complete1
+reads8, one batch completed and ack_mask1. Full-word readbacks5/03ff0223,
+write_mismatch_mask1 and exact_profile1 verified. Initial/final MAC0 and
+COREf000f200 plus both completion markers saved. No full BBP table or RF ran.
+
+Complete collection/run/checkpoint and hashes archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-integrated-e1e595c/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace0E53-5900 clean231files/595clusters, zero leaks/mismatches, unmounted.
+No reboot armed. This accepts the prior Wi-Fi initialization sequence on the
+integrated baseline, not general desktop or battery behavior. Next: remaining
+MAC prerequisites before revisiting the four unresolved baseband readbacks.
+Scanning, association and connectivity remain untested.
+
+
+Active scope 2026-10-23: bounded v46 AMPDU1030 initialization following accepted
+integrated v45. Sequence15 pair1030=aaa99887/080c=03ff0223; second target preserves
+accepted routing. Initial1030=ffffffff is admitted only in this dedicated engine,
+with successful exact USB4-byte transfer; it is not declared a valid reset value.
+Require exact post-write targets, final MAC0/COREf000f200 and eight reads. Preserve
+all existing all-ones refusals and v45 behavior. No retry, BBP table or RF enable.
+Touch MCU/xHCI/main/staging/tests. Integrated base4a991df; fetched2702b41 adds
+Air6,1 continuous desktop scope. PR118 draft edits storage waiting, not Wi-Fi
+control/MCU dispatch; retain its existing shared storage path unchanged.
+
+### 2026-10-23 — v46 AMPDU length initialization installed, unarmed
+
+Source `9fa1ff6`, release `e14f396f3d59c1b6`. Build, compact/xHCI host tests,
+ASan/UBSan,120 boot-profile tests and493 documentation links passed. All90 earlier
+Wi-Fi boot recipes remain byte-identical. The collector rejects64 readback
+mutations,40 transfer failures and two incomplete captures. Exact-stage GPT VM
+saved diagnostics, verified offline bytes/allocation and returned; missing-workspace
+VM returned without probing. Native acceptance remains pending.
+
+Run/collector: `build/bringup/wifi-mac-ampdu/run.json`,
+`build/bringup/collect_wifi_mac_ampdu_return.py`. Durable payload/evidence:
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-ampdu-9fa1ff6/`.
+Ubuntu default and known-good previous `e47dca3a6b30c6c1` preserved, accepted
+integrated `9fadb1185a7592ea` retained. Earlier7301441289281aaf removed from ESP
+only after full equality with its durable archive. Workspace0E53-5900 clean231files/
+595clusters, zero allocation errors and unmounted. No one-shot armed. Next:
+readiness-confirmed cold adapter cycle, automatic save/return and collection of
+matching session. Sequence15, eight exact transfer receipts and strict post-write
+readbacks required; no BBP table, RF or connectivity acceptance.
+
+
+### 2026-10-23 — v46 aggregation-length initialization passed natively
+
+Collected release `e14f396f3d59c1b6`, source `9fa1ff6`, new session
+`00065e8ccad60890-00`. Prepared collector passed unchanged: all preceding
+firmware/reset/timing, compact0/1, clock/readiness and bounded MAC groups passed.
+AMPDU sequence15 sent24/received16 cc13/residue1008 with exact ACK; complete1,
+reads8, one batch completed, ack_mask1. Register1030 changedffffffff->aaa99887;
+080c remained03ff0223. All eight ordered read receipts reportedok1, actual4,
+cc1, residue0 and timeout0. Initial/final MAC0 and COREf000f200 verified; both
+completion markers saved. No full BBP table or RF ran.
+
+Complete collection/run/checkpoint and hashes archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-ampdu-9fa1ff6/native-collection/`.
+Ubuntu default, consumed one-shot and installed/known-good payload hashes verified.
+Workspace0E53-5900 clean233files/598clusters, zero leaks/mismatches, unmounted.
+No reboot armed. Acceptance is bounded to this register write/readback, not
+reset semantics, aggregation performance or connectivity. Next: remaining MAC
+prerequisites before revisiting the four unresolved baseband readbacks. Further
+MCU commands require deliberate sequence identifier reuse after15; do not use16.
+
+
+Active scope 2026-10-23: v47 full BBP observation after accepted MAC/AMPDU chain.
+Reuse the existing58-entry/three-chunk observation engine after every bounded MAC
+step completes. Exact legacy table ACK uses sequence6, deliberately reused only
+after all prior responses have been consumed; route's sequence6 ACK has a different
+address/value and must be rejected. No new table values or RF enable. Require
+all prerequisite modes/completions/submissions/inactive owners throughout table
+reads/exchanges. Preserve v31 and v46 behavior. Touch xHCI/main/staging/tests;
+collector reports mismatches without accepting them. Base4a991df, fetchedbbdbefb
+adds Air6,1 AC work; PR118 remains draft storage-wait scope, kept separate.
+
+Prepared v47 source `88809f0`, release `6d6d0b1a49c3de4b`, installed unarmed.
+Native build, compact/xHCI fixtures, ASan/UBSan,121 boot-profile tests, collector
+fixture plus121 rejection cases, and493 documentation links passed. Exact-stage
+GPT VM saved/verified logs and returned automatically; missing-workspace VM
+returned without starting the probe. Workspace remains clean233files/598clusters.
+Ubuntu remains default, known-good `e47dca3a6b30c6c1` and accepted AMPDU
+`e14f396f3d59c1b6` retained. Integrated `9fadb1185a7592ea` was removed from the
+ESP only after byte-for-byte archive verification. Payload, checks, collector
+and run record archived outside build under `wifi-bbp-after-mac-88809f0`.
+Physical result pending; next is an attended cold adapter cycle. After return,
+collect the new matching session first and compare all58 observations with v31.
+
+### 2026-10-23 — v47 post-MAC baseband observation returned
+
+Source `88809f0`, release `6d6d0b1a49c3de4b`, native session
+`session-00065e8d0bce2741-00` completed. The prepared collector passed unchanged:
+all prior MAC/AMPDU prerequisites, three200/200/88-byte chunks, deliberate
+sequence6 reuse with exact ACK,124 reads, four MAC0/COREf000f200 guard pairs,
+58 observations and both completion markers.54 targets matched; the same four
+targets as v31 remained mismatched:
+
+- TXBE10/2728: expected0, before37fff, after38e30.
+- TXBE17/2744: expected0, before/afterfb3fee3c (v31fb3fec3c).
+- RXO21/2954: expected1, before/after0.
+- RXO24/2960: expected6, before/after0.
+
+All other before/after values exactly match v31. This single comparison does
+not establish the cause of the TXBE17 difference. MAC initialization through
+AMPDU did not resolve the four mismatches; table completion remains observation
+only, with register acceptance and RF/connectivity NOT_TESTED. Do not widen
+acceptance predicates based on this run. Next: audit these four register
+definitions and initialization ordering against the reference driver before
+selecting a bounded diagnostic; avoid repeating unchanged table trials.
+
+Ubuntu default, consumed one-shot, installed/known-good payload hashes verified.
+Workspace0E53-5900 clean235files/601clusters, zero leaks/mismatches, unmounted.
+Collection, comparison, run/checkpoint and hashes archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-bbp-after-mac-88809f0/`.
+No reboot armed.
+
+Active scope 2026-10-23: audit the four persistent BBP mismatches after v47.
+Compare pinned Linux register tables, initialization ordering and vendor-authored
+register uses; capture fresh read-only Linux values if useful. Publish findings
+and a bounded next diagnostic. No new native writes or acceptance relaxation.
+Touch this unit record/current Wi-Fi guide only until evidence justifies code.
+Integration base remains4a991df; fetched main54862de adds Air6,1 documentation.
+PR118 storage-wait remains separate; PR19 owns this Wi-Fi work.
+
+### 2026-10-23 — post-v47 read-only audit
+
+Four fresh Linux7.0.0-38-generic samples on the same7392:a711 adapter read
+TXBE10=38e30, TXBE17=fb3fee3c, RXO21=0 and RXO24=0: all four exactly match
+v47. MAC=0c and CORE=f000f200. This differs from older Linux samples where
+TXBE10 was0. The Ubuntu run followed SrvrOS without confirmed adapter power
+loss, so warm state and later Linux initialization remain confounders.
+Only debugfs read-address selection and register reads were used; selector
+restored, no register writes, driver unbind or reset.
+
+Pinned [Linux v7.0 initialization](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/init.c)
+writes the BBP table, then the G-band20MHz switch table and DCOC table; it does
+not test equality of these four readbacks. The vendor-authored source mirrored
+at [commit4f1f50e](https://github.com/xtknight/mt7610u-linksys-ae6000-wifi-fixes/tree/4f1f50e3b5e5230f36a13f33112873765389dab3)
+likewise initializes them, without documenting their bit-level readback semantics
+in the inspected definitions/uses. These facts do not establish that a mismatch
+is harmless, nor accept native RF/connectivity. No predicates were relaxed.
+
+Next diagnostic: power-cycle only the Wi-Fi adapter while Ubuntu remains up,
+then repeat the same read-only samples with dynamic PHY discovery and exact
+descriptor/driver/model gates. This controls adapter power history without a
+new SrvrOS write trial. Collector prepared locally as
+`build/bringup/bbp-post-mac-audit/capture-cold.py`. Cold results pending.
+Raw audit and source hashes archived outside build under
+`~/.local/share/srvros/macbookpro11-2/bbp-post-mac-audit-c223f58/`.
+No reboot armed; installed payload remains6d6d0b1a49c3de4b.
+
+### 2026-10-23 — cold Linux BBP comparison
+
+User confirmed Wi-Fi unplugged for10seconds and reconnected under Ubuntu.
+Exact model/descriptor/driver gates passed; PHY changed fromphy1 tophy2.
+Four read-only samples consistently returned:
+
+| Register | Warm Linux / v47 | Cold Linux | Table target |
+| --- | --- | --- | --- |
+| TXBE10/2728 | 38e30 | 38e30 | 0 |
+| TXBE17/2744 | fb3fee3c | ff3fef3c | 0 |
+| RXO21/2954 | 0 | 0 | 1 |
+| RXO24/2960 | 0 | 0 | 6 |
+
+ASIC76502000, MAC0c, COREf000f200 and TXBE9=20000000 were stable.
+Debugfs selector restored; no register writes or driver reset performed by
+the capture. Normal Linux enumeration followed the physical reconnection.
+All four equality mismatches also occur after cold Linux initialization; warm
+SrvrOS carryover alone does not explain them. TXBE17 varies between captures.
+This does not document register semantics or establish native acceptance.
+No initialization-time Linux trace or connection/traffic test was captured.
+
+Next: audit the reference G-band20MHz BBP switch and DCOC stages that follow
+the full table, including RF/ownership boundaries, before implementing a
+bounded continuation. Do not spend another boot trying to force equality
+without evidence that equality is required. Existing strict diagnostics remain
+unchanged. Cold samples/comparison archived alongside the previous audit in
+`bbp-post-mac-audit-c223f58`; installed release unchanged, no reboot armed.
+
+Active scope 2026-10-23: source-backed BBP switch/DCOC audit after cold Linux
+comparison. Derive exact G-band20MHz selection, transport and later RF boundary;
+prepare fixtures and read-only Linux inventory. Current source9b01d39, actual
+integration base4a991df; fetched main7b0d1a0 carries Air6,1 acceptance docs.
+PR118 is no longer open; inspect its status before any integration (not assumed
+merged here). PR123 owns network-idle work; PR19 remains this Wi-Fi scope.
+No shared transport edits or native writes in this audit.
+
+### 2026-10-23 — next BBP stage audit completed
+
+Pinned Linuxv7.0 `mt76x0_init_bbp()` orders full BBP table, G-band20MHz
+switch settings, then DCOC. The exact selector yields20 entries: AGC4/6/8/12/13/14/
+26/27/28/31/32/33/35/39/43/51/53/55/58 and RXFE0. All selected values are
+non-all-ones. Linux writes each through direct USB request6, value0, register
+index and a four-byte little-endian payload. This step needs no MCU sequence
+reuse. The following DCOC table contains CAL47..55 (nine entries), sent through
+MCU random-write. EEPROM and PHY/RF initialization occur later.
+
+Checked exact selection/count/order/address range, transport definitions and
+20 generated setup/data fixtures. Four fresh read-only Linux samples covered
+32 registers (29 targets plus ASIC/MAC/CORE); selector restored.18 switch values
+and CAL47 differ from initialization defaults. Most switch differences match
+the source A-band variants, including all-ones AGC51/53/55. This illustrates
+later band-dependent state; it does not prove an active channel or link. Keep
+native G/20 all-ones rejection unchanged because that selected table has no
+all-ones targets. Do not import live A-band values into the G/20 trial.
+
+Selected next implementation: one explicit20-entry G/20 direct-write stage
+after v47 completion, with all prerequisite ownership gates, MAC0/COREf000f200
+guards, exact setup/payload admission, one attempt per entry, transport receipts
+and before/after readbacks. No arbitrary register API. Table observation remains
+distinct from exact readback acceptance. Abort on transfer/ownership/guard
+failure and preserve the saved result. DCOC, RF/channel selection and TX/RX
+enable are excluded from this first continuation. This is the reference's
+initial baseband default, not a regulatory/channel or connectivity acceptance.
+
+Audit sources, derived tables, packet fixtures, live samples and hashes archived
+outside build under `~/.local/share/srvros/macbookpro11-2/bbp-switch-audit-9b01d39/`.
+No new native candidate installed or boot armed. Actual integration base4a991df;
+fetched main7b0d1a0 includes merged PR118 storage-wait (merge9087fd8), which
+is not incorporated in this device checkout. Open PR123 owns network polling.
+
+Active scope: v48 fixed20-entry G/20 BBP switch following v47 capture.
+Touch mt76 pure engine, xHCI binding/main, boot profiles/tests and current guides.
+Use direct request6 writes, exact fixed order,88 reads with MAC/CORE guards
+before every write, one attempt, full receipts and observational readbacks.
+Retain all prerequisite gates and old profiles. No DCOC/RF/TX/RX enable.
+Base4a991df; main7b0d1a0/merged storage-wait not yet integrated; PR123 separate.
+
+Prepared v48 source `e26dedf`, release `9bc9e99df950ae78`, installed unarmed.
+Native build, compact/xHCI tests, ASan/UBSan,122 boot-profile tests,94 unchanged
+historical recipes, collector fixture/45 rejection cases and493 documentation
+links passed. Exact-stage GPT VM saved verified logs and returned; missing
+workspace returned without starting the probe. Full fixture log is below the
+65536-byte retained tail. Native result pending.
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; previous observation
+`6d6d0b1a49c3de4b` retained. AMPDU `e14f396f3d59c1b6` removed from ESP only
+after full archive equality. Workspace clean235files/601clusters, unmounted.
+Payload, VM receipts, tests, source audit, collector and run record archived
+under `~/.local/share/srvros/macbookpro11-2/wifi-bbp-switch-e26dedf/`.
+Next: attended cold adapter cycle; collect matching session first on return.
+
+### 2026-10-23 — v48 G/20 baseband switch returned
+
+Source `e26dedf`, release `9bc9e99df950ae78`, session
+`session-00065e8d6470043c-00`: all20 ordered direct USB writes completed with
+actual4/completed1;88 reads and all per-write/boundary MAC0/COREf000f200 guards
+passed. Every after value matched its fixed G/20 target (16 changed,4 already
+matched). All prior MAC/AMPDU and full-table prerequisites completed; the prior
+58-entry table still reported its four known mismatches. Both capture completion
+markers present. This establishes the bounded switch write/readback result on
+this adapter; it does not accept RF/channel selection or connectivity. The
+diagnostic retains its observational `register_acceptance=NOT_TESTED` label.
+
+Collector hardware predicates all passed initially, but recovery bookkeeping
+then failed because local readback variable `b` shadowed the hardware_boot
+module alias. Renamed that variable to `before_value` in the local collector
+and its generator; no predicate was changed. Rerun passed Ubuntu default,
+consumed one-shot, installed/known-good hashes and offline workspace checks:
+237files/604clusters, zero leaks/mismatches, unmounted. Original error and
+original/fixed collector copies are retained in the durable archive.
+
+Collection, summary, run/checkpoint and hashes archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-bbp-switch-e26dedf/`.
+No reboot armed. Next: implement the separately audited nine-entry CAL47..55
+DCOC table after the switch, with bounded MCU command ownership, exact ACK
+validation and guarded readback capture; keep RF/TX/RX enable separate.
+
+Active scope: v49 fixed nine-entry CAL47..55 DCOC observation after exact
+v48 switch readbacks. Touch mt76 engine, xHCI/main, boot profiles and tests.
+One80-byte MCU write, deliberate sequence7 reuse after all earlier replies,
+exact first address/value ACK;26 guarded reads and mismatch observations.
+No retries, RF/channel selection or TX/RX enable. Base4a991df, fetchedmain7b0d1a0;
+PR123 network-idle and PR124 Air6,1 capture remain separate.
+
+Prepared v49 source `cf84f67`, release `51c771ce50036ef4`, installed unarmed.
+Native build, compact/xHCI tests, ASan/UBSan,123 boot-profile tests,96 unchanged
+historical recipes, collector fixture/23 rejection cases and493 documentation
+links passed. Collector test also checks that readback parsing preserves its
+hardware_boot module binding. Exact-stage GPT VM saved/verified logs and
+returned; missing workspace returned without starting the probe.
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; accepted G/20
+`9bc9e99df950ae78` retained. Earlier observation `6d6d0b1a49c3de4b` removed
+from ESP only after full archive equality. Workspace clean237files/604clusters,
+unmounted. Payload, VM receipts, tests, audit, collector and run record archived
+under `~/.local/share/srvros/macbookpro11-2/wifi-dcoc-cf84f67/`.
+Physical result pending. Next: attended cold adapter cycle; collect matching
+session first after return, including nine readbacks and all prerequisites.
+
+### 2026-10-23 — v49 DCOC native result
+
+Source `cf84f67`, release `51c771ce50036ef4`, session
+`session-00065e8d9c2b07e5-00` completed. The prepared collector passed unchanged:
+one sequence7 command sent80/received16 (cc13/residue1008), exact ACK
+4a070008/412cbc/10f0/4a070008,26 reads and all MAC0/COREf000f200 guards.
+All nine CAL47..55 readbacks matched their target values (eight changed;
+CAL51 already matched). All earlier prerequisites, including exact20-setting
+G/20 switch readbacks, and both completion markers passed.
+
+This establishes the bounded DCOC table write/readback result on this adapter,
+not RF calibration, channel selection or connectivity acceptance. The diagnostic
+retains its observational register_acceptance=NOT_TESTED label; earlier four
+full-table mismatches remain separate evidence.
+
+Ubuntu default, consumed one-shot and installed/known-good payload hashes
+verified. Workspace clean239files/607clusters, zero leaks/mismatches, unmounted.
+Complete collection, summary, run/checkpoint and hashes archived outside build
+under `~/.local/share/srvros/macbookpro11-2/wifi-dcoc-cf84f67/`. No reboot armed.
+Next: audit remaining reference MAC/security-table prerequisites and the entry
+into PHY/RF initialization against existing captured calibration/regulatory
+evidence, then choose a bounded next stage. Do not infer full MAC or RF readiness
+from completion of these baseband tables.
+
+Active scope: post-v49 reference MAC/security/EEPROM/PHY entry audit.
+Derive exact reset ranges and identify remaining gates from saved calibration
+evidence; no native writes, security-key reads or RF enable in this audit.
+Current sourcefbafa66, actual integration base4a991df; fetchedmain92722b7
+includes PR123 network-idle. OpenPR124 Air6,1 capture is separate from PR19.
+
+### 2026-10-23 — post-DCOC prerequisites audit
+
+Pinned Linuxv7.0 initializes64 shared-key slots (16 interfaces ×4 keys), then
+256 WCID attributes and only128 WCID address entries. Null-key setup clears
+one cipher nibble with a read/modify/write and writes32 zero bytes per shared
+slot. Eight unique mode words cover the64 slots. WCID setup clears attributes
+for all256 indices, but returns before address memory for indices128..255.
+It does not clear pairwise-key or IV memory in that function; do not infer
+those resets or add broad SRAM clearing.
+
+Derived ranges: shared slotsac00–afff andb400–b7ff, mode wordsb000–b00c
+andb3f0–b3fc, WCID attributesa800–abfc and address entries1800–1bf8.
+Exact reference loops total512 writes/4352 payload bytes, including64 mode
+updates.100 seeded randomized cases checked nibble preservation and final
+mode clearing; range/count checks and64 zero-only USB setup/data fixtures
+passed. No live security memory was read and no hardware writes were sent.
+
+Implementation coverage audit leaves22 MAC reference table addresses untouched:
+102c,0208,1380,1608,1204,0124,0a44,1218,1220,13b0,13c0,1314,1318,131c,
+1320,1324,13d4,13d8,13dc,1238,006c,0070. Coverage means touched by a staged
+implementation, not proof of exact full reference ordering or field equivalence.
+These include power/PA/LDO/DMA-related settings and must not be bulk copied.
+
+The existing logical calibration/receive/transmit audits remain useful; physical
+EFUSE usage-map validation is distinct and still open. The reference's EEPROM
+load path can use an externally supplied valid image; its EFUSE fallback performs
+physical-map checks before logical data. It also programs the MAC address before
+PHY entry. PHY init selects antenna state before RF tables/frequency/DAC work.
+United States confirmation already exists; no new country question is needed.
+Actual channel/power/regulatory validation remains required before transmit.
+
+Selected next bounded implementation: reference-order64 shared-slot cipher
+nibble clears plus64 zero32-byte writes, exact high-address USB allowlist,
+MAC/CORE/ownership guards, no retries, zero verification without key-byte dumps.
+Do not widen the general MCU register range. WCID reset, remaining MAC controls,
+physical EFUSE and PHY/RF work remain separate tracked stages.
+Audit/fixtures/source hashes archived at
+`~/.local/share/srvros/macbookpro11-2/post-dcoc-audit-fbafa66/`.
+No candidate installed or reboot armed by this audit. Main92722b7 fetched but
+actual device integration base remains4a991df; PR124 remains separate.
+
+Active scope v50: fixed64 shared-key reset slots after exact DCOC readbacks.
+Reference-order cipher nibble clear and32-byte zero write, zero-only verification;
+576 bounded operations,448 reads/128 writes, no key data logs or retries.
+Touch pure engine/xHCI/main/profiles/tests. Base4a991df; fetchedmainc4265f8
+and openPR125 TCP are separate. Preserve existing profiles and RF-disable gates.
+
+### 2026-10-23 — v50 shared-key reset candidate
+
+Source `1997865`, release `420bc4d5e39c8e04`, installed unarmed. The fixed
+64-slot reset follows exact DCOC readbacks, preserves unrelated cipher nibbles,
+verifies zero data without logging key bytes, and stops without retry on failure.
+Host/USB tests cover every operation, cancellation and ownership refusal;
+ASan/UBSan,124 boot-profile tests,98 unchanged historical Wi-Fi recipes,
+collector fixture/14 rejection cases and493 documentation links pass.
+Exact-stage GPT VM saved logs and returned; missing-workspace VM returned
+without starting the probe. These VM results do not accept the physical reset.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; prior accepted DCOC
+`51c771ce50036ef4` retained. G/20 release `9bc9e99df950ae78` removed from ESP
+only after full archive equality. Workspace clean239files/607clusters, unmounted.
+Payload, audit, tests, VM receipt, collector and run record are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-skey-1997865/` outside build.
+Actual integration base remains4a991df; fetchedmainc4265f8 and PR125 TCP
+readiness inspected, separate from this bounded Wi-Fi work.
+Next: attended cold adapter cycle, then collect the matching session FIRST.
+Require operations576/submitted576, reads448/writes128, slots64 and both
+mode_verified64/key_zero64 plus all prior checks. RF/connectivity not tested.
+
+### 2026-10-24 — v50 shared-key reset native result
+
+Source `1997865`, release `420bc4d5e39c8e04`, session
+`session-00065e8e2bef4841-00` completed. The prepared collector passed unchanged:
+576 operations/submissions,448 reads,128 writes,64 completed slots,
+64 verified cipher-mode updates and64 verified zero-data slots. Exact DCOC
+readbacks and all earlier prerequisites passed; both completion markers present.
+No key bytes were logged. This accepts the fixed shared-key reset on the captured
+adapter, not WCID initialization, RF, scanning, association or connectivity.
+
+Ubuntu default, consumed one-shot and installed/known-good payload hashes pass.
+Workspace clean241files/610clusters with zero leaks/allocation mismatches,
+unmounted. Collection and updated run/checkpoint/hashes are archived outside
+build under `~/.local/share/srvros/macbookpro11-2/wifi-skey-1997865/`.
+No reboot armed. Next bounded scope: reference WCID station-table reset
+(256 attributes and128 address entries), retaining fixed ranges, guards,
+zero-only writes/verification and no retries. Pairwise keys/IV and RF remain
+separate; do not infer their reset from successful shared-slot initialization.
+
+Active scope v51: fixed WCID reset after accepted shared-key reset. Reset256
+attributes and128 address entries with zero-only writes/readbacks, guards and
+no retries. Touch mt76/xHCI/main/profiles/tests; no pairwise/IV or RF enable.
+Actual base4a991df; fetchedmain76f98c4 includes separate PR125 TCP readiness.
+Next checkpoint: local validation and exact-stage VM before native trial.
+
+### 2026-10-24 — v51 WCID reset candidate
+
+Source `666a4d3`, release `71bf958aa703f6b3`, installed unarmed. The fixed
+reset covers256 attributes and128 eight-byte addresses in reference order,
+with1792 operations (1408 reads/384 writes), per-entry MAC/CORE guards,
+zero verification and one attempt per transfer. Completed shared-key reset is
+required; pairwise-key/IV tables and RF remain outside this stage.
+
+Native build, compact/xHCI failure tests, ASan/UBSan,125 boot-profile tests,
+100 unchanged historical Wi-Fi recipes, collector fixture/15 rejection cases
+and493 documentation links passed. Exact-stage GPT VM saved and verified logs
+and returned; missing workspace returned without entering the probe.
+Physical WCID acceptance remains pending.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained. Accepted shared-key
+release `420bc4d5e39c8e04` retained; DCOC `51c771ce50036ef4` removed from ESP
+only after full archive equality. Workspace clean241files/610clusters, unmounted.
+Payload, audit, tests, VM receipt, collector and run/checkpoint are archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-wcid-666a4d3/` outside build.
+Next: attended cold adapter cycle, then collect matching session FIRST and
+require256 attribute/128 address verifications plus all prior checks.
+Actual integration base4a991df; fetchedmain76f98c4 contains separate TCP work.
+
+### 2026-10-24 — v51 WCID reset native result
+
+Source `666a4d3`, release `71bf958aa703f6b3`, session
+`session-00065e8e5ad7fc6a-00` completed. The prepared collector passed unchanged:
+1792 operations/submissions,1408 reads,384 writes,256 completed slots,
+256 verified zero attributes and128 verified zero address entries. Exact
+shared-key completion and all earlier prerequisites passed, with both capture
+completion markers present. This accepts the fixed WCID reset on this adapter;
+pairwise-key/IV initialization, RF, scan, association and connectivity remain
+outside the accepted scope.
+
+Ubuntu default, consumed one-shot and installed/known-good payload hashes pass.
+Workspace clean243files/613clusters, zero leaks/allocation mismatches, unmounted.
+Complete collection and updated run/checkpoint/hashes are archived outside build
+at `~/.local/share/srvros/macbookpro11-2/wifi-wcid-666a4d3/`. No reboot armed.
+Next: audit the remaining MAC initialization settings and physical EFUSE/PHY
+entry prerequisites against the pinned reference and existing device evidence;
+select a bounded next stage without bulk-copying power/PA/LDO/DMA controls.
+
+Active scope: post-WCID initialization audit and remaining-work ledger.
+Classify the22 untouched MAC table addresses; inspect EEPROM/PHY entry order
+and select the next bounded probe. No new hardware writes or radio enable.
+Base4a991df, fetchedmain76f98c4; PR127 storage timing is separate from PR19.
+
+### 2026-10-24 — post-WCID audit and remaining scope
+
+Classified22 untouched reference MAC targets: indicator1,DMA1,ACK/TXOP2,
+board/power/PA/LDO6,TX power/gain10,unnamed2. Not all are mandatory connectivity
+work; no blanket register-copy plan. Prepared26 fixed USB read request fixtures:
+MAC/CORE guards,22 observations,then both guards. Next implementation is this
+single read-only post-WCID snapshot, with target all-ones retained as observation
+and guard failures rejected. No native I/O or new boot payload in this audit.
+
+Verified reference ordering WCID→EEPROM→PHY and antenna→RF→RX path→TX DAC.
+Physical EFUSE usage map is29 bytes1e0–1fc, transported as two16-byte reads;
+logical EEPROM capture does not establish that check. Private device MAC setup,
+remaining MAC decisions, RF/calibration/channel work,802.11 data/scan/security
+and end-to-end network/UI acceptance remain. United States confirmation retained.
+Offline checks/26 fixtures/source hashes archived outside build under
+`~/.local/share/srvros/macbookpro11-2/post-wcid-audit-1f4d822/`.
+Installed accepted release remains71bf958aa703f6b3, no reboot armed.
+Fetchedmain76f98c4 and PR127 storage timing are separate; actual base4a991df.
+
+Active scope v52: fixed22-target post-WCID MAC observation,26 reads total.
+Preserve MAC0/COREf000f200 guards; all-ones targets remain observations. No writes,
+RF enable or acceptance inferred. Touch mt76/xHCI/main/profiles/tests. Actual
+base4a991df; other machine storage-timing work remains separate.
+
+### 2026-10-24 — v52 post-WCID MAC observation candidate
+
+Source `4ba7963`, release `619ce12c1d5d0f0b`, installed unarmed. This adds26
+read-only operations after exact WCID completion:22 fixed MAC targets and two
+MAC/CORE guard pairs. Values remain observations, including counted all-ones;
+no new register writes or RF enable. Prior accepted initialization still runs.
+
+Native build, compact/xHCI tests, ASan/UBSan,126 boot-profile tests,102 unchanged
+historical Wi-Fi recipes, collector fixtures/55 rejection cases and493 docs
+links pass. Exact-stage GPT VM saved/verified logs and returned; missing workspace
+returned without starting the probe. Physical observations remain pending.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; accepted WCID
+`71bf958aa703f6b3` retained. Shared-key payload `420bc4d5e39c8e04` removed from
+ESP only after full archive equality. Workspace clean243files/613clusters,
+unmounted. Payload, audit, tests, VM receipt, collector and run/checkpoint are
+archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-tail-4ba7963/`.
+Actual integration base4a991df; fetchedmainbf1b9a6 includes PR127 storage timing,
+and PR128 screenshot receipt work is separate. Next: attended cold adapter cycle,
+then collect matching session FIRST and compare all22 observations with reference
+semantics. No register acceptance or connectivity claim from capture completion.
+
+### 2026-10-24 — v52 post-WCID MAC native observations
+
+Source `4ba7963`, release `619ce12c1d5d0f0b`, session
+`session-00065e9176bea5a2-00` completed. Prepared collector passed unchanged:
+26 reads/submissions,22 ordered observations,zero all-ones targets,both exact
+MAC0/COREf000f200 guard pairs,all prior prerequisites and both completion markers.
+This accepts the bounded capture, not the target register settings or RF.
+
+Three targets match reference defaults:1380=002400ca,1608=0,0a44=0.
+Nineteen differ:102c=00031e46,0208=40000050,1204=0000000a,
+0124=a0140280,1218/1220=00550055,13b0=2f2f1b1b,13c0=18181818,
+1314/1318/131c/1320/1324/13d4/13d8/13dc=0,1238=003700c8,
+006c=00a647a4,0070=6b006868. WPDMA0208 has TX/RX enable and busy bits
+clear; its clock-gate-disable,writeback and burst configuration differ from the
+reference table value30. Do not overwrite these fields just to match that value.
+
+Ubuntu default,consumed one-shot and installed/known-good hashes verified.
+Workspace clean245files/616clusters,zero leaks/allocation mismatches,unmounted.
+Collection,comparison JSON,run/checkpoint and hashes archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-tail-4ba7963/`. No reboot armed.
+Next: reconcile the19 differences with reference field semantics and firmware/USB
+ownership,then group appropriate MAC writes; keep board power/PA/LDO and calibrated
+TX settings separately justified. Physical EFUSE and PHY/RF gates remain open.
+
+### 2026-10-24 — MAC difference reconciliation
+
+Rechecked pinned Linuxv7.0 sources and the saved vendor reference. The19
+mismatches partition into4 fixed controls,9 calibrated power settings,4 board
+IO/supply settings,1 optional LED and1 DMA configuration. Linux channel-power
+setup rewrites ALC channel fields and all eight TX power registers after deriving
+and limiting per-rate power; their table defaults are not final operating power.
+
+Selected next group, in reference order:1218/1220 from00550055 to00500055,
+13c0 from18181818 to0,1238 from003700c8 to001700c8. The PA-mode changes alter
+bits16/18; Linux reads RF PA modes as two-bit rate fields. The vendor reference
+identifies13c0 as BB attenuation and1238 bit21 as Bluetooth-abort control.
+That commentary is supporting evidence,not a complete Linux field specification.
+
+Prepared fixed32-operation plan: per target read MAC,CORE,DMA and initial target;
+write once; read target,MAC,CORE. Total28 reads/four writes. Require exact captured
+initial targets,MAC0,COREf000f200 and DMA enable/busy bits clear. Validate exact
+readbacks,stop on error,no retries. No native implementation or new payload yet.
+
+DMA40000050 has burst1,writeback and clock-gate-disable versus reference30
+burst3; both have enable/busy bits clear. Ownership is unresolved: preserve it.
+Defer board IO/supply and calibrated TX settings rather than treating all19
+mismatches as bad. Physical EFUSE,private MAC setup and PHY/RF work remain open.
+Audit checks/fixtures and hashed sources archived outside build under
+`~/.local/share/srvros/macbookpro11-2/mac-tail-audit-636ecf9/`.
+Installed release619ce12c1d5d0f0b unchanged,no reboot armed. Actualbase4a991df;
+fetchedmain468ca20 includes separate storage work,PR19 remains Wi-Fi owner.
+
+Active scope v53: four fixed PA-mode/attenuation/coexistence settings after v52.
+Exact captured initial values,32 operations/28 reads/four writes,MAC/CORE guards
+and disabled/idle DMA check per target. No retries or calibrated-power/DMA writes.
+Touch mt76/xHCI/main/profiles/tests. Actualbase4a991df; fetchedmain468ca20,
+other-machine window capacity work separate. Next checkpoint exact-stage VM.
+
+### 2026-10-24 — v53 fixed MAC controls candidate
+
+Source `88be3c3`,release `add8a479ff406c0d`,installed unarmed. Four settings
+1218/1220→00500055,13c0→0,1238→001700c8 require exact captured initial values
+both in the preceding snapshot and immediate pre-write reads.32 operations
+contain28 reads/four writes with MAC/CORE guards and disabled/idle DMA checks.
+No retries,calibrated-power,board-supply,DMA-configuration or RF-enable writes.
+
+Native build,compact/xHCI tests,ASan/UBSan,127 boot-profile tests,104 unchanged
+historical recipes,collector fixture/48 rejection cases and493 docs links pass.
+Exact-stage GPT VM saved/verified logs and returned; missing workspace returned
+without starting the probe. Physical write/readback acceptance remains pending.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; accepted snapshot
+`619ce12c1d5d0f0b` retained. WCID `71bf958aa703f6b3` removed from ESP only after
+full archive equality. Workspace clean245files/616clusters,unmounted.
+Payload,audit,tests,VM receipt,collector and run/checkpoint archived outside build
+at `~/.local/share/srvros/macbookpro11-2/wifi-mac-fixed-88be3c3/`.
+Actualbase4a991df,fetchedmain468ca20; unrelated window-capacity work inspected.
+Next: attended cold adapter cycle,then collect matching session FIRST and require
+four exact before/after values,eight MAC/CORE guards,four DMA checks,all previous
+prerequisites and clean recovery. Radio/connectivity remain untested.
+
+### 2026-10-24 — v53 fixed MAC controls native result
+
+Source `88be3c3`,release `add8a479ff406c0d`,session
+`session-00065e99d8c02515-00` completed. Prepared collector passed unchanged:
+32 operations/submissions,28 reads,four writes,four exact verifications.
+1218/1220 changed00550055→00500055,13c0 changed18181818→0,
+1238 changed003700c8→001700c8. All eight MAC0/COREf000f200 guard pairs
+passed; all four DMA readings remained40000050 with enable/busy bits clear.
+Preceding snapshot initial values,all earlier prerequisites and both completion
+markers passed. This accepts these four fixed controls,not RF or connectivity.
+
+Ubuntu default,consumed one-shot and installed/known-good hashes verified.
+Workspace clean247files/619clusters,zero leaks/allocation mismatches,unmounted.
+Collection,run/checkpoint,validation and hashes archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-fixed-88be3c3/`. No reboot armed.
+Next bounded scope: physical EFUSE usage-map validation needed by the reference
+EEPROM fallback,using read-only mode and fixed map range. Logical EEPROM capture
+already exists but does not establish physical-map validity. Remaining board
+IO/supply,DMA ownership,calibrated power,private MAC setup and PHY/RF remain open.
+Do not infer the15 deferred reference-default differences are all mandatory writes.
+
+Active scope: physical EFUSE usage-map engine and host validation. Fixed physical
+read mode1 at1e0/1f0 only, bounded polling, reference span semantics, no fuse
+programming. Preserve existing logical capture unchanged; native wiring follows
+validated engine. Base4a991df,fetchedmain468ca20,PR19 owns this Wi-Fi scope.
+
+### 2026-10-24 — physical EFUSE map engine host validation
+
+Implemented a separate physical usage-map engine; existing logical EFUSE capture
+remains unchanged. Exact mode1 commands address only1e0/1f0,preserve other control
+fields,and cannot generate programming modes. Each block checks MAC0,COREf000f200
+and disabled/idle DMA; polling has a shared1024-read budget with cancellation.
+Completion requires matching mode/address,kick clear,and mapped output.
+
+Map analysis uses the reference first-to-last zero span across29 bytes,excluding
+three padding bytes. `reference_used` is29-minus-span,not an actual used-entry
+count. Preserve upstream no-zero span1 arithmetic but reject uninformative all-ff
+and unmapped data explicitly. A complete read can still fail validity; no native
+acceptance is implied. Private scratch bytes are cleared after analysis.
+
+Native build,physical/logical EFUSE and firmware-upload host tests,ASan/UBSan and
+493 docs links passed. Tests cover every callback/cancellation fault,bounded busy
+polling,guard failures,26 mode/address/kick corruption cases,all threshold counts,
+fragmented zeros,padding exclusion and fixed command-bit preservation.
+An initial fake-register test inconsistently modeled AOUT bits; corrected its
+stored control state to match returned values. Production checks were not relaxed.
+No native binding,profile,install or reboot in this work block; installed accepted
+release remainsadd8a479ff406c0d. Next: add the independent native two-block transport
+allowlist after completed v53,then exact-stage VM and hardware validation.
+Engine/tests/logs archived outside build under
+`~/.local/share/srvros/macbookpro11-2/efuse-map-engine-fec5fd9/`.
+
+Active scope v54: independent native physical EFUSE map transport after accepted
+v53. Restrict control commands to mode1 and blocks1e0/1f0, enforce ordered reads,
+one-attempt transfers and prior MAC ownership; log summaries only. Touch mt76,
+xHCI/main and capture profiles/tests. Base4a991df, fetchedmain468ca20; PR130
+window capacity and PR131 Air6,1 battery remain separate. Next checkpoint:
+transport fault tests, exact-stage VM and an unarmed hardware candidate.
+
+### 2026-10-24 — v54 native physical EFUSE map preparation
+
+The native binding now requires completed v53 and its exact four readbacks,
+all guards and disabled/idle DMA. A separate transport gate consumes each
+submission before USB access, validates both preserved mode1 commands and the
+ordered control/poll/delay/data sequence, and retains failure/quarantine state.
+Only the fixed physical usage map is read; no raw bytes are logged. Summary
+validity remains distinct from completed transport and RF/connectivity acceptance.
+
+Host engine/transport fault tests, ASan/UBSan,128 profile tests,106 unchanged
+historical Wi-Fi recipes and collector fixtures/38 rejection cases pass. Native
+xHCI admission/error tests cover prior-stage refusal and one-shot quarantine.
+The four-guard/two-DMA receipts and bounded poll accounting are required by the
+prepared collector. Exact-stage VM and native results remain separate gates.
+Actualbase4a991df,fetchedmain468ca20. PR130 window capacity and PR131 Air6,1
+battery profiles inspected; preserve their independent shared staging changes.
+
+Source `40556a2`,release `b34ed974d2fa3095` installed unarmed after exact-stage
+GPT VM normal save/return and missing-workspace refusal/return both passed.
+Native build and xHCI regressions passed. Ubuntu remains default; known-good
+`e47dca3a6b30c6c1` and accepted v53 `add8a479ff406c0d` retained. Older snapshot
+`619ce12c1d5d0f0b` removed from ESP only after full archived-payload equality.
+Offline filesystem/allocation checks passed before installation. Candidate,
+tests,VM receipts,collector and run/checkpoint are archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-efuse-map-40556a2/`.
+Next: attended cold adapter cycle; collect the matching new session FIRST after
+return. No physical EFUSE validity or Wi-Fi connectivity acceptance yet.
+
+
+### 2026-10-24 — v54 physical EFUSE map native result
+
+Source `40556a2`,release `b34ed974d2fa3095`,session
+`session-00065e9a3fdde0f0-00` passed the prepared collector unchanged. Status0,
+complete1,valid1:24 reads,two mode1 read commands,two polls,two blocks,
+26 submissions,terminal phase15,no failure. Four MAC0/COREf000f200 guard pairs
+and both DMA40000050 readings passed. All earlier prerequisites and both final
+completion markers passed. Summary:9 zeros,first480,last488,span9,
+reference_used20. No raw map bytes logged. This accepts physical-map validity
+on this adapter,not RF/calibrated-power/association/connectivity.
+
+Collection `build/bringup/wifi-efuse-map/collection/collection-0e8ujmdp` archived
+with run/checkpoint and hashes under `~/.local/share/srvros/macbookpro11-2/
+wifi-efuse-map-40556a2/`. Ubuntu default,consumed one-shot,payload/recovery hashes
+verified. Workspace clean249files/622clusters,no leaks or allocation mismatch,
+unmounted. No reboot armed. Next: audit private MAC programming and PHY/RF
+prerequisites using the validated logical calibration and physical-map evidence;
+board IO/supply,DMA ownership and calibrated power remain separately scoped.
+
+Active scope: integrate main d5bc4b3 (storage service-gap fixes and Air6,1 battery
+profiles) while retaining all Wi-Fi captures; then audit private MAC setup and
+add its bounded plan/host validation. PR130 window capacity remains separate.
+Touched merge surfaces include xHCI/main/staging; preserve storage-wait and Air
+profiles and exact old Wi-Fi recipes. Installed accepted v54 remains unchanged.
+The next MAC step must read factory bytes privately at boot: saved calibration
+logs redact offsets4..9. Do not substitute an address from another host or a
+portable fixture. RF/TX enable and channel/calibrated-power work remain separate.
+
+### 2026-10-24 — integrated baseline and private MAC plan
+
+Merged actual main `d5bc4b3` at `ee3e03b`,retaining the Pro Wi-Fi dispatch alongside
+storage-wait diagnostics and Air6,1 ordinary battery profiles.133 profile tests,
+108 byte-identical historical Wi-Fi recipes and full native build/core suite
+passed. Installed accepted v54 remains `b34ed974d2fa3095`; newer source does not
+inherit that payload's physical acceptance. PR130 window work remains separate.
+
+Reference audit confirms EEPROM logical block0 offsets4..9 supply the factory
+address. The existing saved capture redacts them,so future native code must
+read a fresh mapped block privately. Implemented the host-only20-target plan:
+station/BSSID words1008..1014 and eight unique BSSID table pairs1090..10cc.
+Require captured7610/version2/FAE1 and nonzero unicast address; no random fallback.
+Twenty guarded one-shot writes/140 reads verify exact results. BSSID high-word
+upper bits are preserved; raw address/readback values stay out of result state.
+The engine combines1014 fields and visits each masked table slot once; these
+final-state equivalences still require native validation. No RF/PHY enable.
+
+Synthetic-address tests and ASan/UBSan cover all160 I/O failures,161 cancellation
+boundaries,guard/readback faults,all-ones target refusal,invalid headers/addresses,
+BSSID upper-bit preservation and repeat refusal. Private header copy is cleared.
+Native private block acquisition,independent admission and transport buffer
+clearing remain pending. Next checkpoint: exact-stage merged Wi-Fi VM regression,
+then native private-address wiring; no new physical run is armed.
+
+Host-plan source `800afcf`,merged v54 regression release `88bbc5ece4477c0f`:
+final native build/mt76/xHCI regressions and133 profile tests passed; all108
+historical Wi-Fi and92 mainline recipes compare unchanged. Exact-stage normal
+VM saved/verified diagnostics and returned. This is VM-only evidence; no install
+or hardware boot was requested. Plan/audit/reference hashes,tests and staged
+payload are archived outside build at
+`~/.local/share/srvros/macbookpro11-2/mac-address-plan-800afcf/`.
+Missing-workspace exact-stage refusal/return also passed. All local validation
+is complete for this checkpoint; physical factory-address programming remains
+pending native wiring and its own trial. Installed v54 and recovery unchanged.
+
+Active scope v55: fresh private logical block0 acquisition and native station/
+BSSID initialization after completed v54. Require mapped header,exact identity,
+independent one-shot USB ordering and guard checks; no raw address logs. Touch
+mt76/xHCI/main/staging/tests. Actualbase d5bc4b3; inspect fetched bc0edb9 window
+capacity changes separately. Native trial follows local and exact-stage checks.
+
+### 2026-10-24 — native private MAC implementation
+
+Added fixed mode0 logical block0 acquisition after completed physical-map
+validation,with independent ordered transport admission,bounded polling and
+header validity checks. The20-target private address plan now has native
+one-attempt admission,exact derived write/readback validation and per-target
+guards. Header copy and confirmed descriptor scratch are cleared; diagnostics
+contain counters and compact guard receipts only. Private stages explicitly
+use DMA-backed USB data to keep address bytes out of immediate descriptors.
+Uncertain DMA remains quarantined. A host harness dependency on firmware hash
+verification became visible in the new stage test; link the real verifier and
+SHA256 rather than stubbing or weakening firmware admission.
+
+Actualbase remains d5bc4b3. Fetchedmain bc0edb9 adds independent window capacity
+and collector display metadata; inspected and deferred from this bounded Wi-Fi
+candidate. Installed accepted v54 remains unchanged until staging/install checks.
+
+Source `825735c`,release `fbedd261796dd08f` installed unarmed. Native build,
+mt76/upload/xHCI regressions,ASan/UBSan,134 profile tests,108 unchanged historical
+Wi-Fi recipes and collector fixture/159 rejection cases passed. Private-header
+faults clear output; native transport tests reject bad ownership/commands,verify
+DMA rather than IDT,and retain timeout quarantine. The combined fixture is61766
+bytes,leaving space in the bounded saved exit log. Exact-stage GPT VM normal
+save/return and missing-workspace refusal/return passed.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; accepted physical-map
+`b34ed974d2fa3095` retained. Older fixed-controls `add8a479ff406c0d` removed from
+ESP only after full archived-payload equality. Workspace clean249files/622clusters,
+zero leaks/allocation mismatches,unmounted. Payload,reference audit,tests,VM
+receipts,collector and run/checkpoint archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-address-825735c/`.
+Next: attended cold adapter cycle,then collect matching session FIRST. Require
+mapped valid private header,160 address operations/20 exact verifications,all
+prior prerequisites,guard groups,save/unmount and recovery. Physical station/
+BSSID programming,PHY/RF and connectivity remain unaccepted until their evidence.
+
+### 2026-10-24 — private address trial failed; evidence collected
+
+Source `825735c`, release `fbedd261796dd08f`, session
+`session-00065e9aef0b871e-00` saved an explicit failure and returned to Ubuntu.
+Private mapped logical header acquisition completed: valid header,12 reads,
+one write,one poll,13 submissions and cleared private storage. Address setup
+stopped at operation13 (target1,100c verification):13 completed operations,
+14 submissions,11 successful reads,two writes,one verified target. The first
+station word verified; complete station/BSSID initialization is not accepted.
+The saved receipt does not distinguish a USB read failure from a readback
+mismatch at this step. Do not infer a mask or weaken exact validation from it.
+Both final capture markers explicitly report NO; the strict collector rejected
+this run as expected. Firmware upload reports result0 and no quarantine.
+
+Collected under `build/bringup/wifi-mac-address/collection/collection-hxc28qcm`
+and archived with failure receipt,run/checkpoint and hashes outside build in
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-address-825735c/`.
+Ubuntu default,consumed one-shot and installed/recovery payload hashes verified.
+Offline workspace checks passed:251 files,625 clusters,no leaks or allocation
+mismatches. Workspace unmounted; no reboot armed. Next: add privacy-preserving
+transport versus mismatch diagnostics for100c before another bounded trial.
+PHY/RF,association and connectivity remain untested.
+
+Active scope: diagnose the failed v55 second-word verification without changing
+register values, masks or retries. Add gate failure classification and a captured
+USB receipt before later cleanup overwrites controller diagnostics; expose only
+comparison booleans and public control bits, never factory-address bits. Touch
+mt76/xHCI and their host tests, retaining the same v55 boot recipe. Actual base
+is d5bc4b3; fetched main bc0edb9 remains the separate window-capacity change.
+The Air desktop API audit branch has no overlapping Wi-Fi changes; PR19 remains
+this unit's shared-code scope. Next checkpoint: host fault/privacy checks and
+exact-stage normal/missing-workspace rehearsal before a cold native comparison.
+
+Implemented transfer snapshots before cleanup and distinct gate failure codes.
+Comparison receipts retain only equality flags and public control halfwords for
+100c/1014; private data is cleared before printing. Register writes, exact
+readback checks and no-retry behavior are unchanged. Native build,mt76/upload/
+xHCI host checks,ASan/UBSan and134 profile tests passed. Tests cover640 individual
+readback-bit mismatches,all160 transport failures,guard classification,stale
+receipt clearing,short transfer/timeout quarantine and receipt survival after
+shared controller metadata changes. Strict collector fixtures reject missing or
+altered new receipts and the prior failed native log. Physical diagnosis pending.
+
+Diagnostic source `df4a0c5`,release `d1d3486f342b9121` installed unarmed.
+Exact-stage GPT normal save/return and missing-workspace refusal/return passed.
+The unchanged v55 recipe includes the new receipts; its combined host fixture
+is62029 bytes. Strict-success fixture and failure-classification tests passed;
+classification never promotes a failed run. Ubuntu default/EFI order unchanged,
+known-good `e47dca3a6b30c6c1` retained,failed `fbedd261796dd08f` retained and
+archived. Accepted map payload `b34ed974d2fa3095` removed from ESP only after
+full equality with its durable backup. Offline workspace clean251files/625clusters,
+zero leaks/mismatches,unmounted. Candidate,collectors,tests,VM receipts and run
+record archived outside build under `~/.local/share/srvros/macbookpro11-2/
+wifi-mac-address-diagnostic-df4a0c5/`. Await attended cold adapter cycle; collect
+matching session before further work. No new physical acceptance or reboot armed.
+
+### 2026-10-24 — MAC diagnostic isolates control-field mismatch
+
+Source `df4a0c5`, release `d1d3486f342b9121`, session
+`session-00065e9b2722160a-00` saved the new diagnostic and returned to Ubuntu.
+Address initialization still fails at operation13,target1/register100c readback:
+13 completed operations,14 submissions,two writes,one verified target.
+The dedicated USB receipt reports success,actual4,cc1,residue0,stage3,no timeout
+and no quarantine. Gate failure8 identifies an exact readback mismatch: factory
+address bits match; public upper control bits expected00ff0000,observed00000000.
+Private header acquisition and all prior prerequisite receipts passed. Both final
+capture markers explicitly report NO; full station/BSSID setup remains unaccepted.
+No factory address bytes were logged. The pinned Linux reference writes U2ME
+bits23:16 as ff; this result alone does not establish whether those bits are
+readable,writable or device-specific. Audit their semantics before changing masks.
+
+Strict-success collection rejected this run as intended. Classified failure,
+full collection `collection-57bm3u7l`,run/checkpoint and hashes are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-address-diagnostic-df4a0c5/`.
+Ubuntu default,consumed one-shot and installed/recovery payload hashes verified.
+Offline workspace clean253files/628clusters,zero leaks/allocation mismatches;
+unmounted,no reboot armed. Next: scoped100c control-field audit/comparison.
+PHY/RF,association and connectivity remain untested.
+
+Active scope: audit the100c U2ME mismatch using pinned upstream source and a
+read-only Linux comparison on this same adapter. Mask factory-address bytes
+before persistence. No Linux register writes,driver reset or changed radio state.
+Only prepare a bounded native comparison if evidence supports it; preserve
+one-attempt writes and strict address verification. Actual base remains d5bc4b3;
+fetched main76a55dd includes independent window capacity and desktop API docs.
+PR132 Air6,1 combined services and PR134 POSIX work do not overlap this audit.
+
+Read-only Linux comparison on the attached7392:a711/ASIC76100002/MAC76502000
+returned100c upper16=0 and1014 upper16=003f in all four samples. Linux had MACc,
+COREf000f200,DMA30; these are live-driver observations,not disabled-state evidence.
+Factory address halfwords were masked before persistence; debugfs selector was
+restored. Pinned/upstream Linux still writes100c U2MEff,without exact readback.
+Together with two cold SrvrOS failures,this supports a distinct v56 comparison:
+keep100c write unchanged but require its exact captured readback (private low16,
+upper16zero). Reject every other bit change; retain historical v55 semantics.
+No claim that U2ME is universally read-only or that RF/connectivity works. Native
+binding stays on the existing exact identity/header/map gate. Touch mt76/xHCI,
+main,staging and tests; no integration of unrelated main changes in this trial.
+
+Implemented opt-in v56 captured readback profile while retaining v55 unchanged.
+The engine and independent gate both require exact100c readback low16/upper0;
+requested write still includes U2MEff. Mode mismatch refuses before USB submission.
+Host tests pass for both gated and ungated engines:all20 targets/every bit,
+160 transfer failures,161 cancellation boundaries,unchanged writes and legacy
+refusal. Native build,mt76/upload/xHCI tests,ASan/UBSan,135 staging tests and110
+byte-identical historical Wi-Fi recipes passed. Collector fixture requires the
+new profile token/receipt and rejects both earlier native failures;62199 bytes.
+Next: exact-stage normal/missing-workspace rehearsal and unarmed installation.
+
+Exact-profile source `87395a2`,release `be58d4957e3c4d7a` installed unarmed.
+Exact-stage GPT normal capture/save/return and missing-workspace refusal/return
+passed. Ubuntu default/EFI order unchanged; known-good `e47dca3a6b30c6c1` retained.
+Failed diagnostic `d1d3486f342b9121` retained and archived. Older failed private
+address payload `fbedd261796dd08f` removed from ESP only after full equality with
+its durable backup. Offline workspace clean253files/628clusters,zero leaks or
+allocation mismatches,unmounted. Payload,read-only Linux evidence/reference hashes,
+local tests,collector,VM receipts and run/checkpoint are archived outside build in
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-control-87395a2/`.
+Next: attended cold adapter cycle,then collect matching release/session FIRST.
+Require exact-profile marker and all160 operations/20 verifications plus prior
+prerequisites,save/unmount and recovery. No native v56 acceptance or reboot armed.
+
+### 2026-10-24 — exact private MAC initialization accepted
+
+Source `87395a2`,release `be58d4957e3c4d7a`,session
+`session-00065e9b722cf305-00` passed the strict v56 collector. Fresh private
+mapped header completed12reads/1write/1poll/13submissions; valid and cleared.
+Address initialization completed160operations/160submissions,140reads,20writes,
+20exact verifications,gate failure0. The explicit captured profile records
+100c write00ff0000/read00000000; no observed bits are ignored. Station/BSSID
+words and eight unique table pairs passed. Forty MAC0/COREf000f200 guard pairs
+and20 disabled/idle DMA checks passed. Final USB receipt operation159,actual4,
+cc1,residue0,stage3,no timeout/quarantine. All earlier prerequisites and both
+completion markers passed. Factory address remains private.
+
+This accepts the scoped station/BSSID initialization on this adapter,including
+combined1014 final fields and one pass over eight unique table pairs. It does
+not accept RF/channel/power,association or connectivity. Earlier v55 failures
+remain preserved; no blanket sibling-device or baseband-table acceptance.
+
+Collection `build/bringup/wifi-mac-control/collection/collection-47tepf09`
+archived with run/checkpoint,strict collector and hashes under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-control-87395a2/`.
+Ubuntu default,consumed one-shot,installed/recovery payload hashes verified.
+Offline workspace clean255files/631clusters,zero leaks/allocation mismatches;
+unmounted,no reboot armed. Next: audit board IO/supply and PHY/RF/calibration
+prerequisites; retain exact-profile evidence before advancing to radio work.
+
+Active scope: remaining board power/IO prerequisites before PHY antenna/RF work.
+Fresh read-only Linux samples on this adapter confirm1204=0,124=a0040080,
+6c=00a647b6,70=6b006464; all four match Linux v7.0's MT7610 initialization table.
+Accepted v56's native snapshot still has1204=a,124=a0140280,6c=00a647a4,
+70=6b006868. The live Linux MAC/DMA state differs and is not a disabled-state
+acceptance. Original debugfs selector restored; no Linux device register writes.
+Prepare opt-in v57:four fixed writes with exact prior/readback checks,MAC0,
+COREf000f200 and idle/disabled DMA around each target,after completed v56.
+No RF bank,channel,power-rate,antenna,MAC-enable or DMA-configuration writes.
+Actualbase d5bc4b3; fetchedmain e79e220 inspected (Air6,1 combined services plus
+independent window/API work). PR134 POSIX does not overlap this scope; PR19 owns
+this adapter work. Touch MCU plan,xHCI/main,staging and tests. Preserve the current
+accepted payload and verify exact-stage save/return before native installation.
+
+Implemented the opt-in v57 fixed board power/I/O plan with 32 operations,
+28 reads, four writes and four exact verifications. Eight MAC0/COREf000f200
+guard pairs, four disabled DMA checks and the recorded initial values are
+required. The native binding also checks completed v56 ownership and cleared
+private header storage; failures stop without retry and preserve uncertain DMA.
+Build, mt76 bring-up/upload/compact and xHCI tests passed, including each transfer
+failure/cancellation boundary, malformed requests and native ownership refusal.
+ASan/UBSan passed; 136 staging tests and 112 unchanged historical recipes passed.
+The collector's full prior native receipt plus synthetic board proof is 63591
+bytes; 80 missing/duplicate/corrupt cases and the prior run without board proof
+are rejected. Linux reference/read-only samples are retained locally. Next:
+exact-stage GPT save/return and missing-workspace rehearsal, then unarmed install.
+No native v57 acceptance, no reboot armed, and no RF/connectivity claim.
+
+Candidate source `3af56f0`, release `69718a055422766a` is installed unarmed.
+Exact-stage GPT capture/save/automatic-return and missing-workspace refusal/return
+VM checks passed. Ubuntu remains the default; known-good `e47dca3a6b30c6c1` and
+accepted private-MAC payload `be58d4957e3c4d7a` are retained. Failed diagnostic
+`d1d3486f342b9121` was removed from the ESP only after full equality with its
+durable backup. Offline workspace checks passed with 255 files/631 clusters and
+zero allocation leaks/mismatches; the workspace is unmounted. Payload, Linux
+reference/sample evidence, tests, strict collector, VM receipts and run/checkpoint
+are archived outside build in
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-board-3af56f0/`.
+Next: attended cold adapter cycle, then collect the matching release/session
+first. Require all prior v56 proof plus the four exact board settings and saved
+completion/recovery evidence. Physical board-setting acceptance remains pending.
+
+### 2026-10-24 — fixed board power/I/O prerequisites accepted
+
+Source `3af56f0`, release `69718a055422766a`, session
+`session-00065e9c42605b54-00` passed the strict v57 collector. All 32 operations
+and submissions completed, with 28 reads, four writes and four exact
+verifications. PWR_PIN_CFG1204 a->0, IOCFG6 124 a0140280->a0040080,
+LDO0 6c a647a4->a647b6 and LDO1 70 6b006868->6b006464 matched both required
+initial values and target readbacks. Eight MAC0/COREf000f200 guard pairs passed;
+all four DMA checks were40000050 with enable/busy low four bits clear. Every
+earlier initialization prerequisite, including private address setup, and both
+completion markers passed. RF and connectivity remain NOT_TESTED.
+
+Collection `build/bringup/wifi-mac-board/collection/collection-3m102t0s` is
+archived with run/checkpoint, collector and hashes under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-board-3af56f0/`.
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Offline workspace clean257files/634clusters,102directories,zero leaks or
+allocation mismatches; workspace unmounted and no reboot armed. Next: audit
+PHY antenna selection and RF/calibration prerequisites. Acceptance is bounded to
+the four settings on this captured device; no sibling or usable-Wi-Fi claim.
+
+Active scope: antenna prerequisite observation after accepted v57 board setup.
+Linux v7.0 antenna selection touches WLAN_FUN_CTRL80,CMB20,CSR_EE_CFG1 104,
+COEXCFG0 40 and COEXCFG3 4c, using EEPROM22/24/42 and board band capabilities.
+Capture all five cold native values with MAC0/COREf000f200 and disabled DMA at
+both boundaries before planning writes. New v58 adds only eleven fixed reads;
+no antenna/RF/channel writes or enablement. Touch mt76/xHCI/main, staging and
+tests; preserve completed board/private-address prerequisites and prior recipes.
+Actual integration base remains d5bc4b3; fetchedmain36080fc adds Air6,1 reopen
+documentation since e79e220. PR134 POSIX and Air6,1 service trials are independent
+of this bounded PR19 scope. Next checkpoint: host/VM-tested unarmed capture.
+
+The accepted MAC-redacted calibration image confirms mapped EEPROM22=17ff,
+24=ffef,34=fd11,36=1004,42=ffff. Linux's single-antenna branch ignores NIC2
+diversity flags and derives antenna low07ff. Four fresh read-only Linux samples
+give WLANff000413,CMB00e007ff,CFG10033ffef,COEX06f008843,COEX300000019.
+WLAN bit4 differs from the prior live Linux capture; no full-register cold
+initial value is inferred. Debugfs selector restored, no Linux register writes.
+Implemented v58 eleven-read observation with both boundary guard sets and exact
+prior board-completion admission. Physical observation remains pending; no new
+antenna writes or usable-Wi-Fi acceptance.
+
+Native build and mt76 bring-up/upload/compact/xHCI checks passed. Snapshot tests
+cover every read failure, cancellation boundary, guard bit, all-ones refusal and
+replay; native tests cover each operation and failed prior-board ownership with
+no USB request on refusal. ASan/UBSan,137 staging tests and114 byte-identical
+historical recipes passed. Collector fixture uses the full accepted v57 receipt
+plus synthetic antenna observations,64354bytes;47 missing/duplicate/corrupt cases
+are rejected. Targets are observations, not exact-value acceptance. Next:
+exact-stage GPT save/return and missing-workspace rehearsal, then unarmed install.
+
+Antenna snapshot source `1d291a7`, release `4964d0724ea58faa` installed unarmed.
+Exact-stage GPT capture/save/return and missing-workspace refusal/return passed.
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained; accepted board payload
+`69718a055422766a` retained. Older private-MAC payload `be58d4957e3c4d7a` removed
+from ESP only after exact comparison to its durable archive. Offline workspace
+clean257files/634clusters,zero leaks/mismatches; unmounted. Payload, Linux source
+hashes/read-only samples, calibration-word audit, tests, collector, VM receipts
+and run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-antenna-1d291a7/`.
+Next: attended cold adapter cycle; collect matching release/session FIRST after
+return. Require full v57 proof and eleven-read antenna snapshot with both guard
+sets. Physical observation pending; no antenna or RF functionality accepted.
+
+### 2026-10-24 — cold antenna prerequisite snapshot completed
+
+Source `1d291a7`, release `4964d0724ea58faa`, session
+`session-00065e9ca514ef7a-00` passed the strict v58 collector: eleven reads and
+submissions, zero snapshot writes, five ordered observations. Both boundaries
+were MAC0/COREf000f200/DMA40000050. Values: WLAN80=ff000003, CMB20=00c01fff,
+CFG1 104=0033ffef, COEX0 40=6f008847, COEX3 4c=1. Every prior initialization
+prerequisite and both completion markers passed. This accepts observation only.
+
+Mapped EEPROM/reference-derived targets are ff000003/00c007ff/0033ffef/
+6f008843/19 respectively: three changed values, two unchanged. Preserve native
+WLAN/CMB control bits rather than copying Linux's enabled-driver values. Fresh
+mapped-field validation and exact guard/readback checks are needed for the next
+bounded antenna-write trial. No antenna function, RF or connectivity acceptance.
+
+Collection `build/bringup/wifi-antenna/collection/collection-dlok17ft` archived
+with collector, run/checkpoint and hashes under
+`~/.local/share/srvros/macbookpro11-2/wifi-antenna-1d291a7/`.
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Offline workspace clean259files/637clusters,103directories,zero leaks or
+allocation mismatches; unmounted,no reboot armed. Next: bounded antenna setup.
+
+Active scope: v59 antenna initialization after completed v58 snapshot. Re-read
+only mapped logical EFUSE20/30, require antenna17ff,cfg1ffef,NIC0fd11,NIC11004,
+then apply the five reference-order antenna register writes (three changes,
+two unchanged), with exact captured starts/readbacks and MAC/CORE/DMA guards.
+Preserve native WLAN/CMB unrelated bits; no RF-bank, channel or MAC/DMA-enable
+writes. Touch bounded EFUSE/mt76 plans,xHCI/main,staging and tests. Preserve old
+EFUSE modes/profile behavior and fit the full saved proof within the exit log.
+Actualbase d5bc4b3; fetchedmain36080fc unchanged. PR136 Air6,1 battery deadline
+and PR134 POSIX scopes inspected; independent from this PR19 adapter work.
+
+Implemented fresh logical20/30 capture with exact four-field validation, followed
+by the five fixed reference-order writes. Forty initialization operations include
+35 reads,five writes and five verifications, ten MAC/CORE guard pairs and five
+disabled-DMA checks. Separate native gates enforce completed snapshot/board
+ownership, mapped-read command modes/order, fresh fields and exact write bytes.
+Failures stop without retry; uncertain USB DMA remains quarantined. Old EFUSE
+profiles retain their semantics. Native build,mt76 bring-up/upload/compact and
+xHCI checks passed, including each new failure/cancellation boundary, all64
+configuration field bits, payload mutations, unmapped/control refusals and
+no-USB ownership refusal. Bring-up and compact ASan/UBSan checks passed;138
+staging tests and116 unchanged historical recipes passed. Full saved-proof
+fixture65044bytes with51 negative cases; compact new guard summaries retain
+counts and exact per-target before/after values. Next: exact-stage GPT VM normal
+and missing-workspace checks,then unarmed installation. Native v59 pending.
+
+Antenna initialization source `eaf911c`, release `28c2ba352d59b843` installed
+unarmed. Exact-stage GPT capture/save/automatic-return and missing-workspace
+refusal/return passed. Ubuntu default and known-good `e47dca3a6b30c6c1` retained;
+completed antenna snapshot `4964d0724ea58faa` retained. Older board payload
+`69718a055422766a` removed from ESP only after full equality with its durable
+archive. Offline workspace clean259files/637clusters,zero leaks/mismatches;
+unmounted. Payload,reference/configuration derivation,host tests,strict collector,
+VM receipts and run/checkpoint archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-antenna-init-eaf911c/`.
+Next: attended cold adapter cycle,then matching release/session collection FIRST.
+Require full earlier proof,fresh exact mapped fields and all40 operations/five
+exact target verifications. No native antenna-write acceptance or reboot armed.
+
+
+### 2026-10-24 — antenna register initialization accepted
+
+Source `eaf911c`, release `28c2ba352d59b843`, session
+`session-00065e9d031419f8-00` passed the strict v59 collector. Fresh mapped
+EFUSE20/30 configuration matched the captured profile: 24 reads, two read-command
+writes, two polls, two blocks and 26 submissions; no guard errors. The antenna
+engine completed 40 operations/submissions, 35 reads, five writes and five exact
+target verifications, with no guard errors. Before/after values in reference order:
+WLAN80 ff000003→ff000003, CMB20 00c01fff→00c007ff, CFG1 104 0033ffef→0033ffef,
+COEX0 40 6f008847→6f008843 and COEX3 4c 1→19. Full earlier initialization proof
+and both completion markers passed. This accepts register setup on this adapter;
+RF performance, radio calibration, channels, scanning and connectivity remain untested.
+
+Collection `build/bringup/wifi-antenna-init/collection/collection-0k5432fp`
+archived with strict receipts, payload and run/checkpoint under
+`~/.local/share/srvros/macbookpro11-2/wifi-antenna-init-eaf911c/`.
+Ubuntu default, consumed one-shot and installed/known-good recovery payload hashes
+verified. Offline workspace clean: 261 files, 640 clusters, 104 directories,
+zero leaks, allocation mismatches or errors. Workspace unmounted; no reboot armed.
+The complete exit snapshot is 65045 bytes, leaving only 491 bytes of the 64KiB
+limit: resolve proof-log capacity before extending the capture chain.
+
+Next bounded scope: audit RF-bank initialization/calibration transport and the
+saved-proof capacity. No new candidate is staged. Fetched main `85d5939` includes
+Air6,1 deadline PR136; this trial remains based on `d5bc4b3`. PR134 POSIX and the
+Air6,1 startup-timing branch remain separate work; inspect dependencies before
+shared implementation rather than attributing their changes to this native run.
+
+
+Active scope (2026-10-24): extend saved Wi-Fi diagnostic capacity before RF-bank
+transport work. Keep ordinary desktop/battery snapshots at 64KiB; opt-in firmware
+capture may retain/save 128KiB only if its startup prefix has not already wrapped.
+Touch bootlog/workspace logger, the Wi-Fi capture call site, bounded host
+collection and tests. No storage scheduling, battery ownership or RF writes.
+Fetched main85d5939 and PR134 head e4b7b02; Air6,1 startup-timing4b41c06 owns its
+capture profile. Preserve those independent scopes and publish the logger change
+through PR19. Current integration base remains d5bc4b3. Next checkpoint: host
+boundary/overflow tests, native build and exact-stage save/refusal VM checks.
+
+Scope extension: pair the capacity fix with a fixed read-only RF0:22 MCU probe
+(v60) after exact antenna completion. Command10/sequence8 reads address80000016
+with zero payload; six MAC/CORE/DMA boundary reads, no RF write or calibration.
+Require exact response framing/address and an eight-bit value; preserve response
+words on mismatch. Touch mt76 MCU/xHCI and dedicated staging/tests in PR19.
+
+Implemented the fixed RF0:22 read candidate and 128KiB Wi-Fi-only complete
+snapshot. Host tests cover all seven transport-operation failures/eight cancel
+boundaries, frame/address mutations and all six guard reads. Native binding
+checks exact antenna completion, request bytes, order, one submission, refusal
+without USB and transfer-error quarantine. Snapshot tests cover expansion at
+zero/partial/exact64KiB boundaries, complete128KiB persistence, wrap/lost-prefix
+refusal, ordinary-size restoration and collector bounds. RF/bootlog sanitizers
+passed. Full synthetic proof is 65730 bytes;55 malformed/truncated receipt cases
+refused. Native acceptance remains pending; no radio writes added.
+
+
+RF read-only candidate source `5fb885e`, release `63fb5a9f9addbb21` installed
+unarmed. Native build, RF/compact/xHCI/logger host tests,139 staging tests,
+29 collection tests,118 unchanged historical Wi-Fi recipes, RF/bootlog sanitizers
+and documentation checks passed. Exact-stage GPT save/offline-file verification/
+automatic-return and missing-workspace refusal/return passed; VM confirmed the
+128KiB snapshot marker. This rehearses refusal on VM hardware, not RF transport.
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained. Accepted antenna payload
+`28c2ba352d59b843` retained; older snapshot `4964d0724ea58faa` removed from ESP
+only after exact durable backup equality. Offline workspace clean261files/
+640clusters/104directories,zero leaks or mismatches; unmounted.
+Payload, pinned references, RF derivation, host/VM receipts, collector and
+run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-probe-5fb885e/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require all preceding initialization proof, six guard reads, one exact RF read
+response, no radio writes and a complete extended snapshot. RF register response,
+radio function and connectivity remain unaccepted. No reboot is armed.
+
+
+### 2026-10-24 — read-only RF transport observed
+
+Source `5fb885e`, release `63fb5a9f9addbb21`, session
+`session-00065e9d618d5674-00` passed the strict v60 collector on this
+MacBookPro11,2/Edimax7392:a711. The fixed RF0:22 request returned one 16-byte
+response with words `4a080008/80000016/00000000/4a080008`; the observed value
+is zero. All six guard reads/submissions passed: MAC0, COREf000f200 and
+DMA40000050 at both boundaries. No RF register writes occurred. Full prior
+initialization proof and both completion markers passed. This accepts the
+command/response observation only, not calibrated trim or radio function.
+
+The complete exit snapshot is 65730 bytes, including its startup prefix and
+128KiB limit marker: 194 bytes beyond the old limit. Collection
+`build/bringup/wifi-rf-probe/collection/collection-s6sofics` and strict receipts
+are archived with the payload and run/checkpoint under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-probe-5fb885e/`.
+Ubuntu default, consumed one-shot and installed/known-good recovery payload
+hashes verified. Offline workspace clean: 263 files, 643 clusters, 105 directories,
+zero leaks, allocation mismatches or errors. Workspace unmounted; no reboot armed.
+
+Next bounded scope: RF-bank initialization, fresh frequency-offset validation
+and calibration; scanning, association/security and connectivity remain pending.
+Fetched main `4f8acd2` includes Air6,1 startup-timing PR137 and was inspected,
+but is not integrated into this native candidate (integration base `d5bc4b3`).
+Preserve its shared startup/staging changes and PR134 POSIX scope during future
+integration; do not attribute them to this run.
+
+
+Active scope (2026-10-24): implement the fixed 44-entry central RF-bank table
+following the accepted v60 read transport. Preserve the USB MT7610 settings from
+the pinned Linux v7.0 numeric reference, with one ordered write/readback pair per
+entry and MAC/CORE/disabled-DMA guards. Do not add arbitrary RF commands, frequency
+trim, channel selection or MAC traffic. Touch mt76 MCU/xHCI, dedicated v61 staging,
+main dispatch and host/collector tests through PR19. RF write response framing and
+register readbacks are candidate contracts until native evidence accepts them.
+Fetched main4f8acd2 and PR134 e4b7b02 inspected; actual integration base d5bc4b3.
+Air6,1 startup/timing and POSIX remain independent scopes; preserve their changes
+during integration. Next checkpoint: fault-tested bounded engine/native admission,
+then exact-stage VM and unarmed installation before an attended cold trial.
+
+
+Implemented the fixed central RF engine and v61 native admission. The 44-entry
+plan matches the pinned numeric USB MT7610 reference. Host engine checks cover
+all352 I/O failures,353 cancellation boundaries, all response-bit mutations and
+short/oversized replies. Native binding tests cover88 exact commands,264 guards,
+missing/altered prerequisites, every request-byte bit, duplicate submissions and
+DMA quarantine. All140 staging tests pass; the historical profiles retain their
+behavior (120 historical recipes byte-identical). Native build and MCU/compact/
+bring-up regressions pass, as do ASan/UBSan and documentation checks. The strict
+collector rejects1000 malformed proofs; complete fixture76963bytes fits128KiB.
+Next: exact-stage VM, then install unarmed with existing recovery. Native central
+RF writes pending.
+
+
+Central RF candidate source `23cb72a`, release `d5f9b767d30876ce`, installed
+unarmed. Exact-stage GPT save/offline byte verification/automatic return and
+missing-workspace refusal/return passed; extended snapshot marker confirmed.
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained, with accepted RF read
+payload `63fb5a9f9addbb21` also retained. Older antenna payload `28c2ba352d59b843`
+removed from ESP only after full equality with its durable archive. Offline
+workspace clean263files/643clusters/105directories, zero leaks/mismatches/errors;
+unmounted. Payload, numeric plan/pinned references, host/sanitizer/collector
+checks, both VM receipts and run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-central-23cb72a/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require all preceding proof and every central RF operation/readback; preserve
+failed response/guard receipts. RF write framing/readbacks remain native-pending,
+and calibration/connectivity remain untested. No reboot is armed.
+
+
+### 2026-10-24 — central RF trial stopped at register0:6
+
+Source `23cb72a`, release `d5f9b767d30876ce`, session
+`session-00065e9da8109959-00` failed strict completion. RF0:1–5 readbacks matched;
+the sixth write echo validated but RF0:6 read back00 instead of41. Its response
+words were `4a050008/80000006/00000000/4a050008`. All12 USB exchanges completed
+(sent16/received16/cc13/residue1008). State4 stopped at44 operations/45 submissions,
+33 guard reads,12 exchanges,6 validated write echoes and5 verified readbacks.
+No later entry was attempted; both completion markers are NO. This is saved
+failure evidence, not acceptance of the central table or radio function.
+
+The last reached pre-write guard was MAC0/COREf000f200/DMA40000050; its paired
+post-read guard was not reached. `guard_errors=77` includes77 unexecuted guard
+slots, not77 measured failures. Preserve this distinction in future diagnostics.
+Full startup snapshot70943bytes retained. Collection
+`build/bringup/wifi-rf-central/collection/collection-cl_8izlk`, strict rejection,
+classified failure and recovery receipts are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-central-23cb72a/`.
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Offline workspace clean265files/646clusters/106directories, zero leaks, allocation
+mismatches or errors; unmounted. No reboot armed.
+
+Next bounded scope: investigate RF0:6 zero readback versus write41, including
+reference semantics and sequencing, before any continuation or acceptance change.
+Separate completed guard observations from unexecuted slots in failure reporting.
+Fetched main remains4f8acd2; actual candidate integration base remainsd5bc4b3.
+New Air6,1 heap-startup and updated Air7,2 POSIX work remain independent scopes.
+Calibration, scanning, association/security and connectivity remain pending.
+
+
+Active scope (2026-10-24): bounded RF0:6 readback observation after at most the
+first six central writes. Keep v61's strict engine/predicate intact; a dedicated
+v62 authorizer stops it before operation45, and only an exact sixth-response
+state may enter a fixed read-only comparison. Repeat RF0:6 with distinct sequences
+and read RF0:1/2/22 controls between/after observations, with disabled MAC/CORE/DMA
+guards. No later RF table writes, trim, calibration or traffic. Clarify reached
+versus unexecuted guard counts in failure diagnostics. Touch MCU/xHCI, v62 staging,
+main dispatch and tests in PR19. Main4f8acd2 inspected; PR138 heap-startup and
+PR134 POSIX d5d0fa1 are separate scopes; integration base remainsd5bc4b3.
+Next checkpoint: engine/binding fault tests and strict observational collector,
+then exact-stage VM and unarmed installation. Observation completion must never
+be labeled central-table or RF-function acceptance.
+
+
+Implemented v62's capped central prefix and five fixed read-only comparisons.
+The strict central engine is unchanged. Both the prefix authorizer and native
+transfer admission reject operations after the first45 submissions; the observation admits only the
+exact sixth-read mismatch or deliberate post-match cancellation. Host tests cover
+every response byte/bit, transport/cancellation boundary, all256 observed byte
+values and known control mismatches. The full saved-proof fixture is69766bytes;
+306 malformed observations are refused, including attempts to claim central
+completion. All141 staging tests and122 historical recipe comparisons pass.
+Native binding tests, full build, MCU/bring-up regressions, ASan/UBSan and docs
+checks pass. Final source regression and exact-stage VM checks precede unarmed
+installation; no hardware acceptance or new install yet.
+
+
+RF0:6 comparison source `c69c064`, release `f44fa8061c8014a5`, installed unarmed.
+Final native binding regression and full build passed. Exact-stage GPT capture/
+save/offline verification/automatic return and missing-workspace refusal/return
+passed. Ubuntu default and known-good `e47dca3a6b30c6c1` retained. Failed central
+trial `d5f9b767d30876ce` retained for evidence; accepted RF-read payload
+`63fb5a9f9addbb21` removed from ESP only after full durable-backup equality.
+Offline workspace clean265files/646clusters/106directories, zero leaks/mismatches
+or errors; unmounted. Payload, pinned references, host/sanitizer/collector tests,
+both VM receipts and run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-six-c69c064/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require bounded prefix and all read-only comparison receipts; classify the three
+RF0:6 values independently of central-table acceptance. No reboot armed; native
+observation pending, calibration and connectivity untested.
+
+
+### 2026-10-24 — bounded RF0:6 comparison collected
+
+Source `c69c064`, release `f44fa8061c8014a5`, session
+`session-00065e9df83b5391-00` passed the strict v62 observational collector.
+RF0:6 read zero in all three observations (sequences5/6/9). Interleaved RF0:1/2/22
+controls read1/17/0 with exact framing and sequence/address matching. The separate
+comparison completed23 operations/submissions,18 guard reads and5 requests.
+All boundaries remained MAC0/COREf000f200/DMA40000050. The capped central prefix
+retains state4,44 operations/45 submissions,33 guards,12 exchanges,6 write echoes
+and5 verified entries. No later central-table write occurred. Reached guards had
+zero errors;77 unexecuted boundary slots are reported separately.
+
+Both completion markers and the complete69763-byte startup snapshot passed.
+This accepts the bounded observation only, not central RF initialization or radio
+function. Repeated zero with correct controls makes a one-off response mix-up less
+likely; RF0:6 semantics and access/initialization requirements remain unresolved.
+Next investigate those requirements before changing strict readback acceptance
+or continuing the table. Calibration, scanning, association/security and
+connectivity remain pending.
+
+Collection `build/bringup/wifi-rf-six/collection/collection-zpb253f4`, strict
+receipts and complete evidence are archived with the payload under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-six-c69c064/`.
+Ubuntu default, consumed one-shot and current/known-good recovery hashes verified.
+Offline workspace clean267files/649clusters/107directories, zero leaks, allocation
+mismatches or errors; unmounted. No reboot armed.
+
+Fetched main `27f0870` includes Air6,1 heap-startup PR138; it is not integrated
+into this native source (base remains `d5bc4b3`). Air6,1 attended-reopen PR139
+and Air7,2 POSIX PR134 remain independent scopes. Preserve their changes on
+future integration; this return closeout changes documentation only.
+
+Active scope (2026-10-24): compare the completed v62 MCU observations with five
+fixed direct RF-CSR reads (RF0:6/1/2/6/22). Vendor source describes RF0:6 as a VCO
+amplitude setting and reads/modifies it during calibration; no zero-read exemption
+was found. Use the documented RF-CSR read selector with its write bit clear,
+bounded idle/completion polling, exact bank/register identity and disabled
+MAC/CORE/DMA guards. No RF data writes or additional central-table entries.
+Touch the MCU diagnostic engine, xHCI binding, dedicated v63 staging and tests;
+retain historical v61/v62 behavior. Source base remains d5bc4b3; fetched main
+27f0870, Air6,1 PR139 and Air7,2 POSIX PR134 fcac611 inspected as separate work.
+Next checkpoint: fault-tested fixed selector admission and exact-stage VM, then
+unarmed installation. Direct USB RF-CSR access remains a hardware hypothesis;
+observation completion must not accept central initialization or calibration.
+
+Implemented fixed RF-CSR selector admission and the v63 comparison after the
+completed v62 observation. Host checks cover every normal I/O/cancellation
+boundary, delayed/busy polling bounds, malformed identities/controls, state
+accounting and no replay. Native binding checks cover every selector bit,
+prior-proof/ownership faults and USB quarantine. ASan/UBSan and142 staging tests
+pass;124 historical Wi-Fi recipes are byte-identical. The strict full-prefix
+collector rejects611 malformed proofs; normal/max-poll fixtures are77072/115161
+bytes. Build and exact-stage VM checks precede unarmed installation. Direct
+RF-CSR transport and values remain physically untested.
+
+Direct RF-CSR source `697111b`, release `032ade0806c417ab`, installed unarmed.
+Full build, MCU/compact/bring-up regressions and documentation checks passed.
+The initial exact-stage VM exposed a missing v63 classification in the harness;
+`f3f10109` adds that classification without changing the payload. The rerun passed
+GPT capture/save/offline byte verification/automatic return, and the separate
+missing-workspace refusal/return passed. These are VM recovery checks, not
+native RF access acceptance.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained, with completed v62
+observation payload `f44fa8061c8014a5` also retained. Failed central candidate
+`d5f9b767d30876ce` removed from ESP only after exact durable-backup equality.
+Offline workspace clean267files/649clusters/107directories, zero leaks/mismatches
+or errors; unmounted. Payload, pinned references, host/sanitizer/collector checks,
+both VM receipts and run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-csr-697111b/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require the complete prior proof and every direct-selector/poll/guard receipt;
+classify disagreement with MCU reads without promoting central RF initialization.
+No reboot armed. Calibration and connectivity remain untested.
+
+
+### 2026-10-24 — direct RF read comparison collected
+
+Source `697111b`, release `032ade0806c417ab`, session
+`session-00065e9e44b46d9c-00` passed the strict v63 collector. Direct reads of
+RF0:6/1/2/6/22 returned0/1/17/0/0, matching the preceding MCU observations.
+Each target required one idle and one completion poll, with exact returned
+bank/register identity. All45 operations/submissions,40 reads,5 read selectors
+and30 guards passed; every guard remained MAC0/COREf000f200/DMA40000050.
+No additional RF data writes occurred. The strict central prefix still reports
+state4 and only5 verified entries; it remains unaccepted.
+
+Both completion markers and the full77073-byte startup snapshot passed. This
+accepts the bounded direct read transport/observation only. Agreement with MCU
+reads points away from reply decoding, but does not distinguish an ignored write
+from RF0:6 semantics or missing initialization prerequisites. Next investigate
+the write path and prerequisites before changing strict acceptance or continuing
+the table. Calibration, scanning, association/security and connectivity remain
+pending.
+
+Collection `build/bringup/wifi-rf-csr/collection/collection-p_feovej`, strict
+receipts and complete evidence are archived with the payload under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-csr-697111b/`.
+Ubuntu default, consumed one-shot and current/known-good recovery hashes verified.
+Offline workspace clean269files/652clusters/108directories, zero leaks, allocation
+mismatches or errors; unmounted. No reboot armed.
+
+Fetched main `211f17c2` includes Air6,1 attended-reopen PR139; this native source
+retains integration base `d5bc4b3`. Air7,2 POSIX PR134 `61fc814a` remains separate.
+This return closeout updates evidence/documentation only; no new candidate is
+installed or armed.
+
+Active scope (2026-10-24): one fixed direct RF0:6=41 write after reproducing
+the complete v63 zero-read profile, followed by an independent direct RF0:6 read.
+Use the reference CSR write selector c0000641 and read selector80000600, disabled
+MAC/CORE/DMA guards and bounded idle/completion polls. No arbitrary values,
+automatic rewrite, later table entries or calibration. This compares write paths;
+even a41 readback does not accept the complete central table. Touch MCU/xHCI,
+dedicated v64 staging and host/collector tests in PR19. Main211f17c2 and POSIX
+PR134 964dbd15 inspected; integration base remainsd5bc4b3. Next checkpoint:
+fault-tested one-write admission, then exact-stage VM and unarmed installation.
+
+Implemented the one-write v64 comparison. Host tests cover all256 observed
+readback bytes, every normal I/O/cancellation boundary, guards, poll exhaustion,
+accounting and replay. Native binding tests cover every selector bit and complete
+zero-profile/ownership admission with quarantine on transfer failure. All143
+staging tests pass and126 historical Wi-Fi recipes remain byte-identical. The
+strict collector rejects203 malformed proofs; the maximum-poll full-prefix
+fixture is129097bytes. Exact-stage VM and unarmed installation follow the full
+build. The direct RF write and resulting readback are physically untested.
+
+
+One-write source `4fa96c66`, release `bc805e30aa1454bb`, installed unarmed.
+Full build, MCU/compact/bring-up regressions and documentation checks passed.
+Exact-stage GPT VM capture/save, offline bytes and clean exFAT verification,
+automatic return, and separate missing-workspace refusal/return all passed.
+These checks verify recovery mechanics; native direct-write results remain pending.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained, along with the completed
+v63 comparison `032ade0806c417ab`. Older v62 `f44fa8061c8014a5` removed from ESP
+only after exact durable-backup equality. Offline workspace clean269files,
+652clusters,108directories, zero leaks/mismatches/errors; unmounted.
+Payload, pinned references, host/sanitizer/collector checks, both VM receipts and
+run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-write-4fa96c6/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST
+with the strict v64 collector. Require the full zero-read prerequisite proof,
+all guards/selectors/polls and independent readback. Even a `0x41` readback does
+not accept the complete central table. No reboot armed.
+
+
+### 2026-10-25 — one direct RF write comparison collected
+
+Source `4fa96c66`, release `bc805e30aa1454bb`, session
+`session-00065e9fb28f464b-00` passed the strict v64 observation collector.
+The full prior zero-read profile reproduced. The single direct CSR write
+`c0000641` completed with word `40000600`; the independent read selector
+`80000600` returned `00000600`, giving RF0:6 value0. Idle/write/read polling each
+took one read. All14 operations/submissions,12 reads,2 selectors and9 guard
+reads passed, with MAC0/COREf000f200/DMA40000050 throughout. No repeat write or
+later central-table entry was attempted.
+
+Both completion markers and the complete79461-byte startup snapshot passed.
+This accepts the bounded experiment and observations only. Both direct USB and
+MCU writes have now been followed by independent zero readback; changing only
+the write transport did not resolve the mismatch. Hardware register semantics
+or missing prerequisites remain unresolved. Next audit those prerequisites and
+write sequencing against the pinned references before another trial. Keep the
+strict central-table check; calibration, scanning, association/security and
+connectivity remain pending.
+
+Collection `build/bringup/wifi-rf-write/collection/collection-7jmtwomd`, payload,
+strict receipts and recovery evidence are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-write-4fa96c6/`.
+Ubuntu default, consumed one-shot and installed/known-good recovery payload
+hashes verified. Offline workspace clean271files/655clusters/109directories,
+zero leaks, allocation mismatches or errors; unmounted. No reboot armed.
+
+
+Active scope (2026-10-25): audit RF0:6 sequencing and add a read-only RF control
+snapshot after the reproduced v64 zero-read experiment. Touch fixed MCU capture,
+xHCI admission and opt-in v65 staging/collector tests only; no new RF data write,
+calibration or packet traffic. The reference encoding matches v64; bypass/control
+state remains unobserved natively. Four live Linux read-only debugfs samples show
+RF bypass0/1 and setting0 all0, RF_MISC5. Linux is actively carrying Ubuntu's
+default route; no driver reset/unbind or RF selector write was used. Live values
+are comparison evidence, not an initialization profile to copy.
+Fetched main `7a005184` contains merged Air7,2 POSIX PR134 (`c0ef70a8`);
+its portable process/desktop work is separate from this RF diagnostic. Native
+candidate integration base remains `d5bc4b3`. Next checkpoint: bounded fixed
+snapshot with ownership/failure tests, exact-stage VM and unarmed installation.
+
+
+Implemented opt-in v65 read-only RF controls after the reproduced v64 zero-read
+profile. Host checks cover every read/failure/cancellation/guard boundary, prior
+state mutation and replay; native checks cover14 positions with24 admission/
+transport cases each. All144 staging tests pass;128 historical Wi-Fi recipes are
+byte-identical. The strict collector rejects63 malformed snapshot proofs and
+accepts the complete worst-poll130084-byte fixture within131072. Build and exact-
+stage VM checks precede unarmed installation. Snapshot values remain untested
+natively and are not an accepted register profile.
+
+
+RF control snapshot source `48b79846`, release `6e49ad417d7ea11e`, installed
+unarmed. Full build, MCU/compact/bring-up regressions, sanitizer and documentation
+checks passed. Exact-stage GPT VM capture/save/offline-byte verification and
+automatic return passed; separate missing-workspace refusal/return passed.
+Ubuntu default and known-good `e47dca3a6b30c6c1` retained, as is the completed
+v64 comparison `bc805e30aa1454bb`. Older v63 `032ade0806c417ab` removed from ESP
+only after exact durable-backup equality. Offline workspace clean271files/655clusters/109directories, zero leaks,
+allocation mismatches or errors; unmounted.
+
+Payload, pinned reference audit, Linux read-only samples, host/sanitizer/collector
+checks, both VM receipts and run/checkpoint are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-state-48b7984/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require the complete v64 zero-read proof and all14 snapshot reads/guards; compare
+the eight observed targets with Linux without promoting live values to a native
+initialization profile. No reboot armed; calibration/connectivity remain pending.
+
+
+### 2026-10-25 — RF bypass/control snapshot collected
+
+Source `48b79846`, release `6e49ad417d7ea11e`, session
+`session-00065ea5459d3f13-00` passed the strict v65 observation collector.
+The full v64 zero-read experiment reproduced, followed by all14 fixed snapshot
+reads. Both boundaries remained MAC0/COREf000f200/DMA40000050. Target values:
+
+| Register | Native snapshot | Earlier live Linux samples |
+| --- | --- | --- |
+| WLAN_FUN_CTRL80 | ff000003 | ff000403 |
+| CMB_CTRL20 | c007ff | e007ff |
+| OSC_CTRL104 | 33ffef | 33ffef |
+| PBF_SYS_CTRL400 | 80c00 | 80c00 |
+| RF_BYPASS0/1 504/508 | 0/0 | 0/0 |
+| RF_SETTING0 50c | 0 | 0 |
+| RF_MISC518 | 1 | 5 |
+
+The bypass/setting registers show no live/native mismatch. The reference channel
+setup changes RF_MISC bit2 for the external A-band PA; that later band-specific
+behavior does not establish an omitted pre-table prerequisite. WLAN bit10 is in
+the GPIO input field. CMB bit21 differs without a documented interpretation in
+the pinned definitions. Do not copy either live state into native initialization.
+The RF0:6 mismatch remains unresolved; next audit power/reset sequencing and
+register semantics rather than repeat the same write or relax the table check.
+Calibration, scanning, association/security and connectivity remain pending.
+
+Both capture markers and the complete80450-byte startup snapshot passed.
+Collection `build/bringup/wifi-rf-state/collection/collection-3bt1aq6d`, strict
+receipts, comparison and recovery evidence are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-state-48b7984/`.
+Ubuntu default, consumed one-shot and installed/known-good recovery payload
+hashes verified. Offline workspace clean273files/658clusters/110directories,
+zero leaks, allocation mismatches or errors; unmounted. No reboot armed.
+This accepts the observation only; central RF initialization remains unaccepted.
+
+
+Active scope (2026-10-25): obtain five fixed RF observations through the live
+Linux mt76x0 driver before another native write trial. A temporary local kernel
+probe may call the loaded driver's RF read helper for0:6/1/2/6/22 through its
+normal MCU mutex. Match this DMI model, exact USB fixture, bus1/port1/interface0,
+driver and revision; hold device/runtime-PM references. No driver reset/unbind,
+channel change, RF write or arbitrary address interface. Build against the
+running kernel headers and inspect the loaded helper ABI before execution;
+collect results and immediately unload. This is comparison evidence only.
+Touch local ignored Linux probe/evidence and this record; no SrvrOS payload
+change or reboot. Fetched main `ed2015a5` contains desktop PR140–142; their
+clipboard/window-lifetime scope is separate. Native baseline remains `d5bc4b3`.
+
+
+### 2026-10-25 — live Linux RF read comparison
+
+The fixed local probe built against the running7.0.0-38-generic headers and
+called the exact loaded `mt76x0_rf_rr` helper for0:6/1/2/6/22. Its binary ABI and
+USB read dispatch were checked against the loaded module and pinned Linux
+reference. It used no private structure offsets, RF data writes, driver
+reset/unbind or channel changes. Device matching covered this model, captured
+USB descriptor fixture, bus1/port1/interface0, ID/revision and bound driver.
+An active-only parent-device runtime-PM reference, interface lock and module
+reference protected the calls; each read used the driver's normal MCU mutex.
+
+Results:8/1/17/8/68. Both RF0:6 reads were08; controls1/2 matched native1/17.
+RF0:22 was44 after Linux's frequency/channel configuration. The probe unloaded,
+the driver stayed bound, the default route matched before/after, and two gateway
+pings passed. This accepts only a live Linux observation. It does not establish
+what RF0:6 should return immediately after the early41 write before calibration.
+It does establish that the final working radio need not retain41 there.
+The original strict native engine remains unchanged and the full central table
+is still unaccepted.
+
+Two earlier probe loads stopped at interface runtime-PM acquisition with EACCES,
+before any RF read. The driver does not advertise interface autosuspend; the
+successful probe instead pinned the already-active parent USB device without
+resume or PM configuration changes. Both failures are retained as incomplete
+evidence, not passes. No security/lockdown policy was disabled.
+
+Successful source/evidence and checksums are archived under
+`~/.local/share/srvros/macbookpro11-2/linux-rf-read-7592f25-active-device/`;
+the two failed attempts have separate adjacent archives. No new SrvrOS payload
+was staged or installed, and no reboot is armed. Next implement a separate fixed
+full central-table observation in reference order, with strict command/transport/
+guard receipts and complete readback mismatch accounting. Do not treat that
+observation as exact register acceptance or proceed to DAC/VCO calibration.
+
+
+Active scope (2026-10-25): opt-in v66 full central RF table observation. A new
+fixed engine writes the44 reference central entries in order, then performs a
+separate44-entry read pass. Every command retains pre/post MAC0/COREf000f200/
+disabled-DMA guards, exact packet/sequence/reply validation and no replay; reads
+are observations with complete mismatch accounting. Preserve the original strict
+central engine and v61–65 recipes. Exclude RF0:22 trim, later band tables and
+DAC/VCO calibration. The completed antenna/RF0:22 read probe is the prerequisite;
+do not rerun the six-write/CSR comparison experiments in this new branch.
+Touch MCU/xHCI, v66 opt-in staging, host/native/collector tests and current docs.
+Fetched main `a6d43616`; shared desktop/runtime work remains separate from this
+RF diagnostic. Native integration base remains `d5bc4b3`. Next checkpoint:
+fault-tested fixed two-pass engine, exact-stage VM and unarmed installation.
+
+
+Implemented separate v66 two-pass central-table observation. Host tests cover
+all616 I/O and617 cancellation boundaries, every guard, reply-bit validation,
+arbitrary uint8 observations, exact mismatch accounting and proof/replay faults.
+Native binding tests cover every command and guard position, every packet bit,
+prerequisite faults and DMA quarantine. All145 staging tests pass and130 older
+Wi-Fi recipes are byte-identical. The strict collector rejects2393 malformed
+full-prefix proofs; four complete readback patterns fit at most102527bytes.
+Build, sanitizer/regression and exact-stage VM checks precede unarmed install.
+No native results for this table observation yet.
+
+
+Two-pass RF table source `83152ee0`, release `257e68678e55ba49`, installed
+unarmed. Full build, MCU/compact/bring-up and original strict RF engine regressions,
+sanitizer and documentation checks passed. Exact-stage GPT VM capture/save,
+offline-byte verification and automatic return passed; separate missing-workspace
+refusal/return passed. Ubuntu default and known-good `e47dca3a6b30c6c1` retained,
+as is completed v65 snapshot `6e49ad417d7ea11e`. Older v64 `bc805e30aa1454bb`
+removed from ESP only after exact durable-backup equality. Offline workspace
+clean273files/658clusters/110directories, zero leaks/mismatches/errors; unmounted.
+
+Payload, pinned references, live Linux comparison, host/sanitizer/collector checks,
+both VM receipts and run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-table-83152ee/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require complete v60 prerequisites, all88 exact command replies,176 guard triplets,
+44 read observations and exact mismatch accounting. Both completion markers and
+the full untruncated prefix are required. Do not promote this observation to
+register or radio acceptance, and do not trigger calibration automatically.
+No reboot armed; native table results pending.
+
+
+### 2026-10-25 — full central RF table observation collected
+
+Source `83152ee0`, release `257e68678e55ba49`, session
+`session-00065eac64bddcbe-00` passed the strict v66 observation collector.
+All44 reference-order writes were acknowledged, then all44 separate reads
+completed. All616 operations/submissions,528 guard reads,88 exact16-byte command
+replies and176 MAC0/COREf000f200/disabled-DMA triplets passed. Readbacks matched
+43 table values; the only mismatch was RF0:6 expected41/observed00, index5 and
+mask0000000000000020. No subsequent frequency trim, other RF banks/band tables,
+DAC/VCO calibration or packet traffic ran.
+
+The observation localizes the readback discrepancy to RF0:6 across the complete
+central table. It accepts transport/guard/observation evidence only; it does not
+change the original strict engine, explain RF0:6 semantics, or accept the whole
+radio initialization. Next prepare a bounded observation of the next reference
+RF bank table, requiring this exact complete central profile; maintain separate
+register/function acceptance and do not trigger calibration automatically.
+
+Both completion markers and the full102457-byte startup snapshot passed.
+Collection `build/bringup/wifi-rf-table/collection/collection-sklpeom6`, strict
+receipts and full evidence are archived with the payload under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-table-83152ee/`.
+Ubuntu default, consumed one-shot and installed/known-good recovery payload
+hashes verified. Offline workspace clean275files/661clusters/111directories,
+zero leaks, allocation mismatches or errors; unmounted. No reboot armed.
+
+
+Active scope (2026-10-25): v67 fixed68-entry RF bank5 observation, requiring the
+exact complete central44-entry profile (43 matches; only0:6 read00). Write bank5
+in reference order, then read all68 targets; maintain exact command/guard proof
+and mismatch accounting, without register/radio acceptance or calibration.
+Reuse the bounded two-pass mechanism with independently fixed central/bank5
+plans; preserve all prior recipes and the original strict engine. Touch MCU/xHCI,
+opt-in v67 staging/collector tests and startup logging: full receipts require a
+separate256KiB opt-in window, preserving64KiB ordinary/128KiB existing capture
+behavior and refusing lost prefixes. No unrelated main logging edits overlap as
+fetched (`a6d43616`); desktop runtime work remains separate. Integration base is
+`d5bc4b3`. Publish fault tests, exact-stage VM recovery and an unarmed candidate
+before the next attended cold cycle. No RF0:22 trim, bank6, DAC/VCO or traffic.
+
+
+Implemented opt-in v67 bank5 capture and the separately fixed256KiB logging
+window. Logger tests cover both old sizes, direct/two-step growth, exact old/new
+boundaries, complete persistence and lost-prefix refusal. The fixed bank5 engine
+covers all952 I/O and953 cancellation boundaries, every reply bit, all guards,
+full68-bit mismatch accounting and replay/proof faults. Central-prefix validation
+checks every stored command/guard and the exact zero-read profile without a large
+stack copy. Native tests cover every bank5 command/guard position, all packet bits,
+central prerequisite faults and quarantine. All146 staging tests pass and132 old
+Wi-Fi recipes are byte-identical. The strict collector rejects3690 malformed
+full-prefix proofs; four complete patterns fit at most159350bytes. Build,
+sanitizer/regression and exact-stage VM checks precede unarmed installation.
+
+
+Bank5 source `8fbd311d`, release `242e84b15d20babc`, installed unarmed.
+Full build, MCU/compact/bring-up/original strict engine and logger regressions,
+sanitizer and documentation checks passed. Exact-stage GPT VM capture/save,
+offline-byte verification and automatic return passed, with the selected
+`tail_limit=262144` confirmed in its serial receipt. Separate missing-workspace
+refusal/return passed. Ubuntu default and known-good `e47dca3a6b30c6c1` retained,
+as is completed central observation `257e68678e55ba49`. Older v65
+`6e49ad417d7ea11e` removed from ESP only after exact durable-backup equality.
+Offline workspace clean275files/661clusters/111directories, zero leaks,
+allocation mismatches or errors; unmounted.
+
+Payload, pinned references, host/sanitizer/logger/collector checks, both VM
+receipts and run/checkpoint archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-bank5-8fbd311/`.
+Next: attended cold adapter cycle, then collect matching release/session FIRST.
+Require the full exact central prerequisite plus136 bank5 command replies,
+272 bank5 guard triplets,68 observations and both mismatch fields. Both completion
+markers and the full untruncated262144-capacity prefix are required. No automatic
+bank6, trim, DAC/VCO calibration or traffic. No reboot armed; native result pending.
+
+
+## 2026-10-25 — RF bank5 native return
+
+Collected source `8fbd311de9c02a398b992b508d03582d078abed2`, release
+`242e84b15d20babc`, session `session-00065ead199515d2-00`. Exact native proof
+passed:952 submissions,816 guard reads,136 verified16-byte command replies,
+68 write ACKs and68 matching indexed readbacks. All272 MAC/CORE/DMA guard
+triplets passed. Low64/high4 mismatch masks are both zero. Central prerequisite
+remains complete with43 matches and only RF0:6 expected41/read00.
+
+Both completion markers and the entire159281-byte exit snapshot are present
+under the opt-in262144-byte capacity. The generic collector initially rejected
+this valid log at its stale128KiB transport limit; updated to256KiB with tests
+at old/new boundaries and oversized rejection. All29 collector tests passed.
+This transport change does not grant hardware acceptance. Strict native
+validation, Ubuntu default/consumed one-shot, payload/recovery hashes and offline
+exFAT/allocation checks passed; workspace unmounted and no reboot armed.
+
+Archive: `~/.local/share/srvros/macbookpro11-2/wifi-rf-bank5-8fbd311/`.
+Next scope is bounded RF bank6 reference initialization/readback; bank5 readback
+success does not accept calibration, channel selection, scan, association,
+security or packet traffic. No automatic trim or DAC/VCO work in this run.
+
+
+## 2026-10-25 — bounded RF bank6 scope
+
+Pro PR19 remains the Wi-Fi owner on this checkout. Fetched main `16bbe494`
+adds desktop/help acceptance guidance since `a6d43616`; no overlapping RF/MCU,
+xHCI or logger work. Native integration base remains `d5bc4b3`; unrelated
+main desktop work is separate. Current branch head `73e35e97` has collected and
+archived v67; no outstanding run or armed reboot.
+
+Bounded objective: fixed38-entry reference RF bank6 write/read observation after
+full central zero-profile and exact68/68 bank5 proof. Touched scope: existing
+private RF-table plan, xHCI capture dispatch, opt-in v68 staging and host/native
+fault tests, strict saved-evidence collector and this unit record/current guide.
+Use existing256KiB capture; verify complete prefix and exact-stage VM before
+install. No VGA/bandwidth/band switching, frequency trim, DAC/VCO calibration,
+scanning, association or traffic in this trial. No live Linux adapter reset.
+
+
+Implemented the fixed38-entry bank6 plan using the existing private two-pass
+engine; bank5 completion validates every stored guard/reply and68 exact values
+before admission. New tests cover all532 I/O and533 cancellation boundaries,
+malformed replies, guard errors, complete mismatch accounting and replay
+refusal. Native wrappers exercise all76 command and456 guard positions,
+central/bank5 proof faults, packet-bit mutations and USB error quarantine.
+The147 staging tests and134 historical-recipe identity checks pass. Strict
+saved-prefix fixtures cover all-match, all-different, all-ff and all-zero reads;
+2138 malformed complete-prefix cases are refused. Largest fixture is191118bytes,
+within existing256KiB capacity. Full build/regression/sanitizer and exact-stage
+VM save/return checks precede installation; no native bank6 result yet.
+
+
+Full xHCI host regression passed with all new bank6 command/guard positions and
+prefix-fault/refusal/quarantine cases. Full build and MCU/compact/bring-up,
+original strict central engine, two-pass central engine and logger regressions
+passed. Documentation links checked cleanly. Exact-stage VM and missing-workspace
+recovery checks are next; install remains contingent on those results.
+
+
+Bank6 source `00f04fb342717a625719ce4e173837d0d948f05d`, release
+`7b329891c0606f1c`, installed unarmed. Sanitizer and full build/regression checks
+passed. Exact-stage GPT VM saved and byte-verified its capture, passed offline
+exFAT checks and returned automatically, with tail_limit262144 confirmed.
+Missing-workspace refusal/return also passed. Ubuntu default and known-good
+`e47dca3a6b30c6c1` remain; completed bank5 release `242e84b15d20babc` retained.
+Older central observation `257e68678e55ba49` removed from ESP only after full
+byte-for-byte durable backup equality. Preboot workspace is clean:
+277files/665clusters/112directories, zero leaks, mismatches or errors; unmounted.
+
+Payload, pinned references, fault/sanitizer/regression/collector checks, both
+VM receipts and run/checkpoint are archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-bank6-00f04fb/`.
+Ready for attended shutdown/cold adapter cycle. On return collect matching
+release/session FIRST and verify every prerequisite and all38 observations,
+76 command replies,152 guard triplets, mismatch accounting and complete prefix.
+No automatic further tables, trim, DAC/VCO or traffic; native bank6 pending.
+
+
+## 2026-10-25 — RF bank6 native return
+
+Collected source `00f04fb342717a625719ce4e173837d0d948f05d`, release
+`7b329891c0606f1c`, session `session-00065ead98009e52-00`. Exact native proof
+passed:532 submissions,456 guard reads,76 verified16-byte replies,38 ACKs and
+38 matching indexed readbacks. All152 MAC/CORE/DMA guard triplets passed;
+both mismatch fields zero. Central remains43/44 with only RF0:6=00, and
+bank5 remains68/68. Full191063-byte startup prefix within262144 capacity and
+both completion markers verified; no partial evidence promoted.
+
+Ubuntu default, consumed one-shot and current/recovery payload hashes verified.
+Offline exFAT/allocation checks clean279files/669clusters/113directories,
+zero leaks, mismatches or errors; workspace unmounted and reboot unarmed.
+Archive: `~/.local/share/srvros/macbookpro11-2/wifi-rf-bank6-00f04fb/`.
+Next is bounded reference VGA initialization/readback. No VGA/bandwidth/band
+settings, trim, DAC/VCO calibration or traffic were added to this native run.
+Command/guard/readback observations do not accept calibrated RF/connectivity.
+
+
+## 2026-10-25 — bounded RF VGA scope
+
+Pro PR19 remains the Wi-Fi owner. Native bank6 v68 is fully collected and
+archived at branch head `a333a129`; no outstanding run or armed reboot.
+Fetched main remains `16bbe494`; Air7,2 runtime branch advanced to `732c6146`,
+which is inspected separately from RF/MCU work. Native integration base remains
+`d5bc4b3`. This unit retains bounded Wi-Fi initialization work; unrelated
+main desktop work is not mixed into the candidate.
+
+Objective: fixed35-entry reference RF VGA (bank7) write/read observation after
+complete central zero-profile, exact68/68 bank5 and exact38/38 bank6 proof.
+Touched scope: private RF-table plan and predecessor validator, xHCI capture
+wrappers/dispatch, opt-in v69 staging, host/native fault tests and strict
+saved-evidence collection. Keep the existing256KiB full-prefix capture.
+No bandwidth/band switching, trim, DAC/VCO calibration, scanning, association,
+security or packet traffic. Build/local checks and exact-stage VM save/return
+must pass before unarmed installation and the next attended cold cycle.
+
+
+Implemented the fixed35-entry RF VGA plan with no new public arbitrary target
+or value API. Complete bank6 validation checks every stored guard/reply and
+38 exact readbacks at native admission. Host tests cover all490 I/O and491
+cancellation boundaries, malformed reply bits/lengths, guards, full mismatch
+accounting, proof mutation and replay refusal. Native tests exercise all70
+command and420 guard positions, inherited prefix/bank6 faults, packet mutations
+and uncertain-transfer quarantine. All148 staging tests and136 historical
+recipe byte-identity checks pass. Full-prefix valid fixtures are at most
+219914bytes within the existing256KiB window. Full build/regression/sanitizer
+and exact-stage VM checks precede installation; native VGA acceptance pending.
+
+
+Full build, MCU/compact/bring-up, original strict and two-pass central, bank5
+and logger regressions passed. New VGA engine and the complete-bank6 proof
+validator both passed ASan/UBSan runs. Documentation links checked cleanly.
+Exact-stage GPT save/return and missing-workspace recovery checks precede
+installation; no physical VGA result has been accepted.
+
+
+RF VGA source `22f757bf67ec13fe4f177f58103ac122ef84aec1`, release
+`de89daa6bdc3024e`, installed unarmed. Full build, regressions, ASan/UBSan for
+the new plan and complete bank6 validator, and documentation checks passed.
+All1946 malformed full-prefix collector cases were refused; all four valid
+patterns fit at most219914bytes. Exact-stage GPT VM saved and byte-verified
+capture, passed offline exFAT checks and returned automatically, with the
+selected tail_limit262144 confirmed. Missing-workspace refusal/return passed.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` remain, as does completed bank6
+release `7b329891c0606f1c`. Older bank5 `242e84b15d20babc` removed from ESP only
+after complete durable-backup byte equality. Preboot workspace is clean:
+279files/669clusters/113directories, zero leaks, mismatches or errors; unmounted.
+Payload, pinned reference, local/strict/sanitizer checks, both VM receipts and
+run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-vga-22f757b/`.
+
+On return collect matching release/session FIRST. Require full central+bank5+
+bank6 proof, all70 VGA command replies,140 guard triplets,35 observations,
+complete mismatch accounting and entire startup prefix with both completion
+markers. No bandwidth/band switching, trim, DAC/VCO or traffic in this trial.
+No reboot armed; native RF VGA results pending.
+
+
+## 2026-10-25 — RF VGA native return
+
+Collected source `22f757bf67ec13fe4f177f58103ac122ef84aec1`, release
+`de89daa6bdc3024e`, session `session-00065eadd298077c-00`. Exact native proof
+passed:490 submissions,420 guard reads,70 verified16-byte replies,35 ACKs and
+35 matching indexed readbacks. All140 MAC/CORE/DMA guard triplets passed;
+both mismatch fields zero. Central remains43/44 with only RF0:6=00; bank5
+remains68/68 and bank6 38/38. Full219878-byte startup prefix within262144
+capacity and both completion markers verified; no partial evidence promoted.
+
+Ubuntu default, consumed one-shot and installed/recovery payload hashes passed.
+Offline exFAT/allocation checks clean281files/673clusters/114directories,
+zero leaks, mismatches or errors; workspace unmounted, no reboot armed.
+Archive: `~/.local/share/srvros/macbookpro11-2/wifi-rf-vga-22f757b/`.
+Next is bounded reference bandwidth/band initialization, followed by frequency
+trim and DAC/VCO calibration. This run added no bandwidth/band settings, trim,
+DAC/VCO calibration, scanning, association or traffic. Native command/guard/
+readback observations do not accept calibrated radio operation/connectivity.
+
+
+## 2026-10-25 — bounded RF default G20 scope
+
+Pro PR19 owns this Wi-Fi work. VGA v69 is collected/archived at `9162edc1`;
+no outstanding run or armed reboot. Fetched main `3647dc7c` grows desktop
+scheduler storage; Air7,2 runtime `71f0a69a` adds its desktop evidence. Inspect
+these changes separately from RF; this candidate retains native integration
+base `d5bc4b3` and does not combine a scheduler capacity change with RF acceptance.
+
+Objective: fixed19-target reference default20MHz/2.4GHz initialization after
+complete central zero-profile and exact bank5/bank6/VGA proof. Preserve Linux
+reference order:9 selected bandwidth settings then10 G-band settings, followed
+by a separate19-read observation pass. Scope: private mixed-bank address plan,
+predecessor validator, xHCI wrappers/dispatch, opt-in v70 staging, host/native
+fault tests, strict collector and current docs. No caller-provided targets or
+plans. Keep256KiB full-prefix logging. No channel-frequency plan, frequency
+trim, DAC/VCO calibration, scanning, association/security or packet traffic.
+Full local/sanitizer and exact-stage VM checks precede unarmed installation.
+
+
+Implemented the fixed19-target mixed-bank G20 plan. The private plan selector
+retains immutable full addresses for this plan and the original base/register
+representation for prior plans. No arbitrary caller plan is exposed. Complete
+VGA admission validates all stored guards/replies and35 exact values. Host
+tests cover the reference-selected addresses/values, all266 I/O and267 cancel
+boundaries, malformed replies, guards, complete mismatch accounting and no
+replay. Native tests cover all38 command and228 guard positions, inherited
+prefix/VGA faults, packet-bit mutations and uncertain-transfer quarantine.
+All149 staging tests and138 historical recipe byte-identity checks pass.
+Four complete-prefix fixtures fit at most235613bytes within256KiB. Full
+build/regression/sanitizer and exact-stage VM checks precede installation;
+no native G20 result accepted yet.
+
+
+Full build and MCU/compact/bring-up, original strict and two-pass central,
+bank5/bank6 and logger regressions passed with the optional private address
+representation. New G20 engine and full VGA prerequisite validator both passed
+ASan/UBSan. Documentation links checked cleanly. Exact-stage GPT save/return
+and missing-workspace checks precede installation; native G20 pending.
+
+
+Default G20 source `b4be310b1ba3a13e88ecf8067927188d37605f66`, release
+`e75a52b56efa282b`, installed unarmed. Full build, Wi-Fi/old-plan/logger
+regressions and ASan/UBSan for the mixed-bank engine and complete VGA proof
+validator passed. All1079 malformed full-prefix cases were refused; four valid
+patterns fit at most235613bytes. Exact-stage GPT VM saved and byte-verified
+capture, passed offline exFAT checks and returned automatically with the
+selected tail_limit262144 confirmed. Missing-workspace refusal/return passed.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` remain, as does completed VGA
+release `de89daa6bdc3024e`. Older bank6 `7b329891c0606f1c` removed from ESP only
+after complete durable-backup byte equality. Preboot workspace clean:
+281files/673clusters/114directories, zero leaks, mismatches or errors; unmounted.
+Payload, pinned reference, fault/strict/sanitizer/regression checks, both VM
+receipts and run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-g20-b4be310/`.
+
+On return collect matching release/session FIRST. Require full prior central+
+bank5+bank6+VGA proof, all38 G20 command replies,76 guard triplets,19 indexed
+observations, exact mismatch accounting and complete startup prefix with both
+completion markers. No channel-frequency plan, trim, DAC/VCO or traffic in
+this trial. No reboot armed; native default G20 results pending.
+
+
+## 2026-10-25 — default G20 native return
+
+Collected source `b4be310b1ba3a13e88ecf8067927188d37605f66`, release
+`e75a52b56efa282b`, session `session-00065eae3ac86feb-00`. Exact native proof
+passed:266 submissions,228 guard reads,38 verified16-byte replies,19 ACKs and
+19 matching indexed readbacks. All76 MAC/CORE/DMA guard triplets passed;
+both mismatch fields zero. Central remains43/44 with only RF0:6=00; bank5
+remains68/68, bank6 38/38 and VGA35/35. Full235592-byte startup prefix within
+262144 capacity and both completion markers verified; no partial evidence
+promoted. This is the fixed reference default20MHz/G-band initialization,
+not a channel-frequency plan or calibrated radio acceptance.
+
+Ubuntu default, consumed one-shot and installed/recovery payload hashes passed.
+Offline exFAT/allocation checks clean283files/677clusters/115directories,
+zero leaks, mismatches or errors; workspace unmounted, no reboot armed.
+Archive: `~/.local/share/srvros/macbookpro11-2/wifi-rf-g20-b4be310/`.
+Next: audit captured board frequency trim and the reference DAC/VCO sequence.
+This run added no frequency trim, DAC/VCO calibration, channel-frequency plan,
+scanning, association/security or traffic. RF/connectivity remain untested.
+
+
+## 2026-10-25 — bounded fresh frequency-trim scope
+
+Pro PR19 owns Wi-Fi; G20 v70 is collected/archived at `538b711a`. No outstanding
+run or armed reboot. Fetched main remains `3647dc7c`; PR153/Air7,2 runtime
+`182d5fc0` edits desktop capture dispatch/staging, not Wi-Fi MCU/EFUSE ownership.
+PR154/Air6,1 owns desktop endurance. This candidate uses native integration base
+`d5bc4b3`; keep bounded opt-in Wi-Fi changes separate from desktop/scheduler work.
+
+Audit of pinned Linux v7.0 EEPROM code and shared helper confirms base byte3a,
+correction bytedb, signed-magnitude correction with bit7 positive, uint8 wrap,
+then trim capped atbf. The existing offline auditor incorrectly used two's
+complement for frequency correction and temperature metadata; RSSI is ordinary
+signed8 and must stay separate. This board has base44/correction00, so its trim
+remains44, but temperature bytef8 decodes+120, not the older reported-8. Dated
+journals preserve the prior audit; current interpretation is corrected before
+any native frequency write.
+
+Objective: fresh mapped logical blocks30/d0 only, requiring this captured
+board's NICfd11/1004 and base44/correction00, then one fixed RF0:22 write44
+and independent readback after complete G20 proof. No block0/factory-address
+bytes, no raw data logging, no OTP programming. Scope: fixed EFUSE read profile,
+private decoder/profile validator, guarded RF trim plan, xHCI/staging/tests and
+strict collector. Keep256KiB full-prefix capture. DAC/VCO pulses, frequency-plan
+tuning, scanning, association/security and traffic remain outside this trial.
+
+
+Implemented fixed logical30/d0 capture and native single-submission gate,
+correct signed-magnitude/uint8-wrap/cap decoding, exact board-profile admission,
+and the fixed RF0:22 write/read observation. Fresh fields tests cover every
+transfer/cancellation, field bit, command bit, unmapped/control/timeout refusal
+and all65536 decoder inputs. Native tests cover every transfer phase of both
+fixed blocks, G20 ownership and uncertainty quarantine, plus every RF command/
+guard position, all packet bits and103 prerequisite/state faults. All150
+staging tests and140 historical recipe byte-identity checks pass. Four valid
+full-prefix proofs fit at most236822bytes, and108 malformed proofs are refused.
+Full build/regression/sanitizer and exact-stage VM checks precede installation;
+no physical trim readback accepted yet. DAC/VCO remains later work.
+
+
+Full build, MCU/compact, original strict and two-pass RF plans and logger
+regressions passed. ASan/UBSan passed for the trim engine, complete G20
+validator and full bring-up/fresh-EFUSE suite. Native xHCI tests passed all new
+command/guard and fresh-field transfer paths with no-I/O refusal and quarantine.
+The historical redacted capture was re-audited without exposing address bytes;
+trim remains68 and temperature metadata is+120 calibration units, unvalidated.
+Exact-stage GPT save/return and missing-workspace checks precede installation.
+
+
+Fresh-fields/trim source `b15867d7c87f817e54d5c7bec0c111db7b0c1f74`, release
+`4ec251f79c97532b`, installed unarmed. Full build, relevant RF/EFUSE/controller/
+logger regressions, offline audit tests and ASan/UBSan for trim, complete G20
+proof and fresh EFUSE capture passed. All108 malformed full-prefix cases were
+refused; four valid patterns fit at most236822bytes. Exact-stage GPT VM saved
+and byte-verified capture, passed offline exFAT checks and returned automatically,
+with tail_limit262144 confirmed. Missing-workspace refusal/return passed.
+
+Ubuntu default and known-good `e47dca3a6b30c6c1` remain, as does completed G20
+release `e75a52b56efa282b`. Older VGA `de89daa6bdc3024e` removed from ESP only
+after complete durable-backup byte equality. Preboot workspace clean:
+283files/677clusters/115directories, zero leaks, mismatches or errors; unmounted.
+Payload, pinned references and hashes, corrected redacted metadata audit, local/
+fault/strict/sanitizer checks, both VM receipts and run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-trim-b15867d/`.
+
+On return collect matching release/session FIRST. Require full prior proof,
+fresh mapped30/d0 profile/counters/guards, two RF trim replies, four guard
+triplets, exact one-value mismatch accounting and entire prefix with both
+completion markers. No DAC/VCO, channel-frequency plan or traffic in this
+trial. No reboot armed; native fresh-field/trim results pending.
+
+
+## 2026-10-25 — fresh board fields and frequency-trim native return
+
+Collected source `b15867d7c87f817e54d5c7bec0c111db7b0c1f74`, release
+`4ec251f79c97532b`, session `session-00065eaec03cebac-00`. Exact full-prefix
+validation passed. Fresh fixed mapped logical30/d0 fields passed the captured
+board profile:24 reads,2 writes,2 polls,2 blocks,26 submissions, phase15,
+no failure/guard errors and no raw data logging. RF0:22 expected68/read68;
+14 operations,12 guard reads,2 verified replies,1 ACK,1 matching observation
+and4 valid MAC/CORE/disabled-DMA guard triplets. Both mismatch fields zero.
+Central remains43/44 with only RF0:6=00; bank5 68/68, bank6 38/38, VGA35/35
+and G20 19/19. Entire236812-byte startup prefix within262144 capacity and both
+completion markers verified. This accepts bounded board-profile and trim
+transport/guard/readback evidence; calibrated radio operation is not tested.
+
+Ubuntu default, consumed one-shot and installed/recovery payload hashes passed.
+Offline exFAT/allocation clean285files/681clusters/116directories, zero leaks,
+mismatches or errors; workspace unmounted, no reboot armed. Durable archive:
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-trim-b15867d/`.
+Next: implement a bounded reference DAC pulse/VCO initiation with preserved
+register bits, guarded replies and appropriate self-clearing observation.
+No DAC/VCO pulses, channel-frequency tuning, scanning, association/security
+or traffic occurred in this run.
+
+## 2026-10-25 — bounded DAC/VCO initiation scope
+
+Fresh-field/trim native evidence is collected and archived at `2c40c368`.
+Fetched main `6e06bfb0` includes desktop endurance/capacity work; open PR155
+owns Air7,2 document progress and PR156 Air6,1 audio/USB overlap. Their inspected
+changes do not own Wi-Fi RF/MCU state. Keep integration base `d5bc4b3` for this
+bounded trial. Pro PR19 owns fixed RF initialization and native evidence.
+
+Objective: reproduce the pinned Linux v7.0 power-up DAC bit7 set/clear/set in
+RF0:73 and initiate RF0:4 bit7 VCO calibration, after exact fresh trim proof.
+Each modification reads the register afresh and preserves other bits. Capture
+one final read of each register; a self-cleared VCO bit is observed, never a
+claim of successful radio calibration. Scope: separate fixed MCU engine,
+native xHCI ownership, opt-in staging, fault tests and strict saved-log proof.
+No channel tuning, MAC enable, scanning, association or traffic. Keep the
+256KiB full-prefix capture; do not widen existing profile gates.
+
+Implemented separate fixed DAC/VCO engine and native ownership after complete
+exact trim proof. Tests pass all70 I/O and71 authorization boundaries, every
+command reply byte/bit, guard/proof mutation, all256 preserved-byte patterns
+with VCO clear/still-set final observations, and no replay. Native xHCI tests
+pass all70 positions,113 prerequisite/state faults, packet-bit refusal and
+transport quarantine. All151 staging tests and142 historical recipe identity
+checks pass. Strict full-prefix tests accept three valid observation patterns
+at most241410bytes and reject319 malformed proofs. Full build, prior RF/MCU/
+EFUSE/logger regressions, ASan/UBSan for new engine/exact trim validator and
+499 documentation links pass. Native DAC/VCO results remain pending; next
+checkpoint is exact-stage GPT save/return and missing-workspace rehearsal,
+then install with Ubuntu and known-good recovery preserved.
+
+
+DAC/VCO source `cfc0cfddd8475250393a1797f1d327d1c242caf7`, release
+`d27f0d2f10e5ae0b`, installed unarmed. Exact-stage GPT VM saved diagnostics,
+verified offline bytes/clean exFAT and returned automatically;256KiB snapshot
+capacity confirmed. Missing-workspace refusal/return passed. Ubuntu default
+and known-good `e47dca3a6b30c6c1` remain, as does completed trim release
+`4ec251f79c97532b`. Older G20 `e75a52b56efa282b` removed from ESP only after
+complete durable-backup byte equality. Preboot workspace clean:
+285files/681clusters/116directories, zero leaks, mismatches or errors; unmounted.
+Payload, pinned references, tests/sanitizers, strict collector, both VM receipts
+and run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-cal-cfc0cfd/`.
+
+On return collect matching release/session FIRST. Require all prior proof,
+fresh fields and exact trim68 before the fixed10-command DAC/VCO plan;
+verify70 ordered operations,20 guard triplets, all replies and preserved RMW
+bits. Record both final values and VCO-clear observation without claiming
+successful radio calibration. Entire prefix and both completion markers are
+required. No channel tuning, MAC enable or traffic. No reboot armed; native
+DAC/VCO initiation results pending.
+
+
+## 2026-10-25 — DAC/VCO initiation native return
+
+Collected source `cfc0cfddd8475250393a1797f1d327d1c242caf7`, release
+`d27f0d2f10e5ae0b`, session `session-00065eaf209e71b6-00`. Strict full-prefix
+proof passed70 operations/submissions,60 guard reads,10 verified replies,
+4 ACKs,6 read observations and20 valid MAC/CORE/disabled-DMA guard triplets.
+Fresh mapped fields, trim68 and all earlier initialization proof passed.
+Observed RF0:73 read/write sequence93/93/93/13/13/93, preserving all lower
+bits; final93. RF0:4 initial30, writeb0, finalb0: bit7 remained set at this
+immediate observation. VCO-clear flag0 is an observed result, not a transport
+failure or proof of completed calibration. Do not promote to calibrated RF.
+
+Entire241416-byte startup prefix within262144 capacity and both completion
+markers saved. Ubuntu default, consumed one-shot and installed/recovery hashes
+passed. Offline exFAT/allocation clean287files/685clusters/117directories,
+zero leaks/mismatches/errors; unmounted, no reboot armed. Durable archive:
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-cal-cfc0cfd/`.
+Next: bounded delayed read-only VCO observation after this exact initiation
+proof. No repeated initiation pulse, forced bit clear, channel tuning, MAC
+enable, scanning, association/security or traffic before reviewing that result.
+
+## 2026-10-25 — bounded delayed VCO observation scope
+
+DAC/VCO native results are collected/archived at `ce20d9ae`; no outstanding
+run or reboot. Fetched main `2c1ffc6b` includes desktop document and audio/USB
+work; PR157 currently records Air7,2 document lifecycle scope. Inspected changes
+do not own Wi-Fi RF/MCU state. Retain integration base `d5bc4b3` for Pro PR19.
+
+Objective: after the complete captured DAC/VCO initiation profile, read RF0:4
+six times with fixed inter-sample delays10/40/50/100/300/500ms (one second total
+requested delay, excluding transport time). No additional RF write or repeated
+start pulse. Record all values, first observed clear and final bit state;
+a clear alone does not establish calibrated radio operation. Scope: separate
+bounded MCU observation/delay state, native single-submission/timer ownership,
+opt-in staging, fault tests and full-prefix collector. Keep256KiB capacity,
+MAC disabled and existing strict profiles unchanged. No tuning or traffic.
+
+Implemented fixed delayed-read engine, exact captured initiation validator and
+native independent delay/command admission. Host tests pass all42 I/O,
+49 authorization and6 delay failure boundaries, all64 clear/set patterns,
+reply/guard/proof mutations and no replay. Native tests pass all42 positions,
+125 prerequisite/state faults, every packet bit, every fixed wait boundary,
+wrong duration/order refusal and timer-failure quarantine. All152 staging tests
+and144 historical recipe byte-identity checks pass. Strict whole-prefix tests
+accept three valid patterns at most244749bytes and refuse229 malformed proofs.
+Prior RF/MCU/EFUSE/logger regressions, ASan/UBSan for the new engine and exact
+initiation validator, full build and499 local documentation links pass.
+Next checkpoint: exact-stage GPT save/return and missing-workspace rehearsal,
+then install while retaining Ubuntu/default and known-good recovery. Native
+delayed VCO results remain pending; no reboot armed.
+
+
+Delayed VCO source `70a3f45dca31abf135d87a60b801718c52700201`, release
+`cd775567c529231f`, installed unarmed. Exact-stage GPT VM saved diagnostics,
+verified offline bytes/clean exFAT and returned automatically;256KiB capture
+confirmed. Missing-workspace refusal/return passed. Ubuntu default and
+known-good `e47dca3a6b30c6c1` retained, as is completed initiation release
+`d27f0d2f10e5ae0b`. Older trim `4ec251f79c97532b` removed from ESP only after
+complete durable-backup byte equality. Preboot workspace clean:
+287files/685clusters/117directories, zero leaks/mismatches/errors; unmounted.
+Payload, references, local/fault/strict/sanitizer checks, both VM receipts and
+run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-wait-70a3f45/`.
+
+On return collect matching release/session FIRST. Require full earlier proof
+and exact pending initiation profile before six fixed waits/read-only commands:
+42 operations,36 guard reads,6 replies/delay receipts,12 guard triplets,
+six indexed values, cumulative requested delay and derived first-clear result.
+Both completion markers and entire prefix are required. A clear or still-set
+bit is an observation; no calibrated-radio claim. No additional RF pulse or
+forced clear, tuning, MAC enable or traffic. No reboot armed; native delayed
+VCO results pending.
+
+
+## 2026-10-25 — delayed VCO native return
+
+Collected source `70a3f45dca31abf135d87a60b801718c52700201`, release
+`cd775567c529231f`, session `session-00065eafa382c5ce-00`. Strict full-prefix
+proof passed42 operations/submissions,36 guard reads,6 verified replies,
+6 exact successful delay receipts and12 MAC/CORE/disabled-DMA guard triplets.
+Complete captured pending initiation and all earlier proof passed. Six RF0:4
+values were30, first_clear=1, final30. The start bit therefore cleared by the
+first delayed observation and remained clear at all later samples. Requested
+cumulative delays were10/50/100/200/500/1000ms, excluding command/guard/logging
+time. This does not establish an exact completion latency or calibrated radio
+operation. The delayed phase issued no additional RF writes or start pulses.
+
+Entire244743-byte prefix within262144 capacity and both completion markers
+verified. Ubuntu default, consumed one-shot and installed/recovery hashes
+passed. Offline exFAT/allocation clean289files/689clusters/118directories,
+zero leaks/mismatches/errors; unmounted, no reboot armed. Durable archive:
+`~/.local/share/srvros/macbookpro11-2/wifi-rf-wait-70a3f45/`.
+Next: audit the remaining pinned reference RX-path/TX-DAC settings and
+calibration/channel prerequisites before a bounded next implementation. No
+channel tuning, MAC enable, scanning, association/security or traffic accepted.
+
+## 2026-10-25 — one-chain RX-path/TX-DAC scope
+
+Delayed VCO results are collected/archived at `7144c8ed`; no outstanding run
+or reboot. Main remains `2c1ffc6b`. PR157 owns Air7,2 application lifecycle;
+PR158 owns Air6,1 continuous audio/USB and desktop harness changes. Inspected
+files do not own Wi-Fi MCU/RF/baseband state. Pro PR19 retains integration
+base `d5bc4b3`; no unrelated desktop changes in this bounded candidate.
+
+Pinned Linux v7.0 mt76x02_init_device selects chainmask101 for MT7610;
+fresh NICfd11 confirms one RX/TX stream. mt76x02_phy_set_rxpath clears AGC0
+bits4/3, and mt76x02_phy_set_txdac clears TXBE5 bits1/0. Targets2300/2714 are
+baseband controls, not MAC enable. Objective: after full delayed VCO clear
+proof, fresh-read/modify/write/read these two targets, preserving all other
+bits, with MAC/CORE/disabled-DMA guards before and after each target. Scope:
+fixed two-target engine, native ownership, staging/tests and strict collector.
+No RF data write, channel tuning, TX/RX MAC enable or traffic. Keep256KiB full
+capture; refuse all-ones/uncertain transfers and never replay an attempted write.
+
+Implemented two-target masked RMW with18 ordered USB transfers, four complete
+MAC/CORE/DMA guard triplets and exact preserved-bit readback. Host tests pass
+1024 initial-word pairs, every transfer/cancellation/guard/readback failure,
+write-byte/proof mutation, all-ones refusal and no replay. Complete delayed
+VCO clear validator passes every reply-bit/guard/counter mutation test. Native
+xHCI tests pass all18 positions,134 prerequisite/state faults, every write bit,
+no-USB refusal and failure quarantine. All153 staging tests and146 historical
+recipe identity checks pass. Strict full-prefix tests accept three valid word
+patterns at247004bytes and reject178 malformed proofs. Prior RF/MCU/EFUSE/
+logger regressions, full build, ASan/UBSan for the new engine and VCO validator,
+499 documentation links and nine pinned-reference hashes pass. Next checkpoint:
+exact-stage GPT save/return and missing-workspace rehearsal before installation.
+Native path setup remains pending; no reboot armed.
+
+
+One-chain path source `67e5e5afa4c3d2fd4a8962d0d2f6088e24a2aa35`, release
+`0aaf20927414846c`, installed unarmed. Exact-stage GPT VM saved diagnostics,
+verified offline bytes/clean exFAT and returned automatically;256KiB capture
+confirmed. Missing-workspace refusal/return passed. Ubuntu default and
+known-good `e47dca3a6b30c6c1` retained, as is completed delayed VCO release
+`cd775567c529231f`. Older initiation `d27f0d2f10e5ae0b` removed from ESP only
+after complete durable-backup byte equality. Preboot workspace clean:
+289files/689clusters/118directories, zero leaks/mismatches/errors; unmounted.
+Payload, pinned reference audit/hashes, local/fault/strict/sanitizer checks,
+both VM receipts and run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-path-67e5e5a/`.
+
+On return collect matching release/session FIRST. Require full prior/delayed
+VCO clear proof,18 ordered path receipts,16 reads/2 writes/2 exact masked
+readbacks and4 complete guard triplets, then both completion markers and
+entire prefix. Review actual before/after at2300/2714 with only18/3 cleared.
+This phase adds no RF data write, channel tuning, MAC enable or traffic.
+No reboot armed; native one-chain path setup results pending.
+
+
+## 2026-10-25 — one-chain baseband path native return
+
+Collected source `67e5e5afa4c3d2fd4a8962d0d2f6088e24a2aa35`, release
+`0aaf20927414846c`, session `session-00065eb0051574ff-00`. Strict full-prefix
+proof passed18 ordered USB transfers,16 reads/2 writes/2 verified targets
+and4 complete MAC/CORE/disabled-DMA guard triplets. AGC0 at2300 read21400
+before and after clearing18; TXBE5 at2714 read0 before and after clearing3.
+These bits were already clear; actual before/after words remained unchanged.
+Both fixed writes and readbacks completed with all unrelated bits preserved.
+Full earlier proof, including fresh one-chain board fields and six delayed
+VCO30 observations, passed. This accepts captured-unit baseband path setup;
+it does not establish calibrated radio function or network connectivity.
+
+Entire247000-byte startup prefix within262144 capacity and both completion
+markers verified. Ubuntu default, consumed one-shot and installed/recovery
+hashes passed. Offline exFAT/allocation clean291files/693clusters/119directories,
+zero leaks/mismatches/errors; workspace unmounted, no reboot armed. Archive:
+`~/.local/share/srvros/macbookpro11-2/wifi-path-67e5e5a/`.
+Next: audit remaining pinned calibration/channel prerequisites and define the
+next bounded phase. No further RF writes, channel tuning, MAC enable, scanning,
+association/security or traffic accepted by this run.
+
+## 2026-10-25 — channel/calibration prerequisite inventory scope
+
+Path native results are collected/archived at `05d2f888`; no outstanding run
+or reboot. Main `afb2c3b0` merged Air6,1 automatic audio/USB; PR157 remains
+Air7,2 application lifecycle. Inspected shared dispatch/staging changes do not
+own Wi-Fi RF/baseband state. Pro PR19 retains integration base `d5bc4b3`.
+
+Pinned v7.0 USB start calls MAC startup before power-on firmware calibration;
+that calibration also uses channel context, TX ALC/IBI9 save/restore, timed
+firmware commands and optional TSSI MAC transitions. Do not transplant an
+isolated calibration command into the current MAC-disabled phase. The remaining
+USB init tail configures beacon state, US_CYC low8=1e and TXOP583f; channel setup
+has separate BBP bandwidth, band/CCA, synthesizer, gain and power prerequisites.
+The user confirmed United States testing; this is context, not permission to
+infer EEPROM power validity or enable unbounded channel/transmit operation.
+
+Objective: after exact captured path proof, read a fixed12-target inventory of
+USB timing/DMA, beacon timing, BBP bandwidth/path, band/CCA, TX SW/ALC and IBI9.
+Pre/post MAC0/COREf000f200/disabled-DMA triplets,18 reads total, no writes.
+Scope: fixed read-only engine, native gate, staging/tests and strict collector.
+Keep256KiB complete capture. Target values are observations, not accepted
+channel/calibration settings. No RF write, MAC enable, tuning, scan or traffic.
+
+Implemented fixed12-target/18-read inventory and exact captured path validator.
+Host tests pass every transfer/cancellation/all-ones/guard boundary and proof
+mutation/no replay. Exact path validator rejects all before/after-word bits,
+guard and completion/counter mutations. Native tests pass all18 reads and144
+prerequisite/state faults with no-USB refusal and uncertainty quarantine.
+All154 staging tests and148 historical recipe identity checks pass. Strict
+whole-prefix tests accept three target patterns at249956bytes and reject204
+malformed proofs. Prior RF/MCU/EFUSE/logger regressions, ASan/UBSan for inventory
+and exact path validator, full build,499 documentation links and nine new
+pinned-reference hashes pass. Next: exact-stage GPT save/return and missing-
+workspace rehearsal, then install with Ubuntu/known-good recovery retained.
+Native target inventory remains pending; no reboot armed.
+
+
+Inventory source `4dd830fd0f7254ab1f02fbb6740b8b2dd5cb96cb`, release
+`80a6781c0b08290c`, installed unarmed. Exact-stage GPT VM saved diagnostics,
+verified offline bytes/clean exFAT and returned automatically;256KiB capture
+confirmed. Missing-workspace refusal/return passed. Ubuntu default and
+known-good `e47dca3a6b30c6c1` retained, as is accepted path release
+`0aaf20927414846c`. Older delayed VCO `cd775567c529231f` removed from ESP only
+after complete durable-backup byte equality. Preboot workspace clean:
+291files/693clusters/119directories, zero leaks/mismatches/errors; unmounted.
+Payload, pinned channel/path reference audits/hashes, local/fault/strict/
+sanitizer checks, both VM receipts and run/checkpoint archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-channel-state-4dd830f/`.
+
+On return collect matching release/session FIRST. Require full prior/path
+proof,18 ordered reads/receipts,12 indexed non-all-ones target observations,
+2 guard triplets, both completion markers and entire prefix. Review actual
+values against the dependency audit before choosing any further settings.
+No target acceptance from transport completion; no additional RF write,
+tuning, MAC enable or traffic. No reboot armed; native inventory pending.
+
+
+## 2026-10-25 — prerequisite inventory failed at IBI9
+
+Collected source `4dd830fd0f7254ab1f02fbb6740b8b2dd5cb96cb`, release
+`80a6781c0b08290c`, session `session-00065eb0816b56d4-00`. Strict success
+collector refused the missing success markers. A separate failure collector
+validated the actual unchanged log's complete earlier proof with required final
+failure markers, exact bounded stop, saved prefix and recovery state. No failed
+or partial inventory is promoted.
+
+The12 successful USB receipts cover three initial guards, eight valid target
+observations and the all-ones IBI9 read:2a4=0,1340=583f,2004=2,2300=21400,
+2700=0,132c=4,141c=ffe4,1330=601,2124=ffffffff. USB reportedok1; this is a
+value-admission refusal (status4), not a proven transport error. No writes
+occurred in this phase. Remaining13b0/1114/238 targets and all postguards were
+NOT_READ; zero tail rows must not be interpreted as observations. US_CYC0
+still differs from the pinned USB-tail low8=1e requirement; TXOP matches583f.
+IBI9 semantics need reference/independent evidence before deciding whether an
+all-ones value is legitimate there. No gate relaxed or automatic replay armed.
+
+Entire249442-byte startup prefix within262144 capacity saved with explicit
+firmware/laptop completed=NO markers. Ubuntu default, consumed one-shot and
+installed/recovery hashes verified. Offline exFAT/allocation clean:
+293files/697clusters/120directories, zero leaks/mismatches/errors; unmounted.
+Failure evidence archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-channel-state-4dd830f/`.
+Next: bounded IBI9 semantic/read-path audit, preserving this failure and the
+original strict collector. No RF writes, tuning, MAC enable or traffic accepted.
+
+## 2026-10-25 — IBI9 semantic audit and separate observation scope
+
+The v75 failure is collected/archived at `a268708b`; no outstanding run or
+reboot. Main `3ab4a385` merged Air6,1 audio-result documentation. PR160 owns
+Air6,1 desktop I/O latency; PR157 owns Air7,2 application lifecycle. Inspected
+files do not own Wi-Fi baseband/MCU state; Pro PR19 retains base `d5bc4b3`.
+
+Independent live Ubuntu debugfs reads on this exact adapter returned IBI9
+ffffffff twelve times in four interleaved samples, with ASIC76100002 and
+COREf000f200 throughout, adjacent IBI8/10=0 and normal path/timing values.
+Only the debug read selector changed and was restored; no regval write,
+reset/unbind/channel change occurred. Driver binding and default route stayed
+unchanged. This is the working post-calibration Linux state, not native parity.
+Pinned Linux saves IBI9, writesffffff7e during calibration, then restores it;
+the vendor reference describes it as MAC control of TXBE1/2. All-ones here is
+therefore not sufficient evidence of transport failure or an erased device.
+
+Objective: preserve strict v75 refusal semantics and add a separate read-only
+observation profile admitting all-ones only at fixed IBI9 index8, recording an
+explicit derived mask. Keep all11 other target all-ones refusals and all MAC/
+CORE/DMA guards strict, require complete postguards before inventory completion.
+No IBI9 value/register acceptance from this comparison. Scope: policy-separated
+engine/native/staging/tests/collector; full earlier profile unchanged. No writes,
+tuning, MAC enable or traffic. Keep256KiB capture and archive the Linux audit.
+
+Implemented separate policy flag/admission and observation log family/mask.
+Original strict engine still refuses all-ones at every target; new observation
+permits it only at IBI9, with tests for cross-policy refusal and derived mask.
+Host tests pass every transfer/cancellation/guard/other-target all-ones boundary,
+proof mutation and no replay. Native tests pass all18 reads and146 prerequisite/
+state/policy faults, including mode/state disagreement, no-USB refusal and
+quarantine. All155 staging tests and150 historical recipe identity checks pass.
+Strict full-prefix observation tests accept both IBI9 patterns at250247bytes
+and reject204 malformed proofs. Full build, prior RF/MCU/EFUSE/logger regressions,
+ASan/UBSan for both strict/observation engines and499 documentation links pass.
+Independent live Linux audit is archived/hash-verified at
+`~/.local/share/srvros/macbookpro11-2/linux-ibi9-audit-d6d1704/`.
+Next: exact-stage GPT save/return and missing-workspace rehearsal before install.
+Native observation results pending; failed v75 unchanged; no reboot armed.
+
+
+## 2026-10-25 — Separate IBI9 observation trial installed
+
+Source `5426417e8e5376211a4d012b96cc2482c44ea596`, release
+`2351cfa9efee6bb1`, config `ram-usb-wifi-fw-v76-laptop-probe-0e535900-auto-return`.
+Exact-stage GPT save/return and missing-workspace refusal/return checks passed.
+Installed manifest and known-good recovery `e47dca3a6b30c6c1` verified. Ubuntu
+remains default; no reboot is armed. Preboot offline exFAT/allocation checks
+passed:293files/697clusters/120directories, zero leaks/mismatches/errors;
+workspace unmounted. Prior failed v75 payload/evidence retained and archived;
+accepted path payload removed from ESP only after durable archive byte equality.
+
+Separate policy admits raw all-ones only for fixed IBI9 target8, derives the
+mask from actual reads and requires every remaining read and postguard. It does
+not accept IBI9 settings or calibration; strict v75 refusal remains unchanged.
+Full prior path/RF proof remains required. Candidate, helpers, tests, VM receipts
+and independent Linux audit are archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-channel-observe-5426417/`.
+Next: after readiness, cold-cycle Wi-Fi for10s while powered off, keeping the
+workspace connected. Automatic capture saves and returns to Ubuntu. Collect
+matching release/session first using the separate strict observation collector;
+preserve any failure. No photos or commands required during the trial.
+
+
+## 2026-10-25 — v76 saved return: earlier VCO-clear timing refusal
+
+Source `5426417e`, release `2351cfa9efee6bb1`, session
+`session-00065eb0f7e9e13b-00`; automatic disk collection verified the full
+243533-byte startup prefix within262144 capacity. Both final markers explicitly
+report completed=NO. Strict success collector refused; separate failure checker
+validated unchanged log bytes and all earlier proof through DAC/VCO initiation.
+
+Initiation completed70 operations,60 guard reads,10 exact replies,4 ACKs and
+20 valid MAC0/COREf000f200/disabled-DMA guard triplets. Values were
+147,147,147,19,19,147,48,176,147,48: final RF0:4 bit7 cleared before the
+immediate final sample, unlike the historical final176 profile. This observes
+self-clear, not successful radio calibration. `wifi_rf_wait_owned` requires
+`mt76_rf_cal_pending_profile_valid`, whose exact final176 comparison refused
+this variant. Wait reports status1/attempted0/operations0/delays0; later path and
+channel observation never executed. Zero wait rows are placeholders, not reads.
+
+Ubuntu default, consumed one-shot and current/recovery manifests verified.
+Offline exFAT clean295files/701clusters/121directories, zero leaks/mismatches/
+errors; unmounted and unarmed. Failure archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-channel-observe-5426417/`.
+Next: bounded explicit early-clear admission audit and regression coverage,
+retaining strict historical profile and failed candidate. No automatic retry,
+MAC enable, channel tuning or traffic; requested IBI9 inventory remains pending.
+
+
+## 2026-10-25 — Early VCO-clear observation scope
+
+Collected v76 failure at `c399ad56`; no outstanding run or armed reboot.
+Fetched main `c4bee5cd` (PR157 desktop lifecycle merge); PR160 owns Air6,1
+I/O latency. Their changed files do not own RF/MCU profile logic; retain Pro
+integration base `d5bc4b3` for this bounded trial, without unrelated merges.
+Objective: separate explicit v77 early-clear observation mode admitting only
+captured final RF0:4=30 or historicalb0 with every other initiation byte/guard
+unchanged. Keep the original pending-profile predicate and v76 path strict.
+Run all six guarded delayed reads in either case; require exact all30 delayed
+profile before path/inventory. Do not skip waits or repeat pulses. Scope:
+MT76 profile helper, native mode, staging, host/USB tests and strict collector.
+No new register writes, channel tuning, MAC enable, calibration acceptance or
+traffic. Preserve both failed inventories and durable recovery.
+
+
+Implemented mode55 with an explicit v77 token and exact cleared-profile helper;
+the original pending helper/modes remain strict. Both patterns retain all six
+waits and require the captured all30 delayed profile before inventory. Host
+calibration tests mutate every profile word/guard and test all256 final bytes.
+USB tests pass all42 wait operations,128 prerequisite/state/mode faults, all six
+delays/no replay and18 downstream ownership positions. Full xHCI suite,156
+staging checks,152 historical recipe identities,292 malformed full-prefix
+collector cases, ASan/UBSan and full build pass. Native result remains pending.
+Next: exact-stage VM save/return and missing-workspace checks, then install.
+
+
+## 2026-10-25 — Early-clear-aware inventory installed
+
+Source `f5549279821aeafb9b84226492bf1996523370af`, release
+`b2369fab9ef32f11`, config `ram-usb-wifi-fw-v77-laptop-probe-0e535900-auto-return`.
+Exact-stage GPT save/return and missing-workspace refusal/return passed.
+Installed/current hashes verified; known-good `e47dca3a6b30c6c1` retained;
+Ubuntu default unchanged. Failed v76 payload remains installed and archived.
+Older failed v75 payload removed from ESP only after full byte equality to its
+durable archive. Offline preboot checks clean295files/701clusters/121directories,
+zero leaks/mismatches/errors; workspace unmounted and no reboot armed.
+
+Candidate/VM receipts/helpers/tests archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-vco-ready-f554927/`.
+After readiness, cold-cycle Wi-Fi10s while off and leave workspace connected.
+Automatic capture saves results and returns to Ubuntu; no photos or commands.
+Collect matching release/session first with `vco-ready/collect_return.py` and
+require complete prior proof, mutually exclusive VCO prerequisite receipt,
+all six delayed reads and all18 inventory/postguard receipts. Preserve failure;
+no automatic calibration, MAC enable, tuning or traffic.
+
+
+## 2026-10-25 — v77 complete native inventory observation
+
+Source `f5549279821aeafb9b84226492bf1996523370af`, release
+`b2369fab9ef32f11`, session `session-00065eb1475df12a-00`. Strict collector
+validated the full earlier proof, exact early-clear variant and all six delayed
+reads (all30, first_clear1), path setup and complete read-only inventory.
+Inventory:18 ordered successful USB receipts,12 target values,6 guard reads in
+2 complete triplets, zero writes. Both boundary guards MAC0/COREf000f200/
+DMA40000050 passed. The actual values were:
+
+| Address | Observed value |
+| --- | --- |
+| 02a4 | 00000000 |
+| 1340 | 0000583f |
+| 2004 | 00000002 |
+| 2300 | 00021400 |
+| 2700 | 00000000 |
+| 132c | 00000004 |
+| 141c | 0000ffe4 |
+| 1330 | 00000601 |
+| 2124 | ffffffff |
+| 13b0 | 2f2f1b1b |
+| 1114 | 00000640 |
+| 0238 | 00c00020 |
+
+Derived all-ones mask100 records only IBI9; no register or calibration value is
+accepted by this observation. Historical strict refusal remains unchanged.
+Full250364-byte startup prefix within262144 capacity and both success markers
+saved. Ubuntu default, consumed one-shot and current/recovery hashes verified.
+Offline exFAT/allocation clean297files/705clusters/122directories, zero leaks,
+mismatches or errors; unmounted and unarmed. Evidence durably archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-vco-ready-f554927/`.
+Next: bounded USB-tail timing audit (US_CYC0 still lacks pinned low8=1e), then
+channel-specific preparation/calibration dependencies. No automatic writes,
+MAC enable, scanning or traffic; Wi-Fi connectivity remains untested.
+
+
+## 2026-10-25 — USB microsecond-cycle timing scope
+
+Collected v77 at `9819fcd1`; no outstanding run or armed reboot. Fetched main
+`b35b8895` (PR160 desktop I/O merge); PR162 owns compositor modal readiness.
+No RF/MT76 ownership overlap; retain Pro integration base `d5bc4b3` without
+unrelated desktop merges. Pinned Linux USB initialization sets US_CYC_CFG low8
+to1e after hardware/beacon initialization; native v77 observed full02a4=0.
+Objective: explicit v78 timing-only stage after complete v77 inventory proof,
+one guarded fresh-read/masked-write/independent-readback at02a4; preserve upper24,
+require captured fresh0 before native write and readback1e. Nine USB transfers,
+eight reads/one write, two MAC/CORE/disabled-DMA guard triplets, no replay.
+Scope: bounded MT76 engine/native/staging/host+USB tests/strict collector.
+No USB DMA changes, RF writes, channel tuning, MAC enable or traffic. Preserve
+historical profiles, failures and known-good recovery; native result pending.
+
+
+Implemented a separate nine-operation USB timing engine with one masked
+low-byte write and independent verification. Native mode56 requires exact v77
+inventory completion/values/guards and refuses a changed fresh value before
+write. Host tests cover1024 upper-word preservation cases, every transfer/
+authorization/guard/readback boundary, payload/counter mutation and no replay;
+all12 prerequisite words and both full guards are bit-mutated. USB tests pass
+all9 transfer positions and157 prerequisite/state/profile faults, no-USB refusal,
+no replay and quarantine. Full xHCI suite,157 staging tests,154 historical
+recipe identities,105 malformed collector cases, full build and ASan/UBSan pass.
+Complete synthetic prefix251631bytes remains within262144 capacity. Next:
+exact-stage VM save/return and missing-workspace rehearsal before install.
+Native timing readback remains pending; no radio-function acceptance.
+
+
+## 2026-10-25 — USB cycle timing trial installed
+
+Source `da8b7fce6d4ff8bf6e4f18283f05cf0dc8e23441`, release
+`5c86ad12e5f185ca`, config `ram-usb-wifi-fw-v78-laptop-probe-0e535900-auto-return`.
+Exact-stage GPT save/return and missing-workspace refusal/return passed.
+Installed/current hashes verified; Ubuntu default and known-good recovery
+`e47dca3a6b30c6c1` retained. Completed v77 payload remains installed/archived;
+failed v76 payload removed from ESP only after full durable archive byte equality.
+Offline preboot exFAT/allocation clean297files/705clusters/122directories,
+zero leaks/mismatches/errors; workspace unmounted and no reboot armed.
+
+Candidate/helpers/tests/reference audit/VM evidence archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-usb-cycle-da8b7fc/`.
+After readiness, cold-cycle Wi-Fi10s while off; leave workspace connected.
+SrvrOS saves results and returns automatically, no photos or commands needed.
+Collect matching release/session first with `usb-cycle/collect_return.py`;
+require full earlier proof, exact inventory, nine timing receipts, fresh0 to1e,
+postguards and both completion markers. Preserve failures; no automatic DMA
+change, RF write, channel tuning, MAC enable or traffic. Timing acceptance pending.
+
+
+## 2026-10-25 — Native USB microsecond-cycle timing accepted
+
+Source `da8b7fce6d4ff8bf6e4f18283f05cf0dc8e23441`, release
+`5c86ad12e5f185ca`, session `session-00065eb17b66ef77-00`. Full earlier
+initialization/path proof and exact12-target inventory passed. This run used
+the historical pending VCO variant (finalb0; pending1/early_clear0); all six
+delayed reads observed30. Together with v77's early-clear result, both explicit
+timing variants now have native observation evidence; historical modes unchanged.
+
+USB timing completed9 ordered transfers,8 reads/1 write,1 verified target and
+2 complete MAC0/COREf000f200/DMA40000050 guard triplets. Fresh02a4=0, masked
+low8 write1e and independent readback1e matched; upper24 remained0. No DMA
+change, RF write, MAC enable or traffic occurred in this phase. This accepts
+bounded captured-adapter timing setup, not calibrated radio functionality.
+
+Entire251629-byte startup prefix within262144 capacity and both success markers
+saved. Strict collector, Ubuntu default, consumed one-shot and current/recovery
+hashes passed. Offline exFAT/allocation clean299files/709clusters/123directories,
+zero leaks/mismatches/errors; unmounted and unarmed. Evidence durably archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-usb-cycle-da8b7fc/`.
+Next: audit channel-specific bandwidth/band/synthesizer and calibration ordering
+against pinned reference and fresh captured board fields. Scanning, association,
+security and Wi-Fi connectivity/UI remain pending; no automatic next write/reboot.
+
+
+## 2026-10-25 — Firmware bandwidth response observation scope
+
+Collected v78 at `412bced8`, unmounted/unarmed. Fetched main `f4e9fbcb`
+(PR162 modal readiness); PR164 owns Air6,1 Files startup/load. No MT76 overlap;
+retain Pro integration base `d5bc4b3` without unrelated desktop merges.
+Pinned USB channel setup starts with CMD_FUN_SET_OP1, BW_SETTING2,value0
+(20MHz), wait-for-reply, before baseband/band/CCA and RF synthesizer setup.
+Objective: explicit v79 observation after full v78 timing proof; one fixed
+sequence15 command, six strict guard reads in two triplets, bounded16-byte
+response observation. Validate framing/sequence, record payload words without
+claiming firmware semantic acknowledgment or bandwidth acceptance. No retry,
+follow-on baseband/RF/channel programming, MAC enable or traffic. Scope:
+MT76 bounded engine/native/staging/tests/collector and channel dependency audit.
+Calibration remains dependent on channel, gain/power and MAC lifecycle context;
+do not insert isolated calibration commands into disabled-MAC initialization.
+
+
+Implemented a fixed seven-operation bandwidth response observation engine and
+native ownership chain after exact v78 proof. Framing/sequence is checked;
+opaque payload words are never promoted to ACK acceptance. Host tests cover
+all response lengths0..1025, every header/payload bit, all I/O/cancel/guard/state
+boundaries and no replay. Native tests pass all7 positions,157 prerequisite/
+state faults, every command bit, no-USB refusal and error quarantine; full xHCI
+suite passes. All158 staging tests and156 historical recipe identity checks
+pass. Collector validates whole earlier proof and opaque reply consistency;
+89 malformed proofs rejected,252903-byte fixture within262144 capacity.
+Full build,ASan/UBSan and documentation links pass. Next: exact-stage save/return
+and missing-workspace VM checks before installing; native response pending.
+
+
+## 2026-10-25 — Firmware bandwidth response trial installed
+
+Source `83a869fc23f81602c0038f38dc420cad9dcaa6b5`, release
+`4c8563c12db92578`, config `ram-usb-wifi-fw-v79-laptop-probe-0e535900-auto-return`.
+Exact-stage GPT save/return and missing-workspace refusal/return passed.
+Installed/current hashes verified; Ubuntu default and known-good recovery
+`e47dca3a6b30c6c1` retained. Accepted v78 payload remains installed/archived;
+v77 payload removed from ESP only after full durable archive byte equality.
+Offline preboot exFAT/allocation clean299files/709clusters/123directories,
+zero leaks/mismatches/errors; workspace unmounted and no reboot armed.
+
+Candidate/helpers/tests/reference audit/VM evidence archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-bw-observe-83a869f/`.
+After readiness, cold-cycle Wi-Fi10s while off; leave workspace connected.
+Automatic capture saves and returns to Ubuntu; no photos or commands needed.
+Collect matching release/session first with `bw-observe/collect_return.py`;
+require full earlier proof, fixed sequence15 response framing, seven operation
+receipts/two guard triplets, opaque payload consistency, whole prefix and both
+completion markers. Preserve failures; audit actual response before semantic
+ACK admission. No later baseband/RF/channel programming, MAC enable or traffic.
+
+
+## 2026-10-25 — Native bandwidth response observation complete
+
+Source `83a869fc23f81602c0038f38dc420cad9dcaa6b5`, release
+`4c8563c12db92578`, session `session-00065eb1d61ee32d-00`. Full earlier
+initialization, selected VCO-timing profile, exact inventory and USB
+cycle setup proof passed. This run used the pending variant; six delayed reads30.
+Fixed CMD1/sequence15/function2/value0 sent16 bytes and returned16, cc13/residue1008.
+Response words were4a0f0008/00000002/00000000/4a0f0008. Seven operations,
+six strict guard reads in two MAC0/COREf000f200/DMA40000050 triplets and one
+exchange completed. `ack_validated=0` remains deliberate: the observation
+collector validates framing/sequence and payload consistency, not semantics.
+
+Whole252903-byte startup prefix within262144 capacity and both success markers
+saved. Ubuntu default, consumed one-shot and installed/recovery hashes passed.
+Offline exFAT/allocation clean301files/713clusters/124directories, zero leaks,
+mismatches/errors; unmounted and unarmed. Evidence durably archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-bw-observe-83a869f/`.
+Next: audit this exact ID/value echo and trailer, add the captured reply
+prerequisite with mutation tests, then validate bounded20MHz baseband/control-
+channel/band/CCA setup in the same next trial. A redundant ACK-only physical
+trial is unnecessary. RF synthesizer/channel selection, gain/power/calibration,
+MAC enable, scanning and connectivity remain pending; no automatic next reboot.
+
+
+## 2026-10-25 — Guarded20MHz baseband/channel-layout scope
+
+Collected v79 at `200ab19b`, unmounted/unarmed. Fetched main `296f86bb`
+(PR166 Air6,1 stress result); no other open shared-code scope beyond Pro PR19.
+Retain integration base `d5bc4b3`. Objective: validate exact captured bandwidth
+reply4a0f0008/2/0/4a0f0008, then apply five masked baseband/control-channel/
+band/CCA targets. Adjacent same-register reference RMW fields are grouped:
+CORE1 mask18 set0; AGC0 mask7300 set1000; TXBE0 mask3 set0; TX_BAND mask7
+set4; EXT_CCA maskfff set1e4 (preserve ED_CCA upper nibble). No intervening
+reference delay/command is removed by grouping. Native fresh before values
+must remain2/21400/0/4/ffe4; expected after2/21400/0/4/f1e4.45 ordered USB
+transfers,40 reads/5 writes/5 verified,10 strict guard triplets. Scope: MT76
+reply/profile+RMW engine/native/staging/tests/collector. Keep original bandwidth
+observation policy and historical recipes unchanged. Full proof must fit256KiB;
+no RF synthesizer/channel frequency, calibration, MAC enable or traffic.
+
+
+Implemented exact captured bandwidth response admission (every response word
+and guard bit mutation refused) and five-target grouped RMW engine. Original
+framing-only observation remains unchanged. Host tests cover5120 preserved-word
+cases, all45 transfer and46 authorization boundaries, readback/guard/all-ones
+refusals, packet mutation and no replay. Native tests pass all45 positions and
+165 prerequisite/state/profile faults, no-USB refusal/replay and quarantine;
+full xHCI suite passes. All159 staging tests and158 historical recipe identities
+pass. Full-prefix fixture258463bytes leaves3681bytes in262144;420 malformed
+proofs rejected. Full build,ASan/UBSan and documentation checks pass. Next:
+exact-stage save/return and missing-workspace VM rehearsal, then install.
+Baseband-layout native acceptance remains pending; no RF frequency/calibration.
+
+
+## 2026-10-25 — Guarded20MHz baseband trial installed
+
+Source `a89af59ab188f1767484b36d3f10e1eebc56c10b`, release
+`6a9fd32642e92a7b`, config `ram-usb-wifi-fw-v80-laptop-probe-0e535900-auto-return`.
+Exact-stage GPT save/return and missing-workspace refusal/return passed.
+Installed/current hashes verified; Ubuntu default and known-good recovery
+`e47dca3a6b30c6c1` retained. Completed v79 payload remains installed/archived;
+v78 payload removed from ESP only after full durable archive byte equality.
+Offline preboot exFAT/allocation clean301files/713clusters/124directories,
+zero leaks/mismatches/errors; workspace unmounted and no reboot armed.
+
+Candidate/helpers/tests/reference audit/VM evidence archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-bbp20-a89af59/`.
+After readiness, cold-cycle Wi-Fi10s while off and leave workspace connected.
+Automatic capture saves/returns to Ubuntu; no photos or commands needed.
+Collect matching release/session first with `bbp20/collect_return.py`; require
+whole earlier proof/exact bandwidth reply prerequisite,45 ordered transfers,
+all five captured fresh values/masked readbacks and10 guard triplets, complete
+256KiB prefix and both completion markers. Preserve failures; no automatic RF
+frequency programming, calibration, MAC enable, scan or traffic.
+
+
+## 2026-10-25 — Native20MHz baseband/control-channel/band/CCA layout accepted
+
+Source `a89af59ab188f1767484b36d3f10e1eebc56c10b`, release
+`6a9fd32642e92a7b`, session `session-00065eb25d7baa54-00`. Whole prior proof
+passed, including exact bandwidth response4a0f0008/2/0/4a0f0008 and separate
+`wifi-bw-validated: exact_profile=1`. All45 ordered USB transfers,40 reads/
+5 writes/5 verified targets and10 MAC0/COREf000f200/DMA40000050 guard triplets
+passed. CORE1:2->2, AGC0:21400->21400, TXBE0:0->0, TX_BAND:4->4,
+EXT_CCA:ffe4->f1e4. Every independent readback matched; ED_CCA upper nibblef
+and all other unmasked bits preserved. This accepts the captured masked layout,
+not RF frequency selection or calibrated radio functionality.
+
+The first local collector completed proof validation then failed recovery checks
+because a loop variable `b` shadowed the imported boot helper. Corrected only
+the local validator variable; original payload and native log unchanged. Added
+namespace-preservation regression to the full-prefix fixture/mutation suite;
+original/fixed collector and both logs are retained. Strict rerun verified Ubuntu
+default, consumed one-shot and installed/recovery hashes, then clean offline
+exFAT/allocation:303files/717clusters/125directories, zero leaks/mismatches/errors;
+unmounted/unarmed. Entire258464-byte prefix within262144 and both success markers
+saved. Evidence durably archived at
+`~/.local/share/srvros/macbookpro11-2/wifi-bbp20-a89af59/`.
+Next: audit RF band/synthesizer channel setup and fresh gain/power/calibration
+ordering. Current proof leaves3680bytes, so plan sufficient complete-prefix
+capacity before another large RF phase. No automatic next write/reboot, MAC
+enable, scanning or traffic; connectivity remains pending.
+
+
+## 2026-10-25 — Batched RF-channel prerequisite capture and larger proof scope
+
+Collected v80 at `c4af7dcc`, unmounted/unarmed. Fetched main `46f6212f`
+(PR168 Air6,1 handoff); PR169 owns unsaved-dialog shutdown. No MT76/logger
+ownership overlap; retain integration base `d5bc4b3`. Before frequency writes,
+capture remaining channel prerequisites together: five fixed MAC gain/PA/ALC
+registers13c8/13a0/13a8/13b4/518 and fifteen read-only RF targets5:0,6:0,
+0:24,0:26..37. MAC block has two guard triplets; every RF command has its own
+two. Total116 operations,101 reads (96 guards+5 MAC),15 fixed CMD10 reads,
+zero new MAC/RF data writes. Sequence1..15 after completed bandwidth15 response.
+Fixed addresses only; no arbitrary caller-selected register/command/payload.
+
+The full prefix already consumes258464/262144bytes. Add explicit512KiB
+capture only for new v81 profile, retaining existing64/128/256KiB behavior and
+lost-prefix refusal. Raise bounded Ubuntu collection ceiling to512KiB with
+byte-preservation and overflow tests. Scope: logger allocation/API/tests,
+MT76 read-only engine/native/staging/strict collector and RF dependency audit.
+Require exact complete v80 layout and full earlier proof; both final markers,
+full prefix and offline/recovery checks. No frequency choice, RF data write,
+calibration, MAC enable, scan or traffic. Larger capture must be tested with
+this real prerequisite trial rather than a separate reboot only for logging.
+
+
+Implemented fixed read-only116-operation channel prerequisite engine and native
+ownership after exact v80 completion. Host tests cover every I/O/cancellation/
+guard/all-ones/reply-bit/length boundary, packet/state checks and no replay.
+Native tests pass116 positions,160 ownership/state faults, all packet bits,
+no-USB refusal/replay and quarantine; full xHCI suite passes. Logger tests cover
+512KiB complete byte persistence, boundary growth/wrap, lost-prefix refusal and
+return to ordinary64KiB policy; older sizes still pass. All160 staging,29
+collection and160 historical recipe identity checks pass.274891-byte fixture
+validates whole earlier proof,512KiB marker and all116 receipts;1089 malformed
+bounded proofs and3 full-prefix failures rejected. Full build andASan/UBSan
+pass. Next: exact-stage GPT save/return and missing-workspace rehearsal before
+install. RF values/native larger-capture acceptance remain pending.
+
+
+## 2026-10-25 — Batched channel prerequisite/full-capture trial installed
+
+Source `74d1599e14ee1170b6d1fe1b6827eacd1c475b66`, release
+`dde8fcb03f3ea0d5`, config `ram-usb-wifi-fw-v81-laptop-probe-0e535900-auto-return`.
+Exact-stage GPT save/return and missing-workspace refusal/return passed; VM
+receipt confirms524288 capture selection. Installed/current hashes verified;
+Ubuntu default and known-good recovery `e47dca3a6b30c6c1` retained. Accepted
+v80 payload remains installed/archived; v79 payload removed from ESP only after
+full durable archive byte equality. Offline preboot exFAT/allocation clean
+303files/717clusters/125directories, zero leaks/mismatches/errors; workspace
+unmounted and no reboot armed.
+
+Candidate/helpers/tests/reference audit/VM evidence archived outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-channel-probe-74d1599/`.
+After readiness, cold-cycle Wi-Fi10s while off and leave workspace connected.
+Automatic capture saves/returns to Ubuntu; no photos or commands needed.
+Collect matching release/session first with `channel-probe/collect_return.py`;
+require whole earlier proof,116 receipts/32 guards/5 MAC+15 RF observations,
+whole512KiB-capacity prefix and both completion markers. Preserve failures;
+no automatic RF data write/frequency selection,calibration,MAC enable or traffic.
+
+
+### 2026-10-25 — v81 native batched channel prerequisite result
+
+Source `74d1599e14ee1170b6d1fe1b6827eacd1c475b66`, release
+`dde8fcb03f3ea0d5`, session `session-00065eb2f077e6da-00`, passed strict
+whole-chain collection after the attended cold adapter power cycle. All116
+ordered receipts,101 USB reads,15 exact MCU replies,32 disabled-MAC guard
+triplets and20 indexed observations passed. No new MAC/RF data writes occurred.
+
+Fresh MAC values (hex):13c8=0,13a0=0,13a8=6c6c6c6c,13b4=c9540000,518=1.
+RF5:0=0,6:0=0,0:24=33(hex),0:26..37=0. These are observations; zero
+synthesizer fields do not establish channel readiness. Full prior exact BBP20,
+bandwidth response and initialization proof passed. Both completion markers
+and the entire274888-byte startup prefix survived the new524288-byte capture,
+including bytes beyond the prior262144 limit.
+
+Ubuntu remained default; one-shot consumed; current and known-good
+`e47dca3a6b30c6c1` recovery manifests matched durable backups. Offline exFAT
+checks:305files,722clusters,126directories, zero leaks/mismatches/errors;
+workspace unmounted and reboot unarmed. Full evidence retained outside build
+in the local `wifi-channel-probe-74d1599` archive. Next: audit the pinned
+channel-band/synthesizer sequence against fresh observations, then implement
+and locally verify a bounded candidate. No frequency/calibrated-radio,
+scanning, association/security, connectivity or network-UI acceptance claimed.
+
+
+### 2026-10-25 — bounded v82 band implementation and local verification
+
+Implemented pinned reference-order2GHz band preparation after exact v81 proof:
+68 bank5 replay targets then RF5:0=45,6:0=44(hex),70 independent readbacks;
+only exact completion admits MAC13c8=00050007 and13a0=003e0002 from fresh0,
+with separate readbacks.980 RF operations/840 guards/140 replies/280 triplets;
+18 MAC transfers/16 reads/2 writes/2 verified/4 triplets. No synthesizer tuning,
+power selection, MAC enable or traffic. Fixed-plan storage grows from68 to70
+entries; historical plans and predicates remain unchanged.
+
+Host tests cover every RF/MAC transfer and cancellation boundary, guard and
+reply faults, both mismatch masks, proof mutation and no replay. Native xHCI
+admission checks cover980 RF and18 MAC positions plus162 prerequisite/state
+faults, every command payload bit, refusal before USB and failure quarantine.
+Strict collector fixture402659bytes preserves the full prior proof and rejects
+4247 malformed captures. All162 historical boot recipes remain byte-identical;
+161 staging tests pass. Pinned reference table/order independently compared.
+Build/exact-stage VM/install checkpoint follows; native acceptance pending.
+
+
+### 2026-10-25 — v82 installed, native result pending
+
+Exact source `83edd6beefe281b351f335051282ef8ad1bdf707`, release
+`7e269653eebe03c3`, config `ram-usb-wifi-fw-v82-laptop-probe-0e535900-auto-return`.
+Full build, directed/new and earlier MT76 engine regressions, complete xHCI
+suite, ASan/UBSan, staging/history and strict collector checks passed. Exact
+GPT-stage VM saved/byte-verified diagnostics, cleanly unmounted and reset;
+missing-workspace VM refused the probe and returned. VM confirms512KiB capture.
+These validate the workflow/refusal paths; they do not simulate MT7610 RF.
+
+Installed/current/recovery manifests and all payload bytes matched durable
+backups. Ubuntu remains default, known-good `e47dca3a6b30c6c1` retained. Old
+ESP v80 `6a9fd32642e92a7b` removed only after byte-for-byte archive equality;
+v81 remains installed alongside recovery. Workspace preboot checks clean:
+305files/722clusters/126directories, zero leaks/mismatches/errors; unmounted.
+Run record and candidate evidence retained outside build. No reboot armed.
+Await readiness for cold Wi-Fi power cycle; collect matching session FIRST
+on return. No commands or photos needed; capture saves and returns automatically.
+
+
+### 2026-10-25 — v82 native band setup/readback result
+
+Source `83edd6beefe281b351f335051282ef8ad1bdf707`, release
+`7e269653eebe03c3`, session `session-00065eb38500e72c-00`, passed strict
+whole-chain collection after the attended cold adapter power cycle. All68
+replayed bank5 entries and RF5:0=45,6:0=44(hex) matched independent reads:
+980 ordered operations,840 guard reads,140 exact MCU replies,70 ACKs,
+70 matching observations and280 MAC0/COREf000f200/DMA40000050 triplets;
+low64/high6 mismatch masks zero. Only then the two MAC words wrote/read back
+13c8=00050007 and13a0=003e0002, both from fresh0:18 ordered transfers,
+16 reads/2 writes/2 verified and4 strict guard triplets.
+
+The entire402661-byte startup prefix and both completion markers were saved
+within512KiB; all earlier exact initialization/BBP20/v81 proof passed. Ubuntu
+default, consumed one-shot and current/known-good recovery payload hashes
+verified. Offline workspace clean307files/728clusters/127directories, zero
+leaks/mismatches/errors; unmounted, reboot unarmed. Evidence retained outside
+build in `wifi-band2g-83edd6b`. This accepts bounded reference-order band setup
+and readbacks on this adapter, not calibrated RF or connectivity. Next: audit
+and implement fixed channel-frequency/synthesizer fields against captured
+values, preserving disabled MAC/DMA and complete evidence. No new run armed.
+
+
+### 2026-10-25 — fixed channel1 synthesizer candidate scope
+
+Pinned Linux v7.0 channel1/2412MHz frequency row mapped through declared fields
+and source masks; independent audit verifies all21 steps and fresh-value replay.
+Full writes37/36/35/34/33; ordered masks32[e0,1f],31[e0,1f],30[80,7c,02],
+29[ff],30[01],28[c0,30,0c],26[ff],27[ff],28[03],24[03], all in RF bank0.
+Fresh read, fixed masked/full write and independent exact readback per step;
+require original captured24=33hex and26..37=0 with earlier in-phase writes
+accounted for. No VCO/SDM pulse or arbitrary channel selector.
+
+441 operations,378 strict guard reads,63 MCU replies,21 ACKs,42 observations
+and126 disabled-MAC guard triplets; starts sequence6 after band plan ends5.
+Whole prior proof,512KiB prefix and both markers required. Full synthetic
+fixture458428bytes;1993 malformed proofs refused, boot-module namespace
+preserved. Engine tests cover all transfer/cancel/guard/reply-bit/length
+boundaries,5376 masked byte inputs, complete-proof mutation and no replay.
+Native/VM/install evidence follows; physical result pending. No frequency
+readiness, calibrated-radio or connectivity acceptance; no bandwidth/band
+post-tune tail, power selection, MAC enable, scan or traffic.
+
+
+Local v83 checks passed: full build; synth1 engine with all441 transfer and
+442 cancellation boundaries, all reply-bit/length faults and5376 masked inputs;
+complete native xHCI suite including441 positions/183 prerequisite-state faults,
+all packet bits/refusal/no replay/quarantine; ASan/UBSan;162 staging tests and
+164 historical recipes unchanged. Full-chain collector fixture458428bytes,
+1993 malformed proofs rejected with namespace preservation. Exact-stage VM
+and installation follow; no physical synthesizer result yet.
+
+
+### 2026-10-25 — v83 installed, native result pending
+
+Exact source `0ee9efb3a582cdddc3293f09664c9b60282fcc0e`, release
+`be37d545e93f1aed`, config `ram-usb-wifi-fw-v83-laptop-probe-0e535900-auto-return`.
+Full build, directed engine and complete xHCI suite, ASan/UBSan,162 staging
+tests,164 historical recipes, independent reference mapping and strict
+collector mutation checks passed. Exact GPT-stage VM saved and byte-verified
+diagnostics, cleanly unmounted and reset. Missing-workspace VM refused the
+probe and returned. Full512KiB capture selection confirmed. VM evidence tests
+the workflow/refusal path; it does not simulate synthesizer behavior.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery payloads matched
+durable backups. Ubuntu remains default; reboot unarmed. ESP v81
+`dde8fcb03f3ea0d5` removed only after full archive byte equality; v82 band
+payload retained alongside recovery. Workspace offline checks clean:
+307files/728clusters/127directories, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint and candidate evidence archived outside build. Await readiness
+for cold Wi-Fi power cycle, then collect the matching session FIRST. Results
+save automatically and return to Ubuntu; no commands/photos needed. Physical
+synthesizer/channel readiness and calibrated radio/connectivity remain untested.
+
+
+### 2026-10-25 — v83 native synthesizer field/readback result
+
+Source `0ee9efb3a582cdddc3293f09664c9b60282fcc0e`, release
+`be37d545e93f1aed`, session `session-00065eb3c5cb1785-00`, passed strict
+whole-chain collection after the attended cold adapter cycle. All21 fixed
+channel1 steps preserved reference order, required fresh exact-profile values,
+performed one masked/full write and matched independent readback.441 ordered
+operations,378 guard reads,63 exact replies,21 ACKs,42 observations and126
+MAC0/COREf000f200/DMA40000050 triplets passed. Final RF bank0 values (hex):
+37=02,36=3f,35=28,34=dd,33=e2,32=42,31=42,30=02,29=28,28=30,26=00,27=00,
+24=33. All unmasked fields retained their fresh values; no VCO/SDM pulse.
+
+Whole earlier band/MAC/initialization proof and the complete458424-byte
+prefix/both completion markers passed within512KiB. Ubuntu default, consumed
+one-shot and installed/known-good recovery hashes verified. Offline workspace
+clean309files/734clusters/128directories, zero leaks/mismatches/errors;
+unmounted, reboot unarmed. Full evidence archived outside build under
+`wifi-synth1-0ee9efb`. This accepts bounded synthesizer field writes/readbacks,
+not PLL lock, calibrated RF or connectivity. Next: post-tune bandwidth/band
+setup and fresh PA/gain prerequisites before VCO/MAC enable; no new run armed.
+
+
+### 2026-10-25 — v84 post-tune band/gain candidate and local checks
+
+New private post-synthesizer plan replays the19 reference20MHz/G-band entries,
+sequences9..1:266 ordered operations/228 guard reads/38 replies/19 ACKs/
+19 observations/76 strict guard triplets. All19 matching readbacks admit the
+three-target internal-PA MAC tail: fresh518=1,13a8=6c6c6c6c,13b4=c9540000
+must independently become1,63707400,89440000(hex).27 operations/24 reads/
+3 writes/3 verified/6 strict triplets; fresh-profile or masked-readback mismatch
+refuses. Same-boot complete mapped NICfd11/1004 proof required; internal2G PA
+bit8 asserted, no external branch or transmit-power inference.
+
+Independent pinned-reference table/order and PA/MAC audit passed. Directed
+engines and complete xHCI suite cover266 RF/27 MAC positions,196 prior/state/
+PA faults, packet bits, no USB on refusal/replay and failure quarantine.
+Whole prior+new collector fixture495282bytes fits512KiB;1380 malformed proofs
+refuse and boot-module namespace survives.163 staging tests and166 historical
+recipes unchanged. Build/sanitizer/exact-stage VM/install follow; native result
+pending. No VCO/calibration, MAC enable, scan or traffic.
+
+
+v84 full build and both RF/MAC ASan/UBSan runs passed. All directed engines,
+complete xHCI suite, independent reference audit, staging/history and strict
+whole-chain collector checks passed. Exact-stage VM/install follows; these
+local checks do not accept RF functionality or native post-tune readbacks.
+
+
+### 2026-10-25 — v84 installed, native result pending
+
+Exact source `f67ee1be1263e5d5d48a903739e34e90436b9450`, release
+`e57afcf9eb1fab7e`, config `ram-usb-wifi-fw-v84-laptop-probe-0e535900-auto-return`.
+Full build, RF/MAC ASan/UBSan, directed engines, complete xHCI suite,163
+staging tests/166 unchanged historical recipes, independent reference audit
+and1380 strict-collector refusals passed. Exact GPT-stage VM saved and
+byte-verified diagnostics, unmounted cleanly and reset. Missing-workspace VM
+refused the probe and returned. Explicit512KiB capture confirmed. These VM
+checks validate workflow/refusal behavior, not MT7610 RF/PA function.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery payloads matched
+durable backups. Ubuntu remains default; reboot unarmed. ESP v82
+`7e269653eebe03c3` removed only after full archive byte equality; v83
+synthesizer payload retained alongside recovery. Offline workspace clean:
+309files/734clusters/128directories, zero leaks/mismatches/errors; unmounted.
+Run/checkpoint and candidate evidence archived outside build. Await readiness
+for cold Wi-Fi power cycle; collect matching session FIRST after return.
+Results save and return automatically; no commands/photos needed. Native
+post-tune readbacks, calibrated radio and Wi-Fi connectivity remain untested.
+
+
+### 2026-10-25 — v84 native post-tune band/gain result
+
+Source `f67ee1be1263e5d5d48a903739e34e90436b9450`, release
+`e57afcf9eb1fab7e`, session `session-00065eb40f2ab69b-00`, passed strict
+whole-chain collection after the attended cold adapter cycle. All19
+post-synthesizer20MHz/G-band table values matched independent readbacks:
+266 ordered operations,228 guard reads,38 exact MCU replies,19 ACKs and76
+MAC0/COREf000f200/DMA40000050 triplets; both mismatch masks zero.
+Same-boot mapped internal2G PA admission passed without raw-field logging.
+
+MAC tail passed27 ordered transfers,24 reads/3 writes/3 verified and6 strict
+guard triplets. Fresh/readback values(hex):518 1->1;13a8 6c6c6c6c->63707400;
+13b4 c9540000->89440000. Masked fields preserved all other fresh bits. Entire
+495284-byte startup prefix and both completion markers saved within512KiB;
+whole prior proof passed. Ubuntu default, consumed one-shot and current/
+known-good recovery hashes verified. Offline workspace clean311files/
+740clusters/129directories, zero leaks/mismatches/errors; unmounted/unarmed.
+Evidence archived outside build under `wifi-post-f67ee1b`. Bounded post-tune
+setup/readbacks accepted, not PLL lock, calibrated radio or connectivity.
+Next audit channel-specific BBP/filter/gain and VCO/calibration prerequisites;
+no new run armed.
+
+
+### 2026-10-25 — v85 mapped RX gain and BBP prerequisite implementation
+
+Before channel-BBP gain writes, capture fixed mapped logical40 LNA44/RSSI46/47
+and read CORE1 plus20 channel-BBP targets. No filter/BBP/RF/MAC data writes;
+one mode-zero EFUSE read-select only, never programming. Decode reference
+LNAff->0, signed RSSI[-10,10] clamp/mask and uint8/7-bit AGC8 arithmetic as
+observations. Raw block is scrubbed/not logged; unknown output families refuse.
+Same exact ASIC/MAC and whole v84 post-tune owner chain required.
+
+Host tests cover old/new EFUSE profiles, every I/O/cancel/timeout/unmapped/
+command-bit boundary,65536 decoder inputs and output clearing; inventory27
+reads/all-ones/failure/cancel/late-state/no replay. Complete xHCI suite includes
+13 mapped phases/27 inventory positions/216 ownership/state/profile faults,
+refused USB and quarantine. Full build and both ASan/UBSan suites passed.
+Independent pinned source offsets/arithmetic/21-target audit passed;164 staging
+tests/168 historical recipes unchanged. Full501863-byte synthetic prefix passes
+whole prior proof/namespace preservation,450 malformed refusals, unknown raw
+family refusal and four valid alternate LNA observations. Exact-stage VM/install
+follows; native gain values unknown. No calibrated-radio/connectivity acceptance.
+
+
+### 2026-10-25 — v85 installed, native observations pending
+
+Exact source `e3ea53b3c53e7d6dd009775cbd5160963c91b68e`, release
+`2571de4ea5d87728`, config `ram-usb-wifi-fw-v85-laptop-probe-0e535900-auto-return`.
+Full build, old/new EFUSE/inventory host suites, complete xHCI suite, both
+ASan/UBSan suites,164 staging tests/168 historical recipes, independent source
+audit and strict collector/alternative-observation/privacy-family checks passed.
+Exact GPT-stage VM saved and byte-verified diagnostics, unmounted cleanly and
+reset. Missing-workspace VM refused the probe and returned.512KiB selection
+confirmed. These VM checks validate workflow/refusal, not native RX gain data.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery payloads matched
+durable backups. Ubuntu remains default; reboot unarmed. ESP v83
+`be37d545e93f1aed` removed only after full archive byte equality; v84 post-tune
+payload retained alongside recovery. Offline workspace clean311files/
+740clusters/129directories, zero leaks/mismatches/errors; unmounted. Candidate
+and run/checkpoint archived outside build. Await readiness for cold Wi-Fi
+cycle; collect matching session FIRST on return. Capture saves and returns
+automatically, no photos/commands. LNA/RSSI and21 BBP values remain native
+observations pending; no BBP/RF/MAC data write or calibrated-radio acceptance.
+
+
+### 2026-10-25 — v85 native RX gain and baseband observations
+
+Release `2571de4ea5d87728` (source `e3ea53b3`) completed v85 in
+`session-00065eb4b8532f3d-00`. Fresh mapped block40 yielded LNA raw/effective0,
+RSSI offsets+1/+1 with no clamps, and derived AGC8=16344ef0(hex), matching
+the observed AGC8. One read-select,12 reads,1 poll,13 submissions and strict
+identity/MAC/CORE/DMA guards passed; raw block bytes were scrubbed and not logged.
+CORE1=2 and all20 channel-BBP values were captured with27 reads,zero data writes;
+the20 values equal the pinned G20 table with captured LNA0. These are observations,
+not calibration or permission to infer other board profiles.
+
+The whole earlier proof, complete501580-byte startup prefix and both completion
+markers passed strict collection. Ubuntu default, consumed one-shot and current/
+recovery payload hashes verified. Offline workspace clean313files/746clusters/
+130directories, zero leaks,mismatches or errors; unmounted and unarmed. Durable
+archive outside build preserves the results. No filter/BBP/RF/MAC data writes in
+this step; calibrated RF, frequency lock and Wi-Fi connectivity remain untested.
+Next: bounded channel1 filter/BBP setup using fresh captured gain with independent
+readbacks, then post-tune VCO/calibration prerequisites. Budget the whole next
+prefix:501580 of524288 bytes used; explicitly increase diagnostic capacity if
+needed while preserving historical limits and missing-prefix refusal.
+
+
+### 2026-10-25 — channel1 BBP/filter bounded objective
+
+Next scope: explicit channel1/20MHz CORE1 filter clear and20 channel-BBP
+writes using the fresh mapped RX gain, each guarded with fresh input and an
+independent readback. Depend on full v85 proof and same-boot mapped LNA0/
+RSSI+1/+1; unknown board-field profiles refuse. No VCO pulse, MAC enable,
+calibration or traffic in this candidate. Touched: MT76 fixed register engine,
+xHCI diagnostic ownership, opt-in boot recipe/capture capacity, directed tests
+and machine/current Wi-Fi guides. Budget complete prefix with a new explicit
+1MiB diagnostic capacity; ordinary and historical capacities remain unchanged.
+Fetched main `fa5a6cc1` adds Air shared-runtime acceptance documentation only;
+retain intentional integration baseline `d5bc4b3` through this RF trial.
+Open PR175 owns pthread/Apple Silicon work; Pro PR19 owns MT76 diagnostics.
+No shared MT76 overlap, parallel staging or remote task messaging. Last run
+v85 collected/archived; Ubuntu default/recovery retained; reboot unarmed.
+
+
+### 2026-10-25 — v86 channel1 baseband/filter implementation
+
+The explicit diagnostic now clears CORE1 bit5 for channel1 and writes the20
+selected20MHz/G-band BBP values with AGC8=16344ef0, derived from fresh mapped
+LNA0. Same-boot RSSI+1/+1, unclamped fields, exact21-target v85 inventory and
+whole prior ownership proof are mandatory. Unknown profiles refuse. Each of21
+targets uses three strict MAC0/COREf000f200/DMA40000050 preguards, a fresh exact
+input, one fixed masked/full write, independent exact readback and three strict
+postguards:189 operations,168 reads,21 writes/verified,42 guard triplets. CORE1
+preserves all bits exceptbit5; captured input2 remains2. Each BBP fresh input must
+match the captured profile; no arbitrary register/value admission or replay.
+
+No post-tune VCO pulse, calibration, MAC enable, scan or traffic. Host tests cover
+every transfer, cancellation, bad guard/fresh value/readback and authorization
+mutation boundary, payload bits and no replay. Native callbacks cover189
+positions and221 ownership/state/profile faults plus transfer-error quarantine.
+Independent Linux v7.0 table selection/filter/source-order audit and ASan/UBSan
+passed. Whole-prefix fixture526067bytes requires explicit1MiB capture, selected
+only by this mode;64/128/256/512KiB historical limits are unchanged. Logger tests
+cover1MiB persistence/wrap boundaries and lost-prefix refusal; collector checks
+all receipts/order/guards/full-prefix arithmetic and rejects1721 malformed
+proofs.165 staging tests,170 historical recipes and29 desktop-collection tests
+passed; full build and xHCI regression passed. Exact-stage VM/install follows;
+physical acceptance remains pending.
+
+
+### 2026-10-25 — v86 installed, native channel-BBP result pending
+
+Exact source `3614ddb2b8377e666a016e13d8f803752f44ae19`, release
+`8af0efef4d2a53c2`, config `ram-usb-wifi-fw-v86-laptop-probe-0e535900-auto-return`.
+Full build,189-position/221-fault native admissions, engine/logger/collection
+regressions, ASan/UBSan, independent source audit and strict collector tests
+passed. Exact GPT-stage VM saved and byte-verified diagnostics, cleanly unmounted
+and reset; missing-workspace VM refused the probe and returned. Explicit1MiB
+snapshot confirmed. These VM passes validate workflow, not the physical radio.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery payloads match
+durable backups. Ubuntu remains default; reboot unarmed. ESP v84
+`e57afcf9eb1fab7e` removed only after full archive byte equality; v85 retained
+alongside recovery. Offline workspace clean313files/746clusters/130directories,
+zero leaks,mismatches or errors; unmounted. Candidate and run/checkpoint archived
+outside build. Await readiness for cold Wi-Fi cycle; collect matching session
+FIRST on return with the strict v86 collector. Results save and return
+automatically, no photos/commands. Native filter/BBP readback acceptance pending;
+no calibrated-radio/connectivity acceptance.
+
+
+### 2026-10-26 — v86 native channel1 BBP/filter result
+
+Release `8af0efef4d2a53c2` (source `3614ddb2`) completed v86 in
+`session-00065eb63c87b85a-00`. All21 channel1/20MHz filter/BBP writes passed
+fresh-input and independent readback checks:189 ordered operations,168 reads,
+21 writes/verified and42 strict MAC0/COREf000f200/DMA40000050 guard triplets.
+CORE1 bit5 clear preserved input2; all20 selected BBP words matched the fixed
+profile, including AGC8=16344ef0(hex). Same-boot mapped LNA raw/effective0,
+RSSI+1/+1, no clamps and exact21-target inventory passed before writing.
+
+Whole earlier proof, complete526069-byte startup prefix and both completion
+markers passed strict validation. Explicit1MiB capture preserved the full log.
+Ubuntu default, consumed one-shot and installed/recovery payload hashes verified.
+Offline workspace clean315files/753clusters/131directories, zero leaks,
+mismatches or errors; unmounted and unarmed. Results durably archived outside
+build. Bounded channel1 BBP/filter setup/readbacks accepted; calibrated RF,
+frequency lock and Wi-Fi connectivity remain untested. No repeat boot needed.
+Next: audit post-tune VCO and calibration prerequisites before MAC enable;
+preserve disabled MAC/DMA and explicit full-prefix capture.
+
+
+### 2026-10-26 — post-tune VCO bounded objective
+
+Next: after exact v86 channel1 BBP/filter proof, fresh-read RF0:4, setbit7 once
+with preserved low bits, independently read it and observe six fixed delayed
+samples. One bounded channel1 VCO initiation, not MCU full calibration or radio
+acceptance. Keep MAC0/COREf000f200/DMA40000050 guards around every command;
+no MAC enable/traffic or guessed power/regulatory settings. Touched: MT76 fixed
+engine, native diagnostic ownership, boot recipe/tests and this unit/Wi-Fi guide.
+Dependencies: collected v86 full proof, fresh mapped gain, pinned Linux v7.0
+set_channel ordering, explicit1MiB full-prefix capture. Latest fetched main
+`8bd43adc` merges pthread lifecycle and bounded AHCI timeout changes; no MT76
+overlap. Retain intentional `d5bc4b3` integration base during this diagnostic.
+Open PR179 owns epoll/eventfd; Pro PR19 owns MT76. No remote messages or parallel
+staging. Current run collected/archived; Ubuntu recovery retained, reboot unarmed.
+
+
+### 2026-10-26 — v87 post-channel1 VCO implementation
+
+After the whole exact v86 BBP/filter and same-boot mapped gain proof, an explicit
+mode fresh-reads RF0:4 and requires30(hex), setsbit7 once with lower bits
+preserved, requires exact B0 write echo, then independently reads RF0:4 and
+captures six more reads after10/40/50/100/300/500ms requested waits. Every
+command has strict MAC0/COREf000f200/DMA40000050 guard triplets before/after.
+63 ordered submissions,54 guard reads,9 exact replies,1 write ACK,8 observations,
+18 triplets and6 waits totaling1000000us. Sequences2..10 continue from the
+actual prior native sequence1. No DAC pulse, full MCU calibration, MAC enable,
+scan, traffic or transmit-power inference. Immediate and delayed bytes are
+observations; first_clear counts delayed samples only,0 if none. Self-clear
+does not accept PLL lock or calibrated radio.
+
+The fixed engine validates stored state at every transfer/delay and after
+final authorization. Native ownership includes exact channel-BBP completion,
+submitted counts and independent wait receipts. Wrong duration, profile,
+packet or order refuses before USB; failed/uncertain transfers quarantine
+without replay. Directed tests cover63 positions,229 prerequisite/state faults,
+all packet bits, all reply-length/metadata/guard/cancellation/auth-mutation
+boundaries, all64 delayed clear patterns and six timer-failure/no-replay paths.
+Independent pinned Linux v7.0 source/order audit, ASan/UBSan, full build/xHCI
+regression,166 staging tests and172 historical recipes passed. Complete
+synthetic prefix534737bytes fits inherited explicit1MiB;616 malformed proofs
+refuse and all64 consistent delayed-clear patterns pass as observations.
+Exact-stage VM/install follows; physical results and calibration remain pending.
+
+
+### 2026-10-26 — v87 installed, post-tune VCO observations pending
+
+Exact source `816a4b30586ec944439f6b29a24e41c3c408da47`, release
+`78e47b6219211cc9`, config `ram-usb-wifi-fw-v87-laptop-probe-0e535900-auto-return`.
+Full build, fixed engine and full xHCI regression (63 positions/229 ownership
+faults plus all six delay boundaries), ASan/UBSan, independent reference/sequence
+audit,166 staging tests/172 historical recipes and616 strict-proof refusals
+passed. Exact GPT-stage VM saved and byte-verified diagnostics, cleanly unmounted
+and reset. Missing-workspace VM refused the probe and returned. These checks
+validate workflow and admission, not physical VCO behavior or calibration.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery payloads match durable
+backups; Ubuntu remains default. ESP v85 `2571de4ea5d87728` removed only after
+full archive byte equality; accepted v86 retained beside recovery. Offline
+workspace clean315files/753clusters/131directories,zero leaks,mismatches or
+errors; unmounted and reboot unarmed. Candidate and run/checkpoint archived
+outside build. Await readiness for cold Wi-Fi cycle. On return collect the new
+matching session FIRST with the v87 strict collector; preserve failures and
+actual immediate/delayed observations without guessing values. Results save
+and return automatically; no photos or commands. No full calibration, MAC enable,
+traffic or calibrated-radio/connectivity acceptance.
+
+
+### 2026-10-26 — v87 native post-channel1 VCO result
+
+Release `78e47b6219211cc9` (source `816a4b30`) completed v87 in
+`session-00065ec046be9096-00`. RF0:4 fresh-read30(hex), setbit7 write/echoB0
+and independent immediate readB0 passed. All six delayed samples read30:
+bit7 was clear by the first delayed sample and remained clear. Requested
+inter-sample waits were10/40/50/100/300/500ms,total1000000us; transport/logging
+time is additional, so this does not measure a precise10ms completion deadline.
+63 ordered submissions,54 guard reads,9 exact replies,1 ACK,8 observations,
+18 strict MAC0/COREf000f200/DMA40000050 triplets and all six waits passed.
+Sequences2..10 followed actual prior sequence1. Whole earlier initialization,
+fresh mapped gain and all21 channel-BBP readbacks passed in this same boot.
+
+The complete534735-byte startup prefix and both completion markers were saved
+and strictly validated within explicit1MiB capacity. Ubuntu default, consumed
+one-shot and installed/recovery hashes verified. Offline workspace clean:
+317files/760clusters/132directories,zero leaks,mismatches or errors; unmounted
+and unarmed. Evidence archived outside build. This accepts the bounded trigger,
+independent read and timed observations; PLL lock, full radio calibration and
+Wi-Fi connectivity remain untested. No repeat boot required. Next audit AGC gain
+initialization and full calibration/MAC/power prerequisites, including the
+previous IBI9 all-ones observation; do not blindly issue standalone calibration
+or infer transmit power. No MAC enable or traffic in this trial.
+
+
+### 2026-10-26 — integration refresh to main dfd63fef
+
+Merge actual `origin/main` `dfd63fef` into the published device branch, preserving
+its hardware-evidence history per coordination policy. Local backup ref retains
+pre-merge `eababae2`; accepted native v87 payload/evidence remain outside build.
+Resolved shared Makefile, main automatic-capture dispatch, boot profile/CLI/smoke
+and desktop-guide conflicts by retaining both Wi-Fi and new POSIX/desktop paths.
+No MT76 engine or descriptor/profile gate widened. Early combined checks pass:
+172 staging tests and31 desktop collection tests. Next run full build/core and
+exact-stage save/refusal VM checks, then a physical whole-chain v87 regression
+on the merged baseline before extending calibration. Same model/USB/recovery,
+no new hardware writes in the integration regression. AGC/full-calibration audit
+can proceed locally; full calibration remains gated on native context evidence.
+Open PR19 owns Wi-Fi; current main includes merged PR175/178/179 fixes. No other
+open shared-code PRs found at refresh. Battery/headphones/trackpad deferrals stay.
+
+
+### 2026-10-26 — merged-baseline local verification and AGC audit
+
+Main `dfd63fef` is now an ancestor of this published branch through merge
+`cb346475`; no history rewrite. All six MT76/xHCI source/header files match
+accepted pre-merge v87 byte-for-byte. All174 historical Wi-Fi recipes and97
+main laptop/desktop/POSIX recipes retain identical boot arguments;172 staging
+and31 collection tests pass. Full image build and full `test-core` pass.
+
+Verification exposed incoming host-test integration gaps. Added explicit poll
+clock header/POSIX feature declarations, a process-service wake fixture with
+wake-before-frame-free assertion, and freestanding compiler integer types for
+SrvrOS-header event/time/synchronization fixtures; the host pthread shim keeps
+host headers. No warnings disabled or kernel futex behavior changed. Focused
+contracts and the final whole core run pass. Preserve original failed logs as
+diagnostics. Baseline smoke and exact-stage VM/install follow.
+
+Pinned Linux v7.0 AGC audit: initialization reads AGC8(2320) andAGC9(2324),
+extracts bits14:8, copies initial values into current gain state, sets low_gain=-1
+and marks initialization done. It performs no radio write. Known AGC8 implies
+78; AGC9 remains uncaptured, so do not synthesize second-chain gain. USB
+power-on full calibration follows MAC start in the reference; prior IBI9
+all-ones observations remain unresolved. First physically regress the accepted
+v87 sequence on the merged baseline; next implement bounded fresh two-register
+capture/software gain state with strict failure handling. No new radio writes,
+MAC enable, full calibration or inferred power/regulatory acceptance in this
+integration regression. Desktop-runtime parity needs separate native evidence.
+
+
+### 2026-10-26 — merged-main v87 regression installed
+
+Integration baseline `dfd63fef8d569f49dc75bbaf744e4dadd25bba86` is merged,
+preserving published history. Host integration fixes are `b546c66f`; exact
+staged source `ae8fe63c6152b69f39869895cc5a6fe3375d8a88`, release
+`5c9c8372adaf59d6`, existing v87 recipe unchanged. Full build/core, all482 CLI
+commands, syscall ABI, shell editing, UEFI USB input, display startup,172 staging
+and31 collection tests pass.174 Wi-Fi and97 main profile recipes are unchanged.
+Focused contract receipts and source hashes retained, including wake-before-free
+and event/time/synchronization coverage.668 local documentation links pass.
+
+The exact GPT-stage VM saved and byte-verified diagnostics, cleanly unmounted
+and reset; missing-workspace VM refused and returned. Whole v87 collector proof
+passed for the staged release, with missing-marker/mode refusal and preserved
+namespace. No new radio operations: this repeats the accepted v87 sequence on
+the updated scheduler/process/filesystem/runtime baseline. AGC/full calibration
+remains next after native regression, as audited above. These local/VM passes
+do not accept native Wi-Fi or desktop-runtime behavior on the new baseline.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery hashes match durable
+backups. Accepted pre-merge v87 `78e47b6219211cc9` remains on the ESP as well.
+ESP v86 `8af0efef4d2a53c2` removed only after full archive byte equality.
+Ubuntu default retained; offline workspace clean317files/760clusters/
+132directories,zero leaks,mismatches or errors; unmounted and reboot unarmed.
+Candidate/run/checkpoint and test evidence archived outside build. Await cold
+Wi-Fi-cycle readiness. Collect matching merged-baseline session FIRST on return
+with main-refresh/collect_return.py. Results save and return automatically;
+no photos or commands. Native regression and radio/connectivity remain pending.
+
+
+### 2026-10-26 — native merged-main Wi-Fi regression result
+
+Release `5c9c8372adaf59d6` (source `ae8fe63c`, merged main `dfd63fef`)
+completed the whole v87 regression in `session-00065ec13fa73dce-00`.
+Full earlier initialization/firmware/guard proofs passed on the updated
+scheduler/process/filesystem/runtime baseline. Fresh mapped LNA0/RSSI+1,+1,
+all21 channel-BBP/filter independent readbacks and post-channel VCO proof
+passed:63 ordered operations,54 guard reads,9 replies,1 ACK,8 observations,
+18 strict MAC0/COREf000f200/DMA40000050 triplets,six waits/1000000us requested.
+RF0:4 values were30,B0,B0,then six30(hex),matching the pre-merge result;
+bit7 clear by the first delayed sample. Timing includes transport/logging,
+so this is not a precise10ms completion bound or PLL-lock/calibration proof.
+
+The full534735-byte startup prefix and both completion markers passed strict
+validation within1MiB capacity. Ubuntu default, consumed one-shot and installed/
+recovery hashes verified; offline workspace clean319files/767clusters/
+133directories,zero leaks,mismatches or errors; unmounted and unarmed. Evidence
+archived outside build. Bounded Wi-Fi initialization regression on this merged
+baseline accepted; full calibrated radio/connectivity and desktop-runtime parity
+remain untested. No repeat boot required. Next implement bounded fresh AGC8/9
+capture and software gain initialization; retain MAC/power/IBI9 prerequisites
+before full calibration. Never infer the uncaptured second gain or transmit power.
+
+
+### 2026-10-26 — fresh AGC state bounded objective
+
+Fetched main `9f18d7d6`: merged PR180/183 adopts the poll/header/GCC fixture
+fixes and strengthens the process-service futex fixture. Merge the canonical
+main tests while retaining our native records; production code has no further
+difference from the physically accepted merged baseline. PR181 owns app lifecycle
+and PR182 filesystem auditing; no MT76 overlap. Pro PR19 retains this scope.
+
+Next fixed mode: after exact captured whole v87/VCO-clear proof, read AGC8(2320)
+and AGC9(2324) between strict MAC0/COREf000f200/DMA40000050 triplets. Eight
+ordered reads,zero new data writes. Require AGC8=16344ef0 from this captured
+LNA0/channel1 profile; refuse either all-ones target. Decode bits14:8 into two
+initial/current software slots only after both fields,postguards and final
+authorization validate; low_gain=-1 and init_done=true then. The second slot is
+reference software state,not evidence of a second physical RF chain. Unknown
+AGC9 is freshly observed; no guessed default. Failures cannot expose partial
+initialized state. No calibration,MAC enable or traffic; prior IBI9/MAC/power
+prerequisites retained. Touched: MT76 engine/header,native xHCI diagnostic mode,
+boot recipe/directed tests and current unit/Wi-Fi guides. Inherit explicit1MiB
+full-prefix capture and Ubuntu/known-good recovery. Last run collected; no reboot
+armed. Unattended trial prints progress and automatically saves/returns.
+
+
+### 2026-10-26 — v88 fresh AGC capture and software initialization
+
+After exact captured whole v87 proof (including immediateVCO B0 and six delayed
+30 values), explicit `wifi-agc-state` reads MAC/CORE/DMA,AGC8/AGC9,MAC/CORE/DMA:
+eight fixed reads,zero new register writes,two strict0/f000f200/40000050 guard
+triplets. AGC8 must remain16344ef0 for this captured LNA0/channel1 profile.
+AGC9 is freshly observed; either all-ones target refuses. Only after both reads,
+postguards and final authorization validate are bits14:8 copied into both
+initial/current software slots,low_gain=-1 and init_done=true. Before that,
+initialized state stays absent; failure logs explicitly mark unread targets.
+Second software slot does not accept a second physical RF chain. No calibration,
+MAC enable,traffic or power inference. Guest prints a fixed progress line.
+
+Engine tests cover all transfer/cancel/authorization mutations, guard/target
+boundaries,65536 alternate second-word decodes,final-state corruption and no
+replay/partial publication. Native callbacks cover8 positions,243 prerequisite/
+state/profile faults,zero USB on refusal and uncertain-transfer quarantine.
+Independent Linux v7.0 source/order/mask audit and engine ASan/UBSan pass.
+Full image build/core suite,173 staging tests,31 desktop collection tests and
+174 historical Wi-Fi recipes pass. Complete536025-byte fixture fits inherited
+1MiB capture;93 malformed proofs refuse,while five alternative valid AGC9 words
+pass with their actual decoded values. Old post-VCO capture behavior remains
+unchanged; the new prerequisite predicate is exact and separate. Canonical
+upstream host fixes/main `9f18d7d6` merged; no additional production changes from
+that merge. Exact-stage VM/install follows; native gain1/init-state acceptance
+remains pending. Existing IBI9/MAC/power calibration prerequisites remain open.
+
+
+### 2026-10-26 — v88 AGC software-state trial installed
+
+Exact source `9e7d2ef07d0519e537bf52a127fd91915e0f5783`, release
+`413af14583fe167c`, config `ram-usb-wifi-fw-v88-laptop-probe-0e535900-auto-return`.
+Main `9f18d7d6` is an ancestor,with canonical host-test fixes merged. Full image
+build/core and all old/new MT76/xHCI tests pass; engine sanitizer,independent
+reference audit,173 staging tests,31 collection tests,174 historical recipes
+and93 strict-proof refusals pass. Native fixture completion-flag mutation was
+corrected before the final complete suite; original failed test log preserved.
+
+Exact GPT-stage VM saved and byte-verified diagnostics,unmounted cleanly and
+reset; missing-workspace VM refused and returned. Guest mode has explicit
+progress and saved result/return. These VM checks validate workflow,not native
+AGC9 data or software-state acceptance. Complete1MiB-prefix policy retained.
+
+Installed/current and known-good `e47dca3a6b30c6c1` recovery payloads match durable
+backups. Accepted merged-baseline `5c9c8372adaf59d6` retained on ESP beside
+recovery; old `78e47b6219211cc9` removed only after full archive byte equality.
+Ubuntu default retained; offline workspace clean319files/767clusters/
+133directories,zero leaks,mismatches or errors; unmounted and reboot unarmed.
+Candidate/run/checkpoint/evidence archived outside build. Await cold Wi-Fi-cycle
+readiness; on return collect matching session FIRST with agc-state/collect_return.py.
+Results save and return automatically,no photos or commands. Native AGC9 and
+initialized state pending; no new radio writes,calibration,MAC enable,traffic,
+second physical-chain or power acceptance.
+
+
+### 2026-10-26 — v88 native AGC software state accepted
+
+Source `9e7d2ef07d0519e537bf52a127fd91915e0f5783`, release
+`413af14583fe167c`, session `session-00065ec1bf446752-00` passed strict whole
+prior initialization and fresh gain-state proof. AGC8=16344ef0 and AGC9=00000000
+were actual successful reads; decoded initial/current gains78/0,low_gain=-1,
+init_done=true. All8 reads and two0/f000f200/40000050 guard triplets passed;
+zero new register writes. A zero second software slot does not accept a second
+physical chain. Earlier21 channel-BBP readbacks and post-VCO profile remained
+exact:30,b0,b0,then six30;first_clear1. Full536023-byte startup prefix and both
+completion markers saved within1MiB capacity. Ubuntu default,consumed one-shot,
+installed/recovery hashes verified. Offline workspace clean321files/774clusters/
+134directories,zero leaks,bitmap mismatches or errors; unmounted and unarmed.
+Evidence retained outside build. This accepts bounded register capture and
+software state only; calibrated RF,PLL lock,packet RX/TX and connectivity remain
+untested. Next audit MAC/power/IBI9 prerequisites before full calibration.
+
+
+### 2026-10-26 — passive receive decoder groundwork validated
+
+Main `0858e8e6` (PR181/185) merged as `bda9d178`; both Makefile test families
+preserved. Source `c716dd63` adds allocation-free MT76x02 USB/RXWI management
+views and copied passive infrastructure beacon/probe-response observations.
+Binary/hidden SSIDs,optional L2 padding,strict length bounds,atomic output
+publication,mandatory/duplicate IE checks and caller-supplied US channel1..11
+context are covered. Security booleans report advertisements only; no suite,
+credential or association acceptance. Raw RSSI is not calibrated signal level.
+
+Host tests and ASan/UBSan pass,including every transfer truncation,unaligned
+buffers,corrupt/unsupported frame forms and100000 hostile transfers. Pinned
+Linux DMA/RXWI/padding/trim audit passes; calibration temporary-register/
+delay/restoration ordering is separately recorded. Full `all test-core` passes.
+Matched normal-image VM regression passes syscall ABI,all482 CLI commands,
+shell editing,UEFI USB input and displayd. Documentation checks pass. These
+validate local code/workflow,not native receive or desktop parity on this merge.
+
+Native startup,MCU/radio engines,callbacks and boot recipes are byte-unchanged
+from installed v88. No native receive caller,radio enable,calibration or
+transmission was added. Known-good Ubuntu/recovery and installed v88 remain;
+no new physical trial or reboot is armed. Required evidence is archived outside
+build. Next: controlled MAC/RX endpoint lifecycle,explicit stop/restoration and
+uncertain-DMA retention,then calibrated-radio admission using fresh board/
+power/TSSI context. Prior IBI9 and RF0:6 observations remain unresolved for
+full radio acceptance. Scanning,association/security,IP and UI remain pending.
+
+
+### 2026-10-26 — retained packet-RX lifecycle implemented
+
+The v89 explicit endpoint trial is implemented after exact full v88 admission.
+It configures captured84/DCI9,posts once,waits at most10ms or completion,then
+stops with exact command/slot/stopped-context/owned-dequeue proof. Six fixed
+read-only guards bracket the attempt; all DMA is retained. No packet bytes,
+MAC enable,RF writes,full calibration,Set Dequeue,rearm,retry or free.
+
+Local full image/core tests pass,including native helper configuration/prior-
+proof faults,guard transport/state boundaries,normal/short/stopped/invalid
+completions,stale/wrong-slot/wrong-endpoint routing,failed-stop retention and
+cleanup after admission loss. Staging174 tests and176 historical recipe byte
+comparisons pass. Strict whole-prefix proof passes and79 malformed receipts
+refuse; six completion variants are distinguished without interpreting stopped
+lengths as data. Initial missing v89 regex entry and generated C string newline
+errors were corrected; original failed logs preserved. Sanitizer/exact-stage
+VM and install follow; native result pending. Main `5bcd061c` is merged; no
+competing worker/filesystem scope was edited. Last physical v88 remains
+accepted and no reboot is armed.
+
+
+### 2026-10-26 — v89 retained RX trial installed
+
+Final source `50e2b8929a29896f1dcae19acd36d7835d8c1de7`, release
+`dbb5191dddbe1790`, recipe `ram-usb-wifi-fw-v89-laptop-probe-0e535900-auto-return`.
+Full image/core suite passed before the final stricter CC26/28 residue guard;
+matched image rebuild and targeted native-helper/ASan/UBSan tests passed after
+that change. CC27 remains explicitly length-invalid. Staging174 tests,
+176 historical recipe comparisons,whole prior+RX synthetic proof and79
+malformed-proof refusals passed. Initial regex/C literal errors and a sanitizer
+wrapper's renamed-main return warning were corrected without warning suppression;
+original failed logs retained. Final exact GPT-stage VM saved/byte-verified,
+unmounted and returned automatically; missing workspace refused and returned.
+Prototype VM evidence remains separate. VM proves workflow,not native RX.
+
+Installed/current payload and known-good `e47dca3a6b30c6c1` recovery match durable
+backups. Accepted v88 `413af14583fe167c` is retained on ESP beside recovery;
+older `5c9c8372adaf59d6` removed only after full equality with its durable
+archive. Ubuntu default retained. Offline workspace clean321files/774clusters/
+134directories,zero leaks,bitmap mismatches or errors; unmounted and unarmed.
+Run/checkpoint/helpers and evidence archived outside build. Await cold Wi-Fi
+cycle readiness before shutdown; leave workspace connected. Guest shows progress,
+saves results and returns automatically; no photos or commands. On return,
+collect matching release/session FIRST with rx-lifecycle/collect_return.py.
+Require full prior and ordered guard/config/post/wait/stop/context/dequeue/
+retention proof. Native lifecycle/receive/calibration remain pending.
+
+
+### 2026-10-26 — v89 failed before receive endpoint execution
+
+Release `dbb5191dddbe1790`, source `50e2b892`, session
+`session-00065ec2cfa926d2-00` saved a complete526801-byte prefix with both
+completed=NO markers. Whole prior initialization through all21 channel-BBP
+readbacks passed. The native selector left post_vco_mode false for mode67;
+no post-VCO operations ran. AGC refused status1/attempted0/reads0,with unread
+zero placeholders; these are not observed register values. No RX configuration,
+post or stop was attempted. Strict success collector refused unchanged.
+
+A separate failed-run audit validated the complete prior v86 proof and exact
+refusal/unread fields,then checked Ubuntu default,consumed one-shot,installed/
+recovery/retained payloads and offline workspace. Clean323files/781clusters/
+135directories,zero leaks,bitmap mismatches or errors; unmounted/unarmed.
+Original logs/refusal preserved outside build. Failure-auditor variable shadowing
+was corrected with an isolated proof namespace; initial auditor error retained.
+
+The helper tests had manually constructed the prerequisite state and missed
+native mode wiring. New regression calls the actual mode selector for modes64
+through67; it reproduces the mode67 failure before the fix. Selector extraction
+preserves existing mode policies; mode67 must enable post-VCO before AGC/RX.
+Full build/core and targeted checks follow before any new candidate. No radio
+initialization,receive or calibration acceptance follows from this failed run.
+
+
+### 2026-10-26 — profile-selection correction validated locally
+
+The mode64..67 regression reproduced the original missing post-VCO prerequisite
+before the fix. Native mode assignment is now a separately testable helper;
+mode67 includes post-VCO,AGC and RX in order. RX ownership fixtures also pass
+through that actual selector. Full matched image/core suite passed after the
+production fix,and the focused actual-selector/endpoint tests passed under
+ASan/UBSan. Existing v1-v88 recipes remain byte-identical; staging174 tests,
+whole-prior strict proof and79 malformed-proof refusals pass. No success gate
+or hardware register predicate was weakened.
+
+Accepted v88 `413af14583fe167c` restored as current with Ubuntu default and
+e47 recovery retained. Failed v89 removed from ESP only after complete durable
+payload equality,freeing space for a separately staged retry; its original
+session and refusal remain preserved. No reboot is armed. Retry exact-stage
+VM/install and native acceptance are pending.
+
+
+### 2026-10-26 — corrected v89 RX trial installed separately
+
+Source `35041be09bb274f814d9a551aca529dfdbf7c82f`, release
+`0df0d7e9c8658836`, same explicit v89 recipe. Mode67 now actually selects
+post-VCO before AGC/RX. The new selector regression failed on the old wiring
+and passes after the fix; ownership fixtures use the actual selector as well.
+Full image/core and focused ASan/UBSan pass. Staging174,176 old recipe-byte
+comparisons,whole prior+RX proof and79 malformed-proof refusals pass. Exact
+GPT-stage VM saved/byte-verified,unmounted and returned; missing workspace
+refused and returned. Native retry acceptance remains pending.
+
+Installed/current payload and e47 recovery match durable backups; accepted
+v88 remains retained on ESP. Ubuntu default preserved. Offline workspace
+clean323files/781clusters/135directories,zero leaks,bitmap mismatches or errors;
+unmounted and unarmed. Failed `dbb5191dddbe1790` session remains separately
+archived with381 verified files and its original refusal. Retry uses separate
+run/evidence paths. Await cold Wi-Fi-cycle readiness; keep workspace connected.
+Guest shows progress,saves and returns automatically,no photos or commands.
+On return collect matching release/session FIRST with
+rx-lifecycle-retry/collect_return.py; never rerun the failed-run preparation
+script or replace its result with a passing retry.
+
+
+### 2026-10-26 — corrected v89 receive endpoint lifecycle passed
+
+Source `35041be09bb274f814d9a551aca529dfdbf7c82f`, release
+`0df0d7e9c8658836`, native session `session-00065ec391da3a5c-00`.
+Whole earlier proof passed,including post-VCO63 operations/9 replies/6 delays
+with profile30/B0/B0/six30,AGC8/9=16344ef0/0 and software gains78/0.
+Captured endpoint84/DCI9/512 configured; one4096-byte IN posted and waited
+10001us. Exact Stop Endpoint succeeded,state3,dequeue31d001 for owned
+TRB31d000 (DCS1). One stopped transfer event CC26 reported4096 remaining;
+this is cancellation metadata,no received packet evidence. All six ordered
+MAC0/COREf000f200/DMA40000050 guards passed. DMA retained,no rearm,retry,
+free,Set Dequeue,MAC enable or added radio writes.
+
+Strict whole-prefix collector passed on537104 bytes within1MiB,with both
+completion markers. Ubuntu default,consumed one-shot,current/e47 recovery
+hashes verified. Offline325files/788clusters/136directories,zero leaks,bitmap
+mismatches or errors; unmounted/unarmed. Durable evidence is under
+`~/.local/share/srvros/macbookpro11-2/wifi-rx-lifecycle-retry-35041be/`.
+Original failed dbb5191dddbe1790 evidence remains separate and unchanged.
+This accepts bounded receive-request ownership and retirement only. Next is
+controlled MAC/RX and fresh board/power/calibration prerequisite work before
+passive packet reception; scanning,association,security and IP/UI remain pending.
+
+
+### 2026-10-26 — transactional calibration preparation (offline)
+
+Main `ee5468f6` (PR186–189 desktop timing/evidence) merged at `ec355bbb`.
+PR190 continues desktop timing attribution and PR182 filesystem imports;
+no overlapping MT76 scope was found. New `mt76_calibration_run` provides the
+fixed channel1/20MHz non-power-on FULL/LC/RXDCOC transaction through semantic
+callbacks. It has no native caller and does not frame firmware commands.
+
+Pinned Linux v7.0 `mt76x0_phy_calibrate` ordering requires TX_ALC0 zero,
+500us minimum wait,IBI9 temporaryffffff7e,FULL600/LC0,15000us minimum wait,
+IBI9/TX_ALC0 restoration,then RXDCOC1. SrvrOS captures both saved words before
+the first temporary write,checks independent temporary readbacks,and restores
+in reverse order on every subsequent failure or forward cancellation. A failed
+write is treated as potentially applied. Cleanup tries both saved-word restores
+even if one fails,requires independent exact readback,and prevents RXDCOC or
+success after failed restoration. A caller must retain/quarantine uncertain
+resources; the helper never frees DMA,retries or repeats a completed attempt.
+
+Every forward callback requires live exclusive ownership authorization. The
+fixed guard profile is MAC TX/RX enabled12,COREf000f200,WPDMA40000050 before
+snapshot,after restoration and after RXDCOC. This profile is a future native
+admission requirement,not evidence that MAC startup has passed. Unknown/all-ones
+saved words are refused,including this unit's earlier IBI9 observation; no
+observation exception is carried into calibration. Power-on R/VCO/TSSI and
+board/transmit-power setup are separate prerequisites,not implemented here.
+
+Host coverage checks exact command/wait/restore order,all22 callback failures,
+all21 authorization cancellations,each invalid guard/readback,all-ones reads,
+restoration mismatch,missing callbacks,channel/width refusal and reentrant/
+repeated entry. This is synthetic transaction/restoration evidence only.
+Installed corrected v89 and known-good recovery remain unchanged; no reboot
+is armed. Native controlled MAC/RX and fresh board/power/IBI9 evidence must
+precede firmware calibration,then passive packet reception and network work.
+
+The next native startup/teardown design must also own device-side queue drains
+and bounded MAC_STATUS TX/RX waits from pinned `mt76x0_mac_stop`; host Stop
+Endpoint/context proof alone does not establish that the radio MAC is idle.
+TXOP ED-CCA changes need their own saved-state/restore policy. These transitions
+remain unimplemented/unaccepted in this offline block.
+
+Source `fbd2573f` passes the full matched image/core suite and focused
+ASan/UBSan checks. Normal-image VM regression passes syscall ABI,all482 CLI
+commands,shell editing,UEFI USB input and displayd. The merged desktop timing
+regressions also pass. Native startup/MCU/RX/staging/smoke source bytes remain
+identical to accepted corrected v89 source35041be; the new unreferenced helper
+is removed from the linked kernel by section garbage collection. No native
+callsite or firmware command wiring exists. Installed v89,e47 recovery and
+retained v88 payload hashes,Ubuntu default,consumed one-shot and unmounted
+workspace verified. Source,reference audits,logs and artifact hashes are archived
+outside build; no physical calibration acceptance or new reboot is claimed.
+
+
+### 2026-10-26 — bounded MAC startup/shutdown candidate (v90)
+
+Main `4ee18f69` / PR190 scheduler and desktop wake attribution is consumed;
+PR182 filesystem work remains separate. New explicit `--wifi-mac-cycle`
+requires the entire v89 chain. Actual selector68 enables post-VCO,AGC and RX
+before MAC work; historical v1-v89 recipe bytes remain unchanged. One retained
+main-RX request stays owned throughout MAC startup,snapshot and teardown.
+No stopped v89 ring is reused,rearmed or freed.
+
+The captured MT7610 profile starts MAC1004 at4,polls WPDMA busy bits1/3,
+writes/verifies the captured17f97 receive filter,then sets/verifies MAC12 and
+polls again. Fresh CORE/TX_ALC0/IBI9 observations follow,then a10ms hold.
+IBI9 may be all-ones only as raw observation; this does not relax the separate
+calibration helper's refusal. No calibration command,power selection,packet
+inspection,network data OUT,rearm,scan or association is added. MAC enable is
+not a claim that no autonomous radio activity can occur.
+
+Teardown independently clears TXOP ED-CCA,drains device TX queues,polls TX
+idle,disables/verifies MAC0,requires seven consecutive empty RX queue rounds,
+polls RX idle,and restores/verifies the saved filter/TXOP words. All disabled
+MAC/CORE/WPDMA guards must match afterward. Forward failure/cancellation still
+attempts cleanup. Quarantined EP0,uncertain command ownership or failed cleanup
+cannot pass; all DMA remains retained. Exact host Stop Endpoint/context/dequeue
+proof is separately required after the MAC cycle,including on MAC failure.
+Poll/read budgets bound further submissions; USB callback latency is not an
+exact microsecond wall-time guarantee. Complete logs,not timing assumptions,
+determine the native result.
+
+Host fixtures cover every callback failure/cancellation,busy queues,clock/wait
+failure,all-ones boundaries and no replay. Native adapter fixtures execute the
+actual selector,USB request mapping and all53 forward-cancellation boundaries,
+with separate admission/quarantine refusals. Strict whole-prior/MAC/RX proof
+replays all ordered operations,queue rounds,restorations and snapshot fields;
+408 malformed proofs refuse. Final full build/core and actual-adapter/pure-helper
+ASan/UBSan pass,including additional admission/readback/cleanup-loss boundaries.
+All eight native receipt formats have matching argument counts; the final source
+corrects the new RX register-write counter and v90 progress wording. Exact-stage
+VM/install and native acceptance are pending until recorded below. Guest shows
+progress,saves the full1MiB startup prefix and returns automatically. No new
+physical acceptance or reboot is claimed by this implementation.
+
+
+The first uninstalled v90 stage `5b9e1bb49eed288b` saved and returned in Q35,
+but its harness omitted v90 from the firmware-profile list and correctly failed
+an incompatible generic-probe assertion. That receipt is preserved as a failed
+VM rehearsal,not physical acceptance. The actual harness assignment now has
+v89/v90-positive and unknown-v91-negative coverage. A separate timing regression
+reproduced one extra poll read after a wait crossed the deadline; the engine now
+checks the clock before every subsequent submission. The regression refuses
+that extra read and still proves MAC-disable cleanup. Full final build/core and
+175 staging tests pass; exact final-stage VM/install follow separately.
+
+
+### 2026-10-26 — final v90 MAC-cycle trial installed, unarmed
+
+Source `6af7ec600d1f360de88b52bb28aaff2391da35f6`, release
+`b6c18039f1c36e8d`, recipe `ram-usb-wifi-fw-v90-laptop-probe-0e535900-auto-return`.
+Final full image/core,actual native adapter and pure-helper ASan/UBSan pass.
+175 staging tests include actual harness v90 classification;178 historical
+recipe byte comparisons and408 malformed whole-proof refusals pass. Poll
+regression reproduced the old post-deadline read before the fix and passes
+with pre-submission clock checking. Exact final GPT-stage VM saved,byte-verified,
+unmounted and returned automatically; missing workspace refused without probing
+and returned. Q35 has no native adapter,so these are workflow/refusal checks.
+
+Installed/current and known-good e47 recovery payloads match durable backups;
+accepted corrected v89 remains retained on ESP. Accepted v88 payload was removed
+from ESP only after full durable equality,freeing room for this candidate;
+its accepted evidence/backup remain outside build. Ubuntu default and EFI order
+are unchanged,no one-shot is armed. Offline325files/788clusters/136directories,
+zero leaks,bitmap mismatches or errors;unmounted. Native result remains pending.
+Guest shows progress,saves full logs and returns automatically;no photos or
+commands. After cold-cycle readiness,power off,unplug only Wi-Fi10s,reconnect
+and power on,leaving workspace connected. On return collect the matching v90
+session FIRST with `build/bringup/mac-cycle/collect_return.py`;preserve failed
+completion/cleanup markers. No calibration,reception or connectivity acceptance
+is inferred from this install. Evidence/payload/run records are durably archived
+under `~/.local/share/srvros/macbookpro11-2/wifi-mac-cycle-6af7ec6/`.
+
+
+### 2026-10-26 — native bounded MAC cycle passed
+
+Source `6af7ec600d1f360de88b52bb28aaff2391da35f6`, release
+`b6c18039f1c36e8d`, session `session-00065ec5caf54f87-00`.
+The strict collector accepted the whole earlier initialization/post-VCO/AGC
+proof and all54 MAC-cycle operations:46 reads,7 writes,1 wait. MAC1004
+progressed0/4/12/0 with independent readbacks. CORE/WPDMA guards matched.
+Captured filter17f97 and TXOP583f were restored exactly. Raw TX_ALC0=2f2f1b1b
+and IBI9=ffffffff were read with MAC enabled;IBI9 is still observational and
+does not satisfy the separate calibration helper's non-all-ones admission.
+Requested hold10000us,delay receipt10001us,total bracket10035us;these are
+bounded observations,not latency or calibrated-radio acceptance.
+
+TX drained in one round. RX drained in seven consecutive masked-empty rounds:
+RXQ_STA=22 with occupancy mask00ff0000 clear,and a30/a34 zero. Both MAC_STATUS
+idle checks passed,MAC0 and final disabled guards verified. One4096-byte host
+IN remained owned until exact Stop Endpoint:state3,dequeue31d001 for TRB31d000,
+DCS1,DMA retained. One stopped event CC26 reported4096 remaining;no packet
+bytes or receive acceptance follow. Post-cycle RX wait12841us passed. No
+calibration command,packet inspection,rearm or network data OUT was submitted.
+
+Complete543084-byte startup prefix within1MiB and both completion markers saved.
+Ubuntu default,consumed one-shot,current/e47 recovery payload equality verified.
+Offline327files/795clusters/137directories,zero leaks,bitmap mismatches or errors;
+unmounted/unarmed. Evidence is archived outside build under
+`~/.local/share/srvros/macbookpro11-2/wifi-mac-cycle-6af7ec6/`.
+This accepts only bounded MAC startup/device drain/restoration and endpoint
+retirement. Next audit IBI9/register semantics and fresh board/power/TSSI
+calibration prerequisites before calibration commands and passive reception.
+No immediate repeat boot is needed;scanning,association/security,IP and UI
+remain pending. Earlier failed or superseded candidates remain separate.
+
+
+### 2026-10-26 — reversible calibration-register probe (v91 candidate)
+
+Actual main `d24dbc11` (PR191 Air6,1 evidence only) is consumed. Linux v7.0
+register definitions resolve IBI9 to2124;Linux and vendor MT7610 calibration
+both save raw IBI9,writeffffff7e,and restore the saved word. Neither routine
+special-cases an all-ones saved value. The vendor comment identifies the word
+as controlling MAC ownership of2704/2708. This source audit does not establish
+register semantics or calibration success on this adapter.
+
+Separate `mt76_calibration_probe_run` preserves the original strict calibration
+implementation byte-for-byte. The new explicit v91/profile69 uses the whole
+v90 MAC/RX owner and an optional inspection hook after its raw snapshot,before
+its hold/teardown. Captured parent TX_ALC0=2f2f1b1b/IBI9=ffffffff is required.
+Fresh MAC12/COREf000f200/WPDMA40000050 guards precede TX_ALC0 capture,zero and
+independent readback. After500us,fresh raw IBI9 is saved at the reference point,
+thenffffff7e is written and read independently. Reverse IBI9/TX_ALC0 saved-word
+writes and raw readbacks are mandatory even after forward cancellation/failure.
+MAC-active guards must match afterward. The parent always attempts MAC drain/
+disable/filter/TXOP restoration and exact host endpoint stop;DMA is retained.
+Quarantined EP0 refuses additional writes and cannot claim cleanup success.
+
+Probe transport success is17 operations:12 reads,4 writes,1 wait. Its
+`ibi_write_matched` and `ibi_changed` flags are derived from actual raw words;
+unchanged/read-only behavior can complete the observation but cannot authorize
+calibration or claim functional restoration of an unreadable register. A failed
+raw saved-word restoration remains incomplete. No MCU calibration command,
+packet inspection,rearm,network data OUT or operational transmit-power selection
+is introduced.
+Original strict full-calibration admission still refuses IBI9 all-ones and has
+no native caller. Historical v1-v90 recipe bytes remain identical.
+
+Final image/core and focused pure/native ASan/UBSan pass. Host fixtures cover
+all callback failures/cancellations,fresh post-delay IBI saving,read-only versus
+matching write effects,reverse restoration,actual selector69/parent hook,
+69 native cancellation boundaries,mid-write EP0 quarantine and no replay.
+176 staging tests include the actual smoke classification. Strict whole prior/
+MAC/probe/RX validation refuses158 malformed proofs and accepts four raw/write-
+effect variants;180 historical recipe byte comparisons pass. The first host
+compile rejected misleading indentation in the new test;it was fixed without
+relaxing warnings. A malformed-progress-line test tightened the collector's
+exact line check;the original failing receipt is retained. All12 new/current
+native printf formats have matching argument counts. Exact-stage VM/install
+and native results remain pending until recorded below. Guest shows progress,
+saves results and returns automatically;no photos or commands required.
+
+
+### 2026-10-26 — v91 calibration-register trial installed, unarmed
+
+Source `90b8a2036d31c8cd1b1794f05e57cc8a1611934a`, release
+`7c1728fccd4ae567`, recipe `ram-usb-wifi-fw-v91-laptop-probe-0e535900-auto-return`.
+Final image/core and actual native/pure-helper ASan/UBSan pass;176 staging
+tests,158 malformed-proof refusals,four write-effect/raw-restore variants and
+180 historical recipe-byte comparisons pass. Exact GPT-stage VM saved logs,
+verified file bytes,unmounted and returned automatically. Missing workspace
+refused without probing and returned. Q35 lacks the native adapter;these are
+workflow/refusal checks,not calibration-register or reception acceptance.
+
+Installed/current and e47 previous recovery match durable backups;accepted
+v90 remains retained on ESP. Accepted v89 was removed from ESP only after full
+payload equality to its durable backup,freeing candidate space. v89/v88
+accepted evidence remain outside build. Ubuntu default and EFI order unchanged;
+no one-shot armed. Offline327files/795clusters/137directories,zero leaks,bitmap
+mismatches or errors;unmounted. No physical result is claimed yet.
+
+After cold-cycle readiness,power off,unplug only Wi-Fi10s,reconnect and power on;
+leave workspace attached. Guest shows progress,saves full logs and returns to
+Ubuntu automatically;no photos or commands needed. On return collect the new
+matching session FIRST with `build/bringup/cal-probe/collect_return.py`.
+Require whole prior proof,17 ordered child operations,effect flags derived
+from actual words,raw reverse restoration,MAC teardown and exact retained RX
+stop. Distinguish completed observations from calibration admission;preserve
+failed masks/cleanup markers. Candidate payload/run/evidence are retained under
+`~/.local/share/srvros/macbookpro11-2/wifi-cal-probe-90b8a20/`.
+
+
+### 2026-10-26 — v91 native IBI9 write effect and raw restoration verified
+
+Source `90b8a203`, release `7c1728fccd4ae567`, session
+`session-00065ec686798b50-00` completed and returned to Ubuntu automatically.
+The strict collector verified the whole earlier firmware/MAC/BBP/RF/channel/
+post-VCO/AGC proof, parent MAC lifecycle, new observation and retained RX stop.
+The child completed 17 operations: 12 reads, four writes and one 500us wait.
+Fresh TX_ALC0 was `2f2f1b1b`, suppressed to zero with independent readback.
+IBI9 saved after the delay was `ffffffff`; its temporary `ffffff7e` write
+read back exactly (`ibi_write_matched=1`, `ibi_changed=1`). Reverse saved-word
+writes independently read back IBI9=`ffffffff` and TX_ALC0=`2f2f1b1b`.
+Both raw restore masks were complete. This demonstrates a writable register in
+this bounded context; all-ones alone did not imply an unreadable register.
+
+Parent MAC startup/drain/disable/filter and TXOP restoration completed in
+54 operations (46 reads, seven writes, one wait; hold10033us; TX1/RX7 drain
+rounds). The one4096-byte RX request waited10001us and stopped with owned
+context/dequeue and retained DMA. CC26/4096 remaining is cancellation metadata,
+not a received packet. Total new writes11; no calibration command or packet
+inspection. Full exit prefix and both completion markers were saved.
+Ubuntu default, consumed one-shot, current/e47 payload hashes and retained v90
+backup equality passed. Offline329files/802clusters/138directories, zero leaks,
+bitmap mismatches or errors; workspace unmounted and no reboot armed.
+Evidence is retained outside build in `wifi-cal-probe-90b8a20`.
+
+Next: audit fresh board/power/TSSI context and initial power-on calibration
+ordering, then implement bounded calibration admission and verified cleanup.
+The original strict helper remains unchanged and refuses saved IBI9 all-ones;
+this experiment does not silently relax that contract. RF0:6 semantics remain
+unresolved. Calibration, controlled reception, scanning, association/security,
+Wi-Fi IP traffic and UI remain untested.
+
+
+### 2026-10-26 — initial power-on calibration transaction groundwork
+
+Main `9465c68f` was merged, preserving the accepted v91 source as historical
+hardware evidence. PR192 adds private child-image ownership; PR193/195 carry
+Air evidence. Open PR194 owns window/dock behavior and PR182 filesystem work;
+no overlapping MT76 implementation was found.
+
+Pinned Linux v7.0 `mt76x0u_start` starts MAC before calling power-on calibration.
+`mt76x0_phy_calibrate(true)` issues R(0), VCO(channel), waits10–20us, then
+conditionally performs TSSI DC before the TX_ALC0/IBI9 FULL/LC transaction.
+TSSI is selected by mapped NIC_CONF1 bit13, not by a guessed chipset capability.
+This captured board has NIC0=`fd11`, NIC1=`1004`; bit13 is clear. Existing fresh
+mapped antenna/trim captures already enforce these exact words. Vendor reference
+also orders initial R/VCO before the saved-word sequence, though its detailed
+calibration API differs; the new helper follows pinned Linux ordering.
+
+`mt76_poweron_calibration_run` is separate from both existing helpers and has
+no native caller. It requires captured ASIC/MAC, valid mapped board capture and
+fixed channel1/20MHz. Its callback must additionally prove current ownership,
+firmware/channel/power setup and same-lifetime field freshness before every
+forward operation. Copying a valid-looking struct does not establish freshness.
+TSSI-enabled/unknown profiles refuse before I/O. The sequence is R(0), VCO(1),
+10us minimum wait, active-MAC guards, fresh TX_ALC0=`2f2f1b1b`, zero/independent
+readback,500us minimum wait, fresh raw IBI9=`ffffffff`, temporary `ffffff7e`
+with mandatory independent matching readback, FULL(600), LC(0),15ms minimum
+wait, reverse IBI9/TX_ALC0 saved-word writes/independent readbacks, active-MAC
+guards, RXDCOC(1), final guards/authorization. The all-ones IBI saved value is
+an explicit captured-profile condition supported by v91 write-effect evidence;
+other register all-ones values and mismatched temporary readbacks refuse.
+Original strict non-power-on admission is unchanged.
+
+A reported failed temporary write is marked as possibly applied before calling
+transport. Both touched saved words get independent cleanup attempts even after
+forward cancellation, board-context loss or restoration failure. No RXDCOC is
+issued after incomplete restoration. Successful calibration commands cannot be
+undone by saved-word restoration: the caller must always drain/disable MAC and
+retire RX, retaining uncertain DMA and refusing retry after transport failure.
+Semantic commands are not wire IDs; a future native adapter must validate exact
+framing, sequence, replies and deadlines. This block does not introduce a new
+boot profile, install a payload or enable calibration on hardware.
+
+Host fault-injection covers each of28 callbacks,27 authorization boundaries,
+27 board-context losses, every read mismatch/all-ones case, read-only IBI,
+both reverse restoration failures, reentry/no replay and invalid identities,
+board fields, callbacks and channel/width. Successful model counts are16 reads,
+two forward writes,five commands,three waits and two cleanup callbacks; cleanup
+callbacks must themselves perform a write and independent read on hardware.
+Native RF0:6 semantics and operational power setup remain unresolved; this is
+transaction groundwork, not radio calibration or packet reception acceptance.
+
+
+Validation for power-on helper source `a614bd7f`: full image/core suite passed,
+including merged process/scheduler regressions and existing Wi-Fi/xHCI suites.
+Focused final fault injection and ASan/UBSan passed;674 local docs links pass.
+GPT/OVMF USB boot and injected `echo poweron-core-ok` input passed. Q35 checks
+merged boot/input behavior only; it has no captured adapter and establishes no
+native calibration acceptance. Link audit confirms the new power-on runner and
+old strict runner have no linked native caller; the v91 observation stays linked.
+Existing helper/header and staging/smoke files are byte-identical to v91.
+Source, reference audit and validation evidence are retained outside build under
+`wifi-poweron-core-a614bd7`. Installed remains accepted v91 `7c1728fccd4ae567`,
+e47 remains previous recovery; no physical run or one-shot was staged/armed.
+Next: add the native command adapter with exact MCU reply/sequence/deadline
+validation and verified MAC/RX cleanup, retaining fresh board/power admission.
+
+
+### 2026-10-26 — v92 native power-on command adapter candidate
+
+The explicit profile70/v92 chains the whole prior initialization and v91
+reversible register observation before the separate power-on helper. Native
+admission requires exclusive retained RX/MAC ownership, fresh mapped antenna
+and trim fields, the captured channel1/20MHz/PA/gain/post-VCO proof, and the
+parent TX_ALC0=`2f2f1b1b`/IBI9=`ffffffff` snapshot. v91 must demonstrate the
+IBI9 temporary write effect and both raw restorations in this same lifetime.
+Mapped NIC1004 has TSSI bit13 clear; enabled/unknown board profiles refuse.
+This is initial calibration under captured default context, not operational
+transmit-power selection or authorization to deliver network frames.
+
+The command adapter allows only ordered R(0), VCO(1), FULL(600), LC(0),
+RXDCOC(1), encoded as command31, IDs1/12/ff/3/2 and sequences1..5.
+Each OUT/IN uses the existing bounded MCU transport. Ownership and the OUT
+half-budget are checked before posting IN; aggregate elapsed must be <=1s.
+The initial strict reply hypothesis is16 bytes: CMD_DONE/sequence header,
+exact ID/argument echo and matching trailer, with exact actual length/residue.
+Reference validates sequence/event; the stricter echo shape is a candidate
+contract, not yet native evidence for these commands. A mismatch stops before
+any later command and logs the actual receipt. Never relax it automatically.
+
+A successful transaction contributes30 native operations:18 USB reads,four
+writes,three waits and five command exchanges. Mandatory minimum waits are
+10us/500us/15ms. Reverse saved-word cleanup is independently admitted after
+forward cancellation, followed by parent device draining, MAC disable,
+filter/TXOP restoration and exact retained endpoint stop. MCU timeout uses the
+existing quarantine policy: it cannot claim saved-word or MAC cleanup through
+a quarantined EP0, never retries or frees uncertain DMA, and remains failed.
+Both restoration callbacks are still attempted by the transaction. Total new
+register writes are15 (parent7, v91 probe4, power-on4). Successful commands
+cannot be undone by saved-word restoration, and command completion does not
+establish calibrated RF, packet reception or frequency lock. No packet
+inspection/delivery, rearm or network data OUT is introduced.
+
+Host fixtures execute actual selector70, parent/probe hook, EP0 setup/readback,
+OUT/IN ring submission and reply validation. They cover91 USB ownership losses,
+each command reply mismatch, all ten OUT/IN timeouts and all ten bulk ownership
+losses, invalid board gates and no replay. Serializer tests refuse every reply
+bit mutation and incorrect length. The strict whole-chain collector refuses329
+malformed proofs;182 historical recipe-byte comparisons remain identical.
+Early staging tests caught missing v92 recipe recognition and a stale unknown-
+version fixture; both were fixed. The first timeout fixture wrongly expected
+cleanup through quarantined EP0; actual quarantine behavior was preserved and
+the fixture corrected. Initial proof-generation errors were caught by the full
+valid fixture before staging; original failed receipts remain archived.
+Local/core/sanitizer/exact-stage VM and physical results are recorded separately.
+Guest progress and disk evidence remain automatic; no photos or commands needed.
+
+
+### 2026-10-26 — v92 power-on command trial installed, unarmed
+
+Source `b22a83eeb849e7c4a3aa1d58ee08e3610fe4eef4`, release
+`7406fc019cb09f47`, recipe `ram-usb-wifi-fw-v92-laptop-probe-0e535900-auto-return`.
+Full image/core suite passed on merged main43aff7d5; final expanded native
+fault fixtures and pure/native ASan/UBSan passed.177 staging tests,329 malformed
+whole-proof refusals and182 historical recipe-byte comparisons pass.17 native
+printf argument counts were audited. The final rebuilt kernel and independently
+firmware-packaged initramfs match the staged hashes. Exact GPT-stage VM saved
+and byte-verified logs, unmounted cleanly and returned automatically; missing
+workspace refused before probing and returned. Q35 lacks the captured adapter:
+these are workflow checks, not native calibration or reception acceptance.
+
+An initial stage `837f872d148a6ec3` preceded the explicit incremental rebuild
+after the final comment edit. It was superseded before any installation or
+one-shot; its separate pre-rebuild archive/VM receipt remains historical.
+Only rebuilt release7406fc019cb09f47 was installed. Ubuntu default and EFI order
+are preserved; e47 remains previous recovery and accepted v91 remains on ESP.
+Accepted v90 was removed from ESP only after exact durable payload equality
+was verified to free candidate space; its acceptance evidence remains archived.
+Preboot workspace:329files/802clusters/138directories, zero leaks, bitmap
+mismatches or errors; unmounted. No one-shot is armed.
+
+After readiness, power off, unplug only Wi-Fi10s while off, reconnect and power
+on; leave the workspace drive connected. Guest shows progress and saves results
+before returning automatically; no photos or commands needed. On return collect
+the matching v92 session FIRST with `poweron-native/collect_return.py`. Require
+whole prior/v91 proof,30 ordered power-on operations and all five strict replies,
+reverse saved-word restoration, parent MAC/device drain and retained RX stop,
+full1MiB prefix and both completion markers. Unexpected replies, quarantine,
+halts or missing markers are failures/incomplete, never passes. Evidence and
+payload are retained outside build in `wifi-poweron-native-b22a83e`.
+Command completion does not accept RF performance, packet reception, scanning,
+association/security, Wi-Fi IP traffic or UI. No payload inspection or rearm.
+
+
+### 2026-10-26 — v92 native power-on command transaction verified
+
+Source `b22a83ee`, release `7406fc019cb09f47`, session
+`session-00065ec7483fb865-00` completed and returned to Ubuntu automatically.
+The strict collector accepted the whole prior firmware/MAC/BBP/RF/channel/
+post-VCO/AGC proof, v91 reversible write observation, new power-on transaction,
+parent MAC teardown and exact retained RX stop. All five command31 exchanges
+matched the candidate16-byte CMD_DONE sequence/ID/argument/trailer contract:
+R(0), VCO(1), FULL(600), LC(0), RXDCOC(1), sequences1..5, IDs1/12/ff/3/2.
+Each sent/received16 bytes, CC13/residue1008. Observed command durations were
+446/2417/5139/14156/762us; required waits10/500/15000us took11/501/15002us.
+This establishes the exact reply contract for this adapter/context only.
+
+Power-on completed30 operations:18 USB reads, four writes, three waits and five
+commands; ACK mask31. Fresh TX_ALC0=`2f2f1b1b` was suppressed to zero and
+independently verified; fresh post-delay IBI9=`ffffffff` accepted `ffffff7e`
+with matching readback. Both reverse saved-word restores independently matched;
+saved/modified/attempted/restored masks3 and cleanup complete. Active-MAC guards
+passed before/after. The same-lifetime v91 observation also passed.
+
+Parent MAC completed54 operations (46 reads,seven writes,one wait), TX1/RX7
+drain rounds,10031us hold, MAC0 and exact filter/TXOP restoration. One4096-byte
+main RX request waited10000us, then stopped with exact owned context/dequeue
+and retained DMA. CC26/4096 remaining is cancellation metadata, not packet
+reception. Total new register writes15. Full startup prefix and both completion
+markers saved. Ubuntu default, consumed one-shot and current/e47 payload hashes
+passed; accepted v91 remains retained. Offline331files/809clusters/139directories,
+zero leaks, bitmap mismatches or errors; unmounted/unarmed. Evidence and payload
+remain outside build in `wifi-poweron-native-b22a83e`.
+
+This accepts bounded initial calibration command execution and cleanup; it does
+not measure calibrated RF performance, frequency lock or received frames.
+RF0:6 semantics remain unresolved, and original strict helper admission is
+unchanged. Next is controlled passive main-RX observation with explicit actual
+byte counts, strict frame parsing and bounded teardown. Scanning, association/
+security, Wi-Fi IP traffic and UI remain pending. No new trial/reboot armed.
+
+
+### 2026-10-26 — controlled passive RX candidate (v93)
+
+Main `a9e39e38` (PR197 attended load and PR198 navigation) was merged. Staging
+conflicts were reconciled by behavior, preserving all Wi-Fi recipes and separate
+v76 navigation/v77 attended profiles; merged staging tests passed before new
+work. PR182 remains filesystem scope, with no MT76 overlap.
+
+New explicit profile71/v93 chains the entire accepted v92 transaction. It
+retains the same single4096-byte main IN and the active MAC context, then polls
+transfer events until completion or a1s deadline. No extra transfer/rearm,
+network data OUT, probe request or channel change is submitted. Every poll
+revalidates current ownership. Backward clocks,1024 consecutive no-progress
+checks, the20M absolute poll cap or elapsed accounting beyond1.1s refuse.
+The ordinary parent10ms hold remains separate; device drain/MAC disable/filter/
+TXOP restoration and exact Stop Endpoint/dequeue proof still precede inspection.
+
+Only a normal CC1/13 with one matching event and residue <=4096 supplies actual
+bytes. Zero-sized normal completion, missing event and stopped CC26/27/28 give
+zero usable bytes; even CC26 residue0 never licenses inspecting4096 bytes.
+After all six disabled guards and proven stop, the unchanged strict RX parser
+views only the first DMA/RXWI entry. It may decode a beacon/probe response;
+malformed/unsupported/channel-mismatched data is recorded as rejected, not a
+received-beacon pass. Raw payload, SSID and network addresses are never logged.
+Only copied sizes/frame-control and non-identifying advertisement metadata are
+retained; temporary beacon identifiers are scrubbed. The first-entry-only limit
+and no FCE/FCS/calibrated-RSSI inference remain explicit.
+
+Event processing is tagged as during the post-calibration window or outside it;
+this is software timing, not an RF timestamp. An early completed transfer can
+be decoded after teardown but cannot be relabeled as a post-calibration event.
+The observation can complete with no data or rejected data without accepting
+packet reception. It does not add scanning, association/security, Wi-Fi IP
+traffic, reconnect policy or UI.
+
+Host fixtures execute the actual mode71/whole-v92 hook, event polling, EP0/MCU
+traffic, stop command/context and parsers.53 scenarios cover short/full/empty,
+malformed/unsupported/off-channel data, early and late/foreign events, ownership
+loss and backward/frozen/forward-jump clocks, pre-stop refusal,28 stop/length/
+ownership guard mutations, poison pointers for cancellation/no data and no
+replay/rearm/free. The first frozen-clock run repeated the full historical
+ownership proof too long; it was terminated unaccepted. The1024 no-progress
+bound fixed that behavior without caching or removing ownership checks.
+The full log proof accepts14 whole-chain packet/empty/cancellation variants and
+refuses185 malformed proofs.184 historical Wi-Fi recipe comparisons and both
+merged desktop recipes remain byte-identical;180 staging tests pass. Pure and
+native sanitizer, final source/image and VM results are recorded separately.
+
+
+### 2026-10-26 — v93 passive RX trial installed, unarmed
+
+Source `774e9e9d684e4cef21212a03cc8a8a99008f0a2d`, release
+`6fcb4fe992b35b78`, v93 automatic-return laptop probe. Full image/core and
+actual native observation plus strict parser ASan/UBSan passed, including the
+100000 hostile-transfer cases.180 staging tests,14 whole-proof outcome variants,
+185 malformed-proof refusals and184 historical Wi-Fi recipe comparisons pass;
+both merged navigation/attended desktop recipes remain unchanged.20 native
+printf formats match their argument counts. Original parser and calibration/
+MAC transaction implementations remain byte-identical to the v92 source.
+
+The final committed-source rebuild matches the staged kernel, and independently
+adding the verified firmware package reproduces the staged initramfs hash.
+Exact GPT-stage VM saved and byte-verified diagnostics, unmounted and returned;
+missing workspace refused before probing and returned. Q35 lacks this adapter,
+so these are workflow/refusal checks, not received-frame acceptance.
+
+Installed/current and e47 previous recovery match durable payloads; accepted
+v92 remains on ESP. Accepted v91 was removed from ESP only after exact durable
+payload equality, freeing candidate space; its earlier evidence remains
+archived. Ubuntu default/EFI order preserved; no one-shot armed. Workspace
+331files/809clusters/139directories, zero leaks, bitmap mismatches or errors;
+unmounted. Durable candidate/run/evidence: `wifi-passive-rx-774e9e9`.
+
+After readiness, power off, unplug only Wi-Fi10s while off, reconnect and power
+on; leave workspace connected. Guest shows progress, saves logs and returns to
+Ubuntu automatically; no photos or commands needed. Collect the matching v93
+session FIRST with `passive-rx/collect_return.py` on return. Require full prior/
+v92 proof, bounded event window, independent MAC/device drain and exact stop,
+then explicit normal-completion byte count and strict parser outcome. Empty or
+rejected data can finish the observation but cannot accept frame reception.
+Stopped residue never licenses reading bytes. No new IN/rearm, network data OUT,
+scan/association or connectivity claim. No physical result is claimed yet.
+
+
+### 2026-10-26 — v93 native passive beacon reception verified
+
+Release `6fcb4fe992b35b78`, source `774e9e9d`, session
+`session-00065ec7f927dacb-00` completed and returned automatically. Entire prior
+firmware/MAC/baseband/RF/channel/AGC proof, reversible probe and all five v92
+power-on exchanges passed. Passive polling processed a normal CC13 event after
+10086us/534 polls during its post-calibration window. One4096-byte request had
+3820 remaining, providing276 actual bytes. After independent MAC/device drain,
+filter/TXOP restoration, all six guards and exact endpoint stop, the unchanged
+parser accepted the first272-byte entry and234-byte management MPDU as a
+channel1 beacon (frame control0080, interval100, empty SSID, privacy/RSN present,
+WPA absent, DS channel present). No network identifiers or payload were logged.
+
+This establishes one bounded native beacon observation only. It does not
+measure sustained reception, FCS validity, calibrated RSSI, frequency lock or
+RF quality. No endpoint rearm, network data OUT, scan, association/security,
+Wi-Fi IP or UI was exercised. Parent MAC completed54 operations/46 reads/7
+writes/1 wait,10ms hold10033us and full restoration. The single receive buffer
+remains retained; stopped ownership was proven before inspection.
+
+Full startup prefix and both completion markers passed the whole-chain checker.
+Ubuntu default, consumed one-shot, current/e47 payload hashes and accepted v92
+fallback were verified. Offline workspace checks:333files,816clusters,
+140directories, zero leaks/bitmap mismatches/errors; unmounted and unarmed.
+Durable evidence: `wifi-passive-rx-774e9e9`. Next is a separately reviewed bounded
+repeated passive receive lifecycle with safe rearm/cancellation and teardown,
+followed by scanning and connection support. No further reboot armed.
+
+
+### 2026-10-26 — bounded repeated receive engine (offline)
+
+Following native v93 beacon reception, main `a9d69554` was merged (PR199 adds
+Air6,1 evidence only). PR182's filesystem scope does not overlap. New
+`mt76_rx_window` is an allocation-free callback-driven engine for a fixed
+channel1 receive window. The caller supplies eight distinct aligned4KiB DMA
+pages and eight monotonically advancing, non-wrapping TRB identities. Only one
+request can be pending. Normal CC1/13 with residue<=4096 records actual bytes;
+foreign slot/DCI/TRB events are ignored, and prior TRBs cannot complete a later
+request. Stopped/error/event-data completions fail the forward transaction.
+Every attempted submission, including a callback failure, requires endpoint
+cessation before any subsequent inspection; buffers are never freed or reused.
+
+The count limit is eight; the window deadline is1s, with a1.1s elapsed accounting
+cap, backward-clock refusal,1024 consecutive no-progress checks and a2M poll
+cap. Eight immediate completions can finish by count without a clock advance;
+a stalled pending request cannot spin indefinitely. Adapter callbacks themselves
+must be bounded and serialized. The future native adapter must prove stable
+DMA/ring/endpoint identities and the accepted MAC/calibration context before
+each forward action, then disable/drain MAC and prove disabled guards in cleanup.
+The helper requires exact slot/DCI9/stopped-state3/current-or-next dequeue with
+DCS1 before decoding. All pages remain retained even if shutdown cannot be proven.
+
+Only after final cessation and fresh cleanup ownership does the existing strict
+parser inspect the first entry of each normally completed buffer. Zero-data
+normal completions never dereference their buffers. Only non-identifying sizes,
+frame-control and beacon advertisement metadata are copied; temporary identifiers
+are scrubbed. No aggregate traversal, SSID/address logging, raw RSSI/FCS inference,
+transmission, scan, association or networking policy is added. A complete empty
+window is not reception acceptance; any failed window remains unaccepted even
+if earlier items have partial metadata.
+
+The helper has no native caller, staging flag or boot recipe in this block.
+Installed v93 and recovery are unchanged; repeated native reception is not yet
+accepted. Next is the native callback adapter, with actual event/ring/stop fault
+fixtures and exact-stage save/refusal/return validation before a cold trial.
+
+
+Validation for this offline engine:222 host scenarios and ASan/UBSan with leak
+checking pass, including each submission/ownership/cleanup failure position,
+foreign/stale events, zero/full transfers, malformed/unsupported/off-channel
+frames, stopped completions with misleading residues, exact-stop mutations,
+invalid plans/callbacks and poison DMA pointers on all no-usable-data paths.
+The first frozen-clock fixture incorrectly supplied immediate completions; it
+was corrected to withhold events and exercise a pending stall. That initial
+failed run is retained, not counted as passing evidence. Full merged image/core,
+final-source image/GPT USB build,180 staging tests, documentation checks and
+OVMF GPT boot with real emulated USB keyboard input pass. These validate the
+helper and boot workflow, not repeated reception on physical hardware. The
+native adapter must preserve shared-event dispatch and the parent MAC cleanup
+sequence; it must not stop the endpoint prematurely inside the existing
+inspection hook. Installed v93, e47 recovery and accepted v92 fallback remain
+unchanged; no reboot armed.
+
+
+### 2026-10-26 — native repeated passive RX candidate (v94)
+
+New selector72/v94 consumes the whole accepted prior firmware, board, channel,
+AGC, reversible-probe and five-command power-on sequence. The receive-window
+engine now has one-shot poll/finish phases, retaining its standalone wrapper.
+Native polling runs inside the existing MAC inspection hook; the original MAC
+transaction remains byte-identical. Final decoding occurs only after its parent
+hold/drain/disable/filter/TXOP restoration, exact endpoint stop and all six
+boundary guards. No endpoint stop or packet inspection occurs inside the active
+MAC hook. Original receive parser and both older calibration helpers are unchanged.
+
+Configure allocates a ring plus eight distinct retained4KiB pages before MAC
+startup. The first poll submission acknowledges the already posted first IN;
+up to seven later requests publish successive non-wrapping TRBs, one pending
+at a time. Every posted descriptor must still encode its exact saved physical
+page,4096-byte length, normal/IOC/ISP/Cycle bits, while future entries remain
+unpublished. Current virtual mappings, enqueue/cycle, buffer, slot/DCI and all
+saved page identities are rechecked. Publication and shared-event dispatch use
+the existing IRQ-protected controller path. Neither buffers nor TRB identities
+are reused, and no Set Dequeue or network data OUT is issued. All DMA remains
+retained after failure or uncertain stop.
+
+A normal CC1/13 event with bounded residue supplies bytes only when observed
+by the polling phase. An initial completion processed before polling is tagged
+early. A final completion arriving during the later parent hold or Stop does
+not retroactively populate the saved item; cancellation residues are never
+parsed. The1s/eight-request bounds,1.1s accounting cap,1024 frozen-clock bound and
+2M absolute poll limit remain. Packet metadata contains no SSID, addresses or
+raw payload/RSSI; only the first bounded entry of each observed transfer is
+viewed. Empty/rejected windows can complete without accepting reception.
+Scanning, association/security, Wi-Fi IP and UI remain outside this trial.
+
+Native fixtures cover the actual selector, whole power-on/parent MAC callbacks,
+real ring publication/dispatcher and exact stop proof, allocation failure at
+each of nine pages, no replay/free, deadline/early/late/stale/foreign/invalid
+length/stopped events, clock/ownership loss and cleanup/descriptor mutations.
+An interleaved USB keyboard event is delivered during the receive window.
+The full saved-log checker binds every item to count, completion/residue, phase,
+parent cleanup, current TRB stop proof and whole earlier initialization chain.
+Installed recovery remains unchanged until all validation and exact-stage checks.
+
+
+### 2026-10-26 — v94 installed; cold native trial pending
+
+Candidate source `34c2e8b4898966e252d7d335b7298a46cc721e0a`, release
+`2530466d580891cc`, profile v94 automatic return.60 native whole-power-on/MAC/
+window/ring/event/stop/allocation/shared-keyboard scenarios and230 engine cases
+pass. Native and pure ASan/UBSan pass, as do the full committed-source image/core
+suite and181 staging tests. The strict whole-prefix checker accepts11 outcomes
+and refuses137 malformed proofs;186 historical Wi-Fi configurations and both
+merged desktop configurations remain byte-identical.25 native printf arities
+match their arguments. Initial compile/stale staging-fixture failures are
+retained separately; only corrected complete runs are counted as passing.
+
+The staged kernel matches the final committed-source build; independently
+adding the verified firmware package reproduces the staged initramfs hash.
+The window split API, unchanged receive parser and power-on runner are linked;
+the original strict calibration runner remains uncalled. Exact GPT-stage VM
+saved and byte-verified logs, cleanly unmounted and returned automatically.
+Missing workspace refused before probing and returned. Q35 has no captured
+adapter; these VM results establish workflow/refusal only.
+
+Installed/current v94, accepted v93 fallback and e47 previous recovery match
+verified durable payloads. To obtain ESP space, older accepted v92 was removed
+only after full durable payload equality; its backup remains outside build.
+Ubuntu default/EFI order remain unchanged, workspace unmounted and no one-shot
+armed. Offline workspace:333files,816clusters,140directories; zero leaks,
+bitmap mismatches or errors. Durable candidate evidence: `wifi-rx-window-34c2e8b`.
+
+After readiness, power off, unplug only Wi-Fi10s while off, reconnect and power
+on; leave workspace attached. Guest shows progress, saves results and returns
+to Ubuntu automatically; no photos or commands needed. On return collect the
+matching v94 session FIRST with `rx-window-native/collect_return.py`, requiring
+whole prior proof, parent cleanup, exact current-TRB stop, six guards and each
+item's completion/actual bytes/parser/phase. Empty/rejected data is not reception
+acceptance. No physical v94 result is claimed; scan/association/security/IP/UI
+and sustained receive/FCS/RSSI/RF-performance acceptance remain pending.
+
+
+### 2026-10-26 — v94 returned with an empty receive window
+
+Release `2530466d580891cc`, source `34c2e8b4`, session
+`session-00065ec9814b8379-00` saved complete logs and returned automatically.
+Whole earlier firmware/MAC/baseband/RF/channel/AGC, reversible-probe and five
+power-on command proofs passed. The window polled18350 times over1000042us,
+with one attempted request, zero normal completions and zero beacons; no early
+completion or usable bytes occurred. The request remained pending, so no
+second TRB was submitted and no DMA bytes were inspected. Parser statuses255
+mean not inspected, not parser failure or frame reception.
+
+The unchanged parent MAC transaction completed54 operations/46 reads/7 writes/
+1 wait, hold10035us, TX1/RX7 drain rounds, MAC disable and filter/TXOP restoration.
+Host wait10001us and exact endpoint stop plus all six guards passed. Stop's
+CC26/4096 remaining is cancellation metadata, with DMA retained. This accepts
+only the bounded empty-window lifecycle; the new successive native submissions
+and repeated reception were not exercised. The earlier v93 beacon observation
+remains separate evidence and does not fill this run's missing receive proof.
+
+The strict checker validated the full1MiB-capacity startup prefix and both
+completion markers. Current/e47/accepted-v93 payloads, Ubuntu default and
+consumed one-shot were verified. Offline workspace:335files,823clusters,
+141directories; zero leaks, bitmap mismatches or errors. Workspace unmounted,
+no reboot armed. Complete raw evidence and observation records are retained
+outside build in `wifi-rx-window-34c2e8b`.
+
+Next: a longer bounded passive window to distinguish a quiet interval from a
+receive-path problem, preserving exact completion/byte accounting, parent
+cleanup and stop proof. Do not submit another request while the first is
+pending. Scanning, association/security/IP/UI and sustained reception, FCS,
+calibrated RSSI and RF performance remain untested; no cause is inferred from
+this single empty observation.
+
+
+### 2026-10-26 — explicit ten-second passive receive candidate (v95)
+
+Actual main `eacb4ec4` (PR200 screenshot/worker validation) was merged, preserving
+both MT76 and operation-timing Makefile test families. PR202 is Air evidence;
+PR182 owns filesystem imports. Neither overlaps this window-budget scope.
+
+Selector73/v95 is a separate explicit long-window profile. The engine admits
+only a zero/default1s plan, an explicit1s plan, or10s; arbitrary/overflowing
+budgets refuse before submission. The existing v94 native plan remains zero/
+1s. Long native ownership requires the10s plan in both the stable adapter and
+engine copy. Its absolute poll cap is20M and elapsed accounting cap10.1s;
+backward clocks and1024 frozen-clock checks still refuse. The eight retained
+pages/requests, one pending at a time, exact completion/byte accounting and
+parent hold/drain/disable/restore/stop/six-guard sequence remain unchanged.
+A final pending request cannot trigger another submission. Empty observation
+is not received-packet or repeated-submission acceptance.
+
+The long profile adds only the explicit window-long boot token and progress
+label; all older recipes keep their command lines and short deadlines. There
+are no RF/channel/register or parser/calibration changes. Host coverage includes
+literal/default/long budget behavior, six invalid budgets, long empty/partial/
+completed windows, long clock failure and budget-identity mutation, plus all
+prior descriptor/ownership/stop/cancellation/shared-keyboard cases. Physical
+v95 remains pending; the last native v94 observation was empty, as recorded above.
+
+
+### 2026-10-26 — v95 ten-second trial installed, unarmed
+
+Source `e9acacd5041587caf8b31f751270f7a68ab3e97b`, release
+`84afc9dee029775f`, v95 automatic return.75 actual native short/long budget,
+allocation, parent/power-on, shared-keyboard, event, ownership and exact-stop
+scenarios pass.246 engine cases, native/pure ASan/UBSan,182 staging tests and
+full merged committed-source image/core/desktop tests pass. The strict whole
+prefix checker accepts11 outcomes and refuses137 malformed proofs;188 older
+Wi-Fi recipes and both desktop configurations remain byte-identical.25 native
+printf formats match argument counts. Original parser, parent MAC cycle,
+calibration helpers and native power-on adapter remain unchanged.
+
+The staged kernel and independently firmware-packaged initramfs match the final
+committed-source products. Exact GPT-stage VM saved byte-verified diagnostics,
+unmounted cleanly and returned automatically. Missing workspace refused before
+probing and returned; Q35 results establish workflow only, not native reception.
+
+Current v95, accepted v93 fallback and e47 previous recovery match durable
+payloads. EFI space was recovered by first selecting verified v93 as current
+while keeping Ubuntu default/e47 recovery, then removing the now-obsolete quiet
+v94 only after full durable equality; v95 was installed afterward. V94's full
+payload/empty-window evidence remains outside build. EFI order and Ubuntu default
+are preserved; no one-shot armed. Offline workspace:335files,823clusters,
+141directories; zero leaks/bitmap mismatches/errors, unmounted. Durable candidate
+archive: `wifi-rx-window-long-e9acacd`.
+
+After readiness, power off, unplug Wi-Fi10s while off, reconnect and power on;
+leave workspace connected. Guest shows the up-to10s listening window, saves
+results and returns automatically; no photos or commands needed. Collect the
+matching v95 FIRST with `rx-window-long/collect_return.py`. Require whole earlier
+proof, ten-second/count accounting, exact byte/event phase, parent cleanup,
+exact stop and six guards. An empty window or stopped-event residue is not
+packet reception; no repeated native submission, scan/security/IP/UI or RF
+performance claim is made before those outcomes are observed.
+
+
+### 2026-10-26 — v95 bounded repeated native reception observed
+
+Release `84afc9dee029775f`, source `e9acacd5`, session
+`session-00065eca15a6993a-00` completed the explicit ten-second observation:
+172646 polls,10000029us, seven distinct retained4096-byte requests and six
+normal CC13 completions. Each completed item had3900 remaining/196 actual
+bytes; its first valid RX entry consumed192 bytes with154-byte MPDU and FC0040
+(probe request). All six completions were observed during the active window,
+none before it. Beacon-parser status2 means unsupported frame subtype here,
+not malformed RX framing. No beacon/probe response or identifiers were logged;
+no uniqueness claim is possible from this copied metadata alone.
+
+The seventh request stayed pending and was cancelled only after the unchanged
+parent MAC cleanup:54 operations,46 reads,7 writes,1 wait,10036us hold, TX1/RX7
+drain rounds, MAC disable and filter/TXOP restoration. Host wait10001us, exact
+endpoint stop and six guards passed; final CC26/4096 remaining supplies no
+packet bytes. DMA stayed retained, no page/TRB reuse or network data OUT.
+Whole prior initialization, reversible observation and five-command power-on
+proof passed. This accepts bounded successive native submissions and repeated
+RX framing on this release. It does not establish sustained reception, FCS,
+calibrated RSSI, RF performance, access-point discovery or connectivity.
+
+Full startup prefix and both completion markers passed the strict collector.
+Ubuntu default, consumed one-shot and current/e47/accepted-v93 payload equality
+were verified. Offline workspace:338 files,835 clusters,142 directories;
+zero leaks, bitmap mismatches or errors. Workspace unmounted, no reboot armed.
+Complete raw collection, strict proof and recovery evidence are preserved in
+`wifi-rx-window-long-e9acacd` outside build. Next: bounded passive access-point
+discovery, then association/security, IP integration and network UI; the
+six probe requests do not substitute for beacon discovery acceptance.
+
+
+### 2026-10-27 — explicit native private discovery candidate (v96)
+
+Separate selector74/v96 inherits the exact v95 ten-second/eight-page receive
+plan and all earlier initialization, power-on, MAC cleanup, exact stop and six
+guards. It runs `mt76_discovery_collect` only after successful window finish,
+while those native identities remain owned. Every collection ownership check
+also rereads the live output endpoint state/dequeue and requires the same stopped
+context. A failed window/ledger/guard or lost live stopped context cannot publish
+private rows. No new USB/RF writes, retuning, polling, submissions, DMA reuse or
+packet parser policy are added by collection.
+
+The guest displays progress and saves only counts and row metadata: observations,
+channel/interval/name length, hidden status, advertisement flags and conflict
+flags. BSSID/name bytes remain private in memory; no address, name, payload or
+raw RSSI is logged. The new profile requires the explicit long-window chain and
+automatic return. Old v1-v95 profiles and their command lines remain unchanged.
+An empty table is a completed observation, not access-point discovery acceptance.
+Even nonempty metadata does not independently verify physical BSSID deduplication,
+authenticated identity/security, sustained reception or RF quality. Native UI,
+association/security and IP integration remain future work.
+
+The actual native fixture exercises short/long/v96 mode inheritance, shared HID,
+parent/power-on ordering, distinct TRBs, delayed/empty/error completions and stop
+proof, plus damaged discovery ledgers and live context loss at every collection
+check. The helper is one-shot; rejected captures leave no partial identifiers.
+No physical discovery result has been collected for this new profile yet.
+
+Local v96 validation:182 actual native window/discovery scenarios,10168 pure
+discovery collections,246 receive-window cases, native ASan/UBSan,183 staging
+tests and full merged image/core/desktop checks pass. The strict whole saved
+proof admits15 outcomes and refuses167 malformed variants;190 older Wi-Fi
+recipes and both desktop recipes are unchanged.27 native printf formats match
+argument counts. Original discovery/window/parser/parent/calibration/power-on
+source bytes remain unchanged. Exact-stage VM, installation and physical
+discovery evidence are separate checkpoints.
+
+
+### 2026-10-27 — v96 private discovery trial installed, unarmed
+
+Source `8f447183b2df543eaa7d20910cd672b25ce21e60`, release
+`6f0426100438a6bc`, v96 automatic return on main `6b6d2f4d`. All182 native
+scenarios,10168 pure discovery collections,246 window cases, native ASan/UBSan,
+183 staging tests, full core/image/desktop and strict15-valid/167-refusal proofs
+pass.190 older Wi-Fi and both desktop recipes are unchanged. Stage kernel and
+independently packaged initramfs match the committed-source products; native
+discovery/window/parser/power-on symbols link, original strict calibration runner
+remains uncalled.27 printf argument counts pass.
+
+Exact GPT-stage VM saved byte-verified diagnostics, cleanly unmounted and returned
+automatically. Missing workspace refused before probing and returned. These
+verify workflow only, not native discovery. Initial missing v96 staging-pattern
+membership, a host-test invocation without its required arguments, and an early
+proof-script insertion-order error were corrected before installation; original
+failure logs are preserved with the successful evidence.
+
+Current v96, accepted v95/v93 and e47 previous payloads match durable copies.
+Only obsolete Ethernet candidate `debb2ddf3e9f4243` was removed from the ESP,
+after full file equality with its retained durable backup; current/previous and
+accepted Wi-Fi fallbacks were kept throughout. Ubuntu default and EFI order
+remain unchanged. Offline workspace:338files,835clusters,142directories;
+zero leaks, bitmap mismatches or errors. Workspace unmounted; no one-shot armed.
+Durable candidate evidence: `wifi-discovery-native-8f44718` outside build.
+
+After cold-cycle readiness, power off, unplug Wi-Fi10s while off, reconnect and
+power on, keeping workspace connected. Guest shows listening/collection progress,
+saves results and returns automatically; no photos or commands. Collect matching
+v96 FIRST with `discovery-native/collect_return.py`, including whole prior proof,
+window item outcomes, discovery counts/metadata, fresh stopped-context ownership,
+full prefix/completion, four retained payloads and offline filesystem/allocation.
+No AP or connectivity acceptance is claimed until actual results are reviewed.
+
+
+### 2026-10-27 — v96 native fixed-channel private AP table observed
+
+Release `6f0426100438a6bc`, source `8f447183`, session
+`session-00065ecbdbf4e83a-00` reached the eight-buffer count bound after26022
+polls/1411525us, before the10s deadline. All eight completions were CC13 and
+observed during the window; no early event, ignored event or pending final
+request. Actual byte counts in order:312,276,312,196,196,196,312,276. Each
+buffer/TRB stayed distinct and retained. Only the first bounded RX entry was
+inspected after parent cleanup, exact endpoint stop and six guards.
+
+Five valid channel1 beacons (interval100, privacy/RSN advertised, WPA absent)
+produced two private rows: a visible three-byte name with three observations,
+and a hidden empty name with two. No probe responses or name/security conflicts
+were observed. One unsupported RX entry and two probe requests account for the
+three unrelated inputs; no rejected or empty input. All18 fresh native discovery
+ownership checks passed. No BSSID, name bytes, payload or raw signal values were
+logged. Redacted row metadata does not independently establish BSSID identity/
+deduplication or unique radio frames. This accepts the bounded channel1 native
+AP-table observation, not a multi-channel scan, security validation or connection.
+
+Whole earlier initialization, reversible observation and five fixed power-on
+commands passed. Parent MAC cleanup completed54operations/46reads/7writes/1wait,
+10031us hold, TX1/RX7 drains, MAC disable and filter/TXOP restoration. Host wait1us;
+final normal completion had3820 remaining/276 actual bytes, then exact stop and
+all six guards. No DMA reuse or network data OUT. Full553572-byte startup prefix within
+the1MiB capacity and both completion markers passed the strict checker.
+
+Ubuntu default, consumed one-shot and current/e47/v95/v93 payload equality were
+verified. Offline workspace:340files,842clusters,143directories; zero leaks,
+bitmap mismatches or errors. Workspace unmounted, no reboot armed. Full raw
+collection, exact counts/metadata, strict proof and recovery evidence are kept
+outside build in `wifi-discovery-native-8f44718`. Next: explicit bounded
+multi-channel passive discovery with independently tested retuning and cleanup,
+then network selection, association/security and IP/UI. RF0:6 remains unresolved;
+no sustained reception, FCS, calibrated RSSI or RF-performance claim is added.
+
+
+### 2026-10-27 — US channel frequency planning and reversible preview
+
+Separate `mt76_channel_plan` projects all eleven US1–11/20MHz frequency rows
+into21 ordered masked register operations per channel. The693-byte independent
+host fixture derives from pinned Linux v7.0
+[frequency rows](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_phy.h)
+and [PHY operation order](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c).
+None of these channels uses the reference's alternate SDM path. Channel1's
+register/mask/value triples equal the unchanged accepted synthesizer helper.
+This planner does not implement a regulatory database or accept another region,
+channel12–14,5GHz,40/80MHz or an arbitrary RF address.
+
+The separate allocation-free preview accepts a canonical US/20MHz plan with at
+most11 distinct channels. It snapshots all13 distinct synthesizer registers and
+requires their exact saved channel1 values before any write. Each step checks
+disabled MAC, CORE, DMA and idle status; reads the fresh previous RF byte,
+preserves unmasked bits, marks a possibly touched word before publication, writes
+once and independently verifies readback. All touched originals are restored in
+reverse snapshot order after success or forward failure under independent cleanup
+ownership. A false write result is tested both with and without actual mutation.
+Failed cleanup guards or unsafe transport ownership forbid further RF access and
+leave explicit unproven restoration; such a transaction cannot pass. Cleanup
+attempts other independent saved words after an individual write/read failure.
+No retries, waits, MAC writes, VCO pulses, packet I/O or DMA reuse occur here.
+
+The full eleven-channel preview has2592 bounded I/O callbacks:1860 guard reads,
+488 RF reads and244 RF writes, including13 cleanup readbacks/writes. Callback
+transport deadlines and exact native stopped-context/board ownership must be
+provided by a future adapter. Repeating the state is refused. These observations
+validate only reversible frequency fields: actual tuning still requires the
+remaining RF/baseband/VCO sequence and receiver lifecycle. No native caller,
+boot profile, live channel change or multi-channel scan is added in this block;
+installed v96 and its native channel1 discovery acceptance remain unchanged.
+
+Independent-reference/masked-bit, all-callback I/O/ownership/readback and forward
+cancellation/cleanup tests pass:12918 transactions,59136 masked words, including
+all eleven individual plans and the combined preview. ASan/UBSan pass. Initial
+test compilation indentation and an overly broad test expectation of restoration
+after failed cleanup guards were corrected; original failed logs are retained.
+The production guard refusal was preserved. Raw primary-source retrieval was
+rate-limited, so the audit uses the prior hash-pinned Linux references, separately
+checked against the official source view; source hashes/provenance remain local.
+
+Validation closeout: actual main `e7953352` merged PR204/205/206; the append-only
+Makefile conflict retained both discovery and audio-volume test families. Full
+merged image/core/desktop,183 staging tests and GPT/OVMF USB keyboard boot pass.
+This VM checks merged-baseline boot/input, not native tuning.192 prior Wi-Fi
+configurations and both desktop configurations are byte-identical, as are all
+existing MT76/native RX/discovery/parent/calibration sources. No physical trial
+is staged or armed. Native preview transport/ownership binding is next; channel
+RF/baseband/VCO and RX lifecycle remain required before multi-channel discovery.
+
+
+### 2026-10-27 — explicit native reversible register preview candidate (v97)
+
+Selector75/v97 runs the unchanged US1–11 frequency-field preview only after
+whole v96 reception/discovery, parent MAC cleanup, exact main-RX stop and six
+guards. A pinned native identity covers slot, control buffers/ring, firmware and
+MCU buffers/rings, current main-RX TRB/dequeue and window ring. Every callback
+rechecks the live stopped context and stable identities; forward access also
+requires the original complete window/discovery and board/firmware proof.
+Independent cleanup uses retained safe transport after forward metadata or reply
+loss. Quarantined/changed transport or lost stopped context forbids further I/O.
+
+An independent callback gate requires the exact2558 forward operations and
+masked values for the canonical eleven-channel plan. Cleanup admits only captured
+touched registers, original saved bytes, reverse ordering and independent
+readbacks. No arbitrary register, retry, main-RX restart/reuse, VCO pulse, network
+frame or MAC enable is added. The register preview is not live tuning or a scan;
+remaining RF/baseband/VCO and receive lifecycle work still applies.
+
+Normal evidence consists of2592 callbacks:1860 fresh guard reads,488 RF reads,
+244 RF writes and732 strictly matched MCU exchanges, with5185 ownership checks.
+All13 originals must be saved/touched/restored, cleanup must finish, and the
+original forward proof must remain valid at final publication. Each16-byte RF
+reply requires exact sequence/header/address/tail, byte value, write echo, CC13
+and1008 residue. Invalid replies log contract flags and transport outcome with
+payload words redacted. Successful records contain only the known non-identifying
+RF bytes. Guest progress, full callback trace and final restoration summary are
+saved; identifiers stay private. The fixture prefix is910690 bytes under the
+existing1MiB capacity. Old v1-v96 recipes retain their command lines and behavior.
+
+Native coverage includes every732 RF-reply header mutation, address/value/tail/
+length failures, OUT/IN timeout quarantine, forward proof loss with independent
+cleanup, live stopped-context loss, board/transport/ledger admission and direct
+callback order/value/refusal tests. Early tests exposed missing completed-window
+and final-forward-proof gates and a stale packet-size fixture; these were fixed
+before staging, and failure logs remain preserved. The pure preview engine is
+unchanged. Native register restoration and live tuning remain unaccepted until
+a matching physical capture is reviewed.
+
+Local v97 validation:786 actual native preview scenarios plus289 prior/native
+window/mode/allocation cases pass, including every732 RF reply mutation and
+independent restoration. Native ASan/UBSan,12918 pure preview transactions,10168
+discovery collections,246 window cases,184 staging tests and full merged core/
+image/desktop pass. Strict saved-proof checks accept15 outcomes and refuse627
+malformed variants;192 older Wi-Fi and both desktop configurations are unchanged.
+All30 printf argument counts match. Existing pure preview, parser, window,
+discovery, parent and calibration/power-on C sources remain byte-identical.
+Exact-stage VM, installed recovery and native acceptance remain separate checks.
+
+
+### 2026-10-27 — v97 reversible register trial installed, unarmed
+
+Source `f836110a80cd7360f896bf70593fc7e32b513d7e`, release
+`4acac674194041a5`, v97 automatic return on actual main `e7953352`.786 actual
+native preview scenarios,289 native window/mode/allocation cases, native
+ASan/UBSan,12918 pure preview transactions,10168 discovery collections,246 window
+cases,184 staging tests and full merged core/image/desktop pass. Strict checks
+accept15 whole outcomes and refuse627 malformed proofs.192 older Wi-Fi and
+both desktop recipes are unchanged;30 printf argument counts pass.
+
+Stage kernel and independently firmware-packaged initramfs match committed-source
+products; native preview/discovery/window/parser/power-on symbols link and the
+original strict calibration runner remains uncalled. Exact GPT-stage VM saved
+byte-verified diagnostics, unmounted and returned automatically. Missing workspace
+refused before probing and returned. VM results accept workflow only, not native
+register restoration or tuning. Raw earlier admission/final-gate and fixture
+failures remain archived with the successful local checks.
+
+Current v97, accepted v96/v95/v93 and e47 previous recovery match durable payloads.
+Only obsolete Ethernet candidate `1212d33f6ccf6bd4` was retired from the ESP after
+full durable file equality; its backup remains, and all accepted Wi-Fi fallbacks
+were retained. Ubuntu default and EFI order are preserved. Offline workspace:
+340files,842clusters,143directories; zero leaks, bitmap mismatches or errors.
+Workspace unmounted; no one-shot armed. Durable candidate/evidence archive:
+`wifi-channel-native-f836110`, including independently pinned frequency references.
+
+After readiness, power off, unplug Wi-Fi10s while off, reconnect and power on;
+leave workspace connected. Guest shows progress, runs the existing channel1
+observation, then previews all11 frequency plans with MAC disabled/main RX
+stopped and restores the saved13 register words. It saves results and returns
+automatically; no photos or commands. Collect matching v97 FIRST with
+`channel-native/collect_return.py`. Require the full earlier proof,2592 callback/
+732 exact RF-exchange trace,5185 ownership checks, verified saved/touched/restored
+masks and full prefix/completion/recovery/offline checks. Preserve strict refusal
+and raw collection on any failure; `collect_failure.py` records failure/incomplete
+evidence without promoting acceptance. A register preview is not live tuning,
+RF lock, new-channel reception, scanning or connectivity acceptance.
+
+
+### 2026-10-27 — v97 native register preview and restoration accepted
+
+Release `4acac674194041a5`, source `f836110a`, session
+`session-00065ed40659e09b-00` saved results and returned automatically. All 11
+US/20MHz plans completed 231 steps: 1860 fresh guard reads, 488 RF reads and
+244 RF writes, including 13 cleanup writes/readbacks. The complete ordered
+2592-callback / 732-exchange trace and 5185 ownership checks passed. All 13
+originals were saved, touched and restored (each mask 8191); cleanup finished
+with main RX stopped, MAC disabled and retained DMA. This accepts the bounded
+frequency-field transaction and exact restoration; no VCO pulse or main-RX
+restart occurred during preview. It does not accept live tuning, RF lock,
+new-channel reception, scanning or connectivity.
+
+The preceding channel1 window was quiet: 175717 polls over 10000043 us, one
+submission and zero normal completions/beacons/AP rows. Pending RX cancelled
+with CC26/residue4096; exact stop/six guards passed. Parent MAC cleanup completed
+54 operations with 10036 us hold; all five power-on commands and their original
+restoration proof passed. Earlier v96 positive discovery remains historical.
+The full 908235-byte prefix fits the 1MiB capacity and contains both completion
+markers. Ubuntu default/consumed one-shot and current/e47/v96/v95/v93 payload
+hashes passed. Workspace unmounted; fsck and independent allocation checker
+report 343 files, 856 clusters, 144 directories, zero leaks/mismatches/errors.
+Raw collection, original structured collector result and complete restoration
+proof are preserved in durable `wifi-channel-native-f836110` outside build.
+Next: bounded live channel tuning and receiver lifecycle before multi-channel
+passive discovery. No reboot armed.
+
+
+### 2026-10-27 — bounded frequency/VCO excursion engine
+
+Source `1ff74269` on actual main `c07dc402` adds a separate
+`mt76_channel_tune_run` transport-neutral transaction, with no native caller or
+boot profile. It requires the captured disabled-MAC/CORE/DMA/idle state and
+exact channel1 frequency/VCO originals, applies one US1–11/20MHz plan, triggers
+bank0R4 bit7, and waits for that trigger to clear. It then restores all touched
+originals in reverse order, re-triggers channel1 and independently verifies the
+saved words. Trigger clearing is a register observation, not RF lock or
+calibrated tuning acceptance. Same-lifetime board/firmware, fixed-band RF/BBP
+setup and stopped retained DMA remain mandatory caller prerequisites.
+
+Each VCO attempt allows six reads with at most 100000 us requested delay
+(0/10/90/900/9000/90000 us increments). These bounds are SrvrOS policy;
+the pinned Linux v7.0 scan path establishes prerequisite/frequency/BBP/VCO order,
+not this timeout. Busy/unknown VCO blocks cleanup RF writes. An incomplete
+frequency restoration blocks its VCO pulse. Forward cancellation may admit
+independent cleanup only while transport ownership remains safe; successful
+cleanup never converts a forward failure into success. No receiver restart,
+transmit, DMA reuse, scan UI or automatic native startup is added.
+
+Host coverage compares all eleven plans against the existing independent
+693-byte fixture and injects every normal-path I/O/ownership failure, ambiguous
+write, bad readback, forward cancellation/drift, lost cleanup transport, stuck
+VCO and each original-byte bit mismatch. A compiler warning and an initial
+fixture that injected arbitrary register changes after the last read were
+corrected before validation. Cleanup corruption/readback and lost ownership
+remain covered independently; no transport or completion gate was relaxed.
+Installed v97 and its native acceptance/recovery remain unchanged. Next is a
+separate native stopped-RX/board/firmware/strict-response/delay binding with
+fault tests and exact-stage save/return rehearsal, before a cold hardware trial.
+Live tuning, receiver restart, multi-channel reception and connectivity remain
+unaccepted. No reboot armed.
+
+
+Offline validation for `1ff74269`: 3969 tuning transactions pass, including all
+472 normal-path I/O and 476 ownership boundaries, all eleven independent plans,
+stuck/delayed VCO and original-byte bit mismatches. ASan/UBSan and the full merged
+image/core/desktop suite pass. All 39 prior MT76/xHCI/native-startup/staging/
+reference files match accepted v97 byte-for-byte; no old recipe changed. The
+uncalled helper is garbage-collected from the ordinary kernel. These tests do
+not accept native retuning or reception; installed/recovery payloads are retained.
+
+The merged ordinary GPT/OVMF USB-keyboard boot regression also passes
+(`channel-tune-boot-ok`). VM evidence validates ordinary boot/input only; QEMU
+does not emulate this radio. Source, tests, pinned references and recovery audit
+are preserved outside build in `wifi-channel-tune-1ff74269`. Native v97 remains
+installed, with all five retained payloads and Ubuntu recovery preserved;
+workspace unmounted and no one-shot armed.
+
+
+### 2026-10-27 — native single-channel tuning implementation
+
+Separate selector76/v98 binds the unchanged bounded tune engine to fixed US
+channel6/20MHz, after stopped channel1 discovery. It inherits v96 prerequisites
+without repeating v97's eleven-plan preview. Main RX stays stopped; transport
+rings/buffers and the exact live output context remain pinned. A separate
+bounded event ledger admits exact guards, frequency snapshots, masked values,
+VCO polling/delays, reverse touched-word restoration and channel1 re-settling.
+Each RF exchange validates sixteen bytes, rotating sequence/header/address/tail,
+byte value/write echo, CC13 and residue1008. Unexpected values or malformed
+replies are redacted; only non-identifying diagnostics are saved.
+
+Cleanup has independent live transport/stop ownership after forward proof loss,
+but cannot bypass quarantine or changed DMA identities. Each delay checks
+measured minimum elapsed time and fresh ownership after return. All callbacks,
+exchanges and polls are bounded. Completion also requires fresh forward proof
+at publication, so loss during otherwise successful cleanup remains failure.
+Guest progress, full ordered callback trace, VCO observations and restoration
+summary are saved. Busy/unknown VCO refuses restoration RF changes; incomplete
+restoration suppresses the cleanup pulse. No endpoint restart, network data OUT,
+DMA reuse, multi-channel receive or scan UI is enabled.
+
+The first native pass covers every one of138 RF reply headers, wire/transport/
+length/address/value faults, board/live-stop gates and delayed/stuck VCO. Added
+direct callback refusal and delay-failure/frozen/backward-clock/ownership tests
+pass with221 native scenarios. Local ordinary staging membership initially
+omitted v98 from its recipe regex and retained an obsolete unknown-version test;
+both were corrected, preserving all previous recipes. Exact native acceptance,
+VM/install/recovery checks and physical trigger/restoration remain separate.
+
+
+### 2026-10-27 — v98 channel6 VCO trial installed, unarmed
+
+Source `5e2ed3daba04be8cbc583e061328ec5748818f15`, release
+`83aad161d5fa476e`, v98 automatic return on actual main `e283eecb`.221 native
+tune scenarios pass, including all138 RF reply headers, wire/transport faults,
+independent restoration, board/live stopped-context admission, direct callback
+order/value refusal and failed/frozen/backward delay/ownership cases. Normal
+synthetic2/2-poll proof has460 callbacks,138 exchanges,927 ownership checks,
+320 guard reads,102 RF reads and36 RF writes.786 previous native preview cases
+and window/allocation regressions pass; native ASan/UBSan,3969 pure tuning
+transactions, merged full image/core/desktop and185 staging tests pass.
+
+Strict full-prefix checks accept15 earlier window/AP variants and36 target/
+cleanup VCO polling combinations and refuse4081 malformed traces.194 prior
+Wi-Fi recipes and both desktop configurations are unchanged;34 printf arities
+match. The normal fixture prefix is616947 bytes under the1MiB capacity; all
+bounded polling combinations fit. Committed-source kernel and independently
+firmware-packaged initramfs match the exact stage. Tune/plan/discovery/power-on
+linkage is present; the original strict calibration runner remains uncalled.
+Exact GPT-stage VM saved and byte-verified logs, unmounted and returned. The
+missing-workspace VM refused probing and returned. These are workflow checks,
+not native tuning, receiver or RF-quality acceptance.
+
+Current v98 and previous e47, accepted v97/v96/v95/v93 payloads match durable
+backups. Only obsolete Ethernet payload `0875949083ad6ac7` was retired from ESP
+after full durable equality, with its backup retained. Ubuntu default and EFI
+order are preserved. Offline workspace:343 files,856 clusters,144 directories;
+zero leaks, bitmap mismatches or errors. Workspace unmounted; no one-shot armed.
+Durable candidate/evidence archive: `wifi-tune-native-5e2ed3d` outside build.
+
+After readiness, power off, unplug Wi-Fi10s while off, reconnect and power on;
+leave workspace connected. Guest shows progress, performs channel1 observation,
+then channel6 frequency writes/VCO trigger polling and original channel1 word
+restoration/re-settling with main RX stopped throughout. It saves results and
+returns automatically; no photos or commands. Collect matching v98 FIRST with
+`tune-native/collect_return.py`, requiring the full prior proof and exact
+variable-length RF/guard/delay/cleanup trace, completion/prefix markers, all six
+payload hashes and offline allocation checks. Preserve strict refusal and raw
+collection on any failure; `collect_failure.py` records failure/incomplete
+evidence without promoting acceptance. Trigger clearing is not RF lock, live
+reception, scanning or connectivity acceptance. No receiver restart or network
+data OUT is added.
+
+
+### 2026-10-27 — v98 channel6 VCO transaction and restoration accepted
+
+Release `83aad161d5fa476e`, source `5e2ed3da`, session
+`session-00065ed585ba7f47-00` saved results and returned automatically. All 21
+US channel6/20MHz frequency steps completed with main RX stopped. Strict proof
+validated the complete ordered 478-callback / 141-exchange trace, 966 fresh
+ownership checks, 332 guards, 105 RF reads and 36 RF writes. All 13 originals
+were saved/touched/restored (each mask 8191). Target VCO trigger cleared after
+four polls with 1000 us requested delay; channel1 restoration/re-settling cleared
+after three polls with 100 us requested delay. Each measured wait and exact RF
+response passed. This accepts the bounded frequency/VCO register transaction
+and original channel1 word restoration/re-settling. Trigger clearing does not
+prove PLL lock, RF quality, calibrated tuning or reception.
+
+The preceding channel1 window was quiet: 173350 polls over 10000027 us, one
+submission and zero normal completions/beacons/AP rows. Pending RX cancelled
+with CC26/residue4096; exact stopped context/six guards and retained DMA passed.
+Parent MAC cleanup completed 54 operations with 11957 us hold; five power-on
+commands and saved-word restoration passed. No main-RX restart or network data
+OUT occurred. Earlier positive v96 AP-table observations remain historical.
+The full 616541-byte startup prefix fits the1MiB capacity and includes both
+completion markers. Ubuntu default/consumed one-shot and all six current/e47/
+v97/v96/v95/v93 payload hashes passed. Workspace unmounted; fsck and independent
+allocation report 346 files, 868 clusters, 145 directories, zero leaks, bitmap
+mismatches or errors. Full raw collection, original structured collector result,
+acceptance and recovery proof are retained in `wifi-tune-native-5e2ed3d` outside
+build. Next: safe bounded receiver startup at tuned channel6 before restoring
+channel1, then multi-channel passive discovery. No reboot armed.
+
+
+### 2026-10-27 — separate channel6 receive observer implemented
+
+The original tuning entry retains its stopped-RX transaction. A separate
+one-shot observer entry runs after target frequency/VCO verification, then
+requires fresh MAC/idle/VCO and all target frequency words before restoration.
+Failed observations retain independent cleanup only under proven stopped DMA;
+no successful cleanup erases a forward failure. Host fault tests cover 6905
+transactions, including each original and observer I/O/ownership boundary,
+unsafe callbacks, drift, cancellation and independent restoration.
+
+Opt-in selector77/v99 uses a fresh retained ring and page for one 4096-byte
+channel6 receive. The original main-RX ring/eight pages are retained. Exact
+Set TR Dequeue completion, live stopped context/DCS and fresh layout/ownership
+are checked before ringing the endpoint. The command form, completion-before-
+doorbell order and output-context check were audited against
+[Linux v7.0 xHCI ring handling](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/usb/host/xhci-ring.c);
+this is a reference contract, not native acceptance of the new command.
+A separately owned MAC cycle supplies a ten-second/count-one observation,
+seven quiet RX drain rounds, MAC disable and saved filter/TXOP restoration.
+The reused MAC helper does not admit a radio channel; the new caller requires
+the captured board and fully verified US channel6/20MHz target. No calibration
+or network data OUT is added during receive. Exact Stop Endpoint and four fresh
+idle guards precede any tuner RF restoration. Independently owned command-ring
+stop remains available after EP0 failure; unknown/quarantined RF ownership
+still forbids retuning. Uncertain command/context/DMA states remain failures,
+with all allocations retained.
+
+Only a matching new TRB/slot/DCI normal event has a byte count. Early or late
+observations are excluded from in-window parsing; stopped-length events never
+supply usable bytes. The existing USB-entry/beacon parser receives the original
+bounded USB packet and explicit channel6 argument, only after quiescence.
+Identifiers stay private; logs contain counts and bounded parser/advertisement
+metadata. Quiet, empty, malformed or channel-mismatched input cannot establish
+beacon reception or connectivity.
+
+Native model and sanitizer coverage passes356 scenarios: all152 RF-reply
+headers;57 MAC/guard boundaries under cancellation, EP0 quarantine and changed
+context; command timeout/pointer/slot/context errors; quiet/early/late/foreign/
+malformed/empty and channel-mismatched packets; allocation failures; measured
+clock/wait faults; and no publication after admission loss. No DMA is freed.
+Initial compiler style, fake input context, parser-entry and post-quarantine MAC
+fixture mistakes were corrected before staging; the hardware RF guards were
+not relaxed. Saved-log validation, full merged tests, exact-stage VM, install
+and native acceptance remain separate checkpoints. Installed v98 remains the
+last physically accepted payload; no reboot armed.
+
+
+### 2026-10-27 — receive observer identity and merged-main log contracts
+
+The observer callback/context is copied at admission, before any hardware
+callback. A regression mutates the caller's observer table during the first
+I/O and verifies the admitted callback executes once with exact restoration;
+6906 pure transactions pass. Main advanced to `fbb6eaa5` with Air6,1 desktop
+power phases. Merge preserves both independent logging contracts: Wi-Fi
+extended captures retain the complete startup prefix; the Air's explicit
+desktop power diagnostic uses a separate checkpoint entry with the original
+64KiB tail and up to32 nonwrapping periodic files/64 reserved nodes. Ordinary
+logging retains its32-node reservation and alternating snapshots. Both merged
+fixture families remain enabled. No native Air acceptance is claimed here;
+no battery trial is added to this Pro's Wi-Fi profile. Rebuild and exact-stage
+VM checks remain necessary before installation.
+
+
+### 2026-10-27 — v99 fresh channel6 receive candidate installed, unarmed
+
+Source `87144160` consumes actual main `fbb6eaa5` and preserves the independent
+Wi-Fi startup-prefix and Air desktop-checkpoint logger contracts. Release
+`995dd64ae6135add` is installed for the next cold adapter trial; native acceptance
+is pending. V98 remains the accepted frequency/VCO/restoration baseline.
+
+The full merged image/core/desktop build passes, including both logger modes,
+the desktop power fixtures and356 native receive cases. ASan/UBSan passes356
+native cases and6906 pure tune/observer transactions. Staging passes187 tests;
+196 older Wi-Fi recipes and desktop76/77 remain unchanged, and merged-main
+76/77/78 desktop recipes match `fbb6eaa5` byte-for-byte. Forty-five diagnostic
+format strings match argument counts. The strict whole-prefix collector accepts
+15 prior window/AP outcomes,14 fresh receive outcomes and36 VCO polling
+combinations, and rejects1979 malformed proofs. A complete synthetic prefix is
+628330 bytes, below1MiB. These are synthetic validation, not new native results.
+
+The committed-source kernel and independently firmware-packaged initramfs match
+the exact stage. Exact-stage GPT VM saved/byte-verified logs, unmounted and
+returned automatically; missing workspace refused probing and returned. QEMU
+does not emulate this Wi-Fi adapter. Installation verified all seven new/e47/
+v98/v97/v96/v95/v93 payloads against durable copies. Obsolete, unreferenced
+`81e3308ffcdfe637` was removed from ESP only after full file equality to its
+retained backup, keeping all accepted fallback payloads. Ubuntu remains default,
+one-shot is unarmed, workspace unmounted. Offline checks report346 files,
+868 clusters,145 directories and zero leaks, bitmap mismatches or errors.
+
+Full source/reference/local/VM/proof/install records and payload are retained in
+`wifi-channel-receive-8714416` outside build. Next: after cold-cycle readiness,
+power off, unplug only Wi-Fi for10s, reconnect and power on while leaving the
+workspace drive connected. Guest progress/results and automatic Ubuntu return
+require no photos or commands. On return collect the matching v99 session FIRST;
+validate fresh Set Dequeue,one IN,MAC retirement,exact stop/four guards,post-
+observer target words and independent channel1 restoration. Quiet or malformed
+input cannot establish reception. RF lock/quality,multi-channel discovery,
+association/security and IP/UI remain pending. No reboot armed.
+
+
+### 2026-10-27 — v99 native channel6 beacon and restoration accepted
+
+Release `995dd64ae6135add`, source `87144160`, integrated main `fbb6eaa5`,
+session `session-00065ed6f4d568a5-00` returned automatically. The matching saved
+session passes the complete strict proof, independently replayed from its raw
+627250-byte exit snapshot. Both capture-completion markers and the complete
+startup prefix fit the 1MiB capacity. No photos or manual commands were needed.
+
+After the target US channel6/20MHz frequency/VCO verification, exact Set TR
+Dequeue selected a fresh retained ring/page before one 4096-byte IN. A matching
+CC13 completion arrived during the receive window after 93435 us / 6863 polls,
+with residue3752 and actual344 bytes. The existing parser consumed340 bytes,
+decoded a304-byte management frame and accepted a channel6 beacon: interval100,
+three-byte SSID, privacy and RSN advertised, DS channel present. Raw identifiers
+remain private. This accepts that bounded observation, not FCS validity,
+sustained RF quality, association, authorization or IP connectivity.
+
+The separate MAC cycle completed54 operations (46 reads, seven writes, one
+wait), one TX drain round and seven RX drain rounds, measured10044 us hold,
+MAC disable and saved filter/TXOP restoration. Exact endpoint stop, stopped live
+context, four fresh quiescence guards and retained DMA passed before the tuner
+resumed. Post-observer VCO and all target-word checks passed. All13 original
+channel1 words were independently restored and re-settled. Tuning proof covers
+494 callbacks,154 matched RF exchanges,1000 ownership checks,336 guard reads,
+118 RF reads and36 RF writes. Target and restoration triggers each cleared in
+three polls /100 us requested delay. Trigger clearing is not a PLL-lock test.
+
+The preceding channel1 window was quiet for10000060 us: one post, no normal
+completion or AP rows. Exact CC26 cancellation/stop and retained old ring/eight
+pages passed. No channel1 reception or multi-channel scan acceptance is inferred
+from that quiet interval. Prior initialization, five power-on command acknowledg-
+ments and independent restoration passed. V96 remains the latest AP-table proof.
+
+All seven current/e47/v98/v97/v96/v95/v93 payloads match durable copies in full.
+Ubuntu remains default, one-shot was consumed, and workspace is unmounted.
+Offline checks report349 files,880 clusters,146 directories, zero leaks, bitmap
+mismatches or errors. Full native collection, original structured strict result,
+source/reference/local/VM evidence and recovery proof are retained outside build
+in `wifi-channel-receive-8714416`. Next: bounded sequential passive multi-channel
+discovery with fresh receive ownership and independent stop/restoration on every
+failure. Selection, association/security and IP/UI follow. No repeat boot is
+needed for v99; no reboot armed.
+
+
+### 2026-10-27 — bounded three-channel passive discovery scope
+
+Consume actual main `a3066f87` (Air event-driven lifecycle wait fixes and native
+acceptance; no MT76 edits). Open PR182 owns exFAT validation/allocation/storage
+ownership; do not duplicate that work. Local v99 is collected and accepted.
+Next add an explicit three-visit US1/6/11,20MHz passive diagnostic. Each visit
+starts from verified original channel1 frequency fields, uses a new retained
+ring/page for one bounded IN, independently disables/drains/stops RX, and
+restores/re-settles channel1 before advancing. Retain prior per-visit states and
+allocations; reject aliases and stale events. Publish copied private beacon
+rows only after all visits and ownership checks pass, flag conflicting name,
+security or channel observations, and scrub identifiers on failure. No scan UI,
+active probes, credentials, association or network data OUT. Touched: bounded
+scan helper/tests, native tune/receive sequencing and retained ownership,
+main/staging/smoke, strict collection and unit/Wi-Fi guides. Dependencies: v99
+exact Set Dequeue/MAC/stop and restoration proof, immutable US frequency plans,
+existing bounded management parser. Validate all visit/cleanup/ownership and
+publication boundaries, native failure injection and sanitizers, merged tests,
+exact-stage VM persistence/refusal and durable recovery before native readiness.
+Installed v99 remains unchanged and no reboot is armed by this publication.
+
+
+### 2026-10-27 — separate three-channel pilot implemented, validation pending
+
+The new private collector requires exactly three independent restored visits
+on US1/6/11 at20MHz. It reparses each first bounded USB entry with the explicit
+visited channel after stopped/quiescent ownership checks. Six fresh physical
+pages must be distinct; all tune target/observer/cleanup masks, original words
+and bounded VCO delay ledgers must pass. Private BSSID rows preserve first
+advertised security and revealed SSID, flag name/security/channel conflicts,
+and publish only after all visits and ownership checks complete. Failure leaves
+no result rows. No raw IDs, transmitter address, signal fields or DMA pointers
+are copied into the result table. Hidden SSIDs remain distinct from empty reads.
+
+Explicit selector78/v100 retains each native tune/receive state and its new
+ring/page. The previous visit's exact stopped context admits the next Set
+Dequeue; every RF/receiver ownership gate also rechecks older pinned records.
+An independently owned endpoint Stop remains available after forward/history
+loss; unproven MAC/DMA/retained ownership forbids RF restoration. Old completion
+events cannot complete the current request. Per-visit progress, complete traces
+and restoration summaries precede final private-row metadata. Ordinary startup
+and v1–v99 profiles remain separate. The initial scan fixture's sticky fault26
+was corrected by selecting the intended per-visit allocation fault before
+allocation; production ownership gates were not relaxed. Local/native boundary
+checks, sanitizers, merged tests, whole-log proof, exact-stage VM and physical
+acceptance are separate checkpoints. V99 stays installed/accepted; no new
+release is armed.
+
+The combined native suite also exposed a fixture admission leak: the earlier
+receive allocation-failure loop left its fake allocation ceiling at zero.
+It now restores its caller's ceiling, and the scan tests use the actual mode78
+selector; window allocation/refusal coverage includes mode78. The production
+allocator and hardware admission gates are unchanged.
+
+
+### 2026-10-27 — v100 three-channel passive candidate installed, unarmed
+
+Release `a7bc67f2d057e7d8`, source `2847cb05`, consumes actual main `a3066f87`.
+The fixed US1/6/11,20MHz pilot uses one new retained ring/page per visit and
+independent MAC retirement, endpoint stop and channel1 restoration between
+visits. The complete merged image/core/desktop suite passes, including actual
+mode78, shared window allocation/refusal and the combined receive-to-scan
+fixture handoff. Final ASan/UBSan passes115 native scan cases,356 older native
+receive cases and215 private collector cases. Staging passes188 tests;198
+v1–v99 Wi-Fi recipes and desktop76/77/78 recipes remain unchanged. Fifty-two
+diagnostic format strings match argument counts.
+
+The complete log checker accepts102 whole valid prior/RX/VCO/private-row
+outcomes; its representative full prefix is778379 bytes within1MiB. It checks
+the shared initialization once and independently projects all three frequency/
+VCO/RX/stop/restore traces. Negative tests isolate each exact visit, plus whole
+parent marker failures, and reject455 malformed proofs. Private row channel
+masks partition the observed beacon visits; counts, name visibility, advertised
+security and conflict metadata are constrained by those observations. Redacted
+records cannot independently prove physical BSSID identity/deduplication. Initial
+adjacent-marker and parent-proof extraction mistakes were corrected; the test's
+invalid hold sentinel was changed to9999 us, below the10000-us requirement.
+A longer measured hold is not automatically a malformed record. Original
+refusals and both corrected validation receipts are retained.
+
+The committed-source kernel and independently firmware-packaged initramfs
+match the stage. Exact-stage GPT VM saved/byte-verified logs, unmounted and
+returned; missing workspace refused probing and returned. QEMU validates this
+workflow, not the Wi-Fi radio. Installation verified all seven current/e47/
+v99/v98/v97/v96/v95 payloads against durable copies. To preserve the installer
+margin, unreferenced v93 `6fcb4fe992b35b78` was removed from ESP only after full
+payload equality to its retained `wifi-passive-rx-774e9e9` backup. Ubuntu and
+the newer accepted recovery payloads remain retained. Offline checks report349
+files,880 clusters,146 directories, zero leaks, bitmap mismatches or errors.
+
+Full source/reference/local/VM/proof/install evidence and payload are retained
+outside build in `wifi-scan-native-2847cb0`. V99 remains the latest native
+acceptance. Next: after cold-cycle readiness, power off, unplug only Wi-Fi for
+10 seconds, reconnect and power on; leave the workspace drive connected. Guest
+progress, saved results and automatic Ubuntu return need no photos or commands.
+Collect matching v100 FIRST on return; require all three independently stopped/
+restored visits and complete-prefix proof before acceptance. Quiet visits do
+not establish reception. Association/security, authorized IP and Wi-Fi UI remain
+pending. Workspace unmounted, Ubuntu default, no reboot armed.
+
+
+### 2026-10-27 — v100 return collected; pre-scan timing refusal
+
+Release `a7bc67f2d057e7d8`, source `2847cb05`, saved session
+`session-00065ed80b7c4d71-00` and returned automatically. The complete startup
+prefix is535857 bytes within the1MiB snapshot, with both failure completion
+markers. No scan visit or receive window ran. Post-channel baseband setup
+completed189 operations; post-VCO observation completed63 operations with
+six delayed samples and first_clear1. Its immediate post-trigger read was
+`0x30`, followed by six delayed `0x30` reads; the existing captured-profile
+gate requires immediate `0xb0`. AGC-state ownership consequently refused
+before its first read (`status=1 attempted=0 reads=0`). This is a timing-profile
+refusal, not evidence of a failed three-channel receive or proven RF lock.
+
+The strict checker refused the absent scan progress marker as expected. Raw
+capture, original refusal and failed run are preserved outside build in
+`wifi-scan-native-2847cb0`. Seven installed payloads and Ubuntu recovery were
+verified, the one-shot entry consumed, and the workspace unmounted. Offline
+checks report351 files,887 clusters,147 directories, zero leaks, bitmap
+mismatches or errors. V99 remains the latest native acceptance. Next: reproduce
+the immediate-clear post-VCO variant in a focused prerequisite regression and
+review a bounded timing contract before any candidate retry; preserve guard,
+framing and delayed-sample requirements. No new acceptance or reboot armed.
+
+
+### 2026-10-27 — bounded scan prerequisite timing follow-up
+
+Objective: reproduce v100's complete immediate-clear VCO trace and admit that
+same-unit timing variant only for explicit scan mode78. Keep older captured
+profile gates unchanged; require identical write acknowledgment, framing,
+ownership/guard ledger, all six measured waits and delayed0x30 samples. Touch
+MT76 post-VCO predicate, scan prerequisite selection and their pure/native
+regressions; update saved-log proof before any staged trial. Actual main
+`108969f7` adds battery supervisor/process waits and workspace regression fixes;
+merged here before validation. Open PR218 owns Air6,1 CPU idle diagnostics and
+PR182 filesystem audit; this objective does not edit those subsystems. Previous
+v100 failure is collected and archived. No reboot armed or new acceptance.
+
+
+### 2026-10-27 — scan timing retry installed, native acceptance pending
+
+Source `57fede24`, release `c80f3afe5d496f36`, consumes actual main `108969f7`.
+The same-unit immediate VCO read can be0xb0 or already0x30 after the exact0xb0
+write acknowledgment. New `mt76_post_vco_settled_profile_valid` admits only
+those two readbacks, requiring complete63-operation framing/guard ledgers,
+all six measured waits totaling1s, and all six delayed0x30 samples. Only scan
+mode78 selects it; the older captured-profile predicate still requires0xb0.
+This does not establish RF lock, calibration quality or connectivity.
+
+The regression fails at the actual scan AGC ownership callback against the
+original gate. The fix passes16 callbacks, all256 immediate byte values,
+5760 guard/word bit mutations under the established DMA idle mask, and omitted
+wait/partial-state tests. Full merged image/core/desktop tests pass. ASan/UBSan
+passes115 scan fault cases per timing variant in independent processes (230
+total),356 older receive cases,215 private collector cases and pure AGC checks.
+The initial all-bits DMA expectation was corrected to the existing idle mask;
+combining both scan matrices after earlier retained-allocation tests exhausted
+the fixed5MiB host fixture pool, so each timing matrix now has its own process.
+Production DMA allocation/retention and guard masks were unchanged.
+
+Whole-log proof passes102 valid cases and455 malformed refusals, plus both
+complete timing variants and256 full post-VCO trace immediate-value checks.
+Staging passes188 tests;198 older Wi-Fi recipes and three desktop recipes
+remain unchanged. Exact-source kernel and independently packaged initramfs
+match the stage. Exact-image GPT VM saved/byte-verified logs, cleanly unmounted
+and returned; missing workspace refused probing and returned. VM checks do not
+accept native RF operation.
+
+Seven complete current/e47/v99/v98/v97/v96/failed-v100 payloads match durable
+backups. To maintain installer capacity, v95 `84afc9dee029775f` was retired
+from ESP only after full equality to its retained `wifi-rx-window-long-e9acacd`
+payload; v93's earlier durable backup is also preserved. Offline workspace
+checks report351 files,887 clusters,147 directories and zero leaks, bitmap
+mismatches or errors. Evidence and payload survive distclean outside build in
+`wifi-scan-timing-57fede2`. V99 remains latest native acceptance. The retry is
+installed, unmounted and unarmed; await manual cold-cycle readiness, then save
+and collect all three visit/stop/restoration traces before acceptance. No photos
+or guest commands needed. Association/security and IP/UI remain pending.
+
+
+### 2026-10-27 — v100 return: strict checkpoint projection under review
+
+The timing retry saved session `session-00065ed915340ee5-00`,782503 bytes, with
+successful guest completion markers and all three stopped/restored visits.
+Original collection refused an interleaved cached workspace scheduler/device
+checkpoint during channel1. Preserve that refusal and failed-run record before
+re-evaluation. This is a collection-checker change, not a new kernel candidate.
+
+Bounded objective: validate the exact seven-line disabled-device checkpoint
+from the pinned workspace logger and its original raw prefix byte offset before
+projecting the Wi-Fi phase. Keep the raw capture unchanged and compare the saved
+periodic checkpoint byte-for-byte. New `tools/wifi_scan_log.py` and tests own
+this offline projection; Makefile registers its test target. Unrecognized lines
+remain for phase refusal. No RF, MCU, guard or ownership gate is changed. Six
+unit tests and three complete scan checkpoint proofs pass;96 malformed block/
+phase cases refuse. The full previous proof matrix and native recovery/offline
+audit must finish before acceptance. No new boot is needed or armed.
+
+
+### 2026-10-27 — v100 bounded three-channel native pilot accepted
+
+Release `c80f3afe5d496f36`, source `57fede24` on main `108969f7`, saved session
+`session-00065ed915340ee5-00` and returned automatically. Complete782503-byte
+startup prefix and both successful completion markers pass. All three fixed
+US1/6/11,20MHz visits used distinct retained ring/page pairs, exact Set Dequeue,
+one bounded IN, MAC retirement, exact Stop/four guards and independent
+restoration/re-settling of all13 original channel1 words before advancing.
+Ordered proofs validate1500 tuning callbacks,465 RF exchanges and3039 ownership
+checks. Target VCO polls were2/5/5 and cleanup polls3/3/3; clearing is not RF lock.
+
+Channel1's receive window was quiet for10000012 us and stopped with CC26.
+Channel6 completed after95026 us/4314 polls, CC13/residue3752/actual344,
+consumed340 bytes with a304-byte beacon MPDU. Interval100, visible SSID length3,
+privacy/RSN true, WPA false and DS present; names and identifiers stay private.
+The copied table contains one channel6 row with one observation and channel
+mask32. Channel11 had a176-byte normal completion before the enabled receive
+window; it was deliberately uninspected and contributes no advertisement.
+All three MAC cycles completed54 operations with46 reads,7 writes and one wait;
+measured holds were10069/10070/10069 us. No network data OUT or DMA reuse.
+This boot's immediate post-VCO read was0xb0; the new scan-only0x30 admission
+path retains synthetic coverage plus the earlier native observation, not a
+positive native execution claim.
+
+The initial strict collection refusal was caused by a complete cached workspace
+checkpoint during channel1. Reviewed `tools/wifi_scan_log.py` validates all seven
+lines against the disabled-device profile, common timestamps, scheduler bounds
+and original raw prefix offset before projecting only the Wi-Fi phase. Unknown
+records remain for phase refusal. The original capture is unchanged; the saved
+`session-b.log` is byte-identical to its592911-byte raw prefix. Original checker,
+refusal and failed-run record remain archived. Six unit tests, three full
+checkpoint scan proofs and96 malformed checkpoint/phase cases pass; the full
+102-valid/455-refusal matrix and198 prior recipes pass again. No kernel or
+hardware gate was changed for collection.
+
+Seven complete current/e47/v99/v98/v97/v96/failed-v100 payloads match durable
+backups. Ubuntu default, consumed one-shot and unmounted/unarmed state pass.
+Offline checks report355 files,905 clusters,148 directories, zero errors, leaks
+or bitmap mismatches. Evidence, both original/rechecked proofs and frozen source
+are retained outside build in `wifi-scan-timing-57fede2`;1078 hashes verified at
+the native audit before final publication. No repeat boot is needed. Next:
+bounded repeated receive/drain handling per channel, preserving independent
+stop/restoration and private channel-aware parsing. Sustained RX/FCS, channel11
+reception, physical BSSID deduplication, association/security and IP/UI remain
+pending. Battery/headphones/further trackpad latency work remain deferred.
+
+
+### 2026-10-27 — bounded pre-enable completion retry scope
+
+Actual main `e4f8bf84` is merged; Air6,1 owns its idle/power diagnostics, and
+open filesystem PR182 remains outside this scope. V100 `c80f3afe5d496f36` is
+collected/accepted and stays installed/unarmed until a replacement passes.
+
+Objective: an explicit selector79/v101 scan-retry trial. If the first exact
+normal IN completes before MAC's enabled observer window, retain it uninspected
+and post at most one additional IN with a separate preallocated page and a fresh
+TRB slot after enable. Never reuse either page, restart the ten-second observer
+deadline, or attribute the early bytes to the visited channel. Keep exact first/
+second completion identities, prior-history pins, independent MAC retirement,
+endpoint Stop and original-channel1 restoration. Preserve every v1–v100 recipe.
+This first retry targets pre-enable consumption; general sustained receive and
+multi-packet discovery stay separate. Touch native receive/scan adapter/state,
+mode/staging/main/smoke and focused native fault/log-proof fixtures. No IP,
+credentials, transmitter data, battery, idle policy or filesystem edits.
+
+Checkpoint: native early/second completion, duplicate/foreign/stale event,
+retained identity/alias, stopped dequeue, clock/deadline and cleanup failures;
+sanitizers, merged suite, exact-stage saved/refusal VM; then durable install/run
+and cold readiness. No new physical acceptance or reboot is armed by this scope.
+
+
+### 2026-10-27 — v101 pre-enable completion retry installed, native pending
+
+Source `6b12e4f2`, release `f1015eeb7358f9c7`, consumes actual main `e4f8bf84`.
+Selector79/`srvros.wifi-scan-retry=1` reserves a ring and two distinct data pages
+per fixed US1/6/11 visit. If slot0 completes normally before the enabled MAC
+observer window, the driver preserves its exact completion ledger uninspected
+and publishes slot1 once, pointing to the second preallocated page. The ten-
+second deadline starts before that publication and is never restarted. Duplicate
+slot0 events cannot complete slot1; both TDs/data pages and all prior visits
+remain pinned. Final parsing and collection use only the selected page after
+MAC retirement, exact endpoint Stop and fresh guards; original channel1
+restoration remains independent. No second post occurs for an already useful
+first in-window completion or a quiet pending first request. This is one bounded
+early-completion retry, not a sustained receiver or new network-data transmitter.
+Old v1–v100 profiles retain their previous code path and recipe bytes.
+
+Full merged image/core/desktop tests pass. ASan/UBSan passes232 retry cases in
+independent115/69/48-case processes,115 legacy scan cases,356 legacy receive
+cases,16 AGC callbacks and215 private collector cases. Cases cover first normal/
+empty/full early completions, selected data versus poisoned first data, no
+retry replay, duplicate first/prior events, quiet/invalid/foreign second events,
+clock/frozen/deadline failure, all three visits, reserve allocation, page aliases,
+identity/TD/context loss, independent stop and refused unsafe RF restoration.
+The initial expanded matrix exceeded the fixed retained-DMA host pool; splitting
+its processes preserved the5MiB budget and production retention policy. The
+layout model was also corrected to stop generating fake DMA after deliberately
+corrupting its own binding. Original refusals are retained as failures.
+
+Saved-log checks pass110 complete retry outcomes and123 retry/visit refusals,
+15 prior-window variants,455 existing malformed visit cases, three complete
+checkpoint projections/96 malformed checkpoint cases and both VCO timing
+variants/256 full post-VCO trace immediate values. The original raw snapshot
+remains unchanged; only fully validated extra retry/checkpoint records are
+projected from individual Wi-Fi proofs. Slot1 must follow all pre-observer MAC
+reads and precede the poll result; selected/first/reserved identities, exact
+stopped pointers, no deadline restart and all nine fresh pages are checked.
+Representative full prefix is780091 bytes within1MiB, including all three
+retries; maximum bounded VCO variants also fit. Staging passes189 tests;200
+older Wi-Fi recipes and three desktop recipes remain unchanged. Fifty-four
+format strings match their argument counts.
+
+The exact committed-source kernel and independently packaged initramfs match
+the stage. Exact-image GPT VM saved/byte-verified logs, unmounted and returned;
+missing workspace refused probing and returned. QEMU does not accept native
+radio operation. Seven complete current/e47/v100/v99/v98/v97/v96 payloads match
+durable backups. Unreferenced failed-v100 `a7bc67f2d057e7d8` was retired from ESP
+only after full equality to its preserved `wifi-scan-native-2847cb0` payload;
+accepted v100 `c80f3afe5d496f36` and Ubuntu recovery remain retained. Offline
+workspace checks report355 files,905 clusters,148 directories, zero errors,
+leaks or bitmap mismatches. Payload, source and evidence survive distclean in
+`wifi-scan-retry-6b12e4f` outside build. Installed, unmounted, unarmed. After cold
+readiness, unplug Wi-Fi10s while off, reconnect and power on; leave workspace
+connected. Guest progress, saved logs and automatic return require no photos or
+commands. Collect v101 FIRST, checking optional second completion and cleanup
+before acceptance. Association/security, sustained RX/FCS and IP/UI stay pending.
+
+## 2026-10-27: v101 native pre-enable retry accepted
+
+Release `f1015eeb7358f9c7`, source `6b12e4f2`, integrated main `e4f8bf84`,
+saved session `session-00065edaa5a051a0-00` passed the original whole-log proof.
+The full785759-byte startup/exit prefix fits1MiB, with both completion markers.
+Two cached device checkpoints match their original raw prefixes byte for byte
+(593137 and749349 bytes). No failure projection or relaxed native guard was needed.
+
+Channel1 stayed quiet for10000004 us. Channel6 decoded a beacon in53262 us
+(2347 polls, CC13,344 actual bytes,340 consumed,304-byte MPDU). On channel11,
+the first IN completed before enable (CC13,120 bytes); it stayed uninspected.
+Exactly one fresh reserved-page IN used TD1, preserving TD0 and all page pins.
+The selected retry remained quiet for10000019 us, then stopped with CC26 and
+zero actual bytes. No deadline reset, duplicate completion, DMA reuse, identifiers
+or network data OUT occurred. All nine fresh pages were distinct. Each visit
+completed54 MAC operations, independent quiescence/Stop and all13 original
+channel1 word restorations. Tuning callbacks488/506/506 and exchanges153/156/156
+passed exact order/value/ownership checks. The private table contains one
+channel6 row. This accepts the bounded early-completion retry lifecycle; it does
+not establish channel11 reception, sustained receive, FCS, physical BSSID
+deduplication, association/security or IP/UI.
+
+Independent final audit reran the raw native proof, matched committed source
+hashes and all seven complete live payloads to durable backups. Ubuntu remains
+default, one-shot consumed, workspace unmounted and no reboot armed. Offline
+checks:359 files,924 clusters,149 directories, zero errors/leaks/bitmap mismatches.
+Evidence, source, payloads and collection scripts survive distclean under
+`/home/paul/.local/share/srvros/macbookpro11-2/wifi-scan-retry-6b12e4f`.
+Next: bounded repeated receive with distinct retained buffers, unchanged deadlines
+and independent Stop/channel1 restoration on every outcome. No repeat of this
+successful trial is required.
+
+## 2026-10-27: repeated-receive collection scope
+
+Consume actual main `6d9847e6` (Air read-only CPU topology/idle prerequisite
+capture; no MT76 overlap). Open filesystem PR182 remains separate. Next bounded
+objective: reuse the existing eight-slot retained-DMA receive-window helper with
+explicit US1/6/11 channel binding, then aggregate three independently stopped,
+restored windows into a private advertisement table. Preserve the legacy zeroed
+channel1 plan and old single-IN scan interface. Touch MT76 window/discovery/scan
+helpers, host tests and Makefile; native xHCI/staging wiring is a subsequent
+checkpoint after this contract is tested. No new hardware acceptance follows
+from host fixtures. Dependencies: accepted v101 pre-enable completion rejection,
+independent MAC/endpoint cessation and per-visit channel1 restoration. No new
+boot is armed; installed v101 and all recovery payloads remain retained.
+
+Repeated-window collection implemented at `f3d14695` on actual main `6d9847e6`.
+The existing eight-slot engine now has explicit US1/6/11 parser binding while
+its zeroed plan preserves channel1. Existing native window recipes explicitly
+refuse all new country/channel fields in both configured and saved plans; no
+new native adapter, boot recipe or hardware behavior is enabled. A separate
+three-window collector validates all27 DMA identities (three rings,24 pages),
+completed tune/stop/restore ledgers and original10s budgets, then reparses all
+completed first entries into up to24 private deduplicated rows. Pending/quiet,
+empty, malformed and unrelated inputs stay separate; hidden/name/security/
+cross-channel conflicts survive. All-or-nothing ownership failure erases rows.
+
+Validation:355 batch collections,2122 receive-window scenarios,10168 discovery
+collections and215 legacy single-IN scan collections pass independently under
+ASan/UBSan. Batch tests include all ownership callback failures, every reserved
+page cross-visit alias, quiet poison pointers, each transfer's malformed/empty/
+unrelated/off-channel outcome and hidden-name reveal on every visit. The full
+merged image/core/desktop suite passed before the final native binding guard;
+final image/host rebuild, complete native window/discovery/channel/tune/receive/
+scan regressions and all232 retry cases pass with that guard. Documentation
+checks pass. Initial fixture refusals are retained separately, not counted as
+passes. Actions remain disabled.
+
+This is host validation of the reusable contract, not physical repeated-receive
+acceptance. Installed/accepted v101 `f1015eeb7358f9c7` and all recoveries remain
+unchanged; no reboot is armed. Next implement an opt-in native adapter that
+records/rejects pre-enable data, publishes fresh sequential TDs/pages under one
+per-visit deadline, retains independent cleanup/Stop/restoration and saves exact
+per-transfer/whole-run proof. Run fault/sanitizer/exact-stage VM checks before
+installing a candidate. Association/security and IP/UI remain pending.
+
+## 2026-10-27: native repeated-IN scope
+
+Consume actual main `052ebc18` (Air6,1 opt-in MWAIT trial and prerequisite gates;
+no MT76 overlap). Preserve its distinct main/staging/smoke path. Open PR182
+filesystem work remains separate. Implement a separate selector80/v102 repeated
+US1/6/11 receive trial on the accepted v101 lifecycle and `f3d14695` batch
+contract. Reserve one ring plus nine data pages per visit before enabling MAC;
+retain the initial TD/page and reject an observed early completion, then run up
+to eight sequential distinct INs under one original10s observer deadline. Parse
+only after independent MAC retirement, exact Stop and guards, then restore all13
+original channel1 words. No DMA reuse, RF-policy widening, network data OUT or
+ordinary startup enablement. Touch xHCI receive/scan adapter, window TRB offset
+contract, main/staging/smoke, fixtures, strict collection and current unit/Wi-Fi
+guides. Publish source and host/sanitizer/saved-log/exact-stage VM proofs before
+installing. Native acceptance stays at v101 until matching evidence is collected;
+Ubuntu recovery and durable backups remain retained. No new reboot is armed.
+
+## 2026-10-27: v102 repeated native receive candidate installed
+
+Source `ebbb08cb` (native implementation `b0471b7c`) consumes actual main
+`052ebc18`, preserving the distinct Air MWAIT trial. Selector80/v102 reserves
+one ring and nine data pages per visit before MAC enable. It retains/rejects an
+observed pre-enable normal completion, then adopts the pending first TD or
+publishes slot1 and up to seven more fresh TDs under one original10s deadline.
+Every completion is logged between its post and the next post; no completed or
+skipped page is reused. Parsing occurs only after parent MAC retirement, exact
+Stop and four fresh guards. Each visit independently restores all13 original
+channel1 words and bounded VCO clear before the next excursion. All30 fresh
+page identities remain pinned, including unused pages. No new RF settings,
+firmware commands, network data OUT or ordinary-startup enablement were added.
+
+The private batch collector validates three completed tune/stop/restore ledgers,
+reparses all enabled-window transfers and publishes bounded copied rows only
+after all visits complete. The strict host collector checks every post/event/
+item/page and deadline, exact existing MAC and fixed-plan RF traces, unchanged
+parent initialization, original cached-checkpoint offsets, anonymous row/count
+bounds and the full exit prefix. Latest a/b snapshot files must match their raw
+prefixes; earlier overwritten checkpoints remain validated in the final raw log.
+No physical BSSID deduplication, sustained reception, FCS, association/security
+or IP/UI acceptance is inferred from these redacted records.
+
+Validation: full merged image/core/desktop passes. ASan/UBSan passes108 native
+batch cases in six independent retained-DMA processes,232 old retry cases,
+115 old scan cases,356 old receive cases and16 AGC timing callbacks. Pure suites
+pass2728 window scenarios,355 batch collections,10168 discovery collections and
+215 old single-IN scan cases. Whole native-derived traces pass15 complete
+outcomes/checkpoint projections and374 malformed complete-log refusals. Four
+portable log-test groups exercise the complete/quiet/parser matrix and record/
+identity/order/deadline refusals. Staging passes190 tests;206 old Wi-Fi/desktop/
+main-MWAIT recipes remain byte-identical. Sixty-four printf arities match.
+Development/fixture refusals and collector-generation errors remain preserved,
+not counted as passes. The final generated collector parses, embeds the tested
+whole-check AST and three frozen proofs exactly, and assembles all result fields.
+
+The committed-source kernel and independently firmware-packaged initramfs match
+stage `3337af3753372b9d`. Exact GPT VM saves/byte-verifies logs, unmounts and
+returns; missing workspace refuses probing and returns. QEMU does not accept
+native RF behavior. Seven complete current/e47/v101/v100/v99/v98/v97 payloads
+match durable backups. The unreferenced v96 ESP payload was retired only after
+full equality to its retained `wifi-discovery-native-8f44718` backup; accepted
+v101 and Ubuntu recovery remain live. Offline workspace:359 files,924 clusters,
+149 directories, zero errors/leaks/bitmap mismatches. Source, payload, helpers,
+run/recovery records and evidence survive distclean in
+`wifi-scan-native-batch-ebbb08cb` outside build. Installed, unmounted, unarmed.
+Native acceptance stays at v101 until the matching v102 capture is collected.
+
+
+## 2026-10-28 v102 repeated-receive return
+
+The saved matching session confirms the trial ran; no additional reboot was
+needed. Independent re-execution of the original raw-log proof matches the
+collected result. US channels1/6/11 completed eight receives each in875656,
+807677 and822217 us, with8/8/7 beacon observations. One channel11 transfer was
+unrelated and excluded. The private table reports six rows and23 observations;
+identifiers remain omitted, so physical BSSID grouping is not independently
+accepted. Channel6's early276-byte normal completion was retained uninspected;
+its eight selected transfers used fresh pages with no deadline reset. No late
+completion or network data OUT was recorded.
+
+All30 ring/data page addresses remain distinct and retained. Every visit passes
+independent MAC retirement, exact endpoint Stop, four fresh quiescence guards
+and restoration of all13 original channel1 words with bounded VCO clear. The
+full799953-byte startup/exit prefix and completion markers pass; no interleaved
+cached checkpoint occurred. Source hashes match the committed source and durable
+reviewed copies. Current plus six recovery payloads match all durable bytes.
+Ubuntu default, consumed one-shot and unmounted/unarmed state are verified.
+Offline checks pass361 files,933 clusters,150 directories with zero errors,
+leaks or bitmap mismatches. Native collection, original strict result, independent
+audit and recovery evidence survive distclean in `wifi-scan-native-batch-ebbb08cb`.
+
+This accepts bounded repeated receive and channel11 beacon observation alongside
+channels1/6. It does not accept sustained endurance, FCS, physical BSSID grouping,
+association/security or IP/UI. Battery, headphones and trackpad follow-ups stay
+deferred. Next work is bounded discovery publication/selection and transmit/
+association groundwork; no new test is armed.
+
+
+## 2026-10-28 discovery selection scope
+
+Consume actual main `5a94d755` through merge `12d25203`, preserving Air6,1's
+separate C3 recipe and Pro v1–v102 profiles. Open PR182 remains filesystem work;
+Air6,1 diagnostic AP ownership and Air7,2 desktop runtime scopes do not overlap
+this MT76 helper. Implement a private copied discovery snapshot with monotonic
+generation, all-or-nothing refresh, invalidation and explicit generation/index
+selection. Reject stale/hidden/conflicting candidates and preserve advertised
+security as untrusted metadata, not negotiated capabilities. Add bounded binary
+SSID presentation for a future picker. Touch a new transport-neutral helper,
+focused host/fault tests, Makefile and current Wi-Fi/unit docs. Dependencies:
+accepted v102 batch collection and later UI/service/TX/association adapters.
+Checkpoint: directed lifecycle/metadata/ownership/alias/overflow tests, sanitizers,
+merged build/core/desktop, historical staging compatibility and exact VM boot.
+No physical test or ordinary Wi-Fi startup is enabled; v102 acceptance and
+recovery payloads remain intact. No new reboot armed.
+
+
+## 2026-10-28 discovery selection groundwork validated
+
+Source `a31bbe00`, integration main `5a94d755`, adds private copied discovery
+snapshots with monotonic generations, failed-refresh invalidation and explicit
+generation/index selection. Hidden names and SSID/security/channel conflicts
+refuse selection; no open/first-network fallback is provided. Choice metadata
+is copied and old choices cannot select a refreshed row. Generation exhaustion
+refuses rather than wrapping. Binary names render with bounded `\xNN` escapes;
+unused name bytes and failed outputs are cleared. RSN/WPA advertisement presence
+is not a validated security configuration or authorization to join.
+
+2030 directed lifecycle/metadata/ownership/name cases and355 real batch-collector
+cases pass, including publication/choice assertions on every successful batch.
+Both suites pass ASan/UBSan. Full merged image/core/desktop passes;191 staging
+tests and209 prior Wi-Fi/current main desktop/MWAIT/C3 recipe comparisons pass.
+Merged VM-only v102 release `d6d81caedd2618f8` matches the committed-source kernel
+and independently firmware-packaged initramfs. Exact GPT VM saves and verifies
+logs, unmounts cleanly and returns; missing workspace refuses the probe and returns.
+This validates the merged image, not native selection, RF or association.
+
+The helper has no native caller, syscall, network picker or transmit operation.
+A future service must bind each request to its exact owner/adapter lifetime,
+invalidate snapshots on disconnect/refresh and validate fresh complete security
+IEs before association. Next is that explicit discovery service/UI binding, then
+management TX and association/security. Installed accepted v102 `3337af3753372b9d`
+and all recovery payloads remain unchanged. Raw validation, matched staged payload
+and source survive distclean in `wifi-selection-a31bbe00` outside build. No new
+physical acceptance, hardware test installation or reboot is armed.
+
+
+## 2026-10-28 discovery service and picker scope
+
+Actual main remains `5a94d755`; PR182 `29df1192` owns exFAT/resource lifetime
+work and does not overlap this cache/ABI/System page. Bind the completed opt-in
+v102 batch to a private multi-adapter discovery service with non-reused owner
+identities, monotonic snapshot generations and side-effect-free presence checks.
+Expose bounded copied names/advertisement flags and explicit selection through
+one versioned syscall. Add a System Wi-Fi page with adapter cycling, stale-choice
+refusal and clear selected-versus-connected state. Cache reads/selects cannot
+retune, scan or transmit; disconnect invalidates before serving data. Touch new
+service/ABI, xHCI publication/presence adapter, syscall/lib wrappers, System UI,
+focused host tests and current guides. Preserve RF operations and existing boot
+recipes. Dependencies: accepted v102 cleanup and `a31bbe00` private selection;
+management TX, security and an IP provider remain separate. Checkpoint: cache/
+ABI/adapter/UI lifecycle and fault tests, sanitizers, full merged core/desktop,
+exact staged VM and durable evidence. Native UI acceptance requires a later
+explicit attended scan-to-desktop profile; no reboot is armed by this scope.
+
+
+## 2026-10-28 discovery service and System picker validated
+
+Source `e4c2b1a6`, main `5a94d755`, implements a private four-provider discovery
+cache and versioned `SYS_WIFI` snapshot/selection ABI. Owner IDs are never reused;
+failed refreshes invalidate prior generations and selections. The native root
+Edimax adapter publishes copied results after all stops/restorations and batch
+collection, while the original capture ownership proof is still valid. That
+proof continues to refuse after retirement. Snapshot/selection calls use only
+copied state and one bounded read-only root-presence check per provider. Latched
+connection change retires the owner even after reconnect; hub children and
+quarantine are refused. Reads/selects issue no USB/RF commands and cannot join.
+A future hardware rescan must remove the old owner before acquiring fresh resources.
+
+System adds a Wi-Fi tab/View item with copied escaped names, channel/security
+advertisements, hidden/conflict states, explicit selection and adapter cycling.
+Changing owner/generation clears the highlight. A stale click requests a fresh
+choice. Selected and connected remain visibly distinct, with connection unavailable.
+No BSSID, raw IE, credentials or DMA pointers cross the new ABI or enter logs.
+Ordinary startup still does not initialize Wi-Fi or launch background scans.
+
+The service fault suite covers four providers, ID retirement, failed refresh
+proof, generation/ABI/hidden/conflict refusals and owner exhaustion. Syscall tests
+cover version/size/op, reserved argument, user-copy bounds and allocation failure.
+System uses the real service in host tests for adapter cycling, binary names,
+hidden/conflict refusal, stale-click race, malformed ABI and disconnect handling.
+Populated fixture rendering was inspected. All three suites pass ASan/UBSan,
+along with108 native retained-DMA batch cases; the actual capture publication
+phase and cache-only read/select/CSC retirement are exercised. The first late
+publication attempt correctly failed the active-owner proof; publication moved
+inside that existing phase, with no proof weakening. Failed development evidence
+remains preserved and is not counted as a pass.
+
+Full image/USB-image/core/desktop passes.191 staging tests and209 previous Wi-Fi/
+current-main desktop/MWAIT/C3 recipe comparisons pass. The desktop System/e1000
+VM passes DHCP, sorting, pause/refresh/menu/resize, all existing pages, actual
+empty-cache Wi-Fi syscall/UI and process ABI compatibility. Exact staged v102
+`3ed07b1dd8567913` matches the committed-source kernel and independent packaged
+initramfs; GPT saved-log/unmount/return and missing-workspace refusal pass. New
+cache/selection symbols are linked in the staged kernel. This is host/VM evidence,
+not native cache/UI or connection acceptance.
+
+Installed accepted v102 `3337af3753372b9d` and recovery payloads remain unchanged.
+Source, payload and validation survive distclean in `wifi-picker-e4c2b1a6` outside
+build. Next is an explicit attended scan-to-desktop profile and saved native cache/
+selection/disconnect evidence, followed by management TX and association/security.
+No new physical test is installed or armed; battery/headphones/trackpad follow-ups
+remain deferred.
+
+
+## 2026-10-28 attended discovery desktop scope
+
+Consume actual main `951135b0` through merge `82c4c782`, retaining separate AP
+ownership ELF, Air parity diagnostics and all Pro v1–v102 recipes. PR182
+`903030ef` remains storage/resource lifetime work; no new syscall number is
+claimed there. Add separate v103 scan-to-desktop opt-in profile: unchanged full
+v102 firmware/US1/6/11 scan, successful stop/restoration and ready selectable
+cache before GUI admission. Open the complete Help checklist automatically;
+keep the mounted workspace/logger and retained stopped RX resources through the
+ordinary desktop owner, then save/unmount/return on manual desktop exit with no
+timed close. Record anonymous before/after cache state and selection outcomes;
+no identifiers/credentials in logs. Failure refuses GUI and saves/returns under
+the existing automatic policy. Touch main/staging/smoke, desktoplevel startup,
+Help topic, System trial evidence, focused tests and current guides. Validate
+merged core/desktop, profile compatibility, strict log collection, sanitizers,
+guest checklist/exit/refusal VMs and exact staged image before install/readiness.
+Native UI acceptance remains pending. Existing recovery and v102 evidence stay
+retained. Battery, headphones, latency, transmit/security and IP remain separate.
+
+Logging boundary refinement: keep one session directory, persist the complete
+extended RF prefix to a dedicated `wifi-scan.log` after cleanup, then resume the
+existing bounded64KiB rolling logger for the untimed GUI phase. Preserve
+`wifi-ui-begin.log`, before/after anonymous cache state and final cumulative
+selection/removal counters; do not widen bootlog memory or overwrite the RF proof.
+The collector must validate both phases explicitly. This adds one guarded opt-in
+workspace-log transition and its host corruption/quiescence/prefix/long-tail tests;
+PR182 does not modify workspace_log.c. Ordinary logging remains unchanged.
+
+
+## 2026-10-28 v103 installed; attended acceptance pending
+
+Release `fe9dc6295c7318c4` is installed from clean source `10f15a3b` on main
+`951135b0`. Full image, USB-image, test-core and test-desktop pass;193 staging
+checks and215 prior/current recipe comparisons pass. Workspace, Help, cache,
+syscall and System sanitizer suites plus108 native-batch cases pass. Two composed
+prior-native-radio/synthetic-UI fixtures and32 damaged-proof refusals pass; four
+collector orchestration cases cover complete, missing-radio, no-new-session and
+wrong-release. These are host fixtures, not new native acceptance.
+
+The System/e1000 VM validates DHCP, existing pages and controls, actual empty
+Wi-Fi syscall/page, automatic2x checklist startup and clean desktop exit. The
+first rehearsal clicked Settings after Help changed the running dock layout;
+the corrected harness passes and the initial failure is preserved. Exact-stage
+GPT save/readback/unmount/return and missing-workspace refusal pass. The VM has
+no captured radio and correctly refuses GUI admission; native populated UI still
+needs this attended trial. Kernel and independently packaged initramfs match;
+ordinary kernel has no AP request. Full RF checker binds the immutable scan proof
+to the run ID, beginning snapshot, rolling tails and clean final desktop exit.
+A successful collector result still leaves visual acceptance pending.
+
+Complete installed candidate plus six live recoveries match durable backups.
+Known-good desktop `e47dca3a6b30c6c1` remains previous; accepted v102 is retained.
+Old unreferenced v97 `4acac674194041a5` was retired from the ESP for space only
+after complete durable equality. Its backup survives distclean. Offline workspace
+checks pass:361 files,933 clusters,150 directories, zero leaks or errors.
+Ubuntu default, unmounted workspace and empty one-shot are verified. No shutdown
+has been requested. The full untimed Help checklist opens in the guest; Exit
+desktop saves and returns automatically. Reconnect intentionally does not rescan
+or resurrect the retired owner.
+
+The user supplied local Demers2.4/Demers5 credentials for future security tests.
+The owned local file is mode0600; contents have not been read, copied or logged.
+This discovery/selection trial does not use credentials. Management TX,
+association/WPA2/key lifecycle, active IP and 5GHz remain future work. Battery,
+headphones and further trackpad latency remain deferred.
+
+
+## 2026-10-28 v103 native refusal and configuration-guard repair scope
+
+Session `session-00065eea37183a8d-00`, release `fe9dc6295c7318c4`, returned
+automatically with793815-byte exit log. Raw scan reports three complete restored/
+stopped visits,11 completed inputs, two pending reads and two anonymous rows.
+Cache before admission reports published=0, adapters=0, so GUI admission correctly
+refused and overall completed=NO. Neither phase-handoff file exists. Strict
+collection refuses this run; no new physical acceptance is claimed. Raw collection,
+refusal and postboot recovery/integrity checks are archived under the existing
+`wifi-ui-10f15a3b` durable directory. No repeat is armed.
+
+Source inspection finds the cache presence predicate requires generic
+`d->configured`, while captured firmware enumeration deliberately leaves that
+flag false and owns separate firmware/MCU/RX configuration. The host native-batch
+fixture forced the generic flag true, hiding this mismatch. Bounded next scope:
+make presence require the actual captured-path configuration state, preserve
+identity/root-port/connection-change/quarantine checks and active-phase publication
+ownership, and test native generic-flag=false plus each required-state refusal.
+Touched: xHCI scan include and its host fixture; no RF recipe or ABI changes.
+Actual fetched main is `2c34a460`; current candidate remains based on `951135b0`.
+New baseline adds lifecycle-worker/fairness and isolated AP C3 work; integration
+and a complete exact-image trial remain necessary before a replacement install.
+Checkpoint: reproduce old guard failure, repair focused host/sanitizer suites,
+then prepare a separately source-bound replacement. Battery/security/IP stay out
+of this scope. No credentials are used.
+
+
+Configuration-guard repair passes all108 native scan-batch cases both normally
+and under ASan/UBSan, including real capture publication with generic configured
+false, cache read/selection, individual missing firmware/MCU/RX configuration
+refusals and unchanged disconnect retirement. Cache service tests and2030 selection
+lifecycle/metadata/ownership/name cases pass; docs pass700 links. The old guard
+reproduces the observed refusal with the corrected fixture. A development edit
+used a nonexistent member and was rejected by the compiler; that failure and its
+stale-binary assertion are retained separately, not counted as repaired-source
+validation. Native postboot storage is clean:365 files,954 clusters,151 directories,
+zero leaks/mismatches/errors. Seven installed payload equalities and Ubuntu default
+passed; workspace is unmounted and one-shot clear. Only source is repaired; a new
+integration/build/exact-stage VM/install and attended cold trial are still needed.
+
+
+## 2026-10-28 corrected attended trial integration scope
+
+Integrate actual main `ec7bad42` into local repaired cache source `b68db1b5`.
+Main adds scheduler I/O fairness, lifecycle-worker boundaries and isolated AP C3
+and package diagnostics. Preserve these contracts and all existing boot recipes;
+ordinary kernel must retain no isolated AP request. Open PR240 `7052e1bc` is
+Air document-teardown instrumentation; PR182 `c43a1749` is storage/resource
+lifetime work. Neither changes the local xHCI scan presence guard. No new shared
+feature is added in this block: validate the corrected endpoint configuration
+guard with the existing v103 attended profile and separate run/archive. Full
+merged build/core/desktop, sanitizer/native-batch, recipe comparisons, System
+checklist VM, exact-stage GPT and missing-workspace rehearsals precede install.
+Preserve prior failed v103 and accepted v102 evidence, known-good desktop and
+Ubuntu default. Collect only the new source-bound session on return. No radio
+recipe, credentials/security/IP, battery or other model acceptance expansion.
+Candidate will be installed unarmed before coordinating the required cold cycle.
+
+
+## 2026-10-28 corrected v103 installed; native UI trial pending
+
+Release `852438c8b7cd0b7e`, source `d627337c`, integrates actual main `ec7bad42`
+and configuration-guard repair `b68db1b5`. Full image/USB-image/core/desktop
+passes;193 staging tests and219 prior/current Wi-Fi/Air/AP/C3/package recipe
+comparisons pass. Five sanitizer suites plus108 native scan-batch cases pass.
+Strict radio/UI composition fixtures (two valid,32 damaged refusals), four
+collector orchestration cases and committed UI-log tests pass. RF proof constants
+and radio recipes are unchanged. Ordinary kernel contains no isolated AP request.
+
+System/e1000 VM passes actual empty-cache syscall/UI, DHCP, existing pages,
+controls and clean exit; the automatically opened complete Help checklist at2x
+scale was visually checked. Exact-stage GPT save/readback/unmount/return passes;
+absent radio correctly refuses GUI. Missing workspace returns without probing.
+Staged kernel and independently firmware-packaged initramfs match built products.
+These checks do not accept native populated UI. The failed predecessor remains
+archived with its original refusal and source-bound payload.
+
+Installed candidate plus six retained payloads match durable backups. Known-good
+desktop `e47dca3a6b30c6c1` remains previous, and accepted v102 remains available.
+Unused v98 `83aad161d5fa476e` was retired from the ESP only after complete durable
+equality to free installation space; its backup survives distclean. Offline
+workspace checks pass:365 files,954 clusters,151 directories, zero leaks/mismatches/
+errors. Ubuntu remains default, workspace unmounted and one-shot empty. No reboot
+is armed. Matching retry run/collector live under `build/bringup/wifi-ui-retry/`,
+with durable archive `wifi-ui-retry-d627337c`. Before shutdown coordinate Wi-Fi's
+10-second unplug/reconnect while off in the same port, leaving workspace attached.
+Help opens automatically, has no deadline, and Exit desktop saves/returns. No
+credentials, commands or photos are needed; security/IP and5GHz remain pending.
+
+
+## 2026-10-28 corrected v103 receive-deadline failure
+
+Session `session-00065eeb2cd82d26-00`, release `852438c8b7cd0b7e`, source
+`d627337c`, saved a709350-byte exit snapshot and returned to Ubuntu. Channel1
+visit completed; channel6 poll failed at10150270us with two attempts and one
+completion, after an early pre-enable TD had been skipped. The strict original
+10-second budget permits at most100000us overrun, so this is a failure. A periodic
+`session-a.log` snapshot at33895990us and flush appear immediately before poll
+failure. Source retains the100ms guard; no deadline reset or threshold widening
+has been applied. Logging/scheduling interference is the next path to investigate,
+not yet a proven exclusive cause.
+
+The trace reports channel6 MAC disable/drain, endpoint stop, restored filter/TXOP
+and all13 original channel1 words restored (mask8191). The burst remains failed
+and its buffers uninspected; these cleanup observations do not accept the scan.
+Only one visit completed and no scan batch was published. GUI admission correctly
+refused, with overall completed=NO and no radio/GUI handoff files. The strict
+collector refuses the missing full phase proof. The repaired cache guard was
+not reached and still has no physical acceptance.
+
+Raw failure collection, refusal and timing summary survive distclean in
+`wifi-ui-retry-d627337c`. Installed candidate plus six recovery payloads remain
+byte-identical to durable backups; known-good desktop remains previous. Offline
+workspace checks pass:369 files,973 clusters,152 directories, zero leaks/mismatches/
+errors. Ubuntu default and consumed one-shot passed; workspace is unmounted and
+no retry is armed. Next: isolate periodic log I/O from the bounded receive window,
+with explicit writer quiescence/resume ownership and saved proof, then validate
+the same deadline/cleanup refusals and repeat the attended UI trial. Do not infer
+cache/UI or connection acceptance from this failure. No credential/security/IP
+operation was attempted.
+
+
+## 2026-10-28 isolated receive logging scope
+
+Integrate fetched main `02434766` (desktop file-pool/timing improvements and
+isolated package/platform audit) before new work. Its workspace-log change makes
+save latency measurement independent of optional power telemetry; preserve it.
+PR182 `4cef0949` remains exFAT/resource work and does not modify workspace_log.c.
+Add a distinct v104 automatic attended profile inheriting all v103 flags plus an
+explicit log-isolation token. Quiesce the periodic logger with its existing5s
+bound before firmware/radio work, persist a boundary snapshot, retain extended
+RAM proof through the capture, then permit only that owned parked session to
+save immutable radio proof and resume rolling desktop logging. Failure must
+refuse radio/GUI, retain pending write ownership and save under existing cleanup.
+No log writes inside the bounded radio phase, no raised/reset receive deadline,
+no disabled scheduling/interrupts and no change to v1–v103 recipes or ordinary
+logging. Touch logger API/host tests, main admission, staging/smoke/tests and
+strict run collection. Verify fault/quiescence/resume/prefix boundaries, full
+merged build/core/desktop, sanitizers, compatibility and exact-stage VMs before
+installation/readiness. Preserve both failed v103 runs and accepted v102 proof.
+No credential, security/IP, battery, other-machine acceptance or shared scheduler
+policy changes. Bounded checkpoint is a separately source-bound cold UI trial.
+
+
+v104 implementation now pauses periodic writes through the explicit owned radio
+phase and resumes only after immutable full proof is saved. Logger tests cover
+an in-flight writer completing, bounded timeout retaining busy ownership,
+10-second-plus virtual idle without periodic writes, failed boundary save,
+failed parked-to-desktop save/readback/sync, repeated/ordinary/generic-pause
+refusals and final-stop retirement. Staging tests pass194 cases;223 previous
+Wi-Fi/current Air/AP/C3/package/platform recipes remain byte-identical. Strict
+isolation proof refuses missing/duplicate/failed markers and any snapshot, flush,
+cost or USB-timing record inside the radio phase. No native acceptance or new
+install is claimed before full build/sanitizer/exact-image validation below.
+
+
+## 2026-10-28 isolated v104 installed; native acceptance pending
+
+Release `a21db67c57d97851`, source `330c25b3`, actual main `02434766` passes full
+image/USB-image/core/desktop (297.46s),194 staging tests and223 prior/current
+Wi-Fi/Air/AP/C3/package/platform recipe comparisons. Five sanitizer suites and108
+native scan-batch cases pass. Four UI-log test groups include isolation marker/I/O
+refusals. Two composed prior-radio/synthetic-isolated-UI fixtures,32 damaged proof
+refusals and four collector orchestration cases pass. Synthetic fixtures remove
+complete periodic checkpoint blocks from prior RF data and explicitly insert
+isolation markers; they are checker coverage, never new hardware evidence.
+RF driver code and the full initialization/MAC/tune proof constants are unchanged.
+
+System/e1000 VM passes DHCP, existing pages/controls, actual empty Wi-Fi cache and
+clean desktop exit. The automatic2x Help checklist was visually checked. Exact
+staged GPT boot demonstrates a real boundary save and paused writer before the
+expected absent-radio refusal; no snapshot/flush/cost/USB-timing markers occur
+inside that failed RF phase. Exit save/readback/unmount/return and missing-workspace
+refusal pass. Staged kernel and independently packaged firmware initramfs match;
+ordinary kernel has no isolated AP request. No native populated UI is accepted.
+
+Installed candidate and six retained payloads match durable backups. Previous
+known-good desktop `e47dca3a6b30c6c1`, accepted v102 and both failed v103 payloads
+remain on the ESP. Unreferenced v99 `995dd64ae6135add` was retired only after
+full equality to its durable `wifi-channel-receive-8714416/payload` backup to
+free installation space. That backup survives distclean. Offline workspace
+checks pass:369 files,973 clusters,152 directories, zero leaks/mismatches/errors.
+Ubuntu default, unmounted workspace and empty one-shot are verified. No reboot
+is armed. Run and first-return collector are in `build/bringup/wifi-ui-isolated/`;
+all evidence is archived outside build in `wifi-ui-isolated-330c25b3`.
+
+Coordinate the cold Wi-Fi10-second unplug/reconnect while off, same port, workspace
+left attached. Help opens the complete untimed checklist; Exit desktop saves and
+returns. No passwords, commands or photos are required. The next collection must
+require the actual new release, complete radio/UI byte bindings and isolation
+phase before considering the user's visual report. Association/security/IP and
+5GHz remain pending; credentials have not been read or included in this image.
+
+
+## 2026-10-28 v104 partial radio success; input profile omission
+
+Session `session-00065eebd62e3f4f-00` saved a797243-byte immutable radio proof
+and verified desktop-begin overlap. The complete strict RF/isolation/cache-before
+checks pass: three US1/6/11 visits,13 completed inputs, two pending reads, five
+beacon observations, eight unrelated transfers, two rows and one selectable row.
+All original stop/restoration and deadline checks pass with no periodic disk I/O
+inside the isolated phase. Cache owner1/generation1 was published. The complete
+RF proof survived more than two hours of rolling desktop logs. This verifies
+that phase, not an entire desktop trial or sustained RF endurance.
+
+The user reports responsive keyboard shortcuts and unavailable trackpad, then a
+manual restart/poweroff. There is no exit snapshot; the collector correctly marks
+the desktop lifetime incomplete. UI selection/removal, clean desktop exit and
+SrvrOS unmount remain untested. Offline checks pass374 files/985 clusters with
+zero leaks/mismatches/errors; raw collection and partial proof are durable in
+`wifi-ui-isolated-330c25b3`. The boot profile omitted `srvros.trackpad=gestures`;
+main requires that explicit option for the already-supported pointer path.
+
+Bounded correction scope: v105 inherits v104 and adds only the existing accepted
+trackpad gesture option. Touch staging/smoke/profile tests and input log proof;
+no kernel, userspace, shared ABI or RF changes. Fetched main is `a8da6076`; PR182
+`c5e9d2ac` is storage/network/resource work. Freeze runtime at main02434766/source
+330c25b3 for this single-variable input retest, rather than folding in unrelated
+power/scheduler/workspace changes before UI acceptance. Verify runtime source
+and payload bytes identical, reuse matching full core/desktop/sanitizer receipts,
+and run new profile/proof tests plus exact-stage and System/checklist VMs before
+install/readiness. Preserve incomplete v104 and both failed v103 records.
+
+
+## 2026-10-28 v105 trackpad-enabled candidate installed
+
+Release `4bc73cbb97c3166b`, source `032dc172`, inherits v104 and adds exactly the
+accepted `srvros.trackpad=gestures` option. There is no driver, kernel, userspace,
+shared ABI or Makefile change from full-tested runtime `330c25b3`. Exact staged
+kernel and firmware-packaged initramfs bytes equal the v104 payload. Matching
+full build/core/desktop and five sanitizer suites plus108 native-batch receipts
+are reused, not rerun or represented as a new runtime build. Keep main02434766
+for this controlled retest; fetched maina8da6076 integration follows separately.
+
+New195 staging tests,225 previous/current recipe comparisons and five UI/input
+log test groups pass. The new checker requires an explicit gesture option and
+one successful trackpad-ready/pointer-enabled record; malformed/missing/duplicate
+readiness is refused. Two strict prior-RF/synthetic-input/UI compositions and32
+proof mutations, four collector orchestration cases, System/e1000/checklist VM,
+exact-stage GPT save/readback/unmount/return and missing-workspace refusal pass.
+Synthetic input records are checker coverage, never native input acceptance.
+
+Installed candidate and six retained payloads equal durable backups. Known-good
+desktop remains previous; accepted v102/v101, incomplete v104 and both failed
+v103 payloads are retained. Unreferenced v100 `c80f3afe5d496f36` was retired after
+full equality to durable `wifi-scan-timing-57fede2/payload` for installation space.
+Offline workspace is clean:374 files,985 clusters,153 directories, zero leaks/
+mismatches/errors. Ubuntu default, unmounted workspace and empty one-shot pass.
+No reboot is armed. Matching first-return collector/run are under
+`build/bringup/wifi-ui-input/`, durable archive `wifi-ui-input-032dc172`.
+Use the same cold adapter cycle and full untimed guest checklist. Finish through
+Exit desktop to save the end snapshot and return; manual restart remains an
+incomplete lifetime. No credentials, association/security/IP or5GHz were used.
+
+## 2026-11-01 v105 return: trackpad configured, empty scan blocks desktop
+
+Collected two previously uncollected sessions for release `4bc73cbb97c3166b`:
+`session-00065eee099fef21-00` and `session-00065f4086e80b0a-00`. Both contain
+an exit snapshot and `completed=NO`; neither entered the desktop. The strict
+collector correctly refused the ambiguous two-session set and retained both raw
+captures. Each explicitly enabled gestures and reported one successful
+trackpad-ready/pointer-enabled record. That proves configuration, not attended
+pointer movement.
+
+Both isolated scans finished three visits with `failed=0`, restored mask8191
+and zero late/reused/data-OUT inputs, but published zero rows. The older attempt
+had two unrelated inputs; the latest had eight inputs, four unrelated and four
+rejected. The earlier single-channel discovery observed beacons, but those are
+not substituted for the subsequent scan's results. UI admission was zero in
+both attempts. This is an empty-result admission refusal, not a new desktop or
+radio acceptance. Inspect receive parsing and the populated-cache admission
+requirement before another trial; do not loosen RF ownership/deadline checks or
+silently reuse stale discovery rows.
+
+Raw captures and refusal are preserved in durable `wifi-ui-input-032dc172`.
+Collector verified candidate/recovery payloads and Ubuntu default, cleared local
+armed bookkeeping and left the workspace unmounted after successful read-only
+filesystem/allocation checks. No retry is armed. User visual report is pending;
+association/security/IP and5GHz remain untested.
+
+## 2026-11-01 bounded empty-scan desktop follow-up scope
+
+The user confirms the console-only trial returned automatically; no attended
+pointer/UI checks were possible. Current work will consume fetched main
+`e339b9a8` before changing runtime, retaining this unit's profiles/log isolation.
+Open PR261 owns desktop/filesystem admission and PR252 owns DNS/socket work;
+this follow-up is limited to Wi-Fi trial admission, anonymous scan diagnostics,
+matching proof/profile tests and the guest checklist. It will allow a safely
+completed, owned empty cache into the desktop while keeping populated discovery
+and selection acceptance separate. Investigate parser classifications without
+loosening frame validity, channel, DMA lifetime, stop/restoration or deadline
+rules, and without reusing the earlier single-channel cache. New RF evidence
+must remain anonymous. Preserve v105 failures and known-good recovery, validate
+full merged runtime and exact staged image locally before another cold trial.
+
+### v106 implementation and merged baseline
+
+Merged actual main `e339b9a8` in `e3393715`, resolving logger/Makefile/test
+additions by retaining both behaviors. Socket try-I/O keeps155; Wi-Fi moves to156
+with a matched kernel/userspace and an explicit collision regression. No syscall
+number or userspace binary from an older installed release is mixed into it.
+
+Source `89b1de83` adds the opt-in v106 empty-result UI admission policy. It
+requires a successful isolated scan and ready owned cache, including valid
+version/size/count/generation. Legacy populated-only recipes remain unchanged.
+Help explains empty-result skips. Service tests cover actual empty publication,
+selection refusal, disconnect retirement and malformed/missing/expired cache
+refusals; UI byte proofs report discovery/selection independently. Anonymous
+v105 per-input receipts explain the empty scans: two probe requests in the older
+attempt; four unsupported frames and four channel-mismatch beacons in the later.
+Do not relax those parser classifications. No RF driver changes are required by
+this admission correction. Full merged-runtime and exact-image validation is
+required before installation; this section is implementation scope, not native
+acceptance or a claim that the pending trial is installed.
+
+### v106 validated and installed; physical trial pending
+
+Installed release `b1349e827d0497c3`, source `05506e01`, main `e339b9a8`.
+Full merged image/USB-image/core/desktop passed in332.47s at runtime source
+`89b1de83`; later checker/harness/docs commits do not change kernel/userspace/
+shared/Makefile inputs. This is a new merged runtime build, not reused v104
+runtime receipts. All196 staging tests,227 prior/current recipe comparisons,
+six UI proof groups, three prior-RF/synthetic-UI compositions (including an
+actual prior empty RF phase plus synthetic desktop),32 damaged-proof refusals,
+and five collector cases pass. Five sanitizer suites and108 native retained-DMA
+fixture cases pass. Fixtures do not supply new native acceptance.
+
+The first System VM opened System but its startup line was split by asynchronous
+launch output. Preserve that failure; the harness now requires the real window
+request and ready markers. The rerun passes System/e1000 DHCP, existing pages,
+Refresh/Pause/menu controls, empty Wi-Fi syscall/page and exit. The automatic2x
+Help checklist was visually inspected. The uninstalled stage was recreated after
+that harness-only commit; original provenance is preserved and all payload hashes
+are identical. Exact staged GPT boot/log save/readback/unmount/automatic return
+and missing-workspace refusal pass. Independent packaged initramfs and kernel
+match the stage; the ordinary kernel has no isolated AP request symbol.
+
+Candidate and six retained recoveries equal durable backups. Previous remains
+known-good desktop `e47dca3a6b30c6c1`; accepted v102, incomplete v104/v105 and
+both failed v103 payloads remain on the ESP. Older v101 `f1015eeb7358f9c7` was
+retired only after complete equality to durable `wifi-scan-retry-6b12e4f/payload`
+to make installation space. Offline filesystem/allocation checks pass380 files,
+1005 clusters,155 directories, zero leaks/mismatches/errors. Ubuntu default,
+unmounted workspace and empty one-shot are verified; no reboot is armed.
+
+Run, frozen proof and first-return collector are in `build/bringup/wifi-ui-empty/`,
+durable archive `wifi-ui-empty-05506e01`. Coordinate the same cold adapter cycle,
+then follow Help's untimed checklist and Exit desktop. On an empty list, selection
+is skipped; populated discovery/selection stay unaccepted. Why only off-channel
+beacons arrived is not established by their safe rejection. RF tuning/selectivity,
+association/security/IP,5GHz and endurance remain open. Credentials are unused.
+
+### v106 return collection: repeated periodic marker checker scope
+
+The user reports an empty Wi-Fi list, successful unplug detection, working
+trackpad and automatic return after leaving the desktop. Reconnect did not
+reattach; this profile intentionally retires the old owner without a new scan.
+Source-bound session `session-00065f41127d745c-00` contains radio, desktop-begin
+and exit files. The original collector passed the full RF/isolation/input/UI
+phase checks, then refused a periodic file containing multiple snapshots of its
+own filename. A long-lived64KiB rolling tail can legitimately retain several
+such periodic markers. Preserve this strict refusal and the original frozen
+helpers; do not relabel it without a separate verified correction.
+
+Bounded follow-up touches only the saved-log snapshot parser and its tests.
+Allow repeated periodic markers explicitly, requiring the final terminal marker,
+every retained matching marker's absolute byte position and monotonic timestamps,
+plus the existing phase overlap checks. Radio/begin/exit retain their unique
+marker policy. No runtime, radio parser, DMA/deadline or reconnect changes are
+part of this correction. Validate synthetic repeated tails and damaged markers,
+then run the corrected proof against the unchanged archived native bytes and
+retain both the original refusal and the new verification receipt. No reboot.
+
+### v106 native empty-cache desktop/input/removal accepted
+
+Release `b1349e827d0497c3`, source `05506e01`, session
+`session-00065f41127d745c-00` passes the separately corrected full proof. The
+796886-byte immutable radio file,65536-byte begin/exit tails and both rolling
+periodic files bind to the same byte stream. The initial657-file rejection and
+original frozen helpers remain preserved. Checker `577c8d2e` explicitly permits
+repeated periodic markers only, verifies the final terminal marker and every
+retained matching receipt's absolute position/monotonic timestamp, and refuses
+malformed retained receipts. Radio/begin/exit keep unique-marker requirements.
+Seven parser test groups, three composed prior-RF/synthetic-UI cases and32 damaged
+proof refusals pass. Both corrected verification receipts and unchanged native
+file hashes are durable; no guest/runtime change or new reboot was needed.
+
+All three US1/6/11 visits complete their original deadlines and independent
+MAC/endpoint stops and13-word restorations. There are eight completed inputs,
+two pending reads, no late/reused/data-OUT inputs, and zero usable rows. All eight
+completed inputs in the channel11 visit are beacons rejected for DS-channel
+mismatch; visits1/6 receive no completed inputs. These observations do not prove
+RF frequency/selectivity or identify the networks. Do not weaken the channel
+check or substitute earlier discovery rows. Positive on-channel discovery and
+selection remain unexercised in this release.
+
+Ready cache owner1/generation1 with zero rows entered the desktop. It was read94
+times and retired once; the exit cache has no owner/adapters, with zero selections
+or stale/refused requests. The user confirms the trackpad worked, no networks
+were shown, unplug was detected, and leaving the desktop returned automatically
+to Ubuntu. This accepts that empty-cache desktop/input/removal/return scope.
+Refresh/Pause/Resume were not separately reported, and populated selection remains
+untested. Reconnect intentionally does not resurrect the old owner: live
+reattach/rescan is still missing functionality, not accepted behavior.
+
+Offline fsck/allocation pass386 files,1018 clusters,156 directories with zero
+leaks/mismatches/errors. Candidate and six retained recoveries verify; Ubuntu is
+default, workspace unmounted and no reboot armed. Durable archive remains
+`wifi-ui-empty-05506e01`; `corrected-return-v2` owns the final verification and
+user report, alongside the original refusal. A cached Linux query requested no
+rescan and supplied no fresh2.4GHz channel baseline. Next: investigate on-channel
+discovery and actual AP channel coverage, then design bounded reattach/rescan.
+Association/security/IP,5GHz and endurance remain pending. Fetched main is now
+`bbbdead1`; this Python-only return-proof correction does not change the installed
+runtime's `e339b9a8` integration baseline.
+
+## 2026-11-01 advertised-channel diagnosis scope
+
+Fresh Linux NetworkManager and a bounded passive US1–11 request did not supply
+an observed2.4GHz baseline; the live Linux USB interface sees the authorized5GHz
+network. Ask whether the2.4GHz network is currently visible elsewhere. These
+Linux observations do not accept native5GHz or prove a native retuning defect.
+The original passive-request report parser rejected a decimal frequency; the
+subsequent sanitized scan dump is retained, without unrelated identifiers.
+
+Consume fetched main `1a0c9085` (optional platform-diagnostic/tool changes since
+`e339b9a8`, no Wi-Fi overlap). PR261 owns desktop/filesystem admission and PR252
+owns DNS/socket work. This bounded scope adds anonymous advertised-channel
+metadata after complete stopped/retained scan ownership, strict full-frame
+validation and copied scalar output only. Touch the RX parser diagnostic helper,
+scan capture/logging, opt-in automatic profile/main dispatch, host tests and
+source-bound saved-log checker. Keep radio frequency operations, channel plan,
+receive budgets, buffer lifetimes and rejection rules unchanged. Preserve all
+existing profiles. The next explicit diagnostic should save results and return
+automatically without opening a desktop or requiring commands/photos. This is
+observation, not live reconnect or security implementation. Verify local/model/
+workspace/recovery, full build and exact-stage save/return before installation.
+
+### Band-capability correction; withdraw the prepared v107 trial
+
+The user confirms the2.4GHz network is visible elsewhere. Exact USB7392:a711
+maps to EW-7711MAC in the pinned Linux USB table; Edimax's
+[product specification](https://edimax.com/edimax/merchandise/merchandise_detail/data/edimax/in/wireless_adapters_ac450/ew-7711mac/)
+and [FAQ](https://www.edimax.us/html/Faq/FAQ-EW7711MAC.pdf) identify it as5GHz-only.
+This overrides the generic Linux PHY channel listing and the captured EEPROM
+board3 hint; neither establishes that this assembled adapter supports2.4GHz.
+The earlier model-band assumption was wrong. Prior packet decode/USB lifetime
+receipts remain historical evidence, not proof of working2.4GHz RF on this model.
+
+Prepared v107 `5806a8aa054d6117`/source `42e8e958` is withdrawn BEFORE install.
+Its full233.62s build/core/desktop,197 staging,229 recipe, six sanitizer suites,
+108 native fixture cases and exact-image save/return/missing-workspace receipts
+remain preserved as offline evidence. There is no reason to cold-boot that
+2.4GHz trial. Existing installed v106 and known-good previous desktop are retained;
+Ubuntu remains default and no reboot is armed.
+
+Revised bounded scope: record exact model band capabilities, refuse installation
+and new runtime execution of the captured2.4GHz RF recipe, and prepare an offline
+channel161/20MHz synthesizer plan from the pinned Linux5GHz row. The observed
+5GHz network is the correct target. The5GHz plan must remain uncalled by native
+RF code until separate5GHz band/BBP/calibration/restore prerequisites and policy
+are implemented and validated. Preserve the anonymous-channel diagnostic helper
+for future valid-band work. Do not rename old2.4GHz acceptance or imply that
+selecting a5GHz frequency alone implements5GHz support, association or security.
+
+### 5GHz capability guard and offline channel161 foundation validated
+
+Source `e51e3811` records only5GHz capability for captured7392:a711/0100;
+unknown identities/revisions remain unknown. The installer refuses valid legacy
+2.4GHz payloads before host UUID/boot configuration interaction, while keeping
+historical payload verification/rendering available. The automatic kernel path
+also refuses the captured2.4GHz RF recipe before firmware control is attempted.
+This is a source/tool correction, not a replacement installed payload.
+
+Full matched image/USB-image/core/desktop passes290.38s at runtime source
+`889d736b`; the later staging-message change does not alter runtime inputs.
+All198 staging/installer tests pass, including unchanged installed-state bytes
+and an unreachable host-interaction sentinel for rejected profiles. Band-capability
+and offline frequency-plan ASan/UBSan suites pass. The channel161/5805MHz pure
+21-operation projection matches the independent63-byte pinned Linux v7.0 fixture;
+all other requested channels are refused with zeroed output. Its function is
+uncalled by native code and absent from the linked kernel. Existing US1–11
+planner behavior stays separate and is not permission to use this adapter there.
+
+Exact offline refusal artifact `b89952893e2b9f24`/source `e51e3811` has identical
+kernel and independently packaged firmware initramfs bytes. Its VM records the
+model band refusal, no firmware-control operation or desktop entry, failed radio
+capture, saved/read-back logs and clean automatic return; missing-workspace
+refusal also returns. Neither that artifact nor withdrawn v107 `5806a8aa054d6117`
+is installed or a successful radio trial. Both real staged artifacts are refused
+by the installer with EFI/GRUB state bytes unchanged.
+
+Keep the installed v106/previous known-good desktop and their native receipts
+unchanged. The withdrawn diagnostic and new offline foundation are preserved
+outside build with model/vendor references, capability correction, Linux scan
+observations, source/fixture hashes and validation receipts. No USB workspace
+write, ESP payload retirement, new physical acceptance or reboot is part of this
+correction. Next: a separate5GHz band/BBP/calibration/restore contract and
+band-aware receive parser for161 before native reception, then real discovery,
+reattach, association/security and IP. Do not run another2.4GHz hardware trial.
+
+## 2026-11-03 v118 native common DAC return
+
+The matching automatically saved session passed the frozen complete-parent and
+DAC proof:11669 operations,1510049bytes,13 fixed commands/78 guards, all91 new
+I/O requests/replies/readbacks. Fresh trim44 spans DAC93/13/93; final DAC93 and
+selected trim44 readbacks precede inverse trim0 write/read. MAC remains disabled
+and network OUT is zero. Storage fsck/allocation, every installed recovery payload
+and Ubuntu default/unarmed state pass. The157-file capsule
+`wifi-dac5-native-4dd9cfd5` and separate `wifi-dac5-accepted-4dd9cfd5` notes are
+outside build. No rerun is required for this contract. Word restoration is not
+analog calibration, RF lock, receive, authentication or data acceptance.
+
+## 2026-11-03 common VCO implementation and refreshed baseline
+
+Merge `48c8fc02` consumes actual main `7ef140ef`, published Ports `af92777f`,
+Apps `f85c7107` and UI `9eaaa74e`. The only root merge conflict concatenates
+independent Make targets; shared Wi-Fi ownership is unchanged. Matched ordinary
+build/USB image and full xHCI regression pass at the integration checkpoint.
+Installed-media inspection19 tests, dirty salvage9 and Haswell audit7 pass.
+The first command used three nonexistent Make aliases; the corrected commands
+and original refusal are retained. An unrelated exhaustive publication matrix
+was stopped after preserving its completed bounded subset; no full-matrix pass
+is claimed. Normal publication control coverage is separate.
+
+The new fixed VCO engine/native child requires completed v118 private parent,
+selects fresh trim44, reads original30 and issues one b0 write. Immediate and
+six timed observations admit only30/b0, require monotonic clearing and final30
+before inverse trim0 restoration. Fifteen commands/90 guards total105 I/O,
+with six measured delays totaling one second. Failure never forces clear,
+replays or speculatively restores trim. Exact source/fixture projection, all105
+transfer failures/corruptions and112 cancellation/state-mutation boundaries,
+six delay failures, seven clear timings, pending/reassertion, strict log proof
+and source-tamper tests pass. Native physical acceptance remains v118; further
+build/staging/sanitizer/exact-VM and recovery checks precede any v119 trial.
+Self-clear is not RF lock, calibrated RX or connectivity. Credentials unused.
+
+The updated image/build,213 staging groups and targeted native read/command/
+delay-owner refusal checks pass. xHCI/VCO ASan/UBSan and exact native compiler
+stack reports pass; disposable real2MiB exFAT/VFS write/read/unmount/remount/fsck
+also passes. These remain host checks; no new physical acceptance is claimed.
+
+### v119 installed; cold trial pending
+
+Runtime `11689cfa`/release `ace4b3dcaa85e353` passes exact staged save/readback/
+clean-unmount/automatic-reset and missing-workspace refusal VMs. Independent
+firmware packaging and the built kernel match the staged image. The complete
+1520120-byte synthetic parent/VCO trace passes11774 operations and five malformed
+whole-prefix refusals; this is synthetic, not native acceptance. Engine/native
+ASan/UBSan passes; exact native engine stack frame is1144bytes. Source/fixtures,
+frozen checker, payload, run record and recovery checks are sealed outside build
+in `wifi-vco5-native-11689cfa`. Before install, the accepted v118 large session
+was byte-compared, independently archived/verified and pruned from USB. The
+unreferenced v113 EFI copy was retired only after full equality with its sealed
+accepted backup. v114–v118 and e47d previous recovery remain installed; Ubuntu
+default is verified. Cold shutdown requires10seconds Wi-Fi unplug while off,
+same-port reconnection and power-on; retain workspace drive. Progress, save and
+Ubuntu return are automatic. Collect before any next candidate; no photos.
+
+Extra baseline CLI qualification is separate: SQLite and jq pass their VM
+workflows/persistence and strict filesystem checks on a disposable independent
+alias fixture. All369 source file names/bytes are verified;182 immutable aliases
+are copied before an initial clean fsck. Initial missing-probe/alias refusals
+remain preserved. The bc workflow/output/signal checks pass, but its second-boot
+offline allocation check finds one leaked cluster despite a clean guest check.
+The disk, receipts and traces survive in the12-file sealed
+`wifi-vco5-bc-allocation-failure-11689cfa` archive. A comparison requiring root
+unmount refuses because `/fat` is busy; it is not a passing retry. Cause remains
+unresolved, and bc is not accepted here. No native USB is involved in these VM
+failures. Filesystem, VFS, bootlog/workspace-log and AHCI code are byte-identical
+to accepted v118 source `4dd9cfd5`; native Wi-Fi capture does not run bc and keeps
+its own2MiB log, offline USB, full-prefix and recovery gates. Do not promote this
+isolated Wi-Fi trial into ordinary filesystem or CLI acceptance.
+
+## 2026-11-03 v119 native common VCO return
+
+The matching automatically saved session `session-00065f6c26a94612-00` passes the
+frozen whole-parent/common VCO proof:11774 operations,1520120bytes, all105 new
+I/O, fifteen RF commands,90 guards and six exact delay receipts. The write
+acknowledges b0, the immediate read remains b0, and every delayed sample is30.
+Independent trim44 and inverse trim0 readbacks pass; no trigger clear write or
+replay occurs. MAC stays disabled and network OUT is zero. Offline USB fsck/
+allocation, all installed recovery bytes and Ubuntu default/unarmed state pass.
+No retry is required for this contract. The208-file `wifi-vco5-native-11689cfa`
+capsule and separate `wifi-vco5-accepted-11689cfa` notes survive outside build.
+The source-pinned follow-up audit identifies the still-selected held-channel
+checkpoint for a separate VCO child; it performs no new hardware I/O and accepts
+no calibrated receive, RF lock, security or IP behavior. Credentials unused.
+
+## 2026-11-04 active channel calibration/receive scope
+
+Fetched main `845f703c` (profile transfer/export, less and isolated Air6,1
+TILECTL observation); Ports pin `d760e541`, Apps `b2220909`, UI `9eaaa74e`.
+No MT76 owner overlaps. PR349 owns uncertain-media inspection,348 profile
+creation,344 Files transfer,334 signal context,317 isolation,310 browser and301
+Air scanout; retain their boundaries and independent native evidence. Consume
+actual pinned modules and root changes with focused profile/staging/build/VM
+checks before freezing a new native image. v119 acceptance remains source-bound.
+
+Bounded next implementation: a fixed private channel161/20MHz coordinator that
+holds fresh trim44 and all selected band/synth/A20/PA/gain-adjusted BBP words
+while issuing one channel VCO trigger. Read trim44 before/after, require original
+RF0:4=30, exact b0 acknowledgement and bounded monotonic30/b0 observations,
+then permit inverse originals only after observed clear. Preserve legacy engine
+behavior with a separate coordinator and no caller-selected register plan. No
+force-clear/replay/speculative cleanup. Touch MT76 fixed engine/native owner,
+opt-in automatic recipe and fault/source/log tests; defer MAC enable, MCU
+calibration/RX until the selected-channel proof is checked. Next audit complete
+channel calibration and controlled receive lifecycle from pinned source; this
+first dependent hardware checkpoint is not usable Wi-Fi. Credentials unused.
+Known bc VM allocation anomaly remains unaccepted; no unrelated filesystem
+sweep or repair is part of this bounded Wi-Fi work.
+
+### Integrated main845f and selected-channel VCO implementation
+
+Root merge `bcb6ec20` consumes main `845f703c`, published Ports `78bf21b8`, Apps
+`fe681996` and unchanged UI `9eaaa74e`. Active Ports connectivity fsck is clean;
+ort could not resolve an unavailable historical submodule reference, including
+an explicit remote-ref refusal. The normal resolve strategy exposed file/gitlink
+conflicts, which retain both published module merges, Wi-Fi recipes, Haswell v2
+TILECTL gates and independent Make targets. No source acceptance is inherited.
+Matched build/USB image, desktop/I/O, guest profiles, Haswell backing and docs
+checks pass. An initial nonexistent desktop-session Make alias is retained as
+a host command refusal, separate from the corrected passing target set.
+
+The new explicit coordinator leaves legacy engine code/structures unchanged and
+adds one fixed child before inverse writes at the selected checkpoint. Every
+child callback guards composite ownership and exact packet/delay requests.
+Normal tests pass all77 new I/O failures/corruptions,84 child cancellation
+boundaries and neighboring parent phase transitions,256 gains, six delay
+failures, seven clear timings, pending/reassertion, context/callback/board
+refusals, composite mutation and no replay. Standalone child tests additionally
+cover every77 transfer/84 cancellation/state-mutation boundary, proof bits and
+malformed replies. Four full-ledger groups, two pinned-source/tamper groups,
+214 staging groups and native owner/refusal checks pass. Targeted xHCI, child
+and combined ASan/UBSan pass. Exact native frames are216bytes for the coordinator
+and1144bytes for the pulse engine. No new physical acceptance is claimed.
+
+Read-only Linux currently reports161/5805MHz. Pinned source orders per-channel
+VCO after band/synth/gain/BBP and before MCU calibration; high-band calibration
+arguments and temporary-word restoration are audited separately. Existing IBI9
+and5GHz receive-decoder admission remain unresolved prerequisites. The next
+cold trial is the selected-channel pulse/readback/inverse-original contract,
+without receiver, network OUT or credentials. It must pass exact-stage save/
+refusal, full-prefix capacity/parser, storage and recovery checks before install.
+
+### v120 installed; selected-channel cold trial pending
+
+Release `019299c5a721fcda`, runtime `e2bf7e3b`, passes the complete1991043-byte
+synthetic ledger/15618-operation proof and five malformed whole-prefix refusals,
+leaving106109bytes within the existing2MiB bound. This is synthetic, not native
+acceptance. Exact staged save/readback/unmount/reset and missing-workspace VMs
+pass; the matched desktop rendering/input/resize/relaunch VM also passes.
+Kernel bytes and independently firmware-packaged initramfs match the staged
+product. Real2MiB kernel exFAT/VFS write/read/remount/fsck passes. Extra composite
+ownership guards are tested with parent mutations before/during/after the child;
+normal fault/gain and final ASan/UBSan checks pass at the committed runtime.
+
+Before install, accepted v119 large logs were compared byte-for-byte with their
+208-file sealed native capsule, independently archived/verified and pruned from
+USB. Actual UUID/model/adapter descriptor, offline fsck/allocation, writable
+eligibility and headroom pass. The unreferenced v114 PA EFI copy was retired
+only after equality with its independently sealed accepted backup. v115–v119,
+e47d previous recovery and accepted backups remain. Source/payload/frozen proof,
+run record and checks are sealed outside build in
+`wifi-channel-vco5-native-e2bf7e3b`; Ubuntu remains default. Shutdown is required
+for10seconds Wi-Fi unplug while off, same-port reconnect and power-on. Leave
+workspace connected. Guest progress, full save and Ubuntu return are automatic;
+no commands/photos. Collect first; missing/truncated/failed proofs are not passes.
+No receiver, network OUT or credentials are enabled. MCU high-band calibration,
+IBI9 semantics and separately tested5GHz receive/scan handling remain next.
+
+
+## 2026-11-04 v120 native selected-channel return and next receive scope
+
+Matching session `session-00065f6d30db0147-00` / release `019299c5a721fcda` /
+runtime `e2bf7e3b` passes all15618 operations and its1991045-byte complete prefix.
+The3844-operation selected-channel transaction includes77 child I/O and six
+exact waits; immediate b0 becomes30 by the first delayed observation. Trim44
+and held channel161/20MHz remain selected through the child; inverse original
+BBP/PA/A20/frequency/band/trim values independently pass. Offline USB fsck and
+allocation, all installed recovery bytes, Ubuntu default/unarmed state and
+automatic return pass. The215-file native capsule and independent acceptance
+notes survive outside build. No retry is needed for this bounded command/
+self-clear/restoration contract; RF lock, analog calibration and RX stay open.
+
+Fetched main `7766ed5a`: Files transfer, uncertain-media host inspection, profile
+creation/session switching and isolated Air6,1 Linux-model32 observation are
+new since the actual integrated `845f703c`. They are not yet incorporated or
+claimed in this physical acceptance. Remaining open PRs334/317/310/301 have
+separate signal/isolation/browser/Air scanout scopes; no MT76 overlap found.
+Next bounded shared change is a separate fixed161/20MHz passive beacon decoder
+with HT-primary validation, host fault/truncation tests and unchanged legacy
+1–11 behavior/ABI. It grants no hardware endpoint or radio authority. Continue
+source-audited channel MCU calibration and IBI9 saved-word admission separately;
+existing all-ones observations do not automatically admit new5GHz calibration.
+No new boot armed; cold-unplug shutdown authority persists. Credentials unused.
+
+
+### Channel161 passive decoder foundation and calibration audit
+
+Separate `mt76_rx_beacon5` now provides offline fixed161/20MHz management
+parsing and optional HT-primary validation without widening legacy1–11 native
+callers or structs. Exact truncations, all primary/tuning values, malformed/
+duplicate/mismatched HT, shared framing refusals, security advertisements and
+100000 hostile transfers pass, including ASan/UBSan and the full old parser
+suite. Existing RX-window/discovery/scan/batch regressions, matched kernel/USB
+build, docs and native private-owner refusal filter pass. Test-only implicit
+return compilation refusal is preserved, then corrected with an explicit return.
+No new source is physically installed or accepted by these host checks.
+
+Eight additional pinned Linux v7.0 sources confirm HT61's22-byte primary field,
+AGC8/9 software-cache reads and initial MAC-start before power-on calibration.
+For channel161 the MCU power-on VCO argument must be161, then high-band FULL901,
+LC1 and RXDCOC1; neither the selected RF pulse nor old VCO1 accepts this startup.
+Next is explicit same-lifetime selected-channel MAC/RX ownership, fresh IBI9
+write effect and exact raw restoration, bounded firmware acknowledgements and
+terminal drain/disable/endpoint retirement before controlled5GHz reception.
+Local `build/bringup/wifi-rx5-foundation` retains source pins/audit and tests;
+accepted notes outside build retain a sealed copy. Demers5 security/data remain
+later;Demers2.4 needs compatible hardware. Installed v120 stays collected/unarmed,
+Ubuntu default; no shutdown is required for this offline work.
+
+
+## 2026-11-04 active firmware calibration / controlled receive scope
+
+Fetched main `f4ea0ccb` (additional Air GT/scanout audit after7766ed5a); inspected
+open PR334/317/310/301, no MT76 overlap. The actual runtime baseline remains
+845f703c with322b218f's offline decoder. No newer native acceptance is inferred.
+Bounded implementation: a separately admitted channel161/20MHz inspection hook
+at the accepted selected-channel VCO checkpoint, retaining trim/band/synth/A20/
+PA/gain-adjusted BBP through exact MAC/RX startup, fresh IBI9 temporary-write
+proof, MCU R0/VCO161/FULL901/LC1/RXDCOC1, a bounded eight-page passive window,
+MAC drain/disable and exact endpoint cessation before inverse originals. New
+fixed5GHz entry points share mechanics while old1/6/11 native profiles stay
+unchanged. Stop/quarantine on uncertainty, retain all DMA, no replay/network OUT
+or credentials. Touch MT76 coordinator/calibration/window, new static xHCI owner,
+explicit recipe/main dispatch and independent host/source/log/VM tests. First
+hardware checkpoint must distinguish command/restoration/quiet receive from
+actual decoded frames; an empty window is not populated discovery acceptance.
+Ubuntu recovery and existing cold-unplug shutdown authorization persist.
+
+
+### Firmware calibration / controlled receive implementation
+
+Separate5GHz calibration entry uses fixed R0/VCO161/FULL901/LC1/RXDCOC1 wire
+requests and unchanged legacy channel1 entry. Shared mechanical helpers retain
+separate admission; no native G-band gate is widened. The optional one-shot
+coordinator hook runs only after selected-channel VCO clear and before inverse
+writes, revalidating selected state afterward. A new private native owner binds
+captured board/fresh fields, selected bank/trim, firmware/controller/context and
+pinned retained page/ring identities. MAC start, fresh IBI9 effect/restoration
+probe, exact calibration replies/temporary-word restoration and bounded passive
+window precede mandatory drain/disable/filter/TXOP restoration/endpoint stop.
+Only successful quiescence permits inverse band/trim writes. Failure retains
+DMA, stops the outer transaction and preserves incomplete evidence.
+
+Pure channel1/161 calibration tests cover every callback, cancellation/board
+loss, malformed packet/reply bits/lengths, fresh delayed IBI, write effect and
+inverse restoration.2927 old/new receive-window fault/deadline/stop/parser cases,
+selected-hook reentry/null/failure/mutation,215 staging groups and four complete
+saved-ledger mutation groups pass. Native ownership-refusal/build and targeted
+ASan/UBSan checks are separate from hardware acceptance. The planned unattended
+v121 cold trial saves results and returns automatically; an empty window will
+not accept reception or discovery. No credentials or network OUT. Complete
+source/VM/storage/recovery gates and a sealed run record are required before
+install/shutdown; accepted v120 and Ubuntu recovery remain independent.
+
+
+### v121 exact candidate qualification
+
+Runtime `12b47dbc`, release `3732593a41f9be22`, passes exact staged GPT
+save/readback/clean-unmount/reset and missing-workspace refusal VMs plus the
+matched desktop input/render/resize/relaunch VM. Kernel and independently
+firmware-packaged initramfs match the staged bytes. The complete synthetic
+parent/calibration/receive ledger is2004637bytes/15719 operations (101 additional
+minimum-path operations), with five malformed whole-prefix refusals and92515
+bytes remaining within2MiB. This is capacity/parser evidence, not hardware.
+All12 targeted sanitizer/build/frame checks pass; new exact native frames peak
+at376bytes. The earlier disposable2MiB real exFAT/VFS
+write/read/remount/fsck proof is reused only after exact source-hash equality;
+no new filesystem acceptance or resolution of the separate bc anomaly follows.
+Cold-test staging is ready for verified offline workspace/recovery installation.
+Collect `build/bringup/wifi-cal5-native/return_collect.py` first after automatic
+Ubuntu return. Distinguish actual beacon count from quiet lifecycle completion;
+Demers5 security/IP data and live reattach stay pending. Credentials unused.
+
+
+### v121 installation / cold handoff
+
+Installed3732593a41f9be22 after confirming actual MacBookPro11,2, workspace UUID
+and captured adapter descriptor, offline fsck/allocation/writable/headroom and
+full recovery payload equality. Accepted v120 large USB logs were independently
+archived and verified against its sealed native capsule before pruning only
+those generated logs. The unreferenced v115 BBP EFI copy was retired only after
+full equality with its independently sealed accepted backup. v116–v120, previous
+e47d recovery and all accepted backups remain. The new payload/run/source/frozen
+proof/VM receipts are sealed outside build as `wifi-cal5-native-12b47dbc`.
+Ubuntu stays default. Shutdown for10seconds Wi-Fi unplug while off, reconnect
+same port and power on; leave workspace connected. Guest progress/save/unmount/
+Ubuntu return are automatic; no commands/photos. Collect first, preserve any
+failure and inspect actual beacon count before accepting receive observations.
+
+
+## 2026-11-04 v121 refusal and bounded fresh-field correction
+
+Matching3732593a41f9be22/session-00065f7819b0d2f4-00 saved1844154bytes and
+returned automatically, but is FAILED/INCOMPLETE: selected VCO completed, the
+new endpoint configured and stopped exactly with zero posts; MAC/calibration
+never began (zero operations/commands). No inverse selected-state proof or RX
+acceptance follows. Whole-prefix completion refusal is preserved in the597-file
+sealed capsule; offline workspace/recovery and Ubuntu default/unarmed checks
+pass. Source inspection identifies the new owner incorrectly testing legacy
+`mcu.trim_fields`, which this5GHz route never populates, instead of the fresh
+private `wifi_trim5.fields` already bound by the accepted parent. Correct that
+specific binding, retain exact board/trim/gate/device checks, add positive
+current-field/empty-legacy and damaged-field regression plus explicit anonymous
+admission diagnostics. No register/model gate is widened. Requalify the exact
+retry image and preserve this failure before another cold trial. Main was
+fetched again; shared scope remains MT76 and the named calibration profile.
+
+
+### Fresh-field correction / retry qualification
+
+The corrected owner explicitly binds `wifi_trim5.fields` and its completed
+same-device EFUSE gate, matching both NIC fields to fresh antenna-board data.
+The complete selected private parent and controller/endpoint checks remain
+mandatory. A positive native host regression accepts fresh5GHz fields while the
+legacy object is empty; seven damaged field/gate/device variants refuse, and
+scalar validity still grants no I/O. New anonymous admission receipts expose
+configured/parent/selected/VCO/fields/context/owner results before the first MAC
+operation. The strict saved checker requires each successful admission bit.
+Native build/refusal and four full-ledger mutation groups pass; unchanged pure
+calibration/window/coordinator engines retain their exact prior source-bound
+fault/sanitizer evidence. Requalify current native sanitizer/frame and exact
+stage/save/refusal/desktop proofs before installation. Preserve failed3732593a
+and its raw session; no physical calibration or receive is accepted yet.
+
+
+### v121 fresh-field retry installed
+
+Installed285dad07e7a14417/runtime128c25b0 after exact GPT save/reset,
+missing-workspace refusal and desktop VMs, current native sanitizer/frame,
+positive fresh-field/empty-legacy and damaged-field regression, strict ledger
+and bounded-prefix checks (2004724bytes,92428bytes headroom).
+The unchanged pure engines retain exact source-bound prior fault/sanitizer
+proofs; no new hardware acceptance is claimed. The initial failed session was
+independently archived/verified against its597-file failure capsule before
+pruning only that generated USB session. Actual descriptor/model,offline fsck/
+allocation/writable/headroom and recovery equality pass. The unreferenced v116
+EFI copy was retired only after equality with its independently sealed accepted
+backup. v117–v120,failed3732593a,e47d recovery and all accepted backups remain.
+Source/run/payload/frozen proof/VM receipts are sealed outside build as
+`wifi-cal5-retry-128c25b0`. Latest fetched main5f670602 adds independent Air
+read-only inventory; runtime still uses845f703c. Shutdown for10seconds Wi-Fi
+unplug while off,reconnect same port,power on,workspace retained. Automatic
+progress/save/unmount/Ubuntu return;no commands/photos. Collect the matching
+retry first. Initialv121 remains failed;latest native acceptance is stillv120.
+
+
+## 2026-11-04 v121 native calibration and controlled5GHz receive accepted
+
+Corrected285dad07e7a14417/source128c25b0/session-00065f785b60016f-00 passes the
+source-frozen complete2004737-byte/15719-operation proof. All admission bits
+pass using fresh5GHz fields;the corrected binding does not depend on the legacy
+object. The delayed IBI9 raw
+saved wordffffffff changes toffffff7e and independently restores, as does
+TX_ALC0. Five exact16-byte firmware replies match R0,VCO161,FULL901,LC1,RXDCOC1;
+all required waits/guards pass. Eight distinct retained pages complete;seven
+beacon/probe-response observations decode, including empty-SSID advertisements;
+observations may repeat APs,
+and one unsupported management frame is excluded. No identifiers/payloads are
+logged and no distinct-AP or Demers5 identity claim follows. Window190863us;
+no sustained reception/analog-quality/performance acceptance. MAC drain/disable,
+filter/TXOP restoration, stopped-context/exact endpoint cessation, inverse
+selected originals and retained DMA pass. Full storage/recovery/automatic return
+pass. The197-file `wifi-cal5-retry-128c25b0` native capsule and independent
+`wifi-cal5-accepted-128c25b0` notes survive outside build. No repeat boot is needed
+for this bounded contract. Next is private5GHz discovery/cache/selection and
+then live ownership/reattach/authentication/key/TX/IP/data/disconnect. AP
+credentials remain unused;Demers2.4 needs compatible hardware. Initial3732593a
+and the separate bc anomaly remain failed/unaccepted. Ubuntu default;unarmed.
+
+
+## 2026-11-04 active Demers5 discovery / authentication / data scope
+
+User requests continuing through Demers5 discovery/selection,authenticated
+connection and data transfer. Latest native acceptance remains285dad07e7a14417/
+128c25b0;no outstanding run. Fetched main5f4f6fc6,including merged PR317 controller
+retirement/control ownership,reclaim and isolation fixes plus profile/Files/
+inspection changes. Consume actual module pins and preserve MT76 owner/DMA
+retention before the next matched candidate;do not inherit unrelated native
+acceptance. Open364 owns export-publication recovery,363 xz streams,362 Air
+read-only DMA inventory,334 signal/browser context,310 JSC and301 Air scanout.
+No other Wi-Fi owner found. Read current Air scope without changing its gates.
+
+Next bounded hardware checkpoint: a separate fixed161 discovery collector and
+private generation-bound explicit Demers5 selection after completed cal5 receive
+and exact terminal stop,with all retained inputs revalidated,unique BSSID
+aggregation,hidden/conflicting advertisements refused and no identifier dump.
+Keep legacy1/6/11 admission unchanged;add strict RSN cipher/AKM/PMF parsing and
+retain selected private evidence for later authentication. Security presence
+alone must never admit a join. Exact target selection is explicitly authorized
+by the user;no first/strongest/open-network fallback. Then bounded management TX,
+association,WPA2 key exchange/key lifecycle and authorized IP provider/data/
+disconnect checks under the selected live owner. Credentials stay private and
+unused until security wiring. Touch MT76 discovery/selection/security,private
+xHCI diagnostic,explicit recipe and host/source/log/VM proofs. Cold-unplug
+shutdown and automatic save/Ubuntu return authority persist;no new boot armed.
+
+
+### Main5f4f integration boundary
+
+Published Apps merge1e28aa1a consumesb2b93f65;UI usesb3fa806a;Ports stays78bf21b8
+and already contains main'sd760e541 pin. Root conflict resolution retains both
+Wi-Fi recipes and independent Haswell Linux-model32 gates,session-child/Wi-Fi
+trace behavior and both actual xHCI test models. Main's SYS_SESSION_SCOPE163
+collides with unmerged SYS_WIFI163;Wi-Fi is now164 in the shared header,with
+matched kernel/userspace/Apps rebuild mandatory. Old accepted payloads remain
+unchanged and must not receive mixed binaries.
+
+Ordinary EP0 uses main's TD/removal/lease path;counted diagnostic EP0 retains
+its atomic Setup publication,exact short-length owner and quarantine,now also
+admitting through shared sync/removal/command ownership. Command serialization
+and main's lifecycle/recovery tests remain. Generic reclamation refuses while
+private Wi-Fi diagnostic DMA/reference ledgers remain;it must not free them by
+walking the ordinary-device list. Removed/retiring/stopping ownership closes the
+firmware path;quarantined Wi-Fi EP0 cannot be revived by generic recovery.
+Host-only256-iteration generic timeouts must not truncate the independent1s
+passive observer;its production20000000-iteration cap is preserved explicitly.
+Focused passive/control/retirement/reclaim and fresh5GHz owner tests pass after
+preserved compile/link/model-timeout refusals. Full merged build/core and VM
+qualification are still required;no new native acceptance or boot armed.
+
+The merged full suite exposed an EP0 integration defect: the bounded private
+fresh-ring recovery left the new common pending/failed tombstones set,so its
+second exact TD could not submit. Release those flags only after the already
+required exact stopped snapshot,fresh ring/data,Set Dequeue readback and delay,
+with renewed live/removal/controller/pointer checks. Removed,retiring,stopping,
+failed-command and active-sync owners refuse recovery;old DMA stays retained.
+Generic EP0 recovery still cannot revive private quarantine. Independent old
+receive fixtures now reset the newly introduced controller failure flags when
+starting a new modeled controller;production failures remain sticky. The small
+upstream preferences-finish host fixture formatting defect is corrected without
+behavior changes.71 installed-root regressions pass(one expected skip);focused
+combined lifecycle/private recovery passes. Remaining core checks are rerunning
+with the successful installed-root prerequisite retained;no native result follows.
+
+### v122 private Demers5 selection implementation
+
+Separate fixedUS161/20MHz collector/choice now rebuilds the whole copied cache
+from stopped retained pages,requires one exact authorized Demers5 match and
+consistent explicit PSK/CCMP RSNEs,and refuses conflicting/unsupported/PMF-required
+security. No strongest/open fallback,identifier logging,credentials or network
+OUT. Existing1/6/11 admission remains separate. Native binding runs only after
+calibration/MAC cleanup/exact stop while the selected parent still owns the
+same device/ring/pages;the copied boot candidate does not authorize a live join.
+Initial sanitizer alias-order finding was corrected before publication;fatal
+ASan/UBSan pure tests pass. New host tests,10168 legacy collections,strict saved
+summary refusal tests,216 staging/rollback tests and combined controller/private
+recovery tests pass. A stale intermediate host binary produced a preserved
+immediate-data fixture refusal;the corrected source was rebuilt with the new
+headers and focused34-case recovery/model gates pass. Full merged core/build,
+source-matched desktop/exact-stage VM,disposable2MiB filesystem and frozen full
+prefix qualification remain required. Latest native acceptance staysv121285dad07;
+no candidate installed or boot armed. Authentication/key/TX/IP/data remains open.
+
+## 2026-11-04 v122 Demers5 selection candidate installed
+
+Release27a82f0daa89a62f/sourcebec108a3 is installed,unarmed,for the separate
+fixed161 private discovery/explicit target/PSK-CCMP selection checkpoint.
+Integration base5f4f6fc6 is consumed with published Apps1e28aa1a,UIb3fa806a and
+Ports78bf21b8. Full core/build/docs qualification passes across source-checked
+resumed prerequisites:71 installed-root tests(one expected skip),full combined
+xHCI sweep,all remaining core tests and refreshed matched ordinary images.
+The upstream session-scope longjmp fixture now retains its volatile loop state;
+this changes no runtime code. Wi-Fi164/session-scope163 are distinct and the
+actual rebuilt System caller is checked. Fatal ASan/UBSan covers new security/
+discovery,legacy collection and combined controller/private lifetime recovery.
+New native maximum frame856bytes. Fresh disposable real2MiB filesystem write,
+read,unmount/remount and external fsck pass on the current filesystem source.
+
+Initial stage refusal found that the old prerequisite allowlist omitted the
+new exact child. Corrected child admission retains all parent and mode guards;
+217 staging tests now include the actual complete staging API and eight missing-
+parent/extra-mode refusals. Only staging/test Python differs from1534632a's
+qualified runtime tree;exact runtime/source/input/artifact equality preserves
+those successful receipts. The matched desktop VM is rerun atbec108a3;exact
+GPT stage/save/automatic-return and missing-workspace VMs pass. Full frozen
+2004949-byte/15719-operation parent plus selection composition passes seven
+whole-prefix refusals,with92203bytes remaining in the2MiB capture. Synthetic
+selection does not accept the real target.
+
+Actual model/descriptor/workspace,offline fsck/allocation/writable/headroom and
+all installed recovery bytes pass. The unreferenced v117 EFI copy is retired
+only after equality with its independently sealed accepted backup;currentv121,
+failed initialv121,v118–v120,e47d recovery and all independent accepted evidence
+remain. Payload/source/receipts/frozen checker/run state are sealed outside
+build as `wifi-discovery5-native-bec108a3`. Ubuntu stays default and e47d previous.
+Shutdown remains authorized for10second Wi-Fi unplug while off,reconnect same
+port,power on,workspace retained. Automatic progress/save/unmount/Ubuntu return;
+no commands/photos. Collect this matching v122 session first after return.
+Latest native acceptance remainsv121285dad07;target selection is pending.
+Authentication,cryptographic nonce/key lifecycle,management/data TX,IP and
+connect/disconnect are still open;AP credentials remain unread/unpackaged.
+The general random API's deterministic fallback must not become handshake
+nonce authority. No new battery,headphone,trackpad-latency or sibling acceptance.
+
+## 2026-11-04 v122 native target discovery and selection accepted
+
+27a82f0daa89a62f/sourcebec108a3/session-00065f7b53eeb5b0-00 passes the unchanged
+frozen complete2007868-byte/15719-operation proof. All five calibration replies,
+saved-word restoration,eight retained receive completions,terminal MAC drain/
+disable/exact stop and inverse originals pass. Six anonymous beacon/probe
+observations aggregate into three private candidates;the exact requested Demers5
+target is unique and all its observations agree on a valid22-byte PSK/CCMP RSNE.
+This accepts the bounded fixed161 candidate selection,not AP authentication,
+key installation,network transmission,IP,data or sustained reception.
+
+Collection initially refused an older accepted large log before evaluating the
+new session. The old session was compared byte-for-byte with its sealed accepted
+capsule,independently archived/verified,and only that generated older USB folder
+was pruned. The new session then passed the original frozen checker without a
+repeat boot. The refusal and both archives are preserved;it is not a native
+runtime failure. Offline storage/recovery checks and automatic Ubuntu return
+pass. The213-file `wifi-discovery5-native-bec108a3` native capsule is sealed outside
+build;acceptance notes are `wifi-discovery5-accepted-bec108a3`. Ubuntu default,
+collected/unarmed. Credentials remain unused. No repeat boot is needed for this
+selection contract. Authentication/data and clean connect/disconnect remain open.
+
+### Active association and authenticated-data scope
+
+Continue the user's end-to-end Demers5 goal. Next implement same-live-owner
+management-frame/TXWI framing and bounded association,with source-audited
+board-specific TX power/rate admission before any management OUT. Read the
+current Linux driver's cached EEPROM/power reference privately without changing
+its working connection. Bind responses to selected device/channel/generation,
+addresses/transaction/status and bounded retirement;copied stopped selection
+alone cannot authorize TX. Then strict entropy,WPA2 PSK/CCMP MIC/nonce/replay/key
+lifecycle,authenticated IP provider,bidirectional data and disconnect/reconnect.
+No deterministic RNG fallback or key reinstallation/PN rollback is admitted.
+Raw reference identifiers and credentials stay in ignored private storage.
+
+Fetched current main518175df after collection:merged offline export recovery,
+Find contents,xz/diff packaging and isolated Air firmware-only capture,including
+the same two host-fixture compiler fixes consumed locally. No new xHCI/Wi-Fi
+owner found. Open370 owns Patch,367 profile streaming,366 GUID selection,365
+kernel audit,334 signal/JSC,310 browser and301 Air scanout. Read their actual
+unit scopes without contacting another chat. Consume/reconcile current module
+pins and main before the next matched physical candidate;current native
+acceptance remains bound tobec108a3/main5f4f6fc6. Touch MT76 management/TX/security,
+private live xHCI ownership and explicit native/log/host/VM proofs. No new native
+trial is installed or armed by this scope;existing cold-shutdown authority
+persists. Battery/headphone/latency work remains deferred.
+
+The first association component is a pure management/USB-TXWI codec,with no
+hardware caller. It constructs fixed161/20MHz/6Mbps auth,canonical PSK/CCMP
+association and reason3 leave;validates exact response peer/subtype/transaction,
+fragment/status/AID/rate/IE fields;and refuses aliases/short outputs without
+publishing partial packets. Full host and fatal ASan/UBSan mutation/truncation/
+100000-hostile-input tests and native object/stack compilation pass. Linux7.0
+public layout/rate/TX framing sources are pinned locally. A private read-only
+Linux cached512-byte EEPROM and current reference channel161/80MHz/15dBm were
+captured without changing its working connection. This reference does not
+program or accept SrvrOS TX power. No hardware TX,association,WPA2 or IP is
+claimed;no new boot is armed. Integrate reviewed main518175df/module updates
+before the eventual matched hardware candidate;preserve v122 acceptance.
+
+Private handshake nonce groundwork now uses CPUID-gated RDRAND/CF with at most
+ten attempts per word and no clock/software fallback;the general RNG syscall
+is unchanged. Validated-result publication under exclusive caller ownership,sticky failures,zero/ones/word/block
+repetition,aliases,reentry,generation exhaustion and callback-state mutation
+are covered. An initial reversible-state mutation test exposed an end-only
+check;ownership/state is now checked after every callback. Host and fatal
+ASan/UBSan tests pass,including partial-read failures,plus native object/stack
+compilation(maximum frame184bytes). This Ubuntu CPU backend is exercised with
+no values logged;it is not SrvrOS native nonce or authenticated-link acceptance.
+The codec/nonce helpers still have no live hardware caller. TX-power fields,
+association state,WPA2 crypto/key/data provider and current-main integration
+remain to be implemented/qualified;v122 stays the latest physical acceptance.
+
+Transmit-power modelling is now host-tested for the captured TSSI-off board,
+fixedUS161/20MHz and a ceiling no higher than the local15dBm Linux reference.
+The logical512-byte parser copies only wanted fields;the nine-register plan
+preserves non-ALC bits and rejects invalid/unrepresentable signed6 adjustments
+rather than wrapping them upward. Golden words,95232 valid combinations plus
+unrepresentable/mode/field/truncation/alias refusals,fatal ASan/UBSan and native
+object compilation(maximum frame280bytes) pass. An independent Linux7.0
+source-selector/arithmetic audit agrees for the privately captured board data.
+No power register was programmed;fresh native mapped-read ownership and guarded
+apply/readback/restore are still required before management OUT. Latest native
+acceptance remainsv122;authentication/IP/data are not yet attempted.
+
+Current integration now consumes actual main518175df through merge51097c2e.
+Exact module merges preserve local Wi-Fi System and checkpoint logging:
+Appsace23eb5,Ports6a6b36d2 and Widgets3a695ce5;module commits were published
+before root pins. Conflicts preserve both complete Wi-Fi recipes and the new
+isolated Air firmware-only profile,including its exclusive staging guard.
+Focused nonce/management/power/process/firmware/docs and the complete merged
+core suite pass (including89 installation tests with one expected skip). v122 remains the latest native acceptance and the
+installed payload/recovery pair is unchanged. Accepted native213-file,notes58-
+file and host-foundation71-file archive seals were independently rechecked.
+
+Fresh power groundwork now includes a separate five-block mapped reader and a
+nine-word snapshot/apply/readback/inspection/reverse-restore engine. The reader
+keeps only wanted words,discards factory-address bytes and scrubs scratch.
+The transaction marks uncertain writes before submission and requires disabled
+MAC/core/DMA plus cleanup ownership before restoring originals. Host,fatal ASan/UBSan and native-object qualification pass:70 capture operation
+faults/142 authorization cancellations and132 power operations with both
+write-uncertainty outcomes/266 ownership cancellations,plus guards/readbacks,
+commands,timeout,unsafe cleanup,reentry and aliases. The matched full image/USB image build and docs checks also pass;there is no
+native caller or armed trial. Next bind an independent
+mapped/read-write gate to the still-selected161 calibration owner and qualify
+a grouped hardware power checkpoint before management OUT. Association,WPA2,
+key/PN/replay lifecycle,authenticated provider/data and disconnect remain open;
+credentials are still unread/unpackaged. No source-only helper accepts hardware.
+
+
+### Opt-in grouped power checkpoint (v123,not physically accepted)
+
+Implemented the separate `--wifi-power5` child of complete v122 discovery.
+The same selected161 calibration parent and stopped retained RX remain live
+while independent mapped and132-operation ledgers admit fresh fields and
+nine guarded power words. The first ALC snapshot must match the calibration's
+saved original;selected values and reverse original readbacks are exact. MAC
+stays disabled throughout this child;no new endpoint,network frame,key or IP
+provider is created. Existing DMA is retained on success and failure.
+
+Full current-image/USB-image build,existing xHCI regression,new actual-child
+modeled tests (202 I/O failure positions with before/after-write uncertainty,
+614 ownership boundaries,busy completion/1024-poll timeout,absent/mismatched
+parents,guards/readbacks/quarantine/replay) and fatal ASan/UBSan pass. The
+219 staging/rollback tests pass,including the complete new positive API path
+and omitted-parent/mixed-profile refusals. Every-row/key/order parser refusals
+and an exact full prior native-prefix composition pass:2022067bytes,75085bytes
+headroom,eight whole-prefix failures. Early fixture failures are preserved;
+an overly strict fixture expected a completed inner transaction to become
+incomplete on later outer-owner loss. The outer result correctly remains failed.
+Explicit null-parent admission precedes all new I/O;fresh board-field matching
+precedes the power transaction.
+
+The clean foundationd90d6f61 (main518175df) is independently sealed in a102-file
+host-only capsule outside build,including matched runtime/source/proofs. The
+new native child passed committed exact-image GPT save/return and missing-
+workspace refusal VMs,ordinary desktop VM,fresh2MiB filesystem write/read/remount
+and fsck,full-prefix and recovery/writable/headroom preflight. Runtime source
+13c08048/main518175df stages released105a5d22539cf69;it is installed with Ubuntu
+default and e47dca3a6b30c6c1 still previous. The accepted v122 payload and
+failed/accepted v121 copies remain installed. Only the unreferenced v118 EFI
+copy62e3a5325065719e was retired after its full independent sealed backup was
+verified byte-for-byte. That backup remains outside build. The prior accepted
+v122 large session was also independently archived and verified before pruning
+its generated USB log copy,to avoid the older-session collector size refusal.
+The new selected/parent native frame maximum is616bytes. The physical power
+run is pending;there is no new native power acceptance. Wi-Fi credentials
+remain unread/unpackaged.
+The user authorizes automatic shutdown when ready;Wi-Fi still needs ten seconds
+unplugged while off,same-port reconnect and power-on,with workspace left attached.
+Collect the matching saved session before any next run. Management association,
+WPA2/key/replay,authenticated bidirectional data and disconnect remain open.
+
+### v123 native failure and bounded correction scope (November 4)
+
+Collected released105a5d22539cf69/source13c08048 session00065f7e79f7528c-00.
+The1868538-byte saved exit log and complete failure collection are sealed in
+521 files outside build at `wifi-power5-native-13c08048`. Offline fsck/allocation,
+installed payload/recovery equality and automatic Ubuntu return pass. The native
+trial is failed,not accepted:calibration/stopped RX and unique Demers5 selection
+completed,five fresh mapped power blocks completed,and six selected power words
+read back exactly. Op70 read TX_PWR_CFG7 at13d4 as003e0000 after writing3c3e3c00.
+The native gate quarantined on that semantic mismatch,so original-power/RF
+restoration was not accepted. MAC remained disabled;no network frames/keys/IP
+were submitted. The previous v122 acceptance remains historical and unchanged.
+
+Next bounded work corrects the captured MT7610-specific power packing rather
+than weakening readback masks,and separates completed-value failure from
+uncertain USB DMA so exact guarded original restoration can run after a semantic
+readback mismatch. Uncertain transfers/removal/guard failures still quarantine.
+Touch power model/cycle native gate,tests and strict log proof;then stage a cold
+retry only after local,sanitizer,exact VM and storage/recovery qualification.
+Vendor MT76x0 source4f1f50e3 documents VHT8/9 in CFG8,not the extra CFG7/CFG9
+bytes supplied by the shared Linux writer. Pin and audit that primary source
+against the captured failure;do not broaden hardware/profile or register masks.
+
+Fetched actual maind10a4e10 after collection:profile streaming/cleanup/kernel
+file-stream lifetime and offline export additions,plus delivered Patch/ports.
+No competing Wi-Fi work in current PRs;334 owns signal continuation,310 browser,
+301 Air scanout. Consume exact module pins and reconcile the syscall namespace
+before the next candidate:main reserves164..167 for signals and uses168 for file
+streaming;private Wi-Fi must move from164 to169 with matched callers/tests.
+Do not message another chat or transfer its acceptance. Association/security/data
+and explicit RX-context handoff remain open;Wi-Fi credentials are still unread.
+
+
+Integrated reviewed maind10a4e10 with exact upstream pins,then restored published
+local module merges:Portscecd59c5 and Apps643da99a (Widgets3a695ce5 unchanged).
+The root merge used explicit final upstream pins after Git's history lookup
+requested an unavailable intermediate port object;local module branches and
+all logging/Wi-Fi changes were retained. Wi-Fi call169 now leaves the reserved
+signal164..167 range and file-stream168 intact;the matched service ABI fixture
+asserts the namespace. Rebuild all callers before a physical trial.
+
+The profile correction now zeros reserved CFG7/CFG9 VHT write positions,with
+full-word equality unchanged. The pinned MT76x0-specific implementation and
+private cached fields independently reproduce the captured003e0000 response;
+CFG8 remains the sole VHT8/9 word. Model,golden/95232-combination,log and service
+checks pass. The native gate retains a separate dirty mask and reverse cleanup
+phase after a completed semantic mismatch,while all forward grants stop.
+Actual-child modeled tests pass every selected-word mismatch with exact prefix
+restoration,uncertain cleanup I/O,202 normal I/O failure positions,614 ownership
+boundaries,busy/timeout and malformed cleanup-state refusals. Broader merged
+qualification and a new cold retry remain pending;no new power acceptance.
+
+### Corrected v123 qualified and installed (November 4)
+
+Runtime `25bf7bb2` stages `19e990a096e6209d` with the captured MT7610-specific
+CFG7/CFG9 packing correction and unchanged full32-bit selected readback checks.
+Completed semantic mismatches permit only exact guarded dirty-prefix reverse
+restoration;uncertain USB/guards/removal/restoration still quarantine. The full
+merged suite passes across source-checked resumed prerequisites,including streaming manager/syscall/process/cleanup,
+fragmented real exFAT streaming/profile cases and all remaining core targets.
+Four completed exhaustive radio sweeps are retained only after whole tracked
+radio/tool/lib input and binary equality checks;the changed app and remaining
+suite rerun. Three preceding failed host qualification attempts are preserved:main's compact
+exFAT streaming guards triggered GCC misleading-indentation errors,and its new
+fixture enabled POSIX features too late and had similar statement formatting.
+The Profiles UI also required the same statement separation for GCC. The
+committed fixes separate statements and enable POSIX APIs before system
+headers,without changing runtime stream behavior or weakening warnings.
+
+The synthetic whole prefix has2022067bytes with
+75085bytes total capture headroom,and all eight malformed
+whole-prefix cases refuse. The matched native compiler's maximum selected new/
+parent frame is616bytes. Exact source/kernel and
+independent normal-plus-firmware initramfs bytes match;library and linked System
+Wi-Fi calls emit169,file-stream emits168. Native power remains unaccepted until
+the saved retry passes the frozen full-parent checker and offline/recovery checks.
+
+Known-good e47d recovery,accepted v122 and failed/accepted v121 copies remain
+installed/backed up. The failed v123 payload is independently retained as well.
+Any older unreferenced EFI retirement is recorded with seal and full-byte equality
+before deletion of that EFI copy;independent native backups survive distclean.
+The current run record owns exact install/recovery/reboot state. Shutdown is
+already authorized when the final run record and recovery checks are sealed.
+
+### Corrected v123 physical power acceptance (November 5)
+
+Release19e990a096e6209d/source25bf7bb2 passed matching session
+session-00065f8d6af998f0-00 with2022068 complete exit bytes. Fresh fields matched
+the same-board profile;full-word CFG7 selected003e0000,CFG8 selected3c3c0000 and
+CFG9 selected0000003e all read back exactly,along with the other six words.
+Every saved power original was restored before the enclosing RF inverse
+completed. The strict unchanged preboot frozen checker passes;storage,recovery
+and saved automatic Ubuntu return pass. Five beacon/probe observations produced
+three private candidates and one consistent22-byte PSK/CCMP requested target.
+The197-file native capsule is separate from the prior failed521-file capsule.
+No network frame or key was submitted. Board power-register control and exact
+restoration are accepted;analog power,authentication,IP and data remain open.
+
+Fetched actual main379d6f8d after collection:merged signal continuation and
+logical-I/O/FPU/user-frame lifetimes,ports/browser delivery,workspace-reset
+recording and read-only Air6,1 cache-context observation. It does not change MT76
+or accept Pro hardware. Reconcile published Ports and retain local logging and
+Wi-Fi UI Apps pins. Rebuild/test the matched syscall/FPU/stream context before
+new native association work. The existing accepted payload remains installed.
+
+### Integrated signal baseline and empty RX handoff candidate (November 5)
+
+Reviewed main379d6f8d is integrated with published Ports94758e7f,retaining local
+checkpoint logging,Apps f90cb7e6 Wi-Fi/UI and GCC formatting fixes,and unchanged
+Widgets3a695ce5. The merge preserves both complete Wi-Fi recipes and the separate
+v2 Haswell cache-context profile. Signals164–167,file-stream168 and Wi-Fi169
+remain distinct. Matched build/USB image and targeted signal/FPU/user-frame/
+process/syscall/stream/cache-context checks pass at be121dd0. Missing shared
+signal include paths and GCC ambiguous-statement failures were fixed in small
+commits;failed attempts remain local evidence. This does not transfer native
+source25bf acceptance to the merged image.
+
+The next opt-in v124 `--wifi-handoff5` child requires the complete automatic
+power parent. It freezes the selected power/calibration objects,old ring and
+all eight retained pages,allocates one distinct empty ring,and binds every
+protected page plus new physical/virtual identity. Two exact Set TR Dequeue
+commands must retarget the stopped DCI9 endpoint then restore the original
+saved dequeue and all eight context words. Between them,15 read-only controls
+prove disabled MAC/core/DMA and all nine held selected power values. No TD is
+posted,no MAC is started,and no network OUT is sent. Old stopped-ring parent
+predicates remain unchanged. Any uncertain command or lost frozen ownership
+quarantines and retains both rings;completed selected-power mismatches can
+restore the old context but remain failed. Nothing is recycled or replayed.
+
+The pure handoff model passes all seven callback failures before/after uncertain
+writes,16 ownership losses,every context-bit mutation,64 bounded fresh dequeue
+positions,plan/alias/reentry/running-state refusals and ASan/UBSan. Actual native-
+child modeled tests pass all17 transport fault positions,nine semantic selected
+power mismatches with exact context restoration,six guard failures,17 frozen
+parent/page/identity/plan changes,slot/context corruption and admission/allocation/
+replay refusals. Four strict saved-ledger groups and221 full staging groups pass.
+Broader build/controller/exact-stage/storage/recovery qualification and native
+handoff acceptance are pending. The source25bf197-file native power capsule and
+32-file acceptance notes remain sealed independently;the prior failed v123
+521-file capsule remains failed. Current accepted payload stays installed and
+no new boot is armed while this candidate is qualified.
+
+A pinned primary Linux7.0 source/descriptor audit binds data AC_BE to captured
+OUT04/DCI8,distinct from MCU OUT08;WLAN0/EDCA2/WIV framing and manual sequence
+with NSEQ clear agree with the existing pure codec. This is source evidence,
+not a live TX grant. Next association still needs private current station MAC
+and consistent target basic-rate binding,a fresh running receive owner,dedicated
+data OUT ownership,matched AUTH/ASSOC replies and explicit leave/retirement,
+then strict WPA2/MIC/replay/key/PN and authenticated bidirectional IP/data.
+Credentials remain unread/unpackaged;Demers2.4 requires different hardware.
+
+### Empty stopped RX handoff qualification and cold trial (November 5)
+
+Candidate release `54d3bca0e34ff6fa` uses runtime source `34e24139` and integrated
+main379d6f8d, with Ports94758e7f, Apps f90cb7e6 and Widgets3a695ce5.
+The full clean-tree core/stream/profile attempt completed all independent
+prerequisites but exposed13 failed units. Those failures and their exact inputs
+are retained. The complete failed-unit closure, native build/USB image, full
+controller suite and changed-input checks now pass at this runtime source.
+Corrections match the actual64-entry ring (63 usable slots) and native byte-copy
+API; legacy fixtures now model the unavailable public signal backend explicitly
+and trap unexpected entry. Real enabled signal poll/semaphore/sleep checks pass
+separately. No production signal or FPU behavior was changed by these fixes.
+
+Fatal ASan/UBSan checks pass for the pure handoff, actual native child and retained
+power parent. The native fixture also checks physical addresses above4GiB.
+221 stage groups and four strict parser groups pass. Native compiler frame
+checks peak at616bytes. Production-C child output composed with the accepted
+v123 parent passes the complete15719-operation parser and eight whole-prefix
+refusals at2024707bytes, leaving72445bytes within the2MiB capture limit.
+This synthetic composition is not physical acceptance. Disposable real
+filesystem2MiB write/read/remount and external fsck pass. Ordinary desktop,
+exact staged GPT save/return and missing-workspace VMs pass; independently
+reconstructed firmware initramfs and kernel match the installed payload.
+
+The new payload is installed with Ubuntu default and e47d known-good recovery
+previous. Accepted power v123, accepted selection v122 and separate failed
+candidate evidence remain retained. The older unreferenced019299 EFI copy may
+be retired only after exact equality with its independent sealed backup.
+The generated accepted v123 USB session was independently archived and compared
+byte-for-byte against its immutable197-file native capsule before pruning.
+The separate32-file accepted notes and prior521-file failure capsule are unchanged.
+
+This v124 cold trial requires unplugging only Wi-Fi for10seconds while off,
+reconnecting the same port, then powering on with the workspace connected.
+It displays progress, saves its full result and returns to Ubuntu automatically.
+The matching session must be collected first after return. Handoff acceptance
+remains pending. No TD, MAC start or network OUT is authorized by this empty
+trial; authentication, dedicated live RX/data-OUT ownership, WPA2 keys/replay/PN,
+IP/data and disconnect remain open. Credentials remain unread and unpackaged.
+
+### First merged v124 native refusal (November 5)
+
+Release54d3bca0e34ff6fa/source34e24139 saved1854059bytes in matching
+session00065f90d7b31e88-00. Calibration command op59/step4 sent16bytes but its
+response timed out after500069us with no completion. Earlier four command
+replies and temporary calibration-register restoration were recorded;the full
+calibration and enclosing RF inverse were not completed. There are no handoff
+records,TD publication or network OUT. The strict collector refused completion
+and preserved all evidence. The549-file native failure capsule remains immutable.
+Ubuntu default,unarmed state,installed recovery equality and offline filesystem/
+allocation checks pass. One exact-image cold retry is prepared under existing
+shutdown authority;no source,gate or timeout is changed. This failure remains
+failed regardless of the retry result.
+
+### Empty stopped RX handoff physically accepted (November 5)
+
+The exact unchanged v124 cold retry `54d3bca0e34ff6fa`/source34e24139 passed
+matching `session-00065f91111950b2-00` with2024708 complete saved bytes.
+All five calibration replies and eight retained completions completed;private
+Demers5 PSK/CCMP selection and mapped selected power checks passed. Two stopped
+DCI9 Set TR Dequeue commands retargeted to a distinct empty ring and restored
+the exact original context;four context snapshots and15 guard/selected-power
+reads pass the strict preboot-frozen checker. Outer power/RF originals and
+storage/recovery/automatic return pass. Its166-file native capsule remains
+separate from the first549-file timeout failure capsule. No new TD,MAC start,
+management frame,authentication,key,IP or data transfer is accepted by this
+empty-context trial. A fresh live receive/data-OUT owner and matched protocol
+replies remain necessary. Credentials remain unread/unpackaged.
+
+### Main4cc0408b integration after accepted handoff (November 5)
+
+Merge9b861b3b consumes actual main4cc0408b. Its Air6,1 read-only alias/NX
+scheduling and table-bound audits remain explicit opt-ins;no native Pro ownership
+or sibling acceptance is inferred. The merge preserves complete Wi-Fi recipes
+and all Haswell firmware/cache/alias variants. Published canonical legacy-signal
+fixture support replaces the equivalent local test-only fallback file;unexpected
+public-signal entry still aborts. The complete volatile setjmp snapshots remain.
+
+Matched native build/USB image,POSIX poll/time/sync/event/fd-restart,syscall wait,
+scheduler/FPU,profile streaming/UI,Haswell alias/cache and focused handoff/parser
+checks pass on9b861b3b. All221 staging groups pass. This is host integration
+coverage,not a physical acceptance transfer. Installed accepted runtime stays
+34e24139/release54d3bca0e34ff6fa,Ubuntu default,workspace unmounted and unarmed.
+Next work remains private station/target rate binding and dedicated live
+RX/data OUT for management AUTH/ASSOC/leave,then WPA2/key/replay/PN and
+bidirectional authenticated data/disconnect. No new trial is armed.
+
+### Private current peer binding candidate (November 5)
+
+Next bounded v125 `--wifi-peer5` requires the complete automatic empty-handoff
+parent after main4cc0408b integration. It adds10 read-only controls:disabled
+MAC/core/DMA guards around two identical current-station low/high reads. The
+captured7610 high-word readback control must remain zero. It uses the current
+address,not the cleared earlier factory header,and logs no address bytes.
+No retained parent object,page or endpoint context is changed. The selected
+Demers5 cache is rebuilt against the same immutable stopped window;all matching
+advertisements must agree on supported/basic OFDM masks and include basic6Mbps.
+Unknown basic rates,duplicates,malformed IEs,selection/security/rate conflicts,
+invalid station addresses,aliases,replay and ownership loss refuse publication.
+
+A successful copied peer can encode fixed AUTH/ASSOC/leave packets privately,
+but this trial sends none. Native guard/transport loss quarantines;completed
+address/rate semantic refusal remains failed and permits only the unchanged
+parent cleanup. Focused pure/native fault and strict saved-ledger tests pass;
+matched controller/build,sanitizer,exact-stage/storage/recovery and physical
+peer acceptance remain pending. Changes touch fixed MT76 peer/codec binding,
+its opt-in native child,staging and proof/tests. Other machines' alias/graphics
+and browser scopes remain independent;no cross-chat contact. Dedicated live
+RX/data OUT,matched management replies,WPA2/key/replay/PN and authenticated
+IP/data/disconnect remain open. Credentials remain unread/unpackaged.
+
+### Qualified private peer binding cold trial (November 5)
+
+Candidate `1213593607fe767a` uses committed runtime `2290c938` and integrated
+main4cc0408b,Ports94758e7f,Apps f90cb7e6 and Widgets3a695ce5. Matched native build/
+USB image,full controller suite,pure/native peer tests,management codec,retained
+handoff/power/discovery parents,strict parsers,namespace and docs pass. The
+preceding merged-main affected wait/signal/FPU/profile/cache/alias checks remain
+source-bound evidence;this round reruns affected regressions rather than claiming
+a new full-core run. Four fatal ASan/UBSan groups and223 staging groups pass.
+Native compiler frames peak at616bytes. Production-C
+peer-child output composed with the accepted v124 full parent passes at
+2025983bytes with71169bytes capture headroom
+and eight whole-prefix refusals. This synthetic proof is not native acceptance.
+Fresh real filesystem2MiB write/read/remount/fsck,ordinary desktop and exact
+staged GPT save/return/missing-workspace VMs pass. Independent kernel and firmware
+initramfs reconstruction match the installed payload.
+
+The new image is installed with Ubuntu default and e47d known-good recovery
+previous. Accepted54d3 handoff,19e99 power,27a82 selection and285d calibration
+payloads remain installed. If space requires retiring the unreferenced failed
+373259 EFI copy,its bytes are first compared with the independent sealed failure
+backup,which remains retained outside build. The accepted166-file handoff capsule,
+30-file accepted notes and separate549-file timeout failure remain unchanged.
+The generated accepted handoff session was independently archived and compared
+byte-for-byte before pruning for the next collector. Cold unplug remains required:
+unplug only Wi-Fi10seconds while off,reconnect same port,power on with workspace
+attached. Guest progress,full result saving and automatic Ubuntu return require
+no commands or photos. Collect this matching session first on return.
+
+Peer acceptance remains pending. This trial posts no TD,starts no MAC and sends
+no frame;the next step is dedicated live RX/data OUT and matched management
+AUTH/ASSOC/leave,then WPA2/key/replay/PN and authenticated bidirectional data and
+disconnect. Credentials remain unread/unpackaged. The adapter remains5GHz-only.
+
+### Private current station/target rates physically accepted (November 5)
+
+Release1213593607fe767a/source2290c938/main4cc0408b passed matching
+`session-00065f92476697b1-00` with2025981 complete saved bytes. The full
+15719-operation parent,five calibration replies,eight retained RX completions,
+unique Demers5 PSK/CCMP choice,nine selected power readbacks,empty stopped DCI9
+handoff and all exact originals pass. Four station reads agree;the captured
+high-word controls remain zero. Two matching retained target observations agree
+on supported255/basic21 OFDM masks. Copied management codec sizes60/100/56 pass
+without TD publication,MAC start or network OUT. All10 read-only controls and
+strict preboot-frozen whole-prefix checks pass. Offline filesystem/allocation,
+payload/recovery and automatic Ubuntu return pass. The153-file native capsule
+is independently sealed;accepted notes retain only this bounded scope. Live
+management transmission,matched AUTH/ASSOC/leave,WPA2 keys,replay/PN,IP and data
+remain open. Credentials remain unread/unpackaged. Ubuntu remains default and
+unarmed;workspace is unmounted. Historical failed candidates remain failed.
+
+### Live management owner work scope (November 6)
+
+Accepted v125 source2290c938 remains installed and independently sealed.
+Reviewed mainca43ce23 adds a dormant AP-only checked ECAM backend and fresh
+pre-PCI gate plus host fixtures;it changes no Wi-Fi code and grants no native
+Pro ECAM or sibling acceptance. Merge d6413898 retains both test families.
+The next bounded objective is a separate live owner for captured OUT04/DCI8
+and IN84/DCI9,using the accepted private Demers5 peer and held calibrated
+161/20MHz selected power. It must preserve old stopped/empty/read-only gates,
+retain all new/old DMA on uncertainty,distinguish USB completion from matched
+AUTH/ASSOC responses,and retire safely after leave before restoring originals.
+Touches fixed MT76 session/endpoint owner,staging,dispatch and proof/tests.
+PMM/VMM/ECAM integration is a dependency,not part of the Wi-Fi authority.
+Air graphics/alias and browser scopes remain independent;no cross-chat contact.
+No new image or boot is armed. Credentials remain unread/unpackaged.
+
+### Empty dedicated OUT owner candidate (November 6)
+
+The pure management session now models fixed manual-sequence AUTH/ASSOC/leave,
+matched RA/TA/BSSID/subtype replies,explicit AP refusal,spoof filtering,bounded
+750ms waits,clock regression,no replay/leave after uncertain DMA and private
+scratch clearing. It grants no native or WPA2/data authority. Before wiring its
+first frame,the v126 `--wifi-tx5-owner` child creates a separate empty OUT04/DCI8
+ring after the complete private-peer parent,uses three exact configure/stop/drop
+commands,and restores all4096 shared input-context bytes. Output slot,old RX,
+MCU and firmware contexts must remain unchanged. Input Slot DW3 stays reserved
+zero;the observed output slot address/state is not copied into it. No TD or
+doorbell is published. A drop requires Disabled state;reserved output endpoint
+words are neither software-written nor assumed zero. See Intel xHCI1.22 §4.6.6
+[Configure Endpoint semantics](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/extensible-host-controler-interface-usb-xhci.pdf).
+
+Fifteen controls check disabled MAC/core/DMA and all nine held power words.
+Semantic selected-word mismatches permit retirement but remain failed;uncertain
+command,guard/transport loss,frozen-parent/input/context/ring mutation or an
+unexpected DCI8 event quarantine and retain DMA. Actual native-owner fault
+fixtures and225 staging groups pass. The physical OUT lifecycle remains pending;
+no network frame,MAC restart,association,key,IP or data is accepted. This bounded
+lifecycle precedes live RX/data publication and the modeled management exchange.
+
+### Qualified dedicated empty data OUT cold trial (November 6)
+
+Candidate `187489cff7f66fe7` uses runtime `a2fb142e` and reviewed
+mainca43ce23,with Ports94758e7f,Apps f90cb7e6 and Widgets3a695ce5 unchanged.
+The dormant checked ECAM backend and PMM/VMM/gate/alias tests pass;an initially
+mistyped standalone gate target is preserved as failed harness evidence and the
+correct target closure passes. Matched kernel/USB image,complete controller
+suite,pure management-session and native empty-OUT fault fixtures,retained peer/
+handoff/power/discovery parents,strict parsers,namespace and docs pass. This is
+relevant regression coverage,not a new full-core run or physical acceptance.
+Six fatal ASan/UBSan groups and225 staging groups pass. Native compiler frames
+peak at616bytes. Production-C child/accepted full-parent
+synthetic composition passes at2028443bytes,leaving
+68709bytes capture headroom,with eight whole-prefix refusals.
+Fresh real filesystem2MiB write/read/remount/fsck,ordinary desktop and exact staged
+GPT save/return/missing-workspace VMs pass. Independent kernel/firmware initramfs
+reconstruction matches the installed payload.
+
+Ubuntu remains default and e47d known-good recovery previous. Accepted v125 peer,
+v124 handoff,v123 power,v122 selection and v121 calibration payloads remain.
+An unreferenced failed d105a5 EFI copy may be retired for space only after exact
+comparison with its independent sealed failure backup,which remains retained.
+The accepted153-file peer capsule and27-file notes remain unchanged. Its generated
+large USB session was separately archived and byte-compared before pruning.
+The new cold trial requires only Wi-Fi unplugged10seconds while off,reconnected
+to the same port,then power on with workspace attached. Guest progress/full result
+saving and automatic Ubuntu return need no commands or photos. Collect this exact
+session first after return. No TD,doorbell,MAC start or network frame is published;
+dedicated OUT configure/stop/disable and shared input restoration are the pending
+physical scope. Live RX/TX and matched AUTH/ASSOC/leave,WPA2 keys/replay/PN and
+bidirectional authenticated IP/data/disconnect remain open. Credentials unread.
+
+### First dedicated OUT owner native refusal (November 6)
+
+V126 release187489cff7f66fe7/sourcea2fb142e saved1875827 complete failure bytes in
+session00065fa20952ec21-00. Calibration and copied peer binding completed;the
+new empty OUT04 endpoint configured exactly and all15 guard/power reads matched.
+The exact Stop Endpoint command completed on the expected slot,but its subsequent
+ownership/context postcondition failed before disable or input restoration.
+No TD or doorbell was published. Full original restoration is not accepted for
+this run. The537-file failure capsule is independently sealed;offline storage,
+recovery equality and automatic Ubuntu return passed. Accepted v125 remains
+separate. No timeout or admission comparison is relaxed.
+
+The next comparison adds only a failure-time read-only endpoint snapshot and
+parent/input/unrelated-context difference receipt immediately after a completed
+command fails ownership. It will identify the mismatch hidden by the previous
+summary. It issues no extra USB or controller command,does not recover or replay,
+and still quarantines at the first failed check. Rebuild/fault/sanitizer/whole-
+prefix/exact-image qualification precedes the new cold diagnostic trial. Live
+management publication remains blocked on this retirement proof;credentials
+remain unread/unpackaged. No native OUT ownership acceptance is claimed.
+
+### Forced empty-ring stop-event correction (November 6)
+
+Intel xHCI1.22 §4.6.9/table4-2 requires a forced Stopped-Length-Invalid event
+when an empty ring is stopped. The old v126 handler rejected every DCI8 event;
+that is a concrete source defect consistent with the completed-stop failure,
+but the old log did not retain the event so its exact native cause is not yet
+proved. The correction admits exactly one CC27/zero-residue/non-ED event at the
+pinned empty ring base,for the captured slot/DCI8,only while its exact Stop
+command is in flight. Reserved control bits,wrong pointer/slot/code/residue/ED,
+missing or duplicate events and events outside that transition still quarantine.
+The stopped endpoint and all unrelated context/input/ring checks remain exact.
+The saved ledger now requires this receipt before the stop completion. Failure-
+only endpoint/parent/input/difference receipts remain enabled,without recovery,
+replay or additional hardware operations. Host/model tests cover all new refusal
+cases;physical correction acceptance is pending. The first537-file failure
+capsule remains immutable and failed. No network frame or key is submitted.
+
+### Qualified forced empty-ring stop correction trial (November 6)
+
+Corrected v126 `bdc5d02d78ad4e15` uses runtime `af88d9f1` and the same
+reviewed mainca43ce23/module pins. It requires one exact forced CC27 stop event
+at the pinned empty-ring base while Stop Endpoint is in flight,followed by the
+unchanged stopped-context,disable,input/other-context and full RF original
+checks. Missing,duplicate,mistimed or mismatched receipts fail and quarantine.
+Failure-only diagnostics add context and parent/input/difference snapshots;
+there is no replay or new TD/doorbell/frame. The first187489 stop-postcondition
+failure remains failed in its independent537-file capsule. Its exact original
+event was not logged,so the cause remains an inference until this trial observes
+it. The accepted v125 admission remains independent and unchanged. Newly fetched
+main26e3b161 adds separate opt-in Air ECAM adoption/receipt work and records its
+native halt;it is reviewed and deferred to isolate this Wi-Fi correction. Open
+PR301 remains Air graphics and379 browser audit;no other Wi-Fi owner is active.
+
+Matched kernel/USB image,complete controller suite,focused owner/management/
+parent/parser/namespace/docs regressions and six fatal ASan/UBSan groups pass.
+Unchanged225 stage groups remain source-bound;no new full-core run is claimed.
+Native compiler frames peak at616bytes. Production-C
+child/full accepted-parent synthetic composition passes at
+2028552bytes with68600bytes headroom and eight
+whole-prefix refusals. Fresh real2MiB filesystem roundtrip/fsck,ordinary desktop
+and exact GPT save/return/missing-workspace VMs pass. Kernel and independently
+reconstructed firmware initramfs match the installed payload.
+
+Ubuntu remains default and e47d previous. Accepted v125/v124/v123/v122 and the
+failed first v126 payload remain installed. If space requires retiring the older
+unreferenced285dad v121 EFI copy,it is first compared against its independent
+sealed native backup,which remains retained. The failed generated USB session
+was separately archived and compared before pruning;the537-file failure and
+153-file accepted admission capsules remain unchanged. Cold unplug only Wi-Fi
+10seconds while off,reconnect same port,power on with workspace connected.
+Progress,results and Ubuntu return are automatic. Collect this matching session
+first. Corrected OUT-owner acceptance,live management association,WPA2 keys,
+authenticated IP/data and disconnect remain pending;credentials unread.
+
+### Corrected v126 target-window refusal and unchanged retry (November 6)
+
+Release `bdc5d02d78ad4e15` / runtime `af88d9f1` saved session
+`00065fa2af1597b2-00`, with 1,860,650 complete failure bytes. All five
+calibration replies and eight retained receive completions passed; three parsed
+beacons produced two private candidates but zero requested Demers5 matches.
+Target selection refused before power,peer or dedicated OUT ownership entry.
+The forced stop-event correction was not exercised and remains unaccepted.
+The complete541-file failure capsule is sealed independently; offline filesystem
+and allocation checks,recovery equality and Ubuntu automatic return passed.
+This is a failed prerequisite window,not an endpoint result or full RF-original
+restoration acceptance. No TD,doorbell or network frame was published.
+
+The bounded next step repeats the identical installed image once,with unchanged
+receive limits,target checks,endpoint comparisons and timeout policy. A separate
+run record and capsule preserve both attempts;the generated prior session is
+archived and byte-compared before pruning. Existing source-bound build,controller,
+sanitizer,composition and VM qualification is retained and hash-verified;storage,
+recovery and host identity are rechecked before the cold shutdown. Collect the
+retry first after return. Live management,WPA2/key/IP/data remain pending and
+credentials unread. Fetched main `305f9b0b` adds bounded opt-in ECAM timing/first-
+failure diagnostics and Air evidence;it remains deferred with the preceding ECAM
+adoption changes to isolate this unchanged Wi-Fi comparison. Open301/379 scopes
+remain graphics/browser;no competing Wi-Fi owner was found.
+
+### Corrected empty data-OUT ownership accepted on unchanged retry (November 6)
+
+V126 `bdc5d02d78ad4e15` / runtime `af88d9f1` saved session
+`00065fa2def26b48-00` with 2,028,556 complete bytes. The unchanged cold retry
+passed the full15,719-operation parent,five calibration replies,eight retained
+receive completions,six beacons and unique Demers5 selection. Three matching
+advertisements agreed on private station/target-rate binding. All selected-power
+and stopped-RX handoff predicates remained exact.
+
+The dedicated empty OUT04/DCI8 ring passed configure,15 read-only guard/power
+checks,one exact forced empty-ring CC27/zero-length/non-ED stop event at its
+pinned base during Stop Endpoint,the unchanged stopped-context comparison,and
+drop/disable. All three commands completed for the expected slot. The owner
+restored all4096 shared input bytes and preserved the four unrelated slot/RX/MCU/
+firmware contexts. The full old RX context,selected power and outer RF originals
+were restored. All DMA remains retained;no TD,endpoint doorbell,MAC start or
+network frame was published by this child. The native receipt confirms that this
+controller emits the required forced stop event. The first unlogged failure's
+exact event remains unavailable and is not retroactively relabelled.
+
+Strict full-prefix collection,offline fsck/allocation,recovery equality and
+automatic Ubuntu return passed. The161-file native capsule and separate
+acceptance notes are preserved outside build. The preceding541-file zero-target
+window failure and537-file first Stop-postcondition failure remain independently
+sealed and failed. Ubuntu is default,e47d recovery previous,and no boot is armed.
+
+This accepts empty endpoint ownership/retirement and input restoration only.
+The next bounded implementation owns fresh live RX and dedicated data OUT under
+the frozen accepted peer/handoff/power parent,then submits matched AUTH/ASSOC/
+leave without replay after uncertain transport. Existing stopped/read-only
+admission predicates must remain unchanged. WPA2 entropy/MIC/replay/key/PN,
+authenticated DHCP/DNS/bidirectional data/disconnect and live reattach remain
+open. Credentials remain unread/unpackaged. This5GHz-only adapter cannot accept
+Demers2.4;compatible hardware is still required.
+
+### Active live management ownership scope (November 6)
+
+Next bounded work:separate fresh live RX/data-OUT ownership under frozen accepted
+calibration,power,handoff and private peer snapshots. Touched subsystems are the
+xHCI Wi-Fi child,event dispatch,management transport lifecycle,strict saved-log
+checker and opt-in staging/main profile. Preserve old stopped/read-only parent
+predicates. Fresh retained rings/pages have one lifetime,no wrap/reuse and no
+replay after uncertain publication. Require matched private AUTH/ASSOC replies
+and leave,then MAC drain/disable,endpoint cessation,exact old RX context,input
+and outer RF restoration. USB completion alone is not AP acknowledgement or
+WPA2 authentication. No keys,credential packaging or controlled data port yet.
+Host fault and sanitizer coverage,full-prefix bounds,exact-stage and missing-
+workspace VMs precede a cold native trial. Source remains based on ca43ce23;
+fetched maine1a30e1e adds Air ECAM evidence/guide changes atop the already reviewed
+305f9b0b optional diagnostics and is deferred while this Wi-Fi owner is isolated.
+PR301 is graphics and379 browser;no competing Wi-Fi owner was found.
+
+### Qualified native live management trial (November 6)
+
+V127 `5a5e6139f4930941` / runtime `73b1ede0` is installed for the
+first separately owned live RX/data-OUT management exchange. Runtime retains
+mainca43ce23 and published Ports94758e7f/Apps f90cb7e6/Widgets3a695ce5 pins.
+Newer optional Air ECAM diagnostics/evidence through e1a30e1e were inspected and
+deferred;301 is graphics,379 browser and no competing Wi-Fi owner was found.
+The independent accepted161-file empty-OUT capsule and23-file notes remain
+unchanged. Its generated large session was archived and byte-compared before
+pruning. Historical failed capsules remain failed and independently sealed.
+
+The new owner freezes historical parent/private-peer state,rings and retained
+pages;uses distinct single-lifetime RX/OUT rings,48 RX/three immutable TX pages;
+and retains all DMA on every outcome. Completed copied RX pages are frozen.
+It posts fresh RX,performs the existing guarded MAC lifecycle against selected
+power,sends fixed AUTH/ASSOC/leave without retry,and requires matched private
+replies and a valid association AID. MAC drain/disable and filter/TXOP restoration
+precede both endpoint stop receipts,exact old RX context/dequeue restoration,
+OUT disable and all4096 shared input bytes. Any ownership failure is latched;
+uncertain publication/control/command or malformed events quarantine without
+speculative restoration or replay. Completed semantic refusal/timeout may leave
+and retire but remains failure. USB completion is not an AP ACK;open-system
+management success is not WPA2 authentication. Credentials remain unread and
+no key/controlled data port is enabled.
+
+The first broader qualification found an unused forward declaration in the
+standalone historical peer fixture;that failure is retained. Declarations were
+isolated and transient ownership loss was made sticky. Final matched kernel/USB
+image,complete controller suite,actual native child fault fixtures,pure exchange,
+strict ledger/full-parent regressions,namespace,227 staging cases and docs pass.
+Seven fatal ASan/UBSan groups pass. Native compiler frames peak at
+616bytes. Production-C child/full accepted-parent
+synthetic composition passes at2032870bytes,leaving
+64282bytes capture headroom,with eight whole-prefix refusals.
+The fixture is parameterized with the accepted parent's exact old RX words and
+slot;its new MAC/endpoint/reply behavior remains modeled,not physical evidence.
+Fresh real2MiB filesystem roundtrip/fsck,ordinary desktop and exact staged GPT
+save/return/missing-workspace VMs pass. Installed kernel and independently
+reconstructed firmware initramfs match the source-bound qualification.
+
+Ubuntu remains default and e47d known-good recovery previous. Accepted empty-OUT,
+handoff,power and selection payloads remain installed. If space requires older
+unreferenced peer/failed-v126 EFI copies to be retired,each is first byte-compared
+against its independent sealed backup,which remains retained. The cold trial
+requires only Wi-Fi unplugged10seconds while off,reconnected to the same port,
+then power on with workspace attached. Progress/full saved results and Ubuntu
+return are automatic. Collect this exact new session first;missing completion
+or any failed parent/management/restoration receipt remains unaccepted. Native
+live exchange,WPA2 entropy/MIC/replay/key/PN and authenticated DHCP/DNS/data/
+disconnect remain pending. Demers2.4 still requires compatible hardware.
+
+### First live management trial refusal (November 6)
+
+V127 `5a5e6139f4930941` / runtime `73b1ede0` saved session
+`00065fa4011a2b22-00`,with1,885,378 complete failure bytes. Calibration,unique
+Demers5 selection,private peer binding and empty-OUT preview passed. The fresh
+OUT configuration and RX retarget succeeded. The60-byte AUTH request and56-byte
+leave each completed USB transport;no association request was sent. Four reply
+polls ignored one frame but did not validate authentication,status0,unsafe0.
+USB completion does not prove AP acknowledgement;the reason is not identifiable
+from this log because normalized reply length/frame-control/parser metadata and
+exchange elapsed time were not recorded. No parser or timeout rule is relaxed.
+
+MAC disabled/drained and filter/TXOP restored. Both exact stop receipts,six
+endpoint commands,old RX context/dequeue,OUT disable and all shared input bytes
+were restored. All nine selected-power originals were verified on inverse
+cleanup. Outer RF completion/restoration was not accepted;the overall capture
+remains failed. Its546-file capsule is sealed independently outside build.
+Offline filesystem/allocation,recovery equality and automatic Ubuntu return
+passed. Accepted empty-OUT v126 remains separate and unchanged.
+
+Next bounded correction adds only private read-only diagnostic receipts for
+completed copied RX views:decoded length/frame control,private peer-match boolean,
+open-auth algorithm/transaction/status and parser result,plus exchange elapsed
+time. No station/BSSID/SSID/packet/credential bytes are logged. It adds no USB/
+controller request,retry,frame type or broader admission. Existing exact peer/
+response/timing and lifetime predicates remain unchanged. Requalify the source
+and exact staged image before a new cold trial. Credentials remain unread;WPA2
+and authenticated IP/data remain pending.
+
+### Qualified private reply diagnostic trial (November 6)
+
+V127 `7181f95efd4fe34b` / runtime `0f6a89d9` retains the same reviewed
+mainca43ce23 and module pins. It adds only completed copied RX metadata and an
+exchange elapsed-time receipt. Fields are view/MPDU/body sizes,frame control,
+private peer-match boolean,open-auth algorithm/transaction/status and parser
+result. There are no station/BSSID/SSID/IE/packet/credential bytes,no new USB or
+controller request,no retry and no broader protocol/timeout/ownership authority.
+The strict saved checker now requires consistent diagnostic receipts as well as
+the complete historical parent,new matched exchange and exact retirement.
+
+The first73b1ede0 live attempt remains failed in its independent546-file capsule:
+AUTH/leave USB completions and endpoint/input restoration passed,but authentication
+was not validated,association was not sent and full RF restoration was not
+accepted. Its generated large session was separately archived and byte-compared
+before pruning. Accepted161-file empty-OUT evidence and23-file notes remain
+unchanged. Credentials remain unread/unpackaged;WPA2 and authenticated IP/data
+are still pending. Newly fetched main6896aa9d adds deferred process-mapping storage and checked ECAM bookkeeping plus Air evidence. It was inspected and remains deferred for this isolated
+Wi-Fi comparison;other machines retain their own scope and acceptance.
+
+Matched kernel/USB image,complete controller suite,all native child/pure exchange/
+parent/strict parser/namespace/docs regressions and227 staging cases pass. Seven
+fatal ASan/UBSan groups pass;native frames peak at616
+bytes. Actual production-C child/full accepted-parent synthetic composition
+passes at2033180bytes with eight whole-prefix refusals.
+An additional source-format-derived conservative bound for all48 RX metadata
+rows leaves57012bytes capture headroom. This is modeled
+child behavior,not native acceptance. Real2MiB filesystem write/read/remount/fsck,
+ordinary desktop and exact staged GPT save/return/missing-workspace VMs pass.
+Installed kernel/independently reconstructed firmware initramfs match source.
+
+Ubuntu remains default,e47d known-good previous,and accepted empty-OUT/handoff/
+power/selection payloads remain installed. Any unreferenced older peer/failure
+EFI retirement first byte-compares against its independent sealed backup,which
+remains retained. Cold-unplug only Wi-Fi10seconds while off,reconnect same port,
+then power on with workspace attached. Progress/results/Ubuntu return are
+automatic. Collect this exact trial first and inspect reply metadata/timing if
+it fails;do not widen admission merely to make the exchange complete.
+
+The installer initially encountered the already-retired187489 historical EFI
+copy before changing any installed payload;that failure and original helper
+were preserved. The corrected helper skips missing retirement candidates.
+The unreferenced121359 peer EFI copy was then retired only after complete byte
+equality against its independently sealed153-file native backup. That backup
+and27-file peer acceptance notes remain unchanged. Current is the new diagnostic
+release,e47d remains previous,and accepted empty-OUT/handoff/power/selection
+payloads stay installed. This EFI-space change does not relabel any native
+failure or remove its independent evidence.
+
+### Reply diagnostic identifies exact-length rejection (November 6)
+
+V127 `7181f95efd4fe34b` / runtime `0f6a89d9` saved session
+`00065fa46c26fcae-00`,with1,885,562 complete failure bytes. Calibration,target
+selection,private peer and empty-OUT preview passed. The diagnostic copied a
+41-byte AUTH MPDU,frame control00b0,17-byte body,exact private peer match,
+algorithm0,transaction2,status0;the codec returned INVALID. The exchange ended
+in5,522us,so this was an exact-length parser rejection rather than a750ms
+reply timeout. The AP's successful fixed fields were observed;the11 trailing
+bytes were not logged and their contents remain unclassified. No association
+request was sent. AUTH/leave USB completion,MAC and endpoint/input retirement
+and all nine power-original readbacks passed;full outer RF restoration remains
+unaccepted. The547-file capsule is independently sealed and failed. Offline
+filesystem/allocation,recovery and automatic Ubuntu return passed.
+
+The pinned Linux v7.0 mac80211 authentication receiver uses a30-byte minimum,
+then checks algorithm/transaction/status for open-system authentication;it does
+not require an exactly30-byte MPDU. The local codec's exact-size gate therefore
+rejects a supported variable-length frame shape. Next bounded correction accepts
+a complete bounded trailing IE stream after the fixed30 bytes,while preserving
+all peer,frame-control,fragment,algorithm,transaction,status and ownership checks.
+It ignores optional IE contents for open authentication and grants no WPA2/key
+or capability authority. Truncated/malformed tails still refuse. Synthetic
+41-byte optional-IE fixtures are not copies of the unrecorded native tail.
+Host/fault/sanitizer/full-prefix and exact-stage qualification precedes a new
+cold test;the native tail must still pass the new structural validation.
+
+Fetched main4bba4b93 adds Air ECAM/raw-root evidence atop the reviewed deferred
+process/ECAM work;it is inspected and deferred to isolate this codec correction.
+Other open scopes remain301 graphics and379 browser,no competing Wi-Fi owner.
+Credentials remain unread/unpackaged and authenticated IP/data stays pending.
+
+### Qualified open-auth optional-IE correction (November 6)
+
+V127 `3941cd6f08de149f` / runtime `a71b71c2` corrects only the
+open-auth response size gate:30 fixed bytes followed by a complete bounded IE
+stream. Private peer,frame-control,fragment,algorithm0,transaction2,status and
+ownership/deadline rules remain exact. IE contents are ignored for this phase,
+with no WPA2/key/capability authority. There are no new endpoint/control commands,
+frame types or retries;valid extended AUTH can now advance the existing ASSOC
+stage. Pinned Linux v7.0 receiver source and SHA are preserved with the local
+references. Synthetic41-byte vendor-IE fixtures match captured dimensions only;
+the native11-byte tail remains subject to structural validation on the next run.
+
+Prior7181f95e diagnostic evidence remains failed in its547-file capsule. It
+observed the successful fixed AUTH fields from the private target in5,522us,
+but the exact-size gate rejected41 bytes. Endpoint/input/MAC retirement and
+nine power-original readbacks passed;full RF restoration was not accepted.
+That generated session was archived and byte-compared before pruning;native
+capsules and accepted empty-OUT161-file evidence/23-file notes stay unchanged.
+
+Matched kernel/USB build,complete controller suite,native child/pure exchange/
+codec/parent/strict parser/namespace/docs checks and227 staging cases pass.
+Eight fatal ASan/UBSan groups include codec hostile inputs,exact-size truncated
+allocations,maximum4096-byte tails,orphan/truncated TLVs and preserved peer/
+algorithm/transaction/status refusal. Native compiler frames peak at
+616bytes. Production-C41-byte-reply child/full accepted-
+parent synthetic composition passes at2033181bytes with
+8 refusals;the conservative48-row metadata bound leaves
+57011bytes capture headroom. These are modeled child
+responses,not native acceptance. Real2MiB filesystem roundtrip/fsck,ordinary
+desktop and exact staged GPT save/return/missing-workspace VMs pass. Installed
+kernel and independently reconstructed firmware initramfs match source.
+
+Runtime retains reviewed mainca43ce23 and module pins. Newer main4bba4b93 guarded
+raw-census preparation and Air ECAM/root evidence atop deferred process/ECAM
+work was inspected and deferred for this isolated codec correction. Open301
+remains graphics,379 browser,no competing Wi-Fi owner. Ubuntu stays default and
+e47d known-good previous. Accepted empty-OUT/handoff/power/selection payloads
+stay installed. Older unreferenced failure EFI copies may be retired only after
+byte equality against their independent sealed backups,which remain retained.
+Cold-unplug only Wi-Fi10seconds while off,reconnect same port,power on with
+workspace attached. Progress/full results/Ubuntu return are automatic. Collect
+this exact trial first;require full matched exchange and complete parent/RF
+retirement before acceptance. Credentials remain unread;WPA2 and authenticated
+IP/data/disconnect remain pending,and Demers2.4 needs compatible hardware.
+
+For this installation,the unreferenced first-live5a5e6139 EFI duplicate was
+retired only after complete byte equality with its independently sealed546-file
+failure backup. That native capsule stays unchanged. The547-file reply-diagnostic
+backup and its7181f95e EFI payload remain retained. Accepted empty-OUT/handoff/
+power/selection and e47d recovery remain installed;Ubuntu is still default.
+
+### Native open authentication and association accepted (November 6)
+
+V127 `3941cd6f08de149f` / runtime `a71b71c2`,session
+`00065fa4f5d6cb3c-00`,passes all2,033,170 saved prefix bytes and the full15,719-
+operation parent. The41-byte AUTH reply now passes the complete optional-IE
+structural check and private peer/algorithm0/transaction2/status0 checks. A95-byte
+association response matches the private peer with status0 and valid AID34.
+AUTH60/ASSOC100/leave56-byte USB submissions complete once each;the exchange
+completes in12,808us with zero ignored replies. Leave submission is accepted;
+there is no separate peer acknowledgement proof for leave.
+
+Six endpoint commands,three RX posts,53 ownership controls,both exact CC27/
+zero-residue stop receipts,old RX context/dequeue,OUT disable and all4096 shared
+input bytes pass. MAC drain/disable and filter/TXOP restoration pass. All nine
+selected-power originals and full outer RF originals are restored. DMA stays
+retained. Offline filesystem/allocation,payload/recovery equality and automatic
+Ubuntu return pass. The167-file native capsule remains independently sealed
+outside build;separate acceptance notes preserve the source-specific result.
+Earlier first-live and reply-diagnostic failures remain failed and unchanged.
+The actual optional IE contents remain unlogged;acceptance establishes structural
+validity,not a guessed vendor payload or security/capability authority.
+
+This accepts the open management exchange,not WPA2 authentication or an open
+controlled data port. Credentials remain unread/unpackaged. Strict entropy,
+PSK derivation,EAPOL/MIC/replay validation,key installation/retirement,CCMP packet
+numbers,authenticated DHCP/DNS/bidirectional data and disconnect/reconnect remain
+pending. The Edimax is5GHz-only;Demers2.4 requires compatible hardware. Runtime
+remains on reviewed mainca43ce23. Fetched mainb9615fc5 adds an Air live VT-d
+admission audit and host proof tooling atop deferred ECAM/process work;it has
+no new Pro authority and is deferred from this source-specific acceptance.
+Ubuntu is default,e47d remains known-good previous,and no one-shot is armed.
+
+### WPA2 key derivation and MIC scope (November 6)
+
+Following accepted v127 management exchange,the next bounded implementation is
+allocation-free WPA2-PSK/CCMP key derivation and descriptor-version2 EAPOL MIC
+handling. Touch only a private crypto helper/header,host tests,Makefile and this
+unit's/current Wi-Fi documentation. Validate SHA-1/HMAC/PBKDF2/PMK and the
+ordered-address/nonce PTK construction against public vectors and an independent
+host crypto implementation,including malformed lengths,alias refusal and secret
+scrubbing. This helper alone grants no EAPOL state/key installation or native
+transport authority. Credentials remain unread and the installed accepted v127
+payload stays unchanged/unarmed while these host-only primitives are validated.
+
+Fetched origin/main4cb7b5a7 adds dormant checked Air6,1 window lifetime support
+and host validation atop reviewed b9615fc5;no competing Wi-Fi owner appears in
+open PR19/301/379. Those memory/graphics/browser scopes remain independent and
+are deferred from this bounded helper. Runtime base remains ca43ce23. No other
+machine's physical or entropy acceptance is inferred. Subsequent handshake
+state must enforce peer binding,MIC,replay and one-time key installation before
+any controlled-port authority or physical secured-connection claim.
+
+The bounded helper is now implemented as `wpa2_crypto.h`/`wpa2_crypto.c`.
+Public SHA1/RFC2202 HMAC and WPA PMK vectors pass,including million-byte SHA1
+input and split-block updates. Independent Python/OpenSSL comparisons pass100
+synthetic PMKs,4,000 ordered PTK constructions and2,000 EAPOL MIC frames with
+256,000 MIC-bit refusals. Maximum/minimum passphrase/SSID lengths,binary SSIDs,
+all nonprintable passphrase bytes,peer/nonce refusals,overlap refusal,immutable
+input,exact-size truncated EAPOL allocations and full-frame MIC mutations pass.
+Fatal ASan/UBSan and native freestanding compilation pass;maximum compiler frame
+is600bytes. Full matched `all` build,nonce/management/pure exchange/native
+ownership and strict saved-ledger regressions and documentation checks pass.
+No full-core rerun or new native secured-connection acceptance is claimed.
+
+PMK/PTK/MIC scratch is explicitly erased,well-framed MIC comparisons inspect
+all16 bytes,and the helper has no logging or hardware/entropy/port authority.
+References and hashes,logs,source snapshots and a qualification receipt are
+retained outside build separately from the unchanged167-file native acceptance
+capsule and23-file notes. Credentials remain unread/unpackaged. Next is an
+EAPOL state owner with matched peer/nonce/replay/RSNE handling,then authenticated
+key-data unwrap and one-time hardware installation/retirement before encrypted
+traffic. The accepted v127 installed/recovery payloads remain unchanged and no
+one-shot boot is armed;this host-only helper needs no physical restart.
+
+### Bounded four-way handshake model scope (November 6)
+
+Next local work builds a pure one-shot PSK/CCMP EAPOL state owner atop the
+qualified PMK/PTK/MIC helpers,plus bounded AES128 RFC3394 key-data unwrap.
+Touched subsystems are private WPA2 helpers/headers,host tests and Makefile;
+no native endpoint,register,key-table,syscall or desktop changes are planned.
+Require exact peer/generation binding,descriptor/flag/length/nonce validation,
+MIC before unwrap,monotonic replay,exact selected RSNE and GTK KDE validation,
+one-time install handoff and explicit TX completion before any modeled complete
+state. Ambiguous sends/installations and duplicate/replayed messages terminate
+without reinstall or retry. Retirement scrubs secrets and distinguishes a
+possibly live external key from locally erased state. The production installer
+and data provider remain unwired;host models do not accept native security.
+
+Origin/main4cb7b5a7 and open PR19/301/379 remain inspected with no competing
+Wi-Fi owner. Air memory/VT-d and graphics/browser scopes stay independent;
+the reviewed but deferred base and accepted installed v127 remain unchanged.
+Credentials remain unread/unpackaged and no hardware boot is armed. Preserve
+the167-file native acceptance capsule and23-file acceptance notes unchanged.
+
+The pure owner now implements M1 validation/PMK-to-PTK,M2 construction and
+completion gating,M3 MIC-before-unwrap and exact selected-RSNE/GTK checks,
+one-time key export/install receipt,M4 construction/completion and terminal
+secret retirement. Export conservatively marks keys possibly live until an
+external removal proof;an installation refusal does not erase that ownership
+obligation. No duplicate,replay or ambiguous receipt can reinstall or retry.
+An exported key remains separately owned by its future installer. COMPLETE is
+only model state,not AP ACK or controlled-port/native security acceptance.
+
+Host qualification passes independent synthetic M1/M2/M3/M4 byte fixtures,
+131,072 exhaustive M1/M3 flag words,replay boundaries through UINT64_MAX,
+valid-MIC malformed fixed fields,authenticated wrap-integrity failures,changed/
+duplicate RSNE and GTK KDEs,bad padding,all GTK index/ignored-TX-bit combinations
+and EAPOL1/2. Independent cryptography AES wrap/unwrap comparisons pass106
+cases including1024-byte ciphertext. Public FIPS197 AES128 and RFC3394 vectors,
+every wrapped ciphertext bit,exact-size truncated allocations,alias/capacity/
+null refusals,all state/generation lifetimes,one-time install handoff and secret
+scrubbing pass. Fatal ASan/UBSan passes both keywrap and handshake fixtures.
+
+Matched `all` build,prior crypto/nonce/RSNE/management/pure exchange/native
+ownership/strict saved-ledger regressions and documentation checks pass.
+New native compiler frames peak at408bytes (keywrap),88bytes (handshake);
+the unchanged crypto layer's previously qualified maximum is600bytes. The
+ordinary C fixtures need no host crypto dependency;optional differential tests
+use host Python cryptography and committed regenerable synthetic vectors.
+No full-core or new physical security acceptance is claimed. Qualification,
+source/reference hashes and logs are saved outside build separately from the
+unchanged native acceptance capsule/notes.
+
+Next is native EAPOL transport/ownership binding and a separately guarded key-
+table installer with independent readback,packet-number ownership and removal
+proof. This model does not provide hardware key installation,CCMP data or an IP
+provider. Connection/data/disconnect,live reattach and group/pairwise rekey remain
+pending. Credentials remain unread/unpackaged;installed v127,e47d recovery and
+Ubuntu default are unchanged and no boot is armed. Further physical trials still
+use shutdown and10second Wi-Fi-only cold unplug under existing authorization.
+
+### Native EAPOL framing prerequisite scope (November 6)
+
+Native management receive deliberately rejects data headers. Before wiring the
+four-way model,add a separate fixed161/20MHz unprotected EAPOL codec for exact
+AP/station binding,non-QoS/QoS receive header lengths and hardware L2 padding,
+LLC/SNAP/EtherType and complete bounded EAPOL lengths. The old management/beacon
+parser and its gates stay unchanged. The new TX constructor is restricted to
+model-emitted M2/M4 with unprotected ToDS non-QoS framing and the pinned existing
+OFDM6/TXWI/USB envelope;it grants no endpoint publication or crypto authority.
+Touch private codec/header/tests/Makefile and current Wi-Fi/unit docs only.
+
+Pinned Linux v7.0 mt76x02 MAC/USB/header/register sources also expose distinct
+WCID key,IV/PN,attribute and shared-key tables. Their write ordering,hardware
+counter ownership and removal/readback proof need a separate guarded installer;
+none is silently admitted by a framing helper. Accepted empty/stopped/RF owners
+must remain frozen when native transport is introduced. Credentials remain
+unread and installed v127/recoveries remain unchanged/unarmed during host
+qualification. Reviewed main4cb7b5a7/open PR19/301/379 have no competing Wi-Fi
+scope;new remote device heads are independent Air window/graphics work.
+
+The separate `mt76_eapol5` host codec now preserves old management gates while
+handling exact private data/QoS/L2PAD EAPOL receive and M2/M4 USB construction.
+Tests cover131,072 FC/QoS control words,all address/LLC bit changes,blocked RX
+metadata,exact truncated allocations,maximum1123-byte EAPOL,overbound refusal,
+ignored trailing USB bytes,alias/capacity/null/channel/width refusals and100,000
+hostile inputs. Synthetic M1/M3 views advance the independent handshake model
+to KEYS_READY,without any installation handoff. M2/M4 wire construction is
+checked against complete model output and pinned descriptor/header semantics.
+Fatal ASan/UBSan passes. No new native EAPOL observation is claimed.
+
+Next native transport must classify and copy data completions separately from
+management,freeze distinct M2/M4 DMA pages and preserve existing endpoint/MAC/
+input/parent restoration. Its first saved capture must prove actual EAPOL shape
+and completion provenance before a guarded key-table installer is admitted.
+WCID/BSS reservation,cipher/IV/key/shared-mode readback,PN/replay ownership and
+full removal remain open. Credentials remain unread;no new trial is armed.
+
+### Native bounded M1 capture scope (November 6)
+
+Add an opt-in automatic v128 child after accepted open association and before
+leave. It keeps the same separately retained RX/OUT owner,three management
+submissions and exact MAC/endpoint/input/parent retirement. During a bounded
+M1-only receive window,the separate EAPOL codec classifies completed retained
+RX entries and copies private EAPOL into scrubbed scratch. Record only shape/
+length/peer/status/counters,never nonce,replay,packet or credential bytes. No
+M2/M4,key installation or data provider is enabled. Missing/invalid M1 fails
+acceptance even if transport retirement completes. Existing v127 remains
+unchanged by default. Touch join post-association hook/native owner,private
+EAPOL shape check,explicit main/staging/profile gates,host/fault/log tests and
+the current guides. Qualify matched build,exact-stage VMs,complete saved prefix,
+independent recovery and workspace checks before the standing cold shutdown.
+Reviewed main4cb7b5a7 remains unchanged;remote Air graphics/window heads and
+PR301/379 have independent scope. Capture matching session first after return.
+
+### Qualified native M1 cold trial (November 6)
+
+V128 `edd097fada0634c3` / runtime `a9b37f58` is installed for the
+bounded post-association M1-shape capture. Full matched kernel/USB build and
+controller,private EAPOL/handshake/crypto/nonce,management/owner/strict-ledger
+and namespace regressions pass,with229 staging tests and nine fatal ASan/UBSan
+groups. Native compiler frames peak at616bytes. Production-C M1 child plus the
+complete accepted native parent passes a2,033,558-byte synthetic saved prefix
+and16 whole-prefix refusals. Both metadata row types share the same48 retained
+RX pages;the conservative bound,including fixed-message growth,leaves55,610
+bytes below the unchanged2MiB capture limit. This is modeled child evidence,
+not a physical M1 pass. Real2MiB filesystem write/read/unmount/remount/fsck,
+ordinary desktop and exact staged GPT save/return/missing-workspace VMs pass.
+The installed kernel and independently reconstructed firmware initramfs match.
+
+The first stack-check helper lacked an incremental-log compile template for
+an unchanged codec file;its failure was saved. The corrected helper uses the
+preserved full-build command to compile the current source and measure frames;
+all remaining checks then pass. No full-core rerun or native security result
+is inferred. Runtime remains on reviewed mainca43ce23;newer inspected Air
+window/VT-d/graphics work remains separate. Actions stay disabled.
+
+The167-file accepted management capsule and23-file notes are unchanged. Its
+large generated USB session was independently byte-compared,archived and pruned
+before the new run;prior private files remain preserved. For EFI space,only the
+unreferenced failed7181f95e diagnostic copy was retired after complete equality
+with its independently sealed547-file backup,which remains retained. Accepted
+3941cd6f management,empty-OUT/handoff/power/selection and e47d recovery stay
+installed. Ubuntu is default,and this candidate remains physically unaccepted.
+
+This unattended trial needs shutdown,Wi-Fi-only unplug10seconds while off,
+reconnect to the same port and power-on with the workspace drive connected.
+Guest progress,full results and Ubuntu return are automatic;no commands/photos
+are needed. Collect this exact candidate first after return. Require matched
+management,private structurally valid M1 and complete MAC/endpoint/input/power/
+RF restoration,storage and recovery. Missing/failed receipts stay unaccepted.
+Credentials remain unread/unpackaged;EAPOL replies,hardware keys,PN ownership,
+encrypted IP/data and live reconnect remain pending. Demers2.4 still needs
+compatible hardware.
+
+### Native structural EAPOL Message 1 accepted (November 6)
+
+V128 `edd097fada0634c3` / runtime `a9b37f58`,session
+`00065fa85b970465-00`,passes all2,033,563 saved prefix bytes and the full15,719-
+operation parent. Matching open authentication/association and private Demers5
+selection pass. The bounded post-association window copies one structurally
+valid99-byte EAPOL M1 from a131-byte unprotected non-QoS FromDS MPDU,with exact
+private peer binding. RX metadata is0x2092,frame control0x0a08 (Retry set),172 USB
+bytes,no L2 padding. This accepts the observed ordinary-data path;QoS/L2PAD
+variants remain host-tested. The earlier over-air transmission and cause of
+the AP's Retry bit were not observed and are not inferred.
+
+The M1 window completes in9,678us across14 polls;the complete management/M1
+exchange takes28,311us. Three management submissions complete once each,with
+no EAPOL reply or key installation. Six endpoint commands,four RX posts,53
+ownership controls,exact stop/dequeue/drop and all4096 shared-input bytes pass.
+MAC drain/disable,filter/TXOP restoration,nine power originals and full outer RF
+originals pass. DMA remains retained. Storage/allocation,payload/recovery equality
+and automatic Ubuntu return pass. The178-file native capsule is independently
+sealed outside build;separate acceptance notes preserve the new source-specific
+scope. Older accepted capsules and earlier failures remain unchanged.
+
+M1 is unauthenticated protocol input;its supported descriptor/fixed fields,
+nonce/replay-room/PMKID shapes do not prove AP key possession or freshness.
+No nonce,replay,address,packet or credential bytes were logged. Credentials
+remain unread/unpackaged. Native four-way exchange,guarded key-table reservation/
+install/readback/removal,entropy/PN ownership,CCMP data,authenticated DHCP/DNS/
+bidirectional transfer and disconnect/reconnect remain pending. No controlled
+port or native WPA2 authentication is accepted. The current Edimax is5GHz-only;
+Demers2.4 still needs compatible hardware. Ubuntu is default,e47d remains known-
+good previous,and no one-shot boot is armed.
+
+### Software CCMP/key-owner scope after M1 acceptance (November 6)
+
+The key audit changes the initial installation plan:Linux v7.0
+`mt76x02_set_key` unconditionally returns EOPNOTSUPP for MT76x0 non-pairwise
+keys. Its comment discusses GTK/multiple-VIF limitations,but this pinned path
+rejects GTK offload outright. This is a source restriction,not new evidence
+that every hardware configuration is incapable. Do not silently force shared
+key tables to initialize. The initial connection will use one guarded software
+PTK/GTK owner with packet-number/replay ownership and CCMP,leaving optional
+hardware offload separate. Earlier hardware-installer plans are superseded for
+this initial path;no such installer was implemented or physically accepted.
+
+Bounded work now extracts the existing table-free AES128 core without changing
+keywrap behavior,adds CCMP128 data seal/open with exact peer/header/AAD/nonce/
+MIC/PN checks,and a one-time software install/activate/erase lifecycle bound to
+the validated handshake generation. No key/RF table or native profile write is
+added by these primitives. Test independent AESCCM vectors and packet framing,
+all MIC/header/ciphertext mutations,per-key/per-TID replay,PN exhaustion,bounds/
+alias refusal and secret erasure before native integration. Keep native DMA
+publication/retirement separately owned;uncertain sends must consume their PN
+and never reset a live key. Credentials remain unread during these host tests.
+
+Fetched maine8639e92 adds Air window-only diagnostics/evidence and a futex host
+extractor correction,with shared main/staging/log helpers for that separate
+scope. It is inspected and deferred from this isolated crypto work;runtime
+baseline remains ca43ce23. PR399 window,301 graphics and379 browser remain
+independent;PR19 owns Wi-Fi. Accepted v128 and recovery stay installed/unarmed.
+
+The software owner and shared AES core are implemented. The handshake now
+requires a unique backend claim before a confirmed installation receipt;the
+software owner binds that token to its own address,blocking duplicate exports
+into another context and data before confirmed M4 activation. CCMP reserves TX
+PN before sealing,never wraps48 bits,authenticates before publishing plaintext
+or advancing per-key/per-TID RX replay state,and preserves M3 group RSC floors.
+Retirement erases keys/scratch without resetting/reusing the owned lifetime.
+This is host-only code;accepted native v128/recovery are untouched.
+
+Independent synthetic AESCCM comparisons pass146 TX seals and438 RX/replay/MIC
+triplets through2304-byte payloads,group RSC/key IDs,all supported priorities,
+masked header controls,wrong-key/MIC/header refusals and48-bit exhaustion.
+Public AES128/RFC3394 and prior131,072-flag handshake/106-unwrap differential
+regressions pass. Fatal ASan/UBSan passes CCMP and claimed-install/handshake
+lifetimes. Credentials remain unread. Native four-way/ciphertext/data acceptance
+still requires separately guarded transport integration and a new physical run.
+
+
+Software CCMP qualification also passes256 independent random AES128 encrypt/
+decrypt pairs,matched kernel/USB build and prior crypto/nonce/EAPOL/management/
+owner/strict-ledger/namespace regressions. New native compiler frames peak at
+344bytes for CCMP/keywrap,72 for shared AES and88 for handshake. The software
+backend and claiming changes remain physically unaccepted. No full-core rerun
+is claimed. Source/reference hashes and local qualification artifacts are kept
+outside build before native integration;the accepted178-file v128 capsule and
+23-file acceptance notes remain unchanged and no reboot is armed.
+
+### Native four-way integration scope (November 7)
+
+Consume maind5a9fbb3 before native handshake wiring. Preserve both Air window/
+ECAM and Pro Wi-Fi staging,workspace snapshots and strict gates when resolving
+shared-file conflicts. PR301 graphics and379 browser have independent scope;
+PR19 remains the Wi-Fi branch. First add a bounded pure management/EAPOL
+coordinator with fresh nonce,one software key owner,confirmed M2/M4 submission
+and explicit erasure/leave. Then bind independently retained native endpoints,
+private credential provisioning and strict saved-log/staging/VM checks. Touch
+private Wi-Fi/WPA modules and their tests,then opt-in main/staging/native owner.
+No data provider or hardware key offload is accepted by host tests. Preserve
+accepted v128 and all recovery/evidence;no physical trial is armed.
+
+The new `mt76_wpa5` coordinator is implemented with strict nonce admission,
+AUTH/ASSOC/M2/M4/leave sequences4..8,exact M3 MIC/unwrap/RSNE/GTK validation,
+one software install/activation and terminal erasure before leave. Semantic
+refusal retires;uncertain DMA forbids further publication while local software
+keys are erased. Host fixtures pass the complete synthetic exchange,all23
+coordinator ownership checks,five send refusal/uncertainty points,all M3 byte
+corruptions,each receive deadline,frozen/backward clocks and nonce/poll/alias
+refusals. Fatal ASan/UBSan passes the coordinator. These are model results.
+
+The separate native child freezes the accepted M1 owner's complete state,rings
+and51 packet pages,allocates its own48 RX/five TX pages and retains everything
+through retirement. Its initial native fixture passes twelve parent/child
+commands,106 controls,padded RX and child command/control/send/ownership,
+allocation,prior-state/page and credential/MIC/nonce refusal cases. This does
+not accept hardware. An opt-in v129 profile,private0600 PMK record and strict
+full-parent saved-log checker are wired;231 staging tests and focused ledger/
+credential tests pass. Full matched-image/controller/sanitizer/stack/storage/
+exact-stage VM qualification remains required before installation or shutdown.
+The credential file has now been read privately;no credential values are logged
+or committed. The derived PMK belongs only in the explicit private candidate.
+Its initramfs credential store persists separately from ephemeral key erasure.
+Accepted v128/recovery/evidence remain unchanged,and no new boot is armed.
+
+### Qualified software-key four-way cold trial (November 7)
+
+The private local v129 candidate uses runtime67628de3 on consumed maind5a9fbb3.
+Full matched kernel/USB build,full controller and relevant WPA/EAPOL/management/
+owner/namespace regressions pass. Independent cipher/handshake comparisons,231
+staging tests,13 fatal ASan/UBSan groups and current native compiler frames
+peaking at616bytes pass. The first full-controller link lacked the new crypto/
+initramfs dependencies;its failed5d4ab575 receipt is preserved. The corrected
+67628de3 target links those modules and passes the complete controller suite.
+No full-core rerun or native WPA2 result is inferred.
+
+Production-C old/new owners plus the full accepted15,719-operation native
+parent pass a2,038,476-byte synthetic prefix and85 whole-prefix refusals. The
+two independent owners each retain at most48 RX pages. Replacing existing
+metadata rows with maximum permitted widths and allowing4KiB fixed growth
+leaves43,515bytes below the unchanged2MiB capture limit,including a separate
+32KiB unmodeled reserve. Real2MiB filesystem write/read/unmount/remount/fsck,
+ordinary desktop and exact staged GPT save/return/missing-workspace VMs pass.
+The installed kernel and independently reconstructed firmware/private-PMK
+initramfs match. These are qualification results,not native handshake acceptance.
+
+The178-file accepted M1 capsule and23-file acceptance notes remain unchanged.
+Its large generated USB logs were byte-compared,archived and pruned before
+this trial;prior private files and clean allocation are preserved. EFI space
+required retiring only the unreferenced duplicate3941cd6f management payload
+after full equality with its independently sealed167-file backup. That backup
+remains retained,as do the newer accepted v128 M1 payload and e47d recovery.
+Ubuntu stays default. Private credential-bearing release identities and payload
+hashes remain in local run/evidence records. The candidate remains physically
+unaccepted;the next authorized action is the cold shutdown below.
+
+Shut down,unplug only Wi-Fi10seconds while off,reconnect to the same port and
+power on with the workspace connected. Guest progress,complete saved results
+and Ubuntu return are automatic;no commands/photos or repeated approval.
+Collect this exact v129 session first after return. Require matched M3 MIC,local
+M4 completion,software key activation/erasure,leave and full MAC/endpoint/input/
+power/RF originals,storage and recovery. AP acknowledgement,encrypted IP/data,
+connection UI and reconnect remain pending. Demers2.4 needs compatible hardware.
+
+### First native four-way trial failed before AUTH reply (November 7)
+
+Runtime67628de3,session00065fb35ef3031b-00,saved1,892,407bytes and returned
+automatically. The historical open AUTH/ASSOC/M1 parent passed again:one matched
+M1 across two data completions,10 polls and7,207us;its endpoint/input restoration
+passed. The new child submitted AUTH and leave with successful USB completions,
+but received no matching AUTH reply in758,367us. It received unrelated beacons/
+action frames,never sent ASSOC/M2/M4 and never installed keys. New MAC drain/
+disable,endpoint/input restoration and software erasure receipts passed. Nine
+power originals were restored,but the full outer RF predicate failed;this is
+not a complete restoration or WPA2 pass. The569-file failed capsule is sealed
+independently outside build;storage/allocation and Ubuntu recovery passed.
+
+Investigate the endpoint's USB2 DATA toggle across disable/reconfigure. The old
+owner sent three bulk packets;the new host context resets transfer sequencing
+while no device-side CLEAR_FEATURE(ENDPOINT_HALT) was issued. A successful USB
+completion can therefore acknowledge a duplicate without delivering the first
+new AUTH to firmware. This is a standards-based hypothesis:the native wire
+toggle was not observed. Add one exact guarded device-side EP04 clear before
+new host configuration,while MAC is disabled and both rings are empty. Test a
+USB toggle/duplicate-ACK model reproducing the failure,one-shot clear/status/
+ownership failures and mandatory log receipts. Touch only the captured native
+child,its controller/ledger/profile tests and current guides;do not change WPA
+MIC/nonce/replay gates or timeouts. Preserve the accepted M1 and failed evidence.
+No new boot is armed. PR19 remains draft;Air graphics/browser scopes stay separate.
+
+Consumed maine8e56ee3,which adds only Air6,1's separate window-census deadline
+refusal record;its native runtime baseline is unchanged fromd5a9fbb3. PR301
+graphics and379 browser remain independent. The v130 candidate adds one exact
+EP04 device-toggle clear before new host configuration and requires its status
+receipt before any TD. Host USB DATA0/DATA1/duplicate-ACK modeling reproduces
+the previous missing-AUTH behavior without the clear. This validates the model
+and missing protocol step,not the native wire-level cause. Credential-bearing
+payload identities remain local. Full qualification/recovery/evidence checks
+are required before another standing cold shutdown.
+
+### Qualified paired-toggle cold retry (November 7)
+
+The private local v130 image uses runtime09504e18 on maine8e56ee3. Full matched
+kernel/USB build,full controller and relevant protocol/crypto/ownership
+regressions pass,with231 staging tests and13 fatal ASan/UBSan groups. The
+actual native-child fixture includes one exact device-side EP04 clear and
+fresh host configuration,106 parent/child register controls,padded receive,
+all child ownership/command/control/send/allocator boundaries and paired-toggle
+loss/reentry/status failures. Suppressing device reset reproduces USB success
+without an AUTH reply;this is a host model,not an observed native wire toggle.
+No WPA keys,nonce/replay rules,RF settings or reply deadlines were changed.
+
+The complete production-C/two-owner/native-parent synthetic prefix passes
+2,038,559bytes and87 whole-prefix refusals,with43,432bytes conservative headroom
+below the unchanged2MiB limit. Current native compiler frames peak at616bytes.
+Real2MiB filesystem persistence/fsck,ordinary desktop and exact staged GPT
+save/return and missing-workspace VMs pass. The installed kernel and independently
+reconstructed firmware/private-PMK initramfs match. No full-core rerun or new
+native AUTH/four-way acceptance is inferred.
+
+The569-file failed capsule and178-file accepted M1 capsule remain unchanged.
+The failed generated USB logs were byte-compared,archived and pruned;prior
+files and offline allocation remain clean. EFI space was recovered by first
+restoring the verified accepted M1 entry,then retiring only the now-unreferenced
+failed v129 duplicate after equality with its sealed backup. The corrected
+candidate is installed with all accepted recoveries and e47d retained,Ubuntu
+default,and no new native result. Credential-bearing identities stay local.
+
+The next authorized action remains shutdown and Wi-Fi-only10second unplug
+while off,reconnect same port,power on with workspace attached. Guest progress,
+full results and Ubuntu return are automatic. Collect this v130 session first;
+require the EP04 clear/status receipt before host configuration,matched
+AUTH/ASSOC/M3 MIC/local M4,software activation/erasure and complete MAC/endpoint/
+input/power/RF originals,storage and recovery. The earlier wire toggle was not
+observed. AP acknowledgement,encrypted IP/data and reconnect remain pending;
+Demers2.4 still needs compatible hardware.
+
+### Native paired-toggle four-way checkpoint accepted (November 7)
+
+Runtime09504e18,session00065fb3e26fdbab-00 passes the unchanged complete saved
+ledger:2,038,668-byte prefix,15,719 parent operations,channel161/20MHz and full
+power/RF originals. The exact EP04 clear completed before fresh host endpoint
+configuration. The new child matched AUTH/ASSOC,M1 and M3 with verified MIC,
+submitted M2 and M4,activated its unique software-key backend,then erased
+ephemeral keys and submitted leave. It completed in30,934us with five sends,
+nine polls,one ignored frame,six endpoint commands,six RX posts and53 register
+controls. MAC drain/disable/filter/TXOP,old RX context,disabled OUT and shared
+input restoration passed. DMA pages remain retained as designed. No hardware
+key offload or encrypted data was attempted. M4 USB completion is not an AP ACK;
+authenticated encrypted traffic remains the test of AP acceptance.
+
+The177-file private native capsule and separate acceptance notes are preserved
+outside build. The earlier569-file failed capsule and178-file accepted M1
+capsule remain unchanged. Offline filesystem/allocation and all installed
+recovery comparisons pass;Ubuntu remains default and no boot is armed. The
+successful comparison supports the sequencing correction without observing the
+earlier native wire toggle. Persistent private PMK storage is separate from
+the ephemeral key erasure receipt;credential-bearing identities remain local.
+
+Next bounded objective is a separate post-M4 software CCMP data window before
+erasure/leave,with exact peer binding,monotonic TX packet numbers,authenticated
+RX and replay refusal,bounded RX/TX ownership and full retirement. Touch the
+Wi-Fi child/coordinator,CCMP transport framing and corresponding fixtures/log
+checks/profile only as needed;preserve existing accepted capture recipes and
+hardware gates. Then prove DHCP/DNS,bidirectional transfer and disconnect,
+followed by live provider/UI reattach. Demers2.4 requires compatible hardware.
+Fetched maina1661937 adds independent Air6,1 clock-sampling changes;it is not
+part of this accepted runtime. PR402 Air6,1 census,PR301 graphics andPR379 browser
+remain separate;PR19 stays draft. Consume and qualify the actual main changes
+before staging another physical candidate. Cold trials still use shutdown and
+the standing Wi-Fi-only10second unplug procedure.
+
+### Post-M4 encrypted transport implementation scope (November 7)
+
+Consumed actual maina1661937 before shared work. PR402 remains Air6,1 clock
+census,PR301 graphics andPR379 browser;none claims this Wi-Fi transport.
+Implement a separate opt-in bounded post-M4 Ethernet/CCMP diagnostic window,
+without changing the accepted v130 four-way recipe or boot-immutable ordinary
+network provider selection. First prove software encrypted TX and authenticated
+RX,then DHCP/DNS/data on that same live key/endpoint owner. Reuse the existing
+CCMP primitive;do not bypass MIC/replay/PN,hardware gates or uncertain-DMA
+retention. Touched scope:Wi-Fi framing/coordinator/native child,capture staging/
+ledger and directed fixtures. Native acceptance remains runtime09504e18 only;
+new source requires matched build,host/sanitizer/full-prefix/exact-stage VM,
+recovery/run record and a cold shutdown before any new physical claim.

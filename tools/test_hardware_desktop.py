@@ -649,6 +649,57 @@ class CollectionTests(unittest.TestCase):
             self.assertIn('collection: missing exit snapshot; session incomplete',item['attention'])
             self.assertEqual(report['hardware_acceptance'],'manual-pending')
 
+    def test_extended_logs_preserve_every_byte_and_old_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            for length in (65536,65537,131072,131073,159281,262144,262145,524288,524289,1048576):
+                payload=b'prefix\n'+b'x'*(length-12)+b'\nend\n'
+                self.assertEqual(len(payload),length)
+                (folder/'exit.log').write_bytes(payload)
+                out,report=desktop.collect(mount,'37d8c5d0',root/'out')
+                self.assertEqual((out/folder.name/'exit.log').read_bytes(),payload)
+                self.assertEqual(report['hardware_acceptance'],'manual-pending')
+            (folder/'exit.log').write_bytes(b'x'*1048577)
+            with self.assertRaises(ValueError): desktop.collect(mount,'37d8c5d0',root/'out')
+
+    def test_explicit_radio_capture_is_bounded_and_identity_scoped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work';name='session-0000000000000001-00'
+            folder=work/'Logs'/name;folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            release='0123456789abcdef';header=f'cmdline: srvros.desktop-release={release} srvros.wifi-held-channel=1 srvros.capture=wifi-firmware srvros.capture-failure=reboot\n'.encode()
+            for size in (desktop.MAX_LOG_BYTES+1,1063627,desktop.RADIO_LOG_BYTES):
+                payload=header+b'x'*(size-len(header));(folder/'exit.log').write_bytes(payload)
+                with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'default')
+                self.assertFalse((root/'default').exists())
+                out,report=desktop.collect(mount,'37d8c5d0',root/'out',radio_capture=(name,release))
+                self.assertEqual((out/name/'exit.log').read_bytes(),payload)
+                self.assertEqual(report['hardware_acceptance'],'manual-pending')
+            (folder/'exit.log').write_bytes(header+b'x'*desktop.RADIO_LOG_BYTES)
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'oversize',radio_capture=(name,release))
+            self.assertFalse((root/'oversize').exists())
+            payload=header+b'x'*desktop.MAX_LOG_BYTES
+            for bad in (payload.replace(b'cmdline: ',b'command: '),payload.replace(b'held-channel=1',b'held-channel=0'),payload.replace(b'0123456789abcdef',b'1123456789abcdef'),payload.replace(b'capture-failure=reboot',b'capture-failure=halted')):
+                (folder/'exit.log').write_bytes(bad)
+                with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'bad',radio_capture=(name,release))
+                self.assertFalse((root/'bad').exists())
+            conflict=payload+b'\ncmdline: srvros.desktop-release=ffffffffffffffff\n'
+            (folder/'exit.log').write_bytes(conflict)
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'mixed',radio_capture=(name,release))
+            (folder/'exit.log').write_bytes(header)
+            (folder/'checkpoint-00.log').write_bytes(payload)
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'checkpoint',radio_capture=(name,release))
+            (folder/'checkpoint-00.log').unlink()
+            (folder/'exit.log').write_bytes(payload)
+            for identity in ((name,'ffffffffffffffff'),('session-0000000000000002-00',release)):
+                with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'wrong',radio_capture=identity)
+            (folder/'exit.log').unlink();(folder/'exit.log').symlink_to(folder/'boot.log');(folder/'boot.log').write_bytes(payload)
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'link',radio_capture=(name,release))
+            for identity in ((),('bad',release),(name,'bad'),[name,release],(None,release)):
+                with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'bad-id',radio_capture=identity)
+
     def test_bounded_power_checkpoints(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work';folder=work/'Logs/session-0000000000000001-00'
@@ -680,7 +731,7 @@ class CollectionTests(unittest.TestCase):
             self.assertIn('collection: conflicting boot release identities',mixed['sessions'][0]['attention'])
             (folder/'exit.log').unlink();(folder/'exit.log').symlink_to(folder/'boot.log')
             with self.assertRaises(ValueError): desktop.collect(mount,'37d8c5d0',root/'out')
-            (folder/'exit.log').unlink();(folder/'exit.log').write_bytes(b'x'*65537)
+            (folder/'exit.log').unlink();(folder/'exit.log').write_bytes(b'x'*(desktop.MAX_LOG_BYTES+1))
             with self.assertRaises(ValueError): desktop.collect(mount,'37d8c5d0',root/'out')
             with self.assertRaises(ValueError): desktop.collect(mount,'12345678',root/'out')
 

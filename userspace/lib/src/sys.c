@@ -668,6 +668,14 @@ long srv_directory(uint64_t operation,int fd,void *out,size_t capacity) {
     return srv_syscall4(SYS_DIRECTORY,(long)operation,fd,(long)out,(long)capacity);
 }
 
+long srv_wifi_snapshot(uint64_t owner,struct srv_wifi_snapshot *info) {
+    if(info){info->version=SRV_WIFI_VERSION;info->size=sizeof *info;}
+    return srv_syscall3(SYS_WIFI,SRV_WIFI_SNAPSHOT,(long)owner,(long)info);
+}
+long srv_wifi_select(const struct srv_wifi_select *request) {
+    return srv_syscall3(SYS_WIFI,SRV_WIFI_SELECT,0,(long)request);
+}
+
 long srv_file_stream(const struct srv_file_stream_request *request) {
     return srv_syscall1(SYS_FILE_STREAM,(long)request);
 }

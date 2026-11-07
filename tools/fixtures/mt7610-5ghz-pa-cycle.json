@@ -1,0 +1,8 @@
+{
+  "scope": "14-target external5GHz PA command/restoration;no BBP/VCO/RX",
+  "original_source": "de6cef51",
+  "original_release": "efbdb378d6bd0974",
+  "original_session": "session-00065f54ca5964fa-00",
+  "sha256": "087be5365755e8fee2ceefe0cffbba8712cbaea670e8c8dbd04c25552249f478",
+  "reference": "mt7610-5ghz-frontend.json;Linux v7.0 phy.c external A-band PA branch"
+}

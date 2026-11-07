@@ -171,6 +171,8 @@
 #include <srvros/signal_syscall_numbers.h>
 #define SYS_FILE_STREAM 168
 
+/* Device branch Wi-Fi call moved from163;matched image required. */
+#define SYS_WIFI 169
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2

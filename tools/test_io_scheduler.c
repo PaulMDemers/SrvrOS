@@ -1167,8 +1167,7 @@ static void test_binding_contract(void)
     threads[3].state=THREAD_READY;expect_binding_refusal(0x2000,0x8000,55);threads[3].state=THREAD_RUNNING;
     threads[3].kernel_fpu.active_user_trap=(void *)0xabc;
     threads[3].user_thread_context=(void *)0x123;memcpy(&before,&threads[3],sizeof(before));
-    unsigned calls=fpu_set_calls,tss=tss_set_calls,clocks=clock_calls;
-    volatile unsigned diags=bind_diagnostics;
+    volatile unsigned calls=fpu_set_calls,tss=tss_set_calls,clocks=clock_calls,diags=bind_diagnostics;
     unsigned fs_writes=fixture_fs_writes;uint64_t fs_value=fixture_fs,tss_value=fixture_tss;
     if(!setjmp(bind_failure)) { scheduler_set_user_context((void *)7,0x2000,0x8000,55);assert(0); }
     assert(bind_diagnostics==diags+1 && !memcmp(&before,&threads[3],sizeof(before)));
