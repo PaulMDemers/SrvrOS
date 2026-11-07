@@ -121,6 +121,15 @@ bool intel_cache_probe_reader_uc_page(uint64_t physical,uint32_t offset) {
     return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
 }
 
+/* Separate exact read-only Broadwell TLB-control page, never a write grant. */
+bool intel_cache_probe_completion_uc_page(uint64_t physical,uint32_t offset) {
+    struct x86_cache_snapshot current;unsigned m,p,e;uint64_t pages[3];
+    if(offset!=0x4000 || !report_ok || !intel_scanout_trial_cache_pages(pages) ||
+       pages[0]<0x101000 || physical!=pages[0]-0x101000+offset ||
+       !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
+    return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
+}
+
 bool intel_cache_probe_hda_uc_page(uint64_t physical) {
     struct x86_cache_snapshot current;unsigned m,p,e;
     if(physical!=0xc1610000ull || !report_ok || !x86_cache_snapshot(&current,&io) ||

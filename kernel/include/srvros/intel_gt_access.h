@@ -23,7 +23,8 @@
  * masked request/acknowledgement protocol. Pinned i915 additionally waits for
  * GT thread C0. Not a GPU/firmware, range, reset or engine-stop authority.
  * Zero-initialize owners. Boot CPU serialized; independently establish all grants.
- * No native writer is currently wired. Snapshot zeros do not supply grants. Request comparisons use low16 bits;
+ * Native writers are isolated, explicit cooperative boot diagnostics only.
+ * Snapshot zeros do not supply grants. Request comparisons use low16 bits;
  * the raw upper16 mask is retained but is not requester state. */
 enum intel_gt_state {GT_ACCESS_EMPTY,GT_ACCESS_OPENING,GT_ACCESS_AWAKE,GT_ACCESS_CLOSED,GT_ACCESS_FAULT};
 enum intel_gt_write {GT_WRITE_NONE,GT_WRITE_DONE,GT_WRITE_UNCERTAIN};

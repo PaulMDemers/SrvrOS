@@ -1,9 +1,16 @@
+#if defined(SRVROS_INTEL_COMPLETION_TRIAL) && (!defined(SRVROS_INTEL_ENGINE_TRIAL) || !defined(SRVROS_INTEL_WAKE_TRIAL) || defined(SRVROS_INTEL_BLITTER_TRIAL))
+#error "Completion audit requires its own read-only engine/wake image"
+#endif
 #include <srvros/intel_gt_boot.h>
 #ifdef SRVROS_INTEL_WAKE_TRIAL
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+extern volatile struct limine_firmware_type_request intel_completion_firmware_request;
+#else
 extern volatile struct limine_firmware_type_request intel_wake_firmware_request;
+#endif
 extern volatile struct limine_bootloader_info_request bootloader_info_request;
 extern volatile struct limine_executable_cmdline_request executable_cmdline_request;
 #define WAKE_VA (BACKING_VA+0x10000)
@@ -12,7 +19,11 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #endif
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 #include <srvros/intel_engine_census.h>
-#ifdef SRVROS_INTEL_BLITTER_TRIAL
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+#define WAKE_MAPS 9u
+#define WAKE_VERSION 4u
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000};
+#elif defined(SRVROS_INTEL_BLITTER_TRIAL)
 #define WAKE_MAPS 11u
 #define WAKE_VERSION 3u
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x70000,0x71000,0x72000};
@@ -69,7 +80,13 @@ static bool wake_map(struct wake_adapter *a,unsigned i) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
     if(!intel_display_test_wake_uc(physical,wake_pages[i]))return false;
 #else
-    if(!(i<3?intel_cache_probe_wake_uc_page(physical,wake_pages[i]):i<8?intel_cache_probe_engine_uc_page(physical,wake_pages[i]):intel_cache_probe_reader_uc_page(physical,wake_pages[i])))return false;
+    if(!(i<3?intel_cache_probe_wake_uc_page(physical,wake_pages[i]):i<8?intel_cache_probe_engine_uc_page(physical,wake_pages[i]):
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+       intel_cache_probe_completion_uc_page(physical,wake_pages[i])
+#else
+       intel_cache_probe_reader_uc_page(physical,wake_pages[i])
+#endif
+       ))return false;
 #endif
     if(!backing_range_reserved(physical,4096))return false;
     uint64_t flags=VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|(i?0:VMM_PAGE_WRITABLE);
@@ -131,6 +148,7 @@ static bool engine_guard(void *context) {
 #endif
     return (request&0xffffu)==1 && ack==1 && !(thread&7);
 }
+#ifndef SRVROS_INTEL_COMPLETION_TRIAL
 static bool engine_group(void *context,unsigned engine,uint32_t out[INTEL_ENGINE_WORDS]) {
     struct wake_adapter *a=context;
     if(engine>=INTEL_ENGINE_COUNT || !a->mapped[engine+3] || !wake_guard(a))return false;
@@ -154,6 +172,10 @@ static void engine_report(const struct intel_engine_census *r,bool retired) {
     console_printf("intel-engine-summary: v=1 samples=%u reads=%u stable=%u enabled=%u pending=%u begin_us=%u end_us=%u observed=%u retired=%u engine_writes=0 reader_retirement=0 managed_pages=0 pte_writes=0\n",
         (uint64_t)r->samples,(uint64_t)r->reads,(uint64_t)r->stable,(uint64_t)r->enabled,(uint64_t)r->pending,r->begin_us,r->end_us,(uint64_t)r->complete,(uint64_t)retired);
 }
+#endif /* !completion: old group/receipt */
+#endif
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+#include "intel_completion_trial.inc"
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
 #include "intel_blitter_trial.inc"
@@ -168,12 +190,19 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
+    #ifdef SRVROS_INTEL_COMPLETION_TRIAL
+    const struct limine_firmware_type_response *firmware=intel_completion_firmware_request.response;
+#else
     const struct limine_firmware_type_response *firmware=intel_wake_firmware_request.response;
+#endif
     const struct limine_bootloader_info_response *loader=bootloader_info_request.response;
     const struct limine_executable_cmdline_response *cmd=executable_cmdline_request.response;
     f.efi64=firmware && !firmware->revision && firmware->firmware_type==LIMINE_FIRMWARE_TYPE_EFI64;
     f.loader=loader && !loader->revision && wake_text(loader->name,"Limine") && wake_text(loader->version,"11.4.1");
-#ifdef SRVROS_INTEL_BLITTER_TRIAL
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_completion_recipe(cmd->cmdline);
+    struct intel_completion_result completion={0};
+#elif defined(SRVROS_INTEL_BLITTER_TRIAL)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_blitter_recipe(cmd->cmdline);
     struct intel_engine_census engines={0};struct intel_blitter_result blitter={0};struct reader_audit readers={0};
 #elif defined(SRVROS_INTEL_ENGINE_TRIAL)
@@ -213,7 +242,11 @@ bool intel_gt_wake_probe_report(void) {
                 opened=intel_gt_access_open(&owner,&a.fw.gt.token,grants,(struct intel_gt_io){&a,wake_guard,wake_read,wake_write,now,wake_pause});
                 if(opened)checked=intel_gt_access_check(&owner);
                 #ifdef SRVROS_INTEL_ENGINE_TRIAL
+                #ifdef SRVROS_INTEL_COMPLETION_TRIAL
+                if(checked)(void)intel_completion_observe(&completion,&owner,(struct intel_completion_io){&a,engine_guard,completion_group,completion_context,now});
+#else
                 if(checked)(void)intel_engine_observe(&engines,&owner,(struct intel_engine_io){&a,engine_guard,engine_group,now});
+#endif
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
                 bool entry_disabled=engines.enabled==0;
@@ -254,9 +287,14 @@ bool intel_gt_wake_probe_report(void) {
     bool complete=grants==7 && opened && checked && closed && after && released && a.maps==WAKE_MAPS && a.retired==WAKE_MAPS && !retained && begin && end>begin && end-begin<=500000;
     unsigned engine_reads=0;
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+    engine_reads=completion.reads;completion_report(&completion);
+    complete=complete && completion.complete;
+#else
     engine_reads=engines.reads;
     engine_report(&engines,!retained && a.maps==a.retired);
     complete=complete && engines.complete;
+#endif
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
     engine_reads+=blitter.reads;blitter_report(&blitter,&readers);

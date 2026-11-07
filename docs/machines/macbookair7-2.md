@@ -6,7 +6,8 @@ Updated: 2026-11-07. State: **active reference machine; partial device acceptanc
 
 Main `d0ded465` (Air6,1 guarded read lifetime/audit) is integrated after the
 accepted6efe return. PR19 Pro Wi-Fi and PR379 WebCore retain independent scope.
-The next bounded objective is a separate CPU0 completion-audit image under the
+The [completion contract](../intel-completion-prerequisites.md) records exact
+registers and remaining ownership obligations. The next bounded objective is a separate CPU0 completion-audit image under the
 accepted cooperative GT wake lease: two full five-engine snapshots, saved
 flip-wait flags, all five documented TLB controls, RCS/BCS parser/cache-ordering
 context and explicit absence of pipeline/posted/prefetch completion authority.

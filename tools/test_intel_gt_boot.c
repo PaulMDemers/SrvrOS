@@ -66,4 +66,12 @@ int main(void) {
   snprintf(bad,sizeof(bad),"%s %.*s",readers,(int)(end-start),start);assert(!intel_gt_boot_reader_recipe(bad));start=*end?end+1:end;
  }
  for(unsigned i=0;i<6;i++){snprintf(bad,sizeof(bad),"%s %s",readers,foreign[i]);assert(!intel_gt_boot_reader_recipe(bad));}
+ char completion[2200];snprintf(completion,sizeof(completion),"%s srvros.intel-engines=read-only srvros.intel-completion=read-only",recipe);
+ assert(intel_gt_boot_completion_recipe(completion) && !intel_gt_boot_engine_recipe(completion) && !intel_gt_boot_completion_recipe(recipe));
+ for(const char *start=completion;*start;) {
+  const char *end=start;while(*end && *end!=' ')end++;
+  snprintf(bad,sizeof(bad),"%.*s%s",(int)(start-completion),completion,*end?end+1:end);assert(!intel_gt_boot_completion_recipe(bad));
+  snprintf(bad,sizeof(bad),"%s %.*s",completion,(int)(end-start),start);assert(!intel_gt_boot_completion_recipe(bad));start=*end?end+1:end;
+ }
+ for(unsigned j=0;j<6;j++){snprintf(bad,sizeof(bad),"%s %s",completion,foreign[j]);assert(!intel_gt_boot_completion_recipe(bad));}
 }

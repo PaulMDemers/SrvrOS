@@ -7,6 +7,11 @@
 /* Each host case models a fresh boot; production supplies no reset entry. */
 #include "../kernel/src/intel_boot_claim.c"
 #include "../kernel/src/display_access.c"
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+#include <srvros/intel_completion_audit.h>
+static bool intel_display_test_completion_read(unsigned,unsigned,uint32_t,uint32_t *);
+static bool intel_display_test_completion_context(unsigned,uint32_t *);
+#endif
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 static const char *engine_mode="report";
 #endif
@@ -26,6 +31,9 @@ static void intel_display_test_wake_irq_restore(uint64_t flags){assert(flags==51
 static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc0000000ull+o && (o==0xa000 || o==0x130000 || o==0x138000
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+ || o==0x4000
+#endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
  || o==0x70000 || o==0x71000 || o==0x72000
 #endif
@@ -34,6 +42,9 @@ static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc00000
 ));
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
  if(!strcmp(engine_mode,"cache-last") && o==0x22000)return false;
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+ if(!strcmp(engine_mode,"tlb-cache") && o==0x4000)return false;
+#endif
 #endif
  return !wake_cache_fail;}
 static bool intel_display_test_wake_read(uint32_t reg,uint32_t *v){assert(wake_irq && !display_access_allowed());*v=reg==0xa188?wake_request:reg==0x130044?wake_ack:wake_thread_stuck?1:0;return true;}
@@ -56,6 +67,30 @@ static bool intel_display_test_engine_read(unsigned e,unsigned w,uint32_t *v) {
  if(!strcmp(engine_mode,"changed") && engine_calls>30 && e==1 && w==2)*v=4096;
  if((!strcmp(engine_mode,"float") && e==0 && w==0) || (!strcmp(engine_mode,"float-last") && engine_calls==60))*v=UINT32_MAX;
  return strcmp(engine_mode,"read-fail")!=0 && (strcmp(engine_mode,"read-fail-last")!=0 || engine_calls!=60);
+}
+#endif
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+static bool intel_display_test_completion_read(unsigned e,unsigned i,uint32_t reg,uint32_t *out) {
+ assert(e<5 && i<8 && wake_irq && wake_ack==1 && !display_access_allowed());
+ static const uint32_t base[5]={0x2000,0x12000,0x1a000,0x1c000,0x22000},tlb[5]={0x4260,0x4264,0x4270,0x4268,0x426c},off[7]={0x30,0x34,0x38,0x3c,0x234,0x238,0x2d0};
+ assert(reg==(i==7?tlb[e]:base[e]+off[i]));
+ if(i<6)return intel_display_test_engine_read(e,i,out);
+ *out=0;
+ if(i==6 && !strcmp(engine_mode,"flip-wait"))*out=1u<<29;
+ if(i==7 && !strcmp(engine_mode,"tlb-pending"))*out=1;
+ if(i==7 && !strcmp(engine_mode,"tlb-reserved"))*out=2;
+ if(i==7 && !strcmp(engine_mode,"tlb-float"))*out=UINT32_MAX;
+ return strcmp(engine_mode,"tlb-read")!=0;
+}
+static unsigned completion_context_reads;
+static bool intel_display_test_completion_context(unsigned reg,uint32_t *out) {
+ unsigned i=0;static const uint32_t regs[6]={0x209c,0x20c0,0x229c,0x2209c,0x220c0,0x2229c};
+ for(;i<6 && regs[i]!=reg;i++);
+ assert(i<6 && wake_irq && wake_ack==1 && !display_access_allowed());completion_context_reads++;
+ *out=(i==0 || i==3)?0x200:i==1?0x4080:0;
+ if(!strcmp(engine_mode,"context-change") && completion_context_reads>6)*out^=1;
+ if(!strcmp(engine_mode,"context-float"))*out=UINT32_MAX;
+ return strcmp(engine_mode,"context-read")!=0;
 }
 #endif
 static bool fw_mode,fw_bad_signature,fw_changed,fw_cache_fail,fw_map_fail,fw_retire_fail;
@@ -84,6 +119,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+#define intel_wake_firmware_request intel_completion_firmware_request
+#endif
 volatile struct limine_firmware_type_request intel_wake_firmware_request={.response=&wake_firmware};
 volatile struct limine_bootloader_info_request bootloader_info_request={.response=&wake_loader};
 volatile struct limine_executable_cmdline_request executable_cmdline_request={.response=&wake_cmd};
@@ -217,6 +255,9 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
 
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
  if(!strcmp(engine_mode,"map-last") && v==BACKING_VA+0x17000)return false;
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+ if(!strcmp(engine_mode,"tlb-map") && v==BACKING_VA+0x18000)return false;
+#endif
 #endif
 #if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
  if(v==HDA_VA && !intel_display_test_hda_map())return false;
@@ -234,6 +275,9 @@ bool vmm_unmap_page_in_space(uint64_t space,uint64_t v,uint64_t *p){
 assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
  if(!strcmp(engine_mode,"retire-last") && v==BACKING_VA+0x17000)return false;
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+ if(!strcmp(engine_mode,"tlb-retire") && v==BACKING_VA+0x18000)return false;
+#endif
 #endif
  if((wake_retire_fail && v==BACKING_VA+0x10000) || (fw_retire_fail && pa[n]==0x12345000) || dma_unmap_fail || (window_retire_fail && pa[n]==0xc0811000) || (gt_retire_fail && pa[n]==0xc000a000))return false;
  *p=pa[n];pa[n]=0;unmap_calls++;return true;}
@@ -354,6 +398,9 @@ int main(int argc,char **argv) {
     static char engine_recipe[1024];
     snprintf(engine_recipe,sizeof(engine_recipe),"%s srvros.intel-engines=read-only",wake_cmd.cmdline);
     wake_cmd.cmdline=engine_recipe;
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+    static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
+#endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
     bcs_entry_disabled=!strncmp(engine_mode,"blit-off-",9);if(bcs_entry_disabled)bcs_ctl=0;
     static char blitter_recipe[1200];snprintf(blitter_recipe,sizeof(blitter_recipe),"%s srvros.intel-blitter=retire",engine_recipe);wake_cmd.cmdline=blitter_recipe;
@@ -370,6 +417,9 @@ int main(int argc,char **argv) {
  if(wake_mode){config_reads=0;if(!strcmp(argv[1],"--wake-loader"))wake_loader.version="unknown";if(!strcmp(argv[1],"--wake-efi"))wake_firmware.firmware_type=1;if(!strcmp(argv[1],"--wake-recipe"))wake_cmd.cmdline="srvros.intel-wake=trial";bool good=!(wake_cache_fail || wake_map_fail || wake_retire_fail || wake_uncertain || wake_no_ack || wake_foreign || wake_busy || wake_thread_stuck || wake_late_foreign || wake_fw_after || !strcmp(argv[1],"--wake-loader") || !strcmp(argv[1],"--wake-efi") || !strcmp(argv[1],"--wake-recipe"));
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
  good=good && strcmp(engine_mode,"float-last") && strcmp(engine_mode,"read-fail-last") && strcmp(engine_mode,"float") && strcmp(engine_mode,"read-fail") && strcmp(engine_mode,"cache-last") && strcmp(engine_mode,"map-last") && strcmp(engine_mode,"retire-last") && strcmp(engine_mode,"late-foreign") && strcmp(engine_mode,"slow") && strcmp(engine_mode,"frozen");
+#endif
+#ifdef SRVROS_INTEL_COMPLETION_TRIAL
+ good=good && strcmp(engine_mode,"changed") && strcmp(engine_mode,"context-change") && strcmp(engine_mode,"context-read") && strcmp(engine_mode,"context-float") && strcmp(engine_mode,"tlb-float") && strcmp(engine_mode,"tlb-reserved") && strcmp(engine_mode,"tlb-read") && strcmp(engine_mode,"tlb-cache") && strcmp(engine_mode,"tlb-map") && strcmp(engine_mode,"tlb-retire");
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
  if(!strncmp(engine_mode,"blit-",5))good=good && (!strcmp(engine_mode,"blit-report") || !strcmp(engine_mode,"blit-off-report"));
