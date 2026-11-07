@@ -14197,3 +14197,41 @@ and ordinary network selection remain unchanged. Reproduce forward exhaustion,
 finite queue drain,cleanup reserve exhaustion and ownership faults in the actual
 native-owner fixture before matched build/full-prefix/exact-stage qualification.
 This scope is diagnostic/retirement work,not new DHCP/DNS/data acceptance.
+
+### Qualified reserved-RX/ARP diagnostic candidate (November 7)
+
+Runtime56410985 retains integration baselinea1661937. The matched kernel/USB
+build,full controller and relevant protocol/crypto/DNS/ownership regressions,
+233 stage tests,all16 fatal ASan/UBSan groups and native stack checks pass.
+The largest new frame remains1,240bytes. Actual native-owner fixtures prove
+finite queued cleanup after forward exhaustion,unchanged ring cycle/no reuse,
+reserve exhaustion refusal and drain ownership-loss quarantine. Valid padded
+ARP replies still pass;counter tests preserve every sender/target/wire refusal
+and distinguish valid requests for the assigned address without logging values.
+
+The complete production-C/native-parent synthetic prefix passes2,039,776bytes
+and119 altered/incomplete-prefix refusals. The conservative bound leaves42,215
+bytes below the unchanged2MiB limit,including the separate32KiB reserve. Real
+filesystem persistence/remount/fsck,ordinary desktop and exact-stage save/return
+and missing-workspace VMs pass. The independently reconstructed private-PMK/
+firmware initramfs and compiled kernel match the installed payload exactly.
+This is not a full-core rerun or new physical acceptance.
+
+Both data failure capsules (581/564 files),accepted four-way capsule/notes
+(177/24),failed four-way (569) and accepted M1 (178) seals remain unchanged.
+The latest generated failed session was archived,byte-verified and pruned only
+after preserving its full capsule. Offline allocation,writable eligibility and
+headroom pass. EFI space was recovered only from an unreferenced older v123
+duplicate after complete backup verification;its accepted backup survives
+outside build. Latest accepted v130,M1 and e47d previous remain installed.
+The corrected candidate is installed,Ubuntu is default,and no boot is armed yet.
+
+Next authorized action is cold shutdown,Wi-Fi-only10second unplug while off,
+same-port reconnect and power on with workspace attached. Guest progress,saving
+and Ubuntu return are automatic. Collect the reserved-RX candidate first after
+return;inspect ARP classifications even on a handled failure. Require the full
+DHCP/DNS/exact256-byte echo,PN1..6,key erasure/leave and all endpoint/input/MAC/
+power/RF originals before accepting the complete diagnostic. No blind retry or
+deadline/security/ownership relaxation. Ordinary provider/UI,TCP/HTTP and live
+reattach remain pending;Demers2.4 needs compatible hardware. PR19 stays draft
+and Actions remain disabled.
