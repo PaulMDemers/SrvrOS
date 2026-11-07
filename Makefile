@@ -3334,6 +3334,13 @@ build/tests/thermal-host$(HOST_EXE): tools/test_thermal.c kernel/src/drivers/the
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include tools/test_thermal.c kernel/src/drivers/thermal_core.c -o $@
 
 .PHONY: test-process-loader
+test-core: test-process-mapping-storage
+.PHONY: test-process-mapping-storage
+test-process-mapping-storage: build/tests/process-mapping-storage-host$(HOST_EXE)
+	$<
+build/tests/process-mapping-storage-host$(HOST_EXE): tools/test_process_mapping_storage.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-process-loader
 test-process-loader: build/tests/process-loader-host$(HOST_EXE)
 	$<
@@ -4792,7 +4799,7 @@ build/ap-probe/haswell-firmware-adapter.o: kernel/diagnostics/haswell_firmware_a
 
 .PHONY: test-haswell-firmware
 test-core: test-haswell-firmware
-test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-firmware-adapter$(HOST_EXE)
+test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-firmware-adapter$(HOST_EXE) build/tests/ecam-profile$(HOST_EXE)
 	build/tests/hsw-firmware-core$(HOST_EXE) > build/tests/hsw-firmware-core.log
 	build/tests/hsw-firmware-adapter$(HOST_EXE) > build/tests/hsw-firmware-refusal.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_firmware.py

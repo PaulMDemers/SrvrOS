@@ -191,7 +191,7 @@ def _result(ecam_text, exit_text, session):
     return dict(status='OBSERVED_BOOT_ECAM_AND_MANAGED_ROOT', source_completed=True,
                 session=session, epoch=epoch, root=root, frame=frame,
                 ecam_cpu_mapping_observed=True, raw_bytes=len(data), mapper_words=proof['words'],
-                alias_pages=alias['pages'], unchanged_two_pass_raw=True,
+                alias_pages=alias['pages'], alias_preparation=alias.get('preparation'), unchanged_two_pass_raw=True,
                 live_post_init_admission=False, all_hardware_aliases_proven=False,
                 hardware_authority=False, ownership=False, vt_d_reads=0,
                 native_mapping_authorized=False)

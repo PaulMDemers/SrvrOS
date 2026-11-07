@@ -7832,3 +7832,257 @@ All raw files, ELF inspection and assessment are hash-verified outside build.
 Ubuntu/recovery/fallback hashes verify; collector disabled, timer inactive and
 one-shot cleared. No boot is armed. The installed diagnostic remains unaccepted
 as a complete profile; prior independent device acceptance is unchanged.
+
+
+### Mapping-storage and handoff scope (2026-11-06)
+
+Base `e1a30e1e`; prior native v5 collected failed overall, no boot armed. Replace
+unused embedded mapping arrays with image-owned deferred full-capacity backing,
+retaining65536 mappings per process, all64 slots and existing publication,
+ownership and teardown checks. Cover allocation failure before page publication,
+fork/exec transfer/rollback, cleanup and slot reuse. Scope: private process
+mapping field/helpers, map/cleanup/image-transfer code and real host fixtures;
+leave slot/lifetime publication and PR301 owner-revocation work unchanged. PR19
+has no process.c delta against this baseline; PR301's process edits concern
+scope-owner revocation/publication, not mapping backing. Publish bounded commits
+and preserve those independent changes.
+
+Also remove redundant registry duplicate searches for the freshly proved unique
+ECAM span, keeping39936 attempts/events, capacity128, complete pre/post registry
+verification and the original root/source/clock checks and100ms lifetime. No
+policy, ownership gate, A/D mask or limit change. Measure the exact ELF reduction
+and source-matched host/VM results before a new physical stage; native graph fit
+and timing improvement remain unaccepted until a complete matching receipt.
+
+
+### Deferred backing and handoff candidate (2026-11-06)
+
+Unused process slots no longer embed65536 mapping records each. A private image
+reserves its full original capacity through the checked heap and zeros it in
+64KiB service batches before the first user-page publication. Failed allocation
+publishes no page. Exec transfers unique backing under IRQ exclusion after old
+image retirement; cleanup frees it after the tracked prefix is empty. Atomic
+growth requires existing backing; fresh-image, frame-copy and reaping checks
+reject inconsistent or still-owned storage.64 slots,65536 mappings and all
+other capacities remain unchanged. Slot/lifetime ownership and PR301's separate
+owner-revocation changes are untouched.
+
+The AP-only ECAM span now appends the available registry prefix without repeated
+duplicate searches after proving the old VAs are excluded and new VAs unique.
+All39936 attempts/events,128-row capacity, original root/source/clock checks,
+invalidation and complete pre/post verification remain. Every starting count
+0–128 matches the old registry result. This does not restart the100ms deadline
+or change the65536-word cap, old census/context limits or any policy.
+
+All17 process suites, full-capacity storage/ownership failures and actual ECAM
+fault/oracle tests pass. Matched images and the full local core suite pass
+(one optional exhaustive I/O test skipped by default). The measured AP ELF BSS
+drops exactly96MiB to20090472 bytes (about19.160MiB); its process array is8781824
+bytes. Sanitizers, frozen-source builds and staged VM checks remain next at
+this checkpoint. Native graph fit/timing improvement remain unaccepted; the
+prior failed run/evidence/recovery are retained and no new boot is armed.
+
+The final native sanitizer checks pass for full-capacity mapping storage, image
+lifecycle, loader and checked ECAM backend/gate. The new storage fixture and
+ECAM gate also cross-compile to ARM64. Initial cross-compilation exposed old
+unrelated STI/HLT instructions emitted by process host fixtures; those unexpected
+host paths now trap, while native disassembly and relocations compare identical.
+All process suites were rerun after that host-only adaptation. Native runtime
+acceptance and exact-stage VM checks remain pending at this source checkpoint.
+
+
+### Frozen mapping-storage validation (2026-11-06)
+
+[PR391](https://github.com/PaulMDemers/SrvrOS/pull/391), compiled/tested runtime
+`ad1d6199`, exact v5 release `83ef1c984bb62a79`: full local core/build checks
+passed, including the89-test installed-root matrix (one optional exhaustive
+I/O case skipped by default). After the host-only privileged-instruction
+adaptation, all17 process suites and the actual ECAM backend passed again;
+native disassembly/relocations stayed identical. Five actual-source ASan/UBSan
+fixtures pass, and mapping-storage/ECAM-gate fixtures compile for ARM64.
+
+Seven sequential staged Q35 checks passed: legacy firmware, cache context,
+alias-v3, fences32, v4, exact-v5 refusal and v5 missing workspace. The v5 success
+formatter fixtures remain byte-identical to the original. Normal images exclude
+AP diagnostic symbols; the AP image retains them. These VM results validate
+refusal/collection and shared runtime behavior, not Haswell native admission.
+
+Next native run checks the unchanged early100ms/65536-word handoff and later
+64-table/two-pass full managed-root census with the smaller image. Require both
+matching raw receipts and complete final save/unmount/return. An early halt or
+missing completion remains failed/incomplete. Ubuntu stays default; protected
+accepted recovery and full prior failed payload/evidence remain outside build.
+No power policy, mapping permission, integrity check or limit was widened.
+
+Ordinary syscall, UEFI USB keyboard, fork, exec-vector and scheduler-yield VM
+checks also passed against the matched normal image. Native graph/timing
+acceptance is pending the automated run; no result is inferred from Q35.
+
+
+### Smaller-image native closeout (2026-11-06)
+
+PR391 merged as `bcd75f13`; runtime `ad1d6199`, release `83ef1c984bb62a79`,
+session `session-00065fa40ca8a88a-00` returned automatically and was collected.
+The full profile **failed**, with its explicit `completed=NO` retained. The
+strictly decoded early raw proof observes successful checked ECAM adoption in
+93775us (6225us margin to the unchanged100ms limit),36268 checked words, one
+parent publication and the original39936 invalidations/metadata attempts. This
+is one bounded component observation, not full-profile acceptance or a native
+process-lifecycle stress pass.
+
+The smaller image removes the prior64-table exhaustion: pass one traversed all
+30 tables /15360 entries and encoded3870 bytes, within unchanged limits. Pass
+two refused at read6847, table `0x8cebf000` index190: expected
+`0x8cebe003`, observed `0x8cebe023`, a raw accessed-bit transition. Preserve
+that exact comparison; do not mask A/D bits or retry a failed measured pass.
+The source reads/writes its own static result backing while walking, so
+measurement-induced first access is a hypothesis to audit, not an established
+attribution. Next scope should identify the affected mapping and first-touch
+path and establish stable measurement prerequisites before the original bounded
+two-pass capture, retaining all RAM/root/translation guards and limits.
+
+All605 prior files are present and hash-identical except expected `.srvros/meta`;
+only three matching logs were added. Offline checks pass at608 files /1681
+clusters, zero leaks/FAT-bitmap mismatches/errors. Raw failed evidence and exact
+payload are hash-verified outside build. One-shot state is clear and collection
+disabled; Ubuntu and protected accepted recovery remain. No new boot is armed.
+
+
+### Raw-census first-touch scope (2026-11-06)
+
+Base `6896aa9d`; prior failed native run collected, no boot armed. Audit the
+walker/result-storage first-touch path and add a guarded, bounded RAM-only
+preparation traversal before the original two exact snapshots. Preparation and
+both snapshots share the original100ms clock; each traversal retains64 tables
+and32768 maximum reads, and measured output remains4096 bytes/pass. Record
+preparation separately; it is additional read-only prerequisite work, not a
+third accepted snapshot, a failed-pass retry or a restarted deadline. Prime
+private result backing before observations; never write page tables or mask
+A/D changes. Fail closed on preparation errors or graph expansion afterward.
+
+Touched scope: diagnostic alias core/adapter/result contract, host/core/collector
+regressions and own machine/design records. Normal startup remains unchanged.
+PR301 owns separate Air7,2 scanout/process revocation work and PR19 owns Wi-Fi;
+actual open PRs and current integration baseline inspected, no conflicting
+alias-core changes published. Next checkpoint: reproduced first-touch race,
+exact-comparison negative tests, matched build/staged VM validation and bounded
+automated native capture under existing reboot authorization.
+
+
+### First-touch preparation candidate (2026-11-06)
+
+The original core fails the targeted HHDM first-touch reproducer at the first
+comparison (status5,2049 reads); the new core completes guarded preparation
+and both exact snapshots (6144 reads for four tables). Private result backing
+is primed inside the shared lifetime before source observations. Preparation
+retains the same RAM/root/translation accessor and discovers the graph once;
+expansion afterward is refused. Measured A-bit, D-bit and address changes still
+fail, as do preparation/source failures, shared-clock expiry, malformed graphs
+and all existing table/output bounds. The maximum64-table fixture still passes.
+
+Affected alias/cache/firmware/ECAM core, adapter, strict collector, layout and
+proposal suites pass, including legacy receipt compatibility and malformed
+preparation refusal. Matched normal/AP/USB/ISO images build; actual core/fixture
+ASan/UBSan checks pass and both compile for ARM64 with assertions enabled.
+Exact-stage VMs and native acceptance remain next. No measured raw-bit masking,
+PTE write, changed cap, restarted deadline or failed-snapshot retry is introduced.
+
+
+### Frozen first-touch stage (2026-11-06)
+
+Runtime/collector `0b9b303e`, exact release `ab360d3ce2d281e4`: all seven
+legacy/new staged VM rehearsals pass, including v5 refusal and missing
+workspace. Normal image symbols exclude the diagnostics and the AP image
+retains them. Original v5 producer receipts remain byte-identical; joint
+collector checks retain the new preparation proof, reject a bad receipt and
+fit the unchanged65536-byte log-tail budget, including maximum fixtures.
+Native complete root/timing acceptance remains pending. Additional preparation
+work is counted separately while sharing the original census lifetime.
+
+Ordinary syscall, UEFI USB keyboard, fork, exec-vector and scheduler-yield VM
+checks also pass against the matched normal image. The automated native trial
+will require complete same-session raw proofs, preparation accounting, final
+completion and clean USB save/unmount/return; prior failures remain retained.
+
+
+### Exact boot mapping/root context accepted (2026-11-06)
+
+PR393 merged as `30bcac81`; runtime/collector `0b9b303e`, release
+`ab360d3ce2d281e4`, session `session-00065fa46d93e81f-00` passed the full
+automated profile and strict matching dual-file decoder. Checked ECAM adoption
+took93608us with36268 checked words, within the unchanged100ms/65536-word
+lifetime. One parent publication,512 private writes,39936 invalidations and
+metadata attempts, zero frees and one adoption remain verified by the raw proof.
+
+Guarded preparation read15360 entries across30 tables in13658us. Both measured
+passes then read15360 entries and encoded3816 bytes each, matching exactly
+including A/D bits. Preparation plus both passes took40181us inside the original
+100ms clock, with64-table/32768-entry/4096-byte caps unchanged. NX/EFER/control
+endpoints, pinned firmware/cache context, same root/epoch and early adoption
+reference all passed. Target leaves are zero. This accepts the boot-only checked
+ECAM CPU mapping and pre-user-init sole-managed-root context on this exact unit;
+it does not grant live post-init admission, exhaustive hardware aliases, a
+VT-d resource lease/read, graphics ownership or another model's acceptance.
+The earlier raw-change failures remain failed; the targeted host reproducer
+and this native pass support first-touch preparation without proving every
+detail of the earlier native transition's cause.
+
+Completion was YES, final logs saved, USB unmounted and Ubuntu returned
+automatically. All608 prior files remain hash-identical except expected
+`.srvros/meta`; only the three matching logs were added. Offline checks pass
+at611 files /1685 clusters with zero leaks/FAT-bitmap mismatches/errors. Exact
+payload and full evidence are hash-verified outside build. Collection is
+disabled and one-shot state empty; Ubuntu and protected recovery are retained.
+
+Next is an audit of remaining live resource/alias/leaf admission and checked
+retirement before any separately opted-in VT-d read window. Keep ordinary
+startup and power policy unchanged. Actual ownership, reference-count discrepancy,
+GT/full-path swizzle, RC6 timing and package-C3 blockers remain separate.
+
+
+### Post-census admission audit scope (2026-11-06)
+
+Base `4bba4b93`; accepted release `ab360d3ce2d281e4` is collected and closed,
+no boot armed. Consume its strict same-session dual-file boot/root proof in the
+host-only VT-d admission audit. Distinguish observed boot-only30-table coverage
+and NX state from fresh live exclusion, a device-resource lease, actual RO/NX/UC
+leaf admission and poisoned retirement. Reinspect current PMM/VMM APIs and
+PR301's actual merge-base delta without editing its separate ownership work.
+Current PR301 has no new memory/alias-core delta from its integration ancestor;
+PR19 Wi-Fi and PR379 WebCore remain independent.
+
+Touched scope: host admission tool/refusal tests and own current machine/DMA
+guides. No kernel, profile, policy, limit, mapping or device-read change. Validate
+raw session/epoch/source linkage and reject missing/cross-session/changed proofs;
+old context-only mode must remain blocked. Replay the exact accepted receipt,
+publish source findings and the next bounded implementation contract. No physical
+rerun is required for a host-only audit; retain accepted payload/recovery.
+
+
+### Post-census admission audit complete (2026-11-06)
+
+The host tool now requires both raw logs and the exact session for boot-proof
+mode and uses the existing strict joint decoder. The accepted `ab360d3ce2d281e4`
+receipt replays as `HOST_BOOT_ADMISSION_AUDIT_BLOCKED`: historical boot mapping,
+complete30-table managed-root coverage and enabled NX are observed, with zero
+target leaves; every live resource/mapping/read/ownership grant remains false.
+Legacy context-only replay remains blocked and unchanged.
+
+Source inspection confirms PMM reservation is not an exclusive device lease;
+the128-row public VMM list is partial; the sole-root predicate assumes its CPU0
+caller and does not validate AP state; generic existing-map acceptance checks
+PA rather than exact flags; generic unmap lacks an expected-leaf token, clear
+readback and retained poison. The ECAM boot backend owns a separate permanent
+window and is not a resource grant. The [read-window design](../macbookair6-1-vtd-read-window-design.md)
+specifies fresh whole-lifetime exclusion, exact-page token, absent-slot/owned
+publication, RO/NX/non-global/UC verification, per-load translation checks and
+expected-leaf/TLB retirement with retained claims/backing on uncertainty.
+
+Affected firmware/read/admission/cache/alias/ECAM/layout/collector suites pass,
+including four new boot-admission tests using the real producer, maximum
+fixture, missing/changed/cross-session/raw/completion refusal, external-claim
+non-authority and CLI argument pairing. Exact accepted native replay and docs
+checks pass. No kernel/profile/policy/limit change or new physical acceptance;
+installed payload/recovery unchanged and no boot armed. Next implementation is
+a dormant checked resource/mapping backend with actual-source failure fixtures,
+then window-only qualification before any separately opted-in target reads.

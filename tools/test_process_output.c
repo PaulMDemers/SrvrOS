@@ -208,6 +208,7 @@ bool vfs_stat(const char *path,struct vfs_metadata *metadata,uint64_t *size,uint
 }
 static struct process subject;
 static void setup(unsigned refs) {
+    free(subject.mappings);subject.mappings=NULL;
     clear_process(&subject);memset(write_files,0,sizeof(write_files));
     saves=0;fail_save=false;saved_size=0;
     uint64_t handle=write_file_alloc();assert(handle==1);

@@ -43,8 +43,8 @@ void console_printf(const char *s,...) { (void)s; }
 void console_write(const char *s) { (void)s; }
 bool exfat_write_file_mode(const char *p,const uint8_t *d,uint64_t n,uint64_t m) { (void)p;(void)d;(void)n;(void)m;abort(); }
 bool exfat_write_file_retryable(const char *p,const uint8_t *d,uint64_t n,bool *r) { (void)p;(void)d;(void)n;(void)r;abort(); }
-void *kmalloc(size_t n) { (void)n;abort(); }
-void kfree(void *p) { (void)p;abort(); }
+void *kmalloc(size_t n) { assert(n==sizeof(struct process_mapping)*PROCESS_MAX_MAPPINGS);return malloc(n); }
+void kfree(void *p) { free(p); }
 int64_t net_close(uint64_t h) { (void)h;abort(); }
 int64_t net_hold(uint64_t h) { (void)h;abort(); }
 bool pty_ref(uint64_t h,bool m) { (void)h;(void)m;abort(); }

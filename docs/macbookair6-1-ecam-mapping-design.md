@@ -2,13 +2,15 @@
 
 ## Status and scope
 
-Host-only design on integration base `4cc0408b`. The [layout audit](macbookair6-1-dma-inventory.md#ecam-layout-and-fixed-bound-feasibility-audit-2026-11-05)
+The original host design used integration base `4cc0408b`. The [layout audit](macbookair6-1-dma-inventory.md#ecam-layout-and-fixed-bound-feasibility-audit-2026-11-05)
 shows that the existing156-bus4KiB ECAM mapping alone needs at least81 tables,
 beyond the unchanged64-table/32768-entry census bounds. This proposal preserves
 all39936 physical4KiB mappings, attributes and PCI config address calculations,
-using78 prospective2MiB leaves. The actual backend and fresh pre-PCI gate are now
-implemented in the isolated AP ELF, with no boot-dispatcher caller or hardware
-activation yet. The host proposal remains a historical/input model, not a grant.
+using78 prospective2MiB leaves. The backend and fresh pre-PCI gate are implemented in the isolated AP ELF
+with an explicit opt-in v5 pre-PCI caller. The exact native release
+`ab360d3ce2d281e4` now accepts checked boot ECAM mapping and sole-managed-root
+context under the original bounds; ordinary boot and separate hardware grants
+remain unchanged. The host proposal remains a historical/input model, not a grant.
 
 `tools/haswell_ecam_mapping_proposal.py` consumes a complete exact-unit raw
 CPU/cache receipt through its existing strict decoder and a complete checksummed
@@ -289,3 +291,51 @@ insufficient to prove attribution. The original ECAM-only graph estimate was
 not a complete native-layout result; its successful compact subtree does not
 make the remaining graph fit. Keep the census/lifetime limits unchanged and
 also investigate startup timing headroom before another implementation/trial.
+
+
+## Unique-span registry bookkeeping
+
+The checked handoff keeps39936 attempts and fault hooks, capacity128 and complete
+pre/post registry verification. Prepare excludes every old registry VA from the
+whole ECAM span, handoff revalidates the snapshot and the new VAs increase
+strictly. No new VA can update an old or previously appended row. The private
+handoff therefore appends the available prefix directly and leaves its full
+registry tail unchanged, instead of searching128 rows for every provable no-op.
+Each attempt also checks the expected count. All original root/clock checks,
+full invalidation, post-readback and strict comparisons remain, with no deadline
+restart. Generic PCI registration is unchanged. Real-source fixtures compare
+every initial count0–128, including unordered/duplicate old VAs outside the span,
+and retain failure/poison coverage. Native timing improvement still needs a
+matching hardware receipt.
+
+
+### Census measurement first-touch preparation
+
+The opt-in RAM-only alias census now primes its private result backing and
+performs one bounded guarded graph preparation before its original two exact
+snapshots. Loading a later table through HHDM can set A in an earlier mapping;
+preparation exercises those source paths before observations. It uses the same
+RAM-catalog, sole-root and exact-translation accessor, no PTE/device writes.
+Preparation and both measured snapshots share the original100ms lifetime with
+no clock restart or failed-pass retry. Each traversal retains64 tables and
+32768 reads; measured snapshots retain4096 lossless bytes each. Preparation
+is additional read-only work, separately counted, not extra accepted raw proof.
+Graph expansion after preparation fails closed. Every measured entry, including
+A/D bits, must still compare exactly. The preparation receipt shares the census
+begin timestamp and records its own completion, read and table counts; the
+collector validates it when present while retaining old saved-report compatibility.
+Native timing/stability require a fresh complete matching capture.
+
+
+### Native first-touch closeout
+
+Runtime `0b9b303e`, release `ab360d3ce2d281e4` passed the complete matching
+dual-file profile:93608us /36268 words for early adoption, then guarded
+preparation and two exactly matching30-table snapshots in40181us total.
+Preparation read15360 entries in13658us; measured passes read15360 entries
+and encoded3816 bytes each, retaining every raw A/D bit. All original bounds,
+root/translation/catalog checks and final completion/save/unmount proofs pass.
+This is boot-only exact-unit CPU mapping/root-context evidence. It does not
+authorize a VT-d target load, live post-init mapping, resource lease or graphics
+ownership. Remaining admission/retirement mechanisms require their own audit
+and scoped validation. Prior failed attempts remain retained.
