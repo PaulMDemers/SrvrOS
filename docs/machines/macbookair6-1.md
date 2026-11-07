@@ -8108,3 +8108,27 @@ token is valid only within a caller-proved exclusive epoch; it is not a global
 MMIO lease against bypassing clients. Validate clean refusal, borrowed frames,
 raw/source/clock/root/IRQ failures, reentry/stale tokens, exact A/D changes and
 retained poison before considering a future window-only native qualifier.
+
+
+### Dormant window backend candidate (2026-11-06)
+
+The AP-only actual VMM backend now performs a fresh bounded census, stages two
+private tagged/nonborrowed pages, validates the exact RO/XD/PAT3 leaf/path and
+publishes a single expected-zero parent. Owner/epoch/root tokens,100ms whole
+lifetime, separate65536-word mapper accounting, immediate readback, fenced
+invalidation and checked detached-frame cleanup are enforced. Uncertainty
+retains claim/backing with first-failure poison and no retry. No target-load
+API, native gate, boot caller or new hardware grant is added. Effective UC and
+all-client exclusion remain the future trusted bridge's obligations; this
+local reservation alone is not a global MMIO lease.
+
+The actual VMM/census fault fixture passes clean/refused/poisoned lifetimes,
+including existing aliases/slots, borrowed/duplicate/MMIO allocations, changed
+raw data/A/D/permissions, source/root/IRQ/clock/cap failures, before/after parent
+publication, bad readback, reentry/stale tokens and partial cleanup. A successful
+fixture lifetime uses60451 mapper words, with untouched borrowed pages and zero
+target loads; synthetic clock values are not native latency acceptance.
+Matched images and affected ECAM/alias/cache/firmware/process mapping/image/
+service suites pass. Sanitizers/cross-compilation and frozen VM checks follow
+before integration. Installed accepted `ab360d3ce2d281e4` and recovery unchanged;
+no reboot armed and native window qualification remains pending.

@@ -1088,3 +1088,7 @@ bool vmm_copy_user_frame_current(uint64_t root,uint64_t destination,
 #ifdef SRVROS_ECAM_BOOT
 #include "ecam_boot.inc"
 #endif
+
+#ifdef SRVROS_AIR61_WINDOW
+#include "air61_window.inc"
+#endif
