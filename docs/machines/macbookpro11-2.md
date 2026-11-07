@@ -14017,3 +14017,38 @@ AUTH/ASSOC/M3 MIC/local M4,software activation/erasure and complete MAC/endpoint
 input/power/RF originals,storage and recovery. The earlier wire toggle was not
 observed. AP acknowledgement,encrypted IP/data and reconnect remain pending;
 Demers2.4 still needs compatible hardware.
+
+### Native paired-toggle four-way checkpoint accepted (November 7)
+
+Runtime09504e18,session00065fb3e26fdbab-00 passes the unchanged complete saved
+ledger:2,038,668-byte prefix,15,719 parent operations,channel161/20MHz and full
+power/RF originals. The exact EP04 clear completed before fresh host endpoint
+configuration. The new child matched AUTH/ASSOC,M1 and M3 with verified MIC,
+submitted M2 and M4,activated its unique software-key backend,then erased
+ephemeral keys and submitted leave. It completed in30,934us with five sends,
+nine polls,one ignored frame,six endpoint commands,six RX posts and53 register
+controls. MAC drain/disable/filter/TXOP,old RX context,disabled OUT and shared
+input restoration passed. DMA pages remain retained as designed. No hardware
+key offload or encrypted data was attempted. M4 USB completion is not an AP ACK;
+authenticated encrypted traffic remains the test of AP acceptance.
+
+The177-file private native capsule and separate acceptance notes are preserved
+outside build. The earlier569-file failed capsule and178-file accepted M1
+capsule remain unchanged. Offline filesystem/allocation and all installed
+recovery comparisons pass;Ubuntu remains default and no boot is armed. The
+successful comparison supports the sequencing correction without observing the
+earlier native wire toggle. Persistent private PMK storage is separate from
+the ephemeral key erasure receipt;credential-bearing identities remain local.
+
+Next bounded objective is a separate post-M4 software CCMP data window before
+erasure/leave,with exact peer binding,monotonic TX packet numbers,authenticated
+RX and replay refusal,bounded RX/TX ownership and full retirement. Touch the
+Wi-Fi child/coordinator,CCMP transport framing and corresponding fixtures/log
+checks/profile only as needed;preserve existing accepted capture recipes and
+hardware gates. Then prove DHCP/DNS,bidirectional transfer and disconnect,
+followed by live provider/UI reattach. Demers2.4 requires compatible hardware.
+Fetched maina1661937 adds independent Air6,1 clock-sampling changes;it is not
+part of this accepted runtime. PR402 Air6,1 census,PR301 graphics andPR379 browser
+remain separate;PR19 stays draft. Consume and qualify the actual main changes
+before staging another physical candidate. Cold trials still use shutdown and
+the standing Wi-Fi-only10second unplug procedure.

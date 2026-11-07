@@ -7258,4 +7258,17 @@ DATA0/DATA1 and duplicate ACKs,reproduces the old AUTH timeout when device reset
 is omitted,and tests reset failure,wrong completion length,reentry and loss
 of synchronization. See the primary [Linux USB clear-halt behavior](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/usb/core/message.c)
 and [xHCI endpoint-toggle reset](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/usb/host/xhci.c),
-and Intel xHCI1.22 section4.6.8. New native acceptance remains pending.
+and Intel xHCI1.22 section4.6.8.
+
+The Pro11,2 v130 runtime09504e18 now passes the complete native ledger after
+that exact clear:matched AUTH/ASSOC,M1,M2,M3 MIC and local M4 completion,unique
+software-key activation/erasure,leave submission and full endpoint/input/MAC/
+power/RF restoration. The independent exchange took30,934us with five sends,
+nine polls and six RX posts. Offline storage/allocation and Ubuntu recovery
+passed. The failed v129 remains failed;the old native wire toggle was not
+observed. This accepts the bounded four-way/retirement contract on this unit,
+not AP acknowledgement of M4,encrypted traffic,IP connectivity or another
+device profile. Persistent private PMK storage is not erased by ephemeral
+TK/GTK cleanup. A separate bounded post-M4 CCMP transport window must demonstrate
+authenticated encrypted RX/TX and PN/replay behavior before DHCP/DNS,data,
+disconnect and provider/UI reattach can be accepted.
