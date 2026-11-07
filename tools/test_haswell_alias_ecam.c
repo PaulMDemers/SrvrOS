@@ -51,7 +51,7 @@ static bool read_word(void *c,uint64_t p,unsigned i,uint64_t *v) {
 static void check(unsigned buses,bool complete) {
  memset(pool,0,sizeof(pool));used=1;ticks=0;
  kernel_cr3=0x2000000;kernel_pml4=pool[0];kernel_mapping_count=0;
- memset(address_space_records,0,sizeof(address_space_records));address_space_count=0;
+ address_space_occupancy=0;memset(address_space_records,0,sizeof(address_space_records));address_space_count=0;
  memset(ecam_virtual_base,0,sizeof(ecam_virtual_base));
  allocation=(struct srv_acpi_mcfg_allocation){true,0xe0000000,0,0,buses-1};
  assert(map_ecam_windows());
@@ -78,7 +78,7 @@ static void check_large_proposal(void) {
  /* Only a synthetic staged layout: no new production mapper is called. */
  memset(pool,0,sizeof(pool));used=4;ticks=0;
  kernel_cr3=0x2000000;kernel_pml4=pool[0];kernel_mapping_count=0;
- memset(address_space_records,0,sizeof(address_space_records));address_space_count=0;
+ address_space_occupancy=0;memset(address_space_records,0,sizeof(address_space_records));address_space_count=0;
  const uint64_t va=PCI_ECAM_VIRTUAL_BASE,pa=0xe0000000;
  const uint64_t flags=VMM_PAGE_WRITABLE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_NO_EXECUTE;
  pool[0][pml4_index(va)]=0x2001003;pool[1][pdpt_index(va)]=0x2002003;
@@ -95,7 +95,7 @@ static void check_large_proposal(void) {
  const struct hac_io io={.read=read_word,.now=now};
  assert(hac_capture(&result,&io,kernel_cr3) && result.pages==3 && result.reads[0]==1536 && result.reads[1]==1536);
  static uint64_t saved[3][512];memcpy(saved,pool,sizeof(saved));
- address_space_records[0]=(struct address_space_record){.used=true,.root=0x2003000};
+ address_space_set_occupied(0,true);address_space_records[0]=(struct address_space_record){.root=0x2003000};
  address_spaces[0]=0x2003000;address_space_count=1;model_features=true;
  pool[3][0]=0x555000;
  assert(vmm_prepare_user_kernel_mappings(0x2003000));

@@ -8342,3 +8342,146 @@ All615 prior files survive except expected `.srvros/meta`; four new logs make
 leaks/FAT-bitmap mismatches. Matching raw logs and analysis are retained outside
 build. Ubuntu remains default, one-shot entry empty, collector disabled after
 return; no next boot armed. Accepted ECAM/root and recovery remain retained.
+
+
+### Bounded census clock-cost audit scope (2026-11-07)
+
+Base `e8e56ee3`, prior deadline refusal collected. Audit the opt-in window
+backend's repeated clock reads inside each guarded HHDM word operation. Keep
+every HHDM raw load, provenance/root/exclusion check, exact comparison and all
+limits. Coalesce only redundant reference-clock sampling into bounded logical
+access scopes: census reads consume their immediately preceding HAC clock
+check; ordinary reads/stores retain fresh entry/completion checks and stores
+check immediately before mutation. No cached translation or RAM grant. Add
+clock/load/provenance/guard counts and phase timing from existing timestamps,
+plus delayed/stopped-clock, changed-root/source/raw and publication regressions.
+Scope backend/header/report/decoder/tests/own guides; no generic clock, HAC,
+VMM, policy or sibling gate change. PR301 scanout/PR19 Wi-Fi remain independent.
+Validate old/new actual-fixture clock counts, matched build/core, sanitizers and
+sequential staged/ordinary VMs before merge and automatic native retry. Native
+qualification remains pending under the unchanged100ms lifetime.
+
+
+The actual backend fixture measures106618 reference-clock calls before and
+33386 afterward, with exactly98851 raw source loads and60451 mapper words in
+both successful lifetimes. These are host operation counts, not native latency
+acceptance. Clock sampling is coalesced only within bounded logical accesses;
+all individual HHDM/raw/provenance/root checks remain. No generic clock, HAC,
+translation cache or policy changes. Ten strict profile tests pass, including
+a delayed actual gate/backend/report refusal with retained cost diagnostics.
+New regressions cover one-use clock tickets, delayed walks, immediate pre-store
+expiry, root/provenance changes during walks, post-publication expiry and retained
+poison; existing raw A/D, permission, ownership, cap and clock failures still pass.
+
+
+### Frozen bounded clock-scope checks (2026-11-07)
+
+Code `d5b45505` passes matched normal/AP/USB/ISO builds and complete test-core
+(one explicit opt-in test skipped). Actual backend, standalone gate/report and
+combined early-ECAM/window fixtures pass ASan/UBSan and ARM64 compilation,
+including delayed census refusal and retained terminal failure. Ten strict
+profile/collector tests pass. Actual three-file proof covers normal, maximum
+catalog and native HHDM shapes with cost records and unchanged raw comparisons.
+The ordinary image excludes diagnostic code/test pins. Host operation counts
+retain98851 raw loads/60451 mapper words while clock calls fall106618→33386;
+this is not native latency acceptance. Cost clock counters measure backend
+reference callbacks; independent firmware/cache clock calls remain outside
+that count. Phase times retain the shared reference clock.
+
+Nine sequential staged VMs pass legacy firmware/cache/alias/fence/v4/v5 plus
+v5/v6 missing-workspace and exact v6 refusal. Five ordinary syscall/UEFI USB
+keyboard/fork/exec-vector/yield VMs pass. Selected payload `a80942d96c7c830c`
+is hash-verified and backed up for an automatic native retry. Q35 refusal does
+not establish native completion. Preserve the previous deadline failure and
+unchanged100ms/word/census caps. Only an unreferenced failed-trial EFI copy may
+be retired after full payload/evidence hash verification outside build; accepted
+ECAM/root and Ubuntu/recovery payloads remain retained.
+
+
+### Native bounded clock scopes advance into second pass (2026-11-07)
+
+PR401 release `a80942d96c7c830c`, source `d5b45505`, returned automatically
+with session `session-00065fb3e56b976e-00` and four saved logs. Initial gate
+completed in244us. Window census prepared30 tables/15360 entries, completed the
+first15360-entry pass (3924 encoded bytes), and read6857 entries of the second
+pass before the unchanged100ms whole lifetime refused. Last good elapsed time
+is99998us, with99754us in the census bracket. No publication/unlink/invalidation/
+free attempts or stores occurred; no mapping was published and no target
+loads/writes occurred. Overall `completed=NO`: this remains failed/pending.
+
+This run completed37577 census reads versus17948 previously (about2.09 times
+the progress at the same limit). Retained backend counts:37736 clock callbacks,
+176277 raw loads,465489 guard checks,213896 RAM classifications,37619 logical
+reads, zero stores; mapper words outside census168. These counts identify the
+remaining repeated root/exclusion and provenance work to audit, not per-category
+native latency attribution. Keep every live/raw/provenance/ownership check and
+all limits while investigating faster equivalent scans/lookups. No translated
+pointer or stale-source grant should be substituted for those checks. The
+earlier ECAM and preinit census subreports do not accept this failed profile.
+
+All619 prior files survive except expected `.srvros/meta`; four new logs make
+623 files/1700 clusters. Offline fsck/allocation/headroom pass, with no leaks or
+FAT-bitmap mismatch. Raw/cost receipts and analysis remain outside build. Ubuntu
+default, accepted ECAM/root and recovery retained; one-shot entry empty and
+collector disabled after return. No next boot armed.
+
+
+### Live occupancy and catalog lookup scope (2026-11-07)
+
+Base `5e7116b4`; PR401 failure collected. Replace the64 per-record occupancy
+booleans with one authoritative64-slot bitmap, used by every registration,
+lookup, release and sole-root check. Keep live IRQ/CR3/root/count checks; do not
+add a cached empty-registry summary. Preserve64 slots,256 tables/space,128 kernel
+map limits, publication ordering and all ownership checks. Add full-slot capacity,
+stray-bit/count contradiction and teardown/snapshot regressions. Scope includes
+private VMM registry representation and affected host fixtures.
+
+The window-only gate may index its existing validated immutable catalog snapshot
+by sorted source-row indices. Reclassify actual row bounds/type on every call;
+retain fresh full-catalog continuation comparisons and all source/raw checks.
+Prove equivalence against the old full overlap scanner for unsorted catalogs,
+all types, gaps, boundaries and maximum/malformed inputs. Earlier ECAM lookup
+remains unchanged. Retain native lookup-step diagnostics, prior failures and all
+limits. PR301 currently has no overlapping VMM/window edits; PR19 Wi-Fi remains
+independent. Publish/test matched core, sanitizers and staged/ordinary VMs before
+merge and automatic native retry. Native100ms qualification remains pending.
+
+
+Directed VMM prepare/range/user-frame and actual window tests pass. Occupancy
+coverage exercises every bit, the full64-slot capacity, refusal beyond capacity,
+permuted teardown, live count contradictions and unchanged-registry snapshots.
+57792 source-row queries match the old scanner across shuffled1–128-row catalogs,
+all types, gaps, boundaries and partial pages; malformed/stale index cases refuse.
+Fresh catalog mutation still produces retained terminal failure before mapping
+publication. All11 profile/collector tests pass with backward-readable cost data.
+
+One-million-call host probes observe root checks about60.17→4.29ms and128-row
+RAM queries127.16→24.24ms, with identical accepted RAM results. These isolated
+host measurements are diagnostic, not native timing acceptance. Shared VMM
+representation changed, so normal-image identity is not claimed. Matched full
+core/build, sanitizers/cross-compilation and ordinary/staged VMs precede retry.
+
+
+### Frozen live-lookup validation (2026-11-07)
+
+Code `cca4d31f` passes matched normal/AP/USB/ISO builds and complete test-core
+(one explicit opt-in test skipped). Six actual fixture families pass ASan/UBSan
+and ARM64 compilation with assertions enabled: backend, gate/report, combined
+ECAM/window, registry preparation, user ranges and guarded user-frame copying.
+The registry/range portable models bind unrelated x86-only frame helpers to
+traps at their existing test boundary; production bodies remain unchanged.
+The initial cross-harness failure is retained. All11 profile tests pass,
+including57792 indexed/full-scanner comparisons and retained fresh-catalog
+failure. Root/copy/range fixtures preserve bitmap state in snapshot assertions.
+
+The AP object proves a single live occupancy-word reference in its sole-root
+predicate. Actual producer/decoder proof covers normal/maximum/native HHDM
+shapes with ram_steps diagnostics and unchanged raw comparisons. Nine sequential
+staged VMs pass legacy firmware/cache/alias/fence/v4/v5 plus v5/v6 missing-volume
+and exact v6 refusal. Five ordinary syscall/UEFI USB keyboard/fork/exec-vector/
+yield VMs pass against the changed ordinary kernel. Selected payload
+`92d9f134639f509c` is verified/backed up. Native100ms completion and ordinary
+native desktop acceptance for the new shared representation remain pending.
+Preserve the prior failure, every source/root/ownership check and all limits;
+retire only an unreferenced failed-trial EFI copy after complete backup hashes
+verify. Accepted ECAM/root and Ubuntu/recovery remain retained.

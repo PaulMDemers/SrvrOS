@@ -24,6 +24,8 @@ struct air61_window_result {
  struct air61_window_token token;
  uint64_t pdpt,frames[2],begin,end,hhdm;
  unsigned words,private_writes,parent_attempts,unlink_attempts,invalidations,frees;
+ unsigned clock_samples,raw_loads,guard_checks,ram_checks,logical_reads,logical_stores,census_reads;
+ uint64_t gate_end,census_begin,census_end;
  const char *fault;
 };
 /* Caller already holds exclusive CPU0/IRQ/AP/client exclusion before entry.
@@ -51,3 +53,5 @@ const struct ecam_boot_gate_diagnostic *haswell_air61_window_gate_diagnostic(voi
 bool haswell_air61_window_run(void);
 bool haswell_air61_window_report(const char *);
 void haswell_air61_window_reference(const char *,bool);
+
+uint64_t haswell_air61_window_ram_steps(void);

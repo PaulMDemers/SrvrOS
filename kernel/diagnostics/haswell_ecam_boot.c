@@ -16,6 +16,22 @@ static bool eg_fail(const char *stage,unsigned details,unsigned index,unsigned c
 const struct ecam_boot_gate_diagnostic *haswell_ecam_boot_gate_diagnostic(void){return &eg_diagnostic;}
 static struct hfw_entry eg_ram[HFW_MAP_CAP];
 static unsigned eg_count,eg_phase;
+#ifdef SRVROS_AIR61_WINDOW_GATE
+static uint8_t eg_ram_index[HFW_MAP_CAP];
+static unsigned eg_ram_index_count;
+static bool eg_ram_index_ready;
+static uint64_t eg_ram_steps;
+static bool eg_ram_index_prepare(void){
+ eg_ram_index_ready=false;eg_ram_index_count=0;
+ if(!hfw_catalog_valid(eg_ram,eg_count))return false;
+ for(unsigned i=0;i<eg_count;i++){
+  unsigned j=i;
+  while(j && eg_ram[eg_ram_index[j-1]].base>eg_ram[i].base){eg_ram_index[j]=eg_ram_index[j-1];j--;}
+  eg_ram_index[j]=(uint8_t)i;
+ }
+ eg_ram_index_count=eg_count;eg_ram_index_ready=true;return true;
+}
+#endif
 static bool eg_started,eg_broken;
 static uint64_t eg_root;
 static struct ecam_boot_policy eg_last_policy;
@@ -123,12 +139,31 @@ static bool eg_catalog(void *ctx,struct hfw_entry *out,unsigned *count) {
 static bool eg_ram_page(void *ctx,uint64_t pa) {
  (void)ctx;
  if(!pa || (pa&4095) || pa>=(1ull<<39) || (pa>=ECAM_BOOT_PA && pa<ECAM_BOOT_PA+ECAM_BOOT_BYTES) || pa==0xfed90000 || pa==0xfed91000)return false;
+#ifdef SRVROS_AIR61_WINDOW_GATE
+ /* The private snapshot was fully validated and is immutable after phase0.
+  * This is an index of source rows, not cached classification/translation.
+  * Every successful lookup rechecks the authoritative row's bounds and type. */
+ if(!eg_ram_index_ready || eg_ram_index_count!=eg_count)return false;
+ unsigned lo=0,hi=eg_count;
+ while(lo<hi){
+  unsigned mid=lo+(hi-lo)/2,index=eg_ram_index[mid];eg_ram_steps++;
+  if(index>=eg_count)return false;
+  if(eg_ram[index].base<=pa)lo=mid+1;else hi=mid;
+ }
+ if(!lo)return false;
+ unsigned index=eg_ram_index[lo-1];eg_ram_steps++;
+ if(index>=eg_count)return false;
+ const struct hfw_entry *p=eg_ram+index;
+ return p->base<=pa && pa+4096<=p->base+p->length &&
+  (p->type==0 || p->type==2 || p->type==3 || p->type==5 || p->type==6);
+#else
  unsigned overlaps=0;bool good=false;
  for(unsigned i=0;i<eg_count;i++) {
   const struct hfw_entry *p=eg_ram+i;
   if(p->base<pa+4096 && pa<p->base+p->length){overlaps++;good=p->base<=pa && pa+4096<=p->base+p->length && (p->type==0 || p->type==2 || p->type==3 || p->type==5 || p->type==6);}
  }
  return overlaps==1 && good;
+#endif
 }
 static bool eg_copy(uint64_t pa,uint8_t *out,unsigned length) {
  if(length>4096-eg.firmware_bytes)return eg_fail("firmware-byte-cap",1,0,0,4096,eg.firmware_bytes+length);
@@ -226,6 +261,7 @@ static bool eg_check_inner(void *ctx,unsigned phase) {
  eg.policy[phase]=eg_last_policy;eg_policy_ready[phase]=true;
  if(!phase && !eg_catalog(NULL,eg_ram,&eg_count))return false;
 #ifdef SRVROS_AIR61_WINDOW_GATE
+ if(!phase && !eg_ram_index_prepare())return false;
  if(!eg_window_resource())return false;
 #endif
  const struct hfw_io fw={.identity=eg_identity,.catalog=eg_catalog,.table=eg_table,.now=eg_now};

@@ -52,12 +52,30 @@ class WindowTests(unittest.TestCase):
                 self.assertEqual(graph[pa]['raw'][index]&7,7)
             self.assertEqual(graph[0x2004000]['raw'][0]&7,3)
 
+    def test_cost_diagnostics_are_retained_strict_and_not_new_authority(self):
+        text,a,b=joint()
+        with patch('hardware_haswell_firmware.PIN',PIN):
+            p=window.window_result(text,a,b,SESSION);cost=p['cost']
+            self.assertEqual(cost['census_reads'],p['pages']*512*3)
+            self.assertGreater(cost['ram_steps'],0);self.assertLessEqual(cost['ram_steps'],9*cost['ram'])
+            self.assertLess(cost['clocks'],cost['loads'])
+            self.assertLess(cost['gate_end'],cost['census_end'])
+            line=next(x for x in text.splitlines() if x.startswith('hsw-window-cost:'))
+            self.assertIsNone(window.window_result(text+line+'\n',a,b,SESSION))
+            self.assertIsNone(window.window_result(text.replace(line,line.replace('census_reads=','census_reads=9')),a,b,SESSION))
+            legacy=window.window_result(text.replace(line+'\n',''),a,b,SESSION)
+            self.assertTrue(legacy['source_completed']);self.assertIsNone(legacy['cost'])
+
+    def test_indexed_provenance_matches_original_full_scanner(self):
+        text=subprocess.check_output([str(PROFILE),'index-contracts'],text=True)
+        self.assertIn('ram-index PASS',text)
+
     def test_fresh_gate_refusal_and_terminal_retention(self):
-        for mode in ['refuse','no-nx','wp','ap','cr4','gap','mcfg']:
+        for mode in ['refuse','no-nx','wp','ap','cr4','gap','mcfg','delayed']:
             text=subprocess.check_output([str(PROFILE),mode],text=True)
             p=window.window_result(text,'',text,SESSION)
             self.assertEqual(p['status'],'REFUSED',mode);self.assertFalse(p['source_completed'])
-        for mode in ['poison','changed-cache']:
+        for mode in ['poison','changed-cache','changed-catalog']:
             text=subprocess.check_output([str(PROFILE),mode],text=True)
             self.assertIn('WINDOW BOOT HALTED:',text)
             self.assertIn('Claim/backing retained',text)

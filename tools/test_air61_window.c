@@ -11,7 +11,9 @@
 #include <srvros/pmm.h>
 static uint64_t pages[8][512],tags[8],cr3,irq_flags,ticks;
 static unsigned allocs,frees,loads,stores,invalidates,alloc_fail_at,free_fail_at,store_fail_at;
-static unsigned load_fail_at,invalidate_fail_at;
+static unsigned load_fail_at,invalidate_fail_at,delay_load_at,root_change_load_at,ram_fail_load_at;
+static bool delay_at_publish,delay_in_census;
+static bool aw_census_active(void);
 static int gate_fail=-1;
 static bool borrowed,duplicate,store_after,ram_fail,bad_pointer,reenter,zero_clock;
 static bool fail_publish_readback,census_change,force_cap,bad_alloc,corrupt_parent,corrupt_after_clear;
@@ -40,12 +42,12 @@ static void user_frame_test_cpuid(uint32_t n,uint32_t *a,uint32_t *b,uint32_t *c
 static uint64_t aw_clock_sample(void);
 static unsigned frame_index(uint64_t pa){assert(pa>=0x2000000 && pa<0x2008000 && !(pa&4095));return (pa-0x2000000)/4096;}
 static uint64_t aw_test_virtual(uint64_t pa){return 0xffff800000000000ull+pa+(bad_pointer?4096:0);}
-static bool aw_test_load(uint64_t pa,unsigned i,uint64_t *out){assert(pa!=0xfed90000 && i<512);loads++;if(loads==load_fail_at)return false;*out=pages[frame_index(pa)][i];return true;}
+static bool aw_test_load(uint64_t pa,unsigned i,uint64_t *out){assert(pa!=0xfed90000 && i<512);loads++;if(loads==load_fail_at)return false;*out=pages[frame_index(pa)][i];if(loads==delay_load_at)ticks+=1600000;if(delay_in_census && aw_census_active()){delay_in_census=false;ticks+=1600000;}if(loads==root_change_load_at)cr3+=4096;if(loads==ram_fail_load_at)ram_fail=true;return true;}
 static bool aw_test_store(uint64_t pa,unsigned i,uint64_t before,uint64_t after,bool private){
  stores++;assert(i<512);uint64_t *p=&pages[frame_index(pa)][i];
  if(stores==store_fail_at && !store_after)return false;
  if(!private && *p!=before)return false;
- *p=after;if(stop_at_publish && pa==0x2001000 && i==7){stop_clock=true;stopped_time=aw_clock_sample();}if(corrupt_parent && pa==0x2001000 && i==7)*p^=32;if(corrupt_after_clear && pa==0x2001000 && i==7 && !after)pages[1][8]^=32;if(fail_publish_readback && pa==0x2001000 && i==7)load_fail_at=loads+1;return stores!=store_fail_at;
+ *p=after;if(delay_at_publish && pa==0x2001000 && i==7)ticks+=1600000;if(stop_at_publish && pa==0x2001000 && i==7){stop_clock=true;stopped_time=aw_clock_sample();}if(corrupt_parent && pa==0x2001000 && i==7)*p^=32;if(corrupt_after_clear && pa==0x2001000 && i==7 && !after)pages[1][8]^=32;if(fail_publish_readback && pa==0x2001000 && i==7)load_fail_at=loads+1;return stores!=store_fail_at;
 }
 static bool aw_test_invalidate(uint64_t va){assert(va==0xffffc001f3250000ull);invalidates++;return invalidates!=invalidate_fail_at;}
 static bool aw_test_free(uint64_t pa){unsigned i=frame_index(pa);assert(i==6 || i==7);assert(tags[i]==PMM_FRAME_PAGE_TABLE);if(frees+1==free_fail_at)return false;frees++;tags[i]=PMM_FRAME_FREE;memset(pages[i],0xcc,4096);return true;}
@@ -54,6 +56,7 @@ static bool aw_test_free(uint64_t pa){unsigned i=frame_index(pa);assert(i==6 || 
 #define SRVROS_AIR61_WINDOW
 #define SRVROS_AIR61_WINDOW_HOST_TEST
 #include "../kernel/src/memory/vmm.c"
+static bool aw_census_active(void){return aw.in_census;}
 void *pmm_phys_to_virt(uint64_t pa){return (char *)pages+(pa-0x2000000);}
 uint64_t pmm_hhdm_offset(void){return 0xffff800000000000ull;}
 uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t min,enum pmm_frame_tag tag){
@@ -82,11 +85,11 @@ static void reset(void){
  memset(&aw,0,sizeof(aw));memset(pages,0,sizeof(pages));memset(tags,0,sizeof(tags));memset(&token,0,sizeof(token));
  for(unsigned i=0;i<6;i++)tags[i]=PMM_FRAME_PAGE_TABLE;
  cr3=kernel_cr3=0x2000000;irq_flags=2;kernel_pml4=pages[0];address_space_count=0;kernel_mapping_count=0;
- memset(address_space_records,0,sizeof(address_space_records));memset(address_spaces,0,sizeof(address_spaces));memset(kernel_mappings,0,sizeof(kernel_mappings));
+ address_space_occupancy=0;memset(address_space_records,0,sizeof(address_space_records));memset(address_spaces,0,sizeof(address_spaces));memset(kernel_mappings,0,sizeof(kernel_mappings));
  pages[0][384]=0x2001003;pages[0][256]=0x2002003;pages[2][0]=0x2003003;pages[3][16]=0x2004003;
  for(unsigned i=0;i<8;i++)pages[4][i]=(0x2000000+4096*i)|3;
  memset(pages[6],0xa5,4096);memset(pages[7],0xa5,4096);
- ticks=allocs=frees=loads=stores=invalidates=alloc_fail_at=free_fail_at=store_fail_at=load_fail_at=invalidate_fail_at=0;
+ ticks=allocs=frees=loads=stores=invalidates=alloc_fail_at=free_fail_at=store_fail_at=load_fail_at=invalidate_fail_at=delay_load_at=root_change_load_at=ram_fail_load_at=0;delay_at_publish=delay_in_census=false;
  borrowed=duplicate=store_after=ram_fail=bad_pointer=reenter=zero_clock=false;fail_publish_readback=census_change=force_cap=bad_alloc=corrupt_parent=corrupt_after_clear=stop_clock=stop_at_publish=false;stopped_time=0;gate_fail=-1;
 }
 static bool open_window(void){return vmm_air61_window_prepare(&io,10,20,&token);}
@@ -154,6 +157,23 @@ int main(void){
   * the exact retained raw comparison, with backing/claim held on uncertainty. */
  reset();assert(open_window());pages[0][256]^=4;
  assert(!vmm_air61_window_retire(&token) && !frees);poisoned();
+ /* Delays inside a bounded walk cannot produce a completed census or grant. */
+ reset();delay_load_at=2;assert(!open_window() && !allocs && !stores && loads<=5 && !aw.r.claimed);
+ assert(!strcmp(aw.r.fault,"clock/deadline"));
+ reset();root_change_load_at=1;assert(!open_window() && loads==1 && !allocs && !stores);
+ reset();ram_fail_load_at=1;assert(!open_window() && loads==1 && !allocs && !stores);
+ /* A census read consumes exactly one immediately preceding clock ticket. */
+ reset();aw.io=io;aw.r.token.root=cr3;aw.r.begin=aw.last=1000;aw.hhdm=pmm_hhdm_offset();aw.in_census=true;
+ uint64_t sample=0;assert(!aw_census_read(NULL,cr3,0,&sample) && !loads);
+ reset();aw.io=io;aw.r.token.root=cr3;aw.r.begin=aw.last=1000;aw.hhdm=pmm_hhdm_offset();aw.in_census=true;
+ assert(aw_census_now(NULL));assert(aw_census_read(NULL,cr3,0,&sample) && loads==5);
+ assert(!aw_census_read(NULL,cr3,1,&sample) && loads==5);
+ /* An elapsed walk must fail the fresh pre-store check before mutation. */
+ reset();aw.io=io;aw.r.token.root=cr3;aw.r.begin=aw.last=1000;aw.hhdm=pmm_hhdm_offset();delay_load_at=4;
+ assert(!aw_store(0x2001000,7,0,0x2006003,false) && !stores && !pages[1][7]);
+ reset();assert(open_window());delay_load_at=loads+2;unsigned unchanged_stores=stores;
+ assert(!vmm_air61_window_retire(&token) && stores==unchanged_stores && !frees);poisoned();
+ reset();delay_at_publish=true;assert(!open_window() && !frees && aw.r.parent_attempts==1);poisoned();
  for(unsigned n=1;n<=2;n++){reset();alloc_fail_at=n;assert(!open_window() && aw.r.state==AIR61_WINDOW_REFUSED && !aw.r.claimed && frees==n-1 && !pages[1][7]);}
  reset();bad_alloc=true;assert(!open_window() && !frees);poisoned();
  reset();borrowed=true;assert(!open_window() && !frees);poisoned();
