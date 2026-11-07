@@ -2,6 +2,24 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Active scope: controlled engine-reset readiness
+
+Main `a35a1952` (Air6,1 dormant two-pass window backend, PR406) is integrated;
+Makefile append-only conflict preserves both targets. Prior accepted source
+`a24c164a` / release6c2f remains the native baseline. Empty queues cannot establish
+write/prefetch/cache completion. Next scope is the documented Broadwell BCS
+request/ready/cancel handshake as a prerequisite to choosing a controlled-reset
+path, with exact register/mask matching, a pinned live wake owner, bounded polling,
+retained uncertain state and no GDRST/TLB/cache/PTE or GPU command writer.
+
+Touched subsystems: isolated Intel trial/core/cache/recipe and host/collector/
+staging fixtures; no ordinary desktop/driver policy or sibling profile widening.
+PR19 Wi-Fi and PR379 WebCore remain independent. Native readiness must precede
+any engine reset; readiness itself grants no memory completion or cache ownership.
+The independent HDA/plane audits are not combined into a same-boot ownership proof.
+No new trial is installed or armed. Next checkpoint is a source-bound host/VM
+validated automatic hardware trial; stop there for the user's next instruction.
+
 ### Current checkpoint: engine/flip-wait/cache prerequisite audit accepted
 
 Release `6c2fffbf241a110a`, tested source `a24c164a`, completed native session
