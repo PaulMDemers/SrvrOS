@@ -227,3 +227,24 @@ reserved bits, source provenance, canonicality, large-leaf alignment, exact
 physical translation and existing timing/accounting remain checked. No pointer
 is approved early. This changes no owned window entry or borrowed-page raw
 equality rule; post-publication U/S mutations still retain poison/backing.
+
+
+### Bounded clock scopes for RAM accesses
+
+The census still performs its fresh HAC clock check before each logical word,
+then walks/validates every HHDM entry and loads that word. A one-use ticket
+connects those adjacent callbacks; another read cannot reuse it. Only redundant
+ACPI PM samples between at most four checked HHDM loads and one data load are
+coalesced. The next HAC boundary and final clock check reject an elapsed or
+stopped lifetime before census acceptance. No translation/provenance grant is
+cached. Every individual physical source retains RAM and root/exclusion checks.
+Native classification callbacks are bounded software-only catalog checks.
+
+Ordinary reads check entry and completion; stores also check immediately before
+mutation and afterward. A delay inside a walk cannot authorize a store, and
+a deadline after publication retains poison/backing. Whole-lifetime100ms, all
+accounting/census caps, raw A/D/permission/address equality and mapping attributes
+remain unchanged. `hsw-window-cost` records clock/load/guard/RAM/logical counts
+and gate/census timestamps already observed, including failed outcomes, without
+extra measurement I/O. Older receipts remain readable with cost unavailable;
+new trials require the cost record independently of strict mapping proof.

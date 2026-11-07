@@ -5,16 +5,16 @@ static struct {
  struct air61_window_env io;
  struct hac_result census;
  uint64_t root[512],pdpt[512],last,hhdm;
- bool busy,in_census,snapshot,checking,owned[2];
+ bool busy,in_census,snapshot,checking,access_scope,census_ticket,owned[2];
  struct air61_window_evidence evidence;
 } aw;
 #define AW_ADDR (((1ull<<39)-1)&~4095ull)
 static bool aw_fault(const char *why){if(!aw.r.fault)aw.r.fault=why;return false;}
 static bool aw_poison(void){aw.r.state=AIR61_WINDOW_POISONED;return false;}
-static bool aw_guard(void){return (aw.r.state!=AIR61_WINDOW_POISONED && vmm_diagnostic_sole_kernel_root(aw.r.token.root)) || aw_fault("root/exclusion");}
+static bool aw_guard(void){aw.r.guard_checks++;return (aw.r.state!=AIR61_WINDOW_POISONED && vmm_diagnostic_sole_kernel_root(aw.r.token.root)) || aw_fault("root/exclusion");}
 static bool aw_tick(void){
  if(!aw_guard())return false;
- uint64_t t=aw.io.now(aw.io.ctx);
+ aw.r.clock_samples++;uint64_t t=aw.io.now(aw.io.ctx);
  if(aw.r.state==AIR61_WINDOW_POISONED)return false;
  if(!t || t<aw.last || t<aw.r.begin || t-aw.r.begin>=AIR61_WINDOW_LIMIT_US)return aw_fault("clock/deadline");
  aw.r.end=aw.last=t;return true;
@@ -24,14 +24,17 @@ static bool aw_check(unsigned phase){
  return (ok && aw.r.state!=AIR61_WINDOW_POISONED && aw_guard()) || aw_fault("fresh-gate");
 }
 /* Bootstrap HHDM reads are RAM-only, like the checked ECAM accessor. The full
- * translation path is then verified before every source word/store. Census
+ * translation path is then verified before every source word/store. Only
+ * redundant internal clock samples are coalesced by bounded access scopes. Census
  * entry counts keep their original meaning; mapper path words have a separate
  * fixed budget and all phases share this operation's100ms lifetime. */
 static bool aw_ram_address(uint64_t pa){return pa && pa<=AW_ADDR && !(pa&4095) && pa!=AIR61_WINDOW_PA && pa!=AIR61_WINDOW_PA+4096;}
+static bool aw_ram(uint64_t pa){aw.r.ram_checks++;return aw.io.ram(aw.io.ctx,pa);}
 static bool aw_raw(uint64_t pa,unsigned i,uint64_t *out){
- if(!aw_ram_address(pa) || i>=512 || !aw_tick())return aw_fault("RAM-address");
- if(!aw.io.ram(aw.io.ctx,pa) || !aw_guard())return aw_fault("RAM-source");
+ if(!aw.access_scope || !aw_ram_address(pa) || i>=512 || !aw_guard())return aw_fault("RAM-address");
+ if(!aw_ram(pa) || !aw_guard())return aw_fault("RAM-source");
  if(!aw.in_census){if(aw.r.words>=AIR61_WINDOW_WORD_CAP)return aw_fault("word-cap");aw.r.words++;}
+aw.r.raw_loads++;
 #ifdef SRVROS_AIR61_WINDOW_HOST_TEST
  return aw_test_load(pa,i,out) || aw_fault("RAM-load");
 #else
@@ -41,7 +44,7 @@ static bool aw_raw(uint64_t pa,unsigned i,uint64_t *out){
 #endif
 }
 static bool aw_address(uint64_t pa,unsigned i,volatile uint64_t **out){
- if(!aw_ram_address(pa) || i>=512 || !aw.io.ram(aw.io.ctx,pa) || !aw_guard())return aw_fault("RAM-address");
+ if(!aw_ram_address(pa) || i>=512 || !aw_ram(pa) || !aw_guard())return aw_fault("RAM-address");
  uint64_t address=pa+i*8;
  if(!aw.hhdm || aw.hhdm>UINT64_MAX-address)return aw_fault("HHDM-overflow");
  uint64_t va=(uint64_t)(uintptr_t)pmm_phys_to_virt(address);
@@ -70,7 +73,23 @@ static bool aw_address(uint64_t pa,unsigned i,volatile uint64_t **out){
  }
  return aw_fault("HHDM-level");
 }
-static bool aw_word(uint64_t pa,unsigned i,uint64_t *v){volatile uint64_t *p;return aw_address(pa,i,&p) && aw_raw(pa,i,v);}
+/* A scope contains at most four checked HHDM loads plus one data load/store.
+ * Census HAC room() supplies a fresh clock immediately before every read and
+ * checks again before any following read or final acceptance. Consume that
+ * ticket once. Ordinary reads check entry/completion; stores also check just
+ * before mutation. No translation, provenance or raw value is cached. */
+static bool aw_word(uint64_t pa,unsigned i,uint64_t *v){
+ if(aw.access_scope){aw_fault("access-reentry");return aw_poison();}
+ if(aw.in_census){if(!aw.census_ticket)return aw_fault("census-clock-ticket");aw.census_ticket=false;}
+ else if(!aw_tick())return false;
+ aw.r.logical_reads++;
+ aw.access_scope=true;volatile uint64_t *p;
+ bool ok=aw_address(pa,i,&p) && aw_raw(pa,i,v);aw.access_scope=false;
+ if(!ok)return false;
+ bool done=aw.in_census?aw_guard():aw_tick();
+ if(done && aw.in_census)aw.r.census_reads++;
+ return done;
+}
 bool vmm_air61_window_copy_ram(uint64_t pa,void *output,unsigned length){
  if(!output || !length || length>136 || pa>=(1ull<<39) || length>(1ull<<39)-pa || !aw.checking || !aw_guard())return false;
  uint8_t *out=output;
@@ -79,8 +98,10 @@ bool vmm_air61_window_copy_ram(uint64_t pa,void *output,unsigned length){
  }return true;
 }
 static bool aw_store(uint64_t pa,unsigned i,uint64_t before,uint64_t after,bool private){
- volatile uint64_t *p;uint64_t v;
- if(!aw_address(pa,i,&p) || (!private && (!aw_raw(pa,i,&v) || v!=before)))return aw_fault("store-expected");
+ if(aw.access_scope || aw.in_census || !aw_tick())return aw_fault("store-scope");
+ aw.r.logical_stores++;aw.access_scope=true;volatile uint64_t *p;uint64_t v;
+ bool address_ok=aw_address(pa,i,&p) && (private || (aw_raw(pa,i,&v) && v==before));aw.access_scope=false;
+ if(!address_ok || !aw_tick())return aw_fault("store-expected");
 #ifdef SRVROS_AIR61_WINDOW_HOST_TEST
  bool ok=aw_test_store(pa,i,before,after,private);
 #else
@@ -89,7 +110,7 @@ static bool aw_store(uint64_t pa,unsigned i,uint64_t before,uint64_t after,bool 
  else ok=__atomic_compare_exchange_n(p,&before,after,false,__ATOMIC_SEQ_CST,__ATOMIC_SEQ_CST);
 #endif
  if(private || pa==aw.r.frames[0] || pa==aw.r.frames[1])aw.r.private_writes++;
- return ok || aw_fault("store-failed");
+ return (ok && aw_tick()) || aw_fault("store-failed");
 }
 static bool aw_invalidate(void){
  if(!aw_tick())return false;
@@ -105,7 +126,7 @@ static bool aw_invalidate(void){
 }
 static bool aw_parent_value(uint64_t expected){uint64_t v;return (aw_word(aw.r.pdpt,7,&v) && v==expected) || aw_fault("parent-readback");}
 static bool aw_census_read(void *ctx,uint64_t pa,unsigned i,uint64_t *v){(void)ctx;return aw_word(pa,i,v);}
-static uint64_t aw_census_now(void *ctx){(void)ctx;return aw_tick()?aw.last:0;}
+static uint64_t aw_census_now(void *ctx){(void)ctx;aw.census_ticket=false;if(!aw_tick())return 0;aw.census_ticket=true;return aw.last;}
 static bool aw_known_table(uint64_t pa){for(unsigned i=0;i<aw.census.pages;i++)if(aw.census.table[i].pa==pa)return true;return false;}
 static bool aw_owned(unsigned i){return aw.owned[i] && aw.r.frames[i] && aw.r.frames[i]!=aw.r.token.root && aw.r.frames[i]!=aw.r.pdpt && !aw_known_table(aw.r.frames[i]) && pmm_frame_has_tag(aw.r.frames[i],PMM_FRAME_PAGE_TABLE);}
 static uint64_t aw_private_word(unsigned f,unsigned i){return f==0?(i==409?aw.r.frames[1]|3:0):(i==80?AIR61_WINDOW_LEAF:0);}
@@ -153,11 +174,12 @@ bool vmm_air61_window_prepare(const struct air61_window_env *io,uint64_t owner,u
  if(aw.r.state!=AIR61_WINDOW_NEW || !io || !io->check || !io->ram || !io->now || !owner || !epoch || !out)return false;
  aw.busy=true;aw.r.state=AIR61_WINDOW_CLAIMED;aw.r.claimed=true;aw.io=*io;
  aw.r.token=(struct air61_window_token){owner,epoch,kernel_cr3};aw.hhdm=pmm_hhdm_offset();aw.r.hhdm=aw.hhdm;
- aw.r.begin=aw.last=io->now(io->ctx);
+ aw.r.clock_samples++;aw.r.begin=aw.last=io->now(io->ctx);
  if(!aw.r.begin){aw_fault("clock/deadline");goto refused;}
- if(!aw_tick() || !aw_check(0))goto refused;
+ if(!aw_tick() || !aw_check(0) || !aw_tick())goto refused;
+ aw.r.gate_end=aw.last;aw.r.census_begin=aw.last;
  const struct hac_io census_io={.read=aw_census_read,.now=aw_census_now};
- aw.in_census=true;bool captured=hac_capture(&aw.census,&census_io,aw.r.token.root);aw.in_census=false;
+ aw.in_census=true;bool captured=hac_capture(&aw.census,&census_io,aw.r.token.root);aw.in_census=false;aw.census_ticket=false;aw.r.census_end=aw.last;
  if(!captured || aw.census.target_leaves || !aw_tick()) {aw_fault("alias-census");goto refused;}
  uint64_t root_entry;
  if(!aw_word(aw.r.token.root,384,&root_entry) || (root_entry&3)!=3 || (root_entry&~(AW_ADDR|0x800000000000003bull))){aw_fault("borrowed-path");goto refused;}
@@ -170,7 +192,7 @@ bool vmm_air61_window_prepare(const struct air61_window_env *io,uint64_t owner,u
   if(!aw_tick())goto refused;
   uint64_t pa=pmm_alloc_frames_above_tagged(1,VMM_PAGE_TABLE_MIN_PHYSICAL,PMM_FRAME_PAGE_TABLE);aw.r.frames[f]=pa;
   if(!pa){aw_fault("allocation");goto refused;}
-  if(!aw_ram_address(pa) || pa<VMM_PAGE_TABLE_MIN_PHYSICAL || aw_known_table(pa) || (f && pa==aw.r.frames[0]) || !pmm_frame_has_tag(pa,PMM_FRAME_PAGE_TABLE) || !aw.io.ram(aw.io.ctx,pa)){aw_fault("allocation-owner");aw_poison();goto refused;}
+  if(!aw_ram_address(pa) || pa<VMM_PAGE_TABLE_MIN_PHYSICAL || aw_known_table(pa) || (f && pa==aw.r.frames[0]) || !pmm_frame_has_tag(pa,PMM_FRAME_PAGE_TABLE) || !aw_ram(pa)){aw_fault("allocation-owner");aw_poison();goto refused;}
   aw.owned[f]=true;
   for(unsigned i=0;i<512;i++)if(!aw_store(pa,i,0,0,true))goto refused;
  }

@@ -85,9 +85,16 @@ def _result(text,ecam_text,exit_text,session):
     progress=tuple(map(int,one(text,'hsw-window-progress:',r'hsw-window-progress: begin=(\d+) end=(\d+) census=(\d+) pages=(\d+) prepare=(\d+) reads=(\d+),(\d+) bytes=(\d+),(\d+) gate_phases=(\d+) firmware_bytes=(\d+) parent=(\d+) unlink=(\d+) inv=(\d+) frees=(\d+)')))
     reason,gate,failed_words=one(text,'hsw-window-failure:',r'hsw-window-failure: reason=([A-Za-z0-9/_-]+) gate=([A-Za-z0-9/_-]+) words=(\d+)')
     if progress[2]>5 or progress[3]>64 or any(x>32768 for x in progress[4:7]) or any(x>4096 for x in progress[7:9]) or progress[9]>2 or progress[10]>4096 or any(x>1 for x in progress[11:13]) or any(x>2 for x in progress[13:15]) or int(failed_words)>65536:raise ValueError('failure progress bounds')
+    cost=None
+    if any(x.startswith('hsw-window-cost:') for x in text.splitlines()):
+        values=tuple(map(int,one(text,'hsw-window-cost:',r'hsw-window-cost: v=1 clocks=(\d+) loads=(\d+) guards=(\d+) ram=(\d+) reads=(\d+) stores=(\d+) census_reads=(\d+) gate_end=(\d+) census_begin=(\d+) census_end=(\d+)')))
+        if any(x>=1<<32 for x in values[:7]) or any(x>=1<<64 for x in values[7:]):raise ValueError('cost bounds')
+        cost=dict(zip(('clocks','loads','guards','ram','reads','stores','census_reads','gate_end','census_begin','census_end'),values))
+        if cost['census_reads']!=sum(progress[4:7]) or cost['reads']<cost['census_reads'] or cost['loads']<int(failed_words)+cost['census_reads']:raise ValueError('cost read accounting')
+        if not 0<=cost['gate_end']<=cost['census_begin']<=cost['census_end']<=progress[1]:raise ValueError('cost timing')
     if complete=='0':
         if parts or ok or 'laptop-capture: completed=yes' in exit_text:raise ValueError('incomplete acceptance')
-        return dict(status='REFUSED' if int(state) in (0,3) else 'FAILED',source_completed=False,reason=reason,gate=gate,progress=progress,mapper_words=int(failed_words),target_reads=0,target_writes=0,hardware_authority=False,ownership=False)
+        return dict(status='REFUSED' if int(state) in (0,3) else 'FAILED',source_completed=False,reason=reason,gate=gate,progress=progress,mapper_words=int(failed_words),cost=cost,target_reads=0,target_writes=0,hardware_authority=False,ownership=False)
     joint=ecam_result(ecam_text,exit_text,session)
     if not ok or not joint or not joint['source_completed']:raise ValueError('whole source')
     p=decode(b''.join(parts))
@@ -117,4 +124,4 @@ def _result(text,ecam_text,exit_text,session):
         for sample in fw['samples']:
             for key in ('identity','table_pa','dmar_base64','catalog'):
                 if sample[key]!=old_fw[key]:raise ValueError('changed firmware epoch')
-    return dict(status='OBSERVED_RETIRED_WINDOW_ONLY',source_completed=True,session=session,**p)
+    return dict(status='OBSERVED_RETIRED_WINDOW_ONLY',source_completed=True,session=session,cost=cost,**p)

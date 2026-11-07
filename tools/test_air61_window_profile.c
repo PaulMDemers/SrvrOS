@@ -99,6 +99,7 @@ int main(int argc,char **argv){
  setup();irq_flags=0x202;
  if(argc>1 && !strcmp(argv[1],"max")){for(unsigned i=5;i<128;i++){map_entries[i]=(struct limine_memmap_entry){.base=0x100000000ull+i*8192,.length=4096,.type=1};map_ptrs[i]=map_entries+i;}map_response.entry_count=128;}
  bool refusal=argc>1 && strcmp(argv[1],"max") && strcmp(argv[1],"poison") && strcmp(argv[1],"changed-cache");
+ if(argc>1 && !strcmp(argv[1],"delayed"))delay_in_census=true;
  if(argc>1 && !strcmp(argv[1],"refuse"))foreign_cpu=true;
  if(argc>1 && !strcmp(argv[1],"no-nx"))no_nx=true;
  if(argc>1 && !strcmp(argv[1],"wp"))cr0_value&=~(1ull<<16);
@@ -110,6 +111,7 @@ int main(int argc,char **argv){
  bool ok=haswell_air61_window_run();assert(irq_flags==0x202);
  if(!refusal){assert(ok && aw.r.state==AIR61_WINDOW_RETIRED && frees==2 && eg.phases==2 && eg.cache_reads[0]==49 && eg.cache_reads[1]==49 && eg.firmware_bytes==1840);assert(aw.evidence.linked && aw.evidence.retired);}
  else assert(!ok && !frees && !allocs);
+ if(argc>1 && !strcmp(argv[1],"delayed"))assert(aw.r.gate_end && aw.census.prepare_reads && !aw.census.reads[0] && !strcmp(aw.r.fault,"clock/deadline"));
  unsigned n=loads;bool reported=haswell_air61_window_report("session-0000000000000001-00");assert(reported==ok);
  haswell_air61_window_reference("session-0000000000000001-00",true);assert(loads==n);
  puts(ok?"laptop-capture: completed=yes":"laptop-capture: completed=NO");return 0;
