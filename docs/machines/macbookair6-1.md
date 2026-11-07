@@ -8566,3 +8566,28 @@ admission/window-profile tests and docs checks pass. The normal/AP binary hashes
 remain identical to the accepted runtime; no kernel, boot recipe or installed
 payload changes and no reboot is armed. Ordinary native desktop regression for
 the shared occupancy representation remains independent pending work.
+
+
+### Dormant two-pass qualification backend scope (2026-11-07)
+
+Base `d0ded465`; accepted92d9f134639f509c retained, no pending run. Implement
+an isolated compile-flag-only VMM two-context engine with A-preseeded owned
+paths, fresh admission per pass, one attempt/pass/boot series, exact raw
+pre/post paths for12 qualification slots, zero target loads and independent
+100ms lifetimes. Gap includes teardown/repreparation, minimum wait before
+publication,20–100ms sample-marker interval and million-iteration cap. Hold
+CPU0 IRQ/AP/root/client exclusion throughout. Retain both complete census,
+borrowed/private/path/counter observations in bounded RAM; no hash substitutes.
+
+Qualify a one-use phase1 source-check ticket for only the immediately adjacent
+verification, preserving3996-byte source and65536-word limits through actual
+existing gate instances in host fixtures. Wrong roots/tokens/profiles, changed
+raw/source/cache state, delayed/stopped clocks, partial publication/cleanup and
+reentry retain existing refusal/poison ownership rules. Accepted no-read code
+has no behavior change in existing normal/AP builds; mutually exclusive profile
+checks exist only when the new flag is compiled. No native gate/boot caller,
+new target-read API, staging/install or reboot in this dormant step. Add actual
+VMM/gate fault tests, native compile-only object, sanitizer/ARM64 coverage and
+matched normal/AP/core/VM regression proof. Full raw serialization and a fresh
+native bridge precede the distinct no-target-load qualification. PR301/PR19
+retain independent scope; no competing VMM/window edit is listed there.
