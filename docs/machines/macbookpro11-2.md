@@ -14359,3 +14359,18 @@ wire spans/checksums,ports,transaction/station binding and option/message gates.
 Do not log packet/address/key values or relax a predicate to accept an unknown
 frame. Keep immediate safe exhaustion and every restoration requirement. No
 unchanged retry or new physical boot is armed.
+
+### Authenticated IP/DHCP refusal classification scope (November 7)
+
+Inspected actual maina9c1f714 (isolated Air6,1 admission receipts) and open
+PR301 graphics/PR379 browser;no Wi-Fi overlap. Retain a1661937 for this bounded
+probe correction. Add first-refusal categories per DHCP phase for Ethernet/IP/
+UDP/BOOTP spans,checksums,ports,transaction/station/cookie binding,options,
+message class and offered/ACK configuration. Count validated OFFER/ACK/NAK/other
+message classes without packet values. Preserve every existing acceptance gate,
+private entropy/keys,40/48 receive bounds and immediate safe exhaustion. Keep
+DNS/ARP/echo behavior and ordinary provider selection unchanged. Independent
+wire mutations and strict saved-log checks must prove meaningful categories
+without promoting authenticated-but-unmatched traffic to an offer. Qualify one
+matched automatic cold image before new physical claims. No packet,IP/MAC,
+transaction ID,option payload or key values may enter the receipts.
