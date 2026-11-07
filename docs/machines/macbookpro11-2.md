@@ -60,9 +60,10 @@ logged. The153-file native capsule is independently sealed outside build.
 Native v127 `3941cd6f08de149f`, runtime `a71b71c2`, now accepts matched
 open-system AUTH/ASSOC replies and leave submission,with complete MAC/endpoint/
 input/power/RF restoration. See the November6 acceptance below. The next bounded
-scope is native EAPOL transport/ownership and a guarded key-table installer,
-following host-qualified PMK/PTK/MIC,authenticated unwrap and one-shot handshake
-models. Packet-number/data ownership and authenticated traffic remain pending;
+scope is a guarded native key-table/IV/PN installer and native four-way exchange,
+following physically accepted structural M1 receive and host-qualified PMK/PTK/
+MIC,authenticated unwrap and one-shot handshake models. Packet-number/data
+ownership and authenticated traffic remain pending;
 existing ownership and refusal predicates remain exact.
 Other machines' graphics,VT-d and browser work remain independent. No cross-chat
 contact is authorized. Host models do not accept a native secured connection.
@@ -13780,3 +13781,35 @@ RF restoration,storage and recovery. Missing/failed receipts stay unaccepted.
 Credentials remain unread/unpackaged;EAPOL replies,hardware keys,PN ownership,
 encrypted IP/data and live reconnect remain pending. Demers2.4 still needs
 compatible hardware.
+
+### Native structural EAPOL Message 1 accepted (November 6)
+
+V128 `edd097fada0634c3` / runtime `a9b37f58`,session
+`00065fa85b970465-00`,passes all2,033,563 saved prefix bytes and the full15,719-
+operation parent. Matching open authentication/association and private Demers5
+selection pass. The bounded post-association window copies one structurally
+valid99-byte EAPOL M1 from a131-byte unprotected non-QoS FromDS MPDU,with exact
+private peer binding. RX metadata is0x2092,frame control0x0a08 (Retry set),172 USB
+bytes,no L2 padding. This accepts the observed ordinary-data path;QoS/L2PAD
+variants remain host-tested. The earlier over-air transmission and cause of
+the AP's Retry bit were not observed and are not inferred.
+
+The M1 window completes in9,678us across14 polls;the complete management/M1
+exchange takes28,311us. Three management submissions complete once each,with
+no EAPOL reply or key installation. Six endpoint commands,four RX posts,53
+ownership controls,exact stop/dequeue/drop and all4096 shared-input bytes pass.
+MAC drain/disable,filter/TXOP restoration,nine power originals and full outer RF
+originals pass. DMA remains retained. Storage/allocation,payload/recovery equality
+and automatic Ubuntu return pass. The178-file native capsule is independently
+sealed outside build;separate acceptance notes preserve the new source-specific
+scope. Older accepted capsules and earlier failures remain unchanged.
+
+M1 is unauthenticated protocol input;its supported descriptor/fixed fields,
+nonce/replay-room/PMKID shapes do not prove AP key possession or freshness.
+No nonce,replay,address,packet or credential bytes were logged. Credentials
+remain unread/unpackaged. Native four-way exchange,guarded key-table reservation/
+install/readback/removal,entropy/PN ownership,CCMP data,authenticated DHCP/DNS/
+bidirectional transfer and disconnect/reconnect remain pending. No controlled
+port or native WPA2 authentication is accepted. The current Edimax is5GHz-only;
+Demers2.4 still needs compatible hardware. Ubuntu is default,e47d remains known-
+good previous,and no one-shot boot is armed.

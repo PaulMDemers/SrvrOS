@@ -7138,7 +7138,7 @@ or uncertain writes. The new one-shot handshake model supplies no hardware
 readback or packet-number proof. Ordinary RX,desktop and accepted v127 remain
 unchanged until a separately qualified native implementation is staged.
 
-### Bounded native M1 capture candidate (v128)
+### Bounded native M1 capture (v128)
 
 `--wifi-eapol5` requires the complete automatic `--wifi-join5` parent and adds
 an optional bounded post-association inspection before leave. The same retained
@@ -7160,4 +7160,10 @@ Follow matched build,full-parent/strict-log/fault/sanitizer/stack/storage checks
 exact staged GPT/missing-workspace VMs,recovery and saved run record before a
 physical trial. Guest progress,save and Ubuntu return are automatic. The local
 cold Wi-Fi unplug/shutdown procedure remains required;collect the matching
-v128 session first on return. No new physical M1 acceptance is claimed yet.
+v128 session first on return. Pro11,2 now accepts the source-specific structural
+M1 capture on releaseedd097fada0634c3,with full owner/parent restoration and
+saved automatic return. The observed99-byte EAPOL uses unprotected non-QoS
+FromDS (Retry set),without L2 padding;QoS/padding branches remain host-tested.
+M1 is unauthenticated input,not proof of AP key possession or freshness. Native
+EAPOL replies,key installation and authenticated data remain pending. See the
+unit record for the exact source/session and independently sealed evidence.
