@@ -5739,3 +5739,23 @@ build/tests/wpa2-crypto-host$(HOST_EXE): tools/test_wpa2_crypto.c kernel/src/wpa
 build/tests/wpa2-crypto-shared.so: kernel/src/wpa2_crypto.c kernel/include/srvros/wpa2_crypto.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include $< -o $@
+
+.PHONY: test-wpa2-handshake
+test-core: test-wpa2-handshake
+test-wpa2-handshake: build/tests/wpa2-keywrap-host$(HOST_EXE) build/tests/wpa2-handshake-host$(HOST_EXE)
+	build/tests/wpa2-keywrap-host$(HOST_EXE)
+	build/tests/wpa2-handshake-host$(HOST_EXE)
+build/tests/wpa2-keywrap-host$(HOST_EXE): tools/test_wpa2_keywrap.c kernel/src/wpa2_keywrap.c kernel/include/srvros/wpa2_keywrap.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+build/tests/wpa2-handshake-host$(HOST_EXE): tools/test_wpa2_handshake.c tools/fixtures/wpa2-handshake-synthetic.h kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c -o $@
+
+# Optional independent crypto oracle;requires host Python cryptography.
+.PHONY: test-wpa2-handshake-differential
+test-wpa2-handshake-differential: build/tests/wpa2-handshake-shared.so
+	$(PYTHON) tools/test_wpa2_handshake.py $<
+build/tests/wpa2-handshake-shared.so: tools/wpa2_handshake_probe.c kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -fPIC -shared -I kernel/include $< kernel/src/wpa2_handshake.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_crypto.c kernel/src/drivers/mt76_rsn.c -o $@

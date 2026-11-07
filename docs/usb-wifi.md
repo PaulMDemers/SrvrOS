@@ -7042,3 +7042,51 @@ independent Python/OpenSSL comparisons and exact-size truncation/alias/mutation
 checks cover these helpers. References and content hashes stay with local
 qualification evidence. SHA1 use here is confined to the existing WPA2-PSK
 protocol,not a general security-hash API or a different AKM/cipher profile.
+
+### One-shot WPA2 four-way handshake model
+
+The private `wpa2_handshake` model consumes a caller-owned PMK,fresh SNonce,
+selected PSK/CCMP RSNE and exact AP/station addresses under a nonzero lifetime
+generation. It accepts only descriptor-version2 RSN EAPOL1/2 and a bounded
+initial pairwise exchange. M1 flags are exactly008a;the optional PMKID KDE is
+only an untrusted hint,with no cache/fallback authority. M2 carries the canonical
+station RSNE,SNonce,matching replay counter,zero RSN Key Length and a valid MIC.
+Only its explicit send completion advances to M3.
+
+M3 must preserve the chosen EAPOL version and ANonce,have exactly13ca flags,
+a strictly greater replay counter,a16-byte key length and supported reserved/
+RSC fields. MIC verification precedes bounded AES128 RFC3394 default-IV unwrap.
+The decrypted TLVs must contain exactly the selected RSNE and one16-byte GTK
+KDE,with valid index/reserved bits and bounded RSN padding. Unknown/duplicate
+KDEs,changed RSNE,malformed padding and wrap-integrity failures refuse before
+any key handoff. The AES helper uses fixed-work field arithmetic without secret-
+indexed lookup tables;this source property is not a formal timing audit.
+
+The model exports keys once,then requires an explicit installation receipt
+before M4 can be emitted. M4 carries the M3 replay counter,zero nonce/key length
+and valid MIC. Only a confirmed M4 send reaches local COMPLETE. Ambiguous
+sends/installations,replay,duplicates,out-of-order frames or invalid state end
+the lifetime without retry or reinstall. Local completion is not AP ACK or
+native connection acceptance. The installer must independently bind the export
+to its peer/generation,program/read back keys and own packet-number state.
+
+Every terminal failure/retirement erases local secret state. After key export,
+`keys_may_live` remains true even on a reported install refusal until an external
+removal proof is supplied;local erasure cannot retire hardware ownership. The
+external installer separately owns and scrubs exported keys. Stale generations
+and aliases refuse unchanged. A CLOSED/FAILED object is never restarted in
+place. The future transport owner must filter unrelated traffic,serialize calls,
+validate receive provenance,enforce timeouts and retire retained DMA/keys.
+
+This is host-only groundwork. No native caller,key-table/register/staging/UI/
+syscall change or credential provisioning is added. Pairwise/group rekey,
+retransmission,CCMP data/packet numbers,controlled-port networking and live
+reattach remain future work. Ordinary startup and the accepted v127 installed
+payload stay unchanged. The optional differential test requires host Python
+`cryptography`;the ordinary C fixture tests use committed synthetic vectors.
+
+Protocol/reference qualification uses primary hostap
+[EAPOL processing](https://android.googlesource.com/platform/external/wpa_supplicant_8/+/refs/heads/main/src/rsn_supp/wpa.c),
+[RFC3394](https://www.rfc-editor.org/rfc/rfc3394) and the
+[NIST AES specification](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197-upd1.pdf).
+No public fixture contains local credentials or hardware identifiers.

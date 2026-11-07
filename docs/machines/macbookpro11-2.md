@@ -13647,3 +13647,40 @@ Wi-Fi owner. Air memory/VT-d and graphics/browser scopes stay independent;
 the reviewed but deferred base and accepted installed v127 remain unchanged.
 Credentials remain unread/unpackaged and no hardware boot is armed. Preserve
 the167-file native acceptance capsule and23-file acceptance notes unchanged.
+
+The pure owner now implements M1 validation/PMK-to-PTK,M2 construction and
+completion gating,M3 MIC-before-unwrap and exact selected-RSNE/GTK checks,
+one-time key export/install receipt,M4 construction/completion and terminal
+secret retirement. Export conservatively marks keys possibly live until an
+external removal proof;an installation refusal does not erase that ownership
+obligation. No duplicate,replay or ambiguous receipt can reinstall or retry.
+An exported key remains separately owned by its future installer. COMPLETE is
+only model state,not AP ACK or controlled-port/native security acceptance.
+
+Host qualification passes independent synthetic M1/M2/M3/M4 byte fixtures,
+131,072 exhaustive M1/M3 flag words,replay boundaries through UINT64_MAX,
+valid-MIC malformed fixed fields,authenticated wrap-integrity failures,changed/
+duplicate RSNE and GTK KDEs,bad padding,all GTK index/ignored-TX-bit combinations
+and EAPOL1/2. Independent cryptography AES wrap/unwrap comparisons pass106
+cases including1024-byte ciphertext. Public FIPS197 AES128 and RFC3394 vectors,
+every wrapped ciphertext bit,exact-size truncated allocations,alias/capacity/
+null refusals,all state/generation lifetimes,one-time install handoff and secret
+scrubbing pass. Fatal ASan/UBSan passes both keywrap and handshake fixtures.
+
+Matched `all` build,prior crypto/nonce/RSNE/management/pure exchange/native
+ownership/strict saved-ledger regressions and documentation checks pass.
+New native compiler frames peak at408bytes (keywrap),88bytes (handshake);
+the unchanged crypto layer's previously qualified maximum is600bytes. The
+ordinary C fixtures need no host crypto dependency;optional differential tests
+use host Python cryptography and committed regenerable synthetic vectors.
+No full-core or new physical security acceptance is claimed. Qualification,
+source/reference hashes and logs are saved outside build separately from the
+unchanged native acceptance capsule/notes.
+
+Next is native EAPOL transport/ownership binding and a separately guarded key-
+table installer with independent readback,packet-number ownership and removal
+proof. This model does not provide hardware key installation,CCMP data or an IP
+provider. Connection/data/disconnect,live reattach and group/pairwise rekey remain
+pending. Credentials remain unread/unpackaged;installed v127,e47d recovery and
+Ubuntu default are unchanged and no boot is armed. Further physical trials still
+use shutdown and10second Wi-Fi-only cold unplug under existing authorization.
