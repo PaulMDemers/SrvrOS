@@ -13627,3 +13627,23 @@ EAPOL state owner with matched peer/nonce/replay/RSNE handling,then authenticate
 key-data unwrap and one-time hardware installation/retirement before encrypted
 traffic. The accepted v127 installed/recovery payloads remain unchanged and no
 one-shot boot is armed;this host-only helper needs no physical restart.
+
+### Bounded four-way handshake model scope (November 6)
+
+Next local work builds a pure one-shot PSK/CCMP EAPOL state owner atop the
+qualified PMK/PTK/MIC helpers,plus bounded AES128 RFC3394 key-data unwrap.
+Touched subsystems are private WPA2 helpers/headers,host tests and Makefile;
+no native endpoint,register,key-table,syscall or desktop changes are planned.
+Require exact peer/generation binding,descriptor/flag/length/nonce validation,
+MIC before unwrap,monotonic replay,exact selected RSNE and GTK KDE validation,
+one-time install handoff and explicit TX completion before any modeled complete
+state. Ambiguous sends/installations and duplicate/replayed messages terminate
+without reinstall or retry. Retirement scrubs secrets and distinguishes a
+possibly live external key from locally erased state. The production installer
+and data provider remain unwired;host models do not accept native security.
+
+Origin/main4cb7b5a7 and open PR19/301/379 remain inspected with no competing
+Wi-Fi owner. Air memory/VT-d and graphics/browser scopes stay independent;
+the reviewed but deferred base and accepted installed v127 remain unchanged.
+Credentials remain unread/unpackaged and no hardware boot is armed. Preserve
+the167-file native acceptance capsule and23-file acceptance notes unchanged.
