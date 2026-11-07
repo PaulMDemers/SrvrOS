@@ -8520,3 +8520,20 @@ All623 prior files survive except expected `.srvros/meta`; four new logs make
 FAT-bitmap mismatch. Exact payload and full matching raw evidence are retained
 outside build with verified hashes. Ubuntu default and independent recovery
 remain retained, one-shot empty, collector disabled, no next boot armed.
+
+
+### Guarded read-caller contract audit scope (2026-11-07)
+
+Base `eefc5bfd`, accepted window payload92d9f134639f509c collected. Audit the
+next read caller as host-only protocol work: replay the strict accepted three-file
+window receipt, bind unchanged12-DWORD/two-sample limits, and test proposed exact
+A-preseeded owned entries with an already-accessed borrowed root. No A/D masks,
+source-proof reuse as a live grant, current backend reset or second lifetime
+inside the100ms no-read claim. Define two independently bounded100ms attempts
+and the20–100ms inter-sample interval including teardown/fresh preparation.
+Add pure host path/sample/timeline refusal models and regressions plus current
+guides. No native kernel/boot/staging/codec change, target I/O or new reboot for
+this audit. A separate dormant read-qualified backend and no-read A-preseed/two-
+window qualification precede any actual register-read adapter. PR301/PR19 retain
+independent hardware scopes. Existing windows and read/ownership grants remain
+unchanged. Publish the audit with exact replay evidence and targeted host checks.
