@@ -4799,11 +4799,12 @@ build/ap-probe/haswell-firmware-adapter.o: kernel/diagnostics/haswell_firmware_a
 
 .PHONY: test-haswell-firmware
 test-core: test-haswell-firmware
-test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-firmware-adapter$(HOST_EXE) build/tests/ecam-profile$(HOST_EXE)
+test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-firmware-adapter$(HOST_EXE) build/tests/ecam-profile$(HOST_EXE) build/tests/air61-window-combined$(HOST_EXE)
 	build/tests/hsw-firmware-core$(HOST_EXE) > build/tests/hsw-firmware-core.log
 	build/tests/hsw-firmware-adapter$(HOST_EXE) > build/tests/hsw-firmware-refusal.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_firmware.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_read_audit.py
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_read_lifetime_audit.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_admission_audit.py
 build/tests/hsw-firmware-core$(HOST_EXE): tools/test_haswell_firmware.c kernel/diagnostics/haswell_firmware_core.c kernel/include/srvros/haswell_firmware.h
 	@mkdir -p $(@D)

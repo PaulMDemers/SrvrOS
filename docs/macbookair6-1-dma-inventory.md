@@ -620,3 +620,17 @@ The next milestone is the fresh exact-unit admission bridge, complete retained
 raw receipt and window-only profile; only afterward consider a register-read
 caller with an explicit A/D contract. Installed accepted hardware evidence is
 unchanged and does not accept the dormant backend natively.
+
+
+## Native window-only qualification (2026-11-07)
+
+The [window admission bridge](macbookair6-1-vtd-read-window-design.md) now has
+strict native qualification in `92d9f134639f509c` / `cca4d31f`: complete30-table
+preparation/two-pass census,77.402ms claimed lifetime within100ms, expected RO/NX/
+UC mapping, verified detached retirement and claim release. All three matching
+raw proofs and USB integrity pass. This supersedes the pending-window checkpoint
+as a mapping-only observation, preserving its dated history. No VT-d target was
+read or written; resource/register-read/ownership grants remain false. Next is
+a source audit of the guarded read caller, live admission and hardware A/D
+semantics before any new read-enabled profile. Ordinary native desktop coverage
+for the shared occupancy representation remains independent.
