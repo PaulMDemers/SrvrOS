@@ -3,7 +3,9 @@
 #define main ecam_backend_fixture_main
 #include "test_ecam_boot.c"
 #undef main
+#ifndef SRVROS_ECAM_GATE_HOST_TEST
 #define SRVROS_ECAM_GATE_HOST_TEST
+#endif
 #include "../kernel/diagnostics/haswell_ecam_boot.c"
 volatile struct limine_memmap_request memmap_request;
 uint8_t eg_test_dmar_pin[32];

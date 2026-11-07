@@ -8172,3 +8172,34 @@ guides. PR301 scanout and PR19 Wi-Fi remain independent; inspect main/staging
 deltas before integration and preserve their profiles. Validate real gate and
 formatter, malformed/refused/raw/maximum receipt cases, existing profiles and
 exact-stage VM before installing one-shot under standing reboot authorization.
+
+
+### Window-only profile candidate (2026-11-06)
+
+The explicit v6 recipe now holds CPU0 interrupt/root/client exclusion before
+first user init and calls a separate instance of the exact-unit firmware/cache/
+NX/WP/parked-AP gate. It verifies the observed catalog gap and PAT3 strong-UC
+classification, publishes/retires the checked window, retains raw observations
+before PMM free and saves separate window.log plus matching exit reference.
+Neither target page is a permitted RAM source; there is no target-load API.
+Poison halts before init/USB reuse with latched progress; clean refusal saves
+and returns. Existing profile recipes and all limits remain unchanged.
+
+The combined actual ECAM + window gate/backend/formatter fixture passes strict
+three-file decoding, including a128-row catalog and log-tail bounds. Eight new
+Python tests cover raw fields, missing/duplicate/cross-session proof, separate
+file collection, profile dependencies, fresh CPU/NX/WP/AP/cache/gap/MCFG refusal
+and terminal retained failure. Existing ECAM, alias/cache/firmware and logger
+regressions pass. The updated shared decoder preserves its old strict rules;
+new cross-epoch checks never mask a measured census or owned window entry;
+monotonic hardware A/D transitions and unexpected EFER changes have dedicated
+positive/refusal regressions. Stopped clocks during verification retain poison.
+Native qualification remains pending; matched builds, sanitizers and frozen VM
+rehearsals precede the next automatic one-shot test.
+
+Actual backend, standalone gate/formatter and combined early-ECAM/window
+fixtures pass ASan/UBSan and compile for ARM64 with assertions enabled. The
+complete/refused/poisoned and maximum-catalog paths are included. Raw complete
+receipts explicitly record claim release, and failed saved receipts preserve
+census/gate/retirement progress without rereading hardware. Frozen full core
+and matched images/VM validation remain next at this checkpoint.

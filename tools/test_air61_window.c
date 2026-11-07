@@ -15,6 +15,7 @@ static unsigned load_fail_at,invalidate_fail_at;
 static int gate_fail=-1;
 static bool borrowed,duplicate,store_after,ram_fail,bad_pointer,reenter,zero_clock;
 static bool fail_publish_readback,census_change,force_cap,bad_alloc,corrupt_parent,corrupt_after_clear;
+static bool stop_clock,stop_at_publish;static uint64_t stopped_time;
 static uint64_t vmm_test_cr3(void){return cr3;}
 static void vmm_test_write_cr3(uint64_t n){(void)n;assert(false);}
 static uint64_t vmm_test_rflags(void){return irq_flags;}
@@ -36,6 +37,7 @@ static uint64_t user_frame_test_kernel_address(const void *p){(void)p;ecam_unexp
 static uint8_t *user_frame_test_user_pointer(uint64_t p){(void)p;ecam_unexpected_user_frame();}
 static void user_frame_test_cpuid(uint32_t n,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d){(void)n;(void)a;(void)b;(void)c;(void)d;ecam_unexpected_user_frame();}
 
+static uint64_t aw_clock_sample(void);
 static unsigned frame_index(uint64_t pa){assert(pa>=0x2000000 && pa<0x2008000 && !(pa&4095));return (pa-0x2000000)/4096;}
 static uint64_t aw_test_virtual(uint64_t pa){return 0xffff800000000000ull+pa+(bad_pointer?4096:0);}
 static bool aw_test_load(uint64_t pa,unsigned i,uint64_t *out){assert(pa!=0xfed90000 && i<512);loads++;if(loads==load_fail_at)return false;*out=pages[frame_index(pa)][i];return true;}
@@ -43,7 +45,7 @@ static bool aw_test_store(uint64_t pa,unsigned i,uint64_t before,uint64_t after,
  stores++;assert(i<512);uint64_t *p=&pages[frame_index(pa)][i];
  if(stores==store_fail_at && !store_after)return false;
  if(!private && *p!=before)return false;
- *p=after;if(corrupt_parent && pa==0x2001000 && i==7)*p^=32;if(corrupt_after_clear && pa==0x2001000 && i==7 && !after)pages[1][8]^=32;if(fail_publish_readback && pa==0x2001000 && i==7)load_fail_at=loads+1;return stores!=store_fail_at;
+ *p=after;if(stop_at_publish && pa==0x2001000 && i==7){stop_clock=true;stopped_time=aw_clock_sample();}if(corrupt_parent && pa==0x2001000 && i==7)*p^=32;if(corrupt_after_clear && pa==0x2001000 && i==7 && !after)pages[1][8]^=32;if(fail_publish_readback && pa==0x2001000 && i==7)load_fail_at=loads+1;return stores!=store_fail_at;
 }
 static bool aw_test_invalidate(uint64_t va){assert(va==0xffffc001f3250000ull);invalidates++;return invalidates!=invalidate_fail_at;}
 static bool aw_test_free(uint64_t pa){unsigned i=frame_index(pa);assert(i==6 || i==7);assert(tags[i]==PMM_FRAME_PAGE_TABLE);if(frees+1==free_fail_at)return false;frees++;tags[i]=PMM_FRAME_FREE;memset(pages[i],0xcc,4096);return true;}
@@ -63,8 +65,11 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t min,enum pmm_frame_ta
 }
 bool pmm_frame_has_tag(uint64_t pa,enum pmm_frame_tag tag){return pa>=0x2000000 && pa<0x2008000 && !(pa&4095) && tags[frame_index(pa)]==(unsigned)tag;}
 void pmm_free_frame(uint64_t pa){(void)pa;assert(false);}
+#ifndef AIR61_WINDOW_PROFILE_FIXTURE
 void console_printf(const char *fmt,...){(void)fmt;assert(false);}
-static uint64_t now(void *ctx){(void)ctx;return zero_clock?0:1000+(++ticks)/16;}
+#endif
+static uint64_t aw_clock_sample(void){return aw.last;}
+static uint64_t now(void *ctx){(void)ctx;if(stop_clock)return stopped_time;return zero_clock?0:1000+(++ticks)/16;}
 static bool ram(void *ctx,uint64_t pa){(void)ctx;if(census_change && aw.in_census && aw.census.reads[0]==2560 && !aw.census.reads[1]){census_change=false;pages[4][2]^=32;}return !ram_fail && !(pa&4095) && pa>=0x2000000 && pa<0x2008000;}
 static bool check(void *ctx,unsigned phase){
  (void)ctx;assert(phase<3);if(force_cap)aw.r.words=AIR61_WINDOW_WORD_CAP;
@@ -82,7 +87,7 @@ static void reset(void){
  for(unsigned i=0;i<8;i++)pages[4][i]=(0x2000000+4096*i)|3;
  memset(pages[6],0xa5,4096);memset(pages[7],0xa5,4096);
  ticks=allocs=frees=loads=stores=invalidates=alloc_fail_at=free_fail_at=store_fail_at=load_fail_at=invalidate_fail_at=0;
- borrowed=duplicate=store_after=ram_fail=bad_pointer=reenter=zero_clock=false;fail_publish_readback=census_change=force_cap=bad_alloc=corrupt_parent=corrupt_after_clear=false;gate_fail=-1;
+ borrowed=duplicate=store_after=ram_fail=bad_pointer=reenter=zero_clock=false;fail_publish_readback=census_change=force_cap=bad_alloc=corrupt_parent=corrupt_after_clear=stop_clock=stop_at_publish=false;stopped_time=0;gate_fail=-1;
 }
 static bool open_window(void){return vmm_air61_window_prepare(&io,10,20,&token);}
 static void poisoned(void){
@@ -92,7 +97,8 @@ static void poisoned(void){
  assert(stores==oldstores && frees==oldfrees && loads==oldloads && pages[1][7]==parent);
 }
 int main(void){
- reset();uint64_t before[2][512];memcpy(before[0],pages[0],4096);memcpy(before[1],pages[1],4096);
+ reset();uint64_t denied=0;unsigned denied_loads=loads;assert(!vmm_air61_window_copy_ram(0x2000000,&denied,8) && loads==denied_loads);
+ uint64_t before[2][512];memcpy(before[0],pages[0],4096);memcpy(before[1],pages[1],4096);
  assert(vmm_air61_window_result()==&aw.r && vmm_air61_window_census()==&aw.census);
  assert(open_window() && aw.r.state==AIR61_WINDOW_ACTIVE && aw.r.claimed && allocs==2 && !frees);
  assert(aw.census.status==1 && aw.census.pages==5 && aw.census.reads[0]==2560 && aw.census.reads[1]==2560 && !aw.census.target_leaves);
@@ -127,6 +133,7 @@ int main(void){
  for(unsigned n=1025;n<=1026;n++)for(unsigned after=0;after<2;after++){reset();store_fail_at=n;store_after=after;assert(!open_window() && aw.r.state==AIR61_WINDOW_REFUSED && frees==2 && !aw.r.claimed);}
  /* Two zero pages + two private CAS stores precede the only parent CAS. */
  for(unsigned after=0;after<2;after++){reset();store_fail_at=1027;store_after=after;assert(!open_window() && !frees);poisoned();}
+ reset();stop_at_publish=true;assert(!open_window() && !frees);poisoned();
  reset();corrupt_parent=true;assert(!open_window() && !frees);poisoned();
  reset();fail_publish_readback=true;assert(!open_window() && !frees);poisoned();
  reset();invalidate_fail_at=1;assert(!open_window() && !frees);poisoned();
@@ -141,6 +148,7 @@ int main(void){
  reset();assert(open_window());store_fail_at=stores+1;assert(!vmm_air61_window_retire(&token) && !frees);poisoned();
  reset();assert(open_window());invalidate_fail_at=2;assert(!vmm_air61_window_retire(&token) && !frees && !pages[1][7]);poisoned();
  reset();assert(open_window());aw.r.words=AIR61_WINDOW_WORD_CAP;assert(!vmm_air61_window_retire(&token) && !frees);poisoned();
+ reset();assert(open_window());stop_clock=true;stopped_time=aw.last;assert(!vmm_air61_window_retire(&token) && !frees);poisoned();
  reset();assert(open_window());ticks=0;assert(!vmm_air61_window_retire(&token) && !frees);poisoned();
  reset();assert(open_window());tags[6]=PMM_FRAME_RESERVED;assert(!vmm_air61_window_retire(&token) && !frees);poisoned();
  reset();assert(open_window());pages[4][0]^=4096;assert(!vmm_air61_window_retire(&token) && !frees);poisoned();
