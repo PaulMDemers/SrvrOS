@@ -14083,3 +14083,42 @@ duplicated,reordered or incomplete data/key/retirement receipts. These are
 synthetic tests only;the accepted physical source remains09504e18. Full matched
 qualification and cold hardware results are still required before accepting
 encrypted transport,DHCP/DNS or data transfer.
+
+### Qualified encrypted DHCP/DNS/echo cold trial (November 7)
+
+Runtimefe0c80f9 consumes mainea1661937. Matched kernel/USB build,full controller,
+relevant prior/new ownership/protocol/crypto regressions,shared DNS regressions
+and the consumed Air6,1 clock-window tests pass locally. All233 staging tests,
+16 fatal ASan/UBSan groups and the native compiler frame check pass;the maximum
+new frame is1,240bytes under the unchanged4,096-byte check. One ctypes wire
+oracle omits interpreter leak reporting only;its module has no heap allocation
+and address/UB findings remain fatal. This is not a full-core rerun.
+
+The complete production-C/two-owner/15,719-operation native-parent synthetic
+prefix passes2,039,606bytes and115 whole-prefix refusals. Its conservative bound
+leaves42,385bytes under the unchanged2MiB capture limit,including the separate
+32KiB unmodeled reserve. Real2MiB filesystem persistence/remount/fsck,ordinary
+desktop and exact staged GPT save/return and missing-workspace VMs pass. Exact
+kernel and independently reconstructed firmware/private-PMK initramfs bytes
+match. Six hashed primary Linux/RFC references are preserved locally. No new
+native encrypted-data,DHCP/DNS or echo acceptance is inferred.
+
+The accepted177-file four-way capsule and24-file notes,failed569-file capsule
+and accepted178-file M1 capsule remain unchanged. The new private PMK record
+was byte-compared to the accepted sealed initramfs record. The last generated
+USB session was archived and byte-verified before pruning;prior files,offline
+allocation and workspace eligibility pass. EFI space was recovered by retiring
+only the unreferenced older v122 duplicate after verifying its complete sealed
+backup. That accepted backup survives outside build;the latest accepted v130,
+accepted M1 and e47d previous payloads remain installed. The new private
+candidate is installed,Ubuntu remains default,and no boot is armed yet.
+
+Next authorized action is shutdown and Wi-Fi-only10second unplug while off,
+same-port reconnect and power on with workspace attached. Guest progress,the
+six-request diagnostic,full saved results and Ubuntu return are automatic;
+no commands/photos or repeated approval. Collect this v131 session first after
+return and require authenticated DHCP DORA,DNS and the exact256-byte echo,
+PN1..6,software erasure/leave and full endpoint/input/MAC/power/RF originals,
+storage and recovery. General TCP/HTTP,ordinary provider/UI connect/disconnect
+and live reattach remain separate follow-ups. Demers2.4 needs compatible
+hardware. PR19 remains draft and Actions remain disabled.
