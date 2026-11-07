@@ -8342,3 +8342,57 @@ All615 prior files survive except expected `.srvros/meta`; four new logs make
 leaks/FAT-bitmap mismatches. Matching raw logs and analysis are retained outside
 build. Ubuntu remains default, one-shot entry empty, collector disabled after
 return; no next boot armed. Accepted ECAM/root and recovery remain retained.
+
+
+### Bounded census clock-cost audit scope (2026-11-07)
+
+Base `e8e56ee3`, prior deadline refusal collected. Audit the opt-in window
+backend's repeated clock reads inside each guarded HHDM word operation. Keep
+every HHDM raw load, provenance/root/exclusion check, exact comparison and all
+limits. Coalesce only redundant reference-clock sampling into bounded logical
+access scopes: census reads consume their immediately preceding HAC clock
+check; ordinary reads/stores retain fresh entry/completion checks and stores
+check immediately before mutation. No cached translation or RAM grant. Add
+clock/load/provenance/guard counts and phase timing from existing timestamps,
+plus delayed/stopped-clock, changed-root/source/raw and publication regressions.
+Scope backend/header/report/decoder/tests/own guides; no generic clock, HAC,
+VMM, policy or sibling gate change. PR301 scanout/PR19 Wi-Fi remain independent.
+Validate old/new actual-fixture clock counts, matched build/core, sanitizers and
+sequential staged/ordinary VMs before merge and automatic native retry. Native
+qualification remains pending under the unchanged100ms lifetime.
+
+
+The actual backend fixture measures106618 reference-clock calls before and
+33386 afterward, with exactly98851 raw source loads and60451 mapper words in
+both successful lifetimes. These are host operation counts, not native latency
+acceptance. Clock sampling is coalesced only within bounded logical accesses;
+all individual HHDM/raw/provenance/root checks remain. No generic clock, HAC,
+translation cache or policy changes. Ten strict profile tests pass, including
+a delayed actual gate/backend/report refusal with retained cost diagnostics.
+New regressions cover one-use clock tickets, delayed walks, immediate pre-store
+expiry, root/provenance changes during walks, post-publication expiry and retained
+poison; existing raw A/D, permission, ownership, cap and clock failures still pass.
+
+
+### Frozen bounded clock-scope checks (2026-11-07)
+
+Code `d5b45505` passes matched normal/AP/USB/ISO builds and complete test-core
+(one explicit opt-in test skipped). Actual backend, standalone gate/report and
+combined early-ECAM/window fixtures pass ASan/UBSan and ARM64 compilation,
+including delayed census refusal and retained terminal failure. Ten strict
+profile/collector tests pass. Actual three-file proof covers normal, maximum
+catalog and native HHDM shapes with cost records and unchanged raw comparisons.
+The ordinary image excludes diagnostic code/test pins. Host operation counts
+retain98851 raw loads/60451 mapper words while clock calls fall106618→33386;
+this is not native latency acceptance. Cost clock counters measure backend
+reference callbacks; independent firmware/cache clock calls remain outside
+that count. Phase times retain the shared reference clock.
+
+Nine sequential staged VMs pass legacy firmware/cache/alias/fence/v4/v5 plus
+v5/v6 missing-workspace and exact v6 refusal. Five ordinary syscall/UEFI USB
+keyboard/fork/exec-vector/yield VMs pass. Selected payload `a80942d96c7c830c`
+is hash-verified and backed up for an automatic native retry. Q35 refusal does
+not establish native completion. Preserve the previous deadline failure and
+unchanged100ms/word/census caps. Only an unreferenced failed-trial EFI copy may
+be retired after full payload/evidence hash verification outside build; accepted
+ECAM/root and Ubuntu/recovery payloads remain retained.

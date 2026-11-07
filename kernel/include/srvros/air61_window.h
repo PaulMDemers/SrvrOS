@@ -24,6 +24,8 @@ struct air61_window_result {
  struct air61_window_token token;
  uint64_t pdpt,frames[2],begin,end,hhdm;
  unsigned words,private_writes,parent_attempts,unlink_attempts,invalidations,frees;
+ unsigned clock_samples,raw_loads,guard_checks,ram_checks,logical_reads,logical_stores,census_reads;
+ uint64_t gate_end,census_begin,census_end;
  const char *fault;
 };
 /* Caller already holds exclusive CPU0/IRQ/AP/client exclusion before entry.
