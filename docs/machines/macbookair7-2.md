@@ -2,25 +2,62 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
-### Active scope: engine, flip-wait and cache-completion prerequisites
+### Engine/flip-wait/cache prerequisite audit ready for hardware
 
-Main `d0ded465` (Air6,1 guarded read lifetime/audit) is integrated after the
-accepted6efe return. PR19 Pro Wi-Fi and PR379 WebCore retain independent scope.
-The [completion contract](../intel-completion-prerequisites.md) records exact
-registers and remaining ownership obligations. The next bounded objective is a separate CPU0 completion-audit image under the
-accepted cooperative GT wake lease: two full five-engine snapshots, saved
-flip-wait flags, all five documented TLB controls, RCS/BCS parser/cache-ordering
-context and explicit absence of pipeline/posted/prefetch completion authority.
-Shared scope is the new read-only core/adapter, isolated recipe/image/cache
-allowlist, strict collector/staging and fault tests. Existing HDA/reader and GT/
-BCS recipes stay independent. No TLB/reset/engine/display/PTE writer is planned:
-Broadwell requires pipelines flushed and clear of memory accesses before TLB
-invalidation; old INSTPM invalidation bits are reserved on this generation.
-Qualify actual state before selecting a documented completion/reset mechanism;
-quiet or self-cleared control bits cannot supply memory-reuse authority. Preserve
-all inherited backing. Host/VM validation precedes readiness; no reboot is armed
-or requested by this implementation block. Disk cleanup removes only verified
-inactive duplicate generated stages with complete outside durable counterparts.
+Main `d0ded465` is integrated. Tested source `a24c164a` produces release
+`6c2fffbf241a110a`, installed **not armed**; native acceptance remains pending.
+The [completion contract](../intel-completion-prerequisites.md) pins the exact
+Broadwell registers and remaining obligations. A separate14-token image/request
+observes two full five-engine groups and RCS/BCS cache-ordering context under the
+accepted cooperative wake lease:92 reads, nine aliases/cache checks, three
+existing wake stores and unchanged100ms census/300ms wake/500ms full bounds.
+All engine/TLB pages are RO/NX/UC. No engine/Stop Ring/reset/TLB-invalidation,
+display/HDA/PTE or completion-buffer command writer is added.
+
+The manual requires pipelines flushed and clear of memory accesses before TLB
+invalidation; old INSTPM flush/invalidation bits are reserved on Broadwell.
+RCS GFX_MODE is0229c, not02520. Independent actual-adapter fixtures pin every
+register address and domain order. Raw ring, saved flip-wait, TLB-control and
+parser/cache context survive in receipts. Parser idle, saved waits and initially
+clear controls cannot supply posted/prefetch completion or memory reuse: all
+eight obligation bits stay open (255), with all retirement/ownership grants0.
+HDA and plane results below remain independently accepted lifetimes, not a
+same-boot joint ownership proof. Native state will guide a documented completion
+or controlled-reset path before actual invalidation/backing transfer.
+
+All451 validation jobs pass: full matching host/core/profile/docs/build, fatal
+ASan/UBSan for21 core/25 actual-adapter modes plus prior ownership protocols,
+282 collector/staging cases and12-image symbol/hash separation. All46 compiled
+negative controls are detected:4 GT,14 HDA owner,8 lease,9 pinned reader and11
+completion (including older-generation GFX_MODE and swapped VCS1/VECS addresses).
+Unchanged89-case installer/installed-root checks retain explicit input/recipe/
+log-hash reuse from `7c0c2fab`; all other gates rerun. Conservative raw-word log
+projection is60,192/65,536 bytes including1,536 allowance. Exact-stage MBR Q35
+verifies EFI64/pinned loader/recipe, refusal before stores, saved checkpoint/
+results, unmount/automatic return and missing-workspace halt. Earlier reader,
+lease/owner/HDA/BCS/window/Haswell and VirtIO VM regressions pass. No VM evidence
+accepts native registers, pipeline/cache ownership or physical tear-free.
+
+The local MBR workspace has1,365 files/111 sessions; read-only inventory, prior
+file/boot-sector preservation and offline fsck/allocation/writable/headroom pass.
+It is unmounted. Current6c2f/recovery `9aa8dbf6fbda8252`, prior accepted6efe and
+known-good GUI remain verified. Inactive HDA round-trip `d6677f44c064979d` has
+full SHA-verified durable/archive copies before unreferenced EFI removal. Eight
+inactive duplicate generated stages recovered1,187,655,940 bytes only after full
+outside durable/manifest/file hash equality; current/recovery/latest/prior8859/
+census/GUI stayed protected. Seven fresh uninstalled Q35 regression stages were
+retired serially after manifest/config preservation and all payload hashes matched
+retained source-bound build outputs. Native candidate/physical evidence survive.
+
+Evidence/run/stage/guards are in `build/air-completion-20261107`, with full
+independent SHA-verified backup under
+`~/.local/share/srvros/reviewed-evidence/air-completion-20261107` and retained
+cleanup sidecar. Trial progress/results are automatic, no input required;
+volume1%, guest audio off. Safe handled outcomes save/unmount/return; retained
+state or unsafe persistence halts visibly. Guards are **check-only**, no one-shot
+armed. Collect the matching session first after any future trial. PR19 Pro Wi-Fi
+and PR379 WebCore retain independent scope. The accepted6efe checkpoint below
+remains the latest physical result; managed GPU memory/tear-free stay unavailable.
 
 ### Current checkpoint: pinned transaction/display-reader audit accepted
 

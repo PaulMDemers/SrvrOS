@@ -99,3 +99,15 @@ human input. Volume1%, audio off; save/unmount/return after safe handled outcome
 halt on retained state or unsafe persistence. Q35 must refuse before stores,
 save and return; missing workspace halts. These VM results cannot accept native
 registers, completion, cache/engine ownership or physical tear-free presentation.
+
+## Validated Air7,2 candidate
+
+Source `a24c164a`, release `6c2fffbf241a110a`, is installed and not armed; native
+acceptance remains pending. The [unit readiness record](machines/macbookair7-2.md#engineflip-waitcache-prerequisite-audit-ready-for-hardware)
+identifies451 passing validation jobs,21 core/25 actual-adapter fatal sanitizer
+modes,46 detected compiled negatives,282 collector/staging cases and12-image
+isolation. Exact-stage Q35 verifies no-store refusal/save/unmount/return and
+missing-workspace halt; prior Intel/Haswell/VirtIO regressions pass. Conservative
+saved-tail projection is60,192/65,536 bytes including1,536 allowance. Recovery,
+media and independent evidence are recorded there. No hardware completion or
+memory authority follows from these host/VM receipts.
