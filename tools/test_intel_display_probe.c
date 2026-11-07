@@ -11,6 +11,7 @@
 static const char *engine_mode="report";
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
+static bool bcs_entry_disabled;
 static uint32_t bcs_ctl=0xf001;static unsigned bcs_reads,bcs_writes,reader_calls;
 static bool intel_display_test_blitter_read(uint32_t *);
 static enum intel_gt_write intel_display_test_blitter_write(uint32_t);
@@ -47,7 +48,7 @@ static bool intel_display_test_engine_read(unsigned e,unsigned w,uint32_t *v) {
  if(!strcmp(engine_mode,"late-foreign"))wake_request|=2;
  *v=w==4?1:0;
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
- if(e==4 && w==2)*v=0x3eef000;
+ if(e==4 && w==2)*v=bcs_entry_disabled?0:0x3eef000;
  if(e==4 && w==3)*v=bcs_ctl;
 #endif
  if(!strcmp(engine_mode,"active") && e==0 && w==3)*v=1;
@@ -91,7 +92,7 @@ volatile struct limine_executable_cmdline_request executable_cmdline_request={.r
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
 static bool intel_display_test_blitter_read(uint32_t *v) {
  assert(wake_irq && !display_access_allowed() && wake_ack==1);bcs_reads++;
- const uint32_t words[8]={0,0,0x3eef000,bcs_ctl,1,0,0x200,1};
+ const uint32_t words[8]={0,0,bcs_entry_disabled?0:0x3eef000,bcs_ctl,1,0,0x200,1};
  for(unsigned i=0;i<8;i++)v[i]=words[i];
  if(!strcmp(engine_mode,"blit-notidle"))v[6]=0;
  if(!strcmp(engine_mode,"blit-execlist"))v[7]|=0x8000;
@@ -102,10 +103,17 @@ static bool intel_display_test_blitter_read(uint32_t *v) {
  if(!strcmp(engine_mode,"blit-change") && bcs_reads==2)v[6]|=1u<<16;
  if(!strcmp(engine_mode,"blit-float"))v[0]=UINT32_MAX;
  if(!strcmp(engine_mode,"blit-late-foreign") && bcs_writes)wake_request|=2;
+ if(!strcmp(engine_mode,"blit-off-busy"))v[0]=8;
+ if(!strcmp(engine_mode,"blit-off-geometry"))v[2]=0x3eef000;
+ if(!strcmp(engine_mode,"blit-off-enabled"))v[3]=0xf001;
+ if(!strcmp(engine_mode,"blit-off-notidle"))v[6]=0;
+ if(!strcmp(engine_mode,"blit-off-execlist"))v[7]|=0x8000;
+ if(!strcmp(engine_mode,"blit-off-drift") && bcs_reads==3)v[6]|=1u<<16;
+ if(!strcmp(engine_mode,"blit-off-float"))v[0]=UINT32_MAX;
  return strcmp(engine_mode,"blit-read-fail")!=0;
 }
 static enum intel_gt_write intel_display_test_blitter_write(uint32_t value) {
- assert(wake_irq && !display_access_allowed() && wake_ack==1 && value==0xf000 && bcs_ctl==0xf001);
+ assert(!bcs_entry_disabled && wake_irq && !display_access_allowed() && wake_ack==1 && value==0xf000 && bcs_ctl==0xf001);
  for(unsigned i=0;i<WAKE_MAPS;i++){uint64_t physical;assert(vmm_virt_to_phys_in_space(0x1000,WAKE_VA+4096*i,&physical) && physical==0xc0000000ull+wake_pages[i]);}
  bcs_writes++;assert(bcs_writes==1);
  if(!strcmp(engine_mode,"blit-unissued"))return GT_WRITE_NONE;
@@ -115,7 +123,7 @@ static enum intel_gt_write intel_display_test_blitter_write(uint32_t value) {
 static bool intel_display_test_reader_read(unsigned p,unsigned w,uint32_t *out) {
  assert(p<3 && w<9 && wake_irq && !display_access_allowed() && wake_ack==1);reader_calls++;
  *out=!p && !w?0xd8000400:0;
- if(!strcmp(engine_mode,"blit-reader-change") && reader_calls>27 && !p && w==1)*out=4096;
+ if((!strcmp(engine_mode,"blit-reader-change") || !strcmp(engine_mode,"blit-off-reader-change")) && reader_calls>27 && !p && w==1)*out=4096;
  return strcmp(engine_mode,"blit-reader-fail")!=0;
 }
 #endif
@@ -156,7 +164,7 @@ const struct pci_device *pci_device_at(uint64_t i){return i<pci_device_count()?&
 uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
     config_reads++;assert(config_reads<(wake_mode?10000000:gt_mode?20000:window_mode?5000:1000));
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
-    if(d==&devices[3]){switch(off){case 0:return 0x160c8086;case 4:return 0x00100006;case 8:return 0x04030001;case 0x34:return 0x40;case 0x40:return 0x00030001;case 0x44:return reader_calls>27 && !strcmp(engine_mode,"blit-audio-change")?0:3;default:return 0;}}
+    if(d==&devices[3]){switch(off){case 0:return 0x160c8086;case 4:return 0x00100006;case 8:return 0x04030001;case 0x34:return 0x40;case 0x40:return 0x00030001;case 0x44:return reader_calls>27 && (!strcmp(engine_mode,"blit-audio-change") || !strcmp(engine_mode,"blit-off-audio-change"))?0:3;default:return 0;}}
 #endif
     if(d==&devices[2]){switch(off){case 0:return 0x16048086;case 0x50:return window_mode?0x2c0:0x140;case 0xb0:return window_mode?0x8c000001:0x90000001;case 0xb4:return window_mode?0x8b800001:0x8fe00001;case 0xbc:return window_mode?0x90000001:0x92000001;default:return 0;}}
     if(d==&devices[1])return off==0?0x9cc38086:0;
@@ -315,6 +323,7 @@ int main(int argc,char **argv) {
     snprintf(engine_recipe,sizeof(engine_recipe),"%s srvros.intel-engines=read-only",wake_cmd.cmdline);
     wake_cmd.cmdline=engine_recipe;
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
+    bcs_entry_disabled=!strncmp(engine_mode,"blit-off-",9);if(bcs_entry_disabled)bcs_ctl=0;
     static char blitter_recipe[1200];snprintf(blitter_recipe,sizeof(blitter_recipe),"%s srvros.intel-blitter=retire",engine_recipe);wake_cmd.cmdline=blitter_recipe;
 #endif
 #endif
@@ -331,7 +340,8 @@ int main(int argc,char **argv) {
  good=good && strcmp(engine_mode,"float-last") && strcmp(engine_mode,"read-fail-last") && strcmp(engine_mode,"float") && strcmp(engine_mode,"read-fail") && strcmp(engine_mode,"cache-last") && strcmp(engine_mode,"map-last") && strcmp(engine_mode,"retire-last") && strcmp(engine_mode,"late-foreign") && strcmp(engine_mode,"slow") && strcmp(engine_mode,"frozen");
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
- if(!strncmp(engine_mode,"blit-",5))good=good && !strcmp(engine_mode,"blit-report");
+ if(!strncmp(engine_mode,"blit-",5))good=good && (!strcmp(engine_mode,"blit-report") || !strcmp(engine_mode,"blit-off-report"));
+ if(bcs_entry_disabled)assert(!bcs_writes);
 #endif
  assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);
 #ifdef SRVROS_INTEL_BLITTER_TRIAL

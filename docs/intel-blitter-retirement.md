@@ -54,6 +54,34 @@ or subsequent reader state retains wake, mappings and CPU exclusion until reset.
 A successful disable leaves the firmware ring disabled for the rest of this
 isolated diagnostic boot; it never releases or overwrites its backing memory.
 
+## Already-disabled observation branch
+
+Firmware state varies across boots. A complete stable engine census with
+**enabled0/pending0** selects a separate observation function. Its BCS endpoint
+must have tail/head/start/control0, execlist low/high1/0, parser idle and the
+same legacy-mode restrictions as the write branch. It requires the same
+explicit cooperative submission handoff, identity-bound parent lease,
+guards, one-use result and100ms deadline. Four eight-DWORD snapshots must
+match exactly. A nonzero start, enabled control, nonidle parser or changed
+state refuses; there is no fallback to the write branch.
+
+The observation API requires a **NULL write callback**, reports zero BCS
+attempts/stores and never re-enables or restores a ring. Version2 BCS summary
+adds `entry_disabled`; existing row/reader receipts stay version1. Decoders
+retain version1 summary support and bind version2 branch selection to the
+native engine census and all raw BCS words. `frontend_disabled` describes the
+verified endpoint state; `frontend_disable_performed` and
+`entry_disabled_verified` distinguish the operation from observation. Neither
+is memory authority. Failed read-only observations can close the wake lease
+cleanly; existing post-store uncertainty quarantine remains unchanged.
+
+Both accepted BCS branches bracket the same read-only plane/config audit;
+full completion still requires its two matching passes, native inherited-state
+and UC proofs, persistence and safe closeout. Zero control bits alone do not
+prove engine, reader, DMA, translation or cache retirement. The enabled16
+branch retains its exact captured f001/start03eef000 eligibility and single
+f000 store; ordinary and older diagnostic recipes remain independent.
+
 ## Read-only reader coverage
 
 Prepare all11 UC aliases before the first wake store: the earlier8 plus three

@@ -74,8 +74,8 @@ static void blitter_report(const struct intel_blitter_result *b,const struct rea
   console_printf("intel-blitter-row: v=1 sample=%u tail=%x head=%x start=%x ctl=%x execlo=%x exechi=%x mode=%x bltmode=%x\n",
    (uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
  }
- console_printf("intel-blitter-summary: v=1 contract=1 admitted=%u samples=%u reads=%u attempts=%u writes=%u reason=%u begin_us=%u end_us=%u disabled=%u uncertain=%u engine_reset=0 ring_stop=0 restore=0 reader_retirement=0 managed_pages=0\n",
-  (uint64_t)b->admitted,(uint64_t)b->samples,(uint64_t)b->reads,(uint64_t)b->attempts,(uint64_t)b->writes,(uint64_t)b->reason,b->begin_us,b->end_us,(uint64_t)b->disabled,(uint64_t)b->uncertain);
+ console_printf("intel-blitter-summary: v=2 contract=1 admitted=%u samples=%u reads=%u attempts=%u writes=%u reason=%u begin_us=%u end_us=%u disabled=%u uncertain=%u entry_disabled=%u engine_reset=0 ring_stop=0 restore=0 reader_retirement=0 managed_pages=0\n",
+  (uint64_t)b->admitted,(uint64_t)b->samples,(uint64_t)b->reads,(uint64_t)b->attempts,(uint64_t)b->writes,(uint64_t)b->reason,b->begin_us,b->end_us,(uint64_t)b->disabled,(uint64_t)b->uncertain,(uint64_t)b->entry_disabled);
  for(unsigned n=0;n<r->samples;n++) {
   for(unsigned p=0;p<3;p++) {
    const uint32_t *w=r->words[n][p];

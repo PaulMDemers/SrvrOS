@@ -216,12 +216,17 @@ bool intel_gt_wake_probe_report(void) {
                 if(checked)(void)intel_engine_observe(&engines,&owner,(struct intel_engine_io){&a,engine_guard,engine_group,now});
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
-                bool initial=engines.complete && engines.stable && engines.enabled==16 && !engines.pending;
+                bool entry_disabled=engines.enabled==0;
+                bool initial=engines.complete && engines.stable && (engines.enabled==16 || entry_disabled) && !engines.pending;
                 if(checked && initial && reader_pass(&a,&owner,&readers,0)) {
                     /* Separate explicitly compiled/recipe-gated BCS submission
                      * handoff policy; quiet fields alone are not authority. */
-                    (void)intel_blitter_disable(&blitter,&owner,grants==7 && f.recipe,
-                        (struct intel_blitter_io){&a,engine_guard,blitter_group,blitter_store,now});
+                    if(entry_disabled)
+                        (void)intel_blitter_observe_disabled(&blitter,&owner,grants==7 && f.recipe,
+                            (struct intel_blitter_io){&a,engine_guard,blitter_group,0,now});
+                    else
+                        (void)intel_blitter_disable(&blitter,&owner,grants==7 && f.recipe,
+                            (struct intel_blitter_io){&a,engine_guard,blitter_group,blitter_store,now});
                     if(blitter.uncertain)a.uncertain=true;
                     if(!a.uncertain)(void)reader_pass(&a,&owner,&readers,1);
                     reader_finish(&readers);

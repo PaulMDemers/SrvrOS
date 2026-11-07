@@ -61,8 +61,9 @@ def native_wake_result(text):
  if r['summary']['v']==3:
   from intel_blitter import blitter_result
   b=blitter_result(text)
-  if not engines['stable'] or engines['enabled_mask']!=16 or engines['pending_mask']:raise ValueError('blitter initial engine eligibility')
+  if not engines['stable'] or engines['pending_mask']:raise ValueError('blitter initial engine eligibility')
   if not b or not b['complete'] or r['summary']['engine_reads']!=60+b['summary']['reads']:raise ValueError('native blitter completion')
+  if engines['enabled_mask']!=(0 if b['summary']['entry_disabled'] else 16):raise ValueError('blitter entry branch/census mismatch')
   if not r['summary']['begin_us']<b['readers']['begin_us']<b['readers']['end_us']<r['summary']['end_us']:raise ValueError('native blitter ordering')
   for n in range(2):
    e=engines['rows'][n*5+4]

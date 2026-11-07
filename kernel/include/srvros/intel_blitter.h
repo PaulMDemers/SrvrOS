@@ -9,7 +9,7 @@ struct intel_blitter_result {
  uint32_t words[4][INTEL_BCS_WORDS];
  uint64_t begin_us,end_us,last_us;
  unsigned samples,reads,attempts,writes,reason;
- bool admitted,disabled,uncertain;
+ bool admitted,disabled,uncertain,entry_disabled;
 };
 struct intel_blitter_io {
  void *context;
@@ -23,5 +23,9 @@ struct intel_blitter_io {
  * uncertain issued writes require retaining the parent wake lease until reset.
  * Disabling the idle command front-end grants no DMA or memory retirement. */
 bool intel_blitter_disable(struct intel_blitter_result *,struct intel_gt_access *,
+ bool submission_handoff,struct intel_blitter_io);
+/* Separate observation of the exact zero-geometry disabled entry state.
+ * Requires a NULL write callback; completion never means we performed a disable. */
+bool intel_blitter_observe_disabled(struct intel_blitter_result *,struct intel_gt_access *,
  bool submission_handoff,struct intel_blitter_io);
 #endif

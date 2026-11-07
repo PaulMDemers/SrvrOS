@@ -2,14 +2,14 @@
 import re
 PAGES=(0x2000,0x12000,0x1a000,0x1c000,0x22000)
 WORDS=('tail','head','start','ctl','execlo','exechi')
-def _fields(line,prefix,fields,hexkeys=()):
+def _fields(line,prefix,fields,hexkeys=(),versions=(1,)):
  r={}
  for word in line.removeprefix(prefix).split():
   k,sep,v=word.partition('=')
   if not sep or k in r or k not in fields or not re.fullmatch(r'(?:0|0x[0-9a-fA-F]{1,16})' if k in hexkeys else r'[0-9]{1,20}',v):raise ValueError('engine receipt encoding')
   r[k]=int(v,16 if k in hexkeys else 10)
   if r[k]>=1<<(32 if k in hexkeys else 64):raise ValueError('engine receipt overflow')
- if set(r)!=set(fields) or r['v']!=1:raise ValueError('engine receipt schema')
+ if set(r)!=set(fields) or r['v'] not in versions:raise ValueError('engine receipt schema')
  return r
 def engine_result(text):
  rows=[];summary=[]
