@@ -8217,3 +8217,25 @@ old firmware-progress assertion instead of cache/ECAM/window checks. The guest
 saved refusal records and returned cleanly. Extend the version selector through
 v6 so all existing strict three-file refusal assertions execute; preserve that
 failed rehearsal and rerun the sequential matrix. No kernel or gate change.
+
+
+### Frozen window-only profile validation (2026-11-06)
+
+Runtime `9a09ec3d` and fixture correction `c94297a8` pass matched normal/AP,
+USB/ISO builds and full `test-core`, including the installed-root matrix
+(one explicit opt-in test skipped). The earlier stale futex extractor failure
+is retained separately; the corrected real interleaving fixture passes without
+changing production futex code. Actual backend, standalone gate/report and
+combined early-ECAM/window fixtures pass ASan/UBSan and ARM64 compilation.
+The normal image excludes the diagnostic backend/gate/report; AP retains the
+real path and excludes synthetic test pins.
+
+Nine sequential staged VMs pass legacy firmware/cache/alias/fence/v4/v5
+regression, v5/v6 missing-workspace recovery and exact v6 safe refusal. Five
+ordinary syscall, UEFI USB keyboard, fork, exec-vector and scheduler-yield VMs
+also pass. The selected exact v6 payload is `fad46d637616b072`. Q35 refusal
+checks staging, saving and return only; native window qualification is pending.
+The successful VM harness revision is `d19ac35f`, with unchanged payload
+hashes from `c94297a8`. This docs-only follow-up does not change the tested code. Other machines'
+scanout and Wi-Fi scopes remain independent. Installed accepted ECAM/root and
+recovery payloads remain retained for the next automatic one-shot trial.
