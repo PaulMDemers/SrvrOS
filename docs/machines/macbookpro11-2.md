@@ -13723,3 +13723,20 @@ input/parent restoration. Its first saved capture must prove actual EAPOL shape
 and completion provenance before a guarded key-table installer is admitted.
 WCID/BSS reservation,cipher/IV/key/shared-mode readback,PN/replay ownership and
 full removal remain open. Credentials remain unread;no new trial is armed.
+
+### Native bounded M1 capture scope (November 6)
+
+Add an opt-in automatic v128 child after accepted open association and before
+leave. It keeps the same separately retained RX/OUT owner,three management
+submissions and exact MAC/endpoint/input/parent retirement. During a bounded
+M1-only receive window,the separate EAPOL codec classifies completed retained
+RX entries and copies private EAPOL into scrubbed scratch. Record only shape/
+length/peer/status/counters,never nonce,replay,packet or credential bytes. No
+M2/M4,key installation or data provider is enabled. Missing/invalid M1 fails
+acceptance even if transport retirement completes. Existing v127 remains
+unchanged by default. Touch join post-association hook/native owner,private
+EAPOL shape check,explicit main/staging/profile gates,host/fault/log tests and
+the current guides. Qualify matched build,exact-stage VMs,complete saved prefix,
+independent recovery and workspace checks before the standing cold shutdown.
+Reviewed main4cb7b5a7 remains unchanged;remote Air graphics/window heads and
+PR301/379 have independent scope. Capture matching session first after return.
