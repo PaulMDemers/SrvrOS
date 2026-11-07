@@ -23,5 +23,18 @@ int main(void) {
  for(unsigned i=0;i<5;i++){snprintf(bad,sizeof(bad),"%s%s",recipe,suffix[i]);assert(!intel_gt_boot_recipe(bad));}
  strcpy(bad,recipe);strstr(bad,"37d8c5d0")[0]='G';assert(!intel_gt_boot_recipe(bad));
  memset(bad,' ',sizeof(bad)-1);bad[sizeof(bad)-1]=0;assert(!intel_gt_boot_recipe(bad));
+ char hda[2048];const char *wake=strstr(recipe,"srvros.intel-wake=trial");
+ snprintf(hda,sizeof(hda),"%.*ssrvros.intel-hda=read-only%s",(int)(wake-recipe),recipe,wake+strlen("srvros.intel-wake=trial"));
+ assert(intel_gt_boot_hda_recipe(hda) && !intel_gt_boot_recipe(hda) && !intel_gt_boot_hda_recipe(recipe));
+ for(const char *start=hda;*start;) {
+  const char *end=start;while(*end && *end!=' ')end++;
+  snprintf(bad,sizeof(bad),"%.*s%s",(int)(start-hda),hda,*end?end+1:end);
+  assert(!intel_gt_boot_hda_recipe(bad));
+  snprintf(bad,sizeof(bad),"%s %.*s",hda,(int)(end-start),start);
+  assert(!intel_gt_boot_hda_recipe(bad));
+  start=*end?end+1:end;
+ }
+ const char *foreign[]={"srvros.intel-wake=trial","srvros.intel-engines=read-only","srvros.intel-blitter=retire","srvros.audio=hda","srvros.aml=probe","srvros.ap=probe"};
+ for(unsigned i=0;i<6;i++){snprintf(bad,sizeof(bad),"%s %s",hda,foreign[i]);assert(!intel_gt_boot_hda_recipe(bad));}
  puts("intel-gt-boot: PASS explicit cooperative policy, all ten independent facts, strict complete recipe and untrusted/duplicate/long token refusal; not SMM retirement");
 }

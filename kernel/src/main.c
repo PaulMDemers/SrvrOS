@@ -1,3 +1,4 @@
+#include <srvros/intel_display_hda.h>
 #include <srvros/ap_probe.h>
 #include <srvros/intel_boot_claim.h>
 #include <srvros/intel_handoff.h>
@@ -845,6 +846,12 @@ void kmain(void) {
                 if(checkpoint)console_write("intel-wake: preflight checkpoint saved\n");
                 else console_write("intel-wake: checkpoint failed; wake refused\n");
                 bool wake_ok=checkpoint && intel_gt_wake_probe_report();sampled=sampled && wake_ok;
+            }
+            if(cmdline_has_token(cmdline,"srvros.intel-hda=read-only")) {
+                console_write("intel-hda: saving preflight checkpoint; automatic read-only census, no input needed. Photograph any halt.\n");
+                bool checkpoint=started && workspace_log_pause();
+                if(checkpoint)console_write("intel-hda: preflight checkpoint saved\n");
+                bool hda_ok=checkpoint && intel_display_hda_probe_report();sampled=sampled && hda_ok;
             }
             bool fixture=cmdline_has_token(cmdline,"srvros.intel-lifetime=fixture");
             if(fixture || cmdline_has_token(cmdline,"srvros.intel-lifetime=shadow")) {

@@ -35,6 +35,8 @@ bool intel_cache_probe_uc_page(uint64_t physical);
 /* Only the separate BDW request/ACK observation pages; fresh CPU context. */
 bool intel_cache_probe_gt_uc_page(uint64_t physical,uint32_t offset);
 bool intel_cache_probe_firmware_wb_page(uint64_t physical);
+/* Exact display-HDA first page only; no widening of GPU observer gates. */
+bool intel_cache_probe_hda_uc_page(uint64_t physical);
 bool intel_cache_probe_reader_uc_page(uint64_t,uint32_t);
 bool intel_cache_probe_engine_uc_page(uint64_t,uint32_t);
 bool intel_cache_probe_wake_uc_page(uint64_t physical,uint32_t offset);

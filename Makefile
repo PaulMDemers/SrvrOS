@@ -5077,3 +5077,23 @@ test-air61-window: build/tests/air61-window$(HOST_EXE)
 build/tests/air61-window$(HOST_EXE): tools/test_air61_window.c kernel/src/memory/vmm.c kernel/src/memory/air61_window.inc kernel/diagnostics/haswell_alias_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_alias_core.c -Wl,--gc-sections -o $@
+
+# Independent read-only display-HDA image: no GT requester/engine writer linked.
+build/intel-hda/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_hda_observer.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_HDA_OBSERVER -c $< -o $@
+build/intel-hda/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_HDA_OBSERVER -c $< -o $@
+build/intel-hda/srvros.elf: build/intel-hda/probe.o build/intel-hda/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-hda/probe.o build/intel-hda/requests.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-hda-core$(HOST_EXE): tools/test_intel_display_hda.c kernel/src/drivers/intel_display_hda.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_display_hda.c -o $@
+build/tests/intel-hda-adapter$(HOST_EXE): tools/test_intel_hda_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_hda_observer.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_HDA_OBSERVER -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_display_hda.c kernel/diagnostics/package_audit_core.c -o $@
+.PHONY: test-intel-hda
+test-core: test-intel-hda
+test-intel-hda: build/tests/intel-hda-core$(HOST_EXE) build/tests/intel-hda-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_display_hda.py

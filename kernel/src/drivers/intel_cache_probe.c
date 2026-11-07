@@ -120,3 +120,10 @@ bool intel_cache_probe_reader_uc_page(uint64_t physical,uint32_t offset) {
        !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
     return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
 }
+
+bool intel_cache_probe_hda_uc_page(uint64_t physical) {
+    struct x86_cache_snapshot current;unsigned m,p,e;
+    if(physical!=0xc1610000ull || !report_ok || !x86_cache_snapshot(&current,&io) ||
+       !x86_cache_equal(&sample[1],&current))return false;
+    return x86_cache_page(&current,physical,2,&m,&p,&e) && m==0 && e==0;
+}

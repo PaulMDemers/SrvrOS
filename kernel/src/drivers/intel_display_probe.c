@@ -826,3 +826,5 @@ bool intel_gt_firmware_probe_report(void) {
 }
 
 #include "intel_gt_wake.inc"
+
+#include "intel_hda_observer.inc"

@@ -573,6 +573,12 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-hda-summary:'):
+        from intel_display_hda import summary_result
+        try:
+            return not summary_result(line)['complete']
+        except ValueError:
+            return True
     if line.startswith('intel-blitter-summary:'):
         from intel_blitter import blitter_summary_complete
         try:
@@ -913,6 +919,12 @@ def collect(mount, volume, output):
                 intel_engines=engine_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not intel_engines or not intel_engines['observation_complete'] or not intel_wake or not intel_wake['native_wake_complete']:attention.append('Intel engine census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel engine census: '+str(error))
+        if 'srvros.intel-hda=read-only' in text:
+            from intel_display_hda import native_hda_result,verify_hda_checkpoint
+            try:
+                hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
         intel_blitter=None
         if 'srvros.intel-blitter=retire' in text:
             from intel_blitter import blitter_result

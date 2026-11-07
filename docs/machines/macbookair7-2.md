@@ -13,8 +13,9 @@ addresses through one private RO/NX/UC alias. Require exact captured BAR/resourc
 D0 and memory decode, native prerequisites and CPU-client exclusion. No MMIO or
 config writes, power/wake/reset, codec commands, ring/stream stop, DMA retirement
 or memory grant. Keep this separate from GT wake/BCS profiles and ordinary audio.
-Touch the observer/core/cache predicate, staging/collector/tests and docs. Audit
-remaining translation/cache obligations in the guide. Validate one matched source
+Touch the observer/core/cache predicate, staging/collector/tests and docs. The
+[read-only HDA contract](../intel-display-hda-census.md) records remaining
+translation/cache obligations and evidence limits. Validate one matched source
 and exact stage, preserve all recovery/evidence and stop ready for a hardware trial.
 
 ### Current checkpoint: already-disabled BCS/reader observation accepted
