@@ -1222,3 +1222,14 @@ photograph the complete screen and restart Ubuntu. Require matching window.log,
 ecam.log and exit.log with strict collection and offline USB integrity before
 acceptance. See the [window contract](macbookair6-1-vtd-read-window-design.md).
 No register read, write, DMA policy or sibling acceptance follows from v6.
+
+### Air7,2 isolated display-HDA requester trial
+
+The separate [cooperative HDA policy](intel-display-hda-ownership.md) stages with
+`--intel-hda-owner-trial`. It exercises only the exact Air7,2 display-audio PCI
+command16 bus-master inhibit/restore under an explicit firmware submission
+assumption. It is not ordinary audio setup or GPU memory ownership. Follow the
+same exact-stage VM/install/run/collection sequence; volume1%, no input or audio
+playback, automatic safe return, retained uncertainty halts. Keep the accepted
+read-only `--intel-hda-capture` image and its evidence separate. The
+[unit record](machines/macbookair7-2.md) owns current physical acceptance.

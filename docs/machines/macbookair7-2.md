@@ -2,22 +2,70 @@
 
 Updated: 2026-11-06. State: **active reference machine; partial device acceptance**.
 
-### Active scope: cooperative display-HDA requester inhibit trial
+### Current trial ready: cooperative display-HDA requester inhibit/restore
 
-Main `e21292e2` (Air6,1 no-target-load window gate and strict raw proof) is now
-integrated at `133d09a1`. PR19 remains Pro Wi-Fi, PR379 WebCore; no GPU/HDA overlap
-was found. Add a distinct opt-in CPU0 EFI64/pinned-loader image and cooperative
-EFI policy for Air7,2 display HDA00:03.0. Require fresh native prerequisites,
-participating-client exclusion and exact idle controller/stream observations.
-The [requester contract](../intel-display-hda-ownership.md) exercises only the
-16-bit PCI command bus-master transition0006→0002→0006,
-with exact readback and fresh bounded observations at each phase. Never write
-adjacent PCI status or HDA MMIO, reset/stop/command hardware, reuse memory or
-supply DMA-retirement assurances. Uncertain transitions retain the lease;
-cooperative firmware submission exclusion is a stated policy assumption, not
-inferred from quiet controls. Touch the HDA protocol/adapter, independent image/
-recipe, strict stage/collection/VM fixtures and documentation. Validate on host/
-VM and stop ready for an automated physical trial, without arming a reboot.
+Main `e21292e2` is integrated; tested source `6277e99b` produced release
+`d6677f44c064979d`. It is installed, **not armed**, with no physical acceptance.
+The [requester policy and protocol](../intel-display-hda-ownership.md) are distinct
+from the accepted read-only census. This dedicated13-token EFI64/Limine11.4.1
+image assumes trusted cooperative firmware yields HDA submission during the
+bounded trial; it does not prove SMM absence or outstanding-DMA completion.
+No other model or ordinary audio path is enabled.
+
+The exact Air7,2 endpoint must have command0006 and the freshly captured idle
+GCAP3001/three-output-stream state before any mutation. Three two-pass censuses
+bracket command16 transitions0006→0002→0006, with exact readback and fresh
+resource/cache/exclusion guards. The only mutations are two PCI halfword command
+stores; adjacent Status, HDA MMIO, reset/stop/codec/IRQ acknowledgements, GT wake,
+BCS and GPU PTE writes remain unavailable. Failed or ambiguous transitions retain
+exclusion and halt; handled pre-write refusals and clean completed transitions
+save/unmount/return automatically. Core400ms/full500ms and each census200ms bounds
+are independent. All inherited memory stays protected; no DMA/reader/translation/
+cache retirement, managed GPU range or physical tear-free assurance is supplied.
+
+The corrected full host/core/profile/docs/build matrix passes, including the new
+Air6,1 window-only producer/collector and AP ELF. Integration fixes preserve both
+the AP package-object exclusion and `haswell_window` staging argument. The89
+installer cases (one expected opt-in skip), C installed-root and exFAT admission
+passed at `7c0c2fab`; their implementation/tests/recipe are unchanged by the four-file
+integration/fault-fixture follow-up, so their explicit receipt is reused while
+all remaining core/build/profile gates rerun at `6277e99b`. This avoids another
+unchanged installer run. The first failed build remains retained as evidence.
+
+Fatal ASan/UBSan passes26 owner-core and42 actual owner-adapter modes, including
+post-inhibit cache/power/CR3/foreign-alias/parent faults, failed restore/readback,
+final changed streams, one-use and finite clocks, plus all prior GPU protocol/
+observer regressions. Four prior GT and14 new owner compiled negative controls
+are detected. All277 collector/staging tests pass. Exact-stage MBR Q35 verifies
+EFI/recipe and refusal before command writes, saved preflight/results, unmount/
+automatic return and missing-workspace halt. Read-only HDA, blitter/engine/wake/
+handoff/window/DMA/lifetime/Haswell and VirtIO regressions pass. Exact nine-image
+symbol/hash checks keep the owner writer/request out of other images and GT/BCS
+writers out of the owner image. The largest native-formatted report projection
+is63,612/65,536 bytes, including1,024 general and512 command/header allowance.
+VM evidence does not accept native command writes or firmware ownership.
+
+All1,356 files/108 sessions on USB `37D8-C5D0` (MBR) are inventoried, prior files
+and boot sectors preserved, and offline fsck/allocation/writable/headroom checks
+pass. USB is unmounted. Ubuntu stays default; recovery `9aa8dbf6fbda8252`, prior
+HDA `8185aa9875c61e9a`, accepted BCS/reader `32859f5868aedd46`, census
+`3d8c0e9688408a25` and known-good GUI `c497eb0cb48c1b01` remain verified.
+Inactive cache `07df02f62d1074ac` was fully SHA-verified against durable/archive
+copies before its unreferenced EFI copy was removed for capacity. Ten duplicate
+inactive generated stage copies were removed only after complete manifest/file
+SHA equality with retained payloads outside `build`; no logs or payload contents
+were discarded. Installed current/recovery/latest and accepted baselines remain
+available. Reconstruct any removed generated stage from its retained payload
+before rerunning a tool that requires that particular global stage path.
+
+Local run/stage/test/guard/cleanup records are in `build/air-hda-owner-20261106`,
+with independently SHA-verified evidence under
+`~/.local/share/srvros/reviewed-evidence/air-hda-owner-20261106` and cleanup sidecars.
+The next physical trial is automated, volume1%, audio off, no input required;
+check-only reboot guards pass. Collect the matching session before another run.
+No reboot is armed. Remaining work after native acceptance is a maintained
+inhibited-owner lifetime, outstanding DMA/firmware and other-reader accounting,
+then translation/cache/backing ownership before a managed GPU interval or flips.
 
 ### Current checkpoint: read-only display-HDA observation accepted
 
