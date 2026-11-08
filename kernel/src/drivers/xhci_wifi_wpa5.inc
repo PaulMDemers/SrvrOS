@@ -9,8 +9,10 @@
 #include <srvros/mt76_data5.h>
 #include <srvros/mt76_ip5.h>
 #include <srvros/mt76_net5.h>
+#include <srvros/mt76_dma5.h>
 static bool wifi_wpa5_requested,wifi_wpa5_data_requested;
-static bool wifi_provider5_requested;
+static bool wifi_provider5_requested,wifi_reuse5_requested;
+static struct {struct mt76_dma5 dma;struct mt76_dma5_lease tx,rx,loan;bool initialized,early_refused,events_drained,retired;}wifi_reuse5;
 static struct {struct mt76_net5 net;uint64_t token,epoch;bool attempted,registered,attached,selected,closed,early_refused,outer_retired,retired;}wifi_provider5;
 static bool wifi_provider5_start(void);
 static bool wifi_provider5_owned(void *);
@@ -43,7 +45,8 @@ static struct {
  uint64_t rx_enqueue,tx_enqueue;bool rx_cycle,tx_cycle;
  bool toggle_attempted,toggle_synced,attempted,active,failed,rx_pending,rx_done,rx_delivered,tx_pending,tx_done,restored;
 }wifi_wpa5;
-static bool wifi_wpa5_fail(void){wifi_wpa5.failed=true;return wifi_wpa5.d?wifi_mcu_fail(wifi_wpa5.d):false;}
+static bool wifi_wpa5_fail(void){if(wifi_reuse5_requested)mt76_dma5_fault(&wifi_reuse5.dma);wifi_wpa5.failed=true;return wifi_wpa5.d?wifi_mcu_fail(wifi_wpa5.d):false;}
+#include "xhci_wifi_reuse5.inc"
 /* Bounded metadata only. Never print while the IP receive window is active.
  * Preserve append order for a strict deferred transcript after MAC cleanup. */
 static bool wifi_data5_record(struct wifi_data5_event event){
@@ -73,12 +76,14 @@ static bool wifi_wpa5_frozen(void){
  for(unsigned i=0;i<WIFI_JOIN5_RX+3;i++)if(!wifi_handoff5_equal(wifi_join5.buffer[i],wifi_wpa5.parent_pages[i],4096))return false;
  if(wifi_wpa5.phase && (!wifi_wpa5.toggle_attempted || !wifi_wpa5.toggle_synced))return false;
  if(wifi_wpa5.rx_copied>wifi_wpa5.posts)return false;
+ if(wifi_reuse5_requested){if(!wifi_reuse5_frozen())return false;}else {
  for(unsigned i=0;i<wifi_wpa5.rx_copied;i++)if(!wifi_handoff5_equal(wifi_wpa5.buffer[i],wifi_wpa5.rx_snapshot[i],4096))return false;
  for(unsigned i=wifi_wpa5.posts;i<WIFI_WPA5_RX;i++)for(unsigned j=0;j<4096;j++)if(wifi_wpa5.buffer[i][j])return false;
  for(unsigned i=0;i<wifi_wpa5_tx_limit();i++){
   unsigned n=i<wifi_wpa5.sends?wifi_wpa5.lengths[i]:0;
   if(n>wifi_wpa5_packet_limit() || !wifi_handoff5_equal(wifi_wpa5.buffer[WIFI_WPA5_RX+i],wifi_wpa5.packets[i],n))return false;
   for(unsigned j=n;j<4096;j++)if(wifi_wpa5.buffer[WIFI_WPA5_RX+i][j])return false;
+ }
  }
  const unsigned dcis[]={0,11,16};
  for(unsigned i=0;i<3;i++)for(unsigned j=0;j<8;j++)if(context_read32(d->output_context,dcis[i],j)!=wifi_wpa5.context[i][j])return false;
@@ -88,7 +93,7 @@ static bool wifi_wpa5_ring(struct xhci_trb *ring,uint64_t phys,unsigned posts,bo
  for(unsigned i=0;i<XHCI_TRB_COUNT;i++){
   uint64_t p=0;uint32_t status=0,control=0;
   if(i==XHCI_TRB_COUNT-1){p=phys;control=(XHCI_TRB_TYPE_LINK<<10)|3;}
-  else if(i<posts){p=wifi_wpa5.pages[rx?i:WIFI_WPA5_RX+i];status=rx?4096:wifi_wpa5.lengths[i];control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|1|(rx?XHCI_TRB_ISP:0);}
+  else if(i<posts){p=wifi_wpa5.pages[rx?wifi_wpa5_rx_index(i):wifi_wpa5_tx_index(i)];status=rx?4096:wifi_wpa5.lengths[i];control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|1|(rx?XHCI_TRB_ISP:0);}
   const struct xhci_trb *t=&ring[i];if(t->parameter_low!=(uint32_t)p || t->parameter_high!=(uint32_t)(p>>32) || t->status!=status || t->control!=control)return false;
  }
  return true;
@@ -143,12 +148,13 @@ static bool wifi_wpa5_event(struct xhci_device *d,const struct xhci_trb *e){
  }else if(good && dci==8){
   good=wifi_wpa5.phase==3 && wifi_wpa5.tx_pending && wifi_wpa5.sends && ptr==wifi_wpa5.tx_phys+16*(wifi_wpa5.sends-1) && cc==1 && !residue && !wifi_wpa5.tx_events;
   if(good){
+   if(wifi_reuse5_requested && !wifi_reuse5_complete(0,cc,residue))return true;
    wifi_wpa5.tx_events++;wifi_wpa5.tx_pending=false;wifi_wpa5.tx_done=true;
    if(wifi_provider5_requested && wifi_wpa5.kinds[wifi_wpa5.sends-1]==5)good=wifi_provider5_complete();
   }
  }else if(good){
   good=(wifi_wpa5.phase==3 || (wifi_wpa5.phase==4 && wifi_wpa5.stop_dci==9)) && wifi_wpa5.rx_pending && wifi_wpa5.posts && ptr==wifi_wpa5.rx_phys+16*(wifi_wpa5.posts-1) && (cc==1 || cc==13) && residue<=4096 && !wifi_wpa5.rx_events;
-  if(good){wifi_wpa5.rx_events++;wifi_wpa5.rx_pending=false;wifi_wpa5.rx_done=true;wifi_wpa5.rx_cc=cc;wifi_wpa5.rx_residue=residue;}
+  if(good){if(wifi_reuse5_requested && !wifi_reuse5_complete(1,cc,residue))return true;wifi_wpa5.rx_events++;wifi_wpa5.rx_pending=false;wifi_wpa5.rx_done=true;wifi_wpa5.rx_cc=cc;wifi_wpa5.rx_residue=residue;}
  }
  if(!good)wifi_wpa5_fail();
  return true;
@@ -190,12 +196,14 @@ static bool wifi_wpa5_command(unsigned phase,unsigned type,unsigned dci,uint64_t
  return good && wifi_wpa5_owned(&wifi_wpa5,true)?true:wifi_wpa5_fail();
 }
 static bool wifi_wpa5_post(void){
- if(wifi_wpa5.data_mode && wifi_wpa5.posts>=WIFI_DATA5_FORWARD_RX && (!wifi_wpa5.mac.mac_disabled || wifi_wpa5.data_active || !wifi_wpa5.exchange.keys_erased || wifi_wpa5.tx_pending))return false;
- if(!wifi_wpa5.toggle_synced || !wifi_wpa5_owned(&wifi_wpa5,false) || wifi_wpa5.posts>=WIFI_WPA5_RX || wifi_wpa5.rx_pending || (wifi_wpa5.rx_done && !wifi_wpa5.rx_delivered))return false;
- unsigned i=wifi_wpa5.posts;struct xhci_trb td={.parameter_low=wifi_wpa5.pages[i],.parameter_high=wifi_wpa5.pages[i]>>32,.status=4096,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
- uint64_t flags=event_irq_save();wifi_wpa5.posts++;wifi_wpa5.rx_pending=true;wifi_wpa5.rx_done=wifi_wpa5.rx_delivered=false;wifi_wpa5.rx_events=0;
+ uint64_t serial=wifi_reuse5_requested?event_irq_save():0;
+ if(wifi_wpa5.data_mode && wifi_wpa5.posts>=WIFI_DATA5_FORWARD_RX && (!wifi_wpa5.mac.mac_disabled || wifi_wpa5.data_active || !wifi_wpa5.exchange.keys_erased || wifi_wpa5.tx_pending)){if(wifi_reuse5_requested)event_irq_restore(serial);return false;}
+ if(!wifi_wpa5.toggle_synced || !wifi_wpa5_owned(&wifi_wpa5,false) || wifi_wpa5.posts>=WIFI_WPA5_RX || wifi_wpa5.rx_pending || (wifi_wpa5.rx_done && !wifi_wpa5.rx_delivered)){if(wifi_reuse5_requested)event_irq_restore(serial);return false;}
+ unsigned i=wifi_wpa5.posts;if(wifi_reuse5_requested && !wifi_reuse5_prepare(1,i,4096)){if(wifi_reuse5_requested)event_irq_restore(serial);return false;}
+ unsigned page=wifi_wpa5_rx_index(i);struct xhci_trb td={.parameter_low=wifi_wpa5.pages[page],.parameter_high=wifi_wpa5.pages[page]>>32,.status=4096,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
+ uint64_t flags=event_irq_save();if(wifi_reuse5_requested && !wifi_reuse5_publish(1)){event_irq_restore(flags);event_irq_restore(serial);return false;}wifi_wpa5.posts++;wifi_wpa5.rx_pending=true;wifi_wpa5.rx_done=wifi_wpa5.rx_delivered=false;wifi_wpa5.rx_events=0;
  uint64_t ptr=ring_push(wifi_wpa5.rx,wifi_wpa5.rx_phys,&wifi_wpa5.rx_enqueue,&wifi_wpa5.rx_cycle,&td);
- bool good=ptr==wifi_wpa5.rx_phys+16*i;if(good){if(wifi_wpa5.phase==2)wifi_wpa5.phase=3;db_write32(wifi_wpa5.d->slot_id,9);}event_irq_restore(flags);
+ bool good=ptr==wifi_wpa5.rx_phys+16*i;if(good){if(wifi_wpa5.phase==2)wifi_wpa5.phase=3;db_write32(wifi_wpa5.d->slot_id,9);}event_irq_restore(flags);if(wifi_reuse5_requested)event_irq_restore(serial);
  if(good && i==0){
   uint64_t start=timer_monotonic_us();bool running=false;
   for(unsigned n=0;n<512;n++){
@@ -209,14 +217,16 @@ static bool wifi_wpa5_post(void){
 }
 static void wifi_wpa5_dispatch(void){uint64_t flags=event_irq_save();struct xhci_trb e;if(poll_event(&e))dispatch_transfer_event(&e);event_irq_restore(flags);}
 static enum mt76_join5_send wifi_wpa5_publish(void *c,const uint8_t *packet,size_t length,unsigned kind){
+ uint64_t serial=wifi_reuse5_requested?event_irq_save():0;
  unsigned n=wifi_wpa5.sends;
- if(!wifi_wpa5_owned(c,false) || wifi_wpa5.phase!=3 || n>=wifi_wpa5_tx_limit() || length>wifi_wpa5_packet_limit())return MT76_JOIN5_REFUSED;
- copy_bytes(wifi_wpa5.buffer[WIFI_WPA5_RX+n],packet,length);copy_bytes(wifi_wpa5.packets[n],packet,length);wifi_wpa5.lengths[n]=length;wifi_wpa5.kinds[n]=kind;
- struct xhci_trb td={.parameter_low=wifi_wpa5.pages[WIFI_WPA5_RX+n],.parameter_high=wifi_wpa5.pages[WIFI_WPA5_RX+n]>>32,.status=length,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC};
- uint64_t flags=event_irq_save();wifi_wpa5.sends++;wifi_wpa5.tx_pending=true;wifi_wpa5.tx_done=false;wifi_wpa5.tx_events=0;
+ if(!wifi_wpa5_owned(c,false) || wifi_wpa5.phase!=3 || n>=wifi_wpa5_tx_limit() || length>wifi_wpa5_packet_limit()){if(wifi_reuse5_requested)event_irq_restore(serial);return MT76_JOIN5_REFUSED;}
+ if(wifi_reuse5_requested && !wifi_reuse5_prepare(0,n,(unsigned)length)){event_irq_restore(serial);return MT76_JOIN5_UNCERTAIN;}
+ unsigned page=wifi_wpa5_tx_index(n);copy_bytes(wifi_wpa5.buffer[page],packet,length);copy_bytes(wifi_wpa5.packets[n],packet,length);wifi_wpa5.lengths[n]=length;wifi_wpa5.kinds[n]=kind;
+ struct xhci_trb td={.parameter_low=wifi_wpa5.pages[page],.parameter_high=wifi_wpa5.pages[page]>>32,.status=length,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC};
+ uint64_t flags=event_irq_save();if(wifi_reuse5_requested && !wifi_reuse5_publish(0)){event_irq_restore(flags);event_irq_restore(serial);return MT76_JOIN5_UNCERTAIN;}wifi_wpa5.sends++;wifi_wpa5.tx_pending=true;wifi_wpa5.tx_done=false;wifi_wpa5.tx_events=0;
  uint64_t ptr=ring_push(wifi_wpa5.tx,wifi_wpa5.tx_phys,&wifi_wpa5.tx_enqueue,&wifi_wpa5.tx_cycle,&td);bool good=ptr==wifi_wpa5.tx_phys+16*n;
  if(good)db_write32(wifi_wpa5.d->slot_id,8);
- event_irq_restore(flags);
+ event_irq_restore(flags);if(wifi_reuse5_requested)event_irq_restore(serial);
  uint64_t start=timer_monotonic_us(),previous=start;
  for(unsigned i=0;good && !wifi_wpa5.tx_done && i<8192;i++){
   wifi_wpa5_dispatch();good=wifi_wpa5_owned(c,false);uint64_t now=timer_monotonic_us();
@@ -248,25 +258,26 @@ static enum mt76_join5_send wifi_wpa5_send(void *c,enum mt76_wpa5_tx kind,const 
  bool match=want && length==want && wifi_handoff5_equal(packet,expected,want);zero_bytes(expected,sizeof expected);if(!match)return MT76_JOIN5_REFUSED;
  return wifi_wpa5_publish(c,packet,length,(unsigned)kind);
 }
-static bool wifi_wpa5_poll(void *c,enum mt76_wpa5_rx type,uint8_t *out,size_t cap,size_t *size,bool *present){
+static bool wifi_wpa5_poll_once(void *c,enum mt76_wpa5_rx type,uint8_t *out,size_t cap,size_t *size,bool *present){
  if(!out || !size || !present || c!=&wifi_wpa5 || !wifi_wpa5_owned(c,false))return false;
  *size=0;*present=false;wifi_wpa5_dispatch();if(!wifi_wpa5_owned(c,false))return false;
  if(wifi_wpa5.rx_done && !wifi_wpa5.rx_delivered){
   unsigned i=wifi_wpa5.posts-1;
   if(i!=wifi_wpa5.rx_copied)return wifi_wpa5_fail();
-  copy_bytes(wifi_wpa5.rx_snapshot[i],wifi_wpa5.buffer[i],4096);wifi_wpa5.rx_copied++;
+  if(wifi_reuse5_requested && !wifi_reuse5_acquire())return false;
+  unsigned page=wifi_wpa5_rx_index(i);copy_bytes(wifi_wpa5.rx_snapshot[i],wifi_wpa5.buffer[page],4096);wifi_wpa5.rx_copied++;
   size_t bytes=4096-wifi_wpa5.rx_residue;
   unsigned flags=0,frame=0,audit=0;unsigned view=MT76_RX_INVALID;enum mt76_data5_rx_reason reason=MT76_DATA5_ADMISSION;size_t mpdu=0,eapol=0;unsigned fc=0;
   if(type==MT76_WPA5_EAPOL){
    struct mt76_eapol5_peer p={.channel=161,.bandwidth=20};copy_bytes(p.station,wifi_wpa5.peer.peer.station,6);copy_bytes(p.bssid,wifi_wpa5.peer.peer.bssid,6);
-   struct mt76_eapol5_view v={0};view=mt76_eapol5_rx(&p,wifi_wpa5.buffer[i],bytes,&v);mpdu=v.mpdu_size;fc=v.frame_control;eapol=v.eapol_size;
+   struct mt76_eapol5_view v={0};view=mt76_eapol5_rx(&p,wifi_wpa5.buffer[page],bytes,&v);mpdu=v.mpdu_size;fc=v.frame_control;eapol=v.eapol_size;
    if(view==MT76_RX_OK && eapol<=cap){copy_bytes(out,v.eapol,eapol);*size=eapol;*present=true;}zero_bytes(&p,sizeof p);
   }else if(type==MT76_WPA5_MANAGEMENT){
-   struct mt76_rx_view v={0};view=mt76_rx_usb_view(wifi_wpa5.buffer[i],bytes,&v);mpdu=v.mpdu_size;fc=v.frame_control;
+   struct mt76_rx_view v={0};view=mt76_rx_usb_view(wifi_wpa5.buffer[page],bytes,&v);mpdu=v.mpdu_size;fc=v.frame_control;
    if(view==MT76_RX_OK && mpdu>=24 && mpdu<=cap && v.body_size==mpdu-24){copy_bytes(out,v.header,24);copy_bytes(out+24,v.body,v.body_size);*size=mpdu;*present=true;}
   }else if(type==MT76_WPA5_DATA && wifi_wpa5.data_mode && wifi_wpa5.data_active && wifi_wpa5.exchange.keys_activated && wifi_wpa5.exchange.keys.phase==WPA2_CCMP_ACTIVE){
    if(!wifi_data5_owned(c))return wifi_wpa5_fail();
-   struct mt76_data5_rx_result report=mt76_data5_rx_report(&wifi_wpa5.data_scratch,&wifi_wpa5.exchange.keys,wifi_wpa5.peer.generation,wifi_wpa5.buffer[i],bytes,out,cap);
+   struct mt76_data5_rx_result report=mt76_data5_rx_report(&wifi_wpa5.data_scratch,&wifi_wpa5.exchange.keys,wifi_wpa5.peer.generation,wifi_wpa5.buffer[page],bytes,out,cap);
    if(!wifi_data5_owned(c))return wifi_wpa5_fail();
    size_t n=report.bytes;reason=report.reason;flags=report.flags;frame=report.frame;audit=report.audit;if(reason==MT76_DATA5_ADMISSION)return wifi_wpa5_fail();
    view=n?MT76_RX_OK:MT76_RX_INVALID;
@@ -275,16 +286,23 @@ static bool wifi_wpa5_poll(void *c,enum mt76_wpa5_rx type,uint8_t *out,size_t ca
   wifi_wpa5.rx_delivered=true;
   if(type==MT76_WPA5_DATA){if(!wifi_data5_record((struct wifi_data5_event){.kind=1,.index=i,.bytes=(unsigned)bytes,.ethernet=(unsigned)*size,.present=*present,.view=view,.reason=reason,.flags=flags,.frame=frame,.audit=audit}))return false;}
   else console_printf("wifi-wpa5-rx: index=%u bytes=%u type=%u view=%u mpdu=%u fc=%x eapol=%u present=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)type,(uint64_t)view,(uint64_t)mpdu,(uint64_t)fc,(uint64_t)eapol,(uint64_t)*present);
+  if(wifi_reuse5_requested && !wifi_reuse5_release())return false;
   if(wifi_wpa5.posts<(wifi_wpa5.data_mode?WIFI_DATA5_FORWARD_RX:WIFI_WPA5_RX) && !wifi_wpa5_post())return false;
  }
  return true;
+}
+static bool wifi_wpa5_poll(void *c,enum mt76_wpa5_rx type,uint8_t *out,size_t cap,size_t *size,bool *present){
+ uint64_t flags=wifi_reuse5_requested?event_irq_save():0;
+ bool good=wifi_wpa5_poll_once(c,type,out,cap,size,present);
+ if(wifi_reuse5_requested)event_irq_restore(flags);
+ return good;
 }
 static bool wifi_wpa5_delay(void *c,unsigned us){return c==&wifi_wpa5 && us==100 && wifi_wpa5_owned(c,false) && timer_delay_us(us);}
 static uint64_t wifi_wpa5_now(void *c){(void)c;return timer_monotonic_us();}
 /* Forward reception cannot spend the eight reserved immutable entries.
  * Once MAC is disabled and ephemeral keys are erased,drain only into the same
  * retained pages. Never parse/decrypt/publish data or reuse a ring slot here. */
-static bool wifi_wpa5_drain_rx(void){
+static bool wifi_wpa5_drain_rx_once(void){
  if(!wifi_wpa5.data_mode || !wifi_wpa5.mac.mac_disabled)return true;
  if(wifi_wpa5.phase!=3 || wifi_wpa5.data_active || !wifi_wpa5.exchange.keys_erased || wifi_wpa5.tx_pending ||
     wifi_wpa5.rx_copied!=wifi_wpa5.forward_completed+wifi_wpa5.drain_completed || !wifi_wpa5_owned(&wifi_wpa5,true))return wifi_wpa5_fail();
@@ -293,11 +311,18 @@ static bool wifi_wpa5_drain_rx(void){
  if(!wifi_wpa5_owned(&wifi_wpa5,true))return false;
  if(wifi_wpa5.rx_done && !wifi_wpa5.rx_delivered){
   unsigned i=wifi_wpa5.posts-1;if(i!=wifi_wpa5.rx_copied)return wifi_wpa5_fail();
-  copy_bytes(wifi_wpa5.rx_snapshot[i],wifi_wpa5.buffer[i],4096);wifi_wpa5.rx_copied++;wifi_wpa5.drain_completed++;wifi_wpa5.rx_delivered=true;
+  if(wifi_reuse5_requested && !wifi_reuse5_acquire())return false;
+  unsigned page=wifi_wpa5_rx_index(i);copy_bytes(wifi_wpa5.rx_snapshot[i],wifi_wpa5.buffer[page],4096);wifi_wpa5.rx_copied++;wifi_wpa5.drain_completed++;wifi_wpa5.rx_delivered=true;
   console_printf("wifi-retire5-rx: index=%u bytes=%u\n",(uint64_t)i,(uint64_t)(4096-wifi_wpa5.rx_residue));
+  if(wifi_reuse5_requested && !wifi_reuse5_release())return false;
   if(wifi_wpa5.posts<WIFI_WPA5_RX && !wifi_wpa5_post())return false;
  }
  return wifi_wpa5_owned(&wifi_wpa5,true);
+}
+static bool wifi_wpa5_drain_rx(void){
+ uint64_t flags=wifi_reuse5_requested?event_irq_save():0;bool good=wifi_wpa5_drain_rx_once();
+ if(wifi_reuse5_requested)event_irq_restore(flags);
+ return good;
 }
 static bool wifi_wpa5_usb(void *c,bool write,uint32_t a,uint32_t *v,bool cleanup){
  if(!v || c!=&wifi_wpa5 || !wifi_wpa5_owned(c,cleanup))return false;
@@ -416,6 +441,7 @@ static bool wifi_wpa5_inspect(void){
  copy_bytes(wifi_wpa5.handoff,(const uint8_t *)&wifi_handoff5,sizeof wifi_handoff5);copy_bytes(wifi_wpa5.binding,(const uint8_t *)&wifi_peer5,sizeof wifi_peer5);copy_bytes(wifi_wpa5.preview,(const uint8_t *)&wifi_tx5,sizeof wifi_tx5);
  copy_bytes(wifi_wpa5.old_ring,(const uint8_t *)wifi_cal5.ep.ring,4096);copy_bytes(wifi_wpa5.handoff_ring,(const uint8_t *)wifi_handoff5.ring,4096);copy_bytes(wifi_wpa5.preview_ring,(const uint8_t *)wifi_tx5.ring,4096);
  for(unsigned i=0;i<8;i++)copy_bytes(wifi_wpa5.old_pages[i],wifi_cal5.plan.buffer[i],4096);
+ if(wifi_reuse5_requested && !wifi_reuse5_init())return false;
  wifi_wpa5.active=true;bool good=wifi_wpa5_owned(&wifi_wpa5,false);
  if(wifi_wpa5.data_mode)console_write("wifi-wpa5-progress: frozen parent;independent fresh RX/OUT;strict fresh nonce and bounded four-way and authenticated IP window;software key erase/leave;MAC disable and full restore\n");
  else console_write("wifi-wpa5-progress: frozen parent;independent fresh RX/OUT;strict fresh nonce and bounded four-way;software key erase/leave;MAC disable and full restore;no IP data\n");

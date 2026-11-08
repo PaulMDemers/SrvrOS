@@ -7659,3 +7659,33 @@ repeated UDP transfer through copied provider frames. Neither fixture accepts
 native DMA reuse,CCMP/RF/TCP/HTTP behavior or a persistent secured connection.
 The accepted immutable v132 hardware path,limits and installed payload stay
 separate until a new native binding is source-qualified and physically checked.
+
+
+### v133 real bounded reusable-page binding
+
+The opt-in `--wifi-reuse5` child requires the complete automatic v132 provider
+and private data/WPA parent. It binds the ledger to the actual63 usable native
+TRBs,not the standalone255-position fixture default. Real validated transfer
+events carry exact slot,endpoint,TD pointer,CC/residue and current epoch/lease
+before ledger completion. Four retained pages per direction are reused only
+after TX completion or RX borrow/snapshot/authentication/release. The original
+allocation pins,48 RX positions (40 forward/eight cleanup),11 TX positions,six
+endpoint commands and original CCMP/PN1..6/IP/retirement gates remain unchanged.
+The other retained allocations remain distinct/unused. No descriptor-address
+wrap or new wrap authority is exercised;the standalone model now accepts an
+explicit ring size so it cannot silently supply255 positions to this driver.
+
+The exact v133 boot still defers ordinary network startup. Provider publication
+closes before erasure. Early ledger retirement must refuse;final retirement
+requires full original key/endpoint/input/MAC/power/RF restoration and a bounded
+observed empty event ring before provider context release. Unexpected late owned
+TDs or non-transfer events during that drain prevent acceptance. IRQ masking
+serializes short lease/copy/publication transactions;provider callbacks do not
+wait or log. The separate saved-log checker requires matching reuse counters,
+all63-position/borrow/release/drain/retirement receipts and the complete old
+protocol/restoration parent. Historical recipes and checkers stay distinct.
+
+Local/VM qualification does not accept native page reuse. Follow the unit's
+normal matched-build,exact-stage GPT/missing-workspace,private recovery/preflight
+and cold-shutdown/collect-first workflow. Ordinary provider RX,TCP/HTTP,long-lived
+connections,descriptor wrap,UI and live reattach remain later hardware milestones.

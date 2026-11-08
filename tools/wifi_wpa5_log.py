@@ -5,7 +5,10 @@ from wifi_eapol5_log import check as parent
 from wifi_power5_log import fields
 from wifi_held_log import require
 PROGRESS='wifi-wpa5-progress: frozen parent;independent fresh RX/OUT;strict fresh nonce and bounded four-way;software key erase/leave;MAC disable and full restore;no IP data'
-def _check(log,data=False,provider=False):
+def _check(log,data=False,provider=False,reuse=False):
+ require(not reuse or (data and provider),"reusable pages need data/provider parents")
+ require(("srvros.wifi-reuse5=1" in log)==reuse,"wrong reusable-page profile")
+ require(reuse or not any(x.startswith("wifi-reuse5") for x in log.splitlines()),"reuse receipts in historical profile")
  require(("srvros.wifi-provider5=1" in log)==provider,"wrong provider handoff profile")
  require(provider or not any(x.startswith("wifi-provider5") for x in log.splitlines()),"provider receipts in historical profile")
  require(("srvros.wifi-data5=1" in log)==data,"wrong encrypted data profile")
@@ -95,7 +98,7 @@ def _check(log,data=False,provider=False):
  return r
 
 def check(log):return _check(log,False)
-def check_data(log,provider=False):
- r=_check(log,True,provider)
+def check_data(log,provider=False,reuse=False):
+ r=_check(log,True,provider,reuse)
  r["scope"]="bounded authenticated encrypted DHCP DORA,DNS and256-byte gateway echo;software key erasure/leave and full owner/parent restoration;ordinary provider/UI and reconnect not tested"
  return r

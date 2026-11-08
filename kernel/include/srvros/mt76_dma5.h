@@ -23,7 +23,7 @@ struct mt76_dma5_page {struct mt76_dma5_lease lease;enum mt76_dma5_page_state st
  * Never stamp a current ticket onto an unvalidated old raw TRB pointer. */
 struct mt76_dma5 {
  uintptr_t identity;uint64_t epoch,next_ticket,last_us,ring[2],last_token[2],last_fence;
- unsigned cursor[2],cycle[2],next_page[2];
+ unsigned positions,cursor[2],cycle[2],next_page[2];
  enum mt76_dma5_state state;
  struct mt76_dma5_page pages[2][MT76_DMA5_PAGES];
  uint64_t prepared,published,completed,borrowed,released,cancelled,wraps,faults;
@@ -35,6 +35,8 @@ struct mt76_dma5 {
  * An ordinary completion does not authorize descriptor-address alias reuse. */
 struct mt76_dma5_fence {uint64_t epoch,sequence,dequeue;unsigned direction;bool stopped,events_drained,dequeue_set;};
 struct mt76_dma5_retirement {uint64_t epoch;bool keys_erased,mac_disabled,tx_stopped,rx_stopped,events_drained,callbacks_drained,parent_restored;};
+/* Native rings may be smaller than the standalone255-position fixture. */
+bool mt76_dma5_init_ring(struct mt76_dma5 *,uint64_t epoch,const uint64_t rings[2],const uint64_t pages[2][MT76_DMA5_PAGES],unsigned positions,uint64_t now);
 bool mt76_dma5_init(struct mt76_dma5 *,uint64_t epoch,const uint64_t rings[2],const uint64_t pages[2][MT76_DMA5_PAGES],uint64_t now);
 /* Reserve before copying/sealing. Tokens strictly increase per direction even
  * after cancellation;reserve a CCMP PN only in the original key owner,once. */

@@ -65,6 +65,8 @@ int main(void){
  begin();rx=issue(1,1);assert(mt76_dma5_complete(&s,&rx,13,0,100));assert(mt76_dma5_close(&s,9));assert(!mt76_dma5_acquire(&s,9,&borrow));p=retirement();assert(mt76_dma5_retire(&s,&p));
  begin();l=issue(0,1);assert(mt76_dma5_close(&s,9));assert(!mt76_dma5_prepare(&s,0,2,1,100,&out));assert(mt76_dma5_complete(&s,&l,1,0,100));p=retirement();assert(mt76_dma5_retire(&s,&p));
  begin();assert(mt76_dma5_prepare(&s,0,1,10,100,&l));mt76_dma5_fault(&s);assert(!mt76_dma5_cancel(&s,&l) && s.pages[0][l.index].state==MT76_DMA5_PREPARED);
+ memset(&s,0,sizeof s);assert(mt76_dma5_init_ring(&s,9,rings,pages,63,100));for(unsigned i=1;i<=63;i++){l=issue(0,i);assert(mt76_dma5_complete(&s,&l,1,0,100));}assert(!mt76_dma5_prepare(&s,0,64,1,100,&out));wrap(0,1);assert(s.cursor[0]==0 && s.cycle[0]==0);
+ memset(&s,0,sizeof s);assert(!mt76_dma5_init_ring(&s,9,rings,pages,1,100));assert(!mt76_dma5_init_ring(&s,9,rings,pages,256,100));
  begin();assert(!mt76_dma5_tick(&s,99));
  begin();s.next_ticket=UINT64_MAX;assert(!mt76_dma5_prepare(&s,0,1,1,100,&out) && s.state==MT76_DMA5_FAULT);
  begin();struct mt76_dma5 copy=s;assert(!mt76_dma5_prepare(&copy,0,1,1,100,&out));assert(!mt76_dma5_prepare(&s,0,1,1,100,&s.pages[0][0].lease));

@@ -5855,8 +5855,8 @@ build/tests/air61-window-combined$(HOST_EXE): tools/test_air61_window_combined.c
 test-core: test-mt76-wpa5
 test-mt76-wpa5: build/tests/mt76-wpa5-host$(HOST_EXE)
 	$<
-WIFI_PROVIDER5_SOURCE := kernel/src/drivers/mt76_net5.c
-build/tests/xhci-host$(HOST_EXE) build/tests/xhci-wpa5-host$(HOST_EXE) build/tests/xhci-data5-host$(HOST_EXE) build/tests/xhci-provider5-host$(HOST_EXE): $(WIFI_PROVIDER5_SOURCE) kernel/src/drivers/xhci_wifi_provider5.inc kernel/src/net_device.c
+WIFI_PROVIDER5_SOURCE := kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c
+build/tests/xhci-host$(HOST_EXE) build/tests/xhci-wpa5-host$(HOST_EXE) build/tests/xhci-data5-host$(HOST_EXE) build/tests/xhci-provider5-host$(HOST_EXE): $(WIFI_PROVIDER5_SOURCE) kernel/src/drivers/xhci_wifi_provider5.inc kernel/src/drivers/xhci_wifi_reuse5.inc kernel/src/net_device.c
 WPA5_SOURCES := kernel/src/sha256.c kernel/src/drivers/mt76_wpa5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_data5.c kernel/src/drivers/mt76_ip5.c kernel/src/drivers/mt76_rsn.c kernel/src/wpa2_handshake.c kernel/src/wpa2_ccmp.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c
 build/tests/mt76-wpa5-host$(HOST_EXE): tools/test_mt76_wpa5.c tools/fixtures/wpa2-handshake-synthetic.h $(WPA5_SOURCES) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
@@ -5940,3 +5940,16 @@ test-mt76-dma5-stack: build/tests/mt76-dma5-stack-host$(HOST_EXE)
 build/tests/mt76-dma5-stack-host$(HOST_EXE): tools/test_mt76_dma5_stack.c tools/test_mt76_net5_stack.c kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< kernel/src/net_device.c kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c -Wl,--gc-sections -o $@
+
+.PHONY: test-xhci-reuse5
+test-core: test-xhci-reuse5
+test-xhci-reuse5: build/tests/xhci-reuse5-host$(HOST_EXE)
+	$<
+build/tests/xhci-reuse5-host$(HOST_EXE): tools/test_xhci_wifi_reuse5.c tools/test_xhci_wifi_wpa5.c kernel/src/drivers/xhci_wifi_wpa5.inc kernel/src/drivers/xhci_wifi_provider5.inc kernel/src/drivers/xhci_wifi_reuse5.inc $(WIFI_PROVIDER5_SOURCE) $(WPA5_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< $(WIFI_PROVIDER5_SOURCE) $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c -o $@
+
+.PHONY: test-wifi-reuse5-log
+test-core: test-wifi-reuse5-log
+test-wifi-reuse5-log: build/tests/xhci-reuse5-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_reuse5_log.py

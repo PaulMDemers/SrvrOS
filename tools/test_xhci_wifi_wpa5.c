@@ -33,7 +33,7 @@ static struct {uint64_t ring_phys;void *ring;bool active,input_restored,disabled
 static int wifi_channel_vco5;
 static struct xhci_device device;
 static bool wifi_join5_requested,firmware_command_failed,firmware_command_exact;
-static struct {uint32_t input[128][8],output[32][8],initial_rx[8];uint8_t pages[256][4096];unsigned next,allocations,fail_alloc,alias_alloc,commands,controls,ownership,lose,fail_command,command_mutate,fail_control,fail_send,reply,sends,rx_events,mutate,event_fault,stop_fault,stop_fault_dci,wpa_m3_mutate,child_first,wpa_mutate,toggle_count,toggle_actual,data_mutate,drain_queue,drain_fault;uint64_t time;unsigned slow_console,data_console_calls,provider_fault;bool provider_fault_done;uint32_t mac,filter,txop;bool data_wapi_once,data_wapi,data_flood,data_mode,data_empty,data_bad_mic,data_spoof,data_nonce_fail,quarantine,trace,parent,empty,empty_assoc,reject,reject_assoc,noise,bad_guard,auth_extra,auth_bad_ie,eapol_missing,eapol_bad,eapol_fault,eapol_done,pad,skip_stop,alloc_fail,uncertain_command,wrong_slot,clear_disabled,wpa_m1_done,wpa_m3_done,wpa_nonce_fail,wpa_no_m3,toggle_fail,toggle_lie,host_toggle,device_toggle;}fake;
+static struct {uint32_t input[128][8],output[32][8],initial_rx[8];uint8_t pages[256][4096];unsigned next,allocations,fail_alloc,alias_alloc,commands,controls,ownership,lose,fail_command,command_mutate,fail_control,fail_send,reply,sends,rx_events,mutate,event_fault,stop_fault,stop_fault_dci,wpa_m3_mutate,child_first,wpa_mutate,toggle_count,toggle_actual,data_mutate,drain_queue,drain_fault;uint64_t time;unsigned slow_console,data_console_calls,provider_fault,reuse_fault,reuse_tail;bool provider_fault_done,reuse_fault_done;uint32_t mac,filter,txop;bool data_wapi_once,data_wapi,data_flood,data_mode,data_empty,data_bad_mic,data_spoof,data_nonce_fail,quarantine,trace,parent,empty,empty_assoc,reject,reject_assoc,noise,bad_guard,auth_extra,auth_bad_ie,eapol_missing,eapol_bad,eapol_fault,eapol_done,pad,skip_stop,alloc_fail,uncertain_command,wrong_slot,clear_disabled,wpa_m1_done,wpa_m3_done,wpa_nonce_fail,wpa_no_m3,toggle_fail,toggle_lie,host_toggle,device_toggle;}fake;
 static bool wifi_handoff5_equal(const void *a,const void *b,size_t n){return !memcmp(a,b,n);}
 static bool child_active(void);
 static bool wifi_channel_vco5_owned(void *c){assert(c==&wifi_channel_vco5);fake.ownership++;if(child_active() && !fake.child_first)fake.child_first=fake.ownership;return fake.ownership!=fake.lose && fake.parent && !fake.quarantine;}
@@ -100,17 +100,17 @@ static bool submit_command_trb(const struct xhci_trb *t,unsigned type,uint64_t *
  if(fake.commands==fake.command_mutate)fake.output[11][4]^=1;
  return !fail;
 }
-static void db_write32(unsigned slot,unsigned dci){assert(slot==device.slot_id && !fake.quarantine);if(dci==9){fake.output[9][0]=1;}else{assert(dci==8);fake.sends++;fake.reply=0;if(wifi_wpa5.data_active){unsigned i=wifi_wpa5.data_sends;assert(i<6);assert(LIVE(lengths[LIVE(sends)-1])==data5_fixture[i].tx_size);assert(!memcmp(LIVE(buffer[WIFI_WPA5_RX+LIVE(sends)-1]),data5_fixture[i].tx,data5_fixture[i].tx_size));}if(fake.host_toggle==fake.device_toggle){fake.reply=LIVE(kinds[LIVE(sends)-1])+1;fake.device_toggle=!fake.device_toggle;}fake.host_toggle=!fake.host_toggle;}}
+static void db_write32(unsigned slot,unsigned dci){assert(slot==device.slot_id && !fake.quarantine);if(dci==9){fake.output[9][0]=1;}else{assert(dci==8);fake.sends++;fake.reply=0;if(wifi_wpa5.data_active){unsigned i=wifi_wpa5.data_sends;assert(i<6);assert(LIVE(lengths[LIVE(sends)-1])==data5_fixture[i].tx_size);assert(!memcmp(wifi_wpa5.buffer[wifi_wpa5_tx_index(wifi_wpa5.sends-1)],data5_fixture[i].tx,data5_fixture[i].tx_size));}if(fake.host_toggle==fake.device_toggle){fake.reply=LIVE(kinds[LIVE(sends)-1])+1;fake.device_toggle=!fake.device_toggle;}fake.host_toggle=!fake.host_toggle;}}
 static void put16(uint8_t *p,unsigned v){p[0]=v;p[1]=v>>8;}
 static void put32(uint8_t *p,uint32_t v){put16(p,v);put16(p+2,v>>16);}
 static unsigned response(void){
- unsigned i=LIVE(posts)-1;uint8_t *p=LIVE(buffer[i]);memset(p,0,4096);bool auth=fake.reply==1;size_t n=auth?(fake.auth_extra?41:30):40;uint8_t *h=p+36,*body=h+24+(fake.pad?2:0);
+ unsigned i=LIVE(posts)-1;uint8_t *p=LIVE(buffer[wifi_wpa5.active?wifi_wpa5_rx_index(i):i]);memset(p,0,4096);bool auth=fake.reply==1;size_t n=auth?(fake.auth_extra?41:30):40;uint8_t *h=p+36,*body=h+24+(fake.pad?2:0);
  put32(p+4,fake.pad?1u<<14:0);put32(p+8,(uint32_t)n<<16);put16(h,auth?0xb0:0x10);memcpy(h+4,LIVE(peer.peer.station),6);memcpy(h+10,LIVE(peer.peer.bssid),6);memcpy(h+16,LIVE(peer.peer.bssid),6);
  if(auth){put16(body+2,2);put16(body+4,fake.reject?13:0);if(fake.auth_extra){body[6]=221;body[7]=fake.auth_bad_ie?10:9;for(unsigned k=0;k<9;k++)body[8+k]=(uint8_t)(k+1);}}else{put16(body,0x411);put16(body+2,(fake.reject || fake.reject_assoc)?13:0);put16(body+4,0xc007);body[6]=1;body[7]=8;memcpy(body+8,(uint8_t[]){0x8c,18,0x98,36,0xb0,72,96,108},8);}
  unsigned dma=(32+n+(fake.pad?2:0)+3)&~3u;put16(p,dma);if(fake.noise)h[10]^=2;else fake.reply=0;return dma+4;
 }
 static unsigned eapol_response(void){
- unsigned i=LIVE(posts)-1;uint8_t *p=LIVE(buffer[i]);memset(p,0,4096);
+ unsigned i=LIVE(posts)-1;uint8_t *p=LIVE(buffer[wifi_wpa5.active?wifi_wpa5_rx_index(i):i]);memset(p,0,4096);
  unsigned mpdu=26+8+99,dma=(32+mpdu+2+3)&~3u;put16(p,dma);put32(p+4,2|(1u<<14));put32(p+8,mpdu<<16);
  uint8_t *h=p+36;put16(h,0x0288);memcpy(h+4,LIVE(peer.peer.station),6);memcpy(h+10,LIVE(peer.peer.bssid),6);memcpy(h+16,LIVE(peer.peer.bssid),6);h[24]=7;
  uint8_t *llc=h+28;memcpy(llc,(uint8_t[]){0xaa,0xaa,3,0,0,0,0x88,0x8e},8);uint8_t *m=llc+8;m[0]=2;m[1]=3;m[3]=95;m[4]=2;m[6]=0x8a;m[8]=16;m[16]=7;for(unsigned j=0;j<32;j++)m[17+j]=j+1;
@@ -120,7 +120,7 @@ static unsigned eapol_response(void){
 static unsigned wpa_response(void){
  bool m1=!wifi_wpa5.exchange.m1_matched;const uint8_t *message=m1?hs_m1:hs_m3;size_t size=m1?sizeof hs_m1:sizeof hs_m3;
  unsigned mpdu=24+8+size,pad=fake.pad?2:0,dma=(32+mpdu+pad+3)&~3u;
- uint8_t *p=wifi_wpa5.buffer[wifi_wpa5.posts-1];memset(p,0,4096);put16(p,dma);put32(p+4,2|(pad?1u<<14:0));put32(p+8,mpdu<<16);
+ uint8_t *p=wifi_wpa5.buffer[wifi_wpa5_rx_index(wifi_wpa5.posts-1)];memset(p,0,4096);put16(p,dma);put32(p+4,2|(pad?1u<<14:0));put32(p+8,mpdu<<16);
  uint8_t *h=p+36;put16(h,0x0a08);memcpy(h+4,hs_spa,6);memcpy(h+10,hs_aa,6);memcpy(h+16,hs_aa,6);
  memcpy(h+24+pad,(uint8_t[]){0xaa,0xaa,3,0,0,0,0x88,0x8e},8);memcpy(h+32+pad,message,size);
  if(!m1 && fake.wpa_m3_mutate)h[32+pad+fake.wpa_m3_mutate-1]^=1;
@@ -129,7 +129,7 @@ static unsigned wpa_response(void){
 static unsigned data_response(void){
  unsigned index=wifi_wpa5.sends-5;assert(index<6);const uint8_t *mpdu=data5_fixture[index].rx;unsigned size=data5_fixture[index].rx_size;
  unsigned pad=fake.pad?2:0,dma=(32+size+pad+3)&~3u;
- uint8_t *p=wifi_wpa5.buffer[wifi_wpa5.posts-1];memset(p,0,4096);put16(p,dma);put32(p+4,2|(pad?1u<<14:0));put32(p+8,size<<16);
+ uint8_t *p=wifi_wpa5.buffer[wifi_wpa5_rx_index(wifi_wpa5.posts-1)];memset(p,0,4096);put16(p,dma);put32(p+4,2|(pad?1u<<14:0));put32(p+8,size<<16);
  memcpy(p+36,mpdu,24);memcpy(p+60+pad,mpdu+24,size-24);
  if(fake.data_bad_mic)p[36+pad+size-1]^=1;
  if(fake.data_spoof)p[46]^=2;
@@ -149,6 +149,7 @@ static unsigned data_response(void){
  fake.data_wapi_once=false;fake.reply=0;return dma+4;
 }
 static bool poll_event(struct xhci_trb *e){
+ if(wifi_reuse5_requested && wifi_provider5.outer_retired && fake.reuse_tail){*e=(struct xhci_trb){.control=33u<<10};return true;}
  if(LIVE(tx_pending) && fake.sends!=fake.fail_send){uint64_t ptr=LIVE(tx_phys)+16*(LIVE(sends)-1);*e=(struct xhci_trb){ptr,ptr>>32,1u<<24,(32u<<10)|(8u<<16)|((uint32_t)device.slot_id<<24)};fake.output[8][2]=(ptr+16)|1;}
  else if(LIVE(rx_pending) && fake.reply && fake.reply<=2 && !fake.empty && !(fake.empty_assoc && fake.reply==2)){uint64_t ptr=LIVE(rx_phys)+16*(LIVE(posts)-1);unsigned n=response();*e=(struct xhci_trb){ptr,ptr>>32,(13u<<24)|(4096-n),(32u<<10)|(9u<<16)|((uint32_t)device.slot_id<<24)};fake.output[9][2]=(ptr+16)|1;fake.rx_events++;}
  else if(wifi_wpa5.active && LIVE(rx_pending) && wifi_wpa5.exchange.assoc_matched &&
@@ -156,7 +157,7 @@ static bool poll_event(struct xhci_trb *e){
   uint64_t ptr=LIVE(rx_phys)+16*(LIVE(posts)-1);unsigned n=wpa_response();*e=(struct xhci_trb){ptr,ptr>>32,(13u<<24)|(4096-n),(32u<<10)|(9u<<16)|((uint32_t)device.slot_id<<24)};fake.output[9][2]=(ptr+16)|1;
  }
  else if(wifi_wpa5.active && LIVE(rx_pending) && ((fake.data_flood && wifi_wpa5.data_active) || (wifi_wpa5.mac.mac_disabled && fake.drain_queue))){
-  uint64_t ptr=LIVE(rx_phys)+16*(LIVE(posts)-1);memset(wifi_wpa5.buffer[wifi_wpa5.posts-1],0,4096);
+  uint64_t ptr=LIVE(rx_phys)+16*(LIVE(posts)-1);memset(wifi_wpa5.buffer[wifi_wpa5_rx_index(wifi_wpa5.posts-1)],0,4096);
   *e=(struct xhci_trb){ptr,ptr>>32,(13u<<24)|(4096-472),(32u<<10)|(9u<<16)|((uint32_t)device.slot_id<<24)};fake.output[9][2]=(ptr+16)|1;
   if(wifi_wpa5.mac.mac_disabled){fake.drain_queue--;if(fake.drain_fault)wifi_wpa5.rx[0].control^=1;}
  }
@@ -170,6 +171,17 @@ static bool poll_event(struct xhci_trb *e){
   if(fake.provider_fault==1)wifi_provider5.token++;
   if(fake.provider_fault==2)wifi_provider5.epoch++;
   if(fake.provider_fault==3)wifi_provider5.net.pending_token++;
+ }
+ if(wifi_reuse5_requested && fake.reuse_fault && !fake.reuse_fault_done && wifi_wpa5.data_active){
+  fake.reuse_fault_done=true;
+  switch(fake.reuse_fault){
+  case 1:wifi_reuse5.tx.ticket++;break;
+  case 2:wifi_reuse5.dma.epoch++;break;
+  case 3:wifi_reuse5.dma.pages[0][wifi_reuse5.tx.index].lease.page+=4096;break;
+  case 4:wifi_wpa5.tx[wifi_wpa5.sends-1].parameter_low+=4096;break;
+  case 5:wifi_reuse5.dma.released++;break;
+  case 6:wifi_reuse5.dma.cursor[0]++;break;
+  }
  }
  if(fake.event_fault){switch(fake.event_fault){case 1:e->parameter_low+=16;break;case 2:e->control|=4;break;case 3:e->status^=1;break;case 4:e->control^=1u<<24;break;default:e->control|=1u<<5;break;}}
  return true;
@@ -198,6 +210,7 @@ static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uin
 bool xhci_wifi_capture_tx5(void){return wifi_join5_inspect();}
 static void setup(void){
  memset(&wifi_provider5,0,sizeof wifi_provider5);wifi_provider5_requested=false;
+ memset(&wifi_reuse5,0,sizeof wifi_reuse5);wifi_reuse5_requested=false;
  memset(providers,0,sizeof providers);memset(identities,0,sizeof identities);memset(names,0,sizeof names);memset(retiring,0,sizeof retiring);memset(references,0,sizeof references);provider_count=0;selected=NULL;sealed=false;
  memset(&wifi_wpa5,0,sizeof wifi_wpa5);wifi_wpa5_requested=wifi_wpa5_data_requested=false;wifi_join5_after=0;memset(&wifi_eapol5,0,sizeof wifi_eapol5);memset(&fake,0,sizeof fake);memset(&wifi_join5,0,sizeof wifi_join5);memset(&device,0,sizeof device);fake.next=30;fake.parent=true;fake.filter=0x17f97;fake.txop=0x583f;fake.time=1000;wifi_join5_requested=firmware_command_failed=firmware_command_exact=false;
  xhci=(typeof(xhci)){.command_ring_phys=9*4096};strict_control.device=0;
