@@ -7,7 +7,8 @@ Native follow-up (2026-11-07): PR410 runtime `f8e16123`, payload
 qualification in82.610/82.379ms, with identical raw borrowed graphs and proven
 retirement/claim release. The [machine record](machines/macbookair6-1.md)
 owns its exact evidence and narrow acceptance. No target register was read;
-the guarded read caller described below remains unimplemented. All existing
+the separate v8 guarded read caller is now implemented and host/VM validated;
+native register-read acceptance remains pending. All existing
 limits and raw comparisons remain unchanged. The original host audit follows.
 
 Base `eefc5bfd`, following the accepted [window-only qualification](macbookair6-1-vtd-read-window-design.md).
@@ -266,5 +267,5 @@ original claimed lifetime. Each snapshot uses the existing whitelist and
 49-MSR cache-snapshot cap, plus one separately counted EFER observation.
 These additional snapshots do not reuse or extend either of the two original
 gate counters. Full raw values/times and per-snapshot counts fit the unchanged
-33000-byte pass,70000-byte raw,45000-byte wire and65536-byte tail bounds.
+33000-byte existing pass-body,70000-byte raw,45000-byte wire and65536-byte tail bounds.
 No such extra MSR accesses occur in the existing zero-load profile.
