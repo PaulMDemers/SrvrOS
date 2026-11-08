@@ -6090,3 +6090,12 @@ test-haswell-vtd-capabilities:
 test-core: test-render-timing
 test-render-timing: build/tests/desktop-session-host$(HOST_EXE)
 	$(PYTHON) tools/test_render_timing.py
+
+.PHONY: test-mt76-fence5
+test-core: test-mt76-fence5
+test-wifi-completion-foundations: test-mt76-fence5
+test-mt76-fence5: build/tests/mt76-fence5-host$(HOST_EXE)
+	$<
+build/tests/mt76-fence5-host$(HOST_EXE): tools/test_mt76_fence5.c kernel/src/drivers/mt76_fence5.c kernel/src/drivers/mt76_dma5.c kernel/include/srvros/mt76_fence5.h kernel/include/srvros/mt76_dma5.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_fence5.c kernel/src/drivers/mt76_dma5.c -o $@

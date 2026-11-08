@@ -15467,3 +15467,29 @@ binding and boundary crossing remain separately unaccepted until exact-owner
 fixtures and physical evidence. No source changes authorize a test by themselves.
 Installed3c9b55a76fc9a38a/native576/review12 remain immutable and recoverable;
 Ubuntu default,no boot armed. No credentials or hardware state delegated.
+
+### Bounded production fence controller ready for qualification (November 8)
+
+Merged main63036859 in0c2deb45 with behavioral conflict resolution preserving all
+Wi-Fi profiles and upstream isolated audio/Air diagnostics. All239 staging tests
+pass. New mt76_fence5 production code implements nonblocking worker-driven Stop,
+command completion,Stopped-context verification,bounded event drainage,Set TR
+Dequeue,readback,second frontier and ledger commit. Exact epoch/token/pointer/
+slot/DCI/type/dequeue identities and immutable physical mappings remain bound.
+Both directions must have all pages free and pause ledger mutation. Original
+key and native hardware ownership stay external. Callback/state mutation,clock,
+loan,cancel and repeated-command-address cases fail closed under the documented
+caller publication-closure contract. Invalid corrupted handles refuse without
+unsafe dereference. Fresh command addresses bound one object to31 fences;
+actual remaining command positions and final-cleanup reserve remain backend
+obligations. This is not indefinite command-ring reuse.
+
+Standalone normal/fatal sanitizer/leak checks pass;freestanding maximum frame
+160bytes. The new engine has no native call site yet. Independent binding audit
+identifies shared command-event demux,pending-command ownership guards,Stop-event
+phase separation and command-ring retirement as required before hardware trials.
+Parent now qualifies the merged matched build and relevant controller/network/
+scheduler/IRQ/desktop regressions. No physical install or reboot is authorized
+by these software results alone;standing user power-cycle authorization applies
+only after a coherent native candidate meets normal qualification. Existing
+accepted installed payload and immutable native/review capsules are unchanged.

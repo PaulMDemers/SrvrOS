@@ -142,3 +142,64 @@ fixture before staging. Follow parent matched-build,exact-image GPT/missing-
 workspace,storage/recovery workflow. Only repeated native encrypted transfer
 crossing real boundaries with full retirement accepts persistence. General TCP/
 HTTP and UI/lifecycle follow. Synthetic fences do not need cold hardware boots.
+
+## Production asynchronous fence engine
+
+The follow-up adds mt76_fence5.h/.c,a nonblocking production engine over the DMA
+ledger,and test_mt76_fence5.c. There is still no native backend or hardware
+acceptance. Each step executes at most one IO action;no wait,allocation,MMIO,
+DMA write,key copy or doorbell. Do not bind blocking submit_command_trb to it.
+
+States:STOP,STOP_WAIT,STOP_CONTEXT,DRAIN,REBASE,REBASE_WAIT,VERIFY,FINAL_DRAIN,
+COMMIT,terminal FAULT. Submitted/completed command records must exactly match
+epoch,monotonic token,physical command pointer,slot,DCI,type and dequeue. Stop
+context must be Stopped with legal DCS/alignment and pointer within ring base
+through Link position inclusive. That conservative structural allowance does not
+accept all such native stopping behavior. Set-Dequeue context must equal exact
+ring-base|opposite-DCS. Fresh increasing frontier records require original epoch,
+no target late events,no command debt and at most32 scanned events per drain.
+Separate empty frontiers precede rebase and commit. Backend must derive these
+from independently attributed stopped/event-debt records,not ledger booleans.
+
+Both directions must have all eight pages FREE at begin;every ledger byte stays
+frozen until commit. Quiet pending RX cannot be cancelled here. First binding
+must pause/drain the other direction before fencing. Self-state checksums and
+callback-bracket integrity checks detect copied/tampered engine,state,IO,command
+or ledger. A locally retained original ledger pointer prevents callback pointer
+reassignment from faulting a replacement object. Initial ring/eight-page geometry
+remains immutable across boundaries. These checks address accidental corruption,
+not arbitrary malicious memory writes. Cancel/disconnect during callback prevents
+commit and pins original ledger. Caller must close publication/retain ownership
+on EVERY false return,including invalid stored handles. Invalid pointers are not
+dereferenced merely to mark their apparent ledger faulted.
+
+Every phase,including pending command and drainage,has750ms bound. Backward
+engine or latest-ledger time refuses. Begin checks DMA last_us;commit advances
+it to fence time. Fence sequence must match last_fence and have increment room;
+command tokens need room for two submissions. No leases or PNs roll back. Full
+key/hardware retirement remains outside this engine.
+
+The command ring has the same pointer-alias hazard:raw command events do not
+carry software token/epoch. Engine records all physical command pointers and
+rejects repeats even with fresh tokens. Pointers must be aligned data positions
+within one retained4KiB command-ring geometry (positions0..62),disjoint from both
+DMA rings/eight data pages. Lifetime is deliberately bounded to31 fences/62
+commands;begin refuses before exhausting that limit. Backend additionally must
+reserve cleanup commands and forbid positions used before engine attachment.
+Never reinitialize an engine to bypass this cap. Indefinite command-ring reuse
+needs a separate controller ownership frontier;native backend must enforce its
+smaller actual remaining-position budget.
+
+Fixture:30 ordinary two-direction fences/60 commands plus a separate31-fence/
+62-command cap refusal. It covers every submit/completion identity field,CC,
+stopped context/dequeue,frontier epoch/sequence/debt/late-target/overflow,deadline/
+backward clock,loan/opposite-device refusal,cancel/disconnect,callback state/IO/
+command/pointer/ledger mutation,immutable page geometry,command/DMA alias and loss
+of owner at commit. Failed cases do not wrap;replacement ledger stays untouched.
+Normal and fatal ASan/UBSan/leak checks pass. Production freestanding O2 compile
+with stack-usage passes;maximum function frame160bytes (step),submit144bytes.
+
+Standalone test command uses the prior compiler flags with these three sources:
+`tools/test_mt76_fence5.c kernel/src/drivers/mt76_fence5.c kernel/src/drivers/mt76_dma5.c`.
+Parent owns build integration/matched qualification. This subtask used only
+private/tmp outputs;no shared make,staging,VM,hardware,secrets or archive changes.

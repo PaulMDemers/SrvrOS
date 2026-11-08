@@ -1,7 +1,8 @@
 # Pro11,2 Wi-Fi completion plan
 
 November 8. Unit-local implementation plan,not a hardware acceptance claim.
-Source307b911e with integrationa1661937 consumed;origin/main63036859 fetched.
+Initial plan source307b911e;main63036859 consumed in merge0c2deb45.
+Its merged source still needs local qualification;older native evidence is unchanged.
 Edimax7392:a711 MT7610 is5GHz-only. Target Demers5 WPA2-PSK/CCMP,US161/20MHz.
 Demers2.4 requires a different compatible adapter;it is a separate hardware scope.
 
@@ -33,6 +34,8 @@ Initial parallel work:
 - Transport owner: actual63-position reuse/wrap regression and native fence design.
   Prove old completions cannot acquire current leases;define independent stop,
   event-debt,Set-TR-Dequeue/cycle proofs and fault retention before any wrap.
+  Command-ring address reuse needs its own frontier proof too;fresh command
+  positions and reserved cleanup capacity bound the first hardware binding.
 - Evidence owner: reusable sidecar-aware preservation tool and tests. Save raw
   baseline sidecar bytes privately,compare prior fields under explicit policy,
   hash all other files,and permit only matching-session new paths. Never exclude
