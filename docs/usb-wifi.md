@@ -7575,3 +7575,12 @@ Software queue wrap is not acceptance of native transfer-ring/page reuse. Native
 work still needs an explicit guarded asynchronous transport handoff,correct boot
 registration timing and complete restoration before provider/TCP/HTTP/UI hardware
 acceptance. The40/48 immutable v131 limits and existing recipes are unchanged.
+
+
+The provider additionally has an integration fixture linked with the real
+`net_device` registry and production Ethernet/ARP/TCP stack. A synthetic plaintext
+peer validates outgoing checksums and replies to ARP,SYN and an exact HTTP GET.
+The test checks the exact HTTP200 payload,receive-window update ACK,FIN/ACK,
+TIME_WAIT and final provider retirement. Replies generated inside Ethernet
+delivery traverse the real nonblocking send queue. This is stack/provider
+software evidence;it does not exercise native USB,CCMP or a real access point.

@@ -3316,6 +3316,14 @@ build/tests/mt76-net5-host$(HOST_EXE): tools/test_mt76_net5.c kernel/src/drivers
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< kernel/src/drivers/mt76_net5.c -o $@
 
+.PHONY: test-mt76-net5-stack
+test-core: test-mt76-net5-stack
+test-mt76-net5-stack: build/tests/mt76-net5-stack-host$(HOST_EXE)
+	$<
+build/tests/mt76-net5-stack-host$(HOST_EXE): tools/test_mt76_net5_stack.c kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< kernel/src/net_device.c kernel/src/drivers/mt76_net5.c -Wl,--gc-sections -o $@
+
 .PHONY: test-usb-ecm
 test-core: test-usb-ecm
 test-usb-ecm: build/tests/usb-ecm-host$(HOST_EXE)
