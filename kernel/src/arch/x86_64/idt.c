@@ -268,6 +268,7 @@ static void isr_dispatch_inner(struct isr_frame *frame) {
 
     if (frame->vector >= IRQ_VECTOR_BASE && frame->vector < IRQ_VECTOR_BASE + IRQ_COUNT) {
         irq_dispatch(frame->vector);
+        if(frame->vector==IRQ_VECTOR_BASE && (frame->cs & 3)!=3)scheduler_preempt_tick();
         return;
     }
 
@@ -478,6 +479,7 @@ static void signal_private_common_return(struct isr_frame *frame,bool test) {
 #endif
 
 void isr_dispatch(struct isr_frame *frame) {
+    bool user_timer_return=false;
     bool user=(frame->cs & 3)==3;
     if(user) {
         scheduler_account_kernel_enter();
@@ -500,7 +502,10 @@ void isr_dispatch(struct isr_frame *frame) {
     bool signal_test=user && frame->vector==3 && frame->rax==SIGNAL_PRIVATE_TEST_MAGIC;
     if(!signal_test)
 #endif
+    {
         isr_dispatch_inner(frame);
+        user_timer_return=user && frame->vector==IRQ_VECTOR_BASE;
+    }
     if(user) {
 #ifdef SRVROS_SYSCALL_CANCEL_HOST_TEST
         syscall_cancel_test_exclude_irqs();
@@ -531,6 +536,11 @@ void isr_dispatch(struct isr_frame *frame) {
 #ifdef SRVROS_SIGNAL_CONTEXT_GUEST_TEST
         signal_private_common_return(frame,signal_test);
 #endif
+        /* IRQ work, EOI and optional return validation have fully unwound.
+         * Keep unsafe kernel continuations excluded; publish only this audited
+         * user-return suffix for a due timer yield, then restore its kernel
+         * state before the existing final user-entry publication. */
+        if(user_timer_return)scheduler_preempt_user_return_tick();
         scheduler_user_enter();
     }
 }

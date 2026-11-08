@@ -14,6 +14,8 @@ static unsigned handoffs;
 static bool kill_during_handoff;
 static unsigned kernel_entries, user_entries, exclusions, irq_calls;
 static unsigned safe_publications;
+static unsigned kernel_timer_ticks,user_timer_ticks;
+static bool in_irq,expected_irq_safe;
 static bool simulated_if;
 void syscall_cancel_test_exclude_irqs(void) { exclusions++; simulated_if=false; }
 uint64_t syscall_cancel_test_read_cr3(void) { return 0x1000; }
@@ -43,14 +45,22 @@ void syscall_dispatch(struct isr_frame *frame) {
 }
 
 void irq_dispatch(uint64_t vector) {
-    assert(vector>=IRQ_VECTOR_BASE && vector<IRQ_VECTOR_BASE+IRQ_COUNT && !user_safe);
+    assert(vector>=IRQ_VECTOR_BASE && vector<IRQ_VECTOR_BASE+IRQ_COUNT && user_safe==expected_irq_safe);
+    in_irq=true;
     unsigned k=kernel_entries,u=user_entries,e=exclusions,s=safe_publications;
     bool flags=simulated_if;
     struct isr_frame nested={.cs=0x08,.vector=255};
     isr_dispatch(&nested);
     assert(kernel_entries==k && user_entries==u && exclusions==e && safe_publications==s);
-    assert(simulated_if==flags && !user_safe);
-    irq_calls++;
+    assert(simulated_if==flags && user_safe==expected_irq_safe);
+    irq_calls++;in_irq=false;
+}
+void scheduler_preempt_tick(void) { assert(!in_irq);kernel_timer_ticks++; }
+void scheduler_preempt_user_return_tick(void) {
+    assert(!in_irq && !in_call && !simulated_if && !user_safe);
+    /* Model a due quantum; actual scheduler publication/selection is exercised
+     * by test_io_scheduler, not this dispatcher-order fixture. */
+    user_timer_ticks++;scheduler_io_set_user_safe(true);scheduler_io_set_user_safe(false);
 }
 bool fpu_selftest_trap(uint64_t cookie) { (void)cookie; return true; }
 bool process_record_user_fault(uint64_t sig) { (void)sig; return true; }
@@ -86,7 +96,17 @@ static void outer_tests(void)
     unsigned irq_before=irq_calls;
     frame.vector=IRQ_VECTOR_BASE; simulated_if=true;k=kernel_entries;u=user_entries;e=exclusions;s=safe_publications;
     isr_dispatch(&frame);
-    assert(irq_calls==irq_before+1 && kernel_entries==k+1 && user_entries==u+1 && exclusions==e+1 && !simulated_if && safe_publications==s);
+    assert(irq_calls==irq_before+1 && kernel_entries==k+1 && user_entries==u+1 && exclusions==e+1 && !simulated_if && safe_publications==s+1);
+    assert(user_timer_ticks==1 && !kernel_timer_ticks && user_safe);
+    frame.vector=IRQ_VECTOR_BASE+1;expected_irq_safe=false;simulated_if=true;s=safe_publications;
+    isr_dispatch(&frame);assert(user_timer_ticks==1 && !kernel_timer_ticks && safe_publications==s && user_safe);
+    frame.cs=0x08;frame.vector=IRQ_VECTOR_BASE;
+    for(unsigned safe=0;safe<2;safe++) {
+        expected_irq_safe=user_safe=safe;simulated_if=false;s=safe_publications;
+        unsigned ticks=kernel_timer_ticks;isr_dispatch(&frame);
+        assert(kernel_timer_ticks==ticks+1 && user_timer_ticks==1 && user_safe==!!safe && safe_publications==s);
+    }
+    expected_irq_safe=false;frame.cs=0x23;
     frame.vector=255; simulated_if=true;k=kernel_entries;u=user_entries;e=exclusions;s=safe_publications;
     isr_dispatch(&frame);
     assert(kernel_entries==k+1 && user_entries==u+1 && exclusions==e+1 && !simulated_if && safe_publications==s);

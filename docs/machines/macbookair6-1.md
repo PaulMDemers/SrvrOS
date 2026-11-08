@@ -9365,3 +9365,75 @@ exact-stage, independent payload and retained recovery copies verify. Full raw
 and independently reviewed evidence is hash-verified outside `build`. Ubuntu
 returned automatically, the one-shot is consumed, collection is disabled and
 no reboot is armed. The review is not a new boot preparation.
+
+### User timer-return admission fix scope (2026-11-08)
+
+Base `4bda5009`, after the native737469us READY/80-exclusion observation.
+Source audit finds that CPL3 interrupt entry correctly marks its kernel
+continuation unsafe, but IRQ0 currently preempts inside `irq_dispatch`, before
+returning through the common epilogue. That leaves an ordinary userspace timer
+return suspended as an unsafe kernel continuation for the remainder of foreign
+I/O. Existing unsafe-continuation tests deliberately protect this state; do not
+make IRQ handlers or arbitrary kernel continuations I/O-eligible.
+
+Scope: move timer preemption ownership to the ISR/common-return boundary;
+retain kernel-origin preemption safety, timer accounting/EOI/quantum semantics,
+cancellation ordering and all optional public/private signal/frame proof gates.
+Only a fully unwound user return may temporarily publish user-safe eligibility
+around the scheduler yield, with IRQs masked and without teardown in that suffix.
+Keep `io_thread_allowed` and same-process/private-image checks unchanged.
+Add host regressions for real IRQ/common-return order and actual scheduler
+foreign-owner selection, including unsafe/kernel/same-image refusal, then run
+full matched/core and IRQ/thread/signal plus loaded/exact-stage VM checks.
+
+PR19's actual remote diff has no `idt.c`/`irq.c`/`scheduler.c` changes at this
+inspection; its three-line scheduler-host fixture edit concerns a separate
+binding-test volatile declaration. Avoid that hunk. PR301's diff has no competing
+timer/scheduler changes. Publish this bounded implementation independently;
+no cross-task messaging, user-safe blanket admission or limit change. The
+previous native owner identity is not reconstructed from the existing counter;
+this fix targets a reproducible source mechanism and needs new native evidence.
+
+### User timer-return candidate validation and native preparation (2026-11-08)
+
+Runtime/tools source `fac79995` implements the scoped return-boundary change.
+The original dispatcher on base `4bda5009` fails the new actual IRQ-ordering
+regression; the fixed IRQ/ISR/scheduler tests pass. Foreign-owner user-return
+progress, unsafe nested/kernel continuations, same-process/private-image refusal,
+IF/root/binding/state guards and cancellation before publication are covered.
+The I/O admission predicate, signal/frame gates, quantum, integrity checks and
+500ms/10s limits are unchanged. The original native interval's owner remains
+unidentified; this is a reproduced source mechanism, not reconstructed ownership.
+
+Full matched ordinary/native/VM kernels, USB image and core suite pass, including
+89 installed-root tests in725.104s with one expected skip. Public-signal,
+private-signal and frame-copy IDT variants compile; this is compile coverage,
+not experimental feature activation or guest/native acceptance. Ordinary syscall
+ABI, UEFI USB keyboard, fork, exec-vectors and yield VMs pass. The populated-Home
+TCG load at400 write IOPS passes the unchanged60-second workload:24 app cycles,
+169 verified disk bursts/44302336 bytes, zero PCM underruns/worker errors,
+three-way workload overlap and one completed screenshot with follow-up Files
+and clean retirement. Worst loop is481500us with zero excursions; maximum
+whole launch/close are1202605/1000264us. The worst render companion records
+422659us cumulative READY across27 dispatches, maximum single READY20412us
+and zero I/O exclusions. These are VM observations, not a native latency pass.
+
+Ordinary screenshot/pixel/immutable-snapshot/durable-readback/Preview/exit checks
+pass. Exact v74 native stage `ca0e7e313136e985` passes the Q35 native-profile
+refusal/save/unmount/automatic-return rehearsal on that same frozen source.
+Normal/native kernels exclude the optional isolated sampler symbols. No VT-d,
+ECAM, AP, idle-policy or additional hardware diagnostic is enabled.
+
+Prepared run `4ae9cc9dd6264da3` repeats the fully automatic1800-second PCM,
+verified USB create/flush/rename/readback/delete/sync, Text/Files/System cycles
+and three-screenshot stress at1% volume, with the same persistent loop/render/
+capture/scheduler proofs and original acceptance bounds. Fresh local preflight
+confirms this MacBookAir6,1 and its own USB, all661 baseline file hashes,
+1939 allocated clusters, clean offline filesystem/allocation and headroom.
+Only the owned quiet-volume expiry is intentionally refreshed. The independently
+verified payload and run evidence are retained outside `build`; the unreferenced
+old failed-regression `c831655c4120352e` EFI duplicate is archived to make room,
+with its complete independent backup retained. Existing current/accepted/recovery
+payloads remain protected. Recovery stays `c35475f62f154f1e` and Ubuntu remains
+the default. Installation/one-shot state is recorded locally; no native result
+is claimed here. Collect the matching session after return before another run.
