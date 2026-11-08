@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-11-07. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-11-08. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 Current diagnostic milestone: the exact-source pre-user two-pass read-only
 sampler is physically accepted on release `2ddbd3b285f6bf41`. All24 DWORD reads
@@ -9184,3 +9184,52 @@ known-good stress and console recovery remain retained. Ubuntu is the default,
 with recovery `c35475f62f154f1e` preserved. Install verification, final preflight,
 durable run/collector records and merged preparation must precede arming this
 one automatic boot. No physical pass is inferred from this preparation.
+
+
+### Native ordinary desktop regression fails render-loop bound (2026-11-08)
+
+Return-review scope at integration base `ec27e55b`: collect/review run
+`1fbeb56fc50f45f6` and preserve its failure without changing runtime, timing or
+integrity gates. PR301/PR19/PR379 retain independent scopes; this change only
+records this unit's matching evidence.
+
+Release `c831655c4120352e`, runtime `7dbfadd1`, tools `f6276f06`, session
+`session-00065fc7c3a95b0d-00`, completes the full1800-second workload at1% volume.
+The separately durable text/binary receipts agree on3793 verified disk bursts /
+994312192 bytes, within live PCM playback, with345845760 PCM bytes, zero
+recorded underruns and worker status0. The PCM length obeys the original bounded
+completion tail. This is software playback evidence; audible quality is not
+confirmed for this run.
+
+All1079 automatic app cycles complete with zero app errors. Maximum readiness
+is1896398us and close1650028us, below the unchanged10s bound. Three screenshots
+are acknowledged, their1366×768 BMPs decode, workers/cache retire, follow-up
+Files passes and normal exit is requested. Battery retirement reports attached/
+detached1, heap/errors/denied0. The enclosing desktop and battery-controls result
+correctly remains **FAIL**, despite `desktop-audio-io: completed=yes`.
+
+Responsiveness fails the unchanged500000us loop bound:52840 valid measured loops
+include12 excursions; maximum967444us. Its retained attribution is964736us in
+rendering,2491us in the wait stage and only small remaining stages. Retained
+wait/scheduler records validate directly; no timestamp reconstruction or limit
+change is used. The worst interval,607594939–608562383us, overlaps the second
+capture's606971966–648590122us interval. This correlation does not identify the
+specific render operation or prove capture is its cause. The slowest screenshot
+completes in41618156us. Both loaded TCG failures from preparation remain failed
+evidence; the short passing KVM run did not establish this native endurance gate.
+
+**Ordinary desktop regression on this source is not accepted.** Earlier accepted
+stress release `012aaffda0be860b` remains historical evidence for its source;
+the separate isolated sampler acceptance remains unchanged. Next scope: add
+bounded persistent subphase and scheduling attribution inside rendering to
+separate scene drawing, presentation and capture work, then fix the measured
+cause without weakening the500ms/10s limits or integrity checks.
+
+All643 prior files survive except expected workspace metadata; nine new logs,
+receipts and screenshots produce652 files /1832 allocated clusters. Offline
+filesystem and full allocation checks pass with zero leaks/mismatches/errors.
+Installed/exact-stage/independent payload and retained recovery hashes verify;
+raw run evidence and the independent failed-result review are hash-verified
+outside `build`. Ubuntu returned automatically, the one-shot is consumed,
+collection is disabled and no reboot is armed. Missing or failed responsiveness
+is not promoted by successful audio, screenshots or clean storage retirement.
