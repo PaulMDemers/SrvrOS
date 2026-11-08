@@ -50,7 +50,9 @@ bool intel_completion_observe(struct intel_completion_result *r,struct intel_gt_
  if((r->context[0][3]&r->context[1][3])&(1u<<9))r->parser_idle|=2;
  if(!r->stable){r->reason=6;return false;}
  r->end_us=io.now(io.ctx);
- if(r->end_us<=r->last_us || r->end_us-r->begin_us>100000){r->reason=2;return false;}
+ /* Microsecond samples may tie; require progress across the whole census,
+  * while still rejecting any regression from the final guard's timestamp. */
+ if(r->end_us<r->last_us || r->end_us<=r->begin_us || r->end_us-r->begin_us>100000){r->reason=2;return false;}
  if(r->engine_epoch!=g->engine_epoch){r->reason=3;return false;}
  r->complete=true;return true;
 }

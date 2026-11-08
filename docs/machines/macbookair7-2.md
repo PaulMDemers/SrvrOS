@@ -2,6 +2,18 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Active work: final completion clock boundary
+
+Bounded objective: fix final equal-microsecond sampling without admitting a
+backward clock, a fully frozen census or a deadline overrun. Scope is the shared
+completion audit clock predicate, focused host/fatal-sanitizer/compiled-negative
+regressions and a new exact-source BCS-reset qualification. Main `f01a1ad4`
+(PR410/411 Air6,1 priming/acceptance) is integrated, preserving both machines'
+records. Air6,1 PR412 owns its guarded read-only sampler; PR19 Wi-Fi and PR379
+WebCore remain independent. The prior native refusal stays incomplete. Keep
+reset/cache/memory limits and receipt grammar unchanged; prepare/install and
+stop at hardware-test readiness without arming another reboot.
+
 ### Latest native BCS reset trial: safe prerequisite refusal
 
 Release `6a3d6afb2f2824bd`, source `1000647f`, returned automatically from

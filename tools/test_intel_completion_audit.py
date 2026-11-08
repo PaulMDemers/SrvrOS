@@ -2,7 +2,7 @@ from pathlib import Path
 import subprocess,unittest,re
 from intel_completion_audit import completion_result,native_completion_result
 ROOT=Path(__file__).resolve().parents[1]
-CORE=('normal','active','pending','flip-wait','tlb-pending','tlb-reserved','changed','float','read','context-change','context-float','context-read','zero','frozen','backward','deadline','foreign','guard','late-guard','copy','clock-jump')
+CORE=('normal','active','pending','flip-wait','tlb-pending','tlb-reserved','changed','float','read','context-change','context-float','context-read','zero','frozen','backward','deadline','foreign','guard','late-guard','copy','clock-jump','final-tie','final-backward','final-zero','final-begin','final-boundary','final-overrun','final-wrap')
 ADAPTER=('report','active','pending','changed','float','read-fail','float-last','read-fail-last','cache-last','map-last','retire-last','late-foreign','slow','frozen','flip-wait','tlb-pending','tlb-reserved','tlb-float','tlb-read','context-change','context-read','context-float','tlb-cache','tlb-map','tlb-retire')
 def adapter(mode):return subprocess.check_output([str(ROOT/'build/tests/intel-completion-adapter'),'--wake-engine-'+mode],text=True)
 class CompletionTests(unittest.TestCase):
