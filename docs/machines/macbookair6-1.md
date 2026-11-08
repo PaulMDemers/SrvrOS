@@ -8909,3 +8909,38 @@ prepared with persistent records, visible progress and automatic return/strict
 collection on a clean outcome. A poisoned claim halts for a photograph and
 Ubuntu restart. Native register-read acceptance remains pending matching
 physical evidence; no hardware ownership or sibling acceptance is inferred.
+
+### Native register sampler: complete reads, strict graph refusal (2026-11-07)
+
+PR412 runtime `f6bddede`, host tools `4efc7fc5`, payload `0325ad569a8b0a83`,
+session `session-00065fbb1ff88738-00` returns automatically with all four logs
+saved. The kernel reports24 completed read-only DWORDs, zero target writes,
+both mappings retired and both claims released. Raw offsets/values match
+exactly between the two samples; cache/NX admission and per-load path/timing
+checks complete. Whole claimed lifetimes are83450/87115us with53673 mapper
+words per pass; the measured slot gap is85777us. All remain within existing
+limits. Early ECAM/source validation also completes.
+
+**Native register-read qualification is not accepted.** The strict R2 decoder
+refuses exact cross-pass borrowed-graph equality. Two leaf entries differ: a
+kernel text page spanning verification/gap/path functions gains Accessed
+(`0x20`), and a page inside the first gate's phase1 firmware evidence gains
+Accessed/Dirty (`0x60`). All other raw bits and the graph page set are unchanged.
+Exact saved graph/ELF symbol binding identifies these cold regions; it does
+not justify masking them. Both-pass output priming does not cover the first
+gate's later evidence or these first-executed text translations. The current
+sampler receipt remains a failed qualification despite completed reads.
+
+All635 prior USB files remain unchanged except expected filesystem metadata.
+Four new logs make639 files/1720 clusters; offline fsck/allocation passes with
+zero leaks or FAT/bitmap mismatches. Full raw evidence, the failed payload,
+accepted v7/single-window payloads and independent recovery remain hash-verified
+outside `build`. Ubuntu returned, the one-shot is empty, collection is disabled
+and no new boot is armed. No ownership, policy or sibling acceptance is added.
+
+Next bounded scope: pre-touch both gate-private evidence sets and the needed
+trusted kernel text before the first census under live clock/root/IRQ guards,
+inside the original lifetime. Audit actual source/word/time budgets and add
+first-touch regressions. No hidden target priming load, A/D mask, time exclusion
+or cap increase is permitted. Repeat the exact read-only qualification after
+host/VM validation; keep historical failures recorded.

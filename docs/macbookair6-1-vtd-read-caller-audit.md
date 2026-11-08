@@ -259,7 +259,10 @@ data, bad counts/times and altered path words. Shared context binding grants
 no current access authority. A complete retained sample is only a historical
 read-only observation: it does not prove full-interval stability, a loaded
 translation table or permission to follow RTADDR, write registers or own DMA.
-Native register-read acceptance remains pending matching physical evidence.
+Native register-read acceptance remains pending matching physical evidence. The first native v8
+trial completed both samples but failed strict cross-pass graph equality on
+a cold verification text page and first-gate phase1 evidence page; see the
+[machine return record](machines/macbookair6-1.md). No comparison is relaxed.
 
 The read-enabled profile also retains13 fresh cache/NX admission snapshots per
 pass: one before each fixed DWORD and one after the batch, all inside the
