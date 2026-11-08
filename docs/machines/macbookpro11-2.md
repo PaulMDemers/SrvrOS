@@ -15405,3 +15405,22 @@ needs compatible hardware. Before the next trial,preserve the generated sidecar
 bytes and compare its metadata semantically while retaining strict byte hashes
 for every other file. Then bind ordinary provider receive and qualify persistent
 transport before native TCP/HTTP and UI work. No new trial is armed.
+
+### Parallel completion work scope (November 8)
+
+User explicitly requests a full completion plan and multiple subagents. The local
+Pro agent remains sole staging/build/VM/install/hardware owner. Bounded parallel
+work: ordinary authenticated provider RX integration fixture/design;actual63-TRB
+wrap/epoch ownership regression and native fence design;and generated workspace
+metadata preservation proof/tool. Each subagent owns disjoint files and may run
+only standalone tests with private temporary outputs,no shared make/stage/VM,
+credentials,USB writes,reboot or cross-chat contact. Parent owns shared contract
+integration,profile/receipt changes,documentation and physical acceptance.
+
+Fetched main63036859,inspected open PR19/301/379;main updates remain unconsumed
+pending coordinated integration/qualification. PR301 graphics/HDA and379 WebCore
+remain independent. Current installed f2cc9ac0/release3c9b55a76fc9a38a and its576-file
+native capsule/12-file independent review remain immutable. Ubuntu recovery and
+accepted payloads retained;no test armed. Detailed milestone/dependency and
+acceptance plan is in macbookpro11-2-wifi-completion-plan.md. Parallel software
+fixtures do not confer native acceptance or authorize copying hardware gates.
