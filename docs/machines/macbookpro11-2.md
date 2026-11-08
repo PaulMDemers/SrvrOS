@@ -14756,3 +14756,49 @@ Retain flags/audit metadata and require strict saved-log consistency. Test valid
 flagged pairwise/group/QoS/padding,all mixed error bits,corruption/replay/capacity
 and exactly-once delivery,plus native fully flagged exchanges and failures.
 Qualify a matched cold image before any connectivity claim.
+
+### Qualified sole-bit software receive candidate (November 7)
+
+Runtimec88a8160,private release00d86993330db083,retains maina1661937.
+Matched kernel/USB build,full controller and relevant protocol/crypto/DNS/
+ownership regressions,233 staging tests,independent encrypted fixture equality,
+all16 fatal ASan/UBSan groups and native stack checks pass. Maximum new native
+frame remains1,272bytes,including the CCMP backend checks. The expanded AESCCM
+USB oracle covers1,632 non-QoS/QoS,pairwise/group,padded/unpadded receive/replay/
+MIC cases with the sole bit set or clear. Direct cases cover every mixed error
+bit,peer/MIC/header/capacity refusal and delivery once across flagged/unflagged
+copies. Full native-owner synthetic exchanges pass with all six responses
+flagged;corrupted flagged responses refuse and retire. Saved-log mutations reject
+unverified/mixed-bit delivery and implausibly small matched DHCP receipts. No
+full-core rerun or new physical acceptance is claimed.
+
+The production-C/native-parent prefix passes2,040,856bytes and125 altered/
+incomplete cases. Conservative headroom stays41,135bytes below the unchanged
+2MiB cap while retaining the separate32KiB reserve. Expanded rows fit the same
+data-metadata reserve. Real persistence/remount/fsck,ordinary desktop,exact-stage
+GPT save/return and missing-workspace VMs pass. Staged kernel and independently
+reconstructed firmware/private-PMK initramfs match the qualified build.
+
+Current566-file verification failure and3-file notes,prior566-file classification
+and565-file deferred/DHCP failures/notes,older565/564/581/564 failures and
+accepted177/24 four-way and failed569/accepted178 four-way/M1 seals remain
+unchanged. The last generated session was archived,byte-verified and pruned only
+after preserving its full capsule. Offline allocation,writable eligibility and
+headroom pass. Only the unreferenced failed classification EFI duplicate was
+retired after exact verification of its complete sealed backup. Accepted v130,
+M1 and e47d previous stay installed. The new candidate is installed with Ubuntu
+default and remains unarmed at this documentation checkpoint.
+
+Next authorized action is cold shutdown,Wi-Fi-only10second unplug while off,
+same-port reconnect and power on with workspace attached. Progress,saving and
+Ubuntu return are automatic. Collect build/bringup/wifi-data5-soft-rx/run_root.py
+return_collect first afterward;do not recollect/reseal old capsules. Interpret
+audit4 as a noncommitting precheck;reason9/present1 identifies subsequent
+ordinary Ethernet delivery and its single PN commit. A verified frame is not
+a DHCP reply unless the unchanged IP gates accept it. Full DHCP/DNS/exact256-byte
+echo still requires PN1..6,software erasure/leave,all endpoint/input/MAC/power/RF
+originals and matching filesystem/recovery proof. Real error/aggregate/decrypt/
+stripped-PN refusals,peer/MIC/replay/IP gates and40/48 immutable bounds remain.
+No WAPI hardware/cipher support was enabled. Ordinary provider/UI,TCP/HTTP and
+live reattach remain pending;Demers2.4 needs compatible hardware. PR19 stays
+draft;Actions remain disabled.
