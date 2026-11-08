@@ -14501,3 +14501,43 @@ plus offline filesystem/recovery checks. This pacing correction is not native
 acceptance or proof that console work caused the missing OFFER. Ordinary
 provider/UI,TCP/HTTP and live reattach remain pending;Demers2.4 requires
 compatible hardware. PR19 stays draft;Actions remain disabled.
+
+### Deferred receipt native result: no authenticated data delivery (November 7)
+
+Runtimedba6e994,release000d0333ebfc2057,session00065fbab2f211db-00
+saved1,895,437bytes and returned to Ubuntu. Historical management/M1 passed;
+the independent child passed AUTH/ASSOC,M3 MIC,local M4 and software-key
+activation. One encrypted DISCOVER completed at PN1. The deferred report saved
+36 ordered events:one send and35 receive completions (indices5..39). Of these,
+34 refused the supported protected-FromDS frame class and one refused RX flags.
+No Ethernet frame authenticated;both DHCP phase counters stayed zero. No OFFER,
+REQUEST,ARP,DNS or echo was accepted or reached. These refusal classes do not
+identify beacons,EAPOL retries or a specific hardware flag. Do not infer packet
+contents from size or call this an IP/DHCP parser failure.
+
+The unchanged40-entry forward limit stopped with exhausted=1,unsafe=0 after
+559 IP polls;the independent exchange took1,962,541us. The report was emitted
+after exchange/leave and before the retirement/MAC summary,as designed. No
+transcript overflow was reported. This directly observes the deferred reporting
+path,but shows no connectivity improvement and is not a controlled latency
+comparison against the earlier run. It does not establish the cause of missing
+DHCP traffic.
+
+Keys were erased and leave completed. MAC disable,TX/RX quiet and filter/TXOP
+originals passed. No reserved completion was needed;41 entries were posted.
+All six endpoint commands and endpoint/input originals passed (restored=1,
+phase9),and all nine power originals restored (511). Full exchange/outer RF
+completion still failed,so this is partial cleanup evidence only. Complete
+connectivity/restoration acceptance remains absent;v130 is the latest complete
+four-way foundation.
+
+The565-file failure capsule and separate categorical notes are sealed outside
+build;prior capsules remain unchanged. Offline filesystem/allocation and
+installed recovery checks pass. Ubuntu is default,the workspace is unmounted
+and no new boot is armed. Next distinguish exact safe receive frame classes
+and hardware refusal flags,and check management/EAPOL versus data admission
+before considering filter changes. Any additional metadata must exclude packet/
+address/key values. Preserve all cryptographic and wire gates,40/48 immutable
+receive bounds and full restoration requirements;do not blindly repeat or
+enlarge the ring. Ordinary provider/UI,TCP/HTTP and live reattach remain pending.
+PR19 stays draft;Actions remain disabled.

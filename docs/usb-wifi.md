@@ -7414,3 +7414,13 @@ fixtures charge100ms to any console call during active IP work and require zero
 such calls on success,exhaustion and MIC refusal. Native improvement remains
 unaccepted until a matching hardware run;this is a pacing correction,not proof
 that console work caused the missing OFFER.
+
+The first deferred-report native trial preserved its complete ordered metadata
+transcript and returned to Ubuntu,but accepted no encrypted data. Its35 data
+completions comprised34 frame-class refusals and one RX-flag refusal;no Ethernet
+frame authenticated,and no DHCP parser class ran. The unchanged forward budget
+exhausted safely. Independent MAC/endpoint/input and nine-word power originals
+restored;full outer RF completion still failed. Deferred logging is observed,
+not accepted connectivity or proof of improved receive latency. Next distinguish
+frame classes and hardware flags without packet values,or speculative changes
+to filters,cryptographic gates or ring bounds.
