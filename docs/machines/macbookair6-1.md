@@ -9497,3 +9497,21 @@ separately, and the corrected exact rehearsal passes. No native audible result
 is claimed. PR19's adjacent Wi-Fi capture orchestration remains independent;
 future integration must preserve both explicit capture conditions. PR301's
 scanout/handoff and PR379's WebCore audit are untouched.
+
+### Bounded audible check accepted (2026-11-08)
+
+Release `5bc0a824e9f71ab6`, runtime `c615c282`, run `7f96f67cb4754329`,
+session `session-00065fcaec9ba89f-00` completed five six-second speaker channel
+fixtures at25% in30.249052s. All5760000 PCM bytes complete with zero underruns;
+Stop and1% quiet restore pass before saved diagnostics, unmount and automatic
+Ubuntu return. The user confirms: “the audio was audible and worked fine.”
+This accepts the bounded audible speaker check; it does not retroactively
+supply subjective listening evidence for the separate1% endurance session.
+
+All670 prior files survive except expected `.srvros/meta`; four new logs
+produce674 files/2051 clusters. Offline filesystem/allocation/headroom checks
+pass with zero leaks/mismatches/errors, and the complete513-file return backup
+is independently hash-verified outside `build`. The one-shot is consumed,
+collection is disabled and no new boot is armed. Screenshot completion latency
+under load remains the next performance follow-up; no scheduling/ownership or
+power-policy scope is added by this acceptance.
