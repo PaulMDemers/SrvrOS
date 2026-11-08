@@ -14444,3 +14444,20 @@ tables. Do not weaken destination,checksum,transaction,CCMP or restoration gates
 blindly repeat this candidate,or enlarge/reuse its bounded ring. Ordinary
 provider/UI,TCP/HTTP and live reattach remain pending;Demers2.4 still requires
 compatible hardware. PR19 stays draft;Actions remain disabled.
+
+### Bounded deferred data receipts scope (November 7)
+
+Fetched actual mainf01a1ad4 (Air6,1 two-buffer census priming and acceptance)
+and inspected open PR301/379;no Wi-Fi overlap. Retain a1661937 for this bounded
+change. Current native data polling formats synchronous console receipts for
+every completion,then emits the long IP summary before leave/MAC disable.
+Move the bounded send/receive transcript and IP classifications to a retained
+metadata-only buffer,emitted after MAC cleanup. Preserve logical event order
+inside an explicitly deferred report and require that new placement/schema in
+the saved-log checker. No packet/key/address values,ring reuse,larger receive/
+time limits,new filter/BSSID writes or protocol-gate changes. Prove with a slow
+console fixture that data polls and IP waits do not perform console output,
+including successful traffic,exhaustion and refusal. Preserve uncertain-owner
+retention,all key erasure/leave and full restoration requirements. This removes
+a known synchronous operation from the receive path;it does not yet prove the
+cause of the native missing OFFER. Qualify a matched image before physical use.
