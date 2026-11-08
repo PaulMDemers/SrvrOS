@@ -2,7 +2,44 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
-### Final completion clock corrected; native BCS trial ready
+### Latest BCS reset trial: acknowledged reset, retained parent
+
+Release `ffd7200db10e1b02`, source `5a73d72d`, saved session
+`session-00065fbabbb7b966-00`. This trial is **incomplete**. The pre-census now
+reports92 stable reads/63,182us with reason0/complete1, progressing beyond the
+previous final-clock refusal. Both fixed BCS-only reset pulses were issued and
+self-clear acknowledged; request/ready/cancel/final controls were0/3/0/0, all4
+domain endpoints0, and both exact BCS snapshots match. Settling measured1,931us.
+These observations do not accept a complete reset/preservation lifetime.
+
+Core-body end was97,618us after begin. The mandatory verified borrow return
+failed with `IBR_PARENT`/9 and parent `GT_ACCESS_CLOCK`/256. The last accepted
+owner timestamp was298,483us into its300ms budget, leaving1,517us; the actual
+failed sample/clock branch was not recorded. Whole-owner deadline exhaustion is
+a strong timing inference, not a measured failed timestamp. The borrow, wake,
+all13 mappings and display exclusion were retained. Post-reset census/reader
+preservation never began. The outer interval was359,721us; no forced cancellation,
+cleanup, unpin or automatic reboot bypass occurred. The supplied photo shows the
+pre-entry screen consistent with rendering staying excluded. The saved final
+report provides the failure location; the photo alone cannot diagnose it.
+
+Strict receipt/checkpoint collection passes as diagnostic evidence, with
+`completed=NO` and native acceptancefalse. All1,374 prior files are preserved
+except expected workspace metadata; exactly3 new logs yield1,377 files and115
+sessions. Offline fsck/allocation/writable/headroom, installed/durable/archive
+recovery, Ubuntu default and consumed-one-shot checks pass. USB is unmounted and
+no reboot is armed. The supplied photo, raw logs, strict results and timing
+analysis are in `build/air-clock-boundary-20261107/returned`, with refreshed
+independent SHA-verified backup outside build.
+
+Next scope is reducing measured native guard/validation overhead and recording
+the failed clock sample/reason without weakening100/300/500ms limits, verified
+borrow return, post-reset preservation or retained-state handling. No new trial
+is prepared. Reset acknowledgement grants no outstanding-memory, cache,
+translation, reader/backing retirement, managed pages or physical tear-free
+capability. This remains source-specific Air7,2 evidence, not sibling acceptance.
+
+### Historical final completion clock readiness
 
 Tested source `5a73d72d`, with main `f01a1ad4` integrated, produces release
 `ffd7200db10e1b02`, installed **not armed**. The completion audit now permits a

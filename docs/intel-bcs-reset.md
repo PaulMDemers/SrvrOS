@@ -209,8 +209,28 @@ bindings and the unchanged65,397-byte full-width log bound pass. The exact-stage
 MBR Q35/GRUB trial verifies no-store platform refusal, checkpoint/results,
 exact boot options, automatic safe return and missing-workspace halt.
 
-The [current unit readiness](machines/macbookair7-2.md#final-completion-clock-corrected-native-bcs-trial-ready)
+The [current unit readiness](machines/macbookair7-2.md#historical-final-completion-clock-readiness)
 records installed recovery, unchanged prior files, clean offline media, volume1%
 and check-only guards. The candidate is installed but unarmed. Physical BCS reset
 and preservation still need their own successful receipt; all completion, cache,
 translation, reader and backing obligations remain open.
+
+## First acknowledged native reset: retained parent
+
+Air7,2 release `ffd7200db10e1b02` / source `5a73d72d`, session
+`00065fbabbb7b966-00`, passes the pre-census and records both BCS-domain pulse
+acknowledgements, matching exact BCS endpoints, controls0/3/0/0, domain endpoints0
+and1,931us settling. The97,618us body then fails mandatory borrow return with
+`IBR_PARENT`/9 and parent `GT_ACCESS_CLOCK`/256. The last accepted owner sample
+was298,483us; the failed clock value is not recorded. Exhaustion of the unchanged
+300ms owner budget is an inference from that timing, not a directly logged cause.
+
+Wake, borrow,13 mappings and exclusion remain retained. No post-reset census or
+reader/config preservation runs; the sticky gate prevents automatic reboot.
+A final diagnostic report and preflight checkpoint were nevertheless saved.
+Strict collection marks the run incomplete. Prior files, offline filesystem,
+recovery/default and consumed-one-shot checks pass after Ubuntu resumes.
+The [latest unit result](machines/macbookair7-2.md#latest-bcs-reset-trial-acknowledged-reset-retained-parent)
+retains the photo, raw timings and next scope: reduce guard overhead and expose
+failed-clock detail without changing deadlines or allowing forced retirement.
+No complete native reset/preservation or memory-ownership acceptance follows.
