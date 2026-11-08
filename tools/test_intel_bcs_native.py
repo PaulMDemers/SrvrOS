@@ -30,6 +30,11 @@ class NativeBcsTests(unittest.TestCase):
    with self.subTest(prefix=prefix),self.assertRaises(ValueError):bcs_result(bad)
   with self.assertRaises(ValueError):bcs_result(t+t)
   with self.assertRaises(ValueError):bcs_result(t+'intel-bcs-unknown: v=1\n')
+ def test_progress_namespace(self):
+  source=(ROOT/'kernel/src/main.c').read_text()
+  progress=re.findall(r'console_write\("(intel-bcs[^"\n]*)"\)',source)
+  self.assertEqual(len(progress),1)
+  self.assertTrue(bcs_result(progress[0].replace('\\n','\n')+adapter())['complete'])
  def test_attention(self):
   from hardware_desktop import needs_attention
   for line in adapter().splitlines():
