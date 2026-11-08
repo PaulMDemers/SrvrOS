@@ -50,7 +50,12 @@ static bool packed_byte(uint8_t *out,unsigned cap,unsigned *at,uint8_t b){if(*at
 static bool packed_u16(uint8_t *out,unsigned cap,unsigned *at,unsigned n){return packed_byte(out,cap,at,n&255) && packed_byte(out,cap,at,n>>8);}
 static unsigned zeroes(unsigned at){unsigned n=0;while(at+n<total && !raw[at+n] && n<32767)n++;return n;}
 static bool pack(uint8_t *out,unsigned cap,unsigned *written){
- unsigned dest=0;const char magic[]="Z1AIR610";
+ unsigned dest=0;const char magic[]=
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ "Z2AIR610";
+#else
+ "Z1AIR610";
+#endif
  for(unsigned i=0;i<8;i++)if(!packed_byte(out,cap,&dest,magic[i]))return false;
  for(unsigned i=0;i<4;i++)if(!packed_byte(out,cap,&dest,total>>(8*i)))return false;
  for(unsigned at=0;at<total;){
@@ -70,7 +75,12 @@ bool haswell_air61_read_encode(const char *session,uint8_t *out,unsigned cap,uns
  const struct air61_read_series_result *series=vmm_air61_read_window_result();
  if(series->state!=AIR61_READ_COMPLETE || series->busy || !series->attempted || series->fault || series->started!=2 || series->retired!=2 || !air61_read_gates_equal())return false;
  encoded=true;total=0;failed=false;
- bytes((const uint8_t *)"R1AIR610",8);bytes((const uint8_t *)session,27);
+ #ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ bytes((const uint8_t *)"R2AIR610",8);
+#else
+ bytes((const uint8_t *)"R1AIR610",8);
+#endif
+ bytes((const uint8_t *)session,27);
  const uint64_t series_values[]={series->owner,series->epoch,series->root,series->begin,series->end,series->gap_us};words(series_values,6);
  put(series->started,4);put(series->retired,4);put(series->gap_spins,4);
  for(unsigned pass=0;pass<2;pass++){
@@ -82,7 +92,13 @@ bool haswell_air61_read_encode(const char *session,uint8_t *out,unsigned cap,uns
   if(r->state!=AIR61_WINDOW_RETIRED || r->claimed || r->fault || !e->linked || !e->retired || v->slots!=12 || v->source_coalescings!=1 || g->phases!=2 || g->firmware_bytes!=3996 || c->status!=1 || c->pages>64 || c->bytes[0]>4096 || c->bytes[1]>4096)return false;
   for(unsigned p=0;p<2;p++)for(unsigned q=0;q<2;q++)if(g->firmware[p].sample[q].count>128)return false;
   unsigned length_at=total;put(0,4);unsigned begin=total;
-  bytes((const uint8_t *)"R1PASS61",8);put(r->state,4);
+  #ifdef SRVROS_AIR61_REGISTER_SAMPLE
+  if(v->attempts!=12 || v->reads!=12)return false;
+  bytes((const uint8_t *)"R2PASS61",8);
+#else
+  bytes((const uint8_t *)"R1PASS61",8);
+#endif
+  put(r->state,4);
   const uint64_t values[]={r->token.owner,r->token.epoch,r->token.root,r->pdpt,r->frames[0],r->frames[1],r->hhdm,r->begin,r->end};words(values,9);
   const unsigned counters[]={r->words,r->private_writes,r->parent_attempts,r->unlink_attempts,r->invalidations,r->frees};for(unsigned i=0;i<6;i++)put(counters[i],4);
   put(e->linked,1);put(e->retired,1);put(r->claimed,1);
@@ -99,7 +115,20 @@ bool haswell_air61_read_encode(const char *session,uint8_t *out,unsigned cap,uns
   const unsigned costs[]={r->clock_samples,r->raw_loads,r->guard_checks,r->ram_checks,r->logical_reads,r->logical_stores,r->census_reads};for(unsigned i=0;i<7;i++)put(costs[i],4);
   const uint64_t costs_times[]={r->gate_end,r->census_begin,r->census_end};words(costs_times,3);
   put(pass?air61_read_gate_ram_steps1():air61_read_gate_ram_steps0(),8);
-  for(unsigned i=0;i<12;i++){put(v->offsets[i],4);words(v->before[i],4);words(v->after[i],4);}
+  #ifdef SRVROS_AIR61_REGISTER_SAMPLE
+  put(v->attempts,4);put(v->reads,4);
+  put(AIR61_SAMPLE_ADMISSIONS,4);
+  for(unsigned i=0;i<AIR61_SAMPLE_ADMISSIONS;i++){
+   const struct air61_sample_admission *a=&v->admission[i];
+   if(!a->attempted || a->msr_reads!=a->cache.reads || a->msr_reads>49 || a->efer_reads!=1)return false;
+   put(a->attempted,1);put(a->msr_reads,4);put(a->efer_reads,4);put(a->efer,8);cache(&a->cache);
+  }
+#endif
+  for(unsigned i=0;i<12;i++){put(v->offsets[i],4);words(v->before[i],4);words(v->after[i],4);
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+   put(v->values[i],4);put(v->load_begin[i],8);put(v->load_end[i],8);
+#endif
+  }
  }
  return !failed && pack(out,cap,written);
 }

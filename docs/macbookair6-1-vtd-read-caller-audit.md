@@ -7,7 +7,8 @@ Native follow-up (2026-11-07): PR410 runtime `f8e16123`, payload
 qualification in82.610/82.379ms, with identical raw borrowed graphs and proven
 retirement/claim release. The [machine record](machines/macbookair6-1.md)
 owns its exact evidence and narrow acceptance. No target register was read;
-the guarded read caller described below remains unimplemented. All existing
+the separate v8 guarded read caller is now implemented and host/VM validated;
+native register-read acceptance remains pending. All existing
 limits and raw comparisons remain unchanged. The original host audit follows.
 
 Base `eefc5bfd`, following the accepted [window-only qualification](macbookair6-1-vtd-read-window-design.md).
@@ -230,3 +231,41 @@ claim and across the two claimed snapshots all raw bits remain exact. The
 existing W1 source-to-claim one-way hardware A/D relation between distinct
 epochs is retained without expanding it; R1 explicitly returns every raw delta.
 This does not create an A/D mask or a live permission from historical evidence.
+
+## Separate guarded register sampler implementation
+
+The explicit v8 `--haswell-register-sample` profile selects its own ELF,
+`air61-sample-kernel`, and requires `srvros.vtd-window=air61-two-pass-read-only`.
+The normal, AP and accepted v7 images reject this opt-in and have no sample
+entry point. The new image rejects legacy/qualification tokens. Every native
+load is a fixed aligned volatile32-bit access bracketed by compiler barriers
+and LFENCE at one of the12 audited offsets. There is no caller-supplied target
+address, callback or pointer-return API in native builds.
+
+The existing fresh per-slot source guard and exact four-entry pre/post path
+remain intact. Raw value, load timestamps and attempt/completion counts are
+retained in the already-primed private pass contexts. Partial/unavailable
+reads, zero version, torn high/low/high or GSTS brackets and changed second
+samples poison the series, retaining claim/backing and IRQ exclusion; no
+retry, USB reuse or ordinary continuation occurs. Both successful windows
+still require complete full-page verification and proven retirement. All
+clock/source/census/word/gap/iteration and receipt caps stay unchanged.
+
+The separate `hsw-sample` envelope contains closed R2/Z2 records and
+`R2PASS61` geometry with a distinct owner. It preserves each pass's full raw
+proof plus12 raw DWORD/timestamp pairs and actual counters. R1 decoders refuse
+R2; the isolated R2 consumer rejects R1, mixed profiles, unavailable/torn/changed
+data, bad counts/times and altered path words. Shared context binding grants
+no current access authority. A complete retained sample is only a historical
+read-only observation: it does not prove full-interval stability, a loaded
+translation table or permission to follow RTADDR, write registers or own DMA.
+Native register-read acceptance remains pending matching physical evidence.
+
+The read-enabled profile also retains13 fresh cache/NX admission snapshots per
+pass: one before each fixed DWORD and one after the batch, all inside the
+original claimed lifetime. Each snapshot uses the existing whitelist and
+49-MSR cache-snapshot cap, plus one separately counted EFER observation.
+These additional snapshots do not reuse or extend either of the two original
+gate counters. Full raw values/times and per-snapshot counts fit the unchanged
+33000-byte existing pass-body,70000-byte raw,45000-byte wire and65536-byte tail bounds.
+No such extra MSR accesses occur in the existing zero-load profile.

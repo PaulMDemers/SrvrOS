@@ -67,7 +67,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
 | Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Bounded mounted Home Text/Start/Stop session accepted; three-minute continuous Home capture accepted; attended desktop AC transitions accepted; longer endurance and gauge accuracy remain open; ordinary startup stays off |
-| VT-d diagnostic window | Single-window qualification accepted; two fresh A-preseeded zero-load passes now accepted in82.610/82.379ms with exact raw graph equality, 12 markers/pass and verified retirement/claim release | Guarded target-register read caller remains unimplemented; no device ownership; ordinary desktop regression for changed registry pending |
+| VT-d diagnostic window | Single-window qualification accepted; two fresh A-preseeded zero-load passes now accepted in82.610/82.379ms with exact raw graph equality, 12 markers/pass and verified retirement/claim release | Guarded read-only sampler implemented and host/VM validated; native register-read acceptance pending; no device ownership; ordinary desktop regression for changed registry pending |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -8831,3 +8831,81 @@ grant and no sibling acceptance. Next scope is a separately guarded read-only
 register caller preserving the audited12-DWORD/two-sample contract and all
 existing limits. Ordinary native desktop regression for the earlier shared
 registry change remains separate pending work.
+
+### Guarded target-register sampler scope (2026-11-07)
+
+Base `f01a1ad4`, after accepted zero-target-load qualification
+`517661c4c5a9627f`. Bounded objective: a separate explicit v8 read-only
+register-sampling ELF/profile and distinct raw receipt/strict consumer, retaining
+the v7 qualification unchanged. Scope: existing two-pass backend, bridge,
+serializer/envelope, boot selection, host fixtures and isolated collector.
+Exactly12 fixed aligned DWORDs per pass, at most two passes, no pointer API,
+register writes or table dereference. Every load retains fresh source guard,
+exact four-entry pre/post path, raw value and timing; all lifetime, word,
+census, source, gap and receipt limits remain unchanged. Uncertain reads or
+path/control/retirement changes retain ownership and halt without USB reuse.
+
+Exercise partial/unavailable/torn/changed samples, every path-bit mutation,
+wrong/stale context, deadline/root/IRQ/source/cache failure, bounds, no retry,
+raw persistence and cross-profile refusal. Preserve accepted qualification and
+independent recovery. Run matched builds/core, sanitizers/portable checks and
+exact-stage refusal/save/return/missing-workspace VMs before any native trial.
+PR301/PR19 still own independent device scopes; no competing device change or
+cross-task messaging is introduced. Native acceptance requires collected raw
+evidence from this unit; retained historical receipts grant no live access.
+
+### Guarded register sampler validation and native candidate (2026-11-07)
+
+Frozen runtime `f6bddede` implements a separate v8 read-only sampler with its
+own ELF, exact opt-in, owner and R2/Z2 receipt. The accepted v7 qualification
+remains separate. Each of two claims permits only12 fixed aligned DWORD
+loads, retains exact four-entry pre/post paths, raw values, timestamps and
+counts, and requires proven retirement. Unavailable/partial reads, torn
+brackets, changed samples or uncertain path/control state poison the series
+and retain backing/IRQ exclusion without retry or USB reuse. No target write
+or RTADDR dereference exists. No power policy or existing limit is changed.
+
+The new per-load cache fault tests exposed the distinction between existing
+boundary cache snapshots and continuation-only source guards. The read-enabled
+profile now additionally retains13 bounded cache/NX admissions per pass, before
+each DWORD and after the batch. Each has the original49-MSR cache-snapshot
+cap and one separately counted EFER read, with no reset of original gate
+counters. Every snapshot and all its work count inside the claimed lifetime.
+All raw cache values/counts/times are preserved; no extra MSR reads occur in v7.
+
+Matched normal/AP/v7/v8/USB/ISO builds and full core tests pass, including89
+installed-root tests with one expected opt-in skip. The complete sampler
+backend passes ASan/UBSan, including512 pre-load and512 post-load raw path-bit
+faults, all read positions, cache/NX/WP/catalog/root/IRQ/deadline faults,
+unavailable/torn/changed/partial samples and no retry after poison. Thirteen
+combined-producer sanitizer modes and both full ARM64 sampler fixture links
+pass; existing bridge/producer sanitizer and portable regressions also pass.
+
+Host tools `4efc7fc5` pass21 affected consumer/profile tests, including
+1024 serialized pre/post path-bit mutations, stale first-cache timing, framing,
+count, profile and sample corruption. Normal/max-catalog producer records retain
+37203/60819 raw bytes in8328/25920 wire bytes. Both fixture passes charge63476
+mapper words and3996 firmware bytes. Original pass-body/raw/wire/tail and
+clock/census/gap/iteration caps remain unchanged. Model timing is not native
+latency acceptance. Only the separate sample image contains the sample entry
+points; no native image includes host hooks. Disassembly confirms one32-bit
+MMIO load bracketed by LFENCE instructions at the fixed window.
+
+All thirteen final staged diagnostic VM cases and five ordinary syscall/UEFI
+USB keyboard/fork/exec/yield VMs pass. Exact v8 payload `0325ad569a8b0a83`
+passes unsupported-hardware refusal, saved strict R2 references, automatic
+return and missing-workspace rehearsal. Two prior harness failures identified
+version ranges that omitted v8; those failed attempts remain retained. Both
+classifiers now share a regression-tested table. A stricter host decoder also
+requires the first per-load cache snapshot to follow fresh phase1 admission.
+The frozen runtime bytes are unchanged by these host-only fixes.
+
+The failed, unreferenced EFI copy `390c4221b5e50422` was retired after its
+independent backup and absence from active/recovery/GRUB references were
+verified. Accepted `517661c4c5a9627f`, earlier `92d9f134639f509c` and recovery
+`c35475f62f154f1e` remain intact and independently backed up. The USB baseline
+is635 files with clean allocation. The next unattended native run is being
+prepared with persistent records, visible progress and automatic return/strict
+collection on a clean outcome. A poisoned claim halts for a photograph and
+Ubuntu restart. Native register-read acceptance remains pending matching
+physical evidence; no hardware ownership or sibling acceptance is inferred.

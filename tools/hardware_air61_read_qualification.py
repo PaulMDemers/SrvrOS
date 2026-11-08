@@ -47,16 +47,16 @@ def _read_gate(r, root, hhdm, begin, end):
             rows = [x for x in catalog if x[0] < page+4096 and page < x[0]+x[1]]
             if len(rows) != 1 or not rows[0][0] <= page < page+4096 <= sum(rows[0][:2]) or rows[0][2] not in (2,3):
                 raise ValueError('complete firmware source page')
-    return dict(policy=policy,efer=efer,cpus=cpus,firmware=fw,catalog=catalog,mcfg_pa=mcfg_pa)
+    return dict(policy=policy,efer=efer,cpus=cpus,firmware=fw,catalog=catalog,mcfg_pa=mcfg_pa,cache_raw=cache_raw)
 
 
-def _pass(data):
+def _pass(data, sampled=False):
     r=Reader(data)
-    if r.raw(8)!=b'R1PASS61':raise ValueError('window version')
+    if r.raw(8)!=(b'R2PASS61' if sampled else b'R1PASS61'):raise ValueError('window version')
     state,=r.take('I')
     owner,epoch,root,pdpt,pd,pt,hhdm,begin,end=r.take('9Q')
     words,writes,parents,unlinks,invalidations,frees=r.take('6I')
-    if state!=4 or owner!=0x61697272656164 or not 0<epoch<=begin<end or end-begin>=100000 or not 0<words<=65536 or (writes,parents,unlinks,invalidations,frees)!=(1026,1,1,2,2) or r.take('3B')!=(1,1,0):raise ValueError('retired lifetime')
+    if state!=4 or owner!=(0x61697273616d70 if sampled else 0x61697272656164) or not 0<epoch<=begin<end or end-begin>=100000 or not 0<words<=65536 or (writes,parents,unlinks,invalidations,frees)!=(1026,1,1,2,2) or r.take('3B')!=(1,1,0):raise ValueError('retired lifetime')
     if len({root,pdpt,pd,pt})!=4 or any(not p or p&4095 or p>=1<<39 or p in (PA,PA+4096) for p in (root,pdpt,pd,pt)):raise ValueError('frames')
     if not hhdm or hhdm&4095 or hhdm>>47!=0x1ffff or hhdm+((1<<39)-1)>=1<<64:raise ValueError('HHDM')
     root0,pdpt0=r.words(512),r.words(512)
@@ -105,11 +105,11 @@ def _pass(data):
         c=effective_at(cpu,3,PA)
         if c['status']!='CLASSIFIED_OBSERVATION' or c['effective']!=0:raise ValueError('strong UC')
     if not g['cpus'][0]['pm_us'][1]<=cb<cf<=g['firmware'][1]['samples'][0]['pm_us'][0]:raise ValueError('fresh census ordering')
-    return dict(pd=pd,pt=pt,pdpt=pdpt,_policy=g['policy'][0],_mcfg_pa=g['mcfg_pa'][0],_root_words=root0,root=root,epoch=epoch,begin=begin,end=end,words=words,pages=pages,raw_bytes=len(data),census_bytes=b0,retirement_verified=True,claim_released=True,target_reads=0,target_writes=0,register_read_authorized=False,hardware_authority=False,ownership=False,_graph=graph,_cpus=g["cpus"],_firmware=g["firmware"],_controls=(g["efer"][0],g["policy"][0][0],g["policy"][0][1]))
+    return dict(hhdm=hhdm,_cache_raw=g['cache_raw'],pd=pd,pt=pt,pdpt=pdpt,_policy=g['policy'][0],_mcfg_pa=g['mcfg_pa'][0],_root_words=root0,root=root,epoch=epoch,begin=begin,end=end,words=words,pages=pages,raw_bytes=len(data),census_bytes=b0,retirement_verified=True,claim_released=True,target_reads=0,target_writes=0,register_read_authorized=False,hardware_authority=False,ownership=False,_graph=graph,_cpus=g["cpus"],_firmware=g["firmware"],_controls=(g["efer"][0],g["policy"][0][0],g["policy"][0][1]))
 
-def pack(raw):
+def pack(raw, sampled=False):
     if not 0<len(raw)<=RAW_CAP:raise ValueError('raw bound')
-    out=bytearray(b'Z1AIR610'+struct.pack('<I',len(raw)))
+    out=bytearray((b'Z2AIR610' if sampled else b'Z1AIR610')+struct.pack('<I',len(raw)))
     def zeros(at):
         end=at
         while end<len(raw) and raw[end]==0 and end-at<32767:end+=1
@@ -126,10 +126,10 @@ def pack(raw):
     if len(out)>RECEIPT_CAP:raise ValueError('wire bound')
     return bytes(out)
 
-def unpack(blob):
+def unpack(blob, sampled=False):
     if not 12<=len(blob)<=RECEIPT_CAP:raise ValueError('wire bound')
     r=Reader(blob)
-    if r.raw(8)!=b'Z1AIR610':raise ValueError('compression version')
+    if r.raw(8)!=(b'Z2AIR610' if sampled else b'Z1AIR610'):raise ValueError('compression version')
     size,=r.take('I')
     if not 0<size<=RAW_CAP:raise ValueError('raw bound')
     out=bytearray()
@@ -137,21 +137,24 @@ def unpack(blob):
         code,=r.take('H');n=code&32767
         if not n or n>size-len(out):raise ValueError('run bound')
         out+=bytes(n) if code&32768 else r.raw(n)
-    if r.at!=len(blob) or pack(out)!=blob:raise ValueError('noncanonical compression')
+    if r.at!=len(blob) or pack(out,sampled)!=blob:raise ValueError('noncanonical compression')
     return bytes(out)
 
 def decode(blob,session):
+    return _decode(blob,session,False)
+
+def _decode(blob,session,sampled):
     if not re.fullmatch(r'session-[0-9a-f]{16}-[0-9a-f]{2}',session):raise ValueError('session grammar')
-    raw=unpack(blob);r=Reader(raw)
-    if r.raw(8)!=b'R1AIR610' or r.raw(27)!=session.encode():raise ValueError('series identity')
+    raw=unpack(blob,sampled);r=Reader(raw)
+    if r.raw(8)!=(b'R2AIR610' if sampled else b'R1AIR610') or r.raw(27)!=session.encode():raise ValueError('series identity')
     owner,epoch,root,begin,end,gap=r.take('6Q')
     started,retired,spins=r.take('3I')
-    if owner!=0x61697272656164 or not 0<epoch<=begin<end or (started,retired)!=(2,2) or spins>1000000 or not 20000<=gap<=100000:raise ValueError('series bounds')
+    if owner!=(0x61697273616d70 if sampled else 0x61697272656164) or not 0<epoch<=begin<end or (started,retired)!=(2,2) or spins>1000000 or not 20000<=gap<=100000:raise ValueError('series bounds')
     passes=[]
     for index in range(2):
         size,=r.take('I')
         if not 0<size<=33000:raise ValueError('pass extent')
-        p=_pass(r.raw(size))
+        p=_pass(r.raw(size),sampled)
         if p['root']!=root or p['epoch']!=epoch+index:raise ValueError('pass binding')
         slots,coalescings,first,last=r.take('IIQQ')
         costs=r.take('7I');times=r.take('3Q');ram_steps,=r.take('Q')
@@ -160,11 +163,34 @@ def decode(blob,session):
         if costs[6]!=3*p['pages']*512 or costs[4]<costs[6] or costs[1]<p['words']+costs[6] or costs[2]<costs[1] or costs[3]<costs[1] or costs[5]!=1028 or not costs[0]:raise ValueError('cost accounting')
         if not p['_cpus'][1]['pm_us'][1]<=first:raise ValueError('fresh pre-slot gate')
         path=(p['_root_words'][384],p['pd']|0x23,p['pt']|0x23,LEAF)
-        observations=[]
+        observations=[];values=[];load_times=[]
+        admissions=[]
+        if sampled:
+            if r.take('2I')!=(12,12) or r.take('I')!=(13,):raise ValueError('read attempt/count')
+            for index in range(13):
+                attempted,=r.take('B');msrs,efer_reads=r.take('2I');efer,=r.take('Q');c=r.take('6I6Q4I43Q')
+                base=p['_cache_raw'][1]
+                if attempted!=1 or not 0<msrs<=49 or msrs!=c[13] or efer_reads!=1 or efer!=p['_controls'][0] or any(c[j]!=base[j] for j in range(len(c)) if j not in (10,11)):
+                    raise ValueError('fresh slot cache/NX snapshot')
+                if not p['begin']<=c[10]<=c[11]<=p['end']:raise ValueError('cache sample lifetime')
+                admissions.append(dict(msr_reads=msrs,efer_reads=efer_reads,efer=efer,raw=c,begin=c[10],end=c[11]))
         for offset in OFFSETS:
             observed,=r.take('I');before=r.take('4Q');after=r.take('4Q')
             if observed!=offset or before!=path or after!=path:raise ValueError('exact per-slot path')
             observations.append((observed,before,after))
+            if sampled:
+                value,=r.take('I');lb,le=r.take('2Q')
+                if not first<=lb<=le<=last or (load_times and load_times[-1][1]>lb):raise ValueError('read timing')
+                values.append((observed,value));load_times.append((lb,le))
+        if sampled:
+            from haswell_vtd_read_lifetime_audit import sample_words
+            sample_words(values)
+            if load_times[0][0]!=first or load_times[-1][1]!=last:raise ValueError('read endpoints')
+            if admissions[0]['begin']<p['_cpus'][1]['pm_us'][1]:raise ValueError('stale first cache admission')
+            for i,(lb,le) in enumerate(load_times):
+                if admissions[i]['end']>lb or (i and admissions[i]['begin']<load_times[i-1][1]):raise ValueError('cache/load ordering')
+            if admissions[12]['begin']<last:raise ValueError('post-batch cache ordering')
+            p.update(raw_sample=values,load_times=load_times,target_reads=12,target_attempts=12,cache_admissions=admissions)
         p.update(slot_begin=first,slot_end=last,cost=costs,timing=times,ram_steps=ram_steps,slots=observations)
         passes.append(p)
     if r.at!=len(raw):raise ValueError('trailing series')
@@ -177,7 +203,8 @@ def decode(blob,session):
     for i,(x,y) in enumerate(zip(a['_cpus'][0]['raw'],b['_cpus'][0]['raw'])):
         if i not in (10,11,15,16) and x!=y:raise ValueError('changed pass cache')
     if a['_graph']!=b['_graph']:raise ValueError('changed borrowed graph')
-    return dict(status='RETAINED_QUALIFICATION_OBSERVATION',session=session,root=root,epoch=epoch,begin=begin,end=end,gap_us=gap,passes=passes,raw_payload=raw,wire_bytes=len(blob),target_reads=0,target_writes=0,source_completed=False,native_accepted=False,register_read_authorized=False,hardware_authority=False,ownership=False)
+    if sampled and a['raw_sample']!=b['raw_sample']:raise ValueError('changed raw sample')
+    return dict(status='RETAINED_QUALIFICATION_OBSERVATION',session=session,root=root,epoch=epoch,begin=begin,end=end,gap_us=gap,passes=passes,raw_payload=raw,wire_bytes=len(blob),target_reads=24 if sampled else 0,target_writes=0,source_completed=False,native_accepted=False,register_read_authorized=False,hardware_authority=False,ownership=False)
 
 
 def read_result(text,ecam_text,exit_text,session):
@@ -187,6 +214,7 @@ def read_result(text,ecam_text,exit_text,session):
 
 
 def _read_result(text,ecam_text,exit_text,session):
+    if any(line.startswith('hsw-sample') for line in (text+'\n'+exit_text).splitlines()):raise ValueError('mixed sampled receipt')
     import base64
     from hardware_haswell_ecam import one,ecam_result
     state,complete,saved_session,epoch,root=one(text,'hsw-read:',r'hsw-read: v=1 state=([0-4]) complete=([01]) session=(session-[0-9a-f]{16}-[0-9a-f]{2}) epoch=(\d+) root=0x([0-9a-f]{16})')
@@ -224,6 +252,12 @@ def _read_result(text,ecam_text,exit_text,session):
     if p['root']!=int(root,16) or p['epoch']!=int(epoch) or p['end']>=report:raise ValueError('header/report binding')
     for v,row in zip(p['passes'],progress):
         if row!=(4,v['begin'],v['end'],v['words'],12,v['slot_begin'],v['slot_end'],0):raise ValueError('progress binding')
+    return _bind_context(p,ecam_text,exit_text,session)
+
+
+def _bind_context(p,ecam_text,exit_text,session):
+    """Shared raw CPU/firmware binding only; never a live permission."""
+    from hardware_haswell_ecam import ecam_result
     early=ecam_result(ecam_text,exit_text,session)
     if not early or not early['source_completed'] or early['root']!=p['root']:raise ValueError('early ECAM proof')
     from hardware_haswell_alias import alias_preinit_result

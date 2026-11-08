@@ -269,9 +269,48 @@ static bool rw_path(uint64_t out[4]){
  for(unsigned i=0;i<4;i++)if(!rw_word(pages[i],indices[i],out+i) || out[i]!=expected[i])return rw_fault("path-change");
  return true;
 }
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+/* No callback/pointer API in native builds: only this fixed sequence can load
+ * the private RO/NX/UC window, under the current claim and uninterrupted guards. */
+static bool rw_sample_admit(unsigned i){
+ if(i>=AIR61_SAMPLE_ADMISSIONS || !rw.io.sample_admit || rc.view.admission[i].attempted ||
+    rc.view.reads!=i || rc.view.attempts!=i || rc.view.slots!=i ||
+    !rw_tick() || !rw.io.sample_admit(rw.io.ctx,rw.current,i,&rc.view.admission[i]) || !rw_tick())return rw_fault("sample-cache-admission");
+ return true;
+}
+static bool rw_load_slot(unsigned i){
+ if(i>=AIR61_READ_SLOTS || rc.view.attempts!=i || rc.view.reads!=i ||
+    rc.view.slots!=i || rc.view.window.state!=AIR61_WINDOW_ACTIVE ||
+    !rc.view.window.claimed || !rw_guard())return rw_fault("target-scope");
+ rc.view.attempts++;rc.view.load_begin[i]=rc.last;
+ uint32_t value;
+#ifdef SRVROS_AIR61_WINDOW_HOST_TEST
+ extern bool air61_sample_test_load(unsigned,unsigned,uint32_t,uint32_t *);
+ if(!air61_sample_test_load(rw.current,i,rw_offsets[i],&value))return rw_fault("target-incomplete");
+#else
+ __asm__ volatile("lfence":::"memory");
+ value=*(volatile const uint32_t *)(uintptr_t)(AIR61_WINDOW_VA+rw_offsets[i]);
+ __asm__ volatile("lfence":::"memory");
+#endif
+ rc.view.values[i]=value;rc.view.reads++;
+ return true;
+}
+static bool rw_sample_word_valid(unsigned i){
+ uint32_t value=rc.view.values[i];
+ if(value==UINT32_MAX || (i==1 && !value))return rw_fault("target-unavailable");
+ unsigned previous=i==4?2:i==7?5:i==10?8:i==11?0:i;
+ if(previous!=i && value!=rc.view.values[previous])return rw_fault("target-torn-bracket");
+ if(rw.current && value!=rw.pass[0].view.values[i])return rw_fault("target-sample-changed");
+ return true;
+}
+#endif
 static bool rw_slots(void){
  for(unsigned i=0;i<AIR61_READ_SLOTS;i++){
-  if(!rw_check(2) || !rw_path(rc.view.before[i]) || !rw_tick())return rw_poison();
+  if(!rw_check(2))return rw_poison();
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+  if(!rw_sample_admit(i))return rw_poison();
+#endif
+  if(!rw_path(rc.view.before[i]) || !rw_tick())return rw_poison();
   if(!i){
    rc.view.slot_begin=rc.last;
    if(rw.current){
@@ -280,13 +319,22 @@ static bool rw_slots(void){
     rw.result.gap_us=rc.last-previous;
    }
   }
-  /* Intentionally no target dereference. These are qualification markers,
-   * not fabricated device samples or a callback hook for native reads. */
   rc.view.offsets[i]=rw_offsets[i];
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+  if(!rw_load_slot(i))return rw_poison();
+#else
+  /* Qualification only: no target dereference. */
+#endif
   if(!rw_tick())return rw_poison();
   rc.view.slot_end=rc.last;
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+  rc.view.load_end[i]=rc.last;
+#endif
   if(!rw_path(rc.view.after[i]))return rw_poison();
   rc.view.slots++;
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+  if(!rw_sample_word_valid(i))return rw_poison();
+#endif
  }
  return true;
 }
@@ -302,9 +350,16 @@ static bool rw_retire(void){
 }
 const struct air61_read_series_result *vmm_air61_read_window_result(void){return &rw.result;}
 const struct air61_read_pass_result *vmm_air61_read_window_pass(unsigned pass){return pass<AIR61_READ_PASSES?&rw.pass[pass].view:NULL;}
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+bool vmm_air61_register_sample(const struct air61_read_window_env *io,uint64_t owner,uint64_t epoch){
+#else
 bool vmm_air61_read_window_qualify(const struct air61_read_window_env *io,uint64_t owner,uint64_t epoch){
+#endif
  if(rw.result.busy)return rw_reentry();
  if(rw.result.attempted || !io || !io->check || !io->ram || !io->now || !owner || !epoch || epoch==UINT64_MAX)return false;
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ if(!io->sample_admit)return false;
+#endif
 #ifdef SRVROS_AIR61_WINDOW
  if(vmm_air61_window_result()->state!=AIR61_WINDOW_NEW)return false;
 #endif
@@ -314,7 +369,11 @@ bool vmm_air61_read_window_qualify(const struct air61_read_window_env *io,uint64
   rw.result.started++;
   if(!rw_prepare())goto failed;
   if(!rw.current)rw.result.begin=rc.view.window.begin;
-  if(!rw_slots() || !rw_retire())goto failed;
+  if(!rw_slots())goto failed;
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+  if(!rw_sample_admit(AIR61_READ_SLOTS)){rw_poison();goto failed;}
+#endif
+  if(!rw_retire())goto failed;
   rw.result.retired++;rw.result.end=rc.view.window.end;
  }
  rw.current=AIR61_READ_PASSES-1;
