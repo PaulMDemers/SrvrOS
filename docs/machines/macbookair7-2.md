@@ -2,6 +2,18 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Active work: native BCS reset integration
+
+Bounded objective: enable only a dedicated Air7,2 BCS-reset diagnostic, with an
+exact GDRST page/register/value allowlist, pre/post all-engine and display-reader
+preservation, bound epochs/raw receipts and strict collection. Main `ac8c2d5b`
+(PR409 documentation) is integrated; PR410 owns Air6,1 first-touch preparation,
+PR19 Wi-Fi and PR379 WebCore remain independent. Touched subsystems: GT wake,
+cache predicate, diagnostic image/firmware request, staging/collection and their
+host/native-object/VM tests. Existing images, limits and ordinary boot remain
+separate. No memory/cache/backing authority is inferred. Stop at verified trial
+readiness; do not reboot until the user requests it.
+
 ### Active work: controlled BCS reset protocol
 
 Bounded objective: main `a9c1f714` (PR407/408) is integrated; establish a host-tested

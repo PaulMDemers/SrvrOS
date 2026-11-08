@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) && (!defined(SRVROS_INTEL_COMPLETION_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL))
+#error "BCS reset requires its own completion/wake image"
+#endif
 #if defined(SRVROS_INTEL_RESET_READY_TRIAL) && !defined(SRVROS_INTEL_COMPLETION_TRIAL)
 #error "Reset readiness requires its separate completion/wake image"
 #endif
@@ -9,7 +12,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+extern volatile struct limine_firmware_type_request intel_bcs_reset_firmware_request;
+#elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
 extern volatile struct limine_firmware_type_request intel_reset_ready_firmware_request;
 #elif defined(SRVROS_INTEL_COMPLETION_TRIAL)
 extern volatile struct limine_firmware_type_request intel_completion_firmware_request;
@@ -25,6 +30,11 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 #include <srvros/intel_engine_census.h>
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+#define WAKE_MAPS 13u
+#define WAKE_VERSION 6u
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000,0x70000,0x71000,0x72000};
+#else
 #define WAKE_MAPS 9u
 #ifdef SRVROS_INTEL_RESET_READY_TRIAL
 #define WAKE_VERSION 5u
@@ -32,6 +42,7 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #define WAKE_VERSION 4u
 #endif
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000};
+#endif
 #elif defined(SRVROS_INTEL_BLITTER_TRIAL)
 #define WAKE_MAPS 11u
 #define WAKE_VERSION 3u
@@ -91,7 +102,11 @@ static bool wake_map(struct wake_adapter *a,unsigned i) {
 #else
     if(!(i<3?intel_cache_probe_wake_uc_page(physical,wake_pages[i]):i<8?intel_cache_probe_engine_uc_page(physical,wake_pages[i]):
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+       (i==9?intel_cache_probe_reset_uc_page(physical,wake_pages[i]):i>=10?intel_cache_probe_reader_uc_page(physical,wake_pages[i]):intel_cache_probe_completion_uc_page(physical,wake_pages[i]))
+#else
        intel_cache_probe_completion_uc_page(physical,wake_pages[i])
+#endif
 #else
        intel_cache_probe_reader_uc_page(physical,wake_pages[i])
 #endif
@@ -99,8 +114,11 @@ static bool wake_map(struct wake_adapter *a,unsigned i) {
 #endif
     if(!backing_range_reserved(physical,4096))return false;
     uint64_t flags=VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|(i?0:VMM_PAGE_WRITABLE);
-#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL)
+#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL)
     if(i==7)flags|=VMM_PAGE_WRITABLE;
+#endif
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+    if(i==9)flags|=VMM_PAGE_WRITABLE;
 #endif
     if(!vmm_map_page_in_space(a->fw.gt.a.common.cr3,va,physical,flags)) {
         if(vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,va,&old))a->uncertain=true;
@@ -185,9 +203,12 @@ static void engine_report(const struct intel_engine_census *r,bool retired) {
 #endif
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
 #include "intel_completion_trial.inc"
-#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+#if defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL)
 #include "intel_reset_ready_trial.inc"
 #endif
+#endif
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+#include "intel_bcs_trial.inc"
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
 #include "intel_blitter_trial.inc"
@@ -204,7 +225,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_RESET_READY_TRIAL
+    #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+    const struct limine_firmware_type_response *firmware=intel_bcs_reset_firmware_request.response;
+#elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
     const struct limine_firmware_type_response *firmware=intel_reset_ready_firmware_request.response;
 #elif defined(SRVROS_INTEL_COMPLETION_TRIAL)
     const struct limine_firmware_type_response *firmware=intel_completion_firmware_request.response;
@@ -216,7 +239,10 @@ bool intel_gt_wake_probe_report(void) {
     f.efi64=firmware && !firmware->revision && firmware->firmware_type==LIMINE_FIRMWARE_TYPE_EFI64;
     f.loader=loader && !loader->revision && wake_text(loader->name,"Limine") && wake_text(loader->version,"11.4.1");
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
-    #ifdef SRVROS_INTEL_RESET_READY_TRIAL
+    #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_bcs_reset_recipe(cmd->cmdline);
+    struct bcs_trial trial={0};
+#elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_reset_ready_recipe(cmd->cmdline);
     struct intel_reset_ready_result reset_ready={0};
 #else
@@ -239,6 +265,8 @@ bool intel_gt_wake_probe_report(void) {
     uint32_t grants=0;uint64_t begin=0,end=0;
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
     console_write("intel-blitter: cooperative boot BCS handoff; idle-only single disable; no Stop Ring/reset, GPU PTE write or memory transfer\n");
+#elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
+    console_write("intel-wake: bounded BCS-only reset; inherited backing protected; no memory or cache grant\n");
 #elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
     console_write("intel-wake: bounded BCS reset request/ready/cancel; no engine reset, cache flush, PTE writes or GPU range transfer\n");
 #else
@@ -267,6 +295,9 @@ bool intel_gt_wake_probe_report(void) {
                 #ifdef SRVROS_INTEL_ENGINE_TRIAL
                 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
                 if(checked)(void)intel_completion_observe(&completion,&owner,(struct intel_completion_io){&a,engine_guard,completion_group,completion_context,now});
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+                if(completion.complete)bcs_run(&a,&owner,&completion,&trial,grants==7 && f.recipe);
+#endif
 #ifdef SRVROS_INTEL_RESET_READY_TRIAL
                 if(completion.complete) {
                     (void)intel_reset_ready(&reset_ready,&owner,&completion,grants==7 && f.recipe,
@@ -321,6 +352,9 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     engine_reads=completion.reads;completion_report(&completion);
     complete=complete && completion.complete;
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+    bcs_report(&trial,&owner);engine_reads+=trial.post.reads;complete=complete && trial.complete;
+#endif
 #ifdef SRVROS_INTEL_RESET_READY_TRIAL
     reset_ready_report(&reset_ready);
     complete=complete && reset_ready.complete;

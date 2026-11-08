@@ -1,11 +1,11 @@
 # Broadwell BCS-only reset protocol
 
-The [accepted request/ready/cancel handshake](intel-reset-readiness.md) now has a
-separate host-tested successor in `kernel/diagnostics/intel_bcs_reset.c`. It is
-not linked into any native image. No native reset adapter, ELF, firmware request
-or staging option exists. Ordinary startup and the installed payload cannot
-execute this protocol. The purpose is to establish the destructive-operation
-lifetime and failure contract before adding a hardware entry point.
+The [accepted request/ready/cancel handshake](intel-reset-readiness.md) has a
+separate BCS-only reset successor in `kernel/diagnostics/intel_bcs_reset.c`.
+Only `build/intel-bcs-reset/srvros.elf` links that core and its exact native
+adapter. A separate firmware request and 15-token recipe replace the readiness
+token with `srvros.intel-bcs-reset=blitter-only`. Ordinary startup and older
+images cannot execute it. Native reset acceptance remains pending.
 
 ## Register and ordering evidence
 
@@ -74,9 +74,9 @@ hardware pin. Any possibly issued request followed by an unresolved reset,
 foreign state, lost guard, failed cancellation or changed post-state retains
 ownership and exclusion until platform reset.
 
-## Native admission still required
+## Native admission contract
 
-Before enabling a physical reset, add and validate all of the following together:
+Before enabling a physical reset, validate all of the following together:
 
 - A distinct image/request/exact recipe; ordinary/readiness images must remain
   unable to issue GDRST. Bind this Air's identity, cooperative firmware submission
@@ -100,7 +100,7 @@ The separate milestone of outstanding-memory completion and maintained CPU/GPU
 cache/translation ownership remains necessary before changing GGTT/backing or
 page-flipping. Do not treat this host model as hardware readiness.
 
-## Host validation checkpoint
+## Historical host-only validation checkpoint
 
 Source `e14c7bd6` integrates main `a9c1f714`. Full local host/core/profile/docs/
 build checks pass, with the opt-in installed-root check explicitly omitted.
@@ -112,3 +112,44 @@ Initial test-wrapper/foreign-domain-assertion and small-ESP nonpasses are retain
 with the final evidence. No timeout or production refusal was weakened.
 See the [unit checkpoint](machines/macbookair7-2.md#controlled-reset-host-checkpoint-native-entry-still-disabled)
 for retained evidence and the remaining native boundary.
+
+## Native adapter and preservation
+
+The native adapter prepares 13 NX/effective-UC aliases before any wake store.
+Slots 0–8 keep the exact completion-audit layout; slot 9 is the separate reserved
+`0x9000` page and slots 10–12 are the three read-only reader pages. Only slots
+0 (wake request), 7 (BCS) and 9 (GDRST) are writable. A new cache predicate admits
+only the exact GDRST page without expanding older allowlists. Only `0x941c`/8
+and `0x220d0`/the two masked request values can be stored by this adapter.
+
+The v6 wake receipt binds 13 retired aliases/cache checks and 184 pre/post
+engine reads. Earlier wake versions retain their exact counts. Both censuses
+contain 92 words, with post-state using a distinct `intel-bcs-post-` prefix;
+its read-only scope has no reset writer. Both full passes of every engine and
+context must match across reset, while the post census binds the advanced epoch.
+
+Two same-lifetime reader snapshots retain 54 raw DWORDs for primary/cursor/sprite
+controls, programmed surfaces and live addresses on all three pipes. Primary
+and cursor fields bind the original captured state; every field must remain
+unchanged. Two exact display-HDA config snapshots retain all ten package fields,
+including command, power and capabilities. These are preservation observations,
+not a maintained HDA DMA inhibit or exhaustive firmware/reader retirement.
+
+Raw BCS rows, four request/ready endpoints, four GDRST endpoints, epoch, counts,
+settling/core/owner/reader timing and preservation outcomes are saved under
+`intel-bcs-`. The strict collector derives coverage, values and comparisons;
+it binds the original display, both censuses, native firmware/cache receipts,
+preflight checkpoint and v6 owner. A successful core under a failed outer
+lifetime remains incomplete. Post-reset observations hold a second registered
+one-use borrow, exercise blocked parent close and return it only after full
+preservation. A late clean core return may still run preservation, without
+promoting its failed timing to acceptance. Any post-reset preservation failure keeps the
+parent wake/mappings/exclusion live until reset. The sticky automatic-return
+gate remains mandatory; the guest shows a warning before serialized entry.
+There is no rollback or forced close after an ambiguous store.
+
+Use `make test-intel-bcs-native build/intel-bcs-reset/srvros.elf`, stage with
+`--intel-bcs-reset-trial`, then follow the exact-stage VM/install/collection
+workflow. Native object/mapping negative controls, image isolation, saved-tail
+headroom, offline USB/recovery and durable backups must pass before declaring
+hardware readiness. No physical acceptance follows from the host adapter fixture.

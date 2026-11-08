@@ -26,8 +26,8 @@ struct intel_bcs_reset_io {
  uint64_t (*now)(void *);
  void (*pause)(void *);
 };
-/* Protocol core only: not linked into native images; there is no native MMIO
- * adapter or staging option. BDW PRM2c pp609-610: GDRST bit3 only. Preserve
+/* Linked only by the distinct BCS-reset diagnostic ELF, never ordinary boot.
+ * Native adapter and recipe enforce exact entry. BDW PRM2c pp609-610: GDRST bit3 only. Preserve
  * every inherited allocation. Acknowledgement is NOT a drain/cache witness.
  * Zero-init once. After a possibly issued store, any uncertain outcome retains
  * the borrow/exclusion until platform reset; no retry or forced cleanup API.

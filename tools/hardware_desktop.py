@@ -573,7 +573,16 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-bcs-summary:'):
+        from intel_bcs_reset import summary
+        try:return not summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-bcs-post-summary:'):
+        from intel_completion_audit import summary
+        try:return not summary(line.replace('intel-bcs-post-','intel-completion-',1))['complete']
+        except ValueError:return True
     if line.startswith('intel-reset-ready-summary:'):
+
         from intel_reset_ready import summary
         try:return not summary(line)['complete']
         except ValueError:return True
@@ -955,6 +964,13 @@ def collect(mount, volume, output):
                 completion=native_completion_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not completion or not completion['native_observation_complete'] or not verify_wake_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True):attention.append('Intel completion prerequisites audit incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel completion prerequisites audit: '+str(error))
+        if 'srvros.intel-bcs-reset=blitter-only' in text:
+            from intel_bcs_reset import native_bcs_result
+            from intel_gt_wake import verify_wake_checkpoint
+            try:
+                result=native_bcs_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not result or not result['native_complete'] or not verify_wake_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True):attention.append('BCS reset/preservation incomplete or refused')
+            except ValueError as error:attention.append('Invalid BCS reset/preservation: '+str(error))
         if 'srvros.intel-reset-ready=request-cancel' in text:
             from intel_reset_ready import native_reset_ready_result
             from intel_gt_wake import verify_wake_checkpoint

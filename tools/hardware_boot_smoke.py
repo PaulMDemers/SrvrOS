@@ -172,7 +172,7 @@ def main():
     if args.ap_inject and args.ap_inject.startswith("c3-") and not args.ap_c3_sim: parser.error("C3 injections require simulation")
     cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
-    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")))
+    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
@@ -236,7 +236,7 @@ def main():
                    "-monitor", "none", "-display", "none", "-no-reboot"]
         # Explicit cache-only CPU observation in TCG; absent Intel GPU still
         # refuses native address binding and aggregate display acceptance.
-        if manifest["config_version"].startswith(("ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-")):
+        if manifest["config_version"].startswith(("ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-")):
             command += ["-cpu","Broadwell"]
         if hfw_capture or ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
         if scaled_desktop:
@@ -577,6 +577,11 @@ def main():
                             completion=completion_result(stored.read(folder+"/exit.log").decode())
                             assert completion and not completion['observation_complete'] and not completion['rows'] and not completion['contexts']
                             (logs/'intel-completion-result.json').write_text(json.dumps(completion,indent=2)+"\n")
+                        if 'srvros.intel-bcs-reset=blitter-only' in text:
+                            from intel_bcs_reset import bcs_result
+                            result=bcs_result(stored.read(folder+"/exit.log").decode())
+                            assert result and not result['complete'] and not result['summary']['attempts'] and not result['summary']['reset_attempts']
+                            (logs/'intel-bcs-reset-result.json').write_text(json.dumps(result,indent=2)+"\n")
                         if 'srvros.intel-reset-ready=request-cancel' in text:
                             from intel_reset_ready import reset_ready_result
                             ready=reset_ready_result(stored.read(folder+"/exit.log").decode())

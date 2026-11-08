@@ -7,7 +7,7 @@
 /* Each host case models a fresh boot; production supplies no reset entry. */
 #include "../kernel/src/intel_boot_claim.c"
 #include "../kernel/src/display_access.c"
-#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+#if defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL)
 #include <srvros/intel_reset_ready.h>
 static bool intel_display_test_reset_ready_read(uint32_t,uint32_t *);
 static enum intel_gt_write intel_display_test_reset_ready_write(uint32_t,uint32_t);
@@ -16,6 +16,11 @@ static enum intel_gt_write intel_display_test_reset_ready_write(uint32_t,uint32_
 #include <srvros/intel_completion_audit.h>
 static bool intel_display_test_completion_read(unsigned,unsigned,uint32_t,uint32_t *);
 static bool intel_display_test_completion_context(unsigned,uint32_t *);
+#endif
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+static unsigned bcs_reset_writes,bcs_plane_calls;
+static bool intel_display_test_bcs_read(uint32_t,uint32_t *);
+static enum intel_gt_write intel_display_test_bcs_write(uint32_t,uint32_t);
 #endif
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 static const char *engine_mode="report";
@@ -38,6 +43,9 @@ static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc00000
 
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
  || o==0x4000
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+ || o==0x9000 || o==0x70000 || o==0x71000 || o==0x72000
+#endif
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
  || o==0x70000 || o==0x71000 || o==0x72000
@@ -50,6 +58,9 @@ static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc00000
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
  if(!strcmp(engine_mode,"tlb-cache") && o==0x4000)return false;
 #endif
+#endif
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+ if(!strcmp(engine_mode,"bcs-cache") && o==0x9000)return false;
 #endif
  return !wake_cache_fail;}
 static bool intel_display_test_wake_read(uint32_t reg,uint32_t *v){assert(wake_irq && !display_access_allowed());*v=reg==0xa188?wake_request:reg==0x130044?wake_ack:wake_thread_stuck?1:0;return true;}
@@ -79,6 +90,9 @@ static bool intel_display_test_completion_read(unsigned e,unsigned i,uint32_t re
  assert(e<5 && i<8 && wake_irq && wake_ack==1 && !display_access_allowed());
  static const uint32_t base[5]={0x2000,0x12000,0x1a000,0x1c000,0x22000},tlb[5]={0x4260,0x4264,0x4270,0x4268,0x426c},off[7]={0x30,0x34,0x38,0x3c,0x234,0x238,0x2d0};
  assert(reg==(i==7?tlb[e]:base[e]+off[i]));
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+ if(bcs_reset_writes && !strcmp(engine_mode,"bcs-postread"))return false;
+#endif
  if(i<6)return intel_display_test_engine_read(e,i,out);
  *out=0;
  if(i==6 && !strcmp(engine_mode,"flip-wait"))*out=1u<<29;
@@ -93,6 +107,9 @@ static bool intel_display_test_completion_context(unsigned reg,uint32_t *out) {
  for(;i<6 && regs[i]!=reg;i++);
  assert(i<6 && wake_irq && wake_ack==1 && !display_access_allowed());completion_context_reads++;
  *out=(i==0 || i==3)?0x200:i==1?0x4080:0;
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+ if(bcs_reset_writes && !strcmp(engine_mode,"bcs-postengine") && i==1)*out^=1;
+#endif
  if(!strcmp(engine_mode,"context-change") && completion_context_reads>6)*out^=1;
  if(!strcmp(engine_mode,"context-float"))*out=UINT32_MAX;
  return strcmp(engine_mode,"context-read")!=0;
@@ -124,7 +141,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+#define intel_wake_firmware_request intel_bcs_reset_firmware_request
+#elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
 #define intel_wake_firmware_request intel_reset_ready_firmware_request
 #elif defined(SRVROS_INTEL_COMPLETION_TRIAL)
 #define intel_wake_firmware_request intel_completion_firmware_request
@@ -199,7 +218,7 @@ static const uint64_t fb_virtual=0xffff8000b0000000ull;
 static bool intel_display_test_uc(uint64_t p){assert(p==0xc0811000);return !window_cache_fail;}
 uint8_t pci_read_config8(const struct pci_device *d,uint8_t off){assert(d==&devices[0] && off==0x62);return 1;}
 uint64_t pci_device_count(void){
-#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
  return 4;
 #else
  return 3;
@@ -211,6 +230,9 @@ uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
     if(d==&devices[3])return intel_display_test_hda_config(off);
 #endif
     config_reads++;assert(config_reads<(wake_mode?10000000:gt_mode?20000:window_mode?5000:1000));
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+    if(d==&devices[3]){switch(off){case 0:return 0x160c8086;case 4:return 0x00100006;case 8:return 0x04030001;case 0x34:return 0x40;case 0x40:return 0x00030001;case 0x44:return bcs_reset_writes && !strcmp(engine_mode,"bcs-audio")?0:3;default:return 0;}}
+#endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
     if(d==&devices[3]){switch(off){case 0:return 0x160c8086;case 4:return 0x00100006;case 8:return 0x04030001;case 0x34:return 0x40;case 0x40:return 0x00030001;case 0x44:return reader_calls>27 && (!strcmp(engine_mode,"blit-audio-change") || !strcmp(engine_mode,"blit-off-audio-change"))?0:3;default:return 0;}}
 #endif
@@ -239,7 +261,7 @@ static unsigned index_of(uint64_t v){
 #if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
  if(v==HDA_VA)return INTEL_CAPTURE_PAGES+12;
 #endif
- if(v>=BACKING_VA+0x10000 && v<BACKING_VA+0x1b000)return INTEL_CAPTURE_PAGES+1+(unsigned)((v-BACKING_VA-0x10000)/4096);
+ if(v>=BACKING_VA+0x10000 && v<BACKING_VA+0x1d000)return INTEL_CAPTURE_PAGES+1+(unsigned)((v-BACKING_VA-0x10000)/4096);
  if(v==BACKING_VA)return INTEL_CAPTURE_PAGES;
  assert(v>=CAPTURE_VA && v<CAPTURE_VA+4096*INTEL_CAPTURE_PAGES && !(v&4095));
  return (unsigned)((v-CAPTURE_VA)/4096);
@@ -247,8 +269,12 @@ static unsigned index_of(uint64_t v){
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t v,uint64_t *p){assert(space==0x1000);if(backing_mode && v>=fb_virtual && v<fb_virtual+6144*900){if(translation_gap && v==fb_virtual+4096)return false;*p=0xb0000000+v-fb_virtual;return true;}unsigned n=index_of(v);*p=pa[n];return pa[n]!=0;}
 bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) {
     bool writable=wake_mode && v==BACKING_VA+0x10000;
-#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL)
+#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL)
     writable=writable || (wake_mode && v==BACKING_VA+0x17000);
+#endif
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+    writable=writable || (wake_mode && v==BACKING_VA+0x19000);
+    if(!strcmp(engine_mode,"bcs-map") && v==BACKING_VA+0x19000)return false;
 #endif
     assert(space==0x1000 && flags==(writable?(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITABLE):(fw_mode && p==0x12345000)?VMM_PAGE_NO_EXECUTE:(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)));unsigned n=index_of(v);
     assert(!pa[n]);if(n>=INTEL_CAPTURE_PAGES)assert((p>=0xc0000000 && p<0xc1000000)
@@ -285,6 +311,9 @@ assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
  if(!strcmp(engine_mode,"tlb-retire") && v==BACKING_VA+0x18000)return false;
 #endif
+#endif
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+ if(!strcmp(engine_mode,"bcs-retire") && v==BACKING_VA+0x19000)return false;
 #endif
  if((wake_retire_fail && v==BACKING_VA+0x10000) || (fw_retire_fail && pa[n]==0x12345000) || dma_unmap_fail || (window_retire_fail && pa[n]==0xc0811000) || (gt_retire_fail && pa[n]==0xc000a000))return false;
  *p=pa[n];pa[n]=0;unmap_calls++;return true;}
@@ -353,7 +382,7 @@ static void reset(void) {
     dsdt=(struct acpi_table_info){.physical_address=0x100000,.length=35034};memcpy(dsdt.signature,"DSDT",4);
     ram=(struct limine_memmap_entry){.base=0x100000,.length=0x70000000,.type=LIMINE_MEMMAP_USABLE};
     devices[2]=(struct pci_device){.device=0,.class_code=6};
-#ifdef SRVROS_INTEL_BLITTER_TRIAL
+#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL)
     devices[3]=(struct pci_device){.device=3,.vendor_id=0x8086,.device_id=0x160c,.class_code=4,.subclass=3};
 #endif
     aperture=(struct limine_memmap_entry){.base=0xb0000000,.length=0x10000000,.type=LIMINE_MEMMAP_FRAMEBUFFER};
@@ -407,6 +436,9 @@ int main(int argc,char **argv) {
     wake_cmd.cmdline=engine_recipe;
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+    static char reset_recipe[1400];snprintf(reset_recipe,sizeof(reset_recipe),"%s srvros.intel-bcs-reset=blitter-only",completion_recipe);wake_cmd.cmdline=reset_recipe;
+#endif
 #ifdef SRVROS_INTEL_RESET_READY_TRIAL
     static char ready_recipe[1400];snprintf(ready_recipe,sizeof(ready_recipe),"%s srvros.intel-reset-ready=request-cancel",completion_recipe);wake_cmd.cmdline=ready_recipe;
 #endif
@@ -437,6 +469,9 @@ int main(int argc,char **argv) {
 #endif
 #ifdef SRVROS_INTEL_RESET_READY_TRIAL
  good=good && (!strcmp(engine_mode,"report") || !strcmp(engine_mode,"ready-delay") || !strcmp(engine_mode,"ready-mask"));
+#endif
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+ good=good && !strcmp(engine_mode,"report");
 #endif
  assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
@@ -521,7 +556,7 @@ if(good){assert(wake_writes==3 && !wake_ack && (wake_request&0xffff)==0 && displ
     return 0;
 }
 
-#ifdef SRVROS_INTEL_RESET_READY_TRIAL
+#if defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL)
 static unsigned ready_writes,ready_reads,ready_group_words,ready_phase_reads;
 static uint32_t ready_control;
 static bool intel_display_test_reset_ready_read(uint32_t reg,uint32_t *out) {
@@ -552,5 +587,24 @@ static enum intel_gt_write intel_display_test_reset_ready_write(uint32_t reg,uin
  if(ready_writes==2 && !strcmp(engine_mode,"ready-cancel-timeout"))ready_control=2;
  if(!strcmp(engine_mode,"ready-foreign"))wake_request|=2;
  return !strcmp(engine_mode,"ready-uncertain")?GT_WRITE_UNCERTAIN:GT_WRITE_DONE;
+}
+#endif
+
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+static bool intel_display_test_bcs_read(uint32_t reg,uint32_t *out) {
+ assert(wake_irq && wake_ack==1 && !display_access_allowed());
+ if(reg==0x941c){if(!strcmp(engine_mode,"bcs-float")){*out=UINT32_MAX;return true;}*out=!strcmp(engine_mode,"bcs-initial")?8:!strcmp(engine_mode,"bcs-foreign")?2:((!strcmp(engine_mode,"bcs-timeout") && bcs_reset_writes) || (!strcmp(engine_mode,"bcs-second-timeout") && bcs_reset_writes==2))?8:0;return strcmp(engine_mode,"bcs-read")!=0;}
+ static const uint32_t offsets[9]={0x180,0x19c,0x1ac,0x80,0x84,0xac,0x280,0x29c,0x2ac};
+ unsigned p=(reg-0x70000)/4096,i=bcs_plane_calls++%9;assert(p<3 && reg==0x70000+p*4096+offsets[i]);
+ *out=(!p && !i)?0xd8000400u:0;
+ if(bcs_reset_writes && !strcmp(engine_mode,"bcs-plane") && i==8)*out=1;
+ return !(bcs_reset_writes && !strcmp(engine_mode,"bcs-plane-read"));
+}
+static enum intel_gt_write intel_display_test_bcs_write(uint32_t reg,uint32_t value) {
+ assert(reg==0x941c && value==8 && wake_irq && wake_ack==1 && !display_access_allowed() && bcs_reset_writes<2);
+ ++bcs_reset_writes;
+ if(!strcmp(engine_mode,"bcs-none") || (!strcmp(engine_mode,"bcs-second-none") && bcs_reset_writes==2))return GT_WRITE_NONE;
+ ready_control=0;
+ return (!strcmp(engine_mode,"bcs-uncertain") || (!strcmp(engine_mode,"bcs-second-uncertain") && bcs_reset_writes==2))?GT_WRITE_UNCERTAIN:GT_WRITE_DONE;
 }
 #endif

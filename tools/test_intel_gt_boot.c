@@ -82,4 +82,13 @@ int main(void) {
   snprintf(bad,sizeof(bad),"%s %.*s",ready,(int)(end-start),start);assert(!intel_gt_boot_reset_ready_recipe(bad));start=*end?end+1:end;
  }
  for(unsigned i=0;i<6;i++){snprintf(bad,sizeof(bad),"%s %s",ready,foreign[i]);assert(!intel_gt_boot_reset_ready_recipe(bad));}
+ char reset_bcs[2400];snprintf(reset_bcs,sizeof(reset_bcs),"%s srvros.intel-bcs-reset=blitter-only",completion);
+ assert(intel_gt_boot_bcs_reset_recipe(reset_bcs) && !intel_gt_boot_reset_ready_recipe(reset_bcs) && !intel_gt_boot_completion_recipe(reset_bcs) && !intel_gt_boot_bcs_reset_recipe(ready));
+ for(const char *start=reset_bcs;*start;) {
+  const char *end=start;while(*end && *end!=' ')end++;
+  snprintf(bad,sizeof(bad),"%.*s%s",(int)(start-reset_bcs),reset_bcs,*end?end+1:end);assert(!intel_gt_boot_bcs_reset_recipe(bad));
+  snprintf(bad,sizeof(bad),"%s %.*s",reset_bcs,(int)(end-start),start);assert(!intel_gt_boot_bcs_reset_recipe(bad));start=*end?end+1:end;
+ }
+ for(unsigned i=0;i<6;i++){snprintf(bad,sizeof(bad),"%s %s",reset_bcs,foreign[i]);assert(!intel_gt_boot_bcs_reset_recipe(bad));}
+
 }

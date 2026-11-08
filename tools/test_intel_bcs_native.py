@@ -1,0 +1,39 @@
+from pathlib import Path
+import re,subprocess,unittest
+from intel_bcs_reset import bcs_result,native_bcs_result,summary
+ROOT=Path(__file__).resolve().parents[1]
+MODES='report bcs-cache bcs-map bcs-retire bcs-initial bcs-foreign bcs-read bcs-none bcs-uncertain bcs-timeout bcs-float bcs-second-timeout bcs-second-none bcs-second-uncertain bcs-postread bcs-postengine bcs-plane bcs-plane-read bcs-audio ready-read ready-initial ready-reserved ready-float ready-late-read ready-busy ready-drift ready-none ready-cancel-none ready-timeout ready-cancel-timeout ready-uncertain ready-foreign active pending flip-wait tlb-pending changed float read-fail cache-last map-last retire-last late-foreign slow frozen tlb-cache tlb-map tlb-retire'.split()
+def adapter(mode='report'):
+ return subprocess.check_output([str(ROOT/'build/tests/intel-bcs-adapter'),'--wake-engine-'+mode],text=True)
+def native_text():
+ cache=subprocess.check_output([str(ROOT/'build/tests/intel-cache-probe'),'fresh-uc'],text=True)
+ handoff=subprocess.check_output([str(ROOT/'build/tests/intel-handoff-probe'),'0'],text=True)
+ return 'bootloader: Limine 11.4.1\n'+cache+'intel-boot-claim: v=1 policy=2 client=2 immutable=1 hardware_ownership=0 managed_pages=0\n'+handoff+adapter().replace('intel-wake: bounded','intel-wake: preflight checkpoint saved\nintel-wake: bounded')
+class NativeBcsTests(unittest.TestCase):
+ def test_adapter(self):
+  for mode in MODES:
+   with self.subTest(mode=mode):
+    r=bcs_result(adapter(mode));self.assertEqual(r['complete'],mode=='report');self.assertFalse(r['cache_ownership'] or r['managed_range'] or r['physical_tearfree'])
+    if mode in ('bcs-none','bcs-uncertain','bcs-timeout','bcs-second-timeout','bcs-second-none','bcs-second-uncertain','bcs-postread','bcs-postengine','bcs-plane','bcs-plane-read','bcs-audio'):
+     from intel_gt_wake import wake_result
+     w=wake_result(adapter(mode))['summary'];self.assertEqual(w['retained'],1);self.assertEqual(w['writes'],2);self.assertEqual(w['released'],0)
+ def test_native(self):
+  t=native_text();self.assertTrue(native_bcs_result(t)['native_complete'])
+  for old,new in [('Limine 11.4.1','Limine 11.4.2'),('intel-wake: preflight checkpoint saved',''),('cache_checks=13','cache_checks=12')]:
+   with self.subTest(old=old),self.assertRaises(ValueError):native_bcs_result(t.replace(old,new))
+ def test_corruption(self):
+  t=adapter()
+  for old,new in [('reset_writes=2','reset_writes=1'),('reset_acks=2','reset_acks=1'),('epoch_after=1','epoch_after=0'),('blocked_close=1','blocked_close=0'),('returned=1','returned=0'),('pin=1','pin=0'),('pin_returned=1','pin_returned=0'),('pin_blocked=1','pin_blocked=0'),('domains=4','domains=3'),('plane_reads=54','plane_reads=53'),('obligations=255','obligations=0'),('posted_drain=0','posted_drain=1'),('cache_ownership=0','cache_ownership=1'),('preserved=1','preserved=0'),('phase=1 value=3','phase=1 value=1')]:
+   with self.subTest(old=old),self.assertRaises(ValueError):bcs_result(t.replace(old,new))
+  for prefix in ('intel-bcs-row:','intel-bcs-control:','intel-bcs-domain:','intel-bcs-plane:','intel-bcs-audio:','intel-bcs-post-row:'):
+   bad=re.sub('^'+prefix+'.*\n','',t,count=1,flags=re.M)
+   with self.subTest(prefix=prefix),self.assertRaises(ValueError):bcs_result(bad)
+  with self.assertRaises(ValueError):bcs_result(t+t)
+  with self.assertRaises(ValueError):bcs_result(t+'intel-bcs-unknown: v=1\n')
+ def test_attention(self):
+  from hardware_desktop import needs_attention
+  for line in adapter().splitlines():
+   if line.startswith(('intel-bcs-summary:','intel-bcs-post-summary:')):
+    self.assertFalse(needs_attention(line));self.assertTrue(needs_attention(line+' extra=0'))
+ def test_cache(self):
+  for mode in ('reset-uc','reset-pat-only'):subprocess.check_call([str(ROOT/'build/tests/intel-cache-probe'),mode],stdout=subprocess.DEVNULL)

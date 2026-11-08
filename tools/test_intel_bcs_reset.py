@@ -44,14 +44,13 @@ class BcsResetTests(unittest.TestCase):
                 with self.subTest(mode=mode, point=point):
                     self.assertIn('PASS', run(mode, point))
 
-    def test_no_native_entry(self):
-        # Runtime admission and a real exact-reg adapter are separate work.
-        import hardware_boot
-        with self.assertRaises(TypeError):
-            hardware_boot.stage(laptop_probe_volume='37d8c5d0', intel_bcs_reset_trial=True)
-        makefile = (ROOT / 'Makefile').read_text()
-        self.assertNotIn('build/intel-bcs-reset/srvros.elf:', makefile)
-        self.assertNotIn('intel_bcs_reset.c', ' '.join(str(p) for p in (ROOT / 'kernel/src').rglob('*.c')))
+    def test_dedicated_entry(self):
+        from hardware_boot import stage,limine_config
+        cfg=limine_config('0123456789abcdef','ram-usb-v1-intel-bcs-reset-laptop-probe-37d8c5d0-auto-return')
+        self.assertIn('srvros.intel-bcs-reset=blitter-only',cfg)
+        self.assertNotIn('srvros.intel-reset-ready=request-cancel',cfg)
+        for extra in ({'desktop_audio':True},{'intel_reset_ready_trial':True},{'hold_on_failure':True}):
+            with self.assertRaises(ValueError):stage(laptop_probe_volume='37d8c5d0',intel_bcs_reset_trial=True,**extra)
 
 
 if __name__ == '__main__':

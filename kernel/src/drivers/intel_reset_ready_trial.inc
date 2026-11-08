@@ -1,4 +1,4 @@
-/* Only the dedicated request/ready/cancel image maps BCS writable. */
+/* Exact request/control callbacks for the two separately compiled BCS trials. */
 #include <srvros/intel_reset_ready.h>
 static bool reset_ready_control(void *ctx,uint32_t *out) {
  struct wake_adapter *a=ctx;
@@ -34,6 +34,7 @@ static enum intel_gt_write reset_ready_store(void *ctx,uint32_t value) {
  __asm__ volatile("mfence":::"memory");return GT_WRITE_DONE;
 #endif
 }
+#ifndef SRVROS_INTEL_BCS_RESET_TRIAL
 static void reset_ready_report(const struct intel_reset_ready_result *r) {
  for(unsigned n=0;n<r->samples;n++) {
   const uint32_t *w=r->words[n];
@@ -42,3 +43,5 @@ static void reset_ready_report(const struct intel_reset_ready_result *r) {
  for(unsigned n=0;n<r->controls_read;n++)console_printf("intel-reset-ready-control: v=1 phase=%u value=%u\n",(uint64_t)n,(uint64_t)r->controls[n]);
  console_printf("intel-reset-ready-summary: v=1 admitted=%u ready=%u cancelled=%u samples=%u controls=%u reads=%u polls=%u attempts=%u writes=%u reason=%u begin_us=%u end_us=%u blocked_close=%u borrowed=%u returned=%u uncertain=%u complete=%u obligations=255 engine_reset=0 posted_drain=0 prefetch_retired=0 pipeline_flushed=0 tlb_writes=0 cache_ownership=0 reader_retirement=0 managed_pages=0\n",(uint64_t)r->admitted,(uint64_t)r->ready,(uint64_t)r->cancelled,(uint64_t)r->samples,(uint64_t)r->controls_read,(uint64_t)r->reads,(uint64_t)r->polls,(uint64_t)r->attempts,(uint64_t)r->writes,(uint64_t)r->reason,r->begin_us,r->end_us,(uint64_t)r->blocked_close,(uint64_t)(r->borrow.parent!=0),(uint64_t)(r->borrow.parent && !r->borrow.active),(uint64_t)r->uncertain,(uint64_t)r->complete);
 }
+
+#endif
