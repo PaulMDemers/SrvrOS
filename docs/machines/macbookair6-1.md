@@ -9138,3 +9138,49 @@ only to screenshot-harness menu navigation and explicit synthetic VM build
 preparation, plus guide clarification. Keep every workload/timeout/pixel/readback
 and retirement assertion unchanged; rerun both actual VM trials before staging.
 The runtime stays frozen at `7dbfadd1`; host-tool source is recorded separately.
+
+
+### Ordinary desktop regression prepared; VM limitations retained (2026-11-08)
+
+Frozen runtime `7dbfadd1` passes matched normal/native battery/ISO/USB builds
+and the full core suite, including89 installed-root tests with one expected skip.
+Host tools `f6276f06` fix the screenshot harness's menu selection; no guest
+runtime or limits change. Frozen normal/native ELF and initramfs hashes remain
+identical through VM preparation. Isolated sampler entrypoints are absent from
+both ordinary/native images.
+
+Rebuilding the explicit synthetic battery VM kernel resolves the protocol15/18
+fixture mismatch. The old menu harness's failure is also preserved; its corrected
+TCG run now passes exact pixels, immutable capture during typing, durable BMP
+readback, notification folder/Preview, repeated menu capture and clean exit.
+
+Two current-source loaded TCG runs **fail** the original500ms loop bound:
+540486us (3 excursions) and669527us. The first retained interval attributes
+486267us to rendering. These remain unresolved software-emulation performance
+failures; no renderer fix or TCG timing acceptance is claimed. The identical
+populated-Home/400-write-IOPS workload under KVM passes22 app cycles,193713us
+maximum loop,1559335us readiness and1639075us close, zero app errors/underruns,
+one complete screenshot, clean worker/cache/battery retirement and all67 prior
+fixture files. Both accelerators retain the same500ms/10s limits and disk work.
+KVM is the passing loaded preparation receipt, not a substitute TCG pass or a
+native observation. Native latency acceptance requires the physical result.
+
+Exact native v74 payload `c831655c4120352e` passes TCG GRUB→Limine chainload,
+explicit unsupported-Q35 refusal, file preservation, unmount and automatic
+return. Manifest source is the tested host-tool commit `f6276f06`; the unchanged
+runtime bytes are independently pinned to `7dbfadd1`. The physical trial keeps
+all existing30-minute PCM, verified disk overlap, automatic app/screenshot,
+loop/lifecycle and retirement requirements. The existing bounded60-second PCM
+tail remains valid; playback may extend only as the original producer permits.
+No VT-d/ECAM/Haswell capture token is present.
+
+Run `1fbeb56fc50f45f6` uses this unit's USB `6ADA-85BB`, with643 baseline files,
+145 directories and1725 clusters; filesystem, full allocation and headroom checks
+pass. Only the owned quiet-volume input is intentionally refreshed for1% audio;
+its previous bytes are preserved. The unreferenced failed-sampler EFI duplicate
+`0325ad569a8b0a83` was removed only after full independent backup/hash and GRUB
+reference checks; accepted sampler `2ddbd3b285f6bf41`, zero-load/single-window,
+known-good stress and console recovery remain retained. Ubuntu is the default,
+with recovery `c35475f62f154f1e` preserved. Install verification, final preflight,
+durable run/collector records and merged preparation must precede arming this
+one automatic boot. No physical pass is inferred from this preparation.

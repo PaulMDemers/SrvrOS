@@ -896,6 +896,14 @@ log flush and USB unmount precede automatic return to Ubuntu. Mounted ownership
 faults still halt; photograph those rather than call them successful returns.
 This exercises ordinary filesystem operations, not a claim of Text UI automation.
 
+Before that positive VM rehearsal, explicitly build the synthetic Air6,1
+kernel with `tools/host-env.sh make acpi-air61-battery-vm-kernel`, as well as
+the native `acpi-air61-battery-kernel` and matched userspace. The positive
+harness uses `build/acpi-air61-battery/vm.elf`; rebuilding only the native
+kernel leaves that separate file stale and can cause desktop protocol mismatch.
+Record the chosen `--accel tcg` or `--accel kvm` and all failed runs; a passing
+hardware-assisted run does not accept a failed software-emulation timing result.
+
 Validation uses `tools/host-env.sh python3 tools/audio_io_stress_smoke.py` for a
 fully automatic sixty-second Q35 run with observed non-silent audio and USB-write
 overlap, and `--stage RELEASE` for exact GRUB→Limine native-profile refusal and
