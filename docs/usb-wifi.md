@@ -7439,3 +7439,14 @@ be set. The old parser still applies every original flag/frame/CCMP refusal.
 Saved-log checks reject impossible reason/flag/frame combinations. The byte-count
 API remains unchanged;all report-struct callers must be rebuilt together. These
 are diagnostic labels,not trusted traffic or a new hardware-filter policy.
+
+The first native frame/flag trial observed24 beacon-class,nine action-class,
+one other-management-class and one protected-FromDS-class completion. Only the
+protected frame had a forbidden flag:the mapped WAPI-key category (RXWI bit18).
+The existing gate refused it before peer/CCMP authentication. No Ethernet or
+DHCP reply was accepted. These labels do not establish peer identity,a valid
+MIC,packet contents or the active cipher. Verify that field's hardware semantics
+and frozen-peer binding before proposing any acceptance change;do not infer
+WAPI encryption or waive an error gate from its name. Independent MAC/endpoint/
+input and nine-word power originals restored,but full outer RF completion still
+failed. Preserve this failed evidence and all current security/ownership limits.

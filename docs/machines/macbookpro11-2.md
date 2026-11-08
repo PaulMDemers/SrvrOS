@@ -14598,3 +14598,40 @@ original plus filesystem/recovery checks. No hardware filter,protocol gate or
 receive/time budget was changed. Ordinary provider/UI,TCP/HTTP and live reattach
 remain pending;Demers2.4 needs compatible hardware. PR19 stays draft;Actions
 remain disabled.
+
+### Native frame/flag classification: management flood and WAPI-key flag (November 7)
+
+Runtimea79a5ac5,release9c35498a7862d408,session00065fbb48f88229-00
+saved1,895,865bytes and returned to Ubuntu. Historical management/M1 and the
+independent AUTH/ASSOC,M3 MIC,local M4 and software-key activation passed. One
+encrypted DISCOVER completed at PN1. Its deferred36-event transcript contains
+one send and35 data completions (indices5..39):24 beacon-class,nine action-class,
+one other-management-class and one protected-FromDS-class frame. The first34
+refused the supported data frame gate. The protected frame carried only mapped
+flag1024 (WAPI-key category,original RXWI bit18) and refused at the existing
+hardware-flag gate. No unprotected structural EAPOL-Key class was observed.
+
+These are bounded untrusted structural labels,not peer identity or acceptance.
+The flagged protected frame was not authenticated,so neither membership in this
+connection nor a valid CCMP MIC is proved. Do not call it valid DHCP/ARP or infer
+a cipher from the flag name. No Ethernet delivery occurred;both DHCP phase
+counters stayed zero. OFFER,REQUEST,ARP,DNS and echo did not run.
+
+The unchanged40-entry forward limit stopped safely at exhausted=1,unsafe=0
+after438 IP polls;the independent exchange ended after1,375,693us. Keys erased
+and leave completed. MAC disable,TX/RX quiet and filter/TXOP originals passed.
+No reserved completion was needed;41 entries were posted. All six endpoint
+commands and endpoint/input originals passed (restored=1,phase9),and all nine
+power originals restored (511). Full exchange/outer RF completion still failed.
+This directly observes diagnostic classification and partial cleanup,not full
+connectivity/restoration acceptance;v130 remains the complete foundation.
+
+The566-file failure capsule and separate categorical notes are sealed outside
+build;prior capsules stay unchanged. Offline filesystem/allocation and installed
+recovery checks pass. Ubuntu is default,the workspace is unmounted,and no next
+boot is armed. Next verify the WAPI-key flag's documented hardware semantics and
+matching peer/header binding,then determine whether strict software CCMP can
+validate such a frame without publishing it or weakening the existing gate.
+Do not enable a cipher,ignore error bits,copy/reinstall active keys,accept foreign
+frames,or enlarge/reuse the ring based on this observation. Ordinary provider/UI,
+TCP/HTTP and live reattach remain pending. PR19 stays draft;Actions stay disabled.
