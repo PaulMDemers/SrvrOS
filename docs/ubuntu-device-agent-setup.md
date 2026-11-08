@@ -1240,3 +1240,43 @@ mistaken for failures by the generic `reason=` rule. Full native/checkpoint/raw
 controller proof remains mandatory; do not filter all reason lines or discard
 an original collection when correcting host classification. Preserve raw hashes
 and explicitly record offline reclassification separately from a hardware rerun.
+
+### Air6,1 two-pass zero-target-load qualification
+
+This v7 profile is separate from the accepted v6 single-window trial. It uses
+`make air61-read-kernel` and the explicit stage options below, together with the
+normal matched build/core and exact-stage VM checks:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" \
+  --haswell-firmware-capture --haswell-cache-context --haswell-alias-context \
+  --haswell-alias-preinit --haswell-ecam-boot --haswell-read-qualification
+```
+
+The dedicated ELF refuses other profiles and omits the old single-window
+backend. Before user init, it captures the existing source census and executes
+two fresh A-preseeded mapping/retirement lifetimes with twelve guarded markers
+each and **zero target loads/writes**. Both retain their original 100 ms and
+65536-word limits; the measured marker gap remains 20–100 ms including teardown
+and fresh preparation. First-touch of next-pass private RAM is charged to
+pass zero, with per-page clock/root guards, before its census. Pass one still
+performs its complete first-touch/census work. No timer reset or work exclusion
+is permitted.
+
+Visible boot progress requires no input. After clean retirement, the ordinary
+logger is quiesced and the bounded R1/Z1 receipt is saved to `window.log`, beside
+`ecam.log` and the independent source/alias proof and saved references in
+`exit.log`. `hardware_air61_read_qualification.read_result` checks all three
+matching files and the session/epoch/root/profile bindings. It preserves exact
+raw comparisons inside and between both claims. Only the already existing
+source-to-claim one-way hardware A/D relation is allowed between distinct
+initial-source and claim epochs; every changed raw word is retained explicitly.
+It never authorizes register loads or device ownership.
+
+Use the normal verified recovery, prior-file hashes, offline allocation,
+on-disk run record, one-shot boot and automatic collection procedure. Keep AC
+and the designated USB connected. A safely refused trial saves an incomplete
+report and returns to Ubuntu. Uncertain ownership halts visibly before USB/user
+reuse; photograph it and restart Ubuntu. A halt, missing receipt, missing saved
+reference or missing whole-trial completion is a failure or incomplete evidence.
+No native acceptance is inferred from host/VM fixtures.

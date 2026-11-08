@@ -8619,3 +8619,120 @@ Dedicated raw retention is0x99188 bytes in the compile-only object. Accepted
 installed92d9f134639f509c/recoveryc35475f62f154f1e remain untouched. No reboot is
 armed. Native latency, raw serialization, fresh bridge admission and the later
 no-target-load two-pass qualification remain unaccepted separate work.
+
+### Fresh bridge and raw two-pass receipt scope (2026-11-07)
+
+Base `a35a1952`, accepted92d9f134639f509c/recoveryc35475f62f154f1e retained,
+no pending native run. Add two independent production gate instances and a
+compile-only native admission bridge for the dormant qualifier. Require current
+single-adopted ECAM state, fresh exact-unit admission and live CPU0/IRQ/AP/root/
+client exclusion throughout both lifetimes and gap. Compare fresh pass1 source
+and control observations against pass0; never use historical receipts as grants.
+Terminal poison retains ownership and cannot restore interrupts or resume clients.
+
+Add a bounded lossless two-pass receipt retaining complete raw page/census/gate/
+path/cost observations, with session/owner/root/epoch and gap binding, plus a
+strict nonpromoting offline decoder and real-producer mutation regressions.
+Keep all caps and exact raw A/D checks unchanged. Existing profile/decoder
+acceptance stays distinct. No native boot caller, default build selection,
+staging/install, reboot, register load or device ownership grant in this step.
+Native compilation, host actual-gate/failure tests, sanitizer/portable checks and
+matched existing-build/core/VM regressions precede merge. Native boot recipe and
+no-target-load qualification remain the next checkpoint. PR301/PR19 have no
+competing VMM/window/ECAM edits in their inspected file lists.
+
+### Fresh bridge and raw receipt implemented (2026-11-07)
+
+The compile-only native bridge now uses two production gate instances, fresh
+per-pass exact-unit checks and cross-pass raw source/cache/control comparison.
+It requires current ECAM ACTIVE/single adoption and holds IRQ exclusion across
+both lifetimes and gap. Poison prints retained progress and halts; it does not
+restore interrupts or resume clients. Native instances cannot reset.
+
+The one-shot RAM-only R1/Z1 encoder retains both complete raw pass proofs and
+all path/cost observations. Lossless canonical zero runs fit the combined
+45000-byte wire cap within the unchanged65536-byte tail allowance; per-pass
+33000-byte raw bodies and all mapper/firmware/time limits remain unchanged.
+The independent strict decoder rejects old-profile confusion, tampering,
+malformed extents/compression, stale identities and altered path bits. It never
+promotes a retained observation to native/read/ownership acceptance. A native
+boot caller, joint saved-session binding and exact staged qualification remain
+separate next work; no installed payload or boot state is changed here.
+
+Frozen native/runtime source `1a8bd9f4` passes normal/AP/USB/ISO builds and full
+`test-core`, including89 installed-root tests and one explicit opt-in skip.
+The five native objects link together without host hooks;18 ASan/UBSan bridge/
+encoder cases and the complete ARM64 fixture link pass. Seven final consumer
+regressions include512 path-bit mutations plus29 coherently repeated root-flag
+changes forbidden by the existing native guard. Eleven existing window-profile
+tests, actual producer proof, nine staged diagnostic VMs and five ordinary
+syscall/UEFI USB keyboard/fork/exec/yield VMs pass. Both existing ELFs remain
+byte-identical to the preceding merged backend build.
+
+Normal/max-catalog receipts retain24701/48317 raw bytes in4864/22456 wire bytes.
+The full45000-byte wire cap with framing and a1024-byte envelope is64122 bytes,
+below65536. All limits stay unchanged. No native result is inferred. Native
+integration still needs a boot caller, strict joint saved-session binding and
+an audit of first-touch RAM/A-D effects under the existing bounded preparation;
+no raw masks, timing exclusions or limit increases are permitted. Installed
+92d9f134639f509c/recoveryc35475f62f154f1e remain untouched; no reboot is armed.
+
+### Native two-pass zero-load qualification scope (2026-11-07)
+
+Base `709c6ef4`; accepted `92d9f134639f509c` and recovery
+`c35475f62f154f1e` remain retained, with no pending run. Add a separate explicit
+v7 boot recipe/ELF for the two-pass bridge, early pre-user-init dispatch,
+bounded raw receipt framing, isolated saved read-window snapshot and strict
+joint ECAM/alias/exit/session persistence validation. Existing profiles remain
+separate; there is no target-load adapter or new hardware ownership.
+
+Audit first-touch effects and touch next-pass private RAM inside pass0's
+existing clock/root/IRQ guards before its census. Do not reset or move work
+outside either lifetime, mask A/D changes, or change mapper, source, census,
+gap, iteration or saved-tail limits. Keep all complete raw observations.
+Retain terminal ownership/IRQ exclusion on uncertain publication/cleanup.
+Add real producer/joint mutation/refusal tests, native/portable/sanitizer and
+matched build/core/exact staged VM checks. Merge, then preserve recovery and
+prior USB files, install/verify one-shot payload and collection records, and
+run the unattended qualification with visible progress and automatic return.
+Native acceptance requires the matching collected session; missing completion
+or a halt is not a pass. No policy or register-read permission is introduced.
+
+The v7 boot implementation now selects a separate ELF without the old window
+backend, enforces the explicit two-pass token and runs before user init. It
+charges next-pass private RAM first-touch to pass0 before its census with live
+per-page deadline/root guards; pass1 retains its full preparation. A bounded
+R1/Z1 envelope uses the existing quiesced isolated `window.log` save. Joint
+validation binds it to early ECAM and independent source/alias/exit proofs,
+requires matching saved references and whole-trial completion, and retains
+raw source-to-claim hardware A/D promotions under the existing W1 relation.
+Both claimed lifetimes and both claimed graph snapshots remain exact.
+
+Main/staging files are also present in PR301/PR19; this branch owns only the
+Haswell v7 dispatcher/recipe and dedicated ELF, separate from their device
+features. Their current hunks and unit scopes were inspected; no VMM/two-pass
+feature implementation is duplicated. No cross-task messages were sent.
+
+Frozen runtime `b5d9c92e` passes matched normal/AP/two-pass/USB/ISO builds and
+full `test-core`, including 89 installed-root tests with one explicit opt-in
+skip. Eighteen bridge/encoder and four real early-ECAM/two-pass ASan/UBSan modes
+pass, as do both complete ARM64 fixture links. Five joint persistence/profile
+tests, seven decoder/producer tests, backend bit/ownership failures and eleven
+legacy window-profile tests pass. All eleven sequential diagnostic VM cases
+and five ordinary syscall/UEFI USB keyboard/fork/exec/yield VMs pass.
+
+Exact v7 candidate `390c4221b5e50422` passes both unsupported-Q35 refusal and
+missing-workspace rehearsal. The native ELF contains both fresh gate instances
+and the new backend/envelope, without legacy window or host-hook symbols.
+Host fixtures retain 63476 mapper words/pass and the original firmware/time/
+census/gap bounds. They do not accept native timing or hardware behavior.
+
+The local immutable-artifact helper's same-inode rename corner case was caught
+by payload verification and corrected without changing payload bytes; failed
+harness evidence is retained and the remaining VM checks passed. Twenty-four
+verified duplicate host initramfs copies were hardlinked, preserving all bytes.
+Unreferenced EFI payload `a80942d96c7c830c` was retired only after verifying its
+independent complete backup and absence from current/recovery/GRUB references.
+Accepted current `92d9f134639f509c` and recovery `c35475f62f154f1e` remain intact.
+The automated native trial is being prepared; acceptance remains pending its
+matching collected raw session and all prior-file/offline-integrity checks.

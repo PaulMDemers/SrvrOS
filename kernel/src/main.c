@@ -11,6 +11,9 @@
 #include <srvros/haswell_cache_context.h>
 #include <srvros/ecam_boot.h>
 #include <srvros/air61_window.h>
+#ifdef SRVROS_AIR61_READ_QUALIFICATION
+#include <srvros/air61_read_qualification.h>
+#endif
 #include <srvros/posix_capture.h>
 #include <srvros/acpi.h>
 #include <srvros/autotest.h>
@@ -510,6 +513,9 @@ void kmain(void) {
         }
     }
 
+#ifdef SRVROS_AIR61_READ_QUALIFICATION
+    if(!cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-no-read")){console_write("Two-pass kernel requires explicit qualification token\n");halt_forever();}
+#endif
 #ifdef SRVROS_AP_PROBE
     if(!cmdline_has_token(cmdline,"srvros.capture=haswell-backing") &&
        !cmdline_has_token(cmdline,"srvros.capture=haswell-firmware") &&
@@ -567,8 +573,19 @@ void kmain(void) {
     if (mouse_ready) {
         ioapic_route_isa_irq(12, 44);
     }
-    bool window_test=cmdline_has_token(cmdline,"srvros.vtd-window=air61-no-read");
+    bool window_requested=cmdline_has_token(cmdline,"srvros.vtd-window=air61-no-read");
+#ifdef SRVROS_AIR61_READ_QUALIFICATION
+    if(window_requested)halt_forever();
+    const bool window_test=false;
+#else
+    bool window_test=window_requested;
+#endif
     bool ecam_test=cmdline_has_token(cmdline,"srvros.ecam=air61-2m-test");
+    bool read_test=cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-no-read");
+    if(read_test && (window_test || !ecam_test))halt_forever();
+#ifndef SRVROS_AIR61_READ_QUALIFICATION
+    if(read_test){console_write("Two-pass qualification requires its isolated kernel\n");halt_forever();}
+#endif
     if(window_test && !ecam_test)halt_forever();
     if(ecam_test) {
 #ifdef SRVROS_AP_PROBE
@@ -751,13 +768,16 @@ void kmain(void) {
        cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx-preinit"))
     {
         uint64_t window_irq=0;
-        if(window_test){
+        if(window_test || read_test){
             boot_status("window-progress: fresh bounded mapping/retirement, zero target loads; no input needed\n");
             __asm__ volatile("pushfq; popq %0; cli":"=r"(window_irq)::"memory");
         }
         bool aliases_ready=haswell_alias_context_prepare();
-        if(window_test){
-            if(aliases_ready)(void)haswell_air61_window_run();
+        if(window_test || read_test){
+#ifdef SRVROS_AIR61_READ_QUALIFICATION
+            if(read_test && aliases_ready)(void)haswell_air61_read_qualify();
+#endif
+            if(window_test && aliases_ready)(void)haswell_air61_window_run();
             if(window_irq&512)__asm__ volatile("sti":::"memory");
             boot_status("window-progress: safe outcome recorded; saving results and returning to Ubuntu\n");
         }
@@ -924,8 +944,14 @@ void kmain(void) {
                 bool saved=quiet && workspace_log_ecam_snapshot();
                 bool window_proof=true,window_saved=true;
                 if(window_test){window_proof=haswell_air61_window_report(directory);window_saved=workspace_log_window_snapshot();}
+#ifdef SRVROS_AIR61_READ_QUALIFICATION
+                if(read_test){window_proof=haswell_air61_read_report(directory);window_saved=workspace_log_window_snapshot();}
+#endif
                 bool aliases=haswell_alias_context_report();
                 if(window_test)haswell_air61_window_reference(directory,window_saved);
+#ifdef SRVROS_AIR61_READ_QUALIFICATION
+                if(read_test)haswell_air61_read_reference(directory,window_saved);
+#endif
                 haswell_ecam_boot_reference(directory,saved);
                 console_printf("laptop-capture: boot options=%s\n",cmdline);
                 sampled=proof && saved && aliases && window_proof && window_saved;
