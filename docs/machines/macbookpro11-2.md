@@ -15002,3 +15002,16 @@ Collect build/bringup/wifi-data5-repeat1/run_root.py return_collect FIRST once
 back;do not recollect/reseal the first190-file capsule. PR19 stays draft;Actions
 remain disabled. TCP/HTTP,ordinary provider/UI and live reattach follow;Demers2.4
 still requires compatible hardware.
+
+
+The unchanged repeat is prepared in its independent local capsule. Exact
+installed/preserved-payload equality,all original qualified source-input hashes,
+first190-file native proof and26-file accepted-note seals,retained recoveries
+and prior capsule references pass. The first generated session was separately
+archived,byte-verified and pruned only after confirming its complete accepted
+backup. Offline fsck/allocation,writable eligibility and headroom pass;workspace
+is unmounted. No rebuild,restage,new local test run or EFI retirement was needed.
+Source77f75af0/releasee17ff9e2fb15fb2c and a1661937 remain the actual runtime/base;
+mainf94d97d1 is inspected only. Ubuntu remains default and the repeat is unarmed
+at this checkpoint. Next authorized action is the documented cold shutdown;
+collect the independent repeat1 session first afterward.
