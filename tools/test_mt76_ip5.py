@@ -7,7 +7,7 @@ import sys
 
 U8=C.c_ubyte;V=C.c_void_p;N=C.c_size_t;G=C.c_uint64
 class State(C.Structure):
-    _fields_=[(n,C.c_bool) for n in ('attempted','complete','unsafe','discover','offer','request','ack','arp_dns','dns','arp_router','echo','exhausted')]+[(n,C.c_uint) for n in ('phase','sends','polls','ignored')]+[('arp_class',C.c_uint*9)]+[(n,C.c_uint32) for n in ('xid','address','server','mask','router','resolver','answer')]+[(n,U8*6) for n in ('station','dns_mac','router_mac')]+[('tx',U8*1514),('rx',U8*1514)]
+    _fields_=[(n,C.c_bool) for n in ('attempted','complete','unsafe','discover','offer','request','ack','arp_dns','dns','arp_router','echo','exhausted')]+[(n,C.c_uint) for n in ('phase','sends','polls','ignored')]+[('arp_class',C.c_uint*9),('dhcp_class',(C.c_uint*29)*2),('dhcp_type',(C.c_uint*4)*2)]+[(n,C.c_uint32) for n in ('xid','address','server','mask','router','resolver','answer')]+[(n,U8*6) for n in ('station','dns_mac','router_mac')]+[('tx',U8*1514),('rx',U8*1514)]
 Owned=C.CFUNCTYPE(C.c_bool,V);Send=C.CFUNCTYPE(C.c_int,V,V,N);Poll=C.CFUNCTYPE(C.c_bool,V,V,N,C.POINTER(N),C.POINTER(C.c_bool));Delay=C.CFUNCTYPE(C.c_bool,V,C.c_uint);Now=C.CFUNCTYPE(G,V)
 Exhausted=C.CFUNCTYPE(C.c_bool,V)
 class IO(C.Structure):
@@ -176,4 +176,58 @@ ok,state,*_=trial(mutate=request_for_us)
 assert not ok and state.arp_class[3]==1 and state.arp_class[8]==1
 ok,state,*_=trial(mutate=lambda at,p:p+bytes(10) if at in (2,4) else p)
 assert ok and state.arp_class[7]==2 and sum(state.arp_class)==2
-print('mt76-ip5: PASS independent synthetic DHCP DORA,local/routed DNS ARP,shared strict DNS parser,256-byte echoed payload;all ownership/send/poll/time bounds and directed wire/checksum/span/payload refusals;no native IP acceptance')
+# First refusal is counted once per authenticated DHCP-phase frame;the
+# independent server rebuilds checksums around semantic BOOTP mutations.
+def wrapped_change(phase,fn):
+    def f(at,p):
+        if at!=phase:return p
+        body=bytearray(p[42:]);value=fn(body)
+        return wrap_udp(bytes(body if value is None else value),67,68,server,bytes([255])*4)
+    return f
+def set_body(offset,value):
+    def f(body):body[offset:offset+len(value)]=value
+    return f
+def options_only(value):return lambda body:bytes(body[:240])+value
+def raw_change(phase,offset):
+    def f(at,p):
+        if at!=phase:return p
+        b=bytearray(p);b[offset]^=1;return bytes(b)
+    return f
+def bad_mask(body):
+    at=240
+    while body[at]!=255:
+        kind=body[at];n=body[at+1]
+        if kind==1:body[at+2:at+6]=bytes([255])*4;return
+        at+=2+n
+    raise AssertionError('independent server mask missing')
+cases=[
+ (0,0,lambda at,p:p[:13] if at==0 else p),
+ (1,0,changed(0,12,1)),(2,0,changed(0,0,2)),(3,0,changed(0,6,1)),
+ (4,0,changed(0,14,1)),(5,0,changed(0,20,1)),(6,0,changed(0,22,64)),(7,0,changed(0,23,1)),
+ (8,0,raw_change(0,24)),(9,1,changed(1,30,1)),
+ (10,0,lambda at,p:ethernet(ip_packet(b'1234567',17,server,bytes([255])*4)) if at==0 else p),
+ (11,0,changed(0,34,1)),(12,0,raw_change(0,40)),
+ (13,0,wrapped_change(0,lambda body:bytes(body[:239]))),
+ (14,0,wrapped_change(0,set_body(0,bytes([1])))),
+ (15,0,wrapped_change(0,set_body(4,bytes(4)))),
+ (16,0,wrapped_change(0,set_body(28,bytes(6)))),
+ (17,0,wrapped_change(0,set_body(236,bytes(4)))),
+ (18,0,wrapped_change(0,options_only(bytes([53,255,2,255])))),
+ (19,0,wrapped_change(0,options_only(bytes([53,1,2,53,1,2,255])))),
+ (20,0,wrapped_change(0,options_only(bytes([53,2,2,0,255])))),
+ (21,0,wrapped_change(0,lambda body:bytes(body[:-1])+bytes([1]))),
+ (22,0,wrapped_change(0,options_only(bytes([255])))),
+ (23,0,wrapped_change(0,options_only(bytes(60)))),
+ (24,0,wrapped_change(0,set_body(242,bytes([5])))),
+ (25,0,wrapped_change(0,set_body(16,bytes(4)))),
+ (26,1,wrapped_change(1,bad_mask)),(27,0,changed(0,30,1)),
+]
+for reason,phase,mutation in cases:
+    ok,state,_=trial(mutate=mutation)
+    assert not ok and state.dhcp_class[phase][reason]==1 and sum(state.dhcp_class[phase])==1,(reason,phase,list(state.dhcp_class[phase]))
+    assert state.dhcp_class[phase][28]==0 and not state.unsafe
+ok,state,_=trial();assert ok and state.dhcp_class[0][28]==state.dhcp_class[1][28]==1 and list(state.dhcp_type[0])==[1,0,0,0] and list(state.dhcp_type[1])==[0,1,0,0]
+for kind,column in ((5,1),(6,2),(7,3)):
+    ok,state,_=trial(mutate=wrapped_change(0,set_body(242,bytes([kind]))))
+    assert not ok and state.dhcp_type[0][column]==1 and state.dhcp_class[0][24]==1 and not state.offer
+print('mt76-ip5: PASS independent synthetic DHCP DORA,local/routed DNS ARP,shared strict DNS parser,256-byte echoed payload;all ownership/send/poll/time bounds,29 first-refusal categories,structurally bound message classes and directed wire/checksum/span/payload refusals;no native IP acceptance')

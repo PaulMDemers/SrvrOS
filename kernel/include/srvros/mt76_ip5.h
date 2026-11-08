@@ -7,6 +7,39 @@
  * One DHCP DORA,ARP for the configured DNS hop and router,example.com A query,
  * and one256-byte gateway echo exchange. All waits are separately bounded.
  * The caller retains peer/keys/DMA and performs erase/leave on every outcome. */
+/* First-refusal metadata only;no packet values or acceptance bypass. */
+enum mt76_ip5_dhcp_reason {
+ MT76_IP5_ETH_SPAN,
+ MT76_IP5_ETHERTYPE,
+ MT76_IP5_ETH_DEST,
+ MT76_IP5_ETH_SOURCE,
+ MT76_IP5_IP_SPAN,
+ MT76_IP5_FRAGMENT,
+ MT76_IP5_TTL,
+ MT76_IP5_PROTOCOL,
+ MT76_IP5_IP_CHECKSUM,
+ MT76_IP5_IP_BINDING,
+ MT76_IP5_UDP_SPAN,
+ MT76_IP5_UDP_PORTS,
+ MT76_IP5_UDP_CHECKSUM,
+ MT76_IP5_BOOTP_SPAN,
+ MT76_IP5_BOOTP_HEADER,
+ MT76_IP5_XID,
+ MT76_IP5_STATION,
+ MT76_IP5_COOKIE,
+ MT76_IP5_OPTION_SPAN,
+ MT76_IP5_OPTION_DUPLICATE,
+ MT76_IP5_OPTION_VALUE,
+ MT76_IP5_PADDING,
+ MT76_IP5_REQUIRED,
+ MT76_IP5_END,
+ MT76_IP5_MESSAGE,
+ MT76_IP5_ADDRESS,
+ MT76_IP5_ACK,
+ MT76_IP5_DESTINATION,
+ MT76_IP5_MATCHED,
+ MT76_IP5_DHCP_REASONS
+};
 struct mt76_ip5_io {
  void *context;
  bool (*owned)(void *);
@@ -22,6 +55,7 @@ struct mt76_ip5 {
  /* First refusal class0..7;class8 counts valid requests for our address.
   * Aggregate metadata only;no packet values. */
  unsigned phase,sends,polls,ignored,arp_class[9];
+ unsigned dhcp_class[2][MT76_IP5_DHCP_REASONS],dhcp_type[2][4];
  uint32_t xid,address,server,mask,router,resolver,answer;
  uint8_t station[6],dns_mac[6],router_mac[6],tx[1514],rx[1514];
 };

@@ -7374,3 +7374,16 @@ Frame size and successful CCMP alone do not identify DHCP message type or prove
 transaction/option/checksum acceptance. Next classify those protocol refusals
 without packet values and retain all existing cryptographic,wire and retirement
 checks. ARP,DNS,echo and general connectivity remain unaccepted in this run.
+
+Authenticated DHCP-phase Ethernet now receives exactly one first-refusal class
+per frame. Separate phase0/1 receipts distinguish Ethernet/IP/UDP bounds and
+checksums,ports,BOOTP header/transaction/station/cookie binding,option spans,
+duplicates/unsupported overload,values,padding/end/required options,message
+class and offered/ACK configuration. OFFER/ACK/NAK/other type counts require
+bound,span-validated BOOTP/options;they do not themselves accept an offer.
+The matched counter still requires all existing gates. No packet values or
+transaction/address/option payloads are logged. DNS/ARP/echo acceptance stays
+unchanged. Saved-log validation binds each phase's total to its authenticated
+RX rows and requires matched OFFER/ACK plus the full existing data/retirement
+contract. A diagnostic category is evidence of a refusal,not permission to
+remove the corresponding check.

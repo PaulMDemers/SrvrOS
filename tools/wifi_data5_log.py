@@ -2,6 +2,7 @@
 from wifi_power5_log import fields
 from wifi_held_log import require
 PROGRESS='wifi-data5-progress: authenticated encrypted DHCP,ARP,DNS example.com and256-byte gateway echo;bounded waits;then erase and leave'
+DHCP_FIELDS=('ethernet_span', 'ethertype', 'ethernet_destination', 'ethernet_source', 'ip_span', 'fragment', 'ttl', 'protocol', 'ip_checksum', 'ip_binding', 'udp_span', 'udp_ports', 'udp_checksum', 'bootp_span', 'bootp_header', 'xid', 'station', 'cookie', 'option_span', 'option_duplicate', 'option_value', 'padding', 'required', 'end', 'message', 'address', 'ack', 'destination', 'matched')
 def validate_data(lines,handshake_sends,old_rx,owner,result):
  rows=[x for x in lines if x.startswith('wifi-data5')]
  require(len(rows)>=14 and rows[0]==PROGRESS,'missing encrypted-data progress')
@@ -13,7 +14,11 @@ def validate_data(lines,handshake_sends,old_rx,owner,result):
  arp=[x for x in rows if x.startswith('wifi-data5-arp:')]
  require(len(arp)==1 and rows[-2]==arp[0],'missing ARP classification')
  a=fields(arp[0],'wifi-data5-arp');require(set(a)=={'short','other','format','opcode','destination','sender','target','matched','request_us'} and all(0<=x<=48 for x in a.values()) and a['matched']==2 and a['request_us']<=a['opcode'] and sum(v for k,v in a.items() if k!='request_us')<=48,'invalid ARP classification')
- require(len(rows)==1+len(sends)+len(receives)+2,'unexpected encrypted data receipt')
+ dhcp=[x for x in rows if x.startswith('wifi-data5-dhcp:')]
+ require(len(dhcp)==2 and rows[-4:-2]==dhcp,'missing ordered DHCP classifications')
+ for phase,line in enumerate(dhcp):
+  c=fields(line,'wifi-data5-dhcp');require(set(c)==set(DHCP_FIELDS)|{'phase','offers','acks','naks','other_types'} and c['phase']==phase and all(0<=c[k]<=48 for k in set(c)-{'phase'}) and c['matched']==1 and c['acks' if phase else 'offers']>=1 and sum(c[k] for k in ('offers','acks','naks','other_types'))<=sum(c[k] for k in DHCP_FIELDS)<=48,'invalid DHCP classifications')
+ require(len(rows)==1+len(sends)+len(receives)+4,'unexpected encrypted data receipt')
  for i,(line,n) in enumerate(zip(sends,(404,404,104,136,104,360))):
   require(fields(line,'wifi-data5-send')==dict(index=i,bytes=n,completed=1,pn=i+1),'ciphertext send/PN gap,replay or uncertainty')
  v=fields(summaries[0],'wifi-data5')
@@ -31,6 +36,9 @@ def validate_data(lines,handshake_sends,old_rx,owner,result):
    valid.append(line)
   else:require(a['reason']!=9 and a['present']==a['ethernet']==0,'invalid data view leaked plaintext')
  require(len(valid)==v['received'],'authenticated data receive count differs')
+ for phase,line in enumerate(dhcp):
+  c=fields(line,'wifi-data5-dhcp');actual=sum(lines.index(sends[phase])<lines.index(rx)<lines.index(sends[phase+1]) for rx in valid)
+  require(sum(c[k] for k in DHCP_FIELDS)==actual,'DHCP classifications do not match authenticated phase frames')
  for i,line in enumerate(sends):
   end=sends[i+1] if i<5 else summaries[0]
   require(any(lines.index(line)<lines.index(rx)<lines.index(end) for rx in valid),'missing authenticated response between diagnostic sends')
