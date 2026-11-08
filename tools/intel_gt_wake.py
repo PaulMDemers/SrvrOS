@@ -3,6 +3,12 @@ import re
 FIELDS='v compiled contract efi64 loader recipe serialized prerequisites profile fw_quiet req_quiet initial_req initial_ack grants acquired before opened checked closed fw_after after released maps retired cache_checks guards retained state reason writes attempts requests ack thread begin_us end_us complete engine_reads pte_writes managed_pages smm_retired hardware_ownership'.split()
 BOOL='compiled contract efi64 loader recipe serialized prerequisites profile fw_quiet req_quiet acquired before opened checked closed fw_after after released retained complete'.split()
 HEX={'initial_req','initial_ack','requests','ack','thread'}
+def clock_row(line):
+ from intel_engine_census import _fields
+ c=_fields(line,'intel-clock:',['v','why','at','prev','phase','n'])
+ if c['v']!=1 or c['why']>63 or c['n']>200000 or any(c[k]>=1<<64 for k in ('at','prev','phase')):raise ValueError('clock schema/range')
+ if not c['why'] and any(c[k] for k in ('at','prev','phase')):raise ValueError('clock unexplained sample')
+ return c
 def wake_result(text):
  if any(l.startswith('intel-wake-') and not l.startswith('intel-wake-summary:') for l in text.splitlines()):raise ValueError('wake unknown receipt')
  lines=[l for l in text.splitlines() if l.startswith('intel-wake-summary:')]
@@ -15,21 +21,30 @@ def wake_result(text):
   s[k]=int(v,16 if k in HEX else 10)
   if s[k]>=1<<64:raise ValueError('wake overflow')
  if any(s.get(k,0)>=1<<32 for k in HEX):raise ValueError('wake DWORD width')
- if set(s)!=set(FIELDS) or s['v'] not in (1,2,3,4,5,6) or any(s[k]>1 for k in BOOL):raise ValueError('wake schema/boolean')
+ if set(s)!=set(FIELDS) or s['v'] not in (1,2,3,4,5,6,7) or any(s[k]>1 for k in BOOL):raise ValueError('wake schema/boolean')
  if any(s[k] for k in ('pte_writes','managed_pages','smm_retired','hardware_ownership')):raise ValueError('wake unsupported ownership')
- if s['grants'] not in (0,7) or s['engine_reads']>({1:0,2:60,3:92,4:92,5:92,6:184}[s['v']]) or s['maps']>({1:3,2:8,3:11,4:9,5:9,6:13}[s['v']]) or s['retired']>s['maps'] or s['cache_checks']>({1:3,2:8,3:11,4:9,5:9,6:13}[s['v']]) or s['writes']>3 or s['attempts']>3 or s['writes']>s['attempts'] or s['state']>4 or s['reason']&~2047 or s['guards']>200000:raise ValueError('wake counts')
+ if s['grants'] not in (0,7) or s['engine_reads']>({1:0,2:60,3:92,4:92,5:92,6:184,7:184}[s['v']]) or s['maps']>({1:3,2:8,3:11,4:9,5:9,6:13,7:13}[s['v']]) or s['retired']>s['maps'] or s['cache_checks']>({1:3,2:8,3:11,4:9,5:9,6:13,7:13}[s['v']]) or s['writes']>3 or s['attempts']>3 or s['writes']>s['attempts'] or s['state']>4 or s['reason']&~2047 or s['guards']>200000:raise ValueError('wake counts')
  if s['contract']!=s['compiled'] or s['checked']>s['opened'] or s['closed']>s['checked'] or max(s['before'],s['after'],s['released'])>s['acquired'] or s['retained'] and s['released']:raise ValueError('wake lifecycle')
  if s['grants'] and not all(s[k] for k in ('compiled','contract','efi64','loader','recipe','serialized','prerequisites','profile','fw_quiet','req_quiet','acquired','before')):raise ValueError('wake missing contract')
- if s['attempts'] and (not s['grants'] or s['maps']!=({1:3,2:8,3:11,4:9,5:9,6:13}[s['v']]) or s['cache_checks']!=({1:3,2:8,3:11,4:9,5:9,6:13}[s['v']])):raise ValueError('wake issued without prerequisites')
+ if s['attempts'] and (not s['grants'] or s['maps']!=({1:3,2:8,3:11,4:9,5:9,6:13,7:13}[s['v']]) or s['cache_checks']!=({1:3,2:8,3:11,4:9,5:9,6:13,7:13}[s['v']])):raise ValueError('wake issued without prerequisites')
  if s['state']==4 and not s['retained']:raise ValueError('wake fault not retained')
  if not s['compiled'] and any(v for k,v in s.items() if k!='v'):raise ValueError('wake ordinary writer')
- complete=all(s[k] for k in ('compiled','contract','efi64','loader','recipe','serialized','prerequisites','profile','fw_quiet','req_quiet','acquired','before','opened','checked','closed','fw_after','after','released')) and s['grants']==7 and s['maps']==s['retired']==s['cache_checks']==({1:3,2:8,3:11,4:9,5:9,6:13}[s['v']]) and s['writes']==s['attempts']==3 and s['engine_reads']==({1:0,2:60,3:92,4:92,5:92,6:184}[s['v']]) and not s['retained'] and s['state']==3 and not s['reason'] and not s['initial_req']&65535 and not s['initial_ack'] and not s['requests']&65535 and not s['ack'] and not s['thread']&7 and 0<s['begin_us']<s['end_us']<=s['begin_us']+500000 and s['guards']>0
+ complete=all(s[k] for k in ('compiled','contract','efi64','loader','recipe','serialized','prerequisites','profile','fw_quiet','req_quiet','acquired','before','opened','checked','closed','fw_after','after','released')) and s['grants']==7 and s['maps']==s['retired']==s['cache_checks']==({1:3,2:8,3:11,4:9,5:9,6:13,7:13}[s['v']]) and s['writes']==s['attempts']==3 and s['engine_reads']==({1:0,2:60,3:92,4:92,5:92,6:184,7:184}[s['v']]) and not s['retained'] and s['state']==3 and not s['reason'] and not s['initial_req']&65535 and not s['initial_ack'] and not s['requests']&65535 and not s['ack'] and not s['thread']&7 and 0<s['begin_us']<s['end_us']<=s['begin_us']+500000 and s['guards']>0
+ clock_lines=[l for l in text.splitlines() if l.startswith('intel-clock')]
+ clock=None
+ if s['v']==7:
+  if len(clock_lines)!=1:raise ValueError('clock coverage')
+  clock=clock_row(clock_lines[0])
+  if text.index(clock_lines[0])>text.index(lines[0]):raise ValueError('clock order')
+  if bool(s['reason']&256)!=bool(clock['why']):raise ValueError('clock reason binding')
+  if complete and (clock['why'] or not clock['n']):raise ValueError('clock successful snapshot coverage')
+ elif clock_lines:raise ValueError('clock wrong wake version')
  # A v2 census can refuse after completing all60 DWORDs (for example the
  # final word floats). A declared incomplete census may never become a pass
  # merely because the wake protocol and its resource closeout succeeded.
  if s['complete']!=int(complete) and not (s['v']>=2 and not s['complete']):raise ValueError('wake completion')
  complete=complete and bool(s['complete'])
- return dict(lease_complete=complete,native_wake_complete=False,cooperative_firmware_contract=bool(s['contract']),smm_retirement=False,engine_retirement=False,hardware_ownership=False,managed_range=False,physical_tearfree=False,summary=s)
+ return dict(lease_complete=complete,native_wake_complete=False,cooperative_firmware_contract=bool(s['contract']),smm_retirement=False,engine_retirement=False,hardware_ownership=False,managed_range=False,physical_tearfree=False,summary=s,clock=clock)
 def native_wake_result(text):
  r=wake_result(text)
  if not r or not r['lease_complete']:return r
@@ -51,7 +66,7 @@ def native_wake_result(text):
    if decoded is None or decoded[0]!=0 or decoded[2]!=0:raise ValueError('wake UC MTRR/effective type')
  if r['summary']['v']>=2:
   from intel_engine_census import engine_result,PAGES
-  if r['summary']['v'] in (4,5,6):
+  if r['summary']['v'] in (4,5,6,7):
    from intel_completion_audit import completion_result
    completion=completion_result(text)
    if not completion or not completion['observation_complete']:raise ValueError('completion native coverage')
@@ -63,7 +78,7 @@ def native_wake_result(text):
    for offset in PAGES:
     decoded=_page(s,regions,gt['summary']['mmio']+offset,2)
     if decoded is None or decoded[0]!=0 or decoded[2]!=0:raise ValueError('engine UC MTRR/effective type')
- if r['summary']['v'] in (4,5,6):
+ if r['summary']['v'] in (4,5,6,7):
   for n,s in enumerate(cache['rows']['sample']):
    regions=_snapshot(s,[x for x in cache['rows']['variable'] if x['sample']==n],[x for x in cache['rows']['fixed'] if x['sample']==n])
    d=_page(s,regions,gt['summary']['mmio']+0x4000,2)
@@ -94,7 +109,7 @@ def native_wake_result(text):
   from intel_reset_ready import reset_ready_result
   ready=reset_ready_result(text)
   if not ready or not ready['complete']:raise ValueError('reset readiness native coverage')
- if r['summary']['v']==6:
+ if r['summary']['v'] in (6,7):
   from intel_bcs_reset import bcs_result
   b=bcs_result(text)
   if not b or not b['complete']:raise ValueError('BCS native preservation')

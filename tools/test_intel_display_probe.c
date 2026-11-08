@@ -19,6 +19,7 @@ static bool intel_display_test_completion_context(unsigned,uint32_t *);
 #endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
 static unsigned bcs_reset_writes,bcs_plane_calls;
+static bool intel_display_test_wake_snapshot(uint32_t *,uint32_t *,uint32_t *);
 static bool intel_display_test_bcs_read(uint32_t,uint32_t *);
 static enum intel_gt_write intel_display_test_bcs_write(uint32_t,uint32_t);
 #endif
@@ -606,5 +607,20 @@ static enum intel_gt_write intel_display_test_bcs_write(uint32_t reg,uint32_t va
  if(!strcmp(engine_mode,"bcs-none") || (!strcmp(engine_mode,"bcs-second-none") && bcs_reset_writes==2))return GT_WRITE_NONE;
  ready_control=0;
  return (!strcmp(engine_mode,"bcs-uncertain") || (!strcmp(engine_mode,"bcs-second-uncertain") && bcs_reset_writes==2))?GT_WRITE_UNCERTAIN:GT_WRITE_DONE;
+}
+#endif
+
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+static bool intel_display_test_wake_snapshot(uint32_t *r,uint32_t *a,uint32_t *t) {
+ assert(wake_irq && !display_access_allowed());
+ if(!intel_display_test_wake_read(INTEL_GT_REQUEST,r) || !intel_display_test_wake_read(INTEL_GT_ACK,a) || !intel_display_test_wake_read(INTEL_GT_THREAD,t))return false;
+ if(bcs_reset_writes==2 && ready_writes==2){
+  if(!strcmp(engine_mode,"snap-read"))return false;
+  if(!strcmp(engine_mode,"snap-foreign"))*r|=2;
+  if(!strcmp(engine_mode,"snap-total"))ticks+=300001;
+  if(!strcmp(engine_mode,"snap-phase"))ticks+=100001;
+  if(!strcmp(engine_mode,"snap-backward"))ticks=1;
+ }
+ return true;
 }
 #endif

@@ -52,7 +52,7 @@ static void parent_pause(void *p) {
 int main(int argc,char **argv) {
  struct ready_model m={.m={.t=1000,.mode="normal"},.mode=argc>1?argv[1]:"normal"};
  struct display_access_token token;assert(display_access_acquire(18,&token));struct intel_gt_access g={0};m.parent=&g;
- assert(intel_gt_access_open(&g,&token,7,(struct intel_gt_io){&m.m,guard,read_gt,write_gt,now,parent_pause}));
+ assert(intel_gt_access_open(&g,&token,7,(struct intel_gt_io){&m.m,guard,read_gt,write_gt,now,parent_pause,NULL}));
  struct intel_completion_result c={0};assert(intel_completion_observe(&c,&g,(struct intel_completion_io){&m.m,obs_guard,group,context,obs_now}));
  if(mode(&m,"borrow")) {
   struct intel_gt_borrow a={0},b={0};assert(intel_gt_access_borrow(&g,&a));assert(intel_gt_access_borrow(&g,&b));

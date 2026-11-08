@@ -22,7 +22,7 @@ int main(int argc,char **argv){
  const char *mode=argc>1?argv[1]:"success";bool entry=!strncmp(mode,"off-",4);if(entry)mode+=4;
  struct model m={.t=1000,.ctl=entry?0:0xf001,.mode=mode,.entry=entry};
  struct display_access_token token;assert(display_access_acquire(17,&token));struct intel_gt_access g={0};
- assert(intel_gt_access_open(&g,&token,7,(struct intel_gt_io){&m,guard,read_gt,write_gt,now,pause_gt}));
+ assert(intel_gt_access_open(&g,&token,7,(struct intel_gt_io){&m,guard,read_gt,write_gt,now,pause_gt,NULL}));
  struct intel_blitter_result b={0};struct intel_gt_access copy=g;
  struct intel_blitter_io io={&m,bguard,bread,entry && strcmp(mode,"callback")?0:bwrite,bnow};
  bool ok=entry?intel_blitter_observe_disabled(&b,!strcmp(mode,"copy")?&copy:&g,strcmp(mode,"no-handoff")!=0,io):intel_blitter_disable(&b,!strcmp(mode,"copy")?&copy:&g,strcmp(mode,"no-handoff")!=0,io);

@@ -49,7 +49,7 @@ static bool context(void *p,uint32_t w[6]) {
 }
 int main(int argc,char **argv){
  struct model m={.t=1000,.mode=argc>1?argv[1]:"normal"};struct display_access_token token;assert(display_access_acquire(18,&token));struct intel_gt_access g={0};
- assert(intel_gt_access_open(&g,&token,7,(struct intel_gt_io){&m,guard,read_gt,write_gt,now,pause_gt}));
+ assert(intel_gt_access_open(&g,&token,7,(struct intel_gt_io){&m,guard,read_gt,write_gt,now,pause_gt,NULL}));
  struct intel_gt_access copied=g;struct intel_completion_result r={0};struct intel_completion_io io={&m,obs_guard,group,context,obs_now};
  bool ok=intel_completion_observe(&r,is(&m,"copy")?&copied:&g,io);
  if(!strncmp(m.mode,"final-",6)){

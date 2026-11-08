@@ -573,6 +573,10 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-clock'):
+        from intel_gt_wake import clock_row
+        try:return bool(clock_row(line)['why'])
+        except ValueError:return True
     if line.startswith('intel-bcs-summary:'):
         from intel_bcs_reset import summary
         try:return not summary(line)['complete']

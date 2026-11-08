@@ -234,3 +234,23 @@ The [latest unit result](machines/macbookair7-2.md#latest-bcs-reset-trial-acknow
 retains the photo, raw timings and next scope: reduce guard overhead and expose
 failed-clock detail without changing deadlines or allowing forced retirement.
 No complete native reset/preservation or memory-ownership acceptance follows.
+
+## Guarded requester grouping and clock failure evidence
+
+The next isolated BCS image uses the optional requester/ACK/thread snapshot in
+the [GT contract](intel-gt-access.md#optional-guarded-requester-snapshot), while
+older images keep their individual-register path. Every grouped check still
+performs full fresh admission before, inside and after the ordered RO loads.
+All raw backing/PTE/fence validations remain; no guard result is cached across
+operations. The source model measures8→3 complete audits per check, with exact
+raw endpoint equivalence. This is host cost evidence, not native timing acceptance.
+
+Wake v7 retains13 mappings and184 pre/post engine reads, and requires exactly
+one compact `intel-clock` row after the BCS report and before the wake summary.
+It binds the first failed sample, previous accepted time, phase and cause mask,
+using the existing BCS owner origin, plus the snapshot attempt count. Derived
+failure bits must agree with the GT clock reason; successful v7 collection needs
+positive snapshot coverage and no clock fault. Unknown/duplicate/missing fields
+remain errors. Earlier v6 reports retain their original interpretation; the
+ffd7 retained-parent trial remains incomplete.100/300/500ms bounds, core pin
+return, post-reset preservation and uncertainty retention remain mandatory.

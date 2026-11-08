@@ -348,3 +348,27 @@ possibly destructive operation. Reset consumes the epoch before its first
 possible domain store and never rolls it back. This model is outside native
 images. Existing wake/completion receipts and physical acceptance retain their
 original semantics; epochs grant no DMA, cache or backing retirement.
+
+## Optional guarded requester snapshot
+
+The dedicated BCS diagnostic can supply an optional ordered RO snapshot of the
+requester, acknowledgement and thread DWORDs. A check keeps full core admission
+before and after the group and the provider performs its own full admission;
+it checks exact mapped aliases, root/IRQ/exclusion, all fresh backing/PTE/fence
+and endpoint facts. The same three non-clearing DWORDs are then read together.
+The core still validates floating/foreign/C0 state and clocks before/after;
+failed reads, admission or clocks retain ownership. Older images supply NULL
+and use the original individual-register path. This adds no writer or grant.
+The snapshot changes the number of complete validation passes for a check from
+8 to3, without caching their result across checks or removing raw vector loads.
+Host source comparison must preserve raw engine, reset, reader/config endpoints.
+Native latency improvement remains subject to a physical trial.
+
+The first failed clock sample is retained with its previous accepted timestamp,
+phase origin and cause mask:1 zero,2 backward,4 phase overrun,8 whole-owner
+overrun,16 saturated opening origin,32 frozen progress. Later failed checks
+cannot replace it. Limits remain100ms per phase and300ms per owner. The new BCS
+wake v7 receipt adds a compact `intel-clock` row with snapshot count; its owner
+origin is already bound in the BCS summary. Collectors derive clock causes from
+those values and require the new row only for v7, leaving v1–v6 meanings intact.
+The BCS core100ms and outer500ms limits remain separate and unchanged.

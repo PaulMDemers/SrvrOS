@@ -31,6 +31,12 @@ enum intel_gt_write {GT_WRITE_NONE,GT_WRITE_DONE,GT_WRITE_UNCERTAIN};
 /* Private provider context/grants must survive through retirement. Supply
  * ordered UC DWORD I/O: DONE means definitely issued, not hardware completion;
  * reads/ACK prove completion. NONE guarantees no issued write. */
+#define GT_CLOCK_ZERO 1u
+#define GT_CLOCK_BACKWARD 2u
+#define GT_CLOCK_PHASE 4u
+#define GT_CLOCK_TOTAL 8u
+#define GT_CLOCK_SATURATED 16u
+#define GT_CLOCK_FROZEN 32u
 struct intel_gt_io {
     void *context;
     bool (*guard)(void *); /* Exact resource/profile, all grants still held. */
@@ -38,12 +44,19 @@ struct intel_gt_io {
     enum intel_gt_write (*write)(void *,uint32_t,uint32_t);
     uint64_t (*now)(void *);
     void (*pause)(void *); /* Bounded service/delay, never changes this owner. */
+    /* Optional ordered RO requester/ACK/thread group. Core still fully guards
+     * before/after and checks clocks/values; provider admits the exact aliases.
+     * No submission, reset, ownership or asynchronous-context permission. */
+    bool (*snapshot)(void *,uint32_t *,uint32_t *,uint32_t *);
 };
 struct intel_gt_access {
     const struct intel_gt_access *object;
     struct display_access_token exclusion;
     struct intel_gt_io io;
     uint64_t begin,last;
+    /* First failed sample survives later refusal/close attempts. */
+    uint64_t clock_sample,clock_previous,clock_phase;
+    uint32_t clock_cause,snapshots;
     uint32_t state,reason,requests,ack,thread,write_attempts,writes,polls;
     bool pinned;
     unsigned borrows;

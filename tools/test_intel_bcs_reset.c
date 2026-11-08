@@ -95,7 +95,7 @@ static bool changing_gt_guard(void *p) {
 int main(int argc,char **argv) {
  struct reset_model m={.gt={.t=1000,.mode="normal"},.mode=argc>1?argv[1]:"normal",.point=argc>2?(unsigned)atoi(argv[2]):1};
  struct display_access_token token;assert(display_access_acquire(18,&token));struct intel_gt_access g={0};m.parent=&g;
- assert(intel_gt_access_open(&g,&token,7,(struct intel_gt_io){&m,guard,read_gt,write_gt,now,parent_pause}));
+ assert(intel_gt_access_open(&g,&token,7,(struct intel_gt_io){&m,guard,read_gt,write_gt,now,parent_pause,NULL}));
  if(mode(&m,"nonzero-epoch"))g.engine_epoch=m.start_epoch=17;
  struct intel_completion_result c={0};assert(intel_completion_observe(&c,&g,(struct intel_completion_io){&m.gt,obs_guard,group,context,obs_now}));
  if(mode(&m,"epoch-during-census")) {

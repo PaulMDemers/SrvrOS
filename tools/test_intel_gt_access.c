@@ -7,15 +7,28 @@
 static struct intel_gt_access g;
 static struct display_access_token token;
 static uint32_t request,ack,thread,trace[8];
-static unsigned calls,fail_at,write_calls,pause_calls,ack_wait;
+static unsigned calls,fail_at,write_calls,pause_calls,ack_wait,guard_calls,snapshot_fault;
 static bool never_ack,never_c0,frozen,backward,unissued,uncertain;
 static uint64_t ticks;
 static bool step(void){return ++calls!=fail_at;}
-static bool guard(void *p){assert(p==&g);return step() && display_access_held(&token);}
+static bool guard(void *p){assert(p==&g);++guard_calls;return step() && display_access_held(&token);}
 static bool read_reg(void *p,uint32_t reg,uint32_t *v) {
     assert(p==&g);if(!step())return false;
     assert(reg==INTEL_GT_REQUEST || reg==INTEL_GT_ACK || reg==INTEL_GT_THREAD);
     *v=reg==INTEL_GT_REQUEST?request:reg==INTEL_GT_ACK?ack:thread;return true;
+}
+static bool snapshot(void *p,uint32_t *r,uint32_t *a,uint32_t *t) {
+    if(!guard(p) || !read_reg(p,INTEL_GT_REQUEST,r) || !read_reg(p,INTEL_GT_ACK,a) || !read_reg(p,INTEL_GT_THREAD,t))return false;
+    if(snapshot_fault==1)return false;
+    if(snapshot_fault==2)*r=UINT32_MAX;
+    if(snapshot_fault==3)*a=UINT32_MAX;
+    if(snapshot_fault==4)*t=UINT32_MAX;
+    if(snapshot_fault==5)*r|=2;
+    if(snapshot_fault==6)*a|=2;
+    if(snapshot_fault==7)*t=1;
+    if(snapshot_fault==8)ticks+=300001;
+    if(snapshot_fault==9)ticks=0;
+    return true;
 }
 static enum intel_gt_write write_reg(void *p,uint32_t reg,uint32_t value) {
     assert(p==&g && reg==INTEL_GT_REQUEST && !display_access_allowed());
@@ -31,11 +44,11 @@ static void pause_io(void *p) {
     if(!never_ack && ack_wait && !--ack_wait)ack=request&0xffffu;
     if(ack==1 && !never_c0)thread=0;
 }
-static struct intel_gt_io io(void){return (struct intel_gt_io){&g,guard,read_reg,write_reg,now,pause_io};}
+static struct intel_gt_io io(void){return (struct intel_gt_io){&g,guard,read_reg,write_reg,now,pause_io,NULL};}
 static void fresh(void) {
     state=epoch=owner=pins=0;fault=false;
     memset(&g,0,sizeof(g));request=ack=0;thread=7;memset(trace,0,sizeof(trace));
-    calls=fail_at=write_calls=pause_calls=ack_wait=0;never_ack=never_c0=frozen=backward=unissued=uncertain=false;ticks=1000;
+    calls=fail_at=write_calls=pause_calls=ack_wait=guard_calls=snapshot_fault=0;never_ack=never_c0=frozen=backward=unissued=uncertain=false;ticks=1000;
     assert(display_access_acquire(33,&token));
 }
 static void retained(void) {
@@ -52,6 +65,23 @@ int main(void) {
     assert(intel_gt_access_close(&g) && !g.pinned && !(request&0xffffu) && !ack && g.writes==3);
     assert(trace[0]==0xffff0000u && trace[1]==0x10001 && trace[2]==0x10000);
     unsigned total=calls;assert(!intel_gt_access_close(&g) && display_access_release(&token,true));
+    /* Optional snapshot still has core pre/post and provider admission. */
+    fresh();assert(intel_gt_access_open(&g,&token,7,io()));g.io.snapshot=snapshot;
+    unsigned guards_before=guard_calls;assert(intel_gt_access_check(&g));
+    assert(guard_calls-guards_before==3 && g.snapshots==1 && !g.clock_cause);
+    assert(intel_gt_access_close(&g) && g.snapshots==2 && write_calls==3 && display_access_release(&token,true));
+    for(unsigned f=1;f<=9;f++){
+        fresh();assert(intel_gt_access_open(&g,&token,7,io()));g.io.snapshot=snapshot;snapshot_fault=f;
+        assert(!intel_gt_access_check(&g) && g.snapshots==1 && write_calls==2);
+        if(f==8)assert(g.clock_cause==(GT_CLOCK_PHASE|GT_CLOCK_TOTAL) && g.clock_sample>g.begin+300000);
+        if(f==9)assert(g.clock_cause==GT_CLOCK_BACKWARD && g.clock_sample<g.clock_previous);
+        uint32_t why=g.clock_cause;uint64_t failed=g.clock_sample,previous=g.clock_previous,phase=g.clock_phase;retained();
+        assert(g.clock_cause==why && g.clock_sample==failed && g.clock_previous==previous && g.clock_phase==phase);
+    }
+    for(unsigned cut=1;cut<=6;cut++){
+        fresh();assert(intel_gt_access_open(&g,&token,7,io()));g.io.snapshot=snapshot;fail_at=calls+cut;
+        assert(!intel_gt_access_check(&g) && write_calls==2);retained();
+    }
     for(unsigned upper=0;upper<16;upper++){fresh();request=1u<<(16+upper);assert(intel_gt_access_open(&g,&token,7,io()));assert(intel_gt_access_close(&g) && display_access_release(&token,true));}
     for(unsigned bit=1;bit<=4;bit<<=1){fresh();assert(!intel_gt_access_open(&g,&token,7^bit,io()) && g.reason==bit && !calls && !write_calls && !g.pinned);assert(display_access_release(&token,true));}
     fresh();struct display_access_token wrong=token;wrong.epoch++;assert(!intel_gt_access_open(&g,&wrong,7,io()) && g.reason==GT_ACCESS_EXCLUSION && !calls);

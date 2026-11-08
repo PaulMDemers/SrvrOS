@@ -32,7 +32,7 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
 #define WAKE_MAPS 13u
-#define WAKE_VERSION 6u
+#define WAKE_VERSION 7u
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000,0x70000,0x71000,0x72000};
 #else
 #define WAKE_MAPS 9u
@@ -175,6 +175,21 @@ static bool engine_guard(void *context) {
 #endif
     return (request&0xffffu)==1 && ack==1 && !(thread&7);
 }
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+/* Same three RO DWORDs as engine_guard, under a fresh full adapter guard.
+ * The core brackets this ordered group with independent full guards/clocks. */
+static bool wake_request_snapshot(void *context,uint32_t *request,uint32_t *ack,uint32_t *thread) {
+    struct wake_adapter *a=context;
+    if(!request || !ack || !thread || !a->mapped[0] || !a->mapped[1] || !a->mapped[2] || !wake_guard(a))return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_wake_snapshot(request,ack,thread);
+#else
+    *request=*(volatile const uint32_t *)(WAKE_VA+(INTEL_GT_REQUEST&4095));
+    *ack=*(volatile const uint32_t *)(WAKE_VA+4096+(INTEL_GT_ACK&4095));
+    *thread=*(volatile const uint32_t *)(WAKE_VA+8192+(INTEL_GT_THREAD&4095));return true;
+#endif
+}
+#endif
 #ifndef SRVROS_INTEL_COMPLETION_TRIAL
 static bool engine_group(void *context,unsigned engine,uint32_t out[INTEL_ENGINE_WORDS]) {
     struct wake_adapter *a=context;
@@ -290,7 +305,13 @@ bool intel_gt_wake_probe_report(void) {
             bool mapped=grants!=0;
             for(unsigned i=0;mapped && i<WAKE_MAPS;i++)mapped=wake_map(&a,i);
             if(mapped) {
-                opened=intel_gt_access_open(&owner,&a.fw.gt.token,grants,(struct intel_gt_io){&a,wake_guard,wake_read,wake_write,now,wake_pause});
+                opened=intel_gt_access_open(&owner,&a.fw.gt.token,grants,(struct intel_gt_io){&a,wake_guard,wake_read,wake_write,now,wake_pause,
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+                    wake_request_snapshot
+#else
+                    NULL
+#endif
+                });
                 if(opened)checked=intel_gt_access_check(&owner);
                 #ifdef SRVROS_INTEL_ENGINE_TRIAL
                 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
@@ -368,6 +389,9 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
     engine_reads+=blitter.reads;blitter_report(&blitter,&readers);
     complete=complete && blitter.disabled && !blitter.uncertain && readers.complete;
+#endif
+#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+    console_printf("intel-clock: v=1 why=%u at=%u prev=%u phase=%u n=%u\n",(uint64_t)owner.clock_cause,owner.clock_sample,owner.clock_previous,owner.clock_phase,(uint64_t)owner.snapshots);
 #endif
     console_printf("intel-wake-summary: v=%u compiled=1 contract=1 efi64=%u loader=%u recipe=%u serialized=%u prerequisites=%u profile=%u fw_quiet=%u req_quiet=%u initial_req=%x initial_ack=%x grants=%u acquired=%u before=%u opened=%u checked=%u closed=%u fw_after=%u after=%u released=%u maps=%u retired=%u cache_checks=%u guards=%u retained=%u state=%u reason=%u writes=%u attempts=%u requests=%x ack=%x thread=%x begin_us=%u end_us=%u complete=%u engine_reads=%u pte_writes=0 managed_pages=0 smm_retired=0 hardware_ownership=0\n",
         (uint64_t)WAKE_VERSION,(uint64_t)f.efi64,(uint64_t)f.loader,(uint64_t)f.recipe,(uint64_t)f.serialized,(uint64_t)f.prerequisites,(uint64_t)f.profile,(uint64_t)f.firmware_quiet,(uint64_t)f.requesters_quiet,(uint64_t)fresh_gt.sample[0].requests,(uint64_t)fresh_gt.sample[0].ack,(uint64_t)grants,(uint64_t)acquired,(uint64_t)before,(uint64_t)opened,(uint64_t)checked,(uint64_t)closed,(uint64_t)fw_after,(uint64_t)after,(uint64_t)released,(uint64_t)a.maps,(uint64_t)a.retired,(uint64_t)a.cache_checks,(uint64_t)a.guards,(uint64_t)retained,(uint64_t)owner.state,(uint64_t)owner.reason,(uint64_t)owner.writes,(uint64_t)owner.write_attempts,(uint64_t)owner.requests,(uint64_t)owner.ack,(uint64_t)owner.thread,begin,end,(uint64_t)complete,(uint64_t)engine_reads);

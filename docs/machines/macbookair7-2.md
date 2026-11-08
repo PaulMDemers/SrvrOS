@@ -2,6 +2,19 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Active scope: guarded requester snapshots and first clock-fault evidence
+
+Main remains `f01a1ad4`; Air6,1 PR412, PR19 and PR379 remain independent.
+Bounded objective: reduce duplicated full native backing audits inside GT checks
+using an optional three-register snapshot, with full core pre/post and adapter
+admission, IRQ/root/exclusion/map checks and exact native RO loads. Enable only
+in the dedicated BCS image; older image recipes and callbacks retain their path.
+Add first-fault clock samples and strict versioned receipt binding; keep all
+100/300/500ms limits, full raw backing validation, dependent pins and retained
+state. Scope: GT core/header, BCS/wake adapter, collectors and host/native/VM
+regressions. Preserve the collected failed native result. Qualify/install and
+stop at hardware-test readiness; no reboot is authorized by this scope.
+
 ### Latest BCS reset trial: acknowledged reset, retained parent
 
 Release `ffd7200db10e1b02`, source `5a73d72d`, saved session

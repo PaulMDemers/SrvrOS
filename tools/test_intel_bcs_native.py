@@ -2,7 +2,7 @@ from pathlib import Path
 import re,subprocess,unittest
 from intel_bcs_reset import bcs_result,native_bcs_result,summary
 ROOT=Path(__file__).resolve().parents[1]
-MODES='report bcs-cache bcs-map bcs-retire bcs-initial bcs-foreign bcs-read bcs-none bcs-uncertain bcs-timeout bcs-float bcs-second-timeout bcs-second-none bcs-second-uncertain bcs-postread bcs-postengine bcs-plane bcs-plane-read bcs-audio ready-read ready-initial ready-reserved ready-float ready-late-read ready-busy ready-drift ready-none ready-cancel-none ready-timeout ready-cancel-timeout ready-uncertain ready-foreign active pending flip-wait tlb-pending changed float read-fail cache-last map-last retire-last late-foreign slow frozen tlb-cache tlb-map tlb-retire'.split()
+MODES='report snap-read snap-foreign snap-total snap-phase snap-backward bcs-cache bcs-map bcs-retire bcs-initial bcs-foreign bcs-read bcs-none bcs-uncertain bcs-timeout bcs-float bcs-second-timeout bcs-second-none bcs-second-uncertain bcs-postread bcs-postengine bcs-plane bcs-plane-read bcs-audio ready-read ready-initial ready-reserved ready-float ready-late-read ready-busy ready-drift ready-none ready-cancel-none ready-timeout ready-cancel-timeout ready-uncertain ready-foreign active pending flip-wait tlb-pending changed float read-fail cache-last map-last retire-last late-foreign slow frozen tlb-cache tlb-map tlb-retire'.split()
 def adapter(mode='report'):
  return subprocess.check_output([str(ROOT/'build/tests/intel-bcs-adapter'),'--wake-engine-'+mode],text=True)
 def native_text():
@@ -40,5 +40,25 @@ class NativeBcsTests(unittest.TestCase):
   for line in adapter().splitlines():
    if line.startswith(('intel-bcs-summary:','intel-bcs-post-summary:')):
     self.assertFalse(needs_attention(line));self.assertTrue(needs_attention(line+' extra=0'))
+ def test_actual_snapshot_clock_faults(self):
+  from intel_gt_wake import wake_result
+  for mode,why in [('snap-total',12),('snap-phase',4),('snap-backward',2)]:
+   with self.subTest(mode=mode):
+    t=adapter(mode);w=wake_result(t);self.assertEqual(w['clock']['why'],why)
+    self.assertFalse(bcs_result(t)['complete']);self.assertTrue(w['summary']['retained'])
+    c=next(l for l in t.splitlines() if l.startswith('intel-clock:'))
+    for bad in (c.replace('why='+str(why),'why=32'),c.replace('at='+str(w['clock']['at']),'at=0')):
+     with self.assertRaises(ValueError):bcs_result(t.replace(c,bad))
+ def test_clock_receipt(self):
+  from intel_gt_wake import wake_result,clock_row
+  t=adapter();r=wake_result(t);self.assertEqual(r['summary']['v'],7)
+  self.assertGreater(r['clock']['n'],0);self.assertEqual(r['clock']['why'],0)
+  row=next(l for l in t.splitlines() if l.startswith('intel-clock:'))
+  for bad in (t.replace(row,''),t+'intel-clock-extra: v=1\n',t+'\n'+row,t.replace('why=0','why=8'),t.replace('prev=0','prev=1'),t.replace(' n='+str(r['clock']['n']),' n=0')):
+   with self.subTest(bad=bad[-150:]),self.assertRaises(ValueError):bcs_result(bad)
+  old=t.replace(row+'\n','').replace('intel-wake-summary: v=7','intel-wake-summary: v=6')
+  self.assertTrue(bcs_result(old)['complete'])
+  maximum='intel-clock: v=1 why=63 at=18446744073709551615 prev=18446744073709551615 phase=18446744073709551615 n=200000'
+  self.assertEqual(len(maximum+'\n'),110);self.assertEqual(clock_row(maximum)['why'],63)
  def test_cache(self):
   for mode in ('reset-uc','reset-pat-only'):subprocess.check_call([str(ROOT/'build/tests/intel-cache-probe'),mode],stdout=subprocess.DEVNULL)

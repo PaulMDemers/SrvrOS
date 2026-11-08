@@ -4,9 +4,17 @@ static bool fail(struct intel_gt_access *g,uint32_t reason) {
     if(g->pinned)g->state=GT_ACCESS_FAULT;
     return false;
 }
+static bool clock_fail(struct intel_gt_access *g,uint64_t sample,uint64_t phase,uint32_t why) {
+    if(!g->clock_cause){g->clock_cause=why;g->clock_sample=sample;g->clock_previous=g->last;g->clock_phase=phase;}
+    return fail(g,GT_ACCESS_CLOCK);
+}
 static bool clock_ok(struct intel_gt_access *g,uint64_t phase) {
-    uint64_t t=g->io.now(g->io.context);
-    if(!t || t<g->last || t<phase || t-phase>GT_ACCESS_PHASE_US || t-g->begin>GT_ACCESS_TOTAL_US)return fail(g,GT_ACCESS_CLOCK);
+    uint64_t t=g->io.now(g->io.context);uint32_t why=0;
+    if(!t)why|=GT_CLOCK_ZERO;
+    if(t<g->last || t<phase || t<g->begin)why|=GT_CLOCK_BACKWARD;
+    if(t>=phase && t-phase>GT_ACCESS_PHASE_US)why|=GT_CLOCK_PHASE;
+    if(t>=g->begin && t-g->begin>GT_ACCESS_TOTAL_US)why|=GT_CLOCK_TOTAL;
+    if(why)return clock_fail(g,t,phase,why);
     g->last=t;return true;
 }
 static bool guarded(struct intel_gt_access *g) {
@@ -59,7 +67,7 @@ bool intel_gt_access_open(struct intel_gt_access *g,const struct display_access_
     struct display_access_token saved=*t;
     *g=(struct intel_gt_access){.object=g,.exclusion=saved,.io=io};
     g->begin=g->last=io.now(io.context);
-    if(!g->begin || g->begin==UINT64_MAX)return fail(g,GT_ACCESS_CLOCK);
+    if(!g->begin || g->begin==UINT64_MAX)return clock_fail(g,g->begin,g->begin,g->begin?GT_CLOCK_SATURATED:GT_CLOCK_ZERO);
     if(!read_pair(g))return false;
     /* Deliberately narrower than the hardware: do not clear somebody else's
      * nonzero low-half request even if the caller mistakenly supplies all grant bits. */
@@ -69,7 +77,7 @@ bool intel_gt_access_open(struct intel_gt_access *g,const struct display_access_
     g->pinned=true;g->state=GT_ACCESS_OPENING;
     if(!write_reg(g,0xffff0000u) || !wait_state(g,0,false) ||
        !write_reg(g,0x00010001u) || !wait_state(g,1,true))return false;
-    if(g->last==g->begin)return fail(g,GT_ACCESS_CLOCK);
+    if(g->last==g->begin)return clock_fail(g,g->last,g->begin,GT_CLOCK_FROZEN);
     g->state=GT_ACCESS_AWAKE;return true;
 }
 bool intel_gt_access_check(struct intel_gt_access *g) {
@@ -78,10 +86,17 @@ bool intel_gt_access_check(struct intel_gt_access *g) {
     uint64_t phase=g->last;
     if(!guarded(g))return false;
     g->io.pause(g->io.context);
-    if(!clock_ok(g,phase) || !read_pair(g) || !read_reg(g,INTEL_GT_THREAD,&g->thread))return false;
+    if(!clock_ok(g,phase))return false;
+    if(g->io.snapshot) {
+        if(g->snapshots==UINT32_MAX)return fail(g,GT_ACCESS_STATE);
+        ++g->snapshots;
+        if(!g->io.snapshot(g->io.context,&g->requests,&g->ack,&g->thread) ||
+           g->requests==UINT32_MAX || g->ack==UINT32_MAX || g->thread==UINT32_MAX)return fail(g,GT_ACCESS_IO);
+        if(!clock_ok(g,phase))return false;
+    } else if(!read_pair(g) || !read_reg(g,INTEL_GT_THREAD,&g->thread))return false;
     if((g->requests&0xffffu)!=1 || g->ack!=1 || (g->thread&7))return fail(g,GT_ACCESS_FOREIGN);
     if(!guarded(g) || !clock_ok(g,phase))return false;
-    return g->last>phase ? true : fail(g,GT_ACCESS_CLOCK);
+    return g->last>phase ? true : clock_fail(g,g->last,phase,GT_CLOCK_FROZEN);
 }
 bool intel_gt_access_close(struct intel_gt_access *g) {
     if(!g)return false;
@@ -89,7 +104,7 @@ bool intel_gt_access_close(struct intel_gt_access *g) {
     if(!intel_gt_access_check(g))return false;
     uint64_t phase=g->last;
     if(!write_reg(g,0x00010000u) || !wait_state(g,0,false))return false;
-    if(g->last==phase)return fail(g,GT_ACCESS_CLOCK);
+    if(g->last==phase)return clock_fail(g,g->last,phase,GT_CLOCK_FROZEN);
     if(!display_access_unpin(&g->exclusion))return fail(g,GT_ACCESS_EXCLUSION);
     g->pinned=false;g->state=GT_ACCESS_CLOSED;return true;
 }

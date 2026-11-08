@@ -44,9 +44,9 @@ def bcs_result(text):
  if any(v>0xffffffff for rows in tables.values() for r in rows for k,v in r.items() if k.startswith('w') or k=='value'):raise ValueError('BCS DWORD width')
  from intel_gt_wake import wake_result
  wake=wake_result(text)
- if not wake or wake['summary']['v']!=6:raise ValueError('BCS wrong wake image')
+ if not wake or wake['summary']['v'] not in (6,7):raise ValueError('BCS wrong wake image')
  pre=completion_result(text)
- post_text='\n'.join(l.replace('intel-bcs-post-','intel-completion-',1) for l in text.splitlines() if l.startswith('intel-bcs-post-') or l.startswith('intel-wake-summary:'))
+ post_text='\n'.join(l.replace('intel-bcs-post-','intel-completion-',1) for l in text.splitlines() if l.startswith('intel-bcs-post-') or l.startswith(('intel-wake-summary:','intel-clock')))
  post=completion_result(post_text)
  if s['core_complete']:
   if [[r[k] for k in W] for r in tables['row']]!=[[0,0,0,0,1,0,512,0]]*2 or [r['value']&65535 for r in tables['control']]!=[0,3,0,0] or any(r['value'] for r in tables['domain']):raise ValueError('BCS core raw state')
@@ -69,6 +69,18 @@ def bcs_result(text):
    for p in range(3):
     old=display['rows']['pipe'][3+p];row=tables['plane'][n*3+p]
     if any(row['w'+str(i)]!=old[k] for i,k in enumerate(('control','surface','live','cursor_control','cursor_base'))):raise ValueError('BCS inherited reader binding')
+ if wake['summary']['v']==7:
+  if text.index('intel-clock:')<text.index('intel-bcs-summary:'):raise ValueError('BCS clock order')
+  c=wake['clock'];why=c['why'];at=c['at'];prev=c['prev'];phase=c['phase'];base=s['owner_begin']
+  if why:
+   derived=(1 if not at else 0)|(2 if at<prev or at<phase or at<base else 0)|(4 if at>=phase and at-phase>100000 else 0)|(8 if at>=base and at-base>300000 else 0)
+   if why&16:
+    if at!=(1<<64)-1 or at!=prev or at!=phase or base!=at:raise ValueError('clock saturated sample')
+    derived|=16
+   if why&32:
+    if at!=prev or at!=phase:raise ValueError('clock frozen sample')
+    derived|=32
+   if why!=derived:raise ValueError('clock derived cause')
  complete=bool(s['complete'] and wake['lease_complete'])
  return dict(complete=complete,native_complete=False,summary=s,tables=tables,post=post,engine_reset=bool(s['core_complete']),posted_drain=False,prefetch_retired=False,pipeline_flushed=False,cache_ownership=False,managed_range=False,physical_tearfree=False)
 def native_bcs_result(text):
