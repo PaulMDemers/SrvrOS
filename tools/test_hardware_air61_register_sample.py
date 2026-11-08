@@ -16,6 +16,7 @@ def joint(mode=None):
     with patch('hardware_haswell_firmware.PIN',PIN):p=q._decode(blob,SESSION,True)
     early='\n'.join(s for s in text.splitlines() if s.startswith('hsw-ecam'))+'\n'
     graph=copy.deepcopy(p['passes'][0]['_graph'])
+    for i in range(16):graph[0x2004000]['raw'][256+i]&=~32
     if mode=='ad-transition':graph[0x2004000]['raw'][2]&=~32
     a,b=fixture(early=early,graph=graph)
     ref=next(s for s in text.splitlines() if s.startswith('hsw-sample-ref:'))+'\n'

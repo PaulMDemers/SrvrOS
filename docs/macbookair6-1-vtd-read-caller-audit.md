@@ -272,3 +272,30 @@ These additional snapshots do not reuse or extend either of the two original
 gate counters. Full raw values/times and per-snapshot counts fit the unchanged
 33000-byte existing pass-body,70000-byte raw,45000-byte wire and65536-byte tail bounds.
 No such extra MSR accesses occur in the existing zero-load profile.
+
+## Bounded sampler first-touch preparation
+
+The follow-up groups sampler VMM/bridge/gate routines into a linker-delimited
+trusted text range in the read-enabled image only. Its maximum is64KiB/16
+pages; exceeding it refuses before census, allocation or target access. Each
+page is translated through fresh checked RAM words, requires a supervisor
+RO/executable4KiB RAM leaf, and is read as one volatile byte. Exact pre/post
+paths must match, with only the architectural leaf A promotion expected during
+this preparatory RAM touch. Ancestors already require A. No PTE is written,
+no target instruction is executed as a warm-up callback, and no MMIO address
+or pointer is supplied. The subsequent retained census and every target path
+still compare all raw bits exactly.
+
+All eight path-word reads and the code byte are charged to the existing
+mapper-word budget. With four-level HHDM translation the maximum is41 words
+per page,656 total; the previous maximum fixture63476 therefore remains below
+65536 at64132. Every operation remains inside pass0's original live deadline
+and root/IRQ/AP/client exclusion. This is bounded first-touch preparation,
+not an A/D mask, time exclusion or historical access grant.
+
+After fresh gate0 admission, both gates' complete private evidence is touched
+with same-value writes under the callback-only live guard. Gate0 additionally
+requires its current started/phase1 state; gate1 remains unstarted. No evidence
+or attempt state is reset. Host models cover cold code leaves and both gate
+regions before the census/first target read, all256 text-path bit mutations,
+every text-page read/root/IRQ/time/D fault, bounds and permissions.

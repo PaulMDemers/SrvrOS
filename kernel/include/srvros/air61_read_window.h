@@ -1,4 +1,5 @@
 #pragma once
+#include <srvros/air61_sample_text.h>
 #include <srvros/air61_window.h>
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
 #include <srvros/x86_cache.h>

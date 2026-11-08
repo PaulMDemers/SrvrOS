@@ -5,8 +5,8 @@
 #include <srvros/halt.h>
 #include <srvros/timer.h>
 static bool read_started;
-static bool equal_bytes(const void *a,const void *b,unsigned n){const uint8_t *x=a,*y=b;for(unsigned i=0;i<n;i++)if(x[i]!=y[i])return false;return true;}
-bool air61_read_gates_equal(void){
+static AIR61_SAMPLE_CODE bool equal_bytes(const void *a,const void *b,unsigned n){const uint8_t *x=a,*y=b;for(unsigned i=0;i<n;i++)if(x[i]!=y[i])return false;return true;}
+AIR61_SAMPLE_CODE bool air61_read_gates_equal(void){
  const struct ecam_boot_gate_result *a=air61_read_gate_result0(),*b=air61_read_gate_result1();
  const struct hfw_sample *x=&a->firmware[0].sample[0],*y=&b->firmware[0].sample[0];
  if(!x->count || x->count>128 || !y->count || y->count>128)return false;
@@ -17,30 +17,35 @@ bool air61_read_gates_equal(void){
  if(p->extended_max!=q->extended_max || p->nx_edx!=q->nx_edx || p->apic!=q->apic || p->present_mask!=q->present_mask || p->launch_mask!=q->launch_mask || p->cr4!=q->cr4 || p->revision!=q->revision || p->flags!=q->flags || p->count!=q->count || p->bsp!=q->bsp || !equal_bytes(p->ids,q->ids,sizeof(p->ids)))return false;
  return true;
 }
-static bool read_check(void *ctx,unsigned pass,unsigned phase){
+static AIR61_SAMPLE_CODE bool read_check(void *ctx,unsigned pass,unsigned phase){
  (void)ctx;if(pass>=2 || phase>2)return false;
  bool ok=pass?air61_read_gate_check1(phase):air61_read_gate_check0(phase);
- if(ok && !pass && !phase)ok=air61_read_gate_touch1();
+ if(ok && !pass && !phase){
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+  ok=air61_read_gate_touch0();
+#endif
+  if(ok)ok=air61_read_gate_touch1();
+ }
  return ok && (!pass || phase || air61_read_gates_equal());
 }
-static bool read_ram(void *ctx,unsigned pass,uint64_t pa){(void)ctx;return pass<2 && (pass?air61_read_gate_ram1(pa):air61_read_gate_ram0(pa));}
+static AIR61_SAMPLE_CODE bool read_ram(void *ctx,unsigned pass,uint64_t pa){(void)ctx;return pass<2 && (pass?air61_read_gate_ram1(pa):air61_read_gate_ram0(pa));}
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
-static bool read_sample_admit(void *ctx,unsigned pass,unsigned slot,struct air61_sample_admission *s){
+static AIR61_SAMPLE_CODE bool read_sample_admit(void *ctx,unsigned pass,unsigned slot,struct air61_sample_admission *s){
  (void)ctx;return pass<2 && slot<AIR61_SAMPLE_ADMISSIONS && (pass?air61_sample_cache1(s):air61_sample_cache0(s));
 }
 #endif
-static uint64_t read_now(void *ctx){(void)ctx;return timer_monotonic_us();}
+static AIR61_SAMPLE_CODE uint64_t read_now(void *ctx){(void)ctx;return timer_monotonic_us();}
 #ifdef SRVROS_ECAM_GATE_HOST_TEST
 extern uint64_t eg_test_irq_save(void);
 extern void eg_test_irq_restore(uint64_t);
 #else
-static uint64_t eg_test_irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
-static void eg_test_irq_restore(uint64_t f){if(f&512)__asm__ volatile("sti":::"memory");}
+static AIR61_SAMPLE_CODE uint64_t eg_test_irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
+static AIR61_SAMPLE_CODE void eg_test_irq_restore(uint64_t f){if(f&512)__asm__ volatile("sti":::"memory");}
 #endif
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
-bool haswell_air61_register_sample(void){
+AIR61_SAMPLE_CODE bool haswell_air61_register_sample(void){
 #else
-bool haswell_air61_read_qualify(void){
+AIR61_SAMPLE_CODE bool haswell_air61_read_qualify(void){
 #endif
  if(read_started)return false;
  read_started=true;
@@ -86,5 +91,5 @@ bool haswell_air61_read_qualify(void){
  eg_test_irq_restore(flags);return ok;
 }
 #ifdef SRVROS_ECAM_GATE_HOST_TEST
-void air61_read_bridge_test_reset(void){read_started=false;}
+AIR61_SAMPLE_CODE void air61_read_bridge_test_reset(void){read_started=false;}
 #endif
