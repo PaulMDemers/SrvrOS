@@ -15371,3 +15371,37 @@ Collect the exact new session first,requiring reuse5_complete,real page/borrow/
 release/empty-event/retirement receipts and all encrypted IP/full-parent/storage/
 recovery checks. Missing completion remains failure. Ordinary provider receive,
 TCP/HTTP,persistence,descriptor wrap,UI/live reattach remain separate milestones.
+
+### Real reusable-page native return and independent review (November 8)
+
+Runtime f2cc9ac0/release3c9b55a76fc9a38a returned automatically with matching
+session00065fcb3e2763e8-00 and2043799bytes of complete exit evidence. The frozen
+full-prefix checker passes all15719 parent operations,private Demers5 selection,
+four-way/software-key ownership,six encrypted requests with PN1..6,DHCP DORA,
+DNS and exact256-byte gateway echo. Eleven authenticated Ethernet frames were
+received. Four real pages per direction completed seven TX and27 RX reuses;
+31 RX positions were posted,with no descriptor-address wrap. Actual empty-event
+observation,borrow/release,early-release refusal,late ledger/provider retirement
+and full endpoint/input/MAC/power/RF restoration pass.
+
+The original collector stopped before protocol checking because its new blanket
+file manifest required byte identity for generated `.srvros/meta` as well as user
+files. Preserve that refusal and its576-file native capsule unchanged. Independent
+review against that frozen capsule passes the complete protocol checker and
+verifies every prior non-sidecar file byte and directory,with new paths confined
+to the matching session. Only the60662-byte generated metadata sidecar changed.
+Its570 unique path/inode records structurally cover the exact570-path current
+tree,with no missing/stale paths. Offline fsck and allocation checks pass,as do
+installed candidate/recovery equality and Ubuntu-default/unarmed checks. A separate
+sealed review retains the analysis and current sidecar. The pre-run sidecar bytes
+were not retained,so historical metadata-field equality is not established;do not
+rewrite the original refusal or claim that stronger preservation proof.
+
+This accepts the bounded protocol/page-reuse and full-retirement observation,
+with the metadata preservation limitation above. It does not accept ordinary
+provider receive,persistent descriptor wrapping,sustained radio reliability,
+native TCP/HTTP,UI connection/disconnection or live USB reattach. Demers2.4 still
+needs compatible hardware. Before the next trial,preserve the generated sidecar
+bytes and compare its metadata semantically while retaining strict byte hashes
+for every other file. Then bind ordinary provider receive and qualify persistent
+transport before native TCP/HTTP and UI work. No new trial is armed.
