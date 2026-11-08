@@ -103,7 +103,7 @@ def verify_shutdown(text,s,tables,pre):
  if len(sums)!=1:raise ValueError('reset shutdown summary coverage')
  b=_fields(sums[0],'intel-bcs-shutdown-summary:','v samples reads attempts writes reason begin end disabled entry_disabled uncertain owner_begin epoch'.split())
  rows=[compact_row(l,'intel-bcs-shutdown-row:',[('s','sample')],W) for l in lines if l.startswith('intel-bcs-shutdown-row:')]
- if len(lines)!=len(rows)+1 or lines[-1]!=sums[0] or b['samples']!=len(rows) or b['reads'] not in (8*len(rows),8*(len(rows)+1)) or b['reads']>32 or len(rows)>4 or [r['sample'] for r in rows]!=list(range(len(rows))) or b['attempts'] or b['writes'] or b['uncertain'] or b['reason']>8 or b['disabled']>1 or b['entry_disabled']>1:raise ValueError('reset shutdown schema/count/authority')
+ if len(lines)!=len(rows)+1 or lines[-1]!=sums[0] or b['samples']!=len(rows) or b['reads'] not in (8*len(rows),8*(len(rows)+1)) or b['reads']>32 or len(rows)>4 or [r['sample'] for r in rows]!=list(range(len(rows))) or b['attempts'] or b['writes'] or b['uncertain'] or b['reason']>8 or b['epoch']>=1<<32 or b['owner_begin']!=s['owner_begin'] or b['epoch']!=s['epoch_before'] or b['disabled']>1 or b['entry_disabled']>1:raise ValueError('reset shutdown schema/count/authority')
  if any(r[k]>=1<<32 for r in rows for k in W):raise ValueError('reset shutdown DWORD')
  if text.index(sums[0])>text.index('intel-bcs-summary:') or text.index(lines[0])<text.index('intel-completion-summary:') or ('intel-bcs-post-' in text and text.index(sums[0])>text.index('intel-bcs-post-')):raise ValueError('reset shutdown order')
  if s['admitted'] or s['attempts'] or s['reset_attempts'] or s['core_complete']:

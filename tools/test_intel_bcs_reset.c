@@ -13,6 +13,8 @@ struct reset_model {
 static bool mode(struct reset_model *m,const char *s){return !strcmp(m->mode,s);}
 static bool rguard(void *p) {
  struct reset_model *m=p;++m->guards;
+ if(mode(m,"detached-before") || (mode(m,"detached-after") && m->control_stores))m->parent->dependents=0;
+ if(mode(m,"extra-dependent"))m->parent->borrows=2;
  if(mode(m,"foreign-epoch") && m->control_stores)m->parent->engine_epoch++;
  if(mode(m,"foreign-request") && m->control_stores)m->gt.request|=2;
  if(mode(m,"guard") && m->guards==m->point)return false;
@@ -141,6 +143,8 @@ int main(int argc,char **argv) {
  bool expected=mode(&m,"normal") || mode(&m,"mask") || mode(&m,"delayed") || mode(&m,"nonzero-epoch") || mode(&m,"fresh-reset") ||
   (mode(&m,"guard") && m.point>m.guards) || (mode(&m,"read") && m.point>m.reads);
  assert(ok==expected);
+ if(mode(&m,"detached-before") || mode(&m,"extra-dependent"))assert(!m.control_stores && !m.domain_stores && r.uncertain && r.borrow.active);
+ if(mode(&m,"detached-after"))assert(m.control_stores==1 && !m.domain_stores && r.uncertain && r.borrow.active);
  if(ok) {
   assert(r.complete && r.admitted && r.ready && r.cancelled && r.blocked_close && !r.uncertain && !r.borrow.active);
   assert(r.writes==2 && r.reset_writes==2 && r.reset_acks==2 && r.reset_attempts==2 && r.attempts==2);
@@ -170,7 +174,7 @@ int main(int argc,char **argv) {
  assert(calls==m.reads+m.control_stores+m.domain_stores);
  if(mode(&m,"return-deadline"))assert(!r.complete && r.reason==IBR_CLOCK && !r.uncertain && !r.borrow.active && r.end_us-r.begin_us>100000);
  if(r.uncertain || r.borrow.active) {
-  assert(g.borrows==1 && g.pinned && !intel_gt_access_close(&g));
+  assert(g.borrows==(mode(&m,"extra-dependent")?2u:1u) && g.pinned && !intel_gt_access_close(&g));
   assert(!display_access_release(&token,true));
  } else {
   if(other.active)assert(intel_gt_access_return(&other));

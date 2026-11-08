@@ -53,7 +53,7 @@ class BcsShutdownTests(unittest.TestCase):
   for key in ('intel_shutdown_trial','intel_bcs_reset_trial','hold_on_failure','desktop_audio','haswell_register_sample'):
    with self.subTest(key=key),self.assertRaises(ValueError):stage(laptop_probe_volume='37d8c5d0',intel_bcs_shutdown_trial=True,**{key:True})
  def test_core_seals_parent_epoch_policy_and_fresh_result(self):
-  for mode in ('normal','mask','delayed','nonzero-epoch','policy','copy','active','pending','flip','tlb','other-borrow','stale-epoch','stale-parent','overflow','census-drift','context-drift','missing-io','epoch-admission'):
+  for mode in ('normal','mask','delayed','nonzero-epoch','policy','copy','active','pending','flip','tlb','other-borrow','stale-epoch','stale-parent','overflow','census-drift','context-drift','missing-io','epoch-admission','detached-before','detached-after','extra-dependent'):
    with self.subTest(mode=mode):subprocess.check_call([str(ROOT/'build/tests/intel-bcs-reset'),mode,'1','shutdown'],stdout=subprocess.DEVNULL)
  def test_attention(self):
   from hardware_desktop import needs_attention

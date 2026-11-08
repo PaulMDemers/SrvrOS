@@ -3,15 +3,18 @@ static bool fail(struct intel_bcs_reset_result *r,unsigned reason) {
  if(!r->reason)r->reason=reason;
  return false;
 }
+static bool pin_valid(const struct intel_bcs_reset_result *r) {
+ const struct intel_gt_access *g=r->borrow.parent;
+ return r->borrow.active && r->borrow.object==&r->borrow && !r->borrow.next && g && g->object==g &&
+  g->state==GT_ACCESS_AWAKE && g->pinned && g->borrows==1 && g->dependents==&r->borrow &&
+  g->engine_epoch==r->epoch_after && display_access_held(&g->exclusion);
+}
 static bool guard(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io) {
  uint64_t t=io.now(io.ctx);
  if(!t || t<r->last_us || t<r->begin_us || t-r->begin_us>INTEL_RESET_READY_TOTAL_US)return fail(r,IBR_CLOCK);
  r->last_us=t;
- struct intel_gt_access *g=r->borrow.parent;
- if(!r->borrow.active || r->borrow.object!=&r->borrow || !g || g->object!=g ||
-    g->state!=GT_ACCESS_AWAKE || !g->pinned || !g->borrows ||
-    g->engine_epoch!=r->epoch_after || !display_access_held(&g->exclusion) ||
-    !io.guard(io.ctx) || g->engine_epoch!=r->epoch_after)return fail(r,IBR_GUARD);
+ /* Callback admission may not detach, copy or replace the registered pin. */
+ if(!pin_valid(r) || !io.guard(io.ctx) || !pin_valid(r))return fail(r,IBR_GUARD);
  return true;
 }
 static bool read_control(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io,uint32_t *v) {
@@ -147,7 +150,7 @@ static bool reset_run(struct intel_bcs_reset_result *r,struct intel_gt_access *g
  r->uncertain=false;
 done:
  if(!r->uncertain) {
-  if(!intel_gt_access_return(&r->borrow)){r->uncertain=true;fail(r,IBR_PARENT);}
+  if(!pin_valid(r) || !intel_gt_access_return(&r->borrow)){r->uncertain=true;fail(r,IBR_PARENT);}
   else if(r->end_us) {
    uint64_t finished=io.now(io.ctx);
    if(!finished || finished<=r->end_us || finished<r->last_us || finished-r->begin_us>INTEL_RESET_READY_TOTAL_US)fail(r,IBR_CLOCK);
