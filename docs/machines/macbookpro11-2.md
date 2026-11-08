@@ -14556,3 +14556,45 @@ existing RX/CCMP/IP refusal,40/48 immutable bounds,deferred reporting and full
 ownership/retirement contract. Bind classifications to each retained event and
 strict saved-log consistency checks. Test each field/malformed span independently
 with synthetic inputs before qualifying a matched automatic cold image.
+
+### Qualified receive frame/flag candidate (November 7)
+
+Runtimea79a5ac5,private release9c35498a7862d408,retains integration baseline
+a1661937. Matched kernel/USB build,full controller and relevant protocol/crypto/
+DNS/ownership regressions,233 staging tests,independent encrypted packet equality,
+all16 fatal ASan/UBSan groups and native stack checks pass. Independent synthetic
+metadata tests exercise the frame classes,each forbidden RXWI bit including all
+PN-length bits,structural EAPOL and padded QoS placement,stale admission and
+malformed/truncated spans. Saved-log mutations reject inconsistent metadata
+without accepting any new frame. Maximum new native frame remains1,272bytes.
+
+The production-C/native-parent prefix passes2,040,808bytes and125 altered/
+incomplete cases. Conservative headroom is41,183bytes under the unchanged2MiB
+limit while retaining the separate32KiB reserve. The maximum data RX receipt
+is95bytes,within the1,024-byte batch;the worst36-row data transcript needs2,889
+additional bytes over its fixture,within the existing4,096-byte reserve. Real
+filesystem persistence/remount/fsck,ordinary desktop,exact-stage GPT save/return
+and missing-workspace VMs pass. Staged kernel and independently reconstructed
+firmware/private-PMK initramfs match the qualified build. No full-core rerun or
+new native protocol/metadata acceptance is claimed.
+
+Current565-file deferred failure and3-file notes,prior565-file DHCP failure
+and3-file notes,older565/564/581/564 failures and accepted177/24 four-way and
+failed569/accepted178 four-way/M1 evidence remain unchanged. The last generated
+session was archived,byte-verified and pruned after preserving its full capsule.
+Offline allocation,writable eligibility and headroom pass. Only the unreferenced
+failed DHCP-category EFI duplicate was retired after exact verification of its
+sealed backup;accepted v130,M1 and e47d previous remain installed. The new
+payload is installed with Ubuntu default and is unarmed at this checkpoint.
+
+Next authorized action is cold shutdown,Wi-Fi-only10second unplug while off,
+same-port reconnect and power on with workspace attached. Progress,saving and
+Ubuntu return are automatic. Collect build/bringup/wifi-data5-classify/run_root.py
+return_collect first after return;do not recollect/reseal prior capsules. Inspect
+frame/flag histograms as untrusted structural evidence,not peer identity or AP
+acceptance. Any DHCP/DNS/exact256-byte echo acceptance still requires matching
+release/session,PN1..6,key erasure/leave and every endpoint/input/MAC/power/RF
+original plus filesystem/recovery checks. No hardware filter,protocol gate or
+receive/time budget was changed. Ordinary provider/UI,TCP/HTTP and live reattach
+remain pending;Demers2.4 needs compatible hardware. PR19 stays draft;Actions
+remain disabled.
