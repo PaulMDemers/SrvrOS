@@ -9471,3 +9471,29 @@ outside `build`. Installed/staged/independent payload and retained recovery
 verify. The collector is disabled and the one-shot consumed; no reboot is armed.
 Next bounded performance follow-up is screenshot encode/write completion under
 load, retaining the accepted responsive desktop and all existing limits.
+
+### Bounded audible check scope (2026-11-08)
+
+On base `825a79a9`, the user requests a louder approximately30-second check
+because the preceding1% run was not audible/not listened to. Prepare an explicit
+listening-only capture: five bundled six-second left/right/stereo WAV plays at
+25%, automatic Stop/retirement and saved diagnostics before Ubuntu return.
+Keep ordinary boot, the accepted1800-second stress and all existing timing and
+hardware gates unchanged; no battery/AML or disk/app stress is requested here.
+Touch only explicit capture orchestration/staging and its regression/rehearsal.
+The current native stress remains accepted for recorded checks; subjective
+quality is unassessed. No new physical result is claimed by this scope.
+
+The explicit `--audio-listen` v1 profile is implemented on runtime `c615c282`.
+Matched ordinary kernel/RAM/USB builds and audio-service, streaming, WAV and
+conversion regressions pass. All90 staging/CLI tests pass. Exact release
+`5bc0a824e9f71ab6` rehearses five full streams/5760000 bytes with zero underruns
+in30.971897s, Stop, quiet restore, saved diagnostics, clean unmount/allocation
+and automatic return. Missing workspace returns without starting playback.
+Stage provenance is `f9be0423`; final harness `5ff0662b` differs only in its
+profile-specific assertion. The initial successful guest run hit a generic
+chipset-probe harness assertion; that failure and raw results are retained
+separately, and the corrected exact rehearsal passes. No native audible result
+is claimed. PR19's adjacent Wi-Fi capture orchestration remains independent;
+future integration must preserve both explicit capture conditions. PR301's
+scanout/handoff and PR379's WebCore audit are untouched.
