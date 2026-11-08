@@ -5000,3 +5000,8 @@ build/air61-register-sample/gate%.o: kernel/diagnostics/air61_read_gate_instance
 build/tests/air61-sample-gate%.o: tools/test_air61_read_gate.c kernel/diagnostics/air61_read_gate_instance.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_AIR61_REGISTER_SAMPLE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include -DAIR61_READ_GATE_PASS=$* -c $< -o $@
+
+.PHONY: test-haswell-vtd-capabilities
+test-core: test-haswell-vtd-capabilities
+test-haswell-vtd-capabilities:
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_capability_audit.py
