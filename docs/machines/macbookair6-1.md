@@ -9540,3 +9540,43 @@ before a new native repeat at1%. No speedup is physically accepted yet.
 PR19's current Wi-Fi diff has no shotworker/save implementation change. PR301's
 process additions concern its independent scanout/handoff scope; this bounded
 caller change avoids those kernel files. PR379 remains an independent audit.
+
+### Screenshot write batching validation and candidate (2026-11-08)
+
+Frozen runtime/tools `989846b3` changes only the shotworker's ordinary buffered
+write batching, its host regression and documentation. The original16KiB writer
+fails the new200000-byte admission-count regression; the64KiB candidate passes
+with four bounded calls and both complete400000-byte combined readbacks. Existing
+short-I/O, exclusive temporary/destination, write/sync/corruption/rename failure
+coverage passes, including a new uncertain post-rename sync case retaining the
+published file while reporting failure. Capture transport, immutable job and BMP
+round-trip/refusal tests pass. Matched ordinary/native/VM kernels, RAM/USB images,
+the desktop suite and documentation checks pass. Full core is not rerun for this
+caller-only change; no kernel/source admission predicate or policy is modified.
+
+The unchanged populated-Home TCG workload at400 write IOPS passes60-second PCM,
+26 app cycles, one screenshot and follow-up Files/normal exit with200 observed
+overlap windows. Zero underruns/worker/lifecycle errors; maximum loop222555us,
+launch699025us and close1188785us stay inside the original bounds. The retained
+capture takes13.123122s, with WRITE4.826539s and receive5.166458s. The preceding
+same-config VM receipt took24.772760s/WRITE15.770099s. These separate VM observations
+support the caller-batching hypothesis; host scheduling is uncontrolled and no
+native improvement is inferred. Original full flush/readback/cache/retirement,
+receipt and offline filesystem checks pass.
+
+Ordinary capture verifies exact pixels, immutability while typing, durable BMP
+readback, Preview, menu/shortcut repetition and exit. Exact v74 stage
+`1c74bc8281678786` passes native-profile refusal/save/unmount/return in Q35 on that
+same clean source. Ordinary/native images exclude the optional isolated sampler.
+Next native run repeats the unchanged automatic1800-second audio/verified USB/
+Text/Files/System/three-screenshot workload at1%, retaining the existing phase,
+loop/scheduler, lifecycle, file-preservation and allocation proofs. Performance
+acceptance remains pending the matching physical result.
+
+ESP preparation may archive only the unreferenced older accepted stress duplicate
+`012aaffda0be860b`, after verifying its complete independent payload backup and
+absence from GRUB/current/recovery references. Accepted newer stress
+`ca0e7e313136e985`, audible check `5bc0a824e9f71ab6`, isolated sampler/zero-load/
+single-window payloads and console recovery `c35475f62f154f1e` stay installed and
+verified. Historical acceptance/evidence and the archived restorable payload
+remain outside `build`; this is space reclamation, not removal of recovery.
