@@ -7534,3 +7534,44 @@ It does not establish sustained reliability or explain earlier intermittent
 failures. Ordinary provider/connection lifetime,TCP/HTTP,sustained traffic,UI
 connect/disconnect and USB reattach remain the next work;do not repeat unchanged
 local tests or infer broader acceptance from these two bounded passes.
+
+
+### Dormant nonblocking provider lifetime
+
+`mt76_net5` supplies a boot-stable `net_device` identity with separate connection
+epochs. Registration must precede `net_init`,using the verified station MAC.
+Attach requires a strictly newer epoch and an admitted external transport owner.
+It does not install,copy or retire CCMP keys:the native backend must retain the
+original exclusive handshake/key/peer/generation owner and supply only strict
+CCMP-authenticated normalized Ethernet. There is no boot call site or native
+transport binding yet;the accepted v131 payload remains installed separately.
+The current diagnostic starts after ordinary provider selection is sealed,so
+simply registering its synchronous callbacks would violate both contracts.
+
+Send copies at most four Ethernet frames and returns without USB waiting. One
+nonblocking submit consumes a borrowed frame into transport-owned storage and
+receives a unique,never-reused64-bit token within the current epoch. The backend
+must seal with its original CCMP owner once and never roll back a reserved PN.
+Safe refusal drops that queued frame without a retry. Unknown submission,
+foreign/duplicate current-token completion,owner loss,backward clock or750ms
+pending deadline closes publication. Stale epochs refuse without disturbing a
+new connection. A completion does not grant hardware/DMA retirement authority.
+
+Poll is bounded to32 copied Ethernet frames and permits the ordinary stack to
+enqueue a reply during synchronous delivery. Transport callbacks cannot recurse.
+Disconnect drops unsent plaintext and blocks new publication;borrowed transmit/
+receive buffers remain stable until their callbacks return. The transport context
+stays pinned through pending transfers and uncertain outcomes. Detach requires a
+separate backend predicate proving key erasure AND full hardware/callback/DMA
+retirement/restoration. Only then are callback/context references removed and a
+newer epoch allowed. Permanent adapter retirement also drains the real provider
+registry;its boot identity remains a tombstone without failover/reselection.
+
+The module is CPU0-only and all callbacks must be nonblocking,including with
+interrupts disabled. It performs no hardware or key-table writes,allocations,
+logging or DMA reuse. Link metadata has no invented speed/duplex and readiness
+notifications are not advertised before an independent native service exists.
+Software queue wrap is not acceptance of native transfer-ring/page reuse. Native
+work still needs an explicit guarded asynchronous transport handoff,correct boot
+registration timing and complete restoration before provider/TCP/HTTP/UI hardware
+acceptance. The40/48 immutable v131 limits and existing recipes are unchanged.

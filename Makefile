@@ -3308,6 +3308,14 @@ build/tests/net-device-host$(HOST_EXE): tools/test_net_device.c kernel/src/net_d
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
 
+.PHONY: test-mt76-net5
+test-core: test-mt76-net5
+test-mt76-net5: build/tests/mt76-net5-host$(HOST_EXE)
+	$<
+build/tests/mt76-net5-host$(HOST_EXE): tools/test_mt76_net5.c kernel/src/drivers/mt76_net5.c kernel/include/srvros/mt76_net5.h kernel/src/net_device.c kernel/include/srvros/net_device.h kernel/include/srvros/net.h kernel/include/srvros/timer.h shared/include/srvros/syscall_numbers.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< kernel/src/drivers/mt76_net5.c -o $@
+
 .PHONY: test-usb-ecm
 test-core: test-usb-ecm
 test-usb-ecm: build/tests/usb-ecm-host$(HOST_EXE)
