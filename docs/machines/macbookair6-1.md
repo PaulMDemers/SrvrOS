@@ -9124,3 +9124,17 @@ Publish validated preparation, self-merge, save durable run/collector records an
 run one automatic boot under the user's standing authorization. Native pass
 requires matching complete receipts, unchanged prior files and clean offline
 filesystem/allocation checks. PR301/PR19/PR379 retain independent scopes.
+
+
+### Desktop regression harness maintenance (2026-11-08)
+
+Full matched builds/core checks pass at `7dbfadd1` (89 installed-root tests,
+one expected skip). Pre-install VM failures revealed two harness issues, not
+accepted native regressions: the synthetic battery VM kernel was left at desktop
+protocol15 while current userspace requires18; the ordinary screenshot harness
+selected Return to console using an obsolete relative menu position after
+profile actions were added. Preserve both failed VM artifacts. Scope expands
+only to screenshot-harness menu navigation and explicit synthetic VM build
+preparation, plus guide clarification. Keep every workload/timeout/pixel/readback
+and retirement assertion unchanged; rerun both actual VM trials before staging.
+The runtime stays frozen at `7dbfadd1`; host-tool source is recorded separately.
