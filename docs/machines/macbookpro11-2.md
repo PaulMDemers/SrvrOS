@@ -14802,3 +14802,42 @@ stripped-PN refusals,peer/MIC/replay/IP gates and40/48 immutable bounds remain.
 No WAPI hardware/cipher support was enabled. Ordinary provider/UI,TCP/HTTP and
 live reattach remain pending;Demers2.4 needs compatible hardware. PR19 stays
 draft;Actions remain disabled.
+
+
+### Sole-bit receive native result — incomplete connectivity (November 8)
+
+Runtime c88a8160, release 00d86993330db083, session00065fbca1d7dab5-00
+saved1,896,288bytes and returned automatically. Historical management/M1 and
+independent AUTH/ASSOC,M3 MIC,local M4 and software key activation passed. The
+sole-bit admission worked:two flags1024/audit4 frames became authenticated
+Ethernet (342 and890bytes). A third flagged frame passed the nonpublishing
+precheck but refused LLC publication;one unflagged protected frame also refused
+LLC. These are bounded software receive results,not DHCP acceptance.
+
+The36-event deferred transcript contains one encrypted DISCOVER at PN1 and35
+RX completions (indices5..39):25 beacon,six action and four protected-FromDS
+structural classes. The two delivered frames refused UDP ports and Ethernet
+destination respectively;neither reached BOOTP message parsing. No valid OFFER,
+REQUEST,ACK,ARP,DNS or echo completed. The finite40-forward budget exhausted
+safely after307 IP polls;unsafe=0,exchange1,002,934us. No retries or larger
+receive/time bounds were introduced. Packet identities and AP acceptance of
+our request remain unproved;do not infer them from valid CCMP alone.
+
+Software keys erased and leave completed. Independent MAC disable,TX/RX quiet,
+filter/TXOP originals passed with53controls. All six endpoint commands and
+endpoint/input originals passed (restored1,phase9);all nine power originals
+restored511. Forward40,drained0,posts41. Full exchange and outer RF completion
+still failed (status3,complete0,valid0,restored0);firmware/laptop completion NO.
+This remains a failed connectivity/full-restoration trial. Offline filesystem,
+allocation and installed recovery pass. The566-file failure capsule and separate
+categorical notes are sealed outside build;prior capsules remain unchanged.
+Ubuntu is default,the workspace is unmounted,and no next boot is armed.
+
+Fetched/inspected actual main d3472e06:Air6,1 guarded sampler priming and captured
+capability interpretation,with no Wi-Fi overlap;not consumed into this tested
+runtime,which retains a1661937. Next investigate why the valid receive traffic
+contains no accepted DHCP reply,using bounded nonsecret protocol/TX evidence
+and existing independent fixtures before another candidate. Preserve all peer,
+MIC,replay,IP,ownership,40/48 input and full restoration gates. Ordinary provider/
+UI,TCP/HTTP,live reattach and compatible2.4GHz hardware remain pending. PR19
+stays draft;Actions remain disabled.
