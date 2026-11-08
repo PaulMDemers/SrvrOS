@@ -9070,3 +9070,36 @@ Native replay must use the accepted release/session directly, without test
 firmware pins. Preserve Ubuntu/recovery and the accepted payload; no reboot is
 needed for interpreting already captured bytes. A future physical operation
 requires its own explicit scope, exact-stage tests and fresh admission.
+
+### Captured VT-d capability audit result (2026-11-07)
+
+Host tool source `18292bc5` directly replays accepted session
+`session-00065fbc382c2c47-00`, release `2ddbd3b285f6bf41`, through the unchanged
+strict R2 consumer with this unit's actual firmware pin. All three input hashes
+match the independent accepted trial backup. The host-only interpretation is
+`HISTORICAL_CAPABILITY_AUDIT`; it performs no hardware access or installation.
+See the [caller audit](../macbookair6-1-vtd-read-caller-audit.md#captured-capability-interpretation-2026-11-07)
+for the raw values, register reference and bounded field interpretation.
+
+Graphics-specific DRHD0 reports legacy version1.0,256 domains,48-bit adjusted
+page-table geometry and39-bit maximum guest addressability. Translation,
+queued-invalidation and interrupt-remapping enable status are clear at both
+sampled endpoints; the observed root register is zero. Supported mechanisms
+are not active mechanisms, and disabled translation does not prove stopped GPU
+DMA, retired firmware or owned backing. DRHD1 was not sampled. Existing RC6
+timing failure and package-C3 blocker remain open; no policy or limit changes.
+
+Next concrete checkpoint: prepare the outstanding automated ordinary desktop
+regression for the shared mapping registry, preserving the sampler/recovery
+payloads and user files. Only after that coverage should a separately scoped
+read-only fault/control inventory be considered. No register write, table walk,
+invalidation, translation command or power transition follows from this audit.
+No new physical test is installed or armed by this host-only work.
+
+Validation at host-tool source `18292bc5`: all26 focused Python tests pass
+(5 capability-audit,9 sampler,5 profile,7 qualification), as does the actual
+sampler backend with its existing guarded-path/poison/no-retry fault coverage.
+Native receipt replay and independent input hashes pass without test pins.
+Documentation validation checks1108 local links with zero errors; diff checks
+pass. The matched kernel/payload bytes remain those accepted in PR415; no new
+kernel or VM acceptance is claimed by this host-only change.
