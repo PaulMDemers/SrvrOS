@@ -18,6 +18,8 @@ from mk_usb_image import Fat32Builder, ESP_TYPE, gpt_entry, gpt_header
 from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_qmp_key, has_fatal_exception
 
 
+HFW_PROFILES=tuple(f"ram-usb-v{i}-hfw-" for i in range(1,9))
+
 def make_disk(path, loader, source, release, extra_files=None):
     # Same paths and filesystem UUID search as the host entry; only the UUID differs.
     size = 384 * 1024 * 1024
@@ -163,7 +165,7 @@ def main():
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
     keyboard_negative=args.keyboard_timeout or (args.keyboard_fail and not keyboard_retry)
     if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
-    hfw_capture=bool(probe and manifest["config_version"].startswith(tuple(f"ram-usb-v{i}-hfw-" for i in range(1,9))))
+    hfw_capture=bool(probe and manifest["config_version"].startswith(HFW_PROFILES))
     hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-")))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
@@ -416,7 +418,7 @@ def main():
                         result=firmware_result(exit_log)
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         assert 'laptop-capture: completed=NO' in exit_log
-                        if manifest['config_version'].startswith(tuple(f'ram-usb-v{i}-hfw-' for i in range(2,8))):
+                        if manifest['config_version'].startswith(HFW_PROFILES[1:]):
                             from hardware_haswell_cache import cache_result
                             if manifest['config_version'].startswith(('ram-usb-v4-hfw-','ram-usb-v5-hfw-','ram-usb-v6-hfw-','ram-usb-v7-hfw-','ram-usb-v8-hfw-')):
                                 from hardware_haswell_alias import alias_preinit_result

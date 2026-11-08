@@ -186,6 +186,7 @@ def _decode(blob,session,sampled):
             from haswell_vtd_read_lifetime_audit import sample_words
             sample_words(values)
             if load_times[0][0]!=first or load_times[-1][1]!=last:raise ValueError('read endpoints')
+            if admissions[0]['begin']<p['_cpus'][1]['pm_us'][1]:raise ValueError('stale first cache admission')
             for i,(lb,le) in enumerate(load_times):
                 if admissions[i]['end']>lb or (i and admissions[i]['begin']<load_times[i-1][1]):raise ValueError('cache/load ordering')
             if admissions[12]['begin']<last:raise ValueError('post-batch cache ordering')

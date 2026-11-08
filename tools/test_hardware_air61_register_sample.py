@@ -77,6 +77,23 @@ class SampleProfile(unittest.TestCase):
             d=bytearray(raw);struct.pack_into('<I',d,start-(4+13*449)-8,11);variants.append(d)
             for d in variants:
                 with patch('hardware_haswell_firmware.PIN',PIN),self.assertRaises(ValueError):q._decode(q.pack(d,True),SESSION,True)
+    def test_first_cache_admission_follows_fresh_phase1(self):
+        blob=self.base[3];raw=q.unpack(blob,True)
+        with patch('hardware_haswell_firmware.PIN',PIN):model=q._decode(blob,SESSION,True)
+        r=Reader(raw);r.raw(95)
+        for index in range(2):
+            size,=r.take('I');r.raw(size);r.raw(96);at=r.at;r.raw(13*449+12*88)
+            d=bytearray(raw);begin=model['passes'][index]['begin']
+            struct.pack_into('<Q',d,at+17+56,begin+1);struct.pack_into('<Q',d,at+17+64,begin+2)
+            with patch('hardware_haswell_firmware.PIN',PIN),self.assertRaisesRegex(ValueError,'stale first cache'):
+                q._decode(q.pack(d,True),SESSION,True)
+    def test_vm_harness_classifies_v8_at_both_levels(self):
+        from hardware_boot_smoke import HFW_PROFILES
+        for i in range(1,9):
+            text=f'ram-usb-v{i}-hfw-laptop-probe-6ada85bb-auto-return'
+            self.assertTrue(text.startswith(HFW_PROFILES))
+            self.assertEqual(text.startswith(HFW_PROFILES[1:]),i>=2)
+        self.assertFalse('ram-usb-v9-hfw-laptop-probe-6ada85bb'.startswith(HFW_PROFILES))
     def test_persistence_counts_and_session_mutations(self):
         t,a,b,_=self.base
         for prefix in ('hsw-sample:','hsw-sample-data:','hsw-sample-end:','hsw-sample-pass:','hsw-sample-failure:','hsw-sample-counts:'):
