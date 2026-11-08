@@ -22,4 +22,5 @@ uint32_t intel_gt_boot_grants(const struct intel_gt_boot_facts *);
 bool intel_gt_wake_probe_report(void);
 /* Sticky terminal diagnostic state; automatic return must not reset past it. */
 bool intel_gt_wake_retained(void);
+bool intel_gt_boot_shutdown_recipe(const char *);
 #endif

@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_SHUTDOWN_TRIAL) && (!defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_COMPLETION_TRIAL))
+#error "Shutdown qualification needs its own blitter image"
+#endif
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) && (!defined(SRVROS_INTEL_COMPLETION_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL))
 #error "BCS reset requires its own completion/wake image"
 #endif
@@ -12,7 +15,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+extern volatile struct limine_firmware_type_request intel_shutdown_firmware_request;
+#elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
 extern volatile struct limine_firmware_type_request intel_bcs_reset_firmware_request;
 #elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
 extern volatile struct limine_firmware_type_request intel_reset_ready_firmware_request;
@@ -45,7 +50,11 @@ static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x1
 #endif
 #elif defined(SRVROS_INTEL_BLITTER_TRIAL)
 #define WAKE_MAPS 11u
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+#define WAKE_VERSION 8u
+#else
 #define WAKE_VERSION 3u
+#endif
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x70000,0x71000,0x72000};
 #else
 #define WAKE_MAPS 8u
@@ -175,7 +184,7 @@ static bool engine_guard(void *context) {
 #endif
     return (request&0xffffu)==1 && ack==1 && !(thread&7);
 }
-#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
 /* Same three RO DWORDs as engine_guard, under a fresh full adapter guard.
  * The core brackets this ordered group with independent full guards/clocks. */
 static bool wake_request_snapshot(void *context,uint32_t *request,uint32_t *ack,uint32_t *thread) {
@@ -205,14 +214,19 @@ static bool engine_group(void *context,unsigned engine,uint32_t out[INTEL_ENGINE
     }
     return true;
 }
-static void engine_report(const struct intel_engine_census *r,bool retired) {
+static void engine_report_named(const struct intel_engine_census *r,bool retired,const char *prefix) {
     for(unsigned n=0;n<r->samples;n++)for(unsigned e=0;e<INTEL_ENGINE_COUNT;e++) {
         const uint32_t *w=r->words[n][e];
-        console_printf("intel-engine-row: v=1 sample=%u engine=%u base=%x tail=%x head=%x start=%x ctl=%x execlo=%x exechi=%x\n",
-            (uint64_t)n,(uint64_t)e,(uint64_t)intel_engine_pages[e],(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5]);
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+        console_printf("%s-row: v=2 sample=%u engine=%u w0=%u w1=%u w2=%u w3=%u w4=%u w5=%u\n",
+            prefix,(uint64_t)n,(uint64_t)e,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5]);
+#else
+        console_printf("%s-row: v=1 sample=%u engine=%u base=%x tail=%x head=%x start=%x ctl=%x execlo=%x exechi=%x\n",
+            prefix,(uint64_t)n,(uint64_t)e,(uint64_t)intel_engine_pages[e],(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5]);
+#endif
     }
-    console_printf("intel-engine-summary: v=1 samples=%u reads=%u stable=%u enabled=%u pending=%u begin_us=%u end_us=%u observed=%u retired=%u engine_writes=0 reader_retirement=0 managed_pages=0 pte_writes=0\n",
-        (uint64_t)r->samples,(uint64_t)r->reads,(uint64_t)r->stable,(uint64_t)r->enabled,(uint64_t)r->pending,r->begin_us,r->end_us,(uint64_t)r->complete,(uint64_t)retired);
+    console_printf("%s-summary: v=1 samples=%u reads=%u stable=%u enabled=%u pending=%u begin_us=%u end_us=%u observed=%u retired=%u engine_writes=0 reader_retirement=0 managed_pages=0 pte_writes=0\n",
+        prefix,(uint64_t)r->samples,(uint64_t)r->reads,(uint64_t)r->stable,(uint64_t)r->enabled,(uint64_t)r->pending,r->begin_us,r->end_us,(uint64_t)r->complete,(uint64_t)retired);
 }
 #endif /* !completion: old group/receipt */
 #endif
@@ -227,6 +241,9 @@ static void engine_report(const struct intel_engine_census *r,bool retired) {
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
 #include "intel_blitter_trial.inc"
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+#include "intel_shutdown_trial.inc"
+#endif
 #endif
 static bool wake_fw_quiet(const struct intel_fw_result *r) {
     if(r->status!=IFW_OBSERVED || r->endpoint.swsci!=0x8000 || r->sample[0].words[5]!=0x02000000 || r->sample[0].words[6]!=31)return false;
@@ -240,7 +257,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+    #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+    const struct limine_firmware_type_response *firmware=intel_shutdown_firmware_request.response;
+#elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
     const struct limine_firmware_type_response *firmware=intel_bcs_reset_firmware_request.response;
 #elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
     const struct limine_firmware_type_response *firmware=intel_reset_ready_firmware_request.response;
@@ -265,7 +284,12 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     struct intel_completion_result completion={0};
 #elif defined(SRVROS_INTEL_BLITTER_TRIAL)
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_shutdown_recipe(cmd->cmdline);
+    struct shutdown_trial shutdown={0};
+#else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_blitter_recipe(cmd->cmdline);
+#endif
     struct intel_engine_census engines={0};struct intel_blitter_result blitter={0};struct reader_audit readers={0};
 #elif defined(SRVROS_INTEL_ENGINE_TRIAL)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_engine_recipe(cmd->cmdline);
@@ -306,7 +330,7 @@ bool intel_gt_wake_probe_report(void) {
             for(unsigned i=0;mapped && i<WAKE_MAPS;i++)mapped=wake_map(&a,i);
             if(mapped) {
                 opened=intel_gt_access_open(&owner,&a.fw.gt.token,grants,(struct intel_gt_io){&a,wake_guard,wake_read,wake_write,now,wake_pause,
-#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
                     wake_request_snapshot
 #else
                     NULL
@@ -331,6 +355,9 @@ bool intel_gt_wake_probe_report(void) {
 #endif
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+                if(checked)shutdown_run(&a,&owner,&engines,&blitter,&readers,&shutdown,grants==7 && f.recipe);
+#else
                 bool entry_disabled=engines.enabled==0;
                 bool initial=engines.complete && engines.stable && (engines.enabled==16 || entry_disabled) && !engines.pending;
                 if(checked && initial && reader_pass(&a,&owner,&readers,0)) {
@@ -347,6 +374,7 @@ bool intel_gt_wake_probe_report(void) {
                     reader_finish(&readers);
                     if(blitter.writes && !readers.complete)a.uncertain=true;
                 }
+#endif
 #endif
                 if(checked && !a.uncertain)closed=intel_gt_access_close(&owner);
             }
@@ -382,15 +410,19 @@ bool intel_gt_wake_probe_report(void) {
 #endif
 #else
     engine_reads=engines.reads;
-    engine_report(&engines,!retained && a.maps==a.retired);
+    engine_report_named(&engines,!retained && a.maps==a.retired,"intel-engine");
     complete=complete && engines.complete;
 #endif
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
     engine_reads+=blitter.reads;blitter_report(&blitter,&readers);
     complete=complete && blitter.disabled && !blitter.uncertain && readers.complete;
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+    engine_reads+=shutdown.post.reads;shutdown_report(&shutdown,&owner,&readers,!retained && a.maps==a.retired);
+    complete=complete && shutdown.complete;
 #endif
-#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+#endif
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
     console_printf("intel-clock: v=1 why=%u at=%u prev=%u phase=%u n=%u\n",(uint64_t)owner.clock_cause,owner.clock_sample,owner.clock_previous,owner.clock_phase,(uint64_t)owner.snapshots);
 #endif
     console_printf("intel-wake-summary: v=%u compiled=1 contract=1 efi64=%u loader=%u recipe=%u serialized=%u prerequisites=%u profile=%u fw_quiet=%u req_quiet=%u initial_req=%x initial_ack=%x grants=%u acquired=%u before=%u opened=%u checked=%u closed=%u fw_after=%u after=%u released=%u maps=%u retired=%u cache_checks=%u guards=%u retained=%u state=%u reason=%u writes=%u attempts=%u requests=%x ack=%x thread=%x begin_us=%u end_us=%u complete=%u engine_reads=%u pte_writes=0 managed_pages=0 smm_retired=0 hardware_ownership=0\n",

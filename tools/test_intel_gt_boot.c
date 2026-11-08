@@ -14,6 +14,16 @@ int main(void) {
  assert(!intel_gt_boot_engine_recipe(recipe));
  char blitter[2200];snprintf(blitter,sizeof(blitter),"%s srvros.intel-blitter=retire",bad_engine);
  assert(intel_gt_boot_blitter_recipe(blitter));assert(!intel_gt_boot_engine_recipe(blitter) && !intel_gt_boot_recipe(blitter));assert(!intel_gt_boot_blitter_recipe(bad_engine));
+ char shutdown[2400];snprintf(shutdown,sizeof(shutdown),"%s srvros.intel-shutdown=qualify",blitter);
+ assert(intel_gt_boot_shutdown_recipe(shutdown) && !intel_gt_boot_blitter_recipe(shutdown) && !intel_gt_boot_shutdown_recipe(blitter));
+ char missing[3000];
+ for(const char *start=shutdown;*start;) {
+  const char *end=start;while(*end && *end!=' ')end++;
+  snprintf(missing,sizeof(missing),"%.*s%s",(int)(start-shutdown),shutdown,*end?end+1:end);assert(!intel_gt_boot_shutdown_recipe(missing));
+  snprintf(missing,sizeof(missing),"%s %.*s",shutdown,(int)(end-start),start);assert(!intel_gt_boot_shutdown_recipe(missing));start=*end?end+1:end;
+ }
+ const char *blit=strstr(shutdown,"srvros.intel-blitter=retire");
+ snprintf(missing,sizeof(missing),"%.*ssrvros.intel-completion=read-only%s",(int)(blit-shutdown),shutdown,blit+strlen("srvros.intel-blitter=retire"));assert(!intel_gt_boot_shutdown_recipe(missing));
  strcat(blitter," srvros.intel-blitter=retire");assert(!intel_gt_boot_blitter_recipe(blitter));
  strcat(bad_engine," srvros.intel-engines=read-only");assert(!intel_gt_boot_engine_recipe(bad_engine));
  assert(intel_gt_boot_recipe(recipe));assert(!intel_gt_boot_recipe(NULL) && !intel_gt_boot_recipe(" "));

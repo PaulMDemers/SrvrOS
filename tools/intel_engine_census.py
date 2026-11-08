@@ -15,7 +15,11 @@ def engine_result(text):
  rows=[];summary=[]
  for line in text.splitlines():
   if line.startswith('intel-engine-row:'):
-   rows.append(_fields(line,'intel-engine-row:','v sample engine base tail head start ctl execlo exechi'.split(),('base',)+WORDS))
+   if 'v=2' in line.split():
+    r=_fields(line,'intel-engine-row:','v sample engine w0 w1 w2 w3 w4 w5'.split(),versions=(2,))
+    if r['engine']>=5 or any(r['w'+str(i)]>=1<<32 for i in range(6)):raise ValueError('compact engine width/identity')
+    rows.append(dict(v=2,sample=r['sample'],engine=r['engine'],base=PAGES[r['engine']],**{k:r['w'+str(i)] for i,k in enumerate(WORDS)}))
+   else:rows.append(_fields(line,'intel-engine-row:','v sample engine base tail head start ctl execlo exechi'.split(),('base',)+WORDS))
   elif line.startswith('intel-engine-summary:'):
    summary.append(_fields(line,'intel-engine-summary:','v samples reads stable enabled pending begin_us end_us observed retired engine_writes reader_retirement managed_pages pte_writes'.split()))
   elif line.startswith('intel-engine-'):raise ValueError('unknown engine receipt')

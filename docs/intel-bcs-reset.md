@@ -289,3 +289,7 @@ Media/recovery/default/consumed-one-shot checks pass with1,380 files/116 session
 The next step must establish bounded same-lifetime inherited BCS disable/retirement
 admission; do not suppress the enabled bit, widen budgets or reuse another boot's
 retirement observation. The current trial is collected and no reboot is armed.
+
+The separate [guarded shutdown qualification](intel-shutdown.md) now tests the
+enabled-ring transition and fresh engine/reader preservation before any change
+to reset admission. It has no reset writer and cannot accept this reset protocol.

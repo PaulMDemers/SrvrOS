@@ -71,20 +71,35 @@ static void reader_finish(struct reader_audit *r) {
 static void blitter_report(const struct intel_blitter_result *b,const struct reader_audit *r) {
  for(unsigned n=0;n<b->samples;n++) {
   const uint32_t *w=b->words[n];
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+  console_printf("intel-blitter-row: v=2 sample=%u tail=%u head=%u start=%u ctl=%u execlo=%u exechi=%u mode=%u bltmode=%u\n",
+   (uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
+#else
   console_printf("intel-blitter-row: v=1 sample=%u tail=%x head=%x start=%x ctl=%x execlo=%x exechi=%x mode=%x bltmode=%x\n",
    (uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
+#endif
  }
  console_printf("intel-blitter-summary: v=2 contract=1 admitted=%u samples=%u reads=%u attempts=%u writes=%u reason=%u begin_us=%u end_us=%u disabled=%u uncertain=%u entry_disabled=%u engine_reset=0 ring_stop=0 restore=0 reader_retirement=0 managed_pages=0\n",
   (uint64_t)b->admitted,(uint64_t)b->samples,(uint64_t)b->reads,(uint64_t)b->attempts,(uint64_t)b->writes,(uint64_t)b->reason,b->begin_us,b->end_us,(uint64_t)b->disabled,(uint64_t)b->uncertain,(uint64_t)b->entry_disabled);
  for(unsigned n=0;n<r->samples;n++) {
   for(unsigned p=0;p<3;p++) {
    const uint32_t *w=r->words[n][p];
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+   console_printf("intel-reader-row: v=2 sample=%u pipe=%u primary_ctl=%u primary_surf=%u primary_live=%u cursor_ctl=%u cursor_base=%u cursor_live=%u sprite_ctl=%u sprite_surf=%u sprite_live=%u\n",
+    (uint64_t)n,(uint64_t)p,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7],(uint64_t)w[8]);
+#else
    console_printf("intel-reader-row: v=1 sample=%u pipe=%u primary_ctl=%x primary_surf=%x primary_live=%x cursor_ctl=%x cursor_base=%x cursor_live=%x sprite_ctl=%x sprite_surf=%x sprite_live=%x\n",
     (uint64_t)n,(uint64_t)p,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7],(uint64_t)w[8]);
+#endif
   }
   const struct package_pci_snapshot *s=&r->audio[n];
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+  console_printf("intel-reader-audio: v=2 sample=%u id=%u class=%u command=%u flags=%u pm=%u state=%u mmio_reads=0 power_writes=0 dma_retired=0\n",
+   (uint64_t)n,(uint64_t)s->id,(uint64_t)s->class_code,(uint64_t)s->command,(uint64_t)s->flags,(uint64_t)s->pm,(uint64_t)s->state);
+#else
   console_printf("intel-reader-audio: v=1 sample=%u id=%x class=%x command=%x flags=%x pm=%x state=%u mmio_reads=0 power_writes=0 dma_retired=0\n",
    (uint64_t)n,(uint64_t)s->id,(uint64_t)s->class_code,(uint64_t)s->command,(uint64_t)s->flags,(uint64_t)s->pm,(uint64_t)s->state);
+#endif
  }
  console_printf("intel-reader-summary: v=1 samples=%u reads=%u stable=%u audio_stable=%u primary=%u cursor=%u sprite=%u begin_us=%u end_us=%u complete=%u display_writes=0 audio_mmio=0 reader_retirement=0 managed_pages=0\n",
   (uint64_t)r->samples,(uint64_t)r->reads,(uint64_t)r->stable,(uint64_t)r->audio_stable,(uint64_t)r->primary,(uint64_t)r->cursor,(uint64_t)r->sprite,r->begin,r->end,(uint64_t)r->complete);

@@ -372,3 +372,7 @@ wake v7 receipt adds a compact `intel-clock` row with snapshot count; its owner
 origin is already bound in the BCS summary. Collectors derive clock causes from
 those values and require the new row only for v7, leaving v1–v6 meanings intact.
 The BCS core100ms and outer500ms limits remain separate and unchanged.
+
+The separate [idle shutdown qualification](intel-shutdown.md) also uses the
+guarded snapshot under wake version8, with its own owner-origin receipt. Older
+image versions remain unchanged; this adds no reset or memory authority.

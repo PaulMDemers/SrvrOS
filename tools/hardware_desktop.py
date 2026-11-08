@@ -621,6 +621,13 @@ def needs_attention(line):
             return not summary_result(line)['complete']
         except ValueError:
             return True
+    if line.startswith('intel-shutdown-summary:'):
+        from intel_shutdown import FIELDS
+        from intel_engine_census import _fields
+        try:
+            s=_fields(line,'intel-shutdown-summary:',FIELDS)
+            return not s['complete'] or any(s[k]!=1 for k in ('borrowed','returned','blocked','stable')) or s['reset_writes']!=0 or s['managed_pages']!=0
+        except ValueError:return True
     if line.startswith('intel-blitter-summary:'):
         from intel_blitter import blitter_summary_complete
         try:
@@ -632,8 +639,8 @@ def needs_attention(line):
     if line.startswith('intel-wake-summary:'):
         from intel_gt_wake import wake_result
         try:
-            result = wake_result(line)
-            return not result or not result['lease_complete']
+            result = wake_result(line,summary_only=True)
+            return not result or not result['summary_complete']
         except ValueError:
             return True
     # App tracing emits accounting on normal admission/retirement. Match the
@@ -1007,6 +1014,12 @@ def collect(mount, volume, output):
                 if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
         intel_blitter=None
+        if 'srvros.intel-shutdown=qualify' in text:
+            from intel_shutdown import native_shutdown_result
+            try:
+                shutdown=native_shutdown_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not shutdown or not shutdown['native_complete']:attention.append('Intel same-lifetime blitter shutdown incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel same-lifetime shutdown: '+str(error))
         if 'srvros.intel-blitter=retire' in text:
             from intel_blitter import blitter_result
             try:

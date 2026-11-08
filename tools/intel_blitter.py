@@ -3,6 +3,11 @@ from intel_engine_census import _fields
 BCS_WORDS=('tail','head','start','ctl','execlo','exechi','mode','bltmode')
 READER_WORDS=('primary_ctl','primary_surf','primary_live','cursor_ctl','cursor_base','cursor_live','sprite_ctl','sprite_surf','sprite_live')
 SUMMARY_FIELDS='v contract admitted samples reads attempts writes reason begin_us end_us disabled uncertain engine_reset ring_stop restore reader_retirement managed_pages'.split()
+def _raw(line,prefix,fields,words):
+ decimal='v=2' in line.split()
+ r=_fields(line,prefix,fields,() if decimal else words,versions=(2,) if decimal else (1,))
+ if any(r[k]>=1<<32 for k in words):raise ValueError('blitter DWORD width')
+ return r
 def _summary(line):
  fields=SUMMARY_FIELDS+(['entry_disabled'] if 'v=2' in line.split() else [])
  b=_fields(line,'intel-blitter-summary:',fields,versions=(1,2))
@@ -13,10 +18,10 @@ def _complete(b):
 def blitter_result(text):
  rows=[];summaries=[];rr=[];audio=[];rs=[]
  for line in text.splitlines():
-  if line.startswith('intel-blitter-row:'):rows.append(_fields(line,'intel-blitter-row:',['v','sample']+list(BCS_WORDS),BCS_WORDS))
+  if line.startswith('intel-blitter-row:'):rows.append(_raw(line,'intel-blitter-row:',['v','sample']+list(BCS_WORDS),BCS_WORDS))
   elif line.startswith('intel-blitter-summary:'):summaries.append(_summary(line))
-  elif line.startswith('intel-reader-row:'):rr.append(_fields(line,'intel-reader-row:',['v','sample','pipe']+list(READER_WORDS),READER_WORDS))
-  elif line.startswith('intel-reader-audio:'):audio.append(_fields(line,'intel-reader-audio:','v sample id class command flags pm state mmio_reads power_writes dma_retired'.split(),('id','class','command','flags','pm')))
+  elif line.startswith('intel-reader-row:'):rr.append(_raw(line,'intel-reader-row:',['v','sample','pipe']+list(READER_WORDS),READER_WORDS))
+  elif line.startswith('intel-reader-audio:'):audio.append(_raw(line,'intel-reader-audio:','v sample id class command flags pm state mmio_reads power_writes dma_retired'.split(),('id','class','command','flags','pm')))
   elif line.startswith('intel-reader-summary:'):rs.append(_fields(line,'intel-reader-summary:','v samples reads stable audio_stable primary cursor sprite begin_us end_us complete display_writes audio_mmio reader_retirement managed_pages'.split()))
   elif line.startswith(('intel-blitter-','intel-reader-')):raise ValueError('unknown blitter/reader receipt')
  if not summaries:
@@ -24,6 +29,8 @@ def blitter_result(text):
   return None
  if len(summaries)!=1 or len(rs)!=1:raise ValueError('blitter/reader summary multiplicity')
  b=summaries[0];r=rs[0]
+ compact=any(l.startswith('intel-wake-summary: v=8 ') for l in text.splitlines())
+ if any(x['v']!=(2 if compact else 1) for x in rows+rr+audio):raise ValueError('blitter row version binding')
  if b['contract']!=1 or b['samples']>4 or b['reads']>32 or b['attempts']>1 or b['writes']>b['attempts'] or b['reason']>8 or any(b[k]>1 for k in ('admitted','disabled','uncertain','entry_disabled')) or b['attempts']>b['admitted'] or b['uncertain'] and not b['attempts'] or any(b[k] for k in ('engine_reset','ring_stop','restore','reader_retirement','managed_pages')):raise ValueError('blitter counts/authority')
  if [x['sample'] for x in rows]!=list(range(b['samples'])):raise ValueError('blitter row order')
  if b['entry_disabled'] and (b['attempts'] or b['writes'] or b['uncertain']):raise ValueError('read-only blitter issued a store')

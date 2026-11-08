@@ -5350,3 +5350,21 @@ build/air61-register-sample/gate%.o: kernel/diagnostics/air61_read_gate_instance
 build/tests/air61-sample-gate%.o: tools/test_air61_read_gate.c kernel/diagnostics/air61_read_gate_instance.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_AIR61_REGISTER_SAMPLE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include -DAIR61_READ_GATE_PASS=$* -c $< -o $@
+
+build/intel-shutdown/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_blitter_trial.inc kernel/src/drivers/intel_shutdown_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_BLITTER_TRIAL -DSRVROS_INTEL_SHUTDOWN_TRIAL -c $< -o $@
+build/intel-shutdown/srvros.elf: build/intel-shutdown/probe.o build/intel-shutdown/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-shutdown/probe.o build/intel-shutdown/requests.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-shutdown-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_blitter_trial.inc kernel/src/drivers/intel_shutdown_trial.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_BLITTER_TRIAL -DSRVROS_INTEL_SHUTDOWN_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_blitter.c kernel/diagnostics/package_audit_core.c -o $@
+
+.PHONY: test-intel-shutdown
+test-core: test-intel-shutdown
+test-intel-shutdown: build/tests/intel-shutdown-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_shutdown.py
+
+build/intel-shutdown/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_SHUTDOWN_TRIAL -c $< -o $@
