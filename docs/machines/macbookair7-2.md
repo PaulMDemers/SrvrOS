@@ -2,10 +2,35 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Latest guarded snapshot trial: clean refusal before reset
+
+Source `9ea439f6`, release `3ec42dd315377e65`, session
+`session-00065fbb6102d2c0-00` is **incomplete**. The stable92-word pre-census
+completed in53,979us but found the inherited BCS ring enabled (mask16,
+control61441, start65990656). The core correctly refused with `IBR_INPUT`/1
+before borrowing, control stores or reset pulses. No post-reset preservation
+ran. This differs from the prior retained-parent clock failure.
+
+The first-fault clock receipt reports no clock fault and7 grouped checks.
+Owner duration146,383us and outer224,902us cover a shorter refusal path; they
+cannot establish reset-path timing improvement. All13 mappings retired, the
+parent closed and exclusion released, with zero retained state and89 guards.
+Strict receipts/checkpoint pass as diagnostic evidence, not native acceptance.
+All1,377 prior files survive except expected workspace metadata;3 new logs yield
+1,380 files/116 sessions. Offline filesystem/allocation/writable/headroom,
+installed/durable/archive recovery, Ubuntu default and consumed one-shot pass.
+USB is unmounted; no trial is armed. Full evidence is retained outside build.
+
+Fetched integration now `09ad7c23` includes Air6,1 PR412/413; the tested payload
+still uses main `f01a1ad4`. Next integrate and requalify, then investigate bounded
+same-lifetime inherited BCS disable/retirement before reset admission. Keep the
+enabled-state gate and all100/300/500ms limits. Reset/preservation, outstanding
+DMA/prefetch/cache ownership, managed GPU backing and native tear-free remain open.
+
 ### Guarded requester snapshot candidate ready for hardware
 
 Tested source `9ea439f6` (main `f01a1ad4`) produces release
-`3ec42dd315377e65`, installed **not armed**. Only the BCS diagnostic opts into
+`3ec42dd315377e65`, prepared **not armed** at that checkpoint. Only the BCS diagnostic opts into
 an ordered requester/ACK/thread snapshot. Full core admission surrounds the
 three RO loads, with another full provider admission inside; all current raw
 backing/PTE/fence, resource, root/IRQ/exclusion and mapped-alias checks remain.

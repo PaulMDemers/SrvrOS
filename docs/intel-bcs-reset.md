@@ -274,3 +274,18 @@ pin return, fresh post-reset preservation and clean owner/mapping retirement
 under unchanged100/300/500ms limits. No human input is needed for that automated
 trial; safe outcomes save and return, uncertainty keeps the visible pre-entry
 warning and retained-state reboot gate. No trial is armed by preparation.
+
+## Guarded snapshot native return
+
+Air7,2 source `9ea439f6` / release `3ec42dd315377e65`, session
+`session-00065fbb6102d2c0-00`, saved a valid diagnostic refusal. The stable
+92-word pre-census took53,979us and observed BCS enabled (mask16, control61441).
+`IBR_INPUT`/1 rejected admission before a borrow, control store or reset pulse.
+The version7 clock row has why0 and7 grouped checks. All13 aliases retired,
+parent/exclusion released and zero state retained. Owner146,383us/outer224,902us
+are shorter-path measurements, not a successful reset latency comparison.
+No post-census or preservation occurred; reset acceptance remains pending.
+Media/recovery/default/consumed-one-shot checks pass with1,380 files/116 sessions.
+The next step must establish bounded same-lifetime inherited BCS disable/retirement
+admission; do not suppress the enabled bit, widen budgets or reuse another boot's
+retirement observation. The current trial is collected and no reboot is armed.
