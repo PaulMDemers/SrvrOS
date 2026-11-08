@@ -83,7 +83,7 @@ static uint64_t now=1;
 static int slow_console_probe;
 static unsigned slow_console_calls;
 static int capture_loop_log;
-static char captured_loop_log[4096];
+static char captured_loop_log[8192];
 void srv_puts(const char *text) {
     if(slow_console_probe){slow_console_calls++;now+=60;return;}
     if(capture_loop_log) {
@@ -803,6 +803,40 @@ static void document_routing_failures(void) {
     puts("desktop-document-route: PASS copied chunks, authenticated replies, pressure, uncertainty and shutdown without replay");
 }
 
+static void persistent_render_timing(void) {
+    struct loop_trace t={0};loop_trace_begin(&t,100,2,3,1);
+    struct loop_render_record *r=&t.current.render;
+    render_record_begin(r,200);r->damage=1;r->scale=1;
+    render_record_mark(r,1,300);
+    render_record_rect(r,0,310,500,100);render_record_rect(r,1,510,600,100);
+    render_record_mark(r,2,700);render_record_mark(r,3,800);render_record_mark(r,4,900);
+    assert(render_record_complete(r));
+    t.current.capture=(struct loop_capture_record){.begin=1000,.end=1200,.valid=1,.id_before=2,.id_after=2};
+    loop_trace_end(&t,700100,2,3,1);
+    struct loop_record retained=t.worst;
+    for(unsigned n=0;n<1000;n++) {
+        uint64_t now=800000+n*1000;loop_trace_begin(&t,now,3,4,1);
+        t.current.render.valid=99;t.current.capture.id_after=99;
+        loop_trace_end(&t,now+10,3,4,1);assert(!memcmp(&t.worst,&retained,sizeof(retained)));
+    }
+    struct loop_render_record good=retained.render,bad=good;
+    bad.next=2;render_record_rect(&bad,0,599,610,1);assert(!bad.valid);
+    bad=good;bad.next=2;render_record_rect(&bad,0,610,600,1);assert(!bad.valid);
+    bad=good;bad.next=2;bad.compose_us=UINT64_MAX;render_record_rect(&bad,0,610,620,1);assert(!bad.valid);
+    bad=good;bad.next=2;bad.compose_pixels=UINT64_MAX;render_record_rect(&bad,0,610,620,1);assert(!bad.valid);
+    bad=good;bad.next=2;render_record_mark(&bad,2,599);assert(!bad.valid);
+    bad=good;bad.next=2;render_record_mark(&bad,3,700);assert(!bad.valid);
+    bad=good;bad.upload_calls=0;assert(!render_record_complete(&bad));
+    bad=good;bad.compose_us=401;assert(!render_record_complete(&bad));
+    render_record_begin(&bad,0);assert(!bad.valid);
+    render_record_begin(&bad,UINT64_MAX);assert(!bad.valid);
+    capture_loop_log=1;loop_trace_report(&t,1);
+    assert(strstr(captured_loop_log,"desktop-loop-render: seq=1 version=1 valid=1"));
+    assert(strstr(captured_loop_log,"desktop-loop-capture: seq=1 version=1 valid=1"));
+    capture_loop_log=0;
+    puts("desktop-render-timing: PASS bounded callbacks, bad clocks/counts/overflow and retained same-loop attribution");
+}
+
 static void persistent_loop_timing(void) {
     struct loop_trace t={0};
     loop_trace_end(&t,100,0,0,0);assert(!t.samples);
@@ -1065,12 +1099,34 @@ static void display_transaction_tests(void) {
     now=1;
     puts("desktop-display: PASS mode admission, transaction ownership, cancellation, keep, timeout and disconnect rollback");
 }
-int main(void) {
+static int render_proof_fixture(void) {
+    struct loop_trace t={0};loop_trace_begin(&t,100,4,13,3);
+    loop_trace_mark(&t,LOOP_RENDER,1100);
+    struct loop_render_record *r=&t.current.render;
+    render_record_begin(r,1101);r->damage=1;r->scale=1;r->capture_id=2;r->capture_busy=1;
+    render_record_mark(r,1,1200);render_record_rect(r,0,1210,531210,100);
+    render_record_rect(r,1,532000,539000,100);render_record_mark(r,2,540000);
+    render_record_mark(r,3,540100);render_record_mark(r,4,541000);assert(render_record_complete(r));
+    r->scheduler=(struct srv_sched_trace){.version=1,.start_us=1110,.end_us=540990,.end_tick=60,
+        .blocked_us=2000,.ready_us=1000,.blocks=1,.signals=1,.dispatches=1,.max_ready_us=1000,
+        .wake_us=2000,.run_us=3000,.wake_tick=1,.reason=1};
+    loop_trace_mark(&t,LOOP_POST,541100);
+    t.current.capture=(struct loop_capture_record){.begin=541101,.end=551000,.valid=1,.id_before=2,.id_after=2,.busy_before=1,
+        .scheduler={.version=1,.start_us=541110,.end_us=550990,.end_tick=60,.ready_us=1000,.dispatches=1,
+        .max_ready_us=1000,.wake_us=542000,.run_us=543000,.wake_tick=1,.reason=1}};
+    loop_trace_mark(&t,LOOP_WAIT,551100);
+    t.current.wait=(struct loop_wait_record){.valid=1,.begin=551110,.sleep_begin=551130,.sleep_end=559040,.end=559060,
+        .scheduler={.version=1,.start_us=551120,.end_us=559050,.end_tick=60,.blocked_us=1000,.ready_us=1000,
+        .blocks=1,.signals=1,.dispatches=1,.max_ready_us=1000,.wake_us=552500,.run_us=553500,.wake_tick=1,.reason=1}};
+    loop_trace_end(&t,559100,4,13,3);loop_trace_report(&t,1);return 0;
+}
+int main(int argc,char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--render-proof"))return render_proof_fixture();
     display_transaction_tests();
     deferred_ui_diagnostics();
     seeded_cache_reuse();
     retained_operations();window_navigation();
-    persistent_loop_timing();asynchronous_loop_report();
+    persistent_render_timing();persistent_loop_timing();asynchronous_loop_report();
     /* A timeout breaks before the next loop header. Its final interval still
      * counts against the same responsiveness limit. */
     uint64_t loop_last=0,loop_max=0;

@@ -11,6 +11,7 @@ from mk_usb_image import gpt_entry,gpt_header
 from vm_sockets import connect_unix
 from app_timing import RECORD,validate_collected_app_timing,lifecycle_receipts
 from loop_timing import validate_loop_timing
+from render_timing import validate_render_timing
 from lifetime_timing import lifetime_worst_records
 from operation_timing import operation_snapshots
 from file_service_records import file_service_receipts
@@ -94,7 +95,7 @@ def main():
     args=parser.parse_args()
     if args.write_iops<0 or args.read_iops<0 or not 0<=args.metadata_files<=4000 or (args.stage and (args.populated_home or args.write_iops or args.read_iops or args.metadata_files)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out=out.with_name(out.name+'-air72') if args.air72 else out;out.mkdir(parents=True,exist_ok=True)
-    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json'):
+    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','render-attribution.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json'):
         (out/name).unlink(missing_ok=True)
     for pattern in ('saved-*.log','checkpoint-*.log'):
         for old in out.glob(pattern):old.unlink()
@@ -265,6 +266,8 @@ def main():
                     worst=validate_loop_timing(snapshots,int(lifecycle[2]))
                     assert worst['version']==2, 'Missing wait/scheduler diagnostic companions'
                     (out/'loop-timing.json').write_text(json.dumps(worst,indent=2)+'\n')
+                    attribution=validate_render_timing(snapshots,int(lifecycle[2]))
+                    (out/'render-attribution.json').write_text(json.dumps(attribution,indent=2)+'\n')
                     # UART writers can interleave. Use the saved atomic exit
                     # snapshot for the single final ownership receipt.
                     retired=cache_retirement((out/'saved-exit.log').read_bytes())
