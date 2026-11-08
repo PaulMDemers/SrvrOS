@@ -15228,3 +15228,27 @@ recycling transport,native TCP/HTTP,sustained reliability,connection UI and live
 USB reattach remain pending. Preserve815453c3f9a42431 ande17ff9e2fb15fb2c.
 Demers2.4 requires compatible hardware. Maina1661937 consumed,ceeabd0d inspected
 without Wi-Fi overlap. PR19 stays draft;Actions disabled.
+
+
+### Reusable USB transport ownership scope (November 8)
+
+From accepted v132 d97ad914/release815453c3f9a42431,build the next dormant
+software transport core before binding a new native profile. Scope is a small
+MT76-specific DMA lifetime ledger,its host/provider-stack fixtures and current
+Wi-Fi guides. Model prepared/device/completed/borrowed page ownership,exact
+connection epoch/submission token,validated completion/length,timeout retention,
+producer cycle and explicit stopped/dequeue/event-drained wrap fences. A copied
+RX frame must be consumed before its DMA page can be reused. A USB completion
+alone cannot authorize context release or a wrapped descriptor alias. Require
+external full key/hardware/callback retirement before memory reclamation.
+
+Exercise repeated page/descriptor use and ordinary production Ethernet/ARP/TCP
+receive and nested replies against a synthetic transport. Keep the original CCMP
+owner exclusive;this ledger owns no keys,hardware authority or RF policy. Host
+success is not native ring reuse. No ordinary boot call site,stage/install or
+reboot is authorized by unused software alone. Preserve the197-file native and
+18-file acceptance capsules and both earlier cold data lifetimes. Current main
+62d6154c/PR421 scheduler IRQ-return preemption and PR420 desktop attribution were
+inspected;no Wi-Fi overlap. Exact integration still a1661937. Open graphics301
+and browser379 remain independent. Publish the bounded core and its test results
+before a separately qualified native RX/reuse binding;PR19 stays draft.
