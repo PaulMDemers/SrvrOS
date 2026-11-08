@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-08. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet accepted;one bounded5GHz encrypted DHCP/DNS/256-byte echo run with full restoration accepted**.
+Updated: 2026-11-08. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet accepted;two independent cold5GHz encrypted DHCP/DNS/256-byte echo lifetimes with full restoration accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -10,15 +10,17 @@ and next scope are recorded at the end; earlier failures are historical.
 Native v131 runtime77f75af0,releasee17ff9e2fb15fb2c,session00065fc82df02680-00
 passes encrypted DHCP DORA,ARP,DNS and a matching256-byte gateway echo with
 PN1..6,software key erasure/local leave submission and complete endpoint/input/
-MAC/power/RF restoration. The190-file capsule and separate accepted notes survive
-outside build. This is one bounded native pass;earlier intermittent failures
-remain failed and repeatability is unaccepted. Fingerprint-only diagnostics do
-not establish the cause of this success. See the November8 acceptance at the end.
+MAC/power/RF restoration. Independent cold repeat session00065fc8739d2620-00
+passes the same full proof on the identical image. The190/73-file native capsules
+and separate accepted notes survive outside build. This accepts two bounded cold
+lifetimes,not sustained reliability;earlier intermittent failures remain failed.
+Fingerprint-only diagnostics do not establish a causal correction. See the
+November8 acceptances at the end.
 
-Next preserve this payload,prove repeatability,and build ordinary provider/
-connection lifetime,TCP/HTTP and UI connect/disconnect/live reattach. The captured
+Next preserve this payload and build ordinary provider/connection lifetime,
+TCP/HTTP and UI connect/disconnect/live reattach. The captured
 7392:a711/0100 EW-7711MAC is5GHz-only;Demers2.4 needs compatible hardware. Current
-source retains maina1661937;actual main ec27e55b was inspected but not consumed.
+source retains maina1661937;actual main f94d97d1 was inspected but not consumed.
 Other machines' graphics,VT-d and browser work remain independent;no cross-chat
 contact is authorized. Credentials/private PMK remain local and never logged.
 
@@ -15015,3 +15017,40 @@ Source77f75af0/releasee17ff9e2fb15fb2c and a1661937 remain the actual runtime/ba
 mainf94d97d1 is inspected only. Ubuntu remains default and the repeat is unarmed
 at this checkpoint. Next authorized action is the documented cold shutdown;
 collect the independent repeat1 session first afterward.
+
+
+### Unchanged v131 independent cold repeat accepted (November 8)
+
+The identical runtime77f75af0/releasee17ff9e2fb15fb2c passes a second cold
+lifetime in session00065fc8739d2620-00. All2,041,944 saved bytes and the full
+15719-operation common/parent proof pass. Strict encrypted DORA,ARP for DNS/router,
+example.com DNS and exact256-byte gateway echo complete at PN1..6. Seven Ethernet
+frames authenticate:the six required replies plus one matching request copy
+refused by the UDP-ports gate. DHCP phase0 has matched1/reflected1;phase1 has
+matched1/reflected0. ARP matches twice. IP completes in80polls,one ignored,
+exhausted0,unsafe0;exchange306,822us. No new source,image,credential,retry,budget
+or acceptance-gate change and no new local test run accompanied this repeat.
+
+The19-event transcript contains six sends and13 data completions (indices5..17):
+five beacon,one action and seven protected-FromDS classes. Four Ethernet
+deliveries use verified sole-bit flags1024/audit4. Forward18,cleanup-drained1,
+posts20 stay inside40/48 immutable limits. Software keys erase and local leave
+completes. MAC disable,TX/RX quiet and filter/TXOP originals pass with54operations,
+46reads,7writes,one wait and10,636us hold. All six endpoint commands and exact
+endpoint/input originals restore (phase9);all nine power originals restore511.
+Full RF status0/complete1/valid1/restored1,completion markers,offline fsck/
+allocation and automatic Ubuntu recovery pass. No over-air leave ACK was observed.
+
+The73-file native repeat capsule is independently sealed outside build. Separate
+repeat acceptance notes revalidate both native proofs,identical payloads,first
+190-file capsule and26-file first notes,installed/recovery equality and default/
+unarmed state. First acceptance and all older failures retain their seals.
+This accepts bounded repeatability across two independent cold lifetimes;it does
+not accept sustained reliability or establish the cause of earlier failures.
+No further unchanged local tests or blind retries are needed for this checkpoint.
+
+Next extend the ordinary provider/connection lifetime and general TCP/HTTP data
+transfer,then UI connect/disconnect and live USB reattach,while retaining the
+accepted payload and exact crypto/ownership/retirement bounds. Demers2.4 needs
+compatible hardware. Workspace unmounted,Ubuntu default,no next boot armed.
+PR19 stays draft;Actions remain disabled.

@@ -7523,3 +7523,14 @@ ordinary provider/connection lifetime,TCP/HTTP,sustained traffic,UI connect/
 disconnect and live reattach are still open. Local leave completion is not a
 wire-ACK observation. Keep prior failures and all crypto/ownership/restoration
 and40/48/time limits;Demers2.4 still needs compatible hardware.
+
+
+The byte-identical v131 payload now independently passes a second cold native
+lifetime with strict DORA/ARP/DNS/exact256-byte echo,PN1..6,key erasure/local
+leave and full hardware/storage/recovery originals. This supplies bounded
+repeatability across two cold lifetimes,without a new build or larger limits.
+Both immutable native capsules and separate acceptance notes remain preserved.
+It does not establish sustained reliability or explain earlier intermittent
+failures. Ordinary provider/connection lifetime,TCP/HTTP,sustained traffic,UI
+connect/disconnect and USB reattach remain the next work;do not repeat unchanged
+local tests or infer broader acceptance from these two bounded passes.
