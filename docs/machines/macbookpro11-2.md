@@ -14374,3 +14374,41 @@ wire mutations and strict saved-log checks must prove meaningful categories
 without promoting authenticated-but-unmatched traffic to an offer. Qualify one
 matched automatic cold image before new physical claims. No packet,IP/MAC,
 transaction ID,option payload or key values may enter the receipts.
+
+### Qualified authenticated IP/DHCP category trial (November 7)
+
+Runtimee3541a81 retains integration baselinea1661937. Matched kernel/USB build,
+full controller and relevant protocol/crypto/DNS/ownership regressions,233
+stage tests,16 fatal ASan/UBSan groups and native stack checks pass. The maximum
+new native frame is1,272bytes under the unchanged4,096-byte check. Independent
+wire mutations exercise all29 first-refusal categories and bound OFFER/ACK/
+NAK/other classes while preserving the normal six-packet encrypted fixture.
+Saved-log checks reject missing/duplicate/schema-inconsistent receipts and bind
+each DHCP phase's counters to its authenticated receive rows.
+
+The complete production-C/native-parent synthetic prefix passes2,040,666bytes
+and123 altered/incomplete cases. Its conservative bound leaves41,325bytes
+below the unchanged2MiB capture limit,including the separate32KiB reserve.
+Each DHCP receipt fits one1,024-byte console batch even at maximum native
+counter widths. Real filesystem persistence/remount/fsck,ordinary desktop and
+exact-stage save/return and missing-workspace VMs pass. Compiled kernel and
+independently reconstructed firmware/private-PMK initramfs match the staged
+payload. No full-core rerun or new native protocol acceptance is claimed.
+
+Current565-file receive failure,prior564/581/564 failures,accepted177/24
+four-way capsule/notes,failed569-file four-way and accepted178-file M1 seals
+remain unchanged. The latest generated session was archived,byte-verified and
+pruned only after preserving its full capsule. Offline allocation,writable
+eligibility and headroom pass. EFI space came only from an unreferenced failed
+reserved-RX candidate duplicate after exact verification of its complete
+external failure backup. Accepted v130,M1 and e47d previous remain installed.
+The new candidate is installed,Ubuntu is default,and no boot is armed yet.
+
+Next authorized action is cold shutdown,Wi-Fi-only10second unplug while off,
+same-port reconnect and power on with workspace attached. Guest progress,saving
+and Ubuntu return are automatic. Collect the DHCP-category candidate first on
+return;identify which predicates reject authenticated frames before selecting
+any fix. Parsed message class is not accepted OFFER/ACK. No packet/address/
+transaction/option/key values are logged. Every crypto,wire and full restoration
+predicate remains mandatory. ARP,DNS,echo,ordinary provider/UI,TCP/HTTP and live
+reattach remain pending. PR19 stays draft;Actions remain disabled.
