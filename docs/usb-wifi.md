@@ -7543,8 +7543,8 @@ epochs. Registration must precede `net_init`,using the verified station MAC.
 Attach requires a strictly newer epoch and an admitted external transport owner.
 It does not install,copy or retire CCMP keys:the native backend must retain the
 original exclusive handshake/key/peer/generation owner and supply only strict
-CCMP-authenticated normalized Ethernet. There is no boot call site or native
-transport binding yet;the accepted v131 payload remains installed separately.
+CCMP-authenticated normalized Ethernet. Ordinary boot has no call site;the explicit v132 trial below binds native
+transport under existing finite ownership. The accepted v131 payload stays separate.
 The current diagnostic starts after ordinary provider selection is sealed,so
 simply registering its synchronous callbacks would violate both contracts.
 
@@ -7584,3 +7584,35 @@ The test checks the exact HTTP200 payload,receive-window update ACK,FIN/ACK,
 TIME_WAIT and final provider retirement. Replies generated inside Ethernet
 delivery traverse the real nonblocking send queue. This is stack/provider
 software evidence;it does not exercise native USB,CCMP or a real access point.
+
+
+### v132 bounded native provider TX handoff trial
+
+The explicit `--wifi-provider5` stage requires the complete data5/WPA5/private-PMK
+and5GHz parent chain and automatic return. Only that exact unattended profile
+defers ordinary net_init/worker startup. After M4,the verified station registers
+and selects the provider. The six existing strict IP diagnostic frames then
+traverse the provider's copied queue into a genuinely nonblocking USB submission.
+The original CCMP owner seals once,advances PN once,and copies the ciphertext to
+the next original immutable DMA page. Only the validated current native USB
+completion may acknowledge its matching epoch/token and record the completed
+send. The private diagnostic's completion waits stay outside provider callbacks.
+
+The existing48 RX pages,40 forward/eight cleanup entries,11 TX pages,six endpoint
+commands and receive/crypto/IP/time/restoration gates are unchanged. No hardware
+ring/page reuse is introduced. Receive validation remains the strict private IP
+diagnostic;this trial does not accept ordinary provider RX,TCP/HTTP or persistent
+service. Callback binding alone does not widen that scope. Ordinary boot,v130
+and v131 keep their original network timing and behavior.
+
+Disconnect stops provider publication before key erasure. An explicit early
+detach attempt must refuse. The backend releases its context only after the
+entire parent has returned successfully with software erasure and full endpoint/
+input/MAC/power/RF retirement;on uncertainty it remains pinned. The separate
+saved-log checker requires matching new boot/progress identity,six queued/
+submitted/completed frames,early-release refusal and final detach/registry
+retirement after the full outer RF receipt. Historical data5 checking rejects
+provider flags/receipts. Local fixture evidence includes the actual native owner,
+real registry/core,independent encrypted AP frames,all six USB stalls,foreign
+tokens/epochs,late registration and refusal to release on incomplete parent
+retirement. Physical acceptance requires the matching native run;it is pending.

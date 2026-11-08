@@ -286,6 +286,10 @@ static void xhci_test_write32(uint64_t offset, uint32_t value) {
 /* Removal admission must return before any provider registration/allocation. */
 void *kcalloc(size_t count,size_t size) { (void)count;(void)size;abort(); }
 bool net_device_register(const struct net_device_ops *ops) { (void)ops;abort(); }
+bool net_device_select(void){abort();}
+const char *net_device_name(void){abort();}
+const uint8_t *net_device_mac(void){abort();}
+bool net_device_send(const uint8_t *frame,uint16_t length){(void)frame;(void)length;abort();}
 void net_handle_ethernet_frame(const uint8_t *frame,uint16_t length) { (void)frame;(void)length;abort(); }
 bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,bool writable) {
     (void)s;(void)context;(void)bulk;(void)writable;abort();

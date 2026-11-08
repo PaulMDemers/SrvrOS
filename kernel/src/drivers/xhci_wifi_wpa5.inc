@@ -8,7 +8,15 @@
 #include <srvros/initramfs.h>
 #include <srvros/mt76_data5.h>
 #include <srvros/mt76_ip5.h>
+#include <srvros/mt76_net5.h>
 static bool wifi_wpa5_requested,wifi_wpa5_data_requested;
+static bool wifi_provider5_requested;
+static struct {struct mt76_net5 net;uint64_t token,epoch;bool attempted,registered,attached,selected,closed,early_refused,outer_retired,retired;}wifi_provider5;
+static bool wifi_provider5_start(void);
+static bool wifi_provider5_owned(void *);
+static bool wifi_provider5_complete(void);
+static bool wifi_provider5_close(void);
+static enum mt76_join5_send wifi_provider5_send(void *,const uint8_t *,size_t);
 #define WIFI_WPA5_TX_MAX 11
 static unsigned wifi_wpa5_tx_limit(void){return wifi_wpa5_data_requested?WIFI_WPA5_TX_MAX:5;}
 static unsigned wifi_wpa5_packet_limit(void){return wifi_wpa5_data_requested?MT76_DATA5_USB_MAX:184;}
@@ -134,7 +142,10 @@ static bool wifi_wpa5_event(struct xhci_device *d,const struct xhci_trb *e){
   console_printf("wifi-wpa5-stop-event: dci=%u cc=%u residue=%u pointer=%x ok=%u\n",(uint64_t)dci,(uint64_t)cc,(uint64_t)residue,ptr,(uint64_t)good);
  }else if(good && dci==8){
   good=wifi_wpa5.phase==3 && wifi_wpa5.tx_pending && wifi_wpa5.sends && ptr==wifi_wpa5.tx_phys+16*(wifi_wpa5.sends-1) && cc==1 && !residue && !wifi_wpa5.tx_events;
-  if(good){wifi_wpa5.tx_events++;wifi_wpa5.tx_pending=false;wifi_wpa5.tx_done=true;}
+  if(good){
+   wifi_wpa5.tx_events++;wifi_wpa5.tx_pending=false;wifi_wpa5.tx_done=true;
+   if(wifi_provider5_requested && wifi_wpa5.kinds[wifi_wpa5.sends-1]==5)good=wifi_provider5_complete();
+  }
  }else if(good){
   good=(wifi_wpa5.phase==3 || (wifi_wpa5.phase==4 && wifi_wpa5.stop_dci==9)) && wifi_wpa5.rx_pending && wifi_wpa5.posts && ptr==wifi_wpa5.rx_phys+16*(wifi_wpa5.posts-1) && (cc==1 || cc==13) && residue<=4096 && !wifi_wpa5.rx_events;
   if(good){wifi_wpa5.rx_events++;wifi_wpa5.rx_pending=false;wifi_wpa5.rx_done=true;wifi_wpa5.rx_cc=cc;wifi_wpa5.rx_residue=residue;}
@@ -306,6 +317,7 @@ static bool wifi_data5_owned(void *c){
  h->phase==WPA2_HS_COMPLETE && h->generation==k->generation && h->key_owner==(uintptr_t)k && h->emissions==2 && h->install_handoffs==1 && h->keys_may_live && !h->unsafe && wifi_wpa5_owned(c,false);
 }
 static enum mt76_join5_send wifi_data5_send(void *c,const uint8_t *frame,size_t length){
+ if(wifi_provider5_requested)return wifi_provider5_send(c,frame,length);
  struct wpa2_ccmp *k=&wifi_wpa5.exchange.keys;
  if(!wifi_data5_owned(c) || frame!=wifi_wpa5.ip.tx || wifi_wpa5.data_sends>=6 || wifi_wpa5.sends!=4+wifi_wpa5.data_sends || k->tx_pn!=wifi_wpa5.data_pn)return MT76_JOIN5_REFUSED;
  size_t n=mt76_data5_tx(&wifi_wpa5.data_scratch,k,wifi_wpa5.peer.generation,frame,length,9+wifi_wpa5.data_sends,wifi_wpa5.data_usb,sizeof wifi_wpa5.data_usb);
@@ -325,10 +337,12 @@ static enum mt76_join5_send wifi_data5_window(void *c,struct wpa2_ccmp *keys,uin
  wifi_wpa5.data_active=true;wifi_wpa5.data_window_started=true;
  uint8_t entropy[32]={0};bool good=wifi_data5_owned(c) && wpa2_nonce_generate(entropy) && wifi_data5_owned(c);
  uint32_t xid=(uint32_t)entropy[0]<<24|(uint32_t)entropy[1]<<16|(uint32_t)entropy[2]<<8|entropy[3];zero_bytes(entropy,sizeof entropy);
- const struct mt76_ip5_io io={c,wifi_data5_owned,wifi_data5_send,wifi_data5_poll,wifi_wpa5_delay,wifi_wpa5_now,wifi_data5_exhausted};
+ if(good && wifi_provider5_requested)good=wifi_provider5_start();
+ const struct mt76_ip5_io io={c,wifi_provider5_requested?wifi_provider5_owned:wifi_data5_owned,wifi_data5_send,wifi_data5_poll,wifi_wpa5_delay,wifi_wpa5_now,wifi_data5_exhausted};
  console_write("wifi-data5-progress: authenticated encrypted DHCP,ARP,DNS example.com and256-byte gateway echo;bounded waits;then erase and leave\n");
  if(good)good=mt76_ip5_run(&wifi_wpa5.ip,peer->peer.station,xid,&io);
  bool unsafe=wifi_wpa5.ip.unsafe || !wifi_data5_owned(c);
+ if(wifi_provider5_requested && !wifi_provider5_close())unsafe=true;
  wifi_wpa5.data_unsafe=unsafe;wifi_wpa5.data_active=false;
  return unsafe?MT76_JOIN5_UNCERTAIN:good?MT76_JOIN5_SENT:MT76_JOIN5_REFUSED;
 }
@@ -448,3 +462,4 @@ bool xhci_wifi_capture_data5(void){
  bool good=xhci_wifi_capture_wpa5();
  wifi_wpa5_data_requested=false;return good;
 }
+#include "xhci_wifi_provider5.inc"
