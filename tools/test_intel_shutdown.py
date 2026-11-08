@@ -51,10 +51,17 @@ class ShutdownTests(unittest.TestCase):
   with self.assertRaises(ValueError):native_shutdown_result(forged)
  def test_recipe_is_separate_and_conflicting_profiles_refuse(self):
   from hardware_boot import limine_config,stage
-  text=limine_config('0123456789abcdef','ram-usb-v1-intel-shutdown-laptop-probe-37d8c5d0')
+  text=limine_config('0123456789abcdef','ram-usb-v1-intel-shutdown-laptop-probe-37d8c5d0-auto-return')
   cmd=next(l for l in text.splitlines() if 'cmdline:' in l).split('cmdline:',1)[1].split()
   self.assertEqual(len(cmd),15);self.assertEqual(cmd.count('srvros.intel-shutdown=qualify'),1)
   self.assertIn('srvros.intel-blitter=retire',cmd);self.assertNotIn('srvros.intel-bcs-reset=blitter-only',cmd)
+  self.assertNotIn('srvros.intel-completion=read-only',cmd)
+  parser=str(ROOT/'build/tests/intel-gt-boot')
+  subprocess.check_call([parser,' '.join(cmd)])
+  for i in range(len(cmd)):
+   self.assertEqual(subprocess.run([parser,' '.join(cmd[:i]+cmd[i+1:])]).returncode,1)
+   self.assertEqual(subprocess.run([parser,' '.join(cmd+[cmd[i]])]).returncode,1)
+  self.assertEqual(subprocess.run([parser,' '.join(cmd+['srvros.intel-completion=read-only'])]).returncode,1)
   for key in ('intel_blitter_trial','intel_bcs_reset_trial','intel_engine_capture','haswell_register_sample','desktop_audio','hold_on_failure'):
    with self.subTest(key=key),self.assertRaises(ValueError):stage(laptop_probe_volume='37d8c5d0',intel_shutdown_trial=True,**{key:True})
  def test_attention_and_prior_reports_remain_nonpassing(self):

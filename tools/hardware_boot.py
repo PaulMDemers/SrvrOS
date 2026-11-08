@@ -59,7 +59,7 @@ def limine_config(release, version=CONFIG_VERSION):
             if version.startswith(("ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-")):cmdline += " srvros.intel-firmware=read-only"
             if version.startswith(("ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-")):cmdline += " srvros.intel-wake=trial"
             if version.startswith(("ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-")):cmdline += " srvros.intel-engines=read-only"
-            if version.startswith(("ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-")):cmdline += " srvros.intel-completion=read-only"
+            if version.startswith(("ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-")):cmdline += " srvros.intel-completion=read-only"
             if version.startswith("ram-usb-v1-intel-shutdown-"):cmdline += " srvros.intel-shutdown=qualify"
             if version.startswith("ram-usb-v1-intel-bcs-reset-"):cmdline += " srvros.intel-bcs-reset=blitter-only"
             if version.startswith("ram-usb-v1-intel-reset-ready-"):cmdline += " srvros.intel-reset-ready=request-cancel"

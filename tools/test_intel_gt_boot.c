@@ -3,7 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 static const char recipe[]="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot";
-int main(void) {
+int main(int argc,char **argv) {
+ if(argc==2)return intel_gt_boot_shutdown_recipe(argv[1])?0:1;
+ assert(argc==1);
  char bad_engine[2048];
  struct intel_gt_boot_facts f={true,true,true,true,true,true,true,true,true,true};
  assert(intel_gt_boot_grants(&f)==7 && !intel_gt_boot_grants(NULL));

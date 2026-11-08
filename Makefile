@@ -5362,7 +5362,7 @@ build/tests/intel-shutdown-adapter$(HOST_EXE): tools/test_intel_display_probe.c 
 
 .PHONY: test-intel-shutdown
 test-core: test-intel-shutdown
-test-intel-shutdown: build/tests/intel-shutdown-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+test-intel-shutdown: build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-shutdown-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_shutdown.py
 
 build/intel-shutdown/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
