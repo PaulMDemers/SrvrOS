@@ -15493,3 +15493,21 @@ scheduler/IRQ/desktop regressions. No physical install or reboot is authorized
 by these software results alone;standing user power-cycle authorization applies
 only after a coherent native candidate meets normal qualification. Existing
 accepted installed payload and immutable native/review capsules are unchanged.
+
+### Merged fence-controller qualification passed (November 8)
+
+Source5e1c8a05 includes consumed main63036859. Matched normal kernel/userspace,
+ISO and USB image build pass. Full xHCI controller,historical v133 saved-prefix,
+new RX/native63/fence/workspace foundations,provider/DMA production-stack,
+scheduler,IRQ handler/completion,cancellation,capture/render,syscall namespace
+and documentation checks pass. All239 staging tests pass. Ordinary desktop VM
+passes mixed-case USB typing,text resize,drag/resize,exit/relaunch and idle-present
+checks. The new fence engine additionally passes root-repeated fatal ASan/UBSan/
+leak testing and native freestanding compilation;maximum frame160bytes.
+
+Software inputs,exact commands/results and VM/stack proof are independently sealed
+outside build in wifi-fence5-foundation-5e1c8a05. No full-core or exact-stage native
+trial was run;the engine has no native caller yet. Installed native payload and
+all old acceptance/failure capsules remain unchanged. Next implement the audited
+asynchronous native command owner,then bind the persistent data owner and qualify
+an explicit bounded boundary-crossing profile. No boot armed.
