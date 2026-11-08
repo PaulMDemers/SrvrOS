@@ -2,6 +2,14 @@
 
 ## Status and evidence
 
+Native follow-up (2026-11-07): PR410 runtime `f8e16123`, payload
+`517661c4c5a9627f`, completes the separate two-pass A-preseeded zero-load
+qualification in82.610/82.379ms, with identical raw borrowed graphs and proven
+retirement/claim release. The [machine record](machines/macbookair6-1.md)
+owns its exact evidence and narrow acceptance. No target register was read;
+the guarded read caller described below remains unimplemented. All existing
+limits and raw comparisons remain unchanged. The original host audit follows.
+
 Base `eefc5bfd`, following the accepted [window-only qualification](macbookair6-1-vtd-read-window-design.md).
 Source `cca4d31f` / release `92d9f134639f509c` completed its single no-load window
 in77.402ms, including a54.524ms census, with strict raw proof and verified
