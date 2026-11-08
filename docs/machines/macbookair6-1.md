@@ -9483,3 +9483,17 @@ hardware gates unchanged; no battery/AML or disk/app stress is requested here.
 Touch only explicit capture orchestration/staging and its regression/rehearsal.
 The current native stress remains accepted for recorded checks; subjective
 quality is unassessed. No new physical result is claimed by this scope.
+
+The explicit `--audio-listen` v1 profile is implemented on runtime `c615c282`.
+Matched ordinary kernel/RAM/USB builds and audio-service, streaming, WAV and
+conversion regressions pass. All90 staging/CLI tests pass. Exact release
+`5bc0a824e9f71ab6` rehearses five full streams/5760000 bytes with zero underruns
+in30.971897s, Stop, quiet restore, saved diagnostics, clean unmount/allocation
+and automatic return. Missing workspace returns without starting playback.
+Stage provenance is `f9be0423`; final harness `5ff0662b` differs only in its
+profile-specific assertion. The initial successful guest run hit a generic
+chipset-probe harness assertion; that failure and raw results are retained
+separately, and the corrected exact rehearsal passes. No native audible result
+is claimed. PR19's adjacent Wi-Fi capture orchestration remains independent;
+future integration must preserve both explicit capture conditions. PR301's
+scanout/handoff and PR379's WebCore audit are untouched.

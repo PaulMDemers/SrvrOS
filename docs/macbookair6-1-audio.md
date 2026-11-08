@@ -54,6 +54,22 @@ samples, silence and DMA completion. QEMU cannot prove native sound quality.
 
 ## Attended checklist
 
+For a short automatic listening check, build the matched ordinary kernel and
+RAM image, then stage `python3 tools/hardware_boot.py stage
+--laptop-probe-volume 6ADA-85BB --audio-listen`. Rehearse that exact stage with
+`tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+--workspace-table gpt --boot-wait 90`, including a separate
+`--probe-missing-workspace` refusal run. Follow the normal payload backup,
+verified install, USB preflight, saved run record and one-shot Ubuntu recovery
+sequence. This explicit profile plays five bundled six-second left/right/stereo
+WAVs at 25%, with intentional channel gaps, then Stops, restores 1%, saves logs
+and returns automatically. Listen only. A 35-second playback watchdog cancels
+an overdue player; incomplete bounded retirement retains live state and halts.
+No battery/AML, desktop or disk stress is enabled. Recorded completion requires
+five full streams, 5,760,000 submitted PCM bytes and zero underruns; the VM
+cannot establish native audible quality. This short check does not replace
+the separate endurance workload or accept sound that was not listened to.
+
 1. Open Settings. Audio should be ready with speakers selected and no unsolicited
    sound. Start at 10% volume; press Test once, then repeat at 25%. Note whether
    the short tone is clear and changes volume; do not raise volume to compensate
