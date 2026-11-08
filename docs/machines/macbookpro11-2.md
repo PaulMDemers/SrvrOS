@@ -14742,3 +14742,17 @@ refusal and require ordinary decrypt/publication to commit PN exactly once.
 Do not enable WAPI hardware/cipher support or infer valid IP from a MIC. Keep
 all IP,ownership,receive/time and full restoration gates. Ordinary provider/UI,
 TCP/HTTP and live reattach remain pending. PR19 stays draft;Actions disabled.
+
+### Sole-metadata-bit verified software admission scope (November 7)
+
+Fetched actual main09ad7c23 and inspected open PR301/379;no Wi-Fi overlap.
+Retain a1661937. Native0a1cdb9c audit4 proves one sole-WAPI-key-bit frame can
+pass strict CCMP under the original context. Admit this one bit only after that
+nonpublishing peer/header/key-ID/replay/MIC precheck succeeds,then use the
+unchanged ordinary decrypt/publication path for exactly one PN commit. Keep
+all real error,aggregate,decrypted/stripped-PN refusals and IP/ownership/retirement
+gates. No WAPI cipher or hardware enablement,no broader model/firmware gates.
+Retain flags/audit metadata and require strict saved-log consistency. Test valid
+flagged pairwise/group/QoS/padding,all mixed error bits,corruption/replay/capacity
+and exactly-once delivery,plus native fully flagged exchanges and failures.
+Qualify a matched cold image before any connectivity claim.
