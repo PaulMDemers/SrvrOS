@@ -14652,3 +14652,51 @@ probe;test bit-for-bit key/PN context preservation,independent valid/corrupt/
 replay fixtures and native fault cleanup. No new hardware/cipher/filter writes,
 packet values,key lifecycle authority or larger receive/time budgets. Qualify
 a matched automatic cold image before physical claims.
+
+### Qualified CCMP verification-without-delivery candidate (November 7)
+
+Runtime0a1cdb9c,private release7d2c9c27c188bbc3,retains maina1661937.
+Matched kernel/USB build,full controller and relevant protocol/crypto/DNS/
+ownership regressions,233 staging tests,independent encrypted packet equality,
+all16 fatal ASan/UBSan groups and native stack checks pass. Stack coverage now
+includes the changed CCMP backend;maximum new native frame remains1,272bytes.
+Independent AESCCM differential cases verify full context preservation before
+normal delivery,including pairwise/group/TID/replay/MIC cases. Direct synthetic
+checks cover busy scratch,stale/alias/truncated calls and repeated verification.
+Sole-WAPI flagged frames with valid MIC remain refused with zero output and
+unchanged context;header/peer/MIC and mixed-error refusals pass. A native-owner
+fixture verifies an audited frame followed by an ordinary copy delivers only
+once,with the same replay floor and full cleanup. Saved-log mutations reject
+audit misuse or apparent delivery. No full-core rerun is claimed.
+
+The production-C/native-parent prefix passes2,040,856bytes and125 altered/
+incomplete cases. Conservative headroom is41,135bytes under the unchanged2MiB
+limit while retaining the separate32KiB reserve;expanded rows fit the existing
+data-metadata reserve. Real persistence/remount/fsck,ordinary desktop,exact-stage
+GPT save/return and missing-workspace VMs pass. Staged kernel and independently
+reconstructed firmware/private-PMK initramfs match the qualified build,and the
+verification entry is present in the actual kernel. No new native observation
+or protocol acceptance is claimed.
+
+Current566-file classification failure and3-file notes,prior565-file deferred
+and DHCP failures/notes,older565/564/581/564 failures and accepted177/24 four-way
+and failed569/accepted178 four-way/M1 evidence seals stay unchanged. The last
+generated session was archived,byte-verified and pruned after preserving its full
+capsule. Offline allocation,writable eligibility and headroom pass. Only the
+unreferenced failed deferred-report EFI duplicate was retired after exact
+verification against its complete sealed backup. Accepted v130,M1 and e47d
+previous stay installed. The new candidate is installed with Ubuntu default
+and remains unarmed at this documentation checkpoint.
+
+Next authorized action is cold shutdown,Wi-Fi-only10second unplug while off,
+same-port reconnect and power on with workspace attached. Progress,saving and
+Ubuntu return are automatic. Collect build/bringup/wifi-data5-audit/run_root.py
+return_collect first afterward;do not recollect/reseal prior capsules. Interpret
+audit4 only as strict CCMP verification without delivery/PN commit;it does not
+prove AP acceptance of M4 or encrypted requests,or valid DHCP. The WAPI-key bit
+remains refused,its hardware semantics unresolved,and all original security,
+receive/time and restoration gates stay mandatory. Full DHCP/DNS/exact256-byte
+echo still requires PN1..6,software erasure/leave,all endpoint/input/MAC/power/RF
+originals and matching filesystem/recovery proof. Ordinary provider/UI,TCP/HTTP
+and live reattach remain pending;Demers2.4 needs compatible hardware. PR19 stays
+draft;Actions stay disabled.
