@@ -10,6 +10,7 @@ static void process_test_irq_restore(uint64_t flags);
 static uint64_t process_test_rflags(void);
 #define SRVROS_PROCESS_IRQ_HOST_TEST
 #define SRVROS_PROCESS_HOST_TEST
+#define SRVROS_CAPTURE_WRITE_CLOCK_HOST_TEST
 #include "../kernel/src/process.c"
 
 static bool opening,fixture_exists,fail_delete,fail_delete_after,path_fixture,namespace_fixture;
@@ -1595,6 +1596,21 @@ static bool cycle_regression(const char *name) {
 
 #include "test_process_teardown.inc"
 
+uint64_t capture_write_test_clock(void) {static uint64_t now=10;return ++now;}
+static void capture_write_identity_regression(void) {
+    clear_process(&subject);subject.allocated=true;subject.active=true;subject.pid=7001;current_subject=&subject;current_worker=NULL;
+    strcpy(subject.executable_path,"/fat/bin/shotworker");assert(!process_capture_write_clock());
+    assert(process_capture_write_timing_enable() && !process_capture_write_timing_enable());
+    strcpy(subject.executable_path,"/fat/bin/shotworker-other");assert(!process_capture_write_clock());
+    strcpy(subject.executable_path,"/fat/bin/shotworker");subject.active=false;assert(!process_capture_write_clock());
+    subject.active=true;subject.allocated=false;assert(!process_capture_write_clock());subject.allocated=true;
+    uint64_t start=process_capture_write_begin();assert(start);
+    process_capture_write_record(CAP_WRITE_GATE,start);process_capture_write_result(start,64,64);
+    struct capture_write_snapshot snap;process_capture_write_snapshot(&snap);
+    assert(snap.enabled && snap.records[0].pid==7001 && snap.records[0].calls==1 && snap.records[0].attempts==1 && snap.records[0].bytes==64 && !snap.records[0].invalid);
+    current_subject=NULL;capture_writes=(struct capture_write_snapshot){0};clear_process(&subject);
+    puts("capture-write-identity: PASS opt-in once, exact immutable executable, active/allocated identity, copied per-PID accounting; no admission change");
+}
 int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"teardown")) { teardown_regression();return 0; }
     pipe_mapping_commit_regression();
@@ -1603,6 +1619,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "unknown process-output cycle case\n");
         return 2;
     }
+    capture_write_identity_regression();
     watch_regression();
     rename_failure_regression();
     orphan_io_failure_regression();

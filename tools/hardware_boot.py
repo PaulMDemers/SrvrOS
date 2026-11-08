@@ -149,7 +149,7 @@ def limine_config(release, version=CONFIG_VERSION):
         if version.startswith(("ram-usb-v72-","ram-usb-v79-")): cmdline += " srvros.desktop-reopen-test=on"
         if version.startswith("ram-usb-v76-"): cmdline += " srvros.desktop-guide=window-navigation"
         if version.startswith("ram-usb-v75-"): cmdline += " srvros.desktop-guide=application-lifecycle"
-        if version.startswith(("ram-usb-v74-","ram-usb-v80-")): cmdline += " srvros.desktop-audio-io=on"
+        if version.startswith(("ram-usb-v74-","ram-usb-v80-")): cmdline += " srvros.desktop-audio-io=on srvros.capture-write-timing=on"
         if version.startswith(("ram-usb-v77-","ram-usb-v81-")): cmdline += " srvros.desktop-audio-io=attended"
         if version.startswith("ram-usb-v73-"): cmdline += " srvros.desktop-capacity-test=on"
         if version.startswith("ram-usb-v58-"):

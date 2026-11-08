@@ -14,6 +14,12 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_capture_write_timing_opt_in(self):
+        for version in ['ram-usb-v74-desktop-6ada85bb','ram-usb-v80-desktop-37d8c5d0']:
+            self.assertIn('srvros.capture-write-timing=on',boot.limine_config('0123456789abcdef',version))
+        for version in ['ram-usb-v71-desktop-6ada85bb','ram-usb-v55-desktop-37d8c5d0','ram-usb-v1-audio-listen-laptop-probe-6ada85bb-auto-return']:
+            self.assertNotIn('srvros.capture-write-timing=',boot.limine_config('0123456789abcdef',version))
+
     def test_cli_help(self):
         self.assertEqual(subprocess.run(["python3",str(Path(boot.__file__)),"--help"],capture_output=True).returncode,0)
 

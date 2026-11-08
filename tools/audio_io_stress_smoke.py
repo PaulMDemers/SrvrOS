@@ -126,7 +126,7 @@ def main():
         (tmp/'battery.asl').write_text(('' if air72 else '#define BATTERY_AIR61 1\n')+'#define BATTERY_FAULT 83\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
         kernel=root/('build/acpi-battery/vm.elf' if air72 else 'build/acpi-air61-battery/vm.elf');initramfs=root/'build/initramfs.tar'
-        cmdline=f'srvros.storage=ram srvros.workspace-volume={volume_id} srvros.desktop=session srvros.battery=on srvros.desktop-audio-io=smoke srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only'
+        cmdline=f'srvros.storage=ram srvros.workspace-volume={volume_id} srvros.desktop=session srvros.battery=on srvros.desktop-audio-io=smoke srvros.capture-write-timing=on srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only'
         if stage:
             from hardware_boot_smoke import make_disk
             from uefi_usb_smoke import default_ovmf_path
@@ -289,6 +289,9 @@ def main():
                     from PIL import Image
                     import io
                     image_bytes=final.read('srvros-work/Screenshots/'+images[0])
+                    from capture_write_timing import capture_write_timing
+                    write_timing=capture_write_timing(snapshots,1,len(image_bytes))
+                    (out/'capture-write-timing.json').write_text(json.dumps(write_timing,indent=2)+'\n')
                     with Image.open(io.BytesIO(image_bytes)) as image:
                         image.load();assert image.size==(1280,800);image.save(out/'automatic-screenshot.png')
 
