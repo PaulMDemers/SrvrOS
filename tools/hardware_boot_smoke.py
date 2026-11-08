@@ -163,7 +163,7 @@ def main():
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
     keyboard_negative=args.keyboard_timeout or (args.keyboard_fail and not keyboard_retry)
     if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
-    hfw_capture=bool(probe and manifest["config_version"].startswith(tuple(f"ram-usb-v{i}-hfw-" for i in range(1,8))))
+    hfw_capture=bool(probe and manifest["config_version"].startswith(tuple(f"ram-usb-v{i}-hfw-" for i in range(1,9))))
     hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-")))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
