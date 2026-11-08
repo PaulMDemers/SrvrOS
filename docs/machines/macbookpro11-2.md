@@ -14977,3 +14977,28 @@ DNS/256-byte echo lifetime with full restoration;repeatability,ordinary provider
 connection/UI lifetime,TCP/HTTP,sustained transfer and live USB reattach remain
 pending. Keep this accepted payload as the data foundation. Demers2.4 requires
 compatible hardware. No new boot is armed;PR19 stays draft,Actions disabled.
+
+
+### Unchanged v131 cold repeatability scope (November 8)
+
+Repeat the accepted runtime77f75af0/releasee17ff9e2fb15fb2c byte-for-byte;
+no rebuild,restage,credential change,kernel change,new retries or wider bounds.
+First native190-file evidence and26-file accepted notes stay immutable outside
+build. Prepare an independent run/collection capsule,verify source/artifact and
+recovery equality,and archive/byte-verify the first generated session before
+pruning that generated copy. Reuse its exact qualified image and strict frozen
+collector. New mainf94d97d1 adds only Air6,1 regression documentation;inspected
+with open PR301/379,no overlap and not consumed into this repeat. Keep a1661937.
+No shared subsystem changes;only local run orchestration and this unit record.
+
+The next cold lifetime must independently pass encrypted DORA,ARP,DNS and the
+exact256-byte echo at PN1..6,software key erasure/local leave and all endpoint/
+input/MAC/power/RF/storage/recovery proofs. Failure stays failed;one previous
+pass does not waive a gate. This is a bounded repeatability check,not sustained
+reliability or ordinary connection/UI acceptance. Under existing authorization,
+shutdown after verification for Wi-Fi-only10second unplug/same-port reconnect
+while off,then power on with workspace attached. Save/Ubuntu return automatic.
+Collect build/bringup/wifi-data5-repeat1/run_root.py return_collect FIRST once
+back;do not recollect/reseal the first190-file capsule. PR19 stays draft;Actions
+remain disabled. TCP/HTTP,ordinary provider/UI and live reattach follow;Demers2.4
+still requires compatible hardware.
