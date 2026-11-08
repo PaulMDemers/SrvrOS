@@ -14,6 +14,17 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_bounded_audio_listen_profile(self):
+        version='ram-usb-v1-audio-listen-laptop-probe-6ada85bb-auto-return'
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        config=boot.limine_config('0123456789abcdef',version)
+        for token in ('srvros.capture=audio-listen-30','srvros.audio=hda','srvros.capture-failure=reboot','srvros.workspace-volume=6ada85bb'):
+            self.assertIn(token,config)
+        for token in ('srvros.battery=on','srvros.aml=probe','srvros.desktop=session','probe-autoreboot','srvros.power=','srvros.vtd-window='):
+            self.assertNotIn(token,config)
+        for options in ({},dict(laptop_probe_volume='6ada85bb',hold_on_failure=True),dict(laptop_probe_volume='6ada85bb',battery_air61=True),dict(laptop_probe_volume='6ada85bb',desktop_volume='6ada85bb'),dict(laptop_probe_volume='6ada85bb',idle_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(audio_listen=True,**options)
+
     def test_navigation_attended_profile(self):
         config=boot.limine_config('0123456789abcdef','ram-usb-v76-desktop-37d8c5d0')
         for token in ('srvros.desktop=session','srvros.battery=on','srvros.desktop-guide=window-navigation','srvros.usb-network=ecm'):
