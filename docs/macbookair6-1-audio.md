@@ -161,3 +161,12 @@ logged, so the five-minute native endurance target remains incomplete. See the
 
 The user explicitly confirmed the early stops were intentional, with no playback
 problem. They are not failures, but do not complete the full-duration target.
+
+## Bounded listening confirmation, 2026-11-08
+
+Release `5bc0a824e9f71ab6` / runtime `c615c282` completes five six-second
+speaker fixtures at25% in30.249052s,5760000 submitted bytes, zero underruns,
+Stop and1% restore, saved diagnostics and automatic return. The user confirms
+audible, working sound. Prior files and offline allocation checks pass. This
+accepts the short listening check; the separate30-minute1% workload retains
+recorded zero-underrun acceptance with subjective quality unassessed.
