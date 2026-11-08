@@ -14412,3 +14412,35 @@ any fix. Parsed message class is not accepted OFFER/ACK. No packet/address/
 transaction/option/key values are logged. Every crypto,wire and full restoration
 predicate remains mandatory. ARP,DNS,echo,ordinary provider/UI,TCP/HTTP and live
 reattach remain pending. PR19 stays draft;Actions remain disabled.
+
+### DHCP-category native result: no matching destination before exhaustion (November 7)
+
+Runtimee3541a81,release9e587d18aa7795a0,session00065fb9d9267ba0-00
+saved1,895,583bytes and returned automatically to Ubuntu. The management/M1
+parent passed;the independent child passed AUTH/ASSOC,M3 MIC,local M4 and
+software-key activation. Its encrypted DISCOVER completed at PN1. Of32 data
+completions,24 refused the supported frame class,five refused RX flags,two
+refused LLC/EtherType and one authenticated into385-byte Ethernet. The new
+phase0 metadata classified that one frame as ethernet_destination:its destination
+matched neither this station nor broadcast. No BOOTP message class was parsed;
+it is not evidence of a DHCP OFFER or an offer-parser defect. Phase1 stayed
+zero. No REQUEST,ARP,DNS or echo ran.
+
+The unchanged40-entry forward budget stopped safely at exhausted=1,unsafe=0,
+463 IP polls;the independent exchange ended after1,652,145us. Keys were erased
+and leave completed. MAC disable,TX/RX quiet and filter/TXOP originals passed;
+cleanup needed zero reserved completions,with41 total posts. All six endpoint
+commands and endpoint/input originals passed (restored=1,phase9),and all nine
+power originals restored (511). The exchange and full outer RF predicate still
+failed. This is partial diagnostic/cleanup evidence,not connectivity or complete
+RF-restoration acceptance. The latest complete foundation remains v130.
+
+The565-file failure capsule is sealed outside build;all previous evidence stays
+unchanged. Offline filesystem/allocation and installed recovery checks pass.
+Ubuntu is default,the workspace is unmounted,and no next boot is armed. Next
+work should address admission/receive-window consumption with independent
+fixtures and captured hardware semantics before changing filtering or BSSID
+tables. Do not weaken destination,checksum,transaction,CCMP or restoration gates,
+blindly repeat this candidate,or enlarge/reuse its bounded ring. Ordinary
+provider/UI,TCP/HTTP and live reattach remain pending;Demers2.4 still requires
+compatible hardware. PR19 stays draft;Actions remain disabled.

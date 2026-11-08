@@ -7387,3 +7387,14 @@ unchanged. Saved-log validation binds each phase's total to its authenticated
 RX rows and requires matched OFFER/ACK plus the full existing data/retirement
 contract. A diagnostic category is evidence of a refusal,not permission to
 remove the corresponding check.
+
+The first native DHCP-category trial authenticated one IPv4 Ethernet frame,
+which refused the station-or-broadcast Ethernet destination check. No BOOTP
+message type was parsed;it must not be called a rejected valid OFFER. Other
+completions refused frame class,RX flags or LLC/EtherType. The fixed40-entry
+forward budget exhausted before an accepted OFFER. Independent MAC/endpoint/
+input and nine-word power restoration passed,but the full outer RF predicate
+still failed. Preserve this failed capsule and the unchanged security gates.
+Next investigate receive admission and consumption using independently verified
+hardware semantics;neither larger rings nor speculative BSSID/filter writes
+are accepted by this result.
