@@ -1116,7 +1116,7 @@ static void wake_expired_waits(void) {
     }
 }
 
-void scheduler_preempt_tick(void) {
+static void preempt_tick(bool user_return) {
     if (!initialized || switching) {
         return;
     }
@@ -1136,7 +1136,24 @@ void scheduler_preempt_tick(void) {
     }
     preempt_tick_accumulator = 0;
     preemption_count++;
+    /* Cancellation above runs while still unsafe. From this point until the
+     * yield returns the caller performs no dispatch, user copy or teardown.
+     * The ordinary I/O predicate still excludes owner/private-image siblings. */
+    if(user_return)thread_at(current_thread)->io_user_safe=true;
     scheduler_yield();
+    if(user_return)thread_at(current_thread)->io_user_safe=false;
+}
+void scheduler_preempt_tick(void) { preempt_tick(false); }
+void scheduler_preempt_user_return_tick(void) {
+    uint64_t flags=irq_save();
+    if(!initialized || switching || current_thread>=thread_capacity || thread_at(current_thread)->state!=THREAD_RUNNING) {
+        irq_restore(flags);return;
+    }
+    const struct thread *t=thread_at(current_thread);
+    bool safe=!(flags & (1ull<<9)) && t->user_context && !t->io_user_safe && !t->account_user &&
+        vmm_current_address_space()==thread_address_space(t);
+    preempt_tick(safe);
+    irq_restore(flags);
 }
 
 static __attribute__((noreturn)) void invalid_user_binding(void) {
