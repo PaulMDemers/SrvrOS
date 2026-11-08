@@ -14841,3 +14841,20 @@ and existing independent fixtures before another candidate. Preserve all peer,
 MIC,replay,IP,ownership,40/48 input and full restoration gates. Ordinary provider/
 UI,TCP/HTTP,live reattach and compatible2.4GHz hardware remain pending. PR19
 stays draft;Actions remain disabled.
+
+
+### Private DHCP reflection comparison scope (November 8)
+
+Current main d3472e06 and open PR301/379 inspected;no Wi-Fi overlap. Retain
+consumed a1661937 for the next bounded candidate. Native c88a8160 receives
+strict CCMP Ethernet but refuses UDP ports/destination;its transmit serializer
+is unchanged from fe0c80f9's partial DHCP success. Add a temporary SHA256
+fingerprint of each generated DHCP Ethernet request before its existing scrub,
+compare only same-sized authenticated DHCP-phase Ethernet,and emit only a
+reflection count. Never emit the fingerprint or packet/address/xid/key values.
+Scrub comparison scratch and the retained fingerprint after each wait and on
+all exits. This is diagnostic equality evidence only,not new input authority or
+a DHCP reply. Keep the unchanged acceptance path,crypto/ownership/retirement
+checks and40/48/time bounds. Touched scope:mt76_ip5 and its matched native/log
+receipts,Makefile link dependencies and meaningful host/negative tests. Verify
+exact/changed/truncated/padded input and fingerprint erasure before staging.
