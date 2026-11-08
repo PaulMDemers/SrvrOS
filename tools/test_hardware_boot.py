@@ -14,6 +14,9 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_cli_help(self):
+        self.assertEqual(subprocess.run(["python3",str(Path(boot.__file__)),"--help"],capture_output=True).returncode,0)
+
     def test_bounded_audio_listen_profile(self):
         version='ram-usb-v1-audio-listen-laptop-probe-6ada85bb-auto-return'
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))

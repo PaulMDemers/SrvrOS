@@ -610,7 +610,7 @@ def main():
     parser.add_argument("--desktop-lifecycle-trial",action="store_true",help="attended owned-dialog/quit/reopen checklist; opens Help automatically, no timed exit")
     parser.add_argument("--desktop-capacity-test",action="store_true",help="automatic two-round 24-app capacity test; saves and returns without input")
     parser.add_argument("--desktop-audio-io-attended",action="store_true",help="attended Air desktop with automatic 30-minute audio/disk load and guest checklist; manual exit")
-    parser.add_argument("--audio-listen",action="store_true",help="automatic 30-second speaker channel check at25%, quiet restore and Ubuntu return")
+    parser.add_argument("--audio-listen",action="store_true",help="automatic 30-second speaker channel check at25 percent, quiet restore and Ubuntu return")
     parser.add_argument("--desktop-audio-io-test",action="store_true",help="automatic 30-minute Air PCM and verified USB stress; listening only")
     parser.add_argument("--desktop-reopen-test",action="store_true",help="automated two-session Air startup diagnostic; fatal mounted faults halt")
     parser.add_argument("--desktop-basic",action="store_true",help="unscaled desktop/input; optional --desktop-brightness, --desktop-audio and --desktop-sensors")
