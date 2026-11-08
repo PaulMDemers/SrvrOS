@@ -14541,3 +14541,18 @@ address/key values. Preserve all cryptographic and wire gates,40/48 immutable
 receive bounds and full restoration requirements;do not blindly repeat or
 enlarge the ring. Ordinary provider/UI,TCP/HTTP and live reattach remain pending.
 PR19 stays draft;Actions remain disabled.
+
+### Receive frame/flag classification scope (November 7)
+
+Fetched actual mainf01a1ad4 and inspected active PR412 isolated Air6,1 register
+sampler plus PR301/379 graphics/browser scope;no Wi-Fi overlap. Retain a1661937
+for a bounded metadata change. Extend the existing same-parser receive report
+with an independently bounded frame-class enum and a compact mask of the12
+existing forbidden RXWI categories. Distinguish management/control,unsupported
+data,protected FromDS and structurally recognizable unprotected EAPOL-Key
+without raw header,address,packet or key values. These classes are untrusted
+metadata,not accepted traffic or evidence of AP acceptance. Preserve every
+existing RX/CCMP/IP refusal,40/48 immutable bounds,deferred reporting and full
+ownership/retirement contract. Bind classifications to each retained event and
+strict saved-log consistency checks. Test each field/malformed span independently
+with synthetic inputs before qualifying a matched automatic cold image.
