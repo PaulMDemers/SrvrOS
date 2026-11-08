@@ -23,6 +23,10 @@ void air61_read_test_phase(unsigned pass,unsigned phase){
   read_phase_hook_mode=0;
  }
 }
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+#include "test_air61_sample_priming.inc"
+extern bool air61_read_gate_touch0(void),air61_read_gate_touch1(void);
+#endif
 static bool gates_equal(void){
  const struct ecam_boot_gate_result *a=air61_read_gate_result0(),*b=air61_read_gate_result1();
  const struct hfw_sample *x=&a->firmware[0].sample[0],*y=&b->firmware[0].sample[0];
@@ -65,6 +69,9 @@ static bool rcheck(void *ctx,unsigned pass,unsigned phase){
  }
  eg_phase=phase;eg.phases=phase?1:0; /* Existing hardware-model phase selector. */
  bool ok=pass?air61_read_gate_check1(phase):air61_read_gate_check0(phase);
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ if(ok && !pass && !phase)ok=air61_read_gate_touch0() && air61_read_gate_touch1();
+#endif
  return ok && (!pass || phase || gates_equal());
 }
 static bool rram(void *ctx,unsigned pass,uint64_t pa){(void)ctx;assert(pass<2);return pass?air61_read_gate_ram1(pa):air61_read_gate_ram0(pa);}
@@ -89,6 +96,9 @@ static void rreset(void){
 #endif
  setup();memset(&rw,0,sizeof(rw));air61_read_gate_reset0();air61_read_gate_reset1();
  pages[0][384]|=32;irq_flags=2;changed_catalog=false;
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ air61_sample_test_setup_text();
+#endif
  read_phase_hook_mode=0;path_pass=-1;inject_pass=inject_phase=-1;inject_kind=0;memset(phase_calls,0,sizeof(phase_calls));retained_valid=false;
 }
 /* Observe the actual guarded production stores, including the native-failing
@@ -138,9 +148,16 @@ static bool run_series(void){return vmm_air61_read_window_qualify(&rio,0x6169727
 #define main read_backend_fixture_main
 #endif
 int main(void){
- rreset();assert(!vmm_air61_read_window_prime_room());assert(run_series());
+ rreset();assert(!vmm_air61_read_window_prime_room());
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ assert(!air61_read_gate_touch0() && !air61_read_gate_touch1());
+#endif
+ assert(run_series());
  assert(!vmm_air61_read_window_prime_room());
  assert(prime_stores==(sizeof(rw.pass)+4095)/4096+1);
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ assert(text_reads==16 && gate_touches[0]>16 && gate_touches[1]>16);
+#endif
  assert(rw.result.state==AIR61_READ_COMPLETE && rw.result.started==2 && rw.result.retired==2);
  for(unsigned pass=0;pass<2;pass++){
   const struct air61_read_pass_result *v=vmm_air61_read_window_pass(pass);
@@ -201,6 +218,20 @@ int main(void){
  assert(!vmm_air61_read_window_qualify(&rio,1,UINT64_MAX));
  assert(!rw.result.attempted && !loads);
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ for(unsigned kind=0;kind<5;kind++)for(unsigned at=1;at<=16;at++){
+  rreset();text_fail_at=at;text_fault_kind=kind;
+  assert(!run_series() && text_reads==at && !allocs && !rw.pass[0].view.attempts && !rw.pass[0].view.census.pages);
+  unsigned n=text_reads;assert(!run_series() && text_reads==n);
+ }
+ for(unsigned level=0;level<4;level++)for(unsigned bit=0;bit<64;bit++){
+  rreset();text_fail_at=1;text_fault_kind=5;text_fault_level=level;text_fault_bit=bit;
+  assert(!run_series() && text_reads==1 && !allocs && !rw.pass[0].view.attempts && !rw.pass[0].view.census.pages);
+ }
+ for(unsigned pages=0;pages<=17;pages+=17){rreset();text_pages=pages;assert(!run_series() && !text_reads && !allocs);}
+ for(unsigned level=0;level<4;level++){
+  rreset();if(level==0)pages[0][511]|=128;else if(level==1)pages[2][510]|=128;else if(level==2)pages[3][0]|=128;else pages[4][256]|=2;
+  assert(!run_series() && !text_reads && !allocs);
+ }
  for(unsigned pass=0;pass<2;pass++)for(unsigned slot=0;slot<12;slot++)for(unsigned kind=0;kind<12;kind++){
   if(kind==7)continue;
   if(kind==1 && slot!=1)continue;

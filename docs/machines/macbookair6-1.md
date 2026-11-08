@@ -8944,3 +8944,69 @@ inside the original lifetime. Audit actual source/word/time budgets and add
 first-touch regressions. No hidden target priming load, A/D mask, time exclusion
 or cap increase is permitted. Repeat the exact read-only qualification after
 host/VM validation; keep historical failures recorded.
+
+### Sampler text/gate first-touch fix scope (2026-11-07)
+
+Base `09ad7c23`, after the failed v8 trial documented in PR413. Scope is
+the existing sampler/gate sources, linker-bounded sampler text, host fixtures
+and isolated trial tools. Group sampler-owned code into a trusted section
+bounded to64KiB/16 pages, then perform guarded RAM-only first-touch before the
+first census. Validate exact supervisor/RO/executable RAM paths before/after
+each byte read, charging all page-table/code reads to the original word/time
+limits. No target load may prime code. Warm both gates' complete private
+evidence with same-value writes under pass0's original live guards.
+
+Keep R2 raw comparisons, all firmware/cache/census/gap/tail/mapper caps and
+terminal ownership handling unchanged. Add real first-touch/guard/fault
+regressions and audit maximum accounting. Run matched core/build, sanitizer/
+portable and exact-stage VM checks, self-merge, preserve accepted/recovery
+payloads and USB files, then run one automated native read-only qualification.
+PR301/PR19 retain independent scopes; no competing device implementation or
+cross-task message is introduced. No native acceptance is inferred before
+collecting the matching complete raw proof.
+
+### Sampler first-touch fix validated; native trial prepared (2026-11-07)
+
+Frozen runtime/host tools `d3aa3eac` adds same-value priming of both gate
+evidence sets under pass0's original callback-only guard. Gate0 must already
+have its first fresh admission; gate1 remains unstarted. The read-enabled
+image also groups sampler-owned VMM/bridge/gate code into a trusted linker
+section. Its actual32620 bytes span8 pages, below the64KiB/16-page refusal
+bound. Before the first census, each page receives one RAM-only volatile byte
+read, with full fresh path checks before/after and live clock/root guards.
+Supervisor RO/executable RAM leaves are required. The exact preparatory
+leaf-A effect is checked; no PTE is written and no target load primes code.
+All retained census and target path comparisons remain bit-exact.
+
+The maximum16-page fixture charges656 additional mapper words, for64132 in
+pass0 and63476 in pass1; both stay below65536. Firmware remains3996 bytes/pass,
+with13 independently bounded cache/NX admissions and24 total target reads.
+Raw normal/max-catalog receipts are37563/61179 bytes, packed into8588/26180
+wire bytes. Original clock/source/census/gap/body/raw/wire/tail limits are
+unchanged, and every preparation step counts inside pass0's original lifetime.
+
+Matched normal/AP/v7/v8/USB/ISO builds and full core tests pass, including89
+installed-root tests and one expected opt-in skip. Actual guard/store hooks
+verify both gate regions and all16 code pages precede the census/first target
+read. Regressions include all256 text-path bit mutations, read/root/IRQ/time/D
+faults at every code page, bounds/permission refusal, no retry, and the existing
+pre/post target-path and cache/sample faults. Full sampler backend and thirteen
+producer modes pass ASan/UBSan; both full ARM64 sampler fixture links pass.
+Existing bridge/profile sanitizer and portable checks also pass.
+
+All thirteen sequential diagnostic VM cases and five ordinary boot/syscall/
+USB-keyboard/fork/exec/yield VMs pass. The21 consumer/profile tests pass in
+the frozen core suite. Native ELF symbols confirm the bounded membership and
+absence of host hooks; all four runtime images retain their frozen hashes
+after VM checks. Exact v8 payload `2ddbd3b285f6bf41` passes unsupported-board
+refusal/save/return and missing-workspace rehearsal. No new physical result
+is inferred; the prior v8 refusal remains historical failure.
+
+Unreferenced old attended-desktop EFI copy `9851d427b042227b` was retired
+only after its independent full backup and absence from active/recovery/GRUB
+references were verified. Accepted `517661c4c5a9627f`, earlier single-window
+`92d9f134639f509c`, current failed sampler `0325ad569a8b0a83` and recovery
+`c35475f62f154f1e` remain intact and backed up. The USB baseline is639 files
+with clean allocation. The next unattended trial will save matching R2/ECAM/
+source/exit proofs and return on a clean outcome. Uncertain ownership halts
+without USB reuse. Native acceptance awaits the matching collected return.

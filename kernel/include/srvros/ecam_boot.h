@@ -1,4 +1,5 @@
 #pragma once
+#include <srvros/air61_sample_text.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <srvros/haswell_firmware.h>

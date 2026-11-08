@@ -14,17 +14,17 @@ static struct {
 } rw;
 #define rc (rw.pass[rw.current])
 #define RW_ADDR (((1ull<<39)-1)&~4095ull)
-static bool rw_fault(const char *why){if(!rc.view.window.fault)rc.view.window.fault=why;if(!rw.result.fault)rw.result.fault=why;return false;}
-static bool rw_poison(void){rc.view.window.state=AIR61_WINDOW_POISONED;rw.result.state=AIR61_READ_POISONED;return false;}
-static bool rw_guard(void){rc.view.window.guard_checks++;return (rc.view.window.state!=AIR61_WINDOW_POISONED && rc.view.window.token.owner==rw.result.owner && rc.view.window.token.epoch==rw.result.epoch+rw.current && rc.view.window.token.root==rw.result.root && vmm_diagnostic_sole_kernel_root(rc.view.window.token.root)) || rw_fault("root/exclusion");}
-static bool rw_tick(void){
+static AIR61_SAMPLE_CODE bool rw_fault(const char *why){if(!rc.view.window.fault)rc.view.window.fault=why;if(!rw.result.fault)rw.result.fault=why;return false;}
+static AIR61_SAMPLE_CODE bool rw_poison(void){rc.view.window.state=AIR61_WINDOW_POISONED;rw.result.state=AIR61_READ_POISONED;return false;}
+static AIR61_SAMPLE_CODE bool rw_guard(void){rc.view.window.guard_checks++;return (rc.view.window.state!=AIR61_WINDOW_POISONED && rc.view.window.token.owner==rw.result.owner && rc.view.window.token.epoch==rw.result.epoch+rw.current && rc.view.window.token.root==rw.result.root && vmm_diagnostic_sole_kernel_root(rc.view.window.token.root)) || rw_fault("root/exclusion");}
+static AIR61_SAMPLE_CODE bool rw_tick(void){
  if(!rw_guard())return false;
  rc.view.window.clock_samples++;uint64_t t=rw.io.now(rw.io.ctx);
  if(rc.view.window.state==AIR61_WINDOW_POISONED)return false;
  if(!t || t<rc.last || t<rc.view.window.begin || t-rc.view.window.begin>=AIR61_WINDOW_LIMIT_US)return rw_fault("clock/deadline");
  rc.view.window.end=rc.last=t;return true;
 }
-static bool rw_check(unsigned phase){
+static AIR61_SAMPLE_CODE bool rw_check(unsigned phase){
  rc.checking=true;bool ok=rw.io.check(rw.io.ctx,rw.current,phase);rc.checking=false;
  return (ok && rc.view.window.state!=AIR61_WINDOW_POISONED && rw_guard()) || rw_fault("fresh-gate");
 }
@@ -33,9 +33,9 @@ static bool rw_check(unsigned phase){
  * redundant internal clock samples are coalesced by bounded access scopes. Census
  * entry counts keep their original meaning; mapper path words have a separate
  * fixed budget and all phases share this operation's100ms lifetime. */
-static bool rw_ram_address(uint64_t pa){return pa && pa<=RW_ADDR && !(pa&4095) && pa!=AIR61_WINDOW_PA && pa!=AIR61_WINDOW_PA+4096;}
-static bool rw_ram(uint64_t pa){rc.view.window.ram_checks++;return rw.io.ram(rw.io.ctx,rw.current,pa);}
-static bool rw_raw(uint64_t pa,unsigned i,uint64_t *out){
+static AIR61_SAMPLE_CODE bool rw_ram_address(uint64_t pa){return pa && pa<=RW_ADDR && !(pa&4095) && pa!=AIR61_WINDOW_PA && pa!=AIR61_WINDOW_PA+4096;}
+static AIR61_SAMPLE_CODE bool rw_ram(uint64_t pa){rc.view.window.ram_checks++;return rw.io.ram(rw.io.ctx,rw.current,pa);}
+static AIR61_SAMPLE_CODE bool rw_raw(uint64_t pa,unsigned i,uint64_t *out){
  if(!rc.access_scope || !rw_ram_address(pa) || i>=512 || !rw_guard())return rw_fault("RAM-address");
  if(!rw_ram(pa) || !rw_guard())return rw_fault("RAM-source");
  if(!rc.in_census){if(rc.view.window.words>=AIR61_WINDOW_WORD_CAP)return rw_fault("word-cap");rc.view.window.words++;}
@@ -48,7 +48,7 @@ rc.view.window.raw_loads++;
  *out=p[i];return true;
 #endif
 }
-static bool rw_address(uint64_t pa,unsigned i,volatile uint64_t **out){
+static AIR61_SAMPLE_CODE bool rw_address(uint64_t pa,unsigned i,volatile uint64_t **out){
  if(!rw_ram_address(pa) || i>=512 || !rw_ram(pa) || !rw_guard())return rw_fault("RAM-address");
  uint64_t address=pa+i*8;
  if(!rc.hhdm || rc.hhdm>UINT64_MAX-address)return rw_fault("HHDM-overflow");
@@ -83,7 +83,7 @@ static bool rw_address(uint64_t pa,unsigned i,volatile uint64_t **out){
  * checks again before any following read or final acceptance. Consume that
  * ticket once. Ordinary reads check entry/completion; stores also check just
  * before mutation. No translation, provenance or raw value is cached. */
-static bool rw_word(uint64_t pa,unsigned i,uint64_t *v){
+static AIR61_SAMPLE_CODE bool rw_word(uint64_t pa,unsigned i,uint64_t *v){
  if(rc.access_scope){rw_fault("access-reentry");return rw_poison();}
  if(rc.in_census){if(!rc.census_ticket)return rw_fault("census-clock-ticket");rc.census_ticket=false;}
  else if(!rw_tick())return false;
@@ -95,7 +95,7 @@ static bool rw_word(uint64_t pa,unsigned i,uint64_t *v){
  if(done && rc.in_census)rc.view.window.census_reads++;
  return done;
 }
-bool vmm_air61_read_window_copy_ram(unsigned pass,uint64_t pa,void *output,unsigned length){
+AIR61_SAMPLE_CODE bool vmm_air61_read_window_copy_ram(unsigned pass,uint64_t pa,void *output,unsigned length){
  if(!rw.result.busy || pass!=rw.current)return false;
  if(!output || !length || length>136 || pa>=(1ull<<39) || length>(1ull<<39)-pa || !rc.checking || !rw_guard())return false;
  uint8_t *out=output;
@@ -103,7 +103,7 @@ bool vmm_air61_read_window_copy_ram(unsigned pass,uint64_t pa,void *output,unsig
   for(unsigned off=address&7;off<8 && at<length;off++)out[at++]=(uint8_t)(word>>(off*8));
  }return true;
 }
-static bool rw_store(uint64_t pa,unsigned i,uint64_t before,uint64_t after,bool private){
+static AIR61_SAMPLE_CODE bool rw_store(uint64_t pa,unsigned i,uint64_t before,uint64_t after,bool private){
  if(rc.access_scope || rc.in_census || !rw_tick())return rw_fault("store-scope");
  rc.view.window.logical_stores++;rc.access_scope=true;volatile uint64_t *p;uint64_t v;
  bool address_ok=rw_address(pa,i,&p) && (private || (rw_raw(pa,i,&v) && v==before));rc.access_scope=false;
@@ -118,7 +118,7 @@ static bool rw_store(uint64_t pa,unsigned i,uint64_t before,uint64_t after,bool 
  if(private || pa==rc.view.window.frames[0] || pa==rc.view.window.frames[1])rc.view.window.private_writes++;
  return (ok && rw_tick()) || rw_fault("store-failed");
 }
-static bool rw_invalidate(void){
+static AIR61_SAMPLE_CODE bool rw_invalidate(void){
  if(!rw_tick())return false;
  rc.view.window.invalidations++;
  __atomic_thread_fence(__ATOMIC_SEQ_CST);
@@ -130,13 +130,13 @@ static bool rw_invalidate(void){
  __atomic_thread_fence(__ATOMIC_SEQ_CST);
  return ok || rw_fault("invalidation");
 }
-static bool rw_parent_value(uint64_t expected){uint64_t v;return (rw_word(rc.view.window.pdpt,7,&v) && v==expected) || rw_fault("parent-readback");}
-static bool rw_census_read(void *ctx,uint64_t pa,unsigned i,uint64_t *v){(void)ctx;return rw_word(pa,i,v);}
-static uint64_t rw_census_now(void *ctx){(void)ctx;rc.census_ticket=false;if(!rw_tick())return 0;rc.census_ticket=true;return rc.last;}
-static bool rw_known_table(uint64_t pa){for(unsigned i=0;i<rc.view.census.pages;i++)if(rc.view.census.table[i].pa==pa)return true;return false;}
-static bool rw_owned(unsigned i){return rc.owned[i] && rc.view.window.frames[i] && rc.view.window.frames[i]!=rc.view.window.token.root && rc.view.window.frames[i]!=rc.view.window.pdpt && !rw_known_table(rc.view.window.frames[i]) && pmm_frame_has_tag(rc.view.window.frames[i],PMM_FRAME_PAGE_TABLE);}
-static uint64_t rw_private_word(unsigned f,unsigned i){return f==0?(i==409?rc.view.window.frames[1]|AIR61_READ_PARENT_FLAGS:0):(i==80?AIR61_READ_LEAF:0);}
-static bool rw_verify(bool linked,bool private,bool coalesced){
+static AIR61_SAMPLE_CODE bool rw_parent_value(uint64_t expected){uint64_t v;return (rw_word(rc.view.window.pdpt,7,&v) && v==expected) || rw_fault("parent-readback");}
+static AIR61_SAMPLE_CODE bool rw_census_read(void *ctx,uint64_t pa,unsigned i,uint64_t *v){(void)ctx;return rw_word(pa,i,v);}
+static AIR61_SAMPLE_CODE uint64_t rw_census_now(void *ctx){(void)ctx;rc.census_ticket=false;if(!rw_tick())return 0;rc.census_ticket=true;return rc.last;}
+static AIR61_SAMPLE_CODE bool rw_known_table(uint64_t pa){for(unsigned i=0;i<rc.view.census.pages;i++)if(rc.view.census.table[i].pa==pa)return true;return false;}
+static AIR61_SAMPLE_CODE bool rw_owned(unsigned i){return rc.owned[i] && rc.view.window.frames[i] && rc.view.window.frames[i]!=rc.view.window.token.root && rc.view.window.frames[i]!=rc.view.window.pdpt && !rw_known_table(rc.view.window.frames[i]) && pmm_frame_has_tag(rc.view.window.frames[i],PMM_FRAME_PAGE_TABLE);}
+static AIR61_SAMPLE_CODE uint64_t rw_private_word(unsigned f,unsigned i){return f==0?(i==409?rc.view.window.frames[1]|AIR61_READ_PARENT_FLAGS:0):(i==80?AIR61_READ_LEAF:0);}
+static AIR61_SAMPLE_CODE bool rw_verify(bool linked,bool private,bool coalesced){
  if(!rc.snapshot)return false;
  if(coalesced){
   struct air61_window_token *a=&rc.source_ticket,*b=&rc.view.window.token;
@@ -160,7 +160,7 @@ static bool rw_verify(bool linked,bool private,bool coalesced){
  if(linked)rc.view.evidence.linked=true;else if(rc.view.window.unlink_attempts)rc.view.evidence.retired=true;
  return true;
 }
-static bool rw_free(unsigned i){
+static AIR61_SAMPLE_CODE bool rw_free(unsigned i){
  if(!rc.owned[i])return true;
  if(!rw_tick() || !rw_owned(i))return rw_fault("free-owner");
 #ifdef SRVROS_AIR61_WINDOW_HOST_TEST
@@ -172,14 +172,14 @@ static bool rw_free(unsigned i){
  if(!pmm_frame_has_tag(rc.view.window.frames[i],PMM_FRAME_FREE))return rw_fault("free-tag");
  rc.owned[i]=false;return true;
 }
-static bool rw_refuse(void){
+static AIR61_SAMPLE_CODE bool rw_refuse(void){
  if(rc.view.window.state==AIR61_WINDOW_POISONED || rc.view.window.parent_attempts)return rw_poison();
  if((rc.owned[0] || rc.owned[1]) && (!rw_verify(false,false,false) || !rw_free(1) || !rw_free(0)))return rw_poison();
  rc.view.window.claimed=false;rc.view.window.state=AIR61_WINDOW_REFUSED;return false;
 }
-static bool rw_reentry(void){rw_fault("reentry");rc.view.window.claimed=true;return rw_poison();}
+static AIR61_SAMPLE_CODE bool rw_reentry(void){rw_fault("reentry");rc.view.window.claimed=true;return rw_poison();}
 static const uint32_t rw_offsets[AIR61_READ_SLOTS]={0x1c,0,0x0c,8,0x0c,0x14,0x10,0x14,0x24,0x20,0x24,0x1c};
-static bool rw_wait_gap(void){
+static AIR61_SAMPLE_CODE bool rw_wait_gap(void){
  if(!rw.current)return true;
  uint64_t previous=rw.pass[0].view.slot_end;
  for(;;){
@@ -194,11 +194,11 @@ static bool rw_wait_gap(void){
 #endif
  }
 }
-bool vmm_air61_read_window_prime_room(void){
+AIR61_SAMPLE_CODE bool vmm_air61_read_window_prime_room(void){
  if(!rw.result.busy || rw.current || !rc.checking || rc.snapshot || rc.in_census || rc.view.window.state!=AIR61_WINDOW_CLAIMED)return false;
  return rw_tick();
 }
-static bool rw_touch_outputs(void){
+static AIR61_SAMPLE_CODE bool rw_touch_outputs(void){
  /* First-touch BOTH pass outputs inside pass0's existing lifetime.
   * Current-pass linked/retired evidence is written after its census; leaving
   * it cold changes the borrowed graph observed by the next pass.
@@ -220,7 +220,51 @@ static bool rw_touch_outputs(void){
 #endif
  return rw_tick();
 }
-static bool rw_prepare(void){
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+/* Trusted linker code, never a device address or executable warm-up callback.
+ * Full raw paths are checked on both sides of each RAM byte. The only allowed
+ * preparatory effect is the exact architectural A promotion on its RO leaf;
+ * upper entries already have A. No PTE is written and the subsequent census
+ * and all target-slot comparisons remain bit-exact. */
+static AIR61_SAMPLE_CODE bool rw_text_path(uint64_t va,uint64_t out[4]){
+ uint64_t table=rc.view.window.token.root;
+ for(unsigned l=0;l<4;l++){
+  if(!rw_word(table,(unsigned)((va>>(39-9*l))&511),out+l))return false;
+  uint64_t w=out[l],frame=w&RW_ADDR;
+  if(!rw_ram_address(frame) || !rw_ram(frame))return rw_fault("text-RAM");
+  if(l<3){if((w&0x21)!=0x21 || (w&~(RW_ADDR|0x27ull)))return rw_fault("text-parent");table=frame;}
+  else if(!(w&1) || (w&~(RW_ADDR|0x21ull)))return rw_fault("text-leaf");
+ }
+ return true;
+}
+static AIR61_SAMPLE_CODE bool rw_touch_text(void){
+ uint64_t begin,end;
+#ifdef SRVROS_AIR61_WINDOW_HOST_TEST
+ extern void air61_sample_test_text_bounds(uint64_t *,uint64_t *);
+ air61_sample_test_text_bounds(&begin,&end);
+#else
+ extern const uint8_t __air61_sample_text_begin[],__air61_sample_text_end[];
+ begin=(uint64_t)(uintptr_t)__air61_sample_text_begin;end=(uint64_t)(uintptr_t)__air61_sample_text_end;
+#endif
+ if(begin<0xffffffff80000000ull || (begin&4095) || end<=begin || end>UINT64_MAX-4095 || end-begin>65536)return rw_fault("text-bounds");
+ for(uint64_t va=begin;va<end;va+=4096){
+  uint64_t pre[4],post[4];
+  if(!rw_text_path(va,pre) || !rw_tick())return false;
+  if(rc.view.window.words>=AIR61_WINDOW_WORD_CAP)return rw_fault("word-cap");
+  rc.view.window.words++;rc.view.window.raw_loads++;rc.view.window.logical_reads++;
+#ifdef SRVROS_AIR61_WINDOW_HOST_TEST
+  extern bool air61_sample_test_text_read(uint64_t);
+  if(!air61_sample_test_text_read(va))return rw_fault("text-read");
+#else
+  __asm__ volatile("":::"memory");(void)*(volatile const uint8_t *)(uintptr_t)va;__asm__ volatile("":::"memory");
+#endif
+  if(!rw_tick() || !rw_text_path(va,post))return false;
+  for(unsigned l=0;l<4;l++)if(post[l]!=(pre[l]|(l==3?32ull:0ull)))return rw_fault("text-path-change");
+ }
+ return rw_tick();
+}
+#endif
+static AIR61_SAMPLE_CODE bool rw_prepare(void){
  struct air61_window_result *r=&rc.view.window;
  r->state=AIR61_WINDOW_CLAIMED;r->claimed=true;
  r->token=(struct air61_window_token){rw.result.owner,rw.result.epoch+rw.current,rw.result.root};
@@ -229,6 +273,9 @@ static bool rw_prepare(void){
  if(!rw.current)rw.result.begin=r->begin;
  if(!r->begin || r->token.epoch>r->begin){rw_fault("clock/epoch");goto refused;}
  if(!rw_tick() || !rw_check(0) || !rw_tick() || (!rw.current && !rw_touch_outputs()))goto refused;
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ if(!rw.current && !rw_touch_text())goto refused;
+#endif
  r->gate_end=rc.last;r->census_begin=rc.last;
  const struct hac_io census_io={.read=rw_census_read,.now=rw_census_now};
  rc.in_census=true;bool captured=hac_capture(&rc.view.census,&census_io,r->token.root);rc.in_census=false;rc.census_ticket=false;r->census_end=rc.last;
@@ -260,7 +307,7 @@ static bool rw_prepare(void){
  r->state=AIR61_WINDOW_ACTIVE;return true;
  refused:rw_refuse();return false;
 }
-static bool rw_path(uint64_t out[4]){
+static AIR61_SAMPLE_CODE bool rw_path(uint64_t out[4]){
  const struct air61_window_result *r=&rc.view.window;
  if(!rw_owned(0) || !rw_owned(1))return rw_fault("path-owner");
  const uint64_t pages[]={r->token.root,r->pdpt,r->frames[0],r->frames[1]};
@@ -272,13 +319,13 @@ static bool rw_path(uint64_t out[4]){
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
 /* No callback/pointer API in native builds: only this fixed sequence can load
  * the private RO/NX/UC window, under the current claim and uninterrupted guards. */
-static bool rw_sample_admit(unsigned i){
+static AIR61_SAMPLE_CODE bool rw_sample_admit(unsigned i){
  if(i>=AIR61_SAMPLE_ADMISSIONS || !rw.io.sample_admit || rc.view.admission[i].attempted ||
     rc.view.reads!=i || rc.view.attempts!=i || rc.view.slots!=i ||
     !rw_tick() || !rw.io.sample_admit(rw.io.ctx,rw.current,i,&rc.view.admission[i]) || !rw_tick())return rw_fault("sample-cache-admission");
  return true;
 }
-static bool rw_load_slot(unsigned i){
+static AIR61_SAMPLE_CODE bool rw_load_slot(unsigned i){
  if(i>=AIR61_READ_SLOTS || rc.view.attempts!=i || rc.view.reads!=i ||
     rc.view.slots!=i || rc.view.window.state!=AIR61_WINDOW_ACTIVE ||
     !rc.view.window.claimed || !rw_guard())return rw_fault("target-scope");
@@ -295,7 +342,7 @@ static bool rw_load_slot(unsigned i){
  rc.view.values[i]=value;rc.view.reads++;
  return true;
 }
-static bool rw_sample_word_valid(unsigned i){
+static AIR61_SAMPLE_CODE bool rw_sample_word_valid(unsigned i){
  uint32_t value=rc.view.values[i];
  if(value==UINT32_MAX || (i==1 && !value))return rw_fault("target-unavailable");
  unsigned previous=i==4?2:i==7?5:i==10?8:i==11?0:i;
@@ -304,7 +351,7 @@ static bool rw_sample_word_valid(unsigned i){
  return true;
 }
 #endif
-static bool rw_slots(void){
+static AIR61_SAMPLE_CODE bool rw_slots(void){
  for(unsigned i=0;i<AIR61_READ_SLOTS;i++){
   if(!rw_check(2))return rw_poison();
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
@@ -338,7 +385,7 @@ static bool rw_slots(void){
  }
  return true;
 }
-static bool rw_retire(void){
+static AIR61_SAMPLE_CODE bool rw_retire(void){
  struct air61_window_result *r=&rc.view.window;uint64_t begin=rc.last;
  if(!rw_verify(true,true,false))return rw_poison();
  if(rc.last<=begin){rw_fault("clock-stalled");return rw_poison();}
@@ -348,12 +395,12 @@ static bool rw_retire(void){
  if(!rw_free(1) || !rw_free(0) || !rw_tick())return rw_poison();
  r->claimed=false;r->state=AIR61_WINDOW_RETIRED;return true;
 }
-const struct air61_read_series_result *vmm_air61_read_window_result(void){return &rw.result;}
-const struct air61_read_pass_result *vmm_air61_read_window_pass(unsigned pass){return pass<AIR61_READ_PASSES?&rw.pass[pass].view:NULL;}
+AIR61_SAMPLE_CODE const struct air61_read_series_result *vmm_air61_read_window_result(void){return &rw.result;}
+AIR61_SAMPLE_CODE const struct air61_read_pass_result *vmm_air61_read_window_pass(unsigned pass){return pass<AIR61_READ_PASSES?&rw.pass[pass].view:NULL;}
 #ifdef SRVROS_AIR61_REGISTER_SAMPLE
-bool vmm_air61_register_sample(const struct air61_read_window_env *io,uint64_t owner,uint64_t epoch){
+AIR61_SAMPLE_CODE bool vmm_air61_register_sample(const struct air61_read_window_env *io,uint64_t owner,uint64_t epoch){
 #else
-bool vmm_air61_read_window_qualify(const struct air61_read_window_env *io,uint64_t owner,uint64_t epoch){
+AIR61_SAMPLE_CODE bool vmm_air61_read_window_qualify(const struct air61_read_window_env *io,uint64_t owner,uint64_t epoch){
 #endif
  if(rw.result.busy)return rw_reentry();
  if(rw.result.attempted || !io || !io->check || !io->ram || !io->now || !owner || !epoch || epoch==UINT64_MAX)return false;

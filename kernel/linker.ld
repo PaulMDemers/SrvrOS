@@ -22,6 +22,9 @@ SECTIONS
     . = ALIGN(CONSTANT(MAXPAGESIZE));
 
     .text : {
+        PROVIDE_HIDDEN(__air61_sample_text_begin = .);
+        *(.text.air61_sample)
+        PROVIDE_HIDDEN(__air61_sample_text_end = .);
         *(.text .text.*)
     } :text
 
