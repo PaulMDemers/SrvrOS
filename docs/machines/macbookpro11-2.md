@@ -15080,3 +15080,45 @@ reentrant delivery/disconnect,completion identity/time,context release/reattach,
 owner loss and permanent retirement. No speed/duplex/readiness claim without
 native proof. Touch only new module/header,Makefile tests and current guides/unit
 record;preserve v131 paths and all accepted DMA/crypto/restoration bounds.
+
+
+### Dormant provider/lifetime and production-stack software qualification (November 8)
+
+Development4bc7aa98 adds mt76_net5;15dce424 adds the production-stack integration
+fixture. The real net_device registry tests pass four-frame copy/backpressure,
+1,004 distinct completion tokens,one pending transfer,stale/current completion
+refusals,750ms boundary/backward-clock faults,ownership loss,normalized-frame
+span refusal and both reentrant reply enqueue and disconnect/permanent retirement
+inside callbacks. Borrowed RX/TX bytes remain stable through callback return.
+Tests release the old context and then use registry callbacks/metadata under
+ASan,before attaching a strictly newer epoch without provider reselection.
+Completion alone fails the independent retirement gate. Token exhaustion and
+unknown submission close publication and retain context for external retirement.
+
+The real Ethernet/ARP/TCP stack also passes ARP,SYN/ACK,an exact HTTP GET/200
+payload exchange,the receive-window ACK,FIN/ACK,TIME_WAIT and provider retirement
+over the new queue against a synthetic plaintext peer. The fixture independently
+validates outgoing checksums and sequences. Initial fixture expectations missed
+the read-driven receive-window ACK;the final test explicitly checks it rather
+than changing production TCP. This is software stack/provider evidence,not a
+native Wi-Fi TCP/HTTP result. Fatal ASan/UBSan/leak checks pass for both fixtures;
+existing registry tests pass. The new module compiles with the native freestanding
+flags and maximum88-byte stack frame. No full kernel/core/VM rerun is claimed.
+
+No boot call site invokes the new module,no native transport is bound,and no
+existing recipe,hardware gate,key owner,DMA ring or provider-selection policy
+changed. In particular these tests do not accept native ring/page reuse. Native
+work next needs a guarded asynchronous USB/key-lifetime handoff and correct
+pre-net_init registration timing before an ordinary provider/TCP/HTTP trial.
+Keep blocking control/completion waits out of provider callbacks. Native backend
+must keep the original exclusive CCMP context and prove erasure and all hardware/
+DMA/callback retirement before context release;it cannot delegate that authority
+to this queue. UI connect/disconnect and USB reattach remain later acceptance.
+
+Installed runtime77f75af0/releasee17ff9e2fb15fb2c and its two bounded cold
+acceptances remain unchanged,with190/73-file native capsules and26/18-file
+accepted notes outside build. No restage,install or reboot is warranted for an
+unused software module. Store these separate software receipts outside build,
+keep Ubuntu default and no next boot armed. Consumed maina1661937,reviewed
+mainf94d97d1;other machines' scopes remain independent. PR19 stays draft;
+Actions disabled. Demers2.4 still requires compatible hardware.
