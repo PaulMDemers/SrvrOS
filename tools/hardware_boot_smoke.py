@@ -405,7 +405,7 @@ def main():
                         assert release.encode() in contents
                         if keyboard_capture and filename=="exit.log":
                             assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
-                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or hsw_capture or hfw_capture):
+                        if not (audio_listen or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or hsw_capture or hfw_capture):
                             assert (b"battery-preflight: REFUSED identity/resources; no register access" if battery_preflight else b"laptop-probe: unsupported chipset") in contents
                             assert b"USB INPUT DIAGNOSTIC" in contents
                             assert b"xhci: vendor=" in contents
