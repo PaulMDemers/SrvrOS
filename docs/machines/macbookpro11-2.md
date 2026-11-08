@@ -15511,3 +15511,26 @@ trial was run;the engine has no native caller yet. Installed native payload and
 all old acceptance/failure capsules remain unchanged. Next implement the audited
 asynchronous native command owner,then bind the persistent data owner and qualify
 an explicit bounded boundary-crossing profile. No boot armed.
+
+### First native boundary qualification scope (November 8)
+
+Following qualified5e1c8a05,implement the audited asynchronous native command owner
+and an explicit controller-only No-Op transfer child. Keep the unchanged v126
+empty configure/stop/disable receipt before handoff to a distinct TX ring/owner
+under the held calibration/power/peer parent with MAC disabled. Intel xHCI1.2
+permits bufferless type8 No-Op transfer TDs on Bulk rings. Consume63 real IOC
+completions,prove Stop/event/context frontier,Set-Dequeue/opposite DCS and repeat
+one actual base-address No-Op before full stop/disable/input/parent restoration.
+This qualifies descriptor/command boundary mechanics,not encrypted DMA traffic,
+network persistence or receive. Do not fabricate a63 cursor or positive-length
+DMA request for a bufferless TD. Add typed No-Op leases and a pure TX initializer
+with no RX/data-page authority;ordinary data admission remains unchanged.
+
+Native backend owns shared event demux/exact nonblocking command identity and
+cleanup reserve;parent owns the new child/profile/receipt/integration;transport
+subagent owns typed No-Op core semantics and tests. Preserve historical gates and
+old physical acceptance independently. Native Stop pointer/context/FSE semantics
+must be validated from applicable source/capture,not inferred from the old empty
+ring pointer. No physical trial before source freeze,actual owner fixtures,
+matched/sanitized/storage/exact-image VM/recovery qualification. Current installed
+3c9 remains unchanged;no boot armed.
