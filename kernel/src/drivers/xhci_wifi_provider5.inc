@@ -53,7 +53,7 @@ static bool wifi_provider5_retired(void *c,uint64_t epoch){
  return c==&wifi_wpa5 && epoch==wifi_wpa5.peer.generation && wifi_provider5.outer_retired && wifi_provider5.closed &&
  !wifi_wpa5.active && !wifi_wpa5.data_active && wifi_wpa5.restored && wifi_wpa5.phase==9 &&
  wifi_wpa5.exchange.keys_erased && wpa2_ccmp_erased(&wifi_wpa5.exchange.keys,epoch) && !wifi_wpa5.exchange.handshake.keys_may_live &&
- wifi_wpa5.mac.mac_disabled && wifi_wpa5.mac.tx_drained && wifi_wpa5.mac.rx_drained && wifi_wpa5.mac.filter_restored && wifi_wpa5.mac.txop_restored && (!wifi_reuse5_requested || wifi_reuse5.retired);
+ wifi_wpa5.mac.mac_disabled && wifi_wpa5.mac.tx_drained && wifi_wpa5.mac.rx_drained && wifi_wpa5.mac.filter_restored && wifi_wpa5.mac.txop_restored && (!wifi_reuse5.initialized || wifi_reuse5.retired);
 }
 static bool wifi_provider5_start(void){
  if(!wifi_provider5_requested || wifi_provider5.attempted || !wifi_data5_owned(&wifi_wpa5))return false;

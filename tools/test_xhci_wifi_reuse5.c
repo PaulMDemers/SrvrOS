@@ -22,6 +22,7 @@ int main(int argc,char **argv){
  begin();fake.data_mode=true;fake.data_flood=true;fake.drain_queue=3;assert(!run_reuse() && wifi_wpa5.restored && wifi_wpa5.ip.exhausted && !wifi_reuse5.retired && wifi_provider5.net.attached);
  begin();fake.data_mode=true;fake.data_bad_mic=true;assert(!run_reuse() && wifi_wpa5.exchange.keys_erased && !wifi_reuse5.retired && wifi_provider5.net.attached);
  begin();fake.data_mode=true;fake.reuse_tail=1;assert(!run_reuse() && !wifi_reuse5.retired && !wifi_provider5.retired && !wifi_reuse5.events_drained);
+ assert(!mt76_net5_finish_detach(&wifi_provider5.net,wifi_wpa5.peer.generation) && wifi_provider5.net.attached && wifi_provider5.net.io.context);
  for(unsigned kind=1;kind<=6;kind++){
   begin();fake.data_mode=true;fake.reuse_fault=kind;assert(!run_reuse() && !wifi_reuse5.retired && !wifi_provider5.retired);
  }
