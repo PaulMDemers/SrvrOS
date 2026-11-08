@@ -770,6 +770,14 @@ success and loss of its reader does not cancel an accepted file write. The
 parent retains phase durations, progress age and immutable byte-transfer counts.
 All original temporary ownership, destination checks, flush and readback remain.
 
+The worker coalesces buffered file writes into ordinary checked requests of at
+most 64 KiB, reducing repeated namespace-admission waits. This changes caller
+batching only: kernel I/O eligibility, file/capture size limits and responsiveness
+bounds are unchanged. Short writes still advance only by their returned count.
+File fsync/close, both global syncs, both complete byte-for-byte readbacks and
+identity-checked no-replacement rename remain mandatory. A failed post-rename
+sync reports failure and retains the published destination for inspection.
+
 Stress-only diagnostic output uses a separate joined worker and fixed snapshot
 slot, so blocked app launch does not itself block status emission. Every ten
 seconds and at exit, `desktop-operations`, `desktop-capture-state` and

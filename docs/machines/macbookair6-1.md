@@ -9521,7 +9521,7 @@ power-policy scope is added by this acceptance.
 Base `d7ab6db5`, after accepted stress runtime `fac79995` and bounded audible
 confirmation. The retained slowest capture spends31.864228s in WRITE, versus
 4.766ms encode,7.318272s receive and subsecond fsync/sync/readback phases.
-These POSIX writes populate process-local buffered file contents; device
+These POSIX writes populate kernel-buffered file contents; device
 persistence occurs in later flush/sync phases. Each16KiB write re-enters the
 ordinary default-deny namespace I/O admission path. Its exact wait/owner time
 has not been independently measured; encoding is not the primary observed cost.
