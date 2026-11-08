@@ -341,3 +341,23 @@ records full/follow-up local checks,84 fatal sanitizer cases,12 compiled control
 16-image isolation and exact-stage normal/missing-workspace VM outcomes. Saved
 full-width projection is65,414/65,536bytes without a cap/allowance increase.
 Media/recovery checks pass; no physical combined shutdown/reset acceptance exists.
+
+
+### First combined native return
+
+Release `d74b95ab9b2f5d5c` / source `c8942c8d`, session
+`session-00065fcc53cff57d-00`, completes the same-borrow four-snapshot disabled
+observation and acknowledges both fixed reset pulses, then reports `IBR_CLOCK`/2
+during settling. Settling entry is98,247us into the100ms dependent budget;
+the wrapper's post-failure endpoint is100,171us after core entry. The exact failed
+sample is unavailable, so deadline exhaustion remains a strong timing inference.
+The parent GT first-fault row is clear and cannot identify the inner-core cause.
+
+Cancellation, borrow return and post-reset preservation do not complete. All13
+aliases, wake, borrow and exclusion are retained; the normal automatic reboot is
+blocked. A final diagnostic and matching preflight are saved. Strict collection
+marks the run incomplete, with prior-file/offline media/recovery checks passing.
+The [unit result](machines/macbookair7-2.md#latest-same-borrow-reset-trial-clock-failure-during-settling)
+records the detailed timing and next scope: first-fault inner-clock evidence and
+measured audit reduction under unchanged limits, never forced retirement or a
+larger deadline. No reset/preservation or memory-ownership acceptance follows.

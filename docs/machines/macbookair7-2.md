@@ -2,10 +2,47 @@
 
 Updated: 2026-11-08. State: **active reference machine; partial device acceptance**.
 
+### Latest same-borrow reset trial: clock failure during settling
+
+Source `c8942c8d`, release `d74b95ab9b2f5d5c`, session
+`session-00065fcc53cff57d-00` is **incomplete**. The pre-census records92 stable
+words in53,902us with all sampled engine/pending/flip/TLB masks0. The fresh
+same-borrow shutdown observation completes four exact zero-geometry snapshots
+in44,299us, with zero control attempts/stores and epoch0. These intermediate
+observations do not accept the combined operation.
+
+The reset request reached ready and both fixed BCS-domain pulses were issued
+and self-clear acknowledged (domain endpoints0/0/0). Engine epoch advanced0→1.
+The core then stopped with `IBR_CLOCK`/2 during settling: settling begins98,247us
+after core entry, leaving1,753us of its unchanged100ms budget. The wrapper's
+post-failure timestamp is100,171us after core entry. Deadline exhaustion is a
+strong inference, not a directly recorded failed sample: the core receipt does
+not distinguish zero/backward/deadline causes. The separate GT clock row reports
+no fault and10 grouped checks; it is not an inner-core fault receipt.
+
+No explicit cancellation, settling completion, verified borrow return or post-
+reset census/reader/HDA preservation ran. The borrow, wake, all13 aliases and
+exclusion remain retained in the guest; the automatic-return gate correctly
+blocks a normal reboot. Outer elapsed time is290,761us. The supplied photo shows
+the retained pre-entry checkpoint/warning, while the saved final log contains
+the failure. Strict collection verifies the diagnostic and saved prerequisite
+checkpoint, with whole-trial `completed=NO`; it never promotes two ACKs to a pass.
+
+All1,383 prior files survive except expected workspace metadata; three new logs
+give1,386 files/118 sessions. Offline fsck/allocation/writable/headroom,
+installed/durable/archive recovery, Ubuntu default and consumed one-shot pass.
+USB is unmounted, no new test is armed, volume remains1%; full matching raw
+receipts and photo are retained outside build. Next expose the first failed
+inner-core clock sample and measure/reduce redundant admission work without
+weakening fresh pre/provider/post checks, registered pin continuity, preservation,
+retention or the100/300/500ms bounds. Complete reset/preservation, outstanding
+DMA/prefetch/cache/reader ownership, managed backing and native tear-free remain
+unaccepted. Local return checkpoint: `build/air-reset-shutdown-20261108/status.md`.
+
 ### Same-borrow shutdown/reset candidate ready for hardware
 
 Tested source `c8942c8d` (implementation `c327b823`, main `d3472e06` integrated
-as `67377fb0`) produces release `d74b95ab9b2f5d5c`, installed **not armed**.
+as `67377fb0`) produces release `d74b95ab9b2f5d5c`, installed **not armed** at readiness.
 The [combined contract](../intel-bcs-reset.md#fresh-disabled-observation-within-the-reset-borrow)
 uses its own firmware request, wake version9 and exact16-token recipe. Only the
 physically exercised already-disabled branch is admitted. Four fresh eight-word
