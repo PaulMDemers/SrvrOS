@@ -7462,3 +7462,16 @@ forbidden hardware bit is present. Native ownership checks surround polling.
 Even audit4 still returns no Ethernet and cannot count as an accepted IP reply.
 The flag's hardware meaning remains unresolved;this is a nonpublishing probe,
 not a changed cipher/error/admission policy.
+
+The first native audit recorded one sole-WAPI-key-flag frame that passed the
+strict verification-only CCMP engine under the original live context. It still
+returned no Ethernet and did not commit PN. Another unflagged frame authenticated
+but refused DHCP's UDP-ports gate;BOOTP identity was not parsed. The run timed
+out without an OFFER and full outer RF completion failed,although independent
+MAC/endpoint/input and nine-word power originals restored. This proves only
+that this metadata bit can accompany valid CCMP,not its full hardware semantics
+or valid DHCP/AP acceptance. Next consider sole-bit software admission only
+after the same strict header/peer/key-ID/replay/MIC checks,with exactly one
+ordinary PN commit and no WAPI cipher/hardware activation. All actual error/
+aggregate/decrypted/stripped-PN flags and IP/ownership/retirement gates stay
+mandatory. Preserve this failed capsule separately from future candidates.

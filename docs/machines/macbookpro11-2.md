@@ -14700,3 +14700,45 @@ echo still requires PN1..6,software erasure/leave,all endpoint/input/MAC/power/R
 originals and matching filesystem/recovery proof. Ordinary provider/UI,TCP/HTTP
 and live reattach remain pending;Demers2.4 needs compatible hardware. PR19 stays
 draft;Actions stay disabled.
+
+### Native audit verifies a flagged CCMP frame; DHCP still fails (November 7)
+
+Runtime0a1cdb9c,release7d2c9c27c188bbc3,session00065fbc0add5acf-00
+saved1,896,060bytes and returned to Ubuntu. Historical management/M1 and the
+independent AUTH/ASSOC,M3 MIC,local M4 and software-key activation passed. One
+encrypted DISCOVER completed at PN1. Its34-event deferred transcript contains
+one send and33 data completions (indices6..38):29 beacon-class,two action-class
+and two protected-FromDS-class frames. One unflagged frame authenticated into
+342-byte Ethernet but refused the UDP-ports gate before BOOTP message parsing.
+Its packet identity is not established;do not call it a valid offer or assume
+it was our reflected request.
+
+The other protected frame carried only the WAPI-key category (flag1024) and
+returned audit4:bounded supported header,frozen peer/header binding and strict
+CCMP key-ID/replay/MIC verification succeeded. The original flag gate still
+refused it:zero Ethernet/present and no publication. The qualified verifier
+leaves the full context unchanged and does not commit RX/TX PN. This is direct
+native evidence that the field can accompany a valid CCMP frame under the live
+context;it does not establish the field's full hardware meaning,AP acceptance
+of M4/our request,group-versus-pairwise identity or valid DHCP contents.
+
+No OFFER/REQUEST/ACK,ARP,DNS or echo completed. Phase0 has exactly one UDP-ports
+refusal and phase1 stays zero. This run reached the ordinary two-second IP wait
+deadline rather than exhausting forward input:exhausted=0,unsafe=0,663 IP polls,
+39 forward completions and40 posts. The independent exchange took2,050,574us.
+Keys erased and leave completed. MAC disable,TX/RX quiet and filter/TXOP originals
+passed,with zero reserved completions. All six endpoint commands and endpoint/
+input originals passed (restored=1,phase9),and all nine power originals restored
+(511). Full exchange/outer RF completion still failed. This remains partial
+verification/cleanup evidence,not connectivity/full-restoration acceptance.
+
+The566-file failure capsule and separate categorical notes are sealed outside
+build;prior capsules stay unchanged. Offline filesystem/allocation and installed
+recovery checks pass. Ubuntu is default,the workspace is unmounted,and no next
+boot is armed. Next prepare narrowly gated software-CCMP admission when this
+is the sole forbidden metadata bit and strict peer/header/key-ID/replay/MIC
+verification succeeds. Preserve every CRC/ICV/MIC/aggregate/decrypt/PN-strip
+refusal and require ordinary decrypt/publication to commit PN exactly once.
+Do not enable WAPI hardware/cipher support or infer valid IP from a MIC. Keep
+all IP,ownership,receive/time and full restoration gates. Ordinary provider/UI,
+TCP/HTTP and live reattach remain pending. PR19 stays draft;Actions disabled.
