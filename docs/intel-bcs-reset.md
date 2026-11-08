@@ -154,10 +154,10 @@ workflow. Native object/mapping negative controls, image isolation, saved-tail
 headroom, offline USB/recovery and durable backups must pass before declaring
 hardware readiness. No physical acceptance follows from the host adapter fixture.
 
-## Air7,2 candidate ready for physical trial
+## Historical Air7,2 candidate readiness
 
 Source `1000647f`, release `6a3d6afb2f2824bd`, is installed and not armed.
-The [unit readiness record](machines/macbookair7-2.md#native-bcs-resetpreservation-ready-for-hardware)
+The [unit readiness record](machines/macbookair7-2.md#historical-native-bcs-resetpreservation-readiness)
 records full local checks,144 core/48 adapter fatal sanitizer cases,23 detected
 compiled controls,14-image isolation and exact-stage Q35 refusal/save/return and
 missing-workspace halt. Object/staged MMIO and reader bindings pass independently
@@ -171,3 +171,22 @@ The first exact VM exposed a progress message using the structured `intel-bcs-`
 namespace. The progress label now uses `intel-bcs:`; an actual-message regression
 covers it, and unknown structured receipts still fail. The failed guest/payload
 are retained separately. The rebuilt exact source passes both VM outcomes.
+
+## First native return: prerequisite clock refusal
+
+Release `6a3d6afb2f2824bd` / source `1000647f` saved a complete diagnostic tail
+and returned automatically, but did not enter the reset core. The92-read
+pre-census found stable engine/context state in63,482us, then reported reason2
+from its final clock validation. BCS request/reset attempts and writes were0;
+all13 aliases retired, the GT owner closed and exclusion released. Strict
+collection marks the run incomplete. USB prior-file hashes, offline filesystem
+and recovery/default/consumed-one-shot checks pass.
+
+A host reproduction shows that the existing final `end_us <= last_us` predicate
+rejects two samples in the same microsecond despite earlier positive progress.
+The physical receipt lacks `last_us`, so this explains a reproducible boundary
+but does not prove the hardware's exact final clock ordering. Correct and test
+that boundary without allowing backward time, a fully frozen observation or a
+longer deadline before qualifying another candidate. The failed receipt must
+remain incomplete. No reset/preservation or memory retirement acceptance follows.
+See the [latest unit result](machines/macbookair7-2.md#latest-native-bcs-reset-trial-safe-prerequisite-refusal).

@@ -2,10 +2,45 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
-### Native BCS reset/preservation ready for hardware
+### Latest native BCS reset trial: safe prerequisite refusal
+
+Release `6a3d6afb2f2824bd`, source `1000647f`, returned automatically from
+`session-00065fba343bdc18-00`. This is **incomplete, not reset acceptance**.
+The strict decoder and saved prerequisite checkpoint validate the diagnostic
+receipts, which explicitly report `completed=NO`. No BCS request, cancellation
+or GDRST store was attempted; no reset epoch or preservation borrow began.
+
+The pre-census captured all92 words in63,482us with stable five-engine/context
+state, no enabled/pending/saved-wait/TLB-pending masks and parser-idle mask3.
+Its final clock validation returned reason2 despite elapsed time remaining below
+100ms. The implementation rejects a final timestamp equal to its previous
+microsecond sample; a local host reproduction yields all92 reads/stable state,
+`last=end` and the same reason2. Native receipts do not include `last_us`, so an
+actual equal-timestamp event remains an inference, not a proven hardware clock
+trace. Next scope is a focused final-clock regression/fix retaining positive
+whole-observation progress, backward-clock refusal and unchanged deadlines,
+then fresh source/host/VM qualification before another physical trial.
+
+The GT owner closed, all13 aliases retired and the exclusion released, with
+zero retained mappings. The outer wake lifetime measured239,961us. Prior1,371
+files are unchanged except expected workspace metadata, with exactly3 new logs
+and114 total sessions. Offline fsck/allocation/writable/headroom checks pass;
+installed/durable/archive recovery payloads verify, Ubuntu remains default and
+the one-shot was consumed. USB is unmounted; no reboot is armed. All completion
+obligations remain255; no GPU memory/cache/reader retirement, managed pages or
+physical tear-free acceptance is inferred.
+
+Evidence, clock-tie reproduction, return proof and run state are in
+`build/air-native-reset-20261107`, independently backed up outside build. Remote
+main was fetched at `f01a1ad4` (Air6,1 PR410/411); the tested tree still integrates
+`ac8c2d5b`. Reconcile those changes before the next implementation candidate.
+PR19/PR379 retain independent scope; Actions remain disabled.
+
+### Historical native BCS reset/preservation readiness
 
 Tested source `1000647f` (main `ac8c2d5b` integrated) produces release
-`6a3d6afb2f2824bd`, installed **not armed**. Physical reset acceptance is pending.
+`6a3d6afb2f2824bd`, installed **not armed** at this preparation checkpoint.
+The later physical result is recorded above; reset acceptance remains pending.
 The [BCS reset contract](../intel-bcs-reset.md) describes the separate firmware
 request/image and exact 15-token recipe, ending in
 `srvros.intel-bcs-reset=blitter-only`. Earlier images cannot enter it.
