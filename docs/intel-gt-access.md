@@ -338,3 +338,13 @@ no forced close or recovery API. Ordinary callers with no dependents retain
 their earlier protocol. The main automatic-return gate also checks sticky GT
 retained state, alongside HDA, before allowing reboot. These mechanisms convey
 no engine reset, outstanding-memory completion, cache or GPU backing authority.
+
+## Engine observation epochs
+
+The isolated [BCS reset model](intel-bcs-reset.md) adds a software engine epoch
+to the live GT owner. Completion censuses bind the current epoch and refuse a
+change during observation; readiness cannot reuse a census from before a
+possibly destructive operation. Reset consumes the epoch before its first
+possible domain store and never rolls it back. This model is outside native
+images. Existing wake/completion receipts and physical acceptance retain their
+original semantics; epochs grant no DMA, cache or backing retirement.

@@ -16,6 +16,7 @@ extern const uint32_t intel_completion_context[INTEL_COMPLETION_CONTEXT];
 struct intel_completion_result {
  const struct intel_completion_result *object;
  const struct intel_gt_access *parent;
+ uint32_t engine_epoch;
  uint32_t words[2][INTEL_ENGINE_COUNT][INTEL_COMPLETION_WORDS];
  uint32_t context[2][INTEL_COMPLETION_CONTEXT];
  uint64_t begin_us,end_us,last_us;

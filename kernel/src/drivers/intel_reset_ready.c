@@ -53,7 +53,7 @@ bool intel_reset_ready(struct intel_reset_ready_result *r,struct intel_gt_access
  if(!r || r->object)return false;
  *r=(struct intel_reset_ready_result){.object=r};
  if(!g || !c || !policy || !io.guard || !io.control || !io.group || !io.write || !io.now || !io.pause ||
-    c->object!=c || c->parent!=g || !intel_gt_access_check(g) || !c->complete || !c->stable || c->enabled || c->pending || c->flip_wait || c->tlb_pending || c->parser_idle!=3 ||
+    c->object!=c || c->parent!=g || c->engine_epoch!=g->engine_epoch || !intel_gt_access_check(g) || c->engine_epoch!=g->engine_epoch || !c->complete || !c->stable || c->enabled || c->pending || c->flip_wait || c->tlb_pending || c->parser_idle!=3 ||
     c->groups!=10 || c->samples!=2 || c->contexts!=2 || c->reads!=92 || c->reason ||
     !c->begin_us || c->begin_us<=g->begin || c->end_us<=c->begin_us || c->end_us>g->last)
   return fail(r,IRR_INPUT);

@@ -5281,3 +5281,13 @@ test-air61-read-profile: build/tests/air61-read-combined$(HOST_EXE)
 build/air61-read-window/native-vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/src/memory/air61_read_window.inc $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -DSRVROS_AIR61_READ_WINDOW -c $< -o $@
+
+# Protocol model only; deliberately absent from KERNEL_C and every native image.
+.PHONY: test-intel-bcs-reset
+BCS_RESET_CORE := kernel/diagnostics/intel_bcs_reset.c
+build/tests/intel-bcs-reset$(HOST_EXE): tools/test_intel_bcs_reset.c tools/test_intel_completion_audit.c $(BCS_RESET_CORE) kernel/src/drivers/intel_reset_ready.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< $(BCS_RESET_CORE) kernel/src/drivers/intel_reset_ready.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c -o $@
+test-core: test-intel-bcs-reset
+test-intel-bcs-reset: build/tests/intel-bcs-reset$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_bcs_reset.py

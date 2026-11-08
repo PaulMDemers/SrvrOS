@@ -2,6 +2,17 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Active work: controlled BCS reset protocol
+
+Bounded objective: integrate main `a9c1f714` (PR407/408) and establish a host-tested
+BCS-only reset lifetime before native activation. Scope: GT observation epochs,
+completion/readiness validation, a separate diagnostic reset core and fault
+fixtures, plus the reset-domain contract. PR19 Wi-Fi and PR379 WebCore stay
+independent. The native register adapter, private reset alias, exact new image/
+recipe, saved collector proof and hardware acceptance remain separate admission
+requirements; no reset writer is enabled in an installed or ordinary image.
+Do not infer outstanding-memory/cache retirement from reset acknowledgement.
+
 ### Current checkpoint: BCS reset readiness accepted
 
 Release `46037d20cb190504`, tested source `a54e2ebd`, completed native session

@@ -119,7 +119,7 @@ The 92-read observation takes 63,525 us; the surrounding wake lifetime takes
 wake stores and retained=0. Bounds remain unchanged. Native/checkpoint/UC,
 complete 58,470-byte saved exit, zero collector attention/errors, prior-file
 preservation, offline media, recovery/default/consumed one-shot all pass. The
-[unit checkpoint](machines/macbookair7-2.md#current-checkpoint-engineflip-waitcache-prerequisite-audit-accepted)
+[unit checkpoint](machines/macbookair7-2.md#earlier-engineflip-waitcache-prerequisite-audit-accepted)
 records evidence and independent backup. No engine/TLB/reset/cache command ran;
 no posted/prefetch, pipeline, firmware, translation, backing or tear-free
 acceptance follows. Separate HDA/plane trials do not establish joint ownership.

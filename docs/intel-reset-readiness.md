@@ -103,3 +103,11 @@ The full outer lifetime is341,736us within500ms, with nine aliases retired and
 retained=0. The59,184-byte exit receipt, preserved prior files, offline media,
 recovery and consumed one-shot checks pass. Actual reset/completion and cache/
 backing ownership remain unaccepted; obligations stay255. No reboot is armed.
+
+## Controlled-reset successor
+
+The [BCS-only reset protocol](intel-bcs-reset.md) now has an isolated host model
+with stale-census epochs, bounded two-pulse/self-clear/settling/cancellation and
+retained-state failure semantics. It has no native entry point. The contract
+lists the exact native admission and remaining memory-completion work; the
+accepted readiness payload remains installed and no new trial is armed.

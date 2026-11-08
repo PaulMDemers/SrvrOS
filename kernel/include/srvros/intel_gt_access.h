@@ -47,6 +47,9 @@ struct intel_gt_access {
     uint32_t state,reason,requests,ack,thread,write_attempts,writes,polls;
     bool pinned;
     unsigned borrows;
+    /* Engine observations cannot cross a possibly issued destructive reset.
+     * Increment before its first store; never roll back on an uncertain write. */
+    uint32_t engine_epoch;
     struct intel_gt_borrow *dependents;
 };
 struct intel_gt_borrow {

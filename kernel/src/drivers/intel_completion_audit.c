@@ -8,12 +8,13 @@ static bool clock_ok(struct intel_completion_result *r,struct intel_completion_i
 }
 static bool guard(struct intel_completion_result *r,struct intel_gt_access *g,struct intel_completion_io io) {
  if(!clock_ok(r,io))return false;
- if(g->state!=GT_ACCESS_AWAKE || !g->pinned || !display_access_held(&g->exclusion) || !io.guard(io.ctx)){r->reason=3;return false;}return true;
+ if(g->state!=GT_ACCESS_AWAKE || !g->pinned || r->engine_epoch!=g->engine_epoch || !display_access_held(&g->exclusion) || !io.guard(io.ctx) || r->engine_epoch!=g->engine_epoch){r->reason=3;return false;}return true;
 }
 bool intel_completion_observe(struct intel_completion_result *r,struct intel_gt_access *g,struct intel_completion_io io) {
  if(!r || r->object)return false;
  *r=(struct intel_completion_result){.object=r,.parent=g};
  if(!g || !io.guard || !io.group || !io.context || !io.now || !intel_gt_access_check(g)){r->reason=1;return false;}
+ r->engine_epoch=g->engine_epoch;
  r->begin_us=r->last_us=io.now(io.ctx);
  for(unsigned n=0;n<2;n++) {
   for(unsigned e=0;e<INTEL_ENGINE_COUNT;e++) {
@@ -50,5 +51,6 @@ bool intel_completion_observe(struct intel_completion_result *r,struct intel_gt_
  if(!r->stable){r->reason=6;return false;}
  r->end_us=io.now(io.ctx);
  if(r->end_us<=r->last_us || r->end_us-r->begin_us>100000){r->reason=2;return false;}
+ if(r->engine_epoch!=g->engine_epoch){r->reason=3;return false;}
  r->complete=true;return true;
 }
