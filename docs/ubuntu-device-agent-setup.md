@@ -1342,3 +1342,22 @@ zero-length status is mandatory before publication. The collector requires
 that receipt as well as the unchanged full four-way/retirement proof. It
 changes no WPA security gate,RF recipe or timeout. Follow the same private
 provisioning,qualification,recovery,cold-shutdown and collect-first sequence.
+
+
+### Pro11,2 bounded native provider TX handoff (v132)
+
+The explicit `--wifi-provider5` child requires `--wifi-data5` and its entire
+automatic/private-PMK parent. It defers ordinary network selection only in this
+exact unattended profile,then registers/selects the verified post-M4 station.
+Six existing strict encrypted IP requests exercise the copied provider queue,
+nonblocking USB submission and exact epoch/token completions. Receive remains
+the diagnostic path;ordinary provider RX,persistence,ring reuse,TCP/HTTP and UI
+are separate native milestones. No key owner or DMA/time limit is widened.
+Require early context-release refusal and final detach/registry retirement after
+the full key/endpoint/input/MAC/power/RF parent,using the separate strict v132
+saved-log checker. Follow matched build,sanitizers/stack/storage,exact-image GPT
+and missing-workspace VM,recovery and saved-run preflight. Preserve the accepted
+v131 data payload and its independent cold capsules. This unit still requires
+authorized shutdown and10second Wi-Fi-only unplug/reconnect while off;leave the
+workspace connected. Progress/save/return are automatic,no commands/photos.
+Collect the exact new session first;local/VM success is not native acceptance.

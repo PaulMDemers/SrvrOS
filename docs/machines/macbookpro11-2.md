@@ -17,10 +17,12 @@ lifetimes,not sustained reliability;earlier intermittent failures remain failed.
 Fingerprint-only diagnostics do not establish a causal correction. See the
 November8 acceptances at the end.
 
-Next preserve this payload and build ordinary provider/connection lifetime,
-TCP/HTTP and UI connect/disconnect/live reattach. The captured
+Qualified v132 candidate d97ad914/release815453c3f9a42431 is installed for the
+bounded native asynchronous USB provider TX trial;physical acceptance is pending.
+Preserve the accepted data payload. After return collect provider5-native FIRST,
+then continue ordinary receive/connection lifetime,TCP/HTTP and UI/reattach. The captured
 7392:a711/0100 EW-7711MAC is5GHz-only;Demers2.4 needs compatible hardware. Current
-source retains maina1661937;actual main f94d97d1 was inspected but not consumed.
+source retains maina1661937;actual main ceeabd0d was inspected but not consumed.
 Other machines' graphics,VT-d and browser work remain independent;no cross-chat
 contact is authorized. Credentials/private PMK remain local and never logged.
 
@@ -28,8 +30,8 @@ Cold unplug is still required:under standing user authorization,shutdown when
 qualified,unplug only Wi-Fi10seconds while off,reconnect same port,power on and
 leave workspace attached. Results save and Ubuntu return is automatic;no commands,
 photos or repeated approval. Collect the exact new session first after return.
-Current workspace unmounted,Ubuntu default,one-shot consumed,unarmed. PR19 draft;
-Actions disabled.
+Workspace is unmounted and Ubuntu remains default. The saved local run record
+owns the one-shot/shutdown state for this trial. PR19 draft;Actions disabled.
 
 ## Earlier handoff (superseded November 8)
 
@@ -15151,3 +15153,43 @@ Qualify kernel,staging,exact-image VM,persistence/headroom and local sanitizers
 before installation and the authorized cold shutdown. Touch xHCI Wi-Fi child,
 main's opt-in network timing,matched staging/collectors/tests and current guides;
 no generic registry,hardware matching or other machines' device gates change.
+
+
+### Native USB provider candidate qualified (November 8)
+
+Runtime d97ad914/release 815453c3f9a42431 stages the explicit v132 native nonblocking
+provider TX handoff. The actual original post-M4 CCMP owner now submits each of
+the six copied requests through the real selected provider queue and maps exact
+USB completions to the connection epoch/token. Provider callbacks do not wait
+or log. Disconnect precedes erasure;an attempted early release is refused;only
+full parent retirement permits context detach and registry retirement. No key
+copy/reinstall,ring reuse or wider hardware/receive/time limits. Ordinary provider
+RX,persistent connections,TCP/HTTP,UI and live reattach remain unaccepted.
+
+Matched kernel/USB image,full controller and relevant protocol/crypto/IP/provider
+regressions,235 staging tests and19 fatal ASan/UBSan groups pass. The native
+compiler maximum relevant frame is 1288bytes. The actual-child/full-parent
+synthetic prefix is 2041380bytes;129 incomplete/mutated cases refuse.
+Conservative capture headroom 40611bytes retains the separate32KiB reserve
+under the unchanged2MiB cap. Real disk write/remount/fsck,ordinary desktop,exact
+staged GPT save/return and missing-workspace VMs pass. Both exact native-profile
+VM paths observe deferred net_init/worker boot. Independent packaged kernel/
+firmware/private PMK and syscall169 namespace equality pass;no full-core rerun.
+These are local/VM checks,not physical acceptance of the new handoff.
+
+The candidate is installed alongside accepted e17ff9e2fb15fb2c,v130,M1 and
+e47d recovery;Ubuntu remains default. Preserve accepted190/73-file native and
+26/18-file note capsules plus21-file provider software receipts. The preceding
+accepted generated session was byte-verified,archived and pruned for headroom;
+its immutable native capsule remains intact. All private evidence/payloads are
+sealed outside build. Exact source retains maina1661937;actual mainceeabd0d
+and PR419 desktop timing changes were inspected without Wi-Fi overlap;open
+graphics/browser scopes remain independent. PR19 draft;Actions disabled.
+
+Under standing authorization,arm one boot and shut down for the required10second
+Wi-Fi-only cold unplug/reconnect while off;leave workspace attached. Guest
+progress,save and Ubuntu return are automatic. On return collect the matching
+provider5-native run FIRST;require six queue/submission/completion counts,early
+release refusal,late detach/registry retirement,all encrypted IP results,full
+key/hardware originals and independent storage/recovery checks. A halt,missing
+receipt or incomplete parent remains failed. No photos/commands/repeated approval.
