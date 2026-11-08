@@ -9309,3 +9309,59 @@ run the same fully automatic30-minute PCM/verified USB/app/three-screenshot
 native workload at1%. The collector now saves matching render/capture attribution
 even if the original latency gate fails. No native pass or renderer fix is
 inferred before collecting the matching return. Ubuntu remains the recovery OS.
+
+
+### Native render attribution identifies READY/exclusion delay (2026-11-08)
+
+Return review at integration base `ceeabd0d` collects run `77c67dc520ea441b`,
+release `30f9ea98b926043a`, runtime/tools `a9e72ecc`, session
+`session-00065fc8e0a17311-00`. This scope records strict native attribution and
+the failed responsiveness gate; no source policy, runtime or limit changes.
+
+The same1800-second workload completes at1% volume:3794 verified disk bursts /
+994574336 bytes,345780224 PCM bytes within the original completion-tail bound,
+zero recorded underruns and worker status0. Text/binary disk receipts agree
+and all disk work lies inside live playback. All1081 app cycles finish with
+zero app errors; readiness2078039us and close1860876us remain below10s. Three
+1366×768 BMPs decode, capture/cache workers retire, follow-up Files passes and
+normal exit is requested. Battery retirement reports attached/detached1 and
+heap/errors/denied0. Listening quality is not confirmed for this run.
+
+Responsiveness remains **FAILED**:51815 valid loops include21 excursions over
+the unchanged500000us bound. The worst sequence13946 lasts752295us, with
+744855us in LOOP_RENDER. Its four new final companions validate directly from
+matching saved snapshots, including clocks, stage/callback accounting, duplicate
+agreement and scheduler conservation; no UART repair or inference is used.
+
+Within that retained render interval, stack preparation takes7us, presentation
+744830us, fence3us and bookkeeping8us. Two composition callbacks cover448128
+logical pixels and742469us; two uploads cover the same area and2344us. These are
+wall times, including scheduling. The enclosed scheduler trace records737469us
+READY,0 blocked,2 dispatches and80 I/O-exclusion observations. Its longest
+READY interval is737022us (`wake=468212658`, `run=468949680`). Thus the dominant
+measured delay is waiting to run inside rendering, not established drawing CPU
+cost. In this loop capture ID1 is idle, with pending/busy0 before/after and an
+11us capture poll; an active screenshot transfer does not explain this interval.
+
+The [scheduler admission code](../../kernel/src/scheduler.c) increments exclusion
+observations when an active I/O owner prevents a READY thread from running.
+These80 observations are checks, not80 independent waits or measured ownership
+intervals. The retained record does not identify the I/O owner/private image or
+which eligibility condition rejected the renderer. Do not infer a specific
+same-process owner or waive admission from the count alone. Next scope: audit
+GUI-render thread READY/user-safe transitions and I/O ownership/exclusion
+lifetimes, retaining all ownership checks, I/O safety and500ms/10s limits.
+
+The new native attribution collection is observed and its strict proof passes;
+ordinary desktop responsiveness on this source is **not accepted**. Desktop and
+enclosing battery-controls correctly report FAIL despite completed audio/work
+and clean resource retirement. Previous native/TCG failures and the initial
+KVM query-deadline halt remain historical failures; no latency fix is claimed.
+
+All652 prior files survive except expected workspace metadata. Nine new logs,
+receipts and screenshots produce661 files /1939 clusters; offline filesystem
+and allocation checks pass with zero leaks/mismatches/errors. Installed,
+exact-stage, independent payload and retained recovery copies verify. Full raw
+and independently reviewed evidence is hash-verified outside `build`. Ubuntu
+returned automatically, the one-shot is consumed, collection is disabled and
+no reboot is armed. The review is not a new boot preparation.
