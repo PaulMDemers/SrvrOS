@@ -8765,3 +8765,15 @@ coverage for current-pass output first-touch. Preserve exact raw comparison,
 all integrity checks and every existing time/word/source/gap limit. No target
 register reads, power policy changes or hardware ownership are authorized by
 this result. Earlier accepted window-only evidence remains unchanged.
+
+### Both-pass evidence first-touch fix scope (2026-11-07)
+
+Base `ac8c2d5b`; PR409 records the failed native two-pass qualification.
+Bounded scope is `air61_read_window.inc` and its host regression: charge
+first-touch of the complete two-pass private context, including pass0 evidence
+output, to pass0 before its census. Preserve same-value writes, per-page live
+clock/root guards, phase ordering and exact raw graph comparisons. No source
+or policy limits change. PR301/PR19 retain their independent device scopes;
+no overlapping implementation is claimed. Rebuild matched artifacts, run
+core/sanitizer/portable and staged VM checks, then self-merge and run one
+unattended native qualification with verified recovery and persistent records.
