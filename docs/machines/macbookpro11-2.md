@@ -15298,3 +15298,29 @@ TRB pointer to a current ticket. Then validate ordinary provider receive and
 native TCP/HTTP before UI/persistent connection and live reattach acceptance.
 The new HTTP/UDP results are software evidence,not native encrypted traffic or
 sustained radio reliability. No additional cold reboot is needed for unused code.
+
+
+### Real reusable-page USB binding scope (November 8)
+
+Bind dormant dd44c4fa to an explicit v133 child of the accepted v132 native
+provider. Keep all original distinct retained allocations,48 RX/40 forward/eight
+cleanup transfer positions,11 TX positions,six endpoint commands and original
+CCMP/peer/PN1..6/IP gates. Map these bounded TD positions onto four retained RX
+and four retained TX pages. Consume validated real slot/endpoint/TRB/CC/residue
+completions into exact ledger leases;borrow/copy/authenticate/release RX before
+reuse,and preserve last-owned page snapshots. No descriptor-address wrap occurs
+or is admitted by this first native binding. Keep the untouched v132 path and
+accepted197/18 capsules and815/e17/v130/M1/e47d payloads recoverable.
+
+Require closed provider publication before erasure,explicit early ledger-release
+refusal,observed drained event ring and full key/endpoint/input/MAC/power/RF
+retirement before ledger retirement and provider context release. Save separate
+strict v133 receipts;historical checkers must reject the new profile. Qualify
+actual owner/real registry/independent encrypted AP fixtures,per-send faults,
+page/lease/event/borrow/retirement refusal,sanitizers,matched build,strict saved
+prefix/storage and exact-image GPT/missing-workspace VMs before installing and
+using the standing cold shutdown authorization. Ordinary provider RX/TCP/HTTP,
+long-lived ring wrap,persistence/UI/live reattach remain separate acceptance.
+Main62d6154c still inspected/not consumed;other open scopes remain independent.
+Touch the Wi-Fi native child/provider,main opt-in/staging/log collectors and
+fixtures/guides;no generic xHCI ownership or other model/RF gates are widened.
