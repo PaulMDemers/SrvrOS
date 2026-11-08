@@ -15252,3 +15252,49 @@ reboot is authorized by unused software alone. Preserve the197-file native and
 inspected;no Wi-Fi overlap. Exact integration still a1661937. Open graphics301
 and browser379 remain independent. Publish the bounded core and its test results
 before a separately qualified native RX/reuse binding;PR19 stays draft.
+
+
+### Reusable DMA ownership foundation qualified (November 8)
+
+Source dd44c4fa adds dormant mt76_dma5 with four retained pages per direction,
+one prepared/device-owned transfer per direction,strict epoch/token/ticket
+leases and explicit external descriptor-wrap/retirement proofs. TX timeout is
+750ms;quiet posted RX remains owned without an artificial receive deadline.
+Completion never revokes a consumer loan;borrowers may return after close/fault,
+while new reservation/acquisition is refused. Unknown publication/time/identity/
+completion faults retain ownership. No key lifecycle or native hardware authority
+is delegated to this ledger.
+
+Directed ownership tests pass4,096 completions,2,048 receive loans and16 explicit
+wrap fences in the main stress loop,with all eight pages reused512times. Exact
+old handles/epochs,tokens,physical/descriptor/length/cycle fields,invalid/short
+completions,deadline boundaries,clock reversal,token/ticket/copy/alias refusals,
+prepared cancellation and every retirement-proof field are covered. Additional
+cases prove wrap cannot revoke a held receive loan and quiet receive still
+requires stopped-endpoint proof before retirement.
+
+A separate fixture links the production net_device/provider and Ethernet/ARP/
+TCP/UDP stack. ARP,SYN/ACK,HTTP GET/200,window update,FIN/ACK and1,600 exact
+256-byte UDP round trips pass through synthetic reusable DMA pages,with caller
+send storage overwritten immediately. All eight pages are reused at least400
+times and12 external descriptor-wrap fences are exercised. The existing IPv4
+UDP sender intentionally omits its optional checksum;the independent synthetic
+peer permits that and supplies checked reply checksums. Initial fixture warnings
+and the overly strict outgoing-checksum assertion were corrected without changing
+production network behavior. Existing provider/stack/registry regressions pass.
+
+Both new fixtures pass fatal ASan/UBSan/leak checks. Native freestanding compile
+passes with maximum88-byte frame. Exact input hashes/commands and software-only
+receipts are retained separately outside build. No combined kernel/core or VM
+rerun,no new native call site,and no stage/install/reboot. Installed accepted
+runtime d97ad914/release815453c3f9a42431 and its197-file native/18-file acceptance
+seals remain unchanged,alongside e17/v130/M1/e47d recovery. Ubuntu default,
+workspace unmounted and no boot armed. Consumed maina1661937,reviewed62d6154c.
+
+Next bind a separately qualified reusable native RX/TX owner to the real xHCI
+completion/stop/Set-TR-Dequeue/event-drain proofs and original CCMP context. Do
+not manufacture those proofs from the ledger booleans or attribute an old raw
+TRB pointer to a current ticket. Then validate ordinary provider receive and
+native TCP/HTTP before UI/persistent connection and live reattach acceptance.
+The new HTTP/UDP results are software evidence,not native encrypted traffic or
+sustained radio reliability. No additional cold reboot is needed for unused code.
