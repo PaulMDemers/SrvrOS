@@ -7689,3 +7689,29 @@ Local/VM qualification does not accept native page reuse. Follow the unit's
 normal matched-build,exact-stage GPT/missing-workspace,private recovery/preflight
 and cold-shutdown/collect-first workflow. Ordinary provider RX,TCP/HTTP,long-lived
 connections,descriptor wrap,UI and live reattach remain later hardware milestones.
+
+### Controller-only real descriptor boundary child (v134 candidate)
+
+The explicit `--wifi-nop5` recipe requires the complete v126 empty data-OUT
+parent and automatic return. It excludes live management,WPA/data/provider/reuse
+and private PMK input. The unchanged empty owner finishes before handing off to
+a distinct retained TX ring with MAC disabled. Typed bufferless No-Op leases
+carry no RX/data-page authority. Sixty-three real controller completions precede
+an asynchronous Stop/FSE/context/drain/Set-Dequeue/readback/fresh-frontier fence;
+a64th No-Op then completes at the reused base address/opposite cycle. Configure,
+final Stop and disable use separate exact command/event accounting. Old input,
+unrelated contexts and held parent state remain checked;all originals must return
+before final ledger retirement. Command tombstones stay retained until verified
+controller halt. The first native binding reserves fresh command positions and
+cleanup headroom;it does not accept indefinite command-ring reuse.
+
+[Intel xHCI specification](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/extensible-host-controler-interface-usb-xhci.pdf)
+sections4.6.9,4.11.7 and6.4.1.4 define the applicable Stop/No-Op behavior. This
+controller-only test accepts no encrypted DMA traffic,ordinary receive,IP,
+persistent connection or UI behavior. It has its own strict full-parent saved-log
+checker;historical v126 checking rejects this new profile by default. The guest
+parks periodic workspace logging before firmware capture,keeps progress/results
+in RAM and saves the final snapshot after retirement. A still-mounted workspace
+prevents automatic reset. Native acceptance requires the normal matched build,
+actual-owner fixtures,sanitizers,exact-image/storage/recovery checks and a matching
+physical session;software tests and VM foreign-hardware refusal are preparatory.

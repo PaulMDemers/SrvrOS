@@ -5,6 +5,7 @@
 #include <srvros/net.h>
 #include <srvros/usb_ecm.h>
 #include <srvros/mt76_probe.h>
+#include <srvros/mt76_fence5.h>
 #include <srvros/mt76_bringup.h>
 #include <srvros/mt76_mcu.h>
 #include <srvros/mt76_mac_cycle.h>
@@ -766,6 +767,12 @@ static bool wifi_join5_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_wpa5_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_receive_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_receive_quiesced(struct xhci_device *);
+static bool wifi_fence5_command_event(const struct xhci_trb *);
+static bool wifi_fence5_stop_event(const struct xhci_trb *);
+static bool wifi_nop5_event(struct xhci_device *,const struct xhci_trb *);
+static bool wifi_fence5_sync_admitted(void);
+static void wifi_fence5_stopping(void);
+static bool wifi_fence5_reclaim_ready(void);
 static void dispatch_transfer_event(const struct xhci_trb *event);
 static uint64_t event_irq_save(void) {
 #ifdef SRVROS_XHCI_TEST_MMIO
@@ -1472,6 +1479,7 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
         }
 
         uint64_t type = (event.control >> 10) & 0x3f;
+        if(type==XHCI_TRB_TYPE_COMMAND_COMPLETION && wifi_fence5_command_event(&event))continue;
         if (type != XHCI_TRB_TYPE_COMMAND_COMPLETION) {
             dispatch_transfer_event(&event);
             continue;
@@ -1515,7 +1523,7 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
 }
 
 static bool submit_command_trb(const struct xhci_trb *source, uint64_t expected_type, uint64_t *slot_out) {
-    if(firmware_command_failed || xhci.stopping || xhci.sync_users==UINT64_MAX || !source || !xhci.command_ring || xhci.command_pending || xhci.command_failed)return false;
+    if(!wifi_fence5_sync_admitted() || firmware_command_failed || xhci.stopping || xhci.sync_users==UINT64_MAX || !source || !xhci.command_ring || xhci.command_pending || xhci.command_failed)return false;
     uint64_t index=xhci.command_enqueue;
     if(index>=XHCI_TRB_COUNT-1) {xhci.command_failed=true;return false;}
     xhci.command_pending=true;xhci.sync_users++;
@@ -3000,6 +3008,7 @@ bool xhci_stop(void) {
     }
     if(xhci.stopped) {event_irq_restore(flags);return true;}
     xhci.stopping=true;xhci.operational=false;xhci.stage="stop-wait-owners";
+    wifi_fence5_stopping();
     bool released=true;
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_device *d=&xhci.devices[i];
@@ -3037,6 +3046,7 @@ bool xhci_reclaim(void) {
     uint64_t flags=event_irq_save();
     if(!xhci_stop()) {event_irq_restore(flags);return false;}
     if(xhci.reclaimed) {event_irq_restore(flags);return true;}
+    if(!wifi_fence5_reclaim_ready()) {xhci.stage="reclaim-wait-wifi-fence";event_irq_restore(flags);return false;}
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)if(xhci.devices[i].firmware.attempted){xhci.stage="reclaim-wait-wifi-diagnostic";event_irq_restore(flags);return false;}
     if(xhci.sync_users || xhci.poll_users || xhci.diagnostic_users ||
        (xhci_poll_worker_started && !xhci.worker_retired)) {
@@ -3115,6 +3125,7 @@ bool xhci_reclaim(void) {
 /* Every event-ring consumer routes unrelated transfers here. All callers
  * hold IRQs disabled, including the keyboard service running during disk I/O. */
 static void dispatch_transfer_event(const struct xhci_trb *event) {
+    if(wifi_fence5_command_event(event) || wifi_fence5_stop_event(event))return;
     if (((event->control >> 10) & 0x3f) != XHCI_TRB_TYPE_TRANSFER_EVENT) return;
     uint8_t slot = event->control >> 24, dci = (event->control >> 16) & 31;
     uint8_t completion = event->status >> 24;
@@ -3125,6 +3136,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     xhci.last_slot_id = slot;
     if (dispatch_strict_control(event)) return;
     struct xhci_device *device = device_by_slot(slot);
+    if(wifi_nop5_event(device,event)) return;
     if(wifi_wpa5_event(device,event)) return;
     if(wifi_join5_event(device,event)) return;
     if (!device) return;
@@ -4276,3 +4288,6 @@ int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
 #include "xhci_wifi_firmware.inc"
 static bool wifi_scan_diagnosis_requested;
 #include "xhci_wifi_mcu.inc"
+
+#include "xhci_wifi_fence5.inc"
+#include "xhci_wifi_nop5.inc"

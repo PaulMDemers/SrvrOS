@@ -20,7 +20,7 @@ bool mt76_fence5_begin(struct mt76_fence5 *s,unsigned direction,uint64_t now){
  if(!valid(s) || s->busy || s->state!=MT76_FENCE5_IDLE || direction>1)return false;
  if(now<s->last_us || now<s->dma->last_us || !layout(s))return pin(s,s->dma);
  struct mt76_dma5 *d=s->dma;
- if(d->cursor[direction]!=63)return false;
+ if(d->cursor[direction]!=63 || d->noop_state!=MT76_DMA5_FREE || (d->noop_only && direction!=MT76_DMA5_TX))return false;
  for(unsigned dir=0;dir<2;dir++)for(unsigned i=0;i<4;i++)if(d->pages[dir][i].state!=MT76_DMA5_FREE)return false;
  if(s->pointer_count>61 || s->sequence==UINT64_MAX || s->next_token>UINT64_MAX-2 || d->last_fence!=s->sequence)return pin(s,s->dma);
  copy(&s->guard,d,sizeof *d);s->direction=direction;s->last_us=now;s->scanned=0;phase(s,MT76_FENCE5_STOP,now);seal(s);return true;

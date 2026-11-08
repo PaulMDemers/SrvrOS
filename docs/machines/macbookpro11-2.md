@@ -15534,3 +15534,26 @@ must be validated from applicable source/capture,not inferred from the old empty
 ring pointer. No physical trial before source freeze,actual owner fixtures,
 matched/sanitized/storage/exact-image VM/recovery qualification. Current installed
 3c9 remains unchanged;no boot armed.
+
+### Native No-Op/controller boundary candidate implemented (November 8)
+
+All requested parallel components are integrated:typed bufferless TX leases,
+actual asynchronous native command backend/shared event demux,distinct63+1 No-Op
+owner after unchanged v126,explicit v134 stage and strict full-parent checker.
+The child snapshots original parents/rings/pages/input/unrelated contexts and
+pins device/slot/epoch/endpoint geometry. Normal events and both Link63/base Stop
+frontiers are validated. Command addresses stay fresh with cleanup reserve;
+terminal reclaim may retire retained command tombstones only after actual
+controller halt,retired ledger and empty debt. The No-Op ledger itself grants no
+RX/data-page/key/network authority. Ordinary profiles retain their old gates.
+
+Subagent normal/fatal ASan/UBSan/leak fixtures pass for the actual backend and
+child. The actual epoch1/slot1 C trace composes with the immutable historical
+parent at2041657bytes (55495bytes headroom,separate32KiB reserve retained),and
+all9 strict checker tests pass. Staging tests pass243 cases. Parent review adds
+unattributed-command refusal outside an active fence,more target lifetime faults,
+explicit never-entered-WPA/key-absence retirement and No-Op-only periodic-logger
+quiescence. These final edits now require a fresh serial qualification. No native
+acceptance is claimed;installed3c9 and old capsules remain unchanged. No boot
+armed. Next matched build/controller/old-mode regressions,full-prefix/storage/
+sanitizers/exact-image VMs and protected install before the authorized cold test.

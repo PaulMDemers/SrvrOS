@@ -41,4 +41,9 @@ class Tests(unittest.TestCase):
    if ': ' in s:
     b=r.copy();b[i]+=' unexpected=1'
     with self.assertRaises((ValueError,AssertionError)):self.check(b)
+ def test_controller_only_requires_separate_checker(self):
+  r=self.rows();r[0]+=' srvros.wifi-nop5=1'
+  with self.assertRaises((ValueError,AssertionError)):self.check(r)
+  with patch.object(c,'parent',return_value={'peer5_complete':True}):
+   self.assertTrue(c.check('\n'.join(r),nop=True)['tx5_complete'])
 if __name__=='__main__':unittest.main()

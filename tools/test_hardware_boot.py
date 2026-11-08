@@ -32,6 +32,47 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError):boot.stage(wifi_data5=True)
     def test_data5_stage_complete_parent(self):self._stage_power5_child(True,True,True,True,True,True,True)
 
+    def test_nop5_profile(self):
+        version='ram-usb-wifi-fw-v134-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v134-','v126-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-tx5-owner=1','srvros.wifi-tx5-owner=1 srvros.wifi-nop5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.wifi-join5=1','srvros.wifi-eapol5=1','srvros.wifi-wpa5=1','srvros.wifi-data5=1','srvros.wifi-provider5=1','srvros.wifi-reuse5=1'):
+            self.assertNotIn(token,config)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_nop5=True)
+
+    def test_nop5_stage_complete_parent(self):self._stage_power5_child(True,True,True,nop=True)
+
+    def test_nop5_cli_refusals(self):
+        for options in (['stage'],['install','--wifi-tx5-owner'],['stage','--wifi-tx5-owner','--wifi-join5'],['stage','--wifi-tx5-owner','--wifi-wpa5-pmk','unused']):
+            stderr=io.StringIO()
+            with patch('sys.argv',['hardware_boot.py',*options,'--wifi-nop5']),contextlib.redirect_stderr(stderr),self.assertRaises(SystemExit) as error:
+                boot.main()
+            self.assertEqual(error.exception.code,2)
+            self.assertIn('Controller NoOp fence requires',stderr.getvalue())
+
+    def test_nop5_smoke_classification(self):
+        import ast
+        source=Path(boot.__file__).with_name('hardware_boot_smoke.py')
+        module=ast.parse(source.read_text())
+        main=next(n for n in module.body if isinstance(n,ast.FunctionDef) and n.name=='main')
+        names={'wifi_firmware','wifi_ui_capture','wifi_5ghz_prereq','wifi_calibration','wifi_capture','wifi_nop5'}
+        nodes=[n for n in main.body if (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in names for t in n.targets)) or (isinstance(n,ast.If) and isinstance(n.test,ast.Name) and n.test.id=='wifi_nop5')]
+        self.assertTrue(nodes)
+        code=compile(ast.Module(body=nodes,type_ignores=[]),str(source),'exec')
+        for version,nop in ((126,False),(133,False),(134,True)):
+            config=boot.limine_config('0123456789abcdef',f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return')
+            (self.root/'limine.conf').write_text(config)
+            env={'probe':True,'manifest':{'config_version':f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return'},'source':self.root}
+            exec(code,env)
+            self.assertTrue(env['wifi_capture'] and env['wifi_firmware'] and env['wifi_5ghz_prereq'])
+            self.assertEqual(env['wifi_nop5'],nop)
+        (self.root/'limine.conf').write_text(config+' srvros.wifi-wpa5=1')
+        with self.assertRaises(AssertionError):exec(code,env)
+
     def test_reuse5_profile(self):
         version='ram-usb-wifi-fw-v133-laptop-probe-0e535900-auto-return'
         self.assertEqual(boot.limine_config('0123456789abcdef',version),boot.limine_config('0123456789abcdef',version.replace('v133-','v132-')).replace('srvros.wifi-provider5=1','srvros.wifi-provider5=1 srvros.wifi-reuse5=1'))
@@ -104,7 +145,7 @@ class InstallTests(unittest.TestCase):
 
     def test_power5_stage_complete_parent(self):self._stage_power5_child(False)
     def test_handoff5_stage_complete_parent(self):self._stage_power5_child(True)
-    def _stage_power5_child(self,handoff,peer=False,tx=False,join=False,eapol=False,wpa=False,data=False,provider=False,reuse=False):
+    def _stage_power5_child(self,handoff,peer=False,tx=False,join=False,eapol=False,wpa=False,data=False,provider=False,reuse=False,nop=False):
         flags="mac_startup mcu_probe radio_reset write_probe pair_probe timing_probe mac_basics mac_format bbp_ready bbp_core bbp_front bbp_agc bbp_batch compact agc_more agc_next agc_tail rxc_start rxc_tail txbe_start bbp_table mac_route mac_policy mac_policy_validate mac_protect mac_contention mac_txsw mac_beacon mac_vht mac_buffer mac_fce_observe mac_fce_validate mac_ampdu bbp_after_mac bbp_switch dcoc skey wcid mac_tail mac_fixed efuse_map mac_address mac_address_validate mac_board ant_snapshot ant_init rf_probe rf_table rf_bank5 rf_bank6 rf_vga 5ghz_prereq 5ghz_band 5ghz_channel a20_cycle frontend pa5_cycle bbp5_cycle held_channel trim5_channel dac5 vco5 channel_vco5 cal5 discovery5 power5".split()
         args={'wifi_'+k:True for k in flags}
         if handoff:args['wifi_handoff5']=True
@@ -115,6 +156,7 @@ class InstallTests(unittest.TestCase):
         if data:args['wifi_data5']=True
         if provider:args['wifi_provider5']=True
         if reuse:args['wifi_reuse5']=True
+        if nop:args['wifi_nop5']=True
         if wpa:
             from wifi_wpa5_credentials import MAGIC
             args['wifi_wpa5']=True;args['wifi_wpa5_pmk']=self.root/'private-pmk'
@@ -130,16 +172,25 @@ class InstallTests(unittest.TestCase):
             release=boot.stage(**args)
             add.assert_called_once()
             manifest=boot.verify(self.stage/release)
-        self.assertEqual(manifest['config_version'],f'ram-usb-wifi-fw-v{133 if reuse else 132 if provider else 131 if data else 130 if wpa else 128 if eapol else 127 if join else 126 if tx else 125 if peer else 124 if handoff else 123}-laptop-probe-12345678-auto-return')
+        self.assertEqual(manifest['config_version'],f'ram-usb-wifi-fw-v{134 if nop else 133 if reuse else 132 if provider else 131 if data else 130 if wpa else 128 if eapol else 127 if join else 126 if tx else 125 if peer else 124 if handoff else 123}-laptop-probe-12345678-auto-return')
         self.assertIn('srvros.wifi-power5=1',(self.stage/release/'limine.conf').read_text())
         if handoff:self.assertIn('srvros.wifi-handoff5=1',(self.stage/release/'limine.conf').read_text())
         if peer:self.assertIn('srvros.wifi-peer5=1',(self.stage/release/'limine.conf').read_text())
         if tx:self.assertIn('srvros.wifi-tx5-owner=1',(self.stage/release/'limine.conf').read_text())
         if data:self.assertIn('srvros.wifi-data5=1',(self.stage/release/'limine.conf').read_text())
-        for missing in (('wifi_data5',) if provider else ())+(('wifi_wpa5',) if data else ())+(('wifi_join5',) if eapol else ())+(('wifi_tx5_owner',) if join else ())+ (('wifi_peer5',) if tx else ())+ (('wifi_handoff5',) if peer else ())+ (('wifi_power5',) if handoff else ())+('wifi_discovery5','wifi_cal5','wifi_channel_vco5','wifi_vco5','wifi_rf_vga'):
+        if nop:self.assertIn('srvros.wifi-nop5=1',(self.stage/release/'limine.conf').read_text())
+        for missing in (('wifi_tx5_owner',) if nop else ())+(('wifi_data5',) if provider else ())+(('wifi_wpa5',) if data else ())+(('wifi_join5',) if eapol else ())+(('wifi_tx5_owner',) if join else ())+ (('wifi_peer5',) if tx else ())+ (('wifi_handoff5',) if peer else ())+ (('wifi_power5',) if handoff else ())+('wifi_discovery5','wifi_cal5','wifi_channel_vco5','wifi_vco5','wifi_rf_vga'):
             with self.subTest(missing=missing),self.assertRaises(ValueError):boot.stage(**dict(args,**{missing:False}))
         for extra in ('hold_on_failure','wifi_desktop_trial','wifi_rf_g20','wifi_scan','haswell_firmware_capture'):
             with self.subTest(extra=extra),self.assertRaises(ValueError):boot.stage(**dict(args,**{extra:True}))
+        if nop:
+            for extra in ('wifi_join5','wifi_eapol5','wifi_wpa5','wifi_data5','wifi_provider5','wifi_reuse5'):
+                with self.subTest(extra=extra),self.assertRaisesRegex(ValueError,'Controller NoOp fence'):
+                    boot.stage(**dict(args,**{extra:True}))
+            for pmk in (Path('unused'), ''):
+                with self.assertRaisesRegex(ValueError,'Controller NoOp fence'):
+                    boot.stage(**dict(args,wifi_wpa5_pmk=pmk))
+
 
     def test_discovery5_profile(self):
         version='ram-usb-wifi-fw-v122-laptop-probe-0e535900-auto-return'

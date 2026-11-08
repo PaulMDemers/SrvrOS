@@ -120,3 +120,93 @@ completion/opposite cycle,post-write context and final empty frontier before
 reopening publication. Software callbacks with true booleans are not native
 hardware proof. Qualify matched build,sanitizers,exact-stage VM,storage/recovery
 and saved cold native results under the parent workflow before acceptance.
+
+## Dormant native backend implementation
+
+`xhci_wifi_fence5.inc` now supplies an explicit private singleton binding with
+no staging flag or ordinary startup caller. `wifi_fence5_bind(device,dma,epoch,
+owner_context,owner_predicate)` captures original command-ring identity/cycle,
+actual endpoint geometry and immutable physical mappings. Admission requires the
+captured Intel8086:8c31 controller,7392:a711/0100 probe-verified device,the actual
+512-byte bulk TX8/RX9 contexts,63-position ledger,free pages and an observed empty
+raw event frontier with no pending old command. The supplied independently
+verified owner predicate must enforce unit/parent/mapping ownership and freeze
+both ledger directions across a fence. It must recognize its own retained async
+command,not call the historical blanket pending-command refusal predicate.
+
+`wifi_fence5_begin(direction)` and `wifi_fence5_step()` wrap the production engine
+under short CPU0/IRQ serialization. One step performs one engine action;WAIT
+steps only inspect latched completion state. The worker must separately dispatch
+shared raw events between steps. Every false return requires publication closure
+and retained ownership. Publication writes a real immutable command TRB and rings
+the native command doorbell without calling the synchronous command helper.
+The command cycle/ownership bit is made valid last after body writes and release
+fences. Validated raw command/FSE TRBs and the contemporaneous stopped endpoint
+context/dequeue are retained separately for deferred receipts.
+Global command exclusivity lasts through Stop,context/drain,Set Dequeue,final
+context/drain and the actual ledger commit. No permanent `sync_users` reference
+is held. Success releases command exclusivity after the engine returns IDLE;
+command records and tombstones remain retained.
+
+The shared dispatcher routes command completions before its transfer-only
+return,and the synchronous waiter defensively invokes the same command owner.
+Unknown command debt during any active fence phase,wrong pointer/slot/CC,
+changed shadow TRB,duplicate or old completion fails closed. Raw completions
+receive identity only from the retained unique-position publication record.
+Two command slots plus six unchanged cleanup slots must remain before a round.
+No command-address wrap is admitted while the binding is retained;the ordinary
+synchronous helper also refuses alias reuse under this binding. This is bounded
+command lifetime support,not sustained command-ring wrap acceptance.
+
+The pure-TX NoOp mode uses `mt76_dma5_init_noop_ring`:only the real TX ring exists
+in the ledger;RX ring and all data-page addresses remain zero. It grants no data
+page or RX authority. Actual slot0/RX9/MCU11/16 output contexts are captured and
+must remain unchanged. Only TX fences are admitted. Normal data-mode geometry
+remains distinct and requires both real directions.
+
+The scoped transfer hook returns false outside an active fence,allowing the
+original NoOp/data owner to validate ordinary completions. Inside the fence it
+accepts exactly one independently checked Stop FSE before successful Stop command
+completion. For the fully consumed63-position boundary,that is CC27,length0,
+ED0 and actual Stopped output dequeue equal to either Link63/current DCS or the
+following invalid base/opposite DCS. Other target transfer debt fails. This is
+based on the primary xHCI1.2 Stop Endpoint rules and table4-2,not an invented FSE
+command flag. Historical WPA terminal phases and their receipts stay unchanged.
+Frontier callbacks consume at most one raw event per step,dispatch unrelated
+transfer events normally,and require a real empty observation within the engine's
+unchanged32-event cumulative budget. They do not infer empty from a running poll.
+
+`wifi_fence5_retire()` is deliberately terminal-only:the external DMA ledger must
+already be retired,the controller must actually be stopped with RUN/INTE/reset
+clear and HCH set/CNR clear,and the event frontier must be empty with callback/
+poll references drained. It does not accept a caller's hardware-retired boolean,
+clear uncertain pending commands,free DMA,reset the controller or erase records.
+`xhci_reclaim` refuses an unretired binding. `xhci_stop` can still halt without an
+artificial permanent sync reference;uncertain active fences remain pinned.
+A first isolated NoOp child may therefore retain its backend context until
+terminal halt and must not claim live context release or persistent service.
+
+The actual-backend fixture includes the real controller/shared dispatcher with
+mock MMIO. Its63 completed bufferless ledger positions prepare the boundary;
+that setup is software input,not physical transfer evidence. It covers command
+publication,completion consumed by the shared worker,strict FSE/context variants,
+Set-Dequeue/final-frontier commit,global exclusion,reserve/alias refusal,missing/
+duplicate/wrong/late command and transfer debt,shadow/epoch/slot/sibling-context
+changes,deadlines and retained terminal-stop behavior. Separate native NoOp
+transport must prove63 actual TRBs plus the first opposite-cycle reused TRB
+before any hardware acceptance. Ordinary data,CCMP,persistence and TCP/HTTP remain
+outside this dormant backend's acceptance scope.
+
+### Software qualification of the implemented binding
+
+The actual-controller backend fixture passes GCC C11 `-O2 -Wall -Wextra -Werror`
+and a separate `-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined` build
+with fatal ASan/UBSan and leak detection. The final sanitizer run includes the
+frozen NoOp producer/shared hook,retained raw receipts,cycle-valid-last command
+publication,prepublication alias guards and automatic checked terminal-retirement
+handoff from generic reclaim. Both include the real `xhci.c`/native backend and
+production `mt76_fence5`/DMA core with the existing controller fixture's mocked
+MMIO/device environment. No shared staging/build/VM or hardware action occurred.
+The parent must still qualify the matched full kernel/image,old controller paths,
+exact-stage VM and native evidence. These software results accept no radio data,
+physical descriptor wrap or ordinary persistent connection.

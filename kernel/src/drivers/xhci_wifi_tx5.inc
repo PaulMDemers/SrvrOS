@@ -1,3 +1,4 @@
+static bool (*wifi_tx5_nop_child)(void);
 /* Dedicated OUT04/DCI8 ownership preview. Empty ring only,no TD/doorbell or
  * MAC start. Configure -> stopped -> disabled;shared input bytes restored.
  * Disabled endpoint reserved fields are not software-cleared or presumed zero. */
@@ -127,6 +128,6 @@ static bool wifi_tx5_inspect(void){
  if(ok){copy_bytes(d->input_context,wifi_tx5.input,4096);copy_bytes(wifi_tx5.expected,wifi_tx5.input,4096);wifi_tx5.phase=7;wifi_tx5.input_restored=wifi_tx5_owned();ok=wifi_tx5.input_restored && !wifi_tx5.semantic;}
  console_printf("wifi-tx5: ok=%u configured=%u stopped=%u disabled=%u input_restored=%u semantic=%u commands=%u controls=%u phase=%u ring=%x stop_events=%u others=4 retained=1 posted=0 doorbells=0 network_out=0\n",(uint64_t)ok,(uint64_t)wifi_tx5.configured,(uint64_t)wifi_tx5.stopped,(uint64_t)wifi_tx5.disabled,(uint64_t)wifi_tx5.input_restored,(uint64_t)wifi_tx5.semantic,(uint64_t)wifi_tx5.commands,(uint64_t)wifi_tx5.controls,(uint64_t)wifi_tx5.phase,wifi_tx5.ring_phys,(uint64_t)wifi_tx5.stop_events);
  if(ok && wifi_join5_requested)ok=wifi_join5_inspect();
- wifi_tx5.active=false;return ok;
+ wifi_tx5.active=false;if(ok && wifi_tx5_nop_child)ok=wifi_tx5_nop_child();return ok;
 }
 bool xhci_wifi_capture_tx5(void){if(wifi_tx5_requested || wifi_tx5.attempted)return false;wifi_tx5_requested=true;bool ok=xhci_wifi_capture_peer5();wifi_tx5_requested=false;return ok;}

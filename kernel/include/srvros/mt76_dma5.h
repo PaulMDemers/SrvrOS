@@ -14,6 +14,8 @@ struct mt76_dma5_lease {
  uint64_t epoch,ticket,token,page,trb;
  unsigned direction,index,length,received,cycle;
 };
+/* Bufferless TX descriptor identity:no page,length or receive authority. */
+struct mt76_dma5_noop_lease {uint64_t epoch,ticket,token,trb;unsigned cycle;};
 struct mt76_dma5_page {struct mt76_dma5_lease lease;enum mt76_dma5_page_state state;uint64_t started;};
 /* Physical ranges are distinct retained 4KiB pages,including each ring.
  * No raw DMA/key buffers,MMIO,allocation or hardware authority live here.
@@ -27,6 +29,8 @@ struct mt76_dma5 {
  enum mt76_dma5_state state;
  struct mt76_dma5_page pages[2][MT76_DMA5_PAGES];
  uint64_t prepared,published,completed,borrowed,released,cancelled,wraps,faults;
+ struct mt76_dma5_noop_lease noop;enum mt76_dma5_page_state noop_state;
+ uint64_t noop_started,noop_prepared,noop_published,noop_completed,noop_cancelled;bool noop_only;
 };
 /* These are external proofs,not requests to stop/reset hardware. The native
  * binding must collect all fields from its independent checked owner. Wrap
@@ -38,6 +42,15 @@ struct mt76_dma5_retirement {uint64_t epoch;bool keys_erased,mac_disabled,tx_sto
 /* Native rings may be smaller than the standalone255-position fixture. */
 bool mt76_dma5_init_ring(struct mt76_dma5 *,uint64_t epoch,const uint64_t rings[2],const uint64_t pages[2][MT76_DMA5_PAGES],unsigned positions,uint64_t now);
 bool mt76_dma5_init(struct mt76_dma5 *,uint64_t epoch,const uint64_t rings[2],const uint64_t pages[2][MT76_DMA5_PAGES],uint64_t now);
+/* Explicit bufferless mode retains only the real TX descriptor ring,no dummy
+ * RX ring/data pages. Data prepare/acquire remain unavailable in this mode. */
+bool mt76_dma5_init_noop_ring(struct mt76_dma5 *,uint64_t epoch,uint64_t tx_ring,unsigned positions,uint64_t now);
+/* NoOp APIs use only type8 TX descriptor identity. Native owner must validate
+ * exact raw event before completion. No payload/PN/page/receive authority. */
+bool mt76_dma5_noop_prepare(struct mt76_dma5 *,uint64_t token,uint64_t now,struct mt76_dma5_noop_lease *);
+bool mt76_dma5_noop_publish(struct mt76_dma5 *,const struct mt76_dma5_noop_lease *,uint64_t now);
+bool mt76_dma5_noop_complete(struct mt76_dma5 *,const struct mt76_dma5_noop_lease *,unsigned cc,unsigned residue,uint64_t now);
+bool mt76_dma5_noop_cancel(struct mt76_dma5 *,const struct mt76_dma5_noop_lease *);
 /* Reserve before copying/sealing. Tokens strictly increase per direction even
  * after cancellation;reserve a CCMP PN only in the original key owner,once. */
 bool mt76_dma5_prepare(struct mt76_dma5 *,unsigned direction,uint64_t token,unsigned length,uint64_t now,struct mt76_dma5_lease *);

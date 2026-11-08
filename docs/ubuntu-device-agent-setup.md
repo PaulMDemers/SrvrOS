@@ -1418,3 +1418,20 @@ report and returns to Ubuntu. Uncertain ownership halts visibly before USB/user
 reuse; photograph it and restart Ubuntu. A halt, missing receipt, missing saved
 reference or missing whole-trial completion is a failure or incomplete evidence.
 No native acceptance is inferred from host/VM fixtures.
+
+### Pro11,2 controller-only descriptor boundary candidate (v134)
+
+Use `--wifi-nop5` with the full `--wifi-tx5-owner` parent,not join/WPA/data/provider/
+reuse flags or private credentials. This explicit unattended recipe tests63+1
+bufferless controller No-Op descriptors and real asynchronous ring fencing with
+MAC disabled;it does not test radio data or ordinary networking. Follow matched
+build,actual-owner/strict-prefix fixtures,sanitizers/stack,exact staged GPT and
+missing-workspace VMs,independent recovery and saved-run checks. Save exact raw
+workspace metadata baseline outside USB and use the sidecar-aware preservation
+verifier;do not require generated metadata byte identity or ignore it wholesale.
+Preserve all other prior file bytes and strict metadata fields. No silent inode
+remapping allowance or old capsule rewrite is authorized. Progress/results and
+Ubuntu return are automatic;this local adapter still requires authorized shutdown
+and Wi-Fi-only10second unplug/reconnect while off,workspace left connected.
+Collect the matching session once first. Missing receipts,unmounted-state failure
+or a halt are failures/incomplete evidence. No photos/guest commands are required.

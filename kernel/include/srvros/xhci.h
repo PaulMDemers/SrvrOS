@@ -128,6 +128,7 @@ bool xhci_wifi_capture_wpa5(void);
 bool xhci_wifi_capture_data5(void);
 bool xhci_wifi_capture_provider5(void);
 bool xhci_wifi_capture_reuse5(void);
+bool xhci_wifi_capture_nop5(void);
 bool xhci_wifi_capture_vco5(void);
 bool xhci_wifi_capture_dac5(void);
 bool xhci_wifi_capture_rf_g20(void);

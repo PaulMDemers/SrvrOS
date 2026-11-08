@@ -5856,7 +5856,7 @@ build/tests/air61-window-combined$(HOST_EXE): tools/test_air61_window_combined.c
 test-core: test-mt76-wpa5
 test-mt76-wpa5: build/tests/mt76-wpa5-host$(HOST_EXE)
 	$<
-WIFI_PROVIDER5_SOURCE := kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c
+WIFI_PROVIDER5_SOURCE := kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c kernel/src/drivers/mt76_fence5.c
 build/tests/xhci-host$(HOST_EXE) build/tests/xhci-wpa5-host$(HOST_EXE) build/tests/xhci-data5-host$(HOST_EXE) build/tests/xhci-provider5-host$(HOST_EXE): $(WIFI_PROVIDER5_SOURCE) kernel/src/drivers/xhci_wifi_provider5.inc kernel/src/drivers/xhci_wifi_reuse5.inc kernel/src/net_device.c
 WPA5_SOURCES := kernel/src/sha256.c kernel/src/drivers/mt76_wpa5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_data5.c kernel/src/drivers/mt76_ip5.c kernel/src/drivers/mt76_rsn.c kernel/src/wpa2_handshake.c kernel/src/wpa2_ccmp.c kernel/src/wpa2_crypto.c kernel/src/wpa2_keywrap.c kernel/src/wpa2_aes128.c
 build/tests/mt76-wpa5-host$(HOST_EXE): tools/test_mt76_wpa5.c tools/fixtures/wpa2-handshake-synthetic.h $(WPA5_SOURCES) $(KERNEL_HEADERS)
@@ -6099,3 +6099,32 @@ test-mt76-fence5: build/tests/mt76-fence5-host$(HOST_EXE)
 build/tests/mt76-fence5-host$(HOST_EXE): tools/test_mt76_fence5.c kernel/src/drivers/mt76_fence5.c kernel/src/drivers/mt76_dma5.c kernel/include/srvros/mt76_fence5.h kernel/include/srvros/mt76_dma5.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_fence5.c kernel/src/drivers/mt76_dma5.c -o $@
+
+
+.PHONY: test-mt76-dma5-noop test-xhci-fence5
+test-core: test-mt76-dma5-noop test-xhci-fence5
+test-wifi-completion-foundations: test-mt76-dma5-noop test-xhci-fence5
+test-mt76-dma5-noop: build/tests/mt76-dma5-noop-host$(HOST_EXE)
+	$<
+build/tests/mt76-dma5-noop-host$(HOST_EXE): tools/test_mt76_dma5_noop.c kernel/src/drivers/mt76_dma5.c kernel/src/drivers/mt76_fence5.c kernel/include/srvros/mt76_dma5.h kernel/include/srvros/mt76_fence5.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_dma5.c kernel/src/drivers/mt76_fence5.c -o $@
+test-xhci-fence5: build/tests/xhci-fence5-host$(HOST_EXE)
+	$<
+build/tests/xhci-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc
+build/tests/xhci-fence5-host$(HOST_EXE): tools/test_xhci_wifi_fence5.c tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/initramfs.c -Wl,--gc-sections -o $@
+
+
+.PHONY: test-xhci-nop5 test-wifi-nop5-log
+test-core: test-xhci-nop5 test-wifi-nop5-log
+test-wifi-completion-foundations: test-xhci-nop5
+test-xhci-nop5: build/tests/xhci-nop5-host$(HOST_EXE)
+	$<
+build/tests/xhci-nop5-host$(HOST_EXE): tools/test_xhci_wifi_nop5.c tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/initramfs.c -Wl,--gc-sections -o $@
+test-wifi-nop5-log: build/tests/xhci-nop5-host$(HOST_EXE)
+	$< --trace > build/tests/xhci-nop5-trace.log
+	WIFI_NOP5_TRACE=build/tests/xhci-nop5-trace.log $(PYTHON) -B -m unittest discover -s tools -p test_wifi_nop5_log.py

@@ -203,3 +203,41 @@ Standalone test command uses the prior compiler flags with these three sources:
 `tools/test_mt76_fence5.c kernel/src/drivers/mt76_fence5.c kernel/src/drivers/mt76_dma5.c`.
 Parent owns build integration/matched qualification. This subtask used only
 private/tmp outputs;no shared make,staging,VM,hardware,secrets or archive changes.
+
+## Explicit bufferless No-Op descriptor leases
+
+The controller-only qualification now has a distinct production typed lease/API:
+`mt76_dma5_noop_lease` contains only epoch,ticket,token,TRB address and cycle.
+There is no page,length,payload or RX authority. The prepare/publish/complete/
+cancel functions maintain separate noop counters. Global next_ticket and TX
+last_token are shared with data TX,so switching types cannot reuse identities.
+Only publication advances the real logical descriptor cursor;raw completion
+must first be independently validated by the native owner,then exact typed
+lease/CC1/zero residue is accepted. Pending No-Op is subject to the existing
+750ms clock/deadline checks. Published uncertainty faults/pins;cancel is only
+before publication. Data TX and No-Op PREPARED/DEVICE leases exclude each other.
+Ordinary data prepare still requires positive payload length.
+
+`mt76_dma5_init_noop_ring` initializes only a real retained TX ring,with RX ring
+and all data page addresses absent. This mode disables normal data prepare and
+RX acquire;it does not allocate dummy pages to satisfy a diagnostic. Wrap and
+fence begin refuse pending No-Op;bufferless mode fences TX only. Full retirement
+still requires independently stopped/drained endpoints and all original parent
+proofs;this API creates no extra retirement authority. Native use must validate
+that no hardware/data ownership predates this newly initialized object.
+
+The new standalone test uses production No-Op APIs for63 descriptors,production
+asynchronous fence with synthetic independent IO records,then the64th descriptor
+at the reused base/opposite cycle. It proves separate counters and untouched zero
+page geometry,no normal-data/RX authority,cancellation/token uniqueness,late/
+changed lease refusal,backward clock/750ms bound,bad CC/residue,pending-No-Op
+wrap/fence refusal,normal data mutual exclusion and shared namespace,close and
+independent stopped/drained retirement gates. The fixture reuses the existing
+standalone fence IO oracle via a renamed test main;it does not fake native events.
+
+Normal new test,existing DMA core/native63/fence fixtures,and fatal ASan/UBSan/
+leak new fixture pass. Freestanding O2 stack-usage passes:No-Op prepare32bytes,
+other new functions8–16bytes;maximum whole DMA module128bytes in existing init.
+Compile the new test with `mt76_dma5.c` and `mt76_fence5.c` using the prior flags.
+The pending native63+1 No-Op trial can establish descriptor/fence behavior only,
+not data DMA,encrypted persistence or RF acceptance. No hardware ran here.

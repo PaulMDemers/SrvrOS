@@ -3,7 +3,8 @@ from wifi_peer5_log import check as parent
 from wifi_power5_log import fields,ADDRESSES
 from wifi_held_log import require
 PROGRESS='wifi-tx5-progress: dedicated OUT04 empty ring;configure stop disable;preserve RX/MCU/slot and restore input;no TD/doorbell/MAC/network OUT'
-def check(log):
+def check(log,*,nop=False):
+ require(("srvros.wifi-nop5=1" in log)==nop,"wrong controller-only/legacy TX profile")
  require('srvros.wifi-tx5-owner=1' in log,'missing TX owner profile');r=parent(log);lines=log.splitlines();rows=[s for s in lines if s.startswith('wifi-tx5')]
  require(len(rows)==25 and rows[0]==PROGRESS,'missing/extra TX ownership ledger')
  s=fields(rows[-1],'wifi-tx5');expected=dict(ok=1,configured=1,stopped=1,disabled=1,input_restored=1,semantic=0,commands=3,controls=15,phase=7,stop_events=1,others=4,retained=1,posted=0,doorbells=0,network_out=0)
