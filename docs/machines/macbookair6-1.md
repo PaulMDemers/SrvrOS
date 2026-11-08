@@ -9624,3 +9624,27 @@ from buffer growth/copy cost within the remaining 12.7s WRITE phase, keeping
 all accepted save checks and bounds. The approximately 6.7s receive phase also
 remains a performance follow-up; this result accepts improvement, not instant
 screenshot completion or a kernel I/O eligibility expansion.
+
+### Targeted screenshot write timing scope (2026-11-08)
+
+Base `2718c8e3`, after accepted write batching source `989846b3`. Next checkpoint
+is measurement, not a new admission or allocation optimization: separate each
+screenshot worker's raw buffered-write call wall time, initial I/O-admission
+wait, handler work and common-return handoff, plus buffer reservation/growth
+and byte-copy spans. Keep all 64KiB batching, capacities, snapshot/rename/full
+readback/persistence checks, policies and original endurance/latency bounds.
+
+Use an explicit stress-only diagnostic flag, immutable kernel executable identity,
+fixed bounded PID records, and copied periodic/final workspace-log snapshots.
+Measured hooks must allocate/log nothing and grant no I/O eligibility or hardware
+authority. Retain records across worker exit, expose incomplete/overflow/backward
+clock evidence, and require all three worker records after native return. No new
+userspace syscall or capture-frame ABI is planned. Touch process timing internals,
+IDT observation hooks, stress boot configuration and safe logger reporting, with
+host state-machine/ordering tests and strict saved-record validation in loaded/
+exact-stage VMs before the unchanged automatic1800-second1% native repeat.
+
+PR301's independent scanout process additions and PR19's Wi-Fi orchestration
+must remain intact; neither actual remote diff contains this write timing
+mechanism. No cross-task messages or delegation. Current native run is collected,
+recovery retained and no new boot armed at scope publication.
