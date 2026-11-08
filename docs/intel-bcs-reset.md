@@ -190,3 +190,27 @@ that boundary without allowing backward time, a fully frozen observation or a
 longer deadline before qualifying another candidate. The failed receipt must
 remain incomplete. No reset/preservation or memory retirement acceptance follows.
 See the [latest unit result](machines/macbookair7-2.md#latest-native-bcs-reset-trial-safe-prerequisite-refusal).
+
+## Final-clock correction candidate
+
+Source `5a73d72d` (main `f01a1ad4` integrated), release `ffd7200db10e1b02`,
+corrects the final completion-clock predicate: a tie with the preceding
+microsecond sample is valid only when the full observation has positive elapsed
+time. Backward time, a frozen whole observation and the100ms overrun remain
+refusals. No new hardware authority or receipt field follows from this fix.
+The earlier native reason2 result remains incomplete.
+
+Full local host/core/profile/docs/build checks pass, excluding the explicitly
+opt-in installed-root check.28 clock,144 reset-core and48 adapter fatal sanitizer
+cases and28 compiled controls pass, including restoration of the clock defect,
+missing progress/monotonicity/deadline and an overly strict100ms boundary.
+Fourteen-image isolation, actual native object/staged mappings/MMIO/reader
+bindings and the unchanged65,397-byte full-width log bound pass. The exact-stage
+MBR Q35/GRUB trial verifies no-store platform refusal, checkpoint/results,
+exact boot options, automatic safe return and missing-workspace halt.
+
+The [current unit readiness](machines/macbookair7-2.md#final-completion-clock-corrected-native-bcs-trial-ready)
+records installed recovery, unchanged prior files, clean offline media, volume1%
+and check-only guards. The candidate is installed but unarmed. Physical BCS reset
+and preservation still need their own successful receipt; all completion, cache,
+translation, reader and backing obligations remain open.

@@ -2,7 +2,55 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
-### Active work: final completion clock boundary
+### Final completion clock corrected; native BCS trial ready
+
+Tested source `5a73d72d`, with main `f01a1ad4` integrated, produces release
+`ffd7200db10e1b02`, installed **not armed**. The completion audit now permits a
+final timestamp equal to its preceding microsecond sample while requiring
+positive elapsed time across the whole census. Any backward reading, a fully
+frozen census or elapsed time above100ms still fails. No receipt grammar,
+register/mapping permission, reset scope or100/300/500ms budget was widened.
+The preceding native refusal remains incomplete; reset acceptance is pending.
+
+Full local host/core/profile/docs/build checks pass; the opt-in installed-root
+check was explicitly omitted. Fatal ASan/UBSan covers28 completion-clock,
+144 reset-core and48 adapter cases. All28 compiled controls are detected:
+5 clock,12 core,7 wrapper/preservation and4 actual non-host MMIO controls.
+Clock controls restore the original defect or remove progress, monotonicity or
+deadline protection, and also reject an incorrectly strict100ms boundary.
+Fourteen-image isolation, exact13-page/native address/value/reader bindings and
+the65,397/65,536-byte conservative saved-tail bound pass.
+
+The exact immutable MBR Q35/GRUB guest passes identity refusal with zero device
+stores, saved preflight/results, exact15-token boot options, unmount/automatic
+return and missing-workspace halt. Native instruction controls pass separately.
+An initial local helper tried to parse a compiler command interleaved with
+parallel test output; that failed invocation is preserved. A deterministic
+`make -Bn` compile plan fixes only the helper, and the final checks pass without
+rerunning or modifying the immutable payload. VM evidence accepts no native reset.
+
+All1,374 files/114 sessions and boot sectors are preserved; offline fsck,
+allocation, writable/headroom and firmware/identity checks pass. Currentffd7,
+prior6a3d, recovery `9aa8dbf6fbda8252`, known-good GUI and all prior archive
+payloads verify. The inactive4603 EFI duplicate was removed only after complete
+byte/SHA equality to its existing independent evidence stage and durable copy;
+its physical acceptance and recovery copies remain preserved. Ubuntu is default,
+USB unmounted, volume1%, playback disabled and no input needed. Check-only reboot
+guards pass; no one-shot or physical trial is armed.
+
+Current run/checkpoint, strict return collector, immutable stage, full proofs and
+readiness helpers are under `build/air-clock-boundary-20261107`, with independent
+SHA-verified backup under
+`~/.local/share/srvros/reviewed-evidence/air-clock-boundary-20261107`. The previous
+774-file trial now has a complete member/SHA-verified lossless archive outside
+build; its readable receipts remain local. Disposable global-stage duplicates
+were removed only after complete equality with immutable/durable/installed copies.
+All8 completion obligations stay255; no cache/reader/backing retirement, managed
+GPU pages or physical tear-free capability is granted. Stop at this readiness
+checkpoint; collect the matching next session before any new candidate. Air6,1
+PR412, PR19 and PR379 retain independent scope. Actions remain disabled.
+
+### Completed scope: final completion clock boundary
 
 Bounded objective: fix final equal-microsecond sampling without admitting a
 backward clock, a fully frozen census or a deadline overrun. Scope is the shared
