@@ -254,3 +254,23 @@ positive snapshot coverage and no clock fault. Unknown/duplicate/missing fields
 remain errors. Earlier v6 reports retain their original interpretation; the
 ffd7 retained-parent trial remains incomplete.100/300/500ms bounds, core pin
 return, post-reset preservation and uncertainty retention remain mandatory.
+
+## Guarded snapshot candidate readiness
+
+Source `9ea439f6` / release `3ec42dd315377e65` is installed and unarmed. The
+[unit checkpoint](machines/macbookair7-2.md#guarded-requester-snapshot-candidate-ready-for-hardware)
+records full local checks,28 completion-clock/144 reset-core/53 adapter fatal
+sanitizer cases plus the GT snapshot fixture,31 detected compiled controls and
+14-image isolation. The source comparison preserves raw endpoints while measuring
+188 versus268 full audits; this does not accept native latency. Five actual
+native MMIO/mapping controls include the new exact requester snapshot addresses.
+The conservative65,507-byte log projection keeps the existing65,536 limit and
+1,536-byte allowance. Exact-stage MBR Q35 refusal/checkpoint/save/return and
+missing-workspace halt, current media/recovery and check-only guards pass.
+
+The new wake v7 clock receipt is mandatory only for this image version. Both
+prior native nonpasses remain incomplete. Hardware must still establish full
+pin return, fresh post-reset preservation and clean owner/mapping retirement
+under unchanged100/300/500ms limits. No human input is needed for that automated
+trial; safe outcomes save and return, uncertainty keeps the visible pre-entry
+warning and retained-state reboot gate. No trial is armed by preparation.

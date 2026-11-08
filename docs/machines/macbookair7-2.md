@@ -2,7 +2,66 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
-### Active scope: guarded requester snapshots and first clock-fault evidence
+### Guarded requester snapshot candidate ready for hardware
+
+Tested source `9ea439f6` (main `f01a1ad4`) produces release
+`3ec42dd315377e65`, installed **not armed**. Only the BCS diagnostic opts into
+an ordered requester/ACK/thread snapshot. Full core admission surrounds the
+three RO loads, with another full provider admission inside; all current raw
+backing/PTE/fence, resource, root/IRQ/exclusion and mapped-alias checks remain.
+Nothing is cached across checks. Older13 images keep their individual-register
+path. There is no new register writer, reset scope or memory-ownership grant.
+
+The host source comparison records188 full guards versus268 for the legacy
+callback path, with exactly16 grouped checks and identical raw engine/context,
+BCS/control/domain and reader/config endpoints. The8→3 audits/check account for
+all80 saved guards. A missing-provider-admission variant is independently
+identified by its count difference. These are model costs, not native timing
+acceptance. The prior ffd7 retained-parent trial remains incomplete.
+
+The GT core records its first failed sample, previous accepted time, phase and
+cause bits without overwriting them on later refusals. BCS wake v7 requires one
+compact clock row with snapshot count; its owner origin is bound by the existing
+BCS summary. Collectors derive causes, enforce row/order/version binding and
+preserve v1–v6 meanings. New post-reset adapter cases exercise read/foreign,
+phase/whole-owner deadline and backward-clock failures, all retaining ownership.
+The100ms core/phase,300ms owner and500ms outer limits stay unchanged; BCS ACK
+phases remain10ms/256polls. Pin return and post-reset preservation are mandatory.
+
+Full local host/core/profile/docs/build checks pass, with the opt-in installed-
+root check explicitly omitted. Fatal ASan/UBSan covers28 completion-clock,
+144 reset-core and53 adapter cases, plus the GT snapshot/fault fixture. All31
+compiled controls are detected:5 clock,12 core,7 wrapper/preservation,2 snapshot
+comparison/admission and5 actual non-host MMIO/mapping controls. Fourteen-image
+isolation and actual object/staged snapshot addresses pass; a native-only wrong
+thread-register variant is rejected. Full-width saved-tail projection is65,507/
+65,536bytes including the unchanged1,536 allowance; capacity was not enlarged.
+
+The exact immutable MBR Q35/GRUB guest verifies expected identity refusal with
+zero device stores, saved preflight/results, exact15-token options, unmount/
+automatic safe return and missing-workspace halt. All1,377 files/115 sessions
+and boot sectors are preserved. Offline fsck/allocation/writable/headroom,
+firmware/CPU/model and installed/durable/archive recovery checks pass. Current
+3ec4, priorffd7, recovery `9aa8dbf6fbda8252` and known-good GUI verify. Inactive
+3d8c EFI data was removed only after full equality to its existing independent
+evidence stage and durable payload, without boot references. The earlier742-file
+trial has a complete member/SHA-verified outside archive. A separate accepted
+4603 local duplicate was pruned after equality to outside evidence/durable copies;
+its historical local stage path is no longer available. An attempted symlink was
+refused by payload validation and removed; validation was not weakened.
+
+Run/checkpoint, immutable payload, strict clock/BCS return collection, full proofs
+and readiness helpers are under `build/air-guard-snapshot-20261107`, with a full
+independent SHA-verified backup outside build. The disposable global stage was
+removed only after all-file equality to retained immutable/durable/installed
+copies. Volume1%, guest playback disabled, no human input needed. Check-only
+reboot guards pass; Ubuntu stays default, USB is unmounted and no one-shot is
+armed. No complete native reset/preservation, retirement, managed GPU pages or
+tear-free capability is accepted. Stop at readiness; after a trial collect its
+matching session first. Air6,1 PR412, PR19 and PR379 retain independent scope;
+Actions remain disabled.
+
+### Completed scope: guarded requester snapshots and first clock-fault evidence
 
 Main remains `f01a1ad4`; Air6,1 PR412, PR19 and PR379 remain independent.
 Bounded objective: reduce duplicated full native backing audits inside GT checks

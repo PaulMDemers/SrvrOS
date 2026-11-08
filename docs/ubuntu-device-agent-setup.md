@@ -1286,7 +1286,7 @@ No native acceptance is inferred from host/VM fixtures.
 The separate [BCS-only reset contract](intel-bcs-reset.md) adds
 `--intel-bcs-reset-trial` and `build/intel-bcs-reset/srvros.elf`. This is an
 explicit diagnostic, with physical acceptance tracked in the
-[actual unit record](machines/macbookair7-2.md#latest-bcs-reset-trial-acknowledged-reset-retained-parent).
+[actual unit record](machines/macbookair7-2.md#guarded-requester-snapshot-candidate-ready-for-hardware).
 Do not infer sibling support or memory/cache/backing ownership from it.
 
 ```sh
