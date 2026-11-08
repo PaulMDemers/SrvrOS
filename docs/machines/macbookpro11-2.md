@@ -14461,3 +14461,43 @@ including successful traffic,exhaustion and refusal. Preserve uncertain-owner
 retention,all key erasure/leave and full restoration requirements. This removes
 a known synchronous operation from the receive path;it does not yet prove the
 cause of the native missing OFFER. Qualify a matched image before physical use.
+
+### Qualified deferred-data receipt candidate (November 7)
+
+Runtimedba6e994,private release000d0333ebfc2057,retains maina1661937.
+Matched kernel/USB build,full controller and relevant protocol/crypto/DNS/
+ownership regressions,233 staging tests,all16 fatal ASan/UBSan groups and the
+independent encrypted packet fixture pass. Native slow-console success,
+exhaustion and MIC refusal perform zero console calls during active IP work;
+full/corrupt transcript refusal and misplaced saved-report refusals pass. The
+maximum new native frame remains1,272bytes. The stack helper initially missed
+a cached module's compile command;its corrected lookup then passed without any
+production-source change or repeated sanitizer run. The failed helper receipt
+is retained. No full-core rerun is claimed.
+
+The complete production-C/native-parent prefix passes2,040,706bytes and125
+altered/incomplete cases. Conservative headroom is41,285bytes below the
+unchanged2MiB capture limit while retaining the separate32KiB reserve. Real
+filesystem persistence/remount/fsck,ordinary desktop,exact-stage GPT save/return
+and missing-workspace VMs pass. Staged kernel and independently reconstructed
+firmware/private-PMK initramfs match the actual qualified build.
+
+Current565-file DHCP failure and its3-file notes,prior565/564/581/564 failures,
+accepted177/24 four-way capsule/notes and failed569/accepted178 four-way/M1
+evidence seals remain unchanged. The last generated session was archived,
+byte-verified and pruned after preserving its full capsule. Offline allocation,
+writable eligibility and headroom pass. Only the unreferenced failed receive
+report EFI duplicate was retired after exact verification of its sealed backup;
+accepted v130,M1 and e47d previous remain installed. The new payload is installed
+with Ubuntu default and remains unarmed at this documentation checkpoint.
+
+Next authorized action is cold shutdown,Wi-Fi-only10second unplug while off,
+same-port reconnect and power on with workspace attached. Guest progress,saving
+and Ubuntu return are automatic. On return collect the deferred candidate first
+with build/bringup/wifi-data5-deferred/run_root.py return_collect;do not recollect
+older sealed runs. Require matching release/session,full DHCP/DNS/exact256-byte
+echo,PN1..6,software erasure/leave and all endpoint/input/MAC/power/RF originals,
+plus offline filesystem/recovery checks. This pacing correction is not native
+acceptance or proof that console work caused the missing OFFER. Ordinary
+provider/UI,TCP/HTTP and live reattach remain pending;Demers2.4 requires
+compatible hardware. PR19 stays draft;Actions remain disabled.
