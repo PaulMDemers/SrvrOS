@@ -8944,3 +8944,23 @@ inside the original lifetime. Audit actual source/word/time budgets and add
 first-touch regressions. No hidden target priming load, A/D mask, time exclusion
 or cap increase is permitted. Repeat the exact read-only qualification after
 host/VM validation; keep historical failures recorded.
+
+### Sampler text/gate first-touch fix scope (2026-11-07)
+
+Base `09ad7c23`, after the failed v8 trial documented in PR413. Scope is
+the existing sampler/gate sources, linker-bounded sampler text, host fixtures
+and isolated trial tools. Group sampler-owned code into a trusted section
+bounded to64KiB/16 pages, then perform guarded RAM-only first-touch before the
+first census. Validate exact supervisor/RO/executable RAM paths before/after
+each byte read, charging all page-table/code reads to the original word/time
+limits. No target load may prime code. Warm both gates' complete private
+evidence with same-value writes under pass0's original live guards.
+
+Keep R2 raw comparisons, all firmware/cache/census/gap/tail/mapper caps and
+terminal ownership handling unchanged. Add real first-touch/guard/fault
+regressions and audit maximum accounting. Run matched core/build, sanitizer/
+portable and exact-stage VM checks, self-merge, preserve accepted/recovery
+payloads and USB files, then run one automated native read-only qualification.
+PR301/PR19 retain independent scopes; no competing device implementation or
+cross-task message is introduced. No native acceptance is inferred before
+collecting the matching complete raw proof.
