@@ -2,6 +2,20 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Active scope: fresh disabled observation before reset
+
+Integrate main `d3472e06` (Air6,1 PR414–416), preserving its independent sampler
+and offline capability audit. Bounded objective: require a fresh four-snapshot
+zero-geometry shutdown observation inside the reset core's registered borrow,
+then bind it to the same-parent/epoch completion census before any reset request.
+Only the physically exercised already-disabled branch is admitted; no enabled-ring
+writer, ring-start clear, copied prior receipt or widened geometry. Keep the
+100ms dependent,300ms owner and500ms outer limits, all native resource/cache/root
+checks, post-reset preservation and retained-state rules. Scope: separate native
+image/recipe, reset adapter/core, strict collectors and host/VM/MMIO regressions.
+Stop at installed, unarmed hardware readiness. Local checkpoint:
+`build/air-reset-shutdown-20261108/status.md`. No reboot in this work block.
+
 ### Latest shutdown trial: already-disabled preservation accepted
 
 Source `8efce479`, release `c64cd44f68ef1512`, session
