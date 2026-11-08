@@ -8765,3 +8765,35 @@ coverage for current-pass output first-touch. Preserve exact raw comparison,
 all integrity checks and every existing time/word/source/gap limit. No target
 register reads, power policy changes or hardware ownership are authorized by
 this result. Earlier accepted window-only evidence remains unchanged.
+
+### Both-pass evidence first-touch fix scope (2026-11-07)
+
+Base `ac8c2d5b`; PR409 records the failed native two-pass qualification.
+Bounded scope is `air61_read_window.inc` and its host regression: charge
+first-touch of the complete two-pass private context, including pass0 evidence
+output, to pass0 before its census. Preserve same-value writes, per-page live
+clock/root guards, phase ordering and exact raw graph comparisons. No source
+or policy limits change. PR301/PR19 retain their independent device scopes;
+no overlapping implementation is claimed. Rebuild matched artifacts, run
+core/sanitizer/portable and staged VM checks, then self-merge and run one
+unattended native qualification with verified recovery and persistent records.
+
+Frozen runtime `f8e16123` passes matched normal/AP/two-pass/USB/ISO builds and
+full core tests, including89 installed-root tests and one expected opt-in
+skip. The backend regression observes guarded stores across both complete
+private contexts and refuses deadline/root changes in either half or at the
+final byte before census/allocation. ASan/UBSan passes the complete backend
+regression; restoring next-pass-only priming in an isolated fixture is rejected
+by the new coverage assertion. Native images contain no observer callback.
+
+Eighteen bridge and four combined-producer sanitizer modes, both ARM64 fixture
+links, real joint saved-session proofs, all eleven sequential diagnostic VM
+cases and five ordinary boot/syscall/keyboard/fork/exec/yield VMs pass. Exact
+v7 payload `517661c4c5a9627f` passes unsupported-hardware refusal and
+missing-workspace rehearsal. All source, word, clock and exact-bit checks
+remain unchanged; native acceptance is pending its matching collected return.
+
+The unreferenced older ECAM EFI copy `ab360d3ce2d281e4` was retired only after
+verifying its independent complete backup and absence from active/recovery/GRUB
+references. Current/recovery and accepted window `92d9f134639f509c` remain
+verified and intact. The USB baseline is631 files with clean offline allocation.

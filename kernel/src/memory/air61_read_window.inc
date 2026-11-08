@@ -198,15 +198,26 @@ bool vmm_air61_read_window_prime_room(void){
  if(!rw.result.busy || rw.current || !rc.checking || rc.snapshot || rc.in_census || rc.view.window.state!=AIR61_WINDOW_CLAIMED)return false;
  return rw_tick();
 }
-static bool rw_touch_next(void){
- /* First-touch next-pass private output inside pass0's existing lifetime.
+static bool rw_touch_outputs(void){
+ /* First-touch BOTH pass outputs inside pass0's existing lifetime.
+  * Current-pass linked/retired evidence is written after its census; leaving
+  * it cold changes the borrowed graph observed by the next pass.
   * Volatile same-value writes preserve every byte, including attempt state.
   * No page-table flags are masked or written, and pass1 still performs all
   * of its own bounded capture/preparation. */
- volatile uint8_t *p=(volatile uint8_t *)&rw.pass[1];
- for(unsigned i=0;i<sizeof(rw.pass[1]);i+=4096){if(!rw_tick())return false;p[i]=p[i];}
+ volatile uint8_t *p=(volatile uint8_t *)rw.pass;
+ for(unsigned i=0;i<sizeof(rw.pass);i+=4096){
+  if(!rw_tick())return false;
+  p[i]=p[i];
+#ifdef SRVROS_AIR61_READ_PRIME_OBSERVER
+  SRVROS_AIR61_READ_PRIME_OBSERVER(p+i);
+#endif
+ }
  if(!rw_tick())return false;
- p[sizeof(rw.pass[1])-1]=p[sizeof(rw.pass[1])-1];
+ p[sizeof(rw.pass)-1]=p[sizeof(rw.pass)-1];
+#ifdef SRVROS_AIR61_READ_PRIME_OBSERVER
+ SRVROS_AIR61_READ_PRIME_OBSERVER(p+sizeof(rw.pass)-1);
+#endif
  return rw_tick();
 }
 static bool rw_prepare(void){
@@ -217,7 +228,7 @@ static bool rw_prepare(void){
  r->begin=rc.last=rw.io.now(rw.io.ctx);
  if(!rw.current)rw.result.begin=r->begin;
  if(!r->begin || r->token.epoch>r->begin){rw_fault("clock/epoch");goto refused;}
- if(!rw_tick() || !rw_check(0) || !rw_tick() || (!rw.current && !rw_touch_next()))goto refused;
+ if(!rw_tick() || !rw_check(0) || !rw_tick() || (!rw.current && !rw_touch_outputs()))goto refused;
  r->gate_end=rc.last;r->census_begin=rc.last;
  const struct hac_io census_io={.read=rw_census_read,.now=rw_census_now};
  rc.in_census=true;bool captured=hac_capture(&rc.view.census,&census_io,r->token.root);rc.in_census=false;rc.census_ticket=false;r->census_end=rc.last;

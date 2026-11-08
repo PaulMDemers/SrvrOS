@@ -1,6 +1,8 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
+#define SRVROS_AIR61_READ_PRIME_OBSERVER read_prime_observe
+static void read_prime_observe(volatile unsigned char *);
 #define AIR61_READ_WINDOW_FIXTURE
 #define SRVROS_AIR61_READ_WINDOW
 #define WINDOW_PROFILE_FIXTURE_LIBRARY
@@ -64,10 +66,26 @@ static bool rcheck(void *ctx,unsigned pass,unsigned phase){
 }
 static bool rram(void *ctx,unsigned pass,uint64_t pa){(void)ctx;assert(pass<2);return pass?air61_read_gate_ram1(pa):air61_read_gate_ram0(pa);}
 static const struct air61_read_window_env rio={.check=rcheck,.ram=rram,.now=now};
+static unsigned prime_stores,prime_break_at,prime_break_kind;
 static void rreset(void){
+ prime_stores=prime_break_at=prime_break_kind=0;
  setup();memset(&rw,0,sizeof(rw));air61_read_gate_reset0();air61_read_gate_reset1();
  pages[0][384]|=32;irq_flags=2;changed_catalog=false;
  read_phase_hook_mode=0;path_pass=-1;inject_pass=inject_phase=-1;inject_kind=0;memset(phase_calls,0,sizeof(phase_calls));retained_valid=false;
+}
+/* Observe the actual guarded production stores, including the native-failing
+ * current-pass evidence pages. No callback exists in native objects. */
+static void read_prime_observe(volatile unsigned char *p){
+ assert(!rw.current && rw.result.busy && !rw.pass[0].snapshot && !rw.pass[0].in_census);
+ assert(rw.pass[0].view.window.state==AIR61_WINDOW_CLAIMED);
+ assert(!rw.pass[0].view.census.pages && !allocs);
+ volatile unsigned char *base=(volatile unsigned char *)rw.pass;
+ unsigned offset=prime_stores*4096;
+ if(offset>=sizeof(rw.pass))offset=sizeof(rw.pass)-1;
+ assert(p==base+offset);prime_stores++;
+ if(prime_break_at==prime_stores){
+  if(prime_break_kind)cr3+=4096;else ticks+=1600000;
+ }
 }
 static bool run_series(void){return vmm_air61_read_window_qualify(&rio,0x61697272656164,1000);}
 #ifdef AIR61_READ_WINDOW_LIBRARY
@@ -76,6 +94,7 @@ static bool run_series(void){return vmm_air61_read_window_qualify(&rio,0x6169727
 int main(void){
  rreset();assert(!vmm_air61_read_window_prime_room());assert(run_series());
  assert(!vmm_air61_read_window_prime_room());
+ assert(prime_stores==(sizeof(rw.pass)+4095)/4096+1);
  assert(rw.result.state==AIR61_READ_COMPLETE && rw.result.started==2 && rw.result.retired==2);
  for(unsigned pass=0;pass<2;pass++){
   const struct air61_read_pass_result *v=vmm_air61_read_window_pass(pass);
@@ -114,6 +133,14 @@ int main(void){
  }
  rreset();for(unsigned i=5;i<128;i++){map_entries[i]=(struct limine_memmap_entry){.base=0x100000000ull+i*8192,.length=4096,.type=1};map_ptrs[i]=map_entries+i;}map_response.entry_count=128;
  assert(run_series());for(unsigned pass=0;pass<2;pass++)assert(rw.pass[pass].view.window.words<=65536);
+ /* A deadline/root change during either half or the final byte must stop
+  * before census/allocation, never restart the clock or continue to pass1. */
+ for(unsigned kind=0;kind<2;kind++)for(unsigned cut=0;cut<3;cut++){
+  rreset();prime_break_kind=kind;
+  prime_break_at=cut==0?2:cut==1?(sizeof(rw.pass[0])+4095)/4096+2:(sizeof(rw.pass)+4095)/4096+1;
+  assert(!run_series() && prime_stores==prime_break_at && !allocs && !rw.pass[0].view.census.pages);
+  unsigned observed=prime_stores;assert(!run_series() && prime_stores==observed);
+ }
  rreset();pages[0][384]&=~32ull;assert(!run_series() && !allocs && !stores);
  rreset();zero_clock=true;assert(!run_series() && !allocs && !stores);
  rreset();stop_clock=true;stopped_time=1000;assert(!run_series() && !allocs);
