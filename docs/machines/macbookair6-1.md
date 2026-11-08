@@ -9515,3 +9515,28 @@ is independently hash-verified outside `build`. The one-shot is consumed,
 collection is disabled and no new boot is armed. Screenshot completion latency
 under load remains the next performance follow-up; no scheduling/ownership or
 power-policy scope is added by this acceptance.
+
+### Screenshot write admission audit scope (2026-11-08)
+
+Base `d7ab6db5`, after accepted stress runtime `fac79995` and bounded audible
+confirmation. The retained slowest capture spends31.864228s in WRITE, versus
+4.766ms encode,7.318272s receive and subsecond fsync/sync/readback phases.
+These POSIX writes populate process-local buffered file contents; device
+persistence occurs in later flush/sync phases. Each16KiB write re-enters the
+ordinary default-deny namespace I/O admission path. Its exact wait/owner time
+has not been independently measured; encoding is not the primary observed cost.
+
+Bounded scope: audit caller batching and test coalescing four adjacent16KiB
+writes into64KiB ordinary writes, within existing supported request/file sizes.
+Keep the same snapshot/BMP bytes, new-file/O_EXCL handling, checked descriptor
+operations, full temporary/final byte verification, fsync/global sync, guarded
+rename, cancellation semantics and failure cleanup. Do not change kernel I/O
+eligibility, syscall whitelist, hardware/power gates, existing capacities,
+500ms/10s responsiveness bounds, or1800-second stress requirements. Add a
+reproducer for excessive write-call admission count plus existing short-I/O and
+failure coverage; verify exact pixels/readback and loaded responsiveness in VMs
+before a new native repeat at1%. No speedup is physically accepted yet.
+
+PR19's current Wi-Fi diff has no shotworker/save implementation change. PR301's
+process additions concern its independent scanout/handoff scope; this bounded
+caller change avoids those kernel files. PR379 remains an independent audit.
