@@ -4961,3 +4961,42 @@ test-air61-read-profile: build/tests/air61-read-combined$(HOST_EXE)
 build/air61-read-window/native-vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/src/memory/air61_read_window.inc $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -DSRVROS_AIR61_READ_WINDOW -c $< -o $@
+
+# Read-enabled isolation: no ordinary/AP/v7 target selects these objects.
+AIR61_SAMPLE_BOOT_OBJ := $(filter-out build/air61-read-window/gate0.o build/air61-read-window/gate1.o build/air61-read-window/native-vmm.o build/air61-read-window/bridge.o build/air61-read-window/report.o build/air61-read-window/envelope.o build/air61-read-window/main.o,$(AIR61_READ_BOOT_OBJ)) $(addprefix build/air61-register-sample/,vmm.o bridge.o report.o envelope.o main.o gate0.o gate1.o)
+.PHONY: air61-sample-kernel
+air61-sample-kernel: build/air61-register-sample/srvros.elf
+build/air61-register-sample/vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/src/memory/air61_read_window.inc $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -DSRVROS_AIR61_READ_WINDOW -DSRVROS_AIR61_REGISTER_SAMPLE -c $< -o $@
+build/air61-register-sample/main.o: kernel/src/main.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AP_PROBE -DSRVROS_AIR61_READ_QUALIFICATION -DSRVROS_AIR61_REGISTER_SAMPLE -c $< -o $@
+build/air61-register-sample/bridge.o: kernel/diagnostics/air61_read_gate.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AIR61_REGISTER_SAMPLE -c $< -o $@
+build/air61-register-sample/report.o: kernel/diagnostics/air61_read_report.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AIR61_REGISTER_SAMPLE -c $< -o $@
+build/air61-register-sample/envelope.o: kernel/diagnostics/air61_read_envelope.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AIR61_REGISTER_SAMPLE -c $< -o $@
+build/air61-register-sample/srvros.elf: $(AIR61_SAMPLE_BOOT_OBJ) $(AP_PROBE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) --undefined=vmm_air61_register_sample $(AIR61_SAMPLE_BOOT_OBJ) $(AP_PROBE_BASE) -o $@
+
+.PHONY: test-air61-register-sample
+test-core: test-air61-register-sample
+test-air61-register-sample: build/tests/air61-register-backend$(HOST_EXE) build/tests/air61-register-sample$(HOST_EXE)
+	build/tests/air61-register-backend$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_air61_register_sample.py
+build/tests/air61-register-backend$(HOST_EXE): tools/test_air61_read_window.c tools/test_air61_window_profile.c tools/test_air61_window.c kernel/src/memory/vmm.c kernel/src/memory/air61_read_window.inc build/tests/air61-sample-gate0.o build/tests/air61-sample-gate1.o $(AIR61_READ_TEST_UNITS) $(KERNEL_HEADERS)
+	$(HOST_CC) -DSRVROS_AIR61_REGISTER_SAMPLE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< build/tests/air61-sample-gate0.o build/tests/air61-sample-gate1.o $(AIR61_READ_TEST_UNITS) -Wl,--gc-sections -o $@
+build/tests/air61-register-sample$(HOST_EXE): tools/test_air61_register_sample.c tools/test_air61_read_combined.c tools/test_ecam_profile.c tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/src/memory/vmm.c kernel/src/memory/air61_read_window.inc $(AIR61_READ_BRIDGE_UNITS) kernel/diagnostics/air61_read_envelope.c build/tests/air61-sample-gate0.o build/tests/air61-sample-gate1.o $(AIR61_READ_TEST_UNITS) $(KERNEL_HEADERS)
+	$(HOST_CC) -DSRVROS_ECAM_GATE_HOST_TEST -DSRVROS_AIR61_REGISTER_SAMPLE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< build/tests/air61-sample-gate0.o build/tests/air61-sample-gate1.o $(AIR61_READ_BRIDGE_UNITS) kernel/diagnostics/air61_read_envelope.c $(AIR61_READ_TEST_UNITS) -Wl,--gc-sections -o $@
+
+build/air61-register-sample/gate%.o: kernel/diagnostics/air61_read_gate_instance.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AIR61_REGISTER_SAMPLE -DAIR61_READ_GATE_INSTANCE=$* -c $< -o $@
+build/tests/air61-sample-gate%.o: tools/test_air61_read_gate.c kernel/diagnostics/air61_read_gate_instance.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_AIR61_REGISTER_SAMPLE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include -DAIR61_READ_GATE_PASS=$* -c $< -o $@

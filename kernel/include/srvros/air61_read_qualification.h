@@ -3,9 +3,15 @@
 #include <srvros/ecam_boot.h>
 #define AIR61_READ_RECEIPT_CAP 45000u
 #define AIR61_READ_RAW_CAP 70000u
-/* Compile-only fresh native bridge. Poison is terminal; there is no native
- * reset, boot caller, register read interface or ownership grant. */
+/* Separate isolated bridges. No native reset, returned target pointer or
+ * device ownership grant. Read-enabled builds expose only the sample entry. */
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+bool haswell_air61_register_sample(void);
+bool air61_sample_cache0(struct air61_sample_admission *);
+bool air61_sample_cache1(struct air61_sample_admission *);
+#else
 bool haswell_air61_read_qualify(void);
+#endif
 const struct ecam_boot_gate_result *air61_read_gate_result0(void);
 const struct ecam_boot_gate_result *air61_read_gate_result1(void);
 const struct ecam_boot_gate_diagnostic *air61_read_gate_diagnostic0(void);

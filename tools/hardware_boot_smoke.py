@@ -418,17 +418,24 @@ def main():
                         assert 'laptop-capture: completed=NO' in exit_log
                         if manifest['config_version'].startswith(tuple(f'ram-usb-v{i}-hfw-' for i in range(2,8))):
                             from hardware_haswell_cache import cache_result
-                            if manifest['config_version'].startswith(('ram-usb-v4-hfw-','ram-usb-v5-hfw-','ram-usb-v6-hfw-','ram-usb-v7-hfw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v4-hfw-','ram-usb-v5-hfw-','ram-usb-v6-hfw-','ram-usb-v7-hfw-','ram-usb-v8-hfw-')):
                                 from hardware_haswell_alias import alias_preinit_result
                                 assert alias_preinit_result(exit_log)['status']=='REFUSED'
                                 assert text.index('hsw-alias-progress: capturing before')<text.index('init: started pid=')<text.index('hsw-alias:')
-                            if manifest['config_version'].startswith(('ram-usb-v5-hfw-','ram-usb-v6-hfw-','ram-usb-v7-hfw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v5-hfw-','ram-usb-v6-hfw-','ram-usb-v7-hfw-','ram-usb-v8-hfw-')):
                                 from hardware_haswell_ecam import ecam_result
                                 ecam_log=stored.read(folder+'/ecam.log').decode()
                                 result=ecam_result(ecam_log,exit_log,folder.split('/')[-1])
                                 assert result and result['status']=='REFUSED' and not result['source_completed']
                                 assert text.index('ecam-boot-progress:')<text.index('pci:')<text.index('hsw-alias-progress:')
                                 (logs/'laptop-capture-ecam.log').write_text(ecam_log)
+                                if manifest['config_version'].startswith('ram-usb-v8-hfw-'):
+                                    from hardware_air61_register_sample import sample_result
+                                    read_log=stored.read(folder+'/window.log').decode()
+                                    w=sample_result(read_log,ecam_log,exit_log,folder.split('/')[-1])
+                                    assert w and w['status']=='REFUSED' and not w['source_completed'] and w['target_reads']==0
+                                    assert text.index('hsw-alias-progress:')<text.index('init: started pid=')
+                                    (logs/'laptop-capture-sample.log').write_text(read_log)
                                 if manifest['config_version'].startswith('ram-usb-v7-hfw-'):
                                     from hardware_air61_read_qualification import read_result
                                     read_log=stored.read(folder+'/window.log').decode()

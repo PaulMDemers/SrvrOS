@@ -1,4 +1,4 @@
-/* Dormant native bridge. Existing gate predicates are instantiated afresh for
+/* Isolated native bridges. Existing gate predicates are instantiated afresh for
  * each pass; neither an old receipt nor the accepted no-read instance admits it. */
 #include <srvros/air61_read_qualification.h>
 #include <srvros/console.h>
@@ -24,6 +24,11 @@ static bool read_check(void *ctx,unsigned pass,unsigned phase){
  return ok && (!pass || phase || air61_read_gates_equal());
 }
 static bool read_ram(void *ctx,unsigned pass,uint64_t pa){(void)ctx;return pass<2 && (pass?air61_read_gate_ram1(pa):air61_read_gate_ram0(pa));}
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+static bool read_sample_admit(void *ctx,unsigned pass,unsigned slot,struct air61_sample_admission *s){
+ (void)ctx;return pass<2 && slot<AIR61_SAMPLE_ADMISSIONS && (pass?air61_sample_cache1(s):air61_sample_cache0(s));
+}
+#endif
 static uint64_t read_now(void *ctx){(void)ctx;return timer_monotonic_us();}
 #ifdef SRVROS_ECAM_GATE_HOST_TEST
 extern uint64_t eg_test_irq_save(void);
@@ -32,14 +37,26 @@ extern void eg_test_irq_restore(uint64_t);
 static uint64_t eg_test_irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
 static void eg_test_irq_restore(uint64_t f){if(f&512)__asm__ volatile("sti":::"memory");}
 #endif
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+bool haswell_air61_register_sample(void){
+#else
 bool haswell_air61_read_qualify(void){
+#endif
  if(read_started)return false;
  read_started=true;
  const struct ecam_boot_result *boot=vmm_ecam_boot_result();
  if(boot->state!=ECAM_ACTIVE || boot->adoptions!=1)return false;
  uint64_t flags=eg_test_irq_save();
- const struct air61_read_window_env io={.check=read_check,.ram=read_ram,.now=read_now};
+ const struct air61_read_window_env io={.check=read_check,.ram=read_ram,.now=read_now,
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ .sample_admit=read_sample_admit,
+#endif
+ };
+ #ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ bool ok=vmm_air61_register_sample(&io,0x61697273616d70ull,timer_monotonic_us());
+#else
  bool ok=vmm_air61_read_window_qualify(&io,0x61697272656164ull,timer_monotonic_us());
+#endif
  const struct air61_read_series_result *r=vmm_air61_read_window_result();
  if(r->state==AIR61_READ_POISONED){
   console_set_framebuffer_muted(false);console_clear();
@@ -50,7 +67,15 @@ bool haswell_air61_read_qualify(void){
    const struct ecam_boot_gate_diagnostic *d=i?air61_read_gate_diagnostic1():air61_read_gate_diagnostic0();
    console_printf("read-gate: pass=%u phases=%u firmware_bytes=%u stage=%s index=%u component=%u expected=%x observed=%x\n",(uint64_t)i,(uint64_t)g->phases,(uint64_t)g->firmware_bytes,d->stage?d->stage:"none",(uint64_t)d->index,(uint64_t)d->component,d->expected,d->observed);
   }
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+  for(unsigned p=0;p<2;p++){const struct air61_read_pass_result *v=vmm_air61_read_window_pass(p);
+   console_printf("sample-count: pass=%u attempts=%u reads=%u\n",(uint64_t)p,(uint64_t)v->attempts,(uint64_t)v->reads);
+   for(unsigned i=0;i<v->attempts && i<12;i++)console_printf("sample-raw: pass=%u slot=%u offset=%x value=%x begin=%u end=%u\n",(uint64_t)p,(uint64_t)i,(uint64_t)v->offsets[i],(uint64_t)v->values[i],v->load_begin[i],v->load_end[i]);
+  }
+  console_write("Read-only sample stopped. Ownership retained; no clients or USB reuse. Photograph then restart Ubuntu.\n");console_sync();
+#else
   console_write("Zero target loads. Ownership retained; no clients or USB reuse. Photograph then restart Ubuntu.\n");console_sync();
+#endif
 #ifdef SRVROS_ECAM_GATE_HOST_TEST
   extern void window_test_halt(void);window_test_halt();
 #else
