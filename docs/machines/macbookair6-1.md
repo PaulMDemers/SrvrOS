@@ -9103,3 +9103,84 @@ Native receipt replay and independent input hashes pass without test pins.
 Documentation validation checks1108 local links with zero errors; diff checks
 pass. The matched kernel/payload bytes remain those accepted in PR415; no new
 kernel or VM acceptance is claimed by this host-only change.
+
+### Ordinary desktop mapping-registry regression scope (2026-11-07)
+
+Base `d3472e06`, after the captured-capability audit. Objective: exercise the
+normal desktop/battery build after the shared mapping-registry changes, with
+the existing fully automatic30-minute PCM, verified USB disk work, Text/Files/
+System open/close cycles, three screenshots and normal retirement/return.
+Keep the existing500ms loop,10s app-cycle, screenshot, storage and integrity
+limits unchanged; use1% audio for this run. No VT-d diagnostic token, target
+MMIO access, translation command or power-policy change belongs in this profile.
+
+Scope is this unit's test preparation/evidence record; use the existing v74
+Air6,1 automation without changing runtime workload limits. Build the matched
+normal/native battery images and run core checks, populated-Home loaded VM,
+ordinary capture VM and exact-stage refusal/return rehearsal sequentially.
+Verify this unit, USB `6ADA-85BB`, Ubuntu and console recovery; retain accepted
+sampler `2ddbd3b285f6bf41` and known-good stress payload `012aaffda0be860b`.
+Publish validated preparation, self-merge, save durable run/collector records and
+run one automatic boot under the user's standing authorization. Native pass
+requires matching complete receipts, unchanged prior files and clean offline
+filesystem/allocation checks. PR301/PR19/PR379 retain independent scopes.
+
+
+### Desktop regression harness maintenance (2026-11-08)
+
+Full matched builds/core checks pass at `7dbfadd1` (89 installed-root tests,
+one expected skip). Pre-install VM failures revealed two harness issues, not
+accepted native regressions: the synthetic battery VM kernel was left at desktop
+protocol15 while current userspace requires18; the ordinary screenshot harness
+selected Return to console using an obsolete relative menu position after
+profile actions were added. Preserve both failed VM artifacts. Scope expands
+only to screenshot-harness menu navigation and explicit synthetic VM build
+preparation, plus guide clarification. Keep every workload/timeout/pixel/readback
+and retirement assertion unchanged; rerun both actual VM trials before staging.
+The runtime stays frozen at `7dbfadd1`; host-tool source is recorded separately.
+
+
+### Ordinary desktop regression prepared; VM limitations retained (2026-11-08)
+
+Frozen runtime `7dbfadd1` passes matched normal/native battery/ISO/USB builds
+and the full core suite, including89 installed-root tests with one expected skip.
+Host tools `f6276f06` fix the screenshot harness's menu selection; no guest
+runtime or limits change. Frozen normal/native ELF and initramfs hashes remain
+identical through VM preparation. Isolated sampler entrypoints are absent from
+both ordinary/native images.
+
+Rebuilding the explicit synthetic battery VM kernel resolves the protocol15/18
+fixture mismatch. The old menu harness's failure is also preserved; its corrected
+TCG run now passes exact pixels, immutable capture during typing, durable BMP
+readback, notification folder/Preview, repeated menu capture and clean exit.
+
+Two current-source loaded TCG runs **fail** the original500ms loop bound:
+540486us (3 excursions) and669527us. The first retained interval attributes
+486267us to rendering. These remain unresolved software-emulation performance
+failures; no renderer fix or TCG timing acceptance is claimed. The identical
+populated-Home/400-write-IOPS workload under KVM passes22 app cycles,193713us
+maximum loop,1559335us readiness and1639075us close, zero app errors/underruns,
+one complete screenshot, clean worker/cache/battery retirement and all67 prior
+fixture files. Both accelerators retain the same500ms/10s limits and disk work.
+KVM is the passing loaded preparation receipt, not a substitute TCG pass or a
+native observation. Native latency acceptance requires the physical result.
+
+Exact native v74 payload `c831655c4120352e` passes TCG GRUB→Limine chainload,
+explicit unsupported-Q35 refusal, file preservation, unmount and automatic
+return. Manifest source is the tested host-tool commit `f6276f06`; the unchanged
+runtime bytes are independently pinned to `7dbfadd1`. The physical trial keeps
+all existing30-minute PCM, verified disk overlap, automatic app/screenshot,
+loop/lifecycle and retirement requirements. The existing bounded60-second PCM
+tail remains valid; playback may extend only as the original producer permits.
+No VT-d/ECAM/Haswell capture token is present.
+
+Run `1fbeb56fc50f45f6` uses this unit's USB `6ADA-85BB`, with643 baseline files,
+145 directories and1725 clusters; filesystem, full allocation and headroom checks
+pass. Only the owned quiet-volume input is intentionally refreshed for1% audio;
+its previous bytes are preserved. The unreferenced failed-sampler EFI duplicate
+`0325ad569a8b0a83` was removed only after full independent backup/hash and GRUB
+reference checks; accepted sampler `2ddbd3b285f6bf41`, zero-load/single-window,
+known-good stress and console recovery remain retained. Ubuntu is the default,
+with recovery `c35475f62f154f1e` preserved. Install verification, final preflight,
+durable run/collector records and merged preparation must precede arming this
+one automatic boot. No physical pass is inferred from this preparation.
