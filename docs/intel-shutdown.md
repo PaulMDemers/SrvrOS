@@ -90,3 +90,15 @@ is required; volume1%. Safe outcomes save/unmount and return to Ubuntu. Retained
 state keeps the pre-entry warning and requires manual restart. VM identity
 refusal validates transport and collection only; native shutdown acceptance
 remains pending in the [unit record](machines/macbookair7-2.md).
+
+## Air7,2 readiness
+
+Source `8efce479` / release `c64cd44f68ef1512` is installed, unarmed and ready
+for native testing. Full local checks,36 fatal sanitizer cases,11 compiled host/
+native controls,15-image isolation, exact-stage normal/missing-workspace rehearsal
+and media/recovery checks pass. Full-width tail projection is64,974/65,536bytes.
+An initial invalid generated recipe was caught before installation; actual
+canonical command lines now run through the compiled kernel parser in regression
+tests. Current immutable source/config/manifest binding is recorded in the
+[unit checkpoint](machines/macbookair7-2.md#guarded-idle-blitter-shutdown-ready-for-hardware).
+No physical shutdown or reset acceptance follows from VM/host evidence.

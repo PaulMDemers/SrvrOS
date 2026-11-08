@@ -2,7 +2,63 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
-### Active scope: integrate main and same-lifetime BCS shutdown
+### Guarded idle blitter shutdown ready for hardware
+
+Tested source `8efce479` (implementation `9cb22985`, main `09ad7c23` integrated
+as `e1aa31e3`) produces release `c64cd44f68ef1512`, installed **not armed**.
+The [shutdown contract](../intel-shutdown.md) defines a separate image/request
+and exact15-token recipe. It performs no reset. The reset core still requires
+zero geometry; clearing enable preserves the captured ring start and length,
+so shutdown must be qualified before extending reset admission.
+
+This image holds an address-sealed parent borrow through the single idle-ring
+disable or exact already-disabled observation, fresh60-word post-engine census
+and54-plane/all10-field HDA preservation. Early parent close must fail without a
+store. A possible control store first advances the engine epoch; any failed
+postcondition after issue retains the pin, aliases and exclusion. No retry,
+restore, Stop Ring, GDRST, PTE or translation/cache writer is available. All
+100ms census/core,150ms preservation,300ms owner and500ms outer limits remain.
+
+Full host/core/profile/docs/build checks pass locally; opt-in installed-root
+checks were explicitly omitted. Fatal ASan/UBSan covers36 adapter cases. Six
+compiled lifetime/preservation/epoch/permission controls and five actual non-host
+MMIO/page/reader controls are detected. Fifteen-image isolation, object/staged
+store value/address, requester loads, reader stride and immutable page vectors
+pass. Compact version2 decimal DWORD rows preserve all raw values and bind fixed
+engine pages by index; full-width projection is64,974/65,536bytes with the
+unchanged1,536 allowance. Historical accepted blitter observation stays accepted;
+three prior reset nonpasses stay incomplete and are not promoted to shutdown.
+
+An earlier uninstalled stage had an erroneous extra completion token and was
+caught by the exact-stage VM. The corrected generator is tested against the
+compiled kernel parser, including all missing/duplicate tokens and the foreign
+completion option. The failed stage/VM are preserved separately with full archive
+member/SHA verification. Source/config/manifest binding distinguishes it from
+the corrected stage even when unchanged payload bytes yield the same release ID.
+The current manifest SHA is
+`fb6d75215832b164b068cd5b4cd4737ffcf920b9c11fb2c55cf8c2cc08a34254`.
+
+Exact immutable MBR Q35/GRUB/EFI64/Limine11.4.1 normal and missing-workspace
+rehearsals pass: expected platform refusal, zero native stores, committed
+preflight/results, safe unmount/automatic return and missing-persistence halt.
+All1,380 files/116 sessions and boot sectors are preserved. Offline fsck,
+allocation/writable/headroom, model/CPU/firmware, current/durable/archive recovery
+and Ubuntu-default/no-one-shot checks pass. Prior current `3ec42dd315377e65`,
+recovery `9aa8dbf6fbda8252` and known-good GUI remain verified. The unreferenced
+ffd7 EFI copy was removed only after complete equality to a new independent real
+archive and durable payload. Inactive reproduction artifacts were losslessly
+archived and member/SHA/symlink verified before pruning; accepted evidence stays.
+
+Run/checkpoint, immutable stage, strict collection and all proofs are under
+`build/air-bcs-shutdown-20261107`, with a full independent backup outside build.
+Volume1%, guest audio off, no typing required, USB unmounted, no reboot armed.
+Safe saved outcomes return to Ubuntu; retained ownership requires manual restart.
+Native shutdown is still pending; an already-disabled result cannot accept the
+enabled-ring store. Reset/preservation, outstanding DMA/prefetch, reader/cache
+ownership, managed GPU backing and native tear-free remain open. PR19 Wi-Fi and
+PR379 WebCore keep separate scope; hosted Actions remain disabled.
+
+### Completed implementation scope: main and same-lifetime BCS shutdown
 
 Consume fetched main `09ad7c23` (Air6,1 PR412/413), retaining the separate
 v8 Haswell sampler and its cold-page refusal. PR19 Wi-Fi and PR379 WebCore
