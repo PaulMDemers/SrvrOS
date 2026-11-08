@@ -39,7 +39,10 @@ unsigned capture_save_progress(const char *path,const unsigned char *data,size_t
     unsigned result=DESK_CAPTURE_OK;size_t offset=0;
     if(progress)progress(context,CAPTURE_WRITE,0);
     while(offset<length) {
-        size_t bytes=length-offset;if(bytes>16384) bytes=16384;
+        /* Coalesce adjacent buffered writes without admitting them under
+         * foreign I/O. Keep each ordinary checked write bounded to64KiB;
+         * all persistence and both full verification passes follow below. */
+        size_t bytes=length-offset;if(bytes>65536) bytes=65536;
         ssize_t written=write(fd,data+offset,bytes);
         if(written<=0 || (size_t)written>bytes) { result=DESK_CAPTURE_IO;break; }offset+=written;
         if(progress && (!(offset%65536) || offset==length))progress(context,CAPTURE_WRITE,offset);
