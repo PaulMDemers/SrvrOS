@@ -9580,3 +9580,47 @@ absence from GRUB/current/recovery references. Accepted newer stress
 single-window payloads and console recovery `c35475f62f154f1e` stay installed and
 verified. Historical acceptance/evidence and the archived restorable payload
 remain outside `build`; this is space reclamation, not removal of recovery.
+
+### Native screenshot write batching improvement accepted (2026-11-08)
+
+PR425 runtime `989846b3`, release `1c74bc8281678786`, run `f4be328f2bc244f0`,
+session `session-00065fcb69c953b0-00` completes the unchanged 1800-second
+PCM/verified disk/app/three-screenshot workload and returns automatically.
+The slowest retained screenshot takes 23.196470s, down from 43.499249s on the
+preceding accepted stress source. Its WRITE phase falls from 31.864228s to
+12.669813s, with receive 6.689667s and encode 4.766ms. Final screenshot WRITE
+is 11.046327s. These are observed separate native runs, not a controlled
+throughput guarantee; batching improves completion, but saves remain slow.
+
+All 53483 loop samples are valid, with zero excursions and maximum 120142us
+under the original 500ms bound. The 1078 app cycles have zero errors and maximum
+launch/close 1887035/3860868us, below the unchanged 10s limits. The worst loop
+contains 100098us of GUI waiting; its companion records 100042us blocked,
+26us READY and zero I/O exclusions. No native owner identity is inferred from
+these final companions. All three BMPs decode at 1366x768; follow-up Files,
+capture cleanup, app/cache/battery retirement, normal exit and unmount pass.
+Slowest retained screenshot cleanup is 75.501ms, with no pending retirement.
+
+At 1%, playback supplies 345780224 PCM bytes with zero recorded underruns or
+worker errors. Disk work completes 3889 verified bursts/1019478016 bytes during
+live playback; binary and text receipts agree. Subjective sound is unassessed
+for this unattended run; the separate short 25% audible acceptance remains its
+own evidence. No duration, responsiveness, capacity, hardware/ownership or
+persistence requirement changed.
+
+All 674 prior files survive except expected `.srvros/meta`; nine new logs,
+receipts and screenshots produce 683 files/2158 allocated clusters. Offline fsck
+and independent allocation checks pass with zero leaks/mismatches/errors.
+Raw session hashes, receipts, final timing/retirement proofs, decoded BMPs and
+604-file automatic return backup are independently verified. Installed/staged/
+independent payload and protected accepted/recovery images verify. Reviewed
+results are backed up outside `build`. The older `012aaffda0be860b` EFI duplicate
+was archived only after verifying its independent restorable payload; current,
+newer accepted and recovery payloads remain installed. Collector disabled,
+one-shot consumed, Ubuntu default intact; no reboot is armed.
+
+Next useful scope is targeted per-write timing to separate admission waits
+from buffer growth/copy cost within the remaining 12.7s WRITE phase, keeping
+all accepted save checks and bounds. The approximately 6.7s receive phase also
+remains a performance follow-up; this result accepts improvement, not instant
+screenshot completion or a kernel I/O eligibility expansion.
