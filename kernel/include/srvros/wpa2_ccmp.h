@@ -40,6 +40,11 @@ size_t wpa2_ccmp_seal(struct wpa2_ccmp *,uint64_t generation,const uint8_t heade
  * Same output/alias/stale rules as seal;capacity1..2304. */
 size_t wpa2_ccmp_open(struct wpa2_ccmp *,uint64_t generation,const uint8_t *mpdu,
  size_t size,uint8_t *plain,size_t capacity);
+/* Same strict receive parser,peer/key-ID/replay/MIC checks,verification only.
+ * Exclusive live owner,zero idle scratch required;no key copy/reinstall,
+ * plaintext output or PN commit. Entire context unchanged after return.
+ * Caller freezes ownership around this diagnostic;true is not publication. */
+bool wpa2_ccmp_verify(struct wpa2_ccmp *,uint64_t generation,const uint8_t *mpdu,size_t size);
 bool wpa2_ccmp_retire(struct wpa2_ccmp *,uint64_t generation);
 bool wpa2_ccmp_erased(const struct wpa2_ccmp *,uint64_t generation);
 #endif

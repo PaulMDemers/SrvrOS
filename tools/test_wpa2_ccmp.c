@@ -18,7 +18,11 @@ int main(void){
  assert(wpa2_ccmp_seal(&s,9,ccmp_tx_header,ccmp_data,sizeof ccmp_data,out,sizeof out)==sizeof ccmp_tx && s.tx_pn==1);assert(!memcmp(out,ccmp_tx,sizeof ccmp_tx));zero(out+sizeof ccmp_tx,sizeof out-sizeof ccmp_tx);
  assert(wpa2_ccmp_seal(&s,9,ccmp_tx_header,ccmp_data,sizeof ccmp_data,out,sizeof out)==sizeof ccmp_tx && s.tx_pn==2);assert(memcmp(out,ccmp_tx,sizeof ccmp_tx));
  s.tx_pn=WPA2_CCMP_PN_MAX-1;assert(wpa2_ccmp_seal(&s,9,ccmp_tx_header,ccmp_data,sizeof ccmp_data,out,sizeof out));assert(s.tx_pn==WPA2_CCMP_PN_MAX);assert(!wpa2_ccmp_seal(&s,9,ccmp_tx_header,ccmp_data,sizeof ccmp_data,out,sizeof out));zero(out,sizeof out);assert(s.tx_pn==WPA2_CCMP_PN_MAX);
- s=base;assert(wpa2_ccmp_open(&s,9,ccmp_rx,sizeof ccmp_rx,out,2304)==sizeof ccmp_data);assert(!memcmp(out,ccmp_data,sizeof ccmp_data));assert(s.rx_pairwise[16]==1);zero(s.scratch,sizeof s.scratch);assert(!wpa2_ccmp_open(&s,9,ccmp_rx,sizeof ccmp_rx,out,2304));zero(out,2304);assert(s.rx_pairwise[16]==1);
+ s=base;assert(wpa2_ccmp_verify(&s,9,ccmp_rx,sizeof ccmp_rx) && !memcmp(&s,&base,sizeof s));assert(wpa2_ccmp_verify(&s,9,ccmp_rx,sizeof ccmp_rx) && !memcmp(&s,&base,sizeof s));
+ assert(!wpa2_ccmp_verify(&s,8,ccmp_rx,sizeof ccmp_rx) && !memcmp(&s,&base,sizeof s));
+ s.scratch[0]=1;struct wpa2_ccmp busy=s;assert(!wpa2_ccmp_verify(&s,9,ccmp_rx,sizeof ccmp_rx) && !memcmp(&s,&busy,sizeof s));s=base;
+ assert(!wpa2_ccmp_verify(&s,9,s.tk,sizeof ccmp_rx) && !memcmp(&s,&base,sizeof s));
+ assert(wpa2_ccmp_open(&s,9,ccmp_rx,sizeof ccmp_rx,out,2304)==sizeof ccmp_data);assert(!memcmp(out,ccmp_data,sizeof ccmp_data));assert(s.rx_pairwise[16]==1);zero(s.scratch,sizeof s.scratch);assert(!wpa2_ccmp_open(&s,9,ccmp_rx,sizeof ccmp_rx,out,2304));zero(out,2304);assert(s.rx_pairwise[16]==1);
  assert(wpa2_ccmp_open(&s,9,ccmp_group,sizeof ccmp_group,out,2304)==sizeof ccmp_data);assert(!memcmp(out,ccmp_data,sizeof ccmp_data));assert(!wpa2_ccmp_open(&s,9,ccmp_group,sizeof ccmp_group,out,2304));zero(out,2304);
  /* Authenticated address/header bits,ciphertext and every MIC bit refuse.
   * Masked duration/sequence/Retry/PM/MoreData are tested separately. */
@@ -32,7 +36,7 @@ int main(void){
  }
  for(unsigned off=2;off<24;off++)if(off==2 || off==3 || off==22 || off==23){s=base;memcpy(packet,ccmp_rx,sizeof packet);packet[off]^=off==22?0x10:1;assert(wpa2_ccmp_open(&s,9,packet,sizeof packet,out,2304)==sizeof ccmp_data);}
  for(unsigned bit=3;bit<6;bit++){s=base;memcpy(packet,ccmp_rx,sizeof packet);packet[1]^=1u<<bit;assert(wpa2_ccmp_open(&s,9,packet,sizeof packet,out,2304)==sizeof ccmp_data);}
- for(unsigned n=0;n<sizeof ccmp_rx;n++){s=base;uint8_t *p=malloc(n?n:1);memcpy(p,ccmp_rx,n);assert(!wpa2_ccmp_open(&s,9,p,n,out,2304));zero(out,2304);assert(!s.rx_pairwise[16]);zero(s.scratch,sizeof s.scratch);free(p);}
+ for(unsigned n=0;n<sizeof ccmp_rx;n++){s=base;uint8_t *p=malloc(n?n:1);memcpy(p,ccmp_rx,n);assert(!wpa2_ccmp_verify(&s,9,p,n) && !memcmp(&s,&base,sizeof s));assert(!wpa2_ccmp_open(&s,9,p,n,out,2304));zero(out,2304);assert(!s.rx_pairwise[16]);zero(s.scratch,sizeof s.scratch);free(p);}
  for(unsigned cap=1;cap<sizeof ccmp_data;cap++){s=base;memset(out,0xa5,4096);assert(!wpa2_ccmp_open(&s,9,ccmp_rx,sizeof ccmp_rx,out,cap));zero(out,cap);assert(out[cap]==0xa5 && !s.rx_pairwise[16]);}
  for(unsigned cap=1;cap<sizeof ccmp_tx;cap++){s=base;memset(out,0xa5,4096);assert(!wpa2_ccmp_seal(&s,9,ccmp_tx_header,ccmp_data,sizeof ccmp_data,out,cap));zero(out,cap);assert(out[cap]==0xa5 && !s.tx_pn);}
  s=base;struct wpa2_ccmp old=s;memset(out,0xa5,4096);assert(!wpa2_ccmp_open(&s,10,ccmp_rx,sizeof ccmp_rx,out,2304));assert(!wpa2_ccmp_seal(&s,10,ccmp_tx_header,ccmp_data,sizeof ccmp_data,out,4096));assert(!wpa2_ccmp_retire(&s,10));assert(!memcmp(&s,&old,sizeof s));for(unsigned i=0;i<4096;i++)assert(out[i]==0xa5);

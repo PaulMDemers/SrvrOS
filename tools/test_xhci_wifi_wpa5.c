@@ -29,7 +29,7 @@ static struct {uint64_t ring_phys;void *ring;bool active,input_restored,disabled
 static int wifi_channel_vco5;
 static struct xhci_device device;
 static bool wifi_join5_requested,firmware_command_failed,firmware_command_exact;
-static struct {uint32_t input[128][8],output[32][8],initial_rx[8];uint8_t pages[256][4096];unsigned next,allocations,fail_alloc,alias_alloc,commands,controls,ownership,lose,fail_command,command_mutate,fail_control,fail_send,reply,sends,rx_events,mutate,event_fault,stop_fault,stop_fault_dci,wpa_m3_mutate,child_first,wpa_mutate,toggle_count,toggle_actual,data_mutate,drain_queue,drain_fault;uint64_t time;unsigned slow_console,data_console_calls;uint32_t mac,filter,txop;bool data_flood,data_mode,data_empty,data_bad_mic,data_spoof,data_nonce_fail,quarantine,trace,parent,empty,empty_assoc,reject,reject_assoc,noise,bad_guard,auth_extra,auth_bad_ie,eapol_missing,eapol_bad,eapol_fault,eapol_done,pad,skip_stop,alloc_fail,uncertain_command,wrong_slot,clear_disabled,wpa_m1_done,wpa_m3_done,wpa_nonce_fail,wpa_no_m3,toggle_fail,toggle_lie,host_toggle,device_toggle;}fake;
+static struct {uint32_t input[128][8],output[32][8],initial_rx[8];uint8_t pages[256][4096];unsigned next,allocations,fail_alloc,alias_alloc,commands,controls,ownership,lose,fail_command,command_mutate,fail_control,fail_send,reply,sends,rx_events,mutate,event_fault,stop_fault,stop_fault_dci,wpa_m3_mutate,child_first,wpa_mutate,toggle_count,toggle_actual,data_mutate,drain_queue,drain_fault;uint64_t time;unsigned slow_console,data_console_calls;uint32_t mac,filter,txop;bool data_wapi_once,data_wapi,data_flood,data_mode,data_empty,data_bad_mic,data_spoof,data_nonce_fail,quarantine,trace,parent,empty,empty_assoc,reject,reject_assoc,noise,bad_guard,auth_extra,auth_bad_ie,eapol_missing,eapol_bad,eapol_fault,eapol_done,pad,skip_stop,alloc_fail,uncertain_command,wrong_slot,clear_disabled,wpa_m1_done,wpa_m3_done,wpa_nonce_fail,wpa_no_m3,toggle_fail,toggle_lie,host_toggle,device_toggle;}fake;
 static bool wifi_handoff5_equal(const void *a,const void *b,size_t n){return !memcmp(a,b,n);}
 static bool child_active(void);
 static bool wifi_channel_vco5_owned(void *c){assert(c==&wifi_channel_vco5);fake.ownership++;if(child_active() && !fake.child_first)fake.child_first=fake.ownership;return fake.ownership!=fake.lose && fake.parent && !fake.quarantine;}
@@ -129,6 +129,7 @@ static unsigned data_response(void){
  memcpy(p+36,mpdu,24);memcpy(p+60+pad,mpdu+24,size-24);
  if(fake.data_bad_mic)p[36+pad+size-1]^=1;
  if(fake.data_spoof)p[46]^=2;
+ if(fake.data_wapi || fake.data_wapi_once)p[6]|=4;
  switch(fake.data_mutate){
  case 1:wifi_wpa5.exchange.keys.peer.aa[0]^=2;break;
  case 2:wifi_wpa5.exchange.keys.peer.spa[0]^=2;break;
@@ -141,7 +142,7 @@ static unsigned data_response(void){
  case 9:wifi_wpa5.data_events=WIFI_DATA5_EVENTS+1;break;
  default:break;
  }
- fake.reply=0;return dma+4;
+ if(fake.data_wapi_once){fake.data_wapi_once=false;fake.reply=6;}else fake.reply=0;return dma+4;
 }
 static bool poll_event(struct xhci_trb *e){
  if(LIVE(tx_pending) && fake.sends!=fake.fail_send){uint64_t ptr=LIVE(tx_phys)+16*(LIVE(sends)-1);*e=(struct xhci_trb){ptr,ptr>>32,1u<<24,(32u<<10)|(8u<<16)|((uint32_t)device.slot_id<<24)};fake.output[8][2]=(ptr+16)|1;}

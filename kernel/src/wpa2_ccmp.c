@@ -63,9 +63,10 @@ size_t wpa2_ccmp_seal(struct wpa2_ccmp *s,uint64_t g,const uint8_t h[24],const u
  for(unsigned i=0;i<8;i++)out[32+n+i]=mic[i];
  scrub(rk,sizeof rk);scrub(nn,sizeof nn);scrub(mic,sizeof mic);return 40+n;
 }
-size_t wpa2_ccmp_open(struct wpa2_ccmp *s,uint64_t g,const uint8_t *p,size_t size,uint8_t *out,size_t cap){
- if(!s || !g || g!=s->generation || !out || !cap || cap>WPA2_CCMP_DATA_MAX || overlap(s,sizeof *s,out,cap) || (p && (overlap(s,sizeof *s,p,size) || overlap(out,cap,p,size))))return 0;
- scrub(out,cap);if(s->phase!=WPA2_CCMP_ACTIVE || !p || size<24+8+1+8 || size>26+8+WPA2_CCMP_DATA_MAX+8)return 0;
+static size_t open_packet(struct wpa2_ccmp *s,uint64_t g,const uint8_t *p,size_t size,uint8_t *out,size_t cap,bool publish){
+ if(!s || !g || g!=s->generation || !cap || cap>WPA2_CCMP_DATA_MAX || (publish && (!out || overlap(s,sizeof *s,out,cap))) || (p && (overlap(s,sizeof *s,p,size) || (publish && overlap(out,cap,p,size)))))return 0;
+ if(publish)scrub(out,cap);
+ if(s->phase!=WPA2_CCMP_ACTIVE || !p || size<24+8+1+8 || size>26+8+WPA2_CCMP_DATA_MAX+8)return 0;
  unsigned fc=le16(p),base=fc&~0x3800u;bool qos=base==0x4288;if(base!=0x4208 && !qos)return 0;
  unsigned header=qos?26:24;if(size<header+17 || (le16(p+22)&15) || !equal(p+10,s->peer.aa,6) || !unicast(p+16))return 0;
  bool group=!!(p[4]&1);if(!group && !equal(p+4,s->peer.spa,6))return 0;
@@ -76,8 +77,13 @@ size_t wpa2_ccmp_open(struct wpa2_ccmp *s,uint64_t g,const uint8_t *p,size_t siz
  uint64_t *last=group?&s->rx_group[index]:&s->rx_pairwise[index];size_t n=size-header-16;
  if(!pn || pn<=*last || n>WPA2_CCMP_DATA_MAX || n>cap)return 0;
  uint8_t rk[176],nn[13],mic[8];wpa2_aes128_expand(group?s->gtk:s->tk,rk);nonce(nn,p,tid,pn);ctr(rk,nn,c+8,n,s->scratch);tag(rk,nn,p,qos,s->scratch,n,mic);
- bool ok=equal(mic,c+8+n,8);if(ok){*last=pn;for(size_t i=0;i<n;i++)out[i]=s->scratch[i];}
+ bool ok=equal(mic,c+8+n,8);if(ok && publish){*last=pn;for(size_t i=0;i<n;i++)out[i]=s->scratch[i];}
  scrub(s->scratch,sizeof s->scratch);scrub(rk,sizeof rk);scrub(nn,sizeof nn);scrub(mic,sizeof mic);return ok?n:0;
+}
+size_t wpa2_ccmp_open(struct wpa2_ccmp *s,uint64_t g,const uint8_t *p,size_t n,uint8_t *out,size_t cap){return open_packet(s,g,p,n,out,cap,true);}
+bool wpa2_ccmp_verify(struct wpa2_ccmp *s,uint64_t g,const uint8_t *p,size_t n){
+ if(!s || !zero(s->scratch,sizeof s->scratch))return false;
+ return open_packet(s,g,p,n,0,WPA2_CCMP_DATA_MAX,false)!=0;
 }
 bool wpa2_ccmp_retire(struct wpa2_ccmp *s,uint64_t g){
  if(!s || !g || s->generation!=g || (s->phase!=WPA2_CCMP_INSTALLED && s->phase!=WPA2_CCMP_ACTIVE))return false;

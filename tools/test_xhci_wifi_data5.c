@@ -4,9 +4,10 @@
 #undef main
 int main(int argc,char **argv){
  begin();fake.data_mode=true;
- if((argc==2 || argc==11) && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--trace-drain"))){
+ if((argc==2 || argc==11) && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--trace-drain") || !strcmp(argv[1],"--trace-audit"))){
   if(argc==11){for(unsigned i=0;i<8;i++)fake.initial_rx[i]=strtoull(argv[i+2],0,0);memcpy(fake.output[9],fake.initial_rx,32);device.slot_id=strtoul(argv[10],0,0);}
   if(!strcmp(argv[1],"--trace-drain"))fake.drain_queue=3;
+  if(!strcmp(argv[1],"--trace-audit"))fake.data_wapi_once=true;
   fake.auth_extra=true;fake.trace=true;assert(run());return 0;
  }
  assert(argc==1 && run() && wifi_wpa5.ip.complete && wifi_wpa5.ip.echo && wifi_wpa5.ip.sends==6 && wifi_wpa5.data_sends==6 && wifi_wpa5.data_received==6 && wifi_wpa5.exchange.keys.tx_pn==6);
@@ -24,6 +25,11 @@ int main(int argc,char **argv){
  for(unsigned i=0;i<sizeof wifi_wpa5.ip.tx;i++)assert(!wifi_wpa5.ip.tx[i] && !wifi_wpa5.ip.rx[i]);
  for(unsigned i=0;i<sizeof wifi_wpa5.data_scratch;i++)assert(!((uint8_t *)&wifi_wpa5.data_scratch)[i]);
  for(unsigned i=0;i<sizeof wifi_wpa5.data_usb;i++)assert(!wifi_wpa5.data_usb[i]);
+ begin();fake.data_mode=true;fake.data_wapi_once=true;
+ assert(run() && wifi_wpa5.ip.complete && wifi_wpa5.data_received==6 && wifi_wpa5.data_events==13 && wifi_wpa5.data_event[1].audit==4 && wifi_wpa5.data_event[2].reason==9 && wifi_wpa5.exchange.keys.tx_pn==6);
+ begin();fake.data_mode=true;fake.data_wapi=true;
+ assert(!run() && wifi_wpa5.restored && !fake.quarantine && !wifi_wpa5.ip.offer && !wifi_wpa5.data_received && wifi_wpa5.exchange.keys_erased && wifi_wpa5.exchange.leave_sent);
+ assert(wifi_wpa5.data_events==2 && wifi_wpa5.data_event[1].kind==1 && wifi_wpa5.data_event[1].reason==2 && wifi_wpa5.data_event[1].flags==1024 && wifi_wpa5.data_event[1].audit==4);
  begin();fake.data_mode=true;fake.pad=true;assert(run() && wifi_wpa5.ip.complete);
  /* All forward pages can fill with irrelevant traffic. The same48 slots
   * retain eight cleanup entries;no page/TD reuse or crypto parsing in drain. */

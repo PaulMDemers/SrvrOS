@@ -7450,3 +7450,15 @@ and frozen-peer binding before proposing any acceptance change;do not infer
 WAPI encryption or waive an error gate from its name. Independent MAC/endpoint/
 input and nine-word power originals restored,but full outer RF completion still
 failed. Preserve this failed evidence and all current security/ownership limits.
+
+The sole-WAPI-key-flag path now performs a diagnostic audit while retaining its
+original refusal. `audit` labels0 not applicable,1 header/span refusal,2 peer
+refusal,3 strict CCMP refusal,4 verified without publication. The shared
+`wpa2_ccmp_verify` runs the same header/key-ID/replay/MIC engine on the original
+exclusive live context,requires idle zero scratch and leaves the entire context
+unchanged. It neither copies keys nor returns plaintext nor commits PN floors;
+scratch and temporary expanded keys are scrubbed. No audit runs when another
+forbidden hardware bit is present. Native ownership checks surround polling.
+Even audit4 still returns no Ethernet and cannot count as an accepted IP reply.
+The flag's hardware meaning remains unresolved;this is a nonpublishing probe,
+not a changed cipher/error/admission policy.

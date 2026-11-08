@@ -38,7 +38,10 @@ def validate_data(lines,handshake_sends,old_rx,owner,result):
  valid=[]
  for i,line in enumerate(receives):
   a=fields(line,'wifi-data5-rx')
-  require(set(a)=={'index','bytes','ethernet','present','view','reason','flags','frame'} and a['index']==len(old_rx)+i and 0<=a['bytes']<=4096 and a['present'] in (0,1) and 0<=a['view']<=3 and 1<=a['reason']<=9,'wrong data RX schema/order')
+  require(set(a)=={'index','bytes','ethernet','present','view','reason','flags','frame','audit'} and a['index']==len(old_rx)+i and 0<=a['bytes']<=4096 and a['present'] in (0,1) and 0<=a['view']<=3 and 1<=a['reason']<=9,'wrong data RX schema/order')
+  require(0<=a['audit']<=4 and (a['reason']==2 and a['flags']==1024 or a['audit']==0),'invalid nonpublishing audit')
+  if a['audit']>=2:require(a['frame']==12,'audit beyond supported protected header')
+  if a['reason']==2 and a['flags']==1024:require(a['audit']>=1,'missing sole-WAPI flag audit')
   require(0<=a['flags']<=4095 and 0<=a['frame']<=14,'invalid receive metadata')
   if a['reason']==2:require(a['flags']>0,'missing forbidden RX flags')
   if a['reason']>=3:require(a['flags']==0,'forbidden flags bypassed')

@@ -26,6 +26,7 @@ for name, result, args in (
  ('wpa2_hs_take_keys', C.c_bool, [V,G,V]), ('wpa2_hs_install_result', C.c_bool, [V,G,C.c_int]),
  ('wpa2_ccmp_install', C.c_bool, [V,V,V]), ('wpa2_ccmp_activate', C.c_bool, [V,V]),
  ('wpa2_ccmp_seal', N, [V,G,V,V,N,V,N]), ('wpa2_ccmp_open', N, [V,G,V,N,V,N]),
+ ('wpa2_ccmp_verify', C.c_bool, [V,G,V,N]),
  ('wpa2_ccmp_retire', C.c_bool, [V,G]), ('wpa2_ccmp_erased', C.c_bool, [V,G]),
 ):
  f=getattr(lib,name);f.restype,f.argtypes=result,args
@@ -47,6 +48,8 @@ assert lib.wpa2_hs_install_result(C.byref(h),9,0);emit(M4);assert lib.wpa2_ccmp_
 base=bytes(s)
 def fresh():return CCMP.from_buffer_copy(base)
 def open_packet(ctx,frame,expected=None,cap=2304):
+ old=bytes(ctx);verified=lib.wpa2_ccmp_verify(C.byref(ctx),9,buf(frame),len(frame));assert bytes(ctx)==old
+ assert verified==(expected is not None if cap==2304 else True)
  out=(U8*cap)(*([0xa5]*cap));oldpn=(list(ctx.rx_pairwise),list(ctx.rx_group));n=lib.wpa2_ccmp_open(C.byref(ctx),9,buf(frame),len(frame),out,cap)
  if expected is None:
   assert n==0 and not any(out) and oldpn==(list(ctx.rx_pairwise),list(ctx.rx_group))
