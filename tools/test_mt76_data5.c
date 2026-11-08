@@ -81,21 +81,24 @@ int main(void){
   assert(!memcmp(out,p+4,6) && !memcmp(out+6,p+16,6) && !memcmp(out+12,ccmp_data+6,n-12));zero(out+n,sizeof out-n);zero(&scratch,sizeof scratch);
   struct wpa2_ccmp used=keys;assert(!mt76_data5_rx(&scratch,&keys,9,usb,size,out,sizeof out));zero(out,sizeof out);assert(!memcmp(&keys,&used,sizeof keys));
  }
- /* Sole WAPI-key flag stays refused even with valid peer/MIC. The same
-  * original synthetic key context and replay floors survive every audit. */
+ /* Empirically valid sole metadata bit:strict precheck plus ordinary open.
+  * Tests use public synthetic keys only;native code never copies live keys. */
  for(unsigned group=0;group<2;group++)for(unsigned pad=0;pad<2;pad++){
   const uint8_t *packet=group?ccmp_group:ccmp_rx;size_t count=group?sizeof ccmp_group:sizeof ccmp_rx;
-  keys=base;size=usb_rx(usb,packet,count,pad);usb[6]|=4;
-  for(unsigned repeat=0;repeat<2;repeat++){
-   struct mt76_data5_rx_result a=mt76_data5_rx_report(&scratch,&keys,9,usb,size,out,sizeof out);
-   assert(!a.bytes && a.reason==MT76_DATA5_FLAGS && a.flags==1024 && a.audit==MT76_DATA5_AUDIT_VERIFIED && !memcmp(&keys,&base,sizeof keys));zero(out,sizeof out);zero(&scratch,sizeof scratch);
-  }
-  memcpy(bad,usb,size);bad[46]^=2;struct mt76_data5_rx_result a=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(a.audit==MT76_DATA5_AUDIT_PEER && !memcmp(&keys,&base,sizeof keys));
-  memcpy(bad,usb,size);bad[36+(pad?2:0)+count-1]^=1;a=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(a.audit==MT76_DATA5_AUDIT_CCMP && !memcmp(&keys,&base,sizeof keys));
-  memcpy(bad,usb,size);bad[4]|=1;a=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(a.audit==MT76_DATA5_AUDIT_NONE && !memcmp(&keys,&base,sizeof keys));
-  memcpy(bad,usb,size);put16(bad+36,0x80);a=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(a.audit==MT76_DATA5_AUDIT_HEADER && !memcmp(&keys,&base,sizeof keys));
-  usb[6]&=~4u;assert(mt76_data5_rx(&scratch,&keys,9,usb,size,out,sizeof out)==n);
-  struct wpa2_ccmp used=keys;usb[6]|=4;a=mt76_data5_rx_report(&scratch,&keys,9,usb,size,out,sizeof out);assert(!a.bytes && a.audit==MT76_DATA5_AUDIT_CCMP && !memcmp(&keys,&used,sizeof keys));zero(out,sizeof out);
+  size=usb_rx(usb,packet,count,pad);usb[6]|=4;keys=base;
+  struct mt76_data5_rx_result a=mt76_data5_rx_report(&scratch,&keys,9,usb,size,out,sizeof out);
+  assert(a.bytes==n && a.reason==MT76_DATA5_OK && a.flags==1024 && a.audit==4);zero(&scratch,sizeof scratch);
+  struct wpa2_ccmp used=keys;a=mt76_data5_rx_report(&scratch,&keys,9,usb,size,out,sizeof out);
+  assert(!a.bytes && a.audit==3 && !memcmp(&keys,&used,sizeof keys));zero(out,sizeof out);
+  usb[6]&=~4u;assert(!mt76_data5_rx(&scratch,&keys,9,usb,size,out,sizeof out) && !memcmp(&keys,&used,sizeof keys));usb[6]|=4;
+  keys=base;memcpy(bad,usb,size);bad[46]^=2;a=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!a.bytes && a.audit==2 && !memcmp(&keys,&base,sizeof keys));
+  memcpy(bad,usb,size);bad[36+(pad?2:0)+count-1]^=1;a=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!a.bytes && a.audit==3 && !memcmp(&keys,&base,sizeof keys));
+  memcpy(bad,usb,size);put16(bad+36,0x80);a=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!a.bytes && a.audit==1 && !memcmp(&keys,&base,sizeof keys));
+  const unsigned bits[]={0,2,3,8,9,10,11,12,15,16,19,20,21};
+  for(unsigned b=0;b<13;b++){memcpy(bad,usb,size);bad[4+bits[b]/8]|=1u<<(bits[b]%8);a=mt76_data5_rx_report(&scratch,&keys,9,bad,size,out,sizeof out);assert(!a.bytes && a.audit==0 && !memcmp(&keys,&base,sizeof keys));zero(out,sizeof out);}
+  memset(out,0xa5,sizeof out);a=mt76_data5_rx_report(&scratch,&keys,9,usb,size,out,n-1);assert(!a.bytes && a.reason==5 && a.audit==4 && !memcmp(&keys,&base,sizeof keys));zero(out,n-1);assert(out[n-1]==0xa5);
+  assert(mt76_data5_rx(&scratch,&keys,9,usb,size,out,sizeof out)==n);used=keys;
+  a=mt76_data5_rx_report(&scratch,&keys,9,usb,size,out,sizeof out);assert(!a.bytes && a.audit==3 && !memcmp(&keys,&used,sizeof keys));zero(out,sizeof out);
  }
  /* Classifications share the same parser and cryptographic acceptance. */
  keys=base;size=usb_rx(usb,ccmp_rx,sizeof ccmp_rx,false);
@@ -126,7 +129,7 @@ int main(void){
   }
  }
  for(unsigned bit=0;bit<32;bit++)if((1u|(1u<<2)|(1u<<3)|(7u<<8)|(1u<<11)|(1u<<12)|(1u<<15)|(1u<<16)|(1u<<18)|(7u<<19))&(1u<<bit)){
-  keys=base;memcpy(bad,usb,size);bad[4+bit/8]|=1u<<(bit%8);assert(!mt76_data5_rx(&scratch,&keys,9,bad,size,out,sizeof out));assert(!keys.rx_pairwise[16]);
+  keys=base;memcpy(bad,usb,size);bad[4+bit/8]|=1u<<(bit%8);size_t got=mt76_data5_rx(&scratch,&keys,9,bad,size,out,sizeof out);if(bit==18)assert(got==n && keys.rx_pairwise[16]==1);else assert(!got && !keys.rx_pairwise[16]);
  }
  for(size_t len=0;len<size;len++){
   uint8_t *shortened=malloc(len?len:1);memcpy(shortened,usb,len);keys=base;

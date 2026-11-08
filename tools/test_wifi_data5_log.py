@@ -10,10 +10,10 @@ class Tests(unittest.TestCase):
   with patch.object(parent,'parent',return_value={}):return c.check('\n'.join(rows))
  def test_trace(self):
   r=self.check(self.rows());self.assertTrue(r['data5_complete']);self.assertEqual(r['data5_echo_bytes'],256)
- def test_nonpublishing_audit(self):
+ def test_verified_sole_bit_admission(self):
   rows=self.rows(subprocess.check_output(['build/tests/xhci-data5-host','--trace-audit'],text=True).splitlines());self.assertTrue(self.check(rows)['data5_complete'])
   index=next(i for i,x in enumerate(rows) if x.startswith('wifi-data5-rx:') and 'audit=4' in x)
-  for key,value in [('audit',0),('audit',5),('flags',0),('flags',1025),('frame',11),('reason',9),('ethernet',42),('present',1)]:
+  for key,value in [('audit',0),('audit',5),('flags',0),('flags',1025),('frame',11),('reason',2),('ethernet',42),('present',0)]:
    bad=rows.copy();bad[index]=re.sub(r'\b'+key+r'=\d+',key+'='+str(value),bad[index])
    with self.subTest(key=key),self.assertRaises((AssertionError,ValueError)):self.check(bad)
  def test_retained_cleanup(self):

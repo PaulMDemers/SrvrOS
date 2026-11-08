@@ -39,12 +39,13 @@ def validate_data(lines,handshake_sends,old_rx,owner,result):
  for i,line in enumerate(receives):
   a=fields(line,'wifi-data5-rx')
   require(set(a)=={'index','bytes','ethernet','present','view','reason','flags','frame','audit'} and a['index']==len(old_rx)+i and 0<=a['bytes']<=4096 and a['present'] in (0,1) and 0<=a['view']<=3 and 1<=a['reason']<=9,'wrong data RX schema/order')
-  require(0<=a['audit']<=4 and (a['reason']==2 and a['flags']==1024 or a['audit']==0),'invalid nonpublishing audit')
+  require(0<=a['audit']<=4 and 0<=a['flags']<=4095 and 0<=a['frame']<=14,'invalid receive metadata')
+  if a['flags']==1024 and a['reason']==2:require(1<=a['audit']<=3,'missing or inconsistent refused precheck')
+  elif a['flags']==1024 and a['reason'] in (5,8,9):require(a['audit']==4 and a['frame']==12,'unverified sole-bit admission')
+  else:require(a['audit']==0,'unexpected verification receipt')
   if a['audit']>=2:require(a['frame']==12,'audit beyond supported protected header')
-  if a['reason']==2 and a['flags']==1024:require(a['audit']>=1,'missing sole-WAPI flag audit')
-  require(0<=a['flags']<=4095 and 0<=a['frame']<=14,'invalid receive metadata')
   if a['reason']==2:require(a['flags']>0,'missing forbidden RX flags')
-  if a['reason']>=3:require(a['flags']==0,'forbidden flags bypassed')
+  if a['reason']>=3:require(a['flags']==0 or (a['flags']==1024 and a['audit']==4 and a['reason'] in (5,8,9)),'forbidden flags bypassed')
   if a['reason']==4:require(a['frame'] not in (0,12),'inconsistent refused frame class')
   if a['reason']>=5:require(a['frame']==12,'unsupported frame class bypassed')
   require(lines.index(sends[0])<lines.index(line)<lines.index(summaries[0]),'data receive outside window')
@@ -54,7 +55,7 @@ def validate_data(lines,handshake_sends,old_rx,owner,result):
   else:require(a['reason']!=9 and a['present']==a['ethernet']==0,'invalid data view leaked plaintext')
  require(len(valid)==v['received'],'authenticated data receive count differs')
  for phase,line in enumerate(dhcp):
-  c=fields(line,'wifi-data5-dhcp');actual=sum(lines.index(sends[phase])<lines.index(rx)<lines.index(sends[phase+1]) for rx in valid)
+  c=fields(line,'wifi-data5-dhcp');require(any(lines.index(sends[phase])<lines.index(rx)<lines.index(sends[phase+1]) and fields(rx,'wifi-data5-rx')['ethernet']>=(316 if phase else 292) for rx in valid),'matched DHCP below minimum wire size');actual=sum(lines.index(sends[phase])<lines.index(rx)<lines.index(sends[phase+1]) for rx in valid)
   require(sum(c[k] for k in DHCP_FIELDS)==actual,'DHCP classifications do not match authenticated phase frames')
  for i,line in enumerate(sends):
   end=sends[i+1] if i<5 else summaries[0]

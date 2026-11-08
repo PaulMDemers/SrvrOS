@@ -64,8 +64,9 @@ static void metadata(const uint8_t *usb,size_t n,struct mt76_data5_rx_result *r)
  unsigned body=(unsigned)p[10]<<8|p[11];
  if(body>=95 && body<=length-header-12)r->frame=MT76_DATA5_EAPOL_KEY;
 }
-/* The sole WAPI-key bit remains forbidden. Audit only;never deliver plaintext,
- * consume PN,copy keys or invoke this path for actual error/aggregate flags. */
+/* Sole metadata-bit precheck:never deliver plaintext,consume PN or copy keys.
+ * Only the ordinary strict receive path below can publish/commit afterward.
+ * Never invoke this path for actual error/aggregate flags. */
 static enum mt76_data5_audit audit_flagged(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t g,const uint8_t *wi,unsigned dma,size_t mpdu,size_t pad){
  if(mpdu<48 || mpdu>sizeof s->mpdu || mpdu>dma-32 || pad>dma-32-mpdu)return MT76_DATA5_AUDIT_HEADER;
  const uint8_t *h=wi+32;unsigned base=le16(h)&~0x3800u;bool qos=base==0x4288;
@@ -86,7 +87,11 @@ static size_t receive(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t 
  const uint8_t *wi=usb+4;uint32_t info=le32(wi);size_t mpdu=(le32(wi+4)>>16)&0x3fff,pad=(info&(1u<<14))?2:0;
  *reason=MT76_DATA5_FLAGS;
  uint32_t forbidden=info&(1u|(1u<<2)|(1u<<3)|(7u<<8)|(1u<<11)|(1u<<12)|(1u<<15)|(1u<<16)|(1u<<18)|(7u<<19));
- if(forbidden){if(forbidden==(1u<<18))report->audit=audit_flagged(s,k,g,wi,dma,mpdu,pad);goto done;}
+ if(forbidden){
+  if(forbidden!=(1u<<18))goto done;
+  report->audit=audit_flagged(s,k,g,wi,dma,mpdu,pad);
+  if(report->audit!=MT76_DATA5_AUDIT_VERIFIED)goto done;
+ }
  *reason=MT76_DATA5_SHAPE;
  if(mpdu<24+16+8 || mpdu>sizeof s->mpdu || mpdu>dma-32 || pad>dma-32-mpdu)goto done;
  const uint8_t *h=wi+32;unsigned fc=le16(h),base=fc&~0x3800u;bool qos=base==0x4288;

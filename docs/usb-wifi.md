@@ -7451,15 +7451,16 @@ WAPI encryption or waive an error gate from its name. Independent MAC/endpoint/
 input and nine-word power originals restored,but full outer RF completion still
 failed. Preserve this failed evidence and all current security/ownership limits.
 
-The sole-WAPI-key-flag path now performs a diagnostic audit while retaining its
-original refusal. `audit` labels0 not applicable,1 header/span refusal,2 peer
+The initial sole-WAPI-key-flag diagnostic retained its original refusal;the
+strictly verified admission below supersedes that policy. `audit` labels0 not applicable,1 header/span refusal,2 peer
 refusal,3 strict CCMP refusal,4 verified without publication. The shared
 `wpa2_ccmp_verify` runs the same header/key-ID/replay/MIC engine on the original
 exclusive live context,requires idle zero scratch and leaves the entire context
 unchanged. It neither copies keys nor returns plaintext nor commits PN floors;
 scratch and temporary expanded keys are scrubbed. No audit runs when another
 forbidden hardware bit is present. Native ownership checks surround polling.
-Even audit4 still returns no Ethernet and cannot count as an accepted IP reply.
+In that first diagnostic,even audit4 returned no Ethernet and could not count
+as an accepted IP reply.
 The flag's hardware meaning remains unresolved;this is a nonpublishing probe,
 not a changed cipher/error/admission policy.
 
@@ -7475,3 +7476,15 @@ after the same strict header/peer/key-ID/replay/MIC checks,with exactly one
 ordinary PN commit and no WAPI cipher/hardware activation. All actual error/
 aggregate/decrypted/stripped-PN flags and IP/ownership/retirement gates stay
 mandatory. Preserve this failed capsule separately from future candidates.
+
+The current sole-bit policy proceeds only after that exact WAPI-key metadata
+bit is the only forbidden field and the strict verification-only precheck
+returns audit4. It then repeats the unchanged ordinary header/CCMP/LLC path,
+which commits RX PN once only after MIC success and publishes supported
+Ethernet. Metadata retains flags1024/audit4;reason9 identifies actual Ethernet
+delivery. Failed prechecks,all mixed error flags,CRC/ICV/MIC,aggregation,hardware
+decryption/stripped PN,peer/key-ID/replay/header/LLC and capacity refusals remain.
+No WAPI cipher/hardware support is enabled. This narrow software path follows
+the observed native valid-CCMP frame;it does not infer valid IP/DHCP from a MIC.
+Saved logs require the verified sole-bit combination and complete IP/retirement
+proof,including a plausible minimum size for each matched DHCP phase.

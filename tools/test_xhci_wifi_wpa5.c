@@ -142,7 +142,7 @@ static unsigned data_response(void){
  case 9:wifi_wpa5.data_events=WIFI_DATA5_EVENTS+1;break;
  default:break;
  }
- if(fake.data_wapi_once){fake.data_wapi_once=false;fake.reply=6;}else fake.reply=0;return dma+4;
+ fake.data_wapi_once=false;fake.reply=0;return dma+4;
 }
 static bool poll_event(struct xhci_trb *e){
  if(LIVE(tx_pending) && fake.sends!=fake.fail_send){uint64_t ptr=LIVE(tx_phys)+16*(LIVE(sends)-1);*e=(struct xhci_trb){ptr,ptr>>32,1u<<24,(32u<<10)|(8u<<16)|((uint32_t)device.slot_id<<24)};fake.output[8][2]=(ptr+16)|1;}

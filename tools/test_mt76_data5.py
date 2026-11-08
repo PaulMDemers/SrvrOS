@@ -40,12 +40,12 @@ for index, length in enumerate(lengths):
         assert not any(output[got:]) and not any(bytes(scratch)) and k.tx_pn == pn
     for group in (False,True):
         for tid in (None,0,1,7):
-            for pad in (0,2):
+            for pad,metadata in ((0,0),(2,0),(0,1<<18),(2,1<<18)):
                 k = fresh();pn = RSC+1 if group else 1
                 hh = header(group=group,tid=tid,seq=seq,flags=(0,0x800,0x3800)[index%3])
                 mpdu = encrypt(hh,plain,GTK if group else PTK[32:],pn,1 if group else 0)
                 hs = len(hh);dma = (32+len(mpdu)+pad+3)&~3
-                wi = struct.pack('<II',0x2092 | (0x4000 if pad else 0),len(mpdu)<<16)+bytes(24)
+                wi = struct.pack('<II',0x2092 | metadata | (0x4000 if pad else 0),len(mpdu)<<16)+bytes(24)
                 usb = struct.pack('<I',dma)+wi+mpdu[:hs]+bytes(pad)+mpdu[hs:]+bytes(dma-32-len(mpdu)-pad)
                 want = hh[4:10]+hh[16:22]+proto+payload
                 out = (U8*1514)()
