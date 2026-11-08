@@ -9437,3 +9437,37 @@ with its complete independent backup retained. Existing current/accepted/recover
 payloads remain protected. Recovery stays `c35475f62f154f1e` and Ubuntu remains
 the default. Installation/one-shot state is recorded locally; no native result
 is claimed here. Collect the matching session after return before another run.
+
+### Native user timer-return stress acceptance (2026-11-08)
+
+PR421's runtime `fac79995`, release `ca0e7e313136e985`, completed run
+`4ae9cc9dd6264da3` in session `session-00065fca0d377865-00` and returned to
+Ubuntu automatically. The exact-source1800-second stress passes the original
+500ms desktop-loop and10s launch/close limits, with no integrity/ownership
+relaxation. All56109 retained loop samples are valid, with zero excursions and
+maximum130032us, versus752295us/21 excursions on the preceding source.
+The1080 app cycles reach maximum launch1485617us and close2789154us, with zero
+lifecycle errors. The worst loop is now129884us of ordinary GUI waiting;
+its scheduler companion records97389us blocked,32462us READY and zero I/O
+exclusions. Its render/capture suffixes take25/10us with neither worker busy.
+This is acceptance of this native workload, not proof of every scheduling path
+or attribution of the preceding run's unknown I/O owner.
+
+Playback at1% supplies345763840 PCM bytes with zero recorded underruns and
+worker status0. Disk work completes3857 verified bursts/1011089408 bytes across
+the live playback interval; text and binary receipts agree. Three1366x768 BMPs
+decode, follow-up Files activity succeeds, and screenshot/app/cache/battery
+workers retire with clean desktop exit and unmount. Audible quality remains
+pending human confirmation. Screenshot completion itself remains slow under
+load: maximum43.499249s, pixel receive7.318272s and cleanup90.761ms. The original
+loop/lifetime requirements pass; this does not claim fast screenshot saves.
+
+All661 prior files survive with only expected `.srvros/meta` changes; nine new
+logs/receipts/images produce670 files/2046 clusters. Offline fsck and independent
+allocation checks pass with zero leaks, mismatches or errors. Matching session
+hashes, receipt predicates, timing companions, decoded images and the complete
+619-file return backup were independently verified; reviewed evidence is retained
+outside `build`. Installed/staged/independent payload and retained recovery
+verify. The collector is disabled and the one-shot consumed; no reboot is armed.
+Next bounded performance follow-up is screenshot encode/write completion under
+load, retaining the accepted responsive desktop and all existing limits.
