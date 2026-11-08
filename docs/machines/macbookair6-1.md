@@ -2,10 +2,11 @@
 
 Updated: 2026-11-07. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
-Current diagnostic milestone: exact-source pre-user window-only mapping and
-verified retirement are physically accepted in77.402ms under the unchanged
-100ms lifetime, with zero target accesses. This grants no register-read or
-hardware ownership permission; see the dated native acceptance below.
+Current diagnostic milestone: exact-source pre-user two-pass A-preseeded
+zero-load qualification is physically accepted in82.610/82.379ms under each
+unchanged100ms lifetime, with identical raw borrowed graphs and verified
+retirement/claim release. This grants no register-read or hardware ownership
+permission; see the dated native acceptance below.
 
 ## Initial inventory (2026-10-22)
 
@@ -66,7 +67,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
 | Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Bounded mounted Home Text/Start/Stop session accepted; three-minute continuous Home capture accepted; attended desktop AC transitions accepted; longer endurance and gauge accuracy remain open; ordinary startup stays off |
-| VT-d diagnostic window | Exact-source pre-user RO/NX/UC mapping and verified retirement accepted in77.402ms; claim released, zero target reads/writes | Fresh guarded register-read admission and A/D contract remain open; no device ownership; ordinary desktop regression for changed registry pending |
+| VT-d diagnostic window | Single-window qualification accepted; two fresh A-preseeded zero-load passes now accepted in82.610/82.379ms with exact raw graph equality, 12 markers/pass and verified retirement/claim release | Guarded target-register read caller remains unimplemented; no device ownership; ordinary desktop regression for changed registry pending |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -8765,3 +8766,68 @@ coverage for current-pass output first-touch. Preserve exact raw comparison,
 all integrity checks and every existing time/word/source/gap limit. No target
 register reads, power policy changes or hardware ownership are authorized by
 this result. Earlier accepted window-only evidence remains unchanged.
+
+### Both-pass evidence first-touch fix scope (2026-11-07)
+
+Base `ac8c2d5b`; PR409 records the failed native two-pass qualification.
+Bounded scope is `air61_read_window.inc` and its host regression: charge
+first-touch of the complete two-pass private context, including pass0 evidence
+output, to pass0 before its census. Preserve same-value writes, per-page live
+clock/root guards, phase ordering and exact raw graph comparisons. No source
+or policy limits change. PR301/PR19 retain their independent device scopes;
+no overlapping implementation is claimed. Rebuild matched artifacts, run
+core/sanitizer/portable and staged VM checks, then self-merge and run one
+unattended native qualification with verified recovery and persistent records.
+
+Frozen runtime `f8e16123` passes matched normal/AP/two-pass/USB/ISO builds and
+full core tests, including89 installed-root tests and one expected opt-in
+skip. The backend regression observes guarded stores across both complete
+private contexts and refuses deadline/root changes in either half or at the
+final byte before census/allocation. ASan/UBSan passes the complete backend
+regression; restoring next-pass-only priming in an isolated fixture is rejected
+by the new coverage assertion. Native images contain no observer callback.
+
+Eighteen bridge and four combined-producer sanitizer modes, both ARM64 fixture
+links, real joint saved-session proofs, all eleven sequential diagnostic VM
+cases and five ordinary boot/syscall/keyboard/fork/exec/yield VMs pass. Exact
+v7 payload `517661c4c5a9627f` passes unsupported-hardware refusal and
+missing-workspace rehearsal. All source, word, clock and exact-bit checks
+remain unchanged; native acceptance is pending its matching collected return.
+
+The unreferenced older ECAM EFI copy `ab360d3ce2d281e4` was retired only after
+verifying its independent complete backup and absence from active/recovery/GRUB
+references. Current/recovery and accepted window `92d9f134639f509c` remain
+verified and intact. The USB baseline is631 files with clean offline allocation.
+
+### Native two-pass zero-load qualification accepted (2026-11-07)
+
+PR410 runtime `f8e16123`, merge `ff189e75`, payload `517661c4c5a9627f`,
+session `session-00065fb921c0ecf0-00` completes strict joint ECAM/R1/independent
+source-and-exit validation and returns to Ubuntu automatically. Independent
+replay of the collected raw files reproduces the pass. Both complete claimed
+lifetimes are82610/82379us, each below100000us, using53673 mapper words and
+30 census tables per pass. The measured slot gap is81700us, within the
+unchanged20000–100000us bound. Each pass retains all12 zero-load path markers,
+exact before/after words and complete raw census/gate evidence.
+
+The two borrowed graphs are now exactly identical, including raw A/D bits.
+Both mappings retire with verified frame ownership, claim release and no
+target reads/writes. The earlier independent source-to-first-claim snapshots
+retain171 one-way hardware A/D promotions under the existing relation; these
+are distinct from the exact within-claim and cross-pass comparisons. No masks,
+clock exclusions, census/word limits or policy changes were introduced. The
+prior PR408 trial remains a historical failed qualification.
+
+All631 prior USB files remain present and unchanged except expected filesystem
+metadata; four new logs make635 files/1715 clusters. Offline fsck/allocation
+passes with zero leaks or FAT/bitmap mismatches. Matching raw evidence and the
+complete payload are independently hash-verified outside `build`, alongside
+the retained accepted single-window and recovery payloads. Ubuntu default is
+unchanged, the one-shot is empty, collection is disabled and no boot is armed.
+
+Acceptance covers only this exact pre-user CPU mapping/retirement qualification
+with zero target loads. It supplies no register-read or hardware ownership
+grant and no sibling acceptance. Next scope is a separately guarded read-only
+register caller preserving the audited12-DWORD/two-sample contract and all
+existing limits. Ordinary native desktop regression for the earlier shared
+registry change remains separate pending work.
