@@ -9056,3 +9056,17 @@ full-interval register stability, that RTADDR points to a loaded table, device
 ownership, or permission for register writes/root-table walking. Next: audit the
 sampled capability/control values and define a separately gated next operation;
 ordinary desktop regression for the shared mapping registry remains pending.
+
+### Read-only capability interpretation audit scope (2026-11-07)
+
+Base `f1fd3f33`, after PR415 acceptance. Scope: add a host-only audit of the
+same-session strict R2/ECAM/exit receipt, decode a bounded subset of legacy
+VT-d capability/status fields against Intel's register reference, retain input
+hashes, and document the next prerequisite. No new kernel mapping, MMIO read,
+register write, table dereference, device ownership or power-policy change.
+Synthetic decoder checks must remain distinct from native evidence. PR301,
+PR19 and PR379 retain their existing independent implementation scopes.
+Native replay must use the accepted release/session directly, without test
+firmware pins. Preserve Ubuntu/recovery and the accepted payload; no reboot is
+needed for interpreting already captured bytes. A future physical operation
+requires its own explicit scope, exact-stage tests and fresh admission.
