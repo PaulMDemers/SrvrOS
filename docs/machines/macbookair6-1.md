@@ -9471,3 +9471,15 @@ outside `build`. Installed/staged/independent payload and retained recovery
 verify. The collector is disabled and the one-shot consumed; no reboot is armed.
 Next bounded performance follow-up is screenshot encode/write completion under
 load, retaining the accepted responsive desktop and all existing limits.
+
+### Bounded audible check scope (2026-11-08)
+
+On base `825a79a9`, the user requests a louder approximately30-second check
+because the preceding1% run was not audible/not listened to. Prepare an explicit
+listening-only capture: five bundled six-second left/right/stereo WAV plays at
+25%, automatic Stop/retirement and saved diagnostics before Ubuntu return.
+Keep ordinary boot, the accepted1800-second stress and all existing timing and
+hardware gates unchanged; no battery/AML or disk/app stress is requested here.
+Touch only explicit capture orchestration/staging and its regression/rehearsal.
+The current native stress remains accepted for recorded checks; subjective
+quality is unassessed. No new physical result is claimed by this scope.
