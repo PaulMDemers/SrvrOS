@@ -14635,3 +14635,20 @@ validate such a frame without publishing it or weakening the existing gate.
 Do not enable a cipher,ignore error bits,copy/reinstall active keys,accept foreign
 frames,or enlarge/reuse the ring based on this observation. Ordinary provider/UI,
 TCP/HTTP and live reattach remain pending. PR19 stays draft;Actions stay disabled.
+
+### WAPI-key-flag nonpublishing verification scope (November 7)
+
+Fetched main09ad7c23 (isolated Air6,1 sampler/v8 qualification) and inspected
+PR301/379 scope;no Wi-Fi/CCMP overlap. Retain a1661937. The pinned Linux header
+defines WAPI_KEY separately from CRC/ICV/MIC errors,but its meaning is not yet
+proved for the observed frame. Keep its existing rejection gate. Add a shared
+CCMP verification-only entry through the same strict parser/MIC engine,using
+the same exclusive live key owner and scrubbed scratch,without key copying,
+plaintext output or RX/TX PN changes. Native diagnostic applies only when the
+sole forbidden bit is WAPI_KEY,with bounded supported MPDU/header and explicit
+peer binding. Record only unavailable/header/peer/CCMP/verified categories. Even
+verified frames remain refused and unpublished. Freeze ownership around the
+probe;test bit-for-bit key/PN context preservation,independent valid/corrupt/
+replay fixtures and native fault cleanup. No new hardware/cipher/filter writes,
+packet values,key lifecycle authority or larger receive/time budgets. Qualify
+a matched automatic cold image before physical claims.
