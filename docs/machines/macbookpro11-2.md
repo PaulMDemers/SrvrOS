@@ -15054,3 +15054,29 @@ transfer,then UI connect/disconnect and live USB reattach,while retaining the
 accepted payload and exact crypto/ownership/retirement bounds. Demers2.4 needs
 compatible hardware. Workspace unmounted,Ubuntu default,no next boot armed.
 PR19 stays draft;Actions remain disabled.
+
+
+### Nonblocking Wi-Fi provider lifetime scope (November 8)
+
+Accepted source77f75af0/releasee17ff9e2fb15fb2c stays installed and unchanged.
+Actual mainf94d97d1 and open PR419/301/379 were inspected;desktop attribution,
+graphics and browser work do not overlap. Retain consumed a1661937. New bounded
+scope is a dormant mt76_net5 provider/lifetime module and directed tests against
+the real net_device registry. No native enablement,boot-provider reselection or
+hardware ring reuse is granted by these software tests.
+
+Existing net callbacks must not wait for USB completion,and net_init seals
+provider selection before today's diagnostic starts. Add a four-frame copied
+TX queue,one token-bound pending transfer,750ms deadline,nonblocking transport
+callbacks and receive delivery that permits nested reply enqueue. Disconnect
+must stop publication/drop unsent plaintext while retaining pending ownership
+and callback-borrowed buffers. Require external transport/key/hardware retirement
+proof before releasing its context. A stable boot provider can then attach a
+strictly newer connection epoch without registry reselection;permanent retirement
+must drain registry callbacks. Do not copy/install/erase CCMP keys in this layer.
+Native transport must continue to own the original exclusive crypto context and
+supply only authenticated normalized Ethernet. Test queue pressure,copy lifetime,
+reentrant delivery/disconnect,completion identity/time,context release/reattach,
+owner loss and permanent retirement. No speed/duplex/readiness claim without
+native proof. Touch only new module/header,Makefile tests and current guides/unit
+record;preserve v131 paths and all accepted DMA/crypto/restoration bounds.
