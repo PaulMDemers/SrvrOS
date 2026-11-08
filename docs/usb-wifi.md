@@ -7502,3 +7502,24 @@ A match suggests forwarding of this request under the authenticated AP context;
 it does not prove DHCP server receipt or a valid OFFER. A nonmatch does not
 prove loss,because a bridge may change packet fields. No send,retry,wait,receive
 budget,crypto or ownership/retirement policy changes accompany this diagnostic.
+
+
+The first complete native v131 data lifetime on Pro11,2 now passes six encrypted
+requests at PN1..6:strict DHCP DORA,two ARP resolutions,example.com DNS and the
+matching256-byte gateway echo,with eight authenticated Ethernet deliveries.
+Two extra request copies match the private fingerprint/length comparison and
+remain UDP-ports refusals;they are not server replies. Software key erasure,
+local leave submission and every endpoint/input/MAC/power/RF original,complete
+saved prefix,offline filesystem/allocation and Ubuntu recovery pass. See the
+[machine record](machines/macbookpro11-2.md) for exact source/release/session and
+independent sealed evidence. Inherited parent `authenticated=false` and
+`network_out=0` fields do not describe the new data child;the explicit data5
+proof and WPA ip_data receipt do. Generic firmware NOT_TESTED text is not a
+substitute for those strict profile checks.
+
+This accepts one bounded native lifetime. The fingerprint-only change does not
+prove the cause of success or repair earlier intermittent failures. Repeatability,
+ordinary provider/connection lifetime,TCP/HTTP,sustained traffic,UI connect/
+disconnect and live reattach are still open. Local leave completion is not a
+wire-ACK observation. Keep prior failures and all crypto/ownership/restoration
+and40/48/time limits;Demers2.4 still needs compatible hardware.

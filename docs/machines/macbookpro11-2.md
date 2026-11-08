@@ -1,11 +1,35 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-07. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-11-08. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet accepted;one bounded5GHz encrypted DHCP/DNS/256-byte echo run with full restoration accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
+
+Native v131 runtime77f75af0,releasee17ff9e2fb15fb2c,session00065fc82df02680-00
+passes encrypted DHCP DORA,ARP,DNS and a matching256-byte gateway echo with
+PN1..6,software key erasure/local leave submission and complete endpoint/input/
+MAC/power/RF restoration. The190-file capsule and separate accepted notes survive
+outside build. This is one bounded native pass;earlier intermittent failures
+remain failed and repeatability is unaccepted. Fingerprint-only diagnostics do
+not establish the cause of this success. See the November8 acceptance at the end.
+
+Next preserve this payload,prove repeatability,and build ordinary provider/
+connection lifetime,TCP/HTTP and UI connect/disconnect/live reattach. The captured
+7392:a711/0100 EW-7711MAC is5GHz-only;Demers2.4 needs compatible hardware. Current
+source retains maina1661937;actual main ec27e55b was inspected but not consumed.
+Other machines' graphics,VT-d and browser work remain independent;no cross-chat
+contact is authorized. Credentials/private PMK remain local and never logged.
+
+Cold unplug is still required:under standing user authorization,shutdown when
+qualified,unplug only Wi-Fi10seconds while off,reconnect same port,power on and
+leave workspace attached. Results save and Ubuntu return is automatic;no commands,
+photos or repeated approval. Collect the exact new session first after return.
+Current workspace unmounted,Ubuntu default,one-shot consumed,unarmed. PR19 draft;
+Actions disabled.
+
+## Earlier handoff (superseded November 8)
 
 The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 [corrected Wi-Fi scope](../usb-wifi.md). Generic Linux/EEPROM band hints were
@@ -14910,3 +14934,46 @@ byte echo,PN1..6,key erasure/leave and every endpoint/input/MAC/power/RF origina
 plus filesystem/recovery proof,for full acceptance. Ordinary provider/UI,TCP/HTTP
 and live reattach remain pending;Demers2.4 needs compatible hardware. PR19 stays
 draft;Actions disabled. Standing automatic shutdown authorization is retained.
+
+
+### v131 native encrypted DHCP/DNS/data acceptance (November 8)
+
+Runtime77f75af0,releasee17ff9e2fb15fb2c,session00065fc82df02680-00
+saved2,042,123bytes and returned automatically. The full15719-operation common/
+calibration parent and strict new-data proof pass. Independent AUTH/ASSOC,M1,
+M3 MIC,local M4 and unique software-key activation pass. All six encrypted
+requests complete exactly once at PN1..6:DHCP DISCOVER/REQUEST,ARP for DNS hop,
+example.com DNS,ARP for router and matching256-byte gateway echo. OFFER and ACK
+pass unchanged Ethernet/IP/UDP/BOOTP/xid/station/options/server/address checks;
+DNS and echo pass their unchanged binding/checksum/payload gates. This is real
+native encrypted bidirectional data,not the earlier synthetic fixtures.
+
+The23-event deferred transcript contains six sends and17 data RX completions
+(indices5..21):six beacon,three action and eight authenticated Ethernet frames.
+Four deliveries have sole-bit flags1024/audit4;four have no forbidden flags.
+Both DHCP phases have one matched server reply and one UDP-ports refusal with
+reflected1:the private current-request SHA256/length comparison matched that
+received Ethernet. These are two refused copies of our requests,not extra
+OFFER/ACK receipts. Neither fingerprints nor packet/address/xid/key values were
+logged. ARP matches twice;IP completes in70 polls with two ignored frames,
+exhausted0,unsafe0. Exchange elapsed294,607us. Fingerprint-only diagnostics do
+not demonstrate a causal correction or eliminate earlier intermittent failures.
+
+Software keys erased and local leave submitted. MAC disable,TX/RX quiet and
+filter/TXOP originals pass:54operations,46reads,7writes,one wait and10,635us
+hold. All six endpoint commands and endpoint/input originals restore (phase9).
+Forward22,cleanup-drained2,posts25 preserve the unchanged40/48 bounds. All nine
+power originals restore511. Full outer RF status0,complete1,valid1,restored1 and
+common firmware/laptop completion markers pass. The inherited parent fields
+`authenticated=false`/`network_out=0` and generic firmware text are not the new
+data proof;explicit `data5_*`,WPA `ip_data=1` and matching full receipts carry
+this scoped acceptance. Leave's over-air ACK is not directly observed.
+
+The190-file immutable native capsule is sealed outside build. Separate accepted
+notes revalidate the frozen strict proof,installed/backup equality,offline fsck/
+allocation and Ubuntu default/unarmed state. Prior failures and v130/M1 accepted
+capsules retain their original seals. This accepts one bounded encrypted DORA/
+DNS/256-byte echo lifetime with full restoration;repeatability,ordinary provider/
+connection/UI lifetime,TCP/HTTP,sustained transfer and live USB reattach remain
+pending. Keep this accepted payload as the data foundation. Demers2.4 requires
+compatible hardware. No new boot is armed;PR19 stays draft,Actions disabled.
