@@ -65,8 +65,13 @@ static bool ecam_test_event(unsigned event,unsigned n){
  if(event==4 && free_fail)return false;
  return !(event_fault==event && event_index==n);
 }
+#ifdef READ_COMBINED_FIXTURE
+#define SRVROS_AIR61_READ_WINDOW
+#endif
 #ifdef WINDOW_COMBINED_FIXTURE
+#ifndef READ_ONLY_COMBINED_FIXTURE
 #define SRVROS_AIR61_WINDOW
+#endif
 #define SRVROS_AIR61_WINDOW_HOST_TEST
 static bool aw_test_load(uint64_t pa,unsigned i,uint64_t *v){return ecam_test_load(pa,i,v);}
 static uint64_t aw_test_virtual(uint64_t pa){return ecam_test_virtual(pa);}
@@ -86,7 +91,12 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t m,enum pmm_frame_tag 
  if(alloc_fail)return 0;
  if(alloc_borrowed)return 0x2001000;
 #ifdef WINDOW_COMBINED_FIXTURE
- unsigned f=4+allocs;assert(f<ECAM_TEST_FRAMES);tags[f]=tag;return 0x2000000+4096*f;
+#ifdef READ_COMBINED_FIXTURE
+ unsigned f=allocs==1?5:6;while(f<8 && tags[f]==PMM_FRAME_PAGE_TABLE)f++;assert(f<8);
+#else
+ unsigned f=4+allocs;
+#endif
+ assert(f<ECAM_TEST_FRAMES);tags[f]=tag;return 0x2000000+4096*f;
 #else
  tags[5]=tag;return 0x2005000;
 #endif
@@ -118,7 +128,7 @@ static void reset(void){
  stage_mutation=0;
  memset(checks,0,sizeof(checks));cr3=0x2000000;irq_flags=2;
  kernel_cr3=cr3;kernel_pml4=pages[0];kernel_mapping_count=0;address_space_count=0;
- memset(kernel_mappings,0,sizeof(kernel_mappings));memset(address_space_records,0,sizeof(address_space_records));memset(address_spaces,0,sizeof(address_spaces));
+ memset(kernel_mappings,0,sizeof(kernel_mappings));address_space_occupancy=0;memset(address_space_records,0,sizeof(address_space_records));memset(address_spaces,0,sizeof(address_spaces));
  pages[0][384]=0x2001003;pages[0][256]=0x2002003;
  pages[2][0]=0x2003003;pages[3][16]=0x2004003;
  for(unsigned i=0;i<ECAM_TEST_FRAMES;i++)pages[4][i]=(0x2000000+4096*i)|3;

@@ -15453,3 +15453,17 @@ No runtime source,installed payload,credential,USB workspace or boot state chang
 Main63036859 is reviewed/not yet consumed;merge/qualification is the next serial
 integration prerequisite. Ordinary RX,TCP/HTTP,lifecycle/UI and reliability remain
 open;these software results add no native acceptance. No boot is armed.
+
+### Persistent transport engine implementation scope (November 8)
+
+Proceed under the explicit parallel-completion request. Merge actual main63036859
+into the local branch,preserving all Pro WPA/data/provider/reuse flags and the
+upstream scheduler/audio/Air diagnostic paths. Parent owns Makefile/docs and
+serial matched-build/regressions;two subagents resolve disjoint main/staging
+conflicts. A third implements the nonblocking production boundary-fence engine
+and standalone tests in new mt76_fence5 files. Engine validation consumes exact
+command/event/context records,not an unchecked boolean wrap grant. Native xHCI
+binding and boundary crossing remain separately unaccepted until exact-owner
+fixtures and physical evidence. No source changes authorize a test by themselves.
+Installed3c9b55a76fc9a38a/native576/review12 remain immutable and recoverable;
+Ubuntu default,no boot armed. No credentials or hardware state delegated.

@@ -3,12 +3,14 @@
 ## Status
 
 Source audit on `4bba4b93`, after accepted boot capture `ab360d3ce2d281e4`.
-A dormant AP-only VMM window backend is now implemented and host-tested.
-An explicit v6 window-only admission bridge and retained receipt profile now
-exist in the AP image; native acceptance is pending. Target access remains absent.
-The [ECAM/root capture](macbookair6-1-ecam-mapping-design.md) removes a diagnostic
-blocker; it does not grant a device resource. The backend qualifications below precede a fresh admission bridge and a
-window-only profile; a native register-read caller remains a later milestone.
+The AP-only checked backend and explicit v6 admission bridge now have native
+window-only qualification: release `92d9f134639f509c`, source `cca4d31f`, completed
+mapping and verified retirement/claim release in77.402ms within100ms. Complete
+raw30-table census and matching ecam/window/exit receipts are retained. Target
+access remains absent and no register-read, global resource or ownership grant
+follows. The [ECAM/root capture](macbookair6-1-ecam-mapping-design.md) remains a
+separate prerequisite. A guarded register-read caller and its explicit A/D and
+live-admission contract are later milestones; saved receipts cannot grant them.
 
 ## Evidence and remaining obligations
 
@@ -122,6 +124,10 @@ including `nx_enablement_proven`; historical NX is reported separately.
 
 ## Dormant backend implementation
 
+This section retains the initial PR396 dormant-backend checkpoint. The v6
+bridge and current native mapping-only qualification supersede its pending
+integration status below; register-read admission remains separate.
+
 [`air61_window.inc`](../kernel/src/memory/air61_window.inc) is included only by
 the dedicated diagnostic VMM build. The ordinary VMM instruction/relocation
 output remains identical and excludes the new entrypoints. The AP ELF retains
@@ -175,7 +181,9 @@ tokens, failures before/after parent writes and clearing, readback corruption,
 changed A/D/permissions/physical entries, root/IRQ/frame ownership changes,
 reentry and partial cleanup with poison that survives retry. The fixture is
 also checked under ASan/UBSan and compiled for ARM64 with assertions enabled.
-Native lifetime, gate and caller qualification remain pending.
+At that checkpoint native lifetime, gate and caller qualification were pending.
+Current window-only lifetime/gate qualification is recorded in Status; a
+register-read caller remains pending.
 
 
 ## Explicit v6 window-only integration
@@ -248,3 +256,36 @@ remain unchanged. `hsw-window-cost` records clock/load/guard/RAM/logical counts
 and gate/census timestamps already observed, including failed outcomes, without
 extra measurement I/O. Older receipts remain readable with cost unavailable;
 new trials require the cost record independently of strict mapping proof.
+
+
+### Authoritative occupancy and source-row indexing
+
+The VMM's64 live occupancy flags reside in one authoritative bitmap. All slot
+selection, lookup, registration and removal use that source; no per-record used
+flag or duplicate empty-registry cache remains. Atomic bit updates preserve the
+other slots. The sole-root predicate retains every IRQ/CR3/kernel-root/count
+check and reads the entire bitmap live, including count/bitmap contradictions.
+Record/table capacities and lifecycle ordering are unchanged. This shared
+representation update needs matched generic VMM and guest regressions.
+
+Only the window gate indexes its already fully validated immutable private
+catalog snapshot. A sorted permutation of original row indices makes the same
+unique full-page/type predicate logarithmic; each call reads actual row bounds
+and type. The validated nonoverlap invariant proves uniqueness. The index
+caches no classification, pointer or permission; stale count/invalid indices
+refuse, and fresh whole-catalog continuation comparisons remain unchanged.
+Early ECAM uses its original scanner. `ram_steps` extends the optional cost
+record with row comparisons; previous records remain readable without it.
+Native trials require the new field along with the full raw proof. No alias,
+ownership, clock, word, table or data limits change.
+
+
+## Guarded read-caller audit (2026-11-07)
+
+The [next caller audit](macbookair6-1-vtd-read-caller-audit.md) records the strict
+A-preseeded path proposal, two independent100ms lifetimes and the inter-sample
+gap including teardown/fresh preparation. It also exposes a4096-byte firmware
+guard budget conflict in a naive read wrapper. The host models/replay grant no
+live permission; an actual-source dormant backend and separate no-target-load
+qualification are required before a read-enabled adapter. This changes no
+accepted v6 kernel or its one-attempt/raw/poison contract.

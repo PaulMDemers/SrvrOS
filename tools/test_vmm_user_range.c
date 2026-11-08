@@ -40,6 +40,7 @@ static void exec_check(uint64_t address,uint64_t root,bool expected)
     struct address_space_record records[VMM_MAX_ADDRESS_SPACES];
     uint64_t spaces[VMM_MAX_ADDRESS_SPACES];
     for(unsigned i=0;i<4;i++) memcpy(saved[i],exec_tables[i],4096);
+    uint64_t registry_occupancy=address_space_occupancy;
     memcpy(records,address_space_records,sizeof(records));memcpy(spaces,address_spaces,sizeof(spaces));
     uint64_t old_cr3=test_cr3,old_kernel=kernel_cr3,old_count=address_space_count;
     uint64_t old_flags=test_rflags,old_efer=test_efer;
@@ -47,6 +48,7 @@ static void exec_check(uint64_t address,uint64_t root,bool expected)
     unsigned old_switches=switches,old_retire=retire_count;
     assert(vmm_user_exec_current(address,root)==expected);
     for(unsigned i=0;i<4;i++) assert(!memcmp(saved[i],exec_tables[i],4096));
+    assert(address_space_occupancy==registry_occupancy);
     assert(!memcmp(records,address_space_records,sizeof(records)) && !memcmp(spaces,address_spaces,sizeof(spaces)));
     assert(test_cr3==old_cr3 && kernel_cr3==old_kernel && address_space_count==old_count);
     assert(test_rflags==old_flags && test_efer==old_efer && test_maxext==old_max && test_nx==old_nx);
@@ -62,7 +64,7 @@ static void test_executable_query(void)
     pml4[0]=(uint64_t)pdpt|u;pdpt[0]=(uint64_t)pd|u;pd[0]=(uint64_t)pt|u;pt[1]=0x1000|u;
     kernel_cr3=0x1000;test_cr3=root;test_rflags=0x46;test_maxext=0x80000001u;test_nx=(1u<<20)|(1u<<26);test_efer=1u<<11;
     address_spaces[0]=root;address_space_count=1;
-    address_space_records[0]=(struct address_space_record){.used=true,.root=root};
+    address_space_set_occupied(0,true);address_space_records[0]=(struct address_space_record){.root=root};
     exec_check(0x1000,root,true);
     test_nx=1u<<20;exec_check(0x1000,root,true);test_nx=(1u<<20)|(1u<<26);
     pt[1]&=~VMM_PAGE_WRITABLE;exec_check(0x1000,root,true);pt[1]|=VMM_PAGE_WRITABLE;
@@ -107,7 +109,7 @@ static void test_executable_query(void)
     test_cr3=root+4096;exec_check(0x1000,root,false);test_cr3=root;
     test_cr3=0x9000;unsigned unread_tables=table_reads;
     exec_check(0x1000,0x9000,false);assert(table_reads==unread_tables);test_cr3=root;
-    address_space_records[0].used=false;exec_check(0x1000,root,false);address_space_records[0].used=true;
+    address_space_set_occupied(0,false);exec_check(0x1000,root,false);address_space_set_occupied(0,true);
     kernel_cr3=root;exec_check(0x1000,root,false);kernel_cr3=0x1000;
     test_rflags=0x246;exec_check(0x1000,root,false);test_rflags=0x46;
     unsigned e=efer_calls,t=table_reads;
@@ -115,7 +117,7 @@ static void test_executable_query(void)
     test_maxext=0x80000001u;test_nx=1u<<29;exec_check(0x1000,root,false);assert(efer_calls==e && table_reads==t);
     test_nx=1u<<26;exec_check(0x1000,root,false);assert(efer_calls==e && table_reads==t);
     test_nx=1u<<20;test_efer=(1u<<8)|(1u<<10);exec_check(0x1000,root,false);assert(efer_calls==e+1 && table_reads==t);
-    memset(address_spaces,0,sizeof(address_spaces));memset(address_space_records,0,sizeof(address_space_records));
+    memset(address_spaces,0,sizeof(address_spaces));address_space_occupancy=0;memset(address_space_records,0,sizeof(address_space_records));
     address_space_count=0;kernel_cr3=0;test_cr3=0;test_efer=1u<<11;
     for(unsigned i=0;i<4;i++) free(exec_tables[i]);
     puts("vmm-executable-host: PASS (unwired query)");
@@ -178,7 +180,7 @@ int main(void) {
     kernel_cr3=(uint64_t)pml4;
     const uint64_t root=0x8000;
     address_spaces[0]=root;address_space_count=1;
-    address_space_records[0]=(struct address_space_record){.used=true,.root=root,
+    address_space_set_occupied(0,true);address_space_records[0]=(struct address_space_record){.root=root,
         .tables={0x9000,0xa000},.table_count=2};
     test_cr3=root;
     vmm_destroy_address_space(root);

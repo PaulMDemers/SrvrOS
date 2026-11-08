@@ -58,6 +58,7 @@ static void check(uint64_t target,bool expected)
     for(unsigned i=0;i<5;i++)memcpy(saved[i],tables[i],4096);
     memcpy(maps,kernel_mappings,sizeof(maps));memcpy(records,address_space_records,sizeof(records));
     memcpy(spaces,address_spaces,sizeof(spaces));
+    uint64_t registry_occupancy=address_space_occupancy;
     uint64_t count=kernel_mapping_count,space_count=address_space_count,flags=test_flags,efer=test_efer;
     uint32_t max=test_max,features=test_features;unsigned sw=switches,al=allocs,fr=frees;
     assert(vmm_prepare_user_kernel_mappings(target)==expected);
@@ -67,6 +68,7 @@ static void check(uint64_t target,bool expected)
     assert(!memcmp(saved[4],tables[4],2048));
     if(expected)assert(!memcmp(tables[4]+256,tables[0]+256,2048));
     else assert(!memcmp(saved[4]+256,tables[4]+256,2048));
+    assert(address_space_occupancy==registry_occupancy);
     assert(!memcmp(maps,kernel_mappings,sizeof(maps)) && !memcmp(records,address_space_records,sizeof(records)));
     assert(!memcmp(spaces,address_spaces,sizeof(spaces)) && kernel_mapping_count==count && address_space_count==space_count);
     assert(test_cr3==saved_cr3 && kernel_cr3==saved_kernel && test_flags==flags && test_efer==efer);
@@ -85,8 +87,8 @@ static void reset_mapping(void)
     kernel_mapping_count=1;kernel_mappings[0]=(struct kernel_mapping){va,0x2000,VMM_PAGE_WRITABLE};
     kernel_cr3=(uint64_t)tables[0];kernel_pml4=tables[0];test_cr3=kernel_cr3;test_flags=0x46;
     test_max=0x80000001u;test_features=(1u<<20)|(1u<<26);test_efer=1ull<<11;
-    memset(address_space_records,0,sizeof(address_space_records));memset(address_spaces,0,sizeof(address_spaces));
-    address_space_records[0]=(struct address_space_record){.used=true,.root=root(),.tables={0x123000},.table_count=1};
+    address_space_occupancy=0;memset(address_space_records,0,sizeof(address_space_records));memset(address_spaces,0,sizeof(address_spaces));
+    address_space_set_occupied(0,true);address_space_records[0]=(struct address_space_record){.root=root(),.tables={0x123000},.table_count=1};
     address_spaces[0]=root();address_space_count=1;
 }
 static void create_tests(void)
@@ -94,7 +96,7 @@ static void create_tests(void)
     uint64_t kernel_snapshot[4][512];
     for(unsigned initial_if=0;initial_if<2;initial_if++) {
         reset_mapping();memset(address_spaces,0,sizeof(address_spaces));
-        memset(address_space_records,0,sizeof(address_space_records));address_space_count=0;
+        address_space_occupancy=0;memset(address_space_records,0,sizeof(address_space_records));address_space_count=0;
         uint64_t out=UINT64_MAX;
         create_mode=true;create_frame=root();create_output=&out;create_alloc_failure=false;
         create_initial_flags=initial_if?0x246:0x46;test_flags=create_initial_flags;
@@ -111,7 +113,7 @@ static void create_tests(void)
         create_mode=false;
     }
     reset_mapping();memset(address_spaces,0,sizeof(address_spaces));
-    memset(address_space_records,0,sizeof(address_space_records));address_space_count=0;
+    address_space_occupancy=0;memset(address_space_records,0,sizeof(address_space_records));address_space_count=0;
     uint64_t out=UINT64_MAX;create_mode=true;create_frame=root();create_output=&out;
     create_initial_flags=test_flags=0x246;create_expected_output=0;create_alloc_failure=true;
     unsigned a=allocs,f=frees,s=irq_saves,r=irq_restores;
@@ -131,7 +133,7 @@ static void create_tests(void)
     reset_mapping();kernel_mapping_count=1;address_space_count=VMM_MAX_ADDRESS_SPACES;
     for(unsigned i=0;i<VMM_MAX_ADDRESS_SPACES;i++) {
         address_spaces[i]=0x100000+(uint64_t)i*4096;
-        address_space_records[i]=(struct address_space_record){.used=true,.root=address_spaces[i]};
+        address_space_set_occupied(i,true);address_space_records[i]=(struct address_space_record){.root=address_spaces[i]};
     }
     uint64_t spaces[VMM_MAX_ADDRESS_SPACES];struct address_space_record records[VMM_MAX_ADDRESS_SPACES];
     memcpy(spaces,address_spaces,sizeof(spaces));memcpy(records,address_space_records,sizeof(records));
@@ -153,7 +155,7 @@ int main(void)
         assert(tables[i]!=MAP_FAILED);memset(tables[i],0xa5,host_page);
     }
     reset_mapping();
-    address_space_count=0;memset(address_space_records,0,sizeof(address_space_records));
+    address_space_count=0;address_space_occupancy=0;memset(address_space_records,0,sizeof(address_space_records));
     test_cr3=kernel_cr3;test_flags=2;
     assert(vmm_diagnostic_sole_kernel_root(kernel_cr3));
     assert(!vmm_diagnostic_sole_kernel_root(0));
@@ -161,7 +163,21 @@ int main(void)
     test_flags|=1ull<<9;assert(!vmm_diagnostic_sole_kernel_root(kernel_cr3));test_flags=2;
     test_cr3|=1;assert(!vmm_diagnostic_sole_kernel_root(kernel_cr3));test_cr3=kernel_cr3;
     address_space_count=1;assert(!vmm_diagnostic_sole_kernel_root(kernel_cr3));address_space_count=0;
-    address_space_records[63].used=true;assert(!vmm_diagnostic_sole_kernel_root(kernel_cr3));address_space_records[63].used=false;
+    for(unsigned bit=0;bit<64;bit++){
+        address_space_set_occupied(bit,true);assert(!vmm_diagnostic_sole_kernel_root(kernel_cr3));
+        address_space_set_occupied(bit,false);assert(vmm_diagnostic_sole_kernel_root(kernel_cr3));
+    }
+    address_space_occupancy=UINT64_MAX;assert(!vmm_diagnostic_sole_kernel_root(kernel_cr3));address_space_occupancy=0;
+    for(unsigned i=0;i<64;i++)assert(register_address_space(0x4000000+i*4096));
+    assert(address_space_count==64 && address_space_occupancy==UINT64_MAX);
+    assert(!register_address_space(0x5000000));
+    for(unsigned i=0;i<64;i++){
+        unsigned slot=(i*17)&63;uint64_t bit=1ull<<slot;
+        assert(find_address_space_record(0x4000000+slot*4096));
+        uint64_t before=address_space_occupancy;unregister_address_space(0x4000000+slot*4096);
+        assert(address_space_occupancy==(before&~bit) && !find_address_space_record(0x4000000+slot*4096));
+    }
+    assert(!address_space_count && !address_space_occupancy && vmm_diagnostic_sole_kernel_root(kernel_cr3));
     reset_mapping();check(root(),true); /* Inactive differing target copies. */
     create_tests();reset_mapping();check(root(),true);
     test_cr3=root()|5;
@@ -234,7 +250,7 @@ int main(void)
     reset_mapping();kernel_mapping_count=VMM_MAX_KERNEL_MAPPINGS+1;check(root(),false);
     reset_mapping();test_flags=0x246;check(root(),false);test_flags=0x46;
     check(0,false);check(root()|1,false);check(root()|(1ull<<63),false);check(kernel_cr3,false);
-    address_space_records[0].used=false;check(root(),false);address_space_records[0].used=true;
+    address_space_set_occupied(0,false);check(root(),false);address_space_set_occupied(0,true);
     kernel_pml4=NULL;check(root(),false);kernel_pml4=tables[0];
     kernel_pml4=tables[1];check(root(),false);kernel_pml4=tables[0];
     kernel_cr3|=1;check(root(),false);kernel_cr3&=~1ull;

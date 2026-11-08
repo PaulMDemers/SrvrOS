@@ -18,6 +18,8 @@ from mk_usb_image import Fat32Builder, ESP_TYPE, gpt_entry, gpt_header
 from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_qmp_key, has_fatal_exception
 
 
+HFW_PROFILES=tuple(f"ram-usb-v{i}-hfw-" for i in range(1,9))
+
 def make_disk(path, loader, source, release, extra_files=None):
     # Same paths and filesystem UUID search as the host entry; only the UUID differs.
     size = 384 * 1024 * 1024
@@ -169,7 +171,7 @@ def main():
     wifi_firmware=wifi_firmware or wifi_ui_capture or wifi_5ghz_prereq
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
-    hfw_capture=bool(probe and manifest["config_version"].startswith(tuple(f"ram-usb-v{i}-hfw-" for i in range(1,7))))
+    hfw_capture=bool(probe and manifest["config_version"].startswith(HFW_PROFILES))
     hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-")))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
@@ -177,6 +179,7 @@ def main():
     if args.ap_inject and not (ap_capture or (coord_capture and args.ap_c3_sim)): parser.error("AP injection requires AP diagnostic/simulation")
     if args.ap_inject and args.ap_inject.startswith("c3-") and not args.ap_c3_sim: parser.error("C3 injections require simulation")
     cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
+    audio_listen=bool(probe and manifest["config_version"].startswith("ram-usb-v1-audio-listen-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
@@ -246,7 +249,7 @@ def main():
         device_checks=bool(desktop and manifest["config_version"].startswith("ram-usb-v58-"))
         if network_desktop or device_checks or args.probe_network:
             command += ["-nic","none","-netdev","user,id=ecm","-device","usb-net,netdev=ecm,bus=xhci.0,id=usbnet"]
-        if args.audio_check:
+        if args.audio_check or audio_listen:
             command += ["-device","ich9-intel-hda","-device",f"hda-duplex,audiodev=capture,use-timer={args.audio_codec_timer}","-trace","enable=hda_audio_overrun",
                 "-audiodev",f"wav,id=capture,path={logs/'hardware-grub-tone.wav'},out.frequency=48000"]
         if workspace and not args.probe_missing_workspace:
@@ -392,7 +395,7 @@ def main():
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
                     if battery_preflight: assert "battery-preflight: REFUSED identity/resources; no register access" in text
-                    elif not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or posix_capture or ap_capture or hsw_capture or hfw_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    elif not (audio_listen or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or posix_capture or ap_capture or hsw_capture or hfw_capture): assert "laptop-probe: unsupported chipset; no register access" in text
                     if keyboard_retry and args.keyboard_fail: assert "keyboard-test: retries=10" in text
                     if keyboard_retry and args.keyboard_timeout: assert "keyboard-test: timeout step=1 limit_seconds=90" in text
                     if keyboard_capture:
@@ -419,7 +422,7 @@ def main():
                         assert release.encode() in contents
                         if keyboard_capture and filename=="exit.log":
                             assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
-                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or posix_capture or ap_capture or hsw_capture or hfw_capture):
+                        if not (audio_listen or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or posix_capture or ap_capture or hsw_capture or hfw_capture):
                             assert (b"battery-preflight: REFUSED identity/resources; no register access" if battery_preflight else b"laptop-probe: unsupported chipset") in contents
                             assert b"USB INPUT DIAGNOSTIC" in contents
                             assert b"xhci: vendor=" in contents
@@ -455,19 +458,33 @@ def main():
                         result=firmware_result(exit_log)
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         assert 'laptop-capture: completed=NO' in exit_log
-                        if manifest['config_version'].startswith(tuple(f'ram-usb-v{i}-hfw-' for i in range(2,7))):
+                        if manifest['config_version'].startswith(HFW_PROFILES[1:]):
                             from hardware_haswell_cache import cache_result
-                            if manifest['config_version'].startswith(('ram-usb-v4-hfw-','ram-usb-v5-hfw-','ram-usb-v6-hfw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v4-hfw-','ram-usb-v5-hfw-','ram-usb-v6-hfw-','ram-usb-v7-hfw-','ram-usb-v8-hfw-')):
                                 from hardware_haswell_alias import alias_preinit_result
                                 assert alias_preinit_result(exit_log)['status']=='REFUSED'
                                 assert text.index('hsw-alias-progress: capturing before')<text.index('init: started pid=')<text.index('hsw-alias:')
-                            if manifest['config_version'].startswith(('ram-usb-v5-hfw-','ram-usb-v6-hfw-')):
+                            if manifest['config_version'].startswith(('ram-usb-v5-hfw-','ram-usb-v6-hfw-','ram-usb-v7-hfw-','ram-usb-v8-hfw-')):
                                 from hardware_haswell_ecam import ecam_result
                                 ecam_log=stored.read(folder+'/ecam.log').decode()
                                 result=ecam_result(ecam_log,exit_log,folder.split('/')[-1])
                                 assert result and result['status']=='REFUSED' and not result['source_completed']
                                 assert text.index('ecam-boot-progress:')<text.index('pci:')<text.index('hsw-alias-progress:')
                                 (logs/'laptop-capture-ecam.log').write_text(ecam_log)
+                                if manifest['config_version'].startswith('ram-usb-v8-hfw-'):
+                                    from hardware_air61_register_sample import sample_result
+                                    read_log=stored.read(folder+'/window.log').decode()
+                                    w=sample_result(read_log,ecam_log,exit_log,folder.split('/')[-1])
+                                    assert w and w['status']=='REFUSED' and not w['source_completed'] and w['target_reads']==0
+                                    assert text.index('hsw-alias-progress:')<text.index('init: started pid=')
+                                    (logs/'laptop-capture-sample.log').write_text(read_log)
+                                if manifest['config_version'].startswith('ram-usb-v7-hfw-'):
+                                    from hardware_air61_read_qualification import read_result
+                                    read_log=stored.read(folder+'/window.log').decode()
+                                    w=read_result(read_log,ecam_log,exit_log,folder.split('/')[-1])
+                                    assert w and w['status']=='REFUSED' and not w['source_completed']
+                                    assert text.index('hsw-alias-progress:')<text.index('init: started pid=')
+                                    (logs/'laptop-capture-read.log').write_text(read_log)
                                 if manifest['config_version'].startswith('ram-usb-v6-hfw-'):
                                     from hardware_air61_window import window_result
                                     window_log=stored.read(folder+'/window.log').decode()
@@ -574,6 +591,14 @@ def main():
                             contents=stored.read(folder+"/"+filename)
                             assert b"workspace-scheduler:" in contents
                             (logs/("laptop-capture-"+filename)).write_bytes(contents)
+                    if audio_listen:
+                        exit_log=stored.read(folder+"/exit.log").decode()
+                        proof=re.search(r"audio-listen: result=PASS plays=5 seconds=30 volume=25 bytes=5760000 underruns=0 elapsed_us=(\d+) stopped=yes quiet=yes",exit_log)
+                        assert proof and 30000000<=int(proof[1])<35000000
+                        assert len(re.findall(r"playwav: complete bytes=1152000 underruns=0",text))==5
+                        assert "laptop-capture: completed=yes" in exit_log
+                        assert "srvros.battery=on" not in text and "srvros.aml=probe" not in text
+                        (logs/'audio-listen-result.json').write_text(json.dumps(dict(status='PASS',elapsed_us=int(proof[1]),plays=5,volume=25,bytes=5760000,underruns=0,native_acceptance=False),indent=2)+'\n')
                     if posix_capture:
                         from posix_capture_result import capture_result
                         proof=capture_result(stored.read(folder+"/exit.log").decode())
@@ -618,7 +643,7 @@ def main():
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_home_work":battery_home_work,"battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "haswell_firmware_capture":hfw_capture,"haswell_backing_capture":hsw_capture,"ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (hfw_capture or hsw_capture or ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"wifi_capture":wifi_capture,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "haswell_firmware_capture":hfw_capture,"haswell_backing_capture":hsw_capture,"ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (hfw_capture or hsw_capture or ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"audio_listen":audio_listen,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"wifi_capture":wifi_capture,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "held Wi-Fi failure" if wifi_firmware and not auto_return else "automatic reset"))

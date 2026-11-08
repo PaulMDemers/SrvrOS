@@ -2418,7 +2418,7 @@ build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c shared/inc
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
 test-desktop: build/tests/desktop-session-host$(HOST_EXE)
-build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/presentation.h userspace/deskd/loop_timing.h userspace/deskd/registry.h userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/desk_capture_job.h userspace/playwav/io_stress_volume.h userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/widgets/render/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
+build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/presentation.h userspace/deskd/loop_timing.h userspace/deskd/render_timing.h userspace/deskd/registry.h userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/desk_capture_job.h userspace/playwav/io_stress_volume.h userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/widgets/render/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_session.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/deskd/clipboard.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -Wl,--gc-sections -o $@
 
@@ -5472,11 +5472,12 @@ build/ap-probe/haswell-firmware-adapter.o: kernel/diagnostics/haswell_firmware_a
 
 .PHONY: test-haswell-firmware
 test-core: test-haswell-firmware
-test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-firmware-adapter$(HOST_EXE) build/tests/ecam-profile$(HOST_EXE)
+test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-firmware-adapter$(HOST_EXE) build/tests/ecam-profile$(HOST_EXE) build/tests/air61-window-combined$(HOST_EXE)
 	build/tests/hsw-firmware-core$(HOST_EXE) > build/tests/hsw-firmware-core.log
 	build/tests/hsw-firmware-adapter$(HOST_EXE) > build/tests/hsw-firmware-refusal.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_firmware.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_read_audit.py
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_read_lifetime_audit.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_admission_audit.py
 build/tests/hsw-firmware-core$(HOST_EXE): tools/test_haswell_firmware.c kernel/diagnostics/haswell_firmware_core.c kernel/include/srvros/haswell_firmware.h
 	@mkdir -p $(@D)
@@ -5976,3 +5977,116 @@ test-xhci-rx5: build/tests/xhci-rx5-host$(HOST_EXE)
 build/tests/xhci-rx5-host$(HOST_EXE): tools/test_xhci_wifi_rx5.c tools/test_xhci_wifi_wpa5.c kernel/src/drivers/xhci_wifi_wpa5.inc kernel/src/drivers/xhci_wifi_provider5.inc kernel/src/drivers/xhci_wifi_reuse5.inc kernel/src/drivers/mt76_dma5.c $(WPA5_SOURCES) $(KERNEL_HEADERS) kernel/src/net_device.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c build/tests/mt76-net5-rx5.o
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< kernel/src/drivers/mt76_dma5.c $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c build/tests/mt76-net5-rx5.o -o $@
+
+.PHONY: test-air61-read-window air61-read-window-object
+test-core: test-air61-read-window
+test-air61-read-window: build/tests/air61-read-window$(HOST_EXE)
+	$<
+AIR61_READ_TEST_UNITS := kernel/diagnostics/haswell_alias_core.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c
+build/tests/air61-read-gate0.o: tools/test_air61_read_gate.c kernel/diagnostics/air61_read_gate_instance.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include -DAIR61_READ_GATE_PASS=0 -c $< -o $@
+build/tests/air61-read-gate1.o: tools/test_air61_read_gate.c kernel/diagnostics/air61_read_gate_instance.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include -DAIR61_READ_GATE_PASS=1 -c $< -o $@
+build/tests/air61-read-window$(HOST_EXE): tools/test_air61_read_window.c tools/test_air61_window_profile.c tools/test_air61_window.c kernel/src/memory/vmm.c kernel/src/memory/air61_window.inc kernel/src/memory/air61_read_window.inc build/tests/air61-read-gate0.o build/tests/air61-read-gate1.o $(AIR61_READ_TEST_UNITS) $(KERNEL_HEADERS)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< build/tests/air61-read-gate0.o build/tests/air61-read-gate1.o $(AIR61_READ_TEST_UNITS) -Wl,--gc-sections -o $@
+air61-read-window-object: build/air61-read-window/vmm.o
+build/air61-read-window/vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/src/memory/air61_window.inc kernel/src/memory/air61_read_window.inc $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -DSRVROS_AIR61_WINDOW -DSRVROS_AIR61_READ_WINDOW -c $< -o $@
+
+AIR61_READ_BRIDGE_UNITS := kernel/diagnostics/air61_read_gate.c kernel/diagnostics/air61_read_report.c
+.PHONY: air61-read-qualification-objects
+air61-read-qualification-objects: air61-read-window-object build/air61-read-window/gate0.o build/air61-read-window/gate1.o build/air61-read-window/bridge.o build/air61-read-window/report.o
+build/air61-read-window/gate0.o: kernel/diagnostics/air61_read_gate_instance.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DAIR61_READ_GATE_INSTANCE=0 -c $< -o $@
+build/air61-read-window/gate1.o: kernel/diagnostics/air61_read_gate_instance.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DAIR61_READ_GATE_INSTANCE=1 -c $< -o $@
+build/air61-read-window/bridge.o: kernel/diagnostics/air61_read_gate.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/air61-read-window/report.o: kernel/diagnostics/air61_read_report.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+.PHONY: test-air61-read-qualification
+test-core: test-air61-read-qualification
+test-air61-read-qualification: build/tests/air61-read-qualification$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_air61_read_qualification.py
+build/tests/air61-read-qualification$(HOST_EXE): tools/test_air61_read_qualification.c tools/test_air61_read_window.c tools/test_air61_window_profile.c tools/test_air61_window.c $(AIR61_READ_BRIDGE_UNITS) build/tests/air61-read-gate0.o build/tests/air61-read-gate1.o $(AIR61_READ_TEST_UNITS) $(KERNEL_HEADERS)
+	$(HOST_CC) -DSRVROS_ECAM_GATE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< build/tests/air61-read-gate0.o build/tests/air61-read-gate1.o $(AIR61_READ_BRIDGE_UNITS) $(AIR61_READ_TEST_UNITS) -Wl,--gc-sections -o $@
+
+# Separate opt-in ELF. Never overwrite existing normal/AP objects.
+AIR61_READ_BOOT_OBJ := $(filter-out build/ap-probe/window-gate.o build/ap-probe/window-report.o build/ap-probe/main.o build/ap-probe/ecam-vmm.o,$(AP_PROBE_OBJ)) build/air61-read-window/native-vmm.o build/air61-read-window/gate0.o build/air61-read-window/gate1.o build/air61-read-window/bridge.o build/air61-read-window/report.o build/air61-read-window/envelope.o build/air61-read-window/main.o
+.PHONY: air61-read-kernel
+air61-read-kernel: build/air61-read-window/srvros.elf
+build/air61-read-window/main.o: kernel/src/main.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AP_PROBE -DSRVROS_AIR61_READ_QUALIFICATION -c $< -o $@
+build/air61-read-window/envelope.o: kernel/diagnostics/air61_read_envelope.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/air61-read-window/srvros.elf: $(AIR61_READ_BOOT_OBJ) $(AP_PROBE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) --undefined=haswell_ecam_boot_prepare --undefined=haswell_ecam_boot_handoff --undefined=haswell_ecam_boot_retire --undefined=haswell_ecam_boot_gate_result --undefined=vmm_ecam_boot_result --undefined=vmm_air61_read_window_qualify $(AIR61_READ_BOOT_OBJ) $(AP_PROBE_BASE) -o $@
+
+build/tests/air61-read-combined$(HOST_EXE): tools/test_air61_read_combined.c tools/test_ecam_profile.c tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/src/memory/air61_read_window.inc kernel/src/memory/air61_window.inc kernel/src/memory/ecam_boot.inc kernel/src/memory/vmm.c kernel/diagnostics/air61_read_envelope.c kernel/diagnostics/haswell_ecam_report.c $(AIR61_READ_BRIDGE_UNITS) build/tests/air61-read-gate0.o build/tests/air61-read-gate1.o $(AIR61_READ_TEST_UNITS) $(KERNEL_HEADERS)
+	$(HOST_CC) -DSRVROS_ECAM_GATE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< build/tests/air61-read-gate0.o build/tests/air61-read-gate1.o $(AIR61_READ_BRIDGE_UNITS) kernel/diagnostics/air61_read_envelope.c $(AIR61_READ_TEST_UNITS) -Wl,--gc-sections -o $@
+.PHONY: test-air61-read-profile
+test-core: test-air61-read-profile
+test-air61-read-profile: build/tests/air61-read-combined$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_air61_read_profile.py
+
+build/air61-read-window/native-vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/src/memory/air61_read_window.inc $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -DSRVROS_AIR61_READ_WINDOW -c $< -o $@
+
+# Read-enabled isolation: no ordinary/AP/v7 target selects these objects.
+AIR61_SAMPLE_BOOT_OBJ := $(filter-out build/air61-read-window/gate0.o build/air61-read-window/gate1.o build/air61-read-window/native-vmm.o build/air61-read-window/bridge.o build/air61-read-window/report.o build/air61-read-window/envelope.o build/air61-read-window/main.o,$(AIR61_READ_BOOT_OBJ)) $(addprefix build/air61-register-sample/,vmm.o bridge.o report.o envelope.o main.o gate0.o gate1.o)
+.PHONY: air61-sample-kernel
+air61-sample-kernel: build/air61-register-sample/srvros.elf
+build/air61-register-sample/vmm.o: kernel/src/memory/vmm.c kernel/src/memory/ecam_boot.inc kernel/src/memory/air61_read_window.inc $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_ECAM_BOOT -DSRVROS_AIR61_READ_WINDOW -DSRVROS_AIR61_REGISTER_SAMPLE -c $< -o $@
+build/air61-register-sample/main.o: kernel/src/main.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AP_PROBE -DSRVROS_AIR61_READ_QUALIFICATION -DSRVROS_AIR61_REGISTER_SAMPLE -c $< -o $@
+build/air61-register-sample/bridge.o: kernel/diagnostics/air61_read_gate.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AIR61_REGISTER_SAMPLE -c $< -o $@
+build/air61-register-sample/report.o: kernel/diagnostics/air61_read_report.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AIR61_REGISTER_SAMPLE -c $< -o $@
+build/air61-register-sample/envelope.o: kernel/diagnostics/air61_read_envelope.c $(KERNEL_HEADERS) $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AIR61_REGISTER_SAMPLE -c $< -o $@
+build/air61-register-sample/srvros.elf: $(AIR61_SAMPLE_BOOT_OBJ) $(AP_PROBE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) --undefined=vmm_air61_register_sample $(AIR61_SAMPLE_BOOT_OBJ) $(AP_PROBE_BASE) -o $@
+
+.PHONY: test-air61-register-sample
+test-core: test-air61-register-sample
+test-air61-register-sample: build/tests/air61-register-backend$(HOST_EXE) build/tests/air61-register-sample$(HOST_EXE)
+	build/tests/air61-register-backend$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_air61_register_sample.py
+build/tests/air61-register-backend$(HOST_EXE): tools/test_air61_read_window.c tools/test_air61_sample_priming.inc tools/test_air61_window_profile.c tools/test_air61_window.c kernel/src/memory/vmm.c kernel/src/memory/air61_read_window.inc build/tests/air61-sample-gate0.o build/tests/air61-sample-gate1.o $(AIR61_READ_TEST_UNITS) $(KERNEL_HEADERS)
+	$(HOST_CC) -DSRVROS_AIR61_REGISTER_SAMPLE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< build/tests/air61-sample-gate0.o build/tests/air61-sample-gate1.o $(AIR61_READ_TEST_UNITS) -Wl,--gc-sections -o $@
+build/tests/air61-register-sample$(HOST_EXE): tools/test_air61_register_sample.c tools/test_air61_sample_priming.inc tools/test_air61_read_combined.c tools/test_ecam_profile.c tools/test_ecam_boot_gate.c tools/test_ecam_boot.c kernel/src/memory/vmm.c kernel/src/memory/air61_read_window.inc $(AIR61_READ_BRIDGE_UNITS) kernel/diagnostics/air61_read_envelope.c build/tests/air61-sample-gate0.o build/tests/air61-sample-gate1.o $(AIR61_READ_TEST_UNITS) $(KERNEL_HEADERS)
+	$(HOST_CC) -DSRVROS_ECAM_GATE_HOST_TEST -DSRVROS_AIR61_REGISTER_SAMPLE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< build/tests/air61-sample-gate0.o build/tests/air61-sample-gate1.o $(AIR61_READ_BRIDGE_UNITS) kernel/diagnostics/air61_read_envelope.c $(AIR61_READ_TEST_UNITS) -Wl,--gc-sections -o $@
+
+build/air61-register-sample/gate%.o: kernel/diagnostics/air61_read_gate_instance.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AIR61_REGISTER_SAMPLE -DAIR61_READ_GATE_INSTANCE=$* -c $< -o $@
+build/tests/air61-sample-gate%.o: tools/test_air61_read_gate.c kernel/diagnostics/air61_read_gate_instance.c kernel/diagnostics/haswell_ecam_boot.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_AIR61_REGISTER_SAMPLE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include -DAIR61_READ_GATE_PASS=$* -c $< -o $@
+
+.PHONY: test-haswell-vtd-capabilities
+test-core: test-haswell-vtd-capabilities
+test-haswell-vtd-capabilities:
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_capability_audit.py
+
+.PHONY: test-render-timing
+test-core: test-render-timing
+test-render-timing: build/tests/desktop-session-host$(HOST_EXE)
+	$(PYTHON) tools/test_render_timing.py

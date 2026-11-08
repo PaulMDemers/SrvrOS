@@ -38,17 +38,23 @@ struct present_frame {
     const int *order;
     unsigned scale;
     uint64_t physical_width,physical_height;
+    struct loop_render_record *timing;
 };
 static void compose_frame_rect(void *context,struct desk_rect rect) {
     struct present_frame *f=context;
+    uint64_t begin=f->timing?(uint64_t)srv_monotonic_us():0;
     desk_clip(f->canvas,rect);desktop_draw_ordered(f->canvas,f->scene,f->order,1);
+    if(f->timing)render_record_rect(f->timing,0,begin,(uint64_t)srv_monotonic_us(),(uint64_t)rect.w*rect.h);
 }
 static int upload_frame_rect(void *context,struct desk_rect r) {
     struct present_frame *f=context;struct desk_canvas *c=f->canvas;
+    uint64_t begin=f->timing?(uint64_t)srv_monotonic_us():0;
     struct desk_rect p=desk_canvas_physical_rect(c,r);
     if((uint64_t)p.x+p.w>f->physical_width)p.w=f->physical_width-p.x;
     if((uint64_t)p.y+p.h>f->physical_height)p.h=f->physical_height-p.y;
-    return blitrect(p.x,p.y,p.w,p.h,c->pixels+(size_t)p.y*c->stride+p.x,c->stride);
+    int result=blitrect(p.x,p.y,p.w,p.h,c->pixels+(size_t)p.y*c->stride+p.x,c->stride);
+    if(f->timing)render_record_rect(f->timing,1,begin,(uint64_t)srv_monotonic_us(),(uint64_t)p.w*p.h);
+    return result;
 }
 
 /* Stress-only setup, before the measured loop or PCM owner exists. */
@@ -237,6 +243,39 @@ static uint64_t loop_sample(uint64_t *last,uint64_t *maximum,uint64_t now) {
 static void loop_trace_stamp(struct loop_trace *t,unsigned stage) {
     if(t->active)loop_trace_mark(t,stage,(uint64_t)srv_monotonic_us());
 }
+static void render_scheduler_report(const char *kind,uint64_t sequence,const struct srv_sched_trace *q,unsigned final) {
+    char text[1024];
+    int length=snprintf(text,sizeof(text),"desktop-loop-%s-sched: seq=%llu version=%llu start_us=%llu end_us=%llu start_tick=%llu end_tick=%llu blocked_us=%llu ready_us=%llu blocks=%llu signals=%llu timeouts=%llu dispatches=%llu exclusions=%llu invalid=%llu max_ready_us=%llu wake_us=%llu run_us=%llu wake_tick=%llu deadline_tick=%llu reason=%llu ready_exclusions=%llu late_ticks=%llu final=%u\n",
+        kind,(unsigned long long)sequence,(unsigned long long)q->version,
+        (unsigned long long)q->start_us,(unsigned long long)q->end_us,(unsigned long long)q->start_tick,(unsigned long long)q->end_tick,
+        (unsigned long long)q->blocked_us,(unsigned long long)q->ready_us,(unsigned long long)q->blocks,
+        (unsigned long long)q->signals,(unsigned long long)q->timeouts,(unsigned long long)q->dispatches,
+        (unsigned long long)q->exclusions,(unsigned long long)q->invalid,(unsigned long long)q->max_ready_us,
+        (unsigned long long)q->wake_us,(unsigned long long)q->run_us,(unsigned long long)q->wake_tick,
+        (unsigned long long)q->deadline_tick,(unsigned long long)q->reason,(unsigned long long)q->ready_exclusions,
+        (unsigned long long)q->late_ticks,final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
+    else srv_puts("desktop-loop-attribution: invalid=record-overflow\n");
+}
+static void render_trace_report(const struct loop_record *w,unsigned final) {
+    char text[1024];const struct loop_render_record *r=&w->render;
+    int length=snprintf(text,sizeof(text),"desktop-loop-render: seq=%llu version=1 valid=%llu begin_us=%llu present_begin_us=%llu fence_begin_us=%llu finish_begin_us=%llu end_us=%llu damage=%llu scale=%llu capture_id=%llu capture_busy=%llu compose_us=%llu upload_us=%llu compose_calls=%llu upload_calls=%llu compose_pixels=%llu upload_pixels=%llu final=%u\n",
+        (unsigned long long)w->sequence,(unsigned long long)r->valid,(unsigned long long)r->at[0],
+        (unsigned long long)r->at[1],(unsigned long long)r->at[2],(unsigned long long)r->at[3],(unsigned long long)r->at[4],
+        (unsigned long long)r->damage,(unsigned long long)r->scale,(unsigned long long)r->capture_id,
+        (unsigned long long)r->capture_busy,(unsigned long long)r->compose_us,(unsigned long long)r->upload_us,
+        (unsigned long long)r->compose_calls,(unsigned long long)r->upload_calls,(unsigned long long)r->compose_pixels,
+        (unsigned long long)r->upload_pixels,final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);else srv_puts("desktop-loop-render: invalid=record-overflow\n");
+    render_scheduler_report("render",w->sequence,&r->scheduler,final);
+    const struct loop_capture_record *c=&w->capture;
+    length=snprintf(text,sizeof(text),"desktop-loop-capture: seq=%llu version=1 valid=%llu begin_us=%llu end_us=%llu id_before=%llu id_after=%llu busy_before=%llu busy_after=%llu pending_before=%llu pending_after=%llu final=%u\n",
+        (unsigned long long)w->sequence,(unsigned long long)c->valid,(unsigned long long)c->begin,(unsigned long long)c->end,
+        (unsigned long long)c->id_before,(unsigned long long)c->id_after,(unsigned long long)c->busy_before,
+        (unsigned long long)c->busy_after,(unsigned long long)c->pending_before,(unsigned long long)c->pending_after,final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);else srv_puts("desktop-loop-capture: invalid=record-overflow\n");
+    render_scheduler_report("capture",w->sequence,&c->scheduler,final);
+}
 static void loop_trace_report(const struct loop_trace *t,unsigned final) {
     if(!t->samples)return;
     const struct loop_record *w=&t->worst;
@@ -276,6 +315,7 @@ static void loop_trace_report(const struct loop_trace *t,unsigned final) {
         (unsigned long long)q->ready_exclusions,(unsigned long long)q->late_ticks,final);
     if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
     else srv_puts("desktop-loop-sched: invalid=record-overflow\n");
+    render_trace_report(w,final);
 }
 static int window_lifetime_valid(const struct session *s,int i,uint64_t identity) {
     return i>=0 && i<session_capacity(s) && session_client(s,i)->pid &&
@@ -3029,17 +3069,29 @@ int main(int argc,char **argv) {
             }
         }
         loop_trace_stamp(&loop_trace,LOOP_RENDER);
+        struct loop_render_record *render=loop_trace.active?&loop_trace.current.render:NULL;
+        int render_scheduler=0;
+        if(render) {
+            render_record_begin(render,(uint64_t)srv_monotonic_us());
+            render->damage=s.damage.count;render->scale=scale;
+            render->capture_id=s.capture.next_id;render->capture_busy=s.capture.busy;
+            render_scheduler=srv_sched_trace(SRV_SCHED_TRACE_BEGIN,&render->scheduler)==0;
+            if(!render_scheduler)render->valid=0;
+        }
         long render_start=(io_mode || hardware_trial) && s.damage.count?srv_monotonic_us():0;
         /* No scene mutation/dispatch during this frame. Sort once, then borrow
          * the registry scratch order for all damage rectangles. */
         int inline_order[DESKD_WINDOWS];int *frame_order=s.scene.order?s.scene.order:inline_order;
         if(s.damage.count) desktop_stack(&s.scene,frame_order);
-        struct present_frame frame={&canvas,&s.scene,frame_order,scale,info.width,info.height};
+        struct present_frame frame={&canvas,&s.scene,frame_order,scale,info.width,info.height,render};
         const struct desktop_present_ops present_ops={compose_frame_rect,upload_frame_rect};
+        if(render)render_record_mark(render,1,(uint64_t)srv_monotonic_us());
         if(desktop_present(&s.damage,scale,info.width,info.height,&present_ops,&frame,&bytes)) failed=1;
+        if(render)render_record_mark(render,2,(uint64_t)srv_monotonic_us());
         if(!failed && s.damage.count && fenced_present && gfx_present()!=0) {
             ui_puts("deskd: gfx-present frame failed\n");failed=1;
         }
+        if(render)render_record_mark(render,3,(uint64_t)srv_monotonic_us());
         if(hardware_trial) {
             long end=s.damage.count?srv_monotonic_us():0;
             desktop_timing_end(&timing,poll_time,render_start>0?(uint64_t)render_start:0,end>0?(uint64_t)end:0,!failed && s.damage.count);
@@ -3061,8 +3113,27 @@ int main(int argc,char **argv) {
             coexist_script_done=1;ui_puts("desktop-text: script presented; keyboard ready\n");
         }
         s.damage.count=0;
+        if(render) {
+            if(render_scheduler && srv_sched_trace(SRV_SCHED_TRACE_END,&render->scheduler))render->valid=0;
+            render_record_mark(render,4,(uint64_t)srv_monotonic_us());
+            if(!render_record_complete(render) || render->scheduler.invalid) {render->valid=0;loop_trace.invalid++;}
+        }
         loop_trace_stamp(&loop_trace,LOOP_POST);
+        struct loop_capture_record *capture=loop_trace.active?&loop_trace.current.capture:NULL;
+        int capture_scheduler=0;
+        if(capture) {
+            capture->begin=(uint64_t)srv_monotonic_us();capture->valid=1;
+            capture->id_before=s.capture.next_id;capture->busy_before=s.capture.busy;capture->pending_before=s.capture_pending;
+            capture_scheduler=srv_sched_trace(SRV_SCHED_TRACE_BEGIN,&capture->scheduler)==0;
+            if(!capture_scheduler)capture->valid=0;
+        }
         if(apps && !failed) capture_tick_scaled(&s,&canvas);
+        if(capture) {
+            if(capture_scheduler && srv_sched_trace(SRV_SCHED_TRACE_END,&capture->scheduler))capture->valid=0;
+            capture->end=(uint64_t)srv_monotonic_us();
+            capture->id_after=s.capture.next_id;capture->busy_after=s.capture.busy;capture->pending_after=s.capture_pending;
+            if(!capture->valid || !capture->begin || capture->end<capture->begin || capture->end>=INT64_MAX || capture->scheduler.invalid) {capture->valid=0;loop_trace.invalid++;}
+        }
         if(coexist && coexist_begin && !failed && (uint64_t)srv_monotonic_us()-coexist_begin>=60000000 && coexist_sent==coexist_ack &&
            (!control_files || coexist_ack==60 || (uint64_t)srv_monotonic_us()-coexist_begin>=coexist_limit)) {
             coexist_complete=coexist_ack>=55 && frames-coexist_frames>=55 &&

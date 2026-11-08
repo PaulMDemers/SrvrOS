@@ -21,7 +21,6 @@ struct kernel_mapping {
 };
 
 struct address_space_record {
-    bool used;
     uint64_t root;
     uint64_t tables[VMM_MAX_TRACKED_TABLES];
     uint64_t table_count;
@@ -32,6 +31,18 @@ static uint64_t kernel_cr3;
 static uint64_t address_spaces[VMM_MAX_ADDRESS_SPACES];
 static uint64_t address_space_count;
 static struct address_space_record address_space_records[VMM_MAX_ADDRESS_SPACES];
+/* Authoritative occupancy flags, not a cached count/summary. All record users
+ * read/write this bitmap. A sole-root check reads every slot in one live load. */
+_Static_assert(VMM_MAX_ADDRESS_SPACES == 64, "occupancy bitmap capacity");
+static uint64_t address_space_occupancy;
+static bool address_space_slot_used(unsigned slot) {
+    return (__atomic_load_n(&address_space_occupancy,__ATOMIC_RELAXED) >> slot) & 1;
+}
+static void address_space_set_occupied(unsigned slot,bool used) {
+    uint64_t mask=1ull << slot;
+    if(used)__atomic_fetch_or(&address_space_occupancy,mask,__ATOMIC_RELAXED);
+    else __atomic_fetch_and(&address_space_occupancy,~mask,__ATOMIC_RELAXED);
+}
 static struct kernel_mapping kernel_mappings[VMM_MAX_KERNEL_MAPPINGS];
 static uint64_t kernel_mapping_count;
 
@@ -94,7 +105,7 @@ static void zero_page(uint64_t *page) {
 
 static struct address_space_record *find_address_space_record(uint64_t address_space) {
     for (uint64_t i = 0; i < VMM_MAX_ADDRESS_SPACES; i++) {
-        if (address_space_records[i].used && address_space_records[i].root == address_space) {
+        if (address_space_slot_used(i) && address_space_records[i].root == address_space) {
             return &address_space_records[i];
         }
     }
@@ -174,7 +185,7 @@ static bool register_address_space(uint64_t address_space) {
     }
     struct address_space_record *record = NULL;
     for (uint64_t i = 0; i < VMM_MAX_ADDRESS_SPACES; i++) {
-        if (!address_space_records[i].used) {
+        if (!address_space_slot_used(i)) {
             record = &address_space_records[i];
             break;
         }
@@ -184,7 +195,7 @@ static bool register_address_space(uint64_t address_space) {
     }
 
     address_spaces[address_space_count++] = address_space;
-    record->used = true;
+    address_space_set_occupied((unsigned)(record-address_space_records),true);
     record->root = address_space;
     record->table_count = 0;
     return true;
@@ -200,7 +211,7 @@ static void unregister_address_space(uint64_t address_space) {
 
     struct address_space_record *record = find_address_space_record(address_space);
     if (record != NULL) {
-        record->used = false;
+        address_space_set_occupied((unsigned)(record-address_space_records),false);
         record->root = 0;
         record->table_count = 0;
     }
@@ -247,9 +258,7 @@ bool vmm_diagnostic_sole_kernel_root(uint64_t expected) {
     if ((flags & (1ull<<9)) || !expected || (expected & ~PAGE_MASK) ||
         expected!=kernel_cr3 || read_cr3()!=expected || !kernel_pml4 ||
         kernel_pml4!=pmm_phys_to_virt(expected) || address_space_count) return false;
-    for (unsigned i=0;i<VMM_MAX_ADDRESS_SPACES;i++)
-        if (address_space_records[i].used) return false;
-    return true;
+    return __atomic_load_n(&address_space_occupancy,__ATOMIC_RELAXED) == 0;
 }
 
 static bool map_page_in_space(uint64_t address_space,
@@ -1089,6 +1098,12 @@ bool vmm_copy_user_frame_current(uint64_t root,uint64_t destination,
 #include "ecam_boot.inc"
 #endif
 
+#ifdef SRVROS_AIR61_READ_WINDOW
+#include <srvros/air61_read_window.h>
+#endif
 #ifdef SRVROS_AIR61_WINDOW
 #include "air61_window.inc"
+#endif
+#ifdef SRVROS_AIR61_READ_WINDOW
+#include "air61_read_window.inc"
 #endif

@@ -77,9 +77,14 @@ static jmp_buf bind_failure;
 static unsigned bind_diagnostics;
 void serial_write(const char *s) { assert(!(fixture_irq_flags&0x200) && !strcmp(s,"scheduler: invalid user binding\n"));bind_diagnostics++; }
 __attribute__((noreturn)) void halt_forever(void) { longjmp(bind_failure,1); }
-bool process_should_exit_current(void) { return false; }
-uint64_t process_current_kill_status(void) { assert(!"unexpected cancellation status"); abort(); }
-__attribute__((noreturn)) void process_exit(uint64_t status) { (void)status; assert(!"unexpected process exit"); abort(); }
+static bool preempt_cancel;
+static jmp_buf preempt_cancel_exit;
+bool process_should_exit_current(void) { return preempt_cancel; }
+uint64_t process_current_kill_status(void) { if(preempt_cancel)return 130;assert(!"unexpected cancellation status");abort(); }
+__attribute__((noreturn)) void process_exit(uint64_t status) {
+    if(preempt_cancel) {assert(status==130 && !io_depth && !threads[current_thread].io_user_safe);longjmp(preempt_cancel_exit,1);}
+    (void)status;assert(!"unexpected process exit");abort();
+}
 static void empty_worker(void *arg) {(void)arg;}
 
 uint64_t timer_monotonic_us(void) { clock_calls++; return clock_us; }
@@ -93,6 +98,8 @@ void fpu_switch_kernel_state(struct fpu_state *old,struct fpu_state *next,struct
     (void)old;(void)next;(void)user;
 }
 static unsigned switches;
+static bool return_timer_test,return_timer_publish,return_timer_allowed;
+static unsigned return_timer_turns;
 static bool foreign_timer_test;
 static unsigned foreign_timer_owner_turns, foreign_timer_service_turns;
 static bool address_space_test;
@@ -112,6 +119,17 @@ static unsigned handoff_admissions;
 static struct scheduler_wait_queue high_wait;
 static bool completion_condition(void *arg) { assert(arg==&completion_ready);return completion_ready; }
 void scheduler_context_switch(struct scheduler_context *old,struct scheduler_context *next) {
+    if(return_timer_test) {
+        assert(old==&threads[4].context && next==&threads[3].context && current_thread==3);
+        assert(io_depth==1 && io_owner==3 && !threads[4].account_user);
+        assert(threads[4].io_user_safe==return_timer_publish);
+        assert(io_thread_allowed(4)==return_timer_allowed);
+        if(!return_timer_allowed)scheduler_io_end();
+        else assert(next_ready_thread(3)==4); /* Selection under the same owner. */
+        return_timer_turns++;
+        threads[3].state=THREAD_READY;threads[4].state=THREAD_RUNNING;current_thread=4;
+        return;
+    }
     if(foreign_timer_test) {
         assert(threads[4].state==THREAD_READY && !threads[4].io_user_safe && !threads[4].account_user);
         assert(io_depth==1 && io_owner==3 && !io_thread_allowed(4));
@@ -946,6 +964,54 @@ static void test_gate_retention(void) {
     initialized=io_services_enabled=false;io_observed=(__typeof__(io_observed)){0};memset(threads,0,sizeof(threads));
     puts("io-gate: PASS disabled/short/backward refusal, bounded longest retention, caller/initial owner identity, reset and no owner mutation");
 }
+static void test_user_timer_return(void) {
+    unsigned original_switches=switches;uint64_t original_flags=fixture_irq_flags;
+    initialized=true;switching=false;current_thread=thread_capacity;
+    uint64_t before=sampled_ticks;scheduler_preempt_user_return_tick();assert(sampled_ticks==before);
+    current_thread=4;threads[4].state=THREAD_BLOCKED;
+    scheduler_preempt_user_return_tick();assert(sampled_ticks==before);
+
+    for(unsigned mode=0;mode<7;mode++) {
+        memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
+        current_thread=3;idle_thread=1;io_depth=0;io_owner=0;io_gate_pending=0;actual_space=kernel_space=1;
+        fixture_irq_flags=0;
+        threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)0x100,.address_space=1};
+        assert(scheduler_io_begin());threads[3].state=THREAD_READY;
+        threads[4]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)0x200,.address_space=1,.resume_address_space=1};
+        current_thread=4;
+        if(mode==1)threads[3].user_context=threads[4].user_context;
+        if(mode==2)io_private_image=threads[4].user_context;
+        if(mode==3)threads[4].user_context=NULL;
+        if(mode==4)fixture_irq_flags=0x200;
+        if(mode==5)threads[4].address_space=2;
+        if(mode==6)threads[4].account_user=true;
+        return_timer_publish=mode<3;return_timer_allowed=mode==0;
+        /* The account-user negative case remains true, and is not a valid
+         * fully-unwound kernel boundary. Check its refusal without switching. */
+        if(mode==6) {
+            preempt_tick_accumulator=0;scheduler_preempt_user_return_tick();
+            assert(!threads[4].io_user_safe && threads[4].account_user);
+        } else {
+            unsigned before=return_timer_turns;return_timer_test=true;
+            preempt_tick_accumulator=SCHEDULER_PREEMPT_QUANTUM_TICKS-1;
+            scheduler_preempt_user_return_tick();return_timer_test=false;
+            assert(return_timer_turns==before+1 && current_thread==4 && !threads[4].io_user_safe);
+            assert((io_depth!=0)==return_timer_allowed);
+        }
+        io_depth=0;io_private_image=NULL;
+    }
+    /* A pending cancellation exits while still unsafe, before publishing the
+     * return suffix, even when this tick would not otherwise yield. */
+    memset(threads,0,sizeof(threads));initialized=true;switching=false;current_thread=4;io_depth=0;fixture_irq_flags=0;
+    threads[4]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)0x200,.address_space=1};
+    actual_space=1;preempt_cancel=true;preempt_tick_accumulator=0;
+    if(!setjmp(preempt_cancel_exit)) {scheduler_preempt_user_return_tick();assert(!"cancellation returned");}
+    assert(!threads[4].io_user_safe);preempt_cancel=false;
+    switches=original_switches;fixture_irq_flags=original_flags;
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;current_thread=0;io_depth=io_owner=io_gate_pending=0;actual_space=kernel_space=1;
+    puts("user-timer-return: PASS foreign-owner progress, unchanged same/private-image exclusions and kernel/IRQ/root refusal");
+}
+
 static void test_foreign_io_return(void)
 {
     memset(threads,0,sizeof(threads)); initialized=io_services_enabled=true; switching=false;
@@ -1200,6 +1266,7 @@ int main(void) {
     test_user_entry_observation();
     test_worker_stack_observation();
     test_user_return_observation();
+    test_user_timer_return();
     test_foreign_io_return();
     test_gate_retention();
     test_idle_audit();

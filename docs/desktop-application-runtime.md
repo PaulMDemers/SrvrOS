@@ -567,3 +567,29 @@ This removes96MiB of unused static reservation and its boot mapping pressure;
 it does not establish a native complete-root census or bound heap fragmentation.
 Capacity, failure, fork/exec, signals, teardown and reuse are covered by the real
 process fixtures. The Air6,1 record owns its independent native acceptance.
+
+## Timer preemption at the user-return boundary
+
+CPL3 interrupt entry marks its kernel continuation unsafe for foreign I/O.
+IRQ0 dispatch completes timer/network work and EOI before returning to the ISR;
+it no longer parks that unsafe handler stack by preempting inside dispatch.
+Kernel-origin timer interrupts retain ordinary unsafe-continuation scheduling.
+For a userspace timer return, preemption follows all common-return dispatcher
+and optional signal/frame checks. Tick accounting, expired-wait wakeups,
+cancellation and the existing quantum remain unchanged.
+
+The IRQ-masked return helper validates a RUNNING user binding/current address
+space and kernel accounting state. Cancellation occurs while still unsafe.
+Only the due scheduler yield publishes this fully unwound user-return suffix
+as user-safe; after resumption it restores unsafe state before final user-entry
+accounting. No syscall/IRQ dispatch, user copy or process teardown is introduced
+in that yielding caller suffix. The existing scheduler predicate still excludes
+same-process/private-image conflicts and unsafe kernel continuations. This is
+an eligibility publication boundary change, not a wider syscall whitelist,
+I/O-owner bypass, renderer algorithm or timing-limit change.
+
+Host regressions cover actual dispatch/EOI/return ordering, kernel-origin and
+nested interrupt preservation, cancellation before publication, foreign-owner
+progress and unchanged same/private-image exclusions and invalid-boundary
+refusals. Loaded native latency acceptance remains specific to each unit's
+collected run; see the [Air6,1 record](machines/macbookair6-1.md).

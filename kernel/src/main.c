@@ -5,6 +5,9 @@
 #include <srvros/haswell_cache_context.h>
 #include <srvros/ecam_boot.h>
 #include <srvros/air61_window.h>
+#ifdef SRVROS_AIR61_READ_QUALIFICATION
+#include <srvros/air61_read_qualification.h>
+#endif
 #include <srvros/posix_capture.h>
 #include <srvros/acpi.h>
 #include <srvros/autotest.h>
@@ -15,6 +18,8 @@
 #include <srvros/desktop_session.h>
 #include <srvros/laptop_probe.h>
 #include <srvros/audio.h>
+#include <srvros/audio_abi.h>
+#include <srvros/audio_stream_abi.h>
 #include <srvros/thermal.h>
 #include <srvros/power.h>
 #include <srvros/smc.h>
@@ -477,6 +482,66 @@ static bool wifi_ui_cache_report(const char *phase,bool allow_empty) {
     return wifi_service_trial_ready(result,&cache,allow_empty);
 }
 
+/* Explicit listening capture only. Five immutable six-second channel fixtures;
+ * no disk stress, desktop or firmware probing. Failed retirement retains state. */
+static void audio_listen_pause(void) {
+    static struct scheduler_wait_queue wait;
+    uint64_t tick=timer_ticks()+1;
+    if(!scheduler_wait_timeout(&wait,idle_capture_due,&tick,tick))scheduler_yield();
+}
+static bool audio_listen_control(unsigned op,unsigned value) {
+    if(audio_request(op,value))return false;
+    uint64_t until=timer_monotonic_us()+2000000;
+    struct srv_audio_status s;
+    do {audio_status(&s);if(!s.pending)return s.state==SRV_AUDIO_READY && !s.error;
+        audio_listen_pause();}while(timer_monotonic_us()<until);
+    return false;
+}
+static bool audio_listen_capture(void) {
+    struct srv_audio_status s;audio_status(&s);
+    if(s.state!=SRV_AUDIO_READY || s.pending || (s.capabilities&SRV_AUDIO_CAP_PCM_BUSY)) {
+        console_write("audio-listen: REFUSED output unavailable/busy\n");return false;
+    }
+    console_write("Audio listening check: five 6-second LEFT / RIGHT / STEREO cycles at25%.\n"
+        "Listen only. Built-in quiet gaps are intentional. Automatic Ubuntu return.\n");
+    bool ok=audio_listen_control(SRV_AUDIO_OUTPUT,SRV_AUDIO_SPEAKERS) &&
+        audio_listen_control(SRV_AUDIO_VOLUME,25);
+    uint64_t begin=timer_monotonic_us(),deadline=begin+35000000,bytes=0,underruns=0;
+    unsigned completed=0;
+    for(unsigned i=0;ok && i<5;i++) {
+        console_printf("audio-listen: play=%u/5 seconds=6 volume=25\n",(uint64_t)i+1);
+        int64_t pid=process_spawn_background_elf_args_quiet("/fat/bin/playwav","/fat/share/examples/stereo.wav");
+        if(pid<1){ok=false;break;}
+        uint64_t status=1;int64_t result;
+        while((result=process_wait((uint64_t)pid,&status,true))==0 && timer_monotonic_us()<deadline)audio_listen_pause();
+        if(result==0) {
+            (void)audio_request(SRV_AUDIO_STOP,0);
+            (void)process_signal_target(pid,9);
+            uint64_t retire=timer_monotonic_us()+5000000;
+            while((result=process_wait((uint64_t)pid,&status,true))==0 && timer_monotonic_us()<retire)audio_listen_pause();
+            ok=false;
+        }
+        if(result==0) {
+            console_write("audio-listen: HALTED player retirement incomplete; live state retained\n");
+            console_sync();__asm__ volatile("cli":::"memory");halt_forever();
+        }
+        struct srv_pcm_status pcm;uint64_t owner;
+        audio_stream_snapshot(&pcm,&owner);
+        ok=ok && result==pid && status==0 && owner==0 && pcm.state==SRV_PCM_DONE &&
+            pcm.submitted_bytes==1152000 && pcm.underruns==0;
+        bytes+=pcm.submitted_bytes;underruns+=pcm.underruns;
+        if(ok)completed++;
+    }
+    bool stopped=audio_listen_control(SRV_AUDIO_STOP,0);
+    bool quiet=stopped && audio_listen_control(SRV_AUDIO_VOLUME,1);
+    uint64_t elapsed=timer_monotonic_us()-begin;
+    ok=ok && completed==5 && elapsed>=30000000 && elapsed<35000000 && quiet;
+    console_printf("audio-listen: result=%s plays=%u seconds=30 volume=25 bytes=%u underruns=%u elapsed_us=%u stopped=%s quiet=%s\n",
+        ok?"PASS":"FAIL",(uint64_t)completed,bytes,underruns,elapsed,stopped?"yes":"NO",quiet?"yes":"NO");
+    audio_print_status();return ok;
+}
+
+
 /* Explicit boot-only diagnostic, before runtime drivers or user processes.
  * The secondary VirtIO device never becomes the inherited display owner. */
 static void boot_virtio_gpu_probe(void) {
@@ -515,6 +580,13 @@ void kmain(void) {
         }
     }
 
+#ifdef SRVROS_AIR61_READ_QUALIFICATION
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+    if(!cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-read-only")){console_write("Register sample kernel requires explicit read-only token\n");halt_forever();}
+#else
+    if(!cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-no-read")){console_write("Two-pass kernel requires explicit qualification token\n");halt_forever();}
+#endif
+#endif
 #ifdef SRVROS_AP_PROBE
     if(!cmdline_has_token(cmdline,"srvros.capture=haswell-backing") &&
        !cmdline_has_token(cmdline,"srvros.capture=haswell-firmware") &&
@@ -572,8 +644,25 @@ void kmain(void) {
     if (mouse_ready) {
         ioapic_route_isa_irq(12, 44);
     }
-    bool window_test=cmdline_has_token(cmdline,"srvros.vtd-window=air61-no-read");
+    bool window_requested=cmdline_has_token(cmdline,"srvros.vtd-window=air61-no-read");
+#ifdef SRVROS_AIR61_READ_QUALIFICATION
+    if(window_requested)halt_forever();
+    const bool window_test=false;
+#else
+    bool window_test=window_requested;
+#endif
     bool ecam_test=cmdline_has_token(cmdline,"srvros.ecam=air61-2m-test");
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+    if(cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-no-read"))halt_forever();
+    bool read_test=cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-read-only");
+#else
+    if(cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-read-only"))halt_forever();
+    bool read_test=cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-no-read");
+#endif
+    if(read_test && (window_test || !ecam_test))halt_forever();
+#ifndef SRVROS_AIR61_READ_QUALIFICATION
+    if(read_test){console_write("Two-pass qualification requires its isolated kernel\n");halt_forever();}
+#endif
     if(window_test && !ecam_test)halt_forever();
     if(ecam_test) {
 #ifdef SRVROS_AP_PROBE
@@ -749,13 +838,24 @@ void kmain(void) {
        cmdline_has_token(cmdline,"srvros.hsw-cache=alias-nx-preinit"))
     {
         uint64_t window_irq=0;
-        if(window_test){
+        if(window_test || read_test){
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+            boot_status("sample-progress: two bounded read-only register samples; no input needed\n");
+#else
             boot_status("window-progress: fresh bounded mapping/retirement, zero target loads; no input needed\n");
+#endif
             __asm__ volatile("pushfq; popq %0; cli":"=r"(window_irq)::"memory");
         }
         bool aliases_ready=haswell_alias_context_prepare();
-        if(window_test){
-            if(aliases_ready)(void)haswell_air61_window_run();
+        if(window_test || read_test){
+#ifdef SRVROS_AIR61_READ_QUALIFICATION
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+            if(read_test && aliases_ready)(void)haswell_air61_register_sample();
+#else
+            if(read_test && aliases_ready)(void)haswell_air61_read_qualify();
+#endif
+#endif
+            if(window_test && aliases_ready)(void)haswell_air61_window_run();
             if(window_irq&512)__asm__ volatile("sti":::"memory");
             boot_status("window-progress: safe outcome recorded; saving results and returning to Ubuntu\n");
         }
@@ -815,6 +915,7 @@ void kmain(void) {
     bool usb_read_battery=cmdline_has_token(cmdline,"srvros.capture=battery-usb-read");
     bool service_battery=filesystem_battery||usb_write_battery||usb_read_battery||cmdline_has_token(cmdline,"srvros.capture=battery-service");
     bool automatic_battery=home_battery||smbus_battery||query_battery||controls_battery||text_battery||desktop_battery||service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
+    bool automatic_audio_listen=cmdline_has_token(cmdline,"srvros.capture=audio-listen-30");
     bool automatic_posix=cmdline_has_token(cmdline,"srvros.capture=posix");
     bool automatic_storage_wait=cmdline_has_token(cmdline,"srvros.capture=storage-wait");
     bool automatic_hfw=cmdline_has_token(cmdline,"srvros.capture=haswell-firmware");
@@ -848,7 +949,7 @@ void kmain(void) {
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi || automatic_storage_wait || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
+    if(automatic_audio_listen || automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi || automatic_storage_wait || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         if(wifi_5ghz_prereq)console_write("wifi-5ghz-prereq-progress: common init then read-only MAC/PA/RF selectors; no band/tune/RX/network OUT; warm-state inventory\n");
         bool started=false;
@@ -861,7 +962,7 @@ void kmain(void) {
             else started=workspace_log_start_capture();
         }
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
-        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix && !automatic_ap && !automatic_hsw && !automatic_hfw;
+        bool sampled=!automatic_audio_listen && !automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix && !automatic_ap && !automatic_hsw && !automatic_hfw;
         bool wifi_log_isolation=cmdline_has_token(cmdline,"srvros.wifi-log-isolation=1");
         bool wifi_log_parked=false;
         if(wifi_log_isolation) {
@@ -992,6 +1093,7 @@ void kmain(void) {
             (void)battery_diagnostic_auto_return(false);
             if(workspace_parked&&!workspace_active())workspace_boot(cmdline);
         }
+        if(automatic_audio_listen && started && init_ready && timer_running)sampled=audio_listen_capture();
         if(automatic_posix && started && init_ready && timer_running) sampled=posix_capture_run();
         if(automatic_storage_wait && started && init_ready && timer_running) {
             sampled=workspace_storage_wait_capture();
@@ -1007,8 +1109,14 @@ void kmain(void) {
                 bool saved=quiet && workspace_log_ecam_snapshot();
                 bool window_proof=true,window_saved=true;
                 if(window_test){window_proof=haswell_air61_window_report(directory);window_saved=workspace_log_window_snapshot();}
+#ifdef SRVROS_AIR61_READ_QUALIFICATION
+                if(read_test){window_proof=haswell_air61_read_report(directory);window_saved=workspace_log_window_snapshot();}
+#endif
                 bool aliases=haswell_alias_context_report();
                 if(window_test)haswell_air61_window_reference(directory,window_saved);
+#ifdef SRVROS_AIR61_READ_QUALIFICATION
+                if(read_test)haswell_air61_read_reference(directory,window_saved);
+#endif
                 haswell_ecam_boot_reference(directory,saved);
                 console_printf("laptop-capture: boot options=%s\n",cmdline);
                 sampled=proof && saved && aliases && window_proof && window_saved;

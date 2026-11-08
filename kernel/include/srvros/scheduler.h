@@ -118,6 +118,13 @@ bool scheduler_quarantine_noncurrent_services(uint64_t first, uint64_t second);
 bool scheduler_service_pair_quarantined(uint64_t caller, uint64_t peer);
 void scheduler_exit_current(void) __attribute__((noreturn));
 void scheduler_preempt_tick(void);
+/* IRQ-masked common CPL3 timer return ONLY, after every handler, EOI and
+ * optional return proof/cancellation dispatcher has unwound. Account the same
+ * tick/quantum and cancellation while unsafe, publishing user eligibility only
+ * around the due yield. No teardown/copy/dispatch may follow that publication;
+ * eligibility is restored unsafe on resume before the caller's final entry.
+ * This does not bypass same-image/private-image I/O exclusion. */
+void scheduler_preempt_user_return_tick(void);
 void scheduler_kill_user_threads(void *process, void *except_user_thread_context);
 bool scheduler_wait(struct scheduler_wait_queue *queue,
     scheduler_wait_condition_fn condition,
