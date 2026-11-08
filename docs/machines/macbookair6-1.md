@@ -9233,3 +9233,21 @@ raw run evidence and the independent failed-result review are hash-verified
 outside `build`. Ubuntu returned automatically, the one-shot is consumed,
 collection is disabled and no reboot is armed. Missing or failed responsiveness
 is not promoted by successful audio, screenshots or clean storage retirement.
+
+### Persistent render attribution scope (2026-11-08)
+
+Base `f94d97d1`; the failed native regression is collected and backed up.
+Objective: retain bounded render subphase and scheduler attribution with the
+same worst-loop interval, distinguishing stack preparation, scene composition,
+framebuffer upload, fence/presentation and bookkeeping. Capture transfer already
+runs in LOOP_POST; retain its separate timing/scheduler companion too. Scope:
+`userspace/deskd` diagnostic structs/reporting and presentation callbacks,
+strict host receipt validation, retention/fault regressions and this unit's
+existing automated stress preparation. No renderer algorithm, limits, policy,
+source/ownership gates or integrity checks change. Keep current plus retained
+worst records only; no per-frame logging or unbounded history/allocation.
+PR301 owns independent scanout/handoff work; do not change its kernel/GPU/display
+contracts. PR19/PR379 retain unrelated scopes. Validate host/core and actual
+loaded/capture/exact-stage VMs, self-merge and run the same automatic native
+30-minute/three-capture workload at1% volume. Native timing acceptance remains
+pending; the967444us failure and both TCG failures stay historical evidence.
