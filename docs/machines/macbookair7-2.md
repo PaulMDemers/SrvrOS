@@ -2,6 +2,66 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Native BCS reset/preservation ready for hardware
+
+Tested source `1000647f` (main `ac8c2d5b` integrated) produces release
+`6a3d6afb2f2824bd`, installed **not armed**. Physical reset acceptance is pending.
+The [BCS reset contract](../intel-bcs-reset.md) describes the separate firmware
+request/image and exact 15-token recipe, ending in
+`srvros.intel-bcs-reset=blitter-only`. Earlier images cannot enter it.
+
+Thirteen NX/effective-UC aliases are prepared before wake. Only wake request,
+BCS control and the separately validated GDRST page are writable. The native
+adapter admits exactly `0x941c`/8 twice, with self-clear acknowledgements and
+measured settling, plus the two masked BCS request/cancel stores. There are no
+other reset domains, retries, Stop Ring, translation/cache-flush, display/HDA,
+PTE or completion-buffer writes. All inherited allocations stay protected.
+
+A registered core borrow and a separate post-reset preservation borrow block
+early parent close. Fresh pre/post 92-word engine/context censuses, 54 reader
+DWORDs and 20 HDA config DWORDs must match; primary/cursor state also binds the
+original display capture. Epoch 0→1 invalidates the pre-reset census. The v6
+wake and new raw receipts bind timing, count, retirement and preservation.
+Core100ms, phases10ms/256polls, owner300ms and outer500ms limits are unchanged;
+settling must measure at least50us. Uncertainty or failed post-reset preservation
+retains wake/mappings/exclusion and stops automatic return. No memory/cache/
+backing/reader retirement or native tear-free grant follows; obligations stay255.
+
+Full local host/core/profile/docs/build checks and14-image separation pass;
+opt-in installed-root checks were explicitly omitted. Fatal ASan/UBSan covers
+144 core and48 native-adapter cases. All23 compiled controls are detected:
+12 core,7 wrapper/preservation and4 actual non-host MMIO controls. The latter
+independently inspect object/staged instructions, the exact13-entry physical
+page table, reader addresses/stride and GDRST value, rejecting wrong offset,
+reset value, physical page and native-only reader slot. The conservative
+full-width log projection is65,397/65,536bytes including1,536 allowance.
+
+Exact-stage MBR Q35/GRUB verifies EFI64, pinned loader, exact recipe/serialization,
+zero device-store attempts on expected identity refusal, committed preflight,
+saved diagnostics, unmount/automatic return and missing-workspace halt. The first
+VM caught a progress/receipt namespace collision; source1000647f fixes only the
+progress name and adds a regression using the actual main message. Strict
+unknown-receipt rejection remains. Superseded uninstalled44fe payload and failure
+logs are preserved, with its full stage losslessly archived outside build.
+No VM result accepts a physical reset or reader/cache ownership.
+
+The1,371-file/113-session workspace, prior hashes and boot sectors are preserved.
+Offline fsck/allocation/writable/headroom and installed/durable/archive recovery
+checks pass. USB is unmounted. Current6a3d/recovery `9aa8dbf6fbda8252`, prior
+accepted4603 and known-good GUI remain verified. Inactive6c2f was archived only
+after complete all-file/durable hash verification and absence of boot references.
+An old generated VM image was also losslessly archived before raw removal.
+Volume1%, guest playback disabled, no human input needed. Default reboot guards
+are check-only; no one-shot is armed and no physical reboot was requested.
+
+Run/checkpoint, matching return collector, guarded launcher and all validation
+artifacts are under `build/air-native-reset-20261107`, with full independently
+SHA-verified backup under
+`~/.local/share/srvros/reviewed-evidence/air-native-reset-20261107`. After the next
+trial, collect its exact session before any further staging. Missing/refused/
+retained results are incomplete, never passes. Actions remain disabled; PR19,
+PR379 and Air6,1 PR410 retain independent scope.
+
 ### Active work: native BCS reset integration
 
 Bounded objective: enable only a dedicated Air7,2 BCS-reset diagnostic, with an

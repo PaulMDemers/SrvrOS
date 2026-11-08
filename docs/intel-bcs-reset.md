@@ -153,3 +153,21 @@ Use `make test-intel-bcs-native build/intel-bcs-reset/srvros.elf`, stage with
 workflow. Native object/mapping negative controls, image isolation, saved-tail
 headroom, offline USB/recovery and durable backups must pass before declaring
 hardware readiness. No physical acceptance follows from the host adapter fixture.
+
+## Air7,2 candidate ready for physical trial
+
+Source `1000647f`, release `6a3d6afb2f2824bd`, is installed and not armed.
+The [unit readiness record](machines/macbookair7-2.md#native-bcs-resetpreservation-ready-for-hardware)
+records full local checks,144 core/48 adapter fatal sanitizer cases,23 detected
+compiled controls,14-image isolation and exact-stage Q35 refusal/save/return and
+missing-workspace halt. Object/staged MMIO and reader bindings pass independently
+of host callbacks. The full-width log bound is65,397/65,536bytes including1,536
+allowance. Prior USB data/offline media, recovery/default and check-only reboot
+guards pass; volume1%, playback disabled, no input needed. Complete evidence is
+backed up outside build. Native reset/preservation acceptance remains pending;
+no memory/cache/backing authority or physical tear-free presentation is enabled.
+
+The first exact VM exposed a progress message using the structured `intel-bcs-`
+namespace. The progress label now uses `intel-bcs:`; an actual-message regression
+covers it, and unknown structured receipts still fail. The failed guest/payload
+are retained separately. The rebuilt exact source passes both VM outcomes.

@@ -1280,3 +1280,36 @@ report and returns to Ubuntu. Uncertain ownership halts visibly before USB/user
 reuse; photograph it and restart Ubuntu. A halt, missing receipt, missing saved
 reference or missing whole-trial completion is a failure or incomplete evidence.
 No native acceptance is inferred from host/VM fixtures.
+
+### Air7,2 isolated BCS reset and preservation
+
+The separate [BCS-only reset contract](intel-bcs-reset.md) adds
+`--intel-bcs-reset-trial` and `build/intel-bcs-reset/srvros.elf`. This is an
+explicit diagnostic, with physical acceptance tracked in the
+[actual unit record](machines/macbookair7-2.md#native-bcs-resetpreservation-ready-for-hardware).
+Do not infer sibling support or memory/cache/backing ownership from it.
+
+```sh
+make -j2 all test-intel-bcs-native build/intel-bcs-reset/srvros.elf
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" \
+  --intel-bcs-reset-trial
+python3 tools/hardware_boot_smoke.py --probe-check --workspace-table mbr
+python3 tools/hardware_boot_smoke.py --probe-check --probe-missing-workspace \
+  --workspace-table mbr
+```
+
+Use the actual volume/partition table and the full exact-stage, inventory,
+offline filesystem, recovery, durable backup and one-shot procedure above.
+Validate the compiled native MMIO/mapping bindings and saved-log bound; host
+callbacks alone do not check the native register pointers. This image alone
+links the reset core and a distinct firmware request/exact recipe. Older images
+and ordinary startup cannot enter it. GDRST stores select only the BCS domain;
+pre/post engines, display readers, HDA config and both software epochs must bind.
+No inherited allocation is freed and no translation/cache/scanout writer is added.
+
+Keep volume at1%, playback disabled. Instructions/progress are automatic and no
+typing is needed. Safe saved/unmounted outcomes return to Ubuntu. Uncertain
+stores, failed preservation or unsafe persistence halt visibly; photograph the
+screen and restart manually. Collect the exact new session with the strict
+BCS/preservation, wake/native-UC and preflight-checkpoint proofs before another
+run. A halt, missing receipt or refusal is incomplete evidence, never a pass.
