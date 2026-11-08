@@ -18,6 +18,9 @@ int sample_producer_main(int argc,char **argv){
 int main(int argc,char **argv){
 #endif
  setup();memset(&rw,0,sizeof(rw));
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ extern void air61_sample_test_setup_text(void);air61_sample_test_setup_text();
+#endif
  unsigned count=argc>1 && !strcmp(argv[1],"max")?128:5;
  map_entries[0]=(struct limine_memmap_entry){.base=0x2000000,.length=8*4096,.type=0};
  map_entries[1]=(struct limine_memmap_entry){.base=0x2008000,.length=4096,.type=2};

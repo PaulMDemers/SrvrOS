@@ -29,6 +29,7 @@ bool air61_read_gates_equal(void);
  * hashes replace raw observations. No hardware access or clock sampling. */
 bool haswell_air61_read_encode(const char *,uint8_t *,unsigned,unsigned *);
 
+bool air61_read_gate_touch0(void);
 bool air61_read_gate_touch1(void);
 bool haswell_air61_read_report(const char *);
 void haswell_air61_read_reference(const char *,bool);

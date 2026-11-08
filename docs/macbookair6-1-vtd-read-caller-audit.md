@@ -2,14 +2,13 @@
 
 ## Status and evidence
 
-Native follow-up (2026-11-07): PR410 runtime `f8e16123`, payload
-`517661c4c5a9627f`, completes the separate two-pass A-preseeded zero-load
-qualification in82.610/82.379ms, with identical raw borrowed graphs and proven
-retirement/claim release. The [machine record](machines/macbookair6-1.md)
-owns its exact evidence and narrow acceptance. No target register was read;
-the separate v8 guarded read caller is now implemented and host/VM validated;
-native register-read acceptance remains pending. All existing
-limits and raw comparisons remain unchanged. The original host audit follows.
+Native follow-up (2026-11-07): PR415 accepts the exact isolated read-only
+sampler on runtime `d3aa3eac`, release `2ddbd3b285f6bf41`. Both passes complete
+24 total DWORD reads with identical raw samples and borrowed graphs, verified
+retirement/claim release, and88.955/83.461ms lifetimes under unchanged limits.
+The [machine record](machines/macbookair6-1.md) owns the narrow native evidence.
+The host-only capability interpretation below grants no current access or
+ownership. The original design audit and earlier failures remain historical.
 
 Base `eefc5bfd`, following the accepted [window-only qualification](macbookair6-1-vtd-read-window-design.md).
 Source `cca4d31f` / release `92d9f134639f509c` completed its single no-load window
@@ -259,7 +258,7 @@ data, bad counts/times and altered path words. Shared context binding grants
 no current access authority. A complete retained sample is only a historical
 read-only observation: it does not prove full-interval stability, a loaded
 translation table or permission to follow RTADDR, write registers or own DMA.
-Native register-read acceptance remains pending matching physical evidence. The first native v8
+Native register-read acceptance was pending at this implementation checkpoint. The first native v8
 trial completed both samples but failed strict cross-pass graph equality on
 a cold verification text page and first-gate phase1 evidence page; see the
 [machine return record](machines/macbookair6-1.md). No comparison is relaxed.
@@ -272,3 +271,70 @@ These additional snapshots do not reuse or extend either of the two original
 gate counters. Full raw values/times and per-snapshot counts fit the unchanged
 33000-byte existing pass-body,70000-byte raw,45000-byte wire and65536-byte tail bounds.
 No such extra MSR accesses occur in the existing zero-load profile.
+
+## Bounded sampler first-touch preparation
+
+The follow-up groups sampler VMM/bridge/gate routines into a linker-delimited
+trusted text range in the read-enabled image only. Its maximum is64KiB/16
+pages; exceeding it refuses before census, allocation or target access. Each
+page is translated through fresh checked RAM words, requires a supervisor
+RO/executable4KiB RAM leaf, and is read as one volatile byte. Exact pre/post
+paths must match, with only the architectural leaf A promotion expected during
+this preparatory RAM touch. Ancestors already require A. No PTE is written,
+no target instruction is executed as a warm-up callback, and no MMIO address
+or pointer is supplied. The subsequent retained census and every target path
+still compare all raw bits exactly.
+
+All eight path-word reads and the code byte are charged to the existing
+mapper-word budget. With four-level HHDM translation the maximum is41 words
+per page,656 total; the previous maximum fixture63476 therefore remains below
+65536 at64132. Every operation remains inside pass0's original live deadline
+and root/IRQ/AP/client exclusion. This is bounded first-touch preparation,
+not an A/D mask, time exclusion or historical access grant.
+
+After fresh gate0 admission, both gates' complete private evidence is touched
+with same-value writes under the callback-only live guard. Gate0 additionally
+requires its current started/phase1 state; gate1 remains unstarted. No evidence
+or attempt state is reset. Host models cover cold code leaves and both gate
+regions before the census/first target read, all256 text-path bit mutations,
+every text-page read/root/IRQ/time/D fault, bounds and permissions.
+
+
+## Captured capability interpretation (2026-11-07)
+
+The [host-only audit](../tools/haswell_vtd_capability_audit.py) first invokes the
+unchanged strict R2 consumer on the exact matching window/ECAM/exit files. It
+binds the release and retains all three input hashes. It then interprets only a
+bounded legacy VER1.0 subset from the two identical samples; unsupported versions
+refuse. This adds no kernel, stage recipe, hardware access or permission gate.
+Synthetic field/binding tests are separate from the native receipt replay.
+
+Against Intel VT-d4.1 sections11.4.1–11.4.5, the accepted bytes decode as:
+
+| Register | Raw value | Bounded interpretation |
+| --- | --- | --- |
+| VER | `0x00000010` | Implementation1.0 |
+| CAP | `0x00c0000020660462` | 256 domains with8-bit IDs; supported adjusted width48 bits, maximum guest width39 bits |
+| ECAP | `0x0000000000f0101a` | Queued invalidation, interrupt remapping and extended interrupt mode supported; page-walk coherency and pass-through not advertised |
+| GSTS | `0x00000000` | Translation, queued invalidation and interrupt remapping disabled at sampled endpoints; root/interrupt-table pointer status clear |
+| RTADDR | `0x0000000000000000` | Zero observed register; no loaded-table inference or dereference |
+
+The48-bit adjusted table geometry and39-bit maximum guest address width are
+independent fields. The latter bounds addresses regardless of the former; they
+are not contradictory. Capability support is not enablement. The audit retains
+raw fields and explicitly leaves all authority, ownership, DMA-quiescence,
+firmware-exclusion and full-interval-stability claims false.
+
+These observations concern only graphics-specific DRHD0 at `0xfed90000`.
+Include-all DRHD1 at `0xfed91000` was not sampled. They do not establish the
+state of that other unit, an idle graphics engine, the GPU's direct DMA readers,
+firmware retirement, GGTT/backing ownership or an unused display power well.
+A disabled graphics translator is not evidence that DMA itself has stopped.
+
+Next prerequisite: run the outstanding ordinary desktop regression for the
+shared mapping registry before another hardware expansion. Any later read-only
+fault/control extension needs a separate fixed-offset profile, source/guard and
+retirement proofs within existing bounds. No fault acknowledgement, root-table
+walk, translation command, invalidation or power transition is authorized by
+this interpretation. No additional physical boot is needed to decode these
+already retained bytes.

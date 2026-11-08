@@ -2,11 +2,13 @@
 
 Updated: 2026-11-07. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
-Current diagnostic milestone: exact-source pre-user two-pass A-preseeded
-zero-load qualification is physically accepted in82.610/82.379ms under each
-unchanged100ms lifetime, with identical raw borrowed graphs and verified
-retirement/claim release. This grants no register-read or hardware ownership
-permission; see the dated native acceptance below.
+Current diagnostic milestone: the exact-source pre-user two-pass read-only
+sampler is physically accepted on release `2ddbd3b285f6bf41`. All24 DWORD reads
+completed with identical raw samples and borrowed mapping graphs, verified
+retirement/claim release, and88.955/83.461ms lifetimes under the unchanged100ms
+limit. This accepts the isolated diagnostic history, not current register
+access, register writes, root-table walking or device ownership. See the dated
+native result below.
 
 ## Initial inventory (2026-10-22)
 
@@ -67,7 +69,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
 | Battery/AC | Passive handoff, short parked sampling and attended AC transitions with observed alarm refresh/clean retirement and bounded exclusive-image Text coexistence accepted | Bounded mounted Home Text/Start/Stop session accepted; three-minute continuous Home capture accepted; attended desktop AC transitions accepted; longer endurance and gauge accuracy remain open; ordinary startup stays off |
-| VT-d diagnostic window | Single-window qualification accepted; two fresh A-preseeded zero-load passes now accepted in82.610/82.379ms with exact raw graph equality, 12 markers/pass and verified retirement/claim release | Guarded read-only sampler implemented and host/VM validated; native register-read acceptance pending; no device ownership; ordinary desktop regression for changed registry pending |
+| VT-d diagnostic window | Single-window and two-pass zero-load qualification accepted; isolated read-only sampler now accepts24 DWORD reads with identical raw samples/graphs and verified retirement/claim release in88.955/83.461ms | No register writes, root-table walk or device ownership grant; ordinary desktop regression for changed registry pending |
 | Networking | Not tested | Netgear is distinct from the Pro's Edimax work |
 
 ## Host validation
@@ -8944,3 +8946,160 @@ inside the original lifetime. Audit actual source/word/time budgets and add
 first-touch regressions. No hidden target priming load, A/D mask, time exclusion
 or cap increase is permitted. Repeat the exact read-only qualification after
 host/VM validation; keep historical failures recorded.
+
+### Sampler text/gate first-touch fix scope (2026-11-07)
+
+Base `09ad7c23`, after the failed v8 trial documented in PR413. Scope is
+the existing sampler/gate sources, linker-bounded sampler text, host fixtures
+and isolated trial tools. Group sampler-owned code into a trusted section
+bounded to64KiB/16 pages, then perform guarded RAM-only first-touch before the
+first census. Validate exact supervisor/RO/executable RAM paths before/after
+each byte read, charging all page-table/code reads to the original word/time
+limits. No target load may prime code. Warm both gates' complete private
+evidence with same-value writes under pass0's original live guards.
+
+Keep R2 raw comparisons, all firmware/cache/census/gap/tail/mapper caps and
+terminal ownership handling unchanged. Add real first-touch/guard/fault
+regressions and audit maximum accounting. Run matched core/build, sanitizer/
+portable and exact-stage VM checks, self-merge, preserve accepted/recovery
+payloads and USB files, then run one automated native read-only qualification.
+PR301/PR19 retain independent scopes; no competing device implementation or
+cross-task message is introduced. No native acceptance is inferred before
+collecting the matching complete raw proof.
+
+### Sampler first-touch fix validated; native trial prepared (2026-11-07)
+
+Frozen runtime/host tools `d3aa3eac` adds same-value priming of both gate
+evidence sets under pass0's original callback-only guard. Gate0 must already
+have its first fresh admission; gate1 remains unstarted. The read-enabled
+image also groups sampler-owned VMM/bridge/gate code into a trusted linker
+section. Its actual32620 bytes span8 pages, below the64KiB/16-page refusal
+bound. Before the first census, each page receives one RAM-only volatile byte
+read, with full fresh path checks before/after and live clock/root guards.
+Supervisor RO/executable RAM leaves are required. The exact preparatory
+leaf-A effect is checked; no PTE is written and no target load primes code.
+All retained census and target path comparisons remain bit-exact.
+
+The maximum16-page fixture charges656 additional mapper words, for64132 in
+pass0 and63476 in pass1; both stay below65536. Firmware remains3996 bytes/pass,
+with13 independently bounded cache/NX admissions and24 total target reads.
+Raw normal/max-catalog receipts are37563/61179 bytes, packed into8588/26180
+wire bytes. Original clock/source/census/gap/body/raw/wire/tail limits are
+unchanged, and every preparation step counts inside pass0's original lifetime.
+
+Matched normal/AP/v7/v8/USB/ISO builds and full core tests pass, including89
+installed-root tests and one expected opt-in skip. Actual guard/store hooks
+verify both gate regions and all16 code pages precede the census/first target
+read. Regressions include all256 text-path bit mutations, read/root/IRQ/time/D
+faults at every code page, bounds/permission refusal, no retry, and the existing
+pre/post target-path and cache/sample faults. Full sampler backend and thirteen
+producer modes pass ASan/UBSan; both full ARM64 sampler fixture links pass.
+Existing bridge/profile sanitizer and portable checks also pass.
+
+All thirteen sequential diagnostic VM cases and five ordinary boot/syscall/
+USB-keyboard/fork/exec/yield VMs pass. The21 consumer/profile tests pass in
+the frozen core suite. Native ELF symbols confirm the bounded membership and
+absence of host hooks; all four runtime images retain their frozen hashes
+after VM checks. Exact v8 payload `2ddbd3b285f6bf41` passes unsupported-board
+refusal/save/return and missing-workspace rehearsal. No new physical result
+is inferred; the prior v8 refusal remains historical failure.
+
+Unreferenced old attended-desktop EFI copy `9851d427b042227b` was retired
+only after its independent full backup and absence from active/recovery/GRUB
+references were verified. Accepted `517661c4c5a9627f`, earlier single-window
+`92d9f134639f509c`, current failed sampler `0325ad569a8b0a83` and recovery
+`c35475f62f154f1e` remain intact and backed up. The USB baseline is639 files
+with clean allocation. The next unattended trial will save matching R2/ECAM/
+source/exit proofs and return on a clean outcome. Uncertain ownership halts
+without USB reuse. Native acceptance awaits the matching collected return.
+
+### Native read-only sampler accepted; collector token corrected (2026-11-07)
+
+Bounded return-review scope: collect run `8c366ac267ff4410`, independently
+validate the unchanged strict R2 decoder, preserve original collection reports,
+and update this unit's acceptance record. Integration baseline is merged PR414
+`6415b898`; frozen runtime and tested host tools are `d3aa3eac`. Open PR301,
+PR19 and PR379 retain separate scopes. No runtime or shared decoder change is
+part of this return review.
+
+Release `2ddbd3b285f6bf41`, session `session-00065fbc382c2c47-00`, completes
+all24 attempts/reads with zero target writes. Both12-DWORD samples and both
+retained raw borrowed graphs are identical. The strict decoder directly returns
+`OBSERVED_RETIRED_READ_ONLY_SAMPLE` from the matching unchanged window, ECAM
+and exit files. The complete source/retirement proofs and saved references pass;
+both private mappings retire and release their claims. All13 cache/NX admissions
+per pass retain their original independent bounds. Lifetimes are88955/83461us,
+mapper words54001/53673 and inter-sample gap82075us. All original time, word,
+firmware, census, wire and tail limits remain unchanged.
+
+The automatic collector initially reported `FAILED_OR_INCOMPLETE`: its local
+wrapper still required the previous zero-load boot token. Replaying every
+original predicate identifies that assertion; replacing only the wrapper's
+expected token with the exact staged `air61-two-pass-read-only` token makes all
+predicates pass. The strict R2 decoder already requires this correct token and
+was unchanged. Original collector/assessment artifacts remain preserved beside
+the separately reviewed PASS report. The generic attention list also includes
+the literal successful `hsw-sample-failure: reason=none` line; it is not a native
+failure. No native failure or graph difference was suppressed. PR413's prior
+first-touch failure remains historical evidence.
+
+All639 prior files remain intact except expected workspace metadata. Four new
+logs produce643 files and1725 allocated clusters; offline filesystem and full
+allocation traversal pass with zero leaks, mismatches or errors. Installed,
+exact-stage and independent payload hashes match. Accepted zero-load and
+single-window payloads and recovery `c35475f62f154f1e` remain verified. Full raw
+run evidence and reviewed reports are hash-verified outside `build`. Ubuntu is
+default, its one-shot is consumed, collection is disabled and no reboot is armed.
+
+This accepts only this exact isolated read-only qualification. It does not prove
+full-interval register stability, that RTADDR points to a loaded table, device
+ownership, or permission for register writes/root-table walking. Next: audit the
+sampled capability/control values and define a separately gated next operation;
+ordinary desktop regression for the shared mapping registry remains pending.
+
+### Read-only capability interpretation audit scope (2026-11-07)
+
+Base `f1fd3f33`, after PR415 acceptance. Scope: add a host-only audit of the
+same-session strict R2/ECAM/exit receipt, decode a bounded subset of legacy
+VT-d capability/status fields against Intel's register reference, retain input
+hashes, and document the next prerequisite. No new kernel mapping, MMIO read,
+register write, table dereference, device ownership or power-policy change.
+Synthetic decoder checks must remain distinct from native evidence. PR301,
+PR19 and PR379 retain their existing independent implementation scopes.
+Native replay must use the accepted release/session directly, without test
+firmware pins. Preserve Ubuntu/recovery and the accepted payload; no reboot is
+needed for interpreting already captured bytes. A future physical operation
+requires its own explicit scope, exact-stage tests and fresh admission.
+
+### Captured VT-d capability audit result (2026-11-07)
+
+Host tool source `18292bc5` directly replays accepted session
+`session-00065fbc382c2c47-00`, release `2ddbd3b285f6bf41`, through the unchanged
+strict R2 consumer with this unit's actual firmware pin. All three input hashes
+match the independent accepted trial backup. The host-only interpretation is
+`HISTORICAL_CAPABILITY_AUDIT`; it performs no hardware access or installation.
+See the [caller audit](../macbookair6-1-vtd-read-caller-audit.md#captured-capability-interpretation-2026-11-07)
+for the raw values, register reference and bounded field interpretation.
+
+Graphics-specific DRHD0 reports legacy version1.0,256 domains,48-bit adjusted
+page-table geometry and39-bit maximum guest addressability. Translation,
+queued-invalidation and interrupt-remapping enable status are clear at both
+sampled endpoints; the observed root register is zero. Supported mechanisms
+are not active mechanisms, and disabled translation does not prove stopped GPU
+DMA, retired firmware or owned backing. DRHD1 was not sampled. Existing RC6
+timing failure and package-C3 blocker remain open; no policy or limit changes.
+
+Next concrete checkpoint: prepare the outstanding automated ordinary desktop
+regression for the shared mapping registry, preserving the sampler/recovery
+payloads and user files. Only after that coverage should a separately scoped
+read-only fault/control inventory be considered. No register write, table walk,
+invalidation, translation command or power transition follows from this audit.
+No new physical test is installed or armed by this host-only work.
+
+Validation at host-tool source `18292bc5`: all26 focused Python tests pass
+(5 capability-audit,9 sampler,5 profile,7 qualification), as does the actual
+sampler backend with its existing guarded-path/poison/no-retry fault coverage.
+Native receipt replay and independent input hashes pass without test pins.
+Documentation validation checks1108 local links with zero errors; diff checks
+pass. The matched kernel/payload bytes remain those accepted in PR415; no new
+kernel or VM acceptance is claimed by this host-only change.

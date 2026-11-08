@@ -1,6 +1,7 @@
 /* Actual ECAM/admission/VMM/R2 producer. Device DWORDs are fixture-only. */
 #define AIR61_REGISTER_SAMPLE_FIXTURE
 #include "test_air61_read_combined.c"
+#include "test_air61_sample_priming.inc"
 static jmp_buf sample_halt;
 static const char *sample_mode;
 static unsigned calls;
@@ -10,6 +11,7 @@ bool air61_sample_test_load(unsigned pass,unsigned slot,uint32_t offset,uint32_t
  static const uint32_t offsets[12]={0x1c,0,0xc,8,0xc,0x14,0x10,0x14,0x24,0x20,0x24,0x1c};
  assert(pass<2 && slot<12 && offset==offsets[slot] && calls==pass*12+slot);
  assert(!(irq_flags&512) && rw.current==pass && rw.pass[pass].view.window.claimed && rw.pass[pass].view.window.state==AIR61_WINDOW_ACTIVE);
+ assert(text_reads==16 && gate_touches[0]>16 && gate_touches[1]>16);
  calls++;*out=data[slot];
  if(!strcmp(sample_mode,"partial") && slot==3)return false;
  if(!strcmp(sample_mode,"unavailable") && slot==3)*out=UINT32_MAX;
