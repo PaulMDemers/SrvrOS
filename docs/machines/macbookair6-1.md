@@ -8831,3 +8831,25 @@ grant and no sibling acceptance. Next scope is a separately guarded read-only
 register caller preserving the audited12-DWORD/two-sample contract and all
 existing limits. Ordinary native desktop regression for the earlier shared
 registry change remains separate pending work.
+
+### Guarded target-register sampler scope (2026-11-07)
+
+Base `f01a1ad4`, after accepted zero-target-load qualification
+`517661c4c5a9627f`. Bounded objective: a separate explicit v8 read-only
+register-sampling ELF/profile and distinct raw receipt/strict consumer, retaining
+the v7 qualification unchanged. Scope: existing two-pass backend, bridge,
+serializer/envelope, boot selection, host fixtures and isolated collector.
+Exactly12 fixed aligned DWORDs per pass, at most two passes, no pointer API,
+register writes or table dereference. Every load retains fresh source guard,
+exact four-entry pre/post path, raw value and timing; all lifetime, word,
+census, source, gap and receipt limits remain unchanged. Uncertain reads or
+path/control/retirement changes retain ownership and halt without USB reuse.
+
+Exercise partial/unavailable/torn/changed samples, every path-bit mutation,
+wrong/stale context, deadline/root/IRQ/source/cache failure, bounds, no retry,
+raw persistence and cross-profile refusal. Preserve accepted qualification and
+independent recovery. Run matched builds/core, sanitizers/portable checks and
+exact-stage refusal/save/return/missing-workspace VMs before any native trial.
+PR301/PR19 still own independent device scopes; no competing device change or
+cross-task messaging is introduced. Native acceptance requires collected raw
+evidence from this unit; retained historical receipts grant no live access.
