@@ -8736,3 +8736,32 @@ independent complete backup and absence from current/recovery/GRUB references.
 Accepted current `92d9f134639f509c` and recovery `c35475f62f154f1e` remain intact.
 The automated native trial is being prepared; acceptance remains pending its
 matching collected raw session and all prior-file/offline-integrity checks.
+
+### Native two-pass return: evidence first-touch refusal (2026-11-07)
+
+Merged PR408 runtime `b5d9c92e`, release `390c4221b5e50422`, returned
+automatically with session `session-00065fb87209eea3-00`. Both independent
+zero-load passes retired and released their claims in82575/82244us, using
+53673 mapper words each; the measured slot gap was81558us. Early ECAM proof
+and whole-session save/completion succeeded. Zero target reads/writes occurred.
+
+**The two-pass qualification is not accepted.** The strict joint decoder
+rejects nine changed borrowed-graph leaf entries. Each gains exactly hardware
+Accessed/Dirty bits (`0x60`), with unchanged addresses and all other raw bits.
+The saved native graph and exact ELF symbols bind these pages to pass0's
+evidence output, including linked/retired/private snapshots. Next-pass private
+RAM priming alone omitted these current-pass output pages before its census.
+This explains the observed graph difference; it grants no masking exception.
+
+All627 prior files remain present and unchanged except expected filesystem
+metadata; four new diagnostic logs were saved. Offline fsck/allocation passes
+with zero leaks or bitmap mismatches. Ubuntu recovery returned, the one-shot
+is clear and no reboot is armed. Raw proof and symbol-bound analysis are
+retained locally and independently backed up outside `build`.
+
+Next bounded scope: first-touch complete current/next evidence storage before
+the first census, charged to the original guarded lifetime, with regression
+coverage for current-pass output first-touch. Preserve exact raw comparison,
+all integrity checks and every existing time/word/source/gap limit. No target
+register reads, power policy changes or hardware ownership are authorized by
+this result. Earlier accepted window-only evidence remains unchanged.
