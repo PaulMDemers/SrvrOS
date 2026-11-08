@@ -15122,3 +15122,32 @@ unused software module. Store these separate software receipts outside build,
 keep Ubuntu default and no next boot armed. Consumed maina1661937,reviewed
 mainf94d97d1;other machines' scopes remain independent. PR19 stays draft;
 Actions disabled. Demers2.4 still requires compatible hardware.
+
+
+### Native provider USB handoff hardware scope (November 8)
+
+Keep accepted runtime77f75af0/releasee17ff9e2fb15fb2c and190/73 native plus
+26/18 accepted-note seals intact. Begin an explicit v132 provider profile from
+the qualified dormant provider. Defer ordinary net_init/worker only in the exact
+opt-in unattended profile,register/select the verified station after M4,then
+route the existing six strict encrypted IP requests through the copied provider
+queue and genuinely nonblocking native USB submit/completion callbacks. Private
+controlled-test waits remain outside provider callbacks. Receive/crypto/IP
+validation remains the accepted diagnostic;ordinary provider RX/TCP/HTTP and
+persistent/ring-recycling authority are not claimed by this first handoff trial.
+
+Retain the original exclusive live key/backend/peer/generation and exact existing
+48 immutable RX pages,40 forward/eight cleanup entries,11 TX pages and six
+endpoint commands. No key copy/reinstall,nonce rollback,extra retry,new hardware
+ring reuse or wider native receive/time bounds. Completion maps exactly one
+native epoch/token to the validated current TX event;uncertainty stops publication
+and retains DMA/context. Disconnect before key erasure;release provider context
+only after the entire parent reports full erasure/endpoint/input/MAC/power/RF
+retirement. Require new matching boot/progress/queue/retirement receipts in a
+separate strict saved-log profile;old v131 must not accept the new marker.
+Test the actual native owner with real registry/core,independent encrypted AP
+fixtures,completion/owner/retirement faults and historical-profile regressions.
+Qualify kernel,staging,exact-image VM,persistence/headroom and local sanitizers
+before installation and the authorized cold shutdown. Touch xHCI Wi-Fi child,
+main's opt-in network timing,matched staging/collectors/tests and current guides;
+no generic registry,hardware matching or other machines' device gates change.
