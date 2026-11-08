@@ -46,3 +46,27 @@ void FN(air61_read_gate_reset)(void){
 }
 
 #endif
+
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+/* Fixed whitelist and original per-snapshot49 read cap. These counters/output
+ * live in the already-primed current pass, not mutable gate-global storage. */
+static bool sample_msr(void *ctx,uint32_t n,uint64_t *v){
+ struct air61_sample_admission *s=ctx;
+ bool efer=n==0xc0000080u;
+ if(!s || !s->attempted || (!efer && n!=0xfe && n!=0x277 && n!=0x2ff && !(n>=0x200 && n<=0x21f) && n!=0x250 && n!=0x258 && n!=0x259 && !(n>=0x268 && n<=0x26f)))return false;
+ if(efer){if(s->efer_reads>=1)return false;s->efer_reads++;}
+ else {if(s->msr_reads>=49)return false;s->msr_reads++;}
+#ifdef SRVROS_ECAM_GATE_HOST_TEST
+ return eg_test_msr(n,v);
+#else
+ uint32_t a,d;__asm__ volatile("rdmsr":"=a"(a),"=d"(d):"c"(n));*v=a|((uint64_t)d<<32);return true;
+#endif
+}
+bool FN(air61_sample_cache)(struct air61_sample_admission *s){
+ if(!s || s->attempted || !eg_started || eg_broken || eg.phases!=2 || !vmm_diagnostic_sole_kernel_root(eg_root))return false;
+ s->attempted=true;
+ const struct x86_cache_io io={.ctx=s,.cpu=eg_cpu,.msr=sample_msr,.now=eg_now};
+ if(!x86_cache_snapshot(&s->cache,&io) || !sample_msr(s,0xc0000080,&s->efer) || s->msr_reads!=s->cache.reads || s->efer_reads!=1 || s->efer!=eg.efer[1] || !x86_cache_equal(&s->cache,&eg.cache[1]) || !vmm_diagnostic_sole_kernel_root(eg_root))return false;
+ return true;
+}
+#endif

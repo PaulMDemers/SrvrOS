@@ -3,6 +3,9 @@
 #endif
 #define SRVROS_AIR61_READ_PRIME_OBSERVER read_prime_observe
 static void read_prime_observe(volatile unsigned char *);
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+#define vmm_air61_read_window_qualify vmm_air61_register_sample
+#endif
 #define AIR61_READ_WINDOW_FIXTURE
 #define SRVROS_AIR61_READ_WINDOW
 #define WINDOW_PROFILE_FIXTURE_LIBRARY
@@ -65,10 +68,25 @@ static bool rcheck(void *ctx,unsigned pass,unsigned phase){
  return ok && (!pass || phase || gates_equal());
 }
 static bool rram(void *ctx,unsigned pass,uint64_t pa){(void)ctx;assert(pass<2);return pass?air61_read_gate_ram1(pa):air61_read_gate_ram0(pa);}
-static const struct air61_read_window_env rio={.check=rcheck,.ram=rram,.now=now};
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+extern bool air61_sample_cache0(struct air61_sample_admission *),air61_sample_cache1(struct air61_sample_admission *);
+static bool rsample(void *ctx,unsigned pass,unsigned slot,struct air61_sample_admission *a){(void)ctx;assert(slot<13);return pass?air61_sample_cache1(a):air61_sample_cache0(a);}
+#endif
+static const struct air61_read_window_env rio={.check=rcheck,.ram=rram,.now=now,
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ .sample_admit=rsample,
+#endif
+};
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+static int sample_fault_pass=-1,sample_fault_slot=-1;
+static unsigned sample_fault_kind,sample_fault_level,sample_fault_bit;
+#endif
 static unsigned prime_stores,prime_break_at,prime_break_kind;
 static void rreset(void){
  prime_stores=prime_break_at=prime_break_kind=0;
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ sample_fault_pass=sample_fault_slot=-1;
+#endif
  setup();memset(&rw,0,sizeof(rw));air61_read_gate_reset0();air61_read_gate_reset1();
  pages[0][384]|=32;irq_flags=2;changed_catalog=false;
  read_phase_hook_mode=0;path_pass=-1;inject_pass=inject_phase=-1;inject_kind=0;memset(phase_calls,0,sizeof(phase_calls));retained_valid=false;
@@ -87,6 +105,34 @@ static void read_prime_observe(volatile unsigned char *p){
   if(prime_break_kind)cr3+=4096;else ticks+=1600000;
  }
 }
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+bool air61_sample_test_load(unsigned pass,unsigned slot,uint32_t offset,uint32_t *out){
+ static const uint32_t data[12]={0,0x10,0,0x123456,0,0,0x40,0,0,0x2000000,0,0};
+ assert(pass<2 && slot<12 && offset==rw_offsets[slot]);
+ assert(!(irq_flags&512) && rw.current==pass && rw.result.busy);
+ assert(rw.pass[pass].view.window.state==AIR61_WINDOW_ACTIVE && rw.pass[pass].view.window.claimed);
+ *out=data[slot];
+ if((int)pass==sample_fault_pass && (int)slot==sample_fault_slot){
+  switch(sample_fault_kind){
+   case 0:*out=UINT32_MAX;break;
+   case 1:*out=0;break;
+   case 2:*out^=1;break;
+   case 3:return false;
+   case 4:cr3+=4096;break;
+   case 5:irq_flags|=512;break;
+   case 6:ticks+=1600000;break;
+   case 8:changed_cache=true;break;
+   case 9:changed_efer=true;break;
+   case 10:cr0_value&=~(1ull<<16);break;
+   case 11:changed_catalog=true;break;
+   case 7:{const struct air61_window_result *r=&rw.pass[pass].view.window;
+    uint64_t pa[]={r->token.root,r->pdpt,r->frames[0],r->frames[1]};unsigned at[]={384,7,409,80};
+    pages[frame_index(pa[sample_fault_level])][at[sample_fault_level]]^=1ull<<sample_fault_bit;break;}
+  }
+ }
+ return true;
+}
+#endif
 static bool run_series(void){return vmm_air61_read_window_qualify(&rio,0x61697272656164,1000);}
 #ifdef AIR61_READ_WINDOW_LIBRARY
 #define main read_backend_fixture_main
@@ -154,5 +200,26 @@ int main(void){
  rreset();assert(!vmm_air61_read_window_qualify(&rio,0,1000));
  assert(!vmm_air61_read_window_qualify(&rio,1,UINT64_MAX));
  assert(!rw.result.attempted && !loads);
- puts("air61-read-window PASS dormant actual VMM and two fresh gates; zero target loads");return 0;
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ for(unsigned pass=0;pass<2;pass++)for(unsigned slot=0;slot<12;slot++)for(unsigned kind=0;kind<12;kind++){
+  if(kind==7)continue;
+  if(kind==1 && slot!=1)continue;
+  if(kind==2 && !pass && slot!=4 && slot!=7 && slot!=10 && slot!=11)continue;
+  rreset();sample_fault_pass=pass;sample_fault_slot=slot;sample_fault_kind=kind;
+  assert(!run_series() && rw.result.state==AIR61_READ_POISONED);
+  assert(rw.pass[pass].view.attempts==slot+1 && rw.pass[pass].view.reads==slot+(kind!=3));
+  assert(rw.pass[pass].view.window.claimed && rw.result.retired==pass);
+  unsigned attempts=rw.pass[pass].view.attempts;assert(!run_series() && rw.pass[pass].view.attempts==attempts);
+ }
+ for(unsigned pass=0;pass<2;pass++)for(unsigned level=0;level<4;level++)for(unsigned bit=0;bit<64;bit++){
+  rreset();sample_fault_pass=pass;sample_fault_slot=3;sample_fault_kind=7;sample_fault_level=level;sample_fault_bit=bit;
+  assert(!run_series() && rw.result.state==AIR61_READ_POISONED && rw.pass[pass].view.reads==4);
+ }
+#endif
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+ puts("air61-register-backend PASS 24 guarded read-only fixture loads, exact paths, retained poison and no retry");
+#else
+ puts("air61-read-window PASS dormant actual VMM and two fresh gates; zero target loads");
+#endif
+ return 0;
 }

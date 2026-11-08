@@ -2,6 +2,20 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Active scope: integrate main and same-lifetime BCS shutdown
+
+Consume fetched main `09ad7c23` (Air6,1 PR412/413), retaining the separate
+v8 Haswell sampler and its cold-page refusal. PR19 Wi-Fi and PR379 WebCore
+remain independent. Bounded objective: qualify inherited blitter ring shutdown
+inside the BCS reset owner's lifetime, then require a fresh disabled pre-census,
+reset, post-preservation and clean retirement under unchanged100/300/500ms limits.
+Scope: isolated BCS adapter/core receipts, native MMIO admission, collectors and
+host/VM regressions; no ordinary desktop, HDA, translation/cache or managed-memory
+ownership grant. Preserve current/recovery payloads and the latest incomplete
+native receipt. Stop at a fully qualified, installed but unarmed hardware
+candidate; no reboot is requested for this work block. Local checkpoint:
+`build/air-bcs-shutdown-20261107/status.md`.
+
 ### Latest guarded snapshot trial: clean refusal before reset
 
 Source `9ea439f6`, release `3ec42dd315377e65`, session

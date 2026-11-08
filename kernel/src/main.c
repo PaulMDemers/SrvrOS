@@ -514,7 +514,11 @@ void kmain(void) {
     }
 
 #ifdef SRVROS_AIR61_READ_QUALIFICATION
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+    if(!cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-read-only")){console_write("Register sample kernel requires explicit read-only token\n");halt_forever();}
+#else
     if(!cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-no-read")){console_write("Two-pass kernel requires explicit qualification token\n");halt_forever();}
+#endif
 #endif
 #ifdef SRVROS_AP_PROBE
     if(!cmdline_has_token(cmdline,"srvros.capture=haswell-backing") &&
@@ -581,7 +585,13 @@ void kmain(void) {
     bool window_test=window_requested;
 #endif
     bool ecam_test=cmdline_has_token(cmdline,"srvros.ecam=air61-2m-test");
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+    if(cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-no-read"))halt_forever();
+    bool read_test=cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-read-only");
+#else
+    if(cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-read-only"))halt_forever();
     bool read_test=cmdline_has_token(cmdline,"srvros.vtd-window=air61-two-pass-no-read");
+#endif
     if(read_test && (window_test || !ecam_test))halt_forever();
 #ifndef SRVROS_AIR61_READ_QUALIFICATION
     if(read_test){console_write("Two-pass qualification requires its isolated kernel\n");halt_forever();}
@@ -769,13 +779,21 @@ void kmain(void) {
     {
         uint64_t window_irq=0;
         if(window_test || read_test){
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+            boot_status("sample-progress: two bounded read-only register samples; no input needed\n");
+#else
             boot_status("window-progress: fresh bounded mapping/retirement, zero target loads; no input needed\n");
+#endif
             __asm__ volatile("pushfq; popq %0; cli":"=r"(window_irq)::"memory");
         }
         bool aliases_ready=haswell_alias_context_prepare();
         if(window_test || read_test){
 #ifdef SRVROS_AIR61_READ_QUALIFICATION
+#ifdef SRVROS_AIR61_REGISTER_SAMPLE
+            if(read_test && aliases_ready)(void)haswell_air61_register_sample();
+#else
             if(read_test && aliases_ready)(void)haswell_air61_read_qualify();
+#endif
 #endif
             if(window_test && aliases_ready)(void)haswell_air61_window_run();
             if(window_irq&512)__asm__ volatile("sti":::"memory");
