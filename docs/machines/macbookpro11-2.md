@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-08. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet accepted;two independent cold5GHz encrypted DHCP/DNS/256-byte echo lifetimes with full restoration accepted**.
+Updated: 2026-11-08. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet accepted;two independent cold5GHz encrypted DHCP/DNS/256-byte echo lifetimes and one bounded native asynchronous provider TX/USB handoff with full restoration accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -17,10 +17,11 @@ lifetimes,not sustained reliability;earlier intermittent failures remain failed.
 Fingerprint-only diagnostics do not establish a causal correction. See the
 November8 acceptances at the end.
 
-Qualified v132 candidate d97ad914/release815453c3f9a42431 is installed for the
-bounded native asynchronous USB provider TX trial;physical acceptance is pending.
-Preserve the accepted data payload. After return collect provider5-native FIRST,
-then continue ordinary receive/connection lifetime,TCP/HTTP and UI/reattach. The captured
+Native v132 d97ad914/release815453c3f9a42431 now accepts one bounded cold
+asynchronous provider TX/USB completion lifetime,including encrypted DHCP/DNS/
+256-byte echo and full retirement. Session00065fc9d253b4f4-00 and its197-file
+sealed capsule are collected;preserve this and the earlier accepted data payload.
+Next ordinary provider receive/persistent transport,TCP/HTTP and UI/reattach. The captured
 7392:a711/0100 EW-7711MAC is5GHz-only;Demers2.4 needs compatible hardware. Current
 source retains maina1661937;actual main ceeabd0d was inspected but not consumed.
 Other machines' graphics,VT-d and browser work remain independent;no cross-chat
@@ -30,8 +31,8 @@ Cold unplug is still required:under standing user authorization,shutdown when
 qualified,unplug only Wi-Fi10seconds while off,reconnect same port,power on and
 leave workspace attached. Results save and Ubuntu return is automatic;no commands,
 photos or repeated approval. Collect the exact new session first after return.
-Workspace is unmounted and Ubuntu remains default. The saved local run record
-owns the one-shot/shutdown state for this trial. PR19 draft;Actions disabled.
+Workspace is unmounted,Ubuntu remains default,one-shot consumed and unarmed.
+The matching native run is collected and accepted. PR19 draft;Actions disabled.
 
 ## Earlier handoff (superseded November 8)
 
@@ -15193,3 +15194,37 @@ provider5-native run FIRST;require six queue/submission/completion counts,early
 release refusal,late detach/registry retirement,all encrypted IP results,full
 key/hardware originals and independent storage/recovery checks. A halt,missing
 receipt or incomplete parent remains failed. No photos/commands/repeated approval.
+
+
+### Native asynchronous USB provider handoff accepted (November 8)
+
+Runtime d97ad914/release815453c3f9a42431,session00065fc9d253b4f4-00 saves
+2,042,206 complete bytes and passes the full15719-operation parent plus native
+provider boot/progress/retirement proof. Deferred net_init/worker,real station
+registration/attachment/selection and all six copied queue/submission/completion
+counts pass with zero pending,faults or drops. The original live software CCMP
+owner advances PN1..6;DHCP DORA,ARP,DNS and exact256-byte gateway echo pass.
+Seven Ethernet deliveries authenticate;IP56polls,one ignored,exhausted0,unsafe0.
+Exchange270,653us;18 deferred events,forward17,cleanup-drained2,posts20.
+
+Disconnect blocks publication before software-key erasure/local leave. Explicit
+early context release refuses. After full endpoint/input/MAC/power/RF original
+restoration,the provider detaches and registry retirement completes. All six
+endpoint commands pass;MAC54operations/46reads/seven writes/one wait and10,636us
+hold,all nine power originals and full inverse RF proof pass. Offline fsck and
+allocation are clean,installed/recovery payload equality and Ubuntu default pass;
+workspace unmounted and no next boot armed. Leave USB completion is not observed
+over-air acknowledgement. DMA remains retained with no ring reuse.
+
+The197-file immutable native capsule and separate acceptance notes survive
+outside build. Accepted data190/73 native plus26/18 notes,v130177/24,M1178 and
+provider-software21-file seals were reverified without modification;historical
+failed capsules remain failed. No new kernel/local-suite run was needed after
+return;the source-matched preboot qualification remains attached.
+
+This accepts one bounded native TX queue/completion/full-retirement lifetime.
+Receive still uses the strict diagnostic;ordinary provider RX,persistent/ring-
+recycling transport,native TCP/HTTP,sustained reliability,connection UI and live
+USB reattach remain pending. Preserve815453c3f9a42431 ande17ff9e2fb15fb2c.
+Demers2.4 requires compatible hardware. Maina1661937 consumed,ceeabd0d inspected
+without Wi-Fi overlap. PR19 stays draft;Actions disabled.

@@ -7536,7 +7536,7 @@ connect/disconnect and USB reattach remain the next work;do not repeat unchanged
 local tests or infer broader acceptance from these two bounded passes.
 
 
-### Dormant nonblocking provider lifetime
+### Nonblocking provider lifetime
 
 `mt76_net5` supplies a boot-stable `net_device` identity with separate connection
 epochs. Registration must precede `net_init`,using the verified station MAC.
@@ -7572,9 +7572,9 @@ interrupts disabled. It performs no hardware or key-table writes,allocations,
 logging or DMA reuse. Link metadata has no invented speed/duplex and readiness
 notifications are not advertised before an independent native service exists.
 Software queue wrap is not acceptance of native transfer-ring/page reuse. Native
-work still needs an explicit guarded asynchronous transport handoff,correct boot
-registration timing and complete restoration before provider/TCP/HTTP/UI hardware
-acceptance. The40/48 immutable v131 limits and existing recipes are unchanged.
+v132 below validates bounded TX handoff,boot registration and full restoration.
+Ordinary provider receive/persistence and TCP/HTTP/UI hardware acceptance remain
+separate. The40/48 immutable limits and historical recipes are unchanged.
 
 
 The provider additionally has an integration fixture linked with the real
@@ -7615,4 +7615,9 @@ retirement after the full outer RF receipt. Historical data5 checking rejects
 provider flags/receipts. Local fixture evidence includes the actual native owner,
 real registry/core,independent encrypted AP frames,all six USB stalls,foreign
 tokens/epochs,late registration and refusal to release on incomplete parent
-retirement. Physical acceptance requires the matching native run;it is pending.
+retirement. The captured Pro11,2 now accepts one bounded native run on source
+`d97ad914`,release`815453c3f9a42431`,session`00065fc9d253b4f4-00`:all six
+queue/submission/completion counts,early-release refusal,encrypted DHCP/DNS/
+256-byte echo and full late detach/registry/hardware restoration pass. Its
+2,042,206-byte proof and197-file sealed capsule remain outside build. This
+does not accept ordinary provider RX,persistence,native TCP/HTTP or live reattach.
