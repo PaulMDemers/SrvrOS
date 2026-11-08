@@ -14858,3 +14858,55 @@ a DHCP reply. Keep the unchanged acceptance path,crypto/ownership/retirement
 checks and40/48/time bounds. Touched scope:mt76_ip5 and its matched native/log
 receipts,Makefile link dependencies and meaningful host/negative tests. Verify
 exact/changed/truncated/padded input and fingerprint erasure before staging.
+
+
+### Qualified private DHCP reflection candidate (November 8)
+
+Runtime77f75af0,private releasee17ff9e2fb15fb2c,retains maina1661937.
+Temporary SHA256 equality of the generated request with same-length authenticated
+Ethernet adds only a reflected counter;fingerprints/comparison output are never
+logged and are erased after waits and admitted returns. Independent hashlib
+checks the generated digest;exact,changed,padded and truncated inputs for both
+DHCP phases verify counting,unchanged reply refusal and erasure. The saved-log
+validator requires reflected counts to be bounded subsets of UDP-ports refusals.
+No packet/address/xid/key values,new acceptance gates,send retries,ring reuse,
+hardware writes or larger receive/time bounds are introduced.
+
+Matched kernel/USB build,full controller and relevant crypto/protocol/DNS/
+ownership regressions,233 staging tests,independent encrypted fixtures and all16
+fatal ASan/UBSan groups pass. Maximum new native stack frame is1,288bytes,
+including the SHA256 provider. Full production-C/native-parent prefix passes
+2,040,880bytes with125 altered/incomplete refusals. Conservative full-prefix
+headroom is41,111bytes under the unchanged2MiB cap while retaining the separate
+32KiB reserve. Real persistence/readback/remount/fsck,ordinary desktop,exact-
+staged GPT save/return and missing-workspace VMs pass. Kernel and independently
+reconstructed firmware/private-PMK initramfs equality and syscall169 namespace
+checks pass. No full-core rerun or new physical acceptance is claimed.
+
+A separate Ubuntu control on this same USB adapter observes an existing DHCP
+lease and active Demers5/channel161,with HTTPS200 from example.com and no network
+configuration changes. This is Linux control evidence,not a new DHCP renewal
+or native SrvrOS acceptance. Latest main ec27e55b was fetched/inspected;its new
+Air6,1 screenshot-menu harness correction does not overlap Wi-Fi and was not
+consumed by this exact candidate. Open PR301/379 remain separate.
+
+Previous566-file sole-bit failure and3-file notes,all prior failures and accepted
+v130/M1 capsules retain their seals outside build. The last generated session
+was archived,byte-verified and pruned after preserving its full failure capsule.
+Workspace offline allocation,writable eligibility and headroom pass. Only the
+unreferenced failed audit EFI duplicate7d2c9c27c188bbc3 was retired after exact
+verification against its complete sealed backup. Accepted v130,M1 and e47d
+previous stay installed. Candidate e17ff9e2fb15fb2c is installed with Ubuntu
+default and remains unarmed at this checkpoint.
+
+Next authorized action is cold shutdown,Wi-Fi-only10second unplug while off,
+same-port reconnect and power on with workspace connected. Progress,saving and
+Ubuntu return are automatic. Collect build/bringup/wifi-data5-reflect/run_root.py
+return_collect FIRST afterward,once;inspect the matching transcript before any
+new candidate. A reflected count indicates matching request bytes in authenticated
+Ethernet,not server receipt or a valid OFFER. Nonmatching bytes do not prove loss
+because forwarding can change fields. Require unchanged full DORA/DNS/exact256-
+byte echo,PN1..6,key erasure/leave and every endpoint/input/MAC/power/RF original,
+plus filesystem/recovery proof,for full acceptance. Ordinary provider/UI,TCP/HTTP
+and live reattach remain pending;Demers2.4 needs compatible hardware. PR19 stays
+draft;Actions disabled. Standing automatic shutdown authorization is retained.
