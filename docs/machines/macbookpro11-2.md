@@ -21,9 +21,12 @@ Native v132 d97ad914/release815453c3f9a42431 now accepts one bounded cold
 asynchronous provider TX/USB completion lifetime,including encrypted DHCP/DNS/
 256-byte echo and full retirement. Session00065fc9d253b4f4-00 and its197-file
 sealed capsule are collected;preserve this and the earlier accepted data payload.
-Next ordinary provider receive/persistent transport,TCP/HTTP and UI/reattach. The captured
+New v133 candidate f2cc9ac0/release3c9b55a76fc9a38a is installed for the
+real bounded reusable-page USB trial;its physical acceptance is pending.
+After return collect wifi-reuse5-native FIRST. Ordinary provider RX/TCP/HTTP,
+persistent connections,descriptor wrap,UI and reattach remain pending. The captured
 7392:a711/0100 EW-7711MAC is5GHz-only;Demers2.4 needs compatible hardware. Current
-source retains maina1661937;actual main ceeabd0d was inspected but not consumed.
+source retains maina1661937;actual main62d6154c was inspected but not consumed.
 Other machines' graphics,VT-d and browser work remain independent;no cross-chat
 contact is authorized. Credentials/private PMK remain local and never logged.
 
@@ -32,7 +35,8 @@ qualified,unplug only Wi-Fi10seconds while off,reconnect same port,power on and
 leave workspace attached. Results save and Ubuntu return is automatic;no commands,
 photos or repeated approval. Collect the exact new session first after return.
 Workspace is unmounted,Ubuntu remains default,one-shot consumed and unarmed.
-The matching native run is collected and accepted. PR19 draft;Actions disabled.
+The earlier v132 run is collected/accepted. The local v133 run record owns the
+new one-shot/shutdown state. PR19 draft;Actions disabled.
 
 ## Earlier handoff (superseded November 8)
 
@@ -15324,3 +15328,46 @@ long-lived ring wrap,persistence/UI/live reattach remain separate acceptance.
 Main62d6154c still inspected/not consumed;other open scopes remain independent.
 Touch the Wi-Fi native child/provider,main opt-in/staging/log collectors and
 fixtures/guides;no generic xHCI ownership or other model/RF gates are widened.
+
+
+### Real reusable-page candidate qualified (November 8)
+
+Sourcef2cc9ac0/release3c9b55a76fc9a38a is installed as explicit v133.
+The real native owner uses four pages per direction and the actual63 usable TRBs,
+with unchanged48/40/eight RX and11 TX transfer limits. No descriptor addresses
+wrap. Independent slot/endpoint/current-TD/CC/residue validation precedes exact
+ledger completion;RX is borrowed/copied/authenticated/released before page reuse.
+IRQ masking serializes the short lease/copy/publication transactions. The
+original exclusive CCMP owner and PN1..6,strict IP gates and all original hardware
+restoration stay required. Early release refuses;late ledger/provider retirement
+requires actual empty-event observation after the complete original parent.
+
+Matched kernel/USB image,full controller and relevant historical/provider/core/
+protocol/crypto/IP regressions pass. All237 staging tests and nine focused fatal
+ASan/UBSan groups pass,including the actual new native owner,six send stalls,
+lease/mapping/counter/late-event failures,pinned context after the trial flag
+clears,and both DMA ownership/production-stack
+fixtures. Native compiler maximum relevant frame1288bytes.
+Actual-child/full-parent synthetic prefix2041875bytes and
+133 incomplete/mutated refusals pass;conservative
+headroom40116bytes retains the separate32KiB reserve
+under unchanged2MiB capture. Disk write/remount/fsck,ordinary desktop,exact GPT
+save/return and missing-workspace VMs pass,including deferred-network boot.
+Independent packaged kernel/private firmware/PMK/syscall169 equality passes. No
+full-core rerun or native acceptance is inferred from this qualification.
+
+Accepted815/e17/v130/M1 and e47d previous remain installed and byte-verified.
+The unreferenced older v124 EFI duplicate may be retired only after equality to
+its independently sealed166-file accepted capsule;its evidence is preserved.
+Native197/190/73 and accepted18/26/18 plus dormant-software20-file seals remain
+intact. Prior generated accepted USB logs were independently byte-verified and
+archived before pruning for capture headroom. Private candidate evidence and
+payload are sealed outside build. Maina1661937 consumed,62d6154c inspected;other
+scopes remain independent. Ubuntu default,workspace unmounted,PR19 draft.
+
+Arm the authorized one-shot and shut down for Wi-Fi-only10second unplug/reconnect
+while off;leave workspace connected. Progress,save and Ubuntu return are automatic.
+Collect the exact new session first,requiring reuse5_complete,real page/borrow/
+release/empty-event/retirement receipts and all encrypted IP/full-parent/storage/
+recovery checks. Missing completion remains failure. Ordinary provider receive,
+TCP/HTTP,persistence,descriptor wrap,UI/live reattach remain separate milestones.

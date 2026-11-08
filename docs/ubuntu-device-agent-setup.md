@@ -1361,3 +1361,20 @@ v131 data payload and its independent cold capsules. This unit still requires
 authorized shutdown and10second Wi-Fi-only unplug/reconnect while off;leave the
 workspace connected. Progress/save/return are automatic,no commands/photos.
 Collect the exact new session first;local/VM success is not native acceptance.
+
+
+### Pro11,2 real bounded reusable-page child (v133)
+
+Add `--wifi-reuse5` only with the complete automatic provider5/data5/WPA5/private
+PMK parent. The real owner uses the captured63 usable native TRBs and four pages
+per direction within the unchanged48 RX/11 TX transfer positions. Raw validated
+USB completions,copy/authentication/release and full late ledger/provider/hardware
+retirement are required. No descriptor wrap is admitted. The separate reuse5
+saved-log checker is mandatory;historical v132 cannot accept these receipts.
+Follow matched build,strict full-prefix,sanitizers/stack/storage,exact GPT and
+missing-workspace VMs,recovery/run-record and one-shot cold-shutdown workflow.
+Preserve accepted815/e17/v130/M1/e47d payloads. This adapter still requires10second
+Wi-Fi-only unplug/reconnect while off;leave workspace connected. No commands or
+photos are needed;guest progress/save/return are automatic. Collect the matching
+new session first. Ordinary receive/TCP/HTTP,persistence,descriptor wrap and UI
+require their own subsequent native evidence.
