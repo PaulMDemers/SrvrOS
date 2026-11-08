@@ -5,8 +5,15 @@ PROGRESS='wifi-data5-progress: authenticated encrypted DHCP,ARP,DNS example.com 
 DHCP_FIELDS=('ethernet_span', 'ethertype', 'ethernet_destination', 'ethernet_source', 'ip_span', 'fragment', 'ttl', 'protocol', 'ip_checksum', 'ip_binding', 'udp_span', 'udp_ports', 'udp_checksum', 'bootp_span', 'bootp_header', 'xid', 'station', 'cookie', 'option_span', 'option_duplicate', 'option_value', 'padding', 'required', 'end', 'message', 'address', 'ack', 'destination', 'matched')
 def validate_data(lines,handshake_sends,old_rx,owner,result):
  rows=[x for x in lines if x.startswith('wifi-data5')]
- require(len(rows)>=14 and rows[0]==PROGRESS,'missing encrypted-data progress')
- require(lines.index(handshake_sends[3])<lines.index(rows[0])<lines.index(rows[-1])<lines.index(handshake_sends[4]),'data outside activated M4/leave window')
+ require(len(rows)>=15 and rows[0]==PROGRESS,'missing encrypted-data progress')
+ require(lines.index(handshake_sends[3])<lines.index(rows[0])<lines.index(handshake_sends[4]),'data progress outside activated M4/leave window')
+ reports=[x for x in rows if x.startswith('wifi-data5-report:')]
+ require(len(reports)==1 and rows[1]==reports[0],'missing deferred data report')
+ exchange=next(x for x in lines if x.startswith('wifi-wpa5-exchange:'))
+ retirements=[x for x in lines if x.startswith('wifi-retire5:')]
+ require(len(retirements)==1,'missing unique receive retirement')
+ retirement=retirements[0]
+ require(lines.index(handshake_sends[4])<lines.index(exchange)<lines.index(reports[0])<lines.index(rows[-1])<lines.index(retirement),'data report outside completed MAC cleanup')
  sends=[x for x in rows if x.startswith('wifi-data5-send:')]
  receives=[x for x in rows if x.startswith('wifi-data5-rx:')]
  summaries=[x for x in rows if x.startswith('wifi-data5:')]
@@ -18,7 +25,9 @@ def validate_data(lines,handshake_sends,old_rx,owner,result):
  require(len(dhcp)==2 and rows[-4:-2]==dhcp,'missing ordered DHCP classifications')
  for phase,line in enumerate(dhcp):
   c=fields(line,'wifi-data5-dhcp');require(set(c)==set(DHCP_FIELDS)|{'phase','offers','acks','naks','other_types'} and c['phase']==phase and all(0<=c[k]<=48 for k in set(c)-{'phase'}) and c['matched']==1 and c['acks' if phase else 'offers']>=1 and sum(c[k] for k in ('offers','acks','naks','other_types'))<=sum(c[k] for k in DHCP_FIELDS)<=48,'invalid DHCP classifications')
- require(len(rows)==1+len(sends)+len(receives)+4,'unexpected encrypted data receipt')
+ require(fields(reports[0],'wifi-data5-report')==dict(deferred=1,events=len(sends)+len(receives)),'invalid deferred event count')
+ require(len(rows)==2+len(sends)+len(receives)+4,'unexpected encrypted data receipt')
+ require(rows[2:-4]==[x for x in rows if x.startswith(('wifi-data5-send:','wifi-data5-rx:'))],'noncontiguous deferred transcript')
  for i,(line,n) in enumerate(zip(sends,(404,404,104,136,104,360))):
   require(fields(line,'wifi-data5-send')==dict(index=i,bytes=n,completed=1,pn=i+1),'ciphertext send/PN gap,replay or uncertainty')
  v=fields(summaries[0],'wifi-data5')
@@ -51,6 +60,7 @@ def validate_data(lines,handshake_sends,old_rx,owner,result):
  mac=next(x for x in lines if x.startswith('wifi-wpa5-mac:'));exchange=next(x for x in lines if x.startswith('wifi-wpa5-exchange:'))
  require(lines.index(exchange)<lines.index(retire[-1])<lines.index(mac),'retirement outside disabled MAC cleanup')
  for i,line in enumerate(retire[:-1]):
+  require(lines.index(line)<lines.index(reports[0]),'deferred report overlaps RX cleanup')
   a=fields(line,'wifi-retire5-rx');require(set(a)=={'index','bytes'} and a['index']==b['forward']+i and 0<=a['bytes']<=4096 and lines.index(exchange)<lines.index(line)<lines.index(retire[-1]),'wrong retained cleanup completion')
  result.update(data5_complete=True,data5_dhcp=True,data5_dns=True,data5_echo=True,data5_echo_bytes=256,data5_encrypted_sends=6,data5_authenticated_received=v['received'],data5_tx_pn=6)
 def check(log):

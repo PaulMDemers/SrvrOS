@@ -29,7 +29,7 @@ static struct {uint64_t ring_phys;void *ring;bool active,input_restored,disabled
 static int wifi_channel_vco5;
 static struct xhci_device device;
 static bool wifi_join5_requested,firmware_command_failed,firmware_command_exact;
-static struct {uint32_t input[128][8],output[32][8],initial_rx[8];uint8_t pages[256][4096];unsigned next,allocations,fail_alloc,alias_alloc,commands,controls,ownership,lose,fail_command,command_mutate,fail_control,fail_send,reply,sends,rx_events,mutate,event_fault,stop_fault,stop_fault_dci,wpa_m3_mutate,child_first,wpa_mutate,toggle_count,toggle_actual,data_mutate,drain_queue,drain_fault;uint64_t time;uint32_t mac,filter,txop;bool data_flood,data_mode,data_empty,data_bad_mic,data_spoof,data_nonce_fail,quarantine,trace,parent,empty,empty_assoc,reject,reject_assoc,noise,bad_guard,auth_extra,auth_bad_ie,eapol_missing,eapol_bad,eapol_fault,eapol_done,pad,skip_stop,alloc_fail,uncertain_command,wrong_slot,clear_disabled,wpa_m1_done,wpa_m3_done,wpa_nonce_fail,wpa_no_m3,toggle_fail,toggle_lie,host_toggle,device_toggle;}fake;
+static struct {uint32_t input[128][8],output[32][8],initial_rx[8];uint8_t pages[256][4096];unsigned next,allocations,fail_alloc,alias_alloc,commands,controls,ownership,lose,fail_command,command_mutate,fail_control,fail_send,reply,sends,rx_events,mutate,event_fault,stop_fault,stop_fault_dci,wpa_m3_mutate,child_first,wpa_mutate,toggle_count,toggle_actual,data_mutate,drain_queue,drain_fault;uint64_t time;unsigned slow_console,data_console_calls;uint32_t mac,filter,txop;bool data_flood,data_mode,data_empty,data_bad_mic,data_spoof,data_nonce_fail,quarantine,trace,parent,empty,empty_assoc,reject,reject_assoc,noise,bad_guard,auth_extra,auth_bad_ie,eapol_missing,eapol_bad,eapol_fault,eapol_done,pad,skip_stop,alloc_fail,uncertain_command,wrong_slot,clear_disabled,wpa_m1_done,wpa_m3_done,wpa_nonce_fail,wpa_no_m3,toggle_fail,toggle_lie,host_toggle,device_toggle;}fake;
 static bool wifi_handoff5_equal(const void *a,const void *b,size_t n){return !memcmp(a,b,n);}
 static bool child_active(void);
 static bool wifi_channel_vco5_owned(void *c){assert(c==&wifi_channel_vco5);fake.ownership++;if(child_active() && !fake.child_first)fake.child_first=fake.ownership;return fake.ownership!=fake.lose && fake.parent && !fake.quarantine;}
@@ -47,8 +47,9 @@ static uint64_t event_irq_save(void){return 0;}
 static void event_irq_restore(uint64_t f){assert(!f);}
 static uint64_t timer_monotonic_us(void){return fake.time;}
 static bool timer_delay_us(unsigned us);
-static void console_write(const char *s){if(fake.trace)fputs(s,stdout);}
-static void console_printf(const char *s,...){if(!fake.trace)return;va_list ap;va_start(ap,s);for(;*s;s++){if(*s!='%'){putchar(*s);continue;}s++;uint64_t v=va_arg(ap,uint64_t);if(*s=='u')printf("%" PRIu64,v);else{assert(*s=='x');printf("0x%016" PRIx64,v);}}va_end(ap);}
+static void console_account(void);
+static void console_write(const char *s){console_account();if(fake.trace)fputs(s,stdout);}
+static void console_printf(const char *s,...){console_account();if(!fake.trace)return;va_list ap;va_start(ap,s);for(;*s;s++){if(*s!='%'){putchar(*s);continue;}s++;uint64_t v=va_arg(ap,uint64_t);if(*s=='u')printf("%" PRIu64,v);else{assert(*s=='x');printf("0x%016" PRIx64,v);}}va_end(ap);}
 static uint64_t ring_push(struct xhci_trb *r,uint64_t phys,uint64_t *enqueue,bool *cycle,const struct xhci_trb *td){assert(*enqueue<63 && *cycle);unsigned i=(*enqueue)++;r[i]=*td;r[i].control|=1;return phys+16*i;}
 static void db_write32(unsigned slot,unsigned dci);
 static bool poll_event(struct xhci_trb *e);
@@ -59,6 +60,12 @@ bool xhci_wifi_capture_tx5(void);
 static bool wifi_fw_control_once(struct xhci_device *,const struct usb_setup_packet *,uint64_t,uint32_t,bool,int *);
 #include "../kernel/src/drivers/xhci_wifi_join5.inc"
 #include "../kernel/src/drivers/xhci_wifi_wpa5.inc"
+static void console_account(void){
+ if(wifi_wpa5.data_active && wifi_wpa5.ip.attempted){fake.data_console_calls++;fake.time+=fake.slow_console;}
+ /* Deferred receipt emission must occur after the actual MAC-cycle engine
+  * has returned,even on refusal. It must not overlap forward or drain I/O. */
+ if(wifi_wpa5.data_reported)assert(!wifi_wpa5.data_active && wifi_wpa5.mac.attempted && (wifi_wpa5.mac.complete || wifi_wpa5.mac.failed));
+}
 static bool wifi_fw_control_once(struct xhci_device *d,const struct usb_setup_packet *p,uint64_t buffer,uint32_t length,bool in,int *actual){
  assert(d==&device && p && !buffer && !length && !in && actual && !fake.quarantine);
  assert(p->request_type==2 && p->request==1 && !p->value && p->index==4 && !p->length);
@@ -130,6 +137,8 @@ static unsigned data_response(void){
  case 5:wifi_wpa5.exchange.handshake.key_owner++;break;
  case 6:wifi_wpa5.exchange.keys.phase=WPA2_CCMP_EMPTY;break;
  case 7:wifi_wpa5.exchange.handshake.phase=WPA2_HS_EMPTY;break;
+ case 8:wifi_wpa5.data_events=WIFI_DATA5_EVENTS;break;
+ case 9:wifi_wpa5.data_events=WIFI_DATA5_EVENTS+1;break;
  default:break;
  }
  fake.reply=0;return dma+4;

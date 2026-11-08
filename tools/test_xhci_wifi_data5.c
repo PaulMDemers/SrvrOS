@@ -11,7 +11,16 @@ int main(int argc,char **argv){
  }
  assert(argc==1 && run() && wifi_wpa5.ip.complete && wifi_wpa5.ip.echo && wifi_wpa5.ip.sends==6 && wifi_wpa5.data_sends==6 && wifi_wpa5.data_received==6 && wifi_wpa5.exchange.keys.tx_pn==6);
  assert(wifi_wpa5.restored && wifi_wpa5.exchange.keys_erased && fake.sends==14 && fake.commands==12 && !fake.quarantine && !fake.mac);
+ assert(wifi_wpa5.data_reported && wifi_wpa5.data_events==12 && !fake.data_console_calls);
  unsigned checks=fake.ownership,first=fake.child_first;
+ /* Deliberately expensive console writes may occur around the exchange,but
+  * neither data send/poll nor the IP summary can charge its active deadline. */
+ begin();fake.data_mode=true;fake.slow_console=100000;assert(run() && wifi_wpa5.ip.complete && !fake.data_console_calls && wifi_wpa5.data_reported);
+ begin();fake.data_mode=true;fake.data_flood=true;fake.drain_queue=3;fake.slow_console=100000;
+ assert(!run() && wifi_wpa5.restored && wifi_wpa5.ip.exhausted && !fake.data_console_calls && wifi_wpa5.data_reported);
+ begin();fake.data_mode=true;fake.data_bad_mic=true;fake.slow_console=100000;
+ assert(!run() && wifi_wpa5.restored && !wifi_wpa5.ip.offer && !fake.data_console_calls && wifi_wpa5.data_reported);
+ begin();fake.data_mode=true;assert(run());
  for(unsigned i=0;i<sizeof wifi_wpa5.ip.tx;i++)assert(!wifi_wpa5.ip.tx[i] && !wifi_wpa5.ip.rx[i]);
  for(unsigned i=0;i<sizeof wifi_wpa5.data_scratch;i++)assert(!((uint8_t *)&wifi_wpa5.data_scratch)[i]);
  for(unsigned i=0;i<sizeof wifi_wpa5.data_usb;i++)assert(!wifi_wpa5.data_usb[i]);
@@ -37,7 +46,7 @@ int main(int argc,char **argv){
  begin();fake.data_mode=true;fake.data_spoof=true;assert(!run() && wifi_wpa5.restored && !fake.quarantine && !wifi_wpa5.ip.offer && wifi_wpa5.exchange.leave_sent);
  begin();fake.data_mode=true;fake.data_empty=true;assert(!run() && wifi_wpa5.restored && !fake.quarantine && wifi_wpa5.exchange.leave_sent);
  begin();fake.data_mode=true;fake.data_nonce_fail=true;assert(!run() && wifi_wpa5.restored && !fake.quarantine && wifi_wpa5.exchange.leave_sent && !wifi_wpa5.ip.attempted);
- for(unsigned i=1;i<=7;i++){
+ for(unsigned i=1;i<=9;i++){
   begin();fake.data_mode=true;fake.data_mutate=i;assert(!run() && wifi_wpa5.exchange.unsafe && !wifi_wpa5.exchange.leave_sent && wifi_wpa5.exchange.keys_erased);
   for(unsigned j=0;j<16;j++)assert(!wifi_wpa5.exchange.keys.tk[j] && !wifi_wpa5.exchange.keys.gtk[j]);
  }

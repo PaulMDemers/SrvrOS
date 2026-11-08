@@ -15,6 +15,8 @@ static unsigned wifi_wpa5_packet_limit(void){return wifi_wpa5_data_requested?MT7
 static bool wifi_wpa5_inspect(void);
 #define WIFI_WPA5_RX 48
 #define WIFI_DATA5_FORWARD_RX 40
+#define WIFI_DATA5_EVENTS (WIFI_DATA5_FORWARD_RX+6)
+struct wifi_data5_event {unsigned kind,index,bytes,ethernet,present,view,reason;};
 static struct {
  struct xhci_device *d;struct mt76_peer5 peer;struct mt76_wpa5 exchange;struct mt76_mac_cycle mac;
  struct xhci_trb *rx,*tx;uint64_t rx_phys,tx_phys,pages[WIFI_WPA5_RX+WIFI_WPA5_TX_MAX],pins[WIFI_WPA5_RX+WIFI_WPA5_TX_MAX+2];
@@ -25,6 +27,7 @@ static struct {
  uint32_t context[5][8];uint64_t fixed[9],stop_pointer[2];uintptr_t input_pointer,output_pointer;
  unsigned lengths[WIFI_WPA5_TX_MAX],kinds[WIFI_WPA5_TX_MAX];uint8_t packets[WIFI_WPA5_TX_MAX][MT76_DATA5_USB_MAX];
  struct mt76_data5_scratch data_scratch;struct mt76_ip5 ip;uint8_t data_usb[MT76_DATA5_USB_MAX];
+ struct wifi_data5_event data_event[WIFI_DATA5_EVENTS];unsigned data_events;bool data_reported,data_unsafe,data_window_started;
  uint64_t data_pn;unsigned data_sends,data_received,forward_completed,drain_completed;bool data_mode,data_active;
  uint8_t parent[sizeof wifi_join5],parent_rings[2][4096],parent_pages[WIFI_JOIN5_RX+3][4096],pmk[32];
  unsigned phase,commands,posts,sends,rx_cc,rx_residue,rx_events,tx_events,stop_events[2],stop_dci,usb_ops;
@@ -32,6 +35,12 @@ static struct {
  bool toggle_attempted,toggle_synced,attempted,active,failed,rx_pending,rx_done,rx_delivered,tx_pending,tx_done,restored;
 }wifi_wpa5;
 static bool wifi_wpa5_fail(void){wifi_wpa5.failed=true;return wifi_wpa5.d?wifi_mcu_fail(wifi_wpa5.d):false;}
+/* Bounded metadata only. Never print while the IP receive window is active.
+ * Preserve append order for a strict deferred transcript after MAC cleanup. */
+static bool wifi_data5_record(struct wifi_data5_event event){
+ if(!wifi_wpa5.data_mode || !wifi_wpa5.data_active || wifi_wpa5.data_reported || wifi_wpa5.data_events>=WIFI_DATA5_EVENTS)return wifi_wpa5_fail();
+ wifi_wpa5.data_event[wifi_wpa5.data_events++]=event;return true;
+}
 static bool wifi_wpa5_frozen(void){
  struct xhci_device *d=wifi_wpa5.d;
  if(wifi_wpa5.data_mode!=wifi_wpa5_data_requested || wifi_join5_after!=wifi_wpa5_inspect || !wifi_wpa5_requested || !wifi_wpa5.active || wifi_wpa5.failed || !d || d!=wifi_cal5.d || !d->present || d->removed || d->retiring || d->ep0_quarantined || d->control_failed ||
@@ -204,7 +213,7 @@ static enum mt76_join5_send wifi_wpa5_publish(void *c,const uint8_t *packet,size
  }
  good=good && wifi_wpa5.tx_done && wifi_wpa5.tx_events==1;
  if(kind<5)console_printf("wifi-wpa5-send: kind=%u bytes=%u completed=%u replay=0\n",(uint64_t)kind,(uint64_t)length,(uint64_t)good);
- else console_printf("wifi-data5-send: index=%u bytes=%u completed=%u pn=%u\n",(uint64_t)wifi_wpa5.data_sends,(uint64_t)length,(uint64_t)good,wifi_wpa5.data_pn);
+ else if(!wifi_data5_record((struct wifi_data5_event){.kind=0,.index=wifi_wpa5.data_sends,.bytes=(unsigned)length,.present=good,.reason=(unsigned)wifi_wpa5.data_pn}))good=false;
  if(!good){wifi_wpa5_fail();return MT76_JOIN5_UNCERTAIN;}return MT76_JOIN5_SENT;
 }
 static enum mt76_join5_send wifi_wpa5_send(void *c,enum mt76_wpa5_tx kind,const uint8_t *packet,size_t length){
@@ -250,7 +259,7 @@ static bool wifi_wpa5_poll(void *c,enum mt76_wpa5_rx type,uint8_t *out,size_t ca
    if(n){*size=n;*present=true;wifi_wpa5.data_received++;}
   }else return wifi_wpa5_fail();
   wifi_wpa5.rx_delivered=true;
-  if(type==MT76_WPA5_DATA)console_printf("wifi-data5-rx: index=%u bytes=%u ethernet=%u present=%u view=%u reason=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)*size,(uint64_t)*present,(uint64_t)view,(uint64_t)reason);
+  if(type==MT76_WPA5_DATA){if(!wifi_data5_record((struct wifi_data5_event){.kind=1,.index=i,.bytes=(unsigned)bytes,.ethernet=(unsigned)*size,.present=*present,.view=view,.reason=reason}))return false;}
   else console_printf("wifi-wpa5-rx: index=%u bytes=%u type=%u view=%u mpdu=%u fc=%x eapol=%u present=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)type,(uint64_t)view,(uint64_t)mpdu,(uint64_t)fc,(uint64_t)eapol,(uint64_t)*present);
   if(wifi_wpa5.posts<(wifi_wpa5.data_mode?WIFI_DATA5_FORWARD_RX:WIFI_WPA5_RX) && !wifi_wpa5_post())return false;
  }
@@ -310,20 +319,35 @@ static bool wifi_data5_exhausted(void *c){
 static bool wifi_data5_poll(void *c,uint8_t *out,size_t cap,size_t *n,bool *present){return wifi_data5_owned(c) && out==wifi_wpa5.ip.rx && cap==sizeof wifi_wpa5.ip.rx && wifi_wpa5_poll(c,MT76_WPA5_DATA,out,cap,n,present);}
 static enum mt76_join5_send wifi_data5_window(void *c,struct wpa2_ccmp *keys,uint64_t generation,const struct mt76_peer5 *peer){
  if(c!=&wifi_wpa5 || !wifi_wpa5.data_mode || wifi_wpa5.data_active || wifi_wpa5.ip.attempted || keys!=&wifi_wpa5.exchange.keys || generation!=wifi_wpa5.peer.generation || peer!=&wifi_wpa5.peer || wifi_wpa5.sends!=4 || !wifi_wpa5_owned(c,false))return MT76_JOIN5_REFUSED;
- wifi_wpa5.data_active=true;
+ wifi_wpa5.data_active=true;wifi_wpa5.data_window_started=true;
  uint8_t entropy[32]={0};bool good=wifi_data5_owned(c) && wpa2_nonce_generate(entropy) && wifi_data5_owned(c);
  uint32_t xid=(uint32_t)entropy[0]<<24|(uint32_t)entropy[1]<<16|(uint32_t)entropy[2]<<8|entropy[3];zero_bytes(entropy,sizeof entropy);
  const struct mt76_ip5_io io={c,wifi_data5_owned,wifi_data5_send,wifi_data5_poll,wifi_wpa5_delay,wifi_wpa5_now,wifi_data5_exhausted};
  console_write("wifi-data5-progress: authenticated encrypted DHCP,ARP,DNS example.com and256-byte gateway echo;bounded waits;then erase and leave\n");
  if(good)good=mt76_ip5_run(&wifi_wpa5.ip,peer->peer.station,xid,&io);
  bool unsafe=wifi_wpa5.ip.unsafe || !wifi_data5_owned(c);
+ wifi_wpa5.data_unsafe=unsafe;wifi_wpa5.data_active=false;
+ return unsafe?MT76_JOIN5_UNCERTAIN:good?MT76_JOIN5_SENT:MT76_JOIN5_REFUSED;
+}
+static void wifi_data5_report(void){
+ if(!wifi_wpa5.data_mode || !wifi_wpa5.data_window_started || wifi_wpa5.data_reported)return;
+ wifi_wpa5.data_reported=true;
+ unsigned count=wifi_wpa5.data_events;
+ /* A corrupt count cannot read past the retained transcript or claim success. */
+ if(count>WIFI_DATA5_EVENTS){wifi_wpa5_fail();return;}
+ console_printf("wifi-data5-report: deferred=1 events=%u\n",(uint64_t)count);
+ for(unsigned i=0;i<count;i++){
+  const struct wifi_data5_event *e=&wifi_wpa5.data_event[i];
+  if(e->kind==0)console_printf("wifi-data5-send: index=%u bytes=%u completed=%u pn=%u\n",(uint64_t)e->index,(uint64_t)e->bytes,(uint64_t)e->present,(uint64_t)e->reason);
+  else if(e->kind==1)console_printf("wifi-data5-rx: index=%u bytes=%u ethernet=%u present=%u view=%u reason=%u\n",(uint64_t)e->index,(uint64_t)e->bytes,(uint64_t)e->ethernet,(uint64_t)e->present,(uint64_t)e->view,(uint64_t)e->reason);
+  else {wifi_wpa5_fail();return;}
+ }
  const struct mt76_ip5 *s=&wifi_wpa5.ip;
  for(unsigned phase=0;phase<2;phase++)console_printf("wifi-data5-dhcp: phase=%u ethernet_span=%u ethertype=%u ethernet_destination=%u ethernet_source=%u ip_span=%u fragment=%u ttl=%u protocol=%u ip_checksum=%u ip_binding=%u udp_span=%u udp_ports=%u udp_checksum=%u bootp_span=%u bootp_header=%u xid=%u station=%u cookie=%u option_span=%u option_duplicate=%u option_value=%u padding=%u required=%u end=%u message=%u address=%u ack=%u destination=%u matched=%u offers=%u acks=%u naks=%u other_types=%u\n",(uint64_t)phase,(uint64_t)s->dhcp_class[phase][0],(uint64_t)s->dhcp_class[phase][1],(uint64_t)s->dhcp_class[phase][2],(uint64_t)s->dhcp_class[phase][3],(uint64_t)s->dhcp_class[phase][4],(uint64_t)s->dhcp_class[phase][5],(uint64_t)s->dhcp_class[phase][6],(uint64_t)s->dhcp_class[phase][7],(uint64_t)s->dhcp_class[phase][8],(uint64_t)s->dhcp_class[phase][9],(uint64_t)s->dhcp_class[phase][10],(uint64_t)s->dhcp_class[phase][11],(uint64_t)s->dhcp_class[phase][12],(uint64_t)s->dhcp_class[phase][13],(uint64_t)s->dhcp_class[phase][14],(uint64_t)s->dhcp_class[phase][15],(uint64_t)s->dhcp_class[phase][16],(uint64_t)s->dhcp_class[phase][17],(uint64_t)s->dhcp_class[phase][18],(uint64_t)s->dhcp_class[phase][19],(uint64_t)s->dhcp_class[phase][20],(uint64_t)s->dhcp_class[phase][21],(uint64_t)s->dhcp_class[phase][22],(uint64_t)s->dhcp_class[phase][23],(uint64_t)s->dhcp_class[phase][24],(uint64_t)s->dhcp_class[phase][25],(uint64_t)s->dhcp_class[phase][26],(uint64_t)s->dhcp_class[phase][27],(uint64_t)s->dhcp_class[phase][28],(uint64_t)s->dhcp_type[phase][0],(uint64_t)s->dhcp_type[phase][1],(uint64_t)s->dhcp_type[phase][2],(uint64_t)s->dhcp_type[phase][3]);
  console_printf("wifi-data5-arp: short=%u other=%u format=%u opcode=%u destination=%u sender=%u target=%u matched=%u request_us=%u\n",(uint64_t)s->arp_class[0],(uint64_t)s->arp_class[1],(uint64_t)s->arp_class[2],(uint64_t)s->arp_class[3],(uint64_t)s->arp_class[4],(uint64_t)s->arp_class[5],(uint64_t)s->arp_class[6],(uint64_t)s->arp_class[7],(uint64_t)s->arp_class[8]);
- console_printf("wifi-data5: complete=%u unsafe=%u phase=%u exhausted=%u discover=%u offer=%u request=%u ack=%u arp_dns=%u dns=%u arp_router=%u echo=%u sends=%u polls=%u ignored=%u received=%u tx_pn=%u echo_bytes=256\n",(uint64_t)s->complete,(uint64_t)unsafe,(uint64_t)s->phase,(uint64_t)s->exhausted,(uint64_t)s->discover,(uint64_t)s->offer,(uint64_t)s->request,(uint64_t)s->ack,(uint64_t)s->arp_dns,(uint64_t)s->dns,(uint64_t)s->arp_router,(uint64_t)s->echo,(uint64_t)wifi_wpa5.data_sends,(uint64_t)s->polls,(uint64_t)s->ignored,(uint64_t)wifi_wpa5.data_received,keys->tx_pn);
- wifi_wpa5.data_active=false;
- return unsafe?MT76_JOIN5_UNCERTAIN:good?MT76_JOIN5_SENT:MT76_JOIN5_REFUSED;
+ console_printf("wifi-data5: complete=%u unsafe=%u phase=%u exhausted=%u discover=%u offer=%u request=%u ack=%u arp_dns=%u dns=%u arp_router=%u echo=%u sends=%u polls=%u ignored=%u received=%u tx_pn=%u echo_bytes=256\n",(uint64_t)s->complete,(uint64_t)wifi_wpa5.data_unsafe,(uint64_t)s->phase,(uint64_t)s->exhausted,(uint64_t)s->discover,(uint64_t)s->offer,(uint64_t)s->request,(uint64_t)s->ack,(uint64_t)s->arp_dns,(uint64_t)s->dns,(uint64_t)s->arp_router,(uint64_t)s->echo,(uint64_t)wifi_wpa5.data_sends,(uint64_t)s->polls,(uint64_t)s->ignored,(uint64_t)wifi_wpa5.data_received,wifi_wpa5.exchange.keys.tx_pn);
 }
+
 static bool wifi_wpa5_inspection(void *c,uint32_t alc,uint32_t ibi){
  if(c!=&wifi_wpa5 || alc!=wifi_power5.cycle.chosen[0] || ibi!=UINT32_MAX || !wifi_wpa5_owned(c,false))return false;
  const struct mt76_wpa5_io io={c,wifi_wpa5_owned,wifi_wpa5_nonce,wifi_wpa5_send,wifi_wpa5_poll,wifi_wpa5_delay,wifi_wpa5_now};
@@ -389,6 +413,7 @@ static bool wifi_wpa5_inspect(void){
  if(good)good=wifi_wpa5_post();
  bool exchanged=false;
  if(good){const struct mt76_mac_cycle_io io={&wifi_wpa5,wifi_wpa5_owned,wifi_wpa5_read,wifi_wpa5_write,wifi_wpa5_mac_delay,wifi_wpa5_now,wifi_wpa5_inspection};exchanged=mt76_mac_cycle_run(&wifi_wpa5.mac,&io);good=!wifi_wpa5.failed && wifi_wpa5.mac.mac_disabled && wifi_wpa5.mac.tx_drained && wifi_wpa5.mac.rx_drained && wifi_wpa5.mac.filter_restored && wifi_wpa5.mac.txop_restored && wifi_wpa5_owned(&wifi_wpa5,true);}
+ wifi_data5_report();
  if(wifi_wpa5.mac.attempted){
   const struct mt76_mac_cycle *m=&wifi_wpa5.mac;
   if(wifi_wpa5.data_mode)console_printf("wifi-retire5: limit=40 capacity=48 forward=%u drained=%u posts=%u\n",(uint64_t)wifi_wpa5.forward_completed,(uint64_t)wifi_wpa5.drain_completed,(uint64_t)wifi_wpa5.posts);

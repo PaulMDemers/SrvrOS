@@ -7398,3 +7398,19 @@ still failed. Preserve this failed capsule and the unchanged security gates.
 Next investigate receive admission and consumption using independently verified
 hardware semantics;neither larger rings nor speculative BSSID/filter writes
 are accepted by this result.
+
+The disposable encrypted-data owner now retains its send/receive receipts in
+a fixed46-entry metadata transcript instead of formatting them during polling.
+The long DHCP/ARP/IP summary is deferred too. After the MAC-cycle engine has
+returned from cleanup,a `wifi-data5-report: deferred=1 events=...` receipt
+introduces that transcript in original append order,followed by classifications
+and summary. Leave and exchange receipts therefore precede the deferred data
+transcript in the saved console;they are not wire timestamps. The strict checker
+requires this placement and complete event counts before the retirement/MAC
+summary,then applies all prior send/reply,PN,crypto,IP and restoration gates.
+No packet values or keys are buffered. A full/corrupt transcript refuses safely;
+no receive ring/page reuse or larger input/time budget is introduced. Host
+fixtures charge100ms to any console call during active IP work and require zero
+such calls on success,exhaustion and MIC refusal. Native improvement remains
+unaccepted until a matching hardware run;this is a pacing correction,not proof
+that console work caused the missing OFFER.
