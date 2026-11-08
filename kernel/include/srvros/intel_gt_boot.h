@@ -23,4 +23,5 @@ bool intel_gt_wake_probe_report(void);
 /* Sticky terminal diagnostic state; automatic return must not reset past it. */
 bool intel_gt_wake_retained(void);
 bool intel_gt_boot_shutdown_recipe(const char *);
+bool intel_gt_boot_bcs_shutdown_recipe(const char *);
 #endif

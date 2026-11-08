@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) && !defined(SRVROS_INTEL_BCS_RESET_TRIAL)
+#error "Shutdown/reset needs the separate reset image"
+#endif
 #if defined(SRVROS_INTEL_SHUTDOWN_TRIAL) && (!defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_COMPLETION_TRIAL))
 #error "Shutdown qualification needs its own blitter image"
 #endif
@@ -15,7 +18,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+extern volatile struct limine_firmware_type_request intel_bcs_shutdown_firmware_request;
+#elif defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
 extern volatile struct limine_firmware_type_request intel_shutdown_firmware_request;
 #elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
 extern volatile struct limine_firmware_type_request intel_bcs_reset_firmware_request;
@@ -37,7 +42,11 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
 #define WAKE_MAPS 13u
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+#define WAKE_VERSION 9u
+#else
 #define WAKE_VERSION 7u
+#endif
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000,0x70000,0x71000,0x72000};
 #else
 #define WAKE_MAPS 9u
@@ -257,7 +266,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+    #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+    const struct limine_firmware_type_response *firmware=intel_bcs_shutdown_firmware_request.response;
+#elif defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
     const struct limine_firmware_type_response *firmware=intel_shutdown_firmware_request.response;
 #elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
     const struct limine_firmware_type_response *firmware=intel_bcs_reset_firmware_request.response;
@@ -274,7 +285,11 @@ bool intel_gt_wake_probe_report(void) {
     f.loader=loader && !loader->revision && wake_text(loader->name,"Limine") && wake_text(loader->version,"11.4.1");
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+    #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_bcs_shutdown_recipe(cmd->cmdline);
+#else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_bcs_reset_recipe(cmd->cmdline);
+#endif
     struct bcs_trial trial={0};
 #elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_reset_ready_recipe(cmd->cmdline);
@@ -402,7 +417,11 @@ bool intel_gt_wake_probe_report(void) {
     engine_reads=completion.reads;completion_report(&completion);
     complete=complete && completion.complete;
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
-    bcs_report(&trial,&owner);engine_reads+=trial.post.reads;complete=complete && trial.complete;
+    bcs_report(&trial,&owner);engine_reads+=trial.post.reads;
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+    engine_reads+=trial.reset.shutdown.reads;
+#endif
+    complete=complete && trial.complete;
 #endif
 #ifdef SRVROS_INTEL_RESET_READY_TRIAL
     reset_ready_report(&reset_ready);

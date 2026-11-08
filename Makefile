@@ -5285,9 +5285,9 @@ build/air61-read-window/native-vmm.o: kernel/src/memory/vmm.c kernel/src/memory/
 # Core host fixture; native diagnostic links its object separately from KERNEL_C.
 .PHONY: test-intel-bcs-reset
 BCS_RESET_CORE := kernel/diagnostics/intel_bcs_reset.c
-build/tests/intel-bcs-reset$(HOST_EXE): tools/test_intel_bcs_reset.c tools/test_intel_completion_audit.c $(BCS_RESET_CORE) kernel/src/drivers/intel_reset_ready.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c $(KERNEL_HEADERS)
+build/tests/intel-bcs-reset$(HOST_EXE): tools/test_intel_bcs_reset.c tools/test_intel_completion_audit.c $(BCS_RESET_CORE) kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_reset_ready.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< $(BCS_RESET_CORE) kernel/src/drivers/intel_reset_ready.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< $(BCS_RESET_CORE) kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_reset_ready.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c -o $@
 test-core: test-intel-bcs-reset
 test-intel-bcs-reset: build/tests/intel-bcs-reset$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_bcs_reset.py
@@ -5306,7 +5306,7 @@ build/intel-bcs-reset/core.o: kernel/diagnostics/intel_bcs_reset.c $(KERNEL_HEAD
 	$(CC) $(CFLAGS) -c $< -o $@
 build/tests/intel-bcs-adapter$(HOST_EXE): tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/intel*.c) kernel/diagnostics/intel_bcs_reset.c kernel/src/drivers/intel_bcs_trial.inc kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_reset_ready_trial.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
-	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_BCS_RESET_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_reset_ready.c kernel/diagnostics/intel_bcs_reset.c kernel/diagnostics/package_audit_core.c -o $@
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_BCS_RESET_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_reset_ready.c kernel/diagnostics/intel_bcs_reset.c kernel/src/drivers/intel_blitter.c kernel/diagnostics/package_audit_core.c -o $@
 .PHONY: test-intel-bcs-native
 test-core: test-intel-bcs-native
 test-intel-bcs-native: build/tests/intel-bcs-adapter$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
@@ -5372,3 +5372,20 @@ build/intel-shutdown/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PR
 test-core: test-haswell-vtd-capabilities
 test-haswell-vtd-capabilities:
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_capability_audit.py
+
+# Separate fresh already-disabled shutdown/reset image; old reset recipe is unchanged.
+build/intel-bcs-shutdown/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_bcs_trial.inc kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_reset_ready_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_BCS_RESET_TRIAL -DSRVROS_INTEL_BCS_SHUTDOWN_TRIAL -c $< -o $@
+build/intel-bcs-shutdown/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_BCS_SHUTDOWN_TRIAL -c $< -o $@
+build/intel-bcs-shutdown/srvros.elf: build/intel-bcs-shutdown/probe.o build/intel-bcs-shutdown/requests.o build/intel-bcs-reset/core.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-bcs-shutdown/probe.o build/intel-bcs-shutdown/requests.o build/intel-bcs-reset/core.o $(INTEL_WAKE_BASE) -o $@
+build/tests/intel-bcs-shutdown-adapter$(HOST_EXE): tools/test_intel_display_probe.c $(wildcard kernel/src/drivers/intel*.c) kernel/diagnostics/intel_bcs_reset.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) kernel/src/drivers/intel_bcs_trial.inc kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_reset_ready_trial.inc $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_BCS_RESET_TRIAL -DSRVROS_INTEL_BCS_SHUTDOWN_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_reset_ready.c kernel/diagnostics/intel_bcs_reset.c kernel/src/drivers/intel_blitter.c kernel/diagnostics/package_audit_core.c -o $@
+.PHONY: test-intel-bcs-shutdown
+test-core: test-intel-bcs-shutdown
+test-intel-bcs-shutdown: build/tests/intel-bcs-reset$(HOST_EXE) build/tests/intel-bcs-shutdown-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_bcs_shutdown.py

@@ -29,11 +29,19 @@ static void completion_report_named(const struct intel_completion_result *r,cons
  for(unsigned n=0;n<2;n++) {
   for(unsigned e=0;e<INTEL_ENGINE_COUNT && n*5+e<r->groups;e++) {
    const uint32_t *w=r->words[n][e];
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+   console_printf("%s-row: v=2 s=%u e=%u d=%u,%u,%u,%u,%u,%u,%u,%u\n",prefix,(uint64_t)n,(uint64_t)e,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
+#else
    console_printf("%s-row: v=1 sample=%u engine=%u w0=%u w1=%u w2=%u w3=%u w4=%u w5=%u w6=%u w7=%u\n",prefix,(uint64_t)n,(uint64_t)e,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
+#endif
   }
   if(n<r->contexts) {
    const uint32_t *w=r->context[n];
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+   console_printf("%s-context: v=2 s=%u d=%u,%u,%u,%u,%u,%u\n",prefix,(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5]);
+#else
    console_printf("%s-context: v=1 sample=%u c0=%u c1=%u c2=%u c3=%u c4=%u c5=%u\n",prefix,(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5]);
+#endif
   }
  }
  console_printf("%s-summary: v=1 groups=%u samples=%u contexts=%u reads=%u reason=%u stable=%u enabled=%u pending=%u flip_wait=%u tlb_pending=%u parser_idle=%u begin_us=%u end_us=%u complete=%u obligations=255 posted_drain=0 prefetch_retired=0 pipeline_flushed=0 tlb_writes=0 reset_writes=0 engine_writes=0 cache_ownership=0 reader_retirement=0 managed_pages=0\n",prefix,(uint64_t)r->groups,(uint64_t)r->samples,(uint64_t)r->contexts,(uint64_t)r->reads,(uint64_t)r->reason,(uint64_t)r->stable,(uint64_t)r->enabled,(uint64_t)r->pending,(uint64_t)r->flip_wait,(uint64_t)r->tlb_pending,(uint64_t)r->parser_idle,r->begin_us,r->end_us,(uint64_t)r->complete);

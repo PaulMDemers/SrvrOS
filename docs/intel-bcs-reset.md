@@ -293,3 +293,43 @@ retirement observation. The current trial is collected and no reboot is armed.
 The separate [guarded shutdown qualification](intel-shutdown.md) now tests the
 enabled-ring transition and fresh engine/reader preservation before any change
 to reset admission. It has no reset writer and cannot accept this reset protocol.
+
+## Fresh disabled observation within the reset borrow
+
+The separate `--intel-bcs-shutdown-trial` / `build/intel-bcs-shutdown/srvros.elf`
+image integrates the physically exercised **already-disabled** observation into
+reset admission. It has a distinct firmware request, wake version9 and an exact
+16-token recipe, adding `srvros.intel-shutdown=observe-disabled` to the reset
+recipe. Ordinary, original reset and standalone shutdown images retain their
+recipes. The enabled-ring disable writer remains outside this image; enabled or
+nonzero-geometry entry refuses before any reset request.
+
+`intel_bcs_reset_after_shutdown` creates its observation result internally while
+holding the same registered reset borrow and after blocked early parent close.
+The existing blitter observer receives a NULL writer. Its four fresh eight-word
+snapshots must all bind the current parent's unchanged engine epoch and complete
+92-word census, including exact zero geometry and parser/mode words. There is
+no externally supplied shutdown receipt to copy from another lifetime. The
+initial reset-side snapshot must still match, and all request/domain, two-pulse,
+settling, cancellation, pin-return and post-reset engine/reader/HDA preservation
+checks remain. The100ms dependent budget starts **before** observation; neither
+it nor the300ms owner/500ms outer budget is restarted or extended. Any lost parent
+or unresolved issued request retains ownership and prevents automatic return.
+
+`intel-bcs-shutdown-row` records all32 DWORDs; its summary records the owner
+origin, pre-reset epoch, timing, coverage and zero control attempts/stores.
+Version9 counts216 pre/post/observation words and retains13 independently
+qualified NX/effective-UC mappings. The only writable pages are the existing
+requester, BCS request/cancel and BCS-domain GDRST pages. No ring-control writer,
+new mapped page, HDA-MMIO, PTE/translation/cache writer or memory grant is added.
+
+The new image uses strict version2 positional decimal DWORD vectors for completion,
+reset, shutdown and preservation rows. Decoders validate exact field/order/width
+and normalize every value into the existing named keys; version1 historical rows
+keep their old meaning and cannot replace version2 in a version9 receipt. The
+saved-tail cap stays64KiB with its existing allowance. Native collection must bind
+the fresh observation, both censuses, raw reset endpoints, same-owner epochs,
+blocked close, returned pins, inherited readers, native prerequisites and saved
+checkpoint before accepting the combined trial. A VM refusal proves transport
+and safe return only. The previous standalone shutdown boot never authorizes
+this boot's reset, and no DMA/prefetch/cache/backing/tear-free acceptance follows.

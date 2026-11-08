@@ -116,3 +116,8 @@ The enabled-ring write remains untested. No reset, DMA/prefetch/cache/reader
 retirement, managed GPU memory or tear-free capability follows. Any reset
 integration must obtain fresh same-lifetime evidence; this boot's observations
 cannot authorize a future boot's operation.
+
+The [combined reset successor](intel-bcs-reset.md#fresh-disabled-observation-within-the-reset-borrow)
+repeats only the exercised already-disabled observation inside the current reset
+borrow. It accepts no prior boot receipt and does not import the untested enabled
+control writer. Its distinct image/recipe and native acceptance are independent.

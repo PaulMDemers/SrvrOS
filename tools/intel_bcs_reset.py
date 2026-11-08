@@ -1,5 +1,6 @@
 """BCS-only reset receipt. Reset acknowledgement never grants memory retirement."""
 from intel_engine_census import _fields
+from intel_compact import compact_row
 from intel_completion_audit import completion_result,W,C
 FIELDS='v admitted ready cancelled samples controls domains reads polls attempts writes reset_attempts reset_writes reset_acks reason begin_us end_us settle_begin settle_end blocked_close borrowed returned uncertain core_complete epoch_before epoch_after plane_samples plane_reads preserve_begin preserve_end preserved pin pin_returned pin_blocked owner_begin owner_end complete obligations posted_drain prefetch_retired pipeline_flushed tlb_writes cache_ownership reader_retirement managed_pages'.split()
 ZERO='posted_drain prefetch_retired pipeline_flushed tlb_writes cache_ownership reader_retirement managed_pages'.split()
@@ -23,13 +24,14 @@ def summary(line):
 def bcs_result(text):
  tables={k:[] for k in ('row','control','domain','plane','audio')};sums=[];order=[]
  for line in text.splitlines():
+  if line.startswith("intel-bcs-shutdown-"):continue
   if line.startswith('intel-bcs-post-'):continue
   if line.startswith('intel-bcs-summary:'):sums.append(summary(line));order.append('summary');continue
   if not line.startswith('intel-bcs-'):continue
   kind=line.split(':')[0].removeprefix('intel-bcs-')
   if kind not in tables:raise ValueError('BCS unknown receipt')
   fields={'row':['v','sample']+W,'control':['v','phase','value'],'domain':['v','phase','value'],'plane':['v','sample','pipe']+[f'w{i}' for i in range(9)],'audio':['v','sample']+[f'w{i}' for i in range(10)]}[kind]
-  tables[kind].append(_fields(line,'intel-bcs-'+kind+':',fields));order.append(kind)
+  tables[kind].append(compact_row(line,'intel-bcs-'+kind+':',[('s','sample')],[f'w{i}' for i in range(10 if kind=='audio' else 8)]) if kind in ('row','audio') and line.startswith('intel-bcs-'+kind+': v=2 ') else compact_row(line,'intel-bcs-plane:',[('s','sample'),('p','pipe')],[f'w{i}' for i in range(9)]) if kind=='plane' and line.startswith('intel-bcs-plane: v=2 ') else _fields(line,'intel-bcs-'+kind+':',fields));order.append(kind)
  if not sums:
   if any(tables.values()) or 'intel-bcs-post-' in text:raise ValueError('BCS summary missing')
   return None
@@ -44,10 +46,11 @@ def bcs_result(text):
  if any(v>0xffffffff for rows in tables.values() for r in rows for k,v in r.items() if k.startswith('w') or k=='value'):raise ValueError('BCS DWORD width')
  from intel_gt_wake import wake_result
  wake=wake_result(text)
- if not wake or wake['summary']['v'] not in (6,7):raise ValueError('BCS wrong wake image')
+ if not wake or wake['summary']['v'] not in (6,7,9):raise ValueError('BCS wrong wake image')
  pre=completion_result(text)
  post_text='\n'.join(l.replace('intel-bcs-post-','intel-completion-',1) for l in text.splitlines() if l.startswith('intel-bcs-post-') or l.startswith(('intel-wake-summary:','intel-clock')))
  post=completion_result(post_text)
+ if any(r['v']!=(2 if wake['summary']['v']==9 else 1) for r in tables['plane']+tables['row']+tables['audio']):raise ValueError('BCS plane version binding')
  if s['core_complete']:
   if [[r[k] for k in W] for r in tables['row']]!=[[0,0,0,0,1,0,512,0]]*2 or [r['value']&65535 for r in tables['control']]!=[0,3,0,0] or any(r['value'] for r in tables['domain']):raise ValueError('BCS core raw state')
   if not pre or not pre['summary']['complete'] or any(pre['summary'][k] for k in ('enabled','pending','flip_wait','tlb_pending')) or pre['summary']['parser_idle']!=3:raise ValueError('BCS census admission')
@@ -69,7 +72,7 @@ def bcs_result(text):
    for p in range(3):
     old=display['rows']['pipe'][3+p];row=tables['plane'][n*3+p]
     if any(row['w'+str(i)]!=old[k] for i,k in enumerate(('control','surface','live','cursor_control','cursor_base'))):raise ValueError('BCS inherited reader binding')
- if wake['summary']['v']==7:
+ if wake['summary']['v'] in (7,9):
   if text.index('intel-clock:')<text.index('intel-bcs-summary:'):raise ValueError('BCS clock order')
   c=wake['clock'];why=c['why'];at=c['at'];prev=c['prev'];phase=c['phase'];base=s['owner_begin']
   if why:
@@ -81,6 +84,8 @@ def bcs_result(text):
     if at!=prev or at!=phase:raise ValueError('clock frozen sample')
     derived|=32
    if why!=derived:raise ValueError('clock derived cause')
+ if wake['summary']['v']==9:verify_shutdown(text,s,tables,pre)
+ elif 'intel-bcs-shutdown-' in text:raise ValueError('shutdown wrong reset image')
  complete=bool(s['complete'] and wake['lease_complete'])
  return dict(complete=complete,native_complete=False,summary=s,tables=tables,post=post,engine_reset=bool(s['core_complete']),posted_drain=False,prefetch_retired=False,pipeline_flushed=False,cache_ownership=False,managed_range=False,physical_tearfree=False)
 def native_bcs_result(text):
@@ -91,3 +96,23 @@ def native_bcs_result(text):
  if not w or not w['native_wake_complete']:raise ValueError('BCS native wake')
  r['native_complete']=True
  return r
+
+def verify_shutdown(text,s,tables,pre):
+ lines=[l for l in text.splitlines() if l.startswith('intel-bcs-shutdown-')]
+ sums=[l for l in lines if l.startswith('intel-bcs-shutdown-summary:')]
+ if len(sums)!=1:raise ValueError('reset shutdown summary coverage')
+ b=_fields(sums[0],'intel-bcs-shutdown-summary:','v samples reads attempts writes reason begin end disabled entry_disabled uncertain owner_begin epoch'.split())
+ rows=[compact_row(l,'intel-bcs-shutdown-row:',[('s','sample')],W) for l in lines if l.startswith('intel-bcs-shutdown-row:')]
+ if len(lines)!=len(rows)+1 or lines[-1]!=sums[0] or b['samples']!=len(rows) or b['reads'] not in (8*len(rows),8*(len(rows)+1)) or b['reads']>32 or len(rows)>4 or [r['sample'] for r in rows]!=list(range(len(rows))) or b['attempts'] or b['writes'] or b['uncertain'] or b['reason']>8 or b['disabled']>1 or b['entry_disabled']>1:raise ValueError('reset shutdown schema/count/authority')
+ if any(r[k]>=1<<32 for r in rows for k in W):raise ValueError('reset shutdown DWORD')
+ if text.index(sums[0])>text.index('intel-bcs-summary:') or text.index(lines[0])<text.index('intel-completion-summary:') or ('intel-bcs-post-' in text and text.index(sums[0])>text.index('intel-bcs-post-')):raise ValueError('reset shutdown order')
+ if s['admitted'] or s['attempts'] or s['reset_attempts'] or s['core_complete']:
+  if b['reason'] or not b['disabled'] or not b['entry_disabled'] or len(rows)!=4 or not s['borrowed'] or not s['blocked_close'] or b['owner_begin']!=s['owner_begin'] or b['epoch']!=s['epoch_before'] or not 0<s['begin_us']<b['begin']<b['end'] or b['end']-b['begin']>100000 or (s['settle_begin'] and b['end']>=s['settle_begin']):raise ValueError('reset shutdown admission')
+  if not pre or not pre['summary']['complete']:raise ValueError('reset shutdown census missing')
+  for r in rows:
+   raw=[r[k] for k in W]
+   if raw!=[0,0,0,0,1,0,512,0]:raise ValueError('reset shutdown geometry')
+   for n in range(2):
+    if raw!=[pre['rows'][n*5+4][k] for k in W[:6]]+[pre['contexts'][n]['c3'],pre['contexts'][n]['c5']]:raise ValueError('reset shutdown census binding')
+  if tables['row'] and any(rows[0][k]!=tables['row'][0][k] for k in W):raise ValueError('reset shutdown reset binding')
+ return dict(summary=b,rows=rows)

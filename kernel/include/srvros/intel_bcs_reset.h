@@ -1,6 +1,7 @@
 #ifndef SRVROS_INTEL_BCS_RESET_H
 #define SRVROS_INTEL_BCS_RESET_H
 #include <srvros/intel_reset_ready.h>
+#include <srvros/intel_blitter.h>
 #define INTEL_BCS_GDRST 0x941cu
 #define INTEL_BCS_RESET_DOMAIN 8u
 #define INTEL_BCS_RESET_SETTLE_US 50ull
@@ -9,6 +10,7 @@ enum intel_bcs_reset_reason {IBR_OK,IBR_INPUT,IBR_CLOCK,IBR_GUARD,IBR_ENTRY,
 struct intel_bcs_reset_result {
  const struct intel_bcs_reset_result *object;
  struct intel_gt_borrow borrow;
+ struct intel_blitter_result shutdown;
  uint32_t controls[4],domains[4],words[2][8],epoch_before,epoch_after;
  uint64_t begin_us,end_us,last_us,settle_begin_us,settle_end_us;
  unsigned reads,polls,attempts,writes,reset_attempts,reset_writes,reset_acks;
@@ -36,5 +38,9 @@ struct intel_bcs_reset_io {
  * Two BCS-domain pulses and a measured >=50us settling interval follow the
  * pinned Linux v6.12 ordering. This is not a portable hardware admission gate. */
 bool intel_bcs_reset(struct intel_bcs_reset_result *,struct intel_gt_access *,
+ const struct intel_completion_result *,bool,struct intel_bcs_reset_io);
+/* Fresh already-disabled observation within this reset borrow. No control writer.
+ * The four snapshots bind the same-parent/epoch census before reset request. */
+bool intel_bcs_reset_after_shutdown(struct intel_bcs_reset_result *,struct intel_gt_access *,
  const struct intel_completion_result *,bool,struct intel_bcs_reset_io);
 #endif

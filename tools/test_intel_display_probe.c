@@ -157,6 +157,8 @@ static struct limine_bootloader_info_response wake_loader={.name="Limine",.versi
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
 #define intel_wake_firmware_request intel_shutdown_firmware_request
+#elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
+#define intel_wake_firmware_request intel_bcs_shutdown_firmware_request
 #elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
 #define intel_wake_firmware_request intel_bcs_reset_firmware_request
 #elif defined(SRVROS_INTEL_RESET_READY_TRIAL)
@@ -469,6 +471,9 @@ int main(int argc,char **argv) {
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
     static char reset_recipe[1400];snprintf(reset_recipe,sizeof(reset_recipe),"%s srvros.intel-bcs-reset=blitter-only",completion_recipe);wake_cmd.cmdline=reset_recipe;
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+    static char reset_shutdown_recipe[1600];snprintf(reset_shutdown_recipe,sizeof(reset_shutdown_recipe),"%s srvros.intel-shutdown=observe-disabled",reset_recipe);wake_cmd.cmdline=reset_shutdown_recipe;
+#endif
 #endif
 #ifdef SRVROS_INTEL_RESET_READY_TRIAL
     static char ready_recipe[1400];snprintf(ready_recipe,sizeof(ready_recipe),"%s srvros.intel-reset-ready=request-cancel",completion_recipe);wake_cmd.cmdline=ready_recipe;
@@ -610,7 +615,27 @@ static bool intel_display_test_reset_ready_read(uint32_t reg,uint32_t *out) {
  }
  static const uint32_t regs[8]={0x22030,0x22034,0x22038,0x2203c,0x22234,0x22238,0x2209c,0x2229c};
  unsigned i=ready_group_words++%8;assert(reg==regs[i]);
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ if(!ready_writes && ready_group_words<=32) {
+  if(!strcmp(engine_mode,"shut-read"))return false;
+  if(!strcmp(engine_mode,"shut-foreign") && i==7)wake_request|=2;
+  if(!strcmp(engine_mode,"shut-clock"))ticks+=100001;
+  if(!strcmp(engine_mode,"shut-backward"))ticks=1;
+ }
+#endif
+
  *out=i==4?1:i==6?512:0;
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ if(!ready_writes && ready_group_words<=32) {
+  if(!strcmp(engine_mode,"shut-float"))*out=UINT32_MAX;
+  if(!strcmp(engine_mode,"shut-start") && i==2)*out=0x3eef000;
+  if(!strcmp(engine_mode,"shut-enabled") && i==3)*out=0xf001;
+  if(!strcmp(engine_mode,"shut-disabled-geometry") && i==3)*out=0xf000;
+  if(!strcmp(engine_mode,"shut-mode") && i==6)*out|=1u<<16;
+  if(!strcmp(engine_mode,"shut-drift") && ready_group_words==16)*out=1;
+ }
+#endif
+
  if(!strcmp(engine_mode,"ready-busy") && i==0)*out=8;
  if(!strcmp(engine_mode,"ready-drift") && ready_writes==2 && i==7)*out=1;
  return true;

@@ -65,7 +65,12 @@ static bool bcs_planes(struct wake_adapter *a,struct intel_gt_access *g,struct b
 }
 static void bcs_run(struct wake_adapter *a,struct intel_gt_access *g,const struct intel_completion_result *pre,struct bcs_trial *t,bool policy) {
  if(!bcs_planes(a,g,t,0))return;
- (void)intel_bcs_reset(&t->reset,g,pre,policy,(struct intel_bcs_reset_io){a,engine_guard,reset_ready_control,bcs_domain,reset_ready_group,reset_ready_store,bcs_domain_write,now,wake_pause});
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ (void)intel_bcs_reset_after_shutdown(
+#else
+ (void)intel_bcs_reset(
+#endif
+&t->reset,g,pre,policy,(struct intel_bcs_reset_io){a,engine_guard,reset_ready_control,bcs_domain,reset_ready_group,reset_ready_store,bcs_domain_write,now,wake_pause});
  if(t->reset.uncertain || t->reset.borrow.active){a->uncertain=true;return;}
  if(!t->reset.complete && !t->reset.reset_acks)return;
  if(!intel_gt_access_borrow(g,&t->preservation)){a->uncertain=true;return;}
@@ -87,20 +92,41 @@ static void bcs_run(struct wake_adapter *a,struct intel_gt_access *g,const struc
 }
 static void bcs_report(const struct bcs_trial *t,const struct intel_gt_access *g) {
  const struct intel_bcs_reset_result *r=&t->reset;
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ const struct intel_blitter_result *b=&r->shutdown;
+ for(unsigned n=0;n<b->samples;n++) {
+  const uint32_t *w=b->words[n];
+  console_printf("intel-bcs-shutdown-row: v=2 s=%u d=%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
+ }
+ console_printf("intel-bcs-shutdown-summary: v=1 samples=%u reads=%u attempts=%u writes=%u reason=%u begin=%u end=%u disabled=%u entry_disabled=%u uncertain=%u owner_begin=%u epoch=%u\n",(uint64_t)b->samples,(uint64_t)b->reads,(uint64_t)b->attempts,(uint64_t)b->writes,(uint64_t)b->reason,b->begin_us,b->end_us,(uint64_t)b->disabled,(uint64_t)b->entry_disabled,(uint64_t)b->uncertain,g->begin,(uint64_t)r->epoch_before);
+#endif
+
  completion_report_named(&t->post,"intel-bcs-post");
  for(unsigned n=0;n<r->samples;n++) {
   const uint32_t *w=r->words[n];
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+  console_printf("intel-bcs-row: v=2 s=%u d=%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
+#else
   console_printf("intel-bcs-row: v=1 sample=%u w0=%u w1=%u w2=%u w3=%u w4=%u w5=%u w6=%u w7=%u\n",(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
+#endif
  }
  for(unsigned n=0;n<r->controls_read;n++)console_printf("intel-bcs-control: v=1 phase=%u value=%u\n",(uint64_t)n,(uint64_t)r->controls[n]);
  for(unsigned n=0;n<r->domains_read;n++)console_printf("intel-bcs-domain: v=1 phase=%u value=%u\n",(uint64_t)n,(uint64_t)r->domains[n]);
  for(unsigned n=0;n<t->samples;n++) {
   for(unsigned p=0;p<3;p++) {
    const uint32_t *w=t->planes[n][p];
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+   console_printf("intel-bcs-plane: v=2 s=%u p=%u d=%u,%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)p,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7],(uint64_t)w[8]);
+#else
    console_printf("intel-bcs-plane: v=1 sample=%u pipe=%u w0=%u w1=%u w2=%u w3=%u w4=%u w5=%u w6=%u w7=%u w8=%u\n",(uint64_t)n,(uint64_t)p,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7],(uint64_t)w[8]);
+#endif
   }
   const uint32_t *w=t->audio[n];
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+  console_printf("intel-bcs-audio: v=2 s=%u d=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7],(uint64_t)w[8],(uint64_t)w[9]);
+#else
   console_printf("intel-bcs-audio: v=1 sample=%u w0=%u w1=%u w2=%u w3=%u w4=%u w5=%u w6=%u w7=%u w8=%u w9=%u\n",(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7],(uint64_t)w[8],(uint64_t)w[9]);
+#endif
  }
  console_printf("intel-bcs-summary: v=1 admitted=%u ready=%u cancelled=%u samples=%u controls=%u domains=%u reads=%u polls=%u attempts=%u writes=%u reset_attempts=%u reset_writes=%u reset_acks=%u reason=%u begin_us=%u end_us=%u settle_begin=%u settle_end=%u blocked_close=%u borrowed=%u returned=%u uncertain=%u core_complete=%u epoch_before=%u epoch_after=%u plane_samples=%u plane_reads=%u preserve_begin=%u preserve_end=%u preserved=%u pin=%u pin_returned=%u pin_blocked=%u owner_begin=%u owner_end=%u complete=%u obligations=255 posted_drain=0 prefetch_retired=0 pipeline_flushed=0 tlb_writes=0 cache_ownership=0 reader_retirement=0 managed_pages=0\n",(uint64_t)r->admitted,(uint64_t)r->ready,(uint64_t)r->cancelled,(uint64_t)r->samples,(uint64_t)r->controls_read,(uint64_t)r->domains_read,(uint64_t)r->reads,(uint64_t)r->polls,(uint64_t)r->attempts,(uint64_t)r->writes,(uint64_t)r->reset_attempts,(uint64_t)r->reset_writes,(uint64_t)r->reset_acks,(uint64_t)r->reason,r->begin_us,r->end_us,r->settle_begin_us,r->settle_end_us,(uint64_t)r->blocked_close,(uint64_t)(r->borrow.parent!=0),(uint64_t)(r->borrow.parent && !r->borrow.active),(uint64_t)r->uncertain,(uint64_t)r->complete,(uint64_t)r->epoch_before,(uint64_t)r->epoch_after,(uint64_t)t->samples,(uint64_t)t->plane_reads,t->begin,t->end,(uint64_t)t->preserved,(uint64_t)(t->preservation.parent!=0),(uint64_t)(t->preservation.parent && !t->preservation.active),(uint64_t)t->blocked_close,g->begin,g->last,(uint64_t)(t->complete && g->state==GT_ACCESS_CLOSED));
 }

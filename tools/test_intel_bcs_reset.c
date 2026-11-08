@@ -135,7 +135,9 @@ int main(int argc,char **argv) {
   assert(intel_gt_access_close(&g) && display_access_release(&token,true));puts("epoch during readiness admission PASS");return 0;
  }
  if(mode(&m,"missing-io"))io.domain_write=0;
- bool ok=intel_bcs_reset(&r,&g,mode(&m,"copy")?&copy:&c,!mode(&m,"policy"),io);
+ bool qualified=argc>3 && !strcmp(argv[3],"shutdown");
+ bool ok=(qualified?intel_bcs_reset_after_shutdown:intel_bcs_reset)(&r,&g,mode(&m,"copy")?&copy:&c,!mode(&m,"policy"),io);
+ if(qualified && ok)assert(r.shutdown.object==&r.shutdown && r.shutdown.entry_disabled && r.shutdown.disabled && !r.shutdown.writes && !r.shutdown.attempts && r.shutdown.samples==4 && r.shutdown.reads==32 && r.begin_us<r.shutdown.begin_us && r.shutdown.end_us<r.settle_begin_us);
  bool expected=mode(&m,"normal") || mode(&m,"mask") || mode(&m,"delayed") || mode(&m,"nonzero-epoch") || mode(&m,"fresh-reset") ||
   (mode(&m,"guard") && m.point>m.guards) || (mode(&m,"read") && m.point>m.reads);
  assert(ok==expected);

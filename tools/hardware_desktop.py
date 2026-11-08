@@ -577,6 +577,12 @@ def needs_attention(line):
         from intel_gt_wake import clock_row
         try:return bool(clock_row(line)['why'])
         except ValueError:return True
+    if line.startswith('intel-bcs-shutdown-summary:'):
+        from intel_engine_census import _fields
+        try:
+            s=_fields(line,'intel-bcs-shutdown-summary:','v samples reads attempts writes reason begin end disabled entry_disabled uncertain owner_begin epoch'.split())
+            return not(s['samples']==4 and s['reads']==32 and s['disabled']==s['entry_disabled']==1 and not any(s[k] for k in ('attempts','writes','reason','uncertain')) and 0<s['owner_begin']<s['begin']<s['end']<=s['begin']+100000 and s['epoch']<1<<32)
+        except ValueError:return True
     if line.startswith('intel-bcs-summary:'):
         from intel_bcs_reset import summary
         try:return not summary(line)['complete']

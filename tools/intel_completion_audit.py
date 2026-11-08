@@ -1,5 +1,6 @@
 """Broadwell engine/flip-wait/TLB state; never pipeline or DMA retirement."""
 from intel_engine_census import _fields
+from intel_compact import compact_row
 W=[f'w{i}' for i in range(8)]
 C=[f'c{i}' for i in range(6)]
 FIELDS='v groups samples contexts reads reason stable enabled pending flip_wait tlb_pending parser_idle begin_us end_us complete obligations posted_drain prefetch_retired pipeline_flushed tlb_writes reset_writes engine_writes cache_ownership reader_retirement managed_pages'.split()
@@ -14,9 +15,9 @@ def completion_result(text):
  rows=[];contexts=[];sums=[];order=[]
  for l in text.splitlines():
   if l.startswith('intel-completion-row:'):
-   r=_fields(l,'intel-completion-row:',['v','sample','engine']+W);rows.append(r);order.append(('r',r['sample'],r['engine']))
+   r=compact_row(l,'intel-completion-row:',[('s','sample'),('e','engine')],W) if l.startswith('intel-completion-row: v=2 ') else _fields(l,'intel-completion-row:',['v','sample','engine']+W);rows.append(r);order.append(('r',r['sample'],r['engine']))
   elif l.startswith('intel-completion-context:'):
-   c=_fields(l,'intel-completion-context:',['v','sample']+C);contexts.append(c);order.append(('c',c['sample']))
+   c=compact_row(l,'intel-completion-context:',[('s','sample')],C) if l.startswith('intel-completion-context: v=2 ') else _fields(l,'intel-completion-context:',['v','sample']+C);contexts.append(c);order.append(('c',c['sample']))
   elif l.startswith('intel-completion-summary:'):sums.append(summary(l));order.append(('s',))
   elif l.startswith('intel-completion-'):raise ValueError('unknown completion receipt')
  if not sums:
@@ -44,7 +45,8 @@ def completion_result(text):
   if masks!=[s[k] for k in ('enabled','pending','flip_wait','tlb_pending')] or idle!=s['parser_idle']:raise ValueError('completion derived masks')
  from intel_gt_wake import wake_result
  wake=wake_result(text);complete=bool(s['complete'] and wake and wake['lease_complete'])
- if wake and wake['summary']['v'] not in (4,5,6,7):raise ValueError('completion wrong wake image')
+ if wake and any(r['v']!=(2 if wake['summary']['v']==9 else 1) for r in rows+contexts):raise ValueError('completion row version binding')
+ if wake and wake['summary']['v'] not in (4,5,6,7,9):raise ValueError('completion wrong wake image')
  if complete and not wake['summary']['begin_us']<s['begin_us']<s['end_us']<wake['summary']['end_us']:raise ValueError('completion parent ordering')
  return dict(observation_complete=complete,native_observation_complete=False,posted_drain=False,prefetch_retired=False,pipeline_flushed=False,tlb_invalidation=False,cache_ownership=False,reader_retirement=False,managed_range=False,physical_tearfree=False,summary=s,rows=rows,contexts=contexts)
 def native_completion_result(text):

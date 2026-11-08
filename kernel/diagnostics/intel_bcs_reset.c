@@ -85,8 +85,18 @@ static bool settle(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io
  }
  return fail(r,IBR_TIMEOUT);
 }
-bool intel_bcs_reset(struct intel_bcs_reset_result *r,struct intel_gt_access *g,
- const struct intel_completion_result *c,bool policy,struct intel_bcs_reset_io io) {
+struct shutdown_reset_io {struct intel_bcs_reset_result *r;struct intel_bcs_reset_io io;};
+static bool shutdown_reset_guard(void *ctx) {
+ struct shutdown_reset_io *s=ctx;return guard(s->r,s->io);
+}
+static bool shutdown_reset_read(void *ctx,uint32_t out[8]) {
+ struct shutdown_reset_io *s=ctx;return guard(s->r,s->io) && s->io.group(s->io.ctx,out) && guard(s->r,s->io);
+}
+static uint64_t shutdown_reset_now(void *ctx) {
+ struct shutdown_reset_io *s=ctx;return s->io.now(s->io.ctx);
+}
+static bool reset_run(struct intel_bcs_reset_result *r,struct intel_gt_access *g,
+ const struct intel_completion_result *c,bool policy,struct intel_bcs_reset_io io,bool qualify_shutdown) {
  if(!r || r->object)return false;
  *r=(struct intel_bcs_reset_result){.object=r};
  if(!g || !c || !policy || !io.guard || !io.control || !io.domain || !io.group || !io.control_write || !io.domain_write || !io.now || !io.pause ||
@@ -101,6 +111,18 @@ bool intel_bcs_reset(struct intel_bcs_reset_result *r,struct intel_gt_access *g,
  unsigned writes=g->writes;
  r->blocked_close=!intel_gt_access_close(g) && g->writes==writes && g->state==GT_ACCESS_AWAKE && g->pinned;
  if(!r->blocked_close){fail(r,IBR_PARENT);goto done;}
+ if(qualify_shutdown) {
+  struct shutdown_reset_io ctx={r,io};
+  if(!intel_blitter_observe_disabled(&r->shutdown,g,policy,(struct intel_blitter_io){&ctx,shutdown_reset_guard,shutdown_reset_read,0,shutdown_reset_now})) {fail(r,IBR_ENTRY);goto done;}
+  /* No copied receipt: object and parent are sealed by the current reset.
+   * Exact raw binding rejects upper mode bits and every nonzero geometry. */
+  if(r->shutdown.object!=&r->shutdown || !r->shutdown.entry_disabled || r->shutdown.attempts || r->shutdown.writes ||
+     r->shutdown.samples!=4 || r->shutdown.reads!=32 || g->engine_epoch!=r->epoch_before || !guard(r,io)) {fail(r,IBR_ENTRY);goto done;}
+  for(unsigned n=0;n<4;n++)for(unsigned i=0;i<8;i++) {
+   uint32_t expected=i<6?c->words[1][4][i]:c->context[1][i==6?3:5];
+   if(r->shutdown.words[n][i]!=expected){fail(r,IBR_DRIFT);goto done;}
+  }
+ }
  if(!r->begin_us || !group(r,io,0) || !read_control(r,io,&r->controls[0]))goto done;
  ++r->controls_read;
  if(!read_domain(r,io,&r->domains[0]))goto done;
@@ -135,4 +157,13 @@ done:
  r->complete=r->admitted && r->ready && r->cancelled && !r->uncertain && !r->reason &&
   r->samples==2 && r->controls_read==4 && r->domains_read==4 && r->writes==2 && r->reset_writes==2 && r->reset_acks==2;
  return r->complete;
+}
+
+bool intel_bcs_reset(struct intel_bcs_reset_result *r,struct intel_gt_access *g,
+ const struct intel_completion_result *c,bool policy,struct intel_bcs_reset_io io) {
+ return reset_run(r,g,c,policy,io,false);
+}
+bool intel_bcs_reset_after_shutdown(struct intel_bcs_reset_result *r,struct intel_gt_access *g,
+ const struct intel_completion_result *c,bool policy,struct intel_bcs_reset_io io) {
+ return reset_run(r,g,c,policy,io,true);
 }
