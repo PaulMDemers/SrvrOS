@@ -333,3 +333,11 @@ blocked close, returned pins, inherited readers, native prerequisites and saved
 checkpoint before accepting the combined trial. A VM refusal proves transport
 and safe return only. The previous standalone shutdown boot never authorizes
 this boot's reset, and no DMA/prefetch/cache/backing/tear-free acceptance follows.
+
+
+Source `c8942c8d` / release `d74b95ab9b2f5d5c` is installed unarmed for this
+combined trial. The [unit readiness record](machines/macbookair7-2.md#same-borrow-shutdownreset-candidate-ready-for-hardware)
+records full/follow-up local checks,84 fatal sanitizer cases,12 compiled controls,
+16-image isolation and exact-stage normal/missing-workspace VM outcomes. Saved
+full-width projection is65,414/65,536bytes without a cap/allowance increase.
+Media/recovery checks pass; no physical combined shutdown/reset acceptance exists.

@@ -1,8 +1,64 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-08. State: **active reference machine; partial device acceptance**.
 
-### Active scope: fresh disabled observation before reset
+### Same-borrow shutdown/reset candidate ready for hardware
+
+Tested source `c8942c8d` (implementation `c327b823`, main `d3472e06` integrated
+as `67377fb0`) produces release `d74b95ab9b2f5d5c`, installed **not armed**.
+The [combined contract](../intel-bcs-reset.md#fresh-disabled-observation-within-the-reset-borrow)
+uses its own firmware request, wake version9 and exact16-token recipe. Only the
+physically exercised already-disabled branch is admitted. Four fresh eight-word
+snapshots run inside the registered reset borrow and bind the current parent's
+census/epoch before any request. An enabled ring or nonzero geometry still refuses;
+there is no ring-control disable writer, ring-start clear or prior-boot receipt.
+
+The borrow must remain the sole registered dependent before and after every
+callback. Detached/replaced/count-corrupted pins stop progress; invalid parent
+state retains the pin. The original reset request, two BCS-only pulses, measured
+settling, cancellation, epoch advance, verified return and fresh post-reset
+engine/reader/all10-field HDA preservation remain. The100ms dependent starts
+before observation, inside unchanged300ms owner/500ms outer limits. Thirteen
+fresh NX/effective-UC aliases and all resource/backing/root/admission checks remain;
+no HDA-MMIO, PTE/translation/cache writer or memory grant is added.
+
+Full local host/core/profile/docs/build checks pass at `c327b823`; the final pin
+and staging-harness follow-ups at `c8942c8d` rebuild both reset images and pass all
+legacy/new reset targets. Opt-in installed-root checks were explicitly omitted.
+Fatal ASan/UBSan covers63 adapter and21 qualified core/parent cases. Seven compiled
+observation/binding/pin/epoch/context/permission/registry controls and five actual
+native MMIO/page/reader controls are detected. Sixteen-image request/writer
+isolation passes. Strict version2 positional vectors retain all raw DWORDs;
+full-width projection is65,414/65,536bytes with the unchanged1,536 allowance.
+Earlier native nonpasses and historical receipt versions keep their meanings.
+
+Exact immutable MBR Q35/GRUB/EFI64/Limine11.4.1 normal refusal/save/unmount/return
+and missing-workspace halt pass, with zero native store attempts. The actual
+16-token generated command line is checked by the compiled kernel parser and
+bound to saved guest options. Native observation/reset/preservation acceptance
+is still pending; no DMA/prefetch/cache/reader retirement, managed GPU backing or
+physical tear-free capability is accepted.
+
+All1,383 current files/117 sessions and boot sectors verify. Offline fsck,
+allocation/writable/headroom, model/CPU/firmware, Ubuntu-default/no-one-shot and
+installed/durable/archive recovery checks pass. Prior current `c64cd44f68ef1512`,
+recovery `9aa8dbf6fbda8252` and known-good GUI remain protected. The unreferenced
+3ec4 EFI copy was removed only after complete equality to an independent real
+archive and durable payload. Seven exact duplicate stages were pruned, and230
+older stage directories were archived with every member/file SHA verified before
+removal, reclaiming about5.99GiB. The reported Ubuntu freeze has no recorded OOM,
+I/O error or GPU-hang cause; it was not an SrvrOS trial or hardware acceptance.
+
+Run/checkpoint, immutable payload, full proofs and strict return collector are
+under `build/air-reset-shutdown-20261108`, with independent evidence outside build.
+Current manifest SHA is
+`82ecc20a04a9467d066060b07b5d19b21bfbd7834a3297c97654b8499d93394f`.
+Volume1%, playback off, no typing required. USB is unmounted; no reboot is armed.
+Safe saved outcomes return automatically; unresolved ownership halts visibly.
+Collect the matching new session before further work. Air6,1 PR414–416, PR19 Wi-Fi
+and PR379 WebCore retain their own acceptance/scope; hosted Actions stay disabled.
+
+### Completed implementation scope: fresh disabled observation before reset
 
 Integrate main `d3472e06` (Air6,1 PR414–416), preserving its independent sampler
 and offline capability audit. Bounded objective: require a fresh four-snapshot
