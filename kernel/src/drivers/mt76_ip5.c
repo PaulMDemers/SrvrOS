@@ -1,5 +1,6 @@
 #include <srvros/mt76_ip5.h>
 #include <srvros/dns_wire.h>
+#include <srvros/sha256.h>
 static void scrub(void *p,size_t n){volatile uint8_t *v=p;while(n--)*v++=0;}
 static void copy(uint8_t *d,const uint8_t *s,size_t n){while(n--)*d++=*s++;}
 static bool equal(const uint8_t *a,const uint8_t *b,size_t n){unsigned d=0;while(n--)d|=*a++^*b++;return !d;}
@@ -124,6 +125,13 @@ static size_t echo(struct mt76_ip5 *s){
 static bool received(struct mt76_ip5 *s,size_t frame_size){
  const uint8_t *p=s->rx,*body=0;size_t n=0;
  if(s->phase<2){
+  /* Both spans are exclusively owned,already CCMP-authenticated Ethernet.
+   * Equality is diagnostic only:the ordinary reply gates still run below. */
+  if(s->request_size && frame_size==s->request_size && frame_size<=sizeof s->rx){
+   uint8_t digest[32];sha256_digest(p,frame_size,digest);
+   if(equal(digest,s->request_digest,sizeof digest))s->dhcp_reflected[s->phase]++;
+   scrub(digest,sizeof digest);
+  }
   struct offer v={0};bool ack=s->phase==1;enum mt76_ip5_dhcp_reason why=MT76_IP5_ETH_SPAN;
   bool good=udp_reply(s,p,frame_size,67,68,0,true,&body,&n,&why) && dhcp_reply(s,body,n,ack,&v,&why);
   if(good && u32(p+30)!=UINT32_MAX && u32(p+30)!=v.address)good=reject(&why,MT76_IP5_DESTINATION);
@@ -183,13 +191,15 @@ bool mt76_ip5_run(struct mt76_ip5 *s,const uint8_t station[6],uint32_t xid,const
   s->phase=phase;if(!available(s,io)){good=false;break;}
   size_t n=phase<2?dhcp(s,phase==1):phase==2?arp(s,(s->resolver&s->mask)==(s->address&s->mask)?s->resolver:s->router):phase==3?dns_query(s):phase==4?arp(s,s->router):echo(s);
   if(!n || !owned(s,io)){good=false;break;}
+  if(phase<2){s->request_size=(unsigned)n;sha256_digest(s->tx,n,s->request_digest);}
   s->sends++;enum mt76_join5_send sent=io->send(io->context,s->tx,n);scrub(s->tx,sizeof s->tx);
   if(sent!=MT76_JOIN5_SENT && sent!=MT76_JOIN5_REFUSED)s->unsafe=true;
   good=sent==MT76_JOIN5_SENT && owned(s,io);
   if(phase==0)s->discover=good;
   if(phase==1)s->request=good;
   if(good)good=wait_reply(s,io);
+  scrub(s->request_digest,sizeof s->request_digest);s->request_size=0;
  }
- scrub(s->tx,sizeof s->tx);scrub(s->rx,sizeof s->rx);
+ scrub(s->tx,sizeof s->tx);scrub(s->rx,sizeof s->rx);scrub(s->request_digest,sizeof s->request_digest);s->request_size=0;
  s->complete=good && !s->unsafe && s->discover && s->offer && s->request && s->ack && s->arp_dns && s->dns && s->arp_router && s->echo && owned(s,io);return s->complete;
 }

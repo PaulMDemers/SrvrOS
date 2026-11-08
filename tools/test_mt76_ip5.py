@@ -3,11 +3,12 @@
 import ctypes as C
 from pathlib import Path
 import struct as S
+import hashlib
 import sys
 
 U8=C.c_ubyte;V=C.c_void_p;N=C.c_size_t;G=C.c_uint64
 class State(C.Structure):
-    _fields_=[(n,C.c_bool) for n in ('attempted','complete','unsafe','discover','offer','request','ack','arp_dns','dns','arp_router','echo','exhausted')]+[(n,C.c_uint) for n in ('phase','sends','polls','ignored')]+[('arp_class',C.c_uint*9),('dhcp_class',(C.c_uint*29)*2),('dhcp_type',(C.c_uint*4)*2)]+[(n,C.c_uint32) for n in ('xid','address','server','mask','router','resolver','answer')]+[(n,U8*6) for n in ('station','dns_mac','router_mac')]+[('tx',U8*1514),('rx',U8*1514)]
+    _fields_=[(n,C.c_bool) for n in ('attempted','complete','unsafe','discover','offer','request','ack','arp_dns','dns','arp_router','echo','exhausted')]+[(n,C.c_uint) for n in ('phase','sends','polls','ignored')]+[('arp_class',C.c_uint*9),('dhcp_class',(C.c_uint*29)*2),('dhcp_type',(C.c_uint*4)*2),('dhcp_reflected',C.c_uint*2),('request_size',C.c_uint),('request_digest',U8*32)]+[(n,C.c_uint32) for n in ('xid','address','server','mask','router','resolver','answer')]+[(n,U8*6) for n in ('station','dns_mac','router_mac')]+[('tx',U8*1514),('rx',U8*1514)]
 Owned=C.CFUNCTYPE(C.c_bool,V);Send=C.CFUNCTYPE(C.c_int,V,V,N);Poll=C.CFUNCTYPE(C.c_bool,V,V,N,C.POINTER(N),C.POINTER(C.c_bool));Delay=C.CFUNCTYPE(C.c_bool,V,C.c_uint);Now=C.CFUNCTYPE(G,V)
 Exhausted=C.CFUNCTYPE(C.c_bool,V)
 class IO(C.Structure):
@@ -81,6 +82,7 @@ def trial(*,finite=False,finite_loss=False,resolver=bytes([192,0,2,53]),fail_sen
             if h[9]==17:
                 u=p[34:];assert u16(u[4:6])==len(u) and not check(h[12:20]+bytes([0,17])+p16(len(u))+u)
         if phase<2:
+            assert state.request_size==len(p) and bytes(state.request_digest)==hashlib.sha256(p).digest()
             assert p[:6]==bytes([255])*6 and p[26:34]==bytes(4)+bytes([255])*4 and p[34:38]==p16(68)+p16(67)
             b=p[42:];assert len(b)==300 and b[:3]==bytes([1,1,6]) and b[4:8]==p32(xid) and b[10:12]==bytes.fromhex('8000') and b[28:34]==station
             o=options(b);assert o[53]==bytes([3 if phase else 1]) and o[61]==bytes([1])+station and o[55]==bytes([1,3,6,51,54])
@@ -122,7 +124,7 @@ def trial(*,finite=False,finite_loss=False,resolver=bytes([192,0,2,53]),fail_sen
     io=IO(None,*callbacks);mac=(U8*6).from_buffer_copy(station)
     ok=lib.mt76_ip5_run(C.byref(state),mac,xid,C.byref(io))
     if errors:raise errors[0]
-    assert not any(state.tx) and not any(state.rx) and state.sends==len(sent) and state.polls==polls
+    assert not state.request_size and not any(state.request_digest) and not any(state.tx) and not any(state.rx) and state.sends==len(sent) and state.polls==polls
     return ok,state,checks
 
 ok,s,checks=trial();assert ok and s.sends==6 and s.polls==6 and s.answer==0xcb007107 and s.echo
@@ -231,3 +233,22 @@ for kind,column in ((5,1),(6,2),(7,3)):
     ok,state,_=trial(mutate=wrapped_change(0,set_body(242,bytes([kind]))))
     assert not ok and state.dhcp_type[0][column]==1 and state.dhcp_class[0][24]==1 and not state.offer
 print('mt76-ip5: PASS independent synthetic DHCP DORA,local/routed DNS ARP,shared strict DNS parser,256-byte echoed payload;all ownership/send/poll/time bounds,29 first-refusal categories,structurally bound message classes and directed wire/checksum/span/payload refusals;no native IP acceptance')
+
+# Authenticated echoes of our exact request are counted,but remain refused as
+# server replies. A one-byte change,extra padding or truncation must not match.
+for phase in (0,1):
+    for variant in ('exact','changed','padded','truncated'):
+        captured=[]
+        def reflect(at,p):
+            if at!=phase:return p
+            request=captured[-1][0]
+            if variant=='changed':request=request[:-1]+bytes([request[-1]^1])
+            if variant=='padded':request+=bytes(1)
+            if variant=='truncated':request=request[:-1]
+            return request
+        ok,state,_=trial(capture=captured,mutate=reflect)
+        assert not ok and not state.unsafe and state.phase==phase
+        expected=([1,0] if phase==0 else [0,1]) if variant=='exact' else [0,0]
+        assert list(state.dhcp_reflected)==expected
+        assert state.dhcp_class[phase][4 if variant=='truncated' else 11]==1 and not state.dhcp_class[phase][28]
+print('mt76-ip5: private SHA256 request equality/exact/change/padding/truncation,independent hashlib oracle and all-return fingerprint erasure PASS')

@@ -7488,3 +7488,17 @@ No WAPI cipher/hardware support is enabled. This narrow software path follows
 the observed native valid-CCMP frame;it does not infer valid IP/DHCP from a MIC.
 Saved logs require the verified sole-bit combination and complete IP/retirement
 proof,including a plausible minimum size for each matched DHCP phase.
+
+
+Authenticated DHCP-phase Ethernet is also compared with a temporary SHA256
+fingerprint of the current generated request,with exact length equality. The
+`reflected` count is a subset of UDP-ports refusals and never grants acceptance:
+client requests still have the wrong server-to-client port direction. The
+fingerprint is created before the existing transmit scrub,never logged,and
+erased after each wait and on every admitted return. Comparison scratch is
+also scrubbed. This separates matching request bytes from unrelated received
+traffic without retaining packet contents or printing addresses/xid/digests.
+A match suggests forwarding of this request under the authenticated AP context;
+it does not prove DHCP server receipt or a valid OFFER. A nonmatch does not
+prove loss,because a bridge may change packet fields. No send,retry,wait,receive
+budget,crypto or ownership/retirement policy changes accompany this diagnostic.

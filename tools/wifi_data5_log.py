@@ -24,7 +24,7 @@ def validate_data(lines,handshake_sends,old_rx,owner,result):
  dhcp=[x for x in rows if x.startswith('wifi-data5-dhcp:')]
  require(len(dhcp)==2 and rows[-4:-2]==dhcp,'missing ordered DHCP classifications')
  for phase,line in enumerate(dhcp):
-  c=fields(line,'wifi-data5-dhcp');require(set(c)==set(DHCP_FIELDS)|{'phase','offers','acks','naks','other_types'} and c['phase']==phase and all(0<=c[k]<=48 for k in set(c)-{'phase'}) and c['matched']==1 and c['acks' if phase else 'offers']>=1 and sum(c[k] for k in ('offers','acks','naks','other_types'))<=sum(c[k] for k in DHCP_FIELDS)<=48,'invalid DHCP classifications')
+  c=fields(line,'wifi-data5-dhcp');require(set(c)==set(DHCP_FIELDS)|{'phase','offers','acks','naks','other_types','reflected'} and c['phase']==phase and all(0<=c[k]<=48 for k in set(c)-{'phase'}) and c['reflected']<=c['udp_ports'] and c['matched']==1 and c['acks' if phase else 'offers']>=1 and sum(c[k] for k in ('offers','acks','naks','other_types'))<=sum(c[k] for k in DHCP_FIELDS)<=48,'invalid DHCP classifications')
  require(fields(reports[0],'wifi-data5-report')==dict(deferred=1,events=len(sends)+len(receives)),'invalid deferred event count')
  require(len(rows)==2+len(sends)+len(receives)+4,'unexpected encrypted data receipt')
  require(rows[2:-4]==[x for x in rows if x.startswith(('wifi-data5-send:','wifi-data5-rx:'))],'noncontiguous deferred transcript')

@@ -55,7 +55,10 @@ struct mt76_ip5 {
  /* First refusal class0..7;class8 counts valid requests for our address.
   * Aggregate metadata only;no packet values. */
  unsigned phase,sends,polls,ignored,arp_class[9];
- unsigned dhcp_class[2][MT76_IP5_DHCP_REASONS],dhcp_type[2][4];
+ unsigned dhcp_class[2][MT76_IP5_DHCP_REASONS],dhcp_type[2][4],dhcp_reflected[2];
+ /* Private equality fingerprint only;never logged or used for admission.
+  * Scrub after each DHCP wait and on every admitted return. */
+ unsigned request_size;uint8_t request_digest[32];
  uint32_t xid,address,server,mask,router,resolver,answer;
  uint8_t station[6],dns_mac[6],router_mac[6],tx[1514],rx[1514];
 };
