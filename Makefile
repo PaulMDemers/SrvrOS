@@ -5924,3 +5924,19 @@ build/tests/xhci-provider5-host$(HOST_EXE): tools/test_xhci_wifi_provider5.c too
 	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< $(WIFI_PROVIDER5_SOURCE) $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c -o $@
 test-wifi-provider5-log: build/tests/xhci-provider5-host$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_provider5_log.py
+
+.PHONY: test-mt76-dma5
+test-core: test-mt76-dma5
+test-mt76-dma5: build/tests/mt76-dma5-host$(HOST_EXE)
+	$<
+build/tests/mt76-dma5-host$(HOST_EXE): tools/test_mt76_dma5.c kernel/src/drivers/mt76_dma5.c kernel/include/srvros/mt76_dma5.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_dma5.c -o $@
+
+.PHONY: test-mt76-dma5-stack
+test-core: test-mt76-dma5-stack
+test-mt76-dma5-stack: build/tests/mt76-dma5-stack-host$(HOST_EXE)
+	$<
+build/tests/mt76-dma5-stack-host$(HOST_EXE): tools/test_mt76_dma5_stack.c tools/test_mt76_net5_stack.c kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< kernel/src/net_device.c kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c -Wl,--gc-sections -o $@

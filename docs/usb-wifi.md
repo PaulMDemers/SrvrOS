@@ -7621,3 +7621,41 @@ queue/submission/completion counts,early-release refusal,encrypted DHCP/DNS/
 256-byte echo and full late detach/registry/hardware restoration pass. Its
 2,042,206-byte proof and197-file sealed capsule remain outside build. This
 does not accept ordinary provider RX,persistence,native TCP/HTTP or live reattach.
+
+
+### Reusable DMA ownership foundation
+
+`mt76_dma5` is a dormant software ledger for a future reusable native transport.
+It neither writes descriptors/MMIO nor owns keys or raw page buffers. The native
+binding must independently validate the original live CCMP owner,slot,endpoint,
+raw event cycle and event consumption before attributing a real completion to
+an issued lease. A raw TRB address alone cannot be stamped with the current
+software ticket. Its exact native binding and evidence remain pending.
+
+Each direction has four retained page identities and at most one prepared or
+hardware-owned transfer. Reservation produces a never-reused64-bit ticket and
+requires a strictly increasing direction-local token. The caller copies/seals
+once before publication;after publication an uncertain doorbell faults and pins
+the lease. TX completion requires success/no residue. RX success or short-packet
+completion leaves the page unavailable until a consumer borrows and releases
+its exact received-length lease,after copying/authentication/callback return.
+Closing refuses new reservation/acquisition;existing borrowers may finish even
+after fault. Backward time and a750ms pending TX deadline close admission and
+retain ownership. Quiet posted RX has no artificial receive timeout;it still
+needs independent native stop/drain proof to retire.
+
+After255 descriptor positions,the ledger refuses further publication. Wrap is
+an explicit external stopped-endpoint/event-drained/Set-TR-Dequeue proof to the
+same base with opposite cycle and a strictly newer fence sequence;all pages of
+that direction must be free. Modulo wrap or transfer completion alone does not
+grant that proof. Full retirement separately requires key erasure,disabled MAC,
+both stopped endpoints,drained events/callbacks and complete parent restoration,
+with no outstanding consumer loan. These booleans describe already-established
+native evidence;the ledger cannot establish hardware quiescence itself.
+
+The host fixture uses synthetic pages and external fence proofs. Its production
+network-stack integration exercises ordinary receive,nested TCP replies,HTTP and
+repeated UDP transfer through copied provider frames. Neither fixture accepts
+native DMA reuse,CCMP/RF/TCP/HTTP behavior or a persistent secured connection.
+The accepted immutable v132 hardware path,limits and installed payload stay
+separate until a new native binding is source-qualified and physically checked.

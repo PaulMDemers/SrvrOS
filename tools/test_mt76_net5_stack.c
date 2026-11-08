@@ -79,9 +79,18 @@ static bool backend_receive(void *ctx,uint64_t epoch,uint8_t *out,size_t cap,siz
  assert(backend_owned(ctx,epoch) && cap==1514);
  if(incoming_size){memcpy(out,incoming,incoming_size);*n=incoming_size;*present=true;incoming_size=0;}return true;
 }
+#ifndef MT76_STACK_SUBMIT
+#define MT76_STACK_SUBMIT backend_submit
+#define MT76_STACK_SERVICE backend_service
+#define MT76_STACK_RECEIVE backend_receive
+#define MT76_STACK_SETUP() ((void)0)
+#define MT76_STACK_EXERCISE() ((void)0)
+#define MT76_STACK_FINISH() ((void)0)
+#endif
 int main(void){
+ MT76_STACK_SETUP();
  assert(mt76_net5_init(&connection,mac));
- struct mt76_net5_io ops={&owner_token,backend_owned,backend_submit,backend_service,backend_receive,backend_retired};
+ struct mt76_net5_io ops={&owner_token,backend_owned,MT76_STACK_SUBMIT,MT76_STACK_SERVICE,MT76_STACK_RECEIVE,backend_retired};
  assert(mt76_net5_attach(&connection,1,&ops));net_init();assert(initialized && !strcmp(net_device_name(),"mt76-ccmp"));
  int64_t h=net_connect(0x0a000202,80,true);assert(h>0);
  for(unsigned i=0;i<16;i++)net_device_poll(32,false);
@@ -97,7 +106,9 @@ int main(void){
  assert(fin_sent==1 && ack_sent==4 && !connection.count && !connection.pending);
  assert(tcp_connections[0].state==TCP_STATE_TIME_WAIT && tcp_connections[0].peer_closed && !tcp_connections[0].refs);
  ticks+=100000;net_timer_tick();net_process_cleanup(process_current());
+ MT76_STACK_EXERCISE();
  assert(mt76_net5_disconnect(&connection,1) && !mt76_net5_finish_detach(&connection,1));
  quiet=true;assert(mt76_net5_finish_detach(&connection,1) && mt76_net5_retire(&connection));
+ MT76_STACK_FINISH();
  puts("mt76-net5-stack: PASS actual registry and production ARP/TCP stack,SYN/ACK,HTTP GET/200 payload,FIN/ACK,nested replies and provider retirement;synthetic plaintext peer,no native USB/CCMP/provider acceptance");return 0;
 }
