@@ -99,3 +99,16 @@ Before enabling a physical reset, add and validate all of the following together
 The separate milestone of outstanding-memory completion and maintained CPU/GPU
 cache/translation ownership remains necessary before changing GGTT/backing or
 page-flipping. Do not treat this host model as hardware readiness.
+
+## Host validation checkpoint
+
+Source `e14c7bd6` integrates main `a9c1f714`. Full local host/core/profile/docs/
+build checks pass, with the opt-in installed-root check explicitly omitted.
+The final fixture extension passes separately. Fatal ASan/UBSan runs 144 cases;
+12 compiled negative controls are detected. The core also compiles with kernel
+freestanding flags. Ordinary Q35/OVMF boot and xHCI typing pass against matching
+rebuilt artifacts; the kernel symbol table confirms this reset core is absent.
+Initial test-wrapper/foreign-domain-assertion and small-ESP nonpasses are retained
+with the final evidence. No timeout or production refusal was weakened.
+See the [unit checkpoint](machines/macbookair7-2.md#controlled-reset-host-checkpoint-native-entry-still-disabled)
+for retained evidence and the remaining native boundary.

@@ -4,7 +4,7 @@ Updated: 2026-11-07. State: **active reference machine; partial device acceptanc
 
 ### Active work: controlled BCS reset protocol
 
-Bounded objective: integrate main `a9c1f714` (PR407/408) and establish a host-tested
+Bounded objective: main `a9c1f714` (PR407/408) is integrated; establish a host-tested
 BCS-only reset lifetime before native activation. Scope: GT observation epochs,
 completion/readiness validation, a separate diagnostic reset core and fault
 fixtures, plus the reset-domain contract. PR19 Wi-Fi and PR379 WebCore stay
@@ -12,6 +12,39 @@ independent. The native register adapter, private reset alias, exact new image/
 recipe, saved collector proof and hardware acceptance remain separate admission
 requirements; no reset writer is enabled in an installed or ordinary image.
 Do not infer outstanding-memory/cache retirement from reset acknowledgement.
+
+### Controlled-reset host checkpoint (native entry still disabled)
+
+Main `a9c1f714` is merged as `4635f212`; implementation `e14c7bd6` adds the
+[BCS-only reset model](../intel-bcs-reset.md) and engine observation epochs.
+The protocol source is under `kernel/diagnostics`, outside every kernel image's
+source set. There is no new ELF, firmware request, MMIO adapter, recipe, install
+or physical acceptance. The ordinary kernel's symbol table independently confirms
+that the reset implementation is absent. Installed/recovery state is unchanged.
+
+Full local host/core/profile/docs/build checks pass with the opt-in installed-root
+check explicitly omitted; those installer checks were not rerun here. The final
+fixture extension also passes its target. Fatal ASan/UBSan covers 144 cases,
+including every guard/read boundary, both store/poll phases, epoch changes during
+admission/observation/final checks, nonzero epochs and a second reset using a
+fresh census. All 12 compiled negative controls are detected. A freestanding
+compile checks the core's kernel ABI without linking it into an image.
+Ordinary Q35/OVMF/xHCI boot and typed keyboard input pass against matching rebuilt
+kernel/initramfs. This VM result accepts no native GPU operation.
+
+The initial missing fixture-output marker, initial negative-control test that
+failed to require immediate foreign-domain refusal, and a too-small 64 MiB VM
+ESP are preserved as nonpasses. The fixture assertions and VM image size were
+corrected; production gates and time limits were not weakened. Final logs,
+source/input hashes and VM receipts are under `build/air-reset-domain-20261107`,
+with independent SHA-verified backup under
+`~/.local/share/srvros/reviewed-evidence/air-reset-domain-20261107`.
+
+Next is the exact native GDRST alias/adapter, same-boot preservation checks,
+dedicated image/recipe and strict saved receipts listed in the contract, then
+exact-stage VM and installed-recovery/media qualification before physical reset.
+No hardware trial is prepared or armed, and no user input is required at this
+host-only checkpoint. All completion/cache/backing obligations remain open.
 
 ### Current checkpoint: BCS reset readiness accepted
 
