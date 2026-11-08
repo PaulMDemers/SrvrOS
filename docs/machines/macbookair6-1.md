@@ -9251,3 +9251,61 @@ contracts. PR19/PR379 retain unrelated scopes. Validate host/core and actual
 loaded/capture/exact-stage VMs, self-merge and run the same automatic native
 30-minute/three-capture workload at1% volume. Native timing acceptance remains
 pending; the967444us failure and both TCG failures stay historical evidence.
+
+
+### Render attribution validated; native diagnostic prepared (2026-11-08)
+
+Runtime and tested tools `a9e72ecc` add fixed-size render/capture companions to
+the existing worst-loop record. The compiled current-plus-worst loop state is
+1928 bytes; render/capture records are312/240 bytes. Composition/upload callbacks
+measure their own wall time/counts/area inside the presentation interval; stack,
+fence and bookkeeping remain separately bracketed. Independent scheduler traces
+cover render and capture bodies. Capture transfer stays in LOOP_POST. No
+rendering algorithm or500ms/10s requirement changes, and all diagnostic overhead
+remains in outer-loop accounting. Ordinary non-stress paths omit the diagnostic
+syscalls. No per-frame logging, heap allocation or unbounded history is added.
+
+Focused and full core checks pass, including the actual C writer→strict reader,
+clock/count/overflow refusals, unchanged attribution after1000 later shorter
+loops, maximum record-size checks, and89 installed-root tests with one expected
+skip. Matched normal/native/VM/ISO/USB builds pass. Both ordinary/native images
+omit isolated sampler entrypoints. All frozen payload hashes remain identical
+through sequential VM testing; no optional hardware gate or power policy changes.
+
+The current loaded TCG run completes the workload but **fails** the original
+500ms loop bound at598881us. Its saved final attribution validates directly:
+render555420us, presentation555332us, compose6695us, upload548593us; render
+scheduler ready time527499us, blocked0,29 dispatches. Capture transfer takes29us
+in that retained interval, with no active capture worker. These are VM-only
+clues, not proof of the previous native stall's cause or a latency fix.
+
+The first loaded KVM run halts on a synthetic battery-query deadline and lacks
+final completion; it remains FAILED_OR_INCOMPLETE, with partial checkpoints
+preserved. An unchanged repeat passes22 cycles,357028us maximum loop,
+1122840us readiness and1458959us close, zero app errors/underruns, screenshot,
+worker/cache/battery retirement and all67 prior fixture files. Its new render/
+capture companions pass the strict saved-record reader. No KVM deadline fix or
+general reliability acceptance is claimed from the repeat. The original967444us
+native failure and earlier loaded TCG failures remain failed evidence.
+
+The ordinary TCG screenshot trial passes exact pixels, immutable capture during
+typing, durable BMP readback, folder/Preview, repeated menu capture and exit.
+Exact v74 payload `30f9ea98b926043a` passes TCG GRUB→Limine chainload, explicit
+native-board refusal, file preservation, unmount and return. PR301's active diff
+contains no overlapping desktop/timing files at this inspection; its scanout and
+hardware ownership contracts remain unchanged.
+
+Prepared run `77c67dc520ea441b` uses USB `6ADA-85BB`,652 baseline files,
+147 directories and1832 allocated clusters, with clean filesystem/allocation/
+headroom checks. Only the owned1% quiet-volume input is intentionally refreshed;
+previous bytes are saved. EFI headroom requires archiving only the unreferenced
+old desktop-power duplicate `aa576838270d623a` after independently verifying its
+complete accepted backup and absence from current/previous/GRUB references.
+Current failed-regression `c831655c4120352e`, accepted sampler/zero-load/single-
+window/stress and console recovery `c35475f62f154f1e` remain retained and verified.
+
+After verified install, merged preparation and durable collector/run records,
+run the same fully automatic30-minute PCM/verified USB/app/three-screenshot
+native workload at1%. The collector now saves matching render/capture attribution
+even if the original latency gate fails. No native pass or renderer fix is
+inferred before collecting the matching return. Ubuntu remains the recovery OS.
