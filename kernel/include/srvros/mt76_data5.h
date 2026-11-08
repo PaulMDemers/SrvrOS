@@ -26,7 +26,17 @@ enum mt76_data5_rx_reason {
  MT76_DATA5_FRAME,MT76_DATA5_HEADER,MT76_DATA5_PEER,MT76_DATA5_CCMP,
  MT76_DATA5_LLC,MT76_DATA5_OK
 };
-struct mt76_data5_rx_result {size_t bytes;enum mt76_data5_rx_reason reason;};
+/* Untrusted structural metadata only;never authentication or peer identity.
+ * flags packs BA,NULL,FRAG,CRC,ICV,MIC,AMSDU,HTC,AMPDU,DECRYPT,WAPI,PN
+ * into bits0..11. No raw RXWI/header/address bytes are returned. */
+enum mt76_data5_frame {
+ MT76_DATA5_FRAME_UNKNOWN,MT76_DATA5_BEACON,MT76_DATA5_PROBE_RESPONSE,
+ MT76_DATA5_AUTH,MT76_DATA5_ASSOC_RESPONSE,MT76_DATA5_DEAUTH,MT76_DATA5_DISASSOC,
+ MT76_DATA5_ACTION,MT76_DATA5_MANAGEMENT_OTHER,MT76_DATA5_CONTROL,
+ MT76_DATA5_UNPROTECTED_DATA,MT76_DATA5_EAPOL_KEY,MT76_DATA5_PROTECTED_FROMDS,
+ MT76_DATA5_PROTECTED_OTHER,MT76_DATA5_OTHER
+};
+struct mt76_data5_rx_result {size_t bytes;enum mt76_data5_rx_reason reason;unsigned flags;enum mt76_data5_frame frame;};
 struct mt76_data5_rx_result mt76_data5_rx_report(struct mt76_data5_scratch *,struct wpa2_ccmp *,uint64_t,
  const uint8_t *usb,size_t,uint8_t *ethernet,size_t capacity);
 size_t mt76_data5_rx(struct mt76_data5_scratch *,struct wpa2_ccmp *,uint64_t,

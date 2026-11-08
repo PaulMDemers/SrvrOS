@@ -7424,3 +7424,18 @@ restored;full outer RF completion still failed. Deferred logging is observed,
 not accepted connectivity or proof of improved receive latency. Next distinguish
 frame classes and hardware flags without packet values,or speculative changes
 to filters,cryptographic gates or ring bounds.
+
+Receive metadata now adds `frame` (0..14) and `flags` (12 categorical bits)
+to each deferred data RX event. Frame classes are unknown,beacon,probe response,
+authentication,association/reassociation response,deauthentication,disassociation,
+action,other management,control,unprotected data,structural unprotected EAPOL-Key,
+supported protected FromDS,other protected data,and other. Classification uses
+independent bounded USB/DMA/MPDU spans and never emits raw FC,address or payload
+bytes. EAPOL-Key requires bounded SNAP/EtherType/version/type/body length only;
+it does not verify peer identity,MIC,replay or AP acceptance. Malformed spans
+stay unknown. Forbidden RXWI categories map bits0..11 to BA,NULL,FRAG,CRC,ICV,
+MIC,AMSDU,HTC,AMPDU,DECRYPT,WAPI and nonzero PN length. Multiple categories may
+be set. The old parser still applies every original flag/frame/CCMP refusal.
+Saved-log checks reject impossible reason/flag/frame combinations. The byte-count
+API remains unchanged;all report-struct callers must be rebuilt together. These
+are diagnostic labels,not trusted traffic or a new hardware-filter policy.

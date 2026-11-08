@@ -38,7 +38,12 @@ def validate_data(lines,handshake_sends,old_rx,owner,result):
  valid=[]
  for i,line in enumerate(receives):
   a=fields(line,'wifi-data5-rx')
-  require(set(a)=={'index','bytes','ethernet','present','view','reason'} and a['index']==len(old_rx)+i and 0<=a['bytes']<=4096 and a['present'] in (0,1) and 0<=a['view']<=3 and 1<=a['reason']<=9,'wrong data RX schema/order')
+  require(set(a)=={'index','bytes','ethernet','present','view','reason','flags','frame'} and a['index']==len(old_rx)+i and 0<=a['bytes']<=4096 and a['present'] in (0,1) and 0<=a['view']<=3 and 1<=a['reason']<=9,'wrong data RX schema/order')
+  require(0<=a['flags']<=4095 and 0<=a['frame']<=14,'invalid receive metadata')
+  if a['reason']==2:require(a['flags']>0,'missing forbidden RX flags')
+  if a['reason']>=3:require(a['flags']==0,'forbidden flags bypassed')
+  if a['reason']==4:require(a['frame'] not in (0,12),'inconsistent refused frame class')
+  if a['reason']>=5:require(a['frame']==12,'unsupported frame class bypassed')
   require(lines.index(sends[0])<lines.index(line)<lines.index(summaries[0]),'data receive outside window')
   if a['view']==0:
    require(a['reason']==9 and a['present']==1 and 14<=a['ethernet']<=1514 and a['bytes']>=a['ethernet']+70,'invalid protected Ethernet dimensions')

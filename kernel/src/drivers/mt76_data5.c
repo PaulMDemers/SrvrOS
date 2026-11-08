@@ -32,10 +32,43 @@ size_t mt76_data5_tx(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t g
  copy(out+24,s->mpdu,mpdu);result=total;
 done:scrub(s,sizeof *s);return result;
 }
-static size_t receive(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t g,const uint8_t *usb,size_t n,uint8_t *out,size_t cap,enum mt76_data5_rx_reason *reason){
+/* Classify only inside independently checked USB/DMA/MPDU spans. This
+ * never changes the strict parser's gates or exposes payload/header values. */
+static void metadata(const uint8_t *usb,size_t n,struct mt76_data5_rx_result *r){
+ if(!usb || n<36 || n>4096)return;
+ unsigned dma=le16(usb);if(dma<32 || (dma&3) || dma>n-4)return;
+ const uint8_t *wi=usb+4;uint32_t info=le32(wi);
+ static const uint32_t masks[]={1u,1u<<2,1u<<3,1u<<8,1u<<9,1u<<10,1u<<11,1u<<12,1u<<15,1u<<16,1u<<18,7u<<19};
+ for(unsigned i=0;i<12;i++)if(info&masks[i])r->flags|=1u<<i;
+ size_t length=(le32(wi+4)>>16)&0x3fff,pad=(info&(1u<<14))?2:0;
+ if(length<2 || length>dma-32 || pad>dma-32-length)return;
+ const uint8_t *h=usb+36;unsigned fc=le16(h),base=fc&~0x3800u;
+ if(fc&3){r->frame=MT76_DATA5_OTHER;return;}
+ unsigned type=fc&12,sub=fc&0xf0;
+ if(type==0 && length>=24 && !(fc&0x300)){
+  r->frame=sub==0x80?MT76_DATA5_BEACON:sub==0x50?MT76_DATA5_PROBE_RESPONSE:
+   sub==0xb0?MT76_DATA5_AUTH:(sub==0x10 || sub==0x30)?MT76_DATA5_ASSOC_RESPONSE:
+   sub==0xc0?MT76_DATA5_DEAUTH:sub==0xa0?MT76_DATA5_DISASSOC:
+   sub==0xd0?MT76_DATA5_ACTION:MT76_DATA5_MANAGEMENT_OTHER;return;
+ }
+ if(type==4 && length>=10){r->frame=MT76_DATA5_CONTROL;return;}
+ if(type!=8 || length<24){r->frame=MT76_DATA5_OTHER;return;}
+ if(fc&0x4000){r->frame=(base==0x4208 || base==0x4288)?MT76_DATA5_PROTECTED_FROMDS:MT76_DATA5_PROTECTED_OTHER;return;}
+ r->frame=MT76_DATA5_UNPROTECTED_DATA;
+ if(base!=0x0208 && base!=0x0288)return;
+ size_t header=base==0x0288?26:24;
+ if(length<header+8+4+95)return;
+ const uint8_t *p=h+header+pad;
+ static const uint8_t eapol[8]={0xaa,0xaa,3,0,0,0,0x88,0x8e};
+ if(!equal(p,eapol,8) || p[8]<1 || p[8]>3 || p[9]!=3)return;
+ unsigned body=(unsigned)p[10]<<8|p[11];
+ if(body>=95 && body<=length-header-12)r->frame=MT76_DATA5_EAPOL_KEY;
+}
+static size_t receive(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t g,const uint8_t *usb,size_t n,uint8_t *out,size_t cap,struct mt76_data5_rx_result *report){
+ enum mt76_data5_rx_reason *reason=&report->reason;
  *reason=MT76_DATA5_ADMISSION;
  if(!admission(s,k,g,usb,n,out,cap,MT76_DATA5_ETH_MAX))return 0;
- scrub(out,cap);scrub(s,sizeof *s);size_t result=0;
+ scrub(out,cap);scrub(s,sizeof *s);size_t result=0;metadata(usb,n,report);
  *reason=MT76_DATA5_SPAN;
  if(!usb || n<36+24+16+8 || n>4096)goto done;
  unsigned dma=le16(usb);if(!dma || (dma&3) || dma>n-4 || dma<32)goto done;
@@ -60,7 +93,7 @@ done:scrub(s,sizeof *s);return result;
 }
 
 struct mt76_data5_rx_result mt76_data5_rx_report(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t g,const uint8_t *usb,size_t n,uint8_t *out,size_t cap){
- struct mt76_data5_rx_result r={0,MT76_DATA5_ADMISSION};r.bytes=receive(s,k,g,usb,n,out,cap,&r.reason);return r;
+ struct mt76_data5_rx_result r={.reason=MT76_DATA5_ADMISSION};r.bytes=receive(s,k,g,usb,n,out,cap,&r);return r;
 }
 size_t mt76_data5_rx(struct mt76_data5_scratch *s,struct wpa2_ccmp *k,uint64_t g,const uint8_t *usb,size_t n,uint8_t *out,size_t cap){
  return mt76_data5_rx_report(s,k,g,usb,n,out,cap).bytes;

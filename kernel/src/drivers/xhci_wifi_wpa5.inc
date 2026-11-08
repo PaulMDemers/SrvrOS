@@ -16,7 +16,7 @@ static bool wifi_wpa5_inspect(void);
 #define WIFI_WPA5_RX 48
 #define WIFI_DATA5_FORWARD_RX 40
 #define WIFI_DATA5_EVENTS (WIFI_DATA5_FORWARD_RX+6)
-struct wifi_data5_event {unsigned kind,index,bytes,ethernet,present,view,reason;};
+struct wifi_data5_event {unsigned kind,index,bytes,ethernet,present,view,reason,flags,frame;};
 static struct {
  struct xhci_device *d;struct mt76_peer5 peer;struct mt76_wpa5 exchange;struct mt76_mac_cycle mac;
  struct xhci_trb *rx,*tx;uint64_t rx_phys,tx_phys,pages[WIFI_WPA5_RX+WIFI_WPA5_TX_MAX],pins[WIFI_WPA5_RX+WIFI_WPA5_TX_MAX+2];
@@ -244,7 +244,7 @@ static bool wifi_wpa5_poll(void *c,enum mt76_wpa5_rx type,uint8_t *out,size_t ca
   if(i!=wifi_wpa5.rx_copied)return wifi_wpa5_fail();
   copy_bytes(wifi_wpa5.rx_snapshot[i],wifi_wpa5.buffer[i],4096);wifi_wpa5.rx_copied++;
   size_t bytes=4096-wifi_wpa5.rx_residue;
-  unsigned view=MT76_RX_INVALID;enum mt76_data5_rx_reason reason=MT76_DATA5_ADMISSION;size_t mpdu=0,eapol=0;unsigned fc=0;
+  unsigned flags=0,frame=0;unsigned view=MT76_RX_INVALID;enum mt76_data5_rx_reason reason=MT76_DATA5_ADMISSION;size_t mpdu=0,eapol=0;unsigned fc=0;
   if(type==MT76_WPA5_EAPOL){
    struct mt76_eapol5_peer p={.channel=161,.bandwidth=20};copy_bytes(p.station,wifi_wpa5.peer.peer.station,6);copy_bytes(p.bssid,wifi_wpa5.peer.peer.bssid,6);
    struct mt76_eapol5_view v={0};view=mt76_eapol5_rx(&p,wifi_wpa5.buffer[i],bytes,&v);mpdu=v.mpdu_size;fc=v.frame_control;eapol=v.eapol_size;
@@ -254,12 +254,12 @@ static bool wifi_wpa5_poll(void *c,enum mt76_wpa5_rx type,uint8_t *out,size_t ca
    if(view==MT76_RX_OK && mpdu>=24 && mpdu<=cap && v.body_size==mpdu-24){copy_bytes(out,v.header,24);copy_bytes(out+24,v.body,v.body_size);*size=mpdu;*present=true;}
   }else if(type==MT76_WPA5_DATA && wifi_wpa5.data_mode && wifi_wpa5.data_active && wifi_wpa5.exchange.keys_activated && wifi_wpa5.exchange.keys.phase==WPA2_CCMP_ACTIVE){
    struct mt76_data5_rx_result report=mt76_data5_rx_report(&wifi_wpa5.data_scratch,&wifi_wpa5.exchange.keys,wifi_wpa5.peer.generation,wifi_wpa5.buffer[i],bytes,out,cap);
-   size_t n=report.bytes;reason=report.reason;if(reason==MT76_DATA5_ADMISSION)return wifi_wpa5_fail();
+   size_t n=report.bytes;reason=report.reason;flags=report.flags;frame=report.frame;if(reason==MT76_DATA5_ADMISSION)return wifi_wpa5_fail();
    view=n?MT76_RX_OK:MT76_RX_INVALID;
    if(n){*size=n;*present=true;wifi_wpa5.data_received++;}
   }else return wifi_wpa5_fail();
   wifi_wpa5.rx_delivered=true;
-  if(type==MT76_WPA5_DATA){if(!wifi_data5_record((struct wifi_data5_event){.kind=1,.index=i,.bytes=(unsigned)bytes,.ethernet=(unsigned)*size,.present=*present,.view=view,.reason=reason}))return false;}
+  if(type==MT76_WPA5_DATA){if(!wifi_data5_record((struct wifi_data5_event){.kind=1,.index=i,.bytes=(unsigned)bytes,.ethernet=(unsigned)*size,.present=*present,.view=view,.reason=reason,.flags=flags,.frame=frame}))return false;}
   else console_printf("wifi-wpa5-rx: index=%u bytes=%u type=%u view=%u mpdu=%u fc=%x eapol=%u present=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)type,(uint64_t)view,(uint64_t)mpdu,(uint64_t)fc,(uint64_t)eapol,(uint64_t)*present);
   if(wifi_wpa5.posts<(wifi_wpa5.data_mode?WIFI_DATA5_FORWARD_RX:WIFI_WPA5_RX) && !wifi_wpa5_post())return false;
  }
@@ -339,7 +339,7 @@ static void wifi_data5_report(void){
  for(unsigned i=0;i<count;i++){
   const struct wifi_data5_event *e=&wifi_wpa5.data_event[i];
   if(e->kind==0)console_printf("wifi-data5-send: index=%u bytes=%u completed=%u pn=%u\n",(uint64_t)e->index,(uint64_t)e->bytes,(uint64_t)e->present,(uint64_t)e->reason);
-  else if(e->kind==1)console_printf("wifi-data5-rx: index=%u bytes=%u ethernet=%u present=%u view=%u reason=%u\n",(uint64_t)e->index,(uint64_t)e->bytes,(uint64_t)e->ethernet,(uint64_t)e->present,(uint64_t)e->view,(uint64_t)e->reason);
+  else if(e->kind==1)console_printf("wifi-data5-rx: index=%u bytes=%u ethernet=%u present=%u view=%u reason=%u flags=%u frame=%u\n",(uint64_t)e->index,(uint64_t)e->bytes,(uint64_t)e->ethernet,(uint64_t)e->present,(uint64_t)e->view,(uint64_t)e->reason,(uint64_t)e->flags,(uint64_t)e->frame);
   else {wifi_wpa5_fail();return;}
  }
  const struct mt76_ip5 *s=&wifi_wpa5.ip;

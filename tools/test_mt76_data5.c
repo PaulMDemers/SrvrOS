@@ -27,8 +27,45 @@ static size_t usb_rx(uint8_t *out,const uint8_t *mpdu,size_t n,bool pad){
  memset(out,0,4096);put16(out,(unsigned)bytes);out[4]=0x92;out[5]=0x20|(pad?0x40:0);put16(out+10,(unsigned)n);
  memcpy(out+36,mpdu,header);memcpy(out+36+header+(pad?2:0),mpdu+header,n-header);return bytes+4;
 }
+static void metadata_tests(void){
+ uint8_t usb[4096],out[1514];
+ const struct {unsigned fc,want;} cases[]={
+  {0x80,1},{0x50,2},{0xb0,3},{0x10,4},{0x30,4},{0xc0,5},{0xa0,6},{0xd0,7},{0x40,8},
+  {0xd4,9},{0x0208,10},{0x4208,12},{0x4288,12},{0x4108,13},{0x0003,14}};
+ for(unsigned i=0;i<sizeof cases/sizeof cases[0];i++){
+  memset(usb,0,sizeof usb);put16(usb,232);put16(usb+10,200);put16(usb+36,cases[i].fc);keys=base;
+  struct mt76_data5_rx_result r=mt76_data5_rx_report(&scratch,&keys,9,usb,236,out,sizeof out);
+  assert(!r.bytes && !r.flags && r.frame==cases[i].want && !memcmp(&keys,&base,sizeof keys));zero(out,sizeof out);zero(&scratch,sizeof scratch);
+ }
+ /* Independent pinned RXWI bit positions;all three PN-length bits map to
+  * the same category. Neither permitted flags nor malformed spans relax RX. */
+ const unsigned bits[]={0,2,3,8,9,10,11,12,15,16,18,19,20,21};
+ for(unsigned i=0;i<14;i++){
+  memset(usb,0,sizeof usb);put16(usb,232);put16(usb+10,200);put16(usb+36,0x4208);usb[4+bits[i]/8]=1u<<(bits[i]%8);keys=base;
+  struct mt76_data5_rx_result r=mt76_data5_rx_report(&scratch,&keys,9,usb,236,out,sizeof out);
+  assert(!r.bytes && r.reason==MT76_DATA5_FLAGS && r.frame==12 && r.flags==(1u<<(i<12?i:11)) && !memcmp(&keys,&base,sizeof keys));
+ }
+ memset(usb,0,sizeof usb);put16(usb,232);put16(usb+10,200);put16(usb+36,0x0208);
+ memcpy(usb+60,(uint8_t[]){0xaa,0xaa,3,0,0,0,0x88,0x8e,2,3,0,95},12);
+ keys=base;struct mt76_data5_rx_result r=mt76_data5_rx_report(&scratch,&keys,9,usb,236,out,sizeof out);assert(!r.bytes && r.frame==11 && r.reason==MT76_DATA5_FRAME);
+ for(unsigned i=0;i<12;i++){
+  uint8_t old=usb[60+i];usb[60+i]^=0x80;keys=base;r=mt76_data5_rx_report(&scratch,&keys,9,usb,236,out,sizeof out);
+  assert(!r.bytes && r.frame==10 && !memcmp(&keys,&base,sizeof keys));usb[60+i]=old;
+ }
+ /* QoS + declared L2 padding is classified at its own bounded header end. */
+ memset(usb+60,0,176);put16(usb+36,0x0288);usb[5]=0x40;put16(usb,236);
+ memcpy(usb+64,(uint8_t[]){0xaa,0xaa,3,0,0,0,0x88,0x8e,2,3,0,95},12);
+ keys=base;r=mt76_data5_rx_report(&scratch,&keys,9,usb,240,out,sizeof out);assert(!r.bytes && r.frame==11);
+ for(size_t n=0;n<240;n++){
+  keys=base;r=mt76_data5_rx_report(&scratch,&keys,9,usb,n,out,sizeof out);assert(!r.bytes && !r.flags && r.frame==0 && !memcmp(&keys,&base,sizeof keys));
+ }
+ keys=base;r=mt76_data5_rx_report(&scratch,&keys,8,usb,240,out,sizeof out);assert(!r.bytes && !r.flags && !r.frame);
+ /* Independently valid transport with missing/oversized MPDU remains unknown. */
+ for(unsigned length=0;length<2;length++){put16(usb+10,length);keys=base;r=mt76_data5_rx_report(&scratch,&keys,9,usb,240,out,sizeof out);assert(!r.bytes && !r.frame);}
+ put16(usb+10,300);keys=base;r=mt76_data5_rx_report(&scratch,&keys,9,usb,240,out,sizeof out);assert(!r.bytes && !r.frame);
+}
 int main(void){
- setup();uint8_t eth[1514]={0},usb[4096],out[1514],bad[4096];
+ setup();metadata_tests();uint8_t eth[1514]={0},usb[4096],out[1514],bad[4096];
  memcpy(eth,ccmp_tx_header+16,6);memcpy(eth+6,hs_spa,6);memcpy(eth+12,ccmp_data+6,sizeof ccmp_data-6);size_t n=sizeof ccmp_data+6;
  size_t size=mt76_data5_tx(&scratch,&keys,9,eth,n,0x123,usb,sizeof usb);
  assert(size==((20+sizeof ccmp_tx+3)&~3u)+8 && keys.tx_pn==1);
@@ -47,7 +84,7 @@ int main(void){
  /* Classifications share the same parser and cryptographic acceptance. */
  keys=base;size=usb_rx(usb,ccmp_rx,sizeof ccmp_rx,false);
  struct mt76_data5_rx_result r=mt76_data5_rx_report(&scratch,&keys,9,usb,size,out,sizeof out);
- assert(r.bytes==n && r.reason==MT76_DATA5_OK);
+ assert(r.bytes==n && r.reason==MT76_DATA5_OK && !r.flags && r.frame==MT76_DATA5_PROTECTED_FROMDS);
  r=mt76_data5_rx_report(&scratch,&keys,9,usb,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_CCMP);zero(out,sizeof out);
  keys=base;r=mt76_data5_rx_report(&scratch,&keys,8,usb,size,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_ADMISSION);
  keys=base;r=mt76_data5_rx_report(&scratch,&keys,9,usb,12,out,sizeof out);assert(!r.bytes && r.reason==MT76_DATA5_SPAN);zero(out,sizeof out);
