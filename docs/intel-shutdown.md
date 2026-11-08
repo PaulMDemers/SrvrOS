@@ -89,7 +89,7 @@ one-shot boot, collection and independent evidence backup. No typing or playback
 is required; volume1%. Safe outcomes save/unmount and return to Ubuntu. Retained
 state keeps the pre-entry warning and requires manual restart. VM identity
 refusal validates transport and collection only; native shutdown acceptance
-remains pending in the [unit record](machines/macbookair7-2.md).
+is branch-specific in the [unit record](machines/macbookair7-2.md).
 
 ## Air7,2 readiness
 
@@ -102,3 +102,17 @@ canonical command lines now run through the compiled kernel parser in regression
 tests. Current immutable source/config/manifest binding is recorded in the
 [unit checkpoint](machines/macbookair7-2.md#guarded-idle-blitter-shutdown-ready-for-hardware).
 No physical shutdown or reset acceptance follows from VM/host evidence.
+
+## Air7,2 physical result
+
+Source `8efce479` / release `c64cd44f68ef1512`, session
+`session-00065fbc5a35c396-00`, accepts **already-disabled observation and
+same-lifetime preservation**. It made zero control attempts/stores, preserved
+all engines,54 plane words and10 HDA config fields, returned its borrow and
+retired all11 aliases. Owner259,797us and outer334,176us meet the unchanged
+300/500ms budgets with no clock fault. Strict native/checkpoint collection and
+prior-file/offline media/recovery checks pass; Ubuntu return consumed the one-shot.
+The enabled-ring write remains untested. No reset, DMA/prefetch/cache/reader
+retirement, managed GPU memory or tear-free capability follows. Any reset
+integration must obtain fresh same-lifetime evidence; this boot's observations
+cannot authorize a future boot's operation.

@@ -2,10 +2,45 @@
 
 Updated: 2026-11-07. State: **active reference machine; partial device acceptance**.
 
+### Latest shutdown trial: already-disabled preservation accepted
+
+Source `8efce479`, release `c64cd44f68ef1512`, session
+`session-00065fbc5a35c396-00` completes the separate shutdown image's
+**already-disabled observation and same-lifetime preservation** branch. All
+five engines entered disabled, with exact zero BCS geometry. Four eight-word
+BCS snapshots agree; control attempts/writes are0 and the engine epoch remains0.
+This does **not** accept the enabled-ring disable writer or a reset.
+
+Both fresh60-word engine censuses are stable with enabled/pending masks0. The
+54 plane reads and all10 HDA config fields preserve the inherited state; the
+reader bracket is119,355us and the shutdown bracket130,903us. The registered
+borrow is returned after blocked early-close and mandatory preservation. Owner
+duration259,797us/300,000 and outer334,176us/500,000 meet unchanged limits.
+The first-fault clock reports no fault across15 grouped checks. Wake version8
+records152 engine/BCS reads,146 guards, three requester stores, all11 aliases
+retired and no retained ownership. Strict native, clock and saved-checkpoint
+receipts pass; the matching exit records whole-trial completion and no attention.
+
+All1,380 prior files survive except expected workspace metadata; three new logs
+produce1,383 files/117 sessions. Offline fsck, allocation, writable and headroom
+checks pass. Installed/durable/archive recovery, Ubuntu default and consumed
+one-shot verify; USB is unmounted and no run is armed. Full evidence is retained
+outside build. Volume remains1%; no guest playback was requested.
+
+The tested payload uses integrated main `09ad7c23`. Fetched main `f1fd3f33`
+adds Air6,1 sampler priming/acceptance (PR414/415); it is inspected but is not in
+this tested payload. Integrate/requalify before the next candidate. Next bind
+fresh shutdown/engine/reader evidence into the reset owner's lifetime, preserving
+the zero-geometry gate and all existing budgets; any nonzero preserved geometry
+needs explicit admission and its own coverage. Enabled-ring shutdown, complete
+reset/preservation, outstanding DMA/prefetch/cache/reader ownership, managed GPU
+backing and native tear-free remain open. Never combine observations across boots
+as ownership proof, or enable a ring merely to exercise the untested writer.
+
 ### Guarded idle blitter shutdown ready for hardware
 
 Tested source `8efce479` (implementation `9cb22985`, main `09ad7c23` integrated
-as `e1aa31e3`) produces release `c64cd44f68ef1512`, installed **not armed**.
+as `e1aa31e3`) produces release `c64cd44f68ef1512`, installed **not armed** at readiness.
 The [shutdown contract](../intel-shutdown.md) defines a separate image/request
 and exact15-token recipe. It performs no reset. The reset core still requires
 zero geometry; clearing enable preserves the captured ring start and length,
@@ -53,8 +88,8 @@ Run/checkpoint, immutable stage, strict collection and all proofs are under
 `build/air-bcs-shutdown-20261107`, with a full independent backup outside build.
 Volume1%, guest audio off, no typing required, USB unmounted, no reboot armed.
 Safe saved outcomes return to Ubuntu; retained ownership requires manual restart.
-Native shutdown is still pending; an already-disabled result cannot accept the
-enabled-ring store. Reset/preservation, outstanding DMA/prefetch, reader/cache
+At readiness native shutdown was pending; the subsequent already-disabled
+result above accepts observation/preservation only, not the enabled-ring store. Reset/preservation, outstanding DMA/prefetch, reader/cache
 ownership, managed GPU backing and native tear-free remain open. PR19 Wi-Fi and
 PR379 WebCore keep separate scope; hosted Actions remain disabled.
 
