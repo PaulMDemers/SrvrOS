@@ -15424,3 +15424,32 @@ native capsule/12-file independent review remain immutable. Ubuntu recovery and
 accepted payloads retained;no test armed. Detailed milestone/dependency and
 acceptance plan is in macbookpro11-2-wifi-completion-plan.md. Parallel software
 fixtures do not confer native acceptance or authorize copying hardware gates.
+
+### Parallel completion foundations delivered (November 8)
+
+Three requested subagents delivered disjoint,reviewed software work without
+hardware access or shared build/stage/VM activity. RX fixture drives the actual
+native callback through production registry/provider polling into an independent
+strict IP oracle;it covers six replies,single replay commit,duplicate/MIC/peer
+refusal,borrow release,epoch/span gates and close inside delivery. The test sink
+substitution is explicit;production ordinary-stack receive remains pending.
+The real63-position DMA-core fixture completes8064 transfers/4032 receive loans
+and128 synthetic fences,with1008 uses of each page and late lease/epoch/held-loan
+refusals. Both C fixtures pass standalone fatal ASan/UBSan/leak checks.
+
+The reusable workspace proof tool saves exact private baseline metadata,hashes
+all files,checks exact sidecar/tree coverage and matching-session additions,and
+refuses unjustified inode/permission/time/identity changes. Only explicit file
+atime changes within independently established native-RTC bounds may be allowed.
+All15 disposable-tree tests pass. The tool requires an independently sealed
+baseline and is not retroactively wired into old collections;old576/12-file
+capsules remain immutable. Future integration must preserve that boundary.
+
+Parent added `make test-wifi-completion-foundations`;its three groups pass.
+Receive/transport/UI handoff designs accompany the complete milestone plan.
+Persistent native transport must precede general production-stack RX/DHCP;
+fixed six-request diagnostic assumptions cannot be relaxed into a general driver.
+No runtime source,installed payload,credential,USB workspace or boot state changed.
+Main63036859 is reviewed/not yet consumed;merge/qualification is the next serial
+integration prerequisite. Ordinary RX,TCP/HTTP,lifecycle/UI and reliability remain
+open;these software results add no native acceptance. No boot is armed.

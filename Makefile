@@ -5953,3 +5953,26 @@ build/tests/xhci-reuse5-host$(HOST_EXE): tools/test_xhci_wifi_reuse5.c tools/tes
 test-core: test-wifi-reuse5-log
 test-wifi-reuse5-log: build/tests/xhci-reuse5-host$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_reuse5_log.py
+
+.PHONY: test-wifi-completion-foundations test-xhci-rx5 test-mt76-dma5-native63 test-wifi-workspace-proof
+test-core: test-xhci-rx5 test-mt76-dma5-native63 test-wifi-workspace-proof
+test-wifi-completion-foundations: test-xhci-rx5 test-mt76-dma5-native63 test-wifi-workspace-proof
+
+test-mt76-dma5-native63: build/tests/mt76-dma5-native63-host$(HOST_EXE)
+	$<
+build/tests/mt76-dma5-native63-host$(HOST_EXE): tools/test_mt76_dma5_native63.c kernel/src/drivers/mt76_dma5.c kernel/include/srvros/mt76_dma5.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_dma5.c -o $@
+
+test-wifi-workspace-proof:
+	$(PYTHON) -B -m unittest discover -s tools -p test_wifi_workspace_proof.py
+
+# Rename only this provider object's sink;the legacy fixture keeps its refusal.
+build/tests/mt76-net5-rx5.o: kernel/src/drivers/mt76_net5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -Dnet_handle_ethernet_frame=rx5_deliver -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -c $< -o $@
+test-xhci-rx5: build/tests/xhci-rx5-host$(HOST_EXE)
+	$<
+build/tests/xhci-rx5-host$(HOST_EXE): tools/test_xhci_wifi_rx5.c tools/test_xhci_wifi_wpa5.c kernel/src/drivers/xhci_wifi_wpa5.inc kernel/src/drivers/xhci_wifi_provider5.inc kernel/src/drivers/xhci_wifi_reuse5.inc kernel/src/drivers/mt76_dma5.c $(WPA5_SOURCES) $(KERNEL_HEADERS) kernel/src/net_device.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c build/tests/mt76-net5-rx5.o
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< kernel/src/drivers/mt76_dma5.c $(WPA5_SOURCES) kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_rx.c build/tests/mt76-net5-rx5.o -o $@

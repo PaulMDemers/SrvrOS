@@ -46,19 +46,21 @@ Initial parallel work:
    reconcile rather than replace shared profile/main/staging contracts. Preserve
    current accepted capsules and payloads. Fix next-run metadata capture/proof.
    Gate:tool positive and mutation refusals;clean reviewed source/checkpoint.
-2. Ordinary receive. Route already authenticated normalized Ethernet into the
-   production provider and stack under original CCMP ownership,with bounded
-   copied receive storage,epoch checks and callback lifetime. Preserve diagnostic
-   historical modes. Gate:actual native-owner plus independent encrypted-peer
-   fixture,duplicates/MIC/length/queue/close/stale-epoch refusals,then native DHCP/
-   DNS/echo through ordinary stack. Do not count diagnostic polling as this gate.
-3. Persistent USB/key lifetime. Replace one-shot position/six-request assumptions
+2. Persistent USB/key lifetime. Replace one-shot position/six-request assumptions
    with bounded asynchronous transport. Keep four-page backpressure,exact native
    completion identity,one original key/PN owner,quiet RX and bounded pending TX.
    Wrap only with hardware-derived fence proof;all uncertainty pins resources.
    Gate:many real ring boundaries,simultaneous traffic,stop while idle/busy,
    deadlines/late events/disconnect failures,sanitizers and native sustained run.
-   Depends on RX contract;software fence fixtures alone do not accept hardware.
+   Develop against the RX callback contract/fixture in parallel;software fence
+   fixtures alone do not accept hardware. Native ordinary-stack RX in milestone3
+   requires this transport because production DHCP is not a fixed six-request flow.
+3. Ordinary receive. Route already authenticated normalized Ethernet into the
+   production provider and stack under original CCMP ownership,with bounded
+   copied receive storage,epoch checks and callback lifetime. Preserve diagnostic
+   historical modes. Gate:actual native-owner plus independent encrypted-peer
+   fixture,duplicates/MIC/length/queue/close/stale-epoch refusals,then,after milestone2,native DHCP/
+   DNS/echo through ordinary stack. Do not count diagnostic polling as this gate.
 4. General IP/data. Drive production DHCP,DNS,ARP,UDP and TCP rather than private
    six-request oracle. Validate independent byte content/length,checksums,large
    multi-packet HTTP responses,TCP retransmission/window/close and backpressure.
@@ -72,7 +74,7 @@ Initial parallel work:
    and initialize the same verified device afresh without registry-slot leakage.
    Gate:repeated native reconnect/removal with successful subsequent transfers
    and full resource retirement or explicit contained retention on uncertainty.
-6. UI and credentials. Worker-driven scan/status/connect/disconnect,accurate
+6. UI and credentials. See [connection/UI handoff](macbookpro11-2-wifi-lifecycle-design.md). Worker-driven scan/status/connect/disconnect,accurate
    async states/Refresh/removal/reattach,keyboard/trackpad usability,clear errors,
    private credential handling and no key/password/packet values in logs. Gate:
    untimed in-guest checklist with final saved exit,plus state-model regressions.
