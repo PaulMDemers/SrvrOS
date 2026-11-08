@@ -9103,3 +9103,24 @@ Native receipt replay and independent input hashes pass without test pins.
 Documentation validation checks1108 local links with zero errors; diff checks
 pass. The matched kernel/payload bytes remain those accepted in PR415; no new
 kernel or VM acceptance is claimed by this host-only change.
+
+### Ordinary desktop mapping-registry regression scope (2026-11-07)
+
+Base `d3472e06`, after the captured-capability audit. Objective: exercise the
+normal desktop/battery build after the shared mapping-registry changes, with
+the existing fully automatic30-minute PCM, verified USB disk work, Text/Files/
+System open/close cycles, three screenshots and normal retirement/return.
+Keep the existing500ms loop,10s app-cycle, screenshot, storage and integrity
+limits unchanged; use1% audio for this run. No VT-d diagnostic token, target
+MMIO access, translation command or power-policy change belongs in this profile.
+
+Scope is this unit's test preparation/evidence record; use the existing v74
+Air6,1 automation without changing runtime workload limits. Build the matched
+normal/native battery images and run core checks, populated-Home loaded VM,
+ordinary capture VM and exact-stage refusal/return rehearsal sequentially.
+Verify this unit, USB `6ADA-85BB`, Ubuntu and console recovery; retain accepted
+sampler `2ddbd3b285f6bf41` and known-good stress payload `012aaffda0be860b`.
+Publish validated preparation, self-merge, save durable run/collector records and
+run one automatic boot under the user's standing authorization. Native pass
+requires matching complete receipts, unchanged prior files and clean offline
+filesystem/allocation checks. PR301/PR19/PR379 retain independent scopes.
