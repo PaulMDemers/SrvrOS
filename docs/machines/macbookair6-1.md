@@ -9886,3 +9886,32 @@ same-process/private-image exclusion and all existing limits. Do not infer that
 all gate waits are `SYS_SYNC`, skip a durability barrier, or widen admission
 based on this result. Receive timing remains a separate follow-up. No new
 implementation or physical test is started by this closeout.
+
+
+### Global sync subphase audit scope (2026-11-08)
+
+Base `d20312ac`, after collected PR430. Existing native evidence narrows the
+retained third worst gate: owner `SYS_SYNC` scope1217551410–1219222267us
+contains an exFAT append1217551592–1219222266us. That append records524288
+payload bytes taking1480169us versus5519us in ten flush calls; prefix/metadata
+reads account for additional time. This is one correlated operation, not an
+attribution of every sync. Source audit confirms global sync flushes all live
+dirty content objects, including another writer's partial file, before flushing
+all writable parent devices. Existing append admission verifies the old prefix
+from media; skipping this or excluding an open writer would weaken guarantees.
+
+Bounded next checkpoint: observe file-sync and parent-device-flush phases of
+`SYS_SYNC` separately, reusing existing BOT callback/event-dispatch/resume/service
+sampling in each phase. Retain bounded per-PID aggregates and the slowest complete
+call outside worker lifetime; explicitly expose conflicts, capacity, invalid
+clocks and incomplete traces. Enable only with the existing explicit capture-
+write diagnostic profile. Touch sync observation, syscall/main/logger hooks,
+strict parsers and host/VM evidence; do not change process-file synchronization,
+block/device flush, exFAT, USB/xHCI transfer logic or scheduler policy. PR19's
+USB ring-fencing scope and PR301's scanout scope remain independent. No contact
+or delegation is authorized. No new native trial is armed at publication.
+
+Keep global barriers, full prefix/readback/rename/failure protection, buffer and
+transport bounds,500ms loop,10s lifecycle and1800s endurance unchanged. A
+serialized USB completion or service delay must be measured before choosing its
+fix; merely omitting persistence work is not an optimization candidate.
