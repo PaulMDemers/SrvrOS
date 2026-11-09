@@ -91,7 +91,7 @@ static void erase_private(struct mt76_stream5_probe *s){
  scrub(s->setup.station,sizeof s->setup.station);scrub(s->setup.dns_mac,sizeof s->setup.dns_mac);scrub(s->setup.router_mac,sizeof s->setup.router_mac);
  s->setup.xid=s->setup.address=s->setup.server=s->setup.mask=s->setup.router=s->setup.resolver=s->setup.answer=0;
 }
-bool mt76_stream5_probe_run(struct mt76_stream5_probe *s,const uint8_t station[6],uint32_t xid,const struct mt76_ip5_io *io){
+static bool run(struct mt76_stream5_probe *s,const uint8_t station[6],uint32_t xid,const struct mt76_ip5_io *io,bool retry){
  if(!s || !station || !xid || !io || !io->owned || !io->send || !io->poll || !io->delay || !io->now ||
   overlap(s,sizeof *s,station,6) || overlap(s,sizeof *s,io,sizeof *io) || (io->context && overlap(s,sizeof *s,io->context,1)) ||
   !zero(s,sizeof *s) || (station[0]&1) || zero(station,6))return false;
@@ -100,10 +100,10 @@ bool mt76_stream5_probe_run(struct mt76_stream5_probe *s,const uint8_t station[6
  bool good=owner(&b);
  if(good){b.start=b.last=b.io.now(b.io.context);good=owner(&b);}
  const struct mt76_ip5_io setup_io={&b,setup_owned,setup_send,setup_poll,setup_delay,setup_now,setup_exhausted};
- good=good && mt76_ip5_run(&s->setup,s->station,xid,&setup_io);
+ good=good && (retry?mt76_ip5_run_discover_retry(&s->setup,s->station,xid,&setup_io):mt76_ip5_run(&s->setup,s->station,xid,&setup_io));
  s->unsafe|=s->setup.unsafe;s->exhausted|=s->setup.exhausted;
  if(good){
-  good=available(&b) && s->setup.complete && s->setup.sends==6 && s->setup.phase==5;
+  good=available(&b) && s->setup.complete && s->setup.discover_retries<=(retry?1u:0u) && s->setup.sends==6+s->setup.discover_retries && s->setup.phase==5;
   if(good){s->address=s->setup.address;s->router=s->setup.router;copy(s->router_mac,s->setup.router_mac,6);s->phase=1;}
  }
  for(unsigned i=0;good && i<MT76_STREAM5_PROBE_ECHOES;i++){
@@ -124,3 +124,6 @@ bool mt76_stream5_probe_run(struct mt76_stream5_probe *s,const uint8_t station[6
  if(s->complete)s->phase=2;
  erase_private(s);scrub(&b,sizeof b);return s->complete;
 }
+
+bool mt76_stream5_probe_run(struct mt76_stream5_probe *s,const uint8_t station[6],uint32_t xid,const struct mt76_ip5_io *io){return run(s,station,xid,io,false);}
+bool mt76_stream5_probe_run_discover_retry(struct mt76_stream5_probe *s,const uint8_t station[6],uint32_t xid,const struct mt76_ip5_io *io){return run(s,station,xid,io,true);}

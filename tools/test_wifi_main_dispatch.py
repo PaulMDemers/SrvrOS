@@ -65,12 +65,12 @@ class MainDispatchTests(unittest.TestCase):
         return bool(sample.value),name,count.value
 
     def test_actual_staged_profiles(self):
-        expected={124:'handoff5',125:'peer5',126:'tx5',127:'join5',128:'eapol5',129:'wpa5',130:'wpa5',131:'data5',132:'provider5',133:'reuse5',134:'nop5',135:'stream5'}
+        expected={124:'handoff5',125:'peer5',126:'tx5',127:'join5',128:'eapol5',129:'wpa5',130:'wpa5',131:'data5',132:'provider5',133:'reuse5',134:'nop5',135:'stream5',136:'stream5_dhcp'}
         for version,child in expected.items():
             with self.subTest(version=version):self.assertEqual(self.dispatch(self.recipe(version)),(True,'xhci_wifi_capture_'+child,1))
 
     def test_capture_failure_propagates(self):
-        for version in (126,130,131,132,133,134,135):
+        for version in (126,130,131,132,133,134,135,136):
             with self.subTest(version=version):
                 ok,name,count=self.dispatch(self.recipe(version),successful=False)
                 self.assertFalse(ok);self.assertNotEqual(name,'none');self.assertEqual(count,1)
@@ -99,6 +99,17 @@ class MainDispatchTests(unittest.TestCase):
                 self.assertEqual(self.dispatch(' '.join(tokens)),(False,'none',0))
         self.assertEqual(self.dispatch(self.recipe(128)+' srvros.wifi-stream5=10'),(True,'xhci_wifi_capture_eapol5',1))
         self.assertEqual(self.dispatch('\t\r\n'.join(self.recipe(135).split())),(True,'xhci_wifi_capture_stream5',1))
+
+    def test_stream5_dhcp_profile_refusals(self):
+        self.assertEqual(self.dispatch(self.recipe(136),parked=False),(False,'none',0))
+        for token in ('srvros.wifi-stream5=1','srvros.wifi-eapol5=1','srvros.wifi-join5=1','srvros.capture-failure=reboot'):
+            tokens=self.recipe(136).split();tokens.remove(token)
+            with self.subTest(token=token):self.assertEqual(self.dispatch(' '.join(tokens)),(False,'none',0))
+        for flag in ('wpa5','data5','provider5','reuse5','nop5','desktop-trial'):
+            with self.subTest(flag=flag):self.assertEqual(self.dispatch(self.recipe(136)+' srvros.wifi-'+flag+'=1'),(False,'none',0))
+        self.assertEqual(self.dispatch(self.recipe(128)+' srvros.wifi-stream5-dhcp=1'),(False,'none',0))
+        self.assertEqual(self.dispatch(self.recipe(135)+' srvros.wifi-stream5-dhcp=10'),(True,'xhci_wifi_capture_stream5',1))
+        self.assertEqual(self.dispatch('\t\r\n'.join(self.recipe(136).split())),(True,'xhci_wifi_capture_stream5_dhcp',1))
 
     def test_exact_nop_token_and_whitespace(self):
         cmdline=self.recipe(126)+' srvros.wifi-nop5=10'

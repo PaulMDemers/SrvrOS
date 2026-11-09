@@ -6199,3 +6199,20 @@ build/tests/sync-timing-host$(HOST_EXE): tools/test_sync_timing.c kernel/src/syn
 	mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
 test-core: test-sync-timing
+
+.PHONY: test-xhci-stream5-dhcp test-wifi-stream5-dhcp-log test-mt76-ip5-retry
+test-core: test-xhci-stream5-dhcp test-wifi-stream5-dhcp-log test-mt76-ip5-retry
+test-wifi-completion-foundations: test-xhci-stream5-dhcp test-wifi-stream5-dhcp-log test-mt76-ip5-retry
+test-xhci-stream5-dhcp: build/tests/xhci-stream5-dhcp-host$(HOST_EXE)
+	$<
+test-wifi-stream5-dhcp-log: build/tests/xhci-stream5-dhcp-host$(HOST_EXE)
+	$< --trace > build/tests/xhci-stream5-dhcp-trace.log
+	WIFI_STREAM5_DHCP_TRACE=build/tests/xhci-stream5-dhcp-trace.log $(PYTHON) -B -m unittest discover -s tools -p test_wifi_stream5_dhcp_log.py
+test-mt76-ip5-retry: build/tests/mt76-ip5-retry-host$(HOST_EXE)
+	$<
+build/tests/xhci-stream5-dhcp-host$(HOST_EXE): tools/test_xhci_wifi_stream5_dhcp.c tools/test_xhci_wifi_stream5.c tools/fixtures/mt76-stream5-dhcp-synthetic.h tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc kernel/src/drivers/xhci_wifi_stream5.inc kernel/include/srvros/mt76_stream5_probe.h $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c -Wl,--gc-sections -o $@
+build/tests/mt76-ip5-retry-host$(HOST_EXE): tools/test_mt76_ip5_retry.c tools/test_mt76_stream5_probe.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/drivers/mt76_ip5.c kernel/src/sha256.c kernel/include/srvros/mt76_stream5_probe.h kernel/include/srvros/mt76_ip5.h shared/include/srvros/dns_wire.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< kernel/src/drivers/mt76_stream5_probe.c kernel/src/drivers/mt76_ip5.c kernel/src/sha256.c -o $@

@@ -26,4 +26,8 @@ struct mt76_stream5_probe {
 };
 bool mt76_stream5_probe_run(struct mt76_stream5_probe *,const uint8_t station[6],
  uint32_t fresh_xid,const struct mt76_ip5_io *);
+/* Explicit variant permits only the IP helper's one bounded Discover retry.
+ * Setup actual sends6/7 plus64 echoes;all original whole-run bounds remain. */
+bool mt76_stream5_probe_run_discover_retry(struct mt76_stream5_probe *,const uint8_t station[6],
+ uint32_t fresh_xid,const struct mt76_ip5_io *);
 #endif

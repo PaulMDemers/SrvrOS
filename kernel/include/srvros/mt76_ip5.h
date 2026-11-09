@@ -3,7 +3,8 @@
 #include <srvros/mt76_join5.h>
 /* Disposable controlled-port diagnostic,not an ordinary network provider.
  * All input Ethernet frames must already be authenticated/decrypted by the
- * live CCMP owner. No fallback static IP,ARP poisoning,packet logging or retry.
+ * live CCMP owner. The default entry has no fallback static IP,ARP poisoning,
+ * packet logging or retry.
  * One DHCP DORA,ARP for the configured DNS hop and router,example.com A query,
  * and one256-byte gateway echo exchange. All waits are separately bounded.
  * The caller retains peer/keys/DMA and performs erase/leave on every outcome. */
@@ -61,6 +62,13 @@ struct mt76_ip5 {
  unsigned request_size;uint8_t request_digest[32];
  uint32_t xid,address,server,mask,router,resolver,answer;
  uint8_t station[6],dns_mac[6],router_mac[6],tx[1514],rx[1514];
+ /* Explicit discover-retry variant only;actual extra callback attempts0/1. */
+ unsigned discover_retries;
 };
 bool mt76_ip5_run(struct mt76_ip5 *,const uint8_t station[6],uint32_t fresh_xid,const struct mt76_ip5_io *);
+/* Same admission and two-second attempt budget. One additional Discover may
+ * follow only a genuine reply timeout;no other phase or failure is retried.
+ * XID stays fixed;the rebuilt request and sends counter use the actual attempt.
+ * The caller must still bound the whole lifetime and reserve a new CCMP PN. */
+bool mt76_ip5_run_discover_retry(struct mt76_ip5 *,const uint8_t station[6],uint32_t fresh_xid,const struct mt76_ip5_io *);
 #endif

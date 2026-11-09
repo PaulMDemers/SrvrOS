@@ -7772,3 +7772,29 @@ receive,TCP/HTTP,same-boot connection epochs,reattachment and UI connection cont
 remain later gates. Host models,independent public AES-CCM vectors and VMs do not
 accept native radio behavior. Require matching cold-run receipts and independent
 workspace/recovery proof before recording any physical stream acceptance.
+
+### Bounded Discover retransmission variant (v136 candidate)
+
+`--wifi-stream5-dhcp` requires the explicit stream parent and automatic return.
+The default v135 path keeps its original no-retry contract. This separate variant
+permits one additional DHCP Discover only after a genuine two-second reply
+timeout. It rebuilds the request with the same transaction identity and a fresh
+CCMP packet number under the original key owner. Uncertain/refused transmission,
+clock regression,ownership loss,exhaustion and a frozen-clock poll limit cannot
+trigger retransmission. Other protocol phases are not retried. Parser/checksum/
+source/destination/nonce validation stays unchanged;there is no static-IP fallback.
+
+Successful setup records six or seven actual send attempts,followed by64 exact
+unique echoes,so the actual data count and continuous PN are70 or71. The original
+80TX/252RX/four-fence/15second whole-lifetime limits and cleanup reserve remain.
+The new profile saves categorical DHCP rejection/type/reflection counters after
+publication closes,without packet,key,address or fingerprint values. Missing
+DHCP or cleanup proof still fails and retains resources. Its separate checker
+requires the new boot token;default historical checking rejects that variant.
+
+Independent public71-pair AES-CCM vectors exercise a dropped first response and
+rebuilt second Discover. Software models and synthetic full-parent composition
+remain preparatory. Native acceptance still needs a matching complete session,
+real encrypted data across RX/TX boundaries,erasure/leave/full restoration and
+independent workspace/allocation/recovery verification. Ordinary stack connection,
+TCP/HTTP,reconnection/UI and broad loss/endurance coverage remain separate gates.

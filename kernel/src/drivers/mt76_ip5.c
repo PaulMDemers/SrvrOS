@@ -162,13 +162,15 @@ static bool available(struct mt76_ip5 *s,const struct mt76_ip5_io *io){
  if(ended)s->exhausted=true;
  return !ended;
 }
-static bool wait_reply(struct mt76_ip5 *s,const struct mt76_ip5_io *io){
+static bool wait_reply(struct mt76_ip5 *s,const struct mt76_ip5_io *io,bool *timed_out,uint64_t *deadline){
+ if(timed_out)*timed_out=false;
  uint64_t start=io->now(io->context),previous=start;
  for(unsigned i=0;i<20000;i++){
   if(!owned(s,io))return false;
   size_t n=0;bool present=false;s->polls++;scrub(s->rx,sizeof s->rx);
   if(!io->poll(io->context,s->rx,sizeof s->rx,&n,&present) || !owned(s,io) || n>sizeof s->rx || (!present && n)){s->unsafe=true;return false;}
-  uint64_t now=io->now(io->context);if(now<previous || now-start>=2000000)return false;previous=now;
+  uint64_t now=io->now(io->context);if(now<previous)return false;
+  if(now-start>=2000000){if(timed_out){*timed_out=true;*deadline=now;}return false;}previous=now;
   /* Keep the exact transport span:zero padding is not permission to read
    * beyond a short Ethernet frame or to manufacture a missing UDP payload. */
   if(present){
@@ -183,12 +185,13 @@ static bool wait_reply(struct mt76_ip5 *s,const struct mt76_ip5_io *io){
  }
  return false;
 }
-bool mt76_ip5_run(struct mt76_ip5 *s,const uint8_t station[6],uint32_t xid,const struct mt76_ip5_io *io){
+static bool run(struct mt76_ip5 *s,const uint8_t station[6],uint32_t xid,const struct mt76_ip5_io *io,bool retry){
  if(!s || !station || !io || !io->owned || !io->send || !io->poll || !io->delay || !io->now || !xid ||
   overlap(s,sizeof *s,station,6) || overlap(s,sizeof *s,io,sizeof *io) || (io->context && overlap(s,sizeof *s,io->context,1)) || !zero(s,sizeof *s) || !unicast(station))return false;
  s->attempted=true;s->xid=xid;copy(s->station,station,6);bool good=owned(s,io);
  for(unsigned phase=0;good && phase<6;phase++){
   s->phase=phase;if(!available(s,io)){good=false;break;}
+  bool again;do{again=false;
   size_t n=phase<2?dhcp(s,phase==1):phase==2?arp(s,(s->resolver&s->mask)==(s->address&s->mask)?s->resolver:s->router):phase==3?dns_query(s):phase==4?arp(s,s->router):echo(s);
   if(!n || !owned(s,io)){good=false;break;}
   if(phase<2){s->request_size=(unsigned)n;sha256_digest(s->tx,n,s->request_digest);}
@@ -197,9 +200,26 @@ bool mt76_ip5_run(struct mt76_ip5 *s,const uint8_t station[6],uint32_t xid,const
   good=sent==MT76_JOIN5_SENT && owned(s,io);
   if(phase==0)s->discover=good;
   if(phase==1)s->request=good;
-  if(good)good=wait_reply(s,io);
+  bool timed_out=false;uint64_t deadline=0;
+  if(good)good=wait_reply(s,io,retry && phase==0?&timed_out:NULL,&deadline);
   scrub(s->request_digest,sizeof s->request_digest);s->request_size=0;
+  if(retry && phase==0 && !good && timed_out && !s->discover_retries && !s->unsafe && !s->exhausted && available(s,io)){
+   /* A deadline is not permission to reuse an uncertain send or lost clock.
+    * Revalidate after the exhaustion callback and around the final clock read. */
+   uint64_t now=io->now(io->context);
+   if(!owned(s,io))break;
+   if(now<deadline){s->unsafe=true;break;}
+   if(!available(s,io))break;
+   uint64_t final=io->now(io->context);
+   if(!owned(s,io))break;
+   if(final<now){s->unsafe=true;break;}
+   s->discover_retries=1;good=again=true;
+  }
+  }while(again);
  }
  scrub(s->tx,sizeof s->tx);scrub(s->rx,sizeof s->rx);scrub(s->request_digest,sizeof s->request_digest);s->request_size=0;
  s->complete=good && !s->unsafe && s->discover && s->offer && s->request && s->ack && s->arp_dns && s->dns && s->arp_router && s->echo && owned(s,io);return s->complete;
 }
+
+bool mt76_ip5_run(struct mt76_ip5 *s,const uint8_t station[6],uint32_t xid,const struct mt76_ip5_io *io){return run(s,station,xid,io,false);}
+bool mt76_ip5_run_discover_retry(struct mt76_ip5 *s,const uint8_t station[6],uint32_t xid,const struct mt76_ip5_io *io){return run(s,station,xid,io,true);}

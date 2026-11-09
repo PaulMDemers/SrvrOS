@@ -5,7 +5,8 @@ from wifi_join5_log import check as parent
 from wifi_power5_log import fields
 from wifi_held_log import require
 PROGRESS='wifi-eapol5-progress: bounded post-association M1 receive;no keys or EAPOL TX;leave and full retirement follow'
-def check(log,*,stream=False):
+def check(log,*,stream=False,stream_dhcp=False):
+ require(("srvros.wifi-stream5-dhcp=1" in log)==stream_dhcp and (not stream_dhcp or stream),"wrong DHCP retry M1 profile")
  require(("srvros.wifi-stream5=1" in log)==stream,"wrong stream/legacy M1 profile")
  require(stream or not any(x.startswith("wifi-stream5") for x in log.splitlines()),"unexpected stream receipt in legacy M1 proof")
  require('srvros.wifi-eapol5=1' in log,'missing M1 profile');r=parent(log);lines=log.splitlines()

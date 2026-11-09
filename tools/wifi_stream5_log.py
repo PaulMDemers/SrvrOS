@@ -1,4 +1,4 @@
-"""Strict v135 encrypted diagnostic transport proof, not ordinary net.c RX.
+"""Strict v135/default or explicit v136 diagnostic proof, not ordinary net.c RX.
 
 Receipts bind actual event/command/context observations. Payloads, keys, and
 packet digests are intentionally absent. A modeled fixture is not native proof.
@@ -11,10 +11,11 @@ from wifi_held_log import require
 
 BOOT_FIXED=(NOP_BOOT-{'srvros.wifi-nop5=1'})|{'srvros.wifi-join5=1','srvros.wifi-eapol5=1','srvros.wifi-stream5=1'}
 LOG_PARKED='wifi-stream5-log: parked=1 periodic=0'
+PROGRESS_DHCP='wifi-stream5-progress: original four-way key owner;four pages/direction;up to71 encrypted requests;64 exact echoes;one bounded Discover retry;real RX/TX fences;erase/leave and full restore'
 PROGRESS='wifi-stream5-progress: original four-way key owner;four pages/direction;70 encrypted requests;64 exact echoes;real RX/TX fences;erase/leave and full restore'
 
 
-def boot_identity(log,release=None):
+def boot_identity(log,release=None,*,discover_retry=False):
     records={}
     for line in log.splitlines():
         for prefix in ('cmdline: ','laptop-capture: boot options='):
@@ -29,20 +30,21 @@ def boot_identity(log,release=None):
     releases=[s for s in tokens if s.startswith('srvros.desktop-release=')]
     volumes=[s for s in tokens if s.startswith('srvros.workspace-volume=')]
     require(len(releases)==len(volumes)==1 and re.fullmatch(r'srvros.desktop-release=[0-9a-f]{16}',releases[0]) and re.fullmatch(r'srvros.workspace-volume=[0-9a-f]{8}',volumes[0]),'invalid stream run identity')
-    require(tokens-set(releases+volumes)==BOOT_FIXED,'wrong v135 diagnostic recipe')
+    require(tokens-set(releases+volumes)==BOOT_FIXED|({'srvros.wifi-stream5-dhcp=1'} if discover_retry else set()),'wrong explicit stream diagnostic recipe')
     actual=releases[0].split('=',1)[1]
     require(release is None or release==actual,'wrong stream release')
     return actual
 
 
-def check(log,release=None):
-    release=boot_identity(log,release)
+def check(log,release=None,*,discover_retry=False):
+    release=boot_identity(log,release,discover_retry=discover_retry)
+    progress=PROGRESS_DHCP if discover_retry else PROGRESS
     lines=log.splitlines()
     require(not any(s.startswith(('wifi-nop5','wifi-wpa5','wifi-data5','wifi-retire5','wifi-provider5','wifi-reuse5')) for s in lines),'foreign child receipts in stream proof')
-    result=parent(log,stream=True)
+    result=parent(log,stream=True,stream_dhcp=True) if discover_retry else parent(log,stream=True)
     require(lines.count(LOG_PARKED)==1,'missing/duplicate stream logger quiesce')
     rows=[s for s in lines if s.startswith('wifi-stream5') and s!=LOG_PARKED]
-    require(rows and rows[0]==PROGRESS and lines.index(LOG_PARKED)<lines.index(PROGRESS),'missing stream progress or logger ordering')
+    require(rows and rows[0]==progress and lines.index(LOG_PARKED)<lines.index(progress),'missing stream progress or logger ordering')
     pos=1
     def take(prefix,keys):
         nonlocal pos
@@ -85,7 +87,9 @@ def check(log,release=None):
         cc=a['s']>>24;res=a['s']&0xffffff
         require((cc==1 and res==0) if d==0 else (cc in (1,13) and res<=4096),'wrong stream completion/residue')
         tds.append(a)
-    require(counts[0]==75 and 74<=counts[1]<=252,'missing encrypted requests/replies')
+    requests=counts[0]-5;retry=requests-70
+    require((requests in (70,71) if discover_retry else requests==70) and 74<=counts[1]<=252,'missing encrypted requests/replies')
+    setup_lengths=(404,)*(2+retry)+(104,136,104,360)
     selected=[];data=[];rx_receipts=[];tickets=set();last_ticket=[0,0]
     while pos<len(rows) and rows[pos].startswith(('wifi-stream5-data:','wifi-stream5-rx:')):
         is_rx=rows[pos].startswith('wifi-stream5-rx:')
@@ -99,10 +103,10 @@ def check(log,release=None):
             require(14<=a['ethernet']<=1514 and a['reason']==9 and 4096-(td['s']&0xffffff)>=a['ethernet']+70,'unverified/unknown selected RX')
             rx_receipts.append(a)
         else:
-            n=len(data);length=(404,404,104,136,104,360)[n] if n<6 else 360
-            require(n<70 and a['token']==n+5 and a['pn']==n+1 and a['bytes']==length,'missing/reused PN or wrong diagnostic TX length')
+            n=len(data);length=setup_lengths[n] if n<len(setup_lengths) else 360
+            require(n<requests and a['token']==n+5 and a['pn']==n+1 and a['bytes']==length,'missing/reused PN or wrong diagnostic TX length')
             data.append(a)
-    require(len(data)==70 and 2<=len(rx_receipts)<=8 and any(a['token']<=63 for a in rx_receipts) and any(a['token']>63 for a in rx_receipts),'missing typed encrypted data before/after RX fence')
+    require(len(data)==requests and 2<=len(rx_receipts)<=8 and any(a['token']<=63 for a in rx_receipts) and any(a['token']>63 for a in rx_receipts),'missing typed encrypted data before/after RX fence')
     fences=[];wraps=[0,0]
     while pos<len(rows) and rows[pos].startswith('wifi-stream5-fence:'):
         a=take('wifi-stream5-fence','i p t d q e s c sp ss sc sq used')
@@ -150,20 +154,32 @@ def check(log,release=None):
     state=take('wifi-stream5-state','failed phase first_phase pending_tx pending_rx round command_pending fault_event p s c')
     require(state==dict(failed=0,phase=9,first_phase=0,pending_tx=0,pending_rx=0,round=0,command_pending=0,fault_event=0,p=0,s=0,c=0),'pending/failed stream owner')
     keys=take('wifi-stream5-keys','auth assoc m1 m2 m3 m4 activated erased leave unsafe installs pn')
-    require(keys==dict(auth=1,assoc=1,m1=1,m2=1,m3=1,m4=1,activated=1,erased=1,leave=1,unsafe=0,installs=1,pn=70),'incomplete original key-owner lifecycle')
+    require(keys==dict(auth=1,assoc=1,m1=1,m2=1,m3=1,m4=1,activated=1,erased=1,leave=1,unsafe=0,installs=1,pn=requests),'incomplete original key-owner lifecycle')
     probe=take('wifi-stream5-probe','complete unsafe setup setup_sends dhcp dns echo sent matched elapsed_us private_erased timed_out exhausted clock_fault polls ignored total_polls')
-    require(all(probe[k]==v for k,v in dict(complete=1,unsafe=0,setup=1,setup_sends=6,dhcp=1,dns=1,echo=1,sent=64,matched=64,private_erased=1,timed_out=0,exhausted=0,clock_fault=0).items()) and 64<=probe['polls']<=probe['total_polls']-6<=150000-6 and 0<=probe['ignored']<=probe['polls']-64 and 0<probe['elapsed_us']<15000000,'incomplete bounded diagnostic echoes')
+    require(all(probe[k]==v for k,v in dict(complete=1,unsafe=0,setup=1,setup_sends=6+retry,dhcp=1,dns=1,echo=1,sent=64,matched=64,private_erased=1,timed_out=0,exhausted=0,clock_fault=0).items()) and 64<=probe['polls']<=probe['total_polls']-(6+retry)<=150000-(6+retry) and 0<=probe['ignored']<=probe['polls']-64 and 0<probe['elapsed_us']<15000000,'incomplete bounded diagnostic echoes')
+    if discover_retry:
+        setup_polls=probe['total_polls']-probe['polls'];previous=None;classes=[]
+        require(setup_polls>=6+retry and (not retry or probe['elapsed_us']>=2000000),'retry without bounded elapsed reply wait')
+        for phase in (0,1):
+            a=compact('wifi-stream5-dhcp','phase retries sends polls ignored reflected type_offer type_ack type_nak type_other '+' '.join('class'+str(i) for i in range(29)))
+            require(a['phase']==phase and a['retries']==retry and a['sends']==6+retry and a['polls']==setup_polls and a['ignored']<=setup_polls-6,'wrong Discover retry/setup counters')
+            require(previous is None or a['ignored']==previous,'inconsistent setup ignored counters');previous=a['ignored']
+            counts_dhcp=[a['class'+str(i)] for i in range(29)];classes.append(counts_dhcp)
+            kinds=[a['type_'+k] for k in ('offer','ack','nak','other')]
+            require(counts_dhcp[28]==1 and sum(counts_dhcp)<=setup_polls and 1<=kinds[phase]<=sum(kinds)<=sum(counts_dhcp) and a['reflected']<=counts_dhcp[11],'wrong DHCP categorical proof')
+        require(sum(sum(v)-1 for v in classes)<=previous,'unaccounted DHCP refusals')
     s=take('wifi-stream5','complete parent restored retired empty tx rx tx_wraps rx_wraps data_tx data_rx tx_after rx_after borrowed released faults commands fences rx_receipts retained ordinary_rx tcp http backend_retired')
-    fixed=dict(complete=1,parent=1,restored=1,retired=1,empty=1,tx=75,tx_wraps=1,data_tx=70,tx_after=11,faults=0,commands=6,retained=1,ordinary_rx=0,tcp=0,http=0,backend_retired=0)
+    fixed=dict(complete=1,parent=1,restored=1,retired=1,empty=1,tx=75+retry,tx_wraps=1,data_tx=requests,tx_after=11+retry,faults=0,commands=6,retained=1,ordinary_rx=0,tcp=0,http=0,backend_retired=0)
     require(all(s[k]==v for k,v in fixed.items()) and s['rx']==stops[1][1] and s['rx_wraps']==wraps[1] and s['fences']==sum(wraps) and s['rx_receipts']==len(rx_receipts)<=2+2*wraps[1] and s['borrowed']==s['released']==counts[1] and 70<=s['data_rx']<=counts[1]-4 and sum(a['token']>63 for a in rx_receipts)<=s['rx_after']<=min(s['data_rx'],counts[1]-63) and all(wraps[d]==(stops[d][1]-1)//63 for d in (0,1)),'incomplete stream retirement/counters')
     require(pos==len(rows),'extra stream receipts')
     end=rows[-1];late=rows[1]
     unique('wifi-channel-vco5')
     rfline=next(x for x in lines if x.startswith('wifi-channel-vco5:'))
     joinline=next(x for x in lines if x.startswith('wifi-join5:'))
-    require(lines.index(joinline)<lines.index(PROGRESS)<lines.index(rfline)<lines.index(late),'stream outside unchanged full-parent lifetime')
+    require(lines.index(joinline)<lines.index(progress)<lines.index(rfline)<lines.index(late),'stream outside unchanged full-parent lifetime')
     firmware='wifi-firmware-capture: completed=yes';laptop='laptop-capture: completed=yes'
     completed=[x for x in lines if x.startswith('wifi-firmware-capture:')]
     require(len(completed)==1 and completed[0]==firmware+'; RF and connectivity NOT_TESTED' and lines.count(laptop)==1 and lines.index(end)<lines.index(completed[0])<lines.index(laptop),'missing complete automatic capture')
-    result.update(stream5_complete=True,stream5_original_key_owner=True,stream5_private_erased=True,stream5_encrypted_diagnostic=True,stream5_selected_rx=len(rx_receipts),stream5_polls=probe['total_polls'],stream5_data_tx=70,stream5_echoes=64,stream5_tx_wraps=1,stream5_rx_wraps=wraps[1],stream5_ledger_retired=True,stream5_backend_retired=False,stream5_backend_tombstones_retained=True,stream5_ordinary_rx=False,stream5_tcp=False,stream5_http=False,release=release,scope='fixed161 encrypted diagnostic setup plus64 exact gateway echoes across real TX/RX fences;original key erasure and full parent restoration;no ordinary net.c RX/TCP/HTTP acceptance')
+    result.update(stream5_complete=True,stream5_original_key_owner=True,stream5_private_erased=True,stream5_encrypted_diagnostic=True,stream5_selected_rx=len(rx_receipts),stream5_polls=probe['total_polls'],stream5_data_tx=requests,stream5_echoes=64,stream5_tx_wraps=1,stream5_rx_wraps=wraps[1],stream5_ledger_retired=True,stream5_backend_retired=False,stream5_backend_tombstones_retained=True,stream5_ordinary_rx=False,stream5_tcp=False,stream5_http=False,release=release,scope='fixed161 encrypted diagnostic setup plus64 exact gateway echoes across real TX/RX fences;original key erasure and full parent restoration;no ordinary net.c RX/TCP/HTTP acceptance')
+    if discover_retry:result.update(stream5_discover_retry_variant=True,stream5_discover_retries=retry,stream5_setup_polls=setup_polls,stream5_dhcp_classes=classes)
     return result

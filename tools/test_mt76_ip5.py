@@ -8,7 +8,7 @@ import sys
 
 U8=C.c_ubyte;V=C.c_void_p;N=C.c_size_t;G=C.c_uint64
 class State(C.Structure):
-    _fields_=[(n,C.c_bool) for n in ('attempted','complete','unsafe','discover','offer','request','ack','arp_dns','dns','arp_router','echo','exhausted')]+[(n,C.c_uint) for n in ('phase','sends','polls','ignored')]+[('arp_class',C.c_uint*9),('dhcp_class',(C.c_uint*29)*2),('dhcp_type',(C.c_uint*4)*2),('dhcp_reflected',C.c_uint*2),('request_size',C.c_uint),('request_digest',U8*32)]+[(n,C.c_uint32) for n in ('xid','address','server','mask','router','resolver','answer')]+[(n,U8*6) for n in ('station','dns_mac','router_mac')]+[('tx',U8*1514),('rx',U8*1514)]
+    _fields_=[(n,C.c_bool) for n in ('attempted','complete','unsafe','discover','offer','request','ack','arp_dns','dns','arp_router','echo','exhausted')]+[(n,C.c_uint) for n in ('phase','sends','polls','ignored')]+[('arp_class',C.c_uint*9),('dhcp_class',(C.c_uint*29)*2),('dhcp_type',(C.c_uint*4)*2),('dhcp_reflected',C.c_uint*2),('request_size',C.c_uint),('request_digest',U8*32)]+[(n,C.c_uint32) for n in ('xid','address','server','mask','router','resolver','answer')]+[(n,U8*6) for n in ('station','dns_mac','router_mac')]+[('tx',U8*1514),('rx',U8*1514),('discover_retries',C.c_uint)]
 Owned=C.CFUNCTYPE(C.c_bool,V);Send=C.CFUNCTYPE(C.c_int,V,V,N);Poll=C.CFUNCTYPE(C.c_bool,V,V,N,C.POINTER(N),C.POINTER(C.c_bool));Delay=C.CFUNCTYPE(C.c_bool,V,C.c_uint);Now=C.CFUNCTYPE(G,V)
 Exhausted=C.CFUNCTYPE(C.c_bool,V)
 class IO(C.Structure):
@@ -125,6 +125,7 @@ def trial(*,finite=False,finite_loss=False,resolver=bytes([192,0,2,53]),fail_sen
     ok=lib.mt76_ip5_run(C.byref(state),mac,xid,C.byref(io))
     if errors:raise errors[0]
     assert not state.request_size and not any(state.request_digest) and not any(state.tx) and not any(state.rx) and state.sends==len(sent) and state.polls==polls
+    assert state.discover_retries==0
     return ok,state,checks
 
 ok,s,checks=trial();assert ok and s.sends==6 and s.polls==6 and s.answer==0xcb007107 and s.echo

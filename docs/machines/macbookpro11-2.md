@@ -15934,3 +15934,25 @@ build/stage/install/power,main/stager/Makefile/docs and independent collection.
 Disjoint agents own IP/probe retry semantics,actual transport/fixture binding,
 and public oracle/saved-log proof. Private standalone outputs only;no concurrent
 shared staging/build/VM harnesses and no source edits during final qualification.
+
+### Explicit DHCP retry implementation frozen for qualification (November 8)
+
+The disjoint v136 protocol,transport and evidence changes are frozen. New explicit
+APIs preserve legacy no-retry callbacks and packet admission while allowing one
+Discover retransmission after a genuine timeout. Actual counters remain six or
+seven setup sends and70/71 encrypted data sends including64 exact echoes. Final
+clock/owner revalidation follows the last exhaustion callback;directed rollback,
+uncertain/refused sends,frozen polls and absent second Offer remain refusals.
+
+Private independent normal/fatal protocol fixtures pass,including legacy wire
+and erasure tests. The actual-owner normal fixture passes no-loss70 and lost-first-
+Offer71 cases,quiet/ambient RX boundaries,retry uncertainty and absent-Offer
+retention. Eight v136 checker groups pass with canonical actual C trace and the
+unchanged complete parent;actual no-loss passes and no-Offer failure refuses.
+Default v135 checker and public70-vector output remain unchanged. Root's252
+stage/profile tests and eight groups compiling actual main selection pass.
+Native source-bound sanitizer/projection/stack and root's serial matched combined
+build/USB/logger/storage/crypto/metadata/exact-image qualification remain pending.
+No new image is installed or armed;release606 remains current and both failed
+native capsules remain failed. A fresh read-only workspace clone retains414
+prior files and metadata for the next disposable exact-image preservation gate.
