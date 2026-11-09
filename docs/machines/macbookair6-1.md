@@ -9774,3 +9774,54 @@ incomplete clocks/counts before a matched exact-stage native repeat. PR301's
 Air7,2 scanout process scope and PR19's distinct USB Wi-Fi remain independent;
 actual fetched main and open PRs contain no competing gate-observation change.
 The last run is collected, independently backed up and no new boot is armed.
+
+
+### Screenshot admission holder validation (2026-11-08)
+
+Frozen source `e4f7f77c` passes matched normal/native/VM/RAM/USB builds, full
+core/desktop/docs, including89 installed-root tests in727.921s with one expected
+skip. Real scheduler regressions cover ordinary zero-contention admission,
+block/wake/reacquisition/dispatch, nested and successive owners, exact state
+partitions, unchanged unsafe-waiter exclusion, fixed-capacity refusal, copied
+retention, incomplete ownership and clock/overflow rejection. Dispatcher
+cancellation/identity ordering and strict missing/conflicting/invalid companion
+parsers pass. Public/private signal and frame-copy variants compile; no optional
+feature activation or native acceptance is implied.
+
+Ordinary syscall ABI, UEFI USB keyboard, fork, exec-vectors and yield VMs pass.
+Ordinary immutable-pixel screenshot/readback/Preview/repeat/exit behavior passes.
+Populated-Home TCG stress at400 write IOPS passes26 app cycles,201 overlap
+observations, zero audio/worker/lifecycle errors,261521us maximum loop and
+724166/848654us maximum launch/close. The retired screenshot worker retains63
+raw writes/4096054 BMP bytes and complete new admission companions. Its63 gates
+span4.108986s, with4.060601s overlapping125 outermost owner scopes; the state
+partition is3.305904s blocked,799.844ms READY and3.238ms running. Nested scopes
+do not double-count. Its worst726.036ms gate retains one owner: thread17/PID7,
+syscall53 (`FSYNC`), covering725.920ms of that wait. This identifies the VM's
+worst-wait owner and validates observation; native ownership/delay distribution
+still requires the matching physical record. Independent saved-log reparsing
+passes. No complete foreign operation trace or CPU-time attribution is claimed.
+
+The predicates for independent/helper memory, retired processes, private-image
+ownership, ready-thread selection, handoff, owner yield/wait/checkpoint and the
+owned admission wait loop remain byte-identical to base `1bd3aea9`. Userspace,
+shared ABI and pinned ports have no diff; the RAM image hash equals the accepted
+`f5e9c4c9603cf2eb` run. No scheduling/eligibility, filesystem, capacity, flush,
+readback, rename or500ms/10s/1800s limit changed. Ordinary timing remains off.
+
+Exact stage `93d4474e781f4b6a`, source `e4f7f77c`, passes native-board refusal,
+save/unmount and automatic Ubuntu return in Q35. Prepared native run
+`f36742f3d2664f44` repeats the unchanged automatic1800-second1% PCM/verified
+USB/app/three-screenshot profile and additionally requires all three complete,
+retired raw-write records and consistent final gate state/owner companions.
+Physical cost attribution and any optimization remain pending. Preflight
+verifies this unit/USB, all692 existing files,2265 allocated clusters and clean
+headroom/allocation; only the intended quiet-volume expiry is renewed.
+
+Workspace cleanup removes16 old build-stage duplicates only after exact
+independent payload verification, retaining their full restorable backups and
+all evidence. For ESP headroom, the older unreferenced batching payload
+`1c74bc8281678786` is archived after exact backup/no-GRUB-reference checks;
+retain latest accepted stress `f5e9c4c9603cf2eb`, audible check, sampler, zero-load,
+single-window and console recovery `c35475f62f154f1e` installed. No new physical
+pass is claimed by this preparation record.
