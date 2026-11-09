@@ -213,7 +213,7 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
     if (!safe) {
         uint64_t start=scheduler_io_active()?latency_clock():0;
         uint64_t gate_at=write_at?process_capture_write_clock():0;
-        scheduler_io_wait();
+        if(write_at)process_capture_write_gate_wait();else scheduler_io_wait();
         process_capture_write_record(CAP_WRITE_GATE,gate_at);
         latency_gate(start,frame->rax);
     }

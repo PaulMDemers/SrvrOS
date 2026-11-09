@@ -67,6 +67,10 @@ bool scheduler_io_yield(void);
 bool scheduler_io_wait_timeout(struct scheduler_wait_queue *queue,
     scheduler_wait_condition_fn condition,void *arg,uint64_t deadline_ticks);
 void scheduler_io_wait(void);
+struct capture_gate_summary;
+/* Fixed-storage observation only, same wait semantics. Summary must remain
+ * valid in kernel storage throughout the wait. No callback or allocation. */
+void scheduler_io_wait_observed(struct capture_gate_summary *summary);
 void scheduler_io_syscall(uint64_t number);
 /* A nonblocking operation deferred by another I/O owner requests a later
  * quiescent turn without blocking, waking sleepers or widening eligibility. */
