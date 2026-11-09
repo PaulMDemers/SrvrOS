@@ -24,6 +24,28 @@ The immutable Intel boot-client policy separately rejects the old Intel
 initializer before PCI writes or MMIO mappings. CPU exclusion does not cover
 firmware, GT engines, display/audio readers, another CPU or another DMA device.
 
+## Software handoff lifetime
+
+A handoff is zero-initialized, address-sealed and serialized on CPU0. It cannot
+be copied to release or reopen the original's pin. Admission captures the exact
+input token and snapshot before calling the bounded read-only provider, and
+pins CPU exclusion throughout validation. Shared caller storage changing during
+that callback cannot change the imported interval. Nested open/close attempts
+refuse; this is not SMP locking or protection against arbitrary kernel writes.
+
+The provider function and context stay bound until close. A different provider
+cannot certify retirement. Close first stops reservations and waits for existing
+address leases to retire/release; only then does it call the provider. Failed
+validation leaves the handoff and exclusion pinned, with reservation admission
+closed. Clean read-only admission failures return their pin. A poisoned/lost
+exclusion cannot be repaired by clearing software state or reopening the object.
+A successful close returns exactly its own pin, preserving other live pins.
+
+These checks fix copied-owner release, callback reentry and mutable-input
+admission in the software mechanism. The native adapter still supplies zero
+hardware assurances and therefore stops before opening a handoff; this change
+neither transfers a real GGTT interval nor adds a device writer.
+
 ## Range admission
 
 `scanout_handoff` requires a live CPU exclusion token, an audited provider's

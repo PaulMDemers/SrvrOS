@@ -4919,11 +4919,15 @@ build/tests/console-recovery$(HOST_EXE): tools/test_console_recovery.c userspace
 
 .PHONY: test-scanout-handoff
 test-core: test-scanout-handoff
-test-scanout-handoff: build/tests/scanout-handoff$(HOST_EXE)
+test-scanout-handoff: build/tests/scanout-handoff$(HOST_EXE) build/tests/scanout-handoff-lifetime$(HOST_EXE)
 	$<
+	$(PYTHON) -m unittest discover -s tools -p test_scanout_handoff_lifetime.py
 build/tests/scanout-handoff$(HOST_EXE): tools/test_scanout_handoff.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c kernel/src/display_access.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_scanout_handoff.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c kernel/src/display_access.c -o $@
+build/tests/scanout-handoff-lifetime$(HOST_EXE): tools/test_scanout_handoff_lifetime.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c kernel/src/display_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/scanout_handoff.c kernel/src/scanout_space.c kernel/src/display_access.c -o $@
 
 .PHONY: test-intel-handoff
 test-core: test-intel-handoff

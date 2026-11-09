@@ -23,21 +23,27 @@ struct scanout_handoff_snapshot {
     uint32_t first, pages, assurances;
     uint64_t original[HANDOFF_PAGES];
 };
+struct scanout_handoff_io {
+    void *context;
+    /* Bounded, read-only validation of fresh endpoint/cache/inherited backing
+     * and exact original PTEs, including every asserted hardware assurance.
+     * The provider/context are bound until close; no nested open/close. */
+    bool (*revalidate)(void *,const struct scanout_handoff_snapshot *);
+};
 struct scanout_handoff {
+    /* Zero-init, CPU0 serialized and address-sealed. Copies cannot retire the
+     * original exclusion pin. Providers must not mutate this object directly. */
+    const struct scanout_handoff *object;
     struct scanout_space space;
     struct display_access_token exclusion;
     struct scanout_handoff_snapshot snapshot;
-    bool active;
-};
-struct scanout_handoff_io {
-    void *context;
-    /* Fresh complete endpoint/cache/inherited backing and exact original PTEs.
-     * Must also revalidate every asserted hardware assurance. No writer here. */
-    bool (*revalidate)(void *,const struct scanout_handoff_snapshot *);
+    struct scanout_handoff_io provider;
+    bool active, busy, pinned;
 };
 uint32_t scanout_handoff_open(struct scanout_handoff *,struct scanout_space_pool *,
     const struct display_access_token *,const struct scanout_handoff_snapshot *,struct scanout_handoff_io);
-/* Close is refused for exposed/nonretired leases. Uncertain revalidation keeps
+/* Close stops reservation admission before validation, and requires the same
+ * provider. Exposed/nonretired leases block retirement. Failed revalidation keeps
  * both the range and exclusion pinned; never restore ordinary clients then. */
 bool scanout_handoff_close(struct scanout_handoff *,struct scanout_handoff_io);
 #endif

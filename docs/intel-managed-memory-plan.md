@@ -102,3 +102,14 @@ owner limits to disguise a slower new operation. Capture completion separately
 from grants. Saved safe outcomes return to Ubuntu; retained uncertainty halts
 visibly. Keep volume1%, no interactive input for automated trials, and the
 accepted reset payload/recovery until replacement qualification is complete.
+
+## Software prerequisite: handoff lifetime enforcement
+
+The [handoff core](intel-handoff.md#software-handoff-lifetime) now seals ownership
+to the original object, pins admission validation, captures input storage, binds
+the provider and rejects reentry. Closing stops new reservations before checking
+retirement; copied owners and alternate callbacks cannot release the pin. This
+is necessary groundwork for milestone1, not its native transfer proof. The
+populated candidate interval remains unavailable and no hardware assurance bit
+changes. Host cases exercise the actual handoff/space/exclusion implementation;
+they do not substitute for the future native provider.
