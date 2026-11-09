@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-09. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet accepted;two independent cold5GHz encrypted DHCP/DNS/256-byte echo lifetimes and one bounded native asynchronous provider TX/USB handoff with full restoration accepted**.
+Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; updated-main firstjoin diagnostic installed, native comparison pending; TCP/HTTP and connection lifecycle remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -44,86 +44,77 @@ fsck/allocation/recovery and Ubuntu-unarmed checks pass. Accepted7026/e47d and
 accepted8529/3c9/815/e17 stay installed; old4a remains backed and restorable. The old authentication failure remains
 failed and unexplained; this success does not prove an observation-only fix.
 
-Actual main `bdc14461` is merged as runtime `5ca1925e`. Its unpublished
-append FAT-link batching and the existing Pro metadata restoration are both
-preserved. The181.72second affected filesystem/logger/storage suite passes;
-this does not establish native append performance. Release `9f443344d9d534da`
-is installed for a cold production-IP regression, with native acceptance pending.
+Actual main `4b71b178` is merged through `ac11b6ca`. Current source `c75cdb78`,
+release `7a4442e75476090f`, is qualified and installed for the next cold regression;
+**native acceptance is pending**. Ubuntu remains default and factory `e47d` remains
+previous. This consumes unpublished append FAT-link batching and exact uncached
+sidecar equality with owner flush, while preserving Pro metadata identity repair
+and explicit read-only `/work` inspection. No native append/sidecar performance
+claim follows from these software or VM results.
 
-Host tooling `70fd5d24` fixes the preflight namespace mismatch through explicit
-read-only `/work` selection. Default `/vol` fixtures remain compatible; no
-metadata, import, quarantine or permission gate is weakened.49 portable cases
-pass normally and under fatal sanitizers;53 normal checks include the420-file
-clone;65 legacy cases,5 wrapper groups and independent review pass. Invalid and
-misplaced options refuse before opening media. Actual device graph/writable/
-headroom checks pass with inspector writes/flushes0. Whole-device Linux mount
-activity is separate from these inspector callback counters.
+The preceding merged-baseline trial, runtime5ca/release9f, FAILED in the first
+join5 association after a matched AUTH. Three management USB submissions completed
+(AUTH/ASSOC/cleanup leave); USB completion does not prove AP reception. No accepted
+association reply appeared before unwind; one172-byte unsupported packet cannot
+be identified from its length. The later encrypted production owner was never
+attempted. The downstream missing channel-VCO receipts are not an established RF
+cause. The full1889331-byte prefix,1877-file failed native capsule and separate
+14-file independent review remain immutable. All420 prior files/strict metadata,
+offline allocation/fsck and Ubuntu-unarmed recovery passed. This failure does not
+revoke historical2da/7026 acceptance or prove a filesystem-caused Wi-Fi regression.
 
-The content-addressed image is byte-identical to the earlier qualified5ca stage,
-so its original runtime manifest remains5ca; current host source is70fd. Exact OS
-subtree/product equality binds them without rewriting cached manifests. Both
-runtime and host source archives are retained. New16.11second current-tool/image
-checks plus exact GPT/missing-workspace/420-file preservation VMs pass; unchanged
-24-case network,29-input protocol and534-mutation proofs are explicitly rebound,
-not falsely rerun. Direct binary checker fixtures are included in the new capsule.
+The new firstjoin diagnostics record existing per-phase result/counter/clock
+samples and emit two deferred rows after cleanup. They add no parser authority,
+retry, deadline extension or clock callback. Forty-eight old/new scenarios have
+byte-identical complete callback traces; normal/fatal protocol/controller and
+saved-log checks pass. `span_us` covers already sampled clocks, not whole response
+wall time. The new source-specific collector requires both rows; historical
+parsers remain compatible. Current full-prefix checks include496 child missing/
+duplicate refusals and19 directed checks, including removing both new rows.
 
-The merged-baseline regression was collected once: runtime `5ca1925e`, release
-`9f443344d9d534da`, session `00065fd9f807cc54-00`. It FAILED in the first live
-management parent: AUTH matched, but association did not complete. Three USB
-management submissions completed (AUTH, ASSOC and cleanup leave); `unsafe=0`,
-original endpoint restoration passed, and the later production-IP owner was
-never attempted. The strict parent parser refuses downstream incomplete channel-
-VCO receipts; that message does not establish an RF failure. The complete
-1,889,331-byte exit prefix survives. Do not accept the merged runtime or blindly
-repeat the same trial. Independent diagnosis of the first failed exchange is
-underway; accepted runtime2da/release7026 remains historical evidence.
+Fresh283.38second matched/network/filesystem qualification exposed one stale
+`alloc-dirty` test ordinal after sidecar equality skipped COW. The test now fails
+an actual16KiB allocation after verified writes, retaining every append/retry/
+sync/close/quarantine assertion. Wrong-size, future-write and unarmed controls
+refuse to pass. The failed suite is preserved; the60.60second repair reruns the
+stream/composer/image/docs goals and binds every other completed goal by unchanged
+inputs. Eleven fatal groups plus independent firstjoin/fixture proofs pass.
+This is selected coverage, not a full-core rerun or a filesystem policy change.
 
-Independent exchange and storage reviews are sealed in14 separate files as
-`wifi-stack5-inspection-reviewed-70fd5d24`, without changing the primary capsule.
-The1877-file native capsule `wifi-stack5-inspection-70fd5d24` is now immutable
-(seal `dd6ea8b822dfdd42cdd54155483be2533b90d11bd3a513360a0c1745d81d6c8f`).
-All420 prior files and strict metadata fields survive except one independently
-RTC-bounded marker atime; only two session files/one directory are new.
-Offline fsck/allocation pass; Ubuntu is default and the one-shot is consumed.
-Accepted7026/8529/3c9/815/e17 and Ubuntu/e47d remain installed, with backed old4a
-restorable. Never recollect/reseal this or the earlier accepted/failed capsules.
+Dormant finite TCP connect/send APIs and a pure fixed-storage exact HTTP helper
+are software-qualified. Connect is cache-only (AGAIN without ARP/slot/port changes
+on a miss); send admits at most one MSS/window/history-bounded chunk. Ordinary
+callers are unchanged. The HTTP helper builds4159 request bytes and validates
+exact3072 pattern bytes plus actual EOF under strict bounded framing. These are
+not a native TCP/HTTP, real-process/IRQ or worker/service coexistence result.
 
-Actual remote main `4b71b178` and open PRs19/301/379 were inspected after return.
-New sidecar exact-media equality/flush work belongs to Air6,1 and is now merged
-as `ac11b6ca`; both additive Makefile/docs conflicts preserve the Pro inspection
-and metadata restoration work. Fresh qualification is pending; this adds no
-Pro acceptance. Installed runtime remains5ca/release9f, with Ubuntu unarmed.
+Exact staged GPT/missing-workspace and desktop VMs,255 staging tests, native frame
+measurement and disposable2MiB filesystem roundtrip pass. The exact422-file,
+173-directory workspace clone preserves prior bytes and metadata in the staged
+VM, allowing only RTC-bounded marker atime. The synthetic full prefix is2049655
+bytes. The conservative bound includes278 max-width new parent bytes and retains
+33339 bytes, above the unchanged32768-byte reserve. Future HTTP needs its own
+measured profile; do not append receipts or traffic blindly to this budget.
 
-Bounded parallel software scope: add a pure fixed-storage incremental exact-HTTP
-request/response helper and directed unit tests in new
-`userspace/wifihttpprobe/http_exact.{c,h}` and `tools/test_http_exact.c`.
-No process, syscall, ordinary caller or native profile changes are part of that
-helper. Root owns Makefile/test integration and serial shared qualification.
-Independent agents audit the failed exchange and storage. Next finite TCP API
-work must preserve ordinary callers and publish its exact route/refusal contract
-before edits. HTTP/native process/timer/service/lifecycle acceptance remains open.
+The new capsule `wifi-stack5-response-c75cdb78` survives distclean. EFI capacity
+required retiring only failed9f's duplicate, after switching the managed current
+entry temporarily to verified accepted7026 and checking the full1877-file backup,
+14-file review and absence of GRUB/NVRAM references. Ubuntu/e47d and all six accepted
+payloads remain verified; the failed capsule is restorable and never resealed.
 
-Additional bounded scope: first-owner join5 diagnostics record existing per-phase
-outcomes, clocks and bounds without extra hardware reads, retries, changed reply
-windows or weaker management parsing. Owned files are mt76_join5.{c,h},
-xhci_wifi_join5.inc and join5 unit/saved-log tests; root serializes integration.
-The unsupported172-byte packet is not evidence of an association reply or M1.
+Collect FIRST once after this trial with
+`build/bringup/wifi-stack5-response/run_root.py return_collect`. Require the two
+firstjoin observations, full production DHCP/DNS/64exactICMP/original-key/real-
+fence/provider/parent/ledger retirement, and independent workspace/recovery proof.
+Missing or failed receipts remain unaccepted. The local run record owns arming.
 
-Separately add dormant `net_connect_try` and `net_respond_try_checked` APIs in
-net.c/net.h with directed host unit coverage. Connect requires a real current
-process and cached next-hop MAC; a cache miss returns AGAIN without ARP, SYN,
-slot or port allocation. Send admits at most one existing MSS/window/history-
-bounded chunk. Both omit polling, waits and yields. Existing ordinary callers
-and frontend routing remain unchanged until separate directed qualification.
-Host process stubs prove code paths only, not genuine process or timer ownership.
-
-TCP/HTTP follows with a distinct process/worker/service-isolated profile and
-measured credits. Ordinary svscan treats net.initialized as readiness and may
-launch webd/file logging on the first yield; it cannot be assumed absent. Native
-bounded DNS does not cache its answer for child getaddrinfo. Use legitimate
-prelive process startup acknowledgement, explicit service isolation and finite
-numeric-address handoff/API rather than fake process context or prewarming
-assumptions. Real IRQ TCP terminal/TIME_WAIT and cancellation proofs are required.
+Next TCP/HTTP work wires finite operations without changing legacy callers, then
+uses a genuinely running prelive process, explicit service isolation, a bound
+numeric-IP handoff, real IRQ timers and actual terminal TCP retirement. Existing
+svscan readiness and uncached DNS cannot substitute for those gates; poll/close
+admission may wait, and close0 is not socket retirement. A private unapplied
+frontend proposal is retained for the next software gate. Lifecycle, reattachment,
+UI, sustained reliability and compatible2.4GHz hardware remain separate work.
 
 Standing user authorization permits the qualified cold shutdown: unplug only
 Wi-Fi10seconds while OFF, reconnect the same port, power on, leave workspace
@@ -16459,3 +16450,16 @@ and the new native session wrapper requires both (historical generic parsing
 stays compatible). Re-run affected stream/composition checks, bind unchanged
 compiled inputs for the other completed goals, and preserve the failed suite.
 No physical stage/install/power action occurs before corrected qualification.
+
+
+## November9 installed firstjoin comparison checkpoint
+
+Sourcec75cdb78/release7a4442e75476090f consumes main4b71b178 and is installed,
+qualified and initially unarmed. The current record is wifi-stack5-response;
+collect its matching new session FIRST once after the authorized cold trial.
+Previous9f's1877-file failed firstjoinASSOC evidence and14 review files remain
+immutable; only its backed EFI duplicate was retired after accepted7026 fallback.
+All six accepted recoveries and Ubuntu/e47d are retained. Current source-specific
+proof requires both deferred firstjoin response rows and all original production-
+IP/retirement/workspace checks. Dormant finiteTCP/pureHTTP software qualification
+adds no native TCP/process/worker/lifecycle acceptance. See Current handoff.

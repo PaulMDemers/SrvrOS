@@ -248,39 +248,34 @@ The production-IP gate, legitimate process/timer-owned TCP/HTTP, lifecycle/UI an
 reliability remain in the order above. Demers2.4 still needs compatible hardware.
 
 
-Latest November9 checkpoint: source2da2f400/release7026 accepts bounded original-
-provider production DHCP/DNS/ARP and64 exact40-byte ICMP messages through native
-RX/TX boundaries, with complete parent/ledger/provider retirement and independent
-file/metadata proof. Source5ca1925e/release9f443344 integrates mainbdc14461 and is
-qualified/installed for the next native regression; host70fd tooling uses explicit
-read-only/work inspection. The content-addressed runtime manifest stays5ca and
-host/runtime source archives are distinct. The initial wrongnamespace13-file
-preparation failure is preserved. Collect wifi-stack5-inspection FIRST once.
+Latest November9 checkpoint: accepted2da/7026 bounded original-provider
+production DHCP/DNS/64exact40byteICMP remains independent. The next merged5ca/9f
+run FAILED firstjoin association after AUTH; production owner unattempted.
+Its1877 native files and14 independent review notes are immutable; all prior420
+files/metadata, offline checks and Ubuntu-unarmed recovery passed.
 
-Next TCP/HTTP software gate needs isolated init/services (svscan uses net.initialized
-as readiness), a genuinely running prelive child acknowledged through existing
-startup API, finite connect/send primitives and exact HTTP decoding. Bounded DNS
-has no cache for child getaddrinfo; use a reviewed PID/lifetime-bound numeric-answer
-handoff. The real IRQ timer and retained worker must drain terminal sockets;
-this stack uses80 TIME_WAIT ticks even after EOF-first/passive close. No fake
-process context, hidden wait, service file logging or timeout-as-success is allowed.
+Current sourcec75cdb78/release7a4442e75476090f consumes main4b71b178 and is installed
+for the next cold comparison. Firstjoin observations add no callbacks or changed
+acceptance/retry/deadline policy;48 complete old/new callback scenarios match.
+The new collector requires both source-specific rows and the full original
+production-IP/retirement proof. Fresh496 child-mutation checks and19 directed
+checks pass. Eleven fatal groups plus private firstjoin/fixture proofs and exact
+staged/422-file workspace VMs pass. The initial283.38second suite's single stale
+allocation-ordinal failure is preserved; semantic post-write allocation injection
+and the60.60second targeted repair pass without weakening filesystem assertions.
+Only failed9f's backed EFI duplicate was retired after accepted7026 fallback;
+all six accepted payloads and Ubuntu/e47d remain. Collect wifi-stack5-response
+FIRST once. The run record owns arming; native comparison is pending.
 
-
-November9 merged-baseline return: runtime5ca/release9f FAILED in first join5
-association after matched AUTH, before the production-IP owner attempted.
-Complete1889331-byte prefix and1877 immutable native files survive; strict420-file/
-metadata, offline allocation/fsck and Ubuntu-unarmed recovery pass. Independent
-exchange/storage reviews precede a qualified correction; no blind identical retry.
-Accepted2da/7026 remains separate. Remote main4b71b178 is inspected, not consumed.
-In parallel, a pure fixed-storage exactHTTP helper/request builder and directed
-unit tests are authorized in new userspace/wifihttpprobe/http_exact.{c,h} and
-tools/test_http_exact.c only; root owns Makefile integration. This software-only
-scope neither changes ordinary callers nor arms a physical HTTP test.
-
-The same bounded scope now includes observation-only firstjoin phase outcomes
-and dormant finite TCP primitives. Connect is strictly cache-only on ARP miss
-(AGAIN with no packet/slot/port mutation); send admits at most one bounded chunk
-without poll/wait/yield. Existing ordinary API callers stay unchanged. Firstjoin
-reply windows/parsing/ownership remain strict; unsupported frame length is not
-packet identity. Independent host fixtures cannot accept genuine process/IRQ
-or nativeHTTP behavior. Root serializes shared tests, staging and hardware.
+Finite cache-only TCP connect, one-chunk checked send and exact3072-byte HTTP
+framing/body/EOF helper are software-qualified and dormant. Next wire explicit
+finite syscall paths without changing legacy callers, then prove isolated init/
+services, genuine prelive process readiness, PID/lifetime-bound numeric DNS answer
+handoff, retained ordinary worker and actual IRQ TCP timers/terminal retirement.
+No fake process, hidden wait, service logging or timeout-as-success is allowed.
+Poll/close admission can wait; close0 is not TCP retirement. Prefer preserving
+initramfs pathname/inode layout (e.g. an explicit quiet mode in existing httpget)
+and rerun exact workspace preservation. A private unapplied frontend proposal
+is retained. The new native profile needs measured credits and capture budget;
+current conservative reserve33339 is only571 above mandatory32768. Connection
+lifecycle/epochs, reattachment/UI, reliability and compatible2.4GHz hardware follow.

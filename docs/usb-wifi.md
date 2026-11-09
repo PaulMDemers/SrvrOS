@@ -7851,3 +7851,17 @@ Current5ca/9f merged-main image is installed for native regression; host70fd use
 an explicit/work inspection namespace with unchanged metadata gates. Its original
 content-addressed runtime manifest remains5ca. See the unit record for exact
 qualification, recovery and collect-first state.
+
+
+November9 Pro11,2 checkpoint: current qualified/installed comparison is source
+c75cdb78/release7a4442e75476090f on main4b71b178. Previous5ca/9f FAILED firstjoin
+ASSOC after AUTH and never reached the encrypted production owner; full failed
+native1877/review14 capsules stay immutable. Deferred firstjoin phase observations
+preserve callback/parser/deadline/retry behavior; the new source-bound collector
+requires both rows plus full original production-IP/key/provider/parent/ledger
+retirement. Local/fatal/496child+19directed-prefix/staged422-file preservation
+checks pass; native comparison is pending. Only failed9f's backed EFI duplicate
+was retired after accepted7026 fallback; Ubuntu/e47d and six accepted payloads
+remain. Collect wifi-stack5-response FIRST once after the authorized cold trial.
+Finite TCP and exact HTTP helper are dormant software work, not native TCP/HTTP
+or worker/process/IRQ/lifecycle acceptance; see the unit completion plan.

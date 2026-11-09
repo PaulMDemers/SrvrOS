@@ -224,3 +224,12 @@ not physical bytes saved. Strict collection requires complete non-overflowing
 counters, no refused proofs/flush errors, and positive equality exercise. The
 Air6,1 trial additionally requires counter growth inside live PCM playback.
 Legacy cost output and other profiles' retention models/limits stay unchanged.
+
+
+Stream fault fixtures target the actual16KiB allocation after a verified media
+write when testing dirty-state allocation failure. Exact sidecar equality can
+skip COW allocations, so a fixed global allocation ordinal may never fire.
+The fixture asserts one hit, its exact size and post-write position, retaining
+all original retry/sync/close/read-only checks. Wrong size, future write threshold
+and unarmed controls must refuse to pass. This corrects test admission without
+changing kernel allocation failure, durability or quarantine policy.
