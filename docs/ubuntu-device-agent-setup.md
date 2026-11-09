@@ -1237,3 +1237,18 @@ companions in addition to the unchanged1800-second PCM, USB readback/receipt,
 three-screenshot,500ms loop,10s lifecycle, ownership and retirement requirements.
 This diagnostic alone accepts no latency fix, allocation shortcut, scheduler
 policy change or sibling hardware support.
+
+
+The explicit screenshot-write diagnostic also records `SYS_SYNC` file-sync and
+parent-device-flush wall phases in fixed per-PID storage (eight slots, retained
+until reboot). Each PID keeps aggregates and its slowest completed call, with
+separate existing BOT callback/event-dispatch/resume/service observations for
+both phases. `sync-usb-timing` is a distinct record prefix, preserving legacy
+logger/comparison parsing. `sync_timing` requires final complete records, exact
+phase partitions, valid USB event coverage, and zero conflicts/drops/errors.
+Incomplete or unavailable tracing does not alter synchronization; it invalidates
+the observation. No extra transfers, allocations, console writes or yields occur
+in measured hooks. Global barriers still execute after file-sync failure, and
+all dirty live contents are still visited by the unchanged synchronization path.
+These are software wall intervals; event observation is not hardware completion,
+READY time can overlap ownership, and no record alone authorizes skipping work.

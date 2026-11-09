@@ -137,3 +137,5 @@ int main(void) {
 }
 
 void process_capture_write_snapshot(struct capture_write_snapshot *out) {*out=(struct capture_write_snapshot){0};}
+
+void sync_timing_snapshot(struct sync_timing_snapshot *out){*out=(struct sync_timing_snapshot){0};}

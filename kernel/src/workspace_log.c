@@ -1,3 +1,4 @@
+#include <srvros/sync_timing.h>
 /* Ordinary scheduled worker: filesystem work uses the storage service gate. */
 #include <srvros/workspace_log.h>
 #include <srvros/capture_write_timing.h>
@@ -115,14 +116,30 @@ static struct {
 } previous_save;
 /* Emitted only after the measured scope, never inside a transfer. IDs pair
  * these bounded aggregates with their save/sample without per-request logging. */
-static void report_transfers(const char *scope,uint64_t id,const struct usb_storage_timing *t) {
+static void report_named_transfers(const char *prefix,const char *scope,uint64_t id,const struct usb_storage_timing *t) {
     for(unsigned phase=0;phase<3;phase++) {
         const struct usb_storage_phase_timing *p=&t->phase[phase];
-        console_printf("usb-timing: version=2 scope=%s id=%u phase=%u calls=%u callback_us=%u max_us=%u over20ms=%u over100ms=%u over1s=%u observed_calls=%u observe_us=%u resume_us=%u observe_max_us=%u resume_max_us=%u service_checks=%u service_samples=%u service_gap_max_us=%u completion_gap_max_us=%u valid=%u\n",
-            scope,id,(uint64_t)phase,t->calls[phase],t->us[phase],p->max_us,
+        console_printf("%s: version=2 scope=%s id=%u phase=%u calls=%u callback_us=%u max_us=%u over20ms=%u over100ms=%u over1s=%u observed_calls=%u observe_us=%u resume_us=%u observe_max_us=%u resume_max_us=%u service_checks=%u service_samples=%u service_gap_max_us=%u completion_gap_max_us=%u valid=%u\n",
+            prefix,scope,id,(uint64_t)phase,t->calls[phase],t->us[phase],p->max_us,
             p->over20ms,p->over100ms,p->over1s,p->observed_calls,p->observe_us,p->resume_us,
             p->observe_max_us,p->resume_max_us,p->service_checks,p->service_samples,
             p->service_gap_max_us,p->completion_gap_max_us,(uint64_t)t->valid);
+    }
+}
+static void report_transfers(const char *scope,uint64_t id,const struct usb_storage_timing *t) {
+    report_named_transfers("usb-timing",scope,id,t);
+}
+static void sync_checkpoint(bool final) {
+    struct sync_timing_snapshot s;sync_timing_snapshot(&s);if(!s.enabled)return;
+    uint64_t at=timer_monotonic_us();
+    console_printf("sync-snapshot: version=1 snapshot_us=%u enabled=%u active=%u invalid=%u dropped=%u final=%u\n",at,s.enabled,s.active,s.invalid,s.dropped,(uint64_t)final);
+    for(unsigned i=0;i<SYNC_TIMING_RECORDS;i++) {
+        const struct sync_timing_record *r=&s.records[i];if(!r->pid)continue;
+        const struct sync_timing_call *c=&r->worst;
+        console_printf("sync-record: version=1 snapshot_us=%u pid=%u calls=%u total_us=%u files_us=%u devices_us=%u errors=%u conflicts=%u invalid=%u final=%u\n",at,r->pid,r->calls,r->total_us,r->files_us,r->devices_us,r->errors,r->conflicts,r->invalid,(uint64_t)final);
+        console_printf("sync-worst: version=1 snapshot_us=%u pid=%u start_us=%u files_end_us=%u end_us=%u file_failed=%u device_failed=%u files_usb_failures=%u devices_usb_failures=%u final=%u\n",at,r->pid,c->start_us,c->files_end_us,c->end_us,c->file_failed,c->device_failed,c->usb[0].failures,c->usb[1].failures,(uint64_t)final);
+        report_named_transfers("sync-usb-timing","files",c->start_us,&c->usb[0]);
+        report_named_transfers("sync-usb-timing","devices",c->start_us,&c->usb[1]);
     }
 }
 static void report_save(void) {
@@ -143,6 +160,7 @@ static bool save(const char *name) {
     bool measured=timer_reference_ready();
     uint64_t start=measured?timer_monotonic_us():0;
     report_save();
+    sync_checkpoint(name[0]=='e' && name[1]=='x' && name[2]=='i' && name[3]=='t' && name[4]=='.');
     capture_write_checkpoint(name[0]=='e' && name[1]=='x' && name[2]=='i' && name[3]=='t' && name[4]=='.');
     device_checkpoint();
     uint64_t snapshot_us=timer_monotonic_us();
