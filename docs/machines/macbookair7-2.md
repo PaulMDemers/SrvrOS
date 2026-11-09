@@ -2,7 +2,34 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Ready: post-preservation census headroom retry
+### Latest hardware: nested preservation census passes
+
+Source`292163ac`, release`0cafc3a5551ab1b2`, session
+`session-00065fdcc1ddd1c4-00`, completes five-engine preparation, hold,
+cancellation and preservation in **93,246/100,000us** (6,754us margin), with
+unchanged100/300/500ms and10ms phase bounds. Outer288,580/500,000us passes;
+parent elapsed is not serialized. This is one bounded pass on this exact source,
+not a repeatability guarantee or a controlled speed comparison with the earlier run.
+
+All ten first/final ACKs match with zero extra polls, both held control snapshots
+agree, and cancellation restores zero controls. Full92-word engine/context,
+54-word plane and both10-field HDA snapshots preserve. Both borrows return,
+all13 aliases retire, exclusion releases, retained/uncertain0 and no clock fault.
+The complete path records141 full guards and230 target observations, matching
+host qualification. Strict native/checkpoint and collector checks pass without
+attention. All1,419 prior USB files preserve apart from expected metadata;
+three logs give1,422 files/130 sessions. Offline filesystem/allocation/writable/
+headroom and installed/durable recovery/default/consumed one-shot checks pass.
+Ubuntu is default, volume1%, no reboot armed. Full evidence and independent
+analysis are retained outside build. Checkpoint:`build/air-post-census-20261109`.
+
+This accepts only the bounded preparation/preservation adapter. Enabled shutdown,
+reset integration, DMA/prefetch/cache/translation/reader ownership, managed
+memory and native tear-free remain separate; all255 obligations remain open.
+Origin/main`807fdb35` (PR442 battery protocol observation) is fetched, not part
+of this tested source. Earlier failures and exact-source acceptance remain unchanged.
+
+### Prior qualification: post-preservation census headroom retry
 
 Main`e22adf1f` (Air6,1 PR441 documentation) is integrated as`f3d58552`.
 Source`292163ac`, release`0cafc3a5551ab1b2`, applies fresh live core checks and
@@ -45,7 +72,7 @@ paths. See [storage maintenance](../development.md#managing-native-agent-build-s
 No memory/reset/reader/cache grant or native tear-free acceptance is added;
 all255 obligations remain open. PR19 networking and WebCore PR379 stay independent.
 
-### Latest hardware: five-engine preparation and preservation accepted
+### Previous hardware: five-engine preparation and preservation accepted
 
 Exact source`ee4a15bc`, release`de0b58f1dfbcdc94`, session
 `session-00065fdc32eefa9e-00`, **accepts the bounded five-engine prepare/hold/

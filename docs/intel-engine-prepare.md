@@ -241,3 +241,21 @@ compiled parser matches saved options; unchanged full-width tail projection is
 65,456/65,536 including1,536 allowance. The candidate is installed and unarmed
 at volume1%; native timing remains pending. Accepted preparation/recovery payloads
 and1,419 prior USB files are retained. No reset or memory capability is added.
+
+## Native nested-census acceptance (2026-11-09)
+
+Exact source`292163ac`/release`0cafc3a5551ab1b2`, session
+`session-00065fdcc1ddd1c4-00`, passes in93,246/100,000us with6,754us margin.
+Outer288,580/500,000us passes; parent elapsed is not serialized. Ten exact
+first/final ACKs need no extra polls; both held snapshots agree, final controls
+are zero, and all92 engine/context words,54 plane words and both10-field HDA
+snapshots preserve. Both borrows return,13 aliases retire, exclusion releases
+and retained/uncertain/clock fault are zero. The complete native path records
+141 full guards/230 target observations. Limits and protocol remain unchanged.
+
+Strict native/checkpoint and collector checks pass with no attention. All1,419
+prior USB files preserve;1,422 files/130 sessions and offline media/recovery/
+default/consumed one-shot checks pass. Full evidence survives outside build.
+This is one bounded pass, not repeatability or a controlled speed comparison.
+All255 ownership obligations remain; no reset, managed memory or native tear-free
+authority is added. Earlier failures remain failed and accepted sources distinct.
