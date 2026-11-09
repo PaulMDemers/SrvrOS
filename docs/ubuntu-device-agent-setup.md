@@ -1653,20 +1653,20 @@ record required before any physical trial. Preserve the unchanged drain policy
 and all older accepted/failed/incomplete capsules.
 
 
-Pro11,2 current qualified/installed candidate is `5b91b743`/`689b8f2bdfdec593`
-(v138). Its first-join cleanup preserves the combined48-position/eight-extra
-limit, exact event ownership and original drain rule. New source-specific
-collection requires the join cleanup companion plus all calibration/production
-IP/parent/storage proofs. Use only
-`python3 -B build/bringup/wifi-join5-cleanup/run_root.py return_collect`
-FIRST ONCE after the next authorized trial; the prior103-file D49 retry and
-17-file review are already immutable. Both USB devices get the ten-second
-OFF-state cold reset, same ports; then keep both connected. Progress/save/Ubuntu
-return are automatic. The fresh428-file preparation baseline must equal the
-exact VM clone and is checked again before arming. Any arming/scheduling refusal
-cancels the owned power timer and clears the one-shot. Available raw logs and
-post-tree metadata are preserved even when adapter enumeration or exit/transport
-validation fails; no independent RTC proof means no marker-atime allowance.
-Selected software/VM qualification is recorded separately from native acceptance;
-the original failed fixture compile and interrupted optional full fatal-data
-enumeration remain explicit. Ubuntu/factory and six accepted recoveries remain.
+Pro11,2 installed `5b91b743`/`689b8f2bdfdec593` (v138) has now passed
+independent native acceptance for normal zero-extra management cleanup and the
+complete production DHCP/DNS/64 exact ICMP/retirement regression. Matching session
+`00065fdf424e803b-00` was collected once. The 6,175-file primary and separate
+111-file acceptance capsule are immutable; never rerun that collector. Extra
+cleanup pages and forward-completion reconciliation were not needed natively,
+so those branches retain software qualification only. All 428 prior ordinary
+file bytes and strict metadata survived except marker atime inside the proven
+RTC window. Allocation/fsck, installed recovery checks and Ubuntu unarmed pass.
+
+The prior cold procedure reset both USB devices for ten seconds while OFF,
+reconnecting the same ports before power-on. A future run requires its own
+source-qualified record and exact VM baseline; do not reuse old arming. Preserve
+raw logs before protocol validation, post-tree evidence even on an incomplete
+run, and strict no-clock/no-atime-allowance behavior. TCP/HTTP, real process/worker
+coexistence, lifecycle/UI/reattach and reliability remain open. Main125eb2b5 is
+merged for software qualification; native acceptance remains bound to5b91b743.

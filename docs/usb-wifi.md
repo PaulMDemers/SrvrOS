@@ -7990,6 +7990,14 @@ retirement proof. Historical absence remains compatible in the generic parser.
 Actual-core normal/fatal and emitted-row checks, selected matched controller
 checks and exact428-file VM preservation pass; the first matched fixture-only
 compile failure and optional uncompleted full fatal-data run remain preserved.
-The image is installed, native validation pending. See the Pro unit record for
-its exact collect-first workflow and cold reset instructions. No native TCP/HTTP,
+The installed image now passes the independently reviewed native regression
+(session00065fdf424e803b-00, complete2056380-byte prefix). Normal cleanup required
+zero extra pages and no forward reconciliation; those branches retain software
+qualification only, and the old native failure's exact cause remains unproved.
+Production DHCP without retry, DNS and64 exact40-byte ICMP messages, oneTX/twoRX
+fences,162 returned loans and full parent/key/provider retirement pass. All428
+prior ordinary bytes/strict metadata survive except RTC-bounded marker atime;
+offline allocation/fsck and Ubuntu-unarmed recovery pass. The immutable6175-file
+primary and separate111-file acceptance record must not be recollected/resealed.
+See the Pro unit record for the next actual-process TCP/HTTP boundary. No native TCP/HTTP,
 reattachment/UI, ordinary service coexistence or reliability acceptance follows.

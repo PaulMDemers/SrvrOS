@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; the latest cleanup candidate completed its native regression, with independent acceptance review pending; TCP/HTTP and connection lifecycle remain open**.
+Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; the latest cleanup candidate passed independent native acceptance for the normal zero-extra path; TCP/HTTP and connection lifecycle remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -16772,7 +16772,7 @@ the source-frozen calibration, management cleanup and production DHCP/DNS/64
 exact ICMP checks. The collector ran once, retained all raw evidence, and left
 Ubuntu unarmed. The primary capsule contains 6,175 files, with index SHA256
 `78b09f9ceda1e50a985bd4e9a24bcb615c341904b0d90f8cc9ac1ac2d22b1383`.
-It must never be recollected or resealed. Independent review is pending.
+It must never be recollected or resealed. Independent network and storage reviews passed.
 
 Management cleanup met the unchanged seven-quiet requirement with no extra
 receive pages or forward-completion reconciliation needed. Thus this run
@@ -16783,13 +16783,16 @@ retry, resolved DNS and matched all 64 exact 32-byte ICMP bodies. One TX/two RX
 fences, all loans, keys, provider and parent restoration passed. Root separately
 reread all 428 prior non-sidecar files, strict metadata with only RTC-bounded
 marker atime allowed, and exact saved logs. Offline allocation/fsck and installed
-recoveries passed. Independent network/storage reviews remain separate records.
+recoveries passed. Independent network/storage reviews are preserved in a separate 111-file acceptance capsule; its index SHA256 is
+`5b497dfaa77f03aa395c916c0af849107b6fc0e7a1857818ad344de207f91712`.
+The primary native capsule retains its original native-pending record unchanged;
+only the separate acceptance record grants the bounded result.
 
 Next bounded objective is actual prelive userspace execution for TCP/HTTP:
 isolate `/init --network-probe`, link the finite `/httpget --wifi-exact` client,
 and establish real READY followed by a lifetime/image/descriptor-bound numeric
-GO and pipe EOF. Root first inspects and integrates fetched main `125eb2b5`
-(PR446 content-timing diagnostics) and runs affected software regressions;
+GO and pipe EOF. Root inspected and merged fetched main `125eb2b5` as `acae114d`
+(PR446 content-timing diagnostics) and passed the 148.02-second selected affected software qualification;
 no physical acceptance transfers to that merged source. PR301 at `3cb666ec`
 owns graphics/process work and PR379 remains WebCore. Private proposals touching
 process construction/lifetimes must identify exact overlap before integration.
@@ -16798,3 +16801,10 @@ native network/storage evidence and prepare the process integration. Later gates
 remain real IRQ timing, parked network worker, provider/key retention through
 TCP retirement, exact HTTP/EOF, lifecycle/UI/reattach and reliability. Compatible
 2.4 GHz hardware is still required; this captured adapter is 5 GHz only.
+
+The merged-source qualification includes matched kernel/image, content/sync,
+file sync, exFAT stream/append/link batching/sidecar equality and read-only
+inspection, finite TCP kernel/syscall/SDK, exact HTTP parser, actual join cleanup
+and main dispatch checks. Source inputs remained unchanged. This is selected
+coverage, not a full-core rerun or physical acceptance of the merge. The
+installed accepted image remains689b; no new one-shot or power action is armed.
