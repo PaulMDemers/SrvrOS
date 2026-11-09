@@ -50,6 +50,11 @@ struct usb_storage_timing {
 bool usb_storage_timing_enabled(void);
 bool usb_storage_timing_begin(void);
 void usb_storage_timing_end(struct usb_storage_timing *out);
+/* Second fixed observer for SYS_SYNC; independent of legacy logger windows.
+ * A second auxiliary begin refuses; either end leaves the other scope intact.
+ * Both consume the same single callback/controller observation, no extra I/O. */
+bool usb_storage_timing_aux_begin(void);
+void usb_storage_timing_aux_end(struct usb_storage_timing *out);
 /* CPU0: permanently fail/invalidate first, then detach published transport and
  * diagnostic callbacks only after initializer/request/diagnostic owners drain.
  * Retry false.

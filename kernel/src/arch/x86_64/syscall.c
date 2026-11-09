@@ -1,3 +1,4 @@
+#include <srvros/sync_timing.h>
 #include <srvros/session_scope.h>
 #include <srvros/file_stream_kernel.h>
 #include <srvros/exfat_stream.h>
@@ -3417,10 +3418,12 @@ static int64_t syscall_futex_wake(uint32_t *address, uint64_t max_count) {
 }
 
 static int64_t syscall_sync(void) {
+    bool timed=sync_timing_enabled() && sync_timing_begin(process_pid(process_current()));
     int64_t result = process_file_sync_all();
-    if (!block_flush_all()) {
-        result = -1;
-    }
+    if(timed)sync_timing_files_done(result>=0);
+    bool flushed=block_flush_all();
+    if(timed)sync_timing_end(flushed);
+    if (!flushed) result = -1;
     return result;
 }
 
