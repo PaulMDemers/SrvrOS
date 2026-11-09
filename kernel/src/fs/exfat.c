@@ -4304,14 +4304,18 @@ bool exfat_same_mount(const char *first,const char *second) {
 
 /* Called by the logger before its own filesystem work; snapshot under CPU0 IRQ
  * exclusion, then format without holding that exclusion or storage ownership. */
-void exfat_print_costs(void) {
-    struct exfat_cost rows[EXFAT_COST_ROWS];uint64_t irq=fs_irq_save();
-    for(unsigned i=0;i<EXFAT_COST_ROWS;i++)rows[i]=slow_costs[i];
-    struct sidecar_equality_stats sidecar=sidecar_stats;
-    fs_irq_restore(irq);
+/* Explicit desktop sync diagnostics only; no output in other profiles. */
+void exfat_print_sidecar_equality(void) {
+    uint64_t irq=fs_irq_save();struct sidecar_equality_stats sidecar=sidecar_stats;fs_irq_restore(irq);
     if(sidecar.checks || sidecar.invalid)console_printf("exfat-sidecar: version=1 snapshot_us=%u checks=%u equal=%u changed=%u refused=%u retained_bytes=%u flush_failed=%u active=%u invalid=%u\n",
         timer_monotonic_us(),sidecar.checks,sidecar.equal,sidecar.changed,sidecar.refused,
         sidecar.retained_bytes,sidecar.flush_failed,sidecar.active,sidecar.invalid);
+}
+
+void exfat_print_costs(void) {
+    struct exfat_cost rows[EXFAT_COST_ROWS];uint64_t irq=fs_irq_save();
+    for(unsigned i=0;i<EXFAT_COST_ROWS;i++)rows[i]=slow_costs[i];
+    fs_irq_restore(irq);
     for(unsigned i=0;i<EXFAT_COST_ROWS;i++) {
         const struct exfat_cost *c=&rows[i];if(!c->start)continue;
         console_printf("exfat-cost: version=1 start_us=%u end_us=%u elapsed_us=%u operation=%s ok=%u\n",

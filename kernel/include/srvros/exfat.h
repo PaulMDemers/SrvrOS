@@ -77,5 +77,7 @@ void exfat_check_print(const char *mountpoint);
 void exfat_print_mounts(void);
 /* Four longest completed mutations, with actual block I/O phase costs. */
 void exfat_print_costs(void);
+/* Cached counters; caller must select the explicit sync diagnostic profile. */
+void exfat_print_sidecar_equality(void);
 
 #endif
