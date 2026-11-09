@@ -58,6 +58,8 @@ int main(int argc,char **argv){
  for(unsigned link=0;link<2;link++){nop_setup();nop_link=link;assert(wifi_nop5_run());assert(wifi_nop5.child_complete && wifi_nop5.posts==64 && wifi_nop5.events==64 && wifi_nop5.commands==3 && wifi_fence5_native.count==2);assert(wifi_nop5_finish(true) && wifi_nop5.retired && !wifi_fence5_native.retired && !wifi_nop5.dma.published);}
  for(unsigned at=1;at<=64;at+=63)for(unsigned i=1;i<=16;i++){nop_setup();nop_fault=i;nop_fault_at=at;if(i==8)test_time_step=100000;assert(!wifi_nop5_run() && wifi_nop5.failed && !wifi_nop5.retired);}
  for(unsigned i=20;i<=24;i++){nop_setup();nop_fault=i;assert(!wifi_nop5_run() && wifi_nop5.failed && !wifi_nop5.retired);}
+ nop_setup();nop_fault=1;assert(!wifi_nop5_run() && wifi_nop5.pending && wifi_nop5.fault_event_valid && wifi_nop5.fault_context_valid);assert(!wifi_nop5_finish(false) && wifi_nop5.dma.state==MT76_DMA5_FAULT && !wifi_nop5.retired);
+ nop_setup();nop_fault=24;assert(!wifi_nop5_run() && wifi_fence5_native.fault_event_valid && !wifi_fence5_native.retired);assert(!wifi_nop5_finish(false));
  nop_setup();nop_parent=false;assert(!wifi_nop5_run() && !wifi_nop5.attempted);
  nop_setup();xhci.command_enqueue=53;assert(!wifi_nop5_run() && !wifi_nop5.posts);
  nop_setup();assert(wifi_nop5_run());assert(!wifi_nop5_run());assert(!wifi_nop5_finish(false) && !wifi_nop5.retired);

@@ -15557,3 +15557,13 @@ quiescence. These final edits now require a fresh serial qualification. No nativ
 acceptance is claimed;installed3c9 and old capsules remain unchanged. No boot
 armed. Next matched build/controller/old-mode regressions,full-prefix/storage/
 sanitizers/exact-image VMs and protected install before the authorized cold test.
+
+Final failure-evidence review found that an unresolved pending descriptor/command
+could suppress all new child receipts. Cache the first rejected raw controller
+event and retained output-context words in RAM,and emit a bounded deferred
+incomplete receipt only after publication closes. No callback prints or payload/
+key reads are added. Missing completion remains failure;the new receipt aids
+post-reboot diagnosis without photos. The a3957769 build/regressions and staged
+8bbec0380fa63595 passed software checks,but are superseded by this diagnostic-only
+revision before any install. Rebuild and restage the exact new source;preserve
+the earlier local qualification rather than claiming it tested the final edit.

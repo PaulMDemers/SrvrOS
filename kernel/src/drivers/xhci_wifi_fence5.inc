@@ -10,7 +10,7 @@ struct wifi_fence5_native_command {
  bool latched,consumed,stop_event;unsigned cc;
 };
 static struct {
- bool bound,round,failed,retired,busy,noop;unsigned count,first,slot;
+ bool bound,round,failed,retired,busy,noop,fault_event_valid;struct xhci_trb fault_event;unsigned count,first,slot;
  bool cycle;uint64_t epoch,last_us,frontier;
  struct xhci_device *device;struct mt76_dma5 *dma;
  void *owner;bool (*owned)(void *,uint64_t,unsigned);
@@ -20,6 +20,7 @@ static struct {
  struct mt76_fence5 engine;
  struct wifi_fence5_native_command commands[WIFI_FENCE5_COMMANDS];
 } wifi_fence5_native;
+static void wifi_fence5_bad_event(const struct xhci_trb *e){if(!wifi_fence5_native.fault_event_valid){copy_trb(&wifi_fence5_native.fault_event,e);wifi_fence5_native.fault_event_valid=true;}}
 static bool wifi_fence5_fault(void){
  wifi_fence5_native.failed=true;
  if(wifi_fence5_native.bound)mt76_dma5_fault(wifi_fence5_native.dma);
@@ -74,14 +75,14 @@ static bool wifi_fence5_command_event(const struct xhci_trb *e){
  uint64_t ptr=e->parameter_low|((uint64_t)e->parameter_high<<32);
  struct wifi_fence5_native_command *r=NULL;
  for(unsigned i=0;i<wifi_fence5_native.count;i++)if(wifi_fence5_native.commands[i].id.pointer==ptr)r=&wifi_fence5_native.commands[i];
- if(!r){if(wifi_fence5_native.round){wifi_fence5_fault();return true;}return false;}
+ if(!r){if(wifi_fence5_native.round){wifi_fence5_bad_event(e);wifi_fence5_fault();return true;}return false;}
  unsigned index=(unsigned)((ptr-wifi_fence5_native.command_phys)/16);
  const uint32_t allowed=1u|(63u<<10)|(255u<<24);
  bool good=wifi_fence5_base() && wifi_fence5_native.round && xhci.command_pending && !r->latched && !r->consumed &&
   r==&wifi_fence5_native.commands[wifi_fence5_native.count-1] && index<63 && (r->id.type!=15 || r->stop_event) &&
   !(e->control&~allowed) && !(e->status&0xffffff) && (e->control>>24)==r->id.slot && (e->status>>24)==1 &&
   bytes_equal((const uint8_t *)&xhci.command_ring[index],(const uint8_t *)&r->shadow,sizeof r->shadow);
- if(!good){wifi_fence5_fault();return true;}
+ if(!good){wifi_fence5_bad_event(e);wifi_fence5_fault();return true;}
  copy_trb(&r->event,e);r->cc=1;r->latched=true;xhci.command_events++;
  xhci.last_completion_code=1;xhci.last_slot_id=r->id.slot;xhci.last_command_pointer=ptr;xhci.last_expected_command_pointer=ptr;
  return true;
@@ -107,7 +108,7 @@ static bool wifi_fence5_stop_event(const struct xhci_trb *e){
   wifi_fence5_native.dma->cursor[dir]==63 &&
   ((ptr==ring+16*63 && (deq&1)==wifi_fence5_native.dma->cycle[dir]) ||
    (ptr==ring && (deq&1)==(wifi_fence5_native.dma->cycle[dir]^1u)));
- if(!good)wifi_fence5_fault();else {
+ if(!good){wifi_fence5_bad_event(e);wifi_fence5_fault();}else {
   copy_trb(&r->stop,e);r->stop_dequeue=deq;
   for(unsigned w=0;w<8;w++)r->stop_context[w]=context_read32(wifi_fence5_native.output,dci,w);
   r->stop_event=true;

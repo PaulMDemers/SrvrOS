@@ -6,6 +6,7 @@ static struct {
  struct {struct xhci_trb event;uint64_t pointer;unsigned cycle;} records[64];
  struct {uint64_t pointer,event_pointer,cc,slot,delta;struct xhci_trb shadow;} sync[3];
  uint32_t contexts[5][8];struct xhci_trb final_stop;
+ struct xhci_trb fault_event;uint32_t fault_context[8];bool fault_event_valid,fault_context_valid;
  struct xhci_trb *ring,shadow[64];uint64_t physical,pin,enqueue,epoch;uintptr_t pointer;bool cycle;
  uint8_t input[4096],expected[4096],cal[sizeof wifi_cal5],power[sizeof wifi_power5],handoff[sizeof wifi_handoff5],peer[sizeof wifi_peer5],tx[sizeof wifi_tx5];
  uint8_t old_ring[3][4096],old_pages[8][4096];uint64_t old_physical[3];
@@ -13,7 +14,8 @@ static struct {
  unsigned slot;bool commanding;unsigned phase,commands,controls,posts,events,stop_events,drain_events;
  bool attempted,active,failed,pending,stopping,configured,stopped,disabled,input_restored,child_complete,retired,empty,parent_complete;
 } wifi_nop5;
-static bool wifi_nop5_fail(void){wifi_nop5.failed=true;mt76_dma5_fault(&wifi_nop5.dma);return wifi_nop5.d?wifi_mcu_fail(wifi_nop5.d):false;}
+static void wifi_nop5_bad_event(const struct xhci_trb *e){if(!wifi_nop5.fault_event_valid){copy_trb(&wifi_nop5.fault_event,e);wifi_nop5.fault_event_valid=true;}}
+static bool wifi_nop5_fail(void){wifi_nop5.failed=true;if(!wifi_nop5.fault_context_valid && wifi_nop5.output_pointer){__atomic_thread_fence(__ATOMIC_ACQUIRE);for(unsigned i=0;i<8;i++)wifi_nop5.fault_context[i]=context_read32(wifi_nop5.output_pointer,8,i);wifi_nop5.fault_context_valid=true;}mt76_dma5_fault(&wifi_nop5.dma);return wifi_nop5.d?wifi_mcu_fail(wifi_nop5.d):false;}
 static bool wifi_nop5_owned(void *c,uint64_t epoch,unsigned slot){
  struct xhci_device *d=wifi_nop5.d;
  if(c!=&wifi_nop5 || !wifi_nop5.active || wifi_nop5.failed || !d || d!=wifi_cal5.d || epoch!=wifi_nop5.epoch || epoch!=wifi_peer5.binding.generation || slot!=wifi_nop5.slot || d->slot_id!=wifi_nop5.slot || !xhci.operational || !xhci.controller_owned || xhci.stopping || xhci.reclaiming || xhci.reclaimed || xhci.command_failed || firmware_command_failed || !d->present || d->removed || d->retiring || d->slot_disabled || d->ep0_quarantined || d->vendor_id!=0x7392 || d->product_id!=0xa711 || d->device_bcd!=0x100 || d->control_failed || d->control_pending || strict_control.device || d->firmware.pending || d->firmware.mcu.pending ||
@@ -35,7 +37,7 @@ static bool wifi_nop5_owned(void *c,uint64_t epoch,unsigned slot){
 static bool wifi_nop5_event(struct xhci_device *d,const struct xhci_trb *e){
  if(!wifi_nop5.active)return false;
  uint64_t ptr=e->parameter_low|((uint64_t)e->parameter_high<<32);unsigned dci=(e->control>>16)&31;
- if(d!=wifi_nop5.d || dci!=8){if(ptr>=wifi_nop5.physical && ptr<wifi_nop5.physical+4096){wifi_nop5_fail();return true;}return false;}
+ if(d!=wifi_nop5.d || dci!=8){if(ptr>=wifi_nop5.physical && ptr<wifi_nop5.physical+4096){wifi_nop5_bad_event(e);wifi_nop5_fail();return true;}return false;}
  const uint32_t allowed=1u|(63u<<10)|(31u<<16)|(255u<<24);
  bool good=wifi_nop5_owned(&wifi_nop5,wifi_nop5.epoch,d->slot_id) && ((e->control>>10)&63)==32 && (e->control>>24)==d->slot_id && !(e->control&~allowed);
  if(wifi_nop5.stopping){uint64_t deq=context_read32(d->output_context,8,2)|((uint64_t)context_read32(d->output_context,8,3)<<32);
@@ -48,7 +50,7 @@ static bool wifi_nop5_event(struct xhci_device *d,const struct xhci_trb *e){
   if(good)good=mt76_dma5_noop_complete(&wifi_nop5.dma,&wifi_nop5.lease,1,0,timer_monotonic_us());
   if(good){unsigned n=wifi_nop5.events;if(n>=64)return wifi_nop5_fail();wifi_nop5.records[n].event=*e;wifi_nop5.records[n].pointer=wifi_nop5.lease.trb;wifi_nop5.records[n].cycle=wifi_nop5.lease.cycle;wifi_nop5.pending=false;wifi_nop5.events++;}
  }
- if(!good)wifi_nop5_fail();
+ if(!good){wifi_nop5_bad_event(e);wifi_nop5_fail();}
  return true;
 }
 static bool wifi_nop5_dispatch(void){
@@ -56,7 +58,7 @@ static bool wifi_nop5_dispatch(void){
 #ifdef SRVROS_XHCI_NOP5_TEST
  xhci_test_nop5_progress();
 #endif
- while(n++<32 && poll_event(&e)){unsigned type=(e.control>>10)&63;if((type!=32 && type!=33) || (type==33 && !wifi_fence5_native.round)){good=false;break;}dispatch_transfer_event(&e);if(wifi_nop5.failed){good=false;break;}}
+ while(n++<32 && poll_event(&e)){unsigned type=(e.control>>10)&63;if((type!=32 && type!=33) || (type==33 && !wifi_fence5_native.round)){wifi_nop5_bad_event(&e);good=false;break;}dispatch_transfer_event(&e);if(wifi_nop5.failed){good=false;break;}}
  event_irq_restore(flags);return good?true:wifi_nop5_fail();
 }
 static bool wifi_nop5_delay(void){
@@ -179,14 +181,22 @@ static void wifi_nop5_emit(void){
  console_printf("wifi-nop5-final-stop: pointer=%x status=%x control=%x\n",p,(uint64_t)e->status,(uint64_t)e->control);
  console_printf("wifi-nop5-frontier: sequence=%u engine_sequence=%u pending=%u round=%u failed=%u empty=%u drain_events=%u\n",wifi_fence5_native.frontier,wifi_fence5_native.engine.last_frontier,(uint64_t)xhci.command_pending,(uint64_t)wifi_fence5_native.round,(uint64_t)wifi_fence5_native.failed,(uint64_t)wifi_nop5.empty,(uint64_t)wifi_nop5.drain_events);
 }
+/* Deferred failure receipt only: publication is closed and all rings remain
+ * pinned. Read cached headers/context,never payloads or fresh hardware controls. */
+static void wifi_nop5_fault_report(void){
+ console_printf("wifi-nop5-fault: phase=%u posted=%u completed=%u pending=%u engine_state=%u round=%u command_pending=%u command_failed=%u context_valid=%u closed=1 retained=1 complete=0\n",(uint64_t)wifi_nop5.phase,(uint64_t)wifi_nop5.posts,(uint64_t)wifi_nop5.events,(uint64_t)wifi_nop5.pending,(uint64_t)wifi_fence5_native.engine.state,(uint64_t)wifi_fence5_native.round,(uint64_t)xhci.command_pending,(uint64_t)xhci.command_failed,(uint64_t)wifi_nop5.fault_context_valid);
+ for(unsigned i=0;i<2;i++){const struct xhci_trb *e=i?&wifi_fence5_native.fault_event:&wifi_nop5.fault_event;uint64_t ptr=e->parameter_low|((uint64_t)e->parameter_high<<32);console_printf("wifi-nop5-fault-event: owner=%u valid=%u pointer=%x status=%x control=%x\n",(uint64_t)i,(uint64_t)(i?wifi_fence5_native.fault_event_valid:wifi_nop5.fault_event_valid),ptr,(uint64_t)e->status,(uint64_t)e->control);}
+ for(unsigned i=0;i<8;i++)console_printf("wifi-nop5-fault-context: word=%u value=%x\n",(uint64_t)i,(uint64_t)wifi_nop5.fault_context[i]);
+}
 static bool wifi_nop5_finish(bool good){
- if(wifi_nop5.pending || wifi_fence5_native.round || xhci.command_pending)return false;
+ if(wifi_nop5.pending || wifi_fence5_native.round || xhci.command_pending){wifi_nop5.failed=true;mt76_dma5_fault(&wifi_nop5.dma);wifi_nop5_fault_report();return false;}
  wifi_nop5.parent_complete=good;
  if(good && wifi_nop5.child_complete){uint64_t flags=event_irq_save();struct xhci_trb e;bool empty=false;
-  for(unsigned i=0;i<32;i++){if(!poll_event(&e)){empty=true;break;}uint64_t ptr=e.parameter_low|((uint64_t)e.parameter_high<<32);if(((e.control>>10)&63)!=32 || (ptr>=wifi_nop5.physical && ptr<wifi_nop5.physical+4096)){good=false;break;}dispatch_transfer_event(&e);wifi_nop5.drain_events++;}
+  for(unsigned i=0;i<32;i++){if(!poll_event(&e)){empty=true;break;}uint64_t ptr=e.parameter_low|((uint64_t)e.parameter_high<<32);if(((e.control>>10)&63)!=32 || (ptr>=wifi_nop5.physical && ptr<wifi_nop5.physical+4096)){wifi_nop5_bad_event(&e);good=false;break;}dispatch_transfer_event(&e);wifi_nop5.drain_events++;}
   wifi_nop5.empty=empty;good=good && empty && !xhci.command_pending && !wifi_fence5_native.failed && !wifi_fence5_native.round;event_irq_restore(flags);
   if(good){struct mt76_dma5_retirement proof={.epoch=wifi_nop5.epoch,.keys_erased=wifi_nop5.dma.noop_only && !wifi_join5.attempted && !wifi_wpa5.attempted,.mac_disabled=wifi_nop5.child_complete && wifi_nop5.controls==6,.tx_stopped=wifi_nop5.stopped && wifi_nop5.disabled,.rx_stopped=wifi_nop5.dma.noop_only && !wifi_nop5.dma.ring[1],.events_drained=empty,.callbacks_drained=!wifi_nop5.active && !wifi_nop5.pending && !wifi_fence5_native.busy && !wifi_fence5_native.engine.busy,.parent_restored=wifi_nop5.parent_complete};wifi_nop5.retired=mt76_dma5_close(&wifi_nop5.dma,wifi_nop5.epoch) && mt76_dma5_retire(&wifi_nop5.dma,&proof);good=wifi_nop5.retired;}
  }
+ if(!good){wifi_nop5.failed=true;mt76_dma5_fault(&wifi_nop5.dma);wifi_nop5_fault_report();}
  wifi_nop5_emit();
  console_printf("wifi-nop5: complete=%u parent_complete=%u child_complete=%u posted=%u completed=%u boundary=63 after_wrap=1 wraps=%u typed_noop=%u data_prepared=%u data_published=%u data_completed=%u fences=%u fence_commands=%u sync_commands=%u stop_events=%u configured=%u stopped=%u disabled=%u input_restored=%u retired=%u events_empty=%u retained=1 backend_retired=0 network_out=0 keys=0 data_dma=0\n",(uint64_t)good,(uint64_t)wifi_nop5.parent_complete,(uint64_t)wifi_nop5.child_complete,(uint64_t)wifi_nop5.posts,(uint64_t)wifi_nop5.events,wifi_nop5.dma.wraps,wifi_nop5.dma.noop_completed,wifi_nop5.dma.prepared,wifi_nop5.dma.published,wifi_nop5.dma.completed,wifi_fence5_native.engine.completed,(uint64_t)wifi_fence5_native.count,(uint64_t)wifi_nop5.commands,(uint64_t)(wifi_nop5.stop_events+(wifi_fence5_native.count?wifi_fence5_native.commands[0].stop_event:0)),(uint64_t)wifi_nop5.configured,(uint64_t)wifi_nop5.stopped,(uint64_t)wifi_nop5.disabled,(uint64_t)wifi_nop5.input_restored,(uint64_t)wifi_nop5.retired,(uint64_t)wifi_nop5.empty);
  return good;
