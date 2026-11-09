@@ -197,6 +197,10 @@ static bool dhcp_configured;
 static bool dhcp_in_progress;
 static bool dhcp_have_offer;
 static bool dhcp_request_sent;
+static bool dhcp_retry_active;
+/* Explicit one-shot probe keeps console out of the live USB/key window. */
+static bool net_probe_quiet;
+static uint32_t dhcp_retry_source_ip,dhcp_retry_relay_ip;
 static uint32_t dhcp_xid = 0x73727672u;
 static uint32_t local_ip;
 static const uint8_t *local_mac;
@@ -749,7 +753,72 @@ static bool send_dhcp_message(uint8_t message_type, const uint8_t *requested_ip,
         sizeof(packet));
 }
 
-static void handle_dhcp_packet(const uint8_t *payload, uint16_t length) {
+static bool dhcp_retry_unicast(uint32_t ip) {
+    return ip && ip!=UINT32_MAX && (ip>>24)!=0 && (ip>>24)!=127 && (ip>>28)<14;
+}
+
+/* Explicit probe admission is stricter than the historical ordinary parser.
+ * Parse the complete bounded message before any address/Offer/Request mutation.
+ * The secured transport authenticates the AP;this remains DHCP source binding,
+ * not cryptographic authentication of a remote DHCP server or relay. */
+static bool dhcp_retry_packet(const uint8_t *p,uint16_t length,uint32_t source,unsigned *type) {
+    if (length<241 || p[0]!=2 || p[1]!=1 || p[2]!=6 ||
+        read_be32(p+4)!=dhcp_xid || read_be32(p+236)!=0x63825363u ||
+        !dhcp_retry_unicast(source)) return false;
+    for (unsigned i=0;i<6;i++) if (p[28+i]!=local_mac[i]) return false;
+    uint32_t address=read_be32(p+16),server=0,mask=0,router=0,dns=0;
+    unsigned seen=0,message=0;bool end=false;
+    for (uint64_t at=240;at<length;) {
+        unsigned code=p[at++];
+        if (!code) continue;
+        if (code==255) {
+            end=true;
+            while (at<length) if (p[at++]) return false;
+            break;
+        }
+        if (at==length) return false;
+        unsigned size=p[at++];
+        if (size>length-at) return false;
+        unsigned bit=code==53?1:code==54?2:code==1?4:code==3?8:code==6?16:code==51?32:0;
+        if ((seen&bit) || code==52) return false;
+        seen|=bit;
+        if (code==53) {if (size!=1) return false;message=p[at];}
+        if (code==54 || code==1 || code==51) {
+            if (size!=4) return false;
+            uint32_t value=read_be32(p+at);
+            if (code==54) server=value;
+            else if (code==1) mask=value;
+            else if (!value) return false;
+        }
+        if (code==3 || code==6) {
+            if (!size || size%4) return false;
+            for (unsigned i=0;i<size;i+=4) if (!dhcp_retry_unicast(read_be32(p+at+i))) return false;
+            if (code==3) router=read_be32(p+at);else dns=read_be32(p+at);
+        }
+        at+=size;
+    }
+    if (!end || (seen&3)!=3 || !dhcp_retry_unicast(address) || !dhcp_retry_unicast(server) ||
+        address==server || (read_be32(p+24) && !dhcp_retry_unicast(read_be32(p+24)))) return false;
+    if (seen&4) {
+        uint32_t inverse=~mask,host=address&inverse;
+        if (!mask || !inverse || (inverse&(inverse+1)) || !host || host==inverse) return false;
+        if ((seen&8) && (router==address || (router&mask)!=(address&mask))) return false;
+    }
+    if (message==DHCP_OFFER) {
+        if (dhcp_have_offer || dhcp_request_sent || dhcp_configured) return false;
+    } else if (message==DHCP_ACK) {
+        uint32_t inverse=~mask,host=address&inverse;
+        if (!dhcp_have_offer || !dhcp_request_sent || dhcp_configured || seen!=63 ||
+            address!=read_be32(dhcp_offered_ip_bytes) || server!=read_be32(dhcp_server_ip_bytes) ||
+            source!=dhcp_retry_source_ip || read_be32(p+24)!=dhcp_retry_relay_ip ||
+            !mask || !inverse || (inverse&(inverse+1)) || !host || host==inverse ||
+            !router || !dns || router==address || (router&mask)!=(address&mask)) return false;
+    } else return false;
+    *type=message;
+    return true;
+}
+
+static void handle_dhcp_packet(const uint8_t *payload, uint16_t length,uint32_t source_ip) {
     if (!dhcp_in_progress || length < 240 || read_be32(payload + 4) != dhcp_xid) {
         return;
     }
@@ -757,6 +826,14 @@ static void handle_dhcp_packet(const uint8_t *payload, uint16_t length) {
         payload[236] != 0x63 || payload[237] != 0x82 ||
         payload[238] != 0x53 || payload[239] != 0x63) {
         return;
+    }
+    if (dhcp_retry_active) {
+        unsigned type=0;
+        if (!dhcp_retry_packet(payload,length,source_ip,&type)) return;
+        if (type==DHCP_OFFER) {
+            dhcp_retry_source_ip=source_ip;
+            dhcp_retry_relay_ip=read_be32(payload+24);
+        }
     }
 
     uint8_t message_type = 0;
@@ -800,7 +877,7 @@ static void handle_dhcp_packet(const uint8_t *payload, uint16_t length) {
         copy_bytes(dhcp_dns_ip_bytes, dns, 4);
         dhcp_configured = true;
         dhcp_in_progress = false;
-        console_printf("net: dhcp ipv4=%u.%u.%u.%u\n",
+        if (!net_probe_quiet) console_printf("net: dhcp ipv4=%u.%u.%u.%u\n",
             local_ip_bytes[0],
             local_ip_bytes[1],
             local_ip_bytes[2],
@@ -979,7 +1056,8 @@ static void handle_udp(const uint8_t *ip, uint16_t ip_header_length, uint16_t ip
     udp_packets++;
 
     if (src_port == DHCP_SERVER_PORT && dst_port == DHCP_CLIENT_PORT) {
-        handle_dhcp_packet(udp + 8, udp_length - 8);
+        if (dhcp_retry_active && (udp_length!=ip_payload_length || !ip[8])) return;
+        handle_dhcp_packet(udp + 8, udp_length - 8,read_be32(ip+12));
     } else if (src_port == DNS_PORT && dst_port == DNS_CLIENT_PORT &&
         dns_query_active && read_be32(ip + 12) == dns_server_ip) {
         handle_dns_packet(udp + 8, udp_length - 8);
@@ -2396,24 +2474,34 @@ static void net_worker(void *arg) {
     }
 }
 
-void net_init(void) {
+static void net_init_mode(bool quiet) {
+    net_probe_quiet=quiet;
     set_local_ip_bytes(local_ip_bytes);
     net_device_select();
     local_mac = net_device_mac();
 
     if (local_mac == 0) {
-        console_write("net: no supported network device, stack idle\n");
+        if (!quiet) console_write("net: no supported network device, stack idle\n");
+        net_probe_quiet=false;
         initialized = false;
         return;
     }
 
     initialized = true;
-    console_printf("net: provider=%s\n",net_device_name());
-    console_printf("net: static ipv4=%u.%u.%u.%u tcp=:80 icmp=on dhcp=available\n",
+    if (!quiet) console_printf("net: provider=%s\n",net_device_name());
+    if (!quiet) console_printf("net: static ipv4=%u.%u.%u.%u tcp=:80 icmp=on dhcp=available\n",
         local_ip_bytes[0],
         local_ip_bytes[1],
         local_ip_bytes[2],
         local_ip_bytes[3]);
+}
+
+void net_init(void) { net_init_mode(false); }
+
+bool net_init_bounded_probe(void) {
+    if (initialized || worker_started || dhcp_in_progress || dhcp_retry_active || net_probe_quiet) return false;
+    net_init_mode(true);
+    return initialized;
 }
 
 bool net_start_worker(void) {
@@ -2432,6 +2520,9 @@ bool net_start_worker(void) {
 }
 
 int64_t net_dhcp_request(void) {
+    if (dhcp_retry_active) {
+        return SRV_ERR_AGAIN;
+    }
     if (!initialized || local_mac == 0) {
         return -1;
     }
@@ -2468,6 +2559,102 @@ int64_t net_dhcp_request(void) {
 
     dhcp_in_progress = false;
     return -1;
+}
+
+/* The registry send result is only copied/queued admission. The explicit
+ * transport guard,not that bool,resulting packet count or elapsed time,owns
+ * the proof that a new Discover may follow the first ciphertext. */
+struct dhcp_retry_wait {
+    const struct net_dhcp_retry_guard *borrowed;
+    struct net_dhcp_retry_guard guard;
+    const uint8_t *station;
+    uint8_t mac[6];
+    uint32_t xid;
+    uint64_t start_tick,start_us,last_tick,last_us;
+};
+
+static bool dhcp_retry_guard_same(const struct dhcp_retry_wait *wait) {
+    return wait->borrowed->context==wait->guard.context &&
+        wait->borrowed->current==wait->guard.current &&
+        wait->borrowed->retry_ready==wait->guard.retry_ready;
+}
+
+static bool dhcp_retry_current(struct dhcp_retry_wait *wait) {
+    if (!dhcp_retry_guard_same(wait) || !wait->guard.current(wait->guard.context) ||
+        !dhcp_retry_guard_same(wait)) return false;
+    struct net_device_link link={0};
+    if (!net_device_link(&link) || !link.up || !dhcp_retry_guard_same(wait) ||
+        !initialized || !dhcp_retry_active || dhcp_xid!=wait->xid ||
+        local_mac!=wait->station || net_device_mac()!=wait->station) return false;
+    for (unsigned i=0;i<6;i++) if (wait->station[i]!=wait->mac[i]) return false;
+    /* Link inspection may quarantine or replace an owner. Recheck the exact
+     * secured epoch after it,then sample clocks after the final callback. */
+    if (process_should_exit_current() || !dhcp_retry_guard_same(wait) ||
+        !wait->guard.current(wait->guard.context) || !dhcp_retry_guard_same(wait)) return false;
+    uint64_t tick=timer_ticks(),us=timer_monotonic_us();
+    if (tick<wait->last_tick || us<wait->last_us ||
+        tick-wait->start_tick>=DHCP_TIMEOUT_TICKS || us-wait->start_us>=2000000u)
+        return false;
+    wait->last_tick=tick;wait->last_us=us;
+    return true;
+}
+
+int64_t net_dhcp_request_discover_retry(const struct net_dhcp_retry_guard *guard) {
+    if (!initialized || !local_mac || !guard || !guard->current || !guard->retry_ready)
+        return -1;
+    if (dhcp_retry_active || dhcp_in_progress) return SRV_ERR_AGAIN;
+    struct dhcp_retry_wait wait={.borrowed=guard,.guard=*guard,.station=local_mac};
+    for (unsigned i=0;i<6;i++) wait.mac[i]=local_mac[i];
+    wait.start_tick=wait.last_tick=timer_ticks();
+    wait.start_us=wait.last_us=timer_monotonic_us();
+    dhcp_retry_active=true;
+    dhcp_xid+=0x1021u;
+    if (!dhcp_xid) dhcp_xid=0x73727672u;
+    wait.xid=dhcp_xid;
+    dhcp_configured=false;dhcp_in_progress=true;
+    dhcp_have_offer=false;dhcp_request_sent=false;
+    dhcp_retry_source_ip=dhcp_retry_relay_ip=0;
+    clear_bytes(dhcp_offered_ip_bytes,sizeof dhcp_offered_ip_bytes);
+    clear_bytes(dhcp_server_ip_bytes,sizeof dhcp_server_ip_bytes);
+    clear_bytes(dhcp_router_ip_bytes,sizeof dhcp_router_ip_bytes);
+    clear_bytes(dhcp_dns_ip_bytes,sizeof dhcp_dns_ip_bytes);
+    int64_t result=-1;
+    bool retried=false;
+    if (!dhcp_retry_current(&wait) || !send_dhcp_message(DHCP_DISCOVER,0,0) ||
+        !dhcp_retry_current(&wait)) goto done;
+    for (unsigned polls=0;polls<20000u;polls++) {
+        if (!dhcp_retry_current(&wait)) goto done;
+        if (dhcp_configured) {
+            if (dhcp_have_offer && dhcp_request_sent) result=(int64_t)local_ip;
+            goto done;
+        }
+        (void)net_device_poll(32,false);
+        if (!dhcp_retry_current(&wait)) goto done;
+        if (dhcp_configured) {
+            if (dhcp_have_offer && dhcp_request_sent) result=(int64_t)local_ip;
+            goto done;
+        }
+        /* The existing packet handler publishes an Offer and attempts its
+         * Request once. Failed/uncertain queued Request is never retried here. */
+        if (dhcp_have_offer && !dhcp_request_sent) goto done;
+        if (!retried && !dhcp_have_offer && !dhcp_request_sent &&
+            wait.last_tick-wait.start_tick>=DHCP_TIMEOUT_TICKS/2 &&
+            wait.last_us-wait.start_us>=1000000u) {
+            if (!dhcp_retry_guard_same(&wait) ||
+                !wait.guard.retry_ready(wait.guard.context) ||
+                !dhcp_retry_current(&wait)) goto done;
+            /* Recheck after callbacks without granting another transaction. */
+            if (dhcp_have_offer || dhcp_request_sent || dhcp_configured) continue;
+            retried=true;
+            if (!send_dhcp_message(DHCP_DISCOVER,0,0) || !dhcp_retry_current(&wait)) goto done;
+        }
+        net_wait_tick();
+    }
+done:
+    dhcp_in_progress=false;
+    if (result<0) dhcp_configured=false;
+    dhcp_retry_active=false;
+    return result;
 }
 
 static uint32_t configured_dns_server(void) {

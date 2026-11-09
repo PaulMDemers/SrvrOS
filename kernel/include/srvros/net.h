@@ -30,6 +30,13 @@ int64_t net_udp_send_checked(uint64_t handle, uint32_t ip, uint16_t port,
     const uint8_t *data, uint64_t length, bool nonblock, const struct net_transfer *transfer);
 
 void net_init(void);
+/* Explicit one-shot native probe:register the secured provider first. Refuses
+ * an initialized stack,worker or DHCP owner. Suppresses startup and DHCP ACK
+ * console output for this probe;normal net_init retains ordinary logging.
+ * No packet/key/address logging or deferred flush occurs here. Caller records
+ * bounded result metadata only after hardware has closed. Other status print
+ * APIs must not be invoked in the live MAC window. No worker is started. */
+bool net_init_bounded_probe(void);
 bool net_start_worker(void);
 void net_handle_ethernet_frame(const uint8_t *frame, uint16_t length);
 void net_notify_rx(void);
@@ -37,6 +44,26 @@ void net_notify_rx_deferred(void *arg);
 void net_timer_tick(void);
 void net_print_status(void);
 int64_t net_dhcp_request(void);
+/* Explicit bounded probe variant;the ordinary API keeps its single Discover.
+ * CPU0 callbacks must be nonblocking,side-effect-free and remain unchanged for
+ * the call. current binds the original selected provider and secured epoch.
+ * retry_ready additionally proves the first Discover's exact TX completion and
+ * no pending/uncertain transmission;queued send success alone is insufficient.
+ * One same-XID retry requires both100ticks and1second,inside the original
+ * 200tick budget plus a2second monotonic bound. No ACK/Request retry is added.
+ * False guards,down/unknown link,send refusal,clock rollback or20000polls fail.
+ * Probe replies require exact BOOTP/XID/client,complete unique critical options
+ * and server identity. ACK matches the accepted Offer/Request,address,server,
+ * observed source/relay and usable mask/router/DNS/lease. Historical ordinary
+ * packet admission is unchanged;this does not authenticate a DHCP server.
+ * Failure does not cancel/retire provider or DMA ownership;caller must close
+ * publication and retain uncertain transport resources under its own proof. */
+struct net_dhcp_retry_guard {
+    void *context;
+    bool (*current)(void *context);
+    bool (*retry_ready)(void *context);
+};
+int64_t net_dhcp_request_discover_retry(const struct net_dhcp_retry_guard *guard);
 int64_t net_dns_resolve(const char *name, uint32_t *ip_out);
 int64_t net_list(uint64_t index, struct srv_net_info *info);
 int64_t net_status_info(struct srv_net_status_info *info);
