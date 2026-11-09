@@ -1589,3 +1589,20 @@ reconnect and power-on only after a newly qualified candidate is installed; leav
 workspace connected. Guest progress/save/Ubuntu return are automatic, with no
 commands or photos. Native TCP/process/IRQ, worker/service coexistence,
 lifecycle/UI and reliability remain separate gates.
+
+
+Pro11,2 v138 `20157ab5` / `becb29ad72ed94df` is qualified and installed for native
+validation of separate immutable cleanup receive pages and per-buffer inspection
+ownership. The old7a run is already collected once and failed; keep its856-file
+native and12-file review capsules immutable. Use only the new
+`build/bringup/wifi-cal5-cleanup/run_root.py return_collect` once after return.
+Its run record owns arming. The new trial uses fixed4MiB capture and explicit
+session/release-bound collection; legacy profiles retain2MiB. Complete MAC drain,
+exact Stop/held/original-eight-buffer and original production-IP/key/provider/
+fence/parent/ledger proof plus independent preservation/recovery remain mandatory.
+424-file exact clone and all staged VM gates pass, not native Wi-Fi acceptance.
+Ubuntu/e47d and six accepted recovery payloads are retained; only fully backed
+failed7a's unreferenced EFI duplicate was retired after accepted7026 fallback.
+Continue the authorized shutdown/Wi-Fi-only10second OFF-state unplug, same-port
+reconnect and power-on sequence; leave workspace connected. Guest progress,
+disk save and Ubuntu return are automatic. No commands or photos are needed.

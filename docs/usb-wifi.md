@@ -7906,3 +7906,17 @@ release and cleanup/stack/stream/calibration tokens; default collection remains
 strictly2MiB. Archival transport accepts at most4MiB per recognized log and grants
 no protocol acceptance. Full-prefix preservation and actual size/cap identity
 remain required; a larger buffer cannot recover an already discarded prefix.
+
+
+The final v138 correction is now installed at20157ab5/becb29ad72ed94df, native
+validation pending. An additional finish-only predicate rechecks each original
+buffer after exact Stop;24 injected late-event/scratch-mutation/cal-failure cases
+ensure no subsequent buffer is inspected. Teardown authorization stays unchanged.
+The initial506.86second selected suite and40.23second targeted repair are retained
+separately;11 fatal/source-bound groups,508 complete-prefix negative cases,258
+staging cases and exact424-file/metadata VM preservation pass. These are software/
+VM gates, not a later native pass. New finite syscall frames are1800/200/56bytes;
+unrelated70216-byte legacy exec frame is unchanged from c75 and remains outside
+the finite operation claim. See the unit record for the collect-first run,
+accepted recovery payloads, explicit4MiB identity and remaining real-process/
+worker/HTTP/lifecycle work.

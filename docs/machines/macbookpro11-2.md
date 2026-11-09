@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; updated-main regression failed RX cleanup before authentication; TCP/HTTP and connection lifecycle remain open**.
+Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; calibration RX cleanup correction installed, native validation pending; TCP/HTTP and connection lifecycle remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -120,6 +120,38 @@ marker atime; only two logs/one directory are new. Read-only host inspection,
 fsck/allocation and Ubuntu-unarmed recovery passed. No identical trial is armed.
 The older7026 accepted networking result remains historical acceptance.
 
+Current candidate `20157ab5` / `becb29ad72ed94df` is qualified and installed,
+with native acceptance pending and Ubuntu/e47d unchanged. The v138 option adds
+eight separate retained cleanup pages after verified MAC disable, keeping the
+original eight discovery buffers and seven-quiet/200-round requirements. Exact
+normal/Stop event validation covers own in-flight EP0/Stop commands, unpublished
+and late old-ring events, held-page mutation and aliasing. A separate finish
+predicate rechecks ownership before every original-buffer inspection; teardown
+permission remains unchanged. Twenty-four directed mid-inspection faults plus
+normal/fatal actual-owner, legacy and extended handoff/window cases pass.
+
+The506.86-second selected build/controller/network/storage suite passed at
+`ea75397f`; its complete record is retained. The40.23-second final repair rebuilds
+the matched kernel and affected tests, with only the finish predicate/fixture
+changed. Eleven fresh/source-bound fatal groups, independent final source review,
+508 full-prefix missing/duplicate refusals,258 stage cases, desktop/exact GPT/
+missing-workspace VMs and the exact424-file workspace clone pass. Full prior bytes
+and metadata remain unchanged in that VM except the RTC-bounded marker atime.
+The synthetic prefix is2050752 bytes; its RF/forward parent remains modeled, with
+actual C cleanup/IP tails and explicitly normalized host addresses/context, so
+it is not native evidence. New finite syscall frames are1800/200/56 bytes; the
+observed unrelated legacy exec frame70216 is byte-identical and compiled equal
+to the c75 baseline, not a whole-syscall stack-safety claim.
+
+Only failed7a's EFI duplicate was retired after verifying its856-file native/
+12-file review backups and temporarily selecting accepted7026. All six accepted
+payloads and Ubuntu/e47d remain verified, with NVRAM boot paths unchanged. The new
+run record is `build/bringup/wifi-cal5-cleanup/run.json`; its local record owns
+arming. Collect FIRST once after the trial with that directory's
+`run_root.py return_collect`, requiring the explicit cleanup/4MiB profile, exact
+MAC/Stop/held/forward evidence and the complete production-IP/key/provider/fence/
+parent/ledger proof. Earlier collected7a must never be recollected or resealed.
+
 Fetched main `f30ad7a5` is now merged as `f2ff1d23`, including the actual battery
 transfer diagnostics. Ports `cd066bf` merges its pinned `d40e118` while retaining
 the Pro logger isolation; no battery hardware gate or ordinary startup changes.
@@ -147,6 +179,14 @@ normal/fatal host qualification and independent source review. Existing SEND/
 write/respond/UDP paths remain unchanged, with fixed1536-byte new-path snapshots.
 Host process/IRQ models do not accept actual child/timer/service behavior. Lifecycle, reattachment,
 UI, sustained reliability and compatible2.4GHz hardware remain separate work.
+
+A private, unapplied kernel child-pipe capability proposal is ready for the next
+HTTP process gate, with six normal/fatal host builds/runs of constructor/lifetime/
+pipe fixtures. Host READY/retirement states are injected and user ELF is not
+executed; genuine process/IRQ, isolated init, the HTTP client and retained network
+worker remain unimplemented/unaccepted. PR301 also touches process/main/staging;
+inspect its actual overlap before integrating that proposal. PR379 is separate
+WebCore audit work. No other chat was contacted.
 
 Standing user authorization permits the qualified cold shutdown: unplug only
 Wi-Fi10seconds while OFF, reconnect the same port, power on, leave workspace
