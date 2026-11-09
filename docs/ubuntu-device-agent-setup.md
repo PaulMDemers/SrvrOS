@@ -1568,19 +1568,24 @@ sidecar rewriting. `make test-exfat-inspection` verifies explicit/default prefix
 malformed/duplicate/dirty refusals, argument bounds and zero writes/flushes.
 
 
-Pro11,2 current collect-first record is `build/bringup/wifi-stack5-response/run.json`;
-run that directory's `run_root.py return_collect` once after the new cold trial.
-Sourcec75cdb78/release7a4442e75476090f consumes main4b71b178 and adds two deferred
-firstjoin response observations without changing callbacks, parsing, deadlines or
-retries. The source-specific wrapper requires both plus all original production-
-IP/retirement and strict workspace proofs. Previous5ca/9f failed firstjoin ASSOC;
-its1877 native/14 review files remain immutable, as do accepted2da's1155/109.
-Only failed9f's backed duplicate was retired after verifiedaccepted7026 fallback;
-Ubuntu/e47d and all six accepted payloads remain. Read-only host mounts are verified
-before marker/baseline reads; namespace inspection remains explicitly/work.
-Qualified software/fatal/frame/prefix/exact-stage/422-file preservation checks
-are separate from native comparison, which is pending. The local record owns
-arming. Continue standing cold shutdown/Wi-Fi-only10second unplug while off,
-same-port reconnect and power-on; leave workspace connected. Guest progress/save/
-Ubuntu return are automatic, with no commands or photos. Native TCP/process/IRQ,
-worker/service coexistence, lifecycle/UI and reliability remain separate gates.
+Pro11,2 current returned record is `build/bringup/wifi-stack5-response/run.json`.
+Its matching `session-00065fdae4e5f609-00` was collected exactly once; do not run
+that collector again. Sourcec75cdb78/release7a4442e75476090f FAILED calibration
+RX cleanup before discovery/authentication/production traffic. All eight forward
+buffers filled, then0xa30 remained0x500 through200 rounds; MACdisable and endpoint
+Stop passed but RXdrain did not. The unchanged seven-quiet requirement correctly
+refuses completion. The856-file failed capsule is immutable. All422 prior files,
+strict metadata apart from RTC-bounded marker atime, offline allocation/fsck and
+Ubuntu-unarmed recovery pass. Accepted2da's1155/109 and precedingfailed5ca's1877/14
+remain historical immutable evidence. No identical retry is armed.
+
+Current source now consumes actualmainf30ad7a5 while preserving Pro logger
+isolation in portscd066bf. Next work is bounded cleanup-only retained RX service
+and finite TCP syscall integration, with distinct software/VM/native gates.
+Ubuntu/e47d and all six accepted payloads remain available. Read-only host mounts
+are verified before workspace reads; metadata inspection remains explicitly/work.
+Continue standing cold shutdown/Wi-Fi-only10second unplug while off, same-port
+reconnect and power-on only after a newly qualified candidate is installed; leave
+workspace connected. Guest progress/save/Ubuntu return are automatic, with no
+commands or photos. Native TCP/process/IRQ, worker/service coexistence,
+lifecycle/UI and reliability remain separate gates.
