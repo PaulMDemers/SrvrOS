@@ -22,7 +22,7 @@ struct capture_history {
     uint64_t completed,dropped,invalid;
     unsigned count,last_id;
 };
-static void capture_history_record(struct capture_history *h,const struct capture_trace *c,
+static inline void capture_history_record(struct capture_history *h,const struct capture_trace *c,
     uint64_t pid,uint64_t retired,int result) {
     if(h->completed==UINT64_MAX)h->invalid=1;else h->completed++;
     if(!c->id || c->id<=h->last_id || !pid || !c->started_us ||
