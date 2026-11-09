@@ -2,7 +2,7 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Current scope: consolidated admission retry ready for hardware
+### Current scope: consolidated admission retry safely refused before preparation
 
 Main `223ec211` is integrated as `f338589c`, including its pinned ports update.
 Tested source `ee4a15bc`, release `de0b58f1dfbcdc94`, consolidates native
@@ -32,20 +32,29 @@ options, optional sync diagnostics remain off, and logbudget65,456/65,536 bytes
 retains the1,536-byte allowance. Historical passes/nonpasses, including both
 preparation deadline failures below, keep their classification.
 
-The candidate is installed and independently backed up; **native timing and
-acceptance remain pending**. Ubuntu is default, volume1%, no reboot armed.
-All1,410 USB files/126 sessions preserve with clean offline filesystem/allocation/
-writable/headroom checks. Recovery `9aa8dbf6fbda8252`, GUI `c497eb0cb48c1b01`,
-accepted read-only `b8afda22fe3f051e`/reset `94bc48ed5551f552`, and failed
-`ac555dcb12463fa3`/`0c1e0b40f71e6d7a` remain verified. Two old global stages,
-one unreferenced EFI payload and the failed candidate's duplicate stage pair
-were losslessly archived with every member verified. Full installed/durable
-payloads and raw evidence remain; the new redundant global stage was retired
-only after equality checks. Checkpoint:`build/air-admission-20261109`.
+Source `ee4a15bc`, release `de0b58f1dfbcdc94`, returned as
+`session-00065fdb81ba0b28-00`. This is a **safe admission refusal**, not a
+preparation pass or latency measurement. The full92-word pre-census is stable,
+but BCS is enabled (mask16), control`0xf001`, start`0x03eef000`. The read-only
+takeover observation completes with geometry15 and quiescent0, so the existing
+`takeover.complete && takeover.quiescent` gate correctly skips preparation.
+Preparation attempts/writes/reads/ACKs are all zero. No reset or PTE write occurs.
+The wake lease closes and releases, all13 mappings retire, retained0 and clock
+fault0. Outer lifetime is174,916 us; parent elapsed is not serialized. This does
+not exercise the new preparation callbacks or establish their native timing.
 
-Next run the automated preparation retry; no typing is required. Safe saved/
-unmounted outcomes return automatically; uncertain ownership or persistence
-failure halts visibly. Collect the matching session first. All255 memory
+Checkpoint/release/exact options verify. All1,410 prior USB files preserve apart
+from expected workspace metadata; three new logs produce1,413 files/127 sessions.
+Offline filesystem/allocation/writable/headroom and installed/durable recovery
+checks pass. Ubuntu is default, the one-shot is consumed, volume remains1% and
+no reboot is armed. Complete return evidence is backed up outside build.
+Checkpoint:`build/air-admission-20261109`. The earlier preparation timing failures
+remain failures. Fresh main`f30ad7a5` contains Air6,1 PR440 documentation only;
+it was fetched but not integrated during this exact-source evidence closeout.
+
+Next review the enabled-ring shutdown prerequisites and its existing writer
+qualification separately before another preparation retry. Do not widen the
+zero-geometry gate or repeat this unchanged trial blindly. All255 memory
 obligations remain open; no reset, PTE, managed-memory or native tear-free grant
 is added. Pro11,2 PR19 Wi-Fi and WebCore PR379 remain independent.
 

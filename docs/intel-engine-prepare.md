@@ -177,4 +177,12 @@ The locally qualified consolidation retry is source `ee4a15bc`, release
 158, with all48 raw protocol/preservation rows identical; this is not a native
 latency claim. Local qualification passes376 sanitizer modes plus backing
 regression,14 semantic/28 native/7 batch controls,18 images and exact-stage VM
-save/unmount/return and missing-workspace halt. Physical timing is pending.
+save/unmount/return and missing-workspace halt. The subsequent native run,
+`session-00065fdb81ba0b28-00`, safely refuses before preparation: BCS is enabled
+(mask16/control`0xf001`/start`0x03eef000`), takeover geometry15/quiescent0.
+The unchanged quiescence gate issues zero preparation attempts or writes.
+The wake lease returns and all13 aliases retire; no clock fault is recorded.
+This is not a preparation timing result. Checkpoint/filesystem/recovery checks
+pass with all1,410 prior files preserved and three new logs. Review enabled-ring
+shutdown prerequisites separately; do not widen preparation admission or infer
+reset/managed-memory authority from the stable raw census.
