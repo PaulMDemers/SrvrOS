@@ -17,7 +17,7 @@
 #include "../userspace/wifihttpprobe/http_exact.h"
 static const char *scenario;
 static uint64_t now,previous,prepared,deadline;
-static unsigned clocks,queries,flags_calls,ready_calls,yields,connects,sends,receives,pipe_closes,net_closes,feed_calls;
+static unsigned clocks,queries,flags_calls,ready_calls,yields,sleeps,connects,sends,receives,pipe_closes,net_closes,feed_calls;
 static bool frozen,clock_failed,built,parser_ready,pipe_closed,eof_seen;
 static uint8_t record[96],response[5000];static char request_bytes[4160];
 static size_t pipe_at,response_at,response_size,request_at;
@@ -50,6 +50,12 @@ long srv_syscall0(long op){
  abort();
 }
 long srv_syscall1(long op,long fd){nonclock();
+ if(op==SYS_SLEEP_TICKS){assert(fd==1 && !pipe_closed && !connects && pipe_at<96);sleeps++;
+  if(!frozen)now+=10000;
+  if(is("late-go-sleep"))now=prepared+60000000;
+  if(is("rollback-go-sleep"))now-=100000;
+  return is("go-sleep-error")?-1:0;
+ }
  if(op==SYS_NET_ERROR){assert(fd==4);if(is("status-error"))return SRV_NETERR_RESET;if(is("late-status"))now=deadline;if(eof_seen && is("eof-error"))return SRV_NETERR_RESET;return 0;}
  assert(op==SYS_CLOSE);
  if(!pipe_closed){assert(fd==3);pipe_closes++;pipe_closed=true;return is("pipe-close-error")?-1:0;}
@@ -74,6 +80,7 @@ long srv_syscall5(long op,long fd,long operation,long ptr,long length,long peer)
   if(is("rollback-send"))now-=1000;return (long)n;}
  assert(operation==SRV_SOCKET_RECV && length>0);
  if(!pipe_closed){assert(fd==3 && ready_calls);if(is("frozen-no-go"))return SRV_ERR_AGAIN;
+  if((is("go-sleep") || is("late-go-sleep") || is("rollback-go-sleep") || is("go-sleep-error")) && !sleeps)return SRV_ERR_AGAIN;
   if(pipe_at==96){if(is("extra-pipe")){*(uint8_t *)ptr=1;return 1;}if(is("missing-pipe-eof"))return SRV_ERR_AGAIN;return 0;}
   if(is("short-pipe") && pipe_at>=42)return 0;
   size_t n=(size_t)length;if(n>7)n=7;if(n>96-pipe_at)n=96-pipe_at;memcpy((void *)ptr,record+pipe_at,n);pipe_at+=n;return (long)n;}
@@ -95,7 +102,7 @@ int __wrap_http_exact_build_request(char *p,size_t n,size_t *out){assert(!ready_
 void __wrap_http_exact_init(struct http_exact_parser *p){assert(!ready_calls && !parser_ready);__real_http_exact_init(p);parser_ready=true;}
 enum http_exact_result __wrap_http_exact_feed(struct http_exact_parser *p,const void *b,size_t n){feed_calls++;return __real_http_exact_feed(p,b,n);}
 static int run(const char *s){
- scenario=s;now=1000000;previous=prepared=deadline=0;clocks=queries=flags_calls=ready_calls=yields=connects=sends=receives=pipe_closes=net_closes=feed_calls=0;
+ scenario=s;now=1000000;previous=prepared=deadline=0;clocks=queries=flags_calls=ready_calls=yields=sleeps=connects=sends=receives=pipe_closes=net_closes=feed_calls=0;
  frozen=is("frozen-no-go") || is("frozen-no-eof");clock_failed=built=parser_ready=pipe_closed=eof_seen=false;pipe_at=response_at=request_at=0;
  const char *header=is("duplicate-length")?"HTTP/1.1 200 OK\r\nContent-Length: 3072\r\nContent-Length: 3072\r\n\r\n":"HTTP/1.1 200 OK\r\nContent-Length: 3072\r\n\r\n";
  response_size=strlen(header);memcpy(response,header,response_size);
@@ -107,6 +114,8 @@ static int run(const char *s){
  assert(clocks<=WIFI_EXACT_CHECK_CAP && queries<=1 && connects<=1 && net_closes<=1);
  if(is("preflight")){assert(result==0 && pipe_closes==1 && !connects && !sends && !receives && !net_closes && !feed_calls);return result;}
  if(result==0)assert(request_at==4159 && eof_seen && net_closes==1 && pipe_closes==1 && feed_calls);
+ if(is("go-sleep"))assert(sleeps==1 && !yields);
+ if(!is("go-sleep") && !is("frozen-no-go") && !is("late-go-sleep") && !is("rollback-go-sleep") && !is("go-sleep-error"))assert(!sleeps);
  if(is("late-read"))assert(!feed_calls);
  if(result && is("send-error"))assert(sends==1);
  return result;
@@ -115,7 +124,7 @@ int main(void){
  assert(wifi_exact_main(0,NULL)==WIFI_EXACT_ARGS);
  char *bad[]={"httpget","--wifi-exact",NULL};assert(httpget_dispatch_main(2,bad)==WIFI_EXACT_ARGS);
  struct {const char *name;int result;} cases[]={
- {"preflight",0},{"good",0},{"send-again",0},{"recv-again",0},{"old-abi",11},{"bad-fd-flags",12},{"negative-clock",13},
+ {"go-sleep",0},{"late-go-sleep",24},{"rollback-go-sleep",13},{"go-sleep-error",25},{"preflight",0},{"good",0},{"send-again",0},{"recv-again",0},{"old-abi",11},{"bad-fd-flags",12},{"negative-clock",13},
  {"rollback-ready",13},{"late-ready",24},{"ready-error",14},{"short-pipe",15},{"extra-pipe",15},
  {"missing-pipe-eof",24},{"bad-pid",16},{"bad-version",16},{"bad-size",16},{"zero-epoch",16},{"reserved",16},
  {"stale-go",16},{"future-go",16},{"bad-span",16},{"bad-ip",16},{"bad-port",16},{"connect-again",17},{"connect-error",17},

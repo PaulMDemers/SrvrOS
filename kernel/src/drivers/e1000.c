@@ -343,6 +343,20 @@ bool e1000_init(void) {
     return true;
 }
 
+bool e1000_probe_sample(struct e1000_probe_info *out) {
+    if(!out || !init_succeeded || !e1000_available() || !rings_ready || !rx_desc || !tx_desc ||
+       rx_tail>=E1000_RX_DESC_COUNT || tx_tail>=E1000_TX_DESC_COUNT)return false;
+    const struct net_device_ops identity={.context=NULL,.send=device_send};
+    struct e1000_probe_info info={.rx_ring=(uint64_t)(uintptr_t)rx_desc,.tx_ring=(uint64_t)(uintptr_t)tx_desc,
+        .rx_packets=rx_packets,.tx_packets=tx_packets,.interrupts=interrupts,.rx_interrupts=rx_interrupts,
+        .rx_ready=(rx_desc[rx_tail].status&E1000_RX_DESC_STATUS_DD)!=0,
+        .rx_dispatching=__atomic_load_n(&rx_poll_active,__ATOMIC_ACQUIRE),
+        .selected=net_device_selected_is(&identity),.irqs_enabled=interrupts_enabled};
+    for(unsigned i=0;i<E1000_TX_DESC_COUNT;i++)if(!(tx_desc[i].status&E1000_TX_DESC_STATUS_DD))info.tx_pending++;
+    for(unsigned i=0;i<6;i++)info.mac[i]=mac[i];
+    *out=info;return true;
+}
+
 bool e1000_available(void) {
     return nic != 0 && mmio != 0;
 }

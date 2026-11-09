@@ -18,6 +18,16 @@ static int yield_checked(struct probe_clock *c) {
  if(!check(c))return 0;
  srv_yield();return check(c);
 }
+/* PREGO only: park for one real timer tick instead of consuming the shared
+ * finite check budget while RF/bootstrap work runs. Original GO deadline/live
+ * loops remain unchanged. Checks cannot bound time inside SYS_SLEEP itself. */
+static int wait_go_checked(struct probe_clock *c) {
+ if(!check(c))return 0;
+ long result=srv_sleep_ticks(1);
+ if(!check(c))return 0;
+ if(result!=0){c->failed=WIFI_EXACT_SLEEP;return 0;}
+ return 1;
+}
 static uint64_t le(const uint8_t *p,unsigned n) {
  uint64_t value=0;for(unsigned i=0;i<n;i++)value|=(uint64_t)p[i]<<(8*i);return value;
 }
@@ -75,7 +85,7 @@ int wifi_exact_main(int argc,char **argv) {
   if(!check(&c))return c.failed;
   long n=srv_socket_try_io(3,SRV_SOCKET_RECV,record+received,sizeof record-received,NULL);
   if(!check(&c))return c.failed;
-  if(n==SRV_ERR_AGAIN){if(!yield_checked(&c))return c.failed;continue;}
+  if(n==SRV_ERR_AGAIN){if(!wait_go_checked(&c))return c.failed;continue;}
   if(n<=0 || (uint64_t)n>sizeof record-received)return WIFI_EXACT_PIPE;
   received+=(size_t)n;
  }

@@ -30,6 +30,7 @@
 #include <srvros/process.h>
 #include <srvros/process_lifetime_test.h>
 #include <srvros/http_child_preflight.h>
+#include <srvros/http_network_vm.h>
 #include <srvros/scheduler.h>
 #include <srvros/timer.h>
 #include <srvros/vfs.h>
@@ -1106,6 +1107,8 @@ static void run_command(char *line) {
             heap_used_bytes());
     } else if (streq(command, "ticks")) {
         console_printf("ticks: %u\n", timer_ticks());
+    } else if (streq(command, "httpnetworktest")) {
+        (void)http_network_vm_run();
     } else if (streq(command, "httpchildtest")) {
         (void)http_child_preflight_run();
     } else if (streq(command, "lifetimetest")) {

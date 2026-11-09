@@ -54,6 +54,7 @@
 #include <srvros/pmm.h>
 #include <srvros/process.h>
 #include <srvros/http_child_preflight.h>
+#include <srvros/http_network_vm.h>
 #include <srvros/scheduler.h>
 #include <srvros/serial.h>
 #include <srvros/timer.h>
@@ -909,6 +910,8 @@ void kmain(void) {
         console_write("init: start failed\n");
     }
     http_child_preflight_enable(http_child_trial && init_ready && timer_running);
+    http_network_vm_enable(http_child_trial && init_ready && timer_running && cmdline_tokens_unique(cmdline) &&
+        cmdline_has_token(cmdline,"srvros.http-network-vm=1") && cmdline_has_token(cmdline,"srvros.storage=ram"));
     keyboard_print_status();
     xhci_print_input_summary();
     if (!boot_verbose) {

@@ -6360,6 +6360,19 @@ test-core: test-sync-content
 .PHONY: test-http-child
 test-core: test-http-child
 test-wifi-completion-foundations: test-http-child
+.PHONY: test-http-network-probe test-e1000-probe-sample
+test-core: test-http-network-probe test-e1000-probe-sample
+test-wifi-completion-foundations: test-http-network-probe test-e1000-probe-sample
+test-http-network-probe: build/tests/http-network-probe-host$(HOST_EXE)
+	$<
+build/tests/http-network-probe-host$(HOST_EXE): tools/test_http_network_probe.c kernel/src/http_network_probe.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DSRVROS_HTTP_NETWORK_HOST_TEST -I kernel/include -I shared/include $< kernel/src/http_network_probe.c -Wl,--gc-sections -o $@
+test-e1000-probe-sample: build/tests/e1000-probe-sample-host$(HOST_EXE)
+	$<
+build/tests/e1000-probe-sample-host$(HOST_EXE): tools/test_e1000_probe_sample.c tools/test_e1000_link.c kernel/src/drivers/e1000.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 .PHONY: test-net-prepared-worker
 test-core: test-net-prepared-worker
 test-wifi-completion-foundations: test-net-prepared-worker

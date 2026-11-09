@@ -14,8 +14,13 @@
  * must be nonzero; kernel ticket, not this reader, authenticates PID/image/
  * lifetime/FD identity. No new producer/syscall or global DNS cache is supplied.
  *
- * GO wait is separately capped60s; the received ORIGINAL15s deadline then
- * bounds pipe EOF and network work.150000 time checks are shared across phases,
+ * GO wait uses its separate60s monotonic deadline while calls/ticks progress;
+ * PREGO AGAIN sleeps one tick with clock checks before/after. A broken IRQ/tick
+ * can stall inside SYS_SLEEP; this does not promise a wall-time/wait-free bound
+ * for that syscall. Parent supervises cancellation and retains resources.
+ * The150000check cap bounds returned loops, including returned frozen clocks;
+ * it cannot force a blocked syscall to return. After GO, the received original
+ * 15s deadline bounds pipe EOF and network work.150000 checks span all phases,
  * never reset, so frozen clock/AGAIN loops terminate. Checks before/after calls
  * reject late results and rollback; these cannot bound time spent INSIDE normal
  * ISR admission or syscall implementations. Existing try-read performs one
@@ -37,7 +42,7 @@ enum wifi_exact_exit {
  WIFI_EXACT_FD=12,WIFI_EXACT_CLOCK=13,WIFI_EXACT_READY=14,WIFI_EXACT_PIPE=15,
  WIFI_EXACT_GO=16,WIFI_EXACT_CONNECT=17,WIFI_EXACT_STATUS=18,WIFI_EXACT_SEND=19,
  WIFI_EXACT_RECV=20,WIFI_EXACT_HTTP=21,WIFI_EXACT_CLOSE=22,
- WIFI_EXACT_CHECKS=23,WIFI_EXACT_DEADLINE=24
+ WIFI_EXACT_CHECKS=23,WIFI_EXACT_DEADLINE=24,WIFI_EXACT_SLEEP=25
 };
 /* --wifi-preflight shares preparation/READY/GO/real EOF/close, then exits
  * before every socket operation; it is a process/pipe-only guest diagnostic. */
