@@ -3,7 +3,9 @@
 static struct sync_timing_snapshot observed;
 static struct sync_timing_call current;
 static unsigned slot,phase;
-static bool tracing;
+static bool tracing,content_active;
+static uint64_t content_identity;
+static struct sync_content_call content_current;
 static uint64_t lock(void) {
 #ifdef SRVROS_SYNC_TIMING_HOST_TEST
     return sync_test_irq_save();
@@ -55,9 +57,54 @@ bool sync_timing_begin(uint64_t pid) {
     if(!current.start_us)observed.records[slot].invalid=1;
     start_usb();unlock(f);return true;
 }
+void sync_timing_content_fault(void) {
+    if(!content_active)return;
+    uint64_t f=lock();if(content_active)observed.records[slot].invalid=1;unlock(f);
+}
+uint64_t sync_timing_content_identity(void) {
+    uint64_t f=lock(),id=0;
+    if(content_identity!=UINT64_MAX)id=++content_identity;
+    else observed.invalid=1;
+    unlock(f);return id;
+}
+bool sync_timing_content_begin(uint64_t index,uint64_t identity,uint64_t inode,uint64_t size) {
+    if(!observed.enabled || !observed.active)return false;
+    uint64_t f=lock();
+    if(!observed.enabled || !observed.active) {unlock(f);return false;}
+    if(phase || content_active || !identity) {observed.invalid=1;unlock(f);return false;}
+    content_current=(struct sync_content_call){.slot=index,.identity=identity,.inode=inode,
+        .size=size,.start_us=timer_monotonic_us()};
+    if(!content_current.start_us || content_current.start_us<current.start_us)observed.invalid=1;
+    content_active=true;unlock(f);return true;
+}
+void sync_timing_content_io(unsigned role,unsigned kind,uint64_t bytes,uint64_t us,bool ok) {
+    if(!content_active)return;
+    uint64_t f=lock();
+    if(!content_active) {unlock(f);return;}
+    struct sync_timing_record *r=&observed.records[slot];
+    if(role>=SYNC_CONTENT_ROLES || kind>2) {r->invalid=1;unlock(f);return;}
+    struct sync_content_io *p=&content_current.io[role];
+    if(kind==0) {add(r,&p->reads,1);add(r,&p->read_bytes,bytes);add(r,&p->read_us,us);}
+    else if(kind==1) {add(r,&p->writes,1);add(r,&p->write_bytes,bytes);add(r,&p->write_us,us);}
+    else {if(bytes)r->invalid=1;add(r,&p->flushes,1);add(r,&p->flush_us,us);}
+    if(!ok)add(r,&p->failures,1);
+    unlock(f);
+}
+void sync_timing_content_end(bool ok,bool dirty_after) {
+    uint64_t f=lock();
+    if(!content_active || !observed.active || phase) {observed.invalid=1;unlock(f);return;}
+    struct sync_timing_record *r=&observed.records[slot];
+    content_current.end_us=timer_monotonic_us();content_current.ok=ok;content_current.dirty_after=dirty_after;
+    struct sync_content_summary *c=&current.content;
+    add(r,&c->calls,1);add(r,&c->bytes,content_current.size);if(!ok)add(r,&c->failures,1);
+    if(content_current.end_us<content_current.start_us)r->invalid=1;
+    else if(!c->worst.start_us || content_current.end_us-content_current.start_us>c->worst.end_us-c->worst.start_us)c->worst=content_current;
+    content_active=false;content_current=(struct sync_content_call){0};unlock(f);
+}
 void sync_timing_files_done(bool ok) {
     uint64_t f=lock();
     if(!observed.active || phase!=0) {observed.invalid=1;unlock(f);return;}
+    if(content_active)observed.invalid=1;
     end_usb();current.files_end_us=timer_monotonic_us();current.file_failed=!ok;
     phase=1;start_usb();unlock(f);
 }

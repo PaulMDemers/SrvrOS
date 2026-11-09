@@ -36,5 +36,35 @@ int main(void){
  call(7,6100,6110,6120,true,true);assert(observed.records[0].invalid);
  observed=(struct sync_timing_snapshot){.enabled=1};now=7000;assert(sync_timing_begin(7));sync_timing_snapshot(&s);assert(s.active && !s.records[0].calls);
  now=7010;sync_timing_files_done(true);now=7020;sync_timing_end(true);
+ /* Real content observers retain the slowest subcall WITH its parent call,
+  * not the globally slowest content from a different sync. */
+ observed=(struct sync_timing_snapshot){.enabled=1};now=8000;assert(sync_timing_begin(7));
+ uint64_t a=sync_timing_content_identity(),b=sync_timing_content_identity();assert(a && b>a);
+ now=8001;assert(sync_timing_content_begin(3,a,22,65536));
+ sync_timing_content_io(3,0,16384,5,true);sync_timing_content_io(4,1,512,3,true);
+ now=8020;sync_timing_content_end(true,false);
+ now=8021;assert(sync_timing_content_begin(4,b,23,7));
+ sync_timing_content_io(0,2,0,6,true);now=8029;sync_timing_content_end(true,false);
+ now=8030;sync_timing_files_done(true);now=8040;sync_timing_end(true);
+ struct sync_content_summary *c=&observed.records[0].worst.content;
+ assert(c->calls==2 && c->bytes==65543 && !c->failures && c->worst.identity==a && c->worst.slot==3);
+ assert(c->worst.io[3].read_bytes==16384 && c->worst.io[4].write_bytes==512 && !c->worst.io[0].flushes);
+ call(7,8100,8110,8120,true,true);assert(c->calls==2 && c->worst.identity==a);
+ now=8200;assert(sync_timing_begin(7));now=8201;assert(sync_timing_content_begin(4,b,23,7));
+ sync_timing_content_io(0,1,1,2,false);now=8250;sync_timing_content_end(false,true);
+ now=8260;sync_timing_files_done(false);now=8270;sync_timing_end(true);
+ assert(c->calls==1 && c->bytes==7 && c->failures==1 && c->worst.identity==b && c->worst.io[0].failures==1 && c->worst.dirty_after);
+ observed=(struct sync_timing_snapshot){.enabled=1};now=9000;assert(sync_timing_begin(7));
+ assert(sync_timing_content_begin(1,a,0,0));assert(!sync_timing_content_begin(2,b,0,0) && observed.invalid);
+ sync_timing_content_io(9,0,0,0,true);assert(observed.records[0].invalid);
+ now=8999;sync_timing_content_end(true,false);assert(observed.records[0].invalid);
+ now=9010;sync_timing_files_done(true);now=9020;sync_timing_end(true);
+ observed=(struct sync_timing_snapshot){.enabled=1};now=9100;assert(sync_timing_begin(7));
+ assert(sync_timing_content_begin(1,a,0,1));content_current.io[0].reads=UINT64_MAX;
+ sync_timing_content_io(0,0,1,1,true);assert(observed.records[0].invalid);
+ now=9110;sync_timing_content_end(true,false);now=9120;sync_timing_files_done(true);now=9130;sync_timing_end(true);
+ observed=(struct sync_timing_snapshot){.enabled=1};now=9200;assert(sync_timing_begin(7));
+ assert(sync_timing_content_begin(1,a,0,1));sync_timing_content_fault();assert(observed.records[0].invalid);
+ now=9210;sync_timing_content_end(true,false);now=9220;sync_timing_files_done(true);now=9230;sync_timing_end(true);
  puts("sync-timing: PASS opt-in, complete phases, all failure combinations, copied worst retention, PID capacity, nested trace refusal/foreign preservation, invalid clock/overflow and incomplete evidence");
 }
