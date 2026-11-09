@@ -6190,3 +6190,12 @@ test-wifi-completion-foundations: test-wifi-stream5-log
 test-wifi-stream5-log: build/tests/xhci-stream5-host$(HOST_EXE)
 	$< --trace > build/tests/xhci-stream5-trace.log
 	WIFI_STREAM5_TRACE=build/tests/xhci-stream5-trace.log $(PYTHON) -B -m unittest discover -s tools -p test_wifi_stream5_log.py
+
+.PHONY: test-sync-timing
+test-sync-timing: build/tests/sync-timing-host$(HOST_EXE)
+	build/tests/sync-timing-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_sync_timing.py
+build/tests/sync-timing-host$(HOST_EXE): tools/test_sync_timing.c kernel/src/sync_timing.c $(KERNEL_HEADERS)
+	mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
+test-core: test-sync-timing
