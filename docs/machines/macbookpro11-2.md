@@ -15588,8 +15588,8 @@ Private candidate evidence is sealed outside build in
 wifi-nop5-native-4f89113a. Preflight confirms this MacBookPro11,2,captured adapter,
 workspace0E53-5900,Ubuntu default and existing e47d recovery. It preserves old
 native/refusal/review capsules and all existing USB logs;an exact raw metadata
-baseline plus ordinary file hashes is saved before boot. Only the unreferenced
-v126 EFI duplicate may be retired after complete sealed161-file backup equality
+baseline plus ordinary file hashes is saved before boot. The unreferenced
+v126 EFI duplicate was retired after complete sealed161-file backup equality
 and GRUB/NVRAM reference checks,to retain the required new-payload EFI margin.
 The current3c9,provider815,data e17,WPA v130,M1 and e47d payloads stay protected.
 
