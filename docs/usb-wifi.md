@@ -7977,3 +7977,19 @@ marker atime; allocation/fsck and recovery pass. The 103-file failed native and
 during first-join cleanup, with actual-owner regression and strict companion
 receipts before a new qualified hardware trial. Earlier no-log attempt remains
 incomplete and cannot be promoted by this retry.
+
+
+Pro11,2 candidate5b91b743/689b8f2bdfdec593 adds bounded receive service to the
+opt-in first-join MAC cleanup. It consumes no cleanup payload as a packet,
+uses never-published pages within the existing48-position/eight-extra limit,
+and requires own published EP0/Stop spans, final stopped context and frozen
+parent/page proofs. Seven quiet samples within200rounds remains mandatory.
+The source-specific collector explicitly requires `wifi-join5-cleanup` alongside
+the full original calibration, authenticated production DHCP/DNS/ICMP and
+retirement proof. Historical absence remains compatible in the generic parser.
+Actual-core normal/fatal and emitted-row checks, selected matched controller
+checks and exact428-file VM preservation pass; the first matched fixture-only
+compile failure and optional uncompleted full fatal-data run remain preserved.
+The image is installed, native validation pending. See the Pro unit record for
+its exact collect-first workflow and cold reset instructions. No native TCP/HTTP,
+reattachment/UI, ordinary service coexistence or reliability acceptance follows.

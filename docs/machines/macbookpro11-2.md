@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; exact empty-ring Stop correction passed in the latest native run; management cleanup still fails; TCP/HTTP and connection lifecycle remain open**.
+Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; exact empty-ring Stop passed in the latest native run; bounded management cleanup correction qualified and installed, native validation pending; TCP/HTTP and connection lifecycle remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -16700,3 +16700,66 @@ SHA256SUMS digest is
 The exported-prefix/metadata review verifies all 66 exports and the complete
 exit marker boundary; full production acceptance remains false. Neither primary
 nor historical evidence was modified or resealed.
+
+
+## Qualified first-join receive cleanup candidate
+
+Runtime `5b91b743`, release `689b8f2bdfdec593`, is qualified and installed for
+the next cold regression, with native validation pending. The opt-in v138 path
+services completed receives only after verified MAC disable, freezes the last
+forward completion separately, and may publish at most eight never-used receive
+pages within the existing combined 48-position limit. Cleanup bytes never enter
+management or EAPOL parsing. Exact published EP0/Stop identities, final stopped
+contexts, immutable pages and the complete parent are checked; duplicate, late,
+malformed and changed-storage cases quarantine the owner. Normal completion
+during Stop is accounted separately from terminal residue. The seven-quiet/
+200-round requirement and original management traffic remain unchanged.
+
+The unchanged-core busy-queue model reproduces the native failure counters in
+normal and fatal runs; this is a modeled service gap, not proof of the native
+busy register. The correction passes two private builds and twelve runs,
+including fatal sanitizers, legacy checks and four actual emitted cleanup cases.
+All 158 compiled inputs match. An independent strict companion parser validates
+the actual normal/fatal emitted cases and historical compatibility. The new
+frozen collector explicitly requires that companion, retaining strict calibration
+empty-Stop and full production IP/key/provider/fence/parent proof.
+
+The selected matched build/controller suite initially failed only because a
+legacy WPA/data fixture lacked newly referenced mock fields. That failed
+276.21-second invocation is preserved. The fixture-only repair leaves runtime
+code unchanged; a fresh matched image passes. Completed full normal WPA/data
+and fatal WPA tests bind 59 exact compiled inputs; both disabled traces equal
+the earlier implementation byte for byte. Optional full fatal-data enumeration
+was stopped and is explicitly incomplete, not passed. This is selected coverage,
+not a full-core or fully repeated sanitizer suite.
+
+The actual replaced join/EAPOL prefix passes 76 missing/duplicate refusals in
+the complete 2,051,174-byte synthetic composition. Calibration's tail, the new
+join trace and the production IP child are actual host C output; RF/forward
+parents and host contexts remain modeled, never native evidence. Earlier 508
+calibration/IP refusal cases remain historical rather than being relabeled a
+new run. Fresh native owner frames remain below 4096 bytes (maximum 264).
+258 staging cases, desktop and exact GPT/missing-workspace VMs pass; the exact
+428-file workspace clone preserves prior bytes and strict metadata except the
+RTC-bounded marker read. A stale VM wrapper path refused before guest entry;
+its failure is preserved and the corrected remaining VM checks pass.
+
+Only failed D49's EFI duplicate was retired after verifying its immutable
+103-file native/17-file review and separate 2,455-file qualified payload backup,
+selecting accepted7026 temporarily and checking absence of GRUB/NVRAM references.
+Ubuntu/factory e47d, all six accepted payloads and EFI boot paths remain intact.
+The new capsule is outside build and survives distclean. Independent workflow
+review and fifteen mocked refusal/rollback cases cover missing adapter/exit logs
+and a lost response after shutdown timer acceptance. These mocks execute no
+host commands and confer no hardware acceptance.
+
+The current record is `build/bringup/wifi-join5-cleanup/run.json`. Its matching
+collector must run FIRST ONCE after return:
+`python3 -B build/bringup/wifi-join5-cleanup/run_root.py return_collect`.
+All older attempts are already collected and immutable. Use the authorized
+cold shutdown protocol: unplug BOTH Wi-Fi and workspace USB for ten seconds
+while OFF, reconnect both to the same ports, power on and keep both connected.
+The guest shows progress, saves results and returns to Ubuntu automatically;
+no commands or photos are needed. A new physical pass is still required.
+TCP/HTTP, ordinary service/worker and connection lifecycle/UI/reliability work
+remain separate. The private HTTP and child-pipe proposals remain unapplied.
