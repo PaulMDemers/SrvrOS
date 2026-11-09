@@ -15567,3 +15567,36 @@ post-reboot diagnosis without photos. The a3957769 build/regressions and staged
 8bbec0380fa63595 passed software checks,but are superseded by this diagnostic-only
 revision before any install. Rebuild and restage the exact new source;preserve
 the earlier local qualification rather than claiming it tested the final edit.
+
+
+### Exact v134 software qualification and protected installation (November 8)
+
+Runtime4f89113a consumes main63036859 and stages56a45e10afdd4efc. The final
+failure-evidence delta passes the matched kernel/USB build,full controller,
+native fence/No-Op and strict checker regressions. Broader a3957769 results are
+retained independently;the final delta changes only the two controller includes,
+the native child fixture and unit record. No full-core rerun is claimed.
+All243 staging tests,five fatal ASan/UBSan/leak groups,native freestanding stack
+checks (maximum new frame248bytes),full-parent composition/mutation refusals,
+2MiB real exFAT/VFS save/remount and ordinary desktop VM pass. Exact staged GPT
+and missing-workspace VMs pass their foreign-radio refusal/recovery gates,not
+native acceptance. The full composed prefix retains55495bytes headroom,including
+a separate32KiB reserve. Kernel/initramfs equality and the credential-free firmware
+package are verified;no PMK/password is packaged.
+
+Private candidate evidence is sealed outside build in
+wifi-nop5-native-4f89113a. Preflight confirms this MacBookPro11,2,captured adapter,
+workspace0E53-5900,Ubuntu default and existing e47d recovery. It preserves old
+native/refusal/review capsules and all existing USB logs;an exact raw metadata
+baseline plus ordinary file hashes is saved before boot. Only the unreferenced
+v126 EFI duplicate may be retired after complete sealed161-file backup equality
+and GRUB/NVRAM reference checks,to retain the required new-payload EFI margin.
+The current3c9,provider815,data e17,WPA v130,M1 and e47d payloads stay protected.
+
+The unattended cold trial uses the existing shutdown authorization:unplug only
+Wi-Fi10seconds while off,reconnect the same port,power on,workspace left connected.
+Guest progress/save/Ubuntu return are automatic;no commands/photos. Collect the
+matching new session once before another candidate. Preserve protocol outcome
+before independent storage verification,including raw before/after metadata on
+refusal. No native descriptor-boundary,ordinary RX,persistent networking,TCP/HTTP,
+connection lifecycle or UI acceptance is claimed until matching evidence exists.

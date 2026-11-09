@@ -2,7 +2,7 @@
 
 November 8. Unit-local implementation plan,not a hardware acceptance claim.
 Initial plan source307b911e;main63036859 consumed in merge0c2deb45.
-Its merged source still needs local qualification;older native evidence is unchanged.
+The merged baseline and exact v134 No-Op candidate are software-qualified;older native evidence is unchanged.
 Edimax7392:a711 MT7610 is5GHz-only. Target Demers5 WPA2-PSK/CCMP,US161/20MHz.
 Demers2.4 requires a different compatible adapter;it is a separate hardware scope.
 
@@ -113,3 +113,21 @@ security modes require explicit compatibility/regulatory evidence. WPA3/enterpri
 roaming,suspend/resume,throughput optimization and new-adapter enablement are not
 implied by completing this WPA2 fixed-adapter path. Trackpad latency,battery and
 headphone work remain independently deferred.
+
+
+## Current checkpoint (November 8)
+
+All three parallel software assignments are integrated and qualified. The actual
+native async backend and typed controller-only No-Op child have fatal sanitizer,
+real-owner fixture,strict full-parent saved-prefix,stack/storage and exact-stage
+VM coverage. Runtime4f89113a/release56a45e10afdd4efc is the first physical63+1
+No-Op boundary trial. It grants no encrypted data/RX authority. Parent owns its
+protected install,cold shutdown and matching collection;no concurrent harnesses.
+
+After physical boundary evidence,transport binds the same engine to persistent
+four-page encrypted traffic while RX integrates the already-authenticated copied
+Ethernet contract. These are still milestone2/3 work. Command-position reuse
+beyond the bounded fresh-command budget needs a separate hardware-derived proof.
+The ordinary DHCP/DNS/TCP/HTTP,lifecycle/UI and sustained reliability gates above
+remain open. Evidence ownership now includes exact private baseline metadata and
+independent protocol/storage outcomes;old v133 historical metadata remains limited.
