@@ -16,6 +16,18 @@ def output(exe,*args):return subprocess.check_output([str(exe),*args],text=True,
 MODES=['normal','wait','copy','policy','pre-epoch','pre-active','pre-domain','pre-batches','pre-count','pre-time','pre-context','extra','preserve','preserve-epoch','preserve-time','end-deadline','end-epoch']
 POINTS={**{m:range(1,11) for m in ('write-none','write-uncertain','write-epoch','write-detach','ack-float','ack-reserved','ack-foreign','poll-read','poll-epoch','phase-time','first-ack-time','never-ready')},**{m:range(1,25) for m in ('sample-read','sample-float')},**{m:range(1,5) for m in ('sample-count','sample-epoch')},**{m:range(5) for m in ('pre-geometry','pre-wait','pre-busy','hold-drift','hold-mask-drift')},**{m:range(1,9) for m in ('guard','guard-time','guard-epoch','clock-epoch','zero','backward')}}
 class PrepareTests(unittest.TestCase):
+ def test_preservation_summary_attention(self):
+  from hardware_desktop import needs_attention
+  text=output(ADAPTER,'--wake-engine-report')
+  line=next(l for l in text.splitlines() if l.startswith('intel-prepare-post-summary:'))
+  self.assertFalse(needs_attention(line))
+  for changed in (line.replace('complete=1','complete=0'),
+                  line.replace('reads=92','reads=91'),
+                  line.replace('reason=0','reason=1'),
+                  line.replace('managed_pages=0','managed_pages=1'),
+                  line.replace(' v=1',' v=2'),line+' unknown=0',
+                  line.replace(' complete=1','')):
+   with self.subTest(line=changed):self.assertTrue(needs_attention(changed))
  def test_completed_store_prefix_on_exit_failure(self):
   for mode in ('prep-exit-endpoint','prep-exit-backing'):
    for n in range(1,11):

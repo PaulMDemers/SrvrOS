@@ -573,6 +573,10 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-prepare-post-summary:'):
+        from intel_completion_audit import summary
+        try:return not summary(line.replace('intel-prepare-post-','intel-completion-',1))['complete']
+        except ValueError:return True
     if line.startswith('intel-prepare-summary:'):
         from intel_engine_prepare import prepare_summary
         try:return not prepare_summary(line)['complete']
