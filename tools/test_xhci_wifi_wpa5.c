@@ -18,14 +18,15 @@ void net_handle_ethernet_frame(const uint8_t *frame,uint16_t length){(void)frame
 #define XHCI_TRB_COUNT 64
 #define XHCI_TRB_TYPE_LINK 6
 #define XHCI_TRB_TYPE_NORMAL 1
+#define XHCI_TRB_TYPE_SETUP_STAGE 2
 #define XHCI_TRB_IOC (1u<<5)
 #define XHCI_TRB_ISP (1u<<2)
 struct usb_setup_packet{uint8_t request_type,request;uint16_t value,index,length;};
 struct xhci_trb{uint32_t parameter_low,parameter_high,status,control;};
-struct xhci_device{uint8_t slot_id;bool present,removed,retiring,ep0_quarantined,control_pending,control_failed;uint16_t vendor_id,product_id,device_bcd;void *input_context,*output_context;uint64_t input_context_phys,output_context_phys,ep0_ring_phys,descriptor_buffer_phys;struct {bool pending,stop_attempted,stop_ok;unsigned stop_event_cc;uint64_t buffer_phys;struct {uint64_t ring_phys;}ep;struct {bool pending;uint64_t buffer_phys;struct {uint64_t ring_phys;}response;}mcu;}firmware;};
-static struct {uint64_t command_ring_phys;bool stopping,sync_users,command_pending,command_failed;}xhci;
-static struct {void *device;}strict_control;
-static struct {struct xhci_device *d;struct{void *ring;}ep;struct {uint64_t ring,physical[8];void *buffer[8];}plan;int window;}wifi_cal5;
+struct xhci_device{struct xhci_trb *ep0_ring;uint8_t slot_id;bool present,removed,retiring,ep0_quarantined,control_pending,control_failed;uint16_t vendor_id,product_id,device_bcd;void *input_context,*output_context;uint64_t input_context_phys,output_context_phys,ep0_ring_phys,descriptor_buffer_phys;struct {bool pending,stop_attempted,stop_ok;unsigned stop_event_cc;uint64_t buffer_phys;struct {uint64_t ring_phys;}ep;struct {bool pending;uint64_t buffer_phys;struct {uint64_t ring_phys;}response;}mcu;}firmware;};
+static struct {uint64_t command_ring_phys,command_enqueue,sync_users;struct xhci_trb *command_ring;bool stopping,command_cycle,command_pending,command_failed;}xhci;
+static struct {struct xhci_device *device;uint64_t setup;uint32_t length;bool data_in,done;}strict_control;
+static struct {bool cleanup_enabled;struct xhci_device *d;struct{void *ring;}ep;struct {uint64_t ring,physical[8];void *buffer[8];}plan;int window;}wifi_cal5;
 static struct {struct {uint32_t chosen[9];}cycle;}wifi_power5;
 static struct {struct {uint64_t new_ring;}plan;void *ring;}wifi_handoff5;
 static struct {struct mt76_peer5 binding;}wifi_peer5;
@@ -217,6 +218,8 @@ static void setup(void){
  memset(&wifi_reuse5,0,sizeof wifi_reuse5);wifi_reuse5_requested=false;
  memset(providers,0,sizeof providers);memset(identities,0,sizeof identities);memset(names,0,sizeof names);memset(retiring,0,sizeof retiring);memset(references,0,sizeof references);provider_count=0;selected=NULL;sealed=false;
  memset(&wifi_wpa5,0,sizeof wifi_wpa5);wifi_wpa5_requested=wifi_wpa5_data_requested=false;wifi_join5_after=0;memset(&wifi_eapol5,0,sizeof wifi_eapol5);memset(&fake,0,sizeof fake);memset(&wifi_join5,0,sizeof wifi_join5);memset(&device,0,sizeof device);fake.next=30;fake.parent=true;fake.filter=0x17f97;fake.txop=0x583f;fake.time=1000;wifi_join5_requested=firmware_command_failed=firmware_command_exact=false;
+ /* Descendants exercise the legacy join path; opt-in cleanup stays disabled. */
+ wifi_cal5.cleanup_enabled=false;
  xhci=(typeof(xhci)){.command_ring_phys=9*4096};strict_control.device=0;
  device=(struct xhci_device){.slot_id=7,.present=true,.vendor_id=0x7392,.product_id=0xa711,.device_bcd=0x100,.input_context=fake.input,.output_context=fake.output,.input_context_phys=3*4096,.output_context_phys=4*4096,.ep0_ring_phys=4096,.descriptor_buffer_phys=2*4096};device.firmware.buffer_phys=5*4096;device.firmware.ep.ring_phys=6*4096;device.firmware.mcu.buffer_phys=7*4096;device.firmware.mcu.response.ring_phys=8*4096;
  wifi_cal5.d=&device;wifi_cal5.plan.ring=10*4096;wifi_cal5.ep.ring=fake.pages[10];for(unsigned i=0;i<8;i++){wifi_cal5.plan.physical[i]=(11+i)*4096;wifi_cal5.plan.buffer[i]=fake.pages[11+i];}
