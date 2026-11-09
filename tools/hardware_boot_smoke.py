@@ -624,6 +624,11 @@ def main():
                         if 'srvros.intel-wake=trial' in text:
                             from intel_gt_wake import native_wake_result,verify_wake_checkpoint
                             wake=native_wake_result(stored.read(folder+"/exit.log").decode())
+                            if 'srvros.intel-engines-prepare=request-cancel' in text:
+                                from intel_engine_prepare import prepare_result
+                                prep=prepare_result(stored.read(folder+"/exit.log").decode())
+                                assert prep and not prep['complete'] and not prep['summary']['attempts']
+                                (logs/'intel-prepare-result.json').write_text(json.dumps(prep,indent=2)+"\n")
                             if 'srvros.intel-takeover=preflight' in text:
                                 from intel_takeover import takeover_result
                                 take=takeover_result(stored.read(folder+"/exit.log").decode())

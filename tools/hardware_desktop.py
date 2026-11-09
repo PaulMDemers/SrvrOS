@@ -573,6 +573,10 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-prepare-summary:'):
+        from intel_engine_prepare import prepare_summary
+        try:return not prepare_summary(line)['complete']
+        except ValueError:return True
     if line.startswith('intel-takeover-summary:'):
         from intel_takeover import takeover_summary
         try:return not takeover_summary(line)['complete']
@@ -902,6 +906,12 @@ def collect(mount, volume, output):
                     pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
                     verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
             except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
+        if 'srvros.intel-engines-prepare=request-cancel' in text:
+            try:
+                from intel_engine_prepare import native_prepare_result
+                prepared=native_prepare_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not prepared or not prepared['native_complete']:attention.append("Intel engine preparation incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel engine preparation: "+str(error))
         if 'srvros.intel-takeover=preflight' in text:
             try:
                 from intel_takeover import native_takeover_result

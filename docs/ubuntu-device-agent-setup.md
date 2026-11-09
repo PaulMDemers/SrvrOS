@@ -1388,3 +1388,13 @@ workflow above. Keep volume at 1%. No human input is required: safe durable
 save/unmount outcomes return automatically; uncertain ownership or failed
 persistence halts visibly. Collect the matching release before preparing another
 run; a stable sampled quiescence bit alone is not hardware or GGTT ownership.
+
+### Air7,2 all-engine prepare/hold/cancel trial
+
+Use the separate `--intel-engine-prepare` profile with the local workspace UUID.
+The [engine-preparation contract](intel-engine-prepare.md) describes its exact
+five request/cancel controls, preserved readers and retained-uncertainty policy.
+Use the same exact-stage VM, durable backup, recovery, run-record and one-shot
+workflow. Keep volume at1%. The automated test needs no input and returns after
+safe durable save/unmount; uncertain ownership or failed persistence halts visibly.
+A passing trial does not grant managed GPU memory or native tear-free rendering.

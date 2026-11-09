@@ -62,6 +62,7 @@ static bool takeover_sample(void *p,uint32_t out[6],unsigned *count) {
     if(testmode(m,"return-foreign") && m->samples==2)m->gt.request|=2;
     return true;
 }
+#ifndef INTEL_TAKEOVER_FIXTURE_ONLY
 int main(int argc,char **argv) {
     struct takeover_model m={.gt={.t=1000,.mode="normal"},.mode=argc>1?argv[1]:"normal",.point=argc>2?(unsigned)atoi(argv[2]):1};
     struct display_access_token t;assert(display_access_acquire(18,&t));
@@ -103,3 +104,5 @@ int main(int argc,char **argv) {
     } else assert(!display_access_allowed());
     printf("takeover core PASS attempts=%u reads=%u guards=%u clocks=%u quiescent=%u retained=%u\n",r.attempts,r.reads,m.guards,m.clocks,r.quiescent,r.borrow.active);
 }
+
+#endif

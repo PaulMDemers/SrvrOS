@@ -24,5 +24,6 @@ bool intel_gt_wake_probe_report(void);
 bool intel_gt_wake_retained(void);
 bool intel_gt_boot_shutdown_recipe(const char *);
 bool intel_gt_boot_bcs_shutdown_recipe(const char *);
+bool intel_gt_boot_engine_prepare_recipe(const char *);
 bool intel_gt_boot_takeover_recipe(const char *);
 #endif

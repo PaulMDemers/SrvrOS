@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) && !defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
+#error "Engine preparation requires its own preflight image"
+#endif
 #if defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) && (!defined(SRVROS_INTEL_COMPLETION_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BLITTER_TRIAL))
 #error "Takeover preflight requires its own read-only image"
 #endif
@@ -21,7 +24,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+extern volatile struct limine_firmware_type_request intel_engine_prepare_firmware_request;
+#elif defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
 extern volatile struct limine_firmware_type_request intel_takeover_firmware_request;
 #elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
 extern volatile struct limine_firmware_type_request intel_bcs_shutdown_firmware_request;
@@ -45,9 +50,11 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 #include <srvros/intel_engine_census.h>
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
-#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
 #define WAKE_MAPS 13u
-#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#define WAKE_VERSION 14u
+#elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
 #define WAKE_VERSION 12u
 #else
 #define WAKE_VERSION 7u
@@ -145,6 +152,9 @@ static bool wake_map(struct wake_adapter *a,unsigned i) {
     uint64_t flags=VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|(i?0:VMM_PAGE_WRITABLE);
 #if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL)
     if(i==7)flags|=VMM_PAGE_WRITABLE;
+#endif
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+    if(i>=3 && i<=7)flags|=VMM_PAGE_WRITABLE;
 #endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
     if(i==9)flags|=VMM_PAGE_WRITABLE;
@@ -263,6 +273,9 @@ static void engine_report_named(const struct intel_engine_census *r,bool retired
 #endif
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
 #include "intel_takeover_trial.inc"
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#include "intel_engine_prepare_trial.inc"
+#endif
 #endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
 #include "intel_bcs_trial.inc"
@@ -285,7 +298,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+    #ifdef SRVROS_INTEL_ENGINE_PREPARE
+    const struct limine_firmware_type_response *firmware=intel_engine_prepare_firmware_request.response;
+#elif defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
     const struct limine_firmware_type_response *firmware=intel_takeover_firmware_request.response;
 #elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
     const struct limine_firmware_type_response *firmware=intel_bcs_shutdown_firmware_request.response;
@@ -306,7 +321,12 @@ bool intel_gt_wake_probe_report(void) {
     f.loader=loader && !loader->revision && wake_text(loader->name,"Limine") && wake_text(loader->version,"11.4.1");
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+    #ifdef SRVROS_INTEL_ENGINE_PREPARE
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_engine_prepare_recipe(cmd->cmdline);
+    struct engine_prepare_trial prepared={0};
+#else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_takeover_recipe(cmd->cmdline);
+#endif
     struct intel_takeover_result takeover={0};
 #elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
     #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
@@ -382,6 +402,9 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
                 if(completion.complete)(void)intel_takeover_observe(&takeover,&owner,&completion,(struct intel_takeover_io){&a,engine_guard,takeover_sample,now});
                 if(takeover.borrow.active)a.uncertain=true;
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+                if(takeover.complete && takeover.quiescent)eprepare_run(&a,&owner,&takeover,&prepared,f.recipe);
+#endif
 #endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
                 if(completion.complete)bcs_run(&a,&owner,&completion,&trial,grants==7 && f.recipe);
@@ -446,6 +469,10 @@ bool intel_gt_wake_probe_report(void) {
     complete=complete && completion.complete;
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
     takeover_report(&takeover,&completion);engine_reads+=takeover.reads;
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+    eprepare_report(&prepared);engine_reads+=prepared.action.reads+prepared.post.reads;
+    complete=complete && prepared.action.complete;
+#endif
     complete=complete && takeover.complete;
 #endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL

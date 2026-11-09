@@ -4,6 +4,7 @@
 #include <string.h>
 static const char recipe[]="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot";
 int main(int argc,char **argv) {
+ if(argc==3 && !strcmp(argv[1],"engine-prepare"))return intel_gt_boot_engine_prepare_recipe(argv[2])?0:1;
  if(argc==3 && !strcmp(argv[1],"takeover"))return intel_gt_boot_takeover_recipe(argv[2])?0:1;
  if(argc==3 && !strcmp(argv[1],"bcs-shutdown"))return intel_gt_boot_bcs_shutdown_recipe(argv[2])?0:1;
  if(argc==2)return intel_gt_boot_shutdown_recipe(argv[1])?0:1;
@@ -99,6 +100,15 @@ int main(int argc,char **argv) {
  const char *take=strstr(takeover,"srvros.intel-takeover=preflight");
  const char *writes[]={"srvros.intel-bcs-reset=blitter-only","srvros.intel-reset-ready=request-cancel","srvros.intel-shutdown=qualify"};
  for(unsigned i=0;i<3;i++){snprintf(bad,sizeof(bad),"%.*s%s",(int)(take-takeover),takeover,writes[i]);assert(!intel_gt_boot_takeover_recipe(bad));}
+ char engine_prepare[2600];snprintf(engine_prepare,sizeof(engine_prepare),"%s srvros.intel-engines-prepare=request-cancel",takeover);
+ assert(intel_gt_boot_engine_prepare_recipe(engine_prepare) && !intel_gt_boot_takeover_recipe(engine_prepare));
+ assert(!intel_gt_boot_engine_prepare_recipe(takeover));
+ for(const char *start=engine_prepare;*start;) {
+  const char *end=start;while(*end && *end!=' ')end++;
+  snprintf(bad,sizeof(bad),"%.*s%s",(int)(start-engine_prepare),engine_prepare,*end?end+1:end);assert(!intel_gt_boot_engine_prepare_recipe(bad));
+  snprintf(bad,sizeof(bad),"%s %.*s",engine_prepare,(int)(end-start),start);assert(!intel_gt_boot_engine_prepare_recipe(bad));start=*end?end+1:end;
+ }
+ for(unsigned i=0;i<3;i++){snprintf(bad,sizeof(bad),"%s %s",engine_prepare,writes[i]);assert(!intel_gt_boot_engine_prepare_recipe(bad));}
  char ready[2400];snprintf(ready,sizeof(ready),"%s srvros.intel-reset-ready=request-cancel",completion);
  assert(intel_gt_boot_reset_ready_recipe(ready) && !intel_gt_boot_completion_recipe(ready) && !intel_gt_boot_reset_ready_recipe(completion));
  for(const char *start=ready;*start;) {

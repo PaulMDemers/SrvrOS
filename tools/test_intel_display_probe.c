@@ -1,3 +1,11 @@
+#include <stdlib.h>
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#include <srvros/intel_engine_prepare.h>
+static uint32_t prepare_controls[5];
+static unsigned prepare_stores,prepare_reader_calls;
+static enum intel_gt_write intel_display_test_prepare_transition(unsigned,uint32_t,uint32_t *);
+static bool intel_display_test_prepare_reader(uint32_t,uint32_t *);
+#endif
 #include <assert.h>
 #include <stdarg.h>
 #include <inttypes.h>
@@ -54,7 +62,7 @@ static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc00000
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
  || o==0x9000
 #endif
-#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
  || o==0x9000 || o==0x70000 || o==0x71000 || o==0x72000
 #endif
 #endif
@@ -172,7 +180,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#define intel_wake_firmware_request intel_engine_prepare_firmware_request
+#elif defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
 #define intel_wake_firmware_request intel_takeover_firmware_request
 #elif defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
 #define intel_wake_firmware_request intel_shutdown_firmware_request
@@ -249,6 +259,9 @@ static bool intel_display_test_takeover_read(unsigned i,uint32_t reg,uint32_t *o
  static const uint32_t offsets[]={0x20d0,0x120d0,0x1a0d0,0x1c0d0,0x220d0,0x941c};
  assert(i<6 && reg==offsets[i] && wake_irq && !display_access_allowed() && wake_ack==1);
  ++takeover_reads;*out=0;
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+ if(i<5)*out=prepare_controls[i];
+#endif
  if(!strcmp(engine_mode,"take-read") && takeover_reads==3)return false;
  if(!strcmp(engine_mode,"take-float") && takeover_reads==5)*out=UINT32_MAX;
  if(!strcmp(engine_mode,"take-change") && takeover_reads>6 && i==2)*out=1;
@@ -261,6 +274,28 @@ static bool intel_display_test_takeover_read(unsigned i,uint32_t reg,uint32_t *o
  if(!strcmp(engine_mode,"take-map") && takeover_reads==2)pa[INTEL_CAPTURE_PAGES+1+9]^=4096;
  return true;
 }
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+static enum intel_gt_write intel_display_test_prepare_transition(unsigned e,uint32_t value,uint32_t *out) {
+ unsigned n=prepare_stores++;assert(n<10 && e==(n<5?n:9-n));
+ assert(wake_irq && wake_ack==1 && !display_access_allowed() && value==(n<5?0x10001u:0x10000u));
+ unsigned point=1;const char *colon=strchr(engine_mode,':');if(colon)point=(unsigned)atoi(colon+1);
+ if(!strncmp(engine_mode,"prep-none",9) && prepare_stores==point)return GT_WRITE_NONE;
+ prepare_controls[e]=n<5?3:0;*out=prepare_controls[e];
+ if(!strncmp(engine_mode,"prep-uncertain",14) && prepare_stores==point)return GT_WRITE_UNCERTAIN;
+ if(!strncmp(engine_mode,"prep-foreign",12) && prepare_stores==point)wake_request|=2;
+ if(!strncmp(engine_mode,"prep-ack-float",14) && prepare_stores==point)*out=UINT32_MAX;
+ if(!strncmp(engine_mode,"prep-map",8) && prepare_stores==point)pa[INTEL_CAPTURE_PAGES+1+3+e]^=4096;
+ return GT_WRITE_DONE;
+}
+static bool intel_display_test_prepare_reader(uint32_t reg,uint32_t *out) {
+ static const uint32_t offsets[9]={0x180,0x19c,0x1ac,0x80,0x84,0xac,0x280,0x29c,0x2ac};
+ unsigned p=(reg-0x70000)/4096,i=prepare_reader_calls++%9;
+ assert(p<3 && reg==0x70000+p*4096+offsets[i] && wake_irq && wake_ack==1 && !display_access_allowed());
+ *out=(!p && !i)?0xd8000400u:0;
+ if(prepare_stores==10 && !strcmp(engine_mode,"prep-plane") && i==8)*out=1;
+ return !(prepare_stores==10 && !strcmp(engine_mode,"prep-plane-read"));
+}
+#endif
 #endif
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
 static void census_fault(unsigned e,unsigned i) {
@@ -290,7 +325,7 @@ static const uint64_t fb_virtual=0xffff8000b0000000ull;
 static bool intel_display_test_uc(uint64_t p){assert(p==0xc0811000);return !window_cache_fail;}
 uint8_t pci_read_config8(const struct pci_device *d,uint8_t off){assert(d==&devices[0] && off==0x62);return 1;}
 uint64_t pci_device_count(void){
-#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || defined(SRVROS_INTEL_ENGINE_PREPARE)
  return 4;
 #else
  return 3;
@@ -300,6 +335,9 @@ const struct pci_device *pci_device_at(uint64_t i){return i<pci_device_count()?&
 uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
 #if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
     if(d==&devices[3])return intel_display_test_hda_config(off);
+#endif
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+    if(d==&devices[3]){switch(off){case 0:return 0x160c8086;case 4:return 0x00100006;case 8:return 0x04030001;case 0x34:return 0x40;case 0x40:return 0x00030001;case 0x44:return prepare_stores==10 && !strcmp(engine_mode,"prep-audio")?0:3;default:return 0;}}
 #endif
     config_reads++;assert(config_reads<(wake_mode?10000000:gt_mode?20000:window_mode?5000:1000));
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
@@ -349,6 +387,9 @@ static unsigned index_of(uint64_t v){
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t v,uint64_t *p){assert(space==0x1000);if(backing_mode && v>=fb_virtual && v<fb_virtual+6144*900){if(translation_gap && v==fb_virtual+4096)return false;*p=0xb0000000+v-fb_virtual;return true;}unsigned n=index_of(v);*p=pa[n];return pa[n]!=0;}
 bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) {
     bool writable=wake_mode && v==BACKING_VA+0x10000;
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+    writable=writable || (wake_mode && v>=BACKING_VA+0x13000 && v<=BACKING_VA+0x17000);
+#endif
 #if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL)
     writable=writable || (wake_mode && v==BACKING_VA+0x17000);
 #endif
@@ -466,7 +507,7 @@ static void reset(void) {
     dsdt=(struct acpi_table_info){.physical_address=0x100000,.length=35034};memcpy(dsdt.signature,"DSDT",4);
     ram=(struct limine_memmap_entry){.base=0x100000,.length=0x70000000,.type=LIMINE_MEMMAP_USABLE};
     devices[2]=(struct pci_device){.device=0,.class_code=6};
-#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL)
+#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
     devices[3]=(struct pci_device){.device=3,.vendor_id=0x8086,.device_id=0x160c,.class_code=4,.subclass=3};
 #endif
     aperture=(struct limine_memmap_entry){.base=0xb0000000,.length=0x10000000,.type=LIMINE_MEMMAP_FRAMEBUFFER};
@@ -522,6 +563,9 @@ int main(int argc,char **argv) {
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
     static char takeover_recipe[1400];snprintf(takeover_recipe,sizeof(takeover_recipe),"%s srvros.intel-takeover=preflight",completion_recipe);wake_cmd.cmdline=takeover_recipe;
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+    static char prepare_recipe[1600];snprintf(prepare_recipe,sizeof(prepare_recipe),"%s srvros.intel-engines-prepare=request-cancel",takeover_recipe);wake_cmd.cmdline=prepare_recipe;
+#endif
 #endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
     static char reset_recipe[1400];snprintf(reset_recipe,sizeof(reset_recipe),"%s srvros.intel-bcs-reset=blitter-only",completion_recipe);wake_cmd.cmdline=reset_recipe;
@@ -571,6 +615,9 @@ int main(int argc,char **argv) {
 #endif
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
  if(!strncmp(engine_mode,"take-",5))good=good && (!strcmp(engine_mode,"take-busy") || !strcmp(engine_mode,"take-mask") || !strcmp(engine_mode,"take-reserved") || !strcmp(engine_mode,"take-domain") || !strcmp(engine_mode,"take-domain-reserved"));
+#endif
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+ good=good && !strcmp(engine_mode,"report");
 #endif
  assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
