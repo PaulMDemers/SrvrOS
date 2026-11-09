@@ -16003,3 +16003,59 @@ continuousPN70/71,real RX/TX fences,64 exact replies,whole parent/ledger retirem
 and independent storage/recovery proof. Missing completion or any refusal is not
 a pass;do not perform another identical blind retry. Ordinary networking,TCP/HTTP,
 command reuse,connection epochs/reattachment/UI and reliability remain later gates.
+
+### Native v136 encrypted streaming accepted (November 9)
+
+Runtime `38f2d76a` / release `8529308170250844`, session
+`00065fd0e213e7ba-00`, now passes the complete bounded encrypted stream gate.
+The saved exit prefix is 2,058,559 bytes. One bounded Discover retransmission
+succeeds under the original key owner: seven setup requests, 71 encrypted data
+requests with continuous PN1–71, and all 64 exact 256-byte gateway echo replies
+in 3.432164 seconds. The categorical DHCP receipts are preserved; the reason
+that the first Discover lacked a matching Offer is not established.
+
+Real native receipts verify one TX and three RX 63-position fences, with traffic
+following each boundary. There are 76 ordinary TX completions, 212 normal RX
+completions and one terminal stopped RX descriptor; all 212 RX loans are returned
+and zero faults recorded. One original key installation is followed by erasure
+and leave. All 15,719 parent operations, original contexts and independent RF/
+power/MAC/input restoration pass, with empty event debt and retired DMA ledger.
+Backend tombstones remain retained until controller halt; this is not early
+backend reclamation or ordinary provider RX/TCP/HTTP acceptance.
+
+Independent storage review verifies all 413 prior ordinary file hashes and 169
+directories, and all 582 prior metadata records, apart from the expected marker
+access time within independently derived RTC bounds. Only the matching session's
+two files and directory are new. Filesystem and allocation checks are clean,
+Ubuntu remains default, the one-shot entry is cleared, and all six protected
+recovery payloads match. The original 255-file native capsule remains immutable;
+a separate acceptance capsule contains the independent stream/storage reviews.
+Historical failed v135 runs remain failed. No physical run is currently armed.
+
+### Next bounded ordinary-stack implementation scope (November 9)
+
+Actual main `928555f3` was fetched and inspected after collection; its delta from
+integrated `b7d3927b` is Air6,1 sync-measurement documentation only. It supplies no
+new Pro runtime acceptance. PR19 remains the bounded MT7610 implementation owner.
+Root owns integration, main/profile/staging/Makefile, qualification, private
+provisioning and power. Disjoint agents own (1) a nonblocking provider adapter
+sharing the accepted stream's original exclusive key/DMA owner, with an actual
+native-owner/unrenamed-production-stack encrypted-peer fixture; and (2) an
+explicit guarded production DHCP Discover-retry API and independent packet tests.
+Existing v135/v136 APIs, output and admission remain separate and unchanged.
+
+The first new software gate keeps four pages per direction, 80 TX / 252 RX,
+four fences, fresh command positions and cleanup reserve. Provider callbacks
+must not wait for commands, delays or completion: readiness holds queued bytes
+before token/PN allocation; service performs bounded steps; authenticated RX
+is copied only after DMA loans return. Quiet pending RX still requires a real
+completion or contained failure. The ordinary-stack exercise runs through an
+explicit secured-window callback; it cannot silently reuse the private IP probe.
+Production DHCP retry must prove the original queued TX completed and the same
+secured provider epoch remains current. Queue admission alone is not proof.
+
+Production DHCP/DNS/ARP/UDP, verified TCP/HTTP bytes, connection epochs/removal/
+reattachment, UI controls and longer reliability remain open. A declared reachable
+HTTP endpoint and expected bytes, deferred live-window receipts, exact capture
+budget and actual-main dispatch tests are required before a new native profile.
+There is no automatic reboot until that distinct candidate is qualified.

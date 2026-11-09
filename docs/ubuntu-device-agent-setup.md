@@ -1494,3 +1494,17 @@ a nested begin in the same slot refuses. Both consume one captured callback and
 one controller metadata sample, with independent validity/overflow accounting.
 This permits observation across legitimate diagnostic-scope overlap without
 ending a foreign trace, issuing extra transfers or changing transport ownership.
+
+#### Pro11,2 v136 return checkpoint (November 9)
+
+The matching `38f2d76a` / `8529308170250844` run is collected exactly once and
+accepted for bounded original-key encrypted streaming: one bounded Discover
+retry, 71 data requests, 64 exact echoes, one TX / three RX real fences and full
+parent/ledger retirement. Strict prior-file/metadata, offline allocation and
+Ubuntu/recovery checks pass. Original native capsule has 255 files; separate
+14-file acceptance notes include independent stream/storage reviews. Do not
+recollect or reseal these capsules. No boot entry remains armed. Ordinary
+provider/production IP/TCP/HTTP, lifecycle/UI and unlimited command reuse still
+need their own matched qualification and native evidence; see the unit completion
+plan. The new nonblocking adapter and explicit production DHCP retry are software
+work in progress, not an installed candidate or a reason to reboot this host.

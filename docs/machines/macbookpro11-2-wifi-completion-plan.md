@@ -189,3 +189,18 @@ exact-image VMs including414 prior files and identities. It is installed for the
 next cold trial;native70/71-request/64-echo and TX-boundary acceptance is pending.
 The original no-retry profiles stay separate. Production RX/IP/TCP/HTTP,lifecycle
 and broad reliability above remain required before daily-use completion.
+
+November 9: native v136 `38f2d76a` / `8529308170250844` now accepts the bounded
+original-key stream: one Discover retry, 71 encrypted requests, 64 exact echoes,
+one TX and three RX real fences, complete parent/ledger retirement, and strict
+414-file baseline/metadata plus offline/recovery proof. Independent reviews and
+separate acceptance notes preserve the original 255-file native capsule. This
+closes the first bounded encrypted RX/TX boundary gate, not unlimited command
+reuse, ordinary provider/stack or lifecycle acceptance.
+
+Next parallel implementation keeps v136 separate: a nonblocking native provider
+adapter and combined actual-owner/unrenamed-production-stack encrypted fixture,
+plus explicit completion/epoch-guarded production DHCP retry. Root owns subsequent
+profile integration, deferred output/capture budget, exact-image qualification
+and hardware. TCP/HTTP requires a verified endpoint and expected response bytes;
+UI/reattachment and reliability remain later gates. Nothing new is armed.
