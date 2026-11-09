@@ -1,9 +1,11 @@
 /* Bounded original-key provider. IRQ-off callbacks never delay or wait. */
+#include <srvros/mt76_stack5_probe.h>
 #define WIFI_STACK5_TOTAL_US 15000000u
 #define WIFI_STACK5_POLLS 150000u
 static struct {
  struct mt76_net5 net;void *context;bool (*exercise)(void *,struct mt76_net5 *);
- uint64_t start,last,boundary_start,tx_token,tx_ticket,tx_completion,services;
+ uint64_t start,last,boundary_start,tx_token,tx_ticket,tx_completion,services,icmp_count,icmp_pn;
+ unsigned icmp_sequence;
  bool selected,running,exercise_complete,boundary,failed,detached,retired;
 } wifi_stack5;
 static bool wifi_stack5_fault(void){wifi_stack5.failed=true;return wifi_stream5_fail();}
@@ -14,6 +16,8 @@ static enum mt76_net5_submit wifi_stack5_submit(void *c,uint64_t epoch,uint64_t 
  struct mt76_net5 *p=&wifi_stack5.net;struct wpa2_ccmp *k=&wifi_stream5.exchange.keys;
  if(!wifi_stack5_ready(c,epoch) || !token || !p->pending || p->pending_token!=token || frame!=p->loan || length!=p->loan_size || length<14 || length>MT76_DATA5_ETH_MAX || wifi_stream5.posts[0]!=4+wifi_stream5.data_sends)return MT76_NET5_REFUSED;
  if(!wifi_stack5_clock())return MT76_NET5_UNCERTAIN;
+ bool echo=length==74 && frame[12]==8 && !frame[13] && frame[14]==0x45 && !frame[16] && frame[17]==60 && !(frame[20]&0x3f) && !frame[21] && frame[23]==1 && frame[34]==8 && !frame[35];
+ unsigned sequence=echo?((unsigned)frame[40]<<8|frame[41]):0;
  uint64_t pn=k->tx_pn;size_t bytes=mt76_data5_tx(&wifi_stream5.scratch,k,epoch,frame,length,9+wifi_stream5.data_sends,wifi_stream5.usb,sizeof wifi_stream5.usb);
  if(!bytes || k->tx_pn!=pn+1){zero_bytes(wifi_stream5.usb,sizeof wifi_stream5.usb);return k->tx_pn==pn?MT76_NET5_REFUSED:MT76_NET5_UNCERTAIN;}
  wifi_stream5.data_pn=k->tx_pn;wifi_stream5.tx_kind=5;
@@ -21,7 +25,8 @@ static enum mt76_net5_submit wifi_stack5_submit(void *c,uint64_t epoch,uint64_t 
   * blocking fence path. Original key seals once;publication uncertainty pins. */
  bool good=wifi_stream5_publish(0,wifi_stream5.usb,(unsigned)bytes);zero_bytes(wifi_stream5.usb,sizeof wifi_stream5.usb);
  if(!good){wifi_stack5_fault();return MT76_NET5_UNCERTAIN;}
- wifi_stack5.tx_token=token;wifi_stack5.tx_ticket=wifi_stream5.lease[0].ticket;wifi_stack5.tx_completion=wifi_stream5.completions[0];wifi_stream5.data_sends++;if(wifi_stream5.wraps[0])wifi_stream5.data_after_txwrap++;return MT76_NET5_QUEUED;
+ wifi_stack5.tx_token=token;wifi_stack5.tx_ticket=wifi_stream5.lease[0].ticket;wifi_stack5.tx_completion=wifi_stream5.completions[0];wifi_stream5.data_sends++;if(wifi_stream5.wraps[0])wifi_stream5.data_after_txwrap++;
+ if(echo){wifi_stack5.icmp_count++;wifi_stack5.icmp_pn=k->tx_pn;wifi_stack5.icmp_sequence=sequence;}return MT76_NET5_QUEUED;
 }
 static bool wifi_stack5_service(void *c,uint64_t epoch){
  if(!wifi_stack5_owned(c,epoch) || !wifi_stack5_clock())return false;
@@ -83,7 +88,8 @@ static enum mt76_join5_send wifi_stack5_window(void *c,struct wpa2_ccmp *keys,ui
 }
 static bool wifi_stack5_complete(void){return wifi_stack5.selected && wifi_stack5.exercise_complete && !wifi_stack5.failed && !wifi_stack5.running && wifi_stack5.net.state==MT76_NET5_CLOSING && !wifi_stack5.net.count && !wifi_stack5.net.pending && !wifi_stack5.tx_token && !wifi_stack5.net.dropped && wifi_stack5.net.enqueued==wifi_stack5.net.submitted && wifi_stack5.net.submitted==wifi_stack5.net.completed && wifi_stack5.net.completed==wifi_stream5.data_sends && wifi_stack5.net.received && !wifi_stack5.net.faults;}
 static void wifi_stack5_emit(void){
- console_printf("wifi-stack5: complete=%u parent=%u restored=%u retired=%u empty=%u tx=%u rx=%u tx_wraps=%u rx_wraps=%u data_tx=%u data_rx=%u borrowed=%u released=%u faults=%u services=%u elapsed_us=%u enqueued=%u submitted=%u completed=%u received=%u provider_faults=%u pending=%u retained=1 backend_retired=0\n",(uint64_t)(wifi_stream5.complete && wifi_stream5.parent_complete && wifi_stream5.retired),(uint64_t)wifi_stream5.parent_complete,(uint64_t)wifi_stream5.restored,(uint64_t)wifi_stream5.retired,(uint64_t)wifi_stream5.events_empty,wifi_stream5.posts[0],wifi_stream5.posts[1],(uint64_t)wifi_stream5.wraps[0],(uint64_t)wifi_stream5.wraps[1],(uint64_t)wifi_stream5.data_sends,(uint64_t)wifi_stream5.data_received,wifi_stream5.dma.borrowed,wifi_stream5.dma.released,wifi_stream5.dma.faults,wifi_stack5.services,wifi_stack5.last-wifi_stack5.start,wifi_stack5.net.enqueued,wifi_stack5.net.submitted,wifi_stack5.net.completed,wifi_stack5.net.received,wifi_stack5.net.faults,(uint64_t)wifi_stack5.net.pending);
+ unsigned selected[8],rx_receipts=wifi_stream5_rx_select(selected);
+ console_printf("wifi-stack5: complete=%u parent=%u restored=%u retired=%u empty=%u tx=%u rx=%u tx_wraps=%u rx_wraps=%u data_tx=%u data_rx=%u tx_after=%u rx_after=%u commands=%u fences=%u rx_receipts=%u dropped=%u borrowed=%u released=%u faults=%u services=%u elapsed_us=%u enqueued=%u submitted=%u completed=%u received=%u provider_faults=%u pending=%u retained=1 backend_retired=0\n",(uint64_t)(wifi_stream5.complete && wifi_stream5.parent_complete && wifi_stream5.retired),(uint64_t)wifi_stream5.parent_complete,(uint64_t)wifi_stream5.restored,(uint64_t)wifi_stream5.retired,(uint64_t)wifi_stream5.events_empty,wifi_stream5.posts[0],wifi_stream5.posts[1],(uint64_t)wifi_stream5.wraps[0],(uint64_t)wifi_stream5.wraps[1],(uint64_t)wifi_stream5.data_sends,(uint64_t)wifi_stream5.data_received,(uint64_t)wifi_stream5.data_after_txwrap,(uint64_t)wifi_stream5.data_after_rxwrap,(uint64_t)wifi_stream5.commands,wifi_stream5.dma.wraps,(uint64_t)rx_receipts,wifi_stack5.net.dropped,wifi_stream5.dma.borrowed,wifi_stream5.dma.released,wifi_stream5.dma.faults,wifi_stack5.services,wifi_stack5.last-wifi_stack5.start,wifi_stack5.net.enqueued,wifi_stack5.net.submitted,wifi_stack5.net.completed,wifi_stack5.net.received,wifi_stack5.net.faults,(uint64_t)wifi_stack5.net.pending);
 }
 /* Caller supplies a bounded production exercise,initializing net.c only after
  * provider attachment. It must return with queue/TX callbacks idle. */
@@ -96,4 +102,33 @@ bool xhci_wifi_capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *
  wifi_stack5.exercise=NULL;wifi_stack5.context=NULL;
  console_printf("wifi-stack5-final: complete=%u detached=%u provider_retired=%u retained=1 backend_retired=0\n",(uint64_t)(good && wifi_stack5.detached && wifi_stack5.retired),(uint64_t)wifi_stack5.detached,(uint64_t)wifi_stack5.retired);
  return good && wifi_stack5.detached && wifi_stack5.retired;
+}
+static struct mt76_stack5_probe wifi_stack5_probe_result;
+static bool wifi_stack5_probe_current(void *c,uint64_t epoch){
+ struct mt76_net5 *p=&wifi_stack5.net;const struct mt76_net5_io *io=&p->io,*guard=&p->io_guard;
+ return wifi_stack5_owned(c,epoch) && p->state==MT76_NET5_UP && p->attached && p->epoch==epoch && !p->retire_requested &&
+ io->context==c && guard->context==c && io->owned==wifi_stack5_owned && guard->owned==wifi_stack5_owned &&
+ io->submit==wifi_stack5_submit && guard->submit==wifi_stack5_submit && io->service==wifi_stack5_service && guard->service==wifi_stack5_service &&
+ io->receive==wifi_stack5_receive && guard->receive==wifi_stack5_receive && io->retired==wifi_stack5_retirement && guard->retired==wifi_stack5_retirement && p->ready==wifi_stack5_ready && p->ready_guard==wifi_stack5_ready;
+}
+static bool wifi_stack5_probe_retry(void *c,uint64_t epoch){
+ struct mt76_net5 *p=&wifi_stack5.net;
+ return wifi_stack5_probe_current(c,epoch) && !p->count && !p->pending && p->submitted==p->completed && !wifi_stack5.tx_token && !wifi_stream5.pending[0];
+}
+static bool wifi_stack5_probe_observe(void *c,uint64_t epoch,struct mt76_stack5_observation *o){
+ if(!o || !wifi_stack5_probe_current(c,epoch))return false;
+ struct mt76_net5 *p=&wifi_stack5.net;
+ *o=(struct mt76_stack5_observation){.data_tx=wifi_stream5.data_sends,.tx_posts=wifi_stream5.posts[0],.rx_posts=wifi_stream5.posts[1],.tx_after=wifi_stream5.data_after_txwrap,.rx_after=wifi_stream5.data_after_rxwrap,.services=wifi_stack5.services,.icmp_count=wifi_stack5.icmp_count,.icmp_pn=wifi_stack5.icmp_pn,.tx_cursor=wifi_stream5.dma.cursor[0],.rx_cursor=wifi_stream5.dma.cursor[1],.tx_wraps=wifi_stream5.wraps[0],.rx_wraps=wifi_stream5.wraps[1],.fences=(unsigned)wifi_stream5.dma.wraps,.icmp_sequence=wifi_stack5.icmp_sequence,
+ .drained=!p->count && !p->pending && !wifi_stack5.tx_token && !wifi_stream5.pending[0] && !wifi_stream5.ready_rx && !wifi_stream5.loan.ticket && !wifi_stream5.cached_present && !wifi_stack5.boundary && !wifi_fence5_native.round && !xhci.command_pending};
+ return wifi_stack5_probe_current(c,epoch);
+}
+static bool wifi_stack5_probe_exercise(void *context,struct mt76_net5 *p){
+ if(context!=&wifi_stack5_probe_result || p!=&wifi_stack5.net || wifi_stack5.start>UINT64_MAX-WIFI_STACK5_TOTAL_US)return false;
+ const struct mt76_stack5_probe_io io={&wifi_stream5,wifi_stack5_probe_current,wifi_stack5_probe_retry,wifi_stack5_probe_observe,wifi_stream5.epoch,wifi_stack5.start+WIFI_STACK5_TOTAL_US};
+ return mt76_stack5_probe_run(context,p,&io);
+}
+bool xhci_wifi_capture_stack5_probe(void){
+ bool good=xhci_wifi_capture_stack5(wifi_stack5_probe_exercise,&wifi_stack5_probe_result);
+ /* All result emission follows key/endpoint/MAC/parent closure;never live. */
+ mt76_stack5_probe_emit(&wifi_stack5_probe_result);return good;
 }

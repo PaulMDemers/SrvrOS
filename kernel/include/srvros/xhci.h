@@ -137,6 +137,8 @@ bool xhci_wifi_capture_stream5_dhcp(void);
  * with queue/TX idle;all key/hardware/parent/ledger proof precedes detach. */
 struct mt76_net5;
 bool xhci_wifi_capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *context);
+/* Explicit v137 production DHCP/DNS/64 exact ICMP workload and saved receipts. */
+bool xhci_wifi_capture_stack5_probe(void);
 bool xhci_wifi_capture_vco5(void);
 bool xhci_wifi_capture_dac5(void);
 bool xhci_wifi_capture_rf_g20(void);

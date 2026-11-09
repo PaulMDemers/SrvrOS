@@ -2107,17 +2107,17 @@ test-desktop: test-gui-wait
 .PHONY: test-net-worker
 test-net-worker: build/tests/net-worker-host$(HOST_EXE)
 	$<
-build/tests/net-worker-host$(HOST_EXE): tools/test_net_worker.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/net-worker-host$(HOST_EXE): tools/test_net_worker.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 test-core: test-net-worker
 
 .PHONY: test-net-lifetime
 test-net-lifetime: build/tests/net-lifetime-host$(HOST_EXE)
 	@for mode in close pending inherited backlog abort deadline fin-failure simultaneous future-ack wrap-ack syn-ack stale-hold stale-io reuse stale-wait rst-window rst-connect receive-window receive-duplicate terminal-error terminal-eof timewait-pressure repeat-syn allocation-outbound allocation-inbound allocation-backlog partial-ack partial-fin partial-window overlap-wrap window-order window-overlap window-handshake persist-reopen persist-responsive persist-data persist-silent persist-close ipv4-fragments packet-bounds option-invalid option-valid mss-passive mss-active mss-default mss-syn-wire; do $< $$mode || exit $$?; done
-build/tests/net-lifetime-host$(HOST_EXE): tools/test_net_lifetime.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/net-lifetime-host$(HOST_EXE): tools/test_net_lifetime.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 test-core: test-net-lifetime
 
 .PHONY: test-syscall-cancel
@@ -3320,9 +3320,9 @@ build/tests/mt76-net5-host$(HOST_EXE): tools/test_mt76_net5.c kernel/src/drivers
 test-core: test-mt76-net5-stack
 test-mt76-net5-stack: build/tests/mt76-net5-stack-host$(HOST_EXE)
 	$<
-build/tests/mt76-net5-stack-host$(HOST_EXE): tools/test_mt76_net5_stack.c kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c $(KERNEL_HEADERS)
+build/tests/mt76-net5-stack-host$(HOST_EXE): tools/test_mt76_net5_stack.c kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< kernel/src/net_device.c kernel/src/drivers/mt76_net5.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< tools/net_bounded_legacy_stubs.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c -Wl,--gc-sections -o $@
 
 .PHONY: test-usb-ecm
 test-core: test-usb-ecm
@@ -3962,9 +3962,9 @@ test-storage-wait-result:
 test-core: test-tcp-accept
 test-tcp-accept: build/tests/tcp-accept-host$(HOST_EXE)
 	$<
-build/tests/tcp-accept-host$(HOST_EXE): tools/test_tcp_accept.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/tcp-accept-host$(HOST_EXE): tools/test_tcp_accept.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 
 .PHONY: test-e1000-rx
 test-core: test-e1000-rx
@@ -4645,9 +4645,9 @@ build/ap-probe/scheduler.o: kernel/src/scheduler.c $(ZIG) $(LIMINE_PROTOCOL_DIR)
 .PHONY: test-net-datagram test-posix-datagram
 test-net-datagram: build/tests/net-datagram-host$(HOST_EXE)
 	@for mode in icmp-checksum icmp-code icmp-reply udp-wire udp-pressure udp-truncate udp-send-reuse udp-close-wait udp-inherited udp-bind udp-try-send; do $< $$mode || exit $$?; done
-build/tests/net-datagram-host$(HOST_EXE): tools/test_net_datagram.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/net-datagram-host$(HOST_EXE): tools/test_net_datagram.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 test-posix-datagram: build/tests/posix-datagram-host$(HOST_EXE)
 	@for mode in truncate zero address empty oom bind-cache; do $< $$mode || exit $$?; done
 build/tests/posix-datagram-host$(HOST_EXE): tools/test_posix_datagram.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
@@ -4681,9 +4681,9 @@ build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c kernel/diagnostic
 .PHONY: test-net-query test-posix-udp-owner
 test-net-query: build/tests/net-query-host$(HOST_EXE)
 	@for mode in arp-overlap arp-timeout arp-cache arp-exit arp-opcode dns-overlap dns-arp-overlap dns-completed-overlap dns-source dns-id dns-exit dns-failure-retry dns-timeout dns-last-poll dns-deadline-wake; do $< $$mode || exit $$?; done
-build/tests/net-query-host$(HOST_EXE): tools/test_net_query.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/net-query-host$(HOST_EXE): tools/test_net_query.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 test-posix-udp-owner: build/tests/posix-udp-owner-host$(HOST_EXE)
 	@for mode in filter-from filter-msg filter-zero filter-recv unconnected reuse-filter reuse-restart reuse-flags close-only retry-control dontwait-control dup-reuse; do $< $$mode || exit $$?; done
 build/tests/posix-udp-owner-host$(HOST_EXE): tools/test_posix_udp_owner.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
@@ -4713,9 +4713,9 @@ build/tests/fd-io-restart-host$(HOST_EXE): tools/test_fd_io_restart.c tools/lega
 DNS_RESPONSE_MODES := valid case question qtype qclass qr opcode tc rcode self-pointer forward-pointer bad-pointer unrelated trailing-answer trailing-additional bounds cname interior-pointer header-pointer cname-cycle cname-length cname-conflict unrelated-first
 test-dns-response: build/tests/dns-kernel-host$(HOST_EXE) build/tests/dns-libc-host$(HOST_EXE)
 	@for binary in $^; do for mode in $(DNS_RESPONSE_MODES); do $$binary $$mode || exit $$?; done; done
-build/tests/dns-kernel-host$(HOST_EXE): tools/test_dns_response.c kernel/src/net.c shared/include/srvros/dns_wire.h $(KERNEL_HEADERS)
+build/tests/dns-kernel-host$(HOST_EXE): tools/test_dns_response.c kernel/src/net.c shared/include/srvros/dns_wire.h $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 build/tests/dns-libc-host$(HOST_EXE): tools/test_dns_response.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DTEST_DNS_LIBC -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
@@ -4736,9 +4736,9 @@ build/tests/socket-try-io-host$(HOST_EXE): tools/test_socket_try_io.c kernel/src
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-net-transfer: build/tests/net-transfer-host$(HOST_EXE)
 	$<
-build/tests/net-transfer-host$(HOST_EXE): tools/test_net_transfer.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/net-transfer-host$(HOST_EXE): tools/test_net_transfer.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 .PHONY: test-net-transfer
 test-core: test-dns-response test-socket-calls test-socket-try-io test-net-transfer
 
@@ -5938,9 +5938,9 @@ build/tests/mt76-dma5-host$(HOST_EXE): tools/test_mt76_dma5.c kernel/src/drivers
 test-core: test-mt76-dma5-stack
 test-mt76-dma5-stack: build/tests/mt76-dma5-stack-host$(HOST_EXE)
 	$<
-build/tests/mt76-dma5-stack-host$(HOST_EXE): tools/test_mt76_dma5_stack.c tools/test_mt76_net5_stack.c kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c $(KERNEL_HEADERS)
+build/tests/mt76-dma5-stack-host$(HOST_EXE): tools/test_mt76_dma5_stack.c tools/test_mt76_net5_stack.c kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< kernel/src/net_device.c kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< tools/net_bounded_legacy_stubs.c kernel/src/net_device.c kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c -Wl,--gc-sections -o $@
 
 .PHONY: test-xhci-reuse5
 test-core: test-xhci-reuse5
@@ -6231,9 +6231,9 @@ test-core: test-net-probe-quiet
 test-wifi-completion-foundations: test-net-probe-quiet
 test-net-probe-quiet: build/tests/net-probe-quiet-host$(HOST_EXE)
 	$<
-build/tests/net-probe-quiet-host$(HOST_EXE): tools/test_net_probe_quiet.c kernel/src/net.c $(KERNEL_HEADERS)
+build/tests/net-probe-quiet-host$(HOST_EXE): tools/test_net_probe_quiet.c kernel/src/net.c $(KERNEL_HEADERS) tools/net_bounded_legacy_stubs.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< tools/net_bounded_legacy_stubs.c -Wl,--gc-sections -o $@
 
 # Optional independent AP oracle needs Python cryptography and OpenSSL headers.
 # It is intentionally separate from the portable default test-core dependencies.
@@ -6247,6 +6247,21 @@ HOST_OPENSSL_LIBS ?= -lcrypto
 .PHONY: test-xhci-stack5
 test-xhci-stack5: build/tests/xhci-stack5-host$(HOST_EXE)
 	$<
-build/tests/xhci-stack5-host$(HOST_EXE): tools/test_xhci_wifi_stack5.c tools/test_xhci_wifi_stream5.c tools/fixtures/mt76-stream5-dhcp-synthetic.h tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc kernel/src/drivers/xhci_wifi_stream5.inc kernel/include/srvros/mt76_stream5_probe.h $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE) tools/fixtures/mt76-stack5-peer.c tools/fixtures/mt76-stack5-peer.h kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/xhci_wifi_stack5.inc
+build/tests/xhci-stack5-host$(HOST_EXE): tools/test_xhci_wifi_stack5.c tools/test_xhci_wifi_stream5.c tools/fixtures/mt76-stream5-dhcp-synthetic.h tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc kernel/src/drivers/xhci_wifi_stream5.inc kernel/include/srvros/mt76_stream5_probe.h $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE) tools/fixtures/mt76-stack5-peer.c tools/fixtures/mt76-stack5-peer.h kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/xhci_wifi_stack5.inc kernel/src/drivers/mt76_stack5_probe.c kernel/include/srvros/mt76_stack5_probe.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST $(HOST_OPENSSL_CFLAGS) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c kernel/src/net.c kernel/src/net_device.c tools/fixtures/mt76-stack5-peer.c -Wl,--gc-sections $(HOST_OPENSSL_LIBS) -o $@
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST $(HOST_OPENSSL_CFLAGS) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c kernel/src/drivers/mt76_stack5_probe.c kernel/src/net.c kernel/src/net_device.c tools/fixtures/mt76-stack5-peer.c -Wl,--gc-sections $(HOST_OPENSSL_LIBS) -o $@
+build/tests/xhci-host$(HOST_EXE) build/tests/xhci-stream5-host$(HOST_EXE) build/tests/xhci-stream5-dhcp-host$(HOST_EXE): kernel/include/srvros/mt76_stack5_probe.h
+
+.PHONY: test-net-bounded-probe test-wifi-stack5-log
+test-core: test-net-bounded-probe
+test-wifi-completion-foundations: test-net-bounded-probe
+test-net-bounded-probe: build/tests/net-bounded-probe-host$(HOST_EXE)
+	$<
+build/tests/net-bounded-probe-host$(HOST_EXE): tools/test_net_bounded_probe.c tools/test_net_dhcp_retry.c kernel/src/net.c kernel/src/net_device.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
+WIFI_STACK5_TRACE_ARGS ?=
+test-wifi-stack5-log: build/tests/xhci-stack5-host$(HOST_EXE)
+	$< --trace $(WIFI_STACK5_TRACE_ARGS) > build/tests/xhci-stack5-trace.log
+	$< --trace-retry $(WIFI_STACK5_TRACE_ARGS) > build/tests/xhci-stack5-retry-trace.log
+	WIFI_STACK5_TRACE=build/tests/xhci-stack5-trace.log WIFI_STACK5_RETRY_TRACE=build/tests/xhci-stack5-retry-trace.log $(PYTHON) -B -m unittest discover -s tools -p test_wifi_stack5_log.py

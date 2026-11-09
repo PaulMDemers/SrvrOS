@@ -26,7 +26,7 @@ def function(source,name):
 
 def selection(source):
     # The statement is extracted verbatim;do not implement a second dispatcher.
-    start=source.index('sampled=(!cmdline_has_token(cmdline,"srvros.wifi-nop5=1")')
+    start=source.index('sampled=(!cmdline_has_token(cmdline,"srvros.wifi-stack5=1")')
     return source[start:source.index(';',start)+1]
 
 class MainDispatchTests(unittest.TestCase):
@@ -35,13 +35,13 @@ class MainDispatchTests(unittest.TestCase):
         source=(ROOT/'kernel/src/main.c').read_text();expression=selection(source)
         names=sorted(set(re.findall(r'\b(xhci_wifi_capture_\w+)\(\)',expression)))
         declarations=[]
-        for name in ('wifi_provider_trial','wifi_5ghz_prereq','wifi_channel_diagnosis','wifi_desktop_trial','return_on_failure','wifi_log_isolation'):
+        for name in ('wifi_provider_trial','wifi_stack5_trial','wifi_5ghz_prereq','wifi_channel_diagnosis','wifi_desktop_trial','return_on_failure','wifi_log_isolation'):
             match=re.search(r'\bbool '+name+r'\s*=[^;]+;',source)
             if not match:raise AssertionError('missing native declaration '+name)
             declarations.append(match.group())
         stubs='\n'.join('static bool '+name+'(void){calls++;chosen="'+name+'";return capture_ok;}' for name in names)
         program='\n'.join(('#include <stdbool.h>','#include <stddef.h>','#include <stdint.h>',
-            function(source,'char_is_separator'),function(source,'cmdline_has_token'),
+            function(source,'char_is_separator'),function(source,'cmdline_has_token'),function(source,'cmdline_tokens_unique'),
             'static unsigned calls;static const char *chosen;static bool capture_ok;',stubs,
             'const char *dispatch(const char *cmdline,unsigned parked,unsigned successful,unsigned *sample,unsigned *count){',
             'calls=0;chosen="none";capture_ok=successful!=0;bool sampled=false;bool nop_logger_parked=parked!=0;bool stream_logger_parked=parked!=0;',
@@ -65,12 +65,12 @@ class MainDispatchTests(unittest.TestCase):
         return bool(sample.value),name,count.value
 
     def test_actual_staged_profiles(self):
-        expected={124:'handoff5',125:'peer5',126:'tx5',127:'join5',128:'eapol5',129:'wpa5',130:'wpa5',131:'data5',132:'provider5',133:'reuse5',134:'nop5',135:'stream5',136:'stream5_dhcp'}
+        expected={124:'handoff5',125:'peer5',126:'tx5',127:'join5',128:'eapol5',129:'wpa5',130:'wpa5',131:'data5',132:'provider5',133:'reuse5',134:'nop5',135:'stream5',136:'stream5_dhcp',137:'stack5_probe'}
         for version,child in expected.items():
             with self.subTest(version=version):self.assertEqual(self.dispatch(self.recipe(version)),(True,'xhci_wifi_capture_'+child,1))
 
     def test_capture_failure_propagates(self):
-        for version in (126,130,131,132,133,134,135,136):
+        for version in (126,130,131,132,133,134,135,136,137):
             with self.subTest(version=version):
                 ok,name,count=self.dispatch(self.recipe(version),successful=False)
                 self.assertFalse(ok);self.assertNotEqual(name,'none');self.assertEqual(count,1)
@@ -110,6 +110,19 @@ class MainDispatchTests(unittest.TestCase):
         self.assertEqual(self.dispatch(self.recipe(128)+' srvros.wifi-stream5-dhcp=1'),(False,'none',0))
         self.assertEqual(self.dispatch(self.recipe(135)+' srvros.wifi-stream5-dhcp=10'),(True,'xhci_wifi_capture_stream5',1))
         self.assertEqual(self.dispatch('\t\r\n'.join(self.recipe(136).split())),(True,'xhci_wifi_capture_stream5_dhcp',1))
+
+    def test_stack5_profile_refusals(self):
+        self.assertEqual(self.dispatch(self.recipe(137),parked=False),(False,'none',0))
+        for flag in ('stream5-dhcp','wpa5','data5','provider5','reuse5','nop5','desktop-trial'):
+            with self.subTest(flag=flag):self.assertEqual(self.dispatch(self.recipe(137)+' srvros.wifi-'+flag+'=1'),(False,'none',0))
+        for token in ('srvros.wifi-stream5=1','srvros.wifi-eapol5=1','srvros.wifi-join5=1','srvros.wifi-peer5=1','srvros.capture-failure=reboot'):
+            tokens=self.recipe(137).split();tokens.remove(token)
+            with self.subTest(token=token):self.assertEqual(self.dispatch(' '.join(tokens)),(False,'none',0))
+        for token in self.recipe(137).split():
+            with self.subTest(duplicate=token):self.assertEqual(self.dispatch(self.recipe(137)+' '+token),(False,'none',0))
+        self.assertEqual(self.dispatch(self.recipe(128)+' srvros.wifi-stack5=1'),(False,'none',0))
+        self.assertEqual(self.dispatch(self.recipe(135)+' srvros.wifi-stack5=10'),(True,'xhci_wifi_capture_stream5',1))
+        self.assertEqual(self.dispatch('\t\r\n'.join(self.recipe(137).split())),(True,'xhci_wifi_capture_stack5_probe',1))
 
     def test_exact_nop_token_and_whitespace(self):
         cmdline=self.recipe(126)+' srvros.wifi-nop5=10'
