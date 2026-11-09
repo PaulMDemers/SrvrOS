@@ -2,21 +2,46 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Active scope: PCI Advanced Features requester audit
+### Ready: read-only PCI Advanced Features requester capture
 
 Main`99e6edea` (Air6,1 PR443 native diagnostic documentation) is integrated
-as`6501a9ef`. PR301 next adds a dedicated read-only requester audit under the
-original GT owner and a fresh registered dependent after same-parent takeover
-observation; see the [requester contract](../intel-pci-requester.md).
-Ubuntu inventory identifies conventional PCI Advanced Features at
-`0xa4` (TP+/FLR+), not a PCIe Device Status capability. Capture the exact observed
-MSI/PM/AF chain, bus-master command and AF control/status twice, retain raw
-prefixes and refusal/clock/return evidence, and derive observations without any
-DMA/cache/ownership assurance. Touched subsystems: isolated requester core/image,
-boot recipe, strict collectors, host/VM/compiled tests and current guides.
-No BME/FLR/reset/PTE store or wider device gate is planned. Existing diagnostics
-and accepted recovery stay unchanged. PR19 networking and PR379 WebCore remain
-independent. Checkpoint:`build/air-requester-audit-20261109`; no test armed.
+as`6501a9ef`. Source`fe6677c5`, release`3ff42f33e6c01391`, adds a distinct
+read-only PCI requester image/firmware request and16-token recipe/version15.
+The [requester contract](../intel-pci-requester.md) records Ubuntu's captured
+MSI90→PMd0→AFa4 capability chain and exact TP/FLR layout. It is inventory,
+not an SrvrOS observation or DMA grant. There is no PCIe Device Status
+substitution, arbitrary capability walk, BME/FLR/reset/PTE write or wider profile.
+
+The original returned takeover/census and epoch must match the live GT parent.
+A fresh original registered borrow blocks premature close. Two ordered nine-DWORD
+samples retain exact prefixes; each captured header is checked before the next
+fixed capability/payload read. Full backing/endpoint guards and fresh requester
+translations bracket the reads. Failed full exit retains native ownership;
+clock/parent validation and first failed clock samples remain. A valid TP/BME
+observation or TP transition completes capture without claiming comprehensive
+DMA drain or hardware ownership. Limits stay100/300/500ms.
+
+Full local source checks (installed-root explicitly omitted),19-image isolation,
+202 fatal ASan/UBSan core/adapter cases,10 compiled semantic controls and10
+native object/staged controls pass. Older native passes/nonpasses keep their
+exact-source classifications. Exact immutable MBR EFI Q35 refusal/checkpoint/
+save/unmount/automatic return and missing-workspace halt pass. The actual
+16-token parser matches all four saved logs. Full-width tail62,044/65,536 retains
+the unchanged1,536 allowance. Native capture remains pending.
+
+The candidate is installed/current/durable/immutable; accepted reset6365,
+recovery9aa8, GUI and other retained payloads verify. All1,425 USB files/131
+sessions preserve, with clean offline filesystem/allocation/writable/headroom.
+An unreferenced older EFI diagnostic was archived after full durable equality;
+only the redundant global candidate was retired after four-way equality. Full
+independent evidence is retained outside build. Ubuntu default, volume1%, no
+one-shot armed. Checkpoint:`build/air-requester-audit-20261109`.
+
+The automated capture needs no input and displays progress. Safe saved/unmounted
+outcomes return; uncertain ownership or failed persistence halts visibly. Collect
+matching evidence first after return. All eight completion obligations (mask255),
+zero managed pages and no native tear-free grant remain. PR19 networking and
+PR379 WebCore stay independent; ordinary startup/older diagnostic gates remain.
 
 ### Accepted reset admission integration: preservation and clean retirement
 

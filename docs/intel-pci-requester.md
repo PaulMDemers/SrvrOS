@@ -89,3 +89,20 @@ UUID/table, immutable stage, recovery, one-shot boot and matching collection.
 No human input is needed; display progress and save results. Safe saved/unmounted
 outcomes return to Ubuntu; uncertain ownership or failed persistence halts
 visibly. Keep volume1%. Host/VM evidence does not accept native capture.
+
+## Local qualification (2026-11-09)
+
+Source`fe6677c5`, release`3ff42f33e6c01391`, passes the full local source gate
+(installed-root omitted),19-image isolation,202 fatal sanitizer cases,10 compiled
+semantic and10 native object/staged controls. Tests detect missing prefix/exit/
+translation checks, wrong AF offsets/header/command gate/read width or mapping
+permissions, premature return, copied/foreign lifetimes and clock failure.
+Exact immutable MBR EFI Q35 refusal/checkpoint/save/unmount/return and missing-
+workspace halt pass. The actual16-token parser matches four saved logs.
+Full-width projection62,044/65,536 includes the unchanged1,536-byte allowance.
+
+Installed/durable/immutable, accepted reset and recovery payloads verify;1,425
+prior USB files/131 sessions preserve with clean offline integrity checks.
+Volume1%, Ubuntu default, no reboot armed; full evidence is independently backed
+up outside build. These host/VM checks do not accept native PCI state or clear
+a DMA/cache/ownership obligation. The matching physical capture is pending.
