@@ -6134,3 +6134,14 @@ test-core: test-wifi-main-dispatch
 test-wifi-completion-foundations: test-wifi-main-dispatch
 test-wifi-main-dispatch:
 	WIFI_DISPATCH_CC="$(HOST_CC)" $(PYTHON) -B -m unittest discover -s tools -p test_wifi_main_dispatch.py
+.PHONY: test-capture-write-timing
+test-capture-write-timing: build/tests/capture-write-timing-host$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_capture_write_timing.py
+build/tests/capture-write-timing-host$(HOST_EXE): tools/test_capture_write_timing.c kernel/src/capture_write_timing_state.h kernel/include/srvros/capture_write_timing.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+test-core: test-capture-write-timing
+
+# The real process host fixture includes this private timing implementation.
+build/tests/process-output-host$(HOST_EXE): kernel/src/capture_write_timing_state.h

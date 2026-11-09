@@ -367,6 +367,23 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
         for options in ({},dict(wifi_rf_vga=True),dict(wifi_rf_vga=True,wifi_firmware_package=Path('unused'),wifi_rf_g20=True),dict(wifi_rf_vga=True,wifi_firmware_package=Path('unused'),hold_on_failure=True)):
             with self.assertRaises(ValueError):boot.stage(wifi_5ghz_prereq=True,**options)
+    def test_capture_write_timing_opt_in(self):
+        for model,uuid in [('air61','6ada85bb'),('air72','37d8c5d0')]:
+            version=f'ram-usb-v1-capture-write-{model}-desktop-{uuid}'
+            self.assertTrue(boot.DESKTOP_RE.fullmatch(version))
+            config=boot.limine_config('0123456789abcdef',version)
+            self.assertIn('srvros.capture-write-timing=on',config)
+            self.assertIn('srvros.desktop-audio-io=on',config)
+            self.assertNotIn('srvros.aml=probe',config)
+        for version in ['ram-usb-v74-desktop-6ada85bb','ram-usb-v80-desktop-37d8c5d0','ram-usb-v71-desktop-6ada85bb','ram-usb-v55-desktop-37d8c5d0','ram-usb-v1-audio-listen-laptop-probe-6ada85bb-auto-return']:
+            self.assertNotIn('srvros.capture-write-timing=',boot.limine_config('0123456789abcdef',version))
+        for options in ({},dict(desktop_volume='6ada85bb'),dict(desktop_volume='6ada85bb',desktop_battery=True,desktop_services=True)):
+            with self.assertRaises(ValueError):boot.stage(desktop_capture_write_timing=True,**options)
+
+    def test_legacy_stress_config_preserved(self):
+        self.assertEqual(hashlib.sha256(boot.limine_config('0123456789abcdef','ram-usb-v74-desktop-6ada85bb').encode()).hexdigest(),'21a743f528f5599a0f4dc82b69ee8d61f741642645defd1ac7d93536f2801434')
+        self.assertEqual(hashlib.sha256(boot.limine_config('0123456789abcdef','ram-usb-v80-desktop-37d8c5d0').encode()).hexdigest(),'4b2292c710ca76dbf5f3cd19a1128c62b667d58c04affe8003aa031eb2c8db49')
+
     def test_cli_help(self):
         self.assertEqual(subprocess.run(["python3",str(Path(boot.__file__)),"--help"],capture_output=True).returncode,0)
 

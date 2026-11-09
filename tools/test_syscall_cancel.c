@@ -17,6 +17,7 @@ static unsigned safe_publications;
 static unsigned kernel_timer_ticks,user_timer_ticks;
 static bool in_irq,expected_irq_safe;
 static bool simulated_if;
+static bool write_tracing;static unsigned write_edges;static uint64_t write_clock;
 void syscall_cancel_test_exclude_irqs(void) { exclusions++; simulated_if=false; }
 uint64_t syscall_cancel_test_read_cr3(void) { return 0x1000; }
 void scheduler_account_kernel_enter(void) { kernel_entries++; }
@@ -167,9 +168,27 @@ int main(void) {
     if(setjmp(exited)==0){dispatch_syscall_with_cancellation(&frame);assert(0);}
     assert(calls==before_calls+1 && waits==before_waits+1 && handoffs==before_handoffs && !user_safe && exit_status==130);
     outer_tests();
+    killed=kill_during_call=kill_while_waiting=kill_during_handoff=safe_call=false;
+    write_tracing=true;write_edges=0;
+    frame=(struct isr_frame){.cs=0x23,.rax=SYS_WRITE,.rdi=3,.rdx=12345};
+    dispatch_syscall_with_cancellation(&frame);assert(write_edges==5 && frame.rax==42 && !user_safe);write_tracing=false;
     puts("syscall-cancel-host: PASS (pending kill, deferred I/O kill, normal return, kernel entry)");
 }
 
 uint64_t latency_clock(void) { return 0; }
 void latency_gate(uint64_t a,uint64_t b) { (void)a;(void)b; }
 bool scheduler_io_active(void) { return false; }
+
+uint64_t process_capture_write_clock(void) {return write_tracing?++write_clock:0;}
+uint64_t process_capture_write_begin(void) {assert(!user_safe);if(write_tracing)assert(++write_edges==1);return process_capture_write_clock();}
+void process_capture_write_record(enum capture_write_site site,uint64_t start) {
+    if(!start)return;
+    assert(write_tracing && !in_call);
+    if(site==CAP_WRITE_GATE){assert(!user_safe && ++write_edges==2);}
+    else if(site==CAP_WRITE_HANDLER){assert(!user_safe && ++write_edges==3);}
+    else {assert(site==CAP_WRITE_HANDOFF && user_safe && ++write_edges==4);}
+}
+void process_capture_write_result(uint64_t start,uint64_t n,int64_t result) {
+    if(!start)return;
+    assert(write_tracing && !user_safe && n==12345 && result==42 && ++write_edges==5);
+}

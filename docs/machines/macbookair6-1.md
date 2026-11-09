@@ -9580,3 +9580,118 @@ absence from GRUB/current/recovery references. Accepted newer stress
 single-window payloads and console recovery `c35475f62f154f1e` stay installed and
 verified. Historical acceptance/evidence and the archived restorable payload
 remain outside `build`; this is space reclamation, not removal of recovery.
+
+### Native screenshot write batching improvement accepted (2026-11-08)
+
+PR425 runtime `989846b3`, release `1c74bc8281678786`, run `f4be328f2bc244f0`,
+session `session-00065fcb69c953b0-00` completes the unchanged 1800-second
+PCM/verified disk/app/three-screenshot workload and returns automatically.
+The slowest retained screenshot takes 23.196470s, down from 43.499249s on the
+preceding accepted stress source. Its WRITE phase falls from 31.864228s to
+12.669813s, with receive 6.689667s and encode 4.766ms. Final screenshot WRITE
+is 11.046327s. These are observed separate native runs, not a controlled
+throughput guarantee; batching improves completion, but saves remain slow.
+
+All 53483 loop samples are valid, with zero excursions and maximum 120142us
+under the original 500ms bound. The 1078 app cycles have zero errors and maximum
+launch/close 1887035/3860868us, below the unchanged 10s limits. The worst loop
+contains 100098us of GUI waiting; its companion records 100042us blocked,
+26us READY and zero I/O exclusions. No native owner identity is inferred from
+these final companions. All three BMPs decode at 1366x768; follow-up Files,
+capture cleanup, app/cache/battery retirement, normal exit and unmount pass.
+Slowest retained screenshot cleanup is 75.501ms, with no pending retirement.
+
+At 1%, playback supplies 345780224 PCM bytes with zero recorded underruns or
+worker errors. Disk work completes 3889 verified bursts/1019478016 bytes during
+live playback; binary and text receipts agree. Subjective sound is unassessed
+for this unattended run; the separate short 25% audible acceptance remains its
+own evidence. No duration, responsiveness, capacity, hardware/ownership or
+persistence requirement changed.
+
+All 674 prior files survive except expected `.srvros/meta`; nine new logs,
+receipts and screenshots produce 683 files/2158 allocated clusters. Offline fsck
+and independent allocation checks pass with zero leaks/mismatches/errors.
+Raw session hashes, receipts, final timing/retirement proofs, decoded BMPs and
+604-file automatic return backup are independently verified. Installed/staged/
+independent payload and protected accepted/recovery images verify. Reviewed
+results are backed up outside `build`. The older `012aaffda0be860b` EFI duplicate
+was archived only after verifying its independent restorable payload; current,
+newer accepted and recovery payloads remain installed. Collector disabled,
+one-shot consumed, Ubuntu default intact; no reboot is armed.
+
+Next useful scope is targeted per-write timing to separate admission waits
+from buffer growth/copy cost within the remaining 12.7s WRITE phase, keeping
+all accepted save checks and bounds. The approximately 6.7s receive phase also
+remains a performance follow-up; this result accepts improvement, not instant
+screenshot completion or a kernel I/O eligibility expansion.
+
+### Targeted screenshot write timing scope (2026-11-08)
+
+Base `2718c8e3`, after accepted write batching source `989846b3`. Next checkpoint
+is measurement, not a new admission or allocation optimization: separate each
+screenshot worker's raw buffered-write call wall time, initial I/O-admission
+wait, handler work and common-return handoff, plus buffer reservation/growth
+and byte-copy spans. Keep all 64KiB batching, capacities, snapshot/rename/full
+readback/persistence checks, policies and original endurance/latency bounds.
+
+Use an explicit stress-only diagnostic flag, immutable kernel executable identity,
+fixed bounded PID records, and copied periodic/final workspace-log snapshots.
+Measured hooks must allocate/log nothing and grant no I/O eligibility or hardware
+authority. Retain records across worker exit, expose incomplete/overflow/backward
+clock evidence, and require all three worker records after native return. No new
+userspace syscall or capture-frame ABI is planned. Touch process timing internals,
+IDT observation hooks, stress boot configuration and safe logger reporting, with
+host state-machine/ordering tests and strict saved-record validation in loaded/
+exact-stage VMs before the unchanged automatic1800-second1% native repeat.
+
+PR301's independent scanout process additions and PR19's Wi-Fi orchestration
+must remain intact; neither actual remote diff contains this write timing
+mechanism. No cross-task messages or delegation. Current native run is collected,
+recovery retained and no new boot armed at scope publication.
+
+### Targeted write timing validation and native preparation (2026-11-08)
+
+Frozen kernel/runtime `cf852581` passes matched ordinary/native/VM and RAM/USB
+builds, full core/desktop/docs, including 89 installed-root tests in718.051s
+with one expected skip. Focused timing state, exact active executable identity,
+enabled IDT gate/handler/handoff ordering, cancellation, process write/teardown,
+logger and strict saved-row tests pass. Public/private signal and frame-copy
+IDT variants compile; this is compile coverage, not feature activation. Ordinary
+syscall ABI, UEFI USB keyboard, fork, exec-vectors and yield VMs pass, as does
+immutable screenshot pixel/readback/Preview/repeat/exit coverage.
+
+The unchanged populated-Home TCG workload at400 write IOPS passes with26 app
+cycles,201 overlap observations, zero audio underruns/worker/lifecycle errors,
+maximum loop499377us and launch/close745469/1307225us. It retains one complete,
+retired diagnostic record:63 attempts/completions,4096054 BMP bytes, seven
+capacity changes, no failures/invalid/overflow. Summed raw call wall time is
+4.719289s: gate4.266253s, handler56.922ms and handoff393.554ms. Reservation
+49.563ms and copy4.765ms nest within the handler. This validates the measurement;
+it does not establish the native distribution or identify the foreign I/O owner.
+Original responsiveness, receipt, retirement and offline allocation checks stay.
+
+Host-tools follow-up `7a27bfc4` gives the diagnostic its own explicit
+`--capture-write-timing` / `ram-usb-v1-capture-write-air61-desktop` recipe.
+Legacy v74/v80 configurations remain byte-identical to their original recipes,
+with fixed-hash regressions and all seven installed current/accepted/recovery
+payloads plus independent backups verified. All92 staging/CLI tests pass.
+That follow-up changes only host profile/rehearsal/tests, documentation and a
+private-header host-test dependency; all frozen kernel/RAM image hashes match
+`cf852581`. No kernel/userspace/shared/submodule source changed after the full
+core run. Exact stage `f5e9c4c9603cf2eb` on that tool source passes native-board
+refusal/save/unmount/return in Q35, with no native diagnostic result claimed.
+
+The new native run repeats the original automatic1800-second1% PCM/verified
+USB/app/three-screenshot workload. It additionally requires three complete,
+retired raw write records, exact BMP byte totals and consistent nested spans;
+missing or malformed observations cannot pass. Gate, handler, handoff, reserve
+and copy evidence is retained independently even if original workload bounds
+fail. Native cost attribution remains pending. Ordinary/listening profile
+behavior, 64KiB batching, all flush/full-readback/rename/ownership checks and
+500ms/10s limits remain unchanged.
+
+If ESP space is needed, archive only the unreferenced older stress duplicate
+`ca0e7e313136e985` after exact backup and no-reference verification. Keep latest
+accepted stress `1c74bc8281678786`, audible check `5bc0a824e9f71ab6`, sampler,
+zero-load, single-window and console recovery `c35475f62f154f1e` installed;
+historical/restorable payloads and accepted evidence remain outside `build`.
