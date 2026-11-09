@@ -1629,3 +1629,14 @@ was retired after accepted7026 fallback; all six accepted payloads/Ubuntu/e47d
 remain. The on-disk run record owns arming and collection. Cold shutdown still
 requires Wi-Fi-only10seconds OFF-state unplug, same-port reconnect/power-on;
 leave workspace connected. Progress/save/Ubuntu return are automatic.
+
+The first `0e7dc297`/D49 attempt is now collected once with no new session and
+no filesystem changes; it is incomplete, not a Wi-Fi result. Keep its 2,455-file
+primary and separate 12-file exact zero-change review immutable. The controlled
+retry uses `build/bringup/wifi-cal5-stop-retry/run.json` and its own one-time
+`run_root.py return_collect`; do not reuse an older collector. It reuses the
+qualified installed payload with identical code and 2,277 inputs. For this retry
+only, reset BOTH Wi-Fi and workspace USB for ten seconds while OFF, reconnect
+both to the same ports, then power on and keep both connected. No photos or
+commands are requested. No install, payload retirement or new qualification pass
+is claimed. Missing output cannot establish kernel entry or any Wi-Fi phase.

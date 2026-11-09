@@ -16612,3 +16612,41 @@ budget and native HTTP validation are not accepted. The earlier child-pipe
 capability proposal also remains private/unapplied. Neither proposal is part of
 this installed hardware image. TCP/HTTP, lifecycle/UI, reliability and compatible
 2.4GHz hardware remain open.
+
+## Missing-session return and controlled cold-USB retry
+
+The first boot attempt of runtime `0e7dc297` / release `d49a66bb7768f15f`
+was collected once and remains **incomplete**: the one-shot was consumed but
+no new session directory or boot/exit log exists. Kernel entry and Wi-Fi execution
+are unproved. The immutable 2,455-file attempt has SHA256SUMS digest
+`ce15ee1fd58c9137d107a4c58a2747b91b7a26bfc44e1f38dc005f5d2c6044fa`.
+A separate 12-file review has digest
+`f3116f61ed7a8c8b18d41a55b26d0b1e0001cc8cfdd06374d3621342973de924`.
+All 426 file hashes, directory paths and 600 metadata records are exactly equal
+to the preboot baseline, including the sidecar and marker; no atime allowance
+or native-clock inference was used. Offline allocation/fsck and installed
+Ubuntu/factory/six accepted recovery checks pass. Independent source and storage
+reviews confirm the bounded result; no old capsule is changed or recollected.
+
+Source review found an unchanged path that returns without a session when
+workspace mounting or logger startup fails before directory creation. It cannot
+establish that this occurred, and absence of logs is not a Stop, RF or networking
+result. Boot/mount/logger/XHCI setup is byte-identical between native `20157ab5`
+and current `0e7dc297`; the new Stop owner runs only after logging starts.
+
+One controlled retry uses the same installed, qualified payload. Both the Wi-Fi
+adapter and workspace USB drive will be unplugged for ten seconds while OFF,
+then reconnected to their same ports before power-on. They stay connected
+throughout SrvrOS. This changes the cold USB precondition without changing RF
+authority, parsers or runtime code. No rebuild or repeat VM result is claimed: all
+2,277 qualified inputs and code paths remain byte-identical. Main `99e6edea` was
+inspected and merged; it adds only the Air6,1 documentation acceptance record.
+The runtime remains the source built from main `807fdb35` plus Pro changes.
+
+The new record is `build/bringup/wifi-cal5-stop-retry/run.json`; collect its matching
+attempt FIRST once with `run_root.py return_collect`. Its strict saved-prefix,
+empty-Stop/original-buffer, production-IP/key/provider/fence/parent/ledger and
+workspace/recovery requirements remain unchanged. Older collected records must
+never be used to collect this retry. A further missing session remains incomplete
+and needs deeper startup evidence, not another blind RF change. Private HTTP and
+child-pipe proposals remain unapplied.
