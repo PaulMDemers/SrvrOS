@@ -2,6 +2,20 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Active scope: reset admission and ownership prerequisites
+
+Main`807fdb35` (Air6,1 PR442 first battery protocol observation) is integrated
+as`cb11e399`, including pinned ports. PR301 now applies the physically qualified
+provider-boundary pattern to the existing dedicated same-borrow BCS reset path.
+Touched subsystems: native reset adapter, its host/compiled controls, strict
+receipt qualification and current reset/managed-memory guides. Generic reset
+state machines, exact BCS-only domain8, same-lifetime disabled entry, raw vectors
+and100/300/500ms/10ms bounds stay fixed. Fresh admission is mandatory; earlier
+preparation/shutdown receipts are not reset authority. Firmware/DMA/cache/reader
+and exact GGTT transfer remain separate open proofs; no PTE writer is planned
+for this bounded step. PR19 networking and PR379 WebCore stay independent.
+Checkpoint:`build/air-reset-admission-20261109`; no new trial armed.
+
 ### Latest hardware: nested preservation census passes
 
 Source`292163ac`, release`0cafc3a5551ab1b2`, session
