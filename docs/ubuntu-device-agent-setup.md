@@ -1364,3 +1364,15 @@ a nested begin in the same slot refuses. Both consume one captured callback and
 one controller metadata sample, with independent validity/overflow accounting.
 This permits observation across legitimate diagnostic-scope overlap without
 ending a foreign trace, issuing extra transfers or changing transport ownership.
+
+
+The explicit sync-phase diagnostic also retains each phase's slowest CSW callback
+with command opcode/size and its exact software event/resume/service clocks,
+plus wall time in existing BOT scheduler checkpoints. `sync-usb-command` is
+final-only, fixed metadata and logs no addresses or payloads. The strict sync
+parser requires these rows, their agreement with the CSW maximum, phase bounds,
+service coverage and a disjoint callback/checkpoint wall sum within the phase.
+Checkpoint observation calls the existing scheduler checkpoint exactly once;
+it does not add a yield, grant eligibility or change transfer policy. Time
+outside callbacks/checkpoints remains unassigned, and software event timestamps
+must not be described as device completion or CPU time.

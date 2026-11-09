@@ -3,9 +3,17 @@ import re
 from usb_timing import transfer_records
 
 def sync_timing(blobs,require_final=True):
-    groups={};usb={'files':[],'devices':[]}
+    groups={};usb={'files':[],'devices':[]};commands={}
     for blob in blobs:
         for line in blob.decode(errors='replace').splitlines():
+            if line.startswith('sync-usb-command:'):
+                fields=('checkpoint_calls checkpoint_us start_us end_us opcode command_bytes request_bytes actual ok submitted observed resumed seen service_valid service_checks service_samples service_gap_max_us completion_gap_us').split()
+                match=re.fullmatch(r'sync-usb-command: version=1 scope=(files|devices) id=(\d+) '+ ' '.join(k+r'=(\d+)' for k in fields),line)
+                if not match:raise ValueError('Malformed sync USB command')
+                key=(match[1],int(match[2]));row=dict(zip(fields,map(int,match.groups()[2:])))
+                if any(v>=2**64 for v in row.values()):raise ValueError('Overflowing sync USB command')
+                if key in commands and commands[key]!=row:raise ValueError('Conflicting sync USB command')
+                commands[key]=row;continue
             if line.startswith('sync-usb-timing:'):
                 match=re.fullmatch(r'sync-usb-timing: version=2 scope=(files|devices) (.*)',line)
                 if not match:raise ValueError('Malformed sync USB row')
@@ -51,7 +59,23 @@ def sync_timing(blobs,require_final=True):
                 if rows is None or any((w['start_us'],p) not in rows for p in range(3)):raise ValueError('Missing/invalid sync USB evidence')
                 found=[rows[(w['start_us'],p)] for p in range(3)]
                 if sum(p['callback_us'] for p in found)>wall:raise ValueError('USB callbacks exceed sync phase')
-                phases[name]=dict(wall_us=wall,usb=found)
+                command=commands.get((name,w['start_us']))
+                if command is None:raise ValueError('Missing sync USB command')
+                if command['checkpoint_us'] and not command['checkpoint_calls']:raise ValueError('Checkpoint time without calls')
+                if sum(p['callback_us'] for p in found)+command['checkpoint_us']>wall:raise ValueError('USB/checkpoint wall exceeds sync phase')
+                csw=found[2]
+                if not csw['calls']:
+                    if any(v for k,v in command.items() if not k.startswith('checkpoint_')):raise ValueError('Command without CSW callback')
+                else:
+                    c=command
+                    if not 0<c['start_us']<=c['submitted']<=c['observed']<=c['resumed']<=c['end_us']:raise ValueError('Invalid command clocks')
+                    if not (w['start_us'] if name=='files' else w['files_end_us'])<=c['start_us']<=c['end_us']<=(w['files_end_us'] if name=='files' else w['end_us']):raise ValueError('Command outside sync phase')
+                    if c['end_us']-c['start_us']!=csw['max_us']:raise ValueError('Command does not match slowest CSW')
+                    if c['ok']!=1 or c['seen']!=1 or c['service_valid']!=1 or c['request_bytes']!=13 or c['actual']!=13 or c['opcode']>255 or c['command_bytes']>16384:raise ValueError('Invalid command context')
+                    checks=c['service_checks'];samples=c['service_samples'];gap=c['service_gap_max_us'];observe=c['observed']-c['submitted'];resume=c['resumed']-c['observed']
+                    if not checks or samples!=(checks-1)//256+1 or not c['completion_gap_us']<=gap<=observe or observe>(samples+1)*gap:raise ValueError('Invalid command service coverage')
+                    if observe>csw['observe_max_us'] or resume>csw['resume_max_us'] or checks>csw['service_checks'] or samples>csw['service_samples'] or gap>csw['service_gap_max_us'] or c['completion_gap_us']>csw['completion_gap_max_us']:raise ValueError('Command exceeds CSW aggregates')
+                phases[name]=dict(wall_us=wall,usb=found,command=command)
             output.append(dict(pid=pid,record=r,worst=w,phases=phases))
         if not any(p['calls'] for r in output for phase in r['phases'].values() for p in phase['usb']):raise ValueError('No observed sync USB work')
         return dict(status='VALID',snapshot_us=at,workers=output,scope='SYS_SYNC file/device wall phases; retained USB callbacks include copies, software event dispatch, resume and service. Not hardware completion or CPU time.')
