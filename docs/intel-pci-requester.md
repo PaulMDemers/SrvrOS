@@ -132,3 +132,8 @@ TP clear does not retire posted writes, prefetch, caches, translations or other
 readers, and BME remains enabled. All eight completion obligations (mask255),
 firmware/SMM ownership, GGTT transfer, zero managed pages and no physical
 tear-free grant remain. A future operation needs fresh same-lifetime authority.
+
+The later [held requester sampler](intel-held-requester.md) is a separate
+software composition under the maintained preparation borrow. The standalone
+observer above still acquires and returns its own dependency and cannot be
+nested unchanged. Its accepted native result does not qualify the held sampler.

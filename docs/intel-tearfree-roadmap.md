@@ -65,7 +65,9 @@ It brackets an observation with original-borrow guards and matching held-state
 samples inside the unchanged100ms budget. It has no native caller or reset
 permission. The standalone requester observer acquires its own borrow and
 cannot be nested unchanged; a future sampler must bind the active preparation
-borrow explicitly. A reset-capable composition remains separate because it
+borrow explicitly. The [held requester sampler](intel-held-requester.md)
+implements that read-only software binding, with no native adapter or trial
+acceptance. A reset-capable composition remains separate because it
 changes epoch and control-state semantics.
 
 The complete composition needs host fault injection at every transition.

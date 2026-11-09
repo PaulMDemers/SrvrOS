@@ -2,7 +2,7 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Active scope: requester sampling under the preparation borrow
+### Implemented: requester sampling under the preparation borrow
 
 Base `7a51142a`, integrated main `125eb2b5`; open PR19 networking and PR379
 WebCore remain independent. This block implements a separate read-only requester
@@ -17,7 +17,12 @@ Scope: new held-requester header/core/test files, minimal preparation action-win
 metadata, Makefile and docs. Dependencies: accepted standalone PCI profile,
 maintained preparation API and original parent/epoch/census. No native adapter,
 recipe, wider profile, writer or DMA/ownership grant is added. Next checkpoint
-is host qualification and precise native integration requirements. Installed
+is now host-qualified:158 fatal sanitizer cases, five compiled controls,
+existing action/preparation/requester suites, host checks and ordinary/isolated
+no-action image builds pass. The held sampler is absent from both linked images.
+The [contract](../intel-held-requester.md) records exact prefix/shared-budget and
+failure semantics. Next is a separately bounded native provider, receipt/staging
+integration and whole-lifetime timing qualification; no native trial is ready. Installed
 release `3ff42f33e6c01391` remains collected/accepted for its read-only capture;
 recovery remains retained, no reboot armed, volume1%.
 
