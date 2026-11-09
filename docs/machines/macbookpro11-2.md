@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; calibration RX cleanup correction installed, native validation pending; TCP/HTTP and connection lifecycle remain open**.
+Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; calibration RX cleanup trial failed at empty-ring Stop classification; correction in progress; TCP/HTTP and connection lifecycle remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -16535,3 +16535,35 @@ All six accepted recoveries and Ubuntu/e47d are retained. Current source-specifi
 proof requires both deferred firstjoin response rows and all original production-
 IP/retirement/workspace checks. Dormant finiteTCP/pureHTTP software qualification
 adds no native TCP/process/worker/lifecycle acceptance. See Current handoff.
+
+## November 9 v138 return and bounded correction
+
+Runtime `20157ab5`, release `becb29ad72ed94df`, session
+`session-00065fdcbc21c58a-00` was collected once and **failed before discovery
+and authentication**. The complete1,863,170-byte exit prefix shows the fresh
+IBI probe and all five calibration replies passing. Original eight RX buffers
+completed normally. Unlike the preceding failure, MAC receive drain met all
+seven quiet samples with `0xa30=0`, `0xa34=0`; no extra cleanup TD was needed.
+Stop reached state3 and the exact empty frontier `ring+0x81`, but its CC27
+event at `ring+0x80` latched a cleanup ownership fault. No packet inspection or
+production network owner was admitted. The downstream missing channel-VCO
+summary is not evidence of an RF failure.
+
+The immutable920-file native capsule has SHA256SUMS digest
+`a01af95e9eaf48ea5ff3b6d0fef88a89404f0d641147a37271f7898ffc6a9bea`.
+All424 prior files and strict metadata survive except the RTC-bounded marker
+atime; only two logs/one directory are new. Offline fsck/allocation and installed
+Ubuntu/factory/six accepted recovery checks pass. No identical retry is armed.
+
+Current bounded scope is diagnosing the exact own-Stop completion/event ordering
+in `xhci_wifi_cal5.inc` and reproducing the zero-cleanup-post case with actual
+event dispatch, command ownership and host normal/fatal tests. Preserve strict
+normal-transfer, late-event, unpublished-buffer, quiet/drain and parent gates.
+Independent read-only stream and storage reviews run privately; root alone owns
+shared qualification, staging, installation and power. The process/HTTP proposal
+remains private and unapplied.
+
+Actual main `807fdb35` (PR441/442 battery first-protocol observation) is merged
+as `b4bad267`. Ports `276eb1b` consumes its pinned `39ad9d7` and preserves the
+Pro logging isolation. These observational battery changes do not activate
+Pro battery ownership or establish new physical acceptance.
