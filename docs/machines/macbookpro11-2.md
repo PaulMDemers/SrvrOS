@@ -22,37 +22,45 @@ channel-VCO incompleteness is downstream unwind, not an established RF cause.
 Its1605-file failed capsule and separate11-file independent-review capsule stay
 immutable. All416 prior files/metadata, offline allocation and recovery passed.
 
-New runtime `2da2f400` / release `7026c0d52d23d45d` is qualified and installed for
-an observation-only native comparison. A stack-only final authentication receipt
-records existing exchange fields, categories for already copied AUTH responses
-and bookkeeping of existing clock samples. No parser admission, timeout, retry,
-clock-call, key, fence, ownership or cleanup rule changes. The receipt distinguishes
-missing replies, explicit rejection and malformed matching replies in directed
-actual-owner fixtures. It does not establish the previous native failure's cause.
-If authentication succeeds, the unchanged production DHCP/DNS/ARP/64exact40-byte
-ICMP workload runs; its32-byte bodies total2048 verified bytes. Native acceptance
-remains pending. TCP/HTTP still needs legitimate process/timer ownership.
+Native v137 `2da2f400` / `7026c0d52d23d45d`, session
+`00065fd8aa3e877b-00`, is now accepted for bounded production networking. Original
+AUTH/ASSOC/four-way keys, production DHCP/DNS/ARP and64 exact40-byte ICMP messages
+with32-byte bodies pass through the real provider.68 encrypted publications use
+PN1..68, with ICMP PN5..68, one TX and two RX fences.71 authenticated Ethernet
+receives reach the production provider. All131 RX loans return, fault/debt counts
+are zero, and full15719-parent/context/ledger/provider retirement passes. Backend
+tombstones remain retained until controller halt. This is not TCP/HTTP, persistent
+connections, service/worker coexistence, UI or reliability acceptance.
 
-The matched selected build/regressions passed onbfd38c3d in517.04seconds. Only
-two Python proof/checker files then tightened impossible success-counter bounds;
-all C/build inputs remained identical. Current2da image/checker rerun passed in
-14.55seconds, with explicit source bindings rather than a second full C-suite
-claim.24 combined actual-owner cases pass normal/fatal sanitizers;184 compiled
-inputs match.534 full-parent mutations refuse (496 missing/duplicate), plus14
-current-release checks; nine parser groups have no skips.255 staging cases,
-nine actual-main groups, native stack, real2MiB filesystem, ordinary desktop,
-exact staged GPT/missing-workspace and exact418-file workspace-copy VMs pass.
-All prior contents and metadata survive apart from authorized marker atime.
-Conservative capture space remaining is33617bytes, above32768 reserve.
+The complete2054482-byte prefix is preserved in an immutable1155-file native
+capsule. Independent network/storage reviews and a source-archive-restored frozen
+checker replay are sealed separately in109 acceptance files. The original archive
+omitted direct binary fixture duplicates, but its sealed source archive preserved
+all exact tracked fixture bytes; replay restores from that immutable archive,
+never current source, without changing/resealing the primary capsule. All418
+prior files and metadata survive except marker atime within independent RTC
+bounds; only two session files/one directory are new.420 files/1210 clusters,
+fsck/allocation/recovery and Ubuntu-unarmed checks pass. Accepted7026/e47d and
+accepted8529/4a/3c9/815/e17 stay installed. The old authentication failure remains
+failed and unexplained; this success does not prove an observation-only fix.
 
-The new run record/capsule is `wifi-stack5-auth`; collect FIRST exactly once on
-return with `build/bringup/wifi-stack5-auth/run_root.py return_collect`. Diagnose
-saved AUTH categories if it fails; do not run an identical blind retry or promote
-incomplete parent/ledger proof. Ubuntu remains default and e47d recovery plus
-accepted8529/4a/3c9/815/e17 remain installed. Installation restored accepted8529
-before retiring only failed815747's unreferenced EFI duplicate, after complete
-1605-file immutable backup and payload-equality verification. Failure evidence is
-unchanged. The durable run record owns arming state.
+Actual main `bdc14461` was fetched and inspected after collection. PR435 batches
+only consecutive unpublished append FAT links; publication barriers and final
+tail attachment stay separate. PR434 adds Air evidence docs. Root's next bounded
+scope is to merge this baseline and qualify the affected filesystem/logger/
+storage paths, native stack/prefix and exact420-file workspace VMs before a cold
+production-IP regression. The protocol/transport/controller source is unchanged;
+old native/acceptance capsules remain immutable. Root owns merge, all shared
+harnesses, staging/install and power; disjoint review checks new FAT batching and
+unchanged network proof inputs. No new runtime is installed or armed yet.
+
+TCP/HTTP follows with a distinct process/worker/service-isolated profile and
+measured credits. Ordinary svscan treats net.initialized as readiness and may
+launch webd/file logging on the first yield; it cannot be assumed absent. Native
+bounded DNS does not cache its answer for child getaddrinfo. Use legitimate
+prelive process startup acknowledgement, explicit service isolation and finite
+numeric-address handoff/API rather than fake process context or prewarming
+assumptions. Real IRQ TCP terminal/TIME_WAIT and cancellation proofs are required.
 
 Standing user authorization permits the qualified cold shutdown: unplug only
 Wi-Fi10seconds while OFF, reconnect the same port, power on, leave workspace
@@ -16285,3 +16293,24 @@ unchanged: live stdout, yielding ARP/nonblocking writes and incomplete exact-bod
 validation need bounded APIs and supervisor cancellation/FIN/TIME_WAIT proof.
 A real IRQ/process VM and separately measured transport credits are prerequisites;
 HTTP must not simply be appended after64pings at unchanged finite limits.
+
+### Native production networking accepted (November 9)
+
+Source2da2f400/release7026c0d52d23d45d, session00065fd8aa3e877b-00, passes the
+strict unchanged full-parent and new production-stack proof. Actual receipts
+bind68 data PN1..68,64 unique exact ICMP replies(PN5..68), production DHCP without
+retry,DNS and one ARP resolution.73 completed TX,131 normal RX and one terminal
+pending RXStop26 are distinct; stopped RX is not a packet. OneTX/twoRX fences,
+post-boundary traffic,131returned loans and complete parent/key/provider/ledger
+retirement pass. The stack workload takes1.429757seconds. This accepts bounded
+ordinary receive/IP, not native TCP/HTTP or lifecycle/worker/service coexistence.
+
+Independent reviews verify418 prior files,588to591 unique metadata entries,
+only permitted marker atime and two new logs/one directory. Offline420file/1210
+cluster filesystem/allocation is clean. Primary1155-file seal is
+3896dd53eb68f299272a3293b61ebc7f63c5488af32e961568e441ef8d1c1426;
+separate109-file acceptance notes include immutable-source fixture replay and
+both reviews. Ubuntu defaults/recovery and cleared one-shot pass. No causal
+claim is made about the preceding failed AUTH exchange. Next consume actual
+mainbdc14461 FAT-link batching with affected software/storage/exact-image and
+native regression, then isolated legitimate-process TCP/HTTP implementation.
