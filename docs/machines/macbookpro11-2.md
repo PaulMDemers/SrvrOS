@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; exact empty-ring Stop correction qualified and installed, native validation pending; TCP/HTTP and connection lifecycle remain open**.
+Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; exact empty-ring Stop correction passed in the latest native run; management cleanup still fails; TCP/HTTP and connection lifecycle remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -16650,3 +16650,45 @@ workspace/recovery requirements remain unchanged. Older collected records must
 never be used to collect this retry. A further missing session remains incomplete
 and needs deeper startup evidence, not another blind RF change. Private HTTP and
 child-pipe proposals remain unapplied.
+
+
+## November 9 cold retry: calibration Stop passes; management cleanup fails
+
+The controlled both-USB cold retry of runtime `0e7dc297` / release
+`d49a66bb7768f15f` saved matching `session-00065fde277b7149-00`. The complete
+1,882,266-byte exit prefix passes the calibration cleanup and exact zero-post
+Stop receipt: eight original normal completions, seven beacons, no cleanup TDs,
+retained CC27 at `ring+0x80`, final state3/dequeue `ring+0x81`, held pages unchanged.
+This establishes the bounded correction on this unit; the full trial **fails**.
+
+The first management owner matched AUTH and association replies, observed an
+EAPOL M1 and submitted leave. Its MAC cleanup disabled MAC, drained TX and
+restored filter/TXOP, but RX drain did not meet the unchanged seven-quiet/200-round
+requirement. No endpoint restoration, second authenticated owner or production
+DHCP/DNS/ICMP workload ran. The missing parent VCO completion is downstream
+unwind, not an RF diagnosis. Queue register values are not recorded in this
+join path, so the busy register and packet contents remain unknown.
+
+The immutable retry capsule has 103 files and SHA256SUMS digest
+`ded77e9f8f25665eacd036db12d4e8af963b0189a319fb705666c16d9c8f280b`.
+The collector ran once and left Ubuntu unarmed. All 426 prior ordinary files
+and strict metadata survive apart from the marker atime within the independently
+RTC-derived window; only the matching two logs/one directory are new. Offline
+inspection reports 428 files/1278 clusters, zero leaks/mismatches/errors; fsck
+and installed Ubuntu/factory/six accepted recovery checks pass. The prior
+missing-session attempt and its separate review remain immutable and incomplete.
+
+Current bounded scope: reproduce and correct first-join receive service during
+MAC cleanup in `xhci_wifi_join5.inc` and its actual-owner host fixture, then
+source-specific log validation. Source review finds a service gap: the management
+poll reposts a fifth receive after M1, but subsequent cleanup read/delay callbacks
+do not consume completed receives or publish a successor. That gap is established
+in code; its causal role in this native busy drain still needs a controlled test.
+Keep independent cleanup storage, immutable forward snapshots, exact event/Stop
+ownership, fixed traffic limits and the seven-quiet/200-round predicate. No
+blind retry or new boot is armed. Private implementation and evidence reviews
+run in isolated shadows; root alone owns integration, shared builds/staging/power.
+Actual main remains `99e6edea`; open PR301 owns graphics/process work and PR379
+WebCore, neither is permission to alter those scopes. HTTP/child-pipe proposals
+remain unapplied. Native TCP/HTTP, lifecycle/UI/reliability and compatible 2.4GHz
+hardware remain open.

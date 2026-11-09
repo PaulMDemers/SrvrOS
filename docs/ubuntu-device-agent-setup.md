@@ -1640,3 +1640,14 @@ only, reset BOTH Wi-Fi and workspace USB for ten seconds while OFF, reconnect
 both to the same ports, then power on and keep both connected. No photos or
 commands are requested. No install, payload retirement or new qualification pass
 is claimed. Missing output cannot establish kernel entry or any Wi-Fi phase.
+
+
+The controlled both-USB retry is now collected once: `session-00065fde277b7149-00`,
+source0e7/D49. Its 103-file capsule is immutable. Exact empty-ring calibration
+Stop passes, but first management MAC RX cleanup fails after successful
+AUTH/ASSOC/M1/leave; production networking was not attempted. Workspace, metadata,
+allocation/fsck and recovery checks pass; Ubuntu is unarmed. Neither the old
+`wifi-cal5-stop` collector nor `wifi-cal5-stop-retry` may be run again. Next work
+is bounded first-join receive cleanup and source/host qualification, with a new
+record required before any physical trial. Preserve the unchanged drain policy
+and all older accepted/failed/incomplete capsules.
