@@ -10477,3 +10477,51 @@ full independent backup and absence of boot references verify. Its evidence
 and accepted history remain outside build. Ready/armed state belongs to the
 local run record, not this staged-source entry. Native cause/fix and sidecar
 acceptance remain pending.
+
+### Query diagnostic / sidecar native regression completed (2026-11-09)
+
+Release `318c5032d1519383`, frozen SrvrOS `10cb60fb` / ports `d40e118`,
+run `a8e0df6a178545d6`, session `00065fda7a63e0c5-00` completed the full
+1800-second1% workload and returned automatically. It passes1085 app open/close
+cycles,4037 verified262144-byte disk bursts (1058275328 bytes),345747456 PCM
+bytes, zero recorded underruns/worker/lifecycle errors and all three exact
+1366×768 BMPs. The52052 valid loop observations have zero excursions/invalidity
+and140092us worst loop under the unchanged500ms limit; maximum launch/close
+are1871323/2081206us under the unchanged10s limits. Follow-up Files, screenshot
+cleanup, normal exit and full cache/worker/battery retirement pass. Battery
+retirement records705 attempts, zero rejections,10666 queries,110 notifications,
+matched attach/detach and zero heap/errors/denials. Independent parsing of saved
+loop/app/sync/write/gate/sidecar/window/receipt/BMP and retirement proof agrees.
+
+The previous query-transport halt did not recur. No transfer-failure diagnostic
+was emitted; those rows are terminal failure-only output, not a continuous
+transfer-failure counter. **The intermittent cause remains unresolved; this
+successful repeat is not a battery fix.** The failed `c1578543a5d0e7e4` trial
+and its preserved media/photo remain failed history. Subjective audio is
+unassessed at1%; prior short25% listening acceptance remains separate.
+
+This accepts native bounded sidecar-equality exercise and functional/integrity
+regression on this source/release:16371 checks,3235 equal,13136 changed and zero
+refused/flush/active/invalid counters. Twenty new equalities are witnessed
+between two complete snapshots inside live PCM, with a complete final snapshot
+after playback. The313969245 retained serialized bytes are logical proof bytes,
+not measured physical write savings. All733 prior files, including the full
+recovered orphan, retain contents except expected sidecar metadata changes.
+Final742 files /2840 clusters pass offline fsck and the strict zero-leak/FAT-
+bitmap/error checker. No integrity, ownership, watchdog or stress limit changed.
+
+Slowest screenshot is23.539827s (receive6.561760s / WRITE13.073907s), with
+57.379ms worst cleanup. Worst retained PID7 global sync is2.347472s, of which
+file-sync is2.347069s and parent-device flush403us; the slowest file-phase CSW
+is a16KiB WRITE10 callback taking354896us. Software observation covers354894us
+before dispatch and1us after it, not hardware completion time. Screenshot/
+write/sync latency remains open; one variable run establishes no stable gain.
+
+Ubuntu/default recovery, installed candidate and retained accepted/recovery
+payloads verify; one-shot entry is empty and collector disabled. The obsolete
+zero-load qualification EFI duplicate was removed only after full independent
+backup and no-reference checks; its evidence remains outside build. Current
+trial/payload backups and original failed-run allocated-media evidence survive
+`make distclean`. No reboot is armed. Next bounded step: repeat the same
+instrumented native workload to seek recurrence before treating the intermittent
+battery issue as resolved; preserve existing failure containment and limits.
