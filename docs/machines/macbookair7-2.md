@@ -2,22 +2,44 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Active follow-up: qualify the standalone enabled-ring shutdown branch
+### Ready: standalone enabled-ring shutdown qualification
 
-Main `f30ad7a5` (Air6,1 PR440 documentation) is integrated for this block.
-Objective: qualify the existing separate shutdown image against the enabled16/
-`0xf001`/`0x03eef000` BCS state observed by the latest preparation refusal.
-Scope is host fault/compiled MMIO checks, exact-stage VM rehearsal, native
-recipe/log-budget/recovery preparation and current guides. No generic core or
-native writer change is planned unless validation exposes a concrete defect.
-Only the already-disabled shutdown branch has physical acceptance; enabled
-shutdown, subsequent same-lifetime preparation and memory ownership remain
-separate. Do not combine these operations, widen geometry/profile admission or
-extend100/150/300/500ms bounds. New checkpoint:`build/air-enabled-shutdown-20261109`.
-No test is armed. Preserve the collected preparation refusal and all prior
-passes/nonpasses; archive only verified generated duplicates if space requires.
-PR301 owns this isolated Intel work. Pro11,2 PR19 networking and WebCore PR379
-remain independent; no overlapping shutdown edits were found in open PR scope.
+Main `f30ad7a5` (Air6,1 PR440 documentation) is integrated as `598117c3`.
+Source `075192ab`, release `bea82f58d257858a`, qualifies the existing separate
+shutdown image for the enabled16/control`0xf001`/start`0x03eef000` state observed
+by the latest preparation refusal. **No product code or admission change** is
+needed for this trial. Only the already-disabled shutdown branch is physically
+accepted; enabled shutdown and subsequent preparation remain separate steps.
+The trial permits one exact`0xf000` store, then verifies two BCS readbacks,
+fresh full engine and plane/HDA preservation, registered borrow return and
+mapping retirement. The original100/150/300/500ms bounds remain unchanged.
+
+Full local checks (installed-root explicitly omitted),18-image isolation,
+36 fatal ASan/UBSan cases, six compiled lifetime/preservation/epoch/permission
+controls and five compiled native MMIO controls pass. Exact object/staged
+addresses and fenced store, read-only targets and pages verify. Exact immutable
+MBR EFI Q35 refusal/checkpoint/save/unmount/automatic return and missing-workspace
+halt pass. The compiled15-token recipe matches saved options. Projected full-width
+log64,793/65,536 retains the1,536-byte allowance. Prior passes/nonpasses keep
+their classifications. Collection separately records enabled-writer acceptance;
+a completed already-disabled branch cannot accept the writer.
+
+The candidate is installed and unarmed, volume1%, Ubuntu default. Recovery,
+known GUI and accepted read-only/reset payloads verify. All1,413 files/127 USB
+sessions preserve with clean offline filesystem/allocation/writable/headroom.
+Only verified generated duplicates were archived: the collected preparation
+payload's duplicate stage pair, two old measurement images and one unreferenced
+EFI payload. Full current/durable/immutable candidate, recovery and raw logs
+remain; complete evidence is independently backed up outside build.
+Checkpoint:`build/air-enabled-shutdown-20261109`.
+
+Next is the standalone automated native trial, requiring no typing. Safe saved/
+unmounted outcomes return to Ubuntu; uncertain writes or failed persistence halt
+visibly. Collect matching evidence first after return. Do not combine shutdown
+with preparation or widen geometry/profile gates. All255 memory obligations,
+outstanding DMA/cache/reader ownership and native tear-free remain open.
+PR301 owns this isolated work; Pro11,2 PR19 networking and WebCore PR379 remain
+independent. No reboot is armed.
 
 ### Current scope: consolidated admission retry safely refused before preparation
 

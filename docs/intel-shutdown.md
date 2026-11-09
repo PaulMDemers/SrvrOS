@@ -133,3 +133,25 @@ retirement complete at unchanged100/300/500ms bounds. This does not exercise or
 accept the enabled-ring0xf000 writer, alter shutdown admission, or establish
 outstanding DMA/prefetch/cache/translation ownership. Earlier standalone shutdown
 acceptance and all failed/refused reset trials keep their classifications.
+
+## Enabled-entry retry qualification (2026-11-09)
+
+The later Air7,2 preparation trial on source`ee4a15bc` safely refused a stable
+enabled BCS (mask16/control`0xf001`/start`0x03eef000`); it issued no preparation
+writes. This matches the standalone shutdown core's existing captured enabled
+branch. Source`075192ab`, release`bea82f58d257858a`, therefore qualifies that
+separate image without changing code, geometry gates, protocol or deadlines.
+
+Full local checks (installed-root omitted),18 images,36 fatal sanitizer modes,
+six semantic and five native compiled controls pass. Exact-stage MBR EFI refusal/
+checkpoint/save/unmount/return and missing-workspace halt pass. The compiled
+15-token parser matches saved options; full-width log bound64,793/65,536 includes
+the unchanged1,536-byte allowance. Candidate/recovery/USB checks pass and the
+candidate is installed, volume1%, Ubuntu default, no one-shot armed.
+
+Native enabled-writer acceptance is still pending. Collection must distinguish
+one exercised disable plus complete preservation/retirement from a completed
+already-disabled observation. The latter accepts no writer. This qualification
+adds no reset, PTE, managed memory or GPU/DMA/cache/reader ownership. Follow the
+[unit record](machines/macbookair7-2.md#ready-standalone-enabled-ring-shutdown-qualification)
+and collect matching evidence before any further trial.
