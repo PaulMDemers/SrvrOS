@@ -2,6 +2,24 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Current scope: all-engine prepare, hold and cancellation
+
+Main `f30f67e1` (Air6,1 PR434 acceptance documentation only) is integrated as
+`cfbc050a`; accepted Air7,2 read-only evidence remains at source `d860b63f`.
+Next bounded implementation: an isolated exact-Air7,2/GT3 engine preparation
+lifetime after the fresh same-parent/epoch quiescent preflight. Request reset
+readiness on all five disabled engines, verify all requests/ready bits while a
+registered borrow stays held, then cancel in reverse order and verify exact
+engine/display/HDA preservation before returning. This imports no catastrophic
+bypass, reset, command, PTE or GGTT writer and no memory/cache/reader grant.
+Keep100/300/500ms limits and existing firmware/resource gates unchanged. A
+possibly issued write followed by uncertainty retains ownership; no forced
+cancellation/retry/cleanup. Shared scope: new bounded core/adapter, dedicated
+image/request/recipe, strict receipts/collector and host/native/VM controls.
+Pro11,2 PR19 encrypted Wi-Fi and WebCore PR379 remain independent. No reboot
+is authorized by this implementation block; current/recovery stay unchanged.
+Checkpoint: `build/air-engine-prepare-20261109`.
+
 ### Latest hardware: cold-takeover read-only observation accepted
 
 Source `d860b63f`, release `b8afda22fe3f051e`, session
