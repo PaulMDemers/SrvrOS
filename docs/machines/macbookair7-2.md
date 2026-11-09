@@ -2,6 +2,18 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Current scope: bounded inherited-backing read batches
+
+Main`d057f7d8` (Air6,1 FAT-link/sidecar work) is integrated, preserving both
+Makefile target groups. Pro11,2 PR19 Wi-Fi and WebCore PR379 remain independent.
+Air7,2 owns this admission/preservation optimization in the backing core and
+native observer adapter, with host/provider regressions and exact-stage VM
+validation. Read at most64 inherited GGTT entries per callback, preserving the
+high/low/high order, both complete passes, route/fence/PCI/translation checks,
+unchanged deadlines and retained failures. No engine, memory or tear-free grant
+is added. The failed native run below remains a nonpass. Checkpoint:
+`build/air-prepare-batches-20261109`; no reboot is armed.
+
 ### Latest hardware: preparation deadline failure collected
 
 Source `ba7fa11b`, release `0c1e0b40f71e6d7a`, session
