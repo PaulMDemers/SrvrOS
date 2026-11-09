@@ -1528,3 +1528,17 @@ Checkpoint observation calls the existing scheduler checkpoint exactly once;
 it does not add a yield, grant eligibility or change transfer policy. Time
 outside callbacks/checkpoints remains unassigned, and software event timestamps
 must not be described as device completion or CPU time.
+
+
+Pro11,2 current v137 candidate: runtime `6a26cb80`, release `815747ea8c559ec0`,
+merged main `e85a6846`, UUID `0E53-5900`. The guarded production DHCP/DNS/64exact
+ICMP candidate is qualified/installed; native acceptance remains pending. The
+new local run record is `build/bringup/wifi-stack5-native/run.json`; collect its
+matching session FIRST once with that directory's `run_root.py return_collect`.
+The new capsule survives distclean outside build. Previous native255/accepted14
+and software1233 capsules remain immutable. EFI space required removing only
+v130's unreferenced duplicate after full177/24-file backup/seal and no-reference
+proof; accepted8529/4a/3c9/815/e17 and Ubuntu/e47d remain installed. Continue the
+existing authorized cold shutdown/Wi-Fi-only10second unplug protocol; never copy
+this UUID or approval to another host. The record owns arming state; guest
+progress/save/return are automatic. No native TCP/HTTP/lifecycle claim follows.

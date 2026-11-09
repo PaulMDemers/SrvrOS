@@ -1,42 +1,47 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-08. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet accepted;two independent cold5GHz encrypted DHCP/DNS/256-byte echo lifetimes and one bounded native asynchronous provider TX/USB handoff with full restoration accepted**.
+Updated: 2026-11-09. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet accepted;two independent cold5GHz encrypted DHCP/DNS/256-byte echo lifetimes and one bounded native asynchronous provider TX/USB handoff with full restoration accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Native v131 runtime77f75af0,releasee17ff9e2fb15fb2c,session00065fc82df02680-00
-passes encrypted DHCP DORA,ARP,DNS and a matching256-byte gateway echo with
-PN1..6,software key erasure/local leave submission and complete endpoint/input/
-MAC/power/RF restoration. Independent cold repeat session00065fc8739d2620-00
-passes the same full proof on the identical image. The190/73-file native capsules
-and separate accepted notes survive outside build. This accepts two bounded cold
-lifetimes,not sustained reliability;earlier intermittent failures remain failed.
-Fingerprint-only diagnostics do not establish a causal correction. See the
-November8 acceptances at the end.
+Native v136 runtime `38f2d76a` / release `8529308170250844`, session
+`00065fd0e213e7ba-00`, is accepted: one original key, one bounded Discover retry,
+71 encrypted requests, 64 exact 256-byte gateway echoes, one TX and three RX
+real fences, full parent/ledger retirement and strict prior-file/metadata proof.
+Its original 255-file native capsule and separate 14-file acceptance notes remain
+immutable. This accepts bounded encrypted traffic; ordinary native IP/TCP/HTTP,
+connection epochs, reattachment, UI and reliability remain separate gates.
 
-Native v132 d97ad914/release815453c3f9a42431 now accepts one bounded cold
-asynchronous provider TX/USB completion lifetime,including encrypted DHCP/DNS/
-256-byte echo and full retirement. Session00065fc9d253b4f4-00 and its197-file
-sealed capsule are collected;preserve this and the earlier accepted data payload.
-New v133 candidate f2cc9ac0/release3c9b55a76fc9a38a is installed for the
-real bounded reusable-page USB trial;its physical acceptance is pending.
-After return collect wifi-reuse5-native FIRST. Ordinary provider RX/TCP/HTTP,
-persistent connections,descriptor wrap,UI and reattach remain pending. The captured
-7392:a711/0100 EW-7711MAC is5GHz-only;Demers2.4 needs compatible hardware. Current
-source retains maina1661937;actual main62d6154c was inspected but not consumed.
-Other machines' graphics,VT-d and browser work remain independent;no cross-chat
-contact is authorized. Credentials/private PMK remain local and never logged.
+The distinct v137 candidate, runtime `6a26cb80` / release `815747ea8c559ec0`,
+consumes actual main `e85a6846` and is software-qualified and installed for the
+next cold native production-stack trial. It defers ordinary network startup and
+uses guarded production DHCP/DNS/ARP and 64 exact 40-byte ICMP messages with
+32-byte bodies. All original-key, RX/TX fence, finite resource/time, quiet RX,
+full restoration and retained backend rules remain. Native v137 acceptance is
+pending. TCP/HTTP needs legitimate process/timer ownership before native testing.
 
-Cold unplug is still required:under standing user authorization,shutdown when
-qualified,unplug only Wi-Fi10seconds while off,reconnect same port,power on and
-leave workspace attached. Results save and Ubuntu return is automatic;no commands,
-photos or repeated approval. Collect the exact new session first after return.
-Workspace is unmounted,Ubuntu remains default,one-shot consumed and unarmed.
-The earlier v132 run is collected/accepted. The local v133 run record owns the
-new one-shot/shutdown state. PR19 draft;Actions disabled.
+Matched selected regressions, fatal sanitizers, 255 staging cases, nine actual-
+main selection groups, strict full-prefix proof and exact-image VMs pass. The
+private exact workspace-copy VM preserves all 416 prior files and metadata,
+apart from authorized marker atime. A fresh baseline and qualification are sealed
+outside build in `wifi-stack5-native-6a26cb80`. Historical native255/accepted14
+and software1233 capsules are unchanged. Ubuntu remains default; e47d recovery,
+accepted8529 and accepted4a/3c9/815/e17 stay installed. Only the unreferenced v130
+EFI duplicate was retired for space after its complete177/24-file immutable
+native/payload and acceptance backups were verified.
+
+Under standing user authorization, the next action is cold shutdown: unplug only
+Wi-Fi10seconds while off, reconnect the same port, power on and leave workspace
+attached. The guest shows progress, saves and returns to Ubuntu automatically.
+No commands, photos or repeated approval. The durable run record owns the exact
+arming state. On return collect FIRST, once, with
+`build/bringup/wifi-stack5-native/run_root.py return_collect`; missing completion
+or any refusal is not a pass. UUID `0E53-5900`; captured Edimax7392:a711/0100 is
+5GHz-only, so Demers2.4 needs compatible hardware. PR19 remains draft; Actions
+disabled. No cross-chat contact is authorized; credentials remain private.
 
 ## Earlier handoff (superseded November 8)
 
@@ -16150,3 +16155,47 @@ that actual baseline after implementation commits and before matched qualificati
 preserving its logger/storage tests and Pro receipts. The previous software1233-
 file capsule and native255/accepted14 capsules remain immutable. Installed8529/
 e47d and Ubuntu default stay protected; no new run is currently armed.
+
+### v137 qualified production-stack candidate installed (November 9)
+
+Runtime `6a26cb80` / release `815747ea8c559ec0` integrates main `e85a6846`
+(PR433 observer-only CSW/checkpoint diagnostics) without enabling Wi-Fi capture-
+write timing. The explicit stack5 child shares the original secured USB owner,
+uses unrenamed production DHCP/DNS/ARP/ICMP, and performs 64 unique exact replies
+with 32-byte bodies (2,048 verified body bytes; 40-byte ICMP messages). It is
+separate from the old private 256-byte probe. It accepts neither TCP/HTTP nor
+connection lifecycle until their own native gates pass.
+
+The matched kernel/USB and selected foundational/new/historical controller,
+crypto/IP/provider/network, scheduler/IRQ/cancellation and storage/logger/sync
+regressions pass in548.87seconds, with all recorded inputs unchanged. This is
+not a full-core or hosted Actions run. All255 staging cases and nine actual-main
+selection groups pass. The actual encrypted-owner/production-stack fixture
+passes21 normal/fatal cases with184 fixed compiled inputs; protocol evidence
+covers13 builds/104 executions. Four aggregate fatal sanitizer groups pass.
+Independent public AP vectors remain separate from kernel crypto.
+
+Strict full-parent proof passes494 source-bound mutations and12 current-release
+missing/duplicate checks. Conservative fixed parent2,033,738 plus child29,566
+leaves33,848bytes, above the32,768-byte reserve. Exact-stage startup inspection
+finds69 stale default-net bytes retained in that conservative composition but
+absent from the actual VM; no budget reduction is taken. An initial local
+composition-helper typo after parser success is preserved; corrected helper
+passes without changing source/product. Actual synthetic prefix2,049,275bytes.
+Native individual frames max3,176; integrated observer max9,480 versus131,072-
+byte scheduler stacks. This is not a whole-call-chain or latency measurement.
+
+Real2MiB filesystem write/read/remount, ordinary desktop, exact staged GPT and
+missing-workspace VMs pass. A disposable private exact416-file workspace-copy
+VM preserves bytes and metadata except authorized marker atime within RTC
+bounds. Independent repacking equals the private stage; ABI169 remains matched.
+A fresh416-file baseline, source/payload and all qualification evidence are
+sealed in a new capsule outside build. Native v137 remains unaccepted.
+
+EFI capacity required retiring only the oldest unreferenced v130 duplicate
+`4e9c4833b5b3cdf6`, after full backup equality,177-file native and24-file accepted
+seal verification and no GRUB/NVRAM references. Both historical capsules remain
+unchanged and restorable. Installed accepted8529/4a/3c9/815/e17 and Ubuntu/e47d
+remain protected; new815747 is installed, with Ubuntu default unchanged. The run
+record, not this dated prose, owns subsequent arming/collection state. Qualified
+cold shutdown is authorized; collect the new v137 session FIRST exactly once.

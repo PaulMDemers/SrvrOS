@@ -215,3 +215,21 @@ VM pass. It has no new boot recipe or native acceptance. The
 [next native workload design](macbookpro11-2-wifi-stack5-native-design.md) scopes
 finite guarded DHCP/DNS/64 gateway pings first; real process ownership, timers and
 bounded TCP APIs precede HTTP. Lifecycle, reattachment, UI and reliability remain.
+
+
+November9 v137 checkpoint: runtime `6a26cb80` / release `815747ea8c559ec0`
+consumes actual main `e85a6846` and is qualified/installed for the first native
+production DHCP/DNS/ARP and64 exact40-byte ICMP/32-byte-body trial. Native v136
+71-request/64-echo acceptance is immutable. The new original-key provider bridge
+passes21 actual-owner/production-stack normal/fatal cases, independent finite-
+protocol checks, matched selected regressions,255 staging cases/nine actual-main
+groups, strict494+12 refusal checks and exact-stage/storage/workspace-copy VMs.
+Native v137 acceptance remains pending; collect its matching saved session first.
+
+Remaining order: accept this production-stack hardware gate; add legitimate
+process/timer ownership and bounded TCP/HTTP, then prove native exact multi-packet
+transfer; qualify command-address reuse and persistent lifecycle, disconnection/
+reattachment/fresh keys and epochs; finish selection/connect controls and reliable
+UI updates; run loss, cancellation and sustained reliability checks. Host HTTP
+fixtures are preparation, not native acceptance. This5GHz-only adapter cannot
+accept Demers2.4; a compatible adapter is required for that separate band scope.

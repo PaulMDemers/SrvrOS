@@ -7812,3 +7812,19 @@ command reuse, reconnection, reattachment or connection UI. See the Pro unit
 [completion plan](machines/macbookpro11-2-wifi-completion-plan.md) for the next
 explicit asynchronous provider/production-stack work; no new hardware profile
 is installed or armed by that software work.
+
+
+### Pro11,2 guarded production-stack candidate (November 9)
+
+The distinct v137 stack5 recipe (`6a26cb80`, release `815747ea8c559ec0`) is now
+software-qualified and installed for a cold native trial. It defers ordinary
+startup, binds authenticated copied RX to the unrenamed production provider and
+DHCP/DNS/ARP/ICMP stack, and requires64 exact40-byte ICMP messages with32-byte
+bodies under the original key owner. Four-page/80TX/252RX/four-fence/15second/
+150000poll bounds and full parent/provider/ledger retirement remain strict.
+Backend tombstones are retained until controller halt. The separate checker
+requires exact new boot identity, production receipts and PN/accounting proof;
+legacy profiles stay distinct. Matched selected regressions,21 normal/fatal
+actual-owner cases,255 stage cases, whole-prefix and exact-image/workspace VMs
+pass. Native production-stack acceptance is still pending. TCP/HTTP,connection
+lifecycle/reattachment/UI and reliability remain later gates; see the unit plan.
