@@ -90,3 +90,13 @@ and1749; VCS1 remains GT3-only. The pinned source SHA256 is recorded in the
 Linux v6.12 [gen8 engine reset preparation/cancellation](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_reset.c)
 is a protocol reference. SrvrOS imports no catastrophic-error bypass, non-ready
 reset, full-reset request, retry or failure-path forced cancellation.
+
+## First native result
+
+The [Air7,2 trial](machines/macbookair7-2.md) on source`ba7fa11b` completed
+all ten request/cancel acknowledgements and raw preservation comparisons, but
+exceeded the unchanged dependent deadline:130,444/100,000 us. Preservation
+plus its final guard occupied42,175 us after88,269 us elapsed. Reason514
+retains the borrow, parent and13 aliases. This is incomplete evidence; no
+engine preparation, reset, memory or tear-free acceptance follows. Optimize
+measured admission/preservation overhead before retry, keeping all limits.

@@ -2,7 +2,29 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Current scope: all-engine preparation ready for hardware
+### Latest hardware: preparation deadline failure collected
+
+Source `ba7fa11b`, release `0c1e0b40f71e6d7a`, session
+`session-00065fd9972ec269-00` is **incomplete**, not accepted. All five engines
+acknowledged preparation and reverse cancellation, both held snapshots agreed,
+and final controls returned to zero. All ten writes completed without extra polls.
+Raw92-word pre/post engine/context vectors and27 display/10 HDA words match.
+However, preservation and its final guard exceeded the unchanged100 ms deadline:
+130,444 us total, with42,175 us after88,269 us had elapsed. Reason514 records
+clock failure and an unreturned borrow. The13 aliases and parent remain retained;
+no reset, memory or tear-free authority follows. Outer elapsed308,587 us also
+exceeds the300 ms owner budget, while within the500 ms outer budget.
+
+The saved checkpoint verifies. All1,404 prior files preserve apart from expected
+workspace metadata; three new logs produce1,407 files/125 sessions. Offline
+filesystem/allocation/writable/headroom and installed recovery checks pass.
+Ubuntu remains default, the one-shot is consumed and no reboot is armed. The
+photo shows the earlier preflight screen; saved exit receipts identify the later
+failure. Next reduce admission/preservation overhead without widening deadlines
+or removing checks. Main fetched at`4b71b178` is not yet integrated into this
+candidate. Evidence checkpoint:`build/air-engine-prepare-20261109`.
+
+### Pre-run qualification: all-engine preparation
 
 Main `f30f67e1` (Air6,1 PR434 documentation) is integrated as `cfbc050a`.
 Tested source `ba7fa11b`, release `0c1e0b40f71e6d7a`, implements the isolated
