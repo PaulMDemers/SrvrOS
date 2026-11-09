@@ -15852,3 +15852,30 @@ return_collect before another run;preserve protocol outcome before independent
 file/metadata/allocation/recovery checks. Missing completion,halts,unmatched
 sessions or uncertain ownership fail. Ordinary RX/DHCP/DNS/TCP/HTTP,indefinite
 command reuse,connection epochs/reattachment/UI and reliability remain later gates.
+
+### First stream trial stopped in the held calibration parent (November 8)
+
+Runtime e7f2fe70/release6065541ae03fb3c3 saved session00065fcfdcf31e18-00
+(1936381bytes). Collection ran exactly once and sealed203 native files. The
+strict whole-parent checker refuses incomplete channel-VCO receipts;this is not
+stream acceptance. The actual first failure is the existing calibration MAC RX
+drain:all eight retained RX TDs complete normally in177045us,then200 successful
+cleanup rounds observe0x430=0x22,0xa30=0x100,0xa34=0. MAC disable,TX drain and
+endpoint Stop succeed. Calibration replies/probe pass,but RX cessation never
+proves quiet,so window inspection/discovery and later join/EAPOL/stream never run.
+The stream receipt has zero epoch/rings/posts/keys;its inactive event hook grants
+no authority over this earlier parent. This bounded calibration code is unchanged
+from the accepted runtime. An exhausted eight-packet window with remaining queued
+RX is an inference,not a decoded packet/queue proof. Uninspected buffers give no
+AP-absence evidence. No held packet or key values are published.
+
+All410 prior file bytes and strict metadata fields preserve (only the expected
+marker atime within saved RTC bounds),with clean offline allocation/filesystem
+and installed payload/Ubuntu/e47d recovery checks. One-shot consumed;unarmed.
+The failed203-file capsule remains immutable. Root and two read-only agents audit
+the first failure and pre-stream isolation;no limits,parser admission or historical
+parent checks are weakened. Bounded next scope is at most one identical cold
+retry of the already-qualified image with a fresh workspace/run baseline and
+separate evidence. A repeated calibration drain failure requires an explicit
+cleanup design and qualification rather than another identical retry. Ordinary
+stack/lifecycle work remains open and the70-request native gate is unattempted.
