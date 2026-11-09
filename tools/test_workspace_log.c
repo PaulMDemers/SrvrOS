@@ -12,7 +12,7 @@ static uint64_t ticks=10,total=100,clock_us;
 static bool tracing,reference=true,power_enabled=true;
 static unsigned cost_reports;
 static struct sync_timing_snapshot sync_fixture;
-static unsigned sync_headers,sync_records,sync_worst,sync_usb,sync_command;
+static unsigned sync_headers,sync_records,sync_worst,sync_usb,sync_command,sidecar_reports;
 static unsigned global_syncs,durable_reports;
 static uint64_t test_policy=20000;
 bool xhci_storage_wait_policy(uint64_t policy,uint64_t *old) { assert(depth && (policy==0||policy==4000||policy==20000));*old=test_policy;test_policy=policy;return true; }
@@ -46,6 +46,7 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condit
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
 bool scheduler_io_observe_reset(void) { assert(!depth);return true; }
 void exfat_print_costs(void) { assert(!depth); }
+void exfat_print_sidecar_equality(void) { assert(!depth);sidecar_reports++; }
 void scheduler_print_io_owners(void) { assert(!depth); }
 void scheduler_print_activity(void) { assert(!depth); }
 void scheduler_snapshot(struct scheduler_stats *out) { assert(!depth);*out=(struct scheduler_stats){100,90,200,50}; }
@@ -71,10 +72,10 @@ void console_printf(const char *fmt,...) {
 }
 void console_write(const char *text) { (void)text;total++; }
 int main(void) {
-    sync_checkpoint(false);assert(!sync_headers && !sync_records && !sync_worst && !sync_usb);
+    sync_checkpoint(false);assert(!sync_headers && !sync_records && !sync_worst && !sync_usb && !sidecar_reports);
     sync_fixture.enabled=1;sync_fixture.records[0].pid=7;
-    sync_checkpoint(false);assert(sync_headers==1 && sync_records==1 && !sync_worst && !sync_usb);
-    sync_checkpoint(true);assert(sync_headers==2 && sync_records==2 && sync_worst==1 && sync_usb==6 && sync_command==2);
+    sync_checkpoint(false);assert(sync_headers==1 && sync_records==1 && !sync_worst && !sync_usb && sidecar_reports==1);
+    sync_checkpoint(true);assert(sync_headers==2 && sync_records==2 && sync_worst==1 && sync_usb==6 && sync_command==2 && sidecar_reports==2);
     assert(!writes && !flushes && !tracing && !depth);
     sync_fixture=(struct sync_timing_snapshot){0};total=100;
 

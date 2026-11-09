@@ -173,3 +173,24 @@ fewer block calls, preserved neighbours, bounded ranges and partial-failure
 quarantine. `make test-exfat-append` still cuts every reachable write/flush/tear
 boundary and checks committed payload preservation and existing torn-publication
 limitations. Fewer commands do not by themselves establish native latency gains.
+
+An existing metadata sidecar can retain its extent only after full current
+serialization exactly matches uncached media bytes. The bounded16KiB comparison
+checks length, ValidDataLength, every byte and FAT termination for linked extents; it does
+not use a persistent equality hint. Pending temp names and live sidecar clients
+retain the original replacement path. Mismatch uses that path unchanged; a
+failed read or unavailable proof refuses instead of permitting overwrite. A
+verified match flushes owner writes before the unchanged outer clean marker and
+unconditional global barriers. It removes only the unneeded new-temp/data/
+replace transaction; changed metadata retains all original publication writes
+and flushes, and allocation zero-padding is unchanged.
+
+`make test-exfat-sidecar-equality` independently checks exact media bytes,
+remounted attributes, unchanged changed-metadata write/barrier order, live-client
+and pending-temp fallback, uncached read/allocation refusal and every equal-path
+write/flush/cut/tear boundary. The explicit desktop sync diagnostic records
+bounded `exfat-sidecar` counters; retained_bytes counts equal serialized bytes,
+not physical bytes saved. Strict collection requires complete non-overflowing
+counters, no refused proofs/flush errors, and positive equality exercise. The
+Air6,1 trial additionally requires counter growth inside live PCM playback.
+Legacy cost output and other profiles' retention models/limits stay unchanged.

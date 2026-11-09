@@ -147,6 +147,7 @@ static void report_sync_transfers(const char *scope,uint64_t id,const struct usb
 }
 static void sync_checkpoint(bool final) {
     struct sync_timing_snapshot s;sync_timing_snapshot(&s);if(!s.enabled)return;
+    exfat_print_sidecar_equality();
     uint64_t at=timer_monotonic_us();
     console_printf("sync-snapshot: version=1 snapshot_us=%u enabled=%u active=%u invalid=%u dropped=%u final=%u\n",at,s.enabled,s.active,s.invalid,s.dropped,(uint64_t)final);
     for(unsigned i=0;i<SYNC_TIMING_RECORDS;i++) {
