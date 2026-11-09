@@ -10186,3 +10186,49 @@ Inspect actual open PRs for conflict; no messaging/delegation. Next checkpoint:
 prove fewer block-write calls with identical final bytes and barrier ordering,
 run fault cuts and full host/VM validation, merge, then exact-stage/native stress.
 Native latency benefit remains unproved; reject rather than broaden this scope.
+
+
+### Unpublished FAT-link batching validated and staged (2026-11-09)
+
+Frozen source `c831012f` batches only the two append-preparation loops for
+consecutive unpublished FAT links. Scratch writes stay within512-byte boundaries;
+next-cluster values, final tail attachment and all data/link/publication flushes
+remain unchanged. Full old-prefix proof, payload writes, fragmented traversal,
+alias/alignment/COW fallback and failure/quarantine handling are untouched.
+Source comparison proves every other byte of exFAT unchanged; process/global
+sync, block, USB/xHCI, scheduler, syscall, logger and streaming paths have no diff.
+PR19's metadata-restore changes are outside these append/link sections; PR301's
+scanout scope remains independent. No contact/delegation or sibling acceptance.
+
+Independent actual-driver comparisons on4KiB and128KiB clusters produce identical
+complete media images and ordered logical FAT writes/flushes:22 block writes
+become20, with ten flushes unchanged. Actual-writer fixtures cover exact values,
+512-byte boundaries,4KiB-sector neighbours, range/address overflow refusal and
+partial-write quarantine/no retry. Existing append tests pass full old-prefix,
+changed/alignment/alias fallbacks and all reachable write/flush/tear cuts for
+contiguous and fragmented old extents. Existing torn-publication limitations
+remain documented; neither new atomicity nor native latency gains are claimed.
+
+Full matched normal/native/VM/RAM/USB images, core, desktop and docs pass on
+`c831012f`, including89 installed-root tests in730.011s with one expected skip.
+Ordinary sysabi/USB keyboard/fork/exec-vectors/yield VMs and real USB read-only/
+write/flush/reload/input integration pass. Populated-Home KVM400-write-IOPS stress
+passes22 app cycles,175 overlap observations, zero audio/worker/lifecycle errors,
+239126us maximum loop and1518919/1397290us maximum launch/close. Complete
+unmodified console records with retained atomic checkpoints supply app timing;
+independent reparse agrees, without reconstructing UART fragments. Saved sync/
+CSW/checkpoint/raw-write/gate/loop parsing also agrees. Ordinary immutable
+screenshot/readback/Preview/repeat/exit passes. Optional IDT variants compile
+only; no experimental feature is activated.
+
+Exact stage `8caa2866d8888e8c` passes native-board refusal/save/unmount/automatic
+return in Q35. It does not accept native filesystem or hardware behavior. Next
+is the unchanged automatic1800-second1% PCM/verified disk/app/three-screenshot
+trial, retaining500ms loop/10s lifecycle, every full-prefix/readback/barrier/
+rename/failure/ownership/retirement requirement and complete diagnostic records.
+Native integrity and latency acceptance remain pending. Keep accepted
+`53bbc1245abcc03d` and console recovery `c35475f62f154f1e`; after full independent
+backup/no-reference verification, only superseded EFI duplicate `13b77acfd1826907`
+may be archived to make installation room. Own USB, offline allocation/headroom,
+all719 prior file hashes and durable run/payload/evidence records must verify
+before one-shot reboot. All prior failed attempts retain their original status.
