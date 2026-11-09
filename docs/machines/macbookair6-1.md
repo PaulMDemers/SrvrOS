@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-11-08. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-11-09. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 Current diagnostic milestone: the exact-source pre-user two-pass read-only
 sampler is physically accepted on release `2ddbd3b285f6bf41`. All24 DWORD reads
@@ -10370,3 +10370,158 @@ records must verify before one-shot reboot. Four old stage duplicates were
 removed only after complete independent payload/file hash verification, freeing
 about580MiB; accepted backups, raw evidence and active payloads are preserved.
 No sibling acceptance or historical failure status changes.
+
+### Sidecar equality native trial halted (2026-11-09)
+
+Release `c1578543a5d0e7e4`, compiled source `62dd5ea1`, run
+`525a5325e1434c1a`, session `00065fd9dc146258-00` is **FAILED**, not
+physically accepted. Saved logs end at196.537365s with active PCM and no
+recorded underruns, but no workload completion, exit or clean retirement.
+The supplied terminal photograph reports `HALTED query transport`,1599 queries,
+zero runtime errors/denials, worker15/completed825/in-flight1, `ec_phase=6`
+(`EC_DONE`) and `ec_error=0` (`EC_OK`). This is not evidence of a transport
+timeout: transfer can refuse before transport polling. Admission, worker context,
+lease ownership and any interleaving remain to be diagnosed. No causal link to
+the sidecar change is established, and no deadline or ownership gate is relaxed.
+
+Partial sidecar counters at186.447545s show1661 checks,337 equal,1324 changed,
+zero refused/flush failures/active/invalid, and32410215 retained serialized bytes.
+These establish exercise only; missing full stress/retirement proof prevents
+native acceptance or a latency claim. One screenshot survives; the required
+three-screenshot/1800-second test did not complete.
+
+All728 prior files remain present with contents unchanged except expected
+`.srvros/meta`;732 files remain after the interrupted run. `fsck.exfat -n`
+reports clean, but the independent allocation checker fails with one orphaned
+cluster and zero FAT/bitmap mismatches. Keep this discrepancy as failed evidence;
+no repair or new boot was attempted. Media stays unmounted. The photo, raw logs,
+file hashes, failed checks and independent review are retained outside build in
+a hash-verified643-file trial backup. Ubuntu remains default, one-shot entry is
+empty, collector disabled and no reboot armed. Installed candidate, accepted
+`8caa2866d8888e8c` and console recovery `c35475f62f154f1e` payloads verify.
+Next bounded work: diagnose transfer refusal/ownership and preserve orphan
+allocation evidence before any repair or new trial, retaining existing integrity,
+watchdog, transport and stress limits. Historical host/VM passes remain separate.
+
+### Query transfer refusal audit scope (2026-11-09)
+
+Base `d057f7d8`, after collecting the failed sidecar trial. Bounded objective:
+preserve read-only allocation/allocated-media evidence, identify the orphan,
+and audit native query transfer admission, worker context, EC lease and completion
+state. If current evidence cannot distinguish refusal from poll failure, add
+fixed-storage failure-only diagnostics with real admission/transfer regression
+cases before another native trial. Touch the battery runtime adaptation and its
+focused tests only as needed; no speculative ownership bypass, retry, deadline
+extension, interrupt enabling or transport reset. Preserve watchdogs, isolation,
+query/EC budgets, all integrity and stress limits. Inspect current PR19/301
+scope before shared edits; no other machine acceptance or delegation follows.
+Next checkpoint: a reproduced cause/fix or explicit diagnostic candidate, matched
+host/VM checks, preserved/reconciled offline allocation and exact-stage recovery
+proof before any automatic native test. Current failed USB stays unmounted and
+unmodified until its allocation evidence is independently backed up.
+
+### Query transfer diagnostic validated and staged (2026-11-09)
+
+Frozen source `10cb60fb`, ports `d40e118` (SrvrPorts PR13), retains the original
+IF/worker/lease/poison admission and EC100ms transfer budget. It adds one fixed
+RAM failure observation, cleared per lifetime and printed only during existing
+terminal containment. Original entry flags/identities and lease/poison distinguish
+admission refusal from begin/poll failure; EC phase/error/polls/status and clocks
+are retained. No retry, IRQ enabling, controller reset, allocation, filesystem
+save, permission grant or policy/limit change follows. This is a diagnostic
+candidate: the native cause is unresolved and no fix is claimed. A successful
+repeat alone must not close an intermittent failure. See the
+[failure evidence contract](../battery-service.md#failure-only-transfer-admission-evidence).
+
+The real wrapper and EC implementation pass host cases for every admission
+refusal, prior DONE/OK, invalid/poisoned begin, unexpected output and the unchanged
+100ms timeout, including no EC I/O on refused admission. Production images omit
+host IRQ substitution; only the explicit battery image contains the report.
+Transport, scheduler, filesystem, worker queue, hardware profiles, ownership,
+watchdogs and stress/staging policies are unchanged. Actual current PR19/301
+scopes do not touch this battery adaptation; no other machine acceptance follows.
+
+The interrupted USB was preserved before recovery: full prefix/FAT and all2732
+allocated clusters, including orphan2700, are independently archived and every
+range hash verified outside build. There were2731 referenced clusters and zero
+unallocated references. On a disposable reconstruction, `fsck.exfat -y -s`
+retained the full128KiB orphan in LOST+FOUND and preserved every one of732
+existing file hashes. Physical rescue matched that exact733-file result. The
+strict allocation checker now passes2733 clusters with zero leaks/mismatches/
+errors, and original32-file/eight-directory plus metadata headroom passes.
+Historical native failure remains failed. Only the disposable reconstruction
+was removed; the verified allocated-media archive and original evidence remain.
+
+Full matched normal/native/VM/RAM/USB builds, core, desktop and docs pass,
+including89 install/recovery tests in771.679s with one expected skip. Ordinary
+syscall, USB keyboard, fork/exec-vectors/yield and actual USB read-only/write/
+flush/reload/input integration pass. Populated-Home KVM400-write-IOPS stress
+passes21 app cycles,179 overlap observations,146245us worst loop and
+1282089/1796066us maximum launch/close, with zero audio/worker/lifecycle errors
+and clean retirement. Independent saved app/sync/write/gate/loop proof agrees;
+atomic saved app coverage is complete. Sidecar counters are complete with611
+checks/132 equal/479 changed, zero refused/flush/active/invalid, and equality
+increases86 during live PCM. These are synthetic regression observations.
+Ordinary immutable screenshot/readback/Preview/repeat/exit passes. Exact stage
+`318c5032d1519383` passes Q35 native-board refusal/save/unmount/return.
+
+Next native trial repeats the original1800-second1% PCM/verified USB/app/three-
+screenshot workload with every500ms loop/10s lifecycle, full readback, timing,
+equality-growth, ownership and retirement requirement unchanged. No input is
+required; keep AC and USB attached. Mounted-Home containment still halts safely
+with live state retained: photograph the full terminal and restart Ubuntu if
+encountered. Collect the matching run first after return. Preserve accepted
+`8caa2866d8888e8c` and console recovery `c35475f62f154f1e`; obsolete zero-load
+qualification payload `517661c4c5a9627f` may be removed from EFI only after its
+full independent backup and absence of boot references verify. Its evidence
+and accepted history remain outside build. Ready/armed state belongs to the
+local run record, not this staged-source entry. Native cause/fix and sidecar
+acceptance remain pending.
+
+### Query diagnostic / sidecar native regression completed (2026-11-09)
+
+Release `318c5032d1519383`, frozen SrvrOS `10cb60fb` / ports `d40e118`,
+run `a8e0df6a178545d6`, session `00065fda7a63e0c5-00` completed the full
+1800-second1% workload and returned automatically. It passes1085 app open/close
+cycles,4037 verified262144-byte disk bursts (1058275328 bytes),345747456 PCM
+bytes, zero recorded underruns/worker/lifecycle errors and all three exact
+1366×768 BMPs. The52052 valid loop observations have zero excursions/invalidity
+and140092us worst loop under the unchanged500ms limit; maximum launch/close
+are1871323/2081206us under the unchanged10s limits. Follow-up Files, screenshot
+cleanup, normal exit and full cache/worker/battery retirement pass. Battery
+retirement records705 attempts, zero rejections,10666 queries,110 notifications,
+matched attach/detach and zero heap/errors/denials. Independent parsing of saved
+loop/app/sync/write/gate/sidecar/window/receipt/BMP and retirement proof agrees.
+
+The previous query-transport halt did not recur. No transfer-failure diagnostic
+was emitted; those rows are terminal failure-only output, not a continuous
+transfer-failure counter. **The intermittent cause remains unresolved; this
+successful repeat is not a battery fix.** The failed `c1578543a5d0e7e4` trial
+and its preserved media/photo remain failed history. Subjective audio is
+unassessed at1%; prior short25% listening acceptance remains separate.
+
+This accepts native bounded sidecar-equality exercise and functional/integrity
+regression on this source/release:16371 checks,3235 equal,13136 changed and zero
+refused/flush/active/invalid counters. Twenty new equalities are witnessed
+between two complete snapshots inside live PCM, with a complete final snapshot
+after playback. The313969245 retained serialized bytes are logical proof bytes,
+not measured physical write savings. All733 prior files, including the full
+recovered orphan, retain contents except expected sidecar metadata changes.
+Final742 files /2840 clusters pass offline fsck and the strict zero-leak/FAT-
+bitmap/error checker. No integrity, ownership, watchdog or stress limit changed.
+
+Slowest screenshot is23.539827s (receive6.561760s / WRITE13.073907s), with
+57.379ms worst cleanup. Worst retained PID7 global sync is2.347472s, of which
+file-sync is2.347069s and parent-device flush403us; the slowest file-phase CSW
+is a16KiB WRITE10 callback taking354896us. Software observation covers354894us
+before dispatch and1us after it, not hardware completion time. Screenshot/
+write/sync latency remains open; one variable run establishes no stable gain.
+
+Ubuntu/default recovery, installed candidate and retained accepted/recovery
+payloads verify; one-shot entry is empty and collector disabled. The obsolete
+zero-load qualification EFI duplicate was removed only after full independent
+backup and no-reference checks; its evidence remains outside build. Current
+trial/payload backups and original failed-run allocated-media evidence survive
+`make distclean`. No reboot is armed. Next bounded step: repeat the same
+instrumented native workload to seek recurrence before treating the intermittent
+battery issue as resolved; preserve existing failure containment and limits.
