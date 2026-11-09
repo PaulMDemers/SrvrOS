@@ -2,10 +2,35 @@
 
 Updated: 2026-11-08. State: **active reference machine; partial device acceptance**.
 
-### Guarded endpoint / inner-clock candidate ready for hardware
+### Guarded endpoint trial returned: enabled inherited ring refused
+
+Source `76e45067`, release `3d376586292550c3`, session
+`session-00065fcd80544cbb-00` is **incomplete**. The fresh pre-census reads92
+stable words in53,817us, but BCS has inherited start `0x03eef000` and control
+`0x0000f001` (enabled mask16). The zero-geometry/disabled admission gate refuses
+before observation, dependent borrow or reset. There are zero request/reset
+stores, zero reset ACKs and zero endpoint-bundle attempts. Inner and parent clock
+rows report no fault; the inner optimization was not exercised.
+
+The owner returns in145,984us and the outer wake interval in224,414us. All13
+mappings retire, firmware/requester checks and exclusion release complete, and
+the diagnostic is saved before automatic return. This is a clean refusal, not
+reset/preservation or native timing acceptance. The enabled-ring gate and all
+deadlines remain unchanged; no ring writer is added to make this trial pass.
+
+All1,386 prior files preserve except expected workspace metadata; three new logs
+give1,389 files/119 sessions. Strict v10 decoding and saved prerequisite checkpoint
+pass without parser errors; whole-trial completion remains false. Offline fsck,
+allocation, writable/headroom, installed/durable/archive recovery, Ubuntu default
+and consumed one-shot checks pass. USB is unmounted and no new reboot is armed.
+Matching evidence is retained independently outside build. Next retry the unchanged
+candidate on a naturally disabled inherited ring; enabled-ring qualification is
+a separate milestone and is not authorized by this refusal.
+
+### Guarded endpoint / inner-clock candidate qualification
 
 Source `76e45067` (main `2718c8e3` integrated as `bf8867ee`) produces release
-`3d376586292550c3`, installed **not armed**. The
+`3d376586292550c3`, now returned and **not armed**. The
 [reset contract](../intel-bcs-reset.md#guarded-endpoint-bundles-and-first-inner-clock-fault)
 adds a mandatory wake-v10 inner clock row with the first failed sample, previous
 accepted time, stage/cause and endpoint-batch count. Strict collection derives

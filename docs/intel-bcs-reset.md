@@ -395,8 +395,14 @@ remain. The earlier d74 settling failure stays incomplete. No new register,
 writer, mapping or enabled-ring admission follows from this optimization.
 
 
-Source `76e45067` / release `3d376586292550c3` is installed unarmed for the
-[guarded-bundle/inner-clock trial](machines/macbookair7-2.md#guarded-endpoint--inner-clock-candidate-ready-for-hardware).
+Source `76e45067` / release `3d376586292550c3` returned from the
+[guarded-bundle/inner-clock trial](machines/macbookair7-2.md#guarded-endpoint-trial-returned-enabled-inherited-ring-refused)
+with a clean prerequisite refusal: the92-word stable pre-census observes inherited
+BCS start `0x03eef000` / control `0x0000f001`, enabled mask16. No dependent borrow,
+shutdown observation, reset store or endpoint bundle runs. Both clock rows have
+no fault, which does not qualify unexercised inner timing. All13 mappings retire
+and the saved diagnostic returns automatically; complete reset/preservation stays
+unaccepted. No new trial is armed.
 Full local checks,91 fatal sanitizer cases,16 compiled controls,16-image isolation,
 actual native bundle/load/provider bindings and exact-stage normal/missing-workspace
 VM outcomes pass. The projected full-width tail is65,505/65,536bytes with the
