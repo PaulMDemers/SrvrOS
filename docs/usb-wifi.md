@@ -7847,21 +7847,49 @@ DHCP/DNS/ARP,64 exact40-byte ICMP messages,68 original-key data publications,
 oneTX/twoRX fences and full parent/ledger/provider retirement. Original1155-file
 native evidence and109 acceptance notes preserve strict file/metadata/recovery
 proof. This is not worker/service coexistence,TCP/HTTP or connection lifecycle.
-Current5ca/9f merged-main image is installed for native regression; host70fd uses
+The later5ca/9f merged-main image failed native regression; its host70fd uses
 an explicit/work inspection namespace with unchanged metadata gates. Its original
 content-addressed runtime manifest remains5ca. See the unit record for exact
 qualification, recovery and collect-first state.
 
 
-November9 Pro11,2 checkpoint: current qualified/installed comparison is source
-c75cdb78/release7a4442e75476090f on main4b71b178. Previous5ca/9f FAILED firstjoin
-ASSOC after AUTH and never reached the encrypted production owner; full failed
-native1877/review14 capsules stay immutable. Deferred firstjoin phase observations
-preserve callback/parser/deadline/retry behavior; the new source-bound collector
-requires both rows plus full original production-IP/key/provider/parent/ledger
-retirement. Local/fatal/496child+19directed-prefix/staged422-file preservation
-checks pass; native comparison is pending. Only failed9f's backed EFI duplicate
-was retired after accepted7026 fallback; Ubuntu/e47d and six accepted payloads
-remain. Collect wifi-stack5-response FIRST once after the authorized cold trial.
-Finite TCP and exact HTTP helper are dormant software work, not native TCP/HTTP
-or worker/process/IRQ/lifecycle acceptance; see the unit completion plan.
+November9 Pro11,2 return: sourcec75cdb78/release7a4442e75476090f FAILED the
+calibration parent's RX cleanup before discovery, join or production IP entry.
+All five calibration commands and eight normal receive completions passed, then
+0xa30 remained0x500 for200 drain rounds. EndpointStop/MACdisable passed; the strict
+seven-quiet requirement correctly refused completion. Missing VCO-parent suffix
+is downstream cancellation, not an identified RF failure. The856-file native
+capsule and separate12-file return review remain immutable. All422 prior files,
+metadata apart from permitted marker atime, allocation/fsck and Ubuntu-unarmed
+recovery pass; full file/tree/payload checks are collector attestations, while
+independent review directly compares metadata and sealed logs. Earlier accepted
+2da/7026 remains historical production-IP acceptance;5ca/9f remains failed.
+
+Fetched mainf30ad7a5 is merged, preserving Pro logger isolation in portscd066bf.
+The next cleanup design reserves separate immutable receive pages after MAC
+is disabled, retaining all eight discovery pages, original drain checks and
+uncertainty retention. No identical retry is armed. Finite TCP backend/HTTP
+software work remains separate from native TCP/process/IRQ/worker/lifecycle
+acceptance; see the machine record for current source and physical status.
+
+
+The finite TCP frontend is now an explicit software opt-in: socket try-I/O
+operation6 (`SRV_SOCKET_TCP_SEND_TRY`) takes a fixed1536-byte owned snapshot and
+admits at most one MSS/window/history-bounded segment. Existing generic SEND,
+ordinary write/respond and UDP keep their prior backends. Sentinel FD UINT64_MAX
+with null operands is a side-effect-free version1 query. The native SDK's
+`srv_net_connect_try` negotiates that version before requesting cache-only
+nonblocking connect, so an older kernel cannot ignore the new flag and silently
+enter legacy ARP. Unsupported versions return NOTSUP without connect. A cache
+miss returns AGAIN before ARP/SYN/slot/port mutation. The returned native FD is
+SYN_SENT and retains default status flags; only explicit finite operations use
+this backend. This is not a POSIX pseudo socket or established connection.
+
+Actual syscall helpers plus the unrenamed TCP stack and actual SDK wrappers pass
+normal/fatal host tests, including old dispatcher compatibility, partial admission,
+backpressure, mapping/FD-generation/type/handle revocation, snapshot bounds and
+old-kernel preflight refusal. Host process, IRQ and raw SDK entry are modeled;
+ordinary ISR admission may still wait, and provider duration, actual child/worker/
+timer ownership, EOF/TIME_WAIT and terminal connection retirement remain open.
+No native HTTP client is wired by this change. Independent source review found
+no blocker; the private qualification binds87 project inputs,9 builds and8 runs.

@@ -136,8 +136,10 @@ Next TCP/HTTP work wires finite operations without changing legacy callers, then
 uses a genuinely running prelive process, explicit service isolation, a bound
 numeric-IP handoff, real IRQ timers and actual terminal TCP retirement. Existing
 svscan readiness and uncached DNS cannot substitute for those gates; poll/close
-admission may wait, and close0 is not socket retirement. A private unapplied
-frontend proposal is retained for the next software gate. Lifecycle, reattachment,
+admission may wait, and close0 is not socket retirement. The explicit operation6 finite frontend and version1 SDK preflight now pass
+normal/fatal host qualification and independent source review. Existing SEND/
+write/respond/UDP paths remain unchanged, with fixed1536-byte new-path snapshots.
+Host process/IRQ models do not accept actual child/timer/service behavior. Lifecycle, reattachment,
 UI, sustained reliability and compatible2.4GHz hardware remain separate work.
 
 Standing user authorization permits the qualified cold shutdown: unplug only

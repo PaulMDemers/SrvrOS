@@ -15,6 +15,9 @@ static const char *srv_make_path(const char *path, char *buffer, size_t capacity
     return buffer;
 }
 
+/* Host fixtures supply strong raw-call models and execute the actual SDK
+ * wrappers below. Ordinary SDK builds retain these assembly entry points. */
+#ifndef SRVROS_SYS_HOST_TEST
 long srv_syscall0(long number) {
     __asm__ volatile ("int $0x80" : "+a"(number) : : "memory");
     return number;
@@ -72,6 +75,8 @@ long srv_syscall6(long number, long arg0, long arg1, long arg2, long arg3, long 
         : "memory");
     return number;
 }
+
+#endif
 
 size_t srv_strlen(const char *text) {
     size_t length = 0;
@@ -511,6 +516,16 @@ long srv_net_listen(uint16_t port) {
 
 long srv_net_connect(uint32_t remote_ip, uint16_t remote_port, uint64_t flags) {
     return srv_syscall3(SYS_NET_CONNECT, remote_ip, remote_port, flags);
+}
+
+long srv_net_connect_try(uint32_t remote_ip, uint16_t remote_port) {
+    if (srv_socket_try_io(-1, SRV_SOCKET_TCP_SEND_TRY, 0, 0, 0) !=
+        SRV_SOCKET_TCP_TRY_ABI_VERSION) return SRV_ERR_NOTSUP;
+    return srv_net_connect(remote_ip, remote_port, SRV_FD_NONBLOCK | SRV_NET_CONNECT_CACHE_ONLY);
+}
+
+long srv_net_respond_try(int fd, const void *buffer, size_t length) {
+    return srv_socket_try_io(fd, SRV_SOCKET_TCP_SEND_TRY, (void *)buffer, length, 0);
 }
 
 long srv_net_accept(int listener_fd, char *buffer, size_t capacity, uint64_t *length_out) {

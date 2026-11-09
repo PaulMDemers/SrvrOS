@@ -6318,3 +6318,17 @@ test-http-exact: build/tests/http-exact-host$(HOST_EXE)
 build/tests/http-exact-host$(HOST_EXE): tools/test_http_exact.c userspace/wifihttpprobe/http_exact.c userspace/wifihttpprobe/http_exact.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< userspace/wifihttpprobe/http_exact.c -o $@
+
+.PHONY: test-net-tcp-frontend test-net-tcp-frontend-sdk
+test-core: test-net-tcp-frontend test-net-tcp-frontend-sdk
+test-wifi-completion-foundations: test-net-tcp-frontend test-net-tcp-frontend-sdk
+test-net-tcp-frontend: build/tests/net-tcp-frontend-host$(HOST_EXE)
+	$<
+build/tests/net-tcp-frontend-host$(HOST_EXE): tools/test_net_tcp_frontend.c tools/test_net_tcp_try.c kernel/src/net.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-net-tcp-frontend-sdk: build/tests/net-tcp-frontend-sdk-host$(HOST_EXE)
+	$<
+build/tests/net-tcp-frontend-sdk-host$(HOST_EXE): tools/test_net_tcp_frontend_sdk.c userspace/lib/src/sys.c userspace/lib/include/srvros/sys.h userspace/lib/include/srvros/cli.h $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DSRVROS_SYS_HOST_TEST -I shared/include -idirafter userspace/lib/include $< userspace/lib/src/sys.c -Wl,--gc-sections -o $@
