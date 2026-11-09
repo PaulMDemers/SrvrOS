@@ -96,6 +96,25 @@ static bool run(void){
  for(unsigned i=0;i<8;i++)assert(!memcmp(forward_copy[i],wifi_cal5.plan.buffer[i],4096));
  assert(!freed);return ok && stopped && wifi_cal5_cleanup_held();
 }
+static unsigned finish_calls,finish_fault_at,finish_fault_kind;
+static bool finish_guard(void *context,bool cleanup){
+ assert(context==&wifi_cal5 && cleanup);
+ if(++finish_calls==finish_fault_at){
+  if(finish_fault_kind==1)wifi_cal5.cleanup_buffer[0][11]^=1;
+  else if(finish_fault_kind==2)wifi_cal5.failed=true;
+  else {uint64_t p=wifi_cal5.plan.ring+8*16;struct xhci_trb e={.parameter_low=p,.parameter_high=p>>32,.status=13u<<24,.control=(32u<<10)|(9u<<16)|(1u<<24)};dispatch_transfer_event(&e);}
+ }
+ return wifi_cal5_finish_owned(context,cleanup);
+}
+static void finish_capture(void){
+ wifi_cal5.window.plan=wifi_cal5.plan;
+ for(unsigned i=0;i<8;i++)wifi_cal5.window.item[i]=(struct mt76_rx_window_item){.submitted=true,.completed=true,.completion=13,.remaining=4032,.actual=64};
+ const struct mt76_rx_window_io io={.context=&wifi_cal5,.owned=finish_guard};
+ const struct mt76_rx_window_stop stop={.dequeue=wifi_cal5.stop_dequeue,.slot=wifi_cal5.d->slot_id,.dci=9,.state=wifi_cal5.stop_state,.cleanup_posts=wifi_cal5.cleanup_posts};
+ bool done=mt76_rx5_window_finish(&wifi_cal5.window,&io,&stop);assert(done==!finish_fault_at);
+ for(unsigned i=0;i<8;i++)assert(wifi_cal5.window.item[i].inspected==(!finish_fault_at || i+1<finish_fault_at));
+ assert(!freed);
+}
 int main(int argc,char **argv){
  if(argc==2 && !strcmp(argv[1],"--trace")){setup(true,5);batch_trace=true;console_write("wifi-cal5-cleanup-plan: forward=8 reserved=8\n");assert(run());return 0;}
  if(argc==2 && !strcmp(argv[1],"--size-projection")){
@@ -113,5 +132,12 @@ int main(int argc,char **argv){
  setup(true,0);ptr=wifi_cal5.plan.ring+16*16;e=(struct xhci_trb){.parameter_low=ptr,.parameter_high=ptr>>32,.status=13u<<24,.control=(32u<<10)|(9u<<16)|(1u<<24)};dispatch_transfer_event(&e);assert(wifi_cal5.cleanup_failed && !wifi_cal5.cleanup_posts);
  setup(true,3);assert(run());wifi_cal5.cleanup_buffer[7][3]^=1;assert(!wifi_cal5_cleanup_held());
  setup(true,0);wifi_cal5.cleanup_physical[0]=wifi_cal5.plan.physical[0];assert(!wifi_cal5_owned(&wifi_cal5,false) && !wifi_cal5.cleanup_posts);
+ /* A fault after Stop must invalidate first8 payload admission at every
+  * item boundary,while independent hardware teardown admission stays intact. */
+ for(unsigned kind=0;kind<3;kind++)for(unsigned at=1;at<=8;at++){
+  setup(true,3);assert(run());finish_calls=0;finish_fault_at=at;finish_fault_kind=kind;finish_capture();
+ }
+ setup(true,0);assert(run());finish_calls=finish_fault_at=0;finish_capture();
+ setup(false,0);assert(run());finish_calls=finish_fault_at=0;finish_capture();
  puts("xhci-cal5-cleanup: PASS actual finite8scratch append/200round7quiet drain,original8 immutable,real eventdispatcher,exactStop and ownEP0 completion spans,normal/stopped distinction,queue/reserve exhaustion,misroute/ED/CC/residue/late/alias/held faults;modeled heldparent/USB,native unaccepted");return 0;
 }

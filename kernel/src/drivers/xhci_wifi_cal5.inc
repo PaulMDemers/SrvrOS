@@ -124,6 +124,12 @@ static bool wifi_cal5_owner(void *context,bool cleanup,bool event){
 #endif
 }
 static bool wifi_cal5_owned(void *context,bool cleanup){return wifi_cal5_owner(context,cleanup,false);}
+/* Teardown may proceed after a fault;payload inspection may not. Recheck
+ * late events and immutable cleanup storage before EACH retained capture item. */
+static bool wifi_cal5_finish_owned(void *context,bool cleanup){
+ if(!wifi_cal5_owned(context,cleanup))return false;
+ return !wifi_cal5.cleanup_enabled || (!wifi_cal5.failed && !wifi_cal5.cleanup_failed && wifi_cal5_cleanup_held());
+}
 static bool wifi_cal5_usb(bool cleanup,bool write,uint32_t a,uint32_t *v){
  if(!v || !wifi_cal5_owned(&wifi_cal5,cleanup))return false;
  switch(a){case 0x1004:case 0x2000:case 0x208:case 0x1400:case 0x1340:case 0x13b0:case 0x2124:case 0x438:case 0xa30:case 0xa34:case 0x1200:case 0x430:break;default:return false;}
@@ -398,7 +404,7 @@ static bool wifi_cal5_inspect(void *context){
  if(ok){const struct mt76_mac_cycle_io io={&wifi_cal5,wifi_cal5_owned,wifi_cal5_read,wifi_cal5_write,wifi_cal5_delay,wifi_cal5_now,wifi_cal5_inspection};ok=mt76_mac_cycle_run(&wifi_cal5.mac,&io);}
  bool stopped=!wifi_cal5.configured || wifi_cal5_stop();
  wifi_cal5_cleanup_emit();
- if(wifi_cal5.window.attempted){const struct mt76_rx_window_io io={.context=&wifi_cal5,.owned=wifi_cal5_owned};const struct mt76_rx_window_stop stop={.dequeue=wifi_cal5.stop_dequeue,.slot=d->slot_id,.dci=9,.state=wifi_cal5.stop_state,.cleanup_posts=wifi_cal5.cleanup_posts};bool finished=mt76_rx5_window_finish(&wifi_cal5.window,&io,stopped && wifi_cal5.mac.complete?&stop:NULL);ok=finished && ok;}
+ if(wifi_cal5.window.attempted){const struct mt76_rx_window_io io={.context=&wifi_cal5,.owned=wifi_cal5_finish_owned};const struct mt76_rx_window_stop stop={.dequeue=wifi_cal5.stop_dequeue,.slot=d->slot_id,.dci=9,.state=wifi_cal5.stop_state,.cleanup_posts=wifi_cal5.cleanup_posts};bool finished=mt76_rx5_window_finish(&wifi_cal5.window,&io,stopped && wifi_cal5.mac.complete?&stop:NULL);ok=finished && ok;}
  for(unsigned i=0;i<wifi_cal5.window.attempts && i<8;i++){const struct mt76_rx_window_item *v=&wifi_cal5.window.item[i];console_printf("wifi-cal5-rx: index=%u submitted=%u completed=%u cc=%u remaining=%u actual=%u inspected=%u view=%u beacon_status=%u beacon=%u mpdu=%u interval=%u ssid_size=%u privacy=%u rsn=%u wpa=%u\n",(uint64_t)i,(uint64_t)v->submitted,(uint64_t)v->completed,(uint64_t)v->completion,(uint64_t)v->remaining,(uint64_t)v->actual,(uint64_t)v->inspected,(uint64_t)v->view_status,(uint64_t)v->beacon_status,(uint64_t)v->beacon,(uint64_t)v->mpdu,(uint64_t)v->interval,(uint64_t)v->ssid_size,(uint64_t)v->privacy,(uint64_t)v->rsn,(uint64_t)v->wpa);}
  ok=ok && stopped && !wifi_cal5.failed && wifi_cal5.cal.complete && wifi_cal5.mac.complete && wifi_cal5.mac.mac_disabled && wifi_cal5.mac.rx_drained && wifi_cal5.mac.tx_drained && wifi_cal5.window.complete;
  console_printf("wifi-cal5: ok=%u operations=%u commands=%u probe=%u calibration=%u mac=%u disabled=%u tx_drained=%u rx_drained=%u filter_restored=%u txop_restored=%u stopped=%u window=%u attempts=%u completions=%u beacons=%u elapsed_us=%u retained=1 network_out=0\n",(uint64_t)ok,(uint64_t)wifi_cal5.operations,(uint64_t)wifi_cal5.commands,(uint64_t)wifi_cal5.probe.complete,(uint64_t)wifi_cal5.cal.complete,(uint64_t)wifi_cal5.mac.complete,(uint64_t)wifi_cal5.mac.mac_disabled,(uint64_t)wifi_cal5.mac.tx_drained,(uint64_t)wifi_cal5.mac.rx_drained,(uint64_t)wifi_cal5.mac.filter_restored,(uint64_t)wifi_cal5.mac.txop_restored,(uint64_t)wifi_cal5.stopped,(uint64_t)wifi_cal5.window.complete,(uint64_t)wifi_cal5.window.attempts,(uint64_t)wifi_cal5.window.completions,(uint64_t)wifi_cal5.window.beacons,wifi_cal5.window.elapsed_us);
