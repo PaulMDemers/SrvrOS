@@ -11,6 +11,8 @@ static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100,clock_us;
 static bool tracing,reference=true,power_enabled=true;
 static unsigned cost_reports;
+static struct sync_timing_snapshot sync_fixture;
+static unsigned sync_headers,sync_records,sync_worst,sync_usb;
 static unsigned global_syncs,durable_reports;
 static uint64_t test_policy=20000;
 bool xhci_storage_wait_policy(uint64_t policy,uint64_t *old) { assert(depth && (policy==0||policy==4000||policy==20000));*old=test_policy;test_policy=policy;return true; }
@@ -58,12 +60,23 @@ void audio_stream_snapshot(struct srv_pcm_status *out,uint64_t *owner) { assert(
 void audio_status(struct srv_audio_status *out) { assert(!depth);device_reads++;*out=(struct srv_audio_status){.version=SRV_AUDIO_VERSION,.state=SRV_AUDIO_READY,.tests_started=2,.tests_completed=2}; }
 void thermal_status(struct srv_thermal_status *out) { assert(!depth);device_reads++;*out=(struct srv_thermal_status){.version=SRV_THERMAL_VERSION,.state=SRV_THERMAL_UNAVAILABLE}; }
 void console_printf(const char *fmt,...) {
+    if(!strncmp(fmt,"sync-snapshot:",14))sync_headers++;
+    if(!strncmp(fmt,"sync-record:",12))sync_records++;
+    if(!strncmp(fmt,"sync-worst:",11))sync_worst++;
+    if(!strncmp(fmt,"sync-usb-timing:",16))sync_usb++;
     if(!strncmp(fmt,"workspace-cost:",15)) { assert(previous_save.pending && !tracing && !depth);cost_reports++; }
     if(!strncmp(fmt,"workspace-log: durable",22)) {assert(!tracing && !depth);durable_reports++;}
     total++;
 }
 void console_write(const char *text) { (void)text;total++; }
 int main(void) {
+    sync_checkpoint(false);assert(!sync_headers && !sync_records && !sync_worst && !sync_usb);
+    sync_fixture.enabled=1;sync_fixture.records[0].pid=7;
+    sync_checkpoint(false);assert(sync_headers==1 && sync_records==1 && !sync_worst && !sync_usb);
+    sync_checkpoint(true);assert(sync_headers==2 && sync_records==2 && sync_worst==1 && sync_usb==6);
+    assert(!writes && !flushes && !tracing && !depth);
+    sync_fixture=(struct sync_timing_snapshot){0};total=100;
+
     mounted=false;assert(!workspace_log_start() && !writes);mounted=true;
     capacity_ok=false;assert(!workspace_log_start() && !writes && !count && !directory[0]);capacity_ok=true;
     assert(workspace_log_start() && enabled && healthy && writes==1 && flushes==1);
@@ -138,4 +151,4 @@ int main(void) {
 
 void process_capture_write_snapshot(struct capture_write_snapshot *out) {*out=(struct capture_write_snapshot){0};}
 
-void sync_timing_snapshot(struct sync_timing_snapshot *out){*out=(struct sync_timing_snapshot){0};}
+void sync_timing_snapshot(struct sync_timing_snapshot *out){*out=sync_fixture;}

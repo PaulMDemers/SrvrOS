@@ -146,6 +146,9 @@ static void sync_checkpoint(bool final) {
         const struct sync_timing_record *r=&s.records[i];if(!r->pid)continue;
         const struct sync_timing_call *c=&r->worst;
         console_printf("sync-record: version=1 snapshot_us=%u pid=%u calls=%u total_us=%u files_us=%u devices_us=%u errors=%u conflicts=%u invalid=%u final=%u\n",at,r->pid,r->calls,r->total_us,r->files_us,r->devices_us,r->errors,r->conflicts,r->invalid,(uint64_t)final);
+        /* Repeated verbose USB rows can evict app receipts from the fixed
+         * log tail. Counters show progress; complete retained detail is final. */
+        if(!final)continue;
         console_printf("sync-worst: version=1 snapshot_us=%u pid=%u start_us=%u files_end_us=%u end_us=%u file_failed=%u device_failed=%u files_usb_failures=%u devices_usb_failures=%u final=%u\n",at,r->pid,c->start_us,c->files_end_us,c->end_us,c->file_failed,c->device_failed,c->usb[0].failures,c->usb[1].failures,(uint64_t)final);
         report_sync_transfers("files",c->start_us,&c->usb[0]);
         report_sync_transfers("devices",c->start_us,&c->usb[1]);

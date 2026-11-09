@@ -1252,3 +1252,10 @@ in measured hooks. Global barriers still execute after file-sync failure, and
 all dirty live contents are still visited by the unchanged synchronization path.
 These are software wall intervals; event observation is not hardware completion,
 READY time can overlap ownership, and no record alone authorizes skipping work.
+
+Periodic sync checkpoints print only per-PID counters. Complete worst-call and
+USB phase rows are emitted at the final exit checkpoint, from retained fixed
+kernel metadata. This avoids repeatedly evicting app lifecycle receipts from the
+unchanged64KiB bootlog tail. Final collection still requires every sync/USB row
+and all original application timing/ownership receipts; no UART fragments are
+reconstructed and no deadline, log capacity or completion check is relaxed.
