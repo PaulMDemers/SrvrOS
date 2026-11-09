@@ -2,6 +2,21 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Current scope: integrated baseline and managed-memory boundary
+
+Main`928555f3` is integrated as`15c13b15`. The include-only conflict in
+`kernel/src/main.c` retains Intel display/HDA and sync-timing headers; shared
+USB/syscall/logging changes retain their upstream implementations. The next
+bounded work is the [managed-memory ownership plan](../intel-managed-memory-plan.md):
+resolve the exact transferred GGTT interval and maintained firmware/engine/reader
+exclusion before any native PTE or command submission. Candidate entries remain
+populated; reset acceptance does not grant them. Touched implementation in this
+block is the integration conflict only, with local full core/profile/build and
+all isolated Intel image checks. No new source is physically accepted or installed.
+PR433 Air6,1 sync, PR19 Pro Wi-Fi and PR379 WebCore remain independent. Accepted
+payload94bc/recovery9aa8 and outside-build proofs remain intact; no reboot armed.
+Checkpoint:`build/air-memory-next-20261109`.
+
 ### Accepted full-census retry: reset and preservation complete
 
 Source `f68ab030`, release `94bc48ed5551f552`, session

@@ -132,3 +132,11 @@ no managed native interval and do not accept real hardware mapping retirement.
 The [boot reader/range qualification](intel-handoff.md) adds participating CPU
 exclusion and a pinned admission transaction. Native grants remain refused;
 no hardware handoff or managed interval is inferred from these observations.
+
+## Next native implementation order
+
+The [post-reset managed-memory plan](intel-managed-memory-plan.md) separates
+exclusive interval transfer, a one-page mapping/restore trial, command-backed
+completion and full-buffer/flip publication. Air7,2's accepted bounded reset and
+preservation do not import a range into this allocator. The16-page transaction
+limit also remains distinct from a complete scanout allocation.

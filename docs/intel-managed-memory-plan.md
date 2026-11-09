@@ -1,0 +1,104 @@
+# Air7,2 managed GPU memory after reset qualification
+
+This is the implementation boundary after the [accepted bounded reset and
+preservation trial](machines/macbookair7-2.md#accepted-full-census-retry-reset-and-preservation-complete).
+It is a plan, not an authorization receipt or a native mapping implementation.
+The inherited framebuffer remains the desktop backend. The current native
+provider still supplies zero hardware assurances to `scanout_handoff`.
+
+## What is established
+
+The accepted source `f68ab030` completes an already-disabled, zero-geometry BCS
+reset with fresh engine/display/HDA preservation and clean retirement. It does
+not reset the render/video engines, submit a command, invalidate a translation,
+flush a GPU cache or transfer a GGTT interval. A successful BCS-domain reset
+must not clear all eight `intel_completion_obligation` bits.
+
+The [GGTT survey](intel-ggtt-window.md#reference-native-result) observes populated
+entries at index8704 and the next15 slots. The whole inherited34MiB fence stays
+protected, including its unobserved tail. Neither the candidate window nor its
+physical targets are an allocator. The accepted private-RAM experiment also
+supplies no GPU-visible address or native transfer token.
+
+Main `928555f3` is integrated as `15c13b15`; its Air6,1 sync observations change
+shared syscall/storage/logging code. Qualification of this merged source is
+separate from physical acceptance of source `f68ab030`. PR433 owns further Air6,1
+sync diagnostics, PR19 owns Pro11,2 Wi-Fi and PR379 owns WebCore. None supplies
+an Air7,2 native graphics ownership grant.
+
+## Ordered implementation milestones
+
+| Milestone | Required implementation and reviewable exit evidence |
+| --- | --- |
+| 1. Exclusive address-space owner | Define who transfers the exact GGTT interval, which GPU/firmware clients are excluded, and how that exclusion is maintained. Choose an explicit firmware transfer or an audited graphics-address-space takeover; populated/scratch/absent PTEs are insufficient. Keep all inherited physical allocations pinned. The native provider must continue refusing until this proof exists. |
+| 2. One-page mapping transaction | On a genuinely transferred non-display interval, pin one private RAM page and the address lease, bind DMA address width/translation policy, CPU aliases/cache type and original raw PTE. Validate the generation-specific PTE write, posting and invalidation sequence before adding the first writer. First trial changes no plane, route, tiling or visible framebuffer. |
+| 3. Command completion | If completion uses a BCS command, separately own the ring/context, status/completion page and their translations. Define a finite sequence, fresh nonzero completion value, ordering and retirement; prohibit submission through the inherited ring. Establish all render/video dependencies rather than treating BCS completion as device-wide. |
+| 4. Restore and retire | Restore exact original entries, establish translation/cache and every reader's retirement, then release both RAM and address leases. A known write followed by an unknown result pins both leases. A timeout does not authorize replay, restore through uncertainty, or freeing. |
+| 5. Full scanout buffers | Only after the single-page transaction passes, support two complete scanout allocations with verified stride, padding, tiling/swizzle and cache policy. The current16-page handoff cannot describe a1356-page inherited tiled extent. Expand the transfer contract and tests before attempting framebuffer-sized imports. |
+| 6. Display publication | Bind surface programming to the owned buffers, preserved route/brightness/link and a real flip latch/old-reader retirement witness. Integrate with the existing publication/quarantine lifetime. Keep the inherited framebuffer available for verified restoration; then qualify interactive desktop use and endurance. |
+
+The first milestone is a prerequisite to the first GPU PTE store. A command
+flush cannot bootstrap ownership of the ring and completion memory needed to
+execute that command. Do not make a synthetic positive-assurance callback the
+native provider. Existing software leases remain useful for enforcing a proven
+transfer; they cannot create the transfer.
+
+## Completion evidence must remain specific
+
+| Open bit | Evidence still needed before clearing it |
+| --- | --- |
+| Posted writes | A documented completion witness covering the particular writes and mapping cache policy; an unrelated CPU fence or MMIO readback is insufficient. |
+| Prefetch | Retirement of work that may still use the transferred interval, with all relevant engines and address-space users covered. |
+| Pipeline | A completed generation-specific operation with owned command/completion backing and its exact scope established. |
+| TLB | Required invalidation and its completion after the appropriate prerequisites, for the changed translations and users. |
+| Cache | Maintained CPU/GPU cache policy, permitted alias topology and ordered visibility/retirement for those buffers. |
+| Flip | Proof the requested surface latched and prior readers retired; a frame counter or unrelated command completion is insufficient. |
+| Firmware | Declared cooperation plus maintained exclusion of submissions/mapping/power changes over the entire ownership lifetime; stable OpRegion samples alone are insufficient. |
+| Backing | Exact imported GPU interval and pinned private physical pages, with inherited/firmware allocations retained and checked. |
+
+These bits are separate from the five coarser `HANDOFF_*` assurances. Document
+how each actual provider derives and revalidates each assurance; do not translate
+an all-zero engine census or reset success directly to `HANDOFF_ALL`.
+
+## Pinned instruction and mapping references
+
+Intel's [Broadwell Volume2a](https://cdrdv2.intel.com/v1/dl/getcontent/690783),
+November2015, SHA256
+`b035c834a6e1dce2c7057165f2157f8597748bd2b0ccf63a982e0fc4f2dc95b5`,
+describes BlitterCS `MI_FLUSH_DW` on printed pages834–837. Its post-sync write,
+address-space and invalidation rules must be considered together with the
+owned ring/context and completion location. The command's flip caveat on
+printed page825 means a completed flush cannot certify a completed display flip.
+This is a possible future completion mechanism, not a command currently emitted
+by SrvrOS.
+
+The pinned Linux v6.12
+[non-render flush emitter](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/gen8_engine_cs.c)
+uses an owned request/ring and post-sync scratch location. Its
+[GGTT implementation](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c)
+separates insertion, mapping policy and invalidation. In particular, inspect
+`needs_wc_ggtt_mapping`, `gen8_ggtt_invalidate` and their callers together;
+copying only a flush register or one PTE store omits required context. These are
+implementation references, not evidence that this Air's old allocations or
+candidate entries are available.
+
+Reference downloads and their SHA256 inventory are in ignored
+`build/air-memory-next-20261109/reference`. Further implementation must also check
+applicable Broadwell workarounds and the existing [completion prerequisites](intel-completion-prerequisites.md).
+
+## Qualification and physical trial boundary
+
+Keep ordinary startup, older diagnostics, exact device/firmware matching and
+native gates unchanged until a separately reviewed provider exists. Host tests
+must exercise the actual transaction's copied/stale owner, mapping, clock and
+uncertain-store failures. Object/staged-image checks must bind actual addresses,
+write widths/values, source and image isolation. VM evidence tests refusals and
+persistence; it cannot accept native memory ownership.
+
+Each new native operation needs its own exact recipe, immutable staged artifact,
+in-guest progress, saved prerequisite checkpoint, bounded execution and strict
+collector. Preserve existing diagnostic deadlines; do not lengthen reset or
+owner limits to disguise a slower new operation. Capture completion separately
+from grants. Saved safe outcomes return to Ubuntu; retained uncertainty halts
+visibly. Keep volume1%, no interactive input for automated trials, and the
+accepted reset payload/recovery until replacement qualification is complete.
