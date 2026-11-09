@@ -2,23 +2,49 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Current scope: all-engine prepare, hold and cancellation
+### Current scope: all-engine preparation ready for hardware
 
-Main `f30f67e1` (Air6,1 PR434 acceptance documentation only) is integrated as
-`cfbc050a`; accepted Air7,2 read-only evidence remains at source `d860b63f`.
-Next bounded implementation: an isolated exact-Air7,2/GT3 engine preparation
-lifetime after the fresh same-parent/epoch quiescent preflight. Request reset
-readiness on all five disabled engines, verify all requests/ready bits while a
-registered borrow stays held, then cancel in reverse order and verify exact
-engine/display/HDA preservation before returning. This imports no catastrophic
-bypass, reset, command, PTE or GGTT writer and no memory/cache/reader grant.
-Keep100/300/500ms limits and existing firmware/resource gates unchanged. A
-possibly issued write followed by uncertainty retains ownership; no forced
-cancellation/retry/cleanup. Shared scope: new bounded core/adapter, dedicated
-image/request/recipe, strict receipts/collector and host/native/VM controls.
-Pro11,2 PR19 encrypted Wi-Fi and WebCore PR379 remain independent. No reboot
-is authorized by this implementation block; current/recovery stay unchanged.
-Checkpoint: `build/air-engine-prepare-20261109`.
+Main `f30f67e1` (Air6,1 PR434 documentation) is integrated as `cfbc050a`.
+Tested source `ba7fa11b`, release `0c1e0b40f71e6d7a`, implements the isolated
+[all-engine prepare/hold/cancel trial](../intel-engine-prepare.md). It requires
+the original fresh same-parent/epoch quiescent preflight and a registered borrow.
+Five exact request/first-acknowledgement transitions, two held-state samples and
+reverse cancellation precede complete engine/context/display/HDA preservation.
+The 10 ms phase deadline includes the first acknowledgement; dependent/owner/
+outer limits remain 100/300/500 ms. Late admission refuses a store, and any
+possibly issued write with unknown outcome retains ownership. No GDRST, command,
+PTE or GPU-memory writer is added. Ubuntu i915 independently enumerates this
+unit's `rcs0`, `bcs0`, `vcs0`, `vcs1` and `vecs0`; that is inventory evidence only.
+
+Full local host/core/profile/docs/build checks and all18 images pass; opt-in
+installed-root checks are omitted. Fatal ASan/UBSan covers354 actual core/adapter
+cases;14 compiled semantic and19 actual native instruction/mapping controls are
+detected. The object/staged checks bind addresses, values/width, current mapping,
+requesters, deadline-before-store ordering, UC/RO roles and reader PCI/MMIO
+binding. Exact immutable MBR EFI Q35 refusal/checkpoint/save/unmount/automatic
+return and missing-workspace halt pass. The compiled16-token parser matches
+stage and saved options, and optional sync diagnostics remain off. Compact
+acknowledgement/census receipts project65,471/65,536 bytes with the unchanged
+1,536-byte allowance. Direct host include dependencies prevent stale fixtures.
+Accepted BCS reset/read-only receipts and all seven older reset nonpasses retain
+their classification.
+
+The candidate is installed but **not physically accepted**. Read-only `b8afda22fe3f051e`,
+accepted reset `94bc48ed5551f552`, recovery `9aa8dbf6fbda8252` and GUI
+`c497eb0cb48c1b01` remain verified and retained. Ubuntu is default, volume1%,
+no one-shot reboot armed. All1,404 USB files/124 sessions preserve with clean
+offline filesystem/allocation checks. Full evidence and payload backups survive
+distclean. Failed never-installed stage1a070 is losslessly archived, and one
+unreferenced EFI payload is archived after full byte verification. Pro11,2 PR19
+Wi-Fi and WebCore PR379 remain independent. Checkpoint:
+`build/air-engine-prepare-20261109`.
+
+Next run the automated trial; no typing is required. Safe saved/unmounted outcomes
+return automatically, while retained uncertainty or failed persistence halts
+visibly. Native timing is unmeasured, and a timeout remains incomplete evidence.
+This qualifies a bounded preparation lifetime only: all255 memory obligations
+remain open, no exclusive GGTT interval is granted and native tear-free remains
+unaccepted.
 
 ### Latest hardware: cold-takeover read-only observation accepted
 
