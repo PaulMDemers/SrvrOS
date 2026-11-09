@@ -583,4 +583,28 @@ and reduces full guards147→131; this is not a physical speed claim. Exact-stag
 MBR EFI Q35 refusal/checkpoint/save/unmount/automatic return and missing-workspace
 halt pass. The compiled16-token parser matches saved logs; unchanged full-width
 projection65,517/65,536 includes1,536 allowance. Installed recovery, prior USB
-files and independent evidence are retained. Native acceptance is pending.
+files and independent evidence are retained. The matching native result below
+accepts only the bounded BCS path.
+
+## Native provider-boundary acceptance (2026-11-09)
+
+Air7,2 source`4873e6bd`/release`6365de27e20576b6`, session
+`session-00065fdd96e4b9d8-00`, completes in61,212/100,000us with38,788us margin.
+Owner207,311/300,000us, outer279,649/500,000us and reader113,898/150,000us
+pass. Two domain8 pulses acknowledge, settling measures50us and cancellation
+completes. Six poll observations include two additional polls;26 core reads,
+216 census/shutdown reads and135 full guards are recorded. All deadlines remain.
+
+Fresh same-borrow observation finds disabled zero geometry: four snapshots,
+32 words, zero disable attempts/stores. The enabled shutdown writer remains
+unexercised. Full92-word engine/context pre/post vectors,54 plane words and both
+10-field HDA snapshots preserve. Epoch0→1, both registered borrows returned,
+13 aliases retired, exclusion released and zero clock fault/uncertain/retained
+state verify. Strict native/checkpoint and collector checks pass with no attention.
+All1,422 prior files preserve;1,425 files/131 sessions and offline media/recovery/
+default/consumed one-shot checks pass. Independent evidence survives outside build.
+
+This is one bounded exact-source pass, not repeatability or a controlled speed
+comparison. It grants no broader reset, enabled shutdown, DMA/cache/translation/
+reader ownership, managed interval or native tear-free. All eight completion
+obligations (mask255) remain open; each successor needs fresh admission.

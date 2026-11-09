@@ -2,7 +2,39 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Ready: reset provider-boundary integration
+### Accepted reset admission integration: preservation and clean retirement
+
+Source`4873e6bd`, release`6365de27e20576b6`, session
+`session-00065fdd96e4b9d8-00`, **accepts the changed native provider boundaries**
+for same-borrow disabled observation, BCS-only reset and preservation.
+The core completes in61,212/100,000us (38,788us margin), owner207,311/300,000us,
+outer279,649/500,000us and reader bracket113,898/150,000us. Both reset pulses
+acknowledge, cancellation completes and measured settling is50us. Six poll
+observations include two additional polls;26 core reads and135 full guards are
+recorded. All deadlines and phase caps are unchanged. This is one bounded pass
+on this source, not a repeatability guarantee or a controlled speed comparison.
+
+The four fresh shutdown snapshots observe already-disabled zero geometry,
+with zero disable attempts/stores; enabled shutdown remains unexercised.
+Full92-word engine/context pre/post vectors,54 plane words and both10-field
+HDA snapshots match. The software epoch advances0→1, both registered borrows
+return, all13 aliases retire and exclusion releases. No clock fault, uncertainty
+or retained state is recorded. The216 census/shutdown observations remain
+separate from the26 core reads. Strict native/checkpoint and collector checks
+pass without attention. All1,422 prior USB files preserve apart from expected
+metadata; three logs give1,425 files/131 sessions. Offline filesystem/allocation/
+writable/headroom and installed/durable recovery/default/consumed one-shot
+checks pass. Ubuntu is default, volume1%, no reboot armed. Full raw evidence and
+independent analysis are backed up outside build. Checkpoint:
+`build/air-reset-admission-20261109`; PR301 closeout follows exact source evidence.
+
+This accepts the bounded BCS reset adapter, not a broader engine reset, enabled
+shutdown writer, maintained firmware/DMA/prefetch/cache/translation/reader
+ownership, managed memory or native tear-free. All eight completion obligations
+(mask255) remain open. Earlier preparation/reset failures and their exact-source
+acceptance remain distinct. Every successor needs fresh same-lifetime admission.
+
+### Prior qualification: reset provider-boundary integration
 
 Main`807fdb35` (Air6,1 PR442 first battery protocol observation) is integrated
 as`cb11e399`, including pinned ports. Source`4873e6bd`, release

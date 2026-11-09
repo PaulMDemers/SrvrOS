@@ -173,3 +173,11 @@ as a cache/TLB completion witness. The candidate populated GGTT window and
 its physical targets remain inherited allocations, not an available arena.
 Therefore all eight completion obligations (mask255) and the zero-native-
 assurance gate stay intact.
+
+The provider-boundary BCS retry now has a matching native pass on source
+`4873e6bd`:61,212/100,000us core,207,311/300,000us owner and279,649/500,000us
+outer, with full engine/display/HDA preservation and clean retirement. The
+[reset contract](intel-bcs-reset.md#native-provider-boundary-acceptance-2026-11-09)
+records the exact-source evidence and already-disabled-only scope. This closes
+that adapter qualification step; it does not close any of the eight ownership
+obligations, qualify enabled shutdown or authorize a broader reset/GGTT writer.
