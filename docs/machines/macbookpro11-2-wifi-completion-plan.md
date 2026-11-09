@@ -149,3 +149,12 @@ only marker atime changes within proven RTC bounds. Native63+1 No-Op boundary
 and native metadata preservation remain pending the next cold run. Persistent
 encrypted transport,ordinary RX/IP/TCP/HTTP,lifecycle/UI and sustained reliability
 remain the completion milestones;this controller-only trial accepts none of them.
+
+
+Native v134 now passes(source dac05a8c):64 real bufferless completions,one TX
+ring fence,full parent/ledger retirement and strict408-file/metadata preservation.
+192 native files and12 acceptance notes are independently sealed. This closes
+the first controller-only boundary gate. Milestone2 still requires encrypted
+RX/TX across actual boundaries,pending-RX cancellation and bounded command-address
+reuse. Original CCMP ownership and all later ordinary-stack/lifecycle gates remain.
+The next parallel contract audit targets those integration points before coding.

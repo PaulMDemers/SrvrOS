@@ -15705,3 +15705,37 @@ Ubuntu return are automatic. On return collect wifi-nop5-dispatch/run_root.py
 return_collect exactly once before any next run. Persist protocol outcome before
 storage verification,retain raw before/after metadata on refusal,and report actual
 GRUB arming state. No new native USB-boundary or ordinary networking acceptance.
+
+
+### Native descriptor boundary and metadata preservation accepted (November 8)
+
+Runtime dac05a8c/release4a8f81ad6daf73b4 completed the corrected physical v134
+trial. Its matching saved prefix is2041656bytes;the strict whole-parent checker
+passes15719 parent operations,all64 real bufferless TDs,one63-position TX ring
+boundary,exact asynchronous Stop/Set-Dequeue commands and stopped-context/readback/
+empty-event proof. A64th actual completion uses the base address/opposite cycle.
+Final stop/disable,input and held hardware parent restoration and ledger retirement
+pass. Backend command tombstones remain retained before save,as designed;this is
+no proof of indefinite command reuse or RX/data traffic across a boundary.
+
+All408 prior file bytes and strict saved metadata fields preserve,with only the
+expected workspace marker atime inside the independently saved RTC/exit bounds.
+Offline filesystem/allocation and protected payload/Ubuntu default/recovery checks
+pass. The matching run is collected exactly once and no boot is armed. Immutable
+192-file wifi-nop5-dispatch-dac05a8c native evidence and separate12-file
+wifi-nop5-accepted-dac05a8c notes retain exact source/payload/receipt/storage and
+recovery bindings. Earlier172-file incomplete v134 and its5-file review remain
+failed and unchanged. No ordinary RX,persistent encrypted traffic,TCP/HTTP or UI
+lifecycle acceptance is inferred from this controller-only transfer test.
+
+Next bounded objective:bind native63-position RX/TX transport to the original
+post-M4 CCMP owner without widening historical11-TX/48-RX/six-request guards.
+Keep four retained pages/direction,monotonic tickets/tokens/PN,exact raw events,
+worker-owned asynchronous fences,quiet callbacks,full cleanup and uncertainty
+retention. First real-data gate requires independent RX/TX boundary evidence;
+command-address reuse and cancellation of pending RX remain separate obligations.
+Root owns serial qualification,keys/install/evidence/power;transport agent audits
+post-M4 handoff/key/retirement contracts,RX agent audits real normal-mode fence
+binding,and evidence agent audits production-stack receive/worker contracts.
+Read-only contract review precedes disjoint implementation assignments. The
+original acceptance payload and capsules remain protected throughout this work.
