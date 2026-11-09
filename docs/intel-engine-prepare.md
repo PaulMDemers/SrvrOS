@@ -160,8 +160,8 @@ The provider still returns the completed load/store prefix, so the core counts
 the first ACK before its next guard reports failure. An uncertain write remains
 uncertain and is never replayed. Store admission still performs full validation
 and the original dependent clock check before the fenced DWORD store; the first
-ACK phase budget includes all exit-validation time. The state machine, raw
-observations, preservation comparisons and every deadline remain unchanged.
+ACK phase budget includes all exit-validation time. The state machine, engine/control/display/HDA observation vectors, each complete
+backing census, preservation comparisons and every deadline remain unchanged.
 
 For this image only, wake admission also consumes the endpoint verified at the
 end of its full backing census within that same call. Framebuffer/PCH/GPU/CR3
@@ -171,3 +171,10 @@ inside the census. No endpoint result survives the guard call. Other images
 retain their existing admission path. Host fault cases cover completed stores
 followed by endpoint/backing exit failures, and reject foreign adapters/tokens.
 Native timing and the full preparation lifetime remain pending physical evidence.
+
+The locally qualified consolidation retry is source `ee4a15bc`, release
+`de0b58f1dfbcdc94`. The complete synthetic path uses144 full guards instead of
+158, with all48 raw protocol/preservation rows identical; this is not a native
+latency claim. Local qualification passes376 sanitizer modes plus backing
+regression,14 semantic/28 native/7 batch controls,18 images and exact-stage VM
+save/unmount/return and missing-workspace halt. Physical timing is pending.

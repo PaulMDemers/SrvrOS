@@ -2,19 +2,52 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Current scope: consolidate native admission at callback boundaries
+### Current scope: consolidated admission retry ready for hardware
 
-Main `223ec211` (Air6,1 battery query diagnostics and pinned ports) is integrated.
-Air7,2 owns the preparation adapter/wake guard consolidation and its host/native
-proofs. The core retains its clocks, parent checks and state machine. Providers
-must fully validate before and after each successful callback; fresh lightweight
-IRQ/claim/current-root/mapping/requester checks bracket core bookkeeping. A
-failed exit check remains sticky, with completed load/store prefixes retained.
-The wake guard will use the endpoint just verified by its full backing census,
-with fresh ASLS/SWSCI reads and adapter binding, instead of a duplicate complete
-endpoint walk. No cached authority across callbacks, new writer, profile widening
-or deadline change is intended. Pro11,2 PR19 Wi-Fi and WebCore PR379 remain
-independent. Checkpoint:`build/air-admission-20261109`; no reboot is armed.
+Main `223ec211` is integrated as `f338589c`, including its pinned ports update.
+Tested source `ee4a15bc`, release `de0b58f1dfbcdc94`, consolidates native
+preparation admission at provider boundaries. Every successful provider has
+full entry/exit backing and endpoint validation. Core brackets retain fresh
+IRQ/claim/current-root/exact-alias/requester checks, plus the unchanged clocks,
+parent checks and state machine. Failed exits poison the adapter and retain the
+completed write/ACK prefix. Wake admission also uses its freshly verified final
+backing endpoint within the same call, with framebuffer/PCH/GPU/CR3 binding and
+direct ASLS/SWSCI reads, avoiding a sixth endpoint walk. No authority is cached
+between callbacks. The generic core and all100/300/500 ms/10 ms limits stay
+unchanged. See the [callback contract](../intel-engine-prepare.md#consolidated-native-callback-admission).
+
+Local host comparison verifies all48 raw protocol/preservation rows unchanged
+and reduces full guard calls158 to144 on the same complete synthetic path.
+That is a structural count, not native timing evidence. The full local gate
+(installed-root explicitly omitted),18 images,376 fatal ASan/UBSan modes plus
+the scalar/batch backing regression,14 compiled semantic controls,28 native
+access/admission controls and7 batching controls pass. Tests cover completed
+stores followed by backing/endpoint exit failures, retained prefixes and foreign
+adapter/token refusal. Object/staged checks bind full provider boundaries,
+fresh live core checks, sticky poison, fused endpoint reads, exact fenced
+DWORD stores, pre-store deadlines, mapping/cache roles and reader preservation.
+Exact immutable MBR EFI Q35 refusal/checkpoint/save/unmount/automatic return
+and missing-workspace halt pass. The compiled16-token recipe matches saved
+options, optional sync diagnostics remain off, and logbudget65,456/65,536 bytes
+retains the1,536-byte allowance. Historical passes/nonpasses, including both
+preparation deadline failures below, keep their classification.
+
+The candidate is installed and independently backed up; **native timing and
+acceptance remain pending**. Ubuntu is default, volume1%, no reboot armed.
+All1,410 USB files/126 sessions preserve with clean offline filesystem/allocation/
+writable/headroom checks. Recovery `9aa8dbf6fbda8252`, GUI `c497eb0cb48c1b01`,
+accepted read-only `b8afda22fe3f051e`/reset `94bc48ed5551f552`, and failed
+`ac555dcb12463fa3`/`0c1e0b40f71e6d7a` remain verified. Two old global stages,
+one unreferenced EFI payload and the failed candidate's duplicate stage pair
+were losslessly archived with every member verified. Full installed/durable
+payloads and raw evidence remain; the new redundant global stage was retired
+only after equality checks. Checkpoint:`build/air-admission-20261109`.
+
+Next run the automated preparation retry; no typing is required. Safe saved/
+unmounted outcomes return automatically; uncertain ownership or persistence
+failure halts visibly. Collect the matching session first. All255 memory
+obligations remain open; no reset, PTE, managed-memory or native tear-free grant
+is added. Pro11,2 PR19 Wi-Fi and WebCore PR379 remain independent.
 
 ### Latest hardware: backing batches improve time but still miss deadline
 
