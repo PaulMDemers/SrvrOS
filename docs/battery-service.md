@@ -1459,3 +1459,59 @@ the unchanged100ms timeout. Diagnostics confer no permission, retry, interrupt
 enabling, reset or safe-unwind authority. Mounted-Home containment continues
 to halt with live state retained; photograph the complete terminal output and
 restart into Ubuntu for collection. Limits and watchdogs remain unchanged.
+
+### First battery protocol failure evidence
+
+The explicit battery runtime now latches the first failed SBS/SMBus operation
+in fixed CPU0 RAM. This supplements the later transfer-refusal record; it does
+not establish that the first operation caused a later fault or provide a full
+failure trace. A newly initialized runtime lifetime clears the latch. New sample
+attempts, local event destruction and later transfer refusals cannot replace it.
+
+Internal read-word/event failure snapshots precede the existing cancel/poison
+action. They retain the supplied poll time, previous poll time, maximum wall
+poll gap, operation phase, reason, pending state and EC state/clocks/status.
+A consumed byte has a separate value-valid flag. Retained status fields are raw
+state: interpret them with their phase/value-valid/poll context; zero alone is
+not proof of a successful status read. A completed EC byte can remain DONE/OK
+while an upper-level operation poisons it. That state never grants reuse.
+
+| SMBus reason | Meaning |
+| --- | --- |
+| 1 | Clock moved backwards |
+| 2 | Original operation deadline |
+| 3 | EC poll failed |
+| 4 | Existing/raced protocol bank was busy |
+| 5 | Unexpected read-word protocol result |
+| 6 | Error/reserved status |
+| 7 | EC begin refused |
+| 8 | Invalid event address |
+| 9 | Event status changed before acknowledgement |
+
+SBS failure data retain the original error enum, word index, poll count,
+active/waiting/current state and clocks before clearing active/current or
+cancelling uncertain work. Cancellation has no supplied failure clock: its
+time-valid flag is false and the stored last-poll reference is not a made-up
+cancellation timestamp. Backwards clocks remain raw observations.
+
+The runtime first-failure context identifies sample, event, pre-sample AC read,
+post-sample AC read or freshness/validity refusal. It includes observed worker/
+expected identity, observed IF, lease and current I/O scope/busy state. Those are
+later snapshot observations, not scheduling attribution for the full poll gap.
+The immutable copy contains no pointers or user data. The existing lifecycle
+owner remains held through retirement reporting, and terminal reporting runs
+with scheduling excluded. No observer reads EC/SMBus registers, allocates,
+retries, enables IRQs, resets a controller or performs fault-context filesystem
+work. Poll-gap accounting uses the caller's existing clock arguments.
+
+At containment or service retirement, a versioned battery-protocol header binds
+the latch to an epoch and snapshot. A zero captured/kind retirement marker proves
+that the reporting boundary was reached without a latched operation failure;
+it is not a continuous successful-transfer count. Captured failures include
+complete context/sample/state/bus/EC companion rows. The strict parser rejects
+missing, malformed, conflicting, unbound or incomplete proof. The explicit
+automated stress test additionally requires a clean epoch-bound retirement
+snapshot after playback; any captured first failure fails diagnostic acceptance
+even if the existing runtime safely retires. Original normal-runtime outcomes,
+EC100ms/read-word2s/event1s/sample20s/poll budgets, last-good data, byte ordering,
+poison/ownership/watchdog behavior and all stress limits remain unchanged.
