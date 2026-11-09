@@ -964,6 +964,7 @@ void kmain(void) {
             if(cmdline_has_token(cmdline,"srvros.intel-gt-preflight=read-only")){bool gt_ok=started && intel_gt_preflight_probe_report();sampled=sampled && gt_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-firmware=read-only")){bool fw_ok=started && intel_gt_firmware_probe_report();sampled=sampled && fw_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-wake=trial")) {
+                if(cmdline_has_token(cmdline,"srvros.intel-takeover=preflight"))console_write("intel-takeover: automatic read-only reset-control prerequisites; no input needed, no reset or memory grant.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-shutdown=qualify"))console_write("intel-shutdown: automatic idle blitter shutdown and fresh engine/reader checks; no input needed, no reset or memory grant. Unsafe state requires manual restart.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-bcs-reset=blitter-only"))console_write("intel-bcs: automatic BCS-only reset with preservation; no input needed. Unsafe state halts here; photograph then restart manually.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-reset-ready=request-cancel"))console_write("intel-reset-ready: automatic bounded BCS request/ready/cancel; no input needed; no actual reset or memory grant.\n");

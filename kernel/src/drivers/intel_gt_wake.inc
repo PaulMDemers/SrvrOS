@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) && (!defined(SRVROS_INTEL_COMPLETION_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BLITTER_TRIAL))
+#error "Takeover preflight requires its own read-only image"
+#endif
 #if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) && !defined(SRVROS_INTEL_BCS_RESET_TRIAL)
 #error "Shutdown/reset needs the separate reset image"
 #endif
@@ -18,7 +21,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+extern volatile struct limine_firmware_type_request intel_takeover_firmware_request;
+#elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
 extern volatile struct limine_firmware_type_request intel_bcs_shutdown_firmware_request;
 #elif defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
 extern volatile struct limine_firmware_type_request intel_shutdown_firmware_request;
@@ -49,6 +54,11 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #endif
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000,0x70000,0x71000,0x72000};
 #else
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+#define WAKE_MAPS 10u
+#define WAKE_VERSION 13u
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000};
+#else
 #define WAKE_MAPS 9u
 #ifdef SRVROS_INTEL_RESET_READY_TRIAL
 #define WAKE_VERSION 5u
@@ -56,6 +66,7 @@ static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x1
 #define WAKE_VERSION 4u
 #endif
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000};
+#endif
 #endif
 #elif defined(SRVROS_INTEL_BLITTER_TRIAL)
 #define WAKE_MAPS 11u
@@ -120,7 +131,7 @@ static bool wake_map(struct wake_adapter *a,unsigned i) {
 #else
     if(!(i<3?intel_cache_probe_wake_uc_page(physical,wake_pages[i]):i<8?intel_cache_probe_engine_uc_page(physical,wake_pages[i]):
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
-#ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
        (i==9?intel_cache_probe_reset_uc_page(physical,wake_pages[i]):i>=10?intel_cache_probe_reader_uc_page(physical,wake_pages[i]):intel_cache_probe_completion_uc_page(physical,wake_pages[i]))
 #else
        intel_cache_probe_completion_uc_page(physical,wake_pages[i])
@@ -198,7 +209,7 @@ static bool engine_requesters(void *context) {
 static bool engine_guard(void *context) {
     return wake_guard(context) && engine_requesters(context);
 }
-#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
 /* Same three RO DWORDs as engine_guard, under a fresh full adapter guard.
  * The core brackets this ordered group with independent full guards/clocks. */
 static bool wake_request_snapshot(void *context,uint32_t *request,uint32_t *ack,uint32_t *thread) {
@@ -250,6 +261,9 @@ static void engine_report_named(const struct intel_engine_census *r,bool retired
 #include "intel_reset_ready_trial.inc"
 #endif
 #endif
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+#include "intel_takeover_trial.inc"
+#endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
 #include "intel_bcs_trial.inc"
 #endif
@@ -271,7 +285,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+    #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+    const struct limine_firmware_type_response *firmware=intel_takeover_firmware_request.response;
+#elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
     const struct limine_firmware_type_response *firmware=intel_bcs_shutdown_firmware_request.response;
 #elif defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
     const struct limine_firmware_type_response *firmware=intel_shutdown_firmware_request.response;
@@ -289,7 +305,10 @@ bool intel_gt_wake_probe_report(void) {
     f.efi64=firmware && !firmware->revision && firmware->firmware_type==LIMINE_FIRMWARE_TYPE_EFI64;
     f.loader=loader && !loader->revision && wake_text(loader->name,"Limine") && wake_text(loader->version,"11.4.1");
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
-    #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+    #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_takeover_recipe(cmd->cmdline);
+    struct intel_takeover_result takeover={0};
+#elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
     #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
     f.recipe=cmd && !cmd->revision && intel_gt_boot_bcs_shutdown_recipe(cmd->cmdline);
 #else
@@ -350,7 +369,7 @@ bool intel_gt_wake_probe_report(void) {
             for(unsigned i=0;mapped && i<WAKE_MAPS;i++)mapped=wake_map(&a,i);
             if(mapped) {
                 opened=intel_gt_access_open(&owner,&a.fw.gt.token,grants,(struct intel_gt_io){&a,wake_guard,wake_read,wake_write,now,wake_pause,
-#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
                     wake_request_snapshot
 #else
                     NULL
@@ -360,6 +379,10 @@ bool intel_gt_wake_probe_report(void) {
                 #ifdef SRVROS_INTEL_ENGINE_TRIAL
                 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
                 if(checked)(void)intel_completion_observe(&completion,&owner,(struct intel_completion_io){&a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE});
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+                if(completion.complete)(void)intel_takeover_observe(&takeover,&owner,&completion,(struct intel_takeover_io){&a,engine_guard,takeover_sample,now});
+                if(takeover.borrow.active)a.uncertain=true;
+#endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
                 if(completion.complete)bcs_run(&a,&owner,&completion,&trial,grants==7 && f.recipe);
 #endif
@@ -421,6 +444,10 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     engine_reads=completion.reads;completion_report(&completion);
     complete=complete && completion.complete;
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+    takeover_report(&takeover,&completion);engine_reads+=takeover.reads;
+    complete=complete && takeover.complete;
+#endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
     bcs_report(&trial,&owner,&completion);engine_reads+=trial.post.reads;
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
@@ -446,7 +473,7 @@ bool intel_gt_wake_probe_report(void) {
     complete=complete && shutdown.complete;
 #endif
 #endif
-#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
     console_printf("intel-clock: v=1 why=%u at=%u prev=%u phase=%u n=%u\n",(uint64_t)owner.clock_cause,owner.clock_sample,owner.clock_previous,owner.clock_phase,(uint64_t)owner.snapshots);
 #endif
     console_printf("intel-wake-summary: v=%u compiled=1 contract=1 efi64=%u loader=%u recipe=%u serialized=%u prerequisites=%u profile=%u fw_quiet=%u req_quiet=%u initial_req=%x initial_ack=%x grants=%u acquired=%u before=%u opened=%u checked=%u closed=%u fw_after=%u after=%u released=%u maps=%u retired=%u cache_checks=%u guards=%u retained=%u state=%u reason=%u writes=%u attempts=%u requests=%x ack=%x thread=%x begin_us=%u end_us=%u complete=%u engine_reads=%u pte_writes=0 managed_pages=0 smm_retired=0 hardware_ownership=0\n",

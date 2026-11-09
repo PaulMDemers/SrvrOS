@@ -32,7 +32,7 @@ static bool completion_context_raw(void *ctx,uint32_t out[INTEL_COMPLETION_CONTE
 static bool completion_context(void *ctx,uint32_t out[INTEL_COMPLETION_CONTEXT]) {
  return engine_guard(ctx) && completion_context_raw(ctx,out);
 }
-#if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) && !defined(SRVROS_INTEL_CENSUS_SCALAR_TEST)
+#if (defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)) && !defined(SRVROS_INTEL_CENSUS_SCALAR_TEST)
 static bool completion_mapping(void *ctx,unsigned slot) {
  struct wake_adapter *a=ctx;uint64_t physical;
  return slot<WAKE_MAPS && a->mapped[slot] && vmm_current_address_space()==a->fw.gt.a.common.cr3 &&

@@ -36,7 +36,10 @@ volatile struct limine_firmware_type_request intel_hda_firmware_request = {
 };
 #endif
 
-#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_firmware_type_request intel_takeover_firmware_request = { .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0 };
+#elif defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
 __attribute__((used, section(".limine_requests")))
 volatile struct limine_firmware_type_request intel_shutdown_firmware_request = {
     .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0

@@ -114,3 +114,11 @@ is necessary groundwork for milestone1, not its native transfer proof. The
 populated candidate interval remains unavailable and no hardware assurance bit
 changes. Host cases exercise the actual handoff/space/exclusion implementation;
 they do not substitute for the future native provider.
+
+## Next native prerequisite capture
+
+The separate [cold-takeover preflight](intel-takeover-preflight.md) reads all five
+reset controls and GDRST with a fresh same-parent/epoch engine census. It addresses
+a gap left by BCS-only qualification before choosing a broader takeover sequence.
+Its completed readout and sampled quiescence remain separate from any reset or
+GGTT transfer authority; this does not complete milestone1.

@@ -51,6 +51,9 @@ static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc00000
 
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
  || o==0x4000
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+ || o==0x9000
+#endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
  || o==0x9000 || o==0x70000 || o==0x71000 || o==0x72000
 #endif
@@ -147,6 +150,13 @@ static bool handoff_drift;
 static bool cache_mode,window_mode,window_map_fail,window_retire_fail,window_cache_fail;
 static bool intel_display_test_uc(uint64_t);
 static bool intel_display_test_read(uint32_t,uint32_t *);
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+static bool intel_display_test_wake_snapshot(uint32_t *r,uint32_t *a,uint32_t *t) {
+ return intel_display_test_wake_read(0xa188,r) && intel_display_test_wake_read(0x130044,a) && intel_display_test_wake_read(0x13805c,t);
+}
+static unsigned takeover_reads;
+static bool intel_display_test_takeover_read(unsigned,uint32_t,uint32_t *);
+#endif
 #define SRVROS_INTEL_DISPLAY_HOST_TEST
 #include "../kernel/src/drivers/intel_display_probe.c"
 
@@ -162,7 +172,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+#define intel_wake_firmware_request intel_takeover_firmware_request
+#elif defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
 #define intel_wake_firmware_request intel_shutdown_firmware_request
 #elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
 #define intel_wake_firmware_request intel_bcs_shutdown_firmware_request
@@ -232,6 +244,24 @@ static bool intel_display_test_fw_read(uint32_t offset,uint32_t *v){
 }
 static unsigned config_reads,mmio_reads,map_calls,unmap_calls;
 static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+14];
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+static bool intel_display_test_takeover_read(unsigned i,uint32_t reg,uint32_t *out) {
+ static const uint32_t offsets[]={0x20d0,0x120d0,0x1a0d0,0x1c0d0,0x220d0,0x941c};
+ assert(i<6 && reg==offsets[i] && wake_irq && !display_access_allowed() && wake_ack==1);
+ ++takeover_reads;*out=0;
+ if(!strcmp(engine_mode,"take-read") && takeover_reads==3)return false;
+ if(!strcmp(engine_mode,"take-float") && takeover_reads==5)*out=UINT32_MAX;
+ if(!strcmp(engine_mode,"take-change") && takeover_reads>6 && i==2)*out=1;
+ if(!strcmp(engine_mode,"take-busy") && i==0)*out=3;
+ if(!strcmp(engine_mode,"take-mask") && i<5)*out=0xffff0000;
+ if(!strcmp(engine_mode,"take-reserved") && i==1)*out=4;
+ if(!strcmp(engine_mode,"take-domain") && i==5)*out=8;
+ if(!strcmp(engine_mode,"take-domain-reserved") && i==5)*out=32;
+ if(!strcmp(engine_mode,"take-foreign") && takeover_reads==3)wake_request|=2;
+ if(!strcmp(engine_mode,"take-map") && takeover_reads==2)pa[INTEL_CAPTURE_PAGES+1+9]^=4096;
+ return true;
+}
+#endif
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
 static void census_fault(unsigned e,unsigned i) {
  bool post=bcs_reset_writes!=0;
@@ -490,6 +520,9 @@ int main(int argc,char **argv) {
     wake_cmd.cmdline=engine_recipe;
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+    static char takeover_recipe[1400];snprintf(takeover_recipe,sizeof(takeover_recipe),"%s srvros.intel-takeover=preflight",completion_recipe);wake_cmd.cmdline=takeover_recipe;
+#endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
     static char reset_recipe[1400];snprintf(reset_recipe,sizeof(reset_recipe),"%s srvros.intel-bcs-reset=blitter-only",completion_recipe);wake_cmd.cmdline=reset_recipe;
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
@@ -535,6 +568,9 @@ int main(int argc,char **argv) {
 #endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
  good=good && !strcmp(engine_mode,"report");
+#endif
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+ if(!strncmp(engine_mode,"take-",5))good=good && (!strcmp(engine_mode,"take-busy") || !strcmp(engine_mode,"take-mask") || !strcmp(engine_mode,"take-reserved") || !strcmp(engine_mode,"take-domain") || !strcmp(engine_mode,"take-domain-reserved"));
 #endif
  assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
 #ifdef SRVROS_INTEL_BLITTER_TRIAL

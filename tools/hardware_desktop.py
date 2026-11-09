@@ -573,6 +573,10 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-takeover-summary:'):
+        from intel_takeover import takeover_summary
+        try:return not takeover_summary(line)['complete']
+        except ValueError:return True
     if line.startswith('intel-clock'):
         from intel_gt_wake import clock_row
         try:return bool(clock_row(line)['why'])
@@ -898,6 +902,12 @@ def collect(mount, volume, output):
                     pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
                     verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
             except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
+        if 'srvros.intel-takeover=preflight' in text:
+            try:
+                from intel_takeover import native_takeover_result
+                take=native_takeover_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not take or not take['native_observation_complete']:attention.append("Intel cold-takeover preflight incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel cold-takeover preflight: "+str(error))
         intel_firmware=None
         if 'srvros.intel-firmware=read-only' in text:
             try:

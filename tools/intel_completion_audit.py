@@ -46,7 +46,7 @@ def completion_result(text):
  from intel_gt_wake import wake_result
  wake=wake_result(text);complete=bool(s['complete'] and wake and wake['lease_complete'])
  if wake and any(r['v']!=(2 if wake['summary']['v'] in (9,10,11,12) else 1) for r in rows+contexts):raise ValueError('completion row version binding')
- if wake and wake['summary']['v'] not in (4,5,6,7,9,10,11,12):raise ValueError('completion wrong wake image')
+ if wake and wake['summary']['v'] not in (4,5,6,7,9,10,11,12,13):raise ValueError('completion wrong wake image')
  if complete and not wake['summary']['begin_us']<s['begin_us']<s['end_us']<wake['summary']['end_us']:raise ValueError('completion parent ordering')
  return dict(observation_complete=complete,native_observation_complete=False,posted_drain=False,prefetch_retired=False,pipeline_flushed=False,tlb_invalidation=False,cache_ownership=False,reader_retirement=False,managed_range=False,physical_tearfree=False,summary=s,rows=rows,contexts=contexts)
 def native_completion_result(text):
