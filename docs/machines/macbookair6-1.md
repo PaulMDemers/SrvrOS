@@ -10310,3 +10310,63 @@ Next checkpoint: prove no-op writes are avoided only for exact media equality,
 changed metadata still persists/remounts, read/fault/pending-temp refusal and
 full host/VM regression before merge and unchanged automated native trial.
 Native gain is pending; reject this path if equality cannot be proved safely.
+
+
+### Exact-media sidecar equality validated and staged (2026-11-09)
+
+Frozen source `62dd5ea1` retains an existing sidecar extent only after current
+serialization fully matches uncached media bytes, with exact size/ValidDataLength,
+bounded16KiB scratch and FAT termination for linked extents. Pending temp names
+and live sidecar clients retain original replacement checks. A mismatch retains
+replacement; failed/unavailable proof refuses. Verified equality flushes owner
+writes before unchanged outer clean-marker and unconditional global barriers.
+Only the unnecessary new-temp/data/replace transaction is omitted; changed
+metadata retains the exact original writes/flushes. Allocation zero-padding,
+full user-prefix/readbacks, all dirty writers, quarantine/ownership, transport,
+power/watchdog and stress limits remain unchanged. No persistent equality cache.
+PR19's metadata-restore/parser sections are separate; no messaging/delegation.
+
+Actual-driver fixtures for4KiB/128KiB clusters show identical final media for
+no-op metadata:10 writes/7 flushes become two clean-marker writes/four flushes.
+For128KiB clusters, requested writes drop131374→4 bytes in that fixture. Changed
+metadata has identical complete media and ordered writes/flushes to the baseline,
+and permissions persist on remount. Pending-temp/live-client fallback, complete
+uncached comparison (including stale-cache and last-byte cases), read/allocation
+refusal, fragmented/invalid FAT traversal and all14 equal-path write/flush/cut/
+tear boundaries per cluster size pass. Existing append interruption tests pass.
+This is controlled host evidence, not a native timing improvement claim.
+
+Initial source `d2063ae1` failed the strict cost-formatter checkpoint-budget model;
+that failed build/log remains preserved. Final source restores the legacy cost
+formatter byte-for-byte and prints checked sidecar counters only through the
+existing explicit sync diagnostic profile. Disabled-profile/periodic/final logger
+fixtures and original retention models pass without changing capacity or limits.
+Full matched normal/native/VM/RAM/USB builds, core, desktop and docs pass on
+`62dd5ea1`, including89 installed-root tests in734.278s with one expected skip.
+
+Ordinary sysabi/USB keyboard/fork/exec-vectors/yield and real USB read-only/write/
+flush/reload/input integration pass. Populated-Home KVM400-write-IOPS stress
+passes23 app cycles,183 overlap observations, zero audio/worker/lifecycle errors,
+142449us maximum loop and998662/1636125us maximum launch/close. Complete saved
+atomic app records and independent reparsing agree; saved sync/CSW/checkpoint/
+raw-write/gate/loop and sidecar counters agree. Final VM counters:611 checks,
+132 equal,479 changed,615113 retained serialized bytes and zero refused proofs,
+flush failures, active traces or invalidity. Retained bytes are not physical
+write savings. Equality grows by87 between complete samples inside live PCM.
+Ordinary immutable screenshot/readback/Preview/repeat/exit passes. Optional IDT
+variants compile only. Exact stage `c1578543a5d0e7e4` passes Q35 native-board
+refusal/save/unmount/automatic return; native behavior is not yet accepted.
+
+Next trial repeats original1800-second1% PCM/verified USB/app/three-screenshot
+stress, every500ms loop/10s lifecycle/full-prefix/readback/ownership/retirement
+check, all prior timing evidence and complete equality counters. It additionally
+requires equality growth between two complete samples during live playback,
+plus a complete post-playback snapshot, with no proof/flush/counter failures.
+Native latency benefit remains pending. Keep accepted `8caa2866d8888e8c` and
+console recovery `c35475f62f154f1e`; archive only superseded unreferenced EFI
+copy `53bbc1245abcc03d` after independent payload verification. Own USB/all728
+prior file hashes/offline allocation/headroom and durable run/payload/evidence
+records must verify before one-shot reboot. Four old stage duplicates were
+removed only after complete independent payload/file hash verification, freeing
+about580MiB; accepted backups, raw evidence and active payloads are preserved.
+No sibling acceptance or historical failure status changes.
