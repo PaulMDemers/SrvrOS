@@ -10775,3 +10775,68 @@ changes. PR19 networking, PR301 scanout and PR379 WebCore remain separate.
 Next checkpoint: original controller operations/outcomes unchanged under the
 observer, complete bound records under existing atomic/tail limits, full matched
 validation, then the original unattended30-minute1% stress and Ubuntu recovery.
+
+### Correlated content observer validated and staged (2026-11-09)
+
+Frozen source `ae775d2c` / unchanged ports `39ad9d7` adds internal never-reused
+content identity and exact worst-sync/content observation, six exclusive exFAT
+block-callback roles, and all three terminal capture histories. The new strict
+parsers require bound final records, complete roles/clocks/outcomes and complete
+capture lifetimes. See the [contract](../sync-content-timing.md). Ordinary file
+operations, global-sync semantics, all owner/global/publication barriers,
+controller commands, save readbacks, ownership and watchdog/latency/workload
+limits remain unchanged. This is a correlated diagnostic baseline, not a fix.
+
+Real process/exFAT tests interleave65 ordinary64KiB writes into a4196406-byte
+BMP with global sync and unrelated dirty content. Shared writers/readers visit
+one content once per sync; slot reuse changes identity, while retained reader
+failures preserve dirty state and quarantine. Observer-on/off ordered callback/
+payload fingerprints and complete final media agree:13764 success callbacks
+(hash117aef28e220d2ce),893 writes/881 flushes,13189372 logical write bytes;
+injected failure has3850 callbacks with the same on/off fingerprint and preserves
+the previous32-chunk durable prefix. Synthetic10/20/30us callback costs exercise
+role sums only; they are not native performance. Actual C capture-report output
+passes strict parsing and malformed-join rejection.
+
+Full matched normal/native/VM/RAM/USB images, core, desktop and docs pass,
+including89 installation/recovery tests in777.587s with one expected skip.
+Early host adapter/import/shared-header compilation failures were corrected
+before the frozen successful validation; no native trial ran on those candidates.
+Ordinary syscall, USB keyboard, fork/exec-vectors/yield and real USB read-only/
+write/flush/reload/input checks pass. Populated-Home KVM400-write-IOPS stress
+passes22 app cycles/171 overlap observations,140004us maximum loop,
+2419479/1070494us maximum launch/close and all original audio/worker/retirement
+requirements. Complete saved atomic app records and every old/new final parser
+agree independently. Ordinary immutable screenshot/readback/Preview/repeat/exit
+passes. Exact stage `1991ff7f10142881` passes Q35 native-board refusal/save/
+unmount/automatic return; this is not native positive-device acceptance.
+
+The new VM content record binds PID7 sync24959838us to its selected content
+subcall, identity114/slot1,3342336 logical bytes. That subcall takes575126us:
+176 old-prefix reads cover2883584 bytes in413697us, while four root payload
+writes cover458752 bytes in54547us. Total observed role callbacks568044us leave
+7082us residual. Inode is unavailable (zero); identity/time/size bind the content
+subcall, not a proven creator PID or path. This supports repeated-prefix cost in
+the controlled VM, not a native diagnosis. The single VM capture's complete
+history is retained (19.847938s); the native trial must retain all three. A fresh
+native baseline is needed before choosing an optimization or claiming gain.
+
+Open PR19/301 share some files, but inspected changes cover metadata import,
+logger lifecycle/options and process user-scope/lifetime admission, distinct from
+these mutation/content observation hooks. No unmerged behavior or sibling
+acceptance is consumed. PR379 WebCore remains separate.
+
+Next is the original1800-second1% automatic audio/disk/app/three-screenshot run,
+with500ms loop/10s lifecycle limits, all readbacks/receipts/equality-growth/
+retirement/allocation proofs, clean post-PCM battery protocol marker and the new
+correlated content/complete capture histories required. Baseline769 USB file
+hashes and recovery must verify first. Preserve known-working69a8/318c/8caa and
+consolec354 payloads plus full backups; only superseded unreferenced single-window
+92d9 EFI duplication may be archived after every file matches its independent
+backup and no boot reference exists. The later2ddb sampler remains retained.
+Ubuntu remains recovery/default. Save full run/armed state and independent
+payload/trial backups before reboot, then collect the matching return first.
+The intermittent battery halt remains unresolved; the original c157 failure,
+photograph and media archive remain protected. No human input is needed; keep
+AC/USB attached. If mounted-Home containment halts, photograph the terminal and
+restart Ubuntu. No runtime threshold or policy has been relaxed.
