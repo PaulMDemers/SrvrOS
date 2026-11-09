@@ -2,24 +2,47 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Active scope: isolated native held-requester provider and receipts
+### Ready: native PCI capture during maintained engine preparation
 
-Base `cb323ca2`, main `125eb2b5`; fresh fetch shows no new main commits.
-PR19 networking and PR379 WebCore remain independent. This block integrates
-read-only PCI sampling into a distinct preparation image/firmware request,
-17-token recipe and wake version16. The existing no-action preparation and
-standalone requester images keep their gates and receipts. No writer, profile,
-permission, ownership assurance or deadline is widened.
+Source `8559ac44`, release `67a178af16c8983f`, integrates the held requester
+sampler through a distinct image/firmware request, exact17-token recipe and
+wake version16. One synchronous action has independent full backing/endpoint
+entry and exit, with fresh current-alias/requester and deadline admission for
+each DWORD PCI load. No guard carries into another callback. Existing engine
+request/cancel stores and13 mapping permissions are unchanged; no reset, PCI
+configuration or PTE writer is added. Shared limits remain100/300/500ms.
 
-User-authorized subagents own native provider/reporting, strict collection and
-actual provider fixtures; parent owns parser/staging/image integration and
-serialized validation. The synchronous action gets independent full backing
-entry/exit checks, while each fixed load retains fresh current-alias/requester
-and clock/parent admission. No guard result carries into another callback.
-Next checkpoint is qualified provider/collector, exact staged VM refusal and log
-budget, then an explicit decision on native trial readiness. Installed requester
-release `3ff42f33e6c01391` is collected; recovery retained, volume1%, no reboot
-armed. Whole preparation100ms, owner300ms and outer500ms remain unchanged.
+The [held requester contract](../intel-held-requester.md) binds raw prefixes,
+original preparation origin/epoch/action, explicit provider witnesses, full
+preservation and clean return. Valid TP transitions may complete observation,
+not DMA drain. Strict expiry receipts require incomplete retained state and
+matching expired-clock witnesses; successful time containment is unchanged.
+Held-only lossless v3 post-census vectors retain all 92 DWORDs. The worst-width
+projection is65,485/65,536, including the unchanged1,536-byte reserve.
+
+Full local source gate (installed-root explicitly omitted),20-image isolation,
+116 fatal ASan/UBSan provider cases, four compiled provider controls and strict
+collector/staging/legacy suites pass. Actual native-object review binds the
+entry/exit ordering, three requester aliases, immediate clock check and DWORD
+read. Exact immutable MBR EFI Q35 refusal/checkpoint/save/unmount/automatic
+return and missing-workspace halt pass. The actual17-token parser matches four
+saved logs. Compact raw values match the legacy92DWORDs; earlier native passes
+and nonpasses keep their exact-source classification.
+
+The candidate is installed/current/durable/immutable. All 1,428 USB files and 132 sessions
+preserve with clean offline filesystem/allocation/writable/headroom checks.
+Ubuntu remains default, recovery9aa8, GUIc497, accepted capture3ff4 and latest
+reset6365/preparation0caf remain on EFI. Older unreferenced reset94bc was archived
+only after full inventory/SHA equality with its independent durable copy; both
+survive distclean. Volume1%, no one-shot armed. Full qualification evidence is
+independently backed up outside build. Checkpoint:`build/air-held-native-20261109`.
+
+**Native combined timing/preservation/return acceptance remains pending.**
+Separate earlier timings do not accept this composition. The trial needs no
+input and displays progress; safe saved/unmounted outcomes return automatically,
+while uncertain ownership or failed persistence halts visibly. All eight
+completion obligations (mask255), firmware/DMA/cache/translation/reader ownership,
+GGTT transfer, zero managed pages and no physical tear-free grant remain.
 
 ### Implemented: requester sampling under the preparation borrow
 

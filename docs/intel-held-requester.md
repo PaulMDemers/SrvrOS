@@ -138,3 +138,16 @@ trial displays progress and needs no input; safe saved/unmounted outcomes return
 automatically, while uncertainty or persistence failure halts visibly. Keep1%
 volume. VM refusal/persistence cannot accept native timing, simultaneous held
 requester state or any memory/completion obligation.
+
+## Exact candidate qualification
+
+Source `8559ac44`, release `67a178af16c8983f`, is locally qualified and installed
+unarmed at1%. The full local gate (installed-root omitted),20-image isolation,
+116 fatal provider sanitizer cases, four compiled controls, strict collection,
+legacy classification and actual-object review pass. Exact-stage MBR EFI VM
+refusal/save/unmount/return and missing-workspace halt pass; four saved logs
+match the compiled17-token recipe. The raw-vector comparison retains exactly
+92DWORDs. Worst-width projection65,485/65,536 includes the unchanged1,536 reserve.
+USB contents/integrity and recovery verify; evidence survives distclean outside
+build. This accepts local mechanisms/refusal/persistence only. Native combined
+timing, preservation and retirement are pending the matching hardware session.

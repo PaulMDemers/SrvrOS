@@ -198,3 +198,12 @@ match, BME enabled and TP clear, borrow returned and10 aliases retired. This is
 one read-only capture, not DMA drain or an interval transfer. The next block
 composes maintained preparation and an exact reviewed action under one original
 lifetime; separate cancelled receipts cannot provide that authority.
+
+
+The isolated [native held requester candidate](intel-held-requester.md#exact-candidate-qualification)
+now composes the read-only observation with maintained preparation under the
+original borrow. Source `8559ac44` is locally/VM qualified; native timing and
+return remain pending. Its lossless receipts and explicit provider witnesses
+create no reset-capable action or GPU interval transfer. All eight ownership
+obligations stay open; a future writer still needs separately reviewed epoch,
+control-state, command/mapping and retirement semantics.
