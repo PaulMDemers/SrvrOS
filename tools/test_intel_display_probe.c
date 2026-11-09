@@ -21,7 +21,8 @@ static bool intel_display_test_completion_context(unsigned,uint32_t *);
 static bool intel_display_test_wake_snapshot(uint32_t *,uint32_t *,uint32_t *);
 #endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
-static unsigned bcs_reset_writes,bcs_plane_calls;
+static unsigned bcs_reset_writes,bcs_plane_calls,bcs_domain_observations,core_ack_clocks;
+static uint64_t intel_display_test_bcs_now(void);
 static bool intel_display_test_wake_snapshot(uint32_t *,uint32_t *,uint32_t *);
 static bool intel_display_test_bcs_read(uint32_t,uint32_t *);
 static enum intel_gt_write intel_display_test_bcs_write(uint32_t,uint32_t);
@@ -653,9 +654,18 @@ static enum intel_gt_write intel_display_test_reset_ready_write(uint32_t reg,uin
 #endif
 
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
+static uint64_t intel_display_test_bcs_now(void) {
+ uint64_t t=timer_monotonic_us();
+ if(bcs_reset_writes==2 && ready_writes==1 && bcs_domain_observations==3 && ++core_ack_clocks>=2) {
+  if(!strcmp(engine_mode,"core-settle-deadline"))return t+100001;
+  if(!strcmp(engine_mode,"core-settle-zero"))return 0;
+  if(!strcmp(engine_mode,"core-settle-backward"))return 1;
+ }
+ return t;
+}
 static bool intel_display_test_bcs_read(uint32_t reg,uint32_t *out) {
  assert(wake_irq && wake_ack==1 && !display_access_allowed());
- if(reg==0x941c){if(!strcmp(engine_mode,"bcs-float")){*out=UINT32_MAX;return true;}*out=!strcmp(engine_mode,"bcs-initial")?8:!strcmp(engine_mode,"bcs-foreign")?2:((!strcmp(engine_mode,"bcs-timeout") && bcs_reset_writes) || (!strcmp(engine_mode,"bcs-second-timeout") && bcs_reset_writes==2))?8:0;return strcmp(engine_mode,"bcs-read")!=0;}
+ if(reg==0x941c){++bcs_domain_observations;if(!strcmp(engine_mode,"bcs-float")){*out=UINT32_MAX;return true;}*out=!strcmp(engine_mode,"bcs-initial")?8:!strcmp(engine_mode,"bcs-foreign")?2:((!strcmp(engine_mode,"bcs-timeout") && bcs_reset_writes) || (!strcmp(engine_mode,"bcs-second-timeout") && bcs_reset_writes==2))?8:0;return strcmp(engine_mode,"bcs-read")!=0;}
  static const uint32_t offsets[9]={0x180,0x19c,0x1ac,0x80,0x84,0xac,0x280,0x29c,0x2ac};
  unsigned p=(reg-0x70000)/4096,i=bcs_plane_calls++%9;assert(p<3 && reg==0x70000+p*4096+offsets[i]);
  *out=(!p && !i)?0xd8000400u:0;

@@ -3,6 +3,16 @@ static bool fail(struct intel_bcs_reset_result *r,unsigned reason) {
  if(!r->reason)r->reason=reason;
  return false;
 }
+/* First invalid inner-core sample survives later refusals and retained-state reporting.
+ * Causes: zero1, backward2, >100ms4, strict endpoint nonprogress8. */
+static bool clock_check(struct intel_bcs_reset_result *r,uint64_t at,uint64_t previous,unsigned stage) {
+ unsigned why=(!at?1u:0u)|((at<previous || at<r->begin_us)?2u:0u)|
+  ((at>=r->begin_us && at-r->begin_us>INTEL_RESET_READY_TOTAL_US)?4u:0u)|
+  ((stage>1 && at<=previous)?8u:0u);
+ if(!why)return true;
+ if(!r->clock_cause){r->clock_cause=why;r->clock_sample=at;r->clock_previous=previous;r->clock_stage=stage;}
+ return fail(r,IBR_CLOCK);
+}
 static bool pin_valid(const struct intel_bcs_reset_result *r) {
  const struct intel_gt_access *g=r->borrow.parent;
  return r->borrow.active && r->borrow.object==&r->borrow && !r->borrow.next && g && g->object==g &&
@@ -11,7 +21,7 @@ static bool pin_valid(const struct intel_bcs_reset_result *r) {
 }
 static bool guard(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io) {
  uint64_t t=io.now(io.ctx);
- if(!t || t<r->last_us || t<r->begin_us || t-r->begin_us>INTEL_RESET_READY_TOTAL_US)return fail(r,IBR_CLOCK);
+ if(r->clock_cause || !clock_check(r,t,r->last_us,1))return false;
  r->last_us=t;
  /* Callback admission may not detach, copy or replace the registered pin. */
  if(!pin_valid(r) || !io.guard(io.ctx) || !pin_valid(r))return fail(r,IBR_GUARD);
@@ -39,6 +49,26 @@ static bool group(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io,
  if(w[0] || w[1] || w[2] || w[3] || w[4]!=1 || w[5] || w[6]!=512 || w[7])return fail(r,IBR_ENTRY);
  if(n)for(unsigned i=0;i<8;i++)if(w[i]!=r->words[0][i])return fail(r,IBR_DRIFT);
  return guard(r,io);
+}
+static bool endpoints(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io,unsigned n) {
+ unsigned phase=n?3:0;
+ if(!io.snapshot) {
+  if(!group(r,io,n) || !read_control(r,io,&r->controls[phase]))return false;
+  ++r->controls_read;
+  if(!read_domain(r,io,&r->domains[phase]))return false;
+  ++r->domains_read;return true;
+ }
+ if(!guard(r,io))return false;
+ ++r->snapshots;
+ if(!io.snapshot(io.ctx,r->words[n],&r->controls[phase],&r->domains[phase]))return fail(r,IBR_READ);
+ r->reads+=10;++r->samples;++r->controls_read;++r->domains_read;
+ if(!guard(r,io))return false;
+ const uint32_t *w=r->words[n];
+ if(w[0] || w[1] || w[2] || w[3] || w[4]!=1 || w[5] || w[6]!=512 || w[7])return fail(r,IBR_ENTRY);
+ if(n)for(unsigned i=0;i<8;i++)if(w[i]!=r->words[0][i])return fail(r,IBR_DRIFT);
+ if(r->controls[phase]==UINT32_MAX || (r->controls[phase]&0xfffcu))return fail(r,IBR_READ);
+ if(r->domains[phase]&~INTEL_BCS_RESET_DOMAIN)return fail(r,IBR_DRIFT);
+ return true;
 }
 static bool control_store(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io,uint32_t value) {
  if(!guard(r,io))return false;
@@ -90,13 +120,21 @@ static bool settle(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io
 }
 struct shutdown_reset_io {struct intel_bcs_reset_result *r;struct intel_bcs_reset_io io;};
 static bool shutdown_reset_guard(void *ctx) {
- struct shutdown_reset_io *s=ctx;return guard(s->r,s->io);
+ struct shutdown_reset_io *s=ctx;
+ if(s->r->clock_cause)return false;
+ if(!s->io.snapshot)return guard(s->r,s->io);
+ uint64_t t=s->io.now(s->io.ctx);
+ if(!clock_check(s->r,t,s->r->last_us,1))return false;
+ s->r->last_us=t;
+ return pin_valid(s->r) || fail(s->r,IBR_GUARD);
 }
 static bool shutdown_reset_read(void *ctx,uint32_t out[8]) {
  struct shutdown_reset_io *s=ctx;return guard(s->r,s->io) && s->io.group(s->io.ctx,out) && guard(s->r,s->io);
 }
 static uint64_t shutdown_reset_now(void *ctx) {
- struct shutdown_reset_io *s=ctx;return s->io.now(s->io.ctx);
+ struct shutdown_reset_io *s=ctx;uint64_t t=s->io.now(s->io.ctx);
+ if(clock_check(s->r,t,s->r->last_us,1))s->r->last_us=t;
+ return t;
 }
 static bool reset_run(struct intel_bcs_reset_result *r,struct intel_gt_access *g,
  const struct intel_completion_result *c,bool policy,struct intel_bcs_reset_io io,bool qualify_shutdown) {
@@ -111,6 +149,7 @@ static bool reset_run(struct intel_bcs_reset_result *r,struct intel_gt_access *g
  r->epoch_before=r->epoch_after=g->engine_epoch;
  if(!intel_gt_access_borrow(g,&r->borrow))return fail(r,IBR_PARENT);
  r->begin_us=r->last_us=io.now(io.ctx);
+ if(!clock_check(r,r->begin_us,r->last_us,1))goto done;
  unsigned writes=g->writes;
  r->blocked_close=!intel_gt_access_close(g) && g->writes==writes && g->state==GT_ACCESS_AWAKE && g->pinned;
  if(!r->blocked_close){fail(r,IBR_PARENT);goto done;}
@@ -126,10 +165,7 @@ static bool reset_run(struct intel_bcs_reset_result *r,struct intel_gt_access *g
    if(r->shutdown.words[n][i]!=expected){fail(r,IBR_DRIFT);goto done;}
   }
  }
- if(!r->begin_us || !group(r,io,0) || !read_control(r,io,&r->controls[0]))goto done;
- ++r->controls_read;
- if(!read_domain(r,io,&r->domains[0]))goto done;
- ++r->domains_read;
+ if(!r->begin_us || !endpoints(r,io,0))goto done;
  if((r->controls[0]&3) || r->domains[0]){fail(r,IBR_ENTRY);goto done;}
  for(unsigned i=0;i<6;i++)if(r->words[0][i]!=c->words[1][4][i]){fail(r,IBR_DRIFT);goto done;}
  if(r->words[0][6]!=c->context[1][3] || r->words[0][7]!=c->context[1][5]){fail(r,IBR_DRIFT);goto done;}
@@ -139,21 +175,18 @@ static bool reset_run(struct intel_bcs_reset_result *r,struct intel_gt_access *g
  if(!pulse(r,io,0) || !pulse(r,io,1) || !settle(r,io))goto done;
  if(!control_store(r,io,INTEL_BCS_RESET_CANCEL) || !wait_control(r,io,2,0))goto done;
  r->cancelled=true;
- if(!group(r,io,1) || !read_control(r,io,&r->controls[3]))goto done;
- ++r->controls_read;
- if(!read_domain(r,io,&r->domains[3]))goto done;
- ++r->domains_read;
+ if(!endpoints(r,io,1))goto done;
  if((r->controls[3]&3) || r->domains[3]){fail(r,IBR_DRIFT);goto done;}
  if(!guard(r,io) || !intel_gt_access_check(g) || !guard(r,io))goto done;
  r->end_us=io.now(io.ctx);
- if(r->end_us<=r->last_us || r->end_us-r->begin_us>INTEL_RESET_READY_TOTAL_US){fail(r,IBR_CLOCK);goto done;}
+ if(!clock_check(r,r->end_us,r->last_us,2))goto done;
  r->uncertain=false;
 done:
  if(!r->uncertain) {
   if(!pin_valid(r) || !intel_gt_access_return(&r->borrow)){r->uncertain=true;fail(r,IBR_PARENT);}
   else if(r->end_us) {
    uint64_t finished=io.now(io.ctx);
-   if(!finished || finished<=r->end_us || finished<r->last_us || finished-r->begin_us>INTEL_RESET_READY_TOTAL_US)fail(r,IBR_CLOCK);
+   (void)clock_check(r,finished,r->end_us>r->last_us?r->end_us:r->last_us,3);
    r->end_us=r->last_us=finished;
   }
  }

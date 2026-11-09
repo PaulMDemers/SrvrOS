@@ -361,3 +361,35 @@ The [unit result](machines/macbookair7-2.md#latest-same-borrow-reset-trial-clock
 records the detailed timing and next scope: first-fault inner-clock evidence and
 measured audit reduction under unchanged limits, never forced retirement or a
 larger deadline. No reset/preservation or memory-ownership acceptance follows.
+
+## Guarded endpoint bundles and first inner clock fault
+
+The same isolated shutdown/reset image's successor uses wake version10. Its
+optional `snapshot` callback reads BCS8, reset control and GDRST in the original
+order with one fresh full provider admission; full core admission brackets the
+whole read. Initial and final endpoint batches therefore use3 full admissions
+instead of9, with identical raw fields, comparisons and store order. Old reset
+images keep NULL callbacks and the scalar path. No snapshot is cached or reused.
+
+Observation callbacks which perform no MMIO retain fresh pin/time checks. Their
+read callbacks still perform full pre/provider/post admission around each group;
+the intervening parent check remains. The compiled host scalar comparison records
+215→198 full audits, all46 raw rows identical, including request/domain, engine,
+reader and HDA values. The comparison binary is not a valid v10 native receipt
+and cannot establish native timing or acceptance.
+
+The core retains its first invalid sample, prior accepted sample and stage:
+guard1, strict pre-return endpoint2 or clean-return endpoint3. Cause bits are
+zero1, backward2, >100ms4 and strict endpoint nonprogress8. A separate mandatory
+`intel-bcs-clock` v1 row binds these to the reset summary's origin and counts
+endpoint-batch attempts. Later checks cannot overwrite the first fault. Guard
+clock ties remain permitted, while the existing strict endpoint predicate remains.
+A late verified clean return still fails timing without inventing a live pin.
+
+Strict v10 collection derives cause bits and requires two endpoint snapshots for
+core completion; v9 retains its uncaptured-clock meaning. The parent `intel-clock`
+row is independent. The100ms dependent,300ms owner,500ms outer, acknowledgement
+poll/phase and settling limits are unchanged. Full registered-pin checks,
+pre/post preservation, uncertainty retention and all memory-ownership refusals
+remain. The earlier d74 settling failure stays incomplete. No new register,
+writer, mapping or enabled-ring admission follows from this optimization.

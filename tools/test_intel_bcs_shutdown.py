@@ -21,17 +21,17 @@ class BcsShutdownTests(unittest.TestCase):
     self.assertEqual(r['summary']['attempts'],0);self.assertEqual(r['summary']['reset_attempts'],0)
  def test_positive_same_borrow_order_epoch_and_native_binding(self):
   t=adapter();r=bcs_result(t);w=wake_result(t);b=verify_shutdown(t,r['summary'],r['tables'],__import__('intel_completion_audit').completion_result(t))
-  self.assertTrue(r['complete']);self.assertEqual(w['summary']['v'],9);self.assertEqual(w['summary']['engine_reads'],216)
+  self.assertTrue(r['complete']);self.assertEqual(w['summary']['v'],10);self.assertEqual(w['summary']['engine_reads'],216)
   self.assertEqual(b['summary']['attempts'],0);self.assertEqual(r['summary']['epoch_after'],r['summary']['epoch_before']+1)
   from test_intel_shutdown import ShutdownTests
   self.assertTrue(native_bcs_result(ShutdownTests.native(t).replace('intel-wake: bounded','intel-wake: preflight checkpoint saved\nintel-wake: bounded'))['native_complete'])
  def test_strict_receipt_schema_order_binding_and_version(self):
   t=adapter()
-  for prefix in ('intel-bcs-shutdown-row:','intel-bcs-shutdown-summary:'):
+  for prefix in ('intel-bcs-clock:','intel-bcs-shutdown-row:','intel-bcs-shutdown-summary:'):
    line=next(l for l in t.splitlines() if l.startswith(prefix))
    for bad in (t.replace(line+'\n','',1),t+'\n'+line,t.replace(line,line+' extra=0',1)):
     with self.subTest(prefix=prefix),self.assertRaises(ValueError):bcs_result(bad)
-  for a,b in [('entry_disabled=1','entry_disabled=0'),('intel-wake-summary: v=9','intel-wake-summary: v=7'),('engine_reads=216','engine_reads=184')]:
+  for a,b in [('entry_disabled=1','entry_disabled=0'),('intel-wake-summary: v=10','intel-wake-summary: v=7'),('engine_reads=216','engine_reads=184')]:
    with self.subTest(a=a),self.assertRaises(ValueError):bcs_result(t.replace(a,b))
   for key in ('epoch','owner_begin','attempts','writes'):
    line=next(l for l in t.splitlines() if l.startswith('intel-bcs-shutdown-summary:'))
@@ -55,6 +55,24 @@ class BcsShutdownTests(unittest.TestCase):
  def test_core_seals_parent_epoch_policy_and_fresh_result(self):
   for mode in ('normal','mask','delayed','nonzero-epoch','policy','copy','active','pending','flip','tlb','other-borrow','stale-epoch','stale-parent','overflow','census-drift','context-drift','missing-io','epoch-admission','detached-before','detached-after','extra-dependent'):
    with self.subTest(mode=mode):subprocess.check_call([str(ROOT/'build/tests/intel-bcs-reset'),mode,'1','shutdown'],stdout=subprocess.DEVNULL)
+ def test_inner_first_fault_separate_from_parent_and_strict(self):
+  for mode,why in [('core-settle-deadline',4),('core-settle-zero',3),('core-settle-backward',2)]:
+   with self.subTest(mode=mode):
+    t=adapter(mode);r=bcs_result(t);c=r['clock'];self.assertFalse(r['complete']);self.assertEqual(c['why'],why);self.assertEqual(c['stage'],1)
+    self.assertEqual(r['summary']['reset_acks'],2);self.assertTrue(r['summary']['uncertain']);self.assertEqual(r['summary']['returned'],0)
+    self.assertEqual(wake_result(t)['clock']['why'],0)
+    line=next(l for l in t.splitlines() if l.startswith('intel-bcs-clock:'))
+    for bad in (line.replace('why='+str(why),'why=8'),line.replace('stage=1','stage=0'),line+' extra=0'):
+     with self.assertRaises(ValueError):bcs_result(t.replace(line,bad))
+  t=adapter();line=next(l for l in t.splitlines() if l.startswith('intel-bcs-clock:'))
+  with self.assertRaises(ValueError):bcs_result(t.replace(line,line.replace('n=2','n=0')))
+  with self.assertRaises(ValueError):bcs_result(t.replace(line,line.replace('at=0','at=1')))
+ def test_endpoint_and_clean_return_clock_samples(self):
+  for mode,stage,why in [('zero',1,1),('backward',1,2),('end-clock-zero',2,11),('return-clock-tie',3,8)]:
+   with self.subTest(mode=mode):
+    t=subprocess.check_output([str(ROOT/'build/tests/intel-bcs-reset'),mode,'1','shutdown'],text=True)
+    row=re.search(r'core-clock why=(\d+) stage=(\d+) at=(\d+) prev=(\d+) begin=(\d+)',t)
+    self.assertIsNotNone(row);self.assertEqual((int(row[1]),int(row[2])),(why,stage))
  def test_attention(self):
   from hardware_desktop import needs_attention
   line=next(l for l in adapter().splitlines() if l.startswith('intel-bcs-shutdown-summary:'))

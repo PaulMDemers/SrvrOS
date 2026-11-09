@@ -13,6 +13,8 @@ struct intel_bcs_reset_result {
  struct intel_blitter_result shutdown;
  uint32_t controls[4],domains[4],words[2][8],epoch_before,epoch_after;
  uint64_t begin_us,end_us,last_us,settle_begin_us,settle_end_us;
+ uint64_t clock_sample,clock_previous;
+ unsigned clock_cause,clock_stage,snapshots;
  unsigned reads,polls,attempts,writes,reset_attempts,reset_writes,reset_acks;
  unsigned samples,controls_read,domains_read,reason;
  bool admitted,ready,cancelled,blocked_close,uncertain,complete;
@@ -27,6 +29,8 @@ struct intel_bcs_reset_io {
  enum intel_gt_write (*domain_write)(void *,uint32_t);
  uint64_t (*now)(void *);
  void (*pause)(void *);
+ /* Optional ordered BCS8/control/domain snapshot, with fresh provider admission. */
+ bool (*snapshot)(void *,uint32_t [8],uint32_t *,uint32_t *);
 };
 /* Linked only by the distinct BCS-reset diagnostic ELF, never ordinary boot.
  * Native adapter and recipe enforce exact entry. BDW PRM2c pp609-610: GDRST bit3 only. Preserve

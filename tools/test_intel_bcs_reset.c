@@ -6,6 +6,8 @@
 struct reset_model {
  struct model gt;
  struct intel_gt_access *parent;
+ struct intel_bcs_reset_result *result;
+ unsigned finish_clocks;
  const char *mode;
  unsigned point,guards,reads,clocks,control_stores,domain_stores,groups,pauses,closing;
  uint32_t ctl,domain,start_epoch;
@@ -22,6 +24,11 @@ static bool rguard(void *p) {
 }
 static uint64_t rnow(void *p) {
  struct reset_model *m=p;++m->clocks;
+ if(m->result && m->result->samples==2 && m->result->controls_read==4 && m->result->domains_read==4) {
+  if(mode(m,"end-clock-zero") && ++m->finish_clocks==3)return 0;
+  if(mode(m,"return-clock-tie") && m->result->end_us)return m->result->end_us;
+ }
+
  if(mode(m,"zero"))return 0;
  if(mode(m,"frozen"))return 2000;
  if(mode(m,"backward"))return 2000-m->clocks;
@@ -125,8 +132,8 @@ int main(int argc,char **argv) {
  if(mode(&m,"census-drift"))c.words[1][4][2]=4096;
  if(mode(&m,"context-drift"))c.context[1][5]=1;
  struct intel_completion_result copy=c;
- struct intel_bcs_reset_result r={0};
- struct intel_bcs_reset_io io={&m,rguard,rcontrol,rdomain,rgroup,rcontrol_write,rdomain_write,rnow,rpause};
+ struct intel_bcs_reset_result r={0};m.result=&r;
+ struct intel_bcs_reset_io io={&m,rguard,rcontrol,rdomain,rgroup,rcontrol_write,rdomain_write,rnow,rpause,NULL};
  if(mode(&m,"epoch-admission") || mode(&m,"epoch-ready-admission")) {
   changing_parent=&g;g.io.guard=changing_gt_guard;
  }
@@ -143,6 +150,8 @@ int main(int argc,char **argv) {
  bool expected=mode(&m,"normal") || mode(&m,"mask") || mode(&m,"delayed") || mode(&m,"nonzero-epoch") || mode(&m,"fresh-reset") ||
   (mode(&m,"guard") && m.point>m.guards) || (mode(&m,"read") && m.point>m.reads);
  assert(ok==expected);
+ if(r.reason==IBR_CLOCK)assert(r.clock_cause && r.clock_stage);
+ if(ok)assert(!r.clock_cause && !r.clock_stage && !r.clock_sample && !r.clock_previous);
  if(mode(&m,"detached-before") || mode(&m,"extra-dependent"))assert(!m.control_stores && !m.domain_stores && r.uncertain && r.borrow.active);
  if(mode(&m,"detached-after"))assert(m.control_stores==1 && !m.domain_stores && r.uncertain && r.borrow.active);
  if(ok) {
@@ -165,7 +174,7 @@ int main(int argc,char **argv) {
    assert(second.complete && second.epoch_before==1 && second.epoch_after==2 && g.engine_epoch==2 && !g.borrows);
   }
  }
- if(!ok && (r.writes || (m.ctl&3) || r.reset_writes) && !mode(&m,"return-deadline"))assert(r.uncertain && r.borrow.active);
+ if(!ok && (r.writes || (m.ctl&3) || r.reset_writes) && !mode(&m,"return-deadline") && !mode(&m,"return-clock-tie"))assert(r.uncertain && r.borrow.active);
  assert(m.control_stores<=2 && m.domain_stores<=2 && r.polls<=4*256);
  if(m.domain_stores)assert(g.engine_epoch!=0);
  if(mode(&m,"late-domain"))assert(r.reason==IBR_DRIFT && r.reset_writes==1 && r.polls==1);
@@ -181,6 +190,7 @@ int main(int argc,char **argv) {
   if(g.state==GT_ACCESS_AWAKE)assert(intel_gt_access_close(&g));
   if(!g.pinned)assert(display_access_release(&token,true));
  }
+ printf("core-clock why=%u stage=%u at=%llu prev=%llu begin=%llu\n",r.clock_cause,r.clock_stage,(unsigned long long)r.clock_sample,(unsigned long long)r.clock_previous,(unsigned long long)r.begin_us);
  printf("BCS reset protocol %s PASS guards=%u reads=%u; host model only, no memory retirement\n",m.mode,m.guards,m.reads);
  return 0;
 }

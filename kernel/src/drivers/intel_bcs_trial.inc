@@ -10,6 +10,13 @@ struct bcs_trial {
  uint64_t begin,end;
  bool preserved,complete;
 };
+static uint64_t bcs_now(void *ctx) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ (void)ctx;return intel_display_test_bcs_now();
+#else
+ return now(ctx);
+#endif
+}
 static bool bcs_domain(void *ctx,uint32_t *out) {
  struct wake_adapter *a=ctx;
  if(!out || !a->mapped[9] || !engine_guard(a))return false;
@@ -30,6 +37,26 @@ static enum intel_gt_write bcs_domain_write(void *ctx,uint32_t value) {
  __asm__ volatile("mfence":::"memory");return GT_WRITE_DONE;
 #endif
 }
+#if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) && !defined(SRVROS_INTEL_BCS_SCALAR_TEST)
+static bool bcs_snapshot(void *ctx,uint32_t out[8],uint32_t *control,uint32_t *domain) {
+ struct wake_adapter *a=ctx;
+ static const uint32_t regs[8]={0x22030,0x22034,0x22038,0x2203c,0x22234,0x22238,0x2209c,0x2229c};
+ if(!out || !control || !domain || !a->mapped[7] || !a->mapped[9] || !engine_guard(a))return false;
+ for(unsigned i=0;i<8;i++) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+  if(!intel_display_test_reset_ready_read(regs[i],&out[i]))return false;
+#else
+  out[i]=*(volatile const uint32_t *)(WAKE_VA+7*4096+(regs[i]&4095));
+#endif
+ }
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ return intel_display_test_reset_ready_read(0x220d0,control) && intel_display_test_bcs_read(0x941c,domain);
+#else
+ *control=*(volatile const uint32_t *)(WAKE_VA+7*4096+0xd0);
+ *domain=*(volatile const uint32_t *)(WAKE_VA+9*4096+0x41c);return true;
+#endif
+}
+#endif
 static bool bcs_planes(struct wake_adapter *a,struct intel_gt_access *g,struct bcs_trial *t,unsigned n) {
  static const uint32_t offsets[9]={0x180,0x19c,0x1ac,0x080,0x084,0x0ac,0x280,0x29c,0x2ac};
  if(n>1 || n!=t->samples || !intel_gt_access_check(g))return false;
@@ -70,7 +97,13 @@ static void bcs_run(struct wake_adapter *a,struct intel_gt_access *g,const struc
 #else
  (void)intel_bcs_reset(
 #endif
-&t->reset,g,pre,policy,(struct intel_bcs_reset_io){a,engine_guard,reset_ready_control,bcs_domain,reset_ready_group,reset_ready_store,bcs_domain_write,now,wake_pause});
+&t->reset,g,pre,policy,(struct intel_bcs_reset_io){a,engine_guard,reset_ready_control,bcs_domain,reset_ready_group,reset_ready_store,bcs_domain_write,bcs_now,wake_pause,
+#if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) && !defined(SRVROS_INTEL_BCS_SCALAR_TEST)
+ bcs_snapshot
+#else
+ NULL
+#endif
+ });
  if(t->reset.uncertain || t->reset.borrow.active){a->uncertain=true;return;}
  if(!t->reset.complete && !t->reset.reset_acks)return;
  if(!intel_gt_access_borrow(g,&t->preservation)){a->uncertain=true;return;}
@@ -92,6 +125,9 @@ static void bcs_run(struct wake_adapter *a,struct intel_gt_access *g,const struc
 }
 static void bcs_report(const struct bcs_trial *t,const struct intel_gt_access *g) {
  const struct intel_bcs_reset_result *r=&t->reset;
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ console_printf("intel-bcs-clock: v=1 why=%u stage=%u at=%u prev=%u n=%u\n",(uint64_t)r->clock_cause,(uint64_t)r->clock_stage,r->clock_sample,r->clock_previous,(uint64_t)r->snapshots);
+#endif
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
  const struct intel_blitter_result *b=&r->shutdown;
  for(unsigned n=0;n<b->samples;n++) {
