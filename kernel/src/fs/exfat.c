@@ -87,6 +87,8 @@ struct exfat_cost_phase { uint64_t reads,read_bytes,read_us,writes,write_bytes,w
 struct exfat_cost { uint64_t start,end;const char *operation;bool active,ok;struct exfat_cost_phase phase[EXFAT_IO_PHASE_COUNT]; };
 #define EXFAT_COST_ROWS 4
 static struct exfat_cost slow_costs[EXFAT_COST_ROWS];
+struct sidecar_equality_stats { uint64_t checks,equal,changed,refused,retained_bytes,flush_failed,active,invalid; };
+static struct sidecar_equality_stats sidecar_stats;
 static uint64_t cost_clock(void) {
 #ifdef SRVROS_EXFAT_HOST_TEST
 #ifdef SRVROS_EXFAT_COST_TEST
@@ -385,6 +387,19 @@ static void mutation_reads_invalidate(const struct exfat_volume *volume,uint64_t
         if(size && (offset>=base?offset-base<size:base-offset<length))mutation_reads.rows[i].length=0;
     }
 }
+/* Uncached media bytes, with the same bounds and cost accounting as a read
+ * cache miss. Equality proofs never substitute a RAM cache hit for media. */
+static bool volume_read_device(const struct exfat_volume *volume,uint64_t offset,void *buffer,uint64_t length) {
+    if(!volume || !buffer || volume->image || offset>volume->image_size ||
+       length>volume->image_size-offset)return false;
+    uint64_t start=cost_clock();
+    bool ok=block_read(volume->device,offset,buffer,length);
+    if(volume->cost.active) {
+        struct exfat_cost_phase *p=&((struct exfat_volume *)volume)->cost.phase[volume->io_phase];
+        p->reads++;p->read_bytes+=length;p->read_us+=cost_elapsed(start);
+    }
+    return ok;
+}
 static bool volume_read(const struct exfat_volume *volume, uint64_t offset, void *buffer, uint64_t length) {
     if (volume == NULL || buffer == NULL || offset > volume->image_size || length > volume->image_size - offset) {
         return false;
@@ -407,12 +422,7 @@ static bool volume_read(const struct exfat_volume *volume, uint64_t offset, void
         }
     }
     uint64_t epoch=mutation_reads.epoch;
-    uint64_t start=cost_clock();
-    bool ok=block_read(volume->device, offset, buffer, length);
-    if(volume->cost.active) {
-        struct exfat_cost_phase *p=&((struct exfat_volume *)volume)->cost.phase[volume->io_phase];
-        p->reads++;p->read_bytes+=length;p->read_us+=cost_elapsed(start);
-    }
+    bool ok=volume_read_device(volume,offset,buffer,length);
     if(ok && cached && mutation_reads.volume==volume && epoch==mutation_reads.epoch) {
         mutation_reads_advance();
         unsigned i=mutation_reads.next++%EXFAT_READ_CACHE_ROWS;
@@ -1562,6 +1572,43 @@ bool exfat_creation_capacity(const char *path, uint64_t files, uint64_t dirs) {
     return mutation_capacity(find_mount_for_path(path), path, files, dirs);
 }
 
+#if !defined(SRVROS_EXFAT_HOST_TEST) || !defined(SRVROS_EXFAT_SIDECAR_EQUALITY_OFF)
+static void sidecar_add(uint64_t *sum,uint64_t n) {
+    if(n>UINT64_MAX-*sum)sidecar_stats.invalid=1;else *sum+=n;
+}
+enum metadata_equality { METADATA_DIFFERENT, METADATA_EQUAL, METADATA_UNPROVED };
+static enum metadata_equality metadata_equal_media(const struct exfat_file *file,const uint8_t *expected,uint64_t size) {
+    if(!file || !file->volume || !file->volume->cluster_size || !expected || size>EXFAT_METADATA_MAX_BYTES)return METADATA_UNPROVED;
+    if(file->size!=size || file->valid_size!=size || !size ||
+       file->allocated_clusters!=clusters_for_size(file->volume,size))return METADATA_DIFFERENT;
+    uint8_t *buffer=kmalloc(16384);if(!buffer)return METADATA_UNPROVED;
+    uint64_t copied=0;uint32_t cluster=file->first_cluster;
+    while(copied<size) {
+        uint64_t offset;if(!cluster_offset(file->volume,cluster,&offset))goto unproved;
+        uint64_t bytes=size-copied;if(bytes>file->volume->cluster_size)bytes=file->volume->cluster_size;
+        for(uint64_t n=0;n<bytes;) {
+            uint64_t count=bytes-n;if(count>16384)count=16384;
+            if(!volume_read_device(file->volume,offset+n,buffer,count))goto unproved;
+            for(uint64_t j=0;j<count;j++)if(buffer[j]!=expected[copied+n+j]){
+                kfree(buffer);return METADATA_DIFFERENT;
+            }
+            n+=count;
+        }
+        copied+=bytes;
+        if(file->no_fat_chain){if(copied<size)cluster++;}
+        else {
+            uint8_t link[4];
+            if(!volume_read_device(file->volume,file->volume->fat_offset_bytes+(uint64_t)cluster*4,link,sizeof(link)))goto unproved;
+            cluster=read_u32(link);
+            if(copied<size ? cluster>=EXFAT_FAT_CHAIN_END : cluster<EXFAT_FAT_CHAIN_END)goto unproved;
+        }
+    }
+    kfree(buffer);return METADATA_EQUAL;
+unproved:
+    kfree(buffer);return METADATA_UNPROVED;
+}
+#endif
+
 static bool exfat_sync_mount_metadata_impl(struct exfat_mount *mount) {
     if (mount == NULL || mount->volume.image != NULL || metadata_syncing) {
         return true;
@@ -1592,6 +1639,30 @@ static bool exfat_sync_mount_metadata_impl(struct exfat_mount *mount) {
         }
         ok = serialize_metadata_record(mount->metadata_buffer, mount->metadata_capacity, &offset, node);
     }
+#if !defined(SRVROS_EXFAT_HOST_TEST) || !defined(SRVROS_EXFAT_SIDECAR_EQUALITY_OFF)
+    /* No pending recovery name or live client may have its normal replacement
+     * checks bypassed. Read every matching byte from media; never use a hint or
+     * persistent equality cache. A failed proof refuses, rather than rewriting. */
+    if(ok && !name_conflicts(temp_path,NULL) &&
+       !process_has_open_vfs_prefix(path) && !process_has_open_vfs_prefix(temp_path) &&
+       !exfat_stream_busy(path,true) && !exfat_stream_busy(temp_path,true)) {
+        struct exfat_file *existing=find_file(path);
+        if(existing && existing->volume==&mount->volume) {
+            sidecar_add(&sidecar_stats.checks,1);sidecar_stats.active=1;
+            enum metadata_equality same=metadata_equal_media(existing,(const uint8_t *)mount->metadata_buffer,offset);
+            sidecar_stats.active=0;
+            if(same==METADATA_UNPROVED){sidecar_add(&sidecar_stats.refused,1);ok=false;}
+            else if(same==METADATA_EQUAL) {
+                sidecar_add(&sidecar_stats.equal,1);sidecar_add(&sidecar_stats.retained_bytes,offset);
+                /* Existing sidecar bytes and all earlier owner writes must be
+                 * durable before the outer clean marker/global barrier. */
+                ok=volume_flush(&mount->volume);
+                if(!ok)sidecar_add(&sidecar_stats.flush_failed,1);
+                metadata_syncing=false;return ok;
+            } else sidecar_add(&sidecar_stats.changed,1);
+        }
+    }
+#endif
     if (ok) {
         if (vfs_lookup(temp_path) != NULL) {
             ok = exfat_delete_file(temp_path);
@@ -4241,6 +4312,14 @@ bool exfat_same_mount(const char *first,const char *second) {
 
 /* Called by the logger before its own filesystem work; snapshot under CPU0 IRQ
  * exclusion, then format without holding that exclusion or storage ownership. */
+/* Explicit desktop sync diagnostics only; no output in other profiles. */
+void exfat_print_sidecar_equality(void) {
+    uint64_t irq=fs_irq_save();struct sidecar_equality_stats sidecar=sidecar_stats;fs_irq_restore(irq);
+    if(sidecar.checks || sidecar.invalid)console_printf("exfat-sidecar: version=1 snapshot_us=%u checks=%u equal=%u changed=%u refused=%u retained_bytes=%u flush_failed=%u active=%u invalid=%u\n",
+        timer_monotonic_us(),sidecar.checks,sidecar.equal,sidecar.changed,sidecar.refused,
+        sidecar.retained_bytes,sidecar.flush_failed,sidecar.active,sidecar.invalid);
+}
+
 void exfat_print_costs(void) {
     struct exfat_cost rows[EXFAT_COST_ROWS];uint64_t irq=fs_irq_save();
     for(unsigned i=0;i<EXFAT_COST_ROWS;i++)rows[i]=slow_costs[i];
