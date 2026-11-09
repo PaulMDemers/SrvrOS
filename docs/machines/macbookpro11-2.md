@@ -16438,3 +16438,24 @@ accepted7026/8529/3c9/815/e17 and Ubuntu/e47d remain installed. Qualified cold s
 uses the standing Wi-Fi-only10second off-state unplug protocol. Collect the new
 inspection workflow once after return. TCP/HTTP/service isolation/lifecycle remain
 future gates; the concrete refined HTTP plan is retained in the capsule.
+
+
+## November9 source qualification and bounded fixture correction
+
+Fresh matched build/network/firstjoin/finiteTCP/pureHTTP and affected filesystem
+qualification on514ddfb2 completed283.38seconds with one failure:
+`test-exfat-stream` alloc-dirty still targeted the fourth subsequent heap call.
+An isolated trace shows the new exact-media sidecar equality path now performs
+only three allocations, so that ordinal never fires. Injecting the actual16KiB
+post-write equality scratch allocation preserves every existing dirty-volume
+refusal assertion. This is test-fixture evidence, not permission to weaken the
+filesystem or relabel the failed suite as passing.
+
+Bounded correction: only tools/exfat_stream_driver.c gets a named size/post-write
+allocator-failure guard and explicit fired/size/dirty assertions. Preserve all
+append/retry/sync/close/quarantine checks. Root also updates the synthetic full-
+parent composer to place both source-specific response rows before child entry,
+and the new native session wrapper requires both (historical generic parsing
+stays compatible). Re-run affected stream/composition checks, bind unchanged
+compiled inputs for the other completed goals, and preserve the failed suite.
+No physical stage/install/power action occurs before corrected qualification.
