@@ -15,33 +15,35 @@ Its original 255-file native capsule and separate 14-file acceptance notes remai
 immutable. This accepts bounded encrypted traffic; ordinary native IP/TCP/HTTP,
 connection epochs, reattachment, UI and reliability remain separate gates.
 
-The distinct v137 candidate, runtime `6a26cb80` / release `815747ea8c559ec0`,
-consumes actual main `e85a6846` and is software-qualified and installed for the
-next cold native production-stack trial. It defers ordinary network startup and
-uses guarded production DHCP/DNS/ARP and 64 exact 40-byte ICMP messages with
-32-byte bodies. All original-key, RX/TX fence, finite resource/time, quiet RX,
-full restoration and retained backend rules remain. Native v137 acceptance is
-pending. TCP/HTTP needs legitimate process/timer ownership before native testing.
+The distinct v137 runtime `6a26cb80` / release `815747ea8c559ec0` has now
+returned and was collected once: session `00065fd7e0c7c9fb-00`. It FAILED before
+the production workload: one TX and ten completed RX transfers, no matched
+second AUTH, no installed keys and no data publication. Workload version0 means
+DHCP/DNS/ping never began. The complete1,889,878-byte prefix remains below2MiB;
+the channel-VCO rowcount refusal is an incomplete enclosing-parent consequence,
+not truncated evidence. Parent/radio/ledger retirement is unproved; resources
+remain retained. No v137 native acceptance follows from endpoint restoration.
 
-Matched selected regressions, fatal sanitizers, 255 staging cases, nine actual-
-main selection groups, strict full-prefix proof and exact-image VMs pass. The
-private exact workspace-copy VM preserves all 416 prior files and metadata,
-apart from authorized marker atime. A fresh baseline and qualification are sealed
-outside build in `wifi-stack5-native-6a26cb80`. Historical native255/accepted14
-and software1233 capsules are unchanged. Ubuntu remains default; e47d recovery,
-accepted8529 and accepted4a/3c9/815/e17 stay installed. Only the unreferenced v130
-EFI duplicate was retired for space after its complete177/24-file immutable
-native/payload and acceptance backups were verified.
+All416 prior file bytes and metadata pass independently except authorized marker
+atime, with only two matching-session files and one directory new. Offline fsck
+and allocation pass (418files,zero leaks/mismatches/errors); Ubuntu default,
+cleared one-shot and all six protected recovery payloads pass. The1605-file
+native capsule is sealed outside build and must not be recollected or resealed.
+Earlier accepted v136/native255+accepted14 and software1233 remain unchanged.
+Current815747 is unarmed; accepted8529 and Ubuntu/e47d remain installed.
 
-Under standing user authorization, the next action is cold shutdown: unplug only
-Wi-Fi10seconds while off, reconnect the same port, power on and leave workspace
-attached. The guest shows progress, saves and returns to Ubuntu automatically.
-No commands, photos or repeated approval. The durable run record owns the exact
-arming state. On return collect FIRST, once, with
-`build/bringup/wifi-stack5-native/run_root.py return_collect`; missing completion
-or any refusal is not a pass. UUID `0E53-5900`; captured Edimax7392:a711/0100 is
-5GHz-only, so Demers2.4 needs compatible hardware. PR19 remains draft; Actions
-disabled. No cross-chat contact is authorized; credentials remain private.
+Next bounded scope is first-failure diagnosis of the second AUTH, compared with
+accepted v136. Existing final receipts omit auth_sent, send/poll/ignored/status
+fields, so an observation-only final receipt and directed actual-owner auth-loss
+fixture may be needed before a distinct source-qualified native comparison.
+No timeout, parser, RF, ownership, credential, retry or retirement gate may be
+relaxed to turn this failure into a pass. Root owns serial build/stage/install/
+power and collection; transport review owns first-failure/native-owner evidence,
+protocol review checks call ordering, and storage review independently verifies
+the failed capsule. No identical blind retry is authorized by this diagnosis.
+Production DHCP/DNS/64 exact40-byteICMP, TCP/HTTP, connection epochs/reattachment,
+UI and reliability remain pending. Captured7392:a711/0100 is5GHz-only; Demers2.4
+requires compatible hardware. Credentials stay private; PR19 draft, Actions off.
 
 ## Earlier handoff (superseded November 8)
 
@@ -16199,3 +16201,23 @@ unchanged and restorable. Installed accepted8529/4a/3c9/815/e17 and Ubuntu/e47d
 remain protected; new815747 is installed, with Ubuntu default unchanged. The run
 record, not this dated prose, owns subsequent arming/collection state. Qualified
 cold shutdown is authorized; collect the new v137 session FIRST exactly once.
+
+### v137 failed before production networking (November 9)
+
+Runtime6a26cb80/release815747ea8c559ec0, session00065fd7e0c7c9fb-00, saved a
+complete1,889,878-byte exit prefix and returned automatically. The historical
+join/M1 parent passes, but its second exclusive stream lifetime records one
+AUTH transfer and ten RX completions with no matched AUTH, no activated key or
+encrypted data. The new workload remains untouched(version0). The enclosing
+channel-VCO parent is incomplete(2636operations/status3); this does not establish
+an RF tuning cause. Endpoint state is restored, but parent/ledger retirement is
+not proven and backend resources remain retained. No source gate is weakened.
+
+The original1605-file failed native capsule has seal
+`b6ff24699d3d1ed29b3e8a58a2498a5f0d9ef1b30628a8609b662f8e1c373986`.
+416 prior files and metadata, except independently bounded marker atime, survive;
+only the matching session adds two files/one directory. Fsck and allocation are
+clean, all six protected recovery payloads agree and one-shot is cleared.
+Independent diagnosis must identify the first failure rather than treating the
+parent-parser refusal as root cause. Precise final authentication counters and
+an actual-owner auth-loss regression are the bounded next scope; no blind retry.
