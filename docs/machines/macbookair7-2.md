@@ -2,7 +2,40 @@
 
 Updated: 2026-11-08. State: **active reference machine; partial device acceptance**.
 
-### Guarded transactions candidate ready for hardware
+### Guarded transactions return: core complete, owner deadline exceeded
+
+Source `379a25e0`, release `58679ddd2e83e75b`, session
+`session-00065fcf1e6a3666-00`, is **incomplete overall**. The reset core records
+both BCS-domain ACKs, settling/cancellation, both endpoint bundles and all four
+transaction callbacks. Its registered borrow returns successfully in95,752us,
+inside the unchanged100ms bound, with no inner clock fault and epoch0→1.
+This is the first observed completion of that bounded core; it does not accept
+the combined reset/preservation operation.
+
+The fresh post-reset census completes92 stable words in53,558us. Its ten engine
+rows/two contexts equal the pre-census; both samples of27 plane words and ten HDA
+configuration words also match. Raw equality is an observation, not completed
+preservation. After the second reader/configuration snapshot, the final parent
+check records total-deadline cause8 at16,896,403us against owner origin16,590,242us:
+306,161us elapsed. The previous accepted parent sample is298,510us; the second
+reader snapshot ends at304,249us. The summary's `owner_end` is that last accepted
+sample, not a successful finish timestamp. Outer elapsed time is363,595us.
+
+The preservation pin, wake,13 aliases and exclusion remain retained; parent state
+is faulted and the guest halts. No preservation-pin return, normal owner close or
+full firmware/reader retirement is accepted. Strict wake11 decoding/checkpoint
+verification pass without parser errors; whole completion remains false. All1,392
+prior files preserve except expected metadata; three logs give1,395 files/121
+sessions. Offline fsck/allocation/writable/headroom, installed/durable/archive
+recovery, Ubuntu default and consumed one-shot pass. USB is unmounted, no reboot
+is armed, and full matching evidence is backed up independently outside build.
+
+Next reduce the remaining reader/preservation and parent admission overhead while
+keeping all fresh validation, raw binding, pin continuity, uncertainty retention
+and100/300/500ms bounds. Complete reset/preservation and all255 memory obligations,
+managed backing and native tear-free remain unaccepted.
+
+### Guarded transactions candidate qualification
 
 Source `379a25e0` (main `66277083` integrated as `c8b04fde`) produces release
 `58679ddd2e83e75b`, installed **not armed**. The
@@ -38,7 +71,8 @@ Run/checkpoint, exact payload, strict wake11 collector and independent full evid
 are retained under `air-reset-transitions-20261108` inside ignored build storage
 and outside build. Manifest SHA is
 `c530f019ca0e01a98bcb7d8f3c8b6da732f4d09950e0645333fdf6d567a1bdec`.
-The latest native result remains the preceding105,612us deadline nonpass. Complete
+The preceding source76e trial failed at105,612us; this candidate's newer partial
+return is recorded above. Complete
 reset/preservation, DMA/prefetch/cache/reader retirement, managed backing and native
 tear-free remain unaccepted. Air6,1 screenshot/gate timing, Pro11,2 Wi-Fi PR19 and
 WebCore PR379 retain independent scope. Actions remain disabled; validation is local.

@@ -454,10 +454,23 @@ not a valid wake11 receipt and establishes no native timing acceptance. The
 retained-state gates remain unchanged. No enabled-ring, translation/cache writer,
 new hardware address, managed-memory or tear-free authority follows.
 
-Source `379a25e0` / release `58679ddd2e83e75b` is
-[installed unarmed for hardware](machines/macbookair7-2.md#guarded-transactions-candidate-ready-for-hardware).
+Source `379a25e0` / release `58679ddd2e83e75b` returned with
+[a complete core but failed owner deadline](machines/macbookair7-2.md#guarded-transactions-return-core-complete-owner-deadline-exceeded).
 Full local checks,95 fatal sanitizer cases,23 compiled controls,16-image isolation,
 object/staged bindings and exact immutable MBR Q35 normal/missing-workspace outcomes
 pass. Saved-tail projection is65,509/65,536bytes with the unchanged1,536 allowance.
 USB/recovery/default/one-shot checks pass. Native timing/reset/preservation remains
 pending; host cost reduction does not accept the100ms physical operation.
+
+The native guarded-transaction session `session-00065fcf1e6a3666-00` records
+core completion/verified reset-borrow return in95,752us, with no inner fault,
+four transactions and two endpoint bundles. The fresh post-census completes92
+stable words and matches both pre-census samples;27 plane and ten HDA configuration
+words match across their two endpoints. The final parent check nevertheless
+records cause8 (total deadline) at306,161us against the unchanged300ms owner bound;
+the previous accepted sample is298,510us and the reader snapshot ends304,249us.
+The preservation pin, wake,13 aliases and exclusion stay retained. Whole completion
+remains false. These component observations do not accept full preservation,
+engine/reader/cache/DMA retirement, managed memory or tear-free presentation.
+Media/recovery checks pass; no new reboot is armed. Next optimize the remaining
+preservation/parent admissions without increasing either deadline.
