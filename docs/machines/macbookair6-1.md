@@ -10568,3 +10568,25 @@ Current/accepted/recovery payloads verify, Ubuntu remains default, one-shot is
 empty and collector disabled. USB is unmounted, no reboot is armed, and the
 separate repeat evidence backup survives `make distclean`. This closeout makes
 no further implementation or boot change.
+
+### First upper-protocol failure diagnostic scope (2026-11-09)
+
+Base `e22adf1f`, after collecting both complete diagnostic runs. Bounded
+objective: preserve the first SBS/SMBus refusal/failure before a later EC query
+refusal can hide its origin. Add fixed RAM reason/time/phase/status/poll-gap
+observations at existing driver failure boundaries, then latch the first runtime
+operation with worker/IF/I/O context before local state or later attempts replace
+it. Emit a bounded terminal/retirement record for persistent collection. Preserve
+exact EC100ms, read-word2s, event1s, sample20s/poll budgets, byte ordering, failure/
+poison/cancel behavior, last-good sample, ownership, watchdogs and stress limits.
+Poll gaps are wall observations, never proof of scheduler or hardware latency.
+
+Touch internal EC-SMBus/SBS observation fields and failure-only helpers, battery
+runtime reporting and real-driver/first-latch/strict-record regressions as needed.
+No retry, IRQ enabling, extra EC/SMBus transaction, reset, ownership bypass or
+speculative fix. Existing transfer diagnostics remain separate. Current PR19/301
+must be checked for overlap before shared edits; no cross-task messaging or
+other-machine acceptance. Next checkpoint: prove original outcomes/transactions/
+limits unchanged, first evidence survives a later refusal/clean teardown, full
+matched host/VM/exact-stage checks, then the original automated native workload.
+The battery cause remains unresolved and historical failures remain failed.
