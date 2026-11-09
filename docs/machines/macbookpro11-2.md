@@ -67,14 +67,37 @@ checks plus exact GPT/missing-workspace/420-file preservation VMs pass; unchange
 24-case network,29-input protocol and534-mutation proofs are explicitly rebound,
 not falsely rerun. Direct binary checker fixtures are included in the new capsule.
 
-Collect FIRST once on return with
-`build/bringup/wifi-stack5-inspection/run_root.py return_collect`. Runtime5ca /
-release9f is distinct from accepted runtime2da/release7026. The new capsule lives
-outside build as `wifi-stack5-inspection-70fd5d24`; the old13-file failed preparation
-and1155/109 native/accepted capsules are immutable. NoOp4a's unreferenced EFI
-duplicate alone was retired for capacity after192-file native/12-file accepted
-backup equality and no-reference checks. Accepted7026/8529/3c9/815/e17 and
-Ubuntu/e47d remain installed. The record owns the final one-shot/arming state.
+The merged-baseline regression was collected once: runtime `5ca1925e`, release
+`9f443344d9d534da`, session `00065fd9f807cc54-00`. It FAILED in the first live
+management parent: AUTH matched, but association did not complete. Three USB
+management submissions completed (AUTH, ASSOC and cleanup leave); `unsafe=0`,
+original endpoint restoration passed, and the later production-IP owner was
+never attempted. The strict parent parser refuses downstream incomplete channel-
+VCO receipts; that message does not establish an RF failure. The complete
+1,889,331-byte exit prefix survives. Do not accept the merged runtime or blindly
+repeat the same trial. Independent diagnosis of the first failed exchange is
+underway; accepted runtime2da/release7026 remains historical evidence.
+
+The1877-file native capsule `wifi-stack5-inspection-70fd5d24` is now immutable
+(seal `dd6ea8b822dfdd42cdd54155483be2533b90d11bd3a513360a0c1745d81d6c8f`).
+All420 prior files and strict metadata fields survive except one independently
+RTC-bounded marker atime; only two session files/one directory are new.
+Offline fsck/allocation pass; Ubuntu is default and the one-shot is consumed.
+Accepted7026/8529/3c9/815/e17 and Ubuntu/e47d remain installed, with backed old4a
+restorable. Never recollect/reseal this or the earlier accepted/failed capsules.
+
+Actual remote main `4b71b178` and open PRs19/301/379 were inspected after return.
+New sidecar exact-media equality/flush work belongs to Air6,1; it is not yet
+consumed locally and adds no Pro acceptance. Current compiled base remains5ca.
+
+Bounded parallel software scope: add a pure fixed-storage incremental exact-HTTP
+request/response helper and directed unit tests in new
+`userspace/wifihttpprobe/http_exact.{c,h}` and `tools/test_http_exact.c`.
+No process, syscall, ordinary caller or native profile changes are part of that
+helper. Root owns Makefile/test integration and serial shared qualification.
+Independent agents audit the failed exchange and storage. Next finite TCP API
+work must preserve ordinary callers and publish its exact route/refusal contract
+before edits. HTTP/native process/timer/service/lifecycle acceptance remains open.
 
 TCP/HTTP follows with a distinct process/worker/service-isolated profile and
 measured credits. Ordinary svscan treats net.initialized as readiness and may

@@ -264,3 +264,15 @@ has no cache for child getaddrinfo; use a reviewed PID/lifetime-bound numeric-an
 handoff. The real IRQ timer and retained worker must drain terminal sockets;
 this stack uses80 TIME_WAIT ticks even after EOF-first/passive close. No fake
 process context, hidden wait, service file logging or timeout-as-success is allowed.
+
+
+November9 merged-baseline return: runtime5ca/release9f FAILED in first join5
+association after matched AUTH, before the production-IP owner attempted.
+Complete1889331-byte prefix and1877 immutable native files survive; strict420-file/
+metadata, offline allocation/fsck and Ubuntu-unarmed recovery pass. Independent
+exchange/storage reviews precede a qualified correction; no blind identical retry.
+Accepted2da/7026 remains separate. Remote main4b71b178 is inspected, not consumed.
+In parallel, a pure fixed-storage exactHTTP helper/request builder and directed
+unit tests are authorized in new userspace/wifihttpprobe/http_exact.{c,h} and
+tools/test_http_exact.c only; root owns Makefile integration. This software-only
+scope neither changes ordinary callers nor arms a physical HTTP test.
