@@ -20,7 +20,7 @@
 #include <srvros/smc.h>
 #include <stddef.h>
 #include <stdint.h>
-static char directory[128],path[160],snapshot[BOOTLOG_RADIO_CAPTURE_CAPACITY];
+static char directory[128],path[160],snapshot[BOOTLOG_CAL5_CAPTURE_CAPACITY];
 static uint64_t snapshot_limit=BOOTLOG_DEFAULT_CAPACITY;
 static bool enabled,started,busy,healthy;
 static unsigned checkpoint;
@@ -391,6 +391,7 @@ bool workspace_storage_wait_capture(void) {
 }
 
 bool workspace_log_start_radio_capture(void) { return start(BOOTLOG_RADIO_CAPTURE_CAPACITY,false); }
+bool workspace_log_start_cal5_capture(void) { return start(BOOTLOG_CAL5_CAPTURE_CAPACITY,false); }
 
 bool workspace_log_start_extended_capture(void) { return start(BOOTLOG_EXTENDED_CAPTURE_CAPACITY,false); }
 

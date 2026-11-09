@@ -11,6 +11,8 @@ bool workspace_log_start_large_capture(void);
 bool workspace_log_start_full_capture(void);
 bool workspace_log_start_extended_capture(void);
 bool workspace_log_start_radio_capture(void);
+/* Separate fixed capture for all calibration cleanup rounds; ordinary limits unchanged. */
+bool workspace_log_start_cal5_capture(void);
 /* Wi-Fi attended profile only: quiesce extended capture, persist its complete
  * prefix in wifi-scan.log, then resume bounded rolling desktop tail in the same
  * directory. Failed quiescence retains ownership; no GUI may start on failure. */

@@ -3141,9 +3141,9 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     if(wifi_nop5_event(device,event)) return;
     if(wifi_wpa5_event(device,event)) return;
     if(wifi_join5_event(device,event)) return;
+    if(wifi_cal5_event(device,event)) return;
     if (!device) return;
     if(wifi_tx5_event(device,event)) return;
-    if(wifi_cal5_event(device,event)) return;
     if(wifi_receive_event(device,event)) return;
     if(wifi_rx_event(device,event)) return;
     if(wifi_mcu_event(device,event)) return;

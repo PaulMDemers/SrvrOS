@@ -278,6 +278,22 @@ int main(void) {
         assert(mt76_rx5_window_plan_valid(&f.p)==(ch==161));
         assert(mt76_rx_window_plan_valid(&f.p)==(ch==1 || ch==6 || ch==11));destroy(&f);
     }
-    high=false;
+    /* New stop geometry describes appended immutable cleanup TDs without
+     * changing the original8 capture items or inspecting cleanup payloads. */
+    for(unsigned cleanup=1;cleanup<=8;cleanup++)for(unsigned end=0;end<2;end++){
+        struct fixture f;init(&f,NONE,0);assert(mt76_rx5_window_poll(&f.s,&f.p,&f.io));
+        struct mt76_rx_window_stop cessation;assert(stop(&f,&cessation));cessation.cleanup_posts=cleanup;
+        cessation.dequeue=f.p.ring+16*(8+cleanup-1+end)+1;
+        assert(mt76_rx5_window_finish(&f.s,&f.io,&cessation) && f.s.attempts==8 && f.s.completions==8 && f.s.beacons==8);destroy(&f);scenarios++;
+    }
+    for(unsigned n=0;n<3;n++){
+        struct fixture f;init(&f,NONE,0);assert(mt76_rx5_window_poll(&f.s,&f.p,&f.io));
+        struct mt76_rx_window_stop cessation;assert(stop(&f,&cessation));cessation.cleanup_posts=n==0?9:2;
+        if(n==1)cessation.dequeue=f.p.ring+129;
+        if(n==2)cessation.dequeue=f.p.ring+16*11+1;
+        assert(!mt76_rx5_window_finish(&f.s,&f.io,&cessation));for(unsigned i=0;i<8;i++)assert(!f.s.item[i].inspected);destroy(&f);scenarios++;
+    }
+    high=false;explicit_channel=1;
+    {struct fixture f;init(&f,NONE,0);assert(mt76_rx_window_poll(&f.s,&f.p,&f.io));struct mt76_rx_window_stop cessation;assert(stop(&f,&cessation));cessation.cleanup_posts=1;cessation.dequeue=f.p.ring+145;assert(!mt76_rx_window_finish(&f.s,&f.io,&cessation));destroy(&f);}
     printf("mt76-rx-window: PASS %u ownership/event/deadline/stop/parser scenarios; no native adapter\n",scenarios);
 }

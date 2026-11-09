@@ -16,6 +16,7 @@ FILES = ("boot.log", "session-a.log", "session-b.log", "exit.log", "wifi-scan.lo
 # This transport ceiling does not establish capture completeness or acceptance.
 MAX_LOG_BYTES = 1024 * 1024
 RADIO_LOG_BYTES = 2 * 1024 * 1024
+CAL5_LOG_BYTES = 4 * 1024 * 1024
 
 
 def session_releases(text):
@@ -618,9 +619,11 @@ def battery_preflight_result(text):
     return dict(zip(('pm1_control','pm1_status','pm1_enable','ec_status'),values),gpe=[{'byte':int(i),'status':int(st,16),'enable':int(en,16)} for i,st,en in rows],hardware_acceptance='pending',battery_samples=False)
 
 
-def collect(mount, volume, output, *, radio_capture=None):
+def collect(mount, volume, output, *, radio_capture=None, cal5_cleanup_capture=False):
     # Only one caller-identified session/release may use the fixed larger bound.
     # This transports evidence; it does not establish hardware acceptance.
+    if not isinstance(cal5_cleanup_capture,bool) or (cal5_cleanup_capture and radio_capture is None):
+        raise ValueError("Calibration cleanup capture requires explicit radio session/release")
     if radio_capture is not None:
         if (not isinstance(radio_capture,tuple) or len(radio_capture)!=2 or
                 not all(isinstance(v,str) for v in radio_capture) or
@@ -653,7 +656,7 @@ def collect(mount, volume, output, *, radio_capture=None):
             if not source.exists():
                 continue
             extended=radio_capture is not None and folder.name==radio_capture[0] and name in FILES
-            limit=RADIO_LOG_BYTES if extended else MAX_LOG_BYTES
+            limit=(CAL5_LOG_BYTES if cal5_cleanup_capture else RADIO_LOG_BYTES) if extended else MAX_LOG_BYTES
             if not source.is_file() or source.stat().st_size > limit:
                 raise ValueError(f"Invalid log: {folder.name}/{name}")
             total_bytes += source.stat().st_size
@@ -665,6 +668,8 @@ def collect(mount, volume, output, *, radio_capture=None):
             if len(payload[name])>MAX_LOG_BYTES:
                 text=payload[name].decode("utf-8",errors="strict")
                 required={"srvros.desktop-release="+radio_capture[1],"srvros.wifi-held-channel=1","srvros.capture=wifi-firmware","srvros.capture-failure=reboot"}
+                if cal5_cleanup_capture:
+                    required |= {"srvros.wifi-cal5-cleanup=1","srvros.wifi-cal5=1","srvros.wifi-stack5=1","srvros.wifi-stream5=1"}
                 records=(line[len(prefix):].split() for line in text.splitlines()
                          for prefix in ("cmdline: ","laptop-capture: boot options=") if line.startswith(prefix))
                 if session_releases(text)!=[radio_capture[1]] or not any(required.issubset(tokens) for tokens in records):

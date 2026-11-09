@@ -21,12 +21,12 @@ struct xhci_device {
 static struct {bool stopping,command_pending,command_failed;unsigned sync_users;uint64_t command_ring_phys;}xhci;
 static bool firmware_command_failed,firmware_command_exact,wifi_handoff5_requested;
 static struct {void *device;}strict_control;
-static struct {struct xhci_device *d;struct {uint64_t ring_phys;struct xhci_trb *ring;}ep;struct mt76_rx_window_plan plan;uint64_t pin_ring,stop_dequeue;unsigned posts;}wifi_cal5;
+static struct {struct xhci_device *d;struct {uint64_t ring_phys;struct xhci_trb *ring;}ep;struct mt76_rx_window_plan plan;uint64_t pin_ring,stop_dequeue,cleanup_physical[8];unsigned posts,cleanup_posts;bool cleanup_enabled;}wifi_cal5;
 static struct {struct xhci_device *d;unsigned step;bool inspected;struct mt76_power5_plan plan;struct mt76_power5_cycle cycle;}wifi_power5;
 static unsigned wifi_channel_vco5;
 static struct {
  uint8_t pages[64][4096];unsigned next,calls,commands,fail,guard_bad,power_bad,mutate,bad_slot,corrupt_command,quarantines;
- bool parent,allocation_fail,uncertain;uint32_t context[8];
+ bool parent,allocation_fail,uncertain,cleanup_held;uint32_t context[8];
 }fake;
 static struct xhci_device device;
 static uint64_t physical_bias;
@@ -52,6 +52,7 @@ static void console_printf(const char *f,...){
  va_end(ap);
 }
 static void console_write(const char *f){if(trace)fputs(f,stdout);}
+static bool wifi_cal5_cleanup_held(void){return !wifi_cal5.cleanup_enabled || fake.cleanup_held;}
 static bool wifi_channel_vco5_owned(void *p){return p==&wifi_channel_vco5 && fake.parent;}
 static bool wifi_power5_owned(void *p,bool cleanup){(void)cleanup;return p==&wifi_power5 && fake.parent && !device.ep0_quarantined && wifi_power5.step==84 && (fake.context[2]|((uint64_t)fake.context[3]<<32))==wifi_cal5.stop_dequeue;}
 static void mutate(void);
@@ -68,7 +69,7 @@ bool xhci_wifi_capture_power5(void);
 #include "../kernel/src/drivers/xhci_wifi_handoff5.inc"
 static bool wifi_peer5_inspect(void){assert(!"unexpected peer child");return false;}
 static void mutate(void){
- switch(fake.mutate){case 1:wifi_power5.step++;break;case 2:wifi_cal5.posts--;break;case 3:wifi_cal5.ep.ring[0].status^=1;break;case 4:((uint8_t *)wifi_cal5.plan.buffer[0])[0]^=1;break;case 5:xhci.command_ring_phys+=4096;break;case 6:device.slot_id++;break;case 7:device.input_context_phys+=4096;break;case 8:device.removed=true;break;case 9:device.vendor_id^=1;break;case 10:fake.parent=false;break;case 11:wifi_handoff5.plan.old_dequeue^=16;break;case 12:wifi_handoff5.plan.old_ring+=4096;break;case 13:wifi_handoff5.plan.protected_pages[0]=0x30000;break;case 14:wifi_handoff5.plan.new_ring+=4096;break;case 15:wifi_handoff5.plan.generation++;break;case 16:wifi_handoff5.new_physical+=4096;break;case 17:wifi_handoff5.new_pointer+=4096;break;default:break;}
+ switch(fake.mutate){case 1:wifi_power5.step++;break;case 2:wifi_cal5.posts--;break;case 3:wifi_cal5.ep.ring[0].status^=1;break;case 4:((uint8_t *)wifi_cal5.plan.buffer[0])[0]^=1;break;case 5:xhci.command_ring_phys+=4096;break;case 6:device.slot_id++;break;case 7:device.input_context_phys+=4096;break;case 8:device.removed=true;break;case 9:device.vendor_id^=1;break;case 10:fake.parent=false;break;case 11:wifi_handoff5.plan.old_dequeue^=16;break;case 12:wifi_handoff5.plan.old_ring+=4096;break;case 13:wifi_handoff5.plan.protected_pages[0]=0x30000;break;case 14:wifi_handoff5.plan.new_ring+=4096;break;case 15:wifi_handoff5.plan.generation++;break;case 16:wifi_handoff5.new_physical+=4096;break;case 17:wifi_handoff5.new_pointer+=4096;break;case 18:wifi_cal5.cleanup_physical[0]^=4096;break;case 19:fake.cleanup_held=false;break;default:break;}
 }
 static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v){
  assert(d==&device && !write && !device.ep0_quarantined && wifi_handoff5.op==3);fake.calls++;
@@ -138,6 +139,16 @@ int main(int argc,char **argv){
   if(n==8)fake.allocation_fail=true;
   if(n==9)device.firmware.mcu.buffer_phys=device.firmware.buffer_phys;
   assert(!xhci_wifi_capture_handoff5() && !fake.calls && !wifi_handoff5.active && !fake.quarantines);
+ }
+ for(unsigned n=0;n<4;n++){
+  setup();wifi_cal5.cleanup_enabled=true;wifi_cal5.cleanup_posts=6;fake.cleanup_held=true;
+  for(unsigned i=0;i<8;i++)allocate(&wifi_cal5.cleanup_physical[i]);
+  wifi_cal5.stop_dequeue=wifi_cal5.plan.ring+16*14+1;fake.context[2]=wifi_cal5.stop_dequeue;fake.context[3]=wifi_cal5.stop_dequeue>>32;
+  if(n==1)fake.mutate=18;
+  if(n==2)fake.mutate=19;
+  if(n==3)wifi_cal5.stop_dequeue=wifi_cal5.plan.ring+129;
+  bool ok=xhci_wifi_capture_handoff5();assert(ok==(n==0));
+  if(ok)assert(wifi_handoff5.plan.old_posts==8 && wifi_handoff5.plan.cleanup_posts==6 && wifi_handoff5.plan.protected_count==25);
  }
  puts("xhci-handoff5: PASS actual empty native child;17 before/after uncertain I/O positions,9 semantic selected-power mismatches with exact context restoration,6 guard failures,17 frozen-parent/identity/page/plan mutations,command slot/context corruption,admission/allocation/alias/replay refusal;no posted TD/MAC start/network OUT;modeled parent only,no native acceptance");return 0;
 }

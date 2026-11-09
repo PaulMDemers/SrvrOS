@@ -13,6 +13,8 @@ struct mt76_handoff5_plan {
  unsigned old_posts,new_slots,protected_count;
  uint8_t slot;
  uint64_t protected_pages[MT76_HANDOFF5_PROTECTED];
+ /* Explicit opt-in immutable cleanup TDs;zero keeps historical frontier. */
+ unsigned cleanup_posts;
 };
 struct mt76_handoff5 {
  bool attempted,retarget_attempted,retargeted,inspected,restore_attempted,restored,complete,failed,unsafe;

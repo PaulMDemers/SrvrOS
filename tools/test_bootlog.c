@@ -3,7 +3,7 @@
 #include <string.h>
 #define SRVROS_BOOTLOG_HOST_TEST
 #include "../kernel/src/bootlog.c"
-static char saved[BOOTLOG_RADIO_CAPTURE_CAPACITY];
+static char saved[BOOTLOG_CAL5_CAPTURE_CAPACITY];
 static uint64_t saved_size;
 void console_putc(char c) { bootlog_putc(c); }
 bool exfat_write_file(const char *p,const uint8_t *data,uint64_t count) {
@@ -14,7 +14,7 @@ static void reset(void) {
 }
 static void append(unsigned start,unsigned end) { for(unsigned i=start;i<end;i++)bootlog_putc('a'+i%26); }
 static void check(unsigned total,unsigned retained) {
-    static char out[BOOTLOG_RADIO_CAPTURE_CAPACITY];uint64_t seq;
+    static char out[BOOTLOG_CAL5_CAPTURE_CAPACITY];uint64_t seq;
     assert(bootlog_snapshot(out,sizeof(out),&seq)==retained && seq==total && bootlog_size()==retained);
     for(unsigned i=0;i<retained;i++)assert(out[i]==(char)('a'+(total-retained+i)%26));
     assert(bootlog_persist("/test") && saved_size==retained && !memcmp(saved,out,retained));
@@ -65,6 +65,11 @@ int main(void) {
         reset();assert(bootlog_extend_capture_to(1048576));append(0,radio_points[i]);assert(bootlog_extend_capture_to(2097152));
         append(radio_points[i],2097152);check(2097152,2097152);append(2097152,2200000);check(2200000,2097152);assert(!bootlog_extend_capture_to(2097152));
     }
+    reset();assert(bootlog_extend_capture_to(2097152));append(0,2097152);
+    assert(bootlog_extend_capture_to(4194304));append(2097152,4194304);check(4194304,4194304);
+    append(4194304,4194305);check(4194305,4194304);assert(!bootlog_extend_capture_to(4194304));
+    reset();assert(bootlog_extend_capture_to(2097152));append(0,2097153);
+    assert(!bootlog_extend_capture_to(4194304));check(2097153,2097152);
     reset();assert(bootlog_extend_capture_to(1048576));append(0,1048577);assert(!bootlog_extend_capture_to(2097152));check(1048577,1048576);
     reset();assert(!bootlog_extend_capture_to(2097153));
     puts("bootlog: PASS ordinary/extended boundaries, complete persistence, wrap ordering, lost-prefix refusal and suppressed replay");

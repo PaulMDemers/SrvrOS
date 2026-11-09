@@ -113,6 +113,16 @@ class Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             c.boot_identity('\n'.join(rows), 'f' * 16)
 
+    def test_cleanup_recipe_is_explicit_and_legacy_modes_refuse_it(self):
+        config=boot.limine_config(RELEASE,'ram-usb-wifi-fw-v138-laptop-probe-12345678-auto-return')
+        tokens=next(s.strip()[9:] for s in config.splitlines() if s.strip().startswith('cmdline: '))
+        rows=['cmdline: '+tokens,'laptop-capture: boot options='+tokens]
+        self.assertEqual(c.boot_identity('\n'.join(rows)),RELEASE)
+        for checker in (legacy,legacy_retry):
+            with self.assertRaises(ValueError):checker.boot_identity('\n'.join(rows))
+        with self.assertRaises(ValueError):c.boot_identity('\n'.join(rows)+'\n'+rows[0])
+        with self.assertRaises(ValueError):c.boot_identity('\n'.join(rows).replace('srvros.wifi-cal5-cleanup=1','srvros.wifi-cal5-cleanup=2'))
+
     def test_matched_stage_contract(self):
         config = boot.limine_config(RELEASE, 'ram-usb-wifi-fw-v137-laptop-probe-12345678-auto-return')
         actual = next(s.strip()[9:].split() for s in config.splitlines()

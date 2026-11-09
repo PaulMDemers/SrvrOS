@@ -24,7 +24,7 @@ static bool wifi_join5_frozen(void){
  struct xhci_device *d=wifi_join5.d;
  if(wifi_join5.eapol_required!=wifi_eapol5.requested || !wifi_join5_requested || !wifi_join5.active || wifi_join5.failed || !d || d!=wifi_cal5.d || !d->present || d->removed || d->retiring || d->ep0_quarantined || d->control_failed ||
  d->vendor_id!=0x7392 || d->product_id!=0xa711 || d->device_bcd!=0x100 || !d->slot_id || d->slot_id!=wifi_join5.slot || xhci.stopping || firmware_command_failed ||
- !wifi_channel_vco5_owned(&wifi_channel_vco5) || !wifi_handoff5_equal(&wifi_cal5,wifi_join5.cal,sizeof wifi_cal5) ||
+ !wifi_channel_vco5_owned(&wifi_channel_vco5) || !wifi_cal5_cleanup_held() || !wifi_handoff5_equal(&wifi_cal5,wifi_join5.cal,sizeof wifi_cal5) ||
  !wifi_handoff5_equal(&wifi_power5,wifi_join5.power,sizeof wifi_power5) || !wifi_handoff5_equal(&wifi_handoff5,wifi_join5.handoff,sizeof wifi_handoff5) ||
  !wifi_handoff5_equal(&wifi_peer5,wifi_join5.binding,sizeof wifi_peer5) || !wifi_handoff5_equal(&wifi_tx5,wifi_join5.preview,sizeof wifi_tx5) ||
  !wifi_handoff5_equal(&wifi_peer5.binding,&wifi_join5.peer,sizeof wifi_join5.peer) || !wifi_handoff5_equal(d->input_context,wifi_join5.expected,4096) ||
@@ -271,6 +271,7 @@ static bool wifi_join5_inspect(void){
   void *p=0;uint64_t phys=0;if(!alloc_frame_zero(&phys,&p))return false;
   for(unsigned j=0;j<9;j++)if(phys==fixed[j])return false;
   if(phys==wifi_cal5.plan.ring || phys==wifi_handoff5.plan.new_ring || phys==wifi_tx5.ring_phys)return false;
+  if(wifi_cal5_cleanup_alias(phys))return false;
   for(unsigned j=0;j<8;j++)if(phys==wifi_cal5.plan.physical[j])return false;
   for(unsigned j=0;j<i;j++)if(phys==wifi_join5.pins[j])return false;
   wifi_join5.pins[i]=phys;wifi_join5.pointers[i]=(uintptr_t)p;

@@ -37,7 +37,7 @@ def boot_identity(log, release=None):
             re.fullmatch(r'srvros.desktop-release=[0-9a-f]{16}', releases[0]) and
             re.fullmatch(r'srvros.workspace-volume=[0-9a-f]{8}', volumes[0]),
             'invalid stack run identity')
-    require(tokens - set(releases + volumes) == BOOT_FIXED,
+    require(tokens - set(releases + volumes) == BOOT_FIXED | ({'srvros.wifi-cal5-cleanup=1'} if 'srvros.wifi-cal5-cleanup=1' in tokens else set()),
             'wrong explicit production-stack recipe')
     actual = releases[0].split('=', 1)[1]
     require(release is None or release == actual, 'wrong stack release')

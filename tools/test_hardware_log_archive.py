@@ -16,6 +16,13 @@ class ArchiveTests(unittest.TestCase):
         (p/'boot.log').write_text('boot\n')
         if complete:(p/'exit.log').write_text('workspace-log: snapshot=exit.log\n')
         return p
+    def test_fixed_four_megabyte_archive_transport_bound(self):
+        folder=self.session(100)
+        (folder/'exit.log').write_bytes(b'x'*(4*1024*1024))
+        self.assertEqual(logs.snapshot(folder)['exit.log']['bytes'],4*1024*1024)
+        (folder/'exit.log').write_bytes(b'x'*(4*1024*1024+1))
+        with self.assertRaises(ValueError):logs.snapshot(folder)
+
     def old(self):
         for n in range(10):self.session(n)
         return logs.plan(self.mount,keep=8)

@@ -3,13 +3,13 @@
 #include <string.h>
 #define SRVROS_WORKSPACE_LOG_HOST_TEST
 #include "../kernel/src/workspace_log.c"
-static struct item { char path[160];struct vfs_node node;unsigned char bytes[BOOTLOG_RADIO_CAPTURE_CAPACITY]; } files[64];
+static struct item { char path[160];struct vfs_node node;unsigned char bytes[BOOTLOG_CAL5_CAPTURE_CAPACITY]; } files[64];
 static unsigned count,depth,writes,flushes,device_reads;
 static bool capacity_ok=true,extend_ok=true;
 static uint64_t snapshot_bytes=8;
 static bool lost_prefix;
 bool bootlog_extend_capture(void) { return extend_ok; }
-bool bootlog_extend_capture_to(uint64_t capacity) { assert(capacity==BOOTLOG_CAPTURE_CAPACITY || capacity==BOOTLOG_LARGE_CAPTURE_CAPACITY || capacity==BOOTLOG_FULL_CAPTURE_CAPACITY || capacity==BOOTLOG_EXTENDED_CAPTURE_CAPACITY || capacity==BOOTLOG_RADIO_CAPTURE_CAPACITY);return extend_ok; }
+bool bootlog_extend_capture_to(uint64_t capacity) { assert(capacity==BOOTLOG_CAPTURE_CAPACITY || capacity==BOOTLOG_LARGE_CAPTURE_CAPACITY || capacity==BOOTLOG_FULL_CAPTURE_CAPACITY || capacity==BOOTLOG_EXTENDED_CAPTURE_CAPACITY || capacity==BOOTLOG_RADIO_CAPTURE_CAPACITY || capacity==BOOTLOG_CAL5_CAPTURE_CAPACITY);return extend_ok; }
 static unsigned expected_capacity=32;
 static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100,clock_us;
@@ -235,6 +235,11 @@ int main(void) {
     }
     snapshot_bytes=8;count=0;assert(workspace_log_start());old_writes=writes;
     assert(!workspace_log_begin_wifi_capture() && enabled && writes==old_writes);assert(workspace_log_stop());
+    count=0;snapshot_bytes=BOOTLOG_CAL5_CAPTURE_CAPACITY;extend_ok=true;
+    assert(workspace_log_start_cal5_capture() && snapshot_limit==BOOTLOG_CAL5_CAPTURE_CAPACITY);
+    large=find(path);assert(large && large->node.size==snapshot_bytes);
+    for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
+    assert(workspace_log_stop());
     snapshot_bytes=BOOTLOG_RADIO_CAPTURE_CAPACITY;count=0;extend_ok=false;old_writes=writes;
     assert(!workspace_log_start_radio_capture() && writes==old_writes);extend_ok=true;
     assert(workspace_log_start_radio_capture() && snapshot_limit==BOOTLOG_RADIO_CAPTURE_CAPACITY);

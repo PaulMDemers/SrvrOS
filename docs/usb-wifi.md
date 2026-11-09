@@ -7893,3 +7893,16 @@ ordinary ISR admission may still wait, and provider duration, actual child/worke
 timer ownership, EOF/TIME_WAIT and terminal connection retirement remain open.
 No native HTTP client is wired by this change. Independent source review found
 no blocker; the private qualification binds87 project inputs,9 builds and8 runs.
+
+
+The cleanup-only v138 candidate uses a distinct4MiB boot/workspace capture. Each
+of up to200 original RX-drain rounds still emits three register reads and a
+possible delay; the old fast modeled parent cannot bound that successful busy
+path within its236-byte post-receipt margin. The larger fixed capture saves this
+bounded evidence without changing quiet samples, retries or transfer deadlines.
+Legacy active capture limits remain2MiB; backing ring/linear/snapshot arrays add
+6MiB static kernel BSS. A separate host collector opt-in requires exact session/
+release and cleanup/stack/stream/calibration tokens; default collection remains
+strictly2MiB. Archival transport accepts at most4MiB per recognized log and grants
+no protocol acceptance. Full-prefix preservation and actual size/cap identity
+remain required; a larger buffer cannot recover an already discarded prefix.

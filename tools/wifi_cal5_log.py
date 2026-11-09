@@ -3,6 +3,7 @@ import re
 from wifi_channel_vco5_log import check as parent,child_receipt,legacy_receipt,HOOK
 from wifi_trim5_log import plan as trim_plan
 from wifi_held_log import require
+from wifi_cal5_cleanup_log import check as cleanup_proof
 PROGRESS='wifi-cal5-progress: hold selected161/trim44;configure retained RX;MAC start;fresh IBI probe;R0 VCO161 FULL901 LC1 RXDCOC1;controlled RX;drain disable stop;inverse originals'
 RECEIVE='wifi-cal5-progress: calibration replies verified;passive161/20MHz window up to10seconds;no network OUT'
 
@@ -15,7 +16,7 @@ def fields(line,prefix):
  return data
 
 def check(log):
- require('srvros.wifi-cal5=1' in log,'missing calibration profile');r=parent(log);all_lines=log.splitlines();rows=[x for x in all_lines if x.startswith('wifi-cal5')]
+ require('srvros.wifi-cal5=1' in log,'missing calibration profile');r=parent(log);all_lines=log.splitlines();rows=[x for x in all_lines if x.startswith('wifi-cal5') and not x.startswith('wifi-cal5-cleanup')]
  require(rows and rows[0]==PROGRESS,'missing calibration progress')
  # One hook strictly after all77 selected VCO I/O and before inverse BBP.
  before=child_receipt(76);after=legacy_receipt(HOOK,trim_plan(r['gain5_lna'])[HOOK])
@@ -77,7 +78,10 @@ def check(log):
   if quiet==7:break
  else:require(False,'RX drain exhausted')
  poll(0x1200,2,1000,1);put(0,1,0x1400,0x17f97);put(0,1,0x1340,txop);guards(0,1,0)
- stop=take('wifi-cal5-stop');require(set(stop)==set('ok posts state dequeue ring retained'.split()) and stop['ok']==1 and stop['posts']==posts and stop['state']==3 and stop['retained']==1 and stop['ring']>0 and not stop['ring']&4095 and stop['dequeue'] in (stop['ring']+16*(posts-1)+1,stop['ring']+16*posts+1),'unproven exact endpoint cessation')
+ stop=take('wifi-cal5-stop');cleanup=cleanup_proof(log,stop)
+ stop_keys=set('ok posts state dequeue ring retained'.split()) | ({'cleanup'} if cleanup['cal5_cleanup_enabled'] else set())
+ require(set(stop)==stop_keys and stop['ok']==1 and stop['posts']==posts and stop['state']==3 and stop['retained']==1 and stop['ring']>0 and not stop['ring']&4095,'unproven exact endpoint cessation')
+ if not cleanup['cal5_cleanup_enabled']:require(stop['dequeue'] in (stop['ring']+16*(posts-1)+1,stop['ring']+16*posts+1),'unproven exact endpoint frontier')
  completed=beacons=0
  for i in range(posts):
   d=take('wifi-cal5-rx');require(set(d)==set('index submitted completed cc remaining actual inspected view beacon_status beacon mpdu interval ssid_size privacy rsn wpa'.split()) and d['index']==i and d['submitted']==1,'wrong RX item')
@@ -90,5 +94,6 @@ def check(log):
  final=take('wifi-cal5');require(set(final)==set('ok operations commands probe calibration mac disabled tx_drained rx_drained filter_restored txop_restored stopped window attempts completions beacons elapsed_us retained network_out'.split()),'wrong final keys')
  require(all(final[k]==1 for k in 'ok probe calibration mac disabled tx_drained rx_drained filter_restored txop_restored stopped window retained'.split()) and final['operations']==op and final['commands']==5 and final['attempts']==posts and final['completions']==completed and final['beacons']==beacons and final['network_out']==0 and 0<=final['elapsed_us']<=10100000,'incomplete final calibration/receive')
  require(pos==len(rows) and all_lines.index(rows[-1])<all_lines.index(after),'extra/misplaced calibration rows')
+ r.update(cleanup)
  r.update(operations=r['operations']+op,cal5_operations=op,cal5_commands=5,cal5_window_complete=True,cal5_completions=completed,cal5_beacons=beacons,cal5_received=beacons>0,scope='channel161 firmware acknowledgement,temporary saved-word restoration and controlled receive lifecycle;quiet window is not RF/discovery acceptance;security/IP NOT_TESTED')
  return r

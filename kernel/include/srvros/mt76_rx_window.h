@@ -30,6 +30,8 @@ struct mt76_rx_window_event {
 struct mt76_rx_window_stop {
     uint64_t dequeue;
     unsigned slot, dci, state;
+    /* Extra immutable calibration cleanup TDs;zero preserves legacy stop. */
+    unsigned cleanup_posts;
 };
 struct mt76_rx_window_io {
     void *context;

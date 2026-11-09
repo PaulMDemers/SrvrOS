@@ -128,7 +128,13 @@ queue service during calibration cleanup and finite TCP syscall integration.
 Touch scope is the cal5 transport/MAC cleanup callback and directed ownership
 fixtures, plus TCP syscall dispatch/shared flags/native SDK and software tests.
 Keep the existing drain predicate, deadlines, DMA retention and ordinary-call
-behavior; source-qualified native testing remains necessary. Independent agents
+behavior; source-qualified native testing remains necessary. The new v138 recipe
+opts into separate4MiB capture and session/release-bound collection; old profiles
+retain their2MiB limit. This reserves6MiB additional static kernel BSS across
+ring/linear/snapshot buffers, not a larger runtime traffic or drain budget. The
+old modeled fast-parent prefix is not a worst-case bound for200 successful busy
+drain rounds. A disposable4MiB filesystem write/read/remount/fsck passes, as do
+capture boundary/lost-prefix and explicit collector identity/size refusals. Independent agents
 review the failure, storage proof and finite syscall fixture while root alone
 runs shared builds, staging and power operations.
 

@@ -22,7 +22,7 @@ static bool wifi_nop5_owned(void *c,uint64_t epoch,unsigned slot){
  d->input_context!=wifi_nop5.input_pointer || d->output_context!=wifi_nop5.output_pointer || d->input_context_phys!=wifi_nop5.input_phys || d->output_context_phys!=wifi_nop5.output_phys ||
  !wifi_nop5.physical || wifi_nop5.physical!=wifi_nop5.pin || (uintptr_t)wifi_nop5.ring!=wifi_nop5.pointer || wifi_nop5.ring!=pmm_phys_to_virt(wifi_nop5.physical) ||
  !wifi_handoff5_equal(d->input_context,wifi_nop5.expected,4096) || !wifi_handoff5_equal(wifi_nop5.ring,wifi_nop5.shadow,sizeof wifi_nop5.shadow) ||
- !wifi_handoff5_equal(&wifi_cal5,wifi_nop5.cal,sizeof wifi_cal5) || !wifi_handoff5_equal(&wifi_power5,wifi_nop5.power,sizeof wifi_power5) ||
+ !wifi_cal5_cleanup_held() || !wifi_handoff5_equal(&wifi_cal5,wifi_nop5.cal,sizeof wifi_cal5) || !wifi_handoff5_equal(&wifi_power5,wifi_nop5.power,sizeof wifi_power5) ||
  !wifi_handoff5_equal(&wifi_handoff5,wifi_nop5.handoff,sizeof wifi_handoff5) || !wifi_handoff5_equal(&wifi_peer5,wifi_nop5.peer,sizeof wifi_peer5) || !wifi_handoff5_equal(&wifi_tx5,wifi_nop5.tx,sizeof wifi_tx5))return false;
  unsigned state=context_read32(d->output_context,8,0)&7;
  if((wifi_nop5.phase==0 && state!=0 && !(wifi_nop5.commanding && state==1)) || (wifi_nop5.phase==1 && state!=1 && state!=3) || (wifi_nop5.phase==2 && state!=3 && !(wifi_nop5.commanding && state==0)) || (wifi_nop5.phase==3 && state!=0))return false;
@@ -131,6 +131,7 @@ static bool wifi_nop5_run(void){
  void *p;if(!alloc_frame_zero(&wifi_nop5.physical,&p))return false;wifi_nop5.ring=p;wifi_nop5.pin=wifi_nop5.physical;wifi_nop5.pointer=(uintptr_t)p;wifi_nop5.cycle=true;wifi_nop5.epoch=wifi_peer5.binding.generation;
  const uint64_t used[]={d->ep0_ring_phys,d->descriptor_buffer_phys,d->input_context_phys,d->output_context_phys,d->firmware.buffer_phys,d->firmware.ep.ring_phys,d->firmware.mcu.buffer_phys,d->firmware.mcu.response.ring_phys,xhci.command_ring_phys,xhci.event_ring_phys,wifi_cal5.plan.ring,wifi_handoff5.plan.new_ring,wifi_tx5.ring_phys};
  for(unsigned i=0;i<sizeof used/sizeof *used;i++)if(wifi_nop5.physical==used[i])return wifi_nop5_fail();
+ if(wifi_cal5_cleanup_alias(wifi_nop5.physical))return wifi_nop5_fail();
  for(unsigned i=0;i<8;i++)if(wifi_nop5.physical==wifi_cal5.plan.physical[i])return wifi_nop5_fail();
  if(!mt76_dma5_init_noop_ring(&wifi_nop5.dma,wifi_nop5.epoch,wifi_nop5.physical,63,timer_monotonic_us()))return wifi_nop5_fail();
  write_link_trb(wifi_nop5.ring,wifi_nop5.physical,true);write_link_trb(wifi_nop5.shadow,wifi_nop5.physical,true);

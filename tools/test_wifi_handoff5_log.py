@@ -22,6 +22,14 @@ class Tests(unittest.TestCase):
  def check(self,rows):
   with patch.object(c,'parent',return_value={'power5_complete':True,'cal5_completions':8}):return c.check('\n'.join(rows))
  def test_good(self):self.assertTrue(self.check(self.rows())['handoff5_original_context_restored'])
+ def test_cleanup_frontier_protection_and_slot_binding(self):
+  rows=[s.replace(str(0x10081),str(0x100a1)).replace('protected=17','protected=25') for s in self.rows()]
+  rows[1]+=' cleanup=2'
+  parent={'power5_complete':True,'cal5_completions':8,'cal5_cleanup_enabled':True,'cal5_cleanup_posts':2,'cal5_cleanup_slot':7}
+  with patch.object(c,'parent',return_value=parent):
+   self.assertTrue(c.check('\n'.join(rows))['handoff5_original_context_restored'])
+   for before,after in [('protected=25','protected=17'),('cleanup=2','cleanup=1'),('slot=7','slot=8'),(str(0x100a1),str(0x100b1))]:
+    with self.assertRaises(ValueError):c.check('\n'.join(rows).replace(before,after))
  def test_every_handoff_row_once_in_order(self):
   rows=self.rows();start=rows.index(c.PROGRESS)
   for i in range(start,len(rows)-1):

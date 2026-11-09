@@ -700,6 +700,27 @@ class CollectionTests(unittest.TestCase):
             for identity in ((),('bad',release),(name,'bad'),[name,release],(None,release)):
                 with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'bad-id',radio_capture=identity)
 
+    def test_cal5_cleanup_capture_has_separate_explicit_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work';name='session-0000000000000001-00'
+            folder=work/'Logs'/name;folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            release='0123456789abcdef'
+            header=f'cmdline: srvros.desktop-release={release} srvros.wifi-held-channel=1 srvros.capture=wifi-firmware srvros.capture-failure=reboot srvros.wifi-cal5-cleanup=1 srvros.wifi-cal5=1 srvros.wifi-stack5=1 srvros.wifi-stream5=1\n'.encode()
+            for size in (desktop.RADIO_LOG_BYTES+1,desktop.CAL5_LOG_BYTES):
+                payload=header+b'x'*(size-len(header));(folder/'exit.log').write_bytes(payload)
+                for identity in (None,(name,release)):
+                    with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'old',radio_capture=identity)
+                out,report=desktop.collect(mount,'37d8c5d0',root/'new',radio_capture=(name,release),cal5_cleanup_capture=True)
+                self.assertEqual((out/name/'exit.log').read_bytes(),payload)
+                self.assertEqual(report['hardware_acceptance'],'manual-pending')
+            for token in (b'srvros.wifi-cal5-cleanup=1',b'srvros.wifi-cal5=1',b'srvros.wifi-stack5=1',b'srvros.wifi-stream5=1'):
+                (folder/'exit.log').write_bytes(header.replace(token,b'')+b'x'*desktop.RADIO_LOG_BYTES)
+                with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'wrong',radio_capture=(name,release),cal5_cleanup_capture=True)
+            (folder/'exit.log').write_bytes(header+b'x'*desktop.CAL5_LOG_BYTES)
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'oversize',radio_capture=(name,release),cal5_cleanup_capture=True)
+            with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'noidentity',cal5_cleanup_capture=True)
+
     def test_bounded_power_checkpoints(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work';folder=work/'Logs/session-0000000000000001-00'

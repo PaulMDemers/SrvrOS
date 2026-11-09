@@ -25,6 +25,10 @@ static int wifi_channel_vco5;
 static struct xhci_device device;
 static bool wifi_join5_requested,firmware_command_failed,firmware_command_exact;
 static struct {uint32_t input[128][8],output[32][8],initial_rx[8];uint8_t pages[128][4096];unsigned next,allocations,fail_alloc,alias_alloc,commands,controls,ownership,lose,fail_command,command_mutate,fail_control,fail_send,reply,sends,rx_events,mutate,event_fault,stop_fault,stop_fault_dci;uint64_t time;uint32_t mac,filter,txop;bool quarantine,trace,parent,empty,empty_assoc,reject,reject_assoc,noise,bad_guard,auth_extra,auth_bad_ie,eapol_missing,eapol_bad,eapol_fault,eapol_done,pad,skip_stop,alloc_fail,uncertain_command,wrong_slot,clear_disabled;}fake;
+/* This legacy parent fixture has no cleanup allocations. Actual calibration
+ * cleanup ownership is exercised by the controller fixture. */
+static bool wifi_cal5_cleanup_alias(uint64_t p){(void)p;return false;}
+static bool wifi_cal5_cleanup_held(void){return true;}
 static bool wifi_handoff5_equal(const void *a,const void *b,size_t n){return !memcmp(a,b,n);}
 static bool wifi_channel_vco5_owned(void *c){assert(c==&wifi_channel_vco5);return ++fake.ownership!=fake.lose && fake.parent && !fake.quarantine;}
 static bool wifi_peer5_owned(void *c,void *w){assert(c==&wifi_peer5 && w==&wifi_cal5.window);return fake.parent && !fake.quarantine && !memcmp(fake.output[9],fake.initial_rx,32);}

@@ -54,7 +54,7 @@ static bool wifi_stream5_base(void){
  wifi_stream5.epoch!=wifi_stream5.peer.generation || wifi_stream5.dma.identity!=(uintptr_t)&wifi_stream5.dma || wifi_stream5.dma.epoch!=wifi_stream5.epoch || wifi_stream5.dma.positions!=63 || wifi_stream5.dma.state!=MT76_DMA5_RUNNING || d->input_context_phys!=wifi_stream5.input_phys || d->output_context_phys!=wifi_stream5.output_phys || (uintptr_t)d->input_context!=wifi_stream5.input_pointer || (uintptr_t)d->output_context!=wifi_stream5.output_pointer || !wifi_handoff5_equal(d->input_context,wifi_stream5.expected,4096))return false;
  const uint64_t fixed[]={d->ep0_ring_phys,d->descriptor_buffer_phys,d->input_context_phys,d->output_context_phys,d->firmware.buffer_phys,d->firmware.ep.ring_phys,d->firmware.mcu.buffer_phys,d->firmware.mcu.response.ring_phys,xhci.command_ring_phys};
  for(unsigned i=0;i<9;i++)if(fixed[i]!=wifi_stream5.fixed[i])return false;
- if(!wifi_handoff5_equal(&wifi_join5,wifi_stream5.parent,sizeof wifi_join5) || !wifi_handoff5_equal(&wifi_cal5,wifi_stream5.cal,sizeof wifi_cal5) || !wifi_handoff5_equal(&wifi_power5,wifi_stream5.power,sizeof wifi_power5) || !wifi_handoff5_equal(&wifi_handoff5,wifi_stream5.handoff,sizeof wifi_handoff5) || !wifi_handoff5_equal(&wifi_peer5,wifi_stream5.binding,sizeof wifi_peer5) || !wifi_handoff5_equal(&wifi_tx5,wifi_stream5.preview,sizeof wifi_tx5))return false;
+ if(!wifi_cal5_cleanup_held() || !wifi_handoff5_equal(&wifi_join5,wifi_stream5.parent,sizeof wifi_join5) || !wifi_handoff5_equal(&wifi_cal5,wifi_stream5.cal,sizeof wifi_cal5) || !wifi_handoff5_equal(&wifi_power5,wifi_stream5.power,sizeof wifi_power5) || !wifi_handoff5_equal(&wifi_handoff5,wifi_stream5.handoff,sizeof wifi_handoff5) || !wifi_handoff5_equal(&wifi_peer5,wifi_stream5.binding,sizeof wifi_peer5) || !wifi_handoff5_equal(&wifi_tx5,wifi_stream5.preview,sizeof wifi_tx5))return false;
  if(!wifi_handoff5_equal(wifi_join5.rx,wifi_stream5.parent_ring[0],4096) || !wifi_handoff5_equal(wifi_join5.tx,wifi_stream5.parent_ring[1],4096))return false;
  for(unsigned i=0;i<WIFI_JOIN5_RX+3;i++)if(!wifi_handoff5_equal(wifi_join5.buffer[i],wifi_stream5.parent_pages[i],4096))return false;
  const void *old[]={wifi_cal5.ep.ring,wifi_handoff5.ring,wifi_tx5.ring};for(unsigned i=0;i<3;i++)if(!wifi_handoff5_equal(old[i],wifi_stream5.old_ring[i],4096))return false;
@@ -306,6 +306,7 @@ static bool wifi_stream5_inspect(void){
   for(unsigned j=0;j<i;j++)if(phys==allocated[j])return false;
   for(unsigned j=0;j<WIFI_JOIN5_RX+5;j++)if(phys==wifi_join5.pins[j])return false;
   if(phys==xhci.event_ring_phys || phys==wifi_cal5.plan.ring || phys==wifi_handoff5.plan.new_ring || phys==wifi_tx5.ring_phys)return false;
+  if(wifi_cal5_cleanup_alias(phys))return false;
   for(unsigned j=0;j<8;j++)if(phys==wifi_cal5.plan.physical[j])return false;
   allocated[i]=phys;wifi_stream5.pointers[i]=(uintptr_t)p;
   if(i<2){wifi_stream5.physical[i]=phys;wifi_stream5.ring[i]=p;wifi_stream5.cycle[i]=true;write_link_trb(p,phys,true);write_link_trb(wifi_stream5.shadow[i],phys,true);}else{unsigned dir=(i-2)/4,page=(i-2)%4;wifi_stream5.pages[dir][page]=phys;wifi_stream5.buffer[dir][page]=p;}

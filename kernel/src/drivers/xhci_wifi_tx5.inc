@@ -14,7 +14,7 @@ static bool wifi_tx5_fail(void){wifi_tx5.failed=true;return wifi_tx5.d?wifi_mcu_
 static bool wifi_tx5_owned(void){
  struct xhci_device *d=wifi_tx5.d;
  if(!wifi_tx5_requested || !wifi_tx5.active || wifi_tx5.failed || !d || d!=wifi_cal5.d || wifi_tx5.phase>7 ||
- !wifi_peer5_owned(&wifi_peer5,&wifi_cal5.window) || !wifi_peer5.binding.complete ||
+ !wifi_cal5_cleanup_held() || !wifi_peer5_owned(&wifi_peer5,&wifi_cal5.window) || !wifi_peer5.binding.complete ||
  !wifi_handoff5_equal(&wifi_peer5.binding,&wifi_tx5.peer,sizeof wifi_tx5.peer) || !wifi_tx5.ring_phys ||
  wifi_tx5.ring_phys!=wifi_tx5.pin_phys || (uintptr_t)wifi_tx5.ring!=wifi_tx5.pin_pointer || wifi_tx5.ring!=pmm_phys_to_virt(wifi_tx5.ring_phys) || !wifi_handoff5_equal(d->input_context,wifi_tx5.expected,4096))return false;
  const unsigned dci[]={0,9,11,16};
@@ -96,6 +96,7 @@ static bool wifi_tx5_inspect(void){
  void *p;if(!alloc_frame_zero(&wifi_tx5.ring_phys,&p))return false;wifi_tx5.ring=p;wifi_tx5.pin_phys=wifi_tx5.ring_phys;wifi_tx5.pin_pointer=(uintptr_t)p;write_link_trb(p,wifi_tx5.ring_phys,true);
  const uint64_t used[]={d->ep0_ring_phys,d->descriptor_buffer_phys,d->input_context_phys,d->output_context_phys,d->firmware.buffer_phys,d->firmware.ep.ring_phys,d->firmware.mcu.buffer_phys,d->firmware.mcu.response.ring_phys,xhci.command_ring_phys,wifi_cal5.plan.ring,wifi_handoff5.plan.new_ring};
  for(unsigned i=0;i<sizeof used/sizeof used[0];i++)if(wifi_tx5.ring_phys==used[i])return false;
+ if(wifi_cal5_cleanup_alias(wifi_tx5.ring_phys))return false;
  for(unsigned i=0;i<8;i++)if(wifi_tx5.ring_phys==wifi_cal5.plan.physical[i])return false;
  copy_bytes(wifi_tx5.input,d->input_context,4096);copy_bytes(wifi_tx5.expected,d->input_context,4096);copy_bytes((uint8_t *)&wifi_tx5.peer,(const uint8_t *)&wifi_peer5.binding,sizeof wifi_tx5.peer);
  wifi_tx5.active=true;bool ok=wifi_tx5_owned();

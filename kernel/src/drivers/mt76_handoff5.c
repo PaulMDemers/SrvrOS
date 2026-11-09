@@ -3,8 +3,9 @@ static bool overlap(const void *a,size_t an,const void *b,size_t bn){uintptr_t x
 static bool page(uint64_t p){return p && !(p&4095) && p<=UINT64_MAX-4096;}
 bool mt76_handoff5_plan_valid(const struct mt76_handoff5_plan *p){
  if(!p || !p->generation || p->generation==UINT64_MAX || !p->slot || !page(p->old_ring) || !page(p->new_ring) ||
- p->old_ring==p->new_ring || !p->old_posts || p->old_posts>8 || p->new_slots!=63 || p->protected_count>MT76_HANDOFF5_PROTECTED ||
- (p->old_dequeue&15)!=1 || (p->old_dequeue&~15ull)<p->old_ring || (p->old_dequeue&~15ull)>p->old_ring+16*p->old_posts)return false;
+ p->old_ring==p->new_ring || !p->old_posts || p->old_posts>8 || p->cleanup_posts>8 || (p->cleanup_posts && p->old_posts!=8) || p->new_slots!=63 || p->protected_count>MT76_HANDOFF5_PROTECTED ||
+ (p->old_dequeue&15)!=1 || (p->old_dequeue&~15ull)<p->old_ring || (p->old_dequeue&~15ull)>p->old_ring+16*(p->old_posts+p->cleanup_posts) ||
+ (p->cleanup_posts && (p->old_dequeue&~15ull)<p->old_ring+16*(p->old_posts+p->cleanup_posts-1)))return false;
  for(unsigned i=0;i<p->protected_count;i++){
   uint64_t a=p->protected_pages[i];if(!page(a) || a==p->old_ring || a==p->new_ring)return false;
   for(unsigned j=0;j<i;j++)if(a==p->protected_pages[j])return false;

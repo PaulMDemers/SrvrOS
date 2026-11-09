@@ -19,6 +19,10 @@ static bool wifi_join5_requested;
 static bool wifi_join5_inspect(void){assert(0);return false;}
 static bool wifi_tx5_requested,firmware_command_failed,firmware_command_exact,trace;
 static struct {uint32_t input[128][8],output[32][8];uint8_t pages[64][4096];unsigned next,commands,reads,owned,lose,fail_command,fail_read,bad_read,mutate;bool parent,quarantine,uncertain,clear_disabled,allocate_fail,skip_stop_event;unsigned stop_fault;}fake;
+/* This legacy parent fixture has no cleanup allocations. Actual calibration
+ * cleanup ownership is exercised by the controller fixture. */
+static bool wifi_cal5_cleanup_alias(uint64_t p){(void)p;return false;}
+static bool wifi_cal5_cleanup_held(void){return true;}
 static bool wifi_handoff5_equal(const void *a,const void *b,size_t n){return !memcmp(a,b,n);}
 static bool wifi_peer5_owned(void *p,void *w){assert(p==&wifi_peer5 && w==&wifi_cal5.window);return ++fake.owned!=fake.lose && fake.parent && !fake.quarantine;}
 static bool wifi_mcu_fail(struct xhci_device *d){assert(d==&device);fake.quarantine=true;return false;}

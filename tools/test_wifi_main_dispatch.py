@@ -33,6 +33,8 @@ class MainDispatchTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         source=(ROOT/'kernel/src/main.c').read_text();expression=selection(source)
+        begin=source.index('                if(sampled && cmdline_has_token(cmdline,"srvros.wifi-cal5-cleanup=1"))')
+        setup=source[begin:source.index('                if(sampled && cmdline_has_token(cmdline,"srvros.wifi-bbp-table=1"))',begin)]
         names=sorted(set(re.findall(r'\b(xhci_wifi_capture_\w+)\(\)',expression)))
         declarations=[]
         for name in ('wifi_provider_trial','wifi_stack5_trial','wifi_5ghz_prereq','wifi_channel_diagnosis','wifi_desktop_trial','return_on_failure','wifi_log_isolation'):
@@ -42,10 +44,12 @@ class MainDispatchTests(unittest.TestCase):
         stubs='\n'.join('static bool '+name+'(void){calls++;chosen="'+name+'";return capture_ok;}' for name in names)
         program='\n'.join(('#include <stdbool.h>','#include <stddef.h>','#include <stdint.h>',
             function(source,'char_is_separator'),function(source,'cmdline_has_token'),function(source,'cmdline_tokens_unique'),
-            'static unsigned calls;static const char *chosen;static bool capture_ok;',stubs,
+            'static unsigned calls,setup_calls;static const char *chosen;static bool capture_ok;',stubs,
+            'static bool xhci_wifi_cal5_cleanup_enable(void){setup_calls++;return capture_ok;}',
+            'unsigned dispatch_setup_calls(void){return setup_calls;}',
             'const char *dispatch(const char *cmdline,unsigned parked,unsigned successful,unsigned *sample,unsigned *count){',
-            'calls=0;chosen="none";capture_ok=successful!=0;bool sampled=false;bool nop_logger_parked=parked!=0;bool stream_logger_parked=parked!=0;',
-            *declarations,expression,'*sample=sampled;*count=calls;return chosen;}'))
+            'calls=setup_calls=0;chosen="none";capture_ok=successful!=0;bool sampled=true;bool nop_logger_parked=parked!=0;bool stream_logger_parked=parked!=0;',
+            *declarations,setup,'if(sampled){',expression,'}','*sample=sampled;*count=calls;return chosen;}'))
         cls.tmp=tempfile.TemporaryDirectory(prefix='srvros-main-dispatch-');cls.addClassCleanup(cls.tmp.cleanup)
         directory=Path(cls.tmp.name);(directory/'dispatch.c').write_text(program)
         command=shlex.split(os.environ.get('WIFI_DISPATCH_CC','cc'))+['-std=c11','-O2','-Wall','-Wextra','-Werror','-fPIC','-shared',str(directory/'dispatch.c'),'-o',str(directory/'dispatch.so')]
@@ -65,9 +69,23 @@ class MainDispatchTests(unittest.TestCase):
         return bool(sample.value),name,count.value
 
     def test_actual_staged_profiles(self):
-        expected={124:'handoff5',125:'peer5',126:'tx5',127:'join5',128:'eapol5',129:'wpa5',130:'wpa5',131:'data5',132:'provider5',133:'reuse5',134:'nop5',135:'stream5',136:'stream5_dhcp',137:'stack5_probe'}
+        expected={124:'handoff5',125:'peer5',126:'tx5',127:'join5',128:'eapol5',129:'wpa5',130:'wpa5',131:'data5',132:'provider5',133:'reuse5',134:'nop5',135:'stream5',136:'stream5_dhcp',137:'stack5_probe',138:'stack5_probe'}
         for version,child in expected.items():
             with self.subTest(version=version):self.assertEqual(self.dispatch(self.recipe(version)),(True,'xhci_wifi_capture_'+child,1))
+
+    def test_cleanup_setup_gate(self):
+        self.assertEqual(self.dispatch(self.recipe(138)),(True,'xhci_wifi_capture_stack5_probe',1))
+        self.assertEqual(self.library.dispatch_setup_calls(),1)
+        self.assertEqual(self.dispatch(self.recipe(138),successful=False),(False,'none',0))
+        for version in (128,135,136):
+            self.assertEqual(self.dispatch(self.recipe(version)+' srvros.wifi-cal5-cleanup=1'),(False,'none',0))
+            self.assertEqual(self.library.dispatch_setup_calls(),0)
+        for token in ('srvros.wifi-cal5=1','srvros.capture-failure=reboot','srvros.wifi-stack5=1'):
+            tokens=self.recipe(138).split();tokens.remove(token)
+            self.assertEqual(self.dispatch(' '.join(tokens)),(False,'none',0))
+            self.assertEqual(self.library.dispatch_setup_calls(),0)
+        for token in self.recipe(138).split():
+            self.assertEqual(self.dispatch(self.recipe(138)+' '+token),(False,'none',0))
 
     def test_capture_failure_propagates(self):
         for version in (126,130,131,132,133,134,135,136,137):

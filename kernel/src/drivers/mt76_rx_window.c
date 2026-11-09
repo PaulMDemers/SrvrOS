@@ -106,9 +106,11 @@ static bool finish_for(bool high,struct mt76_rx_window *s,
         io && io->owned && s->attempts && s->attempts<=MT76_RX_WINDOW_SLOTS;
     if (s->attempts && s->attempts<=MT76_RX_WINDOW_SLOTS) {
         s->stop_attempted=stop!=0;
-        uint64_t current=s->plan.ring+16*(s->plan.first_index+s->attempts-1);
+        unsigned cleanup=stop?stop->cleanup_posts:0;
+        bool extra=!cleanup || (high && s->attempts==8 && cleanup<=8);
+        uint64_t current=s->plan.ring+16*(s->plan.first_index+s->attempts+cleanup-1);
         uint64_t dequeue=stop?stop->dequeue&~15ull:0;
-        s->stopped=stop && stop->state==3 && stop->slot==s->plan.slot &&
+        s->stopped=extra && stop && stop->state==3 && stop->slot==s->plan.slot &&
             stop->dci==s->plan.dci && (stop->dequeue&15)==1 &&
             (dequeue==current || dequeue==current+16);
     }

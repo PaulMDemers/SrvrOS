@@ -89,6 +89,19 @@ int main(void){
   if(fault==17)p.protected_pages[31]=0x90000;
   f=(struct fake){0};init(&f,&s,&p);assert(!mt76_handoff5_plan_valid(&p) && !run(&f,&s,&p) && !s.attempted && !f.calls && !f.auth);
  }
+ /* Explicit immutable cleanup frontier retains old_posts=8;the zero field
+  * still rejects legacy posts9 above. Mechanical plans grant no native DMA. */
+ for(unsigned cleanup=1;cleanup<=8;cleanup++)for(unsigned end=0;end<2;end++){
+  p=plan();p.cleanup_posts=cleanup;p.old_dequeue=p.old_ring+16*(8+cleanup-1+end)+1;
+  f=(struct fake){0};init(&f,&s,&p);assert(mt76_handoff5_plan_valid(&p) && run(&f,&s,&p) && s.restored && !memcmp(f.words,f.original,sizeof f.words));
+ }
+ for(unsigned n=0;n<4;n++){
+  p=plan();p.cleanup_posts=n==0?9:2;p.old_dequeue=p.old_ring+16*(8+p.cleanup_posts)+1;
+  if(n==1)p.old_posts=7;
+  if(n==2)p.old_dequeue=p.old_ring+129;
+  if(n==3)p.old_dequeue+=16;
+  assert(!mt76_handoff5_plan_valid(&p));
+ }
  p=plan();f=(struct fake){0};init(&f,&s,&p);struct mt76_handoff5_io io={&f,owned,read_context,set,inspect};
  assert(!mt76_handoff5_run(NULL,&p,&io));assert(!mt76_handoff5_run(&s,NULL,&io));assert(!mt76_handoff5_run(&s,&p,NULL));
  struct mt76_handoff5_plan saved=p;assert(!mt76_handoff5_run((void *)&p,&p,&io) && !memcmp(&p,&saved,sizeof p));
