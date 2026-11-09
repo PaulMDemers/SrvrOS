@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 static unsigned depth;
+static uint64_t checkpoint_delay;
 static uint64_t clock_us;
 static bool reference=true,regress_clock;
 uint64_t timer_monotonic_us(void) { return clock_us; }
@@ -150,7 +151,7 @@ static void test_transfer_timing(void) {
     uint32_t actual;struct usb_storage_timing out;
     clock_us=100;fake_timing=(struct usb_bulk_timing){.submitted=110,.observed=1000110,.resumed=1100110,.seen=true,.service_valid=true,.service_checks=512,.service_samples=2,.service_gap_max_us=500000,.completion_gap_us=500000};
     assert(usb_storage_timing_begin() && usb_storage_timing_enabled());
-    assert(timed_bulk(&storage,2,true,NULL,13,&actual));usb_storage_timing_end(&out);
+    assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));usb_storage_timing_end(&out);
     assert(out.valid && out.phase[2].max_us==1200000 && out.phase[2].observed_calls==1);
     assert(out.phase[2].observe_us==1000000 && out.phase[2].resume_us==100000);
     assert(out.phase[2].over20ms==1 && out.phase[2].over100ms==1 && out.phase[2].over1s==1);
@@ -171,7 +172,7 @@ static void test_transfer_timing(void) {
         if(bad==10)fake_timing.service_gap_max_us=100000;
         assert(usb_storage_timing_begin());
         if(bad==5)timing.phase[2].observe_us=UINT64_MAX;
-        assert(timed_bulk(&storage,2,true,NULL,13,&actual));usb_storage_timing_end(&out);assert(!out.valid);
+        assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));usb_storage_timing_end(&out);assert(!out.valid);
     }
 }
 static void test_timing_overlap(void) {
@@ -181,27 +182,59 @@ static void test_timing_overlap(void) {
     assert(usb_storage_timing_begin() && usb_storage_timing_aux_begin());
     assert(!usb_storage_timing_begin() && !usb_storage_timing_aux_begin());
     unsigned raw_before=raw_timing_calls,samples_before=sample_reads;
-    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual));
+    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));
     assert(raw_timing_calls==raw_before+1 && sample_reads==samples_before+1);
     usb_storage_timing_end(&legacy);assert(usb_storage_timing_enabled());
-    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual));
+    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));
     usb_storage_timing_aux_end(&aux);assert(!usb_storage_timing_enabled());
     assert(legacy.valid && aux.valid && legacy.calls[2]==1 && aux.calls[2]==2);
+    assert(aux.csw.opcode==0x2a && aux.csw.command_bytes==16384 && aux.csw.request_bytes==13);
+    assert(aux.csw.start_us==100 && aux.csw.end_us==1200100 && aux.csw.sample.observed==1000110);
+    assert(!legacy.csw.start_us); /* The legacy observer is unchanged. */
     assert(aux.us[2]==2*legacy.us[2] && aux.phase[2].observe_us==2*legacy.phase[2].observe_us);
     assert(usb_storage_timing_aux_begin());usb_storage_timing_end(&none);assert(!none.valid && usb_storage_timing_enabled());
-    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual));
+    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));
     assert(usb_storage_timing_begin());
-    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual));
+    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));
     usb_storage_timing_aux_end(&aux);assert(usb_storage_timing_enabled());
     usb_storage_timing_aux_end(&none);assert(!none.valid && usb_storage_timing_enabled());
-    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual));usb_storage_timing_end(&legacy);
+    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));usb_storage_timing_end(&legacy);
     assert(legacy.valid && aux.valid && legacy.calls[2]==2 && aux.calls[2]==2);
     assert(!usb_storage_timing_enabled());
     /* Overflow in one window cannot invalidate or overwrite its peer. */
     assert(usb_storage_timing_begin() && usb_storage_timing_aux_begin());timing.us[2]=UINT64_MAX;
-    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual));usb_storage_timing_end(&legacy);usb_storage_timing_aux_end(&aux);
+    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));usb_storage_timing_end(&legacy);usb_storage_timing_aux_end(&aux);
     assert(!legacy.valid && aux.valid && aux.calls[2]==1);
     puts("usb-timing-overlap: PASS independent starts/ends, legacy refusal, same observations, stopped/foreign scope preservation and isolated overflow");
+}
+static void test_command_context(void) {
+    static uint8_t bytes[USB_STORAGE_COMMAND_BYTES];
+    struct usb_storage_timing out;
+    for(unsigned write=0;write<2;write++) {
+        reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
+        clock_us=100;checkpoint_delay=37;
+        unsigned before=checkpoints;
+        assert(usb_storage_timing_aux_begin());
+        assert(write?write_blocks(&block,0,bytes,sizeof(bytes)):read_blocks(&block,0,bytes,sizeof(bytes)));
+        usb_storage_timing_aux_end(&out);
+        assert(out.valid && out.csw.opcode==(write?0x2a:0x28));
+        assert(out.csw.command_bytes==sizeof(bytes) && out.csw.request_bytes==13 && out.csw.actual==13 && out.csw.ok);
+        assert(out.checkpoint_calls==4 && out.checkpoint_us==148 && checkpoints-before==4);
+    }
+    reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
+    assert(usb_storage_timing_aux_begin());assert(flush(&block));usb_storage_timing_aux_end(&out);
+    assert(out.csw.opcode==0x35 && !out.csw.command_bytes && out.checkpoint_calls==1 && out.checkpoint_us==37);
+    /* Ending legacy observation must not end or overwrite auxiliary metadata. */
+    assert(usb_storage_timing_aux_begin() && usb_storage_timing_begin());
+    assert(flush(&block));usb_storage_timing_end(&out);
+    assert(!out.csw.start_us && !out.checkpoint_calls);
+    assert(flush(&block));usb_storage_timing_aux_end(&out);assert(out.checkpoint_calls==2);
+    assert(usb_storage_timing_aux_begin());aux_timing.checkpoint_us=UINT64_MAX;
+    timed_checkpoint();usb_storage_timing_aux_end(&out);assert(!out.valid);
+    assert(usb_storage_timing_aux_begin());aux_timing.checkpoint_calls=UINT64_MAX;
+    timed_checkpoint();usb_storage_timing_aux_end(&out);assert(!out.valid);
+    checkpoint_delay=0;
+    puts("usb-command-timing: PASS read/write/flush context, exact existing checkpoint calls, independent peer preservation and overflow refusal");
 }
 static void test_timing(void) {
     reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
@@ -283,6 +316,7 @@ int main(void) {
     test_transfer_timing();
     test_timing();
     test_timing_overlap();
+    test_command_context();
     test_segment_faults();
     test_batches();
     reset(); gpt_found=1; assert(usb_storage_attach(&storage,&storage,bulk,false));
@@ -345,7 +379,7 @@ int main(void) {
 
 void latency_usb(uint64_t bytes,uint8_t opcode) { (void)bytes; (void)opcode; }
 
-void scheduler_io_checkpoint(void) { assert(!depth || storage.busy);checkpoints++; }
+void scheduler_io_checkpoint(void) { assert(!depth || storage.busy);checkpoints++;clock_us+=checkpoint_delay; }
 
 bool block_claim_available(struct block_device *d,struct block_device *except) { (void)d;(void)except;return !claim_busy; }
 

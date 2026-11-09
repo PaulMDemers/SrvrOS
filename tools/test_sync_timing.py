@@ -8,11 +8,20 @@ class TestSyncTiming(unittest.TestCase):
         for scope in ('files','devices'):
             for phase in range(3):
                 lines.append(f'sync-usb-timing: version=2 scope={scope} id=100 phase={phase} calls=1 callback_us=2 max_us=2 over20ms=0 over100ms=0 over1s=0 observed_calls=1 observe_us=1 resume_us=1 observe_max_us=1 resume_max_us=1 service_checks=1 service_samples=1 service_gap_max_us=1 completion_gap_max_us=1 valid=1')
+            at=110 if scope=='files' else 141
+            lines.append(f'sync-usb-command: version=1 scope={scope} id=100 checkpoint_calls=1 checkpoint_us=1 start_us={at} end_us={at+2} opcode=42 command_bytes=16384 request_bytes=13 actual=13 ok=1 submitted={at} observed={at+1} resumed={at+2} seen=1 service_valid=1 service_checks=1 service_samples=1 service_gap_max_us=1 completion_gap_us=1')
         return ('\n'.join(lines)+'\n').encode()
     def test_complete(self):self.assertEqual(sync_timing([self.fixture(),self.fixture()])['workers'][0]['phases']['files']['wall_us'],40)
     def test_earlier_incomplete_snapshot(self):
         old=b'\n'.join(line.replace(b'id=100',b'id=0').replace(b'valid=1',b'valid=0') for line in self.fixture().splitlines() if line.startswith(b'sync-usb-timing:'))
         self.assertEqual(sync_timing([old,self.fixture()])['status'],'VALID')
+    def test_command_reject(self):
+        for a,b in [('checkpoint_us=1','checkpoint_us=40'),('checkpoint_calls=1','checkpoint_calls=0'),('start_us=110','start_us=99'),('end_us=112','end_us=113'),('opcode=42','opcode=256'),('command_bytes=16384','command_bytes=16385'),('request_bytes=13','request_bytes=12'),('actual=13','actual=0'),('ok=1','ok=0'),('submitted=110','submitted=109'),('observed=111','observed=113'),('seen=1','seen=0'),('service_valid=1','service_valid=0')]:
+            with self.subTest(a=a):
+                with self.assertRaises(ValueError):sync_timing([self.fixture().replace(a.encode(),b.encode())])
+        without=b'\n'.join(x for x in self.fixture().splitlines() if not x.startswith(b'sync-usb-command:'))
+        with self.assertRaises(ValueError):sync_timing([without])
+        with self.assertRaises(ValueError):sync_timing([self.fixture(),self.fixture().replace(b'opcode=42',b'opcode=40')])
     def test_reject(self):
         for a,b in [('active=0','active=1'),('invalid=0','invalid=1'),('conflicts=0','conflicts=1'),('dropped=0','dropped=1'),('files_us=80','files_us=81'),('files_end_us=140','files_end_us=151'),('calls=2','calls=0'),('file_failed=0','file_failed=1'),('devices_usb_failures=0','devices_usb_failures=1'),('valid=1','valid=0'),('observed_calls=1','observed_calls=0'),('final=1','final=0'),('id=100','id=101')]:
             with self.subTest(a=a):

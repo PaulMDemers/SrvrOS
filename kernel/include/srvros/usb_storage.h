@@ -42,9 +42,16 @@ struct usb_storage_phase_timing {
     uint64_t observed_calls, observe_us, resume_us, observe_max_us, resume_max_us;
     uint64_t service_checks,service_samples,service_gap_max_us,completion_gap_max_us;
 };
+struct usb_storage_csw_timing {
+    uint64_t start_us,end_us,opcode,command_bytes,request_bytes,actual,ok;
+    struct usb_bulk_timing sample;
+};
 struct usb_storage_timing {
     uint64_t calls[3], us[3], failures;
     struct usb_storage_phase_timing phase[3];
+    /* Auxiliary sync observer only; software wall, no command addresses. */
+    uint64_t checkpoint_calls,checkpoint_us;
+    struct usb_storage_csw_timing csw;
     bool valid;
 };
 bool usb_storage_timing_enabled(void);
