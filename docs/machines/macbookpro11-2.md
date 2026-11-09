@@ -15739,3 +15739,44 @@ post-M4 handoff/key/retirement contracts,RX agent audits real normal-mode fence
 binding,and evidence agent audits production-stack receive/worker contracts.
 Read-only contract review precedes disjoint implementation assignments. The
 original acceptance payload and capsules remain protected throughout this work.
+
+
+### Streaming-owner implementation scope (November 8)
+
+The accepted native session is session-00065fce4df4ab78-00. Main66277083's
+optional screenshot gate observations are consumed in5d1ec0ac;matched kernel/USB,
+relevant scheduler/process/cancellation/logging/timing,dispatch and workspace/
+metadata regressions pass. Installed acceptedDAC and all immutable capsules remain
+unchanged;the merged source has no new physical acceptance and no boot is armed.
+
+Contract review chooses a distinct streaming owner entered through the existing
+pre-key join extension after the unchanged v128 parent. It owns two fresh rings,
+four pages/direction and one new original mt76_wpa5_run_data/CCMP context from
+AUTH/ASSOC through M4,data,erasure and leave. No active legacy-key/ring handoff,
+key copy/reinstall or widened historical11/48/six-request gates. Track handshake
+and data TDs monotonically;bind normal fence authority at a genuine all-FREE
+point without resetting ledger cursors. Hold repost/publication for either63
+boundary,wait real completions/release loans,then use the exact async fence.
+Quiet pending RX cannot be fabricated or cancelled for reuse;timeout retains.
+Terminal stopped RX can retire with whole-ledger proof without counting as data.
+
+First explicit stream trial:unchanged DHCP/DNS/echo setup plus64 independently
+matched encrypted256-byte gateway echoes. Require real RX and TX boundaries and
+authenticated traffic afterward,original key identity/continuous PN,exact current
+leases,finite event/fence/time limits,full parent cleanup and late retirement.
+This remains a diagnostic transport gate,not ordinary-stack/TCP/UI acceptance.
+Fresh command positions and cleanup reserve bound the trial;indefinite command
+reuse and same-boot connection epochs remain open. Park periodic logging;retain
+bounded deferred receipts with the unchanged capture reserve and no packet/key
+values. No physical trial before coherent source and full normal qualification.
+
+Disjoint team scope:transport agent owns new xhci_wifi_stream5.inc,actual-owner
+fixture and small xhci.c/xhci.h event/entry wiring;RX agent owns separate normal
+fence context guards/tests and nonblocking provider readiness-before-dequeue;
+evidence agent owns the strict stream probe model/header/host tests (setup plus
+64 unique echoes),then saved-receipt validation. Root owns main/profile/stager,
+Makefile,documentation,all shared harnesses,private credentials/install/evidence/
+power. Agents use private standalone outputs and never stage/install/power.
+The readiness extension preserves existing positional IO initializers/defaults
+and holds queued frames/tokens/PN across a normal fence. Ordinary-stack fixtures
+must later link unrenamed production delivery and never manufacture old IP success.
