@@ -10402,3 +10402,20 @@ empty, collector disabled and no reboot armed. Installed candidate, accepted
 Next bounded work: diagnose transfer refusal/ownership and preserve orphan
 allocation evidence before any repair or new trial, retaining existing integrity,
 watchdog, transport and stress limits. Historical host/VM passes remain separate.
+
+### Query transfer refusal audit scope (2026-11-09)
+
+Base `d057f7d8`, after collecting the failed sidecar trial. Bounded objective:
+preserve read-only allocation/allocated-media evidence, identify the orphan,
+and audit native query transfer admission, worker context, EC lease and completion
+state. If current evidence cannot distinguish refusal from poll failure, add
+fixed-storage failure-only diagnostics with real admission/transfer regression
+cases before another native trial. Touch the battery runtime adaptation and its
+focused tests only as needed; no speculative ownership bypass, retry, deadline
+extension, interrupt enabling or transport reset. Preserve watchdogs, isolation,
+query/EC budgets, all integrity and stress limits. Inspect current PR19/301
+scope before shared edits; no other machine acceptance or delegation follows.
+Next checkpoint: a reproduced cause/fix or explicit diagnostic candidate, matched
+host/VM checks, preserved/reconciled offline allocation and exact-stage recovery
+proof before any automatic native test. Current failed USB stays unmounted and
+unmodified until its allocation evidence is independently backed up.
