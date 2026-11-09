@@ -16095,3 +16095,30 @@ exact receipts/capture budget and a verified endpoint. Ubuntu's direct HTTP/1.1
 request to the public httpbin.org base64 endpoint returned the expected 3 KiB
 A-Z pattern; this is endpoint preparation. Installed accepted8529/e47d recovery
 and cleared one-shot state remain unchanged. No unqualified prototype is armed.
+
+### Merged-baseline software qualification complete (November 9)
+
+Main `928555f3` is integrated as `a12e2835`; its new Air6,1 evidence documentation
+changes no Pro runtime gate. Matched kernel/USB build and selected new/historical
+Wi-Fi, provider/production-network, scheduler/IRQ, cancellation, filesystem,
+logger/storage and sync regressions pass in 537.88 seconds. Every recorded
+kernel/shared/tools/Makefile input remains unchanged. This is a selected suite,
+not a full-core rerun or hosted Actions result. All 252 existing staging/profile
+cases and documentation checks pass. An ordinary desktop QEMU smoke passes
+input, text sizing, drag/resize and exit/relaunch in 14.23 seconds.
+
+Final combined native-owner/production-stack fixture normal and fatal runs pass
+all ten cases in 6.40 / 40.94 seconds with empty stderr and all 182 inputs fixed.
+Final guarded DHCP/quiet tests and independent AP-oracle sanitizer checks also
+pass. The earlier successful pre-ordering-fix proof and independently reproduced
+callback-order counterexample are retained separately from final qualification.
+
+These results qualify software integration only. The callback entry has no boot
+recipe yet and has not replaced installed accepted8529. The next native work is
+[guarded production DHCP/DNS and exact gateway echo](macbookpro11-2-wifi-stack5-native-design.md),
+with finite nested waits, exact output/capture proof and main/profile dispatch.
+TCP/HTTP needs legitimate process ownership and qualified timer/worker lifetime;
+the software fixture's process/timing stubs do not provide those native proofs.
+All source/test/VM evidence is retained outside build in a separate software
+capsule. Original native255-file and accepted14-file capsules stay immutable;
+Ubuntu/e47d recovery and cleared one-shot state remain protected. No reboot armed.

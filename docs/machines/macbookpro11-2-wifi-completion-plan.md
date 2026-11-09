@@ -204,3 +204,14 @@ plus explicit completion/epoch-guarded production DHCP retry. Root owns subseque
 profile integration, deferred output/capture budget, exact-image qualification
 and hardware. TCP/HTTP requires a verified endpoint and expected response bytes;
 UI/reattachment and reliability remain later gates. Nothing new is armed.
+
+The next software gate is now implemented and qualified on merged baseline
+`a12e2835`: explicit guarded production DHCP/quiet initialization and a callback-
+only asynchronous native provider. The actual encrypted-owner plus unrenamed
+production-stack fixture passes DHCP/DNS/ARP/ping, 52 UDP echoes and a multi-packet
+3 KiB HTTP response with close, including fatal sanitizers and fault retention.
+Matched selected build/regressions, existing 252 stage cases and ordinary desktop
+VM pass. It has no new boot recipe or native acceptance. The
+[next native workload design](macbookpro11-2-wifi-stack5-native-design.md) scopes
+finite guarded DHCP/DNS/64 gateway pings first; real process ownership, timers and
+bounded TCP APIs precede HTTP. Lifecycle, reattachment, UI and reliability remain.
