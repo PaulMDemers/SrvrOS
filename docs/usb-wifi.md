@@ -7798,3 +7798,17 @@ remain preparatory. Native acceptance still needs a matching complete session,
 real encrypted data across RX/TX boundaries,erasure/leave/full restoration and
 independent workspace/allocation/recovery verification. Ordinary stack connection,
 TCP/HTTP,reconnection/UI and broad loss/endurance coverage remain separate gates.
+
+### Pro11,2 bounded encrypted-stream checkpoint (November 9)
+
+The explicit v136 one-Discover-retry profile is now physically accepted on the
+captured 5GHz-only Edimax7392:a711/0100, source `38f2d76a`, release
+`8529308170250844`. One original WPA/CCMP owner spans 71 encrypted requests and
+64 exact replies, one TX and three RX native fences, key erasure/leave and full
+parent/ledger restoration. Strict prior-file/metadata and recovery proofs pass.
+The default no-retry profiles remain distinct. This finite diagnostic does not
+publish ordinary provider readiness or accept production IP/TCP/HTTP, unlimited
+command reuse, reconnection, reattachment or connection UI. See the Pro unit
+[completion plan](machines/macbookpro11-2-wifi-completion-plan.md) for the next
+explicit asynchronous provider/production-stack work; no new hardware profile
+is installed or armed by that software work.

@@ -1508,3 +1508,11 @@ provider/production IP/TCP/HTTP, lifecycle/UI and unlimited command reuse still
 need their own matched qualification and native evidence; see the unit completion
 plan. The new nonblocking adapter and explicit production DHCP retry are software
 work in progress, not an installed candidate or a reason to reboot this host.
+
+The optional independent MT7610 production-stack AP fixture uses host OpenSSL
+EVP AES-CCM and Python `cryptography`, with public synthetic keys only. Ubuntu
+agents running `make test-mt76-stack5-peer` or the explicit combined stack fixture
+need `libssl-dev` and `python3-cryptography`. These host-only optional fixtures do
+not add OpenSSL to the freestanding OS or portable default `test-core` dependency
+set. The Pro host has installed `libssl-dev`; preserve normal host package policy
+on other machines rather than copying this host's library paths.

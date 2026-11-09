@@ -16059,3 +16059,39 @@ reattachment, UI controls and longer reliability remain open. A declared reachab
 HTTP endpoint and expected bytes, deferred live-window receipts, exact capture
 budget and actual-main dispatch tests are required before a new native profile.
 There is no automatic reboot until that distinct candidate is qualified.
+
+### Ordinary-stack bridge software gate (November 9)
+
+`34901a9a` adds explicit completion/epoch-guarded production DHCP retry and quiet
+one-shot stack initialization. Default DHCP retains single-Discover behavior.
+The explicit path validates full BOOTP/options before mutation and binds ACK to
+Offer/Request, address, server, source and relay. Malformed packets preserve
+configuration. A valid ACK followed by a terminal post-poll fault may populate
+address bytes while returning failure and clearing configured state; the caller
+must close publication. Six ordering cases verify ownership after link inspection
+and clocks after the final callback. Retry/quiet normal/fatal checks pass.
+
+`71a9f24e` adds a distinct callback-only native provider entry over the original
+exclusive key/DMA owner. IRQ-off callbacks copy/seal/publish without waiting,
+dispatch bounded events, release DMA before authenticated copied receive and take
+one fence step per service. Quiet pending RX requires real completion or retained
+failure. Limits stay four pages/direction, 80 TX / 252 RX, four fences, fresh
+commands plus cleanup reserve and 15 seconds / 150,000 services. Provider detach
+follows full key/parent/ledger retirement. Historical stream modes stay separate.
+
+The combined host fixture links actual encrypted controller ownership and
+unrenamed production registry/provider/net.c. An independent OpenSSL AP checks
+sealed TX and returns encrypted replies. Final normal/fatal ten-case checks after
+the guard reorder pass DHCP (including first-Offer loss), DNS, ARP, ping, 52 exact
+UDP echoes, a 3,072-byte multi-packet HTTP response and TCP close, plus pending-TX
+return, quiet RX boundary, MIC/event/clock/exhaustion faults. All 182 compiled
+inputs remain unchanged. Python AESCCM independently checks 89 byte-exact AP
+cases including 71 retained vectors. USB/MMIO/process ownership are modeled; no
+new physical acceptance follows. Root's matched build/regressions remain pending.
+
+No command-line profile activates the new entry. Native integration still needs
+legitimate process ownership for TCP, timer servicing, bounded nested API waits,
+exact receipts/capture budget and a verified endpoint. Ubuntu's direct HTTP/1.1
+request to the public httpbin.org base64 endpoint returned the expected 3 KiB
+A-Z pattern; this is endpoint preparation. Installed accepted8529/e47d recovery
+and cleared one-shot state remain unchanged. No unqualified prototype is armed.
