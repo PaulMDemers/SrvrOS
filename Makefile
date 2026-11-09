@@ -5010,3 +5010,15 @@ test-haswell-vtd-capabilities:
 test-core: test-render-timing
 test-render-timing: build/tests/desktop-session-host$(HOST_EXE)
 	$(PYTHON) tools/test_render_timing.py
+
+.PHONY: test-capture-write-timing
+test-capture-write-timing: build/tests/capture-write-timing-host$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_capture_write_timing.py
+build/tests/capture-write-timing-host$(HOST_EXE): tools/test_capture_write_timing.c kernel/src/capture_write_timing_state.h kernel/include/srvros/capture_write_timing.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+test-core: test-capture-write-timing
+
+# The real process host fixture includes this private timing implementation.
+build/tests/process-output-host$(HOST_EXE): kernel/src/capture_write_timing_state.h

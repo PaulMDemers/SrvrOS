@@ -836,3 +836,32 @@ control title-bar, menu-bar and dock glass. Changes apply immediately and Settin
 reports whether they were saved or apply only to this session. The larger-text
 option continues to affect supported document views. See the
 [theme engine](desktop-theme.md) and [display presentation plan](display-presentation.md).
+
+### Opt-in screenshot buffered-write timing
+
+The separate `--capture-write-timing` automatic audio/disk stress stages explicitly
+set `srvros.capture-write-timing=on`; legacy v74/v80 configurations are preserved;
+ordinary desktop and the short listening profile omit it. The CPU0 kernel keeps
+at most eight fixed records for the exact active executable `/fat/bin/shotworker`.
+It grants no eligibility, changes no limits, and allocates/logs nothing in the
+observed paths. Records survive runtime retirement; overflow, incomplete calls,
+invalid clocks and inconsistent counters remain visible failures of evidence.
+
+For raw `SYS_WRITE` requests on descriptors 3 and above, sites 0–5 are complete
+call wall time, initial namespace admission, syscall handler, common-return
+handoff, buffer reservation and byte copy. Reservation and copy nest inside the
+handler; do not add them to handler time. Call wall time contains gate, handler
+and handoff plus observation/bookkeeping overhead. These are wall intervals,
+not CPU time. Capacity-change counts qualify reservation cost; unchanged capacity
+does not imply a zero-cost check. Userspace POSIX wrapper work, progress frames
+and scheduling outside the raw call are not included in these spans.
+
+The existing workspace logger copies records before filesystem I/O, then emits
+`capture-write-snapshot`, `capture-write-record` and `capture-write-sample` rows.
+`version=1`, `snapshot_us`, PID and `final` pair a complete snapshot. Acceptance
+requires all expected retired worker records, equal attempt/completion counts,
+exact BMP byte totals, all six phase counters, no overflow/invalid/failure and
+consistent nested totals. Missing or partial rows do not become a pass. Existing
+snapshot pixels, 64KiB caller batching, exclusive temporary ownership, both full
+readbacks, fsync/sync, guarded rename and all responsiveness/endurance bounds
+remain unchanged. This diagnostic adds no userspace syscall/capture-frame ABI.

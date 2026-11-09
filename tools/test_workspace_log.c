@@ -135,3 +135,5 @@ int main(void) {
     old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
 }
+
+void process_capture_write_snapshot(struct capture_write_snapshot *out) {*out=(struct capture_write_snapshot){0};}

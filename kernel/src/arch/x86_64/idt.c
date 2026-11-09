@@ -1,3 +1,5 @@
+#include <srvros/capture_write_timing.h>
+#include <srvros/syscall_numbers.h>
 #include <srvros/console.h>
 #include <srvros/latency.h>
 #include <srvros/bootlog.h>
@@ -205,10 +207,14 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
         scheduler_io_wait();
         process_exit(process_current_kill_status());
     }
+    bool capture_write=(frame->cs & 3)==3 && frame->rax==SYS_WRITE && frame->rdi>=3;
+    uint64_t write_at=capture_write?process_capture_write_begin():0,write_size=frame->rdx;
     bool safe=(frame->cs & 3)==3 && syscall_io_safe(frame);
     if (!safe) {
         uint64_t start=scheduler_io_active()?latency_clock():0;
+        uint64_t gate_at=write_at?process_capture_write_clock():0;
         scheduler_io_wait();
+        process_capture_write_record(CAP_WRITE_GATE,gate_at);
         latency_gate(start,frame->rax);
     }
     if ((frame->cs & 3)==3 && process_should_exit_current()) {
@@ -216,11 +222,14 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
         process_exit(process_current_kill_status());
     }
     scheduler_io_set_user_safe(safe);
+    uint64_t handler_at=write_at?process_capture_write_clock():0;
     syscall_dispatch(frame);
+    int64_t write_result=(int64_t)frame->rax;
 #ifndef SRVROS_SYSCALL_CANCEL_HOST_TEST
     __asm__ volatile ("cli" : : : "memory");
 #endif
     scheduler_io_set_user_safe(false);
+    process_capture_write_record(CAP_WRITE_HANDLER,handler_at);
     if ((frame->cs & 3) == 3 && process_should_exit_current()) {
         scheduler_io_wait();
         process_exit(process_current_kill_status());
@@ -230,7 +239,9 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
          * not immediately reacquire I/O ahead of an app we just woke. */
         if(!safe) {
             scheduler_io_set_user_safe(true);
+            uint64_t handoff_at=write_at?process_capture_write_clock():0;
             scheduler_io_handoff();
+            process_capture_write_record(CAP_WRITE_HANDOFF,handoff_at);
             scheduler_io_set_user_safe(false);
         }
         if(process_should_exit_current()) {
@@ -238,6 +249,7 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
             process_exit(process_current_kill_status());
         }
     }
+    process_capture_write_result(write_at,write_size,write_result);
 }
 
 /* Only synchronous faults attributable to CPL3 instructions are contained.
