@@ -15879,3 +15879,16 @@ retry of the already-qualified image with a fresh workspace/run baseline and
 separate evidence. A repeated calibration drain failure requires an explicit
 cleanup design and qualification rather than another identical retry. Ordinary
 stack/lifecycle work remains open and the70-request native gate is unattempted.
+
+The single unchanged cold retry is now prepared in wifi-stream5-retry-e7f2fe70
+with a fresh412-file baseline and matching strict checker copies. Installed,
+staged and independent release606 payload bytes verify equal. Original e7f
+software qualification and every code-input hash remain valid;only documentation
+has changed,including main d20312ac's Air6,1 observation closeout. No rebuild,
+reinstall or driver/limit change is attributed to this retry. The original203-file
+failure capsule and separate5-file review are unchanged. UUID0E53-5900,local
+adapter/model,offline allocation/writable headroom,accepted installed payloads,
+Ubuntu default and e47d recovery reverify. Still unarmed at this checkpoint.
+On return use build/bringup/wifi-stream5-retry/run_root.py return_collect exactly
+once before any further work. A repeated earlier-parent drain refusal ends
+identical retries and requires an explicit cleanup change with its own evidence.
