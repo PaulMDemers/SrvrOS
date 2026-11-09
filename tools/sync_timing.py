@@ -20,12 +20,23 @@ def sync_timing(blobs,require_final=True):
                 table=g['records' if line.startswith('sync-record:') else 'worst'];key=d['pid']
             if key in table and table[key]!=d:raise ValueError('Conflicting sync record')
             table[key]=d
-    transfers={k:transfer_records('\n'.join(v),'logger') for k,v in usb.items()}
     for at,g in sorted(groups.items(),reverse=True):
         h=g.get('header')
         if not h or (require_final and h.get('final')!=1):continue
         if any(h.get(k)!=v for k,v in [('enabled',1),('active',0),('invalid',0),('dropped',0)]):raise ValueError('Incomplete/invalid sync scope')
         if not 1<=len(g['records'])<=8 or set(g['records'])!=set(g['worst']):raise ValueError('Missing sync records')
+        # Older periodic snapshots may precede a PID's first completion.
+        # Validate USB rows belonging to the selected final worst calls only;
+        # conflicts for those immutable identifiers still fail.
+        ids={w.get('start_us') for w in g['worst'].values()}
+        transfers={}
+        for scope,lines in usb.items():
+            selected=[]
+            for line in lines:
+                match=re.match(r'usb-timing: version=2 scope=logger id=(\d+) ',line)
+                if not match:raise ValueError('Malformed sync USB identity')
+                if int(match[1]) in ids:selected.append(line)
+            transfers[scope]=transfer_records('\n'.join(selected),'logger')
         output=[]
         for pid,r in sorted(g['records'].items()):
             w=g['worst'][pid]
