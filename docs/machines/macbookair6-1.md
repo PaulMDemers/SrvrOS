@@ -9750,3 +9750,27 @@ choosing a fix. Preserve same-process/private-image exclusion, watchdogs, all
 flush/full-readback/rename checks,64KiB batching and500ms/10s/endurance limits.
 The receive phase remains a separate performance follow-up. No new implementation
 or physical trial is started by this result closeout.
+
+
+### Screenshot admission holder scope (2026-11-08)
+
+Base `1bd3aea9` after PR428 accepted write-timing evidence. Bounded objective:
+identify complete owner overlap and blocked/READY scheduling inside the65 raw
+write admission waits per screenshot worker. Existing longest-wait rows retain
+only the initial owner, while final owner history is a rotating tail; these
+cannot identify the complete source of the observed96–97% gate wall time.
+Add opt-in fixed-storage per-worker aggregate and worst-wait companions with
+stable scheduler thread identities, syscall numbers, exact scope/overlap clocks,
+and visible incomplete/invalid evidence. Measurement hooks allocate/log nothing;
+ordinary boot remains disabled. Touch scheduler observation hooks, capture
+metadata/logger and strict host/VM/native evidence parsing. Do not speculate a
+new admission rule or change scheduling selection before attribution is known.
+
+Preserve full filesystem/descriptor serialization, same-process/private-image
+exclusion, flush/full-readback/rename checks,64KiB batching,500ms desktop loop,
+10s lifecycle and1800s endurance. Validate nested ownership, multiple owners,
+wake-to-READY delay, unobserved calls, copied final records and rejection of
+incomplete clocks/counts before a matched exact-stage native repeat. PR301's
+Air7,2 scanout process scope and PR19's distinct USB Wi-Fi remain independent;
+actual fetched main and open PRs contain no competing gate-observation change.
+The last run is collected, independently backed up and no new boot is armed.
