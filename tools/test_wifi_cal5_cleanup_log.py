@@ -4,16 +4,16 @@ from test_wifi_cal5_log import fixture,RECEIVE
 from wifi_cal5_log import check as full_check
 
 
-def trial(posted=2,completed=1):
+def trial(posted=2,completed=1,legacy_empty=False):
     ring=0x100000;pending=posted>completed
     pointer=ring+16*(8+posted-int(pending))
     dequeue=pointer+1
     status=((26<<24)|4096) if pending else 27<<24
     control=(32<<10)|(9<<16)|(5<<24)|1
-    if not posted:pointer=status=control=0
+    if not posted and legacy_empty:pointer=status=control=0
     codes=sum(13<<(8*i) for i in range(completed))
     residue=[sum(3652<<(16*j) for j in range(4) if 4*b+j<completed) for b in range(2)]
-    row=f'wifi-cal5-cleanup: posted={posted} completed={completed} codes=0x{codes:016x} residues0=0x{residue[0]:016x} residues1=0x{residue[1]:016x} stop_p=0x{pointer:016x} stop_s={status} stop_c={control} stop_q=0x{dequeue if posted else 0:016x} held=1 failed=0'
+    row=f'wifi-cal5-cleanup: posted={posted} completed={completed} codes=0x{codes:016x} residues0=0x{residue[0]:016x} residues1=0x{residue[1]:016x} stop_p=0x{pointer:016x} stop_s={status} stop_c={control} stop_q=0x{dequeue if (posted or not legacy_empty) else 0:016x} held=1 failed=0'
     base=fixture().replace('srvros.wifi-cal5=1','srvros.wifi-cal5=1 srvros.wifi-cal5-cleanup=1',1)
     base=base.replace(RECEIVE,PLAN+'\n'+RECEIVE,1)
     old=next(s for s in base.splitlines() if s.startswith('wifi-cal5-stop:'))
@@ -30,6 +30,19 @@ class ProofTests(unittest.TestCase):
             self.assertTrue(r['cal5_cleanup_enabled'])
             self.assertEqual(r['cal5_cleanup_completions'],c)
             self.assertEqual(r['cal5_completions'],8)
+    def test_explicit_zero_post_terminal(self):
+        log,stop,row=trial(0,0)
+        self.assertEqual(check(log,stop,require_empty_stop=True)['cal5_cleanup_slot'],5)
+        for key,value in [('stop_p',0x100070),('stop_s',26<<24),('stop_s',(27<<24)|1),('stop_c',(32<<10)|(8<<16)|(5<<24)),('stop_c',(32<<10)|(9<<16)|(5<<24)|4),('stop_q',0x100071),('stop_c',0)]:
+            fields=row.split();bad=[]
+            for item in fields:
+                if item.startswith(key+'='):item=key+'='+ (f'0x{value:016x}' if key in ('stop_p','stop_q') else str(value))
+                bad.append(item)
+            with self.assertRaises(ValueError):check(log.replace(row,' '.join(bad)),stop,require_empty_stop=True)
+        old,stop,row=trial(0,0,legacy_empty=True)
+        self.assertEqual(check(old,stop)['cal5_cleanup_slot'],0)
+        with self.assertRaises(ValueError):check(old,stop,require_empty_stop=True)
+
     def test_rows_and_profile_required(self):
         log,stop,row=trial()
         for bad in (log.replace(PLAN+'\n',''),log.replace(row+'\n',''),log+'\n'+row,log.replace(PLAN,PLAN+'\n'+PLAN),log.replace(' srvros.wifi-cal5-cleanup=1',''),log.replace(row+'\n','')+'\n'+row):

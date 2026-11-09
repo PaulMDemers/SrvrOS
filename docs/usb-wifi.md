@@ -7908,8 +7908,8 @@ no protocol acceptance. Full-prefix preservation and actual size/cap identity
 remain required; a larger buffer cannot recover an already discarded prefix.
 
 
-The final v138 correction is now installed at20157ab5/becb29ad72ed94df, native
-validation pending. An additional finish-only predicate rechecks each original
+The initial v138 correction was installed at20157ab5/becb29ad72ed94df; its
+subsequent native failure is recorded below. An additional finish-only predicate rechecks each original
 buffer after exact Stop;24 injected late-event/scratch-mutation/cal-failure cases
 ensure no subsequent buffer is inspected. Teardown authorization stays unchanged.
 The initial506.86second selected suite and40.23second targeted repair are retained
@@ -7920,3 +7920,23 @@ unrelated70216-byte legacy exec frame is unchanged from c75 and remains outside
 the finite operation claim. See the unit record for the collect-first run,
 accepted recovery payloads, explicit4MiB identity and remaining real-process/
 worker/HTTP/lifecycle work.
+
+
+The20157/BEC native run failed closed at the zero-cleanup-post Stop exception.
+All eight original normal completions and five firmware replies were retained;
+MAC drain completed seven quiet samples with no extra cleanup TDs. The exact
+CC27/residue0/type32/slot1/DCI9/ED0 notification named the first unused TD8, and
+the final context reached state3/dequeueTD8|1. None of the original buffers was
+inspected; discovery, join and production workload did not run. The complete
+1,863,170-byte prefix and storage/recovery evidence are preserved. Which event-time
+subpredicate failed was not observed. An event-before-final-context model motivates
+the next correction, not a claim of a proved RF or hardware cause.
+
+The bounded correction retains one exact nonpayload candidate during the immutable
+own Stop command, then requires successful command completion and final exact
+stopped context before freezing/inspection. Duplicate, normal payload, wrong slot/
+DCI, residue, unpublished TD, failed command/final context and late-event cases
+remain refusals. The new source-specific collector must require the retained raw
+zero-post terminal receipt; historical zero-field parser behavior remains available
+only through its default compatibility path. No packet count, transfer budget,
+quiet/drain requirement or ordinary ownership gate is widened.

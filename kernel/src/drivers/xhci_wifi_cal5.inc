@@ -207,12 +207,16 @@ static bool wifi_cal5_cleanup_event(struct xhci_device *d,const struct xhci_trb 
  }
  if(!wifi_cal5.cleanup_started){
   if(ptr<ring+8*16 || ptr>=ring+4096)return false;
-  /* An empty endpoint Stop may name the next unused position. It publishes
-   * no scratch TD and supplies no packet. Do not confuse this with a normal
-   * event naming an unpublished cleanup descriptor. */
-  uint64_t deq=d==wifi_cal5.d?(context_read32(d->output_context,9,2)|((uint64_t)context_read32(d->output_context,9,3)<<32)):0;
-  if(wifi_cal5.stopping && firmware_command_exact && d==wifi_cal5.d && wifi_cal5_owner(&wifi_cal5,true,true) && slot==d->slot_id && dci==9 && !wifi_cal5.pending && e->status==(27u<<24) &&
-   ((e->control>>10)&63)==32 && !(e->control&~(1u|(63u<<10)|(31u<<16)|(255u<<24))) && (context_read32(d->output_context,9,0)&7)==3 && ptr==ring+16*wifi_cal5.posts && deq==(ptr|1))return true;
+  /* Retain one exact empty-ring Stop notification while our published Stop
+   * is in flight. Output context cessation is proved only AFTER that command
+   * completes; this event is neither an unpublished payload nor a packet. */
+  if(wifi_cal5.stopping && wifi_cal5.stop_attempted && xhci.command_pending && firmware_command_exact &&
+   !wifi_cal5.cleanup_stop_seen && d==wifi_cal5.d && wifi_cal5_owner(&wifi_cal5,true,true) && slot==d->slot_id && dci==9 &&
+   wifi_cal5.posts==8 && !wifi_cal5.pending && wifi_cal5.window.polled && wifi_cal5.window.poll_ok &&
+   wifi_cal5.window.attempts==8 && wifi_cal5.window.completions==8 && e->status==(27u<<24) &&
+   ((e->control>>10)&63)==32 && !(e->control&~(1u|(63u<<10)|(31u<<16)|(255u<<24))) && ptr==ring+8*16){
+   wifi_cal5.cleanup_stop_seen=1;wifi_cal5.cleanup_stop_event=*e;return true;
+  }
   if(!wifi_cal5.cleanup_fault_valid){wifi_cal5.cleanup_fault_event=*e;wifi_cal5.cleanup_fault_valid=true;}
   wifi_cal5_cleanup_fail();return true;
  }
@@ -263,7 +267,7 @@ static void wifi_cal5_cleanup_emit(void){
  for(unsigned i=0;i<wifi_cal5.cleanup_completed && i<8;i++){const struct xhci_trb *e=&wifi_cal5.cleanup_events[i];codes|=(uint64_t)(e->status>>24)<<(8*i);residues[i/4]|=(uint64_t)(e->status&0xffffff)<<(16*(i%4));}
  if(wifi_cal5.cleanup_fault_valid){const struct xhci_trb *f=&wifi_cal5.cleanup_fault_event;console_printf("wifi-cal5-cleanup-fault: p=%x s=%u c=%u\n",f->parameter_low|((uint64_t)f->parameter_high<<32),(uint64_t)f->status,(uint64_t)f->control);}
  const struct xhci_trb *e=&wifi_cal5.cleanup_stop_event;uint64_t pointer=e->parameter_low|((uint64_t)e->parameter_high<<32);
- console_printf("wifi-cal5-cleanup: posted=%u completed=%u codes=%x residues0=%x residues1=%x stop_p=%x stop_s=%u stop_c=%u stop_q=%x held=%u failed=%u\n",(uint64_t)wifi_cal5.cleanup_posts,(uint64_t)wifi_cal5.cleanup_completed,codes,residues[0],residues[1],pointer,(uint64_t)e->status,(uint64_t)e->control,wifi_cal5.cleanup_posts?wifi_cal5.stop_dequeue:0,(uint64_t)wifi_cal5_cleanup_held(),(uint64_t)wifi_cal5.cleanup_failed);
+ console_printf("wifi-cal5-cleanup: posted=%u completed=%u codes=%x residues0=%x residues1=%x stop_p=%x stop_s=%u stop_c=%u stop_q=%x held=%u failed=%u\n",(uint64_t)wifi_cal5.cleanup_posts,(uint64_t)wifi_cal5.cleanup_completed,codes,residues[0],residues[1],pointer,(uint64_t)e->status,(uint64_t)e->control,wifi_cal5.cleanup_stop_seen?wifi_cal5.stop_dequeue:0,(uint64_t)wifi_cal5_cleanup_held(),(uint64_t)wifi_cal5.cleanup_failed);
 }
 static bool wifi_cal5_event(struct xhci_device *d,const struct xhci_trb *e){
  if(wifi_cal5_cleanup_event(d,e))return true;
@@ -351,7 +355,12 @@ static bool wifi_cal5_stop(void){
  if(ok){wifi_cal5.stop_state=context_read32(d->output_context,9,0)&7;wifi_cal5.stop_dequeue=context_read32(d->output_context,9,2)|((uint64_t)context_read32(d->output_context,9,3)<<32);
  uint64_t deq=wifi_cal5.stop_dequeue&~15ull;ok=wifi_cal5.stop_state==3 && (wifi_cal5.stop_dequeue&15)==1 && deq>=wifi_cal5.plan.ring && deq<=wifi_cal5.plan.ring+16*(wifi_cal5.posts+wifi_cal5.cleanup_posts);}
  if(ok && wifi_cal5.cleanup_enabled){
-  ok=!wifi_cal5.cleanup_failed && (!wifi_cal5.cleanup_posts || (wifi_cal5.cleanup_stop_seen==1 && !wifi_cal5.cleanup_pending));
+  ok=!wifi_cal5.cleanup_failed && wifi_cal5.cleanup_stop_seen==1 && !wifi_cal5.cleanup_pending;
+  if(ok && !wifi_cal5.cleanup_posts){
+   const struct xhci_trb *e=&wifi_cal5.cleanup_stop_event;
+   uint64_t pointer=e->parameter_low|((uint64_t)e->parameter_high<<32);
+   ok=wifi_cal5.posts==8 && !wifi_cal5.pending && e->status==(27u<<24) && pointer==wifi_cal5.plan.ring+8*16 && wifi_cal5.stop_dequeue==(pointer|1);
+  }
   if(ok){for(unsigned i=0;i<8;i++)copy_bytes(wifi_cal5.cleanup_snapshot[i],wifi_cal5.cleanup_buffer[i],4096);wifi_cal5.cleanup_frozen=true;}
  }
  if(ok){wifi_cal5.pending=false;wifi_cal5.stopped=true;}event_irq_restore(flags);

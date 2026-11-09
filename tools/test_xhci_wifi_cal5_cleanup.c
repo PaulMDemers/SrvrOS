@@ -18,7 +18,7 @@ static bool cal5_drain_test_command(const struct xhci_trb *,unsigned,uint64_t *)
 #pragma GCC diagnostic pop
 static _Alignas(4096) struct xhci_trb cal_commands[64],cal_events[XHCI_EVENT_TRB_COUNT];
 static uint8_t forward_copy[8][4096];
-static struct {unsigned queue,event_fault,stop_fault,span,delays,reads;bool parent,inject_in_control,in_control;uint32_t mac,filter,txop;} sim;
+static struct {unsigned queue,event_fault,stop_fault,span,delays,reads,empty_stop_mode;bool parent,inject_in_control,in_control;uint32_t mac,filter,txop;} sim;
 static bool cal5_drain_test_parent(void){return sim.parent;}
 static bool cal5_drain_test_delay(unsigned us){sim.delays++;test_time+=us;return true;}
 static void event_queue(struct xhci_trb e){
@@ -59,7 +59,18 @@ static bool cal5_drain_test_command(const struct xhci_trb *cmd,unsigned type,uin
  struct xhci_trb e={.parameter_low=p,.parameter_high=p>>32,.status=(wifi_cal5.cleanup_pending?26u:27u)<<24,.control=(32u<<10)|(9u<<16)|((uint32_t)d->slot_id<<24)};
  if(wifi_cal5.cleanup_pending)e.status|=4096;
  switch(sim.stop_fault){case 1:e.parameter_low+=16;break;case 2:e.control^=1u<<24;break;case 3:e.control^=1u<<16;break;case 4:e.status=2u<<24;break;case 5:e.control|=4;break;case 6:e.status=(26u<<24)|4097;break;case 7:context_write32(d->output_context,9,2,p);break;case 8:context_write32(d->output_context,9,0,1);break;case 9:cal_commands[index].control^=1u<<10;break;case 10:xhci.sync_users=2;break;default:break;}
- e.control|=xhci.event_cycle?1:0;dispatch_transfer_event(&e);
+ /* Model Transfer Event before the Stop command finalizes its output context. */
+ if(sim.empty_stop_mode==1 || sim.empty_stop_mode==2){
+  context_write32(d->output_context,9,0,1);
+  context_write32(d->output_context,9,2,(wifi_cal5.plan.ring+7*16)|1);
+ }
+ e.control|=xhci.event_cycle?1:0;
+ if(sim.empty_stop_mode!=4)dispatch_transfer_event(&e);
+ if(sim.empty_stop_mode==3)dispatch_transfer_event(&e);
+ if(sim.empty_stop_mode==1){context_write32(d->output_context,9,0,3);context_write32(d->output_context,9,2,p|1);}
+ if(sim.empty_stop_mode==5)context_write32(d->output_context,9,2,(p-16)|1);
+ if(sim.empty_stop_mode==6){xhci.command_pending=false;xhci.sync_users=0;dispatch_transfer_event(&e);}
+ if(sim.empty_stop_mode==7){xhci.command_failed=true;xhci.command_pending=false;xhci.sync_users=0;return false;}
  xhci.command_pending=false;xhci.sync_users=0;*slot=d->slot_id;return true;
 }
 static void setup(bool enabled,unsigned queued){
@@ -116,6 +127,7 @@ static void finish_capture(void){
  assert(!freed);
 }
 int main(int argc,char **argv){
+ if(argc==2 && !strcmp(argv[1],"--trace-empty")){setup(true,0);sim.empty_stop_mode=1;batch_trace=true;console_write("wifi-cal5-cleanup-plan: forward=8 reserved=8\n");assert(run());return 0;}
  if(argc==2 && !strcmp(argv[1],"--trace")){setup(true,5);batch_trace=true;console_write("wifi-cal5-cleanup-plan: forward=8 reserved=8\n");assert(run());return 0;}
  if(argc==2 && !strcmp(argv[1],"--size-projection")){
   setup(true,8);assert(run());for(unsigned i=0;i<8;i++)wifi_cal5.cleanup_events[i].status=(13u<<24)|4096;
@@ -125,6 +137,10 @@ int main(int argc,char **argv){
  assert(argc==1);
  setup(false,5);assert(!run() && !wifi_cal5.mac.rx_drained && wifi_cal5.mac.rx_rounds==200 && !wifi_cal5.cleanup_posts && sim.queue==5);
  for(unsigned n=0;n<=9;n++){setup(true,n);bool ok=run();assert(ok==(n<=8));assert(wifi_cal5.cleanup_posts<=8 && wifi_cal5.cleanup_completed<=8);if(ok){assert(!sim.queue && wifi_cal5.mac.rx_drained && wifi_cal5.mac.rx_rounds>=7 && wifi_cal5.mac.rx_rounds<=200 && wifi_cal5.cleanup_frozen);for(unsigned i=0;i<8;i++)assert(wifi_cal5_cleanup_alias(wifi_cal5.cleanup_physical[i]));}}
+ /* Empty Stop events carry no payload. Defer final context proof, never
+  * duplicate/omit it or accept failed command/state/frontier outcomes. */
+ for(unsigned mode=1;mode<=7;mode++){setup(true,0);sim.empty_stop_mode=mode;assert(run()==(mode==1));if(mode!=1)assert(!wifi_cal5.cleanup_frozen && !wifi_cal5.stopped && !freed);}
+ for(unsigned fault=1;fault<=10;fault++){setup(true,0);sim.stop_fault=fault;assert(!run() && !wifi_cal5.cleanup_frozen && !freed);}
  for(unsigned span=0;span<=4;span++){setup(true,5);sim.inject_in_control=true;sim.span=span;bool ok=run();assert(ok==(span<2));if(!ok)assert(wifi_cal5.cleanup_failed && !wifi_cal5.cleanup_frozen);}
  for(unsigned fault=1;fault<=7;fault++){setup(true,5);sim.event_fault=fault;assert(!run() && wifi_cal5.cleanup_failed && !wifi_cal5.cleanup_frozen && !freed);}
  for(unsigned fault=1;fault<=10;fault++){setup(true,1);sim.stop_fault=fault;assert(!run() && !wifi_cal5.cleanup_frozen && !freed);}
@@ -139,5 +155,5 @@ int main(int argc,char **argv){
  }
  setup(true,0);assert(run());finish_calls=finish_fault_at=0;finish_capture();
  setup(false,0);assert(run());finish_calls=finish_fault_at=0;finish_capture();
- puts("xhci-cal5-cleanup: PASS actual finite8scratch append/200round7quiet drain,original8 immutable,real eventdispatcher,exactStop and ownEP0 completion spans,normal/stopped distinction,queue/reserve exhaustion,misroute/ED/CC/residue/late/alias/held faults;modeled heldparent/USB,native unaccepted");return 0;
+ puts("xhci-cal5-cleanup: PASS actual finite8scratch append/200round7quiet drain,original8 immutable,real eventdispatcher,exactStop/deferred emptyCC27 context proof and ownEP0 completion spans,normal/stopped distinction,queue/reserve exhaustion,misroute/ED/CC/residue/late/alias/held faults;modeled heldparent/USB,native unaccepted");return 0;
 }

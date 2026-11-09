@@ -1591,7 +1591,7 @@ commands or photos. Native TCP/process/IRQ, worker/service coexistence,
 lifecycle/UI and reliability remain separate gates.
 
 
-Pro11,2 v138 `20157ab5` / `becb29ad72ed94df` is qualified and installed for native
+Historical preboot note: Pro11,2 v138 `20157ab5` / `becb29ad72ed94df` was qualified and installed for native
 validation of separate immutable cleanup receive pages and per-buffer inspection
 ownership. The old7a run is already collected once and failed; keep its856-file
 native and12-file review capsules immutable. Use only the new
@@ -1606,3 +1606,13 @@ failed7a's unreferenced EFI duplicate was retired after accepted7026 fallback.
 Continue the authorized shutdown/Wi-Fi-only10second OFF-state unplug, same-port
 reconnect and power-on sequence; leave workspace connected. Guest progress,
 disk save and Ubuntu return are automatic. No commands or photos are needed.
+
+The20157/BEC run is now collected once and failed before discovery/authentication.
+MAC RX drain passed seven quiet samples without extra cleanup TDs, but the empty
+Stop notification was refused before successful final ownership proof. Its920-file
+primary and separate20-file review are immutable. Do not run its collector again.
+The next bounded correction record is `build/bringup/wifi-cal5-stop`; it must retain
+one exact nonpayload CC27 notification during its own Stop and require successful
+command completion plus final stopped context/dequeue before inspection. Event-time
+context was not logged, so an early context check is a hypothesis rather than an
+established native cause. No new trial is armed until exact source qualification.

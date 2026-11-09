@@ -18,7 +18,7 @@ PLAN='wifi-cal5-cleanup-plan: forward=8 reserved=8'
 TOKEN='srvros.wifi-cal5-cleanup=1'
 
 
-def check(log, stop):
+def check(log, stop, *, require_empty_stop=False):
     lines=log.splitlines()
     enabled=TOKEN in log
     rows=[s for s in lines if s.startswith('wifi-cal5-cleanup')]
@@ -39,8 +39,11 @@ def check(log, stop):
         require((code in (1,13) and residue<=4096) if i<c else (code==0 and residue==0),'cleanup completion/residue vector')
     ring=stop['ring'];frontier=ring+16*(8+n)
     require(stop['posts']==8 and stop['ok']==1 and stop['state']==3 and stop['retained']==1 and stop['dequeue']&15==1,'cleanup parent Stop')
+    terminal=any(d[k] for k in ('stop_p','stop_s','stop_c','stop_q'))
     if not n:
-        require(not c and not any(d[k] for k in ('codes','residues0','residues1','stop_p','stop_s','stop_c','stop_q')),'unposted cleanup event')
+        require(not c and not any(d[k] for k in ('codes','residues0','residues1')),'unposted cleanup completion')
+    if not n and not terminal:
+        require(not require_empty_stop,'missing explicit empty forward Stop proof')
         require(stop['dequeue'] in (ring+113,ring+129),'legacy forward Stop frontier')
     else:
         control=d['stop_c'];allowed=1|(63<<10)|(31<<16)|(255<<24)
@@ -57,4 +60,4 @@ def check(log, stop):
     calibration=[s for s in lines if s.startswith('wifi-cal5-calibration:')]
     require(len(stops)==len(finals)==len(calibration)==1 and len(posts)==8,'cleanup parent row counts')
     require(lines.index(calibration[0])<lines.index(rows[0])<lines.index(posts[0]) and lines.index(stops[0])<lines.index(rows[1])<lines.index(finals[0]),'cleanup proof outside owner lifetime')
-    return dict(cal5_cleanup_enabled=True,cal5_cleanup_posts=n,cal5_cleanup_completions=c,cal5_cleanup_slot=d['stop_c']>>24 if n else 0)
+    return dict(cal5_cleanup_enabled=True,cal5_cleanup_posts=n,cal5_cleanup_completions=c,cal5_cleanup_slot=d['stop_c']>>24 if terminal else 0)
