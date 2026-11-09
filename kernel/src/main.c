@@ -53,6 +53,7 @@
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
 #include <srvros/process.h>
+#include <srvros/http_child_preflight.h>
 #include <srvros/scheduler.h>
 #include <srvros/serial.h>
 #include <srvros/timer.h>
@@ -817,10 +818,12 @@ void kmain(void) {
         cmdline_has_token(cmdline,"srvros.wifi-data5=1") && cmdline_has_token(cmdline,"srvros.wifi-wpa5=1") &&
         cmdline_has_token(cmdline,"srvros.capture=wifi-firmware") && cmdline_has_token(cmdline,"srvros.capture-failure=reboot") &&
         !cmdline_has_token(cmdline,"srvros.wifi-desktop-trial=1");
+    bool http_child_trial=cmdline_has_token(cmdline,"srvros.http-child-preflight=1");
     bool wifi_stack5_trial=cmdline_has_token(cmdline,"srvros.wifi-stack5=1") &&
         cmdline_has_token(cmdline,"srvros.wifi-stream5=1") && cmdline_has_token(cmdline,"srvros.capture=wifi-firmware") &&
         cmdline_has_token(cmdline,"srvros.capture-failure=reboot") && !cmdline_has_token(cmdline,"srvros.wifi-desktop-trial=1") && cmdline_tokens_unique(cmdline);
-    if(wifi_stack5_trial)console_write("wifi-stack5-boot: net_init_deferred=1 worker_deferred=1\n");
+    if(http_child_trial)console_write("http-child-boot: isolated_init=1 net_init_deferred=1 worker_deferred=1\n");
+    else if(wifi_stack5_trial)console_write("wifi-stack5-boot: net_init_deferred=1 worker_deferred=1\n");
     else if(wifi_provider_trial)console_write("wifi-provider5-boot: net_init_deferred=1 worker_deferred=1\n");
     else {
         net_init();
@@ -893,7 +896,7 @@ void kmain(void) {
     }
 #endif
     bool init_ready = false;
-    int64_t init_pid = process_spawn_background_elf_args_quiet("/init", "--system");
+    int64_t init_pid = process_spawn_background_elf_args_quiet("/init", http_child_trial?"--network-probe":"--system");
     if (init_pid >= 0) {
         (void)process_set_reaper((uint64_t)init_pid);
         console_printf("init: started pid=%u\n", (uint64_t)init_pid);
@@ -905,6 +908,7 @@ void kmain(void) {
     } else {
         console_write("init: start failed\n");
     }
+    http_child_preflight_enable(http_child_trial && init_ready && timer_running);
     keyboard_print_status();
     xhci_print_input_summary();
     if (!boot_verbose) {

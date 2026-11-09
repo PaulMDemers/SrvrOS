@@ -29,6 +29,7 @@
 #include <srvros/path_limits.h>
 #include <srvros/process.h>
 #include <srvros/process_lifetime_test.h>
+#include <srvros/http_child_preflight.h>
 #include <srvros/scheduler.h>
 #include <srvros/timer.h>
 #include <srvros/vfs.h>
@@ -1105,6 +1106,8 @@ static void run_command(char *line) {
             heap_used_bytes());
     } else if (streq(command, "ticks")) {
         console_printf("ticks: %u\n", timer_ticks());
+    } else if (streq(command, "httpchildtest")) {
+        (void)http_child_preflight_run();
     } else if (streq(command, "lifetimetest")) {
         process_lifetime_test_run();
     } else if (streq(command, "semaphoretest")) {

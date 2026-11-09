@@ -692,7 +692,7 @@ USER_WEBD_S := $(shell find userspace/webd -type f -name '*.S' 2>/dev/null | LC_
 USER_WEBD_OBJ := $(USER_WEBD_C:%.c=build/%.c.o) $(USER_WEBD_S:%.S=build/%.S.o)
 USER_WEBD_DEP := $(USER_WEBD_C:%.c=build/%.c.d) $(USER_WEBD_S:%.S=build/%.S.d)
 
-USER_HTTPGET_C := $(shell find userspace/httpget -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_HTTPGET_C := $(shell find userspace/httpget -type f -name '*.c' 2>/dev/null | LC_ALL=C sort) userspace/wifihttpprobe/http_exact.c
 USER_HTTPGET_S := $(shell find userspace/httpget -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 USER_HTTPGET_OBJ := $(USER_HTTPGET_C:%.c=build/%.c.o) $(USER_HTTPGET_S:%.S=build/%.S.o)
 USER_HTTPGET_DEP := $(USER_HTTPGET_C:%.c=build/%.c.d) $(USER_HTTPGET_S:%.S=build/%.S.d)
@@ -6356,3 +6356,24 @@ test-sync-content: $(LIMINE_PROTOCOL_DIR)/.ready build/tests/desktop-session-hos
 	$(PYTHON) -m unittest discover -s tools -p test_capture_history.py
 	$(PYTHON) tools/test_capture_history_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
 test-core: test-sync-content
+
+.PHONY: test-http-child
+test-core: test-http-child
+test-wifi-completion-foundations: test-http-child
+test-http-child: build/tests/process-pipe-handoff-host$(HOST_EXE) build/tests/http-child-owner-host$(HOST_EXE) build/tests/httpget-wifi-exact-host$(HOST_EXE) build/tests/init-network-probe-host$(HOST_EXE)
+	build/tests/process-pipe-handoff-host$(HOST_EXE)
+	build/tests/http-child-owner-host$(HOST_EXE)
+	build/tests/httpget-wifi-exact-host$(HOST_EXE)
+	build/tests/init-network-probe-host$(HOST_EXE)
+build/tests/process-pipe-handoff-host$(HOST_EXE): tools/test_process_pipe_handoff.c tools/test_process_pipe_handoff_support.inc kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I kernel/src -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+build/tests/http-child-owner-host$(HOST_EXE): tools/test_http_child_owner.c kernel/src/http_child.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< kernel/src/http_child.c -Wl,--gc-sections -o $@
+build/tests/httpget-wifi-exact-host$(HOST_EXE): tools/test_httpget_wifi_exact.c userspace/httpget/wifi_exact.c userspace/httpget/wifi_exact.h userspace/wifihttpprobe/http_exact.c userspace/wifihttpprobe/http_exact.h userspace/lib/src/sys.c $(KERNEL_HEADERS) userspace/lib/include/srvros/sys.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DSRVROS_SYS_HOST_TEST -I shared/include -idirafter userspace/lib/include -Wl,--wrap=http_exact_build_request -Wl,--wrap=http_exact_init -Wl,--wrap=http_exact_feed $< userspace/httpget/wifi_exact.c userspace/wifihttpprobe/http_exact.c userspace/lib/src/sys.c -Wl,--gc-sections -o $@
+build/tests/init-network-probe-host$(HOST_EXE): tools/test_init_network_probe.c userspace/init/network_probe.c userspace/init/network_probe.h userspace/lib/src/sys.c $(KERNEL_HEADERS) userspace/lib/include/srvros/sys.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DSRVROS_SYS_HOST_TEST -I shared/include -idirafter userspace/lib/include $< userspace/init/network_probe.c userspace/lib/src/sys.c -Wl,--gc-sections -o $@
