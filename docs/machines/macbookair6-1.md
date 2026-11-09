@@ -10760,3 +10760,18 @@ The repeat's worst wait binds to PID7 global sync with3.784027s file work and
 is correlated sync/content/exFAT operation evidence with deterministic interleaved
 flush regression, followed by one proven equivalent-work optimization. Pixel
 transfer pacing is separate. No production change or reboot is armed by this plan.
+
+### Correlated sync/content diagnostic implementation scope (2026-11-09)
+
+Base `76608d63`, implementing the first stage of the researched screenshot
+latency plan. Bound existing worst SYS_SYNC to real shared content lifetime,
+size/outcome and exclusive filesystem I/O roles; retain all three completed
+captures for valid comparisons. Touch internal sync timing, process/exFAT
+observation hooks, final workspace reporting, desktop capture history and strict
+host/parser/VM/native collection. Parallel subagents own capture history and
+real-process integration fixtures; root owns shared kernel/collection changes.
+No transport, gate, power, ownership, watchdog, allocation or durability policy
+changes. PR19 networking, PR301 scanout and PR379 WebCore remain separate.
+Next checkpoint: original controller operations/outcomes unchanged under the
+observer, complete bound records under existing atomic/tail limits, full matched
+validation, then the original unattended30-minute1% stress and Ubuntu recovery.

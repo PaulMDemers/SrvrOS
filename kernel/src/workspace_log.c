@@ -145,6 +145,25 @@ static void report_sync_transfers(const char *scope,uint64_t id,const struct usb
         b->submitted,b->observed,b->resumed,(uint64_t)b->seen,(uint64_t)b->service_valid,
         b->service_checks,b->service_samples,b->service_gap_max_us,b->completion_gap_us);
 }
+/* Correlate only final retained worst calls. One selected file-phase owner
+ * keeps role detail bounded; all PID summaries permit independent selection. */
+static void report_sync_content(uint64_t at,const struct sync_timing_snapshot *s) {
+    const struct sync_timing_record *selected=NULL;
+    for(unsigned i=0;i<SYNC_TIMING_RECORDS;i++) {
+        const struct sync_timing_record *r=&s->records[i];if(!r->pid)continue;
+        const struct sync_timing_call *c=&r->worst;
+        console_printf("sync-content-summary: version=1 snapshot_us=%u pid=%u id=%u calls=%u bytes=%u failures=%u final=1\n",at,r->pid,c->start_us,c->content.calls,c->content.bytes,c->content.failures);
+        if(c->content.calls && (!selected || c->files_end_us-c->start_us>selected->worst.files_end_us-selected->worst.start_us))selected=r;
+    }
+    console_printf("sync-content-selection: version=1 snapshot_us=%u pid=%u id=%u final=1\n",at,selected?selected->pid:0,selected?selected->worst.start_us:0);
+    if(!selected)return;
+    const struct sync_content_call *c=&selected->worst.content.worst;
+    console_printf("sync-content-worst: version=1 snapshot_us=%u pid=%u id=%u slot=%u identity=%u inode=%u size=%u start_us=%u end_us=%u ok=%u dirty_after=%u final=1\n",at,selected->pid,selected->worst.start_us,c->slot,c->identity,c->inode,c->size,c->start_us,c->end_us,c->ok,c->dirty_after);
+    for(unsigned i=0;i<SYNC_CONTENT_ROLES;i++) {
+        const struct sync_content_io *p=&c->io[i];
+        console_printf("sync-content-io: version=1 snapshot_us=%u pid=%u id=%u role=%u reads=%u read_bytes=%u read_us=%u writes=%u write_bytes=%u write_us=%u flushes=%u flush_us=%u failures=%u final=1\n",at,selected->pid,selected->worst.start_us,(uint64_t)i,p->reads,p->read_bytes,p->read_us,p->writes,p->write_bytes,p->write_us,p->flushes,p->flush_us,p->failures);
+    }
+}
 static void sync_checkpoint(bool final) {
     struct sync_timing_snapshot s;sync_timing_snapshot(&s);if(!s.enabled)return;
     exfat_print_sidecar_equality();
@@ -161,6 +180,7 @@ static void sync_checkpoint(bool final) {
         report_sync_transfers("files",c->start_us,&c->usb[0]);
         report_sync_transfers("devices",c->start_us,&c->usb[1]);
     }
+    if(final)report_sync_content(at,&s);
 }
 static void report_save(void) {
     if(!previous_save.pending) return;

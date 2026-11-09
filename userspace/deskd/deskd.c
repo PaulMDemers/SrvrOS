@@ -193,6 +193,8 @@ struct session {
     unsigned capture_finished;
     uint64_t capture_serial;
     struct capture_trace slowest_capture;
+    struct capture_history capture_history;
+    uint64_t capture_worker_pid;
     struct pixel_cache cache[DESKD_WINDOWS][2];
     struct pixel_cache retained_cache[2];
     uint64_t cache_reuses;
@@ -1440,7 +1442,8 @@ static struct operation_trace operation_snapshot(const struct session *s,uint64_
         .cache_bytes=s->cache_bytes,.cache_reuses=s->cache_reuses,
         .last_pid=s->last_launch_pid,.last_exec_us=s->last_exec_us,.pending_opens=s->pending_opens,.exiting=s->exiting,
         .exit_age_us=s->exiting && s->exit_started_us?now-s->exit_started_us:0,
-        .preferences=s->preferences.job.busy || s->preferences.dirty,.capture=capture_snapshot(s,now),.slowest=s->slowest_capture};
+        .preferences=s->preferences.job.busy || s->preferences.dirty,.capture=capture_snapshot(s,now),.slowest=s->slowest_capture,
+        .capture_history=s->capture_history};
     /* Preserve observed Close progress even if a deadline aborts this lifetime.
      * Zero remains unobserved; never manufacture a completed Close record. */
     if(t.ready_worst.pid && t.ready_worst.pid==s->current_lifetime.pid &&
@@ -1476,9 +1479,11 @@ static struct operation_trace operation_snapshot(const struct session *s,uint64_
 }
 static void capture_tick(struct session *s,const uint32_t *pixels) {
     int result=0;
+    if(s->capture.pid)s->capture_worker_pid=s->capture.pid;
     if(s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE) {
         int prepared;
         if(!life_prepare_take(s->worker,&s->capture,&prepared))return;
+        s->capture_worker_pid=s->capture.pid;
         if(prepared)result=-1;
         else if(desk_capture_job_snapshot(&s->capture,pixels,s->damage.width,s->damage.height)) {
             /* A changed/vanished canvas cannot be copied with stale bounds.
@@ -1496,7 +1501,9 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
     if(result) {
         int success=result>0 && !s->capture.response.status;
         s->capture_success=success;s->capture_finished++;
-        struct capture_trace captured=capture_snapshot(s,(uint64_t)srv_monotonic_us());
+        uint64_t retired=(uint64_t)srv_monotonic_us();
+        struct capture_trace captured=capture_snapshot(s,retired);
+        capture_history_record(&s->capture_history,&captured,s->capture_worker_pid,retired,result);
         if(captured.age_us>=s->slowest_capture.age_us)s->slowest_capture=captured;
         const char *name=strrchr(s->capture.request.path,'/');
         capture_notice(s,success,success?(name?name+1:s->capture.request.path):"Save or verification failed. Check Files.");
