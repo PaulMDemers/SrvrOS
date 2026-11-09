@@ -130,3 +130,17 @@ controls pass. Exact-stage VM save/unmount/return and missing-workspace refusal
 pass; the unchanged log bound projects65,456/65,536 bytes. All8,136 PTE loads
 remain;44 callbacks replace per-word dispatch. This is local evidence only.
 The native retry must still meet the original deadlines and preservation checks.
+
+## Native batching retry: still incomplete
+
+Air7,2 source `6a641caf`, release `ac555dcb12463fa3`, records121,296/100,000 us
+for the dependent lifetime:9,148 us (7.01%) less than the previous130,444 us,
+but still21,296 us over the unchanged limit. Preservation plus its final guard
+takes39,266 us after82,030 us elapsed. Both candidates are single observations.
+All10 ACKs, both held snapshots, final zero controls and complete raw engine/
+context/display/HDA equality verify;144 guards and230 target words remain.
+Reason514 retains the borrow, parent and13 aliases. No native preparation or
+memory acceptance follows. The287,256 us outer interval is within500 ms; its
+start differs from the parent's300 ms clock, which records no fault. Do not
+attribute an owner overrun from the outer interval. Continue measured admission/
+preservation optimization while retaining every deadline and observation.

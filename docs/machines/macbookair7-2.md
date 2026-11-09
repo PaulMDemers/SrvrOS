@@ -2,7 +2,39 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Current scope: backing-read retry ready for hardware
+### Latest hardware: backing batches improve time but still miss deadline
+
+Source `6a641caf`, release `ac555dcb12463fa3`, session
+`session-00065fda8ffac201-00` is **incomplete**, not accepted. Preparation plus
+verification takes121,296/100,000 us, down9,148 us (7.01%) from130,444 us in the
+previous run. Admission/control work before preservation takes82,030 us;
+preservation and its final guard take39,266 us. This is one observation per
+candidate, not a statistical performance guarantee. The guard count remains144
+and target observations230; no deadline or acceptance condition changed.
+
+All ten first/final ACKs match (five requests3, five reverse cancellations0),
+without extra polling. Both held snapshots agree, final controls return to zero,
+and the complete92-word pre/post engine/context plus27 display/10 HDA raw
+vectors match exactly. The final dependent clock check still fails at stage5:
+reason514, borrow/parent retained,13 aliases unretired. Outer elapsed287,256 us
+is within500 ms. The outer clock starts before the parent; it cannot be compared
+to the separate300 ms owner limit. No parent clock fault is recorded. The
+previous note attributing308,587 us outer time to an owner overrun is corrected
+below. Raw equality alone does not accept preservation or release ownership.
+
+Checkpoint/release/options and strict receipts verify. All1,407 prior USB files
+preserve apart from expected workspace metadata; three new logs produce1,410
+files/126 sessions. Offline filesystem/allocation/writable/headroom and all
+installed/durable current/recovery/accepted payload checks pass. Ubuntu is
+default, the one-shot is consumed and no reboot is armed. The photo and complete
+raw receipts are retained outside build with verified hashes. Checkpoint:
+`build/air-prepare-batches-20261109`.
+
+Next reduce repeated full admission/preservation work without extending the
+100/300/500 ms or10 ms phase deadlines, removing observations, or freeing retained
+ownership. All255 memory obligations and native tear-free remain open.
+
+### Pre-run qualification: backing-read retry
 
 Main `d057f7d8` is integrated as `0186befc`. Tested source `6a641caf`, release
 `ac555dcb12463fa3`, batches the inherited-backing reads used by existing admission
@@ -41,13 +73,13 @@ byte verification; all logs and full installed/durable payloads remain. The
 new global staging duplicate was retired after exact comparison; its immutable
 local stage remains. Checkpoint:`build/air-prepare-batches-20261109`.
 
-Next run the unattended preparation retry: no typing is needed, safe saved
+The completed retry is recorded above. No typing was required; safe saved
 outcomes return automatically, and uncertain ownership or persistence failure
 halts visibly. Collect the matching session before another run. All255 memory
 obligations remain open and native tear-free remains unaccepted. Pro11,2 PR19
 Wi-Fi and WebCore PR379 remain independent.
 
-### Latest hardware: preparation deadline failure collected
+### Earlier hardware: preparation deadline failure collected
 
 Source `ba7fa11b`, release `0c1e0b40f71e6d7a`, session
 `session-00065fd9972ec269-00` is **incomplete**, not accepted. All five engines
@@ -57,8 +89,9 @@ Raw92-word pre/post engine/context vectors and27 display/10 HDA words match.
 However, preservation and its final guard exceeded the unchanged100 ms deadline:
 130,444 us total, with42,175 us after88,269 us had elapsed. Reason514 records
 clock failure and an unreturned borrow. The13 aliases and parent remain retained;
-no reset, memory or tear-free authority follows. Outer elapsed308,587 us also
-exceeds the300 ms owner budget, while within the500 ms outer budget.
+no reset, memory or tear-free authority follows. Outer elapsed308,587 us is
+within the500 ms outer budget. Its start differs from the parent clock; this
+value does not establish a300 ms owner overrun. No parent clock fault is recorded.
 
 The saved checkpoint verifies. All1,404 prior files preserve apart from expected
 workspace metadata; three new logs produce1,407 files/125 sessions. Offline
