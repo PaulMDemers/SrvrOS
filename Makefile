@@ -6128,3 +6128,9 @@ build/tests/xhci-nop5-host$(HOST_EXE): tools/test_xhci_wifi_nop5.c tools/test_xh
 test-wifi-nop5-log: build/tests/xhci-nop5-host$(HOST_EXE)
 	$< --trace > build/tests/xhci-nop5-trace.log
 	WIFI_NOP5_TRACE=build/tests/xhci-nop5-trace.log $(PYTHON) -B -m unittest discover -s tools -p test_wifi_nop5_log.py
+
+.PHONY: test-wifi-main-dispatch
+test-core: test-wifi-main-dispatch
+test-wifi-completion-foundations: test-wifi-main-dispatch
+test-wifi-main-dispatch:
+	WIFI_DISPATCH_CC="$(HOST_CC)" $(PYTHON) -B -m unittest discover -s tools -p test_wifi_main_dispatch.py
