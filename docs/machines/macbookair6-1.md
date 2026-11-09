@@ -10107,3 +10107,58 @@ command/checkpoint evidence. Native timing and any performance fix remain pendin
 Retain accepted `13b77acfd1826907` and console recovery `c35475f62f154f1e`;
 archive only a superseded unreferenced EFI duplicate after independent payload
 verification to make installation room. No sibling or power-policy acceptance.
+
+
+### Native command-status/checkpoint results (2026-11-09)
+
+PR433 merge `e85a6846`, compiled source `dc7b09f7`, release
+`53bbc1245abcc03d`, run `34893cf2c173469c`, session
+`session-00065fd1484d6702-00` completes the original automated1800-second1%
+PCM/disk/app/three-screenshot workload. Automatic collection and independent
+saved-log parsers agree:1074 app cycles,3880 verified262144-byte bursts
+(1017118720 bytes),345763840 PCM bytes, zero recorded underruns and worker/
+lifecycle errors.53609 valid loop observations have zero invalidity/excursions,
+129963us maximum loop and2144889/1999509us maximum launch/close, inside the
+unchanged500ms/10s limits. Three exact1366x768 BMPs, follow-up Files, normal
+exit, battery/cache/app/capture retirement and automatic Ubuntu return pass.
+All710 prior files preserve contents except expected filesystem metadata;
+719 files/2586 allocated clusters have clean fsck/allocation, zero leaks and
+zero FAT/bitmap mismatches. Independent617-file evidence manifest and installed/
+recovery payload hashes verify. Subjective audio remains unassessed at1%; the
+prior user-confirmed30-second25% check is separate.
+
+All five retained sync PIDs have complete command/checkpoint/USB records with
+zero errors/conflicts/invalidity/drops and no active trace. Workload PID7 makes
+3880 global sync calls totaling17.908305s. Its slowest call takes2.332299s:
+file2.331895s, parent-device flush404us. File-phase wall partitions into
+2.004412s USB callbacks,236574us across671 existing BOT checkpoints, and90909us
+outside both brackets. CSW callbacks account for1.809615s; five exceed100ms.
+The slowest retained CSW is a16384-byte WRITE(10),350728us callback with exact
+13-byte status return. Submission-to-software-observation350529us versus198us
+observation-to-resume,43045 service checks/169 samples and10063us maximum
+sampled gap show continued service during this particular long wait. This does
+not establish hardware completion time, a media fault or the causes of all slow
+CSWs. The correlated append622810698–625142332us writes524288 payload bytes
+in1.797184s; its ten flush calls total5566us. Prefix/metadata and other work
+remain required. The command/checkpoint result accepts observations, not a fix.
+
+Raw screenshot worker PID11/473/942 gate totals are9.368/16.285/8.092s versus
+about21ms handler totals. The first two retained worst waits overlap PID7
+SYS_SYNC; the third overlaps PID7 SYS_FSYNC (53), so global sync alone is not
+the full gate-delay explanation. Slowest screenshot total27.058020s, receive
+6.955717s and WRITE16.709473s leave latency open; variation against the prior
+22.589527s observation is not evidence of an improvement. Cleanup completes.
+
+Next useful bounded scope: audit write amplification and batching opportunities
+in the file-sync/append path, correlating command type/size with media work before
+choosing a fix. Preserve full old-prefix validation, all live dirty writers,
+required global barriers, full readbacks/flush/rename/failure protection,
+same-process/private-image exclusions and every transport/policy/watchdog limit.
+Do not attribute a350ms wait to delayed software resume or claim that all gates
+are global sync. Receive latency stays separate. No new implementation or boot
+is started by this closeout. Current `53bbc1245abcc03d`, prior accepted
+`13b77acfd1826907` and console recovery `c35475f62f154f1e` verify; superseded
+`93d4474e781f4b6a` has a verified independent full payload backup after removing
+only its unreferenced EFI duplicate for installation space. Ubuntu stays default,
+one-shot entry empty, collector disabled; accepted payload/evidence backups
+remain outside build. Earlier failed attempts retain their original status.
