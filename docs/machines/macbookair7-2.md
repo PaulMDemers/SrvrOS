@@ -2,6 +2,25 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Active implementation: maintained read-only preparation action
+
+Main `125eb2b5` (Air6,1 PR446 content-timing instrumentation) is integrated;
+the Makefile merge retains both sync-content and requester tests. This block
+adds a separate actual-core preparation entry point for a bounded **read-only**
+action while the existing original borrow and all five reset requests stay live.
+The old no-action API/native recipe remains unchanged. The callback is bracketed
+by full guards and held snapshots; failure retains uncertain ownership. The
+existing100ms includes the action and cleanup. No epoch-changing/reset/PTE action
+or positive hardware assurance is authorized by this boundary.
+
+User-authorized subagents own the core/API, independent action regressions and
+read-only protocol review; the parent owns integration/builds and documentation.
+Scope: engine preparation core/header, a dedicated host test and Makefile/docs.
+Dependencies: original same-parent/epoch takeover/census and existing provider
+boundaries. Next checkpoint is actual-core failure qualification, not a physical
+trial. Installed requester release `3ff42f33e6c01391` and recovery are unchanged;
+matching previous run is collected, no reboot armed, volume1%.
+
 ### Active scope: ownership bootstrap and tear-free implementation plan
 
 After accepted requester capture, the current block integrates main `76608d63`
