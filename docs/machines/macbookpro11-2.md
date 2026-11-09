@@ -16314,3 +16314,26 @@ both reviews. Ubuntu defaults/recovery and cleared one-shot pass. No causal
 claim is made about the preceding failed AUTH exchange. Next consume actual
 mainbdc14461 FAT-link batching with affected software/storage/exact-image and
 native regression, then isolated legitimate-process TCP/HTTP implementation.
+
+### Main-integration preflight namespace refusal (November 9)
+
+Merged source5ca1925e/mainbdc14461 passes the181.72second affected-filesystem/
+logger/storage/matched-image suite and exact420-file workspace VMs. Candidate
+9f443344d9d534da was NOT installed or armed: its read-only writable preflight
+refused. The13-file preparation-failure capsule is immutable, seal
+4670afd9093eabdb0b461ada60e167a9a688c65c977b49b035fabbc44253872f.
+Filesystem/allocation are clean. The standard rebuilt host driver mounts /vol,
+while native metadata paths are /work; strict production import correctly refuses
+that foreign prefix. A private exact-image reproduction changes only the host
+mount literal: /vol refuses, /work passes, with identical image bytes and zero
+writes. Earlier incremental host-binary provenance is unknown and is not used to
+explain away the current refusal. Accepted7026/1155native+109notes are unchanged.
+
+Root's next bounded fix is host inspection tooling only: an explicit validated
+read-only mountpoint option, preserving /vol default fixture compatibility and
+passing this unit's /work explicitly from its workflow. Do not rewrite/remap
+metadata, try namespace fallbacks or relax production import/quarantine/identity
+gates. Root owns wrapper/workflow/Makefile/integration; disjoint agent may own
+host-driver argument implementation and focused read-only image tests. Requalify
+the changed tool, exact image and matching device preflight before installation.
+Current7026/e47d and protected payloads remain installed, Ubuntu default/unarmed.
