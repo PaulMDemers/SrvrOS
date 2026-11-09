@@ -10525,3 +10525,130 @@ trial/payload backups and original failed-run allocated-media evidence survive
 `make distclean`. No reboot is armed. Next bounded step: repeat the same
 instrumented native workload to seek recurrence before treating the intermittent
 battery issue as resolved; preserve existing failure containment and limits.
+
+### Identical-payload query diagnostic repeat completed (2026-11-09)
+
+Run `178eae2fce944cc1`, session `00065fdbaa4182e0-00`, repeated the exact
+installed `318c5032d1519383` payload (compiled `10cb60fb`, ports `d40e118`).
+A fresh exact-stage VM refusal/save/unmount/return passed before the repeat;
+full host/VM and first native validation were reused only after staged,
+installed and independent payload hashes verified. Checkout `f30ad7a5` differs
+from compiled source only in documentation. No source, workload or policy changed.
+
+The complete1800-second1% run passes1081 app cycles,4309 verified disk bursts
+(1129578496 bytes),345731072 PCM bytes, all three exact1366×768 BMPs and zero
+recorded underruns/worker/lifecycle errors. All52415 loop observations are valid,
+with zero excursions and121495us maximum under500ms. Launch/close maxima
+1675310/2398606us remain under10s. Follow-up Files, screenshot/cache/worker
+cleanup, normal exit, battery retirement and automatic Ubuntu return pass.
+Battery retirement has705 attempts, zero rejections,10599 queries,28 notifications,
+matched attach/detach and zero heap/errors/denials. Independent saved evidence,
+receipt/BMP checks and offline filesystem/allocation proof agree.
+
+All742 prior files remain present with contents unchanged except expected
+sidecar metadata; final751 files/2947 clusters have zero leaks, FAT/bitmap
+mismatches or errors. Sidecar counters complete17459 checks/3601 equal/13858
+changed, zero refused/flush/active/invalid, with23 new equalities witnessed inside
+live PCM and a complete final snapshot. The353801693 retained serialized bytes
+are logical proof bytes, not physical write savings. Slowest screenshot is
+26.788837s (receive6.351189s / WRITE14.890256s), with54.199ms worst cleanup;
+latency remains open and no stable improvement is inferred.
+
+This and the previous run are two separate cold-boot30-minute passes, totaling
+2166 app cycles/8346 verified disk bursts/six screenshots, not one continuous
+hour of acceptance. The earlier query-transport halt did not recur; no failure-
+only diagnostic was emitted. **The intermittent cause remains unresolved.**
+No fix, continuous transfer-failure count or subjective1% sound claim follows;
+the original failed trial/media/photo remain protected. Keep failure containment,
+watchdogs and all limits unchanged. A useful next diagnostic audit is to retain
+the first upper-level SBS/SMBus failure context as well as the later transfer
+refusal; EC DONE/OK can coexist with a poisoned upper-level transaction.
+
+Current/accepted/recovery payloads verify, Ubuntu remains default, one-shot is
+empty and collector disabled. USB is unmounted, no reboot is armed, and the
+separate repeat evidence backup survives `make distclean`. This closeout makes
+no further implementation or boot change.
+
+### First upper-protocol failure diagnostic scope (2026-11-09)
+
+Base `e22adf1f`, after collecting both complete diagnostic runs. Bounded
+objective: preserve the first SBS/SMBus refusal/failure before a later EC query
+refusal can hide its origin. Add fixed RAM reason/time/phase/status/poll-gap
+observations at existing driver failure boundaries, then latch the first runtime
+operation with worker/IF/I/O context before local state or later attempts replace
+it. Emit a bounded terminal/retirement record for persistent collection. Preserve
+exact EC100ms, read-word2s, event1s, sample20s/poll budgets, byte ordering, failure/
+poison/cancel behavior, last-good sample, ownership, watchdogs and stress limits.
+Poll gaps are wall observations, never proof of scheduler or hardware latency.
+
+Touch internal EC-SMBus/SBS observation fields and failure-only helpers, battery
+runtime reporting and real-driver/first-latch/strict-record regressions as needed.
+No retry, IRQ enabling, extra EC/SMBus transaction, reset, ownership bypass or
+speculative fix. Existing transfer diagnostics remain separate. Current PR19/301
+must be checked for overlap before shared edits; no cross-task messaging or
+other-machine acceptance. Next checkpoint: prove original outcomes/transactions/
+limits unchanged, first evidence survives a later refusal/clean teardown, full
+matched host/VM/exact-stage checks, then the original automated native workload.
+The battery cause remains unresolved and historical failures remain failed.
+
+### First upper-protocol observation validated and staged (2026-11-09)
+
+Frozen SrvrOS `b0169186` / ports `39ad9d7` (SrvrPorts PR14) adds internal
+EC-SMBus/SBS failure snapshots and the first runtime operation latch. Existing
+failure actions remain unchanged: original EC100ms/read-word2s/event1s/sample20s
+and poll caps, byte order, last-good sample, poison/cancel, bank ownership and
+watchdogs are preserved. Poll gaps use the existing supplied clocks and are
+wall observations, not scheduling or hardware completion attribution. There is
+no retry, extra EC/SMBus transaction, IRQ enabling, reset or permission grant.
+The newly initialized runtime clears the latch; later operations and local
+state teardown cannot replace its copy. Source ownership remains held through
+retirement reporting. See the [evidence contract](../battery-service.md#first-battery-protocol-failure-evidence).
+
+The real-driver/wrapper regression reproduces an upper2s deadline poisoning an
+EC still at DONE/OK, then a later query transfer refusal. First evidence survives
+that refusal and destruction of local runtime state. Added cases cover each bus
+reason, exact boundary clocks/gaps, pre-cancel EC state, acknowledgement failure,
+unknown cancellation time, no-I/O refusal and unchanged last-good data. Strict
+record tests consume actual C output and reject missing/malformed/conflicting/
+unbound proof. An empty-latch epoch-bound retirement marker after PCM is newly
+required by the explicit stress collector; any observed operation failure fails
+diagnostic acceptance without changing the normal runtime's original outcome.
+The first failure is not a complete causal trace and may be unrelated to a later
+fault. Status zero alone is not proof of a successful read.
+
+Full matched normal/native/VM/RAM/USB builds, core, desktop and docs pass on
+`b0169186`, including89 install/recovery tests in744.925s with one expected skip.
+An independent comparison runs the original legacy fixtures against old/new
+state machines using matched extended internal headers. Original assertions and
+ordered controller-callback/legacy poll/begin/cancel state fingerprints match
+(1218854 bus and519025 sample trace words). This is logical behavior regression,
+not binary-layout or latency equivalence. Existing256-status/address event,
+SBS and real-wrapper cases pass. Six report rows fit the unchanged1024-byte
+atomic bootlog record bound at a conservative385 bytes maximum. Legacy log
+capacity, budgets and UART/whole-record collection rules are unchanged.
+
+Ordinary syscall, USB keyboard, fork/exec-vectors/yield and real USB read-only/
+write/flush/reload/input integration pass. Populated-Home KVM400-write-IOPS
+stress passes22 app cycles,182 overlap observations,139986us maximum loop and
+1238680/1607735us maximum launch/close, zero audio/worker/lifecycle errors and
+clean retirement. Independent saved app/sync/write/gate/loop/equality proof
+agrees, with complete atomic app coverage. The new clean epoch1 protocol marker
+at65.222141s follows PCM end63.285093s. Ordinary immutable screenshot/readback/
+Preview/repeat/exit passes. Exact stage `69a87466479ab140` passes Q35 native-board
+refusal/save/unmount/automatic return; native observation remains pending.
+
+Next trial repeats the original1800-second1% audio/disk/app/three-screenshot
+workload with every500ms loop/10s lifecycle/readback/equality/timing/retirement/
+allocation requirement unchanged, plus the new bound post-playback protocol
+proof. No native cause or fix is claimed. Previous318c two-run acceptance and
+c157 failure/photo/allocated-media evidence remain intact. Keep known-working
+`318c5032d1519383`, accepted `8caa2866d8888e8c` and console recovery
+`c35475f62f154f1e`; remove only the unreferenced failed c157 EFI duplicate after
+its full independent backup and no-boot-reference checks. Four old stage-only
+duplicates were removed after every file hash matched independent payload
+backups, freeing607374682 bytes; installed/current/latest/recovery/raw evidence
+were preserved. A fresh751-file baseline, offline allocation/headroom, recovery,
+full payload/evidence backup and saved run state must verify before reboot.
+Keep AC/USB attached; no input is needed. Existing mounted-Home containment
+still halts with live state retained: photograph the complete terminal and
+restart Ubuntu if it occurs. Collect the matching run first after return.
