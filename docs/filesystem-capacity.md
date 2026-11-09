@@ -159,3 +159,23 @@ it is not accepted as an atomic rename guarantee. Test media is disposable.
 The interruption model tests prefixes of requested writes, not physical-sector
 atomicity or controller reordering. Native performance and full endurance
 require their own matching trial.
+
+
+## Persisted identity restoration
+
+exFAT registers provisional VFS nodes before loading its path-keyed metadata
+sidecar. Restoring records one at a time can turn a valid saved ID into a false
+collision with a different provisional node in that same mount. The mount-only
+`vfs_restore_metadata` batch validates registered targets,unique nonzero desired
+IDs,types and links before changing anything. It swaps provisional IDs inside
+that unpublished subtree,then installs exact saved fields without allocation or
+callbacks during commit. IDs belonging to another live subtree refuse;they are
+not remapped or aliased. Callers retain filesystem/namespace exclusion and an
+immutable batch. Ordinary single-node import semantics remain unchanged.
+
+An existing sidecar that fails parsing,allocation or identity restoration leaves
+ordinary media read-only and preserves its bytes. Fresh media without a sidecar
+and already quarantined dirty media retain their separate policies. Positive
+desktop fixtures use valid distinct persisted IDs;duplicate or wrong-mount
+sidecars are explicit refusal fixtures. Source/host tests alone do not establish
+native metadata preservation;compare a sealed raw baseline after physical runs.

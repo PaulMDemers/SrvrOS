@@ -276,7 +276,9 @@ def main():
                 from desktop_session_workload import refusal_files
                 files.update(refusal_files(session_run, session_run))
                 files.update({"collision-a.txt":b"saved alpha\n", "collision-b.txt":b"saved beta\n"})
-                metadata="SRVROSMETA1\n"+"".join(f"/work/srvros-work/{name}\t50000\t33188\t1\t0\t0\t100\t200\t300\n" for name in ("collision-a.txt","collision-b.txt"))
+                # Positive desktop media has valid distinct persisted identities.
+                # Invalid duplicate IDs are refused/read-only by import fixtures.
+                metadata="SRVROSMETA1\n"+"".join(f"/work/srvros-work/{name}\t{50000+i}\t33188\t1\t0\t0\t100\t200\t300\n" for i,name in enumerate(("collision-a.txt","collision-b.txt")))
                 fixture.add_directory_files(".srvros",{"meta":metadata.encode()})
             if args.desktop_no_headroom:
                 from hardware_log_archive import limits

@@ -15632,3 +15632,34 @@ before another cold run. Root owns all shared harnesses,install/power/evidence;
 RX subagent owns dispatch and its focused test;evidence subagent owns bounded
 VFS/exFAT import validation/commit and meaningful failure-atomicity fixtures.
 No metadata checker relaxation or outside-mount alias acceptance is authorized.
+
+
+### Corrected dispatch and atomic mount metadata restoration (November 8)
+
+Dispatchae06d32a executes the real native expression against staged v124–134
+recipes and preserves historical selection/refusal gates. Main e5d13469's
+screenshot-write timing changes are consumed in82249396;its separate optional
+profile remains disabled here. Current PR301 graphics/HDA and PR379 browser
+scopes were read and do not overlap this correction.
+
+The metadata fix validates the complete live-target batch before commit,then
+swaps only same-subtree provisional inode identities and installs exact saved
+fields. Genuine outside collisions,duplicates,invalid types/links/modes and
+live clients refuse. The exFAT caller holds namespace exclusion;commit allocates
+nothing,calls nothing fallible and leaves outside nodes unchanged. An existing
+main sidecar that cannot restore now blocks writes instead of being overwritten
+with default metadata. Fresh/dirty policies remain separate. Valid positive
+fixtures now use distinct saved IDs and the intended mount prefix;invalid
+sidecars retain explicit read-only/no-write byte-preservation coverage.
+
+Standalone real-VFS testing reproduces the observed75-ID cascade,then verifies
+batch/permutation/internal displacement,different boot counts,atomic refusal,
+no callbacks/allocation and counter wrap. The disposable real-exFAT test preserves
+all eight saved fields through repeated remounts and validates OOM/live-reader/
+outside-conflict/malformed/duplicate refusals. Both focused fatal sanitizers,
+old VFS-time and all133 imported-media/namespace cases pass. Independent read-only
+review finds no blocking commit-correctness issue. Maximum-namespace IRQ-masked
+mount timing remains unmeasured;no general capacity-performance claim is made.
+Root still must run matched/relevant regressions,stack/storage/strict-prefix and
+exact-stage VMs,including a disposable byte-exact copy of this workspace under
+the real staged initramfs/system namespace,before another native trial.

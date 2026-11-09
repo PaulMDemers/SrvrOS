@@ -7715,3 +7715,23 @@ in RAM and saves the final snapshot after retirement. A still-mounted workspace
 prevents automatic reset. Native acceptance requires the normal matched build,
 actual-owner fixtures,sanitizers,exact-image/storage/recovery checks and a matching
 physical session;software tests and VM foreign-hardware refusal are preparatory.
+
+
+The first physical v134 image4f89113a did not enter this child:main selected the
+historical empty owner because No-Op selection was nested below forbidden data/
+provider flags. Its saved receipts remain incomplete. The corrected dispatch
+selects No-Op at the empty-owner branch. `test-wifi-main-dispatch` compiles the
+actual main expression and token parser against real staged v124–134 recipes;
+it covers old routes,forbidden mixes,missing parents,logger/return refusal and
+capture failure. A VM's absent-radio refusal does not cover this native route.
+
+Workspace checks remain independent. Sequential restoration of valid saved inode
+numbers could collide with same-mount temporary identities and cascade into
+renumbering. The bounded batch importer validates all live targets/desired IDs
+first,swaps only same-subtree provisional IDs,and refuses genuine outside identity
+conflicts. An existing sidecar that cannot restore keeps ordinary media read-only;
+it must never be replaced with imported defaults. No preservation checker rule
+is relaxed. For this unattended profile only,the existing workspace marker read
+may update atime within independently saved RTC/same-clock exit bounds;all other
+fields and prior file bytes remain exact. Raw before/after sidecars and protocol
+outcomes are retained even when storage verification refuses.

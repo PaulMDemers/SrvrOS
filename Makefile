@@ -6145,3 +6145,17 @@ test-core: test-capture-write-timing
 
 # The real process host fixture includes this private timing implementation.
 build/tests/process-output-host$(HOST_EXE): kernel/src/capture_write_timing_state.h
+
+.PHONY: test-vfs-metadata-restore test-exfat-metadata-restore
+test-core: test-vfs-metadata-restore test-exfat-metadata-restore
+test-wifi-completion-foundations: test-vfs-metadata-restore test-exfat-metadata-restore
+test-vfs-metadata-restore: build/tests/vfs-metadata-restore-host$(HOST_EXE)
+	$<
+build/tests/vfs-metadata-restore-host$(HOST_EXE): tools/test_vfs_metadata_restore.c kernel/src/vfs.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-exfat-metadata-restore: build/tests/exfat-metadata-restore-host$(HOST_EXE)
+	$<
+build/tests/exfat-metadata-restore-host$(HOST_EXE): tools/test_exfat_metadata_restore.c tools/test_exfat_import.c tools/test_vfs_namespace.inc kernel/src/vfs.c kernel/src/fs/exfat.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -idirafter userspace/lib/include -std=c11 -O1 -g -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/vfs.c kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
