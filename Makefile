@@ -3878,9 +3878,10 @@ build/tests/audio-io-receipt$(HOST_EXE): tools/test_audio_io_receipt.c userspace
 test-core: test-battery-transfer
 test-battery-transfer: build/tests/battery-transfer$(HOST_EXE)
 	$<
-build/tests/battery-transfer$(HOST_EXE): tools/test_battery_transfer.c ports/srvros/uacpi/runtime/battery_runtime.c ports/srvros/uacpi/runtime/battery_transfer_diagnostic.h kernel/src/drivers/ec_transport.c $(UACPI_HEADERS) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	$(PYTHON) tools/test_battery_protocol_records.py
+build/tests/battery-transfer$(HOST_EXE): tools/test_battery_transfer.c ports/srvros/uacpi/runtime/battery_runtime.c ports/srvros/uacpi/runtime/battery_transfer_diagnostic.h ports/srvros/uacpi/runtime/battery_protocol_diagnostic.h kernel/src/drivers/ec_transport.c kernel/src/drivers/ec_smbus.c kernel/src/drivers/sbs_sample.c $(UACPI_HEADERS) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -Wno-misleading-indentation -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include -I ports/upstream/uacpi/include $< kernel/src/drivers/ec_transport.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -Wno-misleading-indentation -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include -I ports/upstream/uacpi/include $< kernel/src/drivers/ec_transport.c kernel/src/drivers/ec_smbus.c kernel/src/drivers/sbs_sample.c -Wl,--gc-sections -o $@
 
 .PHONY: test-process-service
 test-process-service: build/tests/process-service-host$(HOST_EXE)

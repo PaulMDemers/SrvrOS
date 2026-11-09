@@ -247,6 +247,10 @@ def main():
                     m=re.fullmatch(rb'audio-io: result=PASS seconds=60 start_us=(\d+) end_us=(\d+) first_io_us=(\d+) last_io_us=(\d+) bursts=(\d+) bytes=(\d+) max_burst_us=(\d+) pcm_bytes=(\d+) underruns=0 worker_status=0 volume=1\n',receipt)
                     assert m,'incomplete audio/disk receipt'
                     start,end,first,last,bursts,written,maximum,pcm=map(int,m.groups())
+                    from battery_protocol_records import first_protocol_record
+                    protocol=first_protocol_record(snapshots,epoch=1)
+                    assert protocol['snapshot_us']>=end,'Protocol observation predates playback completion'
+                    (out/'battery-protocol.json').write_text(json.dumps(protocol,indent=2)+'\n')
                     assert start<=first<last<=end and last-first>=56000000
                     assert bursts>0 and written==bursts*262144
                     assert 60*192000<=pcm<=120*192000 and pcm%4==0
