@@ -10285,3 +10285,28 @@ Ubuntu stays default, one-shot entry is empty and collector disabled. Current
 backed up after removing only its unreferenced EFI duplicate for space. Required
 payload/evidence backups are outside build. Historical failed attempts retain
 failure status and no other model's acceptance changes.
+
+
+### Exact-media sidecar equality scope (2026-11-09)
+
+Base `238c212a`, after collected PR436. Audit finds every metadata sync builds
+and replaces the entire sidecar, even if its complete serialized bytes already
+match media. Zero-filled allocation tails remain required and untouched.
+Bounded objective: after full serialization, compare an eligible existing
+sidecar with bounded direct-media reads, under the existing mutation owner.
+Only a complete length/valid-length/byte match, with no pending temporary file
+or live sidecar client, may retain the current extent. Flush before returning;
+retain outer data/clean-marker and unconditional global device barriers. A
+mismatch retains original replacement; failed/incomplete evidence refuses
+without treating a failed read as a mismatch. No persistent equality cache.
+
+Touch sidecar comparison and a shared direct-read helper preserving existing
+read accounting, focused/comparative/fault fixtures and current docs. Preserve
+all caller/global live-writer sync, prefix proof, initialized padding, changed-
+metadata temp/replace publication, pending-temp handling, fallback, quarantine,
+ownership, buffer/transport/policy/watchdog and stress limits. PR19's metadata
+restore/parser work must be inspected for overlap; no messaging/delegation.
+Next checkpoint: prove no-op writes are avoided only for exact media equality,
+changed metadata still persists/remounts, read/fault/pending-temp refusal and
+full host/VM regression before merge and unchanged automated native trial.
+Native gain is pending; reject this path if equality cannot be proved safely.
