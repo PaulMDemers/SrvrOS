@@ -10652,3 +10652,47 @@ full payload/evidence backup and saved run state must verify before reboot.
 Keep AC/USB attached; no input is needed. Existing mounted-Home containment
 still halts with live state retained: photograph the complete terminal and
 restart Ubuntu if it occurs. Collect the matching run first after return.
+
+### First upper-protocol diagnostic native return (2026-11-09)
+
+Run `f76703e09f064f11`, release `69a87466479ab140`, compiled SrvrOS
+`b0169186` / ports `39ad9d7` (root PR442 / SrvrPorts PR14), returned to Ubuntu
+normally. Matching session `session-00065fdce144f9b8-00` completes the original
+1800-second1% automated PCM/disk/app/three-screenshot workload. Independent
+saved-record parsing agrees with collection:1085 app cycles,4214 verified
+262144-byte disk bursts (1104674816 bytes),345763840 PCM bytes and zero recorded
+audio underruns, worker errors or lifecycle failures. All52464 loop samples are
+valid, with zero excursions and121357us maximum under the unchanged500ms bound.
+Maximum launch2066842us and close5633912us remain below the original10s limit;
+this does not establish interactive latency improvement.
+
+Three exact1366x768 BMPs decode, follow-up Files and normal desktop exit pass,
+and worker/cache/battery ownership retires cleanly. The battery completes705
+attempts, zero rejections,10575 queries and one notification, with one attach/
+detach and zero remaining heap/errors/denied operations. The new version1 epoch1
+protocol marker is directly present in the matching final log at1811607697us,
+after PCM end1808450516us: retired, captured0, kind0. This physically accepts
+clean-marker persistence/binding in this run; no real failure was captured, so
+native first-failure content and the intermittent halt's cause remain unproved.
+Host injected-failure regressions remain separate. No retry or fix is inferred.
+
+All751 prior files retain their hashes except expected `.srvros/meta` changes;
+760 files/3054 allocated clusters pass offline fsck and strict allocation with
+zero leaks, FAT/bitmap mismatches or errors. Equality diagnostics record17080
+checks,3506 equal/13574 changed, zero errors and348611537 logical serialized
+bytes retained;23 equal-count growth during PCM and the post-playback final
+record are independently bound. These are logical observations, not physical
+I/O savings or stable performance acceptance. Slowest screenshot23.490265s,
+pixel receive5.853363s and WRITE14.094040s leave completion latency open.
+
+Original limits, integrity checks and power/ownership policy remain unchanged.
+Sound at1% is unassessed; the separate user-confirmed short25% audible test
+remains accepted. The original c157 failed trial, photograph and interrupted
+media archive remain protected. This is a third separate30-minute clean run
+in the diagnostic sequence, with a new instrumented payload, not a continuous
+90-minute test or a battery fix. Next useful work is a bounded repeat with the
+first-failure latch retained, rather than speculative transport changes.
+
+Current/recovery payloads and independent backups verify. Ubuntu remains default,
+the one-shot entry is empty, collector disabled and USB unmounted; no reboot is
+armed. Raw matching evidence and an independent trial backup survive distclean.
