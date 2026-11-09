@@ -453,3 +453,11 @@ not a valid wake11 receipt and establishes no native timing acceptance. The
 100/300/500ms bounds, settling and phase limits, epoch advance, preservation and
 retained-state gates remain unchanged. No enabled-ring, translation/cache writer,
 new hardware address, managed-memory or tear-free authority follows.
+
+Source `379a25e0` / release `58679ddd2e83e75b` is
+[installed unarmed for hardware](machines/macbookair7-2.md#guarded-transactions-candidate-ready-for-hardware).
+Full local checks,95 fatal sanitizer cases,23 compiled controls,16-image isolation,
+object/staged bindings and exact immutable MBR Q35 normal/missing-workspace outcomes
+pass. Saved-tail projection is65,509/65,536bytes with the unchanged1,536 allowance.
+USB/recovery/default/one-shot checks pass. Native timing/reset/preservation remains
+pending; host cost reduction does not accept the100ms physical operation.

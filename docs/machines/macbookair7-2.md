@@ -2,7 +2,48 @@
 
 Updated: 2026-11-08. State: **active reference machine; partial device acceptance**.
 
-### Active scope: guarded write/first-ack transactions
+### Guarded transactions candidate ready for hardware
+
+Source `379a25e0` (main `66277083` integrated as `c8b04fde`) produces release
+`58679ddd2e83e75b`, installed **not armed**. The
+[guarded transaction contract](../intel-bcs-reset.md#guarded-write-and-first-ack-transactions)
+uses four ordered write/first-ack callbacks with full fresh pre/provider/post
+admission and an additional fresh requester triplet after each store. Verified
+borrow return retains its fresh full parent check; the preceding duplicate check
+is omitted only on this new path. All pin/epoch/raw preservation and uncertainty
+checks,100/300/500ms deadlines and phase/poll/settling limits remain unchanged.
+Wake11/clock2 requires four attempted transactions and two endpoint bundles for
+completion. Old receipts retain their classifications.
+
+The compiled host comparison measures198→183 full audits, all46 raw observation
+rows and normalized protocol outcomes identical. This does not prove native
+timing. Full local host/core/profile/docs/build checks pass; opt-in installed-root
+checks were explicitly omitted. Fatal ASan/UBSan covers70 adapter plus25 qualified
+core/parent cases. Twelve compiled semantic/permission/clock/registry/boundary
+controls and eleven actual native load/store/page/provider controls are detected.
+Sixteen-image isolation and object/immutable-stage bindings pass. Full-width saved-
+tail projection is65,509/65,536bytes with the unchanged1,536 allowance. Exact-stage
+MBR Q35/GRUB EFI64/Limine11.4.1 safe refusal/save/unmount/return and missing-workspace
+halt pass. The actual16-token config binds the kernel parser and saved guest log.
+
+All1,392 files/120 sessions preserve. Offline fsck/allocation/writable/headroom,
+source/model/CPU/firmware, installed/durable/archive recovery and Ubuntu default/
+no-one-shot checks pass. Prior current `3d376586292550c3`, recovery `9aa8dbf6fbda8252`,
+prior d74 and known-good GUI remain protected. The unreferenced6a EFI payload was
+archived only after full-file equality to a real outside archive and durable copy.
+Volume1%, guest audio disabled, USB unmounted, no input needed. Safe saved outcomes
+return automatically; unresolved ownership halts. No new reboot is armed.
+
+Run/checkpoint, exact payload, strict wake11 collector and independent full evidence
+are retained under `air-reset-transitions-20261108` inside ignored build storage
+and outside build. Manifest SHA is
+`c530f019ca0e01a98bcb7d8f3c8b6da732f4d09950e0645333fdf6d567a1bdec`.
+The latest native result remains the preceding105,612us deadline nonpass. Complete
+reset/preservation, DMA/prefetch/cache/reader retirement, managed backing and native
+tear-free remain unaccepted. Air6,1 screenshot/gate timing, Pro11,2 Wi-Fi PR19 and
+WebCore PR379 retain independent scope. Actions remain disabled; validation is local.
+
+### Completed implementation scope: guarded write/first-ack transactions
 
 Integrate main `66277083` as `c8b04fde`, retaining Air6,1's separately staged
 screenshot/gate timing and independent acceptance. Reduce remaining reset core
