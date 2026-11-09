@@ -10696,3 +10696,45 @@ first-failure latch retained, rather than speculative transport changes.
 Current/recovery payloads and independent backups verify. Ubuntu remains default,
 the one-shot entry is empty, collector disabled and USB unmounted; no reboot is
 armed. Raw matching evidence and an independent trial backup survive distclean.
+
+### Identical first-protocol diagnostic repeat (2026-11-09)
+
+Run `a9e06a47ddb44284` repeats installed release `69a87466479ab140` compiled
+`b0169186` / ports `39ad9d7`, with no code or workload change. Fresh exact-stage
+Q35 refusal/save/unmount/automatic-return rehearsal passes; installed/staged/
+independent payload hashes match. Full matched host/VM validation is reused only
+for that identical payload. Only the local1% quiet-volume expiry was renewed.
+
+Matching native session `session-00065fddf41c5fe5-00` completes1800 seconds,
+1078 app cycles,4211 verified262144-byte disk bursts (1103888384 bytes),
+345763840 PCM bytes and three exact decoded1366x768 BMPs. Zero audio underruns,
+worker errors or lifecycle failures are recorded. Independent final-record,
+binary receipt, image and prior-file checks agree with collection. All retained
+loop samples validate with no excursions; maximum121868us remains below500ms.
+Maximum launch3642026us and close2190458us remain below10s. Follow-up Files,
+normal desktop exit and worker/cache/battery retirement pass.
+
+Battery records705 attempts, zero rejections,10578 queries, five notifications,
+one attach/detach and zero retained heap/errors/denied operations. The final
+version1 epoch1 protocol marker at1811311668us follows PCM end1808072660us:
+retired, captured0, kind0. This second separate30-minute pass on the instrumented
+payload accepts repeated clean-marker persistence, not a continuous hour or a
+battery fix. No real first-failure contents were captured; the intermittent
+cause remains unresolved and the original c157 failure/photo/media stay intact.
+
+All760 prior file hashes are preserved except expected `.srvros/meta` changes.
+Offline fsck and strict allocation pass with769 files/3161 clusters, zero leaks,
+FAT/bitmap mismatches or errors. Equality proof has17068 checks,3444 equal and
+13624 changed, zero errors and346545005 logical serialized bytes retained;
+23 equal-count growth during PCM and post-playback final proof are bound. These
+are not physical write savings or stable latency improvement. Slowest screenshot
+27.508960s, receive5.857470s and WRITE18.155823s leave completion latency open.
+All original limits, integrity checks and policies remain unchanged. Unattended
+1% sound is unassessed; separate short audible acceptance remains distinct.
+
+Current/recovery payloads and durable backups verify, Ubuntu stays default,
+one-shot is empty, collector disabled and USB unmounted. No reboot is armed.
+Matching raw evidence has its own verified backup outside build. Further battery
+changes need captured failure evidence; repeated clean runs do not justify a
+speculative transport change. Screenshot write/sync latency remains a separate
+measured follow-up.
