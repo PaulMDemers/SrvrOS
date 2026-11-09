@@ -2,6 +2,20 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Current scope: consolidate native admission at callback boundaries
+
+Main `223ec211` (Air6,1 battery query diagnostics and pinned ports) is integrated.
+Air7,2 owns the preparation adapter/wake guard consolidation and its host/native
+proofs. The core retains its clocks, parent checks and state machine. Providers
+must fully validate before and after each successful callback; fresh lightweight
+IRQ/claim/current-root/mapping/requester checks bracket core bookkeeping. A
+failed exit check remains sticky, with completed load/store prefixes retained.
+The wake guard will use the endpoint just verified by its full backing census,
+with fresh ASLS/SWSCI reads and adapter binding, instead of a duplicate complete
+endpoint walk. No cached authority across callbacks, new writer, profile widening
+or deadline change is intended. Pro11,2 PR19 Wi-Fi and WebCore PR379 remain
+independent. Checkpoint:`build/air-admission-20261109`; no reboot is armed.
+
 ### Latest hardware: backing batches improve time but still miss deadline
 
 Source `6a641caf`, release `ac555dcb12463fa3`, session
