@@ -503,9 +503,20 @@ poll/settling and census limits remain unchanged. Complete preservation/teardown
 must still qualify on the physical machine.
 
 Source `f68ab030` / release `94bc48ed5551f552` is
-[installed unarmed for the full-census trial](machines/macbookair7-2.md#full-census-candidate-ready-for-hardware).
+[qualified for the full-census trial](machines/macbookair7-2.md#full-census-candidate-qualification).
 Full local checks,120 fatal sanitizer cases,33 compiled controls,16-image isolation,
 actual object/immutable-stage bindings and exact MBR Q35 normal/missing-workspace
 paths pass. The conservative tail projects65,517/65,536bytes with unchanged1,536
 allowance. USB/recovery/default/one-shot checks pass. Native whole-owner timing,
 complete preservation/teardown and hardware memory ownership remain pending.
+
+The native full-census return, session`session-00065fd0a742033c-00`,
+[refuses safely on an enabled inherited BCS ring](machines/macbookair7-2.md#full-census-return-safe-enabled-ring-refusal).
+The two pre-census callbacks read92 stable words in19,319us; enabled mask16,
+BCS start`0x03eef000`/control`0xf001` prevent reset admission. Clock3 records
+c2/p0/n0/t0 with no clock fault. No reset/request/control store was attempted.
+The owner closes in111,737us and the outer lifetime in190,320us; all13 aliases
+retire and firmware/exclusion release. Saved checkpoint, strict decoding, prior
+files, offline media and recovery pass. This is pre-census/refusal coverage only:
+there is no post-census, core reset or complete preservation timing acceptance.
+No reboot is armed; a disabled-entry retry remains necessary at unchanged limits.

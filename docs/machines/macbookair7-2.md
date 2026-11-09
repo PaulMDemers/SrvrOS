@@ -1,11 +1,42 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-08. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Full-census candidate ready for hardware
+### Full-census return: safe enabled-ring refusal
+
+Source `f68ab030`, release `94bc48ed5551f552`, session
+`session-00065fd0a742033c-00` returned automatically with **complete reset/
+preservation still unaccepted**. Both new pre-census callbacks ran:92 stable
+words in19,319us, enabled mask16, inherited BCS start`0x03eef000` and
+control`0xf001`. The disabled-entry prerequisite therefore refused before any
+shutdown observation, reset borrow, request/cancel transaction or reset pulse.
+Wake12/clock3 records`c=2 p=0 n=0 t=0`, with no inner or parent clock fault.
+This exercises the new pre-census path, not the reset/post-preservation path;
+it is not a matched whole-path timing comparison or deadline acceptance.
+
+The owner closed in111,737us; the outer lifetime was190,320us. All13 aliases
+retired, firmware/exclusion released, and no uncertainty remained. Strict
+receipt decoding and the saved checkpoint verify without parse errors; the
+collector correctly flags incomplete reset/preservation and`completed=NO`.
+All1,395 prior files preserve apart from expected workspace metadata; three new
+logs yield1,398 files/122 sessions. Offline fsck/allocation/writable/headroom,
+installed/durable/archive recovery, Ubuntu default and consumed one-shot pass.
+Full raw evidence and independent analysis are in ignored
+`build/air-census-batches-20261108`, backed up outside build. No reboot is armed.
+Volume remains1%; guest audio was off.
+
+The exact payload needs a disabled-entry retry before the unchanged100/300/500ms
+reset/preservation path can be assessed. Do not enable or disable a firmware ring
+just to obtain coverage. All255 memory obligations and physical tear-free remain
+open. Fetched main is now`b7d3927b` (Air6,1 PR431 global-sync phase observations),
+not yet integrated into this tested source. Integrate and requalify before any
+new-source trial; an unchanged-payload retry retains its own source identity.
+Pro11,2 Wi-Fi and WebCore retain independent scope/evidence. Actions stay disabled.
+
+### Full-census candidate qualification
 
 Source `f68ab030` (main `d20312ac` integrated as `c7458e4c`) produces release
-`94bc48ed5551f552`, installed **not armed**. The
+`94bc48ed5551f552`, installed **not armed** at qualification. The
 [guarded full-census contract](../intel-bcs-reset.md#guarded-full-census-samples)
 keeps the same46 ordered DWORDs per pre/post sample under full fresh pre/provider/
 post admission, fresh per-group requester and current physical-mapping checks,
@@ -40,8 +71,9 @@ Run/checkpoint, strict wake12 collector and exact payload are under ignored
 `build/air-census-batches-20261108`, with a full independent copy outside build.
 Manifest SHA is
 `21ffd121d251ad31680d176ee175ad1e88dce741c9a7423c861a9863181115da`.
-The latest physical result remains source379's95,752us core completion and
-306,161us owner-deadline nonpass. Complete preservation/teardown, DMA/prefetch/
+At qualification the latest physical result was source379's95,752us core
+completion and306,161us owner-deadline nonpass; the return above supersedes
+the pending-trial state without accepting the reset path. Complete preservation/teardown, DMA/prefetch/
 cache/reader retirement, managed backing and native tear-free remain unaccepted;
 all255 memory obligations stay open. Air6,1 sync PR431, Pro11,2 Wi-Fi PR19 and
 WebCore PR379 retain independent scope/evidence. Hosted Actions remain disabled.
