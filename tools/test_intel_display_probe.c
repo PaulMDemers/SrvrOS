@@ -1,4 +1,9 @@
 #include <stdlib.h>
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+#include <srvros/intel_pci_requester.h>
+static unsigned requester_reads;
+static bool intel_display_test_requester_read(unsigned,uint32_t,uint32_t *);
+#endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
 #include <srvros/intel_engine_prepare.h>
 static uint32_t prepare_controls[5];
@@ -208,7 +213,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+#define intel_wake_firmware_request intel_requester_firmware_request
+#elif defined(SRVROS_INTEL_ENGINE_PREPARE)
 #define intel_wake_firmware_request intel_engine_prepare_firmware_request
 #elif defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
 #define intel_wake_firmware_request intel_takeover_firmware_request
@@ -387,6 +394,9 @@ uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
     switch(off) {
     case 0:return 0x16268086;case 4:return 0x00100006;case 8:return 0x03000009;
     case 0xfc:
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+        if(!strncmp(engine_mode,"req-exit-endpoint:",18) && requester_reads==9u*(unsigned)atoi(engine_mode+18))return 1;
+#endif
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
         if(bcs_exit_fault("bcs-exit-endpoint") || bcs_post_exit_fault("bcs-post-exit-endpoint"))return 1;
 #endif
@@ -396,7 +406,14 @@ uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
         return gt_bad_pci?UINT32_MAX:gt_mode?0x12345000:0;case 0xe8:return gt_mode?0x8000:0;
     case 0x10:return 0xc0000004;case 0x18:return 0xb000000c;case 0x2c:return 0x011b106b;
     case 0x50:return window_mode?0x2c0:0x140;case 0x5c:return window_mode?0x8c000001:0x90000001;
-    case 0x34:return 0x40;case 0x40:return malformed?0x00034001:0x00030001;
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+    case 0x34:return 0x90;case 0x90:return 0x0000d005;case 0xd0:return 0x0002a401;
+    case 0xa4:return 0x03060013;
+    case 0xa8:return !strcmp(engine_mode,"req-pending") || (!strcmp(engine_mode,"req-pending-transition") && requester_reads>9)?256:0;
+#else
+    case 0x34:return 0x40;
+#endif
+    case 0x40:return malformed?0x00034001:0x00030001;
     default:return 0;
     }
 }
@@ -530,6 +547,9 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
         if(off>=0x100000 && off<0x100100){unsigned i=(off-0x100000)/8;uint64_t f=i?0:cache_mode?0x021ff02f00000001ull:((uint64_t)(5554176-4096+47)<<32)|1;*value=(uint32_t)(f>>((off&4)?32:0));}
         else if(off>=0x800000 && off<0x803000){unsigned i=(off-0x800000)/8;*value=(uint32_t)(((window_mode?0x8c001001ull:0x90000001ull)+4096ull*i)>>((off&4)?32:0));}
         else assert(0);
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+        if(!strncmp(engine_mode,"req-exit-backing:",17) && requester_reads==9u*(unsigned)atoi(engine_mode+17) && off>=0x800000 && !(off&7))*value^=4096;
+#endif
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
         if((bcs_exit_fault("bcs-exit-backing") || bcs_post_exit_fault("bcs-post-exit-backing")) && off>=0x800000 && !(off&7))*value^=4096;
 #endif
@@ -669,6 +689,9 @@ int main(int argc,char **argv) {
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
     static char takeover_recipe[1400];snprintf(takeover_recipe,sizeof(takeover_recipe),"%s srvros.intel-takeover=preflight",completion_recipe);wake_cmd.cmdline=takeover_recipe;
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+    static char requester_recipe[1600];snprintf(requester_recipe,sizeof(requester_recipe),"%s srvros.intel-requester=read-only",takeover_recipe);wake_cmd.cmdline=requester_recipe;
+#endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
     static char prepare_recipe[1600];snprintf(prepare_recipe,sizeof(prepare_recipe),"%s srvros.intel-engines-prepare=request-cancel",takeover_recipe);wake_cmd.cmdline=prepare_recipe;
 #endif
@@ -724,6 +747,9 @@ int main(int argc,char **argv) {
 #endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
  good=good && !strcmp(engine_mode,"report");
+#endif
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+ good=good && (!strcmp(engine_mode,"report") || !strcmp(engine_mode,"req-pending") || !strcmp(engine_mode,"req-pending-transition") || !strcmp(engine_mode,"take-busy") || !strcmp(engine_mode,"take-mask") || !strcmp(engine_mode,"take-reserved") || !strcmp(engine_mode,"take-domain") || !strcmp(engine_mode,"take-domain-reserved") || !strcmp(engine_mode,"active") || !strcmp(engine_mode,"pending") || !strcmp(engine_mode,"flip-wait") || !strcmp(engine_mode,"tlb-pending"));
 #endif
  assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
@@ -908,5 +934,20 @@ static bool intel_display_test_wake_snapshot(uint32_t *r,uint32_t *a,uint32_t *t
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
 static bool intel_display_test_wake_snapshot(uint32_t *r,uint32_t *a,uint32_t *t) {
  return intel_display_test_wake_read(INTEL_GT_REQUEST,r) && intel_display_test_wake_read(INTEL_GT_ACK,a) && intel_display_test_wake_read(INTEL_GT_THREAD,t);
+}
+#endif
+
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+static bool intel_display_test_requester_read(unsigned i,uint32_t reg,uint32_t *out) {
+ assert(i<9 && reg==intel_pci_requester_offsets[i] && wake_irq && wake_ack==1 && !display_access_allowed());
+ ++requester_reads;
+ if(!strncmp(engine_mode,"req-read:",9) && requester_reads==(unsigned)atoi(engine_mode+9))return false;
+ *out=pci_read_config32(&devices[0],(uint8_t)reg);
+ if(!strcmp(engine_mode,"req-status-reserved") && i==8)*out|=512;
+ if(!strncmp(engine_mode,"req-float:",10) && requester_reads==(unsigned)atoi(engine_mode+10))*out=UINT32_MAX;
+ if(!strncmp(engine_mode,"req-profile:",12) && i==(unsigned)atoi(engine_mode+12))*out^=1;
+ if(!strncmp(engine_mode,"req-foreign:",12) && requester_reads==(unsigned)atoi(engine_mode+12))wake_request|=2;
+ if(!strncmp(engine_mode,"req-map:",8) && requester_reads==(unsigned)atoi(engine_mode+8))pa[INTEL_CAPTURE_PAGES+1+1]^=4096;
+ return true;
 }
 #endif

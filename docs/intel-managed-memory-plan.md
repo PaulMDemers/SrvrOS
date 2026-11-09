@@ -181,3 +181,13 @@ outer, with full engine/display/HDA preservation and clean retirement. The
 records the exact-source evidence and already-disabled-only scope. This closes
 that adapter qualification step; it does not close any of the eight ownership
 obligations, qualify enabled shutdown or authorize a broader reset/GGTT writer.
+
+## Next requester prerequisite: conventional PCI Advanced Features
+
+The reference Air7,2's GPU exposes MSI90/PMd0/AFa4, with AF TP/FLR capabilities,
+not a PCIe Device Status capability. The new isolated
+[PCI requester capture](intel-pci-requester.md) observes that chain, bus-master
+command and AF control/status twice under an original registered GT borrow.
+Raw read completion and TP/BME masks stay separate from comprehensive DMA
+completion, firmware exclusion and interval ownership. No configuration/reset
+writer or positive hardware assurance is added. Native capture remains pending.

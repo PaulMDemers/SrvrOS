@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_REQUESTER_AUDIT) && (!defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || defined(SRVROS_INTEL_ENGINE_PREPARE))
+#error "Requester audit requires its own read-only takeover image"
+#endif
 #if defined(SRVROS_INTEL_ENGINE_PREPARE) && !defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
 #error "Engine preparation requires its own preflight image"
 #endif
@@ -24,7 +27,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+extern volatile struct limine_firmware_type_request intel_requester_firmware_request;
+#elif defined(SRVROS_INTEL_ENGINE_PREPARE)
 extern volatile struct limine_firmware_type_request intel_engine_prepare_firmware_request;
 #elif defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
 extern volatile struct limine_firmware_type_request intel_takeover_firmware_request;
@@ -63,7 +68,11 @@ static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x1
 #else
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
 #define WAKE_MAPS 10u
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+#define WAKE_VERSION 15u
+#else
 #define WAKE_VERSION 13u
+#endif
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000};
 #else
 #define WAKE_MAPS 9u
@@ -321,6 +330,9 @@ static bool bcs_store_clock(struct wake_adapter *a) {
 #endif
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
 #include "intel_takeover_trial.inc"
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+#include "intel_requester_trial.inc"
+#endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
 #include "intel_engine_prepare_trial.inc"
 #endif
@@ -346,7 +358,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_ENGINE_PREPARE
+    #ifdef SRVROS_INTEL_REQUESTER_AUDIT
+    const struct limine_firmware_type_response *firmware=intel_requester_firmware_request.response;
+#elif defined(SRVROS_INTEL_ENGINE_PREPARE)
     const struct limine_firmware_type_response *firmware=intel_engine_prepare_firmware_request.response;
 #elif defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
     const struct limine_firmware_type_response *firmware=intel_takeover_firmware_request.response;
@@ -369,7 +383,10 @@ bool intel_gt_wake_probe_report(void) {
     f.loader=loader && !loader->revision && wake_text(loader->name,"Limine") && wake_text(loader->version,"11.4.1");
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
-    #ifdef SRVROS_INTEL_ENGINE_PREPARE
+    #ifdef SRVROS_INTEL_REQUESTER_AUDIT
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_requester_recipe(cmd->cmdline);
+    struct intel_pci_requester_result requester={0};
+#elif defined(SRVROS_INTEL_ENGINE_PREPARE)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_engine_prepare_recipe(cmd->cmdline);
     struct engine_prepare_trial prepared={0};
 #else
@@ -452,6 +469,10 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
                 if(completion.complete)(void)intel_takeover_observe(&takeover,&owner,&completion,(struct intel_takeover_io){&a,engine_guard,takeover_sample,now});
                 if(takeover.borrow.active)a.uncertain=true;
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+                if(takeover.complete)(void)intel_pci_requester_observe(&requester,&owner,&takeover,(struct intel_pci_requester_io){&a,engine_guard,requester_sample,now});
+                if(requester.borrow.active || (requester.reason&IPR_PARENT))a.uncertain=true;
+#endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
                 if(takeover.complete && takeover.quiescent)eprepare_run(&a,&owner,&takeover,&prepared,f.recipe);
 #endif
@@ -519,6 +540,10 @@ bool intel_gt_wake_probe_report(void) {
     complete=complete && completion.complete;
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
     takeover_report(&takeover,&completion);engine_reads+=takeover.reads;
+#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+    requester_report(&requester);engine_reads+=requester.reads;
+    complete=complete && requester.complete;
+#endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
     eprepare_report(&prepared);engine_reads+=prepared.action.reads+prepared.post.reads;
     complete=complete && prepared.action.complete;

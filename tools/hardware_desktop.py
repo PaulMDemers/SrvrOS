@@ -577,6 +577,10 @@ def needs_attention(line):
         from intel_completion_audit import summary
         try:return not summary(line.replace('intel-prepare-post-','intel-completion-',1))['complete']
         except ValueError:return True
+    if line.startswith('intel-requester-summary:'):
+        from intel_requester import requester_summary
+        try:return not requester_summary(line)['complete']
+        except ValueError:return True
     if line.startswith('intel-prepare-summary:'):
         from intel_engine_prepare import prepare_summary
         try:return not prepare_summary(line)['complete']
@@ -910,6 +914,12 @@ def collect(mount, volume, output):
                     pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
                     verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
             except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
+        if 'srvros.intel-requester=read-only' in text:
+            try:
+                from intel_requester import native_requester_result
+                req=native_requester_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not req or not req['native_complete']:attention.append("Intel PCI requester capture incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel PCI requester capture: "+str(error))
         if 'srvros.intel-engines-prepare=request-cancel' in text:
             try:
                 from intel_engine_prepare import native_prepare_result

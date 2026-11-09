@@ -43,7 +43,7 @@ def takeover_result(text):
     elif any(s[k] for k in ('busy','reserved','geometry')):raise ValueError('takeover masks before stability')
     from intel_gt_wake import wake_result
     wake=wake_result(text)
-    if not wake or wake['summary']['v'] not in (13,14):raise ValueError('takeover wrong wake image')
+    if not wake or wake['summary']['v'] not in (13,14,15):raise ValueError('takeover wrong wake image')
     from intel_completion_audit import completion_result
     pre=completion_result(text)
     if not pre:raise ValueError('takeover missing census')
@@ -55,6 +55,11 @@ def takeover_result(text):
         post=[census_summary(l.replace('intel-prepare-post-summary:','intel-completion-summary:',1)) for l in text.splitlines() if l.startswith('intel-prepare-post-summary:')]
         if len(ps)!=1 or len(post)!=1:raise ValueError('takeover preparation coverage')
         extra=ps[0]['reads']+post[0]['reads']
+    if wake['summary']['v']==15:
+        from intel_requester import requester_summary
+        req=[requester_summary(l) for l in text.splitlines() if l.startswith('intel-requester-summary:')]
+        if len(req)!=1:raise ValueError('takeover requester coverage')
+        extra=req[0]['reads']
     if wake['summary']['engine_reads']!=pre['summary']['reads']+s['reads']+extra:raise ValueError('takeover total read binding')
     if s['borrowed'] and (not pre['summary']['complete'] or s['epoch'] or not pre['summary']['end_us']<s['begin_us']<=pre['summary']['end_us']+100000):
         raise ValueError('takeover census epoch/time binding')

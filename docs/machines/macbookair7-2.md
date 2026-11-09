@@ -7,7 +7,8 @@ Updated: 2026-11-09. State: **active reference machine; partial device acceptanc
 Main`99e6edea` (Air6,1 PR443 native diagnostic documentation) is integrated
 as`6501a9ef`. PR301 next adds a dedicated read-only requester audit under the
 original GT owner and a fresh registered dependent after same-parent takeover
-observation. Ubuntu inventory identifies conventional PCI Advanced Features at
+observation; see the [requester contract](../intel-pci-requester.md).
+Ubuntu inventory identifies conventional PCI Advanced Features at
 `0xa4` (TP+/FLR+), not a PCIe Device Status capability. Capture the exact observed
 MSI/PM/AF chain, bus-master command and AF control/status twice, retain raw
 prefixes and refusal/clock/return evidence, and derive observations without any
