@@ -393,3 +393,11 @@ poll/phase and settling limits are unchanged. Full registered-pin checks,
 pre/post preservation, uncertainty retention and all memory-ownership refusals
 remain. The earlier d74 settling failure stays incomplete. No new register,
 writer, mapping or enabled-ring admission follows from this optimization.
+
+
+Source `76e45067` / release `3d376586292550c3` is installed unarmed for the
+[guarded-bundle/inner-clock trial](machines/macbookair7-2.md#guarded-endpoint--inner-clock-candidate-ready-for-hardware).
+Full local checks,91 fatal sanitizer cases,16 compiled controls,16-image isolation,
+actual native bundle/load/provider bindings and exact-stage normal/missing-workspace
+VM outcomes pass. The projected full-width tail is65,505/65,536bytes with the
+unchanged1,536 allowance. Media/recovery checks pass; native acceptance is pending.

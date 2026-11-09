@@ -2,7 +2,56 @@
 
 Updated: 2026-11-08. State: **active reference machine; partial device acceptance**.
 
-### Active scope: reset clock evidence and bounded admission grouping
+### Guarded endpoint / inner-clock candidate ready for hardware
+
+Source `76e45067` (main `2718c8e3` integrated as `bf8867ee`) produces release
+`3d376586292550c3`, installed **not armed**. The
+[reset contract](../intel-bcs-reset.md#guarded-endpoint-bundles-and-first-inner-clock-fault)
+adds a mandatory wake-v10 inner clock row with the first failed sample, previous
+accepted time, stage/cause and endpoint-batch count. Strict collection derives
+causes against the reset origin; parent GT clock evidence remains separate.
+Zero/backward/deadline, strict endpoint and late clean-return failures are covered.
+The prior d74 settling failure remains incomplete, with its cause only inferred.
+
+Initial/final BCS8/control/domain reads use fresh full pre/provider/post admission
+around ordered bundles; scalar callbacks remain in old images. No-MMIO observation
+guards keep pin/time validation while reads keep all three full admissions. The
+compiled scalar comparison measures215→198 full audits (17 fewer), all46 raw rows
+identical and the same protocol outcomes. Its scalar comparison is not accepted
+as a v10 native receipt. This is host cost evidence, not a native timing result.
+No result is cached; all100/300/500ms, poll/phase/settle limits, registered-pin
+checks, epoch, raw preservation and retained-state gates remain unchanged.
+
+Full local host/core/profile/docs/build checks pass on the exact source; opt-in
+installed-root checks were explicitly omitted. Fatal ASan/UBSan covers66 actual
+adapter plus25 qualified core/parent cases. Nine compiled semantic/permission/
+clock/registry controls and seven actual native load/store/page/provider controls
+are detected. Sixteen-image isolation and object/staged bundle bindings pass.
+Historical accepted observation and reset nonpasses retain their classifications.
+Full-width saved-tail projection is65,505/65,536bytes with the unchanged1,536
+allowance. Exact immutable MBR Q35/GRUB/EFI64/Limine11.4.1 normal no-store refusal/
+save/unmount/return and missing-workspace halt pass; generated16-token options bind
+the actual kernel parser, stage and saved guest log.
+
+All1,386 files/118 sessions and boot sectors preserve. Offline fsck/allocation/
+writable/headroom, model/CPU/firmware, installed/durable/archive recovery and
+Ubuntu-default/no-one-shot checks pass. Prior current `d74b95ab9b2f5d5c`, recovery
+`9aa8dbf6fbda8252` and known-good GUI remain protected. The unreferenced c64 EFI
+copy was removed only after full file equality to an independent real archive
+and durable payload. Volume1%, playback disabled, no typing required; USB unmounted.
+Safe saved outcomes return automatically; unresolved ownership halts visibly.
+
+Run/checkpoint, immutable stage, proofs and strict v10 return collector are under
+`build/air-reset-clock-20261108`, with full independent evidence outside build.
+Manifest SHA is
+`87f17693e03c5702b6255716252429a648c8f33b02d8f4f8e365f14f0a8dabfb`.
+No native timing/reset/preservation acceptance follows from these host/VM checks;
+DMA/prefetch/cache/reader ownership, managed backing and tear-free remain open.
+Air6,1 PR417–426 and its newer unmerged screenshot-timing work, Pro11,2 PR19's
+Wi-Fi fence work and PR379 WebCore retain independent scope/acceptance. Hosted
+Actions remain disabled. Stop at readiness; no new reboot is armed.
+
+### Completed implementation scope: reset clock evidence and bounded admission grouping
 
 Integrate main `2718c8e3` (Air6,1 scheduler-return, render/listening and screenshot
 batching PR417–426), retaining independent acceptance and the Air7,2 settling-clock
