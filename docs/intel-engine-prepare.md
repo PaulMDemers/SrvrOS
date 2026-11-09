@@ -213,3 +213,22 @@ The1,726us margin is narrow: this is one bounded native pass, not a timing or
 repeatability guarantee. It accepts no enabled-ring shutdown writer, reset,
 managed memory, DMA/prefetch/cache/translation/reader ownership or native tear-free.
 All255 memory obligations remain open. Every successor needs fresh admission.
+
+## Nested preservation census boundaries
+
+The next preparation adapter applies the same callback contract to the nested
+post-preservation census. Core brackets perform fresh live IRQ/exclusion/claim/
+root/all-alias/requester checks and unchanged parent/epoch/clock validation.
+Each actual ordered sample still enters a full backing/endpoint guard, checks
+exact translations and fresh requesters between groups, and exits through full
+validation. A failed exit poisons both preparation and native adapters before
+the core accepts the sample; completed control-write/ACK counts remain intact.
+Scalar fallback group/context callbacks also have full entry/exit validation.
+The generic completion and preparation cores are unchanged.
+
+A same-path host comparison reduces144 full guards to141 with all48 raw protocol/
+preservation rows identical and230 target observations. This is a structural
+count only. All92 engine/context words,54 plane words, HDA fields, final controls,
+registered pins and100/300/500ms/10ms limits remain. The existing version14 wire
+format and image recipe are unchanged. Native timing of this change is pending;
+the accepted98,274us run belongs to the earlier exact payload.

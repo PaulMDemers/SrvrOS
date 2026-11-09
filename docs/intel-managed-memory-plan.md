@@ -131,8 +131,13 @@ It narrows the sampled-state uncertainty; posted-write/prefetch/cache/display
 retirement and an explicit exclusive interval remain unproved. No milestone1
 GGTT grant or mapping writer is accepted.
 
-The next isolated [all-engine prepare/hold/cancel trial](intel-engine-prepare.md)
-qualifies a bounded maintained readiness interval under a registered borrow.
+The isolated [all-engine prepare/hold/cancel trial](intel-engine-prepare.md)
+now has one accepted bounded maintained readiness interval under a registered borrow
+on source`ee4a15bc`:98,274/100,000us, fresh zero geometry, ten exact acknowledgements,
+raw engine/display/HDA preservation, both borrows returned and13 aliases retired.
+The1,726us margin is narrow and does not guarantee repeatability. The next adapter
+work targets duplicate nested-census validation while retaining full provider
+boundaries and every deadline, before considering additional reset work.
 It must preserve all inherited backing and return after exact engine/display/HDA
 comparison. It adds no GDRST, PTE, command or memory-transfer capability and does
 not itself complete milestone1.

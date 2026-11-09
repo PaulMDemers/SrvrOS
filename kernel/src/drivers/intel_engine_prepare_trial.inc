@@ -101,10 +101,35 @@ static bool eprepare_planes(struct wake_adapter *a,struct intel_gt_access *g,str
  ++t->samples;t->end=timer_monotonic_us();
  return t->begin && t->end>t->begin && t->end-t->begin<=GT_ACCESS_TOTAL_US && intel_gt_access_check(g);
 }
+/* The nested census keeps the same live core brackets as preparation itself.
+ * Each provider still validates full backing/endpoint state at entry and exit;
+ * failure poisons the outer adapter before the core accepts the sample. */
+static bool eprepare_post_group(void *ctx,unsigned e,uint32_t out[INTEL_COMPLETION_WORDS]) {
+ struct engine_prepare_adapter *p=ctx;
+ if(!eprepare_enter(p))return false;
+ bool ok=completion_group_raw(p->a,e,out);eprepare_exit(p);return ok;
+}
+static bool eprepare_post_context(void *ctx,uint32_t out[INTEL_COMPLETION_CONTEXT]) {
+ struct engine_prepare_adapter *p=ctx;
+ if(!eprepare_enter(p))return false;
+ bool ok=completion_context_raw(p->a,out);eprepare_exit(p);return ok;
+}
+#ifndef SRVROS_INTEL_CENSUS_SCALAR_TEST
+static bool eprepare_post_sample(void *ctx,uint32_t words[INTEL_ENGINE_COUNT][INTEL_COMPLETION_WORDS],uint32_t context[INTEL_COMPLETION_CONTEXT]) {
+ struct engine_prepare_adapter *p=ctx;
+ if(!eprepare_guard(p))return false;
+ /* completion_snapshot supplies full entry validation plus fresh requester
+  * and exact mapping checks between groups. Add its full exit here. */
+ bool ok=completion_snapshot(p->a,words,context);eprepare_exit(p);return ok;
+}
+#define EPREPARE_POST_SAMPLE eprepare_post_sample
+#else
+#define EPREPARE_POST_SAMPLE NULL
+#endif
 static bool eprepare_preserve(void *ctx,const struct intel_completion_result *pre) {
  struct engine_prepare_adapter *p=ctx;struct engine_prepare_trial *t=p->trial;
  if(!eprepare_enter(p))return false;
- if(!intel_completion_observe(&t->post,p->g,(struct intel_completion_io){p->a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE}) ||
+ if(!intel_completion_observe(&t->post,p->g,(struct intel_completion_io){p,eprepare_guard,eprepare_post_group,eprepare_post_context,eprepare_now,EPREPARE_POST_SAMPLE}) ||
     !eprepare_planes(p->a,p->g,t,1) || t->post.engine_epoch!=pre->engine_epoch)return false;
  for(unsigned n=0;n<2;n++) {
   for(unsigned e=0;e<5;e++)for(unsigned i=0;i<8;i++)if(pre->words[n][e][i]!=t->post.words[n][e][i])return false;

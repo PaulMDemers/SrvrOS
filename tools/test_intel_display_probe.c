@@ -23,6 +23,7 @@ static enum intel_gt_write intel_display_test_reset_ready_write(uint32_t,uint32_
 #endif
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
 #include <srvros/intel_completion_audit.h>
+static unsigned completion_context_reads;
 static bool intel_display_test_completion_read(unsigned,unsigned,uint32_t,uint32_t *);
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
 static void census_fault(unsigned,unsigned);
@@ -45,6 +46,12 @@ static const char *engine_mode="report";
 static bool prepare_exit_fault(const char *mode) {
  const char *colon=strchr(engine_mode,':');
  return colon && !strncmp(engine_mode,mode,strlen(mode)) && prepare_stores==(unsigned)atoi(colon+1);
+}
+static bool prepare_post_exit_fault(const char *mode) {
+ const char *colon=strchr(engine_mode,':');
+ unsigned n=colon?(unsigned)atoi(colon+1):0;
+ return colon && !strncmp(engine_mode,mode,strlen(mode)) && n>=1 && n<=2 &&
+  prepare_stores==10 && completion_context_reads==12+6*n;
 }
 #endif
 #endif
@@ -140,7 +147,6 @@ static bool intel_display_test_completion_read(unsigned e,unsigned i,uint32_t re
  if(i==7 && !strcmp(engine_mode,"tlb-float"))*out=UINT32_MAX;
  return strcmp(engine_mode,"tlb-read")!=0;
 }
-static unsigned completion_context_reads;
 static bool intel_display_test_completion_context(unsigned reg,uint32_t *out) {
  unsigned i=0;static const uint32_t regs[6]={0x209c,0x20c0,0x229c,0x2209c,0x220c0,0x2229c};
  for(;i<6 && regs[i]!=reg;i++);
@@ -367,7 +373,7 @@ uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
     case 0:return 0x16268086;case 4:return 0x00100006;case 8:return 0x03000009;
     case 0xfc:
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
-        if(prepare_exit_fault("prep-exit-endpoint"))return 1;
+        if(prepare_exit_fault("prep-exit-endpoint") || prepare_post_exit_fault("prep-post-exit-endpoint"))return 1;
 #endif
         return gt_bad_pci?UINT32_MAX:gt_mode?0x12345000:0;case 0xe8:return gt_mode?0x8000:0;
     case 0x10:return 0xc0000004;case 0x18:return 0xb000000c;case 0x2c:return 0x011b106b;
@@ -507,7 +513,7 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
         else if(off>=0x800000 && off<0x803000){unsigned i=(off-0x800000)/8;*value=(uint32_t)(((window_mode?0x8c001001ull:0x90000001ull)+4096ull*i)>>((off&4)?32:0));}
         else assert(0);
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
-        if(prepare_exit_fault("prep-exit-backing") && off>=0x800000 && !(off&7))*value^=4096;
+        if((prepare_exit_fault("prep-exit-backing") || prepare_post_exit_fault("prep-post-exit-backing")) && off>=0x800000 && !(off&7))*value^=4096;
 #endif
         mmio_reads++;return true;
     }

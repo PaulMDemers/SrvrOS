@@ -10,12 +10,23 @@ CORE=Path('build/tests/intel-engine-prepare-core')
 ADAPTER=Path('build/tests/intel-engine-prepare-adapter')
 ADAPTER_MODES=['report','prep-plane','prep-plane-read','prep-audio']+[m+':'+str(n) for m in ('prep-none','prep-uncertain','prep-foreign','prep-ack-float','prep-map') for n in range(1,11)]
 ADAPTER_MODES += [m+':'+str(n) for m in ('prep-exit-endpoint','prep-exit-backing') for n in range(1,11)]
+ADAPTER_MODES += [m+':'+str(n) for m in ('prep-post-exit-endpoint','prep-post-exit-backing') for n in (1,2)]
 from test_intel_takeover import ADAPTER_MODES as TAKE_MODES
 ADAPTER_MODES += [m for m in TAKE_MODES if m not in ADAPTER_MODES]
 def output(exe,*args):return subprocess.check_output([str(exe),*args],text=True,timeout=10)
 MODES=['normal','wait','copy','policy','pre-epoch','pre-active','pre-domain','pre-batches','pre-count','pre-time','pre-context','extra','preserve','preserve-epoch','preserve-time','end-deadline','end-epoch']
 POINTS={**{m:range(1,11) for m in ('write-none','write-uncertain','write-epoch','write-detach','ack-float','ack-reserved','ack-foreign','poll-read','poll-epoch','phase-time','first-ack-time','never-ready')},**{m:range(1,25) for m in ('sample-read','sample-float')},**{m:range(1,5) for m in ('sample-count','sample-epoch')},**{m:range(5) for m in ('pre-geometry','pre-wait','pre-busy','hold-drift','hold-mask-drift')},**{m:range(1,9) for m in ('guard','guard-time','guard-epoch','clock-epoch','zero','backward')}}
 class PrepareTests(unittest.TestCase):
+ def test_preservation_provider_exit_failure(self):
+  for mode in ('prep-post-exit-endpoint','prep-post-exit-backing'):
+   for n in (1,2):
+    with self.subTest(mode=mode,n=n):
+     r=prepare_result(output(ADAPTER,'--wake-engine-'+mode+':'+str(n)))
+     self.assertEqual((r['summary']['attempts'],r['summary']['writes'],r['summary']['acks']),(10,10,10))
+     self.assertTrue(r['summary']['uncertain'] and r['summary']['retained'])
+     self.assertFalse(r['complete'] or r['summary']['preserved'] or r['summary']['returned'])
+     self.assertEqual(r['post']['summary']['samples'],n-1)
+     self.assertEqual(r['post']['summary']['groups'],5*(n-1))
  def test_preservation_summary_attention(self):
   from hardware_desktop import needs_attention
   text=output(ADAPTER,'--wake-engine-report')
