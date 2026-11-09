@@ -1435,3 +1435,27 @@ covered phases, no supervisor switches during idle/recovery, and 25 event wakes
 during app work. The unchanged 500 ms UI loop bound is met at 110.061 ms worst.
 The [unit record](machines/macbookair6-1.md) owns physical acceptance and its
 power-measurement limits; no firmware watchdog or sampling cadence changed.
+
+### Failure-only transfer admission evidence
+
+The explicit battery runtime now retains its most recent failed transfer in
+fixed CPU0 RAM and prints two versioned rows during existing terminal
+containment. No success-path logging or fault-context filesystem work is added.
+The record is cleared for each new runtime lifetime; its timestamp and query/
+write fields distinguish a stale earlier failure from the terminal operation.
+`battery-transfer` records original entry IF, current/expected worker identity,
+entry lease/poison, refusal reason and begin/poll result. Reasons1–6 mean IF
+masked, wrong/missing worker identity, existing lease, poisoned EC, refused
+begin and failed poll respectively. `battery-transfer-ec` records the retained
+EC phase/failed phase/error/polls/status and original transfer clocks/timeout.
+Entry poison is not the post-poll poison state; use the EC failure fields.
+An unchanged DONE/OK state can accompany admission refusal and is not timeout
+proof. Missing records remain unavailable evidence.
+
+The real runtime wrapper and EC state machine are exercised by
+`make test-battery-transfer` with host IRQ/identity/clock/port models, including
+no-I/O refusals, prior DONE/OK, poisoned/invalid begin, unexpected output and
+the unchanged100ms timeout. Diagnostics confer no permission, retry, interrupt
+enabling, reset or safe-unwind authority. Mounted-Home containment continues
+to halt with live state retained; photograph the complete terminal output and
+restart into Ubuntu for collection. Limits and watchdogs remain unchanged.
