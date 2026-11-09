@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; updated-main firstjoin diagnostic installed, native comparison pending; TCP/HTTP and connection lifecycle remain open**.
+Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; updated-main regression failed RX cleanup before authentication; TCP/HTTP and connection lifecycle remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -44,9 +44,9 @@ fsck/allocation/recovery and Ubuntu-unarmed checks pass. Accepted7026/e47d and
 accepted8529/3c9/815/e17 stay installed; old4a remains backed and restorable. The old authentication failure remains
 failed and unexplained; this success does not prove an observation-only fix.
 
-Actual main `4b71b178` is merged through `ac11b6ca`. Current source `c75cdb78`,
-release `7a4442e75476090f`, is qualified and installed for the next cold regression;
-**native acceptance is pending**. Ubuntu remains default and factory `e47d` remains
+Actual main `4b71b178` was merged through `ac11b6ca`. Source `c75cdb78`,
+release `7a4442e75476090f`, is installed; its cold regression was collected once
+and **FAILED before authentication**. Ubuntu remains default and factory `e47d` remains
 previous. This consumes unpublished append FAT-link batching and exact uncached
 sidecar equality with owner flush, while preserving Pro metadata identity repair
 and explicit read-only `/work` inspection. No native append/sidecar performance
@@ -102,11 +102,35 @@ entry temporarily to verified accepted7026 and checking the full1877-file backup
 14-file review and absence of GRUB/NVRAM references. Ubuntu/e47d and all six accepted
 payloads remain verified; the failed capsule is restorable and never resealed.
 
-Collect FIRST once after this trial with
-`build/bringup/wifi-stack5-response/run_root.py return_collect`. Require the two
-firstjoin observations, full production DHCP/DNS/64exactICMP/original-key/real-
-fence/provider/parent/ledger retirement, and independent workspace/recovery proof.
-Missing or failed receipts remain unaccepted. The local run record owns arming.
+The cold run `session-00065fdae4e5f609-00` saved its complete1,936,999-byte
+exit prefix. The fresh IBI probe and all five calibration commands passed. All
+eight retained RX buffers completed normally (CC13,368–472 bytes), but the MAC
+cleanup observed `0x430=0x22`, `0xa30=0x500`, `0xa34=0` throughout200 RX-drain
+rounds. The unchanged seven-quiet-sample requirement was never met. MAC disable,
+filter/TXOP readback and endpoint Stop state3 succeeded; pending device RX data
+was not proved drained. Discovery, join and production networking were not
+attempted. Missing parent VCO receipts are downstream unwind, not evidence of a
+VCO or firmware calibration failure. No authentication diagnostic rows were
+expected because that owner never ran.
+
+The856-file native capsule is immutable, with SHA256SUMS digest
+`ec80203d4cdb726f48b5004316a3baf1effd7fa62d80fa2ee2bf7590057fb97d`.
+All422 prior files and strict metadata survived except the permitted RTC-bounded
+marker atime; only two logs/one directory are new. Read-only host inspection,
+fsck/allocation and Ubuntu-unarmed recovery passed. No identical trial is armed.
+The older7026 accepted networking result remains historical acceptance.
+
+Fetched main `f30ad7a5` is now merged as `f2ff1d23`, including the actual battery
+transfer diagnostics. Ports `cd066bf` merges its pinned `d40e118` while retaining
+the Pro logger isolation; no battery hardware gate or ordinary startup changes.
+This source has no new physical acceptance. Current bounded work is safe receive
+queue service during calibration cleanup and finite TCP syscall integration.
+Touch scope is the cal5 transport/MAC cleanup callback and directed ownership
+fixtures, plus TCP syscall dispatch/shared flags/native SDK and software tests.
+Keep the existing drain predicate, deadlines, DMA retention and ordinary-call
+behavior; source-qualified native testing remains necessary. Independent agents
+review the failure, storage proof and finite syscall fixture while root alone
+runs shared builds, staging and power operations.
 
 Next TCP/HTTP work wires finite operations without changing legacy callers, then
 uses a genuinely running prelive process, explicit service isolation, a bound
