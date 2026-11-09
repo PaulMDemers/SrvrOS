@@ -9987,3 +9987,62 @@ Current accepted `93d4474e781f4b6a` and console recovery `c35475f62f154f1e` stay
 installed. Older unreferenced `f5e9c4c9603cf2eb` is archived after exact
 independent backup and no-GRUB-reference checks. Native acceptance and any
 synchronization performance fix remain pending.
+
+
+### Native global sync phase results (2026-11-09)
+
+PR431 merge `b7d3927b`, compiled source `fffeafa5`, release
+`13b77acfd1826907`, run `9015901705fc42cc`, session
+`session-00065fd039c2251a-00` completes the original automated1800-second
+1% audio/disk/app/three-screenshot workload. Independent saved-log parsing
+agrees with automatic collection:1082 app cycles,3768 verified262144-byte
+bursts (987758592 bytes),345780224 PCM bytes, zero recorded underruns and
+worker/lifecycle errors.54378 valid loop observations have zero excursions
+and128759us maximum; maximum app launch/close2056579/4030297us stay within
+unchanged500ms loop/10s lifecycle limits. Three exact1366x768 BMPs, follow-up
+Files, normal exit, battery/cache/app/capture retirement and automatic Ubuntu
+return pass. All701 prior files retain their contents except expected filesystem
+metadata;710 files/2479 allocated clusters have clean fsck/allocation, zero
+leaks and zero FAT/bitmap mismatches. The independent710-file evidence manifest
+and installed/recovery payload hashes verify. Subjective listening is unassessed
+at1%; the earlier user-confirmed30-second25% check remains separate.
+
+Final sync evidence has five retained PIDs, zero conflicts/errors/invalidity/
+drops, no active trace, and complete independent USB observations. Workload
+PID7 performs3768 global sync calls totaling16.363732s. Its slowest call takes
+1.752273s: file synchronization1.751870s and parent-device flush403us. That
+file interval contains the retained exFAT append31405705–33157326us:524288
+payload bytes,1.460292s data writes,3,735,788 prefix/metadata read bytes in the
+phase-zero bracket, and5563us across ten flush calls. This is a correlated
+worst call, not a characterization of every sync or every gate wait.
+
+For that slowest file phase, USB callback wall totals1.438713s: CBW2727us,
+data291391us and CSW1144595us. Three CSW callbacks exceed100ms; the maximum
+is370174us. Software event observation accounts for1.432967s across all
+callbacks; observation-to-resume totals1639us. The maximum sampled service gap
+is20053us. The remaining313157us outside those callback brackets is not yet
+attributed. These are software wall intervals, not controller completion times,
+pure device latency or CPU time. The dominant retained wait is before software
+observation of command status; a scheduling or device cause is not established.
+PID948 separately retains a674379us file phase with243206us USB callbacks,
+showing that callback coverage is not a universal explanation of file wall time.
+
+Screenshot write admission still dominates the raw calls: PID11/470/948 record
+11.606/8.759/10.354s in the gate versus about21ms each in handlers. Their worst
+waits still overlap thread19/PID7 syscall87. The first gate's longest owner
+correlates with the slowest PID7 file phase above. Slowest screenshot total
+22.589527s, receive5.953988s and WRITE11.950868s leave completion latency open;
+this observation-only release is not an accepted performance optimization.
+
+Next bounded investigation: correlate slow CSW observations with command type,
+transfer size and software service progress, and attribute the file-phase wall
+outside USB callbacks before choosing a serialization-preserving fix. Retain
+full prefix validation, required global barriers, all live dirty writers,
+readbacks/flush/rename/failure handling, same-process/private-image exclusions,
+transport bounds, watchdogs and every existing limit. Receive latency remains
+separate. No new implementation or boot is started by this result closeout.
+Ubuntu remains default; the one-shot entry is empty, the collector disabled,
+current release `13b77acfd1826907` and console recovery `c35475f62f154f1e`
+verify. Raw logs/images and complete payload/evidence backups remain local,
+with accepted backups outside build. Earlier failed VM runs remain failures;
+final-source host/VM provenance is unchanged from the validation section above.
