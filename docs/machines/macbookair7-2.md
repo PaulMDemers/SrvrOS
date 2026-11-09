@@ -2,17 +2,50 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Current scope: bounded inherited-backing read batches
+### Current scope: backing-read retry ready for hardware
 
-Main`d057f7d8` (Air6,1 FAT-link/sidecar work) is integrated, preserving both
-Makefile target groups. Pro11,2 PR19 Wi-Fi and WebCore PR379 remain independent.
-Air7,2 owns this admission/preservation optimization in the backing core and
-native observer adapter, with host/provider regressions and exact-stage VM
-validation. Read at most64 inherited GGTT entries per callback, preserving the
-high/low/high order, both complete passes, route/fence/PCI/translation checks,
-unchanged deadlines and retained failures. No engine, memory or tear-free grant
-is added. The failed native run below remains a nonpass. Checkpoint:
-`build/air-prepare-batches-20261109`; no reboot is armed.
+Main `d057f7d8` is integrated as `0186befc`. Tested source `6a641caf`, release
+`ac555dcb12463fa3`, batches the inherited-backing reads used by existing admission
+and preservation guards. Each complete revalidation replaces8,136 scalar PTE
+read callbacks with44 bounded batches; the same high/low/high DWORD loads, both
+passes, raw equality, fence/route/PCI/framebuffer checks and retirement remain.
+Each batch checks IRQ exclusion, the observer claim, current CR3 and exact alias
+at entry and exit. Interrupt-enabled callers retain the scalar path. Only the
+engine-preparation image selects this provider. All100/300/500 ms and10 ms
+phase limits remain unchanged; no guard, reset or memory authority is added.
+See the [batch contract](../intel-engine-prepare.md#bounded-backing-read-optimization).
+
+The local host/core/profile/docs/build gate and all18 images pass, with the
+installed-root target explicitly omitted as in previous GPU qualification.
+The initial broader installed-root matrix was interrupted; its partial log is
+retained and is not a pass. Fatal ASan/UBSan covers355 core/adapter modes plus
+the backing scalar/batch regression. All14 compiled semantic controls,19 existing
+native access controls and7 new batch controls are detected. Exact scalar/batch
+vectors, hashes, load counts and mapping lifetimes match, including page-crossing
+offsets. Object/staged checks bind ordered DWORD reads, no target store, bounds,
+IRQ/claim/current/exact translation checks and actual callback dispatch. The
+exact immutable MBR EFI Q35 refusal/checkpoint/save/unmount/automatic return
+and missing-workspace halt pass. The compiled16-token recipe matches saved
+options; optional sync diagnostics stay off. Projected log size is65,456/65,536
+bytes with the unchanged1,536-byte allowance. Earlier passes and nonpasses keep
+their classification, including the130,444 us failure below.
+
+The retry is installed and independently backed up, but **native timing and
+acceptance remain pending**. Failed `0c1e0b40f71e6d7a`, accepted read-only
+`b8afda22fe3f051e`, accepted reset `94bc48ed5551f552`, recovery `9aa8dbf6fbda8252`
+and GUI `c497eb0cb48c1b01` remain verified. Ubuntu is default, volume1%, no
+one-shot armed. All1,407 USB files/125 sessions preserve with clean offline
+filesystem/allocation/writable/headroom checks. An unused EFI payload and the
+failed candidate's redundant stage pair were losslessly archived after full
+byte verification; all logs and full installed/durable payloads remain. The
+new global staging duplicate was retired after exact comparison; its immutable
+local stage remains. Checkpoint:`build/air-prepare-batches-20261109`.
+
+Next run the unattended preparation retry: no typing is needed, safe saved
+outcomes return automatically, and uncertain ownership or persistence failure
+halts visibly. Collect the matching session before another run. All255 memory
+obligations remain open and native tear-free remains unaccepted. Pro11,2 PR19
+Wi-Fi and WebCore PR379 remain independent.
 
 ### Latest hardware: preparation deadline failure collected
 

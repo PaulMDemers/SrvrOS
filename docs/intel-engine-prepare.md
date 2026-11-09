@@ -122,3 +122,11 @@ scalar/batch vectors, hashes, load counts and mapping lifetimes at aligned and
 page-crossing inherited offsets. Provider tests exercise bounds, partial loads,
 torn reads and post-batch IRQ/claim/translation/address-space loss. Native
 performance remains unmeasured until the next matching hardware run.
+
+The locally qualified retry is source `6a641caf`, release `ac555dcb12463fa3`.
+The full local gate (installed-root omitted),18 images,355 sanitizer modes plus
+backing regression,14 semantic controls,19 existing native controls and7 batch
+controls pass. Exact-stage VM save/unmount/return and missing-workspace refusal
+pass; the unchanged log bound projects65,456/65,536 bytes. All8,136 PTE loads
+remain;44 callbacks replace per-word dispatch. This is local evidence only.
+The native retry must still meet the original deadlines and preservation checks.
