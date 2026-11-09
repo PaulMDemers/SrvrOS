@@ -10046,3 +10046,19 @@ current release `13b77acfd1826907` and console recovery `c35475f62f154f1e`
 verify. Raw logs/images and complete payload/evidence backups remain local,
 with accepted backups outside build. Earlier failed VM runs remain failures;
 final-source host/VM provenance is unchanged from the validation section above.
+
+
+### Command-status and service-window audit scope (2026-11-09)
+
+Base `928555f3`, after collected PR432. Bounded objective: retain the slowest
+CSW callback's command opcode/size and exact software submission/observation/
+resume/service sample in each explicit sync phase, plus wall time in existing
+BOT scheduler checkpoints. This separates request context and yielded service
+from the currently unassigned file wall interval without guessing hardware
+completion. Touch USB diagnostic metadata, sync final emission/parser and focused
+fixtures; leave xHCI, scheduler policy, file synchronization, filesystem and
+block flush behavior intact. No command addresses or user payloads are logged.
+Existing PR19 transport retirement and PR301 scanout work remain independent;
+no contact/delegation. Preserve all transport bounds, integrity checks, watchdogs,
+ownership gates and stress limits. Next checkpoint: strict host/VM validation,
+reviewable merge, exact-stage preflight and automatic native repeat at1% volume.
