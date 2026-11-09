@@ -2,6 +2,25 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Active scope: isolated native held-requester provider and receipts
+
+Base `cb323ca2`, main `125eb2b5`; fresh fetch shows no new main commits.
+PR19 networking and PR379 WebCore remain independent. This block integrates
+read-only PCI sampling into a distinct preparation image/firmware request,
+17-token recipe and wake version16. The existing no-action preparation and
+standalone requester images keep their gates and receipts. No writer, profile,
+permission, ownership assurance or deadline is widened.
+
+User-authorized subagents own native provider/reporting, strict collection and
+actual provider fixtures; parent owns parser/staging/image integration and
+serialized validation. The synchronous action gets independent full backing
+entry/exit checks, while each fixed load retains fresh current-alias/requester
+and clock/parent admission. No guard result carries into another callback.
+Next checkpoint is qualified provider/collector, exact staged VM refusal and log
+budget, then an explicit decision on native trial readiness. Installed requester
+release `3ff42f33e6c01391` is collected; recovery retained, volume1%, no reboot
+armed. Whole preparation100ms, owner300ms and outer500ms remain unchanged.
+
 ### Implemented: requester sampling under the preparation borrow
 
 Base `7a51142a`, integrated main `125eb2b5`; open PR19 networking and PR379
