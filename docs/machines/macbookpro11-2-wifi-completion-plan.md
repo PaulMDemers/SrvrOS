@@ -131,3 +131,11 @@ beyond the bounded fresh-command budget needs a separate hardware-derived proof.
 The ordinary DHCP/DNS/TCP/HTTP,lifecycle/UI and sustained reliability gates above
 remain open. Evidence ownership now includes exact private baseline metadata and
 independent protocol/storage outcomes;old v133 historical metadata remains limited.
+
+
+First v134 physical return is incomplete:old v126 passes,but a boot dispatch bug
+prevented the new child from entering. The strict metadata proof independently
+refuses sequential import inode remaps. Both outcomes are sealed;no new boundary
+acceptance. Next bounded corrections are actual-route dispatch coverage and
+atomic same-mount persisted metadata restoration without aliasing outside nodes.
+The checker stays strict. Then repeat exact qualification and the cold trial.

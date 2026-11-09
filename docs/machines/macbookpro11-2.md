@@ -15600,3 +15600,35 @@ matching new session once before another candidate. Preserve protocol outcome
 before independent storage verification,including raw before/after metadata on
 refusal. No native descriptor-boundary,ordinary RX,persistent networking,TCP/HTTP,
 connection lifecycle or UI acceptance is claimed until matching evidence exists.
+
+
+### First v134 return: missing child and strict metadata refusal (November 8)
+
+Collected exactly once:runtime4f89113a/release56a45e10afdd4efc,
+session00065fcd7cebf20f-00,exit prefix2028622bytes. The new full checker refuses
+missing No-Op lifecycle receipts. The original v126 parent independently passes
+all15719 operations and common RF restoration,but main dispatch nests No-Op
+selection under forbidden data/provider gates and therefore selected the old
+empty owner. The new child never entered;no descriptor-boundary acceptance.
+The existing VM foreign-radio refusal did not exercise native profile selection.
+Add a regression executing the real dispatch expression against staged profiles.
+
+All prior ordinary file bytes were preserved and no unexpected paths appeared.
+Strict metadata comparison refuses75 sequential inode changes and one workspace
+marker atime change;raw before/after bytes are saved. Other persisted fields
+remain equal. These remaps are not excused. Investigate collision between
+provisional mount identities and sequential persisted metadata import;keep the
+verifier strict. Saved native RTC provenance bounds the expected marker read
+separately from inode identity. Offline filesystem/allocation and all protected
+payload/Ubuntu recovery checks pass;one-shot boot consumed,now unarmed.
+
+Immutable172-file native capsule wifi-nop5-native-4f89113a and separate5-file
+wifi-nop5-review-4f89113a retain independent failed protocol/storage outcomes.
+No recollection or historical capsule rewrite. Bounded next scope:correct main
+profile dispatch and add actual-route regression;fix same-mount metadata import
+collisions atomically,refusing true outside identity conflicts;consume reviewed
+screenshot-timing main updates if compatible;qualify an exact new candidate
+before another cold run. Root owns all shared harnesses,install/power/evidence;
+RX subagent owns dispatch and its focused test;evidence subagent owns bounded
+VFS/exFAT import validation/commit and meaningful failure-atomicity fixtures.
+No metadata checker relaxation or outside-mount alias acceptance is authorized.
