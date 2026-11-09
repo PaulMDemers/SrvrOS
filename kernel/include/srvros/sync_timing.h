@@ -40,7 +40,7 @@ void sync_timing_files_done(bool ok);
 void sync_timing_end(bool ok);
 void sync_timing_snapshot(struct sync_timing_snapshot *out);
 /* Host fixtures unrelated to opt-in content observation need no timing runtime. */
-#if (defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_EXFAT_HOST_TEST)) && !defined(SRVROS_SYNC_CONTENT_HOST_TEST)
+#if (defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_EXFAT_HOST_TEST) || defined(SRVROS_SYNC_CONTENT_DISABLED_HOST_TEST)) && !defined(SRVROS_SYNC_CONTENT_HOST_TEST)
 static inline void sync_timing_content_fault(void) {}
 static inline uint64_t sync_timing_content_identity(void) { return 0; }
 static inline bool sync_timing_content_begin(uint64_t slot,uint64_t identity,uint64_t inode,uint64_t size) {

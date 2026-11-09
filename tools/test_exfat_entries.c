@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#define SRVROS_SYNC_CONTENT_DISABLED_HOST_TEST /* Direct fixture has no sync runtime. */
 #include "../kernel/src/fs/exfat.c"
 uint64_t timer_monotonic_us(void) { return 0; }
 static uint8_t disk[4096];
