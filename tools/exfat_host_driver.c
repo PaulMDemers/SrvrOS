@@ -22,7 +22,7 @@
 static int fd;
 static uint64_t read_calls,read_bytes,write_bytes;
 static unsigned writes, flushes, fail_at, crash_at, fail_flush_at, crash_flush_at, tear_at;
-static bool failed, foreign;
+static bool failed, foreign, sidecar_client;
 static unsigned io_depth;
 bool scheduler_io_begin(void) { if(foreign) return false; io_depth++; return true; }
 void scheduler_io_end(void) { assert(io_depth); io_depth--; }
@@ -64,7 +64,10 @@ bool block_write(struct block_device *d, uint64_t o, const void *p, uint64_t n) 
     if(writes==crash_at) { fsync(fd); _exit(77); }
     return true;
 }
-static bool flush(struct block_device *d) { (void)d; flushes++; if(flushes==fail_flush_at) failed=true; if(failed || fsync(fd)) return false;
+static bool flush(struct block_device *d) { (void)d; flushes++;
+    if(getenv("SRVROS_TRACE_WRITES"))printf("flush-trace: call=%u\n",flushes);
+    if(flushes==fail_flush_at) failed=true;
+    if(failed || fsync(fd)) return false;
     if(flushes==crash_flush_at)_exit(78);
     return true; }
 /* Advertise transport capabilities for the eligibility predicate, but never
@@ -222,6 +225,26 @@ int main(int argc, char **argv) {
     }
     assert(exfat_mount_block_device("/vol",&d));
     if(!strcmp(argv[2],"foreign")) foreign=true;
+    if(!strncmp(argv[2],"sidecar-",8)) {
+        if(!strcmp(argv[2],"sidecar-seed")) {
+            assert(exfat_write_file_mode("/vol/keep.txt",(const uint8_t *)"kept",4,0600));
+            assert(exfat_write_file_mode("/vol/anchor.txt",(const uint8_t *)"unchanged",9,0600));
+        } else if(!strcmp(argv[2],"sidecar-verify")) {
+            printf("mode=%llu\n",(unsigned long long)(vfs_lookup("/vol/keep.txt")->metadata.mode&07777));
+            equal("/vol/keep.txt",(const uint8_t *)"kept",4);equal("/vol/anchor.txt",(const uint8_t *)"unchanged",9);
+            assert(!writes && !flushes);
+        } else {
+            const char *late=getenv("SRVROS_SIDECAR_FAIL_OFFSET");
+            if(late)assert(!setenv("SRVROS_FAIL_READ_OFFSET",late,1));
+            sidecar_client=getenv("SRVROS_SIDECAR_CLIENT")!=NULL;
+            if(!strcmp(argv[2],"sidecar-pending"))assert(exfat_write_file("/vol/.srvros/meta.tmp",(const uint8_t *)"pending",7));
+            bool changed=!strcmp(argv[2],"sidecar-changed");
+            bool ok=vfs_chmod("/vol/keep.txt",changed?0640:0600);
+            printf("operation=%s writes=%u flushes=%u write_bytes=%llu\n",ok?"PASS":"FAIL",writes,flushes,(unsigned long long)write_bytes);
+            if(failed){unsigned before=writes;assert(!vfs_chmod("/vol/keep.txt",0600)&&before==writes);}
+        }
+        assert(fsync(fd)==0);close(fd);return 0;
+    }
     if(!strcmp(argv[2],"append-seed") || !strcmp(argv[2],"append-step") || !strcmp(argv[2],"append-repeat") || !strcmp(argv[2],"append-changed")) {
         struct exfat_fsinfo info;assert(exfat_statfs("/vol",&info));
         uint64_t initial=info.block_size*2,maximum=initial+info.block_size*3+512;
@@ -615,4 +638,4 @@ int main(int argc, char **argv) {
 #define SRVROS_BLOCK_CLAIM_HOST_TEST
 #include "../kernel/src/block_claim.c"
 
-bool process_has_open_vfs_prefix(const char *p) { (void)p;return false; }
+bool process_has_open_vfs_prefix(const char *p) { return sidecar_client && !strcmp(p,"/vol/.srvros/meta"); }

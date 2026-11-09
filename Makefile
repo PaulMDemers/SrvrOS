@@ -5467,3 +5467,27 @@ build/tests/intel-engine-prepare-adapter$(HOST_EXE): tools/test_intel_display_pr
 # validation tied to the report/provider source actually being exercised.
 build/tests/intel-engine-prepare-adapter$(HOST_EXE): kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_takeover_trial.inc
 build/tests/intel-takeover-adapter$(HOST_EXE): kernel/src/drivers/intel_takeover_trial.inc
+.PHONY: test-exfat-link-batch
+test-core: test-exfat-link-batch
+test-exfat-link-batch: build/tests/exfat-link-batch-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-unbatched-links-driver$(HOST_EXE)
+	build/tests/exfat-link-batch-host$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_link_io.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-unbatched-links-driver$(HOST_EXE)
+build/tests/exfat-link-batch-host$(HOST_EXE): tools/test_exfat_link_batch.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+build/tests/exfat-unbatched-links-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_LINK_BATCH_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+
+.PHONY: test-exfat-sidecar-equality
+test-core: test-exfat-sidecar-equality
+test-exfat-sidecar-equality: build/tests/exfat-sidecar-equality-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-sidecar-rewrite-driver$(HOST_EXE)
+	build/tests/exfat-sidecar-equality-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_sidecar_equality.py
+	$(PYTHON) tools/test_exfat_sidecar_io.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-sidecar-rewrite-driver$(HOST_EXE)
+build/tests/exfat-sidecar-equality-host$(HOST_EXE): tools/test_exfat_sidecar_equality.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+build/tests/exfat-sidecar-rewrite-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_SIDECAR_EQUALITY_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@

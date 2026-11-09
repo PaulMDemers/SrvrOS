@@ -10162,3 +10162,243 @@ is started by this closeout. Current `53bbc1245abcc03d`, prior accepted
 only its unreferenced EFI duplicate for installation space. Ubuntu stays default,
 one-shot entry empty, collector disabled; accepted payload/evidence backups
 remain outside build. Earlier failed attempts retain their original status.
+
+
+### Unpublished contiguous FAT-link batching scope (2026-11-09)
+
+Base `f30f67e1`, after collected PR434. Audit finds append already writes only
+the new payload and proves the full old prefix, but builds consecutive FAT links
+using separate four-byte writes. On sector-backed storage these are separate
+read/modify/write commands to the same sector. The existing constant-value FAT
+fill already batches this class of work; sequential next-cluster links do not.
+Bounded objective: batch only consecutive unpublished link entries in the append
+path, within512 bytes and sector boundaries, with exact next-cluster values.
+New allocations are unreachable and an old NoFatChain stream ignores these links
+until final publication. Leave the final old-tail attachment separate and retain
+all original data/link/publication flush barriers. Fragmented chains retain the
+existing traversal. No buffer/transport/policy/watchdog or stress limit changes.
+
+Touch exFAT append link preparation and focused/independent comparative/fault
+fixtures, plus this unit's evidence. Preserve old-prefix validation, full payload
+writes/readbacks, all live dirty content/global sync, copy-on-write fallback,
+rename/failure/quarantine/ownership handling and unrelated metadata bytes.
+Inspect actual open PRs for conflict; no messaging/delegation. Next checkpoint:
+prove fewer block-write calls with identical final bytes and barrier ordering,
+run fault cuts and full host/VM validation, merge, then exact-stage/native stress.
+Native latency benefit remains unproved; reject rather than broaden this scope.
+
+
+### Unpublished FAT-link batching validated and staged (2026-11-09)
+
+Frozen source `c831012f` batches only the two append-preparation loops for
+consecutive unpublished FAT links. Scratch writes stay within512-byte boundaries;
+next-cluster values, final tail attachment and all data/link/publication flushes
+remain unchanged. Full old-prefix proof, payload writes, fragmented traversal,
+alias/alignment/COW fallback and failure/quarantine handling are untouched.
+Source comparison proves every other byte of exFAT unchanged; process/global
+sync, block, USB/xHCI, scheduler, syscall, logger and streaming paths have no diff.
+PR19's metadata-restore changes are outside these append/link sections; PR301's
+scanout scope remains independent. No contact/delegation or sibling acceptance.
+
+Independent actual-driver comparisons on4KiB and128KiB clusters produce identical
+complete media images and ordered logical FAT writes/flushes:22 block writes
+become20, with ten flushes unchanged. Actual-writer fixtures cover exact values,
+512-byte boundaries,4KiB-sector neighbours, range/address overflow refusal and
+partial-write quarantine/no retry. Existing append tests pass full old-prefix,
+changed/alignment/alias fallbacks and all reachable write/flush/tear cuts for
+contiguous and fragmented old extents. Existing torn-publication limitations
+remain documented; neither new atomicity nor native latency gains are claimed.
+
+Full matched normal/native/VM/RAM/USB images, core, desktop and docs pass on
+`c831012f`, including89 installed-root tests in730.011s with one expected skip.
+Ordinary sysabi/USB keyboard/fork/exec-vectors/yield VMs and real USB read-only/
+write/flush/reload/input integration pass. Populated-Home KVM400-write-IOPS stress
+passes22 app cycles,175 overlap observations, zero audio/worker/lifecycle errors,
+239126us maximum loop and1518919/1397290us maximum launch/close. Complete
+unmodified console records with retained atomic checkpoints supply app timing;
+independent reparse agrees, without reconstructing UART fragments. Saved sync/
+CSW/checkpoint/raw-write/gate/loop parsing also agrees. Ordinary immutable
+screenshot/readback/Preview/repeat/exit passes. Optional IDT variants compile
+only; no experimental feature is activated.
+
+Exact stage `8caa2866d8888e8c` passes native-board refusal/save/unmount/automatic
+return in Q35. It does not accept native filesystem or hardware behavior. Next
+is the unchanged automatic1800-second1% PCM/verified disk/app/three-screenshot
+trial, retaining500ms loop/10s lifecycle, every full-prefix/readback/barrier/
+rename/failure/ownership/retirement requirement and complete diagnostic records.
+Native integrity and latency acceptance remain pending. Keep accepted
+`53bbc1245abcc03d` and console recovery `c35475f62f154f1e`; after full independent
+backup/no-reference verification, only superseded EFI duplicate `13b77acfd1826907`
+may be archived to make installation room. Own USB, offline allocation/headroom,
+all719 prior file hashes and durable run/payload/evidence records must verify
+before one-shot reboot. All prior failed attempts retain their original status.
+
+
+### Native FAT-link batching regression accepted (2026-11-09)
+
+PR435 merge `bdc14461`, compiled source `c831012f`, release
+`8caa2866d8888e8c`, run `831a258cecf34f5a`, session
+`session-00065fd860fdb30a-00` completes the unchanged automated1800-second1%
+PCM/disk/app/three-screenshot trial. Automatic collection and independent raw
+saved-log parsers agree:1093 app cycles,3780 verified262144-byte bursts
+(990904320 bytes),345780224 PCM bytes, zero recorded underruns and worker/
+lifecycle errors.53447 valid loop observations have zero invalidity/excursions,
+129431us maximum loop and1955399/2307934us maximum launch/close, within the
+unchanged500ms/10s limits. Three exact1366x768 BMPs, follow-up Files, normal
+exit, battery/cache/app/capture retirement and automatic Ubuntu return pass.
+All719 prior files retain contents except expected filesystem metadata;
+728 files/2693 clusters have clean fsck/allocation with zero leaks/mismatches.
+Independent635-file durable evidence hashes and installed/recovery payloads
+verify. Subjective listening is unassessed at1%; prior25%30-second speaker
+acceptance remains separate.
+
+Complete retained sync/CSW/checkpoint/raw-write/gate observations pass with no
+active/invalid/conflicting/dropped/error records. Workload PID7 makes3780 global
+sync calls totaling14.536845s. Its slowest call takes1.831720s: file1.831313s,
+parent-device flush407us. File wall contains1.601202s USB callbacks,175414us
+existing checkpoints and54697us unassigned residual. The slowest retained CSW
+is a16384-byte WRITE(10),347970us callback; submission-to-software-observation
+347760us, observation-to-resume207us,41252 service checks/162 samples and14670us
+maximum sampled gap. This is software wall observation, not hardware completion
+or a media-fault diagnosis. Its correlated append1216305924–1218136981us writes
+524288 payload bytes with eight metadata write calls/432 bytes and ten flushes;
+these are observations of one operation, not a controlled cross-run comparison.
+The controlled host22→20 call reduction with identical media/barriers remains
+the command-reduction proof. Required data/prefix/flush work was not skipped.
+
+Raw screenshot worker PID11/484/964 gate totals14.942/7.842/8.577s remain much
+larger than roughly21ms handler totals. Their longest retained owners are PID7
+FSYNC, SYNC and SYNC respectively. Slowest screenshot25.810888s, receive
+6.450034s and WRITE15.320174s compare with prior27.058020/6.955717/16.709473s.
+One variable endurance run does not establish a stable latency improvement;
+screenshot completion remains open. This accepts native functional/integrity
+regression for the bounded FAT-link batching, not the end of latency work.
+
+Next bounded audit: remaining data/metadata write amplification in file-sync and
+append/sidecar persistence, retaining every prefix proof, required global/live-
+writer synchronization, zero-initialization/publication guarantee, full readback,
+flush/rename/failure/quarantine/ownership rule and existing transport/policy/
+watchdog/stress limit. No new implementation or boot starts in this closeout.
+Ubuntu stays default, one-shot entry is empty and collector disabled. Current
+`8caa2866d8888e8c`, accepted `53bbc1245abcc03d` and console recovery
+`c35475f62f154f1e` verify; superseded `13b77acfd1826907` remains independently
+backed up after removing only its unreferenced EFI duplicate for space. Required
+payload/evidence backups are outside build. Historical failed attempts retain
+failure status and no other model's acceptance changes.
+
+
+### Exact-media sidecar equality scope (2026-11-09)
+
+Base `238c212a`, after collected PR436. Audit finds every metadata sync builds
+and replaces the entire sidecar, even if its complete serialized bytes already
+match media. Zero-filled allocation tails remain required and untouched.
+Bounded objective: after full serialization, compare an eligible existing
+sidecar with bounded direct-media reads, under the existing mutation owner.
+Only a complete length/valid-length/byte match, with no pending temporary file
+or live sidecar client, may retain the current extent. Flush before returning;
+retain outer data/clean-marker and unconditional global device barriers. A
+mismatch retains original replacement; failed/incomplete evidence refuses
+without treating a failed read as a mismatch. No persistent equality cache.
+
+Touch sidecar comparison and a shared direct-read helper preserving existing
+read accounting, focused/comparative/fault fixtures and current docs. Preserve
+all caller/global live-writer sync, prefix proof, initialized padding, changed-
+metadata temp/replace publication, pending-temp handling, fallback, quarantine,
+ownership, buffer/transport/policy/watchdog and stress limits. PR19's metadata
+restore/parser work must be inspected for overlap; no messaging/delegation.
+Next checkpoint: prove no-op writes are avoided only for exact media equality,
+changed metadata still persists/remounts, read/fault/pending-temp refusal and
+full host/VM regression before merge and unchanged automated native trial.
+Native gain is pending; reject this path if equality cannot be proved safely.
+
+
+### Exact-media sidecar equality validated and staged (2026-11-09)
+
+Frozen source `62dd5ea1` retains an existing sidecar extent only after current
+serialization fully matches uncached media bytes, with exact size/ValidDataLength,
+bounded16KiB scratch and FAT termination for linked extents. Pending temp names
+and live sidecar clients retain original replacement checks. A mismatch retains
+replacement; failed/unavailable proof refuses. Verified equality flushes owner
+writes before unchanged outer clean-marker and unconditional global barriers.
+Only the unnecessary new-temp/data/replace transaction is omitted; changed
+metadata retains the exact original writes/flushes. Allocation zero-padding,
+full user-prefix/readbacks, all dirty writers, quarantine/ownership, transport,
+power/watchdog and stress limits remain unchanged. No persistent equality cache.
+PR19's metadata-restore/parser sections are separate; no messaging/delegation.
+
+Actual-driver fixtures for4KiB/128KiB clusters show identical final media for
+no-op metadata:10 writes/7 flushes become two clean-marker writes/four flushes.
+For128KiB clusters, requested writes drop131374→4 bytes in that fixture. Changed
+metadata has identical complete media and ordered writes/flushes to the baseline,
+and permissions persist on remount. Pending-temp/live-client fallback, complete
+uncached comparison (including stale-cache and last-byte cases), read/allocation
+refusal, fragmented/invalid FAT traversal and all14 equal-path write/flush/cut/
+tear boundaries per cluster size pass. Existing append interruption tests pass.
+This is controlled host evidence, not a native timing improvement claim.
+
+Initial source `d2063ae1` failed the strict cost-formatter checkpoint-budget model;
+that failed build/log remains preserved. Final source restores the legacy cost
+formatter byte-for-byte and prints checked sidecar counters only through the
+existing explicit sync diagnostic profile. Disabled-profile/periodic/final logger
+fixtures and original retention models pass without changing capacity or limits.
+Full matched normal/native/VM/RAM/USB builds, core, desktop and docs pass on
+`62dd5ea1`, including89 installed-root tests in734.278s with one expected skip.
+
+Ordinary sysabi/USB keyboard/fork/exec-vectors/yield and real USB read-only/write/
+flush/reload/input integration pass. Populated-Home KVM400-write-IOPS stress
+passes23 app cycles,183 overlap observations, zero audio/worker/lifecycle errors,
+142449us maximum loop and998662/1636125us maximum launch/close. Complete saved
+atomic app records and independent reparsing agree; saved sync/CSW/checkpoint/
+raw-write/gate/loop and sidecar counters agree. Final VM counters:611 checks,
+132 equal,479 changed,615113 retained serialized bytes and zero refused proofs,
+flush failures, active traces or invalidity. Retained bytes are not physical
+write savings. Equality grows by87 between complete samples inside live PCM.
+Ordinary immutable screenshot/readback/Preview/repeat/exit passes. Optional IDT
+variants compile only. Exact stage `c1578543a5d0e7e4` passes Q35 native-board
+refusal/save/unmount/automatic return; native behavior is not yet accepted.
+
+Next trial repeats original1800-second1% PCM/verified USB/app/three-screenshot
+stress, every500ms loop/10s lifecycle/full-prefix/readback/ownership/retirement
+check, all prior timing evidence and complete equality counters. It additionally
+requires equality growth between two complete samples during live playback,
+plus a complete post-playback snapshot, with no proof/flush/counter failures.
+Native latency benefit remains pending. Keep accepted `8caa2866d8888e8c` and
+console recovery `c35475f62f154f1e`; archive only superseded unreferenced EFI
+copy `53bbc1245abcc03d` after independent payload verification. Own USB/all728
+prior file hashes/offline allocation/headroom and durable run/payload/evidence
+records must verify before one-shot reboot. Four old stage duplicates were
+removed only after complete independent payload/file hash verification, freeing
+about580MiB; accepted backups, raw evidence and active payloads are preserved.
+No sibling acceptance or historical failure status changes.
+
+### Sidecar equality native trial halted (2026-11-09)
+
+Release `c1578543a5d0e7e4`, compiled source `62dd5ea1`, run
+`525a5325e1434c1a`, session `00065fd9dc146258-00` is **FAILED**, not
+physically accepted. Saved logs end at196.537365s with active PCM and no
+recorded underruns, but no workload completion, exit or clean retirement.
+The supplied terminal photograph reports `HALTED query transport`,1599 queries,
+zero runtime errors/denials, worker15/completed825/in-flight1, `ec_phase=6`
+(`EC_DONE`) and `ec_error=0` (`EC_OK`). This is not evidence of a transport
+timeout: transfer can refuse before transport polling. Admission, worker context,
+lease ownership and any interleaving remain to be diagnosed. No causal link to
+the sidecar change is established, and no deadline or ownership gate is relaxed.
+
+Partial sidecar counters at186.447545s show1661 checks,337 equal,1324 changed,
+zero refused/flush failures/active/invalid, and32410215 retained serialized bytes.
+These establish exercise only; missing full stress/retirement proof prevents
+native acceptance or a latency claim. One screenshot survives; the required
+three-screenshot/1800-second test did not complete.
+
+All728 prior files remain present with contents unchanged except expected
+`.srvros/meta`;732 files remain after the interrupted run. `fsck.exfat -n`
+reports clean, but the independent allocation checker fails with one orphaned
+cluster and zero FAT/bitmap mismatches. Keep this discrepancy as failed evidence;
+no repair or new boot was attempted. Media stays unmounted. The photo, raw logs,
+file hashes, failed checks and independent review are retained outside build in
+a hash-verified643-file trial backup. Ubuntu remains default, one-shot entry is
+empty, collector disabled and no reboot armed. Installed candidate, accepted
+`8caa2866d8888e8c` and console recovery `c35475f62f154f1e` payloads verify.
+Next bounded work: diagnose transfer refusal/ownership and preserve orphan
+allocation evidence before any repair or new trial, retaining existing integrity,
+watchdog, transport and stress limits. Historical host/VM passes remain separate.
