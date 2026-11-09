@@ -7940,3 +7940,24 @@ remain refusals. The new source-specific collector must require the retained raw
 zero-post terminal receipt; historical zero-field parser behavior remains available
 only through its default compatibility path. No packet count, transfer budget,
 quiet/drain requirement or ordinary ownership gate is widened.
+
+
+The empty-Stop correction is qualified and installed at0e7dc297/d49a66bb7768f15f,
+native pending. Actual empty-event-before-final-context and existing nonzero
+cleanup traces now pass strict parsing with their emitted rows unchanged; both
+normal/fatal zero-dequeue mutations refuse. The initial emitter omitted stop_q
+when zero extra TDs were posted; that incomplete proof is preserved before its
+repair. The final emitter conditions stop_q on a retained terminal event. All1578
+private compiled inputs equal the current source and independent source/emitter
+review found no blockers. The frozen new collector requires explicit terminal
+proof and binds its slot to the original handoff. Nonzero scratch Stop behavior,
+normal-transfer, late/unpublished event and teardown rules stay unchanged.
+
+The fresh397.25second selected build/network/storage suite, native frame check,
+508 full-prefix refusals,258 stage cases and desktop/exact GPT/missing-workspace/
+426-file preservation VMs pass. The2050752-byte composed prefix retains its
+modeled RF/forward parent and explicitly normalized actual C tails; no native
+claim follows. See the unit's collect-first `wifi-cal5-stop` record for current
+release, preserved920/20 failure capsules and installed recovery. The separate
+private43-case HTTP app proposal and earlier child-pipe proposal are unapplied
+and do not add a native HTTP client to this candidate.

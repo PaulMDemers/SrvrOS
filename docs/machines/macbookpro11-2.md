@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; calibration RX cleanup trial failed at empty-ring Stop classification; correction in progress; TCP/HTTP and connection lifecycle remain open**.
+Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; exact empty-ring Stop correction qualified and installed, native validation pending; TCP/HTTP and connection lifecycle remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -45,7 +45,7 @@ accepted8529/3c9/815/e17 stay installed; old4a remains backed and restorable. Th
 failed and unexplained; this success does not prove an observation-only fix.
 
 Actual main `4b71b178` was merged through `ac11b6ca`. Source `c75cdb78`,
-release `7a4442e75476090f`, is installed; its cold regression was collected once
+release `7a4442e75476090f`, was installed; its cold regression was collected once
 and **FAILED before authentication**. Ubuntu remains default and factory `e47d` remains
 previous. This consumes unpublished append FAT-link batching and exact uncached
 sidecar equality with owner flush, while preserving Pro metadata identity repair
@@ -120,8 +120,8 @@ marker atime; only two logs/one directory are new. Read-only host inspection,
 fsck/allocation and Ubuntu-unarmed recovery passed. No identical trial is armed.
 The older7026 accepted networking result remains historical acceptance.
 
-Current candidate `20157ab5` / `becb29ad72ed94df` is qualified and installed,
-with native acceptance pending and Ubuntu/e47d unchanged. The v138 option adds
+Previous candidate `20157ab5` / `becb29ad72ed94df` was qualified and installed
+before the failed run recorded below; Ubuntu/e47d remained unchanged. The v138 option adds
 eight separate retained cleanup pages after verified MAC disable, keeping the
 original eight discovery buffers and seven-quiet/200-round requirements. Exact
 normal/Stop event validation covers own in-flight EP0/Stop commands, unpublished
@@ -16567,3 +16567,48 @@ Actual main `807fdb35` (PR441/442 battery first-protocol observation) is merged
 as `b4bad267`. Ports `276eb1b` consumes its pinned `39ad9d7` and preserves the
 Pro logging isolation. These observational battery changes do not activate
 Pro battery ownership or establish new physical acceptance.
+
+## Current qualified empty-Stop trial
+
+Runtime `0e7dc297` / release `d49a66bb7768f15f` is now qualified and installed,
+with native validation pending. The zero-cleanup-post path retains one exact
+nonpayload CC27 during its bound published Stop command; successful command
+completion and final state3/exact dequeue are required before freezing and
+original-buffer inspection. Missing/duplicate, wrong identity/residue, normal
+payload, unpublished TD, failed command/final context and late events refuse.
+The saved raw terminal receipt now includes its dequeue even with zero scratch
+posts. New source-specific collection explicitly requires that receipt; default
+historical parsing retains compatibility. This corrects a modeled event-ordering
+case; the prior native event-time failed subpredicate remains unobserved.
+
+The fresh397.25-second selected matched build/controller/network/storage suite
+passes, including the consumed main807fdb35 battery protocol regressions. Actual
+core normal/fatal sanitizer tests, five parser groups and unchanged actual empty/
+nonzero emitted rows pass strict parsing; zero-dequeue mutations refuse. All1578
+private compiled inputs equal the current source. Independent39-file source and
+actual-emitter review found no blockers; the initial emitter omission and its
+repair proof are retained separately. Fresh native xhci frame measurement passes.
+The complete2050752-byte modeled-parent/actual-C-child prefix passes508 missing/
+duplicate refusals; this is synthetic, not hardware evidence.258 stage cases,
+desktop/exact GPT/missing-workspace VMs and the exact426-file workspace-copy VM
+pass. Prior bytes/metadata remain identical in that VM except RTC-bounded marker
+atime. This is selected qualification, not a full-core or native Wi-Fi pass.
+
+Only the backed failedBEC EFI duplicate was retired, after selecting verified
+accepted7026 temporarily and verifying the immutable920-file native/20-file review
+capsules. Ubuntu/e47d, all six accepted payloads and NVRAM boot paths are intact.
+The new ignored record is `build/bringup/wifi-cal5-stop/run.json`; it owns arming.
+Collect FIRST once after return with that directory's `run_root.py return_collect`.
+Require the explicit empty-Stop/4MiB profile and full original-buffer, production
+DHCP/DNS/64exactICMP, key/provider/fence/parent/ledger and preservation/recovery
+proofs. No older collected run may be recollected or resealed.
+
+The private next HTTP app-mode proposal is archived and unapplied:43 host cases
+pass normally and with fatal sanitizers using actual SDK/helper/app dispatch,
+with22 exact compiled project inputs and normal production object compilation.
+Host syscalls/process/clock/transport remain modeled; real user execution/READY/
+IRQ, kernel numeric GO producer/schema, isolated init, ELF linkage, worker/global
+budget and native HTTP validation are not accepted. The earlier child-pipe
+capability proposal also remains private/unapplied. Neither proposal is part of
+this installed hardware image. TCP/HTTP, lifecycle/UI, reliability and compatible
+2.4GHz hardware remain open.

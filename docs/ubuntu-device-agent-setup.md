@@ -1616,3 +1616,16 @@ one exact nonpayload CC27 notification during its own Stop and require successfu
 command completion plus final stopped context/dequeue before inspection. Event-time
 context was not logged, so an early context check is a hypothesis rather than an
 established native cause. No new trial is armed until exact source qualification.
+
+The next correction is now qualified/installed at `0e7dc297` / `d49a66bb7768f15f`,
+native pending. Use only `build/bringup/wifi-cal5-stop/run_root.py return_collect`
+once after its armed run. The frozen source-specific checker explicitly requires
+the retained zero-post terminal receipt, including matching final dequeue and
+original handoff slot; historical compatibility defaults cannot accept this run.
+397.25seconds of selected build/tests, actual normal/fatal emitted-row/source
+review,508 prefix refusals,258 stage cases and exact426-file desktop/GPT/
+missing-workspace VM preservation pass. Only backed failedBEC's EFI duplicate
+was retired after accepted7026 fallback; all six accepted payloads/Ubuntu/e47d
+remain. The on-disk run record owns arming and collection. Cold shutdown still
+requires Wi-Fi-only10seconds OFF-state unplug, same-port reconnect/power-on;
+leave workspace connected. Progress/save/Ubuntu return are automatic.
