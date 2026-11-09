@@ -19,6 +19,15 @@ from inspect_hardware_test import Reader
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def inspection_mountpoint(value):
+    """Require an explicit canonical guest namespace, never remap metadata."""
+    if (not value.startswith('/') or value == '/' or len(value) >= 1024 or
+            any(ord(c) < 32 or ord(c) > 126 for c in value) or
+            any(part in ('', '.', '..') for part in value[1:].split('/'))):
+        raise ValueError('Expected a canonical absolute non-root mountpoint below 1024 ASCII bytes')
+    return value
+
+
 def select_partition(inventory, volume):
     matches = []
 
@@ -44,6 +53,8 @@ def select_partition(inventory, volume):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--uuid', required=True)
+    parser.add_argument('--mountpoint', default='/vol',
+                        help='Guest namespace for strict metadata inspection (for example /work); default /vol')
     parser.add_argument('--battery-image', action='store_true',
                         help='also require the exclusive contiguous 16 MiB battery-fs.img extent')
     parser.add_argument("--require-headroom",action="store_true",help="Also require 32 file and 8 directory slots plus metadata reserve")
@@ -53,6 +64,10 @@ def main():
     if sum((args.battery_image, args.require_headroom, args.require_writable)) > 1:
         parser.error("Use separate extent, headroom and writable checks")
     try:
+        mountpoint = inspection_mountpoint(args.mountpoint)
+        suffix = '/srvros-work/battery-fs.img' if args.battery_image else '/new-trial' if args.require_headroom else ''
+        if len(mountpoint) + len(suffix) >= 1024:
+            raise ValueError('Inspection path exceeds the guest path limit')
         volume = volume_id(args.uuid)
         inventory = json.loads(subprocess.check_output([
             'lsblk', '--json', '--tree', '--output', 'PATH,TYPE,TRAN,UUID,FSTYPE,MOUNTPOINTS'], text=True))
@@ -65,7 +80,8 @@ def main():
                 raise ValueError('Expected a block device')
             Reader(stream, volume)  # Independently verify on-disk UUID and geometry.
         return subprocess.run([str(driver), str(device),
-                               'image-range' if args.battery_image else 'headroom-check' if args.require_headroom else 'writable-check' if args.require_writable else 'allocation-check']).returncode
+                               'image-range' if args.battery_image else 'headroom-check' if args.require_headroom else 'writable-check' if args.require_writable else 'allocation-check',
+                               '--mountpoint', mountpoint]).returncode
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         print(f'allocation-check: NOT CHECKED: {error}')
         return 2

@@ -6277,3 +6277,9 @@ build/tests/exfat-link-batch-host$(HOST_EXE): tools/test_exfat_link_batch.c kern
 build/tests/exfat-unbatched-links-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_LINK_BATCH_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+
+.PHONY: test-exfat-inspection
+test-core: test-exfat-inspection
+test-exfat-inspection: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) -B tools/test_exfat_inspection_mount.py --driver $< --output build/review/exfat-inspection
+	$(PYTHON) -B -m unittest discover -s tools -p test_exfat_allocation_check.py

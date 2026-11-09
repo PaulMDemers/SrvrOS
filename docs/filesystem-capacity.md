@@ -193,3 +193,13 @@ and already quarantined dirty media retain their separate policies. Positive
 desktop fixtures use valid distinct persisted IDs;duplicate or wrong-mount
 sidecars are explicit refusal fixtures. Source/host tests alone do not establish
 native metadata preservation;compare a sealed raw baseline after physical runs.
+
+
+Host inspection must use the same virtual mountpoint as persisted path-keyed
+metadata. `check_exfat_allocation.py --mountpoint /work` selects this explicitly
+for the RAM workspace; the generic fixture driver defaults to `/vol`. The option
+is restricted to read-only allocation, writable-admission, headroom and extent
+queries. Invalid/misplaced options and oversized derived paths refuse before
+opening media. It does not remap metadata or change import/identity/quarantine
+rules; all read checks assert zero writes and flushes. A writable-admission
+refusal under a foreign prefix is expected, not permission to replace the sidecar.

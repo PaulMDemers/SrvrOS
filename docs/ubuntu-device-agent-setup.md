@@ -358,7 +358,7 @@ sequence. Add `--require-headroom` to the allocation checker to validate the
 reserve with the real SrvrOS filesystem/VFS implementation:
 
 ```sh
-sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID" --require-headroom
+sudo python3 tools/check_exfat_allocation.py --mountpoint /work --uuid "$SRVROS_USB_UUID" --require-headroom
 ```
 
 A disposable exact-stage negative rehearsal is available for an ordinary desktop
@@ -630,7 +630,7 @@ connected; the trial needs no input and returns automatically. Follow the
 and retain both outer-volume preflight checks. Pro desktop v37 is a separate
 profile; do not replace or renumber it when merging these staging changes.
 With the selected partition unmounted, also run
-`sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID" --battery-image`
+`sudo python3 tools/check_exfat_allocation.py --mountpoint /work --uuid "$SRVROS_USB_UUID" --battery-image`
 to reject a fragmented, aliased or incompletely initialized outer file before
 reboot. This checks the outer extent; the kernel separately validates the inner
 filesystem identity, marker and allocation graph before enabling its view.
@@ -898,8 +898,8 @@ Files/terminal views of the volume and unmount it:
 make build/tests/exfat-driver
 udisksctl unmount -b "$SRVROS_USB_PART"
 sudo fsck.exfat -n "$SRVROS_USB_PART"
-sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID"
-sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID" --require-writable
+sudo python3 tools/check_exfat_allocation.py --mountpoint /work --uuid "$SRVROS_USB_UUID"
+sudo python3 tools/check_exfat_allocation.py --mountpoint /work --uuid "$SRVROS_USB_UUID" --require-writable
 udisksctl mount -b "$SRVROS_USB_PART"
 ```
 
@@ -1556,3 +1556,13 @@ accepted8529 and verifying its immutable backup/no-reference proof. Ubuntu/e47d
 and accepted8529/4a/3c9/815/e17 remain installed. Keep the same Wi-Fi-only10second
 OFF-state unplug/reconnect protocol; guest progress/save/return are automatic.
 The run record owns arming state; native production/HTTP/lifecycle remain pending.
+
+
+Read-only host allocation/writable/headroom/extent inspection accepts an explicit
+`--mountpoint` matching the guest's persisted metadata namespace. This RAM-workspace
+workflow uses `/work`; that is not Ubuntu's `/media` mount directory. The host
+fixture default stays `/vol` for compatibility with disposable test images.
+A foreign prefix correctly refuses writable metadata admission even when fsck and
+allocation ownership are clean. There is no namespace guessing, fallback or
+sidecar rewriting. `make test-exfat-inspection` verifies explicit/default prefixes,
+malformed/duplicate/dirty refusals, argument bounds and zero writes/flushes.
