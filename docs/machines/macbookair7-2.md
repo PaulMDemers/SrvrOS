@@ -2,6 +2,21 @@
 
 Updated: 2026-11-08. State: **active reference machine; partial device acceptance**.
 
+### Active scope: bounded full-census sampling
+
+Integrate main `d20312ac` (Air6,1 screenshot gate timing acceptance); preserve
+independent Air6,1 sync timing PR431, Pro11,2 Wi-Fi PR19 and WebCore PR379 scope.
+Reduce pre/post preservation census overhead via an optional ordered46-word
+sample callback only in the isolated shutdown/reset image. Keep fresh full core/
+provider/core admission and fresh requester checks between engine groups, exact
+raw order/binding, parent/epoch checks, all pin lifetimes and100/300/500ms plus
+phase/poll bounds. No native deadline, writer, geometry or mapping expansion.
+Versioned receipts must require new pre/post sample coverage before completion.
+Scope: completion observer/adapter, BCS report/strict collectors, host/native
+instruction controls and exact-stage VM. Existing scalar images retain their
+path. Stop at installed/unarmed hardware readiness; previous native evidence
+remains incomplete and backed up. Checkpoint: `build/air-census-batches-20261108`.
+
 ### Guarded transactions return: core complete, owner deadline exceeded
 
 Source `379a25e0`, release `58679ddd2e83e75b`, session
