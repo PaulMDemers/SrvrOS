@@ -214,6 +214,15 @@ class Tests(unittest.TestCase):
             changed[i] = re.sub(r'\b' + key + r'=\d+', key + '=' + str(value), rows[i])
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):
                 self.check_owner(changed)
+        # Four successful response phases require four nonignored polls;
+        # AUTH's initial clock plus its polls leaves at least three polls for
+        # ASSOC/M1/M3. These pairs were impossible despite individual bounds.
+        for key, value in [('ignored', 1), ('clocks', 3)]:
+            changed = rows.copy()
+            changed[i] = re.sub(r'\bpolls=\d+', 'polls=4', rows[i])
+            changed[i] = re.sub(r'\b' + key + r'=\d+', key + '=' + str(value), changed[i])
+            with self.subTest(impossible_counter=key), self.assertRaises(ValueError):
+                self.check_owner(changed)
         for key, value in [('attempted', '01'), ('status', '-1'), ('peer', '0x0000000000000001')]:
             changed = rows.copy()
             changed[i] = re.sub(r'\b' + key + r'=\d+', key + '=' + value, rows[i])

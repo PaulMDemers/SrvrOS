@@ -168,8 +168,8 @@ def _owner(log, lines, rows):
             all(auth[k]==v for k,v in dict(attempted=1,auth_sent=1,assoc_sent=1,sends=5,
                 status=0,peer=1,ok=1,invalid=0,rejected=0,rollback=0).items()) and
             1<=auth['aid']<=2007 and 4<=auth['polls']<=80000 and
-            0<=auth['ignored']<=auth['polls'] and
-            2<=auth['clocks']<=min(20001,auth['polls']+1) and
+            0<=auth['ignored']<=auth['polls']-4 and
+            2<=auth['clocks']<=min(20001,auth['polls']-2) and
             1<=auth['present']<=auth['clocks']-1 and
             auth['present']-auth['peer']<=auth['ignored'] and
             0<=auth['elapsed_us']<750000,
