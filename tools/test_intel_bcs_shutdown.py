@@ -107,6 +107,25 @@ class BcsShutdownTests(unittest.TestCase):
     else:
      self.assertEqual(r['summary']['returned'],1);self.assertEqual(r['summary']['pin_returned'],0)
      self.assertEqual((r['clock']['c'],r['clock']['p']),(2,1))
+ def test_failed_full_exit_retains_completed_write_prefix(self):
+  for kind in ('endpoint','backing'):
+   for n in range(1,5):
+    with self.subTest(kind=kind,n=n):
+     t=adapter('bcs-exit-'+kind+':'+str(n));r=bcs_result(t);s=r['summary'];w=wake_result(t)['summary']
+     self.assertFalse(r['complete']);self.assertEqual(s['writes']+s['reset_writes'],n)
+     self.assertEqual(s['attempts']+s['reset_attempts'],n)
+     self.assertEqual(s['returned'],0);self.assertEqual(s['uncertain'],1)
+     self.assertEqual((w['retained'],w['retired'],w['released']),(1,0,0))
+ def test_post_census_exit_fails_before_sample_acceptance(self):
+  for kind in ('endpoint','backing'):
+   for n in (1,2):
+    with self.subTest(kind=kind,n=n):
+     t=adapter('bcs-post-exit-'+kind+':'+str(n));r=bcs_result(t);s=r['summary'];w=wake_result(t)['summary']
+     self.assertFalse(r['complete']);self.assertEqual((s['writes'],s['reset_writes'],s['reset_acks']),(2,2,2))
+     self.assertEqual((s['returned'],s['pin_returned']),(1,0))
+     self.assertEqual(r['clock']['p'],n)
+     self.assertEqual(r['post']['summary']['samples'],n-1)
+     self.assertEqual((w['retained'],w['retired'],w['released']),(1,0,0))
  def test_attention(self):
   from hardware_desktop import needs_attention
   clock=next(l for l in adapter().splitlines() if l.startswith('intel-bcs-clock:'))

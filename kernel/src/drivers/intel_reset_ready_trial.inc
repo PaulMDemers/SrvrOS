@@ -2,17 +2,33 @@
 #include <srvros/intel_reset_ready.h>
 static bool reset_ready_control(void *ctx,uint32_t *out) {
  struct wake_adapter *a=ctx;
- if(!out || !a->mapped[7] || !engine_guard(a))return false;
-#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
- return intel_display_test_reset_ready_read(INTEL_BCS_RESET_CTL,out);
+ if(!out || !a->mapped[7] ||
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+    !bcs_provider_enter(a)
 #else
- *out=*(volatile const uint32_t *)(WAKE_VA+7*4096+0xd0);return true;
+    !engine_guard(a)
 #endif
+    )return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ bool ok=intel_display_test_reset_ready_read(INTEL_BCS_RESET_CTL,out);
+#else
+ *out=*(volatile const uint32_t *)(WAKE_VA+7*4096+0xd0);bool ok=true;
+#endif
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ bcs_provider_exit(a);
+#endif
+ return ok;
 }
 static bool reset_ready_group(void *ctx,uint32_t out[8]) {
  struct wake_adapter *a=ctx;
  static const uint32_t regs[8]={0x22030,0x22034,0x22038,0x2203c,0x22234,0x22238,0x2209c,0x2229c};
- if(!out || !a->mapped[7] || !engine_guard(a))return false;
+ if(!out || !a->mapped[7] ||
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+    !bcs_provider_enter(a)
+#else
+    !engine_guard(a)
+#endif
+    )return false;
  for(unsigned i=0;i<8;i++) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
   if(!intel_display_test_reset_ready_read(regs[i],&out[i]))return false;
@@ -20,19 +36,35 @@ static bool reset_ready_group(void *ctx,uint32_t out[8]) {
   out[i]=*(volatile const uint32_t *)(WAKE_VA+7*4096+(regs[i]&4095));
 #endif
  }
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ bcs_provider_exit(a);
+#endif
  return true;
 }
 static enum intel_gt_write reset_ready_store(void *ctx,uint32_t value) {
  struct wake_adapter *a=ctx;
  if((value!=INTEL_BCS_RESET_REQUEST && value!=INTEL_BCS_RESET_CANCEL) ||
-    !a->mapped[7] || !engine_guard(a))return GT_WRITE_NONE;
+    !a->mapped[7] ||
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+    !bcs_provider_enter(a)
+#else
+    !engine_guard(a)
+#endif
+    )return GT_WRITE_NONE;
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ if(!bcs_store_clock(a))return GT_WRITE_NONE;
+#endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
- return intel_display_test_reset_ready_write(INTEL_BCS_RESET_CTL,value);
+ enum intel_gt_write wrote=intel_display_test_reset_ready_write(INTEL_BCS_RESET_CTL,value);
 #else
  __asm__ volatile("mfence":::"memory");
  *(volatile uint32_t *)(WAKE_VA+7*4096+0xd0)=value;
- __asm__ volatile("mfence":::"memory");return GT_WRITE_DONE;
+ __asm__ volatile("mfence":::"memory");enum intel_gt_write wrote=GT_WRITE_DONE;
 #endif
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ if(wrote==GT_WRITE_DONE)bcs_provider_exit(a);
+#endif
+ return wrote;
 }
 #ifndef SRVROS_INTEL_BCS_RESET_TRIAL
 static void reset_ready_report(const struct intel_reset_ready_result *r) {

@@ -19,39 +19,63 @@ static uint64_t bcs_now(void *ctx) {
 }
 static bool bcs_domain(void *ctx,uint32_t *out) {
  struct wake_adapter *a=ctx;
- if(!out || !a->mapped[9] || !engine_guard(a))return false;
-#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
- return intel_display_test_bcs_read(0x941c,out);
+ if(!out || !a->mapped[9] ||
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+    !bcs_provider_enter(a)
 #else
- *out=*(volatile const uint32_t *)(WAKE_VA+9*4096+0x41c);return true;
+    !engine_guard(a)
 #endif
+    )return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ bool ok=intel_display_test_bcs_read(0x941c,out);
+#else
+ *out=*(volatile const uint32_t *)(WAKE_VA+9*4096+0x41c);bool ok=true;
+#endif
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ bcs_provider_exit(a);
+#endif
+ return ok;
 }
 static enum intel_gt_write bcs_domain_write(void *ctx,uint32_t value) {
  struct wake_adapter *a=ctx;
- if(value!=8 || !a->mapped[9] || !engine_guard(a))return GT_WRITE_NONE;
+ if(value!=8 || !a->mapped[9] ||
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+    !bcs_provider_enter(a)
+#else
+    !engine_guard(a)
+#endif
+    )return GT_WRITE_NONE;
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ if(!bcs_store_clock(a))return GT_WRITE_NONE;
+#endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
- return intel_display_test_bcs_write(0x941c,value);
+ enum intel_gt_write wrote=intel_display_test_bcs_write(0x941c,value);
 #else
  __asm__ volatile("mfence":::"memory");
  *(volatile uint32_t *)(WAKE_VA+9*4096+0x41c)=value;
- __asm__ volatile("mfence":::"memory");return GT_WRITE_DONE;
+ __asm__ volatile("mfence":::"memory");enum intel_gt_write wrote=GT_WRITE_DONE;
 #endif
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ if(wrote==GT_WRITE_DONE)bcs_provider_exit(a);
+#endif
+ return wrote;
 }
 #if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) && !defined(SRVROS_INTEL_BCS_SCALAR_TEST)
 #ifndef SRVROS_INTEL_BCS_TRANSITION_SCALAR_TEST
 /* One exact store followed by its first non-clearing acknowledgement load.
- * The core supplies fresh full pre/post guards and the provider supplies its
- * own full guard. Failure after issue is always uncertain. No retry here. */
+ * The core supplies fresh live pre/post guards; the provider supplies full
+ * entry/exit validation and the unchanged dependent pre-store clock. Failure after issue is always uncertain. No retry here. */
 static enum intel_gt_write bcs_transition(void *ctx,bool domain,uint32_t value,uint32_t *out) {
  struct wake_adapter *a=ctx;
  if(!out || (domain?value!=8:(value!=INTEL_BCS_RESET_REQUEST && value!=INTEL_BCS_RESET_CANCEL)) ||
-    !a->mapped[domain?9:7] || !engine_guard(a))return GT_WRITE_NONE;
+    !a->mapped[domain?9:7] || !bcs_provider_enter(a) || !bcs_store_clock(a))return GT_WRITE_NONE;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  enum intel_gt_write w=domain?intel_display_test_bcs_write(0x941c,value):intel_display_test_reset_ready_write(INTEL_BCS_RESET_CTL,value);
  if(w!=GT_WRITE_DONE)return w;
  if(!engine_requesters(a))return GT_WRITE_UNCERTAIN;
  bool read=domain?intel_display_test_bcs_read(0x941c,out):intel_display_test_reset_ready_read(0x220d0,out);
- return read?GT_WRITE_DONE:GT_WRITE_UNCERTAIN;
+ if(!read)return GT_WRITE_UNCERTAIN;
+ bcs_provider_exit(a);return GT_WRITE_DONE;
 #else
  volatile uint32_t *reg=(volatile uint32_t *)(domain?WAKE_VA+9*4096+0x41c:WAKE_VA+7*4096+0xd0);
  __asm__ volatile("mfence":::"memory");
@@ -59,14 +83,14 @@ static enum intel_gt_write bcs_transition(void *ctx,bool domain,uint32_t value,u
  __asm__ volatile("mfence":::"memory");
  if(!engine_requesters(a))return GT_WRITE_UNCERTAIN;
  *out=*reg;
- return GT_WRITE_DONE;
+ bcs_provider_exit(a);return GT_WRITE_DONE;
 #endif
 }
 #endif
 static bool bcs_snapshot(void *ctx,uint32_t out[8],uint32_t *control,uint32_t *domain) {
  struct wake_adapter *a=ctx;
  static const uint32_t regs[8]={0x22030,0x22034,0x22038,0x2203c,0x22234,0x22238,0x2209c,0x2229c};
- if(!out || !control || !domain || !a->mapped[7] || !a->mapped[9] || !engine_guard(a))return false;
+ if(!out || !control || !domain || !a->mapped[7] || !a->mapped[9] || !bcs_provider_enter(a))return false;
  for(unsigned i=0;i<8;i++) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
   if(!intel_display_test_reset_ready_read(regs[i],&out[i]))return false;
@@ -75,11 +99,12 @@ static bool bcs_snapshot(void *ctx,uint32_t out[8],uint32_t *control,uint32_t *d
 #endif
  }
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
- return intel_display_test_reset_ready_read(0x220d0,control) && intel_display_test_bcs_read(0x941c,domain);
+ bool ok=intel_display_test_reset_ready_read(0x220d0,control) && intel_display_test_bcs_read(0x941c,domain);
 #else
  *control=*(volatile const uint32_t *)(WAKE_VA+7*4096+0xd0);
- *domain=*(volatile const uint32_t *)(WAKE_VA+9*4096+0x41c);return true;
+ *domain=*(volatile const uint32_t *)(WAKE_VA+9*4096+0x41c);bool ok=true;
 #endif
+ bcs_provider_exit(a);return ok;
 }
 #endif
 static bool bcs_planes(struct wake_adapter *a,struct intel_gt_access *g,struct bcs_trial *t,unsigned n) {
@@ -115,14 +140,42 @@ static bool bcs_planes(struct wake_adapter *a,struct intel_gt_access *g,struct b
  ++t->samples;t->end=timer_monotonic_us();
  return t->begin && t->end>t->begin && t->end-t->begin<=GT_ACCESS_TOTAL_US && intel_gt_access_check(g);
 }
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+static bool bcs_post_group(void *ctx,unsigned e,uint32_t out[INTEL_COMPLETION_WORDS]) {
+ struct wake_adapter *a=ctx;if(!bcs_provider_enter(a))return false;
+ bool ok=completion_group_raw(a,e,out);bcs_provider_exit(a);return ok;
+}
+static bool bcs_post_context(void *ctx,uint32_t out[INTEL_COMPLETION_CONTEXT]) {
+ struct wake_adapter *a=ctx;if(!bcs_provider_enter(a))return false;
+ bool ok=completion_context_raw(a,out);bcs_provider_exit(a);return ok;
+}
+#ifndef SRVROS_INTEL_CENSUS_SCALAR_TEST
+static bool bcs_post_sample(void *ctx,uint32_t words[INTEL_ENGINE_COUNT][INTEL_COMPLETION_WORDS],uint32_t context[INTEL_COMPLETION_CONTEXT]) {
+ struct wake_adapter *a=ctx;if(!bcs_core_guard(a))return false;
+ bool ok=completion_snapshot(a,words,context);bcs_provider_exit(a);return ok;
+}
+#define BCS_POST_SAMPLE bcs_post_sample
+#else
+#define BCS_POST_SAMPLE NULL
+#endif
+#endif
 static void bcs_run(struct wake_adapter *a,struct intel_gt_access *g,const struct intel_completion_result *pre,struct bcs_trial *t,bool policy) {
  if(!bcs_planes(a,g,t,0))return;
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ a->bcs_owner=g;a->bcs_active=&t->reset;
+#endif
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
  (void)intel_bcs_reset_after_shutdown(
 #else
  (void)intel_bcs_reset(
 #endif
-&t->reset,g,pre,policy,(struct intel_bcs_reset_io){a,engine_guard,reset_ready_control,bcs_domain,reset_ready_group,reset_ready_store,bcs_domain_write,bcs_now,wake_pause,
+&t->reset,g,pre,policy,(struct intel_bcs_reset_io){a,
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ bcs_core_guard,
+#else
+ engine_guard,
+#endif
+ reset_ready_control,bcs_domain,reset_ready_group,reset_ready_store,bcs_domain_write,bcs_now,wake_pause,
 #if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) && !defined(SRVROS_INTEL_BCS_SCALAR_TEST)
  bcs_snapshot,
 #ifndef SRVROS_INTEL_BCS_TRANSITION_SCALAR_TEST
@@ -140,7 +193,13 @@ static void bcs_run(struct wake_adapter *a,struct intel_gt_access *g,const struc
  unsigned stores=g->writes;
  t->blocked_close=!intel_gt_access_close(g) && g->writes==stores && g->state==GT_ACCESS_AWAKE && g->pinned;
  if(!t->blocked_close){a->uncertain=true;return;}
- bool post=intel_completion_observe(&t->post,g,(struct intel_completion_io){a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE});
+ bool post=intel_completion_observe(&t->post,g,(struct intel_completion_io){a,
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ bcs_core_guard,bcs_post_group,bcs_post_context,now,BCS_POST_SAMPLE
+#else
+ engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE
+#endif
+ });
  bool planes=post && bcs_planes(a,g,t,1);
  t->preserved=post && planes && pre->engine_epoch==t->reset.epoch_before && t->post.engine_epoch==t->reset.epoch_after;
  for(unsigned n=0;n<2;n++)for(unsigned e=0;e<5;e++)for(unsigned i=0;i<8;i++)if(t->post.words[n][e][i]!=pre->words[n][e][i])t->preserved=false;

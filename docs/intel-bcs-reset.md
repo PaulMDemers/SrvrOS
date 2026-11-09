@@ -543,3 +543,33 @@ guarantee. Earlier enabled-ring refusals and retained-state timing failures rema
 nonpasses. Enabled-ring shutdown, outstanding memory writes/prefetch/cache/reader
 retirement, GPU translation ownership, managed backing and tear-free presentation
 are not accepted; all255 obligations remain open. No reboot is armed.
+
+## Native provider-boundary integration
+
+The dedicated same-borrow disabled-observation/reset image now applies the
+[qualified preparation callback pattern](intel-engine-prepare.md#native-nested-census-acceptance-2026-11-09)
+to reset and its nested preservation census. Fresh core checks retain IRQ
+exclusion, original owner, display/observer claim, current root, absent scratch
+alias, all13 exact live mappings and fresh wake requesters. Every successful
+control/domain/group/snapshot/write provider owns a complete backing/endpoint
+entry and exit validation. Full-exit failure permanently poisons the adapter
+and native owner before the next core check, preserving completed write/load
+prefixes. No admission survives into a later callback.
+
+The exact request/cancel and domain8 writers additionally verify the live
+registered borrow/epoch and original100ms dependent clock after full admission,
+immediately before possible issue. Scalar fallback writers have the same clock
+and full boundaries. The nested census retains both46-word samples and fresh
+per-group mappings/requesters; its callbacks also provide full entry/exit checks.
+Both pre/post engine/context vectors,54 plane words, both10-field HDA snapshots,
+software epoch transition, registered preservation borrow and all teardown
+checks remain. Only this image additionally uses the already qualified <=64-entry
+IRQ-disabled raw GGTT reader and the same-call final endpoint binding; other
+reset/readiness images keep their prior admission path.
+
+The generic reset core, exact16-token recipe, version12 receipt and all
+100/150/300/500ms and10ms/256-poll limits stay unchanged. Prior native evidence
+does not accept these adapter changes. Requalify this source with exact-stage
+VM refusal/persistence, compiled address/permission/clock controls and a new
+matching native trial. All255 completion obligations remain open; no wider
+domain reset, PTE writer, managed range or native tear-free grant is added.

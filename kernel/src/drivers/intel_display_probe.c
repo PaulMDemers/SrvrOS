@@ -360,7 +360,7 @@ bool intel_scanout_trial_clock(struct intel_scanout_clock *clock) {
     clock->us=timer_monotonic_us();
     return true;
 }
-#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
 /* Read the same raw inherited GGTT words, without re-entering the generic
  * single-DWORD provider for each word. IRQ exclusion is mandatory; the exact
  * live alias and immutable observer claim bracket each <=64-entry group.
@@ -411,7 +411,7 @@ static bool backing_pairs(void *ctx,uint32_t offset,unsigned count,uint64_t *out
 bool intel_scanout_trial_revalidate(void) {
     struct backing_adapter a;if(!trial_adapter(&a))return false;
     const struct intel_backing_io io={&a,backing_endpoint,backing_map,backing_unmap,backing_read,now};
-#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
     bool ok=intel_display_backing_batched(&trial_after,&result,&io,backing_pairs_irq_off()?backing_pairs:NULL);
 #else
     bool ok=intel_display_backing(&trial_after,&result,&io);
@@ -733,7 +733,7 @@ static bool gt_guard(void *context) {
        vmm_virt_to_phys_in_space(g->a.common.cr3,BACKING_VA,&old))return false;
     g->guards++;return intel_scanout_trial_revalidate();
 }
-#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
 /* A successful full census already finishes with a fresh complete endpoint
  * equal to the inherited one. Bind the original adapter to that same source,
  * then read the two firmware request registers without a sixth endpoint walk.

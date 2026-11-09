@@ -18,6 +18,7 @@ static bool intel_display_test_prepare_reader(uint32_t,uint32_t *);
 #include "../kernel/src/display_access.c"
 #if defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL)
 #include <srvros/intel_reset_ready.h>
+static unsigned ready_writes,ready_reads,ready_group_words,ready_phase_reads;
 static bool intel_display_test_reset_ready_read(uint32_t,uint32_t *);
 static enum intel_gt_write intel_display_test_reset_ready_write(uint32_t,uint32_t);
 #endif
@@ -42,6 +43,20 @@ static enum intel_gt_write intel_display_test_bcs_write(uint32_t,uint32_t);
 #endif
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 static const char *engine_mode="report";
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+static bool bcs_exit_fault(const char *mode) {
+ const char *colon=strchr(engine_mode,':');
+ unsigned n=colon?(unsigned)atoi(colon+1):0;
+ return colon && !strncmp(engine_mode,mode,strlen(mode)) && n>=1 && n<=4 &&
+  ready_writes+bcs_reset_writes==n;
+}
+static bool bcs_post_exit_fault(const char *mode) {
+ const char *colon=strchr(engine_mode,':');
+ unsigned n=colon?(unsigned)atoi(colon+1):0;
+ return colon && !strncmp(engine_mode,mode,strlen(mode)) && n>=1 && n<=2 &&
+  ready_writes==2 && bcs_reset_writes==2 && completion_context_reads==12+6*n;
+}
+#endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
 static bool prepare_exit_fault(const char *mode) {
  const char *colon=strchr(engine_mode,':');
@@ -372,6 +387,9 @@ uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
     switch(off) {
     case 0:return 0x16268086;case 4:return 0x00100006;case 8:return 0x03000009;
     case 0xfc:
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+        if(bcs_exit_fault("bcs-exit-endpoint") || bcs_post_exit_fault("bcs-post-exit-endpoint"))return 1;
+#endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
         if(prepare_exit_fault("prep-exit-endpoint") || prepare_post_exit_fault("prep-post-exit-endpoint"))return 1;
 #endif
@@ -512,6 +530,9 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
         if(off>=0x100000 && off<0x100100){unsigned i=(off-0x100000)/8;uint64_t f=i?0:cache_mode?0x021ff02f00000001ull:((uint64_t)(5554176-4096+47)<<32)|1;*value=(uint32_t)(f>>((off&4)?32:0));}
         else if(off>=0x800000 && off<0x803000){unsigned i=(off-0x800000)/8;*value=(uint32_t)(((window_mode?0x8c001001ull:0x90000001ull)+4096ull*i)>>((off&4)?32:0));}
         else assert(0);
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+        if((bcs_exit_fault("bcs-exit-backing") || bcs_post_exit_fault("bcs-post-exit-backing")) && off>=0x800000 && !(off&7))*value^=4096;
+#endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
         if((prepare_exit_fault("prep-exit-backing") || prepare_post_exit_fault("prep-post-exit-backing")) && off>=0x800000 && !(off&7))*value^=4096;
 #endif
@@ -788,7 +809,6 @@ if(good){assert(wake_writes==3 && !wake_ack && (wake_request&0xffff)==0 && displ
 }
 
 #if defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL)
-static unsigned ready_writes,ready_reads,ready_group_words,ready_phase_reads;
 static uint32_t ready_control;
 static bool intel_display_test_reset_ready_read(uint32_t reg,uint32_t *out) {
  assert(wake_irq && wake_ack==1 && (wake_request&65535)==1 && !display_access_allowed());

@@ -93,7 +93,13 @@ static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x1
 #define WAKE_VERSION 1u
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000};
 #endif
-struct wake_adapter {struct fw_observer fw;bool mapped[WAKE_MAPS],uncertain;unsigned maps,retired,guards,cache_checks;};
+struct wake_adapter {struct fw_observer fw;bool mapped[WAKE_MAPS],uncertain;unsigned maps,retired,guards,cache_checks;
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ struct intel_gt_access *bcs_owner;
+ const struct intel_bcs_reset_result *bcs_active;
+ bool bcs_failed;
+#endif
+};
 static bool wake_text(const char *a,const char *b) {
     if(!a)return false;
     for(unsigned i=0;i<32;i++){if(a[i]!=b[i])return false;if(!b[i])return true;}return false;
@@ -123,7 +129,7 @@ static bool wake_guard(void *context) {
     struct wake_adapter *a=context;struct intel_gt_endpoint e;
     a->guards++;
     if(a->uncertain || !wake_irq_off() ||
-#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
        !gt_guard_endpoint(&a->fw.gt,&e) ||
 #else
        !gt_guard(&a->fw.gt) || !gt_endpoint(&a->fw.gt,&e) ||
@@ -269,6 +275,43 @@ static void engine_report_named(const struct intel_engine_census *r,bool retired
         prefix,(uint64_t)r->samples,(uint64_t)r->reads,(uint64_t)r->stable,(uint64_t)r->enabled,(uint64_t)r->pending,r->begin_us,r->end_us,(uint64_t)r->complete,(uint64_t)retired);
 }
 #endif /* !completion: old group/receipt */
+#endif
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+#include <srvros/intel_bcs_reset.h>
+/* Fresh software/alias/requester admission for core bookkeeping. Hardware
+ * providers retain full backing/endpoint entry and exit validation. */
+static bool bcs_core_guard(void *ctx) {
+ struct wake_adapter *a=ctx;
+ if(a->bcs_failed || a->uncertain || !a->bcs_owner || a->bcs_owner->object!=a->bcs_owner ||
+    a->bcs_owner->state!=GT_ACCESS_AWAKE || !a->bcs_owner->pinned ||
+    !display_access_held(&a->bcs_owner->exclusion) || !wake_irq_off() ||
+    a->fw.gt.a.mapped || !display_access_held(&a->fw.gt.token) ||
+    !intel_boot_check(INTEL_BOOT_OBSERVER,a->fw.gt.a.common.gpu) ||
+    vmm_current_address_space()!=a->fw.gt.a.common.cr3)return false;
+ uint64_t physical;
+ if(vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,BACKING_VA,&physical))return false;
+ for(unsigned i=0;i<WAKE_MAPS;i++)if(!a->mapped[i] ||
+    !vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,WAKE_VA+4096*i,&physical) ||
+    physical!=result.mmio_base+wake_pages[i])return false;
+ return engine_requesters(a);
+}
+static bool bcs_provider_enter(struct wake_adapter *a) {
+ return bcs_core_guard(a) && engine_guard(a);
+}
+static void bcs_provider_exit(struct wake_adapter *a) {
+ /* Preserve completed load/store prefixes; the next live core bracket reports
+  * failure. No cached admission and no rollback after an ambiguous result. */
+ if(!engine_guard(a)){a->bcs_failed=true;a->uncertain=true;}
+}
+static bool bcs_store_clock(struct wake_adapter *a) {
+ const struct intel_bcs_reset_result *r=a->bcs_active;
+ if(!r || r->object!=r || r->borrow.parent!=a->bcs_owner || !r->borrow.active ||
+    r->borrow.object!=&r->borrow || a->bcs_owner->dependents!=&r->borrow ||
+    a->bcs_owner->borrows!=1 || r->epoch_after!=a->bcs_owner->engine_epoch)return false;
+ uint64_t at=now(a);
+ return at && at>=r->last_us && at>=r->begin_us &&
+  at-r->begin_us<=INTEL_RESET_READY_TOTAL_US;
+}
 #endif
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
 #include "intel_completion_trial.inc"

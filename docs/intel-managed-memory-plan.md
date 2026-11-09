@@ -141,3 +141,34 @@ boundaries and every deadline, before considering additional reset work.
 It must preserve all inherited backing and return after exact engine/display/HDA
 comparison. It adds no GDRST, PTE, command or memory-transfer capability and does
 not itself complete milestone1.
+
+## Reset integration boundary after preparation qualification
+
+Air7,2 has separate bounded passes for disabled-entry BCS reset/preservation
+(source`f68ab030`) and five-engine prepare/hold/cancel/preservation
+(source`292163ac`,93,246/100,000us). They cannot be concatenated as a maintained
+ready interval: the latter explicitly cancels every request and returns its
+borrow. A broader reset must obtain fresh readiness and keep its original
+registered borrow through reset, settling, cancellation and preservation.
+It must advance the owner epoch before any possible reset store, reject stale
+censuses and preserve completed prefixes on uncertainty.
+
+The immediate implementation step is the existing BCS-only adapter's
+[provider-boundary integration](intel-bcs-reset.md#native-provider-boundary-integration),
+with its generic core and exact disabled-entry/domain8 gate unchanged. This
+reduces redundant full admission while preserving raw observations; it does
+not turn an old preparation result into reset permission. Before a broader
+writer, review each engine/domain and reset side effect against pinned PRM
+register definitions and upstream ordering, define post-reset controls rather
+than assuming ready3 survives, and qualify the whole single-lifetime path
+within existing budgets. Do not stretch deadlines to compose separately tested
+operations. No all-engine reset or GGTT store is introduced in this step.
+
+After reset, a stable empty census still does not retire outstanding DMA,
+prefetched requests, translation caches, firmware/SMM clients or display
+readers. The reset register's non-posted completion applies to that register's
+operation; it is not a witness that earlier memory writes reached their target.
+An owned ring/status/completion location is required before using a command
+as a cache/TLB completion witness. The candidate populated GGTT window and
+its physical targets remain inherited allocations, not an available arena.
+Therefore every255 obligation and zero-native-assurance gate stays intact.
