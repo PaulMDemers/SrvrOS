@@ -2,6 +2,25 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Active scope: requester sampling under the preparation borrow
+
+Base `7a51142a`, integrated main `125eb2b5`; open PR19 networking and PR379
+WebCore remain independent. This block implements a separate read-only requester
+sampler invoked only during the preparation action, under its existing original
+sole borrow. A transient action-active flag binds the callback window. The
+sampler validates fixed PCI prefixes before each next read and shares the
+preparation's original100ms deadline; it does not acquire or return a borrow.
+
+User-authorized subagents own the new sampler/core, independent actual-core
+regressions and read-only review; parent serializes builds and integration.
+Scope: new held-requester header/core/test files, minimal preparation action-window
+metadata, Makefile and docs. Dependencies: accepted standalone PCI profile,
+maintained preparation API and original parent/epoch/census. No native adapter,
+recipe, wider profile, writer or DMA/ownership grant is added. Next checkpoint
+is host qualification and precise native integration requirements. Installed
+release `3ff42f33e6c01391` remains collected/accepted for its read-only capture;
+recovery remains retained, no reboot armed, volume1%.
+
 ### Implemented: maintained read-only preparation action
 
 Main `125eb2b5` (Air6,1 PR446 content-timing instrumentation) is integrated;
