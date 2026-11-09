@@ -2,7 +2,51 @@
 
 Updated: 2026-11-08. State: **active reference machine; partial device acceptance**.
 
-### Active scope: bounded full-census sampling
+### Full-census candidate ready for hardware
+
+Source `f68ab030` (main `d20312ac` integrated as `c7458e4c`) produces release
+`94bc48ed5551f552`, installed **not armed**. The
+[guarded full-census contract](../intel-bcs-reset.md#guarded-full-census-samples)
+keeps the same46 ordered DWORDs per pre/post sample under full fresh pre/provider/
+post admission, fresh per-group requester and current physical-mapping checks,
+all raw comparisons and both parent checks. Parent identity/state/pin/epoch also
+remain checked after guard callbacks. No teardown check, register, writer, page,
+geometry or authority is added or removed. All100/300/500ms, census, phase/poll/
+settling limits remain unchanged. Wake12/clock3 requires pre/post batch coverage
+in addition to the existing reset transactions/endpoints; older receipts retain
+independent classifications.
+
+The compiled scalar comparison measures183→147 full audits, all46 raw observation
+rows and normalized outcomes identical. This is host cost evidence, not native
+acceptance. Full local host/core/profile/docs/build checks pass; opt-in installed-
+root checks were explicitly omitted. Fatal ASan/UBSan covers74 actual adapter,
+25 qualified reset/core and21 batch parent/pin/epoch/clock cases. Sixteen compiled
+semantic/boundary controls and17 actual native instruction/page/provider controls
+are detected. Native object/staged read order, live immutable vectors, per-target
+translations and requester checks bind;16-image isolation passes. Full-width tail
+projection is65,517/65,536bytes with the unchanged1,536 allowance. Exact immutable
+MBR Q35/GRUB EFI64/Limine11.4.1 no-store refusal/save/unmount/return and missing-
+workspace halt pass; the actual16-token kernel-parser/config/saved-options bind.
+
+All1,395 files/121 sessions preserve. Offline fsck/allocation/writable/headroom,
+source/model/CPU/firmware, installed/durable/archive recovery and Ubuntu default/
+no-one-shot checks pass. Prior current5867, recovery9aa8, prior3d/d74 and GUIc497
+remain protected. Unreferenced8859 EFI data was archived only after full-file
+SHA equality with an independent real archive and durable payload. Volume1%, guest
+audio disabled, USB unmounted, no typing needed. Safe saved outcomes auto-return;
+uncertain ownership halts. No reboot is armed.
+
+Run/checkpoint, strict wake12 collector and exact payload are under ignored
+`build/air-census-batches-20261108`, with a full independent copy outside build.
+Manifest SHA is
+`21ffd121d251ad31680d176ee175ad1e88dce741c9a7423c861a9863181115da`.
+The latest physical result remains source379's95,752us core completion and
+306,161us owner-deadline nonpass. Complete preservation/teardown, DMA/prefetch/
+cache/reader retirement, managed backing and native tear-free remain unaccepted;
+all255 memory obligations stay open. Air6,1 sync PR431, Pro11,2 Wi-Fi PR19 and
+WebCore PR379 retain independent scope/evidence. Hosted Actions remain disabled.
+
+### Completed implementation scope: bounded full-census sampling
 
 Integrate main `d20312ac` (Air6,1 screenshot gate timing acceptance); preserve
 independent Air6,1 sync timing PR431, Pro11,2 Wi-Fi PR19 and WebCore PR379 scope.

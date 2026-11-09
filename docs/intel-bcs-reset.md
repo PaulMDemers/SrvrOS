@@ -501,3 +501,11 @@ not native acceptance. No new page, MMIO target, write, enabled-ring admission o
 managed-memory grant is added. The100ms core,300ms owner,500ms outer and all phase,
 poll/settling and census limits remain unchanged. Complete preservation/teardown
 must still qualify on the physical machine.
+
+Source `f68ab030` / release `94bc48ed5551f552` is
+[installed unarmed for the full-census trial](machines/macbookair7-2.md#full-census-candidate-ready-for-hardware).
+Full local checks,120 fatal sanitizer cases,33 compiled controls,16-image isolation,
+actual object/immutable-stage bindings and exact MBR Q35 normal/missing-workspace
+paths pass. The conservative tail projects65,517/65,536bytes with unchanged1,536
+allowance. USB/recovery/default/one-shot checks pass. Native whole-owner timing,
+complete preservation/teardown and hardware memory ownership remain pending.
