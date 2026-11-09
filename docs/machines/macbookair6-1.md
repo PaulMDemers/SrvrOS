@@ -10107,3 +10107,128 @@ command/checkpoint evidence. Native timing and any performance fix remain pendin
 Retain accepted `13b77acfd1826907` and console recovery `c35475f62f154f1e`;
 archive only a superseded unreferenced EFI duplicate after independent payload
 verification to make installation room. No sibling or power-policy acceptance.
+
+
+### Native command-status/checkpoint results (2026-11-09)
+
+PR433 merge `e85a6846`, compiled source `dc7b09f7`, release
+`53bbc1245abcc03d`, run `34893cf2c173469c`, session
+`session-00065fd1484d6702-00` completes the original automated1800-second1%
+PCM/disk/app/three-screenshot workload. Automatic collection and independent
+saved-log parsers agree:1074 app cycles,3880 verified262144-byte bursts
+(1017118720 bytes),345763840 PCM bytes, zero recorded underruns and worker/
+lifecycle errors.53609 valid loop observations have zero invalidity/excursions,
+129963us maximum loop and2144889/1999509us maximum launch/close, inside the
+unchanged500ms/10s limits. Three exact1366x768 BMPs, follow-up Files, normal
+exit, battery/cache/app/capture retirement and automatic Ubuntu return pass.
+All710 prior files preserve contents except expected filesystem metadata;
+719 files/2586 allocated clusters have clean fsck/allocation, zero leaks and
+zero FAT/bitmap mismatches. Independent617-file evidence manifest and installed/
+recovery payload hashes verify. Subjective audio remains unassessed at1%; the
+prior user-confirmed30-second25% check is separate.
+
+All five retained sync PIDs have complete command/checkpoint/USB records with
+zero errors/conflicts/invalidity/drops and no active trace. Workload PID7 makes
+3880 global sync calls totaling17.908305s. Its slowest call takes2.332299s:
+file2.331895s, parent-device flush404us. File-phase wall partitions into
+2.004412s USB callbacks,236574us across671 existing BOT checkpoints, and90909us
+outside both brackets. CSW callbacks account for1.809615s; five exceed100ms.
+The slowest retained CSW is a16384-byte WRITE(10),350728us callback with exact
+13-byte status return. Submission-to-software-observation350529us versus198us
+observation-to-resume,43045 service checks/169 samples and10063us maximum
+sampled gap show continued service during this particular long wait. This does
+not establish hardware completion time, a media fault or the causes of all slow
+CSWs. The correlated append622810698–625142332us writes524288 payload bytes
+in1.797184s; its ten flush calls total5566us. Prefix/metadata and other work
+remain required. The command/checkpoint result accepts observations, not a fix.
+
+Raw screenshot worker PID11/473/942 gate totals are9.368/16.285/8.092s versus
+about21ms handler totals. The first two retained worst waits overlap PID7
+SYS_SYNC; the third overlaps PID7 SYS_FSYNC (53), so global sync alone is not
+the full gate-delay explanation. Slowest screenshot total27.058020s, receive
+6.955717s and WRITE16.709473s leave latency open; variation against the prior
+22.589527s observation is not evidence of an improvement. Cleanup completes.
+
+Next useful bounded scope: audit write amplification and batching opportunities
+in the file-sync/append path, correlating command type/size with media work before
+choosing a fix. Preserve full old-prefix validation, all live dirty writers,
+required global barriers, full readbacks/flush/rename/failure protection,
+same-process/private-image exclusions and every transport/policy/watchdog limit.
+Do not attribute a350ms wait to delayed software resume or claim that all gates
+are global sync. Receive latency stays separate. No new implementation or boot
+is started by this closeout. Current `53bbc1245abcc03d`, prior accepted
+`13b77acfd1826907` and console recovery `c35475f62f154f1e` verify; superseded
+`93d4474e781f4b6a` has a verified independent full payload backup after removing
+only its unreferenced EFI duplicate for installation space. Ubuntu stays default,
+one-shot entry empty, collector disabled; accepted payload/evidence backups
+remain outside build. Earlier failed attempts retain their original status.
+
+
+### Unpublished contiguous FAT-link batching scope (2026-11-09)
+
+Base `f30f67e1`, after collected PR434. Audit finds append already writes only
+the new payload and proves the full old prefix, but builds consecutive FAT links
+using separate four-byte writes. On sector-backed storage these are separate
+read/modify/write commands to the same sector. The existing constant-value FAT
+fill already batches this class of work; sequential next-cluster links do not.
+Bounded objective: batch only consecutive unpublished link entries in the append
+path, within512 bytes and sector boundaries, with exact next-cluster values.
+New allocations are unreachable and an old NoFatChain stream ignores these links
+until final publication. Leave the final old-tail attachment separate and retain
+all original data/link/publication flush barriers. Fragmented chains retain the
+existing traversal. No buffer/transport/policy/watchdog or stress limit changes.
+
+Touch exFAT append link preparation and focused/independent comparative/fault
+fixtures, plus this unit's evidence. Preserve old-prefix validation, full payload
+writes/readbacks, all live dirty content/global sync, copy-on-write fallback,
+rename/failure/quarantine/ownership handling and unrelated metadata bytes.
+Inspect actual open PRs for conflict; no messaging/delegation. Next checkpoint:
+prove fewer block-write calls with identical final bytes and barrier ordering,
+run fault cuts and full host/VM validation, merge, then exact-stage/native stress.
+Native latency benefit remains unproved; reject rather than broaden this scope.
+
+
+### Unpublished FAT-link batching validated and staged (2026-11-09)
+
+Frozen source `c831012f` batches only the two append-preparation loops for
+consecutive unpublished FAT links. Scratch writes stay within512-byte boundaries;
+next-cluster values, final tail attachment and all data/link/publication flushes
+remain unchanged. Full old-prefix proof, payload writes, fragmented traversal,
+alias/alignment/COW fallback and failure/quarantine handling are untouched.
+Source comparison proves every other byte of exFAT unchanged; process/global
+sync, block, USB/xHCI, scheduler, syscall, logger and streaming paths have no diff.
+PR19's metadata-restore changes are outside these append/link sections; PR301's
+scanout scope remains independent. No contact/delegation or sibling acceptance.
+
+Independent actual-driver comparisons on4KiB and128KiB clusters produce identical
+complete media images and ordered logical FAT writes/flushes:22 block writes
+become20, with ten flushes unchanged. Actual-writer fixtures cover exact values,
+512-byte boundaries,4KiB-sector neighbours, range/address overflow refusal and
+partial-write quarantine/no retry. Existing append tests pass full old-prefix,
+changed/alignment/alias fallbacks and all reachable write/flush/tear cuts for
+contiguous and fragmented old extents. Existing torn-publication limitations
+remain documented; neither new atomicity nor native latency gains are claimed.
+
+Full matched normal/native/VM/RAM/USB images, core, desktop and docs pass on
+`c831012f`, including89 installed-root tests in730.011s with one expected skip.
+Ordinary sysabi/USB keyboard/fork/exec-vectors/yield VMs and real USB read-only/
+write/flush/reload/input integration pass. Populated-Home KVM400-write-IOPS stress
+passes22 app cycles,175 overlap observations, zero audio/worker/lifecycle errors,
+239126us maximum loop and1518919/1397290us maximum launch/close. Complete
+unmodified console records with retained atomic checkpoints supply app timing;
+independent reparse agrees, without reconstructing UART fragments. Saved sync/
+CSW/checkpoint/raw-write/gate/loop parsing also agrees. Ordinary immutable
+screenshot/readback/Preview/repeat/exit passes. Optional IDT variants compile
+only; no experimental feature is activated.
+
+Exact stage `8caa2866d8888e8c` passes native-board refusal/save/unmount/automatic
+return in Q35. It does not accept native filesystem or hardware behavior. Next
+is the unchanged automatic1800-second1% PCM/verified disk/app/three-screenshot
+trial, retaining500ms loop/10s lifecycle, every full-prefix/readback/barrier/
+rename/failure/ownership/retirement requirement and complete diagnostic records.
+Native integrity and latency acceptance remain pending. Keep accepted
+`53bbc1245abcc03d` and console recovery `c35475f62f154f1e`; after full independent
+backup/no-reference verification, only superseded EFI duplicate `13b77acfd1826907`
+may be archived to make installation room. Own USB, offline allocation/headroom,
+all719 prior file hashes and durable run/payload/evidence records must verify
+before one-shot reboot. All prior failed attempts retain their original status.

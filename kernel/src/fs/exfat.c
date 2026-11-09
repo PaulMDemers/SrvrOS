@@ -501,6 +501,32 @@ static bool write_fat_entry(struct exfat_volume *volume, uint32_t cluster, uint3
         sizeof(bytes));
 }
 
+/* Prepare consecutive links only while they are unpublished: newly allocated
+ * extents, or the ignored FAT of an existing NoFatChain stream. Final tail
+ * attachment and every publication barrier remain separate. */
+#if !defined(SRVROS_EXFAT_HOST_TEST) || !defined(SRVROS_EXFAT_APPEND_OFF)
+static bool link_fat_range(struct exfat_volume *volume,uint32_t first,uint64_t count) {
+    if(!volume || first<2 || (uint64_t)first-2>=volume->cluster_count ||
+       volume->fat_offset_bytes%4 || volume->fat_offset_bytes>UINT64_MAX-(uint64_t)first*4 ||
+       count>volume->cluster_count-((uint64_t)first-2)-1)return false;
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_LINK_BATCH_OFF)
+    for(uint64_t i=0;i<count;i++)
+        if(!write_fat_entry(volume,first+(uint32_t)i,first+(uint32_t)i+1))return false;
+#else
+    uint8_t entries[512];
+    uint64_t offset=volume->fat_offset_bytes+(uint64_t)first*4;
+    while(count) {
+        uint64_t n=(sizeof(entries)-offset%sizeof(entries))/4;
+        if(n>count)n=count;
+        for(uint64_t i=0;i<n;i++)write_u32(entries+i*4,first+(uint32_t)i+1);
+        if(!volume_write(volume,offset,entries,n*4))return false;
+        first+=(uint32_t)n;offset+=n*4;count-=n;
+    }
+#endif
+    return true;
+}
+#endif
+
 /* Keep the existing FAT values/ordering, but avoid one sector RMW for every
  * four-byte entry in a contiguous run. Only the requested bytes are passed to
  * block_write: its partial-sector handling preserves neighboring entries even
@@ -1905,10 +1931,9 @@ static enum append_result append_file(struct exfat_file *file,const char *path,
     if(added && !allocate_clusters(v,added,&first,&contiguous))return APPEND_FAILED;
     /* Convert only the allocation links; a NoFatChain old stream still ignores
      * them until its final stream record publishes the new FAT-backed extent. */
-    if(added && contiguous)for(uint64_t i=0;i+1<added;i++)
-        if(!write_fat_entry(v,first+(uint32_t)i,first+(uint32_t)i+1))return APPEND_FAILED;
-    if(added && file->no_fat_chain)for(uint64_t i=0;i+1<file->allocated_clusters;i++)
-        if(!write_fat_entry(v,file->first_cluster+(uint32_t)i,file->first_cluster+(uint32_t)i+1))return APPEND_FAILED;
+    if(added && contiguous && !link_fat_range(v,first,added-1))return APPEND_FAILED;
+    if(added && file->no_fat_chain &&
+       !link_fat_range(v,file->first_cluster,file->allocated_clusters-1))return APPEND_FAILED;
     uint64_t done=file->size,within=done%v->cluster_size;
     uint32_t cluster=within?last:first;bool old_tail=within!=0;
     enum exfat_io_phase phase=v->io_phase;v->io_phase=EXFAT_IO_DATA;

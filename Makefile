@@ -6265,3 +6265,15 @@ test-wifi-stack5-log: build/tests/xhci-stack5-host$(HOST_EXE)
 	$< --trace $(WIFI_STACK5_TRACE_ARGS) > build/tests/xhci-stack5-trace.log
 	$< --trace-retry $(WIFI_STACK5_TRACE_ARGS) > build/tests/xhci-stack5-retry-trace.log
 	WIFI_STACK5_TRACE=build/tests/xhci-stack5-trace.log WIFI_STACK5_RETRY_TRACE=build/tests/xhci-stack5-retry-trace.log $(PYTHON) -B -m unittest discover -s tools -p test_wifi_stack5_log.py
+
+.PHONY: test-exfat-link-batch
+test-core: test-exfat-link-batch
+test-exfat-link-batch: build/tests/exfat-link-batch-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-unbatched-links-driver$(HOST_EXE)
+	build/tests/exfat-link-batch-host$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_link_io.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-unbatched-links-driver$(HOST_EXE)
+build/tests/exfat-link-batch-host$(HOST_EXE): tools/test_exfat_link_batch.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+build/tests/exfat-unbatched-links-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_LINK_BATCH_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
