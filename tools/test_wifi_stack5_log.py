@@ -68,6 +68,10 @@ def compose(reference, fragment):
     if not child or child[0] != c.PROGRESS:
         raise ValueError('missing actual production child progress')
     i = next(i for i, s in enumerate(lines) if s.startswith('wifi-join5:'))
+    # New sources emit both deferred parent observations before child entry.
+    # Historical parents without them keep their original composition order.
+    while i + 1 < len(lines) and lines[i + 1].startswith('wifi-join5-response:'):
+        i += 1
     lines.insert(i + 1, child[0])
     i = next(i for i, s in enumerate(lines) if s.startswith('wifi-firmware-capture:'))
     lines[i:i] = child[1:]
