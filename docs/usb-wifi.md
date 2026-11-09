@@ -7961,3 +7961,19 @@ claim follows. See the unit's collect-first `wifi-cal5-stop` record for current
 release, preserved920/20 failure capsules and installed recovery. The separate
 private43-case HTTP app proposal and earlier child-pipe proposal are unapplied
 and do not add a native HTTP client to this candidate.
+
+
+The controlled Pro11,2 cold retry of0e7/D49 now has matching native session
+`00065fde277b7149-00` and a complete1,882,266-byte exit prefix. Exact zero-post
+calibration Stop passes with retainedCC27 and finalstate3/frontier; all eight
+normal forward buffers were inspected only after that proof. First management
+AUTH/ASSOC/M1/leave also passes, but subsequent MAC RX drain fails before endpoint
+restoration and production authentication. No native TCP/HTTP or new production
+acceptance follows. Queue-register values were not recorded in that owner.
+The collector and separate review preserve the unchanged seven-quiet/200-round
+requirement and all prior non-sidecar bytes/strict metadata apart from bounded
+marker atime; allocation/fsck and recovery pass. The 103-file failed native and
+17-file review capsules are immutable. Next bounded scope is receive service
+during first-join cleanup, with actual-owner regression and strict companion
+receipts before a new qualified hardware trial. Earlier no-log attempt remains
+incomplete and cannot be promoted by this retry.

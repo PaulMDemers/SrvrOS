@@ -16671,8 +16671,8 @@ join path, so the busy register and packet contents remain unknown.
 
 The immutable retry capsule has 103 files and SHA256SUMS digest
 `ded77e9f8f25665eacd036db12d4e8af963b0189a319fb705666c16d9c8f280b`.
-The collector ran once and left Ubuntu unarmed. All 426 prior ordinary files
-and strict metadata survive apart from the marker atime within the independently
+The collector ran once and left Ubuntu unarmed. All prior non-sidecar bytes
+in the 426-file baseline and strict metadata survive apart from marker atime within the independently
 RTC-derived window; only the matching two logs/one directory are new. Offline
 inspection reports 428 files/1278 clusters, zero leaks/mismatches/errors; fsck
 and installed Ubuntu/factory/six accepted recovery checks pass. The prior
@@ -16692,3 +16692,11 @@ Actual main remains `99e6edea`; open PR301 owns graphics/process work and PR379
 WebCore, neither is permission to alter those scopes. HTTP/child-pipe proposals
 remain unapplied. Native TCP/HTTP, lifecycle/UI/reliability and compatible 2.4GHz
 hardware remain open.
+
+The separate 17-file return review rechecks the current 428-file tree against
+the sealed preboot baseline, exact new log bytes and installed recoveries. Its
+SHA256SUMS digest is
+`5dc19703f44590ac3cc207c945c3591c3eb16393f589936a985980d92df1f0bc`.
+The exported-prefix/metadata review verifies all 66 exports and the complete
+exit marker boundary; full production acceptance remains false. Neither primary
+nor historical evidence was modified or resealed.
