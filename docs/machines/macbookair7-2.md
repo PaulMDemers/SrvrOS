@@ -2,6 +2,19 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Active trial: preparation timing retry with unchanged payload and limits
+
+The user authorized a new automated preparation retry at volume1%. Reuse exact
+qualified source`ee4a15bc`/release`de0b58f1dfbcdc94`: subsequent source changes
+are documentation only, including main`f30ad7a5`. Reverify the immutable durable/
+EFI payload and original host/native/exact-stage VM proofs, then make fresh
+model/firmware/media/recovery and one-shot records. No kernel change, deadline
+extension, cached admission or cross-boot ownership is involved. Preparation
+must earn its own zero-geometry admission; enabled firmware state still refuses.
+The last shutdown observation does not authorize this operation. Checkpoint:
+`build/air-prepare-retry-20261109`. Pro11,2 PR19 networking and WebCore PR379
+remain independent. Collect this new session before any next trial.
+
 ### Latest hardware: shutdown observation passes; enabled writer unexercised
 
 Source `075192ab`, release `bea82f58d257858a`, session
