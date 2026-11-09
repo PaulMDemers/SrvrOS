@@ -21,7 +21,7 @@ struct intel_engine_prepare_result {
  uint64_t action_begin_us,action_end_us;
  unsigned reason,attempts,writes,reads,polls,snapshots,sample_attempts,counts[4],acks,ready,cancelled,phase_polls[10],stage,index;
  bool blocked,admitted,held,preserved,uncertain,returned,complete;
- bool action_attempted,action_completed;
+ bool action_attempted,action_completed,action_active;
 };
 struct intel_engine_prepare_io {
  void *ctx;
@@ -49,6 +49,8 @@ struct intel_engine_prepare_action {
  * registered dependent. No retry, forced cancellation or recovery API. */
 bool intel_engine_prepare(struct intel_engine_prepare_result *,struct intel_gt_access *,
  const struct intel_takeover_result *,bool,struct intel_engine_prepare_io);
+/* Read-only original held-action identity/lifetime predicate; no provider I/O. */
+bool intel_engine_prepare_action_live(const struct intel_engine_prepare_result *);
 /* The action and all existing cancellation/preservation/return remain inside
  * the SAME100ms budget. Separate full guards bracket the action. The legacy
  * entry point has no action and retains its prior callback/clock sequence. */

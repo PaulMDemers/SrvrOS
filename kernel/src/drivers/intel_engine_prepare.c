@@ -22,12 +22,24 @@ static bool prerequisite(const struct intel_engine_prepare_result *r) {
  }
  return true;
 }
-static bool parent(struct intel_engine_prepare_result *r) {
+static bool parent(const struct intel_engine_prepare_result *r) {
  struct intel_gt_access *g=r->parent;
  return r->object==r && g && g->object==g && g->engine_epoch==r->epoch &&
   g->state==GT_ACCESS_AWAKE && g->pinned && display_access_held(&g->exclusion) &&
   prerequisite(r) && r->borrow.object==&r->borrow && r->borrow.parent==g &&
   r->borrow.active && !r->borrow.next && g->borrows==1 && g->dependents==&r->borrow;
+}
+bool intel_engine_prepare_action_live(const struct intel_engine_prepare_result *r) {
+ if(!r || !parent(r) || !r->action_active || !r->action_attempted || r->action_completed ||
+    !r->blocked || !r->admitted || r->held || r->returned || r->complete || r->reason ||
+    !r->uncertain || r->stage!=2 || r->ready!=31 || r->cancelled ||
+    r->attempts!=5 || r->writes!=5 || r->acks!=5 || r->sample_attempts!=2 ||
+    r->snapshots!=2 || r->counts[0]!=6 || r->counts[1]!=6 || !r->begin_us ||
+    r->action_begin_us<r->begin_us || r->last_us<r->action_begin_us ||
+    r->last_us-r->begin_us>INTEL_ENGINE_PREPARE_TOTAL_US)return false;
+ for(unsigned e=0;e<5;e++)if(r->words[1][e]==UINT32_MAX ||
+    (r->words[1][e]&0xffffu)!=3 || r->words[0][e]!=r->preflight->words[1][e])return false;
+ return !r->words[1][5] && !r->words[0][5];
 }
 static bool clock_ok(struct intel_engine_prepare_result *r,struct intel_engine_prepare_io io) {
  uint64_t t=io.now(io.ctx);
@@ -107,7 +119,9 @@ static bool prepare(struct intel_engine_prepare_result *r,struct intel_gt_access
  if(action) {
   if(r->ready!=31 || !guard(r,io)){fail(r,IEP_ACTION);goto done;}
   r->action_begin_us=r->last_us;r->action_attempted=true;
+  r->action_active=true;
   bool observed=action->observe(action->ctx,r);
+  r->action_active=false;
   /* Earlier request stores already set uncertainty. Neither callback failure
    * nor a lost parent/clock admits cancellation or retirement through it. */
   bool guarded=guard(r,io);

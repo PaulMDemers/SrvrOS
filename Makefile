@@ -5540,3 +5540,12 @@ build/tests/intel-engine-prepare-action$(HOST_EXE): tools/test_intel_engine_prep
 test-core: test-intel-engine-prepare-action
 test-intel-engine-prepare-action: build/tests/intel-engine-prepare-action$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_engine_prepare_action.py
+
+# PCI AF readout bound to the already-live preparation borrow; no native caller.
+build/tests/intel-pci-held$(HOST_EXE): tools/test_intel_pci_held.c tools/test_intel_engine_prepare.c tools/test_intel_takeover.c tools/test_intel_completion_audit.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c -o $@
+.PHONY: test-intel-pci-held
+test-core: test-intel-pci-held
+test-intel-pci-held: build/tests/intel-pci-held$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_pci_held.py

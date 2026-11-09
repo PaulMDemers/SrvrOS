@@ -26,7 +26,7 @@ static bool observe_ready(void *ctx,const struct intel_engine_prepare_result *vi
  assert(a->parent->borrows==1 && a->parent->dependents==&r->borrow && !r->borrow.next);
  assert(r->snapshots==2 && r->counts[1]==6 && !r->counts[2] && m->samples==2);
  assert(m->stores==5 && r->writes==5 && r->attempts==5 && r->acks==5);
- assert(r->action_attempted && !r->action_completed && r->action_begin_us>=r->begin_us);
+ assert(r->action_attempted && r->action_active && !r->action_completed && r->action_begin_us>=r->begin_us);
  unsigned writes=a->parent->write_attempts;
  assert(!intel_gt_access_close(a->parent) && a->parent->write_attempts==writes);
  /* Recursive calls, copies and later duplicate calls must not run an action. */
@@ -69,6 +69,7 @@ int main(int argc,char **argv) {
   assert(!ok && r.reason==IEP_INPUT && !a.calls && !m->stores && !g.borrows && !g.dependents);
   assert(intel_gt_access_close(&g));puts("engine-prepare-action: PASS missing action refuses before writes");return 0;
  }
+ assert(!r.action_active);
  bool positive=amode(&a,"normal") || amode(&a,"reentry") || no_action;
  assert(ok==positive && a.calls==(no_action?0u:1u));
  if(positive) {
