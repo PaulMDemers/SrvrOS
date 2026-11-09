@@ -3,6 +3,8 @@
 This is the implementation boundary after the [accepted bounded reset and
 preservation trial](machines/macbookair7-2.md#accepted-full-census-retry-reset-and-preservation-complete).
 It is a plan, not an authorization receipt or a native mapping implementation.
+The current [tear-free roadmap](intel-tearfree-roadmap.md) selects the cooperative
+driver-takeover route and orders the next composition and software work.
 The inherited framebuffer remains the desktop backend. The current native
 provider still supplies zero hardware assurances to `scanout_handoff`.
 
@@ -190,4 +192,9 @@ not a PCIe Device Status capability. The new isolated
 command and AF control/status twice under an original registered GT borrow.
 Raw read completion and TP/BME masks stay separate from comprehensive DMA
 completion, firmware exclusion and interval ownership. No configuration/reset
-writer or positive hardware assurance is added. Native capture remains pending.
+writer or positive hardware assurance is added. Native capture is now accepted
+on source `fe6677c5`, release `3ff42f33e6c01391`:27,036/100,000us, both snapshots
+match, BME enabled and TP clear, borrow returned and10 aliases retired. This is
+one read-only capture, not DMA drain or an interval transfer. The next block
+composes maintained preparation and an exact reviewed action under one original
+lifetime; separate cancelled receipts cannot provide that authority.

@@ -16,8 +16,14 @@ positive assurance, profile widening or deadline change is assumed.
 
 Dependencies are the accepted exact-source reset/preparation/requester receipts,
 pinned Broadwell references and an explicit maintained transfer of the GPU range.
-Next checkpoint is a reviewed bootstrap decision, qualified software changes and
-the smallest justified next native trial. Current installed capture release is
+The bootstrap review selects extending the cooperative EFI policy into an explicit
+OS graphics-driver takeover. Next implementation is a same-lifetime maintained
+five-engine preparation/action/cancellation path using the real cores, before
+any wider native reset writer. The [roadmap](../intel-tearfree-roadmap.md) records
+ordered exit gates and remaining memory/completion dependencies. A generic
+publication fix now seals the original transaction address, rejecting copied
+apply/cancel/restore/reuse even with rebound tokens; host evidence remains
+separate from native GPU ownership. No new hardware candidate is staged. Current installed capture release is
 `3ff42f33e6c01391`, recovery `9aa8dbf6fbda8252`; its run is collected, no reboot
 armed, volume1%. Native desktop tear-free remains unaccepted.
 
