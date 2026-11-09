@@ -2,6 +2,47 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Accepted full-census retry: reset and preservation complete
+
+Source `f68ab030`, release `94bc48ed5551f552`, session
+`session-00065fd0e9d66e32-00` **physically accepts the bounded same-borrow
+already-disabled observation, BCS-only reset and complete preservation path**.
+The unchanged exact payload returned automatically at volume1%, with audio off
+and no input required. The prior enabled-ring refusal below remains a nonpass;
+this run entered with the exact disabled zero-geometry BCS state.
+
+Both fixed domain8 reset pulses acknowledge. Settling is1,929us, cancellation
+completes, epoch advances0→1 and the registered reset borrow returns. Core time
+is96,445us against100,000us (3,555us headroom). Both pre/post censuses read92
+stable words, in19,317/19,315us, with matching engine/context rows. The same-borrow
+disabled observation reads32 words in34,720us and performs zero control stores.
+Both27-word plane snapshots and both ten-word HDA configuration snapshots match.
+The preservation borrow returns, blocked early closes are observed, the owner
+closes, all13 aliases retire and firmware/exclusion release with no uncertainty.
+
+Owner time is267,977us against300,000us (32,023us headroom); outer time is
+346,637us against500,000us. Wake12/clock3 has c2/p2/n2/t4, no inner or parent clock
+fault, strict native completion true, saved checkpoint verified,`completed=yes`
+and zero collector attention. These are one run's bounded measurements, not a
+worst-case latency guarantee. All prior source379/76e/earlier timing failures
+retain their original classifications and unchanged deadlines.
+
+All1,398 prior files preserve apart from expected workspace metadata; three logs
+yield1,401 files/123 sessions. Offline fsck/allocation/writable/headroom,
+installed/durable/archive recovery, Ubuntu default and consumed one-shot pass.
+Evidence, raw equality/interval analysis and run/checkpoint are under ignored
+`build/air-census-retry-20261109`, with a full verified backup outside build;
+original exact-stage qualification remains under`build/air-census-batches-20261108`.
+No reboot is armed. Installed current94bc and recovery9aa8 remain unchanged.
+
+This accepts this narrow reset/preservation path only. The enabled-ring shutdown
+writer remains unaccepted; there is no new ring geometry or register authority.
+All255 outstanding write/prefetch/cache/translation/reader obligations remain
+open, managed pages remain zero and native tear-free is not yet accepted. Next
+integrate fetched main`928555f3` (Air6,1 PR431 sync diagnostics/PR432 evidence) and
+qualify the new combined tree before extending ownership. Pro11,2 Wi-Fi/WebCore
+retain independent scope and acceptance. Actions remain disabled.
+
 ### Full-census return: safe enabled-ring refusal
 
 Source `f68ab030`, release `94bc48ed5551f552`, session

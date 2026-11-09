@@ -2,10 +2,13 @@
 
 The [accepted request/ready/cancel handshake](intel-reset-readiness.md) has a
 separate BCS-only reset successor in `kernel/diagnostics/intel_bcs_reset.c`.
-Only `build/intel-bcs-reset/srvros.elf` links that core and its exact native
-adapter. A separate firmware request and 15-token recipe replace the readiness
-token with `srvros.intel-bcs-reset=blitter-only`. Ordinary startup and older
-images cannot execute it. Native reset acceptance remains pending.
+The original isolated reset image uses its own firmware request and15-token
+recipe. The later dedicated shutdown/reset image uses the exact16-token
+same-borrow disabled-observation recipe described below. Ordinary startup and
+older observers cannot execute this reset. Air7,2 now
+[physically accepts the bounded disabled-entry reset/preservation path](machines/macbookair7-2.md#accepted-full-census-retry-reset-and-preservation-complete)
+on source`f68ab030`; outstanding memory/cache/translation ownership and native
+tear-free remain open.
 
 ## Register and ordering evidence
 
@@ -520,3 +523,23 @@ retire and firmware/exclusion release. Saved checkpoint, strict decoding, prior
 files, offline media and recovery pass. This is pre-census/refusal coverage only:
 there is no post-census, core reset or complete preservation timing acceptance.
 No reboot is armed; a disabled-entry retry remains necessary at unchanged limits.
+
+## Accepted native full-census retry
+
+Source`f68ab030`, release`94bc48ed5551f552`, session
+`session-00065fd0e9d66e32-00` accepts the bounded same-borrow already-disabled
+observation, two fixed BCS-domain8 reset pulses, settling/cancellation, epoch0→1,
+verified reset and preservation borrow returns, and complete fresh engine/plane/
+HDA preservation. Core96,445/100,000us, owner267,977/300,000us and outer
+346,637/500,000us pass at unchanged limits. Pre/post92-word censuses complete in
+19,317/19,315us and match; both27-plane and ten-HDA-configuration endpoints match.
+Disabled observation reads32 words with zero ring-control stores. Wake12/clock3
+records c2/p2/n2/t4 and no inner or parent fault. All13 aliases retire and firmware/
+exclusion release. Strict native decoding, saved checkpoint, completed=yes,
+zero attention, prior-file/offline media/recovery/default/consumed-one-shot pass.
+
+This is one measured native completion with3,555us core headroom, not a worst-case
+guarantee. Earlier enabled-ring refusals and retained-state timing failures remain
+nonpasses. Enabled-ring shutdown, outstanding memory writes/prefetch/cache/reader
+retirement, GPU translation ownership, managed backing and tear-free presentation
+are not accepted; all255 obligations remain open. No reboot is armed.

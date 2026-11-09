@@ -121,3 +121,15 @@ The [combined reset successor](intel-bcs-reset.md#fresh-disabled-observation-wit
 repeats only the exercised already-disabled observation inside the current reset
 borrow. It accepts no prior boot receipt and does not import the untested enabled
 control writer. Its distinct image/recipe and native acceptance are independent.
+
+## Combined disabled-entry reset/preservation acceptance
+
+The separate dedicated shutdown/reset image on source`f68ab030`, release
+`94bc48ed5551f552`, now[physically accepts its already-disabled observation and
+BCS-only reset/preservation path](machines/macbookair7-2.md#accepted-full-census-retry-reset-and-preservation-complete).
+Its32-word same-borrow observation issues zero ring-control stores; both reset
+pulses, fresh engine/display/HDA preservation, registered borrow returns and13-map
+retirement complete at unchanged100/300/500ms bounds. This does not exercise or
+accept the enabled-ring0xf000 writer, alter shutdown admission, or establish
+outstanding DMA/prefetch/cache/translation ownership. Earlier standalone shutdown
+acceptance and all failed/refused reset trials keep their classifications.
