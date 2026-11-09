@@ -159,3 +159,17 @@ it is not accepted as an atomic rename guarantee. Test media is disposable.
 The interruption model tests prefixes of requested writes, not physical-sector
 atomicity or controller reordering. Native performance and full endurance
 require their own matching trial.
+
+Consecutive unpublished FAT links in append preparation use at most512-byte
+boundary-contained writes with exact next-cluster values. This applies only to
+new contiguous allocations and the ignored FAT of an existing NoFatChain
+stream, after the unchanged full-prefix proof. Final old-tail attachment remains
+separate, and all original payload/link/publication flushes remain in order.
+Fragmented traversal, alias/alignment/COW fallbacks and quarantine are unchanged.
+The block driver retains its existing sector handling and transfer limits.
+`make test-exfat-link-batch` compares the actual writer with a host-only unbatched
+baseline: identical complete media bytes and ordered logical writes/barriers,
+fewer block calls, preserved neighbours, bounded ranges and partial-failure
+quarantine. `make test-exfat-append` still cuts every reachable write/flush/tear
+boundary and checks committed payload preservation and existing torn-publication
+limitations. Fewer commands do not by themselves establish native latency gains.
