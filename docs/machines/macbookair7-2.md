@@ -2,6 +2,25 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Active scope: ownership bootstrap and tear-free implementation plan
+
+After accepted requester capture, the current block integrates main `76608d63`
+(Air6,1 PR444/445 documentation only), audits firmware/requester/address-space
+ownership and generic handoff lifetimes, and records a concrete native tear-free
+roadmap. User-authorized subagents handle separate read-only hardware review,
+generic software lifetime review and a new roadmap document; build/stage/VM
+harnesses remain serialized by the Air7,2 owner. PR19 networking and PR379
+WebCore scopes remain independent. Shared files are limited to justified generic
+lifetime fixes/tests and graphics planning documentation; no new native writer,
+positive assurance, profile widening or deadline change is assumed.
+
+Dependencies are the accepted exact-source reset/preparation/requester receipts,
+pinned Broadwell references and an explicit maintained transfer of the GPU range.
+Next checkpoint is a reviewed bootstrap decision, qualified software changes and
+the smallest justified next native trial. Current installed capture release is
+`3ff42f33e6c01391`, recovery `9aa8dbf6fbda8252`; its run is collected, no reboot
+armed, volume1%. Native desktop tear-free remains unaccepted.
+
 ### Accepted: native read-only PCI AF requester capture
 
 Source `fe6677c5`, release `3ff42f33e6c01391`, session
