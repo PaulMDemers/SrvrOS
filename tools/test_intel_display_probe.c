@@ -606,7 +606,7 @@ static bool intel_display_test_reset_ready_read(uint32_t reg,uint32_t *out) {
  assert(wake_irq && wake_ack==1 && (wake_request&65535)==1 && !display_access_allowed());
  if(reg==0x220d0) {
   ready_reads++;ready_phase_reads++;
-  if(!strcmp(engine_mode,"ready-read"))return false;
+  if(!strcmp(engine_mode,"ready-read") || (!strcmp(engine_mode,"step-control-read") && ready_writes))return false;
   if(!strcmp(engine_mode,"ready-initial" ) && !ready_writes)ready_control=1;
   if(!strcmp(engine_mode,"ready-delay") && ready_writes==1 && ready_phase_reads==3)ready_control=3;
   if(!strcmp(engine_mode,"ready-reserved"))ready_control=4;
@@ -645,7 +645,7 @@ static enum intel_gt_write intel_display_test_reset_ready_write(uint32_t reg,uin
  assert(reg==0x220d0 && wake_irq && wake_ack==1 && !display_access_allowed());
  assert(value==(ready_writes?0x10000u:0x10001u));assert(ready_writes<2);
  if(!strcmp(engine_mode,"ready-none") || (!strcmp(engine_mode,"ready-cancel-none") && ready_writes==1))return GT_WRITE_NONE;
- ready_writes++;ready_phase_reads=0;ready_control=(ready_writes==1?3:0)|(!strcmp(engine_mode,"ready-mask")?(value&0xffff0000u):0);
+ ready_writes++;if(!strcmp(engine_mode,"step-phase"))ticks+=10001;ready_phase_reads=0;ready_control=(ready_writes==1?3:0)|(!strcmp(engine_mode,"ready-mask")?(value&0xffff0000u):0);
  if(ready_writes==1 && (!strcmp(engine_mode,"ready-timeout") || !strcmp(engine_mode,"ready-delay")))ready_control=1;
  if(ready_writes==2 && !strcmp(engine_mode,"ready-cancel-timeout"))ready_control=2;
  if(!strcmp(engine_mode,"ready-foreign"))wake_request|=2;
@@ -665,7 +665,7 @@ static uint64_t intel_display_test_bcs_now(void) {
 }
 static bool intel_display_test_bcs_read(uint32_t reg,uint32_t *out) {
  assert(wake_irq && wake_ack==1 && !display_access_allowed());
- if(reg==0x941c){++bcs_domain_observations;if(!strcmp(engine_mode,"bcs-float")){*out=UINT32_MAX;return true;}*out=!strcmp(engine_mode,"bcs-initial")?8:!strcmp(engine_mode,"bcs-foreign")?2:((!strcmp(engine_mode,"bcs-timeout") && bcs_reset_writes) || (!strcmp(engine_mode,"bcs-second-timeout") && bcs_reset_writes==2))?8:0;return strcmp(engine_mode,"bcs-read")!=0;}
+ if(reg==0x941c){if(!strcmp(engine_mode,"step-domain-read") && bcs_reset_writes)return false;++bcs_domain_observations;if(!strcmp(engine_mode,"bcs-float")){*out=UINT32_MAX;return true;}*out=!strcmp(engine_mode,"bcs-initial")?8:!strcmp(engine_mode,"bcs-foreign")?2:((!strcmp(engine_mode,"bcs-timeout") && bcs_reset_writes) || (!strcmp(engine_mode,"bcs-second-timeout") && bcs_reset_writes==2))?8:0;return strcmp(engine_mode,"bcs-read")!=0;}
  static const uint32_t offsets[9]={0x180,0x19c,0x1ac,0x80,0x84,0xac,0x280,0x29c,0x2ac};
  unsigned p=(reg-0x70000)/4096,i=bcs_plane_calls++%9;assert(p<3 && reg==0x70000+p*4096+offsets[i]);
  *out=(!p && !i)?0xd8000400u:0;
@@ -675,6 +675,7 @@ static bool intel_display_test_bcs_read(uint32_t reg,uint32_t *out) {
 static enum intel_gt_write intel_display_test_bcs_write(uint32_t reg,uint32_t value) {
  assert(reg==0x941c && value==8 && wake_irq && wake_ack==1 && !display_access_allowed() && bcs_reset_writes<2);
  ++bcs_reset_writes;
+ if(!strcmp(engine_mode,"step-foreign"))wake_request|=2;
  if(!strcmp(engine_mode,"bcs-none") || (!strcmp(engine_mode,"bcs-second-none") && bcs_reset_writes==2))return GT_WRITE_NONE;
  ready_control=0;
  return (!strcmp(engine_mode,"bcs-uncertain") || (!strcmp(engine_mode,"bcs-second-uncertain") && bcs_reset_writes==2))?GT_WRITE_UNCERTAIN:GT_WRITE_DONE;

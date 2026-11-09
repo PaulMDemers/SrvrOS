@@ -133,7 +133,7 @@ int main(int argc,char **argv) {
  if(mode(&m,"context-drift"))c.context[1][5]=1;
  struct intel_completion_result copy=c;
  struct intel_bcs_reset_result r={0};m.result=&r;
- struct intel_bcs_reset_io io={&m,rguard,rcontrol,rdomain,rgroup,rcontrol_write,rdomain_write,rnow,rpause,NULL};
+ struct intel_bcs_reset_io io={&m,rguard,rcontrol,rdomain,rgroup,rcontrol_write,rdomain_write,rnow,rpause,NULL,NULL};
  if(mode(&m,"epoch-admission") || mode(&m,"epoch-ready-admission")) {
   changing_parent=&g;g.io.guard=changing_gt_guard;
  }

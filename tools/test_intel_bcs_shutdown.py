@@ -21,7 +21,7 @@ class BcsShutdownTests(unittest.TestCase):
     self.assertEqual(r['summary']['attempts'],0);self.assertEqual(r['summary']['reset_attempts'],0)
  def test_positive_same_borrow_order_epoch_and_native_binding(self):
   t=adapter();r=bcs_result(t);w=wake_result(t);b=verify_shutdown(t,r['summary'],r['tables'],__import__('intel_completion_audit').completion_result(t))
-  self.assertTrue(r['complete']);self.assertEqual(w['summary']['v'],10);self.assertEqual(w['summary']['engine_reads'],216)
+  self.assertTrue(r['complete']);self.assertEqual(w['summary']['v'],11);self.assertEqual(w['summary']['engine_reads'],216)
   self.assertEqual(b['summary']['attempts'],0);self.assertEqual(r['summary']['epoch_after'],r['summary']['epoch_before']+1)
   from test_intel_shutdown import ShutdownTests
   self.assertTrue(native_bcs_result(ShutdownTests.native(t).replace('intel-wake: bounded','intel-wake: preflight checkpoint saved\nintel-wake: bounded'))['native_complete'])
@@ -31,7 +31,7 @@ class BcsShutdownTests(unittest.TestCase):
    line=next(l for l in t.splitlines() if l.startswith(prefix))
    for bad in (t.replace(line+'\n','',1),t+'\n'+line,t.replace(line,line+' extra=0',1)):
     with self.subTest(prefix=prefix),self.assertRaises(ValueError):bcs_result(bad)
-  for a,b in [('entry_disabled=1','entry_disabled=0'),('intel-wake-summary: v=10','intel-wake-summary: v=7'),('engine_reads=216','engine_reads=184')]:
+  for a,b in [('entry_disabled=1','entry_disabled=0'),('intel-wake-summary: v=11','intel-wake-summary: v=7'),('engine_reads=216','engine_reads=184')]:
    with self.subTest(a=a),self.assertRaises(ValueError):bcs_result(t.replace(a,b))
   for key in ('epoch','owner_begin','attempts','writes'):
    line=next(l for l in t.splitlines() if l.startswith('intel-bcs-shutdown-summary:'))
@@ -73,8 +73,25 @@ class BcsShutdownTests(unittest.TestCase):
     t=subprocess.check_output([str(ROOT/'build/tests/intel-bcs-reset'),mode,'1','shutdown'],text=True)
     row=re.search(r'core-clock why=(\d+) stage=(\d+) at=(\d+) prev=(\d+) begin=(\d+)',t)
     self.assertIsNotNone(row);self.assertEqual((int(row[1]),int(row[2])),(why,stage))
+ def test_write_first_ack_faults_retain_ownership(self):
+  for mode in ('step-control-read','step-domain-read','step-foreign','step-phase'):
+   with self.subTest(mode=mode):
+    t=adapter(mode);r=bcs_result(t);w=wake_result(t)['summary']
+    self.assertFalse(r['complete']);self.assertEqual(r['summary']['returned'],0)
+    self.assertTrue(r['summary']['uncertain']);self.assertEqual(w['retained'],1)
+    self.assertEqual(w['retired'],0);self.assertEqual(w['released'],0)
+    self.assertEqual(r['summary']['attempts'],1)
+    self.assertLessEqual(r['summary']['reset_attempts'],1)
+    self.assertEqual(r['summary']['reason'],7 if mode=='step-phase' else 6)
+  r=bcs_result(adapter());self.assertEqual(r['clock']['v'],2);self.assertEqual(r['clock']['t'],4)
+  line=next(l for l in adapter().splitlines() if l.startswith('intel-bcs-clock:'))
+  t=adapter()
+  for bad in (line.replace('t=4','t=3'),line.replace('t=4','t=5'),line.replace(' t=4',''),line.replace('v=2','v=1')):
+   with self.assertRaises(ValueError):bcs_result(t.replace(line,bad))
  def test_attention(self):
   from hardware_desktop import needs_attention
+  clock=next(l for l in adapter().splitlines() if l.startswith('intel-bcs-clock:'))
+  self.assertFalse(needs_attention(clock));self.assertTrue(needs_attention(clock+' extra=0'))
   line=next(l for l in adapter().splitlines() if l.startswith('intel-bcs-shutdown-summary:'))
   self.assertFalse(needs_attention(line));self.assertTrue(needs_attention(line+' extra=0'))
 if __name__=='__main__':unittest.main()

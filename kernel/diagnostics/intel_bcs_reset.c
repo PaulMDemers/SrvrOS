@@ -78,10 +78,27 @@ static bool control_store(struct intel_bcs_reset_result *r,struct intel_bcs_rese
  if(w!=GT_WRITE_DONE)return fail(r,IBR_WRITE);
  ++r->writes;return guard(r,io);
 }
-static bool wait_control(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io,unsigned n,uint32_t want) {
- uint64_t phase=r->last_us;
+static bool transition(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io,bool domain,uint32_t value,uint32_t *v,uint64_t *phase) {
+ /* pulse already admitted immediately before its software epoch advance.
+  * No intervening callback/MMIO can reuse this admission. */
+ if(domain) {if(!pin_valid(r))return fail(r,IBR_GUARD);}
+ else if(!guard(r,io))return false;
+ *phase=r->last_us;
+ if(domain)++r->reset_attempts;else ++r->attempts;
+ ++r->transactions;
+ enum intel_gt_write w=io.transition(io.ctx,domain,value,v);
+ if(w!=GT_WRITE_NONE)r->uncertain=true;
+ if(w!=GT_WRITE_DONE)return fail(r,IBR_WRITE);
+ if(domain)++r->reset_writes;else ++r->writes;
+ ++r->reads;
+ return guard(r,io);
+}
+static bool wait_control(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io,unsigned n,uint32_t want,bool first,uint32_t value,uint64_t phase) {
  for(unsigned i=0;i<INTEL_RESET_READY_POLLS;i++) {
-  uint32_t v=0;if(!read_control(r,io,&v))return false;++r->polls;
+  uint32_t v=value;
+  if(!first && !read_control(r,io,&v))return false;
+  if(first && (v==UINT32_MAX || (v&0xfffcu)))return fail(r,IBR_READ);
+  first=false;++r->polls;
   if(r->last_us-phase>INTEL_RESET_READY_PHASE_US)return fail(r,IBR_TIMEOUT);
   if((v&3)==want){r->controls[n]=v;++r->controls_read;return true;}
   if((want==3 && !(v&1)) || (want==0 && (v&1)))return fail(r,IBR_DRIFT);
@@ -89,19 +106,36 @@ static bool wait_control(struct intel_bcs_reset_result *r,struct intel_bcs_reset
  }
  return fail(r,IBR_TIMEOUT);
 }
+static bool change_control(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io,unsigned n,uint32_t value,uint32_t want) {
+ uint32_t first=0;uint64_t phase=0;
+ if(io.transition) {
+  if(!transition(r,io,false,value,&first,&phase))return false;
+ } else {
+  if(!control_store(r,io,value))return false;
+  phase=r->last_us;
+ }
+ return wait_control(r,io,n,want,io.transition!=0,first,phase);
+}
 static bool pulse(struct intel_bcs_reset_result *r,struct intel_bcs_reset_io io,unsigned n) {
  if(!guard(r,io))return false;
  /* Invalidate every completion census on this owner before possible issue.
   * Even a definitely-unissued callback conservatively consumes the epoch. */
  if(!n)r->borrow.parent->engine_epoch=++r->epoch_after;
- ++r->reset_attempts;
- enum intel_gt_write w=io.domain_write(io.ctx,INTEL_BCS_RESET_DOMAIN);
- if(w!=GT_WRITE_NONE)r->uncertain=true;
- if(w!=GT_WRITE_DONE)return fail(r,IBR_WRITE);
- ++r->reset_writes;
- uint64_t phase=r->last_us;
+ uint32_t first=0;uint64_t phase=0;
+ if(io.transition) {
+  if(!transition(r,io,true,INTEL_BCS_RESET_DOMAIN,&first,&phase))return false;
+ } else {
+  ++r->reset_attempts;
+  enum intel_gt_write w=io.domain_write(io.ctx,INTEL_BCS_RESET_DOMAIN);
+  if(w!=GT_WRITE_NONE)r->uncertain=true;
+  if(w!=GT_WRITE_DONE)return fail(r,IBR_WRITE);
+  ++r->reset_writes;phase=r->last_us;
+ }
  for(unsigned i=0;i<INTEL_RESET_READY_POLLS;i++) {
-  uint32_t v=0;if(!read_domain(r,io,&v))return false;++r->polls;
+  uint32_t v=first;
+  if((!io.transition || i) && !read_domain(r,io,&v))return false;
+  if(io.transition && !i && (v&~INTEL_BCS_RESET_DOMAIN))return fail(r,IBR_DRIFT);
+  ++r->polls;
   if(r->last_us-phase>INTEL_RESET_READY_PHASE_US)return fail(r,IBR_TIMEOUT);
   if(!v){r->domains[n+1]=v;++r->domains_read;++r->reset_acks;return true;}
   io.pause(io.ctx);
@@ -170,14 +204,18 @@ static bool reset_run(struct intel_bcs_reset_result *r,struct intel_gt_access *g
  for(unsigned i=0;i<6;i++)if(r->words[0][i]!=c->words[1][4][i]){fail(r,IBR_DRIFT);goto done;}
  if(r->words[0][6]!=c->context[1][3] || r->words[0][7]!=c->context[1][5]){fail(r,IBR_DRIFT);goto done;}
  r->admitted=true;
- if(!control_store(r,io,INTEL_BCS_RESET_REQUEST) || !wait_control(r,io,1,3))goto done;
+ if(!change_control(r,io,1,INTEL_BCS_RESET_REQUEST,3))goto done;
  r->ready=true;
  if(!pulse(r,io,0) || !pulse(r,io,1) || !settle(r,io))goto done;
- if(!control_store(r,io,INTEL_BCS_RESET_CANCEL) || !wait_control(r,io,2,0))goto done;
+ if(!change_control(r,io,2,INTEL_BCS_RESET_CANCEL,0))goto done;
  r->cancelled=true;
  if(!endpoints(r,io,1))goto done;
  if((r->controls[3]&3) || r->domains[3]){fail(r,IBR_DRIFT);goto done;}
- if(!guard(r,io) || !intel_gt_access_check(g) || !guard(r,io))goto done;
+ /* The verified return below performs its own fresh full parent admission.
+  * Do not duplicate that read-only admission here: endpoint post-admission
+  * already covers the final raw values, and no MMIO/callback intervenes. The
+  * strict endpoint clock, registered pin and timed return remain mandatory. */
+ if(!io.transition && (!guard(r,io) || !intel_gt_access_check(g) || !guard(r,io)))goto done;
  r->end_us=io.now(io.ctx);
  if(!clock_check(r,r->end_us,r->last_us,2))goto done;
  r->uncertain=false;

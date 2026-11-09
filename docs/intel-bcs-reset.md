@@ -418,3 +418,38 @@ borrow return or post-preservation runs; ownership remains retained and the gues
 halts. The full operation is incomplete. Further admission optimization must
 preserve the100ms core bound and all fresh checks; no reset/preservation or
 memory-ownership acceptance follows from the two ACKs and cancellation.
+
+## Guarded write and first-ack transactions
+
+The isolated shutdown/reset successor uses wake version11 and core-clock row
+version2, adding `t` for attempted transaction callbacks (maximum4). Completion
+requires exactly four transactions and two endpoint bundles; attempts bind to
+the request/cancel and two domain-attempt counters. Missing or inconsistent
+coverage refuses. Historical wake10/clock1 and older receipts keep their meaning.
+
+The optional transaction callback performs only the existing request/cancel store
+or fixed BCS-domain8 pulse followed by its first non-clearing acknowledgement
+read. Exact values, mapping slots and addresses remain gated. Full fresh core
+pre-admission, provider admission and core post-admission bracket each pair;
+registered pin/epoch checks still bracket callbacks. After a store the provider
+freshly samples request/ACK/thread before reading the acknowledgement. A foreign
+requester, changed mapping, failed read or uncertain store retains ownership;
+there is no callback retry or uncertain-to-unissued conversion. Later polls keep
+the scalar path and the first read consumes one of the existing256 poll slots.
+The transaction phase starts before the write callback, including its cost in
+the existing10ms phase budget.
+
+For this path only, remove the duplicate final read-only parent check and its
+outer full guards: the final endpoint retains fresh post-admission and no MMIO
+intervenes before the strict endpoint clock and verified return. Return itself
+still performs the full fresh parent check before releasing the registered pin.
+Its completion timestamp remains charged to the unchanged100ms core deadline.
+Older scalar images retain their previous final checks.
+
+The compiled scalar comparison measures198→183 full audits: six saved across
+request/cancel, four across domain pulses and five from the duplicate final check.
+All46 raw rows and normalized protocol outcomes match. The scalar comparator is
+not a valid wake11 receipt and establishes no native timing acceptance. The
+100/300/500ms bounds, settling and phase limits, epoch advance, preservation and
+retained-state gates remain unchanged. No enabled-ring, translation/cache writer,
+new hardware address, managed-memory or tear-free authority follows.

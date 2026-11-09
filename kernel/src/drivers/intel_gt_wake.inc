@@ -43,7 +43,7 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
 #define WAKE_MAPS 13u
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
-#define WAKE_VERSION 10u
+#define WAKE_VERSION 11u
 #else
 #define WAKE_VERSION 7u
 #endif
@@ -179,9 +179,11 @@ static void wake_pause(void *context){(void)context;
 #endif
 }
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
-static bool engine_guard(void *context) {
+/* Fresh requester values inside an already fully guarded callback. This helper
+ * is not an admission token; standalone MMIO providers still use engine_guard. */
+static bool engine_requesters(void *context) {
     struct wake_adapter *a=context;uint32_t request,ack,thread;
-    if(!wake_guard(a) || !a->mapped[0] || !a->mapped[1] || !a->mapped[2])return false;
+    if(!wake_irq_off() || !a->mapped[0] || !a->mapped[1] || !a->mapped[2])return false;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
     if(!intel_display_test_wake_read(INTEL_GT_REQUEST,&request) ||
        !intel_display_test_wake_read(INTEL_GT_ACK,&ack) ||
@@ -192,6 +194,9 @@ static bool engine_guard(void *context) {
     thread=*(volatile const uint32_t *)(WAKE_VA+8192+(INTEL_GT_THREAD&4095));
 #endif
     return (request&0xffffu)==1 && ack==1 && !(thread&7);
+}
+static bool engine_guard(void *context) {
+    return wake_guard(context) && engine_requesters(context);
 }
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
 /* Same three RO DWORDs as engine_guard, under a fresh full adapter guard.
