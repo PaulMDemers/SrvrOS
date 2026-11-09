@@ -16122,3 +16122,31 @@ the software fixture's process/timing stubs do not provide those native proofs.
 All source/test/VM evidence is retained outside build in a separate software
 capsule. Original native255-file and accepted14-file capsules stay immutable;
 Ubuntu/e47d recovery and cleared one-shot state remain protected. No reboot armed.
+
+### Next v137 native production-network scope (November 9)
+
+Continue under the user's existing automatic-test authorization. The next gate
+is a separate explicit v137 stack5 child: original exclusive key/provider,
+production guarded DHCP/DNS and 64 exact gateway ICMP messages across real RX/TX
+boundaries, followed by complete retirement and independent storage/recovery.
+The ICMP packet/body size is stated exactly; no 256-byte echo claim is inherited
+from the earlier private probe. All 80TX/252RX/four-fence/fresh-command and cleanup
+bounds stay unchanged. TCP/HTTP and lifecycle remain later physical gates.
+
+Root owns main, xhci declarations, boot/staging/smoke dispatch, Makefile, shared
+serial qualification/install/USB/power and collection. Protocol agent owns net.c/
+net.h finite scoped DHCP/DNS/ARP/ICMP APIs and directed tests; transport agent owns
+new stack5 workload module, original-owner binding and actual encrypted combined
+fixture; evidence agent owns a separate strict stack5 checker/mutation proof.
+The recipe retains stream5=1 plus stack5=1, full v128 parent, private PMK and
+automatic return, excludes the old DHCP-retry child and legacy/live-desktop mixes,
+defers default net initialization/worker and parks logging before live MAC work.
+Ordinary APIs and all historical recipes/checkers remain unchanged.
+
+Actual main `e85a6846` was fetched and inspected. PR433 adds auxiliary sync CSW
+context and existing checkpoint wall observations, with no extra transfer or
+event-service operation; Wi-Fi capture-write timing stays off. Root will merge
+that actual baseline after implementation commits and before matched qualification,
+preserving its logger/storage tests and Pro receipts. The previous software1233-
+file capsule and native255/accepted14 capsules remain immutable. Installed8529/
+e47d and Ubuntu default stay protected; no new run is currently armed.
