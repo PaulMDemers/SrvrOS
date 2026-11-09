@@ -2,6 +2,21 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Current scope: cold-takeover read-only prerequisites
+
+Use maine85a6846 / current06780ea9; preserve Pro11,2 PR19 Wi-Fi and WebCore PR379.
+The next bounded native step is an isolated all-engine reset-control preflight:
+fresh same-parent/epoch completion census, two ordered RO samples of RCS/VCS0/
+VECS/VCS1/BCS RESET_CTRL and GDRST, registered borrow and verified return. Bind
+exact Air7,2/GT3 addresses, effective UC/NX/RO aliases and the existing cooperative
+EFI policy. It observes candidate quiescence separately from completion and
+supplies no reset, PTE, cache, memory or GGTT grant. Keep existing100/300/500ms
+bounds, profile/firmware gates and other recipes unchanged. Scope: new observer/
+isolated adapter, versioned receipt/strict collector, image/request/recipe and
+host/VM/native instruction controls. No full-GT reset or mapping writer is part
+of this step. Accepted94bc/recovery9aa8 remain installed, no reboot armed.
+Checkpoint:`build/air-takeover-preflight-20261109`.
+
 ### Handoff lifetime correction: locally qualified
 
 Main`e85a6846` (Air6,1 PR433) is integrated as`15f8dc84`. Source`07d7a59b`,
