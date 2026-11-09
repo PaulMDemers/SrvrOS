@@ -16808,3 +16808,34 @@ inspection, finite TCP kernel/syscall/SDK, exact HTTP parser, actual join cleanu
 and main dispatch checks. Source inputs remained unchanged. This is selected
 coverage, not a full-core rerun or physical acceptance of the merge. The
 installed accepted image remains689b; no new one-shot or power action is armed.
+
+
+## Actual HTTP executable process boundary
+
+Source `139360ab` adds the real `/httpget --wifi-exact` caller and a reusable
+kernel-owned child/pipe supervisor. A prelive constructor loads the actual ELF,
+installs only nonblocking read FD3 and retains the sole writer in its private
+lifetime. It binds READY, PID, lifetime, image generation and descriptor identity;
+a single 96-byte numeric GO plus real EOF starts the original 15-second window.
+Private recorded identity, rather than mutable caller PID fields, authorizes
+publication/cancel/observe/reap. Failed preparation retains a retireable owner.
+No new syscall or global DNS cache bypass is added.
+
+The matched 65.30-second build and selected new component/legacy lifetime,
+loader, image, spawn-failure, foreground, service and finite-TCP tests pass with
+unchanged source inputs. All 72 private normal/fatal compiled inputs independently
+match the integrated source; those host platform models do not prove guest
+execution. The separate actual no-NIC/no-workspace-disk Q35 VM does: four ELF
+lifetimes reach SYS_PROC_READY and receive real pipe GO/EOF, exiting exactly
+0/16/15/15 for valid/wrong-PID/short-EOF/trailing-byte cases. Fully cleaned process
+observation, reap/lifetime retirement and one-shot rerun refusal pass. The boot
+uses isolated `/init --network-probe`; ordinary init/service startup is unchanged.
+
+This is process/pipe software acceptance, not native TCP/HTTP. PRELIVE loading
+and READY wait allocate or block; ordinary reap/cleanup can yield or free. The
+finite app enforces exact request/body/EOF/status and original-deadline checks,
+but cannot establish complete TCP TIME_WAIT, worker/provider/key/DMA retirement.
+Next work joins it to a preprepared parked network worker, bounded DHCP/DNS/route
+preparation and actual TCP-empty teardown. A controlled end-to-end HTTP VM should
+pass before another native boot. The installed accepted native release remains
+689b, Ubuntu remains unarmed, and no physical acceptance transfers to139360ab.

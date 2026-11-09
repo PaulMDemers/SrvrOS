@@ -8001,3 +8001,18 @@ offline allocation/fsck and Ubuntu-unarmed recovery pass. The immutable6175-file
 primary and separate111-file acceptance record must not be recollected/resealed.
 See the Pro unit record for the next actual-process TCP/HTTP boundary. No native TCP/HTTP,
 reattachment/UI, ordinary service coexistence or reliability acceptance follows.
+
+
+The actual HTTP process handoff is now implemented and VM-validated at139360ab.
+`/init --network-probe` excludes ordinary services, and the exact HTTP executable
+shares its real preparation/READY/GO/EOF path with an explicit no-socket preflight.
+Four actual ELF lifetimes prove valid and malformed private-pipe records, exact
+exit statuses and process/lifetime retirement; a second invocation refuses.
+The numeric GO is private-kernel PID/lifetime/image/descriptor-bound and carries
+the original 15-second window; it supplies no network authority by itself.
+Native TCP/HTTP still requires bounded DHCP/DNS/target-route preparation, a
+preprepared worker, real IRQ progress and key/provider retention until TCP is
+actually EMPTY after FIN/TIME_WAIT. Ordinary TCP RX allocation/free remains in
+place; finite user calls do not make the entire kernel allocation-free or bound
+wall time spent inside generic syscall admission/cleanup. See the Pro unit record
+for exact source, qualifications and independent native acceptance boundaries.
