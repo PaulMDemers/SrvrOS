@@ -170,7 +170,8 @@ firmware snapshot. This avoids a sixth complete endpoint walk after the five
 inside the census. No endpoint result survives the guard call. Other images
 retain their existing admission path. Host fault cases cover completed stores
 followed by endpoint/backing exit failures, and reject foreign adapters/tokens.
-Native timing and the full preparation lifetime remain pending physical evidence.
+The bounded native preparation lifetime is accepted by the retry below; broader
+ownership and repeatability remain unproved.
 
 The locally qualified consolidation retry is source `ee4a15bc`, release
 `de0b58f1dfbcdc94`. The complete synthetic path uses144 full guards instead of
@@ -186,3 +187,29 @@ This is not a preparation timing result. Checkpoint/filesystem/recovery checks
 pass with all1,410 prior files preserved and three new logs. Review enabled-ring
 shutdown prerequisites separately; do not widen preparation admission or infer
 reset/managed-memory authority from the stable raw census.
+
+## Native preparation acceptance (2026-11-09)
+
+A fresh retry of unchanged source`ee4a15bc`/release`de0b58f1dfbcdc94`, session
+`session-00065fdc32eefa9e-00`, completes after fresh zero-geometry admission in
+98,274/100,000us. All10 first/final ACKs match without extra polling, both held
+snapshots agree, cancellations restore zero controls, and all92 engine/context
+words,54 plane words and both10-field HDA snapshots preserve. Both borrows
+return, all13 aliases retire, exclusion releases and no clock fault is recorded.
+Outer293,384/500,000us passes; parent elapsed is not serialized. The complete
+path records144 guards/230 target words with unchanged100/300/500ms and10ms bounds.
+
+The host collector's missing post-summary dispatch initially produced a false
+attention flag. Fix`0594750d` routes that exact summary through the existing
+strict completion parser, retaining malformed/incomplete/authority refusal.
+Preparation and desktop-collector regressions pass. The original report remains;
+full read-only recollection verifies identical raw hashes, no attention and the
+unchanged strict native/checkpoint proofs. Prior failures remain failures.
+All1,416 prior files preserve, three new logs give1,419 files/129 sessions, and
+offline media/recovery/default/one-shot checks pass. Evidence is retained outside
+build; volume1%, no reboot armed.
+
+The1,726us margin is narrow: this is one bounded native pass, not a timing or
+repeatability guarantee. It accepts no enabled-ring shutdown writer, reset,
+managed memory, DMA/prefetch/cache/translation/reader ownership or native tear-free.
+All255 memory obligations remain open. Every successor needs fresh admission.

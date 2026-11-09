@@ -2,32 +2,49 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Return closeout scope: strict post-summary attention classification
+### Latest hardware: five-engine preparation and preservation accepted
 
-The preparation retry has complete native receipts at98,274/100,000us, but the
-host collector lacks a dedicated `intel-prepare-post-summary` handler and falls
-through to generic warning matching. Correct only host summary classification
-using the existing strict completion parser, add positive/malformed/incomplete
-regression coverage, then revalidate preserved logs and original return integrity.
-Preserve the original nonpass report and attribute any corrected classification
-to the decoder change. No guest code, deadline, proof condition or new native
-run changes. Main`e22adf1f` (Air6,1 PR441 documentation) is fetched, not integrated
-in this exact-source closeout. PR301 owns this bounded host-only fix.
+Exact source`ee4a15bc`, release`de0b58f1dfbcdc94`, session
+`session-00065fdc32eefa9e-00`, **accepts the bounded five-engine prepare/hold/
+cancel and preservation path** after fresh zero-geometry admission. It completes
+in98,274/100,000us, with only1,726us margin. This is one bounded native pass,
+not a repeatability or latency guarantee; previous121,296us/130,444us failures
+and the intervening enabled-entry refusal keep their classifications.
 
-### Active trial: preparation timing retry with unchanged payload and limits
+All ten requests/cancellations have exact first/final ACKs with zero extra polls.
+Both held six-word snapshots match (five controls3), final controls return to
+zero, and full92-word engine/context pre/post vectors plus54 plane words and
+both10-field HDA snapshots agree. Both borrows return, all13 aliases retire,
+exclusion releases, retained/uncertain0 and no clock fault. Outer293,384/500,000us
+meets its bound; parent elapsed is not serialized and must not be inferred from
+the outer clock. The complete path records144 guards/230 target observations.
+No100/300/500ms total or10ms phase deadline, protocol or guest binary changed.
 
-The user authorized a new automated preparation retry at volume1%. Reuse exact
-qualified source`ee4a15bc`/release`de0b58f1dfbcdc94`: subsequent source changes
-are documentation only, including main`f30ad7a5`. Reverify the immutable durable/
-EFI payload and original host/native/exact-stage VM proofs, then make fresh
-model/firmware/media/recovery and one-shot records. No kernel change, deadline
-extension, cached admission or cross-boot ownership is involved. Preparation
-must earn its own zero-geometry admission; enabled firmware state still refuses.
-The last shutdown observation does not authorize this operation. Checkpoint:
-`build/air-prepare-retry-20261109`. Pro11,2 PR19 networking and WebCore PR379
-remain independent. Collect this new session before any next trial.
+The original collector incorrectly flagged a valid post-preservation summary
+through generic warning matching. Host-only fix`0594750d` uses the existing strict
+completion-summary parser;9 preparation tests and36 desktop-collector tests pass,
+including incomplete/malformed/unsupported-authority refusal. The original
+nonpass report is retained. Full corrected collection from read-only USB has
+identical raw file hashes, no attention, and strict native/checkpoint acceptance.
+This corrects host classification, not the guest or its completion criteria.
 
-### Latest hardware: shutdown observation passes; enabled writer unexercised
+All1,416 prior files preserve apart from expected metadata; three logs produce
+1,419 files/129 sessions. Offline filesystem/allocation/writable/headroom and
+installed/durable recovery/default/one-shot checks pass; recollection verifies
+all1,419 hashes unchanged. Ubuntu is default, volume1%, no reboot armed. Exact
+payload/original host/native/VM proof hashes were reverified for the retry; no
+shutdown observation was reused as authority. Raw evidence, original/corrected
+reports and independent analysis are backed up outside build. Checkpoint:
+`build/air-prepare-retry-20261109`. Main`e22adf1f` (Air6,1 PR441 documentation)
+is fetched, not integrated during this closeout.
+
+This closes only the bounded preparation milestone. Enabled-ring shutdown writer
+coverage, outstanding GPU/DMA/prefetch/cache/translation/reader ownership, managed
+GPU memory and native tear-free remain open, with all255 obligations unchanged.
+Any next operation must obtain fresh same-lifetime admission; these observations
+cannot authorize a future reset, PTE write or memory grant.
+
+### Previous hardware: shutdown observation passes; enabled writer unexercised
 
 Source `075192ab`, release `bea82f58d257858a`, session
 `session-00065fdbd4e1e9f8-00`, **accepts already-disabled observation and
