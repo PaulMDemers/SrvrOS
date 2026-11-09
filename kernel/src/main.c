@@ -1,5 +1,6 @@
 #include <srvros/intel_display_hda.h>
 #include <srvros/intel_hda_owner.h>
+#include <srvros/sync_timing.h>
 #include <srvros/ap_probe.h>
 #include <srvros/intel_boot_claim.h>
 #include <srvros/intel_handoff.h>
@@ -936,8 +937,10 @@ void kmain(void) {
     if(cmdline_has_token(cmdline,"srvros.audio=hda")) audio_init();
     if(!automatic_aml && cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
     if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
-    if(cmdline_has_token(cmdline,"srvros.capture-write-timing=on"))
+    if(cmdline_has_token(cmdline,"srvros.capture-write-timing=on")) {
         console_printf("capture-write-timing: enabled=%s capacity=8\n",process_capture_write_timing_enable()?"yes":"NO");
+        console_printf("sync-timing: enabled=%s capacity=8\n",sync_timing_enable()?"yes":"NO");
+    }
     workspace_boot(cmdline);
     if (automatic_probe) {
         /* Capture enumeration/setup failures even if firmware left a misleading

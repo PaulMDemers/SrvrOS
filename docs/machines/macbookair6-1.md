@@ -9886,3 +9886,163 @@ same-process/private-image exclusion and all existing limits. Do not infer that
 all gate waits are `SYS_SYNC`, skip a durability barrier, or widen admission
 based on this result. Receive timing remains a separate follow-up. No new
 implementation or physical test is started by this closeout.
+
+
+### Global sync subphase audit scope (2026-11-08)
+
+Base `d20312ac`, after collected PR430. Existing native evidence narrows the
+retained third worst gate: owner `SYS_SYNC` scope1217551410–1219222267us
+contains an exFAT append1217551592–1219222266us. That append records524288
+payload bytes taking1480169us versus5519us in ten flush calls; prefix/metadata
+reads account for additional time. This is one correlated operation, not an
+attribution of every sync. Source audit confirms global sync flushes all live
+dirty content objects, including another writer's partial file, before flushing
+all writable parent devices. Existing append admission verifies the old prefix
+from media; skipping this or excluding an open writer would weaken guarantees.
+
+Bounded next checkpoint: observe file-sync and parent-device-flush phases of
+`SYS_SYNC` separately, reusing existing BOT callback/event-dispatch/resume/service
+sampling in each phase. Retain bounded per-PID aggregates and the slowest complete
+call outside worker lifetime; explicitly expose conflicts, capacity, invalid
+clocks and incomplete traces. Enable only with the existing explicit capture-
+write diagnostic profile. Touch sync observation, syscall/main/logger hooks,
+strict parsers and host/VM evidence; do not change process-file synchronization,
+block/device flush, exFAT, USB/xHCI transfer logic or scheduler policy. PR19's
+USB ring-fencing scope and PR301's scanout scope remain independent. No contact
+or delegation is authorized. No new native trial is armed at publication.
+
+Keep global barriers, full prefix/readback/rename/failure protection, buffer and
+transport bounds,500ms loop,10s lifecycle and1800s endurance unchanged. A
+serialized USB completion or service delay must be measured before choosing its
+fix; merely omitting persistence work is not an optimization candidate.
+
+
+The phase observer needs a separate fixed USB observation window: the existing
+logger may retain its diagnostic scope across a quiescent scheduling gap while
+a user's `SYS_SYNC` starts. Reusing that scope correctly refused overlaps but
+made the new observation unavailable. Add one auxiliary observation slot that
+never resets/ends the legacy slot. Capture each existing callback/controller
+sample once and accumulate it independently into active slots; neither slot
+creates a transfer or grants I/O ownership. Nested begins within a slot still
+refuse. Overlap, independent end, foreign preservation, isolated overflow and
+single-callback/single-sample regressions are required. BOT16KiB commands,
+4KiB DMA segments, quarantine, flush and controller/scheduler behavior stay.
+
+Keep periodic sync output to counters; full retained worst-call/USB detail is
+final-only so the unchanged64KiB tail can preserve app receipts. Three earlier
+VM runs with verbose dumps retained incomplete app proof; the compact TCG
+repeat retains complete app records but fails its500ms loop bound at539323us
+(516079us render) and also exposes the diagnostic-scope conflict. These attempts
+remain failures. No native trial is armed, and no criterion or limit is relaxed.
+
+
+### Global sync phase validation and native preparation (2026-11-08)
+
+Final compiled source `fffeafa5` adds observations only. Full core/desktop at
+baseline `2eb4c38d` passes, including89 installed-root tests in731.226s with one
+expected skip. Subsequent changes are diagnostic emission, independent USB
+observation and their fixtures/docs. Final matched normal/native/VM/RAM/USB
+images, USB BOT/failure/retirement/observer tests, scheduler model, syscall barrier
+matrix, sync/raw-write/gate parsers, logger/bootlog, unchanged HSW retention,
+desktop and docs checks pass. Optional IDT variants compile. No full-core run on
+the final tree is claimed; its unaffected baseline and final affected checks are
+recorded separately. SYNC executes both original operations in order even when
+file synchronization fails, preserving its exact result behavior.
+
+The legacy USB emitter and USB command/transfer/read/write/flush/retirement/
+attachment bodies remain byte-identical to `d20312ac`. Filesystem, file-content
+synchronization, block layer, xHCI, scheduler, shared ABI and pinned ports have
+no diff; the RAM image matches accepted release `93d4474e781f4b6a`. The new
+auxiliary observation slot has independent start/end/validity/overflow state;
+regressions prove one raw callback and one metadata sample with both slots active,
+peer preservation and unchanged16KiB BOT/4KiB DMA bounds. No gate, retry,
+quarantine, watchdog, power policy, global barrier or persistence check changed.
+
+Ordinary sysabi/UEFI USB keyboard/fork/exec-vectors/yield VMs pass, as do ordinary
+immutable screenshot/readback/Preview/repeat/exit and real USB RO/write/flush/
+reload/keyboard integration. Populated-Home KVM stress at400 write IOPS passes
+23 app cycles,181 overlap observations, zero audio/worker/lifecycle errors,
+159253us maximum loop and900323/1199801us maximum launch/close, with complete
+saved atomic app receipts. Independent saved-log parsing agrees on all raw
+write/gate and new sync/USB records. All final sync observations have zero
+conflicts, errors, invalidity or drops.
+
+In that VM, PID7's131 global sync calls retain a slowest1.019904s call: file
+phase1.019402s, device phase502us. File-phase USB callbacks total184606us,
+including134102us to software event observation and11207us observation-to-resume;
+device callbacks total421us. These are VM software wall spans, not physical
+transfer latency, CPU time or attribution of the unmeasured residual. Native
+subphase distribution remains pending. Earlier incomplete app-proof runs and
+compact346's539323us TCG loop/conflicting USB trace remain failed and locally
+retained; no UART fragments, limits or completion predicates were repaired.
+
+Exact stage `13b77acfd1826907` passes native-board refusal/save/unmount/return in
+Q35. Prepared native run `9015901705fc42cc` repeats original automatic1800-second
+1% PCM/verified USB/app/three-screenshot stress, with all original500ms loop,
+10s lifecycle, full prefix/readback/rename/flush/failure/retirement checks plus
+complete final SYS_SYNC file/device and USB event/resume/service evidence.
+Preflight verifies this MacBookAir6,1/own USB, all701 prior files,2372 allocated
+clusters, clean fsck/allocation and headroom; only quiet-volume expiry is renewed.
+Current accepted `93d4474e781f4b6a` and console recovery `c35475f62f154f1e` stay
+installed. Older unreferenced `f5e9c4c9603cf2eb` is archived after exact
+independent backup and no-GRUB-reference checks. Native acceptance and any
+synchronization performance fix remain pending.
+
+
+### Native global sync phase results (2026-11-09)
+
+PR431 merge `b7d3927b`, compiled source `fffeafa5`, release
+`13b77acfd1826907`, run `9015901705fc42cc`, session
+`session-00065fd039c2251a-00` completes the original automated1800-second
+1% audio/disk/app/three-screenshot workload. Independent saved-log parsing
+agrees with automatic collection:1082 app cycles,3768 verified262144-byte
+bursts (987758592 bytes),345780224 PCM bytes, zero recorded underruns and
+worker/lifecycle errors.54378 valid loop observations have zero excursions
+and128759us maximum; maximum app launch/close2056579/4030297us stay within
+unchanged500ms loop/10s lifecycle limits. Three exact1366x768 BMPs, follow-up
+Files, normal exit, battery/cache/app/capture retirement and automatic Ubuntu
+return pass. All701 prior files retain their contents except expected filesystem
+metadata;710 files/2479 allocated clusters have clean fsck/allocation, zero
+leaks and zero FAT/bitmap mismatches. The independent710-file evidence manifest
+and installed/recovery payload hashes verify. Subjective listening is unassessed
+at1%; the earlier user-confirmed30-second25% check remains separate.
+
+Final sync evidence has five retained PIDs, zero conflicts/errors/invalidity/
+drops, no active trace, and complete independent USB observations. Workload
+PID7 performs3768 global sync calls totaling16.363732s. Its slowest call takes
+1.752273s: file synchronization1.751870s and parent-device flush403us. That
+file interval contains the retained exFAT append31405705–33157326us:524288
+payload bytes,1.460292s data writes,3,735,788 prefix/metadata read bytes in the
+phase-zero bracket, and5563us across ten flush calls. This is a correlated
+worst call, not a characterization of every sync or every gate wait.
+
+For that slowest file phase, USB callback wall totals1.438713s: CBW2727us,
+data291391us and CSW1144595us. Three CSW callbacks exceed100ms; the maximum
+is370174us. Software event observation accounts for1.432967s across all
+callbacks; observation-to-resume totals1639us. The maximum sampled service gap
+is20053us. The remaining313157us outside those callback brackets is not yet
+attributed. These are software wall intervals, not controller completion times,
+pure device latency or CPU time. The dominant retained wait is before software
+observation of command status; a scheduling or device cause is not established.
+PID948 separately retains a674379us file phase with243206us USB callbacks,
+showing that callback coverage is not a universal explanation of file wall time.
+
+Screenshot write admission still dominates the raw calls: PID11/470/948 record
+11.606/8.759/10.354s in the gate versus about21ms each in handlers. Their worst
+waits still overlap thread19/PID7 syscall87. The first gate's longest owner
+correlates with the slowest PID7 file phase above. Slowest screenshot total
+22.589527s, receive5.953988s and WRITE11.950868s leave completion latency open;
+this observation-only release is not an accepted performance optimization.
+
+Next bounded investigation: correlate slow CSW observations with command type,
+transfer size and software service progress, and attribute the file-phase wall
+outside USB callbacks before choosing a serialization-preserving fix. Retain
+full prefix validation, required global barriers, all live dirty writers,
+readbacks/flush/rename/failure handling, same-process/private-image exclusions,
+transport bounds, watchdogs and every existing limit. Receive latency remains
+separate. No new implementation or boot is started by this result closeout.
+Ubuntu remains default; the one-shot entry is empty, the collector disabled,
+current release `13b77acfd1826907` and console recovery `c35475f62f154f1e`
+verify. Raw logs/images and complete payload/evidence backups remain local,
+with accepted backups outside build. Earlier failed VM runs remain failures;
+final-source host/VM provenance is unchanged from the validation section above.
