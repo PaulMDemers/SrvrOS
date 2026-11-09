@@ -78,6 +78,8 @@ VCO receipts; that message does not establish an RF failure. The complete
 repeat the same trial. Independent diagnosis of the first failed exchange is
 underway; accepted runtime2da/release7026 remains historical evidence.
 
+Independent exchange and storage reviews are sealed in14 separate files as
+`wifi-stack5-inspection-reviewed-70fd5d24`, without changing the primary capsule.
 The1877-file native capsule `wifi-stack5-inspection-70fd5d24` is now immutable
 (seal `dd6ea8b822dfdd42cdd54155483be2533b90d11bd3a513360a0c1745d81d6c8f`).
 All420 prior files and strict metadata fields survive except one independently
@@ -87,8 +89,10 @@ Accepted7026/8529/3c9/815/e17 and Ubuntu/e47d remain installed, with backed old4
 restorable. Never recollect/reseal this or the earlier accepted/failed capsules.
 
 Actual remote main `4b71b178` and open PRs19/301/379 were inspected after return.
-New sidecar exact-media equality/flush work belongs to Air6,1; it is not yet
-consumed locally and adds no Pro acceptance. Current compiled base remains5ca.
+New sidecar exact-media equality/flush work belongs to Air6,1 and is now merged
+as `ac11b6ca`; both additive Makefile/docs conflicts preserve the Pro inspection
+and metadata restoration work. Fresh qualification is pending; this adds no
+Pro acceptance. Installed runtime remains5ca/release9f, with Ubuntu unarmed.
 
 Bounded parallel software scope: add a pure fixed-storage incremental exact-HTTP
 request/response helper and directed unit tests in new

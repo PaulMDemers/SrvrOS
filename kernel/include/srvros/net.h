@@ -26,6 +26,23 @@ int64_t net_read_checked(uint64_t handle, uint64_t length, bool nonblock, bool p
     const struct net_transfer *transfer);
 int64_t net_respond_checked(uint64_t handle, const char *data, uint64_t length,
     bool nonblock, const struct net_transfer *transfer);
+/* Dormant finite alternatives: no polling, waits, yields, delays or wire retries.
+ * connect_try requires a real current process and an initialized local address.
+ * A cache-only route miss returns AGAIN without ARP, slot/ID/port allocation or
+ * SYN publication. A hit attempts one SYN and returns its SYN_SENT handle;
+ * completion/timers and process lifetime remain the caller's responsibility.
+ * respond_try_checked attempts at most one MSS/window/history-bounded segment,
+ * returning its positive admitted length, AGAIN only before output when no
+ * credit is available, zero for a valid zero-length request, or an error.
+ * The checked FD callback runs before publication; the handle is refound after
+ * it. Admission stays positive if descriptor identity later changes: an error
+ * after admission would falsely authorize replay. Output refusal is an error,
+ * not retry authority; uncertain provider ownership belongs to the outer owner.
+ * Like ordinary sends, CPU0 callers serialize TCP state and the output provider
+ * must not reenter/mutate TCP tables. These APIs create no process/timer scope. */
+int64_t net_connect_try(uint32_t remote_ip, uint16_t remote_port);
+int64_t net_respond_try_checked(uint64_t handle, const char *data, uint64_t length,
+    const struct net_transfer *transfer);
 int64_t net_udp_send_checked(uint64_t handle, uint32_t ip, uint16_t port,
     const uint8_t *data, uint64_t length, bool nonblock, const struct net_transfer *transfer);
 

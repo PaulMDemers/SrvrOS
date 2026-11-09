@@ -6296,3 +6296,17 @@ build/tests/exfat-sidecar-equality-host$(HOST_EXE): tools/test_exfat_sidecar_equ
 build/tests/exfat-sidecar-rewrite-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_SIDECAR_EQUALITY_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+
+.PHONY: test-net-tcp-try test-http-exact
+test-core: test-net-tcp-try test-http-exact
+test-wifi-completion-foundations: test-net-tcp-try test-http-exact
+test-net-tcp-try: build/tests/net-tcp-try-host$(HOST_EXE)
+	$<
+build/tests/net-tcp-try-host$(HOST_EXE): tools/test_net_tcp_try.c kernel/src/net.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-http-exact: build/tests/http-exact-host$(HOST_EXE)
+	$<
+build/tests/http-exact-host$(HOST_EXE): tools/test_http_exact.c userspace/wifihttpprobe/http_exact.c userspace/wifihttpprobe/http_exact.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< userspace/wifihttpprobe/http_exact.c -o $@

@@ -3693,6 +3693,23 @@ static bool connect_ready(void *arg) {
         connection->peer_closed;
 }
 
+int64_t net_connect_try(uint32_t remote_ip, uint16_t remote_port) {
+    if (!initialized || !local_mac || !local_ip || !remote_ip || !remote_port ||
+        !process_current() || process_should_exit_current()) return -1;
+
+    uint8_t remote_mac[6];
+    /* Do not even allocate a client port before cache-only route admission. */
+    if (!arp_cache_lookup(route_next_hop(remote_ip), remote_mac)) return SRV_ERR_AGAIN;
+    struct tcp_connection *connection = alloc_client_connection(remote_ip, remote_port, remote_mac);
+    if (!connection) return -1;
+    uint64_t id = connection->id;
+    if (!send_tcp_segment(connection, connection->local_port, TCP_SYN, NULL, 0)) {
+        close_connection(connection);
+        return -1;
+    }
+    return (int64_t)make_handle(NET_HANDLE_CONNECTION, id);
+}
+
 int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
     if (!initialized || remote_ip == 0 || remote_port == 0) {
         return -1;
@@ -3967,6 +3984,26 @@ static bool write_ready(void *arg) {
         }
     }
     return true;
+}
+
+int64_t net_respond_try_checked(uint64_t connection_id, const char *buffer, uint64_t length,
+    const struct net_transfer *transfer) {
+    if (!initialized || (!buffer && length) ||
+        handle_type(connection_id) != NET_HANDLE_CONNECTION ||
+        !find_referenced_connection_by_id(handle_value(connection_id))) return -1;
+    if (!length) return 0;
+    if (!transfer_current(transfer)) return SRV_ERR_BADF;
+    if (process_should_exit_current()) return -1;
+    /* The identity callback may have closed/replaced the referenced handle. */
+    struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(connection_id));
+    if (!connection || !tcp_state_can_write(connection->state) ||
+        connection->local_write_closed || connection->reset) return -1;
+    uint16_t available = tcp_tx_available_payload(connection);
+    if (!available) return SRV_ERR_AGAIN;
+    uint16_t chunk = length > available ? available : (uint16_t)length;
+    if (!send_tcp_segment(connection, connection->local_port, TCP_ACK | TCP_PSH,
+        (const uint8_t *)buffer, chunk)) return -1;
+    return chunk;
 }
 
 int64_t net_respond_checked(uint64_t connection_id, const char *buffer, uint64_t length, bool nonblock, const struct net_transfer *transfer) {
