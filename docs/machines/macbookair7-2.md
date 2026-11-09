@@ -2,6 +2,21 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Active scope: PCI Advanced Features requester audit
+
+Main`99e6edea` (Air6,1 PR443 native diagnostic documentation) is integrated
+as`6501a9ef`. PR301 next adds a dedicated read-only requester audit under the
+original GT owner and a fresh registered dependent after same-parent takeover
+observation. Ubuntu inventory identifies conventional PCI Advanced Features at
+`0xa4` (TP+/FLR+), not a PCIe Device Status capability. Capture the exact observed
+MSI/PM/AF chain, bus-master command and AF control/status twice, retain raw
+prefixes and refusal/clock/return evidence, and derive observations without any
+DMA/cache/ownership assurance. Touched subsystems: isolated requester core/image,
+boot recipe, strict collectors, host/VM/compiled tests and current guides.
+No BME/FLR/reset/PTE store or wider device gate is planned. Existing diagnostics
+and accepted recovery stay unchanged. PR19 networking and PR379 WebCore remain
+independent. Checkpoint:`build/air-requester-audit-20261109`; no test armed.
+
 ### Accepted reset admission integration: preservation and clean retirement
 
 Source`4873e6bd`, release`6365de27e20576b6`, session
