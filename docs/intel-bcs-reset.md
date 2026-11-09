@@ -474,3 +474,30 @@ remains false. These component observations do not accept full preservation,
 engine/reader/cache/DMA retirement, managed memory or tear-free presentation.
 Media/recovery checks pass; no new reboot is armed. Next optimize the remaining
 preservation/parent admissions without increasing either deadline.
+
+## Guarded full-census samples
+
+The isolated shutdown/reset successor uses wake12/clock3. Its optional completion
+sample callback reads the same five eight-word engine/TLB groups followed by the
+same six context DWORDs. Full fresh core pre-admission, independent provider
+admission and core post-admission bracket each46-word sample. Requesters are
+fresh between groups; each next target's current CR3/physical mapping is checked
+before its reads. Floating/reserved group values stop before the following group.
+Both samples, all raw stability/mask/epoch comparisons and full initial/final
+parent checks remain. The core also checks parent identity/state/pin/epoch both
+before and after its guard callback. Scalar callers explicitly keep NULL callbacks.
+
+Clock row3 adds `c`/`p` attempted sample counts (maximum2 each) for pre- and post-
+reset censuses. Declared census completion requires two matching callbacks; a
+post attempt requires a completed pre-census. Missing coverage never becomes a
+pass. Earlier wake11/clock2 and other historical receipts keep their meaning.
+The existing four transactions/two reset endpoints, all reader/HDA preservation
+and verified borrow/owner close/firmware/mapping retirement gates remain unchanged.
+
+The host comparison measures183→147 full audits: each census retains both parent
+checks and saves nine full audits per sample, eighteen per census. All46 raw
+observation rows and normalized protocol outcomes match. These are host costs,
+not native acceptance. No new page, MMIO target, write, enabled-ring admission or
+managed-memory grant is added. The100ms core,300ms owner,500ms outer and all phase,
+poll/settling and census limits remain unchanged. Complete preservation/teardown
+must still qualify on the physical machine.

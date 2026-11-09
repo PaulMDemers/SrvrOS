@@ -43,7 +43,7 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
 #define WAKE_MAPS 13u
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
-#define WAKE_VERSION 11u
+#define WAKE_VERSION 12u
 #else
 #define WAKE_VERSION 7u
 #endif
@@ -359,7 +359,7 @@ bool intel_gt_wake_probe_report(void) {
                 if(opened)checked=intel_gt_access_check(&owner);
                 #ifdef SRVROS_INTEL_ENGINE_TRIAL
                 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
-                if(checked)(void)intel_completion_observe(&completion,&owner,(struct intel_completion_io){&a,engine_guard,completion_group,completion_context,now});
+                if(checked)(void)intel_completion_observe(&completion,&owner,(struct intel_completion_io){&a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE});
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
                 if(completion.complete)bcs_run(&a,&owner,&completion,&trial,grants==7 && f.recipe);
 #endif
@@ -422,7 +422,7 @@ bool intel_gt_wake_probe_report(void) {
     engine_reads=completion.reads;completion_report(&completion);
     complete=complete && completion.complete;
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
-    bcs_report(&trial,&owner);engine_reads+=trial.post.reads;
+    bcs_report(&trial,&owner,&completion);engine_reads+=trial.post.reads;
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
     engine_reads+=trial.reset.shutdown.reads;
 #endif

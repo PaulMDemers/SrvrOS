@@ -106,17 +106,17 @@ int main(int argc,char **argv) {
  struct display_access_token token;assert(display_access_acquire(18,&token));struct intel_gt_access g={0};m.parent=&g;
  assert(intel_gt_access_open(&g,&token,7,(struct intel_gt_io){&m,guard,read_gt,write_gt,now,parent_pause,NULL}));
  if(mode(&m,"nonzero-epoch"))g.engine_epoch=m.start_epoch=17;
- struct intel_completion_result c={0};assert(intel_completion_observe(&c,&g,(struct intel_completion_io){&m.gt,obs_guard,group,context,obs_now}));
+ struct intel_completion_result c={0};assert(intel_completion_observe(&c,&g,(struct intel_completion_io){&m.gt,obs_guard,group,context,obs_now,NULL}));
  if(mode(&m,"epoch-during-census")) {
   changing_parent=&g;struct intel_completion_result bad={0};
-  assert(!intel_completion_observe(&bad,&g,(struct intel_completion_io){&m.gt,changing_guard,group,context,obs_now}));
+  assert(!intel_completion_observe(&bad,&g,(struct intel_completion_io){&m.gt,changing_guard,group,context,obs_now,NULL}));
   assert(bad.reason==3 && !bad.complete && !bad.groups);
   assert(intel_gt_access_close(&g) && display_access_release(&token,true));puts("epoch during census PASS");return 0;
  }
  if(mode(&m,"epoch-final-census")) {
   changing_parent=&g;g.io.guard=changing_gt_guard;m.gt.groups=m.gt.contexts=0;
   struct intel_completion_result bad={0};
-  assert(!intel_completion_observe(&bad,&g,(struct intel_completion_io){&m.gt,obs_guard,group,context,obs_now}));
+  assert(!intel_completion_observe(&bad,&g,(struct intel_completion_io){&m.gt,obs_guard,group,context,obs_now,NULL}));
   assert(!bad.complete && bad.reason==3 && bad.groups==10 && g.engine_epoch!=bad.engine_epoch);
   assert(intel_gt_access_close(&g) && display_access_release(&token,true));puts("epoch during final check PASS");return 0;
  }
@@ -165,7 +165,7 @@ int main(int argc,char **argv) {
   struct intel_reset_ready_result stale_ready={0};
   assert(!intel_reset_ready(&stale_ready,&g,&c,true,(struct intel_reset_ready_io){&m,rguard,rcontrol,rgroup,rcontrol_write,rnow,rpause}));
   assert(writes==m.control_stores+m.domain_stores);
-  struct intel_completion_result fresh={0};assert(intel_completion_observe(&fresh,&g,(struct intel_completion_io){&m.gt,obs_guard,group,context,obs_now}));
+  struct intel_completion_result fresh={0};assert(intel_completion_observe(&fresh,&g,(struct intel_completion_io){&m.gt,obs_guard,group,context,obs_now,NULL}));
   assert(fresh.complete && fresh.engine_epoch==m.start_epoch+1);
   if(mode(&m,"fresh-reset")) {
    m.start_epoch=g.engine_epoch;m.guards=m.reads=m.control_stores=m.domain_stores=m.groups=m.pauses=0;

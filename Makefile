@@ -5387,7 +5387,7 @@ build/tests/intel-bcs-shutdown-adapter$(HOST_EXE): tools/test_intel_display_prob
 	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_BCS_RESET_TRIAL -DSRVROS_INTEL_BCS_SHUTDOWN_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -Ishared/include -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_reset_ready.c kernel/diagnostics/intel_bcs_reset.c kernel/src/drivers/intel_blitter.c kernel/diagnostics/package_audit_core.c -o $@
 .PHONY: test-intel-bcs-shutdown
 test-core: test-intel-bcs-shutdown
-test-intel-bcs-shutdown: build/tests/intel-bcs-reset$(HOST_EXE) build/tests/intel-bcs-shutdown-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+test-intel-bcs-shutdown: build/tests/intel-completion-core$(HOST_EXE) build/tests/intel-bcs-reset$(HOST_EXE) build/tests/intel-bcs-shutdown-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_bcs_shutdown.py
 .PHONY: test-render-timing
 test-core: test-render-timing

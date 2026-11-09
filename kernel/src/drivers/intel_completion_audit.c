@@ -6,9 +6,13 @@ static bool clock_ok(struct intel_completion_result *r,struct intel_completion_i
  if(!t || t<r->last_us || t<r->begin_us || t-r->begin_us>100000){r->reason=2;return false;}
  r->last_us=t;return true;
 }
+static bool parent_valid(const struct intel_completion_result *r,const struct intel_gt_access *g) {
+ return r->parent==g && g->object==g && g->state==GT_ACCESS_AWAKE && g->pinned &&
+  r->engine_epoch==g->engine_epoch && display_access_held(&g->exclusion);
+}
 static bool guard(struct intel_completion_result *r,struct intel_gt_access *g,struct intel_completion_io io) {
  if(!clock_ok(r,io))return false;
- if(g->state!=GT_ACCESS_AWAKE || !g->pinned || r->engine_epoch!=g->engine_epoch || !display_access_held(&g->exclusion) || !io.guard(io.ctx) || r->engine_epoch!=g->engine_epoch){r->reason=3;return false;}return true;
+ if(!parent_valid(r,g) || !io.guard(io.ctx) || !parent_valid(r,g)){r->reason=3;return false;}return true;
 }
 bool intel_completion_observe(struct intel_completion_result *r,struct intel_gt_access *g,struct intel_completion_io io) {
  if(!r || r->object)return false;
@@ -17,16 +21,22 @@ bool intel_completion_observe(struct intel_completion_result *r,struct intel_gt_
  r->engine_epoch=g->engine_epoch;
  r->begin_us=r->last_us=io.now(io.ctx);
  for(unsigned n=0;n<2;n++) {
-  for(unsigned e=0;e<INTEL_ENGINE_COUNT;e++) {
+  if(io.sample) {
    if(!guard(r,g,io))return false;
+   ++r->batches;
+   if(!io.sample(io.ctx,r->words[n],r->context[n])){r->reason=4;return false;}
+   if(!guard(r,g,io))return false;
+  }
+  for(unsigned e=0;e<INTEL_ENGINE_COUNT;e++) {
+   if(!io.sample && !guard(r,g,io))return false;
    uint32_t *w=r->words[n][e];
-   if(!io.group(io.ctx,e,w)){r->reason=4;return false;}
+   if(!io.sample && !io.group(io.ctx,e,w)){r->reason=4;return false;}
    r->groups++;r->reads+=INTEL_COMPLETION_WORDS;
    for(unsigned i=0;i<INTEL_COMPLETION_WORDS;i++)if(w[i]==UINT32_MAX){r->reason=5;return false;}
    if(w[7]&~1u){r->reason=5;return false;}
   }
-  if(!guard(r,g,io))return false;
-  if(!io.context(io.ctx,r->context[n])){r->reason=4;return false;}
+  if(!io.sample && !guard(r,g,io))return false;
+  if(!io.sample && !io.context(io.ctx,r->context[n])){r->reason=4;return false;}
   r->contexts++;r->reads+=INTEL_COMPLETION_CONTEXT;
   for(unsigned i=0;i<INTEL_COMPLETION_CONTEXT;i++)if(r->context[n][i]==UINT32_MAX){r->reason=5;return false;}
   r->samples++;

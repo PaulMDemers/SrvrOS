@@ -20,7 +20,7 @@ struct intel_completion_result {
  uint32_t words[2][INTEL_ENGINE_COUNT][INTEL_COMPLETION_WORDS];
  uint32_t context[2][INTEL_COMPLETION_CONTEXT];
  uint64_t begin_us,end_us,last_us;
- unsigned groups,samples,contexts,reads,reason,enabled,pending,flip_wait,tlb_pending,parser_idle;
+ unsigned batches,groups,samples,contexts,reads,reason,enabled,pending,flip_wait,tlb_pending,parser_idle;
  bool stable,complete;
 };
 struct intel_completion_io {
@@ -29,6 +29,9 @@ struct intel_completion_io {
  bool (*group)(void *,unsigned,uint32_t [INTEL_COMPLETION_WORDS]);
  bool (*context)(void *,uint32_t [INTEL_COMPLETION_CONTEXT]);
  uint64_t (*now)(void *);
+ /* Optional ordered five engine groups followed by six context DWORDs.
+  * Core pre/post guards and independent provider admission remain mandatory. */
+ bool (*sample)(void *,uint32_t [INTEL_ENGINE_COUNT][INTEL_COMPLETION_WORDS],uint32_t [INTEL_COMPLETION_CONTEXT]);
 };
 /* Exact Broadwell RO register census. Zero-init and consume once; the caller
  * binds same-boot resource/cache/profile and retains the live GT parent. */

@@ -140,7 +140,7 @@ static void bcs_run(struct wake_adapter *a,struct intel_gt_access *g,const struc
  unsigned stores=g->writes;
  t->blocked_close=!intel_gt_access_close(g) && g->writes==stores && g->state==GT_ACCESS_AWAKE && g->pinned;
  if(!t->blocked_close){a->uncertain=true;return;}
- bool post=intel_completion_observe(&t->post,g,(struct intel_completion_io){a,engine_guard,completion_group,completion_context,now});
+ bool post=intel_completion_observe(&t->post,g,(struct intel_completion_io){a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE});
  bool planes=post && bcs_planes(a,g,t,1);
  t->preserved=post && planes && pre->engine_epoch==t->reset.epoch_before && t->post.engine_epoch==t->reset.epoch_after;
  for(unsigned n=0;n<2;n++)for(unsigned e=0;e<5;e++)for(unsigned i=0;i<8;i++)if(t->post.words[n][e][i]!=pre->words[n][e][i])t->preserved=false;
@@ -153,10 +153,11 @@ static void bcs_run(struct wake_adapter *a,struct intel_gt_access *g,const struc
  /* Even a clean reset cannot close out unverified readers or engine state. */
  if(!verified)a->uncertain=true;
 }
-static void bcs_report(const struct bcs_trial *t,const struct intel_gt_access *g) {
+static void bcs_report(const struct bcs_trial *t,const struct intel_gt_access *g,const struct intel_completion_result *pre) {
+ (void)pre;
  const struct intel_bcs_reset_result *r=&t->reset;
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
- console_printf("intel-bcs-clock: v=2 why=%u stage=%u at=%u prev=%u n=%u t=%u\n",(uint64_t)r->clock_cause,(uint64_t)r->clock_stage,r->clock_sample,r->clock_previous,(uint64_t)r->snapshots,(uint64_t)r->transactions);
+ console_printf("intel-bcs-clock: v=3 why=%u stage=%u at=%u prev=%u n=%u t=%u c=%u p=%u\n",(uint64_t)r->clock_cause,(uint64_t)r->clock_stage,r->clock_sample,r->clock_previous,(uint64_t)r->snapshots,(uint64_t)r->transactions,(uint64_t)pre->batches,(uint64_t)t->post.batches);
 #endif
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
  const struct intel_blitter_result *b=&r->shutdown;

@@ -15,6 +15,9 @@ static enum intel_gt_write intel_display_test_reset_ready_write(uint32_t,uint32_
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
 #include <srvros/intel_completion_audit.h>
 static bool intel_display_test_completion_read(unsigned,unsigned,uint32_t,uint32_t *);
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+static void census_fault(unsigned,unsigned);
+#endif
 static bool intel_display_test_completion_context(unsigned,uint32_t *);
 #endif
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
@@ -105,6 +108,9 @@ static bool intel_display_test_completion_read(unsigned e,unsigned i,uint32_t re
  assert(e<5 && i<8 && wake_irq && wake_ack==1 && !display_access_allowed());
  static const uint32_t base[5]={0x2000,0x12000,0x1a000,0x1c000,0x22000},tlb[5]={0x4260,0x4264,0x4270,0x4268,0x426c},off[7]={0x30,0x34,0x38,0x3c,0x234,0x238,0x2d0};
  assert(reg==(i==7?tlb[e]:base[e]+off[i]));
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+ census_fault(e,i);
+#endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
  if(bcs_reset_writes && !strcmp(engine_mode,"bcs-postread"))return false;
 #endif
@@ -226,6 +232,20 @@ static bool intel_display_test_fw_read(uint32_t offset,uint32_t *v){
 }
 static unsigned config_reads,mmio_reads,map_calls,unmap_calls;
 static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+14];
+#ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+static void census_fault(unsigned e,unsigned i) {
+ bool post=bcs_reset_writes!=0;
+ if(e==0 && i==7) {
+  if(!strcmp(engine_mode,"census-foreign-pre") || (post && !strcmp(engine_mode,"census-foreign-post")))wake_request|=2;
+  if(!strcmp(engine_mode,"census-map-pre") || (post && !strcmp(engine_mode,"census-map-post")))pa[INTEL_CAPTURE_PAGES+1+4]+=4096;
+ }
+ if(e==1 && i==0) {
+  if(!strcmp(engine_mode,"census-foreign-pre") || (post && !strcmp(engine_mode,"census-foreign-post")))assert((wake_request&65535)==1);
+  if(!strcmp(engine_mode,"census-map-pre") || (post && !strcmp(engine_mode,"census-map-post")))assert(pa[INTEL_CAPTURE_PAGES+1+4]==0xc0012000ull);
+ }
+}
+#endif
+
 static bool firmware_ok,clock_ok,alias,malformed,reporting,backing_mode,translation_gap,dma_unmap_fail;
 static struct pci_device devices[4];
 static struct acpi_table_info dsdt,extra_dmar;

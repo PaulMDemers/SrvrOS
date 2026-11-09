@@ -1,8 +1,8 @@
 /* Dedicated read-only completion audit under the existing wake owner. */
 #include <srvros/intel_completion_audit.h>
-static bool completion_group(void *ctx,unsigned e,uint32_t out[INTEL_COMPLETION_WORDS]) {
+static bool completion_group_raw(void *ctx,unsigned e,uint32_t out[INTEL_COMPLETION_WORDS]) {
  struct wake_adapter *a=ctx;
- if(e>=INTEL_ENGINE_COUNT || !a->mapped[e+3] || !a->mapped[8] || !engine_guard(a))return false;
+ if(e>=INTEL_ENGINE_COUNT || !a->mapped[e+3] || !a->mapped[8])return false;
  for(unsigned i=0;i<INTEL_COMPLETION_WORDS;i++) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
   if(!intel_display_test_completion_read(e,i,i==7?intel_completion_tlb[e]:intel_engine_pages[e]+(i==6?0x2d0:intel_engine_offsets[i]),&out[i]))return false;
@@ -13,8 +13,12 @@ static bool completion_group(void *ctx,unsigned e,uint32_t out[INTEL_COMPLETION_
  }
  return true;
 }
-static bool completion_context(void *ctx,uint32_t out[INTEL_COMPLETION_CONTEXT]) {
- struct wake_adapter *a=ctx;if(!engine_guard(a) || !a->mapped[3] || !a->mapped[7])return false;
+static bool completion_group(void *ctx,unsigned e,uint32_t out[INTEL_COMPLETION_WORDS]) {
+ struct wake_adapter *a=ctx;if(e>=INTEL_ENGINE_COUNT || !a->mapped[e+3] || !a->mapped[8])return false;
+ return engine_guard(ctx) && completion_group_raw(ctx,e,out);
+}
+static bool completion_context_raw(void *ctx,uint32_t out[INTEL_COMPLETION_CONTEXT]) {
+ struct wake_adapter *a=ctx;if(!a->mapped[3] || !a->mapped[7])return false;
  for(unsigned i=0;i<INTEL_COMPLETION_CONTEXT;i++) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
   if(!intel_display_test_completion_context(intel_completion_context[i],&out[i]))return false;
@@ -25,6 +29,32 @@ static bool completion_context(void *ctx,uint32_t out[INTEL_COMPLETION_CONTEXT])
  }
  return true;
 }
+static bool completion_context(void *ctx,uint32_t out[INTEL_COMPLETION_CONTEXT]) {
+ return engine_guard(ctx) && completion_context_raw(ctx,out);
+}
+#if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) && !defined(SRVROS_INTEL_CENSUS_SCALAR_TEST)
+static bool completion_mapping(void *ctx,unsigned slot) {
+ struct wake_adapter *a=ctx;uint64_t physical;
+ return slot<WAKE_MAPS && a->mapped[slot] && vmm_current_address_space()==a->fw.gt.a.common.cr3 &&
+  vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,WAKE_VA+4096*slot,&physical) && physical==result.mmio_base+wake_pages[slot];
+}
+/* Same46 non-clearing DWORDs/order, one fresh full provider admission. The
+ * core brackets the complete sample; requesters remain fresh between groups. */
+static bool completion_snapshot(void *ctx,uint32_t words[INTEL_ENGINE_COUNT][INTEL_COMPLETION_WORDS],uint32_t context[INTEL_COMPLETION_CONTEXT]) {
+ if(!words || !context || !engine_guard(ctx))return false;
+ for(unsigned e=0;e<INTEL_ENGINE_COUNT;e++) {
+  if(!completion_mapping(ctx,e+3) || !completion_mapping(ctx,8) || !engine_requesters(ctx) || !completion_group_raw(ctx,e,words[e]))return false;
+  for(unsigned i=0;i<INTEL_COMPLETION_WORDS;i++)if(words[e][i]==UINT32_MAX)return false;
+  if(words[e][7]&~1u)return false;
+ }
+ if(!completion_mapping(ctx,3) || !completion_mapping(ctx,7) || !engine_requesters(ctx) || !completion_context_raw(ctx,context))return false;
+ for(unsigned i=0;i<INTEL_COMPLETION_CONTEXT;i++)if(context[i]==UINT32_MAX)return false;
+ return engine_requesters(ctx);
+}
+#define COMPLETION_SAMPLE completion_snapshot
+#else
+#define COMPLETION_SAMPLE NULL
+#endif
 static void completion_report_named(const struct intel_completion_result *r,const char *prefix) {
  for(unsigned n=0;n<2;n++) {
   for(unsigned e=0;e<INTEL_ENGINE_COUNT && n*5+e<r->groups;e++) {

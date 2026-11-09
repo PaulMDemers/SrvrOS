@@ -46,11 +46,11 @@ def bcs_result(text):
  if any(v>0xffffffff for rows in tables.values() for r in rows for k,v in r.items() if k.startswith('w') or k=='value'):raise ValueError('BCS DWORD width')
  from intel_gt_wake import wake_result
  wake=wake_result(text)
- if not wake or wake['summary']['v'] not in (6,7,9,10,11):raise ValueError('BCS wrong wake image')
+ if not wake or wake['summary']['v'] not in (6,7,9,10,11,12):raise ValueError('BCS wrong wake image')
  pre=completion_result(text)
  post_text='\n'.join(l.replace('intel-bcs-post-','intel-completion-',1) for l in text.splitlines() if l.startswith('intel-bcs-post-') or l.startswith(('intel-wake-summary:','intel-clock')))
  post=completion_result(post_text)
- if any(r['v']!=(2 if wake['summary']['v'] in (9,10,11) else 1) for r in tables['plane']+tables['row']+tables['audio']):raise ValueError('BCS plane version binding')
+ if any(r['v']!=(2 if wake['summary']['v'] in (9,10,11,12) else 1) for r in tables['plane']+tables['row']+tables['audio']):raise ValueError('BCS plane version binding')
  if s['core_complete']:
   if [[r[k] for k in W] for r in tables['row']]!=[[0,0,0,0,1,0,512,0]]*2 or [r['value']&65535 for r in tables['control']]!=[0,3,0,0] or any(r['value'] for r in tables['domain']):raise ValueError('BCS core raw state')
   if not pre or not pre['summary']['complete'] or any(pre['summary'][k] for k in ('enabled','pending','flip_wait','tlb_pending')) or pre['summary']['parser_idle']!=3:raise ValueError('BCS census admission')
@@ -72,7 +72,7 @@ def bcs_result(text):
    for p in range(3):
     old=display['rows']['pipe'][3+p];row=tables['plane'][n*3+p]
     if any(row['w'+str(i)]!=old[k] for i,k in enumerate(('control','surface','live','cursor_control','cursor_base'))):raise ValueError('BCS inherited reader binding')
- if wake['summary']['v'] in (7,9,10,11):
+ if wake['summary']['v'] in (7,9,10,11,12):
   if text.index('intel-clock:')<text.index('intel-bcs-summary:'):raise ValueError('BCS clock order')
   c=wake['clock'];why=c['why'];at=c['at'];prev=c['prev'];phase=c['phase'];base=s['owner_begin']
   if why:
@@ -84,9 +84,9 @@ def bcs_result(text):
     if at!=prev or at!=phase:raise ValueError('clock frozen sample')
     derived|=32
    if why!=derived:raise ValueError('clock derived cause')
- if wake['summary']['v'] in (9,10,11):verify_shutdown(text,s,tables,pre)
+ if wake['summary']['v'] in (9,10,11,12):verify_shutdown(text,s,tables,pre)
  elif 'intel-bcs-shutdown-' in text:raise ValueError('shutdown wrong reset image')
- clock=core_clock_result(text,s,wake['summary']['v'])
+ clock=core_clock_result(text,s,wake['summary']['v'],pre,post)
  complete=bool(s['complete'] and wake['lease_complete'])
  return dict(complete=complete,native_complete=False,summary=s,clock=clock,tables=tables,post=post,engine_reset=bool(s['core_complete']),posted_drain=False,prefetch_retired=False,pipeline_flushed=False,cache_ownership=False,managed_range=False,physical_tearfree=False)
 def native_bcs_result(text):
@@ -119,23 +119,28 @@ def verify_shutdown(text,s,tables,pre):
  return dict(summary=b,rows=rows)
 
 def core_clock_row(line,version=10):
- c=_fields(line,'intel-bcs-clock:',('v why stage at prev n'+(' t' if version==11 else '')).split(),versions=(2,) if version==11 else (1,))
- if c['v']!=(2 if version==11 else 1) or c['why']>15 or c['stage']>3 or c['n']>2:raise ValueError('core clock range')
- if version==11 and not 0<=c['t']<=4:raise ValueError('core transaction range')
+ c=_fields(line,'intel-bcs-clock:',('v why stage at prev n'+(' t' if version>=11 else '')+(' c p' if version==12 else '')).split(),versions=(3,) if version==12 else (2,) if version==11 else (1,))
+ if c['v']!=(3 if version==12 else 2 if version==11 else 1) or c['why']>15 or c['stage']>3 or c['n']>2:raise ValueError('core clock range')
+ if version>=11 and not 0<=c['t']<=4:raise ValueError('core transaction range')
+ if version==12 and any(not 0<=c[k]<=2 for k in ('c','p')):raise ValueError('census batch range')
  if not c['why'] and any(c[k] for k in ('stage','at','prev')):raise ValueError('core clock unexplained sample')
  if c['why'] and not c['stage']:raise ValueError('core clock stage missing')
  return c
 
-def core_clock_result(text,s,version):
+def core_clock_result(text,s,version,pre=None,post=None):
  lines=[l for l in text.splitlines() if l.startswith('intel-bcs-clock')]
- if version not in (10,11):
+ if version not in (10,11,12):
   if lines:raise ValueError('core clock wrong version')
   return None
  if len(lines)!=1:raise ValueError('core clock coverage')
  c=core_clock_row(lines[0],version)
- if version==11:
+ if version>=11:
   if c['t']>4 or c['t']!=s['attempts']+s['reset_attempts']:raise ValueError('core transaction coverage')
   if s['core_complete'] and c['t']!=4:raise ValueError('core transaction completion')
+ if version==12:
+  for key,result in (('c',pre),('p',post)):
+   if result and result['summary']['complete'] and c[key]!=2:raise ValueError('census batch coverage')
+  if c['p'] and (not pre or not pre['summary']['complete'] or c['c']!=2):raise ValueError('post batch admission')
  if text.index(lines[0])>text.index('intel-bcs-shutdown-summary:'):raise ValueError('core clock order')
  if bool(c['why'])!=(s['reason']==2):raise ValueError('core clock reason binding')
  if c['why']:

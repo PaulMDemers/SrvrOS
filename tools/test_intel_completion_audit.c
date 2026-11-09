@@ -47,10 +47,29 @@ static bool context(void *p,uint32_t w[6]) {
  if(is(m,"context-float"))w[5]=UINT32_MAX;
  return !is(m,"context-read");
 }
+static struct intel_gt_access *batch_parent;
+static bool batch_guard(void *p) {
+ struct model *m=p;bool good=obs_guard(p);
+ if(is(m,"batch-guard-unpin"))batch_parent->pinned=false;
+ return good;
+}
+static bool batch_sample(void *p,uint32_t w[5][8],uint32_t c[6]) {
+ struct model *m=p;
+ if(!obs_guard(p))return false;
+ for(unsigned e=0;e<5;e++)if(!group(p,e,w[e]))return false;
+ if(!context(p,c))return false;
+ if(is(m,"batch-epoch"))++batch_parent->engine_epoch;
+ if(is(m,"batch-unpin"))batch_parent->pinned=false;
+ if(is(m,"batch-parent"))batch_parent->object=NULL;
+ if(is(m,"batch-deadline"))m->t+=100001;
+ return true;
+}
 int main(int argc,char **argv){
  struct model m={.t=1000,.mode=argc>1?argv[1]:"normal"};struct display_access_token token;assert(display_access_acquire(18,&token));struct intel_gt_access g={0};
  assert(intel_gt_access_open(&g,&token,7,(struct intel_gt_io){&m,guard,read_gt,write_gt,now,pause_gt,NULL}));
- struct intel_gt_access copied=g;struct intel_completion_result r={0};struct intel_completion_io io={&m,obs_guard,group,context,obs_now};
+ struct intel_gt_access copied=g;struct intel_completion_result r={0};struct intel_completion_io io={&m,obs_guard,group,context,obs_now,NULL};
+ bool batch=argc>2 && !strcmp(argv[2],"batch");
+ if(batch){batch_parent=&g;io.guard=batch_guard;io.sample=batch_sample;}
  bool ok=intel_completion_observe(&r,is(&m,"copy")?&copied:&g,io);
  if(!strncmp(m.mode,"final-",6)){
   assert(m.oclock==16 && r.reads==92 && r.stable);
@@ -60,7 +79,15 @@ int main(int argc,char **argv){
  }
  bool expected=is(&m,"final-tie") || is(&m,"final-boundary") || is(&m,"normal") || is(&m,"active") || is(&m,"pending") || is(&m,"flip-wait") || is(&m,"tlb-pending");assert(ok==expected);
  if(expected){assert(r.complete && r.stable && r.reads==92 && r.groups==10 && r.contexts==2 && r.samples==2 && r.parser_idle==3);assert(r.enabled==(is(&m,"active")?31u:0));assert(r.pending==(is(&m,"pending")?31u:0));assert(r.flip_wait==(is(&m,"flip-wait")?31u:0));assert(r.tlb_pending==(is(&m,"tlb-pending")?31u:0));}
+ if(batch) {
+  if(ok)assert(r.batches==2);
+  if(is(&m,"batch-guard-unpin"))assert(r.reason==3 && !r.batches && !m.groups);
+  if(is(&m,"batch-unpin") || is(&m,"batch-parent") || is(&m,"batch-epoch"))assert(r.reason==3 && r.batches==1 && !r.groups);
+  if(is(&m,"batch-deadline"))assert(r.reason==2 && r.batches==1 && !r.groups);
+  if(is(&m,"batch-guard-unpin") || is(&m,"batch-unpin"))g.pinned=true;
+  if(is(&m,"batch-parent"))g.object=&g;
+ }
  unsigned reads=m.groups+m.contexts;struct intel_completion_result copy=r;assert(!intel_completion_observe(&r,&g,io) && !intel_completion_observe(&copy,&g,io));assert(reads==m.groups+m.contexts && m.writes==2);
- if(g.state==GT_ACCESS_AWAKE){bool closed=intel_gt_access_close(&g);if(is(&m,"foreign") || is(&m,"deadline"))assert(!closed && g.pinned);else assert(closed);}
+ if(g.state==GT_ACCESS_AWAKE){bool closed=intel_gt_access_close(&g);if(is(&m,"foreign") || is(&m,"deadline") || is(&m,"batch-deadline"))assert(!closed && g.pinned);else assert(closed);}
  puts("completion core PASS one-use/parent/deadline, raw active states; zero completion authority");return 0;
 }
