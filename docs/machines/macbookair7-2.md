@@ -2,6 +2,20 @@
 
 Updated: 2026-11-08. State: **active reference machine; partial device acceptance**.
 
+### Active scope: guarded write/first-ack transactions
+
+Integrate main `66277083` as `c8b04fde`, retaining Air6,1's separately staged
+screenshot/gate timing and independent acceptance. Reduce remaining reset core
+admission overhead by an optional ordered write/first-read transaction callback
+in the isolated shutdown/reset image. Full fresh pre/provider/post admission,
+registered pin continuity, exact store values/addresses/read order, all100/300/
+500ms and phase/poll limits, first-fault retention and post-preservation remain.
+Versioned receipt coverage must distinguish this path from scalar historical
+receipts. Scope: reset core/adapter, strict collectors, host/native instruction
+controls and exact-stage VM qualification. No new writer, geometry admission,
+mapping, cache or managed-memory authority. Stop at hardware readiness; keep
+prior trial evidence intact. No new reboot armed.
+
 ### Inner-clock retry: measured deadline exhaustion after cancellation
 
 Unchanged source `76e45067` / release `3d376586292550c3`, session
