@@ -839,7 +839,8 @@ option continues to affect supported document views. See the
 
 ### Opt-in screenshot buffered-write timing
 
-Automatic audio/disk stress stages explicitly set `srvros.capture-write-timing=on`;
+The separate `--capture-write-timing` automatic audio/disk stress stages explicitly
+set `srvros.capture-write-timing=on`; legacy v74/v80 configurations are preserved;
 ordinary desktop and the short listening profile omit it. The CPU0 kernel keeps
 at most eight fixed records for the exact active executable `/fat/bin/shotworker`.
 It grants no eligibility, changes no limits, and allocates/logs nothing in the

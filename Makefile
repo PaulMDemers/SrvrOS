@@ -5019,3 +5019,6 @@ build/tests/capture-write-timing-host$(HOST_EXE): tools/test_capture_write_timin
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
 test-core: test-capture-write-timing
+
+# The real process host fixture includes this private timing implementation.
+build/tests/process-output-host$(HOST_EXE): kernel/src/capture_write_timing_state.h

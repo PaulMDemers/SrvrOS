@@ -95,15 +95,15 @@ def main():
     args=parser.parse_args()
     if args.write_iops<0 or args.read_iops<0 or not 0<=args.metadata_files<=4000 or (args.stage and (args.populated_home or args.write_iops or args.read_iops or args.metadata_files)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out=out.with_name(out.name+'-air72') if args.air72 else out;out.mkdir(parents=True,exist_ok=True)
-    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','render-attribution.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json'):
+    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','render-attribution.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json','capture-write-timing.json'):
         (out/name).unlink(missing_ok=True)
     for pattern in ('saved-*.log','checkpoint-*.log'):
         for old in out.glob(pattern):old.unlink()
     stage=boot.STAGE/args.stage if args.stage else None
     manifest=boot.verify(stage) if stage else None
     volume_id=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1] if stage else '51525354'
-    if stage:assert manifest['config_version'].startswith(('ram-usb-v74-','ram-usb-v80-'))
-    air72=manifest['config_version'].startswith('ram-usb-v80-') if stage else args.air72
+    if stage:assert manifest['config_version'].startswith(('ram-usb-v74-','ram-usb-v80-','ram-usb-v1-capture-write-'))
+    air72=manifest['config_version'].startswith(('ram-usb-v80-','ram-usb-v1-capture-write-air72-')) if stage else args.air72
     if stage and args.air72 and not air72:parser.error('--air72 conflicts with staged profile')
     output=bytearray();consumed=0;timing_evidence="native_profile_refusal_only"
     with tempfile.TemporaryDirectory(prefix='srvros-combined-') as directory:
