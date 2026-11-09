@@ -61,7 +61,7 @@ bool http_network_vm_run(void){
     uint64_t start=timer_monotonic_us();if(start>INT64_MAX-HTTP_CHILD_WINDOW_US)goto done;
     vm.epoch=UINT64_C(0x6874747000000001);
     vm.io=(struct http_network_probe_io){.context=&vm,.current=current,.retry_ready=drained,.drained=drained,
-        .epoch=vm.epoch,.start_us=start,.deadline_us=start+HTTP_CHILD_WINDOW_US,.test_ip_override=UINT32_C(0x0a000264)};
+        .epoch=vm.epoch,.start_us=start,.deadline_us=start+HTTP_CHILD_WINDOW_US,.test_ip_override=UINT32_C(0x0a000202)};
     good=http_network_probe_run(&probe,&vm.io);
  done:
     if(probe.result.prepared && !probe.result.attempted)(void)http_network_probe_abort_prepare(&probe);

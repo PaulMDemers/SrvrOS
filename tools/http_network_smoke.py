@@ -1,27 +1,29 @@
 #!/usr/bin/env python3
 """Actual ELF/IRQ/TCP/worker HTTP guest test against a bounded local peer.
 
-VM-only numeric destination10.0.2.100 forwards to a random unprivileged loopback
-listener. No physical disks, Wi-Fi, credentials or external HTTP/DNS are used.
+VM-only numeric destination10.0.2.2 uses ordinary SLIRP TCP to a private
+127.0.0.1:80 peer. QEMU and peer share a fresh unprivileged user+network namespace
+with only loopback and no external routes. The host has no port80 listener.
+Standalone --self-test retains an ordinary random unprivileged loopback port.
 """
-import argparse,base64,hashlib,json,os,re,socket,subprocess,tempfile,threading,time
+import argparse,base64,hashlib,json,os,re,socket,subprocess,sys,tempfile,threading,time
 from pathlib import Path
 BODY=bytes(ord('A')+i%26 for i in range(3072))
 REQUEST=b'GET /base64/'+base64.b64encode(BODY)+b' HTTP/1.0\r\nHost: httpbin.org\r\nConnection: close\r\n\r\n'
 RESPONSE=b'HTTP/1.0 200 OK\r\nContent-Length: 3072\r\nConnection: close\r\n\r\n'+BODY
 assert len(REQUEST)==4159
 class Peer:
- def __init__(self):
+ def __init__(self,port=0):
   self.listener=socket.socket();self.listener.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
-  self.listener.bind(('127.0.0.1',0));self.listener.listen(1);self.listener.settimeout(180)
+  self.listener.bind(('127.0.0.1',port));self.listener.listen(1);self.listener.settimeout(180)
   self.port=self.listener.getsockname()[1];self.result=None;self.error=None;self.request_bytes=0;self.done=threading.Event()
   self.thread=threading.Thread(target=self.run,daemon=True)
  def start(self):self.thread.start();return self
  def run(self):
   try:
    with self.listener.accept()[0] as conn:
-    # guestfwd opens its backend before guest boot. Allow the declared boot
-    # budget before the request, then use the short data/close timeout.
+    # The private peer may start before guest boot. Keep the declared boot
+    # budget before request data, then use the short data/close timeout.
     conn.settimeout(180);request=bytearray()
     while b'\r\n\r\n' not in request:
      block=conn.recv(min(1024,4160-len(request)));assert block,'EOF before complete request'
@@ -79,12 +81,35 @@ def check_part(part):
  assert b'http-network-vm: PASS actual ELF exact HTTP worker and terminal TCP proof; native Wi-Fi untested' in part
  assert b'http-network-vm: FAIL' not in part and b'exception:' not in part
  return {'workload':w,'guest':r}
+def isolated_namespace():
+ # Refuse host/root namespaces BEFORE link changes or binding. The explicit
+ # inside flag alone grants no authority. A normal invocation self-execs unshare.
+ captured={k:os.environ.pop('SRVROS_HTTP_PARENT_'+k,None) for k in ('NETNS','USERNS','UID','GID')}
+ assert all(captured.values()),'missing mandatory parent identity'
+ assert captured['UID'].isdigit() and captured['GID'].isdigit() and int(captured['UID'])>0 and int(captured['GID'])>0,'non-user parent identity'
+ uid=Path('/proc/self/uid_map').read_text().split()
+ gid=Path('/proc/self/gid_map').read_text().split()
+ assert os.getuid()==os.geteuid()==0 and len(uid)==len(gid)==3,'not a mapped user namespace'
+ assert uid==['0',captured['UID'],'1'] and gid==['0',captured['GID'],'1'],'map differs from exact captured parent user/group'
+ network=os.readlink('/proc/self/ns/net');user=os.readlink('/proc/self/ns/user')
+ assert network!=captured['NETNS'] and user!=captured['USERNS'],'network/user namespace was not replaced'
+ interfaces=socket.if_nameindex();assert [name for _,name in interfaces]==['lo'],'non-loopback interface in namespace'
+ def routes(family):
+  value=json.loads(subprocess.check_output(['ip','-j',family,'route','show','table','main'],text=True))
+  assert value==[],'external/main route in namespace'
+  return value
+ before4,before6=routes('-4'),routes('-6')
+ parent=captured['NETNS']
+ subprocess.run(['ip','link','set','lo','up'],check=True)
+ assert [name for _,name in socket.if_nameindex()]==['lo']
+ after4,after6=routes('-4'),routes('-6')
+ return {'user_namespace':user,'network_namespace':network,'parent_network_namespace':parent,'parent_user_namespace':captured['USERNS'],'parent_uid':int(captured['UID']),'parent_gid':int(captured['GID']),'uid_map':list(map(int,uid)),'gid_map':list(map(int,gid)),'interfaces_before':interfaces,'interfaces_after':socket.if_nameindex(),'ipv4_main_routes_before':before4,'ipv6_main_routes_before':before6,'ipv4_main_routes_after':after4,'ipv6_main_routes_after':after6,'mapped_host_uid':int(uid[1]),'only_loopback':True,'external_routes':False,'host_port80_listener_created':False,'private_peer_port':80}
 def command(iso,tmp,port,capture=None):
- assert 1024<=port<=65535
- # Restricted slirp omits router/DNS DHCP options required by the unchanged
- # production client. The test still uses only its fixed local guestfwd peer;
- # capture the whole exchange for independent destination/packet inspection.
- cmd=['qemu-system-x86_64','-M','q35','-m','2G','-cdrom',str(iso),'-boot','d','-nic','none','-netdev',f'user,id=net0,guestfwd=tcp:10.0.2.100:80-tcp:127.0.0.1:{port}','-device','e1000,netdev=net0','-serial',f'unix:{tmp}/serial,server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot']
+ assert port==80
+ # Ordinary SLIRP preserves TCP FIN/EOF. guestfwd's character frontend has no
+ # event callback and does not forward backend EOF. Namespace isolation replaces
+ # restrict=on,whose DHCP intentionally omits required router/DNS options.
+ cmd=['qemu-system-x86_64','-M','q35','-m','2G','-cdrom',str(iso),'-boot','d','-nic','none','-netdev','user,id=net0,ipv6=off','-device','e1000,netdev=net0','-serial',f'unix:{tmp}/serial,server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot']
  if capture is not None:cmd+=['-object',f'filter-dump,id=httpcap,netdev=net0,file={capture}']
  return cmd
 def self_test():
@@ -99,12 +124,21 @@ def self_test():
  with socket.create_connection(('127.0.0.1',bad.port),3) as c:
   c.sendall(b'GET /wrong HTTP/1.0\r\n\r\n');assert not c.recv(1)
  assert bad.done.wait(3) and bad.error and bad.result is None
- assert '127.0.0.1:12345' in command('image','/tmp/example',12345)[12]
+ assert command('image','/tmp/example',80)[12]=='user,id=net0,ipv6=off'
+ assert not any('guestfwd' in x for x in command('image','/tmp/example',80))
  try:check_part(b'')
  except AssertionError:pass
  else:raise AssertionError('missing receipt accepted')
  print(json.dumps({'self_test':'PASS','exact_request_bytes':len(REQUEST),'body_bytes':len(BODY),'loopback_peer':True,'wrong_request_refused':True,'missing_receipt_refused':True,'vm_run':False}))
-def run_vm(root):
+def namespace_self_test(namespace):
+ peer=Peer(80).start()
+ with socket.create_connection(('127.0.0.1',80),3) as conn:
+  conn.sendall(REQUEST);response=bytearray()
+  while block:=conn.recv(211):response.extend(block)
+  assert bytes(response)==RESPONSE
+ result=peer.finish()
+ print(json.dumps({'namespace_self_test':'PASS','namespace':namespace,'peer':result,'vm_run':False,'physical_acceptance':False}))
+def run_vm(root,namespace):
  import sys
  sys.path.insert(0,str(root/'tools'))
  from desktop_foundation_smoke import QMP
@@ -112,8 +146,9 @@ def run_vm(root):
  from displayd_resolution_smoke import build_iso,read_for
  from vm_sockets import connect_unix
  out=root/'build/review/http-network';out.mkdir(parents=True,exist_ok=True)
- for name in ('result.json','serial.log','qemu.log','failure.json','peer.json','network.pcap'):(out/name).unlink(missing_ok=True)
- output=bytearray();peer=Peer().start()
+ for name in ('result.json','serial.log','qemu.log','failure.json','peer.json','network.pcap','namespace.json'):(out/name).unlink(missing_ok=True)
+ (out/'namespace.json').write_text(json.dumps(namespace,indent=2)+'\n')
+ output=bytearray();peer=Peer(80).start()
  try:
   with tempfile.TemporaryDirectory(prefix='srvros-http-network-vm-') as folder:
    tmp=Path(folder);iso=build_iso(str(root),str(tmp),1024,768,os.environ.copy(),root/'build/kernel/srvros.elf',root/'build/initramfs.tar',cmdline='srvros.http-child-preflight=1 srvros.http-network-vm=1 srvros.storage=ram')
@@ -135,7 +170,7 @@ def run_vm(root):
      while b'\nsrv> ' not in output[before:] and time.monotonic()<end:output.extend(read_for(serial,.1))
      assert b'http-network-vm: REFUSED explicit isolated RAM guest permit required or one-shot consumed' in output[before:]
      files=[root/'build/kernel/srvros.elf',root/'build/initramfs.tar',root/'build/userspace/httpget.elf',root/'build/userspace/init.elf']
-     result={'status':'PASS','source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),'actual_guest_ELF_sockets_IRQ_clocks_worker':True,'exact_request_and_pattern_response':host,'guest_receipts':checks,'qemu_command':cmd,'numeric_vm_override':True,'external_DNS_or_HTTP_used':False,'provider_DMA_retained_until_VM_exit':True,'native_wifi':False,'physical_acceptance':False,'payload_sha256':{str(x.relative_to(root)):hashlib.sha256(x.read_bytes()).hexdigest() for x in files}}
+     result={'status':'PASS','source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),'actual_guest_ELF_sockets_IRQ_clocks_worker':True,'exact_request_and_pattern_response':host,'guest_receipts':checks,'qemu_command':cmd,'isolated_namespace':namespace,'numeric_vm_target':'10.0.2.2:80','numeric_vm_override':True,'external_DNS_or_HTTP_used':False,'provider_DMA_retained_until_VM_exit':True,'native_wifi':False,'physical_acceptance':False,'payload_sha256':{str(x.relative_to(root)):hashlib.sha256(x.read_bytes()).hexdigest() for x in files}}
      (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
     finally:(out/'serial.log').write_bytes(output);stop_process(process)
  except BaseException as error:
@@ -148,7 +183,27 @@ def run_vm(root):
   (out/'serial.log').write_bytes(output)
   (out/'peer.json').write_text(json.dumps({'done':peer.done.is_set(),'request_bytes':peer.request_bytes,'result':peer.result,'error':peer.error},indent=2)+'\n')
 def main():
- parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--self-test',action='store_true');parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1]);args=parser.parse_args()
- if args.self_test:self_test()
- else:run_vm(args.root.resolve())
+ parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--self-test',action='store_true');parser.add_argument('--namespace-self-test',action='store_true');parser.add_argument('--isolated-netns',action='store_true');parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1]);args=parser.parse_args()
+ if args.self_test:
+  assert not args.namespace_self_test and not args.isolated_netns
+  self_test();return
+ if not args.isolated_netns:
+  captured={'NETNS':os.readlink('/proc/self/ns/net'),'USERNS':os.readlink('/proc/self/ns/user'),'UID':str(os.getuid()),'GID':str(os.getgid())}
+  assert int(captured['UID'])>0 and int(captured['GID'])>0,'launch requires an unprivileged host user'
+  for key,value in captured.items():os.environ['SRVROS_HTTP_PARENT_'+key]=value
+  cmd=['unshare','--user','--map-root-user','--net','--',sys.executable,'-B',str(Path(__file__).resolve()),*sys.argv[1:],'--isolated-netns']
+  if not args.namespace_self_test:
+   out=args.root.resolve()/'build/review/http-network';out.mkdir(parents=True,exist_ok=True)
+   for name in ('result.json','serial.log','qemu.log','failure.json','peer.json','network.pcap','namespace.json','namespace-launch.json'):(out/name).unlink(missing_ok=True)
+   (out/'namespace-launch.json').write_text(json.dumps({'status':'INCOMPLETE_UNTIL_CHILD_EVIDENCE','parent':captured,'command':cmd,'native_wifi':False},indent=2)+'\n')
+  os.execvpe(cmd[0],cmd,os.environ)
+
+ try:namespace=isolated_namespace()
+ except BaseException as error:
+  if not args.namespace_self_test:
+   out=args.root.resolve()/'build/review/http-network';out.mkdir(parents=True,exist_ok=True);(out/'result.json').unlink(missing_ok=True)
+   (out/'failure.json').write_text(json.dumps({'status':'FAILED_OR_INCOMPLETE','phase':'isolated-netns','error_type':type(error).__name__,'error':str(error),'native_wifi':False},indent=2)+'\n')
+  raise
+ if args.namespace_self_test:namespace_self_test(namespace)
+ else:run_vm(args.root.resolve(),namespace)
 if __name__=='__main__':main()
