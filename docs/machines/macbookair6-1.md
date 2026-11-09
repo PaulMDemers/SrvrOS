@@ -10162,3 +10162,27 @@ is started by this closeout. Current `53bbc1245abcc03d`, prior accepted
 only its unreferenced EFI duplicate for installation space. Ubuntu stays default,
 one-shot entry empty, collector disabled; accepted payload/evidence backups
 remain outside build. Earlier failed attempts retain their original status.
+
+
+### Unpublished contiguous FAT-link batching scope (2026-11-09)
+
+Base `f30f67e1`, after collected PR434. Audit finds append already writes only
+the new payload and proves the full old prefix, but builds consecutive FAT links
+using separate four-byte writes. On sector-backed storage these are separate
+read/modify/write commands to the same sector. The existing constant-value FAT
+fill already batches this class of work; sequential next-cluster links do not.
+Bounded objective: batch only consecutive unpublished link entries in the append
+path, within512 bytes and sector boundaries, with exact next-cluster values.
+New allocations are unreachable and an old NoFatChain stream ignores these links
+until final publication. Leave the final old-tail attachment separate and retain
+all original data/link/publication flush barriers. Fragmented chains retain the
+existing traversal. No buffer/transport/policy/watchdog or stress limit changes.
+
+Touch exFAT append link preparation and focused/independent comparative/fault
+fixtures, plus this unit's evidence. Preserve old-prefix validation, full payload
+writes/readbacks, all live dirty content/global sync, copy-on-write fallback,
+rename/failure/quarantine/ownership handling and unrelated metadata bytes.
+Inspect actual open PRs for conflict; no messaging/delegation. Next checkpoint:
+prove fewer block-write calls with identical final bytes and barrier ordering,
+run fault cuts and full host/VM validation, merge, then exact-stage/native stress.
+Native latency benefit remains unproved; reject rather than broaden this scope.
