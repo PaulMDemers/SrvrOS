@@ -1,7 +1,14 @@
 #include <srvros/intel_engine_prepare.h>
+#ifdef SRVROS_INTEL_HELD_REQUESTER
+#include <srvros/intel_pci_held.h>
+#endif
 struct engine_prepare_trial {
  struct intel_engine_prepare_result action;
  struct intel_completion_result post;
+#ifdef SRVROS_INTEL_HELD_REQUESTER
+ struct intel_pci_held_result requester;
+ bool held_provider_enter,held_provider_exit;
+#endif
  uint32_t planes[2][3][9],audio[2][10];
  unsigned samples,plane_reads;
  uint64_t begin,end;
@@ -139,14 +146,25 @@ static bool eprepare_preserve(void *ctx,const struct intel_completion_result *pr
  for(unsigned i=0;i<10;i++)if(t->audio[0][i]!=t->audio[1][i])return false;
  bool ok=t->samples==2 && t->plane_reads==54;eprepare_exit(p);return ok;
 }
+#ifdef SRVROS_INTEL_HELD_REQUESTER
+#include "intel_pci_held_trial.inc"
+#endif
 static void eprepare_run(struct wake_adapter *a,struct intel_gt_access *g,const struct intel_takeover_result *pre,struct engine_prepare_trial *t,bool policy) {
  if(!eprepare_planes(a,g,t,0))return;
  struct engine_prepare_adapter p={.a=a,.g=g,.trial=t};
+#ifdef SRVROS_INTEL_HELD_REQUESTER
+ (void)intel_engine_prepare_with_action(&t->action,g,pre,policy,(struct intel_engine_prepare_io){&p,eprepare_guard,eprepare_sample,eprepare_control,eprepare_transition,eprepare_preserve,eprepare_now,eprepare_pause},(struct intel_engine_prepare_action){&p,eheld_action});
+#else
  (void)intel_engine_prepare(&t->action,g,pre,policy,(struct intel_engine_prepare_io){&p,eprepare_guard,eprepare_sample,eprepare_control,eprepare_transition,eprepare_preserve,eprepare_now,eprepare_pause});
+#endif
  if(t->action.uncertain || t->action.borrow.active || (t->action.reason&IEP_PARENT))a->uncertain=true;
 }
 static void eprepare_report(const struct engine_prepare_trial *t) {
  const struct intel_engine_prepare_result *r=&t->action;
+#ifdef SRVROS_INTEL_HELD_REQUESTER
+ eheld_report(&t->requester);
+ console_printf("intel-prepare-action: v=1 attempted=%u completed=%u active=%u begin=%u end=%u provider_enter=%u provider_exit=%u\n",(uint64_t)r->action_attempted,(uint64_t)r->action_completed,(uint64_t)r->action_active,r->action_begin_us,r->action_end_us,(uint64_t)t->held_provider_enter,(uint64_t)t->held_provider_exit);
+#endif
  for(unsigned n=0;n<r->sample_attempts && n<4;n++) {
   console_printf("intel-prepare-row: v=1 s=%u n=%u d=",(uint64_t)n,(uint64_t)r->counts[n]);
   for(unsigned i=0;i<r->counts[n] && i<6;i++)console_printf("%s%u",i?",":"",(uint64_t)r->words[n][i]);
@@ -154,7 +172,11 @@ static void eprepare_report(const struct engine_prepare_trial *t) {
   console_write("\n");
  }
  for(unsigned n=0;n<r->acks && n<10;n++)console_printf("intel-prepare-ack: v=2 n=%u d=%u,%u,%u\n",(uint64_t)n,(uint64_t)r->ack[n],(uint64_t)r->final[n],(uint64_t)r->phase_polls[n]);
+#ifdef SRVROS_INTEL_HELD_REQUESTER
+ eheld_post_report(&t->post);
+#else
  completion_report_named(&t->post,"intel-prepare-post");
+#endif
  for(unsigned n=0;n<t->samples;n++) {
   for(unsigned p=0;p<3;p++) {
    const uint32_t *w=t->planes[n][p];

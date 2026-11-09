@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_HELD_REQUESTER) && (!defined(SRVROS_INTEL_ENGINE_PREPARE) || !defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT))
+#error "Held requester requires its distinct maintained prepare image"
+#endif
 #if defined(SRVROS_INTEL_REQUESTER_AUDIT) && (!defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || defined(SRVROS_INTEL_ENGINE_PREPARE))
 #error "Requester audit requires its own read-only takeover image"
 #endif
@@ -27,7 +30,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_REQUESTER_AUDIT
+#ifdef SRVROS_INTEL_HELD_REQUESTER
+extern volatile struct limine_firmware_type_request intel_held_requester_firmware_request;
+#elif defined(SRVROS_INTEL_REQUESTER_AUDIT)
 extern volatile struct limine_firmware_type_request intel_requester_firmware_request;
 #elif defined(SRVROS_INTEL_ENGINE_PREPARE)
 extern volatile struct limine_firmware_type_request intel_engine_prepare_firmware_request;
@@ -57,7 +62,9 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
 #define WAKE_MAPS 13u
-#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#ifdef SRVROS_INTEL_HELD_REQUESTER
+#define WAKE_VERSION 16u
+#elif defined(SRVROS_INTEL_ENGINE_PREPARE)
 #define WAKE_VERSION 14u
 #elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
 #define WAKE_VERSION 12u
@@ -358,7 +365,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_REQUESTER_AUDIT
+    #ifdef SRVROS_INTEL_HELD_REQUESTER
+    const struct limine_firmware_type_response *firmware=intel_held_requester_firmware_request.response;
+#elif defined(SRVROS_INTEL_REQUESTER_AUDIT)
     const struct limine_firmware_type_response *firmware=intel_requester_firmware_request.response;
 #elif defined(SRVROS_INTEL_ENGINE_PREPARE)
     const struct limine_firmware_type_response *firmware=intel_engine_prepare_firmware_request.response;
@@ -387,7 +396,11 @@ bool intel_gt_wake_probe_report(void) {
     f.recipe=cmd && !cmd->revision && intel_gt_boot_requester_recipe(cmd->cmdline);
     struct intel_pci_requester_result requester={0};
 #elif defined(SRVROS_INTEL_ENGINE_PREPARE)
+#ifdef SRVROS_INTEL_HELD_REQUESTER
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_held_requester_recipe(cmd->cmdline);
+#else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_engine_prepare_recipe(cmd->cmdline);
+#endif
     struct engine_prepare_trial prepared={0};
 #else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_takeover_recipe(cmd->cmdline);
@@ -426,7 +439,9 @@ bool intel_gt_wake_probe_report(void) {
     struct intel_fw_result fresh_fw={0};struct intel_gt_preflight_result fresh_gt={0};
     bool acquired=false,before=false,after=false,released=false,opened=false,checked=false,closed=false,fw_after=false;
     uint32_t grants=0;uint64_t begin=0,end=0;
-#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#ifdef SRVROS_INTEL_HELD_REQUESTER
+    console_write("intel-wake: bounded maintained prepare/PCI capture/cancel; no reset, PTE writes or GPU range transfer\n");
+#elif defined(SRVROS_INTEL_ENGINE_PREPARE)
     console_write("intel-wake: bounded engine prepare/cancel; no reset, PTE writes or GPU range transfer\n");
 #elif defined(SRVROS_INTEL_BLITTER_TRIAL)
     console_write("intel-blitter: cooperative boot BCS handoff; idle-only single disable; no Stop Ring/reset, GPU PTE write or memory transfer\n");
@@ -547,6 +562,11 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
     eprepare_report(&prepared);engine_reads+=prepared.action.reads+prepared.post.reads;
     complete=complete && prepared.action.complete;
+#ifdef SRVROS_INTEL_HELD_REQUESTER
+    engine_reads+=prepared.requester.reads;
+    complete=complete && prepared.requester.complete && prepared.action.action_completed &&
+     prepared.held_provider_enter && prepared.held_provider_exit;
+#endif
 #endif
     complete=complete && takeover.complete;
 #endif

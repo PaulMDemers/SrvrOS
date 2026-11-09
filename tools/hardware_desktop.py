@@ -573,6 +573,14 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-held-requester-summary:'):
+        from intel_held_requester import held_summary
+        try:return not held_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-prepare-action:'):
+        from intel_held_requester import action_summary
+        try:return not action_summary(line)['completed']
+        except ValueError:return True
     if line.startswith('intel-prepare-post-summary:'):
         from intel_completion_audit import summary
         try:return not summary(line.replace('intel-prepare-post-','intel-completion-',1))['complete']
@@ -914,6 +922,12 @@ def collect(mount, volume, output):
                     pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
                     verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
             except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
+        if 'srvros.intel-held-requester=read-only' in text:
+            try:
+                from intel_held_requester import native_held_result
+                held=native_held_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not held or not held['native_complete']:attention.append('Intel held requester capture incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel held requester capture: '+str(error))
         if 'srvros.intel-requester=read-only' in text:
             try:
                 from intel_requester import native_requester_result

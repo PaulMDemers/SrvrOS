@@ -55,6 +55,9 @@ static bool completion_snapshot(void *ctx,uint32_t words[INTEL_ENGINE_COUNT][INT
 #else
 #define COMPLETION_SAMPLE NULL
 #endif
+static void completion_report_summary(const struct intel_completion_result *r,const char *prefix) {
+ console_printf("%s-summary: v=1 groups=%u samples=%u contexts=%u reads=%u reason=%u stable=%u enabled=%u pending=%u flip_wait=%u tlb_pending=%u parser_idle=%u begin_us=%u end_us=%u complete=%u obligations=255 posted_drain=0 prefetch_retired=0 pipeline_flushed=0 tlb_writes=0 reset_writes=0 engine_writes=0 cache_ownership=0 reader_retirement=0 managed_pages=0\n",prefix,(uint64_t)r->groups,(uint64_t)r->samples,(uint64_t)r->contexts,(uint64_t)r->reads,(uint64_t)r->reason,(uint64_t)r->stable,(uint64_t)r->enabled,(uint64_t)r->pending,(uint64_t)r->flip_wait,(uint64_t)r->tlb_pending,(uint64_t)r->parser_idle,r->begin_us,r->end_us,(uint64_t)r->complete);
+}
 static void completion_report_named(const struct intel_completion_result *r,const char *prefix) {
  for(unsigned n=0;n<2;n++) {
   for(unsigned e=0;e<INTEL_ENGINE_COUNT && n*5+e<r->groups;e++) {
@@ -74,7 +77,7 @@ static void completion_report_named(const struct intel_completion_result *r,cons
 #endif
   }
  }
- console_printf("%s-summary: v=1 groups=%u samples=%u contexts=%u reads=%u reason=%u stable=%u enabled=%u pending=%u flip_wait=%u tlb_pending=%u parser_idle=%u begin_us=%u end_us=%u complete=%u obligations=255 posted_drain=0 prefetch_retired=0 pipeline_flushed=0 tlb_writes=0 reset_writes=0 engine_writes=0 cache_ownership=0 reader_retirement=0 managed_pages=0\n",prefix,(uint64_t)r->groups,(uint64_t)r->samples,(uint64_t)r->contexts,(uint64_t)r->reads,(uint64_t)r->reason,(uint64_t)r->stable,(uint64_t)r->enabled,(uint64_t)r->pending,(uint64_t)r->flip_wait,(uint64_t)r->tlb_pending,(uint64_t)r->parser_idle,r->begin_us,r->end_us,(uint64_t)r->complete);
+ completion_report_summary(r,prefix);
 }
 
 static void completion_report(const struct intel_completion_result *r){completion_report_named(r,"intel-completion");}

@@ -5549,3 +5549,25 @@ build/tests/intel-pci-held$(HOST_EXE): tools/test_intel_pci_held.c tools/test_in
 test-core: test-intel-pci-held
 test-intel-pci-held: build/tests/intel-pci-held$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_pci_held.py
+
+# Isolated read-only PCI capture inside maintained engine preparation.
+build/intel-held-requester/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -c $< -o $@
+build/intel-held-requester/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -c $< -o $@
+build/intel-held-requester/srvros.elf: build/intel-held-requester/probe.o build/intel-held-requester/requests.o $(INTEL_WAKE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-held-requester/probe.o build/intel-held-requester/requests.o $(INTEL_WAKE_BASE) -o $@
+
+build/tests/intel-held-requester-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/package_audit_core.c -o $@
+
+build/tests/intel-held-requester-adapter$(HOST_EXE): kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_takeover_trial.inc
+.PHONY: test-intel-held-requester
+test-core: test-intel-held-requester
+test-intel-held-requester: build/tests/intel-engine-prepare-adapter$(HOST_EXE) build/tests/intel-held-requester-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_requester.py
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_adapter.py
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_staging.py

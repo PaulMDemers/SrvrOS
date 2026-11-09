@@ -6,7 +6,7 @@ FIELDS='v begin end epoch attempts writes reads polls snapshots sample_attempts 
 BOOL='blocked admitted held preserved uncertain returned borrowed retained complete'.split()
 def prepare_summary(line):
  s=_fields(line,'intel-prepare-summary:',FIELDS)
- if any(x>=1<<64 for x in s.values()) or s['v']!=1 or any(s[k]>1 for k in BOOL) or s['epoch']>=1<<32 or s['attempts']>10 or s['writes']>s['attempts'] or s['acks']!=s['writes'] or s['attempts']-s['writes']>1 or s['reads']>2594 or s['polls']>2560 or s['snapshots']>s['sample_attempts'] or s['sample_attempts']>4 or s['ready']>31 or s['cancelled']>31 or s['reason']>2047 or s['stage']>6 or s['index']>4 or s['plane_samples']>2 or s['plane_reads']>54:raise ValueError('prepare schema/range')
+ if any(x>=1<<64 for x in s.values()) or s['v']!=1 or any(s[k]>1 for k in BOOL) or s['epoch']>=1<<32 or s['attempts']>10 or s['writes']>s['attempts'] or s['acks']!=s['writes'] or s['attempts']-s['writes']>1 or s['reads']>2594 or s['polls']>2560 or s['snapshots']>s['sample_attempts'] or s['sample_attempts']>4 or s['ready']>31 or s['cancelled']>31 or s['reason']>4095 or s['stage']>6 or s['index']>4 or s['plane_samples']>2 or s['plane_reads']>54:raise ValueError('prepare schema/range')
  if s['obligations']!=255 or any(s[k] for k in ('reset_writes','pte_writes','managed_pages','hardware_ownership')):raise ValueError('prepare unsupported authority')
  if s['returned']+s['retained']!=s['borrowed'] or s['blocked']>s['borrowed'] or s['uncertain']>s['retained'] or s['attempts'] and not s['admitted'] or s['admitted'] and not s['blocked']:raise ValueError('prepare borrow/issue lifecycle')
  if s['retained'] and not s['reason']&512 or s['writes'] and not s['preserved'] and not s['retained']:raise ValueError('prepare unprotected write')
@@ -18,10 +18,24 @@ def _words(encoded,n):
  if len(w)!=n or any(x>0xffffffff for x in w) or encoded!=('-' if not w else ','.join(map(str,w))):raise ValueError('prepare raw width/progress')
  return w
 
+def post_vector(line):
+ """Decode exact held-image v3 raw words into the established v2 schema."""
+ m=re.fullmatch(r'intel-prepare-post-vector: v=3 s=([01]) n=(8|16|24|32|40|46) h=([0-9a-f]+)',line)
+ if not m or len(m[3])!=int(m[2])*8:raise ValueError('prepare post vector encoding/count')
+ sample,n=int(m[1]),int(m[2]);w=[int(m[3][i:i+8],16) for i in range(0,len(m[3]),8)]
+ lines=[]
+ for e in range(min(n//8,5)):
+  lines.append('intel-completion-row: v=2 s='+str(sample)+' e='+str(e)+' d='+','.join(map(str,w[e*8:e*8+8])))
+ if n==46:lines.append('intel-completion-context: v=2 s='+str(sample)+' d='+','.join(map(str,w[40:46])))
+ return sample,lines
+
 def prepare_result(text):
- rows=[];acks=[];planes=[];audio=[];sums=[];postlines=[];order=[]
+ rows=[];acks=[];planes=[];audio=[];sums=[];postlines=[];order=[];actions=[];vectors=[];legacy_post=False
  for line in text.splitlines():
-  if line.startswith('intel-prepare-row:'):
+  if line.startswith('intel-prepare-action:'):
+   from intel_held_requester import action_summary
+   actions.append(action_summary(line))
+  elif line.startswith('intel-prepare-row:'):
    m=re.fullmatch(r'intel-prepare-row: v=1 s=([0-3]) n=([0-6]) d=(-|[0-9,]+)',line)
    if not m:raise ValueError('prepare row encoding')
    row=dict(sample=int(m[1]),words=_words(m[3],int(m[2])));rows.append(row);order.append(('r',row['sample']))
@@ -29,7 +43,12 @@ def prepare_result(text):
    a=compact_row(line,'intel-prepare-ack:',[('n','n')],['first','last','polls'])
    if a['v']!=2 or a['n']>=10 or max(a['first'],a['last'])>0xffffffff or a['polls']>256:raise ValueError('prepare acknowledgement width')
    acks.append(a);order.append(('a',a['n']))
+  elif line.startswith('intel-prepare-post-vector:'):
+   sample,normalized=post_vector(line)
+   if sample!=len(vectors):raise ValueError('prepare post vector sample order')
+   vectors.append(sample);postlines.extend(normalized);order.extend([('p',)]*len(normalized))
   elif line.startswith('intel-prepare-post'):
+   if not line.startswith('intel-prepare-post-summary:'):legacy_post=True
    postlines.append(line.replace('intel-prepare-post','intel-completion',1));order.append(('p',))
   elif line.startswith('intel-prepare-plane:'):
    m=re.fullmatch(r'intel-prepare-plane: v=1 s=([01]) p=([0-2]) d=([0-9,]+)',line)
@@ -53,7 +72,14 @@ def prepare_result(text):
  from intel_completion_audit import completion_result
  from intel_takeover import takeover_result
  wake=wake_result(text)
- if not wake or wake['summary']['v']!=14:raise ValueError('prepare wrong image')
+ if not wake or wake['summary']['v'] not in (14,16):raise ValueError('prepare wrong image')
+ if wake['summary']['v']==14 and (actions or vectors or s['reason']>2047):raise ValueError('prepare unexpected action')
+ if wake['summary']['v']==16:
+  if legacy_post:raise ValueError('prepare held image requires compact post vectors')
+  if len(actions)!=1:raise ValueError('prepare action coverage')
+  a=actions[0]
+  if a['completed']>s['held'] or a['attempted'] and (s['ready']!=31 or not s['begin']<=a['begin'] or not s['borrowed']):raise ValueError('prepare action binding')
+  if s['complete'] and not (a['attempted'] and a['completed'] and s['begin']<=a['begin']<=a['end']<s['end']):raise ValueError('prepare action completion')
  pre=completion_result(text);take=takeover_result(text)
  if not pre or not take:raise ValueError('prepare missing prerequisites')
  clocks='\n'.join(l for l in text.splitlines() if l.startswith(('intel-clock:','intel-wake-summary:')))
