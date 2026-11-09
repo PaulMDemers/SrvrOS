@@ -2,6 +2,25 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Active scope: post-preservation census validation boundaries
+
+Main`e22adf1f` (Air6,1 PR441 documentation) is now integrated. Cleanup recovery is recorded precisely in `build/air-cleanup-20261109/cleanup-proof.json`;
+29 generated payload duplicates and547 old binary duplicates were removed only
+after complete retained-copy verification. Source/logs and full current/recovery/
+GUI/accepted payloads remain; restoration paths and hashes are independently
+saved outside build. Historical local reproduction artifacts may need restoration.
+
+Next target the preparation post-preservation census: its core currently repeats
+full admission around a provider entry guard. Use fresh live core checks and
+full entry/exit validation for every actual provider callback, following the
+already accepted preparation callback contract. Keep scalar fallback covered,
+all92 raw census words,54 plane words, HDA binding, sticky uncertainty, parent/
+epoch/clock/pin checks,100/300/500ms totals and10ms phases. This is headroom work
+before adding reset; no new register writer, GDRST, cache/memory grant or image
+recipe. Scope: preparation adapter, fault fixtures and local qualification;
+checkpoint:`build/air-post-census-20261109`. Pro PR19 and WebCore PR379 stay
+independent. No reboot is armed; native timing remains pending for changed code.
+
 ### Latest hardware: five-engine preparation and preservation accepted
 
 Exact source`ee4a15bc`, release`de0b58f1dfbcdc94`, session
