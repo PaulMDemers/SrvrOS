@@ -41,7 +41,7 @@ outstanding DMA/cache/reader ownership and native tear-free remain open.
 PR301 owns this isolated work; Pro11,2 PR19 networking and WebCore PR379 remain
 independent. No reboot is armed.
 
-### Current scope: consolidated admission retry safely refused before preparation
+### Previous preparation retry: safely refused before preparation
 
 Main `223ec211` is integrated as `f338589c`, including its pinned ports update.
 Tested source `ee4a15bc`, release `de0b58f1dfbcdc94`, consolidates native
@@ -88,8 +88,8 @@ Offline filesystem/allocation/writable/headroom and installed/durable recovery
 checks pass. Ubuntu is default, the one-shot is consumed, volume remains1% and
 no reboot is armed. Complete return evidence is backed up outside build.
 Checkpoint:`build/air-admission-20261109`. The earlier preparation timing failures
-remain failures. Fresh main`f30ad7a5` contains Air6,1 PR440 documentation only;
-it was fetched but not integrated during this exact-source evidence closeout.
+remain failures. Main`f30ad7a5` was fetched but not integrated during that
+exact-source collection closeout; the shutdown follow-up above now consumes it.
 
 Next review the enabled-ring shutdown prerequisites and its existing writer
 qualification separately before another preparation retry. Do not widen the
