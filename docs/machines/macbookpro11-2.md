@@ -16839,3 +16839,34 @@ Next work joins it to a preprepared parked network worker, bounded DHCP/DNS/rout
 preparation and actual TCP-empty teardown. A controlled end-to-end HTTP VM should
 pass before another native boot. The installed accepted native release remains
 689b, Ubuntu remains unarmed, and no physical acceptance transfers to139360ab.
+
+
+## Prepared network worker software qualification
+
+Source `f6f7fdea` prepares one private scheduler thread before live ownership,
+confirms its exact parked acknowledgement, and transfers the original bounded
+bootstrap only after closing it. Callback/epoch/MAC/link checks, the original
+15-second deadline and aggregate 150,000 poll budget remain unchanged. Every
+net.c polling caller, including the child's finite reads, uses the same guard;
+IRQ ticks only wake the opt-in worker. Ordinary timer maintenance remains the
+same when that mode is unused. Route preparation adds only bounded next-hop ARP,
+with the existing one-second/100-tick/10,000-poll bound and no TCP allocation.
+
+The matched 56.22-second selected image/worker/finite-TCP/child/bootstrap suite
+passes with all 2,301 captured source inputs unchanged. A fresh integrated-source
+normal/fatal qualification also passes 106 steps: eight builds, new lifecycle
+and ordinary worker/TCP checks, and all 46 ordinary TCP lifetime modes in both
+builds. The explicit host clock exercises real production TIME_WAIT expiration
+at 80 ticks; it is not a real guest IRQ measurement. Independent review found
+and corrected failed-handoff reference retention and terminal-unused admission
+holes before integration. Actual scheduler/IRQ/HTTP coexistence remains pending.
+
+Stop closes admission; finish requires the exact parked worker, empty TCP and
+other protocol tables and no executing callback. Failed-but-finished reference
+scrubbing has a separate read-only receipt and remains a failed workload. No
+TCP state, including TIME_WAIT, is treated as EMPTY, and no helper grants USB,
+provider, key, process or DMA retirement. Ordinary TCP RX allocation/free remains.
+The next portable HTTP supervisor must atomically establish child retirement,
+TCP-empty/provider-drained state and stop admission, then verify post-stop drain.
+Its controlled e1000 VM precedes the next native test. Ubuntu remains unarmed;
+installed native acceptance is still source5b91/release689b only.
