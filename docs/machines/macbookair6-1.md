@@ -10525,3 +10525,46 @@ trial/payload backups and original failed-run allocated-media evidence survive
 `make distclean`. No reboot is armed. Next bounded step: repeat the same
 instrumented native workload to seek recurrence before treating the intermittent
 battery issue as resolved; preserve existing failure containment and limits.
+
+### Identical-payload query diagnostic repeat completed (2026-11-09)
+
+Run `178eae2fce944cc1`, session `00065fdbaa4182e0-00`, repeated the exact
+installed `318c5032d1519383` payload (compiled `10cb60fb`, ports `d40e118`).
+A fresh exact-stage VM refusal/save/unmount/return passed before the repeat;
+full host/VM and first native validation were reused only after staged,
+installed and independent payload hashes verified. Checkout `f30ad7a5` differs
+from compiled source only in documentation. No source, workload or policy changed.
+
+The complete1800-second1% run passes1081 app cycles,4309 verified disk bursts
+(1129578496 bytes),345731072 PCM bytes, all three exact1366×768 BMPs and zero
+recorded underruns/worker/lifecycle errors. All52415 loop observations are valid,
+with zero excursions and121495us maximum under500ms. Launch/close maxima
+1675310/2398606us remain under10s. Follow-up Files, screenshot/cache/worker
+cleanup, normal exit, battery retirement and automatic Ubuntu return pass.
+Battery retirement has705 attempts, zero rejections,10599 queries,28 notifications,
+matched attach/detach and zero heap/errors/denials. Independent saved evidence,
+receipt/BMP checks and offline filesystem/allocation proof agree.
+
+All742 prior files remain present with contents unchanged except expected
+sidecar metadata; final751 files/2947 clusters have zero leaks, FAT/bitmap
+mismatches or errors. Sidecar counters complete17459 checks/3601 equal/13858
+changed, zero refused/flush/active/invalid, with23 new equalities witnessed inside
+live PCM and a complete final snapshot. The353801693 retained serialized bytes
+are logical proof bytes, not physical write savings. Slowest screenshot is
+26.788837s (receive6.351189s / WRITE14.890256s), with54.199ms worst cleanup;
+latency remains open and no stable improvement is inferred.
+
+This and the previous run are two separate cold-boot30-minute passes, totaling
+2166 app cycles/8346 verified disk bursts/six screenshots, not one continuous
+hour of acceptance. The earlier query-transport halt did not recur; no failure-
+only diagnostic was emitted. **The intermittent cause remains unresolved.**
+No fix, continuous transfer-failure count or subjective1% sound claim follows;
+the original failed trial/media/photo remain protected. Keep failure containment,
+watchdogs and all limits unchanged. A useful next diagnostic audit is to retain
+the first upper-level SBS/SMBus failure context as well as the later transfer
+refusal; EC DONE/OK can coexist with a poisoned upper-level transaction.
+
+Current/accepted/recovery payloads verify, Ubuntu remains default, one-shot is
+empty and collector disabled. USB is unmounted, no reboot is armed, and the
+separate repeat evidence backup survives `make distclean`. This closeout makes
+no further implementation or boot change.
