@@ -361,7 +361,9 @@ bool intel_gt_wake_probe_report(void) {
     struct intel_fw_result fresh_fw={0};struct intel_gt_preflight_result fresh_gt={0};
     bool acquired=false,before=false,after=false,released=false,opened=false,checked=false,closed=false,fw_after=false;
     uint32_t grants=0;uint64_t begin=0,end=0;
-#ifdef SRVROS_INTEL_BLITTER_TRIAL
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+    console_write("intel-wake: bounded engine prepare/cancel; no reset, PTE writes or GPU range transfer\n");
+#elif defined(SRVROS_INTEL_BLITTER_TRIAL)
     console_write("intel-blitter: cooperative boot BCS handoff; idle-only single disable; no Stop Ring/reset, GPU PTE write or memory transfer\n");
 #elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
     console_write("intel-wake: bounded BCS-only reset; inherited backing protected; no memory or cache grant\n");

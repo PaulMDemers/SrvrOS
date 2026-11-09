@@ -15,6 +15,8 @@ def output(exe,*args):return subprocess.check_output([str(exe),*args],text=True,
 MODES=['normal','wait','copy','policy','pre-epoch','pre-active','pre-domain','pre-batches','pre-count','pre-time','pre-context','extra','preserve','preserve-epoch','preserve-time','end-deadline','end-epoch']
 POINTS={**{m:range(1,11) for m in ('write-none','write-uncertain','write-epoch','write-detach','ack-float','ack-reserved','ack-foreign','poll-read','poll-epoch','phase-time','first-ack-time','never-ready')},**{m:range(1,25) for m in ('sample-read','sample-float')},**{m:range(1,5) for m in ('sample-count','sample-epoch')},**{m:range(5) for m in ('pre-geometry','pre-wait','pre-busy','hold-drift','hold-mask-drift')},**{m:range(1,9) for m in ('guard','guard-time','guard-epoch','clock-epoch','zero','backward')}}
 class PrepareTests(unittest.TestCase):
+ def test_bounded_backing_provider(self):
+  self.assertIn('backing-batch-provider: PASS',output(ADAPTER,'--backing-batch-provider'))
  def test_actual_core(self):
   cases=[(m,[]) for m in MODES]+[(m,[str(p)]) for m,points in POINTS.items() for p in points]
   for mode,args in cases:

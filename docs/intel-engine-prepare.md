@@ -100,3 +100,25 @@ plus its final guard occupied42,175 us after88,269 us elapsed. Reason514
 retains the borrow, parent and13 aliases. This is incomplete evidence; no
 engine preparation, reset, memory or tear-free acceptance follows. Optimize
 measured admission/preservation overhead before retry, keeping all limits.
+
+## Bounded backing-read optimization
+
+The preparation image revalidates the full inherited1356-entry backing at each
+existing guard. Its IRQ-disabled path now groups at most64 GGTT entries from
+one already-owned page into a synchronous read-only callback. Every entry still
+uses high/low/high DWORD loads with torn/floating rejection. The observer claim,
+current CR3 and exact physical alias are checked before and after each group;
+there is no yield, mapping change or cached hardware sample inside the native
+callback. Interrupt-enabled callers keep the scalar path. This optimization is
+compiled only into the engine-preparation observer adapter.
+
+Both complete passes, every raw PTE/fence/route/PCI/framebuffer comparison, raw
+vector equality, layout/hash checks, periodic clocks and verified map retirement
+remain. Each group is bracketed by the same100 ms sample clock; the overall
+100/300/500 ms budgets and10 ms phase deadlines are unchanged. The wire format
+and load counts are unchanged. This removes repeated per-DWORD callback/software
+admission work, not observations or ownership checks. Local fixtures compare
+scalar/batch vectors, hashes, load counts and mapping lifetimes at aligned and
+page-crossing inherited offsets. Provider tests exercise bounds, partial loads,
+torn reads and post-batch IRQ/claim/translation/address-space loss. Native
+performance remains unmeasured until the next matching hardware run.

@@ -360,9 +360,62 @@ bool intel_scanout_trial_clock(struct intel_scanout_clock *clock) {
     clock->us=timer_monotonic_us();
     return true;
 }
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+/* Read the same raw inherited GGTT words, without re-entering the generic
+ * single-DWORD provider for each word. IRQ exclusion is mandatory; the exact
+ * live alias and immutable observer claim bracket each <=64-entry group.
+ * This is not a cached admission or a read of the backing data itself. */
+static bool backing_pairs_irq_off(void) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_wake_irq_off();
+#else
+    uint64_t flags;__asm__ volatile("pushfq; popq %0":"=r"(flags));
+    return !(flags&(1ull<<9));
+#endif
+}
+static bool backing_pairs_mapping(struct backing_adapter *a) {
+    uint64_t physical;
+    return backing_pairs_irq_off() && intel_boot_check(INTEL_BOOT_OBSERVER,a->common.gpu) && a->mapped &&
+        vmm_current_address_space()==a->common.cr3 &&
+        vmm_virt_to_phys_in_space(a->common.cr3,BACKING_VA,&physical) &&
+        physical==a->physical && physical==result.mmio_base+a->page;
+}
+static bool backing_pairs(void *ctx,uint32_t offset,unsigned count,uint64_t *out,unsigned *reads) {
+    struct backing_adapter *a=ctx;
+    if(!reads)return false;
+    *reads=0;
+    uint64_t first=0x800000+(backing.offset/4096)*8,end=first+8*backing.count;
+    if(!out || !count || count>INTEL_BACKING_BATCH || (offset&7) || offset<first ||
+       (uint64_t)offset+8*count>end || (offset&4095)+8*count>4096 ||
+       (offset&~4095u)!=a->page || !backing_pairs_mapping(a))return false;
+    for(unsigned i=0;i<count;i++) {
+        uint32_t high,low,again;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+        if(!intel_display_test_read(offset+8*i+4,&high))return false;
+        ++*reads;
+        if(!intel_display_test_read(offset+8*i,&low))return false;
+        ++*reads;
+        if(!intel_display_test_read(offset+8*i+4,&again))return false;
+        ++*reads;
+#else
+        volatile const uint32_t *p=(volatile const uint32_t *)(BACKING_VA+(offset&4095)+8*i);
+        high=p[1];++*reads;low=p[0];++*reads;again=p[1];++*reads;
+#endif
+        if(high!=again)return false;
+        out[i]=((uint64_t)high<<32)|low;
+        if(out[i]==UINT64_MAX)return false;
+    }
+    return backing_pairs_mapping(a);
+}
+#endif
 bool intel_scanout_trial_revalidate(void) {
     struct backing_adapter a;if(!trial_adapter(&a))return false;
-    bool ok=intel_display_backing(&trial_after,&result,&(struct intel_backing_io){&a,backing_endpoint,backing_map,backing_unmap,backing_read,now});
+    const struct intel_backing_io io={&a,backing_endpoint,backing_map,backing_unmap,backing_read,now};
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+    bool ok=intel_display_backing_batched(&trial_after,&result,&io,backing_pairs_irq_off()?backing_pairs:NULL);
+#else
+    bool ok=intel_display_backing(&trial_after,&result,&io);
+#endif
     if(trial_after.retained)trial_mapping_fault=true;
     if(!ok || trial_after.count!=backing.count || trial_after.bytes!=backing.bytes || !trial_endpoint_same(&trial_after.sample[1].endpoint))return false;
     for(unsigned i=0;i<backing.count;i++)if(trial_after.pte[i]!=backing.pte[i])return false;

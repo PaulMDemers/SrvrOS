@@ -55,7 +55,7 @@ static bool expired(struct reader *a,uint64_t start) {
     uint64_t now=a->io->now(a->io->ctx);
     return now<start || now-start>100000;
 }
-bool intel_display_backing(struct intel_backing_result *r,const struct intel_capture_result *c,const struct intel_backing_io *io) {
+bool intel_display_backing_batched(struct intel_backing_result *r,const struct intel_capture_result *c,const struct intel_backing_io *io,intel_backing_pairs pairs) {
     if(!r)return false;
     *r=(struct intel_backing_result){.status=2};
     if(!c || !io || !io->endpoint || !io->map || !io->unmap || !io->read || !io->now ||
@@ -105,8 +105,33 @@ bool intel_display_backing(struct intel_backing_result *r,const struct intel_cap
             if(n && s->fence[i]!=r->sample[0].fence[i]){r->status=3;goto done;}
         }
         s->hash=14695981039346656037ull;s->contiguous=1;
+        uint64_t values[INTEL_BACKING_BATCH];unsigned available=0,cursor=0;
         for(unsigned i=0;i<r->count;i++) {
-            uint64_t v;if(!pair(&a,s,0x800000+(uint32_t)(r->offset/4096+i)*8,&v))goto done;
+            uint64_t v;uint32_t offset=0x800000+(uint32_t)(r->offset/4096+i)*8;
+            if(pairs) {
+                if(!available) {
+                    unsigned count=r->count-i,page_left=(4096-(offset&4095))/8,reads=0;
+                    if(count>INTEL_BACKING_BATCH)count=INTEL_BACKING_BATCH;
+                    if(count>page_left)count=page_left;
+                    if(expired(&a,s->begin_us)){r->status=5;goto done;}
+                    uint32_t page=offset&~4095u;
+                    if(!a.mapped || a.page!=page) {
+                        if(!retire(&a) || !io->map(io->ctx,page))goto done;
+                        a.mapped=true;a.page=page;r->maps++;
+                    }
+                    bool ok=pairs(io->ctx,offset,count,values,&reads);
+                    if(reads>3*count)goto done;
+                    s->reads+=reads;
+                    if(!ok || reads!=3*count)goto done;
+                    if(expired(&a,s->begin_us)){r->status=5;goto done;}
+                    available=count;cursor=0;
+                }
+                /* Consume every value in order; do not replace raw equality
+                 * or the ordinary hash/layout checks with a batch checksum. */
+                v=values[cursor++];
+                --available;
+                if(v==UINT64_MAX)goto done;
+            } else if(!pair(&a,s,offset,&v))goto done;
             if(n && v!=r->pte[i]){r->status=7;goto done;}
             if(!n)r->pte[i]=v;
             for(unsigned b=0;b<8;b++)s->hash=(s->hash^((v>>(8*b))&255))*1099511628211ull;
@@ -116,7 +141,7 @@ bool intel_display_backing(struct intel_backing_result *r,const struct intel_cap
             if(!i)s->first=v;
             else if(physical!=(s->first&0x0000007ffffff000ull)+4096ull*i)s->contiguous=0;
             s->last=v;
-            if(!(i&63) && expired(&a,s->begin_us)){r->status=5;goto done;}
+            if(!pairs && !(i&63) && expired(&a,s->begin_us)){r->status=5;goto done;}
         }
         /* Re-read fences, route and PCI/translation endpoints after PTE reads. */
         for(unsigned i=0;i<INTEL_BACKING_FENCES;i++){uint64_t v;if(!pair(&a,s,0x100000+8*i,&v) || v!=s->fence[i]){r->status=3;goto done;}}
@@ -135,4 +160,7 @@ bool intel_display_backing(struct intel_backing_result *r,const struct intel_cap
 done:
     if(!retire(&a))r->status=6;
     return r->status==1;
+}
+bool intel_display_backing(struct intel_backing_result *r,const struct intel_capture_result *c,const struct intel_backing_io *io) {
+    return intel_display_backing_batched(r,c,io,0);
 }

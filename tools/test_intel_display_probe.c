@@ -3,6 +3,7 @@
 #include <srvros/intel_engine_prepare.h>
 static uint32_t prepare_controls[5];
 static unsigned prepare_stores,prepare_reader_calls;
+static unsigned backing_batch_test_fault,backing_batch_test_reads,backing_batch_test_at;
 static enum intel_gt_write intel_display_test_prepare_transition(unsigned,uint32_t,uint32_t *);
 static bool intel_display_test_prepare_reader(uint32_t,uint32_t *);
 #endif
@@ -466,6 +467,19 @@ void console_printf(const char *format,...) {
     translated[n]=0;va_list ap;va_start(ap,format);vprintf(translated,ap);va_end(ap);
 }
 static bool intel_display_test_read(uint32_t off,uint32_t *value) {
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+    if(backing_batch_test_fault && off>=0x800000 && off<0x803000) {
+        ++backing_batch_test_reads;
+        if(backing_batch_test_reads==backing_batch_test_at) {
+            if(backing_batch_test_fault==1)return false;
+            if(backing_batch_test_fault==2)pa[INTEL_CAPTURE_PAGES]^=4096;
+            if(backing_batch_test_fault==3)current=0x2000;
+            if(backing_batch_test_fault==4)wake_irq=false;
+            if(backing_batch_test_fault==5){*value=1;return true;}
+            if(backing_batch_test_fault==6)intel_boot_state.client=INTEL_BOOT_LEGACY;
+        }
+    }
+#endif
     if(gt_mode && (off==INTEL_GT_REQUEST || off==INTEL_GT_ACK)) {
         assert(!display_access_allowed());gt_word_count++;*value=gt_float?UINT32_MAX:wake_mode?(off==INTEL_GT_REQUEST?(wake_foreign?0x10002:0x10000):0):2;
         if(gt_changed && gt_word_count==4)*value=3;
@@ -517,6 +531,38 @@ static void reset(void) {
         .memory_model=LIMINE_FRAMEBUFFER_RGB,.red_mask_size=8,.red_mask_shift=16,.green_mask_size=8,.green_mask_shift=8,.blue_mask_size=8};
 }
 int main(int argc,char **argv) {
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+    if(argc==2 && !strcmp(argv[1],"--backing-batch-provider")) {
+        reset();backing_mode=true;memory.entry_count=3;
+        intel_display_probe_boot(&frame);intel_display_backing_probe_boot(&frame);
+        assert(backing.status==1);struct backing_adapter a;assert(trial_adapter(&a));
+        assert(backing_map(&a,0x800000));uint64_t values[64];unsigned reads;
+        /* Every boundary refusal is before any target load. */
+        for(unsigned k=0;k<10;k++) {
+            unsigned before=mmio_reads;wake_irq=true;
+            uint32_t off=k==0?0x7ffff8:k==1?0x802a60:k==2?0x800001:k==3?0x800ff8:0x800000;
+            unsigned n=k==4?0:k==5?65:k==3?2:1;
+            if(k==6)wake_irq=false;
+            if(k==7)current=0x2000;
+            if(k==8)pa[INTEL_CAPTURE_PAGES]^=4096;
+            if(k==9)intel_boot_state.client=INTEL_BOOT_LEGACY;
+            assert(!backing_pairs(&a,off,n,values,&reads) && !reads && mmio_reads==before);
+            current=0x1000;pa[INTEL_CAPTURE_PAGES]=a.physical;intel_boot_state.client=INTEL_BOOT_OBSERVER;
+        }
+        wake_irq=true;assert(backing_pairs(&a,0x800000,64,values,&reads) && reads==192);
+        for(unsigned i=0;i<64;i++)assert(values[i]==0x90000001ull+4096ull*i);
+        for(unsigned fault=1;fault<=6;fault++)for(unsigned at=1;at<=192;at+=31) {
+            backing_batch_test_fault=fault;backing_batch_test_reads=0;backing_batch_test_at=at;
+            bool ok=backing_pairs(&a,0x800000,64,values,&reads);
+            if(fault==5 && at%3==2){assert(ok && values[(at-1)/3]!=0x90000001ull+4096ull*((at-1)/3));}
+            else assert(!ok);
+            assert(reads<=192 && (fault!=1 || reads==at-1));
+            current=0x1000;pa[INTEL_CAPTURE_PAGES]=a.physical;wake_irq=true;intel_boot_state.client=INTEL_BOOT_OBSERVER;
+        }
+        backing_batch_test_fault=0;assert(backing_unmap(&a));wake_irq=false;
+        puts("backing-batch-provider: PASS bounds, IRQ/claim/current/exact translation, high-low-high loads, partial failure and post-check refusal");return 0;
+    }
+#endif
     /* Optional local integration uses an on-disk firmware reference, never
      * real MMIO. The production pin stays enabled; synthetic headers refuse. */
     if(argc==3 && !strcmp(argv[1],"--dma-declared-table")) {

@@ -3,6 +3,7 @@
 #include <srvros/intel_display_capture.h>
 #define INTEL_BACKING_PTES 1536u
 #define INTEL_BACKING_FENCES 32u
+#define INTEL_BACKING_BATCH 64u
 /* Only this bounded inherited-route study. No backing data or write callback. */
 struct intel_backing_endpoint {
     struct intel_capture_identity identity;
@@ -34,6 +35,13 @@ struct intel_backing_io {
     uint64_t (*now)(void *);
 };
 bool intel_display_backing(struct intel_backing_result *,const struct intel_capture_result *,const struct intel_backing_io *);
+/* Optional synchronous, read-only GGTT batch. One mapped page, at most64
+ * entries, high/low/high DWORDs per entry. Report the exact completed load
+ * prefix, even on failure. The provider validates its live mapping/claim at
+ * both ends; no yield, mapping mutation, cached sample or ownership grant. */
+typedef bool (*intel_backing_pairs)(void *,uint32_t,unsigned,uint64_t *,unsigned *);
+bool intel_display_backing_batched(struct intel_backing_result *,const struct intel_capture_result *,
+                                  const struct intel_backing_io *,intel_backing_pairs);
 struct limine_framebuffer;
 void intel_display_backing_probe_boot(struct limine_framebuffer *);
 bool intel_display_backing_probe_report(void);
