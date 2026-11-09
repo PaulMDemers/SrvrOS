@@ -17,6 +17,21 @@ PR433 Air6,1 sync, PR19 Pro Wi-Fi and PR379 WebCore remain independent. Accepted
 payload94bc/recovery9aa8 and outside-build proofs remain intact; no reboot armed.
 Checkpoint:`build/air-memory-next-20261109`.
 
+Source`9205566a` / staged release`49161884e707466d` now passes the full local
+host/core/profile/docs/build gate and all16 isolated image builds (opt-in
+installed-root checks explicitly omitted). Exact immutable MBR EFI Q35 refusal,
+checkpoint/save/unmount/automatic return and missing-workspace halt pass. The
+actual16-token compiled parser matches staged/saved options; optional sync
+telemetry stays off. The unchanged1,536-byte allowance projects65,517/65,536bytes.
+Actual object/staged MMIO/page bindings and17 compiled native controls pass.
+Historical decoding preserves the accepted combined reset and all seven earlier
+reset nonpasses, without granting memory ownership. The prior120-case sanitizer
+qualification remains tied to sourcef68; Intel diagnostic implementation/decoder
+files are unchanged in the merged tree. Full evidence is backed up outside build.
+Release4916 is staged only, not installed or physically accepted; native current
+remains94bc, recovery9aa8, GUIc497. No reboot is armed. Next implementation scope
+is exclusive interval ownership, not another deadline adjustment or reset retry.
+
 ### Accepted full-census retry: reset and preservation complete
 
 Source `f68ab030`, release `94bc48ed5551f552`, session
