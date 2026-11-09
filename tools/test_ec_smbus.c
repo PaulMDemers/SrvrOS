@@ -79,7 +79,51 @@ static void event_tests(void) {
     assert(ec_smbus_event_begin(&event,&ec,0x20,100));assert(ec_smbus_event_poll(&event,1000100)==-1);
     puts("ec-smbus-event: PASS 256 statuses, 256 addresses, all transfer stalls, busy/raced bank, no completion write, full alarm capture before acknowledgement, clock/deadline");
 }
+static void fault_tests(void) {
+    struct ec_smbus s;struct ec_transport ec;struct device d;
+    setup(&s,&ec,&d);assert(ec_smbus_read_word(&s,&ec,0x20,11,13,100));
+    assert(!ec_smbus_poll(&s,200));
+    assert(ec_smbus_poll(&s,2000100)==-1);
+    assert(s.fault.valid&&s.fault.reason==EC_SMBUS_DEADLINE&&s.fault.pending);
+    assert(s.fault.at_us==2000100&&s.fault.previous_poll_us==200&&s.fault.max_poll_gap_us==1999900);
+    assert(s.fault.ec_phase==EC_COMMAND&&!s.fault.ec_poisoned&&ec.poisoned&&ec.error==EC_CANCELED);
+    assert(!d.reads&&!d.writes); /* Deadline observes, never polls the controller. */
+    struct ec_smbus_fault first=s.fault;assert(ec_smbus_poll(&s,3000000)==-1&&!memcmp(&first,&s.fault,sizeof(first)));
+    struct ec_smbus before=s;assert(!ec_smbus_read_word(&s,&ec,0x20,11,13,3000000)&&!memcmp(&before,&s,sizeof(s)));
+    setup(&s,&ec,&d);assert(ec_smbus_read_word(&s,&ec,0x20,11,13,100));
+    ec.phase=EC_DONE;s.phase=4;s.last=500;
+    assert(ec_smbus_poll(&s,2000100)==-1&&s.fault.reason==EC_SMBUS_DEADLINE);
+    assert(s.fault.ec_phase==EC_DONE&&s.fault.ec_error==EC_OK&&!s.fault.ec_poisoned);
+    assert(ec.phase==EC_DONE&&ec.error==EC_OK&&ec.poisoned); /* Native photo ambiguity. */
+    setup(&s,&ec,&d);d.memory[0x21]=0x18;assert(ec_smbus_read_word(&s,&ec,0x20,11,13,100)&&run(&s)==-1);
+    assert(s.fault.reason==EC_SMBUS_STATUS&&s.fault.phase==5&&s.fault.value_valid&&s.fault.value==0x18&&s.fault.status==0x18);
+    setup(&s,&ec,&d);d.memory[0x20]=9;assert(ec_smbus_read_word(&s,&ec,0x20,11,13,100)&&run(&s)==-1);
+    assert(s.fault.reason==EC_SMBUS_BUSY&&s.fault.value==9&&s.fault.ec_phase==EC_DONE&&!d.writes);
+    setup(&s,&ec,&d);d.stall=true;assert(ec_smbus_read_word(&s,&ec,0x20,11,13,100)&&run(&s)==-1);
+    assert(s.fault.reason==EC_SMBUS_EC_POLL&&s.fault.ec_error==EC_TIMEOUT&&s.fault.ec_timeout_us==100000&&s.fault.max_poll_gap_us==100);
+    setup(&s,&ec,&d);assert(ec_smbus_read_word(&s,&ec,0x20,11,13,100));
+    s.phase=4;s.pending=true;ec.phase=EC_DONE;ec.result=8;
+    assert(ec_smbus_poll(&s,200)==-1&&s.fault.reason==EC_SMBUS_PROTOCOL&&s.fault.value==8&&!d.writes&&!d.reads);
+    setup(&s,&ec,&d);assert(ec_smbus_read_word(&s,&ec,0x20,11,13,100));ec.io.status=NULL;
+    assert(ec_smbus_poll(&s,200)==-1&&s.fault.reason==EC_SMBUS_EC_BEGIN&&!s.fault.pending&&!d.writes&&!d.reads);
+    setup(&s,&ec,&d);assert(ec_smbus_read_word(&s,&ec,0x20,11,13,100)&&ec_smbus_poll(&s,99)==-1);
+    assert(s.fault.reason==EC_SMBUS_CLOCK&&s.fault.previous_poll_us==100&&s.fault.at_us==99);
+    setup(&s,&ec,&d);struct ec_smbus_event event={0};assert(ec_smbus_event_begin(&event,&ec,0x20,100));
+    assert(!ec_smbus_event_poll(&event,200)&&ec_smbus_event_poll(&event,1000100)==-1);
+    assert(event.fault.reason==EC_SMBUS_DEADLINE&&event.fault.pending&&event.fault.max_poll_gap_us==999900&&!d.writes&&!d.reads);
+    setup(&s,&ec,&d);event=(struct ec_smbus_event){0};d.memory[0x21]=64;d.memory[0x45]=0x16;d.stall_after_write=true;
+    assert(ec_smbus_event_begin(&event,&ec,0x20,100)&&event_run(&event)==-1);
+    assert(event.ack_attempted&&!event.acknowledged&&d.writes==1&&event.fault.phase==7&&event.fault.reason==EC_SMBUS_EC_POLL);
+    setup(&s,&ec,&d);event=(struct ec_smbus_event){0};assert(ec_smbus_event_begin(&event,&ec,0x20,100));
+    event.phase=6;event.pending=true;event.status=192;ec.phase=EC_DONE;ec.result=64;
+    assert(ec_smbus_event_poll(&event,200)==-1&&event.fault.reason==EC_SMBUS_EVENT_CHANGED&&event.fault.status==192&&event.fault.value==64);
+    setup(&s,&ec,&d);event=(struct ec_smbus_event){0};assert(ec_smbus_event_begin(&event,&ec,0x20,100));
+    event.phase=2;event.pending=true;ec.phase=EC_DONE;ec.result=0x15;
+    assert(ec_smbus_event_poll(&event,200)==-1&&event.fault.reason==EC_SMBUS_EVENT_ADDRESS&&event.fault.value_valid&&event.fault.value==0x15&&!d.writes&&!d.reads);
+    puts("ec-smbus fault observation: PASS exact original deadlines/status/cancel/poison, pre-cancel state, poll gaps, first retention and no extra reads/writes");
+}
 int main(void) {
+    fault_tests();
     event_tests();
     struct ec_smbus s;struct ec_transport ec;struct device d;
     setup(&s,&ec,&d);assert(ec_smbus_read_word(&s,&ec,0x20,0x0b,0x0d,100));
