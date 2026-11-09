@@ -15755,8 +15755,9 @@ four pages/direction and one new original mt76_wpa5_run_data/CCMP context from
 AUTH/ASSOC through M4,data,erasure and leave. No active legacy-key/ring handoff,
 key copy/reinstall or widened historical11/48/six-request gates. Track handshake
 and data TDs monotonically;bind normal fence authority at a genuine all-FREE
-point without resetting ledger cursors. Hold repost/publication for either63
-boundary,wait real completions/release loans,then use the exact async fence.
+point without resetting ledger cursors. Hold publication of an exhausted direction at63;allow a safe paired TX below
+its boundary to elicit the pending63rd RX completion. Authenticate/copy/release
+that real RX loan,then use the exact async fences before either address is reused.
 Quiet pending RX cannot be fabricated or cancelled for reuse;timeout retains.
 Terminal stopped RX can retire with whole-ledger proof without counting as data.
 
@@ -15780,3 +15781,33 @@ power. Agents use private standalone outputs and never stage/install/power.
 The readiness extension preserves existing positional IO initializers/defaults
 and holds queued frames/tokens/PN across a normal fence. Ordinary-stack fixtures
 must later link unrenamed production delivery and never manufacture old IP success.
+
+### Original-key streaming candidate integration (November 8)
+
+The v135 implementation and all three agent-owned interfaces are frozen for
+root's serial matched qualification. The actual new native-owner host fixture
+passes70 independent encrypted exchanges,64 exact echoes,both63-position ring
+fences and four-fence ambient-traffic cases. Direct TX and RX raw-event faults
+around the boundaries refuse without retirement;the original four-way key owner,
+erasure and uncertain-DMA retention stay intact. The fixture models its held
+parent,EP0 and controller behavior;it is not physical acceptance.
+
+The strict checker passes nine groups including the actual canonical C trace
+composed with the unchanged entire join/EAPOL/RF parent. It binds70 continuous
+PNs,raw completions/commands/context,selected authenticated RX before/after each
+fence,probe-private erasure and final parent/ledger retirement. Legacy EAPOL
+checking rejects streaming evidence unless explicitly selected. The portable
+public AES-CCM generator reproduces the independent synthetic70-frame oracle.
+Stage/profile tests pass249 cases and seven groups compile the actual main
+selection/token parser. Final matched build,sanitizer/stack/capture/storage and
+exact-stage VM qualification remains in progress. No new native acceptance or
+one-shot arming;accepted4a and Ubuntu/e47d recovery are unchanged.
+
+A read-only native workspace clone now contains410 prior ordinary files and
+saved metadata for the disposable exact-image VM preservation gate. Actual USB
+is unmounted. Root alone owns build/stage,private PMK packaging,install/power and
+matching collection in build/bringup/wifi-stream5-native. The next qualified
+physical trial still requires shutdown and Wi-Fi-only10second unplug while off,
+reconnect the same port,power on,workspace left connected. Automatic progress,
+save and Ubuntu return need no commands or photographs. Ordinary production RX,
+TCP/HTTP,command-address reuse and connection/UI lifecycle remain later gates.

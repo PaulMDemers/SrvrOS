@@ -32,7 +32,8 @@ struct mt76_net5_io {
 struct mt76_net5 {
  uintptr_t identity;
  struct net_device_ops ops;
- struct mt76_net5_io io;
+ struct mt76_net5_io io,io_guard;
+ bool (*ready)(void *,uint64_t),(*ready_guard)(void *,uint64_t);
  enum mt76_net5_state state;
  uint64_t epoch,next_token,pending_token,last_us,tx_started;
  unsigned head,count,callbacks;
@@ -46,6 +47,13 @@ bool mt76_net5_init(struct mt76_net5 *,const uint8_t station[6]);
  * local secured-port/key activation and native lifetime admission. No new
  * provider registration/selection or key copy occurs on attach/reconnect. */
 bool mt76_net5_attach(struct mt76_net5 *,uint64_t epoch,const struct mt76_net5_io *);
+/* Optional nonblocking pre-publication backpressure on the attached IO context.
+ * NULL keeps historical always-ready behavior. Set only while attached/UP and
+ * callback/queue/pending idle. False readiness holds FIFO bytes without allocating
+ * a token/PN/deadline;service and receive still progress. Callback must not
+ * mutate provider state or tables;disconnect may close it safely. Cleared only
+ * after verified finish_detach. No positional IO initializer changes. */
+bool mt76_net5_set_ready(struct mt76_net5 *,uint64_t epoch,bool (*)(void *,uint64_t));
 bool mt76_net5_service(struct mt76_net5 *);
 /* Native event owner validates the hardware event before forwarding this
  * exact epoch/token. Duplicate/wrong current tokens fail closed;old epochs

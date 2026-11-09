@@ -5,7 +5,9 @@ from wifi_join5_log import check as parent
 from wifi_power5_log import fields
 from wifi_held_log import require
 PROGRESS='wifi-eapol5-progress: bounded post-association M1 receive;no keys or EAPOL TX;leave and full retirement follow'
-def check(log):
+def check(log,*,stream=False):
+ require(("srvros.wifi-stream5=1" in log)==stream,"wrong stream/legacy M1 profile")
+ require(stream or not any(x.startswith("wifi-stream5") for x in log.splitlines()),"unexpected stream receipt in legacy M1 proof")
  require('srvros.wifi-eapol5=1' in log,'missing M1 profile');r=parent(log);lines=log.splitlines()
  rows=[x for x in lines if x.startswith('wifi-eapol5')];rx=[x for x in rows if x.startswith('wifi-eapol5-rx:')];summaries=[x for x in rows if x.startswith('wifi-eapol5:')]
  require(rows and rows[0]==PROGRESS and len(summaries)==1 and rows[-1]==summaries[0] and len(rows)==len(rx)+2,'missing/duplicate/unknown M1 receipts')

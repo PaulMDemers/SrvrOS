@@ -770,6 +770,7 @@ static bool wifi_receive_quiesced(struct xhci_device *);
 static bool wifi_fence5_command_event(const struct xhci_trb *);
 static bool wifi_fence5_stop_event(const struct xhci_trb *);
 static bool wifi_nop5_event(struct xhci_device *,const struct xhci_trb *);
+static bool wifi_stream5_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_fence5_sync_admitted(void);
 static void wifi_fence5_stopping(void);
 static bool wifi_fence5_reclaim_ready(void);
@@ -3136,6 +3137,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     xhci.last_slot_id = slot;
     if (dispatch_strict_control(event)) return;
     struct xhci_device *device = device_by_slot(slot);
+    if(wifi_stream5_event(device,event)) return;
     if(wifi_nop5_event(device,event)) return;
     if(wifi_wpa5_event(device,event)) return;
     if(wifi_join5_event(device,event)) return;
@@ -4291,3 +4293,5 @@ static bool wifi_scan_diagnosis_requested;
 
 #include "xhci_wifi_fence5.inc"
 #include "xhci_wifi_nop5.inc"
+
+#include "xhci_wifi_stream5.inc"

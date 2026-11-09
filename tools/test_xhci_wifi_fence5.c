@@ -45,6 +45,87 @@ static void fence_finish(void){
  for(unsigned i=0;i<16 && wifi_fence5_native.round;i++){assert(wifi_fence5_step());if(xhci.command_pending)fence_complete(false);}
  assert(!wifi_fence5_native.round && !wifi_fence5_native.failed && fence_dma.wraps==1 && !fence_dma.cursor[0] && !fence_dma.cycle[0]);
 }
+/* Normal mode has real TX/RX pages and descriptor geometry. This fixture's
+ * transport completions are independently validated raw mock events;CCMP is
+ * exercised separately by the stream fixture,not invented here. */
+static _Alignas(4096) uint8_t normal_input[4096],normal_page[2][4][4096];
+static _Alignas(4096) struct xhci_trb normal_ring[2][256];
+static uint64_t normal_token[2];
+static void normal_setup(unsigned command_start){
+ fence_setup();memset(&fence_dma,0,sizeof fence_dma);memset(normal_input,0,sizeof normal_input);memset(normal_page,0,sizeof normal_page);memset(normal_ring,0,sizeof normal_ring);memset(normal_token,0,sizeof normal_token);
+ struct xhci_device *d=&xhci.devices[0];d->input_context=normal_input;d->input_context_phys=0x180000;
+ const uint64_t rings[2]={0x130000,0x140000},pages[2][4]={{0x150000,0x151000,0x152000,0x153000},{0x154000,0x155000,0x156000,0x157000}};
+ assert(mt76_dma5_init_ring(&fence_dma,fence_epoch,rings,pages,63,timer_monotonic_us()));xhci.command_enqueue=command_start;
+ for(unsigned dir=0;dir<2;dir++){
+  for(unsigned w=0;w<8;w++)context_write32(fence_context,8+dir,w,0);
+  context_write32(fence_context,8+dir,0,1);context_write32(fence_context,8+dir,1,(512u<<16)|((dir?6u:2u)<<3));context_write32(fence_context,8+dir,2,rings[dir]|1);context_write32(fence_context,8+dir,4,dir?4096:124);write_link_trb(normal_ring[dir],rings[dir],true);
+ }
+ assert(wifi_fence5_bind(d,&fence_dma,fence_epoch,&fence_epoch,fence_owned));
+}
+static struct mt76_dma5_lease normal_post(unsigned dir){
+ struct mt76_dma5_lease l;unsigned length=dir?4096:64;
+ assert(mt76_dma5_prepare(&fence_dma,dir,++normal_token[dir],length,timer_monotonic_us(),&l));
+ unsigned index=(unsigned)((l.trb-fence_dma.ring[dir])/16);assert(index<63 && l.cycle==fence_dma.cycle[dir]);
+ memset(normal_page[dir][l.index],(int)(normal_token[dir]&255),length);
+ normal_ring[dir][index]=(struct xhci_trb){.parameter_low=l.page,.parameter_high=l.page>>32,.status=length,.control=(1u<<10)|XHCI_TRB_IOC|l.cycle|(dir?XHCI_TRB_ISP:0)};
+ if(index==62)write_link_trb(normal_ring[dir],fence_dma.ring[dir],l.cycle);
+ assert(mt76_dma5_publish(&fence_dma,&l,timer_monotonic_us()));context_write32(fence_context,8+dir,0,1);return l;
+}
+static void normal_event(unsigned dir,const struct mt76_dma5_lease *l,bool release){
+ unsigned residue=dir?4096-64:0,cc=dir?13:1;
+ struct xhci_trb e={.parameter_low=l->trb,.parameter_high=l->trb>>32,.status=(cc<<24)|residue,.control=(32u<<10)|((8+dir)<<16)|(7u<<24)|1};
+ assert(!wifi_fence5_stop_event(&e));
+ unsigned index=(unsigned)((l->trb-fence_dma.ring[dir])/16);struct xhci_trb *td=&normal_ring[dir][index];
+ assert((e.parameter_low|((uint64_t)e.parameter_high<<32))==l->trb && (e.control>>24)==7 && ((e.control>>16)&31)==8+dir && !(e.control&4));
+ assert((td->parameter_low|((uint64_t)td->parameter_high<<32))==l->page && td->status==l->length && (td->control&1)==l->cycle && ((td->control>>10)&63)==1);
+ assert(mt76_dma5_complete(&fence_dma,l,cc,residue,timer_monotonic_us()));context_write32(fence_context,8+dir,2,(l->trb+16)|l->cycle);
+ if(dir && release){struct mt76_dma5_lease loan;assert(mt76_dma5_acquire(&fence_dma,fence_epoch,&loan));assert(loan.received==64 && loan.ticket==l->ticket && normal_page[dir][loan.index][0]==(normal_token[dir]&255));assert(mt76_dma5_release(&fence_dma,&loan));}
+}
+static void normal_advance(unsigned dir,unsigned count){for(unsigned i=0;i<count;i++){struct mt76_dma5_lease l=normal_post(dir);normal_event(dir,&l,true);}}
+static void normal_round(unsigned dir,bool at_base){
+ unsigned old=fence_dma.cycle[dir],other_cursor=fence_dma.cursor[dir^1],other_cycle=fence_dma.cycle[dir^1];uint64_t wraps=fence_dma.wraps;
+ assert(wifi_fence5_commands_available()>=2 && wifi_fence5_begin(dir));
+ for(unsigned step=0;step<24 && wifi_fence5_native.round;step++){
+  assert(wifi_fence5_step());if(!xhci.command_pending)continue;
+  struct wifi_fence5_native_command *r=&wifi_fence5_native.commands[wifi_fence5_native.count-1];if(r->latched)continue;
+  unsigned dci=8+dir;context_write32(fence_context,dci,0,3);
+  if(r->id.type==15){
+   uint64_t ptr=fence_dma.ring[dir]+(at_base?0:63*16);context_write32(fence_context,dci,2,ptr|(at_base?(old^1u):old));
+   struct xhci_trb e={.parameter_low=ptr,.parameter_high=ptr>>32,.status=27u<<24,.control=(32u<<10)|(dci<<16)|(7u<<24)|1};dispatch_transfer_event(&e);
+  }else{assert(r->id.type==16 && r->id.dci==dci);context_write32(fence_context,dci,2,r->id.dequeue);context_write32(fence_context,dci,3,r->id.dequeue>>32);}
+  struct xhci_trb command=fence_cc();dispatch_transfer_event(&command);
+ }
+ assert(!wifi_fence5_native.round && !wifi_fence5_native.failed && fence_dma.wraps==wraps+1 && fence_dma.cursor[dir]==0 && fence_dma.cycle[dir]==(old^1u));
+ assert(fence_dma.cursor[dir^1]==other_cursor && fence_dma.cycle[dir^1]==other_cycle);
+}
+static void normal_tests(void){
+ normal_setup(12);
+ for(unsigned cycle=0;cycle<2;cycle++)for(unsigned dir=0;dir<2;dir++){normal_advance(dir,63);normal_round(dir,(cycle+dir)&1);}
+ assert(fence_dma.wraps==4 && wifi_fence5_native.count==8 && fence_dma.published==252 && fence_dma.completed==252 && fence_dma.borrowed==126 && fence_dma.released==126);
+ for(unsigned dir=0;dir<2;dir++){struct mt76_dma5_lease l=normal_post(dir);assert(l.trb==fence_dma.ring[dir] && l.cycle==1);normal_event(dir,&l,true);}
+ for(unsigned mutation=0;mutation<9;mutation++){
+  normal_setup(12);normal_advance(0,63);
+  if(mutation<3)context_write32(fence_context,(unsigned[]){0,11,16}[mutation],4,1);
+  if(mutation==3)xhci.devices[0].input_context=fence_context;
+  if(mutation==4)xhci.devices[0].input_context_phys++;
+  if(mutation==5)context_write32(fence_context,8,1,context_read32(fence_context,8,1)^2);
+  if(mutation==6)context_write32(fence_context,9,4,1);
+  if(mutation==7)context_write32(fence_context,9,2,0x999001);
+  if(mutation==8)xhci.devices[0].output_context_phys++;
+  assert(!wifi_fence5_begin(0) && wifi_fence5_native.failed && !wifi_fence5_native.count && xhci.command_enqueue==12);
+ }
+ normal_setup(12);normal_advance(0,63);assert(wifi_fence5_begin(0));context_write32(fence_context,9,2,0x140011);assert(!wifi_fence5_step() && !wifi_fence5_native.count);
+ for(unsigned loan=0;loan<3;loan++){
+  normal_setup(12);normal_advance(0,63);struct mt76_dma5_lease l=normal_post(1),borrowed;
+  if(loan){normal_event(1,&l,false);if(loan==2)assert(mt76_dma5_acquire(&fence_dma,fence_epoch,&borrowed));}
+  enum mt76_dma5_page_state held=fence_dma.pages[1][l.index].state;
+  assert(!wifi_fence5_begin(0) && !wifi_fence5_native.count && fence_dma.pages[1][l.index].state==held);
+  if(loan==2)assert(mt76_dma5_release(&fence_dma,&borrowed));
+ }
+ normal_setup(55);normal_advance(1,63);normal_round(1,true);assert(!wifi_fence5_commands_available());normal_advance(1,63);assert(!wifi_fence5_begin(1) && wifi_fence5_native.count==2);
+ normal_setup(12);normal_advance(1,63);assert(wifi_fence5_begin(1));assert(wifi_fence5_step());
+ struct xhci_trb debt={.parameter_low=0x130000,.status=1u<<24,.control=(32u<<10)|(8u<<16)|(7u<<24)|1};dispatch_transfer_event(&debt);assert(wifi_fence5_native.failed && fence_dma.state==MT76_DMA5_FAULT);
+}
 int main(void){
  fence_setup();fence_bind();assert(wifi_fence5_step());assert(xhci.command_pending && !xhci.sync_users && !wifi_fence5_sync_admitted());
  assert(!submit_command(23,0,NULL));fence_complete(true);fence_finish();assert(wifi_fence5_sync_admitted());
@@ -93,5 +174,7 @@ int main(void){
  xhci.stopped=true;*(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBCMD)=XHCI_USBCMD_RUN;
  *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBSTS)=XHCI_USBSTS_HCH;assert(!wifi_fence5_retire());
  *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBCMD)=0;assert(wifi_fence5_reclaim_ready() && wifi_fence5_native.retired);
+ normal_tests();
+ puts("xhci-fence5-normal: PASS actual backend TX8/RX9 normal-page geometry,4 fences across both cycles,validated mock TD completions/RX loans,63/64 reuse,common/config/input/opposite snapshots,held-page refusal,budget and debt;mock MMIO/data,no encrypted or hardware acceptance");
  puts("xhci-fence5: PASS dormant native command publication/shared dispatch,real context/frontier reads,pureTX63-position wrap,typed boundaryStop,global exclusion,cleanup reserve,duplicate/stale/slot/CC/shadow/epoch failure and pinned stop retention;mock MMIO,no hardware acceptance");return 0;
 }

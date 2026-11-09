@@ -24,11 +24,13 @@ static void inc(uint64_t *v){if(*v!=UINT64_MAX)(*v)++;}
 static bool send(void *,const uint8_t *,uint16_t);
 static uint64_t poll(void *,uint64_t,bool);
 static bool link(void *,struct net_device_link *);
+static bool same_io(const struct mt76_net5_io *a,const struct mt76_net5_io *b){return a->context==b->context && a->owned==b->owned && a->submit==b->submit && a->service==b->service && a->receive==b->receive && a->retired==b->retired;}
+static bool callbacks_frozen(const struct mt76_net5 *s){return same_io(&s->io,&s->io_guard) && s->ready==s->ready_guard;}
 static bool valid(const struct mt76_net5 *s){
  return s && s->identity==(uintptr_t)s && s->state>=MT76_NET5_DOWN && s->state<=MT76_NET5_RETIRED &&
  s->head<MT76_NET5_QUEUE && s->count<=MT76_NET5_QUEUE && s->loan_size<=NET_DEVICE_FRAME_MAX &&
  (s->state!=MT76_NET5_UP || s->attached) && (!s->pending || (s->attached && s->pending_token && s->pending_token<=s->next_token)) &&
- (!s->attached || (s->io.context && s->io.owned && s->io.submit && s->io.service && s->io.receive && s->io.retired)) &&
+ (!s->attached || (callbacks_frozen(s) && s->io.context && s->io.owned && s->io.submit && s->io.service && s->io.receive && s->io.retired)) &&
  s->ops.context==s && s->ops.send==send && s->ops.poll==poll && s->ops.link==link;
 }
 static bool protocol(const uint8_t *p){return p[12]==8 && (p[13]==0 || p[13]==6);}
@@ -53,7 +55,9 @@ static bool clock_ok(struct mt76_net5 *s){
 /* io_busy pins callback context and forbids recursive transport callbacks.
  * Disconnect may change state during a callback;never call it again afterward. */
 static bool owned(struct mt76_net5 *s){
+ if(!callbacks_frozen(s)){fault(s);return false;}
  uint64_t epoch=s->epoch;bool ok=s->io.owned(s->io.context,epoch);
+ if(!callbacks_frozen(s)){fault(s);return false;}
  if(s->state!=MT76_NET5_UP)return false;
  if(s->epoch!=epoch){fault(s);return false;}
  if(!ok){fault(s);return false;}return true;
@@ -75,7 +79,7 @@ bool mt76_net5_attach(struct mt76_net5 *s,uint64_t epoch,const struct mt76_net5_
   bool admitted=candidate.owned(candidate.context,epoch);
   s->io_busy=false;s->callbacks--;
   if(admitted && s->state==MT76_NET5_DOWN && !s->retire_requested){
-   s->io=candidate;s->epoch=epoch;s->attached=true;s->state=MT76_NET5_UP;s->last_us=timer_monotonic_us();ok=true;net_notify_rx();
+   s->io=s->io_guard=candidate;s->epoch=epoch;s->attached=true;s->state=MT76_NET5_UP;s->last_us=timer_monotonic_us();ok=true;net_notify_rx();
   }
  }
  unlock(f);return ok;
@@ -92,6 +96,38 @@ static bool send(void *context,const uint8_t *frame,uint16_t n){
  }
  unlock(f);return ok;
 }
+bool mt76_net5_set_ready(struct mt76_net5 *s,uint64_t epoch,bool (*ready)(void *,uint64_t)){
+ if(!valid(s))return false;
+ uint64_t f=lock();bool ok=s->attached && s->state==MT76_NET5_UP && s->epoch==epoch && !s->retire_requested &&
+  !s->callbacks && !s->io_busy && !s->polling && !s->delivering && !s->pending && !s->count;
+ if(ok)s->ready=s->ready_guard=ready;
+ unlock(f);return ok;
+}
+static uint64_t queue_stamp(const struct mt76_net5 *s){
+ uint64_t h=1469598103934665603ull;
+ for(unsigned i=0;i<MT76_NET5_QUEUE;i++){
+  h=(h^s->length[i])*1099511628211ull;
+  for(unsigned j=0;j<NET_DEVICE_FRAME_MAX;j++)h=(h^s->queue[i][j])*1099511628211ull;
+ }
+ return h;
+}
+static bool ready_to_submit(struct mt76_net5 *s){
+ if(!callbacks_frozen(s)){fault(s);return false;}
+ if(!s->ready)return true;
+ uint64_t epoch=s->epoch,token=s->next_token,stamp=queue_stamp(s),enqueued=s->enqueued,submitted=s->submitted,completed=s->completed;
+ unsigned head=s->head,count=s->count;bool (*callback)(void *,uint64_t)=s->ready;struct mt76_net5_io table=s->io;
+ bool ready=callback(s->io.context,epoch);
+ if(!same_io(&table,&s->io) || !same_io(&table,&s->io_guard) || s->ready!=callback || s->ready_guard!=callback){
+  /* Retain the original verified callback owner,never a mutated replacement. */
+  s->io=s->io_guard=table;s->ready=s->ready_guard=callback;fault(s);return false;
+ }
+ if(!valid(s) || s->epoch!=epoch){fault(s);return false;}
+ if(s->state!=MT76_NET5_UP)return false;
+ if(s->head!=head || s->count!=count || s->next_token!=token || s->pending || s->pending_token ||
+  s->enqueued!=enqueued || s->submitted!=submitted || s->completed!=completed || queue_stamp(s)!=stamp){fault(s);return false;}
+ if(!clock_ok(s) || !owned(s))return false;
+ return ready;
+}
 bool mt76_net5_service(struct mt76_net5 *s){
  if(!valid(s))return false;
  uint64_t f=lock();bool ok=false;
@@ -99,15 +135,16 @@ bool mt76_net5_service(struct mt76_net5 *s){
   s->io_busy=true;s->callbacks++;
   if(clock_ok(s) && owned(s)){
    uint64_t epoch=s->epoch;bool serviced=s->io.service(s->io.context,epoch);
-   if(s->state==MT76_NET5_UP && (!serviced || s->epoch!=epoch))fault(s);
+   if(!callbacks_frozen(s) || (s->state==MT76_NET5_UP && (!serviced || s->epoch!=epoch)))fault(s);
    if(s->state==MT76_NET5_UP && clock_ok(s) && owned(s)){
-    if(!s->pending && s->count){
+    if(!s->pending && s->count && ready_to_submit(s)){
      unsigned i=s->head;uint16_t n=s->length[i];
      if(n<14 || n>NET_DEVICE_FRAME_MAX || !protocol(s->queue[i]) || !equal(s->queue[i]+6,s->ops.mac,6) || s->next_token==UINT64_MAX)fault(s);
      else{
       copy(s->loan,s->queue[i],n);s->loan_size=n;scrub(s->queue[i],sizeof s->queue[i]);s->length[i]=0;s->head=(i+1)%MT76_NET5_QUEUE;s->count--;
       s->pending=true;s->pending_token=++s->next_token;s->tx_started=s->last_us;uint64_t token=s->pending_token;
       enum mt76_net5_submit result=s->io.submit(s->io.context,epoch,token,s->loan,n);
+      if(!callbacks_frozen(s)){fault(s);result=MT76_NET5_UNCERTAIN;}
       if(result==MT76_NET5_QUEUED)inc(&s->submitted);
       else if(result==MT76_NET5_REFUSED && s->pending && s->pending_token==token){s->pending=false;s->pending_token=0;inc(&s->dropped);}
       else fault(s); /* Unknown submission retains pending identity. */
@@ -145,7 +182,7 @@ static uint64_t poll(void *context,uint64_t budget,bool verbose){
   for(uint64_t i=0;i<budget && s->state==MT76_NET5_UP;i++){
    size_t n=0;bool present=false;s->io_busy=true;
    bool ok=clock_ok(s) && owned(s);
-   if(ok){uint64_t epoch=s->epoch;ok=s->io.receive(s->io.context,epoch,s->rx,sizeof s->rx,&n,&present);if(s->epoch!=epoch)ok=false;}
+   if(ok){uint64_t epoch=s->epoch;ok=s->io.receive(s->io.context,epoch,s->rx,sizeof s->rx,&n,&present);if(s->epoch!=epoch || !callbacks_frozen(s))ok=false;}
    if(s->state==MT76_NET5_UP && (!ok || n>sizeof s->rx || (!present && n) || (present && n<14)))fault(s);
    if(s->state==MT76_NET5_UP)ok=clock_ok(s) && owned(s);else ok=false;
    s->io_busy=false;
@@ -176,9 +213,10 @@ bool mt76_net5_finish_detach(struct mt76_net5 *s,uint64_t epoch){
  if(s->attached && epoch==s->epoch && (s->state==MT76_NET5_CLOSING || s->state==MT76_NET5_FAULT) && !s->callbacks && !s->io_busy && !s->polling && !s->delivering){
   enum mt76_net5_state state=s->state;s->io_busy=true;s->callbacks++;
   bool retired=s->io.retired(s->io.context,epoch);
+  if(!callbacks_frozen(s)){fault(s);retired=false;}
   s->callbacks--;s->io_busy=false;
   if(retired && s->epoch==epoch && s->state==state){
-   purge(s);scrub(&s->io,sizeof s->io);s->attached=s->pending=false;s->pending_token=0;s->state=MT76_NET5_DOWN;ok=true;
+   purge(s);scrub(&s->io,sizeof s->io);scrub(&s->io_guard,sizeof s->io_guard);s->ready=s->ready_guard=NULL;s->attached=s->pending=false;s->pending_token=0;s->state=MT76_NET5_DOWN;ok=true;
   }
  }
  unlock(f);return ok;

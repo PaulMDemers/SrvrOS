@@ -7735,3 +7735,40 @@ is relaxed. For this unattended profile only,the existing workspace marker read
 may update atime within independently saved RTC/same-clock exit bounds;all other
 fields and prior file bytes remain exact. Raw before/after sidecars and protocol
 outcomes are retained even when storage verification refuses.
+
+### Original-key encrypted ring-reuse diagnostic (v135 candidate)
+
+`--wifi-stream5` is a separate opt-in owner after the complete v128 join/EAPOL
+parent. It requires the unit-private PMK record and automatic save/return. It
+excludes historical WPA/data/provider/reuse/No-Op child flags. One original
+four-way exchange owns its CCMP context from authentication through all data,
+key erasure and leave; no live key or PN state is copied from the older owner.
+Historical11-TX/48-RX/six-request predicates stay unchanged.
+
+The diagnostic owns two fresh63-position rings and four retained pages per
+direction. All handshake and data TDs use the same monotonic ledger. It runs
+unchanged six-request DHCP/DNS/echo setup,then64 distinct256-byte gateway echoes.
+Each reply requires exact addresses,IP/ICMP checksums,identifier,sequence and
+request body. Bounds are80 TX posts,252 RX posts (eight reserved for cleanup),
+four ring fences,fresh command positions and six endpoint-cleanup commands.
+Pending RX must really complete before reuse;quiet traffic times out and retains
+ownership. At a boundary a safe paired TX below its own limit may elicit the
+pending reply. Authenticate/copy/release RX before fencing either reused address.
+
+Normal fences freeze unrelated contexts and the idle opposite endpoint. Both
+directions must be free at admission. Real Stop/event/context/drain/Set-Dequeue/
+readback proof gates opposite-cycle reuse. Terminal stopped pending RX can retire
+only under whole-ledger key/MAC/endpoint/event/callback/parent proof;it is never
+counted as a successful packet or cancelled to enable ring reuse. Command
+addresses are not reused in this bounded trial. Cached failure receipts are
+emitted after publication closes,including when command/TD ownership is uncertain;
+no control read or packet/key logging is needed to preserve the first fault.
+
+The copied provider also has optional nonblocking readiness before dequeue,
+token allocation or encryption. A busy fence retains queued frames without
+starting a TX deadline or consuming a PN. This preparatory interface is separate
+from the v135 diagnostic,which still uses its private IP probe. Ordinary stack
+receive,TCP/HTTP,same-boot connection epochs,reattachment and UI connection control
+remain later gates. Host models,independent public AES-CCM vectors and VMs do not
+accept native radio behavior. Require matching cold-run receipts and independent
+workspace/recovery proof before recording any physical stream acceptance.

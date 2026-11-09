@@ -44,7 +44,7 @@ class MainDispatchTests(unittest.TestCase):
             function(source,'char_is_separator'),function(source,'cmdline_has_token'),
             'static unsigned calls;static const char *chosen;static bool capture_ok;',stubs,
             'const char *dispatch(const char *cmdline,unsigned parked,unsigned successful,unsigned *sample,unsigned *count){',
-            'calls=0;chosen="none";capture_ok=successful!=0;bool sampled=false;bool nop_logger_parked=parked!=0;',
+            'calls=0;chosen="none";capture_ok=successful!=0;bool sampled=false;bool nop_logger_parked=parked!=0;bool stream_logger_parked=parked!=0;',
             *declarations,expression,'*sample=sampled;*count=calls;return chosen;}'))
         cls.tmp=tempfile.TemporaryDirectory(prefix='srvros-main-dispatch-');cls.addClassCleanup(cls.tmp.cleanup)
         directory=Path(cls.tmp.name);(directory/'dispatch.c').write_text(program)
@@ -65,12 +65,12 @@ class MainDispatchTests(unittest.TestCase):
         return bool(sample.value),name,count.value
 
     def test_actual_staged_profiles(self):
-        expected={124:'handoff5',125:'peer5',126:'tx5',127:'join5',128:'eapol5',129:'wpa5',130:'wpa5',131:'data5',132:'provider5',133:'reuse5',134:'nop5'}
+        expected={124:'handoff5',125:'peer5',126:'tx5',127:'join5',128:'eapol5',129:'wpa5',130:'wpa5',131:'data5',132:'provider5',133:'reuse5',134:'nop5',135:'stream5'}
         for version,child in expected.items():
             with self.subTest(version=version):self.assertEqual(self.dispatch(self.recipe(version)),(True,'xhci_wifi_capture_'+child,1))
 
     def test_capture_failure_propagates(self):
-        for version in (126,130,131,132,133,134):
+        for version in (126,130,131,132,133,134,135):
             with self.subTest(version=version):
                 ok,name,count=self.dispatch(self.recipe(version),successful=False)
                 self.assertFalse(ok);self.assertNotEqual(name,'none');self.assertEqual(count,1)
@@ -88,6 +88,17 @@ class MainDispatchTests(unittest.TestCase):
             with self.subTest(token=token):
                 tokens=self.recipe(134).split();self.assertIn(token,tokens);tokens.remove(token)
                 self.assertEqual(self.dispatch(' '.join(tokens)),(False,'none',0))
+
+    def test_stream5_fenced_profile_refusals(self):
+        self.assertEqual(self.dispatch(self.recipe(135),parked=False),(False,'none',0))
+        for flag in ('wpa5','data5','provider5','reuse5','nop5','desktop-trial'):
+            with self.subTest(flag=flag):self.assertEqual(self.dispatch(self.recipe(135)+' srvros.wifi-'+flag+'=1'),(False,'none',0))
+        for token in ('srvros.wifi-eapol5=1','srvros.wifi-join5=1','srvros.wifi-tx5-owner=1','srvros.wifi-peer5=1','srvros.wifi-handoff5=1','srvros.wifi-cal5=1','srvros.capture-failure=reboot'):
+            with self.subTest(token=token):
+                tokens=self.recipe(135).split();self.assertIn(token,tokens);tokens.remove(token)
+                self.assertEqual(self.dispatch(' '.join(tokens)),(False,'none',0))
+        self.assertEqual(self.dispatch(self.recipe(128)+' srvros.wifi-stream5=10'),(True,'xhci_wifi_capture_eapol5',1))
+        self.assertEqual(self.dispatch('\t\r\n'.join(self.recipe(135).split())),(True,'xhci_wifi_capture_stream5',1))
 
     def test_exact_nop_token_and_whitespace(self):
         cmdline=self.recipe(126)+' srvros.wifi-nop5=10'

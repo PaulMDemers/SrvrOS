@@ -10,12 +10,13 @@ struct wifi_fence5_native_command {
  bool latched,consumed,stop_event;unsigned cc;
 };
 static struct {
- bool bound,round,failed,retired,busy,noop,fault_event_valid;struct xhci_trb fault_event;unsigned count,first,slot;
+ bool bound,round,failed,retired,busy,noop,fault_event_valid,opposite_valid;unsigned direction;struct xhci_trb fault_event;unsigned count,first,slot;
  bool cycle;uint64_t epoch,last_us,frontier;
  struct xhci_device *device;struct mt76_dma5 *dma;
  void *owner;bool (*owned)(void *,uint64_t,unsigned);
  uint64_t command_phys;struct xhci_trb *command_ring;
- uint8_t *output;uint64_t output_phys;
+ uint8_t *output,*input;uint64_t output_phys,input_phys;
+ uint32_t normal_parent[3][8],normal_config[2][8],opposite[8];
  uint64_t rings[2],pages[2][4];uint32_t unrelated[4][8];
  struct mt76_fence5 engine;
  struct wifi_fence5_native_command commands[WIFI_FENCE5_COMMANDS];
@@ -43,6 +44,26 @@ static bool wifi_fence5_geometry(void){
  }
  if(wifi_fence5_native.noop){const unsigned indices[4]={0,9,11,16};
   for(unsigned i=0;i<4;i++)for(unsigned w=0;w<8;w++)if(context_read32(wifi_fence5_native.output,indices[i],w)!=wifi_fence5_native.unrelated[i][w])return false;
+ }else{
+  struct xhci_device *device=wifi_fence5_native.device;
+  if(!device || device->input_context!=wifi_fence5_native.input || device->input_context_phys!=wifi_fence5_native.input_phys)return false;
+  const unsigned indices[3]={0,11,16};
+  for(unsigned i=0;i<3;i++)for(unsigned w=0;w<8;w++)if(context_read32(wifi_fence5_native.output,indices[i],w)!=wifi_fence5_native.normal_parent[i][w])return false;
+  for(unsigned dir=0;dir<2;dir++){
+   uint64_t deq=context_read32(wifi_fence5_native.output,8+dir,2)|((uint64_t)context_read32(wifi_fence5_native.output,8+dir,3)<<32);
+   if((deq&14) || (deq&~15ull)<d->ring[dir] || (deq&~15ull)>d->ring[dir]+63*16)return false;
+  }
+  for(unsigned dir=0;dir<2;dir++)for(unsigned w=0;w<8;w++){
+   uint32_t value=context_read32(wifi_fence5_native.output,8+dir,w),expected=wifi_fence5_native.normal_config[dir][w];
+   if(w==2 || w==3)continue;
+   if(w==0){if((value&7)!=1 && (value&7)!=3)return false;value&=~7u;expected&=~7u;}
+   if(value!=expected)return false;
+  }
+  if(wifi_fence5_native.round && wifi_fence5_native.opposite_valid){
+   if(wifi_fence5_native.direction>1)return false;
+   unsigned other=wifi_fence5_native.direction^1u;
+   for(unsigned w=0;w<8;w++)if(context_read32(wifi_fence5_native.output,8+other,w)!=wifi_fence5_native.opposite[w])return false;
+  }
  }
  return true;
 }
@@ -60,6 +81,11 @@ static bool wifi_fence5_base(void){
   xhci.command_ring==wifi_fence5_native.command_ring && xhci.command_ring_phys==wifi_fence5_native.command_phys &&
   xhci.command_cycle==wifi_fence5_native.cycle && xhci.command_enqueue>=wifi_fence5_native.first && xhci.command_enqueue<63 &&
   wifi_fence5_native.dma->epoch==wifi_fence5_native.epoch && wifi_fence5_native.dma->positions==63 && wifi_fence5_geometry();
+}
+/* Capacity estimate only;begin/publication still independently validate. */
+static __attribute__((unused)) unsigned wifi_fence5_commands_available(void){
+ if(!wifi_fence5_base() || wifi_fence5_native.round || xhci.command_pending || xhci.command_enqueue+WIFI_FENCE5_CLEANUP_COMMANDS>=63)return 0;
+ return (unsigned)(63-xhci.command_enqueue-WIFI_FENCE5_CLEANUP_COMMANDS);
 }
 static bool wifi_fence5_owned(void *c,uint64_t epoch,unsigned slot){
  if(c!=&wifi_fence5_native || epoch!=wifi_fence5_native.epoch || slot!=wifi_fence5_native.slot || !wifi_fence5_base())return false;
@@ -185,7 +211,12 @@ static __attribute__((unused)) bool wifi_fence5_bind(struct xhci_device *d,struc
  }
  wifi_fence5_native.noop=dma->noop_only;
  for(unsigned dir=0;dir<2;dir++){wifi_fence5_native.rings[dir]=dma->ring[dir];for(unsigned i=0;i<4;i++)wifi_fence5_native.pages[dir][i]=dma->pages[dir][i].lease.page;}
- if(dma->noop_only){const unsigned indices[4]={0,9,11,16};for(unsigned i=0;i<4;i++)for(unsigned w=0;w<8;w++)wifi_fence5_native.unrelated[i][w]=context_read32(d->output_context,indices[i],w);}
+ if(dma->noop_only){const unsigned indices[4]={0,9,11,16};for(unsigned i=0;i<4;i++)for(unsigned w=0;w<8;w++)wifi_fence5_native.unrelated[i][w]=context_read32(d->output_context,indices[i],w);}else{
+  if(!d->input_context || !d->input_context_phys || (d->input_context_phys&4095))goto done;
+  wifi_fence5_native.input=d->input_context;wifi_fence5_native.input_phys=d->input_context_phys;
+  const unsigned indices[3]={0,11,16};for(unsigned i=0;i<3;i++)for(unsigned w=0;w<8;w++)wifi_fence5_native.normal_parent[i][w]=context_read32(d->output_context,indices[i],w);
+  for(unsigned dir=0;dir<2;dir++)for(unsigned w=0;w<8;w++)wifi_fence5_native.normal_config[dir][w]=context_read32(d->output_context,8+dir,w);
+ }
  wifi_fence5_native.bound=true;wifi_fence5_native.device=d;wifi_fence5_native.dma=dma;wifi_fence5_native.epoch=epoch;wifi_fence5_native.slot=d->slot_id;
  wifi_fence5_native.owner=owner;wifi_fence5_native.owned=owned;wifi_fence5_native.command_ring=xhci.command_ring;wifi_fence5_native.command_phys=xhci.command_ring_phys;
  wifi_fence5_native.cycle=xhci.command_cycle;wifi_fence5_native.first=(unsigned)xhci.command_enqueue;wifi_fence5_native.output=d->output_context;wifi_fence5_native.output_phys=d->output_context_phys;
@@ -199,6 +230,14 @@ static __attribute__((unused)) bool wifi_fence5_begin(unsigned direction){
  uint64_t f=event_irq_save(),now=timer_monotonic_us();bool ok=false;
  if(wifi_fence5_native.round || !wifi_fence5_owned(&wifi_fence5_native,wifi_fence5_native.epoch,wifi_fence5_native.slot) || xhci.command_pending ||
   xhci.command_enqueue+2+WIFI_FENCE5_CLEANUP_COMMANDS>63 || !wifi_fence5_empty())goto done;
+ if(!wifi_fence5_native.noop){
+  if(direction>1)goto done;
+  for(unsigned dir=0;dir<2;dir++)for(unsigned i=0;i<4;i++)if(wifi_fence5_native.dma->pages[dir][i].state!=MT76_DMA5_FREE)goto done;
+  unsigned other=direction^1u;
+  __atomic_thread_fence(__ATOMIC_ACQUIRE);
+  for(unsigned w=0;w<8;w++)wifi_fence5_native.opposite[w]=context_read32(wifi_fence5_native.output,8+other,w);
+  wifi_fence5_native.direction=direction;wifi_fence5_native.opposite_valid=true;
+ }
  ok=mt76_fence5_begin(&wifi_fence5_native.engine,direction,now);
  if(ok){wifi_fence5_native.round=true;wifi_fence5_native.last_us=now;}
  done:if(!ok && wifi_fence5_native.bound)wifi_fence5_fault();

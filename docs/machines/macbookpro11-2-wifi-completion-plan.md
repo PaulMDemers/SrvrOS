@@ -158,3 +158,16 @@ the first controller-only boundary gate. Milestone2 still requires encrypted
 RX/TX across actual boundaries,pending-RX cancellation and bounded command-address
 reuse. Original CCMP ownership and all later ordinary-stack/lifecycle gates remain.
 The next parallel contract audit targets those integration points before coding.
+
+
+The next v135 candidate is a distinct original-key owner after v128. Its first
+bounded gate runs70 encrypted requests (six unchanged setup requests plus64
+exact256-byte echoes),real RX and TX63-position boundaries,and authenticated
+traffic afterward. Four pages/direction,eight cleanup RX positions,a four-fence
+limit and fresh-command/cleanup reserve bound authority. It does not reuse command
+addresses or cancel quiet pending RX. Normal-provider readiness holds frames
+before dequeue/token/PN while a fence is busy. Independent public AES-CCM vectors
+exercise the actual new owner in host fixtures;strict full-parent saved-log and
+matching native validation remain required. This is milestone2 progress,not
+ordinary-stack or lifecycle acceptance. The accepted v134 payload stays installed
+and unarmed while implementation is qualified.
