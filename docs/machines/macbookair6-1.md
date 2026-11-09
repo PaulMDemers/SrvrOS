@@ -10840,3 +10840,59 @@ The intermittent battery halt remains unresolved; the original c157 failure,
 photograph and media archive remain protected. No human input is needed; keep
 AC/USB attached. If mounted-Home containment halts, photograph the terminal and
 restart Ubuntu. No runtime threshold or policy has been relaxed.
+
+### Correlated content and capture history native baseline (2026-11-09)
+
+Run `2b8237341e9d43e1`, release `1991ff7f10142881`, compiled `ae775d2c` /
+ports `39ad9d7` (PR446), returned normally. Matching native session
+`session-00065fdfad020f6d-00` completes1800 seconds at1%,1105 app cycles,
+4170 verified262144-byte bursts (1093140480 bytes),345731072 PCM bytes and
+three exact decoded BMPs. Zero audio underruns, worker or lifecycle errors are
+recorded. All53395 loop samples validate without excursions, maximum123210us;
+maximum launch3294354us and close2160375us stay below10s. Follow-up Files,
+normal desktop exit and worker/cache/battery retirement pass. All769 prior file
+hashes remain unchanged except expected `.srvros/meta`;778 files/3268 clusters
+pass fsck and strict allocation with zero leaks, mismatches or errors.
+
+All three final capture histories survive and parse independently:19.119232s,
+26.609181s and21.991400s, median21.991400s. This is the first complete native
+three-capture baseline, not a latency improvement or a reconstructed comparison
+with historical current/slowest-only telemetry. New correlated records and every
+old acceptance receipt survive the unchanged64KiB saved-log tail.
+
+The selected PID7 SYS_SYNC is3.431484s, with3.431080s in its file phase and
+404us in the final device phase. Its single dirty-content visit, identity7585/
+slot0, has4128768 logical bytes and3.431072s wall. Native callback roles differ
+materially from the throttled VM: root payload writes458752 bytes in2.040995s
+(59.49% of content wall); nested sidecar writes131360 bytes in1.071359s (31.23%);
+old-prefix proof reads3670016 bytes in183.299ms (5.34%). Total role callback
+wall3.419615s leaves11.457ms residual. Prefix plus suffix equals the selected
+logical size. Optional inode0 is unavailable: this binds content lifetime,
+size and operation, not a creator PID or path.
+
+PID958's worst raw-write gate lasts3.434526s and directly overlaps this PID7 sync
+ownership for3.429651s during capture3. This establishes blocking correlation,
+not proof that PID958 owns the selected content. The same sync has seven CSW
+callbacks above100ms. Its slowest351.828ms CSW belongs to a512-byte WRITE(10):
+351.627ms submission-to-software-observation,197us observation-to-resume and
+14.695ms sampled service gap. These remain software wall observations; device
+latency, exact hardware completion and the role of that command are unproved.
+Do not add overlapping role/USB/checkpoint intervals as if disjoint CPU costs.
+
+Battery705 attempts, zero rejections,10578 queries and six notifications retire
+with one attach/detach and zero heap/errors/denied operations. The final epoch1
+protocol marker after PCM is clean/captured0. The intermittent battery cause
+remains unresolved; original c157 failure/media/photo remain retained.
+
+This accepts native correlated-content and complete capture-history persistence
+under all original limits and integrity checks. It does not accept a speed gain.
+The next bounded investigation is to bind BOT command count/size and worst-command
+waits to these existing content roles, separating root payload, sidecar payload
+and metadata writes. Native evidence prioritizes write-command completion over
+prefix-read optimization. Preserve every byte proof, flush/publication barrier,
+owner, transport deadline and quarantine rule; do not speculate about hardware
+or remove work based on the VM result.
+
+Installed/current/recovery payloads and independent backups verify, Ubuntu is
+default, one-shot empty, collector disabled and USB unmounted. No reboot is armed.
+Matching raw evidence has a verified independent trial backup outside build.

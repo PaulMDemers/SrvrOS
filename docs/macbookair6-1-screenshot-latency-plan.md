@@ -219,3 +219,25 @@ one-shot, recovery/current payload hashes and independent backup; save the full
 run record and collector state. Collect the matching return before any new run.
 The intermittent battery cause stays unresolved until a real first-failure record
 or reproducible causal regression supports a separate fix.
+
+## Native checkpoint after the first implementation (2026-11-09)
+
+PR446/release `1991ff7f10142881` completes the unchanged30-minute native test,
+including every old receipt and the new correlated records/all three captures.
+See the [machine evidence](machines/macbookair6-1.md). Captures19.119232s,
+26.609181s and21.991400s provide a complete median21.991400s baseline.
+
+The native selected content flush is write-dominated:2.040995s root payload and
+1.071359s nested sidecar writes, versus183.299ms prefix proof, within3.431072s
+content wall. This differs from the throttled VM's prefix-read-dominated sample.
+No native prefix-read optimization or improvement follows from that VM result.
+Optional inode0 cannot prove which process wrote the content; the observed write
+admission wait is independently bound to the selected sync's ownership interval.
+
+Next bind BOT command classes, bytes/counts and retained worst-command waits to
+the existing selected content roles. A351.828ms CSW for a512-byte WRITE(10),
+with seven CSW callbacks above100ms in the selected sync, warrants separating
+payload/sidecar/metadata command costs before selecting a fix. Preserve transport
+serialization, original command deadlines, controller/event semantics, quarantine
+and all durability checks. This measurement narrows the implementation choice;
+it does not establish hardware latency or justify dropping writes/barriers.
