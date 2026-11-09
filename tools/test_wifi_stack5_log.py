@@ -197,6 +197,47 @@ class Tests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.check_owner(rows + [extra])
 
+    def test_original_auth_observations(self):
+        rows = minimal_parent(self.actual())
+        i = next(i for i, s in enumerate(rows) if s.startswith('wifi-stack5-auth: '))
+        cases = dict(attempted=0, auth_sent=0, assoc_sent=0, sends=4, polls=80001,
+                     ignored=80001, status=1, aid=2008, present=0, peer=2, ok=0,
+                     invalid=1, rejected=1, clocks=20002, elapsed_us=750000, rollback=1)
+        for key, value in cases.items():
+            changed = rows.copy()
+            changed[i] = re.sub(r'\b' + key + r'=\d+', key + '=' + str(value), rows[i])
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                self.check_owner(changed)
+        for key, value in [('polls', 0), ('aid', 0), ('clocks', 1), ('sends', 6),
+                           ('elapsed_us', 18446744073709551616)]:
+            changed = rows.copy()
+            changed[i] = re.sub(r'\b' + key + r'=\d+', key + '=' + str(value), rows[i])
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                self.check_owner(changed)
+        for key, value in [('attempted', '01'), ('status', '-1'), ('peer', '0x0000000000000001')]:
+            changed = rows.copy()
+            changed[i] = re.sub(r'\b' + key + r'=\d+', key + '=' + value, rows[i])
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                self.check_owner(changed)
+        # Unrelated AUTH-phase management traffic is allowed, and is included
+        # in the original owner's ignored count. A matching malformed/rejected
+        # peer response ends the exchange and cannot accompany success.
+        changed = rows.copy()
+        changed[i] = old.emit('wifi-stack5-auth', attempted=1, auth_sent=1, assoc_sent=1,
+            sends=5, polls=8, ignored=1, status=0, aid=2007, present=2, peer=1,
+            ok=1, invalid=0, rejected=0, clocks=3, elapsed_us=749999, rollback=0)
+        self.assertTrue(self.check_owner(changed)['stack5_complete'])
+        for key, value in [('ignored', 0), ('present', 3), ('clocks', 10)]:
+            bad = changed.copy()
+            bad[i] = re.sub(r'\b' + key + r'=\d+', key + '=' + str(value), changed[i])
+            with self.subTest(consistency=key), self.assertRaises(ValueError):
+                self.check_owner(bad)
+        fields = changed[i].split(' ')
+        fields[1], fields[2] = fields[2], fields[1]
+        changed[i] = ' '.join(fields)
+        with self.assertRaises(ValueError):
+            self.check_owner(changed)
+
     def test_entire_unchanged_parent_if_supplied(self):
         parent_path = os.environ.get('WIFI_STACK5_PARENT')
         if not parent_path:

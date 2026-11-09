@@ -118,7 +118,17 @@ static void ap_packet(const uint8_t *p,size_t n){
  else assert(flags==0x10);
 }
 static void stack_test_progress(void){
- if(!wifi_stream5.data_active){stream_test_progress();return;}
+ if(!wifi_stream5.data_active){
+  /* Fault only the modeled AP response,after actual AUTH publication. The
+   * production owner,decoder,timeout,cleanup and workload remain unmodified. */
+  if(ap.case_id==21 && sim.response==1)sim.response=0;
+  bool negative=(ap.case_id==22 || ap.case_id==23) && sim.response==1 && !wifi_stream5.pending[0] && wifi_stream5.pending[1];
+  unsigned page=wifi_stream5.lease[1].index;
+  stream_test_progress();
+  if(negative)stream_le16(wifi_stream5.buffer[1][page]+36+(ap.case_id==22?28:24),ap.case_id==22?13:1);
+  if(ap.case_id==21 && wifi_stream5.exchange.auth_sent && !wifi_stream5.exchange.auth_matched)test_time+=1000;
+  return;
+ }
  if(wifi_stream5.pending[0] && wifi_stream5.lease[0].ticket!=ap.held_ticket){
   struct mt76_dma5_lease *l=&wifi_stream5.lease[0];
   if(ap.drop_tx)return;
@@ -192,6 +202,8 @@ static void probe_size_projection(void){
  wifi_stream5.fault_event_valid=true;wifi_stream5.fault_event=(struct xhci_trb){UINT32_MAX,UINT32_MAX,UINT32_MAX,UINT32_MAX};wifi_stream5.fault_phase=9;wifi_fence5_native.count=8;
  for(unsigned i=0;i<8;i++){struct wifi_fence5_native_command *r=&wifi_fence5_native.commands[i];r->id.pointer=UINT64_MAX-16;r->id.dequeue=UINT64_MAX-4095;r->id.type=15+(i&1);r->id.dci=9;r->id.slot=255;r->consumed=true;r->event=(struct xhci_trb){0xfffffff0,UINT32_MAX,1u<<24,(255u<<24)|(33u<<10)|1};if(!(i&1)){r->stop=(struct xhci_trb){0xfffff3e0,UINT32_MAX,27u<<24,(255u<<24)|(9u<<16)|(32u<<10)|1};r->stop_dequeue=UINT64_MAX-4095;}}
  wifi_stack5.net.enqueued=wifi_stack5.net.submitted=wifi_stack5.net.completed=75;wifi_stack5.net.received=252;wifi_stack5.services=WIFI_STACK5_POLLS;wifi_stack5.start=0;wifi_stack5.last=WIFI_STACK5_TOTAL_US;
+ wifi_stream5.exchange.polls=wifi_stream5.exchange.ignored=80000;wifi_stream5.exchange.status=wifi_stream5.exchange.aid=65535;
+ wifi_stream5.auth_observation.present=wifi_stream5.auth_observation.peer=wifi_stream5.auth_observation.ok=wifi_stream5.auth_observation.invalid=wifi_stream5.auth_observation.rejected=20000;wifi_stream5.auth_observation.clocks=20001;wifi_stream5.auth_observation.first=0;wifi_stream5.auth_observation.last=UINT64_MAX;wifi_stream5.auth_observation.rollback=true;
  struct mt76_stack5_probe *r=&wifi_stack5_probe_result;r->retries=1;r->setup_tx=11;r->data_tx=75;r->arp=75;r->polls=MT76_STACK5_POLLS;r->services=WIFI_STACK5_POLLS;r->elapsed_us=WIFI_STACK5_TOTAL_US;for(unsigned i=0;i<64;i++)r->ping_pn[i]=12+i;
  (void)wifi_stream5_finish(false);
  /* Final fields are Boolean-width;the production format is emitted here only
@@ -206,6 +218,20 @@ static void probe_case(unsigned which){
  probe_setup(which);
  if(which==20){struct net_device_ops ops={.name="mt76-ccmp",.context=&alternate_sends,.priority=1000,.send=alternate_send,.poll=alternate_poll,.link=alternate_link};memcpy(ops.mac,hs_spa,6);assert(net_device_register(&ops));}
  bool good=xhci_wifi_capture_stack5_probe();struct mt76_stack5_probe *r=&wifi_stack5_probe_result;
+ if(which>=21 && which<=23){
+  const struct mt76_wpa5 *s=&wifi_stream5.exchange;
+  assert(!good && s->attempted && s->auth_sent && !s->auth_matched && !s->assoc_sent && !s->assoc_matched);
+  assert(s->sends==2 && s->polls && !s->unsafe && !s->ignored && !s->aid && s->status==(which==22?13:0));
+  assert(s->keys_erased && !s->keys_installed && !s->keys_activated && !s->leave_sent && !s->handshake.keys_may_live);
+  assert(!r->attempted && !r->version && !r->complete && !r->started && !r->matched && !r->private_erased);
+  assert(wifi_stream5.posts[0]==1 && !wifi_stream5.data_sends && !wifi_stack5.services && !wifi_stack5.net.enqueued && !ap.dhcp);
+  assert(!wifi_stream5.failed && wifi_stream5.restored && !wifi_stream5.retired && !wifi_stack5.retired && !wifi_stack5.detached);
+  assert(wifi_stream5.dma.borrowed==wifi_stream5.dma.released && !wifi_stream5.dma.faults);
+  assert(wifi_stream5.auth_observation.clocks>=2 && !wifi_stream5.auth_observation.rollback && !wifi_stream5.auth_observation.ok);
+  assert(wifi_stream5.auth_observation.present==(which==21?0u:1u) && wifi_stream5.auth_observation.peer==(which==21?0u:1u));
+  assert(wifi_stream5.auth_observation.rejected==(which==22) && wifi_stream5.auth_observation.invalid==(which==23));
+  reset_test();return;
+ }
  if(which==10 || which==11 || which==19){
   if(!good)fprintf(stderr,"probe refused phase%u reason%u net%u pings%u tx%u rx%u native%u fence%u services%llu\n",r->phase,r->reason,wifi_stack5.net.state,r->matched,wifi_stream5.data_sends,(unsigned)wifi_stream5.posts[1],wifi_stream5.failed,wifi_fence5_native.failed,(unsigned long long)wifi_stack5.services);
   assert(good && r->complete && r->matched==64 && r->exact==64 && r->body_bytes==2048 && r->private_erased);
@@ -226,6 +252,7 @@ static void probe_case(unsigned which){
  assert(wifi_stream5.exchange.keys_erased && !wifi_stream5.exchange.handshake.keys_may_live);reset_test();
 }
 int main(int argc,char **argv){
+ if(argc==2 && (!strcmp(argv[1],"--trace-auth-loss") || !strcmp(argv[1],"--trace-auth-negative") || !strcmp(argv[1],"--trace-auth-malformed"))){batch_trace=true;probe_case(!strcmp(argv[1],"--trace-auth-loss")?21:!strcmp(argv[1],"--trace-auth-negative")?22:23);return 0;}
  if(argc==2 && !strcmp(argv[1],"--size-projection")){probe_size_projection();return 0;}
  if((argc==2 || argc==11 || argc==19) && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--trace-retry") || !strcmp(argv[1],"--trace-arp"))){
   probe_setup(!strcmp(argv[1],"--trace-retry")?11:!strcmp(argv[1],"--trace-arp")?19:10);
@@ -233,6 +260,6 @@ int main(int argc,char **argv){
   batch_trace=true;assert(xhci_wifi_capture_stack5_probe());return 0;
  }
  if(argc==3 && !strcmp(argv[1],"--case")){unsigned n=(unsigned)strtoul(argv[2],NULL,0);if(n<10)stack_case(n);else probe_case(n);return 0;}assert(argc==1);
- for(unsigned i=0;i<21;i++){pid_t p=fork();assert(p>=0);if(!p){if(i<10)stack_case(i);else probe_case(i);exit(0);}int status=0;assert(waitpid(p,&status,0)==p && WIFEXITED(status) && WEXITSTATUS(status)==0);}
- puts("xhci-stack5: PASS actual encrypted owner/unrenamed production stack,legacy TCP/UDP bridge plus SAME bounded DHCP/DNS/64exact40-byteICMP workload,lostOffer,nestedARP/PNbinding,validMIC/checksum wrongpayload,frozenclocks and terminalpending retention;independent OpenSSL AP,mocked USB,no native acceptance");return 0;
+ for(unsigned i=0;i<24;i++){pid_t p=fork();assert(p>=0);if(!p){if(i<10)stack_case(i);else probe_case(i);exit(0);}int status=0;assert(waitpid(p,&status,0)==p && WIFEXITED(status) && WEXITSTATUS(status)==0);}
+ puts("xhci-stack5: PASS actual encrypted owner/unrenamed production stack,legacy TCP/UDP bridge plus SAME bounded DHCP/DNS/64exact40-byteICMP workload,lostOffer,nestedARP/PNbinding,validMIC/checksum wrongpayload,frozenclocks and terminalpending retention,AUTHreply loss/negative status;independent OpenSSL AP,mocked USB,no native acceptance");return 0;
 }

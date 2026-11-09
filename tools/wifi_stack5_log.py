@@ -161,6 +161,19 @@ def _owner(log, lines, rows):
     require(state==dict(failed=0,phase=9,first_phase=0,pending_tx=0,pending_rx=0,round=0,command_pending=0,fault_event=0,p=0,s=0,c=0),'pending/failed stream owner')
     keys=take('wifi-stream5-keys','auth assoc m1 m2 m3 m4 activated erased leave unsafe installs pn')
     require(keys==dict(auth=1,assoc=1,m1=1,m2=1,m3=1,m4=1,activated=1,erased=1,leave=1,unsafe=0,installs=1,pn=requests),'incomplete original key-owner lifecycle')
+    auth=take('wifi-stack5-auth','attempted auth_sent assoc_sent sends polls ignored status aid '
+              'present peer ok invalid rejected clocks elapsed_us rollback')
+    auth_keys='attempted auth_sent assoc_sent sends polls ignored status aid present peer ok invalid rejected clocks elapsed_us rollback'.split()
+    require(rows[pos-1]=='wifi-stack5-auth: '+' '.join(k+'='+str(auth[k]) for k in auth_keys) and
+            all(auth[k]==v for k,v in dict(attempted=1,auth_sent=1,assoc_sent=1,sends=5,
+                status=0,peer=1,ok=1,invalid=0,rejected=0,rollback=0).items()) and
+            1<=auth['aid']<=2007 and 4<=auth['polls']<=80000 and
+            0<=auth['ignored']<=auth['polls'] and
+            2<=auth['clocks']<=min(20001,auth['polls']+1) and
+            1<=auth['present']<=auth['clocks']-1 and
+            auth['present']-auth['peer']<=auth['ignored'] and
+            0<=auth['elapsed_us']<750000,
+            'incomplete/inconsistent original AUTH observations')
     probe=take('wifi-stream5-probe','complete unsafe setup setup_sends dhcp dns echo sent matched elapsed_us private_erased timed_out exhausted clock_fault polls ignored total_polls')
     require(probe=={k:int(k=='private_erased') for k in probe},'private diagnostic probe ran in production mode')
     return dict(take=take, compact=compact, position=lambda:pos, requests=requests,
