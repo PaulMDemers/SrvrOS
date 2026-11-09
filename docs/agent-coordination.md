@@ -28,6 +28,14 @@ if two unpublished changes overlap, Git cannot prevent duplicate work. Resolve
 the overlap before integrating. Do not overwrite another agent's ownership or
 claim another physical machine's validation.
 
+For the shared kernel scanout handoff, use the original zero-initialized object
+and preserve its provider/context through close. Do not copy an ownership object
+to snapshot it; copy only its snapshot data. Close first stops reservations and
+drains existing leases before provider validation, and failure keeps exclusion
+pinned. The [handoff lifetime contract](intel-handoff.md#software-handoff-lifetime)
+and actual-core regression cases cover these rules. They grant no native interval
+or hardware assurances; each device still needs its own ownership evidence.
+
 ## Ownership and overlapping changes
 
 The local device agent owns inventory, profile evidence, recovery, trials and

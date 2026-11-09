@@ -2,21 +2,45 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Current scope: address-sealed exclusive handoff lifetime
+### Handoff lifetime correction: locally qualified
 
-Integrate main`e85a6846` (Air6,1 PR433 command-status diagnostics), keeping Pro11,2
-PR19 Wi-Fi and WebCore PR379 independent. Before a native GGTT transfer, fix the
-existing software handoff's copied-object pin release and callback reentrancy.
-Scope: `scanout_handoff` header/core and actual-core host tests. Bind the provider
-and captured token/snapshot for the whole lifetime; pin exclusion before admission
-callbacks, close reservation admission before retirement validation, and reject
-copied or nested operations. Keep all hardware assurances, native profiles,
-MMIO recipes/writers and deadlines unchanged; the native provider still grants
-no interval. Validate modeled ownership faults, full builds and native refusal.
-Accepted native94bc/recovery9aa8 remain installed, no reboot armed. Checkpoint:
-`build/air-handoff-lifetime-20261109`.
+Main`e85a6846` (Air6,1 PR433) is integrated as`15f8dc84`. Source`07d7a59b`,
+staged release`3764a8329d8be457`, corrects the software
+[exclusive handoff lifetime](../intel-handoff.md#software-handoff-lifetime).
+The original core allowed copied-object close and callback reentry, and could
+import caller storage changed during validation. Validation also ran before
+pinning admission or closing retirement admission. The corrected core seals the
+object, captures inputs, binds the provider for the lifetime, pins validation,
+rejects nested operations and closes reservations before retirement validation.
+Failed validation retains the original pin; successful close returns it once.
 
-### Current scope: integrated baseline and managed-memory boundary
+The same17-case test replay against saved original source311fd25c reproduces12
+failures; the corrected core passes all17 cases under fatal ASan/UBSan, and nine
+compiled semantic controls are detected. Cases include copied close/reopen,
+callback reentry, changed token/range input, alternate providers, child draining,
+failed admission/retirement, poisoned exclusion and another live pin. Full local
+host/core/profile/docs/build checks and all16 isolated images pass; opt-in
+installed-root checks are explicitly omitted. Actual native object/staged MMIO/
+page bindings and17 compiled native controls also pass. Exact immutable MBR EFI
+Q35 refusal/checkpoint/save/unmount/automatic return and missing-workspace halt
+pass. The compiled16-token parser matches staged/saved options, sync diagnostics
+remain off and the unchanged1,536-byte allowance projects65,517/65,536bytes.
+
+Historical decoding preserves accepted sourcef68 reset/preservation and all seven
+earlier reset nonpasses. Installed/durable current94bc, recovery9aa8 and GUIc497,
+Ubuntu default and no-one-shot checks pass. Release3764 is staged only, not
+installed or physically accepted. Evidence and source-bound validation are under
+ignored`build/air-handoff-lifetime-20261109`, independently backed up outside
+build. No reboot is armed. Pro11,2 PR19 Wi-Fi and WebCore PR379 remain independent.
+
+This completes the software lifetime correction, not a native address transfer.
+The native provider still supplies zero assurances; all255 outstanding memory
+obligations remain open, managed pages remain zero and native tear-free stays
+unaccepted. Next establish a defensible exclusive GGTT interval and maintained
+engine/reader/firmware exclusion before a mapping writer. Follow the
+[managed-memory plan](../intel-managed-memory-plan.md).
+
+### Earlier integrated baseline and managed-memory boundary
 
 Main`928555f3` is integrated as`15c13b15`. The include-only conflict in
 `kernel/src/main.c` retains Intel display/HDA and sync-timing headers; shared
