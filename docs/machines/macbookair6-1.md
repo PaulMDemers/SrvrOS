@@ -10738,3 +10738,25 @@ Matching raw evidence has its own verified backup outside build. Further battery
 changes need captured failure evidence; repeated clean runs do not justify a
 speculative transport change. Screenshot write/sync latency remains a separate
 measured follow-up.
+
+### Screenshot latency research scope (2026-11-09)
+
+Base `7b529b5e`, after the matching diagnostic repeat was independently
+collected and merged. Bounded objective: use independent read-only subagent
+audits of evidence, screenshot worker/transfer and filesystem/USB code, plus
+primary specifications, to select a concrete latency investigation plan. Scope
+is documentation and local evidence analysis; no production code, device policy,
+limits, installed payload or new physical run changes in this research block.
+Current PR19 networking, PR301 scanout and PR379 WebCore retain separate scopes.
+Next checkpoint: publish measured attribution, missing causal bindings, ordered
+implementation/validation steps and explicit integrity/acceptance conditions.
+Battery first-failure diagnostics remain retained; no speculative battery fix.
+
+Research outcome: the [screenshot latency plan](../macbookair6-1-screenshot-latency-plan.md)
+records three independent audits and primary exFAT/USB sources. Latest raw WRITE
+wall is97–98% admission waiting, overwhelmingly overlapping storage ownership.
+The repeat's worst wait binds to PID7 global sync with3.784027s file work and
+406us final device flush; content identity remains missing. First implementation
+is correlated sync/content/exFAT operation evidence with deterministic interleaved
+flush regression, followed by one proven equivalent-work optimization. Pixel
+transfer pacing is separate. No production change or reboot is armed by this plan.
