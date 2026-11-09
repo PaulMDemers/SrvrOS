@@ -232,3 +232,12 @@ count only. All92 engine/context words,54 plane words, HDA fields, final control
 registered pins and100/300/500ms/10ms limits remain. The existing version14 wire
 format and image recipe are unchanged. Native timing of this change is pending;
 the accepted98,274us run belongs to the earlier exact payload.
+
+The locally qualified nested-census candidate is source`292163ac`, release
+`0cafc3a5551ab1b2`: full local gate/18 images,380 fatal sanitizer cases plus8
+scalar-fallback cases,14 semantic/33 native/7 batching compiled controls, and
+exact-stage VM persistence/refusal/missing-workspace checks pass. The16-token
+compiled parser matches saved options; unchanged full-width tail projection is
+65,456/65,536 including1,536 allowance. The candidate is installed and unarmed
+at volume1%; native timing remains pending. Accepted preparation/recovery payloads
+and1,419 prior USB files are retained. No reset or memory capability is added.

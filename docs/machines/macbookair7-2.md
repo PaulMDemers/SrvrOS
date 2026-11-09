@@ -2,24 +2,48 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Active scope: post-preservation census validation boundaries
+### Ready: post-preservation census headroom retry
 
-Main`e22adf1f` (Air6,1 PR441 documentation) is now integrated. Cleanup recovery is recorded precisely in `build/air-cleanup-20261109/cleanup-proof.json`;
-29 generated payload duplicates and547 old binary duplicates were removed only
-after complete retained-copy verification. Source/logs and full current/recovery/
-GUI/accepted payloads remain; restoration paths and hashes are independently
-saved outside build. Historical local reproduction artifacts may need restoration.
+Main`e22adf1f` (Air6,1 PR441 documentation) is integrated as`f3d58552`.
+Source`292163ac`, release`0cafc3a5551ab1b2`, applies fresh live core checks and
+full callback entry/exit backing/endpoint validation to the nested preservation
+census. Scalar group/context callbacks retain full entry/exit checks too. Failed
+exits poison both adapters before another observation is accepted, while completed
+control/ACK prefixes remain accounted. Generic preparation/completion cores,
+all raw vectors, wire version14/recipe and100/300/500ms/10ms limits are unchanged.
+The same-path host comparison records141 full guards instead of144, all48 raw
+protocol/preservation rows identical and230 target observations. This is a count,
+not a native speedup claim; the accepted98,274us belongs to the earlier payload.
 
-Next target the preparation post-preservation census: its core currently repeats
-full admission around a provider entry guard. Use fresh live core checks and
-full entry/exit validation for every actual provider callback, following the
-already accepted preparation callback contract. Keep scalar fallback covered,
-all92 raw census words,54 plane words, HDA binding, sticky uncertainty, parent/
-epoch/clock/pin checks,100/300/500ms totals and10ms phases. This is headroom work
-before adding reset; no new register writer, GDRST, cache/memory grant or image
-recipe. Scope: preparation adapter, fault fixtures and local qualification;
-checkpoint:`build/air-post-census-20261109`. Pro PR19 and WebCore PR379 stay
-independent. No reboot is armed; native timing remains pending for changed code.
+The full local gate (installed-root explicitly omitted),18-image isolation,
+380 fatal ASan/UBSan core/adapter cases plus8 scalar-fallback cases,14 compiled
+semantic controls,33 native object/staged controls and7 batch controls pass.
+New controls detect omitted census exits/live entry or incorrect core callback
+binding; fault cases retain both pins/aliases after either census pass fails.
+Exact immutable MBR EFI Q35 refusal/checkpoint/save/unmount/automatic return and
+missing-workspace halt pass. The compiled16-token recipe matches saved options;
+full-width log65,456/65,536 retains the1,536-byte allowance. Earlier native
+passes/nonpasses retain their classification. **Native timing is pending.**
+
+The candidate is installed, volume1%, Ubuntu default, no one-shot armed.
+All1,419 USB files/129 sessions preserve with clean offline filesystem/allocation/
+writable/headroom. Full current/durable/immutable candidate and recovery/GUI/
+accepted preparation/read-only/reset payloads verify. One unreferenced failed
+EFI payload was archived with full verification to make space; the redundant
+global candidate copy was retired only after equality. Full evidence is backed
+up independently outside build. Checkpoint:`build/air-post-census-20261109`.
+The next trial needs no typing: safe saved outcomes return, uncertain ownership
+or failed persistence halts visibly. Collect matching evidence first after return.
+
+Cleanup separately removed29 duplicate generated payloads and547 old binary
+copies after retained-copy hash verification:28,163,363,676 bytes (about26GiB).
+Source, scripts, logs, full current/recovery/GUI/accepted payloads and independent
+raw evidence remain. Restore paths/hashes and final recovery verification are
+backed up outside build in `air-cleanup-20261109`; older local reproductions may
+need those binaries/stages restored first. Current native checkpoints use retained
+paths. See [storage maintenance](../development.md#managing-native-agent-build-storage).
+No memory/reset/reader/cache grant or native tear-free acceptance is added;
+all255 obligations remain open. PR19 networking and WebCore PR379 stay independent.
 
 ### Latest hardware: five-engine preparation and preservation accepted
 
