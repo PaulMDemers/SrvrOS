@@ -289,8 +289,9 @@ def main():
                     from PIL import Image
                     import io
                     image_bytes=final.read('srvros-work/Screenshots/'+images[0])
-                    from capture_write_timing import capture_write_timing
+                    from capture_write_timing import capture_write_timing,capture_gate_timing
                     write_timing=capture_write_timing(snapshots,1,len(image_bytes))
+                    write_timing['admission']=capture_gate_timing(snapshots,write_timing)
                     (out/'capture-write-timing.json').write_text(json.dumps(write_timing,indent=2)+'\n')
                     with Image.open(io.BytesIO(image_bytes)) as image:
                         image.load();assert image.size==(1280,800);image.save(out/'automatic-screenshot.png')

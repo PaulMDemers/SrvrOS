@@ -64,7 +64,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 3,266 verified disk bursts, 703 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (311.305 ms maximum); broader interactive/endurance coverage, failure handling and hotplug remain open |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 3,859 verified disk bursts, 1,084 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (121.877 ms maximum); broader interactive/endurance coverage, failure handling and hotplug remain open |
 | Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
@@ -9695,3 +9695,133 @@ If ESP space is needed, archive only the unreferenced older stress duplicate
 accepted stress `1c74bc8281678786`, audible check `5bc0a824e9f71ab6`, sampler,
 zero-load, single-window and console recovery `c35475f62f154f1e` installed;
 historical/restorable payloads and accepted evidence remain outside `build`.
+
+
+### Native screenshot write timing result (2026-11-08)
+
+PR427 merge `e5d13469`, frozen kernel/runtime `cf852581` and profile tools
+`7a27bfc4`, release `f5e9c4c9603cf2eb`, run `78f642b6588442aa`, session
+`session-00065fccdfafc692-00`: the automatic1800-second1% audio/USB/app/three-
+screenshot repeat passes all original requirements. This accepts the diagnostic
+measurement on this unit; no optimization or policy change was made.
+
+All three retired workers retain65 completed raw writes and4196406 BMP bytes
+apiece, eight capacity changes each, and zero failures, invalid clocks or dropped
+records. Their summed wall spans are:
+
+| Worker PID | Raw calls | Admission gate | Handler | Return handoff | Reservation (inside handler) | Copy (inside handler) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 10 | 11.268167s | 10.979613s | 21.295ms | 267.029ms | 19.997ms | 0.997ms |
+| 480 | 8.540802s | 8.262777s | 20.811ms | 256.976ms | 19.486ms | 1.005ms |
+| 957 | 7.726258s | 7.436346s | 20.798ms | 268.870ms | 19.493ms | 0.995ms |
+
+The admission gate accounts for96.25–97.44% of measured raw write-call wall
+time. Buffer reservation and copying are small in this run. These are wall
+intervals, not CPU time or proof of a particular foreign I/O owner. POSIX wrapper,
+progress reporting and user scheduling outside the raw call remain unmeasured.
+Slowest full screenshot is23.738913s, including5.897257s receive and12.015772s
+WRITE; prior accepted batching run was23.196470s/12.669813s. The measurement-only
+repeat does not establish a further performance improvement. Slowest retained
+cleanup is29.393ms, with no pending worker retirement.
+
+The run completes1084 app cycles and3859 verified disk bursts/1011613696 bytes
+with345862144 PCM bytes, zero recorded underruns and zero worker/lifecycle
+errors. All53337 valid desktop-loop observations stay within500ms; maximum
+121877us. Maximum launch/close is2276652/1599627us, below unchanged10s limits.
+Worst-loop wait companion records102314us blocked,44us READY and zero I/O
+exclusions; this does not identify owners for the separate screenshot gate waits.
+All three1366x768 BMPs decode; follow-up Files, app/cache/capture/battery
+retirement, normal exit and unmount pass. Subjective listening is unassessed at1%;
+the earlier bounded25% listening acceptance remains separate.
+
+All683 prior files survive except expected `.srvros/meta`; nine new files yield
+692 files/2265 allocated clusters. Offline fsck and independent allocation checks
+pass with zero leaks/mismatches/errors. Independent review verifies session
+hashes, timing parsers, receipt agreement, BMP decoding and the646-file automatic
+backup. Reviewed evidence is retained outside `build`. Installed, staged and
+independent payload hashes, accepted payloads and recovery `c35475f62f154f1e`
+verify. Ubuntu remains default, one-shot is consumed, collector is disabled and
+no reboot is armed. Older stress duplicate `ca0e7e313136e985` was archived only
+after independent payload and no-reference verification; its backup remains.
+
+Next bounded scope: identify what holds or delays admission at the screenshot
+write gate, including owner duration and scheduling between admissions, before
+choosing a fix. Preserve same-process/private-image exclusion, watchdogs, all
+flush/full-readback/rename checks,64KiB batching and500ms/10s/endurance limits.
+The receive phase remains a separate performance follow-up. No new implementation
+or physical trial is started by this result closeout.
+
+
+### Screenshot admission holder scope (2026-11-08)
+
+Base `1bd3aea9` after PR428 accepted write-timing evidence. Bounded objective:
+identify complete owner overlap and blocked/READY scheduling inside the65 raw
+write admission waits per screenshot worker. Existing longest-wait rows retain
+only the initial owner, while final owner history is a rotating tail; these
+cannot identify the complete source of the observed96–97% gate wall time.
+Add opt-in fixed-storage per-worker aggregate and worst-wait companions with
+stable scheduler thread identities, syscall numbers, exact scope/overlap clocks,
+and visible incomplete/invalid evidence. Measurement hooks allocate/log nothing;
+ordinary boot remains disabled. Touch scheduler observation hooks, capture
+metadata/logger and strict host/VM/native evidence parsing. Do not speculate a
+new admission rule or change scheduling selection before attribution is known.
+
+Preserve full filesystem/descriptor serialization, same-process/private-image
+exclusion, flush/full-readback/rename checks,64KiB batching,500ms desktop loop,
+10s lifecycle and1800s endurance. Validate nested ownership, multiple owners,
+wake-to-READY delay, unobserved calls, copied final records and rejection of
+incomplete clocks/counts before a matched exact-stage native repeat. PR301's
+Air7,2 scanout process scope and PR19's distinct USB Wi-Fi remain independent;
+actual fetched main and open PRs contain no competing gate-observation change.
+The last run is collected, independently backed up and no new boot is armed.
+
+
+### Screenshot admission holder validation (2026-11-08)
+
+Frozen source `e4f7f77c` passes matched normal/native/VM/RAM/USB builds, full
+core/desktop/docs, including89 installed-root tests in727.921s with one expected
+skip. Real scheduler regressions cover ordinary zero-contention admission,
+block/wake/reacquisition/dispatch, nested and successive owners, exact state
+partitions, unchanged unsafe-waiter exclusion, fixed-capacity refusal, copied
+retention, incomplete ownership and clock/overflow rejection. Dispatcher
+cancellation/identity ordering and strict missing/conflicting/invalid companion
+parsers pass. Public/private signal and frame-copy variants compile; no optional
+feature activation or native acceptance is implied.
+
+Ordinary syscall ABI, UEFI USB keyboard, fork, exec-vectors and yield VMs pass.
+Ordinary immutable-pixel screenshot/readback/Preview/repeat/exit behavior passes.
+Populated-Home TCG stress at400 write IOPS passes26 app cycles,201 overlap
+observations, zero audio/worker/lifecycle errors,261521us maximum loop and
+724166/848654us maximum launch/close. The retired screenshot worker retains63
+raw writes/4096054 BMP bytes and complete new admission companions. Its63 gates
+span4.108986s, with4.060601s overlapping125 outermost owner scopes; the state
+partition is3.305904s blocked,799.844ms READY and3.238ms running. Nested scopes
+do not double-count. Its worst726.036ms gate retains one owner: thread17/PID7,
+syscall53 (`FSYNC`), covering725.920ms of that wait. This identifies the VM's
+worst-wait owner and validates observation; native ownership/delay distribution
+still requires the matching physical record. Independent saved-log reparsing
+passes. No complete foreign operation trace or CPU-time attribution is claimed.
+
+The predicates for independent/helper memory, retired processes, private-image
+ownership, ready-thread selection, handoff, owner yield/wait/checkpoint and the
+owned admission wait loop remain byte-identical to base `1bd3aea9`. Userspace,
+shared ABI and pinned ports have no diff; the RAM image hash equals the accepted
+`f5e9c4c9603cf2eb` run. No scheduling/eligibility, filesystem, capacity, flush,
+readback, rename or500ms/10s/1800s limit changed. Ordinary timing remains off.
+
+Exact stage `93d4474e781f4b6a`, source `e4f7f77c`, passes native-board refusal,
+save/unmount and automatic Ubuntu return in Q35. Prepared native run
+`f36742f3d2664f44` repeats the unchanged automatic1800-second1% PCM/verified
+USB/app/three-screenshot profile and additionally requires all three complete,
+retired raw-write records and consistent final gate state/owner companions.
+Physical cost attribution and any optimization remain pending. Preflight
+verifies this unit/USB, all692 existing files,2265 allocated clusters and clean
+headroom/allocation; only the intended quiet-volume expiry is renewed.
+
+Workspace cleanup removes16 old build-stage duplicates only after exact
+independent payload verification, retaining their full restorable backups and
+all evidence. For ESP headroom, the older unreferenced batching payload
+`1c74bc8281678786` is archived after exact backup/no-GRUB-reference checks;
+retain latest accepted stress `f5e9c4c9603cf2eb`, audible check, sampler, zero-load,
+single-window and console recovery `c35475f62f154f1e` installed. No new physical
+pass is claimed by this preparation record.

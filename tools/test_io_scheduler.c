@@ -108,6 +108,7 @@ static bool completion_wait_test,completion_signal,completion_ready,reference=tr
 bool timer_reference_ready(void) { return reference; }
 static struct scheduler_wait_queue completion_queue;
 static bool high_wait_test;
+static bool capture_wait_test;
 static bool handoff_test;
 static bool fair_handoff_test;
 static unsigned fair_handoff_turns[2];
@@ -119,6 +120,19 @@ static unsigned handoff_admissions;
 static struct scheduler_wait_queue high_wait;
 static bool completion_condition(void *arg) { assert(arg==&completion_ready);return completion_ready; }
 void scheduler_context_switch(struct scheduler_context *old,struct scheduler_context *next) {
+    if(capture_wait_test) {
+        if(old==&threads[0].context) {
+            assert(next==&threads[1].context && current_thread==1 && capture_gate_active==1);
+            assert(threads[0].state==THREAD_BLOCKED && threads[0].blocked_queue==&io_waiters);
+            switching=false;clock_us+=100;scheduler_io_end();
+            assert(threads[0].state==THREAD_READY && !io_waiters.waiters);
+            clock_us+=20;assert(scheduler_io_begin());
+            assert(!io_thread_allowed(0)); /* Observation cannot bypass reacquisition. */
+            clock_us+=50;scheduler_io_end();clock_us+=30;scheduler_yield();
+            assert(current_thread==0 && threads[0].state==THREAD_RUNNING);return;
+        }
+        assert(old==&threads[1].context && next==&threads[0].context && current_thread==0);return;
+    }
     if(return_timer_test) {
         assert(old==&threads[4].context && next==&threads[3].context && current_thread==3);
         assert(io_depth==1 && io_owner==3 && !threads[4].account_user);
@@ -1261,7 +1275,67 @@ static void test_binding_contract(void)
     puts("scheduler-binding: PASS (atomic validation, stale-pointer-safe invalidation)");
 }
 
+static void test_capture_gate_observation(void) {
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
+    current_thread=0;io_depth=io_gate_pending=0;clock_us=100;reference=true;
+    threads[0]=(struct thread){.identity=100,.state=THREAD_RUNNING};
+    threads[1]=(struct thread){.identity=101,.user_context=(void *)77,.io_syscall=SYS_SYNC,.state=THREAD_READY};
+    struct capture_gate_summary summary={0};
+    /* No-owner admission still produces a complete zero-contention record. */
+    scheduler_io_wait_observed(&summary);
+    assert(summary.total.calls==1 && !summary.total.invalid && !summary.active && !capture_gate_active);
+    assert(!summary.total.owned_us && !summary.total.scopes);
+    /* Run the actual wait/block/wake/reacquire/dispatch path, with context
+     * switches simulated by the fixture. Zero-width host dispatch clock is OK. */
+    threads[1].state=THREAD_RUNNING;current_thread=1;clock_us=120;assert(scheduler_io_begin());
+    threads[0].state=THREAD_RUNNING;threads[1].state=THREAD_READY;current_thread=0;clock_us=130;
+    capture_wait_test=true;scheduler_io_wait_observed(&summary);capture_wait_test=false;
+    assert(summary.total.calls==2 && !summary.total.invalid && !summary.active && !capture_gate_active);
+    assert(summary.worst.counts.wall_us==200 && summary.worst.counts.owned_us==150);
+    assert(summary.worst.counts.blocked_us==100 && summary.worst.counts.ready_us==100 && summary.worst.counts.running_us==0);
+    assert(summary.worst.counts.scopes==2 && summary.worst.counts.exclusions>=1);
+    summary=(struct capture_gate_summary){0};summary.total.calls=1;
+    /* Model two owners and an intervening READY delay in one observed wait.
+     * Call production hooks, never alter eligibility to make observation pass. */
+    current_thread=1;clock_us=200;assert(scheduler_io_begin());
+    current_thread=0;clock_us=220;unsigned slot=capture_gate_start(&summary);assert(slot<CAPTURE_GATE_ACTIVE);
+    clock_us=230;capture_gate_state(&threads[0],1);
+    current_thread=1;clock_us=240;assert(scheduler_io_begin());
+    clock_us=250;scheduler_io_end();assert(io_depth==1 && !summary.total.scopes);
+    clock_us=300;scheduler_io_end();
+    clock_us=310;capture_gate_state(&threads[0],2);
+    clock_us=330;assert(scheduler_io_begin()); /* Changed owner syscall captured. */
+    clock_us=340;threads[0].state=THREAD_READY;assert(!io_thread_allowed(0));
+    clock_us=380;scheduler_io_end();
+    current_thread=0;clock_us=400;capture_gate_state(&threads[0],0);
+    clock_us=410;capture_gate_finish(slot);
+    assert(summary.total.calls==2 && !summary.total.invalid && !summary.active);
+    const struct capture_gate_wait *w=&summary.worst;
+    assert(w->start_us==220 && w->end_us==410 && w->counts.wall_us==190);
+    assert(w->counts.owned_us==130 && w->counts.scopes==2 && w->counts.blocked_us==80);
+    assert(w->counts.ready_us==90 && w->counts.running_us==20 && w->counts.blocks==1 && w->counts.dispatches==1 && w->counts.exclusions==1);
+    assert(w->owner.thread==101 && w->owner.syscall==SYS_SYNC && w->owner.scope_start_us==200 && w->owner.scope_end_us==300 && w->owner.overlap_start_us==220 && w->owner.overlap_end_us==300);
+    struct capture_gate_summary copied=summary;summary.worst.owner.thread=999;assert(copied.worst.owner.thread==101);
+    /* Overflow, duplicate observer, clock failure and unfinished ownership
+     * remain visible instead of returning apparently complete evidence. */
+    summary=(struct capture_gate_summary){0};clock_us=500;slot=capture_gate_start(&summary);
+    assert(capture_gate_start(&summary)==CAPTURE_GATE_ACTIVE && summary.total.invalid);
+    clock_us=499;capture_gate_finish(slot);assert(summary.total.invalid && !summary.active);
+    summary=(struct capture_gate_summary){0};clock_us=600;slot=capture_gate_start(&summary);
+    current_thread=1;assert(scheduler_io_begin());current_thread=0;clock_us=610;capture_gate_finish(slot);
+    assert(summary.total.invalid);current_thread=1;scheduler_io_end();
+    summary=(struct capture_gate_summary){0};summary.total.wall_us=UINT64_MAX;
+    clock_us=700;slot=capture_gate_start(&summary);clock_us=710;capture_gate_finish(slot);assert(summary.total.invalid);
+    struct capture_gate_summary slots[CAPTURE_GATE_ACTIVE+1]={0};unsigned indices[CAPTURE_GATE_ACTIVE];
+    for(unsigned i=0;i<CAPTURE_GATE_ACTIVE;i++) {indices[i]=capture_gate_start(&slots[i]);assert(indices[i]<CAPTURE_GATE_ACTIVE);}
+    assert(capture_gate_start(&slots[CAPTURE_GATE_ACTIVE])==CAPTURE_GATE_ACTIVE && slots[CAPTURE_GATE_ACTIVE].total.invalid);
+    for(unsigned i=0;i<CAPTURE_GATE_ACTIVE;i++)capture_gate_finish(indices[i]);
+    assert(!capture_gate_active);
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;current_thread=io_depth=io_gate_pending=0;
+    puts("capture-gate: PASS unchanged admission, nested/multiple owners, blocked/READY partition, stable worst-owner overlap, copied retention, incomplete/clock/overflow/capacity evidence");
+}
 int main(void) {
+    test_capture_gate_observation();
     test_binding_contract();
     test_user_entry_observation();
     test_worker_stack_observation();

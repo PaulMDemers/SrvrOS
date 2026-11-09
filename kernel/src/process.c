@@ -1277,6 +1277,12 @@ void process_capture_write_result(uint64_t start,uint64_t requested,int64_t resu
     capture_write_result(capture_write_find(&capture_writes,capture_write_pid()),start,capture_write_now(),requested,result);
     process_irq_restore(flags);
 }
+void process_capture_write_gate_wait(void) {
+    uint64_t flags=process_irq_save();
+    struct capture_write_record *r=capture_write_find(&capture_writes,capture_write_pid());
+    scheduler_io_wait_observed(r?&r->gate:NULL);
+    process_irq_restore(flags);
+}
 void process_capture_write_growth(void) {
     if(!capture_writes.enabled)return;
     uint64_t flags=process_irq_save();struct capture_write_record *r=capture_write_find(&capture_writes,capture_write_pid());

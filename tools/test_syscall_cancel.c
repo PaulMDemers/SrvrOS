@@ -181,6 +181,7 @@ bool scheduler_io_active(void) { return false; }
 
 uint64_t process_capture_write_clock(void) {return write_tracing?++write_clock:0;}
 uint64_t process_capture_write_begin(void) {assert(!user_safe);if(write_tracing)assert(++write_edges==1);return process_capture_write_clock();}
+void process_capture_write_gate_wait(void) { assert(write_tracing);scheduler_io_wait(); }
 void process_capture_write_record(enum capture_write_site site,uint64_t start) {
     if(!start)return;
     assert(write_tracing && !in_call);

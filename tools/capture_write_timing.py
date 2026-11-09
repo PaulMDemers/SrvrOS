@@ -35,3 +35,42 @@ def capture_write_timing(blobs,expected_records,expected_bytes,require_final=Tru
             output.append(dict(record=r,sites=samples))
         return dict(status='VALID',snapshot_us=at,final=final,workers=output,scope='Raw checked SYS_WRITE wall spans; reserve/copy nest in handler. POSIX wrapper/progress/user scheduling outside the raw call is unmeasured.')
     raise ValueError('Missing complete final capture write evidence')
+
+def capture_gate_timing(blobs,write_timing):
+    """Require exact companions for the already-selected final write snapshot."""
+    at=write_timing['snapshot_us'];rows={};owners={}
+    for blob in blobs:
+        for line in blob.decode(errors='replace').splitlines():
+            if not line.startswith(('capture-write-gate:','capture-write-gate-owner:')):continue
+            d={k:int(v) for k,v in re.findall(r'(\w+)=(\d+)',line)}
+            if d.get('version')!=1 or 'snapshot_us' not in d:raise ValueError('Unsupported gate timing record')
+            if d['snapshot_us']!=at:continue
+            if not {'pid','final'}<=d.keys():raise ValueError('Malformed gate identity')
+            if line.startswith('capture-write-gate-owner:'):table=owners;key=d['pid']
+            else:
+                if d.get('kind') not in (0,1):raise ValueError('Malformed gate kind')
+                table=rows;key=(d['pid'],d['kind'])
+            if key in table and table[key]!=d:raise ValueError('Conflicting gate timing record')
+            table[key]=d
+    workers=write_timing['workers'];pids={w['record']['pid'] for w in workers}
+    if set(owners)!=pids or set(rows)!={(pid,k) for pid in pids for k in (0,1)}:raise ValueError('Missing/extra gate companions')
+    fields=('calls','wall_us','owned_us','scopes','blocked_us','ready_us','running_us','blocks','dispatches','exclusions','invalid')
+    output=[]
+    for w in workers:
+        pid=w['record']['pid'];total=rows[(pid,0)];worst=rows[(pid,1)];owner=owners[pid]
+        for c in (total,worst):
+            if not set(fields)<=c.keys() or c.get('active')!=0 or c['invalid']!=0 or c['final']!=write_timing['final']:raise ValueError('Incomplete gate timing')
+            if c['blocked_us']+c['ready_us']+c['running_us']!=c['wall_us'] or c['owned_us']>c['wall_us']:raise ValueError('Gate partition mismatch')
+            if c['dispatches']<c['blocks'] or (c['blocked_us'] and not c['blocks']) or (c['ready_us'] and not c['dispatches']):raise ValueError('Gate scheduling mismatch')
+        if total['calls']!=w['record']['calls'] or worst['calls']!=1 or any(worst[k]>total[k] for k in fields):raise ValueError('Gate count/summary mismatch')
+        gate=w['sites']['gate']
+        if total['wall_us']>gate['total_us'] or worst['wall_us']>gate['max_us']:raise ValueError('Gate outside raw write span')
+        required={'start_us','end_us','thread','owner_pid','syscall','scope_start_us','scope_end_us','overlap_start_us','overlap_end_us'}
+        if not required<=owner.keys() or owner['final']!=write_timing['final']:raise ValueError('Incomplete gate owner')
+        if not w['record']['first_us']<=owner['start_us']<=owner['end_us']<=w['record']['last_us'] or owner['end_us']-owner['start_us']!=worst['wall_us']:raise ValueError('Invalid gate lifetime')
+        if worst['scopes']:
+            if not owner['thread'] or not 0<owner['scope_start_us']<=owner['overlap_start_us']<=owner['overlap_end_us']==owner['scope_end_us']:raise ValueError('Invalid owner scope')
+            if not owner['start_us']<=owner['overlap_start_us']<=owner['overlap_end_us']<=owner['end_us'] or owner['overlap_end_us']-owner['overlap_start_us']>worst['owned_us']:raise ValueError('Invalid owner overlap')
+        elif worst['owned_us'] or any(owner[k] for k in required-{'start_us','end_us'}):raise ValueError('Spurious gate owner')
+        output.append(dict(pid=pid,total=total,worst=worst,owner=owner))
+    return dict(status='VALID',snapshot_us=at,workers=output,scope='Complete gate wall partition and ownership overlap; worst gate retains its longest overlapping owner. Not CPU time or a foreign operation trace.')
