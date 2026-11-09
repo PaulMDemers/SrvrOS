@@ -41,18 +41,40 @@ never current source, without changing/resealing the primary capsule. All418
 prior files and metadata survive except marker atime within independent RTC
 bounds; only two session files/one directory are new.420 files/1210 clusters,
 fsck/allocation/recovery and Ubuntu-unarmed checks pass. Accepted7026/e47d and
-accepted8529/4a/3c9/815/e17 stay installed. The old authentication failure remains
+accepted8529/3c9/815/e17 stay installed; old4a remains backed and restorable. The old authentication failure remains
 failed and unexplained; this success does not prove an observation-only fix.
 
-Actual main `bdc14461` was fetched and inspected after collection. PR435 batches
-only consecutive unpublished append FAT links; publication barriers and final
-tail attachment stay separate. PR434 adds Air evidence docs. Root's next bounded
-scope is to merge this baseline and qualify the affected filesystem/logger/
-storage paths, native stack/prefix and exact420-file workspace VMs before a cold
-production-IP regression. The protocol/transport/controller source is unchanged;
-old native/acceptance capsules remain immutable. Root owns merge, all shared
-harnesses, staging/install and power; disjoint review checks new FAT batching and
-unchanged network proof inputs. No new runtime is installed or armed yet.
+Actual main `bdc14461` is merged as runtime `5ca1925e`. Its unpublished
+append FAT-link batching and the existing Pro metadata restoration are both
+preserved. The181.72second affected filesystem/logger/storage suite passes;
+this does not establish native append performance. Release `9f443344d9d534da`
+is installed for a cold production-IP regression, with native acceptance pending.
+
+Host tooling `70fd5d24` fixes the preflight namespace mismatch through explicit
+read-only `/work` selection. Default `/vol` fixtures remain compatible; no
+metadata, import, quarantine or permission gate is weakened.49 portable cases
+pass normally and under fatal sanitizers;53 normal checks include the420-file
+clone;65 legacy cases,5 wrapper groups and independent review pass. Invalid and
+misplaced options refuse before opening media. Actual device graph/writable/
+headroom checks pass with inspector writes/flushes0. Whole-device Linux mount
+activity is separate from these inspector callback counters.
+
+The content-addressed image is byte-identical to the earlier qualified5ca stage,
+so its original runtime manifest remains5ca; current host source is70fd. Exact OS
+subtree/product equality binds them without rewriting cached manifests. Both
+runtime and host source archives are retained. New16.11second current-tool/image
+checks plus exact GPT/missing-workspace/420-file preservation VMs pass; unchanged
+24-case network,29-input protocol and534-mutation proofs are explicitly rebound,
+not falsely rerun. Direct binary checker fixtures are included in the new capsule.
+
+Collect FIRST once on return with
+`build/bringup/wifi-stack5-inspection/run_root.py return_collect`. Runtime5ca /
+release9f is distinct from accepted runtime2da/release7026. The new capsule lives
+outside build as `wifi-stack5-inspection-70fd5d24`; the old13-file failed preparation
+and1155/109 native/accepted capsules are immutable. NoOp4a's unreferenced EFI
+duplicate alone was retired for capacity after192-file native/12-file accepted
+backup equality and no-reference checks. Accepted7026/8529/3c9/815/e17 and
+Ubuntu/e47d remain installed. The record owns the final one-shot/arming state.
 
 TCP/HTTP follows with a distinct process/worker/service-isolated profile and
 measured credits. Ordinary svscan treats net.initialized as readiness and may
@@ -16337,3 +16359,41 @@ gates. Root owns wrapper/workflow/Makefile/integration; disjoint agent may own
 host-driver argument implementation and focused read-only image tests. Requalify
 the changed tool, exact image and matching device preflight before installation.
 Current7026/e47d and protected payloads remain installed, Ubuntu default/unarmed.
+
+### Merged baseline and explicit host namespace ready (November 9)
+
+Runtime5ca1925e/mainbdc14461, release9f443344d9d534da, is qualified/installed for
+native regression. Source70fd5d24 changes only host inspection/tools/docs relative
+to the OS runtime; cached image bytes and original5ca manifest stay unchanged.
+The run record names both sources and archives both snapshots. It does not
+transfer native acceptance from2da to5ca before matching hardware evidence.
+
+The host namespace fix passes49 portable checks normal/fatal,53 normal including
+the exact420-file clone,65 legacy cases and5 wrapper test groups. Wrong prefixes,
+malformed/duplicate/dirty metadata and invalid/misplaced/overflow arguments still
+refuse with unchanged bytes and zero inspector writes/flushes. Independent audit
+caught the option-as-mode opening edge; its initial counterexample is retained,
+and the final preopen guard closes it. Correct/work physical graph, writable and
+headroom receipts pass. The earlier13-file preparation refusal remains unchanged.
+
+The original5ca181.72second affected-FS suite is retained by exact unchanged
+kernel/shared/userspace/boot/ports and existing compiler-recipe binding. New70fd
+all/USB/inspection/link/metadata checks pass16.11seconds. Network24normal/fatal,
+protocol13build/104execution and534 parser mutation proofs retain exact inputs.
+Six aggregate fatal groups include the new inspection closure; five earlier
+unchanged groups are rebound, not rerun.255 stage cases, native stack, real2MiB
+filesystem, desktop and exact staged GPT/missing-workspace/420-file VMs pass.
+Capture reserve33617 exceeds32768; individual frame measurements do not accept
+whole-call-chain or input latency. A local workflow initially expected the host
+commit in a cached runtime manifest; explicit runtime/host identity binding fixes
+the bookkeeping while preserving both the original manifest and failure evidence.
+
+New1839-file prepared capsule (later finalization adds records/docs) is outside
+build. It preserves direct.bin fixtures and the old13-file preparation refusal,
+accepted1155/109 notes and earlier references. Host collection now mounts read-only;
+the earlier baseline request uid1000/gid1000 is recorded separately from inspector
+zero-I/O counters. Installation retires only old4a's backed/unreferenced duplicate;
+accepted7026/8529/3c9/815/e17 and Ubuntu/e47d remain installed. Qualified cold shutdown
+uses the standing Wi-Fi-only10second off-state unplug protocol. Collect the new
+inspection workflow once after return. TCP/HTTP/service isolation/lifecycle remain
+future gates; the concrete refined HTTP plan is retained in the capsule.

@@ -1566,3 +1566,16 @@ A foreign prefix correctly refuses writable metadata admission even when fsck an
 allocation ownership are clean. There is no namespace guessing, fallback or
 sidecar rewriting. `make test-exfat-inspection` verifies explicit/default prefixes,
 malformed/duplicate/dirty refusals, argument bounds and zero writes/flushes.
+
+
+Pro11,2 current collect-first record is `build/bringup/wifi-stack5-inspection/run.json`;
+run that directory's `run_root.py return_collect` once after the new cold trial.
+Installed runtime5ca1925e/release9f443344d9d534da consumes mainbdc14461, while host
+inspection source70fd5d24 selects the actual/work namespace. Identical products
+retain their original runtime manifest; record host/runtime identities separately,
+verify OS subtree/product equality, and never rewrite historical cached manifests.
+Accepted7026/1155native+109notes and the13-file failed preparation stay immutable.
+Only old4a's fully backed/unreferenced EFI duplicate was retired for capacity;
+Ubuntu/e47d and accepted7026/8529/3c9/815/e17 remain. The qualified run record owns
+arming; guest progress/save/Ubuntu return are automatic. Native merged-source
+acceptance, TCP/HTTP and lifecycle remain separate gates.

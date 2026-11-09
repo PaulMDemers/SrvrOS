@@ -246,3 +246,21 @@ mutations, matched selected regression plus explicit Python-only proof binding,
 Native comparison is pending; collect wifi-stack5-auth first once after return.
 The production-IP gate, legitimate process/timer-owned TCP/HTTP, lifecycle/UI and
 reliability remain in the order above. Demers2.4 still needs compatible hardware.
+
+
+Latest November9 checkpoint: source2da2f400/release7026 accepts bounded original-
+provider production DHCP/DNS/ARP and64 exact40-byte ICMP messages through native
+RX/TX boundaries, with complete parent/ledger/provider retirement and independent
+file/metadata proof. Source5ca1925e/release9f443344 integrates mainbdc14461 and is
+qualified/installed for the next native regression; host70fd tooling uses explicit
+read-only/work inspection. The content-addressed runtime manifest stays5ca and
+host/runtime source archives are distinct. The initial wrongnamespace13-file
+preparation failure is preserved. Collect wifi-stack5-inspection FIRST once.
+
+Next TCP/HTTP software gate needs isolated init/services (svscan uses net.initialized
+as readiness), a genuinely running prelive child acknowledged through existing
+startup API, finite connect/send primitives and exact HTTP decoding. Bounded DNS
+has no cache for child getaddrinfo; use a reviewed PID/lifetime-bound numeric-answer
+handoff. The real IRQ timer and retained worker must drain terminal sockets;
+this stack uses80 TIME_WAIT ticks even after EOF-first/passive close. No fake
+process context, hidden wait, service file logging or timeout-as-success is allowed.

@@ -7840,3 +7840,14 @@ mutations, current image/parser/source binding and exact workspace VMs pass.
 It is installed for native comparison; the machine record/run record owns the
 cold shutdown/one-shot/collection state. Do not infer a fixed authentication
 cause or native production/HTTP/lifecycle acceptance from these software results.
+
+
+The bounded production-IP gate is now physically accepted on2da2f400/7026:
+DHCP/DNS/ARP,64 exact40-byte ICMP messages,68 original-key data publications,
+oneTX/twoRX fences and full parent/ledger/provider retirement. Original1155-file
+native evidence and109 acceptance notes preserve strict file/metadata/recovery
+proof. This is not worker/service coexistence,TCP/HTTP or connection lifecycle.
+Current5ca/9f merged-main image is installed for native regression; host70fd uses
+an explicit/work inspection namespace with unchanged metadata gates. Its original
+content-addressed runtime manifest remains5ca. See the unit record for exact
+qualification, recovery and collect-first state.
