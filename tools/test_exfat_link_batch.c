@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#define SRVROS_SYNC_CONTENT_DISABLED_HOST_TEST /* Direct fixture has no sync runtime. */
 #include "../kernel/src/fs/exfat.c"
 static uint8_t media[8192],before[sizeof(media)];
 static unsigned calls,reject_at;static bool tear;

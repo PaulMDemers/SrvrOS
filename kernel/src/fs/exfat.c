@@ -2,6 +2,7 @@
 #include <srvros/console.h>
 #include <srvros/block.h>
 #include <srvros/exfat.h>
+#include <srvros/sync_timing.h>
 #include <srvros/exfat_stream.h>
 #include <srvros/syscall_numbers.h>
 #include <srvros/heap.h>
@@ -100,7 +101,11 @@ static uint64_t cost_clock(void) {
     return timer_monotonic_us();
 #endif
 }
-static uint64_t cost_elapsed(uint64_t start) { uint64_t end=cost_clock();return start && end>=start?end-start:0; }
+static uint64_t cost_elapsed(uint64_t start) {
+    uint64_t end=cost_clock();
+    if(!start || end<start)sync_timing_content_fault();
+    return start && end>=start?end-start:0;
+}
 static void cost_begin(struct exfat_cost *c,const char *operation) {
     *c=(struct exfat_cost){.start=cost_clock(),.operation=operation,.active=true};
 }
@@ -221,6 +226,14 @@ static void fs_leave(struct fs_scope *scope) {
 }
 
 static bool metadata_syncing;
+static bool sync_prefix_proof,sync_sidecar_proof;
+static unsigned sync_io_role(const struct exfat_volume *v) {
+    if(sync_sidecar_proof)return 5;
+    if(sync_prefix_proof)return 3;
+    if(v->io_phase==EXFAT_IO_ALLOCATE || v->io_phase==EXFAT_IO_FREE)return 1;
+    if(metadata_syncing)return 4;
+    return v->io_phase==EXFAT_IO_DATA?2:0;
+}
 /* Per-mount blocks never move: VFS paths/private_data can outlive a growth.
  * Allocated blocks and metadata scratch are reclaimed together at unmount. */
 static struct exfat_file *file_slot(const struct exfat_mount *m,uint64_t i) {
@@ -396,7 +409,8 @@ static bool volume_read_device(const struct exfat_volume *volume,uint64_t offset
     bool ok=block_read(volume->device,offset,buffer,length);
     if(volume->cost.active) {
         struct exfat_cost_phase *p=&((struct exfat_volume *)volume)->cost.phase[volume->io_phase];
-        p->reads++;p->read_bytes+=length;p->read_us+=cost_elapsed(start);
+        uint64_t us=cost_elapsed(start);p->reads++;p->read_bytes+=length;p->read_us+=us;
+        sync_timing_content_io(sync_io_role(volume),0,length,us,ok);
     }
     return ok;
 }
@@ -447,7 +461,8 @@ static bool volume_write(struct exfat_volume *volume, uint64_t offset, const voi
     bool ok = block_write(volume->device, offset, buffer, length);
     if(volume->cost.active) {
         struct exfat_cost_phase *p=&volume->cost.phase[volume->io_phase];
-        p->writes++;p->write_bytes+=length;p->write_us+=cost_elapsed(start);
+        uint64_t us=cost_elapsed(start);p->writes++;p->write_bytes+=length;p->write_us+=us;
+        sync_timing_content_io(sync_io_role(volume),1,length,us,ok);
     }
     /* Restore only after complete success and no intervening cache/transaction
      * activity. A failed/partial or reentrant transfer leaves overlap invalid.
@@ -470,7 +485,8 @@ static bool volume_flush(struct exfat_volume *volume) {
     bool ok = parent && parent->flush && parent->flush(parent);
     if(volume->cost.active) {
         struct exfat_cost_phase *p=&volume->cost.phase[volume->io_phase];
-        p->flushes++;p->flush_us+=cost_elapsed(start);
+        uint64_t us=cost_elapsed(start);p->flushes++;p->flush_us+=us;
+        sync_timing_content_io(sync_io_role(volume),2,0,us,ok);
     }
     if (!ok) volume->write_blocked = true;
     return ok;
@@ -1456,7 +1472,8 @@ static bool write_volume_flags(struct exfat_volume *volume, uint16_t flags) {
     bool ok=block_write(volume->device,106,bytes,sizeof(bytes));
     if(volume->cost.active) {
         struct exfat_cost_phase *p=&volume->cost.phase[EXFAT_IO_METADATA];
-        p->writes++;p->write_bytes+=sizeof(bytes);p->write_us+=cost_elapsed(start);
+        uint64_t us=cost_elapsed(start);p->writes++;p->write_bytes+=sizeof(bytes);p->write_us+=us;
+        sync_timing_content_io(sync_io_role(volume),1,sizeof(bytes),us,ok);
     }
     if(!ok)return false;
     volume->flags = flags;
@@ -1649,7 +1666,9 @@ static bool exfat_sync_mount_metadata_impl(struct exfat_mount *mount) {
         struct exfat_file *existing=find_file(path);
         if(existing && existing->volume==&mount->volume) {
             sidecar_add(&sidecar_stats.checks,1);sidecar_stats.active=1;
+            bool proof_saved=sync_sidecar_proof;sync_sidecar_proof=true;
             enum metadata_equality same=metadata_equal_media(existing,(const uint8_t *)mount->metadata_buffer,offset);
+            sync_sidecar_proof=proof_saved;
             sidecar_stats.active=0;
             if(same==METADATA_UNPROVED){sidecar_add(&sidecar_stats.refused,1);ok=false;}
             else if(same==METADATA_EQUAL) {
@@ -1977,7 +1996,9 @@ static enum append_result append_file(struct exfat_file *file,const char *path,
         uint64_t bytes=file->size-checked;if(bytes>v->cluster_size)bytes=v->cluster_size;
         for(uint64_t n=0;n<bytes;) {
             uint64_t count=bytes-n;if(count>16384)count=16384;
-            if(!volume_read(v,base+n,buffer,count)){kfree(buffer);return APPEND_FAILED;}
+            bool proof_saved=sync_prefix_proof;sync_prefix_proof=!metadata_syncing;
+            bool read_ok=volume_read(v,base+n,buffer,count);sync_prefix_proof=proof_saved;
+            if(!read_ok){kfree(buffer);return APPEND_FAILED;}
             for(uint64_t j=0;j<count;j++)if(buffer[j]!=data[checked+n+j]){kfree(buffer);return APPEND_FALLBACK;}
             n+=count;
         }

@@ -299,6 +299,10 @@ def main():
                     from sync_timing import sync_timing
                     sync_observed=sync_timing(snapshots)
                     (out/'sync-timing.json').write_text(json.dumps(sync_observed,indent=2)+'\n')
+                    from sync_content import sync_content
+                    from capture_history import capture_history
+                    (out/'sync-content.json').write_text(json.dumps(sync_content(snapshots,sync_observed),indent=2)+'\n')
+                    (out/'capture-history.json').write_text(json.dumps(capture_history(snapshots,expected=1),indent=2)+'\n')
                     from sidecar_equality import sidecar_equality
                     (out/'sidecar-equality.json').write_text(json.dumps(sidecar_equality(snapshots),indent=2)+'\n')
                     (out/'capture-write-timing.json').write_text(json.dumps(write_timing,indent=2)+'\n')
