@@ -15663,3 +15663,45 @@ mount timing remains unmeasured;no general capacity-performance claim is made.
 Root still must run matched/relevant regressions,stack/storage/strict-prefix and
 exact-stage VMs,including a disposable byte-exact copy of this workspace under
 the real staged initramfs/system namespace,before another native trial.
+
+
+### Exact corrected v134 qualified for cold retry (November 8)
+
+Runtime dac05a8c/release4a8f81ad6daf73b4 contains the corrected actual dispatcher,
+atomic metadata restoration and consumed main e5d13469. The matched kernel/USB
+image and all selected controller/fence/No-Op/historical encrypted provider,
+VFS/exFAT/import/namespace,scheduler/IRQ/process/capture/logging checks pass.
+All245 staging tests and158 whole-prefix mutation refusals pass;composed prefix
+2041657bytes leaves55495bytes,including the unchanged32KiB reserve. Seven focused
+fatal ASan/UBSan/leak groups pass. Native stack checks cover VFS/exFAT/DMA/fence
+and selected xHCI owners;maximum checked frame3176bytes below4096 includes
+existing filesystem functions. The earlier248byte check covered controller owners
+only. No full-core rerun or maximum-namespace
+IRQ-masked mount timing claim is made.
+
+Ordinary desktop,exact staged GPT and missing-workspace recovery VMs pass.
+A further exact-stage VM boots a privately packed,byte-exact copy of all408
+existing workspace files with the actual initramfs and system namespace. All
+prior bytes,inodes and strict metadata fields preserve;one marker read atime is
+allowed only inside independently saved RTC/same-clock exit bounds. The same
+raw sidecar and source clone remain sealed outside build. This confirms the
+import fix for this saved tree in the VM;native preservation and No-Op completion
+still require the next matching physical session. No radio is emulated or accepted.
+
+Kernel/initramfs/firmware equality,absence of packaged credentials and production
+linkage of the new restore/No-Op/fence functions pass. Preflight confirms the
+local model/adapter/UUID,all protected payload bytes,Ubuntu default and recovery,
+ordinary file/node headroom,and offline clean allocation/writable eligibility.
+A new exact raw baseline and candidate evidence are sealed in
+wifi-nop5-dispatch-dac05a8c. No old logs or acceptance/refusal capsules are pruned.
+The replacement install restored verified3c9 first,then retired only the failed
+56a EFI duplicate after complete172-file backup equality and removal of boot
+references. Release4a8 is installed,Ubuntu default and e47d recovery are verified,
+and no one-shot is armed yet. Accepted3c9/815/e17/v130/M1/e47d remain protected.
+
+The authorized next action is shutdown,Wi-Fi-only10second unplug while off,
+reconnect the same port,power on,workspace left connected. Guest progress/save/
+Ubuntu return are automatic. On return collect wifi-nop5-dispatch/run_root.py
+return_collect exactly once before any next run. Persist protocol outcome before
+storage verification,retain raw before/after metadata on refusal,and report actual
+GRUB arming state. No new native USB-boundary or ordinary networking acceptance.

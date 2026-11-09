@@ -139,3 +139,13 @@ refuses sequential import inode remaps. Both outcomes are sealed;no new boundary
 acceptance. Next bounded corrections are actual-route dispatch coverage and
 atomic same-mount persisted metadata restoration without aliasing outside nodes.
 The checker stays strict. Then repeat exact qualification and the cold trial.
+
+
+Corrected retry checkpoint:runtime dac05a8c/release4a8f81ad6daf73b4 passes fresh
+matched/relevant regressions,245 stage tests,seven fatal sanitizer groups,stack/
+full-prefix/storage/desktop/exact-image VMs. The extra exact-image VM preserves
+all408 actual workspace files and saved identities with the batch importer;
+only marker atime changes within proven RTC bounds. Native63+1 No-Op boundary
+and native metadata preservation remain pending the next cold run. Persistent
+encrypted transport,ordinary RX/IP/TCP/HTTP,lifecycle/UI and sustained reliability
+remain the completion milestones;this controller-only trial accepts none of them.
