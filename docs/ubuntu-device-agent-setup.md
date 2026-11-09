@@ -1259,3 +1259,10 @@ kernel metadata. This avoids repeatedly evicting app lifecycle receipts from the
 unchanged64KiB bootlog tail. Final collection still requires every sync/USB row
 and all original application timing/ownership receipts; no UART fragments are
 reconstructed and no deadline, log capacity or completion check is relaxed.
+
+Global-sync observation uses one auxiliary USB timing slot independent of the
+legacy logger/comparison slot. Starting or ending either leaves its peer intact;
+a nested begin in the same slot refuses. Both consume one captured callback and
+one controller metadata sample, with independent validity/overflow accounting.
+This permits observation across legitimate diagnostic-scope overlap without
+ending a foreign trace, issuing extra transfers or changing transport ownership.

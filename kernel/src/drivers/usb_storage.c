@@ -9,9 +9,9 @@
 
 static uint64_t save_irq(void);
 static void restore_irq(uint64_t flags);
-static bool timing_active;
-static struct usb_storage_timing timing;
-bool usb_storage_timing_enabled(void) { return timing_active; }
+static bool timing_active,aux_timing_active;
+static struct usb_storage_timing timing,aux_timing;
+bool usb_storage_timing_enabled(void) { return timing_active || aux_timing_active; }
 bool usb_storage_timing_begin(void) {
     uint64_t flags=save_irq();
     bool ok=!timing_active && timer_reference_ready();
@@ -23,51 +23,73 @@ void usb_storage_timing_end(struct usb_storage_timing *out) {
     if(out) *out=timing_active?timing:(struct usb_storage_timing){0};
     timing_active=false;restore_irq(flags);
 }
-static void timing_add(uint64_t *sum,uint64_t value) {
-    if(value>UINT64_MAX-*sum) timing.valid=false;
+/* Independent reserved observer: never resets or ends the legacy logger's
+ * window. This is diagnostic storage, not a second hardware request/queue. */
+bool usb_storage_timing_aux_begin(void) {
+    uint64_t flags=save_irq();bool ok=!aux_timing_active && timer_reference_ready();
+    if(ok){aux_timing=(struct usb_storage_timing){.valid=true};aux_timing_active=true;}
+    restore_irq(flags);return ok;
+}
+void usb_storage_timing_aux_end(struct usb_storage_timing *out) {
+    uint64_t flags=save_irq();
+    if(out)*out=aux_timing_active?aux_timing:(struct usb_storage_timing){0};
+    aux_timing_active=false;restore_irq(flags);
+}
+static void timing_add(struct usb_storage_timing *target,uint64_t *sum,uint64_t value) {
+    if(value>UINT64_MAX-*sum) target->valid=false;
     else *sum+=value;
 }
 static void timing_max(uint64_t *maximum,uint64_t value) {
     if(value>*maximum)*maximum=value;
 }
-static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
-                       uint32_t length,uint32_t *actual) {
-    if(!timing_active) return s->bulk(s->context,in,data,length,actual);
-    uint64_t start=timer_monotonic_us();
-    bool ok=s->bulk(s->context,in,data,length,actual);
-    uint64_t end=timer_monotonic_us();
-    timing_add(&timing.calls[phase],1);
-    if(!ok) timing_add(&timing.failures,1);
-    if(end<start) { timing.valid=false;return ok; }
+static void record_bulk(struct usb_storage_timing *target,unsigned phase,uint64_t start,
+    uint64_t end,bool ok,bool has_sample,const struct usb_bulk_timing *captured) {
+    timing_add(target,&target->calls[phase],1);
+    if(!ok) timing_add(target,&target->failures,1);
+    if(end<start) { target->valid=false;return; }
     uint64_t elapsed=end-start;
-    struct usb_storage_phase_timing *p=&timing.phase[phase];
-    timing_add(&timing.us[phase],elapsed);timing_max(&p->max_us,elapsed);
-    if(elapsed>20000)timing_add(&p->over20ms,1);
-    if(elapsed>100000)timing_add(&p->over100ms,1);
-    if(elapsed>1000000)timing_add(&p->over1s,1);
-    if(s->transfer_timing) {
-        struct usb_bulk_timing sample={0};s->transfer_timing(s->context,&sample);
+    struct usb_storage_phase_timing *p=&target->phase[phase];
+    timing_add(target,&target->us[phase],elapsed);timing_max(&p->max_us,elapsed);
+    if(elapsed>20000)timing_add(target,&p->over20ms,1);
+    if(elapsed>100000)timing_add(target,&p->over100ms,1);
+    if(elapsed>1000000)timing_add(target,&p->over1s,1);
+    if(has_sample) {
+        struct usb_bulk_timing sample=*captured;
         if(sample.seen) {
             if(sample.submitted<start || sample.observed<sample.submitted ||
-               sample.resumed<sample.observed || sample.resumed>end)timing.valid=false;
+               sample.resumed<sample.observed || sample.resumed>end)target->valid=false;
             else {
                 uint64_t observe=sample.observed-sample.submitted,resume=sample.resumed-sample.observed;
-                timing_add(&p->observed_calls,1);
-                timing_add(&p->observe_us,observe);timing_add(&p->resume_us,resume);
+                timing_add(target,&p->observed_calls,1);
+                timing_add(target,&p->observe_us,observe);timing_add(target,&p->resume_us,resume);
                 if(!sample.service_valid || !sample.service_checks ||
                    sample.service_samples!=(sample.service_checks-1)/256+1 ||
                    sample.service_gap_max_us>observe || sample.completion_gap_us>sample.service_gap_max_us ||
-                   observe/(sample.service_samples+1)+(observe%(sample.service_samples+1)!=0)>sample.service_gap_max_us)timing.valid=false;
+                   observe/(sample.service_samples+1)+(observe%(sample.service_samples+1)!=0)>sample.service_gap_max_us)target->valid=false;
                 else {
-                    timing_add(&p->service_checks,sample.service_checks);
-                    timing_add(&p->service_samples,sample.service_samples);
+                    timing_add(target,&p->service_checks,sample.service_checks);
+                    timing_add(target,&p->service_samples,sample.service_samples);
                     timing_max(&p->service_gap_max_us,sample.service_gap_max_us);
                     timing_max(&p->completion_gap_max_us,sample.completion_gap_us);
                 }
                 timing_max(&p->observe_max_us,observe);timing_max(&p->resume_max_us,resume);
             }
-        } else if(ok) timing.valid=false; /* An instrumented success must have an event. */
+        } else if(ok) target->valid=false; /* An instrumented success must have an event. */
     }
+}
+static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
+                       uint32_t length,uint32_t *actual) {
+    bool legacy=timing_active,auxiliary=aux_timing_active;
+    if(!legacy && !auxiliary)return s->bulk(s->context,in,data,length,actual);
+    uint64_t start=timer_monotonic_us();
+    bool ok=s->bulk(s->context,in,data,length,actual);
+    uint64_t end=timer_monotonic_us();
+    struct usb_bulk_timing sample={0};
+    if(s->transfer_timing)s->transfer_timing(s->context,&sample);
+    /* Capture once, then copy the same observation into independent windows.
+     * No additional bulk/controller request or event-service operation. */
+    if(legacy)record_bulk(&timing,phase,start,end,ok,s->transfer_timing!=0,&sample);
+    if(auxiliary)record_bulk(&aux_timing,phase,start,end,ok,s->transfer_timing!=0,&sample);
     return ok;
 }
 

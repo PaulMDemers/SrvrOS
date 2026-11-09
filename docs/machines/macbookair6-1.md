@@ -9915,3 +9915,22 @@ Keep global barriers, full prefix/readback/rename/failure protection, buffer and
 transport bounds,500ms loop,10s lifecycle and1800s endurance unchanged. A
 serialized USB completion or service delay must be measured before choosing its
 fix; merely omitting persistence work is not an optimization candidate.
+
+
+The phase observer needs a separate fixed USB observation window: the existing
+logger may retain its diagnostic scope across a quiescent scheduling gap while
+a user's `SYS_SYNC` starts. Reusing that scope correctly refused overlaps but
+made the new observation unavailable. Add one auxiliary observation slot that
+never resets/ends the legacy slot. Capture each existing callback/controller
+sample once and accumulate it independently into active slots; neither slot
+creates a transfer or grants I/O ownership. Nested begins within a slot still
+refuse. Overlap, independent end, foreign preservation, isolated overflow and
+single-callback/single-sample regressions are required. BOT16KiB commands,
+4KiB DMA segments, quarantine, flush and controller/scheduler behavior stay.
+
+Keep periodic sync output to counters; full retained worst-call/USB detail is
+final-only so the unchanged64KiB tail can preserve app receipts. Three earlier
+VM runs with verbose dumps retained incomplete app proof; the compact TCG
+repeat retains complete app records but fails its500ms loop bound at539323us
+(516079us render) and also exposes the diagnostic-scope conflict. These attempts
+remain failures. No native trial is armed, and no criterion or limit is relaxed.

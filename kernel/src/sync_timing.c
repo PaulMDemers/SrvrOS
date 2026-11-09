@@ -28,11 +28,11 @@ bool sync_timing_enable(void) {
 }
 bool sync_timing_enabled(void) { return observed.enabled!=0; }
 static void start_usb(void) {
-    tracing=usb_storage_timing_begin();
+    tracing=usb_storage_timing_aux_begin();
     if(!tracing) {struct sync_timing_record *r=&observed.records[slot];add(r,&r->conflicts,1);r->invalid=1;}
 }
 static void end_usb(void) {
-    if(tracing)usb_storage_timing_end(&current.usb[phase]);
+    if(tracing)usb_storage_timing_aux_end(&current.usb[phase]);
     tracing=false;
     if(!current.usb[phase].valid)observed.records[slot].invalid=1;
 }

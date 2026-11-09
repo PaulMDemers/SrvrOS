@@ -10,8 +10,8 @@ static bool reference=true,busy;
 static unsigned starts,ends;
 uint64_t timer_monotonic_us(void){return now;}
 bool timer_reference_ready(void){return reference;}
-bool usb_storage_timing_begin(void){starts++;if(busy)return false;busy=true;return true;}
-void usb_storage_timing_end(struct usb_storage_timing *s){assert(busy);busy=false;ends++;*s=(struct usb_storage_timing){.valid=true};s->calls[1]=1;s->us[1]=4;}
+bool usb_storage_timing_aux_begin(void){starts++;if(busy)return false;busy=true;return true;}
+void usb_storage_timing_aux_end(struct usb_storage_timing *s){assert(busy);busy=false;ends++;*s=(struct usb_storage_timing){.valid=true};s->calls[1]=1;s->us[1]=4;}
 static void call(uint64_t pid,uint64_t start,uint64_t mid,uint64_t end,bool file_ok,bool device_ok){
  now=start;assert(sync_timing_begin(pid));now=mid;sync_timing_files_done(file_ok);now=end;sync_timing_end(device_ok);
 }
