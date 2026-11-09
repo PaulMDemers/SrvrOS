@@ -179,3 +179,13 @@ It is installed for the next authorized cold run;native stream acceptance remain
 pending. Original-key70-request/64-echo RX+TX boundary proof is the next gate,
 followed by production-stack receive and data/lifecycle milestones above. See the
 unit record for immutable evidence,recovery and collect-first instructions.
+
+The unchanged v135 retry reaches authentication and one real RX fence,but stops
+at its first DHCP wait;the full native gate remains failed. The new explicit
+v136 variant permits one bounded Discover retransmission with fresh PN and keeps
+categorical DHCP counters. Runtime38f2d76a/release8529308170250844 passes matched
+selected regressions,sanitizers,506-rejection full-prefix proof,stack/storage and
+exact-image VMs including414 prior files and identities. It is installed for the
+next cold trial;native70/71-request/64-echo and TX-boundary acceptance is pending.
+The original no-retry profiles stay separate. Production RX/IP/TCP/HTTP,lifecycle
+and broad reliability above remain required before daily-use completion.

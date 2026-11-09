@@ -15956,3 +15956,50 @@ build/USB/logger/storage/crypto/metadata/exact-image qualification remain pendin
 No new image is installed or armed;release606 remains current and both failed
 native capsules remain failed. A fresh read-only workspace clone retains414
 prior files and metadata for the next disposable exact-image preservation gate.
+
+### v136 qualified and installed for native DHCP/data validation (November 8)
+
+Runtime38f2d76a/release8529308170250844 completes the matched kernel/USB and
+selected historical/new controller,crypto/IP/provider/ordinary-stack models,
+scheduler/IRQ/process/capture,metadata,storage/logger and new main sync-observer
+regressions. The runner's nonexistent fsync target is retained as an incomplete
+nonzero invocation;all other requested goals completed,and the corrected actual
+file-fsync target passed separately. The aggregate record lists both executions;
+no source failure or full-core rerun is claimed.252 stage/profile cases,eight
+actual-main dispatch groups and both legacy/new checker suites pass.
+
+Four fatal ASan/UBSan/leak groups pass,including source-bound original-key71-pair
+native fixture and independent retry/legacy protocol fixtures. Native sanitizer
+exits0 in65.81seconds with all210 compiled inputs unchanged. The new stream frame
+is264bytes;measured Wi-Fi/filesystem frames stay below4096bytes. Integrated
+observer/logger maximum is7304bytes against131072-byte scheduler stacks;this is
+an individual-frame measurement,not a complete call-chain or latency claim.
+Conservative actual-C child bound29346 plus the immutable2033563-byte parent
+leaves34243bytes,including the required32768-byte reserve. Actual full-parent
+prefix is2049184bytes and506 missing/duplicate child receipts refuse.
+
+Real2MiB filesystem write/read/remount,ordinary desktop,exact staged GPT and
+missing-workspace VMs pass. The private exact414-file workspace-clone VM preserves
+all prior contents and saved identities/metadata,apart from the expected marker
+atime within independent RTC bounds. Source/payload,all qualification/agent proof
+artifacts and a fresh414-file native baseline are independently sealed outside
+build in wifi-stream5-dhcp-38f2d76a. This is software/emulated qualification;
+v136 native70/71-request/64-echo and TX-boundary acceptance remain pending.
+
+Installation first restored verified accepted4a,then retired only failed606's
+unreferenced EFI duplicate after complete203/99-file native/payload backup
+equality and no GRUB/NVRAM reference. Both failures and separate5-file reviews
+remain immutable. Accepted4a/3c9/815/e17/v130 and Ubuntu/e47d recovery remain
+installed and verified. New8529 is installed;Ubuntu default unchanged;still
+unarmed at this checkpoint. UUID0E53-5900,exact local model/adapter,offline clean
+allocation/filesystem,writable and node headroom pass.
+
+Authorized next action is the qualified cold shutdown with30second instruction
+delay:unplug only Wi-Fi10seconds while off,reconnect same port,power on,workspace
+left connected. Guest progress/save/Ubuntu return are automatic. Collect the new
+matching session FIRST exactly once with build/bringup/wifi-stream5-dhcp/run_root.py
+return_collect. Inspect specific DHCP categorical counters and original-key
+continuousPN70/71,real RX/TX fences,64 exact replies,whole parent/ledger retirement
+and independent storage/recovery proof. Missing completion or any refusal is not
+a pass;do not perform another identical blind retry. Ordinary networking,TCP/HTTP,
+command reuse,connection epochs/reattachment/UI and reliability remain later gates.
