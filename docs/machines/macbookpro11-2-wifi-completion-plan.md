@@ -276,3 +276,11 @@ In parallel, a pure fixed-storage exactHTTP helper/request builder and directed
 unit tests are authorized in new userspace/wifihttpprobe/http_exact.{c,h} and
 tools/test_http_exact.c only; root owns Makefile integration. This software-only
 scope neither changes ordinary callers nor arms a physical HTTP test.
+
+The same bounded scope now includes observation-only firstjoin phase outcomes
+and dormant finite TCP primitives. Connect is strictly cache-only on ARP miss
+(AGAIN with no packet/slot/port mutation); send admits at most one bounded chunk
+without poll/wait/yield. Existing ordinary API callers stay unchanged. Firstjoin
+reply windows/parsing/ownership remain strict; unsupported frame length is not
+packet identity. Independent host fixtures cannot accept genuine process/IRQ
+or nativeHTTP behavior. Root serializes shared tests, staging and hardware.

@@ -99,6 +99,20 @@ Independent agents audit the failed exchange and storage. Next finite TCP API
 work must preserve ordinary callers and publish its exact route/refusal contract
 before edits. HTTP/native process/timer/service/lifecycle acceptance remains open.
 
+Additional bounded scope: first-owner join5 diagnostics record existing per-phase
+outcomes, clocks and bounds without extra hardware reads, retries, changed reply
+windows or weaker management parsing. Owned files are mt76_join5.{c,h},
+xhci_wifi_join5.inc and join5 unit/saved-log tests; root serializes integration.
+The unsupported172-byte packet is not evidence of an association reply or M1.
+
+Separately add dormant `net_connect_try` and `net_respond_try_checked` APIs in
+net.c/net.h with directed host unit coverage. Connect requires a real current
+process and cached next-hop MAC; a cache miss returns AGAIN without ARP, SYN,
+slot or port allocation. Send admits at most one existing MSS/window/history-
+bounded chunk. Both omit polling, waits and yields. Existing ordinary callers
+and frontend routing remain unchanged until separate directed qualification.
+Host process stubs prove code paths only, not genuine process or timer ownership.
+
 TCP/HTTP follows with a distinct process/worker/service-isolated profile and
 measured credits. Ordinary svscan treats net.initialized as readiness and may
 launch webd/file logging on the first yield; it cannot be assumed absent. Native
