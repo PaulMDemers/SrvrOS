@@ -64,7 +64,10 @@ bool block_write(struct block_device *d, uint64_t o, const void *p, uint64_t n) 
     if(writes==crash_at) { fsync(fd); _exit(77); }
     return true;
 }
-static bool flush(struct block_device *d) { (void)d; flushes++; if(flushes==fail_flush_at) failed=true; if(failed || fsync(fd)) return false;
+static bool flush(struct block_device *d) { (void)d; flushes++;
+    if(getenv("SRVROS_TRACE_WRITES"))printf("flush-trace: call=%u\n",flushes);
+    if(flushes==fail_flush_at) failed=true;
+    if(failed || fsync(fd)) return false;
     if(flushes==crash_flush_at)_exit(78);
     return true; }
 /* Advertise transport capabilities for the eligibility predicate, but never
