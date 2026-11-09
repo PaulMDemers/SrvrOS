@@ -132,4 +132,3 @@ TP clear does not retire posted writes, prefetch, caches, translations or other
 readers, and BME remains enabled. All eight completion obligations (mask255),
 firmware/SMM ownership, GGTT transfer, zero managed pages and no physical
 tear-free grant remain. A future operation needs fresh same-lifetime authority.
-
