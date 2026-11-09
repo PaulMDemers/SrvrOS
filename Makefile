@@ -2075,7 +2075,7 @@ test-core: test-latency test-workqueue test-serial
 .PHONY: test-io-scheduler
 test-io-scheduler: build/tests/io-scheduler-host$(HOST_EXE)
 	$<
-build/tests/io-scheduler-host$(HOST_EXE): tools/test_io_scheduler.c kernel/src/scheduler.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/io-scheduler-host$(HOST_EXE): tools/test_io_scheduler.c kernel/src/scheduler.c kernel/src/capture_gate_timing_state.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-io-scheduler

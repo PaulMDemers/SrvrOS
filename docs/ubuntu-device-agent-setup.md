@@ -1215,3 +1215,25 @@ report and returns to Ubuntu. Uncertain ownership halts visibly before USB/user
 reuse; photograph it and restart Ubuntu. A halt, missing receipt, missing saved
 reference or missing whole-trial completion is a failure or incomplete evidence.
 No native acceptance is inferred from host/VM fixtures.
+
+
+### Explicit screenshot write-admission timing
+
+The existing `--capture-write-timing` stress-only flag also retains fixed-storage
+admission companions for each exact kernel-identified screenshot worker. The
+scheduler records each wait's complete blocked/READY/running wall partition and
+all overlapping outermost I/O scopes; nested scopes do not double-count. Per-PID
+totals and the worst wait's longest overlapping owner survive worker retirement.
+Stable thread identity, PID, syscall and scope/overlap clocks are correlation
+evidence, not a grant of I/O eligibility or a complete trace of foreign operations.
+Hooks allocate and print nothing. There are at most eight active observations;
+missing, unfinished, invalid or overflowing evidence fails strict collection.
+Ordinary boot remains disabled and original recipes/configuration hashes remain
+unchanged. `capture_gate_timing` validates companions against the selected final
+raw-write snapshot; completed gates must fit the enclosing raw gate spans.
+
+The next native run must retain all three exact BMP byte/write records and these
+companions in addition to the unchanged1800-second PCM, USB readback/receipt,
+three-screenshot,500ms loop,10s lifecycle, ownership and retirement requirements.
+This diagnostic alone accepts no latency fix, allocation shortcut, scheduler
+policy change or sibling hardware support.
