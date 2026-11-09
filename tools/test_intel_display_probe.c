@@ -41,6 +41,12 @@ static enum intel_gt_write intel_display_test_bcs_write(uint32_t,uint32_t);
 #endif
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 static const char *engine_mode="report";
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+static bool prepare_exit_fault(const char *mode) {
+ const char *colon=strchr(engine_mode,':');
+ return colon && !strncmp(engine_mode,mode,strlen(mode)) && prepare_stores==(unsigned)atoi(colon+1);
+}
+#endif
 #endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
 static bool bcs_entry_disabled;
@@ -359,7 +365,11 @@ uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
     if(d==&devices[1])return off==0?0x9cc38086:0;
     switch(off) {
     case 0:return 0x16268086;case 4:return 0x00100006;case 8:return 0x03000009;
-    case 0xfc:return gt_bad_pci?UINT32_MAX:gt_mode?0x12345000:0;case 0xe8:return gt_mode?0x8000:0;
+    case 0xfc:
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+        if(prepare_exit_fault("prep-exit-endpoint"))return 1;
+#endif
+        return gt_bad_pci?UINT32_MAX:gt_mode?0x12345000:0;case 0xe8:return gt_mode?0x8000:0;
     case 0x10:return 0xc0000004;case 0x18:return 0xb000000c;case 0x2c:return 0x011b106b;
     case 0x50:return window_mode?0x2c0:0x140;case 0x5c:return window_mode?0x8c000001:0x90000001;
     case 0x34:return 0x40;case 0x40:return malformed?0x00034001:0x00030001;
@@ -496,6 +506,9 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
         if(off>=0x100000 && off<0x100100){unsigned i=(off-0x100000)/8;uint64_t f=i?0:cache_mode?0x021ff02f00000001ull:((uint64_t)(5554176-4096+47)<<32)|1;*value=(uint32_t)(f>>((off&4)?32:0));}
         else if(off>=0x800000 && off<0x803000){unsigned i=(off-0x800000)/8;*value=(uint32_t)(((window_mode?0x8c001001ull:0x90000001ull)+4096ull*i)>>((off&4)?32:0));}
         else assert(0);
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+        if(prepare_exit_fault("prep-exit-backing") && off>=0x800000 && !(off&7))*value^=4096;
+#endif
         mmio_reads++;return true;
     }
     assert(intel_capture_offset_allowed(off));mmio_reads++;*value=0;
@@ -532,6 +545,26 @@ static void reset(void) {
 }
 int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
+    if(argc==2 && !strcmp(argv[1],"--guard-endpoint")) {
+        reset();backing_mode=true;memory.entry_count=3;
+        intel_display_probe_boot(&frame);intel_display_backing_probe_boot(&frame);
+        struct gt_observer g={0};assert(trial_adapter(&g.a));
+        assert(display_access_acquire(0x47544550,&g.token));wake_irq=true;
+        struct intel_gt_endpoint e={0};assert(gt_guard_endpoint(&g,&e) && e.mmio==0xc0000000 && !e.asls && !e.swsci);
+        unsigned reads=mmio_reads;
+        struct limine_framebuffer *fb=g.a.fb;g.a.fb=&frame;
+        assert(!gt_guard_endpoint(&g,&e) && mmio_reads==reads);g.a.fb=fb;
+        const struct pci_device *pch=g.a.common.pch;g.a.common.pch=g.a.common.gpu;
+        assert(!gt_guard_endpoint(&g,&e) && mmio_reads==reads);g.a.common.pch=pch;
+        const struct pci_device *gpu=g.a.common.gpu;g.a.common.gpu=pch;
+        assert(!gt_guard_endpoint(&g,&e) && mmio_reads==reads);g.a.common.gpu=gpu;
+        g.a.common.cr3=0x2000;assert(!gt_guard_endpoint(&g,&e) && mmio_reads==reads);g.a.common.cr3=0x1000;
+        g.a.mapped=true;assert(!gt_guard_endpoint(&g,&e) && mmio_reads==reads);g.a.mapped=false;
+        gt_bad_pci=true;assert(gt_guard_endpoint(&g,&e) && e.asls==UINT32_MAX && mmio_reads>reads);
+        assert(display_access_release(&g.token,true));reads=mmio_reads;
+        assert(!gt_guard_endpoint(&g,&e) && mmio_reads==reads);
+        puts("guard-endpoint: PASS fresh full census, adapter binding, direct firmware registers and no reusable authority");return 0;
+    }
     if(argc==2 && !strcmp(argv[1],"--backing-batch-provider")) {
         reset();backing_mode=true;memory.entry_count=3;
         intel_display_probe_boot(&frame);intel_display_backing_probe_boot(&frame);

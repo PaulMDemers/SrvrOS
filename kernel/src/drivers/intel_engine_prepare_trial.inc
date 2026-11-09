@@ -6,37 +6,66 @@ struct engine_prepare_trial {
  unsigned samples,plane_reads;
  uint64_t begin,end;
 };
-struct engine_prepare_adapter {struct wake_adapter *a;struct intel_gt_access *g;struct engine_prepare_trial *trial;};
-static bool eprepare_guard(void *ctx) {return engine_guard(((struct engine_prepare_adapter *)ctx)->a);}
+struct engine_prepare_adapter {struct wake_adapter *a;struct intel_gt_access *g;struct engine_prepare_trial *trial;bool failed;};
+/* Core bookkeeping does not issue target accesses. Every provider below owns
+ * its full entry/exit backing validation; these fresh checks keep the core's
+ * before/after parent and clock brackets live without repeating that census.
+ * No successful guard is cached or carried into the next callback. */
+static bool eprepare_guard(void *ctx) {
+ struct engine_prepare_adapter *p=ctx;struct wake_adapter *a=p->a;
+ if(p->failed || a->uncertain || !wake_irq_off() || p->g!=p->trial->action.parent ||
+    a->fw.gt.a.mapped || !display_access_held(&a->fw.gt.token) ||
+    !intel_boot_check(INTEL_BOOT_OBSERVER,a->fw.gt.a.common.gpu) ||
+    vmm_current_address_space()!=a->fw.gt.a.common.cr3)return false;
+ uint64_t physical;
+ if(vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,BACKING_VA,&physical))return false;
+ for(unsigned i=0;i<WAKE_MAPS;i++)if(!a->mapped[i] ||
+    !vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,WAKE_VA+4096*i,&physical) ||
+    physical!=result.mmio_base+wake_pages[i])return false;
+ return engine_requesters(a);
+}
+static bool eprepare_enter(struct engine_prepare_adapter *p) {
+ return eprepare_guard(p) && engine_guard(p->a);
+}
+static void eprepare_exit(struct engine_prepare_adapter *p) {
+ /* Keep completion prefixes: a failed full exit is delivered by the next core
+  * guard, after the core accounts the completed loads/stores. Never retry it. */
+ if(!engine_guard(p->a)){p->failed=true;p->a->uncertain=true;}
+}
 static uint64_t eprepare_now(void *ctx) {return now(((struct engine_prepare_adapter *)ctx)->a);}
 static void eprepare_pause(void *ctx) {(void)ctx;wake_pause(NULL);}
 static bool eprepare_sample(void *ctx,uint32_t out[6],unsigned *count) {
- return takeover_sample(((struct engine_prepare_adapter *)ctx)->a,out,count);
+ struct engine_prepare_adapter *p=ctx;
+ if(!eprepare_guard(p))return false;
+ bool ok=takeover_sample(p->a,out,count);eprepare_exit(p);return ok;
 }
 static bool eprepare_control(void *ctx,unsigned e,uint32_t *out) {
  struct engine_prepare_adapter *p=ctx;struct wake_adapter *a=p->a;
- if(e>=5 || !out || !engine_guard(a) || !completion_mapping(a,e+3) || !engine_requesters(a))return false;
+ if(e>=5 || !out || !eprepare_enter(p) || !completion_mapping(a,e+3) || !engine_requesters(a))return false;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
- return intel_display_test_takeover_read(e,takeover_registers[e],out);
+ bool ok=intel_display_test_takeover_read(e,takeover_registers[e],out);
 #else
- *out=*(volatile const uint32_t *)(WAKE_VA+(e+3)*4096+0xd0);return true;
+ *out=*(volatile const uint32_t *)(WAKE_VA+(e+3)*4096+0xd0);bool ok=true;
 #endif
+ eprepare_exit(p);return ok;
 }
 static enum intel_gt_write eprepare_transition(void *ctx,unsigned e,uint32_t value,uint32_t *out) {
  struct engine_prepare_adapter *p=ctx;struct wake_adapter *a=p->a;
  if(e>=5 || !out || (value!=INTEL_ENGINE_PREPARE_REQUEST && value!=INTEL_ENGINE_PREPARE_CANCEL) ||
-    !engine_guard(a) || !completion_mapping(a,e+3) || !engine_requesters(a))return GT_WRITE_NONE;
+    !eprepare_enter(p) || !completion_mapping(a,e+3) || !engine_requesters(a))return GT_WRITE_NONE;
  /* Full admission must finish inside the dependent deadline BEFORE issue.
   * Do not use the parent's longer deadline to authorize a late target store. */
  uint64_t at=eprepare_now(ctx);const struct intel_engine_prepare_result *r=&p->trial->action;
  if(!at || at<r->last_us || at<r->begin_us || at-r->begin_us>INTEL_ENGINE_PREPARE_TOTAL_US)return GT_WRITE_NONE;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
- return intel_display_test_prepare_transition(e,value,out);
+ enum intel_gt_write wrote=intel_display_test_prepare_transition(e,value,out);
+ if(wrote==GT_WRITE_DONE)eprepare_exit(p);
+ return wrote;
 #else
  volatile uint32_t *reg=(volatile uint32_t *)(WAKE_VA+(e+3)*4096+0xd0);
  __asm__ volatile("mfence":::"memory");*reg=value;__asm__ volatile("mfence":::"memory");
  if(!engine_requesters(a))return GT_WRITE_UNCERTAIN;
- *out=*reg;return GT_WRITE_DONE;
+ *out=*reg;eprepare_exit(p);return GT_WRITE_DONE;
 #endif
 }
 static bool eprepare_planes(struct wake_adapter *a,struct intel_gt_access *g,struct engine_prepare_trial *t,unsigned n) {
@@ -74,6 +103,7 @@ static bool eprepare_planes(struct wake_adapter *a,struct intel_gt_access *g,str
 }
 static bool eprepare_preserve(void *ctx,const struct intel_completion_result *pre) {
  struct engine_prepare_adapter *p=ctx;struct engine_prepare_trial *t=p->trial;
+ if(!eprepare_enter(p))return false;
  if(!intel_completion_observe(&t->post,p->g,(struct intel_completion_io){p->a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE}) ||
     !eprepare_planes(p->a,p->g,t,1) || t->post.engine_epoch!=pre->engine_epoch)return false;
  for(unsigned n=0;n<2;n++) {
@@ -82,11 +112,11 @@ static bool eprepare_preserve(void *ctx,const struct intel_completion_result *pr
  }
  for(unsigned pidx=0;pidx<3;pidx++)for(unsigned i=0;i<9;i++)if(t->planes[0][pidx][i]!=t->planes[1][pidx][i])return false;
  for(unsigned i=0;i<10;i++)if(t->audio[0][i]!=t->audio[1][i])return false;
- return t->samples==2 && t->plane_reads==54;
+ bool ok=t->samples==2 && t->plane_reads==54;eprepare_exit(p);return ok;
 }
 static void eprepare_run(struct wake_adapter *a,struct intel_gt_access *g,const struct intel_takeover_result *pre,struct engine_prepare_trial *t,bool policy) {
  if(!eprepare_planes(a,g,t,0))return;
- struct engine_prepare_adapter p={a,g,t};
+ struct engine_prepare_adapter p={.a=a,.g=g,.trial=t};
  (void)intel_engine_prepare(&t->action,g,pre,policy,(struct intel_engine_prepare_io){&p,eprepare_guard,eprepare_sample,eprepare_control,eprepare_transition,eprepare_preserve,eprepare_now,eprepare_pause});
  if(t->action.uncertain || t->action.borrow.active || (t->action.reason&IEP_PARENT))a->uncertain=true;
 }

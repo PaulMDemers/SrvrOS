@@ -122,7 +122,12 @@ static void wake_irq_restore(uint64_t flags) {
 static bool wake_guard(void *context) {
     struct wake_adapter *a=context;struct intel_gt_endpoint e;
     a->guards++;
-    if(a->uncertain || !wake_irq_off() || !gt_guard(&a->fw.gt) || !gt_endpoint(&a->fw.gt,&e) ||
+    if(a->uncertain || !wake_irq_off() ||
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+       !gt_guard_endpoint(&a->fw.gt,&e) ||
+#else
+       !gt_guard(&a->fw.gt) || !gt_endpoint(&a->fw.gt,&e) ||
+#endif
        e.asls!=a->fw.endpoint.asls || e.swsci!=a->fw.endpoint.swsci)return false;
     for(unsigned i=0;i<WAKE_MAPS;i++)if(a->mapped[i]) {
         uint64_t physical;if(!vmm_virt_to_phys_in_space(a->fw.gt.a.common.cr3,WAKE_VA+4096*i,&physical) || physical!=result.mmio_base+wake_pages[i])return false;

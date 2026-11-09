@@ -144,3 +144,30 @@ memory acceptance follows. The287,256 us outer interval is within500 ms; its
 start differs from the parent's300 ms clock, which records no fault. Do not
 attribute an owner overrun from the outer interval. Continue measured admission/
 preservation optimization while retaining every deadline and observation.
+
+## Consolidated native callback admission
+
+The native preparation adapter now gives each successful sample, control load,
+transition and preservation callback a full entry and exit backing/endpoint guard.
+The core's unchanged before/after checks use fresh IRQ exclusion, observer claim,
+current-root, exact alias and requester validation. They still check parent
+identity and clocks around the provider. This removes the duplicate full core
+census around a provider that already performs those same checks. No successful
+full guard is cached or carried to another callback; each provider starts anew.
+
+A failed full exit poisons the adapter permanently and retains native ownership.
+The provider still returns the completed load/store prefix, so the core counts
+the first ACK before its next guard reports failure. An uncertain write remains
+uncertain and is never replayed. Store admission still performs full validation
+and the original dependent clock check before the fenced DWORD store; the first
+ACK phase budget includes all exit-validation time. The state machine, raw
+observations, preservation comparisons and every deadline remain unchanged.
+
+For this image only, wake admission also consumes the endpoint verified at the
+end of its full backing census within that same call. Framebuffer/PCH/GPU/CR3
+adapter binding is checked, then ASLS/SWSCI are read directly and compared to the
+firmware snapshot. This avoids a sixth complete endpoint walk after the five
+inside the census. No endpoint result survives the guard call. Other images
+retain their existing admission path. Host fault cases cover completed stores
+followed by endpoint/backing exit failures, and reject foreign adapters/tokens.
+Native timing and the full preparation lifetime remain pending physical evidence.

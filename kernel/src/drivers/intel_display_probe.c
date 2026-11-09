@@ -733,6 +733,20 @@ static bool gt_guard(void *context) {
        vmm_virt_to_phys_in_space(g->a.common.cr3,BACKING_VA,&old))return false;
     g->guards++;return intel_scanout_trial_revalidate();
 }
+#ifdef SRVROS_INTEL_ENGINE_PREPARE
+/* A successful full census already finishes with a fresh complete endpoint
+ * equal to the inherited one. Bind the original adapter to that same source,
+ * then read the two firmware request registers without a sixth endpoint walk.
+ * This result is local to this guard call, never a retained admission token. */
+static bool gt_guard_endpoint(struct gt_observer *g,struct intel_gt_endpoint *out) {
+    struct backing_adapter fresh;
+    if(!out || !trial_adapter(&fresh) || g->a.common.pch!=fresh.common.pch ||
+       g->a.fb!=fresh.fb || !gt_guard(g))return false;
+    *out=(struct intel_gt_endpoint){result.mmio_base,
+        pci_read_config32(g->a.common.gpu,0xfc),pci_read_config32(g->a.common.gpu,0xe8)};
+    return true;
+}
+#endif
 static bool gt_endpoint(void *context,struct intel_gt_endpoint *out) {
     struct gt_observer *g=context;struct intel_backing_endpoint b;
     if(g->a.mapped || !backing_endpoint(&g->a,&b) || !trial_endpoint_same(&b))return false;
