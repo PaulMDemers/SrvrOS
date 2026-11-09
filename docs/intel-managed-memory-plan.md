@@ -20,11 +20,12 @@ protected, including its unobserved tail. Neither the candidate window nor its
 physical targets are an allocator. The accepted private-RAM experiment also
 supplies no GPU-visible address or native transfer token.
 
-Main `928555f3` is integrated as `15c13b15`; its Air6,1 sync observations change
-shared syscall/storage/logging code. Qualification of this merged source is
-separate from physical acceptance of source `f68ab030`. PR433 owns further Air6,1
-sync diagnostics, PR19 owns Pro11,2 Wi-Fi and PR379 owns WebCore. None supplies
-an Air7,2 native graphics ownership grant.
+The first follow-up integrated main `928555f3` as `15c13b15`. The handoff lifetime
+correction subsequently integrates main `e85a6846` as `15f8dc84`, including Air6,1
+PR433 sync diagnostics. Its host/VM qualification remains separate from physical
+acceptance of source `f68ab030`; see the machine record for exact tested sources.
+PR19 Pro11,2 Wi-Fi and PR379 WebCore remain independent. None supplies an Air7,2
+native graphics ownership grant.
 
 ## Ordered implementation milestones
 

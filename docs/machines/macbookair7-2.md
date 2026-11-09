@@ -12,7 +12,8 @@ import caller storage changed during validation. Validation also ran before
 pinning admission or closing retirement admission. The corrected core seals the
 object, captures inputs, binds the provider for the lifetime, pins validation,
 rejects nested operations and closes reservations before retirement validation.
-Failed validation retains the original pin; successful close returns it once.
+Failed retirement validation retains the original pin; successful close returns
+it once.
 
 The same17-case test replay against saved original source311fd25c reproduces12
 failures; the corrected core passes all17 cases under fatal ASan/UBSan, and nine
