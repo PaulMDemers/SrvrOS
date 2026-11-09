@@ -10232,3 +10232,56 @@ backup/no-reference verification, only superseded EFI duplicate `13b77acfd182690
 may be archived to make installation room. Own USB, offline allocation/headroom,
 all719 prior file hashes and durable run/payload/evidence records must verify
 before one-shot reboot. All prior failed attempts retain their original status.
+
+
+### Native FAT-link batching regression accepted (2026-11-09)
+
+PR435 merge `bdc14461`, compiled source `c831012f`, release
+`8caa2866d8888e8c`, run `831a258cecf34f5a`, session
+`session-00065fd860fdb30a-00` completes the unchanged automated1800-second1%
+PCM/disk/app/three-screenshot trial. Automatic collection and independent raw
+saved-log parsers agree:1093 app cycles,3780 verified262144-byte bursts
+(990904320 bytes),345780224 PCM bytes, zero recorded underruns and worker/
+lifecycle errors.53447 valid loop observations have zero invalidity/excursions,
+129431us maximum loop and1955399/2307934us maximum launch/close, within the
+unchanged500ms/10s limits. Three exact1366x768 BMPs, follow-up Files, normal
+exit, battery/cache/app/capture retirement and automatic Ubuntu return pass.
+All719 prior files retain contents except expected filesystem metadata;
+728 files/2693 clusters have clean fsck/allocation with zero leaks/mismatches.
+Independent635-file durable evidence hashes and installed/recovery payloads
+verify. Subjective listening is unassessed at1%; prior25%30-second speaker
+acceptance remains separate.
+
+Complete retained sync/CSW/checkpoint/raw-write/gate observations pass with no
+active/invalid/conflicting/dropped/error records. Workload PID7 makes3780 global
+sync calls totaling14.536845s. Its slowest call takes1.831720s: file1.831313s,
+parent-device flush407us. File wall contains1.601202s USB callbacks,175414us
+existing checkpoints and54697us unassigned residual. The slowest retained CSW
+is a16384-byte WRITE(10),347970us callback; submission-to-software-observation
+347760us, observation-to-resume207us,41252 service checks/162 samples and14670us
+maximum sampled gap. This is software wall observation, not hardware completion
+or a media-fault diagnosis. Its correlated append1216305924–1218136981us writes
+524288 payload bytes with eight metadata write calls/432 bytes and ten flushes;
+these are observations of one operation, not a controlled cross-run comparison.
+The controlled host22→20 call reduction with identical media/barriers remains
+the command-reduction proof. Required data/prefix/flush work was not skipped.
+
+Raw screenshot worker PID11/484/964 gate totals14.942/7.842/8.577s remain much
+larger than roughly21ms handler totals. Their longest retained owners are PID7
+FSYNC, SYNC and SYNC respectively. Slowest screenshot25.810888s, receive
+6.450034s and WRITE15.320174s compare with prior27.058020/6.955717/16.709473s.
+One variable endurance run does not establish a stable latency improvement;
+screenshot completion remains open. This accepts native functional/integrity
+regression for the bounded FAT-link batching, not the end of latency work.
+
+Next bounded audit: remaining data/metadata write amplification in file-sync and
+append/sidecar persistence, retaining every prefix proof, required global/live-
+writer synchronization, zero-initialization/publication guarantee, full readback,
+flush/rename/failure/quarantine/ownership rule and existing transport/policy/
+watchdog/stress limit. No new implementation or boot starts in this closeout.
+Ubuntu stays default, one-shot entry is empty and collector disabled. Current
+`8caa2866d8888e8c`, accepted `53bbc1245abcc03d` and console recovery
+`c35475f62f154f1e` verify; superseded `13b77acfd1826907` remains independently
+backed up after removing only its unreferenced EFI duplicate for space. Required
+payload/evidence backups are outside build. Historical failed attempts retain
+failure status and no other model's acceptance changes.
