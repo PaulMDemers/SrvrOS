@@ -16870,3 +16870,33 @@ The next portable HTTP supervisor must atomically establish child retirement,
 TCP-empty/provider-drained state and stop admission, then verify post-stop drain.
 Its controlled e1000 VM precedes the next native test. Ubuntu remains unarmed;
 installed native acceptance is still source5b91/release689b only.
+
+
+## Controlled HTTP guest: first failures preserved
+
+Runtime `63633aca` passes the 60.32-second matched portable HTTP/child/e1000/
+worker/route/finite-TCP qualification with source inputs unchanged. Independent
+normal/fatal supervisor/client and driver reviews pass. Three actual guest
+attempts remain **failed**, with complete serial, peer and failure records.
+The first two stopped at DHCP; the second added packet capture with identical
+runtime bytes. Restricted libslirp supplied Offer/ACK options 53/54/1/51 while
+omitting required router 3 and DNS 6. The strict native parser correctly refused
+that incomplete configuration. Only the VM network setting was corrected.
+
+The third run completed DHCP and route preparation, delivered the exact
+4,159-byte HTTP request, and received/ACKed all 3,132 response bytes containing
+the expected 3,072-byte body. It still failed: no server FIN appeared in the
+packet capture, so the exact client waited for genuine EOF and eventually
+returned its unchanged check-cap error23. The guest FIN followed that failure;
+subsequent safe TCP/worker/child retirement is not HTTP acceptance. No byte count
+or local socket close is substituted for actual receive EOF. Source inspection
+identifies QEMU guestfwd's character-backend EOF semantics as the fixture issue.
+The parent returned quiescent with TCP tables empty in all three attempts.
+
+Next controlled fixture uses ordinary SLIRP TCP to a loopback peer inside a
+new unprivileged user/network namespace. Both QEMU and the peer share that
+namespace; it has only loopback, no external route, and can bind its own port80
+without host root or a host port80 listener. The VM-only numeric override changes
+from10.0.2.100 to10.0.2.2. The actual client, native DHCP/DNS/EOF validation and
+original traffic/time/check budgets remain unchanged. A complete guest pass is
+still required before another native boot; no physical run is armed.
