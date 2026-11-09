@@ -76,9 +76,11 @@ def check_part(part):
  assert b'http-network-vm: PASS actual ELF exact HTTP worker and terminal TCP proof; native Wi-Fi untested' in part
  assert b'http-network-vm: FAIL' not in part and b'exception:' not in part
  return {'workload':w,'guest':r}
-def command(iso,tmp,port):
+def command(iso,tmp,port,capture=None):
  assert 1024<=port<=65535
- return ['qemu-system-x86_64','-M','q35','-m','2G','-cdrom',str(iso),'-boot','d','-nic','none','-netdev',f'user,id=net0,restrict=on,guestfwd=tcp:10.0.2.100:80-tcp:127.0.0.1:{port}','-device','e1000,netdev=net0','-serial',f'unix:{tmp}/serial,server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot']
+ cmd=['qemu-system-x86_64','-M','q35','-m','2G','-cdrom',str(iso),'-boot','d','-nic','none','-netdev',f'user,id=net0,restrict=on,guestfwd=tcp:10.0.2.100:80-tcp:127.0.0.1:{port}','-device','e1000,netdev=net0','-serial',f'unix:{tmp}/serial,server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot']
+ if capture is not None:cmd+=['-object',f'filter-dump,id=httpcap,netdev=net0,file={capture}']
+ return cmd
 def self_test():
  peer=Peer().start()
  with socket.create_connection(('127.0.0.1',peer.port),3) as c:
@@ -104,12 +106,12 @@ def run_vm(root):
  from displayd_resolution_smoke import build_iso,read_for
  from vm_sockets import connect_unix
  out=root/'build/review/http-network';out.mkdir(parents=True,exist_ok=True)
- for name in ('result.json','serial.log','qemu.log','failure.json','peer.json'):(out/name).unlink(missing_ok=True)
+ for name in ('result.json','serial.log','qemu.log','failure.json','peer.json','network.pcap'):(out/name).unlink(missing_ok=True)
  output=bytearray();peer=Peer().start()
  try:
   with tempfile.TemporaryDirectory(prefix='srvros-http-network-vm-') as folder:
    tmp=Path(folder);iso=build_iso(str(root),str(tmp),1024,768,os.environ.copy(),root/'build/kernel/srvros.elf',root/'build/initramfs.tar',cmdline='srvros.http-child-preflight=1 srvros.http-network-vm=1 srvros.storage=ram')
-   cmd=command(iso,tmp,peer.port)
+   cmd=command(iso,tmp,peer.port,out/'network.pcap')
    with (out/'qemu.log').open('w') as errors:
     process=subprocess.Popen(cmd,stdout=errors,stderr=errors)
     try:
