@@ -15892,3 +15892,45 @@ Ubuntu default and e47d recovery reverify. Still unarmed at this checkpoint.
 On return use build/bringup/wifi-stream5-retry/run_root.py return_collect exactly
 once before any further work. A repeated earlier-parent drain refusal ends
 identical retries and requires an explicit cleanup change with its own evidence.
+
+### Stream entered;first DHCP wait expired (November 8)
+
+The single unchanged retry saved session00065fd01d80631f-00 (1893829bytes),
+collected exactly once into a separate99-file capsule. Calibration/discovery
+pass this time:eight normal RX completions,six inspected beacons and one selected
+Demers5 row. The stream owns real fresh rings,completes original authentication/
+association/M1–M4,activates one key context,and transmits one encrypted DHCP
+Discover. Six authenticated Ethernet frames are admitted. The real RX63 boundary
+performs exact Stop/Set-Dequeue and admits authenticated data afterward. These
+are partial observations,not full stream acceptance.
+
+The original two-second DHCP wait expires after234 polls with no accepted Offer.
+No retransmission exists in that diagnostic. Probe-private state is erased,
+keys are erased,leave sent,child endpoint/input restoration completes,borrowed
+loans balance69/69 and no transport fault/pending command remains. The unchanged
+whole-parent success gate still fails and final ledger retirement stays refused;
+retained resources are not promoted to a pass. All412 prior files/metadata,
+offline filesystem/allocation and protected payload/Ubuntu recovery checks pass.
+One-shot consumed;unarmed. Earlier203-file failure and5-file review are unchanged;
+no further identical retry is authorized by this bounded scope.
+
+Next bounded implementation is an explicit v136 streaming DHCP variant:one
+additional Discover only after a genuine bounded reply timeout,under the same
+original CCMP owner with fresh PN. Preserve default v135 and all historical
+six-request/no-retry gates. Keep80TX/252RX/four-fence/15second global bounds,
+64 exact echoes and all restoration/retention rules. Record existing categorical
+DHCP refusal/type/reflection counters without packet/key/address values;do not
+relax UDP/DHCP validation or guess why no Offer matched. Uncertain TX,ownership
+loss,clock rollback,poll exhaustion or safe send refusal cannot trigger retry.
+Native loss/delay/uncertainty fixtures need independent public encrypted71-pair
+vectors and strict saved-log checking. No new physical claim before qualification.
+
+Main b7d3927b's independent global-sync/USB observation change is integrated in
+c334b2df,preserving both Makefile test sets,the Pro logger-finish fixture and the
+Air sync fixture. Its timing diagnostics are opt-in;this Wi-Fi profile does not
+enable capture-write timing. New matched qualification must cover those shared
+storage/logger changes and the narrow DHCP variant together. Root owns serial
+build/stage/install/power,main/stager/Makefile/docs and independent collection.
+Disjoint agents own IP/probe retry semantics,actual transport/fixture binding,
+and public oracle/saved-log proof. Private standalone outputs only;no concurrent
+shared staging/build/VM harnesses and no source edits during final qualification.
