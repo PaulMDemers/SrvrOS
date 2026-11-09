@@ -32,7 +32,7 @@ class PrepareTests(unittest.TestCase):
   summary=next(l for l in text.splitlines() if l.startswith('intel-prepare-summary:'))
   for old,new in [('attempts=10','attempts=9'),('writes=10','writes=9'),('reads=34','reads=33'),('snapshots=4','snapshots=3'),('sample_attempts=4','sample_attempts=3'),('acks=10','acks=9'),('ready=31','ready=30'),('cancelled=31','cancelled=30'),('held=1','held=0'),('preserved=1','preserved=0'),('returned=1','returned=0'),('retained=0','retained=1'),('epoch=0','epoch=1'),('obligations=255','obligations=0'),('reset_writes=0','reset_writes=1'),('hardware_ownership=0','hardware_ownership=1')]:
    with self.subTest(old=old),self.assertRaises(ValueError):prepare_result(text.replace(summary,summary.replace(old,new)))
-  for old,new in [('n=0 first=3 last=3','n=0 first=3 last=0'),('s=1 n=6 d=3,3,3,3,3,0','s=1 n=6 d=3,3,3,3,0,0'),('intel-wake-summary: v=14','intel-wake-summary: v=13'),('engine_reads=230','engine_reads=229'),('intel-prepare-post-row: v=2 s=0 e=0 d=0,0,0,0,1,0,0,0','intel-prepare-post-row: v=2 s=0 e=0 d=1,0,0,0,1,0,0,0')]:
+  for old,new in [('n=0 d=3,3,0','n=0 d=3,0,0'),('s=1 n=6 d=3,3,3,3,3,0','s=1 n=6 d=3,3,3,3,0,0'),('intel-wake-summary: v=14','intel-wake-summary: v=13'),('engine_reads=230','engine_reads=229'),('intel-prepare-post-row: v=2 s=0 e=0 d=0,0,0,0,1,0,0,0','intel-prepare-post-row: v=2 s=0 e=0 d=1,0,0,0,1,0,0,0')]:
    self.assertIn(old,text)
    with self.subTest(old=old),self.assertRaises(ValueError):prepare_result(text.replace(old,new))
   for line in [l for l in text.splitlines() if l.startswith('intel-prepare-')]:

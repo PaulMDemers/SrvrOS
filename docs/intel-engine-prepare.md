@@ -57,7 +57,7 @@ Only the existing requester page and the five engine control pages are writable;
 GDRST, TLB and all three display pages remain RO/NX/UC. Dedicated receipts retain
 raw snapshot prefixes, first/final acknowledgements, per-phase polls, held and
 cancelled masks, failed clock samples/stage, complete raw post census and
-reader/HDA snapshots. Compact census rows preserve every DWORD while fitting
+reader/HDA snapshots. Compact census and v2 positional acknowledgement rows preserve every DWORD while fitting
 the existing log budget. Strict decoding independently checks coverage, order,
 raw preservation, inherited reader binding, clocks and zero unsupported grants.
 A summary flag alone cannot accept the operation.

@@ -98,7 +98,7 @@ static void eprepare_report(const struct engine_prepare_trial *t) {
   if(!r->counts[n])console_write("-");
   console_write("\n");
  }
- for(unsigned n=0;n<r->acks && n<10;n++)console_printf("intel-prepare-ack: v=1 n=%u first=%u last=%u polls=%u\n",(uint64_t)n,(uint64_t)r->ack[n],(uint64_t)r->final[n],(uint64_t)r->phase_polls[n]);
+ for(unsigned n=0;n<r->acks && n<10;n++)console_printf("intel-prepare-ack: v=2 n=%u d=%u,%u,%u\n",(uint64_t)n,(uint64_t)r->ack[n],(uint64_t)r->final[n],(uint64_t)r->phase_polls[n]);
  completion_report_named(&t->post,"intel-prepare-post");
  for(unsigned n=0;n<t->samples;n++) {
   for(unsigned p=0;p<3;p++) {

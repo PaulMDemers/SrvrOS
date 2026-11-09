@@ -1,6 +1,7 @@
 """Bounded all-engine prepare/hold/cancel; no reset or GPU-memory authority."""
 import re
 from intel_engine_census import _fields
+from intel_compact import compact_row
 FIELDS='v begin end epoch attempts writes reads polls snapshots sample_attempts acks ready cancelled blocked admitted held preserved uncertain returned borrowed retained reason stage index clock_at clock_prev plane_samples plane_reads complete obligations reset_writes pte_writes managed_pages hardware_ownership'.split()
 BOOL='blocked admitted held preserved uncertain returned borrowed retained complete'.split()
 def prepare_summary(line):
@@ -25,8 +26,8 @@ def prepare_result(text):
    if not m:raise ValueError('prepare row encoding')
    row=dict(sample=int(m[1]),words=_words(m[3],int(m[2])));rows.append(row);order.append(('r',row['sample']))
   elif line.startswith('intel-prepare-ack:'):
-   a=_fields(line,'intel-prepare-ack:',['v','n','first','last','polls'])
-   if a['v']!=1 or a['n']>=10 or max(a['first'],a['last'])>0xffffffff or a['polls']>256:raise ValueError('prepare acknowledgement width')
+   a=compact_row(line,'intel-prepare-ack:',[('n','n')],['first','last','polls'])
+   if a['v']!=2 or a['n']>=10 or max(a['first'],a['last'])>0xffffffff or a['polls']>256:raise ValueError('prepare acknowledgement width')
    acks.append(a);order.append(('a',a['n']))
   elif line.startswith('intel-prepare-post'):
    postlines.append(line.replace('intel-prepare-post','intel-completion',1));order.append(('p',))
