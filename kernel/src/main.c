@@ -30,6 +30,8 @@
 #include <srvros/intel_display_backing.h>
 #include <srvros/intel_scanout_trial.h>
 #include <srvros/audio.h>
+#include <srvros/audio_abi.h>
+#include <srvros/audio_stream_abi.h>
 #include <srvros/thermal.h>
 #include <srvros/power.h>
 #include <srvros/smc.h>
@@ -475,6 +477,66 @@ static void persist_bootlog(void) {
 
 static bool idle_capture_due(void *arg) { return timer_ticks()>=*(uint64_t *)arg; }
 
+/* Explicit listening capture only. Five immutable six-second channel fixtures;
+ * no disk stress, desktop or firmware probing. Failed retirement retains state. */
+static void audio_listen_pause(void) {
+    static struct scheduler_wait_queue wait;
+    uint64_t tick=timer_ticks()+1;
+    if(!scheduler_wait_timeout(&wait,idle_capture_due,&tick,tick))scheduler_yield();
+}
+static bool audio_listen_control(unsigned op,unsigned value) {
+    if(audio_request(op,value))return false;
+    uint64_t until=timer_monotonic_us()+2000000;
+    struct srv_audio_status s;
+    do {audio_status(&s);if(!s.pending)return s.state==SRV_AUDIO_READY && !s.error;
+        audio_listen_pause();}while(timer_monotonic_us()<until);
+    return false;
+}
+static bool audio_listen_capture(void) {
+    struct srv_audio_status s;audio_status(&s);
+    if(s.state!=SRV_AUDIO_READY || s.pending || (s.capabilities&SRV_AUDIO_CAP_PCM_BUSY)) {
+        console_write("audio-listen: REFUSED output unavailable/busy\n");return false;
+    }
+    console_write("Audio listening check: five 6-second LEFT / RIGHT / STEREO cycles at25%.\n"
+        "Listen only. Built-in quiet gaps are intentional. Automatic Ubuntu return.\n");
+    bool ok=audio_listen_control(SRV_AUDIO_OUTPUT,SRV_AUDIO_SPEAKERS) &&
+        audio_listen_control(SRV_AUDIO_VOLUME,25);
+    uint64_t begin=timer_monotonic_us(),deadline=begin+35000000,bytes=0,underruns=0;
+    unsigned completed=0;
+    for(unsigned i=0;ok && i<5;i++) {
+        console_printf("audio-listen: play=%u/5 seconds=6 volume=25\n",(uint64_t)i+1);
+        int64_t pid=process_spawn_background_elf_args_quiet("/fat/bin/playwav","/fat/share/examples/stereo.wav");
+        if(pid<1){ok=false;break;}
+        uint64_t status=1;int64_t result;
+        while((result=process_wait((uint64_t)pid,&status,true))==0 && timer_monotonic_us()<deadline)audio_listen_pause();
+        if(result==0) {
+            (void)audio_request(SRV_AUDIO_STOP,0);
+            (void)process_signal_target(pid,9);
+            uint64_t retire=timer_monotonic_us()+5000000;
+            while((result=process_wait((uint64_t)pid,&status,true))==0 && timer_monotonic_us()<retire)audio_listen_pause();
+            ok=false;
+        }
+        if(result==0) {
+            console_write("audio-listen: HALTED player retirement incomplete; live state retained\n");
+            console_sync();__asm__ volatile("cli":::"memory");halt_forever();
+        }
+        struct srv_pcm_status pcm;uint64_t owner;
+        audio_stream_snapshot(&pcm,&owner);
+        ok=ok && result==pid && status==0 && owner==0 && pcm.state==SRV_PCM_DONE &&
+            pcm.submitted_bytes==1152000 && pcm.underruns==0;
+        bytes+=pcm.submitted_bytes;underruns+=pcm.underruns;
+        if(ok)completed++;
+    }
+    bool stopped=audio_listen_control(SRV_AUDIO_STOP,0);
+    bool quiet=stopped && audio_listen_control(SRV_AUDIO_VOLUME,1);
+    uint64_t elapsed=timer_monotonic_us()-begin;
+    ok=ok && completed==5 && elapsed>=30000000 && elapsed<35000000 && quiet;
+    console_printf("audio-listen: result=%s plays=%u seconds=30 volume=25 bytes=%u underruns=%u elapsed_us=%u stopped=%s quiet=%s\n",
+        ok?"PASS":"FAIL",(uint64_t)completed,bytes,underruns,elapsed,stopped?"yes":"NO",quiet?"yes":"NO");
+    audio_print_status();return ok;
+}
+
+
 /* Explicit boot-only diagnostic, before runtime drivers or user processes.
  * The secondary VirtIO device never becomes the inherited display owner. */
 static void boot_virtio_gpu_probe(void) {
@@ -855,6 +917,7 @@ void kmain(void) {
     bool usb_read_battery=cmdline_has_token(cmdline,"srvros.capture=battery-usb-read");
     bool service_battery=filesystem_battery||usb_write_battery||usb_read_battery||cmdline_has_token(cmdline,"srvros.capture=battery-service");
     bool automatic_battery=home_battery||smbus_battery||query_battery||controls_battery||text_battery||desktop_battery||service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
+    bool automatic_audio_listen=cmdline_has_token(cmdline,"srvros.capture=audio-listen-30");
     bool automatic_posix=cmdline_has_token(cmdline,"srvros.capture=posix");
     bool automatic_storage_wait=cmdline_has_token(cmdline,"srvros.capture=storage-wait");
     bool automatic_hfw=cmdline_has_token(cmdline,"srvros.capture=haswell-firmware");
@@ -880,11 +943,11 @@ void kmain(void) {
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(intel_display_capture_requested || automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_storage_wait || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
+    if(automatic_audio_listen || intel_display_capture_requested || automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_storage_wait || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
-        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix && !automatic_ap && !automatic_hsw && !automatic_hfw;
+        bool sampled=!automatic_audio_listen && !automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix && !automatic_ap && !automatic_hsw && !automatic_hfw;
         if(intel_display_capture_requested) {
             sampled=intel_display_probe_report();
             bool backing_ok=intel_display_backing_probe_report();sampled=sampled && backing_ok;
@@ -949,6 +1012,7 @@ void kmain(void) {
             (void)battery_diagnostic_auto_return(false);
             if(workspace_parked&&!workspace_active())workspace_boot(cmdline);
         }
+        if(automatic_audio_listen && started && init_ready && timer_running)sampled=audio_listen_capture();
         if(automatic_posix && started && init_ready && timer_running) sampled=posix_capture_run();
         if(automatic_storage_wait && started && init_ready && timer_running) {
             sampled=workspace_storage_wait_capture();

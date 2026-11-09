@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-11-07. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-11-08. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 Current diagnostic milestone: the exact-source pre-user two-pass read-only
 sampler is physically accepted on release `2ddbd3b285f6bf41`. All24 DWORD reads
@@ -9103,3 +9103,524 @@ Native receipt replay and independent input hashes pass without test pins.
 Documentation validation checks1108 local links with zero errors; diff checks
 pass. The matched kernel/payload bytes remain those accepted in PR415; no new
 kernel or VM acceptance is claimed by this host-only change.
+
+### Ordinary desktop mapping-registry regression scope (2026-11-07)
+
+Base `d3472e06`, after the captured-capability audit. Objective: exercise the
+normal desktop/battery build after the shared mapping-registry changes, with
+the existing fully automatic30-minute PCM, verified USB disk work, Text/Files/
+System open/close cycles, three screenshots and normal retirement/return.
+Keep the existing500ms loop,10s app-cycle, screenshot, storage and integrity
+limits unchanged; use1% audio for this run. No VT-d diagnostic token, target
+MMIO access, translation command or power-policy change belongs in this profile.
+
+Scope is this unit's test preparation/evidence record; use the existing v74
+Air6,1 automation without changing runtime workload limits. Build the matched
+normal/native battery images and run core checks, populated-Home loaded VM,
+ordinary capture VM and exact-stage refusal/return rehearsal sequentially.
+Verify this unit, USB `6ADA-85BB`, Ubuntu and console recovery; retain accepted
+sampler `2ddbd3b285f6bf41` and known-good stress payload `012aaffda0be860b`.
+Publish validated preparation, self-merge, save durable run/collector records and
+run one automatic boot under the user's standing authorization. Native pass
+requires matching complete receipts, unchanged prior files and clean offline
+filesystem/allocation checks. PR301/PR19/PR379 retain independent scopes.
+
+
+### Desktop regression harness maintenance (2026-11-08)
+
+Full matched builds/core checks pass at `7dbfadd1` (89 installed-root tests,
+one expected skip). Pre-install VM failures revealed two harness issues, not
+accepted native regressions: the synthetic battery VM kernel was left at desktop
+protocol15 while current userspace requires18; the ordinary screenshot harness
+selected Return to console using an obsolete relative menu position after
+profile actions were added. Preserve both failed VM artifacts. Scope expands
+only to screenshot-harness menu navigation and explicit synthetic VM build
+preparation, plus guide clarification. Keep every workload/timeout/pixel/readback
+and retirement assertion unchanged; rerun both actual VM trials before staging.
+The runtime stays frozen at `7dbfadd1`; host-tool source is recorded separately.
+
+
+### Ordinary desktop regression prepared; VM limitations retained (2026-11-08)
+
+Frozen runtime `7dbfadd1` passes matched normal/native battery/ISO/USB builds
+and the full core suite, including89 installed-root tests with one expected skip.
+Host tools `f6276f06` fix the screenshot harness's menu selection; no guest
+runtime or limits change. Frozen normal/native ELF and initramfs hashes remain
+identical through VM preparation. Isolated sampler entrypoints are absent from
+both ordinary/native images.
+
+Rebuilding the explicit synthetic battery VM kernel resolves the protocol15/18
+fixture mismatch. The old menu harness's failure is also preserved; its corrected
+TCG run now passes exact pixels, immutable capture during typing, durable BMP
+readback, notification folder/Preview, repeated menu capture and clean exit.
+
+Two current-source loaded TCG runs **fail** the original500ms loop bound:
+540486us (3 excursions) and669527us. The first retained interval attributes
+486267us to rendering. These remain unresolved software-emulation performance
+failures; no renderer fix or TCG timing acceptance is claimed. The identical
+populated-Home/400-write-IOPS workload under KVM passes22 app cycles,193713us
+maximum loop,1559335us readiness and1639075us close, zero app errors/underruns,
+one complete screenshot, clean worker/cache/battery retirement and all67 prior
+fixture files. Both accelerators retain the same500ms/10s limits and disk work.
+KVM is the passing loaded preparation receipt, not a substitute TCG pass or a
+native observation. Native latency acceptance requires the physical result.
+
+Exact native v74 payload `c831655c4120352e` passes TCG GRUB→Limine chainload,
+explicit unsupported-Q35 refusal, file preservation, unmount and automatic
+return. Manifest source is the tested host-tool commit `f6276f06`; the unchanged
+runtime bytes are independently pinned to `7dbfadd1`. The physical trial keeps
+all existing30-minute PCM, verified disk overlap, automatic app/screenshot,
+loop/lifecycle and retirement requirements. The existing bounded60-second PCM
+tail remains valid; playback may extend only as the original producer permits.
+No VT-d/ECAM/Haswell capture token is present.
+
+Run `1fbeb56fc50f45f6` uses this unit's USB `6ADA-85BB`, with643 baseline files,
+145 directories and1725 clusters; filesystem, full allocation and headroom checks
+pass. Only the owned quiet-volume input is intentionally refreshed for1% audio;
+its previous bytes are preserved. The unreferenced failed-sampler EFI duplicate
+`0325ad569a8b0a83` was removed only after full independent backup/hash and GRUB
+reference checks; accepted sampler `2ddbd3b285f6bf41`, zero-load/single-window,
+known-good stress and console recovery remain retained. Ubuntu is the default,
+with recovery `c35475f62f154f1e` preserved. Install verification, final preflight,
+durable run/collector records and merged preparation must precede arming this
+one automatic boot. No physical pass is inferred from this preparation.
+
+
+### Native ordinary desktop regression fails render-loop bound (2026-11-08)
+
+Return-review scope at integration base `ec27e55b`: collect/review run
+`1fbeb56fc50f45f6` and preserve its failure without changing runtime, timing or
+integrity gates. PR301/PR19/PR379 retain independent scopes; this change only
+records this unit's matching evidence.
+
+Release `c831655c4120352e`, runtime `7dbfadd1`, tools `f6276f06`, session
+`session-00065fc7c3a95b0d-00`, completes the full1800-second workload at1% volume.
+The separately durable text/binary receipts agree on3793 verified disk bursts /
+994312192 bytes, within live PCM playback, with345845760 PCM bytes, zero
+recorded underruns and worker status0. The PCM length obeys the original bounded
+completion tail. This is software playback evidence; audible quality is not
+confirmed for this run.
+
+All1079 automatic app cycles complete with zero app errors. Maximum readiness
+is1896398us and close1650028us, below the unchanged10s bound. Three screenshots
+are acknowledged, their1366×768 BMPs decode, workers/cache retire, follow-up
+Files passes and normal exit is requested. Battery retirement reports attached/
+detached1, heap/errors/denied0. The enclosing desktop and battery-controls result
+correctly remains **FAIL**, despite `desktop-audio-io: completed=yes`.
+
+Responsiveness fails the unchanged500000us loop bound:52840 valid measured loops
+include12 excursions; maximum967444us. Its retained attribution is964736us in
+rendering,2491us in the wait stage and only small remaining stages. Retained
+wait/scheduler records validate directly; no timestamp reconstruction or limit
+change is used. The worst interval,607594939–608562383us, overlaps the second
+capture's606971966–648590122us interval. This correlation does not identify the
+specific render operation or prove capture is its cause. The slowest screenshot
+completes in41618156us. Both loaded TCG failures from preparation remain failed
+evidence; the short passing KVM run did not establish this native endurance gate.
+
+**Ordinary desktop regression on this source is not accepted.** Earlier accepted
+stress release `012aaffda0be860b` remains historical evidence for its source;
+the separate isolated sampler acceptance remains unchanged. Next scope: add
+bounded persistent subphase and scheduling attribution inside rendering to
+separate scene drawing, presentation and capture work, then fix the measured
+cause without weakening the500ms/10s limits or integrity checks.
+
+All643 prior files survive except expected workspace metadata; nine new logs,
+receipts and screenshots produce652 files /1832 allocated clusters. Offline
+filesystem and full allocation checks pass with zero leaks/mismatches/errors.
+Installed/exact-stage/independent payload and retained recovery hashes verify;
+raw run evidence and the independent failed-result review are hash-verified
+outside `build`. Ubuntu returned automatically, the one-shot is consumed,
+collection is disabled and no reboot is armed. Missing or failed responsiveness
+is not promoted by successful audio, screenshots or clean storage retirement.
+
+### Persistent render attribution scope (2026-11-08)
+
+Base `f94d97d1`; the failed native regression is collected and backed up.
+Objective: retain bounded render subphase and scheduler attribution with the
+same worst-loop interval, distinguishing stack preparation, scene composition,
+framebuffer upload, fence/presentation and bookkeeping. Capture transfer already
+runs in LOOP_POST; retain its separate timing/scheduler companion too. Scope:
+`userspace/deskd` diagnostic structs/reporting and presentation callbacks,
+strict host receipt validation, retention/fault regressions and this unit's
+existing automated stress preparation. No renderer algorithm, limits, policy,
+source/ownership gates or integrity checks change. Keep current plus retained
+worst records only; no per-frame logging or unbounded history/allocation.
+PR301 owns independent scanout/handoff work; do not change its kernel/GPU/display
+contracts. PR19/PR379 retain unrelated scopes. Validate host/core and actual
+loaded/capture/exact-stage VMs, self-merge and run the same automatic native
+30-minute/three-capture workload at1% volume. Native timing acceptance remains
+pending; the967444us failure and both TCG failures stay historical evidence.
+
+
+### Render attribution validated; native diagnostic prepared (2026-11-08)
+
+Runtime and tested tools `a9e72ecc` add fixed-size render/capture companions to
+the existing worst-loop record. The compiled current-plus-worst loop state is
+1928 bytes; render/capture records are312/240 bytes. Composition/upload callbacks
+measure their own wall time/counts/area inside the presentation interval; stack,
+fence and bookkeeping remain separately bracketed. Independent scheduler traces
+cover render and capture bodies. Capture transfer stays in LOOP_POST. No
+rendering algorithm or500ms/10s requirement changes, and all diagnostic overhead
+remains in outer-loop accounting. Ordinary non-stress paths omit the diagnostic
+syscalls. No per-frame logging, heap allocation or unbounded history is added.
+
+Focused and full core checks pass, including the actual C writer→strict reader,
+clock/count/overflow refusals, unchanged attribution after1000 later shorter
+loops, maximum record-size checks, and89 installed-root tests with one expected
+skip. Matched normal/native/VM/ISO/USB builds pass. Both ordinary/native images
+omit isolated sampler entrypoints. All frozen payload hashes remain identical
+through sequential VM testing; no optional hardware gate or power policy changes.
+
+The current loaded TCG run completes the workload but **fails** the original
+500ms loop bound at598881us. Its saved final attribution validates directly:
+render555420us, presentation555332us, compose6695us, upload548593us; render
+scheduler ready time527499us, blocked0,29 dispatches. Capture transfer takes29us
+in that retained interval, with no active capture worker. These are VM-only
+clues, not proof of the previous native stall's cause or a latency fix.
+
+The first loaded KVM run halts on a synthetic battery-query deadline and lacks
+final completion; it remains FAILED_OR_INCOMPLETE, with partial checkpoints
+preserved. An unchanged repeat passes22 cycles,357028us maximum loop,
+1122840us readiness and1458959us close, zero app errors/underruns, screenshot,
+worker/cache/battery retirement and all67 prior fixture files. Its new render/
+capture companions pass the strict saved-record reader. No KVM deadline fix or
+general reliability acceptance is claimed from the repeat. The original967444us
+native failure and earlier loaded TCG failures remain failed evidence.
+
+The ordinary TCG screenshot trial passes exact pixels, immutable capture during
+typing, durable BMP readback, folder/Preview, repeated menu capture and exit.
+Exact v74 payload `30f9ea98b926043a` passes TCG GRUB→Limine chainload, explicit
+native-board refusal, file preservation, unmount and return. PR301's active diff
+contains no overlapping desktop/timing files at this inspection; its scanout and
+hardware ownership contracts remain unchanged.
+
+Prepared run `77c67dc520ea441b` uses USB `6ADA-85BB`,652 baseline files,
+147 directories and1832 allocated clusters, with clean filesystem/allocation/
+headroom checks. Only the owned1% quiet-volume input is intentionally refreshed;
+previous bytes are saved. EFI headroom requires archiving only the unreferenced
+old desktop-power duplicate `aa576838270d623a` after independently verifying its
+complete accepted backup and absence from current/previous/GRUB references.
+Current failed-regression `c831655c4120352e`, accepted sampler/zero-load/single-
+window/stress and console recovery `c35475f62f154f1e` remain retained and verified.
+
+After verified install, merged preparation and durable collector/run records,
+run the same fully automatic30-minute PCM/verified USB/app/three-screenshot
+native workload at1%. The collector now saves matching render/capture attribution
+even if the original latency gate fails. No native pass or renderer fix is
+inferred before collecting the matching return. Ubuntu remains the recovery OS.
+
+
+### Native render attribution identifies READY/exclusion delay (2026-11-08)
+
+Return review at integration base `ceeabd0d` collects run `77c67dc520ea441b`,
+release `30f9ea98b926043a`, runtime/tools `a9e72ecc`, session
+`session-00065fc8e0a17311-00`. This scope records strict native attribution and
+the failed responsiveness gate; no source policy, runtime or limit changes.
+
+The same1800-second workload completes at1% volume:3794 verified disk bursts /
+994574336 bytes,345780224 PCM bytes within the original completion-tail bound,
+zero recorded underruns and worker status0. Text/binary disk receipts agree
+and all disk work lies inside live playback. All1081 app cycles finish with
+zero app errors; readiness2078039us and close1860876us remain below10s. Three
+1366×768 BMPs decode, capture/cache workers retire, follow-up Files passes and
+normal exit is requested. Battery retirement reports attached/detached1 and
+heap/errors/denied0. Listening quality is not confirmed for this run.
+
+Responsiveness remains **FAILED**:51815 valid loops include21 excursions over
+the unchanged500000us bound. The worst sequence13946 lasts752295us, with
+744855us in LOOP_RENDER. Its four new final companions validate directly from
+matching saved snapshots, including clocks, stage/callback accounting, duplicate
+agreement and scheduler conservation; no UART repair or inference is used.
+
+Within that retained render interval, stack preparation takes7us, presentation
+744830us, fence3us and bookkeeping8us. Two composition callbacks cover448128
+logical pixels and742469us; two uploads cover the same area and2344us. These are
+wall times, including scheduling. The enclosed scheduler trace records737469us
+READY,0 blocked,2 dispatches and80 I/O-exclusion observations. Its longest
+READY interval is737022us (`wake=468212658`, `run=468949680`). Thus the dominant
+measured delay is waiting to run inside rendering, not established drawing CPU
+cost. In this loop capture ID1 is idle, with pending/busy0 before/after and an
+11us capture poll; an active screenshot transfer does not explain this interval.
+
+The [scheduler admission code](../../kernel/src/scheduler.c) increments exclusion
+observations when an active I/O owner prevents a READY thread from running.
+These80 observations are checks, not80 independent waits or measured ownership
+intervals. The retained record does not identify the I/O owner/private image or
+which eligibility condition rejected the renderer. Do not infer a specific
+same-process owner or waive admission from the count alone. Next scope: audit
+GUI-render thread READY/user-safe transitions and I/O ownership/exclusion
+lifetimes, retaining all ownership checks, I/O safety and500ms/10s limits.
+
+The new native attribution collection is observed and its strict proof passes;
+ordinary desktop responsiveness on this source is **not accepted**. Desktop and
+enclosing battery-controls correctly report FAIL despite completed audio/work
+and clean resource retirement. Previous native/TCG failures and the initial
+KVM query-deadline halt remain historical failures; no latency fix is claimed.
+
+All652 prior files survive except expected workspace metadata. Nine new logs,
+receipts and screenshots produce661 files /1939 clusters; offline filesystem
+and allocation checks pass with zero leaks/mismatches/errors. Installed,
+exact-stage, independent payload and retained recovery copies verify. Full raw
+and independently reviewed evidence is hash-verified outside `build`. Ubuntu
+returned automatically, the one-shot is consumed, collection is disabled and
+no reboot is armed. The review is not a new boot preparation.
+
+### User timer-return admission fix scope (2026-11-08)
+
+Base `4bda5009`, after the native737469us READY/80-exclusion observation.
+Source audit finds that CPL3 interrupt entry correctly marks its kernel
+continuation unsafe, but IRQ0 currently preempts inside `irq_dispatch`, before
+returning through the common epilogue. That leaves an ordinary userspace timer
+return suspended as an unsafe kernel continuation for the remainder of foreign
+I/O. Existing unsafe-continuation tests deliberately protect this state; do not
+make IRQ handlers or arbitrary kernel continuations I/O-eligible.
+
+Scope: move timer preemption ownership to the ISR/common-return boundary;
+retain kernel-origin preemption safety, timer accounting/EOI/quantum semantics,
+cancellation ordering and all optional public/private signal/frame proof gates.
+Only a fully unwound user return may temporarily publish user-safe eligibility
+around the scheduler yield, with IRQs masked and without teardown in that suffix.
+Keep `io_thread_allowed` and same-process/private-image checks unchanged.
+Add host regressions for real IRQ/common-return order and actual scheduler
+foreign-owner selection, including unsafe/kernel/same-image refusal, then run
+full matched/core and IRQ/thread/signal plus loaded/exact-stage VM checks.
+
+PR19's actual remote diff has no `idt.c`/`irq.c`/`scheduler.c` changes at this
+inspection; its three-line scheduler-host fixture edit concerns a separate
+binding-test volatile declaration. Avoid that hunk. PR301's diff has no competing
+timer/scheduler changes. Publish this bounded implementation independently;
+no cross-task messaging, user-safe blanket admission or limit change. The
+previous native owner identity is not reconstructed from the existing counter;
+this fix targets a reproducible source mechanism and needs new native evidence.
+
+### User timer-return candidate validation and native preparation (2026-11-08)
+
+Runtime/tools source `fac79995` implements the scoped return-boundary change.
+The original dispatcher on base `4bda5009` fails the new actual IRQ-ordering
+regression; the fixed IRQ/ISR/scheduler tests pass. Foreign-owner user-return
+progress, unsafe nested/kernel continuations, same-process/private-image refusal,
+IF/root/binding/state guards and cancellation before publication are covered.
+The I/O admission predicate, signal/frame gates, quantum, integrity checks and
+500ms/10s limits are unchanged. The original native interval's owner remains
+unidentified; this is a reproduced source mechanism, not reconstructed ownership.
+
+Full matched ordinary/native/VM kernels, USB image and core suite pass, including
+89 installed-root tests in725.104s with one expected skip. Public-signal,
+private-signal and frame-copy IDT variants compile; this is compile coverage,
+not experimental feature activation or guest/native acceptance. Ordinary syscall
+ABI, UEFI USB keyboard, fork, exec-vectors and yield VMs pass. The populated-Home
+TCG load at400 write IOPS passes the unchanged60-second workload:24 app cycles,
+169 verified disk bursts/44302336 bytes, zero PCM underruns/worker errors,
+three-way workload overlap and one completed screenshot with follow-up Files
+and clean retirement. Worst loop is481500us with zero excursions; maximum
+whole launch/close are1202605/1000264us. The worst render companion records
+422659us cumulative READY across27 dispatches, maximum single READY20412us
+and zero I/O exclusions. These are VM observations, not a native latency pass.
+
+Ordinary screenshot/pixel/immutable-snapshot/durable-readback/Preview/exit checks
+pass. Exact v74 native stage `ca0e7e313136e985` passes the Q35 native-profile
+refusal/save/unmount/automatic-return rehearsal on that same frozen source.
+Normal/native kernels exclude the optional isolated sampler symbols. No VT-d,
+ECAM, AP, idle-policy or additional hardware diagnostic is enabled.
+
+Prepared run `4ae9cc9dd6264da3` repeats the fully automatic1800-second PCM,
+verified USB create/flush/rename/readback/delete/sync, Text/Files/System cycles
+and three-screenshot stress at1% volume, with the same persistent loop/render/
+capture/scheduler proofs and original acceptance bounds. Fresh local preflight
+confirms this MacBookAir6,1 and its own USB, all661 baseline file hashes,
+1939 allocated clusters, clean offline filesystem/allocation and headroom.
+Only the owned quiet-volume expiry is intentionally refreshed. The independently
+verified payload and run evidence are retained outside `build`; the unreferenced
+old failed-regression `c831655c4120352e` EFI duplicate is archived to make room,
+with its complete independent backup retained. Existing current/accepted/recovery
+payloads remain protected. Recovery stays `c35475f62f154f1e` and Ubuntu remains
+the default. Installation/one-shot state is recorded locally; no native result
+is claimed here. Collect the matching session after return before another run.
+
+### Native user timer-return stress acceptance (2026-11-08)
+
+PR421's runtime `fac79995`, release `ca0e7e313136e985`, completed run
+`4ae9cc9dd6264da3` in session `session-00065fca0d377865-00` and returned to
+Ubuntu automatically. The exact-source1800-second stress passes the original
+500ms desktop-loop and10s launch/close limits, with no integrity/ownership
+relaxation. All56109 retained loop samples are valid, with zero excursions and
+maximum130032us, versus752295us/21 excursions on the preceding source.
+The1080 app cycles reach maximum launch1485617us and close2789154us, with zero
+lifecycle errors. The worst loop is now129884us of ordinary GUI waiting;
+its scheduler companion records97389us blocked,32462us READY and zero I/O
+exclusions. Its render/capture suffixes take25/10us with neither worker busy.
+This is acceptance of this native workload, not proof of every scheduling path
+or attribution of the preceding run's unknown I/O owner.
+
+Playback at1% supplies345763840 PCM bytes with zero recorded underruns and
+worker status0. Disk work completes3857 verified bursts/1011089408 bytes across
+the live playback interval; text and binary receipts agree. Three1366x768 BMPs
+decode, follow-up Files activity succeeds, and screenshot/app/cache/battery
+workers retire with clean desktop exit and unmount. Audible quality remains
+pending human confirmation. Screenshot completion itself remains slow under
+load: maximum43.499249s, pixel receive7.318272s and cleanup90.761ms. The original
+loop/lifetime requirements pass; this does not claim fast screenshot saves.
+
+All661 prior files survive with only expected `.srvros/meta` changes; nine new
+logs/receipts/images produce670 files/2046 clusters. Offline fsck and independent
+allocation checks pass with zero leaks, mismatches or errors. Matching session
+hashes, receipt predicates, timing companions, decoded images and the complete
+619-file return backup were independently verified; reviewed evidence is retained
+outside `build`. Installed/staged/independent payload and retained recovery
+verify. The collector is disabled and the one-shot consumed; no reboot is armed.
+Next bounded performance follow-up is screenshot encode/write completion under
+load, retaining the accepted responsive desktop and all existing limits.
+
+### Bounded audible check scope (2026-11-08)
+
+On base `825a79a9`, the user requests a louder approximately30-second check
+because the preceding1% run was not audible/not listened to. Prepare an explicit
+listening-only capture: five bundled six-second left/right/stereo WAV plays at
+25%, automatic Stop/retirement and saved diagnostics before Ubuntu return.
+Keep ordinary boot, the accepted1800-second stress and all existing timing and
+hardware gates unchanged; no battery/AML or disk/app stress is requested here.
+Touch only explicit capture orchestration/staging and its regression/rehearsal.
+The current native stress remains accepted for recorded checks; subjective
+quality is unassessed. No new physical result is claimed by this scope.
+
+The explicit `--audio-listen` v1 profile is implemented on runtime `c615c282`.
+Matched ordinary kernel/RAM/USB builds and audio-service, streaming, WAV and
+conversion regressions pass. All90 staging/CLI tests pass. Exact release
+`5bc0a824e9f71ab6` rehearses five full streams/5760000 bytes with zero underruns
+in30.971897s, Stop, quiet restore, saved diagnostics, clean unmount/allocation
+and automatic return. Missing workspace returns without starting playback.
+Stage provenance is `f9be0423`; final harness `5ff0662b` differs only in its
+profile-specific assertion. The initial successful guest run hit a generic
+chipset-probe harness assertion; that failure and raw results are retained
+separately, and the corrected exact rehearsal passes. No native audible result
+is claimed. PR19's adjacent Wi-Fi capture orchestration remains independent;
+future integration must preserve both explicit capture conditions. PR301's
+scanout/handoff and PR379's WebCore audit are untouched.
+
+### Bounded audible check accepted (2026-11-08)
+
+Release `5bc0a824e9f71ab6`, runtime `c615c282`, run `7f96f67cb4754329`,
+session `session-00065fcaec9ba89f-00` completed five six-second speaker channel
+fixtures at25% in30.249052s. All5760000 PCM bytes complete with zero underruns;
+Stop and1% quiet restore pass before saved diagnostics, unmount and automatic
+Ubuntu return. The user confirms: “the audio was audible and worked fine.”
+This accepts the bounded audible speaker check; it does not retroactively
+supply subjective listening evidence for the separate1% endurance session.
+
+All670 prior files survive except expected `.srvros/meta`; four new logs
+produce674 files/2051 clusters. Offline filesystem/allocation/headroom checks
+pass with zero leaks/mismatches/errors, and the complete513-file return backup
+is independently hash-verified outside `build`. The one-shot is consumed,
+collection is disabled and no new boot is armed. Screenshot completion latency
+under load remains the next performance follow-up; no scheduling/ownership or
+power-policy scope is added by this acceptance.
+
+### Screenshot write admission audit scope (2026-11-08)
+
+Base `d7ab6db5`, after accepted stress runtime `fac79995` and bounded audible
+confirmation. The retained slowest capture spends31.864228s in WRITE, versus
+4.766ms encode,7.318272s receive and subsecond fsync/sync/readback phases.
+These POSIX writes populate kernel-buffered file contents; device
+persistence occurs in later flush/sync phases. Each16KiB write re-enters the
+ordinary default-deny namespace I/O admission path. Its exact wait/owner time
+has not been independently measured; encoding is not the primary observed cost.
+
+Bounded scope: audit caller batching and test coalescing four adjacent16KiB
+writes into64KiB ordinary writes, within existing supported request/file sizes.
+Keep the same snapshot/BMP bytes, new-file/O_EXCL handling, checked descriptor
+operations, full temporary/final byte verification, fsync/global sync, guarded
+rename, cancellation semantics and failure cleanup. Do not change kernel I/O
+eligibility, syscall whitelist, hardware/power gates, existing capacities,
+500ms/10s responsiveness bounds, or1800-second stress requirements. Add a
+reproducer for excessive write-call admission count plus existing short-I/O and
+failure coverage; verify exact pixels/readback and loaded responsiveness in VMs
+before a new native repeat at1%. No speedup is physically accepted yet.
+
+PR19's current Wi-Fi diff has no shotworker/save implementation change. PR301's
+process additions concern its independent scanout/handoff scope; this bounded
+caller change avoids those kernel files. PR379 remains an independent audit.
+
+### Screenshot write batching validation and candidate (2026-11-08)
+
+Frozen runtime/tools `989846b3` changes only the shotworker's ordinary buffered
+write batching, its host regression and documentation. The original16KiB writer
+fails the new200000-byte admission-count regression; the64KiB candidate passes
+with four bounded calls and both complete400000-byte combined readbacks. Existing
+short-I/O, exclusive temporary/destination, write/sync/corruption/rename failure
+coverage passes, including a new uncertain post-rename sync case retaining the
+published file while reporting failure. Capture transport, immutable job and BMP
+round-trip/refusal tests pass. Matched ordinary/native/VM kernels, RAM/USB images,
+the desktop suite and documentation checks pass. Full core is not rerun for this
+caller-only change; no kernel/source admission predicate or policy is modified.
+
+The unchanged populated-Home TCG workload at400 write IOPS passes60-second PCM,
+26 app cycles, one screenshot and follow-up Files/normal exit with200 observed
+overlap windows. Zero underruns/worker/lifecycle errors; maximum loop222555us,
+launch699025us and close1188785us stay inside the original bounds. The retained
+capture takes13.123122s, with WRITE4.826539s and receive5.166458s. The preceding
+same-config VM receipt took24.772760s/WRITE15.770099s. These separate VM observations
+support the caller-batching hypothesis; host scheduling is uncontrolled and no
+native improvement is inferred. Original full flush/readback/cache/retirement,
+receipt and offline filesystem checks pass.
+
+Ordinary capture verifies exact pixels, immutability while typing, durable BMP
+readback, Preview, menu/shortcut repetition and exit. Exact v74 stage
+`1c74bc8281678786` passes native-profile refusal/save/unmount/return in Q35 on that
+same clean source. Ordinary/native images exclude the optional isolated sampler.
+Next native run repeats the unchanged automatic1800-second audio/verified USB/
+Text/Files/System/three-screenshot workload at1%, retaining the existing phase,
+loop/scheduler, lifecycle, file-preservation and allocation proofs. Performance
+acceptance remains pending the matching physical result.
+
+ESP preparation may archive only the unreferenced older accepted stress duplicate
+`012aaffda0be860b`, after verifying its complete independent payload backup and
+absence from GRUB/current/recovery references. Accepted newer stress
+`ca0e7e313136e985`, audible check `5bc0a824e9f71ab6`, isolated sampler/zero-load/
+single-window payloads and console recovery `c35475f62f154f1e` stay installed and
+verified. Historical acceptance/evidence and the archived restorable payload
+remain outside `build`; this is space reclamation, not removal of recovery.
+
+### Native screenshot write batching improvement accepted (2026-11-08)
+
+PR425 runtime `989846b3`, release `1c74bc8281678786`, run `f4be328f2bc244f0`,
+session `session-00065fcb69c953b0-00` completes the unchanged 1800-second
+PCM/verified disk/app/three-screenshot workload and returns automatically.
+The slowest retained screenshot takes 23.196470s, down from 43.499249s on the
+preceding accepted stress source. Its WRITE phase falls from 31.864228s to
+12.669813s, with receive 6.689667s and encode 4.766ms. Final screenshot WRITE
+is 11.046327s. These are observed separate native runs, not a controlled
+throughput guarantee; batching improves completion, but saves remain slow.
+
+All 53483 loop samples are valid, with zero excursions and maximum 120142us
+under the original 500ms bound. The 1078 app cycles have zero errors and maximum
+launch/close 1887035/3860868us, below the unchanged 10s limits. The worst loop
+contains 100098us of GUI waiting; its companion records 100042us blocked,
+26us READY and zero I/O exclusions. No native owner identity is inferred from
+these final companions. All three BMPs decode at 1366x768; follow-up Files,
+capture cleanup, app/cache/battery retirement, normal exit and unmount pass.
+Slowest retained screenshot cleanup is 75.501ms, with no pending retirement.
+
+At 1%, playback supplies 345780224 PCM bytes with zero recorded underruns or
+worker errors. Disk work completes 3889 verified bursts/1019478016 bytes during
+live playback; binary and text receipts agree. Subjective sound is unassessed
+for this unattended run; the separate short 25% audible acceptance remains its
+own evidence. No duration, responsiveness, capacity, hardware/ownership or
+persistence requirement changed.
+
+All 674 prior files survive except expected `.srvros/meta`; nine new logs,
+receipts and screenshots produce 683 files/2158 allocated clusters. Offline fsck
+and independent allocation checks pass with zero leaks/mismatches/errors.
+Raw session hashes, receipts, final timing/retirement proofs, decoded BMPs and
+604-file automatic return backup are independently verified. Installed/staged/
+independent payload and protected accepted/recovery images verify. Reviewed
+results are backed up outside `build`. The older `012aaffda0be860b` EFI duplicate
+was archived only after verifying its independent restorable payload; current,
+newer accepted and recovery payloads remain installed. Collector disabled,
+one-shot consumed, Ubuntu default intact; no reboot is armed.
+
+Next useful scope is targeted per-write timing to separate admission waits
+from buffer growth/copy cost within the remaining 12.7s WRITE phase, keeping
+all accepted save checks and bounds. The approximately 6.7s receive phase also
+remains a performance follow-up; this result accepts improvement, not instant
+screenshot completion or a kernel I/O eligibility expansion.

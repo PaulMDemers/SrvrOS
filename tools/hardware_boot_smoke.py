@@ -173,6 +173,7 @@ def main():
     if args.ap_inject and not (ap_capture or (coord_capture and args.ap_c3_sim)): parser.error("AP injection requires AP diagnostic/simulation")
     if args.ap_inject and args.ap_inject.startswith("c3-") and not args.ap_c3_sim: parser.error("C3 injections require simulation")
     cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
+    audio_listen=bool(probe and manifest["config_version"].startswith("ram-usb-v1-audio-listen-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
@@ -247,7 +248,7 @@ def main():
         device_checks=bool(desktop and manifest["config_version"].startswith("ram-usb-v58-"))
         if network_desktop or device_checks or args.probe_network:
             command += ["-nic","none","-netdev","user,id=ecm","-device","usb-net,netdev=ecm,bus=xhci.0,id=usbnet"]
-        if args.audio_check:
+        if args.audio_check or audio_listen:
             command += ["-device","ich9-intel-hda","-device",f"hda-duplex,audiodev=capture,use-timer={args.audio_codec_timer}","-trace","enable=hda_audio_overrun",
                 "-audiodev",f"wav,id=capture,path={logs/'hardware-grub-tone.wav'},out.frequency=48000"]
         if workspace and not args.probe_missing_workspace:
@@ -383,7 +384,7 @@ def main():
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
                     if battery_preflight: assert "battery-preflight: REFUSED identity/resources; no register access" in text
-                    elif not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or intel_display_capture or hsw_capture or hfw_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    elif not (audio_listen or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or intel_display_capture or hsw_capture or hfw_capture): assert "laptop-probe: unsupported chipset; no register access" in text
                     if intel_display_capture:
                         assert "intel-display-observe: boot result=identity-refused" in text
                         assert "ordinary Intel initializer skipped; no capture PCI writes" in text
@@ -415,7 +416,7 @@ def main():
                         assert release.encode() in contents
                         if keyboard_capture and filename=="exit.log":
                             assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
-                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or intel_display_capture or hsw_capture or hfw_capture):
+                        if not (audio_listen or idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture or intel_display_capture or hsw_capture or hfw_capture):
                             assert (b"battery-preflight: REFUSED identity/resources; no register access" if battery_preflight else b"laptop-probe: unsupported chipset") in contents
                             assert b"USB INPUT DIAGNOSTIC" in contents
                             assert b"xhci: vendor=" in contents
@@ -687,6 +688,14 @@ def main():
                             assert backing and backing['status']==2 and not backing['observation_complete']
                             assert not backing['scanout_ownership'] and not backing['summary']['maps']
                             (logs/'intel-backing-result.json').write_text(json.dumps(backing,indent=2)+"\n")
+                    if audio_listen:
+                        exit_log=stored.read(folder+"/exit.log").decode()
+                        proof=re.search(r"audio-listen: result=PASS plays=5 seconds=30 volume=25 bytes=5760000 underruns=0 elapsed_us=(\d+) stopped=yes quiet=yes",exit_log)
+                        assert proof and 30000000<=int(proof[1])<35000000
+                        assert len(re.findall(r"playwav: complete bytes=1152000 underruns=0",text))==5
+                        assert "laptop-capture: completed=yes" in exit_log
+                        assert "srvros.battery=on" not in text and "srvros.aml=probe" not in text
+                        (logs/'audio-listen-result.json').write_text(json.dumps(dict(status='PASS',elapsed_us=int(proof[1]),plays=5,volume=25,bytes=5760000,underruns=0,native_acceptance=False),indent=2)+'\n')
                     if posix_capture:
                         from posix_capture_result import capture_result
                         proof=capture_result(stored.read(folder+"/exit.log").decode())
@@ -731,7 +740,7 @@ def main():
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_home_work":battery_home_work,"battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "haswell_firmware_capture":hfw_capture,"haswell_backing_capture":hsw_capture,"ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (hfw_capture or hsw_capture or ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"intel_display_capture":intel_display_capture,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "haswell_firmware_capture":hfw_capture,"haswell_backing_capture":hsw_capture,"ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (hfw_capture or hsw_capture or ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"audio_listen":audio_listen,"intel_display_capture":intel_display_capture,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "automatic reset"))

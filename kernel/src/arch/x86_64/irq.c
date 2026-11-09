@@ -93,7 +93,7 @@ void irq_dispatch(uint64_t vector) {
         timer_handle_tick();
         net_timer_tick();
         irq_send_eoi(irq);
-        scheduler_preempt_tick();
+        /* The ISR owns preemption after this handler has unwound. */
         return;
     case 1:
         keyboard_handle_irq();
