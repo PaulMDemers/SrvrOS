@@ -5,7 +5,7 @@
 #define PAGES SCANOUT_SPACE_PAGES
 static struct scanout_space space;
 static struct scanout_space_pool ranges;
-static struct scanout_publication pub;
+static struct scanout_publication pub,copy;
 static struct scanout_publish_pool epochs;
 static struct scanout_space_token lease;
 static struct scanout_publish_token token;
@@ -175,6 +175,31 @@ int main(void) {
     assert(prepare());uint64_t copied=desired[0];desired[0]^=0x4000;
     assert(scanout_publish_apply(&pub,&token) && m.table[lease.first]==copied && m.tlb[lease.first]==copied);
     assert(scanout_publish_restore(&pub,&token) && scanout_space_release(&space,&lease));oracle(false);
+    /* Rebinding a token must not turn a value copy into a second owner of the
+     * original range. Rejection must invoke no provider and leave the original
+     * transaction usable through publication, restore and legitimate reuse. */
+    setup(4);assert(prepare());copy=pub;
+    struct scanout_publish_token copied_token={&copy,copy.epoch,copy.owner};
+    unsigned copy_ops=m.op,copy_clocks=m.clock;
+    assert(!scanout_publish_apply(&copy,&copied_token));
+    assert(!scanout_publish_cancel(&copy,&copied_token));
+    assert(m.op==copy_ops && m.clock==copy_clocks && pub.state==PUB_PREPARED);
+    assert(scanout_publish_apply(&pub,&token));copy=pub;
+    copy_ops=m.op;copy_clocks=m.clock;
+    assert(!scanout_publish_restore(&copy,&copied_token));
+    assert(m.op==copy_ops && m.clock==copy_clocks && pub.state==PUB_PUBLISHED);
+    assert(scanout_publish_restore(&pub,&token));oracle(false);copy=pub;
+    assert(scanout_space_release(&space,&lease));
+    assert(scanout_space_reserve(&space,7,space.epoch,4,1,&lease));
+    copy_ops=m.op;copy_clocks=m.clock;
+    assert(!scanout_publish_prepare(&copy,&epochs,7,&space,&lease,desired,4,&io,&copied_token));
+    assert(m.op==copy_ops && m.clock==copy_clocks);
+    assert(prepare() && scanout_publish_cancel(&pub,&token));copy=pub;
+    copy_ops=m.op;copy_clocks=m.clock;
+    assert(!scanout_publish_prepare(&copy,&epochs,7,&space,&lease,desired,4,&io,&copied_token));
+    assert(m.op==copy_ops && m.clock==copy_clocks);
+    assert(prepare() && scanout_publish_apply(&pub,&token) && scanout_publish_restore(&pub,&token));
+    assert(scanout_space_release(&space,&lease));oracle(false);
     setup(SCANOUT_PUBLISH_PAGES);assert(full() && pub.writes==2*SCANOUT_PUBLISH_PAGES);assert(scanout_space_release(&space,&lease));
     printf("scanout-publish: PASS full-fence isolation, posted writes/TLB oracle, %u callback faults, %u clock points, %u read corruptions, stale identity, reentry and 1536-page restore\n",operations,clocks,reads);
 }

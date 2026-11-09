@@ -25,6 +25,9 @@ struct scanout_publish_io {
 };
 struct scanout_publish_pool {uint64_t epoch;};
 struct scanout_publication {
+    /* Zero-init, original-address sealed. Copies cannot use or restart the
+     * admitted transaction, even with a token rebound to the copy. */
+    const struct scanout_publication *object;
     uint64_t epoch,owner,last_us,phase_us;
     struct scanout_space *space;
     struct scanout_space_token range;

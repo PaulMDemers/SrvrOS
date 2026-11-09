@@ -26,6 +26,14 @@ physical RAM remain pinned through retirement, or through reset after a fault.
 The entry values are opaque: an audited native encoder still must validate
 physical/DMA addresses, PTE format, cache policy and every RAM pin.
 
+Transactions must be zero-initialized and stay at their original address. An
+address seal is installed before provider callbacks and checked at preparation,
+apply, cancellation and restore admission. Copying a prepared/published object
+and rebinding its token cannot operate on the original lease. Copies of retired
+or cancelled objects cannot restart it; the original may be reused with a fresh
+epoch. This enforces accidental-copy lifetime identity for trusted kernel callers,
+not protection against arbitrary kernel memory writes.
+
 A monotonically increasing pool epoch binds object/owner tokens and blocks
 same-owner reuse of stale work. Reset/lower pools cannot reopen a used object;
 exhaustion refuses. Caller operations are serialized on CPU0. Busy state is
@@ -129,3 +137,10 @@ death, console recovery and five presenter acquisitions. The session-owner
 cancellation regression found during integration is fixed without changing
 explicit graceful revoke or releasing live resources. Host and VM evidence
 remain distinct from native mapping and physical presentation acceptance.
+
+The original-object regression rejects prepared copy apply/cancel, published
+copy restore and cancelled/retired copy reuse before any provider/clock callback;
+the original still completes and reuses its lifecycle. The same regression fails
+against the previous core and independent removals of either seal check. Host
+sanitizers and these controls qualify software identity only, not native GPU
+ownership or the provider's hardware flush/retirement proof.

@@ -20,7 +20,7 @@ static bool active_phase(const struct scanout_publication *p) {
     return p->state==PUB_PREPARING || p->state==PUB_PREPARED || p->state==PUB_WRITING;
 }
 static bool auth(const struct scanout_publication *p,const struct scanout_publish_token *t) {
-    return p && t && !p->busy && t->object==p && t->epoch==p->epoch && t->owner==p->owner && p->epoch && p->owner;
+    return p && t && p->object==p && !p->busy && t->object==p && t->epoch==p->epoch && t->owner==p->owner && p->epoch && p->owner;
 }
 static bool fail(struct scanout_publication *p,unsigned reason) {
     p->error=reason;p->busy=false;
@@ -84,7 +84,7 @@ bool scanout_publish_prepare(struct scanout_publication *p,struct scanout_publis
                             struct scanout_space *space,const struct scanout_space_token *range,
                             const uint64_t *entries,uint32_t pages,const struct scanout_publish_io *io,
                             struct scanout_publish_token *out) {
-    if(!p || !pool || !owner || !range || !entries || !pages || pages>SCANOUT_PUBLISH_PAGES || !io || !out ||
+    if(!p || (p->object && p->object!=p) || !pool || !owner || !range || !entries || !pages || pages>SCANOUT_PUBLISH_PAGES || !io || !out ||
        !io->guard || !io->read || !io->write || !io->flush || !io->readers_retired || !io->now ||
        pool->epoch==UINT64_MAX || pool->epoch<p->epoch || p->busy || (p->state!=PUB_EMPTY && p->state!=PUB_CANCELLED && p->state!=PUB_RETIRED))return false;
     /* Copy small arguments before replacing metadata; large vectors must not
@@ -94,7 +94,7 @@ bool scanout_publish_prepare(struct scanout_publication *p,struct scanout_publis
        (input<end && base<input+pages*sizeof(*entries)) || (output<end && base<output+sizeof(*out)))return false;
     if(!range_valid(owner,space,range,pages,SPACE_RESERVED,true))return false;
     struct scanout_publish_io callbacks=*io;struct scanout_space_token lease=*range;
-    p->epoch=++pool->epoch;p->owner=owner;p->space=space;p->range=lease;p->io=callbacks;
+    p->object=p;p->epoch=++pool->epoch;p->owner=owner;p->space=space;p->range=lease;p->io=callbacks;
     p->state=PUB_PREPARING;p->error=PUB_OK;p->pages=pages;p->reads=p->writes=p->flushes=0;
     p->busy=false;p->exposed=false;p->last_us=p->phase_us=0;
     for(uint32_t i=0;i<pages;i++)p->after[i]=entries[i];
