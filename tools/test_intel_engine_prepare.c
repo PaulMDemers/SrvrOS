@@ -71,6 +71,7 @@ static bool prepare_preserve(void *p,const struct intel_completion_result *c) {
  return !pmode(m,"preserve");
 }
 static void prepare_pause(void *p){(void)p;}
+#ifndef INTEL_ENGINE_PREPARE_FIXTURE_ONLY
 int main(int argc,char **argv) {
  struct prepare_model m={.base={.gt={.t=1000,.mode="normal"},.mode="normal"},.mode=argc>1?argv[1]:"normal",.point=argc>2?(unsigned)atoi(argv[2]):1};
  struct display_access_token token;assert(display_access_acquire(27,&token));
@@ -117,3 +118,5 @@ int main(int argc,char **argv) {
  puts("engine-prepare: PASS bounded five-engine hold/cancel, exact stores, prefix and retained ownership");
  return 0;
 }
+
+#endif

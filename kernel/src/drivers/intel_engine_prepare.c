@@ -84,11 +84,12 @@ static bool transition(struct intel_engine_prepare_result *r,struct intel_engine
  }
  return false;
 }
-bool intel_engine_prepare(struct intel_engine_prepare_result *r,struct intel_gt_access *g,
- const struct intel_takeover_result *t,bool policy,struct intel_engine_prepare_io io) {
+static bool prepare(struct intel_engine_prepare_result *r,struct intel_gt_access *g,
+ const struct intel_takeover_result *t,bool policy,struct intel_engine_prepare_io io,
+ const struct intel_engine_prepare_action *action) {
  if(!r || r->object)return false;
  *r=(struct intel_engine_prepare_result){.object=r,.parent=g,.preflight=t};
- if(!g || !policy || !io.guard || !io.sample || !io.control || !io.transition || !io.preserve || !io.now || !io.pause)return fail(r,IEP_INPUT);
+ if(!g || !policy || !io.guard || !io.sample || !io.control || !io.transition || !io.preserve || !io.now || !io.pause || (action && !action->observe))return fail(r,IEP_INPUT);
  r->epoch=g->engine_epoch;
  if(!prerequisite(r) || g->borrows || g->dependents || !intel_gt_access_check(g))return fail(r,IEP_INPUT);
  r->begin_us=r->last_us=io.now(io.ctx);
@@ -102,8 +103,20 @@ bool intel_engine_prepare(struct intel_engine_prepare_result *r,struct intel_gt_
  r->admitted=true;
  r->stage=1;for(unsigned e=0;e<5;e++){r->index=e;if(!transition(r,io,e,true))goto done;}
  r->stage=2;
- if(!sample(r,io,1,3) || !sample(r,io,2,3))goto done;
+ if(!sample(r,io,1,3))goto done;
+ if(action) {
+  if(r->ready!=31 || !guard(r,io)){fail(r,IEP_ACTION);goto done;}
+  r->action_begin_us=r->last_us;r->action_attempted=true;
+  bool observed=action->observe(action->ctx,r);
+  /* Earlier request stores already set uncertainty. Neither callback failure
+   * nor a lost parent/clock admits cancellation or retirement through it. */
+  bool guarded=guard(r,io);
+  r->action_end_us=r->last_us;
+  if(!observed || !guarded){fail(r,IEP_ACTION);goto done;}
+ }
+ if(!sample(r,io,2,3))goto done;
  for(unsigned e=0;e<6;e++)if(r->words[1][e]!=r->words[2][e]){fail(r,IEP_STATE);goto done;}
+ if(action)r->action_completed=true;
  r->held=true;
  r->stage=3;for(unsigned e=5;e-->0;){r->index=e;if(!transition(r,io,e,false))goto done;}
  r->stage=4;
@@ -124,6 +137,17 @@ done:
  if(r->returned && (g->object!=g || g->state!=GT_ACCESS_AWAKE || !g->pinned || g->engine_epoch!=r->epoch ||
     !display_access_held(&g->exclusion) || g->borrows || g->dependents || !prerequisite(r)))r->reason|=IEP_PARENT;
  r->complete=!r->reason && r->admitted && r->held && r->ready==31 && r->cancelled==31 &&
-  r->writes==10 && r->attempts==10 && r->acks==10 && r->snapshots==4 && r->preserved && r->returned;
+  r->writes==10 && r->attempts==10 && r->acks==10 && r->snapshots==4 && r->preserved && r->returned &&
+  (!action || (r->action_attempted && r->action_completed));
  return r->complete;
+}
+
+bool intel_engine_prepare(struct intel_engine_prepare_result *r,struct intel_gt_access *g,
+ const struct intel_takeover_result *t,bool policy,struct intel_engine_prepare_io io) {
+ return prepare(r,g,t,policy,io,0);
+}
+bool intel_engine_prepare_with_action(struct intel_engine_prepare_result *r,struct intel_gt_access *g,
+ const struct intel_takeover_result *t,bool policy,struct intel_engine_prepare_io io,
+ struct intel_engine_prepare_action action) {
+ return prepare(r,g,t,policy,io,&action);
 }
