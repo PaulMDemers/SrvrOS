@@ -7,6 +7,7 @@
 #include <srvros/syscall_numbers.h>
 
 struct process;
+struct net_bounded_probe;
 
 /* Checked transfers run callbacks before consuming queued bytes or accepting a
  * connection. Callers serialize callbacks and commit on CPU0 and supply owned
@@ -55,6 +56,36 @@ void net_init(void);
  * APIs must not be invoked in the live MAC window. No worker is started. */
 bool net_init_bounded_probe(void);
 bool net_start_worker(void);
+/* Explicit one-shot CPU0 probe only. Prepare allocates the scheduler stack
+ * BEFORE any live provider/key ownership, then yield until prepared() confirms
+ * the exact private thread is parked. Existing ordinary startup is unchanged.
+ * handoff consumes/closes the original open bounded bootstrap before activating
+ * this prepared worker, retaining its immutable provider/epoch, ORIGINAL15s
+ * deadline, monotonic/tick limits and aggregate150000poll budget. Source IO and
+ * its context must remain stable until finish; callbacks are nonblocking and
+ * side-effect-free, provider poll/send must not yield or reenter TCP tables.
+ * In this scope IRQ ticks only wake; worker turns perform TCP maintenance.
+ * Caller must supervise real progress/clocks/child lifetime, revoke child GO,
+ * reap child and keep key/provider live through actual FIN/TIME_WAIT retirement.
+ * empty() requires every TCP slot EMPTY (not app-close or TIME_WAIT), plus no
+ * listeners,UDP,pending/bootstrap owner. stop() terminally cancels a prepared unused worker or parks a transferred worker without freeing resources;
+ * finish requires exact parked ack,empty tables and no callback/turn in flight,
+ * then scrubs borrowed references. An unused worker finish does not close any external bootstrap; caller must separately finish/scrub that object. Parked thread/stack/tombstone remain until
+ * reboot. Failure never grants transport,provider,key or process retirement. */
+struct net_probe_worker_info {
+    uint64_t prepared,parked,active,handoff_started,ever_active,busy,poll_busy,checking,stop_requested,finished,failed;
+    uint64_t parked_waiters,worker_identity,supervisor_identity,start_us,last_us,deadline_us,start_tick,last_tick,polls,turns;
+};
+/* Snapshot is kernel-only observation into caller-owned nonaliasing storage;
+ * no callbacks,clock reads or ownership/state changes,including after failure. */
+bool net_probe_worker_snapshot(struct net_probe_worker_info *out);
+bool net_prepare_probe_worker(void);
+bool net_probe_worker_prepared(void);
+bool net_probe_worker_handoff(struct net_bounded_probe *probe);
+bool net_probe_worker_current(void);
+bool net_probe_worker_empty(void);
+bool net_probe_worker_stop(void);
+bool net_probe_worker_finish(void);
 void net_handle_ethernet_frame(const uint8_t *frame, uint16_t length);
 void net_notify_rx(void);
 void net_notify_rx_deferred(void *arg);
@@ -115,6 +146,10 @@ bool net_bounded_probe_init(struct net_bounded_probe *probe,
     const struct net_bounded_probe_io *io,uint64_t epoch,uint64_t deadline_us);
 bool net_bounded_probe_current(struct net_bounded_probe *probe);
 bool net_bounded_probe_poll(struct net_bounded_probe *probe);
+/* Prewarm exact target's next-hop MAC inside the same bounded owner/window.
+ * No TCP slot,port,SYN or route fallback; one ARP request when uncached,at most
+ * 1second/100ticks/10000polls,then terminal refusal. Success leaves only cache. */
+int64_t net_prepare_route_bounded(struct net_bounded_probe *probe,uint32_t remote_ip);
 int64_t net_dhcp_request_bounded(struct net_bounded_probe *probe);
 int64_t net_dns_resolve_bounded(struct net_bounded_probe *probe,const char *name,uint32_t *ip_out);
 int64_t net_ping_bounded(struct net_bounded_probe *probe,uint32_t remote_ip,

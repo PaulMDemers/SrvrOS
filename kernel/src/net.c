@@ -212,6 +212,24 @@ static uint32_t local_ip;
 static const uint8_t *local_mac;
 static bool initialized;
 static bool worker_started;
+/* Explicit one-shot probe worker: thread/stack are prepared before a live key.
+ * Its private parked thread and identity tombstone are retained until reboot.
+ * No scheduler allocation, thread kill, VFS or process teardown runs at handoff. */
+static struct {
+    struct scheduler_wait_queue parked_queue;
+    const struct net_bounded_probe_io *source;
+    struct net_bounded_probe_io io,guard;
+    const uint8_t *station;
+    uint8_t mac[6];
+    uint64_t supervisor,thread,epoch,start_us,start_tick,last_us,last_tick,deadline_us,polls,turns;
+    bool attempted,prepared,parked,active,ever_active,handoff_started,busy,poll_busy,checking,stop_requested,finished,failed;
+} probe_worker;
+static bool probe_worker_guard(void);
+static uint64_t probe_worker_device_poll(uint64_t budget,bool verbose);
+static bool probe_worker_packet_allowed(void) {
+    return !probe_worker.handoff_started || probe_worker_guard();
+}
+
 static uint16_t ip_ident;
 static uint64_t rx_frames;
 static uint64_t tx_frames;
@@ -406,11 +424,13 @@ static uint16_t udp_checksum(uint32_t src_ip, uint32_t dst_ip, const uint8_t *ud
 }
 
 static bool send_ethernet(uint8_t *frame, uint16_t length) {
+    if (!probe_worker_packet_allowed()) return false;
     struct net_bounded_probe *scope=bounded_poll_owner;
     if (scope && !bounded_probe_check(scope)) return false;
     bool sent=net_device_send(frame,length);
     if (scope && (bounded_poll_owner!=scope || !sent || !bounded_probe_check(scope)))
         return bounded_probe_fail(scope);
+    if (probe_worker.handoff_started && !probe_worker_guard()) return false;
     if (sent) {
         tx_frames++;
         return true;
@@ -618,7 +638,7 @@ static bool resolve_ipv4_mac(uint32_t ip, uint8_t *mac_out) {
         if (arp_cache_lookup(ip, mac_out)) {
             return true;
         }
-        (void)net_device_poll(32, false);
+        (void)probe_worker_device_poll(32, false);
         net_wait_tick();
     }
     return false;
@@ -2413,7 +2433,7 @@ static void handle_ipv4(const uint8_t *frame, uint16_t length) {
 }
 
 void net_handle_ethernet_frame(const uint8_t *frame, uint16_t length) {
-    if (!initialized || frame == 0 || length < ETH_HEADER_SIZE || !is_for_local_mac(frame)) {
+    if (!probe_worker_packet_allowed() || !initialized || frame == 0 || length < ETH_HEADER_SIZE || !is_for_local_mac(frame)) {
         return;
     }
 
@@ -2437,12 +2457,7 @@ void net_notify_rx_deferred(void *arg) {
     net_notify_rx();
 }
 
-void net_timer_tick(void) {
-    if (!initialized || !worker_started) {
-        return;
-    }
-
-    uint64_t now = timer_ticks();
+static void net_tcp_maintain(uint64_t now) {
     tcp_retransmit_due(now);
     tcp_zero_window_probe_due(now);
     tcp_idle_cleanup_due(now);
@@ -2457,13 +2472,23 @@ void net_timer_tick(void) {
         }
     }
 
-    if (now - rx_last_recovery_tick < NET_RX_RECOVERY_TICKS) {
+}
+
+void net_timer_tick(void) {
+    /* Explicit prepared mode never publishes/reenters TCP from timer IRQ.
+     * Wake the sole service turn instead; ordinary IRQ behavior stays intact. */
+    if (probe_worker.attempted) {
+        if (probe_worker.active) {
+            rx_signal_generation++;
+            scheduler_wake_all(&rx_wait_queue);
+        }
         return;
     }
-
-    rx_last_recovery_tick = now;
-    rx_recovery_wakeups++;
-    rx_signal_generation++;
+    if (!initialized || !worker_started) return;
+    uint64_t now=timer_ticks();
+    net_tcp_maintain(now);
+    if (now-rx_last_recovery_tick<NET_RX_RECOVERY_TICKS) return;
+    rx_last_recovery_tick=now;rx_recovery_wakeups++;rx_signal_generation++;
     scheduler_wake_all(&rx_wait_queue);
 }
 
@@ -2474,7 +2499,7 @@ static void net_worker(void *arg) {
 
     for (;;) {
         uint64_t generation=rx_signal_generation;
-        uint64_t received = net_device_poll(32, false);
+        uint64_t received = probe_worker_device_poll(32, false);
         rx_worker_polls++;
         if (received != 0) {
             rx_worker_packets += received;
@@ -2525,6 +2550,7 @@ bool net_init_bounded_probe(void) {
 }
 
 bool net_start_worker(void) {
+    if (probe_worker.attempted) return false;
     if (!initialized) {
         return false;
     }
@@ -2570,7 +2596,7 @@ int64_t net_dhcp_request(void) {
         if (dhcp_configured) {
             return (int64_t)local_ip;
         }
-        (void)net_device_poll(32, false);
+        (void)probe_worker_device_poll(32, false);
         if (dhcp_have_offer && !dhcp_request_sent) {
             (void)send_dhcp_message(DHCP_REQUEST, dhcp_offered_ip_bytes, dhcp_server_ip_bytes);
         }
@@ -2648,7 +2674,7 @@ int64_t net_dhcp_request_discover_retry(const struct net_dhcp_retry_guard *guard
             if (dhcp_have_offer && dhcp_request_sent) result=(int64_t)local_ip;
             goto done;
         }
-        (void)net_device_poll(32,false);
+        (void)probe_worker_device_poll(32,false);
         if (!dhcp_retry_current(&wait)) goto done;
         if (dhcp_configured) {
             if (dhcp_have_offer && dhcp_request_sent) result=(int64_t)local_ip;
@@ -2734,7 +2760,7 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
             if (dns_response_done || timer_ticks() - start >= DNS_TIMEOUT_TICKS) {
                 break;
             }
-            (void)net_device_poll(32, false);
+            (void)probe_worker_device_poll(32, false);
             net_wait_tick();
         }
         dns_waiting = false;
@@ -2815,7 +2841,7 @@ static bool bounded_probe_progress(struct net_bounded_probe *p,unsigned *local,u
     if (local) (*local)++;
     p->polls++;
     bounded_poll_owner=p;
-    (void)net_device_poll(32,false);
+    (void)probe_worker_device_poll(32,false);
     bool same=bounded_poll_owner==p;
     bounded_poll_owner=previous;
     if (!same || !bounded_probe_check(p)) return bounded_probe_fail(p);
@@ -2825,7 +2851,7 @@ static bool bounded_probe_progress(struct net_bounded_probe *p,unsigned *local,u
 
 bool net_bounded_probe_init(struct net_bounded_probe *p,const struct net_bounded_probe_io *io,
     uint64_t epoch,uint64_t deadline_us) {
-    if (!p || !io || !io->current || !io->retry_ready || !epoch) return false;
+    if (probe_worker.handoff_started || !p || !io || !io->current || !io->retry_ready || !epoch) return false;
     const uint8_t *bytes=(const uint8_t *)p;
     for (size_t i=0;i<sizeof *p;i++) if (bytes[i]) return false;
     p->identity=(uintptr_t)p;p->source=io;p->io=p->io_guard=*io;
@@ -2860,6 +2886,204 @@ bool net_bounded_probe_finish(struct net_bounded_probe *p) {
     return ok;
 }
 
+/* CPU0 callers serialize under IRQ exclusion. This guards only the prepared
+ * probe; it does not claim SMP serialization or arbitrary callback reentrancy. */
+static uint64_t probe_worker_lock(void) {
+#ifdef SRVROS_NET_PREPARED_WORKER_HOST_TEST
+    return 0;
+#else
+    uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;
+#endif
+}
+static void probe_worker_unlock(uint64_t f) {
+#ifdef SRVROS_NET_PREPARED_WORKER_HOST_TEST
+    (void)f;
+#else
+    if(f&(1ull<<9))__asm__ volatile("sti":::"memory");
+#endif
+}
+static bool probe_worker_fail(void) {
+    probe_worker.failed=true;probe_worker.active=false;worker_started=false;
+    return false;
+}
+static bool probe_worker_table_empty(void) {
+    if (dhcp_in_progress || dhcp_retry_active || dns_query_active || dns_waiting ||
+        icmp_ping_waiting || bounded_poll_owner || icmp_bounded_owner) return false;
+    for(unsigned i=0;i<TCP_MAX_CONNECTIONS;i++) {
+        const struct tcp_connection *c=&tcp_connections[i];
+        /* Application close is not wire retirement: TIME_WAIT remains live. */
+        if(c->state!=TCP_STATE_EMPTY || c->refs || c->pending || c->rx_data || c->rx_length) return false;
+        for(unsigned j=0;j<TCP_TX_HISTORY;j++)if(c->tx_history[j].used)return false;
+    }
+    for(unsigned i=0;i<NET_LISTENERS;i++)if(listeners[i].used)return false;
+    for(unsigned i=0;i<NET_PENDING_REQUESTS;i++)if(pending_requests[i].used)return false;
+    for(unsigned i=0;i<UDP_MAX_SOCKETS;i++)if(udp_sockets[i].used)return false;
+    return true;
+}
+static bool probe_worker_same(void) {
+    return probe_worker.active && !probe_worker.failed && probe_worker.source && bounded_io_same(&probe_worker.io,&probe_worker.guard) &&
+        bounded_io_same(&probe_worker.io,probe_worker.source) &&
+        probe_worker.io.context && probe_worker.io.current && probe_worker.io.retry_ready && probe_worker.epoch;
+}
+static bool probe_worker_guard(void) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(!probe_worker.active || probe_worker.failed || probe_worker.finished || probe_worker.checking) goto failed;
+    probe_worker.checking=true;
+    struct net_device_link link={0};
+    if(!probe_worker_same() || !probe_worker.io.current(probe_worker.io.context,probe_worker.epoch) ||
+       !probe_worker_same() || !initialized || !net_probe_quiet || !worker_started ||
+       local_mac!=probe_worker.station || net_device_mac()!=probe_worker.station ||
+       !net_device_link(&link) || !link.up || !probe_worker_same())goto checked_failed;
+    for(unsigned i=0;i<6;i++)if(probe_worker.station[i]!=probe_worker.mac[i])goto checked_failed;
+    if(!probe_worker.io.current(probe_worker.io.context,probe_worker.epoch) || !probe_worker_same())goto checked_failed;
+    uint64_t tick=timer_ticks(),us=timer_monotonic_us();
+    if(!probe_worker.active || probe_worker.failed || !worker_started || tick<probe_worker.last_tick || us<probe_worker.last_us || tick-probe_worker.start_tick>=1500 ||
+       us<probe_worker.start_us || us>=probe_worker.deadline_us || probe_worker.polls>=150000u)goto checked_failed;
+    probe_worker.last_tick=tick;probe_worker.last_us=us;probe_worker.checking=false;ok=true;goto done;
+checked_failed:
+    probe_worker.checking=false;
+failed:
+    (void)probe_worker_fail();
+done:
+    probe_worker_unlock(f);return ok;
+}
+static uint64_t probe_worker_device_poll(uint64_t budget,bool verbose) {
+    if(!probe_worker.handoff_started)return net_device_poll(budget,verbose);
+    uint64_t f=probe_worker_lock();
+    if(probe_worker.poll_busy || !probe_worker_guard()) {
+        (void)probe_worker_fail();probe_worker_unlock(f);return 0;
+    }
+    probe_worker.poll_busy=true;probe_worker.polls++;
+    uint64_t count=net_device_poll(budget,verbose);
+    probe_worker.poll_busy=false;bool ok=probe_worker_guard();
+    probe_worker_unlock(f);return ok?count:0;
+}
+static bool probe_worker_runnable(void *arg) {
+    return arg==&probe_worker && probe_worker.active;
+}
+static bool probe_worker_rx_or_stopped(void *arg) {
+    return !probe_worker.active || rx_signal_generation!=*(uint64_t *)arg;
+}
+static bool probe_worker_turn(void) {
+    /* No wait/yield inside this turn; provider callbacks must be finite and
+     * nonblocking. Any uncertain/foreign/recursive ownership remains retained. */
+    uint64_t f=probe_worker_lock();
+    if(scheduler_current_thread_id()!=probe_worker.thread || probe_worker.busy || !probe_worker_guard()) {
+        probe_worker_unlock(f);return probe_worker_fail();
+    }
+    probe_worker.busy=true;probe_worker.parked=false;probe_worker.turns++;
+    uint64_t count=probe_worker_device_poll(32,false);rx_worker_polls++;
+    if(count)rx_worker_packets+=count;else rx_worker_empty_polls++;
+    bool ok=probe_worker_guard();
+    if(ok) {net_tcp_maintain(probe_worker.last_tick);ok=probe_worker_guard();}
+    probe_worker.busy=false;probe_worker_unlock(f);return ok;
+}
+static void prepared_net_worker(void *arg) {
+    if(arg!=&probe_worker)return;
+    uint64_t f=probe_worker_lock(),id=scheduler_current_thread_id();
+    if(!id || id==probe_worker.supervisor || (probe_worker.thread && id!=probe_worker.thread)) {
+        (void)probe_worker_fail();probe_worker_unlock(f);return;
+    }
+    probe_worker.thread=id;probe_worker_unlock(f);
+    for(;;) {
+        f=probe_worker_lock();
+        if(!probe_worker.active) {
+            probe_worker.parked=true;probe_worker.busy=false;probe_worker_unlock(f);
+            if(!scheduler_wait(&probe_worker.parked_queue,probe_worker_runnable,&probe_worker))scheduler_yield();
+            continue;
+        }
+        uint64_t generation=rx_signal_generation;probe_worker_unlock(f);
+        if(!probe_worker_turn())continue;
+        uint64_t now=timer_ticks(),deadline=now==UINT64_MAX?now:now+1;
+        if(!scheduler_wait_timeout(&rx_wait_queue,probe_worker_rx_or_stopped,&generation,deadline))scheduler_yield();
+    }
+}
+bool net_prepare_probe_worker(void) {
+    uint64_t f=probe_worker_lock(),id=scheduler_current_thread_id();bool ok=false;
+    if(!id || initialized || worker_started || net_probe_quiet || probe_worker.attempted ||
+       dhcp_in_progress || dhcp_retry_active)goto done;
+    probe_worker.attempted=true;probe_worker.supervisor=id;
+    probe_worker.prepared=scheduler_spawn("net-probe",prepared_net_worker,&probe_worker);
+    ok=probe_worker.prepared;
+    if(!ok)probe_worker.failed=true;
+done:
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_prepared(void) {
+    uint64_t f=probe_worker_lock();bool ok=scheduler_current_thread_id()==probe_worker.supervisor &&
+        probe_worker.prepared && probe_worker.thread && probe_worker.parked &&
+        probe_worker.parked_queue.waiters==1 && !probe_worker.active && !probe_worker.ever_active && !probe_worker.handoff_started && !probe_worker.stop_requested && !probe_worker.finished && !probe_worker.failed;
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_handoff(struct net_bounded_probe *p) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(!net_probe_worker_prepared() || !p || !p->identity || p->identity!=(uintptr_t)p || p->closed ||
+       p->busy || !probe_worker_table_empty() || !net_bounded_probe_current(p))goto done;
+    probe_worker.source=p->source;probe_worker.io=p->io;probe_worker.guard=p->io_guard;
+    probe_worker.station=p->station;copy_bytes(probe_worker.mac,p->mac,6);
+    probe_worker.epoch=p->epoch;probe_worker.start_us=p->start_us;probe_worker.start_tick=p->start_tick;
+    probe_worker.last_us=p->last_us;probe_worker.last_tick=p->last_tick;
+    probe_worker.deadline_us=p->deadline_us;probe_worker.polls=p->polls;
+    /* Original bootstrap is terminal BEFORE the worker can run or IRQs enable
+     * its maintenance. Never reset the original deadline or aggregate polls. */
+    probe_worker.handoff_started=true;
+    if(!net_bounded_probe_finish(p)) {probe_worker_fail();goto done;}
+    probe_worker.ever_active=probe_worker.active=true;probe_worker.parked=false;worker_started=true;
+    ok=probe_worker_guard();
+    scheduler_wake_all(&probe_worker.parked_queue);
+done:
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_current(void) {
+    uint64_t f=probe_worker_lock();bool ok=scheduler_current_thread_id()==probe_worker.supervisor && probe_worker_guard();
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_empty(void) {
+    uint64_t f=probe_worker_lock();bool ok=scheduler_current_thread_id()==probe_worker.supervisor &&
+        !probe_worker.busy && probe_worker_guard() && probe_worker_table_empty();
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_stop(void) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(scheduler_current_thread_id()!=probe_worker.supervisor || !probe_worker.prepared || !probe_worker.thread ||
+       probe_worker.busy || probe_worker.poll_busy || probe_worker.checking || probe_worker.finished ||
+       (!probe_worker.handoff_started && (!probe_worker.parked || probe_worker.parked_queue.waiters!=1)))goto done;
+    probe_worker.handoff_started=true; /* Terminal cancellation also seals unused admission. */
+    probe_worker.stop_requested=true;probe_worker.active=false;worker_started=false;
+    scheduler_wake_all(&rx_wait_queue);ok=true;
+done:
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_snapshot(struct net_probe_worker_info *out) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(!out || scheduler_current_thread_id()!=probe_worker.supervisor || !probe_worker.attempted)goto done;
+    *out=(struct net_probe_worker_info){.prepared=probe_worker.prepared,.parked=probe_worker.parked,
+        .active=probe_worker.active,.handoff_started=probe_worker.handoff_started,.ever_active=probe_worker.ever_active,
+        .busy=probe_worker.busy,.poll_busy=probe_worker.poll_busy,.checking=probe_worker.checking,
+        .stop_requested=probe_worker.stop_requested,.finished=probe_worker.finished,.failed=probe_worker.failed,
+        .parked_waiters=probe_worker.parked_queue.waiters,.worker_identity=probe_worker.thread,
+        .supervisor_identity=probe_worker.supervisor,.start_us=probe_worker.start_us,.last_us=probe_worker.last_us,
+        .deadline_us=probe_worker.deadline_us,.start_tick=probe_worker.start_tick,.last_tick=probe_worker.last_tick,
+        .polls=probe_worker.polls,.turns=probe_worker.turns};
+    ok=true;
+ done:
+    probe_worker_unlock(f);return ok;
+}
+bool net_probe_worker_finish(void) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(scheduler_current_thread_id()!=probe_worker.supervisor || !probe_worker.stop_requested || probe_worker.active ||
+       probe_worker.busy || probe_worker.poll_busy || !probe_worker.parked || probe_worker.parked_queue.waiters!=1 ||
+       probe_worker.checking || probe_worker.finished || !probe_worker_table_empty())goto done;
+    /* Private blocked thread's condition borrows only permanent static flags.
+     * No provider/process/key callback remains on its parked continuation. */
+    probe_worker.source=NULL;probe_worker.station=NULL;
+    bounded_probe_scrub(&probe_worker.io,sizeof probe_worker.io);bounded_probe_scrub(&probe_worker.guard,sizeof probe_worker.guard);
+    bounded_probe_scrub(probe_worker.mac,sizeof probe_worker.mac);probe_worker.finished=true;
+    ok=!probe_worker.failed;
+done:
+    probe_worker_unlock(f);return ok;
+}
+
 static bool bounded_probe_alias(const struct net_bounded_probe *p,const void *out,size_t size) {
     uintptr_t a=(uintptr_t)p,b=(uintptr_t)out;
     return a<=b?b-a<sizeof *p:a-b<size;
@@ -2887,6 +3111,13 @@ failed:
     bounded_probe_fail(p);
 done:
     bounded_probe_scrub(found,sizeof found);return ok;
+}
+
+int64_t net_prepare_route_bounded(struct net_bounded_probe *p,uint32_t remote_ip) {
+    if(!bounded_probe_enter(p))return -1;
+    uint8_t mac[6]={0};unsigned polls=0;int64_t result=-1;
+    if(remote_ip && bounded_resolve_mac(p,route_next_hop(remote_ip),mac,&polls,10000u) && bounded_probe_check(p))result=0;
+    bounded_probe_scrub(mac,sizeof mac);if(result<0)bounded_probe_fail(p);p->busy=false;return result;
 }
 
 int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) {
@@ -3343,7 +3574,7 @@ int64_t net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, 
             }
             return 0;
         }
-        (void)net_device_poll(32, false);
+        (void)probe_worker_device_poll(32, false);
         net_wait_tick();
     }
 
@@ -3555,7 +3786,7 @@ int64_t net_udp_recv_checked(uint64_t socket_id, uint64_t capacity, bool nonbloc
             return (int64_t)copied;
         }
 
-        net_device_poll(32, false);
+        probe_worker_device_poll(32, false);
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
@@ -3765,7 +3996,7 @@ int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
             return -SRV_NETERR_TIMEDOUT;
         }
 
-        net_device_poll(32, false);
+        probe_worker_device_poll(32, false);
         if (!scheduler_wait_timeout(&connect_wait_queue, connect_ready, &wait, deadline)) {
             scheduler_yield();
         }
@@ -3836,7 +4067,7 @@ int64_t net_accept_checked(uint64_t listener_id, uint64_t capacity, bool nonbloc
             }
         }
 
-        net_device_poll(32, false);
+        probe_worker_device_poll(32, false);
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
@@ -3936,7 +4167,7 @@ int64_t net_read_checked(uint64_t connection_id, uint64_t length, bool nonblock,
             return -1;
         }
 
-        net_device_poll(32, false);
+        probe_worker_device_poll(32, false);
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
@@ -4054,7 +4285,7 @@ int64_t net_respond_checked(uint64_t connection_id, const char *buffer, uint64_t
                     return sent == 0 ? -1 : (int64_t)sent;
                 }
                 sent += chunk;
-                net_device_poll(16, false);
+                probe_worker_device_poll(16, false);
                 scheduler_yield();
                 if (sent == length) {
                     return (int64_t)sent;
@@ -4069,7 +4300,7 @@ int64_t net_respond_checked(uint64_t connection_id, const char *buffer, uint64_t
             return (int64_t)sent;
         }
 
-        net_device_poll(32, false);
+        probe_worker_device_poll(32, false);
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
@@ -4091,7 +4322,7 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
         return SRV_POLLNVAL;
     }
 
-    net_device_poll(32, false);
+    probe_worker_device_poll(32, false);
 
     if (handle_type(handle) == NET_HANDLE_LISTENER) {
         struct net_listener *listener = find_listener(handle);

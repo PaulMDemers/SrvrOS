@@ -6360,6 +6360,14 @@ test-core: test-sync-content
 .PHONY: test-http-child
 test-core: test-http-child
 test-wifi-completion-foundations: test-http-child
+.PHONY: test-net-prepared-worker
+test-core: test-net-prepared-worker
+test-wifi-completion-foundations: test-net-prepared-worker
+test-net-prepared-worker: build/tests/net-prepared-worker-host$(HOST_EXE)
+	$<
+build/tests/net-prepared-worker-host$(HOST_EXE): tools/test_net_prepared_worker.c kernel/src/net.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
 test-http-child: build/tests/process-pipe-handoff-host$(HOST_EXE) build/tests/http-child-owner-host$(HOST_EXE) build/tests/httpget-wifi-exact-host$(HOST_EXE) build/tests/init-network-probe-host$(HOST_EXE)
 	build/tests/process-pipe-handoff-host$(HOST_EXE)
 	build/tests/http-child-owner-host$(HOST_EXE)
