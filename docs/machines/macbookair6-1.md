@@ -10046,3 +10046,64 @@ current release `13b77acfd1826907` and console recovery `c35475f62f154f1e`
 verify. Raw logs/images and complete payload/evidence backups remain local,
 with accepted backups outside build. Earlier failed VM runs remain failures;
 final-source host/VM provenance is unchanged from the validation section above.
+
+
+### Command-status and service-window audit scope (2026-11-09)
+
+Base `928555f3`, after collected PR432. Bounded objective: retain the slowest
+CSW callback's command opcode/size and exact software submission/observation/
+resume/service sample in each explicit sync phase, plus wall time in existing
+BOT scheduler checkpoints. This separates request context and yielded service
+from the currently unassigned file wall interval without guessing hardware
+completion. Touch USB diagnostic metadata, sync final emission/parser and focused
+fixtures; leave xHCI, scheduler policy, file synchronization, filesystem and
+block flush behavior intact. No command addresses or user payloads are logged.
+Existing PR19 transport retirement and PR301 scanout work remain independent;
+no contact/delegation. Preserve all transport bounds, integrity checks, watchdogs,
+ownership gates and stress limits. Next checkpoint: strict host/VM validation,
+reviewable merge, exact-stage preflight and automatic native repeat at1% volume.
+
+
+### Command-status/checkpoint diagnostics validated and staged (2026-11-09)
+
+Frozen source `dc7b09f7` adds auxiliary-only fixed metadata for the slowest CSW
+callback in each retained sync phase: command opcode/size, exact request/actual
+length and existing submission/observation/resume/service sample. Existing BOT
+checkpoints are called exactly once at their original locations, with separate
+wall/call aggregates. No addresses/payloads are logged. Final-only
+`sync-usb-command` rows must match the CSW maximum, phase bounds and service
+coverage; callback plus checkpoint wall must fit the enclosing phase. Missing,
+conflicting, overflowing or incomplete evidence fails strict collection.
+
+Full matched normal/native/VM/RAM/USB images, core, desktop and docs pass on
+that source, including89 installed-root tests in720.355s with one expected skip.
+Focused fixtures cover read/write/flush context, exact checkpoint call counts,
+independent observer preservation, overflow and malformed/missing command rows.
+Source comparison proves unchanged command control flow after removing only
+diagnostic arguments/checkpoint wrappers; begin/end/sector/transfer/read/write/
+flush/retirement/attachment bodies and the legacy USB formatter are identical.
+xHCI, scheduler, process/file synchronization, filesystem, block flush and syscall
+behavior have no diff. No transport bound, error/quarantine handling, watchdog,
+ownership gate, integrity check or stress limit changes.
+
+Ordinary sysabi, USB keyboard, fork/exec-vectors/yield VMs and real USB
+read-only/write/flush/reload/input integration pass. Populated-Home KVM stress at
+400 write IOPS passes22 app cycles,181 overlap observations, complete saved
+atomic app receipts, zero audio/worker/lifecycle errors,140159us maximum loop
+and1138647/1870975us maximum launch/close. Independent saved-checkpoint parsing
+agrees on complete sync/CSW/checkpoint/raw-write/gate evidence. Ordinary immutable
+screenshot/readback/Preview/repeat/exit passes. Three experimental IDT variants
+compile only; no feature activation or physical acceptance follows.
+
+VM PID7's130 global sync calls retain a765024us file phase with438522us in
+existing BOT checkpoints; its slowest CSW is a512-byte WRITE(10),932us callback.
+This demonstrates useful residual attribution in that VM, not the distribution
+or cause of native latency. Exact stage `53bbc1245abcc03d` passes Q35's native
+board refusal/save/unmount/automatic-return path. It does not accept native
+hardware operation. Next trial repeats the original automated1800-second1%
+PCM/disk/app/three-screenshot stress and every500ms loop/10s lifecycle/full
+prefix/readback/barrier/rename/failure/retirement requirement, adding complete
+command/checkpoint evidence. Native timing and any performance fix remain pending.
+Retain accepted `13b77acfd1826907` and console recovery `c35475f62f154f1e`;
+archive only a superseded unreferenced EFI duplicate after independent payload
+verification to make installation room. No sibling or power-policy acceptance.

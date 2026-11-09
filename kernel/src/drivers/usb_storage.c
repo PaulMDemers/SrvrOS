@@ -78,7 +78,7 @@ static void record_bulk(struct usb_storage_timing *target,unsigned phase,uint64_
     }
 }
 static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
-                       uint32_t length,uint32_t *actual) {
+                       uint32_t length,uint32_t *actual,uint8_t opcode,uint32_t command_bytes) {
     bool legacy=timing_active,auxiliary=aux_timing_active;
     if(!legacy && !auxiliary)return s->bulk(s->context,in,data,length,actual);
     uint64_t start=timer_monotonic_us();
@@ -89,8 +89,29 @@ static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
     /* Capture once, then copy the same observation into independent windows.
      * No additional bulk/controller request or event-service operation. */
     if(legacy)record_bulk(&timing,phase,start,end,ok,s->transfer_timing!=0,&sample);
-    if(auxiliary)record_bulk(&aux_timing,phase,start,end,ok,s->transfer_timing!=0,&sample);
+    if(auxiliary) {
+        bool peak=phase==2 && (!aux_timing.calls[2] ||
+            (end>=start && end-start>aux_timing.phase[2].max_us));
+        record_bulk(&aux_timing,phase,start,end,ok,s->transfer_timing!=0,&sample);
+        if(peak)aux_timing.csw=(struct usb_storage_csw_timing){
+            .start_us=start,.end_us=end,.opcode=opcode,.command_bytes=command_bytes,
+            .request_bytes=length,.actual=*actual,.ok=ok,.sample=sample};
+    }
     return ok;
+}
+
+/* Observe the existing checkpoint once; no extra yield or eligibility change.
+ * Disjoint from bulk callback intervals, so this accounts for part of the
+ * residual phase wall time without treating it as CPU execution. */
+static void timed_checkpoint(void) {
+    bool active=aux_timing_active;
+    if(!active){scheduler_io_checkpoint();return;}
+    uint64_t start=timer_monotonic_us();
+    scheduler_io_checkpoint();
+    uint64_t end=timer_monotonic_us();
+    timing_add(&aux_timing,&aux_timing.checkpoint_calls,1);
+    if(end<start)aux_timing.valid=false;
+    else timing_add(&aux_timing,&aux_timing.checkpoint_us,end-start);
 }
 
 static uint32_t le32(const uint8_t *p) {
@@ -128,7 +149,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     latency_usb(length,cdb[0]);
     uint8_t phase = 1; /* CBW, data, CSW, then full-transfer validation. */
     const char *reason = "cbw-transfer";
-    if (!timed_bulk(s,0,false,cbw,sizeof(cbw),&actual)) goto bad;
+    if (!timed_bulk(s,0,false,cbw,sizeof(cbw),&actual,cdb[0],length)) goto bad;
     reason="cbw-length";
     if (actual!=sizeof(cbw)) goto bad;
     phase = 2;
@@ -139,7 +160,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
         uint32_t chunk=length-transferred;
         if(chunk>USB_STORAGE_BULK_BYTES)chunk=USB_STORAGE_BULK_BYTES;
         actual=0;reason="data-transfer";
-        if(!timed_bulk(s,1,in,(uint8_t *)data+transferred,chunk,&actual)) {
+        if(!timed_bulk(s,1,in,(uint8_t *)data+transferred,chunk,&actual,cdb[0],length)) {
             if(actual<=chunk)transferred+=actual;
             goto bad;
         }
@@ -149,11 +170,11 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
         /* A short data transfer ends the phase. Do not consume its CSW as
          * another data chunk; the existing status/residue checks decide it. */
         if(actual<chunk)break;
-        if(transferred<length)scheduler_io_checkpoint();
+        if(transferred<length)timed_checkpoint();
     }
     phase = 3;
     actual=0; reason="csw-transfer";
-    if (!timed_bulk(s,2,true,csw,sizeof(csw),&actual)) goto bad;
+    if (!timed_bulk(s,2,true,csw,sizeof(csw),&actual,cdb[0],length)) goto bad;
     reason="csw-length"; if (actual!=sizeof(csw)) goto bad;
     reason="csw-signature"; if (le32(csw)!=0x53425355) goto bad;
     reason="csw-tag"; if (le32(csw+4)!=tag) goto bad;
@@ -172,7 +193,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     phase = 4;
     reason="data-length";
     if (le32(csw+8)!=0 || transferred!=length) goto bad;
-    scheduler_io_checkpoint();
+    timed_checkpoint();
     return 0;
 bad:
     s->failed=true; s->errors++;

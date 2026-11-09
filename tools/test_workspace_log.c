@@ -18,7 +18,7 @@ static unsigned cost_reports;
 static bool *finish_on_wait;
 
 static struct sync_timing_snapshot sync_fixture;
-static unsigned sync_headers,sync_records,sync_worst,sync_usb;
+static unsigned sync_headers,sync_records,sync_worst,sync_usb,sync_command;
 static unsigned global_syncs,durable_reports;
 static uint64_t test_policy=20000;
 bool xhci_storage_wait_policy(uint64_t policy,uint64_t *old) { assert(depth && (policy==0||policy==4000||policy==20000));*old=test_policy;test_policy=policy;return true; }
@@ -74,6 +74,7 @@ void console_printf(const char *fmt,...) {
     if(!strncmp(fmt,"sync-record:",12))sync_records++;
     if(!strncmp(fmt,"sync-worst:",11))sync_worst++;
     if(!strncmp(fmt,"sync-usb-timing:",16))sync_usb++;
+    if(!strncmp(fmt,"sync-usb-command:",17))sync_command++;
     if(!strncmp(fmt,"workspace-cost:",15)) { assert(previous_save.pending && !tracing && !depth);cost_reports++; }
     if(!strncmp(fmt,"workspace-log: durable",22)) {assert(!tracing && !depth);durable_reports++;}
     total++;
@@ -83,7 +84,7 @@ int main(void) {
     sync_checkpoint(false);assert(!sync_headers && !sync_records && !sync_worst && !sync_usb);
     sync_fixture.enabled=1;sync_fixture.records[0].pid=7;
     sync_checkpoint(false);assert(sync_headers==1 && sync_records==1 && !sync_worst && !sync_usb);
-    sync_checkpoint(true);assert(sync_headers==2 && sync_records==2 && sync_worst==1 && sync_usb==6);
+    sync_checkpoint(true);assert(sync_headers==2 && sync_records==2 && sync_worst==1 && sync_usb==6 && sync_command==2);
     assert(!writes && !flushes && !tracing && !depth);
     sync_fixture=(struct sync_timing_snapshot){0};total=100;
 

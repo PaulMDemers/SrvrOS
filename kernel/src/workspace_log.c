@@ -138,6 +138,13 @@ static void report_sync_transfers(const char *scope,uint64_t id,const struct usb
             p->observe_max_us,p->resume_max_us,p->service_checks,p->service_samples,
             p->service_gap_max_us,p->completion_gap_max_us,(uint64_t)t->valid);
     }
+    const struct usb_storage_csw_timing *c=&t->csw;
+    const struct usb_bulk_timing *b=&c->sample;
+    console_printf("sync-usb-command: version=1 scope=%s id=%u checkpoint_calls=%u checkpoint_us=%u start_us=%u end_us=%u opcode=%u command_bytes=%u request_bytes=%u actual=%u ok=%u submitted=%u observed=%u resumed=%u seen=%u service_valid=%u service_checks=%u service_samples=%u service_gap_max_us=%u completion_gap_us=%u\n",
+        scope,id,t->checkpoint_calls,t->checkpoint_us,c->start_us,c->end_us,
+        c->opcode,c->command_bytes,c->request_bytes,c->actual,c->ok,
+        b->submitted,b->observed,b->resumed,(uint64_t)b->seen,(uint64_t)b->service_valid,
+        b->service_checks,b->service_samples,b->service_gap_max_us,b->completion_gap_us);
 }
 static void sync_checkpoint(bool final) {
     struct sync_timing_snapshot s;sync_timing_snapshot(&s);if(!s.enabled)return;

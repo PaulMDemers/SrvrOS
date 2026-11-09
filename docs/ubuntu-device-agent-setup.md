@@ -1516,3 +1516,15 @@ need `libssl-dev` and `python3-cryptography`. These host-only optional fixtures 
 not add OpenSSL to the freestanding OS or portable default `test-core` dependency
 set. The Pro host has installed `libssl-dev`; preserve normal host package policy
 on other machines rather than copying this host's library paths.
+
+
+The explicit sync-phase diagnostic also retains each phase's slowest CSW callback
+with command opcode/size and its exact software event/resume/service clocks,
+plus wall time in existing BOT scheduler checkpoints. `sync-usb-command` is
+final-only, fixed metadata and logs no addresses or payloads. The strict sync
+parser requires these rows, their agreement with the CSW maximum, phase bounds,
+service coverage and a disjoint callback/checkpoint wall sum within the phase.
+Checkpoint observation calls the existing scheduler checkpoint exactly once;
+it does not add a yield, grant eligibility or change transfer policy. Time
+outside callbacks/checkpoints remains unassigned, and software event timestamps
+must not be described as device completion or CPU time.
