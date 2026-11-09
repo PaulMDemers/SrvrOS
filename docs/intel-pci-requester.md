@@ -64,7 +64,8 @@ masks remain visible. Only complete, profiled prefixes contribute derived masks.
 The strict collector verifies raw coverage/order, profile/masks, clocks, original
 preflight/epoch binding,122 total census/takeover/PCI observations, exact recipe,
 cache/resource/firmware prerequisites and clean return. Missing or inconsistent
-receipts are not passes. Native acceptance still needs matching machine evidence.
+receipts are not passes. Native acceptance needs matching machine evidence; the result below binds
+this source to its Air7,2 session.
 
 ## Ownership limits and next step
 
@@ -105,4 +106,30 @@ Installed/durable/immutable, accepted reset and recovery payloads verify;1,425
 prior USB files/131 sessions preserve with clean offline integrity checks.
 Volume1%, Ubuntu default, no reboot armed; full evidence is independently backed
 up outside build. These host/VM checks do not accept native PCI state or clear
-a DMA/cache/ownership obligation. The matching physical capture is pending.
+a DMA/cache/ownership obligation. Physical capture was pending at this local checkpoint; see the result below.
+
+## Native capture acceptance (2026-11-09)
+
+Source `fe6677c5`, release `3ff42f33e6c01391`, session
+`session-00065fdf108c49b4-00`: both ordered nine-DWORD PCI snapshots pass the
+exact MSI90 → PMd0 → AFa4 profile. Capture completes in **27,036/100,000us**;
+the wake bracket is223,039us. Both samples match, bus-master mask3 indicates
+BME enabled in both, TP pending mask0 and FLR control0. All18 raw reads are
+retained. The original borrow returns, all10 aliases retire and exclusion
+releases; reason, clock fault, uncertainty and retained state are zero.
+The existing wake protocol has three MMIO writes; this capture adds zero PCI
+configuration, BME/FLR/reset/PTE writes. Limits remain100/300/500ms.
+
+Strict native receipt/checkpoint and collector checks pass without attention.
+All1,425 prior files preserve apart from expected metadata; three new logs give
+1,428files/132sessions. Offline filesystem/allocation/writable/headroom checks,
+installed/durable recovery/default and consumed one-shot pass. Volume1%; no
+reboot armed. Full raw evidence and independent analysis survive distclean in
+the reviewed-evidence backup. Checkpoint:`build/air-requester-audit-20261109`.
+
+This accepts one read-only native capture, not DMA drain or repeatability.
+TP clear does not retire posted writes, prefetch, caches, translations or other
+readers, and BME remains enabled. All eight completion obligations (mask255),
+firmware/SMM ownership, GGTT transfer, zero managed pages and no physical
+tear-free grant remain. A future operation needs fresh same-lifetime authority.
+

@@ -2,7 +2,32 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Ready: read-only PCI Advanced Features requester capture
+### Accepted: native read-only PCI AF requester capture
+
+Source `fe6677c5`, release `3ff42f33e6c01391`, session
+`session-00065fdf108c49b4-00`: both ordered nine-DWORD PCI snapshots pass the
+exact MSI90 → PMd0 → AFa4 profile. Capture completes in **27,036/100,000us**;
+the wake bracket is223,039us. Both samples match, bus-master mask3 indicates
+BME enabled in both, TP pending mask0 and FLR control0. All18 raw reads are
+retained. The original borrow returns, all10 aliases retire and exclusion
+releases; reason, clock fault, uncertainty and retained state are zero.
+The existing wake protocol has three MMIO writes; this capture adds zero PCI
+configuration, BME/FLR/reset/PTE writes. Limits remain100/300/500ms.
+
+Strict native receipt/checkpoint and collector checks pass without attention.
+All1,425 prior files preserve apart from expected metadata; three new logs give
+1,428files/132sessions. Offline filesystem/allocation/writable/headroom checks,
+installed/durable recovery/default and consumed one-shot pass. Volume1%; no
+reboot armed. Full raw evidence and independent analysis survive distclean in
+the reviewed-evidence backup. Checkpoint:`build/air-requester-audit-20261109`.
+
+This accepts one read-only native capture, not DMA drain or repeatability.
+TP clear does not retire posted writes, prefetch, caches, translations or other
+readers, and BME remains enabled. All eight completion obligations (mask255),
+firmware/SMM ownership, GGTT transfer, zero managed pages and no physical
+tear-free grant remain. A future operation needs fresh same-lifetime authority.
+
+### Prior local qualification: PCI Advanced Features requester capture
 
 Main`99e6edea` (Air6,1 PR443 native diagnostic documentation) is integrated
 as`6501a9ef`. Source`fe6677c5`, release`3ff42f33e6c01391`, adds a distinct
@@ -27,7 +52,8 @@ native object/staged controls pass. Older native passes/nonpasses keep their
 exact-source classifications. Exact immutable MBR EFI Q35 refusal/checkpoint/
 save/unmount/automatic return and missing-workspace halt pass. The actual
 16-token parser matches all four saved logs. Full-width tail62,044/65,536 retains
-the unchanged1,536 allowance. Native capture remains pending.
+the unchanged1,536 allowance. Native capture was pending at this checkpoint;
+the matching result is recorded above.
 
 The candidate is installed/current/durable/immutable; accepted reset6365,
 recovery9aa8, GUI and other retained payloads verify. All1,425 USB files/131
