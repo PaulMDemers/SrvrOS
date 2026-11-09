@@ -2,6 +2,18 @@
 
 Updated: 2026-11-08. State: **active reference machine; partial device acceptance**.
 
+### Active scope: reset clock evidence and bounded admission grouping
+
+Integrate main `2718c8e3` (Air6,1 scheduler-return, render/listening and screenshot
+batching PR417–426), retaining independent acceptance and the Air7,2 settling-clock
+nonpass. Add first-fault inner reset clock evidence and measured guarded bundles
+for existing entry/final BCS/control/domain reads. Full fresh pre/provider/post
+admission, registered pins, raw snapshots, all100/300/500ms limits and retention
+remain. No new register/store/page/geometry or enabled-ring admission. Scope:
+reset core/adapter, strict versioned receipts and host/native/VM checks. Stop at
+installed/unarmed hardware readiness; no physical reboot in this block. Checkpoint:
+`build/air-reset-clock-20261108/status.md`.
+
 ### Latest same-borrow reset trial: clock failure during settling
 
 Source `c8942c8d`, release `d74b95ab9b2f5d5c`, session
