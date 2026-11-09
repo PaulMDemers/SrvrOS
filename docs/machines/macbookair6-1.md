@@ -64,7 +64,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 3,859 verified disk bursts, 1,084 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (121.877 ms maximum); broader interactive/endurance coverage, failure handling and hotplug remain open |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 3,884 verified disk bursts, 1,080 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (119.993 ms maximum); broader interactive/endurance coverage, failure handling and hotplug remain open |
 | Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
@@ -9825,3 +9825,64 @@ all evidence. For ESP headroom, the older unreferenced batching payload
 retain latest accepted stress `f5e9c4c9603cf2eb`, audible check, sampler, zero-load,
 single-window and console recovery `c35475f62f154f1e` installed. No new physical
 pass is claimed by this preparation record.
+
+
+### Native screenshot admission holder result (2026-11-08)
+
+PR429 merge `66277083`, frozen source `e4f7f77c`, release `93d4474e781f4b6a`,
+run `f36742f3d2664f44`, session `session-00065fce486a0aee-00`: automatic
+1800-second1% audio/USB/app/three-screenshot stress passes all original checks.
+This accepts the new native observations, not a latency optimization.
+
+All three retired screenshot workers complete65 raw writes/4196406 BMP bytes
+each, eight capacity changes, and zero invalid, dropped, active or failed records.
+Every final gate companion is present and its state partition agrees exactly:
+
+| Worker PID | Gate wall | Owner overlap | Blocked | READY | Running |
+| --- | --- | --- | --- | --- | --- |
+| 11 | 8.869162s | 8.855521s | 8.370989s | 497.920ms | 0.253ms |
+| 475 | 11.416367s | 11.398317s | 9.951976s | 1.464127s | 0.264ms |
+| 935 | 10.125499s | 10.110449s | 8.054251s | 2.070984s | 0.264ms |
+
+Owner overlap covers99.842–99.851% of gate wall time. Ownership and scheduler
+state are independent overlapping classifications; READY time must not be added
+to owner overlap. The worst gate per worker is1.695968/1.442932/1.670416s.
+Each retains thread19/PID7, syscall87 (`SYS_SYNC`), as its longest overlapping
+owner, accounting for99.819–99.948% of that particular worst wait. This directly
+identifies the owner/syscall for the retained worst waits; the aggregate does
+not identify every owner of all400 overlapping scopes. Complete foreign
+operation internals and POSIX/progress scheduling outside raw calls remain
+unmeasured. These are wall intervals, not CPU time.
+
+Raw call sums are9.190594/11.725786/10.440288s. Handler work remains about21ms
+per screenshot, reservation about20ms and copying about1ms. Slowest complete
+screenshot is22.379800s, including7.030952s receive and11.841051s WRITE. Prior
+measurement-only run was23.738913s overall; this variation is not a claimed
+performance fix. Slowest retained cleanup is307.105ms, with no pending retirement.
+
+The workload completes1080 app cycles and3884 verified bursts/1018167296 bytes,
+with345862144 PCM bytes, zero recorded underruns and zero worker/lifecycle
+errors. All53601 valid loop observations satisfy500ms, maximum119993us; maximum
+launch/close is1324913/2522480us within unchanged10s. Worst-loop companion has
+99614us blocked,20192us READY and zero exclusions. All three1366x768 BMPs
+decode, follow-up Files and normal exit pass, and app/cache/capture/battery
+owners retire before unmount. Listening is unassessed at1%; prior bounded25%
+listening acceptance stays separate.
+
+All692 prior files survive except expected `.srvros/meta`; nine additions yield
+701 files/2372 allocated clusters. Offline fsck and independent allocation checks
+pass with zero leaks/mismatches/errors. Independent review verifies session
+hashes, raw-write/gate/state/loop/lifetime parsers, binary/text receipts, decoded
+BMPs and605 automatic-backup file hashes. Reviewed evidence is backed up outside
+`build`. Installed/staged/independent payloads, protected accepted images and
+console recovery `c35475f62f154f1e` verify. Ubuntu stays default, one-shot is
+consumed, collector disabled, no reboot armed and no source changes pending.
+
+Next bounded scope is auditing the global synchronization path underlying these
+long owned intervals, separating file synchronization from device flush and
+service-window scheduling before choosing a serialization-preserving fix.
+Retain required global barriers, full readbacks, flush/rename/failure protection,
+same-process/private-image exclusion and all existing limits. Do not infer that
+all gate waits are `SYS_SYNC`, skip a durability barrier, or widen admission
+based on this result. Receive timing remains a separate follow-up. No new
+implementation or physical test is started by this closeout.
