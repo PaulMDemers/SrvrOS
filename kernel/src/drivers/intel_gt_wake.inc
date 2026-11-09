@@ -54,7 +54,7 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #define WAKE_MAPS 13u
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
 #define WAKE_VERSION 14u
-#elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
+#elif defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
 #define WAKE_VERSION 12u
 #else
 #define WAKE_VERSION 7u
