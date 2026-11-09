@@ -2,14 +2,41 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Ready: standalone enabled-ring shutdown qualification
+### Latest hardware: shutdown observation passes; enabled writer unexercised
+
+Source `075192ab`, release `bea82f58d257858a`, session
+`session-00065fdbd4e1e9f8-00`, **accepts already-disabled observation and
+same-lifetime preservation only**. This boot entered with all engines disabled
+and zero ring geometry. Four matching BCS snapshots (32 words) complete with
+zero control attempts/stores and no epoch change. The full60-word pre/post
+engine vectors,54 plane words and both10-field HDA snapshots match. The borrow
+returns, all11 mappings retire, exclusion releases and no clock fault occurs.
+The enabled-ring writer remains untested; this is not preparation acceptance.
+
+Blitter core36,687/100,000us; shutdown bracket131,363/150,000us;
+reader bracket119,790/150,000us; owner260,763/300,000us;
+outer335,338/500,000us. Each uses its actual serialized origin. The native/strict
+checkpoint, release and exact options checks pass. All1,413 prior USB files
+preserve except expected metadata; three new logs give1,416 files/128 sessions.
+Offline filesystem/allocation/writable/headroom and installed/durable recovery
+checks pass. Ubuntu is default, the one-shot is consumed, volume1%, no reboot
+armed. Full raw logs and independent analysis are backed up outside build.
+Checkpoint:`build/air-enabled-shutdown-20261109`.
+
+Next qualify a fresh preparation timing retry behind its unchanged zero-geometry
+admission gate. Do not reuse this boot's observations, force an enabled entry,
+combine unaccepted writers or widen deadlines. The enabled-writer branch remains
+separate and pending until actually exercised. All255 memory obligations,
+outstanding DMA/cache/reader ownership and native tear-free remain open.
+
+### Prior qualification: standalone enabled-ring shutdown trial
 
 Main `f30ad7a5` (Air6,1 PR440 documentation) is integrated as `598117c3`.
 Source `075192ab`, release `bea82f58d257858a`, qualifies the existing separate
 shutdown image for the enabled16/control`0xf001`/start`0x03eef000` state observed
 by the latest preparation refusal. **No product code or admission change** is
-needed for this trial. Only the already-disabled shutdown branch is physically
-accepted; enabled shutdown and subsequent preparation remain separate steps.
+needed for this trial. Only the already-disabled shutdown branch was physically
+accepted at qualification; enabled shutdown and subsequent preparation remain separate steps.
 The trial permits one exact`0xf000` store, then verifies two BCS readbacks,
 fresh full engine and plane/HDA preservation, registered borrow return and
 mapping retirement. The original100/150/300/500ms bounds remain unchanged.
@@ -33,7 +60,7 @@ EFI payload. Full current/durable/immutable candidate, recovery and raw logs
 remain; complete evidence is independently backed up outside build.
 Checkpoint:`build/air-enabled-shutdown-20261109`.
 
-Next is the standalone automated native trial, requiring no typing. Safe saved/
+That standalone native trial required no typing. Safe saved/
 unmounted outcomes return to Ubuntu; uncertain writes or failed persistence halt
 visibly. Collect matching evidence first after return. Do not combine shutdown
 with preparation or widen geometry/profile gates. All255 memory obligations,

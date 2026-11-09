@@ -153,5 +153,22 @@ Native enabled-writer acceptance is still pending. Collection must distinguish
 one exercised disable plus complete preservation/retirement from a completed
 already-disabled observation. The latter accepts no writer. This qualification
 adds no reset, PTE, managed memory or GPU/DMA/cache/reader ownership. Follow the
-[unit record](machines/macbookair7-2.md#ready-standalone-enabled-ring-shutdown-qualification)
+[unit record](machines/macbookair7-2.md#prior-qualification-standalone-enabled-ring-shutdown-trial)
 and collect matching evidence before any further trial.
+
+## Retry result: already-disabled branch accepted again
+
+Source`075192ab`, release`bea82f58d257858a`, session
+`session-00065fdbd4e1e9f8-00`, completes the already-disabled branch: zero
+control attempts/stores,32 BCS words, matching60-word engine pre/post vectors,
+54 plane words and both10-field HDA snapshots. The borrow returns, all11 aliases
+retire and no clock fault is recorded. Core36,687us, shutdown bracket131,363us,
+reader bracket119,790us, owner260,763us and outer335,338us meet their original
+100/150/150/300/500ms bounds respectively. Strict native/checkpoint collection,
+prior-file preservation, offline media and recovery/default/one-shot checks pass.
+
+This boot did not exercise the enabled writer, which remains pending. No native
+preparation timing, reset, DMA/cache/reader retirement or managed-memory authority
+follows. A new preparation trial must obtain fresh zero-geometry admission in
+its own lifetime; this receipt cannot authorize it. Do not force-enable the ring
+to manufacture writer coverage or widen a gate to make another branch run.
