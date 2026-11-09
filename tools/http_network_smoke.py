@@ -20,11 +20,14 @@ class Peer:
  def run(self):
   try:
    with self.listener.accept()[0] as conn:
-    conn.settimeout(12);request=bytearray()
+    # guestfwd opens its backend before guest boot. Allow the declared boot
+    # budget before the request, then use the short data/close timeout.
+    conn.settimeout(180);request=bytearray()
     while b'\r\n\r\n' not in request:
      block=conn.recv(min(1024,4160-len(request)));assert block,'EOF before complete request'
      request.extend(block);self.request_bytes=len(request);assert len(request)<=4159,'oversized request'
     assert bytes(request)==REQUEST,'request differs from exact4159-byte GET'
+    conn.settimeout(12)
     # Different write sizes exercise stream handling without assuming packet
     # boundaries survive TCP/QEMU. Actual received EOF is still mandatory.
     at=0
@@ -78,7 +81,10 @@ def check_part(part):
  return {'workload':w,'guest':r}
 def command(iso,tmp,port,capture=None):
  assert 1024<=port<=65535
- cmd=['qemu-system-x86_64','-M','q35','-m','2G','-cdrom',str(iso),'-boot','d','-nic','none','-netdev',f'user,id=net0,restrict=on,guestfwd=tcp:10.0.2.100:80-tcp:127.0.0.1:{port}','-device','e1000,netdev=net0','-serial',f'unix:{tmp}/serial,server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot']
+ # Restricted slirp omits router/DNS DHCP options required by the unchanged
+ # production client. The test still uses only its fixed local guestfwd peer;
+ # capture the whole exchange for independent destination/packet inspection.
+ cmd=['qemu-system-x86_64','-M','q35','-m','2G','-cdrom',str(iso),'-boot','d','-nic','none','-netdev',f'user,id=net0,guestfwd=tcp:10.0.2.100:80-tcp:127.0.0.1:{port}','-device','e1000,netdev=net0','-serial',f'unix:{tmp}/serial,server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot']
  if capture is not None:cmd+=['-object',f'filter-dump,id=httpcap,netdev=net0,file={capture}']
  return cmd
 def self_test():
