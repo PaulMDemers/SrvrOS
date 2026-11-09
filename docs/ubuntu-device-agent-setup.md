@@ -1456,3 +1456,12 @@ companions in addition to the unchanged1800-second PCM, USB readback/receipt,
 three-screenshot,500ms loop,10s lifecycle, ownership and retirement requirements.
 This diagnostic alone accepts no latency fix, allocation shortcut, scheduler
 policy change or sibling hardware support.
+
+The explicit v135 `--wifi-stream5` profile is a separate original-key encrypted
+ring-reuse diagnostic;see [USB Wi-Fi](usb-wifi.md#original-key-encrypted-ring-reuse-diagnostic-v135-candidate)
+and the Pro11,2 unit recipe. It requires the complete v128 parent,unit-private
+PMK and automatic save/return,and excludes the historical WPA/data/provider/reuse/
+No-Op child flags. Keep credentials local and preserve the capture reserve.
+Software fixtures and absent-radio VMs do not accept native encrypted RX/TX across
+ring boundaries or ordinary production networking. Collect its matching saved
+session and independent workspace/recovery evidence before another trial.

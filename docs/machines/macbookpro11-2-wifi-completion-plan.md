@@ -171,3 +171,11 @@ exercise the actual new owner in host fixtures;strict full-parent saved-log and
 matching native validation remain required. This is milestone2 progress,not
 ordinary-stack or lifecycle acceptance. The accepted v134 payload stays installed
 and unarmed while implementation is qualified.
+
+Qualified v135 checkpoint:runtime e7f2fe70/release6065541ae03fb3c3 passes matched
+focused regressions,fatal sanitizers,strict498-rejection whole-parent composition,
+stack/capture/storage and exact-image VMs,including410 prior files and identities.
+It is installed for the next authorized cold run;native stream acceptance remains
+pending. Original-key70-request/64-echo RX+TX boundary proof is the next gate,
+followed by production-stack receive and data/lifecycle milestones above. See the
+unit record for immutable evidence,recovery and collect-first instructions.

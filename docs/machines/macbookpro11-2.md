@@ -15811,3 +15811,44 @@ physical trial still requires shutdown and Wi-Fi-only10second unplug while off,
 reconnect the same port,power on,workspace left connected. Automatic progress,
 save and Ubuntu return need no commands or photographs. Ordinary production RX,
 TCP/HTTP,command-address reuse and connection/UI lifecycle remain later gates.
+
+### Qualified stream candidate installed for cold validation (November 8)
+
+Runtime e7f2fe70/release6065541ae03fb3c3 completes matched kernel/USB images and
+focused controller/No-Op/stream/historical encrypted-provider,crypto/IP/ordinary
+stack models,scheduler/IRQ/capture/process/logging/metadata regressions. All249
+stage tests,actual dispatch groups and strict stream checker pass. The actual C
+child composes with the entire unchanged parent in a2048805-byte prefix;498
+missing/duplicate receipts refuse. Four fatal ASan/UBSan/leak groups pass. The
+expanded native-owner fixture's first300second attempt remains incomplete;its
+unchanged rerun exits0 in289.13seconds,with all208 compiled inputs verified.
+The conservative actual-C maximum child bound is28720bytes,leaving34869bytes
+with the immutable2033563-byte parent,including the required32768-byte reserve.
+Native individual frames stay below4096bytes (new stream owner264bytes).
+
+Real2MiB filesystem write/read/remount,ordinary desktop,exact staged GPT and
+missing-workspace VMs pass. A separate exact-image VM preserves all410 private
+workspace files and saved inode/metadata fields,except the expected marker atime
+within independent RTC/exit bounds. These remain software/emulated observations;
+no v135 native encrypted-ring or ordinary stack acceptance is inferred.
+
+A fresh native baseline,source/payload,private firmware/PMK packaging,qualification
+receipts and source-bound agent proof are sealed outside build in
+wifi-stream5-native-e7f2fe70. Preflight confirms this Pro11,2,adapter7392:a711/0100,
+UUID0E53-5900,clean offline filesystem/allocation,writable/node headroom,Ubuntu
+default and e47d recovery. Release606 is installed and still unarmed at this
+checkpoint. Accepted4a/3c9/815/e17/v130 payloads remain installed. EFI capacity
+required retiring only the oldest unreferenced M1 EFI duplicate after exact
+178-file immutable native/payload backup equality and no GRUB/NVRAM reference;
+that accepted M1 capsule and all historical acceptance/failure evidence remain
+unchanged and recoverable. No failed evidence is promoted or pruned.
+
+Authorized next action:arm the one-shot and shut down,unplug only Wi-Fi10seconds
+while off,reconnect the same port,power on,leave workspace connected. Root allows
+30seconds for the final instruction to display before power-off. Guest progress,
+results and Ubuntu return are automatic. On return collect the new matching
+session exactly once with build/bringup/wifi-stream5-native/run_root.py
+return_collect before another run;preserve protocol outcome before independent
+file/metadata/allocation/recovery checks. Missing completion,halts,unmatched
+sessions or uncertain ownership fail. Ordinary RX/DHCP/DNS/TCP/HTTP,indefinite
+command reuse,connection epochs/reattachment/UI and reliability remain later gates.
