@@ -94,3 +94,21 @@ The pinned Linux v6.12
 prepares participating engines before its reset operation. It is a protocol
 reference only: this preflight imports no catastrophic-error bypass, forced
 non-ready reset, retry or full-reset sequence.
+
+## Accepted Air7,2 observation
+
+Source `d860b63f`, release `b8afda22fe3f051e`, session
+`session-00065fd7d539f082-00` completes the native read-only trial. Both six-word
+RESET_CTRL/GDRST samples are zero and identical, following the stable complete
+92-word census. The borrowed parent blocks early close without stores, returns
+the borrow and closes normally; all ten aliases retire and firmware/exclusion
+checks complete. The observer takes 22,988/100,000 us; the full outer lifetime
+takes 188,733/500,000 us. No deadline changed. Saved checkpoint/release/options,
+strict native decoding, independent raw analysis, prior-file preservation and
+offline filesystem/allocation/recovery checks pass. No reboot remains armed.
+
+This accepts one bounded sampled observation. It does not establish completion
+of posted writes or prefetch, GPU cache/reader retirement, a full reset or an
+exclusive GGTT interval. The quiescent bit grants no hardware or memory authority;
+all 255 obligations remain open, managed pages are zero and native tear-free is
+unaccepted. See the [machine record](machines/macbookair7-2.md).

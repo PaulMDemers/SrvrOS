@@ -2,7 +2,35 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Current scope: cold-takeover preflight ready for hardware
+### Latest hardware: cold-takeover read-only observation accepted
+
+Source `d860b63f`, release `b8afda22fe3f051e`, session
+`session-00065fd7d539f082-00` passes the isolated
+[cold-takeover preflight](../intel-takeover-preflight.md#accepted-air72-observation).
+The fresh 92-word completion census is stable with all five sampled rings disabled,
+no queued/wait/TLB-pending masks and both parser-idle indications set. Both ordered
+six-word RESET_CTRL/GDRST samples are exactly zero. The registered borrow blocks
+early parent close without stores and returns once; no ownership remains retained.
+The observer completes in 22,988/100,000 us, the census in 19,199 us and the outer
+lifetime in 188,733/500,000 us. All ten aliases retire, the parent closes, firmware
+checks match and exclusion releases. There are 104 completed observation words,
+three existing wake-request stores and zero reset/PTE/managed-memory writes.
+
+The native collector and independent raw/interval analysis pass with no attention
+or decoder errors. The preflight checkpoint and exact release/options match.
+All 1,401 prior USB files preserve apart from expected workspace metadata; three
+new logs produce 1,404 files/124 sessions. Offline fsck/allocation/writable/headroom
+and installed/durable current/recovery/GUI checks pass. Ubuntu remains default;
+the one-shot is consumed and no reboot is armed. Evidence is backed up outside
+build. This accepts the bounded readout and sampled quiescence only, not posted
+write/prefetch/cache/reader retirement, a full-engine reset, GGTT ownership or
+tear-free presentation. All 255 memory obligations remain open.
+
+Next establish a separately justified exclusive GGTT interval and maintained
+engine/reader/firmware exclusion before adding a mapping writer. Keep the
+accepted BCS reset and this read-only observation as distinct evidence.
+
+### Pre-run qualification: cold-takeover preflight
 
 Main `e85a6846` remains integrated. Tested source `d860b63f`, release
 `b8afda22fe3f051e`, adds the isolated [read-only cold-takeover preflight](../intel-takeover-preflight.md):
@@ -23,7 +51,7 @@ optional sync diagnostics remain off. Projected log size is 61,372/65,536 bytes
 with the unchanged 1,536-byte allowance. Historical accepted reset and all seven
 earlier reset nonpasses retain their classification.
 
-The candidate is installed but **not physically accepted**. Accepted `94bc48ed5551f552`,
+At this pre-run qualification checkpoint, physical acceptance was pending. Accepted `94bc48ed5551f552`,
 recovery `9aa8dbf6fbda8252` and GUI `c497eb0cb48c1b01` remain verified and retained;
 Ubuntu is default, volume is 1%, and no one-shot reboot is armed. All 1,401 USB
 files/123 sessions preserve, with clean offline filesystem/allocation checks.
@@ -32,8 +60,7 @@ never-installed VM stages were losslessly archived; an unreferenced EFI payload
 was also archived after full byte verification. Pro11,2 PR19 Wi-Fi and WebCore
 PR379 remain independent. Checkpoint: `build/air-takeover-preflight-20261109`.
 
-Next run this automated observation on Air7,2, collect the matching release and
-verify preservation, ownership return and media integrity. No input is required;
+The completed hardware observation is recorded above. No input is required;
 safe saved outcomes return automatically, while retained uncertainty or missing
 persistence halts visibly. All 255 memory obligations remain open; native
 tear-free presentation is still unaccepted.

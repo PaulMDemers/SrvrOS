@@ -115,10 +115,18 @@ populated candidate interval remains unavailable and no hardware assurance bit
 changes. Host cases exercise the actual handoff/space/exclusion implementation;
 they do not substitute for the future native provider.
 
-## Next native prerequisite capture
+## Accepted native prerequisite capture
 
 The separate [cold-takeover preflight](intel-takeover-preflight.md) reads all five
 reset controls and GDRST with a fresh same-parent/epoch engine census. It addresses
 a gap left by BCS-only qualification before choosing a broader takeover sequence.
 Its completed readout and sampled quiescence remain separate from any reset or
 GGTT transfer authority; this does not complete milestone1.
+
+Air7,2 source `d860b63f` / release `b8afda22fe3f051e` now accepts that bounded
+read-only capture: two identical zero reset-control/domain samples after a
+complete stable census, verified borrow/parent return and alias retirement.
+See the [accepted observation](intel-takeover-preflight.md#accepted-air72-observation).
+It narrows the sampled-state uncertainty; posted-write/prefetch/cache/display
+retirement and an explicit exclusive interval remain unproved. No milestone1
+GGTT grant or mapping writer is accepted.
