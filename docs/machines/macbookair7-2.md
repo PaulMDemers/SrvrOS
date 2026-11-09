@@ -2,7 +2,7 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Active implementation: maintained read-only preparation action
+### Implemented: maintained read-only preparation action
 
 Main `125eb2b5` (Air6,1 PR446 content-timing instrumentation) is integrated;
 the Makefile merge retains both sync-content and requester tests. This block
@@ -17,8 +17,12 @@ User-authorized subagents own the core/API, independent action regressions and
 read-only protocol review; the parent owns integration/builds and documentation.
 Scope: engine preparation core/header, a dedicated host test and Makefile/docs.
 Dependencies: original same-parent/epoch takeover/census and existing provider
-boundaries. Next checkpoint is actual-core failure qualification, not a physical
-trial. Installed requester release `3ff42f33e6c01391` and recovery are unchanged;
+boundaries. Qualification passes14 fatal sanitizer cases, four compiled negative controls
+and exact legacy callback/clock count comparisons. Existing prepare/requester,
+sync-content/timing and publication tests, host checks, ordinary build and the
+isolated no-action preparation image build pass. Next is an explicitly same-
+borrow read-only sampler and separately reviewed reset-capable composition;
+no physical action trial is ready. Installed requester release `3ff42f33e6c01391` and recovery are unchanged;
 matching previous run is collected, no reboot armed, volume1%.
 
 ### Active scope: ownership bootstrap and tear-free implementation plan

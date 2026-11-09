@@ -59,7 +59,16 @@ so it needs an explicit maintained-action boundary. A cancelled preparation
 receipt cannot serve as that boundary. Epoch invalidation must precede any
 possible reset store, and old censuses must become unusable.
 
-The first composition is host-tested with fault injection at every transition.
+The first software piece is the separate
+[maintained read-only action boundary](intel-engine-prepare.md#maintained-read-only-action-boundary).
+It brackets an observation with original-borrow guards and matching held-state
+samples inside the unchanged100ms budget. It has no native caller or reset
+permission. The standalone requester observer acquires its own borrow and
+cannot be nested unchanged; a future sampler must bind the active preparation
+borrow explicitly. A reset-capable composition remains separate because it
+changes epoch and control-state semantics.
+
+The complete composition needs host fault injection at every transition.
 It must preserve the existing BCS-only writer gate until a separate review
 settles wider domain semantics. Broadwell GDRST full-reset bit0 is distinct from
 per-engine bits1/2/3/4/7. The pinned Linux reset path prepares engines, resets,

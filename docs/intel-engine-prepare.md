@@ -259,3 +259,44 @@ default/consumed one-shot checks pass. Full evidence survives outside build.
 This is one bounded pass, not repeatability or a controlled speed comparison.
 All255 ownership obligations remain; no reset, managed memory or native tear-free
 authority is added. Earlier failures remain failed and accepted sources distinct.
+
+## Maintained read-only action boundary
+
+`intel_engine_prepare_with_action` adds a separate host-qualified composition
+entry point. The existing `intel_engine_prepare` entry point and native recipe
+continue to run the no-action path. No action is wired into a native image by
+this change, and physical acceptance of older releases is not transferred.
+
+The read-only callback receives the original const preparation result after
+all five ready acknowledgements and held snapshot1, under the sole original
+registered borrow. Full guards bracket the callback. Held snapshot2 must still
+match snapshot1 before `action_completed` is set. Then existing reverse
+cancellation, full preservation and verified return run normally. The callback,
+its guards, snapshots and cleanup all share the original100ms budget; the clock
+is never restarted for the action. Action begin/end record the callback guard
+bracket; a failed clock is retained separately in the clock diagnostics.
+
+The callback may not change epochs, control state, mappings or the result. False,
+lost parent/guard, changed held state or expiry after preparation stores retains
+uncertainty. There is no forced cancellation, optimistic return or new cleanup
+retry. A copied/reused result cannot invoke the action again. This is trusted
+kernel composition, not isolation against arbitrary callback memory writes.
+
+The existing requester observer cannot be inserted unchanged: it requires no
+active dependent and acquires its own borrow. A future held requester sampler
+must explicitly bind this existing original borrow and independently validate
+its exact reads. Likewise a reset changes epoch/control semantics and needs a
+separate reviewed transaction; this read-only callback supplies no reset/PTE
+writer, positive hardware assurance or interval transfer. The
+[roadmap](intel-tearfree-roadmap.md) retains those remaining ownership gates.
+
+The actual-core suite exercises14 action cases under fatal ASan/UBSan: successful
+cleanup, reentry, unchanged no-action behavior, missing callback, refusal,
+epoch/object/parent/borrow loss, detachment, expiry, held-state drift and post-
+action guard/time failure. Four compiled controls detect skipped callbacks,
+ignored refusal, skipped action guards and premature action completion.
+Before/after builds of the actual legacy core have identical callback/clock
+counts for normal and polling paths. Existing preparation/requester suites,
+updated sync-content/timing tests, host checks, ordinary kernel/image and the
+isolated no-action preparation image build pass. No VM/native action acceptance
+is claimed; no action was staged or installed.
