@@ -64,6 +64,49 @@ struct net_dhcp_retry_guard {
     bool (*retry_ready)(void *context);
 };
 int64_t net_dhcp_request_discover_retry(const struct net_dhcp_retry_guard *guard);
+/* Explicit finite native-probe APIs,not an ordinary network policy switch.
+ * Zero object initialized once;never copy,reinitialize or modify its fields.
+ * Keep the borrowed IO table/context alive and unchanged until finish. Both
+ * callbacks are side-effect-free/nonblocking. current binds the original
+ * selected provider and secured epoch;retry_ready independently proves exact
+ * first-Discover TX completion with no pending/uncertain transmission.
+ * Caller supplies the ORIGINAL absolute window deadline,at most15seconds away.
+ * Last clocks and150000 aggregate polls persist across all calls and nested
+ * ARP. Each transaction also has finite local time/poll caps. No guarded path
+ * waits,yields or delays:only bounded provider polling and CPU relax.
+ * Failure is terminal for this object and never grants DMA retirement. */
+struct net_bounded_probe_io {
+    void *context;
+    bool (*current)(void *context,uint64_t epoch);
+    bool (*retry_ready)(void *context,uint64_t epoch);
+};
+struct net_bounded_probe {
+    uintptr_t identity;
+    const struct net_bounded_probe_io *source;
+    struct net_bounded_probe_io io,io_guard;
+    const uint8_t *station;
+    uint8_t mac[6];
+    uint64_t epoch,epoch_guard,deadline_us,deadline_guard;
+    uint64_t start_us,start_tick,last_us,last_tick,polls;
+    /* Request counters describe queued admission;actual TX completion remains
+     * the native owner's proof. Matched pings require exact40-byte ICMP message
+     * length and all32 payload bytes,not merely ID/sequence/checksum. */
+    uint64_t dhcp_retries,arp_resolutions,dns_queries,pings_sent,pings_matched;
+    bool busy,checking,failed,closed;
+};
+bool net_bounded_probe_init(struct net_bounded_probe *probe,
+    const struct net_bounded_probe_io *io,uint64_t epoch,uint64_t deadline_us);
+bool net_bounded_probe_current(struct net_bounded_probe *probe);
+bool net_bounded_probe_poll(struct net_bounded_probe *probe);
+int64_t net_dhcp_request_bounded(struct net_bounded_probe *probe);
+int64_t net_dns_resolve_bounded(struct net_bounded_probe *probe,const char *name,uint32_t *ip_out);
+int64_t net_ping_bounded(struct net_bounded_probe *probe,uint32_t remote_ip,
+    uint16_t sequence,uint64_t *elapsed_ticks_out);
+/* Final owner/clock check,then clear callback/context/MAC references and close
+ * even on failure. Retains its identity tombstone/counters;no reinitialization
+ * or hardware retirement authority. No transaction-global probe pointer survives
+ * an API return;the object retains its borrowed IO until finish. */
+bool net_bounded_probe_finish(struct net_bounded_probe *probe);
 int64_t net_dns_resolve(const char *name, uint32_t *ip_out);
 int64_t net_list(uint64_t index, struct srv_net_info *info);
 int64_t net_status_info(struct srv_net_status_info *info);

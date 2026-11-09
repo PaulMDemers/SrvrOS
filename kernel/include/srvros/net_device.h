@@ -42,6 +42,10 @@ bool net_device_retire(const struct net_device_ops *identity);
 unsigned net_device_inventory(struct srv_net_adapter_info *out,unsigned capacity);
 const char *net_device_name(void);
 const uint8_t *net_device_mac(void);
+/* Read-only sealed selection query by the registered context/send identity.
+ * Invokes no provider callbacks,grants no reference or hardware authority and
+ * returns false for unselected,unknown or retiring registrations. */
+bool net_device_selected_is(const struct net_device_ops *identity);
 bool net_device_send(const uint8_t *frame,uint16_t length);
 uint64_t net_device_poll(uint64_t budget,bool verbose);
 bool net_device_link(struct net_device_link *out);
