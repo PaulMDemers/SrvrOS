@@ -2,6 +2,20 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Current scope: address-sealed exclusive handoff lifetime
+
+Integrate main`e85a6846` (Air6,1 PR433 command-status diagnostics), keeping Pro11,2
+PR19 Wi-Fi and WebCore PR379 independent. Before a native GGTT transfer, fix the
+existing software handoff's copied-object pin release and callback reentrancy.
+Scope: `scanout_handoff` header/core and actual-core host tests. Bind the provider
+and captured token/snapshot for the whole lifetime; pin exclusion before admission
+callbacks, close reservation admission before retirement validation, and reject
+copied or nested operations. Keep all hardware assurances, native profiles,
+MMIO recipes/writers and deadlines unchanged; the native provider still grants
+no interval. Validate modeled ownership faults, full builds and native refusal.
+Accepted native94bc/recovery9aa8 remain installed, no reboot armed. Checkpoint:
+`build/air-handoff-lifetime-20261109`.
+
 ### Current scope: integrated baseline and managed-memory boundary
 
 Main`928555f3` is integrated as`15c13b15`. The include-only conflict in
