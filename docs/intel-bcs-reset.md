@@ -573,3 +573,14 @@ does not accept these adapter changes. Requalify this source with exact-stage
 VM refusal/persistence, compiled address/permission/clock controls and a new
 matching native trial. All255 completion obligations remain open; no wider
 domain reset, PTE writer, managed range or native tear-free grant is added.
+
+The locally qualified integration candidate is source`4873e6bd`, release
+`6365de27e20576b6`. Full local checks (installed-root omitted),18-image isolation,
+307 fatal sanitizer cases covering three actual scalar branches,5 compiled
+semantic/clock controls,9 native object/staged controls and7 batching controls
+pass. The same-path comparison keeps46 raw rows/216 target observations identical
+and reduces full guards147→131; this is not a physical speed claim. Exact-stage
+MBR EFI Q35 refusal/checkpoint/save/unmount/automatic return and missing-workspace
+halt pass. The compiled16-token parser matches saved logs; unchanged full-width
+projection65,517/65,536 includes1,536 allowance. Installed recovery, prior USB
+files and independent evidence are retained. Native acceptance is pending.

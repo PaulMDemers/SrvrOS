@@ -171,4 +171,5 @@ operation; it is not a witness that earlier memory writes reached their target.
 An owned ring/status/completion location is required before using a command
 as a cache/TLB completion witness. The candidate populated GGTT window and
 its physical targets remain inherited allocations, not an available arena.
-Therefore every255 obligation and zero-native-assurance gate stays intact.
+Therefore all eight completion obligations (mask255) and the zero-native-
+assurance gate stay intact.

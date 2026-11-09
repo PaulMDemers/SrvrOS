@@ -2,19 +2,51 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Active scope: reset admission and ownership prerequisites
+### Ready: reset provider-boundary integration
 
 Main`807fdb35` (Air6,1 PR442 first battery protocol observation) is integrated
-as`cb11e399`, including pinned ports. PR301 now applies the physically qualified
-provider-boundary pattern to the existing dedicated same-borrow BCS reset path.
-Touched subsystems: native reset adapter, its host/compiled controls, strict
-receipt qualification and current reset/managed-memory guides. Generic reset
-state machines, exact BCS-only domain8, same-lifetime disabled entry, raw vectors
-and100/300/500ms/10ms bounds stay fixed. Fresh admission is mandatory; earlier
-preparation/shutdown receipts are not reset authority. Firmware/DMA/cache/reader
-and exact GGTT transfer remain separate open proofs; no PTE writer is planned
-for this bounded step. PR19 networking and PR379 WebCore stay independent.
-Checkpoint:`build/air-reset-admission-20261109`; no new trial armed.
+as`cb11e399`, including pinned ports. Source`4873e6bd`, release
+`6365de27e20576b6`, applies the physically qualified preparation callback pattern
+to the existing dedicated same-borrow disabled-observation/BCS reset image.
+Core bookkeeping checks original live ownership, IRQ exclusion, claims, root,
+all13 exact aliases and fresh requesters. Each successful provider retains full
+backing/endpoint entry and exit checks. Failed exits poison both adapters,
+preserve the completed write/load prefix and prevent further issue. The exact
+writers now recheck the100ms dependent clock after full admission, immediately
+before issue; scalar fallback writers retain the same validation. The nested
+preservation census has the same full boundaries. IRQ-disabled raw GGTT batches
+and same-call final endpoint binding are reused only in this reset image.
+
+The generic reset core, domain8, exact16-token recipe/version12, raw vectors,
+software epoch and100/150/300/500ms/10ms bounds are unchanged. Same-path host
+comparison records147→131 full guards with46 raw protocol/preservation rows
+identical and216 target observations; this is not a native speedup measurement.
+The full local gate (installed-root explicitly omitted),18 images,307 fatal
+ASan/UBSan cases covering three actual scalar branches, five compiled semantic/
+clock controls, nine native object/staged controls and seven batching controls
+pass. Historical passes/nonpasses keep their exact-source classifications.
+Exact immutable MBR EFI Q35 refusal/checkpoint/save/unmount/automatic return and
+missing-workspace halt pass. The compiled16-token parser matches all four saved
+logs. Unchanged full-width log projection65,517/65,536 includes1,536 allowance.
+**Native acceptance of this adapter change remains pending.**
+
+Installed/current/durable/immutable and recovery/GUI/accepted reset/read-only/
+preparation payloads verify. All1,422 USB files/130 sessions preserve, with clean
+offline filesystem/allocation/writable/headroom checks. One unreferenced older
+preparation EFI copy was archived after complete equality with its durable copy;
+accepted raw evidence and the latest accepted preparation remain retained. A
+redundant global candidate was retired after four-way equality. Full evidence
+is backed up independently outside build. Ubuntu remains default, volume1%,
+no one-shot armed. Checkpoint:`build/air-reset-admission-20261109`.
+
+The next trial needs no input and displays progress: safe saved/unmounted outcomes
+return automatically; uncertain ownership or failed persistence halts visibly.
+Collect matching evidence first on return. This milestone does not compose a
+previously cancelled preparation result into reset permission. Enabled shutdown,
+broader engine reset and maintained firmware/DMA/prefetch/cache/translation/reader
+ownership remain separate. All eight completion obligations (mask255), zero
+managed pages and no native tear-free grant remain unchanged. PR19 networking
+and PR379 WebCore remain independent.
 
 ### Latest hardware: nested preservation census passes
 
