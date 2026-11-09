@@ -4,9 +4,10 @@ USB completion is not AP acknowledgement;open authentication is not WPA2.
 from wifi_tx5_log import check as parent
 from wifi_power5_log import fields
 from wifi_held_log import require
+from wifi_join5_cleanup_log import check as cleanup_proof
 PROGRESS='wifi-join5-progress: frozen parent;fresh live RX/data OUT;matched AUTH ASSOC leave;MAC disable;stop/drop/restore;no keys or IP data'
 def check(log):
- require('srvros.wifi-join5=1' in log,'missing live management profile');r=parent(log);lines=log.splitlines();aux=[s for s in lines if s.startswith(('wifi-join5-rx:','wifi-join5-exchange:','wifi-join5-response:'))];rows=[s for s in lines if s.startswith('wifi-join5') and s not in aux];i=0
+ require('srvros.wifi-join5=1' in log,'missing live management profile');r=parent(log);lines=log.splitlines();aux=[s for s in lines if s.startswith(('wifi-join5-rx:','wifi-join5-exchange:','wifi-join5-response:','wifi-join5-cleanup:'))];rows=[s for s in lines if s.startswith('wifi-join5') and s not in aux];i=0
  def take(prefix):
   nonlocal i
   require(i<len(rows),'missing live management receipt');line=rows[i];i+=1;return fields(line,prefix)
@@ -76,5 +77,6 @@ def check(log):
    require(lines.index(rows[-1])<lines.index(line)<lines.index(cleanup),'response observation outside restored lifetime')
    observed.append(a)
   require(sum(a['polls'] for a in observed)==s['polls'] and sum(a['ignored'] for a in observed)==s['ignored'],'response observations differ from exchange counters')
+ r.update(cleanup_proof(log))
  r.update(join5_complete=True,join5_management_out=3,join5_auth_matched=True,join5_assoc_matched=True,join5_leave_submitted=True,join5_originals_restored=True,join5_posts=s['posts'],scope='fresh live RX/data OUT;matched open-system AUTH and association replies;leave submitted;MAC disabled,endpoint/input/parent originals restored;no WPA2 or authenticated IP/data')
  return r
