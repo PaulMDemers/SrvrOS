@@ -2,20 +2,41 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Current scope: cold-takeover read-only prerequisites
+### Current scope: cold-takeover preflight ready for hardware
 
-Use maine85a6846 / current06780ea9; preserve Pro11,2 PR19 Wi-Fi and WebCore PR379.
-The next bounded native step is an isolated all-engine reset-control preflight:
-fresh same-parent/epoch completion census, two ordered RO samples of RCS/VCS0/
-VECS/VCS1/BCS RESET_CTRL and GDRST, registered borrow and verified return. Bind
-exact Air7,2/GT3 addresses, effective UC/NX/RO aliases and the existing cooperative
-EFI policy. It observes candidate quiescence separately from completion and
-supplies no reset, PTE, cache, memory or GGTT grant. Keep existing100/300/500ms
-bounds, profile/firmware gates and other recipes unchanged. Scope: new observer/
-isolated adapter, versioned receipt/strict collector, image/request/recipe and
-host/VM/native instruction controls. No full-GT reset or mapping writer is part
-of this step. Accepted94bc/recovery9aa8 remain installed, no reboot armed.
-Checkpoint:`build/air-takeover-preflight-20261109`.
+Main `e85a6846` remains integrated. Tested source `d860b63f`, release
+`b8afda22fe3f051e`, adds the isolated [read-only cold-takeover preflight](../intel-takeover-preflight.md):
+a fresh same-parent/epoch completion census, then two ordered samples of all five
+RESET_CTRL registers and GDRST under a registered borrow. Only the existing
+wake-request alias is writable. It records sampled quiescence separately from
+completion and grants no reset, PTE, cache, memory or GGTT authority. Existing
+100/300/500 ms limits and Air7,2/GT3 firmware/resource gates remain unchanged.
+
+Full local host/core/profile/docs/build checks and all 17 images pass; opt-in
+installed-root checks are omitted. Fatal ASan/UBSan covers 122 actual core/adapter
+cases; 14 compiled semantic controls and 11 actual native instruction/mapping
+controls are detected. Object and staged-ELF vectors, DWORD loads, translations,
+requester checks, UC roles and RO page permissions bind. Exact immutable MBR EFI
+Q35 refusal/checkpoint/save/unmount/automatic return and missing-workspace halt
+pass. The compiled 15-token parser matches the stage and saved guest options;
+optional sync diagnostics remain off. Projected log size is 61,372/65,536 bytes
+with the unchanged 1,536-byte allowance. Historical accepted reset and all seven
+earlier reset nonpasses retain their classification.
+
+The candidate is installed but **not physically accepted**. Accepted `94bc48ed5551f552`,
+recovery `9aa8dbf6fbda8252` and GUI `c497eb0cb48c1b01` remain verified and retained;
+Ubuntu is default, volume is 1%, and no one-shot reboot is armed. All 1,401 USB
+files/123 sessions preserve, with clean offline filesystem/allocation checks.
+Independent evidence and payload backups survive distclean. Two superseded,
+never-installed VM stages were losslessly archived; an unreferenced EFI payload
+was also archived after full byte verification. Pro11,2 PR19 Wi-Fi and WebCore
+PR379 remain independent. Checkpoint: `build/air-takeover-preflight-20261109`.
+
+Next run this automated observation on Air7,2, collect the matching release and
+verify preservation, ownership return and media integrity. No input is required;
+safe saved outcomes return automatically, while retained uncertainty or missing
+persistence halts visibly. All 255 memory obligations remain open; native
+tear-free presentation is still unaccepted.
 
 ### Handoff lifetime correction: locally qualified
 

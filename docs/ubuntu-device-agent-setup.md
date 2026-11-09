@@ -1376,3 +1376,15 @@ Checkpoint observation calls the existing scheduler checkpoint exactly once;
 it does not add a yield, grant eligibility or change transfer policy. Time
 outside callbacks/checkpoints remains unassigned, and software event timestamps
 must not be described as device completion or CPU time.
+
+### Air7,2 read-only cold-takeover preflight
+
+Use `--intel-takeover-preflight` with the actual local `--laptop-probe-volume`
+UUID. This dedicated image samples all five RESET_CTRL registers and GDRST
+after a fresh completion census. It adds no reset, PTE or managed-memory writer.
+Follow the [preflight contract](intel-takeover-preflight.md) and the same exact-stage
+VM, independent payload/evidence backup, recovery, run-record and one-shot
+workflow above. Keep volume at 1%. No human input is required: safe durable
+save/unmount outcomes return automatically; uncertain ownership or failed
+persistence halts visibly. Collect the matching release before preparing another
+run; a stable sampled quiescence bit alone is not hardware or GGTT ownership.
