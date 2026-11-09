@@ -64,7 +64,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 3,266 verified disk bursts, 703 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (311.305 ms maximum); broader interactive/endurance coverage, failure handling and hotplug remain open |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 3,859 verified disk bursts, 1,084 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (121.877 ms maximum); broader interactive/endurance coverage, failure handling and hotplug remain open |
 | Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
@@ -9695,3 +9695,58 @@ If ESP space is needed, archive only the unreferenced older stress duplicate
 accepted stress `1c74bc8281678786`, audible check `5bc0a824e9f71ab6`, sampler,
 zero-load, single-window and console recovery `c35475f62f154f1e` installed;
 historical/restorable payloads and accepted evidence remain outside `build`.
+
+
+### Native screenshot write timing result (2026-11-08)
+
+PR427 merge `e5d13469`, frozen kernel/runtime `cf852581` and profile tools
+`7a27bfc4`, release `f5e9c4c9603cf2eb`, run `78f642b6588442aa`, session
+`session-00065fccdfafc692-00`: the automatic1800-second1% audio/USB/app/three-
+screenshot repeat passes all original requirements. This accepts the diagnostic
+measurement on this unit; no optimization or policy change was made.
+
+All three retired workers retain65 completed raw writes and4196406 BMP bytes
+apiece, eight capacity changes each, and zero failures, invalid clocks or dropped
+records. Their summed wall spans are:
+
+| Worker PID | Raw calls | Admission gate | Handler | Return handoff | Reservation (inside handler) | Copy (inside handler) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 10 | 11.268167s | 10.979613s | 21.295ms | 267.029ms | 19.997ms | 0.997ms |
+| 480 | 8.540802s | 8.262777s | 20.811ms | 256.976ms | 19.486ms | 1.005ms |
+| 957 | 7.726258s | 7.436346s | 20.798ms | 268.870ms | 19.493ms | 0.995ms |
+
+The admission gate accounts for96.25–97.44% of measured raw write-call wall
+time. Buffer reservation and copying are small in this run. These are wall
+intervals, not CPU time or proof of a particular foreign I/O owner. POSIX wrapper,
+progress reporting and user scheduling outside the raw call remain unmeasured.
+Slowest full screenshot is23.738913s, including5.897257s receive and12.015772s
+WRITE; prior accepted batching run was23.196470s/12.669813s. The measurement-only
+repeat does not establish a further performance improvement. Slowest retained
+cleanup is29.393ms, with no pending worker retirement.
+
+The run completes1084 app cycles and3859 verified disk bursts/1011613696 bytes
+with345862144 PCM bytes, zero recorded underruns and zero worker/lifecycle
+errors. All53337 valid desktop-loop observations stay within500ms; maximum
+121877us. Maximum launch/close is2276652/1599627us, below unchanged10s limits.
+Worst-loop wait companion records102314us blocked,44us READY and zero I/O
+exclusions; this does not identify owners for the separate screenshot gate waits.
+All three1366x768 BMPs decode; follow-up Files, app/cache/capture/battery
+retirement, normal exit and unmount pass. Subjective listening is unassessed at1%;
+the earlier bounded25% listening acceptance remains separate.
+
+All683 prior files survive except expected `.srvros/meta`; nine new files yield
+692 files/2265 allocated clusters. Offline fsck and independent allocation checks
+pass with zero leaks/mismatches/errors. Independent review verifies session
+hashes, timing parsers, receipt agreement, BMP decoding and the646-file automatic
+backup. Reviewed evidence is retained outside `build`. Installed, staged and
+independent payload hashes, accepted payloads and recovery `c35475f62f154f1e`
+verify. Ubuntu remains default, one-shot is consumed, collector is disabled and
+no reboot is armed. Older stress duplicate `ca0e7e313136e985` was archived only
+after independent payload and no-reference verification; its backup remains.
+
+Next bounded scope: identify what holds or delays admission at the screenshot
+write gate, including owner duration and scheduling between admissions, before
+choosing a fix. Preserve same-process/private-image exclusion, watchdogs, all
+flush/full-readback/rename checks,64KiB batching and500ms/10s/endurance limits.
+The receive phase remains a separate performance follow-up. No new implementation
+or physical trial is started by this result closeout.
