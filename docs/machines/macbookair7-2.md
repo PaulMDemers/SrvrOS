@@ -2,6 +2,18 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Return closeout scope: strict post-summary attention classification
+
+The preparation retry has complete native receipts at98,274/100,000us, but the
+host collector lacks a dedicated `intel-prepare-post-summary` handler and falls
+through to generic warning matching. Correct only host summary classification
+using the existing strict completion parser, add positive/malformed/incomplete
+regression coverage, then revalidate preserved logs and original return integrity.
+Preserve the original nonpass report and attribute any corrected classification
+to the decoder change. No guest code, deadline, proof condition or new native
+run changes. Main`e22adf1f` (Air6,1 PR441 documentation) is fetched, not integrated
+in this exact-source closeout. PR301 owns this bounded host-only fix.
+
 ### Active trial: preparation timing retry with unchanged payload and limits
 
 The user authorized a new automated preparation retry at volume1%. Reuse exact
