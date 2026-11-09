@@ -2,6 +2,23 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Active follow-up: qualify the standalone enabled-ring shutdown branch
+
+Main `f30ad7a5` (Air6,1 PR440 documentation) is integrated for this block.
+Objective: qualify the existing separate shutdown image against the enabled16/
+`0xf001`/`0x03eef000` BCS state observed by the latest preparation refusal.
+Scope is host fault/compiled MMIO checks, exact-stage VM rehearsal, native
+recipe/log-budget/recovery preparation and current guides. No generic core or
+native writer change is planned unless validation exposes a concrete defect.
+Only the already-disabled shutdown branch has physical acceptance; enabled
+shutdown, subsequent same-lifetime preparation and memory ownership remain
+separate. Do not combine these operations, widen geometry/profile admission or
+extend100/150/300/500ms bounds. New checkpoint:`build/air-enabled-shutdown-20261109`.
+No test is armed. Preserve the collected preparation refusal and all prior
+passes/nonpasses; archive only verified generated duplicates if space requires.
+PR301 owns this isolated Intel work. Pro11,2 PR19 networking and WebCore PR379
+remain independent; no overlapping shutdown edits were found in open PR scope.
+
 ### Current scope: consolidated admission retry safely refused before preparation
 
 Main `223ec211` is integrated as `f338589c`, including its pinned ports update.
