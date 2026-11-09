@@ -2,6 +2,42 @@
 
 Updated: 2026-11-08. State: **active reference machine; partial device acceptance**.
 
+### Inner-clock retry: measured deadline exhaustion after cancellation
+
+Unchanged source `76e45067` / release `3d376586292550c3`, session
+`session-00065fcdfd61630b-00`, is **incomplete**. This boot's92-word pre-census
+is stable with sampled enabled/pending/flip/TLB masks0. The same-borrow disabled
+observation completes32 reads in34,547us without control stores. Both BCS-only
+reset pulses acknowledge, epoch advances0→1, settling completes at78,710us
+(1,921us settling interval), and request cancellation completes.
+
+Both endpoint bundles populate their raw snapshots. A subsequent guard records
+the first inner fault: cause4 (deadline), stage1, absolute sample20,441,408us,
+previous accepted20,433,720us, core origin20,335,796us. The first failure is
+105,612us after entry versus97,924us previously accepted; it is neither a zero
+nor backward sample. The receipt locates the failure in the final endpoint/
+return admission region, not an individually timed callback. Parent GT clock
+has no fault (11 checks), independently of this inner failure.
+
+Verified borrow return and post-reset engine/plane/HDA preservation do not run.
+The guest retains its borrow, wake,13 aliases and exclusion, and halts visibly.
+Owner elapsed238,044us and outer295,755us remain inside their separate limits;
+the100ms core deadline is unchanged and failed. The supplied photo shows only
+the saved pre-entry checkpoint; the matching final saved receipt proves the
+failure. Cancellation and two ACKs do not accept reset/preservation or DMA/cache/
+reader retirement. All255 memory obligations remain open.
+
+Strict v10 decoding and saved checkpoint verification pass without parser errors.
+All1,389 prior files preserve except expected metadata; three new logs give1,392
+files/120 sessions. Offline fsck/allocation/writable/headroom, installed/durable/
+archive recovery, Ubuntu default and consumed one-shot checks pass. USB is
+unmounted, no new reboot is armed, and matching raw evidence/photo are backed up
+independently outside build under `air-reset-clock-retry-20261108`.
+
+Next measure and reduce the remaining full admission cost while retaining fresh
+pre/provider/post validation, exact raw binding, pin continuity, all deadlines
+and uncertainty retention. Do not retry merely with a longer deadline.
+
 ### Guarded endpoint trial returned: enabled inherited ring refused
 
 Source `76e45067`, release `3d376586292550c3`, session

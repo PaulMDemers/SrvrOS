@@ -407,3 +407,14 @@ Full local checks,91 fatal sanitizer cases,16 compiled controls,16-image isolati
 actual native bundle/load/provider bindings and exact-stage normal/missing-workspace
 VM outcomes pass. The projected full-width tail is65,505/65,536bytes with the
 unchanged1,536 allowance. Media/recovery checks pass; native acceptance is pending.
+
+The unchanged candidate's retry, session `session-00065fcdfd61630b-00`, reaches
+both reset ACKs, settling and cancellation, with both endpoint bundles sampled.
+It records cause4/stage1 at20,441,408us, previous20,433,720us and origin20,335,796us:
+105,612us elapsed versus97,924us last accepted. This directly establishes inner
+deadline exhaustion in final endpoint/return admission; the row does not identify
+an individual callback. The independent parent clock has no fault. No verified
+borrow return or post-preservation runs; ownership remains retained and the guest
+halts. The full operation is incomplete. Further admission optimization must
+preserve the100ms core bound and all fresh checks; no reset/preservation or
+memory-ownership acceptance follows from the two ACKs and cancellation.
