@@ -14,12 +14,26 @@ struct mt76_join5_io {
  bool (*delay)(void *,unsigned us);
  uint64_t (*now)(void *);
 };
+/* Diagnostic observations only. No permission to retry, extend a deadline or
+ * accept a reply. span_us covers only clock values already read by response(). */
+enum mt76_join5_response_reason {
+ MT76_JOIN5_RESPONSE_UNATTEMPTED,MT76_JOIN5_RESPONSE_MATCHED,
+ MT76_JOIN5_RESPONSE_OWNER,MT76_JOIN5_RESPONSE_POLL,MT76_JOIN5_RESPONSE_SHAPE,
+ MT76_JOIN5_RESPONSE_INVALID,MT76_JOIN5_RESPONSE_REJECTED,
+ MT76_JOIN5_RESPONSE_ROLLBACK,MT76_JOIN5_RESPONSE_DEADLINE,
+ MT76_JOIN5_RESPONSE_TURN_CAP,MT76_JOIN5_RESPONSE_DELAY
+};
+struct mt76_join5_response_observation {
+ unsigned attempted,reason,polls,present,ignored,peer,clocks;
+ uint64_t span_us;
+};
 struct mt76_join5 {
  bool attempted,complete,failed,unsafe,auth_sent,auth_matched,assoc_sent,assoc_matched,leave_sent;
  uint64_t generation;
  unsigned sends,polls,ignored;
  uint16_t aid,status;
  uint8_t reply[4096],packet[124];
+ struct mt76_join5_response_observation response[2]; /* AUTH,ASSOC */
 };
 /* One-shot bounded fixed three-frame exchange,manual sequences1/2/3,no retry.
  * Caller owns calibrated RF/power/live endpoints/MAC and mandatory retirement.

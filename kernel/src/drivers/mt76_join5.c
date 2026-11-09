@@ -13,30 +13,36 @@ static bool send(struct mt76_join5 *s,const struct mt76_mgmt5_peer *p,const stru
  return result==MT76_JOIN5_SENT;
 }
 static bool response(struct mt76_join5 *s,const struct mt76_mgmt5_peer *p,const struct mt76_join5_io *io,enum mt76_mgmt5_kind kind){
- uint64_t start=io->now(io->context),previous=start;
+ struct mt76_join5_response_observation *o=&s->response[kind==MT76_MGMT5_ASSOC];
+ uint64_t start=io->now(io->context),previous=start;o->attempted=1;o->clocks=1;
  for(unsigned attempt=0;attempt<8192;attempt++){
-  if(!io->owned(io->context,false)){s->unsafe=true;return false;}
-  size_t n=0;bool present=false;s->polls++;
-  if(!io->poll(io->context,s->reply,sizeof s->reply,&n,&present) || !io->owned(io->context,false)){s->unsafe=true;return false;}
-  if(n>sizeof s->reply || (!present && n)){s->unsafe=true;return false;}
+  if(!io->owned(io->context,false)){o->reason=MT76_JOIN5_RESPONSE_OWNER;s->unsafe=true;return false;}
+  size_t n=0;bool present=false;s->polls++;o->polls++;
+  /* Preserve short-circuit callback order: ownership is queried only after a
+   * successful poll, exactly as before these result-only observations. */
+  bool polled=io->poll(io->context,s->reply,sizeof s->reply,&n,&present);
+  bool current=polled && io->owned(io->context,false);
+  if(!polled || !current){o->reason=polled?MT76_JOIN5_RESPONSE_OWNER:MT76_JOIN5_RESPONSE_POLL;s->unsafe=true;return false;}
+  if(present)o->present++;
+  if(n>sizeof s->reply || (!present && n)){o->reason=MT76_JOIN5_RESPONSE_SHAPE;s->unsafe=true;return false;}
   if(present){
-   if(n<24){s->ignored++;}
-   else if((s->reply[0]&0xfc)!=(kind==MT76_MGMT5_AUTH?0xb0:0x10) || !equal(s->reply+4,p->station,6) || !equal(s->reply+10,p->bssid,6) || !equal(s->reply+16,p->bssid,6)){s->ignored++;}
+   if(n<24){s->ignored++;o->ignored++;}
+   else if((s->reply[0]&0xfc)!=(kind==MT76_MGMT5_AUTH?0xb0:0x10) || !equal(s->reply+4,p->station,6) || !equal(s->reply+10,p->bssid,6) || !equal(s->reply+16,p->bssid,6)){s->ignored++;o->ignored++;}
    else {
-    struct mt76_mgmt5_response r={0};enum mt76_mgmt5_status status=mt76_mgmt5_response(p,kind,s->reply,n,&r);s->status=r.status;
+    struct mt76_mgmt5_response r={0};enum mt76_mgmt5_status status=mt76_mgmt5_response(p,kind,s->reply,n,&r);s->status=r.status;o->peer++;
     scrub(s->reply,sizeof s->reply);
-    if(status!=MT76_MGMT5_OK)return false;
+    if(status!=MT76_MGMT5_OK){o->reason=status==MT76_MGMT5_REJECTED?MT76_JOIN5_RESPONSE_REJECTED:MT76_JOIN5_RESPONSE_INVALID;return false;}
     if(kind==MT76_MGMT5_ASSOC)s->aid=r.aid;
-    return true;
+    o->reason=MT76_JOIN5_RESPONSE_MATCHED;return true;
    }
   }
   scrub(s->reply,sizeof s->reply);
-  uint64_t now=io->now(io->context);
-  if(now<previous || now-start>=MT76_JOIN5_REPLY_US)return false;
+  uint64_t now=io->now(io->context);o->clocks++;o->span_us=now>=start?now-start:0;
+  if(now<previous || now-start>=MT76_JOIN5_REPLY_US){o->reason=now<previous?MT76_JOIN5_RESPONSE_ROLLBACK:MT76_JOIN5_RESPONSE_DEADLINE;return false;}
   previous=now;
-  if(!io->delay(io->context,100)){s->unsafe=true;return false;}
+  if(!io->delay(io->context,100)){o->reason=MT76_JOIN5_RESPONSE_DELAY;s->unsafe=true;return false;}
  }
- return false;
+ o->reason=MT76_JOIN5_RESPONSE_TURN_CAP;return false;
 }
 bool mt76_join5_run_after(struct mt76_join5 *s,const struct mt76_peer5 *peer,const struct mt76_join5_io *io,bool (*after_assoc)(void *,bool *)){
  if(!s || !peer || !io || !io->owned || !io->send || !io->poll || !io->delay || !io->now ||

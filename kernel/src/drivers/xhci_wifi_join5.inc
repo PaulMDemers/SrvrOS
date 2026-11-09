@@ -251,6 +251,12 @@ static bool wifi_join5_inspection(void *c,uint32_t alc,uint32_t ibi){
  console_printf("wifi-join5-exchange: complete=%u clock_valid=%u elapsed_us=%u\n",(uint64_t)complete,(uint64_t)(end>=start),end>=start?end-start:0);
  return complete;
 }
+static void wifi_join5_emit_responses(void){
+ for(unsigned i=0;i<2;i++){
+  const struct mt76_join5_response_observation *o=&wifi_join5.exchange.response[i];
+  console_printf("wifi-join5-response: phase=%u attempted=%u reason=%u polls=%u present=%u ignored=%u peer=%u clocks=%u span_us=%u\n",(uint64_t)i,(uint64_t)o->attempted,(uint64_t)o->reason,(uint64_t)o->polls,(uint64_t)o->present,(uint64_t)o->ignored,(uint64_t)o->peer,(uint64_t)o->clocks,o->span_us);
+ }
+}
 static bool wifi_join5_inspect(void){
  if(!wifi_join5_requested || wifi_join5.attempted)return false;
  wifi_join5.attempted=true;wifi_join5.eapol_required=wifi_eapol5.requested;wifi_join5.d=wifi_cal5.d;
@@ -300,6 +306,8 @@ static bool wifi_join5_inspect(void){
  if(good){copy_bytes(d->input_context,wifi_join5.input,4096);copy_bytes(wifi_join5.expected,d->input_context,4096);wifi_join5.phase=9;wifi_join5.restored=wifi_join5_owned(&wifi_join5,true) && wifi_peer5_owned(&wifi_peer5,&wifi_cal5.window) && wifi_tx5_owned();good=wifi_join5.restored;}
  struct mt76_join5 *s=&wifi_join5.exchange;
  console_printf("wifi-join5: ok=%u exchange=%u auth=%u assoc=%u leave=%u unsafe=%u sends=%u polls=%u ignored=%u aid=%u status=%u commands=%u posts=%u controls=%u restored=%u phase=%u retained=1 authenticated=0 ip_data=0\n",(uint64_t)(good && exchanged),(uint64_t)s->complete,(uint64_t)s->auth_matched,(uint64_t)s->assoc_matched,(uint64_t)s->leave_sent,(uint64_t)s->unsafe,(uint64_t)wifi_join5.sends,(uint64_t)s->polls,(uint64_t)s->ignored,(uint64_t)s->aid,(uint64_t)s->status,(uint64_t)wifi_join5.commands,(uint64_t)wifi_join5.posts,(uint64_t)wifi_join5.usb_ops,(uint64_t)wifi_join5.restored,(uint64_t)wifi_join5.phase);
+ /* Result-only metadata is emitted after the existing cleanup/summary. */
+ wifi_join5_emit_responses();
  if(!wifi_join5.restored && !wifi_join5.failed)wifi_join5_fail();
  if(good && exchanged && wifi_join5_after)good=wifi_join5_after();
  wifi_join5.active=false;return good && exchanged;

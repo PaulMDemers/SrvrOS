@@ -6,7 +6,7 @@ from wifi_power5_log import fields
 from wifi_held_log import require
 PROGRESS='wifi-join5-progress: frozen parent;fresh live RX/data OUT;matched AUTH ASSOC leave;MAC disable;stop/drop/restore;no keys or IP data'
 def check(log):
- require('srvros.wifi-join5=1' in log,'missing live management profile');r=parent(log);lines=log.splitlines();aux=[s for s in lines if s.startswith(('wifi-join5-rx:','wifi-join5-exchange:'))];rows=[s for s in lines if s.startswith('wifi-join5') and s not in aux];i=0
+ require('srvros.wifi-join5=1' in log,'missing live management profile');r=parent(log);lines=log.splitlines();aux=[s for s in lines if s.startswith(('wifi-join5-rx:','wifi-join5-exchange:','wifi-join5-response:'))];rows=[s for s in lines if s.startswith('wifi-join5') and s not in aux];i=0
  def take(prefix):
   nonlocal i
   require(i<len(rows),'missing live management receipt');line=rows[i];i+=1;return fields(line,prefix)
@@ -62,5 +62,19 @@ def check(log):
  require(stop['pointer']<=rx+16*s['posts'] and (stop['cc']==27 or stop['pointer']==rx+16*(s['posts']-1)),'RX stop receipt not bound to posted TD')
  cleanup=next(x for x in lines if x.startswith('wifi-power5-usb:') and fields(x,'wifi-power5-usb')['cleanup']==1)
  require(lines.index(next(x for x in lines if x.startswith('wifi-tx5:')))<lines.index(PROGRESS)<lines.index(rows[-1])<lines.index(cleanup),'live owner outside frozen parent lifetime')
+ # Optional only for historical source fixtures. New-source capture recipes
+ # separately require these two companions; their absence never fabricates one.
+ observations=[x for x in aux if x.startswith('wifi-join5-response:')]
+ if observations:
+  require(len(observations)==2,'missing/duplicate response observation')
+  observed=[]
+  keys='phase attempted reason polls present ignored peer clocks span_us'.split()
+  for phase,line in enumerate(observations):
+   a=fields(line,'wifi-join5-response')
+   require(set(a)==set(keys) and line=='wifi-join5-response: '+' '.join(k+'='+str(a[k]) for k in keys),'wrong response observation schema/canonical order')
+   require(a['phase']==phase and a['attempted']==a['reason']==a['peer']==1 and 1<=a['polls']<=8192 and 1<=a['present']<=a['polls'] and a['ignored']==a['present']-1 and a['clocks']==a['polls'] and 0<=a['span_us']<750000,'incomplete/mismatched response observation')
+   require(lines.index(rows[-1])<lines.index(line)<lines.index(cleanup),'response observation outside restored lifetime')
+   observed.append(a)
+  require(sum(a['polls'] for a in observed)==s['polls'] and sum(a['ignored'] for a in observed)==s['ignored'],'response observations differ from exchange counters')
  r.update(join5_complete=True,join5_management_out=3,join5_auth_matched=True,join5_assoc_matched=True,join5_leave_submitted=True,join5_originals_restored=True,join5_posts=s['posts'],scope='fresh live RX/data OUT;matched open-system AUTH and association replies;leave submitted;MAC disabled,endpoint/input/parent originals restored;no WPA2 or authenticated IP/data')
  return r
