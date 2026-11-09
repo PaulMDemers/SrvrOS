@@ -7828,3 +7828,15 @@ legacy profiles stay distinct. Matched selected regressions,21 normal/fatal
 actual-owner cases,255 stage cases, whole-prefix and exact-image/workspace VMs
 pass. Native production-stack acceptance is still pending. TCP/HTTP,connection
 lifecycle/reattachment/UI and reliability remain later gates; see the unit plan.
+
+
+The first native production-stack candidate6a26cb80/815747 failed before second
+AUTH matched; its log is complete and its workspace/recovery checks passed.
+No production DHCP/DNS/ping acceptance is added. The next source2da2f400/release
+7026c0d52d23d45d adds only deferred categorical AUTH observation, with unchanged
+admission, timeout, retry, key and retirement rules.24 normal/fatal actual-owner
+cases include missing, negative and malformed AUTH replies;534 whole-parent
+mutations, current image/parser/source binding and exact workspace VMs pass.
+It is installed for native comparison; the machine record/run record owns the
+cold shutdown/one-shot/collection state. Do not infer a fixed authentication
+cause or native production/HTTP/lifecycle acceptance from these software results.

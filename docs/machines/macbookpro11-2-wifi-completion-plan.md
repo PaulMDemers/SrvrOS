@@ -233,3 +233,16 @@ reattachment/fresh keys and epochs; finish selection/connect controls and reliab
 UI updates; run loss, cancellation and sustained reliability checks. Host HTTP
 fixtures are preparation, not native acceptance. This5GHz-only adapter cannot
 accept Demers2.4; a compatible adapter is required for that separate band scope.
+
+
+The first v137 production trial6a26cb80/815747 failed during the second AUTH,
+before keys or the workload. The1605-file failure and11-file reviews are retained;
+workspace/recovery passed, but no new network acceptance follows. Observation-
+only runtime2da2f400/release7026c0d52d23d45d is now qualified/installed: deferred
+AUTH categories/timing distinguish modeled loss/rejection/malformed replies with
+no protocol or timeout change.24 normal/fatal owner cases,534 full-parent
+mutations, matched selected regression plus explicit Python-only proof binding,
+255 stage/nine main groups, storage/desktop/exact418-file workspace VMs pass.
+Native comparison is pending; collect wifi-stack5-auth first once after return.
+The production-IP gate, legitimate process/timer-owned TCP/HTTP, lifecycle/UI and
+reliability remain in the order above. Demers2.4 still needs compatible hardware.

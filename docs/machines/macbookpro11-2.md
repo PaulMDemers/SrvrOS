@@ -7,43 +7,59 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Native v136 runtime `38f2d76a` / release `8529308170250844`, session
-`00065fd0e213e7ba-00`, is accepted: one original key, one bounded Discover retry,
-71 encrypted requests, 64 exact 256-byte gateway echoes, one TX and three RX
-real fences, full parent/ledger retirement and strict prior-file/metadata proof.
-Its original 255-file native capsule and separate 14-file acceptance notes remain
-immutable. This accepts bounded encrypted traffic; ordinary native IP/TCP/HTTP,
-connection epochs, reattachment, UI and reliability remain separate gates.
+Native v136 runtime `38f2d76a` / release `8529308170250844` remains accepted:
+one original key, 71 encrypted requests, 64 exact256-byte gateway echoes, one TX
+and three RX real fences, full parent/ledger retirement and strict workspace
+preservation. Its original255-file native and14-file acceptance capsules remain
+immutable. This is bounded encrypted traffic, not native production TCP/HTTP,
+connection lifecycle, reattachment, UI or sustained reliability acceptance.
 
-The distinct v137 runtime `6a26cb80` / release `815747ea8c559ec0` has now
-returned and was collected once: session `00065fd7e0c7c9fb-00`. It FAILED before
-the production workload: one TX and ten completed RX transfers, no matched
-second AUTH, no installed keys and no data publication. Workload version0 means
-DHCP/DNS/ping never began. The complete1,889,878-byte prefix remains below2MiB;
-the channel-VCO rowcount refusal is an incomplete enclosing-parent consequence,
-not truncated evidence. Parent/radio/ledger retirement is unproved; resources
-remain retained. No v137 native acceptance follows from endpoint restoration.
+The first production-stack trial, v137 `6a26cb80` / `815747ea8c559ec0`, FAILED
+before its workload. The earlier join/M1 parent passed; the second exclusive
+owner completed one AUTH TX but accepted no matching AUTH response. No key or
+encrypted data was published. The complete1,889,878-byte log is not truncated;
+channel-VCO incompleteness is downstream unwind, not an established RF cause.
+Its1605-file failed capsule and separate11-file independent-review capsule stay
+immutable. All416 prior files/metadata, offline allocation and recovery passed.
 
-All416 prior file bytes and metadata pass independently except authorized marker
-atime, with only two matching-session files and one directory new. Offline fsck
-and allocation pass (418files,zero leaks/mismatches/errors); Ubuntu default,
-cleared one-shot and all six protected recovery payloads pass. The1605-file
-native capsule is sealed outside build and must not be recollected or resealed.
-Earlier accepted v136/native255+accepted14 and software1233 remain unchanged.
-Current815747 is unarmed; accepted8529 and Ubuntu/e47d remain installed.
+New runtime `2da2f400` / release `7026c0d52d23d45d` is qualified and installed for
+an observation-only native comparison. A stack-only final authentication receipt
+records existing exchange fields, categories for already copied AUTH responses
+and bookkeeping of existing clock samples. No parser admission, timeout, retry,
+clock-call, key, fence, ownership or cleanup rule changes. The receipt distinguishes
+missing replies, explicit rejection and malformed matching replies in directed
+actual-owner fixtures. It does not establish the previous native failure's cause.
+If authentication succeeds, the unchanged production DHCP/DNS/ARP/64exact40-byte
+ICMP workload runs; its32-byte bodies total2048 verified bytes. Native acceptance
+remains pending. TCP/HTTP still needs legitimate process/timer ownership.
 
-Next bounded scope is first-failure diagnosis of the second AUTH, compared with
-accepted v136. Existing final receipts omit auth_sent, send/poll/ignored/status
-fields, so an observation-only final receipt and directed actual-owner auth-loss
-fixture may be needed before a distinct source-qualified native comparison.
-No timeout, parser, RF, ownership, credential, retry or retirement gate may be
-relaxed to turn this failure into a pass. Root owns serial build/stage/install/
-power and collection; transport review owns first-failure/native-owner evidence,
-protocol review checks call ordering, and storage review independently verifies
-the failed capsule. No identical blind retry is authorized by this diagnosis.
-Production DHCP/DNS/64 exact40-byteICMP, TCP/HTTP, connection epochs/reattachment,
-UI and reliability remain pending. Captured7392:a711/0100 is5GHz-only; Demers2.4
-requires compatible hardware. Credentials stay private; PR19 draft, Actions off.
+The matched selected build/regressions passed onbfd38c3d in517.04seconds. Only
+two Python proof/checker files then tightened impossible success-counter bounds;
+all C/build inputs remained identical. Current2da image/checker rerun passed in
+14.55seconds, with explicit source bindings rather than a second full C-suite
+claim.24 combined actual-owner cases pass normal/fatal sanitizers;184 compiled
+inputs match.534 full-parent mutations refuse (496 missing/duplicate), plus14
+current-release checks; nine parser groups have no skips.255 staging cases,
+nine actual-main groups, native stack, real2MiB filesystem, ordinary desktop,
+exact staged GPT/missing-workspace and exact418-file workspace-copy VMs pass.
+All prior contents and metadata survive apart from authorized marker atime.
+Conservative capture space remaining is33617bytes, above32768 reserve.
+
+The new run record/capsule is `wifi-stack5-auth`; collect FIRST exactly once on
+return with `build/bringup/wifi-stack5-auth/run_root.py return_collect`. Diagnose
+saved AUTH categories if it fails; do not run an identical blind retry or promote
+incomplete parent/ledger proof. Ubuntu remains default and e47d recovery plus
+accepted8529/4a/3c9/815/e17 remain installed. Installation restored accepted8529
+before retiring only failed815747's unreferenced EFI duplicate, after complete
+1605-file immutable backup and payload-equality verification. Failure evidence is
+unchanged. The durable run record owns arming state.
+
+Standing user authorization permits the qualified cold shutdown: unplug only
+Wi-Fi10seconds while OFF, reconnect the same port, power on, leave workspace
+connected. Guest progress, disk save and Ubuntu return are automatic; no photos,
+commands or repeated permission. UUID0E53-5900 belongs only to this machine.
+Captured7392:a711/0100 is5GHz-only, so Demers2.4 needs compatible hardware. PR19
+remains draft; Actions disabled; credentials private; no cross-chat contact.
 
 ## Earlier handoff (superseded November 8)
 
@@ -16221,3 +16237,51 @@ clean, all six protected recovery payloads agree and one-shot is cleared.
 Independent diagnosis must identify the first failure rather than treating the
 parent-parser refusal as root cause. Precise final authentication counters and
 an actual-owner auth-loss regression are the bounded next scope; no blind retry.
+
+### Deferred AUTH observation candidate qualified (November 9)
+
+The unchanged strict first native production-stack run failed before second AUTH
+matched; the diagnostic sourcebfd38c3d adds only a stack-specific post-closure
+receipt. Pure decoding classifies the already copied AUTH return as unrelated,
+matching valid, explicitly rejected or malformed. Existing now() return values
+supply elapsed/rollback counters without adding clock calls. Actual-owner
+fixtures separately reproduce loss, negative status13 and malformed algorithm1;
+all leave the production workload untouched and retain unproved resources.
+No AUTH retransmission, delay change, new hardware authority or relaxed gate is
+introduced. Neither the new receipt nor a model proves the old failure's cause.
+
+All24 combined cases pass normally in34.712seconds and with fatal ASan/UBSan/leak
+checks in180.716seconds. All184 compiled inputs are rehashed. Independent review
+binds the unchanged13-build/104-execution production-protocol proof and verifies
+no admission/control/timer-call change. A later two-file Python-only correction
+requires ignored<=polls-4 and AUTH clocks<=polls-2 on successful logs. Original
+matchedbfd build/regressions and532-mutation proof are retained; current2da image/
+parser rerun, fresh534-mutation matrix, nine parser groups and exact C equality
+bind final qualification without pretending to repeat the unchanged C suite.
+
+Release7026c0d52d23d45d/source2da2f400 consumes maine85a6846. Strict current-release
+composition is2049447bytes; conservative2033738 parent plus29797 child leaves
+33617bytes. Native individual frames max3176 and integrated observer max9480
+remain within prior limits; no whole-call-chain or latency claim follows.
+Real2MiB filesystem, ordinary desktop,255 staging/nine main-dispatch groups and
+exact-image GPT/missing-workspace tests pass. The disposable418-file private
+workspace VM preserves contents/metadata apart from authorized marker atime.
+Initial local helper assumptions about incremental compile-command logs and
+VMM diagnostic ordering refused; corrected helpers passed fresh native-frame,
+fatal and startup checks. All initial refusals are retained, not OS failures.
+
+A fresh418-file baseline, exact source/payload and software proofs are saved in
+`wifi-stack5-auth-2da2f400` outside build. The failed1605-file native capsule and
+separate11-file review, accepted255/14 native notes and software1233 capsule
+remain immutable. EFI capacity retirement affects only failed815747's duplicate,
+after accepted8529 is restored and all backups/no-reference checks pass. New7026
+is installed with Ubuntu/e47d and accepted recovery intact. Native production
+networking remains pending; collect the new session first once after the cold run.
+
+The next HTTP design uses a legitimate initramfs child and retained real network
+worker after the finite DHCP/DNS gate, with silent bounded readiness, actual
+socket ownership and exact bytes. Existing httpget/tcpprobe cannot be used
+unchanged: live stdout, yielding ARP/nonblocking writes and incomplete exact-body
+validation need bounded APIs and supervisor cancellation/FIN/TIME_WAIT proof.
+A real IRQ/process VM and separately measured transport credits are prerequisites;
+HTTP must not simply be appended after64pings at unchanged finite limits.
