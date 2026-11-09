@@ -131,6 +131,12 @@ bool xhci_wifi_capture_reuse5(void);
 bool xhci_wifi_capture_nop5(void);
 bool xhci_wifi_capture_stream5(void);
 bool xhci_wifi_capture_stream5_dhcp(void);
+/* Explicit software-qualified provider binding;not an ordinary boot profile.
+ * Caller registers no other selected stack first and supplies a bounded
+ * production exercise inside the original secured window. Callback must return
+ * with queue/TX idle;all key/hardware/parent/ledger proof precedes detach. */
+struct mt76_net5;
+bool xhci_wifi_capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *context);
 bool xhci_wifi_capture_vco5(void);
 bool xhci_wifi_capture_dac5(void);
 bool xhci_wifi_capture_rf_g20(void);

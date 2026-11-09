@@ -6216,3 +6216,37 @@ build/tests/xhci-stream5-dhcp-host$(HOST_EXE): tools/test_xhci_wifi_stream5_dhcp
 build/tests/mt76-ip5-retry-host$(HOST_EXE): tools/test_mt76_ip5_retry.c tools/test_mt76_stream5_probe.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/drivers/mt76_ip5.c kernel/src/sha256.c kernel/include/srvros/mt76_stream5_probe.h kernel/include/srvros/mt76_ip5.h shared/include/srvros/dns_wire.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< kernel/src/drivers/mt76_stream5_probe.c kernel/src/drivers/mt76_ip5.c kernel/src/sha256.c -o $@
+
+.PHONY: test-net-dhcp-retry
+test-core: test-net-dhcp-retry
+test-wifi-completion-foundations: test-net-dhcp-retry
+test-net-dhcp-retry: build/tests/net-dhcp-retry-host$(HOST_EXE)
+	$<
+build/tests/net-dhcp-retry-host$(HOST_EXE): tools/test_net_dhcp_retry.c kernel/src/net.c kernel/src/net_device.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-net-probe-quiet
+test-core: test-net-probe-quiet
+test-wifi-completion-foundations: test-net-probe-quiet
+test-net-probe-quiet: build/tests/net-probe-quiet-host$(HOST_EXE)
+	$<
+build/tests/net-probe-quiet-host$(HOST_EXE): tools/test_net_probe_quiet.c kernel/src/net.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
+
+# Optional independent AP oracle needs Python cryptography and OpenSSL headers.
+# It is intentionally separate from the portable default test-core dependencies.
+.PHONY: test-mt76-stack5-peer
+test-mt76-stack5-peer:
+	$(PYTHON) -B tools/test_mt76_stack5_peer.py
+build/tests/xhci-host$(HOST_EXE) build/tests/xhci-fence5-host$(HOST_EXE) build/tests/xhci-nop5-host$(HOST_EXE) build/tests/xhci-stream5-host$(HOST_EXE) build/tests/xhci-stream5-dhcp-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_stack5.inc
+
+HOST_OPENSSL_CFLAGS ?=
+HOST_OPENSSL_LIBS ?= -lcrypto
+.PHONY: test-xhci-stack5
+test-xhci-stack5: build/tests/xhci-stack5-host$(HOST_EXE)
+	$<
+build/tests/xhci-stack5-host$(HOST_EXE): tools/test_xhci_wifi_stack5.c tools/test_xhci_wifi_stream5.c tools/fixtures/mt76-stream5-dhcp-synthetic.h tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc kernel/src/drivers/xhci_wifi_stream5.inc kernel/include/srvros/mt76_stream5_probe.h $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE) tools/fixtures/mt76-stack5-peer.c tools/fixtures/mt76-stack5-peer.h kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/xhci_wifi_stack5.inc
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST $(HOST_OPENSSL_CFLAGS) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c kernel/src/net.c kernel/src/net_device.c tools/fixtures/mt76-stack5-peer.c -Wl,--gc-sections $(HOST_OPENSSL_LIBS) -o $@
