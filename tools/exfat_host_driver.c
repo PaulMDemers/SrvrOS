@@ -24,6 +24,23 @@ static uint64_t read_calls,read_bytes,write_bytes;
 static unsigned writes, flushes, fail_at, crash_at, fail_flush_at, crash_flush_at, tear_at;
 static bool failed, foreign, sidecar_client;
 static unsigned io_depth;
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+/* Deterministic clock/trace adapters for the real content/exFAT sync fixture.
+ * The same callbacks and media are used with observation enabled and disabled. */
+static uint64_t sync_content_us=1000000, sync_content_trace=1469598103934665603ull;
+static uint64_t sync_content_callbacks;
+static void sync_content_fold(uint64_t value) {
+    for(unsigned i=0;i<8;i++) { sync_content_trace^=(uint8_t)(value>>(i*8));sync_content_trace*=1099511628211ull; }
+}
+static void sync_content_callback(unsigned kind,uint64_t offset,uint64_t bytes,const void *data) {
+    sync_content_callbacks++;sync_content_fold(kind);sync_content_fold(offset);sync_content_fold(bytes);
+    if(data)for(uint64_t i=0;i<bytes;i++){sync_content_trace^=((const uint8_t *)data)[i];sync_content_trace*=1099511628211ull;}
+}
+uint64_t timer_monotonic_us(void) { return sync_content_us; }
+bool timer_reference_ready(void) { return true; }
+void test_sync_content_arm_failure(void) { fail_at=writes+1; }
+void test_sync_content_case(const char *mode,struct block_device *device);
+#endif
 bool scheduler_io_begin(void) { if(foreign) return false; io_depth++; return true; }
 void scheduler_io_end(void) { assert(io_depth); io_depth--; }
 bool scheduler_io_active(void) { return foreign || io_depth != 0; }
@@ -49,10 +66,17 @@ struct block_device *block_parent(struct block_device *d) { return d; }
 bool block_read(struct block_device *d, uint64_t o, void *p, uint64_t n) {
     read_calls++;read_bytes+=n;
     if(getenv("SRVROS_FAIL_READ_OFFSET") && o==strtoull(getenv("SRVROS_FAIL_READ_OFFSET"),NULL,10))return false;
-    return o+n <= block_device_size(d) && pread(fd,p,n,o)==(ssize_t)n;
+    bool ok=o+n <= block_device_size(d) && pread(fd,p,n,o)==(ssize_t)n;
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+    sync_content_us+=10;sync_content_callback(0,o,n,ok?p:NULL);sync_content_fold(ok);
+#endif
+    return ok;
 }
 bool block_write(struct block_device *d, uint64_t o, const void *p, uint64_t n) {
     write_bytes+=n;
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+    sync_content_us+=20;sync_content_callback(1,o,n,p);
+#endif
     if (failed || ++writes == fail_at) { failed=true; return false; }
     assert(o+n <= block_device_size(d));
     if(getenv("SRVROS_TRACE_WRITES"))printf("write-trace: call=%u offset=%llu bytes=%llu\n",writes,(unsigned long long)o,(unsigned long long)n);
@@ -65,6 +89,9 @@ bool block_write(struct block_device *d, uint64_t o, const void *p, uint64_t n) 
     return true;
 }
 static bool flush(struct block_device *d) { (void)d; flushes++;
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+    sync_content_us+=30;sync_content_callback(2,0,0,NULL);
+#endif
     if(getenv("SRVROS_TRACE_WRITES"))printf("flush-trace: call=%u\n",flushes);
     if(flushes==fail_flush_at) failed=true;
     if(failed || fsync(fd)) return false;
@@ -269,6 +296,15 @@ int main(int argc, char **argv) {
         foreign=false;
     }
     assert(exfat_mount_block_device("/vol",&d));
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+    if(!strncmp(argv[2],"sync-content-",13)) {
+        test_sync_content_case(argv[2],&d);
+        assert(fsync(fd)==0);close(fd);
+        printf("sync-content-trace: callbacks=%llu hash=%016llx writes=%u flushes=%u write_bytes=%llu\n",
+            (unsigned long long)sync_content_callbacks,(unsigned long long)sync_content_trace,writes,flushes,(unsigned long long)write_bytes);
+        return 0;
+    }
+#endif
     if(!strcmp(argv[2],"foreign")) foreign=true;
     if(!strncmp(argv[2],"sidecar-",8)) {
         if(!strcmp(argv[2],"sidecar-seed")) {
@@ -683,4 +719,10 @@ int main(int argc, char **argv) {
 #define SRVROS_BLOCK_CLAIM_HOST_TEST
 #include "../kernel/src/block_claim.c"
 
-bool process_has_open_vfs_prefix(const char *p) { return sidecar_client && !strcmp(p,"/vol/.srvros/meta"); }
+bool process_has_open_vfs_prefix(const char *p) {
+#ifdef SRVROS_SYNC_CONTENT_HOST_TEST
+    bool test_process_busy(const char *path);
+    if(test_process_busy(p))return true;
+#endif
+    return sidecar_client && !strcmp(p,"/vol/.srvros/meta");
+}

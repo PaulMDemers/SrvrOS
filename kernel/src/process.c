@@ -1,4 +1,5 @@
 #include <srvros/session_scope.h>
+#include <srvros/sync_timing.h>
 #include "capture_write_timing_state.h"
 #include <srvros/path_limits.h>
 #include <srvros/audio.h>
@@ -176,7 +177,7 @@ struct process_unix_listener {
 /* One content object per live pathname; unlinked objects retain their identity
  * until last close. Offsets/status belong to separate open descriptions. */
 struct process_file_content {
-    uint64_t refs;
+    uint64_t refs,diagnostic_identity;
     const struct vfs_node *node;
     const uint8_t *data;
     uint64_t size,capacity;
@@ -4783,7 +4784,9 @@ static struct process_file_content *content_acquire(const struct vfs_node *node,
     for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES+PROCESS_MAX_READ_FILES;i++) if(!file_contents[i].refs) {
         content=&file_contents[i];
         *content=(struct process_file_content){.refs=1,.node=node,.data=data,.size=size};
-        if(copy_process_path(content->path,sizeof(content->path),path)) return content;
+        if(copy_process_path(content->path,sizeof(content->path),path)) {
+            content->diagnostic_identity=sync_timing_content_identity();return content;
+        }
         content->refs=0;break;
     }
     if(data) vfs_release_data(node,data);
@@ -5884,7 +5887,13 @@ int64_t process_file_sync_all(void) {
      * than retrying once per independent write description. */
     for (uint64_t i = 0; i < PROCESS_MAX_WRITE_FILES + PROCESS_MAX_READ_FILES; i++) {
         struct process_file_content *content=&file_contents[i];
-        if (content->refs && content->dirty && content_flush(content) < 0) result = -1;
+        if (content->refs && content->dirty) {
+            uint64_t inode=content->unlinked?content->orphan_metadata.inode:content->node?content->node->metadata.inode:0;
+            bool timed=sync_timing_content_begin(i,content->diagnostic_identity,inode,content->size);
+            int64_t flushed=content_flush(content);
+            if(timed)sync_timing_content_end(flushed>=0,content->dirty);
+            if(flushed<0)result=-1;
+        }
     }
     return result;
 }

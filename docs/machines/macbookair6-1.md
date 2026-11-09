@@ -10696,3 +10696,147 @@ first-failure latch retained, rather than speculative transport changes.
 Current/recovery payloads and independent backups verify. Ubuntu remains default,
 the one-shot entry is empty, collector disabled and USB unmounted; no reboot is
 armed. Raw matching evidence and an independent trial backup survive distclean.
+
+### Identical first-protocol diagnostic repeat (2026-11-09)
+
+Run `a9e06a47ddb44284` repeats installed release `69a87466479ab140` compiled
+`b0169186` / ports `39ad9d7`, with no code or workload change. Fresh exact-stage
+Q35 refusal/save/unmount/automatic-return rehearsal passes; installed/staged/
+independent payload hashes match. Full matched host/VM validation is reused only
+for that identical payload. Only the local1% quiet-volume expiry was renewed.
+
+Matching native session `session-00065fddf41c5fe5-00` completes1800 seconds,
+1078 app cycles,4211 verified262144-byte disk bursts (1103888384 bytes),
+345763840 PCM bytes and three exact decoded1366x768 BMPs. Zero audio underruns,
+worker errors or lifecycle failures are recorded. Independent final-record,
+binary receipt, image and prior-file checks agree with collection. All retained
+loop samples validate with no excursions; maximum121868us remains below500ms.
+Maximum launch3642026us and close2190458us remain below10s. Follow-up Files,
+normal desktop exit and worker/cache/battery retirement pass.
+
+Battery records705 attempts, zero rejections,10578 queries, five notifications,
+one attach/detach and zero retained heap/errors/denied operations. The final
+version1 epoch1 protocol marker at1811311668us follows PCM end1808072660us:
+retired, captured0, kind0. This second separate30-minute pass on the instrumented
+payload accepts repeated clean-marker persistence, not a continuous hour or a
+battery fix. No real first-failure contents were captured; the intermittent
+cause remains unresolved and the original c157 failure/photo/media stay intact.
+
+All760 prior file hashes are preserved except expected `.srvros/meta` changes.
+Offline fsck and strict allocation pass with769 files/3161 clusters, zero leaks,
+FAT/bitmap mismatches or errors. Equality proof has17068 checks,3444 equal and
+13624 changed, zero errors and346545005 logical serialized bytes retained;
+23 equal-count growth during PCM and post-playback final proof are bound. These
+are not physical write savings or stable latency improvement. Slowest screenshot
+27.508960s, receive5.857470s and WRITE18.155823s leave completion latency open.
+All original limits, integrity checks and policies remain unchanged. Unattended
+1% sound is unassessed; separate short audible acceptance remains distinct.
+
+Current/recovery payloads and durable backups verify, Ubuntu stays default,
+one-shot is empty, collector disabled and USB unmounted. No reboot is armed.
+Matching raw evidence has its own verified backup outside build. Further battery
+changes need captured failure evidence; repeated clean runs do not justify a
+speculative transport change. Screenshot write/sync latency remains a separate
+measured follow-up.
+
+### Screenshot latency research scope (2026-11-09)
+
+Base `7b529b5e`, after the matching diagnostic repeat was independently
+collected and merged. Bounded objective: use independent read-only subagent
+audits of evidence, screenshot worker/transfer and filesystem/USB code, plus
+primary specifications, to select a concrete latency investigation plan. Scope
+is documentation and local evidence analysis; no production code, device policy,
+limits, installed payload or new physical run changes in this research block.
+Current PR19 networking, PR301 scanout and PR379 WebCore retain separate scopes.
+Next checkpoint: publish measured attribution, missing causal bindings, ordered
+implementation/validation steps and explicit integrity/acceptance conditions.
+Battery first-failure diagnostics remain retained; no speculative battery fix.
+
+Research outcome: the [screenshot latency plan](../macbookair6-1-screenshot-latency-plan.md)
+records three independent audits and primary exFAT/USB sources. Latest raw WRITE
+wall is97–98% admission waiting, overwhelmingly overlapping storage ownership.
+The repeat's worst wait binds to PID7 global sync with3.784027s file work and
+406us final device flush; content identity remains missing. First implementation
+is correlated sync/content/exFAT operation evidence with deterministic interleaved
+flush regression, followed by one proven equivalent-work optimization. Pixel
+transfer pacing is separate. No production change or reboot is armed by this plan.
+
+### Correlated sync/content diagnostic implementation scope (2026-11-09)
+
+Base `76608d63`, implementing the first stage of the researched screenshot
+latency plan. Bound existing worst SYS_SYNC to real shared content lifetime,
+size/outcome and exclusive filesystem I/O roles; retain all three completed
+captures for valid comparisons. Touch internal sync timing, process/exFAT
+observation hooks, final workspace reporting, desktop capture history and strict
+host/parser/VM/native collection. Parallel subagents own capture history and
+real-process integration fixtures; root owns shared kernel/collection changes.
+No transport, gate, power, ownership, watchdog, allocation or durability policy
+changes. PR19 networking, PR301 scanout and PR379 WebCore remain separate.
+Next checkpoint: original controller operations/outcomes unchanged under the
+observer, complete bound records under existing atomic/tail limits, full matched
+validation, then the original unattended30-minute1% stress and Ubuntu recovery.
+
+### Correlated content observer validated and staged (2026-11-09)
+
+Frozen source `ae775d2c` / unchanged ports `39ad9d7` adds internal never-reused
+content identity and exact worst-sync/content observation, six exclusive exFAT
+block-callback roles, and all three terminal capture histories. The new strict
+parsers require bound final records, complete roles/clocks/outcomes and complete
+capture lifetimes. See the [contract](../sync-content-timing.md). Ordinary file
+operations, global-sync semantics, all owner/global/publication barriers,
+controller commands, save readbacks, ownership and watchdog/latency/workload
+limits remain unchanged. This is a correlated diagnostic baseline, not a fix.
+
+Real process/exFAT tests interleave65 ordinary64KiB writes into a4196406-byte
+BMP with global sync and unrelated dirty content. Shared writers/readers visit
+one content once per sync; slot reuse changes identity, while retained reader
+failures preserve dirty state and quarantine. Observer-on/off ordered callback/
+payload fingerprints and complete final media agree:13764 success callbacks
+(hash117aef28e220d2ce),893 writes/881 flushes,13189372 logical write bytes;
+injected failure has3850 callbacks with the same on/off fingerprint and preserves
+the previous32-chunk durable prefix. Synthetic10/20/30us callback costs exercise
+role sums only; they are not native performance. Actual C capture-report output
+passes strict parsing and malformed-join rejection.
+
+Full matched normal/native/VM/RAM/USB images, core, desktop and docs pass,
+including89 installation/recovery tests in777.587s with one expected skip.
+Early host adapter/import/shared-header compilation failures were corrected
+before the frozen successful validation; no native trial ran on those candidates.
+Ordinary syscall, USB keyboard, fork/exec-vectors/yield and real USB read-only/
+write/flush/reload/input checks pass. Populated-Home KVM400-write-IOPS stress
+passes22 app cycles/171 overlap observations,140004us maximum loop,
+2419479/1070494us maximum launch/close and all original audio/worker/retirement
+requirements. Complete saved atomic app records and every old/new final parser
+agree independently. Ordinary immutable screenshot/readback/Preview/repeat/exit
+passes. Exact stage `1991ff7f10142881` passes Q35 native-board refusal/save/
+unmount/automatic return; this is not native positive-device acceptance.
+
+The new VM content record binds PID7 sync24959838us to its selected content
+subcall, identity114/slot1,3342336 logical bytes. That subcall takes575126us:
+176 old-prefix reads cover2883584 bytes in413697us, while four root payload
+writes cover458752 bytes in54547us. Total observed role callbacks568044us leave
+7082us residual. Inode is unavailable (zero); identity/time/size bind the content
+subcall, not a proven creator PID or path. This supports repeated-prefix cost in
+the controlled VM, not a native diagnosis. The single VM capture's complete
+history is retained (19.847938s); the native trial must retain all three. A fresh
+native baseline is needed before choosing an optimization or claiming gain.
+
+Open PR19/301 share some files, but inspected changes cover metadata import,
+logger lifecycle/options and process user-scope/lifetime admission, distinct from
+these mutation/content observation hooks. No unmerged behavior or sibling
+acceptance is consumed. PR379 WebCore remains separate.
+
+Next is the original1800-second1% automatic audio/disk/app/three-screenshot run,
+with500ms loop/10s lifecycle limits, all readbacks/receipts/equality-growth/
+retirement/allocation proofs, clean post-PCM battery protocol marker and the new
+correlated content/complete capture histories required. Baseline769 USB file
+hashes and recovery must verify first. Preserve known-working69a8/318c/8caa and
+consolec354 payloads plus full backups; only superseded unreferenced single-window
+92d9 EFI duplication may be archived after every file matches its independent
+backup and no boot reference exists. The later2ddb sampler remains retained.
+Ubuntu remains recovery/default. Save full run/armed state and independent
+payload/trial backups before reboot, then collect the matching return first.
+The intermittent battery halt remains unresolved; the original c157 failure,
+photograph and media archive remain protected. No human input is needed; keep
+AC/USB attached. If mounted-Home containment halts, photograph the terminal and
+restart Ubuntu. No runtime threshold or policy has been relaxed.

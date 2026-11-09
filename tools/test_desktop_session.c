@@ -931,6 +931,49 @@ static void retained_operations(void) {
     assert(w.operations.reap_queued==1 && w.operations.reap_queue_age_us==300 && !w.operations.reap_run_age_us);
     puts("desktop-operations: PASS pending capture/launch/close ages and immutable retained snapshot");
 }
+static struct capture_trace completion_trace(unsigned id,uint64_t start,uint64_t finish) {
+    struct capture_trace c={.id=id,.started_us=start,.finished_us=finish,.status=DESK_CAPTURE_OK};
+    c.phases[CAPTURE_RECEIVE]=10;c.phases[CAPTURE_WRITE]=finish-start-10;return c;
+}
+static void retained_capture_history(void) {
+    struct session s={0};
+    struct capture_trace c=completion_trace(1,100,140);
+    capture_history_record(&s.capture_history,&c,42,150,1);
+    c=completion_trace(2,200,260);capture_history_record(&s.capture_history,&c,43,270,1);
+    c=completion_trace(3,300,400);capture_history_record(&s.capture_history,&c,44,410,1);
+    assert(s.capture_history.count==3 && s.capture_history.completed==3 && !s.capture_history.invalid && !s.capture_history.dropped);
+    assert(s.capture_history.rows[0].pid==42 && s.capture_history.rows[1].pid==43 && s.capture_history.rows[2].pid==44);
+    assert(s.capture_history.rows[0].phases[CAPTURE_WRITE]==30 && s.capture_history.rows[1].phases[CAPTURE_WRITE]==50 && s.capture_history.rows[2].phases[CAPTURE_WRITE]==90);
+    struct operation_trace t=operation_snapshot(&s,500);
+    c.phases[CAPTURE_WRITE]=0;s.capture_history.rows[1].phases[CAPTURE_WRITE]=999;
+    assert(t.capture_history.rows[1].phases[CAPTURE_WRITE]==50); /* Middle completion survives job reuse. */
+    capture_loop_log=1;captured_loop_log[0]=0;capture_history_report(&t.capture_history,500,1);
+    assert(strstr(captured_loop_log,"desktop-capture-history: version=1 snapshot_us=500 completed=3 count=3 dropped=0 invalid=0 final=1"));
+    assert(strstr(captured_loop_log,"index=1 id=2 pid=43 started_us=200 finished_us=260 retired_us=270 result=1 status=0"));
+    assert(strstr(captured_loop_log,"index=2 id=3 pid=44"));capture_loop_log=0;
+    struct capture_history before=t.capture_history;
+    c=completion_trace(4,500,600);capture_history_record(&t.capture_history,&c,45,610,1);
+    assert(t.capture_history.completed==4 && t.capture_history.dropped==1 && t.capture_history.count==3 && !t.capture_history.invalid);
+    assert(!memcmp(t.capture_history.rows,before.rows,sizeof(before.rows))); /* No eviction or behavior change after three. */
+    struct capture_history bad={0};c=completion_trace(1,100,140);
+    capture_history_record(&bad,&c,42,150,1);capture_history_record(&bad,&c,42,150,1);assert(bad.invalid);
+    bad=(struct capture_history){0};capture_history_record(&bad,&c,0,150,1);assert(bad.invalid);
+    bad=(struct capture_history){0};capture_history_record(&bad,&c,42,130,1);assert(bad.invalid);
+    bad=(struct capture_history){0};c.retiring=42;capture_history_record(&bad,&c,42,150,1);assert(bad.invalid);c.retiring=0;
+    bad=(struct capture_history){0};c.phases[CAPTURE_WRITE]=UINT64_MAX;capture_history_record(&bad,&c,42,150,1);assert(bad.invalid);
+    bad=(struct capture_history){.completed=UINT64_MAX};c=completion_trace(1,100,140);
+    capture_history_record(&bad,&c,42,150,-1);assert(bad.invalid && bad.completed==UINT64_MAX && bad.rows[0].result==-1);
+    /* Every maximum-width output row must remain below the atomic1KiB writer
+     * bound. Values here intentionally model malformed timing, not a pass. */
+    struct capture_history wide={.count=3,.completed=UINT64_MAX,.dropped=UINT64_MAX,.invalid=1};
+    for(unsigned i=0;i<3;i++) {
+        struct capture_completion *q=&wide.rows[i];
+        q->id=q->status=UINT32_MAX;q->pid=q->started_us=q->finished_us=q->retired_us=UINT64_MAX;q->result=-1;
+        for(unsigned j=1;j<CAPTURE_PHASE_COUNT;j++)q->phases[j]=UINT64_MAX;
+    }
+    capture_loop_log=1;captured_loop_log[0]=0;capture_history_report(&wide,UINT64_MAX,1);capture_loop_log=0;
+    puts("desktop-capture-history: PASS three terminal immutable identities/phases, retained middle, copied reports, overflow/drop/clock rejection and bounded rows");
+}
 static struct srv_key_event navigation_event(unsigned usage,unsigned modifiers,unsigned flags) {
     return (struct srv_key_event){.usage=usage,.modifiers=modifiers,.flags=flags};
 }
@@ -1121,11 +1164,19 @@ static int render_proof_fixture(void) {
     loop_trace_end(&t,559100,4,13,3);loop_trace_report(&t,1);return 0;
 }
 int main(int argc,char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--capture-history-fixture")) {
+        struct capture_history h={0};
+        for(unsigned i=0;i<3;i++) {
+            struct capture_trace c=completion_trace(i+1,100+i*100,140+i*120);
+            capture_history_record(&h,&c,42+i,150+i*120,1);
+        }
+        capture_loop_log=0;capture_history_report(&h,500,1);return 0;
+    }
     if(argc==2 && !strcmp(argv[1],"--render-proof"))return render_proof_fixture();
     display_transaction_tests();
     deferred_ui_diagnostics();
     seeded_cache_reuse();
-    retained_operations();window_navigation();
+    retained_operations();retained_capture_history();window_navigation();
     persistent_render_timing();persistent_loop_timing();asynchronous_loop_report();
     /* A timeout breaks before the next loop header. Its final interval still
      * counts against the same responsiveness limit. */

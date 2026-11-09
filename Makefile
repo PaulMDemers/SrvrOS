@@ -2418,7 +2418,7 @@ build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c shared/inc
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
 test-desktop: build/tests/desktop-session-host$(HOST_EXE)
-build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/presentation.h userspace/deskd/loop_timing.h userspace/deskd/render_timing.h userspace/deskd/registry.h userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/desk_capture_job.h userspace/playwav/io_stress_volume.h userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/widgets/render/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
+build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/operation_trace.h userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/presentation.h userspace/deskd/loop_timing.h userspace/deskd/render_timing.h userspace/deskd/registry.h userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/desk_capture_job.h userspace/playwav/io_stress_volume.h userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/widgets/render/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_session.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/deskd/clipboard.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -Wl,--gc-sections -o $@
 
@@ -6349,3 +6349,10 @@ test-wifi-cal5-cleanup-log:
 test-core: test-wifi-join5-cleanup-log
 test-wifi-join5-cleanup-log: build/tests/xhci-join5-host$(HOST_EXE)
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_join5_cleanup_log.py
+.PHONY: test-sync-content
+test-sync-content: $(LIMINE_PROTOCOL_DIR)/.ready build/tests/desktop-session-host$(HOST_EXE)
+	$(PYTHON) tools/test_sync_content_integration.py --limine-include $(LIMINE_PROTOCOL_DIR)/include
+	$(PYTHON) -m unittest discover -s tools -p test_sync_content.py
+	$(PYTHON) -m unittest discover -s tools -p test_capture_history.py
+	$(PYTHON) tools/test_capture_history_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
+test-core: test-sync-content
