@@ -30,6 +30,7 @@
 #include <srvros/intel_display_backing.h>
 #include <srvros/intel_scanout_trial.h>
 #include <srvros/audio.h>
+#include <srvros/capture_write_timing.h>
 #include <srvros/audio_abi.h>
 #include <srvros/audio_stream_abi.h>
 #include <srvros/thermal.h>
@@ -935,6 +936,8 @@ void kmain(void) {
     if(cmdline_has_token(cmdline,"srvros.audio=hda")) audio_init();
     if(!automatic_aml && cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
     if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
+    if(cmdline_has_token(cmdline,"srvros.capture-write-timing=on"))
+        console_printf("capture-write-timing: enabled=%s capacity=8\n",process_capture_write_timing_enable()?"yes":"NO");
     workspace_boot(cmdline);
     if (automatic_probe) {
         /* Capture enumeration/setup failures even if firmware left a misleading

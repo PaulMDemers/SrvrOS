@@ -1,4 +1,5 @@
 #include <srvros/syscall_numbers.h>
+#include "capture_gate_timing_state.h"
 #include <srvros/ap_probe.h>
 #include <srvros/console.h>
 #include <srvros/serial.h>
@@ -111,7 +112,7 @@ static uint64_t next_identity=2;
 static bool initialized;
 static bool switching;
 static bool io_services_enabled;
-static uint64_t io_owner, io_depth, io_service_at;
+static uint64_t io_owner, io_depth, io_service_at, io_scope_started;
 static void *io_private_image;
 static struct scheduler_wait_queue io_waiters;
 static uint64_t io_gate_pending;
@@ -152,6 +153,93 @@ static void io_gate_record(struct io_gate_sample v) {
         if(v.end-v.start<=io_gates.rows[slot].end-io_gates.rows[slot].start)return;
     }
     io_gates.rows[slot]=v;
+}
+/* At most eight concurrently observed waits, all explicitly enabled capture
+ * workers. CPU0 IRQ exclusion protects metadata; hooks never schedule or grant
+ * eligibility. Fixed slots retain no stack/user pointers. */
+#define CAPTURE_GATE_ACTIVE 8u
+static struct {
+    struct capture_gate_summary *summary;
+    struct capture_gate_wait wait;
+    struct capture_gate_owner owner;
+    uint64_t identity,index,phase_at;
+    unsigned phase;
+} capture_gates[CAPTURE_GATE_ACTIVE];
+static unsigned capture_gate_active;
+static void capture_gate_owner_begin(unsigned i,uint64_t now) {
+    const struct thread *owner=thread_at(io_owner);
+    capture_gates[i].owner=(struct capture_gate_owner){.thread=owner->identity,
+        .pid=process_pid(owner->user_context),.syscall=owner->io_syscall,
+        .scope_start_us=io_scope_started,.overlap_start_us=now};
+    struct capture_gate_counts *c=&capture_gates[i].wait.counts;
+    capture_gate_add(c,&c->scopes,1);
+}
+static void capture_gate_owner_end(unsigned i,uint64_t now) {
+    struct capture_gate_owner *o=&capture_gates[i].owner;
+    struct capture_gate_wait *w=&capture_gates[i].wait;
+    if(!o->thread || !o->scope_start_us || o->scope_start_us>o->overlap_start_us || now<o->overlap_start_us) {
+        w->counts.invalid=1;return;
+    }
+    o->scope_end_us=o->overlap_end_us=now;
+    uint64_t us=now-o->overlap_start_us;
+    capture_gate_add(&w->counts,&w->counts.owned_us,us);
+    if(!w->owner.thread || us>w->owner.overlap_end_us-w->owner.overlap_start_us)w->owner=*o;
+    *o=(struct capture_gate_owner){0};
+}
+static void capture_gate_owner_edge(bool begin) {
+    if(!capture_gate_active)return;
+    uint64_t now=timer_monotonic_us();
+    for(unsigned i=0;i<CAPTURE_GATE_ACTIVE;i++)if(capture_gates[i].summary) {
+        if(begin)capture_gate_owner_begin(i,now);else capture_gate_owner_end(i,now);
+    }
+}
+static void capture_gate_state(struct thread *t,unsigned phase) {
+    if(!capture_gate_active)return;
+    for(unsigned i=0;i<CAPTURE_GATE_ACTIVE;i++)if(capture_gates[i].summary && capture_gates[i].identity==t->identity) {
+        uint64_t now=timer_monotonic_us();
+        struct capture_gate_counts *c=&capture_gates[i].wait.counts;
+        capture_gate_phase(c,capture_gates[i].phase,capture_gates[i].phase_at,now);
+        if(phase==1) {if(capture_gates[i].phase!=0)c->invalid=1;capture_gate_add(c,&c->blocks,1);}
+        if(phase==0 && capture_gates[i].phase!=0) {
+            if(capture_gates[i].phase!=2)c->invalid=1;
+            capture_gate_add(c,&c->dispatches,1);
+        }
+        capture_gates[i].phase=phase;capture_gates[i].phase_at=now;
+    }
+}
+static void capture_gate_exclusion(struct thread *t) {
+    if(!capture_gate_active)return;
+    for(unsigned i=0;i<CAPTURE_GATE_ACTIVE;i++)if(capture_gates[i].summary && capture_gates[i].identity==t->identity) {
+        struct capture_gate_counts *c=&capture_gates[i].wait.counts;capture_gate_add(c,&c->exclusions,1);
+    }
+}
+static unsigned capture_gate_start(struct capture_gate_summary *summary) {
+    if(!summary)return CAPTURE_GATE_ACTIVE;
+    if(!initialized || switching || !timer_reference_ready() || current_thread>=thread_capacity || summary->active) {
+        summary->total.invalid=1;return CAPTURE_GATE_ACTIVE;
+    }
+    for(unsigned i=0;i<CAPTURE_GATE_ACTIVE;i++)if(!capture_gates[i].summary) {
+        uint64_t now=timer_monotonic_us();
+        capture_gates[i]=(__typeof__(capture_gates[i])){.summary=summary,
+            .identity=thread_at(current_thread)->identity,.index=current_thread,
+            .phase_at=now,.wait={.start_us=now}};
+        summary->active=1;capture_gate_active++;
+        if(io_depth)capture_gate_owner_begin(i,now);
+        return i;
+    }
+    summary->total.invalid=1;return CAPTURE_GATE_ACTIVE;
+}
+static void capture_gate_finish(unsigned i) {
+    if(i==CAPTURE_GATE_ACTIVE)return;
+    uint64_t now=timer_monotonic_us();
+    struct capture_gate_wait *w=&capture_gates[i].wait;
+    capture_gate_phase(&w->counts,capture_gates[i].phase,capture_gates[i].phase_at,now);
+    w->end_us=now;
+    if(io_depth || capture_gates[i].owner.thread || capture_gates[i].identity!=thread_at(current_thread)->identity || capture_gates[i].phase!=0)
+        w->counts.invalid=1;
+    struct capture_gate_summary *s=capture_gates[i].summary;
+    capture_gate_complete(s,w);s->active=0;
+    capture_gates[i]=(__typeof__(capture_gates[i])){0};capture_gate_active--;
 }
 static void yield_to(uint64_t preferred);
 static void io_gate_request(struct thread *thread) {
@@ -263,6 +351,7 @@ void scheduler_print_io_owners(void) {
 
 /* Opt-in observations only: never influence eligibility, wakeups or selection. */
 static void trace_ready(struct thread *t,uint64_t reason) {
+    capture_gate_state(t,2);
     if(!t->trace.active)return;
     uint64_t now=timer_monotonic_us();
     if(now<t->trace.since) {t->trace.out.invalid++;return;}
@@ -393,6 +482,7 @@ static bool io_thread_allowed(uint64_t index) {
      * writer can reacquire the gate before their first/last kernel turn. */
     if(!allowed && thread->state==THREAD_READY) {
         io_gate_request(thread);
+        capture_gate_exclusion(thread);
         if(io_observed.enabled && io_observed.active.seq)io_observed.active.exclusions++;
         if(thread->trace.active) {thread->trace.out.exclusions++;thread->trace.exclusions++;}
     }
@@ -467,7 +557,8 @@ bool scheduler_io_begin(void) {
     if (io_depth != 0 && io_owner != current_thread) return false;
     if (io_depth++ == 0) {
         io_owner = current_thread;io_private_image=NULL;
-        io_service_at=timer_monotonic_us();latency_owner_begin();
+        io_service_at=timer_monotonic_us();io_scope_started=io_service_at;latency_owner_begin();
+        capture_gate_owner_edge(true);
         io_observe_begin();
     }
     return true;
@@ -488,6 +579,7 @@ bool scheduler_io_begin_process_image(void *image) {
 
 void scheduler_io_end(void) {
     if (io_depth != 0 && io_owner == current_thread && --io_depth == 0) {
+        capture_gate_owner_edge(false);
         io_observe_end();
         io_private_image=NULL;latency_owner_end(); scheduler_wake_all(&io_waiters);
     }
@@ -586,8 +678,9 @@ static bool io_available(void *arg) {
 /* Gate before inspecting/mutating filesystem, descriptor or process state.
  * Waiting preserves the syscall's arguments and does not turn contention into
  * an I/O error. Nested owner operations retain their existing scope. */
-void scheduler_io_wait(void) {
+void scheduler_io_wait_observed(struct capture_gate_summary *summary) {
     uint64_t flags=irq_save();
+    unsigned observed=capture_gate_start(summary);
     struct io_gate_sample sample={0};bool observe=io_observed.enabled && !io_available(NULL);
     if(observe) {
         const struct thread *caller=thread_at(current_thread),*owner=thread_at(io_owner);
@@ -602,8 +695,11 @@ void scheduler_io_wait(void) {
     }
     io_gate_leave(thread_at(current_thread));
     if(observe){sample.end=timer_monotonic_us();io_gate_record(sample);}
+    capture_gate_finish(observed);
     irq_restore(flags);
 }
+
+void scheduler_io_wait(void) { scheduler_io_wait_observed(NULL); }
 
 void scheduler_io_handoff(void) {
     uint64_t flags=irq_save();
@@ -933,6 +1029,7 @@ static void yield_to(uint64_t preferred) {
 
     if (next_index == old_index) {
         thread_at(old_index)->memory_park_queue=NULL;
+        capture_gate_state(thread_at(old_index),0);
         if(thread_at(old_index)->trace.active)trace_run(thread_at(old_index),timer_monotonic_us());
         irq_restore(flags);
         return;
@@ -953,6 +1050,7 @@ static void yield_to(uint64_t preferred) {
         old->state = THREAD_READY;
         io_ready_request(old);
     }
+    capture_gate_state(next,0);
     if(next->trace.active)trace_run(next,timer_monotonic_us());
     next->memory_park_queue=NULL;
     next->state = THREAD_RUNNING;
@@ -1055,6 +1153,7 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,
         thread->trace.state=1;thread->trace.since=timer_monotonic_us();
         thread->trace.deadline=deadline_ticks;thread->trace.out.blocks++;
     }
+    capture_gate_state(thread,1);
     thread->state = THREAD_BLOCKED;
     thread->blocked_queue = queue;
     thread->memory_park_queue = queue;

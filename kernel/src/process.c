@@ -1,4 +1,5 @@
 #include <srvros/session_scope.h>
+#include "capture_write_timing_state.h"
 #include <srvros/path_limits.h>
 #include <srvros/audio.h>
 #include "arch/x86_64/isr_frame.h"
@@ -1231,6 +1232,68 @@ static bool process_path_equal(const char *a, const char *b) {
     return a[i] == '\0' && b[i] == '\0';
 }
 
+static struct capture_write_snapshot capture_writes;
+static uint64_t capture_write_now(void) {
+#ifdef SRVROS_CAPTURE_WRITE_CLOCK_HOST_TEST
+    extern uint64_t capture_write_test_clock(void);return capture_write_test_clock();
+#elif defined(SRVROS_PROCESS_HOST_TEST)
+    return 0;
+#else
+    return timer_monotonic_us();
+#endif
+}
+static uint64_t capture_write_pid(void) {
+    struct process *p=process_current();
+    return capture_writes.enabled && p && p->allocated && p->active &&
+        process_path_equal(p->executable_path,"/fat/bin/shotworker")?p->pid:0;
+}
+bool process_capture_write_timing_enable(void) {
+    uint64_t flags=process_irq_save();
+    bool ok=!capture_writes.enabled && timer_reference_ready();
+    if(ok)capture_writes.enabled=1;
+    process_irq_restore(flags);return ok;
+}
+uint64_t process_capture_write_clock(void) {
+    if(!capture_writes.enabled)return 0;
+    uint64_t flags=process_irq_save(),pid=capture_write_pid(),now=0;
+    if(pid) {now=capture_write_now();if(!capture_write_touch(&capture_writes,pid,now))now=0;}
+    process_irq_restore(flags);return now;
+}
+uint64_t process_capture_write_begin(void) {
+    uint64_t now=process_capture_write_clock();if(!now)return 0;
+    uint64_t flags=process_irq_save();struct capture_write_record *r=capture_write_find(&capture_writes,capture_write_pid());
+    if(r && !capture_write_add(&r->attempts,1))r->invalid=1;
+    process_irq_restore(flags);return now;
+}
+void process_capture_write_record(enum capture_write_site site,uint64_t start) {
+    if(!start)return;
+    uint64_t flags=process_irq_save();
+    capture_write_sample(capture_write_find(&capture_writes,capture_write_pid()),site,start,capture_write_now());
+    process_irq_restore(flags);
+}
+void process_capture_write_result(uint64_t start,uint64_t requested,int64_t result) {
+    if(!start)return;
+    uint64_t flags=process_irq_save();
+    capture_write_result(capture_write_find(&capture_writes,capture_write_pid()),start,capture_write_now(),requested,result);
+    process_irq_restore(flags);
+}
+void process_capture_write_gate_wait(void) {
+    uint64_t flags=process_irq_save();
+    struct capture_write_record *r=capture_write_find(&capture_writes,capture_write_pid());
+    scheduler_io_wait_observed(r?&r->gate:NULL);
+    process_irq_restore(flags);
+}
+void process_capture_write_growth(void) {
+    if(!capture_writes.enabled)return;
+    uint64_t flags=process_irq_save();struct capture_write_record *r=capture_write_find(&capture_writes,capture_write_pid());
+    if(r && !capture_write_add(&r->growths,1))r->invalid=1;
+    process_irq_restore(flags);
+}
+void process_capture_write_snapshot(struct capture_write_snapshot *out) {
+    if(!out)return;
+    uint64_t flags=process_irq_save();*out=capture_writes;process_irq_restore(flags);
+}
+
 static void clear_process(struct process *process) {
     struct process_latency_span span=process_latency_begin();
     struct process_service_scope scope=process_service_begin();
@@ -1479,6 +1542,8 @@ static void release_process_runtime(struct process *process) {
     }
 
     uint64_t irq=process_irq_save();
+    struct capture_write_record *trace=capture_write_find(&capture_writes,process->pid);
+    if(trace){uint64_t now=capture_write_now();if(now<trace->last_us)trace->invalid=1;trace->retired=1;trace->last_us=now;}
     process_signal_retire_image(process);
     process->image_generation=0;
     process_irq_restore(irq);
@@ -5467,9 +5532,15 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
         process_irq_restore(flags);return SRV_ERR_FBIG;
     }
     uint64_t needed=position+length;
-    if(!ensure_write_capacity(write,needed)) { process_irq_restore(flags);return SRV_ERR_NOMEM; }
+    uint64_t reserve_at=process_capture_write_clock(),capacity=write->content->capacity;
+    bool reserved=ensure_write_capacity(write,needed);
+    process_capture_write_record(CAP_WRITE_RESERVE,reserve_at);
+    if(!reserved) { process_irq_restore(flags);return SRV_ERR_NOMEM; }
+    if(reserve_at && write->content->capacity!=capacity)process_capture_write_growth();
+    uint64_t copy_at=process_capture_write_clock();
     for(uint64_t i=write->content->size;i<position;i++) ((uint8_t *)write->content->data)[i]=0;
     copy_bytes((uint8_t *)write->content->data+position,buffer,length);
+    process_capture_write_record(CAP_WRITE_COPY,copy_at);
     write->offset=needed;
     if (write->offset > write->content->size) {
         write->content->size = write->offset;

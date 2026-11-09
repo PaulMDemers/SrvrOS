@@ -1,5 +1,6 @@
 /* Ordinary scheduled worker: filesystem work uses the storage service gate. */
 #include <srvros/workspace_log.h>
+#include <srvros/capture_write_timing.h>
 #include <srvros/workspace.h>
 #include <srvros/bootlog.h>
 #include <srvros/console.h>
@@ -48,6 +49,32 @@ static bool begin(uint64_t *flags) {
     return true;
 }
 static void end(uint64_t flags) { scheduler_io_end();unlock(flags); }
+/* Copy fixed diagnostic metadata under its own IRQ exclusion, then emit only
+ * from this ordinary logger, before entering filesystem I/O. */
+static void capture_write_checkpoint(bool final) {
+    struct capture_write_snapshot s;process_capture_write_snapshot(&s);if(!s.enabled)return;
+    uint64_t at=timer_monotonic_us();
+    console_printf("capture-write-snapshot: version=1 snapshot_us=%u enabled=%u invalid=%u dropped=%u final=%u\n",at,s.enabled,s.invalid,s.dropped,(uint64_t)final);
+    for(unsigned i=0;i<CAPTURE_WRITE_RECORDS;i++) {
+        const struct capture_write_record *r=&s.records[i];if(!r->pid)continue;
+        console_printf("capture-write-record: version=1 snapshot_us=%u pid=%u first_us=%u last_us=%u retired=%u attempts=%u calls=%u requested=%u bytes=%u failures=%u growths=%u invalid=%u final=%u\n",
+            at,r->pid,r->first_us,r->last_us,r->retired,r->attempts,r->calls,r->requested,r->bytes,r->failures,r->growths,r->invalid,(uint64_t)final);
+        const struct capture_gate_summary *g=&r->gate;
+        for(unsigned kind=0;kind<2;kind++) {
+            const struct capture_gate_counts *c=kind?&g->worst.counts:&g->total;
+            console_printf("capture-write-gate: version=1 snapshot_us=%u pid=%u kind=%u active=%u calls=%u wall_us=%u owned_us=%u scopes=%u blocked_us=%u ready_us=%u running_us=%u blocks=%u dispatches=%u exclusions=%u invalid=%u final=%u\n",
+                at,r->pid,(uint64_t)kind,g->active,c->calls,c->wall_us,c->owned_us,c->scopes,c->blocked_us,c->ready_us,c->running_us,c->blocks,c->dispatches,c->exclusions,c->invalid,(uint64_t)final);
+        }
+        const struct capture_gate_owner *o=&g->worst.owner;
+        console_printf("capture-write-gate-owner: version=1 snapshot_us=%u pid=%u start_us=%u end_us=%u thread=%u owner_pid=%u syscall=%u scope_start_us=%u scope_end_us=%u overlap_start_us=%u overlap_end_us=%u final=%u\n",
+            at,r->pid,g->worst.start_us,g->worst.end_us,o->thread,o->pid,o->syscall,o->scope_start_us,o->scope_end_us,o->overlap_start_us,o->overlap_end_us,(uint64_t)final);
+        for(unsigned j=0;j<CAP_WRITE_SITE_COUNT;j++) {
+            const struct capture_write_sample *p=&r->site[j];
+            console_printf("capture-write-sample: version=1 snapshot_us=%u pid=%u site=%u count=%u total_us=%u max_us=%u final=%u\n",
+                at,r->pid,(uint64_t)j,p->count,p->total_us,p->max_us,(uint64_t)final);
+        }
+    }
+}
 /* Cached queries only: logging must not issue codec commands or sensor I/O. */
 static void device_checkpoint(void) {
     scheduler_print_io_owners();
@@ -116,6 +143,7 @@ static bool save(const char *name) {
     bool measured=timer_reference_ready();
     uint64_t start=measured?timer_monotonic_us():0;
     report_save();
+    capture_write_checkpoint(name[0]=='e' && name[1]=='x' && name[2]=='i' && name[3]=='t' && name[4]=='.');
     device_checkpoint();
     uint64_t snapshot_us=timer_monotonic_us();
     console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=65536\n",name,snapshot_us,bootlog_total());
