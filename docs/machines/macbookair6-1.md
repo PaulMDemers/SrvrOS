@@ -10370,3 +10370,35 @@ records must verify before one-shot reboot. Four old stage duplicates were
 removed only after complete independent payload/file hash verification, freeing
 about580MiB; accepted backups, raw evidence and active payloads are preserved.
 No sibling acceptance or historical failure status changes.
+
+### Sidecar equality native trial halted (2026-11-09)
+
+Release `c1578543a5d0e7e4`, compiled source `62dd5ea1`, run
+`525a5325e1434c1a`, session `00065fd9dc146258-00` is **FAILED**, not
+physically accepted. Saved logs end at196.537365s with active PCM and no
+recorded underruns, but no workload completion, exit or clean retirement.
+The supplied terminal photograph reports `HALTED query transport`,1599 queries,
+zero runtime errors/denials, worker15/completed825/in-flight1, `ec_phase=6`
+(`EC_DONE`) and `ec_error=0` (`EC_OK`). This is not evidence of a transport
+timeout: transfer can refuse before transport polling. Admission, worker context,
+lease ownership and any interleaving remain to be diagnosed. No causal link to
+the sidecar change is established, and no deadline or ownership gate is relaxed.
+
+Partial sidecar counters at186.447545s show1661 checks,337 equal,1324 changed,
+zero refused/flush failures/active/invalid, and32410215 retained serialized bytes.
+These establish exercise only; missing full stress/retirement proof prevents
+native acceptance or a latency claim. One screenshot survives; the required
+three-screenshot/1800-second test did not complete.
+
+All728 prior files remain present with contents unchanged except expected
+`.srvros/meta`;732 files remain after the interrupted run. `fsck.exfat -n`
+reports clean, but the independent allocation checker fails with one orphaned
+cluster and zero FAT/bitmap mismatches. Keep this discrepancy as failed evidence;
+no repair or new boot was attempted. Media stays unmounted. The photo, raw logs,
+file hashes, failed checks and independent review are retained outside build in
+a hash-verified643-file trial backup. Ubuntu remains default, one-shot entry is
+empty, collector disabled and no reboot armed. Installed candidate, accepted
+`8caa2866d8888e8c` and console recovery `c35475f62f154f1e` payloads verify.
+Next bounded work: diagnose transfer refusal/ownership and preserve orphan
+allocation evidence before any repair or new trial, retaining existing integrity,
+watchdog, transport and stress limits. Historical host/VM passes remain separate.
