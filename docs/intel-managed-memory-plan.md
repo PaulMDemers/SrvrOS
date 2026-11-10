@@ -56,10 +56,14 @@ buffer/publication leases before terminal original-state validation. This
 removes the software16-entry manifest limit for a future audited provider;
 the legacy native observer remains16entries and no native GPU range is imported.
 
-The next isolated [held-interval qualification](intel-held-interval.md) samples
-one original candidate entry inside the actual post-reset preparation borrow,
-before cancellation/return. It binds current source identity/epoch and the
-existing deadline, but exports no positive assurance or usable GPU interval.
+The isolated [held-interval qualification](intel-held-interval.md) is now
+physically accepted in source`3315df79`, release`e07848a7c00d893d`, session
+`session-00065fef0f0829d7-00`. Two samples of one original candidate entry bind
+the actual post-reset preparation borrow, current identity/epoch and original
+deadline before cancellation/return. Six DWORD reads complete in59us,
+preparation in97,379/100,000us, and all14 aliases retire with full preservation
+and clean saved return. It exports no positive assurance or usable GPU interval;
+milestone1 and all eight completion obligations remain open.
 
 ## Ordered implementation milestones
 

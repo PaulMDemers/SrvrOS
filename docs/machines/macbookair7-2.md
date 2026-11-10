@@ -2,31 +2,44 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Active scope: native candidate entry under the held reset borrow
+### Current checkpoint: native held-interval source binding accepted
 
-Main`f5043c4a` (PR456 Air6,1 acceptance notes only) is integrated without runtime
-changes beyond the prior main40767a50 baseline. Prior private backing and full
-transfer software qualification are complete and independently backed up; no
-physical run is outstanding. Current installed/recovery payloads stay protected.
+Source`3315df79`, release`e07848a7c00d893d`, session
+`session-00065fef0f0829d7-00` accepts the isolated
+[read-only original-entry capture](../intel-held-interval.md) inside the actual
+post-reset preparation borrow. Both high/low/high samples match the original
+`0x000000008e201001`, with six DWORD reads and source epoch0→1. The observer
+completes in59us, preparation in97,379/100,000us (2,621us margin), and outer wake
+in281,620/500,000us. This is one bounded native pass, not a repeatability claim.
+All deadlines remain unchanged. The original borrow returns, all14 aliases
+retire, and engine/backing plus all74 plane/HDA preservation DWORDs agree.
 
-The next native boundary is a [one-page, read-only GGTT sampler](../intel-held-interval.md) in the existing
-reset provider's exit scope, after both BCS8 pulses and settling but before the
-original preparation borrow returns. It must bind the original active reset,
-preparation, registered borrow and current epoch, capture two high/low/high
-samples of the exact first candidate entry and compare the previously captured
-original. Map its one page read-only/NX/UC before the critical section, validate
-every load and keep all work inside the same100ms preparation/300ms owner/500ms
-outer limits. This is maintained native source binding, not a memory grant.
+Strict native collection verifies the exact19-token recipe/source/release,
+original prerequisite checkpoint, complete joint reset/preparation/preservation,
+final saved completion and no errors/attention. The60,337-byte exit log fits the
+unchanged65,536-byte tail. All1,446 prior USB files preserve except expected
+metadata; three new logs give1,449files/139sessions. Offline fsck/allocation/
+writable/headroom, payload/recovery, Ubuntu default and consumed one-shot pass.
+Current remains accepted`e07848a7c00d893d`; backingd726, combined reset8d38,
+recovery9aa8, GUIc497 and prior banked/archived payloads remain available.
+Checkpoint:`build/air-native-interval-20261110`; accepted evidence is separately
+SHA-verified outside build. No reboot is armed.
 
-Use a separate image/strict recipe; preserve all old images and their receipts.
-Touched subsystems: held-interval core/native adapter, isolated boot/staging,
-strict saved-result decoder and host/VM qualification. No GPU PTE writer, new
-reset domain, positive assurance or native managed interval is planned here.
-Native mapping/completion still requires separately derived hardware ownership.
-Checkpoint:`build/air-native-interval-20261110`. No reboot armed; automated
-trial readiness follows exact-stage validation, durable records and recovery.
+This accepts native source binding and timing only. The observer adds no PTE
+write or positive assurance. All eight completion obligations(mask255), zero
+managed GPU pages and unaccepted physical tear-free status remain unchanged.
+A software reset/preparation borrow is not proof that all five hardware requests
+remain asserted after BCS reset or that firmware/DMA/cache/readers have retired.
 
-### Ready, not yet physically accepted: original GGTT entry in held reset
+Next integrate the queued main`c3550c82`/PR457 exFAT contiguous-append/storage
+audit and rerun affected local checks. It is absent from this accepted payload;
+new-source results must remain distinct. Subsequent native memory work still
+needs a maintained exclusive interval provider and generation-specific
+write/invalidation/reader-retirement proof before adding any PTE writer.
+Touched GPU subsystems remain held-interval core/adapter, isolated boot/staging
+and strict collectors; no sibling profile or firmware gate is widened.
+
+### Prior readiness: original GGTT entry in held reset
 
 Source`3315df79`, based on main`f5043c4a`, is frozen in exact release
 `e07848a7c00d893d`. The separate [held-interval observer](../intel-held-interval.md)

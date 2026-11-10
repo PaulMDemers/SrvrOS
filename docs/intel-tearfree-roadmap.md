@@ -21,6 +21,8 @@ It does not accept another Mac's firmware or graphics profile.
 | Maintained preparation/PCI/BCS8 reset, source `9c788f3f`, release `8d3839aaa57f707d`, session `session-00065fe55d829da0-00` | Exact pre-user-init recipe; full reset/cancel/preservation/return in97,414/100,000us, wake280,135/500,000us;13 aliases retired | Repeatability, wider reset scope, all memory/completion obligations |
 | Private backing lifetime, source `23af85e2`, release `d72619c4e02bb721`, session `session-00065fe6c815e551-00` | Four cases in16,563us; two disjoint1,356-page buffers, full patterns, CPU borrow drain, unknown-range refusal and one deliberate private-page quarantine; durable checkpoint, preservation and clean return | GPU interval import, native mapping/encoding, hardware cache/translation completion, real flip/reader retirement |
 
+| Original GGTT entry inside held reset, source `3315df79`, release `e07848a7c00d893d`, session `session-00065fef0f0829d7-00` | Six read-only DWORD loads in59us under the original active post-reset borrow; original entry/source epoch bind, preparation97,379/100,000us, full preservation and14 aliases retired | Exclusive interval transfer, hardware/cache/DMA/firmware/reader assurances, PTE writes and page flips |
+
 These are separate exact-source lifetimes. They cannot be combined into a
 current owner or completion token. The [requester contract](intel-pci-requester.md)
 records the accepted native capture; PCI AF TP clear is an observation, not

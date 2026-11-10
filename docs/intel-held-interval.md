@@ -94,8 +94,9 @@ reordered, spliced and false-authority records. Full qualification also requires
 image/object isolation, sanitizers, compiled controls, log-budget checks and
 exact-stage VM persistence/refusal and missing-workspace paths.
 
-Native acceptance remains pending in the [Air7,2 record](machines/macbookair7-2.md).
-Even a successful hardware round accepts source binding and timing only.
+Native source binding and timing are accepted for the exact payload in the
+[Air7,2 record](machines/macbookair7-2.md). This accepts one bounded observation
+lifetime only.
 Exclusive interval transfer, GPU encoding, posted-write/invalidation completion,
 cache/reader retirement and display publication remain separate work in the
 [managed-memory plan](intel-managed-memory-plan.md).
@@ -107,7 +108,11 @@ including two native-object controls, pass. The native load uses the original
 74 preservation DWORDs compare losslessly against the older actual C producer.
 The projected log remains 65,371/65,536 bytes including the unchanged 1,536-byte
 reserve. Exact-stage QEMU verifies unsupported-hardware refusal, persistence,
-unmount, automatic safe return and missing-workspace halt. The candidate is
-installed with recovery protected and no reboot armed; native timing and source
-binding still require the machine's matching returned session. The newer PR457
-exFAT changes are deliberately outside this frozen qualification source.
+unmount, automatic safe return and missing-workspace halt. Native release
+`e07848a7c00d893d`, session `session-00065fef0f0829d7-00`, now passes strict
+collection: six DWORD reads match the original inside the active reset borrow
+in 59 us, preparation finishes in 97,379/100,000 us and all fourteen aliases
+retire. Engine/display/HDA/backing preservation, source-matched checkpoint,
+saved completion, prior USB files and offline integrity/recovery checks pass.
+The actual exit log is 60,337 bytes. No reboot is armed. The newer PR457 exFAT
+changes are deliberately outside this accepted qualification source.
