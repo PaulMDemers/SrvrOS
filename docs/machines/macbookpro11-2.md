@@ -1,44 +1,62 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-10. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; latest source-bound diagnostic completes DHCP/DNS/actual HTTP and full named retirement; independently accepted for this bounded lifetime; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-10. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-### Unchanged-payload repeat preparation
+### Cold repeat returned (November 10)
 
-The next bounded objective is one cold repeat of accepted runtime `070089f5` /
-release `c603901d483d3f86`, with the same HTTP workload, firmware, native guards
-and deadlines. No shared runtime subsystem is edited for this comparison. A NEW
-owner, `build/bringup/wifi-http5-dhcp-repeat/run.json`, must capture the current
-439-file workspace. Its exact staged clone VM now passes with unchanged prior
-bytes and strict metadata apart from RTC-bounded marker atime. Preparation
-verifies explicitly reused runtime0700/host3e qualification and all seven
-factory/accepted payloads including c603. Independent installed-record review
-must pass before arming. Do not reuse the closed
-`wifi-http5-dhcp-diagnostics` collector. The new record owns subsequent arming.
-Both USB devices still require ten seconds disconnected while OFF, then the
-same ports. Guest progress/save/return are automatic; uncertain ownership holds.
+The ONE unchanged-image repeat of runtime `070089f5` / release
+`c603901d483d3f86` is collected FIRST once in session
+`00065fef07bf175d-00`. Production DHCP, DNS and the actual HTTP child complete
+again, with the exact 4,159-byte request, 3,072-byte body and genuine EOF.
+The frozen complete native protocol checker passes. The new 1,164-file primary
+is closed and immutable, index
+`a78c54b9061e9442102f62b812ca141b75cf3777e6b6358972dfa68a36b0fa7c`.
+Independent source-frozen protocol and storage/recovery reviews pass with no
+findings; separate 12-file notes accept this bounded repeat, index
+`f1d37bd72751b6b176e4220c414c3a44528415dc3b5b00c3fe76d1456cafe02d`.
+Never run either
+the repeat or original diagnostic collector again.
 
-Fetched actual main `c3550c82` / PR457 adds the Air6,1 adjacent-extent exFAT
-correction and storage fixtures/documentation. Its filesystem changes are
-inspected but deferred during this unchanged-image reliability comparison;
-merge/requalify them before new runtime/lifecycle implementation. Air7,2 display
-and Air6,1 storage ownership scopes remain separate. The new workflow touches
-only ignored host run/evidence helpers and this unit's published handoff.
+DHCP accepts one Offer and ACK without retry/rejection in 153,699 us and 33
+polls. The HTTP workload completes in 1,338,181 us, with 21 data publications,
+16 provider receives and 79 returned loans. One RX fence now has one directly
+observed selected authenticated-data crossing; TX crossings remain zero.
+The pending raw receive at publication closure is subsequently handled by the
+native Stop/full-parent proof. Child, worker, TCP, key, provider and ledger
+retire; backend tombstones remain retained. This is another bounded cold
+lifetime, not two connection generations in one running adapter or a persistent
+service/reliability guarantee. The earlier failed DHCP run remains unexplained.
 
-Host review also found two rollback gaps in the inherited shutdown helper:
-failed timer cancellation could be reported as unarmed, and a failed cancellation
-receipt write could bypass clearing the one-shot boot entry. The new helper
-verifies timer/service inactivity, records power uncertainty on an unresolved
-cancel, and always attempts boot-entry clearing even if logging fails. Eleven
-source-matched AST mock cases pass, including active cancellation, unavailable
-state probes and failed receipt writes. These are host workflow checks, not new
-runtime/native qualification. The unarmed preparation's prior power scripts and
-proof are preserved before replacement; the original accepted capsules remain
-unchanged.
+All 439 prior ordinary-file bytes and persisted metadata fields survive except
+one workspace-marker atime in the intact RTC-derived 1794330090..1794330101
+window. Only this session's boot/exit logs were added. Read-only allocation and
+fsck are clean, with zero inspection writes/flushes. Installed c603 and all seven
+factory/accepted payloads equal their backups. Ubuntu stays default and unarmed;
+no new physical test is scheduled. Preserve the earlier 1,880-file accepted
+primary and its separate 12-file acceptance notes unchanged.
+
+Preparation reused the unchanged runtime0700/host3e qualification explicitly,
+without claiming a new build/install or fresh full suite. The fresh 439-file
+exact-stage clone passed strict preservation. Independent host review corrected
+cancellation-state and failed-receipt boot-cleanup gaps, covered by 11 actual-AST
+mock cases, and separated original host qualification from its reuse summary.
+Superseded preparation proofs stay in the new capsule; accepted capsules were
+never modified.
+
+Actual main `c3550c82` / PR457 was fetched and inspected: adjacent-extent exFAT
+correction, storage fixtures and Air6,1 documentation. It remains deferred from
+this unchanged image. The next bounded implementation must integrate/requalify
+main and its pinned submodules, then separate adapter/provider ownership from
+connection generations. Protect all seven payloads and keep limits, stale-event
+checks and uncertain-owner retention. Reconnect, cancellation/AP loss, live
+reattach, desktop controls and longer coexistence remain separate gates. Both
+USB devices still require ten seconds unplugged while OFF for qualified cold
+trials. See the [completion plan](macbookpro11-2-wifi-completion-plan.md).
 
 ### Accepted diagnostic return
 

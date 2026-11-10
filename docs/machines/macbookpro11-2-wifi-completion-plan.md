@@ -9,40 +9,40 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 10)
 
-The source-bound070089f5/releasec603 cold run is collected once in matching
-session00065fed77ae049a-00. Its complete exit records successful production
-DHCP/DNS and the actual HTTP process: exact4159-byte request,3072-byte body,
-genuine EOF, child/worker/TCP retirement, consuming raw-RX handoff and original
-key/provider/full-parent restoration. The new DHCP receipt observes one accepted
-Offer and ACK, no rejection or retry, and158.883ms transaction time. The previous
-776/7c3 DHCP failure remains failed; this run does not establish its cause.
+Runtime `070089f5` / release `c603901d483d3f86` now has a second complete cold
+run, collected once as `00065fef07bf175d-00`. Like the first accepted session
+`00065fed77ae049a-00`, it completes production DHCP/DNS and the actual HTTP
+process's exact 4,159-byte request, 3,072-byte body, genuine EOF and named
+child/worker/TCP/key/provider/full-parent retirement. The repeat's DHCP receipt
+accepts one Offer and ACK without retry/rejection in 153.699 ms. One selected
+authenticated-data RX crossing is directly observed across one RX fence; no TX
+crossing is claimed. Independent repeat protocol and storage/recovery reviews pass with no findings;
+separate 12-file notes accept this bounded second cold lifetime.
 
-The1880-file primary capsule stays immutable; separate12-file return review
-accepts only this bounded lifetime, with no findings. All437 prior ordinary-file
-bytes and prior metadata fields survive
-except one workspace-marker atime inside the proven RTC window. Offline
-allocation/fsck, installed payload and six recovery copies pass. Ubuntu is
-unarmed; no old collector may run again. Source-matched normal/fatal and exact
-VM qualification remain distinct from this bounded physical result.
-
-The Stop fix and consuming handoff now have a successful native composition,
-including one RX fence and full final closure. This does not show delayed context
-publication occurred, accept unlimited ring reuse or establish reliability.
-Backend tombstones remain retained; backend retirement is not claimed.
+Preserve the first 1,880-file primary/12-file acceptance notes and new 1,164-file
+repeat primary. All 439 prior repeat-workspace bytes/metadata survive except
+one marker atime in the proven RTC window. Offline allocation/fsck, installed
+payload and seven recoveries pass; Ubuntu is unarmed. Do not run either closed
+collector again. Runtime normal/fatal and prior six VM results were explicitly
+reused for the unchanged payload; only the current 439-file clone VM and host
+preparation/rollback checks were fresh. Backend tombstones remain retained.
 The older213 OWNER hold, unchanged785 terminal-drain failure and776 DHCP failure
-remain separate immutable failures. Keep their causes and coverage distinct.
+remain separate immutable failures; the last remains unexplained.
 
-Next gates are repeated native transfer/retirement and explicit separation of
-adapter/provider ownership from a connection. First prove two connect/DHCP/DNS/
-exact-transfer/disconnect generations on one present adapter, with fresh key/PN/
-epoch and child/worker lifetime per connection. Do not clear one-shot guards,
-reuse retired tombstones or merely enlarge limits. Command-address reuse,
-pending idle RX and event debt need explicit proofs. Follow with cancellation,
-wrong credentials/AP loss, safe removal/reattach, async UI and longer coexistence.
-Demers2.4 requires different compatible hardware. Integrate the actual reviewed
-main baseline and its pinned submodules before qualifying new runtime changes;
-mainf5043c4a adds only Air6,1 acceptance documentation beyond the last inspected
-40767a50, and is not part of this native payload.
+The bounded cold repeat gate is now complete with independent acceptance. Next integrate actual main `c3550c82` and
+recursive submodule pins, preserving existing local commits and all accepted
+payloads. PR457 changes exFAT extent retention and storage fixtures; it is not
+part of either accepted runtime image. Then implement explicit separation of
+adapter/provider ownership from a connection, with fresh key/PN/epoch and
+child/worker lifetime per generation. Prove two connect/DHCP/DNS/exact-transfer/
+disconnect generations on one present adapter before reconnect/UI claims.
+
+Do not clear one-shot guards, reuse retired tombstones or enlarge limits.
+Command-address reuse, pending idle RX and event debt require explicit proofs.
+Follow with cancellation, wrong credentials/AP loss, safe removal/reattach,
+async UI and longer coexistence. These cold successes do not establish warm
+initialization, two in-boot connection generations or persistent reliability.
+Demers2.4 still requires different compatible hardware.
 
 ## Done and preserved
 

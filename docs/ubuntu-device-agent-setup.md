@@ -1786,3 +1786,15 @@ The new shutdown helper's cancellation state and log-failure boot cleanup pass
 before arming; run.json owns that state. Both USB devices still need10seconds
 disconnected while OFF, then the same ports. Progress/save/safe return are
 automatic; uncertain native ownership still holds without disk activity.
+
+
+The Pro11,2 unchanged0700/c603 repeat is now collected FIRST once in
+session00065fef07bf175d-00. Its 1,164-file primary is closed; never run that or
+the original diagnostics collector again. Complete source-frozen production
+DHCP/DNS/actual HTTP/EOF and full named retirement pass, including one selected
+authenticated RX data crossing. Independent return review passes with no findings; separate12-file notes
+accept this bounded repeat. All439 prior files/metadata survive except RTC-bounded marker atime;
+allocation/fsck and seven recovery equalities pass, Ubuntu is unarmed. Backend
+tombstones remain retained; repeated connection generations, persistent service,
+UI and reattach remain open. No new trial is scheduled. Integrate/requalify main
+before new runtime/lifecycle work; keep both accepted c603 cold runs immutable.

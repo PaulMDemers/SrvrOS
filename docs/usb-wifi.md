@@ -8135,3 +8135,17 @@ that bounded lifetime. Strict437-
 file/metadata preservation (only RTC-bounded marker atime), allocation/fsck and
 six recovery equality checks pass. This does not explain the preceding776 DHCP
 failure or accept persistent connection service, UI or reattach.
+
+
+The unchanged0700/c603 cold repeat also completes in
+session00065fef07bf175d-00: one accepted Offer/ACK without retry or rejection in
+153.699ms, production DNS, exact actual-process HTTP request/body/EOF and full
+named retirement. Its native receipt directly observes one selected
+authenticated RX data crossing across one RX fence; TX data crossings remain
+zero. The 1,164-file primary is closed; independent protocol and storage review
+pass with no findings, and separate12-file notes accept this bounded repeat.
+All439 prior file bytes and metadata fields survive except RTC-bounded marker
+atime; offline fsck/allocation, installed payload and seven recovery equalities
+pass. Backend tombstones remain retained. Two successful cold lifetimes do not accept two in-boot connection generations, warm initialization,
+persistent service, desktop controls or live reattach. Both closed collectors
+must stay closed; no new test is armed.
