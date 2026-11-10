@@ -7,6 +7,22 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+### Active MCU failure discrimination work
+
+Next bounded objective: retain the failed MCU Normal/Link descriptor and
+producer-cycle snapshot plus a bounded set of rejected/relevant transfer-event
+receipts, without retry, new register I/O, wider deadlines or DMA retirement.
+Changes are limited to the xHCI MCU diagnostic receipt/dispatch/failed-calibration
+formatter, its actual-native host fixture and strict observation parser/tests.
+The original failure rows and historical schemas remain readable. Observations
+cannot grant native acceptance or infer absence of a firmware response. Build,
+sanitizer and source-review gates precede any new installed candidate; the closed
+1395-file primary and70-file failed-return review stay immutable. No boot is armed.
+Actual main8271c254/PR460's screenshot gate-correlation changes are integrated
+before this source work; existing device-specific gates and submodule pins remain.
+Other open scopes are Air7,2 scanout PR301 and WebCore audit PR379, with no MCU
+implementation overlap. The installed runtime remains3570ee66/release9110.
+
 ### Capacity candidate returned: calibration failed before connection entry
 
 Runtime `3570ee66`, release `9110adaf1b1c158f`, session
