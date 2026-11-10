@@ -886,7 +886,15 @@ bool intel_gt_firmware_probe_report(void) {
         (uint64_t)r.status,(uint64_t)r.maps,(uint64_t)r.retained,(uint64_t)acquired,(uint64_t)before,(uint64_t)after,(uint64_t)released,(uint64_t)f.guards,(uint64_t)f.cache_checks,(uint64_t)(trial_mapping_fault && !r.retained),(uint64_t)r.endpoint.asls,(uint64_t)r.endpoint.swsci,r.endpoint.base,r.endpoint.length,r.endpoint.type,(uint64_t)complete);
     for(unsigned n=0;n<2;n++) {
         console_printf("intel-firmware-sample: v=1 sample=%u begin_us=%u end_us=%u reads=%u\n",(uint64_t)n,r.sample[n].begin_us,r.sample[n].end_us,(uint64_t)r.sample[n].reads);
+#ifdef SRVROS_INTEL_PREPARE_RESET
+        static const char hex[]="0123456789abcdef";
+        char raw[INTEL_FW_WORDS*8+1];
+        for(unsigned i=0;i<INTEL_FW_WORDS;i++)for(unsigned j=0;j<8;j++)raw[i*8+j]=hex[(r.sample[n].words[i]>>(28-j*4))&15];
+        raw[INTEL_FW_WORDS*8]=0;
+        console_printf("intel-firmware-vector: v=2 s=%u n=13 h=%s\n",(uint64_t)n,raw);
+#else
         for(unsigned i=0;i<INTEL_FW_WORDS;i++)console_printf("intel-firmware-word: v=1 sample=%u index=%u offset=%x value=%x\n",(uint64_t)n,(uint64_t)i,(uint64_t)intel_fw_offsets[i],(uint64_t)r.sample[n].words[i]);
+#endif
     }
     fw_saved=r;fw_saved_complete=complete;
     return complete;

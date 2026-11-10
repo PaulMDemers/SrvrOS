@@ -1,4 +1,13 @@
 #include <stdlib.h>
+#ifdef SRVROS_INTEL_PREPARE_RESET
+#include <srvros/intel_engine_held_reset.h>
+static unsigned held_reset_boundary,held_reset_reads,held_reset_attempts,held_reset_writes,held_reset_domain_reads,held_reset_clock_fault;
+static void intel_display_test_held_reset_boundary(bool);
+static void intel_display_test_held_reset_admission(void);
+static bool intel_display_test_held_reset_snapshot_read(unsigned,uint32_t,uint32_t *);
+static bool intel_display_test_held_reset_domain(uint32_t *);
+static enum intel_gt_write intel_display_test_held_reset_transition(uint32_t,uint32_t *);
+#endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
 #include <srvros/intel_pci_held.h>
 static unsigned held_reads,held_boundary;
@@ -121,6 +130,9 @@ static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc00000
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
  if(!strcmp(engine_mode,"bcs-cache") && o==0x9000)return false;
 #endif
+#ifdef SRVROS_INTEL_PREPARE_RESET
+ if(!strcmp(engine_mode,"hreset-cache-slot") && o==0x9000)return false;
+#endif
  return !wake_cache_fail;}
 static bool intel_display_test_wake_read(uint32_t reg,uint32_t *v){assert(wake_irq && !display_access_allowed());*v=reg==0xa188?wake_request:reg==0x130044?wake_ack:wake_thread_stuck?1:0;return true;}
 static enum intel_gt_write intel_display_test_wake_write(uint32_t);
@@ -219,7 +231,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_HELD_REQUESTER
+#ifdef SRVROS_INTEL_PREPARE_RESET
+#define intel_wake_firmware_request intel_held_reset_firmware_request
+#elif defined(SRVROS_INTEL_HELD_REQUESTER)
 #define intel_wake_firmware_request intel_held_requester_firmware_request
 #elif defined(SRVROS_INTEL_REQUESTER_AUDIT)
 #define intel_wake_firmware_request intel_requester_firmware_request
@@ -323,6 +337,12 @@ static enum intel_gt_write intel_display_test_prepare_transition(unsigned e,uint
  assert(wake_irq && wake_ack==1 && !display_access_allowed() && value==(n<5?0x10001u:0x10000u));
  unsigned point=1;const char *colon=strchr(engine_mode,':');if(colon)point=(unsigned)atoi(colon+1);
  if(!strncmp(engine_mode,"prep-none",9) && prepare_stores==point)return GT_WRITE_NONE;
+#ifdef SRVROS_INTEL_PREPARE_RESET
+ if(n>=5) {
+  assert(held_boundary==2 && held_reads==18 && held_reset_boundary==2 && held_reset_writes==2);
+  assert(!prepare_controls[4]);
+ }
+#endif
  prepare_controls[e]=n<5?3:0;*out=prepare_controls[e];
  if(!strncmp(engine_mode,"prep-uncertain",14) && prepare_stores==point)return GT_WRITE_UNCERTAIN;
  if(!strncmp(engine_mode,"prep-foreign",12) && prepare_stores==point)wake_request|=2;
@@ -402,6 +422,9 @@ uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
     switch(off) {
     case 0:return 0x16268086;case 4:return 0x00100006;case 8:return 0x03000009;
     case 0xfc:
+#ifdef SRVROS_INTEL_PREPARE_RESET
+        if((held_reset_boundary==1 && !held_reset_reads && !strcmp(engine_mode,"hreset-entry-endpoint")) || (held_reset_boundary==2 && !strcmp(engine_mode,"hreset-exit-endpoint")))return 1;
+#endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
         if((held_boundary==1 && !held_reads && !strcmp(engine_mode,"held-entry-endpoint")) || (held_boundary==2 && !strcmp(engine_mode,"held-exit-endpoint")))return 1;
 #endif
@@ -464,6 +487,10 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
     writable=writable || (wake_mode && v==BACKING_VA+0x19000);
     if(!strcmp(engine_mode,"bcs-map") && v==BACKING_VA+0x19000)return false;
 #endif
+#ifdef SRVROS_INTEL_PREPARE_RESET
+    writable=writable || (wake_mode && v==BACKING_VA+0x19000);
+    if(!strcmp(engine_mode,"hreset-map-slot") && v==BACKING_VA+0x19000)return false;
+#endif
     assert(space==0x1000 && flags==(writable?(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITABLE):(fw_mode && p==0x12345000)?VMM_PAGE_NO_EXECUTE:(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)));unsigned n=index_of(v);
     assert(!pa[n]);if(n>=INTEL_CAPTURE_PAGES)assert((p>=0xc0000000 && p<0xc1000000)
 #if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
@@ -503,10 +530,20 @@ assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
  if(!strcmp(engine_mode,"bcs-retire") && v==BACKING_VA+0x19000)return false;
 #endif
+#ifdef SRVROS_INTEL_PREPARE_RESET
+ if(!strcmp(engine_mode,"hreset-retire-slot") && v==BACKING_VA+0x19000)return false;
+#endif
  if((wake_retire_fail && v==BACKING_VA+0x10000) || (fw_retire_fail && pa[n]==0x12345000) || dma_unmap_fail || (window_retire_fail && pa[n]==0xc0811000) || (gt_retire_fail && pa[n]==0xc000a000))return false;
  *p=pa[n];pa[n]=0;unmap_calls++;return true;}
 bool timer_reference_ready(void){return clock_ok;}
 uint64_t timer_monotonic_us(void){
+#ifdef SRVROS_INTEL_PREPARE_RESET
+ if(held_reset_clock_fault) {
+  unsigned fault=held_reset_clock_fault;held_reset_clock_fault=0;
+  if(fault==1)return 0;
+  if(fault==2)return 1;
+ }
+#endif
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
  if(engine_calls>60 && !strcmp(engine_mode,"blit-post-clock"))ticks+=200000;
@@ -562,6 +599,9 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
         if(off>=0x100000 && off<0x100100){unsigned i=(off-0x100000)/8;uint64_t f=i?0:cache_mode?0x021ff02f00000001ull:((uint64_t)(5554176-4096+47)<<32)|1;*value=(uint32_t)(f>>((off&4)?32:0));}
         else if(off>=0x800000 && off<0x803000){unsigned i=(off-0x800000)/8;*value=(uint32_t)(((window_mode?0x8c001001ull:0x90000001ull)+4096ull*i)>>((off&4)?32:0));}
         else assert(0);
+#ifdef SRVROS_INTEL_PREPARE_RESET
+        if(((held_reset_boundary==1 && !held_reset_reads && !strcmp(engine_mode,"hreset-entry-backing")) || (held_reset_boundary==2 && !strcmp(engine_mode,"hreset-exit-backing"))) && off>=0x800000 && !(off&7))*value^=4096;
+#endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
         if(((held_boundary==1 && !held_reads && !strcmp(engine_mode,"held-entry-backing")) || (held_boundary==2 && !strcmp(engine_mode,"held-exit-backing"))) && off>=0x800000 && !(off&7))*value^=4096;
 #endif
@@ -586,6 +626,9 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
     return true;
 }
 static void reset(void) {
+#ifdef SRVROS_INTEL_PREPARE_RESET
+    held_reset_boundary=held_reset_reads=held_reset_attempts=held_reset_writes=held_reset_domain_reads=held_reset_clock_fault=0;
+#endif
     memset(&intel_boot_state,0,sizeof(intel_boot_state));
     assert(intel_boot_select(INTEL_BOOT_OBSERVER));
     extra_table=false;
@@ -714,6 +757,9 @@ int main(int argc,char **argv) {
     static char prepare_recipe[1600];snprintf(prepare_recipe,sizeof(prepare_recipe),"%s srvros.intel-engines-prepare=request-cancel",takeover_recipe);wake_cmd.cmdline=prepare_recipe;
 #ifdef SRVROS_INTEL_HELD_REQUESTER
     static char held_recipe[1800];snprintf(held_recipe,sizeof(held_recipe),"%s srvros.intel-held-requester=read-only",prepare_recipe);wake_cmd.cmdline=held_recipe;
+#ifdef SRVROS_INTEL_PREPARE_RESET
+    static char held_reset_recipe[1900];snprintf(held_reset_recipe,sizeof(held_reset_recipe),"%s srvros.intel-bcs-reset=held-blitter-only",held_recipe);wake_cmd.cmdline=held_reset_recipe;
+#endif
 #endif
 #endif
 #endif
@@ -738,6 +784,9 @@ int main(int argc,char **argv) {
     reset();wake_mode=argc==2 && !strncmp(argv[1],"--wake-",7);wake_cache_fail=wake_mode && !strcmp(argv[1],"--wake-cache");wake_map_fail=wake_mode && !strcmp(argv[1],"--wake-map");wake_retire_fail=wake_mode && !strcmp(argv[1],"--wake-retire");wake_uncertain=wake_mode && !strcmp(argv[1],"--wake-uncertain");wake_no_ack=wake_mode && !strcmp(argv[1],"--wake-no-ack");wake_foreign=wake_mode && !strcmp(argv[1],"--wake-foreign");wake_busy=wake_mode && !strcmp(argv[1],"--wake-busy");wake_thread_stuck=wake_mode && !strcmp(argv[1],"--wake-c0");wake_late_foreign=wake_mode && !strcmp(argv[1],"--wake-late-foreign");wake_fw_after=wake_mode && !strcmp(argv[1],"--wake-fw-after");fw_mode=wake_mode || (argc==2 && !strncmp(argv[1],"--fw-",5));fw_bad_signature=fw_mode && !strcmp(argv[1],"--fw-signature");fw_changed=fw_mode && !strcmp(argv[1],"--fw-changed");fw_cache_fail=fw_mode && !strcmp(argv[1],"--fw-cache");fw_map_fail=fw_mode && !strcmp(argv[1],"--fw-map");fw_retire_fail=fw_mode && !strcmp(argv[1],"--fw-retire");gt_mode=fw_mode || (argc==2 && !strncmp(argv[1],"--gt-",5));gt_cache_fail=gt_mode && !strcmp(argv[1],"--gt-cache-failed");gt_map_fail=gt_mode && !strcmp(argv[1],"--gt-map-failed");gt_retire_fail=gt_mode && !strcmp(argv[1],"--gt-retire-failed");gt_changed=gt_mode && !strcmp(argv[1],"--gt-changed");gt_bad_pci=gt_mode && !strcmp(argv[1],"--gt-pci-failed");gt_float=gt_mode && !strcmp(argv[1],"--gt-float-read");window_mode=gt_mode || (argc==2 && !strncmp(argv[1],"--window-",9));window_map_fail=window_mode && !strcmp(argv[1],"--window-map-failed");window_retire_fail=window_mode && !strcmp(argv[1],"--window-retire-failed");window_cache_fail=window_mode && !strcmp(argv[1],"--window-cache-refused");cache_mode=window_mode || (argc==2 && !strcmp(argv[1],"--cache-backing-report"));backing_mode=cache_mode || (argc==2 && !strcmp(argv[1],"--backing-report"));reporting=argc==2 && (!strcmp(argv[1],"--report") || backing_mode);if(window_mode){stolen_region.base=0x8c000000;stolen_region.length=0x4000000;}
     if(backing_mode)memory.entry_count=3;
     if(fw_mode){ram.length=0x10000000;firmware_region=(struct limine_memmap_entry){.base=0x12345000,.length=0x3000,.type=3};memory.entry_count=4;if(!strcmp(argv[1],"--fw-usable"))firmware_region.type=0;if(!strcmp(argv[1],"--fw-short"))firmware_region.length=4096;}
+#ifdef SRVROS_INTEL_PREPARE_RESET
+    if(wake_mode)console_printf("cmdline: %s\n",wake_cmd.cmdline);
+#endif
     intel_display_probe_boot(&frame);
     assert(result.status==INTEL_CAPTURE_OBSERVED && map_calls==9 && unmap_calls==9 && mmio_reads==116);
     assert(intel_display_probe_report());unsigned old_reads=mmio_reads;intel_display_probe_boot(&frame);assert(mmio_reads==old_reads);
@@ -768,7 +817,11 @@ int main(int argc,char **argv) {
 #endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
 #ifdef SRVROS_INTEL_HELD_REQUESTER
- good=good && (!strcmp(engine_mode,"report") || !strcmp(engine_mode,"held-pending") || !strcmp(engine_mode,"held-pending-transition") || !strcmp(engine_mode,"held-master-off"));
+ good=good && (!strcmp(engine_mode,"report") || !strcmp(engine_mode,"held-pending") || !strcmp(engine_mode,"held-pending-transition") || !strcmp(engine_mode,"held-master-off")
+#ifdef SRVROS_INTEL_PREPARE_RESET
+ || !strcmp(engine_mode,"hreset-delay")
+#endif
+ );
 #else
  good=good && !strcmp(engine_mode,"report");
 #endif
@@ -998,5 +1051,71 @@ static bool intel_display_test_held_read(uint32_t reg,uint32_t *out) {
  if(!strncmp(engine_mode,"held-map:",9) && at==point)pa[INTEL_CAPTURE_PAGES+1+1]^=4096;
  if(!strncmp(engine_mode,"held-time:",10) && at==point)ticks+=100001;
  return true;
+}
+#endif
+
+#ifdef SRVROS_INTEL_PREPARE_RESET
+static bool held_reset_at(const char *mode,unsigned at) {
+ const char *colon=strchr(engine_mode,':');
+ return colon && (size_t)(colon-engine_mode)==strlen(mode) &&
+  !strncmp(engine_mode,mode,strlen(mode)) && at==(unsigned)atoi(colon+1);
+}
+static void intel_display_test_held_reset_boundary(bool exit) {
+ assert(wake_irq && wake_ack==1 && !display_access_allowed() && prepare_stores==5);
+ assert(held_boundary==2 && held_reads==18);
+ assert(held_reset_boundary==(exit?1u:0u));
+ if(exit)assert(held_reset_writes==2 && held_reset_reads==18);
+ else {for(unsigned e=0;e<5;e++)assert(prepare_controls[e]==3);}
+ held_reset_boundary=exit?2:1;
+}
+static bool intel_display_test_held_reset_snapshot_read(unsigned index,uint32_t reg,uint32_t *out) {
+ static const uint32_t regs[9]={0x22030,0x22034,0x22038,0x2203c,0x22234,0x22238,0x2209c,0x2229c,0x941c};
+ static const uint32_t words[9]={0,0,0,0,1,0,512,0,0};
+ assert(index<9 && reg==regs[index] && index==held_reset_reads%9);
+ assert(held_reset_boundary==1 && held_boundary==2 && held_reads==18 && prepare_stores==5);
+ assert(wake_irq && wake_ack==1 && !display_access_allowed());
+ unsigned at=++held_reset_reads;
+ if(held_reset_at("hreset-read",at))return false;
+ *out=words[index];
+ if(held_reset_at("hreset-float",at))*out=UINT32_MAX;
+ if(held_reset_at("hreset-geometry",at))*out^=1;
+ if(held_reset_at("hreset-foreign",at))wake_request|=2;
+ if(held_reset_at("hreset-map",at))pa[INTEL_CAPTURE_PAGES+1+9]^=4096;
+ if(held_reset_at("hreset-time",at))ticks+=100001;
+ if(!strcmp(engine_mode,"hreset-initial") && at==9)*out=8;
+ if(!strcmp(engine_mode,"hreset-post-domain") && at==18)*out=8;
+ return true;
+}
+static bool intel_display_test_held_reset_domain(uint32_t *out) {
+ assert(held_reset_boundary==1 && held_reset_attempts && prepare_stores==5);
+ assert(wake_irq && wake_ack==1 && !display_access_allowed());
+ ++held_reset_domain_reads;
+ *out=!strcmp(engine_mode,"hreset-timeout")?8:0;
+ if(!strcmp(engine_mode,"hreset-domain-time"))ticks+=10001;
+ return strcmp(engine_mode,"hreset-domain-read")!=0;
+}
+static void intel_display_test_held_reset_admission(void) {
+ assert(held_reset_boundary==1 && held_reset_reads==9 && prepare_stores==5);
+ if(!strcmp(engine_mode,"hreset-admission-time"))ticks+=100001;
+ if(!strcmp(engine_mode,"hreset-admission-zero"))held_reset_clock_fault=1;
+ if(!strcmp(engine_mode,"hreset-admission-backward"))held_reset_clock_fault=2;
+}
+static enum intel_gt_write intel_display_test_held_reset_transition(uint32_t value,uint32_t *ack) {
+ assert(value==8 && wake_irq && wake_ack==1 && !display_access_allowed());
+ assert(held_reset_boundary==1 && held_boundary==2 && held_reads==18 && prepare_stores==5);
+ assert(held_reset_reads==9 && held_reset_attempts<2);
+ ++held_reset_attempts;
+ if(held_reset_at("hreset-none",held_reset_attempts))return GT_WRITE_NONE;
+ ++held_reset_writes;
+ if(strcmp(engine_mode,"hreset-kept-bcs"))prepare_controls[4]=0;
+ if(!strcmp(engine_mode,"hreset-post-other"))prepare_controls[2]=0;
+ *ack=(!strcmp(engine_mode,"hreset-delay") || !strcmp(engine_mode,"hreset-timeout") || !strcmp(engine_mode,"hreset-domain-read") || !strcmp(engine_mode,"hreset-domain-time"))?8:0;
+ if(held_reset_at("hreset-ack-float",held_reset_attempts))*ack=UINT32_MAX;
+ if(held_reset_at("hreset-ack-foreign",held_reset_attempts))*ack=2;
+ if(held_reset_at("hreset-store-foreign",held_reset_attempts))wake_request|=2;
+ if(held_reset_at("hreset-store-map",held_reset_attempts))pa[INTEL_CAPTURE_PAGES+1+9]^=4096;
+ if(held_reset_at("hreset-store-time",held_reset_attempts))ticks+=100001;
+ if(held_reset_at("hreset-phase-time",held_reset_attempts))ticks+=10001;
+ return held_reset_at("hreset-uncertain",held_reset_attempts)?GT_WRITE_UNCERTAIN:GT_WRITE_DONE;
 }
 #endif

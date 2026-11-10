@@ -1,13 +1,17 @@
-"""Bounded all-engine prepare/hold/cancel; no reset or GPU-memory authority."""
+"""Bounded preparation receipts; v2 binds a separate BCS reset, no memory grant."""
 import re
 from intel_engine_census import _fields
 from intel_compact import compact_row
 FIELDS='v begin end epoch attempts writes reads polls snapshots sample_attempts acks ready cancelled blocked admitted held preserved uncertain returned borrowed retained reason stage index clock_at clock_prev plane_samples plane_reads complete obligations reset_writes pte_writes managed_pages hardware_ownership'.split()
 BOOL='blocked admitted held preserved uncertain returned borrowed retained complete'.split()
 def prepare_summary(line):
- s=_fields(line,'intel-prepare-summary:',FIELDS)
- if any(x>=1<<64 for x in s.values()) or s['v']!=1 or any(s[k]>1 for k in BOOL) or s['epoch']>=1<<32 or s['attempts']>10 or s['writes']>s['attempts'] or s['acks']!=s['writes'] or s['attempts']-s['writes']>1 or s['reads']>2594 or s['polls']>2560 or s['snapshots']>s['sample_attempts'] or s['sample_attempts']>4 or s['ready']>31 or s['cancelled']>31 or s['reason']>4095 or s['stage']>6 or s['index']>4 or s['plane_samples']>2 or s['plane_reads']>54:raise ValueError('prepare schema/range')
- if s['obligations']!=255 or any(s[k] for k in ('reset_writes','pte_writes','managed_pages','hardware_ownership')):raise ValueError('prepare unsupported authority')
+ version=re.search(r'(?:^| )v=([12])(?: |$)',line.removeprefix('intel-prepare-summary:'))
+ if not version:raise ValueError('prepare summary version')
+ reset=version[1]=='2'
+ s=_fields(line,'intel-prepare-summary:',FIELDS+(['epoch_after'] if reset else []),versions=(2,) if reset else (1,))
+ if any(x>=1<<64 for x in s.values()) or s['v'] not in (1,2) or any(s[k]>1 for k in BOOL) or s['epoch']>=1<<32 or s['attempts']>10 or s['writes']>s['attempts'] or s['acks']!=s['writes'] or s['attempts']-s['writes']>1 or s['reads']>(2600 if reset else 2594) or s['polls']>2560 or s['snapshots']>s['sample_attempts'] or s['sample_attempts']>(5 if reset else 4) or s['ready']>31 or s['cancelled']>31 or s['reason']>(8191 if reset else 4095) or s['stage']>(7 if reset else 6) or s['index']>4 or s['plane_samples']>2 or s['plane_reads']>54:raise ValueError('prepare schema/range')
+ if s['obligations']!=255 or any(s[k] for k in ('pte_writes','managed_pages','hardware_ownership')) or s['reset_writes']>(2 if reset else 0):raise ValueError('prepare unsupported authority')
+ if reset and (s['epoch_after']>=1<<32 or s['epoch_after'] not in (s['epoch'],s['epoch']+1)):raise ValueError('prepare reset epoch')
  if s['returned']+s['retained']!=s['borrowed'] or s['blocked']>s['borrowed'] or s['uncertain']>s['retained'] or s['attempts'] and not s['admitted'] or s['admitted'] and not s['blocked']:raise ValueError('prepare borrow/issue lifecycle')
  if s['retained'] and not s['reason']&512 or s['writes'] and not s['preserved'] and not s['retained']:raise ValueError('prepare unprotected write')
  if (s['clock_at'] or s['clock_prev']) and not s['reason']&(2|128):raise ValueError('prepare unexplained clock sample')
@@ -36,7 +40,7 @@ def prepare_result(text):
    from intel_held_requester import action_summary
    actions.append(action_summary(line))
   elif line.startswith('intel-prepare-row:'):
-   m=re.fullmatch(r'intel-prepare-row: v=1 s=([0-3]) n=([0-6]) d=(-|[0-9,]+)',line)
+   m=re.fullmatch(r'intel-prepare-row: v=1 s=([0-4]) n=([0-6]) d=(-|[0-9,]+)',line)
    if not m:raise ValueError('prepare row encoding')
    row=dict(sample=int(m[1]),words=_words(m[3],int(m[2])));rows.append(row);order.append(('r',row['sample']))
   elif line.startswith('intel-prepare-ack:'):
@@ -72,9 +76,12 @@ def prepare_result(text):
  from intel_completion_audit import completion_result
  from intel_takeover import takeover_result
  wake=wake_result(text)
- if not wake or wake['summary']['v'] not in (14,16):raise ValueError('prepare wrong image')
+ if not wake or wake['summary']['v'] not in (14,16,17):raise ValueError('prepare wrong image')
+ reset=wake['summary']['v']==17
+ if s['v']!=(2 if reset else 1):raise ValueError('prepare summary image version')
+ if not reset and len(rows)>4:raise ValueError('prepare legacy row count')
  if wake['summary']['v']==14 and (actions or vectors or s['reason']>2047):raise ValueError('prepare unexpected action')
- if wake['summary']['v']==16:
+ if wake['summary']['v'] in (16,17):
   if legacy_post:raise ValueError('prepare held image requires compact post vectors')
   if len(actions)!=1:raise ValueError('prepare action coverage')
   a=actions[0]
@@ -100,10 +107,20 @@ def prepare_result(text):
   if len(rows)<3 or len(rows[1]['words'])!=6 or rows[1]['words']!=rows[2]['words'] or rows[1]['words'][5] or any(not valid(v) or v&3!=3 for v in rows[1]['words'][:5]):raise ValueError('prepare held controls')
  if s['preserved']:
   if not post['summary']['complete'] or pre['rows']!=post['rows'] or pre['contexts']!=post['contexts'] or s['plane_samples']!=2 or s['plane_reads']!=54 or planes[:3]!=[dict(r,sample=0) for r in planes[3:]] or audio[0]['words']!=audio[1]['words']:raise ValueError('prepare raw preservation')
-  if len(rows)!=4 or len(rows[3]['words'])!=6 or any(rows[3]['words'][i]&0xffff!=rows[0]['words'][i]&0xffff for i in range(6)):raise ValueError('prepare final controls')
+  final=4 if reset else 3
+  if len(rows)!=final+1 or len(rows[final]['words'])!=6 or any(rows[final]['words'][i]&0xffff!=rows[0]['words'][i]&0xffff for i in range(6)):raise ValueError('prepare final controls')
   for a in audio:
    if a['words'][0]!=0x160c8086 or a['words'][1]!=0x040300 or a['words'][9]!=1 or any(v==0xffffffff for v in a['words']):raise ValueError('prepare HDA identity/state')
- complete=bool(not s['reason'] and s['admitted'] and s['held'] and s['preserved'] and s['returned'] and not s['retained'] and not s['uncertain'] and s['attempts']==s['writes']==s['acks']==10 and s['snapshots']==s['sample_attempts']==4 and s['ready']==ready==s['cancelled']==cancelled==31 and 0<s['begin']<s['end']<=s['begin']+100000)
+ complete=bool(not s['reason'] and s['admitted'] and s['held'] and s['preserved'] and s['returned'] and not s['retained'] and not s['uncertain'] and s['attempts']==s['writes']==s['acks']==10 and s['snapshots']==s['sample_attempts']==(5 if reset else 4) and s['ready']==ready==s['cancelled']==cancelled==31 and 0<s['begin']<s['end']<=s['begin']+100000)
+ if reset:
+  from intel_engine_held_reset import reset_capture
+  capture=reset_capture(text)
+  if not capture:raise ValueError('prepare missing held reset')
+  rs=capture['summary']
+  if s['epoch_after']!=rs['epoch_after'] or s['epoch']!=rs['epoch_before'] or s['reset_writes']!=rs['writes']:raise ValueError('prepare reset binding')
+  mixed_bad=len(rows)>3 and len(rows[3]['words'])==6 and (rows[3]['words'][5] or any(not valid(v) or v&3!=(0 if e==4 else 3) for e,v in enumerate(rows[3]['words'][:5])) or rows[3]['words'][:4]!=rows[2]['words'][:4])
+  if mixed_bad and (s['complete'] or not s['reason']&64):raise ValueError('prepare post-reset controls')
+  complete=bool(complete and capture['core_complete'] and rs['epoch_after']==s['epoch']+1 and s['reset_writes']==2)
  if s['complete']!=int(complete):raise ValueError('prepare completion declaration')
  if complete and not take['summary']['end_us']<s['begin']<post['summary']['begin_us']<post['summary']['end_us']<s['end']<wake['summary']['end_us']:raise ValueError('prepare preservation ordering')
  if not text.index('intel-takeover-summary:')<text.index('intel-prepare-summary:')<text.index('intel-clock:')<text.index('intel-wake-summary:'):raise ValueError('prepare parent receipt order')

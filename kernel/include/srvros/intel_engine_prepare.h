@@ -9,17 +9,21 @@
 enum intel_engine_prepare_reason {IEP_INPUT=1,IEP_CLOCK=2,IEP_PARENT=4,
  IEP_GUARD=8,IEP_READ=16,IEP_WRITE=32,IEP_STATE=64,IEP_TIMEOUT=128,
  IEP_PRESERVE=256,IEP_RETURN=512,IEP_COUNT=1024,IEP_ACTION=2048};
+struct intel_engine_held_reset_result;
 struct intel_engine_prepare_result {
  const struct intel_engine_prepare_result *object;
  struct intel_gt_access *parent;
  const struct intel_takeover_result *preflight;
  struct intel_gt_borrow borrow;
- uint32_t epoch,words[4][6],ack[10],final[10];
+ uint32_t epoch,words[5][6],ack[10],final[10];
+ /* Non-NULL only in the distinct reset-capable composition. Source epoch and
+  * prerequisite receipts stay immutable across its core-owned epoch advance. */
+ const struct intel_engine_held_reset_result *reset;
  uint64_t begin_us,last_us,end_us,clock_at,clock_prev;
  /* Callback bracket clocks; last valid clock if the post-guard fails.
   * action_completed additionally requires the matching held sample2. */
  uint64_t action_begin_us,action_end_us;
- unsigned reason,attempts,writes,reads,polls,snapshots,sample_attempts,counts[4],acks,ready,cancelled,phase_polls[10],stage,index;
+ unsigned reason,attempts,writes,reads,polls,snapshots,sample_attempts,counts[5],acks,ready,cancelled,phase_polls[10],stage,index;
  bool blocked,admitted,held,preserved,uncertain,returned,complete;
  bool action_attempted,action_completed,action_active;
 };

@@ -624,6 +624,11 @@ def main():
                         if 'srvros.intel-wake=trial' in text:
                             from intel_gt_wake import native_wake_result,verify_wake_checkpoint
                             wake=native_wake_result(stored.read(folder+"/exit.log").decode())
+                            if 'srvros.intel-bcs-reset=held-blitter-only' in text:
+                                from intel_engine_held_reset import held_reset_result
+                                reset=held_reset_result(stored.read(folder+"/exit.log").decode())
+                                assert reset and not reset['complete'] and not reset['summary']['attempts']
+                                (logs/'intel-held-reset-result.json').write_text(json.dumps(reset,indent=2)+"\n")
                             if 'srvros.intel-held-requester=read-only' in text:
                                 from intel_held_requester import held_result
                                 held=held_result(stored.read(folder+"/exit.log").decode())

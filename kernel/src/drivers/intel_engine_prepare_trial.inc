@@ -1,10 +1,16 @@
 #include <srvros/intel_engine_prepare.h>
+#ifdef SRVROS_INTEL_PREPARE_RESET
+#include <srvros/intel_engine_held_reset.h>
+#endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
 #include <srvros/intel_pci_held.h>
 #endif
 struct engine_prepare_trial {
  struct intel_engine_prepare_result action;
  struct intel_completion_result post;
+#ifdef SRVROS_INTEL_PREPARE_RESET
+ struct intel_engine_held_reset_result reset;
+#endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
  struct intel_pci_held_result requester;
  bool held_provider_enter,held_provider_exit;
@@ -13,7 +19,11 @@ struct engine_prepare_trial {
  unsigned samples,plane_reads;
  uint64_t begin,end;
 };
-struct engine_prepare_adapter {struct wake_adapter *a;struct intel_gt_access *g;struct engine_prepare_trial *trial;bool failed;};
+struct engine_prepare_adapter {struct wake_adapter *a;struct intel_gt_access *g;struct engine_prepare_trial *trial;bool failed;
+#ifdef SRVROS_INTEL_PREPARE_RESET
+ unsigned reset_snapshot_reads,reset_pulses;
+#endif
+};
 /* Core bookkeeping does not issue target accesses. Every provider below owns
  * its full entry/exit backing validation; these fresh checks keep the core's
  * before/after parent and clock brackets live without repeating that census.
@@ -137,7 +147,13 @@ static bool eprepare_preserve(void *ctx,const struct intel_completion_result *pr
  struct engine_prepare_adapter *p=ctx;struct engine_prepare_trial *t=p->trial;
  if(!eprepare_enter(p))return false;
  if(!intel_completion_observe(&t->post,p->g,(struct intel_completion_io){p,eprepare_guard,eprepare_post_group,eprepare_post_context,eprepare_now,EPREPARE_POST_SAMPLE}) ||
-    !eprepare_planes(p->a,p->g,t,1) || t->post.engine_epoch!=pre->engine_epoch)return false;
+    !eprepare_planes(p->a,p->g,t,1) || t->post.engine_epoch!=
+#ifdef SRVROS_INTEL_PREPARE_RESET
+    t->reset.epoch_after || !t->reset.complete || t->reset.epoch_before!=pre->engine_epoch || t->reset.epoch_after!=pre->engine_epoch+1
+#else
+    pre->engine_epoch
+#endif
+    )return false;
  for(unsigned n=0;n<2;n++) {
   for(unsigned e=0;e<5;e++)for(unsigned i=0;i<8;i++)if(pre->words[n][e][i]!=t->post.words[n][e][i])return false;
   for(unsigned i=0;i<6;i++)if(pre->context[n][i]!=t->post.context[n][i])return false;
@@ -149,13 +165,20 @@ static bool eprepare_preserve(void *ctx,const struct intel_completion_result *pr
 #ifdef SRVROS_INTEL_HELD_REQUESTER
 #include "intel_pci_held_trial.inc"
 #endif
+#ifdef SRVROS_INTEL_PREPARE_RESET
+#include "intel_engine_held_reset_trial.inc"
+#endif
 static void eprepare_run(struct wake_adapter *a,struct intel_gt_access *g,const struct intel_takeover_result *pre,struct engine_prepare_trial *t,bool policy) {
  if(!eprepare_planes(a,g,t,0))return;
  struct engine_prepare_adapter p={.a=a,.g=g,.trial=t};
+#ifdef SRVROS_INTEL_PREPARE_RESET
+ (void)intel_engine_prepare_with_bcs_reset(&t->action,g,pre,policy,(struct intel_engine_prepare_io){&p,eprepare_guard,eprepare_sample,eprepare_control,eprepare_transition,eprepare_preserve,eprepare_now,eprepare_pause},(struct intel_engine_prepare_action){&p,eheld_action},&t->reset,(struct intel_engine_held_reset_io){&p,ehr_guard,ehr_snapshot,ehr_domain,ehr_transition,ehr_begin,ehr_end,ehr_now,eprepare_pause});
+#else
 #ifdef SRVROS_INTEL_HELD_REQUESTER
  (void)intel_engine_prepare_with_action(&t->action,g,pre,policy,(struct intel_engine_prepare_io){&p,eprepare_guard,eprepare_sample,eprepare_control,eprepare_transition,eprepare_preserve,eprepare_now,eprepare_pause},(struct intel_engine_prepare_action){&p,eheld_action});
 #else
  (void)intel_engine_prepare(&t->action,g,pre,policy,(struct intel_engine_prepare_io){&p,eprepare_guard,eprepare_sample,eprepare_control,eprepare_transition,eprepare_preserve,eprepare_now,eprepare_pause});
+#endif
 #endif
  if(t->action.uncertain || t->action.borrow.active || (t->action.reason&IEP_PARENT))a->uncertain=true;
 }
@@ -165,7 +188,10 @@ static void eprepare_report(const struct engine_prepare_trial *t) {
  eheld_report(&t->requester);
  console_printf("intel-prepare-action: v=1 attempted=%u completed=%u active=%u begin=%u end=%u provider_enter=%u provider_exit=%u\n",(uint64_t)r->action_attempted,(uint64_t)r->action_completed,(uint64_t)r->action_active,r->action_begin_us,r->action_end_us,(uint64_t)t->held_provider_enter,(uint64_t)t->held_provider_exit);
 #endif
- for(unsigned n=0;n<r->sample_attempts && n<4;n++) {
+#ifdef SRVROS_INTEL_PREPARE_RESET
+ ehr_report(&t->reset);
+#endif
+ for(unsigned n=0;n<r->sample_attempts && n<5;n++) {
   console_printf("intel-prepare-row: v=1 s=%u n=%u d=",(uint64_t)n,(uint64_t)r->counts[n]);
   for(unsigned i=0;i<r->counts[n] && i<6;i++)console_printf("%s%u",i?",":"",(uint64_t)r->words[n][i]);
   if(!r->counts[n])console_write("-");
@@ -185,5 +211,9 @@ static void eprepare_report(const struct engine_prepare_trial *t) {
   const uint32_t *w=t->audio[n];
   console_printf("intel-prepare-audio: v=1 s=%u d=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7],(uint64_t)w[8],(uint64_t)w[9]);
  }
+#ifdef SRVROS_INTEL_PREPARE_RESET
+ console_printf("intel-prepare-summary: v=2 epoch_after=%u begin=%u end=%u epoch=%u attempts=%u writes=%u reads=%u polls=%u snapshots=%u sample_attempts=%u acks=%u ready=%u cancelled=%u blocked=%u admitted=%u held=%u preserved=%u uncertain=%u returned=%u borrowed=%u retained=%u reason=%u stage=%u index=%u clock_at=%u clock_prev=%u plane_samples=%u plane_reads=%u complete=%u obligations=255 reset_writes=%u pte_writes=0 managed_pages=0 hardware_ownership=0\n",(uint64_t)t->reset.epoch_after,r->begin_us,r->end_us,(uint64_t)r->epoch,(uint64_t)r->attempts,(uint64_t)r->writes,(uint64_t)r->reads,(uint64_t)r->polls,(uint64_t)r->snapshots,(uint64_t)r->sample_attempts,(uint64_t)r->acks,(uint64_t)r->ready,(uint64_t)r->cancelled,(uint64_t)r->blocked,(uint64_t)r->admitted,(uint64_t)r->held,(uint64_t)r->preserved,(uint64_t)r->uncertain,(uint64_t)r->returned,(uint64_t)(r->borrow.parent!=NULL),(uint64_t)r->borrow.active,(uint64_t)r->reason,(uint64_t)r->stage,(uint64_t)r->index,r->clock_at,r->clock_prev,(uint64_t)t->samples,(uint64_t)t->plane_reads,(uint64_t)r->complete,(uint64_t)t->reset.writes);
+#else
  console_printf("intel-prepare-summary: v=1 begin=%u end=%u epoch=%u attempts=%u writes=%u reads=%u polls=%u snapshots=%u sample_attempts=%u acks=%u ready=%u cancelled=%u blocked=%u admitted=%u held=%u preserved=%u uncertain=%u returned=%u borrowed=%u retained=%u reason=%u stage=%u index=%u clock_at=%u clock_prev=%u plane_samples=%u plane_reads=%u complete=%u obligations=255 reset_writes=0 pte_writes=0 managed_pages=0 hardware_ownership=0\n",r->begin_us,r->end_us,(uint64_t)r->epoch,(uint64_t)r->attempts,(uint64_t)r->writes,(uint64_t)r->reads,(uint64_t)r->polls,(uint64_t)r->snapshots,(uint64_t)r->sample_attempts,(uint64_t)r->acks,(uint64_t)r->ready,(uint64_t)r->cancelled,(uint64_t)r->blocked,(uint64_t)r->admitted,(uint64_t)r->held,(uint64_t)r->preserved,(uint64_t)r->uncertain,(uint64_t)r->returned,(uint64_t)(r->borrow.parent!=NULL),(uint64_t)r->borrow.active,(uint64_t)r->reason,(uint64_t)r->stage,(uint64_t)r->index,r->clock_at,r->clock_prev,(uint64_t)t->samples,(uint64_t)t->plane_reads,(uint64_t)r->complete);
+#endif
 }

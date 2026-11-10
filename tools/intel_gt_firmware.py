@@ -8,6 +8,24 @@ FIELDS={
 }
 HEX={'asls','swsci','base','length','offset','value'}
 def firmware_result(text):
+ # The distinct held-reset image retains all13 fixed DWORDs in each vector.
+ # Normalize only its exact version; never allow mixed/raw or foreign images.
+ vectors=[l for l in text.splitlines() if l.startswith('intel-firmware-vector:')]
+ if vectors:
+  if any(l.startswith('intel-firmware-word:') for l in text.splitlines()):raise ValueError('firmware mixed vector/word receipts')
+  wakes=[l for l in text.splitlines() if l.startswith('intel-wake-summary:')]
+  if wakes and (len(wakes)!=1 or not wakes[0].startswith('intel-wake-summary: v=17 ')):raise ValueError('firmware vector wrong image')
+  if not wakes and not any(l.startswith(('cmdline: ','laptop-capture: boot options=')) and 'srvros.intel-bcs-reset=held-blitter-only' in l.split() for l in text.splitlines()):raise ValueError('firmware vector missing exact recipe')
+  normalized=[];sample=0
+  for line in text.splitlines():
+   if line.startswith('intel-firmware-vector:'):
+    m=re.fullmatch(r'intel-firmware-vector: v=2 s=([01]) n=13 h=([0-9a-f]{104})',line)
+    if not m or int(m[1])!=sample:raise ValueError('firmware vector encoding/order')
+    for i,o in enumerate(OFFSETS):normalized.append(f'intel-firmware-word: v=1 sample={sample} index={i} offset={hex(o) if o else "0"} value={hex(int(m[2][i*8:i*8+8],16))}')
+    sample+=1
+   else:normalized.append(line)
+  if sample!=2:raise ValueError('firmware vector coverage')
+  text='\n'.join(normalized)
  rows={k:[] for k in FIELDS}
  for line in text.splitlines():
   if not line.startswith('intel-firmware-'):continue

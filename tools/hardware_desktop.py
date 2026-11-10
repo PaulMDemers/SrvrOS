@@ -573,6 +573,10 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-held-reset-summary:'):
+        from intel_engine_held_reset import reset_summary
+        try:return not reset_summary(line)['complete']
+        except ValueError:return True
     if line.startswith('intel-held-requester-summary:'):
         from intel_held_requester import held_summary
         try:return not held_summary(line)['complete']
@@ -922,7 +926,13 @@ def collect(mount, volume, output):
                     pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
                     verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
             except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
-        if 'srvros.intel-held-requester=read-only' in text:
+        if 'srvros.intel-bcs-reset=held-blitter-only' in text:
+            try:
+                from intel_engine_held_reset import native_held_reset_result
+                reset=native_held_reset_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not reset or not reset['native_complete']:attention.append('Intel held BCS reset incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel held BCS reset: '+str(error))
+        elif 'srvros.intel-held-requester=read-only' in text:
             try:
                 from intel_held_requester import native_held_result
                 held=native_held_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))

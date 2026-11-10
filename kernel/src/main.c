@@ -964,9 +964,11 @@ void kmain(void) {
             if(cmdline_has_token(cmdline,"srvros.intel-gt-preflight=read-only")){bool gt_ok=started && intel_gt_preflight_probe_report();sampled=sampled && gt_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-firmware=read-only")){bool fw_ok=started && intel_gt_firmware_probe_report();sampled=sampled && fw_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-wake=trial")) {
-                if(cmdline_has_token(cmdline,"srvros.intel-held-requester=read-only"))console_write("intel-held-requester: automatic PCI AF capture under maintained five-engine preparation; no input needed, no reset or memory grant.\n");
+                bool held_reset=cmdline_has_token(cmdline,"srvros.intel-bcs-reset=held-blitter-only");
+                if(held_reset)console_write("intel-held-reset: automatic five-engine hold, PCI capture, BCS8 reset and preservation; no input needed. Safe saved outcomes return to Ubuntu; uncertain state halts visibly.\n");
+                if(!held_reset && cmdline_has_token(cmdline,"srvros.intel-held-requester=read-only"))console_write("intel-held-requester: automatic PCI AF capture under maintained five-engine preparation; no input needed, no reset or memory grant.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-requester=read-only"))console_write("intel-requester: automatic read-only PCI AF requester capture; no input needed, no BME/FLR/reset or memory grant.\n");
-                if(cmdline_has_token(cmdline,"srvros.intel-engines-prepare=request-cancel"))console_write("intel-prepare: automatic five-engine prepare, hold and cancellation; no input needed, no reset or memory grant.\n");
+                if(!held_reset && cmdline_has_token(cmdline,"srvros.intel-engines-prepare=request-cancel"))console_write("intel-prepare: automatic five-engine prepare, hold and cancellation; no input needed, no reset or memory grant.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-takeover=preflight"))console_write("intel-takeover: automatic read-only reset-control prerequisites; no input needed, no reset or memory grant.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-shutdown=qualify"))console_write("intel-shutdown: automatic idle blitter shutdown and fresh engine/reader checks; no input needed, no reset or memory grant. Unsafe state requires manual restart.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-bcs-reset=blitter-only"))console_write("intel-bcs: automatic BCS-only reset with preservation; no input needed. Unsafe state halts here; photograph then restart manually.\n");

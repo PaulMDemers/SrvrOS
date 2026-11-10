@@ -79,8 +79,10 @@ per-engine bits1/2/3/4/7. The pinned Linux reset path prepares engines, resets,
 then cancels, and repeats reset with50us settling for delayed register stability.
 Do not widen domain8 to0x9e or assume readiness bits survive reset. See the
 [pinned reset references](intel-engine-prepare.md) and
-[reset contract](intel-bcs-reset.md). No new native reset writer is selected in
-this planning block.
+[reset contract](intel-bcs-reset.md). That planning block selected no broader native reset writer. The separate
+[held BCS reset composition](intel-engine-held-reset.md) now implements the
+BCS8-only epoch-aware lifetime, with a distinct native image and qualification
+gates. Its host completion does not accept hardware timing or memory transfer.
 
 Before staging that composition, record the exact native action, reference-backed
 register/memory effects, per-obligation evidence and failure-state ownership.

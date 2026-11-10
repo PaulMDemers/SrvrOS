@@ -7,6 +7,10 @@ held state twice, then cancels in reverse order. There is no GDRST pulse, comman
 submission, PTE store or managed GPU allocation. Ordinary desktop startup stays
 on the inherited framebuffer.
 
+The separate [reset-capable composition](intel-engine-held-reset.md) reuses this
+preparation machinery under a distinct API/image and epoch-aware lifetime. It
+does not change this read-only action's contract or older receipt versions.
+
 ## Authority and lifecycle
 
 The dedicated image requires its exact 16-token recipe, including

@@ -57,7 +57,7 @@ def held_result(text):
  from intel_engine_prepare import prepare_result
  from intel_gt_wake import wake_result
  p=prepare_result(text);wake=wake_result(text)
- if not p or not wake or wake['summary']['v']!=16:raise ValueError('held requester image/prerequisites')
+ if not p or not wake or wake['summary']['v'] not in (16,17):raise ValueError('held requester image/prerequisites')
  ps=p['summary']
  if s['origin'] and (s['origin']!=ps['begin'] or s['epoch']!=ps['epoch'] or not a['attempted']):raise ValueError('held requester origin binding')
  # On expiry, prepare's post-action guard cannot advance its last valid clock.
@@ -83,6 +83,9 @@ def held_result(text):
 
 def native_held_result(text):
  r=held_result(text)
+ if r:
+  from intel_gt_wake import wake_result
+  if wake_result(text)['summary']['v']!=16:raise ValueError('native held requester wrong image')
  if not r or not r['complete']:return r
  from intel_gt_wake import native_wake_result
  w=native_wake_result(text)
