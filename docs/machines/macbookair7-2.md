@@ -2,27 +2,47 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Active scope: reset under maintained five-engine preparation
+### Ready: BCS reset under maintained five-engine preparation
 
-Base `acc10446`, integrated main `c367f169`. The accepted held requester result
-resolves the read-only composition question; the next bounded operation keeps
-the same original preparation borrow through a BCS-only reset. A separate API
-and diagnostic image will own epoch advancement before the first possible store,
-two fixed GDRST8 pulses,50us settling, mixed post-reset controls (BCS0, other4
-still3), reverse cancellation and full preservation. The read-only action and
-historical receipts retain their existing meanings. Deadlines remain100/300/500ms.
+Payload source `d22194cd` (protocol `5827e45d`), release `a25250e9a1f62f9e`,
+validation checkout `41bb435f`. The only source difference is the qualified VM
+harness dispatch fix; immutable payload bytes and original source provenance
+are unchanged. A distinct API/image, wake17 and exact18-token recipe keep the
+original preparation borrow through read-only PCI capture, two BCS8 pulses,
+50us settling, mixed post-reset controls, reverse cancellation and preservation.
+The source census/preflight epoch stays immutable; the parent advances once
+before the first possible reset store. The old read-only API remains unchanged.
+Deadlines stay100/300/500ms, with10ms/256 observations per reset phase.
 
-Scope: preparation private plumbing, new held-reset core/header and actual-core
-tests; isolated native provider/recipe/receipts/strict collection and documentation.
-User-authorized subagents implement/review the separate core; the local owner
-serializes builds, native integration, staging and VM checks. Dependencies are
-the original preflight/census, exact captured BCS8 semantics and shared lifetime.
-PR448 storage attribution, PR19 networking and PR379 WebCore remain separate.
-No wider reset domain, enabled-ring shutdown, PTE write, address-range transfer or
-positive DMA/cache/firmware/reader assurance is authorized. Next checkpoint is
-host/VM/object-qualified readiness for one automated trial, not another reboot
-in this work block. Current67a1 remains collected/accepted for its read-only
-capture, recovery9aa8 retained, volume1%, no reboot armed.
+Full local source gate (installed-root explicitly omitted),21-image isolation,
+486 fatal ASan/UBSan cases (340core/146native-adapter), eight compiled core
+controls and14 compiled native controls pass. Actual staged code binds exact
+GDRST0x941c/DWORD8, immediate shared-clock admission, current aliases/requesters,
+full entry/exit, writable roles and raw tables/callbacks. Strict receipt mutations,
+old native classifications and lossless118DWORD comparisons pass. The worst-width
+log projection65,028/65,536 includes the unchanged1,536-byte reserve.
+
+Exact immutable MBR EFI Q35 identity refusal/checkpoint/save/unmount/automatic
+return and missing-workspace halt pass. All four saved logs match the actual
+18-token parser. Initial harness/proof nonpasses remain recorded, including the
+corrected sanitizer executable selection and source-manifest identity handling;
+none is physical acceptance. All1,431 USB files/133sessions preserve, with clean
+offline filesystem/allocation/writable/headroom checks.
+
+The candidate is current/immutable/durable at1%. Ubuntu remains default, no
+one-shot is armed, recovery9aa8, GUIc497, prior accepted capture67a1 and latest
+reset6365/preparation0caf remain on EFI. Older unreferenced standalone capture3ff4
+was archived only after full inventory/SHA equality with its independent bank;
+both survive distclean. Full qualification evidence is independently backed up.
+Checkpoint:`build/air-held-reset-20261109`.
+
+**Native combined reset timing/preservation/return remains pending.** The next
+trial needs no input and displays progress; safe durable outcomes return to
+Ubuntu, uncertainty or persistence failure halts visibly. It must prove that
+BCS clears while the other four holds survive and that cancellation/preservation
+and retirement fit the unchanged bounds. All255 completion obligations remain
+open, zero managed pages and no physical tear-free grant. PR448 storage, PR19
+networking and PR379 WebCore remain independent; integrated main is`c367f169`.
 
 ### Accepted: native PCI capture during maintained engine preparation
 

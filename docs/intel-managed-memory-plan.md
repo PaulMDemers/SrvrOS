@@ -200,10 +200,17 @@ composes maintained preparation and an exact reviewed action under one original
 lifetime; separate cancelled receipts cannot provide that authority.
 
 
-The isolated [native held requester candidate](intel-held-requester.md#exact-candidate-qualification)
-now composes the read-only observation with maintained preparation under the
-original borrow. Source `8559ac44` is locally/VM qualified; native timing and
-return remain pending. Its lossless receipts and explicit provider witnesses
-create no reset-capable action or GPU interval transfer. All eight ownership
-obligations stay open; a future writer still needs separately reviewed epoch,
-control-state, command/mapping and retirement semantics.
+The [native held requester capture](intel-held-requester.md#native-combined-result)
+now accepts one read-only composition under the original preparation borrow:
+source `8559ac44`, release `67a178af16c8983f`,96,728/100,000us with cancellation,
+preservation and clean return. Its explicit provider witnesses and lossless
+receipts create no reset or GPU interval authority.
+
+The separate [reset-capable composition](intel-engine-held-reset.md) is now
+locally/VM qualified: payload `d22194cd`, release `a25250e9a1f62f9e`, qualified
+harness `41bb435f`. It owns the epoch change and mixed post-reset control state
+under the same original borrow, retains the exact BCS8-only gate and original
+bounds, and has no native acceptance yet. All eight ownership obligations remain
+open. GPU range transfer, owned command/mapping completion and reader retirement
+remain distinct reviewed gates; neither a reset ACK nor PCI TP clear supplies
+those assurances.

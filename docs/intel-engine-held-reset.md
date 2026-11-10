@@ -109,3 +109,24 @@ posted-write, prefetch, cache, translation, firmware or reader retirement. No
 GGTT interval, private backing or managed page is transferred. Physical
 tear-free presentation remains a later milestone in the
 [roadmap](intel-tearfree-roadmap.md).
+
+
+## Exact candidate qualification
+
+Payload source `d22194cd` (protocol `5827e45d`), release `a25250e9a1f62f9e`,
+is qualified using checkout `41bb435f`. That sole harness-only dispatch change
+leaves the content-addressed payload and its original provenance unchanged;
+the local source-projection proof binds the exact helper hash. Full local gate
+(installed-root omitted),21-image isolation,486 fatal sanitizer cases,
+eight core/14 native compiled controls and fresh staged instruction/table review
+pass. Strict receipt/legacy checks retain their meanings. All92 post-census and
+26 firmware DWORDs match the older raw decoder. Worst-width projection65,028
+includes the unchanged1,536 reserve within65,536 bytes.
+
+Exact-stage MBR EFI Q35 refusal/save/unmount/automatic return and missing-drive
+halt pass; four saved logs match the compiled18-token recipe. USB integrity,
+independent payload/recovery verification and check-only reboot guards pass.
+Installed at1%, Ubuntu default, no reboot armed. Independent evidence survives
+distclean. Native timing, mixed controls, preservation and retirement still need
+the matching physical session. Separate earlier resets/captures do not accept
+this composition or any GPU-memory obligation.
