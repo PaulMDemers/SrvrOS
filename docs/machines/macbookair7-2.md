@@ -2,6 +2,28 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Active scope: reset under maintained five-engine preparation
+
+Base `acc10446`, integrated main `c367f169`. The accepted held requester result
+resolves the read-only composition question; the next bounded operation keeps
+the same original preparation borrow through a BCS-only reset. A separate API
+and diagnostic image will own epoch advancement before the first possible store,
+two fixed GDRST8 pulses,50us settling, mixed post-reset controls (BCS0, other4
+still3), reverse cancellation and full preservation. The read-only action and
+historical receipts retain their existing meanings. Deadlines remain100/300/500ms.
+
+Scope: preparation private plumbing, new held-reset core/header and actual-core
+tests; isolated native provider/recipe/receipts/strict collection and documentation.
+User-authorized subagents implement/review the separate core; the local owner
+serializes builds, native integration, staging and VM checks. Dependencies are
+the original preflight/census, exact captured BCS8 semantics and shared lifetime.
+PR448 storage attribution, PR19 networking and PR379 WebCore remain separate.
+No wider reset domain, enabled-ring shutdown, PTE write, address-range transfer or
+positive DMA/cache/firmware/reader assurance is authorized. Next checkpoint is
+host/VM/object-qualified readiness for one automated trial, not another reboot
+in this work block. Current67a1 remains collected/accepted for its read-only
+capture, recovery9aa8 retained, volume1%, no reboot armed.
+
 ### Accepted: native PCI capture during maintained engine preparation
 
 Source `8559ac44`, release `67a178af16c8983f`, session
