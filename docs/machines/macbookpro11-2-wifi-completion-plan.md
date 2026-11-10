@@ -9,6 +9,18 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 10)
 
+Main `c3550c82` is now integrated at `3afff099`, preserving local changes and
+recursive submodule pins. The explicit v140 implementation supports two fresh
+native connection generations within one held adapter lifetime: production
+DHCP/DNS and 64 exact gateway echoes per connection, checked stack deconfiguration,
+fresh key/epoch/PN/DMA/fence contexts, one registered provider and final outer
+parent restoration. Ten same-process native HOST cases pass, including the
+captured command frontier and fault/old-frame/alias cases. Independent AP crypto,
+13 raw/full-RF composition checks, boot dispatch/staging and collector units pass.
+Full selected normal/fatal/build/exact-image qualification and physical validation
+remain pending. This milestone does not rearm the actual HTTP worker or provide
+UI/reattach/persistent service. Historical accepted images below stay unchanged.
+
 Runtime `070089f5` / release `c603901d483d3f86` now has a second complete cold
 run, collected once as `00065fef07bf175d-00`. Like the first accepted session
 `00065fed77ae049a-00`, it completes production DHCP/DNS and the actual HTTP

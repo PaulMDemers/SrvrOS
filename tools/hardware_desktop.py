@@ -619,13 +619,16 @@ def battery_preflight_result(text):
     return dict(zip(('pm1_control','pm1_status','pm1_enable','ec_status'),values),gpe=[{'byte':int(i),'status':int(st,16),'enable':int(en,16)} for i,st,en in rows],hardware_acceptance='pending',battery_samples=False)
 
 
-def collect(mount, volume, output, *, radio_capture=None, cal5_cleanup_capture=False, http5_capture=False):
+def collect(mount, volume, output, *, radio_capture=None, cal5_cleanup_capture=False, http5_capture=False, reconnect5_capture=False):
     # Only one caller-identified session/release may use the fixed larger bound.
     # This transports evidence; it does not establish hardware acceptance.
     if not isinstance(cal5_cleanup_capture,bool) or (cal5_cleanup_capture and radio_capture is None):
         raise ValueError("Calibration cleanup capture requires explicit radio session/release")
     if not isinstance(http5_capture,bool) or (http5_capture and (radio_capture is None or not cal5_cleanup_capture)):
         raise ValueError("HTTP capture requires explicit radio identity and calibration4MiB profile")
+    if not isinstance(reconnect5_capture,bool) or (reconnect5_capture and
+            (radio_capture is None or not cal5_cleanup_capture or http5_capture)):
+        raise ValueError("Reconnect capture requires its own explicit radio identity and calibration4MiB profile without HTTP")
     if radio_capture is not None:
         if (not isinstance(radio_capture,tuple) or len(radio_capture)!=2 or
                 not all(isinstance(v,str) for v in radio_capture) or
@@ -646,6 +649,8 @@ def collect(mount, volume, output, *, radio_capture=None, cal5_cleanup_capture=F
         raise ValueError("No sessions found, or session count exceeds collection limit")
     if http5_capture and sum(p.name==radio_capture[0] for p in sessions)!=1:
         raise ValueError("Missing selected HTTP session")
+    if reconnect5_capture and sum(p.name==radio_capture[0] for p in sessions)!=1:
+        raise ValueError("Missing selected reconnect session")
     # Validate and read everything before creating the local collection.
     snapshots = []
     total_bytes = 0
@@ -672,6 +677,9 @@ def collect(mount, volume, output, *, radio_capture=None, cal5_cleanup_capture=F
             if http5_capture and extended:
                 from wifi_http5_log import boot_identity as http5_identity
                 http5_identity(payload[name].decode("utf-8",errors="strict"),radio_capture[1],volume)
+            if reconnect5_capture and extended:
+                from wifi_reconnect5_log import boot_identity as reconnect5_identity
+                reconnect5_identity(payload[name].decode("utf-8",errors="strict"),radio_capture[1],volume)
             if len(payload[name])>MAX_LOG_BYTES:
                 text=payload[name].decode("utf-8",errors="strict")
                 required={"srvros.desktop-release="+radio_capture[1],"srvros.wifi-held-channel=1","srvros.capture=wifi-firmware","srvros.capture-failure=reboot"}
@@ -683,6 +691,8 @@ def collect(mount, volume, output, *, radio_capture=None, cal5_cleanup_capture=F
                     raise ValueError("Large radio log lacks matching boot identity/profile")
         if http5_capture and folder.name==radio_capture[0] and not any(name in payload for name in FILES):
             raise ValueError("Selected HTTP session has no boot/exit identity snapshot")
+        if reconnect5_capture and folder.name==radio_capture[0] and not {"boot.log","exit.log"}<=set(payload):
+            raise ValueError("Selected reconnect session requires both boot and exit identity snapshots")
         snapshots.append((folder.name, payload))
     output.mkdir(parents=True, exist_ok=True)
     destination = Path(tempfile.mkdtemp(prefix="collection-", dir=output))

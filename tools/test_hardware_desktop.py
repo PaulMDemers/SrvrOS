@@ -721,6 +721,80 @@ class CollectionTests(unittest.TestCase):
             with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'oversize',radio_capture=(name,release),cal5_cleanup_capture=True)
             with self.assertRaises(ValueError):desktop.collect(mount,'37d8c5d0',root/'noidentity',cal5_cleanup_capture=True)
 
+    @staticmethod
+    def reconnect_capture_fixture(root):
+        from hardware_boot import limine_config
+        mount=root/'usb';work=mount/'srvros-work';name='session-0000000000000001-00'
+        folder=work/'Logs'/name;folder.mkdir(parents=True)
+        volume='12345678';release='0123456789abcdef'
+        (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 '+volume+'\n')
+        config=limine_config(release,'ram-usb-wifi-fw-v140-laptop-probe-'+volume+'-auto-return')
+        command=next(s.strip()[9:] for s in config.splitlines() if s.strip().startswith('cmdline: '))
+        header=('cmdline: '+command+'\n'
+                'wifi-reconnect5-boot: net_init_deferred=1 worker_deferred=1\n'
+                'laptop-capture: boot options='+command+'\n').encode()
+        for snapshot in ('boot.log','exit.log'):(folder/snapshot).write_bytes(header)
+        return mount,folder,volume,name,release,header
+
+    def test_reconnect_capture_preserves_small_and_large_v140_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount,folder,volume,name,release,header=self.reconnect_capture_fixture(root)
+            for size in (len(header),desktop.MAX_LOG_BYTES+1,desktop.RADIO_LOG_BYTES+1,desktop.CAL5_LOG_BYTES):
+                payload=header+b'x'*(size-len(header))
+                for snapshot in ('boot.log','exit.log'):(folder/snapshot).write_bytes(payload)
+                out,report=desktop.collect(mount,volume,root/'out',radio_capture=(name,release),
+                                           cal5_cleanup_capture=True,reconnect5_capture=True)
+                for snapshot in ('boot.log','exit.log'):
+                    self.assertEqual((out/name/snapshot).read_bytes(),payload)
+                self.assertEqual(report['hardware_acceptance'],'manual-pending')
+                self.assertEqual(report['sessions'][0]['releases'],[release])
+                self.assertTrue(report['sessions'][0]['exit_snapshot_present'])
+            (folder/'exit.log').write_bytes(header+b'x'*desktop.CAL5_LOG_BYTES)
+            with self.assertRaises(ValueError):desktop.collect(mount,volume,root/'too-big',
+                radio_capture=(name,release),cal5_cleanup_capture=True,reconnect5_capture=True)
+            self.assertFalse((root/'too-big').exists())
+
+    def test_reconnect_capture_requires_explicit_matching_session_and_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount,folder,volume,name,release,header=self.reconnect_capture_fixture(root)
+            base=dict(radio_capture=(name,release),cal5_cleanup_capture=True,reconnect5_capture=True)
+            for options in (dict(reconnect5_capture=True),dict(base,cal5_cleanup_capture=False),
+                            dict(base,http5_capture=True),dict(base,reconnect5_capture='yes'),
+                            dict(base,radio_capture=('session-0000000000000002-00',release)),
+                            dict(base,radio_capture=(name,'f'*16))):
+                with self.subTest(options=options),self.assertRaises(ValueError):desktop.collect(mount,volume,root/'bad',**options)
+                self.assertFalse((root/'bad').exists())
+            with self.assertRaises(ValueError):desktop.collect(mount,'f'*8,root/'bad',**base)
+            for snapshot in ('boot.log','exit.log'):
+                path=folder/snapshot;path.unlink()
+                with self.subTest(missing=snapshot),self.assertRaises(ValueError):desktop.collect(mount,volume,root/'bad',**base)
+                self.assertFalse((root/'bad').exists());path.write_bytes(header)
+
+    def test_reconnect_capture_checks_both_snapshot_identities_at_every_size(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount,folder,volume,name,release,header=self.reconnect_capture_fixture(root)
+            lines=header.decode().splitlines()
+            variants=[header.replace(b'srvros.desktop-release='+release.encode(),b'srvros.desktop-release='+b'f'*16),
+                      header.replace(b'srvros.workspace-volume='+volume.encode(),b'srvros.workspace-volume='+b'f'*8),
+                      header+lines[0].encode()+b'\n',
+                      header+lines[2].encode()+b'\n',
+                      ('\n'.join([lines[2],lines[1],lines[0]])+'\n').encode(),
+                      header.replace(b'srvros.wifi-reconnect5=1',b'srvros.wifi-http5=1'),
+                      header.replace(b'srvros.wifi-cal5-cleanup=1',b''),
+                      header.replace(b'srvros.wifi-reconnect5=1',b'srvros.wifi-reconnect5=1 srvros.wifi-provider5=1'),
+                      header.replace(b'srvros.wifi-reconnect5=1',b'srvros.wifi-reconnect5=1 srvros.wifi-reconnect5=1'),
+                      header.replace(b'srvros.wifi-reconnect5=1',b'srvros.wifi-reconnect5=10')]
+            for snapshot in ('boot.log','exit.log'):
+                for large in (False,True):
+                    for n,bad in enumerate(variants):
+                        payload=bad+(b'x'*(desktop.RADIO_LOG_BYTES+1-len(bad)) if large else b'')
+                        (folder/snapshot).write_bytes(payload)
+                        with self.subTest(snapshot=snapshot,large=large,variant=n),self.assertRaises(ValueError):
+                            desktop.collect(mount,volume,root/'bad',radio_capture=(name,release),
+                                            cal5_cleanup_capture=True,reconnect5_capture=True)
+                        self.assertFalse((root/'bad').exists())
+                    (folder/snapshot).write_bytes(header)
+
     def test_bounded_power_checkpoints(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work';folder=work/'Logs/session-0000000000000001-00'

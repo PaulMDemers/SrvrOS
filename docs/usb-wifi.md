@@ -8149,3 +8149,31 @@ atime; offline fsck/allocation, installed payload and seven recovery equalities
 pass. Backend tombstones remain retained. Two successful cold lifetimes do not accept two in-boot connection generations, warm initialization,
 persistent service, desktop controls or live reattach. Both closed collectors
 must stay closed; no new test is armed.
+
+
+### Two connection generations under one adapter
+
+The explicit v140 reconnect profile adds two bounded connection lifetimes without
+rebooting or re-registering the provider. Each has fresh WPA2/CCMP key storage,
+nonce, epoch and packet-number state, DMA pages and native fence context. The
+registered adapter retains cumulative counters and tokens; per-connection
+receipts use deltas. Checked disconnect consumes the exact open network scope,
+requires empty protocol ownership and clears old IP/router/DNS/ARP state. Failed
+closure fuses future admission. Copied scopes and stale callbacks/events cannot
+acquire current ownership; retained contexts and pointed-to DMA remain intact.
+
+The recipe runs production DHCP/DNS and 64 exact gateway echoes per connection.
+It narrows the fence cap to two per connection, keeps six native cleanup credits
+and refuses a late command frontier or additional traffic rather than recycling
+command addresses. Local parent restoration is recorded as local only; one final
+outer RF/adapter proof is mandatory after both connections. Backend tombstones
+remain retained. Legacy one-shot and actual-process HTTP profiles retain their
+gates and schemas. HTTP worker rearm, general persistent service, UI, warm startup
+and adapter reattach are not accepted by this bounded recipe.
+
+The native HOST fixture executes both generations in one process without resetting
+kernel/controller/network state, using independent fresh-PTK AP data. The saved-log
+checker validates two raw native groups and full unchanged outer RF proof, refuses
+synthetic qualification rows for physical collection and keeps separate explicit
+qualification-only composition. Full source qualification and native acceptance
+remain pending; use a new matched run record before any physical trial.

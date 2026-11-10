@@ -6503,3 +6503,34 @@ test-capture-media-integration: $(LIMINE_PROTOCOL_DIR)/.ready
 test-core: test-capture-media-integration
 
 build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/capture_worker.h
+
+
+# Two fresh native connection lifetimes share one registered adapter.
+.PHONY: test-xhci-reconnect5 test-mt76-stack5-peer-generations
+test-xhci-reconnect5: build/tests/xhci-stack5-host$(HOST_EXE) test-mt76-stack5-peer-generations
+	$< --reconnect-case 0
+	$< --reconnect-case 1
+	$< --reconnect-case 2
+	$< --reconnect-case 3
+	$< --reconnect-case 4
+	$< --reconnect-case 5
+	$< --reconnect-case 6
+	$< --reconnect-case 7
+	$< --reconnect-case 8
+	$< --reconnect-case 9
+test-mt76-stack5-peer-generations: build/tests/mt76-stack5-peer-generations-host$(HOST_EXE)
+	$<
+build/tests/mt76-stack5-peer-generations-host$(HOST_EXE): tools/test_mt76_stack5_peer_generations.c tools/fixtures/mt76-stack5-peer.c tools/fixtures/mt76-stack5-peer.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Itools/fixtures $< tools/fixtures/mt76-stack5-peer.c -lcrypto -o $@
+build/kernel/src/drivers/xhci.c.o build/tests/xhci-host$(HOST_EXE) build/tests/xhci-stack5-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_reconnect5.inc
+
+.PHONY: test-wifi-reconnect5-log test-wifi-reconnect5-native-log
+test-core: test-wifi-reconnect5-log
+test-wifi-completion-foundations: test-wifi-reconnect5-log
+test-wifi-reconnect5-log:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_reconnect5_log.py
+# Explicit OpenSSL/native composition, kept out of portable foundation inputs.
+test-wifi-reconnect5-native-log: build/tests/xhci-stack5-host$(HOST_EXE)
+	$< --trace-reconnect > build/tests/xhci-reconnect5-trace.log
+	WIFI_RECONNECT5_PARENT="$(WIFI_RECONNECT5_PARENT)" WIFI_RECONNECT5_BINARY=$< WIFI_RECONNECT5_TRACE=build/tests/xhci-reconnect5-trace.log PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_reconnect5_log.py

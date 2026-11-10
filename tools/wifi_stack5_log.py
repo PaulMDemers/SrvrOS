@@ -48,10 +48,16 @@ def boot_identity(log, release=None):
 # rules. Only production request counts/lengths and the honest unused probe
 # differ. The thousand-line RF chain is reused without any projection/rewrite.
 _HTTP_TRANSPORT = object()  # Internal trusted profile,never a boot token or inferred log value.
+_CONNECTION_TRANSPORT = object()  # Bounded local-parent close; no legacy parent-success projection.
 
-def _owner(log, lines, rows, *, profile=None):
-    require(profile is None or profile is _HTTP_TRANSPORT, 'unknown raw transport profile')
+def _owner(log, lines, rows, *, profile=None, expected_epoch=None, previous_context=None):
+    require(profile is None or profile is _HTTP_TRANSPORT or profile is _CONNECTION_TRANSPORT,
+            'unknown raw transport profile')
     http = profile is _HTTP_TRANSPORT
+    connection = profile is _CONNECTION_TRANSPORT
+    require((connection and type(expected_epoch) is int and 0<expected_epoch<2**64) or
+            (not connection and expected_epoch is None and previous_context is None),
+            'epoch/context override outside explicit connection transport')
     pos = 1
     def take(prefix, keys):
         nonlocal pos
@@ -65,7 +71,7 @@ def _owner(log, lines, rows, *, profile=None):
                 'wrong production schema/range')
         return values
     plan=take('wifi-stream5-plan','tx rx epoch slot pages positions max_tx max_rx max_fences')
-    require(all(plan[k]==v for k,v in dict(epoch=1,pages=4,positions=63,max_tx=80,max_rx=252,max_fences=4).items()),'wrong finite stream plan')
+    require(all(plan[k]==v for k,v in dict(epoch=expected_epoch if connection else 1,pages=4,positions=63,max_tx=80,max_rx=252,max_fences=2 if connection else 4).items()),'wrong finite stream plan')
     rings=[plan['tx'],plan['rx']];slot=plan['slot']
     require(0<slot<256 and all(0<x<=2**64-4096 and x%4096==0 for x in rings) and len(set(rings))==2,'invalid stream rings/slot')
     def unique(prefix):
@@ -79,6 +85,13 @@ def _owner(log, lines, rows, *, profile=None):
         found=[s for s in lines if s.startswith(f'wifi-join5-context: phase=8 dci={dci} ')]
         require(len(found)==1,'missing restored parent endpoint')
         a=fields(found[0],'wifi-join5-context');parent_context[d]=[a['w'+str(i)] for i in range(8)]
+    if previous_context is not None:
+        require(connection and set(previous_context)=={0,1} and
+                all(isinstance(previous_context[d],list) and len(previous_context[d])==8 and
+                    all(type(v) is int and 0<=v<2**32 for v in previous_context[d]) for d in (0,1)) and
+                not previous_context[0][0]&7 and previous_context[1]==parent_context[1],
+                'invalid actual preceding connection context')
+        parent_context={d:previous_context[d].copy() for d in (0,1)}
     def transfer(control,d):return control<=0xffffffff and control&~1==(slot<<24)|((8+d)<<16)|(32<<10)
     def compact(prefix,keys,hexkey=None):
         nonlocal pos
@@ -130,6 +143,7 @@ def _owner(log, lines, rows, *, profile=None):
             wraps[d]+=1
         fences.append(a)
     require(((0<=sum(wraps)<=4 and 0<=wraps[0]<=1 and 0<=wraps[1]<=3) if http else (2<=sum(wraps)<=4 and wraps[0]==1 and 1<=wraps[1]<=3)) and len(fences)==2*sum(wraps),'missing real TX/RX fences')
+    if connection:require(sum(wraps)<=2,'connection exceeds narrower native fence budget')
     if not http:
         for boundary in range(63,63*wraps[1]+1,63):
             require(any(a['token']<=boundary for a in rx_receipts) and any(a['token']>boundary for a in rx_receipts),'missing authenticated data across RX boundary')
@@ -188,7 +202,8 @@ def _owner(log, lines, rows, *, profile=None):
     require(probe=={k:int(k=='private_erased') for k in probe},'private diagnostic probe ran in production mode')
     return dict(take=take, compact=compact, position=lambda:pos, requests=requests,
                 counts=counts, data=data, selected=selected, rx_receipts=rx_receipts,
-                wraps=wraps, stops=stops, fences=fences, sync=sync, unique=unique)
+                wraps=wraps, stops=stops, fences=fences, sync=sync, unique=unique,
+                plan=plan, contexts=contexts, commands=commands, rings=rings)
 
 
 def check(log, release=None):

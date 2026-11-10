@@ -26,9 +26,30 @@ to the new connection. Late callbacks/events and incomplete disconnect retain
 or refuse ownership. UI, adapter reattach and broader reliability remain later
 gates. Air6,1 storage and Air7,2 display work are outside this lifecycle scope.
 
-Next checkpoint: reviewed main merge/pinned submodules, two-generation native
-path regression plus stale/failure cases, matched fatal checks and exact-image
-VM qualification. Physical acceptance requires a new saved run and matching
+Main `c3550c82` is merged at `3afff099`; recursive pins are retained. The
+implementation adds explicit v140: two fresh native connection/key/DMA/fence
+contexts under one held adapter parent and one stable registered provider.
+Each connection runs production DHCP/DNS and 64 exact gateway echoes; HTTP
+worker rearm, persistent UI and adapter reattach remain separate. Checked stack
+disconnect clears prior IP/router/DNS/ARP state and binds an exact scope identity;
+provider counters/tokens and protocol identifiers survive. Failed boundaries
+fuse admission. Old completion/context and encrypted data cannot acquire new
+connection authority. Original one-shot profiles keep their gates.
+
+The captured local command frontier is 41. The explicit connection recipe
+narrows the fence cap to two per connection, retaining all six cleanup credits
+and refusing a late frontier or excess traffic; legacy cap four is unchanged.
+First/second key and transport objects remain immutable tombstones, including
+actual DMA bytes on allocation-alias refusal. Final full-parent restoration is
+separate from each local native disconnect. HOST tests exercise both generations
+sequentially in one process, with independent OpenSSL fresh-PTK AP data, plus
+stale callbacks/events, late frontier, incomplete Stop, failed outer restoration,
+old-frame replay and aliased allocation. No kernel/controller reset separates
+those two exchanges. New source/log/boot profile review is complete; final
+matched qualification is still pending.
+
+Next checkpoint: full selected normal/fatal/native receipt tests, merged capture/
+filesystem regressions, matched build and v140 exact-image VM qualification. Physical acceptance requires a new saved run and matching
 native evidence; source tests alone do not accept reconnect on this laptop.
 
 ### Cold repeat returned (November 10)
