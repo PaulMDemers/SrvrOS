@@ -9,6 +9,24 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 10)
 
+The3570ee66/9110 hardware return is now closed as FAILED calibration before
+either connection began (session00065ff304b616c2-00). FULL step2 receives no
+accepted response by the unchanged500ms limit; the saved MCU receipt identifies
+the elapsed branch, not physical causation. The127-position connection change
+therefore remains physically untested. All445 prior files/metadata except the
+authorized RTC-bounded marker atime survive; offline checks, seven recoveries
+and Ubuntu default/unarmed pass. Do not recollect/reseal its1395-file primary.
+Independent returned-source/evidence reviews pass failed-run integrity. Six
+new host cases close the short fixture's ring-lifetime gap by independently
+consuming real Normal/Link63 TRBs after1906 preceding IN transfers. All24+6
+normal/fatal sanitizer cases,13 emitted diagnostic comparisons and18 no-skip
+observer cases pass. The injected failures identify no spontaneous physical
+cause. Next capture discriminating failed-TD/producer/Link/unmatched-event state
+before a justified runtime correction and new hardware candidate. No runtime
+change or blind retry is armed. Main8271c254/PR460 was inspected, not integrated.
+
+The following paragraphs retain the preboot qualification checkpoint.
+
 Correction3570ee66/release9110adaf1b1c158f is now software-qualified and installed.
 Normal/native55+19, all19 connection cases in seven scoped fatal groups,
 profile267/collector42, source-frozen workflow20, MCU13/Python18, matching images

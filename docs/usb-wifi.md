@@ -8241,3 +8241,26 @@ payloads and Ubuntu recovery remain intact; the old faileda9 EFI duplicate alone
 was removed after verifying its immutable primary backup. Native reconnect is
 still pending. The local run record controls final review/arming and once-only
 collection. No new source/RF failure is relabeled as accepted.
+
+The3570ee66/9110 cold return then FAILED FULL calibration before either
+connection began. Its failure-only MCU receipt records the unchanged500ms
+elapsed-limit branch on IN/DCI11 at bulk sequence3821, with25 caller-dispatched
+events. This identifies the software exit, not absence of a hardware completion
+or the physical cause. The127-position connection path was never entered.
+The1395-file primary is closed, all445 prior files/metadata except the permitted
+marker atime survive, offline checks and seven recovery proofs pass, and Ubuntu
+is default/unarmed. Before another hardware candidate, audit the long-lived
+native MCU ring/event path and extend the ten-transfer MCU fixture to consume
+actual TRB/Link/cycle state across thousands of transfers. No deadline, retry,
+quarantine or acceptance gate is relaxed by this test-only scope.
+
+That host-only extension now passes all24 original plus6 long-lifetime cases
+normally and under fatal ASan/UBSan. An independent controller cursor consumes
+the actual published Normal/Link63 descriptors; an independent event producer
+checks wrap and cycle handling. Success,400ms response delay, the saved bulk3821/
+index18 and25-event elapsed receipt, incorrect TD/Link cycles and bad reply are
+covered. Thirteen actual diagnostic fragments and18 no-skip observer cases also
+pass. Independent source/evidence/fixture reviews find no blockers, but no
+spontaneous physical cause is reproduced. Failed-TD/producer/Link and unmatched
+MCU event discriminators remain the next investigation; runtime and installed
+payload stay unchanged and no new boot is armed.

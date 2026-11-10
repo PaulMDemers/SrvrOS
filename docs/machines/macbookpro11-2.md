@@ -7,6 +7,50 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+### Capacity candidate returned: calibration failed before connection entry
+
+Runtime `3570ee66`, release `9110adaf1b1c158f`, session
+`00065ff304b616c2-00` was collected FIRST once. This run FAILED during FULL
+calibration (step2/argument0x901); neither connection began. The saved MCU
+receipt records the elapsed-limit branch at500000us, pending IN onDCI11,
+sequence3821, and25 events dispatched by that caller. It does not establish
+absence of a hardware completion, the physical cause of the calibration failure,
+or a failure of the new127-position connection ring, which was never entered.
+The success-only VCO parser's record-count refusal is secondary to this explicit
+earlier calibration failure. No reconnect acceptance is granted.
+
+All445 prior file bytes/metadata survive apart from the one RTC-bounded marker
+atime. Exactly two new logs were saved with an intact exit prefix. Offline fsck
+and allocation pass (447files, zero leaks/mismatches/errors, zero inspection
+writes/flushes). Installed bytes, seven protected prior payloads, Ubuntu default
+and consumed one-shot checks pass. The1395-file primary is closed; do not run
+its collector or reseal it again. No next boot is armed.
+The immutable primary index is
+`a2a50957c35c2ccc9b56ea16b8750c4e074b71da9fdcc47c248c7ab7859b8ec8`.
+
+Independent source/evidence audits pass failed-run integrity and identify a
+coverage gap: the original24-case fixture models at most ten transfers and
+directly supplies completions. Six new host cases now consume actual Normal/
+Link63 TRBs through independent transfer and event cursors after1906 preceding
+IN transfers. They cover success,400ms delayed reply, the same3821/index18 and
+47/C0-to8/C1 elapsed receipt with25 foreign events, wrong TD/Link cycles and bad
+firmware reply. Normal and fatal ASan/UBSan pass all24+6 cases; the13 existing
+emitted diagnostic cases remain semantically equal after host-pool relocation,
+and18 observer cases pass without the optional-trace skip. Only software-fixture
+comparison addresses are relocated; native raw logs remain untouched.
+
+These injected failures do not reproduce a spontaneous software defect or
+establish the physical cause. The exact installed binary publishes TRB control
+last; the suspected combined-store reordering is not present in that binary.
+No runtime change, new image or boot follows this test-only correction. The
+next bounded investigation needs failed submitted-TRB/producer/Link state and
+unmatched MCU event discriminators while retaining unchanged deadlines and DMA
+quarantine. Runtime changes and a new boot require a justified correction and
+actual-path tests. The immutable failure and separate reviews remain unaccepted.
+Actual main `8271c254` / PR460 was fetched and inspected after return; its
+screenshot gate-correlation changes are not in this installed runtime. The
+tested integration baseline remains `72d49457` at `1511c722`.
+
 ### Qualified transfer-capacity correction (November 10)
 
 Runtime `3570ee66`, release `9110adaf1b1c158f`, is installed for the next cold
