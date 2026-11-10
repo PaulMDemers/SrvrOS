@@ -11712,3 +11712,11 @@ verifications and complete allocation checks. Full integration and native
 acceptance remain pending; no new payload or reboot is armed. Actual refreshed
 PR301/PR19 heads are0927d66e/4ab16524; their latest changes retain separate
 graphics qualification and authenticated-network evidence scope.
+
+Final cross-review also found a generic interrupt-enabled last-release slot
+reuse gap. The candidate retains its last content reference through flush/free/
+reset and restores the original interrupt state only after retirement, without
+changing backend service windows. A forced queued allocation regression checks
+that the new slot survives old cleanup. The initial b742ffe9 full build was
+stopped for this review and is incomplete, not accepted; a new frozen source
+must pass all integration checks before any physical stage or reboot.

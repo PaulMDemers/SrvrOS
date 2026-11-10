@@ -4885,16 +4885,19 @@ static int64_t content_flush(struct process_file_content *content) {
     return content_flush_observed(content,0,false);
 }
 static int64_t content_release(struct process_file_content *content) {
-    if(!content || !content->refs) return SRV_ERR_BADF;
-    if(content->refs>1) {content->refs--;return 0;}
-    if(content->writeback.active)return SRV_ERR_BUSY;
-    content->refs=0;
+    uint64_t irq=process_irq_save();
+    if(!content || !content->refs) {process_irq_restore(irq);return SRV_ERR_BADF;}
+    if(content->refs>1) {content->refs--;process_irq_restore(irq);return 0;}
+    if(content->writeback.active) {process_irq_restore(irq);return SRV_ERR_BUSY;}
+    /* The slot remains live while a backend service window can run, and until
+     * its old data is freed. A zero refcount would let another pathname reuse
+     * this fixed slot before the final free/reset of an IF1 kernel caller. */
     int64_t result=content_flush(content);
     if(content->data) {
         if(content->owned) kfree((void *)content->data);
         else if(content->node) vfs_release_data(content->node,content->data);
     }
-    *content=(struct process_file_content){0};return result;
+    *content=(struct process_file_content){0};process_irq_restore(irq);return result;
 }
 int64_t process_file_alloc(struct process *process,
     const struct vfs_node *node,

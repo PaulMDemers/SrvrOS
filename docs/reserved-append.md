@@ -37,7 +37,10 @@ visible at userspace return are not a newly promised durability boundary.
 Borrow retirement, generation/dirty finalization and diagnostic publication
 precede restoring the caller's interrupt state. Active borrows refuse moves,
 freeing and conflicting direct mutations; BUSY close preserves the descriptor
-and references. Duplication, readers, flags, seeks, metadata/path changes,
+and references. Last content release retains its reference through backend
+service windows, free and slot reset, and restores interrupts only after the
+slot is fully retired. A queued new allocation cannot be erased by resumed old
+cleanup. Duplication, readers, flags, seeks, metadata/path changes,
 overwrite and unsupported growth revoke eligibility. Retryable refusal and
 sticky write failure remain distinct. No quarantine, prefix check, checked
 rename, full fresh readback, fsync/global/device barrier or runtime limit is
