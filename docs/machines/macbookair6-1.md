@@ -11046,3 +11046,26 @@ Matching raw evidence, independent review and full payload/trial backups are
 retained outside build. Current/recovery and retained payload hashes verify;
 Ubuntu is default, one-shot consumed, collector disabled and USB unmounted. No
 reboot is armed. The next turn starts from this collected result.
+
+### Same-command completion audit scope (2026-11-09)
+
+Integration base `25594a0f`, after collecting the accepted command-role run.
+The source audit has not established a transport bug: the existing sampled
+ring-service gap and short post-observation resume cannot alone explain the
+selected353.884ms CSW. Existing role maxima omit earlier phases of that exact
+command and do not distinguish empty ring checks from unrelated events.
+
+Bounded objective: retain one fixed CBW/data/CSW/checkpoint companion with the
+same winning command, including final validation outcome, and classify existing
+ring checks using only the existing sampling clock. Touch passive USB/xHCI
+observation, final reporting, strict parser/host fixtures and native collection.
+Separate user-authorized subagents own transport, xHCI audit and strict parsing;
+root owns integration, sequential validation and physical testing. No new ring
+read, USB request, clock read, retry, wait, checkpoint, validation or policy is
+introduced by the observers. Preserve4096-byte bulk/16384-byte command bounds,
+deadlines, quarantine, ownership, durability proofs and500ms/10s runtime limits.
+PR19 has independent xHCI networking additions; keep these narrow observer hunks
+separate. PR301 scanout/process work remains independent. Next checkpoint is
+observer equivalence and strict same-command/tail coverage, followed by the
+unchanged automated30-minute1% native workload. Do not claim a performance fix
+without causal evidence. Retain the accepted690/1991 baselines and recovery.
