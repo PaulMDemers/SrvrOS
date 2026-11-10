@@ -250,6 +250,23 @@ int64_t process_file_open_flags(struct process *process,const char *path,uint64_
 int64_t process_file_open_write(struct process *process, const char *path, uint64_t flags);
 int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
+/* Opt-in owned RAM capacity for a freshly created private exclusive empty file;
+ * ordinary admission is required. No length/cursor/dirty/media change. */
+int64_t process_file_reserve_append_ram(struct process *process,uint64_t fd,uint64_t limit);
+/* IRQ-masked metadata-only prelude proof; actual copy revalidates its lease. */
+bool process_file_reserved_append_entry_candidate(struct process *process,uint64_t fd,uint64_t requested);
+/* Callback must validate the FULL requested user range before copying count
+ * bytes, without allocation, I/O, yielding, signals or IRQ restoration. False
+ * may touch only unpublished reserved tail; handled FAULT publishes no size,
+ * cursor, dirty or generation state and never changes the captured prefix.
+ * False from the
+ * outer attempt leaves all file/result state unchanged and requires admission. */
+typedef bool (*process_reserved_append_copy_fn)(void *context,void *destination,uint64_t count,uint64_t requested);
+bool process_file_try_reserved_append(struct process *process,uint64_t fd,uint64_t requested,
+    process_reserved_append_copy_fn copy,void *context,int64_t *result);
+/* Caller holds ordinary admission; revoke private optimization on path mutation.
+ * Fixed metadata scans only, without allocation, filesystem calls or waiting. */
+void process_revoke_reserved_append_path(const char *path);
 /* Positional operations never change the shared open-file-description offset.
  * Errors use SRV_ERR_*; buffers must already have passed user access checks. */
 int64_t process_file_pread(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length, int64_t offset);

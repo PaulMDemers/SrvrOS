@@ -2136,6 +2136,27 @@ build/tests/syscall-cancel-host$(HOST_EXE): tools/test_syscall_cancel.c kernel/s
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-syscall-cancel
 
+.PHONY: test-reserved-append
+test-reserved-append: build/tests/reserved-append-syscall-host$(HOST_EXE) build/tests/reserved-append-scheduler-host$(HOST_EXE) build/tests/reserved-append-syscall-experimental-host$(HOST_EXE) build/tests/reserved-append-syscall-public-host$(HOST_EXE) $(LIMINE_PROTOCOL_DIR)/.ready
+	build/tests/reserved-append-syscall-host$(HOST_EXE)
+	build/tests/reserved-append-scheduler-host$(HOST_EXE)
+	build/tests/reserved-append-syscall-experimental-host$(HOST_EXE)
+	build/tests/reserved-append-syscall-public-host$(HOST_EXE)
+	CC="$(HOST_CC)" $(PYTHON) tools/test_reserved_append.py --limine-include $(LIMINE_PROTOCOL_DIR)/include
+build/tests/reserved-append-syscall-host$(HOST_EXE): tools/test_reserved_append_syscall.c kernel/src/arch/x86_64/syscall.c kernel/src/arch/x86_64/signal_io_backend.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+build/tests/reserved-append-scheduler-host$(HOST_EXE): tools/test_reserved_append_scheduler.c tools/test_io_scheduler.c kernel/src/scheduler.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+build/tests/reserved-append-syscall-experimental-host$(HOST_EXE): tools/test_reserved_append_syscall.c kernel/src/arch/x86_64/syscall.c kernel/src/arch/x86_64/signal_io_backend.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_SIGNAL_EXPERIMENTAL_INFO -DSRVROS_SIGNAL_PUBLIC_GUEST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+build/tests/reserved-append-syscall-public-host$(HOST_EXE): tools/test_reserved_append_syscall.c kernel/src/arch/x86_64/syscall.c kernel/src/arch/x86_64/signal_io_backend.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_SIGNAL_PUBLIC_GUEST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-reserved-append
+
 .PHONY: test-syscall-io
 test-syscall-io: build/tests/syscall-io-host$(HOST_EXE)
 	$<
@@ -6184,12 +6205,16 @@ test-lifecycle-receipts: build/tests/desktop-session-host$(HOST_EXE)
 	$(PYTHON) tools/test_lifecycle_cycle_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
 
 .PHONY: test-capture-write-timing
-test-capture-write-timing: build/tests/capture-write-timing-host$(HOST_EXE)
+test-capture-write-timing: build/tests/capture-write-timing-host$(HOST_EXE) build/tests/workspace-capture-write-wire$(HOST_EXE)
 	$<
 	$(PYTHON) -m unittest discover -s tools -p test_capture_write_timing.py
+	$(PYTHON) tools/test_capture_write_wire.py --binary build/tests/workspace-capture-write-wire$(HOST_EXE)
 build/tests/capture-write-timing-host$(HOST_EXE): tools/test_capture_write_timing.c kernel/src/capture_write_timing_state.h kernel/include/srvros/capture_write_timing.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+build/tests/workspace-capture-write-wire$(HOST_EXE): tools/test_workspace_capture_write_wire.c kernel/src/workspace_log.c kernel/src/capture_write_timing_state.h kernel/src/capture_gate_timing_state.h $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
 test-core: test-capture-write-timing
 
 # The real process host fixture includes this private timing implementation.
@@ -6241,12 +6266,18 @@ test-wifi-stream5-log: build/tests/xhci-stream5-host$(HOST_EXE)
 	WIFI_STREAM5_TRACE=build/tests/xhci-stream5-trace.log $(PYTHON) -B -m unittest discover -s tools -p test_wifi_stream5_log.py
 
 .PHONY: test-sync-timing
-test-sync-timing: build/tests/sync-timing-host$(HOST_EXE)
+test-sync-timing: build/tests/sync-timing-host$(HOST_EXE) build/tests/workspace-sync-content-wire$(HOST_EXE)
 	build/tests/sync-timing-host$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_sync_timing.py
+	$(PYTHON) -m unittest discover -s tools -p test_sync_content.py
+	$(PYTHON) tools/test_sync_content_wire.py --binary build/tests/sync-timing-host$(HOST_EXE)
+	$(PYTHON) tools/test_sync_content_wire.py --binary build/tests/workspace-sync-content-wire$(HOST_EXE) --production-formatter
 build/tests/sync-timing-host$(HOST_EXE): tools/test_sync_timing.c kernel/src/sync_timing.c $(KERNEL_HEADERS)
 	mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
+build/tests/workspace-sync-content-wire$(HOST_EXE): tools/test_sync_timing.c tools/test_workspace_sync_content_wire.c tools/test_workspace_sync_content_wire.h kernel/src/workspace_log.c kernel/src/sync_timing.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_WORKSPACE_SYNC_CONTENT_WIRE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include tools/test_sync_timing.c tools/test_workspace_sync_content_wire.c -Wl,--gc-sections -o $@
 test-core: test-sync-timing
 
 .PHONY: test-xhci-stream5-dhcp test-wifi-stream5-dhcp-log test-mt76-ip5-retry

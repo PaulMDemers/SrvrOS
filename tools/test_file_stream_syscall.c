@@ -13,13 +13,14 @@ static int deny_copy;
 static size_t mapped_bytes=sizeof(bytes);
 static int64_t admitted_override=INT64_MIN;
 static bool path_busy;
-static unsigned lookups,reads,chmods,utimes,allocations;
+static unsigned lookups,reads,chmods,utimes,allocations,revocations;
 static struct vfs_node node={.type=VFS_NODE_FILE};
 static const uint8_t file_data[]={1,2,3};
 bool exfat_stream_busy(const char *p,bool subtree){assert(!strcmp(p,path) && !subtree);return path_busy;}
 const struct vfs_node *vfs_lookup(const char *p){assert(!strcmp(p,path));lookups++;return &node;}
 bool vfs_read_all(const struct vfs_node *n,const uint8_t **data,uint64_t *size){assert(n==&node);reads++;*data=file_data;*size=sizeof(file_data);return true;}
-bool vfs_chmod(const char *p,uint64_t mode){assert(!strcmp(p,path) && mode==0600);chmods++;return true;}
+void process_revoke_reserved_append_path(const char *p){assert(!strcmp(p,path) && !path_busy && lookups==2 && !chmods);revocations++;}
+bool vfs_chmod(const char *p,uint64_t mode){assert(!strcmp(p,path) && mode==0600 && revocations==1);chmods++;return true;}
 int64_t process_path_utime(const char *p,uint64_t a,uint64_t m){assert(!strcmp(p,path) && a==11 && m==12);utimes++;return 0;}
 int64_t process_file_alloc(struct process *p,const struct vfs_node *n,const uint8_t *data,uint64_t size){(void)p;assert(n==&node && data==file_data && size==sizeof(file_data));allocations++;return 9;}
 static int64_t backend_result;
@@ -79,10 +80,10 @@ int main(void){
     assert(syscall_open(path)==SRV_ERR_BUSY);
     assert(syscall_chmod(path,0600)==SRV_ERR_BUSY);
     assert(syscall_utime(path,11,12)==SRV_ERR_BUSY);
-    assert(!lookups && !reads && !allocations && !chmods && !utimes);
+    assert(!lookups && !reads && !allocations && !chmods && !utimes && !revocations);
     path_busy=false;
     assert(syscall_open(path)==9 && lookups==1 && reads==1 && allocations==1);
-    assert(syscall_chmod(path,0600)==0 && lookups==2 && chmods==1);
+    assert(syscall_chmod(path,0600)==0 && lookups==2 && chmods==1 && revocations==1);
     assert(syscall_utime(path,11,12)==0 && utimes==1);
     struct isr_frame frame={.rax=SYS_FILE_STREAM};assert(namespace_syscall(SYS_FILE_STREAM) && !syscall_io_safe(&frame));
     puts("file stream syscall: PASS");return 0;

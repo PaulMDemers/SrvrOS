@@ -140,6 +140,8 @@ long srv_unix_accept(int fd);
 long srv_unix_unlink(const char *path);
 long srv_poll(struct srv_pollfd *fds, size_t nfds, int64_t timeout_ms);
 long srv_fcntl(int fd, int command, uint64_t flags);
+/* Capacity only; refusal leaves ordinary writes available and unchanged. */
+long srv_file_reserve_append_ram(int fd,uint64_t capacity);
 long srv_ftruncate(int fd, uint64_t length);
 long srv_fsync(int fd);
 long srv_sync(void);

@@ -184,6 +184,9 @@ long srv_poll(struct srv_pollfd *fds, size_t nfds, int64_t timeout_ms) {
 long srv_fcntl(int fd, int command, uint64_t flags) {
     return srv_syscall3(SYS_FCNTL, fd, command, (long)flags);
 }
+long srv_file_reserve_append_ram(int fd,uint64_t capacity) {
+    return srv_fcntl(fd,SRV_F_RESERVE_APPEND_RAM,capacity);
+}
 
 long srv_ftruncate(int fd, uint64_t length) {
     return srv_syscall2(SYS_FTRUNCATE, fd, (long)length);

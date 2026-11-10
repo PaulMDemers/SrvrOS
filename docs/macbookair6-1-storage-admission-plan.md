@@ -109,3 +109,85 @@ The main admission-delay work continues with the separate immutable-prefix/
 reserved-buffer design above. That implementation must first prove its opt-in
 ownership, raw syscall/user-copy, ordinary fallback and explicitly partitioned
 diagnostics; it does not inherit authority merely from this local validation.
+
+## Reserved-append implementation checkpoint
+
+The [private reserved-append contract](reserved-append.md) now implements that
+separate candidate on merged PR457. A corrected real-process/VFS/exFAT replay
+compares an unreserved baseline, reserved sequential control and controlled
+overlap. Every mode executes65 screenshot writes totaling4196406 bytes, all65
+foreign global sync calls and all65 other-file markers. Every required captured
+prefix is checked after each barrier; both full fresh file verifications,
+independent fsck and complete allocation checks pass for the positive cases.
+
+Unreserved and reserved sequential source I/O is identical:11445 callbacks,
+149469760 read bytes and136314880 prefix bytes. Controlled overlap accepts52
+proved copies plus13 ordinary writes and visits14 dirty screenshot snapshots;
+the remaining barriers still execute. It records3269 callbacks,37054980 read
+bytes and26411008 prefix bytes. These are deterministic host source-I/O counts,
+excluding independent validation reads, not a native speedup or physical-media
+measurement. Ordinary native interleavings may differ.
+
+Actual payload-write and last-target-flush faults each preserve655360 accepted
+RAM bytes, including262144 bytes appended beyond the captured prefix. The prior
+successful committed length remains65536 and a surviving actual reader can
+read all accepted bytes after the writer closes with an error. Sticky failure
+and quarantine prevent further fast writes. Payload failure leaves the previous
+65536-byte media prefix and explicitly fails complete allocation with two leaks
+and one error. The late flush failure exposes393216 media bytes but does not
+falsely advance the committed length. Retained failure images are diagnostic
+evidence, not clean recovery or permission to reuse quarantined media.
+
+Independent source review closes the interrupt-return borrow gap and defensive
+active-target descriptor-replacement case. The production IF1 regression queues
+last close precisely at interrupt restoration and requires prior borrow/dirty
+finalization; direct BUSY close/dup2/dup3 preserve references, descriptors and
+generations. Matched full builds and VM/native integration are still pending at
+this checkpoint. All original limits, barriers and integrity requirements stay
+in force.
+
+## Frozen candidate integration
+
+Source `51670ae6` passes full matched/core/desktop/docs and ordinary ABI/input/
+fork/exec/yield/USB/capture regressions. The populated Home400-write-IOPS KVM
+trial completes21 app cycles,187 overlap windows and a valid9.679639s screenshot
+with zero recorded audio underruns. Maximum loop/ready/close times are238.866ms/
+1.238376s/1.681271s under the original limits. The raw write partition contains24
+proved64KiB copies and39 ordinary calls; all63 writes, full byte proofs, gate/
+prefix companions, allocation and retirement checks pass. Independent parsing
+of the saved/checkpoint logs also reproduces complete app-stage/file-service
+receipts and the exact BMP/binary disk receipt. Do not transfer this short VM's
+complete per-cycle log coverage to native bounded-tail evidence.
+
+Stage `a1397d0b2e7ba0d1` passes exact-manifest native-board refusal, save/unmount
+and automatic-return rehearsal. No hardware acceptance follows from those VM
+checks. The next native test keeps the original1800s1% workload/60s tail and
+all500ms/10s limits, ownership, prefix checks and durability barriers. Observe
+actual ordinary/private-copy coverage and complete matching collection before
+claiming a native benefit. The earlier interrupted-media failure remains open.
+
+## Native composition accepted
+
+The Air6,1 a139 trial of compiled `51670ae6` completes the original 1800-second
+1% workload with 1,079 app cycles, 4,062 disk bursts, three exact screenshots,
+zero recorded audio underruns and clean exit/retirement. Its 121.468 ms maximum
+loop and 1.893635/5.371300 s ready/close maxima pass the unchanged limits. All
+814 prior files remain, and 823 final files/3,803 clusters pass independent
+allocation, fsck and actual-media hash checks. See the
+[unit result](machines/macbookair6-1.md#native-reserved-append-result-2026-11-10).
+
+Native capture times are 11.053331/15.913968/6.072230 s. Each has 65 raw writes;
+26/27/27 are proved copies and 39/38/38 use ordinary admission. The 11.053331 s
+median is below d551's 15.025137 s, but different boots/interleavings/work counts
+do not isolate a causal gain. All v2 partitions, selected captured-prefix
+companions and original byte/retirement contracts validate. Native bounded-tail
+evidence does not inherit the short VM's complete per-cycle receipts or its
+observed active-append dirty-survivor sample.
+
+Remaining ordinary gates consume 94.24–97.89% of raw write wall time. The worst
+2.301091 s gate retains an observed global-sync owner, but its interval does not
+join this run's selected maximum content commit. Preserve those independent
+observations rather than manufacture a callback attribution. Next work should
+reproduce and reduce the remaining admission cost at unchanged ownership,
+integrity and runtime requirements. No further run is armed; the old battery
+failure and failed-repair media remain unresolved evidence.

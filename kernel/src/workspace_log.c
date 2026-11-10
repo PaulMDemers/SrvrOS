@@ -56,11 +56,11 @@ static void end(uint64_t flags) { scheduler_io_end();unlock(flags); }
 static void capture_write_checkpoint(bool final) {
     struct capture_write_snapshot s;process_capture_write_snapshot(&s);if(!s.enabled)return;
     uint64_t at=timer_monotonic_us();
-    console_printf("capture-write-snapshot: version=1 snapshot_us=%u enabled=%u invalid=%u dropped=%u final=%u\n",at,s.enabled,s.invalid,s.dropped,(uint64_t)final);
+    console_printf("capture-write-snapshot: version=2 snapshot_us=%u enabled=%u invalid=%u dropped=%u final=%u\n",at,s.enabled,s.invalid,s.dropped,(uint64_t)final);
     for(unsigned i=0;i<CAPTURE_WRITE_RECORDS;i++) {
         const struct capture_write_record *r=&s.records[i];if(!r->pid)continue;
-        console_printf("capture-write-record: version=1 snapshot_us=%u pid=%u first_us=%u last_us=%u retired=%u attempts=%u calls=%u requested=%u bytes=%u failures=%u growths=%u invalid=%u final=%u\n",
-            at,r->pid,r->first_us,r->last_us,r->retired,r->attempts,r->calls,r->requested,r->bytes,r->failures,r->growths,r->invalid,(uint64_t)final);
+        console_printf("capture-write-record: version=2 snapshot_us=%u pid=%u first_us=%u last_us=%u retired=%u attempts=%u calls=%u requested=%u bytes=%u failures=%u growths=%u invalid=%u fast_calls=%u fast_requested=%u fast_bytes=%u fast_failures=%u fast_max_request=%u fast_max_bytes=%u final=%u\n",
+            at,r->pid,r->first_us,r->last_us,r->retired,r->attempts,r->calls,r->requested,r->bytes,r->failures,r->growths,r->invalid,r->fast_calls,r->fast_requested,r->fast_bytes,r->fast_failures,r->fast_max_request,r->fast_max_bytes,(uint64_t)final);
         const struct capture_gate_summary *g=&r->gate;
         for(unsigned kind=0;kind<2;kind++) {
             const struct capture_gate_counts *c=kind?&g->worst.counts:&g->total;
@@ -72,7 +72,7 @@ static void capture_write_checkpoint(bool final) {
             at,r->pid,g->worst.start_us,g->worst.end_us,o->thread,o->pid,o->syscall,o->scope_start_us,o->scope_end_us,o->overlap_start_us,o->overlap_end_us,(uint64_t)final);
         for(unsigned j=0;j<CAP_WRITE_SITE_COUNT;j++) {
             const struct capture_write_sample *p=&r->site[j];
-            console_printf("capture-write-sample: version=1 snapshot_us=%u pid=%u site=%u count=%u total_us=%u max_us=%u final=%u\n",
+            console_printf("capture-write-sample: version=2 snapshot_us=%u pid=%u site=%u count=%u total_us=%u max_us=%u final=%u\n",
                 at,r->pid,(uint64_t)j,p->count,p->total_us,p->max_us,(uint64_t)final);
         }
     }
@@ -191,7 +191,9 @@ static void report_sync_content(uint64_t at,const struct sync_timing_snapshot *s
     report_sync_commands(at,selected);
     if(!selected)return;
     const struct sync_content_call *c=&selected->worst.content.worst;
-    console_printf("sync-content-worst: version=1 snapshot_us=%u pid=%u id=%u slot=%u identity=%u inode=%u size=%u start_us=%u end_us=%u ok=%u dirty_after=%u final=1\n",at,selected->pid,selected->worst.start_us,c->slot,c->identity,c->inode,c->size,c->start_us,c->end_us,c->ok,c->dirty_after);
+    console_printf("sync-content-worst: version=%u snapshot_us=%u pid=%u id=%u slot=%u identity=%u inode=%u size=%u start_us=%u end_us=%u ok=%u dirty_after=%u final=1\n",(uint64_t)(c->prefix.valid?2:1),at,selected->pid,selected->worst.start_us,c->slot,c->identity,c->inode,c->size,c->start_us,c->end_us,c->ok,c->dirty_after);
+    if(c->prefix.valid)console_printf("sync-content-prefix: version=1 snapshot_us=%u pid=%u id=%u identity=%u start_generation=%u end_generation=%u live_size=%u committed_size=%u append_calls=%u append_bytes=%u final=1\n",
+        at,selected->pid,selected->worst.start_us,c->identity,c->prefix.start_generation,c->prefix.end_generation,c->prefix.live_size,c->prefix.committed_size,c->prefix.append_calls,c->prefix.append_bytes);
     for(unsigned i=0;i<SYNC_CONTENT_ROLES;i++) {
         const struct sync_content_io *p=&c->io[i];
         console_printf("sync-content-io: version=1 snapshot_us=%u pid=%u id=%u role=%u reads=%u read_bytes=%u read_us=%u writes=%u write_bytes=%u write_us=%u flushes=%u flush_us=%u failures=%u final=1\n",at,selected->pid,selected->worst.start_us,(uint64_t)i,p->reads,p->read_bytes,p->read_us,p->writes,p->write_bytes,p->write_us,p->flushes,p->flush_us,p->failures);

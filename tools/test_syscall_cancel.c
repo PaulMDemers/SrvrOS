@@ -9,6 +9,8 @@ static bool killed, kill_during_call, in_call;
 static unsigned calls;
 static uint64_t exit_status;
 static bool safe_call, user_safe, kill_while_waiting;
+static bool reserved_route,reserved_decline;
+static unsigned reserved_effects;
 static unsigned waits;
 static unsigned handoffs;
 static bool kill_during_handoff;
@@ -30,6 +32,19 @@ void scheduler_io_set_user_safe(bool safe) { if(safe) safe_publications++; user_
 void scheduler_user_enter(void) { assert(!simulated_if); user_entries++; user_safe=true; }
 void scheduler_io_wait(void) { assert(!user_safe); waits++; if(kill_while_waiting) killed=true; }
 bool syscall_io_safe(const struct isr_frame *frame) { (void)frame; return safe_call; }
+bool syscall_reserved_append_candidate(const struct isr_frame *frame) {
+    assert(!user_safe);
+    return reserved_route && frame->rax==SYS_WRITE && frame->rdi>=3 && frame->rdx && frame->rdx<=65536;
+}
+bool syscall_reserved_append_dispatch(struct isr_frame *frame) {
+    assert(reserved_route && user_safe && !in_call);calls++;
+    if(reserved_decline) {
+        scheduler_io_set_user_safe(false);scheduler_io_wait();
+        if(killed) {frame->rax=(uint64_t)SRV_ERR_INTR;return false;}
+    }
+    in_call=true;reserved_effects++;frame->rax=42;in_call=false;
+    return !reserved_decline;
+}
 bool process_should_exit_current(void) { return killed; }
 uint64_t process_current_kill_status(void) { return 130; }
 void process_exit(uint64_t status) {
@@ -172,6 +187,21 @@ int main(void) {
     write_tracing=true;write_edges=0;
     frame=(struct isr_frame){.cs=0x23,.rax=SYS_WRITE,.rdi=3,.rdx=12345};
     dispatch_syscall_with_cancellation(&frame);assert(write_edges==5 && frame.rax==42 && !user_safe);write_tracing=false;
+    /* The exact raw-entry proof stays on IDT's stack. A handled private copy
+     * has no invented ordinary gate/handoff; decline restores both. */
+    reserved_route=true;
+    unsigned rw=waits,rh=handoffs,re=reserved_effects;
+    frame.rax=SYS_WRITE;dispatch_syscall_with_cancellation(&frame);
+    assert(reserved_effects==re+1 && waits==rw && handoffs==rh && !user_safe && frame.rax==42);
+    reserved_decline=true;
+    frame.rax=SYS_WRITE;dispatch_syscall_with_cancellation(&frame);
+    assert(reserved_effects==re+2 && waits==rw+1 && handoffs==rh+1 && !user_safe && frame.rax==42);
+    kill_while_waiting=true;frame.rax=SYS_WRITE;
+    if(setjmp(exited)==0) {dispatch_syscall_with_cancellation(&frame);assert(0);}
+    assert(reserved_effects==re+2 && exit_status==130 && !user_safe);
+    killed=kill_while_waiting=reserved_decline=false;
+    frame.rax=SYS_READ;dispatch_syscall_with_cancellation(&frame);
+    assert(reserved_effects==re+2); /* A typed/other raw operation gains no route. */
     puts("syscall-cancel-host: PASS (pending kill, deferred I/O kill, normal return, kernel entry)");
 }
 
