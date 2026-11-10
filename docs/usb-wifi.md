@@ -8055,3 +8055,16 @@ see the Pro record. The new collection owner is
 `build/bringup/wifi-http5-hold-state/run.json`; collect its new session first once,
 without recollecting the old run. Both USB devices require a10-second cold reset
 for this trial. Lifecycle/UI/reattachment and sustained use remain open.
+
+
+The785e3605/7cdfeeefca45728b cold run now passes independently reviewed native
+actual-process TCP/HTTP: production DHCP/DNS, exact4159-byte request/3072-byte
+body and genuine EOF, child/worker/TCP retirement and full original-key/provider/
+parent restoration. The intact2045777-byte prefix,430 ordinary-file hashes and
+strict metadata (only RTC-bounded marker atime), offline inspection and recovery
+checks pass. One original-tail management cleanup forward receipt is exercised
+with zero extra scratch pages. The first held run's cause stays unproved.
+Primary1729 files remain immutable; acceptance is a separate10-file record.
+One unchanged-image cold repeat is next; persistent connection generations,
+connect/disconnect UI, removal/reattach and reliability remain open. The adapter
+is still5GHz-only; Demers2.4 needs different compatible hardware.

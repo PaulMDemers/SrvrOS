@@ -6,6 +6,32 @@ The merged baseline and exact v134 No-Op candidate are software-qualified;older 
 Edimax7392:a711 MT7610 is5GHz-only. Target Demers5 WPA2-PSK/CCMP,US161/20MHz.
 Demers2.4 requires a different compatible adapter;it is a separate hardware scope.
 
+
+## Current checkpoint (November 9)
+
+Source785e3605/release7cdfeeefca45728b now has independent native acceptance for
+one fixed161 authenticated production DHCP/DNS and actual-process exact HTTP
+request/body/EOF, with child/worker/TCP, key/provider/ledger and full parent
+retirement. The primary1729-file capsule is immutable; separate10-file acceptance
+notes and independent storage replay retain strict metadata/ordinary-file proof.
+The previous retained-owner hold is still unexplained. No persistent service,
+second connection generation, reattach, desktop connection controls or broad
+reliability is accepted. The source remains explicitly one-shot and bounded.
+
+Next: ONE exact-image cold repeat with a new433-file workspace baseline/VM,
+reusing the unchanged source/payload's prior qualification. Then integrate and
+qualify reviewed main0d83d045's shared USB observation changes before adapter/
+connection lifetime implementation. Keep original failures and success unchanged.
+
+The next implementation separates adapter/provider ownership from a connection,
+with fresh key/PN/epoch and child/worker lifetime per connection. First prove two
+connect/DHCP/DNS/exact-transfer/disconnect generations on one present adapter.
+Do not clear one-shot guards, reuse retired tombstones or merely enlarge limits.
+Command-address reuse, pending idle RX and event debt need explicit proofs where
+needed. Follow with cancellation/wrong credentials/AP loss and safe removal/
+reattach, then async scan/status/connect/disconnect UI and sustained coexistence.
+Demers2.4 remains a separate compatible-adapter requirement.
+
 ## Done and preserved
 
 Discovery/selection,matched authentication/association,four-way M3 MIC/local M4,
@@ -14,8 +40,9 @@ DNS/256-byte gateway echo,asynchronous copied-provider TX and bounded four-page
 RX/TX reuse have native evidence. Full key/endpoint/input/MAC/power/RF retirement
 has evidence. Historical failures remain failures. Native reuse has separate
 storage review:all non-sidecar bytes preserved/current metadata tree valid,but
-historical metadata-field equality was not captured. Ordinary provider RX and
-continuous networking are not accepted. Immutable evidence/recovery must survive
+historical metadata-field equality was not captured. Bounded original-key production RX/DHCP/DNS/ICMP and actual-process TCP/HTTP
+now have the November9 evidence below; persistent service and continuous
+networking remain unaccepted. Immutable evidence/recovery must survive
 clean builds. Do not infer general reliability from short diagnostic exchanges.
 
 ## Execution and parallel ownership
@@ -101,8 +128,9 @@ several adjacent requirements without weakening limits.
 Before physical tests,confirm local model,source/release,UUID0E53-5900,recovery,
 private artifact modes and durable run record. Progress/results automatic.
 Collect once first on return. Missing completion/halts fail. Keep Ubuntu default.
-User authorizes automatic qualified trials. Adapter still needs Wi-Fi-only10second
-cold unplug:shutdown,leave workspace drive connected,reconnect same port,power on.
+User authorizes automatic qualified trials. Current cold trials require BOTH
+the Wi-Fi adapter and workspace USB disconnected for10seconds while powered off,
+then reconnected to the same ports before power on.
 Use reboot only after warm-start behavior is independently qualified. Attended
 work opens the entire untimed checklist in the guest before requiring input.
 
@@ -115,7 +143,7 @@ implied by completing this WPA2 fixed-adapter path. Trackpad latency,battery and
 headphone work remain independently deferred.
 
 
-## Current checkpoint (November 8)
+## Historical checkpoint (November 8)
 
 All three parallel software assignments are integrated and qualified. The actual
 native async backend and typed controller-only No-Op child have fatal sanitizer,

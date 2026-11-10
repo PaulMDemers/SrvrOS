@@ -17089,3 +17089,54 @@ helper mistake before archive creation: it excluded nested checksum files that
 the older software capsule explicitly indexes. Exact inventory policy was
 corrected,17 private corruption/symlink fixtures and concrete historical
 verification pass, and the refusal remains preserved. No old capsule was changed.
+
+
+## November 9 native actual-process HTTP accepted
+
+Runtime785e3605/release7cdfeeefca45728b completed matching
+`session-00065fe306e3fa03-00`. The once-only source-frozen collection passes the
+complete2,045,777-byte exit prefix. Production DHCP without retry and DNS feed
+the real prelive HTTP child: exact4,159-byte request,3,072-byte body, genuine EOF,
+status0/reap/lifetime retirement, TCP EMPTY, parked-worker finish and reference
+scrubbing. Active workload time is1,352,926us,113 worker turns/155 worker polls.
+Original-key native provider receipts show21 data TX,25 delivered RX,80 returned
+loans and one RX fence. No TX fence or observed post-fence data crossing is
+claimed. Full15,719-operation parent/key/provider/ledger/context/input/power/RF
+restoration passes; backend tombstones remain retained until controller halt.
+
+Independent protocol replay equals both frozen full-parent and transport
+results;12 coherent-prefix corruptions refuse. First management cleanup
+exercises one original-tail forward reconciliation (short CC13/residue3728, then
+empty Stop CC27/residue0 with matching stopped frontier/DCS), zero extra scratch
+pages and seven quiet rounds. This accepts that observed bounded path, not
+generic extra-page cleanup. The old48f39654 hold remains unexplained; diagnostic
+telemetry and a subsequent successful run do not establish a causal fix.
+
+Independent storage replay verifies430 prior ordinary file hashes;431 total
+prior files includes the generated sidecar. Its complete metadata tree retains
+every prior field except one marker atime within native RTC
+[1794278536,1794278546]. Exactly two logs and one session directory are new.
+Root separately reread live media read-only and matched all captured post-return
+bytes/metadata/logs, repeated strict original-baseline verification and offline
+fsck/allocation with inspection writes0/flushes0. All recovery payloads and
+post-return NVRAM equality pass; Ubuntu is default and unarmed.
+
+The original1,729-file primary remains immutable, index
+`ebe56e7e709271f85ef3bdaf30f7adec5f1135c5b3141406b59f39e927119a79`.
+Separate10-file acceptance notes have index
+`6804cae0c825f539a9abb404d65857fce254d9002cc614227443bc75de9ab809`;
+independent replay artifacts also survive distclean in a separate13-file capsule.
+The primary's native-pending record is preserved; acceptance belongs to the
+separate record. This is one bounded fixed161 connection/transfer/retirement,
+not persistent service, reconnect/reattach, desktop controls or reliability.
+
+Next bounded objective is ONE unchanged785e3605/7cdfeeefca45728b cold repeat,
+with separate `build/bringup/wifi-http5-repeat/run.json`, fresh433-file baseline
+and exact-clone VM preservation (passed). Prior selected host/fatal/six-VM
+qualification is reused by immutable source/payload hashes, not called a fresh
+full-suite run. Both USB devices need10seconds cold reset. After that, separate
+adapter/provider lifetime from connection lifetime; prove two connect/transfer/
+disconnect generations before asynchronous UI controls and removal/reattach.
+Fetched actual main0d83d045 (PR450/451) adds shared USB observation phases. It is
+reviewed but deliberately not merged into the unchanged-image repeat; merge and
+qualify it before subsequent lifecycle implementation. No hardware gate widens.
