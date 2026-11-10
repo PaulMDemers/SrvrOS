@@ -2,7 +2,38 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Ready: BCS reset under maintained five-engine preparation
+### Collected: held BCS reset completes, full preparation misses its deadline
+
+Payload source `d22194cd`, release `a25250e9a1f62f9e`, session
+`session-00065fe204ee8f63-00` is a **timing nonpass**. Both BCS8 pulses complete
+in14us each, with51us settling and a3,539us reset scope. The source epoch remains0
+and the live parent advances to1. The mixed snapshot shows the other four holds
+unchanged and BCS cleared; all10 request/cancel acknowledgements, five control
+snapshots,92-word post-census,54 plane reads and both HDA snapshots preserve.
+
+The full preparation takes **103,702/100,000us**, exceeding the unchanged bound
+by3,702us. Reason2/clock is recorded at stage6 after verified borrow return;
+the last valid guard is at98,641us and the subsequent return tail is5,061us.
+Those endpoints identify the late interval, not its internal cost. Reset-helper
+completion does not override the failed whole-lifetime deadline. There is no
+uncertain/retained state; all13 aliases retire and exclusion releases. The wake
+bracket is298,771/500,000us. Native combined acceptance remains false.
+
+Strict decoding and the durable preflight checkpoint verify; collector attention
+and `completed=NO` correctly preserve the nonpass. All1,431 prior USB files
+preserve except expected metadata; three new logs give1,434files/134sessions.
+Offline filesystem/allocation/writable/headroom, installed/banked/recovery and
+Ubuntu-default checks pass. The one-shot is consumed and no reboot is armed;
+volume was1% at dispatch. Evidence is backed up independently outside build.
+Checkpoint:`build/air-held-reset-20261109`.
+
+Next: reconcile fetched main`25594a0f` (PR448/449 storage attribution and Air6,1
+evidence) before the next candidate, then isolate return/admission and
+preservation overhead without extending100/300/500ms deadlines or removing
+ownership checks. All255 completion obligations remain open, with zero managed
+pages and no physical tear-free grant.
+
+### Prior qualification: BCS reset under maintained five-engine preparation
 
 Payload source `d22194cd` (protocol `5827e45d`), release `a25250e9a1f62f9e`,
 validation checkout `41bb435f`. The only source difference is the qualified VM
@@ -36,7 +67,8 @@ was archived only after full inventory/SHA equality with its independent bank;
 both survive distclean. Full qualification evidence is independently backed up.
 Checkpoint:`build/air-held-reset-20261109`.
 
-**Native combined reset timing/preservation/return remains pending.** The next
+At this pretrial checkpoint, **native combined acceptance remained pending**;
+the subsequent timing nonpass is recorded above. The planned
 trial needs no input and displays progress; safe durable outcomes return to
 Ubuntu, uncertainty or persistence failure halts visibly. It must prove that
 BCS clears while the other four holds survive and that cancellation/preservation

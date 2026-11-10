@@ -82,7 +82,9 @@ Do not widen domain8 to0x9e or assume readiness bits survive reset. See the
 [reset contract](intel-bcs-reset.md). That planning block selected no broader native reset writer. The separate
 [held BCS reset composition](intel-engine-held-reset.md) now implements the
 BCS8-only epoch-aware lifetime, with a distinct native image and qualification
-gates. Its host completion does not accept hardware timing or memory transfer.
+gates. Its first native run completes the reset helper and clean preservation/
+retirement but misses the preparation deadline at103,702/100,000us. The combined
+lifetime remains a timing nonpass; no memory transfer is accepted.
 
 Before staging that composition, record the exact native action, reference-backed
 register/memory effects, per-obligation evidence and failure-state ownership.

@@ -210,7 +210,9 @@ The separate [reset-capable composition](intel-engine-held-reset.md) is now
 locally/VM qualified: payload `d22194cd`, release `a25250e9a1f62f9e`, qualified
 harness `41bb435f`. It owns the epoch change and mixed post-reset control state
 under the same original borrow, retains the exact BCS8-only gate and original
-bounds, and has no native acceptance yet. All eight ownership obligations remain
+bounds. The first native run completes both pulses, mixed controls, preservation
+and clean retirement but misses the whole preparation deadline at103,702/100,000us;
+it remains a timing nonpass with no native combined acceptance. All eight ownership obligations remain
 open. GPU range transfer, owned command/mapping completion and reader retirement
 remain distinct reviewed gates; neither a reset ACK nor PCI TP clear supplies
 those assurances.

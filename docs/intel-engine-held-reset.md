@@ -130,3 +130,20 @@ Installed at1%, Ubuntu default, no reboot armed. Independent evidence survives
 distclean. Native timing, mixed controls, preservation and retirement still need
 the matching physical session. Separate earlier resets/captures do not accept
 this composition or any GPU-memory obligation.
+
+## First native combined result: timing nonpass
+
+Source `d22194cd`, release `a25250e9a1f62f9e`, session
+`session-00065fe204ee8f63-00` records both BCS8 pulses completing in14us each,
+51us settling and a3,539us helper scope. Mixed controls, reverse cancellation,
+raw engine/display/HDA preservation and verified return all match. The complete
+preparation nevertheless takes103,702/100,000us and remains incomplete with
+reason2/clock at stage6. Its last valid guard is98,641us; the5,061us return tail
+crosses the limit. This is a timing nonpass, not acceptance of the composition.
+
+All13 aliases retire, with no uncertain/retained state; the outer wake bracket
+is298,771/500,000us. The durable checkpoint, three new logs, clean automatic
+return, prior-file preservation and offline filesystem/allocation checks verify.
+No reboot remains armed. See the [machine result](machines/macbookair7-2.md)
+for the next bounded timing investigation. Deadlines, admission checks and all255
+outstanding completion obligations remain unchanged; no GPU memory is granted.
