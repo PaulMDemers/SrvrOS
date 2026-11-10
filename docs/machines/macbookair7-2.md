@@ -2,6 +2,22 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Active: reduce repeated CPU page-table traversal in held-reset admission
+
+Integrated main`b3c2f30d` at merge`ca64090b`; PR301 remains the GPU diagnostics
+owner, PR19 networking and PR379 WebCore remain separate. The previous candidate
+is collected and independently backed up; no boot is armed. This bounded block
+will add an IRQ-excluded, current sole-kernel-root observational contiguous-range
+query in VMM and use it only in the new held-reset image's backing endpoint.
+It will still read every leaf mapping, rewalk ancestors at each leaf-table
+boundary, and run every existing backing census/provider/lifetime/clock check.
+There is no persistent mapping cache, mapping mutation, widened hardware profile,
+new writer or longer deadline. Scope: VMM header/implementation, actual-VMM tests,
+held-reset backing adapter and its host fixture, qualification/docs. Older images
+retain scalar translation. Next: compare actual scalar/batched results and table
+lookup counts under faults, run host and exact-stage VM gates, then prepare an
+automated native candidate. Native timing improvement remains unaccepted.
+
 ### Collected: held BCS reset completes, full preparation misses its deadline
 
 Payload source `d22194cd`, release `a25250e9a1f62f9e`, session
