@@ -8296,3 +8296,14 @@ event details for an admitted nested bulk. Empty snapshots must be zero. These
 records add no payload/key reads, MMIO, extra polling, clocks, TD, retry, reset,
 longer deadline, DMA reclamation or native acceptance. Build/native-host/wire
 and sanitizer qualification precede any new installed diagnostic candidate.
+
+Runtime1423bf12/release34ed3937df70ec64 is now qualified and installed. The24
+original,6 long-lifetime and9 diagnostic host scenarios pass normally and under
+fatal ASan/UBSan; all19 reconnect cases also pass both. Sixteen C fragments,
+18 legacy/14 companion parser cases and20 source-frozen collection cases pass,
+including actual drop retention and malformed companion refusal. Six VM gates
+and strict447-file clone preservation pass. Ubuntu and all seven protected
+recovery payloads are preserved; only the fully backed failed9110 EFI duplicate
+was removed. The local run record controls final review/arming and once-only
+collection. This is a diagnostic comparison; the physical cause and native
+disconnect/reconnect are still unproved.

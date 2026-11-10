@@ -7,21 +7,43 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-### Active MCU failure discrimination work
+### Qualified descriptor and event diagnostic (November 10)
 
-Next bounded objective: retain the failed MCU Normal/Link descriptor and
-producer-cycle snapshot plus a bounded set of rejected/relevant transfer-event
-receipts, without retry, new register I/O, wider deadlines or DMA retirement.
-Changes are limited to the xHCI MCU diagnostic receipt/dispatch/failed-calibration
-formatter, its actual-native host fixture and strict observation parser/tests.
-The original failure rows and historical schemas remain readable. Observations
-cannot grant native acceptance or infer absence of a firmware response. Build,
-sanitizer and source-review gates precede any new installed candidate; the closed
-1395-file primary and70-file failed-return review stay immutable. No boot is armed.
-Actual main8271c254/PR460's screenshot gate-correlation changes are integrated
-before this source work; existing device-specific gates and submodule pins remain.
-Other open scopes are Air7,2 scanout PR301 and WebCore audit PR379, with no MCU
-implementation overlap. The installed runtime remains3570ee66/release9110.
+Runtime `1423bf12`, release `34ed3937df70ec64`, is installed for the next cold
+calibration/reconnect comparison. Main `8271c254` (PR460) is integrated at
+`cddfd086`, with recursive submodule pins preserved. The original bulk row is
+unchanged. The same receipt can now retain failed Normal/Link63 descriptor and
+producer state plus the first four relevant dispatched events, counts and drops.
+These observations do not change event admission, polling, deadlines, retry,
+reset, register access or DMA retirement. The prior physical cause remains
+unproved; this candidate adds discriminators, not a calibration correction.
+
+On 2,103 pinned inputs, normal xHCI/Wi-Fi, scheduler/storage/HTTP regressions,
+55 historical native and 19 reconnect cases, profile267/collector42, full RF
+composition and matched images pass. Seven fresh fatal sanitizer groups pass,
+including the24 calibration cases,6 long-lifetime and9 diagnostic scenario
+groups, legacy power-on123 and all19 native reconnect cases. Sixteen actual C
+fragments and18 legacy/14 companion parser cases pass with no trace skip. The
+20-case collector rehearsal freezes599 Python modules and9 RF fixtures, retains
+the actual event samples/drop count before parent refusal and preserves raw
+input when a companion is malformed. The previous saved failure's legacy
+decoding is unchanged. Independent source, parser and workflow reviews pass.
+
+All six VM gates pass, including exact numeric/DNS HTTP with independent34/38
+packet/frame checks, exact-stage GPT and missing-workspace, desktop and strict
+447-file/187-directory workspace clone preservation. These remain software
+checks. Installed bytes and all seven protected payloads match their backups;
+factorye47 remains the direct fallback and acceptedc603 remains resident. Only
+the fully backed failed9110 EFI duplicate was removed after promoting c603.
+The closed1395-file primary and70-file review are unchanged. Ubuntu remains
+default/unarmed; the local run record owns final independent review and arming.
+
+Both USB devices still need ten seconds unplugged while the laptop is off, then
+the same ports before power-on. Handled completion saves and returns to Ubuntu.
+If calibration passes, the unchanged bounded recipe tests two fresh connections,
+DHCP/DNS and64 exact gateway replies per connection. Native acceptance is still
+pending. No HTTP rearm, persistent service, UI/reattach, warm-start or reliability
+acceptance is implied.
 
 ### Capacity candidate returned: calibration failed before connection entry
 

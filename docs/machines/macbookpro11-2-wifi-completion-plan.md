@@ -9,14 +9,18 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 10)
 
-Main8271c254 is now integrated atcddfd086 before additive MCU failure-detail
-work. The original bulk diagnostic stays unchanged; optional sequence-bound
-ring/producer/Link and bounded dispatch-event companions supply missing failure
-discriminators. Exact stack-receipt identity protects nested/saturated-sequence
-cases. Initial native24+long6+6 observation scenario groups and14 parser/wire
-tests pass; explicit dropped/overflow/invalid-snapshot emitted cases and final
-qualification are pending. No hardware cause or calibration/reconnect acceptance
-is claimed; installed3570/9110 and all closed capsules stay unchanged and unarmed.
+Main8271c254 is integrated atcddfd086. Runtime1423bf12/release34ed3937df70ec64
+is qualified and installed for the cold MCU observation/reconnect comparison.
+The original bulk diagnostic stays unchanged; sequence-bound descriptor,
+producer/Link and bounded dispatch-event companions supply missing discriminators.
+Normal and fatal sanitizer checks cover24 calibration cases,6 long-lifetime and9
+diagnostic groups; all19 reconnect cases pass both. Sixteen emitted fragments,
+18 legacy/14 companion parser cases and20 frozen collector cases pass, including
+malformed companion retention and contradictory complete-parent refusal. All six
+VMs and the strict447-file clone pass. Only the fully backed failed9110 EFI
+duplicate was retired; factorye47, acceptedc603 and the other protected payloads
+remain verified. All closed records stay unchanged. The local run record owns
+final review/arming. Calibration cause and native reconnect remain open.
 
 The3570ee66/9110 hardware return is now closed as FAILED calibration before
 either connection began (session00065ff304b616c2-00). FULL step2 receives no
