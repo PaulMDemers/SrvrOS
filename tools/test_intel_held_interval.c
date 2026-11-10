@@ -83,6 +83,7 @@ static bool interval_end(void *ctx) {
  assert(!memcmp(&saved,&m->result,sizeof saved));
  return ok;
 }
+#ifndef INTEL_HELD_INTERVAL_FIXTURE_ONLY
 int main(int argc,char **argv) {
  (void)prepare_preserve;
  struct interval_model m={.base={.m={.base={.gt={.t=1000,.mode="normal"},.mode="normal"},.mode="normal"},.mode="normal"},
@@ -110,4 +111,6 @@ int main(int argc,char **argv) {
  } else assert(!r.complete && !x.complete && r.uncertain && r.borrow.active && !intel_gt_access_close(&g));
  struct scanout_transfer_manifest data;assert(!intel_held_interval_manifest(&m.result,&data));
  printf("held-interval: PASS mode=%s point=%u clocks=%u guards=%u loads=%u reads=%u\n",m.kind,m.point,m.clocks,m.guards,m.loads,m.result.reads);
+ return 0;
 }
+#endif

@@ -307,15 +307,20 @@ bool intel_display_backing_probe_report(void) {
     if(b->status==1) {
         for(unsigned i=0;i<INTEL_BACKING_FENCES;i++)console_printf("intel-backing-fence: v=1 index=%u raw=%x\n",(uint64_t)i,b->sample[0].fence[i]);
         static const char abc[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        for(unsigned i=0;i<b->count;i+=16) {
-            uint8_t bytes[128];char data[173];unsigned count=b->count-i;if(count>16)count=16;
+#ifdef SRVROS_INTEL_REHOLD
+        enum { backing_chunk=64,backing_wire=2 };
+#else
+        enum { backing_chunk=16,backing_wire=1 };
+#endif
+        for(unsigned i=0;i<b->count;i+=backing_chunk) {
+            uint8_t bytes[backing_chunk*8];char data[((backing_chunk*8+2)/3)*4+1];unsigned count=b->count-i;if(count>backing_chunk)count=backing_chunk;
             for(unsigned j=0;j<count*8;j++)bytes[j]=(uint8_t)(b->pte[i+j/8]>>(8*(j%8)));
             unsigned k=0;
             for(unsigned j=0;j<count*8;j+=3) {
                 unsigned left=count*8-j;uint32_t v=(uint32_t)bytes[j]<<16;if(left>1)v|=(uint32_t)bytes[j+1]<<8;if(left>2)v|=bytes[j+2];
                 data[k++]=abc[v>>18];data[k++]=abc[(v>>12)&63];data[k++]=left>1?abc[(v>>6)&63]:'=';data[k++]=left>2?abc[v&63]:'=';
             }
-            data[k]=0;console_printf("intel-backing-pte: v=1 first=%u count=%u data=%s\n",(uint64_t)i,(uint64_t)count,data);
+            data[k]=0;console_printf("intel-backing-pte: v=%u first=%u count=%u data=%s\n",(uint64_t)backing_wire,(uint64_t)i,(uint64_t)count,data);
         }
     }
     return b->status==1;

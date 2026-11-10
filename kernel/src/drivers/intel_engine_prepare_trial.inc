@@ -3,6 +3,9 @@
 #include <srvros/intel_engine_held_reset.h>
 #ifdef SRVROS_INTEL_HELD_INTERVAL
 #include <srvros/intel_held_interval.h>
+#ifdef SRVROS_INTEL_REHOLD
+#include <srvros/intel_engine_rehold.h>
+#endif
 #endif
 #endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
@@ -15,6 +18,11 @@ struct engine_prepare_trial {
  struct intel_engine_held_reset_result reset;
 #ifdef SRVROS_INTEL_HELD_INTERVAL
  struct intel_held_interval_result interval;
+#ifdef SRVROS_INTEL_REHOLD
+ struct intel_engine_rehold rehold;
+ struct intel_engine_rehold_child rehold_child;
+ uint32_t live_words[5];unsigned live_checks,live_reads,live_count;bool live_failed;
+#endif
 #endif
 #endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
@@ -30,6 +38,9 @@ struct engine_prepare_adapter {struct wake_adapter *a;struct intel_gt_access *g;
  unsigned reset_snapshot_reads,reset_pulses;
 #ifdef SRVROS_INTEL_HELD_INTERVAL
  unsigned interval_reads;
+#ifdef SRVROS_INTEL_REHOLD
+ unsigned rehold_reads,rehold_stores;
+#endif
 #endif
 #endif
 };
@@ -176,6 +187,9 @@ static bool eprepare_preserve(void *ctx,const struct intel_completion_result *pr
 #endif
 #ifdef SRVROS_INTEL_PREPARE_RESET
 #ifdef SRVROS_INTEL_HELD_INTERVAL
+#ifdef SRVROS_INTEL_REHOLD
+#include "intel_engine_rehold_trial.inc"
+#endif
 #include "intel_held_interval_trial.inc"
 #endif
 #include "intel_engine_held_reset_trial.inc"
@@ -203,6 +217,9 @@ static void eprepare_report(const struct engine_prepare_trial *t) {
 #ifdef SRVROS_INTEL_PREPARE_RESET
  ehr_report(&t->reset);
 #ifdef SRVROS_INTEL_HELD_INTERVAL
+#ifdef SRVROS_INTEL_REHOLD
+ erehold_report(t);
+#endif
  einterval_report(&t->interval);
 #endif
 #endif

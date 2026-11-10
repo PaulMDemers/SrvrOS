@@ -6,7 +6,7 @@ controls are3/3/3/3/0: BCS reset cleared its request while the other four remain
 held. A future native range provider needs a maintained hardware interlock,
 not merely a software borrow or a completed receipt.
 
-The new scope will re-arm only BCS RESET_CTL at0x220d0 using the existing
+The separate `--intel-rehold` image re-arms only BCS RESET_CTL at0x220d0 using the existing
 request0x00010001/ready protocol, invoke a child while all five requests remain
 held, then cancel only that additional BCS request with0x00010000. Exact mixed
 state must return before the existing outer cancellation/preservation. Every
@@ -32,3 +32,47 @@ It imports no catastrophic-error bypass, non-ready reset, forced cancellation
 or additional reset domain. The [managed-memory plan](intel-managed-memory-plan.md)
 still requires actual interval, firmware, DMA/cache and reader witnesses before
 the first native PTE store.
+
+## Implemented source and wire boundary
+
+The original reset object owns a one-use registration of the re-arm object.
+Source, preparation, sole registered GT borrow, current epoch and original GT
+start remain bound. Rebound copies and a different fresh re-arm object cannot
+claim the same reset. The child is separately address-sealed, exclusive and
+one-use; a live or lost child prevents the cancellation store. There is no new
+GT borrow or deadline. Core and native admission check both the original100ms
+preparation and300ms owner clocks, including the final sample before a store;
+the500ms outer diagnostic bound remains unchanged.
+
+Four raw six-DWORD groups retain mixed entry, held entry/exit and restored mixed
+state. Two acknowledgement rows retain first/final values, polls and phase clocks.
+The child performs the original-entry observation under19 fresh native checks
+of all five controls(95 additional control DWORDs). The last completed control
+prefix, counts and failure are retained. A separate summary binds the original
+clock origins, epoch, child borrow/return, restoration and uncertainty. The
+strict decoder requires joint reset/preparation/interval/wake completion and
+full preservation; a child observation alone is not acceptance of its parent.
+Modeled native fixtures continue to fail real native backing prerequisites.
+
+Only wake version19 and the exact20-token recipe add
+`srvros.intel-rehold=request-cancel`. The new image has its own firmware request
+and pre-user-init deferral. It uses the same14 aliases and profile/cache gates,
+with only the existing BCS control page writable. No new reset domain, PTE store
+or aperture-data alias is introduced. Older images keep their exact recipes,
+control paths and wire formats.
+
+To fit the unchanged65,536-byte saved tail and1,536-byte reserve, this image
+packs raw inherited PTEs in version2 chunks of64 entries. Every little-endian
+64-bit word survives; the final partial chunk and canonical base64 are checked.
+The older version1 chunks stay16 entries. Version2 requires the new image or its
+exact preflight boot context; mixed versions, gaps, duplicates, truncation and
+wrong-image data refuse. Actual older/newer C producers must decode to the same
+complete1,356-entry vector. Plane/HDA preservation still retains all74 DWORDs.
+
+Qualification requires full regressions,24-image isolation, fatal sanitizers,
+compiled negative controls, native object checks, worst-width log projection and
+exact-stage VM persistence/refusal/missing-workspace. The original native hold
+has only2,621us one-run preparation margin; do not extend any bound to fit this
+additional work. Native re-arm acceptance is pending. Preserve the accepted
+older payload and Ubuntu recovery; the automated trial needs no input, saves
+safe outcomes and returns, while retained uncertainty/persistence failure halts.

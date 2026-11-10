@@ -12,6 +12,14 @@ static enum intel_gt_write intel_display_test_held_reset_transition(uint32_t,uin
 static unsigned interval_reads;
 static bool intel_display_test_interval_read(uint32_t,uint32_t *);
 static void intel_display_test_interval_admission(void);
+#ifdef SRVROS_INTEL_REHOLD
+static unsigned rehold_reads,rehold_stores;
+static uint64_t rehold_owner_origin;
+static void intel_display_test_rehold_source(void *);
+static bool intel_display_test_rehold_read(unsigned,uint32_t,uint32_t *);
+static void intel_display_test_rehold_admission(void);
+static enum intel_gt_write intel_display_test_rehold_transition(uint32_t,uint32_t *);
+#endif
 #endif
 #endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
@@ -243,7 +251,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_HELD_INTERVAL
+#ifdef SRVROS_INTEL_REHOLD
+#define intel_wake_firmware_request intel_rehold_firmware_request
+#elif defined(SRVROS_INTEL_HELD_INTERVAL)
 #define intel_wake_firmware_request intel_held_interval_firmware_request
 #elif defined(SRVROS_INTEL_PREPARE_RESET)
 #define intel_wake_firmware_request intel_held_reset_firmware_request
@@ -669,6 +679,10 @@ static void reset(void) {
     held_reset_boundary=held_reset_reads=held_reset_attempts=held_reset_writes=held_reset_domain_reads=held_reset_clock_fault=0;
 #ifdef SRVROS_INTEL_HELD_INTERVAL
     interval_reads=0;
+#ifdef SRVROS_INTEL_REHOLD
+    rehold_reads=rehold_stores=0;
+    rehold_owner_origin=0;
+#endif
 #endif
     range_calls=range_fail_at=0;
 #endif
@@ -843,6 +857,9 @@ int main(int argc,char **argv) {
     static char held_reset_recipe[1900];snprintf(held_reset_recipe,sizeof(held_reset_recipe),"%s srvros.intel-bcs-reset=held-blitter-only",held_recipe);wake_cmd.cmdline=held_reset_recipe;
 #ifdef SRVROS_INTEL_HELD_INTERVAL
     static char interval_recipe[2000];snprintf(interval_recipe,sizeof interval_recipe,"%s srvros.intel-interval=read-only",held_reset_recipe);wake_cmd.cmdline=interval_recipe;
+#ifdef SRVROS_INTEL_REHOLD
+    static char rehold_recipe[2100];snprintf(rehold_recipe,sizeof rehold_recipe,"%s srvros.intel-rehold=request-cancel",interval_recipe);wake_cmd.cmdline=rehold_recipe;
+#endif
 #endif
 #endif
 #endif
@@ -1217,6 +1234,10 @@ static bool intel_display_test_interval_read(uint32_t off,uint32_t *out) {
  assert(wake_irq && !display_access_allowed() && prepare_stores==5 && held_reset_writes==2 &&
   held_reset_reads==18 && held_reset_boundary==1 && held_boundary==2);
  assert(pa[INTEL_CAPTURE_PAGES+1+13]==0xc0811000);
+#ifdef SRVROS_INTEL_REHOLD
+ assert(rehold_stores==1);
+ for(unsigned e=0;e<5;e++)assert(prepare_controls[e]==3);
+#endif
  if(held_reset_at("interval-read",i+1))return false;
  *out=(uint32_t)(window_result.sample[1].entry[0]>>(i%3==1?0:32));
  if(held_reset_at("interval-drift",i+1) || held_reset_at("interval-drift-foreign",i+1))*out^=1;
@@ -1224,5 +1245,42 @@ static bool intel_display_test_interval_read(uint32_t off,uint32_t *out) {
  if(held_reset_at("interval-map",i+1))pa[INTEL_CAPTURE_PAGES+1+13]^=4096;
  if(held_reset_at("interval-time",i+1))ticks+=100001;
  return true;
+}
+#endif
+
+#ifdef SRVROS_INTEL_REHOLD
+static void intel_display_test_rehold_source(void *ctx) {
+ struct engine_prepare_adapter *p=ctx;
+ if(held_reset_at("rehold-admission-owner",1) || held_reset_at("rehold-admission-owner",2)) {
+  p->g->begin=ticks-299000;rehold_owner_origin=p->g->begin;
+ }
+}
+static bool intel_display_test_rehold_read(unsigned i,uint32_t off,uint32_t *out) {
+ static const uint32_t regs[6]={0x20d0,0x120d0,0x1a0d0,0x1c0d0,0x220d0,0x941c};
+ assert(i<6 && off==regs[i] && wake_irq && !display_access_allowed());
+ assert(held_reset_writes==2 && held_reset_reads==18 && held_reset_boundary==1 && prepare_stores==5);
+ ++rehold_reads;if(held_reset_at("rehold-read",rehold_reads))return false;
+ *out=i<5?prepare_controls[i]:0;
+ if(held_reset_at("rehold-value",rehold_reads) || held_reset_at("rehold-value-foreign",rehold_reads))*out^=4;
+ if(held_reset_at("rehold-value-foreign",rehold_reads) || held_reset_at("rehold-foreign",rehold_reads))wake_request|=2;
+ if(held_reset_at("rehold-map",rehold_reads))pa[INTEL_CAPTURE_PAGES+1+(i==5?9:i+3)]^=4096;
+ if(held_reset_at("rehold-time",rehold_reads))ticks+=100001;
+ return true;
+}
+static void intel_display_test_rehold_admission(void) {
+ if(held_reset_at("rehold-admission-owner",rehold_stores+1)){assert(rehold_owner_origin);ticks=rehold_owner_origin+300001;}
+ if(held_reset_at("rehold-admission-time",rehold_stores+1))ticks+=100001;
+ if(held_reset_at("rehold-admission-zero",rehold_stores+1))held_reset_clock_fault=1;
+ if(held_reset_at("rehold-admission-backward",rehold_stores+1))held_reset_clock_fault=2;
+}
+static enum intel_gt_write intel_display_test_rehold_transition(uint32_t value,uint32_t *out) {
+ ++rehold_stores;assert(rehold_stores<=2 && value==(rehold_stores==1?0x10001u:0x10000u));
+ assert(wake_irq && !display_access_allowed() && held_reset_writes==2 && prepare_stores==5);
+ if(held_reset_at("rehold-none",rehold_stores))return GT_WRITE_NONE;
+ prepare_controls[4]=rehold_stores==1?3:0;*out=prepare_controls[4];
+ if(held_reset_at("rehold-ack-float",rehold_stores))*out=UINT32_MAX;
+ if(held_reset_at("rehold-store-foreign",rehold_stores))wake_request|=2;
+ if(held_reset_at("rehold-store-time",rehold_stores))ticks+=100001;
+ return held_reset_at("rehold-uncertain",rehold_stores)?GT_WRITE_UNCERTAIN:GT_WRITE_DONE;
 }
 #endif

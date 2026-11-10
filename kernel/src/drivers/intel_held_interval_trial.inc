@@ -2,7 +2,11 @@
  * alias, after reset acknowledgement and before its provider-exit census. */
 static bool einterval_guard(void *ctx) {
  struct engine_prepare_adapter *p=ctx;
- return intel_engine_prepare_reset_live(&p->trial->reset) && eprepare_guard(p);
+ return intel_engine_prepare_reset_live(&p->trial->reset) && eprepare_guard(p)
+#ifdef SRVROS_INTEL_REHOLD
+  && erehold_child_guard(p)
+#endif
+  ;
 }
 static uint64_t einterval_now(void *ctx) {return eprepare_now(ctx);}
 static bool einterval_read(void *ctx,uint32_t offset,uint32_t *out) {
@@ -16,7 +20,11 @@ static bool einterval_read(void *ctx,uint32_t offset,uint32_t *out) {
  intel_display_test_interval_admission();
 #endif
  uint64_t at=eprepare_now(p);
+#ifdef SRVROS_INTEL_REHOLD
+ if(!erehold_time(p,at))return false;
+#else
  if(!at || at<r->last_us || at<r->origin_us || at-r->origin_us>INTEL_ENGINE_PREPARE_TOTAL_US)return false;
+#endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  bool ok=intel_display_test_interval_read(offset,out);
 #else

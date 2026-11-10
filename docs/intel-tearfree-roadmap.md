@@ -20,7 +20,6 @@ It does not accept another Mac's firmware or graphics profile.
 | Requester capture inside maintained preparation, source `8559ac44`, release `67a178af16c8983f`, session `session-00065fe0b883f61e-00` | Original preparation borrow, five ready requests, two matching PCI snapshots, cancellation/preservation/return;96,728/100,000us,13 aliases retired | Reset-capable action semantics, repeatability, all memory/completion obligations |
 | Maintained preparation/PCI/BCS8 reset, source `9c788f3f`, release `8d3839aaa57f707d`, session `session-00065fe55d829da0-00` | Exact pre-user-init recipe; full reset/cancel/preservation/return in97,414/100,000us, wake280,135/500,000us;13 aliases retired | Repeatability, wider reset scope, all memory/completion obligations |
 | Private backing lifetime, source `23af85e2`, release `d72619c4e02bb721`, session `session-00065fe6c815e551-00` | Four cases in16,563us; two disjoint1,356-page buffers, full patterns, CPU borrow drain, unknown-range refusal and one deliberate private-page quarantine; durable checkpoint, preservation and clean return | GPU interval import, native mapping/encoding, hardware cache/translation completion, real flip/reader retirement |
-
 | Original GGTT entry inside held reset, source `3315df79`, release `e07848a7c00d893d`, session `session-00065fef0f0829d7-00` | Six read-only DWORD loads in59us under the original active post-reset borrow; original entry/source epoch bind, preparation97,379/100,000us, full preservation and14 aliases retired | Exclusive interval transfer, hardware/cache/DMA/firmware/reader assurances, PTE writes and page flips |
 
 These are separate exact-source lifetimes. They cannot be combined into a
@@ -29,6 +28,11 @@ records the accepted native capture; PCI AF TP clear is an observation, not
 proof that all posted writes reached memory. Bus mastering remains enabled.
 All eight completion obligations remain open (mask255), native hardware
 assurances remain zero and no managed GPU pages are accepted.
+
+The next [post-reset BCS re-arm scope](intel-engine-rehold.md) addresses the
+remaining mixed hardware hold3/3/3/3/0. It will keep all five ready requests
+through a source-bound child before restoring the prior state. Its native
+qualification is pending and it closes no memory/completion obligation.
 
 The separate [complete transfer core](scanout-transfer.md), source`68489058`,
 now supplies4,096-entry owned manifests and joined child drain/retirement with

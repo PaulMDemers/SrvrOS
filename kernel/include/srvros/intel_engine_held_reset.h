@@ -2,6 +2,7 @@
 #define SRVROS_INTEL_ENGINE_HELD_RESET_H
 #include <srvros/intel_engine_prepare.h>
 #include <srvros/intel_bcs_reset.h>
+struct intel_engine_rehold;
 enum intel_engine_held_reset_reason {IHR_INPUT=1,IHR_CLOCK=2,IHR_PARENT=4,
  IHR_GUARD=8,IHR_READ=16,IHR_WRITE=32,IHR_STATE=64,IHR_TIMEOUT=128,IHR_PROVIDER=256};
 struct intel_engine_held_reset_result {
@@ -13,6 +14,8 @@ struct intel_engine_held_reset_result {
  uint64_t phase_begin_us[2],phase_end_us[2];
  unsigned reason,attempts,writes,reads,polls,acks,snapshot_attempts,snapshots,counts[2],phase_polls[2],stage;
  bool attempted,entered,active,epoch_advanced,provider_enter,provider_exit,uncertain,complete;
+ /* Original-source one-use registration; older diagnostics leave this NULL. */
+ struct intel_engine_rehold *rehold;
 };
 struct intel_engine_held_reset_io {
  void *ctx;

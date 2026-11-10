@@ -21,7 +21,9 @@ static bool ehr_begin(void *ctx) {
 }
 static bool ehr_end(void *ctx) {
  struct engine_prepare_adapter *p=ctx;
-#ifdef SRVROS_INTEL_HELD_INTERVAL
+#ifdef SRVROS_INTEL_REHOLD
+ if(!erehold_run(p))return false;
+#elif defined(SRVROS_INTEL_HELD_INTERVAL)
  if(!einterval_run(p))return false;
 #endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST

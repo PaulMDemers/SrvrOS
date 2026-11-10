@@ -5742,3 +5742,48 @@ test-capture-media-integration: $(LIMINE_PROTOCOL_DIR)/.ready
 test-core: test-capture-media-integration
 
 build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/capture_worker.h
+
+# Post-reset BCS re-arm and original-source child lifetime, isolated from old images.
+.PHONY: test-intel-engine-rehold
+test-core: test-intel-engine-rehold
+test-intel-engine-rehold: build/tests/intel-engine-rehold$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_engine_rehold.py
+build/tests/intel-engine-rehold$(HOST_EXE): tools/test_intel_engine_rehold.c tools/test_intel_held_interval.c tools/test_intel_engine_held_reset.c tools/test_intel_engine_prepare.c kernel/diagnostics/intel_engine_rehold.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -Ikernel/include $< kernel/diagnostics/intel_engine_rehold.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_held_reset.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c -o $@
+
+# Exact post-reset BCS re-arm image; older images never link its core.
+INTEL_REHOLD_FLAGS := $(INTEL_HELD_INTERVAL_FLAGS) -DSRVROS_INTEL_REHOLD
+build/intel-rehold/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_REHOLD_FLAGS) -c $< -o $@
+build/intel-rehold/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_engine_rehold_trial.inc kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_held_interval_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_REHOLD_FLAGS) -c $< -o $@
+build/intel-rehold/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_REHOLD_FLAGS) -c $< -o $@
+build/intel-rehold/interval.o: kernel/diagnostics/intel_held_interval.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-rehold/rehold.o: kernel/diagnostics/intel_engine_rehold.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-rehold/srvros.elf: build/intel-rehold/rehold.o build/intel-rehold/main.o build/intel-rehold/probe.o build/intel-rehold/requests.o build/intel-rehold/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+
+build/tests/intel-rehold-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_rehold.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_rehold.c kernel/diagnostics/package_audit_core.c -o $@
+
+build/tests/intel-rehold-adapter$(HOST_EXE): kernel/src/drivers/intel_engine_rehold_trial.inc kernel/src/drivers/intel_held_interval_trial.inc kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc
+
+build/tests/boot-rehold$(HOST_EXE): tools/test_boot_rehold.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-rehold
+test-intel-rehold: test-intel-engine-rehold build/tests/intel-rehold-adapter$(HOST_EXE) build/tests/intel-held-interval-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/boot-rehold$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_rehold_adapter.py
+	build/tests/boot-rehold$(HOST_EXE)
+test-core: test-intel-rehold

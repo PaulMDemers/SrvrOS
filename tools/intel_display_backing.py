@@ -26,7 +26,7 @@ def backing_result(text):
                 if not re.fullmatch(r'(?:0x[0-9a-fA-F]{1,16}|[0-9]{1,20})',value):raise ValueError('invalid backing number')
                 fields[key]=int(value,16 if value.startswith('0x') else 10)
                 if fields[key]>=1<<64:raise ValueError('backing overflow')
-        if set(fields)!=set(SCHEMAS[kind].split()) or fields['v']!=1:raise ValueError('invalid backing schema/version')
+        if set(fields)!=set(SCHEMAS[kind].split()) or fields['v'] not in ((1,2) if kind=='pte' else (1,)):raise ValueError('invalid backing schema/version')
         rows[kind].append(fields)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or len(rows['sample'])!=2 or len(rows['endpoint'])!=2:raise ValueError('incomplete backing report')
@@ -56,9 +56,16 @@ def backing_result(text):
     base=e['bdsm']&0xfff00000;end=base+(gms<<25);table=e['bgsm']&0xfff00000;size=(1<<ggms)<<20;tolud=e['tolud']&0xfff00000
     if not base or not table or max(end,table+size)>tolud or (base<table+size and table<end) or summary['ggtt_bytes']!=size or summary['stolen_base']!=base or summary['stolen_end']!=end or (summary['offset']//4096+summary['count'])*8>size:raise ValueError('invalid stolen/table bounds')
     if e['fb_pages']!=(fb['pitch']*fb['height']+4095)//4096 or e['entry_type'] not in (1,7) or e['entry_base']>fb['physical'] or e['entry_base']+e['entry_length']>1<<64 or fb['physical']+fb['pitch']*fb['height']>e['entry_base']+e['entry_length']:raise ValueError('invalid framebuffer translation/map coverage')
+    versions={chunk['v'] for chunk in rows['pte']}
+    if len(versions)!=1:raise ValueError('mixed backing PTE versions')
+    wire=next(iter(versions));chunk_size=64 if wire==2 else 16
+    if wire==2:
+        wake=re.findall(r'^intel-wake-summary: v=([0-9]+) ',text,re.M)
+        boot=re.findall(r'^laptop-capture: boot options=(.*)$',text,re.M)
+        if not (wake==['19'] or not wake and len(boot)==1 and boot[0].split().count('srvros.intel-rehold=request-cancel')==1):raise ValueError('packed PTE image binding')
     ptes=[]
     for chunk in rows['pte']:
-        if chunk['first']!=len(ptes) or chunk['count']!=min(16,summary['count']-len(ptes)) or chunk['count']<=0:raise ValueError('incomplete/duplicate PTE chunk')
+        if chunk['first']!=len(ptes) or chunk['count']!=min(chunk_size,summary['count']-len(ptes)) or chunk['count']<=0:raise ValueError('incomplete/duplicate PTE chunk')
         try:data=base64.b64decode(chunk['data'],validate=True)
         except (ValueError,base64.binascii.Error) as exc:raise ValueError('invalid PTE encoding') from exc
         if len(data)!=8*chunk['count'] or base64.b64encode(data).decode()!=chunk['data']:raise ValueError('noncanonical PTE chunk')

@@ -588,6 +588,10 @@ def needs_attention(line):
             return result is None or result['summary']['code'] != 0
         except ValueError:
             return True
+    if line.startswith('intel-rehold-summary:'):
+        from intel_engine_rehold import rehold_summary
+        try:return not rehold_summary(line)['complete']
+        except ValueError:return True
     if line.startswith('intel-held-interval-summary:'):
         from intel_held_interval import interval_summary
         try:return not interval_summary(line)['complete']
@@ -945,6 +949,13 @@ def collect(mount, volume, output):
                     pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
                     verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
             except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
+        if 'srvros.intel-rehold=request-cancel' in text:
+            try:
+                from intel_engine_rehold import native_rehold_result,verify_rehold_checkpoint
+                held=native_rehold_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not held or not held['native_complete']:attention.append('Intel post-reset rehold incomplete or refused')
+                else:verify_rehold_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True)
+            except ValueError as error:attention.append('Invalid Intel post-reset rehold: '+str(error))
         if 'srvros.intel-interval=read-only' in text:
             try:
                 from intel_held_interval import native_held_interval_result,verify_interval_checkpoint

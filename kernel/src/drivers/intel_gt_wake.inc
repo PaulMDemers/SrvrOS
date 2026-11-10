@@ -36,7 +36,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_HELD_INTERVAL
+#ifdef SRVROS_INTEL_REHOLD
+extern volatile struct limine_firmware_type_request intel_rehold_firmware_request;
+#elif defined(SRVROS_INTEL_HELD_INTERVAL)
 extern volatile struct limine_firmware_type_request intel_held_interval_firmware_request;
 #elif defined(SRVROS_INTEL_PREPARE_RESET)
 extern volatile struct limine_firmware_type_request intel_held_reset_firmware_request;
@@ -73,7 +75,11 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
 #ifdef SRVROS_INTEL_HELD_INTERVAL
 #define WAKE_MAPS 14u
+#ifdef SRVROS_INTEL_REHOLD
+#define WAKE_VERSION 19u
+#else
 #define WAKE_VERSION 18u
+#endif
 #else
 #define WAKE_MAPS 13u
 #ifdef SRVROS_INTEL_PREPARE_RESET
@@ -390,7 +396,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_HELD_INTERVAL
+    #ifdef SRVROS_INTEL_REHOLD
+    const struct limine_firmware_type_response *firmware=intel_rehold_firmware_request.response;
+#elif defined(SRVROS_INTEL_HELD_INTERVAL)
     const struct limine_firmware_type_response *firmware=intel_held_interval_firmware_request.response;
 #elif defined(SRVROS_INTEL_PREPARE_RESET)
     const struct limine_firmware_type_response *firmware=intel_held_reset_firmware_request.response;
@@ -426,7 +434,9 @@ bool intel_gt_wake_probe_report(void) {
     struct intel_pci_requester_result requester={0};
 #elif defined(SRVROS_INTEL_ENGINE_PREPARE)
 #ifdef SRVROS_INTEL_PREPARE_RESET
-#ifdef SRVROS_INTEL_HELD_INTERVAL
+#ifdef SRVROS_INTEL_REHOLD
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_rehold_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_HELD_INTERVAL)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_held_interval_recipe(cmd->cmdline);
 #else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_held_reset_recipe(cmd->cmdline);
@@ -610,7 +620,14 @@ bool intel_gt_wake_probe_report(void) {
     complete=complete && prepared.reset.complete;
 #ifdef SRVROS_INTEL_HELD_INTERVAL
     engine_reads+=prepared.interval.reads;
-    complete=complete && prepared.interval.complete && prepared.interval.bound;
+#ifdef SRVROS_INTEL_REHOLD
+    engine_reads+=prepared.rehold.reads+prepared.live_reads;
+#endif
+    complete=complete && prepared.interval.complete && prepared.interval.bound
+#ifdef SRVROS_INTEL_REHOLD
+                && prepared.rehold.complete
+#endif
+    ;
 #endif
     admission_report();
 #endif

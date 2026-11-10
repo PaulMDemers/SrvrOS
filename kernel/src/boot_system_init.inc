@@ -2,7 +2,12 @@
  * may run its exact terminal capture before user address spaces are created.
  * It still uses all ordinary kernel services and admission checks. */
 static bool boot_system_init(const char *cmdline, bool timer_running) {
-#ifdef SRVROS_INTEL_HELD_INTERVAL
+#ifdef SRVROS_INTEL_REHOLD
+    if (intel_gt_boot_rehold_recipe(cmdline)) {
+        console_write("init: deferred=rehold-preinit; terminal automatic capture, no user services\n");
+        return false;
+    }
+#elif defined(SRVROS_INTEL_HELD_INTERVAL)
     if (intel_gt_boot_held_interval_recipe(cmdline)) {
         console_write("init: deferred=held-interval-preinit; terminal automatic capture, no user services\n");
         return false;

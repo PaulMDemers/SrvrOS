@@ -43,12 +43,12 @@ def takeover_result(text):
     elif any(s[k] for k in ('busy','reserved','geometry')):raise ValueError('takeover masks before stability')
     from intel_gt_wake import wake_result
     wake=wake_result(text)
-    if not wake or wake['summary']['v'] not in (13,14,15,16,17,18):raise ValueError('takeover wrong wake image')
+    if not wake or wake['summary']['v'] not in (13,14,15,16,17,18,19):raise ValueError('takeover wrong wake image')
     from intel_completion_audit import completion_result
     pre=completion_result(text)
     if not pre:raise ValueError('takeover missing census')
     extra=0
-    if wake['summary']['v'] in (14,16,17,18):
+    if wake['summary']['v'] in (14,16,17,18,19):
         from intel_engine_prepare import prepare_summary
         from intel_completion_audit import summary as census_summary
         ps=[prepare_summary(l) for l in text.splitlines() if l.startswith('intel-prepare-summary:')]
@@ -60,21 +60,26 @@ def takeover_result(text):
         req=[requester_summary(l) for l in text.splitlines() if l.startswith('intel-requester-summary:')]
         if len(req)!=1:raise ValueError('takeover requester coverage')
         extra=req[0]['reads']
-    if wake['summary']['v'] in (16,17,18):
+    if wake['summary']['v'] in (16,17,18,19):
         from intel_held_requester import held_summary
         hs=[held_summary(l) for l in text.splitlines() if l.startswith('intel-held-requester-summary:')]
         if len(hs)!=1:raise ValueError('takeover held requester coverage')
         extra+=hs[0]['reads']
-    if wake['summary']['v'] in (17,18):
+    if wake['summary']['v'] in (17,18,19):
         from intel_engine_held_reset import reset_summary
         rs=[reset_summary(l) for l in text.splitlines() if l.startswith('intel-held-reset-summary:')]
         if len(rs)!=1:raise ValueError('takeover held reset coverage')
         extra+=rs[0]['reads']
-    if wake['summary']['v']==18:
+    if wake['summary']['v'] in (18,19):
         from intel_held_interval import interval_capture
         interval=interval_capture(text)
         if not interval:raise ValueError('takeover missing interval')
         extra+=interval['summary']['reads']
+    if wake['summary']['v']==19:
+        from intel_engine_rehold import rehold_capture
+        held=rehold_capture(text)
+        if not held:raise ValueError('takeover missing rehold')
+        extra+=held['summary']['reads']+held['summary']['live_reads']
     if wake['summary']['engine_reads']!=pre['summary']['reads']+s['reads']+extra:raise ValueError('takeover total read binding')
     if s['borrowed'] and (not pre['summary']['complete'] or s['epoch'] or not pre['summary']['end_us']<s['begin_us']<=pre['summary']['end_us']+100000):
         raise ValueError('takeover census epoch/time binding')
