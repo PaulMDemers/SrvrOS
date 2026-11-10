@@ -115,9 +115,11 @@ static int64_t signal_io_snapshot_operands(const struct srv_signal_io_v1 *w,stru
     if((w->raw_syscall==SYS_PREAD || w->raw_syscall==SYS_PWRITE) && (int64_t)a[3]<0)return SRV_ERR_INVAL;
     switch(w->raw_syscall) {
     case SYS_READ:case SYS_PREAD:case SYS_NET_PEEK:
-        if(!user_buffer_ok((void *)a[1],a[2],true))return SRV_ERR_FAULT;break;
+        if(!user_buffer_ok((void *)a[1],a[2],true))return SRV_ERR_FAULT;
+        break;
     case SYS_WRITE:case SYS_PWRITE:
-        if(!user_buffer_ok((void *)a[1],a[2],false))return SRV_ERR_FAULT;break;
+        if(!user_buffer_ok((void *)a[1],a[2],false))return SRV_ERR_FAULT;
+        break;
     case SYS_VECTOR_IO: {
         if(a[3]>SRV_VECTOR_PWRITE || (a[3]>=SRV_VECTOR_PREAD && (int64_t)a[4]<0))return SRV_ERR_INVAL;
         bool writing=a[3]==SRV_VECTOR_WRITE || a[3]==SRV_VECTOR_PWRITE;uint64_t total=0;
@@ -139,7 +141,8 @@ static int64_t signal_io_snapshot_operands(const struct srv_signal_io_v1 *w,stru
         break;
     }
     case SYS_NET_ACCEPT:
-        if(!user_buffer_ok((void *)a[1],a[2],true) || (a[3] && !user_buffer_ok((void *)a[3],sizeof(uint64_t),true)))return SRV_ERR_FAULT;break;
+        if(!user_buffer_ok((void *)a[1],a[2],true) || (a[3] && !user_buffer_ok((void *)a[3],sizeof(uint64_t),true)))return SRV_ERR_FAULT;
+        break;
     case SYS_NET_UDP_SENDTO:if(!user_buffer_ok((void *)a[3],a[4],false))return SRV_ERR_FAULT;break;
     case SYS_NET_UDP_RECVFROM:
         if(!user_buffer_ok((void *)a[1],a[2],true) || (a[3] && !user_buffer_ok((void *)a[3],sizeof(uint32_t),true)) ||

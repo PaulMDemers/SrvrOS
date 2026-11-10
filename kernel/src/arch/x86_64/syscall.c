@@ -1,4 +1,6 @@
 #include <srvros/sync_timing.h>
+#include <srvros/syscall.h>
+#include <srvros/capture_write_timing.h>
 #include <srvros/session_scope.h>
 #include <srvros/file_stream_kernel.h>
 #include <srvros/file_verify_kernel.h>
@@ -680,6 +682,56 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
         return regular_user_io(fd, (void *)buffer, length, true, false, 0);
 #endif
     return write_buffer(fd,buffer,length,false);
+}
+
+#if !defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) && !defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)
+struct reserved_append_input {const void *data;uint64_t requested;};
+static bool reserved_append_copy(void *context,void *destination,uint64_t count,uint64_t requested) {
+    const struct reserved_append_input *input=context;
+    /* Match ordinary write precedence: validate the FULL original range even
+     * when FSIZE permits only a positive short write. Every page access keeps
+     * the caller's outer IF0. A late fault can touch only unpublished tail. */
+    if(requested!=input->requested || !count || count>requested || requested>65536 ||
+       !user_buffer_ok(input->data,requested,false))return false;
+    return copy_from_user(destination,input->data,count);
+}
+#endif
+bool syscall_reserved_append_candidate(const struct isr_frame *frame) {
+#if defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) || defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)
+    (void)frame;return false;
+#else
+    return frame && (frame->cs&3)==3 && frame->rax==SYS_WRITE && frame->rdi>=3 &&
+        frame->rdx && frame->rdx<=65536 &&
+        process_file_reserved_append_entry_candidate(process_current(),frame->rdi,frame->rdx);
+#endif
+}
+bool syscall_reserved_append_dispatch(struct isr_frame *frame) {
+    if(!frame)return false;
+    if((frame->cs&3)!=3 || frame->rax!=SYS_WRITE) {
+        process_capture_write_invalidate();frame->rax=(uint64_t)SRV_ERR_INVAL;return false;
+    }
+    uint64_t fd=frame->rdi,requested=frame->rdx;
+    const char *buffer=(const char *)frame->rsi;
+#if !defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) && !defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)
+    if(fd>=3 && requested && requested<=65536) {
+        struct reserved_append_input input={.data=buffer,.requested=requested};int64_t result;
+        if(process_file_try_reserved_append(process_current(),fd,requested,reserved_append_copy,&input,&result)) {
+            process_capture_write_fast_result(requested,result);frame->rax=(uint64_t)result;return true;
+        }
+    }
+#endif
+    /* The retained token and actual helper execute on the same uninterrupted
+     * IF0 entry, so a decline breaks that source proof. Contain it with the
+     * original gate/error behavior; do not accept overlapping timing records. */
+    process_capture_write_invalidate();scheduler_io_set_user_safe(false);
+    uint64_t wait_at=scheduler_io_active()?latency_clock():0;
+    uint64_t gate_at=process_capture_write_clock();
+    if(gate_at)process_capture_write_gate_wait();else scheduler_io_wait();
+    process_capture_write_record(CAP_WRITE_GATE,gate_at);latency_gate(wait_at,SYS_WRITE);
+    if(process_should_exit_current()) {
+        scheduler_io_wait();process_exit(process_current_kill_status());
+    }
+    frame->rax=(uint64_t)syscall_write(fd,buffer,requested);return false;
 }
 
 static char tty_filter_input(char c) {
@@ -1609,6 +1661,7 @@ static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
     if(error) return error;
     if(exfat_stream_busy(path,false))return SRV_ERR_BUSY;
     if(!vfs_lookup(path)) return SRV_ERR_NOENT;
+    process_revoke_reserved_append_path(path);
     return vfs_chmod(path, mode) ? 0 : SRV_ERR_IO;
 }
 
@@ -2281,6 +2334,13 @@ static int64_t syscall_poll_prepared(struct syscall_pollfd *user_fds,uint64_t nf
 #endif
 
 static int64_t syscall_fcntl(uint64_t fd, uint64_t command, uint64_t arg) {
+    if(command==SRV_F_RESERVE_APPEND_RAM) {
+#if defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) || defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)
+        return SRV_ERR_NOTSUP;
+#else
+        return process_file_reserve_append_ram(process_current(),fd,arg);
+#endif
+    }
     if(command==SRV_F_DUPFD || command==SRV_F_DUPFD_CLOEXEC)
         return process_file_dup_min(process_current(),fd,arg,command==SRV_F_DUPFD_CLOEXEC);
     if (command == SRV_F_GETFD) {

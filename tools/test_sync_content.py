@@ -23,6 +23,74 @@ class TestSyncContent(unittest.TestCase):
                              flush_us=2 if role == 0 else 0, failures=0, final=1))
         return sync_fixture.TestSyncTiming().fixture() + b''.join(lines)
 
+    def snapshot_fixture(self, added=37, calls=1, generation=11):
+        blob = self.fixture().replace(b'sync-content-worst: version=1', b'sync-content-worst: version=2')
+        if calls:
+            blob = blob.replace(b'ok=1 dirty_after=0', b'ok=1 dirty_after=1')
+        return blob + row('prefix', version=1, snapshot_us=1000, pid=7, id=100, identity=10,
+                          start_generation=generation, end_generation=generation+calls,
+                          live_size=65536+added, committed_size=65536,
+                          append_calls=calls, append_bytes=added, final=1)
+
+    def test_snapshot_success_requires_exact_captured_prefix(self):
+        result = sync_content([self.snapshot_fixture(), self.snapshot_fixture()])
+        self.assertEqual(result['worst']['version'], 2)
+        self.assertEqual(result['worst']['size'], 65536)
+        self.assertEqual(result['worst']['dirty_after'], 1)
+        self.assertEqual(result['prefix']['live_size'], 65573)
+        self.assertEqual(result['prefix']['committed_size'], 65536)
+        self.assertEqual(result['prefix']['append_calls'], 1)
+        clean = sync_content([self.snapshot_fixture(0, 0)])
+        self.assertEqual(clean['worst']['dirty_after'], 0)
+        self.assertEqual(clean['prefix']['start_generation'], clean['prefix']['end_generation'])
+        self.assertNotIn('prefix', sync_content([self.fixture()]))
+
+    def test_snapshot_companion_binding_missing_conflict_and_orphan(self):
+        blob = self.snapshot_fixture()
+        prefix = next(line for line in blob.splitlines(keepends=True) if line.startswith(b'sync-content-prefix:'))
+        bad = [blob.replace(prefix, b''), self.fixture()+prefix,
+               blob+prefix.replace(b'identity=10', b'identity=11')]
+        for before, after in [(b'snapshot_us=1000', b'snapshot_us=1001'), (b'pid=7', b'pid=8'),
+                              (b'id=100 ', b'id=101 '), (b'identity=10', b'identity=11'),
+                              (b'version=1', b'version=2'), (b'final=1', b'final=0')]:
+            bad.append(blob.replace(prefix, prefix.replace(before, after)))
+        for value in bad:
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                sync_content([value])
+
+    def test_snapshot_equation_and_bound_failures(self):
+        for before, after in [
+                (b'end_generation=12', b'end_generation=10'),
+                (b'end_generation=12', b'end_generation=13'),
+                (b'live_size=65573', b'live_size=65535'),
+                (b'live_size=65573', b'live_size=16777217'),
+                (b'committed_size=65536', b'committed_size=65535'),
+                (b'committed_size=65536', b'committed_size=65573'),
+                (b'append_calls=1', b'append_calls=0'),
+                (b'append_bytes=37', b'append_bytes=0'),
+                (b'append_bytes=37', b'append_bytes=38'),
+                (b'ok=1 dirty_after=1', b'ok=1 dirty_after=0'),
+                (b'ok=1 dirty_after=1', b'ok=0 dirty_after=1'),
+                (b'append_bytes=37', b'append_bytes=18446744073709551616')]:
+            with self.subTest(change=after), self.assertRaises(ValueError):
+                sync_content([self.snapshot_fixture().replace(before, after)])
+        with self.assertRaises(ValueError):
+            sync_content([self.snapshot_fixture(65537)])
+        self.assertEqual(sync_content([self.snapshot_fixture(65536)])['prefix']['append_bytes'], 65536)
+        with self.assertRaises(ValueError):
+            sync_content([self.snapshot_fixture(0, 0).replace(b'dirty_after=0', b'dirty_after=1')])
+
+    def test_snapshot_generation_bound_without_multiplication_overflow(self):
+        maximum = (1 << 64)-1
+        self.assertEqual(sync_content([self.snapshot_fixture(generation=maximum-1)])['prefix']['end_generation'], maximum)
+        with self.assertRaises(ValueError):
+            sync_content([self.snapshot_fixture(generation=maximum)])
+        # The ratio check never computes append_calls*65536 in a fixed-width type.
+        value = self.snapshot_fixture().replace(b'start_generation=11 end_generation=12',
+                                                f'start_generation=0 end_generation={maximum}'.encode())
+        value = value.replace(b'append_calls=1', f'append_calls={maximum}'.encode())
+        self.assertEqual(sync_content([value])['prefix']['append_calls'], maximum)
+
     def test_complete_real_sync_join_and_duplicate(self):
         r = sync_content([self.fixture(), self.fixture()])
         self.assertEqual(r['status'], 'VALID')

@@ -34,12 +34,16 @@ unsigned capture_save_progress(const char *path,const unsigned char *data,size_t
     int n=snprintf(temporary,sizeof(temporary),"%s/.capture-%llu-%llu.tmp",folder,(unsigned long long)srv_getpid(),(unsigned long long)srv_ticks());
     if(n<0 || (size_t)n>=sizeof(temporary)) return DESK_CAPTURE_INVALID;
     int fd=open(temporary,O_WRONLY|O_CREAT|O_EXCL,0600);if(fd<0) return DESK_CAPTURE_IO;
+    /* Opt into bounded RAM-only appends without changing visible file length.
+     * An old kernel or any refusal retains the ordinary checked write path. */
+    (void)srv_file_reserve_append_ram(fd,length);
     unsigned result=DESK_CAPTURE_OK;size_t offset=0;
     if(progress)progress(context,CAPTURE_WRITE,0);
     while(offset<length) {
-        /* Coalesce adjacent buffered writes without admitting them under
-         * foreign I/O. Keep each ordinary checked write bounded to64KiB;
-         * all persistence and both full verification passes follow below. */
+        /* Keep every checked write bounded to64KiB. The explicit reservation
+         * may admit a proved private RAM append during foreign I/O; ordinary
+         * fallbacks retain their gate. All persistence and both full byte
+         * verification passes still follow below. */
         size_t bytes=length-offset;if(bytes>65536) bytes=65536;
         ssize_t written=write(fd,data+offset,bytes);
         if(written<=0 || (size_t)written>bytes) { result=DESK_CAPTURE_IO;break; }offset+=written;

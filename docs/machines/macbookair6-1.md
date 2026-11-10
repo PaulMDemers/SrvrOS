@@ -11655,3 +11655,90 @@ stage/install/reboot is performed and accepted hardware remainsd551/c354.
 The bounded NoFatChain optimization does not fix the ordinary replay's admission
 delay. Main work continues through a separately reviewed pre-reserved immutable-
 prefix append contract, with no existing ownership or runtime requirement waived.
+
+
+## Active reserved-append ownership scope (2026-11-10)
+
+Bounded objective: reduce demonstrated screenshot write admission by admitting
+only explicitly reserved, private, bounded append-only RAM insertion during
+foreign I/O, with immutable captured writeback prefixes and dirty-generation
+tracking. Base is merged PR457 `c3550c82`; its unrelated adjacent-allocation
+optimization has no claimed ordinary-workload gain. The accepted physical
+payload remainsd551/recoveryc354 and no new reboot is armed.
+
+Scope: shared process content/write-description leases and snapshot lifecycle,
+readonly scheduler entry proof, exact raw SYS_WRITE classification/copy/fallback,
+a gated capacity-only descriptor opt-in, shotworker's exclusive temporary file,
+versioned ordinary/fast write diagnostics and meaningful host/VM regressions.
+PR301's lifetime-owner changes and PR19's pipe/network handoff remain separate;
+actual heads `b8e9ca45`/`29e639b7` are inspected, with no competing reserve command.
+Publish/review all shared changes through this unit's branch; no other-machine
+messages or hardware gate changes are authorized by this scope.
+
+The first user is only a newly created empty write-only exclusive temporary
+file. Reservation preserves visible size, offset, dirty state and metadata and
+uses the existing16MiB buffer bound. Fast copies remain at most64KiB, require
+both content and write-description privacy, stable process/image/FD/capacity,
+matching main/CR3 context, full user-range validation and unchanged FSIZE rules.
+No allocation, namespace/backend work, signal delivery or yield occurs in the
+atomic attempt. Every unsupported/ambiguous case retains ordinary admission.
+Snapshot data/length are immutable through the backend; concurrent appended
+bytes remain dirty until a later flush. No pre-entry dirty prefix may disappear
+from global sync and no drain-until-clean loop may extend it indefinitely.
+
+An optimization-only dirty-tail window is to be conservatively bounded before
+implementation so batching does not create an unchecked giant final flush.
+This does not raise any existing copy, write, command, pipe or runtime limit.
+All full fresh screenshot checks, prefix proofs, fsync/global/device barriers,
+checked rename, ownership/quarantine, same-process exclusion and500ms/10s/
+1800s+60s requirements remain. New diagnostics must explicitly partition true
+ordinary gates and proved RAM copies; never manufacture zero gate observations
+under foreign ownership. Experimental/typed signal paths gain no implicit grant.
+
+Next checkpoints: independently reviewed process/syscall ownership contracts,
+actual mid-writeback append/fault/refusal/dirty-survivor tests, a source-bound
+65-write replay showing relevant reduction, strict old/new diagnostic fixtures,
+frozen full matched/core/VM/exact-stage checks, then verified recovery/install/
+run records and the original1% native stress only if evidence justifies it.
+
+The [reserved-append contract](../reserved-append.md) is implemented in the
+working candidate, including the conservative256KiB suffix window, immutable
+borrow and dirty-generation retirement, strict ordinary/fast diagnostics and
+ordinary fallback. Review identified an interrupt-return lifetime gap; borrow
+retirement now precedes restoring the original interrupt state, with a queued
+last-close regression. The controlled host replay must include a genuinely
+unreserved baseline and retain all65 foreign sync calls/markers, both full fresh
+verifications and complete allocation checks. Full integration and native
+acceptance remain pending; no new payload or reboot is armed. Actual refreshed
+PR301/PR19 heads are0927d66e/4ab16524; their latest changes retain separate
+graphics qualification and authenticated-network evidence scope.
+
+Final cross-review also found a generic interrupt-enabled last-release slot
+reuse gap. The candidate retains its last content reference through flush/free/
+reset and restores the original interrupt state only after retirement, without
+changing backend service windows. A forced queued allocation regression checks
+that the new slot survives old cleanup. The initial b742ffe9 full build was
+stopped for this review and is incomplete, not accepted; a new frozen source
+must pass all integration checks before any physical stage or reboot.
+
+Frozen source `51670ae6` now passes matched images, full core/desktop/docs and
+89 install tests with one existing skip. Ordinary ABI, USB input, fork/exec/yield,
+real USB persistence, ordinary capture and populated Home400-write-IOPS KVM
+stress pass. The loaded trial completes21 app cycles and187 overlap windows,
+zero recorded audio underruns,238.866ms maximum loop,1.238376s ready and
+1.681271s close maxima. Its valid1280×800 screenshot takes9.679639s;63 checked
+raw writes contain24 proved copies and39 ordinary calls, with no growth, error,
+invalid or dropped evidence. Complete saved lifecycle/app/file-service records,
+raw BMP and40-byte disk receipt, captured-prefix companions and all original
+byte/retirement checks pass. This is VM evidence, not native timing or a causal
+speed comparison.
+
+Release `a1397d0b2e7ba0d1` is staged from that exact source with ports `39ad9d70`.
+Its native-board-refusal/save/unmount/automatic-return VM rehearsal passes with
+the exact manifest. Current hardware remainsd551/recoveryc354; no native reboot
+is armed at this checkpoint. The next physical run retains the original1800s1%
+audio/disk/app/three-screenshot workload,60s tail,500ms loop and10s lifecycle
+requirements, all proofs/barriers and automatic collection. Native acceptance
+and the earlier intermittent battery cause remain open. Refreshed PR301/PR19
+heads0778cd1a/3afff099 retain separate graphics/network work; integration main
+remainsc3550c82 before this PR's merge. Actions stay disabled.

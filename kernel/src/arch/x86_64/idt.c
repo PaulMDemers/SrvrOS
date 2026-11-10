@@ -1,4 +1,5 @@
 #include <srvros/capture_write_timing.h>
+#include <srvros/syscall.h>
 #include <srvros/syscall_numbers.h>
 #include <srvros/console.h>
 #include <srvros/latency.h>
@@ -209,7 +210,10 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
     }
     bool capture_write=(frame->cs & 3)==3 && frame->rax==SYS_WRITE && frame->rdi>=3;
     uint64_t write_at=capture_write?process_capture_write_begin():0,write_size=frame->rdx;
-    bool safe=(frame->cs & 3)==3 && syscall_io_safe(frame);
+    /* Retain this exact raw-entry proof on the kernel stack. Inner typed
+     * backends never inherit it, and the copy dispatch revalidates the lease. */
+    bool reserved=(frame->cs & 3)==3 && syscall_reserved_append_candidate(frame);
+    bool safe=(frame->cs & 3)==3 && (reserved || syscall_io_safe(frame));
     if (!safe) {
         uint64_t start=scheduler_io_active()?latency_clock():0;
         uint64_t gate_at=write_at?process_capture_write_clock():0;
@@ -223,7 +227,9 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
     }
     scheduler_io_set_user_safe(safe);
     uint64_t handler_at=write_at?process_capture_write_clock():0;
-    syscall_dispatch(frame);
+    if(reserved) {
+        if(!syscall_reserved_append_dispatch(frame))safe=false;
+    } else syscall_dispatch(frame);
     int64_t write_result=(int64_t)frame->rax;
 #ifndef SRVROS_SYSCALL_CANCEL_HOST_TEST
     __asm__ volatile ("cli" : : : "memory");
