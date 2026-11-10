@@ -11655,3 +11655,48 @@ stage/install/reboot is performed and accepted hardware remainsd551/c354.
 The bounded NoFatChain optimization does not fix the ordinary replay's admission
 delay. Main work continues through a separately reviewed pre-reserved immutable-
 prefix append contract, with no existing ownership or runtime requirement waived.
+
+
+## Active reserved-append ownership scope (2026-11-10)
+
+Bounded objective: reduce demonstrated screenshot write admission by admitting
+only explicitly reserved, private, bounded append-only RAM insertion during
+foreign I/O, with immutable captured writeback prefixes and dirty-generation
+tracking. Base is merged PR457 `c3550c82`; its unrelated adjacent-allocation
+optimization has no claimed ordinary-workload gain. The accepted physical
+payload remainsd551/recoveryc354 and no new reboot is armed.
+
+Scope: shared process content/write-description leases and snapshot lifecycle,
+readonly scheduler entry proof, exact raw SYS_WRITE classification/copy/fallback,
+a gated capacity-only descriptor opt-in, shotworker's exclusive temporary file,
+versioned ordinary/fast write diagnostics and meaningful host/VM regressions.
+PR301's lifetime-owner changes and PR19's pipe/network handoff remain separate;
+actual heads `b8e9ca45`/`29e639b7` are inspected, with no competing reserve command.
+Publish/review all shared changes through this unit's branch; no other-machine
+messages or hardware gate changes are authorized by this scope.
+
+The first user is only a newly created empty write-only exclusive temporary
+file. Reservation preserves visible size, offset, dirty state and metadata and
+uses the existing16MiB buffer bound. Fast copies remain at most64KiB, require
+both content and write-description privacy, stable process/image/FD/capacity,
+matching main/CR3 context, full user-range validation and unchanged FSIZE rules.
+No allocation, namespace/backend work, signal delivery or yield occurs in the
+atomic attempt. Every unsupported/ambiguous case retains ordinary admission.
+Snapshot data/length are immutable through the backend; concurrent appended
+bytes remain dirty until a later flush. No pre-entry dirty prefix may disappear
+from global sync and no drain-until-clean loop may extend it indefinitely.
+
+An optimization-only dirty-tail window is to be conservatively bounded before
+implementation so batching does not create an unchecked giant final flush.
+This does not raise any existing copy, write, command, pipe or runtime limit.
+All full fresh screenshot checks, prefix proofs, fsync/global/device barriers,
+checked rename, ownership/quarantine, same-process exclusion and500ms/10s/
+1800s+60s requirements remain. New diagnostics must explicitly partition true
+ordinary gates and proved RAM copies; never manufacture zero gate observations
+under foreign ownership. Experimental/typed signal paths gain no implicit grant.
+
+Next checkpoints: independently reviewed process/syscall ownership contracts,
+actual mid-writeback append/fault/refusal/dirty-survivor tests, a source-bound
+65-write replay showing relevant reduction, strict old/new diagnostic fixtures,
+frozen full matched/core/VM/exact-stage checks, then verified recovery/install/
+run records and the original1% native stress only if evidence justifies it.
