@@ -17002,3 +17002,24 @@ one session directory are new. Offline fsck/allocation and installed recovery
 checks pass; Ubuntu is default and unarmed. The terminal photo is needed to
 locate the failure before any source correction or new physical trial. No
 HTTP/native process acceptance follows; do not recollect or reseal this attempt.
+
+
+## Native HTTP hold diagnosis scope
+
+The supplied terminal photo confirms `wifi-http5-held` after the native
+production-provider progress row. This is the deliberate retained-obligation
+halt inside the HTTP bridge, before unconditional legacy WPA key erasure or
+final disk activity. It explains startup-only evidence; it does not identify
+the failing phase/reason or establish DHCP/DNS/HTTP completion. The closed
+6,636-file native capsule remains unchanged; photo evidence is separate.
+
+Bounded next objective: trace native guard/scheduler/provider interactions and
+add failure-only frozen numeric hold diagnostics to the HTTP bridge and its
+controller tests. Retain static context/key/DMA and all original budgets; do
+not grant disk access, erase keys or return to legacy teardown on uncertainty.
+No speculative native fix or acceptance is inferred from the photograph.
+Actual integration main fetched is8ebe7ab0 (PR447/448 USB content observation);
+consume it separately from the HTTP change and qualify affected storage/logging
+before another image. Active Air graphics/process admission remains separate;
+no shared process implementation is changed without a demonstrated cause.
+Ubuntu remains unarmed; collection is already complete and must not repeat.
