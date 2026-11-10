@@ -11793,3 +11793,23 @@ Ubuntu default, consumed one-shot, installed a139/recoveryc354 and independent
 payload/trial backups are verified. The collector is disabled, USB unmounted
 and no reboot armed. No hardware or power-policy gate changes follow from this
 result. Original failure evidence and other machines' acceptance stay separate.
+
+## Active exact gate-correlation scope (2026-11-10)
+
+Bounded objective: identify the actual sync/content operation behind each
+retained screenshot gate owner, then reproduce and reduce demonstrated avoidable
+admission work. Base is main `72d49457`; a139 is fully collected and accepted,
+recovery remainsc354, and no new boot is armed. Scope is fixed diagnostic
+snapshots in sync timing and scheduler gate observation, persistent workspace
+formatting, strict versioned parsing and directed host/VM/native validation.
+Open PR301/PR19 heads455ad5e1/2ed325a4 retain separate graphics/network scope;
+no other-machine task is contacted.
+
+Copy the live parent identity and contained active content counters at the
+selected owner's exact release edge. Label this an in-flight observation, not
+completed writeback or media timing. Do not substitute the unrelated global
+content maximum, treat a missing match as zero work, or change admission,
+ownership, copy/pipe/command caps, proofs, barriers, power policy or500ms/10s/
+1800s+60s requirements. First checkpoints are exact binding/refusal and actual
+producer/formatter/parser regressions, then a frozen matched build and loaded
+VM. Native evidence is required before claiming the remaining cause or a gain.
