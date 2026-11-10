@@ -166,3 +166,15 @@ return, prior-file preservation and offline filesystem/allocation checks verify.
 No reboot remains armed. See the [machine result](machines/macbookair7-2.md)
 for the next bounded timing investigation. Deadlines, admission checks and all255
 outstanding completion obligations remain unchanged; no GPU memory is granted.
+
+## Translation-cost retry candidate
+
+Source `8b91de5b`, release `b63d89044865e7a8`, integrates main`b3c2f30d` and
+uses the fresh CPU translation comparison described above. All full censuses
+and original limits remain; no GPU register recipe or receipt version changes.
+Full local gate,21-image isolation,486 existing fatal sanitizer cases plus the
+actual-VMM sanitizer,8core/14native/5range compiled controls, native object/staged
+bindings and strict historical receipt classifications pass. Exact-stage MBR
+EFI refusal/save/unmount/automatic return and missing-drive halt pass; native
+elapsed time still needs the matching physical trial. The earlier103,702us
+nonpass remains unchanged evidence, never a pass under the retry's source.

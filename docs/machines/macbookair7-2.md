@@ -2,21 +2,43 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Active: reduce repeated CPU page-table traversal in held-reset admission
+### Ready: fresh CPU translation walk for the held-reset timing retry
 
-Integrated main`b3c2f30d` at merge`ca64090b`; PR301 remains the GPU diagnostics
-owner, PR19 networking and PR379 WebCore remain separate. The previous candidate
-is collected and independently backed up; no boot is armed. This bounded block
-will add an IRQ-excluded, current sole-kernel-root observational contiguous-range
-query in VMM and use it only in the new held-reset image's backing endpoint.
-It will still read every leaf mapping, rewalk ancestors at each leaf-table
-boundary, and run every existing backing census/provider/lifetime/clock check.
-There is no persistent mapping cache, mapping mutation, widened hardware profile,
-new writer or longer deadline. Scope: VMM header/implementation, actual-VMM tests,
-held-reset backing adapter and its host fixture, qualification/docs. Older images
-retain scalar translation. Next: compare actual scalar/batched results and table
-lookup counts under faults, run host and exact-stage VM gates, then prepare an
-automated native candidate. Native timing improvement remains unaccepted.
+Integrated main`b3c2f30d`; payload and qualification source`8b91de5b`, release
+`b63d89044865e7a8`. This image alone uses the fresh IRQ-excluded sole-kernel-root
+contiguous translation query at every full backing endpoint. It reads every
+leaf and rewalks ancestors at leaf-table boundaries, with no persistent cache.
+All five endpoints per census, raw GGTT/fence/route observations, full provider
+entry/exit and original lifetime/clock checks remain. IRQ-enabled startup and
+older images retain scalar translation; a failed excluded query never falls back.
+No register writer/profile, permission proof, memory authority or deadline changes.
+
+The actual VMM host fixture passes2,700 missing/wrong leaf cases, large-leaf and
+PT/PDPT/PML4 boundaries, exclusion and no-mutation checks. Table conversions fall
+from5,400 to11 for the1,350 visible framebuffer pages. This is a software lookup
+count, not an accepted native speedup. The new VMM fatal ASan/UBSan run and five
+compiled fault controls pass. Full local source gate (installed-root explicitly
+omitted),21-image isolation,486 existing fatal sanitizer cases, eight core and14
+native compiled controls, native staged provider/clock/width/permission review,
+strict receipts, prior native classifications and118 raw DWORD comparisons pass.
+Worst-width log projection65,028/65,536 keeps the unchanged1,536 reserve.
+
+Exact immutable MBR EFI Q35 refusal/checkpoint/save/unmount/automatic return and
+missing-drive halt pass; four logs match the actual18-token recipe. All1,434 USB
+files/134sessions preserve, with clean offline filesystem/allocation/writable/
+headroom checks. Candidate is installed/current/durable at1%, Ubuntu default,
+no reboot armed. Recovery9aa8, GUIc497, accepted held capture67a1, latest
+reset6365/preparation0caf and prior timing nonpassa252 remain on EFI. Older
+unreferenced read-only takeoverb8af is losslessly archived and banked after full
+file/SHA equality. Full evidence is independently backed up outside build.
+Checkpoint:`build/air-held-reset-range-20261109`.
+
+**Native combined timing remains pending.** Next trial needs no input and shows
+progress; safe durable outcomes return automatically, uncertain ownership or
+failed persistence halts visibly. Collect the matching session first after
+return. Keep100/300/500ms deadlines, all255 completion obligations open, zero
+managed pages and no physical tear-free grant. PR19 networking and PR379 WebCore
+remain separate; no GitHub Actions were dispatched.
 
 ### Collected: held BCS reset completes, full preparation misses its deadline
 

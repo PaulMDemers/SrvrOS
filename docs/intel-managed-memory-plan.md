@@ -216,3 +216,9 @@ it remains a timing nonpass with no native combined acceptance. All eight owners
 open. GPU range transfer, owned command/mapping completion and reader retirement
 remain distinct reviewed gates; neither a reset ACK nor PCI TP clear supplies
 those assurances.
+
+The next held-reset timing retry is source`8b91de5b`, release`b63d89044865e7a8`.
+A fresh CPU translation walk shares ancestors inside each excluded endpoint
+comparison while checking every leaf; no census or ownership check is removed.
+Host/native-image/VM qualification passes, but timing acceptance remains pending.
+This CPU page-table observation grants no GGTT or GPU-memory authority.
