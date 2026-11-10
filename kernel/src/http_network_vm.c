@@ -8,7 +8,7 @@
 #include <srvros/timer.h>
 #include <limits.h>
 #include <stddef.h>
-static bool enabled,attempted,running;
+static bool enabled,attempted,running,real_dns;
 static struct http_network_probe probe;
 static struct scheduler_wait_queue delay_wait;
 static uint64_t pre_go_us,pre_go_ticks;
@@ -45,7 +45,9 @@ static bool pre_go_delay(void){
     }
     return false;
 }
-void http_network_vm_enable(bool explicit_isolated_ready){if(!attempted && !running)enabled=explicit_isolated_ready;}
+void http_network_vm_enable(bool explicit_isolated_ready,bool require_real_dns){
+    if(!attempted && !running){enabled=explicit_isolated_ready;real_dns=enabled && require_real_dns;}
+}
 bool http_network_vm_run(void){
     if(!enabled || attempted || running || process_current()){
         console_write("http-network-vm: REFUSED explicit isolated RAM guest permit required or one-shot consumed\n");return false;
@@ -57,11 +59,11 @@ bool http_network_vm_run(void){
     console_write("http-network-vm: holding GO for one real prelive second; live15second window has not started\n");
     if(!pre_go_delay())goto done;
     if(!net_device_select() || !e1000_probe_sample(&vm.before) || !vm.before.selected || !vm.before.irqs_enabled)goto done;
-    console_write("http-network-vm: running numeric controlled endpoint; real socket/IRQ clocks/worker/TCP retirement; no native acceptance\n");
+    console_write(real_dns?"http-network-vm: running production DNS bootstrap against private controlled DNS peer; no native acceptance\n":"http-network-vm: running numeric controlled endpoint; real socket/IRQ clocks/worker/TCP retirement; no native acceptance\n");
     uint64_t start=timer_monotonic_us();if(start>INT64_MAX-HTTP_CHILD_WINDOW_US)goto done;
     vm.epoch=UINT64_C(0x6874747000000001);
     vm.io=(struct http_network_probe_io){.context=&vm,.current=current,.retry_ready=drained,.drained=drained,
-        .epoch=vm.epoch,.start_us=start,.deadline_us=start+HTTP_CHILD_WINDOW_US,.test_ip_override=UINT32_C(0x0a000202)};
+        .epoch=vm.epoch,.start_us=start,.deadline_us=start+HTTP_CHILD_WINDOW_US,.test_ip_override=real_dns?0:UINT32_C(0x0a000202)};
     good=http_network_probe_run(&probe,&vm.io);
  done:
     if(probe.result.prepared && !probe.result.attempted)(void)http_network_probe_abort_prepare(&probe);
@@ -72,7 +74,7 @@ bool http_network_vm_run(void){
     bool worker_retired=observed && worker.finished && worker.parked && worker.parked_waiters==1 && !worker.active && !worker.busy && !worker.poll_busy && !worker.checking;
     struct srv_net_status_info status={0};bool status_ok=net_status_info(&status)==0;
     bool clocks=tick_end>tick_start && timer_reference_ready() && timer_idle_wakeup_ready();
-    good=good && pre_go_us>=1000000 && pre_go_ticks>=100 && status_ok && !status.tcp_connection_count && !status.tcp_time_wait_count && !status.listener_count && !status.pending_count && !status.udp_socket_count && probe.result.complete && probe.result.quiescent && worker_retired && !worker.failed && stable && clocks &&
+    good=good && probe.result.test_override==!real_dns && probe.result.dns==(real_dns?1u:0u) && pre_go_us>=1000000 && pre_go_ticks>=100 && status_ok && !status.tcp_connection_count && !status.tcp_time_wait_count && !status.listener_count && !status.pending_count && !status.udp_socket_count && probe.result.complete && probe.result.quiescent && worker_retired && !worker.failed && stable && clocks &&
         !vm.after.tx_pending && !vm.after.rx_ready && !vm.after.rx_dispatching && vm.after.rx_packets>vm.before.rx_packets && vm.after.tx_packets>vm.before.tx_packets && vm.after.rx_interrupts>vm.before.rx_interrupts;
     http_network_probe_emit(&probe);
     console_printf("http-network-vm: complete=%u real_elf=%u real_sockets=%u pre_go_us=%u pre_go_ticks=%u tick_start=%u tick_end=%u clock_ready=%u worker_identity=%u supervisor_identity=%u worker_turns=%u worker_finished=%u tcp_empty=%u tx_delta=%u rx_delta=%u rx_irq_delta=%u tx_pending=%u rx_ready=%u rx_dispatching=%u rings_stable=%u tcp_slots=%u tcp_timewait=%u listeners=%u pending=%u udp=%u provider_dma_retained=1 native_wifi=0\n",

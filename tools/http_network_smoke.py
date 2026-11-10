@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Actual ELF/IRQ/TCP/worker HTTP guest test against a bounded local peer.
 
-VM-only numeric destination10.0.2.2 uses ordinary SLIRP TCP to a private
+Optional --real-dns exercises production DHCP/DNS/route bootstrap using an exact
+private UDP53 peer for httpbin.org; its address is the configured first IPv4
+resolver assigned only inside the verified private namespace. Default VM-only
+numeric destination10.0.2.2 uses ordinary SLIRP TCP to a private
 127.0.0.1:80 peer. QEMU and peer share a fresh unprivileged user+network namespace
 with only loopback and no external routes. The host has no port80 listener.
 Standalone --self-test retains an ordinary random unprivileged loopback port.
 """
 import argparse,base64,hashlib,json,os,re,socket,subprocess,sys,tempfile,threading,time
 from pathlib import Path
+from http_network_dns_fixture import DNSPeer,configure_private_resolver,dns_response,capture_proof,QUESTION,verify_local_routes
 BODY=bytes(ord('A')+i%26 for i in range(3072))
 REQUEST=b'GET /base64/'+base64.b64encode(BODY)+b' HTTP/1.0\r\nHost: httpbin.org\r\nConnection: close\r\n\r\n'
 RESPONSE=b'HTTP/1.0 200 OK\r\nContent-Length: 3072\r\nConnection: close\r\n\r\n'+BODY
@@ -57,21 +61,22 @@ def values(part,prefix):
   key,value=field.split('=',1);assert key not in result and re.fullmatch(r'[0-9]+',value),field
   result[key]=int(value)
  return result
-def check_receipts(part):
+def check_receipts(part,real_dns=False):
  w=values(part,'wifi-http5-workload: ')
- for k in ('complete','prepared','attempted','dhcp','route','handoff','go','child_observed','child_reaped','child_retired','tcp_empty','provider_drained','worker_finished','quiescent','refs_scrubbed','test_override','body_eof'):assert w[k]==1,(k,w[k])
- assert w['version']==1 and w['reason']==w['child_status']==w['dns']==w['retained']==0
+ for k in ('complete','prepared','attempted','dhcp','route','handoff','go','child_observed','child_reaped','child_retired','tcp_empty','provider_drained','worker_finished','quiescent','refs_scrubbed','body_eof'):assert w[k]==1,(k,w[k])
+ assert w['version']==1 and w['reason']==w['child_status']==w['retained']==0
+ assert w['test_override']==int(not real_dns) and w['dns']==int(real_dns)
  assert w['request_bytes']==4159 and w['body_bytes']==3072 and 0<w['elapsed_us']<15000000
  assert 0<w['worker_turns']<=w['worker_polls']<150000 and 0<w['bootstrap_polls']<=w['worker_polls'] and w['supervisor_turns']>0
  r=values(part,'http-network-vm: ')
  # The entry also emits progress/PASS lines with the same prefix. Select its
  # numeric receipt explicitly rather than interpreting prose as key/value data.
  return w,r
-def check_part(part):
+def check_part(part,real_dns=False):
  lines=part.splitlines();receipt=[x for x in lines if x.startswith(b'http-network-vm: complete=')]
  assert len(receipt)==1
  reduced=b'\n'.join(x for x in lines if x.startswith(b'wifi-http5-workload: '))+b'\n'+receipt[0]+b'\n'
- w,r=check_receipts(reduced)
+ w,r=check_receipts(reduced,real_dns)
  for k in ('complete','real_elf','real_sockets','clock_ready','worker_finished','rings_stable','provider_dma_retained'):assert r[k]==1,(k,r[k])
  assert r['pre_go_us']>=1000000 and r['pre_go_ticks']>=100
  assert r['tick_end']>r['tick_start'] and r['worker_identity'] and r['supervisor_identity'] and r['worker_identity']!=r['supervisor_identity']
@@ -130,28 +135,39 @@ def self_test():
  except AssertionError:pass
  else:raise AssertionError('missing receipt accepted')
  print(json.dumps({'self_test':'PASS','exact_request_bytes':len(REQUEST),'body_bytes':len(BODY),'loopback_peer':True,'wrong_request_refused':True,'missing_receipt_refused':True,'vm_run':False}))
-def namespace_self_test(namespace):
+def namespace_self_test(namespace,real_dns=False):
  peer=Peer(80).start()
  with socket.create_connection(('127.0.0.1',80),3) as conn:
   conn.sendall(REQUEST);response=bytearray()
   while block:=conn.recv(211):response.extend(block)
   assert bytes(response)==RESPONSE
  result=peer.finish()
- print(json.dumps({'namespace_self_test':'PASS','namespace':namespace,'peer':result,'vm_run':False,'physical_acceptance':False}))
-def run_vm(root,namespace):
+ dns_result=None
+ if real_dns:
+  dns_peer=DNSPeer(namespace['dns']['configured_ipv4_resolver']).start()
+  try:
+   query=b'\x12\x34\x01\x00\x00\x01'+b'\0'*6+QUESTION
+   with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
+    client.settimeout(3);client.sendto(query,(dns_peer.address,dns_peer.port));assert client.recv(512)==dns_response(query)
+   dns_result=dns_peer.finish()
+  finally:dns_peer.close()
+ print(json.dumps({'namespace_self_test':'PASS','namespace':namespace,'peer':result,'dns_peer':dns_result,'vm_run':False,'physical_acceptance':False}))
+def output_directory(root,real_dns):return root/'build/review'/('http-network-dns' if real_dns else 'http-network')
+def run_vm(root,namespace,real_dns=False):
  import sys
  sys.path.insert(0,str(root/'tools'))
  from desktop_foundation_smoke import QMP
  from displayd_frame_smoke import stop_process
  from displayd_resolution_smoke import build_iso,read_for
  from vm_sockets import connect_unix
- out=root/'build/review/http-network';out.mkdir(parents=True,exist_ok=True)
- for name in ('result.json','serial.log','qemu.log','failure.json','peer.json','network.pcap','namespace.json'):(out/name).unlink(missing_ok=True)
+ out=output_directory(root,real_dns);out.mkdir(parents=True,exist_ok=True)
+ for name in ('result.json','serial.log','qemu.log','failure.json','peer.json','network.pcap','namespace.json','dns-peer.json'):(out/name).unlink(missing_ok=True)
  (out/'namespace.json').write_text(json.dumps(namespace,indent=2)+'\n')
- output=bytearray();peer=Peer(80).start()
+ output=bytearray();peer=Peer(80).start();dns_peer=None
  try:
+  if real_dns:dns_peer=DNSPeer(namespace['dns']['configured_ipv4_resolver']).start()
   with tempfile.TemporaryDirectory(prefix='srvros-http-network-vm-') as folder:
-   tmp=Path(folder);iso=build_iso(str(root),str(tmp),1024,768,os.environ.copy(),root/'build/kernel/srvros.elf',root/'build/initramfs.tar',cmdline='srvros.http-child-preflight=1 srvros.http-network-vm=1 srvros.storage=ram')
+   tmp=Path(folder);iso=build_iso(str(root),str(tmp),1024,768,os.environ.copy(),root/'build/kernel/srvros.elf',root/'build/initramfs.tar',cmdline='srvros.http-child-preflight=1 srvros.http-network-vm=1 srvros.storage=ram'+(' srvros.http-network-vm-dns=1' if real_dns else ''))
    cmd=command(iso,tmp,peer.port,out/'network.pcap')
    with (out/'qemu.log').open('w') as errors:
     process=subprocess.Popen(cmd,stdout=errors,stderr=errors)
@@ -165,14 +181,22 @@ def run_vm(root,namespace):
      before=len(output);serial.sendall(b'httpnetworktest\n');end=time.monotonic()+75
      while b'\nsrv> ' not in output[before:] and time.monotonic()<end:output.extend(read_for(serial,.1))
      part=bytes(output[before:]);assert b'\nsrv> ' in part,'HTTP command did not return'
-     checks=check_part(part);host=peer.finish()
+     checks=check_part(part,real_dns);host=peer.finish()
      before=len(output);serial.sendall(b'httpnetworktest\n');end=time.monotonic()+10
      while b'\nsrv> ' not in output[before:] and time.monotonic()<end:output.extend(read_for(serial,.1))
      assert b'http-network-vm: REFUSED explicit isolated RAM guest permit required or one-shot consumed' in output[before:]
+     dns_result=dns_peer.finish() if dns_peer else None
+     # Stop QEMU before decoding so its pcap writer is fully closed.
+     if real_dns:
+      stop_process(process);process=None
+      namespace['dns']['routes_after_guest']=verify_local_routes()
+     wire=capture_proof(out/'network.pcap',dns_result,REQUEST,RESPONSE) if real_dns else None
      files=[root/'build/kernel/srvros.elf',root/'build/initramfs.tar',root/'build/userspace/httpget.elf',root/'build/userspace/init.elf']
-     result={'status':'PASS','source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),'actual_guest_ELF_sockets_IRQ_clocks_worker':True,'exact_request_and_pattern_response':host,'guest_receipts':checks,'qemu_command':cmd,'isolated_namespace':namespace,'numeric_vm_target':'10.0.2.2:80','numeric_vm_override':True,'external_DNS_or_HTTP_used':False,'provider_DMA_retained_until_VM_exit':True,'native_wifi':False,'physical_acceptance':False,'payload_sha256':{str(x.relative_to(root)):hashlib.sha256(x.read_bytes()).hexdigest() for x in files}}
+     result={'status':'PASS','source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),'actual_guest_ELF_sockets_IRQ_clocks_worker':True,'exact_request_and_pattern_response':host,'guest_receipts':checks,'qemu_command':cmd,'isolated_namespace':namespace,'numeric_vm_target':'10.0.2.2:80','numeric_vm_override':not real_dns,'production_DNS_bootstrap':real_dns,'dns_peer':dns_result,'pcap_proof':wire,'external_DNS_or_HTTP_used':False,'provider_DMA_retained_until_VM_exit':True,'native_wifi':False,'physical_acceptance':False,'payload_sha256':{str(x.relative_to(root)):hashlib.sha256(x.read_bytes()).hexdigest() for x in files}}
      (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
-    finally:(out/'serial.log').write_bytes(output);stop_process(process)
+    finally:
+     (out/'serial.log').write_bytes(output)
+     if process is not None:stop_process(process)
  except BaseException as error:
   (out/'failure.json').write_text(json.dumps({'status':'FAILED_OR_INCOMPLETE','error_type':type(error).__name__,'error':str(error),'native_wifi':False},indent=2)+'\n')
   raise
@@ -180,10 +204,13 @@ def run_vm(root,namespace):
   # Preserve peer observations independently even if boot, receipt validation,
   # or the server fails. An unfinished peer is incomplete evidence, not PASS.
   peer.close();peer.thread.join(timeout=1)
+  if dns_peer:
+   dns_peer.close()
+   (out/'dns-peer.json').write_text(json.dumps({'records':dns_peer.records,'error':dns_peer.error,'external_forwarding':False},indent=2)+'\n')
   (out/'serial.log').write_bytes(output)
   (out/'peer.json').write_text(json.dumps({'done':peer.done.is_set(),'request_bytes':peer.request_bytes,'result':peer.result,'error':peer.error},indent=2)+'\n')
 def main():
- parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--self-test',action='store_true');parser.add_argument('--namespace-self-test',action='store_true');parser.add_argument('--isolated-netns',action='store_true');parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1]);args=parser.parse_args()
+ parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--self-test',action='store_true');parser.add_argument('--namespace-self-test',action='store_true');parser.add_argument('--isolated-netns',action='store_true');parser.add_argument('--real-dns',action='store_true',help='VM-only production DNS bootstrap with exact private UDP53 peer; no external DNS');parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1]);args=parser.parse_args()
  if args.self_test:
   assert not args.namespace_self_test and not args.isolated_netns
   self_test();return
@@ -193,17 +220,19 @@ def main():
   for key,value in captured.items():os.environ['SRVROS_HTTP_PARENT_'+key]=value
   cmd=['unshare','--user','--map-root-user','--net','--',sys.executable,'-B',str(Path(__file__).resolve()),*sys.argv[1:],'--isolated-netns']
   if not args.namespace_self_test:
-   out=args.root.resolve()/'build/review/http-network';out.mkdir(parents=True,exist_ok=True)
-   for name in ('result.json','serial.log','qemu.log','failure.json','peer.json','network.pcap','namespace.json','namespace-launch.json'):(out/name).unlink(missing_ok=True)
+   out=output_directory(args.root.resolve(),args.real_dns);out.mkdir(parents=True,exist_ok=True)
+   for name in ('result.json','serial.log','qemu.log','failure.json','peer.json','network.pcap','namespace.json','namespace-launch.json','dns-peer.json'):(out/name).unlink(missing_ok=True)
    (out/'namespace-launch.json').write_text(json.dumps({'status':'INCOMPLETE_UNTIL_CHILD_EVIDENCE','parent':captured,'command':cmd,'native_wifi':False},indent=2)+'\n')
   os.execvpe(cmd[0],cmd,os.environ)
 
- try:namespace=isolated_namespace()
+ try:
+  namespace=isolated_namespace()
+  if args.real_dns:namespace['dns']=configure_private_resolver(namespace)
  except BaseException as error:
   if not args.namespace_self_test:
-   out=args.root.resolve()/'build/review/http-network';out.mkdir(parents=True,exist_ok=True);(out/'result.json').unlink(missing_ok=True)
+   out=output_directory(args.root.resolve(),args.real_dns);out.mkdir(parents=True,exist_ok=True);(out/'result.json').unlink(missing_ok=True)
    (out/'failure.json').write_text(json.dumps({'status':'FAILED_OR_INCOMPLETE','phase':'isolated-netns','error_type':type(error).__name__,'error':str(error),'native_wifi':False},indent=2)+'\n')
   raise
- if args.namespace_self_test:namespace_self_test(namespace)
- else:run_vm(args.root.resolve(),namespace)
+ if args.namespace_self_test:namespace_self_test(namespace,args.real_dns)
+ else:run_vm(args.root.resolve(),namespace,args.real_dns)
 if __name__=='__main__':main()

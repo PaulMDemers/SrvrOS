@@ -915,7 +915,8 @@ void kmain(void) {
     }
     http_child_preflight_enable(http_child_trial && init_ready && timer_running);
     http_network_vm_enable(http_child_trial && init_ready && timer_running && cmdline_tokens_unique(cmdline) &&
-        cmdline_has_token(cmdline,"srvros.http-network-vm=1") && cmdline_has_token(cmdline,"srvros.storage=ram"));
+        cmdline_has_token(cmdline,"srvros.http-network-vm=1") && cmdline_has_token(cmdline,"srvros.storage=ram"),
+        cmdline_has_token(cmdline,"srvros.http-network-vm-dns=1"));
     keyboard_print_status();
     xhci_print_input_summary();
     if (!boot_verbose) {

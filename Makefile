@@ -6412,3 +6412,12 @@ build/tests/xhci-http5-bridge-host$(HOST_EXE): tools/test_xhci_wifi_http5_bridge
 test-core: test-wifi-http5-log
 test-wifi-http5-log: build/tests/xhci-stack5-host$(HOST_EXE) build/tests/http-network-probe-host$(HOST_EXE) build/tests/xhci-http5-bridge-host$(HOST_EXE)
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p 'test_wifi_http5_log.py'
+
+.PHONY: test-http-network-dns-fixture
+test-core: test-http-network-dns-fixture
+test-http-network-dns-fixture: build/tests/http-network-vm-mode-host$(HOST_EXE)
+	$<
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p 'test_http_network_dns_fixture.py'
+build/tests/http-network-vm-mode-host$(HOST_EXE): tools/test_http_network_vm_mode.c kernel/src/http_network_vm.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
