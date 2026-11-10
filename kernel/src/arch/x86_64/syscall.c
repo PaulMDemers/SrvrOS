@@ -1,6 +1,7 @@
 #include <srvros/sync_timing.h>
 #include <srvros/session_scope.h>
 #include <srvros/file_stream_kernel.h>
+#include <srvros/file_verify_kernel.h>
 #include <srvros/exfat_stream.h>
 #include <srvros/path_limits.h>
 #include <srvros/devices.h>
@@ -1091,6 +1092,23 @@ static int64_t copy_storage_path(const char *input,char *out,uint64_t capacity,b
     return vfs_namespace_system_path(normalized,out,capacity);
 }
 
+/* The scalar request and path are copied once; only the caller-owned immutable
+ * expected byte region is sampled in bounded, independently checked chunks. */
+static bool verify_expected_copy(void *context,void *destination,uint64_t offset,size_t length) {
+    const uint8_t *expected=context;
+    return copy_from_user(destination,expected+offset,length);
+}
+static int64_t syscall_file_verify(const struct srv_file_verify_request *user) {
+    struct srv_file_verify_request q;char path[MAX_PATH_LENGTH];
+    if(!copy_from_user(&q,user,sizeof(q)))return SRV_ERR_FAULT;
+    if(q.abi_version!=SRV_ABI_VERSION || q.struct_size!=sizeof(q) || q.reserved ||
+       !q.expected_inode || q.length>SRV_FILE_VERIFY_MAX || (q.length && !q.data))return SRV_ERR_INVAL;
+    if(q.length && (q.length>UINTPTR_MAX-(uintptr_t)q.data || !user_buffer_ok(q.data,q.length,false)))return SRV_ERR_FAULT;
+    int64_t result=copy_storage_path(q.path,path,sizeof(path),false);
+    if(result)return result;
+    return file_verify(path,&q,verify_expected_copy,(void *)q.data);
+}
+
 /* SYS_FILE_STREAM is admitted as one namespace operation. Its user request,
  * bounded payload snapshot and final copyout all remain inside that window. */
 static int64_t syscall_file_stream(const struct srv_file_stream_request *user) {
@@ -2044,14 +2062,62 @@ static bool poll_console_only(struct process *process,const struct syscall_pollf
     return true;
 }
 
+struct poll_pipe_identity { uint64_t generation,handle; };
+/* Metadata-only observation of the same simple endpoints already admitted by
+ * bounded nonblocking byte I/O. The caller holds IF0 through classification,
+ * revalidation and observation; no descriptor release or rights work occurs. */
+static bool poll_pipe_endpoint(struct process *process,const struct syscall_pollfd *fd,
+    struct process_file **out) {
+    struct process_file *file=process_file_at(process,(uint64_t)fd->fd);
+    if(!file)return false;
+    bool writing=file->type==PROCESS_FILE_PIPE_WRITE;
+    if((!writing && file->type!=PROCESS_FILE_PIPE_READ) ||
+       fd->events!=(writing?SRV_POLLOUT:SRV_POLLIN) ||
+       !process_file_pipe_io_safe(process,(uint64_t)fd->fd,0,writing))return false;
+    *out=file;return true;
+}
+static bool poll_pipe_capture(struct process *process,const struct syscall_pollfd *fds,uint64_t nfds,
+    struct poll_pipe_identity *identities) {
+    bool any=false;
+    for(uint64_t i=0;i<nfds;i++)if(fds[i].fd>=0) {
+        struct process_file *file;
+        if(!poll_pipe_endpoint(process,&fds[i],&file))return false;
+        uint64_t generation=process_fd_generation(process,(uint64_t)fds[i].fd);
+        if(generation==UINT64_MAX)return false;
+        identities[i]=(struct poll_pipe_identity){generation,file->handle};any=true;
+    }
+    return any;
+}
+static bool poll_pipes_current(struct process *process,const struct syscall_pollfd *fds,uint64_t nfds,
+    const struct poll_pipe_identity *identities) {
+    for(uint64_t i=0;i<nfds;i++)if(fds[i].fd>=0) {
+        /* Identity precedes endpoint-specific lookup: never follow a newly
+         * installed descriptor family under a foreign storage owner. */
+        if(process_fd_generation(process,(uint64_t)fds[i].fd)!=identities[i].generation)return false;
+        struct process_file *file=process_file_at(process,(uint64_t)fds[i].fd);
+        if(!file || file->handle!=identities[i].handle)return false;
+        if(!poll_pipe_endpoint(process,&fds[i],&file))return false;
+    }
+    return true;
+}
+
 struct syscall_poll_wait {
     struct process *process;
     struct syscall_pollfd *fds;
     uint64_t nfds;
+    const struct poll_pipe_identity *pipes;
+    bool pipe_request;
 };
 
 static bool poll_wait_ready(void *arg) {
     struct syscall_poll_wait *wait = arg;
+    if(wait && wait->pipe_request) {
+        /* scheduler_wait checks under IF0 before enrollment. A safety/identity
+         * change wakes into the original gate, without polling a replacement. */
+        return process_should_exit_current() || process_signal_pending_current() ||
+            !poll_pipes_current(wait->process,wait->fds,wait->nfds,wait->pipes) ||
+            poll_once(wait->process,wait->fds,wait->nfds)!=0;
+    }
     return wait == NULL ||
         process_should_exit_current() ||
         process_signal_pending_current() ||
@@ -2081,18 +2147,24 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
     }
 
     struct process *process = process_current();
-    /* Admit only the copied, immutable console request during owned I/O. Never
+    /* Admit only copied, immutable console or strict simple-pipe metadata
+     * requests during owned I/O. Never
      * classify a mutable userspace array and then read it again after yielding.
      * Everything else retains the original filesystem/process lifetime gate. */
 #ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     for(uint64_t i=0;i<nfds;i++)if(fds[i].fd>=0 && !process_signal_experimental_fd_allowed((uint64_t)fds[i].fd))return SRV_ERR_NOTSUP;
 #endif
     uint64_t deadline_us=poll_deadline_us(timeout_ms,timer_monotonic_us());
+    struct poll_pipe_identity pipes[MAX_POLL_FDS];
     struct syscall_poll_wait wait = {
         .process = process,
         .fds = fds,
         .nfds = nfds,
+        .pipes = pipes,
     };
+    uint64_t initial_flags=irq_save();
+    wait.pipe_request=poll_pipe_capture(process,fds,nfds,pipes);
+    irq_restore(initial_flags);
 #ifndef SRVROS_SYSCALL_POLL_HOST_TEST
     __asm__ volatile ("sti" : : : "memory");
 #endif
@@ -2106,7 +2178,11 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
         }
 
         uint64_t flags=irq_save();
-        if(!poll_console_only(process,fds,nfds)) {
+        bool pipe_safe=wait.pipe_request && poll_pipes_current(process,fds,nfds,pipes);
+        /* Revocation is permanent for this request. Even if the old number
+         * becomes a simple pipe again, it cannot reacquire this observation. */
+        if(wait.pipe_request && !pipe_safe)wait.pipe_request=false;
+        if(!pipe_safe && !poll_console_only(process,fds,nfds)) {
             scheduler_io_set_user_safe(false);scheduler_io_wait();
         }
         int64_t ready = poll_once(process, fds, nfds);
@@ -3483,7 +3559,8 @@ static bool io_snapshot_read(uint64_t fd,uint64_t length) {
 /* Only independently synchronized paths with no filesystem or process-lifetime
  * teardown may overlap owned I/O. Default-deny also covers future syscalls. Do not admit
  * poll by inspecting a mutable userspace fd array before the actual copy. Poll
- * enters only its copy/validation prelude here, then gates non-console work.
+ * enters only its copy/validation prelude here, then gates requests other
+ * than validated console or strict simple-pipe metadata observation.
  * Close likewise admits only an atomic simple-pipe attempt before gating all
  * other descriptor cleanup; queued rights may recursively flush files.
  * Memory/thread calls admit only a validated bounded atomic attempt. Generic
@@ -3667,7 +3744,7 @@ static bool signal_experimental_raw_allowed(const struct isr_frame *frame) {
     /* This exact test image admits local runtime qualification only. Reject
      * every external/namespace socket entry before any backend effect. */
     switch(frame->rax) {
-    case SYS_SESSION_SCOPE:case SYS_FILE_STREAM:return false;
+    case SYS_SESSION_SCOPE:case SYS_FILE_STREAM:case SYS_FILE_VERIFY:return false;
     case SYS_NET_LISTEN:case SYS_NET_ACCEPT:case SYS_NET_DHCP:case SYS_NET_STATUS:case SYS_NET_DNS:
     case SYS_NET_CONNECT:case SYS_NET_UDP_OPEN:case SYS_NET_UDP_BIND:case SYS_NET_UDP_SENDTO:
     case SYS_NET_UDP_RECVFROM:case SYS_NET_SOCKNAME:case SYS_NET_PEERNAME:case SYS_NET_SHUTDOWN:
@@ -3729,6 +3806,9 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
     }
 #endif
 
+    case SYS_FILE_VERIFY:
+        frame->rax=(uint64_t)syscall_file_verify((const struct srv_file_verify_request *)frame->rdi);
+        return;
     case SYS_FILE_STREAM:
         frame->rax=(uint64_t)syscall_file_stream((const struct srv_file_stream_request *)frame->rdi);
         return;
@@ -4266,7 +4346,7 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
  * This does not change syscall_io_safe or make filesystem operations I/O-safe. */
 static bool namespace_syscall(uint64_t number) {
     switch(number) {
-    case SYS_FILE_STREAM: case SYS_OPEN: case SYS_OPEN_MODE: case SYS_LIST:
+    case SYS_FILE_VERIFY: case SYS_FILE_STREAM: case SYS_OPEN: case SYS_OPEN_MODE: case SYS_LIST:
     case SYS_FS_WRITE: case SYS_FS_APPEND: case SYS_STAT: case SYS_STATFS:
     case SYS_CHMOD: case SYS_UTIME: case SYS_UNLINK: case SYS_MKDIR:
     case SYS_MKDIR_MODE: case SYS_RMDIR: case SYS_RENAME: case SYS_FILE_CHANGE:
@@ -4277,7 +4357,7 @@ static bool namespace_syscall(uint64_t number) {
 void syscall_dispatch(struct isr_frame *frame) {
 #ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
     /* Unsupported extensions must not wait for namespace I/O ownership. */
-    if(frame->rax==SYS_SESSION_SCOPE || frame->rax==SYS_FILE_STREAM) {
+    if(frame->rax==SYS_SESSION_SCOPE || frame->rax==SYS_FILE_STREAM || frame->rax==SYS_FILE_VERIFY) {
         frame->rax=(uint64_t)SRV_ERR_NOTSUP;return;
     }
 #endif

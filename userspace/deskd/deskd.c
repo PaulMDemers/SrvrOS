@@ -83,6 +83,7 @@ static void life_terminate_log(uint64_t pid,uint64_t elapsed,long result) {
 }
 #include "operation_trace.h"
 #include "lifecycle_worker.h"
+#include "capture_worker.h"
 /* Worker implementations above use direct console output. Only the UI thread
  * calls these wrappers; stop routing before joining/draining the report worker. */
 static struct lifecycle_worker *ui_logger;
@@ -100,6 +101,14 @@ static void ui_log(const char *format,...) {
     ui_puts(text);
 }
 #define desk_log(...) ui_log(__VA_ARGS__)
+/* Keep both observed durations together in one bounded console record. A saved
+ * bootlog tail can retain close after the original ready row has rolled out. */
+static void life_cycle_log(unsigned cycle,uint64_t pid,uint64_t ready_elapsed,
+        uint64_t closed_elapsed,unsigned errors) {
+    desk_log("desktop-life-cycle: version=1 cycle=%u pid=%llu ready_elapsed_us=%llu closed_elapsed_us=%llu errors=%u\n",
+        cycle,(unsigned long long)pid,(unsigned long long)ready_elapsed,
+        (unsigned long long)closed_elapsed,errors);
+}
 struct pixel_cache { uint32_t *pixels,width,height; struct life_memory *job; };
 #define DESKD_CACHE_BUDGET DESK_CACHE_BYTES
 struct client {
@@ -142,6 +151,7 @@ struct session {
     const char *home,*profile_transfer_stop;
     struct srv_profile_session profile;
     struct lifecycle_worker *worker;
+    struct capture_worker *capture_owner;
     int startup_trace;
     struct lifetime_trace current_lifetime,ready_worst,close_worst;
     struct message_trace message;
@@ -1432,8 +1442,12 @@ static struct capture_trace capture_snapshot(const struct session *s,uint64_t no
         .progress_age_us=j->last_progress_us && !j->finished_us?now-j->last_progress_us:0,.bytes=j->progress_bytes,
         .started_us=j->started_us,.finished_us=j->finished_us,
         .cleanup_us=j->cleanup_us,.close_us=j->close_us,.unmap_us=j->unmap_us,.reap_us=j->reap_us,
-        .cleanup_pending=s->worker && life_state(&s->worker->capture.state)!=LIFE_IDLE,
-        .id=j->request.id,.busy=j->busy,.pending=s->capture_pending || (s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE),.phase=j->phase,.frames=j->progress_frames,
+        .transfer=j->transfer,
+        .cleanup_pending=s->capture_owner?capture_owner_state(s->capture_owner)==CAPTURE_OWNER_RETIRING:
+            s->worker && life_state(&s->worker->capture.state)!=LIFE_IDLE,
+        .id=j->request.id,.busy=j->busy,.pending=s->capture_pending || (s->capture_owner?
+            (capture_owner_state(s->capture_owner)==CAPTURE_OWNER_PREPARING || capture_owner_state(s->capture_owner)==CAPTURE_OWNER_PREPARED):
+            (s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE)),.phase=j->phase,.frames=j->progress_frames,
         .finished=s->capture_finished,.status=j->response.status};
     memcpy(c.phases,j->phase_us,sizeof(c.phases));return c;
 }
@@ -1480,6 +1494,14 @@ static struct operation_trace operation_snapshot(const struct session *s,uint64_
 static void capture_tick(struct session *s,const uint32_t *pixels) {
     int result=0;
     if(s->capture.pid)s->capture_worker_pid=s->capture.pid;
+    if(s->capture_owner) {
+        result=capture_owner_poll(s->capture_owner,&s->capture,&s->capture_worker_pid);
+        if(s->capture.pid)s->capture_worker_pid=s->capture.pid;
+        if(!result && capture_owner_state(s->capture_owner)==CAPTURE_OWNER_PREPARED) {
+            if(capture_owner_snapshot(s->capture_owner,&s->capture,pixels,s->damage.width,s->damage.height)>0)
+                desk_log("deskd: screenshot captured path=%s width=%d height=%d\n",s->capture.request.path,s->damage.width,s->damage.height);
+        }
+    } else {
     if(s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE) {
         int prepared;
         if(!life_prepare_take(s->worker,&s->capture,&prepared))return;
@@ -1498,6 +1520,7 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
             if(completed)(void)life_capture_submit(s->worker,&s->capture,completed);
         }
     } else if(!result)result=desk_capture_job_poll(&s->capture);
+    }
     if(result) {
         int success=result>0 && !s->capture.response.status;
         s->capture_success=success;s->capture_finished++;
@@ -1517,6 +1540,12 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
     int path_length=snprintf(path,sizeof(path),"%s/Screenshots/Screen-%s-%llu-%u.bmp",s->home?s->home:DESK_RAM_HOME,date,(unsigned long long)srv_getpid(),s->capture.next_id+1);
     if(path_length<0 || (size_t)path_length>=sizeof(path)) {
         s->capture_pending=0;capture_notice(s,0,"The profile path is too long for this screenshot name.");return;
+    }
+    if(s->capture_owner) {
+        if(capture_owner_submit(s->capture_owner,&s->capture,s->damage.width,s->damage.height,path)) {
+            s->capture_pending=0;global_menu_rebuild(s);
+        }
+        return;
     }
     if(s->worker) {
         if(life_prepare_submit(s->worker,&s->capture,s->damage.width,s->damage.height,path)) {
@@ -2331,6 +2360,7 @@ int main(int argc,char **argv) {
     s.scale=scale;s.display.canvas=&canvas;s.display.info=&info;s.display.explicit_scale=explicit_scale;
     if(s.registry_budget==1)ui_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
+    if(audio_io && desk_capture_job_trace(&s.capture,1))return 1;
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
     s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
     desk_calendar_init(&s.scene.calendar);desk_ui_init(&s.scene.calendar_ui);
@@ -2361,6 +2391,11 @@ int main(int argc,char **argv) {
     static struct lifecycle_worker worker;
     cache_seed(&s,&worker);
     if(life_start(&worker,1)){gfx_console_mute(0);return 1;}s.worker=&worker;s.startup_trace=audio_io;ui_logger=&worker;
+    static struct capture_worker capture_worker;
+    if(capture_owner_start(&capture_worker)) {
+        ui_logger=NULL;(void)life_stop(&worker);gfx_console_mute(0);return 1;
+    }
+    s.capture_owner=&capture_worker;
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
     else if(wifi_trial) spawn_app(&s,DESK_APP_HELP,"wifi-trial");
@@ -2411,7 +2446,7 @@ int main(int argc,char **argv) {
     int audio_io_complete=0,audio_io_finished=0;
     unsigned stress_shots=0,stress_saved=0,stress_shot_seen=0;
     uint64_t stress_shot_due=0,followup_begin=0,followup_pid=0,followup_due=0,followup_elapsed=0;unsigned followup_phase=0;
-    uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
+    uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,life_ready_elapsed=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
     unsigned life_cycles=0,life_phase=0;
     struct loop_trace loop_trace={0};uint64_t loop_report_at=0;
     struct operation_trace failure_operations={0};
@@ -2563,11 +2598,12 @@ int main(int argc,char **argv) {
             }
             if(!life_phase && now>=life_due && (power_trial?now-power_phase.began<48000000:now-audio_io_begin<((uint64_t)audio_io_seconds-12)*1000000)) {
                 static const int roles[]={DESK_APP_TEXT,DESK_APP_FILES,DESK_APP_SYSTEM};
-                life_begin=now;s.current_lifetime=(struct lifetime_trace){.begin_us=now,.cycle=life_cycles};if(!life_first)life_first=now;spawn_app(&s,roles[life_cycles%3],"");life_pid=0;life_phase=1;
+                life_begin=now;life_ready_elapsed=0;s.current_lifetime=(struct lifetime_trace){.begin_us=now,.cycle=life_cycles};if(!life_first)life_first=now;spawn_app(&s,roles[life_cycles%3],"");life_pid=0;life_phase=1;
             } else if(life_phase==1) {
                 if(!life_pid)life_pid=s.last_launch_pid;
                 for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==life_pid && desktop_window_at(&s.scene,i)->pixels && !session_client(&s,i)->awaiting) {
-                    desk_log("desktop-life: ready cycle=%u pid=%llu elapsed_us=%llu\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_begin));
+                    life_ready_elapsed=now-life_begin;
+                    desk_log("desktop-life: ready cycle=%u pid=%llu elapsed_us=%llu\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)life_ready_elapsed);
                     s.current_lifetime.pid=life_pid;s.current_lifetime.ready_us=now;
                     if(now-life_begin>life_ready_max) {life_ready_max=now-life_begin;s.ready_worst=s.current_lifetime;}
                     life_phase=2;life_due=now+500000;break;
@@ -2577,6 +2613,7 @@ int main(int argc,char **argv) {
                 life_close=now;s.current_lifetime.close_request_us=now;life_phase=3;
             } else if(life_phase==3 && child_index(&s,life_pid)<0) {
                 desk_log("desktop-life: closed cycle=%u pid=%llu elapsed_us=%llu errors=%u\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_close),s.child_errors);
+                life_cycle_log(life_cycles,life_pid,life_ready_elapsed,now-life_close,s.child_errors);
                 s.current_lifetime.closed_us=now;
                 if(now-life_close>life_close_max) {life_close_max=now-life_close;s.close_worst=s.current_lifetime;}
                 if(s.ready_worst.pid==life_pid)s.ready_worst=s.current_lifetime;
@@ -2839,7 +2876,8 @@ int main(int argc,char **argv) {
                         int children=0;
                         for(int i=0;i<children_capacity(&s);i++)children|=*session_children(&s,i)!=0;
                         if(saved==1 && !children && !s.capture.busy && !s.capture_pending &&
-                           !s.pending_opens && life_state(&worker.prepare.state)==LIFE_IDLE && life_state(&worker.capture.state)==LIFE_IDLE) {
+                           !s.pending_opens && capture_owner_state(&capture_worker)==CAPTURE_OWNER_IDLE &&
+                           life_state(&worker.prepare.state)==LIFE_IDLE && life_state(&worker.capture.state)==LIFE_IDLE) {
                             s.end_committed=1;
                             desk_log("session-ui: phase=committed action=%s\n",s.end_action==DESKTOP_SESSION_SWITCH?"switch":"console");
                             quit=1;break;
@@ -3389,13 +3427,17 @@ int main(int argc,char **argv) {
         failed=1;gfx_console_mute(0);
         ui_puts("deskd: session failed; draining accepted work. Profile switching stopped.\n");
     }
-    /* Preparation owns unpublished handles/mappings. Drain that publication
-     * before closing the job; the UI placeholder has none of those resources. */
+    /* The exclusive capture owner drains accepted persistence and joins before
+     * its storage/session can disappear. The UI never closes its resources. */
+    if(capture_owner_stop(&capture_worker)){srv_puts("deskd: capture worker join failed\n");return 1;}
+    s.capture_pending=0;
+    if(capture_owner_state(&capture_worker)==CAPTURE_OWNER_DONE)capture_tick(&s,NULL);
+    /* Retain fallback lifecycle retirement for callers without a capture owner. */
     if(life_state(&worker.prepare.state)!=LIFE_IDLE) {
         while(life_state(&worker.prepare.state)!=LIFE_DONE)srv_sleep_ticks(1);
         int prepared;(void)life_prepare_take(&worker,&s.capture,&prepared);
     }
-    if(s.capture.busy && life_state(&worker.capture.state)==LIFE_IDLE)(void)life_capture_submit(&worker,&s.capture,-1);
+    if(!s.capture_owner && s.capture.busy && life_state(&worker.capture.state)==LIFE_IDLE)(void)life_capture_submit(&worker,&s.capture,-1);
     ui_logger=NULL;
     if(life_stop(&worker)){srv_puts("deskd: lifecycle worker join failed\n");return 1;}
     desk_log("desktop-ui-log: version=1 dropped=%llu pending=%u\n",(unsigned long long)worker.log_dropped,

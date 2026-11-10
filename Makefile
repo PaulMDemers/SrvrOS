@@ -2773,6 +2773,14 @@ build/tests/file-change-host$(HOST_EXE): tools/test_file_change.c kernel/src/arc
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-file-change
 
+.PHONY: test-file-verify
+test-file-verify: build/tests/file-verify-host$(HOST_EXE)
+	$<
+build/tests/file-verify-host$(HOST_EXE): tools/test_file_verify.c kernel/src/file_verify.c kernel/src/arch/x86_64/syscall.c shared/include/srvros/file_verify.h kernel/include/srvros/file_verify_kernel.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/file_verify.c -Wl,--gc-sections -o $@
+test-core: test-file-verify
+
 .PHONY: test-files
 test-files: build/tests/files-host$(HOST_EXE)
 	$<
@@ -3012,10 +3020,21 @@ test-bmp: build/tests/bmp-host$(HOST_EXE)
 build/tests/bmp-host$(HOST_EXE): tools/test_bmp.c userspace/lib/src/bmp.c userspace/lib/include/srvros/bmp.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< userspace/lib/src/bmp.c -o $@
-test-capture: build/tests/capture-job-host$(HOST_EXE) build/tests/capture-save-host$(HOST_EXE) build/tests/capture-transport-host$(HOST_EXE) test-bmp
+test-capture: build/tests/capture-job-host$(HOST_EXE) build/tests/capture-save-host$(HOST_EXE) build/tests/capture-transport-host$(HOST_EXE) build/tests/capture-pacing-host$(HOST_EXE) test-bmp
 	build/tests/capture-job-host$(HOST_EXE)
 	build/tests/capture-save-host$(HOST_EXE)
 	build/tests/capture-transport-host$(HOST_EXE)
+	build/tests/capture-pacing-host$(HOST_EXE)
+test-capture: test-capture-owner
+.PHONY: test-capture-owner
+test-capture-owner: build/tests/capture-owner-host$(HOST_EXE)
+	build/tests/capture-owner-host$(HOST_EXE)
+build/tests/capture-owner-host$(HOST_EXE): tools/test_capture_worker.c userspace/deskd/capture_worker.h userspace/lib/src/desk_capture_job.c userspace/lib/include/srvros/desk_capture_job.h shared/include/srvros/desktop_capture.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread -I shared/include -idirafter userspace/lib/include $< -o $@
+build/tests/capture-pacing-host$(HOST_EXE): tools/test_capture_pacing.c userspace/lib/src/desk_capture_job.c userspace/lib/include/srvros/desk_capture_job.h shared/include/srvros/desktop_capture.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< -o $@
 build/tests/capture-job-host$(HOST_EXE): tools/test_capture_job.c userspace/lib/src/desk_capture_job.c userspace/lib/include/srvros/desk_capture_job.h shared/include/srvros/desktop_capture.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< -o $@
@@ -4860,6 +4879,12 @@ build/tests/exfat-noappend-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/s
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_APPEND_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-append: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-noappend-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_append.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-noappend-driver$(HOST_EXE)
+
+.PHONY: test-exfat-contiguous-append
+test-core: test-exfat-contiguous-append
+test-exfat-contiguous-append: $(LIMINE_PROTOCOL_DIR)/.ready
+	$(PYTHON) -m unittest discover -s tools -p 'test_append_contiguity.py'
+	$(PYTHON) tools/test_contiguous_append.py
 test-core: test-exfat-append
 .PHONY: test-linux-rc6-baseline
 test-core: test-linux-rc6-baseline
@@ -6143,6 +6168,13 @@ test-core: test-wifi-main-dispatch
 test-wifi-completion-foundations: test-wifi-main-dispatch
 test-wifi-main-dispatch:
 	WIFI_DISPATCH_CC="$(HOST_CC)" $(PYTHON) -B -m unittest discover -s tools -p test_wifi_main_dispatch.py
+
+.PHONY: test-lifecycle-receipts
+test-desktop: test-lifecycle-receipts
+test-lifecycle-receipts: build/tests/desktop-session-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_app_timing.py
+	$(PYTHON) tools/test_lifecycle_cycle_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
+
 .PHONY: test-capture-write-timing
 test-capture-write-timing: build/tests/capture-write-timing-host$(HOST_EXE)
 	$<
@@ -6357,6 +6389,8 @@ test-sync-content: $(LIMINE_PROTOCOL_DIR)/.ready build/tests/desktop-session-hos
 	$(PYTHON) -m unittest discover -s tools -p test_sync_command_phases.py
 	$(PYTHON) -m unittest discover -s tools -p test_capture_history.py
 	$(PYTHON) tools/test_capture_history_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_capture_transfer.py
+	$(PYTHON) tools/test_capture_transfer_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
 test-core: test-sync-content
 
 .PHONY: test-http-child
@@ -6462,3 +6496,10 @@ test-http-dhcp-log:
 # Optional native provider/CCMP fixture keeps OpenSSL out of portable foundations.
 test-http-dhcp-native-log: build/tests/xhci-stack5-host$(HOST_EXE)
 	WIFI_DHCP_NATIVE_BINARY=build/tests/xhci-stack5-host$(HOST_EXE) PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p 'test_http_dhcp_log.py'
+
+.PHONY: test-capture-media-integration
+test-capture-media-integration: $(LIMINE_PROTOCOL_DIR)/.ready
+	$(PYTHON) tools/test_capture_media_integration.py
+test-core: test-capture-media-integration
+
+build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/capture_worker.h

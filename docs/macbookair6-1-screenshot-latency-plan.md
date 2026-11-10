@@ -9,13 +9,15 @@ Air6,1 evidence; PR19 networking, PR301 scanout and PR379 WebCore stay separate.
 
 ## Decision
 
-Correlated content, command-role and same-command ring-result trials now pass
-the unchanged native workload. Their write waits do not establish a causal
-transport policy fix. Move next to the separate pixel-transfer pacing stage
-below, starting with bounded send/readiness/gap observations. Keep first-failure
-battery diagnostics and all existing limits/integrity checks. The dated evidence
-below preserves how the storage attribution narrowed; it does not accept a
-hardware cause or a performance improvement.
+Correlated content, command-role, same-command ring-result and pixel-transfer
+baseline trials pass the unchanged native workload. The November10 code audit
+then reproduces a retained-reader fresh-media verification gap. Prioritize its
+complete-save regression and explicit verification contract before transport
+optimization; preserve normal shared-file semantics. Next prove pipe readiness
+and independent transfer ownership using the measured send gaps. Keep storage
+amplification separate, first-failure battery diagnostics and all existing
+limits/integrity checks. The dated evidence below preserves how attribution
+narrowed; it does not accept a hardware cause or a performance improvement.
 
 ## What the evidence establishes
 
@@ -306,3 +308,101 @@ is proved dominant. Keep immutable bytes, pipe capacity, per-admission bounds,
 exclusive ownership, cancellation/exit and complete save/readback proofs. Do not
 bundle a speculative storage change or another unchanged-policy native repeat
 without a new question the retained evidence cannot answer.
+
+## Native pixel-transfer baseline and next ownership audit (2026-11-09)
+
+PR452/release `eb3a60e0fbc0b436` passes the unchanged1800s1% workload with1070 app
+cycles,4019 verified disk bursts, three exact BMPs, zero recorded audio underruns,
+129.977ms maximum loop and clean file/allocation/worker retirement. All three
+final transfer companions and histories parse directly from saved logs. See the
+[machine result](machines/macbookair6-1.md#native-capture-transfer-baseline-2026-11-09).
+
+Complete capture times18.841303/25.986970/17.580316s provide median18.841303s;
+no speed gain is accepted. Worker allocation windows84.210/902.179/161.925ms are
+separate from post-allocation reception5.419596/5.828279/5.642890s. Sender
+write-attempt spans5.502525/6.746859/5.770351s contain only8.552/9.123/8.707ms
+syscall wall and5.493973/6.737736/5.761644s gaps. All1026 successful writes and
+256 exhausted budgets fit the existing four4096-byte admission bound. EAGAIN
+counts225/322/252 also show backpressure. These gaps combine UI cadence,
+rendering, scheduling and backpressure; do not label them pure sleep or hardware
+time. Final-production observation510.815/536.822/839.938ms is a separate stage.
+
+Proceed with the stage3 transport ownership audit and deterministic regression:
+can an exclusive readiness-driven transport remove UI-turn dependence without
+blocking render/input or increasing any admission bound? Keep the existing
+shared lifecycle worker out of that path unless its unrelated blocking work is
+proven harmless. Establish the readiness contract, immutable resource handoff,
+worker exit, cancellation, accepted-save completion and retirement before native
+validation. Keep request/response validation, pipe capacity, complete byte proofs,
+barriers, ownership/quarantine, all runtime limits and power/USB policy unchanged.
+Storage write cost remains substantial and independent; the intermittent battery
+cause remains open. No additional unchanged-policy repeat is needed for this
+baseline. No reboot is armed after matching collection and verified backup.
+
+## Code audit changes the next implementation order (2026-11-10)
+
+The [three-subagent code audit](macbookair6-1-screenshot-code-audit.md) at
+`486b6d2a` confirms UI-paced sends/responses, storage-gated pipe poll, shared
+lifecycle head-of-line blocking and repeated global commits of growing content.
+An isolated real process/exFAT/VFS corruption reproduction also finds that a
+retained reader can cause a verification reopen to discard fresh media bytes
+and reuse correct shared RAM, including after rename. This is a correctness
+contract gap, not evidence of native corruption or the source of latency.
+
+Prioritize a complete-save retained-reader corruption regression and explicit
+fresh-media verification semantics while preserving normal shared-file behavior.
+Then prove narrow pipe readiness and independent capture ownership with actual
+prepare/transport/exit/cleanup interleaving before the next native performance
+candidate. Keep storage amplification separate; do not remove barriers, prefix
+proofs or change global-sync semantics. The existing stream API refuses this
+USB's128KiB clusters and is not a drop-in replacement. All original limits and
+integrity requirements remain. The audit prepares no new payload or reboot.
+
+## Fresh-media and independent-owner candidate (2026-11-10)
+
+The correctness-first host implementation now rejects the complete historical
+save wrapper's reproduced final-proof false success while preserving ordinary
+shared readers and checked-rename refusal. See the [verification contract](file-media-verification.md).
+The dependent [capture owner](desktop-capture-ownership.md) preserves admission
+budgets and all retirement/save proofs, with narrow metadata-only pipe polling
+and unchanged scheduler eligibility. Host regressions cover full input without
+UI turns, blocked unrelated work, cancellation/stop including active snapshot
+copy, buffered final, full resource retirement and scaled delayed preparation.
+
+Validate matched normal/native/VM images, the complete core/desktop suites,
+loaded guest composition and all saved old/new evidence before native acceptance.
+The verification progress stream and response-observer thread both change, so
+later timings must state these differences. Storage amplification, discarded
+screenshot child status, cleanup diagnostics and intermittent battery cause
+remain distinct open work. Do not relax500ms/10s, workload duration, pipe/bulk
+bounds, storage ownership, barriers or byte proofs for this candidate.
+
+
+The frozen `b4982ee9` candidate/release `d551c6584bed346e` now passes the matched
+build, full core/desktop/docs, ordinary USB/capture and populated Home400-IOPS
+VM checks, plus exact-stage refusal/save/return rehearsal. The loaded VM has
+complete saved app evidence,21 app cycles,140.163ms maximum loop and14 EAGAINs
+with1001 successful capture writes. All original functional/integrity limits
+remain; native acceptance and causal speed attribution remain pending. See the
+[machine checkpoint](machines/macbookair6-1.md#fresh-media-and-capture-owner-candidate-validation-2026-11-10).
+
+
+## Native fresh-media and independent capture result (2026-11-10)
+
+Release `d551c6584bed346e` passes the original1800s1% native trial with1101 app
+cycles,4247 verified disk bursts, three exact BMPs, zero recorded audio underruns,
+120.184ms maximum loop and clean prior-file/allocation/retirement checks. See the
+[machine result](machines/macbookair6-1.md#native-fresh-media-and-independent-capture-2026-11-10).
+The independent-owner/fresh-proof composition is accepted within this bounded
+trial; native corruption injection and isolated speed improvement are not claimed.
+
+Sender spans are0.288–0.648s and post-allocation reception0.117–0.448s, while
+complete captures still take13.8–19.8s. Write phases take8.6–16.3s;96–98% of raw
+write-call wall is admission, versus roughly21ms actual handler wall per capture.
+The worst second-capture gate overlaps an existing PID7 global-sync content
+commit for2.82s. Next audit shared filesystem serialization and repeated growing
+content commits with a deterministic replay, preserving all existing barriers,
+full proofs, ownership rules, scheduling eligibility and runtime limits. Keep
+hardware completion, CPU time and isolated causal claims distinct from these
+software wall/overlap observations. No additional unchanged-policy repeat is
+needed to accept this bounded composition; no new reboot is armed.

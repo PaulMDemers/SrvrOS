@@ -694,3 +694,7 @@ long srv_wifi_select(const struct srv_wifi_select *request) {
 long srv_file_stream(const struct srv_file_stream_request *request) {
     return srv_syscall1(SYS_FILE_STREAM,(long)request);
 }
+
+long srv_file_verify(const struct srv_file_verify_request *request) {
+    return srv_syscall1(SYS_FILE_VERIFY,(long)request);
+}

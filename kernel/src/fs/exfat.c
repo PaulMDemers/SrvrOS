@@ -90,6 +90,8 @@ struct exfat_cost { uint64_t start,end;const char *operation;bool active,ok;stru
 static struct exfat_cost slow_costs[EXFAT_COST_ROWS];
 struct sidecar_equality_stats { uint64_t checks,equal,changed,refused,retained_bytes,flush_failed,active,invalid; };
 static struct sidecar_equality_stats sidecar_stats;
+struct contiguous_append_stats { uint64_t local_complete,links_avoided,prefix_bytes,invalid; };
+static struct contiguous_append_stats contiguous_appends;
 static uint64_t cost_clock(void) {
 #ifdef SRVROS_EXFAT_HOST_TEST
 #ifdef SRVROS_EXFAT_COST_TEST
@@ -1989,6 +1991,21 @@ static bool update_file_length(struct exfat_file *file, const char *path, uint64
  * writer). Prove the old prefix from media; never trust caller dirty hints.
  * Old payload sectors must remain untouched even on a torn new-data write. */
 enum append_result { APPEND_FALLBACK, APPEND_OK, APPEND_FAILED };
+#if !defined(SRVROS_EXFAT_HOST_TEST) || !defined(SRVROS_EXFAT_APPEND_OFF)
+/* Local append phases only: the outer mutation still has final flush/clean
+ * publication that may fail. These counters never confer operation success. */
+static void contiguous_append_local_complete(uint64_t links,uint64_t prefix) {
+    uint64_t irq=fs_irq_save();
+    if(contiguous_appends.local_complete==UINT64_MAX ||
+       links>UINT64_MAX-contiguous_appends.links_avoided ||
+       prefix>UINT64_MAX-contiguous_appends.prefix_bytes)contiguous_appends.invalid=1;
+    else {
+        contiguous_appends.local_complete++;
+        contiguous_appends.links_avoided+=links;contiguous_appends.prefix_bytes+=prefix;
+    }
+    fs_irq_restore(irq);
+}
+#endif
 static enum append_result append_file(struct exfat_file *file,const char *path,
     const uint8_t *data,uint64_t size) {
 #if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_APPEND_OFF)
@@ -2029,10 +2046,19 @@ static enum append_result append_file(struct exfat_file *file,const char *path,
     uint64_t clusters=clusters_for_size(v,size),added=clusters-file->allocated_clusters;
     uint32_t first=0;bool contiguous=true;
     if(added && !allocate_clusters(v,added,&first,&contiguous))return APPEND_FAILED;
+    /* A proved contiguous old extent followed by exactly adjacent contiguous
+     * allocation remains NoFatChain. Its FAT links are deliberately ignored by
+     * the stream; materializing them would force needless links and future FAT
+     * traversal. Never infer this for an old FAT-backed or nonadjacent extent. */
+    bool keep_contiguous=added && file->no_fat_chain && contiguous &&
+        (uint64_t)first==(uint64_t)file->first_cluster+file->allocated_clusters;
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_CONTIGUOUS_APPEND_OFF)
+    keep_contiguous=false;
+#endif
     /* Convert only the allocation links; a NoFatChain old stream still ignores
      * them until its final stream record publishes the new FAT-backed extent. */
-    if(added && contiguous && !link_fat_range(v,first,added-1))return APPEND_FAILED;
-    if(added && file->no_fat_chain &&
+    if(added && !keep_contiguous && contiguous && !link_fat_range(v,first,added-1))return APPEND_FAILED;
+    if(added && !keep_contiguous && file->no_fat_chain &&
        !link_fat_range(v,file->first_cluster,file->allocated_clusters-1))return APPEND_FAILED;
     uint64_t done=file->size,within=done%v->cluster_size;
     uint32_t cluster=within?last:first;bool old_tail=within!=0;
@@ -2051,13 +2077,16 @@ static enum append_result append_file(struct exfat_file *file,const char *path,
     }
     v->io_phase=phase;
     if(!volume_flush(v))return APPEND_FAILED;
-    if(added && (!write_fat_entry(v,last,first) || !volume_flush(v)))return APPEND_FAILED;
+    /* Retain the original link-publication barrier even when no link is needed.
+     * Data and allocation must still precede the stream's length publication. */
+    if(added && ((!keep_contiguous && !write_fat_entry(v,last,first)) || !volume_flush(v)))return APPEND_FAILED;
     uint64_t old_clusters=file->allocated_clusters;bool old_contiguous=file->no_fat_chain;
-    file->allocated_clusters=clusters;if(added)file->no_fat_chain=false;
+    file->allocated_clusters=clusters;if(added)file->no_fat_chain=keep_contiguous;
     if(!update_file_length(file,path,size)) {
         file->allocated_clusters=old_clusters;file->no_fat_chain=old_contiguous;return APPEND_FAILED;
     }
     if(!volume_flush(v) || !exfat_metadata_changed(path,NULL))return APPEND_FAILED;
+    if(keep_contiguous)contiguous_append_local_complete(clusters-1,checked);
     return APPEND_OK;
 #endif
 }
@@ -4343,10 +4372,13 @@ bool exfat_same_mount(const char *first,const char *second) {
  * exclusion, then format without holding that exclusion or storage ownership. */
 /* Explicit desktop sync diagnostics only; no output in other profiles. */
 void exfat_print_sidecar_equality(void) {
-    uint64_t irq=fs_irq_save();struct sidecar_equality_stats sidecar=sidecar_stats;fs_irq_restore(irq);
+    uint64_t irq=fs_irq_save();struct sidecar_equality_stats sidecar=sidecar_stats;
+    struct contiguous_append_stats appends=contiguous_appends;fs_irq_restore(irq);
     if(sidecar.checks || sidecar.invalid)console_printf("exfat-sidecar: version=1 snapshot_us=%u checks=%u equal=%u changed=%u refused=%u retained_bytes=%u flush_failed=%u active=%u invalid=%u\n",
         timer_monotonic_us(),sidecar.checks,sidecar.equal,sidecar.changed,sidecar.refused,
         sidecar.retained_bytes,sidecar.flush_failed,sidecar.active,sidecar.invalid);
+    console_printf("exfat-append-contiguous: version=1 snapshot_us=%u local_complete=%u links_avoided=%u prefix_bytes=%u invalid=%u\n",
+        timer_monotonic_us(),appends.local_complete,appends.links_avoided,appends.prefix_bytes,appends.invalid);
 }
 
 void exfat_print_costs(void) {
