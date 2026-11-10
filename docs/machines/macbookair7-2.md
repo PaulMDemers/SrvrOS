@@ -2,7 +2,48 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Active scope: complete address-range transfer manifests
+### Software-qualified: complete address-range transfer manifests
+
+Source`68489058`, based on main`40767a50`, implements the separate
+[complete transfer contract](../scanout-transfer.md). It captures up to4,096
+exact originals in owned storage, binds source epoch/provider and CPU exclusion,
+and stops new reservations before draining existing buffer/publication leases.
+Close cannot unpin exclusion until terminal original-state validation succeeds.
+Copied/stale/reentrant owners, unknown ranges, open hardware obligations and
+uncertain retirement refuse or retain ownership. Legacy native16-entry
+observation and all native zero-assurance gates are unchanged.
+
+Local PASS: full build/check-host/test-core/check-docs (installed-root explicitly
+omitted),22-image isolation,32 fatal ASan/UBSan cases across actual transfer,
+buffer, publication, range and exclusion cores, and12 compiled fault controls.
+One-page and two full1,356-page transactions publish/restore their exact original
+vectors; pending readers, partial stores/restores and lost ownership retain
+RAM/ranges/exclusion. Capacity4,096 and the final aperture page are exercised;
+the transfer implementation's frame stays below2,048bytes. Initial qualification
+found a deadline-bypass fixture gap; explicit refusal and terminal-fault checks
+were strengthened and all gates rerun. Original receipts remain preserved; no
+production deadline or ownership predicate changed.
+
+Matched legacy VM release`08a3e07bf8febe48` passes normal system-init readiness,
+shadow allocation/publication/restoration, saved results, offline file-byte/
+exFAT checks and automatic return. This is a regression guest; the new transfer
+API has no native caller and is absent from all22 linked images. Synthetic
+provider tests accept no GPU mapping, hardware completion or tear-free behavior.
+
+Installed payload remains accepted private-backing release`d72619c4e02bb721`,
+source`23af85e2`,
+with Ubuntu/recovery and all prior evidence retained; no replacement is installed
+or reboot armed. Current-source physical acceptance remains pending. Independent
+verified evidence lives outside build; checkpoint:`build/air-gpu-transfer-20261110`.
+Next is the actual maintained native provider and exact original one-page vector,
+generation-specific write/invalidation/reader-retirement proof and source-bound
+trial qualification. Its work must fit the existing parent deadline, including
+the one-run2,586us preparation margin; a new helper timer grants no extra time.
+All native obligations remain255 and managed pages/hardware assurances0.
+No new hardware test is justified by the software contract alone. Actions remain
+disabled; PR455 is integrated, PR19/PR379 remain independent.
+
+### Implementation scope: complete address-range transfer manifests
 
 The private backing trial below is collected and independently backed up.
 Main`40767a50` (PR455 fresh-media capture/progress ownership) is integrated;

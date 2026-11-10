@@ -25,7 +25,8 @@ cannot change the imported range. Partial range snapshots are not accepted.
 Input vectors, epoch pools and output tokens cannot alias the object or each
 other's mutable storage.
 
-The provider and context stay bound through close. Three explicit phases keep
+The provider and context stay bound through close and every retained fault until
+reset. Three explicit phases keep
 initial/terminal original-state checks separate from live mapped ownership:
 
 | Phase | Provider requirement |
@@ -39,6 +40,9 @@ capture and arena creation. Clock failure, regression, timeout and no measured
 progress refuse. This does not extend existing GPU100/300/500ms limits or make
 the native preparation lifetime longer. A source epoch is a provider lifetime
 identity, not permission to reuse an old reset receipt.
+An enclosing native owner must enforce its remaining whole-lifetime budget;
+starting a transfer validation phase or waiting for a child cannot restart or
+extend that parent deadline.
 
 Original-object and monotonic pool-epoch tokens reject copied, stale and rebound
 owners. Callback reentry refuses. `scanout_transfer_original` retrieves an exact
@@ -79,6 +83,16 @@ One-page and two concurrent1,356-page buffer transactions publish and restore
 their exact original entries. Pending readers, uncertain stores/restores and
 loss of the mapped owner keep RAM, ranges and exclusion pinned. These are
 synthetic provider tests; they accept no native hardware operation.
+
+Source`68489058` passes32 fatal ASan/UBSan cases and12 compiled fault controls,
+the full local host/core/build gate (installed-root omitted),22-image isolation
+and the matched normal-init/shadow-publication regression guest. A deliberately
+broken deadline control exposed an initially conditional-only refusal fixture;
+failure cases now require refusal explicitly, copied-owner tests rebind the
+copied graph, and recovered provider/clock state cannot retry terminal faults.
+All controls are detected after rerunning qualification; initial receipts are
+retained. The implementation's stack frame stays below2,048bytes. No current
+native image links this API and no physical range grant follows from these tests.
 
 The [Air7,2 record](machines/macbookair7-2.md) accepts the separate private backing
 trial. The native provider still observes only16 candidate entries and supplies

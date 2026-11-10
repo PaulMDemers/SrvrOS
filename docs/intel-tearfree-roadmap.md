@@ -28,6 +28,12 @@ proof that all posted writes reached memory. Bus mastering remains enabled.
 All eight completion obligations remain open (mask255), native hardware
 assurances remain zero and no managed GPU pages are accepted.
 
+The separate [complete transfer core](scanout-transfer.md), source`68489058`,
+now supplies4,096-entry owned manifests and joined child drain/retirement with
+host fault/sanitizer qualification. It preserves the legacy native16-entry
+observer and has no native provider. The next boundary is genuine maintained
+interval ownership and a one-page mapping, not another synthetic capacity trial.
+
 ## First decision: how ownership begins
 
 Before another destructive native operation, choose and document a complete
