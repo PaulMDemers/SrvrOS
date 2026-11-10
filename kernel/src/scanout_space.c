@@ -9,7 +9,7 @@ static bool ranges_valid(const struct scanout_space_range *r, uint32_t count, ui
     return true;
 }
 static bool live(const struct scanout_space *s) {
-    return s && s->epoch && s->owner && s->pages && s->pages <= SCANOUT_SPACE_PAGES &&
+    return s && s->object==s && s->epoch && s->owner && s->pages && s->pages <= SCANOUT_SPACE_PAGES &&
            (s->state == SPACE_ACTIVE || s->state == SPACE_CLOSING || s->state == SPACE_FAULT);
 }
 static void mark(struct scanout_space *s, uint32_t first, uint32_t pages, bool free) {
@@ -27,7 +27,7 @@ static void finish_close(struct scanout_space *s) {
 bool scanout_space_open(struct scanout_space *s, struct scanout_space_pool *pool, uint64_t owner,
                         uint32_t pages, const struct scanout_space_range *managed, uint32_t managed_count,
                         const struct scanout_space_range *protected, uint32_t protected_count) {
-    if (!s || !pool || !owner || !pages || pages > SCANOUT_SPACE_PAGES ||
+    if (!s || (s->object && s->object!=s) || !pool || !owner || !pages || pages > SCANOUT_SPACE_PAGES ||
         (s->state != SPACE_EMPTY && s->state != SPACE_CLOSED) ||
         pool->epoch < s->epoch || pool->epoch == UINT64_MAX ||
         !ranges_valid(managed, managed_count, pages) || !ranges_valid(protected, protected_count, pages)) return false;
@@ -36,7 +36,7 @@ bool scanout_space_open(struct scanout_space *s, struct scanout_space_pool *pool
     struct scanout_space_range grants[SCANOUT_SPACE_RANGES], guards[SCANOUT_SPACE_RANGES];
     for (uint32_t i = 0; i < managed_count; i++) grants[i] = managed[i];
     for (uint32_t i = 0; i < protected_count; i++) guards[i] = protected[i];
-    *s = (struct scanout_space){.epoch = ++pool->epoch, .owner = owner, .state = SPACE_ACTIVE, .pages = pages};
+    *s = (struct scanout_space){.object=s, .epoch = ++pool->epoch, .owner = owner, .state = SPACE_ACTIVE, .pages = pages};
     for (uint32_t i = 0; i < managed_count; i++) mark(s, grants[i].first, grants[i].pages, true);
     for (uint32_t i = 0; i < protected_count; i++) mark(s, guards[i].first, guards[i].pages, false);
     return true;

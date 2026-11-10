@@ -573,6 +573,14 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-memory-summary'):
+        from intel_memory import summary
+        try:return not summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-memory-case'):
+        from intel_memory import case,case_complete
+        try:return not case_complete(case(line))
+        except ValueError:return True
     if line.startswith('intel-admission'):
         from intel_admission import admission_result
         try:
@@ -910,7 +918,7 @@ def collect(mount, volume, output):
         if re.search(r'srvros\.capture=intel-display(?:\s|$)',text):
             try:
                 intel_display=intel_display_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
-                if (not intel_display or not intel_display['observation_complete']) and 'srvros.intel-lifetime=fixture' not in text:
+                if (not intel_display or not intel_display['observation_complete']) and 'srvros.intel-lifetime=fixture' not in text and 'srvros.intel-memory=fixture' not in text:
                     attention.append('collection: Intel display observation refused, failed or incomplete')
             except ValueError as error:
                 attention.append('collection: invalid Intel display observation: '+str(error))
@@ -1005,6 +1013,16 @@ def collect(mount, volume, output):
                 intel_dma=dma_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
                 if not intel_dma or not intel_dma['observation_complete']: attention.append("Intel DMA observation incomplete or refused")
             except ValueError as error: attention.append("Invalid Intel DMA receipt: "+str(error))
+        intel_memory=None
+        if 'srvros.intel-memory=' in text:
+            from intel_memory import memory_result
+            try:
+                intel_memory=memory_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                expected='fixture' if 'srvros.intel-memory=fixture' in text else 'native'
+                if not intel_memory or not intel_memory['complete'] or intel_memory['kind']!=expected:
+                    attention.append('collection: private backing ownership refused, failed, mismatched or incomplete')
+            except ValueError as error:
+                attention.append('collection: invalid private backing ownership: '+str(error))
         intel_lifetime=None
         if 'srvros.intel-lifetime=' in text:
             from intel_scanout_lifetime import lifetime_result
@@ -1113,6 +1131,7 @@ def collect(mount, volume, output):
             "intel_display_capture": intel_display,
             "intel_display_backing": intel_backing,
             "intel_scanout_lifetime": intel_lifetime,
+            "intel_memory": intel_memory,
             "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,"intel_gt_firmware":intel_firmware,"intel_gt_wake":intel_wake,
             "air61_window": window_proof,
             "ecam_boot": ecam_proof,

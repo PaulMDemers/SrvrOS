@@ -62,6 +62,11 @@ released. Quarantine latches arena Fault and blocks new admission/reopen/close;
 unexposed or independently retired *other* leases can still release safely.
 There is no hardware reset, timer or recovery callback inside this pure core.
 
+The arena is now address-sealed: a copied bitmap/epoch cannot reserve, expose,
+retire or release through a second arena. The [joined backing owner](scanout-memory.md)
+keeps physical RAM pinned alongside these leases and the publication transaction.
+Its native qualification imports no managed interval and must refuse exposure.
+
 ## Boot-client exclusion and populated entries
 
 The [boot-client claim](intel-boot-client.md) prevents competing participating

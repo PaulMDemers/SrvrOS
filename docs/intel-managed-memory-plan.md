@@ -38,6 +38,12 @@ native bytes and all original completion/integrity gates. One bounded pass
 supplies no GPU interval, DMA drain, translation/cache or reader-retirement grant.
 The milestones below, beginning with exclusive interval ownership, remain open.
 
+The new [joined memory owner](scanout-memory.md) supplies the software connection
+between private allocator backing, CPU borrows, an already admitted range and
+publication/retirement. It supports the full1,356-page padded buffer while
+keeping native GPU exposure refused. Its isolated backing qualification is the
+next hardware boundary; no synthetic provider is substituted for native transfer.
+
 ## Ordered implementation milestones
 
 | Milestone | Required implementation and reviewable exit evidence |

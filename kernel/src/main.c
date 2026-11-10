@@ -7,6 +7,7 @@
 #include <srvros/intel_gt_preflight.h>
 #include <srvros/intel_gt_firmware.h>
 #include <srvros/intel_gt_boot.h>
+#include <srvros/intel_memory_trial.h>
 #include <srvros/haswell_backing.h>
 #include <srvros/haswell_firmware.h>
 #include <srvros/haswell_cache_context.h>
@@ -947,6 +948,13 @@ void kmain(void) {
         if(intel_display_capture_requested) {
             sampled=intel_display_probe_report();
             bool backing_ok=intel_display_backing_probe_report();sampled=sampled && backing_ok;
+            if(cmdline_has_token(cmdline,"srvros.intel-memory=backing") || cmdline_has_token(cmdline,"srvros.intel-memory=fixture")) {
+                struct limine_framebuffer_response *r=framebuffer_request.response;
+                bool memory_ok=started && intel_memory_trial(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL,cmdline);
+                /* Fixture identity refusal is expected; native keeps its full
+                 * actual display/backing observation prerequisites. */
+                sampled=cmdline_has_token(cmdline,"srvros.intel-memory=fixture")?memory_ok:(sampled && memory_ok);
+            }
             bool dma_ok=intel_dma_probe_report();sampled=sampled && dma_ok;
             bool cache_ok=intel_cache_probe_report();sampled=sampled && cache_ok;
             if(cmdline_has_token(cmdline,"srvros.intel-window=read-only")){bool window_ok=intel_ggtt_window_probe_report();sampled=sampled && window_ok;}
@@ -1118,7 +1126,7 @@ void kmain(void) {
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
         /* The new read-only observation may save a handled refusal and return,
          * but never resets past a failed log save or workspace unmount. */
-        if(!intel_gt_wake_retained() && !intel_display_hda_owner_retained() &&
+        if(!intel_gt_wake_retained() && !intel_display_hda_owner_retained() && !intel_memory_retained() &&
            (!intel_display_capture_requested || (saved && unmounted)) &&
            (return_on_failure || (saved && (sampled || automatic_load) && unmounted))) {
             console_write("laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n");

@@ -7,7 +7,7 @@ bool scanout_linear_storage(uint32_t width,uint32_t height,uint32_t pitch,uint64
     *bytes=size;*pages=(uint32_t)count;return true;
 }
 static bool range_valid(uint64_t owner,const struct scanout_space *s,const struct scanout_space_token *r,uint32_t pages,unsigned use,bool active) {
-    if(!s || !s->epoch || !s->pages || s->pages>SCANOUT_SPACE_PAGES || r->object!=s || r->epoch!=s->epoch || owner!=s->owner || !r->serial || r->slot>=SCANOUT_SPACE_LEASES ||
+    if(!s || s->object!=s || !s->epoch || !s->pages || s->pages>SCANOUT_SPACE_PAGES || r->object!=s || r->epoch!=s->epoch || owner!=s->owner || !r->serial || r->slot>=SCANOUT_SPACE_LEASES ||
        (s->state!=SPACE_ACTIVE && (active || s->state!=SPACE_CLOSING)))return false;
     const struct scanout_space_entry *e=&s->leases[r->slot];
     return e->use==use && e->serial==r->serial && e->first==r->first && e->pages==r->pages &&

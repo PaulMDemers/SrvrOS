@@ -5580,6 +5580,29 @@ test-intel-held-requester: build/tests/intel-engine-prepare-adapter$(HOST_EXE) b
 	$(PYTHON) -m unittest discover -s tools -p test_intel_held_adapter.py
 	$(PYTHON) -m unittest discover -s tools -p test_intel_held_staging.py
 
+# Private backing qualification; no native GPU PTE or plane writer.
+build/intel-memory/trial.o: kernel/src/drivers/intel_memory_trial.c $(KERNEL_HEADERS) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_INTEL_MEMORY_TRIAL -c $< -o $@
+INTEL_MEMORY_BASE := $(filter-out build/kernel/src/drivers/intel_memory_trial.c.o,$(KERNEL_OBJ))
+build/intel-memory/srvros.elf: build/intel-memory/trial.o $(INTEL_MEMORY_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-memory/trial.o $(INTEL_MEMORY_BASE) -o $@
+
+build/tests/scanout-memory$(HOST_EXE): tools/test_scanout_memory.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c -o $@
+.PHONY: test-scanout-memory
+test-core: test-scanout-memory
+test-scanout-memory: build/tests/scanout-memory$(HOST_EXE)
+	$<
+build/tests/intel-memory-trial$(HOST_EXE): tools/test_intel_memory_trial.c kernel/src/drivers/intel_memory_trial.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c -o $@
+.PHONY: test-intel-memory
+test-core: test-intel-memory
+test-intel-memory: build/tests/intel-memory-trial$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_memory.py
+
 # Separate BCS8 writer while the original five-engine preparation stays live.
 INTEL_HELD_RESET_FLAGS := -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -DSRVROS_INTEL_PREPARE_RESET
 INTEL_HELD_RESET_BASE := $(filter-out build/kernel/src/drivers/intel_engine_prepare.c.o build/kernel/src/main.c.o,$(INTEL_WAKE_BASE))

@@ -19,6 +19,7 @@ enum scanout_space_use {SPACE_UNUSED, SPACE_RESERVED, SPACE_EXPOSED, SPACE_RETIR
 struct scanout_space_range {uint32_t first, pages;}; /* Half-open page intervals. */
 struct scanout_space_entry {uint64_t serial; uint32_t first, pages, use;};
 struct scanout_space {
+    const struct scanout_space *object;
     uint64_t epoch, owner, serial;
     uint32_t state, pages;
     uint64_t available[SCANOUT_SPACE_PAGES / 64];
