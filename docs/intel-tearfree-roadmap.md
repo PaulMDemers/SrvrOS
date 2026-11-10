@@ -29,10 +29,14 @@ proof that all posted writes reached memory. Bus mastering remains enabled.
 All eight completion obligations remain open (mask255), native hardware
 assurances remain zero and no managed GPU pages are accepted.
 
-The next [post-reset BCS re-arm scope](intel-engine-rehold.md) addresses the
-remaining mixed hardware hold3/3/3/3/0. It will keep all five ready requests
-through a source-bound child before restoring the prior state. Its native
-qualification is pending and it closes no memory/completion obligation.
+The [post-reset BCS re-arm scope](intel-engine-rehold.md) is now accepted in
+source`f2a6c116`, release`e83571c874bc17f1`, session
+`session-00065ff078d4f70a-00`:358us scope/234us child, exact mixed-state
+restoration,97,758/100,000us preparation and14 retired aliases with full
+preservation. It closes no memory/completion obligation. The new
+[source-bound interval claim](intel-interval-claim.md) registers its own child
+dependent and owns opening/closing original-entry observations. Its software
+lifetime and refusal path supply no native address transfer or positive assurance.
 
 The separate [complete transfer core](scanout-transfer.md), source`68489058`,
 now supplies4,096-entry owned manifests and joined child drain/retirement with

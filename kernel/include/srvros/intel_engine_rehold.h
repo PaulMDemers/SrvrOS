@@ -5,6 +5,7 @@ enum intel_engine_rehold_reason {IER_INPUT=1,IER_CLOCK=2,IER_PARENT=4,
  IER_GUARD=8,IER_READ=16,IER_WRITE=32,IER_STATE=64,IER_TIMEOUT=128,
  IER_CHILD=256};
 struct intel_engine_rehold_child;
+struct intel_interval_claim;
 struct intel_engine_rehold {
  const struct intel_engine_rehold *object;
  struct intel_engine_held_reset_result *reset;
@@ -25,6 +26,10 @@ struct intel_engine_rehold_child {
  const struct intel_engine_rehold_child *object;
  struct intel_engine_rehold *parent;
  bool active;
+ /* One registered interval dependent. A lost pointer with unmatched counts
+  * still blocks this child's return; this is not another GT borrow. */
+ const struct intel_interval_claim *dependent;
+ unsigned dependent_borrows,dependent_returns;
 };
 struct intel_engine_rehold_io {
  void *ctx;

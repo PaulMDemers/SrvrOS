@@ -10,16 +10,20 @@ qualify the full local matrix and exact-stage pre-init refusal/persistence. Keep
 the accepted currente835/recovery9aa8 and independent evidence unchanged. No
 new native operation or reboot is authorized by integration validation alone.
 
-Next implementation scope is a source-bound native interval admission protocol:
-retain the original live re-arm child, exact captured entries and both original
-clock origins; track unresolved firmware/DMA/cache/reader witnesses separately
-from CPU ownership. A saved receipt or the mere existence of a child must never
-admit a PTE store. First settle the generation-specific completion/retirement
-sequence against pinned references, then implement the supported lifecycle and
-refusal/fault tests. Touched subsystems: diagnostic ownership core/adapter and
-strict collector/tests; no ordinary graphics or sibling profile gate widening.
-PR19 networking/PR379 WebCore remain independent. Air6,1 storage work is consumed,
-not duplicated. Checkpoint:`build/air-native-owner-20261110`; no reboot armed.
+The new [read-only interval claim](../intel-interval-claim.md) implements the
+source-bound software lifetime: it pins the original re-arm child, captures exact
+geometry/entry/epoch and both original clock origins, owns opening and closing
+entry observations, and refuses cancellation with a live/lost dependent.
+Its manifest remains assurances0/obligations255; native transfer still refuses.
+Touched subsystems are claim core, nested child-return bookkeeping and actual
+core fault tests. No native image links the claim, no PTE/flush/command writer
+is added and no hardware trial is warranted by this software contract alone.
+Current qualification covers the integrated full gate, then targeted new-core/
+re-arm regressions, sanitizers/compiled faults and matched VM before checkpoint.
+PR19 networking/PR379 WebCore remain independent. Checkpoint:
+`build/air-native-owner-20261110`; accepted currente835/recovery9aa8 unchanged,
+no reboot armed. Missing hardware witnesses and a real native interval provider
+remain the next implementation boundary, not a callback that asserts success.
 
 ### Current checkpoint: native post-reset re-arm and restoration accepted
 

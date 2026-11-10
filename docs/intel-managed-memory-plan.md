@@ -76,6 +76,13 @@ alias retirements pass. Original100/300/500ms limits stay fixed. All eight
 obligations remain open: this is a prerequisite interlock, not milestone1
 completion or proof of exclusion of other clients.
 
+The [read-only interval claim](intel-interval-claim.md) now supplies the next
+software lifetime: it registers on the original re-arm child, owns opening and
+closing original-entry observations and blocks parent cancellation until clean
+close. Copies, lost registration and failed source/clock/read/close retain the
+pin. Its data remains assurances0/obligations255; transfer refuses before arena
+or provider I/O. This does not complete milestone1 or enable a native writer.
+
 ## Ordered implementation milestones
 
 | Milestone | Required implementation and reviewable exit evidence |

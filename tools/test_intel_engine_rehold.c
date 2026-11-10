@@ -115,6 +115,7 @@ static bool rehold_end(void *ctx) {
  if(rmode(m,"parent-deadline"))m->base.base.reset->parent->begin=m->base.base.m.base.gt.t-299999;
  return intel_engine_rehold_run(&m->result,m->base.base.reset,m->io);
 }
+#ifndef INTEL_ENGINE_REHOLD_FIXTURE_ONLY
 int main(int argc,char **argv) {
  (void)interval_end;(void)prepare_preserve;
  struct rehold_model m={0};struct interval_model *im=&m.base;
@@ -146,3 +147,5 @@ int main(int argc,char **argv) {
  assert(!intel_engine_rehold_live(&m.result));assert(!intel_engine_rehold_return(&m.child));
  printf("rehold: PASS mode=%s point=%u clocks=%u guards=%u loads=%u stores=%u polls=%u\n",m.kind,m.point,m.clocks,m.guards,m.loads,m.stores,m.polls);
 }
+
+#endif

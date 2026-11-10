@@ -109,7 +109,7 @@ bool intel_engine_rehold_borrow(struct intel_engine_rehold *r,struct intel_engin
  if(!intel_engine_rehold_live(r) || !c || c->object || r->child || r->child_borrows)return false;
  if(overlap(r,sizeof(*r),c,sizeof(*c)) || overlap(r->reset,sizeof(*r->reset),c,sizeof(*c)) ||
     overlap(r->preparation,sizeof(*r->preparation),c,sizeof(*c)) || overlap(r->parent,sizeof(*r->parent),c,sizeof(*c)))return false;
- *c=(struct intel_engine_rehold_child){c,r,true};r->child=c;++r->child_borrows;return true;
+ *c=(struct intel_engine_rehold_child){.object=c,.parent=r,.active=true};r->child=c;++r->child_borrows;return true;
 }
 bool intel_engine_rehold_child_live(const struct intel_engine_rehold_child *c) {
  return c && c->object==c && c->active && c->parent &&
@@ -117,7 +117,8 @@ bool intel_engine_rehold_child_live(const struct intel_engine_rehold_child *c) {
   c->parent->child_borrows==1 && !c->parent->child_returns;
 }
 bool intel_engine_rehold_return(struct intel_engine_rehold_child *c) {
- if(!intel_engine_rehold_child_live(c))return false;
+ if(!intel_engine_rehold_child_live(c) || c->dependent || c->dependent_borrows>1 ||
+    c->dependent_borrows!=c->dependent_returns)return false;
  c->parent->child=0;++c->parent->child_returns;c->active=false;return true;
 }
 bool intel_engine_rehold_run(struct intel_engine_rehold *r,struct intel_engine_held_reset_result *x,struct intel_engine_rehold_io io) {

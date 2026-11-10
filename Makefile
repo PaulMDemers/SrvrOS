@@ -5818,3 +5818,14 @@ test-intel-rehold: test-intel-engine-rehold build/tests/intel-rehold-adapter$(HO
 	$(PYTHON) -m unittest discover -s tools -p test_intel_rehold_adapter.py
 	build/tests/boot-rehold$(HOST_EXE)
 test-core: test-intel-rehold
+
+# Read-only native interval source lifetime; no native image links this claim.
+INTEL_INTERVAL_CLAIM_SOURCES := kernel/diagnostics/intel_interval_claim.c kernel/diagnostics/intel_engine_rehold.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_held_reset.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c kernel/src/scanout_transfer.c kernel/src/scanout_space.c
+INTEL_INTERVAL_CLAIM_FIXTURES := tools/test_intel_engine_rehold.c tools/test_intel_held_interval.c tools/test_intel_engine_held_reset.c tools/test_intel_engine_prepare.c tools/test_intel_takeover.c tools/test_intel_completion_audit.c kernel/src/display_access.c
+.PHONY: test-intel-interval-claim
+test-core: test-intel-interval-claim
+test-intel-interval-claim: build/tests/intel-interval-claim$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_interval_claim.py
+build/tests/intel-interval-claim$(HOST_EXE): tools/test_intel_interval_claim.c $(INTEL_INTERVAL_CLAIM_SOURCES) $(INTEL_INTERVAL_CLAIM_FIXTURES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -Ikernel/include $< $(INTEL_INTERVAL_CLAIM_SOURCES) -o $@
