@@ -11742,3 +11742,54 @@ requirements, all proofs/barriers and automatic collection. Native acceptance
 and the earlier intermittent battery cause remain open. Refreshed PR301/PR19
 heads0778cd1a/3afff099 retain separate graphics/network work; integration main
 remainsc3550c82 before this PR's merge. Actions stay disabled.
+
+## Native reserved-append result (2026-11-10)
+
+Release `a1397d0b2e7ba0d1`, compiled from `51670ae6` with ports `39ad9d70`,
+completes the original automatic 1800-second workload in
+`session-00065fefd5a209b5-00`. Implementation PR458 is merged at `9580bb4b`;
+its final follow-up changes documentation only. This accepts bounded native
+composition of private reserved append, captured-prefix writeback and the
+existing audio/disk/app/screenshot workload, with all original limits and
+integrity checks retained.
+
+The run completes 1,079 app cycles, 4,062 verified disk bursts, 1,064,828,928
+disk bytes and 345,763,840 PCM bytes at 1% volume, with zero recorded audio
+underruns or worker errors. Maximum UI loop, app ready and app close times are
+121.468 ms, 1.893635 s and 5.371300 s, within the unchanged 500 ms/10 s limits.
+All three screenshots save during PCM, a follow-up app opens, and ordinary exit,
+cache retirement and worker cleanup finish. The bounded native logs retain the
+original lifecycle summary and worst-lifetime proofs; they do not retain all
+individual cycle/app-stage receipts. Subjective sound at 1% remains unassessed;
+the earlier short 25% listening acceptance stays separate.
+
+Each 1366×768 BMP has the exact 4,196,406-byte length and decodes fully. Capture
+durations are 11.053331/15.913968/6.072230 s, median 11.053331 s, versus the prior
+d551 run's 15.025137 s median. Different cold boots and interleavings, including
+different completed disk/app counts, prevent a causal speed claim. Each capture
+has 65 raw writes: 26/27/27 proved copies and 39/38/38 ordinary calls. Strict v2
+partition, real ordinary gate counts and captured-prefix companions validate;
+no growth, copy failure, invalid or dropped evidence is recorded. Active-append
+dirty-survivor fault/ownership proofs remain host/VM evidence; retained native
+selected-prefix records do not establish continuous coverage of every commit.
+
+Write phases still take 5.581984/11.843483/3.781357 s, and ordinary storage
+admission accounts for 94.24–97.89% of raw write wall time. The worst retained
+gate is 2.301091 s. Its observed global-sync owner and the selected maximum
+content commit are different intervals in this run; do not attribute that gate
+to the selected content's callbacks. Remaining shared I/O admission is the next
+performance target, without changing barriers, ownership or runtime limits.
+
+All 814 prior files survive with unchanged bytes except expected filesystem
+metadata; nine outputs bring the total to 823 files and 3,803 allocated clusters.
+Independent fsck, full allocation traversal and actual USB hashes pass with zero
+leaks, bitmap/FAT mismatches or errors. The raw 40-byte disk receipt and all 16
+original saved-log contracts reproduce. Battery epoch1 retires after 705
+attempts, 10,684 queries and 131 notifications, with zero heap, errors or denied
+operations and a clean post-PCM first-protocol observation. This run does not
+resolve the earlier intermittent battery failure; its original media survives.
+
+Ubuntu default, consumed one-shot, installed a139/recoveryc354 and independent
+payload/trial backups are verified. The collector is disabled, USB unmounted
+and no reboot armed. No hardware or power-policy gate changes follow from this
+result. Original failure evidence and other machines' acceptance stay separate.
