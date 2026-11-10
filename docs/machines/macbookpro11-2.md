@@ -7,6 +7,26 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+The21387b54/b865c96e670e52df trial also held and is now closed failed/incomplete.
+Only its21836-byte startup log survived; the2062-file primary is immutable.
+The user's latest photo places the failure in active DRAIN/OWNER, before the
+terminal handoff; tiny native counters remain uncertain. Do not treat it as a
+repeat of the earlier FINISH/DRAIN_FAILED diagnosis. Ubuntu is unarmed.
+
+The user explicitly forbids another hardware test until the whole relevant
+section has been audited and a bug identified. Current scope is the complete
+HTTP child/supervisor/TCP/prepared-worker path; native provider, RX/cache/DMA,
+USB event/fence/command and parent/key cleanup; and the HOST/VM/collector test
+assumptions between them. The local parent owns generic lifecycle/integration,
+with independent native and evidence reviews. No new payload, install or boot is
+part of this audit. Actual main9a218889 (PR452 userspace capture measurements)
+was fetched and inspected; keep the failed0d83/213 runtime fixed during causal
+reproduction. PR301's GPU/process and PR379's WebCore scope remain separate.
+The mutable checkpoint is `build/bringup/wifi-http5-section-audit/work-state.json`;
+the prior run has already been collected FIRST once. Preserve every closed
+primary, recovery and separate photograph. Detailed findings follow after
+reproduction and independent cross-review, without inferring physical success.
+
 Accepted runtime785e3605/release7cdfeeefca45728b completed native production
 DHCP/DNS and actual-process exact4159-byte HTTP request/3072-byte body/genuine
 EOF, with child/worker/TCP and original-key/provider/fullparent retirement. This
