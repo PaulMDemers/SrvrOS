@@ -2,21 +2,24 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Active scope: close native re-arm acceptance and preserve evidence
+### Active scope: integrate storage baseline and bind native interval admission
 
-Main`c3550c82` is integrated. Source`f2a6c116` now accepts the bounded
-[post-reset BCS re-arm scope](../intel-engine-rehold.md), with the original-entry
-child drained and exact mixed hardware state restored. This closes the concrete
-post-reset readiness gap; it supplies no firmware/DMA/cache/reader retirement or
-GPU interval grant. Shared subsystem changes remain isolated core/adapter,
-child lifetime, strict recipe/collection and host/native fault tests. PR19
-networking/PR379 WebCore remain independent; no sibling gates are widened.
+Fetched main`72d49457` (PR458/459), after preserving the accepted native re-arm
+result below. Integrate its reserved-append and interruptible last-release work;
+qualify the full local matrix and exact-stage pre-init refusal/persistence. Keep
+the accepted currente835/recovery9aa8 and independent evidence unchanged. No
+new native operation or reboot is authorized by integration validation alone.
 
-Next memory work still requires a real maintained address-interval provider,
-specific per-obligation witnesses and retirement before a native PTE store.
-Do not turn this diagnostic child or a saved receipt into a later live owner.
-Checkpoint:`build/air-engine-rehold-20261110`; matching native run collected,
-Ubuntu default, recovery retained, no reboot armed.
+Next implementation scope is a source-bound native interval admission protocol:
+retain the original live re-arm child, exact captured entries and both original
+clock origins; track unresolved firmware/DMA/cache/reader witnesses separately
+from CPU ownership. A saved receipt or the mere existence of a child must never
+admit a PTE store. First settle the generation-specific completion/retirement
+sequence against pinned references, then implement the supported lifecycle and
+refusal/fault tests. Touched subsystems: diagnostic ownership core/adapter and
+strict collector/tests; no ordinary graphics or sibling profile gate widening.
+PR19 networking/PR379 WebCore remain independent. Air6,1 storage work is consumed,
+not duplicated. Checkpoint:`build/air-native-owner-20261110`; no reboot armed.
 
 ### Current checkpoint: native post-reset re-arm and restoration accepted
 
