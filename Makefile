@@ -6596,3 +6596,9 @@ test-core: test-wifi-mcu-bulk-observation test-xhci-cal5-mcu
 test-wifi-completion-foundations: test-wifi-mcu-bulk-observation test-xhci-cal5-mcu
 test-wifi-mcu-bulk-observation:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_mcu_bulk_observation.py
+
+.PHONY: test-wifi-mcu-failure-details
+test-core: test-wifi-mcu-failure-details
+test-wifi-completion-foundations: test-wifi-mcu-failure-details
+test-wifi-mcu-failure-details: build/tests/xhci-cal5-mcu-host$(HOST_EXE)
+	WIFI_MCU_DETAILS_BINARY=$< PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_mcu_failure_details.py

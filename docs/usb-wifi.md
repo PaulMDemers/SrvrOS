@@ -8264,3 +8264,35 @@ pass. Independent source/evidence/fixture reviews find no blockers, but no
 spontaneous physical cause is reproduced. Failed-TD/producer/Link and unmatched
 MCU event discriminators remain the next investigation; runtime and installed
 payload stay unchanged and no new boot is armed.
+
+### Additive MCU descriptor and dispatch observations
+
+Failure diagnostics retain the original `wifi-mcu-bulk-observation` version1
+row unchanged. Optional companion rows are ordered ring observation, event
+summary and up to four event samples, with the same bulk sequence. A populated
+ring snapshot requires the captured/current CPU ring and physical base to
+agree, an aligned allocated page and a bounded Normal-TRB index. It samples the
+submitted descriptor, Link63 and producer index/cycle using volatile DWORD
+reads after failure; low/high pairs need not be atomic. Expected buffer/cycle
+come from publication. A valid snapshot means populated data, not a valid
+descriptor; damaged types, status, cycles and addresses remain observable.
+
+A CPU0 observer attaches to one exact live stack receipt under IRQ exclusion.
+Nested refused or other-device calls cannot replace or detach it, including at
+saturated sequence numbers. It copies only the first four relevant transfer
+events delivered to `dispatch_transfer_event`, with explicit dropped and
+saturating-counter/overflow fields. The original polls/dispatched counts remain
+caller-loop counts. The new counters cover dispatch-helper entries while
+attached, including other callers/IRQs; neither counts all hardware arrivals.
+Raw slot/DCI/parameter equality is not event admission or successful completion.
+The observer detaches before its stack receipt returns. First-failure copies
+remain immutable after refused calls or late events.
+
+The strict decoder keeps legacy result shape when companions are absent and
+rejects partial, duplicated, reordered, incorrectly sequenced, oversized or
+contradictory companions. Successful USB with a bad firmware reply may have
+event details and no failure ring snapshot; an occupied observer may leave no
+event details for an admitted nested bulk. Empty snapshots must be zero. These
+records add no payload/key reads, MMIO, extra polling, clocks, TD, retry, reset,
+longer deadline, DMA reclamation or native acceptance. Build/native-host/wire
+and sanitizer qualification precede any new installed diagnostic candidate.

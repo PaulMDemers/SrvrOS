@@ -341,6 +341,21 @@ struct xhci_wifi_mcu_bulk_receipt {
     unsigned dci,requested,reason,completion,remaining,flags,endpoint_state;
     unsigned event_start,event_end,event_start_cycle,event_end_cycle,polls,dispatched;
     bool endpoint_valid;
+    /* Diagnostic publication pins and later RAM/event snapshots only. */
+    struct xhci_trb *published_ring;
+    uint64_t published_parameter;
+    unsigned published_slot,published_cycle;
+    struct {
+        bool valid;
+        unsigned index,producer_index,producer_cycle,expected_cycle;
+        uint64_t expected_parameter,submitted_parameter,link_parameter;
+        uint32_t submitted_status,submitted_control,link_status,link_control;
+    } ring_observation;
+    struct {
+        bool valid,overflow;
+        unsigned slot,seen,transfers,relevant,exact,samples,dropped;
+        struct xhci_trb sample[4];
+    } events;
 };
 struct xhci_wifi_mcu {
     struct xhci_bulk_endpoint response;
@@ -775,6 +790,7 @@ void xhci_set_wifi_firmware_enabled(bool enabled) { wifi_firmware_enabled=enable
 static bool configure_wifi_firmware(struct xhci_device *d);
 static bool wifi_firmware_event(struct xhci_device *d,const struct xhci_trb *event);
 static bool wifi_mcu_event(struct xhci_device *d,const struct xhci_trb *event);
+static void wifi_mcu_observe_event(const struct xhci_trb *event);
 static bool wifi_rx_event(struct xhci_device *d,const struct xhci_trb *event);
 static bool wifi_cal5_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_tx5_event(struct xhci_device *,const struct xhci_trb *);
@@ -3159,6 +3175,7 @@ bool xhci_reclaim(void) {
 /* Every event-ring consumer routes unrelated transfers here. All callers
  * hold IRQs disabled, including the keyboard service running during disk I/O. */
 static void dispatch_transfer_event(const struct xhci_trb *event) {
+    wifi_mcu_observe_event(event);
     if(wifi_fence5_command_event(event,0) || wifi_fence5_stop_event(event))return;
     if (((event->control >> 10) & 0x3f) != XHCI_TRB_TYPE_TRANSFER_EVENT) return;
     uint8_t slot = event->control >> 24, dci = (event->control >> 16) & 31;

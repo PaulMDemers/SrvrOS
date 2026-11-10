@@ -13,6 +13,7 @@ from NONE; it does not authenticate the origin of a row. No packet, key or
 credential data is decoded here.
 """
 import re
+from wifi_mcu_failure_details import observe_details
 
 PREFIX = 'wifi-mcu-bulk-observation'
 KEYS = ('version cal_step first_failure sequence reason dci requested flags cc '
@@ -123,7 +124,7 @@ def observe(log):
     rows = [line for line in log.splitlines()
             if line.lstrip().startswith(PREFIX)]
     _require(len(rows) <= 1, 'duplicate MCU bulk observations')
-    return {
+    result = {
         'rows': [_decode(line) for line in rows],
         'native_accepted': False,
         'full_protocol_acceptance': False,
@@ -134,3 +135,7 @@ def observe(log):
                  'only; source/session/transport and complete native proof '
                  'are independently required.',
     }
+    details = observe_details(log, result['rows'])
+    if details is not None:
+        result['diagnostics'] = details
+    return result

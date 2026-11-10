@@ -31,6 +31,82 @@ static bool wifi_mcu_owned(struct xhci_device *d) {
     return d->present && wifi_firmware_owned(d) && d->firmware.ready &&
         !d->firmware.pending && !d->firmware.mcu.failed;
 }
+/* CPU0 diagnostic window, not an event consumer or completion owner. A nested
+ * refused/other bulk cannot replace this exact stack receipt. Its storage is
+ * detached under the same IRQ exclusion before that invocation returns. */
+static struct {
+    struct xhci_device *device;
+    struct xhci_wifi_mcu_bulk_receipt *receipt;
+} wifi_mcu_observer;
+static void wifi_mcu_observation_count(unsigned *count,bool *overflow) {
+    if(*count==UINT32_MAX)*overflow=true;
+    else (*count)++;
+}
+static void wifi_mcu_observe_event(const struct xhci_trb *event) {
+    struct xhci_wifi_mcu_bulk_receipt *r=wifi_mcu_observer.receipt;
+    if(!r)return;
+    wifi_mcu_observation_count(&r->events.seen,&r->events.overflow);
+    if(((event->control>>10)&63)!=XHCI_TRB_TYPE_TRANSFER_EVENT)return;
+    wifi_mcu_observation_count(&r->events.transfers,&r->events.overflow);
+    unsigned slot=event->control>>24,dci=(event->control>>16)&31;
+    uint64_t p=event->parameter_low|((uint64_t)event->parameter_high<<32);
+    bool exact=slot==r->published_slot && dci==r->dci && p==r->trb;
+    bool relevant=(slot==r->published_slot && (dci==11 || dci==16)) ||
+        p==r->trb || (r->ring && p>=r->ring && p-r->ring<PMM_FRAME_SIZE);
+    if(!relevant)return;
+    wifi_mcu_observation_count(&r->events.relevant,&r->events.overflow);
+    if(exact)wifi_mcu_observation_count(&r->events.exact,&r->events.overflow);
+    if(r->events.samples<4)r->events.sample[r->events.samples++]=*event;
+    else wifi_mcu_observation_count(&r->events.dropped,&r->events.overflow);
+}
+static void wifi_mcu_observe_ring(struct xhci_device *d,struct xhci_wifi_mcu_bulk_receipt *r) {
+    zero_bytes(&r->ring_observation,sizeof r->ring_observation);
+    struct xhci_bulk_endpoint *ep=r->dci==11?&d->firmware.mcu.response:&d->firmware.ep;
+    if(!d->present || d->removed || d->retiring || xhci.stopping ||
+       !d->firmware.mcu.configured || (r->dci!=11 && r->dci!=16) || !r->published_ring ||
+       ep->ring!=r->published_ring || ep->ring_phys!=r->ring || !r->ring ||
+       (r->ring&(PMM_FRAME_SIZE-1)) || r->trb<r->ring ||
+       r->trb-r->ring>=63*sizeof(struct xhci_trb) ||
+       ((r->trb-r->ring)&15) || ep->enqueue>=63)return;
+    unsigned index=(unsigned)((r->trb-r->ring)/sizeof(struct xhci_trb));
+    /* Retained DMA RAM can change. Sample every DWORD explicitly, without
+     * treating torn low/high values as an atomic controller/ownership proof. */
+    const volatile struct xhci_trb *td=&r->published_ring[index],*link=&r->published_ring[63];
+    uint32_t lo=td->parameter_low,hi=td->parameter_high;
+    r->ring_observation.submitted_parameter=lo|((uint64_t)hi<<32);
+    r->ring_observation.submitted_status=td->status;
+    r->ring_observation.submitted_control=td->control;
+    lo=link->parameter_low;hi=link->parameter_high;
+    r->ring_observation.link_parameter=lo|((uint64_t)hi<<32);
+    r->ring_observation.link_status=link->status;
+    r->ring_observation.link_control=link->control;
+    r->ring_observation.index=index;r->ring_observation.producer_index=(unsigned)ep->enqueue;
+    r->ring_observation.producer_cycle=ep->cycle;
+    r->ring_observation.expected_parameter=r->published_parameter;
+    r->ring_observation.expected_cycle=r->published_cycle;
+    r->ring_observation.valid=true;
+}
+/* Failure formatter runs after the bulk loop, never from IRQ dispatch. No
+ * payload/firmware response bytes are emitted by these diagnostic families. */
+static void wifi_mcu_bulk_details(const struct xhci_wifi_mcu_bulk_receipt *r) {
+    console_printf("wifi-mcu-ring-observation: version=1 sequence=%u valid=%u index=%u producer_index=%u producer_cycle=%u expected_parameter=%x expected_cycle=%u submitted_parameter=%x submitted_status=%x submitted_control=%x link_parameter=%x link_status=%x link_control=%x\n",
+        r->sequence,(uint64_t)r->ring_observation.valid,(uint64_t)r->ring_observation.index,
+        (uint64_t)r->ring_observation.producer_index,(uint64_t)r->ring_observation.producer_cycle,
+        r->ring_observation.expected_parameter,(uint64_t)r->ring_observation.expected_cycle,
+        r->ring_observation.submitted_parameter,(uint64_t)r->ring_observation.submitted_status,
+        (uint64_t)r->ring_observation.submitted_control,r->ring_observation.link_parameter,
+        (uint64_t)r->ring_observation.link_status,(uint64_t)r->ring_observation.link_control);
+    console_printf("wifi-mcu-event-summary: version=1 sequence=%u valid=%u slot=%u seen=%u transfers=%u relevant=%u exact=%u samples=%u dropped=%u overflow=%u\n",
+        r->sequence,(uint64_t)r->events.valid,(uint64_t)r->events.slot,(uint64_t)r->events.seen,
+        (uint64_t)r->events.transfers,(uint64_t)r->events.relevant,(uint64_t)r->events.exact,
+        (uint64_t)r->events.samples,(uint64_t)r->events.dropped,(uint64_t)r->events.overflow);
+    for(unsigned i=0;i<r->events.samples && i<4;i++) {
+        const struct xhci_trb *event=&r->events.sample[i];
+        uint64_t p=event->parameter_low|((uint64_t)event->parameter_high<<32);
+        console_printf("wifi-mcu-event-sample: version=1 sequence=%u index=%u parameter=%x status=%x control=%x\n",
+            r->sequence,(uint64_t)i,p,(uint64_t)event->status,(uint64_t)event->control);
+    }
+}
 static bool wifi_mcu_event(struct xhci_device *d,const struct xhci_trb *event) {
     struct xhci_wifi_mcu *m=&d->firmware.mcu;
     uint64_t pointer=event->parameter_low|((uint64_t)event->parameter_high<<32);
@@ -72,13 +148,18 @@ static bool configure_wifi_mcu(struct xhci_device *d) {
     m->configured=true;return true;
 }
 /* Retain the branch actually taken, rather than infer a timeout from cc=0.
- * All reads below are CPU-owned metadata or retained output-context RAM. No
- * register I/O, extra poll, new TD, retry, reset or DMA retirement is licensed.
- * Event counts cover this caller's poll loop, not all IRQ/event consumers. */
+ * Reads below cover CPU metadata and retained output-context/transfer-ring RAM;
+ * those later volatile DMA snapshots are neither atomic nor ownership proof.
+ * No register I/O, extra poll, new TD, retry, reset or DMA retirement is licensed.
+ * polls/dispatched count this caller's loop. events counts entry into the
+ * dispatch helper across consumers while attached, not every poll/hardware event. */
 static void wifi_mcu_bulk_record(struct xhci_device *d,struct xhci_wifi_mcu_bulk_receipt *r,
     enum wifi_mcu_bulk_result reason,uint64_t elapsed) {
     uint64_t flags=event_irq_save();
     struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    if(wifi_mcu_observer.device==d && wifi_mcu_observer.receipt==r) {
+        wifi_mcu_observer.receipt=NULL;wifi_mcu_observer.device=NULL;
+    }
     r->reason=reason;r->elapsed_us=elapsed;
     r->completion=m->completion;r->remaining=m->remaining;
     r->flags=(m->pending?1u:0u)|(m->done?2u:0u)|(m->failed?4u:0u)|
@@ -95,6 +176,8 @@ static void wifi_mcu_bulk_record(struct xhci_device *d,struct xhci_wifi_mcu_bulk
             ((uint64_t)context_read32(d->output_context,r->dci,3)<<32);
         r->endpoint_valid=true;
     }
+    if(reason!=WIFI_MCU_BULK_SUCCESS && reason!=WIFI_MCU_BULK_REFUSED)
+        wifi_mcu_observe_ring(d,r);
     m->last_bulk=*r;
     if(reason!=WIFI_MCU_BULK_SUCCESS && !m->bulk_failure_valid) {
         m->bulk_failure=*r;m->bulk_failure_valid=true;
@@ -120,8 +203,14 @@ static int wifi_mcu_bulk(struct xhci_device *d,bool in,size_t size) {
     receipt.event_start=xhci.event_dequeue;receipt.event_start_cycle=xhci.event_cycle;
     m->dci=ep->dci;m->requested=(uint32_t)size;m->remaining=0;m->completion=0;
     m->done=false;m->pending=true;
+    receipt.published_ring=ep->ring;receipt.published_parameter=phys;
+    receipt.published_slot=d->slot_id;receipt.published_cycle=ep->cycle;
     m->trb=ring_push(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&trb);
     receipt.trb=m->trb;receipt.ring=ep->ring_phys;
+    if(!wifi_mcu_observer.receipt) {
+        receipt.events.valid=true;receipt.events.slot=d->slot_id;
+        wifi_mcu_observer.device=d;wifi_mcu_observer.receipt=&receipt;
+    }
     db_write32(d->slot_id,m->dci);event_irq_restore(flags);
     uint64_t start=timer_monotonic_us(),clock=start;unsigned stalled=0;
     for(;;) {

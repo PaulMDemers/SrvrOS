@@ -8,6 +8,8 @@ static uint32_t cal5_mcu_alc,cal5_mcu_ibi;
 static uint64_t cal5_mcu_clock_start;
 static bool cal5_mcu_lifetime_active;
 static void cal5_mcu_lifetime_bulk(unsigned);
+static unsigned cal5_mcu_diagnostic_mode;
+static void cal5_mcu_nested_observation(void);
 static bool cal5_drain_test_parent(void){return cal5_mcu_parent;}
 static void cal5_drain_test_progress(void){assert(!"calibration MCU fixture has no cleanup RX publications");}
 static bool cal5_drain_test_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v){
@@ -35,9 +37,39 @@ static void cal5_mcu_test_bulk(unsigned dci){
  struct xhci_device *d=cal5_mcu_test_device;struct xhci_wifi_mcu *m=&d->firmware.mcu;
  assert(d && dci==m->dci && wifi_cal5.commands && wifi_cal5.commands<=5);
  cal5_mcu_calls++;
+ if(cal5_mcu_diagnostic_mode && cal5_mcu_calls==cal5_mcu_target)cal5_mcu_nested_observation();
  unsigned step=wifi_cal5.commands-1;bool fault=cal5_mcu_fault && cal5_mcu_calls==cal5_mcu_target;
  uint8_t expected[16];assert(mt76_poweron5_packet(step,expected,sizeof expected)==16);
  if(dci==16)assert(!memcmp(d->firmware.buffer,expected,16));
+ if(fault && cal5_mcu_fault>=13){
+  assert(cal5_mcu_fault<=15 && dci==11 && cal5_mcu_target==10);
+  if(cal5_mcu_fault==15){m->response.enqueue=63;return;}
+  unsigned index=xhci.event_dequeue;bool cycle=xhci.event_cycle;
+  unsigned count=cal5_mcu_fault==13?6:5;
+  for(unsigned n=0;n<count;n++){
+   uint64_t p=m->response.ring_phys+0x800+16*n;
+   struct xhci_trb e={.parameter_low=(uint32_t)p,.parameter_high=p>>32,
+    .status=(13u<<24)|(MT76_MCU_RESPONSE_MAX-16),
+    .control=(32u<<10)|(11u<<16)|((uint32_t)d->slot_id<<24)|(cycle?1u:0u)};
+   if(cal5_mcu_fault==14 && n<4){
+    /* Model dispatch from another consumer before this caller starts polling.
+     * These first four raw samples are genuine calls into the native hook. */
+    dispatch_transfer_event(&e);
+    if(n==3){
+     struct xhci_wifi_mcu_bulk_receipt *r=wifi_mcu_observer.receipt;
+     assert(r && r->events.samples==4 && !r->events.overflow);
+     /* Explicit HOST metadata seeding exercises finite counter overflow; it
+      * does not model UINT32_MAX physical completions or traffic volume. */
+     r->events.seen=r->events.transfers=r->events.relevant=r->events.exact=r->events.dropped=UINT32_MAX;
+    }
+   }else{
+    assert((xhci.event_ring[index].control&1)!=(unsigned)cycle);
+    xhci.event_ring[index]=e;
+    if(++index==64){index=0;cycle=!cycle;}
+   }
+  }
+  return; /* Withhold the target completion; preserve the original deadline. */
+ }
  if(fault && (cal5_mcu_fault==1 || cal5_mcu_fault==7 || cal5_mcu_fault==8)){
   if(cal5_mcu_fault==7)test_time_step=0;
   if(cal5_mcu_fault==8){cal5_mcu_clock_calls=0;native_boundary_clock_hook=cal5_mcu_clock;}
@@ -70,10 +102,12 @@ static void cal5_mcu_test_bulk(unsigned dci){
  if(fault && cal5_mcu_fault==12)cal5_mcu_parent=false;
 }
 static struct xhci_device *cal5_mcu_setup(unsigned fault,unsigned target){
+ assert(!wifi_mcu_observer.receipt && !wifi_mcu_observer.device);
  reset_test();memset(&wifi_cal5,0,sizeof wifi_cal5);memset(&wifi_stream5,0,sizeof wifi_stream5);
  memset(&wifi_join5,0,sizeof wifi_join5);memset(&wifi_wpa5,0,sizeof wifi_wpa5);memset(&wifi_fence5_native,0,sizeof wifi_fence5_native);
  test_time=1000;test_time_step=100;complete_control=false;complete_device=NULL;
  cal5_mcu_fault=fault;cal5_mcu_target=target;cal5_mcu_calls=cal5_mcu_clock_calls=0;
+ cal5_mcu_diagnostic_mode=0;
  cal5_mcu_parent=true;cal5_mcu_alc=0x2f2f1b1b;cal5_mcu_ibi=UINT32_MAX;
  struct xhci_device *d=&xhci.devices[0];cal5_mcu_test_device=d;
  *d=(struct xhci_device){.present=true,.slot_id=1,.vendor_id=0x7392,.product_id=0xa711,.device_bcd=0x100,
@@ -110,10 +144,42 @@ static enum mt76_calibration_status cal5_mcu_run(void){
  return mt76_poweron5_calibration_run(&wifi_cal5.cal,&io,&wifi_cal5.d->wifi_identity,&wifi_cal5.d->firmware.mcu.ant_fields,161,20);
 }
 static void cal5_mcu_finish(void){
+ assert(!wifi_mcu_observer.receipt && !wifi_mcu_observer.device);
  cal5_mcu_test_device=NULL;cal5_mcu_parent=false;wifi_cal5_requested=false;
  cal5_mcu_lifetime_active=false;
  native_boundary_clock_hook=NULL;test_time_step=1000;
  memset(&wifi_cal5,0,sizeof wifi_cal5);
+}
+/* Refusal and an independently allocated nested device cannot detach the
+ * outer diagnostic window, including when the numeric sequence saturates. */
+static void cal5_mcu_nested_observation(void){
+ struct xhci_device *d=cal5_mcu_test_device;
+ struct xhci_wifi_mcu_bulk_receipt *active=wifi_mcu_observer.receipt;
+ assert(active && wifi_mcu_observer.device==d && active->sequence==d->firmware.mcu.bulk_sequence);
+ if(cal5_mcu_diagnostic_mode<=2){
+  assert(wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX)==-1);
+  assert(d->firmware.mcu.last_bulk.reason==WIFI_MCU_BULK_REFUSED);
+  assert(!d->firmware.mcu.last_bulk.events.valid && !d->firmware.mcu.last_bulk.ring_observation.valid);
+ }else{
+  struct xhci_device *other=&xhci.devices[1];assert(!other->present);
+  if(cal5_mcu_diagnostic_mode==4){
+   *other=(struct xhci_device){.present=true,.slot_id=2,.wifi_probe_ok=true,
+    .wifi_identity={0x76100002,0x76502000}};
+   struct xhci_wifi_firmware *f=&other->firmware;f->active=f->configured=f->ready=true;
+   f->mcu.configured=true;void *v;
+   assert(alloc_frame_zero(&other->output_context_phys,&v));other->output_context=v;
+   assert(alloc_frame_zero(&f->buffer_phys,&v));f->buffer=v;
+   assert(alloc_frame_zero(&f->ep.ring_phys,&v));f->ep.ring=v;
+   f->ep.cycle=true;f->ep.dci=16;f->ep.packet=512;write_link_trb(v,f->ep.ring_phys,true);
+   /* The MMIO model serves only slot1, so this separate slot times out using
+    * the real bulk loop without fabricating a nested completion. */
+  }
+  assert(wifi_mcu_bulk(other,false,16)==-1);
+  assert(other->firmware.mcu.last_bulk.reason==(cal5_mcu_diagnostic_mode==4?WIFI_MCU_BULK_ELAPSED:WIFI_MCU_BULK_REFUSED));
+  assert(!other->firmware.mcu.last_bulk.events.valid && !other->firmware.mcu.last_bulk.events.seen);
+  assert(other->firmware.mcu.last_bulk.ring_observation.valid==(cal5_mcu_diagnostic_mode==4));
+ }
+ assert(wifi_mcu_observer.device==d && wifi_mcu_observer.receipt==active && !active->events.seen);
 }
 /* A separate controller cursor consumes the real published Normal/Link TRBs.
  * The original24 callback/branch fixtures above intentionally stay unchanged.
@@ -257,7 +323,15 @@ static void test_wifi_cal5_mcu_lifetime(void){
     assert(r->sequence==3821 && r->trb==m->response.ring_phys+18*16);
     assert(r->dispatched==25 && r->event_start==47 && !r->event_start_cycle && r->event_end==8 && r->event_end_cycle);
     assert(r->endpoint_valid && r->endpoint_state==1 && r->endpoint_dequeue==(m->response.ring_phys|1));
+    assert(r->ring_observation.valid && r->ring_observation.index==18 && r->ring_observation.producer_index==19);
+    assert(r->ring_observation.expected_parameter==m->buffer_phys && r->ring_observation.expected_cycle==1);
+    assert(r->ring_observation.submitted_parameter==m->buffer_phys && r->ring_observation.submitted_status==1024);
+    assert(r->events.valid && r->events.slot==1 && r->events.seen==25 && !r->events.transfers && !r->events.samples);
    }
+   if(mode==3)assert(m->bulk_failure.ring_observation.valid &&
+       (m->bulk_failure.ring_observation.submitted_control&1)!=m->bulk_failure.ring_observation.expected_cycle);
+   if(mode==5)assert(m->bulk_failure.ring_observation.valid &&
+       m->bulk_failure.ring_observation.index==0 && (m->bulk_failure.ring_observation.link_control&1)==m->bulk_failure.ring_observation.expected_cycle);
    struct xhci_wifi_mcu_bulk_receipt retained=m->bulk_failure;
    unsigned calls=cal5_mcu_lifetime.calls,transfers=cal5_mcu_lifetime.transfers[1];uint64_t enqueue=m->response.enqueue;
    assert(wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX)==-1);
@@ -267,6 +341,88 @@ static void test_wifi_cal5_mcu_lifetime(void){
   cal5_mcu_finish();
  }
  puts("xhci-cal5-mcu-lifetime: PASS6 realTRB/Link63 independentconsumer after1906INprefix;eventwrap,delayedreply,elapsed25foreign,wrongTD/linkcycle,badreply;modeledcontroller/firmware,physicalcauseunproved");
+}
+static void test_wifi_cal5_mcu_observations(void){
+ for(unsigned mode=1;mode<=4;mode++){
+  struct xhci_device *d=cal5_mcu_setup(0,10);cal5_mcu_diagnostic_mode=mode;
+  if(mode==2)d->firmware.mcu.bulk_sequence=UINT64_MAX;
+  assert(cal5_mcu_run()==MT76_CAL_OK && !freed);
+  struct xhci_wifi_mcu *m=&d->firmware.mcu;
+  assert(m->last_bulk.reason==WIFI_MCU_BULK_SUCCESS && m->last_bulk.events.valid);
+  assert(m->last_bulk.events.seen==1 && m->last_bulk.events.transfers==1 && m->last_bulk.events.exact==1);
+  assert(!m->last_bulk.ring_observation.valid && !wifi_mcu_observer.receipt);
+  if(mode<=2)assert(m->bulk_failure_valid && m->bulk_failure.reason==WIFI_MCU_BULK_REFUSED &&
+      !m->bulk_failure.events.valid && m->last_bulk.sequence==(mode==2?UINT64_MAX:10));
+  else assert(!m->bulk_failure_valid);
+  cal5_mcu_finish();
+ }
+ /* A changed owner, invalid index/alignment/producer or retiring device must
+  * not authorize any new retained-DMA read, even if the pointer is unusable. */
+ struct xhci_device *d=cal5_mcu_setup(0,0);struct xhci_wifi_mcu *m=&d->firmware.mcu;
+ struct xhci_wifi_mcu_bulk_receipt r={.sequence=1,.dci=11,.ring=m->response.ring_phys,
+  .trb=m->response.ring_phys,.published_ring=m->response.ring,
+  .published_parameter=m->buffer_phys,.published_slot=1,.published_cycle=1};
+ struct xhci_trb *saved=m->response.ring;
+ m->response.ring=(struct xhci_trb *)(uintptr_t)1;wifi_mcu_observe_ring(d,&r);
+ assert(!r.ring_observation.valid && !r.ring_observation.submitted_parameter && !r.ring_observation.link_control);
+ m->response.ring=saved;
+ r.trb=r.ring+63*16;wifi_mcu_observe_ring(d,&r);assert(!r.ring_observation.valid);
+ r.trb=r.ring+1;wifi_mcu_observe_ring(d,&r);assert(!r.ring_observation.valid);
+ r.trb=r.ring;m->response.enqueue=63;wifi_mcu_observe_ring(d,&r);assert(!r.ring_observation.valid);
+ m->response.enqueue=0;d->retiring=true;wifi_mcu_observe_ring(d,&r);assert(!r.ring_observation.valid);
+ d->retiring=false;
+ assert(!r.ring_observation.expected_parameter && !r.ring_observation.producer_index && !r.ring_observation.submitted_control);
+ cal5_mcu_finish();
+ /* Exercise the real dispatch hook before ordinary handlers, with four
+  * retained raw samples, explicit drop accounting and saturating counters. */
+ d=cal5_mcu_setup(0,0);m=&d->firmware.mcu;
+ r=(struct xhci_wifi_mcu_bulk_receipt){.sequence=1,.dci=11,.ring=m->response.ring_phys,
+  .trb=m->response.ring_phys,.published_slot=1};
+ r.events.valid=true;r.events.slot=1;wifi_mcu_observer.device=d;wifi_mcu_observer.receipt=&r;
+ for(unsigned n=0;n<6;n++){
+  uint64_t p=r.ring+0x800+16*n;
+  struct xhci_trb e={.parameter_low=(uint32_t)p,.parameter_high=p>>32,
+   .status=(13u<<24)|n,.control=(32u<<10)|(11u<<16)|(1u<<24)};
+  dispatch_transfer_event(&e);
+ }
+ assert(r.events.seen==6 && r.events.transfers==6 && r.events.relevant==6 && !r.events.exact);
+ assert(r.events.samples==4 && r.events.dropped==2 && !r.events.overflow && !m->done && !m->pending);
+ for(unsigned n=0;n<4;n++)assert(r.events.sample[n].parameter_low==(uint32_t)(r.ring+0x800+16*n) &&
+    r.events.sample[n].status==((13u<<24)|n));
+ struct xhci_trb retained[4];memcpy(retained,r.events.sample,sizeof retained);
+ r.events.seen=r.events.transfers=r.events.relevant=r.events.exact=r.events.dropped=UINT32_MAX;
+ struct xhci_trb exact={.parameter_low=(uint32_t)r.trb,.parameter_high=r.trb>>32,
+  .status=0,.control=(32u<<10)|(11u<<16)|(1u<<24)|4};
+ dispatch_transfer_event(&exact);
+ assert(r.events.overflow && r.events.seen==UINT32_MAX && r.events.transfers==UINT32_MAX &&
+     r.events.relevant==UINT32_MAX && r.events.exact==UINT32_MAX && r.events.dropped==UINT32_MAX);
+ assert(r.events.samples==4 && !memcmp(retained,r.events.sample,sizeof retained) && !m->done);
+ wifi_mcu_bulk_record(d,&r,WIFI_MCU_BULK_SUCCESS,0);
+ assert(!wifi_mcu_observer.receipt && !wifi_mcu_observer.device && m->last_bulk.events.overflow);
+ struct xhci_wifi_mcu_bulk_receipt frozen=m->last_bulk;dispatch_transfer_event(&exact);
+ assert(!memcmp(&frozen,&m->last_bulk,sizeof frozen));
+ cal5_mcu_finish();
+ /* These additional callback-driven traces use the real calibration failure
+  * formatter, allowing strict Python consumers to check the emitted contracts. */
+ for(unsigned fault=13;fault<=15;fault++){
+  d=cal5_mcu_setup(fault,10);m=&d->firmware.mcu;
+  assert(cal5_mcu_run()!=MT76_CAL_OK && m->bulk_failure_valid && !freed);
+  const struct xhci_wifi_mcu_bulk_receipt *f=&m->bulk_failure;
+  assert(f->sequence==10 && f->reason==WIFI_MCU_BULK_ELAPSED && f->events.valid);
+  assert(m->pending && m->failed && d->ep0_quarantined);
+  if(fault==13)assert(f->ring_observation.valid && f->events.seen==6 &&
+      f->events.samples==4 && f->events.dropped==2 && !f->events.exact && !f->events.overflow);
+  if(fault==14)assert(f->ring_observation.valid && f->events.samples==4 && f->events.overflow &&
+      f->events.seen==UINT32_MAX && f->events.transfers==UINT32_MAX && f->events.relevant==UINT32_MAX &&
+      f->events.exact==UINT32_MAX && f->events.dropped==UINT32_MAX && f->dispatched==1);
+  if(fault==15)assert(!f->ring_observation.valid && !f->ring_observation.submitted_control &&
+      !f->ring_observation.expected_parameter && !f->events.seen && !f->events.samples);
+  struct xhci_wifi_mcu_bulk_receipt retained=*f;
+  unsigned calls=cal5_mcu_calls;assert(wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX)==-1);
+  assert(cal5_mcu_calls==calls && !memcmp(&retained,&m->bulk_failure,sizeof retained) && !freed);
+  cal5_mcu_finish();
+ }
+ puts("xhci-cal5-mcu-observations: PASS9 scenario groups;nested same/MAX/refused/admitted other owner,invalidRAMguard,bounded rawevent/drop/saturation/lateimmutability,actual emitted drop/seededoverflow/invalidproducer;diagnostics only,no native acceptance");
 }
 static void test_wifi_cal5_mcu(void){
  struct xhci_device *d=cal5_mcu_setup(0,0);assert(cal5_mcu_run()==MT76_CAL_OK);
@@ -286,6 +442,18 @@ static void test_wifi_cal5_mcu(void){
    assert(m->bulk_failure_valid && m->failed && d->firmware.failed && d->ep0_quarantined);
    assert(r->sequence==10 && r->dci==11 && r->requested==MT76_MCU_RESPONSE_MAX && r->ring==m->response.ring_phys);
    assert(r->trb==m->response.ring_phys+4*16 && r->endpoint_valid && r->endpoint_state==1);
+   assert(r->ring_observation.valid && r->ring_observation.index==4 && r->ring_observation.producer_index==5);
+   assert(r->ring_observation.expected_parameter==m->buffer_phys && r->ring_observation.expected_cycle==1);
+   assert(r->ring_observation.submitted_parameter==m->buffer_phys && r->ring_observation.submitted_status==1024);
+   assert(r->ring_observation.link_parameter==m->response.ring_phys && r->ring_observation.link_control==((6u<<10)|3u));
+   assert(r->events.valid && r->events.slot==1 && !r->events.overflow && !r->events.dropped);
+   assert(r->events.seen==(f==1 || f==7 || f==8?0u:1u) && r->events.transfers==r->events.seen && r->events.samples==r->events.seen);
+   assert(r->events.exact==(f==2 || f==5 || f==6 || f==10?1u:0u));
+   if(r->events.samples){
+    assert(r->events.sample[0].parameter_low==(uint32_t)(r->trb+(f==3?16:0)));
+    if(f==2)assert(!r->events.sample[0].status);
+    if(f==9)assert((r->events.sample[0].control>>24)==2);
+   }
    assert(r->event_start==9 && r->event_start_cycle==1 && r->event_end==(f==1 || f==7 || f==8?9u:10u) && r->event_end_cycle==1);
    unsigned reason=(f==2 || f==5 || f==6 || f==10)?WIFI_MCU_BULK_COMPLETION_FAILED:f==7?WIFI_MCU_BULK_STALLED:f==8?WIFI_MCU_BULK_CLOCK_REVERSED:WIFI_MCU_BULK_ELAPSED;
    assert(r->reason==reason && r->polls && r->dispatched==(f==1 || f==7 || f==8?0u:1u));
@@ -308,6 +476,7 @@ static void test_wifi_cal5_mcu(void){
     * parent after OUT,must NOT fabricate a USB timeout or admit the next IN. */
    assert(!m->bulk_failure_valid && !m->failed && !d->ep0_quarantined && m->last_bulk.reason==WIFI_MCU_BULK_SUCCESS);
    assert(m->last_bulk.sequence==target && m->last_bulk.dci==(f==12?16u:11u) && !m->last_bulk.endpoint_valid);
+   assert(!m->last_bulk.ring_observation.valid && m->last_bulk.events.valid && m->last_bulk.events.exact==1);
   }
   assert(!wifi_cal5_command(&wifi_cal5,MT76_POWERON_RXDCOC,1) && cal5_mcu_calls==target);
   cal5_mcu_finish();
@@ -324,14 +493,17 @@ static void test_wifi_cal5_mcu(void){
  assert(wifi_mcu_bulk(d,true,32)==-1 && !cal5_mcu_calls && !m->pending && !m->failed && !d->ep0_quarantined && !freed);
  assert(m->bulk_failure_valid && m->bulk_sequence==1 && m->last_bulk.reason==WIFI_MCU_BULK_REFUSED && m->last_bulk.requested==32);
  assert(!m->last_bulk.trb && !m->last_bulk.ring && !m->last_bulk.endpoint_valid && !m->last_bulk.polls && !m->last_bulk.dispatched);
+ assert(!m->last_bulk.ring_observation.valid && !m->last_bulk.events.valid && !m->last_bulk.events.seen);
  assert(!m->response.enqueue && !d->firmware.ep.enqueue);
  cal5_mcu_finish();
  puts("xhci-cal5-mcu: PASS24 actual5GHz engine/command/bulk/poll/event cases;explicit timeout-vs-invalidCC0,wrong event,clock/gate/refusal,firstfailure immutability,retained DMA/no retry;RFparent/registers modeled,hardware acceptance=0");
  test_wifi_cal5_mcu_lifetime();
+ test_wifi_cal5_mcu_observations();
 }
 
 static void trace_wifi_cal5_mcu(unsigned fault,unsigned target){
- assert(fault<=12 && ((!fault && !target) || (fault && target>=1 && target<=10)));
+ assert(fault<=15 && ((!fault && !target) || (fault && target>=1 && target<=10)));
+ assert(fault<=12 || target==10);
  cal5_mcu_setup(fault,target);
  enum mt76_calibration_status status=cal5_mcu_run();
  assert((status==MT76_CAL_OK)==!fault);

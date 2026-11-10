@@ -9,6 +9,15 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 10)
 
+Main8271c254 is now integrated atcddfd086 before additive MCU failure-detail
+work. The original bulk diagnostic stays unchanged; optional sequence-bound
+ring/producer/Link and bounded dispatch-event companions supply missing failure
+discriminators. Exact stack-receipt identity protects nested/saturated-sequence
+cases. Initial native24+long6+6 observation scenario groups and14 parser/wire
+tests pass; explicit dropped/overflow/invalid-snapshot emitted cases and final
+qualification are pending. No hardware cause or calibration/reconnect acceptance
+is claimed; installed3570/9110 and all closed capsules stay unchanged and unarmed.
+
 The3570ee66/9110 hardware return is now closed as FAILED calibration before
 either connection began (session00065ff304b616c2-00). FULL step2 receives no
 accepted response by the unchanged500ms limit; the saved MCU receipt identifies
