@@ -117,6 +117,8 @@ static uint32_t xhci_test_read32(uint64_t offset) {
 }
 
 static bool command_nested,event_flood,stop_on_doorbell;
+/* Model independent DMA event arrival at a clock sample; no production hook. */
+static void (*native_boundary_clock_hook)(void);
 static bool disable_auto,disable_wrong_slot,start_status_model;
 static struct xhci_device *control_model;
 static unsigned control_model_cc=1,control_model_stage=2;
@@ -288,7 +290,9 @@ void *kcalloc(size_t count,size_t size) { (void)count;(void)size;abort(); }
 bool net_device_register(const struct net_device_ops *ops) { (void)ops;abort(); }
 bool net_device_select(void){abort();}
 const char *net_device_name(void){abort();}
+#ifndef SRVROS_XHCI_STACK5_TEST
 const uint8_t *net_device_mac(void){abort();}
+#endif
 bool net_device_send(const uint8_t *frame,uint16_t length){(void)frame;(void)length;abort();}
 void net_handle_ethernet_frame(const uint8_t *frame,uint16_t length) { (void)frame;(void)length;abort(); }
 bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,bool writable) {
@@ -343,6 +347,7 @@ void pmm_free_frame(uint64_t address) {
 void pmm_free_frame_range(uint64_t address,uint64_t count) {for(uint64_t i=0;i<count;i++)pmm_free_frame(address+i*PMM_FRAME_SIZE);}
 
 static void reset_test(void) {
+    native_boundary_clock_hook=NULL;
     trim_reply_device=NULL;trim_reply_value=0;rf_wait_expected_delay=0;
     firmware_command_exact=firmware_command_failed=wifi_firmware_enabled=wifi_mac_startup=false;
     tt_calls=tt_fail_at=tt_change_address_at=0;
@@ -667,6 +672,7 @@ static bool complete_control;
 uint64_t timer_monotonic_us(void) {
     test_clock_reads++;
     test_time+=test_time_step;
+    if(native_boundary_clock_hook)native_boundary_clock_hook();
     if(receive_test_device)receive_test_tick();
     if(passive_test_device)passive_test_tick();
     if(window_test_device)window_test_tick();

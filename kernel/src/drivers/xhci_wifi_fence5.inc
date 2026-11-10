@@ -96,18 +96,38 @@ static bool wifi_fence5_empty(void){
  __atomic_thread_fence(__ATOMIC_ACQUIRE);
  return ((((volatile struct xhci_trb *)xhci.event_ring)[xhci.event_dequeue].control&1u)!=0)!=xhci.event_cycle;
 }
-static bool wifi_fence5_command_event(const struct xhci_trb *e){
+static bool wifi_fence5_command_event(const struct xhci_trb *e,uint64_t synchronous_pointer){
  if(!wifi_fence5_native.bound || wifi_fence5_native.retired || ((e->control>>10)&63)!=33)return false;
  uint64_t ptr=e->parameter_low|((uint64_t)e->parameter_high<<32);
  struct wifi_fence5_native_command *r=NULL;
  for(unsigned i=0;i<wifi_fence5_native.count;i++)if(wifi_fence5_native.commands[i].id.pointer==ptr)r=&wifi_fence5_native.commands[i];
- if(!r){if(wifi_fence5_native.round){wifi_fence5_bad_event(e);wifi_fence5_fault();return true;}return false;}
+ if(!r){
+  /* Only the actual synchronous waiter may delegate its exact published
+   * command. Shared consumers have no command-completion authority, even
+   * when command_pending/sync_users happen to be nonzero. */
+  if(!wifi_fence5_native.round && synchronous_pointer && ptr==synchronous_pointer && xhci.command_pending && xhci.sync_users)return false;
+  wifi_fence5_bad_event(e);wifi_fence5_fault();return true;
+ }
  unsigned index=(unsigned)((ptr-wifi_fence5_native.command_phys)/16);
  const uint32_t allowed=1u|(63u<<10)|(255u<<24);
  bool good=wifi_fence5_base() && wifi_fence5_native.round && xhci.command_pending && !r->latched && !r->consumed &&
   r==&wifi_fence5_native.commands[wifi_fence5_native.count-1] && index<63 && (r->id.type!=15 || r->stop_event) &&
   !(e->control&~allowed) && !(e->status&0xffffff) && (e->control>>24)==r->id.slot && (e->status>>24)==1 &&
   bytes_equal((const uint8_t *)&xhci.command_ring[index],(const uint8_t *)&r->shadow,sizeof r->shadow);
+ /* Stop Transfer Event publication precedes command completion, but the
+  * controller's final output-context write is guaranteed only before this
+  * completion. Keep the raw event until that synchronization point. */
+ if(good && r->id.type==15){
+  __atomic_thread_fence(__ATOMIC_ACQUIRE);
+  for(unsigned w=0;w<8;w++)r->stop_context[w]=context_read32(wifi_fence5_native.output,r->id.dci,w);
+  uint64_t deq=r->stop_context[2]|((uint64_t)r->stop_context[3]<<32);
+  uint64_t ptr=r->stop.parameter_low|((uint64_t)r->stop.parameter_high<<32);
+  unsigned dir=r->id.dci==8?0:1;uint64_t ring=wifi_fence5_native.rings[dir];
+  good=(r->stop_context[0]&7)==3 && !(deq&14) && (deq&~15ull)==ptr &&
+   ((ptr==ring+16*63 && (deq&1)==wifi_fence5_native.dma->cycle[dir]) ||
+    (ptr==ring && (deq&1)==(wifi_fence5_native.dma->cycle[dir]^1u)));
+  if(good)r->stop_dequeue=deq;
+ }
  if(!good){wifi_fence5_bad_event(e);wifi_fence5_fault();return true;}
  copy_trb(&r->event,e);r->cc=1;r->latched=true;xhci.command_events++;
  xhci.last_completion_code=1;xhci.last_slot_id=r->id.slot;xhci.last_command_pointer=ptr;xhci.last_expected_command_pointer=ptr;
@@ -125,19 +145,12 @@ static bool wifi_fence5_stop_event(const struct xhci_trb *e){
  bool good=wifi_fence5_base() && wifi_fence5_native.round && xhci.command_pending && wifi_fence5_native.count;
  struct wifi_fence5_native_command *r=good?&wifi_fence5_native.commands[wifi_fence5_native.count-1]:NULL;
  unsigned dir=dci==8?0:1;uint64_t ring=wifi_fence5_native.rings[dir];
- __atomic_thread_fence(__ATOMIC_ACQUIRE);
- uint64_t deq=context_read32(wifi_fence5_native.output,dci,2)|((uint64_t)context_read32(wifi_fence5_native.output,dci,3)<<32);
  const uint32_t allowed=1u|(63u<<10)|(31u<<16)|(255u<<24);
  good=good && r->id.type==15 && r->id.slot==slot && r->id.dci==dci && !r->latched && !r->consumed && !r->stop_event &&
   (e->status>>24)==27 && !(e->status&0xffffff) && !(e->control&~allowed) &&
-  (context_read32(wifi_fence5_native.output,dci,0)&7)==3 && !(deq&14) && (deq&~15ull)==ptr &&
-  wifi_fence5_native.dma->cursor[dir]==63 &&
-  ((ptr==ring+16*63 && (deq&1)==wifi_fence5_native.dma->cycle[dir]) ||
-   (ptr==ring && (deq&1)==(wifi_fence5_native.dma->cycle[dir]^1u)));
+  wifi_fence5_native.dma->cursor[dir]==63 && (ptr==ring+16*63 || ptr==ring);
  if(!good){wifi_fence5_bad_event(e);wifi_fence5_fault();}else {
-  copy_trb(&r->stop,e);r->stop_dequeue=deq;
-  for(unsigned w=0;w<8;w++)r->stop_context[w]=context_read32(wifi_fence5_native.output,dci,w);
-  r->stop_event=true;
+  copy_trb(&r->stop,e);r->stop_event=true;
  }
  return true;
 }
@@ -226,13 +239,21 @@ static __attribute__((unused)) bool wifi_fence5_bind(struct xhci_device *d,struc
  if(!ok)wifi_fence5_fault();
  done:event_irq_restore(f);return ok;
 }
-static __attribute__((unused)) bool wifi_fence5_begin(unsigned direction){
+/* An unrelated completion can arrive after the caller's bounded dispatch,
+ * including while CPU IRQs are masked. Before any fence command is published,
+ * a nonempty shared event frontier is backpressure, not lost DMA ownership.
+ * The caller dispatches and retries inside its ORIGINAL bounded window. */
+static __attribute__((unused)) enum mt76_fence5_result wifi_fence5_try_begin(unsigned direction){
  uint64_t f=event_irq_save(),now=timer_monotonic_us();bool ok=false;
- if(wifi_fence5_native.round || !wifi_fence5_owned(&wifi_fence5_native,wifi_fence5_native.epoch,wifi_fence5_native.slot) || xhci.command_pending ||
-  xhci.command_enqueue+2+WIFI_FENCE5_CLEANUP_COMMANDS>63 || !wifi_fence5_empty())goto done;
+ enum mt76_fence5_result result=MT76_FENCE5_FAILED;
+ if(direction>1 || (wifi_fence5_native.noop && direction) || wifi_fence5_native.round || !wifi_fence5_owned(&wifi_fence5_native,wifi_fence5_native.epoch,wifi_fence5_native.slot) || xhci.command_pending ||
+  xhci.command_enqueue+2+WIFI_FENCE5_CLEANUP_COMMANDS>63)goto done;
  if(!wifi_fence5_native.noop){
   if(direction>1)goto done;
   for(unsigned dir=0;dir<2;dir++)for(unsigned i=0;i<4;i++)if(wifi_fence5_native.dma->pages[dir][i].state!=MT76_DMA5_FREE)goto done;
+ }
+ if(!wifi_fence5_empty()){result=MT76_FENCE5_PENDING;goto done;}
+ if(!wifi_fence5_native.noop){
   unsigned other=direction^1u;
   __atomic_thread_fence(__ATOMIC_ACQUIRE);
   for(unsigned w=0;w<8;w++)wifi_fence5_native.opposite[w]=context_read32(wifi_fence5_native.output,8+other,w);
@@ -240,9 +261,11 @@ static __attribute__((unused)) bool wifi_fence5_begin(unsigned direction){
  }
  ok=mt76_fence5_begin(&wifi_fence5_native.engine,direction,now);
  if(ok){wifi_fence5_native.round=true;wifi_fence5_native.last_us=now;}
- done:if(!ok && wifi_fence5_native.bound)wifi_fence5_fault();
- event_irq_restore(f);return ok;
+ result=ok?MT76_FENCE5_READY:MT76_FENCE5_FAILED;
+ done:if(result==MT76_FENCE5_FAILED && wifi_fence5_native.bound)wifi_fence5_fault();
+ event_irq_restore(f);return result;
 }
+static __attribute__((unused)) bool wifi_fence5_begin(unsigned direction){return wifi_fence5_try_begin(direction)==MT76_FENCE5_READY;}
 static __attribute__((unused)) bool wifi_fence5_step(void){
  uint64_t f=event_irq_save(),now=timer_monotonic_us();bool ok=wifi_fence5_native.round && !wifi_fence5_native.busy;
  if(ok){wifi_fence5_native.busy=true;ok=now>=wifi_fence5_native.last_us && mt76_fence5_step(&wifi_fence5_native.engine,now);wifi_fence5_native.last_us=now;wifi_fence5_native.busy=false;}

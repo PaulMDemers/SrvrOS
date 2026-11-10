@@ -25,7 +25,7 @@ static struct {
  struct xhci_trb stops[2];uint32_t snapshots[10][2][8];
  struct wifi_stream5_record records[WIFI_STREAM5_RX+WIFI_STREAM5_TX];unsigned record_count,rx_record;
  uint64_t posts[2],completions[2];unsigned tx_kind;unsigned slot;unsigned wraps[2],phase,commands,stop_dci,stop_events[2],rx_residue,cached_type,cached_size,data_sends,data_received,data_after_txwrap,data_after_rxwrap,drained;
- bool stack_mode,discover_retry,attempted,active,failed,toggle_synced,pending[2],ready_rx,cached_present,data_active,closed,restored,retired,events_empty,parent_complete,complete;
+ bool stack_mode,discover_retry,attempted,active,failed,toggle_synced,pending[2],stop_was_pending[2],ready_rx,cached_present,data_active,closed,restored,retired,events_empty,parent_complete,complete;
 }wifi_stream5;
 static bool wifi_stream5_delay_us(unsigned us){
 #ifdef SRVROS_XHCI_STREAM5_TEST
@@ -91,10 +91,12 @@ static bool wifi_stream5_event(struct xhci_device *d,const struct xhci_trb *e){
  if(!ours){for(unsigned dir=0;dir<2;dir++)if(p>=wifi_stream5.physical[dir] && p<wifi_stream5.physical[dir]+4096){if(!wifi_stream5.fault_event_valid){wifi_stream5.fault_event=*e;wifi_stream5.fault_event_valid=true;}wifi_stream5_fail();return true;}return false;}
  unsigned dir=dci==9,cc=e->status>>24,res=e->status&0xffffff;const uint32_t allowed=1u|(63u<<10)|(31u<<16)|(255u<<24);
  bool good=wifi_stream5_base() && wifi_stream5_context() && ((e->control>>10)&63)==32 && (e->control>>24)==wifi_stream5.slot && !(e->control&~allowed);
- if(good && cc>=26 && cc<=28){uint64_t next=wifi_stream5.physical[dir]+16*wifi_stream5.enqueue[dir],deq=context_read32(d->output_context,dci,2)|((uint64_t)context_read32(d->output_context,dci,3)<<32);
-  good=firmware_command_exact && wifi_stream5.stop_dci==dci && !wifi_stream5.stop_events[dir] && (context_read32(d->output_context,dci,0)&7)==3 && (deq&~15ull)==p &&
-   ((cc==27 && !res && !wifi_stream5.pending[dir] && p==next && (deq&1)==wifi_stream5.cycle[dir]) || (dir && wifi_stream5.pending[dir] && cc!=27 && p==wifi_stream5.lease[dir].trb && res<=4096 && (deq&1)==wifi_stream5.lease[dir].cycle));
-  if(good){wifi_stream5.stop_events[dir]++;wifi_stream5.stop_pointer[dir]=deq;wifi_stream5.stops[dir]=*e;wifi_stream5.pending[dir]=false;}
+ if(good && cc>=26 && cc<=28){uint64_t next=wifi_stream5.physical[dir]+16*wifi_stream5.enqueue[dir];
+  /* The Stop transfer event precedes command completion; the final output
+   * context need not be visible yet. Latch only exact raw TD identity here. */
+  good=firmware_command_exact && wifi_stream5.stop_dci==dci && !wifi_stream5.stop_events[dir] &&
+   ((cc==27 && !res && !wifi_stream5.pending[dir] && p==next) || (dir && wifi_stream5.pending[dir] && cc!=27 && p==wifi_stream5.lease[dir].trb && res<=4096));
+  if(good){wifi_stream5.stop_events[dir]++;wifi_stream5.stop_was_pending[dir]=wifi_stream5.pending[dir];wifi_stream5.stops[dir]=*e;wifi_stream5.pending[dir]=false;}
  }else if(good){struct mt76_dma5_lease *l=&wifi_stream5.lease[dir];unsigned index=(unsigned)((l->trb-wifi_stream5.physical[dir])/16);
   good=wifi_stream5.phase>=3 && wifi_stream5.phase<=4 && wifi_stream5.pending[dir] && index<63 && p==l->trb &&
    (dir?((cc==1 || cc==13) && res<=4096):(cc==1 && !res)) && wifi_stream5.shadow[dir][index].parameter_low==(uint32_t)l->page && wifi_stream5.shadow[dir][index].parameter_high==(uint32_t)(l->page>>32) && wifi_stream5.shadow[dir][index].status==l->length && wifi_stream5.shadow[dir][index].control==((XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|(dir?XHCI_TRB_ISP:0)|l->cycle);
@@ -114,7 +116,7 @@ static bool wifi_stream5_dispatch(void){
 #endif
  stream_test_progress();
 #endif
- uint64_t f=event_irq_save();struct xhci_trb e;bool good=true;for(unsigned i=0;i<32 && poll_event(&e);i++){unsigned t=(e.control>>10)&63;if(t!=32 && t!=33){good=false;break;}dispatch_transfer_event(&e);if(wifi_stream5.failed){good=false;break;}}event_irq_restore(f);return good?true:wifi_stream5_fail();}
+ uint64_t f=event_irq_save();struct xhci_trb e;bool good=true;for(unsigned i=0;i<32 && poll_event(&e);i++){unsigned t=(e.control>>10)&63;if(t!=32 && t!=33){good=false;break;}dispatch_transfer_event(&e);if(wifi_stream5.failed || (t==33 && !wifi_fence5_native.round) || wifi_fence5_native.failed){good=false;break;}}event_irq_restore(f);return good?true:wifi_stream5_fail();}
 static enum mt76_wpa5_rx wifi_stream5_type(void){return wifi_stream5.data_active?MT76_WPA5_DATA:wifi_stream5.exchange.assoc_matched?MT76_WPA5_EAPOL:MT76_WPA5_MANAGEMENT;}
 static bool wifi_stream5_collect(enum mt76_wpa5_rx type,bool drain){
  if(!wifi_stream5.ready_rx)return true;
@@ -142,12 +144,20 @@ static bool wifi_stream5_fences(void){
  }
  if(wifi_stream5.pending[0] || wifi_stream5.pending[1] || !wifi_stream5_collect(wifi_stream5_type(),!wifi_stream5.data_active && wifi_stream5.exchange.keys_erased) || wifi_stream5.ready_rx || wifi_stream5.loan.ticket)return wifi_stream5_fail();
  for(unsigned dir=0;dir<2;dir++)if(wifi_stream5.dma.cursor[dir]==63){
-  if(wifi_stream5.dma.wraps>=WIFI_STREAM5_FENCES || !wifi_fence5_begin(dir))return wifi_stream5_fail();
-  start=prev=timer_monotonic_us();bool done=false;
+  if(wifi_stream5.dma.wraps>=WIFI_STREAM5_FENCES)return wifi_stream5_fail();
+  start=prev=timer_monotonic_us();bool done=false,begun=false;
   for(unsigned i=0;i<8192;i++){
-   if((wifi_fence5_native.engine.state==MT76_FENCE5_STOP_WAIT || wifi_fence5_native.engine.state==MT76_FENCE5_REBASE_WAIT) && !wifi_stream5_dispatch())return false;
-   if(!wifi_fence5_step())return wifi_stream5_fail();
-   if(!wifi_fence5_native.round){done=true;break;}
+   if(!begun){
+    enum mt76_fence5_result r=wifi_fence5_try_begin(dir);
+    if(r==MT76_FENCE5_FAILED)return wifi_stream5_fail();
+    begun=r==MT76_FENCE5_READY;
+    if(!begun && !wifi_stream5_dispatch())return false;
+   }
+   if(begun){
+    if((wifi_fence5_native.engine.state==MT76_FENCE5_STOP_WAIT || wifi_fence5_native.engine.state==MT76_FENCE5_REBASE_WAIT) && !wifi_stream5_dispatch())return false;
+    if(!wifi_fence5_step())return wifi_stream5_fail();
+    if(!wifi_fence5_native.round){done=true;break;}
+   }
    uint64_t now=timer_monotonic_us();if(now<prev || now-start>=750000 || !wifi_stream5_delay_us(100))return wifi_stream5_fail();prev=now;
   }
   if(!done || wifi_stream5.enqueue[dir] || wifi_stream5.cycle[dir]!=wifi_stream5.dma.cycle[dir])return wifi_stream5_fail();
@@ -273,7 +283,16 @@ static bool wifi_stream5_command(unsigned type,unsigned dci,uint64_t dequeue,uns
 #endif
  slot==wifi_stream5.slot && xhci.command_events==count+1 && xhci.last_completion_code==1 && xhci.last_slot_id==slot && xhci.last_command_pointer==expected && xhci.last_expected_command_pointer==expected && wifi_handoff5_equal(&xhci.command_ring[index],&shadow,sizeof shadow);
  unsigned record=wifi_stream5.commands-1;if(record>=6)good=false;else{wifi_stream5.sync[record].pointer=expected;wifi_stream5.sync[record].event_pointer=xhci.last_command_pointer;wifi_stream5.sync[record].dequeue=dequeue;wifi_stream5.sync[record].delta=xhci.command_events-count;wifi_stream5.sync[record].type=type;wifi_stream5.sync[record].dci=dci;wifi_stream5.sync[record].slot=(unsigned)slot;wifi_stream5.sync[record].cc=(unsigned)xhci.last_completion_code;}
- firmware_command_exact=false;wifi_stream5.stop_dci=0;if(type==15)good=good && wifi_stream5.stop_events[dci==9]==1;
+ firmware_command_exact=false;wifi_stream5.stop_dci=0;
+ if(type==15){
+  unsigned dir=dci==9;const struct xhci_trb *e=&wifi_stream5.stops[dir];
+  uint64_t ptr=e->parameter_low|((uint64_t)e->parameter_high<<32);
+  __atomic_thread_fence(__ATOMIC_ACQUIRE);
+  uint64_t deq=context_read32(d->output_context,dci,2)|((uint64_t)context_read32(d->output_context,dci,3)<<32);
+  unsigned cycle=wifi_stream5.stop_was_pending[dir]?wifi_stream5.lease[dir].cycle:(unsigned)wifi_stream5.cycle[dir];
+  good=good && wifi_stream5.stop_events[dir]==1 && (context_read32(d->output_context,dci,0)&7)==3 && !(deq&14) && (deq&~15ull)==ptr && (deq&1)==cycle;
+  if(good)wifi_stream5.stop_pointer[dir]=deq;
+ }
  if(good){wifi_stream5.phase=next;for(unsigned dir=0;dir<2;dir++)for(unsigned j=0;j<8;j++)wifi_stream5.snapshots[next][dir][j]=context_read32(d->output_context,dir?9:8,j);}
  event_irq_restore(f);return good && wifi_stream5_owned(&wifi_stream5,true)?true:wifi_stream5_fail();
 }

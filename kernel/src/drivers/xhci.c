@@ -767,7 +767,7 @@ static bool wifi_join5_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_wpa5_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_receive_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_receive_quiesced(struct xhci_device *);
-static bool wifi_fence5_command_event(const struct xhci_trb *);
+static bool wifi_fence5_command_event(const struct xhci_trb *,uint64_t);
 static bool wifi_fence5_stop_event(const struct xhci_trb *);
 static bool wifi_nop5_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_stream5_event(struct xhci_device *,const struct xhci_trb *);
@@ -1498,7 +1498,7 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
         }
 
         uint64_t type = (event.control >> 10) & 0x3f;
-        if(type==XHCI_TRB_TYPE_COMMAND_COMPLETION && wifi_fence5_command_event(&event))continue;
+        if(type==XHCI_TRB_TYPE_COMMAND_COMPLETION && wifi_fence5_command_event(&event,command_phys))continue;
         if (type != XHCI_TRB_TYPE_COMMAND_COMPLETION) {
             dispatch_transfer_event(&event);
             continue;
@@ -3144,7 +3144,7 @@ bool xhci_reclaim(void) {
 /* Every event-ring consumer routes unrelated transfers here. All callers
  * hold IRQs disabled, including the keyboard service running during disk I/O. */
 static void dispatch_transfer_event(const struct xhci_trb *event) {
-    if(wifi_fence5_command_event(event) || wifi_fence5_stop_event(event))return;
+    if(wifi_fence5_command_event(event,0) || wifi_fence5_stop_event(event))return;
     if (((event->control >> 10) & 0x3f) != XHCI_TRB_TYPE_TRANSFER_EVENT) return;
     uint8_t slot = event->control >> 24, dci = (event->control >> 16) & 31;
     uint8_t completion = event->status >> 24;

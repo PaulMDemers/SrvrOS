@@ -10,7 +10,6 @@ static void stack_test_progress(void);
 #define net_device_register legacy_stub_net_device_register
 #define net_device_select legacy_stub_net_device_select
 #define net_device_name legacy_stub_net_device_name
-#define net_device_mac legacy_stub_net_device_mac
 #define net_device_send legacy_stub_net_device_send
 #define net_device_retire legacy_stub_net_device_retire
 #define net_handle_ethernet_frame legacy_stub_net_handle_ethernet_frame
@@ -18,7 +17,6 @@ static void stack_test_progress(void);
 bool net_device_register(const struct net_device_ops *);
 bool net_device_select(void);
 const char *net_device_name(void);
-const uint8_t *net_device_mac(void);
 bool net_device_send(const uint8_t *,uint16_t);
 bool net_device_retire(const struct net_device_ops *);
 void net_handle_ethernet_frame(const uint8_t *,uint16_t);
@@ -28,7 +26,6 @@ void net_notify_rx(void);
 #undef net_device_register
 #undef net_device_select
 #undef net_device_name
-#undef net_device_mac
 #undef net_device_send
 #undef net_device_retire
 #undef net_handle_ethernet_frame
@@ -214,6 +211,154 @@ static unsigned alternate_sends;
 static bool alternate_send(void *c,const uint8_t *p,uint16_t n){(void)c;(void)p;(void)n;alternate_sends++;assert(0);return false;}
 static uint64_t alternate_poll(void *c,uint64_t n,bool verbose){(void)c;(void)n;(void)verbose;return 0;}
 static bool alternate_link(void *c,struct net_device_link *out){(void)c;*out=(struct net_device_link){.up=true};return true;}
+static void probe_setup(unsigned);
+/* Real original RX leases through slot63; noise is supplied only while
+ * preparing earlier slots. No positive boundary test relies on the old
+ * stack_test_progress synthetic beacon-at-boundary escape hatch. */
+static void boundary_noise_completion(void){
+ assert(wifi_stream5.pending[1]);uint8_t beacon[24]={0x80};
+ unsigned bytes=stream_wrap(beacon,sizeof beacon);struct mt76_dma5_lease *l=&wifi_stream5.lease[1];
+ uint64_t q=wifi_stream5.posts[1]%63?wifi_stream5.physical[1]+16*wifi_stream5.enqueue[1]:wifi_stream5.physical[1]+63*16;
+ unsigned cycle=wifi_stream5.posts[1]%63?(unsigned)wifi_stream5.cycle[1]:l->cycle;
+ context_write32(wifi_stream5.d->output_context,9,2,q|cycle);
+ struct xhci_trb e={.parameter_low=l->trb,.parameter_high=l->trb>>32,.status=(13u<<24)|(4096-bytes),.control=(32u<<10)|(9u<<16)|((uint32_t)wifi_stream5.slot<<24)};
+ stream_enqueue(&e,0);assert(wifi_stream5_dispatch());assert(wifi_stream5_collect(MT76_WPA5_DATA,false));
+}
+static struct xhci_trb boundary_hid_event;
+static unsigned boundary_hid_arrivals;
+extern bool http_native_test_current(struct http_network_probe *);
+static void boundary_hid_arrive(void){
+ if(!wifi_stack5.boundary || wifi_fence5_native.round)return;
+ native_boundary_clock_hook=NULL;boundary_hid_arrivals++;
+ stream_enqueue(&boundary_hid_event,0);
+}
+static bool active_stop_exercise(struct mt76_net5 *p){
+ unsigned mode=ap.case_id-28;assert(mode<12);
+ assert(net_init_bounded_probe() && net_device_selected_is(&p->ops));ap.quiet=true;
+ while(wifi_stream5.posts[1]<63){if(wifi_stream5.pending[1])boundary_noise_completion();assert(mt76_net5_service(p));}
+ boundary_noise_completion();assert(mt76_net5_service(p) && wifi_fence5_native.round);
+ assert(mt76_net5_service(p) && xhci.command_pending);
+ struct wifi_fence5_native_command *r=&wifi_fence5_native.commands[wifi_fence5_native.count-1];
+ assert(r->id.type==15 && r->id.dci==9 && !r->stop_event && !r->latched);
+ struct http_network_probe h={0};
+ struct http_network_probe_io io={.context=&wifi_stream5,.current=wifi_stack5_probe_current,.epoch=p->epoch,.start_us=wifi_stack5.start,.deadline_us=wifi_stack5.start+WIFI_STACK5_TOTAL_US};
+ h.self=(uintptr_t)&h;h.io=h.io_guard=io;h.source=h.source_guard=&io;
+ h.last_us=test_time;h.last_tick=timer_ticks();h.result.phase=HTTP_NET_DRAIN;
+ assert(http_native_test_current(&h));
+ uint64_t ring=wifi_stream5.physical[1],ptr=mode==1?ring:ring+63*16;
+ unsigned cycle=mode==1?(wifi_stream5.dma.cycle[1]^1u):wifi_stream5.dma.cycle[1];
+ struct xhci_trb stop={.parameter_low=ptr,.parameter_high=ptr>>32,.status=27u<<24,.control=(32u<<10)|(9u<<16)|((uint32_t)wifi_stream5.slot<<24)};
+ struct xhci_trb cc={.parameter_low=r->id.pointer,.parameter_high=r->id.pointer>>32,.status=1u<<24,.control=(33u<<10)|((uint32_t)wifi_stream5.slot<<24)};
+ assert((context_read32(wifi_stream5.d->output_context,9,0)&7)==1);
+ if(mode==2)dispatch_transfer_event(&cc);
+ else{
+  if(mode==3)stop.parameter_low-=16;
+  if(mode==9)stop.control^=1u<<24;
+  if(mode==10)stop.status=26u<<24;
+  /* The controller publishes this event before its final context write. */
+  dispatch_transfer_event(&stop);
+  if(mode==11)dispatch_transfer_event(&stop);
+  if(mode<2){assert(r->stop_event && !r->latched && !r->stop_dequeue);assert(http_native_test_current(&h));}
+  context_write32(wifi_stream5.d->output_context,9,0,mode==5?1:3);
+  uint64_t deq=ptr|cycle;
+  if(mode==4)deq^=1;
+  if(mode==6)deq=ring+16+cycle;
+  if(mode==7)deq|=2;
+  context_write32(wifi_stream5.d->output_context,9,2,deq);context_write32(wifi_stream5.d->output_context,9,3,deq>>32);
+  if(mode==8)cc.status=2u<<24;
+  dispatch_transfer_event(&cc);
+ }
+ if(mode>=2){
+  assert(!http_native_test_current(&h) && h.guard_failed && h.result.phase==HTTP_NET_DRAIN && h.result.reason==HTTP_NET_OWNER);
+  assert(!wifi_stack5.failed && !wifi_stream5.failed && wifi_stream5.phase==3 && !wifi_stream5.fault_phase);
+  assert(wifi_fence5_native.round && wifi_fence5_native.failed && xhci.command_pending && !wifi_stream5.dma.wraps && wifi_stream5.dma.state==MT76_DMA5_FAULT);
+  assert(wifi_stream5.exchange.keys.phase==WPA2_CCMP_ACTIVE);
+  return false;
+ }
+ assert(r->latched && r->stop_dequeue==(ptr|cycle) && http_native_test_current(&h));
+ for(unsigned i=0;i<24 && wifi_fence5_native.round;i++){
+  assert(wifi_fence5_step());
+  if(xhci.command_pending){
+   r=&wifi_fence5_native.commands[wifi_fence5_native.count-1];if(r->latched)continue;
+   assert(r->id.type==16);context_write32(wifi_stream5.d->output_context,9,0,3);
+   context_write32(wifi_stream5.d->output_context,9,2,r->id.dequeue);context_write32(wifi_stream5.d->output_context,9,3,r->id.dequeue>>32);
+   cc.parameter_low=r->id.pointer;cc.parameter_high=r->id.pointer>>32;dispatch_transfer_event(&cc);
+  }
+ }
+ assert(!wifi_fence5_native.round && !wifi_fence5_native.failed && wifi_stream5.dma.wraps==1 && http_native_test_current(&h));
+ assert(!h.guard_failed && !h.result.reason && wifi_stream5.exchange.keys.phase==WPA2_CCMP_ACTIVE);
+ return false; /* No HTTP child was run by this callback-level fixture. */
+}
+static bool boundary_exercise(void *context,struct mt76_net5 *p){
+ assert(context==&ap && p==&wifi_stack5.net);ap.quiet=true;
+ if(ap.case_id>=28 && ap.case_id<40)return active_stop_exercise(p);
+ if(ap.case_id==24){
+  assert(wifi_stack5_probe_current(&wifi_stream5,p->epoch));
+  assert(net_init_bounded_probe() && !net_device_selected_is(&p->ops));
+  assert(!wifi_stack5_probe_current(&wifi_stream5,p->epoch));
+  assert(!wifi_stream5.failed && !wifi_stack5.failed && !p->enqueued && !alternate_sends);
+  return false;
+ }
+ assert(net_init_bounded_probe() && net_device_selected_is(&p->ops));
+ while(wifi_stream5.posts[1]<63){
+  if(wifi_stream5.pending[1])boundary_noise_completion();
+  assert(mt76_net5_service(p));
+ }
+ assert(wifi_stream5.dma.cursor[1]==63 && wifi_stream5.pending[1]);
+ assert(mt76_net5_service(p) && !wifi_stack5.boundary && wifi_stack5_ready(&wifi_stream5,p->epoch));
+ if(ap.case_id==40){
+  boundary_noise_completion();
+  boundary_hid_event=(struct xhci_trb){.parameter_low=xhci.command_ring_phys,.parameter_high=xhci.command_ring_phys>>32,.status=1u<<24,.control=(33u<<10)|((uint32_t)wifi_stream5.slot<<24)};
+  boundary_hid_arrivals=0;native_boundary_clock_hook=boundary_hid_arrive;
+  uint64_t enq=xhci.command_enqueue;
+  assert(mt76_net5_service(p) && boundary_hid_arrivals==1 && wifi_stack5.boundary && !wifi_fence5_native.round);
+  assert(!mt76_net5_service(p) && wifi_fence5_native.failed && wifi_fence5_native.fault_event_valid && wifi_stream5.failed);
+  assert(wifi_stream5.dma.state==MT76_DMA5_FAULT && !wifi_fence5_native.count && xhci.command_enqueue==enq && !wifi_stream5.dma.wraps);
+  assert(!wifi_stream5.retired && !wifi_stack5.retired);
+  return false;
+ }
+ if(ap.case_id==26){
+  boundary_noise_completion();
+  struct xhci_device *hid=&xhci.devices[1];void *ring=NULL,*buffer=NULL;
+  *hid=(struct xhci_device){.present=true,.slot_id=8,.hid_mouse=true,.interrupt_ready=true,.interrupt_cycle=true,.interrupt_dci=3,.interrupt_max_packet=8};
+  assert(alloc_frame_zero(&hid->interrupt_ring_phys,&ring));hid->interrupt_ring=ring;
+  assert(alloc_frame_zero(&hid->interrupt_buffer_phys,&buffer));hid->interrupt_buffer=buffer;
+  submit_interrupt_poll(hid);assert(hid->interrupt_pending);
+  boundary_hid_event=(struct xhci_trb){.parameter_low=hid->interrupt_trb,.parameter_high=hid->interrupt_trb>>32,.status=1u<<24,.control=(32u<<10)|(3u<<16)|(8u<<24)};
+  boundary_hid_arrivals=0;native_boundary_clock_hook=boundary_hid_arrive;
+  uint64_t enq=xhci.command_enqueue,events=xhci.command_events;
+  assert(mt76_net5_service(p));
+  assert(boundary_hid_arrivals==1 && wifi_stack5.boundary && !wifi_fence5_native.round);
+  assert(!wifi_fence5_native.failed && wifi_stream5.dma.state==MT76_DMA5_RUNNING);
+  assert(xhci.command_enqueue==enq && xhci.command_events==events && !xhci.command_pending);
+  assert(mt76_net5_service(p) && hid->interrupt_success==1);
+  for(unsigned i=0;i<2000 && (wifi_stack5.boundary || wifi_fence5_native.round);i++)assert(mt76_net5_service(p));
+  assert(!wifi_stack5.boundary && !wifi_fence5_native.round && wifi_stream5.wraps[1]==1);
+ }
+ if(ap.case_id==27){
+  uint64_t start=test_time;
+  while(test_time-start<800000){test_time+=1000;assert(mt76_net5_service(p));}
+  struct mt76_stack5_observation o={0};
+  assert(wifi_stream5.pending[1] && !wifi_stack5.boundary && wifi_stack5_probe_observe(&wifi_stream5,p->epoch,&o) && o.drained);
+  assert(wifi_stack5_terminal_rx_handoff(&wifi_stream5,p->epoch));
+  assert(wifi_stack5.terminal_pending && p->state==MT76_NET5_CLOSING && !wifi_stream5.failed);
+  return false;
+ }
+ const struct net_dhcp_retry_guard guard={p,stack_guard_current,stack_guard_retry};
+ assert(net_dhcp_request_discover_retry(&guard)>=0);
+ assert(stack_poll_until_idle(p,2000) && ap.dhcp==2 && p->received==2 && p->submitted==p->completed);
+ assert(wifi_stream5.wraps[1]==1 && !wifi_stream5.failed && !wifi_stack5.failed);
+ return true;
+}
+static void boundary_case(unsigned which){
+ probe_setup(which);
+ if(which==24){struct net_device_ops ops={.name="foreign",.context=&alternate_sends,.priority=1000,.send=alternate_send,.poll=alternate_poll,.link=alternate_link};memcpy(ops.mac,hs_spa,6);assert(net_device_register(&ops));}
+ bool good=xhci_wifi_capture_stack5(boundary_exercise,&ap);
+ if(which==25 || which==26)assert(good && wifi_stream5.retired && wifi_stack5.retired && wifi_stack5.detached);
+ else assert(!good);
+ assert(!native_boundary_clock_hook && wifi_stream5.exchange.keys_erased);
+ reset_test();
+}
 static void probe_case(unsigned which){
  probe_setup(which);
  if(which==20){struct net_device_ops ops={.name="mt76-ccmp",.context=&alternate_sends,.priority=1000,.send=alternate_send,.poll=alternate_poll,.link=alternate_link};memcpy(ops.mac,hs_spa,6);assert(net_device_register(&ops));}
@@ -259,7 +404,7 @@ int main(int argc,char **argv){
   if(argc==11 || argc==19){for(unsigned i=0;i<8;i++)context_write32(wifi_cal5.d->output_context,9,i,(uint32_t)strtoull(argv[i+2],NULL,0));if(argc==19)for(unsigned i=0;i<8;i++)context_write32(wifi_cal5.d->output_context,8,i,(uint32_t)strtoull(argv[i+10],NULL,0));wifi_cal5.d->slot_id=(uint8_t)strtoul(argv[argc-1],NULL,0);}
   batch_trace=true;assert(xhci_wifi_capture_stack5_probe());return 0;
  }
- if(argc==3 && !strcmp(argv[1],"--case")){unsigned n=(unsigned)strtoul(argv[2],NULL,0);if(n<10)stack_case(n);else probe_case(n);return 0;}assert(argc==1);
- for(unsigned i=0;i<24;i++){pid_t p=fork();assert(p>=0);if(!p){if(i<10)stack_case(i);else probe_case(i);exit(0);}int status=0;assert(waitpid(p,&status,0)==p && WIFEXITED(status) && WEXITSTATUS(status)==0);}
- puts("xhci-stack5: PASS actual encrypted owner/unrenamed production stack,legacy TCP/UDP bridge plus SAME bounded DHCP/DNS/64exact40-byteICMP workload,lostOffer,nestedARP/PNbinding,validMIC/checksum wrongpayload,frozenclocks and terminalpending retention,AUTHreply loss/negative status;independent OpenSSL AP,mocked USB,no native acceptance");return 0;
+ if(argc==3 && !strcmp(argv[1],"--case")){unsigned n=(unsigned)strtoul(argv[2],NULL,0);if(n<10)stack_case(n);else if(n<24)probe_case(n);else boundary_case(n);return 0;}assert(argc==1);
+ for(unsigned i=0;i<41;i++){pid_t p=fork();assert(p>=0);if(!p){if(i<10)stack_case(i);else if(i<24)probe_case(i);else boundary_case(i);exit(0);}int status=0;assert(waitpid(p,&status,0)==p && WIFEXITED(status) && WEXITSTATUS(status)==0);}
+ puts("xhci-stack5: PASS41 cases actual encrypted owner/registry/production IP,quiet RX63/TX liveness,shared HID frontier retry/command-debt refusal,12 native Stop ordering/context cases through real HTTP OWNER check plus DHCP/DNS/64exact40-byteICMP/retirement;independent OpenSSL AP,modeled USB/MMIO,no ELF or hardware acceptance");return 0;
 }

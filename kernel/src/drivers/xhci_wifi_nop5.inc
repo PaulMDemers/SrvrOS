@@ -40,8 +40,8 @@ static bool wifi_nop5_event(struct xhci_device *d,const struct xhci_trb *e){
  if(d!=wifi_nop5.d || dci!=8){if(ptr>=wifi_nop5.physical && ptr<wifi_nop5.physical+4096){wifi_nop5_bad_event(e);wifi_nop5_fail();return true;}return false;}
  const uint32_t allowed=1u|(63u<<10)|(31u<<16)|(255u<<24);
  bool good=wifi_nop5_owned(&wifi_nop5,wifi_nop5.epoch,d->slot_id) && ((e->control>>10)&63)==32 && (e->control>>24)==d->slot_id && !(e->control&~allowed);
- if(wifi_nop5.stopping){uint64_t deq=context_read32(d->output_context,8,2)|((uint64_t)context_read32(d->output_context,8,3)<<32);
-  good=good && !wifi_nop5.pending && !wifi_nop5.stop_events && firmware_command_exact && e->status==(27u<<24) && ptr==wifi_nop5.physical+16 && deq==(ptr|0) && (context_read32(d->output_context,8,0)&7)==3;
+ if(wifi_nop5.stopping){
+  good=good && !wifi_nop5.pending && !wifi_nop5.stop_events && firmware_command_exact && e->status==(27u<<24) && ptr==wifi_nop5.physical+16;
   if(good){wifi_nop5.stop_events++;wifi_nop5.final_stop=*e;}
  }else{
   unsigned index=(unsigned)((wifi_nop5.lease.trb-wifi_nop5.physical)/16);
@@ -102,7 +102,12 @@ static bool wifi_nop5_command(unsigned type){
 #endif
  good=good && slot==d->slot_id && xhci.command_events==events+1 && xhci.last_completion_code==1 && xhci.last_slot_id==slot && xhci.last_command_pointer==pointer && xhci.last_expected_command_pointer==pointer && wifi_handoff5_equal(&xhci.command_ring[index],&shadow,sizeof shadow);
  unsigned n=wifi_nop5.commands-1;wifi_nop5.sync[n].pointer=pointer;wifi_nop5.sync[n].event_pointer=xhci.last_command_pointer;wifi_nop5.sync[n].cc=xhci.last_completion_code;wifi_nop5.sync[n].slot=slot;wifi_nop5.sync[n].delta=xhci.command_events-events;wifi_nop5.sync[n].shadow=shadow;
- firmware_command_exact=false;wifi_nop5.stopping=false;if(type==15)good=good && wifi_nop5.stop_events==1;
+ firmware_command_exact=false;wifi_nop5.stopping=false;
+ if(type==15){
+  __atomic_thread_fence(__ATOMIC_ACQUIRE);
+  uint64_t deq=context_read32(d->output_context,8,2)|((uint64_t)context_read32(d->output_context,8,3)<<32);
+  good=good && wifi_nop5.stop_events==1 && (context_read32(d->output_context,8,0)&7)==3 && deq==wifi_nop5.physical+16;
+ }
  good=good && wifi_nop5_owned(&wifi_nop5,wifi_nop5.epoch,d->slot_id);wifi_nop5.commanding=false;event_irq_restore(flags);return good?true:wifi_nop5_fail();
 }
 static bool wifi_nop5_parent_owned(void){
@@ -149,13 +154,20 @@ static bool wifi_nop5_run(void){
  wifi_nop5.configured=true;wifi_nop5.phase=1;for(unsigned j=0;j<8;j++)wifi_nop5.contexts[0][j]=context_read32(d->output_context,8,j);
  if(!wifi_fence5_bind(d,&wifi_nop5.dma,wifi_nop5.epoch,&wifi_nop5,wifi_nop5_owned))return wifi_nop5_fail();
  for(unsigned i=0;i<63;i++)if(!wifi_nop5_send())return false;
- if(!wifi_fence5_begin(0))return wifi_nop5_fail();
- uint64_t start=timer_monotonic_us(),previous=start;bool finished=false;
+ uint64_t start=timer_monotonic_us(),previous=start;bool finished=false,begun=false;
  for(unsigned i=0;i<8192;i++){
-  if((wifi_fence5_native.engine.state==MT76_FENCE5_STOP_WAIT || wifi_fence5_native.engine.state==MT76_FENCE5_REBASE_WAIT) && !wifi_nop5_dispatch())return false;
-  if(wifi_fence5_native.engine.state==MT76_FENCE5_STOP_CONTEXT || wifi_fence5_native.engine.state==MT76_FENCE5_VERIFY){unsigned n=wifi_fence5_native.engine.state==MT76_FENCE5_STOP_CONTEXT?1:2;for(unsigned j=0;j<8;j++)wifi_nop5.contexts[n][j]=context_read32(d->output_context,8,j);}
-  if(!wifi_fence5_step())return wifi_nop5_fail();
-  if(!wifi_fence5_native.round){finished=true;break;}
+  if(!begun){
+   enum mt76_fence5_result r=wifi_fence5_try_begin(0);
+   if(r==MT76_FENCE5_FAILED)return wifi_nop5_fail();
+   begun=r==MT76_FENCE5_READY;
+   if(!begun && !wifi_nop5_dispatch())return false;
+  }
+  if(begun){
+   if((wifi_fence5_native.engine.state==MT76_FENCE5_STOP_WAIT || wifi_fence5_native.engine.state==MT76_FENCE5_REBASE_WAIT) && !wifi_nop5_dispatch())return false;
+   if(wifi_fence5_native.engine.state==MT76_FENCE5_STOP_CONTEXT || wifi_fence5_native.engine.state==MT76_FENCE5_VERIFY){unsigned n=wifi_fence5_native.engine.state==MT76_FENCE5_STOP_CONTEXT?1:2;for(unsigned j=0;j<8;j++)wifi_nop5.contexts[n][j]=context_read32(d->output_context,8,j);}
+   if(!wifi_fence5_step())return wifi_nop5_fail();
+   if(!wifi_fence5_native.round){finished=true;break;}
+  }
   uint64_t now=timer_monotonic_us();if(now<previous || now-start>=750000 || !wifi_nop5_delay())return wifi_nop5_fail();previous=now;
  }
  if(!finished || wifi_nop5.dma.wraps!=1 || wifi_nop5.enqueue || wifi_nop5.cycle || !wifi_nop5_send())return wifi_nop5_fail();

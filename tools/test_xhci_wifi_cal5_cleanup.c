@@ -18,7 +18,7 @@ static bool cal5_drain_test_command(const struct xhci_trb *,unsigned,uint64_t *)
 #pragma GCC diagnostic pop
 static _Alignas(4096) struct xhci_trb cal_commands[64],cal_events[XHCI_EVENT_TRB_COUNT];
 static uint8_t forward_copy[8][4096];
-static struct {unsigned queue,event_fault,stop_fault,span,delays,reads,empty_stop_mode;bool parent,inject_in_control,in_control;uint32_t mac,filter,txop;} sim;
+static struct {unsigned queue,event_fault,stop_fault,span,delays,reads,empty_stop_mode;bool parent,inject_in_control,in_control,defer_context;uint32_t mac,filter,txop;} sim;
 static bool cal5_drain_test_parent(void){return sim.parent;}
 static bool cal5_drain_test_delay(unsigned us){sim.delays++;test_time+=us;return true;}
 static void event_queue(struct xhci_trb e){
@@ -60,14 +60,16 @@ static bool cal5_drain_test_command(const struct xhci_trb *cmd,unsigned type,uin
  if(wifi_cal5.cleanup_pending)e.status|=4096;
  switch(sim.stop_fault){case 1:e.parameter_low+=16;break;case 2:e.control^=1u<<24;break;case 3:e.control^=1u<<16;break;case 4:e.status=2u<<24;break;case 5:e.control|=4;break;case 6:e.status=(26u<<24)|4097;break;case 7:context_write32(d->output_context,9,2,p);break;case 8:context_write32(d->output_context,9,0,1);break;case 9:cal_commands[index].control^=1u<<10;break;case 10:xhci.sync_users=2;break;default:break;}
  /* Model Transfer Event before the Stop command finalizes its output context. */
- if(sim.empty_stop_mode==1 || sim.empty_stop_mode==2){
+ if(sim.empty_stop_mode==1 || sim.empty_stop_mode==2 || sim.defer_context){
   context_write32(d->output_context,9,0,1);
   context_write32(d->output_context,9,2,(wifi_cal5.plan.ring+7*16)|1);
  }
  e.control|=xhci.event_cycle?1:0;
  if(sim.empty_stop_mode!=4)dispatch_transfer_event(&e);
  if(sim.empty_stop_mode==3)dispatch_transfer_event(&e);
- if(sim.empty_stop_mode==1){context_write32(d->output_context,9,0,3);context_write32(d->output_context,9,2,p|1);}
+ if(sim.empty_stop_mode==1 || sim.defer_context){context_write32(d->output_context,9,0,3);context_write32(d->output_context,9,2,p|1);}
+ if(sim.defer_context && sim.stop_fault==7)context_write32(d->output_context,9,2,p);
+ if(sim.defer_context && sim.stop_fault==8)context_write32(d->output_context,9,0,1);
  if(sim.empty_stop_mode==5)context_write32(d->output_context,9,2,(p-16)|1);
  if(sim.empty_stop_mode==6){xhci.command_pending=false;xhci.sync_users=0;dispatch_transfer_event(&e);}
  if(sim.empty_stop_mode==7){xhci.command_failed=true;xhci.command_pending=false;xhci.sync_users=0;return false;}
@@ -137,6 +139,8 @@ int main(int argc,char **argv){
  assert(argc==1);
  setup(false,5);assert(!run() && !wifi_cal5.mac.rx_drained && wifi_cal5.mac.rx_rounds==200 && !wifi_cal5.cleanup_posts && sim.queue==5);
  for(unsigned n=0;n<=9;n++){setup(true,n);bool ok=run();assert(ok==(n<=8));assert(wifi_cal5.cleanup_posts<=8 && wifi_cal5.cleanup_completed<=8);if(ok){assert(!sim.queue && wifi_cal5.mac.rx_drained && wifi_cal5.mac.rx_rounds>=7 && wifi_cal5.mac.rx_rounds<=200 && wifi_cal5.cleanup_frozen);for(unsigned i=0;i<8;i++)assert(wifi_cal5_cleanup_alias(wifi_cal5.cleanup_physical[i]));}}
+ for(unsigned n=0;n<=8;n++){setup(true,n);sim.defer_context=true;assert(run() && wifi_cal5.cleanup_frozen && wifi_cal5.stopped);}
+ for(unsigned fault=7;fault<=8;fault++){setup(true,5);sim.defer_context=true;sim.stop_fault=fault;assert(!run() && !wifi_cal5.cleanup_frozen && !freed);}
  /* Empty Stop events carry no payload. Defer final context proof, never
   * duplicate/omit it or accept failed command/state/frontier outcomes. */
  for(unsigned mode=1;mode<=7;mode++){setup(true,0);sim.empty_stop_mode=mode;assert(run()==(mode==1));if(mode!=1)assert(!wifi_cal5.cleanup_frozen && !wifi_cal5.stopped && !freed);}

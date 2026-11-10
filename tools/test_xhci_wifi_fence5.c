@@ -88,11 +88,14 @@ static void normal_round(unsigned dir,bool at_base){
  for(unsigned step=0;step<24 && wifi_fence5_native.round;step++){
   assert(wifi_fence5_step());if(!xhci.command_pending)continue;
   struct wifi_fence5_native_command *r=&wifi_fence5_native.commands[wifi_fence5_native.count-1];if(r->latched)continue;
-  unsigned dci=8+dir;context_write32(fence_context,dci,0,3);
+  unsigned dci=8+dir;
   if(r->id.type==15){
-   uint64_t ptr=fence_dma.ring[dir]+(at_base?0:63*16);context_write32(fence_context,dci,2,ptr|(at_base?(old^1u):old));
+   uint64_t ptr=fence_dma.ring[dir]+(at_base?0:63*16);
+   if(!at_base){context_write32(fence_context,dci,0,3);context_write32(fence_context,dci,2,ptr|old);}
    struct xhci_trb e={.parameter_low=ptr,.parameter_high=ptr>>32,.status=27u<<24,.control=(32u<<10)|(dci<<16)|(7u<<24)|1};dispatch_transfer_event(&e);
-  }else{assert(r->id.type==16 && r->id.dci==dci);context_write32(fence_context,dci,2,r->id.dequeue);context_write32(fence_context,dci,3,r->id.dequeue>>32);}
+   assert(r->stop_event && !r->latched && !r->stop_dequeue);
+   context_write32(fence_context,dci,0,3);context_write32(fence_context,dci,2,ptr|(at_base?(old^1u):old));
+  }else{assert(r->id.type==16 && r->id.dci==dci);context_write32(fence_context,dci,0,3);context_write32(fence_context,dci,2,r->id.dequeue);context_write32(fence_context,dci,3,r->id.dequeue>>32);}
   struct xhci_trb command=fence_cc();dispatch_transfer_event(&command);
  }
  assert(!wifi_fence5_native.round && !wifi_fence5_native.failed && fence_dma.wraps==wraps+1 && fence_dma.cursor[dir]==0 && fence_dma.cycle[dir]==(old^1u));
@@ -126,7 +129,34 @@ static void normal_tests(void){
  normal_setup(12);normal_advance(1,63);assert(wifi_fence5_begin(1));assert(wifi_fence5_step());
  struct xhci_trb debt={.parameter_low=0x130000,.status=1u<<24,.control=(32u<<10)|(8u<<16)|(7u<<24)|1};dispatch_transfer_event(&debt);assert(wifi_fence5_native.failed && fence_dma.state==MT76_DMA5_FAULT);
 }
+static void preadmission_tests(void){
+ /* No command is outstanding: a shared consumer must retain unexpected
+  * command debt instead of consuming it as harmless frontier backpressure. */
+ for(unsigned consumer=0;consumer<3;consumer++){
+  fence_setup();assert(wifi_fence5_bind(&xhci.devices[0],&fence_dma,fence_epoch,&fence_epoch,fence_owned));
+  struct xhci_trb e={.parameter_low=0x100000+12*16,.status=1u<<24,.control=(33u<<10)|(7u<<24)|1};
+  if(consumer==2){xhci.command_pending=true;xhci.sync_users=1;}
+  if(consumer){fence_events[0]=e;poll_hid_events_once();}else dispatch_transfer_event(&e);
+  assert(wifi_fence5_native.failed && wifi_fence5_native.fault_event_valid && fence_dma.state==MT76_DMA5_FAULT);
+  assert(!wifi_fence5_native.round && !wifi_fence5_native.count && xhci.command_enqueue==12 && !xhci.command_events && !fence_dma.wraps);
+  assert(!wifi_fence5_begin(0));
+ }
+ /* Only the actual synchronous waiter may delegate its exact pointer. */
+ for(unsigned wrong=0;wrong<2;wrong++){
+  fence_setup();assert(wifi_fence5_bind(&xhci.devices[0],&fence_dma,fence_epoch,&fence_epoch,fence_owned));
+  fence_events[0]=(struct xhci_trb){.parameter_low=0x100000+(12+wrong)*16,.status=1u<<24,.control=(33u<<10)|(7u<<24)|1};
+  bool ok=submit_command(23,0,NULL);
+  if(wrong)assert(!ok && wifi_fence5_native.failed && xhci.command_pending && xhci.command_failed && fence_dma.state==MT76_DMA5_FAULT);
+  else assert(ok && !wifi_fence5_native.failed && !xhci.command_pending && !xhci.command_failed && xhci.command_events==1 && wifi_fence5_sync_admitted());
+ }
+ /* A busy frontier cannot hide invalid ownership/geometry. */
+ normal_setup(12);normal_advance(0,63);
+ fence_events[0]=(struct xhci_trb){.parameter_low=0x800000,.status=1u<<24,.control=(32u<<10)|(3u<<16)|(8u<<24)|1};
+ context_write32(fence_context,9,4,1);
+ assert(wifi_fence5_try_begin(0)==MT76_FENCE5_FAILED && wifi_fence5_native.failed && !wifi_fence5_native.count && xhci.command_enqueue==12);
+}
 int main(void){
+ preadmission_tests();
  fence_setup();fence_bind();assert(wifi_fence5_step());assert(xhci.command_pending && !xhci.sync_users && !wifi_fence5_sync_admitted());
  assert(!submit_command(23,0,NULL));fence_complete(true);fence_finish();assert(wifi_fence5_sync_admitted());
  assert(wifi_fence5_native.commands[0].event.control>>10 && wifi_fence5_native.commands[0].stop_dequeue==0x130000+63*16+1 && (wifi_fence5_native.commands[0].stop_context[0]&7)==3);

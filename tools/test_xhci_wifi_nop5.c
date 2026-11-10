@@ -25,7 +25,11 @@ static bool xhci_test_nop5_command(const struct xhci_trb *t,unsigned type,uint64
  unsigned i=(unsigned)xhci.command_enqueue;assert(i<63);struct xhci_trb shadow=*t;shadow.control|=xhci.command_cycle?1u:0u;xhci.command_ring[i]=shadow;xhci.command_enqueue++;
  struct xhci_device *d=wifi_nop5.d;*slot=d->slot_id;
  if(type==12){if(context_read32(d->input_context,0,0)&(1u<<8))context_write32(d->output_context,8,0,0);else{for(unsigned j=0;j<8;j++)context_write32(d->output_context,8,j,context_read32(d->input_context,9,j));context_write32(d->output_context,8,0,1);}}
- else{assert(type==15);uint64_t ptr=wifi_nop5.physical+16;context_write32(d->output_context,8,0,3);context_write32(d->output_context,8,2,ptr);context_write32(d->output_context,8,3,ptr>>32);struct xhci_trb stop={.parameter_low=ptr,.parameter_high=ptr>>32,.status=27u<<24,.control=(32u<<10)|(8u<<16)|((uint32_t)d->slot_id<<24)};if(nop_fault==21)stop.status=26u<<24;dispatch_transfer_event(&stop);}
+ else{assert(type==15);uint64_t ptr=wifi_nop5.physical+16;struct xhci_trb stop={.parameter_low=ptr,.parameter_high=ptr>>32,.status=27u<<24,.control=(32u<<10)|(8u<<16)|((uint32_t)d->slot_id<<24)};if(nop_fault==21)stop.status=26u<<24;dispatch_transfer_event(&stop);uint64_t deq=ptr;
+  if(nop_fault==26)deq^=1;
+  if(nop_fault==27)deq+=16;
+  if(nop_fault==28)deq|=2;
+  context_write32(d->output_context,8,0,nop_fault==25?1:3);context_write32(d->output_context,8,2,deq);context_write32(d->output_context,8,3,deq>>32);}
  xhci.command_events++;xhci.last_completion_code=1;xhci.last_slot_id=*slot;xhci.last_command_pointer=xhci.command_ring_phys+16*i;xhci.last_expected_command_pointer=xhci.last_command_pointer;
  if(nop_fault==22)xhci.command_events++;
  return nop_fault!=23;
@@ -57,8 +61,9 @@ int main(int argc,char **argv){
  if(argc==2 && !strcmp(argv[1],"--trace")){nop_setup();wifi_peer5.binding.generation=1;batch_trace=true;assert(wifi_nop5_run());assert(wifi_nop5_finish(true));return 0;}assert(argc==1);
  for(unsigned link=0;link<2;link++){nop_setup();nop_link=link;assert(wifi_nop5_run());assert(wifi_nop5.child_complete && wifi_nop5.posts==64 && wifi_nop5.events==64 && wifi_nop5.commands==3 && wifi_fence5_native.count==2);assert(wifi_nop5_finish(true) && wifi_nop5.retired && !wifi_fence5_native.retired && !wifi_nop5.dma.published);}
  for(unsigned at=1;at<=64;at+=63)for(unsigned i=1;i<=16;i++){nop_setup();nop_fault=i;nop_fault_at=at;if(i==8)test_time_step=100000;assert(!wifi_nop5_run() && wifi_nop5.failed && !wifi_nop5.retired);}
- for(unsigned i=20;i<=24;i++){nop_setup();nop_fault=i;assert(!wifi_nop5_run() && wifi_nop5.failed && !wifi_nop5.retired);}
+ for(unsigned i=20;i<=28;i++){nop_setup();nop_fault=i;assert(!wifi_nop5_run() && wifi_nop5.failed && !wifi_nop5.retired);}
  nop_setup();nop_fault=1;assert(!wifi_nop5_run() && wifi_nop5.pending && wifi_nop5.fault_event_valid && wifi_nop5.fault_context_valid);assert(!wifi_nop5_finish(false) && wifi_nop5.dma.state==MT76_DMA5_FAULT && !wifi_nop5.retired);
+ for(unsigned i=25;i<=28;i++){nop_setup();nop_fault=i;assert(!wifi_nop5_run() && wifi_nop5.stop_events==1);assert(!wifi_nop5_finish(false) && !wifi_nop5.retired && wifi_nop5.dma.state==MT76_DMA5_FAULT);}
  nop_setup();nop_fault=24;assert(!wifi_nop5_run() && wifi_fence5_native.fault_event_valid && !wifi_fence5_native.retired);assert(!wifi_nop5_finish(false));
  nop_setup();nop_parent=false;assert(!wifi_nop5_run() && !wifi_nop5.attempted);
  nop_setup();xhci.command_enqueue=53;assert(!wifi_nop5_run() && !wifi_nop5.posts);
