@@ -2,6 +2,28 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
+### Active scope: complete address-range transfer manifests
+
+The private backing trial below is collected and independently backed up.
+Main`40767a50` (PR455 fresh-media capture/progress ownership) is integrated;
+the append-only Makefile conflict keeps both test groups and the transfer-wire
+import-safe entry point is preserved. Capture-media, sync-content and actual
+handoff/memory regressions pass after resolution. PR19 networking and PR379
+WebCore remain independent; no overlapping graphics implementation is open.
+
+Next implement a separate full-range transfer contract in
+`kernel/include/srvros/scanout_transfer.h`, `kernel/src/scanout_transfer.c` and
+actual-core host tests, preserving the legacy16-entry native observation API.
+It must capture every original entry for two full padded buffers, bind the
+source epoch and provider, retain CPU exclusion until child mappings retire,
+and reject copied/stale/reentrant owners and missing hardware assurances.
+The current native adapter still supplies zero assurances; these software
+mechanisms cannot manufacture a transferred interval. Validate one-page and
+two-buffer publication/restoration together against a synthetic provider,
+including uncertain-store/readers/retirement failures, before native adaptation.
+No payload replacement or reboot is planned in this software work block.
+Local checkpoint:`build/air-gpu-transfer-20261110`.
+
 ### Accepted: native private backing and buffer lifetime qualification
 
 Source `23af85e2`, release `d72619c4e02bb721`, session
