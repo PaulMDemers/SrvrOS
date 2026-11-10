@@ -1,6 +1,9 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
+#ifdef SRVROS_WORKSPACE_SYNC_CONTENT_WIRE
+#include "test_workspace_sync_content_wire.h"
+#endif
 static uint64_t irq=0x200,now;
 static uint64_t sync_test_irq_save(void){uint64_t f=irq;irq=0;return f;}
 static void sync_test_irq_restore(uint64_t f){irq=f;}
@@ -54,6 +57,90 @@ static void synthetic_command(unsigned role,uint64_t opcode,uint64_t bytes,uint6
 }
 static void call(uint64_t pid,uint64_t start,uint64_t mid,uint64_t end,bool file_ok,bool device_ok){
  now=start;assert(sync_timing_begin(pid));now=mid;sync_timing_files_done(file_ok);now=end;sync_timing_end(device_ok);
+}
+/* Exercise the actual C snapshot API; no process/backend success is inferred
+ * from these observer-only invariants. Failed old committed extents can be
+ * larger than a newly truncated captured RAM prefix. */
+static bool snapshot_observation(const struct sync_content_prefix *prefix,bool ok,bool dirty) {
+ observed=(struct sync_timing_snapshot){.enabled=1};now=100;assert(sync_timing_begin(7));
+ now=101;assert(sync_timing_content_begin(0,10,42,65536));
+ sync_timing_content_io(0,2,0,2,true);
+ now=130;sync_timing_content_end_snapshot(ok,dirty,prefix);
+ now=140;sync_timing_files_done(ok);now=150;sync_timing_end(true);
+ assert(irq==0x200 && !observed.active && !content_active && !commands_active && !busy);
+ return !observed.invalid && !observed.records[0].invalid;
+}
+static void snapshot_tests(void) {
+ struct sync_content_prefix p={.valid=1,.start_generation=11,.end_generation=12,
+  .live_size=65573,.committed_size=65536,.append_calls=1,.append_bytes=37};
+ assert(snapshot_observation(&p,true,true));
+ struct sync_content_call retained=observed.records[0].worst.content.worst;
+ assert(retained.size==65536 && retained.prefix.valid && retained.prefix.live_size==65573 && retained.dirty_after);
+ assert(retained.prefix.start_generation==11 && retained.prefix.end_generation==12);
+ /* Emit every content row from the actual retained producer state. Only
+  * the parent USB sync envelope uses the existing Python fixture adapter. */
+ now=1000;uint64_t snapshot_us=timer_monotonic_us();
+#ifdef SRVROS_WORKSPACE_SYNC_CONTENT_WIRE
+ struct sync_timing_snapshot wire;sync_timing_snapshot(&wire);
+ workspace_sync_content_wire(snapshot_us,&wire);
+#else
+ const struct sync_timing_record *record=&observed.records[0];
+ const struct sync_content_summary *summary=&record->worst.content;
+#define U(value) ((unsigned long long)(value))
+ printf("sync-content-summary: version=1 snapshot_us=%llu pid=%llu id=%llu calls=%llu bytes=%llu failures=%llu final=1\n",
+  U(snapshot_us),U(record->pid),U(record->worst.start_us),U(summary->calls),U(summary->bytes),U(summary->failures));
+ printf("sync-content-selection: version=1 snapshot_us=%llu pid=%llu id=%llu final=1\n",
+  U(snapshot_us),U(record->pid),U(record->worst.start_us));
+ printf("sync-content-worst: version=%llu snapshot_us=%llu pid=%llu id=%llu slot=%llu identity=%llu inode=%llu size=%llu start_us=%llu end_us=%llu ok=%llu dirty_after=%llu final=1\n",
+  U(retained.prefix.valid?2:1),U(snapshot_us),U(record->pid),U(record->worst.start_us),
+  U(retained.slot),U(retained.identity),U(retained.inode),U(retained.size),U(retained.start_us),U(retained.end_us),
+  U(retained.ok),U(retained.dirty_after));
+ printf("sync-content-prefix: version=1 snapshot_us=%llu pid=%llu id=%llu identity=%llu start_generation=%llu end_generation=%llu live_size=%llu committed_size=%llu append_calls=%llu append_bytes=%llu final=1\n",
+  U(snapshot_us),U(record->pid),U(record->worst.start_us),U(retained.identity),U(retained.prefix.start_generation),
+  U(retained.prefix.end_generation),U(retained.prefix.live_size),U(retained.prefix.committed_size),
+  U(retained.prefix.append_calls),U(retained.prefix.append_bytes));
+ for(unsigned role=0;role<SYNC_CONTENT_ROLES;role++) {
+  const struct sync_content_io *io=&retained.io[role];
+  printf("sync-content-io: version=1 snapshot_us=%llu pid=%llu id=%llu role=%u reads=%llu read_bytes=%llu read_us=%llu writes=%llu write_bytes=%llu write_us=%llu flushes=%llu flush_us=%llu failures=%llu final=1\n",
+   U(snapshot_us),U(record->pid),U(record->worst.start_us),role,U(io->reads),U(io->read_bytes),U(io->read_us),
+   U(io->writes),U(io->write_bytes),U(io->write_us),U(io->flushes),U(io->flush_us),U(io->failures));
+ }
+#undef U
+#endif
+ p=(struct sync_content_prefix){.valid=1,.start_generation=12,.end_generation=12,.live_size=65536,.committed_size=65536};
+ assert(snapshot_observation(&p,true,false));
+ assert(!observed.records[0].worst.content.worst.dirty_after);
+ struct sync_content_prefix bad[13];for(unsigned i=0;i<13;i++)bad[i]=p;
+ bad[0].valid=0;bad[1].valid=2;bad[2].end_generation=11;
+ bad[3].live_size=65535;bad[4].live_size=16u*1024u*1024u+1;
+ bad[5].committed_size=65535;bad[6].committed_size=65537;
+ bad[7].append_calls=1;bad[8].append_bytes=1;
+ bad[9].end_generation=13;bad[9].append_calls=1; /* Missing appended byte. */
+ bad[10].end_generation=13;bad[10].append_calls=1;bad[10].append_bytes=65537;bad[10].live_size=131073;
+ bad[11].end_generation=14;bad[11].append_calls=1;bad[11].append_bytes=1;bad[11].live_size=65537;
+ bad[12].committed_size=16u*1024u*1024u+1;
+ for(unsigned i=0;i<13;i++)assert(!snapshot_observation(&bad[i],true,false));
+ assert(!snapshot_observation(0,true,false));
+ assert(!snapshot_observation(&p,true,true));
+ p=(struct sync_content_prefix){.valid=1,.start_generation=UINT64_MAX-1,.end_generation=UINT64_MAX,
+  .live_size=131072,.committed_size=65536,.append_calls=1,.append_bytes=65536};
+ assert(snapshot_observation(&p,true,true));
+ p.append_bytes=65537;p.live_size=131073;assert(!snapshot_observation(&p,true,true));
+ p=(struct sync_content_prefix){.valid=1,.start_generation=0,.end_generation=UINT64_MAX,
+  .live_size=65537,.committed_size=65536,.append_calls=UINT64_MAX,.append_bytes=1};
+ assert(snapshot_observation(&p,true,true)); /* No append_calls*65536 overflow. */
+ p=(struct sync_content_prefix){.valid=1,.start_generation=12,.end_generation=12,
+  .live_size=65536,.committed_size=131072};
+ assert(snapshot_observation(&p,false,true));
+ assert(observed.records[0].worst.content.failures==1 && observed.records[0].errors==1);
+ assert(observed.records[0].worst.content.worst.prefix.committed_size==131072);
+ assert(!snapshot_observation(&p,false,false));
+ /* The old API remains a v1 observation with no accidental stale companion. */
+ observed=(struct sync_timing_snapshot){.enabled=1};now=200;assert(sync_timing_begin(7));
+ now=201;assert(sync_timing_content_begin(0,11,42,1));now=202;sync_timing_content_end(true,false);
+ now=203;sync_timing_files_done(true);now=204;sync_timing_end(true);
+ assert(!observed.records[0].worst.content.worst.prefix.valid);
+ assert(retained.prefix.live_size==65573 && retained.size==65536);
 }
 int main(void){
  assert(sync_timing_content_role_begin(2)==USB_STORAGE_CONTENT_NO_ROLE);sync_timing_content_role_end(USB_STORAGE_CONTENT_NO_ROLE);
@@ -146,5 +233,6 @@ int main(void){
  assert(observed.invalid || observed.records[0].invalid);
  now=9520;sync_timing_files_done(true);now=9530;sync_timing_end(true);assert(!observed.records[0].errors);
  struct usb_storage_content_timing missing={.valid=1};usb_storage_content_end(&missing);assert(!missing.valid && !missing.active);
+ snapshot_tests();
  puts("sync-timing: PASS opt-in, complete phases, all failure combinations, copied worst content/command retention, PID capacity, nested trace/role refusal and foreign preservation, invalid clock/overflow and incomplete evidence");
 }

@@ -262,6 +262,10 @@ struct srv_file_change {
 #define SRV_F_SETLKW 7
 #define SRV_F_DUPFD 8
 #define SRV_F_DUPFD_CLOEXEC 9
+/* Gated capacity-only opt-in for a fresh exclusive empty write description.
+ * Does not change visible length/offset/dirty state. Old kernels refuse this
+ * command; callers may retain ordinary writes on any reservation failure. */
+#define SRV_F_RESERVE_APPEND_RAM 10
 #define SRV_FD_NONBLOCK 0x01
 #define SRV_FD_CLOEXEC 0x02
 #define SRV_FD_READ 0x04

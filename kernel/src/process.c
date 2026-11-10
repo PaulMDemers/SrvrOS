@@ -181,6 +181,12 @@ struct process_file_content {
     const struct vfs_node *node;
     const uint8_t *data;
     uint64_t size,capacity;
+    uint64_t dirty_generation,committed_size;
+    struct {
+        bool active;
+        const uint8_t *data;
+        uint64_t size,generation,append_calls,append_bytes;
+    } writeback;
     bool owned,dirty,failed,unlinked;
     struct vfs_metadata orphan_metadata;
     char path[PROCESS_PATH_MAX];
@@ -189,6 +195,14 @@ struct process_write_file {
     bool used;
     uint64_t refs,open_flags,offset;
     struct process_file_content *content;
+    bool fresh_exclusive;
+    struct {
+        bool valid;
+        struct process *owner;
+        struct process_file_content *content;
+        const uint8_t *data;
+        uint64_t image_generation,fd,fd_generation,capacity,limit,open_flags;
+    } append;
     char path[PROCESS_PATH_MAX];
 };
 struct process_read_file {
@@ -1276,6 +1290,17 @@ void process_capture_write_result(uint64_t start,uint64_t requested,int64_t resu
     if(!start)return;
     uint64_t flags=process_irq_save();
     capture_write_result(capture_write_find(&capture_writes,capture_write_pid()),start,capture_write_now(),requested,result);
+    process_irq_restore(flags);
+}
+void process_capture_write_fast_result(uint64_t requested,int64_t result) {
+    uint64_t flags=process_irq_save();
+    capture_write_fast_result(capture_write_find(&capture_writes,capture_write_pid()),requested,result);
+    process_irq_restore(flags);
+}
+void process_capture_write_invalidate(void) {
+    uint64_t flags=process_irq_save();
+    struct capture_write_record *record=capture_write_find(&capture_writes,capture_write_pid());
+    if(record)record->invalid=1;
     process_irq_restore(flags);
 }
 void process_capture_write_gate_wait(void) {
@@ -4762,10 +4787,28 @@ int64_t process_file_pty_pair(struct process *process,uint64_t fds_out[2]) {
     fds_out[0]=index[0];fds_out[1]=index[1];return 0;
 }
 
+static void write_revoke_append(struct process_write_file *write) {
+    write->append.valid=false;write->fresh_exclusive=false;
+}
+static void content_revoke_append(struct process_file_content *content) {
+    if(!content)return;
+    for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES;i++)
+        if(write_files[i].used && write_files[i].content==content)write_revoke_append(&write_files[i]);
+}
+static void content_mutated(struct process_file_content *content) {
+    if(!content->dirty_generation)content->dirty_generation=1;
+    else if(content->dirty_generation!=UINT64_MAX)content->dirty_generation++;
+    if(content->dirty_generation==UINT64_MAX)content_revoke_append(content);
+    content->dirty=true;
+}
 static struct process_file_content *content_find(const char *path) {
     for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES+PROCESS_MAX_READ_FILES;i++)
         if(file_contents[i].refs && !file_contents[i].unlinked && process_path_equal(file_contents[i].path,path)) return &file_contents[i];
     return NULL;
+}
+void process_revoke_reserved_append_path(const char *path) {
+    if(!path)return;
+    uint64_t irq=process_irq_save();content_revoke_append(content_find(path));process_irq_restore(irq);
 }
 bool process_open_file_size(const char *path,uint64_t *size) {
     struct process_file_content *content=content_find(path);
@@ -4777,13 +4820,19 @@ static struct process_file_content *content_acquire(const struct vfs_node *node,
     const char *path,const uint8_t *data,uint64_t size) {
     struct process_file_content *content=content_find(path);
     if(content) {
+        if(content->writeback.active) {
+            if(data)vfs_release_data(node,data);
+            return NULL;
+        }
+        content_revoke_append(content);
         content->refs++;
         if(data) vfs_release_data(node,data);
         return content;
     }
     for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES+PROCESS_MAX_READ_FILES;i++) if(!file_contents[i].refs) {
         content=&file_contents[i];
-        *content=(struct process_file_content){.refs=1,.node=node,.data=data,.size=size};
+        *content=(struct process_file_content){.refs=1,.node=node,.data=data,.size=size,
+            .dirty_generation=1,.committed_size=size};
         if(copy_process_path(content->path,sizeof(content->path),path)) {
             content->diagnostic_identity=sync_timing_content_identity();return content;
         }
@@ -4792,21 +4841,54 @@ static struct process_file_content *content_acquire(const struct vfs_node *node,
     if(data) vfs_release_data(node,data);
     return NULL;
 }
-static int64_t content_flush(struct process_file_content *content) {
-    if(content->unlinked) { content->dirty=false;return 0; }
-    if(content->failed) return SRV_ERR_IO;
-    if(!content->dirty) return 0;
+static int64_t content_flush_observed(struct process_file_content *content,uint64_t index,bool observe) {
+    uint64_t irq=process_irq_save();
+    if(content->writeback.active) {process_irq_restore(irq);return SRV_ERR_BUSY;}
+    if(content->unlinked || content->failed || !content->dirty) {
+        bool timed=observe && sync_timing_content_begin(index,content->diagnostic_identity,
+            content->unlinked?content->orphan_metadata.inode:content->node?content->node->metadata.inode:0,content->size);
+        int64_t result=content->failed && !content->unlinked?SRV_ERR_IO:0;
+        if(content->unlinked)content->dirty=false;
+        if(timed)sync_timing_content_end(result>=0,content->dirty);
+        process_irq_restore(irq);return result;
+    }
+    if(!content->dirty_generation)content->dirty_generation=1;
+    const uint8_t *data=content->data;
+    uint64_t size=content->size,generation=content->dirty_generation;
+    content->writeback=(__typeof__(content->writeback)){.active=true,.data=data,.size=size,.generation=generation};
+    bool timed=observe && sync_timing_content_begin(index,content->diagnostic_identity,
+        content->node?content->node->metadata.inode:0,size);
+    /* Preserve incoming IF0 through the backend's ownership release and this
+     * borrow's retirement. Backend service windows already enable IRQs while
+     * waiting, then return CLI. Restoring an IF1 kernel caller here would let
+     * a queued last close run after fs_leave but before active is cleared. */
     bool retryable=false;
-    if(!exfat_write_file_retryable(content->path,content->data,content->size,&retryable)) {
+    bool ok=exfat_write_file_retryable(content->path,data,size,&retryable);
+    (void)process_irq_save();
+    if(!ok) {
         /* A clean refusal retains dirty data for a later explicit flush/close.
          * Partial writes and failed cleanup keep the sticky error contract. */
-        content->failed=!retryable;return SRV_ERR_IO;
+        content->failed=!retryable;
+    } else {
+        content->committed_size=size;
+        content->dirty=content->dirty_generation!=generation;
     }
-    content->dirty=false;return 0;
+    struct sync_content_prefix prefix={.valid=1,.start_generation=generation,
+        .end_generation=content->dirty_generation,.live_size=content->size,
+        .committed_size=content->committed_size,.append_calls=content->writeback.append_calls,
+        .append_bytes=content->writeback.append_bytes};
+    content->writeback.active=false;
+    if(timed)sync_timing_content_end_snapshot(ok,content->dirty,&prefix);
+    process_irq_restore(irq);return ok?0:SRV_ERR_IO;
+}
+static int64_t content_flush(struct process_file_content *content) {
+    return content_flush_observed(content,0,false);
 }
 static int64_t content_release(struct process_file_content *content) {
     if(!content || !content->refs) return SRV_ERR_BADF;
-    if(--content->refs) return 0;
+    if(content->refs>1) {content->refs--;return 0;}
+    if(content->writeback.active)return SRV_ERR_BUSY;
+    content->refs=0;
     int64_t result=content_flush(content);
     if(content->data) {
         if(content->owned) kfree((void *)content->data);
@@ -4896,6 +4978,7 @@ static int64_t read_file_close(uint64_t handle) {
     if (file == NULL) {
         return SRV_ERR_BADF;
     }
+    if(file->content && file->content->writeback.active)return SRV_ERR_BUSY;
     if (file->refs > 0) {
         file->refs--;
     }
@@ -5226,6 +5309,7 @@ static uint64_t write_file_alloc(void) {
 static void write_file_ref(uint64_t handle) {
     struct process_write_file *file = write_file_at(handle);
     if (file != NULL) {
+        write_revoke_append(file);
         file->refs++;
     }
 }
@@ -5234,6 +5318,7 @@ static bool ensure_write_capacity(struct process_write_file *file,uint64_t neede
     if(!file || !file->content) return false;
     struct process_file_content *content=file->content;
     if(content->owned && needed<=content->capacity) return true;
+    if(content->writeback.active)return false;
     uint64_t capacity=content->capacity?content->capacity:4096;
     if(needed<content->size) needed=content->size;
     if(needed>PROCESS_WRITE_BUFFER_MAX) return false;
@@ -5244,6 +5329,8 @@ static bool ensure_write_capacity(struct process_write_file *file,uint64_t neede
     for(uint64_t i=content->size;i<capacity;i++) next[i]=0;
     uint64_t irq=process_irq_save();
     const uint8_t *previous=content->data;bool owned=content->owned;
+    for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES;i++)
+        if(write_files[i].used && write_files[i].content==content)write_files[i].append.valid=false;
     content->data=next;content->capacity=capacity;content->owned=true;
     if(previous) {
         if(owned) kfree((void *)previous);
@@ -5252,12 +5339,111 @@ static bool ensure_write_capacity(struct process_write_file *file,uint64_t neede
     process_irq_restore(irq);return true;
 }
 
+#define PROCESS_RESERVED_APPEND_COPY_MAX 65536u
+#define PROCESS_RESERVED_APPEND_WINDOW (4u*PROCESS_RESERVED_APPEND_COPY_MAX)
+/* Metadata-only lease proof. Caller holds CPU0 IRQ exclusion. No pointer from
+ * this check may survive a wait; the ordinary path revalidates after admission. */
+static struct process_write_file *reserved_append_binding(struct process *process,uint64_t fd) {
+    if(!process || process!=process_current() || !process->allocated || !process->active ||
+       !process->image_generation || fd>=PROCESS_MAX_OPEN_FILES ||
+       process->file_generations[fd]==UINT64_MAX)return NULL;
+    struct process_file *file=process_file_at(process,fd);
+    if(!file || file->type!=PROCESS_FILE_VFS_WRITE)return NULL;
+    struct process_write_file *write=write_file_at(file->handle);
+    if(!write || write->refs!=1 || !write->append.valid ||
+       write->append.owner!=process || write->append.image_generation!=process->image_generation ||
+       write->append.fd!=fd || write->append.fd_generation!=process->file_generations[fd] ||
+       write->append.open_flags!=write->open_flags || !(write->open_flags&SRV_OPEN_WRITE) ||
+       (write->open_flags&SRV_OPEN_READ))return NULL;
+    struct process_file_content *content=write->content;
+    if(!content || content!=write->append.content || content->refs!=1 || !content->owned ||
+       !content->data || content->failed || content->unlinked || !content->dirty_generation ||
+       content->dirty_generation==UINT64_MAX || content->data!=write->append.data ||
+       content->capacity!=write->append.capacity || content->size>write->append.limit ||
+       write->append.limit>content->capacity || write->append.limit>PROCESS_WRITE_BUFFER_MAX)return NULL;
+    if(content->writeback.active && (content->writeback.data!=content->data ||
+       content->writeback.size>content->size))return NULL;
+    return write;
+}
+static bool reserved_append_count(struct process *process,struct process_write_file *write,
+    uint64_t requested,bool window,uint64_t *count) {
+    if(!write || !requested || requested>PROCESS_RESERVED_APPEND_COPY_MAX)return false;
+    struct process_file_content *content=write->content;
+    uint64_t position=(write->open_flags&SRV_OPEN_APPEND)?content->size:write->offset;
+    if(position!=content->size || position>=process->fsize_limit.current)return false;
+    uint64_t amount=requested;
+    if(amount>process->fsize_limit.current-position)amount=process->fsize_limit.current-position;
+    if(!amount || amount>write->append.limit-position || position>PROCESS_WRITE_BUFFER_MAX ||
+       amount>PROCESS_WRITE_BUFFER_MAX-position)return false;
+    uint64_t base=content->writeback.active?content->writeback.size:content->committed_size;
+    if(window && (base>position || position+amount-base>PROCESS_RESERVED_APPEND_WINDOW))return false;
+    *count=amount;return true;
+}
+int64_t process_file_reserve_append_ram(struct process *process,uint64_t fd,uint64_t limit) {
+    struct process_service_scope scope=process_service_begin();
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    if(!scope.held) {process_service_end(scope);return SRV_ERR_IO;}
+#endif
+    int64_t result=SRV_ERR_INVAL;
+    if(!process || process!=process_current() || !process->allocated || !process->active ||
+       !process->image_generation || fd>=PROCESS_MAX_OPEN_FILES ||
+       process->file_generations[fd]==UINT64_MAX || !limit || limit>PROCESS_WRITE_BUFFER_MAX)goto done;
+    struct process_file *file=process_file_at(process,fd);
+    struct process_write_file *write=file && file->type==PROCESS_FILE_VFS_WRITE?write_file_at(file->handle):NULL;
+    if(!write || write->refs!=1 || !write->fresh_exclusive ||
+       !(write->open_flags&SRV_OPEN_WRITE) || (write->open_flags&SRV_OPEN_READ))goto done;
+    struct process_file_content *content=write->content;
+    if(!content || content->refs!=1 || content->size || write->offset || content->dirty ||
+       content->failed || content->unlinked || content->writeback.active ||
+       !content->dirty_generation || content->dirty_generation==UINT64_MAX)goto done;
+    if(!ensure_write_capacity(write,limit)) {result=SRV_ERR_NOMEM;goto done;}
+    write->append=(__typeof__(write->append)){.valid=true,.owner=process,.content=content,
+        .data=content->data,.image_generation=process->image_generation,.fd=fd,
+        .fd_generation=process->file_generations[fd],.capacity=content->capacity,
+        .limit=limit,.open_flags=write->open_flags};
+    result=0;
+done:
+    process_service_end(scope);return result;
+}
+bool process_file_reserved_append_entry_candidate(struct process *process,uint64_t fd,uint64_t requested) {
+    uint64_t irq=process_irq_save(),count;
+    bool allowed=reserved_append_count(process,reserved_append_binding(process,fd),requested,true,&count) &&
+        scheduler_io_entry_process_independent(process);
+    process_irq_restore(irq);return allowed;
+}
+bool process_file_try_reserved_append(struct process *process,uint64_t fd,uint64_t requested,
+    process_reserved_append_copy_fn copy,void *context,int64_t *result) {
+    if(!copy || !result)return false;
+    uint64_t irq=process_irq_save(),count;
+    uint64_t reserve_at=process_capture_write_clock();
+    struct process_write_file *write=reserved_append_binding(process,fd);
+    if(!reserved_append_count(process,write,requested,true,&count) ||
+       !scheduler_io_process_independent(process)) {
+        process_irq_restore(irq);return false;
+    }
+    struct process_file_content *content=write->content;
+    process_capture_write_record(CAP_WRITE_RESERVE,reserve_at);
+    uint64_t copy_at=process_capture_write_clock();
+    bool copied=copy(context,(uint8_t *)content->data+content->size,count,requested);
+    process_capture_write_record(CAP_WRITE_COPY,copy_at);
+    if(!copied) {
+        *result=SRV_ERR_FAULT;process_irq_restore(irq);return true;
+    }
+    content->size+=count;write->offset=content->size;content_mutated(content);
+    if(content->writeback.active) {
+        content->writeback.append_calls++;content->writeback.append_bytes+=count;
+    }
+    *result=(int64_t)count;process_irq_restore(irq);return true;
+}
+
 int64_t process_unlink_file(const char *path) {
     if(process_stream_busy(path,true))return SRV_ERR_BUSY;
     const struct vfs_node *node=vfs_lookup(path);
     if(!node) return SRV_ERR_NOENT;
     if(node->type!=VFS_NODE_FILE) return SRV_ERR_ISDIR;
     struct process_file_content *content=content_find(path);
+    if(content && content->writeback.active)return SRV_ERR_BUSY;
+    content_revoke_append(content);
     struct vfs_metadata metadata=node->metadata;
     if(content && !content->owned) {
         struct process_write_file temporary={.content=content};
@@ -5294,7 +5480,10 @@ int64_t process_rename_file(const char *old_path,const char *new_path) {
     uint64_t source_inode=source->metadata.inode;
     struct vfs_metadata target_metadata=target?target->metadata:(struct vfs_metadata){0};
     struct process_file_content *source_content=content_find(old_path),*target_content=content_find(new_path);
+    if((source_content && source_content->writeback.active) ||
+       (target_content && target_content->writeback.active))return SRV_ERR_BUSY;
     struct process_file_content *contents[2]={source_content,target_content};
+    content_revoke_append(source_content);content_revoke_append(target_content);
     /* Promote retained backend snapshots before their directory slots can be
      * retired or reused. OOM leaves both names and contents unchanged. */
     for(unsigned i=0;i<2;i++) if(contents[i] && !contents[i]->owned) {
@@ -5400,6 +5589,8 @@ static int64_t process_file_open_write_raw(struct process *process, const char *
     bool append = (flags & SRV_OPEN_APPEND) != 0;
     bool trunc = (flags & SRV_OPEN_TRUNC) != 0;
     bool ensure_empty = trunc || (!exists && (flags & SRV_OPEN_CREATE) != 0);
+    struct process_file_content *existing_content=content_find(path);
+    if(existing_content && existing_content->writeback.active)return SRV_ERR_BUSY;
 
     if(exists && (flags & SRV_OPEN_CREATE) && (flags & SRV_OPEN_EXCL)) return SRV_ERR_EXIST;
     if(exists && node->type==VFS_NODE_DIRECTORY) return SRV_ERR_ISDIR;
@@ -5444,8 +5635,14 @@ static int64_t process_file_open_write_raw(struct process *process, const char *
     if(ensure_empty && !exfat_write_file_mode(path,NULL,0,mode)) {
         (void)content_release(write->content);*write=(struct process_write_file){0};return SRV_ERR_IO;
     }
-    if(ensure_empty) { write->content->size=0;write->content->dirty=false; }
+    if(ensure_empty) {
+        content_revoke_append(write->content);write->content->size=0;
+        content_mutated(write->content);write->content->dirty=false;write->content->committed_size=0;
+    }
     write->open_flags=flags;
+    write->fresh_exclusive=!exists &&
+        (flags&(SRV_OPEN_CREATE|SRV_OPEN_EXCL|SRV_OPEN_WRITE))==(SRV_OPEN_CREATE|SRV_OPEN_EXCL|SRV_OPEN_WRITE) &&
+        !(flags&SRV_OPEN_READ);
     write->offset=append?write->content->size:0;
     struct process_file *file = &process->files[free_index];
     uint8_t *bytes = (uint8_t *)file;
@@ -5511,6 +5708,8 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
         return 0;
     }
 
+    if(write->content->writeback.active) {process_irq_restore(flags);return SRV_ERR_BUSY;}
+
     uint64_t position=(write->open_flags & SRV_OPEN_APPEND)?write->content->size:write->offset;
     int64_t allowed=process_fsize_write(process,position,length);
     if(allowed<0) { process_irq_restore(flags);return allowed; }
@@ -5519,6 +5718,9 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
         process_irq_restore(flags);return SRV_ERR_FBIG;
     }
     uint64_t needed=position+length;
+    uint64_t retained_count=0;
+    bool keep_append=reserved_append_binding(process,fd)==write &&
+        reserved_append_count(process,write,length,false,&retained_count) && retained_count==length;
     uint64_t reserve_at=process_capture_write_clock(),capacity=write->content->capacity;
     bool reserved=ensure_write_capacity(write,needed);
     process_capture_write_record(CAP_WRITE_RESERVE,reserve_at);
@@ -5532,7 +5734,8 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
     if (write->offset > write->content->size) {
         write->content->size = write->offset;
     }
-    write->content->dirty = true;
+    if(!keep_append)content_revoke_append(write->content);
+    content_mutated(write->content);
     process_irq_restore(flags);
     return (int64_t)length;
 }
@@ -5588,6 +5791,7 @@ int64_t process_file_pwrite(struct process *process, uint64_t fd, const uint8_t 
     struct process_write_file *write=write_file_at(file->handle);
     if (!write || !(write->open_flags & SRV_OPEN_WRITE)) { result=SRV_ERR_BADF; goto done; }
     if (!length) { result=0; goto done; }
+    if(write->content->writeback.active) {result=SRV_ERR_BUSY;goto done;}
     uint64_t position=(uint64_t)offset;
     result=process_fsize_write(process,position,length);
     if(result<0) goto done;
@@ -5602,7 +5806,7 @@ int64_t process_file_pwrite(struct process *process, uint64_t fd, const uint8_t 
     for (uint64_t i=write->content->size;i<position;i++) ((uint8_t *)write->content->data)[i]=0;
     for (uint64_t i=0;i<length;i++) ((uint8_t *)write->content->data)[position+i]=buffer[i];
     if (end>write->content->size) write->content->size=end;
-    write->content->dirty=true;
+    content_revoke_append(write->content);content_mutated(write->content);
     result=(int64_t)length;
 done:
     process_irq_restore(irq);
@@ -5809,6 +6013,7 @@ static int64_t write_file_close(uint64_t handle) {
     if (write == NULL) {
         return SRV_ERR_BADF;
     }
+    if(write->content && write->content->writeback.active)return SRV_ERR_BUSY;
 
     if (write->refs > 0) {
         write->refs--;
@@ -5838,13 +6043,14 @@ int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t len
     if(file->type!=PROCESS_FILE_VFS_WRITE) goto done;
     struct process_write_file *write=write_file_at(file->handle);
     if(!write || !(write->open_flags&SRV_OPEN_WRITE)) goto done;
+    if(write->content->writeback.active) {result=SRV_ERR_BUSY;goto done;}
     if(length>write->content->size && length>process->fsize_limit.current) {
         process_fsize_signal(process);result=SRV_ERR_FBIG;goto done;
     }
     if(length>PROCESS_WRITE_BUFFER_MAX) { result=SRV_ERR_FBIG;goto done; }
     if(!ensure_write_capacity(write,length)) { result=SRV_ERR_NOMEM;goto done; }
     for(uint64_t i=write->content->size;i<length;i++) ((uint8_t *)write->content->data)[i]=0;
-    write->content->size=length;write->content->dirty=true;result=0;
+    write->content->size=length;content_revoke_append(write->content);content_mutated(write->content);result=0;
 done:
     process_irq_restore(irq);return result;
 }
@@ -5888,10 +6094,7 @@ int64_t process_file_sync_all(void) {
     for (uint64_t i = 0; i < PROCESS_MAX_WRITE_FILES + PROCESS_MAX_READ_FILES; i++) {
         struct process_file_content *content=&file_contents[i];
         if (content->refs && content->dirty) {
-            uint64_t inode=content->unlinked?content->orphan_metadata.inode:content->node?content->node->metadata.inode:0;
-            bool timed=sync_timing_content_begin(i,content->diagnostic_identity,inode,content->size);
-            int64_t flushed=content_flush(content);
-            if(timed)sync_timing_content_end(flushed>=0,content->dirty);
+            int64_t flushed=content_flush_observed(content,i,true);
             if(flushed<0)result=-1;
         }
     }
@@ -6989,6 +7192,10 @@ static int64_t process_file_dup_replace(struct process *process, uint64_t old_fd
     struct process_file *source=process_file_at(process,old_fd);
     if(!source || new_fd>=PROCESS_MAX_OPEN_FILES) { process_irq_restore(irq);return SRV_ERR_BADF; }
     if(old_fd==new_fd) { process_irq_restore(irq);return (int64_t)new_fd; }
+    struct process_file_content *target_content=NULL;
+    if(file_content_for_fd(process_file_at(process,new_fd),&target_content) && target_content->writeback.active) {
+        process_irq_restore(irq);return SRV_ERR_BUSY;
+    }
     struct process_file replacement={0};
     if(!process_file_clone_entry(&replacement,source)) { process_irq_restore(irq);return SRV_ERR_NOMEM; }
     replacement.flags&=~SRV_FD_CLOEXEC;
@@ -7432,6 +7639,8 @@ int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t fl
     } else if(file->type==PROCESS_FILE_VFS_WRITE) {
         struct process_write_file *write=write_file_at(file->handle);
         if(!write) { process_irq_restore(irq);return SRV_ERR_BADF; }
+        if(write->content->writeback.active) {process_irq_restore(irq);return SRV_ERR_BUSY;}
+        write_revoke_append(write);
         write->open_flags=(write->open_flags&~(SRV_OPEN_APPEND|SRV_OPEN_NONBLOCK)) |
             ((flags&SRV_FD_APPEND)?SRV_OPEN_APPEND:0) | ((flags&SRV_FD_NONBLOCK)?SRV_OPEN_NONBLOCK:0);
     }
@@ -7457,6 +7666,11 @@ int64_t process_file_set_fd_flags(struct process *process, uint64_t fd, uint64_t
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL) {
         return SRV_ERR_BADF;
+    }
+    if(file->type==PROCESS_FILE_VFS_WRITE) {
+        struct process_write_file *write=write_file_at(file->handle);
+        if(write && write->content->writeback.active)return SRV_ERR_BUSY;
+        if(write)write_revoke_append(write);
     }
     file->flags = (file->flags & ~SRV_FD_CLOEXEC) | (flags & SRV_FD_CLOEXEC);
     return 0;
@@ -7599,6 +7813,10 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
     uint64_t irq=process_irq_save();
     struct process_file *file=process_file_at(process,fd);
     if(!file) { process_irq_restore(irq);return SRV_ERR_BADF; }
+    struct process_file_content *content=NULL;
+    if(file_content_for_fd(file,&content) && content->writeback.active) {
+        process_irq_restore(irq);return SRV_ERR_BUSY;
+    }
     struct process_file retired=*file;*file=(struct process_file){0};
     file_generation_invalidate(process,fd);
     process_irq_restore(irq);
@@ -7662,6 +7880,8 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
     }
 
     if (write != NULL) {
+        if(write->content->writeback.active) {process_irq_restore(flags);return SRV_ERR_BUSY;}
+        write_revoke_append(write);
         write->offset = (uint64_t)target;
         process_irq_restore(flags);
         return (int64_t)write->offset;
@@ -7804,6 +8024,8 @@ int64_t process_file_stat(struct process *process,
 int64_t process_file_chmod(struct process *process,uint64_t fd,uint64_t mode) {
     struct process_file_content *content=NULL;
     if(!file_content_for_fd(process_file_at(process,fd),&content)) return SRV_ERR_BADF;
+    if(content->writeback.active)return SRV_ERR_BUSY;
+    content_revoke_append(content);
     if(content->unlinked) { content->orphan_metadata.mode=VFS_MODE_IFREG|(mode&07777);return 0; }
     return vfs_chmod(content->path,mode)?0:SRV_ERR_IO;
 }
@@ -7811,6 +8033,8 @@ int64_t process_path_utime(const char *path,uint64_t atime,uint64_t mtime) {
     if(!vfs_lookup(path)) return SRV_ERR_NOENT;
     if(atime==SRV_TIME_OMIT && mtime==SRV_TIME_OMIT) return 0;
     struct process_file_content *content=content_find(path);
+    if(content && content->writeback.active)return SRV_ERR_BUSY;
+    content_revoke_append(content);
     if(content && content_flush(content)<0) return SRV_ERR_IO;
     return vfs_utime(path,atime,mtime)?0:SRV_ERR_IO;
 }
@@ -7818,6 +8042,8 @@ int64_t process_file_utime(struct process *process,uint64_t fd,uint64_t atime,ui
     struct process_file_content *content=NULL;
     if(!file_content_for_fd(process_file_at(process,fd),&content)) return SRV_ERR_BADF;
     if(atime==SRV_TIME_OMIT && mtime==SRV_TIME_OMIT) return 0;
+    if(content->writeback.active)return SRV_ERR_BUSY;
+    content_revoke_append(content);
     if(content->unlinked) { vfs_metadata_utime(&content->orphan_metadata,atime,mtime);return 0; }
     if(content_flush(content)<0) return SRV_ERR_IO;
     return vfs_utime(content->path,atime,mtime)?0:SRV_ERR_IO;

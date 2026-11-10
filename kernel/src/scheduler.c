@@ -600,6 +600,32 @@ void scheduler_io_set_user_safe(bool safe) {
 /* Test fixture for read-only RFLAGS observation; irq_save/restore unchanged. */
 static uint64_t scheduler_test_rflags;
 #endif
+/* This is the copied fixed-metadata classifier for one IRQ-masked raw write
+ * entry, not permission to execute a mutable or yielding continuation. IDT has
+ * not yet restored io_user_safe; the actual append helper rechecks the existing
+ * stronger mutation predicate after entry admission. */
+bool scheduler_io_entry_process_independent(void *process) {
+    uint64_t flags;
+#ifdef SRVROS_SCHEDULER_HOST_TEST
+    flags=scheduler_test_rflags;
+#else
+    __asm__ volatile ("pushfq; popq %0" : "=r"(flags) : : "memory");
+#endif
+    if((flags & (1ull<<9)) || !initialized || !io_services_enabled || switching || !process ||
+       thread_capacity>4096 || current_thread>=thread_capacity || (io_depth && io_owner>=thread_capacity))return false;
+    const struct thread *caller=thread_at(current_thread);
+    if(caller->state!=THREAD_RUNNING || caller->user_context!=process || caller->user_thread_context ||
+       caller->account_user || caller->io_syscall!=SYS_WRITE ||
+       vmm_current_address_space()!=thread_address_space(caller))return false;
+    if(io_depth && (io_owner==current_thread || io_private_image==process ||
+                   thread_at(io_owner)->user_context==process))return false;
+    for(uint64_t i=0;i<thread_capacity;i++)if(i!=current_thread) {
+        const struct thread *t=thread_at(i);
+        if(t->state!=THREAD_UNUSED && t->state!=THREAD_DEAD && t->user_context==process)return false;
+    }
+    return true;
+}
+
 static bool valid_user_worker_stack_extent(uint64_t physical,uint64_t base);
 static uint64_t worker_stack_view(uint64_t physical,const void *backing);
 

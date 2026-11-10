@@ -11700,3 +11700,15 @@ actual mid-writeback append/fault/refusal/dirty-survivor tests, a source-bound
 65-write replay showing relevant reduction, strict old/new diagnostic fixtures,
 frozen full matched/core/VM/exact-stage checks, then verified recovery/install/
 run records and the original1% native stress only if evidence justifies it.
+
+The [reserved-append contract](../reserved-append.md) is implemented in the
+working candidate, including the conservative256KiB suffix window, immutable
+borrow and dirty-generation retirement, strict ordinary/fast diagnostics and
+ordinary fallback. Review identified an interrupt-return lifetime gap; borrow
+retirement now precedes restoring the original interrupt state, with a queued
+last-close regression. The controlled host replay must include a genuinely
+unreserved baseline and retain all65 foreign sync calls/markers, both full fresh
+verifications and complete allocation checks. Full integration and native
+acceptance remain pending; no new payload or reboot is armed. Actual refreshed
+PR301/PR19 heads are0927d66e/4ab16524; their latest changes retain separate
+graphics qualification and authenticated-network evidence scope.

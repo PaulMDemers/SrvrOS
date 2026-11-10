@@ -6,6 +6,7 @@ _FIELDS = {
     'summary': 'version snapshot_us pid id calls bytes failures final',
     'selection': 'version snapshot_us pid id final',
     'worst': 'version snapshot_us pid id slot identity inode size start_us end_us ok dirty_after final',
+    'prefix': 'version snapshot_us pid id identity start_generation end_generation live_size committed_size append_calls append_bytes final',
     'io': 'version snapshot_us pid id role reads read_bytes read_us writes write_bytes write_us flushes flush_us failures final',
 }
 _U64 = 1 << 64
@@ -25,7 +26,8 @@ def _row(line):
     row = dict(zip(fields, map(int, match.groups())))
     if any(v >= _U64 for v in row.values()):
         raise ValueError('Overflowing sync content value')
-    if row['version'] != 1 or row['final'] != 1 or not row['snapshot_us']:
+    versions = (1, 2) if kind == 'worst' else (1,)
+    if row['version'] not in versions or row['final'] != 1 or not row['snapshot_us']:
         raise ValueError('Unsupported/nonfinal sync content observation')
     return kind, row
 
@@ -43,7 +45,7 @@ def sync_content(blobs, sync_observed=None, require_work=True):
             if not line.startswith('sync-content-'):
                 continue
             kind, row = _row(line)
-            g = groups.setdefault(row['snapshot_us'], {'summary': {}, 'selection': {}, 'worst': {}, 'io': {}})
+            g = groups.setdefault(row['snapshot_us'], {'summary': {}, 'selection': {}, 'worst': {}, 'io': {}, 'prefix': {}})
             key = row['pid'] if kind == 'summary' else row['role'] if kind == 'io' else 0
             table = g[kind]
             if key in table and table[key] != row:
@@ -79,7 +81,7 @@ def sync_content(blobs, sync_observed=None, require_work=True):
     if (selection['pid'], selection['id']) != chosen[:2]:
         raise ValueError('Selection is not the joined longest content-bearing sync')
     if not candidates:
-        if require_work or g['worst'] or g['io']:
+        if require_work or g['worst'] or g['io'] or g['prefix']:
             raise ValueError('Missing work or unmarked content details')
         return dict(status='VALID', snapshot_us=at, selection=selection,
                     summaries=list(summaries.values()), worst=None, io=[])
@@ -94,8 +96,26 @@ def sync_content(blobs, sync_observed=None, require_work=True):
         raise ValueError('Content outside its selected sync file phase')
     if not worst['start_us'] or not worst['identity'] or worst['slot'] >= _CONTENTS or worst['size'] > _BUFFER:
         raise ValueError('Invalid content lifetime/size')
-    if worst['ok'] != 1 or worst['dirty_after'] != 0 or worst['size'] > summaries[worst['pid']]['bytes']:
-        raise ValueError('Failed/dirty or inconsistent selected content')
+    if worst['ok'] != 1 or worst['size'] > summaries[worst['pid']]['bytes']:
+        raise ValueError('Failed or inconsistent selected content')
+    prefix = None
+    if worst['version'] == 1:
+        if worst['dirty_after'] != 0 or g['prefix']:
+            raise ValueError('Failed/dirty legacy content or unmarked prefix detail')
+    else:
+        if set(g['prefix']) != {0}:
+            raise ValueError('Missing/extra captured content prefix')
+        prefix = g['prefix'][0]
+        if (prefix['pid'], prefix['id'], prefix['identity']) != (*identity, worst['identity']):
+            raise ValueError('Unbound captured content prefix')
+        start, end = prefix['start_generation'], prefix['end_generation']
+        calls, added = prefix['append_calls'], prefix['append_bytes']
+        if (end < start or prefix['live_size'] < worst['size'] or
+                prefix['live_size'] > _BUFFER or prefix['committed_size'] != worst['size'] or
+                calls != end - start or added != prefix['live_size'] - worst['size'] or
+                bool(calls) != bool(added) or (added and (added - 1) // 65536 >= calls) or
+                worst['dirty_after'] != int(bool(calls))):
+            raise ValueError('Inconsistent/uncommitted captured content prefix')
     elapsed = worst['end_us'] - worst['start_us']
     total_us = 0
     operations = 0
@@ -114,7 +134,10 @@ def sync_content(blobs, sync_observed=None, require_work=True):
         rows.append(r)
     if total_us > elapsed or (require_work and not operations):
         raise ValueError('Overlapping/absent content I/O observations')
-    return dict(status='VALID', snapshot_us=at, selection=selection,
+    result = dict(status='VALID', snapshot_us=at, selection=selection,
                 summaries=list(summaries.values()), worst=worst, io=rows,
                 io_us=total_us, residual_us=elapsed-total_us,
                 scope='Selected retained worst sync and its slowest content subcall; role block callbacks are disjoint software wall observations, not hardware or CPU time.')
+    if prefix is not None:
+        result['prefix'] = prefix
+    return result
