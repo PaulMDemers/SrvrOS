@@ -5582,7 +5582,11 @@ test-intel-held-requester: build/tests/intel-engine-prepare-adapter$(HOST_EXE) b
 
 # Separate BCS8 writer while the original five-engine preparation stays live.
 INTEL_HELD_RESET_FLAGS := -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -DSRVROS_INTEL_PREPARE_RESET
-INTEL_HELD_RESET_BASE := $(filter-out build/kernel/src/drivers/intel_engine_prepare.c.o,$(INTEL_WAKE_BASE))
+INTEL_HELD_RESET_BASE := $(filter-out build/kernel/src/drivers/intel_engine_prepare.c.o build/kernel/src/main.c.o,$(INTEL_WAKE_BASE))
+build/kernel/src/main.c.o build/ap-probe/main.o build/air61-read-window/main.o build/air61-register-sample/main.o: kernel/src/boot_system_init.inc
+build/intel-held-reset/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HELD_RESET_FLAGS) -c $< -o $@
 build/intel-held-reset/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INTEL_HELD_RESET_FLAGS) -c $< -o $@
@@ -5595,8 +5599,20 @@ build/intel-held-reset/prepare.o: kernel/src/drivers/intel_engine_prepare.c $(ZI
 build/intel-held-reset/reset.o: kernel/diagnostics/intel_engine_held_reset.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_INTEL_PREPARE_RESET -c $< -o $@
-build/intel-held-reset/srvros.elf: build/intel-held-reset/probe.o build/intel-held-reset/requests.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
-	$(LD) $(LDFLAGS) build/intel-held-reset/probe.o build/intel-held-reset/requests.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) -o $@
+build/intel-held-reset/srvros.elf: build/intel-held-reset/main.o build/intel-held-reset/probe.o build/intel-held-reset/requests.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) build/intel-held-reset/main.o build/intel-held-reset/probe.o build/intel-held-reset/requests.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) -o $@
+
+build/tests/boot-system-init$(HOST_EXE): tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+build/tests/boot-held-reset-init$(HOST_EXE): tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_PREPARE_RESET -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-boot-system-init
+test-boot-system-init: build/tests/boot-system-init$(HOST_EXE) build/tests/boot-held-reset-init$(HOST_EXE)
+	build/tests/boot-system-init$(HOST_EXE)
+	build/tests/boot-held-reset-init$(HOST_EXE)
+test-intel-held-reset: test-boot-system-init
 build/tests/intel-engine-held-reset$(HOST_EXE): tools/test_intel_engine_held_reset.c tools/test_intel_engine_prepare.c kernel/diagnostics/intel_engine_held_reset.c kernel/src/drivers/intel_engine_prepare.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_INTEL_PREPARE_RESET -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/diagnostics/intel_engine_held_reset.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c -o $@

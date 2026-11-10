@@ -258,3 +258,23 @@ checkpoint, saved return and offline integrity checks pass; combined execution
 and timing remain unaccepted. Ordinary system init precedes this diagnostic;
 qualify startup ordering to establish the required sole-kernel-root context.
 Do not drop root/occupancy checks or infer individual root owners from the count.
+
+## Isolated pre-user-init startup
+
+The held-reset image now links its own main object. Only that image, with the
+complete strict18-token held-reset recipe, defers `/init --system` and reports
+`init: deferred=held-reset-preinit`. Kernel USB, logging, scheduler and timer
+services still initialize normally. The capture branch is terminal: it saves,
+unmounts and returns to Ubuntu, or halts visibly on uncertainty/persistence
+failure. It cannot fall through into an ordinary desktop without user init.
+Other images and incomplete, duplicate or foreign recipes keep normal system
+init and its existing startup/readiness handling. No root is discarded and the
+original sole-root/count/occupancy and entry/exit query checks remain.
+
+This lets the combined preparation/PCI/BCS8-reset/cancellation/preservation trial
+establish its required CPU context instead of weakening admission. All original
+100/300/500ms limits and GPU/HDA preservation checks remain. Host startup tests
+include the actual helper with both image configurations; exact-stage and native
+collection must additionally bind the deferred marker and absence of init
+creation to this source. Successful startup isolation alone accepts no native
+reset timing, GPU ownership, managed range or physical tear-free behavior.
