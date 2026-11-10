@@ -165,3 +165,29 @@ checks. The next native test keeps the original1800s1% workload/60s tail and
 all500ms/10s limits, ownership, prefix checks and durability barriers. Observe
 actual ordinary/private-copy coverage and complete matching collection before
 claiming a native benefit. The earlier interrupted-media failure remains open.
+
+## Native composition accepted
+
+The Air6,1 a139 trial of compiled `51670ae6` completes the original 1800-second
+1% workload with 1,079 app cycles, 4,062 disk bursts, three exact screenshots,
+zero recorded audio underruns and clean exit/retirement. Its 121.468 ms maximum
+loop and 1.893635/5.371300 s ready/close maxima pass the unchanged limits. All
+814 prior files remain, and 823 final files/3,803 clusters pass independent
+allocation, fsck and actual-media hash checks. See the
+[unit result](machines/macbookair6-1.md#native-reserved-append-result-2026-11-10).
+
+Native capture times are 11.053331/15.913968/6.072230 s. Each has 65 raw writes;
+26/27/27 are proved copies and 39/38/38 use ordinary admission. The 11.053331 s
+median is below d551's 15.025137 s, but different boots/interleavings/work counts
+do not isolate a causal gain. All v2 partitions, selected captured-prefix
+companions and original byte/retirement contracts validate. Native bounded-tail
+evidence does not inherit the short VM's complete per-cycle receipts or its
+observed active-append dirty-survivor sample.
+
+Remaining ordinary gates consume 94.24–97.89% of raw write wall time. The worst
+2.301091 s gate retains an observed global-sync owner, but its interval does not
+join this run's selected maximum content commit. Preserve those independent
+observations rather than manufacture a callback attribution. Next work should
+reproduce and reduce the remaining admission cost at unchanged ownership,
+integrity and runtime requirements. No further run is armed; the old battery
+failure and failed-repair media remain unresolved evidence.
