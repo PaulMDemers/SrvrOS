@@ -10,10 +10,11 @@ limit. This accepts the isolated diagnostic history, not current register
 access, register writes, root-table walking or device ownership. See the dated
 native result below.
 
-Latest desktop checkpoint: the [role-bound command trial](#native-command-role-attribution-2026-11-09)
+Latest desktop checkpoint: the [same-command native trial](#native-command-phases-and-ring-results-2026-11-09)
 passes the unchanged30-minute stress test. Screenshot completion latency remains
-open; the selected sync's slow commands are larger root-payload writes. No
-performance improvement or hardware cause is claimed.
+open. Its slowest command sees6677 empty ring checks before one completion and
+resumes within1us; no causal transport fix is established. Pixel-transfer pacing
+is next. No performance improvement or hardware cause is claimed.
 
 ## Initial inventory (2026-10-22)
 
@@ -69,7 +70,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 3,884 verified disk bursts, 1,080 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (119.993 ms maximum); broader interactive/endurance coverage, failure handling and hotplug remain open |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 4,106 verified disk bursts, 1,099 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (127.764 ms maximum); screenshot completion remains slow; broader interactive/endurance coverage, failure handling and hotplug remain open |
 | Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
@@ -11127,3 +11128,73 @@ freeing594453273 bytes without deleting installed payloads or raw evidence.
 Save run/armed state and verified independent payload/trial backups before
 reboot, then collect the matching return first. Original battery failure evidence
 remains protected and its cause unresolved. No speed gain is claimed.
+
+### Native command phases and ring results (2026-11-09)
+
+PR450/release `1820d7a0297b1b65`, frozen source `725b8e6c` / ports `39ad9d7`,
+completes the unchanged1800-second1% audio/disk/app/three-screenshot workload.
+The matching session completes1099 app cycles and4106 verified disk bursts/
+1076363264 bytes with345763840 PCM bytes, zero recorded audio underruns or
+worker/lifecycle errors, and clean desktop/cache/worker/battery retirement.
+All52811 loop observations are valid with zero excursions; maximum127764us.
+Maximum launch1786318us and close2381131us remain within10s. Three exact1366x768/
+4196406-byte BMPs decode, binary disk receipt and post-capture app/normal-exit
+proofs pass. All787 prior file hashes persist except expected metadata;796 files
+and3482 allocated clusters remain, with zero leaks, mismatches or errors.
+
+Independent raw-log parsing reproduces every old acceptance assessment and all
+new companion rows from the same four saved logs. The unchanged64KiB final tail
+retains complete command/content/phase/service, app, capture and retirement
+evidence. PID7's selected sync lasts2.046927s (files2.046523s/device404us). Its
+single dirty content113/slot1 has1835008 logical bytes and2.046509s wall. Inode0
+cannot establish writer/path. Root payload writes393216 logical bytes in1.467938s
+(71.73%); metadata writes144 logical bytes in411.589ms (20.11%); old-prefix proof
+reads1441792 bytes in53.801ms. All role callback wall2.037861s leaves8.648ms
+residual. Physical transport byte/count totals differ from logical block work.
+
+The same window has188 commands:132 reads,46 writes and10 flushes,1818624 read
+bytes/531456 write bytes and1.832325s CSW callback wall. Its five CSWs above100ms
+include four larger root-payload writes and one512-byte metadata write. Fourteen
+512-byte writes total408.138ms CSW wall;32 larger writes total1.417532s. Root
+payload still dominates overall write work, but the preceding run's exclusively
+larger-write slow classification is not universal. Do not infer a size-specific
+transport fix or remove required metadata writes from either selected maximum.
+
+The exact first global maximum is that512-byte role0 metadata WRITE. Its380.439ms
+callback/checkpoint envelope partitions into CBW10us, data10us, CSW379.916ms,
+final checkpoint500us and3us residual. Full command validation succeeds. The
+same CSW records379.913ms submission-to-software-observation,1us observation-to-
+resume,6678 original ring checks (6677 empty and one matching event),27 existing
+samples and20.078ms maximum sampled service gap. Its last sampled-empty pre-check
+clock is360.057ms after submission and19.856ms before software observation.
+That clock precedes the original cycle read that found an empty head; it is not
+an exact empty-read, hardware completion or event-arrival timestamp.
+
+These observations do not support unrelated-event backlog or a379ms post-event
+scheduling stall for this command. They do not distinguish device from controller
+delay or prove exact hardware latency. Original BOT serialization,4096/16384-byte
+bounds,2s controller deadline, status validation, ownership, quarantine and every
+durability/integrity check remain unchanged. No causal USB policy fix is justified.
+
+All capture histories survive:28.407627s,17.788599s and19.289795s, median19.289795s.
+No speed gain is accepted from separate instrumented cold boots and differing
+workload/metadata interleaving. Their receive phases remain5.851004/6.230978/
+6.251989s. The next bounded investigation moves to the independent pixel-transfer
+pacing stage of the [current plan](../macbookair6-1-screenshot-latency-plan.md):
+measure successful sends, EAGAIN/readiness and gaps before changing transport
+ownership or scheduling. The unchanged source permits four4096-byte sends per
+desktop poll. Preserve immutable pixels, current per-admission bounds, pipe
+capacity, cancellation/exit ownership, complete readbacks and all runtime limits.
+
+Battery705 attempts, zero rejections,10575 queries and one notification retire
+with one attach/detach and zero heap/errors/denied operations. Epoch1 protocol is
+clean/captured0 after PCM. Intermittent battery cause remains unresolved; original
+failed media/photo remain preserved. Unattended1% sound is unassessed; the prior
+separate25% audible check remains accepted.
+
+Matching raw evidence and full payload/trial backups verify outside build.
+Current1820 and retained690/1991/69/8caa/2dd/recoveryc354 payloads verify. The
+historical query-only318 EFI duplicate was archived only after full independent
+payload/every-file equality and no GRUB/firmware references; its payload and
+accepted history remain retained. Ubuntu is default, one-shot consumed, collector
+disabled and USB unmounted. No reboot is armed; collect-first closeout is complete.
