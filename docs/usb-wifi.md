@@ -8034,3 +8034,24 @@ installed but physically unaccepted. Controlled HTTP, absent-adapter/missing-
 workspace and exact current-workspace clone VMs pass; frozen source/fixture
 collection remains separate from independent native acceptance. See the machine
 record for failed initial integration, corrected selected checks and proof limits.
+
+
+The first v139 native HTTP run48f39654/release387e27 deliberately held with
+software obligations retained. Only its intact startup snapshot was saved; the
+photo confirms the hold but identifies neither its cause nor successful HTTP.
+Runtime785e3605/release7cdfeeefca45728b is the diagnostic-only installed retry.
+It freezes five numeric rows at the existing hold sites, preserving all limits,
+keys/DMA and the refusal to write disk under unsafe ownership. Safe completion
+saves/returns; an unsafe hold asks for those five rows before manual poweroff.
+The closed failed capsule and photo stay unchanged, with no native HTTP claim.
+
+This source also passes a second actual HTTP VM using production DHCP/DNS
+with zero numeric override, in addition to the numeric VM. An isolated local
+DNS peer and exact40-packet DHCP/DNS/ARP/TCP capture prove request/body/real EOF
+and software retirement; this remains controlled VM evidence. Selected normal/
+fatal checks, exact-stage absence/missing-workspace, desktop and strict431-file
+clone preservation pass. Stack/capture qualifications remain scoped projections;
+see the Pro record. The new collection owner is
+`build/bringup/wifi-http5-hold-state/run.json`; collect its new session first once,
+without recollecting the old run. Both USB devices require a10-second cold reset
+for this trial. Lifecycle/UI/reattachment and sustained use remain open.

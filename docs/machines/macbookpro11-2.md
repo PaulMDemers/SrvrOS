@@ -17023,3 +17023,69 @@ consume it separately from the HTTP change and qualify affected storage/logging
 before another image. Active Air graphics/process admission remains separate;
 no shared process implementation is changed without a demonstrated cause.
 Ubuntu remains unarmed; collection is already complete and must not repeat.
+
+
+## v139 held-state diagnostic retry and production DNS VM coverage
+
+The photo of runtime48f39654/release387e27 confirms the deliberate retained-
+obligation hold. It cannot distinguish callback admission, live HTTP cleanup
+or aborting an unused prelive owner after an earlier radio failure. The closed
+6,636-file native capsule and separate two-file photo remain unchanged; there
+is no causal fix or native HTTP acceptance.
+
+Source785e3605 consumes actual main8ebe7ab0 (PR447/448) and adds failure-only
+frozen numeric diagnostics at the four existing hold sites. Five console rows
+record the phase/reason, child/worker and native pending state without reading
+keys, packet identities or addresses. Scalars are frozen with IRQ/preemption
+excluded; original console/sync runs after restoring flags. The worker row is
+explicitly the supervisor's last observation, not fresh retirement authority.
+All original budgets, key/DMA retention and no-disk hold rules remain.
+
+The same source adds an explicit controlled-VM production DHCP/DNS mode. Both
+the unchanged numeric VM (32 packets) and DNS VM (40 packets) execute the real
+HTTP process, socket/IRQ worker, exact4,159-byte request,3,072-byte body, genuine
+EOF and software retirement. DNS mode uses zero numeric override and an exact
+local DNS peer inside new unprivileged user/network namespaces, with only
+loopback and no external routes. No host resolver changes or external DNS/HTTP
+are involved. A premature-FIN-ACK checker bug found in the first private
+proposal was corrected and its failed review retained; the final capture
+requires acknowledgements later than the observed terminal FIN.
+
+Matched selected qualification passes in152.24s with2,318 inputs unchanged,
+including the merged USB/sync/content/exFAT regressions. Private normal/fatal
+bridge and VM-mode checks and independent reviews pass. All six sequential VM
+steps pass, including exact-stage absent-adapter cleanup, missing-workspace
+refusal, ordinary desktop and a private exact431-file workspace preservation
+trial. This is selected coverage, not a full-core rerun or hardware acceptance.
+The collector is frozen from576 committed Python modules and nine RF fixtures.
+
+Fresh production main and xHCI frames retain the scoped6,744-byte normal HTTP
+projection and32KiB IRQ allowance on the minimum64KiB bootstrap stack. The new
+hold snapshot is static592 bytes; its measured formatted suffix is2,192 bytes.
+The old544-input snapshot is not claimed unchanged. Conditional capture
+composition including all five worst-width diagnostic rows is2,344,779 of
+4,194,304 bytes. This remains a fast-parent scoped composition, not a universal
+RF retry bound, whole-OS stack certificate or runtime watermark. Lost prefix
+or completion markers remain failures.
+
+Diagnostic-only release7cdfeeefca45728b is installed for an authorized cold
+trial. Before replacing failed387, verified accepted689b was promoted to current
+with factorye47 retained; only the unreferenced failed387 EFI duplicate was
+retired for measured capacity, after full immutable capsule/payload/photo checks.
+Factory plus five accepted EFI recoveries and all historical backups survive.
+Ubuntu default/NVRAM are unchanged; a separate saved run record owns one-shot
+arming. Both USB devices need10seconds unplugged while off, then the same ports.
+Progress and safe completion/save/return are automatic. An unsafe hold explicitly
+asks for all five diagnostic rows before manual poweroff; it cannot safely
+write final logs. Collect the new matching session FIRST once using
+`build/bringup/wifi-http5-hold-state/run_root.py return_collect`. Do not reuse
+or recollect the old run. Native TCP/HTTP, sustained/lifecycle/UI and live
+reattachment remain unaccepted.
+
+The latest fetched main25594a0f (PR449) changes only Air documentation and is
+merged in the documentation head; the qualified runtime stays785e3605 with
+code baseline8ebe7ab0. The initial new preparation attempt refused an inventory
+helper mistake before archive creation: it excluded nested checksum files that
+the older software capsule explicitly indexes. Exact inventory policy was
+corrected,17 private corruption/symlink fixtures and concrete historical
+verification pass, and the refusal remains preserved. No old capsule was changed.

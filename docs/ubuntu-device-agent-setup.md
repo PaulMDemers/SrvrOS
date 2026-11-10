@@ -1670,3 +1670,21 @@ raw logs before protocol validation, post-tree evidence even on an incomplete
 run, and strict no-clock/no-atime-allowance behavior. TCP/HTTP, real process/worker
 coexistence, lifecycle/UI/reattach and reliability remain open. Main125eb2b5 is
 merged for software qualification; native acceptance remains bound to5b91b743.
+
+
+Pro11,2 v139 HTTP hold retry: source785e3605/release7cdfeeefca45728b is installed
+with factorye47 previous, six retained recovery directories (factory plus five
+accepted, including689b), and Ubuntu default unchanged. The prior387e27
+native attempt is closed failed/incomplete (startup-only log, retained-owner
+hold in photo); its6,636-file capsule and separate photo remain unchanged.
+Only its now-unreferenced EFI duplicate was retired after accepted fallback
+promotion/full backup equality. New local run/collection owner is
+`build/bringup/wifi-http5-hold-state/run.json` and that directory's
+`run_root.py return_collect`; collect the matching new session FIRST once.
+Current numeric and production-DNS HTTP VMs and exact431-file clone preservation
+pass, without native TCP/HTTP acceptance. Both USB devices need10seconds off
+and disconnected, then the same ports. Safe completion saves and returns; an
+unsafe hold prints five frozen diagnostic rows and explicitly requests a photo
+before manual poweroff because disk activity cannot safely resume. Arming belongs
+to the saved record, not this documentation. Do not reuse these UUIDs or approval
+on another host.
