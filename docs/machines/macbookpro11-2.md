@@ -16986,3 +16986,19 @@ arming. The upcoming authorized shutdown requires both USB devices cold reset
 for10 seconds, same ports, then automatic capture/return. A held uncertain
 software owner cannot erase keys or write final logs; such a halt is incomplete.
 Native TCP/HTTP, sustained use, lifecycle/UI and live reattach remain unaccepted.
+
+
+## v139 cold trial incomplete: startup snapshot only
+
+The user manually restarted runtime48f39654/release387e27. Matching session
+`00065fe160b5748e-00` contains only a21,838-byte intact startup snapshot; no
+exit snapshot or terminal HTTP result was saved. It was collected first once
+and remains failed/incomplete. The6,636-file primary index is
+`2239f9632017953d74adb265a680a29c5e4278740b27529bacc438328002d4ac`.
+A separate review confirms all429 prior ordinary-file contents unchanged, an
+exact current metadata tree and only marker atime changed; without the required
+exit-derived clock, strict preservation remains refused. Only one boot log and
+one session directory are new. Offline fsck/allocation and installed recovery
+checks pass; Ubuntu is default and unarmed. The terminal photo is needed to
+locate the failure before any source correction or new physical trial. No
+HTTP/native process acceptance follows; do not recollect or reseal this attempt.
