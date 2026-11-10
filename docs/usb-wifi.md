@@ -8089,6 +8089,7 @@ Stop-event/context publication ordering defect matching the latest DRAIN/OWNER
 photo fields. The raw event must be retained until matching command completion
 synchronizes the final endpoint context; missing/reversed events remain faults.
 Related registry/admission/descriptor fixes and actual-native callback regressions
-pass selected normal/fatal checks and independent review; matched guests remain
-the next software gate. No new physical acceptance follows; the failed runtime213
+pass selected normal/fatal checks and independent review. Clean source1756cb26
+also passes actual-client numeric/production-DNS HTTP guests and independent
+42-frame DNS/TCP capture validation. No new physical acceptance follows; the failed runtime213
 remains installed and Ubuntu unarmed. Persistent lifecycle/UI/reattach remain open.

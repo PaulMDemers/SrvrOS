@@ -13,8 +13,9 @@ context publication reproduces the reported native/HTTP OWNER state; the final
 context is guaranteed only by the matching command completion. Candidate fixes
 also address quiet RX63 TX blocking, shared-event admission/debt, exact selected
 provider binding and immutable HTTP descriptor anchors. The full selected normal suite and six fatal ASan/UBSan
-fixtures pass, with independent reviews complete; matched guest checks remain
-the next software gate. The exact failed physical event was not saved, so physical occurrence
+fixtures pass, with independent reviews complete. Clean source1756cb26 also
+passes both actual-client numeric and production-DNS HTTP guests, including exact
+transfer/EOF/retirement and the independent42-frame DNS/TCP capture check. The exact failed physical event was not saved, so physical occurrence
 remains inferred. No install, boot arming or reboot is part of this audit.
 
 The21387b54/b865c96e670e52df trial also held and is now closed failed/incomplete.

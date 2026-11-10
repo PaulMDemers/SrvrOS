@@ -90,8 +90,13 @@ USB-image builds. The saved-log suite executes9 cases successfully and skips its
 optional external old-reference composition case. Fatal ASan/UBSan builds pass
 all six selected native stack/fence/stream/NoOp/calibration and generic HTTP
 fixtures, with unchanged source inputs. Leak detection is disabled for these
-retained HOST models; this is not a leak-acceptance claim. Final matched build
-and actual HTTP guest checks follow separately before any hardware trial.
+retained HOST models; this is not a leak-acceptance claim. The clean committed
+source1756cb26 then passes build/image/documentation checks and both actual HTTP
+guests (numeric and production-DNS bootstrap). Both execute the real client ELF,
+exact4159-byte request,3072-byte body, genuine EOF and software retirement. The
+production-DNS guest also passes an independent42-frame capture check for DHCP
+DORA, DNS, route ARP, exact TCP data, checksums and bidirectional FIN/ACK. These
+are isolated e1000 guests, not native Wi-Fi or hardware Stop acceptance.
 
 The native callback seam uses the actual event handlers and HTTP ownership
 function. Its locally constructed HTTP state is not a successful
@@ -126,4 +131,7 @@ requires different hardware.
 No new image has been installed or one-shot boot armed during this audit. Ubuntu
 and all retained accepted/factory recovery payloads remain in place. The failed
 run is already collected; do not recollect or reseal it. Keep the boot block until
-source review, matched qualification and durable evidence preservation are closed.
+a separately prepared hardware validation replaces this completed software-audit
+checkpoint. The durable local audit capsule is named
+`wifi-http5-stop-audit-b4c194bb`; all earlier accepted/failed capsules remain
+separate and immutable.
