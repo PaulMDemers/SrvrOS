@@ -1719,3 +1719,16 @@ and payload/no-reference checks. Both USB devices need10seconds unplugged while
 OFF and the same ports. The independent sealed preboot review and saved run
 record own arming. Safe completion saves/returns; unsafe holds still request
 five diagnostic rows before manual poweroff. Do not recollect prior capsules.
+
+
+Pro11,2 November10 fixed Stop-context validation uses runtime776833e0 /
+release7c3f531966cbbe0f after the full software audit. Its new collection owner is
+`build/bringup/wifi-http5-stop-validation/run.json`; collect only its matching NEW
+session first once through that directory's `run_root.py return_collect`.
+The source-matched staged GPT/missing-workspace/desktop and fresh435-file clone
+checks pass, alongside normal/fatal native-path and actual HTTP guest checks.
+The earlier213/b865 trial is already closed failed/incomplete, and its2062-file
+primary and the148-file audit capsule stay immutable. Both USB devices still
+need10seconds disconnected while OFF, then the same ports. The saved record owns
+installation and one-shot arming; preserve Ubuntu, factory and all six accepted
+recoveries. This is hardware validation pending, not new physical acceptance.

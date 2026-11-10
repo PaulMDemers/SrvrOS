@@ -7,6 +7,26 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+The user authorized hardware validation on November10 after the completed audit.
+Fixed runtime776833e0 is staged as7c3f531966cbbe0f. All1620 qualified runtime/test
+inputs still match; source-matched numeric/DNS HTTP, exact native GPT/absent-
+workspace, desktop and a fresh435-file USB clone pass, including strict metadata
+preservation. Local installation/arming state belongs to
+`build/bringup/wifi-http5-stop-validation/run.json`. Collect only that new run
+FIRST once after return with its `run_root.py return_collect`; every older trial
+and the completed148-file audit capsule remain immutable.
+
+This is the same bounded original-owner HTTP regression with unchanged limits.
+Both Wi-Fi and workspace USB require10seconds disconnected while OFF, then the
+same ports. The user's prior instruction therefore selects shutdown rather than
+warm reboot. Safe completion saves and returns to Ubuntu; unsafe ownership still
+holds without disk flushing. Ubuntu/factory and all six retained accepted
+recovery payloads must remain protected. Installation may replace only the exact,
+fully backed failed213/b865 EFI duplicate after promoting accepted7cd and checking
+all active references; it must not retire another accepted payload.
+
+### Closed audit and previous trial history
+
 The [November10 Stop audit](macbookpro11-2-wifi-stop-audit.md) identifies a
 premature final endpoint-context check at raw Stop-event arrival. A legal delayed
 context publication reproduces the reported native/HTTP OWNER state; the final
