@@ -1770,3 +1770,19 @@ prior file bytes/metadata survive except RTC-bounded marker atime, offline
 fsck/allocation and six recovery equality checks pass, and Ubuntu is unarmed.
 No new trial is scheduled; retain the same both-USB cold procedure for future
 qualified native runs. The preceding776 DHCP failure remains failed/unexplained.
+
+
+The next Pro11,2 ONE unchanged0700/c603 cold repeat has its own owner:
+`build/bringup/wifi-http5-dhcp-repeat/run.json` and that directory's
+`run_root.py return_collect` FIRST once after return. The closed diagnostics
+collector must never run again. Runtime0700/host3e normal/fatal/six-VM results
+are explicitly reused rather than presented as fresh; the current439-file
+workspace exact-stage clone is fresh and passes. All seven factory/accepted
+payloads, including acceptedc603, are protected. No new runtime build or install
+is claimed. Mainc355's adjacent-extent exFAT fix is inspected/deferred for this
+same-image comparison; integrate it before new runtime/lifecycle qualification.
+The new shutdown helper's cancellation state and log-failure boot cleanup pass
+11 actual-AST mock cases. Its final sealed installed-record review must pass
+before arming; run.json owns that state. Both USB devices still need10seconds
+disconnected while OFF, then the same ports. Progress/save/safe return are
+automatic; uncertain native ownership still holds without disk activity.

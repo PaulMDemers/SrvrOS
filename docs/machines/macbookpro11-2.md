@@ -13,9 +13,11 @@ The next bounded objective is one cold repeat of accepted runtime `070089f5` /
 release `c603901d483d3f86`, with the same HTTP workload, firmware, native guards
 and deadlines. No shared runtime subsystem is edited for this comparison. A NEW
 owner, `build/bringup/wifi-http5-dhcp-repeat/run.json`, must capture the current
-439-file workspace, run its exact clone VM, verify explicitly reused source-
-qualified checks, protect all seven factory/accepted payloads including c603,
-and pass installed-record review before arming. Do not reuse the closed
+439-file workspace. Its exact staged clone VM now passes with unchanged prior
+bytes and strict metadata apart from RTC-bounded marker atime. Preparation
+verifies explicitly reused runtime0700/host3e qualification and all seven
+factory/accepted payloads including c603. Independent installed-record review
+must pass before arming. Do not reuse the closed
 `wifi-http5-dhcp-diagnostics` collector. The new record owns subsequent arming.
 Both USB devices still require ten seconds disconnected while OFF, then the
 same ports. Guest progress/save/return are automatic; uncertain ownership holds.
@@ -26,6 +28,17 @@ inspected but deferred during this unchanged-image reliability comparison;
 merge/requalify them before new runtime/lifecycle implementation. Air7,2 display
 and Air6,1 storage ownership scopes remain separate. The new workflow touches
 only ignored host run/evidence helpers and this unit's published handoff.
+
+Host review also found two rollback gaps in the inherited shutdown helper:
+failed timer cancellation could be reported as unarmed, and a failed cancellation
+receipt write could bypass clearing the one-shot boot entry. The new helper
+verifies timer/service inactivity, records power uncertainty on an unresolved
+cancel, and always attempts boot-entry clearing even if logging fails. Eleven
+source-matched AST mock cases pass, including active cancellation, unavailable
+state probes and failed receipt writes. These are host workflow checks, not new
+runtime/native qualification. The unarmed preparation's prior power scripts and
+proof are preserved before replacement; the original accepted capsules remain
+unchanged.
 
 ### Accepted diagnostic return
 
