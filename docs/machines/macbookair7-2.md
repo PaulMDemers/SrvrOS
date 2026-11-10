@@ -2,6 +2,28 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
+### Active scope: joined backing and GPU mapping ownership
+
+Base main`a2a6d692`, accepted combined payload9c788f3f/8d3839aaa57f707d.
+Implement one address-sealed owner joining private allocator backing, CPU write
+borrows, an admitted handoff range and the existing publication/restore core.
+Retain backing through partial/uncertain publication, pending readers and failed
+retirement; reject copies, stale tokens, callback reentry and duplicate release.
+Add full padded X-tile storage sizing (1356pages on this unit, not1350 visible).
+Native range transfer remains unproved and must still refuse GPU exposure.
+
+Next hardware boundary is the new actual backing owner/full-size allocation,
+CPU borrow/close/cancel and refusal/retirement accounting with inherited display
+preservation, no GPU PTE/plane writer. This tests the new joined lifetime rather
+than repeating the accepted shadow publication. Host fixtures alone may supply
+synthetic handoff/encoding/completion callbacks. Existing100/300/500ms protocol
+limits stay unchanged; allocation/copy uses the existing30s shadow-trial bound.
+
+Touched: new scanout-memory core/header and tests, isolated native memory trial,
+profile/staging/collector and current ownership docs. PR455 screenshot media
+verification is independent; shared Makefile changes are additive. PR19/379 stay
+separate. No reboot armed and no new native GPU-memory authority is claimed.
+
 ### Accepted: pre-user-init maintained preparation, PCI capture and BCS reset
 
 Payload source `9c788f3f`, release `8d3839aaa57f707d`, session
