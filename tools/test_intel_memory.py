@@ -60,8 +60,17 @@ class MemoryTests(unittest.TestCase):
                 folder=workspace/'Logs/session-0123456789abcdef-00';folder.mkdir(parents=True)
                 header=f'laptop-capture: boot options=srvros.desktop-release={release} srvros.intel-memory=fixture\n'
                 (folder/'boot.log').write_text(header)
+                (folder/'session-a.log').write_text(header+'intel-memory: saving prerequisite checkpoint before private allocation\nworkspace-log: snapshot=session-a.log\n')
                 body=text if valid else text.replace('range_refused=2','range_refused=1')
-                (folder/'exit.log').write_text(header+body+'laptop-capture: completed=yes\n')
+                (folder/'exit.log').write_text(header+'intel-memory: preflight checkpoint saved\n'+body+'laptop-capture: completed=yes\n')
                 _,report=collect(root,volume,root/'out');r=report['sessions'][0]
                 self.assertEqual(bool(r['attention']),not valid)
                 if valid:self.assertTrue(r['intel_memory']['complete'])
+
+    def test_checkpoint_cannot_be_missing_or_after_the_trial(self):
+        from intel_memory import verify_memory_checkpoint
+        pre='intel-memory: saving prerequisite checkpoint before private allocation\nworkspace-log: snapshot=session-a.log\n'
+        after='intel-memory: preflight checkpoint saved\n'+output()
+        self.assertTrue(verify_memory_checkpoint(pre,after))
+        for before,final in (('',after),(pre+output(),after),(pre,after.replace('preflight checkpoint saved','checkpoint refused')),(pre,after+after)):
+            with self.assertRaises(ValueError):verify_memory_checkpoint(before,final)

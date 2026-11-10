@@ -570,11 +570,14 @@ def main():
                         assert not proof['scanout_ownership'] and not proof['rows']['observe'][0]['maps']
                         (logs/'intel-display-result.json').write_text(json.dumps(proof,indent=2)+"\n")
                         if 'srvros.intel-memory=' in text:
-                            from intel_memory import memory_result
+                            from intel_memory import memory_result,verify_memory_checkpoint
                             memory=memory_result(stored.read(folder+"/exit.log").decode())
                             fixture='srvros.intel-memory=fixture' in text
                             assert memory and memory['kind']==('fixture' if fixture else 'native')
                             assert memory['complete']==fixture and not memory['hardware_ownership']
+                            pre=stored.read(folder+'/session-a.log').decode()
+                            assert verify_memory_checkpoint(pre,stored.read(folder+'/exit.log').decode())
+                            (logs/'intel-memory-preflight.log').write_text(pre)
                             (logs/'intel-memory-result.json').write_text(json.dumps(memory,indent=2)+"\n")
                         if 'srvros.intel-lifetime=' in text:
                             from intel_scanout_lifetime import lifetime_result

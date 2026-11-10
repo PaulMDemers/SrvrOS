@@ -83,6 +83,9 @@ it does not change the separate100/300/500ms GPU protocols. Unexpected retained
 state halts visibly after evidence persistence. The single expected private-page
 fault is separately accounted, has zero GPU exposure, and permits automatic
 return after save/unmount. Progress and versioned case/summary records are saved.
+Before allocation, a durable `session-a.log` prerequisite checkpoint is required.
+Native collection independently binds its complete display/backing observations
+to the final log; missing, late or uncommitted checkpoints cannot pass.
 `--intel-memory-fixture` runs the same actual allocation/owner code with synthetic
 geometry in QEMU and reports `kind=fixture`; it cannot accept native backing.
 

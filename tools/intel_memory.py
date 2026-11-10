@@ -50,3 +50,14 @@ def memory_result(text):
         fb=display['rows']['framebuffer'][0];bs=backing['summary']
         if not bs['tiled'] or bs['bytes']!=s['bytes'] or fb['pitch']*((fb['height']+7)&~7)!=s['bytes'] or (fb['pitch']*fb['height']+4095)//4096!=s['visible_pages']:raise ValueError('memory native storage extent binding')
     return result
+
+def verify_memory_checkpoint(pre,text,native=False):
+    if 'workspace-log: snapshot=session-a.log' not in pre or 'intel-memory-summary:' in pre or 'intel-memory-case:' in pre:raise ValueError('memory missing or late prerequisite checkpoint')
+    if pre.count('intel-memory: saving prerequisite checkpoint before private allocation')!=1 or text.count('intel-memory: preflight checkpoint saved')!=1:raise ValueError('memory checkpoint not committed')
+    if native:
+        from intel_display_capture import capture_result
+        from intel_display_backing import backing_result
+        a,b=capture_result(pre),capture_result(text)
+        c,d=backing_result(pre),backing_result(text)
+        if not a or not b or not a['observation_complete'] or a!=b or not c or not d or not c['backing_relationship_observed'] or c!=d:raise ValueError('memory native prerequisite mismatch')
+    return True

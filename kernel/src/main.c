@@ -950,7 +950,11 @@ void kmain(void) {
             bool backing_ok=intel_display_backing_probe_report();sampled=sampled && backing_ok;
             if(cmdline_has_token(cmdline,"srvros.intel-memory=backing") || cmdline_has_token(cmdline,"srvros.intel-memory=fixture")) {
                 struct limine_framebuffer_response *r=framebuffer_request.response;
-                bool memory_ok=started && intel_memory_trial(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL,cmdline);
+                console_write("intel-memory: saving prerequisite checkpoint before private allocation\n");
+                bool checkpoint=started && workspace_log_pause();
+                if(checkpoint)console_write("intel-memory: preflight checkpoint saved\n");
+                else console_write("intel-memory: checkpoint failed; allocation refused\n");
+                bool memory_ok=checkpoint && intel_memory_trial(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL,cmdline);
                 /* Fixture identity refusal is expected; native keeps its full
                  * actual display/backing observation prerequisites. */
                 sampled=cmdline_has_token(cmdline,"srvros.intel-memory=fixture")?memory_ok:(sampled && memory_ok);

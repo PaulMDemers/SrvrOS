@@ -1015,12 +1015,13 @@ def collect(mount, volume, output):
             except ValueError as error: attention.append("Invalid Intel DMA receipt: "+str(error))
         intel_memory=None
         if 'srvros.intel-memory=' in text:
-            from intel_memory import memory_result
+            from intel_memory import memory_result,verify_memory_checkpoint
             try:
                 intel_memory=memory_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 expected='fixture' if 'srvros.intel-memory=fixture' in text else 'native'
                 if not intel_memory or not intel_memory['complete'] or intel_memory['kind']!=expected:
                     attention.append('collection: private backing ownership refused, failed, mismatched or incomplete')
+                verify_memory_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=expected=='native')
             except ValueError as error:
                 attention.append('collection: invalid private backing ownership: '+str(error))
         intel_lifetime=None
