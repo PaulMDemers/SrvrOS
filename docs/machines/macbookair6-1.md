@@ -11198,3 +11198,25 @@ historical query-only318 EFI duplicate was archived only after full independent
 payload/every-file equality and no GRUB/firmware references; its payload and
 accepted history remain retained. Ubuntu is default, one-shot consumed, collector
 disabled and USB unmounted. No reboot is armed; collect-first closeout is complete.
+
+### Pixel-transfer pacing measurement scope (2026-11-09)
+
+Base `0d83d045`, after independently collecting the accepted same-command run.
+Bounded objective: separate desktop send cadence/backpressure, worker allocation
+and pixel reception before choosing a transport owner or scheduling change. The
+1366x768 input requires1026 successful writes and at least257 polls at the
+existing four4096-byte admission bound. The receive phase also includes two
+worker allocations; its six seconds cannot all be attributed to UI cadence.
+
+Touch opt-in capture-job scalar diagnostics, one explicitly opted-in allocation
+ready frame, immutable three-capture companion reports/strict parser and full-size
+deterministic fixtures. Ordinary request/response sizes and save phases remain
+unchanged; a separate request magic selects the diagnostic frame extension.
+Root coordinates user-authorized transport/fixture/parser subagents and owns
+sequential build/VM/native validation. Preserve immutable snapshots, pipe size,
+per-poll/chunk bounds, current prepare/cleanup owners, every save/readback/barrier
+and all runtime limits. No blocking poll is added to the UI; the current shared
+lifecycle worker can block on unrelated app work and is not assigned transport.
+PR301 process/scanout and PR19 networking remain separate. Next checkpoint is
+actual full-size mock-pipe proof, bounded complete saved companions, matched VM
+validation and the unchanged30-minute1% native test. No speed fix is claimed.
