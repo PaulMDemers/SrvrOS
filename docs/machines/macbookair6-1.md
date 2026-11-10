@@ -11631,3 +11631,15 @@ frozen build/core/loaded/exact-stage/native candidate. Unproved shortcuts do not
 justify another hardware run. Existing accepted payload/recovery and raw failed
 media remain protected; workspace pruning may remove only full-hash-verified
 uninstalled stage duplicates with independent payload backups.
+
+
+The [storage-admission plan](../macbookair6-1-storage-admission-plan.md) now has a
+real65-write process/VFS/exFAT reproduction. A controlled adjacent append can
+retain NoFatChain and omit three unnecessary FAT writes without changing its
+eight flushes. However, the ordinary screenshot replay never takes that path:
+all13787 callbacks/904 writes/889 flushes are unchanged. This is not a proven
+screenshot-delay fix and no native reboot is planned solely for it. Fault
+comparison additionally preserves baseline cases where fsck reports clean but
+complete allocation still finds orphans; do not count those as clean recovery.
+A reserved-buffer/writeback ownership contract is the next design prerequisite,
+not an automatic grant to bypass the existing I/O gate.

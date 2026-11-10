@@ -4344,6 +4344,12 @@ build/tests/exfat-noappend-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/s
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_APPEND_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-append: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-noappend-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_append.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-noappend-driver$(HOST_EXE)
+
+.PHONY: test-exfat-contiguous-append
+test-core: test-exfat-contiguous-append
+test-exfat-contiguous-append: $(LIMINE_PROTOCOL_DIR)/.ready
+	$(PYTHON) -m unittest discover -s tools -p 'test_append_contiguity.py'
+	$(PYTHON) tools/test_contiguous_append.py
 test-core: test-exfat-append
 .PHONY: test-linux-rc6-baseline
 test-core: test-linux-rc6-baseline
