@@ -5635,7 +5635,7 @@ test-intel-memory: build/tests/intel-memory-trial$(HOST_EXE)
 # Separate BCS8 writer while the original five-engine preparation stays live.
 .PHONY: test-intel-held-interval
 test-core: test-intel-held-interval
-test-intel-held-interval: build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-held-interval$(HOST_EXE) build/tests/boot-held-interval$(HOST_EXE) build/tests/intel-held-interval-adapter$(HOST_EXE)
+test-intel-held-interval: build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-held-interval$(HOST_EXE) build/tests/boot-held-interval$(HOST_EXE) build/tests/intel-held-interval-adapter$(HOST_EXE) build/tests/intel-held-reset-adapter$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_held_interval.py
 	$(PYTHON) -m unittest discover -s tools -p test_intel_held_interval_adapter.py
 	build/tests/boot-held-interval$(HOST_EXE)

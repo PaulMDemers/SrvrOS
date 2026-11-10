@@ -43,6 +43,9 @@ class NativeIntervalTests(unittest.TestCase):
     def test_lossless_packed_preservation(self):
         from intel_engine_prepare import prepare_result
         result=prepare_result(self.text)
+        legacy=subprocess.check_output([str(ROOT/'build/tests/intel-held-reset-adapter'),'--wake-engine-report'],text=True,timeout=10)
+        old=prepare_result(legacy)
+        self.assertEqual(result['planes'],old['planes']);self.assertEqual(result['audio'],old['audio'])
         line=next(l for l in self.text.splitlines() if l.startswith('intel-prepare-preservation:'))
         raw=base64.b64decode(line.split(' b=',1)[1],validate=True)
         words=list(struct.unpack('<74I',raw))
@@ -60,6 +63,8 @@ class NativeIntervalTests(unittest.TestCase):
         for mode in modes:
             with self.subTest(mode=mode):
                 text=run(mode);raw=interval_capture(text);self.assertIsNotNone(raw)
+                if mode.startswith('interval-admission-'):
+                    self.assertEqual((raw['summary']['attempts'],raw['summary']['reads']),(1,0))
                 try:r=interval_result(text)
                 except ValueError:continue # Strict parent failure receipts remain nonpasses.
                 self.assertFalse(r['complete'])
