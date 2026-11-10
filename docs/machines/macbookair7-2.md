@@ -2,6 +2,27 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
+### Active scope: restore a maintained five-engine hold after BCS reset
+
+Main`c3550c82` is integrated and qualified at`64cb597c`; no new upstream main
+commit is outstanding. The accepted native held-interval run below shows the
+post-reset mixed control state3/3/3/3/0. Next add a separate
+[post-reset BCS re-arm scope](../intel-engine-rehold.md), bound to the original
+active reset/preparation borrow and100ms origin. It requests BCS ready again,
+keeps all five ready requests live through a child, refuses cancellation with a
+live/lost child, then restores3/3/3/3/0 before the existing outer cancellation.
+This resolves a concrete physical interlock gap before a future interval owner;
+it does not claim cache/DMA/firmware retirement or a GPU memory grant.
+
+Touched subsystems: new isolated rehold core and native adapter, child lifetime,
+image/strict boot recipe, saved collector and actual-core/adapter fault tests.
+Old images, writers, device gates,100/300/500ms limits and the65,536-byte log tail
+stay fixed. No GDRST widening, PTE writer, command submission or positive native
+assurance is planned. Preserve acceptede078/recovery9aa8 and independently
+backed evidence. PR19 networking/PR379 WebCore remain independent; Air6,1's
+storage admission work is not duplicated. Checkpoint:`build/air-engine-rehold-20261110`.
+No reboot armed; stop at exact-stage-qualified hardware readiness.
+
 ### Current checkpoint: native held-interval source binding accepted
 
 Source`3315df79`, release`e07848a7c00d893d`, session
