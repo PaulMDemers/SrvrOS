@@ -21,7 +21,7 @@ is supplied. All eight completion obligations remain open(mask255).
 
 This is a new hardware operation requiring a separate image, exact recipe,
 durable prerequisite checkpoint, progress and strict raw-prefix collection.
-Native acceptance is pending. Host/VM checks must establish original-object
+The bounded native result is recorded below. Host/VM checks establish original-object
 lifetime, child drain before cancellation, every callback/store/clock fault,
 old-image isolation and saved safe return versus retained-state halt.
 
@@ -73,11 +73,11 @@ Qualification requires full regressions,24-image isolation, fatal sanitizers,
 compiled negative controls, native object checks, worst-width log projection and
 exact-stage VM persistence/refusal/missing-workspace. The original native hold
 has only2,621us one-run preparation margin; do not extend any bound to fit this
-additional work. Native re-arm acceptance is pending. Preserve the accepted
+additional work. A bounded native pass is recorded below. Preserve the accepted
 older payload and Ubuntu recovery; the automated trial needs no input, saves
 safe outcomes and returns, while retained uncertainty/persistence failure halts.
 
-## Qualified candidate, native acceptance pending
+## Qualified candidate and bounded native acceptance
 
 Source`f2a6c116`, exact release`e83571c874bc17f1`, passes the full local build,
 host/core/docs suite and24-image isolation. Fatal ASan/UBSan covers1,111 cases:
@@ -95,7 +95,20 @@ is63,485/65,536bytes with the unchanged1,536-byte reserve. All1,356 PTEs and74
 plane/HDA words remain lossless. Accepted payload/recovery and USB evidence are
 preserved independently; see the [machine checkpoint](machines/macbookair7-2.md#ready-post-reset-bcs-re-arm-and-drained-original-entry-child).
 
-The candidate is installed unarmed at1% volume for the automated native trial.
-This is pending physical evidence: QEMU cannot establish BCS readiness, native
-clock margin, exclusion, retirement or restoration on the Air. Even a future
-bounded pass supplies no GPU range, command/PTE permission or completion bit.
+The subsequent automated native trial passes in release`e83571c874bc17f1`,
+session`session-00065ff078d4f70a-00`. Raw controls move from3/3/3/3/0 to all five
+ready, stay ready through the original-entry child, and return exactly to the
+mixed state. Two extra BCS stores acknowledge without polling; the sealed child
+borrows/returns once,19 live checks retain95 control DWORDs and neither child
+nor uncertainty remains. Scope358us/child234us, preparation97,758/100,000us and
+outer wake281,933/500,000us pass unchanged bounds. Original borrow return,
+14 alias retirements, engine/backing/74-word plane/HDA preservation, strict
+checkpoint/source/recipe/completion and clean saved return all verify. The
+58,936-byte exit log and all prior USB files survive; offline integrity and
+recovery pass, with no one-shot armed. See the
+[accepted machine result](machines/macbookair7-2.md#current-checkpoint-native-post-reset-re-arm-and-restoration-accepted).
+
+This accepts one bounded re-arm/child/restore lifetime. The2,242us preparation
+margin is one-run evidence. QEMU did not establish that acceptance, and the native
+pass supplies no other-client exclusion, GPU range, command/PTE permission,
+DMA/cache/reader retirement or completion bit. All eight obligations remain open.

@@ -121,6 +121,7 @@ changes are deliberately outside this accepted qualification source.
 The later [post-reset re-arm candidate](intel-engine-rehold.md) composes this
 observer with a sealed child while all five hardware requests are reasserted.
 The accepted original observation above remains valid for its exact scope;
-the mixed post-reset3/3/3/3/0 state is not five-engine exclusion. New source
-`f2a6c116`/release`e83571c874bc17f1` has host/exact-stage VM qualification only,
-with separate native re-arm acceptance pending and original deadlines unchanged.
+the mixed post-reset3/3/3/3/0 state is not five-engine exclusion. Source`f2a6c116`/release`e83571c874bc17f1` now also passes the bounded native
+re-arm/child/restore trial: scope358us/child234us, preparation97,758/100,000us,
+full preservation and14 aliases retired. Original deadlines remain unchanged;
+no GPU interval or completion assurance is supplied.

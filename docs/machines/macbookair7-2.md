@@ -2,26 +2,54 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Active scope: restore a maintained five-engine hold after BCS reset
+### Active scope: close native re-arm acceptance and preserve evidence
 
-Main`c3550c82` is integrated and qualified at`64cb597c`; no new upstream main
-commit is outstanding. The accepted native held-interval run below shows the
-post-reset mixed control state3/3/3/3/0. The locally qualified candidate now adds a separate
-[post-reset BCS re-arm scope](../intel-engine-rehold.md), bound to the original
-active reset/preparation borrow and100ms origin. It requests BCS ready again,
-keeps all five ready requests live through a child, refuses cancellation with a
-live/lost child, then restores3/3/3/3/0 before the existing outer cancellation.
-This resolves a concrete physical interlock gap before a future interval owner;
-it does not claim cache/DMA/firmware retirement or a GPU memory grant.
+Main`c3550c82` is integrated. Source`f2a6c116` now accepts the bounded
+[post-reset BCS re-arm scope](../intel-engine-rehold.md), with the original-entry
+child drained and exact mixed hardware state restored. This closes the concrete
+post-reset readiness gap; it supplies no firmware/DMA/cache/reader retirement or
+GPU interval grant. Shared subsystem changes remain isolated core/adapter,
+child lifetime, strict recipe/collection and host/native fault tests. PR19
+networking/PR379 WebCore remain independent; no sibling gates are widened.
 
-Touched subsystems: new isolated rehold core and native adapter, child lifetime,
-image/strict boot recipe, saved collector and actual-core/adapter fault tests.
-Old images, writers, device gates,100/300/500ms limits and the65,536-byte log tail
-stay fixed. No GDRST widening, PTE writer, command submission or positive native
-assurance is planned. Preserve acceptede078/recovery9aa8 and independently
-backed evidence. PR19 networking/PR379 WebCore remain independent; Air6,1's
-storage admission work is not duplicated. Checkpoint:`build/air-engine-rehold-20261110`.
-No reboot armed; stop at exact-stage-qualified hardware readiness.
+Next memory work still requires a real maintained address-interval provider,
+specific per-obligation witnesses and retirement before a native PTE store.
+Do not turn this diagnostic child or a saved receipt into a later live owner.
+Checkpoint:`build/air-engine-rehold-20261110`; matching native run collected,
+Ubuntu default, recovery retained, no reboot armed.
+
+### Current checkpoint: native post-reset re-arm and restoration accepted
+
+Source`f2a6c116`, release`e83571c874bc17f1`, session
+`session-00065ff078d4f70a-00` passes strict native collection. Four six-DWORD
+groups observe3/3/3/3/0→3/3/3/3/3→3/3/3/3/3→3/3/3/3/0, with GDRST zero.
+Both extra BCS DWORD request/cancel stores acknowledge immediately, without
+polling. The sealed child borrows/returns once, with19 fresh five-control checks
+(95 live DWORDs); no child or uncertainty remains. Both high/low/high original
+entry samples match`0x000000008e201001`, bound to the original reset/preparation
+and source epoch0→1. Re-arm/restoration takes358us, including234us for the child.
+
+Preparation completes in97,758/100,000us (2,242us one-run margin); outer wake
+completes in281,933/500,000us. The300ms original-owner bound also passes.
+Deadlines are unchanged. The original borrow returns, all14 aliases retire,
+and engine/backing plus all74 plane/HDA preservation DWORDs agree. This accepts
+one bounded re-arm/child/restore lifetime, not repeatability or another client’s
+exclusion, DMA/cache drain, address transfer or native page-flip readiness.
+
+The exact20-token recipe/source/release, durable prerequisite checkpoint, joint
+reset/preparation/interval/wake completion and final saved marker pass. No strict
+collector errors or attention items occur. The58,936-byte exit log fits the
+unchanged65,536-byte tail, including lossless version2 PTE chunks. All1,449 prior
+USB files preserve except expected metadata; three new logs give1,452files and
+140sessions. Offline fsck/allocation/writable/headroom, current/recovery manifests,
+Ubuntu default and consumed one-shot pass. Current ise835; accepted held-interval
+e078, backingd726, combined reset8d38, recovery9aa8, GUIc497 and prior banked/
+archived payloads remain recoverable. Native evidence is independently SHA-verified
+outside build. The run is returned/collected and no reboot is armed.
+
+All eight completion obligations(mask255), native assurances0, managed GPU
+pages0 and unaccepted physical tear-free status remain unchanged. The older
+readiness snapshot below records qualification before this physical run.
 
 ### Ready: post-reset BCS re-arm and drained original-entry child
 
