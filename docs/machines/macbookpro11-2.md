@@ -7,6 +7,42 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+### MCU comparison returned: finite transfer capacity exhausted
+
+Runtime `67534219`, release `a9e288e50a236d01`, session
+`00065ff1b8c61e6e-00` was collected FIRST once. Calibration passed and the first
+connection completed authentication, production DHCP/DNS and54 exact gateway
+replies. It failed before either completed disconnect or a second connection.
+No MCU bulk failure observation was emitted. At refusal the native stream has
+TX63/RX126 completions, one TX/one RX fence, all126 loans returned, zero pending
+transfers, no active fence/command and no bad-event receipt. Its two-fence cap
+cannot admit the next RX rebase at cursor63. This is a finite resource design
+failure, not evidence of a rejected completion or a new calibration failure.
+The prior RXDCOC response failure remains unexplained.
+
+The immutable1,371-file primary index is
+`87d093b1367c2051e0d9ee06686944245a38c1f6daeada27d3f7d1c652255854`.
+All443 prior files/metadata survive apart from one authorized marker atime;
+exactly two new logs were saved with an intact exit. Offline fsck/allocation
+are clean with zero inspection writes/flushes. Protected payload equality and
+Ubuntu default/unarmed checks pass. Do not recollect or reseal this primary.
+No new hardware test is armed.
+
+The actual native-owner fixture reproduces the same126-RX/two-fence refusal
+with one additional non-data beacon per AP response; DHCP/DNS pass and exact
+pings stop before64. The original production source is unchanged in that
+reproduction. Bounded next scope: correct transfer/command capacity accounting for two complete
+connections while retaining64 exact pings per generation. Existing63-position
+one-shot recipes, command-ring no-reuse, deadlines, four pages per direction,
+RX252/TX80 bounds and exact Stop/retirement proofs stay separate. Audit a
+127-position connection-only transfer ring in the already allocated page;
+pin its geometry across owner/fence/parser contracts and test extra RX, forged
+geometry, old completions, command reserve and full closure before staging.
+This is not an unlimited command-ring reuse design or a persistent-service claim.
+Actual main `72d49457` was fetched: PR458 runtime reservation changes and PR459
+Air6,1 evidence are inspected, with integration to be recorded separately.
+
+
 ### Qualified MCU observation comparison (November 10)
 
 Runtime `67534219`, release `a9e288e50a236d01`, is qualified and installed for
