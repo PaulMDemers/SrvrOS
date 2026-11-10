@@ -8,6 +8,7 @@
 
 struct process;
 struct net_bounded_probe;
+struct net_device_ops;
 
 /* Checked transfers run callbacks before consuming queued bytes or accepting a
  * connection. Callers serialize callbacks and commit on CPU0 and supply owned
@@ -167,10 +168,29 @@ struct net_bounded_probe {
      * length and all32 payload bytes,not merely ID/sequence/checksum. */
     uint64_t dhcp_retries,arp_resolutions,dns_queries,pings_sent,pings_matched;
     struct net_dhcp_observation dhcp_observation;
-    bool busy,checking,failed,closed;
+    bool busy,checking,failed,closed,connection_scope,disconnected;
 };
 bool net_bounded_probe_init(struct net_bounded_probe *probe,
     const struct net_bounded_probe_io *io,uint64_t epoch,uint64_t deadline_us);
+/* Opt-in sequential connection scope on ONE registered/selected adapter.
+ * First admission performs ordinary quiet first-init; later admission requires
+ * a successful disconnect of the preceding scope and a strictly newer epoch.
+ * All scopes use fresh zero objects, bound by an independent scalar active
+ * object identity; copied scopes cannot acquire the original authority.
+ * Adapter registry identity/MAC, monotonic
+ * IDs and epoch high-water survive; no worker or HTTP handoff is permitted.
+ * Disconnect consumes an OPEN current scope after empty protocol tables and
+ * final owner/link/MAC/clock checks, closes/scrubs it and clears IPv4/DHCP/DNS/
+ * ARP/ICMP configuration. It is not provider/key/DMA retirement authority.
+ * Native caller must then disconnect/retire old hardware before a new attach.
+ * Failed/current busy boundaries fuse further admission; stale closed scopes
+ * refuse unchanged. Ordinary finish instead of disconnect terminally closes
+ * admission. No former connection IO callback/context is retained; stable
+ * adapter registry identity/MAC and epoch high-water remain. */
+bool net_bounded_probe_init_connection(struct net_bounded_probe *probe,
+    const struct net_bounded_probe_io *io,const struct net_device_ops *provider,
+    uint64_t epoch,uint64_t deadline_us);
+bool net_bounded_probe_disconnect(struct net_bounded_probe *probe);
 bool net_bounded_probe_current(struct net_bounded_probe *probe);
 bool net_bounded_probe_poll(struct net_bounded_probe *probe);
 /* Prewarm exact target's next-hop MAC inside the same bounded owner/window.

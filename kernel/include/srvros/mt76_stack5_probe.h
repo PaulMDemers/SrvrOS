@@ -31,9 +31,16 @@ struct mt76_stack5_probe_io {
 struct mt76_stack5_probe {
  uint64_t ping_pn[MT76_STACK5_PINGS],polls,services,elapsed_us;
  unsigned version,phase,reason,dhcp,retries,dns,requested,started,matched,exact,body_bytes,setup_tx,data_tx,arp;
- bool attempted,complete,private_erased;
+ bool attempted,complete,private_erased,connection_scope,disconnected;
 };
 bool mt76_stack5_probe_run(struct mt76_stack5_probe *,struct mt76_net5 *,const struct mt76_stack5_probe_io *);
+/* Explicit sequential connection runner. Same exact DHCP/DNS/64-ping workload
+ * and limits, but uses the opt-in stack generation boundary and per-connection
+ * deltas of cumulative provider counters. On success disconnects/clears the
+ * production IP scope while the original native provider remains UP; caller
+ * must separately retire native key/DMA/peer ownership before any next attach.
+ * Does not rearm the HTTP worker or grant persistent/reconnect acceptance. */
+bool mt76_stack5_probe_run_connection(struct mt76_stack5_probe *,struct mt76_net5 *,const struct mt76_stack5_probe_io *);
 /* Caller emits only after the live MAC/key window has closed. */
 void mt76_stack5_probe_emit(const struct mt76_stack5_probe *);
 #endif

@@ -237,6 +237,18 @@ static struct {
     uint64_t supervisor,thread,epoch,start_us,start_tick,last_us,last_tick,deadline_us,polls,turns;
     bool attempted,prepared,parked,active,ever_active,handoff_started,busy,poll_busy,checking,stop_requested,finished,failed;
 } probe_worker;
+/* Adapter-scoped admission, not a borrowed connection callback. Only stable
+ * registry context/send identity and copied MAC survive a completed scope.
+ * A failed scope permanently closes this explicit reconnect experiment. */
+static struct {
+    struct net_device_ops provider;
+    uint8_t mac[6];
+    const uint8_t *station;
+    uint64_t epoch;
+    uintptr_t scope_identity; /* Scalar comparison only; never dereferenced. */
+    bool started,active,disconnecting,failed;
+} bounded_connection;
+static bool probe_worker_table_empty(void);
 static bool probe_worker_guard(void);
 static uint64_t probe_worker_device_poll(uint64_t budget,bool verbose);
 static bool probe_worker_packet_allowed(void) {
@@ -2838,7 +2850,11 @@ static bool bounded_probe_table(struct net_bounded_probe *p) {
 
 static bool bounded_probe_check(struct net_bounded_probe *p) {
     if (!p || p->identity!=(uintptr_t)p || p->closed) return false;
-    if (p->failed || p->checking || !p->busy) return bounded_probe_fail(p);
+    if (p->failed || p->checking || !p->busy ||
+        ((p->connection_scope || bounded_connection.started) &&
+         (!p->connection_scope || !bounded_connection.started || !bounded_connection.active ||
+          bounded_connection.failed || bounded_connection.scope_identity!=(uintptr_t)p ||
+          p->epoch!=bounded_connection.epoch))) return bounded_probe_fail(p);
     p->checking=true;
     struct net_device_link link={0};
     if (!bounded_probe_table(p) || !p->io.current(p->io.context,p->epoch) ||
@@ -2894,12 +2910,13 @@ static bool bounded_probe_progress(struct net_bounded_probe *p,unsigned *local,u
     return true;
 }
 
-bool net_bounded_probe_init(struct net_bounded_probe *p,const struct net_bounded_probe_io *io,
-    uint64_t epoch,uint64_t deadline_us) {
+static bool bounded_probe_init(struct net_bounded_probe *p,const struct net_bounded_probe_io *io,
+    uint64_t epoch,uint64_t deadline_us,bool connection) {
     if (probe_worker.handoff_started || !p || !io || !io->current || !io->retry_ready || !epoch) return false;
     const uint8_t *bytes=(const uint8_t *)p;
     for (size_t i=0;i<sizeof *p;i++) if (bytes[i]) return false;
     p->identity=(uintptr_t)p;p->source=io;p->io=p->io_guard=*io;
+    p->connection_scope=connection;
     p->epoch=p->epoch_guard=epoch;p->deadline_us=p->deadline_guard=deadline_us;
     p->start_us=p->last_us=timer_monotonic_us();p->start_tick=p->last_tick=timer_ticks();
     p->station=local_mac;
@@ -2908,6 +2925,65 @@ bool net_bounded_probe_init(struct net_bounded_probe *p,const struct net_bounded
         dns_query_active || icmp_ping_waiting || bounded_poll_owner || icmp_bounded_owner ||
         deadline_us<=p->start_us || deadline_us-p->start_us>15000000u) return bounded_probe_fail(p);
     p->busy=true;bool ok=bounded_probe_check(p);p->busy=false;return ok;
+}
+
+bool net_bounded_probe_init(struct net_bounded_probe *p,const struct net_bounded_probe_io *io,
+    uint64_t epoch,uint64_t deadline_us) {
+    if (bounded_connection.started) return false;
+    return bounded_probe_init(p,io,epoch,deadline_us,false);
+}
+
+static uint64_t bounded_connection_lock(void) {
+#if defined(SRVROS_NET_DEVICE_HOST_TEST) || defined(SRVROS_NET_PREPARED_WORKER_HOST_TEST)
+    return 0;
+#else
+    uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");return flags;
+#endif
+}
+static void bounded_connection_unlock(uint64_t flags) {
+#if defined(SRVROS_NET_DEVICE_HOST_TEST) || defined(SRVROS_NET_PREPARED_WORKER_HOST_TEST)
+    (void)flags;
+#else
+    if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
+#endif
+}
+static bool bounded_connection_adapter(void) {
+    if (!bounded_connection.started || !net_device_selected_is(&bounded_connection.provider) ||
+        local_mac!=bounded_connection.station || net_device_mac()!=bounded_connection.station) return false;
+    for (unsigned i=0;i<6;i++) if (local_mac[i]!=bounded_connection.mac[i]) return false;
+    return true;
+}
+bool net_bounded_probe_init_connection(struct net_bounded_probe *p,const struct net_bounded_probe_io *io,
+    const struct net_device_ops *provider,uint64_t epoch,uint64_t deadline_us) {
+    if (!p || !io || !io->context || !io->current || !io->retry_ready || !provider || !provider->send || !epoch) return false;
+    const uint8_t *bytes=(const uint8_t *)p;
+    for (size_t i=0;i<sizeof *p;i++) if (bytes[i]) return false;
+    uint64_t flags=bounded_connection_lock();bool good=false;
+    if (bounded_connection.failed || bounded_connection.active || bounded_connection.disconnecting ||
+        epoch<=bounded_connection.epoch || probe_worker.attempted || worker_started || !probe_worker_table_empty()) goto done;
+    if (!bounded_connection.started) {
+        if (initialized || net_probe_quiet || !net_init_bounded_probe()) goto done;
+        if (!net_device_selected_is(provider)) goto done;
+        bounded_connection.provider=(struct net_device_ops){.context=provider->context,.send=provider->send};
+        bounded_connection.station=local_mac;
+        for(unsigned i=0;i<6;i++) bounded_connection.mac[i]=local_mac[i];
+        bounded_connection.started=true;
+    }
+    if (!initialized || !net_probe_quiet || provider->context!=bounded_connection.provider.context ||
+        provider->send!=bounded_connection.provider.send || !net_device_selected_is(provider) ||
+        !bounded_connection_adapter()) goto done;
+    for(unsigned i=0;i<6;i++) if(provider->mac[i]!=bounded_connection.mac[i]) goto done;
+    bounded_connection.active=true;bounded_connection.epoch=epoch;
+    bounded_connection.scope_identity=(uintptr_t)p;
+    /* Both scalar object identity and connection mode bind before the common
+     * initializer invokes the first owner callback. No copied scope acquires
+     * this authority by changing its own self pointer. */
+    good=bounded_probe_init(p,io,epoch,deadline_us,true);
+    if (!good || !bounded_connection_adapter() || !probe_worker_table_empty()) {
+        p->failed=true;bounded_connection.failed=true;good=false;
+    }
+ done:
+    bounded_connection_unlock(flags);return good;
 }
 
 bool net_bounded_probe_current(struct net_bounded_probe *p) {
@@ -2922,13 +2998,52 @@ bool net_bounded_probe_poll(struct net_bounded_probe *p) {
 
 bool net_bounded_probe_finish(struct net_bounded_probe *p) {
     if (!p || p->identity!=(uintptr_t)p || p->closed) return false;
+    if ((p->connection_scope || bounded_connection.started) &&
+        (!p->connection_scope || !bounded_connection.started ||
+         bounded_connection.scope_identity!=(uintptr_t)p || p->epoch!=bounded_connection.epoch)) return false;
     if (p->busy) return bounded_probe_fail(p);
     p->busy=true;
     bool ok=!p->failed && bounded_probe_check(p);
     p->closed=true;p->busy=p->checking=false;
     bounded_probe_scrub(&p->io,sizeof p->io);bounded_probe_scrub(&p->io_guard,sizeof p->io_guard);
     bounded_probe_scrub(p->mac,sizeof p->mac);p->source=NULL;p->station=NULL;
+    if (p->connection_scope && !bounded_connection.disconnecting) bounded_connection.failed=true;
     return ok;
+}
+
+bool net_bounded_probe_disconnect(struct net_bounded_probe *p) {
+    if (!p || p->identity!=(uintptr_t)p || p->closed || !p->connection_scope ||
+        !bounded_connection.started || bounded_connection.scope_identity!=(uintptr_t)p ||
+        p->epoch!=bounded_connection.epoch || p->epoch_guard!=bounded_connection.epoch) return false;
+    uint64_t flags=bounded_connection_lock();bool good=false;
+    if (!bounded_connection.started || !bounded_connection.active || bounded_connection.failed ||
+        bounded_connection.scope_identity!=(uintptr_t)p) goto done;
+    if (p->busy || p->checking || p->failed || bounded_connection.disconnecting ||
+        probe_worker.attempted || worker_started || !initialized || !net_probe_quiet ||
+        !probe_worker_table_empty() || !bounded_connection_adapter()) goto failed;
+    bounded_connection.disconnecting=true;
+    /* Finish is the final original current/link/MAC/clock check. No external
+     * callback follows its success before these CPU0-owned bytes are scrubbed. */
+    good=net_bounded_probe_finish(p);
+    bounded_connection.disconnecting=false;
+    if (!good || bounded_connection.failed || !bounded_connection_adapter() || !probe_worker_table_empty()) goto failed;
+    clear_bytes(local_ip_bytes,sizeof local_ip_bytes);local_ip=0;
+    clear_bytes(dhcp_server_ip_bytes,sizeof dhcp_server_ip_bytes);
+    clear_bytes(dhcp_router_ip_bytes,sizeof dhcp_router_ip_bytes);
+    clear_bytes(dhcp_dns_ip_bytes,sizeof dhcp_dns_ip_bytes);
+    clear_bytes(dhcp_offered_ip_bytes,sizeof dhcp_offered_ip_bytes);
+    dhcp_configured=dhcp_have_offer=dhcp_request_sent=false;
+    dhcp_retry_source_ip=dhcp_retry_relay_ip=0;
+    clear_bytes((uint8_t *)arp_cache,sizeof arp_cache);
+    dns_server_ip=dns_answer_ip=0;dns_answer_ready=dns_response_done=false;
+    clear_bytes((uint8_t *)dns_question_name,sizeof dns_question_name);
+    icmp_ping_reply=false;icmp_ping_ip=0;icmp_ping_sequence=0;icmp_ping_start_tick=0;
+    bounded_connection.active=false;bounded_connection.scope_identity=0;
+    p->disconnected=true;good=true;goto done;
+ failed:
+    bounded_connection.failed=true;p->failed=true;good=false;
+ done:
+    bounded_connection_unlock(flags);return good;
 }
 
 /* CPU0 callers serialize under IRQ exclusion. This guards only the prepared
