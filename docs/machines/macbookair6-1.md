@@ -11832,3 +11832,29 @@ owner output byte-equivalent to the legacy projection, with a directed
 regression. No receipt repair, missing-data waiver, larger log or changed
 workload/timing limit is accepted; the corrected frozen candidate needs a new
 complete loaded run before merge or native preparation.
+
+Corrected frozen source `62670020` passes matched images, full core/desktop/docs,
+89 install tests with one expected skip, ordinary ABI/input/fork/exec/yield,
+USB persistence, ordinary capture and loaded400-write-IOPS KVM validation. The
+loaded run completes23 app cycles and175 overlap windows with zero recorded
+audio underruns,181.267ms maximum loop,797.554ms ready and1.017712s close maxima.
+All required app/file-service receipts are complete in saved logs; no UART
+fallback is needed. The exact BMP and40-byte disk receipt and all16 original
+contracts validate. Full-build image hashes match the already passed corrected
+loaded run, so that exact run is reused rather than repeated.
+
+The new live observation actually matches a selected SYS_SYNC owner to content
+identity88, captured size2949120, whose start precedes the complete847.842ms
+owner interval. Its cumulative callbacks through that edge total842.528ms,
+including676.029ms reading2359296 prefix bytes. These are VM software callback
+spans, not native hardware timing or completed writeback; the separate global
+maximum is not substituted. Screenshot total is11.638868s. No latency gain is
+claimed by this diagnostic change.
+
+Stage `3403de90a056fca3` from that exact source passes the native-board-refusal,
+save/unmount/automatic-return rehearsal. Native hardware remainsaccepteda139/
+recoveryc354 and no new boot is armed at this checkpoint. Next is a source-bound
+native observation at the original1800s1%,60s tail,500ms/10s limits and all
+existing byte, barrier, ownership and retirement requirements. Report actual
+parent/content coverage, including legitimate parent-only device-flush cases,
+before choosing a change to the commit path.
