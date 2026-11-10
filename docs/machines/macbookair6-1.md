@@ -10914,3 +10914,62 @@ remain separate; inspect current overlapping hunks before integrating. Next
 checkpoint: prove observer-on/off transfer equivalence, exact retained joins and
 whole-record/tail retention, full matched validation, then original unattended
 30-minute1% native stress. Preserve the accepted1991 baseline and old recovery.
+
+### Command-role observer validated and staged (2026-11-09)
+
+Frozen source `ea27948b` / unchanged ports `39ad9d7` adds a passive content-owned
+USB command window inside the existing owned sync observer. Seven roles retain
+command classes/bytes, failures, CSW wall/slow counts/worst samples and512-byte
+WRITE subsets. Brackets precede existing block callbacks; role6 captures otherwise
+unclassified pre-mutation work. The window is copied with the same selected
+content/sync. Refused admission preserves foreign observers. Original commands,
+validation, checkpoints, byte proofs, barriers, quarantine, ownership and limits
+remain unchanged. See the [command evidence contract](../sync-content-timing.md#role-bound-bot-command-observations).
+
+Transport host tests exercise actual command/validation code with simulated
+controller callbacks:512-byte versus16KiB writes and slow samples, read/flush/
+other separation, nested/foreign admission, immutable copies, overflow, clock
+regression, premature end and all original fault/quarantine cases pass. Observer
+on/off controller callbacks, checkpoints, commands, complete media and synthetic
+clock results agree. Real process/exFAT on/off integration, parser and actual C
+capture-wire tests also pass. No native timing equivalence follows from synthetic
+host clocks. Row maxima remain687 bytes within the existing1024-byte writer.
+
+Full matched normal/native/VM/RAM/USB build, core, desktop and docs pass, including
+89 installation/recovery tests in730.450s with one expected skip. Ordinary
+syscall, USB keyboard, fork/exec-vectors/yield and real USB read-only/write/flush/
+reload/input checks pass. Populated-Home KVM400-write-IOPS stress passes22 app
+cycles/175 overlap observations,158861us maximum loop and879605/1681478us
+maximum launch/close under all original requirements. Old and new acceptance
+receipts survive in saved logs with complete atomic app coverage. Ordinary
+immutable screenshot/readback/Preview/repeat/exit passes. Exact stage
+`690fd179a79d156f` passes Q35 native-board refusal/save/unmount/automatic return;
+native positive-device acceptance remains pending.
+
+Independent saved-log parsing exactly reproduces sync, content, command and
+capture JSON. The selected VM content identity120/slot2 (optional inode0),
+3997696 bytes and1121120us span, has330 commands:278 reads/42 writes/10 flushes,
+3955712 read bytes/465920 write bytes and53600us CSW wall. Writes split into
+14x512-byte commands (7168 bytes,2219us CSW) and28x16KiB commands (458752 bytes,
+5728us CSW). Role2 root payload has20x16KiB writes; role4 sidecar has three512-byte
+and eight16KiB writes. All seven roles, size/time subsets, same legacy maximum
+and complete single-capture history validate. There are no CSW callbacks above
+100ms in this VM. This validates observation/retention, not a native cause, a
+writer/path identity, exact hardware latency or a speed gain.
+
+Next native trial repeats the original1800-second1% PCM/disk/app/three-screenshot
+workload, unchanged500ms loop/10s lifecycle/original60s tail, every readback,
+receipt, equality-growth, worker/cache/battery retirement, file/allocation check,
+clean post-PCM protocol marker and all three histories, plus the new seven-role
+command/size/worst joins. Baseline778 prior files and recovery must verify first.
+Keep accepted1991/69a8/318c/8caa, consolec354 and isolated2ddb payloads installed
+with full independent backups. Only the unreferenced historical short-audible
+5bc EFI duplicate may be archived after every file matches its independent
+backup and no boot reference remains; prior listening evidence stays accepted.
+Three old stage-only duplicates were already hash-verified against independent
+payloads and removed, freeing455662890 bytes; installed/current/latest/recovery
+and raw evidence were preserved. Save the full run/armed state and independent
+payload/trial backup before reboot. Keep AC/USB attached; no input is required.
+Ubuntu remains default recovery. Collect the matching return first; if native
+containment halts, photograph the terminal and restart Ubuntu. Battery fault
+cause remains unresolved, with original failed media/photo retained.
