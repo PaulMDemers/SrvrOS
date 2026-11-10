@@ -573,6 +573,13 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-admission'):
+        from intel_admission import admission_result
+        try:
+            result = admission_result(line)
+            return result is None or result['summary']['code'] != 0
+        except ValueError:
+            return True
     if line.startswith('intel-held-reset-summary:'):
         from intel_engine_held_reset import reset_summary
         try:return not reset_summary(line)['complete']

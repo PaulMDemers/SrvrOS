@@ -4,6 +4,24 @@ from pathlib import Path
 import hardware_desktop as desktop
 
 class CollectionTests(unittest.TestCase):
+    def test_admission_attention_decodes_the_entire_observation(self):
+        from test_intel_admission import line
+        for queries in (0, 924):
+            self.assertFalse(desktop.needs_attention(line(queries=queries).strip()))
+        refusal=line(queries=3,code=7,pages=1350,phase=1,reason=7,value=2).strip()
+        self.assertTrue(desktop.needs_attention(refusal))
+        self.assertTrue(desktop.needs_attention(line(code=300).strip()))
+        good=line(queries=924).strip()
+        for bad in (good.replace('v=1','v=2'),good+' unexpected=0',
+                    good.replace('queries=924','queries=2000001'),
+                    good.replace('code=0','code=8'),
+                    good.replace('value=0','value=1'),
+                    good.replace('v=1','v=01'),
+                    good.replace(' detail=0',''),
+                    good.replace('intel-admission:','intel-admission-unknown:'),
+                    'intel-admission:'):
+            with self.subTest(row=bad):self.assertTrue(desktop.needs_attention(bad))
+
     def test_audio_completion_requires_a_whole_line(self):
         from audio_io_stress_smoke import completion_line
         for ending in (b'\n',b'\r\n'):
