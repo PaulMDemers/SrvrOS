@@ -94,3 +94,63 @@ trial solely to rerun this software contract. A new native operation requires a
 separate exact image/recipe, actual adapter admission and object checks, durable
 checkpoint, strict raw collector, unchanged bounds and useful physical exit
 criteria under the [Ubuntu workflow](ubuntu-device-agent-setup.md).
+
+
+## Software-qualified checkpoint
+
+Source`5466bdd3` builds on main`72d49457`, integrated as`2c5f1df1`. The integrated
+baseline passed the full local build/check-host/test-core/check-docs gate with
+installed-root explicitly omitted, and its GPU objects matched the accepted
+native source byte for byte. The subsequent claim/header changes pass the
+matched build/check-host/docs,24 images and affected claim/re-arm/reset/interval/
+transfer/memory/publication regressions. These are separate exact-source gates;
+the integrated full test run is not relabeled as a full run on the later delta.
+
+Fatal ASan/UBSan passes1,200 cases:872 claim and328 re-arm. All ten compiled
+behavioral controls and two native-object controls are detected. The actual
+freestanding claim compiles with a2,048-byte frame limit, and actual C ABI and
+native disassembly bind the dependent pointer/count return gate. The new claim
+is absent from all24 boot images. No native source capability was added.
+
+Exact v19 stage`0faa0ddbacda88c1` passes QEMU unsupported-GPU refusal with zero
+target stores, checkpoint/result persistence, offline file bytes, unmount and
+automatic safe return; missing workspace halts. Its63,485/65,536-byte projected
+log keeps the1,536-byte reserve. Normal desktop QEMU also passes real GUI/pipe
+waits and descriptor replacement,72 clients reaped,128 surface readback/reuse,
+two compositor lifetimes, independent documents/focus/clipboard/resize and clean
+close/relaunch with all cache bytes retired. These are VM results only.
+
+The stage is retained but not installed. Accepted currente835/recovery9aa8 and
+their original native evidence remain unchanged; no reboot is armed. The
+[Air checkpoint](machines/macbookair7-2.md) and independent SHA-verified backup
+record the qualified source, all nonpass receipts and remaining hardware gates.
+
+## Next native scope: maintain display-audio inhibition through the claim
+
+The existing [display-HDA owner](intel-display-hda-lease.md) and GPU preparation
+were accepted separately. The current GPU lifetime preserves HDA command6,
+with bus mastering enabled; it does not maintain the earlier HDA inhibit lease.
+A next explicit diagnostic should join the real original HDA token/borrow and
+GPU/re-arm/claim lifetimes under one CPU exclusion owner. Open and pin HDA
+inhibition before GPU preparation, keep it registered through claim retirement,
+then restore only after both sources and their children retire cleanly.
+
+Retain the original HDA400ms, preparation100ms, GT300ms and full500ms bounds.
+A child cannot restart a parent clock. Map/admit all required aliases before
+control stores; save the prerequisite checkpoint before either writer. The
+adapter must cheaply revalidate the exact inhibited endpoint between full
+entry/exit inspections, rather than run a whole HDA census on every PTE guard.
+Such a guard still needs independent native admission and fault tests.
+
+Use a separate image/recipe/collector. Bind the command6→2→6 relation to the
+correct original/inhibited/restored HDA phases instead of requiring all those
+values to equal the boot snapshot. Preserve every raw engine/display/HDA/PTE
+word with canonical packed records if necessary; do not enlarge the log tail or
+drop evidence. Unknown stores, lost ownership or failed retirement retain both
+owners and halt, with no forced cleanup. Only safe saved/unmounted outcomes
+return automatically. No audio or human input is needed for that diagnostic.
+
+This proposed joint trial is not yet implemented or accepted. HDA bus-master
+inhibition and non-posted completion still do not establish posted/prefetch,
+GPU pipeline/cache/TLB, firmware, FBC/PSR/other-reader retirement or GPU interval
+transfer. All255 obligations remain open until their actual witnesses exist.

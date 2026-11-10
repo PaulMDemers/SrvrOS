@@ -25,6 +25,41 @@ PR19 networking/PR379 WebCore remain independent. Checkpoint:
 no reboot armed. Missing hardware witnesses and a real native interval provider
 remain the next implementation boundary, not a callback that asserts success.
 
+### Software checkpoint: updated main and nested interval claim qualified
+
+Main`72d49457`/PR458/459 is integrated as`2c5f1df1`. The machine-summary conflict
+preserves both Air7,2 and Air6,1 acceptance. The integrated full local build/host/
+core/docs gate passes (installed-root explicitly omitted); its accepted GPU
+objects are byte-identical. Source`5466bdd3` then adds the read-only
+[interval claim](../intel-interval-claim.md): owned opening/closing observations,
+original source/epoch/clocks and a dependent registration that prevents parent
+return with an unfinished or lost claim. The emitted data stays assurances0/
+obligations255; no native address arena or provider call follows.
+
+The later matched build/host/docs and affected claim/re-arm/reset/interval/
+transfer/memory/publication checks plus all24 images pass. Fatal sanitizers
+cover872 claim+328 re-arm cases; ten behavioral and two native-object controls
+are detected. Actual freestanding/2KiB-frame compilation, C ABI, native dependent
+pointer/count gate and24-image absence of the claim pass. Initial fixture and
+ignored compiler-runner nonpasses are retained; no production limit was weakened.
+
+Exact immutable v19 release`0faa0ddbacda88c1` passes QEMU prerequisite/result
+persistence, unsupported-GPU refusal with zero target stores, offline file bytes,
+unmount and automatic safe return; missing workspace halts. The normal desktop
+VM passes GUI/pipe waits and descriptor replacement,72 clients reaped,128 live
+surfaces, two desktop lifetimes, focus/clipboard/resize and complete cache
+retirement/relaunch. The new stage is retained but not installed. Native accepted
+currente835 remains on sourcef2a6c116, recovery9aa8/GUIc497 and prior accepted
+payloads verify, volume1%, Ubuntu default, no uncollected run or reboot armed.
+Evidence is independently SHA-verified outside build; Actions remain disabled.
+
+Next concrete native scope is a joint HDA inhibit/GPU claim lifetime, described
+in the claim guide. The real HDA token/borrow must remain pinned across the GPU
+child under one exclusion and unchanged400/100/300/500ms bounds; original,
+inhibited and restored endpoints need phase-correct collection. This is planned,
+not implemented or physically accepted. No writer, wider reset or native
+assurance is supplied by this software checkpoint; all255 obligations remain.
+
 ### Current checkpoint: native post-reset re-arm and restoration accepted
 
 Source`f2a6c116`, release`e83571c874bc17f1`, session
