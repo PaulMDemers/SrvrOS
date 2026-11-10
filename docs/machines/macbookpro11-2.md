@@ -42,6 +42,16 @@ lifecycle evidence) was fetched and inspected after collection; it changes no
 DHCP/native Wi-Fi/HTTP implementation. It is not merged into the causal candidate.
 Persistent service, live reconnect/UI and2.4GHz hardware remain separate work.
 
+Active software scope after the saved failure: add fixed-size transaction
+receipts to `net.c`/`net.h`, emit them only from the post-live HTTP summary,
+and extend the bounded-bootstrap, native xHCI/provider and strict saved-log
+fixtures. Counters must retain no addresses, XIDs, packets or key bytes; callbacks,
+packet admission, deadlines and send/retry policy remain unchanged. Use the
+existing bounded poll owner rather than adding a borrowed transaction-global
+pointer. Next checkpoint is source-qualified diagnostics and native-path tests;
+the collected candidate remains installed and no new boot is armed. Main40767
+and the other units' screenshot/power scopes do not overlap these changes.
+
 ### Completed validation preparation
 
 The user authorized hardware validation on November10 after the completed audit.
