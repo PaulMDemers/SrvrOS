@@ -8065,6 +8065,18 @@ strict metadata (only RTC-bounded marker atime), offline inspection and recovery
 checks pass. One original-tail management cleanup forward receipt is exercised
 with zero extra scratch pages. The first held run's cause stays unproved.
 Primary1729 files remain immutable; acceptance is a separate10-file record.
-One unchanged-image cold repeat is next; persistent connection generations,
+That unchanged-image cold repeat held during terminal provider drain after
+child/worker/TCP retirement. Its1135-file startup-only capsule and separate photo
+remain failed/incomplete and immutable. Runtime21387b54/releaseb865c96e670e52df
+now closes software publication through a consuming terminal RX handoff, with a
+mandatory workloadv2 receiver_closed field and separate retained-raw-RX receipt.
+The old drained field is a pre-stop snapshot; final MAC/endpoint/key/provider/
+ledger/parent cleanup remains mandatory. Selected normal/fatal and independent
+reviews, actual numeric/production-DNS HTTP VMs, exact-stage absence/missing,
+desktop and strict434-file clone preservation pass. This installed candidate is
+physically unaccepted; its new collection owner is `wifi-http5-rx-handoff`.
+Safe completion saves/returns; unsafe ownership still holds without disk writes.
+The source-bound run record owns cold-reset/arming and first-once collection.
+Persistent connection generations,
 connect/disconnect UI, removal/reattach and reliability remain open. The adapter
 is still5GHz-only; Demers2.4 needs different compatible hardware.

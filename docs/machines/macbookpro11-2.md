@@ -26,10 +26,32 @@ independent controller-completion arrival after prepared-worker stop, then
 transfer retained raw RX bookkeeping to the existing outer cleanup only after
 child/worker/TCP and publication authority close. Keep ordinary live drain and
 all key/DMA holds on uncertainty. No new boot is authorized by source alone.
-Source785 remains installed. Actual main0d83d045 is now merged at5942518d;
-the implemented correction is software-tested and still needs matched image,
-VM, stack/capture and recovery qualification before installation. PR452's capture pacing,
+Runtime21387b54/releaseb865c96e670e52df is now installed, physically unaccepted
+and unarmed. Actual main0d83d045 is merged at5942518d. The correction passes
+selected matched host/fatal checks, independent reviews, actual numeric and
+production-DNS HTTP VMs, exact-stage absence/missing-workspace, desktop and a
+fresh434-file workspace clone with strict preservation. PR452's capture pacing,
 PR301's GPU/process and PR379's WebCore scopes remain separate.
+
+The consuming terminal handoff closes software RX publication only after the
+child, worker and TCP retire. Workloadv2 requires receiver_closed; its separate
+native receipt retains the original pending/completed raw RX for mandatory outer
+MAC drain, exact endpoint Stop, key/provider/ledger and full-parent cleanup.
+provider_drained is the pre-stop snapshot, not post-stop raw RX emptiness.
+Uncertainty still retains owners; bounds and ordinary live drain are unchanged.
+Finite stack and conditional capture projections pass without whole-OS/runtime
+watermark or universal RF-retry claims. No new native success follows from VMs.
+
+New collection owner is `build/bringup/wifi-http5-rx-handoff/run.json`; collect its
+matching NEW session FIRST once through that directory's `run_root.py
+return_collect`. The new source-bound frozen collector includes578 modules and
+nine RF fixtures. Safe completion saves/returns; an unsafe hold still requests
+five frozen rows before manual poweroff because disk flushing is unsafe then.
+Both USB devices need10seconds disconnected while OFF, then the same ports.
+The saved run record owns one-shot arming. Ubuntu/factory and accepted7cd/689
+recoveries remain verified. Only older unreferenced815's EFI duplicate was
+retired for measured capacity after exact197-file sealed backup/payload and
+no-active-reference checks; its acceptance and external backup remain intact.
 
 After this correction, separate adapter/connection lifetimes before reconnect,
 removal/reattach and async UI controls. Demers2.4 still needs a different

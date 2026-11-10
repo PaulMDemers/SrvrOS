@@ -1702,3 +1702,20 @@ and seven recovery directories are retained. Both USB devices require10seconds
 cold unplug, same ports. The run record owns arming; no old run is recollected.
 Persistent service, reconnect/reattach, desktop controls and reliability remain
 open. See the current unit handoff and completion plan.
+
+Pro11,2 latest checkpoint: the unchanged785 repeat is now closed failed/incomplete
+at terminal provider drain; its1135-file primary and photo remain immutable.
+Runtime21387b54/releaseb865c96e670e52df is the separately qualified, installed,
+physically unaccepted consuming terminal RX-handoff candidate. Its selected
+source/fatal/format reviews, both actual HTTP VMs and exact native-stage,
+missing-workspace, desktop and fresh434-file clone preservation pass. Use ONLY
+`build/bringup/wifi-http5-rx-handoff/run_root.py return_collect` for its matching
+NEW session, first once. Its frozen578 Python modules/nine RF fixtures enforce
+workloadv2 receiver_closed plus the retained-raw-RX receipt and all original
+hardware/key/parent closure proofs. New capsules seal nested indexes too.
+Factory/accepted7cd/689 and Ubuntu recovery remain verified; only older815's
+unreferenced EFI duplicate was retired after its exact197-file external backup
+and payload/no-reference checks. Both USB devices need10seconds unplugged while
+OFF and the same ports. The independent sealed preboot review and saved run
+record own arming. Safe completion saves/returns; unsafe holds still request
+five diagnostic rows before manual poweroff. Do not recollect prior capsules.

@@ -20,10 +20,15 @@ reliability is accepted. The source remains explicitly one-shot and bounded.
 
 The ONE exact-image cold repeat FAILED/held at terminal provider drain after
 child/TCP/worker retirement. Its1135-file startup-only failure and photo remain
-immutable; the earlier bounded HTTP success is preserved. Next correct explicit
-terminal receive-owner handoff, with a deterministic completion-arrival fixture. Then integrate and
-qualify reviewed main0d83d045's shared USB observation changes before adapter/
-connection lifetime implementation. Keep original failures and success unchanged.
+immutable; the earlier bounded HTTP success is preserved. Runtime21387b54 /
+releaseb865c96e670e52df now implements explicit consuming terminal receive-owner
+handoff and includes reviewed main0d83d045. Deterministic completion-arrival,
+selected normal/fatal, independent source/format reviews, actual numeric and
+production-DNS HTTP, exact native-stage/missing-workspace, desktop and strict
+434-file clone VMs pass. The candidate is installed but physically unaccepted;
+its distinct `wifi-http5-rx-handoff` owner must collect the next session once.
+Validate its native closure and cold repeat before adapter/connection lifetime
+implementation. Keep original failures and success unchanged.
 
 The next implementation separates adapter/provider ownership from a connection,
 with fresh key/PN/epoch and child/worker lifetime per connection. First prove two
