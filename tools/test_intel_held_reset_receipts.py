@@ -40,6 +40,12 @@ class HeldResetReceiptTests(unittest.TestCase):
   row=lines[0]
   with self.assertRaises(ValueError):held_reset_result(text.replace(row+'\n','',1)+'\n'+row)
 
+ def test_unknown_preparation_reason_bit_refuses(self):
+  from intel_engine_prepare import prepare_summary
+  text=change(output(),'intel-prepare-summary:','reason',4096)
+  line=next(l for l in text.splitlines() if l.startswith('intel-prepare-summary:'))
+  with self.assertRaises(ValueError):prepare_summary(line)
+
  def test_summary_mutations(self):
   text=output();prefix='intel-held-reset-summary:'
   for key,value in [('origin',1),('begin',1),('end',2),('epoch_before',1),('epoch_after',2),
