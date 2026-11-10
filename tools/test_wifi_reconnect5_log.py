@@ -117,6 +117,22 @@ class Tests(unittest.TestCase):
         self.assertEqual(first['commands'][-1]+16,second['commands'][0])
         self.assertFalse(set(first['rings'])&set(second['rings']))
 
+    def test_actual_quiet_and_background_geometry(self):
+        import subprocess
+        binary=os.environ.get('WIFI_RECONNECT5_BINARY')
+        if not binary:self.skipTest('explicit actual C binary required')
+        for case in (0,10,11,16):
+            with self.subTest(case=case):
+                raw=subprocess.check_output([binary,'--trace-reconnect-case',str(case)],text=True)
+                fragment=actual_rows(raw)
+                result=self.check(modeled_bindings(fragment)+fragment)
+                self.assertFalse(result['native_accepted'])
+                for group in result['connections']:
+                    self.assertEqual(group['pings'],64)
+                    self.assertEqual(group['tx_fences'],0)
+                    self.assertEqual(group['rx_fences'],int(case!=0))
+                self.assertTrue(all('positions=127' in row for row in fragment if row.startswith('wifi-stream5-plan:')))
+
     def test_missing_duplicate_and_unknown_receipts(self):
         rows=self.fixture()
         families=('wifi-reconnect5-begin:','wifi-stream5-plan:','wifi-stream5-td:',
@@ -167,6 +183,10 @@ class Tests(unittest.TestCase):
                 ('wifi-stream5-context: p=0 d=0 ','w2',1,1),
                 ('wifi-stack5:','parent',1,0),('wifi-stack5:','complete',1,0),
                 ('wifi-stream5-plan:','max_fences',4,0),
+                ('wifi-stream5-plan:','positions',63,0),
+                ('wifi-stream5-plan:','positions',255,1),
+                ('wifi-stack5:','tx_wraps',1,0),
+                ('wifi-stack5:','rx_wraps',0,0),
                 ('wifi-reconnect5-connection:','max_fences',4,1),
                 ('wifi-stack5-workload:','matched',63,1),
                 ('wifi-stack5:','elapsed_us',15000000,1)]:

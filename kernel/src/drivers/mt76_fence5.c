@@ -9,18 +9,18 @@ static void seal(struct mt76_fence5 *s){s->seal=signature(s);}
 static bool valid(struct mt76_fence5 *s){return s && s->identity==(uintptr_t)s && s->seal==signature(s) && s->dma && s->dma==(struct mt76_dma5 *)s->guard.identity && s->epoch && s->state>=MT76_FENCE5_IDLE && s->state<=MT76_FENCE5_FAULT && io_equal(&s->io,&s->io_guard);}
 static bool pin(struct mt76_fence5 *s,struct mt76_dma5 *d){s->state=MT76_FENCE5_FAULT;s->busy=false;mt76_dma5_fault(d);seal(s);return false;}
 static bool clean(struct mt76_fence5 *s,uint64_t stamp,struct mt76_dma5 *d){return signature(s)==stamp && s->dma==d && io_equal(&s->io,&s->io_guard) && equal(d,&s->guard,sizeof s->guard);}
-static bool layout(struct mt76_fence5 *s){struct mt76_dma5 *d=s->dma;for(unsigned dir=0;dir<2;dir++)for(unsigned i=0;i<4;i++)if(d->pages[dir][i].lease.page!=s->guard.pages[dir][i].lease.page)return false;return d->identity==(uintptr_t)d && d->epoch==s->epoch && d->state==MT76_DMA5_RUNNING && d->positions==63 && d->ring[0]==s->guard.ring[0] && d->ring[1]==s->guard.ring[1];}
+static bool layout(struct mt76_fence5 *s){struct mt76_dma5 *d=s->dma;for(unsigned dir=0;dir<2;dir++)for(unsigned i=0;i<4;i++)if(d->pages[dir][i].lease.page!=s->guard.pages[dir][i].lease.page)return false;return d->identity==(uintptr_t)d && d->epoch==s->epoch && d->state==MT76_DMA5_RUNNING && (d->positions==63 || d->positions==127) && d->positions==s->guard.positions && d->ring[0]==s->guard.ring[0] && d->ring[1]==s->guard.ring[1];}
 static void phase(struct mt76_fence5 *s,enum mt76_fence5_state state,uint64_t now){s->state=state;s->phase_us=now;}
 static bool command_equal(const struct mt76_fence5_command *a,const struct mt76_fence5_command *b){return a->epoch==b->epoch && a->token==b->token && a->pointer==b->pointer && a->dequeue==b->dequeue && a->slot==b->slot && a->dci==b->dci && a->type==b->type;}
 bool mt76_fence5_init(struct mt76_fence5 *s,struct mt76_dma5 *d,uint64_t epoch,unsigned slot,const unsigned dci[2],const struct mt76_fence5_io *io,uint64_t now){
- if(!s || !d || !dci || !io || !zero(s,sizeof *s) || overlap(s,sizeof *s,d,sizeof *d) || overlap(s,sizeof *s,io,sizeof *io) || overlap(s,sizeof *s,dci,2*sizeof *dci) || !epoch || !slot || slot>255 || !dci[0] || dci[0]>31 || !dci[1] || dci[1]>31 || dci[0]==dci[1] || !io->context || overlap(s,sizeof *s,io->context,1) || overlap(d,sizeof *d,io->context,1) || !io->owned || !io->submit || !io->completion || !io->endpoint || !io->frontier || d->identity!=(uintptr_t)d || d->epoch!=epoch || d->state!=MT76_DMA5_RUNNING || d->positions!=63 || now<d->last_us)return false;
+ if(!s || !d || !dci || !io || !zero(s,sizeof *s) || overlap(s,sizeof *s,d,sizeof *d) || overlap(s,sizeof *s,io,sizeof *io) || overlap(s,sizeof *s,dci,2*sizeof *dci) || !epoch || !slot || slot>255 || !dci[0] || dci[0]>31 || !dci[1] || dci[1]>31 || dci[0]==dci[1] || !io->context || overlap(s,sizeof *s,io->context,1) || overlap(d,sizeof *d,io->context,1) || !io->owned || !io->submit || !io->completion || !io->endpoint || !io->frontier || d->identity!=(uintptr_t)d || d->epoch!=epoch || d->state!=MT76_DMA5_RUNNING || (d->positions!=63 && d->positions!=127) || (d->noop_only && d->positions!=63) || now<d->last_us)return false;
  s->identity=(uintptr_t)s;s->dma=d;s->epoch=epoch;s->slot=slot;s->dci[0]=dci[0];s->dci[1]=dci[1];s->io=*io;s->io_guard=*io;copy(&s->guard,d,sizeof *d);s->last_us=now;s->state=MT76_FENCE5_IDLE;s->sequence=d->last_fence;seal(s);return true;
 }
 bool mt76_fence5_begin(struct mt76_fence5 *s,unsigned direction,uint64_t now){
  if(!valid(s) || s->busy || s->state!=MT76_FENCE5_IDLE || direction>1)return false;
  if(now<s->last_us || now<s->dma->last_us || !layout(s))return pin(s,s->dma);
  struct mt76_dma5 *d=s->dma;
- if(d->cursor[direction]!=63 || d->noop_state!=MT76_DMA5_FREE || (d->noop_only && direction!=MT76_DMA5_TX))return false;
+ if(d->cursor[direction]!=d->positions || d->noop_state!=MT76_DMA5_FREE || (d->noop_only && direction!=MT76_DMA5_TX))return false;
  for(unsigned dir=0;dir<2;dir++)for(unsigned i=0;i<4;i++)if(d->pages[dir][i].state!=MT76_DMA5_FREE)return false;
  if(s->pointer_count>61 || s->sequence==UINT64_MAX || s->next_token>UINT64_MAX-2 || d->last_fence!=s->sequence)return pin(s,s->dma);
  copy(&s->guard,d,sizeof *d);s->direction=direction;s->last_us=now;s->scanned=0;phase(s,MT76_FENCE5_STOP,now);seal(s);return true;
@@ -48,7 +48,7 @@ static bool wait(struct mt76_fence5 *s,uint64_t now){
 }
 static bool endpoint(struct mt76_fence5 *s,uint64_t now){
  struct mt76_fence5_context e={0};struct mt76_dma5 *d=s->dma;uint64_t ring=d->ring[s->direction],stamp=signature(s);bool result=s->io.endpoint(s->io.context,s->slot,s->dci[s->direction],&e);
- if(!clean(s,stamp,d) || !result || e.epoch!=s->epoch || e.slot!=s->slot || e.dci!=s->dci[s->direction] || e.state!=3 || (e.dequeue&14) || (e.dequeue&~15ull)<ring || (e.dequeue&~15ull)>ring+16*63 || (s->state==MT76_FENCE5_VERIFY && e.dequeue!=s->command.dequeue))return false;
+ if(!clean(s,stamp,d) || !result || e.epoch!=s->epoch || e.slot!=s->slot || e.dci!=s->dci[s->direction] || e.state!=3 || (e.dequeue&14) || (e.dequeue&~15ull)<ring || (e.dequeue&~15ull)>ring+16*d->positions || (s->state==MT76_FENCE5_VERIFY && e.dequeue!=s->command.dequeue))return false;
  s->scanned=0;phase(s,s->state==MT76_FENCE5_STOP_CONTEXT?MT76_FENCE5_DRAIN:MT76_FENCE5_FINAL_DRAIN,now);return true;
 }
 static bool drain(struct mt76_fence5 *s,uint64_t now){

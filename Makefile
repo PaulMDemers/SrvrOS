@@ -6557,6 +6557,15 @@ test-xhci-reconnect5: build/tests/xhci-stack5-host$(HOST_EXE) test-mt76-stack5-p
 	$< --reconnect-case 7
 	$< --reconnect-case 8
 	$< --reconnect-case 9
+	$< --reconnect-case 10
+	$< --reconnect-case 11
+	$< --reconnect-case 12
+	$< --reconnect-case 13
+	$< --reconnect-case 14
+	$< --reconnect-case 15
+	$< --reconnect-case 16
+	$< --reconnect-case 17
+	$< --reconnect-case 18
 test-mt76-stack5-peer-generations: build/tests/mt76-stack5-peer-generations-host$(HOST_EXE)
 	$<
 build/tests/mt76-stack5-peer-generations-host$(HOST_EXE): tools/test_mt76_stack5_peer_generations.c tools/fixtures/mt76-stack5-peer.c tools/fixtures/mt76-stack5-peer.h

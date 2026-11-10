@@ -7,7 +7,7 @@ static struct mt76_fence5_command pending;
 static const uint64_t rings[2]={0x1000,0x2000},pages[2][4]={{0x3000,0x4000,0x5000,0x6000},{0x7000,0x8000,0x9000,0xa000}};
 static const unsigned dcis[2]={8,9};
 static unsigned mutation,submits,waits,reads,drains;static bool held;
-static bool owned(void *c,uint64_t e,unsigned slot){assert(c==&pending && e==9 && slot==2);switch(mutation){case 50:f.dma=&replacement;break;case 51:f.state=MT76_FENCE5_COMMIT;break;case 52:f.io.submit=0;break;case 53:f.command.token++;break;case 54:(void)mt76_fence5_cancel(&f,9);break;case 55:dma.last_token[1]++;break;case 56:f.guard.identity=0;break;}return mutation!=1;}
+static bool owned(void *c,uint64_t e,unsigned slot){assert(c==&pending && e==9 && slot==2);switch(mutation){case 50:f.dma=&replacement;break;case 51:f.state=MT76_FENCE5_COMMIT;break;case 52:f.io.submit=0;break;case 53:f.command.token++;break;case 54:(void)mt76_fence5_cancel(&f,9);break;case 55:dma.last_token[1]++;break;case 56:f.guard.identity=0;break;case 69:dma.positions=255;break;}return mutation!=1;}
 static void mutate_command(struct mt76_fence5_command *c,unsigned field){switch(field){case 0:c->epoch++;break;case 1:c->token++;break;case 2:c->pointer++;break;case 3:c->dequeue++;break;case 4:c->slot++;break;case 5:c->dci++;break;case 6:c->type++;break;}}
 static enum mt76_fence5_result submit(void *c,const struct mt76_fence5_command *want,struct mt76_fence5_command *out){
  assert(c==&pending);submits++;pending=*want;pending.pointer=mutation==18?0x100010:0x100000+16*want->token;if(mutation==19)pending.pointer=rings[0];
@@ -29,7 +29,7 @@ static enum mt76_fence5_result completion(void *c,struct mt76_fence5_completion 
 }
 static bool endpoint(void *c,unsigned slot,unsigned dci,struct mt76_fence5_context *out){
  assert(c==&pending);reads++;*out=(struct mt76_fence5_context){.epoch=9,.slot=slot,.dci=dci,.state=3,.dequeue=pending.type==15?rings[f.direction]|1:pending.dequeue};
- switch(mutation){case 30:out->epoch++;break;case 31:out->slot++;break;case 32:out->dci++;break;case 33:out->state=1;break;case 34:if(pending.type==16)out->dequeue^=1;break;case 36:out->dequeue|=2;break;case 37:out->dequeue=rings[f.direction]-16;break;case 38:out->dequeue=rings[f.direction]+1024;break;}
+ switch(mutation){case 30:out->epoch++;break;case 31:out->slot++;break;case 32:out->dci++;break;case 33:out->state=1;break;case 34:if(pending.type==16)out->dequeue^=1;break;case 36:out->dequeue|=2;break;case 37:out->dequeue=rings[f.direction]-16;break;case 38:out->dequeue=rings[f.direction]+1024;break;case 68:out->dequeue=rings[f.direction]+16*(dma.positions+1);break;}
  if(mutation==62)f.state=MT76_FENCE5_COMMIT;
  return mutation!=35;
 }
@@ -40,12 +40,13 @@ static bool frontier(void *c,struct mt76_fence5_frontier *out){
  if(mutation==65)(void)mt76_fence5_cancel(&f,9);
  return mutation!=47;
 }
-static void begin(void){
+static void begin_positions(unsigned positions){
  memset(&dma,0,sizeof dma);memset(&f,0,sizeof f);memset(&pending,0,sizeof pending);mutation=submits=waits=reads=drains=0;held=false;
- assert(mt76_dma5_init_ring(&dma,9,rings,pages,63,100));
+ assert(mt76_dma5_init_ring(&dma,9,rings,pages,positions,100));
  struct mt76_fence5_io io={&pending,owned,submit,completion,endpoint,frontier};assert(mt76_fence5_init(&f,&dma,9,2,dcis,&io,100));
 }
-static void fill(unsigned d){for(unsigned i=0;i<63;i++){
+static void begin(void){begin_positions(63);}
+static void fill(unsigned d){for(unsigned i=0;i<dma.positions;i++){
  struct mt76_dma5_lease l,loan;assert(mt76_dma5_prepare(&dma,d,dma.last_token[d]+1,4096,100,&l));assert(mt76_dma5_publish(&dma,&l,100));assert(mt76_dma5_complete(&dma,&l,d?13:1,d?3072:0,100));if(d){assert(mt76_dma5_acquire(&dma,9,&loan));assert(mt76_dma5_release(&dma,&loan));}
 }}
 static bool run(void){for(unsigned i=0;i<32;i++){if(!mt76_fence5_step(&f,100))return false;if(f.state==MT76_FENCE5_IDLE)return true;}assert(!"unbounded engine");return false;}
@@ -70,6 +71,29 @@ int main(void){
  begin();fill(0);assert(mt76_fence5_begin(&f,0,100));while(f.state!=MT76_FENCE5_COMMIT)assert(mt76_fence5_step(&f,100));mutation=1;assert(!mt76_fence5_step(&f,100) && !dma.wraps && dma.state==MT76_DMA5_FAULT);
  begin();fill(0);struct mt76_dma5_lease other;assert(mt76_dma5_prepare(&dma,1,1,4096,100,&other));assert(mt76_dma5_publish(&dma,&other,100));assert(!mt76_fence5_begin(&f,0,100) && dma.state==MT76_DMA5_RUNNING);
  begin();fill(0);dma.pages[1][2].lease.page=pages[0][0];assert(!mt76_fence5_begin(&f,0,100) && dma.state==MT76_DMA5_FAULT);
+ /* A larger transfer segment changes no command-pointer/no-reuse bound. */
+ begin_positions(127);
+ for(unsigned round=0;round<2;round++)for(unsigned d=0;d<2;d++){
+  fill(d);assert(mt76_fence5_begin(&f,d,100));assert(run());
+  assert(!dma.cursor[d] && dma.cycle[d]==(1u^((round+1)&1u)));
+ }
+ assert(f.completed==4 && dma.wraps==4 && submits==8 && !dma.faults);
+ for(unsigned m=68;m<=69;m++){
+  begin_positions(127);fill(1);assert(mt76_fence5_begin(&f,1,100));mutation=m;
+  assert(!run() && f.state==MT76_FENCE5_FAULT && dma.state==MT76_DMA5_FAULT && !dma.wraps);
+ }
+ begin_positions(127);fill(0);dma.positions=63;assert(!mt76_fence5_begin(&f,0,100) && f.state==MT76_FENCE5_FAULT && dma.cursor[0]==127 && !dma.wraps);
+ begin();fill(0);dma.positions=127;assert(!mt76_fence5_begin(&f,0,100) && dma.state==MT76_DMA5_FAULT);
+ const unsigned bad_positions[]={64,126,128,255};
+ for(unsigned i=0;i<sizeof bad_positions/sizeof *bad_positions;i++){unsigned n=bad_positions[i];
+  begin();memset(&f,0,sizeof f);dma.positions=n;
+  struct mt76_fence5_io io={&pending,owned,submit,completion,endpoint,frontier};
+  assert(!mt76_fence5_init(&f,&dma,9,2,dcis,&io,100));
+ }
+ begin();memset(&f,0,sizeof f);memset(&dma,0,sizeof dma);
+ assert(mt76_dma5_init_noop_ring(&dma,9,rings[0],127,100));
+ struct mt76_fence5_io rejected_noop={&pending,owned,submit,completion,endpoint,frontier};
+ assert(!mt76_fence5_init(&f,&dma,9,2,dcis,&rejected_noop,100));
  assert(!replacement.identity && replacement.state==MT76_DMA5_EMPTY);
- puts("mt76-fence5: PASS30 two-direction fences/60 exact commands,unique62command bound,identity/context/frontier faults,time bounds,loans,cancel,epoch/ledger/IO tamper;software callback engine,no native acceptance");return 0;
+ puts("mt76-fence5: PASS30 two-direction fences/60 exact commands,unique62command bound,identity/context/frontier faults,time bounds,loans,cancel,epoch/ledger/IO tamper;127-position transfer fences and sealed geometry refusals;software callback engine,no native acceptance");return 0;
 }

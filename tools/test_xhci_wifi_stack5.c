@@ -57,6 +57,7 @@ static struct {
  uint8_t deferred_dns[1514];size_t deferred_dns_size;
 } ap;
 static unsigned reconnect_case_id,reconnect_hook_count;
+static unsigned reconnect_noise(void){return reconnect_case_id==11?2u:reconnect_case_id==12?3u:(reconnect_case_id==10 || (reconnect_case_id>=16 && reconnect_case_id<=18))?1u:0u;}
 static bool reconnect_keys_seen[2];
 static uint8_t reconnect_first_tk[16];
 static bool reconnect_seeded;
@@ -91,7 +92,7 @@ static void stack_test_connection(unsigned generation){
  sim.tx_seen=sim.rx_seen=sim.response=sim.index=sim.noise_left=0;sim.m1=sim.m3=false;
  if(!generation && reconnect_case_id==4){sim.fault=36;sim.fault_at=9;}
  if(generation && reconnect_case_id==5)sim.fail_nonce=true;
- if(generation && reconnect_case_id==3){struct xhci_trb old={.parameter_low=(uint32_t)wifi_fence5_first.commands[0].id.pointer,.parameter_high=wifi_fence5_first.commands[0].id.pointer>>32,.status=1u<<24,.control=(33u<<10)|(1u<<24)};stream_enqueue(&old,0);}
+ if(generation && reconnect_case_id==3){struct xhci_trb old={.parameter_low=(uint32_t)wifi_stream5_slots[0].sync[0].pointer,.parameter_high=wifi_stream5_slots[0].sync[0].pointer>>32,.status=1u<<24,.control=(33u<<10)|(1u<<24)};stream_enqueue(&old,0);}
 }
 static unsigned ap_u16(const uint8_t *p){return (unsigned)p[0]*256+p[1];}
 static uint32_t ap_u32(const uint8_t *p){return (uint32_t)ap_u16(p)*65536+ap_u16(p+2);}
@@ -194,9 +195,13 @@ static void stack_test_progress(void){
    assert(!mt76_net5_tx_complete(&wifi_stack5_net,reconnect_old_epoch,reconnect_old_token,true));
    assert(!memcmp(&before,&wifi_stack5_net,sizeof before));
   }
-  if(reconnect_case_id==2){struct mt76_dma5_lease *old=&wifi_stream5_slots[0].lease[1];struct xhci_trb e={.parameter_low=(uint32_t)old->trb,.parameter_high=old->trb>>32,.status=(13u<<24)|4096,.control=(32u<<10)|(9u<<16)|(1u<<24)};stream_enqueue(&e,0);return;}
+  if(reconnect_case_id==2 || reconnect_case_id==15){struct mt76_dma5_lease *old=&wifi_stream5_slots[0].lease[1];struct xhci_trb e={.parameter_low=(uint32_t)(reconnect_case_id==15?wifi_stream5_slots[0].physical[1]+126*16:old->trb),.parameter_high=old->trb>>32,.status=(13u<<24)|4096,.control=(32u<<10)|(9u<<16)|(1u<<24)};stream_enqueue(&e,0);return;}
  }
 
+ if(wifi_stream5.connection_mode && wifi_stream5.data_active && reconnect_hook_count==1 && !ap.tx_pn && !ap.rx_pn){
+  if(reconnect_case_id==13){wifi_stream5.dma.positions=63;return;}
+  if(reconnect_case_id==14){wifi_stream5.ring[0][127].control^=2;return;}
+ }
  if(!wifi_stream5.data_active){
   /* Fault only the modeled AP response,after actual AUTH publication. The
    * production owner,decoder,timeout,cleanup and workload remain unmodified. */
@@ -221,10 +226,10 @@ static void stack_test_progress(void){
  if(wifi_stream5.pending[1]){
   if(ap.case_id>=10 && !ap.frozen && !ap.count)test_time+=1000;
   unsigned bytes=0;
-  if(wifi_stream5.connection_mode && reconnect_case_id==10 && ap.background_left){uint8_t beacon[24]={0x80};bytes=stream_wrap(beacon,sizeof beacon);ap.background_left--;}
-  else if(ap.count){bytes=stream_wrap(ap.response[ap.head],(unsigned)ap.length[ap.head]);ap.head=(ap.head+1)%8;ap.count--;if(wifi_stream5.connection_mode && reconnect_case_id==10)ap.background_left=1;}
+  if(wifi_stream5.connection_mode && reconnect_noise() && ap.background_left){uint8_t beacon[24]={0x80};bytes=stream_wrap(beacon,sizeof beacon);ap.background_left--;}
+  else if(ap.count){bytes=stream_wrap(ap.response[ap.head],(unsigned)ap.length[ap.head]);ap.head=(ap.head+1)%8;ap.count--;if(wifi_stream5.connection_mode && reconnect_noise())ap.background_left=reconnect_noise();}
   else if(!ap.quiet && wifi_stack5.boundary){uint8_t beacon[24]={0x80};bytes=stream_wrap(beacon,sizeof beacon);}
-  if(bytes){struct mt76_dma5_lease *l=&wifi_stream5.lease[1];uint64_t q=wifi_stream5.posts[1]%63?wifi_stream5.physical[1]+16*wifi_stream5.enqueue[1]:wifi_stream5.physical[1]+63*16;unsigned cycle=wifi_stream5.posts[1]%63?(unsigned)wifi_stream5.cycle[1]:l->cycle;context_write32(wifi_stream5.d->output_context,9,0,1);context_write32(wifi_stream5.d->output_context,9,2,q|cycle);context_write32(wifi_stream5.d->output_context,9,3,q>>32);struct xhci_trb e={.parameter_low=l->trb,.parameter_high=l->trb>>32,.status=(13u<<24)|(4096-bytes),.control=(32u<<10)|(9u<<16)|((uint32_t)wifi_stream5.slot<<24)};if(ap.provider_loss)wifi_stream5.d->removed=true;stream_enqueue(&e,0);return;}
+  if(bytes){struct mt76_dma5_lease *l=&wifi_stream5.lease[1];uint64_t q=wifi_stream5.posts[1]%wifi_stream5_positions()?wifi_stream5.physical[1]+16*wifi_stream5.enqueue[1]:wifi_stream5.physical[1]+wifi_stream5_positions()*16;unsigned cycle=wifi_stream5.posts[1]%wifi_stream5_positions()?(unsigned)wifi_stream5.cycle[1]:l->cycle;context_write32(wifi_stream5.d->output_context,9,0,1);context_write32(wifi_stream5.d->output_context,9,2,q|cycle);context_write32(wifi_stream5.d->output_context,9,3,q>>32);struct xhci_trb e={.parameter_low=l->trb,.parameter_high=l->trb>>32,.status=(13u<<24)|(4096-bytes),.control=(32u<<10)|(9u<<16)|((uint32_t)wifi_stream5.slot<<24)};if(ap.provider_loss)wifi_stream5.d->removed=true;stream_enqueue(&e,0);return;}
  }
  if(xhci.command_pending && wifi_fence5_native.round)stream_test_progress();
 }
@@ -302,8 +307,8 @@ static void probe_setup(unsigned);
 static void boundary_noise_completion(void){
  assert(wifi_stream5.pending[1]);uint8_t beacon[24]={0x80};
  unsigned bytes=stream_wrap(beacon,sizeof beacon);struct mt76_dma5_lease *l=&wifi_stream5.lease[1];
- uint64_t q=wifi_stream5.posts[1]%63?wifi_stream5.physical[1]+16*wifi_stream5.enqueue[1]:wifi_stream5.physical[1]+63*16;
- unsigned cycle=wifi_stream5.posts[1]%63?(unsigned)wifi_stream5.cycle[1]:l->cycle;
+ uint64_t q=wifi_stream5.posts[1]%wifi_stream5_positions()?wifi_stream5.physical[1]+16*wifi_stream5.enqueue[1]:wifi_stream5.physical[1]+wifi_stream5_positions()*16;
+ unsigned cycle=wifi_stream5.posts[1]%wifi_stream5_positions()?(unsigned)wifi_stream5.cycle[1]:l->cycle;
  context_write32(wifi_stream5.d->output_context,9,2,q|cycle);
  struct xhci_trb e={.parameter_low=l->trb,.parameter_high=l->trb>>32,.status=(13u<<24)|(4096-bytes),.control=(32u<<10)|(9u<<16)|((uint32_t)wifi_stream5.slot<<24)};
  stream_enqueue(&e,0);assert(wifi_stream5_dispatch());assert(wifi_stream5_collect(MT76_WPA5_DATA,false));
@@ -548,10 +553,10 @@ static void native_dhcp_case(unsigned which){
  reset_test();
 }
 static void reconnect_case(unsigned which){
- assert(which<11);stream_setup();sim.parent_after_fail=which==7;xhci.command_enqueue=which==6?45:41;reconnect_case_id=which;reconnect_hook_count=0;
+ assert(which<19);stream_setup();sim.parent_after_fail=which==7;xhci.command_enqueue=which==6?47:41;reconnect_case_id=which;reconnect_hook_count=0;sim.link=which>=16;sim.fault=which==17?40:which==18?41:0;
  if(reconnect_seeded){for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)context_write32(wifi_cal5.d->output_context,d?8:9,i,reconnect_seed[d][i]);wifi_cal5.d->slot_id=(uint8_t)reconnect_slot;}
- assert(xhci_wifi_capture_reconnect5_probe()==(which<2 || which==9));
- if(which<2 || which==9){
+ assert(xhci_wifi_capture_reconnect5_probe()==(which<2 || which==9 || which==10 || which==11 || which==16));
+ if(which<2 || which==9 || which==10 || which==11 || which==16){
   assert(wifi_reconnect5.complete && wifi_reconnect5.connections==2 && reconnect_hook_count==2 && reconnect_keys_seen[0] && reconnect_keys_seen[1]);
   assert(wifi_reconnect5.epochs[1]==wifi_reconnect5.epochs[0]+1 && wifi_reconnect5.tokens[1]>wifi_reconnect5.tokens[0]);
   assert(wifi_reconnect5.probe[0].matched==64 && wifi_reconnect5.probe[1].matched==64 && ap.dhcp==2 && ap.dns==1 && ap.icmp==64);
@@ -563,8 +568,11 @@ static void reconnect_case(unsigned which){
   if(which==9){unsigned rejected=0;for(unsigned i=0;i<wifi_stream5.record_count;i++)if(wifi_stream5.records[i].direction && !wifi_stream5.records[i].ethernet && wifi_stream5.records[i].reason==MT76_DATA5_CCMP)rejected++;assert(rejected>=1 && wifi_stream5.data_received==68);}
 
  }else{assert(!wifi_reconnect5.complete && !wifi_reconnect5.provider_retired && (which==7?wifi_reconnect5.connections==2:wifi_reconnect5.connections<2));if(which==6 || which==8)assert(wifi_reconnect5.connections==1 && !wifi_stream5.posts[0] && !wifi_stream5.posts[1] && !wifi_stream5.commands && !wifi_stream5.physical[0]);}
- if(which==10){assert(reconnect_hook_count==1 && !wifi_reconnect5.connections && wifi_stream5.failed && wifi_stream5.dma.wraps==2 && wifi_stream5.dma.cursor[1]==63 && wifi_stream5.posts[1]==126 && !wifi_stream5.fault_event_valid && !wifi_fence5_native.round && !xhci.command_pending);assert(wifi_reconnect5.probe[0].dhcp && wifi_reconnect5.probe[0].dns && wifi_reconnect5.probe[0].matched>0 && wifi_reconnect5.probe[0].matched<64);}
- if(which<2 || which==8 || which==9)for(unsigned i=0;i<10;i++)assert(!memcmp(reconnect_old_physical[i],i<2?(void *)wifi_stream5_slots[0].ring[i]:(void *)wifi_stream5_slots[0].buffer[(i-2)/4][(i-2)%4],4096));
+ if(which==10 || which==11 || which==16){assert(wifi_stream5_slots[0].dma.positions==127 && wifi_stream5.dma.positions==127);assert(wifi_stream5_slots[0].wraps[0]==0 && wifi_stream5.wraps[0]==0 && wifi_stream5_slots[0].wraps[1]==1 && wifi_stream5.wraps[1]==1);assert(wifi_stream5_slots[0].posts[1]>127 && wifi_stream5.posts[1]>127);}
+ if(which==12){assert(reconnect_hook_count==1 && !wifi_reconnect5.connections && wifi_stream5.failed && wifi_stream5.posts[1]==WIFI_STREAM5_RX-8 && !wifi_stream5.fault_event_valid && !wifi_fence5_native.round && !xhci.command_pending);assert(wifi_reconnect5.probe[0].dhcp && wifi_reconnect5.probe[0].dns && wifi_reconnect5.probe[0].matched>0 && wifi_reconnect5.probe[0].matched<64);}
+ if(which==13 || which==14){assert(reconnect_hook_count==1 && !wifi_reconnect5.connections && wifi_stream5.failed && wifi_stream5.data_sends==0);}
+
+ if(which<2 || which==8 || which==9 || which==10 || which==11 || which==16)for(unsigned i=0;i<10;i++)assert(!memcmp(reconnect_old_physical[i],i<2?(void *)wifi_stream5_slots[0].ring[i]:(void *)wifi_stream5_slots[0].buffer[(i-2)/4][(i-2)%4],4096));
  for(unsigned i=0;i<2;i++)for(unsigned n=0;n<32;n++)assert(!wifi_stream5_slots[i].pmk[n]);
  memset(reconnect_first_tk,0,sizeof reconnect_first_tk);
  assert(!xhci_wifi_capture_reconnect5_probe());
@@ -573,8 +581,9 @@ static void reconnect_case(unsigned which){
 int main(int argc,char **argv){
  if((argc==2 || argc==19) && !strcmp(argv[1],"--trace-reconnect")){
   if(argc==19){for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)reconnect_seed[d][i]=(uint32_t)strtoull(argv[2+d*8+i],NULL,0);reconnect_slot=(unsigned)strtoul(argv[18],NULL,0);assert(reconnect_slot && reconnect_slot<256);reconnect_seeded=true;}
-  batch_trace=true;puts("wifi-reconnect5-host: modeled_usb=1 acceptance=0");reconnect_case(0);return 0;
+  batch_trace=true;puts("wifi-reconnect5-host: modeled_usb=1 acceptance=0");reconnect_case(10);return 0;
  }
+ if(argc==3 && !strcmp(argv[1],"--trace-reconnect-case")){batch_trace=true;puts("wifi-reconnect5-host: modeled_usb=1 acceptance=0");reconnect_case((unsigned)strtoul(argv[2],NULL,0));return 0;}
  if(argc==3 && !strcmp(argv[1],"--reconnect-case")){reconnect_case((unsigned)strtoul(argv[2],NULL,0));return 0;}
  if(argc==3 && !strcmp(argv[1],"--trace-dhcp")){
   unsigned which=(unsigned)strtoul(argv[2],NULL,0);assert(which>=41 && which<55);

@@ -23,9 +23,9 @@ static bool wifi_stack5_clock(void){uint64_t now=timer_monotonic_us();if(now<wif
 static bool wifi_stack5_ready(void *c,uint64_t epoch){
  /* The last posted RX is still usable. Freezing TX merely because posting
   * advanced its cursor to63 can prevent the request which would complete it. */
- bool rx_available=wifi_stream5.dma.cursor[1]<63 ||
-  (wifi_stream5.dma.cursor[1]==63 && wifi_stream5.pending[1] && !wifi_stream5.ready_rx);
- return !wifi_stack5.terminal_handoff && wifi_stack5_owned(c,epoch) && !wifi_stack5.boundary && !wifi_fence5_native.round && !wifi_stream5.pending[0] && !wifi_stack5.tx_token && wifi_stream5.dma.cursor[0]<63 && rx_available && wifi_stream5.posts[0]<WIFI_STREAM5_TX-1 && wifi_stream5.posts[1]<WIFI_STREAM5_RX-8;
+ bool rx_available=wifi_stream5.dma.cursor[1]<wifi_stream5_positions() ||
+  (wifi_stream5.dma.cursor[1]==wifi_stream5_positions() && wifi_stream5.pending[1] && !wifi_stream5.ready_rx);
+ return !wifi_stack5.terminal_handoff && wifi_stack5_owned(c,epoch) && !wifi_stack5.boundary && !wifi_fence5_native.round && !wifi_stream5.pending[0] && !wifi_stack5.tx_token && wifi_stream5.dma.cursor[0]<wifi_stream5_positions() && rx_available && wifi_stream5.posts[0]<WIFI_STREAM5_TX-1 && wifi_stream5.posts[1]<WIFI_STREAM5_RX-8;
 }
 static enum mt76_net5_submit wifi_stack5_submit(void *c,uint64_t epoch,uint64_t token,const uint8_t *frame,uint16_t length){
  struct mt76_net5 *p=&wifi_stack5_net;struct wpa2_ccmp *k=&wifi_stream5.exchange.keys;
@@ -58,8 +58,8 @@ static bool wifi_stack5_service(void *c,uint64_t epoch){
  /* Posting RX63 does not complete RX63. Keep ordinary TX working until that
   * original receive completes; a terminal HTTP owner may instead hand it to
   * the outer exact Stop cleanup without wrapping an otherwise idle ring. */
- bool boundary=wifi_stream5.dma.cursor[0]==63 ||
-  (wifi_stream5.dma.cursor[1]==63 && !wifi_stream5.pending[1]);
+ bool boundary=wifi_stream5.dma.cursor[0]==wifi_stream5_positions() ||
+  (wifi_stream5.dma.cursor[1]==wifi_stream5_positions() && !wifi_stream5.pending[1]);
  if(boundary && !wifi_stack5.boundary){wifi_stack5.boundary=true;wifi_stack5.boundary_start=wifi_stack5.last;}
  if(wifi_stack5.boundary){
   if(wifi_stack5.last-wifi_stack5.boundary_start>=MT76_DMA5_TIMEOUT_US)return wifi_stack5_fault();
@@ -71,7 +71,7 @@ static bool wifi_stack5_service(void *c,uint64_t epoch){
   /* A quiet pending RX must really complete;timeout pins,no fake cancellation.
    * Authenticated cache is independent of released DMA and may cross a fence. */
   if(wifi_stream5.pending[0] || wifi_stream5.pending[1] || wifi_stream5.ready_rx || wifi_stream5.loan.ticket || wifi_stack5.tx_token)return true;
-  for(unsigned dir=0;dir<2;dir++)if(wifi_stream5.dma.cursor[dir]==63){
+  for(unsigned dir=0;dir<2;dir++)if(wifi_stream5.dma.cursor[dir]==wifi_stream5_positions()){
    if(wifi_stream5.dma.wraps>=wifi_stream5_fence_limit() || wifi_fence5_try_begin(dir)==MT76_FENCE5_FAILED)return wifi_stack5_fault();
    return wifi_stack5_owned(c,epoch);
   }

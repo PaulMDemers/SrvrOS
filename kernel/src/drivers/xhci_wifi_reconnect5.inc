@@ -14,7 +14,7 @@ static bool wifi_reconnect5_closed(void *owner,uint64_t epoch,const struct mt76_
  struct wifi_stream5_state *s=owner;
  if((s!=&wifi_stream5_slots[0] && s!=&wifi_stream5_slots[1]) || s!=wifi_stream5_current ||
     !s->connection_mode || !s->connection_closed || s->epoch!=epoch || dma!=&s->dma ||
-    dma->identity!=(uintptr_t)dma || dma->epoch!=epoch || dma->state!=MT76_DMA5_RETIRED ||
+    dma->identity!=(uintptr_t)dma || dma->positions!=127 || dma->epoch!=epoch || dma->state!=MT76_DMA5_RETIRED ||
     !s->retired || !s->restored || !s->events_empty || !s->complete || s->failed ||
     s->phase!=9 || s->active || s->data_active || !s->closed || s->pending[0] || s->pending[1] ||
     s->ready_rx || s->cached_present || s->loan.ticket || dma->borrowed!=dma->released || dma->faults ||

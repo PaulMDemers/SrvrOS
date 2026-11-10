@@ -36,7 +36,9 @@ struct mt76_stack5_probe {
 bool mt76_stack5_probe_run(struct mt76_stack5_probe *,struct mt76_net5 *,const struct mt76_stack5_probe_io *);
 /* Explicit sequential connection runner. Same exact DHCP/DNS/64-ping workload
  * and limits, but uses the opt-in stack generation boundary and per-connection
- * deltas of cumulative provider counters. On success disconnects/clears the
+ * deltas of cumulative provider counters and pinned127-position transfer
+ * geometry. It does not require a TX wrap for fewer than80 publications; all
+ * actually crossed RX boundaries still need native fences. On success clears the
  * production IP scope while the original native provider remains UP; caller
  * must separately retire native key/DMA/peer ownership before any next attach.
  * Does not rearm the HTTP worker or grant persistent/reconnect acceptance. */

@@ -58,6 +58,7 @@ def _owner(log, lines, rows, *, profile=None, expected_epoch=None, previous_cont
     require((connection and type(expected_epoch) is int and 0<expected_epoch<2**64) or
             (not connection and expected_epoch is None and previous_context is None),
             'epoch/context override outside explicit connection transport')
+    positions = 127 if connection else 63
     pos = 1
     def take(prefix, keys):
         nonlocal pos
@@ -71,7 +72,7 @@ def _owner(log, lines, rows, *, profile=None, expected_epoch=None, previous_cont
                 'wrong production schema/range')
         return values
     plan=take('wifi-stream5-plan','tx rx epoch slot pages positions max_tx max_rx max_fences')
-    require(all(plan[k]==v for k,v in dict(epoch=expected_epoch if connection else 1,pages=4,positions=63,max_tx=80,max_rx=252,max_fences=2 if connection else 4).items()),'wrong finite stream plan')
+    require(all(plan[k]==v for k,v in dict(epoch=expected_epoch if connection else 1,pages=4,positions=positions,max_tx=80,max_rx=252,max_fences=2 if connection else 4).items()),'wrong finite stream plan')
     rings=[plan['tx'],plan['rx']];slot=plan['slot']
     require(0<slot<256 and all(0<x<=2**64-4096 and x%4096==0 for x in rings) and len(set(rings))==2,'invalid stream rings/slot')
     def unique(prefix):
@@ -107,7 +108,7 @@ def _owner(log, lines, rows, *, profile=None, expected_epoch=None, previous_cont
         a=compact('wifi-stream5-td','i d p s c','p')
         d=a['d'];require(d in (0,1) and a['i']==len(tds),'wrong stream TD direction/order')
         n=counts[d];counts[d]+=1;a['token']=n+1
-        require(counts[d]<=(80,252)[d] and a['p']==rings[d]+16*(n%63) and transfer(a['c'],d) and a['s']<=0xffffffff,'wrong raw stream TD identity')
+        require(counts[d]<=(80,252)[d] and a['p']==rings[d]+16*(n%positions) and transfer(a['c'],d) and a['s']<=0xffffffff,'wrong raw stream TD identity')
         cc=a['s']>>24;res=a['s']&0xffffff
         require((cc==1 and res==0) if d==0 else (cc in (1,13) and res<=4096),'wrong stream completion/residue')
         tds.append(a)
@@ -120,7 +121,7 @@ def _owner(log, lines, rows, *, profile=None, expected_epoch=None, previous_cont
         d=int(is_rx)
         require(a['i']<len(tds) and (not selected or a['i']>selected[-1]['i']),'duplicate/reordered selected receipt')
         td=tds[a['i']]
-        require(td['d']==d and a['token']==td['token'] and a['page']==(a['token']-1)%4 and a['cycle']==1^(((a['token']-1)//63)&1) and last_ticket[d]<a['ticket']<=sum(counts)+1 and a['ticket'] not in tickets,'selected receipt differs from issued typed lease')
+        require(td['d']==d and a['token']==td['token'] and a['page']==(a['token']-1)%4 and a['cycle']==1^(((a['token']-1)//positions)&1) and last_ticket[d]<a['ticket']<=sum(counts)+1 and a['ticket'] not in tickets,'selected receipt differs from issued typed lease')
         last_ticket[d]=a['ticket'];tickets.add(a['ticket']);selected.append(a)
         if is_rx:
             require(14<=a['ethernet']<=1514 and a['reason']==9 and 4096-(td['s']&0xffffff)>=a['ethernet']+70,'unverified/unknown selected RX')
@@ -129,7 +130,7 @@ def _owner(log, lines, rows, *, profile=None, expected_epoch=None, previous_cont
             n=len(data)
             require(n<requests and a['token']==n+5 and a['pn']==n+1 and 76<=a['bytes']<=1576 and a['bytes']%4==0,'missing/reused PN or wrong production TX envelope')
             data.append(a)
-    require(len(data)==requests and 2<=len(rx_receipts)<=8 and (http or (any(a['token']<=63 for a in rx_receipts) and any(a['token']>63 for a in rx_receipts))),'missing typed encrypted data before/after RX fence')
+    require(len(data)==requests and 2<=len(rx_receipts)<=8 and (http or connection or (any(a['token']<=positions for a in rx_receipts) and any(a['token']>positions for a in rx_receipts))),'missing typed encrypted data before/after RX fence')
     fences=[];wraps=[0,0]
     while pos<len(rows) and rows[pos].startswith('wifi-stream5-fence:'):
         a=take('wifi-stream5-fence','i p t d q e s c sp ss sc sq used')
@@ -137,15 +138,15 @@ def _owner(log, lines, rows, *, profile=None, expected_epoch=None, previous_cont
         require(i<8 and a['i']==i and d in (0,1) and a['t']==15+(i%2) and a['used']==1 and a['p']>0 and a['p']%16==0 and a['p']==a['e'] and a['s']==1<<24 and a['c']<=0xffffffff and a['c']&~1==(slot<<24)|(33<<10),'wrong native fence command/completion')
         if i%2==0:
             old_cycle=1^(wraps[d]&1);new_cycle=old_cycle^1
-            require(a['q']==0 and a['ss']==27<<24 and transfer(a['sc'],d) and (a['sp'],a['sq']) in ((rings[d]+1008,(rings[d]+1008)|old_cycle),(rings[d],rings[d]|new_cycle)),'wrong boundary Stop event/context')
+            require(a['q']==0 and a['ss']==27<<24 and transfer(a['sc'],d) and (a['sp'],a['sq']) in ((rings[d]+16*positions,(rings[d]+16*positions)|old_cycle),(rings[d],rings[d]|new_cycle)),'wrong boundary Stop event/context')
         else:
             require(d==fences[-1]['d']-8 and a['q']==rings[d]|(1^((wraps[d]+1)&1)) and a['sp']==a['ss']==a['sc']==a['sq']==0,'wrong opposite-cycle rebase')
             wraps[d]+=1
         fences.append(a)
-    require(((0<=sum(wraps)<=4 and 0<=wraps[0]<=1 and 0<=wraps[1]<=3) if http else (2<=sum(wraps)<=4 and wraps[0]==1 and 1<=wraps[1]<=3)) and len(fences)==2*sum(wraps),'missing real TX/RX fences')
+    require(((0<=sum(wraps)<=2 and wraps[0]==0 and 0<=wraps[1]<=1) if connection else ((0<=sum(wraps)<=4 and 0<=wraps[0]<=1 and 0<=wraps[1]<=3) if http else (2<=sum(wraps)<=4 and wraps[0]==1 and 1<=wraps[1]<=3))) and len(fences)==2*sum(wraps),'missing real TX/RX fences')
     if connection:require(sum(wraps)<=2,'connection exceeds narrower native fence budget')
     if not http:
-        for boundary in range(63,63*wraps[1]+1,63):
+        for boundary in range(positions,positions*wraps[1]+1,positions):
             require(any(a['token']<=boundary for a in rx_receipts) and any(a['token']>boundary for a in rx_receipts),'missing authenticated data across RX boundary')
     sync=[]
     for i,(kind,d) in enumerate(((12,8),(16,9),(15,9),(15,8),(16,9),(12,8))):
@@ -172,12 +173,12 @@ def _owner(log, lines, rows, *, profile=None, expected_epoch=None, previous_cont
     stops=[]
     for d in (0,1):
         a=take('wifi-stream5-stop','d p s c q');cc=a['s']>>24;res=a['s']&0xffffff
-        posted=counts[d]+int(cc!=27);n=posted%63 if cc==27 else (posted-1)%63;cycle=1^(((posted if cc==27 else posted-1)//63)&1)
-        if http:
-            # An exact empty frontier may be position63 before a rebase,or
-            # position0 after an OBSERVED rebase. Pending TDs are only0..62.
-            n=posted-63*wraps[d]-(cc!=27);cycle=1^(wraps[d]&1)
-            require(0<=n<=(63 if cc==27 else 62),'frontier differs from observed native fences')
+        posted=counts[d]+int(cc!=27);n=posted%positions if cc==27 else (posted-1)%positions;cycle=1^(((posted if cc==27 else posted-1)//positions)&1)
+        if http or connection:
+            # An exact empty frontier may be at the configured Link before a
+            # rebase, or position0 after an OBSERVED rebase.
+            n=posted-positions*wraps[d]-(cc!=27);cycle=1^(wraps[d]&1)
+            require(0<=n<=(positions if cc==27 else positions-1),'frontier differs from observed native fences')
         expected=rings[d]+16*n
         require(a['d']==d and a['s']<=0xffffffff and transfer(a['c'],d) and a['p']==expected and a['q']==a['p']|cycle and a['q']==contexts[5,d][2]|contexts[5,d][3]<<32 and cc in ((27,) if d==0 else (26,27,28)) and res<=4096 and (cc!=27 or res==0),'wrong final stopped frontier')
         stops.append((a,posted))

@@ -8208,3 +8208,25 @@ units,20 frozen-workflow cases, normal native55+10, seven scoped fatal groups an
 six VM gates pass. The body/EOF proofs and new443-file
 clone proof are software evidence; calibration causation and native reconnect
 remain pending. Retain the first v140 failure and collect only the new run once.
+
+
+### November 10 two-connection transfer capacity correction
+
+The67534219/a9 native run passed calibration, WPA2/CCMP, DHCP/DNS and54 exact
+pings but exhausted the two-fence connection budget at TX63/RX126 before either
+connection closed. The original native-owner fixture reproduces this with
+additional beacon RX. Source observation does not establish the cause of the
+prior separate RXDCOC failure. Workspace443-file preservation, offline checks,
+recovery and automatic return pass independently; no reconnect acceptance.
+
+The correction being qualified pins127 transfer positions for the explicit
+two-connection owner while retaining63 for historical one-shot/HTTP owners.
+It uses the same allocated ring pages and four data pages per direction, with
+unchanged TX80/RX252,64-ping workload, command ring63/no-reuse, two-fence reserve,
+deadlines and uncertain-owner retention. TX80 cannot cross127; RX252 can cross
+one boundary, whose actual Stop/event/dequeue/cycle evidence remains mandatory.
+Two connection/key/provider closes and outer RF restoration remain separate
+proofs. Parser geometry is selected by trusted recipe, not inferred from raw
+claimed values. This does not provide unlimited command reuse, rearm the HTTP
+worker, or accept UI/reattach/reliability. See the current
+[Pro unit record](machines/macbookpro11-2.md).

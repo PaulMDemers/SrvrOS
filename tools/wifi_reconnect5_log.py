@@ -76,9 +76,9 @@ def _connections(log):
         summary=take('wifi-stack5',SUMMARY_KEYS)
         require(fragment[raw['position']()-1]=='wifi-stack5: '+' '.join(k+'='+str(summary[k]) for k in SUMMARY_KEYS.split()),
                 'noncanonical connection summary')
-        fixed=dict(complete=0,parent=0,restored=1,retired=1,empty=1,tx_wraps=1,rx_wraps=1,
+        fixed=dict(complete=0,parent=0,restored=1,retired=1,empty=1,tx_wraps=0,rx_wraps=raw['wraps'][1],
                    data_tx=raw['requests'],faults=0,dropped=0,provider_faults=0,pending=0,commands=6,
-                   fences=2,retained=1,backend_retired=0)
+                   fences=sum(raw['wraps']),retained=1,backend_retired=0)
         require(all(summary[k]==v for k,v in fixed.items()),'local close falsely claims adapter retirement or incomplete native close')
         delta={k:summary[k]-prior_counters[k] for k in prior_counters}
         require(all(v>=0 for v in delta.values()) and
@@ -88,16 +88,16 @@ def _connections(log):
                 summary['rx_receipts']==len(raw['rx_receipts'])<=4 and
                 summary['borrowed']==summary['released']==raw['counts'][1] and
                 67<=delta['received']<=summary['data_rx']<=raw['counts'][1]-4 and
-                summary['tx_after']==sum(a['token']>63 for a in raw['data']) and
-                sum(a['token']>63 for a in raw['rx_receipts'])<=summary['rx_after']<=
-                    min(summary['data_rx'],raw['counts'][1]-63) and
-                all(raw['wraps'][d]==(raw['stops'][d][1]-1)//63 for d in (0,1)) and
+                summary['tx_after']==0==sum(a['token']>127 for a in raw['data']) and
+                sum(a['token']>127 for a in raw['rx_receipts'])<=summary['rx_after']<=
+                    min(summary['data_rx'],max(0,raw['counts'][1]-127)) and
+                all(raw['wraps'][d]==(raw['stops'][d][1]-1)//127 for d in (0,1)) and
                 0<summary['services']<150000 and 0<summary['elapsed_us']<15000000,
                 'incomplete connection counters/loans/budget or reset adapter counters')
         require(not ring_pointers.intersection(raw['rings']),'reused previous connection DMA ring')
         ring_pointers.update(raw['rings'])
         current_commands=[a['p'] for a in raw['commands']]
-        require(len(current_commands)==10 and not command_pointers.intersection(current_commands),
+        require(len(current_commands)==6+2*sum(raw['wraps']) and not command_pointers.intersection(current_commands),
                 'reused/missing native command identities')
         if groups:
             require(current_commands[0]==groups[-1]['commands'][-1]+16 and
@@ -110,9 +110,8 @@ def _connections(log):
         vector=compact('wifi-stack5-pings',' '.join('pn'+str(i) for i in range(64)))
         pings=[vector['pn'+str(i)] for i in range(64)]
         require(all(pn in by_pn and by_pn[pn]['token']==pn+4 and by_pn[pn]['bytes']==136 and
-                    (not i or pn>pings[i-1]) for i,pn in enumerate(pings)) and
-                any(by_pn[pn]['token']<=63 for pn in pings) and any(by_pn[pn]['token']>63 for pn in pings),
-                'missing exact ICMP publications across real TX fence')
+                    (not i or pn>pings[i-1]) for i,pn in enumerate(pings)),
+                'missing exact ICMP publications')
         workload=take('wifi-stack5-workload',WORKLOAD_KEYS)
         require(fragment[raw['position']()-1]=='wifi-stack5-workload: '+' '.join(k+'='+str(workload[k]) for k in WORKLOAD_KEYS.split()),
                 'noncanonical connection workload')
@@ -138,7 +137,7 @@ def _connections(log):
         require(not groups or receipt['next_token']>groups[-1]['next_token'],'reused adapter TX token')
         groups.append(dict(generation=generation,epoch=receipt['epoch'],next_token=receipt['next_token'],
                            submitted=receipt['submitted'],received=receipt['received'],commands=current_commands,
-                           rings=raw['rings'],pings=64,body_bytes=2048,tx_fences=1,rx_fences=1,
+                           rings=raw['rings'],pings=64,body_bytes=2048,tx_fences=raw['wraps'][0],rx_fences=raw['wraps'][1],
                            begin_line=start,close_line=end))
         previous_context={d:raw['contexts'][9,d].copy() for d in (0,1)}
         prior_counters={k:summary[k] for k in prior_counters}

@@ -6,6 +6,7 @@ static void scrub(void *p,size_t n){volatile uint8_t *v=p;while(n--)*v++=0;}
 static bool zero(const void *p,size_t n){const uint8_t *v=p;unsigned a=0;while(n--)a|=*v++;return !a;}
 static bool overlap(const void *a,size_t an,const void *b,size_t bn){uintptr_t x=(uintptr_t)a,y=(uintptr_t)b;return x<=y?y-x<an:x-y<bn;}
 struct run {
+ bool connection;unsigned positions;
  struct net_bounded_probe net;struct net_bounded_probe_io net_io;
  struct mt76_stack5_probe_io io;const struct mt76_stack5_probe_io *source;
  struct mt76_net5 *provider;struct mt76_stack5_probe *result;
@@ -25,7 +26,8 @@ static bool observe(struct run *s){
  if(!current(s))return false;
  struct mt76_net5 *p=s->provider;
  if(p->enqueued<s->enqueued || p->submitted<s->submitted || p->completed<s->completed || p->received<s->received)return fail(s,MT76_STACK5_ACCOUNTING);
- if(!good || o.tx_posts!=4+o.data_tx || o.data_tx!=p->submitted-s->submitted || o.tx_posts>=MT76_STACK5_TX_LIMIT || o.rx_posts>MT76_STACK5_RX_LIMIT-8 || o.tx_cursor>63 || o.rx_cursor>63 || o.fences>MT76_STACK5_FENCE_LIMIT || o.fences!=o.tx_wraps+o.rx_wraps || o.services>=MT76_STACK5_POLLS || p->epoch!=s->io.epoch || p->state!=MT76_NET5_UP || p->faults || p->dropped || p->enqueued<p->submitted || p->submitted<p->completed)return fail(s,MT76_STACK5_OBSERVATION);
+ if(!good || o.tx_posts!=4+o.data_tx || o.data_tx!=p->submitted-s->submitted || o.tx_posts>=MT76_STACK5_TX_LIMIT || o.rx_posts>MT76_STACK5_RX_LIMIT-8 || o.tx_cursor>s->positions || o.rx_cursor>s->positions || o.fences>MT76_STACK5_FENCE_LIMIT || o.fences!=o.tx_wraps+o.rx_wraps || o.services>=MT76_STACK5_POLLS || p->epoch!=s->io.epoch || p->state!=MT76_NET5_UP || p->faults || p->dropped || p->enqueued<p->submitted || p->submitted<p->completed)return fail(s,MT76_STACK5_OBSERVATION);
+ if(s->connection && (o.tx_wraps || o.rx_wraps>1 || o.tx_after || o.tx_cursor!=o.tx_posts || o.rx_posts<127u*o.rx_wraps || o.rx_cursor!=o.rx_posts-127u*o.rx_wraps))return fail(s,MT76_STACK5_OBSERVATION);
  s->observation=o;return true;
 }
 static bool drain(struct run *s){
@@ -39,7 +41,7 @@ static bool drain(struct run *s){
 static bool run_probe(struct mt76_stack5_probe *r,struct mt76_net5 *p,const struct mt76_stack5_probe_io *io,bool connection){
  if(!r || !p || !io || !io->context || !io->current || !io->retry_ready || !io->observe || !io->epoch || !io->deadline_us || !zero(r,sizeof *r) || overlap(r,sizeof *r,p,sizeof *p) || overlap(r,sizeof *r,io,sizeof *io) || overlap(r,sizeof *r,io->context,1))return false;
  r->attempted=true;r->connection_scope=connection;r->version=1;r->requested=MT76_STACK5_PINGS;r->phase=MT76_STACK5_INIT;
- struct run s={.io=*io,.source=io,.provider=p,.result=r};s.start=s.last=timer_monotonic_us();
+ struct run s={.connection=connection,.positions=connection?127u:63u,.io=*io,.source=io,.provider=p,.result=r};s.start=s.last=timer_monotonic_us();
  s.net_io=(struct net_bounded_probe_io){io->context,io->current,io->retry_ready};
  bool initialized=false,good=false;
  if(!same_io(io,&s.io) || !io->current(io->context,io->epoch) || !same_io(io,&s.io)){fail(&s,MT76_STACK5_INITIALIZATION);goto done;}
@@ -71,7 +73,7 @@ static bool run_probe(struct mt76_stack5_probe *r,struct mt76_net5 *p,const stru
   r->ping_pn[i]=s.observation.icmp_pn;r->matched++;r->exact++;r->body_bytes+=MT76_STACK5_BODY;
  }
  if(!drain(&s))goto done;
- if(!s.observation.tx_wraps || !s.observation.rx_wraps || !s.observation.tx_after || !s.observation.rx_after || s.observation.data_tx<r->setup_tx+MT76_STACK5_PINGS || p->enqueued!=p->submitted || p->submitted!=p->completed){fail(&s,MT76_STACK5_ACCOUNTING);goto done;}
+ if((!connection && (!s.observation.tx_wraps || !s.observation.rx_wraps || !s.observation.tx_after || !s.observation.rx_after)) || s.observation.data_tx<r->setup_tx+MT76_STACK5_PINGS || p->enqueued!=p->submitted || p->submitted!=p->completed){fail(&s,MT76_STACK5_ACCOUNTING);goto done;}
  good=true;
  done:
  r->polls=s.net.polls;r->retries=(unsigned)s.net.dhcp_retries;r->arp=(unsigned)s.net.arp_resolutions;r->services=s.observation.services;r->data_tx=(unsigned)s.observation.data_tx;

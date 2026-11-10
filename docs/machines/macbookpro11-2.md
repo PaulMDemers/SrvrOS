@@ -26,6 +26,8 @@ All443 prior files/metadata survive apart from one authorized marker atime;
 exactly two new logs were saved with an intact exit. Offline fsck/allocation
 are clean with zero inspection writes/flushes. Protected payload equality and
 Ubuntu default/unarmed checks pass. Do not recollect or reseal this primary.
+The separate12-file failed-return notes have index
+`051fc7adcb6be837580258e26da22007433d693c3b4c9450aa5fb2f12ec04b34`.
 No new hardware test is armed.
 
 The actual native-owner fixture reproduces the same126-RX/two-fence refusal
@@ -39,8 +41,8 @@ RX252/TX80 bounds and exact Stop/retirement proofs stay separate. Audit a
 pin its geometry across owner/fence/parser contracts and test extra RX, forged
 geometry, old completions, command reserve and full closure before staging.
 This is not an unlimited command-ring reuse design or a persistent-service claim.
-Actual main `72d49457` was fetched: PR458 runtime reservation changes and PR459
-Air6,1 evidence are inspected, with integration to be recorded separately.
+Actual main `72d49457` (PR458 runtime reservation changes and PR459 Air6,1
+evidence) is integrated at `1511c722`; source qualification is pending.
 
 
 ### Qualified MCU observation comparison (November 10)

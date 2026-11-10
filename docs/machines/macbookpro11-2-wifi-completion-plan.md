@@ -9,6 +9,28 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 10)
 
+The67534219/a9 comparison was collected once as00065ff1b8c61e6e-00. Calibration
+passed; the first connection passed DHCP/DNS and54 exact pings, then failed at
+the connection-only two-fence cap after TX63/RX126. No connection closed or
+reconnected. The actual native-owner model reproduces that finite-capacity
+failure with added beacon traffic on unchanged original production code. All443
+prior files survive, offline checks/recovery pass, and the1371-file primary and
+separate12-file failure notes are sealed. No blind retry is armed.
+
+Actual main72d49457 is integrated at1511c722. The correction under qualification
+uses127 transfer positions only for the two-connection recipe, within each
+existing4KiB ring page. Four pages/direction, TX80/RX252,64 exact pings, command
+Link63/no-reuse, conservative two-fence reserve and all deadlines remain fixed.
+TX cannot wrap at this geometry; RX can require one native fence. Old63-position
+single-connection/HTTP recipes keep their independent cross-fence proofs.
+Native owner, raw event/Stop checks, generic sealed fence guard, workload
+observations and strict parser must all pin that geometry. Tests include quiet
+and extra-management RX, both Link/base Stop representations, geometry/DCS
+mutation, stale events and excess-traffic refusal. Software and physical
+acceptance of this correction remain pending; current installed image is the
+closed faileda9 candidate, Ubuntu default/unarmed.
+
+
 Main `c3550c82` is now integrated at `3afff099`, preserving local changes and
 recursive submodule pins. The explicit v140 implementation supports two fresh
 native connection generations within one held adapter lifetime: production

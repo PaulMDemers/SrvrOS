@@ -10,7 +10,7 @@ struct wifi_fence5_native_command {
  bool latched,consumed,stop_event;unsigned cc;
 };
 struct wifi_fence5_native_state {
- bool bound,round,failed,retired,busy,noop,fault_event_valid,opposite_valid;unsigned direction;struct xhci_trb fault_event;unsigned count,first,slot;
+ bool bound,round,failed,retired,busy,noop,fault_event_valid,opposite_valid;unsigned direction;struct xhci_trb fault_event;unsigned count,first,slot,positions;
  bool cycle;uint64_t epoch,last_us,frontier;
  struct xhci_device *device;struct mt76_dma5 *dma;
  void *owner;bool (*owned)(void *,uint64_t,unsigned);
@@ -64,7 +64,7 @@ static bool wifi_fence5_geometry(void){
   for(unsigned i=0;i<3;i++)for(unsigned w=0;w<8;w++)if(context_read32(wifi_fence5_native.output,indices[i],w)!=wifi_fence5_native.normal_parent[i][w])return false;
   for(unsigned dir=0;dir<2;dir++){
    uint64_t deq=context_read32(wifi_fence5_native.output,8+dir,2)|((uint64_t)context_read32(wifi_fence5_native.output,8+dir,3)<<32);
-   if((deq&14) || (deq&~15ull)<d->ring[dir] || (deq&~15ull)>d->ring[dir]+63*16)return false;
+   if((deq&14) || (deq&~15ull)<d->ring[dir] || (deq&~15ull)>d->ring[dir]+wifi_fence5_native.positions*16)return false;
   }
   for(unsigned dir=0;dir<2;dir++)for(unsigned w=0;w<8;w++){
    uint32_t value=context_read32(wifi_fence5_native.output,8+dir,w),expected=wifi_fence5_native.normal_config[dir][w];
@@ -93,7 +93,7 @@ static bool wifi_fence5_base(void){
   d->output_context==wifi_fence5_native.output && d->output_context_phys==wifi_fence5_native.output_phys &&
   xhci.command_ring==wifi_fence5_native.command_ring && xhci.command_ring_phys==wifi_fence5_native.command_phys &&
   xhci.command_cycle==wifi_fence5_native.cycle && xhci.command_enqueue>=wifi_fence5_native.first && xhci.command_enqueue<63 &&
-  wifi_fence5_native.dma->epoch==wifi_fence5_native.epoch && wifi_fence5_native.dma->positions==63 && wifi_fence5_geometry();
+  wifi_fence5_native.dma->epoch==wifi_fence5_native.epoch && wifi_fence5_native.dma->positions==wifi_fence5_native.positions && (wifi_fence5_native.positions==63 || wifi_fence5_native.positions==127) && wifi_fence5_geometry();
 }
 /* Capacity estimate only;begin/publication still independently validate. */
 static __attribute__((unused)) unsigned wifi_fence5_commands_available(void){
@@ -147,7 +147,7 @@ static bool wifi_fence5_command_event(const struct xhci_trb *e,uint64_t synchron
   uint64_t ptr=r->stop.parameter_low|((uint64_t)r->stop.parameter_high<<32);
   unsigned dir=r->id.dci==8?0:1;uint64_t ring=wifi_fence5_native.rings[dir];
   good=(r->stop_context[0]&7)==3 && !(deq&14) && (deq&~15ull)==ptr &&
-   ((ptr==ring+16*63 && (deq&1)==wifi_fence5_native.dma->cycle[dir]) ||
+   ((ptr==ring+16*wifi_fence5_native.positions && (deq&1)==wifi_fence5_native.dma->cycle[dir]) ||
     (ptr==ring && (deq&1)==(wifi_fence5_native.dma->cycle[dir]^1u)));
   if(good)r->stop_dequeue=deq;
  }
@@ -172,7 +172,7 @@ static bool wifi_fence5_stop_event(const struct xhci_trb *e){
  const uint32_t allowed=1u|(63u<<10)|(31u<<16)|(255u<<24);
  good=good && r->id.type==15 && r->id.slot==slot && r->id.dci==dci && !r->latched && !r->consumed && !r->stop_event &&
   (e->status>>24)==27 && !(e->status&0xffffff) && !(e->control&~allowed) &&
-  wifi_fence5_native.dma->cursor[dir]==63 && (ptr==ring+16*63 || ptr==ring);
+  wifi_fence5_native.dma->cursor[dir]==wifi_fence5_native.positions && (ptr==ring+16*wifi_fence5_native.positions || ptr==ring);
  if(!good){wifi_fence5_bad_event(e);wifi_fence5_fault();}else {
   copy_trb(&r->stop,e);r->stop_event=true;
  }
@@ -268,7 +268,7 @@ static bool wifi_fence5_closed_records(const struct wifi_fence5_native_state *s)
    if(r->id.dequeue || !r->stop_event || r->stop.status!=(27u<<24) ||
       (r->stop.control&~1u)!=((32u<<10)|(r->id.dci<<16)|(s->slot<<24)) ||
       (r->stop_context[0]&7)!=3 || (dequeue&14) || r->stop_dequeue!=dequeue || (dequeue&~15ull)!=stop ||
-      (stop!=ring && stop!=ring+16*63))return false;
+      (stop!=ring && stop!=ring+16*s->positions))return false;
   }else if(r->id.dci!=s->commands[i-1].id.dci || (r->id.dequeue&14) ||
            (r->id.dequeue&~15ull)!=s->rings[r->id.dci==9])return false;
  }
@@ -283,7 +283,7 @@ static __attribute__((unused)) bool wifi_fence5_connection_next(void *old_owner,
  uint64_t f=event_irq_save();bool ok=false;struct wifi_fence5_native_state *s=&wifi_fence5_first;
  if(wifi_fence5_active!=s || wifi_fence5_connection_switched || !s->bound || s->retired || s->failed || s->round || s->busy || s->noop ||
     !old_owner || s->owner!=old_owner || s->epoch!=old_epoch || !old_epoch || !old_dma || s->dma!=old_dma ||
-    old_dma->identity!=(uintptr_t)old_dma || old_dma->epoch!=old_epoch || old_dma->state!=MT76_DMA5_RETIRED || old_dma->positions!=63 ||
+    old_dma->identity!=(uintptr_t)old_dma || old_dma->epoch!=old_epoch || old_dma->state!=MT76_DMA5_RETIRED || old_dma->positions!=s->positions ||
     !next_owner || next_owner==old_owner || next_epoch<=old_epoch || !closed ||
     !xhci.operational || !xhci.controller_owned || xhci.stopping || xhci.stopped || xhci.reclaiming || xhci.reclaimed ||
     xhci.command_pending || xhci.command_failed || xhci.sync_users || xhci.poll_users ||
@@ -304,7 +304,7 @@ static __attribute__((unused)) bool wifi_fence5_bind(struct xhci_device *d,struc
  uint64_t f=event_irq_save();bool ok=false;
  if(wifi_fence5_native.bound || wifi_fence5_native.failed ||
   (wifi_fence5_connection_switched && (owner!=wifi_fence5_next_owner || epoch!=wifi_fence5_next_epoch || d!=wifi_fence5_first.device || dma==wifi_fence5_first.dma || !wifi_fence5_sync_admitted())) ||
-  !d || !dma || !owner || !owned || !epoch || dma->identity!=(uintptr_t)dma || dma->epoch!=epoch || dma->state!=MT76_DMA5_RUNNING || dma->positions!=63 ||
+  !d || !dma || !owner || !owned || !epoch || dma->identity!=(uintptr_t)dma || dma->epoch!=epoch || dma->state!=MT76_DMA5_RUNNING || (dma->positions!=63 && (dma->positions!=127 || dma->noop_only)) ||
   xhci.command_pending || xhci.command_failed || xhci.sync_users || !xhci.command_ring || !xhci.command_ring_phys || xhci.command_enqueue>=63 || (xhci.command_ring_phys&4095) || xhci.command_enqueue+2+WIFI_FENCE5_CLEANUP_COMMANDS>63 || !wifi_fence5_empty())goto done;
  bool listed=false;for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)if(d==&xhci.devices[i])listed=true;if(!listed || !d->output_context || !d->output_context_phys || (d->output_context_phys&4095))goto done;
  for(unsigned dir=0;dir<2;dir++){
@@ -316,7 +316,7 @@ static __attribute__((unused)) bool wifi_fence5_bind(struct xhci_device *d,struc
   if(!ring || (ring&4095) || ring==xhci.command_ring_phys || ring==xhci.event_ring_phys || ring==d->input_context_phys || ring==d->output_context_phys ||
    ((context_read32(d->output_context,dci,1)>>3)&7)!=(dir?6u:2u) || (context_read32(d->output_context,dci,1)>>16)!=512)goto done;
   uint64_t deq=context_read32(d->output_context,dci,2)|((uint64_t)context_read32(d->output_context,dci,3)<<32);
-  if((deq&14) || (deq&~15ull)<ring || (deq&~15ull)>ring+63*16)goto done;
+  if((deq&14) || (deq&~15ull)<ring || (deq&~15ull)>ring+dma->positions*16)goto done;
   for(unsigned i=0;i<4;i++)if(dma->pages[dir][i].state!=MT76_DMA5_FREE)goto done;
  }
  for(unsigned dir=0;dir<2;dir++)for(unsigned i=0;i<4;i++){
@@ -327,7 +327,7 @@ static __attribute__((unused)) bool wifi_fence5_bind(struct xhci_device *d,struc
   if(!page || (page&4095) || page==dma->ring[0] || page==dma->ring[1] || page==xhci.command_ring_phys || page==xhci.event_ring_phys || page==d->input_context_phys || page==d->output_context_phys)goto done;
   for(unsigned prior=0;prior<dir*4+i;prior++)if(page==dma->pages[prior/4][prior%4].lease.page)goto done;
  }
- wifi_fence5_native.noop=dma->noop_only;
+ wifi_fence5_native.noop=dma->noop_only;wifi_fence5_native.positions=dma->positions;
  for(unsigned dir=0;dir<2;dir++){wifi_fence5_native.rings[dir]=dma->ring[dir];for(unsigned i=0;i<4;i++)wifi_fence5_native.pages[dir][i]=dma->pages[dir][i].lease.page;}
  if(dma->noop_only){const unsigned indices[4]={0,9,11,16};for(unsigned i=0;i<4;i++)for(unsigned w=0;w<8;w++)wifi_fence5_native.unrelated[i][w]=context_read32(d->output_context,indices[i],w);}else{
   if(!d->input_context || !d->input_context_phys || (d->input_context_phys&4095))goto done;
