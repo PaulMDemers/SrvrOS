@@ -385,3 +385,24 @@ complete saved app evidence,21 app cycles,140.163ms maximum loop and14 EAGAINs
 with1001 successful capture writes. All original functional/integrity limits
 remain; native acceptance and causal speed attribution remain pending. See the
 [machine checkpoint](machines/macbookair6-1.md#fresh-media-and-capture-owner-candidate-validation-2026-11-10).
+
+
+## Native fresh-media and independent capture result (2026-11-10)
+
+Release `d551c6584bed346e` passes the original1800s1% native trial with1101 app
+cycles,4247 verified disk bursts, three exact BMPs, zero recorded audio underruns,
+120.184ms maximum loop and clean prior-file/allocation/retirement checks. See the
+[machine result](machines/macbookair6-1.md#native-fresh-media-and-independent-capture-2026-11-10).
+The independent-owner/fresh-proof composition is accepted within this bounded
+trial; native corruption injection and isolated speed improvement are not claimed.
+
+Sender spans are0.288–0.648s and post-allocation reception0.117–0.448s, while
+complete captures still take13.8–19.8s. Write phases take8.6–16.3s;96–98% of raw
+write-call wall is admission, versus roughly21ms actual handler wall per capture.
+The worst second-capture gate overlaps an existing PID7 global-sync content
+commit for2.82s. Next audit shared filesystem serialization and repeated growing
+content commits with a deterministic replay, preserving all existing barriers,
+full proofs, ownership rules, scheduling eligibility and runtime limits. Keep
+hardware completion, CPU time and isolated causal claims distinct from these
+software wall/overlap observations. No additional unchanged-policy repeat is
+needed to accept this bounded composition; no new reboot is armed.
