@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-11-09. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-11-10. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 Current diagnostic milestone: the exact-source pre-user two-pass read-only
 sampler is physically accepted on release `2ddbd3b285f6bf41`. All24 DWORD reads
@@ -13,8 +13,10 @@ native result below.
 Latest desktop checkpoint: the [same-command native trial](#native-command-phases-and-ring-results-2026-11-09)
 passes the unchanged30-minute stress test. Screenshot completion latency remains
 open. Its slowest command sees6677 empty ring checks before one completion and
-resumes within1us; no causal transport fix is established. Pixel-transfer pacing
-is next. No performance improvement or hardware cause is claimed.
+resumes within1us; no causal transport fix is established. The fresh-media and
+independent-capture candidate below passes host/VM validation on release
+`d551c6584bed346e`; native acceptance remains pending. No performance improvement
+or hardware cause is claimed.
 
 ## Initial inventory (2026-10-22)
 
@@ -70,7 +72,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 4,019 verified disk bursts, 1,070 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (129.977 ms maximum); retained-reader fresh-media verification gap needs an explicit contract/regression; screenshot completion remains slow; broader interactive/endurance coverage, failure handling and hotplug remain open |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 4,019 verified disk bursts, 1,070 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (129.977 ms maximum); retained-reader fresh-media verification fix passes explicit contract/regression and loaded VM checks, with native validation pending; screenshot completion remains slow; broader interactive/endurance coverage, failure handling and hotplug remain open |
 | Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
@@ -11496,3 +11498,43 @@ limit, UART IRQ lock or stored worst summary is used to bypass missing evidence.
 The harness clears stale companion JSON and retains binary evidence before later
 checks. Revalidate the frozen candidate; app-stage/file-service fallback remains
 an explicit existing evidence limit.
+
+
+## Fresh-media and capture-owner candidate validation (2026-11-10)
+
+PR455 compiles source `b4982ee9a3b41eab875c406fbd32b835c05a37cf`, with ports
+`39ad9d702d018723457e59415e10e22d9778acb8`, into matched release
+`d551c6584bed346e`. Full normal/USB/native-battery/VM-battery builds, core,
+desktop and docs pass locally; hardware-install coverage reports89 tests with
+one skip. The complete historical/candidate save replay passes14 cases, including
+old false success versus new rejection for backing corruption hidden by a
+retained reader. All replay dependencies remain byte-identical at this source.
+
+Ordinary syscall ABI, USB keyboard, fork/exec-vectors/yield, real USB storage
+write/flush/reload and capture/readback/Preview/repeat/exit checks pass. The
+populated Home KVM at400 write IOPS completes21 app cycles and176 observed overlap
+windows with zero recorded audio underruns, all67 prior files preserved, exact
+BMP and binary disk receipt, clean allocation and complete saved app records.
+Maximum loop/ready/close durations are140.163ms/1.121010s/1.545872s under the
+unchanged500ms/10s bounds. Exact-stage Q35 rehearsal verifies the native profile's
+resource refusal, saved report, unmount and automatic return; it accepts no
+native EC ownership. Independent review reproduces all retained assessments
+from saved/checkpoint logs without console fallback, including exact lifecycle
+receipts, and checks raw BMP pixels against the PNG and the40-byte disk receipt.
+The disposable whole-volume image is not retained for a second traversal; its
+prior-file/allocation checks remain the source-bound harness evidence.
+
+The loaded capture completes in14.349282s. Its sender spans393.242ms, allocation
+66.816ms, subsequent reception297.934ms and owner final-response observation
+7.637ms. There are1001 successful writes and14 EAGAINs, rather than the first
+candidate's11047 retries. These are source-bound VM observations, not native
+performance acceptance: the proof progress traffic and response observer change,
+and storage/barrier cost remains substantial.
+
+Next is the original automated1800s1% audio/disk/app/three-screenshot hardware
+trial, with60s tail, unchanged500ms loop/10s lifecycle, all fresh byte proofs,
+prior-file hashes, sync/command/transfer/history records and clean retirement.
+Recheck this unit's USB6ADA-85BB, AC, Ubuntu default and recoveryc354 payload,
+full independent backups, offline allocation and exact release before arming.
+No native candidate acceptance is claimed here. The intermittent battery cause,
+screenshot child-status/cleanup receipts and storage amplification remain open.
