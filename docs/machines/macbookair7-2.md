@@ -1,6 +1,23 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
+
+### Active scope: pre-user-init held-reset qualification
+
+Integrating main`486b6d2a` (PR452/453 capture telemetry and Air6,1 evidence).
+Next candidate changes only diagnostic startup ordering: specialize the held-reset
+image's main object, and defer system init only for its exact18-token recipe.
+That automatic profile always saves/unmounts and returns or halts; it never
+continues to the desktop without init. Ordinary images and malformed/other
+recipes retain normal init. Kernel workspace/logging, input and timer services
+stay available; root/occupancy guards, full GPU/HDA preservation and100/300/500ms
+limits remain. Qualify the combined preparation/PCI/reset/cancellation lifetime
+in one candidate, with original admission witness and strict return collection.
+
+Touched scope: kernel main/startup helper, held-reset Makefile isolation,
+host startup regressions and exact-stage VM/collector ordering checks. PR19
+networking and PR379 WebCore are independent; Air6,1 capture telemetry is consumed,
+not reimplemented. No new physical acceptance or reboot is armed by this scope.
 
 ### Collected: original query refuses two registered address spaces
 
