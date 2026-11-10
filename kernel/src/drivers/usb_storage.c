@@ -13,9 +13,14 @@ static bool timing_active,aux_timing_active;
 static struct usb_storage_timing timing,aux_timing;
 static struct usb_storage_content_timing content_timing;
 static bool content_active,content_command_active;
+static struct usb_storage_command_timing content_command;
+static bool content_command_peak;
 static unsigned content_role=USB_STORAGE_CONTENT_ROLES-1,content_depth;
 static unsigned content_command_role;
-static void content_bad(void) { content_timing.valid=0;content_timing.invalid=1; }
+static void content_bad(void) {
+    content_timing.valid=0;content_timing.invalid=1;
+    if(content_command_active)content_command.valid=0;
+}
 static void content_add(uint64_t *sum,uint64_t value) {
     if(value>UINT64_MAX-*sum)content_bad();else *sum+=value;
 }
@@ -64,6 +69,8 @@ static bool content_command_begin(uint8_t opcode,uint32_t bytes) {
     if(!content_active)return false;
     if(content_command_active || !aux_timing_active) {content_bad();return false;}
     content_command_active=true;content_command_role=content_role;
+    content_command=(struct usb_storage_command_timing){.valid=content_timing.valid,.role=content_role};
+    content_command_peak=false;
     struct usb_storage_content_role *p=&content_timing.roles[content_command_role];
     if(opcode==0x28) {content_add(&p->read_commands,1);content_add(&p->read_bytes,bytes);}
     else if(opcode==0x2a) {
@@ -78,7 +85,27 @@ static void content_command_end(bool owned,bool ok) {
     if(!owned || !content_command_active)return;
     if(!content_active) {content_bad();content_command_active=false;return;}
     if(!ok)content_add(&content_timing.roles[content_command_role].failed_commands,1);
+    content_command.complete=1;content_command.ok=ok;
+    if(content_command_peak)content_timing.command=content_command;
     content_command_active=false;
+}
+static void content_command_bulk(unsigned phase,uint64_t start,uint64_t end,
+    uint32_t requested,uint32_t actual) {
+    if(!content_active || !content_command_active)return;
+    if(phase>2 || end<start || (content_command.end_us && start<content_command.end_us)) {
+        content_bad();return;
+    }
+    struct usb_storage_command_phase *p=&content_command.phase[phase];
+    if(!p->calls)p->first_us=start;
+    content_add(&p->calls,1);content_add(&p->requested,requested);
+    content_add(&p->actual,actual);content_add(&p->us,end-start);p->last_us=end;
+    if(!content_command.start_us)content_command.start_us=start;
+    content_command.end_us=end;
+    if(phase==2) {
+        content_command.csw_start_us=start;content_command.csw_end_us=end;
+        const struct usb_storage_command_timing *old=&content_timing.command;
+        content_command_peak=!old->complete || end-start>old->csw_end_us-old->csw_start_us;
+    }
 }
 bool usb_storage_timing_enabled(void) { return timing_active || aux_timing_active || content_active; }
 bool usb_storage_timing_begin(void) {
@@ -156,6 +183,7 @@ static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
     uint64_t end=timer_monotonic_us();
     struct usb_bulk_timing sample={0};
     if(s->transfer_timing)s->transfer_timing(s->context,&sample);
+    content_command_bulk(phase,start,end,length,*actual);
     /* Capture once, then copy the same observation into independent windows.
      * No additional bulk/controller request or event-service operation. */
     if(legacy)record_bulk(&timing,phase,start,end,ok,s->transfer_timing!=0,&sample);
@@ -204,6 +232,15 @@ static void timed_checkpoint(void) {
     timing_add(&aux_timing,&aux_timing.checkpoint_calls,1);
     if(end<start)aux_timing.valid=false;
     else timing_add(&aux_timing,&aux_timing.checkpoint_us,end-start);
+    if(content_active && content_command_active) {
+        if(end<start || start<content_command.end_us)content_bad();
+        else {
+            if(!content_command.checkpoint_calls)content_command.checkpoint_first_us=start;
+            content_add(&content_command.checkpoint_calls,1);
+            content_add(&content_command.checkpoint_us,end-start);
+            content_command.checkpoint_last_us=end;content_command.end_us=end;
+        }
+    }
 }
 
 static uint32_t le32(const uint8_t *p) {

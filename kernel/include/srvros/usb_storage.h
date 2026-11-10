@@ -12,6 +12,7 @@ typedef bool (*usb_bulk_fn)(void *, bool, void *, uint32_t, uint32_t *);
 struct usb_bulk_timing {
     uint64_t submitted, observed, resumed;
     uint64_t service_checks,service_samples,service_gap_max_us,completion_gap_us;
+    uint64_t empty_checks,event_checks,last_empty_sample_us;
     bool seen,service_valid;
 };
 struct usb_storage {
@@ -59,9 +60,21 @@ struct usb_storage_content_role {
     uint64_t write_over100ms,write512_over100ms;
     struct usb_storage_csw_timing worst;
 };
+/* One complete command companion for the first strict CSW maximum in this
+ * content. Callback/checkpoint clocks are reused, never sampled again here.
+ * The command result follows full original validation, unlike bulk .ok. */
+struct usb_storage_command_phase {
+    uint64_t calls,requested,actual,us,first_us,last_us;
+};
+struct usb_storage_command_timing {
+    uint64_t valid,complete,ok,role,start_us,end_us,csw_start_us,csw_end_us;
+    uint64_t checkpoint_calls,checkpoint_us,checkpoint_first_us,checkpoint_last_us;
+    struct usb_storage_command_phase phase[3];
+};
 struct usb_storage_content_timing {
     uint64_t valid,active,invalid;
     struct usb_storage_content_role roles[USB_STORAGE_CONTENT_ROLES];
+    struct usb_storage_command_timing command;
 };
 bool usb_storage_content_begin(void);
 void usb_storage_content_end(struct usb_storage_content_timing *out);

@@ -99,3 +99,42 @@ still survive the unchanged64KiB tail. Actual loaded VM and native evidence,
 not row bounds alone, establish retention. CSW timing is software-observed wall,
 not exact device completion or CPU time. No speed gain or hardware cause follows
 from a long CSW without the corresponding bound evidence.
+
+## Same-command phase and ring-result companion
+
+One fixed240-byte companion retains the first strict CSW maximum within the
+selected content window. It is copied after the original command validation and
+final checkpoint, with role and exact CSW start/end clocks matching an existing
+role worst. It is not an independently selected worst CBW, data or checkpoint.
+Three phases retain calls, requested/actual bytes, callback wall and first/last
+clocks. Checkpoint count/wall and first/last clocks use the original checkpoint
+samples. No new clock read or controller operation is added. Complete/ok describe
+the command's final validation outcome; a successful CSW callback alone does
+not establish successful command validation. Failure, overflow and invalid
+clock evidence cannot establish acceptance. The successful timing envelope ends
+at the final existing checkpoint sample; it does not include the unmeasured CPU
+tail from that sample to function return.
+
+`sync-bot-command`, three `sync-bot-phase` rows and `sync-bot-service` bind the
+final snapshot, selected sync/content identity, role and exact CSW interval.
+`tools/sync_command_phases.py` strictly joins these to the existing version1
+command/content/sync reports. Historical command reports remain parseable by
+their original parser; new positive trials separately require this companion.
+Missing, conflicting, failed or misbound companions fail the new diagnostic
+requirement. No-work snapshots emit only an empty command header.
+
+The service row classifies each original event-ring cycle check as empty or
+event-present. It reuses the existing clock before every256th check to retain
+the last sample whose subsequent original cycle read found an empty head.
+The matching completion event is counted before its owner is cleared. Counts
+must sum to the same CSW's service-check count. The empty sample is a pre-check
+software clock, not the exact empty-read, event-arrival or device-completion
+time. No new event-ring read, clock, wait, scheduler operation or hardware policy
+is introduced. Stale ownership, counter overflow and clock regression invalidate
+diagnostics only. Event counts may include unrelated devices; they do not prove
+which device delayed a command.
+
+All original4096-byte bulk/16384-byte command bounds, BOT serialization,2-second
+controller request deadlines, validation, quarantine, checkpoint eligibility,
+durability barriers and owner lifetimes remain unchanged. The companion requires
+the same atomic-record and64KiB saved-tail proof alongside every older receipt.

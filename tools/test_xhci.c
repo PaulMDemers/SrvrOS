@@ -658,9 +658,11 @@ static bool trace_bulk;
 static uint64_t resume_delay,service_pause;
 bool usb_storage_timing_enabled(void) { return trace_bulk; }
 static uint64_t test_time, test_time_step=1000, complete_at;
+static uint64_t test_clock_reads;
 static struct xhci_device *complete_device;
 static bool complete_control;
 uint64_t timer_monotonic_us(void) {
+    test_clock_reads++;
     test_time+=test_time_step;
     if(receive_test_device)receive_test_tick();
     if(passive_test_device)passive_test_tick();
@@ -844,6 +846,55 @@ static void test_service_gap_edges(void) {
     storage_service_check();assert(!d.bulk_timing.service_valid && d.bulk_timing.service_checks==UINT64_MAX);
     storage_timing_device=NULL;test_time_step=1000;
 }
+static void test_service_ring_results(void) {
+    reset_test();test_time=100;test_time_step=0;complete_device=NULL;
+    struct xhci_device d={0};
+    struct xhci_trb ring[XHCI_EVENT_TRB_COUNT]={0},event={0};
+    xhci.event_ring=ring;xhci.event_ring_phys=0x1000;xhci.event_cycle=true;xhci.rt_base=0x2000;
+    d.bulk_timing.service_valid=true;d.bulk_service_at=100;storage_timing_device=&d;
+    uint64_t clocks=test_clock_reads;
+    assert(!poll_event(&event));
+    assert(d.bulk_timing.service_checks==1 && d.bulk_timing.empty_checks==1 &&
+        !d.bulk_timing.event_checks && d.bulk_timing.last_empty_sample_us==100);
+    test_time=200;
+    for(unsigned i=0;i<255;i++)assert(!poll_event(&event));
+    assert(d.bulk_timing.service_checks==256 && d.bulk_timing.empty_checks==256 &&
+        d.bulk_timing.last_empty_sample_us==100); /* Unsampled checks add no clock. */
+    ring[0]=(struct xhci_trb){.parameter_low=0x1234,.control=(32u<<10)|1u};
+    assert(poll_event(&event) && event.parameter_low==0x1234 && xhci.event_dequeue==1);
+    assert(d.bulk_timing.service_checks==257 && d.bulk_timing.event_checks==1 &&
+        d.bulk_timing.last_empty_sample_us==100 && d.bulk_timing.service_samples==2);
+    test_time=300;
+    for(unsigned i=0;i<255;i++)assert(!poll_event(&event));
+    assert(d.bulk_timing.last_empty_sample_us==100);
+    assert(!poll_event(&event));
+    assert(d.bulk_timing.service_checks==513 && d.bulk_timing.empty_checks==512 &&
+        d.bulk_timing.event_checks==1 && d.bulk_timing.last_empty_sample_us==300 &&
+        d.bulk_timing.service_samples==3 && d.bulk_timing.service_valid);
+    assert(test_clock_reads-clocks==3); /* Only the original every256 samples. */
+    /* Overflow/rollback invalidate evidence without altering ring behavior. */
+    d.bulk_timing.empty_checks=UINT64_MAX;
+    assert(!poll_event(&event) && d.bulk_timing.empty_checks==UINT64_MAX &&
+        !d.bulk_timing.service_valid && xhci.event_dequeue==1);
+    d.bulk_timing.service_valid=true;d.bulk_timing.empty_checks=0;
+    d.bulk_timing.event_checks=UINT64_MAX;ring[1].control=1;
+    assert(poll_event(&event) && d.bulk_timing.event_checks==UINT64_MAX &&
+        !d.bulk_timing.service_valid && xhci.event_dequeue==2);
+    d.bulk_timing=(struct usb_bulk_timing){.service_valid=true};d.bulk_service_at=300;
+    test_time=299;
+    assert(!poll_event(&event) && !d.bulk_timing.service_valid && !d.bulk_timing.last_empty_sample_us);
+    /* A stale saved observer cannot classify a replacement's check. */
+    struct xhci_device peer={0};storage_timing_device=&peer;
+    storage_service_result(&d,true,false);
+    assert(!d.bulk_timing.service_valid && !peer.bulk_timing.empty_checks);
+    storage_timing_device=NULL;
+    struct usb_bulk_timing saved=d.bulk_timing;
+    clocks=test_clock_reads;
+    assert(!poll_event(&event) && !memcmp(&saved,&d.bulk_timing,sizeof(saved)));
+    assert(test_clock_reads==clocks);
+    test_time_step=1000;
+    puts("xhci-service-ring: PASS exact existing checks, sampled empty head, unrelated event and invalid/foreign observation");
+}
 static void test_storage_wait(void) {
     assert(storage_poll_us==20000);storage_poll_us=4000; /* Retain initial-policy regression cases. */
     reset_test();test_time=100000;test_time_step=3;test_io_active=true;
@@ -868,6 +919,9 @@ static void test_storage_wait(void) {
     assert(sample.seen && sample.observed-sample.submitted>=500000 && sample.resumed-sample.observed==resume_delay+2*test_time_step);
     assert(sample.service_valid && sample.service_checks>=sample.service_samples);
     assert(sample.service_samples==(sample.service_checks-1)/256+1);
+    assert(sample.empty_checks>0 && sample.event_checks>0 &&
+        sample.empty_checks+sample.event_checks==sample.service_checks &&
+        sample.last_empty_sample_us>=sample.submitted && sample.last_empty_sample_us<=sample.observed);
     assert(sample.service_gap_max_us<11000 && sample.completion_gap_us<=sample.service_gap_max_us);
     assert(!storage_timing_device);
     resume_delay=0;
@@ -7859,6 +7913,7 @@ int main(int argc, char **argv) {
     test_device_inventory();
     test_storage();
     test_service_gap_edges();
+    test_service_ring_results();
     test_storage_wait();
     test_root_ports();
     test_address_recovery();
