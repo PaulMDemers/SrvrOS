@@ -17,6 +17,17 @@ int desk_file_job_init(struct desk_file_job *job) {(void)job;assert(!"unexpected
 void desk_file_job_close(struct desk_file_job *job) {(void)job;assert(!"unexpected file helper close");}
 
 static unsigned capture_closes,capture_reap_pending;
+static unsigned scaled_capture_probe,scaled_capture_snapshots;
+int desk_capture_job_snapshot(struct desk_capture_job *j,const uint32_t *pixels,uint32_t width,uint32_t height) {
+    assert(scaled_capture_probe && pixels && width==2 && height==2 && j->pixels);
+    for(unsigned n=0;n<4;n++)assert(pixels[n]==0x203040);
+    memcpy(j->pixels,pixels,16);j->snapshotted=1;scaled_capture_snapshots++;return 0;
+}
+int desk_capture_job_poll_transfer(struct desk_capture_job *j) {(void)j;assert(!"unexpected UI capture transfer");return -1;}
+int desk_capture_job_start(struct desk_capture_job *j,const uint32_t *pixels,uint32_t width,uint32_t height,const char *path) {
+    (void)j;(void)pixels;(void)width;(void)height;(void)path;assert(!"unexpected synchronous capture start");return -1;
+}
+
 int desk_capture_job_trace(struct desk_capture_job *j,int enabled) {j->transfer.enabled=!!enabled;return 0;}
 int desk_capture_job_prepare(struct desk_capture_job *j,uint32_t width,uint32_t height,const char *path) {
     (void)j;(void)width;(void)height;(void)path;assert(!"unexpected capture preparation");return -1;
@@ -114,6 +125,7 @@ long srv_exec(const struct srv_exec_request *request) {
 }
 long srv_ticks(void) { return (long)now; }
 long srv_monotonic_us(void) { return (long)(now*10000); }
+long srv_getpid(void) { return 4; }
 long srv_realtime_us(void) { return 1792326896000000L; }
 int desk_process_alive(uint64_t pid) { return pid==42 && alive; }
 long srv_kill(int64_t pid) { assert(pid==42); alive=0; killed++; now+=kill_delay; return 0; }
@@ -1164,6 +1176,20 @@ static int render_proof_fixture(void) {
         .blocks=1,.signals=1,.dispatches=1,.max_ready_us=1000,.wake_us=552500,.run_us=553500,.wake_tick=1,.reason=1}};
     loop_trace_end(&t,559100,4,13,3);loop_trace_report(&t,1);return 0;
 }
+static void scaled_capture_preparation(void) {
+    struct capture_worker owner={0};struct session s={.capture_owner=&owner};
+    uint32_t physical[16],snapshot[4];for(unsigned n=0;n<16;n++)physical[n]=0x203040;
+    struct desk_canvas canvas={.pixels=physical,.width=2,.height=2,.stride=4,.scale=2};
+    s.damage.width=s.damage.height=2;s.capture.busy=1;
+    owner.job=(struct desk_capture_job){.pid=42,.reader=10,.writer=11,.busy=1,.pixels=snapshot};
+    owner.job.request.width=owner.job.request.height=2;strcpy(owner.job.request.path,"/proof.bmp");
+    int before_allocations=allocations,before_frees=frees;
+    capture_owner_publish(&owner,CAPTURE_OWNER_PREPARING);capture_tick_scaled(&s,&canvas);
+    assert(allocations==before_allocations && frees==before_frees && !scaled_capture_snapshots);
+    scaled_capture_probe=1;capture_owner_publish(&owner,CAPTURE_OWNER_PREPARED);capture_tick_scaled(&s,&canvas);scaled_capture_probe=0;
+    assert(scaled_capture_snapshots==1 && allocations==before_allocations+1 && frees==before_frees+1 &&
+        capture_owner_state(&owner)==CAPTURE_OWNER_TRANSFERRING && !s.capture.pixels && s.capture.reader==-1);
+}
 int main(int argc,char **argv) {
     if(argc==2 && (!strcmp(argv[1],"--capture-history-fixture") || !strcmp(argv[1],"--capture-transfer-fixture") || !strcmp(argv[1],"--capture-transfer-periodic-fixture"))) {
         struct capture_history h={0};
@@ -1555,6 +1581,7 @@ int main(int argc,char **argv) {
     execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
     capture_cleanup_ownership();
+    scaled_capture_preparation();
     asynchronous_client_termination();
     asynchronous_child_reap();
     profile_transfer_diagnostic_launch();

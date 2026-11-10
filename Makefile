@@ -2773,6 +2773,14 @@ build/tests/file-change-host$(HOST_EXE): tools/test_file_change.c kernel/src/arc
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-file-change
 
+.PHONY: test-file-verify
+test-file-verify: build/tests/file-verify-host$(HOST_EXE)
+	$<
+build/tests/file-verify-host$(HOST_EXE): tools/test_file_verify.c kernel/src/file_verify.c kernel/src/arch/x86_64/syscall.c shared/include/srvros/file_verify.h kernel/include/srvros/file_verify_kernel.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/file_verify.c -Wl,--gc-sections -o $@
+test-core: test-file-verify
+
 .PHONY: test-files
 test-files: build/tests/files-host$(HOST_EXE)
 	$<
@@ -3017,6 +3025,13 @@ test-capture: build/tests/capture-job-host$(HOST_EXE) build/tests/capture-save-h
 	build/tests/capture-save-host$(HOST_EXE)
 	build/tests/capture-transport-host$(HOST_EXE)
 	build/tests/capture-pacing-host$(HOST_EXE)
+test-capture: test-capture-owner
+.PHONY: test-capture-owner
+test-capture-owner: build/tests/capture-owner-host$(HOST_EXE)
+	build/tests/capture-owner-host$(HOST_EXE)
+build/tests/capture-owner-host$(HOST_EXE): tools/test_capture_worker.c userspace/deskd/capture_worker.h userspace/lib/src/desk_capture_job.c userspace/lib/include/srvros/desk_capture_job.h shared/include/srvros/desktop_capture.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread -I shared/include -idirafter userspace/lib/include $< -o $@
 build/tests/capture-pacing-host$(HOST_EXE): tools/test_capture_pacing.c userspace/lib/src/desk_capture_job.c userspace/lib/include/srvros/desk_capture_job.h shared/include/srvros/desktop_capture.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< -o $@
@@ -5081,3 +5096,10 @@ test-sync-content: $(LIMINE_PROTOCOL_DIR)/.ready build/tests/desktop-session-hos
 	$(PYTHON) -m unittest discover -s tools -p test_capture_transfer.py
 	$(PYTHON) tools/test_capture_transfer_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
 test-core: test-sync-content
+
+.PHONY: test-capture-media-integration
+test-capture-media-integration: $(LIMINE_PROTOCOL_DIR)/.ready
+	$(PYTHON) tools/test_capture_media_integration.py
+test-core: test-capture-media-integration
+
+build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/capture_worker.h

@@ -11404,5 +11404,50 @@ readback/cleanup barriers, limits and power/device gates. Root owns API/core/
 shotworker, subagents own syscall tests and integration fixtures; one sequential
 build/VM owner. Follow with the independent readiness/transport change only
 after this correctness contract is validated. PR301 lifetime-owner work remains
-separate; PR19/379 do not overlap this API. Publish the candidate and host/VM
+separate; PR19 uses syscall169 in its actual Wi-Fi diff; verification selects170 to avoid
+a numeric collision. PR379 remains separate. Publish the candidate and host/VM
 results before physical acceptance; no prior native result accepts this change.
+
+The dependent transport work prepares a separate exclusive screenshot owner,
+with narrow simple-pipe readiness under unchanged scheduler eligibility. Root
+and subagents additionally touch the poll implementation/test and desktop
+capture/scaled-snapshot ownership, with no shared filesystem/power optimization.
+Validate the new [media proof](../file-media-verification.md) and transport as
+separate regressions before the combined candidate. Correctness validation now
+reproduces actual historical full-save false success after final-path corruption
+and rejects it in the candidate; checked rename still refuses retained temporary
+readers. Snapshot proof progress now emits start/completion rather than per64KiB
+read frames, so later completion timings must account for that protocol traffic
+change separately from transport pacing.
+
+### Verification and capture-owner host candidate (2026-11-10)
+
+The complete real process/exFAT/VFS save fixture passes14 candidate/historical
+cases. Actual historical save.c falsely returns success when final media
+corruption is hidden by a reader acquired after checked rename; the candidate
+returns I/O failure and preserves the destination. Temporary corruption now
+fails before rename. Positive retained readers, ordinary shared RAM semantics,
+checked-rename refusal, anchor contents, fsck and allocation remain correct.
+The new verification syscall170 (169 is already used by the actual PR19 diff)
+uses fresh VFS bytes, exact type/identity/length/mtime and bounded checked copies;
+normal opens, shared buffers and all barriers remain intact.
+
+The dedicated [capture owner](../desktop-capture-ownership.md) and strict pipe
+metadata wait pass focused host tests. Actual job/pipes/pthreads transfer the
+full Air input with no UI polling while unrelated work is held pending. Tests
+cover prepared/partial/accepted cancellation, deterministic cancel/stop while
+SNAPSHOTTING, buffered final before child exit, joining, allocation failure and
+exact FD/mapping/PID retirement. They exposed and fixed a stop-after-DONE wake
+race. The scale2 scene checks no discarded pre-prepare conversion. Host seams
+are portable POSIX; the protocol peer models persistence, while the separate
+complete-save fixture exercises real filesystem work.
+
+Independent API, pipe and owner reviews find no current production blocker.
+They prompted a final-comparison metadata fault test and snapshot-copy race
+coverage. Same-process scheduler exclusion remains unchanged; the requested10ms
+poll timeout is not a universal cancellation deadline. Existing screenshot
+child-exit status and failed-temp-cleanup receipts remain separate robustness
+gaps. No native performance/acceptance claim is made. Next checkpoint is frozen
+matched images, full core/desktop checks, ordinary and loaded guest composition,
+strict saved receipts, exact-stage rehearsal and verified recovery/install/run
+records before the original30-minute1% automated trial.

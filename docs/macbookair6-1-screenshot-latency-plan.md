@@ -357,3 +357,22 @@ candidate. Keep storage amplification separate; do not remove barriers, prefix
 proofs or change global-sync semantics. The existing stream API refuses this
 USB's128KiB clusters and is not a drop-in replacement. All original limits and
 integrity requirements remain. The audit prepares no new payload or reboot.
+
+## Fresh-media and independent-owner candidate (2026-11-10)
+
+The correctness-first host implementation now rejects the complete historical
+save wrapper's reproduced final-proof false success while preserving ordinary
+shared readers and checked-rename refusal. See the [verification contract](file-media-verification.md).
+The dependent [capture owner](desktop-capture-ownership.md) preserves admission
+budgets and all retirement/save proofs, with narrow metadata-only pipe polling
+and unchanged scheduler eligibility. Host regressions cover full input without
+UI turns, blocked unrelated work, cancellation/stop including active snapshot
+copy, buffered final, full resource retirement and scaled delayed preparation.
+
+Validate matched normal/native/VM images, the complete core/desktop suites,
+loaded guest composition and all saved old/new evidence before native acceptance.
+The verification progress stream and response-observer thread both change, so
+later timings must state these differences. Storage amplification, discarded
+screenshot child status, cleanup diagnostics and intermittent battery cause
+remain distinct open work. Do not relax500ms/10s, workload duration, pipe/bulk
+bounds, storage ownership, barriers or byte proofs for this candidate.

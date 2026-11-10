@@ -83,6 +83,7 @@ static void life_terminate_log(uint64_t pid,uint64_t elapsed,long result) {
 }
 #include "operation_trace.h"
 #include "lifecycle_worker.h"
+#include "capture_worker.h"
 /* Worker implementations above use direct console output. Only the UI thread
  * calls these wrappers; stop routing before joining/draining the report worker. */
 static struct lifecycle_worker *ui_logger;
@@ -142,6 +143,7 @@ struct session {
     const char *home,*profile_transfer_stop;
     struct srv_profile_session profile;
     struct lifecycle_worker *worker;
+    struct capture_worker *capture_owner;
     int startup_trace;
     struct lifetime_trace current_lifetime,ready_worst,close_worst;
     struct message_trace message;
@@ -1433,8 +1435,11 @@ static struct capture_trace capture_snapshot(const struct session *s,uint64_t no
         .started_us=j->started_us,.finished_us=j->finished_us,
         .cleanup_us=j->cleanup_us,.close_us=j->close_us,.unmap_us=j->unmap_us,.reap_us=j->reap_us,
         .transfer=j->transfer,
-        .cleanup_pending=s->worker && life_state(&s->worker->capture.state)!=LIFE_IDLE,
-        .id=j->request.id,.busy=j->busy,.pending=s->capture_pending || (s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE),.phase=j->phase,.frames=j->progress_frames,
+        .cleanup_pending=s->capture_owner?capture_owner_state(s->capture_owner)==CAPTURE_OWNER_RETIRING:
+            s->worker && life_state(&s->worker->capture.state)!=LIFE_IDLE,
+        .id=j->request.id,.busy=j->busy,.pending=s->capture_pending || (s->capture_owner?
+            (capture_owner_state(s->capture_owner)==CAPTURE_OWNER_PREPARING || capture_owner_state(s->capture_owner)==CAPTURE_OWNER_PREPARED):
+            (s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE)),.phase=j->phase,.frames=j->progress_frames,
         .finished=s->capture_finished,.status=j->response.status};
     memcpy(c.phases,j->phase_us,sizeof(c.phases));return c;
 }
@@ -1481,6 +1486,14 @@ static struct operation_trace operation_snapshot(const struct session *s,uint64_
 static void capture_tick(struct session *s,const uint32_t *pixels) {
     int result=0;
     if(s->capture.pid)s->capture_worker_pid=s->capture.pid;
+    if(s->capture_owner) {
+        result=capture_owner_poll(s->capture_owner,&s->capture,&s->capture_worker_pid);
+        if(s->capture.pid)s->capture_worker_pid=s->capture.pid;
+        if(!result && capture_owner_state(s->capture_owner)==CAPTURE_OWNER_PREPARED) {
+            if(capture_owner_snapshot(s->capture_owner,&s->capture,pixels,s->damage.width,s->damage.height)>0)
+                desk_log("deskd: screenshot captured path=%s width=%d height=%d\n",s->capture.request.path,s->damage.width,s->damage.height);
+        }
+    } else {
     if(s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE) {
         int prepared;
         if(!life_prepare_take(s->worker,&s->capture,&prepared))return;
@@ -1499,6 +1512,7 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
             if(completed)(void)life_capture_submit(s->worker,&s->capture,completed);
         }
     } else if(!result)result=desk_capture_job_poll(&s->capture);
+    }
     if(result) {
         int success=result>0 && !s->capture.response.status;
         s->capture_success=success;s->capture_finished++;
@@ -1518,6 +1532,12 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
     int path_length=snprintf(path,sizeof(path),"%s/Screenshots/Screen-%s-%llu-%u.bmp",s->home?s->home:DESK_RAM_HOME,date,(unsigned long long)srv_getpid(),s->capture.next_id+1);
     if(path_length<0 || (size_t)path_length>=sizeof(path)) {
         s->capture_pending=0;capture_notice(s,0,"The profile path is too long for this screenshot name.");return;
+    }
+    if(s->capture_owner) {
+        if(capture_owner_submit(s->capture_owner,&s->capture,s->damage.width,s->damage.height,path)) {
+            s->capture_pending=0;global_menu_rebuild(s);
+        }
+        return;
     }
     if(s->worker) {
         if(life_prepare_submit(s->worker,&s->capture,s->damage.width,s->damage.height,path)) {
@@ -2362,6 +2382,11 @@ int main(int argc,char **argv) {
     static struct lifecycle_worker worker;
     cache_seed(&s,&worker);
     if(life_start(&worker,1)){gfx_console_mute(0);return 1;}s.worker=&worker;s.startup_trace=audio_io;ui_logger=&worker;
+    static struct capture_worker capture_worker;
+    if(capture_owner_start(&capture_worker)) {
+        ui_logger=NULL;(void)life_stop(&worker);gfx_console_mute(0);return 1;
+    }
+    s.capture_owner=&capture_worker;
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
@@ -2839,7 +2864,8 @@ int main(int argc,char **argv) {
                         int children=0;
                         for(int i=0;i<children_capacity(&s);i++)children|=*session_children(&s,i)!=0;
                         if(saved==1 && !children && !s.capture.busy && !s.capture_pending &&
-                           !s.pending_opens && life_state(&worker.prepare.state)==LIFE_IDLE && life_state(&worker.capture.state)==LIFE_IDLE) {
+                           !s.pending_opens && capture_owner_state(&capture_worker)==CAPTURE_OWNER_IDLE &&
+                           life_state(&worker.prepare.state)==LIFE_IDLE && life_state(&worker.capture.state)==LIFE_IDLE) {
                             s.end_committed=1;
                             desk_log("session-ui: phase=committed action=%s\n",s.end_action==DESKTOP_SESSION_SWITCH?"switch":"console");
                             quit=1;break;
@@ -3389,13 +3415,17 @@ int main(int argc,char **argv) {
         failed=1;gfx_console_mute(0);
         ui_puts("deskd: session failed; draining accepted work. Profile switching stopped.\n");
     }
-    /* Preparation owns unpublished handles/mappings. Drain that publication
-     * before closing the job; the UI placeholder has none of those resources. */
+    /* The exclusive capture owner drains accepted persistence and joins before
+     * its storage/session can disappear. The UI never closes its resources. */
+    if(capture_owner_stop(&capture_worker)){srv_puts("deskd: capture worker join failed\n");return 1;}
+    s.capture_pending=0;
+    if(capture_owner_state(&capture_worker)==CAPTURE_OWNER_DONE)capture_tick(&s,NULL);
+    /* Retain fallback lifecycle retirement for callers without a capture owner. */
     if(life_state(&worker.prepare.state)!=LIFE_IDLE) {
         while(life_state(&worker.prepare.state)!=LIFE_DONE)srv_sleep_ticks(1);
         int prepared;(void)life_prepare_take(&worker,&s.capture,&prepared);
     }
-    if(s.capture.busy && life_state(&worker.capture.state)==LIFE_IDLE)(void)life_capture_submit(&worker,&s.capture,-1);
+    if(!s.capture_owner && s.capture.busy && life_state(&worker.capture.state)==LIFE_IDLE)(void)life_capture_submit(&worker,&s.capture,-1);
     ui_logger=NULL;
     if(life_stop(&worker)){srv_puts("deskd: lifecycle worker join failed\n");return 1;}
     desk_log("desktop-ui-log: version=1 dropped=%llu pending=%u\n",(unsigned long long)worker.log_dropped,
