@@ -235,3 +235,16 @@ and `checked` is the exact completed page prefix, never a hardware-completion
 claim. A successful observed query internally reports phase4 and the complete
 prefix; only failures enter the receipt. No context gate is relaxed because a
 fixture can reproduce one refusal.
+
+## Qualified first-admission witness candidate
+
+Source `e0ab9800`, release `b726c22e43838e36`, integrates main`0d83d045` and
+qualifies the original first-failure observation above. Full local gate,
+21-image isolation,488 fatal core/native-adapter cases plus actual-VMM sanitizer,
+8core/14native/8VMM/4observer compiled controls, native staged bindings and strict
+legacy/new receipt checks pass. Exact-stage MBR EFI refusal/checkpoint/save/
+unmount/automatic return and missing-drive halt pass. The fixed log projection
+is65,211/65,536 including the unchanged1,536 reserve. The image is installed with
+recovery retained and no reboot armed; physical cause and timing remain pending.
+The next native collector requires this row from this exact source; no rowless
+legacy receipt can supply its original failed-predicate witness.

@@ -2,21 +2,47 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Active: first failed admission witness for the held-reset image
+### Ready: original first failed admission witness
 
-Main`0d83d045` is integrated; PR452 capture pacing, PR19 networking and PR379
-WebCore stay independent. Source8b91's admission nonpass is collected and backed
-up, no reboot armed. This block adds a compact first-failure observation around
-the existing excluded window/backing revalidation and original CPU range query.
-VMM will expose the exact failed predicate from its original checks, not infer
-it from a later sample. The new image alone retains the witness in fixed memory
-and prints it after the excluded lifetime; every original query, guard, deadline
-and refusal remains. No memory/register authority or fallback is added.
-Scope: VMM observational API/tests, held-reset adapter, strict receipt decoder/
-mutations and current docs; no storage/pacing or network edits. Next is actual
-VMM/adapter fault qualification, image/log/legacy checks and an exact-stage VM
-rehearsal, then a bounded unattended native diagnostic. Hardware root-cause
-attribution and timing improvement remain unproved.
+Source `e0ab9800`, release `b726c22e43838e36`, integrates main`0d83d045`.
+The new image retains the original first failed backing/window predicate and
+its CPU range-query phase/reason/value/page prefix in fixed metadata. It prints
+one compact row after IRQ restoration and cannot overwrite the first witness
+during cleanup. Every original check, sample,100/300/500ms deadline and refusal
+remains. No extra target read, clock sample, allocation, retry, fallback,
+register/mapping writer or memory authority is added. The
+[receipt contract](../intel-engine-held-reset.md#first-failed-admission-observation)
+defines each code; the new trial collector requires the row while legacy
+sources retain their previous optional-row behavior.
+
+Full local source gate (installed-root explicitly omitted),21-image isolation,
+488 fatal sanitizer cases (340core/148native-adapter), actual-VMM sanitizer,
+2,700 missing/wrong leaf cases and original/observed boolean agreement pass.
+Eight core,14 native reset, eight VMM and four observer compiled controls are
+detected, including lost original values, wrong prefixes, omitted exit context,
+changed cleanup witnesses and overwritten first failures. Native object/staged
+provider/width/clock/permission checks,118 raw DWORD comparisons, strict new
+receipt mutations and all prior native classifications pass. Worst-width log
+projection65,211/65,536 retains the unchanged1,536-byte reserve.
+
+Exact immutable MBR EFI Q35 refusal/checkpoint/save/unmount/automatic return
+and missing-drive halt pass. The new row is present in saved serial/exit logs;
+four logs match the actual18-token recipe. All1,437 USB files/135sessions
+preserve with clean offline filesystem/allocation/writable/headroom checks.
+The candidate is installed/current/durable at1%, Ubuntu default, no reboot armed.
+Recovery9aa8, GUIc497, accepted held67a1, latest reset6365/preparation0caf and
+prior admission-refusalb63d remain on EFI. Unreferenced timing-nonpassa252 was
+losslessly archived and banked after full file/SHA equality. Full evidence is
+independently backed up outside build. Checkpoint:`build/air-admission-witness-20261109`.
+
+Next is an automated native trial requiring no input. Safe durable outcomes
+return automatically; uncertainty or failed persistence halts visibly. Collect
+the matching session and original failed predicate first after return. Native
+cause, timing improvement and combined acceptance remain pending; all255
+completion obligations stay open, zero managed pages and no tear-free grant.
+PR452 capture pacing, PR19 networking and PR379 WebCore remain independent;
+GitHub Actions remain disabled. Initial host reporting-stub failure and its
+correction are retained; no production gate was weakened to resolve it.
 
 ### Collected: translation retry refuses before wake/reset admission
 

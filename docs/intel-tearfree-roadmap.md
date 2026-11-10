@@ -78,6 +78,10 @@ timing remains pending. Its first native run refuses excluded inherited
 backing/window revalidation before wake/reset access; exact predicate attribution
 is the next diagnostic. It grants no GPU range or completion assurance.
 
+The next qualified diagnostic (`e0ab9800`, release`b726c22e43838e36`) retains
+the original first failed predicate and query context without a second probe.
+Its host/image/VM checks pass; native cause and timing remain pending.
+
 The complete composition needs host fault injection at every transition.
 It must preserve the existing BCS-only writer gate until a separate review
 settles wider domain semantics. Broadwell GDRST full-reset bit0 is distinct from

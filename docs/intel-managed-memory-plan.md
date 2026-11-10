@@ -228,3 +228,8 @@ inherited backing/window revalidation before any wake/reset write or mapping.
 It returns cleanly with prior files preserved, but produces no preparation
 timing measurement. The exact failed admission predicate remains to be captured;
 no native optimization or ownership acceptance is added.
+
+The next bounded diagnostic is source`e0ab9800`, release`b726c22e43838e36`:
+one original first-failure witness, retained through cleanup and printed after
+exclusion. Host/image/VM qualification passes; hardware attribution remains
+pending. It neither removes the strict query context nor adds memory authority.
