@@ -16936,3 +16936,53 @@ Before a physical trial: matched qualification, exact-image VM, strict collector
 review, capture/stack composition, workspace preservation and recovery checks
 remain required. Installed acceptance remains runtime5b91/release689b; Ubuntu
 is unarmed. Native TCP/HTTP, sustained use, UI and reattach remain unaccepted.
+
+
+## v139 native HTTP candidate installed, acceptance pending
+
+Runtime `48f39654`, release `387e27ba8fdf37c7`, is installed for the next
+explicit cold trial. The 41.92-second clean matched selected image, HTTP bridge,
+strict collector, dispatch, child/worker/TCP, staging and storage suite passes
+with all 2,312 captured inputs unchanged. Independent reviews bind 167 bridge
+inputs, 18 production plus two modeled formatter inputs, 263 staging cases,
+552 byte-identical historical configurations, and 544 stack/capture inputs.
+The initial 437-second integration invocation remains failed: its recording
+dispatch fixture lacked new HTTP declarations and two requested Make targets
+did not exist. Only that test fixture changed; completed heavy legacy controller
+results have unchanged runtime inputs. The corrected invocation is a separate
+selected pass, not a retroactive full-suite pass or full-core rerun.
+
+The final actual HTTP VM passes again: real executable/socket/IRQ worker,
+1,009,125 us/101 ticks pre-GO, 860,096 us live work and complete software
+retirement. Independent decoding verifies all 32 packets, exact request/body
+and genuine bidirectional FIN/ACK. Debug ELF hashes differ from the executed
+packaged ELF hashes because the source-qualified runtime packer removes only
+non-runtime trailers. Extracted generic-VM and native-stage executables are
+byte-identical, and independently bind to that transform of the debug products.
+The current public endpoint also passes a separate Linux-only control.
+
+Exact-stage VMs verify absence cleanup and missing-workspace refusal; neither
+grants native HTTP acceptance. Actual prelive child status137/reap/lifetime and
+unused-worker retirement precede save/unmount when no adapter exists. The
+ordinary desktop VM passes in15.04s. A separate22.76s exact-stage private clone
+preserves all430 current files, strict metadata except one RTC-bounded marker
+atime and only the expected two logs/one directory. Frozen collection uses a
+fresh isolated interpreter, committed-source572 Python modules and nine RF
+fixtures, rejecting changed source/release/fixture/import context or lost prefix.
+
+Optimized new HTTP stack projections leave26,024 bytes on the minimum64KiB
+bootstrap stack after a32KiB IRQ allowance. The conditional capture composition
+uses2,342,081 of4,194,304 bytes. These are scoped projections over the qualified
+fast RF ancestor, not hardware stack watermarks, whole-OS stack certification
+or a universal RF retry bound. Overflow or missing completion remains failure.
+
+EFI capacity required retirement of only the unreferenced older e17 duplicate
+after full immutable backup/payload equality and GRUB/snippet/NVRAM checks.
+Its accepted backup remains outside build; current accepted689b, factorye47,
+four other accepted EFI payloads and Ubuntu remain verified. Boot order and
+Ubuntu default are unchanged. The new candidate's own run record is separate
+from collected689b; its staged/source/copy/recovery evidence is archived before
+arming. The upcoming authorized shutdown requires both USB devices cold reset
+for10 seconds, same ports, then automatic capture/return. A held uncertain
+software owner cannot erase keys or write final logs; such a halt is incomplete.
+Native TCP/HTTP, sustained use, lifecycle/UI and live reattach remain unaccepted.

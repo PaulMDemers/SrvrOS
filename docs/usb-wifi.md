@@ -8025,3 +8025,12 @@ and peer acknowledgements. Its private numeric endpoint intentionally skips
 DNS and does not accept native Wi-Fi. The next explicit v139 native profile
 requires production DHCP/DNS and the existing full key/provider/USB retirement;
 see the machine record for scope and evidence.
+
+
+The explicit Pro11,2 v139 candidate `48f39654` / `387e27ba8fdf37c7` now
+requires native DNS and exact HTTP child/body EOF, TCP-empty/parked-worker and
+full original-key/provider/parent retirement under the unchanged limits. It is
+installed but physically unaccepted. Controlled HTTP, absent-adapter/missing-
+workspace and exact current-workspace clone VMs pass; frozen source/fixture
+collection remains separate from independent native acceptance. See the machine
+record for failed initial integration, corrected selected checks and proof limits.
