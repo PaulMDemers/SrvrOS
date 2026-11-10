@@ -70,7 +70,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 4,019 verified disk bursts, 1,070 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (129.977 ms maximum); screenshot completion remains slow; broader interactive/endurance coverage, failure handling and hotplug remain open |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 4,019 verified disk bursts, 1,070 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (129.977 ms maximum); retained-reader fresh-media verification gap needs an explicit contract/regression; screenshot completion remains slow; broader interactive/endurance coverage, failure handling and hotplug remain open |
 | Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
@@ -11349,3 +11349,45 @@ payloads and accepted histories retained. Ubuntu is default, one-shot consumed,
 collector disabled and USB unmounted. No reboot is armed. Shared main is the
 merged PR452 baseline; open PR301 scanout, PR19 networking and PR379 WebCore
 remain separate. This closeout changes documentation only.
+
+### Screenshot code-audit scope (2026-11-10)
+
+Base `486b6d2a`, after collecting and backing up the PR452 native transfer run.
+User-requested audit before another reboot: root and three read-only subagents
+review transport/readiness, storage/durability, and completion/lifecycle/test
+coverage. Publish exact code references and distinguish demonstrated behavior,
+confirmed code risks and unproven native causes. This checkpoint makes no production change, physical
+USB write, stage or reboot. One isolated
+host-only reproduction may inspect the shared-content versus media verification
+edge case; no concurrent build/VM harness runs. Other machines' PR301 scanout,
+PR19 networking and PR379 WebCore remain separate. Preserve all runtime limits,
+barriers, byte checks, ownership/quarantine and original battery-failure evidence.
+Next checkpoint is a ranked code audit and regression requirements, not another
+unchanged diagnostic reboot.
+
+### Screenshot code-audit findings (2026-11-10)
+
+Three subagent reviews and root cross-checks are consolidated in the
+[code audit](../macbookair6-1-screenshot-code-audit.md). Confirmed hotspots are
+UI-turn pixel sends and response observation, storage-gated ordinary pipe poll,
+shared lifecycle preparation/cleanup, and repeated global commits of growing
+content. Native raw screenshot writes spend96–98% of wall time in admission;
+handler work is about21ms per capture. No new causal hardware claim follows.
+
+A disposable real process/exFAT/VFS host reproduction confirms a correctness
+edge case: a retained reader can keep correct shared RAM alive so a fresh reopen
+discards corrupted media bytes and reads RAM instead, including after rename.
+Controls without the retained reader and after last-reference release detect
+corruption. This tests the exact read-only-open core, not complete capture_save
+or native scheduling; it establishes no corruption in accepted native runs.
+Prioritize explicit fresh-media verification and the complete-save regression
+before transport optimization. Ordinary shared-content semantics and all
+readbacks/barriers must remain intact. Other confirmed issues are discarded
+screenshot child exit status and redundant scale>1 UI resampling; scale1 native
+results do not exercise the latter. No new double-free/deadlock was demonstrated.
+
+No production code changed and no physical USB was touched. Reproduction sources,
+compiler command, three case logs and media hashes are preserved locally and in
+a verified backup outside build; disposable images were removed. Next steps and
+required readiness/cancel/exit/retirement regressions are in the audit. Ubuntu,
+installed payloads, prior acceptance and unarmed reboot state remain as collected.
