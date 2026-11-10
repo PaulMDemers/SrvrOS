@@ -96,7 +96,8 @@ The follow-up adds a distinct `build/intel-held-requester/srvros.elf`, firmware
 request, wake version16 and exact17-token recipe. It combines the existing
 preparation recipe with `srvros.intel-held-requester=read-only`; it is incompatible
 with the standalone requester/reset/AML/AP profiles. The ordinary desktop and
-older diagnostic image recipes remain unchanged. Native acceptance is pending.
+older diagnostic image recipes remain unchanged. Exact-source native acceptance
+is recorded below.
 
 One synchronous action has full provider entry and exit backing/endpoint checks.
 Every individual load also validates the current aliases, fresh requester state,
@@ -150,4 +151,25 @@ match the compiled17-token recipe. The raw-vector comparison retains exactly
 92DWORDs. Worst-width projection65,485/65,536 includes the unchanged1,536 reserve.
 USB contents/integrity and recovery verify; evidence survives distclean outside
 build. This accepts local mechanisms/refusal/persistence only. Native combined
-timing, preservation and retirement are pending the matching hardware session.
+timing, preservation and retirement required the matching hardware session below.
+
+## Native combined result
+
+Air7,2 source `8559ac44`, release `67a178af16c8983f`, session
+`session-00065fe0b883f61e-00` passes strict native capture/checkpoint and clean
+return checks. Preparation takes96,728/100,000us (3,272us headroom), including a
+3,531us action and151us sampler. Both full nine-DWORD rows match, with BME
+enabled in both, TP clear and FLR control0. Entry/exit witnesses, all10 engine
+acknowledgements, four held/cancelled snapshots, full92-word post-census,
+54 plane reads and both HDA snapshots preserve. Borrow return,13 alias
+retirements and exclusion release complete; reason/clock/uncertainty/retained
+state are zero. Wake bracket291,894us remains within500ms. No deadline changed.
+
+All1,428 prior USB files preserve apart from expected metadata; three new logs
+give1,431files/133sessions. Offline filesystem/allocation/writable/headroom,
+independent payload/recovery verification, Ubuntu default and consumed one-shot
+pass. Volume1%, no reboot armed; raw evidence survives distclean in the independent
+reviewed-evidence backup. This accepts one bounded read-only composition only.
+All255 obligations remain open; BME/TP observations grant no DMA drain, firmware
+exclusion, cache/translation/reader retirement or GPU address-range ownership.
+Reset-capable action semantics, managed memory and physical tear-free remain open.

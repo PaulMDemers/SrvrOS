@@ -2,7 +2,37 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Ready: native PCI capture during maintained engine preparation
+### Accepted: native PCI capture during maintained engine preparation
+
+Source `8559ac44`, release `67a178af16c8983f`, session
+`session-00065fe0b883f61e-00` passes the combined maintained preparation,
+read-only requester capture, cancellation, preservation and clean return.
+Preparation finishes in **96,728/100,000us**, leaving3,272us; the action takes
+3,531us, including the151us two-snapshot sampler. Both nine-DWORD rows match;
+BME mask3, TP mask0 and FLR0 remain observations, not DMA completion.
+All10 request/cancel acknowledgements, four engine snapshots,92-word post-census,
+54 plane reads and both HDA snapshots preserve. The original borrow returns,
+all13 aliases retire and exclusion releases. Reason, clock fault, uncertainty
+and retained state are zero. Wake bracket291,894us remains within500ms;
+all original deadlines are unchanged.
+
+Strict native receipts/checkpoint and collector checks pass without attention.
+All1,428 prior USB files preserve except expected metadata; three new logs give
+1,431files/133sessions. Offline filesystem/allocation/writable/headroom checks,
+installed/durable/archive payload verification, Ubuntu default and consumed
+one-shot pass. Current67a1 and recovery9aa8 are retained; volume1%, no reboot
+armed. Full raw evidence and analysis are independently backed up outside build.
+Checkpoint:`build/air-held-native-20261109`.
+
+This accepts one measured read-only combined lifetime, not repeatability or a
+reset-capable action. All eight completion obligations remain open, with zero
+managed pages and no physical tear-free grant. Next is a separately reviewed
+reset-capable same-lifetime protocol with explicit epoch and cancellation effects;
+the successful read-only callback cannot authorize that operation. Main
+`c367f169` (Air6,1 PR447 documentation only) is integrated after collection;
+PR448 storage attribution, PR19 networking and PR379 WebCore remain independent.
+
+### Prior local qualification: maintained requester candidate
 
 Source `8559ac44`, release `67a178af16c8983f`, integrates the held requester
 sampler through a distinct image/firmware request, exact17-token recipe and
@@ -37,7 +67,8 @@ only after full inventory/SHA equality with its independent durable copy; both
 survive distclean. Volume1%, no one-shot armed. Full qualification evidence is
 independently backed up outside build. Checkpoint:`build/air-held-native-20261109`.
 
-**Native combined timing/preservation/return acceptance remains pending.**
+At this pretrial checkpoint, native combined acceptance remained pending;
+the matching result is recorded above.
 Separate earlier timings do not accept this composition. The trial needs no
 input and displays progress; safe saved/unmounted outcomes return automatically,
 while uncertain ownership or failed persistence halts visibly. All eight

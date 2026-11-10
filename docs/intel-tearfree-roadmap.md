@@ -17,6 +17,7 @@ It does not accept another Mac's firmware or graphics profile.
 | BCS reset provider integration, source `4873e6bd`, release `6365de27e20576b6` | Already-disabled BCS entry, bounded reset/preservation and clean retirement; core61,212/100,000us | Enabled shutdown, other reset domains, device-wide DMA retirement |
 | Five-engine preparation, source `292163ac`, release `0cafc3a5551ab1b2` | Bounded prepare/hold/cancel and preservation;93,246/100,000us | Maintained readiness after cancellation, authority for a later reset |
 | PCI AF requester capture, source `fe6677c5`, release `3ff42f33e6c01391`, session `session-00065fdf108c49b4-00` | Two matching nine-DWORD snapshots, BME enabled in both, TP clear, FLR control0;27,036/100,000us, borrow returned and10 aliases retired | Comprehensive DMA drain, firmware exclusion, cache/translation/reader retirement, memory transfer |
+| Requester capture inside maintained preparation, source `8559ac44`, release `67a178af16c8983f`, session `session-00065fe0b883f61e-00` | Original preparation borrow, five ready requests, two matching PCI snapshots, cancellation/preservation/return;96,728/100,000us,13 aliases retired | Reset-capable action semantics, repeatability, all memory/completion obligations |
 
 These are separate exact-source lifetimes. They cannot be combined into a
 current owner or completion token. The [requester contract](intel-pci-requester.md)
@@ -62,12 +63,13 @@ possible reset store, and old censuses must become unusable.
 The first software piece is the separate
 [maintained read-only action boundary](intel-engine-prepare.md#maintained-read-only-action-boundary).
 It brackets an observation with original-borrow guards and matching held-state
-samples inside the unchanged100ms budget. It has no native caller or reset
-permission. The standalone requester observer acquires its own borrow and
-cannot be nested unchanged; a future sampler must bind the active preparation
-borrow explicitly. The [held requester sampler](intel-held-requester.md)
-implements that read-only software binding, with no native adapter or trial
-acceptance. A reset-capable composition remains separate because it
+samples inside the unchanged100ms budget. It has no reset permission. The
+standalone requester observer acquires its own borrow and cannot be nested
+unchanged. The [held requester sampler](intel-held-requester.md) explicitly
+binds the active preparation borrow; its isolated native provider now accepts
+one exact-source combined capture and clean return, with3,272us preparation
+headroom. This answers whether requester observation can fit within the maintained
+hold and existing budget. A reset-capable composition remains separate because it
 changes epoch and control-state semantics.
 
 The complete composition needs host fault injection at every transition.
