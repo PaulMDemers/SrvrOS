@@ -2,7 +2,40 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Ready: private backing joined to mapping and retirement
+### Accepted: native private backing and buffer lifetime qualification
+
+Source `23af85e2`, release `d72619c4e02bb721`, session
+`session-00065fe6c815e551-00` completes all four private backing cases in
+**16,563us**, within the unchanged30s allocation bound. Real PMM frame tags and
+CPU translations validate both disjoint1,356-page padded buffers. All2,778,112
+pattern words verify; releasing the first buffer preserves the second. Three
+CPU borrows return, close is blocked during the active borrow, and both unknown
+GPU ranges refuse before callbacks. The stale-token and duplicate-release
+checks pass.
+
+Accounting is2,714 allocated/2,713 released/**1 intentionally retained private
+page**. The injected refusal occurs before physical free and proves release is
+not retried. DMA-tagged frames change61→62 as expected; unexpected terminal
+retention is zero. There are zero GPU callbacks, writes or managed pages.
+Inherited display/backing preservation and the durable pre-allocation checkpoint
+both verify. This accepts private backing and lifetime safety on this unit,
+not native GPU mapping, cache/translation completion or page flips.
+
+Strict matching collection finds no errors or attention. All1,443 prior USB
+files preserve except expected metadata, with three new logs (1,446files,
+138sessions). Offline filesystem/allocation/writable/headroom, installed/banked
+payloads and recovery pass. Ubuntu is default, the one-shot is consumed and no
+reboot is armed. Volume1% was verified at dispatch; the trial needed no input.
+Checkpoint:`build/air-gpu-memory-20261110`; raw evidence and return proofs have
+an independent verified backup outside build. Actions remain disabled.
+
+Next is the exclusive non-display GPU interval and expanded native transfer
+contract, followed by one-page mapping with owned completion resources and
+verified retirement. The existing16-entry handoff cannot import a full buffer.
+All255 hardware completion obligations and zero native hardware assurances
+remain; the inherited framebuffer is still the desktop backend.
+
+### Historical readiness: private backing joined to mapping and retirement
 
 Source `23af85e2`, release `d72619c4e02bb721`, base main`a2a6d692`.
 The new [memory owner](../scanout-memory.md) joins allocator-owned RAM, CPU write

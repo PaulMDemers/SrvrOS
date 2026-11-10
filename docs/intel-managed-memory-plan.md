@@ -41,8 +41,14 @@ The milestones below, beginning with exclusive interval ownership, remain open.
 The new [joined memory owner](scanout-memory.md) supplies the software connection
 between private allocator backing, CPU borrows, an already admitted range and
 publication/retirement. It supports the full1,356-page padded buffer while
-keeping native GPU exposure refused. Its isolated backing qualification is the
-next hardware boundary; no synthetic provider is substituted for native transfer.
+keeping native GPU exposure refused. Its isolated backing qualification is now
+physically accepted on Air7,2 in source`23af85e2`, release`d72619c4e02bb721`,
+session`session-00065fe6c815e551-00`: all four cases complete in16,563us, two full
+padded buffers verify, and2,714 allocated/2,713 released/1 intentional private
+retained page account exactly. The checkpoint, inherited preservation, saved
+completion and return integrity pass. This accepts private backing use and
+lifetime checks only; no synthetic provider is substituted for native transfer.
+Exclusive GPU interval ownership remains the next milestone.
 
 ## Ordered implementation milestones
 

@@ -93,8 +93,11 @@ Host tests exercise actual joined publication/restore, pending readers, every
 one of1,356 partial-write positions, restore faults, allocator/guard failures,
 CPU close/drain, copied owners/arenas, stale tokens and reentry. The actual trial
 producer and strict decoder test accounting, malformed records, missing cases,
-forged authority and incomplete native prerequisites. Hardware acceptance remains
-separate and belongs in the [unit record](machines/macbookair7-2.md).
+forged authority and incomplete native prerequisites. The Air7,2 native private
+backing trial now passes all four cases in16,563us on source`23af85e2`, with
+source-matched saved prerequisites, full preservation and clean return. Native
+GPU mapping and completion remain unaccepted. Exact hardware scope belongs in
+the [unit record](machines/macbookair7-2.md).
 
 ```sh
 make -j2 all test-scanout-memory test-intel-memory build/intel-memory/srvros.elf
