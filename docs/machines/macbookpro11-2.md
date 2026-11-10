@@ -7,6 +7,36 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+### Qualified MCU observation comparison (November 10)
+
+Runtime `67534219`, release `a9e288e50a236d01`, is qualified and installed for
+one cold MCU observation/reconnect comparison. Runtime source stays distinct
+from this documentation follow-up. It retains the explicit terminal bulk branch,
+first-failure metadata and post-branch endpoint/event snapshot; it does not fix or
+establish the physical cause of the earlier calibration response failure. No
+wait limit, reply validator, retry/reset or DMA retirement policy was widened.
+If calibration succeeds, the same two native connection generations run; if it
+fails, first-failure observations are saved before full-protocol refusal.
+
+Fresh same-source normal tests pass all55 historical native cases and10 reconnect
+cases,24 actual5GHz calibration/bulk/event cases,267 profile and42 collector cases,
+full RF composition and matching images. Seven fatal ASan/UBSan groups pass:
+24 calibration cases,123 legacy power-on cases, six selected native reconnect
+cases0/2/4/7/8/9 and complete bounded/HTTP72/prepared-worker/independent-AP fixtures.
+This revision does not claim that all65 native cases were rerun under sanitizers.
+Thirteen actual C fragments pass the observer and18 Python cases;20 frozen
+collection cases preserve diagnostics and refuse synthetic, incomplete and
+contradictory-MCU evidence. All six VM gates pass, including exact-image GPT and
+missing-workspace, numeric/DNS actual HTTP, desktop and strict443-file workspace
+clone preservation. These checks grant no native RF or reconnect acceptance.
+
+The new payload, factory direct fallback, acceptedc603 and all seven protected
+prior payloads are verified. Only the fully backed failed2953 EFI duplicate was
+removed, after promoting the resident acceptedc603 and retaining factorye47.
+The immutable failed1,311-file primary and separate13-file return notes remain
+unchanged. The local run record owns arming and matching once-only collection;
+the new hardware comparison remains pending. Do not run the old collector again.
+
 ### First v140 return: calibration response failure before either connection
 
 Runtime `27042d66`, release `2953de5d95b0451e`, session

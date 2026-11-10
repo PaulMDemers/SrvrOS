@@ -17,8 +17,13 @@ fresh key/epoch/PN/DMA/fence contexts, one registered provider and final outer
 parent restoration. Ten same-process native HOST cases pass, including the
 captured command frontier and fault/old-frame/alias cases. Independent AP crypto,
 13 raw/full-RF composition checks, boot dispatch/staging and collector units pass.
-Full selected normal/fatal/build/exact-image qualification and physical validation
-remain pending. This milestone does not rearm the actual HTTP worker or provide
+Source27042d66 passed the selected qualification, but its first v140 hardware
+run FAILED RXDCOC calibration before either connection began. Runtime67534219 /
+releasea9e288e50a236d01 adds deferred native MCU branch observations and passes
+normal/native65, actualcal5 MCU24, seven scoped fatal groups,13 emitted traces,
+20 frozen-workflow cases and all six exact-image/443-file clone VM gates. One
+cold diagnostic/reconnect comparison is installed; physical validation remains
+pending and the earlier failure remains immutable. This milestone does not rearm the actual HTTP worker or provide
 UI/reattach/persistent service. Historical accepted images below stay unchanged.
 
 Runtime `070089f5` / release `c603901d483d3f86` now has a second complete cold

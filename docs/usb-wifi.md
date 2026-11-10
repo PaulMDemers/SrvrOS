@@ -8201,3 +8201,10 @@ There is no new poll, RF/register request, timer read, retry, reset, DMA release
 or wider deadline. The500ms limit, strict reply and existing quarantine gates
 remain. Native MCU/event/cal5 callback fixtures model the RF parent explicitly;
 they do not establish the physical cause of the saved failure.
+
+Source67534219/releasea9e288e50a236d01 is software-qualified and installed for
+the next one-boot comparison. Actual cal5/MCU24,13 emitted fragments,18 observer
+units,20 frozen-workflow cases, normal native55+10, seven scoped fatal groups and
+six VM gates pass. The body/EOF proofs and new443-file
+clone proof are software evidence; calibration causation and native reconnect
+remain pending. Retain the first v140 failure and collect only the new run once.
