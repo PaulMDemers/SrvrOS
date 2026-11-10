@@ -18,6 +18,7 @@ def main():
         assert worker['record']['calls']==2 and worker['record']['fast_calls']==fast
         assert gates['workers'][0]['total']['calls']==ordinary
         assert gates['workers'][0]['worst']['calls']==bool(ordinary)
+        assert gates['workers'][0]['sync_context']['state']==0
         assert not worker['record']['fast_failures']
         # Exact source identity, required fields and ordinary/private coverage
         # remain mandatory even when there were no ordinary waits at all.

@@ -10,6 +10,16 @@
 struct sync_content_io {
     uint64_t reads,read_bytes,read_us,writes,write_bytes,write_us,flushes,flush_us,failures;
 };
+/* Fixed live observation at a scheduler I/O-owner release edge. state0=off,
+ * 1=no enclosing matching sync, 2=parent only, 3=contained active content.
+ * Content counters are cumulative through that edge, NOT completed writeback,
+ * durable bytes, or necessarily the counters of this single I/O scope. */
+struct sync_gate_context {
+    uint64_t state,invalid,pid,id,phase,slot,identity,inode,size,content_start_us;
+    struct sync_content_io io[SYNC_CONTENT_ROLES];
+};
+void sync_timing_gate_snapshot(uint64_t pid,uint64_t scope_start,uint64_t scope_end,
+    struct sync_gate_context *out);
 /* Captured backend prefix; live RAM suffix may grow while that prefix is
  * immutable. This is not an exemption from a failed required-prefix barrier. */
 struct sync_content_prefix {

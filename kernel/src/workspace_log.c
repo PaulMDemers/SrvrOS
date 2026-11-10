@@ -67,8 +67,16 @@ static void capture_write_checkpoint(bool final) {
                 at,r->pid,(uint64_t)kind,g->active,c->calls,c->wall_us,c->owned_us,c->scopes,c->blocked_us,c->ready_us,c->running_us,c->blocks,c->dispatches,c->exclusions,c->invalid,(uint64_t)final);
         }
         const struct capture_gate_owner *o=&g->worst.owner;
-        console_printf("capture-write-gate-owner: version=1 snapshot_us=%u pid=%u start_us=%u end_us=%u thread=%u owner_pid=%u syscall=%u scope_start_us=%u scope_end_us=%u overlap_start_us=%u overlap_end_us=%u final=%u\n",
+        console_printf("capture-write-gate-owner: version=2 snapshot_us=%u pid=%u start_us=%u end_us=%u thread=%u owner_pid=%u syscall=%u scope_start_us=%u scope_end_us=%u overlap_start_us=%u overlap_end_us=%u final=%u\n",
             at,r->pid,g->worst.start_us,g->worst.end_us,o->thread,o->pid,o->syscall,o->scope_start_us,o->scope_end_us,o->overlap_start_us,o->overlap_end_us,(uint64_t)final);
+        const struct sync_gate_context *q=&o->sync;
+        console_printf("capture-write-gate-sync: version=1 snapshot_us=%u pid=%u state=%u invalid=%u owner_pid=%u sync_id=%u phase=%u slot=%u identity=%u inode=%u size=%u content_start_us=%u final=%u\n",
+            at,r->pid,q->state,q->invalid,q->pid,q->id,q->phase,q->slot,q->identity,q->inode,q->size,q->content_start_us,(uint64_t)final);
+        for(unsigned role=0;role<SYNC_CONTENT_ROLES;role++) {
+            const struct sync_content_io *p=&q->io[role];
+            console_printf("capture-write-gate-sync-io: version=1 snapshot_us=%u pid=%u role=%u reads=%u read_bytes=%u read_us=%u writes=%u write_bytes=%u write_us=%u flushes=%u flush_us=%u failures=%u final=%u\n",
+                at,r->pid,(uint64_t)role,p->reads,p->read_bytes,p->read_us,p->writes,p->write_bytes,p->write_us,p->flushes,p->flush_us,p->failures,(uint64_t)final);
+        }
         for(unsigned j=0;j<CAP_WRITE_SITE_COUNT;j++) {
             const struct capture_write_sample *p=&r->site[j];
             console_printf("capture-write-sample: version=2 snapshot_us=%u pid=%u site=%u count=%u total_us=%u max_us=%u final=%u\n",

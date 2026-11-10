@@ -76,7 +76,10 @@ def capture_gate_timing(blobs,write_timing):
         for line in blob.decode(errors='replace').splitlines():
             if not line.startswith(('capture-write-gate:','capture-write-gate-owner:')):continue
             d={k:int(v) for k,v in re.findall(r'(\w+)=(\d+)',line)}
-            if d.get('version')!=1 or 'snapshot_us' not in d:raise ValueError('Unsupported gate timing record')
+            if d.get('version') not in (1,2) or 'snapshot_us' not in d or (line.startswith('capture-write-gate:') and d['version']!=1):raise ValueError('Unsupported gate timing record')
+            if line.startswith('capture-write-gate-owner:') and d['version']==2:
+                fields='version snapshot_us pid start_us end_us thread owner_pid syscall scope_start_us scope_end_us overlap_start_us overlap_end_us final'.split()
+                if not re.fullmatch('capture-write-gate-owner: '+' '.join(k+r'=(\d+)' for k in fields),line) or any(v>=2**64 for v in d.values()):raise ValueError('Malformed v2 gate owner')
             if d['snapshot_us']!=at:continue
             if not {'pid','final'}<=d.keys():raise ValueError('Malformed gate identity')
             if line.startswith('capture-write-gate-owner:'):table=owners;key=d['pid']
@@ -87,6 +90,11 @@ def capture_gate_timing(blobs,write_timing):
             table[key]=d
     workers=write_timing['workers'];pids={w['record']['pid'] for w in workers}
     if set(owners)!=pids or set(rows)!={(pid,k) for pid in pids for k in (0,1)}:raise ValueError('Missing/extra gate companions')
+    for blob in blobs:
+        for line in blob.decode(errors='replace').splitlines():
+            if not line.startswith(('capture-write-gate-sync:','capture-write-gate-sync-io:')):continue
+            d={k:int(v) for k,v in re.findall(r'(\w+)=(\d+)',line)}
+            if d.get('snapshot_us')==at and (d.get('pid') not in pids or owners[d['pid']]['version']!=2):raise ValueError('Unbound gate sync companion')
     fields=('calls','wall_us','owned_us','scopes','blocked_us','ready_us','running_us','blocks','dispatches','exclusions','invalid')
     output=[]
     for w in workers:
@@ -108,5 +116,56 @@ def capture_gate_timing(blobs,write_timing):
             if not owner['thread'] or not 0<owner['scope_start_us']<=owner['overlap_start_us']<=owner['overlap_end_us']==owner['scope_end_us']:raise ValueError('Invalid owner scope')
             if not owner['start_us']<=owner['overlap_start_us']<=owner['overlap_end_us']<=owner['end_us'] or owner['overlap_end_us']-owner['overlap_start_us']>worst['owned_us']:raise ValueError('Invalid owner overlap')
         elif worst['owned_us'] or any(owner[k] for k in required-{'start_us','end_us'}):raise ValueError('Spurious gate owner')
-        output.append(dict(pid=pid,total=total,worst=worst,owner=owner))
+        item=dict(pid=pid,total=total,worst=worst,owner=owner)
+        if owner['version']==2:item['sync_context']=_gate_sync_context(blobs,at,pid,owner,write_timing['final'])
+        output.append(item)
     return dict(status='VALID',snapshot_us=at,workers=output,scope='Complete gate wall partition and ownership overlap; worst gate retains its longest overlapping owner. Not CPU time or a foreign operation trace.')
+
+
+def _gate_sync_context(blobs,at,pid,owner,final):
+    """Exact selected-owner live sample; never substitute a global maximum."""
+    formats={
+        'capture-write-gate-sync':'version snapshot_us pid state invalid owner_pid sync_id phase slot identity inode size content_start_us final',
+        'capture-write-gate-sync-io':'version snapshot_us pid role reads read_bytes read_us writes write_bytes write_us flushes flush_us failures final',
+    }
+    header=None;roles={}
+    for blob in blobs:
+        for line in blob.decode(errors='replace').splitlines():
+            kind=line.partition(':')[0]
+            if kind not in formats:continue
+            fields=formats[kind].split()
+            if not re.fullmatch(kind+': '+' '.join(k+r'=(\d+)' for k in fields),line):raise ValueError('Malformed gate sync context')
+            d={k:int(v) for k,v in re.findall(r'(\w+)=(\d+)',line)}
+            if any(v>=2**64 for v in d.values()) or d['version']!=1:raise ValueError('Unsupported gate sync context')
+            if d['snapshot_us']!=at or d['pid']!=pid:continue
+            if d['final']!=final:raise ValueError('Gate sync final mismatch')
+            if kind.endswith('-io'):
+                role=d['role']
+                if role not in range(6) or (role in roles and roles[role]!=d):raise ValueError('Conflicting gate sync role')
+                roles[role]=d
+            else:
+                if header is not None and header!=d:raise ValueError('Conflicting gate sync context')
+                header=d
+    if header is None or set(roles)!=set(range(6)):raise ValueError('Missing exact gate sync companions')
+    q=header;state=q['state']
+    if owner['end_us']>at:raise ValueError('Gate observation predates its owner')
+    if state not in range(4) or q['invalid']:raise ValueError('Invalid gate sync observation')
+    if state and owner['syscall']!=87:raise ValueError('Sync observation without sync owner')
+    payload=('owner_pid','sync_id','phase','slot','identity','inode','size','content_start_us')
+    content=('slot','identity','inode','size','content_start_us')
+    if state<2:
+        if any(q[k] for k in payload):raise ValueError('Unmatched gate sync has attributed work')
+    else:
+        if owner['syscall']!=87 or not owner['thread'] or q['owner_pid']!=owner['owner_pid'] or not q['owner_pid'] or q['phase'] not in (0,1) or not 0<q['sync_id']<=owner['scope_start_us']<=owner['scope_end_us']:raise ValueError('Unbound gate sync parent')
+        if state==2 and any(q[k] for k in content):raise ValueError('Parent-only gate has content attribution')
+        if state==3 and (q['phase'] or not q['identity'] or q['size']>16*1024*1024 or not q['sync_id']<=q['content_start_us']<=owner['scope_start_us']):raise ValueError('Unbound gate sync content')
+    elapsed=0
+    counters=('reads','read_bytes','read_us','writes','write_bytes','write_us','flushes','flush_us','failures')
+    for row in roles.values():
+        if row['failures']:raise ValueError('Failed gate sync I/O')
+        if state<3 and any(row[k] for k in counters):raise ValueError('Unmatched gate has attributed I/O')
+        for count,values in [('reads',('read_bytes','read_us')),('writes',('write_bytes','write_us')),('flushes',('flush_us',))]:
+            if not row[count] and any(row[k] for k in values):raise ValueError('Gate sync I/O without callbacks')
+        elapsed+=row['read_us']+row['write_us']+row['flush_us']
+    if state==3 and elapsed>owner['scope_end_us']-q['content_start_us']:raise ValueError('Gate sync callbacks outside live content')
+    return dict(state=state,parent_bound=state>=2,content_bound=state==3,observation=header,io=[roles[k] for k in range(6)],io_us=elapsed,scope='Live cumulative content callbacks observed at exact owner release; not completed/durable writeback, single-scope exclusive costs or a join to the separately retained global maximum.')

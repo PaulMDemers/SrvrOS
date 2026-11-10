@@ -11813,3 +11813,12 @@ ownership, copy/pipe/command caps, proofs, barriers, power policy or500ms/10s/
 1800s+60s requirements. First checkpoints are exact binding/refusal and actual
 producer/formatter/parser regressions, then a frozen matched build and loaded
 VM. Native evidence is required before claiming the remaining cause or a gain.
+
+The [exact gate observation](../capture-gate-correlation.md) now has a fixed
+live reader, copied owner retention and mandatory versioned wire companions.
+Focused actual scheduler/sync-producer composition and production formatter/
+parser checks pass. The previous short VM's maximum owner is file-open, while
+native a139 retains sync owners; preserve those distinct operations rather
+than force matching to the global maximum. Full frozen integration and new
+native observation are pending. No latency fix or new hardware acceptance is
+claimed by this diagnostic-only candidate.

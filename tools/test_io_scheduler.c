@@ -28,6 +28,18 @@ static uint64_t scheduler_test_kernel_address(uint64_t address) {
 #include "../kernel/src/scheduler.c"
 static uint64_t actual_space=1,clock_us,kernel_space=1;
 static unsigned clock_calls;
+static unsigned gate_sync_samples;
+static struct sync_gate_context gate_sync_fixture;
+#ifdef SRVROS_GATE_SYNC_INTEGRATION
+void capture_gate_sync_fixture_begin(void);
+void capture_gate_sync_fixture_end(void);
+uint64_t capture_gate_sync_fixture_irq(void) {return fixture_irq_flags;}
+#else
+void sync_timing_gate_snapshot(uint64_t pid,uint64_t start,uint64_t end,struct sync_gate_context *out) {
+    assert(pid && start && end>=start && !(fixture_irq_flags&0x200));
+    gate_sync_samples++;*out=gate_sync_fixture;
+}
+#endif
 static bool peer_enabled,peer_prepare_fail,peer_finish_fail;
 static unsigned peer_prepares,peer_finishes;
 bool ap_c3_active(void) { return peer_enabled; }
@@ -1298,12 +1310,23 @@ static void test_capture_gate_observation(void) {
     summary=(struct capture_gate_summary){0};summary.total.calls=1;
     /* Model two owners and an intervening READY delay in one observed wait.
      * Call production hooks, never alter eligibility to make observation pass. */
-    current_thread=1;clock_us=200;assert(scheduler_io_begin());
+    current_thread=1;
+#ifdef SRVROS_GATE_SYNC_INTEGRATION
+    clock_us=190;capture_gate_sync_fixture_begin();
+#endif
+    clock_us=200;assert(scheduler_io_begin());
+    gate_sync_fixture=(struct sync_gate_context){.state=3,.pid=77,.id=190,
+        .identity=444,.size=65536,.content_start_us=195};
+    gate_sync_fixture.io[2]=(struct sync_content_io){.writes=1,.write_bytes=65536,.write_us=50};
     current_thread=0;clock_us=220;unsigned slot=capture_gate_start(&summary);assert(slot<CAPTURE_GATE_ACTIVE);
     clock_us=230;capture_gate_state(&threads[0],1);
     current_thread=1;clock_us=240;assert(scheduler_io_begin());
     clock_us=250;scheduler_io_end();assert(io_depth==1 && !summary.total.scopes);
     clock_us=300;scheduler_io_end();
+#ifdef SRVROS_GATE_SYNC_INTEGRATION
+    capture_gate_sync_fixture_end();
+#endif
+    unsigned sampled=gate_sync_samples;gate_sync_fixture.identity=999;
     clock_us=310;capture_gate_state(&threads[0],2);
     clock_us=330;assert(scheduler_io_begin()); /* Changed owner syscall captured. */
     clock_us=340;threads[0].state=THREAD_READY;assert(!io_thread_allowed(0));
@@ -1316,7 +1339,14 @@ static void test_capture_gate_observation(void) {
     assert(w->counts.owned_us==130 && w->counts.scopes==2 && w->counts.blocked_us==80);
     assert(w->counts.ready_us==90 && w->counts.running_us==20 && w->counts.blocks==1 && w->counts.dispatches==1 && w->counts.exclusions==1);
     assert(w->owner.thread==101 && w->owner.syscall==SYS_SYNC && w->owner.scope_start_us==200 && w->owner.scope_end_us==300 && w->owner.overlap_start_us==220 && w->owner.overlap_end_us==300);
+    assert(gate_sync_samples==sampled && w->owner.sync.identity==444 && w->owner.sync.io[2].write_bytes==65536);
+    gate_sync_fixture=(struct sync_gate_context){0};
     struct capture_gate_summary copied=summary;summary.worst.owner.thread=999;assert(copied.worst.owner.thread==101);
+    summary=(struct capture_gate_summary){0};clock_us=420;slot=capture_gate_start(&summary);
+    current_thread=1;threads[1].io_syscall=SYS_READ;clock_us=430;assert(scheduler_io_begin());
+    sampled=gate_sync_samples;clock_us=450;scheduler_io_end();current_thread=0;clock_us=460;capture_gate_finish(slot);
+    assert(gate_sync_samples==sampled && summary.worst.owner.syscall==SYS_READ && !summary.worst.owner.sync.state);
+    threads[1].io_syscall=SYS_SYNC;
     /* Overflow, duplicate observer, clock failure and unfinished ownership
      * remain visible instead of returning apparently complete evidence. */
     summary=(struct capture_gate_summary){0};clock_us=500;slot=capture_gate_start(&summary);
