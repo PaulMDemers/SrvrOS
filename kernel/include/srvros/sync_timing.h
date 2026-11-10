@@ -10,8 +10,14 @@
 struct sync_content_io {
     uint64_t reads,read_bytes,read_us,writes,write_bytes,write_us,flushes,flush_us,failures;
 };
+/* Captured backend prefix; live RAM suffix may grow while that prefix is
+ * immutable. This is not an exemption from a failed required-prefix barrier. */
+struct sync_content_prefix {
+    uint64_t valid,start_generation,end_generation,live_size,committed_size,append_calls,append_bytes;
+};
 struct sync_content_call {
     uint64_t slot,identity,inode,size,start_us,end_us,ok,dirty_after;
+    struct sync_content_prefix prefix;
     struct sync_content_io io[SYNC_CONTENT_ROLES];
     struct usb_storage_content_timing commands;
 };
@@ -50,6 +56,9 @@ static inline bool sync_timing_content_begin(uint64_t slot,uint64_t identity,uin
     (void)slot;(void)identity;(void)inode;(void)size;return false;
 }
 static inline void sync_timing_content_end(bool ok,bool dirty_after) { (void)ok;(void)dirty_after; }
+static inline void sync_timing_content_end_snapshot(bool ok,bool dirty_after,const struct sync_content_prefix *prefix) {
+    (void)ok;(void)dirty_after;(void)prefix;
+}
 static inline void sync_timing_content_io(unsigned role,unsigned kind,uint64_t bytes,uint64_t us,bool ok) {
     (void)role;(void)kind;(void)bytes;(void)us;(void)ok;
 }
@@ -60,6 +69,7 @@ void sync_timing_content_role_end(unsigned token);
 uint64_t sync_timing_content_identity(void);
 bool sync_timing_content_begin(uint64_t slot,uint64_t identity,uint64_t inode,uint64_t size);
 void sync_timing_content_end(bool ok,bool dirty_after);
+void sync_timing_content_end_snapshot(bool ok,bool dirty_after,const struct sync_content_prefix *prefix);
 /* kind0=uncached block read,1=block write,2=owner flush; supplied elapsed wall,
  * no extra controller access or clock read. Counters include failed attempts. */
 void sync_timing_content_io(unsigned role,unsigned kind,uint64_t bytes,uint64_t us,bool ok);

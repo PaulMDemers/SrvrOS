@@ -35,4 +35,16 @@ static inline void capture_write_result(struct capture_write_record *r,uint64_t 
     if(actual<0) {if(!capture_write_add(&r->failures,1))r->invalid=1;}
     else if(!capture_write_add(&r->bytes,(uint64_t)actual))r->invalid=1;
 }
+static inline void capture_write_fast_result(struct capture_write_record *r,uint64_t requested,int64_t actual) {
+    if(!r)return;
+    if(r->retired || !requested || requested>65536 || actual>(int64_t)requested) {r->invalid=1;return;}
+    if(!capture_write_add(&r->fast_calls,1) || !capture_write_add(&r->fast_requested,requested))r->invalid=1;
+    if(requested>r->fast_max_request)r->fast_max_request=requested;
+    if(actual<0) {if(!capture_write_add(&r->fast_failures,1))r->invalid=1;}
+    else {
+        if(!actual)r->invalid=1;
+        if(!capture_write_add(&r->fast_bytes,(uint64_t)actual))r->invalid=1;
+        if((uint64_t)actual>r->fast_max_bytes)r->fast_max_bytes=(uint64_t)actual;
+    }
+}
 #endif

@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <srvros/file_verify_kernel.h>
+#include "../userspace/shotworker/save.h"
 #define test_sync_content_case unused_test_sync_content_case
 #include "test_process_writeback.c"
 #undef test_sync_content_case
@@ -71,6 +72,11 @@ static int capture_mkdir(const char *path,mode_t mode) {
 }
 static int capture_unlink(const char *path) {return (int)posix_result(process_unlink_file(path));}
 long srv_getpid(void) {return 777;}
+/* This fixture isolates the original save/media proofs and old-kernel fallback.
+ * Actual reserve/overlapping-copy ownership is exercised by its own fixture. */
+long srv_file_reserve_append_ram(int fd,uint64_t capacity) {
+    (void)fd;assert(capacity>=54 && capacity<=DESK_CAPTURE_MAX_BYTES);return SRV_ERR_NOTSUP;
+}
 long srv_ticks(void) {return 12345;}
 long srv_sync(void) {
     int64_t result=process_file_sync_all();bool flushed=capture_device->flush(capture_device);

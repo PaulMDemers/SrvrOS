@@ -101,10 +101,25 @@ void sync_timing_content_io(unsigned role,unsigned kind,uint64_t bytes,uint64_t 
     if(!ok)add(r,&p->failures,1);
     unlock(f);
 }
-void sync_timing_content_end(bool ok,bool dirty_after) {
+static bool content_prefix_valid(const struct sync_content_prefix *p,bool ok,bool dirty_after) {
+    if(!p || p->valid!=1 || p->end_generation<p->start_generation ||
+       p->live_size<content_current.size || p->live_size>16u*1024u*1024u ||
+       p->committed_size>16u*1024u*1024u ||
+       p->append_calls!=p->end_generation-p->start_generation ||
+       p->append_bytes!=p->live_size-content_current.size ||
+       ((!p->append_calls)!=(!p->append_bytes)) ||
+       (p->append_bytes && (p->append_bytes-1)/65536u>=p->append_calls))return false;
+    if(ok)return p->committed_size==content_current.size && dirty_after==(p->append_calls!=0);
+    return dirty_after;
+}
+static void content_end(bool ok,bool dirty_after,const struct sync_content_prefix *prefix,bool snapshot) {
     uint64_t f=lock();
     if(!content_active || !observed.active || phase) {observed.invalid=1;unlock(f);return;}
     struct sync_timing_record *r=&observed.records[slot];
+    if(snapshot) {
+        if(!content_prefix_valid(prefix,ok,dirty_after))r->invalid=1;
+        else content_current.prefix=*prefix;
+    }
     if(commands_active) {
         usb_storage_content_end(&content_current.commands);
         if(!content_current.commands.valid || content_current.commands.active || content_current.commands.invalid)r->invalid=1;
@@ -116,6 +131,10 @@ void sync_timing_content_end(bool ok,bool dirty_after) {
     if(content_current.end_us<content_current.start_us)r->invalid=1;
     else if(!c->worst.start_us || content_current.end_us-content_current.start_us>c->worst.end_us-c->worst.start_us)c->worst=content_current;
     content_active=false;content_current=(struct sync_content_call){0};unlock(f);
+}
+void sync_timing_content_end(bool ok,bool dirty_after) { content_end(ok,dirty_after,0,false); }
+void sync_timing_content_end_snapshot(bool ok,bool dirty_after,const struct sync_content_prefix *prefix) {
+    content_end(ok,dirty_after,prefix,true);
 }
 void sync_timing_files_done(bool ok) {
     uint64_t f=lock();

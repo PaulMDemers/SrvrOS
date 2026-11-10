@@ -47,6 +47,12 @@ bool scheduler_io_busy(void); /* Another thread owns storage state. IRQs masked.
  * Allocating callers must separately bound and audit IRQ-safe PMM/VMM work.
  * Refuse siblings, worker contexts, image/owner aliases and unbounded scans. */
 bool scheduler_io_process_independent(void *process);
+/* Read-only, exact raw SYS_WRITE entry proof under IF0. Same sole-main,
+ * address-space and foreign-owner exclusions as the mutation proof above,
+ * without requiring the user-safe flag that IDT deliberately cleared first.
+ * Grants no ownership, scheduling or callback authority; actual mutation must
+ * recheck scheduler_io_process_independent after normal entry classification. */
+bool scheduler_io_entry_process_independent(void *process);
 /* IRQ-masked bounded atomic retirement by a helper, siblings blocked on the supplied audited wait queue only.
  * No allocation, callbacks, service windows or yield until mutation completes. */
 bool scheduler_io_process_helper_memory(void *process,struct scheduler_wait_queue *parked);
