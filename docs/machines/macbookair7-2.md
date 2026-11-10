@@ -27,6 +27,35 @@ PR379 WebCore remain independent. Checkpoint:`build/air-hda-gpu-20261110`;
 accepted currente835/recovery9aa8 and USB37D8-C5D0 evidence retained, no reboot
 armed. Stop at a qualified checkpoint before installing/booting a new operation.
 
+### Software checkpoint: joint HDA/GPU lifetime qualified
+
+Source`36788a91` on main`72d49457` implements original HDA owner/borrow
+registration, callback reentry barriers, a fresh guarded endpoint check and the
+[joint lifetime](../intel-hda-gpu.md). One original HDA token/borrow and CPU pin
+cover the real GPU/reset/re-arm/claim graph. A clean GPU/claim return precedes
+the separate midpoint HDA inspection, restore and adapter retirement; failures
+retain the joint owner. Every admitted sample advances the shared monotonic
+watermark, including GPU-only intervals, and the first invalid sample survives.
+No clock is restarted or extended.
+
+Full local build/check-host/core/docs/USB-image and all24 existing images pass
+(installed-root explicitly omitted). The joint model passes6,121 cases with
+232 HDA reads,12 entry reads,1,084 shared clock positions and75 HDA guards on
+its normal path; ten registry cases pass. Fatal ASan/UBSan passes all6,131 cases
+and nine compiled behavioral controls are detected. Actual freestanding cores
+pass2KiB function-frame compilation, C ABI/dependency checks and24-image absence
+of the joint/claim. The result object is2,496 bytes and belongs in static/heap
+storage. Initial fixture/runner nonpasses remain in the local checkpoint.
+
+Native adapter, distinct image/recipe, strict phase-correct raw collector and
+exact-stage VM checks remain pending. This core is not a prepared hardware test
+or a native acceptance. Keep HDA400/preparation100/GT300/full500ms and the
+65,536-byte log tail unchanged; preserve every raw word. Existing currente835,
+recovery9aa8/GUIc497 and prior banked payloads verify; USB37D8-C5D0, Ubuntu
+default and volume1% remain, with the last physical run collected. No new
+payload is staged/installed and no one-shot is armed. All255 completion
+obligations remain open; assurances and managed pages stay zero.
+
 ### Software checkpoint: updated main and nested interval claim qualified
 
 Main`72d49457`/PR458/459 is integrated as`2c5f1df1`. The machine-summary conflict

@@ -77,3 +77,26 @@ writes, prefetch, firmware/SMM, cache/TLB or other-reader completion. All eight
 GPU completion obligations remain open (mask255), assurances and managed pages
 remain zero. A persistent desktop GPU service and page flipping need those
 independent witnesses and their own maintained runtime lifetime.
+
+## Software qualification
+
+Source`36788a91` is qualified on integrated main`72d49457`. The local matched
+build/check-host/core/docs/USB-image gate and all24 existing boot images pass;
+installed-root tests are explicitly omitted for this diagnostic-only change.
+The actual-core joint matrix passes6,121 cases over1,084 shared clock samples,
+75 HDA guards, every endpoint/read/store position and the directed lifetime
+failures above. Ten original-registry cases also pass. Fatal ASan/UBSan passes
+all6,131 cases, and all nine compiled behavioral controls are detected.
+
+Both cores compile under the actual freestanding flags with a2,048-byte function
+frame limit. Actual C ABI and object dependency checks pass; neither the joint
+core nor interval claim is linked in any of the24 images. The joint object itself
+is2,496 bytes on the measured x86_64 ABI, reinforcing the static/heap storage
+requirement. This is a function-frame check, not an assertion that the whole
+result fits in2KiB or that a combined native adapter has been qualified.
+
+The installed accepted source`f2a6c116`/release`e83571c874bc17f1`, recovery and
+banked payloads remain verified. No new payload is staged/installed and no reboot
+is armed. These host/object results do not add a physical acceptance. Next is
+the separate native adapter/image/recipe/collector boundary above; retain the
+original HDA400ms, preparation100ms, GT300ms and full500ms limits.
