@@ -10896,3 +10896,21 @@ or remove work based on the VM result.
 Installed/current/recovery payloads and independent backups verify, Ubuntu is
 default, one-shot empty, collector disabled and USB unmounted. No reboot is armed.
 Matching raw evidence has a verified independent trial backup outside build.
+
+### Role-bound USB command timing implementation scope (2026-11-09)
+
+Base `c367f169`, after independently collecting and accepting the correlated
+native baseline. Bounded objective: bind BOT command counts/bytes, slow-CSW
+counts and worst completion observations to the same selected content and six
+filesystem roles, with a seventh explicit unclassified/pre-mutation bucket.
+Touch passive USB storage observation, sync/content and exFAT role bracketing,
+final workspace reporting, strict parsers and host/VM/native collection. User
+authorized subagents; separate agents own transport, parsers and host adapters.
+Root owns integration and physical testing. Preserve every command/validation/
+checkpoint, byte proof, flush/publication barrier, admission/ownership, quarantine,
+watchdog and runtime limit. No latency fix or hardware cause is claimed yet.
+PR19 metadata import/logger options and PR301 process lifetime/scanout edits
+remain separate; inspect current overlapping hunks before integrating. Next
+checkpoint: prove observer-on/off transfer equivalence, exact retained joins and
+whole-record/tail retention, full matched validation, then original unattended
+30-minute1% native stress. Preserve the accepted1991 baseline and old recovery.
