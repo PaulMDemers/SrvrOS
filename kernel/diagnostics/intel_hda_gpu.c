@@ -9,13 +9,18 @@ static bool fault(struct intel_hda_gpu *s,unsigned why) {
  s->end_us=s->last_us;return false;
 }
 static bool gpu_empty(const struct intel_gt_access *g) {
- return g && !g->object && !g->state && !g->pinned && !g->writes && !g->write_attempts &&
+ return g && !g->object && !g->state && !g->reason && !g->begin && !g->last && !g->pinned && !g->writes && !g->write_attempts &&
   !g->borrows && !g->dependents && !g->engine_epoch;
 }
 static bool gpu_source(const struct intel_hda_gpu *s) {
  const struct intel_gt_access *g=s->gpu;
+ /* GT publishes object/exclusion/clock before its initial read-only pair,
+  * then pins and enters OPENING before its first store. This is not AWAKE
+  * authority; attach/complete still require the later real transitions. */
+ bool initializing=g && g->object==g && g->state==GT_ACCESS_EMPTY && !g->reason && g->begin && g->last>=g->begin &&
+  !g->pinned && !g->writes && !g->write_attempts && !g->borrows && !g->dependents && !g->engine_epoch;
  return gpu_empty(g) || (g && g->object==g && g->state!=GT_ACCESS_FAULT &&
-  (g->state==GT_ACCESS_OPENING || g->state==GT_ACCESS_AWAKE || g->state==GT_ACCESS_CLOSED) &&
+  (initializing || g->state==GT_ACCESS_OPENING || g->state==GT_ACCESS_AWAKE || g->state==GT_ACCESS_CLOSED) &&
   g->exclusion.epoch==s->exclusion.epoch && g->exclusion.owner==s->exclusion.owner);
 }
 static bool claim_source(const struct intel_hda_gpu *s) {

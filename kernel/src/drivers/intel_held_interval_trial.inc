@@ -10,8 +10,17 @@ static bool einterval_guard(void *ctx) {
 }
 static uint64_t einterval_now(void *ctx) {return eprepare_now(ctx);}
 static bool einterval_read(void *ctx,uint32_t offset,uint32_t *out) {
- struct engine_prepare_adapter *p=ctx;const struct intel_held_interval_result *r=&p->trial->interval;
+ struct engine_prepare_adapter *p=ctx;
+#ifdef SRVROS_INTEL_JOINT
+ const struct intel_interval_claim *c=&p->trial->claim;
+ bool closing=c->state==IIC_CLOSING;
+ const struct intel_held_interval_result *r=closing?&c->closing:&c->opening;
+ unsigned start=closing?6:0,limit=start+6;
+ if(!out || p->interval_reads<start || p->interval_reads>=limit || r->attempts!=p->interval_reads-start+1 ||
+#else
+ const struct intel_held_interval_result *r=&p->trial->interval;
  if(!out || p->interval_reads>=6 || r->attempts!=p->interval_reads+1 ||
+#endif
     offset!=INTEL_WINDOW_PAGE+(p->interval_reads%3==1?0:4) ||
     !einterval_guard(p) || !completion_mapping(p->a,13) || !engine_requesters(p->a))return false;
  /* Last same-origin deadline check immediately precedes the sole DWORD load.
@@ -33,6 +42,7 @@ static bool einterval_read(void *ctx,uint32_t offset,uint32_t *out) {
  if(ok)++p->interval_reads;
  return ok;
 }
+#ifndef SRVROS_INTEL_JOINT
 static bool einterval_run(struct engine_prepare_adapter *p) {
  struct scanout_handoff_snapshot snapshot={0};
  struct intel_held_interval_result *r=&p->trial->interval;
@@ -47,16 +57,38 @@ static bool einterval_run(struct engine_prepare_adapter *p) {
  if(!r->bound){r->reason|=IHI_PARENT;r->complete=false;return false;}
  return true;
 }
-static void einterval_report(const struct intel_held_interval_result *r) {
+#else
+static bool einterval_claim_run(struct engine_prepare_adapter *p) {
+ struct scanout_handoff_snapshot snapshot={0};
+ struct intel_interval_claim *c=&p->trial->claim;
+ if(!intel_window_handoff_snapshot(&snapshot) || !intel_hda_gpu_attach(&joint.scope,c))return false;
+ struct intel_held_interval_io io={p,einterval_guard,einterval_read,einterval_now};
+ if(!intel_interval_claim_open(c,&p->trial->rehold_child,&snapshot,io))return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ if(!intel_display_test_joint_claim_active(c))return true;
+#endif
+ return intel_interval_claim_check(c) && intel_interval_claim_close(c);
+}
+#endif
+static void einterval_report_named(const struct intel_held_interval_result *r,const char *prefix) {
  static const char hex[]="0123456789abcdef";
  for(unsigned n=0;n<2;n++) {
   char raw[25];unsigned count=r->counts[n]>3?3:r->counts[n];
   for(unsigned i=0;i<count;i++)for(unsigned j=0;j<8;j++)raw[i*8+j]=hex[(r->words[n][i]>>(28-j*4))&15];
   raw[count*8]=0;
-  console_printf("intel-held-interval-row: v=1 s=%u n=%u begin=%u end=%u h=%s\n",(uint64_t)n,(uint64_t)count,r->sample_begin[n],r->sample_end[n],count?raw:"-");
+  console_printf("%s-row: v=1 s=%u n=%u begin=%u end=%u h=%s\n",prefix,(uint64_t)n,(uint64_t)count,r->sample_begin[n],r->sample_end[n],count?raw:"-");
  }
- console_printf("intel-held-interval-summary: v=1 origin=%u begin=%u end=%u epoch_before=%u epoch_after=%u first=%u pages=%u attempts=%u reads=%u samples=%u n0=%u n1=%u stable=%u bound=%u reason=%u clock_at=%u clock_prev=%u complete=%u obligations=255 assurances=0 pte_writes=0 managed_pages=0 hardware_ownership=0\n",r->origin_us,r->begin_us,r->end_us,(uint64_t)r->epoch_before,(uint64_t)r->epoch_after,(uint64_t)r->manifest.first,(uint64_t)r->manifest.pages,(uint64_t)r->attempts,(uint64_t)r->reads,(uint64_t)r->samples,(uint64_t)r->counts[0],(uint64_t)r->counts[1],(uint64_t)r->stable,(uint64_t)r->bound,(uint64_t)r->reason,r->clock_at,r->clock_prev,(uint64_t)r->complete);
+ console_printf("%s-summary: v=1 origin=%u begin=%u end=%u epoch_before=%u epoch_after=%u first=%u pages=%u attempts=%u reads=%u samples=%u n0=%u n1=%u stable=%u bound=%u reason=%u clock_at=%u clock_prev=%u complete=%u obligations=255 assurances=0 pte_writes=0 managed_pages=0 hardware_ownership=0\n",prefix,r->origin_us,r->begin_us,r->end_us,(uint64_t)r->epoch_before,(uint64_t)r->epoch_after,(uint64_t)r->manifest.first,(uint64_t)r->manifest.pages,(uint64_t)r->attempts,(uint64_t)r->reads,(uint64_t)r->samples,(uint64_t)r->counts[0],(uint64_t)r->counts[1],(uint64_t)r->stable,(uint64_t)r->bound,(uint64_t)r->reason,r->clock_at,r->clock_prev,(uint64_t)r->complete);
 }
+static void einterval_report(const struct intel_held_interval_result *r) {einterval_report_named(r,"intel-held-interval");}
+#ifdef SRVROS_INTEL_JOINT
+static void einterval_claim_report(const struct intel_interval_claim *c) {
+ if(c->object)einterval_report_named(&c->closing,"intel-claim-final");
+ console_printf("intel-claim-summary: v=1 state=%u reason=%u pinned=%u origin=%u owner_origin=%u begin=%u end=%u last=%u epoch=%u expected=%u clock_at=%u clock_prev=%u complete=%u obligations=255 assurances=0 pte_writes=0 managed_pages=0 hardware_ownership=0\n",
+  (uint64_t)c->state,(uint64_t)c->reason,(uint64_t)c->pinned,c->origin_us,c->owner_origin_us,c->begin_us,c->end_us,c->last_us,(uint64_t)c->epoch,c->expected,c->clock_at,c->clock_prev,
+  (uint64_t)(c->state==IIC_CLOSED && !c->pinned && !c->reason && c->opening.complete && c->opening.bound && c->closing.complete && c->closing.bound));
+}
+#endif
 /* All74 plane/HDA DWORDs survive in one canonical positional base64 row.
  * This image alone compacts them; the65,536-byte log tail never grows. */
 static void einterval_preservation_report(const struct engine_prepare_trial *t) {

@@ -20,7 +20,7 @@ class JointTests(unittest.TestCase):
         self.assertEqual((normal['reads'], normal['claim_reads'], normal['attempts'], normal['stores']), (232, 12, 2, 2))
         self.assertGreater(normal['checks'], 0)
         cases = 1
-        for mode in ('reentry', 'clean-refusal', 'false-pass', 'claim-live', 'lost-hda-list', 'lost-hda-child', 'lost-hda-count', 'mid-fail', 'retire'):
+        for mode in ('reentry', 'clean-refusal', 'false-pass', 'claim-live', 'lost-hda-list', 'lost-hda-child', 'lost-hda-count', 'mid-fail', 'retire', 'initializing-dirty'):
             with self.subTest(mode=mode):
                 self.run_case(mode)
             cases += 1

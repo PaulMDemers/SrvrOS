@@ -57,7 +57,7 @@ def held_result(text):
  from intel_engine_prepare import prepare_result
  from intel_gt_wake import wake_result
  p=prepare_result(text);wake=wake_result(text)
- if not p or not wake or wake['summary']['v'] not in (16,17,18,19):raise ValueError('held requester image/prerequisites')
+ if not p or not wake or wake['summary']['v'] not in (16,17,18,19,20):raise ValueError('held requester image/prerequisites')
  ps=p['summary']
  if s['origin'] and (s['origin']!=ps['begin'] or s['epoch']!=ps['epoch'] or not a['attempted']):raise ValueError('held requester origin binding')
  # On expiry, prepare's post-action guard cannot advance its last valid clock.

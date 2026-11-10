@@ -36,7 +36,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_REHOLD
+#ifdef SRVROS_INTEL_JOINT
+extern volatile struct limine_firmware_type_request intel_joint_firmware_request;
+#elif defined(SRVROS_INTEL_REHOLD)
 extern volatile struct limine_firmware_type_request intel_rehold_firmware_request;
 #elif defined(SRVROS_INTEL_HELD_INTERVAL)
 extern volatile struct limine_firmware_type_request intel_held_interval_firmware_request;
@@ -75,7 +77,9 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
 #ifdef SRVROS_INTEL_HELD_INTERVAL
 #define WAKE_MAPS 14u
-#ifdef SRVROS_INTEL_REHOLD
+#ifdef SRVROS_INTEL_JOINT
+#define WAKE_VERSION 20u
+#elif defined(SRVROS_INTEL_REHOLD)
 #define WAKE_VERSION 19u
 #else
 #define WAKE_VERSION 18u
@@ -143,6 +147,9 @@ struct wake_adapter {struct fw_observer fw;bool mapped[WAKE_MAPS],uncertain;unsi
  bool bcs_failed;
 #endif
 };
+#ifdef SRVROS_INTEL_JOINT
+static bool joint_fast(void);
+#endif
 static bool wake_text(const char *a,const char *b) {
     if(!a)return false;
     for(unsigned i=0;i<32;i++){if(a[i]!=b[i])return false;if(!b[i])return true;}return false;
@@ -172,6 +179,9 @@ static bool wake_guard(void *context) {
     struct wake_adapter *a=context;struct intel_gt_endpoint e;
     a->guards++;
     if(a->uncertain || !wake_irq_off() ||
+#ifdef SRVROS_INTEL_JOINT
+       !joint_fast() ||
+#endif
 #if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
        !gt_guard_endpoint(&a->fw.gt,&e) ||
 #else
@@ -230,6 +240,9 @@ static bool wake_unmap(struct wake_adapter *a,unsigned i) {
        !vmm_unmap_page_in_space(cr3,va,&physical) || physical!=result.mmio_base+wake_pages[i]){a->uncertain=true;return false;}
     a->mapped[i]=false;a->retired++;return true;
 }
+#ifdef SRVROS_INTEL_JOINT
+#include "intel_joint_trial.inc"
+#endif
 static bool wake_read(void *context,uint32_t reg,uint32_t *out) {
     struct wake_adapter *a=context;unsigned i=reg==INTEL_GT_REQUEST?0:reg==INTEL_GT_ACK?1:reg==INTEL_GT_THREAD?2:3;
     if(i==3 || !out || !a->mapped[i] || !wake_guard(a))return false;
@@ -242,6 +255,9 @@ static bool wake_read(void *context,uint32_t reg,uint32_t *out) {
 static enum intel_gt_write wake_write(void *context,uint32_t reg,uint32_t value) {
     struct wake_adapter *a=context;
     if(reg!=INTEL_GT_REQUEST || (value!=0xffff0000u && value!=0x10001 && value!=0x10000) || !a->mapped[0] || !wake_guard(a))return GT_WRITE_NONE;
+#ifdef SRVROS_INTEL_JOINT
+    if(!now(a))return GT_WRITE_NONE;
+#endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
     return intel_display_test_wake_write(value);
 #else
@@ -396,7 +412,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_REHOLD
+    #ifdef SRVROS_INTEL_JOINT
+    const struct limine_firmware_type_response *firmware=intel_joint_firmware_request.response;
+#elif defined(SRVROS_INTEL_REHOLD)
     const struct limine_firmware_type_response *firmware=intel_rehold_firmware_request.response;
 #elif defined(SRVROS_INTEL_HELD_INTERVAL)
     const struct limine_firmware_type_response *firmware=intel_held_interval_firmware_request.response;
@@ -434,7 +452,9 @@ bool intel_gt_wake_probe_report(void) {
     struct intel_pci_requester_result requester={0};
 #elif defined(SRVROS_INTEL_ENGINE_PREPARE)
 #ifdef SRVROS_INTEL_PREPARE_RESET
-#ifdef SRVROS_INTEL_REHOLD
+#ifdef SRVROS_INTEL_JOINT
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_joint_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_REHOLD)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_rehold_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_HELD_INTERVAL)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_held_interval_recipe(cmd->cmdline);
@@ -446,11 +466,19 @@ bool intel_gt_wake_probe_report(void) {
 #else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_engine_prepare_recipe(cmd->cmdline);
 #endif
+#ifdef SRVROS_INTEL_JOINT
+    static struct engine_prepare_trial prepared;
+#else
     struct engine_prepare_trial prepared={0};
+#endif
 #else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_takeover_recipe(cmd->cmdline);
 #endif
+#ifdef SRVROS_INTEL_JOINT
+    static struct intel_takeover_result takeover;
+#else
     struct intel_takeover_result takeover={0};
+#endif
 #elif defined(SRVROS_INTEL_BCS_RESET_TRIAL)
     #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
     f.recipe=cmd && !cmd->revision && intel_gt_boot_bcs_shutdown_recipe(cmd->cmdline);
@@ -464,7 +492,11 @@ bool intel_gt_wake_probe_report(void) {
 #else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_completion_recipe(cmd->cmdline);
 #endif
+#ifdef SRVROS_INTEL_JOINT
+    static struct intel_completion_result completion;
+#else
     struct intel_completion_result completion={0};
+#endif
 #elif defined(SRVROS_INTEL_BLITTER_TRIAL)
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
     f.recipe=cmd && !cmd->revision && intel_gt_boot_shutdown_recipe(cmd->cmdline);
@@ -480,8 +512,16 @@ bool intel_gt_wake_probe_report(void) {
     f.recipe=cmd && !cmd->revision && intel_gt_boot_recipe(cmd->cmdline);
 #endif
     f.prerequisites=gt_saved_complete && fw_saved_complete;
+#ifdef SRVROS_INTEL_JOINT
+    /* Retained faults survive this reporting call until reset. Ownership and
+     * captured callback contexts must not point into an expired stack frame. */
+    static struct wake_adapter a;static struct intel_gt_access owner;
+    static struct scanout_handoff_snapshot snapshot;
+    static struct intel_fw_result fresh_fw;static struct intel_gt_preflight_result fresh_gt;
+#else
     struct wake_adapter a={0};struct intel_gt_access owner={0};struct scanout_handoff_snapshot snapshot={0};
     struct intel_fw_result fresh_fw={0};struct intel_gt_preflight_result fresh_gt={0};
+#endif
     bool acquired=false,before=false,after=false,released=false,opened=false,checked=false,closed=false,fw_after=false;
     uint32_t grants=0;uint64_t begin=0,end=0;
 #ifdef SRVROS_INTEL_PREPARE_RESET
@@ -520,6 +560,12 @@ bool intel_gt_wake_probe_report(void) {
             bool mapped=grants!=0;
             for(unsigned i=0;mapped && i<WAKE_MAPS;i++)mapped=wake_map(&a,i);
             if(mapped) {
+#ifdef SRVROS_INTEL_JOINT
+                mapped=joint_open(&a,&owner,&snapshot,begin,&f);
+                if(joint_terminal() && !mapped)a.uncertain=true;
+            }
+            if(mapped) {
+#endif
                 opened=intel_gt_access_open(&owner,&a.fw.gt.token,grants,(struct intel_gt_io){&a,wake_guard,wake_read,wake_write,now,wake_pause,
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
                     wake_request_snapshot
@@ -589,8 +635,15 @@ bool intel_gt_wake_probe_report(void) {
                 after=intel_window_handoff_revalidate(&snapshot) && (!owner.writes || fw_after);
             }
         }
+#ifdef SRVROS_INTEL_JOINT
+        joint_close(after && fw_after,closed && prepared.action.complete && prepared.reset.complete &&
+         prepared.rehold.complete && prepared.claim.state==IIC_CLOSED);
+#endif
         end=timer_monotonic_us();
         bool clean=!owner.pinned && !a.uncertain && !a.fw.uncertain && !trial_mapping_fault && (!before || after);
+#ifdef SRVROS_INTEL_JOINT
+        clean=clean && !joint_terminal();
+#endif
         if(acquired)released=display_access_release(&a.fw.gt.token,clean);
     }
     wake_irq_restore(flags);
@@ -599,8 +652,14 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     if(released)console_flush();
     bool retained=owner.pinned || a.uncertain || a.fw.uncertain || trial_mapping_fault || (acquired && !released);
+#ifdef SRVROS_INTEL_JOINT
+    retained=retained || joint_terminal();
+#endif
     wake_terminal_retained=retained;
     bool complete=grants==7 && opened && checked && closed && after && released && a.maps==WAKE_MAPS && a.retired==WAKE_MAPS && !retained && begin && end>begin && end-begin<=500000;
+#ifdef SRVROS_INTEL_JOINT
+    joint_report();complete=complete && joint.scope.complete;
+#endif
     unsigned engine_reads=0;
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
@@ -619,11 +678,20 @@ bool intel_gt_wake_probe_report(void) {
     engine_reads+=prepared.reset.reads;
     complete=complete && prepared.reset.complete;
 #ifdef SRVROS_INTEL_HELD_INTERVAL
+    #ifdef SRVROS_INTEL_JOINT
+    engine_reads+=prepared.claim.opening.reads+prepared.claim.closing.reads;
+#else
     engine_reads+=prepared.interval.reads;
+#endif
 #ifdef SRVROS_INTEL_REHOLD
     engine_reads+=prepared.rehold.reads+prepared.live_reads;
 #endif
+#ifdef SRVROS_INTEL_JOINT
+    complete=complete && prepared.claim.state==IIC_CLOSED && !prepared.claim.pinned && !prepared.claim.reason &&
+     prepared.claim.opening.complete && prepared.claim.opening.bound && prepared.claim.closing.complete && prepared.claim.closing.bound
+#else
     complete=complete && prepared.interval.complete && prepared.interval.bound
+#endif
 #ifdef SRVROS_INTEL_REHOLD
                 && prepared.rehold.complete
 #endif

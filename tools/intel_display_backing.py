@@ -11,6 +11,18 @@ SCHEMAS={
  'pte':'v first count data',
 }
 
+def pte_chunk(chunk,wire):
+    """Decode the canonical raw transport; this supplies no observation grant."""
+    try:data=base64.b64decode(chunk['data'],validate=True)
+    except (ValueError,base64.binascii.Error) as exc:raise ValueError('invalid PTE encoding') from exc
+    width=chunk['w'] if wire==3 else 8
+    high=chunk['h'] if wire==3 else 0
+    if width not in (4,8) or high>=1<<32 or width==8 and high:raise ValueError('joint PTE width/high')
+    if len(data)!=width*chunk['count'] or base64.b64encode(data).decode()!=chunk['data']:raise ValueError('noncanonical PTE chunk')
+    words=[int.from_bytes(data[i:i+width],'little')|(high<<32) for i in range(0,len(data),width)]
+    if wire==3 and width==8 and len({v>>32 for v in words})==1:raise ValueError('joint PTE noncanonical wide chunk')
+    return words
+
 def backing_result(text):
     rows={key:[] for key in SCHEMAS}
     for line in text.splitlines():
@@ -26,7 +38,8 @@ def backing_result(text):
                 if not re.fullmatch(r'(?:0x[0-9a-fA-F]{1,16}|[0-9]{1,20})',value):raise ValueError('invalid backing number')
                 fields[key]=int(value,16 if value.startswith('0x') else 10)
                 if fields[key]>=1<<64:raise ValueError('backing overflow')
-        if set(fields)!=set(SCHEMAS[kind].split()) or fields['v'] not in ((1,2) if kind=='pte' else (1,)):raise ValueError('invalid backing schema/version')
+        if set(fields)!=set((SCHEMAS[kind]+(" w h" if kind=="pte" and fields.get("v")==3 else "")).split()) or fields['v'] not in ((1,2,3) if kind=='pte' else (1,)):raise ValueError('invalid backing schema/version')
+        if kind=='pte' and fields['v']==3 and not re.fullmatch(r'intel-backing-pte: v=3 first=(?:0|[1-9][0-9]{0,3}) count=[1-9][0-9]? w=[48] h=(?:0|[1-9][0-9]{0,9}) data=[A-Za-z0-9+/]+={0,2}',line):raise ValueError('joint PTE canonical header')
         rows[kind].append(fields)
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or len(rows['sample'])!=2 or len(rows['endpoint'])!=2:raise ValueError('incomplete backing report')
@@ -58,18 +71,19 @@ def backing_result(text):
     if e['fb_pages']!=(fb['pitch']*fb['height']+4095)//4096 or e['entry_type'] not in (1,7) or e['entry_base']>fb['physical'] or e['entry_base']+e['entry_length']>1<<64 or fb['physical']+fb['pitch']*fb['height']>e['entry_base']+e['entry_length']:raise ValueError('invalid framebuffer translation/map coverage')
     versions={chunk['v'] for chunk in rows['pte']}
     if len(versions)!=1:raise ValueError('mixed backing PTE versions')
-    wire=next(iter(versions));chunk_size=64 if wire==2 else 16
+    wire=next(iter(versions));chunk_size=64 if wire in (2,3) else 16
     if wire==2:
         wake=re.findall(r'^intel-wake-summary: v=([0-9]+) ',text,re.M)
         boot=re.findall(r'^laptop-capture: boot options=(.*)$',text,re.M)
         if not (wake==['19'] or not wake and len(boot)==1 and boot[0].split().count('srvros.intel-rehold=request-cancel')==1):raise ValueError('packed PTE image binding')
+    if wire==3:
+        wake=re.findall(r'^intel-wake-summary: v=([0-9]+) ',text,re.M)
+        boot=re.findall(r'^laptop-capture: boot options=(.*)$',text,re.M)
+        if not (wake==['20'] or not wake and len(boot)==1 and boot[0].split().count('srvros.intel-joint=hda-claim')==1):raise ValueError('joint PTE image binding')
     ptes=[]
     for chunk in rows['pte']:
         if chunk['first']!=len(ptes) or chunk['count']!=min(chunk_size,summary['count']-len(ptes)) or chunk['count']<=0:raise ValueError('incomplete/duplicate PTE chunk')
-        try:data=base64.b64decode(chunk['data'],validate=True)
-        except (ValueError,base64.binascii.Error) as exc:raise ValueError('invalid PTE encoding') from exc
-        if len(data)!=8*chunk['count'] or base64.b64encode(data).decode()!=chunk['data']:raise ValueError('noncanonical PTE chunk')
-        ptes.extend(int.from_bytes(data[i:i+8],'little') for i in range(0,len(data),8))
+        ptes.extend(pte_chunk(chunk,wire))
     if len(ptes)!=summary['count']:raise ValueError('incomplete raw PTE vector')
     digest=14695981039346656037
     for pte in ptes:

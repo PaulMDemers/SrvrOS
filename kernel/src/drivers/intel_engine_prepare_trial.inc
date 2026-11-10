@@ -17,7 +17,11 @@ struct engine_prepare_trial {
 #ifdef SRVROS_INTEL_PREPARE_RESET
  struct intel_engine_held_reset_result reset;
 #ifdef SRVROS_INTEL_HELD_INTERVAL
+#ifdef SRVROS_INTEL_JOINT
+ struct intel_interval_claim claim;
+#else
  struct intel_held_interval_result interval;
+#endif
 #ifdef SRVROS_INTEL_REHOLD
  struct intel_engine_rehold rehold;
  struct intel_engine_rehold_child rehold_child;
@@ -50,7 +54,11 @@ struct engine_prepare_adapter {struct wake_adapter *a;struct intel_gt_access *g;
  * No successful guard is cached or carried into the next callback. */
 static bool eprepare_guard(void *ctx) {
  struct engine_prepare_adapter *p=ctx;struct wake_adapter *a=p->a;
- if(p->failed || a->uncertain || !wake_irq_off() || p->g!=p->trial->action.parent ||
+ if(p->failed || a->uncertain || !wake_irq_off() ||
+#ifdef SRVROS_INTEL_JOINT
+    !joint_fast() ||
+#endif
+    p->g!=p->trial->action.parent ||
     a->fw.gt.a.mapped || !display_access_held(&a->fw.gt.token) ||
     !intel_boot_check(INTEL_BOOT_OBSERVER,a->fw.gt.a.common.gpu) ||
     vmm_current_address_space()!=a->fw.gt.a.common.cr3)return false;
@@ -196,7 +204,12 @@ static bool eprepare_preserve(void *ctx,const struct intel_completion_result *pr
 #endif
 static void eprepare_run(struct wake_adapter *a,struct intel_gt_access *g,const struct intel_takeover_result *pre,struct engine_prepare_trial *t,bool policy) {
  if(!eprepare_planes(a,g,t,0))return;
+#ifdef SRVROS_INTEL_JOINT
+ static struct engine_prepare_adapter p;
+ p=(struct engine_prepare_adapter){.a=a,.g=g,.trial=t};
+#else
  struct engine_prepare_adapter p={.a=a,.g=g,.trial=t};
+#endif
 #ifdef SRVROS_INTEL_PREPARE_RESET
  (void)intel_engine_prepare_with_bcs_reset(&t->action,g,pre,policy,(struct intel_engine_prepare_io){&p,eprepare_guard,eprepare_sample,eprepare_control,eprepare_transition,eprepare_preserve,eprepare_now,eprepare_pause},(struct intel_engine_prepare_action){&p,eheld_action},&t->reset,(struct intel_engine_held_reset_io){&p,ehr_guard,ehr_snapshot,ehr_domain,ehr_transition,ehr_begin,ehr_end,ehr_now,eprepare_pause});
 #else
@@ -220,7 +233,12 @@ static void eprepare_report(const struct engine_prepare_trial *t) {
 #ifdef SRVROS_INTEL_REHOLD
  erehold_report(t);
 #endif
+#ifdef SRVROS_INTEL_JOINT
+ einterval_report(&t->claim.opening);
+ einterval_claim_report(&t->claim);
+#else
  einterval_report(&t->interval);
+#endif
 #endif
 #endif
  for(unsigned n=0;n<r->sample_attempts && n<5;n++) {

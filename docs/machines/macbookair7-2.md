@@ -22,8 +22,8 @@ clocks. The actual original HDA token/borrow must stay registered through GPU
 retirement; only a clean returned GPU/claim may permit HDA restoration. First
 harden HDA dependent registration/reentry and add a cheap guarded endpoint check,
 then compose real cores and qualify the isolated adapter/recipe/collector. The
-[joint software core](../intel-hda-gpu.md) and original HDA borrower registry are
-implemented; native integration remains pending. The actual-core matrix checks
+[joint software core and native adapter](../intel-hda-gpu.md) are implemented;
+the exact image/collector qualification is underway. The actual-core matrix checks
 the original clock watermark across HDA/GPU boundaries, full232 HDA reads,
 12 claim reads, source loss and retention before any new hardware enablement.
 

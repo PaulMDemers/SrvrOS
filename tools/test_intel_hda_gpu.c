@@ -91,6 +91,11 @@ static bool jclaim_guard(void *ctx) {
  if(jmode(m,"lost-hda-count"))m->scope.borrow.dependent_borrows=0;
  return intel_hda_gpu_check(&m->scope) && cguard(&m->base);
 }
+static bool jgpu_guard(void *ctx) {
+ struct joint_model *m=ctx;
+ if(jmode(m,"initializing-dirty") && m->scope.gpu->state==GT_ACCESS_EMPTY)m->scope.gpu->write_attempts=1;
+ return intel_hda_gpu_check(&m->scope) && guard(&m->base.base.base.base.m.base.gt);
+}
 static bool jclaim_observe(void *ctx,struct intel_engine_rehold *r) {
  struct joint_model *m=ctx;struct claim_model *c=&m->base;
  assert(intel_engine_rehold_borrow(r,&c->base.child));
@@ -144,7 +149,7 @@ int main(int argc,char **argv) {
   if(jmode(&m,"clean-refusal"))assert(intel_hda_gpu_close(&m.scope,false));
   else if(jmode(&m,"false-pass")){assert(!intel_hda_gpu_close(&m.scope,true));}
   else {
-   bool gpu_ok=intel_gt_access_open(&g,&m.exclusion,7,(struct intel_gt_io){&m,guard,read_gt,write_gt,jnow,pause_gt,NULL});
+   bool gpu_ok=intel_gt_access_open(&g,&m.exclusion,7,(struct intel_gt_io){&m,jgpu_guard,read_gt,write_gt,jnow,pause_gt,NULL});
    struct intel_completion_result census={0};batch_parent=&g;
    if(gpu_ok)gpu_ok=intel_completion_observe(&census,&g,(struct intel_completion_io){&m,obs_guard,group,context,jnow,batch_sample});
    pm->base.census=&census;

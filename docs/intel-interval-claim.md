@@ -10,8 +10,9 @@ This is a read-only source claim, not a transferred GPU address lease. It emits
 no hardware assurance, clears no completion obligation, allocates no GPU-visible
 memory and has no PTE, command, flush, invalidation or register-write callback.
 The [complete transfer core](scanout-transfer.md) rejects its data manifest
-before invoking a provider or creating an arena. The current native images do
-not link the claim core; their ordinary zero-dependent child path is preserved.
+before invoking a provider or creating an arena. Only the distinct
+[joint HDA/GPU image](intel-hda-gpu.md) links the claim core. Legacy images keep
+their ordinary zero-dependent child path.
 The new child-return bookkeeping is host/VM qualified separately from accepted
 native source`f2a6c116`.
 
@@ -89,9 +90,9 @@ owners, reentry, mutable caller data, lost registration, unfinished claims,
 repeated close/reuse and early transfer refusal. Existing re-arm tests exercise
 the zero-dependent path. Deliberate retained-fault cases use fresh processes.
 
-Native integration is intentionally absent. Do not schedule a redundant hardware
-trial solely to rerun this software contract. A new native operation requires a
-separate exact image/recipe, actual adapter admission and object checks, durable
+Do not schedule a redundant hardware trial solely to rerun this software
+contract. The joint native operation uses a separate exact image/recipe, actual
+adapter admission and object checks, a durable
 checkpoint, strict raw collector, unchanged bounds and useful physical exit
 criteria under the [Ubuntu workflow](ubuntu-device-agent-setup.md).
 
@@ -152,8 +153,8 @@ return automatically. No audio or human input is needed for that diagnostic.
 
 The [joint lifetime core](intel-hda-gpu.md) now implements the software
 composition with registered HDA dependents, fresh endpoint checks and the
-original clocks. Its native adapter/image/recipe/collector and physical trial
-remain pending; no existing image links it. HDA bus-master
+original clocks. Its distinct native adapter/image/recipe/collector are
+implemented; physical acceptance remains pending. HDA bus-master
 inhibition and non-posted completion still do not establish posted/prefetch,
 GPU pipeline/cache/TLB, firmware, FBC/PSR/other-reader retirement or GPU interval
 transfer. All255 obligations remain open until their actual witnesses exist.

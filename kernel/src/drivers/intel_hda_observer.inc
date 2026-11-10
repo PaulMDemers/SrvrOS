@@ -1,6 +1,6 @@
 #include <srvros/intel_display_hda.h>
-#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
-#if defined(SRVROS_INTEL_WAKE_TRIAL) || defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || defined(SRVROS_INTEL_JOINT)
+#if (defined(SRVROS_INTEL_WAKE_TRIAL) && !defined(SRVROS_INTEL_JOINT)) || defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "HDA census is an independent read-only CPU0 image without GT writers or AML"
 #endif
 #include <srvros/intel_gt_boot.h>
@@ -85,6 +85,9 @@ static bool hda_map(void *ctx) {
 static bool hda_read(void *ctx,unsigned off,unsigned width,uint32_t *out) {
  struct hda_adapter *h=ctx;
  if(!out || !h->mapped || !intel_hda_read_allowed(off,width) || !hda_basic(h))return false;
+#ifdef SRVROS_INTEL_JOINT
+ if(!now(h))return false;
+#endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  return intel_display_test_hda_read(off,width,out);
 #else

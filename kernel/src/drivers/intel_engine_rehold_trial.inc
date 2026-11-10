@@ -69,11 +69,19 @@ static bool erehold_child_guard(struct engine_prepare_adapter *p) {
  }
  return true;
 }
+#ifdef SRVROS_INTEL_JOINT
+static bool einterval_claim_run(struct engine_prepare_adapter *);
+#else
 static bool einterval_run(struct engine_prepare_adapter *);
+#endif
 static bool erehold_observe(void *ctx,struct intel_engine_rehold *r) {
  struct engine_prepare_adapter *p=ctx;
  if(r!=&p->trial->rehold || !intel_engine_rehold_borrow(r,&p->trial->rehold_child))return false;
+#ifdef SRVROS_INTEL_JOINT
+ if(!einterval_claim_run(p))return false;
+#else
  if(!einterval_run(p))return false;
+#endif
  return intel_engine_rehold_return(&p->trial->rehold_child);
 }
 static bool erehold_run(struct engine_prepare_adapter *p) {
@@ -91,5 +99,11 @@ static void erehold_report(const struct engine_prepare_trial *t) {
   console_printf("intel-rehold-row: v=1 s=%u n=%u h=%s\n",(uint64_t)n,(uint64_t)count,count?raw:"-");
  }
  for(unsigned n=0;n<r->writes && n<2;n++)console_printf("intel-rehold-ack: v=1 n=%u d=%u,%u,%u begin=%u end=%u\n",(uint64_t)n,(uint64_t)r->ack[n],(uint64_t)r->final[n],(uint64_t)r->phase_polls[n],r->phase_begin[n],r->phase_end[n]);
- console_printf("intel-rehold-summary: v=1 origin=%u owner_origin=%u begin=%u end=%u epoch=%u attempts=%u writes=%u reads=%u polls=%u acks=%u samples=%u child_borrows=%u child_returns=%u child_started=%u child_completed=%u child_retained=%u restored=%u uncertain=%u stage=%u reason=%u clock_at=%u clock_prev=%u live_checks=%u live_reads=%u live_failed=%u complete=%u obligations=255 assurances=0 pte_writes=0 managed_pages=0 hardware_ownership=0\n",r->origin_us,r->owner_origin_us,r->begin_us,r->end_us,(uint64_t)r->epoch,(uint64_t)r->attempts,(uint64_t)r->writes,(uint64_t)r->reads,(uint64_t)r->polls,(uint64_t)r->acks,(uint64_t)r->samples,(uint64_t)r->child_borrows,(uint64_t)r->child_returns,(uint64_t)r->child_started,(uint64_t)r->child_completed,(uint64_t)(r->child!=NULL),(uint64_t)r->restored,(uint64_t)r->uncertain,(uint64_t)r->stage,(uint64_t)r->reason,r->clock_at,r->clock_prev,(uint64_t)t->live_checks,(uint64_t)t->live_reads,(uint64_t)t->live_failed,(uint64_t)r->complete);
+ console_printf("intel-rehold-summary: v=%u origin=%u owner_origin=%u begin=%u end=%u epoch=%u attempts=%u writes=%u reads=%u polls=%u acks=%u samples=%u child_borrows=%u child_returns=%u child_started=%u child_completed=%u child_retained=%u restored=%u uncertain=%u stage=%u reason=%u clock_at=%u clock_prev=%u live_checks=%u live_reads=%u live_failed=%u complete=%u obligations=255 assurances=0 pte_writes=0 managed_pages=0 hardware_ownership=0\n",
+#ifdef SRVROS_INTEL_JOINT
+ (uint64_t)2,
+#else
+ (uint64_t)1,
+#endif
+ r->origin_us,r->owner_origin_us,r->begin_us,r->end_us,(uint64_t)r->epoch,(uint64_t)r->attempts,(uint64_t)r->writes,(uint64_t)r->reads,(uint64_t)r->polls,(uint64_t)r->acks,(uint64_t)r->samples,(uint64_t)r->child_borrows,(uint64_t)r->child_returns,(uint64_t)r->child_started,(uint64_t)r->child_completed,(uint64_t)(r->child!=NULL),(uint64_t)r->restored,(uint64_t)r->uncertain,(uint64_t)r->stage,(uint64_t)r->reason,r->clock_at,r->clock_prev,(uint64_t)t->live_checks,(uint64_t)t->live_reads,(uint64_t)t->live_failed,(uint64_t)r->complete);
 }

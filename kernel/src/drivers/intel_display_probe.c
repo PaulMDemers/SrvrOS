@@ -85,7 +85,17 @@ static bool read_word(void *opaque,uint32_t off,uint32_t *value) {
         }
     return false;
 }
-static uint64_t now(void *p) {(void)p;return timer_monotonic_us();}
+#ifdef SRVROS_INTEL_JOINT
+#include <srvros/intel_hda_gpu.h>
+static struct intel_hda_gpu *joint_clock;
+#endif
+static uint64_t now(void *p) {
+ (void)p;uint64_t at=timer_monotonic_us();
+#ifdef SRVROS_INTEL_JOINT
+ if(joint_clock && joint_clock->pinned && !intel_hda_gpu_deadline(joint_clock,at))return 0;
+#endif
+ return at;
+}
 
 void intel_display_probe_boot(struct limine_framebuffer *fb) {
     if(attempted) return;
@@ -307,20 +317,34 @@ bool intel_display_backing_probe_report(void) {
     if(b->status==1) {
         for(unsigned i=0;i<INTEL_BACKING_FENCES;i++)console_printf("intel-backing-fence: v=1 index=%u raw=%x\n",(uint64_t)i,b->sample[0].fence[i]);
         static const char abc[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-#ifdef SRVROS_INTEL_REHOLD
+#ifdef SRVROS_INTEL_JOINT
+        enum { backing_chunk=64,backing_wire=3 };
+#elif defined(SRVROS_INTEL_REHOLD)
         enum { backing_chunk=64,backing_wire=2 };
 #else
         enum { backing_chunk=16,backing_wire=1 };
 #endif
         for(unsigned i=0;i<b->count;i+=backing_chunk) {
             uint8_t bytes[backing_chunk*8];char data[((backing_chunk*8+2)/3)*4+1];unsigned count=b->count-i;if(count>backing_chunk)count=backing_chunk;
-            for(unsigned j=0;j<count*8;j++)bytes[j]=(uint8_t)(b->pte[i+j/8]>>(8*(j%8)));
+            unsigned width=8;uint32_t high=0;
+#ifdef SRVROS_INTEL_JOINT
+            high=(uint32_t)(b->pte[i]>>32);width=4;
+            for(unsigned j=1;j<count;j++)if((uint32_t)(b->pte[i+j]>>32)!=high)width=8;
+            if(width==8)high=0;
+#endif
+            for(unsigned j=0;j<count*width;j++)bytes[j]=(uint8_t)(b->pte[i+j/width]>>(8*(j%width)));
             unsigned k=0;
-            for(unsigned j=0;j<count*8;j+=3) {
-                unsigned left=count*8-j;uint32_t v=(uint32_t)bytes[j]<<16;if(left>1)v|=(uint32_t)bytes[j+1]<<8;if(left>2)v|=bytes[j+2];
+            for(unsigned j=0;j<count*width;j+=3) {
+                unsigned left=count*width-j;uint32_t v=(uint32_t)bytes[j]<<16;if(left>1)v|=(uint32_t)bytes[j+1]<<8;if(left>2)v|=bytes[j+2];
                 data[k++]=abc[v>>18];data[k++]=abc[(v>>12)&63];data[k++]=left>1?abc[(v>>6)&63]:'=';data[k++]=left>2?abc[v&63]:'=';
             }
-            data[k]=0;console_printf("intel-backing-pte: v=%u first=%u count=%u data=%s\n",(uint64_t)backing_wire,(uint64_t)i,(uint64_t)count,data);
+            data[k]=0;
+#ifdef SRVROS_INTEL_JOINT
+            console_printf("intel-backing-pte: v=3 first=%u count=%u w=%u h=%u data=%s\n",(uint64_t)i,(uint64_t)count,(uint64_t)width,(uint64_t)high,data);
+#else
+            (void)high;
+            console_printf("intel-backing-pte: v=%u first=%u count=%u data=%s\n",(uint64_t)backing_wire,(uint64_t)i,(uint64_t)count,data);
+#endif
         }
     }
     return b->status==1;
@@ -943,8 +967,12 @@ bool intel_gt_firmware_probe_report(void) {
     return complete;
 }
 
-#include "intel_gt_wake.inc"
-
+#ifdef SRVROS_INTEL_JOINT
 #include "intel_hda_observer.inc"
+#endif
+#include "intel_gt_wake.inc"
+#ifndef SRVROS_INTEL_JOINT
+#include "intel_hda_observer.inc"
+#endif
 
 #include "intel_hda_owner_trial.inc"

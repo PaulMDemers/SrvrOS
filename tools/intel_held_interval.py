@@ -51,7 +51,7 @@ def interval_result(text):
     from intel_gt_wake import wake_result
     from intel_ggtt_window import window_result
     reset=held_reset_result(text);wake=wake_result(text);window=window_result(text)
-    if not reset or not wake or wake['summary']['v'] not in (18,19):raise ValueError('interval wrong image/reset coverage')
+    if not reset or not wake or wake['summary']['v'] not in (18,19,20):raise ValueError('interval wrong image/reset coverage')
     s=r['summary'];x=reset['summary'];p=reset['prepare']['summary']
     if s['pages'] and (s['origin']!=x['origin'] or s['epoch_before']!=x['epoch_before'] or s['epoch_after']!=x['epoch_after']):raise ValueError('interval source binding')
     if s['begin']:

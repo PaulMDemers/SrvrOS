@@ -588,7 +588,24 @@ def needs_attention(line):
             return result is None or result['summary']['code'] != 0
         except ValueError:
             return True
+    if line.startswith('intel-joint-summary:'):
+        from intel_joint import fields,SUMMARY,authority
+        try:
+            s=fields(line,'intel-joint-summary',SUMMARY);authority(s)
+            return not s['complete'] or bool(s['reason'] or s['retained'] or s['pinned'])
+        except ValueError:return True
+    if line.startswith('intel-claim-summary:'):
+        from intel_joint import fields,CLAIM,authority
+        try:
+            s=fields(line,'intel-claim-summary',CLAIM);authority(s)
+            return not s['complete'] or bool(s['reason'] or s['pinned'])
+        except ValueError:return True
+    if line.startswith('intel-claim-final-summary:'):
+        from intel_held_interval import interval_summary
+        try:return not interval_summary(line.replace('intel-claim-final-','intel-held-interval-',1))['complete']
+        except ValueError:return True
     if line.startswith('intel-rehold-summary:'):
+
         from intel_engine_rehold import rehold_summary
         try:return not rehold_summary(line)['complete']
         except ValueError:return True
@@ -949,6 +966,14 @@ def collect(mount, volume, output):
                     pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
                     verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
             except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
+        intel_joint=None
+        if 'srvros.intel-joint=hda-claim' in text:
+            try:
+                from intel_joint import native_joint_result,verify_joint_checkpoint
+                j=native_joint_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'));intel_joint=j
+                if not j or not j['native_complete']:attention.append('Intel joint HDA/GPU lifetime incomplete or refused')
+                else:verify_joint_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True)
+            except ValueError as error:attention.append('Invalid Intel joint HDA/GPU receipt: '+str(error))
         if 'srvros.intel-rehold=request-cancel' in text:
             try:
                 from intel_engine_rehold import native_rehold_result,verify_rehold_checkpoint
@@ -1155,7 +1180,7 @@ def collect(mount, volume, output):
             "intel_display_backing": intel_backing,
             "intel_scanout_lifetime": intel_lifetime,
             "intel_memory": intel_memory,
-            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,"intel_gt_firmware":intel_firmware,"intel_gt_wake":intel_wake,
+            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,"intel_gt_firmware":intel_firmware,"intel_gt_wake":intel_wake,"intel_joint":intel_joint,
             "air61_window": window_proof,
             "ecam_boot": ecam_proof,
             "posix_capture": posix_proof,

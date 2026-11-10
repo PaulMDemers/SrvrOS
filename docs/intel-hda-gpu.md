@@ -2,9 +2,10 @@
 
 `intel_hda_gpu` composes the existing display-HDA inhibit owner and read-only
 [GPU interval claim](intel-interval-claim.md) under one original CPU exclusion.
-It is an implemented software core with an actual-core host fault model.
-Native adapter, image, recipe and strict collector integration remain pending;
-ordinary desktop startup and installed payloads do not activate this component.
+The separate `intel-joint` image links the core, original interval claim and
+native adapter. Its v20 wake receipt and exact 21-token recipe add
+`srvros.intel-joint=hda-claim` to the original re-arm recipe. Ordinary startup,
+the independent HDA images and legacy GPU recipes remain separate.
 
 Open requires the original empty GT owner, the already-held exclusion and the
 original outer diagnostic clock origin. It pins that exclusion before callbacks,
@@ -54,22 +55,47 @@ store position, raw drift, small cross-subsystem clock backsteps, copies, reentr
 lost dependent pointers/counts, unfinished claims and failed retirement. This is
 host evidence, not native timing, DMA drain or physical tear-free acceptance.
 
-## Remaining native boundary
+## Native adapter and receipt
 
-A separate image/recipe must prepare and admit the root read-only UC HDA alias
-before either HDA or GT stores. The same exclusion must cover the whole lifetime.
-Each census can borrow that mapping logically, but reports must distinguish its
-four inspection borrows from physical root-map creation/retirement. Do not reuse
-the independent HDA image's four-physical-alias interpretation for this adapter.
+The adapter admits the root read-only, NX, UC HDA alias before either HDA or GT
+stores. The same original CPU exclusion covers the whole lifetime. The GT owner,
+source receipts, native provider context and claim use static storage so a
+retained fault remains valid after the report function returns. The GT's initial
+read-only pair is admitted only on its original published object, with the same
+exclusion, an established clock and zero pins, attempts and dependents. It is
+not awake authority. All later stores still need the existing native guards.
 
-Wire the new claim opening/closing reads into the existing sealed re-arm child.
-Use cheap exact endpoint guards between full inspections, preserving full native
-resource/cache/backing admission at the appropriate boundaries. Capture HDA
-command phases correctly: boot6, GPU-inhibited2, restored6. Preserve every raw
-engine, display, HDA and PTE word using canonical packing if needed; keep the
-65,536-byte tail and all deadlines unchanged. Static/heap result storage, actual
-native access widths/final clocks, strict partial-failure collection and exact
-stage VM refusal/persistence must be qualified before installation.
+Four inspection borrows return logically; they do not unmap the root page.
+The original GT/claim and GPU aliases retire, and firmware/backing are checked,
+before the midpoint HDA inspection and command restoration. The HDA root alias
+retires before the final CPU pin. The collector joins command6/2/2/6 phases,
+including command2 in both GPU preservation samples, all 232 HDA loads, both
+six-read claim observations and the original re-arm ACK/cancellation clocks.
+Retained faults preserve the first failed clock and raw observation prefixes.
+
+`intel-joint-hda` has a canonical 416-byte little-endian buffer per started
+phase, including uncompleted sample buffers and stream-control bytes. It keeps
+physical root map/retirement counts separate from logical inspection counts.
+The original framebuffer PTE vector uses v3 chunks: a shared upper DWORD is
+stored once when every entry in the chunk matches it; otherwise all 64 bits
+of each entry are encoded. The exact native joint admission requires the
+captured below-4-GiB vector before any store. A changed upper word is still
+encoded losslessly and refuses the new operation. The limit stays at 65,536
+bytes with the same 1,536-byte reserve. Older PTE encodings are unchanged.
+
+```sh
+make -j2 all build/intel-joint/srvros.elf test-intel-joint test-intel-hda-gpu
+python3 tools/hardware_boot.py stage --laptop-probe-volume YOUR_UUID --intel-joint
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check --workspace-table mbr
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check --probe-missing-workspace --workspace-table mbr
+```
+
+Use the unit's actual workspace and partition table. The exact stage must
+refuse Q35 with no native stores, save the checkpoint and results, unmount and
+return; missing workspace halts. This cannot accept native timing or ownership.
+The physical trial is unattended and silent. It returns after a safe save and
+unmount; retained uncertainty or persistence failure halts. Follow the
+[Ubuntu device workflow](ubuntu-device-agent-setup.md) for physical testing.
 
 No PTE, command submission, flush or invalidation callback is introduced here.
 HDA inhibition remains a cooperative submission policy; it does not prove posted
@@ -78,7 +104,7 @@ GPU completion obligations remain open (mask255), assurances and managed pages
 remain zero. A persistent desktop GPU service and page flipping need those
 independent witnesses and their own maintained runtime lifetime.
 
-## Software qualification
+## Earlier software qualification
 
 Source`36788a91` is qualified on integrated main`72d49457`. The local matched
 build/check-host/core/docs/USB-image gate and all24 existing boot images pass;
@@ -95,8 +121,8 @@ is2,496 bytes on the measured x86_64 ABI, reinforcing the static/heap storage
 requirement. This is a function-frame check, not an assertion that the whole
 result fits in2KiB or that a combined native adapter has been qualified.
 
-The installed accepted source`f2a6c116`/release`e83571c874bc17f1`, recovery and
-banked payloads remain verified. No new payload is staged/installed and no reboot
-is armed. These host/object results do not add a physical acceptance. Next is
-the separate native adapter/image/recipe/collector boundary above; retain the
-original HDA400ms, preparation100ms, GT300ms and full500ms limits.
+At that checkpoint, the installed accepted source`f2a6c116`/release
+`e83571c874bc17f1`, recovery and banked payloads verified. No new payload was
+staged or installed. Those host/object results do not accept the later native
+adapter or change the original HDA400ms, preparation100ms, GT300ms and full500ms
+limits. See the [unit record](machines/macbookair7-2.md) for the current state.
