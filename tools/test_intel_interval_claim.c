@@ -114,6 +114,7 @@ static bool claim_end(void *ctx) {
  if(cmode(m,"owner-deadline"))m->base.base.base.reset->parent->begin=m->base.base.base.m.base.gt.t-299500;
  return intel_engine_rehold_run(&m->base.result,m->base.base.base.reset,m->base.io);
 }
+#ifndef INTEL_INTERVAL_CLAIM_FIXTURE_ONLY
 int main(int argc,char **argv) {
  (void)rehold_end;(void)robserve;(void)interval_end;(void)prepare_preserve;
  struct claim_model m={0};struct rehold_model *rm=&m.base;struct interval_model *im=&rm->base;
@@ -159,3 +160,5 @@ int main(int argc,char **argv) {
  printf("interval-claim: PASS mode=%s point=%u clocks=%u guards=%u loads=%u check_clock=%u\n",m.mode,m.point,m.clocks,m.guards,m.loads,m.check_clock);
  return 0;
 }
+
+#endif

@@ -5,12 +5,16 @@ Updated: 2026-11-10. State: **active reference machine; partial device acceptanc
 ### Active scope: joint display-HDA inhibition and GPU interval claim
 
 Main remains`72d49457`; the qualified claim baseline is`5466bdd3`/docs455ad5e1.
-Implement a separate combined display-HDA inhibit/GPU claim lifetime under one
+Implement and qualify a separate combined display-HDA inhibit/GPU claim lifetime under one
 CPU exclusion, with original HDA400ms, preparation100ms, GT300ms and full500ms
 clocks. The actual original HDA token/borrow must stay registered through GPU
 retirement; only a clean returned GPU/claim may permit HDA restoration. First
 harden HDA dependent registration/reentry and add a cheap guarded endpoint check,
-then compose real cores and qualify the isolated adapter/recipe/collector.
+then compose real cores and qualify the isolated adapter/recipe/collector. The
+[joint software core](../intel-hda-gpu.md) and original HDA borrower registry are
+implemented; native integration remains pending. The actual-core matrix checks
+the original clock watermark across HDA/GPU boundaries, full232 HDA reads,
+12 claim reads, source loss and retention before any new hardware enablement.
 
 Touched subsystems: HDA owner dependent lifetime, new joint scope/adapter,
 read-only interval claim composition, exact boot/image/staging and strict raw

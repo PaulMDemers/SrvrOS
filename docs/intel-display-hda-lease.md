@@ -37,6 +37,23 @@ followed or freed, and every inherited allocation remains protected.
 
 ## Separate qualification image
 
+The current software contract also keeps an original-address owner registration
+and a bounded list of its actual borrowers. Rebinding every pointer in a copied
+owner/borrow does not register a second owner. The list and pin count must agree;
+a lost list, count or nested dependent is never interpreted as retirement. The
+32-borrow diagnostic bound limits validation work; it is unrelated to desktop
+window/process capacity. All mutation APIs refuse callback reentry before I/O.
+
+`intel_hda_owner_borrowed` checks this original registration without I/O.
+`intel_hda_owner_validate` additionally checks the exact endpoint and original
+400ms clock, without taking another 58-read census. It is useful between full
+entry/exit inspections; it does not replace native resource/cache admission or
+prove outstanding DMA completion. The first failed clock sample is retained.
+Only clean close permits a fresh owner registration; faulted owners cannot be
+force-replaced during the same boot. The historical native receipts below
+belong to their original sources; these registration changes need their own
+matched native qualification before being called physically accepted.
+
 `build/intel-hda-lease/srvros.elf` has its own EFI firmware request and exact
 13-token recipe, replacing the earlier token with `srvros.intel-hda=lease-trial`.
 It cannot enter the old recipe; ordinary/read-only/AP/AML/wake images cannot

@@ -5829,3 +5829,20 @@ test-intel-interval-claim: build/tests/intel-interval-claim$(HOST_EXE)
 build/tests/intel-interval-claim$(HOST_EXE): tools/test_intel_interval_claim.c $(INTEL_INTERVAL_CLAIM_SOURCES) $(INTEL_INTERVAL_CLAIM_FIXTURES) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -Ikernel/include $< $(INTEL_INTERVAL_CLAIM_SOURCES) -o $@
+
+.PHONY: test-intel-hda-registry
+test-core: test-intel-hda-registry
+test-intel-hda-registry: build/tests/intel-hda-registry$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_hda_registry.py
+build/tests/intel-hda-registry$(HOST_EXE): tools/test_intel_hda_registry.c tools/test_intel_hda_owner.c kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_display_hda.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_display_hda.c -o $@
+
+INTEL_HDA_GPU_SOURCES := kernel/diagnostics/intel_hda_gpu.c kernel/src/drivers/intel_hda_owner.c kernel/src/drivers/intel_display_hda.c $(INTEL_INTERVAL_CLAIM_SOURCES)
+.PHONY: test-intel-hda-gpu
+test-core: test-intel-hda-gpu
+test-intel-hda-gpu: build/tests/intel-hda-gpu$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_hda_gpu.py
+build/tests/intel-hda-gpu$(HOST_EXE): tools/test_intel_hda_gpu.c tools/test_intel_interval_claim.c $(INTEL_INTERVAL_CLAIM_FIXTURES) $(INTEL_HDA_GPU_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -Ikernel/include $< $(INTEL_HDA_GPU_SOURCES) -o $@

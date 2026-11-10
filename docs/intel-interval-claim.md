@@ -150,7 +150,10 @@ drop evidence. Unknown stores, lost ownership or failed retirement retain both
 owners and halt, with no forced cleanup. Only safe saved/unmounted outcomes
 return automatically. No audio or human input is needed for that diagnostic.
 
-This proposed joint trial is not yet implemented or accepted. HDA bus-master
+The [joint lifetime core](intel-hda-gpu.md) now implements the software
+composition with registered HDA dependents, fresh endpoint checks and the
+original clocks. Its native adapter/image/recipe/collector and physical trial
+remain pending; no existing image links it. HDA bus-master
 inhibition and non-posted completion still do not establish posted/prefetch,
 GPU pipeline/cache/TLB, firmware, FBC/PSR/other-reader retirement or GPU interval
 transfer. All255 obligations remain open until their actual witnesses exist.
