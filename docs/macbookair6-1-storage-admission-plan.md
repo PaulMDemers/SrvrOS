@@ -63,7 +63,13 @@ write as safe:
    discipline. A concurrent append must never move or mutate a borrowed buffer,
    disappear under a later dirty-clear, violate shared-reader visibility or
    overwrite data being committed. Every global sync still flushes all required
-   dirty contents; no deferred dirty-data exception is allowed.
+   dirty contents; no deferred pre-entry dirty-data exception is allowed.
+   Preserve an explicit sync invocation/ownership-entry cut. The existing IDT
+   handoff can already run an overlapping queued writer after final flush but
+   before SYS_SYNC returns to userspace; it does not promise that every byte
+   visible at userspace return is durable. Any concurrent append proof must
+   retain all required pre-entry prefixes and cover dirty-generation clearing,
+   cursor/O_APPEND, metadata timestamps and retryable/sticky failure transitions.
 3. Exercise atomic check/publication, all mutation/close/rename/truncate/reuse and
    failure races with actual process-content code. Prove same-process exclusion,
    FSIZE/size/copy bounds, cancellation, cleanup and fallback before changing a
@@ -79,3 +85,27 @@ claim that the gate is incorrect. Persistent data/ownership and integrity take
 precedence over a predicted latency improvement. Screenshot child-status and
 temporary-cleanup receipts, offline repair gaps and the earlier intermittent
 battery failure remain independently recorded work.
+
+
+## Frozen local validation checkpoint (2026-11-10)
+
+Compiled source `f44b7967fa46d2ea419c26795e69f4ee750dec8e` passes matched images,
+full core/desktop/docs,89 hardware-install tests (one skip), ordinary ABI/input/
+thread boot checks, real USB persistence, ordinary screenshot/readback/Preview
+and populated Home400-IOPS loaded VM. Exact-source143-cut fixtures preserve
+all original payload/anchor bytes and explicitly match81 failed allocation
+repairs to baseline; retained lossless candidate/baseline images are hash-checked.
+
+The loaded VM completes22 app cycles with zero recorded audio underruns,
+140.143ms maximum loop,0.979324s ready and1.830419s close maxima. All prior files,
+raw BMP/binary receipt, original timing/proof/retirement contracts and new local
+append observations pass independent collection. App timing uses the existing
+original-console fallback for bounded saved-tail gaps; do not call it complete
+saved-only per-app evidence. The new counter is valid but zero in seven saved
+snapshots. No relevant performance gain or native use is claimed, and no payload
+was staged, installed or rebooted for this bounded optimization.
+
+The main admission-delay work continues with the separate immutable-prefix/
+reserved-buffer design above. That implementation must first prove its opt-in
+ownership, raw syscall/user-copy, ordinary fallback and explicitly partitioned
+diagnostics; it does not inherit authority merely from this local validation.

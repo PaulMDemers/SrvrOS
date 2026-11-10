@@ -11643,3 +11643,15 @@ comparison additionally preserves baseline cases where fsck reports clean but
 complete allocation still finds orphans; do not count those as clean recovery.
 A reserved-buffer/writeback ownership contract is the next design prerequisite,
 not an automatic grant to bypass the existing I/O gate.
+
+
+The frozen `f44b7967` storage candidate passes full matched/core/desktop/docs,
+ordinary USB/capture and loaded400-IOPS VM validation. Independent review checks
+all original contracts plus the new local-phase counters, actual BMP and binary
+receipt. The VM has22 app cycles, zero recorded underruns and140.143ms maximum
+loop; app stages require the existing original-console fallback. Exact-source
+143 cuts retain81 baseline-equivalent failed repairs explicitly. No native
+stage/install/reboot is performed and accepted hardware remainsd551/c354.
+The bounded NoFatChain optimization does not fix the ordinary replay's admission
+delay. Main work continues through a separately reviewed pre-reserved immutable-
+prefix append contract, with no existing ownership or runtime requirement waived.
