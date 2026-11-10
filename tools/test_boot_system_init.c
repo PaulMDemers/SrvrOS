@@ -16,7 +16,7 @@ static bool process_wait_startup(uint64_t pid,uint64_t ticks) {
 }
 static uint64_t timer_monotonic_us(void) {return ++clocks;}
 static void console_printf(const char *fmt,...) {(void)fmt;}
-static void console_write(const char *s) {if(strstr(s,"deferred=held-reset-preinit"))deferred++;}
+static void console_write(const char *s) {if(strstr(s,"deferred=held-reset-preinit") || strstr(s,"deferred=held-interval-preinit"))deferred++;}
 #include "../kernel/src/boot_system_init.inc"
 
 static void reset(void) {
@@ -26,6 +26,7 @@ static void normal(const char *cmdline) {
     reset();assert(boot_system_init(cmdline,true));
     assert(spawns==1 && reapers==1 && waits==1 && clocks==2 && !deferred);
 }
+#ifndef BOOT_SYSTEM_INIT_FIXTURE_ONLY
 int main(void) {
     const char *recipe="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot srvros.intel-engines=read-only srvros.intel-completion=read-only srvros.intel-takeover=preflight srvros.intel-engines-prepare=request-cancel srvros.intel-held-requester=read-only srvros.intel-bcs-reset=held-blitter-only";
     assert(intel_gt_boot_held_reset_recipe(recipe));reset();
@@ -58,3 +59,4 @@ int main(void) {
     assert(spawns==1 && reapers==1 && waits==1 && clocks==2 && !deferred);
     puts("boot-system-init: PASS exact diagnostic isolation, missing/duplicate/foreign recipes and ordinary readiness/failure semantics");
 }
+#endif

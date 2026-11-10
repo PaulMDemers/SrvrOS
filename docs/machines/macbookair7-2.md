@@ -9,7 +9,7 @@ changes beyond the prior main40767a50 baseline. Prior private backing and full
 transfer software qualification are complete and independently backed up; no
 physical run is outstanding. Current installed/recovery payloads stay protected.
 
-The next native boundary is a one-page, read-only GGTT sampler in the existing
+The next native boundary is a [one-page, read-only GGTT sampler](../intel-held-interval.md) in the existing
 reset provider's exit scope, after both BCS8 pulses and settling but before the
 original preparation borrow returns. It must bind the original active reset,
 preparation, registered borrow and current epoch, capture two high/low/high

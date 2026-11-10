@@ -8,6 +8,11 @@ static void intel_display_test_held_reset_admission(void);
 static bool intel_display_test_held_reset_snapshot_read(unsigned,uint32_t,uint32_t *);
 static bool intel_display_test_held_reset_domain(uint32_t *);
 static enum intel_gt_write intel_display_test_held_reset_transition(uint32_t,uint32_t *);
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+static unsigned interval_reads;
+static bool intel_display_test_interval_read(uint32_t,uint32_t *);
+static void intel_display_test_interval_admission(void);
+#endif
 #endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
 #include <srvros/intel_pci_held.h>
@@ -105,6 +110,9 @@ static uint64_t intel_display_test_wake_irq_save(void){wake_irq=true;return 512;
 static bool intel_display_test_wake_irq_off(void){return wake_irq;}
 static void intel_display_test_wake_irq_restore(uint64_t flags){assert(flags==512);wake_irq=false;}
 static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc0000000ull+o && (o==0xa000 || o==0x130000 || o==0x138000
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+ || o==0x811000
+#endif
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
@@ -133,6 +141,9 @@ static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc00000
 #endif
 #ifdef SRVROS_INTEL_PREPARE_RESET
  if(!strcmp(engine_mode,"hreset-cache-slot") && o==0x9000)return false;
+#endif
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+ if(!strcmp(engine_mode,"interval-cache-slot") && o==0x811000)return false;
 #endif
  return !wake_cache_fail;}
 static bool intel_display_test_wake_read(uint32_t reg,uint32_t *v){assert(wake_irq && !display_access_allowed());*v=reg==0xa188?wake_request:reg==0x130044?wake_ack:wake_thread_stuck?1:0;return true;}
@@ -232,7 +243,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_PREPARE_RESET
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+#define intel_wake_firmware_request intel_held_interval_firmware_request
+#elif defined(SRVROS_INTEL_PREPARE_RESET)
 #define intel_wake_firmware_request intel_held_reset_firmware_request
 #elif defined(SRVROS_INTEL_HELD_REQUESTER)
 #define intel_wake_firmware_request intel_held_requester_firmware_request
@@ -311,7 +324,7 @@ static bool intel_display_test_fw_read(uint32_t offset,uint32_t *v){
  assert(0);return false;
 }
 static unsigned config_reads,mmio_reads,map_calls,unmap_calls;
-static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+14];
+static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+15];
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
 static bool intel_display_test_takeover_read(unsigned i,uint32_t reg,uint32_t *out) {
  static const uint32_t offsets[]={0x20d0,0x120d0,0x1a0d0,0x1c0d0,0x220d0,0x941c};
@@ -464,6 +477,9 @@ uint64_t vmm_kernel_address_space(void){return 0x1000;}
 uint64_t vmm_current_address_space(void){return current;}
 bool vmm_virt_to_phys(uint64_t v,uint64_t *p){assert(v==fb_virtual);*p=0xb0000000;return true;}
 static unsigned index_of(uint64_t v){
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+ if(v==BACKING_VA+0x1d000)return INTEL_CAPTURE_PAGES+14;
+#endif
 #ifdef SRVROS_INTEL_READER_TRIAL
  if(v==READER_VA)return INTEL_CAPTURE_PAGES+13;
 #endif
@@ -507,6 +523,10 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
     writable=writable || (wake_mode && v==BACKING_VA+0x19000);
     if(!strcmp(engine_mode,"hreset-map-slot") && v==BACKING_VA+0x19000)return false;
 #endif
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+    if(!strcmp(engine_mode,"interval-map-slot") && v==BACKING_VA+0x1d000)return false;
+    if(v==BACKING_VA+0x1d000)assert(!writable && flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE));
+#endif
     assert(space==0x1000 && flags==(writable?(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITABLE):(fw_mode && p==0x12345000)?VMM_PAGE_NO_EXECUTE:(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)));unsigned n=index_of(v);
     assert(!pa[n]);if(n>=INTEL_CAPTURE_PAGES)assert((p>=0xc0000000 && p<0xc1000000)
 #if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER)
@@ -530,6 +550,9 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
  return true;
 }
 bool vmm_unmap_page_in_space(uint64_t space,uint64_t v,uint64_t *p){
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+ if(!strcmp(engine_mode,"interval-retire-slot") && v==BACKING_VA+0x1d000)return false;
+#endif
 #ifdef SRVROS_INTEL_READER_TRIAL
  if(v==READER_VA && !intel_display_test_pinned_retire())return false;
 #endif
@@ -644,6 +667,9 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
 static void reset(void) {
 #ifdef SRVROS_INTEL_PREPARE_RESET
     held_reset_boundary=held_reset_reads=held_reset_attempts=held_reset_writes=held_reset_domain_reads=held_reset_clock_fault=0;
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+    interval_reads=0;
+#endif
     range_calls=range_fail_at=0;
 #endif
     memset(&intel_boot_state,0,sizeof(intel_boot_state));
@@ -815,6 +841,9 @@ int main(int argc,char **argv) {
     static char held_recipe[1800];snprintf(held_recipe,sizeof(held_recipe),"%s srvros.intel-held-requester=read-only",prepare_recipe);wake_cmd.cmdline=held_recipe;
 #ifdef SRVROS_INTEL_PREPARE_RESET
     static char held_reset_recipe[1900];snprintf(held_reset_recipe,sizeof(held_reset_recipe),"%s srvros.intel-bcs-reset=held-blitter-only",held_recipe);wake_cmd.cmdline=held_reset_recipe;
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+    static char interval_recipe[2000];snprintf(interval_recipe,sizeof interval_recipe,"%s srvros.intel-interval=read-only",held_reset_recipe);wake_cmd.cmdline=interval_recipe;
+#endif
 #endif
 #endif
 #endif
@@ -1173,5 +1202,27 @@ static enum intel_gt_write intel_display_test_held_reset_transition(uint32_t val
  if(held_reset_at("hreset-store-time",held_reset_attempts))ticks+=100001;
  if(held_reset_at("hreset-phase-time",held_reset_attempts))ticks+=10001;
  return held_reset_at("hreset-uncertain",held_reset_attempts)?GT_WRITE_UNCERTAIN:GT_WRITE_DONE;
+}
+#endif
+
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+static void intel_display_test_interval_admission(void) {
+ if(!strcmp(engine_mode,"interval-admission-time"))ticks+=100001;
+ if(!strcmp(engine_mode,"interval-admission-zero"))held_reset_clock_fault=1;
+ if(!strcmp(engine_mode,"interval-admission-backward"))held_reset_clock_fault=2;
+}
+static bool intel_display_test_interval_read(uint32_t off,uint32_t *out) {
+ unsigned i=interval_reads++;
+ assert(i<6 && off==INTEL_WINDOW_PAGE+(i%3==1?0:4));
+ assert(wake_irq && !display_access_allowed() && prepare_stores==5 && held_reset_writes==2 &&
+  held_reset_reads==18 && held_reset_boundary==1 && held_boundary==2);
+ assert(pa[INTEL_CAPTURE_PAGES+1+13]==0xc0811000);
+ if(held_reset_at("interval-read",i+1))return false;
+ *out=(uint32_t)(window_result.sample[1].entry[0]>>(i%3==1?0:32));
+ if(held_reset_at("interval-drift",i+1) || held_reset_at("interval-drift-foreign",i+1))*out^=1;
+ if(held_reset_at("interval-drift-foreign",i+1) || held_reset_at("interval-foreign",i+1))wake_request|=2;
+ if(held_reset_at("interval-map",i+1))pa[INTEL_CAPTURE_PAGES+1+13]^=4096;
+ if(held_reset_at("interval-time",i+1))ticks+=100001;
+ return true;
 }
 #endif

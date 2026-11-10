@@ -1,5 +1,7 @@
 """Bounded preparation receipts; v2 binds a separate BCS reset, no memory grant."""
 import re
+import base64
+import struct
 from intel_engine_census import _fields
 from intel_compact import compact_row
 FIELDS='v begin end epoch attempts writes reads polls snapshots sample_attempts acks ready cancelled blocked admitted held preserved uncertain returned borrowed retained reason stage index clock_at clock_prev plane_samples plane_reads complete obligations reset_writes pte_writes managed_pages hardware_ownership'.split()
@@ -34,7 +36,7 @@ def post_vector(line):
  return sample,lines
 
 def prepare_result(text):
- rows=[];acks=[];planes=[];audio=[];sums=[];postlines=[];order=[];actions=[];vectors=[];legacy_post=False
+ rows=[];acks=[];planes=[];audio=[];sums=[];postlines=[];order=[];actions=[];vectors=[];legacy_post=False;packed=0;legacy_preservation=False
  for line in text.splitlines():
   if line.startswith('intel-prepare-action:'):
    from intel_held_requester import action_summary
@@ -54,11 +56,27 @@ def prepare_result(text):
   elif line.startswith('intel-prepare-post'):
    if not line.startswith('intel-prepare-post-summary:'):legacy_post=True
    postlines.append(line.replace('intel-prepare-post','intel-completion',1));order.append(('p',))
+  elif line.startswith('intel-prepare-preservation:'):
+   packed+=1
+   m=re.fullmatch(r'intel-prepare-preservation: v=3 n=(0|37|74) b=(-|[A-Za-z0-9+/]+={0,2})',line)
+   if not m:raise ValueError('prepare packed preservation encoding')
+   n=int(m[1])
+   try:raw=b'' if m[2]=='-' else base64.b64decode(m[2],validate=True)
+   except Exception as error:raise ValueError('prepare packed preservation base64') from error
+   if len(raw)!=n*4 or (base64.b64encode(raw).decode() if n else '-')!=m[2]:raise ValueError('prepare packed preservation canonical width')
+   words=struct.unpack('<'+'I'*n,raw)
+   for sample in range(n//37):
+    w=words[sample*37:(sample+1)*37]
+    for pipe in range(3):
+     planes.append(dict(sample=sample,pipe=pipe,words=list(w[pipe*9:pipe*9+9])));order.append(('plane',sample,pipe))
+    audio.append(dict(sample=sample,words=list(w[27:])));order.append(('audio',sample))
   elif line.startswith('intel-prepare-plane:'):
+   legacy_preservation=True
    m=re.fullmatch(r'intel-prepare-plane: v=1 s=([01]) p=([0-2]) d=([0-9,]+)',line)
    if not m:raise ValueError('prepare plane encoding')
    planes.append(dict(sample=int(m[1]),pipe=int(m[2]),words=_words(m[3],9)));order.append(('plane',int(m[1]),int(m[2])))
   elif line.startswith('intel-prepare-audio:'):
+   legacy_preservation=True
    m=re.fullmatch(r'intel-prepare-audio: v=1 s=([01]) d=([0-9,]+)',line)
    if not m:raise ValueError('prepare audio encoding')
    audio.append(dict(sample=int(m[1]),words=_words(m[2],10)));order.append(('audio',int(m[1])))
@@ -76,12 +94,15 @@ def prepare_result(text):
  from intel_completion_audit import completion_result
  from intel_takeover import takeover_result
  wake=wake_result(text)
- if not wake or wake['summary']['v'] not in (14,16,17):raise ValueError('prepare wrong image')
- reset=wake['summary']['v']==17
+ if not wake or wake['summary']['v'] not in (14,16,17,18):raise ValueError('prepare wrong image')
+ if wake['summary']['v']==18:
+  if packed!=1 or legacy_preservation:raise ValueError('prepare interval image requires packed preservation')
+ elif packed:raise ValueError('prepare packed preservation wrong image')
+ reset=wake['summary']['v'] in (17,18)
  if s['v']!=(2 if reset else 1):raise ValueError('prepare summary image version')
  if not reset and len(rows)>4:raise ValueError('prepare legacy row count')
  if wake['summary']['v']==14 and (actions or vectors or s['reason']>2047):raise ValueError('prepare unexpected action')
- if wake['summary']['v'] in (16,17):
+ if wake['summary']['v'] in (16,17,18):
   if legacy_post:raise ValueError('prepare held image requires compact post vectors')
   if len(actions)!=1:raise ValueError('prepare action coverage')
   a=actions[0]

@@ -588,6 +588,10 @@ def needs_attention(line):
             return result is None or result['summary']['code'] != 0
         except ValueError:
             return True
+    if line.startswith('intel-held-interval-summary:'):
+        from intel_held_interval import interval_summary
+        try:return not interval_summary(line)['complete']
+        except ValueError:return True
     if line.startswith('intel-held-reset-summary:'):
         from intel_engine_held_reset import reset_summary
         try:return not reset_summary(line)['complete']
@@ -941,6 +945,13 @@ def collect(mount, volume, output):
                     pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
                     verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
             except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
+        if 'srvros.intel-interval=read-only' in text:
+            try:
+                from intel_held_interval import native_held_interval_result,verify_interval_checkpoint
+                interval=native_held_interval_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not interval or not interval['native_complete']:attention.append('Intel held interval incomplete or refused')
+                else:verify_interval_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True)
+            except ValueError as error:attention.append('Invalid Intel held interval: '+str(error))
         if 'srvros.intel-bcs-reset=held-blitter-only' in text:
             try:
                 from intel_engine_held_reset import native_held_reset_result

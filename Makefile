@@ -5633,6 +5633,20 @@ test-intel-memory: build/tests/intel-memory-trial$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_memory.py
 
 # Separate BCS8 writer while the original five-engine preparation stays live.
+.PHONY: test-intel-held-interval
+test-core: test-intel-held-interval
+test-intel-held-interval: build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-held-interval$(HOST_EXE) build/tests/boot-held-interval$(HOST_EXE) build/tests/intel-held-interval-adapter$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_interval.py
+	$(PYTHON) -m unittest discover -s tools -p test_intel_held_interval_adapter.py
+	build/tests/boot-held-interval$(HOST_EXE)
+	build/tests/intel-held-interval-adapter$(HOST_EXE) --wake-engine-report
+build/tests/boot-held-interval$(HOST_EXE): tools/test_boot_held_interval.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+build/tests/intel-held-interval$(HOST_EXE): tools/test_intel_held_interval.c tools/test_intel_engine_held_reset.c tools/test_intel_engine_prepare.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_held_reset.c kernel/src/drivers/intel_engine_prepare.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -Ikernel/include $< kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_held_reset.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_gt_access.c -o $@
+
 INTEL_HELD_RESET_FLAGS := -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -DSRVROS_INTEL_PREPARE_RESET
 INTEL_HELD_RESET_BASE := $(filter-out build/kernel/src/drivers/intel_engine_prepare.c.o build/kernel/src/main.c.o,$(INTEL_WAKE_BASE))
 build/kernel/src/main.c.o build/ap-probe/main.o build/air61-read-window/main.o build/air61-register-sample/main.o: kernel/src/boot_system_init.inc
@@ -5654,6 +5668,24 @@ build/intel-held-reset/reset.o: kernel/diagnostics/intel_engine_held_reset.c $(Z
 build/intel-held-reset/srvros.elf: build/intel-held-reset/main.o build/intel-held-reset/probe.o build/intel-held-reset/requests.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
 	$(LD) $(LDFLAGS) build/intel-held-reset/main.o build/intel-held-reset/probe.o build/intel-held-reset/requests.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) -o $@
 
+# Separate one-page RO GGTT source binding in the original post-reset hold.
+INTEL_HELD_INTERVAL_FLAGS := $(INTEL_HELD_RESET_FLAGS) -DSRVROS_INTEL_HELD_INTERVAL
+build/intel-held-interval/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HELD_INTERVAL_FLAGS) -c $< -o $@
+build/intel-held-interval/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_takeover_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_held_interval_trial.inc kernel/src/drivers/intel_completion_trial.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HELD_INTERVAL_FLAGS) -c $< -o $@
+build/intel-held-interval/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HELD_INTERVAL_FLAGS) -c $< -o $@
+build/intel-held-interval/interval.o: kernel/diagnostics/intel_held_interval.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-held-interval/srvros.elf: build/intel-held-interval/main.o build/intel-held-interval/probe.o build/intel-held-interval/requests.o build/intel-held-interval/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+
 build/tests/boot-system-init$(HOST_EXE): tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
@@ -5673,6 +5705,13 @@ build/tests/intel-held-reset-adapter$(HOST_EXE): tools/test_intel_display_probe.
 	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/package_audit_core.c -o $@
 
 build/tests/intel-held-reset-adapter$(HOST_EXE): kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_takeover_trial.inc
+build/tests/intel-held-interval-adapter$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/package_audit_core.c -o $@
+
+build/tests/intel-held-interval-adapter$(HOST_EXE): kernel/src/drivers/intel_engine_held_reset_trial.inc kernel/src/drivers/intel_pci_held_trial.inc kernel/src/drivers/intel_engine_prepare_trial.inc kernel/src/drivers/intel_takeover_trial.inc
+build/tests/intel-held-interval-adapter$(HOST_EXE): kernel/src/drivers/intel_held_interval_trial.inc
+
 .PHONY: test-intel-held-reset
 test-core: test-intel-held-reset
 test-intel-held-reset: build/tests/intel-engine-held-reset$(HOST_EXE) build/tests/intel-held-reset-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE)

@@ -36,7 +36,10 @@ volatile struct limine_firmware_type_request intel_hda_firmware_request = {
 };
 #endif
 
-#ifdef SRVROS_INTEL_PREPARE_RESET
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_firmware_type_request intel_held_interval_firmware_request = { .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0 };
+#elif defined(SRVROS_INTEL_PREPARE_RESET)
 __attribute__((used, section(".limine_requests")))
 volatile struct limine_firmware_type_request intel_held_reset_firmware_request = { .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0 };
 #elif defined(SRVROS_INTEL_HELD_REQUESTER)

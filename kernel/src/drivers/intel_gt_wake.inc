@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_HELD_INTERVAL) && !defined(SRVROS_INTEL_PREPARE_RESET)
+#error "Held interval requires the isolated held-reset composition"
+#endif
 #if defined(SRVROS_INTEL_PREPARE_RESET) && !defined(SRVROS_INTEL_HELD_REQUESTER)
 #error "Held BCS reset requires its separate maintained requester image"
 #endif
@@ -33,7 +36,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_PREPARE_RESET
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+extern volatile struct limine_firmware_type_request intel_held_interval_firmware_request;
+#elif defined(SRVROS_INTEL_PREPARE_RESET)
 extern volatile struct limine_firmware_type_request intel_held_reset_firmware_request;
 #elif defined(SRVROS_INTEL_HELD_REQUESTER)
 extern volatile struct limine_firmware_type_request intel_held_requester_firmware_request;
@@ -66,6 +71,10 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #include <srvros/intel_engine_census.h>
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+#define WAKE_MAPS 14u
+#define WAKE_VERSION 18u
+#else
 #define WAKE_MAPS 13u
 #ifdef SRVROS_INTEL_PREPARE_RESET
 #define WAKE_VERSION 17u
@@ -78,7 +87,12 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #else
 #define WAKE_VERSION 7u
 #endif
-static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000,0x70000,0x71000,0x72000};
+#endif
+static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000,0x70000,0x71000,0x72000
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+ ,INTEL_WINDOW_PAGE
+#endif
+};
 #else
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
 #define WAKE_MAPS 10u
@@ -170,7 +184,11 @@ static bool wake_map(struct wake_adapter *a,unsigned i) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
     if(!intel_display_test_wake_uc(physical,wake_pages[i]))return false;
 #else
-    if(!(i<3?intel_cache_probe_wake_uc_page(physical,wake_pages[i]):i<8?intel_cache_probe_engine_uc_page(physical,wake_pages[i]):
+    if(!(
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+       i==13?intel_cache_probe_uc_page(physical):
+#endif
+       i<3?intel_cache_probe_wake_uc_page(physical,wake_pages[i]):i<8?intel_cache_probe_engine_uc_page(physical,wake_pages[i]):
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
        (i==9?intel_cache_probe_reset_uc_page(physical,wake_pages[i]):i>=10?intel_cache_probe_reader_uc_page(physical,wake_pages[i]):intel_cache_probe_completion_uc_page(physical,wake_pages[i]))
@@ -372,7 +390,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_PREPARE_RESET
+    #ifdef SRVROS_INTEL_HELD_INTERVAL
+    const struct limine_firmware_type_response *firmware=intel_held_interval_firmware_request.response;
+#elif defined(SRVROS_INTEL_PREPARE_RESET)
     const struct limine_firmware_type_response *firmware=intel_held_reset_firmware_request.response;
 #elif defined(SRVROS_INTEL_HELD_REQUESTER)
     const struct limine_firmware_type_response *firmware=intel_held_requester_firmware_request.response;
@@ -406,7 +426,11 @@ bool intel_gt_wake_probe_report(void) {
     struct intel_pci_requester_result requester={0};
 #elif defined(SRVROS_INTEL_ENGINE_PREPARE)
 #ifdef SRVROS_INTEL_PREPARE_RESET
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_held_interval_recipe(cmd->cmdline);
+#else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_held_reset_recipe(cmd->cmdline);
+#endif
 #elif defined(SRVROS_INTEL_HELD_REQUESTER)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_held_requester_recipe(cmd->cmdline);
 #else
@@ -584,6 +608,10 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_PREPARE_RESET
     engine_reads+=prepared.reset.reads;
     complete=complete && prepared.reset.complete;
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+    engine_reads+=prepared.interval.reads;
+    complete=complete && prepared.interval.complete && prepared.interval.bound;
+#endif
     admission_report();
 #endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER

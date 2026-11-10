@@ -115,6 +115,7 @@ static bool hrpreserve(void *ctx,const struct intel_completion_result *pre) {
         !memcmp(m->post.context,pre->context,sizeof(pre->context)));
  return true;
 }
+#ifndef INTEL_ENGINE_HELD_RESET_FIXTURE_ONLY
 int main(int argc,char **argv) {
  (void)prepare_preserve; /* Imported legacy fixture callback; reset path uses epoch-bound preservation. */
  struct held_reset_model m={.m={.base={.gt={.t=1000,.mode="normal"},.mode="normal"},.mode="normal"},.mode=argc>1?argv[1]:"normal",.point=argc>2?(unsigned)atoi(argv[2]):1};
@@ -167,3 +168,4 @@ int main(int argc,char **argv) {
  printf("engine-held-reset: PASS mode=%s point=%u clocks=%u guards=%u samples=%u stores=%u reads=%u\n",m.mode,m.point,m.clocks,m.guards,m.samples,m.stores,x.reads);
  return 0;
 }
+#endif

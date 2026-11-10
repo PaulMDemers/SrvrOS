@@ -967,7 +967,8 @@ void kmain(void) {
             if(cmdline_has_token(cmdline,"srvros.intel-firmware=read-only")){bool fw_ok=started && intel_gt_firmware_probe_report();sampled=sampled && fw_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-wake=trial")) {
                 bool held_reset=cmdline_has_token(cmdline,"srvros.intel-bcs-reset=held-blitter-only");
-                if(held_reset)console_write("intel-held-reset: automatic five-engine hold, PCI capture, BCS8 reset and preservation; no input needed. Safe saved outcomes return to Ubuntu; uncertain state halts visibly.\n");
+                if(cmdline_has_token(cmdline,"srvros.intel-interval=read-only"))console_write("intel-interval: automatic original GGTT entry capture inside held reset, then preservation. No input needed, no PTE writes or memory grant. Safe saved outcomes return to Ubuntu; uncertainty halts visibly.\n");
+                else if(held_reset)console_write("intel-held-reset: automatic five-engine hold, PCI capture, BCS8 reset and preservation; no input needed. Safe saved outcomes return to Ubuntu; uncertain state halts visibly.\n");
                 if(!held_reset && cmdline_has_token(cmdline,"srvros.intel-held-requester=read-only"))console_write("intel-held-requester: automatic PCI AF capture under maintained five-engine preparation; no input needed, no reset or memory grant.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-requester=read-only"))console_write("intel-requester: automatic read-only PCI AF requester capture; no input needed, no BME/FLR/reset or memory grant.\n");
                 if(!held_reset && cmdline_has_token(cmdline,"srvros.intel-engines-prepare=request-cancel"))console_write("intel-prepare: automatic five-engine prepare, hold and cancellation; no input needed, no reset or memory grant.\n");

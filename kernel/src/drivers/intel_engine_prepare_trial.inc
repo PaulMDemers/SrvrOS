@@ -1,6 +1,9 @@
 #include <srvros/intel_engine_prepare.h>
 #ifdef SRVROS_INTEL_PREPARE_RESET
 #include <srvros/intel_engine_held_reset.h>
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+#include <srvros/intel_held_interval.h>
+#endif
 #endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
 #include <srvros/intel_pci_held.h>
@@ -10,6 +13,9 @@ struct engine_prepare_trial {
  struct intel_completion_result post;
 #ifdef SRVROS_INTEL_PREPARE_RESET
  struct intel_engine_held_reset_result reset;
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+ struct intel_held_interval_result interval;
+#endif
 #endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
  struct intel_pci_held_result requester;
@@ -22,6 +28,9 @@ struct engine_prepare_trial {
 struct engine_prepare_adapter {struct wake_adapter *a;struct intel_gt_access *g;struct engine_prepare_trial *trial;bool failed;
 #ifdef SRVROS_INTEL_PREPARE_RESET
  unsigned reset_snapshot_reads,reset_pulses;
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+ unsigned interval_reads;
+#endif
 #endif
 };
 /* Core bookkeeping does not issue target accesses. Every provider below owns
@@ -166,6 +175,9 @@ static bool eprepare_preserve(void *ctx,const struct intel_completion_result *pr
 #include "intel_pci_held_trial.inc"
 #endif
 #ifdef SRVROS_INTEL_PREPARE_RESET
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+#include "intel_held_interval_trial.inc"
+#endif
 #include "intel_engine_held_reset_trial.inc"
 #endif
 static void eprepare_run(struct wake_adapter *a,struct intel_gt_access *g,const struct intel_takeover_result *pre,struct engine_prepare_trial *t,bool policy) {
@@ -190,6 +202,9 @@ static void eprepare_report(const struct engine_prepare_trial *t) {
 #endif
 #ifdef SRVROS_INTEL_PREPARE_RESET
  ehr_report(&t->reset);
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+ einterval_report(&t->interval);
+#endif
 #endif
  for(unsigned n=0;n<r->sample_attempts && n<5;n++) {
   console_printf("intel-prepare-row: v=1 s=%u n=%u d=",(uint64_t)n,(uint64_t)r->counts[n]);
@@ -203,6 +218,9 @@ static void eprepare_report(const struct engine_prepare_trial *t) {
 #else
  completion_report_named(&t->post,"intel-prepare-post");
 #endif
+#ifdef SRVROS_INTEL_HELD_INTERVAL
+ einterval_preservation_report(t);
+#else
  for(unsigned n=0;n<t->samples;n++) {
   for(unsigned p=0;p<3;p++) {
    const uint32_t *w=t->planes[n][p];
@@ -211,6 +229,7 @@ static void eprepare_report(const struct engine_prepare_trial *t) {
   const uint32_t *w=t->audio[n];
   console_printf("intel-prepare-audio: v=1 s=%u d=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7],(uint64_t)w[8],(uint64_t)w[9]);
  }
+#endif
 #ifdef SRVROS_INTEL_PREPARE_RESET
  console_printf("intel-prepare-summary: v=2 epoch_after=%u begin=%u end=%u epoch=%u attempts=%u writes=%u reads=%u polls=%u snapshots=%u sample_attempts=%u acks=%u ready=%u cancelled=%u blocked=%u admitted=%u held=%u preserved=%u uncertain=%u returned=%u borrowed=%u retained=%u reason=%u stage=%u index=%u clock_at=%u clock_prev=%u plane_samples=%u plane_reads=%u complete=%u obligations=255 reset_writes=%u pte_writes=0 managed_pages=0 hardware_ownership=0\n",(uint64_t)t->reset.epoch_after,r->begin_us,r->end_us,(uint64_t)r->epoch,(uint64_t)r->attempts,(uint64_t)r->writes,(uint64_t)r->reads,(uint64_t)r->polls,(uint64_t)r->snapshots,(uint64_t)r->sample_attempts,(uint64_t)r->acks,(uint64_t)r->ready,(uint64_t)r->cancelled,(uint64_t)r->blocked,(uint64_t)r->admitted,(uint64_t)r->held,(uint64_t)r->preserved,(uint64_t)r->uncertain,(uint64_t)r->returned,(uint64_t)(r->borrow.parent!=NULL),(uint64_t)r->borrow.active,(uint64_t)r->reason,(uint64_t)r->stage,(uint64_t)r->index,r->clock_at,r->clock_prev,(uint64_t)t->samples,(uint64_t)t->plane_reads,(uint64_t)r->complete,(uint64_t)t->reset.writes);
 #else

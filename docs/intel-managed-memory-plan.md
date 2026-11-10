@@ -56,6 +56,11 @@ buffer/publication leases before terminal original-state validation. This
 removes the software16-entry manifest limit for a future audited provider;
 the legacy native observer remains16entries and no native GPU range is imported.
 
+The next isolated [held-interval qualification](intel-held-interval.md) samples
+one original candidate entry inside the actual post-reset preparation borrow,
+before cancellation/return. It binds current source identity/epoch and the
+existing deadline, but exports no positive assurance or usable GPU interval.
+
 ## Ordered implementation milestones
 
 | Milestone | Required implementation and reviewable exit evidence |
