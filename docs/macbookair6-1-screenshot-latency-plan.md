@@ -9,12 +9,13 @@ Air6,1 evidence; PR19 networking, PR301 scanout and PR379 WebCore stay separate.
 
 ## Decision
 
-First instrument **which content and filesystem work the blocking global sync
-actually performs**, joined to the existing retained worst call. Then optimize
-one proven source of redundant work and repeat the unchanged automated stress.
-Treat pixel-transfer pacing as a separate, second experiment. Keep first-failure
-battery diagnostics in every trial; no battery transport change is supported by
-the two clean runs on this payload.
+Correlated content, command-role and same-command ring-result trials now pass
+the unchanged native workload. Their write waits do not establish a causal
+transport policy fix. Move next to the separate pixel-transfer pacing stage
+below, starting with bounded send/readiness/gap observations. Keep first-failure
+battery diagnostics and all existing limits/integrity checks. The dated evidence
+below preserves how the storage attribution narrowed; it does not accept a
+hardware cause or a performance improvement.
 
 ## What the evidence establishes
 
@@ -273,3 +274,35 @@ bound, BOT sequence, deadlines, event/status validation, DMA quarantine and ever
 existing byte proof, ownership and durability barrier. A long CSW does not
 authorize a larger command, extra queue, retry or relaxed completion predicate.
 Keep pixel-transfer pacing separate and the intermittent battery cause open.
+
+## Native same-command conclusion and pixel-transfer handoff (2026-11-09)
+
+PR450/release `1820d7a0297b1b65` completes1800s1% stress with1099 app cycles,
+4106 verified disk bursts, three exact BMPs, zero recorded audio underruns,
+127.764ms maximum loop and clean retirement/allocation. Independent raw parsing
+reproduces every legacy and new companion receipt. See the
+[machine result](machines/macbookair6-1.md#native-command-phases-and-ring-results-2026-11-09).
+
+The selected2.046509s content still has1.467938s root-payload writes, but its
+first maximum CSW is a512-byte metadata WRITE. Four larger payload CSWs and this
+metadata CSW exceed100ms. Thus the prior run's exclusively larger-write slow
+classification is not a universal size-specific cause.
+
+The exact380.439ms command envelope is CBW10us + data10us + CSW379.916ms +
+checkpoint500us + residual3us. Its379.913ms submission-to-observation has6677
+empty ring checks and one matching event; observation-to-resume is1us. The last
+sampled-empty pre-check clock is360.057ms after submission and19.856ms before
+observation, within20.078ms maximum sampled service gap. This does not support
+unrelated-event backlog or a379ms post-event scheduling stall for this command.
+It does not establish exact hardware completion or distinguish device from
+controller delay. Preserve USB policy, command bounds, deadlines and proofs.
+
+Captures28.407627/17.788599/19.289795s remain slow; no speed gain is accepted.
+Pixel receive remains5.851004/6.230978/6.251989s, while the source still admits
+at most four4096-byte writes per desktop poll. Proceed with stage3's bounded
+send/readiness/gap measurements and a deterministic full-size transfer fixture.
+Use those to select an independent readiness-driven transport change if cadence
+is proved dominant. Keep immutable bytes, pipe capacity, per-admission bounds,
+exclusive ownership, cancellation/exit and complete save/readback proofs. Do not
+bundle a speculative storage change or another unchanged-policy native repeat
+without a new question the retained evidence cannot answer.
