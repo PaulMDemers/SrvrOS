@@ -15,6 +15,23 @@ static ssize_t test_read(int fd,void *data,size_t n) { read_calls++;ssize_t resu
 #include "../userspace/shotworker/save.c"
 #undef write
 #undef read
+long srv_file_verify(const struct srv_file_verify_request *q) {
+    struct stat st;
+    assert(q->abi_version==SRV_ABI_VERSION && q->struct_size==sizeof(*q) && !q->reserved);
+    int fd=open(q->path,O_RDONLY);if(fd<0)return SRV_ERR_IO;
+    int result=0;
+    if(fstat(fd,&st) || !S_ISREG(st.st_mode) || (uint64_t)st.st_size!=q->length ||
+       (uint64_t)st.st_ino!=q->expected_inode || (uint64_t)st.st_mtime!=q->expected_mtime)result=-1;
+    unsigned char bytes[4096];uint64_t offset=0;
+    while(!result && offset<q->length) {
+        size_t length=q->length-offset;if(length>sizeof(bytes))length=sizeof(bytes);
+        ssize_t n=test_read(fd,bytes,length);
+        if(n<=0 || (size_t)n>length || memcmp(bytes,(const unsigned char *)q->data+offset,(size_t)n))result=-1;
+        else offset+=(size_t)n;
+    }
+    if(close(fd))result=-1;
+    return result;
+}
 long srv_getpid(void) { return getpid(); }
 long srv_ticks(void) { return 12345; }
 long srv_sync(void) { sync_calls++;return injected_sync && sync_calls==(unsigned)injected_sync?-1:0; }

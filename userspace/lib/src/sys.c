@@ -671,3 +671,7 @@ long srv_directory(uint64_t operation,int fd,void *out,size_t capacity) {
 long srv_file_stream(const struct srv_file_stream_request *request) {
     return srv_syscall1(SYS_FILE_STREAM,(long)request);
 }
+
+long srv_file_verify(const struct srv_file_verify_request *request) {
+    return srv_syscall1(SYS_FILE_VERIFY,(long)request);
+}

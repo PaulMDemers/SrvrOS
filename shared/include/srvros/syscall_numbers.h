@@ -170,6 +170,7 @@
 #define SYS_SESSION_SCOPE 163
 #include <srvros/signal_syscall_numbers.h>
 #define SYS_FILE_STREAM 168
+#define SYS_FILE_VERIFY 170 /* 169 is used by the active Wi-Fi device branch. */
 
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
