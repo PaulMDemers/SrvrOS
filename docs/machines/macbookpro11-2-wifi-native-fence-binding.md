@@ -210,3 +210,22 @@ MMIO/device environment. No shared staging/build/VM or hardware action occurred.
 The parent must still qualify the matched full kernel/image,old controller paths,
 exact-stage VM and native evidence. These software results accept no radio data,
 physical descriptor wrap or ordinary persistent connection.
+
+### November10 Stop publication ordering correction
+
+The [HTTP/native Stop audit](macbookpro11-2-wifi-stop-audit.md) corrects the
+synchronization point above. Retain exact raw FSE identity when it arrives; the
+controller may still expose Running/old dequeue then. Validate final Stopped
+context, matching dequeue and DCS only after the exact successful Stop Command
+Completion. Missing, duplicated or reversed FSE/command events still fault and
+pin ownership. This applies to the native fence and outer stream/NoOp/calibration
+Stop families; raw notification alone releases no DMA.
+
+`wifi_fence5_try_begin` distinguishes an unrelated nonempty event frontier from
+invalid ownership/geometry. Retry that frontier only inside the original caller
+budget, without publishing a command first. While bound, every shared consumer now retains
+unexplained command debt as a fault, including before a round. A non-fence command
+completion delegates only from the actual synchronous waiter with its exact
+published pointer; pending/sync counters alone grant no delegation. Selected
+source regressions and independent review are recorded in the unit audit;
+physical validation of these corrections remains pending.

@@ -8080,3 +8080,15 @@ The source-bound run record owns cold-reset/arming and first-once collection.
 Persistent connection generations,
 connect/disconnect UI, removal/reattach and reliability remain open. The adapter
 is still5GHz-only; Demers2.4 needs different compatible hardware.
+
+
+### November10 Pro11,2 Stop/event lifetime audit
+
+The [unit audit](machines/macbookpro11-2-wifi-stop-audit.md) identifies a native
+Stop-event/context publication ordering defect matching the latest DRAIN/OWNER
+photo fields. The raw event must be retained until matching command completion
+synchronizes the final endpoint context; missing/reversed events remain faults.
+Related registry/admission/descriptor fixes and actual-native callback regressions
+pass selected normal/fatal checks and independent review; matched guests remain
+the next software gate. No new physical acceptance follows; the failed runtime213
+remains installed and Ubuntu unarmed. Persistent lifecycle/UI/reattach remain open.

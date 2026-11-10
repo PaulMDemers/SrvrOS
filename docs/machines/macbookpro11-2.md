@@ -1,16 +1,27 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted; unchanged-image repeat held during terminal provider drain; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-10. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted; unchanged-image repeat held during terminal provider drain; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+The [November10 Stop audit](macbookpro11-2-wifi-stop-audit.md) identifies a
+premature final endpoint-context check at raw Stop-event arrival. A legal delayed
+context publication reproduces the reported native/HTTP OWNER state; the final
+context is guaranteed only by the matching command completion. Candidate fixes
+also address quiet RX63 TX blocking, shared-event admission/debt, exact selected
+provider binding and immutable HTTP descriptor anchors. The full selected normal suite and six fatal ASan/UBSan
+fixtures pass, with independent reviews complete; matched guest checks remain
+the next software gate. The exact failed physical event was not saved, so physical occurrence
+remains inferred. No install, boot arming or reboot is part of this audit.
+
 The21387b54/b865c96e670e52df trial also held and is now closed failed/incomplete.
 Only its21836-byte startup log survived; the2062-file primary is immutable.
 The user's latest photo places the failure in active DRAIN/OWNER, before the
-terminal handoff; tiny native counters remain uncertain. Do not treat it as a
+terminal handoff. The user confirmed stack_failed0, stream_failed0, phase3,
+fault_phase0 and fence_round1. Do not treat it as a
 repeat of the earlier FINISH/DRAIN_FAILED diagnosis. Ubuntu is unarmed.
 
 The user explicitly forbids another hardware test until the whole relevant
@@ -19,8 +30,9 @@ HTTP child/supervisor/TCP/prepared-worker path; native provider, RX/cache/DMA,
 USB event/fence/command and parent/key cleanup; and the HOST/VM/collector test
 assumptions between them. The local parent owns generic lifecycle/integration,
 with independent native and evidence reviews. No new payload, install or boot is
-part of this audit. Actual main9a218889 (PR452 userspace capture measurements)
-was fetched and inspected; keep the failed0d83/213 runtime fixed during causal
+part of this audit. Main9a218889 (PR452 userspace capture measurements) and
+subsequent actual maina2a6d692 (PR453/454 screenshot audit documentation only)
+were fetched and inspected; keep the failed0d83/213 runtime fixed during causal
 reproduction. PR301's GPU/process and PR379's WebCore scope remain separate.
 The mutable checkpoint is `build/bringup/wifi-http5-section-audit/work-state.json`;
 the prior run has already been collected FIRST once. Preserve every closed
