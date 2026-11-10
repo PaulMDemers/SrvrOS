@@ -1757,3 +1757,16 @@ Both USB devices require10seconds OFF-state unplug and same-port reconnect;
 safe progress/save/Ubuntu return is automatic. Installation/arming belongs to
 the saved record; protect all six recoveries and retire only fully backed failed
 776/7c3's EFI duplicate if measured capacity requires it. Native acceptance is pending.
+
+
+The Pro11,2 DHCP diagnostic is now collected FIRST once: runtime070089f5 /
+releasec603, session00065fed77ae049a-00, immutable1880-file primary. Do not run
+that collector again. The complete source-frozen protocol check observes one
+accepted Offer and ACK without retry/rejection, production DNS, actual HTTP
+request/body/EOF and full named software/key/provider/parent retirement. Its
+separate12-file return reviews independently accept that bounded lifetime. Backend tombstones remain;
+persistent service, reconnect/UI/reattach and unlimited reuse stay open. All437
+prior file bytes/metadata survive except RTC-bounded marker atime, offline
+fsck/allocation and six recovery equality checks pass, and Ubuntu is unarmed.
+No new trial is scheduled; retain the same both-USB cold procedure for future
+qualified native runs. The preceding776 DHCP failure remains failed/unexplained.

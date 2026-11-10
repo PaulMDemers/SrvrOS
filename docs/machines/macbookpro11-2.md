@@ -1,49 +1,63 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-10. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; latest Stop-fixed regression returned with a saved DHCP failure before HTTP; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-10. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; latest source-bound diagnostic completes DHCP/DNS/actual HTTP and full named retirement; independently accepted for this bounded lifetime; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-The next bounded diagnostic is qualified at runtime070089f5 /
-releasec603901d483d3f86, with host validation3e61c3b6. Its installation/arming
-state belongs to `build/bringup/wifi-http5-dhcp-diagnostics/run.json`. After its
-boot, collect ONLY that matching NEW run FIRST once with its `run_root.py
-return_collect`. Every older collector is closed. The new collector preserves a
-separate source-bound DHCP observation even when the complete success-only
-RF/HTTP proof refuses a safely returned failed workload; observation alone
-grants no native acceptance.
+The runtime070089f5 / releasec603901d483d3f86 hardware run is now collected
+FIRST once, session00065fed77ae049a-00. **Production DHCP/DNS and the actual HTTP
+process complete**, including the exact4159-byte request,3072-byte body and real
+EOF, child/worker/TCP retirement, consuming receive handoff and original
+key/provider/ledger/full-parent restoration. No older collector or this run's
+collector may run again. The1880-file primary capsule is closed and immutable;
+its index is26e8f4ea9c08f653e874c551a4d3734f88d6f4eb203b6756b9af655a60cddc82.
+Separate12-file return notes now accept this bounded native lifetime without
+modifying that primary; both the source-frozen protocol replay and independent
+storage/recovery review pass. The separate acceptance index is
+`87d9295fe4d1f99398f872e3b9b098b51e72c7dad3f9b468fdbc00c10133cdea`.
+Both capsules survive distclean.
 
-The240-byte receipt records queued sends, receive stages, parsed/accepted DHCP
-types, refusal codes/options presence and the original transaction time/poll
-bounds. It contains no addresses, XIDs, packet or key bytes. Independent review
-caught and closed a mixed last-message/options observation; native case54 covers
-a malformed packet before option53 after a valid Offer. Original0700 qualification
-passes the full Wi-Fi foundations,55 native HOST cases, strict log checks and
-four fatal ASan/UBSan fixtures (14 new native DHCP cases plus full bounded,
-HTTP72 and prepared-worker fixtures). No new packet/retry/ownership policy is
-introduced. Missing post-decapsulation data still cannot distinguish RF absence
-from a rejected encrypted frame.
+The new DHCP receipt confirms one queued Discover and Request, one parsed and
+accepted Offer and ACK, zero rejected packets/NAKs/retries, configured state and
+158883us/34polls under unchanged bounds. The complete HTTP workload finishes in
+1647062us, with22 data TX publications,15 provider receives,70 returned loans and
+one RX fence. This is a successful bounded fixed161 native composition, not
+proof of an RX/TX data crossing, delayed context publication or unlimited reuse.
+The prior776 DHCP failure remains unexplained and is not reclassified.
 
-The staged VM caught a missed host absence-checker update, now fixed with263
-passing unit tests. Only two host Python files differ at3e61;1620 other qualified
-inputs remain exact, so original runtime/normal/fatal reports retain0700 labels.
-The content-addressed payload remainsc603 with its original0700 manifest; it is
-not relabeled. Fresh3e61 numeric and production-DNS actual HTTP guests,34/38-frame
-independent wire checks, exact-stage GPT/missing-workspace and desktop guests,
-and the437-file live-workspace clone all pass. All prior bytes and strict clone
-metadata survive except marker atime in the proven RTC window. The frozen
-runtime-source collector has580 Python modules and nine RF fixtures.
+The publication-close receipt retains one pending raw receive and deliberately
+sets endpoint_stop_proof0. The later exact native Stop and full parent proof,
+not that earlier receipt, establish terminal ownership/restoration. Provider
+and ledger retire; backend tombstones remain retained and backend retirement
+is not claimed. Independent source-frozen checking and the full1880-file seal
+review pass; acceptance is limited to this source/release/session. Persistent
+service, reconnect/reattach, UI and reliability stay open; Demers2.4 still requires
+different compatible hardware.
 
-Both USB devices still require10seconds disconnected while OFF, then the same
-ports. Safe completion saves and returns automatically; uncertain ownership
-still holds without disk writes. Protect Ubuntu, factory and all six retained
-recovery payloads. EFI capacity may retire only the exact fully backed failed
-776/7c3 duplicate after accepted7cd promotion and no-reference checks. Hardware
-acceptance remains pending; persistent service, UI/reattach and2.4GHz hardware
-remain separate work.
+All437 prior ordinary-file bytes and persisted metadata fields survive except
+one marker atime inside the intact RTC-derived1794323378..1794323389 window.
+Only the matching boot/exit files were added. Read-only allocation/fsck pass with
+zero inspection writes/flushes. Installedc603 and all six recovery payloads equal
+their independent backups;factorye47 remains previous, Ubuntu stays default and
+no next boot is armed. No physical operation follows from collection alone.
+
+Qualification retains runtime0700 normal55/fatal4 results and host3e61's263
+absence-checker units plus six exact fresh VM gates, including437-file clone
+preservation. The source-only two-file host followup did not relabel runtime
+payload bytes. Final preboot review and rollback checks are preserved in the
+primary; after-return acceptance notes are separate. Both USB devices still
+require10seconds OFF-state unplug and same-port reconnect for cold trials.
+
+Actual mainf5043c4a/PR456 was fetched after collection: only Air6,1 acceptance/
+planning documentation differs from previously inspected40767a50. It is not
+part of this payload. The next bounded scope is repeated successful native
+transfer/retirement, then adapter/connection lifetime separation and two fresh
+connection generations. Inspect/integrate the actual shared baseline before new
+runtime changes; preserve one-shot guards, ownership checks and existing limits.
+See the [completion plan](macbookpro11-2-wifi-completion-plan.md).
 
 ### Closed previous hardware validation
 

@@ -8121,4 +8121,17 @@ The explicit absent-radio staged VM requires one canonical all-zero unused DHCP
 receipt while retiring its prepared owners; it never accepts DHCP connectivity.
 The native HOST fixture covers missing ACK and parser/network/crypto refusals
 through the actual registry/provider/CCMP and xHCI handlers with modeled USB/AP;
-it runs no HTTP process. Native diagnostic acceptance remains pending.
+it runs no HTTP process.
+
+Pro11,2 runtime070089f5/releasec603 now has a complete source-bound cold run:
+one accepted Offer/ACK without retry or rejection in158.883ms, production DNS,
+actual-process4159-byte HTTP request/3072-byte body and genuine EOF, and full
+named child/worker/TCP/key/provider/parent retirement. The earlier publication
+seal records one pending raw RX and no endpoint-Stop proof; later native Stop/
+parent receipts are required for final restoration. Backend tombstones stay
+retained, so backend retirement and unlimited reuse are not claimed. The1880-file
+primary is immutable; separate12-file independent return review accepts only
+that bounded lifetime. Strict437-
+file/metadata preservation (only RTC-bounded marker atime), allocation/fsck and
+six recovery equality checks pass. This does not explain the preceding776 DHCP
+failure or accept persistent connection service, UI or reattach.

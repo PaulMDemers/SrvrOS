@@ -7,37 +7,42 @@ Edimax7392:a711 MT7610 is5GHz-only. Target Demers5 WPA2-PSK/CCMP,US161/20MHz.
 Demers2.4 requires a different compatible adapter;it is a separate hardware scope.
 
 
-## Current checkpoint (November 9)
+## Current checkpoint (November 10)
 
-Source785e3605/release7cdfeeefca45728b now has independent native acceptance for
-one fixed161 authenticated production DHCP/DNS and actual-process exact HTTP
-request/body/EOF, with child/worker/TCP, key/provider/ledger and full parent
-retirement. The primary1729-file capsule is immutable; separate10-file acceptance
-notes and independent storage replay retain strict metadata/ordinary-file proof.
-The previous retained-owner hold is still unexplained. No persistent service,
-second connection generation, reattach, desktop connection controls or broad
-reliability is accepted. The source remains explicitly one-shot and bounded.
+The source-bound070089f5/releasec603 cold run is collected once in matching
+session00065fed77ae049a-00. Its complete exit records successful production
+DHCP/DNS and the actual HTTP process: exact4159-byte request,3072-byte body,
+genuine EOF, child/worker/TCP retirement, consuming raw-RX handoff and original
+key/provider/full-parent restoration. The new DHCP receipt observes one accepted
+Offer and ACK, no rejection or retry, and158.883ms transaction time. The previous
+776/7c3 DHCP failure remains failed; this run does not establish its cause.
 
-The ONE exact-image cold repeat FAILED/held at terminal provider drain after
-child/TCP/worker retirement. Its1135-file startup-only failure and photo remain
-immutable; the earlier bounded HTTP success is preserved. Runtime21387b54 /
-releaseb865c96e670e52df now implements explicit consuming terminal receive-owner
-handoff and includes reviewed main0d83d045. Deterministic completion-arrival,
-selected normal/fatal, independent source/format reviews, actual numeric and
-production-DNS HTTP, exact native-stage/missing-workspace, desktop and strict
-434-file clone VMs pass. The candidate is installed but physically unaccepted;
-its distinct `wifi-http5-rx-handoff` owner must collect the next session once.
-Validate its native closure and cold repeat before adapter/connection lifetime
-implementation. Keep original failures and success unchanged.
+The1880-file primary capsule stays immutable; separate12-file return review
+accepts only this bounded lifetime, with no findings. All437 prior ordinary-file
+bytes and prior metadata fields survive
+except one workspace-marker atime inside the proven RTC window. Offline
+allocation/fsck, installed payload and six recovery copies pass. Ubuntu is
+unarmed; no old collector may run again. Source-matched normal/fatal and exact
+VM qualification remain distinct from this bounded physical result.
 
-The next implementation separates adapter/provider ownership from a connection,
-with fresh key/PN/epoch and child/worker lifetime per connection. First prove two
-connect/DHCP/DNS/exact-transfer/disconnect generations on one present adapter.
-Do not clear one-shot guards, reuse retired tombstones or merely enlarge limits.
-Command-address reuse, pending idle RX and event debt need explicit proofs where
-needed. Follow with cancellation/wrong credentials/AP loss and safe removal/
-reattach, then async scan/status/connect/disconnect UI and sustained coexistence.
-Demers2.4 remains a separate compatible-adapter requirement.
+The Stop fix and consuming handoff now have a successful native composition,
+including one RX fence and full final closure. This does not show delayed context
+publication occurred, accept unlimited ring reuse or establish reliability.
+Backend tombstones remain retained; backend retirement is not claimed.
+The older213 OWNER hold, unchanged785 terminal-drain failure and776 DHCP failure
+remain separate immutable failures. Keep their causes and coverage distinct.
+
+Next gates are repeated native transfer/retirement and explicit separation of
+adapter/provider ownership from a connection. First prove two connect/DHCP/DNS/
+exact-transfer/disconnect generations on one present adapter, with fresh key/PN/
+epoch and child/worker lifetime per connection. Do not clear one-shot guards,
+reuse retired tombstones or merely enlarge limits. Command-address reuse,
+pending idle RX and event debt need explicit proofs. Follow with cancellation,
+wrong credentials/AP loss, safe removal/reattach, async UI and longer coexistence.
+Demers2.4 requires different compatible hardware. Integrate the actual reviewed
+main baseline and its pinned submodules before qualifying new runtime changes;
+mainf5043c4a adds only Air6,1 acceptance documentation beyond the last inspected
+40767a50, and is not part of this native payload.
 
 ## Done and preserved
 
