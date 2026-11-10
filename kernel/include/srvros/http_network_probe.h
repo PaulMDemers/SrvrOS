@@ -55,8 +55,12 @@ struct http_network_probe {
     struct http_child_owner child;
     struct net_bounded_probe bootstrap;
     struct net_bounded_probe_io net_io;
-    struct http_network_probe_io io;
-    const struct http_network_probe_io *source;
+    /* Admission anchor is retained unchanged across every live callback.
+     * Validate source address before dereferencing it; compare both the live
+     * descriptor and original source against this independent frozen copy.
+     * Scrub these capability references only after proven quiescence. */
+    struct http_network_probe_io io,io_guard;
+    const struct http_network_probe_io *source,*source_guard;
     struct net_probe_worker_info worker;
     struct scheduler_wait_queue wait;
     struct http_network_result result;

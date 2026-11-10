@@ -22,26 +22,32 @@ static bool same(const struct http_network_probe_io *a,const struct http_network
   a->drained==b->drained && a->terminal_rx_handoff==b->terminal_rx_handoff && a->epoch==b->epoch && a->start_us==b->start_us &&
   a->deadline_us==b->deadline_us && a->test_ip_override==b->test_ip_override;
 }
-static bool owned(struct http_network_probe *s){return s && s->self==(uintptr_t)s && s->source && same(&s->io,s->source);}
+static bool owned(struct http_network_probe *s){
+ /* Reject an already-latched failure or changed source address BEFORE reading
+  * that address. Equality between two mutable descriptors alone cannot bind
+  * the original context/callbacks/epoch/window across callback execution. */
+ return s && s->self==(uintptr_t)s && !s->guard_failed && s->source_guard &&
+  s->source==s->source_guard && same(&s->io,&s->io_guard) && same(&s->io_guard,s->source_guard);
+}
 static bool current(struct http_network_probe *s){
  uint64_t f=lock();bool good=false;
  if(!owned(s) || s->checking || s->guard_failed){if(s){s->guard_failed=true;fail(s,HTTP_NET_OWNER);}goto done;}
- s->checking=true;good=s->io.current(s->io.context,s->io.epoch) && owned(s);
+ s->checking=true;good=s->io_guard.current(s->io_guard.context,s->io_guard.epoch) && owned(s);
  uint64_t us=timer_monotonic_us(),tick=timer_ticks();
  if(!good){s->guard_failed=true;fail(s,HTTP_NET_OWNER);}
- else if(us<s->last_us || us<s->io.start_us || us>=s->io.deadline_us || tick<s->last_tick){s->guard_failed=true;good=fail(s,HTTP_NET_CLOCK);}
+ else if(us<s->last_us || us<s->io_guard.start_us || us>=s->io_guard.deadline_us || tick<s->last_tick){s->guard_failed=true;good=fail(s,HTTP_NET_CLOCK);}
  if(good){s->last_us=us;s->last_tick=tick;}
  s->checking=false;
  done:unlock(f);return good;
 }
-static bool net_current(void *p,uint64_t epoch){struct http_network_probe *s=p;return s && epoch==s->io.epoch && current(s);}
+static bool net_current(void *p,uint64_t epoch){struct http_network_probe *s=p;return s && epoch==s->io_guard.epoch && current(s);}
 static bool net_retry(void *p,uint64_t epoch){
  struct http_network_probe *s=p;uint64_t f=lock();
- bool good=s && epoch==s->io.epoch && current(s) && s->io.retry_ready(s->io.context,epoch) && current(s);
+ bool good=s && epoch==s->io_guard.epoch && current(s) && s->io_guard.retry_ready(s->io_guard.context,epoch) && current(s);
  unlock(f);return good;
 }
 static bool drained(struct http_network_probe *s){
- uint64_t f=lock();bool good=current(s) && s->io.drained(s->io.context,s->io.epoch) && current(s);
+ uint64_t f=lock();bool good=current(s) && s->io_guard.drained(s->io_guard.context,s->io_guard.epoch) && current(s);
  unlock(f);return good;
 }
 /* A worker may publish TCP maintenance in the next turn. Only this atomic
@@ -64,8 +70,8 @@ static bool terminal_ready(const struct http_network_probe *s){
 static bool terminal_rx_handoff(struct http_network_probe *s){
  uint64_t f=lock();bool good=false;
  if(!terminal_ready(s) || !current(s))goto done;
- const struct http_network_probe_io before=s->io;
- const struct http_network_probe_io *original=s->source;
+ const struct http_network_probe_io before=s->io_guard;
+ const struct http_network_probe_io *original=s->source_guard;
  s->checking=true;
  bool closed=before.terminal_rx_handoff(before.context,before.epoch);
  s->checking=false;
@@ -133,7 +139,7 @@ bool http_network_probe_prepare(struct http_network_probe *s){
 }
 bool http_network_probe_abort_prepare(struct http_network_probe *s){
  if(!s || s->self!=(uintptr_t)s || s->result.attempted || s->handoff_attempted ||
-    s->source || s->result.go || s->child.published || s->bootstrap.identity || process_current())return false;
+    s->source || s->source_guard || s->result.go || s->child.published || s->bootstrap.identity || process_current())return false;
  if(s->result.quiescent && s->child.retired)return true;
  if(!s->result.reason)s->result.reason=HTTP_NET_NOT_RUN;
  if(s->result.worker_allocated){
@@ -209,17 +215,18 @@ bool http_network_probe_run(struct http_network_probe *s,const struct http_netwo
     io->deadline_us!=io->start_us+HTTP_CHILD_WINDOW_US ||
     (io->test_ip_override && (!(io->test_ip_override>>24) || (io->test_ip_override>>24)==127 || (io->test_ip_override>>24)>=224)) ||
     overlap(s,sizeof *s,io,sizeof *io) || overlap(s,sizeof *s,io->context,1))return false;
- s->result.attempted=true;s->io=*io;s->source=io;s->last_us=io->start_us;s->last_tick=timer_ticks();
- s->result.test_override=io->test_ip_override!=0;s->result.phase=HTTP_NET_DHCP;
+ s->result.attempted=true;s->io_guard=*io;s->io=s->io_guard;s->source=s->source_guard=io;
+ s->last_us=s->io_guard.start_us;s->last_tick=timer_ticks();
+ s->result.test_override=s->io_guard.test_ip_override!=0;s->result.phase=HTTP_NET_DHCP;
  s->net_io=(struct net_bounded_probe_io){s,net_current,net_retry};
  bool good=false;
  if(!current(s) || !net_probe_worker_prepared() || !net_init_bounded_probe() ||
-    !net_bounded_probe_init(&s->bootstrap,&s->net_io,io->epoch,io->deadline_us)){fail(s,HTTP_NET_INIT);goto done;}
+    !net_bounded_probe_init(&s->bootstrap,&s->net_io,s->io_guard.epoch,s->io_guard.deadline_us)){fail(s,HTTP_NET_INIT);goto done;}
  s->bootstrap_open=true;
  if(net_dhcp_request_bounded(&s->bootstrap)<0){fail(s,HTTP_NET_DHCP_FAILED);goto done;}s->result.dhcp=1;
  if(!bootstrap_drain(s))goto done;
  s->result.phase=HTTP_NET_DNS;
- if(io->test_ip_override)s->answer=io->test_ip_override;
+ if(s->io_guard.test_ip_override)s->answer=s->io_guard.test_ip_override;
  else {
   if(net_dns_resolve_bounded(&s->bootstrap,"httpbin.org",&s->answer)<0 || !s->answer){fail(s,HTTP_NET_DNS_FAILED);goto done;}
   s->result.dns=1;
@@ -233,7 +240,7 @@ bool http_network_probe_run(struct http_network_probe *s,const struct http_netwo
  s->bootstrap_open=false;s->result.handoff=true;
  s->result.phase=HTTP_NET_GO;
  if(!net_probe_worker_current() || !current(s)){fail(s,HTTP_NET_GO_FAILED);goto done;}
- if(!http_child_publish(&s->child,io->epoch,io->start_us,io->deadline_us,s->answer)){
+ if(!http_child_publish(&s->child,s->io_guard.epoch,s->io_guard.start_us,s->io_guard.deadline_us,s->answer)){
   fail(s,HTTP_NET_GO_FAILED);(void)http_child_cancel(&s->child);
  } else s->result.go=1;
  s->result.phase=HTTP_NET_DRAIN;
@@ -269,8 +276,8 @@ bool http_network_probe_run(struct http_network_probe *s,const struct http_netwo
   }
  }
  uint64_t now=timer_monotonic_us();
- if(now<s->last_us || now<s->io.start_us || now>=s->io.deadline_us){good=false;fail(s,HTTP_NET_CLOCK);}
- else s->result.elapsed_us=now-s->io.start_us;
+ if(now<s->last_us || now<s->io_guard.start_us || now>=s->io_guard.deadline_us){good=false;fail(s,HTTP_NET_CLOCK);}
+ else s->result.elapsed_us=now-s->io_guard.start_us;
  bool snapshot_ok=worker_snapshot(s);
  if(s->result.handoff && (!snapshot_ok || !s->worker.finished || !s->worker.parked ||
     s->worker.parked_waiters!=1 || s->worker.active || s->worker.busy || s->worker.poll_busy ||
@@ -279,7 +286,8 @@ bool http_network_probe_run(struct http_network_probe *s,const struct http_netwo
   good=false;fail(s,HTTP_NET_WORKER_FAILED);
  }
  if(s->result.quiescent){
-  scrub(&s->net_io,sizeof s->net_io);scrub(&s->io,sizeof s->io);s->source=NULL;s->answer=0;
+  scrub(&s->net_io,sizeof s->net_io);scrub(&s->io,sizeof s->io);scrub(&s->io_guard,sizeof s->io_guard);
+  s->source=s->source_guard=NULL;s->answer=0;
   s->result.refs_scrubbed=true;
  }
  s->result.complete=good && s->result.quiescent && s->result.worker_finished &&
