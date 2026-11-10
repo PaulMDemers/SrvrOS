@@ -7,6 +7,30 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+### Active integration and connection-generation work
+
+The user now authorizes integrating actual main `c3550c82`, then implementing
+and testing disconnect/reconnect in one boot. Preserve the two accepted c603
+cold lifetimes and all seven recovery payloads; neither closed collector may
+run again. No hardware trial is armed by this implementation scope.
+
+The local parent owns merge resolution and shared native lifecycle changes:
+`xhci_wifi_*` adapter/connection ownership, provider registry and production
+network/HTTP cleanup seams, explicit generation receipts and the native HOST
+composition fixture. Independent agents audit hardware/event/DMA and ordinary
+stack/process lifetime assumptions without shared builds. Reuse requires full
+native closure before admitting a new epoch; never clear one-shot guards,
+resurrect retained tombstones or enlarge deadlines as a reconnect mechanism.
+New keys, packet numbers, worker/child state and DHCP configuration must belong
+to the new connection. Late callbacks/events and incomplete disconnect retain
+or refuse ownership. UI, adapter reattach and broader reliability remain later
+gates. Air6,1 storage and Air7,2 display work are outside this lifecycle scope.
+
+Next checkpoint: reviewed main merge/pinned submodules, two-generation native
+path regression plus stale/failure cases, matched fatal checks and exact-image
+VM qualification. Physical acceptance requires a new saved run and matching
+native evidence; source tests alone do not accept reconnect on this laptop.
+
 ### Cold repeat returned (November 10)
 
 The ONE unchanged-image repeat of runtime `070089f5` / release
