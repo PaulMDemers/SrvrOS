@@ -11391,3 +11391,18 @@ compiler command, three case logs and media hashes are preserved locally and in
 a verified backup outside build; disposable images were removed. Next steps and
 required readiness/cancel/exit/retirement regressions are in the audit. Ubuntu,
 installed payloads, prior acceptance and unarmed reboot state remain as collected.
+
+### Fresh-media verification implementation scope (2026-11-10)
+
+Base `a2a6d692`, following the three-agent code audit. Bounded objective: make
+both screenshot byte proofs explicitly consume fresh VFS media snapshots even
+when ordinary readers retain shared content. Add a synchronous bounded read-only
+verification ABI under existing namespace/I/O admission, its userspace wrapper,
+and complete-save real process/exFAT corruption regressions. Keep normal shared
+file/descriptor semantics, checked-rename open-prefix refusal, all write/sync/
+readback/cleanup barriers, limits and power/device gates. Root owns API/core/
+shotworker, subagents own syscall tests and integration fixtures; one sequential
+build/VM owner. Follow with the independent readiness/transport change only
+after this correctness contract is validated. PR301 lifetime-owner work remains
+separate; PR19/379 do not overlap this API. Publish the candidate and host/VM
+results before physical acceptance; no prior native result accepts this change.
