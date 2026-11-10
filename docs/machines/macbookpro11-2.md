@@ -7,6 +7,39 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+### First v140 return: calibration response failure before either connection
+
+Runtime `27042d66`, release `2953de5d95b0451e`, session
+`00065ff071b97c13-00` returned automatically but FAILED before either native
+connection began. Calibration operation59/step4 (RXDCOC, wire ID2/argument1)
+reports sent16, received-1, completion0 and500069us; the preceding four command
+responses pass. This is consistent with the500ms MCU receive limit, but the
+saved record lacks a terminal-branch discriminator and cannot exclude a
+rejected completion or ownership refusal. Do not assert a firmware timeout or
+a reconnect defect as its established cause. Both connection generations,
+authentication and IP data remain untested in this run; full RF restoration is
+not proved. The normal/fatal/native and six VM gates from this exact source
+remain software evidence only.
+
+The matching run was collected FIRST once. Its immutable1,311-file primary has
+index `6778b2469fc1b99f22e58eed1f6fc8a8ad70825ba4c4f198de27a74bfb727d20`.
+All441 prior files survive, with only the marker atime changed inside the
+intact exit-derived RTC window. Offline filesystem/allocation and all seven
+preserved payloads pass; Ubuntu is default and unarmed. Six prior payloads
+remain on EFI; the oldest unreferenced3c9 EFI duplicate was removed only after
+verifying its original backup and a second independent mirror outside build.
+Factorye47 remains the direct fallback and acceptedc603 stays resident. Never
+recollect or reseal this failed primary or the accepted c603 capsules.
+
+Next bounded scope: retain the first MCU bulk failure reason, ownership/pending
+flags, expected TD, endpoint output context and event frontier, and emit a
+deferred failure-only calibration observation. Preserve the existing500ms limit,
+strict reply validation, quarantine, retained DMA and no-retry policy. Test the
+actual native MCU bulk/event and cal5 command callback; modeled firmware or RF
+parents do not establish physical causation. No further boot is armed. Actual
+main `9580bb4b` / PR458 was fetched and inspected after return; its reserved-
+append/process changes are not in this runtime or its evidence.
+
 ### Active integration and connection-generation work
 
 The user now authorizes integrating actual main `c3550c82`, then implementing
@@ -45,11 +78,11 @@ separate from each local native disconnect. HOST tests exercise both generations
 sequentially in one process, with independent OpenSSL fresh-PTK AP data, plus
 stale callbacks/events, late frontier, incomplete Stop, failed outer restoration,
 old-frame replay and aliased allocation. No kernel/controller reset separates
-those two exchanges. New source/log/boot profile review is complete; final
-matched qualification is still pending.
+those two exchanges. Source/log/boot review, matched qualification and the
+first physical attempt are complete; that attempt failed during calibration
+before either connection, as recorded above.
 
-Next checkpoint: full selected normal/fatal/native receipt tests, merged capture/
-filesystem regressions, matched build and v140 exact-image VM qualification. Physical acceptance requires a new saved run and matching
+Physical acceptance still requires a complete new saved run and matching
 native evidence; source tests alone do not accept reconnect on this laptop.
 
 ### Cold repeat returned (November 10)
