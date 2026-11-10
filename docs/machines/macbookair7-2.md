@@ -2,6 +2,17 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
+### Active closeout: classify the saved healthy admission row
+
+The combined source9c788f3f native protocol completes in97,414/100,000us,
+but generic collection flags the new all-zero `intel-admission` row as attention.
+Collection/integrity is preserved as initially INCOMPLETE until this collector
+omission is corrected. Scope is `hardware_desktop.needs_attention`, strict row
+classification regressions and offline replay of the saved native logs; no
+kernel/payload change or new physical run. Retain malformed/nonzero-row attention
+and every full native/checkpoint/final-marker gate. PR19/379 remain independent;
+fetched maina2a6d692 adds Air6,1 audit documentation only beyond this payload base.
+
 ### Ready: combined held-reset trial before user init
 
 Source `9c788f3f`, release `8d3839aaa57f707d`, integrates main`486b6d2a`.
