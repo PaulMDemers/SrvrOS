@@ -26,6 +26,64 @@ Native mapping/completion still requires separately derived hardware ownership.
 Checkpoint:`build/air-native-interval-20261110`. No reboot armed; automated
 trial readiness follows exact-stage validation, durable records and recovery.
 
+### Ready, not yet physically accepted: original GGTT entry in held reset
+
+Source`3315df79`, based on main`f5043c4a`, is frozen in exact release
+`e07848a7c00d893d`. The separate [held-interval observer](../intel-held-interval.md)
+now performs the planned six high/low/high DWORD reads in the actual reset
+provider-exit scope. It binds the original reset/preparation, sole active borrow,
+current epoch and previously captured original entry. Its additional alias is
+read-only/NX/UC and mapped before the critical preparation. Every load has a
+fresh source/mapping/requester guard and immediate original-origin deadline
+check. No PTE writer, new borrow, range import or hardware assurance is added.
+All eight completion obligations(mask255), zero managed pages and unaccepted
+native tear-free status remain unchanged. An active software borrow does not
+prove that all five hardware requests remain asserted after BCS reset.
+
+Local PASS on this exact source: full build/check-host/test-core/check-docs
+(installed-root explicitly omitted),23-image isolation,251 fatal ASan/UBSan
+cases (202 actual core,46 native adapter and three boot fixtures),12 compiled
+behavioral controls and two native-object controls. Native disassembly and
+actual C ABI offsets bind the sole DWORD load, exact alias/physical page and
+same100ms origin, with no callback after its final timer check. The decoder
+rejects copied/stale/malformed or false-authority evidence. All74 plane/HDA
+DWORDs survive the v18-only canonical packed record and match the older actual
+C producer byte for byte. The projected log is65,371/65,536bytes including the
+unchanged1,536-byte reserve;100/300/500ms deadlines have not increased.
+Temporary fault-runner include/receipt-label corrections are retained locally;
+production source stayed frozen. The initial reboot CHECK ONLY also correctly
+rejected a copied old-recipe parser mode; the local driver uses the new exact
+recipe. No failed runner is reported as native acceptance.
+
+The exact immutable stage passes QEMU unsupported-GPU refusal with zero interval
+loads, saved checkpoint/results, unmount and automatic safe return. A separate
+missing-workspace guest halts. Four logs bind the exact19-token recipe and
+source/release, and user services remain deferred. These are refusal/persistence
+checks, not native source-binding or timing acceptance. The new observer and
+packed reporter are absent from the other22 boot images.
+
+Installed current is now`e07848a7c00d893d`; accepted backing`d72619c4e02bb721`,
+combined reset`8d3839aaa57f707d`, recovery`9aa8dbf6fbda8252`, GUI`c497eb0cb48c1b01`
+and prior accepted payloads remain available. The unreferenced standalone BCS
+reset6365 EFI copy was relocated only after all-file SHA/archive/bank checks.
+All1,446 USB files/138sessions preserve, offline filesystem/allocation/writable/
+headroom and recovery checks pass. Volume1%, Ubuntu default, no one-shot armed.
+Checkpoint:`build/air-native-interval-20261110`; independently verified evidence
+and candidate bank live outside build so they survive distclean.
+
+Next is the automated native read-only trial: no human input, complete original
+entry/source binding, joint reset/preparation/engine/display/HDA preservation,
+unchanged deadlines and all14 aliases retired. Safely saved/unmounted outcomes
+return automatically; uncertain ownership or failed persistence halts visibly.
+Collect the matching session before any new stage. Even a successful trial
+accepts source binding/timing only, not DMA/cache drain, GGTT transfer or flips.
+
+While qualification was frozen, main`c3550c82` merged PR457's exFAT contiguous
+append/storage audit. It is fetched and inspected but deliberately absent from
+this exact candidate. Integrate and requalify after this trial boundary; do not
+claim its behavior from this source. Actions remain disabled; PR19 networking
+and PR379 WebCore remain independent.
+
 ### Software-qualified: complete address-range transfer manifests
 
 Source`68489058`, based on main`40767a50`, implements the separate
