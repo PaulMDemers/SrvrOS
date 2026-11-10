@@ -9,7 +9,7 @@ struct wifi_fence5_native_command {
  uint32_t stop_context[8];uint64_t stop_dequeue;
  bool latched,consumed,stop_event;unsigned cc;
 };
-static struct {
+struct wifi_fence5_native_state {
  bool bound,round,failed,retired,busy,noop,fault_event_valid,opposite_valid;unsigned direction;struct xhci_trb fault_event;unsigned count,first,slot;
  bool cycle;uint64_t epoch,last_us,frontier;
  struct xhci_device *device;struct mt76_dma5 *dma;
@@ -20,7 +20,16 @@ static struct {
  uint64_t rings[2],pages[2][4];uint32_t unrelated[4][8];
  struct mt76_fence5 engine;
  struct wifi_fence5_native_command commands[WIFI_FENCE5_COMMANDS];
-} wifi_fence5_native;
+};
+/* Each connection gets one never-reinitialized fence engine. The first owner
+ * remains a retained tombstone after the explicit one-time transition. */
+static struct wifi_fence5_native_state wifi_fence5_first,wifi_fence5_second;
+static struct wifi_fence5_native_state *wifi_fence5_active=&wifi_fence5_first;
+static bool wifi_fence5_connection_switched;
+static unsigned wifi_fence5_previous_frontier;
+static void *wifi_fence5_next_owner;
+static uint64_t wifi_fence5_next_epoch;
+#define wifi_fence5_native (*wifi_fence5_active)
 static void wifi_fence5_bad_event(const struct xhci_trb *e){if(!wifi_fence5_native.fault_event_valid){copy_trb(&wifi_fence5_native.fault_event,e);wifi_fence5_native.fault_event_valid=true;}}
 static bool wifi_fence5_fault(void){
  wifi_fence5_native.failed=true;
@@ -30,6 +39,10 @@ static bool wifi_fence5_fault(void){
  return false;
 }
 static bool wifi_fence5_sync_admitted(void){
+ if(wifi_fence5_connection_switched &&
+    (wifi_fence5_native.failed || wifi_fence5_first.failed ||
+     xhci.command_ring!=wifi_fence5_first.command_ring || xhci.command_ring_phys!=wifi_fence5_first.command_phys ||
+     xhci.command_cycle!=wifi_fence5_first.cycle || xhci.command_enqueue<wifi_fence5_previous_frontier || xhci.command_enqueue>=63))return false;
  if(!wifi_fence5_native.bound || wifi_fence5_native.retired)return true;
  return !wifi_fence5_native.round && !wifi_fence5_native.failed &&
   xhci.command_ring==wifi_fence5_native.command_ring && xhci.command_ring_phys==wifi_fence5_native.command_phys &&
@@ -96,7 +109,17 @@ static bool wifi_fence5_empty(void){
  __atomic_thread_fence(__ATOMIC_ACQUIRE);
  return ((((volatile struct xhci_trb *)xhci.event_ring)[xhci.event_dequeue].control&1u)!=0)!=xhci.event_cycle;
 }
+/* Never attribute an old command/TD pointer to the newer connection. The
+ * command ring does not wrap in this finite two-connection admission. */
+static bool wifi_fence5_previous_event(const struct xhci_trb *e){
+ if(!wifi_fence5_connection_switched)return false;
+ unsigned type=(e->control>>10)&63;uint64_t ptr=e->parameter_low|((uint64_t)e->parameter_high<<32);
+ if(type==33 && ptr>=wifi_fence5_first.command_phys && ptr<wifi_fence5_first.command_phys+16*wifi_fence5_previous_frontier)return true;
+ if(type==32)for(unsigned dir=0;dir<2;dir++)if(ptr>=wifi_fence5_first.rings[dir] && ptr<wifi_fence5_first.rings[dir]+4096)return true;
+ return false;
+}
 static bool wifi_fence5_command_event(const struct xhci_trb *e,uint64_t synchronous_pointer){
+ if(wifi_fence5_previous_event(e)){wifi_fence5_bad_event(e);wifi_fence5_fault();return true;}
  if(!wifi_fence5_native.bound || wifi_fence5_native.retired || ((e->control>>10)&63)!=33)return false;
  uint64_t ptr=e->parameter_low|((uint64_t)e->parameter_high<<32);
  struct wifi_fence5_native_command *r=NULL;
@@ -137,6 +160,7 @@ static bool wifi_fence5_command_event(const struct xhci_trb *e,uint64_t synchron
  * is admissible only from the exact stopped output dequeue at Link63 or the
  * following invalid base with the independently applicable consumer cycle. */
 static bool wifi_fence5_stop_event(const struct xhci_trb *e){
+ if(wifi_fence5_previous_event(e)){wifi_fence5_bad_event(e);wifi_fence5_fault();return true;}
  if(!wifi_fence5_native.bound || wifi_fence5_native.retired || !wifi_fence5_native.round || ((e->control>>10)&63)!=32)return false;
  unsigned dci=(e->control>>16)&31,slot=e->control>>24;
  uint64_t ptr=e->parameter_low|((uint64_t)e->parameter_high<<32);bool ours=slot==wifi_fence5_native.slot && (dci==8 || (!wifi_fence5_native.noop && dci==9));
@@ -199,9 +223,88 @@ static bool wifi_fence5_frontier(void *c,struct mt76_fence5_frontier *out){
  if(out->target_events)return false;
  dispatch_transfer_event(&e);return wifi_fence5_base();
 }
+static bool wifi_fence5_previous_alias(uint64_t p){
+ if(!p)return true;
+ for(unsigned dir=0;dir<2;dir++){
+  if(p==wifi_fence5_first.rings[dir])return true;
+  for(unsigned i=0;i<4;i++)if(p==wifi_fence5_first.pages[dir][i])return true;
+ }
+ return false;
+}
+static uint64_t wifi_fence5_state_stamp(const void *p,size_t bytes){
+ const uint8_t *v=p;uint64_t h=1469598103934665603ull;
+ while(bytes--)h=(h^*v++)*1099511628211ull;
+ return h;
+}
+/* All async command identities remain immutable and still occupy their original
+ * command positions. This does not require the now-restored endpoint to retain
+ * the former connection's live output context. */
+static bool wifi_fence5_closed_records(const struct wifi_fence5_native_state *s){
+ const struct mt76_fence5_io *io=&s->engine.io,*guard=&s->engine.io_guard;
+ if(io->context!=s || guard->context!=s || io->owned!=wifi_fence5_owned || guard->owned!=wifi_fence5_owned ||
+    io->submit!=wifi_fence5_submit || guard->submit!=wifi_fence5_submit ||
+    io->completion!=wifi_fence5_completion || guard->completion!=wifi_fence5_completion ||
+    io->endpoint!=wifi_fence5_endpoint || guard->endpoint!=wifi_fence5_endpoint ||
+    io->frontier!=wifi_fence5_frontier || guard->frontier!=wifi_fence5_frontier)return false;
+ if(s->count>WIFI_FENCE5_COMMANDS || (s->count&1) || s->engine.identity!=(uintptr_t)&s->engine ||
+    s->engine.state!=MT76_FENCE5_IDLE || s->engine.busy || s->engine.dma!=s->dma || s->engine.epoch!=s->epoch ||
+    s->engine.pointer_count!=s->count || s->engine.next_token!=s->count || s->engine.completed!=s->count/2)return false;
+ for(unsigned i=0;i<s->count;i++){
+  const struct wifi_fence5_native_command *r=&s->commands[i];uint64_t p=r->id.pointer;
+  if(!r->latched || !r->consumed || r->cc!=1 || r->id.epoch!=s->epoch || r->id.token!=i+1 || r->id.slot!=s->slot ||
+     (r->id.dci!=8 && r->id.dci!=9) || r->id.type!=((i&1)?16u:15u) ||
+     p<s->command_phys || p>=s->command_phys+16*xhci.command_enqueue || (p-s->command_phys)%16 ||
+     p!=s->engine.command_pointers[i] || (i && p<=s->commands[i-1].id.pointer))return false;
+  unsigned index=(unsigned)((p-s->command_phys)/16);
+  uint32_t control=(r->id.type<<10)|(r->id.slot<<24)|(r->id.dci<<16)|(s->cycle?1u:0u);
+  uint64_t event=r->event.parameter_low|((uint64_t)r->event.parameter_high<<32);
+  if(index>=63 || r->shadow.parameter_low!=(uint32_t)r->id.dequeue || r->shadow.parameter_high!=(uint32_t)(r->id.dequeue>>32) ||
+     r->shadow.status || r->shadow.control!=control || event!=p || r->event.status!=(1u<<24) ||
+     (r->event.control&~1u)!=((33u<<10)|(s->slot<<24)) ||
+     !bytes_equal((const uint8_t *)&xhci.command_ring[index],(const uint8_t *)&r->shadow,sizeof r->shadow))return false;
+  if(!(i&1)){
+   uint64_t stop=r->stop.parameter_low|((uint64_t)r->stop.parameter_high<<32),dequeue=r->stop_context[2]|((uint64_t)r->stop_context[3]<<32);
+   uint64_t ring=s->rings[r->id.dci==9];
+   if(r->id.dequeue || !r->stop_event || r->stop.status!=(27u<<24) ||
+      (r->stop.control&~1u)!=((32u<<10)|(r->id.dci<<16)|(s->slot<<24)) ||
+      (r->stop_context[0]&7)!=3 || (dequeue&14) || r->stop_dequeue!=dequeue || (dequeue&~15ull)!=stop ||
+      (stop!=ring && stop!=ring+16*63))return false;
+  }else if(r->id.dci!=s->commands[i-1].id.dci || (r->id.dequeue&14) ||
+           (r->id.dequeue&~15ull)!=s->rings[r->id.dci==9])return false;
+ }
+ return true;
+}
+/* Root's native connection-close callback must independently prove exact Stop,
+ * restored contexts/parent, erased keys and drained software borrowers. This
+ * operation allocates nothing, never clears an old engine, and grants no DMA
+ * page reuse or whole-backend retirement. Caller retains both context objects. */
+static __attribute__((unused)) bool wifi_fence5_connection_next(void *old_owner,uint64_t old_epoch,struct mt76_dma5 *old_dma,
+ void *next_owner,uint64_t next_epoch,bool (*closed)(void *,uint64_t,const struct mt76_dma5 *)){
+ uint64_t f=event_irq_save();bool ok=false;struct wifi_fence5_native_state *s=&wifi_fence5_first;
+ if(wifi_fence5_active!=s || wifi_fence5_connection_switched || !s->bound || s->retired || s->failed || s->round || s->busy || s->noop ||
+    !old_owner || s->owner!=old_owner || s->epoch!=old_epoch || !old_epoch || !old_dma || s->dma!=old_dma ||
+    old_dma->identity!=(uintptr_t)old_dma || old_dma->epoch!=old_epoch || old_dma->state!=MT76_DMA5_RETIRED || old_dma->positions!=63 ||
+    !next_owner || next_owner==old_owner || next_epoch<=old_epoch || !closed ||
+    !xhci.operational || !xhci.controller_owned || xhci.stopping || xhci.stopped || xhci.reclaiming || xhci.reclaimed ||
+    xhci.command_pending || xhci.command_failed || xhci.sync_users || xhci.poll_users ||
+    xhci.command_ring!=s->command_ring || xhci.command_ring_phys!=s->command_phys || xhci.command_cycle!=s->cycle ||
+    s->first>=63 || xhci.command_enqueue>=63 || xhci.command_enqueue<s->first || xhci.command_enqueue+2+WIFI_FENCE5_CLEANUP_COMMANDS>63 ||
+    !wifi_fence5_closed_records(s) || !wifi_fence5_empty())goto done;
+ for(size_t i=0;i<sizeof wifi_fence5_second;i++)if(((const uint8_t *)&wifi_fence5_second)[i])goto done;
+ uint64_t stamp=wifi_fence5_state_stamp(s,sizeof *s),dma_stamp=wifi_fence5_state_stamp(old_dma,sizeof *old_dma),frontier=xhci.command_enqueue;
+ if(!closed(old_owner,old_epoch,old_dma) || stamp!=wifi_fence5_state_stamp(s,sizeof *s) ||
+    dma_stamp!=wifi_fence5_state_stamp(old_dma,sizeof *old_dma) || wifi_fence5_active!=s || wifi_fence5_connection_switched ||
+    xhci.command_ring!=s->command_ring || xhci.command_ring_phys!=s->command_phys || xhci.command_cycle!=s->cycle ||
+    xhci.command_enqueue!=frontier || xhci.command_pending || xhci.command_failed || xhci.sync_users || xhci.poll_users || !wifi_fence5_empty())goto done;
+ wifi_fence5_previous_frontier=(unsigned)frontier;wifi_fence5_next_owner=next_owner;wifi_fence5_next_epoch=next_epoch;
+ wifi_fence5_connection_switched=true;wifi_fence5_active=&wifi_fence5_second;ok=true;
+ done:event_irq_restore(f);return ok;
+}
 static __attribute__((unused)) bool wifi_fence5_bind(struct xhci_device *d,struct mt76_dma5 *dma,uint64_t epoch,void *owner,bool (*owned)(void *,uint64_t,unsigned)){
  uint64_t f=event_irq_save();bool ok=false;
- if(wifi_fence5_native.bound || !d || !dma || !owner || !owned || !epoch || dma->identity!=(uintptr_t)dma || dma->epoch!=epoch || dma->state!=MT76_DMA5_RUNNING || dma->positions!=63 ||
+ if(wifi_fence5_native.bound || wifi_fence5_native.failed ||
+  (wifi_fence5_connection_switched && (owner!=wifi_fence5_next_owner || epoch!=wifi_fence5_next_epoch || d!=wifi_fence5_first.device || dma==wifi_fence5_first.dma || !wifi_fence5_sync_admitted())) ||
+  !d || !dma || !owner || !owned || !epoch || dma->identity!=(uintptr_t)dma || dma->epoch!=epoch || dma->state!=MT76_DMA5_RUNNING || dma->positions!=63 ||
   xhci.command_pending || xhci.command_failed || xhci.sync_users || !xhci.command_ring || !xhci.command_ring_phys || xhci.command_enqueue>=63 || (xhci.command_ring_phys&4095) || xhci.command_enqueue+2+WIFI_FENCE5_CLEANUP_COMMANDS>63 || !wifi_fence5_empty())goto done;
  bool listed=false;for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)if(d==&xhci.devices[i])listed=true;if(!listed || !d->output_context || !d->output_context_phys || (d->output_context_phys&4095))goto done;
  for(unsigned dir=0;dir<2;dir++){
@@ -209,6 +312,7 @@ static __attribute__((unused)) bool wifi_fence5_bind(struct xhci_device *d,struc
   if(dma->noop_only && dir){if(ring)goto done;continue;}
   if(!dma->noop_only && dma->ring[0]==dma->ring[1])goto done;
   if((context_read32(d->output_context,dci,0)&7)!=1 && (context_read32(d->output_context,dci,0)&7)!=3)goto done;
+  if(wifi_fence5_connection_switched && wifi_fence5_previous_alias(ring))goto done;
   if(!ring || (ring&4095) || ring==xhci.command_ring_phys || ring==xhci.event_ring_phys || ring==d->input_context_phys || ring==d->output_context_phys ||
    ((context_read32(d->output_context,dci,1)>>3)&7)!=(dir?6u:2u) || (context_read32(d->output_context,dci,1)>>16)!=512)goto done;
   uint64_t deq=context_read32(d->output_context,dci,2)|((uint64_t)context_read32(d->output_context,dci,3)<<32);
@@ -219,6 +323,7 @@ static __attribute__((unused)) bool wifi_fence5_bind(struct xhci_device *d,struc
   uint64_t page=dma->pages[dir][i].lease.page;
   if(dma->pages[dir][i].state!=MT76_DMA5_FREE)goto done;
   if(dma->noop_only){if(page)goto done;continue;}
+  if(wifi_fence5_connection_switched && wifi_fence5_previous_alias(page))goto done;
   if(!page || (page&4095) || page==dma->ring[0] || page==dma->ring[1] || page==xhci.command_ring_phys || page==xhci.event_ring_phys || page==d->input_context_phys || page==d->output_context_phys)goto done;
   for(unsigned prior=0;prior<dir*4+i;prior++)if(page==dma->pages[prior/4][prior%4].lease.page)goto done;
  }
@@ -274,15 +379,26 @@ static __attribute__((unused)) bool wifi_fence5_step(void){
  event_irq_restore(f);return ok;
 }
 static void wifi_fence5_stopping(void){
- if(wifi_fence5_native.bound && !wifi_fence5_native.retired && (wifi_fence5_native.round || xhci.command_pending || wifi_fence5_native.dma->state!=MT76_DMA5_RETIRED))wifi_fence5_fault();
+ const struct wifi_fence5_native_state *s=wifi_fence5_connection_switched?&wifi_fence5_first:NULL;
+ if((wifi_fence5_native.bound && !wifi_fence5_native.retired && (wifi_fence5_native.round || xhci.command_pending || wifi_fence5_native.dma->state!=MT76_DMA5_RETIRED)) ||
+    (s && s->bound && !s->retired && (s->round || s->busy || xhci.command_pending || s->dma->state!=MT76_DMA5_RETIRED)))wifi_fence5_fault();
 }
 static bool wifi_fence5_retire(void);
-static bool wifi_fence5_reclaim_ready(void){return !wifi_fence5_native.bound || wifi_fence5_native.retired || wifi_fence5_retire();}
+static bool wifi_fence5_reclaim_ready(void){
+ bool current=!wifi_fence5_native.bound || wifi_fence5_native.retired;
+ bool previous=!wifi_fence5_connection_switched || !wifi_fence5_first.bound || wifi_fence5_first.retired;
+ return (current && previous) || wifi_fence5_retire();
+}
+static bool wifi_fence5_retirement_ready(const struct wifi_fence5_native_state *s){
+ return !s->bound || s->retired || (!s->failed && !s->busy && !s->round && s->dma->state==MT76_DMA5_RETIRED);
+}
 static __attribute__((unused)) bool wifi_fence5_retire(void){
- uint64_t f=event_irq_save();bool ok=wifi_fence5_native.bound && !wifi_fence5_native.failed && !wifi_fence5_native.busy && !wifi_fence5_native.round &&
-  wifi_fence5_native.dma->state==MT76_DMA5_RETIRED && xhci.stopped && !xhci.sync_users && !xhci.poll_users &&
+ uint64_t f=event_irq_save();bool any=wifi_fence5_native.bound || (wifi_fence5_connection_switched && wifi_fence5_first.bound);
+ bool ok=any && wifi_fence5_retirement_ready(wifi_fence5_active) &&
+  (!wifi_fence5_connection_switched || wifi_fence5_retirement_ready(&wifi_fence5_first)) &&
+  xhci.stopped && !xhci.sync_users && !xhci.poll_users &&
   !(op_read32(XHCI_OP_USBCMD)&(XHCI_USBCMD_RUN|XHCI_USBCMD_INTE|XHCI_USBCMD_HCRST)) &&
   (op_read32(XHCI_OP_USBSTS)&(XHCI_USBSTS_HCH|XHCI_USBSTS_CNR))==XHCI_USBSTS_HCH && wifi_fence5_empty();
- if(ok)wifi_fence5_native.retired=true;
+ if(ok){if(wifi_fence5_native.bound)wifi_fence5_native.retired=true;if(wifi_fence5_connection_switched && wifi_fence5_first.bound)wifi_fence5_first.retired=true;}
  event_irq_restore(f);return ok;
 }

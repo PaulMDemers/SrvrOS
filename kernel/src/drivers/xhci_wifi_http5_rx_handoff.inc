@@ -26,7 +26,7 @@ static bool wifi_stack5_terminal_raw_rx(void) {
   (device?!q->received:q->received<=q->length);
 }
 static bool wifi_stack5_terminal_provider_closing(void *c,uint64_t epoch) {
- const struct mt76_net5 *p=&wifi_stack5.net;const struct mt76_net5_io *io=&p->io,*guard=&p->io_guard;
+ const struct mt76_net5 *p=&wifi_stack5_net;const struct mt76_net5_io *io=&p->io,*guard=&p->io_guard;
  return wifi_stack5_owned(c,epoch) && p->state==MT76_NET5_CLOSING && p->attached && p->epoch==epoch && !p->retire_requested &&
   io->context==c && guard->context==c && io->owned==wifi_stack5_owned && guard->owned==wifi_stack5_owned &&
   io->submit==wifi_stack5_submit && guard->submit==wifi_stack5_submit && io->service==wifi_stack5_service && guard->service==wifi_stack5_service &&
@@ -34,7 +34,7 @@ static bool wifi_stack5_terminal_provider_closing(void *c,uint64_t epoch) {
   p->ready==wifi_stack5_ready && p->ready_guard==wifi_stack5_ready;
 }
 static bool wifi_stack5_terminal_rx_handoff(void *c,uint64_t epoch) {
- uint64_t flags=event_irq_save();struct mt76_net5 *p=&wifi_stack5.net;
+ uint64_t flags=event_irq_save();struct mt76_net5 *p=&wifi_stack5_net;
  bool good=!wifi_stack5.terminal_handoff && wifi_stack5_probe_current(c,epoch) && wifi_stack5_clock() &&
   !p->callbacks && !p->io_busy && !p->polling && !p->delivering && !p->count && !p->pending && !p->pending_token && !p->loan_size && !p->faults && !p->dropped &&
   p->enqueued==p->submitted && p->submitted==p->completed && !wifi_stack5.tx_token && !wifi_stack5.boundary && !wifi_fence5_native.round && !xhci.command_pending &&
@@ -57,7 +57,7 @@ static bool wifi_stack5_terminal_rx_handoff(void *c,uint64_t epoch) {
  * while the software publication seal is still proven. Lost software ownership
  * must hold before reaching WPA's unconditional local-key erasure. */
 static bool wifi_stack5_terminal_software_closed(void *c,uint64_t epoch) {
- const struct mt76_net5 *p=&wifi_stack5.net;const struct mt76_net5_io *io=&p->io,*guard=&p->io_guard;
+ const struct mt76_net5 *p=&wifi_stack5_net;const struct mt76_net5_io *io=&p->io,*guard=&p->io_guard;
  if(!wifi_stack5.terminal_handoff || !wifi_stack5.terminal_provider_closing || !wifi_stack5.terminal_epoch ||
     c!=&wifi_stream5 || epoch!=wifi_stack5.terminal_epoch || wifi_stream5.epoch!=epoch ||
     p->identity!=(uintptr_t)p || p->state!=MT76_NET5_CLOSING || !p->attached || p->epoch!=epoch || p->retire_requested ||
@@ -73,7 +73,7 @@ static bool wifi_stack5_terminal_software_closed(void *c,uint64_t epoch) {
 /* Only the consuming HTTP path may accept CLOSING with raw RX retained. The
  * original UP/empty-cache path remains byte-for-byte outside this branch. */
 static enum mt76_join5_send wifi_stack5_terminal_window(bool good,void *c,uint64_t epoch) {
- uint64_t flags=event_irq_save();struct mt76_net5 *p=&wifi_stack5.net;
+ uint64_t flags=event_irq_save();struct mt76_net5 *p=&wifi_stack5_net;
  if(!wifi_stack5_terminal_software_closed(c,epoch)){event_irq_restore(flags);wifi_http5_hold(5);}
  bool safe=wifi_stack5.terminal_handoff && c==&wifi_stream5 && epoch==wifi_stream5.epoch &&
   wifi_stack5_terminal_provider_closing(c,epoch) && !p->callbacks && !p->io_busy && !p->polling && !p->delivering &&

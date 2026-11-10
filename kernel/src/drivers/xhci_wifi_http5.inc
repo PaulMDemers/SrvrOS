@@ -48,15 +48,15 @@ static void wifi_http5_freeze_hold(unsigned site) {
   wifi_http5_held_state.stream_failed=wifi_stream5.failed;
   wifi_http5_held_state.stream_phase=wifi_stream5.phase;
   wifi_http5_held_state.fault_phase=wifi_stream5.fault_phase;
-  wifi_http5_held_state.provider_state=wifi_stack5.net.state;
-  wifi_http5_held_state.provider_pending=wifi_stack5.net.pending;
-  wifi_http5_held_state.queued=wifi_stack5.net.count;
-  wifi_http5_held_state.provider_faults=wifi_stack5.net.faults;
+  wifi_http5_held_state.provider_state=wifi_stack5_net.state;
+  wifi_http5_held_state.provider_pending=wifi_stack5_net.pending;
+  wifi_http5_held_state.queued=wifi_stack5_net.count;
+  wifi_http5_held_state.provider_faults=wifi_stack5_net.faults;
   wifi_http5_held_state.services=wifi_stack5.services;
-  wifi_http5_held_state.enqueued=wifi_stack5.net.enqueued;
-  wifi_http5_held_state.submitted=wifi_stack5.net.submitted;
-  wifi_http5_held_state.completed=wifi_stack5.net.completed;
-  wifi_http5_held_state.received=wifi_stack5.net.received;
+  wifi_http5_held_state.enqueued=wifi_stack5_net.enqueued;
+  wifi_http5_held_state.submitted=wifi_stack5_net.submitted;
+  wifi_http5_held_state.completed=wifi_stack5_net.completed;
+  wifi_http5_held_state.received=wifi_stack5_net.received;
   wifi_http5_held_state.tx_posts=wifi_stream5.posts[0];
   wifi_http5_held_state.rx_posts=wifi_stream5.posts[1];
   wifi_http5_held_state.tx_pending=wifi_stream5.pending[0];
@@ -126,7 +126,7 @@ static bool wifi_http5_drained(void *context,uint64_t epoch) {
  return wifi_stack5_probe_observe(context,epoch,&observed) && observed.drained;
 }
 static bool wifi_http5_exercise(void *context,struct mt76_net5 *provider) {
- if(context!=&wifi_http5_probe || provider!=&wifi_stack5.net || !wifi_http5_requested ||
+ if(context!=&wifi_http5_probe || provider!=&wifi_stack5_net || !wifi_http5_requested ||
     !wifi_http5_prepared || wifi_http5_callback_attempted ||
     wifi_stack5.start>UINT64_MAX-WIFI_STACK5_TOTAL_US)wifi_http5_hold(1);
  wifi_http5_callback_attempted=true;

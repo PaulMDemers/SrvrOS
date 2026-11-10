@@ -11,7 +11,8 @@
 #include <stdarg.h>
 #include <inttypes.h>
 #define WIFI_STACK5_TOTAL_US 15000000u
-static struct {struct mt76_net5 net;uint64_t start,services,tx_token,terminal_epoch,terminal_ticket,terminal_token,terminal_posts,terminal_completions;bool selected,running,failed,boundary,terminal_handoff,terminal_pending,terminal_ready,terminal_provider_closing;} wifi_stack5;
+static struct {uint64_t start,services,tx_token,terminal_epoch,terminal_ticket,terminal_token,terminal_posts,terminal_completions;bool selected,running,failed,boundary,terminal_handoff,terminal_pending,terminal_ready,terminal_provider_closing;} wifi_stack5;
+static struct mt76_net5 wifi_stack5_net;
 static struct {uint64_t epoch,posts[2];unsigned phase,fault_phase;struct {uint64_t ticket;} loan;
  bool attempted,stack_mode,failed,pending[2],ready_rx,cached_present;} wifi_stream5;
 static struct {unsigned round;} wifi_fence5_native;
@@ -99,20 +100,20 @@ bool xhci_wifi_capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *
  assert(context==&wifi_http5_probe && exercise==wifi_http5_exercise);
  if(is("early-parent-fail"))return false;
  wifi_stack5.selected=true;key_live=true;
- wifi_stack5.running=true;wifi_stack5.services=43;wifi_stack5.net.count=2;
- wifi_stack5.net.faults=7;wifi_stack5.net.enqueued=5;wifi_stack5.net.submitted=4;wifi_stack5.net.completed=3;
+ wifi_stack5.running=true;wifi_stack5.services=43;wifi_stack5_net.count=2;
+ wifi_stack5_net.faults=7;wifi_stack5_net.enqueued=5;wifi_stack5_net.submitted=4;wifi_stack5_net.completed=3;
  wifi_stream5.posts[0]=11;wifi_stream5.posts[1]=19;wifi_stream5.phase=3;wifi_stream5.fault_phase=2;
  wifi_stream5.pending[0]=true;wifi_stream5.pending[1]=true;wifi_stream5.ready_rx=true;
  wifi_stream5.cached_present=true;wifi_stream5.loan.ticket=0x123456789abcdef;wifi_stack5.tx_token=0x23456789abcdef;
  wifi_stack5.boundary=true;wifi_fence5_native.round=2;xhci.command_pending=true;
- bool good=exercise(is("admission")?NULL:context,&wifi_stack5.net);
+ bool good=exercise(is("admission")?NULL:context,&wifi_stack5_net);
  /* Model the unavoidable unconditional erasure in unmodified mt76_wpa5.run.
   * An uncertain HTTP callback must never reach this line. */
  erasures++;key_live=false;return good && !is("late-parent-fail");
 }
 static void reset(const char *s){
  mode=s;memset(&wifi_http5_probe,0,sizeof wifi_http5_probe);memset(&wifi_http5_io,0,sizeof wifi_http5_io);
- memset(&wifi_stack5,0,sizeof wifi_stack5);memset(&wifi_stream5,0,sizeof wifi_stream5);
+ memset(&wifi_stack5,0,sizeof wifi_stack5);memset(&wifi_stack5_net,0,sizeof wifi_stack5_net);memset(&wifi_stream5,0,sizeof wifi_stream5);
  memset(&wifi_http5_held_state,0,sizeof wifi_http5_held_state);
  memset(&wifi_fence5_native,0,sizeof wifi_fence5_native);memset(&xhci,0,sizeof xhci);
  held_rows=syncs=writes=freezes=0;held_length=0;held_log[0]=0;irq_flags=512;mutate_during_output=false;

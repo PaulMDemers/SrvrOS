@@ -21,9 +21,10 @@ static uint64_t event_irq_save(void){uint64_t f=irq;irq=0;return f;}
 static void event_irq_restore(uint64_t f){assert(!irq);irq=f;}
 static void zero_bytes(void *p,size_t n){memset(p,0,n);}
 static struct {
- struct mt76_net5 net;uint64_t tx_token,last,terminal_epoch,terminal_ticket,terminal_token,terminal_posts,terminal_completions;
+ uint64_t tx_token,last,terminal_epoch,terminal_ticket,terminal_token,terminal_posts,terminal_completions;
  bool selected,running,exercise_complete,boundary,failed,terminal_handoff,terminal_pending,terminal_ready,terminal_provider_closing;
 } wifi_stack5;
+static struct mt76_net5 wifi_stack5_net;
 static struct {
  struct mt76_dma5 dma;struct mt76_dma5_lease lease[2],loan;
  uint64_t epoch,pages[2][4],posts[2],completions[2];uint8_t cached[4096];unsigned cached_size;
@@ -40,18 +41,18 @@ static enum mt76_net5_submit wifi_stack5_submit(void *c,uint64_t e,uint64_t toke
 static bool wifi_stack5_service(void *c,uint64_t e){(void)c;(void)e;services++;return true;}
 static bool wifi_stack5_receive(void *c,uint64_t e,uint8_t *p,size_t cap,size_t *n,bool *present){(void)c;(void)e;(void)p;(void)cap;receives++;*n=0;*present=false;return true;}
 static bool wifi_stack5_retirement(void *c,uint64_t e){(void)c;(void)e;return false;}
-static bool wifi_stack5_probe_current(void *c,uint64_t e){return wifi_stack5_owned(c,e) && wifi_stack5.net.state==MT76_NET5_UP && wifi_stack5.net.attached && wifi_stack5.net.epoch==e;}
+static bool wifi_stack5_probe_current(void *c,uint64_t e){return wifi_stack5_owned(c,e) && wifi_stack5_net.state==MT76_NET5_UP && wifi_stack5_net.attached && wifi_stack5_net.epoch==e;}
 static jmp_buf held;static unsigned held_site;
 static __attribute__((noreturn)) void wifi_http5_hold(unsigned site){assert(key_live && irq==512);held_site=site;longjmp(held,1);}
 #include "../kernel/src/drivers/xhci_wifi_http5_rx_handoff.inc"
 static void setup(unsigned raw) {
  memset(providers,0,sizeof providers);memset(identities,0,sizeof identities);memset(names,0,sizeof names);memset(references,0,sizeof references);memset(retiring,0,sizeof retiring);provider_count=0;selected=NULL;sealed=false;
- memset(&wifi_stack5,0,sizeof wifi_stack5);memset(&wifi_stream5,0,sizeof wifi_stream5);memset(&wifi_fence5_native,0,sizeof wifi_fence5_native);memset(&xhci,0,sizeof xhci);
+ memset(&wifi_stack5,0,sizeof wifi_stack5);memset(&wifi_stack5_net,0,sizeof wifi_stack5_net);memset(&wifi_stream5,0,sizeof wifi_stream5);memset(&wifi_fence5_native,0,sizeof wifi_fence5_native);memset(&xhci,0,sizeof xhci);
  now=1000;irq=512;key_live=metadata_ok=true;submits=services=receives=notifications=0;
  wifi_stack5.selected=wifi_stack5.running=wifi_stream5.data_active=true;wifi_stream5.epoch=31;
- const uint8_t mac[6]={2,1,2,3,4,5};assert(mt76_net5_init(&wifi_stack5.net,mac));assert(net_device_select());
+ const uint8_t mac[6]={2,1,2,3,4,5};assert(mt76_net5_init(&wifi_stack5_net,mac));assert(net_device_select());
  struct mt76_net5_io io={&wifi_stream5,wifi_stack5_owned,wifi_stack5_submit,wifi_stack5_service,wifi_stack5_receive,wifi_stack5_retirement};
- assert(mt76_net5_attach(&wifi_stack5.net,31,&io));assert(mt76_net5_set_ready(&wifi_stack5.net,31,wifi_stack5_ready));
+ assert(mt76_net5_attach(&wifi_stack5_net,31,&io));assert(mt76_net5_set_ready(&wifi_stack5_net,31,wifi_stack5_ready));
  uint64_t rings[2]={0x10000,0x20000},pages[2][4];for(unsigned d=0;d<2;d++)for(unsigned i=0;i<4;i++)pages[d][i]=0x30000+(d*4+i)*4096;
  memcpy(wifi_stream5.pages,pages,sizeof pages);assert(mt76_dma5_init_ring(&wifi_stream5.dma,31,rings,pages,63,now));
  if(raw) {
@@ -60,26 +61,26 @@ static void setup(unsigned raw) {
  }
 }
 static void callbacks_closed(void) {
- uint8_t frame[60]={0};memset(frame,255,6);memcpy(frame+6,wifi_stack5.net.ops.mac,6);frame[12]=8;
- unsigned a=submits,b=services,c=receives;uint64_t tx=wifi_stack5.net.enqueued;
- assert(!net_device_send(frame,sizeof frame));assert(!net_device_poll(32,false));assert(!mt76_net5_service(&wifi_stack5.net));
- assert(submits==a && services==b && receives==c && wifi_stack5.net.enqueued==tx && !wifi_stack5.net.dropped);
+ uint8_t frame[60]={0};memset(frame,255,6);memcpy(frame+6,wifi_stack5_net.ops.mac,6);frame[12]=8;
+ unsigned a=submits,b=services,c=receives;uint64_t tx=wifi_stack5_net.enqueued;
+ assert(!net_device_send(frame,sizeof frame));assert(!net_device_poll(32,false));assert(!mt76_net5_service(&wifi_stack5_net));
+ assert(submits==a && services==b && receives==c && wifi_stack5_net.enqueued==tx && !wifi_stack5_net.dropped);
 }
 static void positive(unsigned raw,bool late) {
  setup(raw);struct mt76_dma5 before=wifi_stream5.dma;
  assert(wifi_stack5_terminal_rx_handoff(&wifi_stream5,31));assert(irq==512 && key_live);
  assert(wifi_stack5.terminal_handoff && wifi_stack5.terminal_pending==(raw==1) && wifi_stack5.terminal_ready==(raw==2));
  assert(wifi_stack5.terminal_posts==(raw?1u:0u) && wifi_stack5.terminal_completions==(raw==2?1u:0u) && wifi_stack5.terminal_ticket==(raw?wifi_stream5.lease[1].ticket:0));
- assert(wifi_stack5.net.state==MT76_NET5_CLOSING && wifi_stack5.net.attached && !memcmp(&before,&wifi_stream5.dma,sizeof before));
+ assert(wifi_stack5_net.state==MT76_NET5_CLOSING && wifi_stack5_net.attached && !memcmp(&before,&wifi_stream5.dma,sizeof before));
  callbacks_closed();assert(!wifi_stack5_terminal_rx_handoff(&wifi_stream5,31));
  if(late){assert(raw==1);assert(mt76_dma5_complete(&wifi_stream5.dma,&wifi_stream5.lease[1],13,3728,now));wifi_stream5.pending[1]=false;wifi_stream5.ready_rx=true;wifi_stream5.completions[1]++;assert(wifi_stack5_terminal_raw_rx());}
  assert(wifi_stack5_terminal_window(true,&wifi_stream5,31)==MT76_JOIN5_SENT);assert(irq==512 && key_live && wifi_stream5.dma.state==MT76_DMA5_RUNNING);
  assert(!wifi_stack5.running && wifi_stream5.closed && !wifi_stream5.data_active && !wifi_stream5.loan.ticket);
  /* Hardware/key/ledger retirement is still unproved and remains mandatory. */
- assert(!mt76_net5_finish_detach(&wifi_stack5.net,31));
+ assert(!mt76_net5_finish_detach(&wifi_stack5_net,31));
 }
 static void negative(unsigned which) {
- setup(1);struct mt76_net5 *p=&wifi_stack5.net;
+ setup(1);struct mt76_net5 *p=&wifi_stack5_net;
  switch(which){
  case 0:p->callbacks=1;break;case 1:p->io_busy=true;break;case 2:p->polling=true;break;case 3:p->delivering=true;break;
  case 4:p->count=1;p->length[0]=60;memset(p->queue[0],0x51,60);break;
@@ -102,10 +103,10 @@ static void lost_after_handoff(unsigned which) {
  setup(1);assert(wifi_stack5_terminal_rx_handoff(&wifi_stream5,31));
  switch(which){
  case 0:wifi_stream5.cached_present=true;break;case 1:wifi_stream5.cached_size=14;break;case 2:wifi_stream5.loan.ticket=1;break;
- case 3:wifi_stack5.net.callbacks=1;break;case 4:wifi_stack5.net.polling=true;break;case 5:wifi_stack5.net.io_busy=true;break;
- case 6:wifi_stack5.net.state=MT76_NET5_UP;break;case 7:wifi_stack5.net.epoch++;break;case 8:wifi_stream5.epoch++;break;
- case 9:wifi_stack5.net.io.context=NULL;break;case 10:wifi_stack5.net.io_guard.receive=NULL;break;case 11:wifi_stack5.net.ready=NULL;break;
- case 12:wifi_stack5.net.count=1;break;case 13:wifi_stream5.dma.pages[1][0].state=MT76_DMA5_BORROWED;break;
+ case 3:wifi_stack5_net.callbacks=1;break;case 4:wifi_stack5_net.polling=true;break;case 5:wifi_stack5_net.io_busy=true;break;
+ case 6:wifi_stack5_net.state=MT76_NET5_UP;break;case 7:wifi_stack5_net.epoch++;break;case 8:wifi_stream5.epoch++;break;
+ case 9:wifi_stack5_net.io.context=NULL;break;case 10:wifi_stack5_net.io_guard.receive=NULL;break;case 11:wifi_stack5_net.ready=NULL;break;
+ case 12:wifi_stack5_net.count=1;break;case 13:wifi_stream5.dma.pages[1][0].state=MT76_DMA5_BORROWED;break;
  default:assert(0);
  }
  held_site=0;

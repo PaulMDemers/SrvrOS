@@ -238,7 +238,7 @@ static const struct {const unsigned char *tx,*rx;unsigned tx_size,rx_size;} stre
 #include "fixtures/mt76-stream5-dhcp-synthetic.h"
 static struct pci_device stream_pci={.vendor_id=0x8086,.device_id=0x8c31};
 static _Alignas(4096) struct xhci_trb stream_commands[64],stream_events[256];
-static struct {unsigned response,index,tx_seen,rx_seen,fault,fault_at,noise,noise_left,ambient;bool dhcp_mode,drop_first,no_offer,parent,link,m1,m3,fail_nonce;uint32_t mac,filter,txop;uint8_t credential[73];} sim;
+static struct {unsigned response,index,tx_seen,rx_seen,fault,fault_at,noise,noise_left,ambient;bool dhcp_mode,drop_first,no_offer,parent,parent_after_fail,link,m1,m3,fail_nonce;uint32_t mac,filter,txop;uint8_t credential[73];} sim;
 static struct initramfs_file stream_credential={.path="/cfg/wifi-wpa5.pmk",.size=73,.mode=0600};
 static unsigned stream_oracle_count(void){return sim.dhcp_mode && sim.drop_first?71:70;}
 static const unsigned char *stream_oracle_tx(unsigned i){assert(i<stream_oracle_count());return sim.dhcp_mode && sim.drop_first?stream5_dhcp_fixture[i].tx:stream5_fixture[i].tx;}
@@ -246,9 +246,15 @@ static const unsigned char *stream_oracle_rx(unsigned i){assert(i<stream_oracle_
 static unsigned stream_oracle_tx_size(unsigned i){assert(i<stream_oracle_count());return sim.dhcp_mode && sim.drop_first?stream5_dhcp_fixture[i].tx_size:stream5_fixture[i].tx_size;}
 static unsigned stream_oracle_rx_size(unsigned i){assert(i<stream_oracle_count());return sim.dhcp_mode && sim.drop_first?stream5_dhcp_fixture[i].rx_size:stream5_fixture[i].rx_size;}
 static bool stream_test_parent(void){return sim.parent;}
-static bool stream_test_capture_parent(void){assert(wifi_join5_after==wifi_stream5_inspect);return sim.parent && wifi_join5_after();}
+static bool stream_test_capture_parent(void){assert(wifi_join5_after);bool good=sim.parent && wifi_join5_after();return good && !sim.parent_after_fail;}
 static bool stream_test_delay(unsigned us){test_time+=(sim.fault==7 || (sim.fault==23 && sim.index==sim.fault_at && wifi_stream5.data_active))?2000000:us;return true;}
-static bool stream_test_nonce(uint8_t out[32]){memcpy(out,hs_sn,32);return !sim.fail_nonce;}
+static bool stream_test_nonce(uint8_t out[32]){
+#ifdef SRVROS_XHCI_STACK5_TEST
+ return !sim.fail_nonce && stack_test_nonce(out);
+#else
+ memcpy(out,hs_sn,32);return !sim.fail_nonce;
+#endif
+}
 static const struct initramfs_file *stream_test_credential(void){stream_credential.data=sim.credential;return &stream_credential;}
 static bool stream_test_toggle(struct xhci_device *d,const struct usb_setup_packet *p,int *actual){assert(d==wifi_stream5.d && p->request_type==2 && p->request==1 && p->index==4 && !p->length);*actual=sim.fault==20?1:0;return true;}
 static bool stream_test_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v){
@@ -263,7 +269,12 @@ static unsigned stream_wrap(const uint8_t *mpdu,unsigned bytes){
 }
 static unsigned stream_reply(void){uint8_t h[512]={0};unsigned n=0;
  if(sim.response==1 || sim.response==2){bool auth=sim.response==1;n=auth?30:40;stream_le16(h,auth?0xb0:0x10);memcpy(h+4,hs_spa,6);memcpy(h+10,hs_aa,6);memcpy(h+16,hs_aa,6);if(auth)stream_le16(h+26,2);else{stream_le16(h+24,0x411);stream_le16(h+28,0xc007);h[30]=1;h[31]=8;memcpy(h+32,(uint8_t[]){0x8c,18,0x98,36,0xb0,72,96,108},8);}}
- else if(sim.response==3 || sim.response==4){bool m1=sim.response==3;const uint8_t *m=m1?hs_m1:hs_m3;unsigned size=m1?sizeof hs_m1:sizeof hs_m3;n=24+8+size;stream_le16(h,0x0a08);memcpy(h+4,hs_spa,6);memcpy(h+10,hs_aa,6);memcpy(h+16,hs_aa,6);memcpy(h+24,(uint8_t[]){0xaa,0xaa,3,0,0,0,0x88,0x8e},8);memcpy(h+32,m,size);if(sim.fault==22 && !m1)h[32+82]^=1;if(m1)sim.m1=true;else sim.m3=true;}
+ else if(sim.response==3 || sim.response==4){bool m1=sim.response==3;const uint8_t *m=m1?hs_m1:hs_m3;unsigned size=m1?sizeof hs_m1:sizeof hs_m3;n=24+8+size;stream_le16(h,0x0a08);memcpy(h+4,hs_spa,6);memcpy(h+10,hs_aa,6);memcpy(h+16,hs_aa,6);memcpy(h+24,(uint8_t[]){0xaa,0xaa,3,0,0,0,0x88,0x8e},8);memcpy(h+32,m,size);
+#ifdef SRVROS_XHCI_STACK5_TEST
+ if(!m1){size_t actual=0;assert(stack_test_message3(h+32,sizeof h-32,&actual) && actual==size);}
+#endif
+if(sim.fault==22 && !m1){h[32+82]^=1;}
+  if(m1)sim.m1=true;else sim.m3=true;}
  else{assert(sim.response==5 && sim.index<stream_oracle_count());const unsigned char *p=stream_oracle_rx(sim.index);n=stream_oracle_rx_size(sim.index);unsigned bytes=stream_wrap(p,n);if(sim.fault==23 && sim.index==sim.fault_at)wifi_stream5.buffer[1][wifi_stream5.lease[1].index][36+n-1]^=1;return bytes;}
  return stream_wrap(h,n);
 }
