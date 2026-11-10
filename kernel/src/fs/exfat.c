@@ -406,7 +406,9 @@ static bool volume_read_device(const struct exfat_volume *volume,uint64_t offset
     if(!volume || !buffer || volume->image || offset>volume->image_size ||
        length>volume->image_size-offset)return false;
     uint64_t start=cost_clock();
+    unsigned token=sync_timing_content_role_begin(volume->cost.active?sync_io_role(volume):USB_STORAGE_CONTENT_ROLES-1);
     bool ok=block_read(volume->device,offset,buffer,length);
+    sync_timing_content_role_end(token);
     if(volume->cost.active) {
         struct exfat_cost_phase *p=&((struct exfat_volume *)volume)->cost.phase[volume->io_phase];
         uint64_t us=cost_elapsed(start);p->reads++;p->read_bytes+=length;p->read_us+=us;
@@ -458,7 +460,9 @@ static bool volume_write(struct exfat_volume *volume, uint64_t offset, const voi
     uint64_t epoch=mutation_reads.epoch;
     volume->mutation_written = true;
     uint64_t start=cost_clock();
+    unsigned token=sync_timing_content_role_begin(volume->cost.active?sync_io_role(volume):USB_STORAGE_CONTENT_ROLES-1);
     bool ok = block_write(volume->device, offset, buffer, length);
+    sync_timing_content_role_end(token);
     if(volume->cost.active) {
         struct exfat_cost_phase *p=&volume->cost.phase[volume->io_phase];
         uint64_t us=cost_elapsed(start);p->writes++;p->write_bytes+=length;p->write_us+=us;
@@ -482,7 +486,9 @@ static bool volume_write(struct exfat_volume *volume, uint64_t offset, const voi
 static bool volume_flush(struct exfat_volume *volume) {
     struct block_device *parent = block_parent(volume->device);
     uint64_t start=cost_clock();
+    unsigned token=sync_timing_content_role_begin(volume->cost.active?sync_io_role(volume):USB_STORAGE_CONTENT_ROLES-1);
     bool ok = parent && parent->flush && parent->flush(parent);
+    sync_timing_content_role_end(token);
     if(volume->cost.active) {
         struct exfat_cost_phase *p=&volume->cost.phase[volume->io_phase];
         uint64_t us=cost_elapsed(start);p->flushes++;p->flush_us+=us;
@@ -1469,7 +1475,9 @@ static bool write_volume_flags(struct exfat_volume *volume, uint16_t flags) {
     uint8_t bytes[2]; write_u16(bytes, flags);
     mutation_reads_invalidate(volume,106,sizeof(bytes));
     uint64_t start=cost_clock();
+    unsigned token=sync_timing_content_role_begin(volume->cost.active?sync_io_role(volume):USB_STORAGE_CONTENT_ROLES-1);
     bool ok=block_write(volume->device,106,bytes,sizeof(bytes));
+    sync_timing_content_role_end(token);
     if(volume->cost.active) {
         struct exfat_cost_phase *p=&volume->cost.phase[EXFAT_IO_METADATA];
         uint64_t us=cost_elapsed(start);p->writes++;p->write_bytes+=sizeof(bytes);p->write_us+=us;
