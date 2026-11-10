@@ -8230,3 +8230,14 @@ proofs. Parser geometry is selected by trusted recipe, not inferred from raw
 claimed values. This does not provide unlimited command reuse, rearm the HTTP
 worker, or accept UI/reattach/reliability. See the current
 [Pro unit record](machines/macbookpro11-2.md).
+
+
+The correction3570ee66/release9110adaf1b1c158f is now qualified and installed:
+normal/native55+19, all19 connection cases under fatal ASan/UBSan across seven
+scoped groups, strict collection20, current MCU13/Python18, profile267/collector42,
+matching images and six VM/445-file clone gates pass. Independent native and
+evidence source reviews have no remaining findings. All seven protected prior
+payloads and Ubuntu recovery remain intact; the old faileda9 EFI duplicate alone
+was removed after verifying its immutable primary backup. Native reconnect is
+still pending. The local run record controls final review/arming and once-only
+collection. No new source/RF failure is relabeled as accepted.

@@ -7,6 +7,47 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+### Qualified transfer-capacity correction (November 10)
+
+Runtime `3570ee66`, release `9110adaf1b1c158f`, is installed for the next cold
+bounded two-connection trial. Main `72d49457` is integrated at `1511c722`.
+The previous675/a9 run's54-ping refusal is reproduced on its original production
+code with additional non-data RX. The correction pins127 transfer positions in
+the already allocated ring page only for connection mode. Historical owners
+remain63. Four data pages/direction, TX80/RX252,64 exact pings per generation,
+command ring63/no-reuse, conservative two-fence reserve and deadlines remain
+unchanged. TX80 cannot wrap127; RX252 permits one boundary. Each actual RX
+rebase still needs exact native Stop/event/context/dequeue/cycle proof.
+
+Fresh qualification on2,099 source inputs passes normal Wi-Fi foundations,
+all55 historical native cases and19 connection cases, actualcal5 MCU24,
+profile267/collector42, full synthetic RF composition, merged storage/process
+regressions and matching images. Seven fatal ASan/UBSan groups pass, including
+ALL19 connection cases, actualMCU24, legacy poweron123 and bounded/HTTP72/
+prepared-worker/independent-peer fixtures. This does not claim all55 historical
+native cases under fatal sanitizers. Thirteen actual C diagnostic fragments
+and18 no-skip observer cases pass. Twenty source-frozen collection cases pass
+with596 Python modules and9 RF fixtures, preserving failures and refusing
+synthetic/contradictory evidence. Independent native and evidence source reviews
+find no remaining blockers. Quiet/noisy two-generation and Link127/base Stop,
+wrong cycle/pointer/geometry, stale-event and excess-traffic cases are covered.
+
+All six VM gates pass: actual numeric/DNS HTTP with independent30/40-frame wire
+proofs, exact-stage GPT/missing-workspace, desktop, and private445-file workspace
+clone preservation. No VM accepts native Wi-Fi. Installed bytes equal the staged
+payload and private backup; factorye47 remains direct fallback, acceptedc603
+stays resident and all seven protected prior payloads are preserved. Only the
+fully backed FAILEDa9 EFI duplicate was removed after promoting acceptedc603;
+its immutable1371-file primary and12-file failure notes remain unchanged.
+
+The local run record owns final review/arming. Both USB devices still require
+10seconds unplugged while OFF, then the same ports before power-on. Results
+save and safe completion returns automatically. Native two-connection acceptance
+remains pending; no HTTP-worker rearm, persistent service, UI/reattach, warm-start
+or reliability acceptance is implied. The earlier RXDCOC failure remains
+unexplained; the capacity fix is separate.
+
+
 ### MCU comparison returned: finite transfer capacity exhausted
 
 Runtime `67534219`, release `a9e288e50a236d01`, session
@@ -45,7 +86,7 @@ Actual main `72d49457` (PR458 runtime reservation changes and PR459 Air6,1
 evidence) is integrated at `1511c722`; source qualification is pending.
 
 
-### Qualified MCU observation comparison (November 10)
+### Earlier MCU observation qualification (November 10)
 
 Runtime `67534219`, release `a9e288e50a236d01`, is qualified and installed for
 one cold MCU observation/reconnect comparison. Runtime source stays distinct

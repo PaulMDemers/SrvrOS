@@ -9,6 +9,18 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 10)
 
+Correction3570ee66/release9110adaf1b1c158f is now software-qualified and installed.
+Normal/native55+19, all19 connection cases in seven scoped fatal groups,
+profile267/collector42, source-frozen workflow20, MCU13/Python18, matching images
+and all six VM gates pass, including strict445-file clone preservation. Native
+and evidence source reviews have no remaining findings. The installed payload,
+factory direct fallback, acceptedc603 and all seven protected prior payloads
+are verified; only the completely backed faileda9 EFI duplicate was removed.
+The local record owns final review/arming; the new cold hardware result is
+pending. The chronology below records the failure and implementation checkpoint,
+not a replacement for this latest qualified state.
+
+
 The67534219/a9 comparison was collected once as00065ff1b8c61e6e-00. Calibration
 passed; the first connection passed DHCP/DNS and54 exact pings, then failed at
 the connection-only two-fence cap after TX63/RX126. No connection closed or
