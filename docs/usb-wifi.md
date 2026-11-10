@@ -8175,5 +8175,29 @@ The native HOST fixture executes both generations in one process without resetti
 kernel/controller/network state, using independent fresh-PTK AP data. The saved-log
 checker validates two raw native groups and full unchanged outer RF proof, refuses
 synthetic qualification rows for physical collection and keeps separate explicit
-qualification-only composition. Full source qualification and native acceptance
-remain pending; use a new matched run record before any physical trial.
+qualification-only composition. Source27042d66 passed matched normal/fatal,
+collector and six VM gates. Its first native run failed during RXDCOC calibration
+before either connection began; native reconnect remains unaccepted. Use a new
+matched run record before another physical trial.
+
+### Deferred MCU failure observations
+
+The first v140 native failure saved sent16/received-1/completion0 and500069us
+for the last calibration command. Those values alone do not identify which
+native bulk exit ran. The diagnostic now retains the explicit result branch,
+pending/done/quarantine flags, requested TD, local event-loop counts/frontier
+and a retained output-context snapshot. It keeps the first bulk failure immutable;
+later refused calls cannot replace it. A successful bulk receipt may accompany a
+higher-level calibration/reply refusal and grants no calibration acceptance.
+
+The failure-only `wifi-mcu-bulk-observation` row is emitted after the existing
+calibration-command row, outside the polling loop. Reasons are1/refused,
+2/successful bulk,3/failed completion,4/elapsed limit,5/stalled clock and6/clock
+reversal;0 is unrecorded. Elapsed expiry proves the software branch, not absence
+of firmware or controller activity. Poll/event counts cover this caller only;
+other IRQ consumers and a late completion may change the sampled flags/frontier.
+Endpoint RAM snapshots and physical addresses convey no ownership authority.
+There is no new poll, RF/register request, timer read, retry, reset, DMA release
+or wider deadline. The500ms limit, strict reply and existing quarantine gates
+remain. Native MCU/event/cal5 callback fixtures model the RF parent explicitly;
+they do not establish the physical cause of the saved failure.

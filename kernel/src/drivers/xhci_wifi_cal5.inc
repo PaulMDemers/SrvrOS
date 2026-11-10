@@ -191,6 +191,11 @@ static bool wifi_cal5_command(void *c,enum mt76_poweron_command cmd,uint32_t arg
  uint64_t end=timer_monotonic_us();uint32_t words[4]={0};if(received==16)for(unsigned i=0;i<16;i++)words[i/4]|=(uint32_t)m->buffer[i]<<(8*(i%4));
  bool ok=sent==16 && received==16 && (m->completion==1 || m->completion==13) && m->remaining==MT76_MCU_RESPONSE_MAX-16 && end>=start && end-start<=1000000 && mt76_poweron5_reply(n,m->buffer,16) && wifi_cal5_cal_owned(c);
  console_printf("wifi-cal5-command: op=%u step=%u arg=%x sent=%d received=%d cc=%u residue=%u elapsed_us=%u h=%x id=%x value=%x t=%x ok=%u\n",(uint64_t)op,(uint64_t)n,(uint64_t)arg,(int64_t)sent,(int64_t)received,(uint64_t)m->completion,(uint64_t)m->remaining,end>=start?end-start:0,(uint64_t)words[0],(uint64_t)words[1],(uint64_t)words[2],(uint64_t)words[3],(uint64_t)ok);
+ if(!ok) {
+  const struct xhci_wifi_mcu_bulk_receipt *r=m->bulk_failure_valid?&m->bulk_failure:&m->last_bulk;
+  console_printf("wifi-mcu-bulk-observation: version=1 cal_step=%u first_failure=%u sequence=%u reason=%u dci=%u requested=%u flags=%u cc=%u residue=%u elapsed_us=%u polls=%u dispatched=%u event_start=%u event_start_cycle=%u event_end=%u event_end_cycle=%u trb=%x ring=%x endpoint_valid=%u endpoint_state=%u endpoint_dequeue=%x\n",
+   (uint64_t)n,(uint64_t)m->bulk_failure_valid,r->sequence,(uint64_t)r->reason,(uint64_t)r->dci,(uint64_t)r->requested,(uint64_t)r->flags,(uint64_t)r->completion,(uint64_t)r->remaining,r->elapsed_us,(uint64_t)r->polls,(uint64_t)r->dispatched,(uint64_t)r->event_start,(uint64_t)r->event_start_cycle,(uint64_t)r->event_end,(uint64_t)r->event_end_cycle,r->trb,r->ring,(uint64_t)r->endpoint_valid,(uint64_t)r->endpoint_state,r->endpoint_dequeue);
+ }
  if(!ok)wifi_cal5.failed=true;
  return ok;
 }

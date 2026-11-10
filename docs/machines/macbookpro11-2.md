@@ -31,12 +31,16 @@ verifying its original backup and a second independent mirror outside build.
 Factorye47 remains the direct fallback and acceptedc603 stays resident. Never
 recollect or reseal this failed primary or the accepted c603 capsules.
 
-Next bounded scope: retain the first MCU bulk failure reason, ownership/pending
+The next diagnostic retains the first MCU bulk failure reason, ownership/pending
 flags, expected TD, endpoint output context and event frontier, and emit a
 deferred failure-only calibration observation. Preserve the existing500ms limit,
 strict reply validation, quarantine, retained DMA and no-retry policy. Test the
 actual native MCU bulk/event and cal5 command callback; modeled firmware or RF
-parents do not establish physical causation. No further boot is armed. Actual
+parents do not establish physical causation. The24-case development fixture and
+18 observation checks pass; final frozen-source qualification is pending. The
+separate13-file failed-return notes have index
+`3c3ddf6602df4fc1621f78ff2e33a7525c1872d5d78cd446d57e5014ce203310`.
+No further boot is armed. Actual
 main `9580bb4b` / PR458 was fetched and inspected after return; its reserved-
 append/process changes are not in this runtime or its evidence.
 

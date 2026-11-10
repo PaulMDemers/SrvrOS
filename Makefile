@@ -1929,6 +1929,14 @@ build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c tools/test_xhci_wifi_rx.inc 
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c -Wl,--gc-sections -o $@
 
+# Same actual xHCI translation unit with an explicit modeled RF-parent fixture.
+.PHONY: test-xhci-cal5-mcu
+test-xhci-cal5-mcu: build/tests/xhci-cal5-mcu-host$(HOST_EXE)
+	$< --wifi-cal5-mcu
+build/tests/xhci-cal5-mcu-host$(HOST_EXE): tools/test_xhci.c tools/test_xhci_wifi_cal5_mcu.inc build/tests/xhci-host$(HOST_EXE)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_XHCI_CAL5_MCU_TEST -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c -Wl,--gc-sections -o $@
+
 .PHONY: a1466-rehearsal
 a1466-rehearsal: $(USB_IMAGE)
 	$(PYTHON) tools/a1466_rehearsal.py --qemu $(QEMU)
@@ -6534,3 +6542,9 @@ test-wifi-reconnect5-log:
 test-wifi-reconnect5-native-log: build/tests/xhci-stack5-host$(HOST_EXE)
 	$< --trace-reconnect > build/tests/xhci-reconnect5-trace.log
 	WIFI_RECONNECT5_PARENT="$(WIFI_RECONNECT5_PARENT)" WIFI_RECONNECT5_BINARY=$< WIFI_RECONNECT5_TRACE=build/tests/xhci-reconnect5-trace.log PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_reconnect5_log.py
+
+.PHONY: test-wifi-mcu-bulk-observation
+test-core: test-wifi-mcu-bulk-observation test-xhci-cal5-mcu
+test-wifi-completion-foundations: test-wifi-mcu-bulk-observation test-xhci-cal5-mcu
+test-wifi-mcu-bulk-observation:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_mcu_bulk_observation.py

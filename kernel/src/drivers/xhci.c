@@ -330,8 +330,23 @@ struct xhci_wifi_scan {
     bool channel_diagnosis_attempted,channel_diagnosis_complete;
     uint8_t advertised_channel[3][8];
 };
+/* Diagnostic state only: no completion/ownership authority or recovery grant. */
+enum wifi_mcu_bulk_result {
+    WIFI_MCU_BULK_NONE, WIFI_MCU_BULK_REFUSED, WIFI_MCU_BULK_SUCCESS,
+    WIFI_MCU_BULK_COMPLETION_FAILED, WIFI_MCU_BULK_ELAPSED,
+    WIFI_MCU_BULK_STALLED, WIFI_MCU_BULK_CLOCK_REVERSED
+};
+struct xhci_wifi_mcu_bulk_receipt {
+    uint64_t sequence,elapsed_us,trb,ring,endpoint_dequeue;
+    unsigned dci,requested,reason,completion,remaining,flags,endpoint_state;
+    unsigned event_start,event_end,event_start_cycle,event_end_cycle,polls,dispatched;
+    bool endpoint_valid;
+};
 struct xhci_wifi_mcu {
     struct xhci_bulk_endpoint response;
+    uint64_t bulk_sequence;
+    struct xhci_wifi_mcu_bulk_receipt last_bulk,bulk_failure;
+    bool bulk_failure_valid;
     uint64_t buffer_phys, trb;
     uint8_t *buffer;
     uint32_t remaining, requested, completion;

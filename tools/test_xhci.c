@@ -16,6 +16,15 @@ static bool batch_trace;
 static uint32_t xhci_test_read32(uint64_t offset);
 static void xhci_test_write32(uint64_t offset, uint32_t value);
 struct xhci_device;
+#ifdef SRVROS_XHCI_CAL5_MCU_TEST
+#define SRVROS_XHCI_CAL5_DRAIN_TEST
+struct xhci_trb;
+static bool cal5_drain_test_parent(void);
+static void cal5_drain_test_progress(void);
+static bool cal5_drain_test_usb(struct xhci_device *,bool,uint32_t,uint32_t *);
+static bool cal5_drain_test_delay(unsigned);
+static bool cal5_drain_test_command(const struct xhci_trb *,unsigned,uint64_t *);
+#endif
 static void xhci_test_control_publish(struct xhci_device *, uint64_t, bool);
 #include "../kernel/src/drivers/xhci.c"
 
@@ -36,6 +45,10 @@ static struct xhci_device *passive_test_device;
 static void passive_test_tick(void);
 static struct xhci_device *poweron_test_device;
 static void poweron_test_bulk(unsigned);
+#ifdef SRVROS_XHCI_CAL5_MCU_TEST
+static struct xhci_device *cal5_mcu_test_device;
+static void cal5_mcu_test_bulk(unsigned);
+#endif
 static bool rx_guard_model;static uint32_t rx_guard_value;
 static bool mac_cycle_model;
 static void xhci_test_mac_publish(struct xhci_device *,uint64_t);
@@ -146,6 +159,9 @@ static uint64_t rf_wait_expected_delay;
 bool timer_delay_us(uint64_t us) { if(tune_test_device)return tune_test_delay(us);if(mac_cycle_model)return xhci_test_mac_delay(us);assert(us==(rf_wait_expected_delay?rf_wait_expected_delay:10000)); return recovery_delay_ok; }
 
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+#ifdef SRVROS_XHCI_CAL5_MCU_TEST
+    if(cal5_mcu_test_device && offset==xhci.db_base+4*cal5_mcu_test_device->slot_id && (value==11 || value==16))cal5_mcu_test_bulk(value);
+#endif
     if(receive_test_device && offset==xhci.db_base && value==0)receive_test_command();
     if(tune_test_device && offset==xhci.db_base+4*tune_test_device->slot_id && (value==11 || value==16))tune_test_bulk(value);
     if(channel_test_device && offset==xhci.db_base+4*channel_test_device->slot_id && (value==11 || value==16))channel_test_bulk(value);
@@ -6909,6 +6925,9 @@ static void test_wifi_mcu_transport(void) {
 #include "test_xhci_wifi_mac_cycle.inc"
 #include "test_xhci_wifi_cal_probe.inc"
 #include "test_xhci_wifi_poweron.inc"
+#ifdef SRVROS_XHCI_CAL5_MCU_TEST
+#include "test_xhci_wifi_cal5_mcu.inc"
+#endif
 #include "test_xhci_wifi_passive.inc"
 #include "test_xhci_wifi_channel.inc"
 #include "test_xhci_wifi_tune.inc"
@@ -7782,6 +7801,11 @@ int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"--wifi-channel-receive")){receive_test_only=true;test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-window")){test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-passive")){test_wifi_passive();return 0;}
+#ifdef SRVROS_XHCI_CAL5_MCU_TEST
+    if(argc==2 && !strcmp(argv[1],"--wifi-cal5-mcu")){test_wifi_cal5_mcu();return 0;}
+    if(argc==2 && !strcmp(argv[1],"--trace-cal5-mcu")){batch_trace=true;test_wifi_cal5_mcu();return 0;}
+    if(argc==4 && !strcmp(argv[1],"--trace-cal5-mcu")){batch_trace=true;trace_wifi_cal5_mcu((unsigned)strtoul(argv[2],NULL,0),(unsigned)strtoul(argv[3],NULL,0));return 0;}
+#endif
     if(argc==2 && !strcmp(argv[1],"--wifi-poweron")){test_wifi_poweron();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-cal-probe")){test_wifi_cal_probe();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-mac-cycle")){test_wifi_mac_cycle();return 0;}

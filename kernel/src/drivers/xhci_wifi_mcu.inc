@@ -71,32 +71,84 @@ static bool configure_wifi_mcu(struct xhci_device *d) {
     if(firmware_command_failed)return wifi_mcu_fail(d);
     m->configured=true;return true;
 }
+/* Retain the branch actually taken, rather than infer a timeout from cc=0.
+ * All reads below are CPU-owned metadata or retained output-context RAM. No
+ * register I/O, extra poll, new TD, retry, reset or DMA retirement is licensed.
+ * Event counts cover this caller's poll loop, not all IRQ/event consumers. */
+static void wifi_mcu_bulk_record(struct xhci_device *d,struct xhci_wifi_mcu_bulk_receipt *r,
+    enum wifi_mcu_bulk_result reason,uint64_t elapsed) {
+    uint64_t flags=event_irq_save();
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    r->reason=reason;r->elapsed_us=elapsed;
+    r->completion=m->completion;r->remaining=m->remaining;
+    r->flags=(m->pending?1u:0u)|(m->done?2u:0u)|(m->failed?4u:0u)|
+        (d->firmware.failed?8u:0u)|(d->ep0_quarantined?16u:0u)|
+        (d->removed?32u:0u)|(d->retiring?64u:0u)|(xhci.stopping?128u:0u);
+    r->event_end=xhci.event_dequeue;r->event_end_cycle=xhci.event_cycle;
+    if(reason==WIFI_MCU_BULK_REFUSED) {
+        r->event_start=r->event_end;r->event_start_cycle=r->event_end_cycle;
+    }
+    if(reason!=WIFI_MCU_BULK_SUCCESS && reason!=WIFI_MCU_BULK_REFUSED &&
+       d->present && d->output_context && m->configured && (r->dci==11 || r->dci==16)) {
+        r->endpoint_state=context_read32(d->output_context,r->dci,0)&7;
+        r->endpoint_dequeue=context_read32(d->output_context,r->dci,2)|
+            ((uint64_t)context_read32(d->output_context,r->dci,3)<<32);
+        r->endpoint_valid=true;
+    }
+    m->last_bulk=*r;
+    if(reason!=WIFI_MCU_BULK_SUCCESS && !m->bulk_failure_valid) {
+        m->bulk_failure=*r;m->bulk_failure_valid=true;
+    }
+    event_irq_restore(flags);
+}
 static int wifi_mcu_bulk(struct xhci_device *d,bool in,size_t size) {
     struct xhci_wifi_firmware *f=&d->firmware;struct xhci_wifi_mcu *m=&f->mcu;
+    struct xhci_wifi_mcu_bulk_receipt receipt={.dci=in?m->response.dci:f->ep.dci,
+        .requested=(unsigned)size};
+    if(m->bulk_sequence!=UINT64_MAX)m->bulk_sequence++;
+    receipt.sequence=m->bulk_sequence;
     if(!wifi_mcu_owned(d) || !m->configured || m->pending || !size ||
-        size>(in?MT76_MCU_RESPONSE_MAX:MT76_MCU_PACKET_MAX))return -1;
+        size>(in?MT76_MCU_RESPONSE_MAX:MT76_MCU_PACKET_MAX)) {
+        wifi_mcu_bulk_record(d,&receipt,WIFI_MCU_BULK_REFUSED,0);return -1;
+    }
     struct xhci_bulk_endpoint *ep=in?&m->response:&f->ep;
     uint64_t phys=in?m->buffer_phys:f->buffer_phys;
     if(in)zero_bytes(m->buffer,size);
     struct xhci_trb trb={.parameter_low=(uint32_t)phys,.parameter_high=(uint32_t)(phys>>32),
         .status=(uint32_t)size,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
     uint64_t flags=event_irq_save();
+    receipt.event_start=xhci.event_dequeue;receipt.event_start_cycle=xhci.event_cycle;
     m->dci=ep->dci;m->requested=(uint32_t)size;m->remaining=0;m->completion=0;
     m->done=false;m->pending=true;
     m->trb=ring_push(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&trb);
+    receipt.trb=m->trb;receipt.ring=ep->ring_phys;
     db_write32(d->slot_id,m->dci);event_irq_restore(flags);
     uint64_t start=timer_monotonic_us(),clock=start;unsigned stalled=0;
     for(;;) {
         flags=event_irq_save();struct xhci_trb event;
-        if(!m->done && poll_event(&event))dispatch_transfer_event(&event);
+        if(!m->done) {
+            if(receipt.polls!=UINT32_MAX)receipt.polls++;
+            if(poll_event(&event)) {
+                if(receipt.dispatched!=UINT32_MAX)receipt.dispatched++;
+                dispatch_transfer_event(&event);
+            }
+        }
         bool done=m->done;event_irq_restore(flags);
-        if(done)return m->failed?-1:(int)(size-m->remaining);
+        if(done) {
+            /* Preserve existing success/failed admission and clock reads. */
+            bool failed=m->failed;int actual=failed?-1:(int)(size-m->remaining);
+            wifi_mcu_bulk_record(d,&receipt,failed?WIFI_MCU_BULK_COMPLETION_FAILED:WIFI_MCU_BULK_SUCCESS,clock-start);
+            return actual;
+        }
         uint64_t now=timer_monotonic_us();
-        if(now-start>=500000 || (now==clock && ++stalled>=XHCI_TRANSFER_TIMEOUT))break;
+        if(now-start>=500000 || (now==clock && ++stalled>=XHCI_TRANSFER_TIMEOUT)) {
+            enum wifi_mcu_bulk_result reason=now<start?WIFI_MCU_BULK_CLOCK_REVERSED:
+                now-start>=500000?WIFI_MCU_BULK_ELAPSED:WIFI_MCU_BULK_STALLED;
+            wifi_mcu_fail(d);wifi_mcu_bulk_record(d,&receipt,reason,now-start);return -1;
+        }
         if(now!=clock){clock=now;stalled=0;}
         __asm__ volatile("pause");
     }
-    wifi_mcu_fail(d);return -1;
 }
 static int wifi_mcu_read_identity(struct xhci_device *d,int *queue_sent,int *read_sent) {
     struct xhci_wifi_firmware *f=&d->firmware;
