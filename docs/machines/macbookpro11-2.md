@@ -1,11 +1,31 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production DHCP/DNS/64echo accepted; the latest cleanup candidate passed independent native acceptance for the normal zero-extra path; TCP/HTTP and connection lifecycle remain open**.
+Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted; one unchanged-image cold repeat next; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
+
+Accepted runtime785e3605/release7cdfeeefca45728b completed native production
+DHCP/DNS and actual-process exact4159-byte HTTP request/3072-byte body/genuine
+EOF, with child/worker/TCP and original-key/provider/fullparent retirement. This
+is one bounded fixed161 connection, not a persistent desktop Wi-Fi service.
+Original1729-file evidence and separate10-file acceptance notes are immutable;
+the prior retained-owner halt remains unexplained. Detailed evidence is below.
+
+The installed image is unchanged for ONE cold repeat. The active new run/first-
+once collector is `build/bringup/wifi-http5-repeat/run_root.py return_collect`;
+its saved run record owns arming state. Both USB devices need10seconds unplugged
+while off, then the same ports. Safe completion saves/returns; unsafe hold asks
+for five diagnostic rows before manual poweroff. Never recollect the old run.
+
+Actual main0d83d045 is reviewed but deferred for this identical-image comparison.
+After the repeat, integrate/qualify those shared USB observer changes and split
+adapter/connection lifetimes before reconnect, removal/reattach and async UI
+controls. Demers2.4 still needs a different compatible adapter.
+
+## Historical production-IP handoff
 
 Native v136 runtime `38f2d76a` / release `8529308170250844` remains accepted:
 one original key, 71 encrypted requests, 64 exact256-byte gateway echoes, one TX

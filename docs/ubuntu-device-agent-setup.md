@@ -1688,3 +1688,17 @@ unsafe hold prints five frozen diagnostic rows and explicitly requests a photo
 before manual poweroff because disk activity cannot safely resume. Arming belongs
 to the saved record, not this documentation. Do not reuse these UUIDs or approval
 on another host.
+
+
+Pro11,2 current return checkpoint (November9):785e3605/release7cdfeeefca45728b
+has independently accepted bounded native actual-process DHCP/DNS/TCP/HTTP,
+exact request/body/EOF and full named key/provider/parent retirement. Preserve
+its1729-file primary and separate10-file acceptance notes unchanged. The ONE
+unchanged-image cold repeat uses the NEW owner
+`build/bringup/wifi-http5-repeat/run.json` and that directory's
+`run_root.py return_collect` FIRST once. Its fresh433-file workspace clone VM
+passes; old qualification is explicitly reused. Installed payload is unchanged
+and seven recovery directories are retained. Both USB devices require10seconds
+cold unplug, same ports. The run record owns arming; no old run is recollected.
+Persistent service, reconnect/reattach, desktop controls and reliability remain
+open. See the current unit handoff and completion plan.
