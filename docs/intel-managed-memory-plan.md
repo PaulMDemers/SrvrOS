@@ -29,6 +29,15 @@ acceptance of source `f68ab030`; see the machine record for exact tested sources
 PR19 Pro11,2 Wi-Fi and PR379 WebCore remain independent. None supplies an Air7,2
 native graphics ownership grant.
 
+The combined prerequisite is now accepted in source`9c788f3f`, release
+`8d3839aaa57f707d`, session`session-00065fe55d829da0-00`: pre-user-init admission,
+maintained PCI capture, BCS8 reset, reverse cancellation, full preservation and
+clean return in97,414/100,000us (wake280,135/500,000us). The healthy admission
+row classification correction is host-only; reviewed collection binds identical
+native bytes and all original completion/integrity gates. One bounded pass
+supplies no GPU interval, DMA drain, translation/cache or reader-retirement grant.
+The milestones below, beginning with exclusive interval ownership, remain open.
+
 ## Ordered implementation milestones
 
 | Milestone | Required implementation and reviewable exit evidence |

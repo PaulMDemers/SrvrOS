@@ -6,6 +6,25 @@ the [held requester observation](intel-held-requester.md) and the reviewed
 into a reset callback. Ordinary desktop startup and older diagnostic images
 cannot call this reset-capable entry point.
 
+## Native combined acceptance
+
+Source`9c788f3f`, release`8d3839aaa57f707d`, session
+`session-00065fe55d829da0-00` accepts one pre-user-init combined lifetime:
+97,414/100,000us preparation,3,369us reset scope,14/32us pulses,51us settling,
+10 request/cancel acknowledgements, five control snapshots and full92-word/
+54-plane/two-HDA preservation. Source epoch0 stays immutable; parent advances
+once to1. The original borrow returns,13 aliases retire and exclusion releases;
+wake lifetime280,135/500,000us. No failure/clock/uncertainty/retained state occurs.
+The2,586us preparation margin is one-run evidence only.
+
+The generic collector's initial false attention on the valid zero-code admission
+row is preserved. Fix`925ae934` decodes the full row rather than ignoring the
+prefix; malformed/nonzero codes still attract attention. Reviewed collection
+uses byte-identical raw files and the unchanged complete native/checkpoint/final
+and integrity gates. No kernel rebuild or new physical run was needed. This
+accepts the bounded composition, not GPU-memory transfer or native tear-free;
+all255 completion obligations stay open. See the [unit record](machines/macbookair7-2.md).
+
 ## One owner, two epoch meanings
 
 `intel_engine_prepare_with_bcs_reset` requires an original zero-initialized

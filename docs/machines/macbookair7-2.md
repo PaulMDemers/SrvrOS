@@ -2,18 +2,49 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Active closeout: classify the saved healthy admission row
+### Accepted: pre-user-init maintained preparation, PCI capture and BCS reset
 
-The combined source9c788f3f native protocol completes in97,414/100,000us,
-but generic collection flags the new all-zero `intel-admission` row as attention.
-Collection/integrity is preserved as initially INCOMPLETE until this collector
-omission is corrected. Scope is `hardware_desktop.needs_attention`, strict row
-classification regressions and offline replay of the saved native logs; no
-kernel/payload change or new physical run. Retain malformed/nonzero-row attention
-and every full native/checkpoint/final-marker gate. PR19/379 remain independent;
-fetched maina2a6d692 adds Air6,1 audit documentation only beyond this payload base.
+Payload source `9c788f3f`, release `8d3839aaa57f707d`, session
+`session-00065fe55d829da0-00` completes the combined native lifetime. The exact
+terminal recipe defers user init;924 original excluded range queries record
+no failure. Full preparation/capture/reset/cancellation/preservation finishes in
+**97,414/100,000us**, with2,586us margin; wake lifetime280,135/500,000us.
+This is one bounded pass, not repeatability or a generally accepted speedup.
+No deadline or original root/count/occupancy/entry/exit gate changed.
 
-### Ready: combined held-reset trial before user init
+Both BCS8 pulses self-clear (14us and32us), settling is51us, and the reset scope
+is3,369us. Source epoch remains0 while the live parent advances once to1.
+All10 request/cancel acknowledgements, five control snapshots,92-word full
+post-census,54 plane reads and both HDA snapshots preserve. Two nine-DWORD PCI
+rows agree (152us sampler,3,342us action); BME mask3 and TP0 are observations,
+not a DMA-drain proof. The original borrow returns, all13 aliases retire,
+exclusion releases, and reasons/clock faults/uncertainty/retained state are zero.
+
+The initial generic collection marked the healthy `intel-admission code=0` row
+as attention despite strict native completion. Collector fix`925ae934` uses the
+existing full schema decoder: valid zero code is healthy, nonzero and malformed
+rows remain attention. All301 hardware collector tests and four admission tests
+pass. Reviewed collection at`ecb1ff14` rereads byte-identical raw USB files,
+requires the same pre-init/recipe/release/witness, full native/final/checkpoint
+proofs and offline checks, and passes with no attention. Initial INCOMPLETE
+classification and raw proof remain preserved separately; no payload was rebuilt
+or rerun to fix the collector.
+
+All1,440 prior files preserve except expected metadata; three new logs give
+1,443files/137sessions. Offline filesystem/allocation/writable/headroom,
+installed/banked/recovery, Ubuntu default and consumed one-shot pass. Volume1%
+at dispatch, no reboot armed. Current8d38, recovery9aa8, GUIc497 and prior
+accepted payloads remain retained. Checkpoint:`build/air-preinit-held-reset-20261110`;
+full evidence has a verified independent backup outside build.
+
+This closes the bounded combined reset/preservation prerequisite. Next is the
+exclusive non-display GGTT interval and private GPU-memory/completion protocol;
+all255 completion obligations, zero managed pages/hardware assurances and native
+tear-free remain unchanged. Main`a2a6d692` is integrated (Air6,1 audit docs only
+beyond the payload's base`486b6d2a`); kernel acceptance belongs to9c788f3f.
+PR19 networking and PR379 WebCore remain independent; Actions stay disabled.
+
+### Prior qualification: combined held-reset trial before user init
 
 Source `9c788f3f`, release `8d3839aaa57f707d`, integrates main`486b6d2a`.
 Only the isolated held-reset image links a specialized main object and defers

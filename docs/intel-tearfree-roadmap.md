@@ -18,6 +18,7 @@ It does not accept another Mac's firmware or graphics profile.
 | Five-engine preparation, source `292163ac`, release `0cafc3a5551ab1b2` | Bounded prepare/hold/cancel and preservation;93,246/100,000us | Maintained readiness after cancellation, authority for a later reset |
 | PCI AF requester capture, source `fe6677c5`, release `3ff42f33e6c01391`, session `session-00065fdf108c49b4-00` | Two matching nine-DWORD snapshots, BME enabled in both, TP clear, FLR control0;27,036/100,000us, borrow returned and10 aliases retired | Comprehensive DMA drain, firmware exclusion, cache/translation/reader retirement, memory transfer |
 | Requester capture inside maintained preparation, source `8559ac44`, release `67a178af16c8983f`, session `session-00065fe0b883f61e-00` | Original preparation borrow, five ready requests, two matching PCI snapshots, cancellation/preservation/return;96,728/100,000us,13 aliases retired | Reset-capable action semantics, repeatability, all memory/completion obligations |
+| Maintained preparation/PCI/BCS8 reset, source `9c788f3f`, release `8d3839aaa57f707d`, session `session-00065fe55d829da0-00` | Exact pre-user-init recipe; full reset/cancel/preservation/return in97,414/100,000us, wake280,135/500,000us;13 aliases retired | Repeatability, wider reset scope, all memory/completion obligations |
 
 These are separate exact-source lifetimes. They cannot be combined into a
 current owner or completion token. The [requester contract](intel-pci-requester.md)
@@ -51,12 +52,12 @@ There is no captured firmware service that grants a spare GGTT interval. The
 native implementation still needs to maintain the expanded ownership lifetime;
 the current bounded wake policy alone does not transfer graphics memory.
 
-The next implementation block composes the real preparation/requester/reset
+The now-accepted composition binds the real preparation/requester/reset
 cores in one lifetime: fresh engine census; five reset requests held; requester
 observation while that hold remains active; exact reviewed reset action; fresh
 post-reset state; reverse cancellation; full engine/display/HDA preservation and
-retirement. The preparation API currently completes cancellation before return,
-so it needs an explicit maintained-action boundary. A cancelled preparation
+retirement. The original preparation API completes cancellation before return;
+the separate maintained-action/reset API supplies the required live boundary. A cancelled preparation
 receipt cannot serve as that boundary. Epoch invalidation must precede any
 possible reset store, and old censuses must become unusable.
 
@@ -172,3 +173,11 @@ Original sole-root/count/occupancy guards, all preservation work and100/300/500m
 bounds remain. One native trial will exercise the full maintained preparation,
 PCI capture, BCS8 reset and cancellation lifetime. Native timing, all255
 completion obligations and managed GPU-memory/tear-free acceptance remain open.
+
+
+That pre-user-init native trial now passes in97,414/100,000us, including the
+reset and complete preservation/return. The initial collector omission for the
+healthy zero-code witness is fixed and reviewed against identical raw logs;
+original classification is retained. This closes the bounded composition gate.
+The next implementation is the exact interval/private-memory/completion owner
+in the managed-memory plan, with no GPU PTE store before transfer is established.
