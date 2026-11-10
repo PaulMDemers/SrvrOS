@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted; one unchanged-image cold repeat next; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-09. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted; unchanged-image repeat held during terminal provider drain; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -14,16 +14,25 @@ is one bounded fixed161 connection, not a persistent desktop Wi-Fi service.
 Original1729-file evidence and separate10-file acceptance notes are immutable;
 the prior retained-owner halt remains unexplained. Detailed evidence is below.
 
-The installed image is unchanged for ONE cold repeat. The active new run/first-
-once collector is `build/bringup/wifi-http5-repeat/run_root.py return_collect`;
-its saved run record owns arming state. Both USB devices need10seconds unplugged
-while off, then the same ports. Safe completion saves/returns; unsafe hold asks
-for five diagnostic rows before manual poweroff. Never recollect the old run.
+The unchanged-image repeat is closed failed/incomplete: the photo identifies
+site2, FINISH9/DRAIN_FAILED9 after child status0/reap/retirement, TCP empty and
+worker finished, with provider drain/quiescence false and guard failure0. The
+individual raw RX bits are ambiguous. Only a startup log was saved. The
+1135-file primary and separate photo/review exports are immutable; do not
+recollect or reseal `wifi-http5-repeat`. Ubuntu remains default and unarmed.
 
-Actual main0d83d045 is reviewed but deferred for this identical-image comparison.
-After the repeat, integrate/qualify those shared USB observer changes and split
-adapter/connection lifetimes before reconnect, removal/reattach and async UI
-controls. Demers2.4 still needs a different compatible adapter.
+Current bounded objective is terminal receive-owner closure. Reproduce the
+independent controller-completion arrival after prepared-worker stop, then
+transfer retained raw RX bookkeeping to the existing outer cleanup only after
+child/worker/TCP and publication authority close. Keep ordinary live drain and
+all key/DMA holds on uncertainty. No new boot is authorized by source alone.
+Source785 remains installed; fetched main0d83d045 is reviewed and must be
+integrated/qualified before a corrected candidate. PR452's capture pacing,
+PR301's GPU/process and PR379's WebCore scopes remain separate.
+
+After this correction, separate adapter/connection lifetimes before reconnect,
+removal/reattach and async UI controls. Demers2.4 still needs a different
+compatible adapter. The earlier48f39654 hold's cause remains unproved.
 
 ## Historical production-IP handoff
 
@@ -17160,3 +17169,49 @@ disconnect generations before asynchronous UI controls and removal/reattach.
 Fetched actual main0d83d045 (PR450/451) adds shared USB observation phases. It is
 reviewed but deliberately not merged into the unchanged-image repeat; merge and
 qualify it before subsequent lifecycle implementation. No hardware gate widens.
+
+
+## November 9 unchanged HTTP repeat held: terminal ownership scope
+
+Runtime785e3605/release7cdfeeefca45728b repeat
+`session-00065fe368391325-00` was manually returned after a retained-owner halt.
+Collection ran FIRST once and preserved the1135-file failed primary, index
+`591772e4bea1a9e8d5789aad792d5459e16abfe0e17892f4d4a4be32ddbedde8`.
+Only the21836-byte startup log exists; no exit or complete protocol result.
+The separate two-file photo index is
+`3b90c52e3fa501876f28114cc546cddfcc490c0ae03bbc38771db61b3886d6bc`.
+The independent photo review confirms site2/FINISH9/DRAIN_FAILED9, childstatus0/
+observed/reaped/retired, TCPempty and workerfinished, providerdrained0/quiescent0,
+guardfailed0. Tiny native pending/cache/phase digits remain ambiguous and must
+not be used to infer an impossible state or formatter ABI fault.
+
+All432 prior ordinary files remain byte-identical;433 prior files includes
+the sidecar. Its current tree is exact and only the workspace marker atime
+changed. Strict preservation remains refused because the intact exit-derived
+RTC window is absent. Only one boot log/session directory is new. Offline
+fsck/allocation and installed recovery/Ubuntu-unarmed checks pass independently.
+The accepted earlier1729-file success and separate10-file notes remain unchanged;
+one bounded success does not establish repeatability.
+
+A private deterministic fixture delivers an independent controller completion
+after prepared-worker stop and reproduces the same terminal phase/reason with
+child+worker retired under the original deadline. The native xHCI polling worker
+can consume a posted RX completion after the network worker stops. This explains
+a concrete operational race matching the high-confidence signature; it does
+not establish every tiny photo counter or the cause of the older48 hold.
+The existing hold protected key/DMA ownership as designed.
+
+Bounded implementation scope: HTTP probe IO/result contracts and fixtures, native
+HTTP/provider terminal callback and outer stream ownership, matched VM callback,
+strict saved-log proof and staging if a new explicit contract is required.
+The terminal callback consumes live admission after child/TCP/worker closure,
+seals provider publication and explicitly returns retained raw RX to existing
+MAC-drain/exact-Stop cleanup. It must refuse decrypted cache, borrowed leases,
+active callbacks, pending TX, mutation, foreign epochs and unknown ownership.
+Do not ignore final drain, force-free keys, lengthen budgets, mask interrupts
+across child/worker waits, or issue an extra unaccounted endpoint Stop. Root
+owns shared integration/build/VM/install/power; private agents split generic
+regression/contract, native handoff and independent photo review. Fetch/inspect
+actual main0d83d045 and open PR19/301/379/452 before integration. Local/fatal,
+strict collector, actual HTTP VM and exact-stage/storage/recovery checks precede
+any new physical run. No identical blind repeat is planned.

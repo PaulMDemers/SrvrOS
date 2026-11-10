@@ -18,8 +18,10 @@ The previous retained-owner hold is still unexplained. No persistent service,
 second connection generation, reattach, desktop connection controls or broad
 reliability is accepted. The source remains explicitly one-shot and bounded.
 
-Next: ONE exact-image cold repeat with a new433-file workspace baseline/VM,
-reusing the unchanged source/payload's prior qualification. Then integrate and
+The ONE exact-image cold repeat FAILED/held at terminal provider drain after
+child/TCP/worker retirement. Its1135-file startup-only failure and photo remain
+immutable; the earlier bounded HTTP success is preserved. Next correct explicit
+terminal receive-owner handoff, with a deterministic completion-arrival fixture. Then integrate and
 qualify reviewed main0d83d045's shared USB observation changes before adapter/
 connection lifetime implementation. Keep original failures and success unchanged.
 
