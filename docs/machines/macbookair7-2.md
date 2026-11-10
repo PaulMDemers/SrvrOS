@@ -15,7 +15,10 @@ limits remain. Qualify the combined preparation/PCI/reset/cancellation lifetime
 in one candidate, with original admission witness and strict return collection.
 
 Touched scope: kernel main/startup helper, held-reset Makefile isolation,
-host startup regressions and exact-stage VM/collector ordering checks. PR19
+host startup regressions and exact-stage VM/collector ordering checks. The first
+combined gate also found imported CLI argument parsing in main's new
+`test_capture_transfer_wire.py`; make that wrapper import-safe while preserving
+its explicit C-fixture invocation and every assertion. No capture behavior changes. PR19
 networking and PR379 WebCore are independent; Air6,1 capture telemetry is consumed,
 not reimplemented. No new physical acceptance or reboot is armed by this scope.
 
