@@ -178,3 +178,19 @@ bindings and strict historical receipt classifications pass. Exact-stage MBR
 EFI refusal/save/unmount/automatic return and missing-drive halt pass; native
 elapsed time still needs the matching physical trial. The earlier103,702us
 nonpass remains unchanged evidence, never a pass under the retry's source.
+
+## Native translation retry result: early admission refusal
+
+Source `8b91de5b`, release `b63d89044865e7a8`, session
+`session-00065fe36794a009-00` refuses IRQ-excluded inherited backing/window
+revalidation before wake/reset access. Exclusion is acquired and released;
+zero wake mappings, write attempts, writes, engine reads or retained state are
+recorded. Preparation and reset never enter, so no timing improvement is
+measured. The exact failed internal predicate still needs a bounded diagnostic;
+the new range-query context is a hypothesis, not accepted native attribution.
+
+The native checkpoint, three saved logs, prior files, offline filesystem and
+recovery/automatic-return checks verify. Expected incomplete markers and
+collector attention remain; no reboot is armed. All ownership checks, existing
+deadlines and255 outstanding completion obligations remain unchanged. No GPU
+memory or tear-free authority follows from this refusal or the host fixtures.

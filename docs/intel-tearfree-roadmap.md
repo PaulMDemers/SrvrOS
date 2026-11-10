@@ -74,7 +74,9 @@ changes epoch and control-state semantics.
 
 The fresh CPU translation retry (`8b91de5b`, release`b63d89044865e7a8`) retains
 all censuses and bounds. Its host/image/VM qualification passes; native combined
-timing remains pending. It grants no GPU range or completion assurance.
+timing remains pending. Its first native run refuses excluded inherited
+backing/window revalidation before wake/reset access; exact predicate attribution
+is the next diagnostic. It grants no GPU range or completion assurance.
 
 The complete composition needs host fault injection at every transition.
 It must preserve the existing BCS-only writer gate until a separate review

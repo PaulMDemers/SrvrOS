@@ -2,7 +2,38 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Ready: fresh CPU translation walk for the held-reset timing retry
+### Collected: translation retry refuses before wake/reset admission
+
+Source `8b91de5b`, release `b63d89044865e7a8`, session
+`session-00065fe36794a009-00` is a **native admission nonpass**. Under IRQ
+exclusion, inherited backing/window revalidation returns false before wake
+mapping or writes (`acquired=1`, `before=0`, `profile=0`, `released=1`). Wake
+mapping, write-attempt, write, engine-read and retained counts are all zero.
+Preparation, requester capture and reset do not enter, so this run provides
+no preparation timing measurement and does not accept the optimization.
+
+Earlier read-only backing/window/preflight/firmware observations complete. The
+exact predicate failing inside the excluded revalidation is not recorded; the
+new strict CPU range-query context is a candidate cause, not a proven native
+root cause. Next is a bounded diagnostic of that first failed predicate while
+retaining every admission check and the100/300/500ms deadlines. The earlier
+103,702us combined-lifetime timing nonpass remains unchanged evidence.
+
+Strict decoding and the durable native preflight checkpoint verify; expected
+collector attention and `completed=NO` remain. The result saves and returns
+cleanly. All1,434 prior USB files preserve except expected metadata; three new
+logs give1,437files/135sessions. Offline filesystem/allocation/writable/headroom,
+installed/banked/recovery, Ubuntu default and consumed one-shot checks pass.
+No boot is armed; dispatch volume1%. Raw evidence is independently backed up
+outside build. Checkpoint:`build/air-held-reset-range-20261109`.
+
+Installed b63d remains the collected diagnostic, with recovery9aa8, GUIc497,
+accepted held capture67a1 and latest reset6365/preparation0caf retained. All255
+completion obligations stay open, zero managed pages and no tear-free grant.
+Fetched main`0d83d045` adds Air6,1 documentation only beyond integrated`b3c2f30d`;
+it has not been merged into this fixed candidate. PR19/379 remain separate.
+
+### Prior qualification: fresh CPU translation walk for the held-reset timing retry
 
 Integrated main`b3c2f30d`; payload and qualification source`8b91de5b`, release
 `b63d89044865e7a8`. This image alone uses the fresh IRQ-excluded sole-kernel-root
@@ -33,7 +64,8 @@ unreferenced read-only takeoverb8af is losslessly archived and banked after full
 file/SHA equality. Full evidence is independently backed up outside build.
 Checkpoint:`build/air-held-reset-range-20261109`.
 
-**Native combined timing remains pending.** Next trial needs no input and shows
+At this pretrial checkpoint, **native combined timing remained pending**; the
+subsequent early admission refusal is recorded above. The planned trial needs no input and shows
 progress; safe durable outcomes return automatically, uncertain ownership or
 failed persistence halts visibly. Collect the matching session first after
 return. Keep100/300/500ms deadlines, all255 completion obligations open, zero

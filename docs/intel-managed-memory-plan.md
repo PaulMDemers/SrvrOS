@@ -222,3 +222,9 @@ A fresh CPU translation walk shares ancestors inside each excluded endpoint
 comparison while checking every leaf; no census or ownership check is removed.
 Host/native-image/VM qualification passes, but timing acceptance remains pending.
 This CPU page-table observation grants no GGTT or GPU-memory authority.
+
+Its first native run (`session-00065fe36794a009-00`) refuses the excluded
+inherited backing/window revalidation before any wake/reset write or mapping.
+It returns cleanly with prior files preserved, but produces no preparation
+timing measurement. The exact failed admission predicate remains to be captured;
+no native optimization or ownership acceptance is added.
