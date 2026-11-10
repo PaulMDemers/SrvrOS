@@ -7,8 +7,8 @@ held. A future native range provider needs a maintained hardware interlock,
 not merely a software borrow or a completed receipt.
 
 The separate `--intel-rehold` image re-arms only BCS RESET_CTL at0x220d0 using the existing
-request0x00010001/ready protocol, invoke a child while all five requests remain
-held, then cancel only that additional BCS request with0x00010000. Exact mixed
+request0x00010001/ready protocol, invokes a child while all five requests remain
+held, then cancels only that additional BCS request with0x00010000. Exact mixed
 state must return before the existing outer cancellation/preservation. Every
 access uses the original reset parent, epoch, registered borrow and100ms origin;
 10ms/256-poll phase caps and300/500ms parent/outer limits remain unchanged.
@@ -76,3 +76,26 @@ has only2,621us one-run preparation margin; do not extend any bound to fit this
 additional work. Native re-arm acceptance is pending. Preserve the accepted
 older payload and Ubuntu recovery; the automated trial needs no input, saves
 safe outcomes and returns, while retained uncertainty/persistence failure halts.
+
+## Qualified candidate, native acceptance pending
+
+Source`f2a6c116`, exact release`e83571c874bc17f1`, passes the full local build,
+host/core/docs suite and24-image isolation. Fatal ASan/UBSan covers1,111 cases:
+328 core,764 actual native adapter,4 boot and15 directed delayed-ACK/poll/phase
+cases. All14 compiled behavioral/native-object controls are detected. The actual
+native object and C ABI verify the BCS DWORD target, masks, child drain gate and
+both original clock origins at final store admission. Initial object-checker
+assumptions about an inlined helper and compiler memset were corrected in the
+ignored runner; original nonpass receipts remain and kernel source is unchanged.
+
+Exact-stage QEMU verifies unsupported-GPU refusal with zero target loads/stores,
+checkpoint/results saved, offline file bytes, unmount and automatic safe return.
+A separate missing-workspace guest halts. The conservative saved-log projection
+is63,485/65,536bytes with the unchanged1,536-byte reserve. All1,356 PTEs and74
+plane/HDA words remain lossless. Accepted payload/recovery and USB evidence are
+preserved independently; see the [machine checkpoint](machines/macbookair7-2.md#ready-post-reset-bcs-re-arm-and-drained-original-entry-child).
+
+The candidate is installed unarmed at1% volume for the automated native trial.
+This is pending physical evidence: QEMU cannot establish BCS readiness, native
+clock margin, exclusion, retirement or restoration on the Air. Even a future
+bounded pass supplies no GPU range, command/PTE permission or completion bit.

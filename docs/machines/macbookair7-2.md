@@ -6,7 +6,7 @@ Updated: 2026-11-10. State: **active reference machine; partial device acceptanc
 
 Main`c3550c82` is integrated and qualified at`64cb597c`; no new upstream main
 commit is outstanding. The accepted native held-interval run below shows the
-post-reset mixed control state3/3/3/3/0. Next add a separate
+post-reset mixed control state3/3/3/3/0. The locally qualified candidate now adds a separate
 [post-reset BCS re-arm scope](../intel-engine-rehold.md), bound to the original
 active reset/preparation borrow and100ms origin. It requests BCS ready again,
 keeps all five ready requests live through a child, refuses cancellation with a
@@ -22,6 +22,57 @@ assurance is planned. Preserve acceptede078/recovery9aa8 and independently
 backed evidence. PR19 networking/PR379 WebCore remain independent; Air6,1's
 storage admission work is not duplicated. Checkpoint:`build/air-engine-rehold-20261110`.
 No reboot armed; stop at exact-stage-qualified hardware readiness.
+
+### Ready: post-reset BCS re-arm and drained original-entry child
+
+Source`f2a6c116`, based on integrated main`c3550c82`, is frozen in installed
+release`e83571c874bc17f1`. The separate [re-arm scope](../intel-engine-rehold.md)
+now requests BCS ready after reset, observes the original entry through a sealed
+child while all five controls remain held, drains that child and restores the
+exact mixed3/3/3/3/0 state before existing cancellation/preservation. Cancellation
+refuses a live/lost child. Both original100ms preparation and300ms owner clocks
+are checked immediately before the native DWORD store; outer500ms stays fixed.
+All14 aliases and existing profile/cache gates stay fixed. This does not add a
+PTE store, command, reset domain, GPU-visible backing or positive assurance.
+
+Local qualification on the frozen source passes full build/check-host/test-core/
+check-docs (installed-root explicitly omitted),24-image isolation,1,111 fatal
+ASan/UBSan cases (328 actual core,764 native adapter,4 boot and15 directed delayed
+ACK/poll/phase cases),12 compiled behavioral controls and two native-object
+controls. Actual C ABI/disassembly verifies the0x220d0 DWORD target, masks, sealed
+child gate, original clock origins and final store admission. Every original
+PTE survives the new image's22 version2 chunks of64 entries; older images retain
+version1/16. All74 plane/HDA DWORDs survive. The conservative log projection is
+63,485/65,536bytes including the unchanged1,536-byte reserve. An initial ignored
+object runner assumed an out-of-line guard and omitted compiler-generated memset;
+it was corrected against the actual inlined object, with failure receipts kept
+and production source unchanged.
+
+The exact immutable candidate passes QEMU unsupported-GPU refusal with zero
+new target reads/stores, prerequisite/result persistence, offline file-byte
+verification, unmount and automatic safe return. A separate missing-workspace
+VM halts. These validate refusal/persistence only, not native readiness/timing.
+The new writer/firmware request/reporter/pre-init path are absent from the other
+23 images. The exact20-token recipe adds`srvros.intel-rehold=request-cancel`.
+
+Candidate current/immutable/independent-bank/EFI manifests agree. Accepted held
+intervale078, backingd726, combined reset8d38, recovery9aa8 and GUIc497 remain
+available. The unreferenced standalone preparation0caf EFI copy was relocated
+only after complete SHA/archive/bank checks; its bank and archive remain intact.
+All1,449 USB files/139sessions preserve; offline fsck/allocation/writable/headroom
+and recovery checks pass. Volume1%, Ubuntu default, no one-shot armed. Checkpoint:
+`build/air-engine-rehold-20261110`; evidence is independently verified outside
+build. No physical trial ran for this candidate and native acceptance is pending.
+
+Next automated trial needs no input: require mixed/held/held/restored raw groups,
+two extra BCS request/cancel stores,19 fresh five-control checks/95 live DWORDs,
+the drained original-entry child, joint original reset/preparation/preservation
+and14 verified alias retirements under unchanged100/300/500ms limits. Safely
+saved/unmounted outcomes return automatically; retained uncertainty or persistence
+failure halts visibly. Collect the matching session before staging anything else.
+The preceding native preparation had only2,621us one-run margin; no repeatability
+or extra-work margin is claimed. All eight obligations(mask255), zero managed
+GPU pages and unaccepted native tear-free status remain unchanged.
 
 ### Current checkpoint: native held-interval source binding accepted
 

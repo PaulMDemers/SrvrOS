@@ -65,6 +65,15 @@ preparation in97,379/100,000us, and all14 aliases retire with full preservation
 and clean saved return. It exports no positive assurance or usable GPU interval;
 milestone1 and all eight completion obligations remain open.
 
+The accepted raw post-reset controls are3/3/3/3/0, so the software borrow alone
+cannot establish a maintained five-engine hold. The separate
+[post-reset BCS re-arm](intel-engine-rehold.md) is locally qualified in source
+`f2a6c116`, release`e83571c874bc17f1`, and installed unarmed for a native trial.
+It requests BCS ready again, drains a sealed original-entry observer child,
+and restores the original mixed state before outer cancellation. Original
+100/300/500ms limits stay fixed; native acceptance and all eight obligations
+remain pending. This is a prerequisite interlock, not milestone1 completion.
+
 ## Ordered implementation milestones
 
 | Milestone | Required implementation and reviewable exit evidence |

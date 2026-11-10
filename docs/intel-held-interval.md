@@ -116,3 +116,11 @@ retire. Engine/display/HDA/backing preservation, source-matched checkpoint,
 saved completion, prior USB files and offline integrity/recovery checks pass.
 The actual exit log is 60,337 bytes. No reboot is armed. The newer PR457 exFAT
 changes are deliberately outside this accepted qualification source.
+
+
+The later [post-reset re-arm candidate](intel-engine-rehold.md) composes this
+observer with a sealed child while all five hardware requests are reasserted.
+The accepted original observation above remains valid for its exact scope;
+the mixed post-reset3/3/3/3/0 state is not five-engine exclusion. New source
+`f2a6c116`/release`e83571c874bc17f1` has host/exact-stage VM qualification only,
+with separate native re-arm acceptance pending and original deadlines unchanged.
