@@ -162,3 +162,25 @@ void sync_timing_snapshot(struct sync_timing_snapshot *out) {
     if(!out)return;
     uint64_t f=lock();*out=observed;unlock(f);
 }
+void sync_timing_gate_snapshot(uint64_t pid,uint64_t start,uint64_t end,
+    struct sync_gate_context *out) {
+    if(!out)return;
+    uint64_t f=lock();*out=(struct sync_gate_context){0};
+    if(!observed.enabled) {unlock(f);return;}
+    out->state=1;
+    out->invalid=observed.invalid || (observed.active && observed.records[slot].invalid);
+    if(!pid || !start || end<start) {out->invalid=1;unlock(f);return;}
+    /* A PID or nearby timestamp alone is never a join. The same still-active
+     * parent must enclose the complete owner interval. No historical maximum
+     * or previous call is substituted when this proof is unavailable. */
+    if(!observed.active || observed.records[slot].pid!=pid || !current.start_us ||
+       current.start_us>start || phase>1) {unlock(f);return;}
+    out->state=2;out->pid=pid;out->id=current.start_us;out->phase=phase;
+    if(!content_active || phase || !content_current.identity ||
+       !content_current.start_us || content_current.start_us>start) {unlock(f);return;}
+    out->state=3;out->slot=content_current.slot;out->identity=content_current.identity;
+    out->inode=content_current.inode;out->size=content_current.size;
+    out->content_start_us=content_current.start_us;
+    for(unsigned i=0;i<SYNC_CONTENT_ROLES;i++)out->io[i]=content_current.io[i];
+    unlock(f);
+}

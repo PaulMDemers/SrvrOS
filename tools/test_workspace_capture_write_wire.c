@@ -7,10 +7,16 @@
 #include "../kernel/src/capture_write_timing_state.h"
 #include "../kernel/src/capture_gate_timing_state.h"
 #define SRVROS_WORKSPACE_LOG_HOST_TEST
+#ifdef SRVROS_CAPTURE_GATE_SYNC_WIRE
+#define timer_monotonic_us workspace_capture_wire_clock
+#endif
 #include "../kernel/src/workspace_log.c"
+uint64_t timer_monotonic_us(void) {return 1000;}
+#ifdef SRVROS_CAPTURE_GATE_SYNC_WIRE
+#undef timer_monotonic_us
+#endif
 static struct capture_write_snapshot fixture;
 void process_capture_write_snapshot(struct capture_write_snapshot *out) {*out=fixture;}
-uint64_t timer_monotonic_us(void) {return 1000;}
 void console_printf(const char *format,...) {
     va_list args;va_start(args,format);
     while(*format) {
@@ -25,9 +31,8 @@ void console_printf(const char *format,...) {
     }
     va_end(args);
 }
-int main(int argc,char **argv) {
-    assert(argc==2);bool all_fast=!strcmp(argv[1],"all-fast");
-    assert(all_fast || !strcmp(argv[1],"mixed"));
+static int emit(bool all_fast,const struct sync_gate_context *context,bool final) {
+    fixture=(struct capture_write_snapshot){0};
     fixture.enabled=1;struct capture_write_record *r=capture_write_touch(&fixture,42,100);assert(r);
     r->attempts=2;
     if(all_fast) {
@@ -36,6 +41,18 @@ int main(int argc,char **argv) {
         capture_write_sample(r,CAP_WRITE_HANDLER,100,106);
         capture_write_fast_result(r,65536,65536);
         capture_write_result(r,100,107,65536,65536);
+    } else if(context) {
+        struct capture_gate_wait gate={.start_us=115,.end_us=170};
+        gate.counts.running_us=55;gate.counts.owned_us=40;gate.counts.scopes=1;
+        gate.owner=(struct capture_gate_owner){.thread=99,.pid=7,.syscall=87,
+            .scope_start_us=120,.scope_end_us=160,.overlap_start_us=120,.overlap_end_us=160,.sync=*context};
+        capture_gate_complete(&r->gate,&gate);
+        capture_write_sample(r,CAP_WRITE_GATE,115,170);
+        capture_write_sample(r,CAP_WRITE_RESERVE,171,172);
+        capture_write_sample(r,CAP_WRITE_COPY,173,174);
+        capture_write_sample(r,CAP_WRITE_HANDLER,170,175);
+        capture_write_sample(r,CAP_WRITE_HANDOFF,175,177);
+        capture_write_result(r,100,180,65536,65536);
     } else {
         struct capture_gate_wait gate={.start_us=101,.end_us=104};
         gate.counts.running_us=3;capture_gate_complete(&r->gate,&gate);
@@ -53,6 +70,16 @@ int main(int argc,char **argv) {
     capture_write_fast_result(r,5464,5464);
     capture_write_result(r,at,at+7,5464,5464);
     r->retired=1;assert(!r->invalid && !fixture.invalid);
-    capture_write_checkpoint(true);
+    capture_write_checkpoint(final);
     return 0;
 }
+
+#ifdef SRVROS_CAPTURE_GATE_SYNC_WIRE
+void workspace_gate_fixture(const struct sync_gate_context *context) {assert(emit(false,context,true)==0);}
+#else
+int main(int argc,char **argv) {
+    assert(argc==2);bool all_fast=!strcmp(argv[1],"all-fast");
+    bool periodic=!strcmp(argv[1],"periodic");
+    assert(all_fast || periodic || !strcmp(argv[1],"mixed"));return emit(all_fast,NULL,!periodic);
+}
+#endif

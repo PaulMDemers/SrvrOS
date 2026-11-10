@@ -1,17 +1,18 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #ifdef SRVROS_WORKSPACE_SYNC_CONTENT_WIRE
 #include "test_workspace_sync_content_wire.h"
 #endif
-static uint64_t irq=0x200,now;
+static uint64_t irq=0x200,now,timer_reads;
 static uint64_t sync_test_irq_save(void){uint64_t f=irq;irq=0;return f;}
 static void sync_test_irq_restore(uint64_t f){irq=f;}
 #define SRVROS_SYNC_TIMING_HOST_TEST
 #include "../kernel/src/sync_timing.c"
 static bool reference=true,busy;
 static unsigned starts,ends;
-uint64_t timer_monotonic_us(void){return now;}
+uint64_t timer_monotonic_us(void){timer_reads++;return now;}
 bool timer_reference_ready(void){return reference;}
 bool usb_storage_timing_aux_begin(void){starts++;if(busy)return false;busy=true;return true;}
 void usb_storage_timing_aux_end(struct usb_storage_timing *s){assert(busy);busy=false;ends++;*s=(struct usb_storage_timing){.valid=true};s->calls[1]=1;s->us[1]=4;}
@@ -142,6 +143,45 @@ static void snapshot_tests(void) {
  assert(!observed.records[0].worst.content.worst.prefix.valid);
  assert(retained.prefix.live_size==65573 && retained.size==65536);
 }
+/* Observer-only: no extra transfers/clock reads and no historical maximum may
+ * stand in for a currently enclosing parent/content operation. */
+static void gate_tests(void) {
+ observed=(struct sync_timing_snapshot){0};content_active=commands_active=tracing=busy=false;
+ usb_fixture_content=(struct usb_storage_content_timing){0};slot=phase=0;
+ struct sync_gate_context q;memset(&q,0xa5,sizeof(q));
+ sync_timing_gate_snapshot(7,120,160,&q);assert(!q.state && !q.identity);
+ observed.enabled=1;now=100;assert(sync_timing_begin(7));
+ sync_timing_gate_snapshot(8,120,160,&q);assert(q.state==1 && !q.pid && !q.id);
+ sync_timing_gate_snapshot(7,120,160,&q);assert(q.state==2 && q.pid==7 && q.id==100 && !q.identity);
+ now=110;assert(sync_timing_content_begin(2,444,42,65536));
+ sync_timing_content_io(3,0,4096,8,true);sync_timing_content_io(2,1,1024,12,true);
+ now=160;uint64_t before_clock=timer_reads;
+ unsigned before_starts=starts,before_ends=ends;
+ struct sync_timing_call parent=current;struct sync_content_call content=content_current;
+ sync_timing_gate_snapshot(7,120,160,&q);
+ assert(q.state==3 && !q.invalid && q.pid==7 && q.id==100 && q.identity==444 && q.slot==2 && q.size==65536 && q.content_start_us==110);
+ assert(q.io[3].reads==1 && q.io[3].read_bytes==4096 && q.io[2].write_us==12 && irq==0x200);
+ assert(timer_reads==before_clock && starts==before_starts && ends==before_ends && !memcmp(&parent,&current,sizeof(parent)) && !memcmp(&content,&content_current,sizeof(content)));
+#ifdef SRVROS_CAPTURE_GATE_SYNC_WIRE
+ extern void workspace_gate_fixture(const struct sync_gate_context *context);
+ workspace_gate_fixture(&q);
+#endif
+ struct sync_gate_context retained=q;
+ sync_timing_content_io(2,1,512,1,true);assert(retained.io[2].write_bytes==1024);
+ sync_timing_gate_snapshot(7,105,160,&q);assert(q.state==2 && !q.identity && !q.io[2].writes);
+ sync_timing_gate_snapshot(7,99,160,&q);assert(q.state==1 && !q.id);
+ sync_timing_gate_snapshot(7,170,160,&q);assert(q.invalid);
+ now=170;sync_timing_content_end(true,false);
+ sync_timing_gate_snapshot(7,120,180,&q);assert(q.state==2 && !q.identity); /* Not the completed maximum. */
+ now=180;sync_timing_files_done(true);
+ sync_timing_gate_snapshot(7,185,190,&q);assert(q.state==2 && q.phase==1 && !q.identity);
+ now=200;sync_timing_end(true);sync_timing_gate_snapshot(7,120,160,&q);assert(q.state==1 && !q.id);
+ now=300;assert(sync_timing_begin(7));sync_timing_gate_snapshot(7,120,160,&q);assert(q.state==1 && !q.id);
+ observed.records[slot].invalid=1;sync_timing_gate_snapshot(7,310,320,&q);assert(q.state==2 && q.invalid);
+ now=330;sync_timing_files_done(true);now=340;sync_timing_end(true);
+ sync_timing_gate_snapshot(7,310,320,NULL);assert(!observed.active && irq==0x200);
+ puts("sync-gate: PASS exact live parent/content binding, no previous-maximum substitution, immutable copied counters, disabled/missing/phase/clock/failure refusal and unchanged observer state");
+}
 int main(void){
  assert(sync_timing_content_role_begin(2)==USB_STORAGE_CONTENT_NO_ROLE);sync_timing_content_role_end(USB_STORAGE_CONTENT_NO_ROLE);
  assert(!sync_timing_begin(1) && !starts);reference=false;assert(!sync_timing_enable());reference=true;
@@ -234,5 +274,6 @@ int main(void){
  now=9520;sync_timing_files_done(true);now=9530;sync_timing_end(true);assert(!observed.records[0].errors);
  struct usb_storage_content_timing missing={.valid=1};usb_storage_content_end(&missing);assert(!missing.valid && !missing.active);
  snapshot_tests();
+ gate_tests();
  puts("sync-timing: PASS opt-in, complete phases, all failure combinations, copied worst content/command retention, PID capacity, nested trace/role refusal and foreign preservation, invalid clock/overflow and incomplete evidence");
 }
