@@ -5039,6 +5039,12 @@ test-core: test-render-timing
 test-render-timing: build/tests/desktop-session-host$(HOST_EXE)
 	$(PYTHON) tools/test_render_timing.py
 
+.PHONY: test-lifecycle-receipts
+test-desktop: test-lifecycle-receipts
+test-lifecycle-receipts: build/tests/desktop-session-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_app_timing.py
+	$(PYTHON) tools/test_lifecycle_cycle_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
+
 .PHONY: test-capture-write-timing
 test-capture-write-timing: build/tests/capture-write-timing-host$(HOST_EXE)
 	$<

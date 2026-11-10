@@ -77,3 +77,21 @@ covers that. The desktop scene regression checks delayed scale2 preparation.
 The poll fixture covers check/enrollment, mutable requests, endpoint revocation,
 HUP, signals, deadlines and fallback. Real scheduler tests and loaded guest/native
 composition remain required alongside these host seams.
+
+## Atomic lifecycle completion evidence
+
+The existing live ready/closed rows remain. At close, one additional bounded
+`desktop-life-cycle: version=1` record carries the exact ready duration captured
+at readiness and the original close duration, with cycle/PID and error count.
+This keeps both observations at a single atomic bootlog publication point when
+the earlier ready row has rolled out and UART writers interleave. It adds no
+history ring, log capacity, clock read or runtime allowance. UART still runs
+outside IRQ exclusion to protect input/audio service.
+
+`lifecycle_receipts` accepts complete original or complete producer-cycle rows,
+requires agreement wherever copies coexist, rejects same-format duplicates,
+invalid version/errors/bounds and reused PIDs, and still requires every cycle.
+It never reconstructs an embedded UART fragment or derives evidence from a
+worst-lifetime summary. App-stage and file-service evidence still use the existing
+strict original-console fallback where saved logs are incomplete. Parser tests
+and an actual C wire fixture cover valid/malformed/missing/conflicting records.

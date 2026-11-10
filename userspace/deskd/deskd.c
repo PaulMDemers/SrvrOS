@@ -101,6 +101,14 @@ static void ui_log(const char *format,...) {
     ui_puts(text);
 }
 #define desk_log(...) ui_log(__VA_ARGS__)
+/* Keep both observed durations together in one bounded console record. A saved
+ * bootlog tail can retain close after the original ready row has rolled out. */
+static void life_cycle_log(unsigned cycle,uint64_t pid,uint64_t ready_elapsed,
+        uint64_t closed_elapsed,unsigned errors) {
+    desk_log("desktop-life-cycle: version=1 cycle=%u pid=%llu ready_elapsed_us=%llu closed_elapsed_us=%llu errors=%u\n",
+        cycle,(unsigned long long)pid,(unsigned long long)ready_elapsed,
+        (unsigned long long)closed_elapsed,errors);
+}
 struct pixel_cache { uint32_t *pixels,width,height; struct life_memory *job; };
 #define DESKD_CACHE_BUDGET DESK_CACHE_BYTES
 struct client {
@@ -2436,7 +2444,7 @@ int main(int argc,char **argv) {
     int audio_io_complete=0,audio_io_finished=0;
     unsigned stress_shots=0,stress_saved=0,stress_shot_seen=0;
     uint64_t stress_shot_due=0,followup_begin=0,followup_pid=0,followup_due=0,followup_elapsed=0;unsigned followup_phase=0;
-    uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
+    uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,life_ready_elapsed=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
     unsigned life_cycles=0,life_phase=0;
     struct loop_trace loop_trace={0};uint64_t loop_report_at=0;
     struct operation_trace failure_operations={0};
@@ -2588,11 +2596,12 @@ int main(int argc,char **argv) {
             }
             if(!life_phase && now>=life_due && (power_trial?now-power_phase.began<48000000:now-audio_io_begin<((uint64_t)audio_io_seconds-12)*1000000)) {
                 static const int roles[]={DESK_APP_TEXT,DESK_APP_FILES,DESK_APP_SYSTEM};
-                life_begin=now;s.current_lifetime=(struct lifetime_trace){.begin_us=now,.cycle=life_cycles};if(!life_first)life_first=now;spawn_app(&s,roles[life_cycles%3],"");life_pid=0;life_phase=1;
+                life_begin=now;life_ready_elapsed=0;s.current_lifetime=(struct lifetime_trace){.begin_us=now,.cycle=life_cycles};if(!life_first)life_first=now;spawn_app(&s,roles[life_cycles%3],"");life_pid=0;life_phase=1;
             } else if(life_phase==1) {
                 if(!life_pid)life_pid=s.last_launch_pid;
                 for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==life_pid && desktop_window_at(&s.scene,i)->pixels && !session_client(&s,i)->awaiting) {
-                    desk_log("desktop-life: ready cycle=%u pid=%llu elapsed_us=%llu\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_begin));
+                    life_ready_elapsed=now-life_begin;
+                    desk_log("desktop-life: ready cycle=%u pid=%llu elapsed_us=%llu\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)life_ready_elapsed);
                     s.current_lifetime.pid=life_pid;s.current_lifetime.ready_us=now;
                     if(now-life_begin>life_ready_max) {life_ready_max=now-life_begin;s.ready_worst=s.current_lifetime;}
                     life_phase=2;life_due=now+500000;break;
@@ -2602,6 +2611,7 @@ int main(int argc,char **argv) {
                 life_close=now;s.current_lifetime.close_request_us=now;life_phase=3;
             } else if(life_phase==3 && child_index(&s,life_pid)<0) {
                 desk_log("desktop-life: closed cycle=%u pid=%llu elapsed_us=%llu errors=%u\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_close),s.child_errors);
+                life_cycle_log(life_cycles,life_pid,life_ready_elapsed,now-life_close,s.child_errors);
                 s.current_lifetime.closed_us=now;
                 if(now-life_close>life_close_max) {life_close_max=now-life_close;s.close_worst=s.current_lifetime;}
                 if(s.ready_worst.pid==life_pid)s.ready_worst=s.current_lifetime;

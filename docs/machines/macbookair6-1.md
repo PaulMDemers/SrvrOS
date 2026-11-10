@@ -11478,3 +11478,21 @@ post-image audit. All byte/receipt validators remain unchanged. The first VM's
 app/file-service evidence uses the existing original-console fallback for a
 PID18 gap; the other fourteen assessments parse from saved logs alone. Do not
 claim complete saved-only app coverage or isolated speed gain from that trial.
+
+The corrected82416edb loaded VM reduces EAGAINs to6/1001 successful writes, with
+330021us sender span and267198us post-allocation reception. It completes22 app
+cycles and clean return within original runtime limits, but strict validation
+rejects one missing ready cycle7/PID18 receipt. The original row is interleaved
+inside UART text and has rolled out of the saved tail; closed7 survives. No
+missing text is reconstructed and no native boot uses that incomplete candidate.
+All matching raw logs and the rejection are retained as historical evidence.
+
+A short complete-cycle producer row now preserves the exact ready elapsed scalar
+at readiness and emits it with original close elapsed/cycle/PID/errors at close.
+Original rows remain. The strict decoder checks all cycles/PIDs, same-format
+duplicates, agreement between copies, zero errors, versions and original10s
+bounds. Seventeen parser tests and actual C wire checks pass. No log cap, runtime
+limit, UART IRQ lock or stored worst summary is used to bypass missing evidence.
+The harness clears stale companion JSON and retains binary evidence before later
+checks. Revalidate the frozen candidate; app-stage/file-service fallback remains
+an explicit existing evidence limit.

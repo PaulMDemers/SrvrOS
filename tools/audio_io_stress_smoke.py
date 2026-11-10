@@ -95,7 +95,7 @@ def main():
     args=parser.parse_args()
     if args.write_iops<0 or args.read_iops<0 or not 0<=args.metadata_files<=4000 or (args.stage and (args.populated_home or args.write_iops or args.read_iops or args.metadata_files)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out=out.with_name(out.name+'-air72') if args.air72 else out;out.mkdir(parents=True,exist_ok=True)
-    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','render-attribution.json','automatic-screenshot.png','automatic-screenshot.bmp','disk.receipt','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json','capture-write-timing.json','sync-timing.json'):
+    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','render-attribution.json','automatic-screenshot.png','automatic-screenshot.bmp','disk.receipt','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json','capture-write-timing.json','sync-timing.json','capture-history.json','capture-transfer.json','sync-content.json','sync-commands.json','sync-command-phases.json','sidecar-equality.json','battery-protocol.json','binary-evidence-error.txt'):
         (out/name).unlink(missing_ok=True)
     for pattern in ('saved-*.log','checkpoint-*.log'):
         for old in out.glob(pattern):old.unlink()
@@ -219,6 +219,17 @@ def main():
                         if name.endswith('.log'):
                             raw=final.read(logdir+'/'+name);snapshots.append(raw)
                             (out/('saved-'+name)).write_bytes(raw)
+                    # Preserve exact binary evidence before any later PASS
+                    # check can unwind and remove the disposable backing image.
+                    try:
+                        directories=re.findall(rb'audio-io: begin seconds=60 directory=/work/([^ ]+) automatic=yes',output)
+                        if len(directories)==1:
+                            (out/'disk.receipt').write_bytes(final.read(directories[0].decode()+'/disk.receipt'))
+                        images=[name for name,_ in final.entries(final.read('srvros-work/Screenshots')) if name.endswith('.bmp')]
+                        if len(images)==1:
+                            (out/'automatic-screenshot.bmp').write_bytes(final.read('srvros-work/Screenshots/'+images[0]))
+                    except StopIteration as error:
+                        (out/'binary-evidence-error.txt').write_text(repr(error)+'\n')
                 expected=b'desktop-audio-io: result=FAIL unmounted=yes' if stage else b'desktop-audio-io: result=PASS unmounted=yes'
                 assert expected in completion_line(output),output[-2000:]
                 if stage:

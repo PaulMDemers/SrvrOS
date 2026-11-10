@@ -1191,6 +1191,12 @@ static void scaled_capture_preparation(void) {
         capture_owner_state(&owner)==CAPTURE_OWNER_TRANSFERRING && !s.capture.pixels && s.capture.reader==-1);
 }
 int main(int argc,char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--lifecycle-cycle-fixture")) {
+        capture_loop_log=0;
+        life_cycle_log(0,42,20,30,0);
+        life_cycle_log(1,43,40,50,0);
+        return 0;
+    }
     if(argc==2 && (!strcmp(argv[1],"--capture-history-fixture") || !strcmp(argv[1],"--capture-transfer-fixture") || !strcmp(argv[1],"--capture-transfer-periodic-fixture"))) {
         struct capture_history h={0};
         for(unsigned i=0;i<3;i++) {
