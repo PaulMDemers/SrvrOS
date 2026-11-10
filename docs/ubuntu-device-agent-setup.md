@@ -1721,7 +1721,7 @@ record own arming. Safe completion saves/returns; unsafe holds still request
 five diagnostic rows before manual poweroff. Do not recollect prior capsules.
 
 
-Pro11,2 November10 fixed Stop-context validation uses runtime776833e0 /
+Pro11,2 November10 fixed Stop-context validation preparation used runtime776833e0 /
 release7c3f531966cbbe0f after the full software audit. Its new collection owner is
 `build/bringup/wifi-http5-stop-validation/run.json`; collect only its matching NEW
 session first once through that directory's `run_root.py return_collect`.
@@ -1732,3 +1732,14 @@ primary and the148-file audit capsule stay immutable. Both USB devices still
 need10seconds disconnected while OFF, then the same ports. The saved record owns
 installation and one-shot arming; preserve Ubuntu, factory and all six accepted
 recoveries. This is hardware validation pending, not new physical acceptance.
+
+That run is now collected FIRST once: session00065fe7075fb554-00 saved a complete
+1896171-byte exit prefix but FAILED at DHCP before DNS/HTTP. One RX fence passed
+without the preceding OWNER hold; two encrypted sends/two authenticated receives
+do not establish DORA. Exact ACK arrival/admission is unobserved. Full parent/
+provider retirement is incomplete, so no new native acceptance follows. Preserve
+the1173-file primary and separate11-file return review unchanged, and never rerun
+its collector. All435 prior files/strict metadata (apart from RTC-bounded marker
+atime), offline allocation/fsck, installed candidate and six recovery backups
+pass. Ubuntu is default and unarmed. No identical retry is scheduled; next work
+is bounded DHCP state/refusal evidence and production/native-path qualification.

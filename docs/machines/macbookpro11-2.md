@@ -1,11 +1,48 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-10. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted; unchanged-image repeat held during terminal provider drain; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-10. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; latest Stop-fixed regression returned with a saved DHCP failure before HTTP; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
+
+The November10 hardware validation of runtime776833e0 / release7c3f531966cbbe0f
+is collected FIRST once, session00065fe7075fb554-00. It **FAILED at DHCP before
+DNS or HTTP**, with a complete1896171-byte exit log and safe software quiescence.
+Do not run `wifi-http5-stop-validation/run_root.py return_collect` again or
+recollect/reseal any earlier attempt. The1173-file primary and separate11-file
+return review survive distclean; primary index is
+`5bcb5fd92b597f2f872c676a625490ded8b57a581b1b1a84780f13670ce9f148`.
+
+One native RX fence completed without the preceding OWNER hold: stream failed0,
+phase9, no pending fence/command,69 loans borrowed/released and zero provider/DMA
+faults. The four-way key activated and was erased, leave was submitted, and the
+child/parked worker retired. This does not prove delayed context publication
+occurred on this controller run. The workload stopped in phase3/reason6 after
+466 bootstrap polls/about2.01seconds, with DHCP/DNS/GO/HTTP-EOF all false.
+Two encrypted publications completed and two authenticated Ethernet frames
+arrived. With no Discover retry, the production path implies Discover followed
+by an Offer-driven Request; the saved aggregate receipts cannot distinguish a
+missing ACK from a rejected/mismatched receive. No plaintext DHCP option or
+parser-refusal receipt was saved. Parent/provider final retirement is incomplete,
+so this is neither full native acceptance nor a successful cleanup regression.
+
+All435 prior file bytes and strict metadata survive except the workspace marker's
+atime inside the intact RTC-derived exit window. Read-only allocation/fsck pass,
+with zero inspection writes/flushes; all six retained recovery payloads equal
+their backups. Candidate7c3 remains installed, factorye47 remains previous and
+Ubuntu remains default with no one-shot armed. No identical retry is scheduled.
+
+Next bounded scope is privacy-preserving DHCP state/admission receipts and
+source-qualified production bootstrap/native-provider tests, before a new
+hardware run. Preserve the existing deadlines, packet validation and ownership
+guards. Actual main40767a50 (PR455 screenshot capture/media verification and
+lifecycle evidence) was fetched and inspected after collection; it changes no
+DHCP/native Wi-Fi/HTTP implementation. It is not merged into the causal candidate.
+Persistent service, live reconnect/UI and2.4GHz hardware remain separate work.
+
+### Completed validation preparation
 
 The user authorized hardware validation on November10 after the completed audit.
 Fixed runtime776833e0 is staged as7c3f531966cbbe0f. All1620 qualified runtime/test
