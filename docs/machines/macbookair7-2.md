@@ -2,6 +2,30 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
+### Active scope: native candidate entry under the held reset borrow
+
+Main`f5043c4a` (PR456 Air6,1 acceptance notes only) is integrated without runtime
+changes beyond the prior main40767a50 baseline. Prior private backing and full
+transfer software qualification are complete and independently backed up; no
+physical run is outstanding. Current installed/recovery payloads stay protected.
+
+The next native boundary is a one-page, read-only GGTT sampler in the existing
+reset provider's exit scope, after both BCS8 pulses and settling but before the
+original preparation borrow returns. It must bind the original active reset,
+preparation, registered borrow and current epoch, capture two high/low/high
+samples of the exact first candidate entry and compare the previously captured
+original. Map its one page read-only/NX/UC before the critical section, validate
+every load and keep all work inside the same100ms preparation/300ms owner/500ms
+outer limits. This is maintained native source binding, not a memory grant.
+
+Use a separate image/strict recipe; preserve all old images and their receipts.
+Touched subsystems: held-interval core/native adapter, isolated boot/staging,
+strict saved-result decoder and host/VM qualification. No GPU PTE writer, new
+reset domain, positive assurance or native managed interval is planned here.
+Native mapping/completion still requires separately derived hardware ownership.
+Checkpoint:`build/air-native-interval-20261110`. No reboot armed; automated
+trial readiness follows exact-stage validation, durable records and recovery.
+
 ### Software-qualified: complete address-range transfer manifests
 
 Source`68489058`, based on main`40767a50`, implements the separate
