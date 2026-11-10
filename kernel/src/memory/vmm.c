@@ -248,66 +248,96 @@ void vmm_init(void) {
         (uint64_t)kernel_pml4);
 }
 
-bool vmm_diagnostic_sole_kernel_root(uint64_t expected) {
+static bool range_refuse(struct vmm_range_observation *d,unsigned phase,unsigned reason,
+    unsigned level,uint64_t checked,uint64_t detail) {
+    if(d)*d=(struct vmm_range_observation){.phase=phase,.reason=reason,.level=level,.checked=checked,.detail=detail};
+    return false;
+}
+static bool diagnostic_sole_root(uint64_t expected,struct vmm_range_observation *d,unsigned phase,uint64_t checked) {
     uint64_t flags;
 #ifdef SRVROS_VMM_HOST_TEST
     flags=vmm_test_rflags();
 #else
     __asm__ volatile ("pushfq; popq %0" : "=r"(flags));
 #endif
-    if ((flags & (1ull<<9)) || !expected || (expected & ~PAGE_MASK) ||
-        expected!=kernel_cr3 || read_cr3()!=expected || !kernel_pml4 ||
-        kernel_pml4!=pmm_phys_to_virt(expected) || address_space_count) return false;
-    return __atomic_load_n(&address_space_occupancy,__ATOMIC_RELAXED) == 0;
+    /* Same short-circuit predicates/order as the boolean guard. Record only
+     * values already read by this check; do not resample a failed context. */
+    if(flags&(1ull<<9))return range_refuse(d,phase,VMM_RANGE_IRQ,0,checked,flags&(1ull<<9));
+    if(!expected || (expected&~PAGE_MASK))return range_refuse(d,phase,VMM_RANGE_ROOT,0,checked,0);
+    if(expected!=kernel_cr3)return range_refuse(d,phase,VMM_RANGE_KERNEL,0,checked,0);
+    if(read_cr3()!=expected)return range_refuse(d,phase,VMM_RANGE_CURRENT,0,checked,0);
+    if(!kernel_pml4)return range_refuse(d,phase,VMM_RANGE_PML4,0,checked,0);
+    if(kernel_pml4!=pmm_phys_to_virt(expected))return range_refuse(d,phase,VMM_RANGE_POINTER,0,checked,0);
+    uint64_t count=address_space_count;
+    if(count)return range_refuse(d,phase,VMM_RANGE_COUNT,0,checked,count);
+    uint64_t occupancy=__atomic_load_n(&address_space_occupancy,__ATOMIC_RELAXED);
+    if(occupancy)return range_refuse(d,phase,VMM_RANGE_OCCUPANCY,0,checked,occupancy);
+    return true;
+}
+bool vmm_diagnostic_sole_kernel_root(uint64_t expected) {
+    return diagnostic_sole_root(expected,NULL,1,0);
 }
 
-bool vmm_diagnostic_contiguous_kernel_range(uint64_t root,uint64_t va,uint64_t pa,uint64_t pages) {
-    if (!pages || pages>4096 || (va&(PAGE_SIZE-1)) || (pa&~PAGE_MASK) ||
-        va>UINT64_MAX-(pages-1)*PAGE_SIZE || pa>PAGE_MASK-(pages-1)*PAGE_SIZE ||
-        !is_canonical(va) || !is_canonical(va+(pages-1)*PAGE_SIZE) ||
-        (va>>47)!=( (va+(pages-1)*PAGE_SIZE)>>47) ||
-        !vmm_diagnostic_sole_kernel_root(root)) return false;
+bool vmm_diagnostic_contiguous_kernel_range_observe(uint64_t root,uint64_t va,uint64_t pa,uint64_t pages,
+    struct vmm_range_observation *d) {
+    if(d)*d=(struct vmm_range_observation){0};
+    if(!pages || pages>4096)return range_refuse(d,0,VMM_RANGE_INPUT,0,0,1);
+    if(va&(PAGE_SIZE-1))return range_refuse(d,0,VMM_RANGE_INPUT,0,0,2);
+    if(pa&~PAGE_MASK)return range_refuse(d,0,VMM_RANGE_INPUT,0,0,3);
+    if(va>UINT64_MAX-(pages-1)*PAGE_SIZE)return range_refuse(d,0,VMM_RANGE_INPUT,0,0,4);
+    if(pa>PAGE_MASK-(pages-1)*PAGE_SIZE)return range_refuse(d,0,VMM_RANGE_INPUT,0,0,5);
+    if(!is_canonical(va) || !is_canonical(va+(pages-1)*PAGE_SIZE))return range_refuse(d,0,VMM_RANGE_INPUT,0,0,6);
+    if((va>>47)!=((va+(pages-1)*PAGE_SIZE)>>47))return range_refuse(d,0,VMM_RANGE_INPUT,0,0,7);
+    if(!diagnostic_sole_root(root,d,1,0))return false;
+    uint64_t done=0;
     /* Boot CPU and IRQ exclusion are observational preconditions, not a lease.
      * No callbacks, writes, allocations or persistent table pointers. Rewalk
      * from the root at every leaf-table boundary; read each PTE exactly once. */
     while (pages) {
         const volatile uint64_t *table=kernel_pml4;
         uint64_t entry=table[pml4_index(va)];
-        if (!(entry&VMM_PAGE_PRESENT) || (entry&PAGE_LARGE)) return false;
+        if(!(entry&VMM_PAGE_PRESENT))return range_refuse(d,2,VMM_RANGE_PML4_PRESENT,1,done,0);
+        if(entry&PAGE_LARGE)return range_refuse(d,2,VMM_RANGE_PML4_LARGE,1,done,0);
         table=entry_table(entry);
-        if (!table || !is_canonical((uint64_t)table)) return false;
+        if(!table || !is_canonical((uint64_t)table))return range_refuse(d,2,VMM_RANGE_TABLE_POINTER,2,done,0);
         entry=table[pdpt_index(va)];
-        if (!(entry&VMM_PAGE_PRESENT)) return false;
+        if(!(entry&VMM_PAGE_PRESENT))return range_refuse(d,2,VMM_RANGE_PDPT_PRESENT,2,done,0);
         uint64_t chunk,physical;
-        if (entry&PAGE_LARGE) {
+        if(entry&PAGE_LARGE) {
             physical=(entry&PAGE_1G_MASK)+(va&0x3fffffff);
             chunk=(0x40000000-(va&0x3fffffff))/PAGE_SIZE;
         } else {
             table=entry_table(entry);
-            if (!table || !is_canonical((uint64_t)table)) return false;
+            if(!table || !is_canonical((uint64_t)table))return range_refuse(d,2,VMM_RANGE_TABLE_POINTER,3,done,0);
             entry=table[pd_index(va)];
-            if (!(entry&VMM_PAGE_PRESENT)) return false;
-            if (entry&PAGE_LARGE) {
+            if(!(entry&VMM_PAGE_PRESENT))return range_refuse(d,2,VMM_RANGE_PD_PRESENT,3,done,0);
+            if(entry&PAGE_LARGE) {
                 physical=(entry&PAGE_2M_MASK)+(va&0x1fffff);
                 chunk=(0x200000-(va&0x1fffff))/PAGE_SIZE;
             } else {
                 table=entry_table(entry);
-                if (!table || !is_canonical((uint64_t)table)) return false;
+                if(!table || !is_canonical((uint64_t)table))return range_refuse(d,2,VMM_RANGE_TABLE_POINTER,4,done,0);
                 chunk=ENTRIES_PER_TABLE-pt_index(va);
-                if (chunk>pages) chunk=pages;
-                for (uint64_t i=0;i<chunk;i++) {
+                if(chunk>pages)chunk=pages;
+                for(uint64_t i=0;i<chunk;i++) {
                     entry=table[pt_index(va)+i];
-                    if (!(entry&VMM_PAGE_PRESENT) || (entry&PAGE_MASK)!=pa+i*PAGE_SIZE) return false;
+                    if(!(entry&VMM_PAGE_PRESENT))return range_refuse(d,2,VMM_RANGE_PTE_PRESENT,4,done+i,0);
+                    if((entry&PAGE_MASK)!=pa+i*PAGE_SIZE)return range_refuse(d,2,VMM_RANGE_PTE_ADDRESS,4,done+i,0);
                 }
                 physical=pa;
             }
         }
-        if (physical!=pa) return false;
-        if (chunk>pages) chunk=pages;
-        pages-=chunk;
-        if (pages) {va+=chunk*PAGE_SIZE;pa+=chunk*PAGE_SIZE;}
+        if(physical!=pa)return range_refuse(d,2,VMM_RANGE_LARGE_ADDRESS,0,done,0);
+        if(chunk>pages)chunk=pages;
+        pages-=chunk;done+=chunk;
+        if(pages){va+=chunk*PAGE_SIZE;pa+=chunk*PAGE_SIZE;}
     }
-    return vmm_diagnostic_sole_kernel_root(root);
+    if(!diagnostic_sole_root(root,d,3,done))return false;
+    if(d)*d=(struct vmm_range_observation){.phase=4,.checked=done};
+    return true;
+}
+bool vmm_diagnostic_contiguous_kernel_range(uint64_t root,uint64_t va,uint64_t pa,uint64_t pages) {
+    return vmm_diagnostic_contiguous_kernel_range_observe(root,va,pa,pages,NULL);
 }
 
 static bool map_page_in_space(uint64_t address_space,

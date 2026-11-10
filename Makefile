@@ -5608,6 +5608,7 @@ test-intel-held-reset: build/tests/intel-engine-held-reset$(HOST_EXE) build/test
 	$(PYTHON) -m unittest discover -s tools -p test_intel_held_reset_staging.py
 	$(PYTHON) -m unittest discover -s tools -p test_intel_held_reset_receipts.py
 	$(PYTHON) -m unittest discover -s tools -p test_intel_held_reset_firmware.py
+	$(PYTHON) -m unittest discover -s tools -p test_intel_admission.py
 
 .PHONY: test-vmm-diagnostic-range
 test-core: test-vmm-diagnostic-range

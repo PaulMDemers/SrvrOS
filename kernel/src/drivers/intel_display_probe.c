@@ -164,6 +164,26 @@ static bool backing_attempted;
 struct backing_adapter {struct adapter common;struct limine_framebuffer *fb;uint64_t physical;uint32_t page;bool mapped;};
 #ifdef SRVROS_INTEL_PREPARE_RESET
 static bool backing_pairs_irq_off(void);
+static struct {
+    uint64_t queries,detail,pages;
+    unsigned code;
+    struct vmm_range_observation query;
+} admission_capture;
+static bool admission_active;
+static void admission_begin(void) {
+    admission_capture=(__typeof__(admission_capture)){0};admission_active=true;
+}
+static bool admission_fail(unsigned code,uint64_t detail) {
+    if(admission_active && !admission_capture.code){admission_capture.code=code;admission_capture.detail=detail;}
+    return false;
+}
+static void admission_report(void) {
+    const struct vmm_range_observation *d=&admission_capture.query;
+    console_printf("intel-admission: v=1 queries=%u code=%u detail=%u pages=%u phase=%u reason=%u level=%u checked=%u value=%u\n",admission_capture.queries,(uint64_t)admission_capture.code,admission_capture.detail,admission_capture.pages,(uint64_t)d->phase,(uint64_t)d->reason,(uint64_t)d->level,d->checked,d->detail);
+}
+#define ADMISSION_FAIL(code,detail) admission_fail(code,detail)
+#else
+#define ADMISSION_FAIL(code,detail) false
 #endif
 static bool backing_range_reserved(uint64_t base,uint64_t bytes) {
     const struct limine_memmap_response *m=memmap_request.response;
@@ -177,10 +197,10 @@ static bool backing_range_reserved(uint64_t base,uint64_t bytes) {
 }
 static bool backing_endpoint(void *opaque,struct intel_backing_endpoint *e) {
     struct backing_adapter *a=opaque;*e=(struct intel_backing_endpoint){0};
-    if(!identity(&a->common,&e->identity))return false;
+    if(!identity(&a->common,&e->identity))return ADMISSION_FAIL(1,0);
     const struct pci_device *host=NULL;
     for(uint64_t i=0;i<pci_device_count();i++){const struct pci_device *p=pci_device_at(i);if(p && !p->bus && !p->device && !p->function)host=p;}
-    if(!host)return false;
+    if(!host)return ADMISSION_FAIL(2,0);
     e->config[0]=pci_read_config32(host,0);e->config[1]=pci_read_config32(host,0x50);
     e->config[2]=pci_read_config32(host,0xb0);e->config[3]=pci_read_config32(host,0xb4);e->config[4]=pci_read_config32(host,0xbc);
     e->config[5]=pci_read_config32(a->common.gpu,0x50);e->config[6]=pci_read_config32(a->common.gpu,0x5c);
@@ -190,16 +210,21 @@ static bool backing_endpoint(void *opaque,struct intel_backing_endpoint *e) {
     if(!f || f->width!=result.fb.width || f->height!=result.fb.height || f->pitch!=result.fb.pitch || f->bpp!=result.fb.bpp ||
        f->memory_model!=result.fb.model || f->red_mask_size!=result.fb.red_size || f->red_mask_shift!=result.fb.red_shift ||
        f->green_mask_size!=result.fb.green_size || f->green_mask_shift!=result.fb.green_shift || f->blue_mask_size!=result.fb.blue_size ||
-       f->blue_mask_shift!=result.fb.blue_shift || va<0xffff800000000000ull)return false;
+       f->blue_mask_shift!=result.fb.blue_shift || va<0xffff800000000000ull)return ADMISSION_FAIL(3,0);
     uint64_t bytes=f->pitch*f->height;
     if(!bytes || va>UINT64_MAX-bytes || bytes>INTEL_BACKING_PTES*4096ull-(va&4095) ||
        !vmm_virt_to_phys_in_space(a->common.cr3,va,&physical) || physical!=result.fb.physical ||
-       physical>UINT64_MAX-bytes || (physical&4095)!=(va&4095))return false;
+       physical>UINT64_MAX-bytes || (physical&4095)!=(va&4095))return ADMISSION_FAIL(4,0);
     uint64_t first=va&~4095ull,last=(va+bytes-1)&~4095ull;
     e->fb_pages=(last-first)/4096+1;
 #ifdef SRVROS_INTEL_PREPARE_RESET
     if(backing_pairs_irq_off()) {
-        if(!vmm_diagnostic_contiguous_kernel_range(a->common.cr3,first,physical&~4095ull,e->fb_pages))return false;
+        struct vmm_range_observation d={0};
+        if(admission_active)++admission_capture.queries;
+        if(!vmm_diagnostic_contiguous_kernel_range_observe(a->common.cr3,first,physical&~4095ull,e->fb_pages,&d)) {
+            if(admission_active && !admission_capture.code){admission_capture.query=d;admission_capture.pages=e->fb_pages;}
+            return ADMISSION_FAIL(7,0);
+        }
     } else
 #endif
     {
@@ -208,15 +233,15 @@ static bool backing_endpoint(void *opaque,struct intel_backing_endpoint *e) {
     }
     }
     const struct limine_memmap_response *m=memmap_request.response;unsigned overlaps=0;
-    if(!m || !m->entries || !m->entry_count || m->entry_count>4096)return false;
+    if(!m || !m->entries || !m->entry_count || m->entry_count>4096)return ADMISSION_FAIL(5,0);
     for(uint64_t i=0;i<m->entry_count;i++) {
         const struct limine_memmap_entry *entry=m->entries[i];
-        if(!entry || !entry->length || entry->base>UINT64_MAX-entry->length)return false;
+        if(!entry || !entry->length || entry->base>UINT64_MAX-entry->length)return ADMISSION_FAIL(5,i);
         if(entry->base<physical+bytes && physical<entry->base+entry->length) {
             overlaps++;if(entry->base<=physical && physical+bytes<=entry->base+entry->length){e->fb_entry_base=entry->base;e->fb_entry_length=entry->length;e->fb_entry_type=entry->type;}
         }
     }
-    if(overlaps!=1 || !e->fb_entry_length)return false;
+    if(overlaps!=1 || !e->fb_entry_length)return ADMISSION_FAIL(6,overlaps);
     uint64_t stolen=e->config[2]&0xfff00000, gms=(e->config[1]>>8)&255,stolen_bytes=gms<<25;overlaps=0;
     if(stolen && gms && gms<=16)for(uint64_t i=0;i<m->entry_count;i++) {
         const struct limine_memmap_entry *entry=m->entries[i];
@@ -419,7 +444,7 @@ static bool backing_pairs(void *ctx,uint32_t offset,unsigned count,uint64_t *out
 }
 #endif
 bool intel_scanout_trial_revalidate(void) {
-    struct backing_adapter a;if(!trial_adapter(&a))return false;
+    struct backing_adapter a;if(!trial_adapter(&a))return ADMISSION_FAIL(100,0);
     const struct intel_backing_io io={&a,backing_endpoint,backing_map,backing_unmap,backing_read,now};
 #if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
     bool ok=intel_display_backing_batched(&trial_after,&result,&io,backing_pairs_irq_off()?backing_pairs:NULL);
@@ -427,9 +452,10 @@ bool intel_scanout_trial_revalidate(void) {
     bool ok=intel_display_backing(&trial_after,&result,&io);
 #endif
     if(trial_after.retained)trial_mapping_fault=true;
-    if(!ok || trial_after.count!=backing.count || trial_after.bytes!=backing.bytes || !trial_endpoint_same(&trial_after.sample[1].endpoint))return false;
-    for(unsigned i=0;i<backing.count;i++)if(trial_after.pte[i]!=backing.pte[i])return false;
-    for(unsigned i=0;i<32;i++)if(trial_after.sample[1].fence[i]!=backing.sample[1].fence[i])return false;
+    if(!ok)return ADMISSION_FAIL(101,trial_after.status);
+    if(trial_after.count!=backing.count || trial_after.bytes!=backing.bytes || !trial_endpoint_same(&trial_after.sample[1].endpoint))return ADMISSION_FAIL(102,0);
+    for(unsigned i=0;i<backing.count;i++)if(trial_after.pte[i]!=backing.pte[i])return ADMISSION_FAIL(103,i);
+    for(unsigned i=0;i<32;i++)if(trial_after.sample[1].fence[i]!=backing.sample[1].fence[i])return ADMISSION_FAIL(104,i);
     return true;
 }
 
@@ -637,18 +663,20 @@ static bool window_guard(void *opaque) {
     struct window_adapter *w=opaque;struct backing_adapter fresh;uint64_t physical,pages[3];
     w->preserved=false;
     if(w->a.mapped || !trial_adapter(&fresh) || fresh.common.gpu!=w->a.common.gpu || fresh.common.cr3!=w->a.common.cr3 ||
-       vmm_virt_to_phys_in_space(w->a.common.cr3,BACKING_VA,&physical) || !intel_scanout_trial_cache_pages(pages))return false;
+       vmm_virt_to_phys_in_space(w->a.common.cr3,BACKING_VA,&physical))return ADMISSION_FAIL(200,0);
+    if(!intel_scanout_trial_cache_pages(pages))return ADMISSION_FAIL(201,0);
     w->cache_rechecks++;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
-    if(!intel_display_test_uc(pages[1]))return false;
+    if(!intel_display_test_uc(pages[1]))return ADMISSION_FAIL(202,0);
 #else
-    if(!intel_cache_probe_uc_page(pages[1]))return false;
+    if(!intel_cache_probe_uc_page(pages[1]))return ADMISSION_FAIL(202,0);
 #endif
     w->preserved=intel_scanout_trial_revalidate();return w->preserved;
 }
 static bool window_endpoint(void *opaque,struct intel_window_endpoint *e) {
     struct window_adapter *w=opaque;struct intel_backing_endpoint b;
-    if(w->a.mapped || !backing_endpoint(&w->a,&b) || !trial_endpoint_same(&b))return false;
+    if(w->a.mapped || !backing_endpoint(&w->a,&b))return ADMISSION_FAIL(203,0);
+    if(!trial_endpoint_same(&b))return ADMISSION_FAIL(204,0);
     *e=(struct intel_window_endpoint){.mmio=result.mmio_base,.gmadr=((uint64_t)b.identity.bar[3]<<32)|b.identity.bar[2],
         .ggtt_bytes=backing.ggtt_bytes,.fence_begin=0,.fence_end=0x2200000,
         .msac=pci_read_config8(w->a.common.gpu,0x62)};
@@ -717,15 +745,15 @@ bool intel_window_handoff_revalidate(const struct scanout_handoff_snapshot *s) {
     struct scanout_handoff_snapshot saved;struct window_adapter w={0};struct intel_window_result fresh={0};
     if(!s || !intel_window_handoff_snapshot(&saved) || s->mmio!=saved.mmio || s->aperture!=saved.aperture ||
        s->aperture_bytes!=saved.aperture_bytes || s->fence_begin!=saved.fence_begin || s->fence_end!=saved.fence_end ||
-       s->first!=saved.first || s->pages!=saved.pages || !trial_adapter(&w.a))return false;
-    for(unsigned i=0;i<INTEL_WINDOW_ENTRIES;i++)if(s->original[i]!=saved.original[i])return false;
-    if(!intel_ggtt_window(&fresh,&(struct intel_window_io){&w,window_guard,window_endpoint,window_map,window_read,window_unmap,now}) ||
-       w.map_uncertain || trial_mapping_fault || !w.preserved || w.cache_rechecks!=5 ||
+       s->first!=saved.first || s->pages!=saved.pages || !trial_adapter(&w.a))return ADMISSION_FAIL(300,0);
+    for(unsigned i=0;i<INTEL_WINDOW_ENTRIES;i++)if(s->original[i]!=saved.original[i])return ADMISSION_FAIL(301,i);
+    if(!intel_ggtt_window(&fresh,&(struct intel_window_io){&w,window_guard,window_endpoint,window_map,window_read,window_unmap,now}))return ADMISSION_FAIL(302,fresh.status);
+    if(w.map_uncertain || trial_mapping_fault || !w.preserved || w.cache_rechecks!=5 ||
        fresh.endpoint.mmio!=window_result.endpoint.mmio || fresh.endpoint.gmadr!=window_result.endpoint.gmadr ||
        fresh.endpoint.msac!=window_result.endpoint.msac || fresh.endpoint.ggtt_bytes!=window_result.endpoint.ggtt_bytes ||
        fresh.endpoint.fence_begin!=saved.fence_begin || fresh.endpoint.fence_end!=saved.fence_end ||
-       fresh.aperture_base!=saved.aperture || fresh.aperture_bytes!=saved.aperture_bytes)return false;
-    for(unsigned n=0;n<2;n++)for(unsigned i=0;i<INTEL_WINDOW_ENTRIES;i++)if(fresh.sample[n].entry[i]!=s->original[i])return false;
+       fresh.aperture_base!=saved.aperture || fresh.aperture_bytes!=saved.aperture_bytes)return ADMISSION_FAIL(303,0);
+    for(unsigned n=0;n<2;n++)for(unsigned i=0;i<INTEL_WINDOW_ENTRIES;i++)if(fresh.sample[n].entry[i]!=s->original[i])return ADMISSION_FAIL(304,n*INTEL_WINDOW_ENTRIES+i);
     return true;
 }
 bool intel_window_handoff_clean(void) {return !trial_mapping_fault;}

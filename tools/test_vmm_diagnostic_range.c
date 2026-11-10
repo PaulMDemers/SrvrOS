@@ -1,4 +1,6 @@
 /* Actual VMM, inherited host stubs; no model of the new walker. */
+static void range_lookup_hook(void);
+#define SRVROS_VMM_RANGE_TEST
 #define main previous_vmm_test_main
 #include "test_vmm_user_range.c"
 #undef main
@@ -6,12 +8,18 @@
 static uint64_t *tables[7];
 static uint64_t root, base=0xffff800000000000ull;
 static const uint64_t physical=0xb0000000;
+static unsigned flip_at;
+static struct vmm_range_observation last;
+static void range_lookup_hook(void) {if(flip_at && table_reads==flip_at)test_rflags|=1ull<<9;}
 static bool check(uint64_t va,uint64_t pa,uint64_t pages) {
  uint64_t saved[7][512];
  for(unsigned i=0;i<7;i++)memcpy(saved[i],tables[i],4096);
  uint64_t before_cr3=test_cr3,before_flags=test_rflags,before_occupancy=address_space_occupancy;
  unsigned before_switch=switches,before_retire=retire_count;
- bool ok=vmm_diagnostic_contiguous_kernel_range(root,va,pa,pages);
+ bool ok=vmm_diagnostic_contiguous_kernel_range_observe(root,va,pa,pages,&last);
+ assert(ok==vmm_diagnostic_contiguous_kernel_range(root,va,pa,pages));
+ if(ok)assert(last.phase==4 && !last.reason && !last.level && !last.detail && last.checked==pages);
+ else assert(last.reason>=1 && last.reason<=17 && last.phase<=3);
  for(unsigned i=0;i<7;i++)assert(!memcmp(saved[i],tables[i],4096));
  assert(test_cr3==before_cr3 && test_rflags==before_flags && address_space_occupancy==before_occupancy);
  assert(switches==before_switch && retire_count==before_retire);
@@ -37,12 +45,14 @@ int main(void) {
  for(unsigned i=0;i<1350;i++) {
   uint64_t *p=&tables[3+i/512][i%512],old=*p;
   *p=old&~VMM_PAGE_PRESENT;assert(!check(base,physical,1350));
-  *p=old^4096;assert(!check(base,physical,1350));*p=old;
+  assert(last.phase==2 && last.reason==VMM_RANGE_PTE_PRESENT && last.level==4 && last.checked==i);
+  *p=old^4096;assert(!check(base,physical,1350));
+  assert(last.reason==VMM_RANGE_PTE_ADDRESS && last.checked==i);*p=old;
  }
  unsigned before=table_reads;
  for(unsigned i=0;i<1350;i++){uint64_t out;assert(vmm_virt_to_phys_in_space(root,base+i*4096,&out) && out==physical+i*4096);}
  unsigned scalar=table_reads-before;before=table_reads;
- assert(check(base,physical,1350));unsigned batched=table_reads-before;
+ assert(vmm_diagnostic_contiguous_kernel_range_observe(root,base,physical,1350,&last));unsigned batched=table_reads-before;
  assert(scalar==5400 && batched==11);
  /* Every ancestor is fresh on the next invocation. */
  for(unsigned n=0;n<3;n++) {
@@ -57,12 +67,22 @@ int main(void) {
  assert(!check(UINT64_MAX&~4095ull,physical,2));
  assert(!check(0x800000000000ull,physical,1));
  assert(!check(0x7ffffffff000ull,physical,2));
- unsigned reads=table_reads;test_rflags|=1ull<<9;assert(!check(base,physical,1) && table_reads==reads);test_rflags&=~(1ull<<9);
- test_cr3=root+4096;assert(!check(base,physical,1) && table_reads==reads);test_cr3=root;
- address_space_count=1;assert(!check(base,physical,1));address_space_count=0;
- address_space_occupancy=1;assert(!check(base,physical,1));address_space_occupancy=0;
- kernel_pml4=tables[1];assert(!check(base,physical,1));kernel_pml4=tables[0];
+ unsigned reads=table_reads;test_rflags|=1ull<<9;assert(!check(base,physical,1) && table_reads==reads);
+ assert(last.phase==1 && last.reason==VMM_RANGE_IRQ && last.detail==512);test_rflags&=~(1ull<<9);
+ test_cr3=root+4096;assert(!check(base,physical,1) && table_reads==reads);assert(last.reason==VMM_RANGE_CURRENT);test_cr3=root;
+ address_space_count=3;assert(!check(base,physical,1));assert(last.reason==VMM_RANGE_COUNT && last.detail==3);address_space_count=0;
+ address_space_occupancy=8;assert(!check(base,physical,1));assert(last.reason==VMM_RANGE_OCCUPANCY && last.detail==8);address_space_occupancy=0;
+ kernel_pml4=tables[1];assert(!check(base,physical,1));assert(last.reason==VMM_RANGE_POINTER);kernel_pml4=tables[0];
+ kernel_pml4=NULL;assert(!check(base,physical,1));assert(last.reason==VMM_RANGE_PML4);kernel_pml4=tables[0];
+ kernel_cr3=root+4096;assert(!check(base,physical,1));assert(last.reason==VMM_RANGE_KERNEL);kernel_cr3=root;
  uint64_t old=root;root|=1;assert(!check(base,physical,1));root=old;
+ assert(last.reason==VMM_RANGE_ROOT);
+ /* Inject context loss on the last table conversion, so the original exit
+  * check must retain the fully checked prefix and the exact failed IF value. */
+ flip_at=table_reads+10;
+ assert(!vmm_diagnostic_contiguous_kernel_range_observe(root,base,physical,1350,&last));
+ assert(last.phase==3 && last.reason==VMM_RANGE_IRQ && last.detail==512 && last.checked==1350);
+ flip_at=0;test_rflags&=~(1ull<<9);
  /* Large leaves and boundary rewalks agree with scalar semantics. */
  tables[2][0]=physical|VMM_PAGE_PRESENT|PAGE_LARGE;
  tables[2][1]=(physical+0x200000)|VMM_PAGE_PRESENT|PAGE_LARGE;

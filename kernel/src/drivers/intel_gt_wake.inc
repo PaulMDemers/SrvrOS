@@ -466,6 +466,9 @@ bool intel_gt_wake_probe_report(void) {
     console_write("intel-wake: bounded cooperative-UEFI wake lease; no engine control, PTE writes or GPU range transfer\n");
 #endif
     uint64_t flags=wake_irq_save();
+#ifdef SRVROS_INTEL_PREPARE_RESET
+    admission_begin();
+#endif
     f.serialized=wake_irq_off();
     if(f.efi64 && f.loader && f.recipe && f.prerequisites && f.serialized && console_sync() &&
        intel_window_handoff_snapshot(&snapshot) && trial_adapter(&a.fw.gt.a)) {
@@ -557,6 +560,9 @@ bool intel_gt_wake_probe_report(void) {
         if(acquired)released=display_access_release(&a.fw.gt.token,clean);
     }
     wake_irq_restore(flags);
+#ifdef SRVROS_INTEL_PREPARE_RESET
+    admission_active=false;
+#endif
     if(released)console_flush();
     bool retained=owner.pinned || a.uncertain || a.fw.uncertain || trial_mapping_fault || (acquired && !released);
     wake_terminal_retained=retained;
@@ -578,6 +584,7 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_PREPARE_RESET
     engine_reads+=prepared.reset.reads;
     complete=complete && prepared.reset.complete;
+    admission_report();
 #endif
 #ifdef SRVROS_INTEL_HELD_REQUESTER
     engine_reads+=prepared.requester.reads;

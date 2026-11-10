@@ -72,6 +72,11 @@ def held_reset_result(text):
  from intel_held_requester import held_result
  from intel_gt_wake import wake_result
  p=prepare_result(text);h=held_result(text);w=wake_result(text)
+ from intel_admission import admission_result
+ admission=admission_result(text)
+ if admission and w:
+  aw=admission['summary'];ws=w['summary']
+  if ws['v']!=17 or aw['code'] and ws['complete'] or ws['before'] and not aw['queries']:raise ValueError('held reset admission binding')
  if not p or not h or not w or w['summary']['v']!=17 or p['summary']['v']!=2:raise ValueError('held reset image/prerequisites')
  s=r['summary'];ps=p['summary'];hs=h['summary'];a=h['action']
  if s['epoch_before']!=ps['epoch'] or s['epoch_after']!=ps['epoch_after'] or s['writes']!=ps['reset_writes']:raise ValueError('held reset preparation binding')
@@ -85,7 +90,7 @@ def held_reset_result(text):
  if not text.index('intel-prepare-action:')<text.index('intel-held-reset-row:')<text.index('intel-held-reset-summary:')<text.index('intel-prepare-summary:')<text.index('intel-clock:'):raise ValueError('held reset receipt ordering')
  if ps['sample_attempts'] and not text.index('intel-held-reset-summary:')<text.index('intel-prepare-row:')<text.index('intel-prepare-summary:'):raise ValueError('held reset preparation row ordering')
  complete=bool(r['core_complete'] and p['complete'] and h['complete'])
- return dict(r,prepare=p,requester=h,complete=complete,native_complete=False,reset_admitted=bool(s['attempts']),dma_drained=False,hardware_ownership=False,managed_range=False,managed_pages=0,physical_tearfree=False)
+ return dict(r,prepare=p,requester=h,admission=admission,complete=complete,native_complete=False,reset_admitted=bool(s['attempts']),dma_drained=False,hardware_ownership=False,managed_range=False,managed_pages=0,physical_tearfree=False)
 
 def native_held_reset_result(text):
  r=held_reset_result(text)

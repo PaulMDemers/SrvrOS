@@ -20,6 +20,24 @@ bool vmm_diagnostic_sole_kernel_root(uint64_t expected);
  * No permission/cache-type, alias-completeness, pin, DMA or SMP assurance. */
 bool vmm_diagnostic_contiguous_kernel_range(uint64_t root, uint64_t virtual_base,
     uint64_t physical_base, uint64_t pages);
+enum vmm_range_reason {
+    VMM_RANGE_IRQ=1,VMM_RANGE_ROOT,VMM_RANGE_KERNEL,VMM_RANGE_CURRENT,
+    VMM_RANGE_PML4,VMM_RANGE_POINTER,VMM_RANGE_COUNT,VMM_RANGE_OCCUPANCY,
+    VMM_RANGE_INPUT,VMM_RANGE_PML4_PRESENT,VMM_RANGE_PML4_LARGE,
+    VMM_RANGE_TABLE_POINTER,VMM_RANGE_PDPT_PRESENT,VMM_RANGE_PD_PRESENT,
+    VMM_RANGE_PTE_PRESENT,VMM_RANGE_PTE_ADDRESS,VMM_RANGE_LARGE_ADDRESS
+};
+/* Optional value-only witness from the original checks; no second probe.
+ * phase0=input,1=entry root,2=walk,3=exit root,4=complete. level1..4 is
+ * PML4..PT; checked is the completed page prefix. detail is input subreason,
+ * IF bit, registered-root count or occupancy, never a retained table pointer. */
+struct vmm_range_observation {
+    uint64_t checked,detail;
+    uint32_t phase,reason,level;
+};
+bool vmm_diagnostic_contiguous_kernel_range_observe(uint64_t root,
+    uint64_t virtual_base,uint64_t physical_base,uint64_t pages,
+    struct vmm_range_observation *);
 void vmm_init(void);
 /* Page operations require canonical virtual addresses; mapping/mutation also
  * require page alignment. Invalid addresses are refused before table access. */

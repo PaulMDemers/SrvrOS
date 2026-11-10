@@ -485,6 +485,12 @@ bool vmm_diagnostic_contiguous_kernel_range(uint64_t space,uint64_t va,uint64_t 
  for(uint64_t i=0;i<pages;i++){uint64_t p;if(!vmm_virt_to_phys_in_space(space,va+4096*i,&p) || p!=physical+4096*i)return false;}
  return true;
 }
+bool vmm_diagnostic_contiguous_kernel_range_observe(uint64_t space,uint64_t va,uint64_t physical,uint64_t pages,struct vmm_range_observation *d) {
+ bool ok=vmm_diagnostic_contiguous_kernel_range(space,va,physical,pages);
+ if(d)*d=ok?(struct vmm_range_observation){.phase=4,.checked=pages}:
+  (struct vmm_range_observation){.phase=1,.reason=VMM_RANGE_COUNT,.detail=3};
+ return ok;
+}
 bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) {
     bool writable=wake_mode && v==BACKING_VA+0x10000;
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
@@ -664,6 +670,22 @@ static void reset(void) {
 }
 int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_PREPARE_RESET
+    if(argc==2 && !strcmp(argv[1],"--admission-witness")) {
+        reset();backing_mode=true;memory.entry_count=3;
+        intel_display_probe_boot(&frame);intel_display_backing_probe_boot(&frame);
+        struct gt_observer g={0};assert(trial_adapter(&g.a));
+        assert(display_access_acquire(0x41444d49,&g.token));wake_irq=true;admission_begin();
+        struct intel_gt_endpoint e={0};range_fail_at=1;
+        assert(!gt_guard_endpoint(&g,&e));
+        assert(admission_capture.queries==1 && admission_capture.code==7 && admission_capture.pages==1350);
+        assert(admission_capture.query.phase==1 && admission_capture.query.reason==VMM_RANGE_COUNT && admission_capture.query.detail==3);
+        assert(!admission_fail(302,8) && admission_capture.code==7 && !admission_capture.detail);
+        range_fail_at=2;assert(!gt_guard_endpoint(&g,&e));
+        assert(admission_capture.queries==2 && admission_capture.query.detail==3);
+        admission_active=false;range_fail_at=3;assert(!gt_guard_endpoint(&g,&e));
+        assert(admission_capture.queries==2);
+        reporting=true;admission_report();assert(display_access_release(&g.token,true));return 0;
+    }
     if(argc==2 && !strcmp(argv[1],"--range-endpoint")) {
         reset();backing_mode=true;memory.entry_count=3;
         intel_display_probe_boot(&frame);intel_display_backing_probe_boot(&frame);

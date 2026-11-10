@@ -194,3 +194,44 @@ recovery/automatic-return checks verify. Expected incomplete markers and
 collector attention remain; no reboot is armed. All ownership checks, existing
 deadlines and255 outstanding completion obligations remain unchanged. No GPU
 memory or tear-free authority follows from this refusal or the host fixtures.
+
+## First failed admission observation
+
+The held-reset image retains one compact `intel-admission: v=1` row from the
+IRQ-excluded wake lifetime. It is zeroed at entry, records the first failed
+backing/window predicate and never overwrites it during later cleanup. Query
+attempts are counted only in that lifetime. Printing happens after IRQ state
+restoration. There is no extra target read, clock sample, table walk, allocation,
+retry, fallback or writer in this instrumentation.
+
+The row contains `queries code detail pages phase reason level checked value`.
+Code0 means no failure recorded, not admission or ownership. Code7 binds the
+original failed `vmm_diagnostic_contiguous_kernel_range_observe` observation;
+`pages` is that query's input count. Other codes carry no query witness.
+Earlier releases may omit the row; the matching new trial collector requires
+it, without changing older receipt classifications or wake17 semantics.
+
+| Code | First failed stage |
+| --- | --- |
+| 1–6 | Backing identity, host bridge, framebuffer layout/translation, memory catalog or overlap |
+| 7 | Original CPU range query, with the exact phase/reason/prefix below |
+| 100–104 | Revalidation adapter, backing core status, endpoint/count, raw PTE or fence comparison |
+| 200–204 | Window adapter, cache-page prerequisites, UC check or endpoint |
+| 300–304 | Original handoff snapshot, entry comparison, window core status, preservation or final entry comparison |
+
+Query phase0 is input refusal (`value`1=count,2=VA alignment,3=PA encoding,
+4=VA overflow,5=PA overflow,6=canonical bounds,7=canonical-half crossing).
+Phase1 is the entry context and phase3 the exit context: reason1=IF set,
+2=invalid root,3=kernel-root mismatch,4=current-CR3 mismatch,5=missing PML4,
+6=PML4 pointer mismatch,7=registered-root count,8=occupied registry. These are
+the original short-circuit checks in their original order, with no later
+resampling to infer a reason. `value` retains only the observed IF bit, count
+or occupancy for those reasons; no root/table pointer is exported.
+
+Phase2 is the walk: reason10/11=PML4 absent/large,12=invalid table pointer,
+13=PDPT absent,14=PD absent,15=PTE absent,16=PTE address mismatch,17=large-leaf
+address mismatch. `level`1..4 is PML4..PT (`0` for large-leaf address mismatch),
+and `checked` is the exact completed page prefix, never a hardware-completion
+claim. A successful observed query internally reports phase4 and the complete
+prefix; only failures enter the receipt. No context gate is relaxed because a
+fixture can reproduce one refusal.
