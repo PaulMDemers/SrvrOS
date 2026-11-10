@@ -1432,6 +1432,7 @@ static struct capture_trace capture_snapshot(const struct session *s,uint64_t no
         .progress_age_us=j->last_progress_us && !j->finished_us?now-j->last_progress_us:0,.bytes=j->progress_bytes,
         .started_us=j->started_us,.finished_us=j->finished_us,
         .cleanup_us=j->cleanup_us,.close_us=j->close_us,.unmap_us=j->unmap_us,.reap_us=j->reap_us,
+        .transfer=j->transfer,
         .cleanup_pending=s->worker && life_state(&s->worker->capture.state)!=LIFE_IDLE,
         .id=j->request.id,.busy=j->busy,.pending=s->capture_pending || (s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE),.phase=j->phase,.frames=j->progress_frames,
         .finished=s->capture_finished,.status=j->response.status};
@@ -2330,6 +2331,7 @@ int main(int argc,char **argv) {
     s.scale=scale;s.display.canvas=&canvas;s.display.info=&info;s.display.explicit_scale=explicit_scale;
     if(s.registry_budget==1)ui_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
+    if(audio_io && desk_capture_job_trace(&s.capture,1))return 1;
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
     s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
     desk_calendar_init(&s.scene.calendar);desk_ui_init(&s.scene.calendar_ui);

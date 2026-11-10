@@ -11198,3 +11198,98 @@ historical query-only318 EFI duplicate was archived only after full independent
 payload/every-file equality and no GRUB/firmware references; its payload and
 accepted history remain retained. Ubuntu is default, one-shot consumed, collector
 disabled and USB unmounted. No reboot is armed; collect-first closeout is complete.
+
+### Pixel-transfer pacing measurement scope (2026-11-09)
+
+Base `0d83d045`, after independently collecting the accepted same-command run.
+Bounded objective: separate desktop send cadence/backpressure, worker allocation
+and pixel reception before choosing a transport owner or scheduling change. The
+1366x768 input requires1026 successful writes and at least257 polls at the
+existing four4096-byte admission bound. The receive phase also includes two
+worker allocations; its six seconds cannot all be attributed to UI cadence.
+
+Touch opt-in capture-job scalar diagnostics, one explicitly opted-in allocation
+ready frame, immutable three-capture companion reports/strict parser and full-size
+deterministic fixtures. Ordinary request/response sizes and save phases remain
+unchanged; a separate request magic selects the diagnostic frame extension.
+Root coordinates user-authorized transport/fixture/parser subagents and owns
+sequential build/VM/native validation. Preserve immutable snapshots, pipe size,
+per-poll/chunk bounds, current prepare/cleanup owners, every save/readback/barrier
+and all runtime limits. No blocking poll is added to the UI; the current shared
+lifecycle worker can block on unrelated app work and is not assigned transport.
+PR301 process/scanout and PR19 networking remain separate. Next checkpoint is
+actual full-size mock-pipe proof, bounded complete saved companions, matched VM
+validation and the unchanged30-minute1% native test. No speed fix is claimed.
+
+### Capture-transfer baseline validated for native trial (2026-11-09)
+
+Frozen source `3d5f3cf7` / ports `39ad9d7`, release `eb3a60e0fbc0b436`, adds
+opt-in software transfer observations without changing capture cadence or owners.
+Only the explicit audio/disk test selects TRACE request magic and one allocation-
+ready frame. Request176/response32 bytes, four4096-byte write attempts per poll,
+one response read, pipe capacity, immutable pixels, existing phase accounting,
+resource retirement and all save/readback/durability checks remain unchanged.
+Ordinary capture keeps its original clocks and frames. A272-byte scalar record
+retains poll/write attempt wall and gaps, byte/outcome counters and worker
+RECEIVE/allocation-ready/ENCODE/final clocks. Clock/overflow faults invalidate
+diagnostics only; malformed auxiliary protocol still fails validation.
+
+The actual full-size sender fixture passes4196352 pixel bytes plus176 request
+bytes through a bounded64KiB pipe model:1026 writes,257 send polls and256 synthetic
+caller intervals. It covers immutable bytes/path, partial headers/body, EAGAIN/
+EINTR, blocked peers, progress bursts, EOF/EPIPE, buffered final output after exit,
+cancellation and retirement after accepted work. Ordinary clock/callback and
+trace-mode normalized input/control equivalence, malformed READY, counter reset,
+overflow and clock-fault tests pass. Nine strict parser tests and actual C
+three-capture wire checks pass, including final-only emission, immutable middle
+completion and malformed bindings. Row maxima608/769/648 bytes fit the unchanged
+1024-byte atomic writer. Request and pixel completion clocks observe syscall
+return, not exact pipe publication; worker reception may precede writer resume.
+
+Matched normal/native/VM/RAM/USB builds, desktop/capture, real process/exFAT sync
+integration and docs pass. Ordinary syscall/keyboard/fork/exec-vectors/yield,
+real USB read-only/write/flush/reload/persistence/input and immutable screenshot/
+readback/Preview/repeat/exit pass. Kernel/process/scheduler/syscall/exFAT/USB/xHCI/
+EC/SBS/lifecycle/save implementation and ports are unchanged. This scoped run
+does not claim another execution of the previous full89 installation tests.
+
+Final-source populated-Home KVM400-write-IOPS stress passes22 app cycles and180
+overlap windows:239893us maximum loop,1000005us launch and1708854us close, with
+zero recorded audio/worker/lifecycle errors and clean allocation/retirement.
+Independent parsing reproduces all16 assessments and all22 app lifetimes from
+saved logs alone, alongside every legacy final receipt in the unchanged64KiB
+tail. Five periodic checkpoints omit the new transfer companions; immutable
+history emits them only in the final report. An earlier source78f1271d validation
+passed the existing original-console/atomic-checkpoint fallback with one missing
+saved app event; that complete evidence is preserved locally. Final-only output
+reduces repeated diagnostic traffic. Neither the differing cycle counts nor
+these two runs establish a causal performance or retention improvement.
+
+The final VM's4096176-byte input has1001 successful writes and166 EAGAIN outcomes,
+1167 attempts, zero partial/interrupted/failed writes and249 exhausted budgets.
+Its5.954783s write-attempt envelope is73.609ms callback wall plus5.881174s gaps.
+Worker allocation window39.657ms plus reception window5.895186s equals the old
+RECEIVE phase5.934843s. Those windows include initial progress/READY emission;
+they are not pure mmap/pipe CPU time. The reply has201 progress frames, one READY
+and one final response:6496 bytes. Final production-to-UI observation is618.284ms;
+complete capture21.278283s. Gaps combine desktop cadence, rendering, scheduling
+and backpressure; VM observations do not establish native cause or a speed gain.
+
+Exact stage passes Q35 native-board refusal/save/unmount/automatic return; native
+positive acceptance remains pending. Next test repeats the original1800-second
+1% audio/disk/app/three-screenshot workload plus60s tail and every original
+500ms/10s/readback/receipt/equality/retirement/protocol/file/allocation requirement.
+All three immutable transfer companions must bind the final history and exact
+Air input size, valid clock partitions and worker allocation/reception split.
+Keep AC/USB attached; no input is required. No blocking UI poll, new transfer
+owner, USB/power policy change or save shortcut is part of this baseline.
+
+Retain accepted1820/690/1991/8caa, isolated2dd and consolec354 installed payloads
+and full independent backups. Only the unreferenced historical first-protocol69
+EFI duplicate may be archived after full manifest/every-file equality and no
+GRUB/firmware references; its full payload/history remain backed up. Four old
+stage-only duplicates were separately checked against complete independent
+payloads and removed, freeing591379208 bytes without deleting installed payloads
+or raw evidence. Baseline796 files, recovery, run/armed state and independent
+payload/trial backups must verify before reboot. Collect the matching return
+first. Original battery failure media/photo remain protected; cause unresolved.
