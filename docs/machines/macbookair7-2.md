@@ -2,6 +2,22 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
+### Active: first failed admission witness for the held-reset image
+
+Main`0d83d045` is integrated; PR452 capture pacing, PR19 networking and PR379
+WebCore stay independent. Source8b91's admission nonpass is collected and backed
+up, no reboot armed. This block adds a compact first-failure observation around
+the existing excluded window/backing revalidation and original CPU range query.
+VMM will expose the exact failed predicate from its original checks, not infer
+it from a later sample. The new image alone retains the witness in fixed memory
+and prints it after the excluded lifetime; every original query, guard, deadline
+and refusal remains. No memory/register authority or fallback is added.
+Scope: VMM observational API/tests, held-reset adapter, strict receipt decoder/
+mutations and current docs; no storage/pacing or network edits. Next is actual
+VMM/adapter fault qualification, image/log/legacy checks and an exact-stage VM
+rehearsal, then a bounded unattended native diagnostic. Hardware root-cause
+attribution and timing improvement remain unproved.
+
 ### Collected: translation retry refuses before wake/reset admission
 
 Source `8b91de5b`, release `b63d89044865e7a8`, session
