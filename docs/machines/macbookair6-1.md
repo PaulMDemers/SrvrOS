@@ -10,6 +10,11 @@ limit. This accepts the isolated diagnostic history, not current register
 access, register writes, root-table walking or device ownership. See the dated
 native result below.
 
+Latest desktop checkpoint: the [role-bound command trial](#native-command-role-attribution-2026-11-09)
+passes the unchanged30-minute stress test. Screenshot completion latency remains
+open; the selected sync's slow commands are larger root-payload writes. No
+performance improvement or hardware cause is claimed.
+
 ## Initial inventory (2026-10-22)
 
 - Actual DMI model: MacBookAir6,1; firmware `122.0.0.0.0`.
@@ -10973,3 +10978,71 @@ payload/trial backup before reboot. Keep AC/USB attached; no input is required.
 Ubuntu remains default recovery. Collect the matching return first; if native
 containment halts, photograph the terminal and restart Ubuntu. Battery fault
 cause remains unresolved, with original failed media/photo retained.
+
+### Native command-role attribution (2026-11-09)
+
+PR448, frozen source `ea27948b` / unchanged ports `39ad9d7`, release
+`690fd179a79d156f`, completes the original1800-second1% automated audio/disk/app/
+three-screenshot workload. One matching session completes1101 app cycles and
+4076 verified disk bursts/1068498944 bytes with345763840 PCM bytes, zero recorded
+underruns, worker errors or lifecycle errors. All52905 loop observations are
+valid and below500ms; maximum120023us. Maximum launch2073260us and close3639435us
+remain below10s. Three exact4196406-byte1366x768 BMPs decode, post-capture Files
+activity and normal exit pass, and worker/cache/battery retirement is clean.
+All778 prior files retain their hashes except expected metadata;787 files and
+3375 allocated clusters remain, with zero leaks, allocation mismatches or errors.
+
+Independent raw-log parsing exactly reproduces the legacy sync/write/gate and
+new content/command/history/protocol assessments. Every original receipt and
+all seven command roles survive the unchanged64KiB saved-log tail. The selected
+PID7 sync lasts2.758309s: file phase2.757906s and device phase403us. Its single
+content visit, identity3719/slot0, has4196406 logical bytes and2.757894s wall.
+Optional inode0 remains unavailable; this identifies the content lifetime and
+sync caller, not a writer PID or path. Root payload callback writes329782 bytes
+in2.365736s (85.78% of content wall); prefix proof reads3866624 bytes in202.895ms.
+All role callback wall is2.746199s, leaving11.695ms residual.
+
+The same content window has354 physical commands:300 reads,44 writes and10
+flushes;4252160 read bytes,468480 write bytes and2.167689s CSW callback wall.
+The15 writes of512 bytes account for43.861ms CSW wall; the29 larger writes
+account for2.114728s. All six CSW callbacks above100ms belong to larger root
+payload writes. Root payload has22 writes/330240 physical bytes, including one
+512-byte write; its WRITE CSWs total2.108302s, of which only2.140ms belongs to
+that512-byte write. Sidecar WRITE CSWs total13.607ms with none above100ms.
+Role6 is explicitly present and empty. Physical and logical byte/count totals
+differ because transport splitting and sector read/modify/write are retained.
+
+The exactly matched worst CSW is a16KiB root-payload WRITE(10),353.884ms wall:
+353.673ms submission-to-software-observation,209us observation-to-resumption,
+14.661ms sampled service gap and9.659ms completion-observation gap. These are
+software wall observations, not exact device completion, CPU time or proof of a
+controller defect. The preceding run's unclassified slow512-byte example does
+not predict this run's dominant role/size. Do not combine unrelated maxima or
+remove small metadata writes based on it.
+
+Complete capture lifetimes are18.798846s,23.601685s and20.066622s, median20.066622s.
+This is a diagnostic run with different interleaving and metadata state, not an
+accepted speed gain over the previous complete baseline. The slowest complete
+capture has9.783633s WRITE/6.718911s receive; capture3 has11.207176s WRITE despite
+a shorter total lifetime. Keep each capture's phases paired with its identity.
+
+Battery705 attempts, zero rejections,10590 queries and19 notifications retire
+with one attach/detach and zero heap/errors/denied operations. Epoch1's final
+protocol marker is clean/captured0 after PCM. No intermittent battery failure
+was reproduced; its cause remains unresolved and original failed media/photo
+remain protected. Unattended1% sound is unassessed; prior separate25% listening
+acceptance remains intact.
+
+Next bounded objective: audit the existing serialized payload-command CBW/data/
+CSW and controller-service path against this native evidence, adding only the
+minimal matched-command timing needed if current observations cannot distinguish
+the remaining wait. Preserve the16384-byte command bound, all original runtime
+limits, deadlines, checkpoints, status validation, DMA quarantine, ownership and
+byte/flush/publication proofs. Prefix work and small metadata writes are not the
+dominant measured cost in this selected call. No speculative transport or power
+policy change is justified. Check current PR19/301 overlap before shared edits.
+
+Matching raw evidence, independent review and full payload/trial backups are
+retained outside build. Current/recovery and retained payload hashes verify;
+Ubuntu is default, one-shot consumed, collector disabled and USB unmounted. No
+reboot is armed. The next turn starts from this collected result.
