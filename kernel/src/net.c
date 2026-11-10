@@ -808,6 +808,7 @@ static bool dhcp_retry_unicast(uint32_t ip) {
  * not cryptographic authentication of a remote DHCP server or relay. */
 static bool dhcp_retry_packet(const uint8_t *p,uint16_t length,uint32_t source,unsigned *type) {
     struct net_dhcp_observation *o=bounded_dhcp_observation();
+    if(o){o->last_message=0;o->last_options=0;}
     if (length<241 || p[0]!=2 || p[1]!=1 || p[2]!=6 || read_be32(p+236)!=0x63825363u)
         return dhcp_rx_refused(NET_DHCP_RX_BOOTP);
     if (read_be32(p+4)!=dhcp_xid) return dhcp_rx_refused(NET_DHCP_RX_XID);

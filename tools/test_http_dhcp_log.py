@@ -49,7 +49,7 @@ class Observation(unittest.TestCase):
  def test_actual_native_provider_emission(self):
   if not BINARY:self.skipTest('explicit optional native OpenSSL fixture required')
   self.assertTrue(Path(BINARY).is_file(),'build native fixture before this test')
-  for which,reason in ((41,0),(42,0),(44,22),(45,8),(53,0)):
+  for which,reason in ((41,0),(42,0),(44,22),(45,8),(53,0),(54,17)):
    with self.subTest(case=which):
     child=subprocess.run([str(BINARY),'--trace-dhcp',str(which)],text=True,capture_output=True,timeout=90)
     self.assertEqual(child.returncode,0,child.stderr[-3000:])

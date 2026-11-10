@@ -94,6 +94,7 @@ static void ap_udp_reply(const uint8_t *p,size_t n){
   if(ap.case_id==52)ap_p16(r+38,7); /* short UDP header */
   ap_p16(r+24,0);ap_p16(r+24,~ap_sum(r+14,20,0));
   if(ap.case_id==53)ap.bad_mic=true;
+  if(ap.case_id==54){v[240]=51;v[241]=0;} /* malformed before option53 */
  }
  ap_enqueue(r,42+body);ap.bad_mic=saved_bad_mic;
 }
@@ -451,6 +452,7 @@ static bool native_dhcp_exercise(void *context,struct mt76_net5 *p){
    case 50:reason=NET_DHCP_RX_OPTION_DUPLICATE;assert(o->acks==1);break;
    case 51:reason=NET_DHCP_RX_IP_FRAGMENT;break;
    case 52:reason=NET_DHCP_RX_UDP_LENGTH;break;
+   case 54:reason=NET_DHCP_RX_OPTION_SHAPE;assert(!o->last_message && o->last_options==32 && !o->acks);break;
    default:assert(0);
   }
   assert(o->rejected==(reason?1u:0u) && o->first_reject==reason && o->last_reject==reason &&
@@ -480,7 +482,7 @@ static void native_dhcp_case(unsigned which){
 }
 int main(int argc,char **argv){
  if(argc==3 && !strcmp(argv[1],"--trace-dhcp")){
-  unsigned which=(unsigned)strtoul(argv[2],NULL,0);assert(which>=41 && which<54);
+  unsigned which=(unsigned)strtoul(argv[2],NULL,0);assert(which>=41 && which<55);
   batch_trace=true;native_dhcp_case(which);return 0;
  }
  if(argc==2 && (!strcmp(argv[1],"--trace-auth-loss") || !strcmp(argv[1],"--trace-auth-negative") || !strcmp(argv[1],"--trace-auth-malformed"))){batch_trace=true;probe_case(!strcmp(argv[1],"--trace-auth-loss")?21:!strcmp(argv[1],"--trace-auth-negative")?22:23);return 0;}
@@ -491,6 +493,6 @@ int main(int argc,char **argv){
   batch_trace=true;assert(xhci_wifi_capture_stack5_probe());return 0;
  }
  if(argc==3 && !strcmp(argv[1],"--case")){unsigned n=(unsigned)strtoul(argv[2],NULL,0);if(n<10)stack_case(n);else if(n<24)probe_case(n);else if(n<41)boundary_case(n);else native_dhcp_case(n);return 0;}assert(argc==1);
- for(unsigned i=0;i<54;i++){pid_t p=fork();assert(p>=0);if(!p){if(i<10)stack_case(i);else if(i<24)probe_case(i);else if(i<41)boundary_case(i);else native_dhcp_case(i);exit(0);}int status=0;assert(waitpid(p,&status,0)==p && WIFEXITED(status) && WEXITSTATUS(status)==0);}
- puts("xhci-stack5: PASS54 cases actual encrypted owner/registry/production IP,quiet RX63/TX liveness,shared HID frontier retry/command-debt refusal,12 native Stop ordering/context cases through real HTTP OWNER check,13 bounded-DHCP observation cases through native encrypted RX plus DHCP/DNS/64exact40-byteICMP/retirement;independent OpenSSL AP,modeled USB/MMIO,no ELF or hardware acceptance");return 0;
+ for(unsigned i=0;i<55;i++){pid_t p=fork();assert(p>=0);if(!p){if(i<10)stack_case(i);else if(i<24)probe_case(i);else if(i<41)boundary_case(i);else native_dhcp_case(i);exit(0);}int status=0;assert(waitpid(p,&status,0)==p && WIFEXITED(status) && WEXITSTATUS(status)==0);}
+ puts("xhci-stack5: PASS55 cases actual encrypted owner/registry/production IP,quiet RX63/TX liveness,shared HID frontier retry/command-debt refusal,12 native Stop ordering/context cases through real HTTP OWNER check,14 bounded-DHCP observation cases through native encrypted RX plus DHCP/DNS/64exact40-byteICMP/retirement;independent OpenSSL AP,modeled USB/MMIO,no ELF or hardware acceptance");return 0;
 }
