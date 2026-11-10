@@ -11822,3 +11822,13 @@ native a139 retains sync owners; preserve those distinct operations rather
 than force matching to the global maximum. Full frozen integration and new
 native observation are pending. No latency fix or new hardware acceptance is
 claimed by this diagnostic-only candidate.
+
+The initial b480 loaded VM completes its workload but fails required app-receipt
+validation: PID19 has incomplete saved phases and interleaved UART fallback
+records. Its failed artifacts are retained. Repeated new correlation rows add
+1,336 bytes per populated periodic observation to the same bounded log. The
+candidate now emits those retained contexts only at final and keeps periodic
+owner output byte-equivalent to the legacy projection, with a directed
+regression. No receipt repair, missing-data waiver, larger log or changed
+workload/timing limit is accepted; the corrected frozen candidate needs a new
+complete loaded run before merge or native preparation.

@@ -31,7 +31,7 @@ void console_printf(const char *format,...) {
     }
     va_end(args);
 }
-static int emit(bool all_fast,const struct sync_gate_context *context) {
+static int emit(bool all_fast,const struct sync_gate_context *context,bool final) {
     fixture=(struct capture_write_snapshot){0};
     fixture.enabled=1;struct capture_write_record *r=capture_write_touch(&fixture,42,100);assert(r);
     r->attempts=2;
@@ -70,15 +70,16 @@ static int emit(bool all_fast,const struct sync_gate_context *context) {
     capture_write_fast_result(r,5464,5464);
     capture_write_result(r,at,at+7,5464,5464);
     r->retired=1;assert(!r->invalid && !fixture.invalid);
-    capture_write_checkpoint(true);
+    capture_write_checkpoint(final);
     return 0;
 }
 
 #ifdef SRVROS_CAPTURE_GATE_SYNC_WIRE
-void workspace_gate_fixture(const struct sync_gate_context *context) {assert(emit(false,context)==0);}
+void workspace_gate_fixture(const struct sync_gate_context *context) {assert(emit(false,context,true)==0);}
 #else
 int main(int argc,char **argv) {
     assert(argc==2);bool all_fast=!strcmp(argv[1],"all-fast");
-    assert(all_fast || !strcmp(argv[1],"mixed"));return emit(all_fast,NULL);
+    bool periodic=!strcmp(argv[1],"periodic");
+    assert(all_fast || periodic || !strcmp(argv[1],"mixed"));return emit(all_fast,NULL,!periodic);
 }
 #endif

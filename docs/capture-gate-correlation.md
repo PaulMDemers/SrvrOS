@@ -42,6 +42,14 @@ owner records retain their existing parser behavior. The new live sample does
 not replace any existing full readback, checked rename, prefix proof, fsync,
 global/device barrier, quarantine or final retirement evidence.
 
+The extension is emitted only at the final checkpoint. Periodic snapshots keep
+the version1 owner and their original byte format, without repeated correlation
+rows competing with app receipts in the unchanged bounded log. The copied
+observation remains in RAM through worker retirement. A halt before final can
+therefore lack this extension; that is incomplete evidence, not a zero-work
+observation. A production-formatter regression requires periodic output to equal
+the legacy projection byte for byte.
+
 `make test-io-scheduler test-sync-timing test-capture-write-timing` covers the
 real scheduler with the real sync producer, actual producer/production formatter/
 strict parser wiring, copied retention and adversarial joins. Controller and
