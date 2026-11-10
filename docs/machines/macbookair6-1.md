@@ -11602,3 +11602,32 @@ no reboot armed. All500ms/10s/workload/tail/pipe/admission/ownership/durability
 requirements remain unchanged. The next bounded work is a deterministic audit
 of filesystem write admission and global content-commit amplification, preserving
 full integrity checks, existing barriers and all limits.
+
+
+## Active storage-admission audit scope (2026-11-10)
+
+Bounded objective: reproduce the accepted d551 screenshot's remaining write
+admission and repeated content-commit cost, then remove only demonstrated
+avoidable work with equivalent integrity/durability semantics. Integration base
+is `f5043c4a`; the prior native run is fully collected and no reboot is armed.
+Scope is process shared-content flushing, exFAT append/replacement/sidecar work,
+existing scheduler-admission contracts, deterministic host process/VFS/exFAT
+fixtures and this unit's result guides. No hardware/profile changes are intended.
+
+Actual open PR301 at `f620b735` edits process lifetime-owner loss; PR19 at
+`5b91f61d` edits network/process lifetime pipe handoff. Neither changes the
+content-flush functions under audit. Keep those scopes intact and inspect actual
+integration again before merging shared code. PR379 remains separate WebCore
+planning. No other-machine task is contacted.
+
+Keep every dirty live content in global sync, both fresh screenshot proofs,
+complete append-prefix checks, checked rename, all fsync/global/device barriers,
+sticky failure/retry rules, ownership/quarantine and scheduler eligibility.
+Do not defer dirty data merely to avoid another writer's sync, widen the stream
+cluster gate, enlarge64KiB writes/16KiB bulk or change500ms/10s/1800s+60s limits.
+Next checkpoint is a real-process/VFS/exFAT replay quantifying callback/byte/
+barrier work and any equivalent reduction, independently reviewed before a
+frozen build/core/loaded/exact-stage/native candidate. Unproved shortcuts do not
+justify another hardware run. Existing accepted payload/recovery and raw failed
+media remain protected; workspace pruning may remove only full-hash-verified
+uninstalled stage duplicates with independent payload backups.
