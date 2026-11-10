@@ -7,6 +7,28 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+### Unchanged-payload repeat preparation
+
+The next bounded objective is one cold repeat of accepted runtime `070089f5` /
+release `c603901d483d3f86`, with the same HTTP workload, firmware, native guards
+and deadlines. No shared runtime subsystem is edited for this comparison. A NEW
+owner, `build/bringup/wifi-http5-dhcp-repeat/run.json`, must capture the current
+439-file workspace, run its exact clone VM, verify explicitly reused source-
+qualified checks, protect all seven factory/accepted payloads including c603,
+and pass installed-record review before arming. Do not reuse the closed
+`wifi-http5-dhcp-diagnostics` collector. The new record owns subsequent arming.
+Both USB devices still require ten seconds disconnected while OFF, then the
+same ports. Guest progress/save/return are automatic; uncertain ownership holds.
+
+Fetched actual main `c3550c82` / PR457 adds the Air6,1 adjacent-extent exFAT
+correction and storage fixtures/documentation. Its filesystem changes are
+inspected but deferred during this unchanged-image reliability comparison;
+merge/requalify them before new runtime/lifecycle implementation. Air7,2 display
+and Air6,1 storage ownership scopes remain separate. The new workflow touches
+only ignored host run/evidence helpers and this unit's published handoff.
+
+### Accepted diagnostic return
+
 The runtime070089f5 / releasec603901d483d3f86 hardware run is now collected
 FIRST once, session00065fed77ae049a-00. **Production DHCP/DNS and the actual HTTP
 process complete**, including the exact4159-byte request,3072-byte body and real
