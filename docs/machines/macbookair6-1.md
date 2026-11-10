@@ -11451,3 +11451,9 @@ gaps. No native performance/acceptance claim is made. Next checkpoint is frozen
 matched images, full core/desktop checks, ordinary and loaded guest composition,
 strict saved receipts, exact-stage rehearsal and verified recovery/install/run
 records before the original30-minute1% automated trial.
+
+The first frozen full-core attempt found a pre-existing PR452 wire-check runner
+that parsed required CLI arguments on unittest import. Its main guard now matches
+the history-wire runner; discovery and the direct actual-C wire test both remain
+required. The interrupted validation is retained locally and is not a pass; rerun
+the full frozen suite after this test-only fix.
