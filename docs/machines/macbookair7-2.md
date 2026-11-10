@@ -4,7 +4,18 @@ Updated: 2026-11-10. State: **active reference machine; partial device acceptanc
 
 ### Active scope: joint display-HDA inhibition and GPU interval claim
 
-Main remains`72d49457`; the qualified claim baseline is`5466bdd3`/docs455ad5e1.
+Main`8271c254`/PR460 is now integrated; its final-only logging/correlation and
+scheduler changes are consumed without changing the live-stress logging policy.
+The qualified joint-core baseline is`36788a91`/docs3f45ca19 on earlier main72d49457.
+Current checkpoint:`build/air-joint-native-20261110`. Implement a distinct native
+adapter, image/recipe and strict raw collector, then qualify exact-stage VM and
+hardware readiness before installation/reboot. Ordinary boot/older recipes stay
+separate. The same original CPU owner must pin HDA and GPU lifetimes; prepare a
+root HDA alias before stores, account logical inspection borrows separately from
+physical alias retirement, and bind command6/2/2/6 phases and both entry vectors.
+No deadline or log budget extension. PR19's latest reconnect geometry correction
+is independent; preserve PR379 WebCore. No new hardware trial is armed.
+
 Implement and qualify a separate combined display-HDA inhibit/GPU claim lifetime under one
 CPU exclusion, with original HDA400ms, preparation100ms, GT300ms and full500ms
 clocks. The actual original HDA token/borrow must stay registered through GPU
