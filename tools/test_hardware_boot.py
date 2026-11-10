@@ -160,6 +160,7 @@ class InstallTests(unittest.TestCase):
     def test_http5_smoke_absent_owner_retired(self):
         from hardware_boot_smoke import verify_http5_absent_radio
         from wifi_http5_log import WORKLOAD_KEYS, RX_HANDOFF_KEYS
+        from http_dhcp_log import PREFIX as DHCP_PREFIX, KEYS as DHCP_KEYS
         prefix='wifi-http5-prepare: prepared=1 retained=1\n'
         bridge='wifi-http5-bridge: version=1 prepared=1 capture_attempted=0 callback_attempted=0 quiescent=1 child_retired=1 worker_finished=1 retained=1\n'
         fields=dict(version=2,complete=0,phase=2,reason=15,prepared=1,worker_allocated=1,attempted=0,
@@ -169,9 +170,10 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(list(fields),WORKLOAD_KEYS.split())
         row='wifi-http5-workload: '+' '.join(k+'='+str(v) for k,v in fields.items())+'\n'
         empty_handoff='wifi-http5-rx-handoff: '+' '.join(k+'='+str(int(k in ('version','retained'))) for k in RX_HANDOFF_KEYS.split())+'\n'
-        log=prefix+bridge+row
+        diagnostic=DHCP_PREFIX+': '+' '.join(k+'=0' for k in DHCP_KEYS.split())+'\n'
+        log=prefix+bridge+diagnostic+row
         verify_http5_absent_radio(log.encode())
-        verify_http5_absent_radio((prefix+bridge+empty_handoff+row).encode())
+        verify_http5_absent_radio((prefix+bridge+empty_handoff+diagnostic+row).encode())
         for bad in (log.replace(prefix,''),log+row,log.replace('child_retired=1','child_retired=0'),
             log.replace('child_observed=1','child_observed=0'),log.replace('child_reaped=1','child_reaped=0'),
             log.replace('child_status=137','child_status=0'),log.replace('receiver_closed=0','receiver_closed=1'),
@@ -185,7 +187,15 @@ class InstallTests(unittest.TestCase):
             empty_handoff.replace('raw_pending=0','raw_pending=1'),empty_handoff.replace('provider_closing=0','provider_closing=1'),
             empty_handoff.replace('endpoint_stop_proof=0','endpoint_stop_proof=1'),empty_handoff.replace('rx_ticket=0','rx_ticket=1'),
             empty_handoff.replace('version=1','version=01'),empty_handoff+'wifi-http5-rx-handoff: duplicate=1\n'):
-            with self.subTest(handoff=changed),self.assertRaises(AssertionError):verify_http5_absent_radio(prefix+bridge+changed+row)
+            with self.subTest(handoff=changed),self.assertRaises(AssertionError):verify_http5_absent_radio(prefix+bridge+changed+diagnostic+row)
+
+        for key in DHCP_KEYS.split():
+            changed=diagnostic.replace(' '+key+'=0',' '+key+'=1')
+            with self.subTest(dhcp=key),self.assertRaises(AssertionError):verify_http5_absent_radio(prefix+bridge+changed+row)
+        for changed in ('',diagnostic+diagnostic,diagnostic.replace('version=0','version=00'),
+                diagnostic.rstrip()+' extra=0\n'):
+            with self.assertRaises(AssertionError):verify_http5_absent_radio(prefix+bridge+changed+row)
+        with self.assertRaises(AssertionError):verify_http5_absent_radio(prefix+diagnostic+bridge+row)
 
     def test_nop5_profile(self):
         version='ram-usb-wifi-fw-v134-laptop-probe-0e535900-auto-return'

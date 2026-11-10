@@ -23,6 +23,7 @@ HFW_PROFILES=tuple(f"ram-usb-v{i}-hfw-" for i in range(1,9))
 def verify_http5_absent_radio(log):
     """Expected VM absence retires unused owners, without a receiver handoff."""
     from wifi_http5_log import WORKLOAD_KEYS, RX_HANDOFF_KEYS
+    from http_dhcp_log import PREFIX as DHCP_PREFIX, KEYS as DHCP_KEYS
     text=log.decode('utf-8') if isinstance(log,bytes) else log
     lines=text.splitlines()
     prepare='wifi-http5-prepare: prepared=1 retained=1'
@@ -30,9 +31,10 @@ def verify_http5_absent_radio(log):
     assert lines.count(prepare)==lines.count(bridge)==1
     rows=[x for x in lines if x.startswith('wifi-http5-workload: ')]
     handoff=[x for x in lines if x.startswith('wifi-http5-rx-handoff: ')]
+    diagnostic=[x for x in lines if x.startswith(DHCP_PREFIX+': ')]
     family=[x for x in lines if x.startswith('wifi-http5')]
-    assert len(rows)==1 and len(handoff)<=1
-    assert family==[prepare,bridge]+handoff+rows, 'unknown, held, duplicate or reordered HTTP absence receipt'
+    assert len(rows)==1 and len(handoff)<=1 and len(diagnostic)==1
+    assert family==[prepare,bridge]+handoff+diagnostic+rows, 'unknown, held, duplicate or reordered HTTP absence receipt'
     def exact(row,prefix,keys):
         assert row.startswith(prefix+': ')
         pairs=[x.split('=',1) for x in row[len(prefix)+2:].split()]
@@ -42,6 +44,7 @@ def verify_http5_absent_radio(log):
         assert all(0<=v<2**64 for v in values.values())
         assert row==prefix+': '+' '.join(k+'='+str(values[k]) for k in keys.split())
         return values
+    assert exact(diagnostic[0],DHCP_PREFIX,DHCP_KEYS)==dict.fromkeys(DHCP_KEYS.split(),0), 'absent radio must not attempt DHCP'
     fields=exact(rows[0],'wifi-http5-workload',WORKLOAD_KEYS)
     required=dict(version=2,complete=0,phase=2,reason=15,prepared=1,worker_allocated=1,
         attempted=0,dhcp=0,retries=0,dns=0,route=0,handoff=0,go=0,child_status=137,
