@@ -3013,10 +3013,14 @@ test-bmp: build/tests/bmp-host$(HOST_EXE)
 build/tests/bmp-host$(HOST_EXE): tools/test_bmp.c userspace/lib/src/bmp.c userspace/lib/include/srvros/bmp.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< userspace/lib/src/bmp.c -o $@
-test-capture: build/tests/capture-job-host$(HOST_EXE) build/tests/capture-save-host$(HOST_EXE) build/tests/capture-transport-host$(HOST_EXE) test-bmp
+test-capture: build/tests/capture-job-host$(HOST_EXE) build/tests/capture-save-host$(HOST_EXE) build/tests/capture-transport-host$(HOST_EXE) build/tests/capture-pacing-host$(HOST_EXE) test-bmp
 	build/tests/capture-job-host$(HOST_EXE)
 	build/tests/capture-save-host$(HOST_EXE)
 	build/tests/capture-transport-host$(HOST_EXE)
+	build/tests/capture-pacing-host$(HOST_EXE)
+build/tests/capture-pacing-host$(HOST_EXE): tools/test_capture_pacing.c userspace/lib/src/desk_capture_job.c userspace/lib/include/srvros/desk_capture_job.h shared/include/srvros/desktop_capture.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< -o $@
 build/tests/capture-job-host$(HOST_EXE): tools/test_capture_job.c userspace/lib/src/desk_capture_job.c userspace/lib/include/srvros/desk_capture_job.h shared/include/srvros/desktop_capture.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< -o $@
@@ -5532,6 +5536,8 @@ test-sync-content: $(LIMINE_PROTOCOL_DIR)/.ready build/tests/desktop-session-hos
 	$(PYTHON) -m unittest discover -s tools -p test_sync_command_phases.py
 	$(PYTHON) -m unittest discover -s tools -p test_capture_history.py
 	$(PYTHON) tools/test_capture_history_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_capture_transfer.py
+	$(PYTHON) tools/test_capture_transfer_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
 test-core: test-sync-content
 
 # Read-only composition under the original five-engine preparation borrow.

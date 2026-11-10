@@ -303,10 +303,12 @@ def main():
                     from sync_commands import sync_commands
                     from sync_command_phases import sync_command_phases
                     from capture_history import capture_history
+                    from capture_transfer import capture_transfer
                     (out/'sync-content.json').write_text(json.dumps(sync_content(snapshots,sync_observed),indent=2)+'\n')
                     (out/'sync-commands.json').write_text(json.dumps(sync_commands(snapshots),indent=2)+'\n')
                     (out/'sync-command-phases.json').write_text(json.dumps(sync_command_phases(snapshots),indent=2)+'\n')
                     (out/'capture-history.json').write_text(json.dumps(capture_history(snapshots,expected=1),indent=2)+'\n')
+                    (out/'capture-transfer.json').write_text(json.dumps(capture_transfer(snapshots,expected=1,expected_pixels=len(image_bytes)-54),indent=2)+'\n')
                     from sidecar_equality import sidecar_equality
                     (out/'sidecar-equality.json').write_text(json.dumps(sidecar_equality(snapshots),indent=2)+'\n')
                     (out/'capture-write-timing.json').write_text(json.dumps(write_timing,indent=2)+'\n')

@@ -306,3 +306,33 @@ is proved dominant. Keep immutable bytes, pipe capacity, per-admission bounds,
 exclusive ownership, cancellation/exit and complete save/readback proofs. Do not
 bundle a speculative storage change or another unchanged-policy native repeat
 without a new question the retained evidence cannot answer.
+
+## Native pixel-transfer baseline and next ownership audit (2026-11-09)
+
+PR452/release `eb3a60e0fbc0b436` passes the unchanged1800s1% workload with1070 app
+cycles,4019 verified disk bursts, three exact BMPs, zero recorded audio underruns,
+129.977ms maximum loop and clean file/allocation/worker retirement. All three
+final transfer companions and histories parse directly from saved logs. See the
+[machine result](machines/macbookair6-1.md#native-capture-transfer-baseline-2026-11-09).
+
+Complete capture times18.841303/25.986970/17.580316s provide median18.841303s;
+no speed gain is accepted. Worker allocation windows84.210/902.179/161.925ms are
+separate from post-allocation reception5.419596/5.828279/5.642890s. Sender
+write-attempt spans5.502525/6.746859/5.770351s contain only8.552/9.123/8.707ms
+syscall wall and5.493973/6.737736/5.761644s gaps. All1026 successful writes and
+256 exhausted budgets fit the existing four4096-byte admission bound. EAGAIN
+counts225/322/252 also show backpressure. These gaps combine UI cadence,
+rendering, scheduling and backpressure; do not label them pure sleep or hardware
+time. Final-production observation510.815/536.822/839.938ms is a separate stage.
+
+Proceed with the stage3 transport ownership audit and deterministic regression:
+can an exclusive readiness-driven transport remove UI-turn dependence without
+blocking render/input or increasing any admission bound? Keep the existing
+shared lifecycle worker out of that path unless its unrelated blocking work is
+proven harmless. Establish the readiness contract, immutable resource handoff,
+worker exit, cancellation, accepted-save completion and retirement before native
+validation. Keep request/response validation, pipe capacity, complete byte proofs,
+barriers, ownership/quarantine, all runtime limits and power/USB policy unchanged.
+Storage write cost remains substantial and independent; the intermittent battery
+cause remains open. No additional unchanged-policy repeat is needed for this
+baseline. No reboot is armed after matching collection and verified backup.
