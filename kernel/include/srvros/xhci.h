@@ -141,6 +141,12 @@ struct mt76_net5;
 bool xhci_wifi_capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *context);
 /* Explicit v137 production DHCP/DNS/64 exact ICMP workload and saved receipts. */
 bool xhci_wifi_capture_stack5_probe(void);
+/* Explicit v139: prepare before RF/key/provider ownership; finish retires an
+ * unrun child/worker before any disk save. Uncertain callback never returns to
+ * legacy unconditional key erasure. Native source/IO are retained statically. */
+bool xhci_wifi_http5_prepare(void);
+bool xhci_wifi_capture_http5(void);
+bool xhci_wifi_http5_finish_capture(bool parent_complete);
 bool xhci_wifi_capture_vco5(void);
 bool xhci_wifi_capture_dac5(void);
 bool xhci_wifi_capture_rf_g20(void);

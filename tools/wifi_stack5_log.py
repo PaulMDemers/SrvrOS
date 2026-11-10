@@ -47,7 +47,11 @@ def boot_identity(log, release=None):
 # Raw transport checks retain the historical event/typed lease/fence/context
 # rules. Only production request counts/lengths and the honest unused probe
 # differ. The thousand-line RF chain is reused without any projection/rewrite.
-def _owner(log, lines, rows):
+_HTTP_TRANSPORT = object()  # Internal trusted profile,never a boot token or inferred log value.
+
+def _owner(log, lines, rows, *, profile=None):
+    require(profile is None or profile is _HTTP_TRANSPORT, 'unknown raw transport profile')
+    http = profile is _HTTP_TRANSPORT
     pos = 1
     def take(prefix, keys):
         nonlocal pos
@@ -95,7 +99,7 @@ def _owner(log, lines, rows):
         require((cc==1 and res==0) if d==0 else (cc in (1,13) and res<=4096),'wrong stream completion/residue')
         tds.append(a)
     requests=counts[0]-5
-    require(67<=requests<=75 and 71<=counts[1]<=252,'missing production requests/replies')
+    require((8<=requests<=75 and 8<=counts[1]<=252) if http else (67<=requests<=75 and 71<=counts[1]<=252),'missing production requests/replies')
     selected=[];data=[];rx_receipts=[];tickets=set();last_ticket=[0,0]
     while pos<len(rows) and rows[pos].startswith(('wifi-stream5-data:','wifi-stream5-rx:')):
         is_rx=rows[pos].startswith('wifi-stream5-rx:')
@@ -112,7 +116,7 @@ def _owner(log, lines, rows):
             n=len(data)
             require(n<requests and a['token']==n+5 and a['pn']==n+1 and 76<=a['bytes']<=1576 and a['bytes']%4==0,'missing/reused PN or wrong production TX envelope')
             data.append(a)
-    require(len(data)==requests and 2<=len(rx_receipts)<=8 and any(a['token']<=63 for a in rx_receipts) and any(a['token']>63 for a in rx_receipts),'missing typed encrypted data before/after RX fence')
+    require(len(data)==requests and 2<=len(rx_receipts)<=8 and (http or (any(a['token']<=63 for a in rx_receipts) and any(a['token']>63 for a in rx_receipts))),'missing typed encrypted data before/after RX fence')
     fences=[];wraps=[0,0]
     while pos<len(rows) and rows[pos].startswith('wifi-stream5-fence:'):
         a=take('wifi-stream5-fence','i p t d q e s c sp ss sc sq used')
@@ -125,9 +129,10 @@ def _owner(log, lines, rows):
             require(d==fences[-1]['d']-8 and a['q']==rings[d]|(1^((wraps[d]+1)&1)) and a['sp']==a['ss']==a['sc']==a['sq']==0,'wrong opposite-cycle rebase')
             wraps[d]+=1
         fences.append(a)
-    require(2<=sum(wraps)<=4 and wraps[0]==1 and 1<=wraps[1]<=3 and len(fences)==2*sum(wraps),'missing real TX/RX fences')
-    for boundary in range(63,63*wraps[1]+1,63):
-        require(any(a['token']<=boundary for a in rx_receipts) and any(a['token']>boundary for a in rx_receipts),'missing authenticated data across RX boundary')
+    require(((0<=sum(wraps)<=4 and 0<=wraps[0]<=1 and 0<=wraps[1]<=3) if http else (2<=sum(wraps)<=4 and wraps[0]==1 and 1<=wraps[1]<=3)) and len(fences)==2*sum(wraps),'missing real TX/RX fences')
+    if not http:
+        for boundary in range(63,63*wraps[1]+1,63):
+            require(any(a['token']<=boundary for a in rx_receipts) and any(a['token']>boundary for a in rx_receipts),'missing authenticated data across RX boundary')
     sync=[]
     for i,(kind,d) in enumerate(((12,8),(16,9),(15,9),(15,8),(16,9),(12,8))):
         a=take('wifi-stream5-sync','i p e t d q slot cc delta')
@@ -154,6 +159,11 @@ def _owner(log, lines, rows):
     for d in (0,1):
         a=take('wifi-stream5-stop','d p s c q');cc=a['s']>>24;res=a['s']&0xffffff
         posted=counts[d]+int(cc!=27);n=posted%63 if cc==27 else (posted-1)%63;cycle=1^(((posted if cc==27 else posted-1)//63)&1)
+        if http:
+            # An exact empty frontier may be position63 before a rebase,or
+            # position0 after an OBSERVED rebase. Pending TDs are only0..62.
+            n=posted-63*wraps[d]-(cc!=27);cycle=1^(wraps[d]&1)
+            require(0<=n<=(63 if cc==27 else 62),'frontier differs from observed native fences')
         expected=rings[d]+16*n
         require(a['d']==d and a['s']<=0xffffffff and transfer(a['c'],d) and a['p']==expected and a['q']==a['p']|cycle and a['q']==contexts[5,d][2]|contexts[5,d][3]<<32 and cc in ((27,) if d==0 else (26,27,28)) and res<=4096 and (cc!=27 or res==0),'wrong final stopped frontier')
         stops.append((a,posted))

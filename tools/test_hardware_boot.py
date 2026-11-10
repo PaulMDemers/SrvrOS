@@ -70,6 +70,21 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError):boot.stage(wifi_stack5=True)
         with self.assertRaises(ValueError):boot.stage(wifi_stack5=True,wifi_stream5=True,wifi_stream5_dhcp=True)
 
+    def test_http5_profile(self):
+        version='ram-usb-wifi-fw-v139-laptop-probe-12345678-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v139-','v138-'))
+        self.assertEqual(boot.limine_config('0123456789abcdef',version),base.replace('srvros.wifi-stack5=1','srvros.wifi-stack5=1 srvros.wifi-http5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for bad in (version.replace('-auto-return',''),):
+            with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',bad)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+        for args in ({'wifi_http5':True},{'wifi_http5':True,'wifi_stack5':True}):
+            with self.assertRaises(ValueError):boot.stage(**args)
+    def test_http5_stage_complete_parent(self):self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,http=True)
+    def test_http5_cli_refusals(self):
+        for args in (['stage'],['install','--wifi-stack5','--wifi-cal5-cleanup'],['stage','--wifi-stack5']):
+            with patch('sys.argv',['hardware_boot.py',*args,'--wifi-http5']),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):boot.main()
+
     def test_cal5_cleanup_profile(self):
         version='ram-usb-wifi-fw-v138-laptop-probe-12345678-auto-return'
         config=boot.limine_config('0123456789abcdef',version)
@@ -115,19 +130,48 @@ class InstallTests(unittest.TestCase):
         import ast
         source=Path(boot.__file__).with_name('hardware_boot_smoke.py')
         main=next(n for n in ast.parse(source.read_text()).body if isinstance(n,ast.FunctionDef) and n.name=='main')
-        names={'wifi_firmware','wifi_ui_capture','wifi_5ghz_prereq','wifi_calibration','wifi_capture','wifi_nop5','wifi_stream5','wifi_stream5_dhcp','wifi_stack5'}
+        names={'wifi_firmware','wifi_ui_capture','wifi_5ghz_prereq','wifi_calibration','wifi_capture','wifi_nop5','wifi_stream5','wifi_stream5_dhcp','wifi_stack5','wifi_http5'}
         nodes=[n for n in main.body if (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in names for t in n.targets)) or (isinstance(n,ast.If) and isinstance(n.test,ast.Name) and n.test.id in ('wifi_nop5','wifi_stream5'))]
         code=compile(ast.Module(body=nodes,type_ignores=[]),str(source),'exec')
-        for version in (128,130,134,135,136,137,138):
+        for version in (128,130,134,135,136,137,138,139):
             config=boot.limine_config('0123456789abcdef',f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return')
             (self.root/'limine.conf').write_text(config)
             env={'probe':True,'manifest':{'config_version':f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return'},'source':self.root}
             exec(code,env)
             self.assertTrue(env['wifi_capture'] and env['wifi_firmware'] and env['wifi_5ghz_prereq'])
-            self.assertEqual(env['wifi_stream5'],version in (135,136,137,138))
+            self.assertEqual(env['wifi_stream5'],version in (135,136,137,138,139))
+            self.assertEqual(env['wifi_stack5'],version in (137,138,139))
+            self.assertEqual(env['wifi_http5'],version==139)
         for invalid in (config.replace('srvros.wifi-stream5=1','srvros.wifi-stream5=1 srvros.wifi-wpa5=1'),config.replace('srvros.wifi-stream5=1','srvros.wifi-stream5=10')):
             (self.root/'limine.conf').write_text(invalid)
             with self.assertRaises(AssertionError):exec(code,env)
+
+    def test_http5_smoke_tail_budget(self):
+        import ast
+        source=Path(boot.__file__).with_name('hardware_boot_smoke.py')
+        tree=ast.parse(source.read_text())
+        choices=[n.test.left for n in ast.walk(tree) if isinstance(n,ast.Assert) and isinstance(n.test,ast.Compare) and
+            isinstance(n.test.left,ast.IfExp) and any(isinstance(x,ast.Constant) and x.value==b'tail_limit=4194304' for x in ast.walk(n.test.left))]
+        self.assertEqual(len(choices),1)
+        code=compile(ast.Expression(choices[0]),str(source),'eval')
+        for version,limit in ((135,2097152),(136,2097152),(137,2097152),(138,4194304),(139,4194304)):
+            self.assertEqual(eval(code,{'manifest':{'config_version':f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return'}}),f'tail_limit={limit}'.encode())
+
+    def test_http5_smoke_absent_owner_retired(self):
+        from hardware_boot_smoke import verify_http5_absent_radio
+        prefix='wifi-http5-prepare: prepared=1 retained=1\n'
+        bridge='wifi-http5-bridge: version=1 prepared=1 capture_attempted=0 callback_attempted=0 quiescent=1 child_retired=1 worker_finished=1 retained=1\n'
+        fields=dict(version=1,complete=0,phase=2,reason=15,prepared=1,worker_allocated=1,attempted=0,
+            dhcp=0,retries=0,dns=0,route=0,handoff=0,go=0,child_status=137,child_observed=1,child_reaped=1,child_retired=1,
+            tcp_empty=0,provider_drained=0,worker_finished=1,quiescent=1,refs_scrubbed=1,test_override=0,
+            request_bytes=4159,body_bytes=3072,body_eof=0,bootstrap_polls=0,worker_polls=0,worker_turns=0,supervisor_turns=0,elapsed_us=0,retained=0)
+        row='wifi-http5-workload: '+' '.join(k+'='+str(v) for k,v in fields.items())+'\n'
+        log=prefix+bridge+row
+        verify_http5_absent_radio(log.encode())
+        for bad in (log.replace(prefix,''),log+row,log.replace('child_retired=1','child_retired=0'),
+            log.replace('worker_finished=1','worker_finished=0'),log.replace('quiescent=1','quiescent=0'),
+            log.replace('go=0','go=1'),log.replace('body_eof=0','body_eof=1'),log.replace('refs_scrubbed=1','refs_scrubbed=0')):
+            with self.assertRaises(AssertionError):verify_http5_absent_radio(bad)
 
     def test_nop5_profile(self):
         version='ram-usb-wifi-fw-v134-laptop-probe-0e535900-auto-return'
@@ -242,7 +286,7 @@ class InstallTests(unittest.TestCase):
 
     def test_power5_stage_complete_parent(self):self._stage_power5_child(False)
     def test_handoff5_stage_complete_parent(self):self._stage_power5_child(True)
-    def _stage_power5_child(self,handoff,peer=False,tx=False,join=False,eapol=False,wpa=False,data=False,provider=False,reuse=False,nop=False,stream=False,dhcp=False,stack=False,cleanup=False):
+    def _stage_power5_child(self,handoff,peer=False,tx=False,join=False,eapol=False,wpa=False,data=False,provider=False,reuse=False,nop=False,stream=False,dhcp=False,stack=False,cleanup=False,http=False):
         flags="mac_startup mcu_probe radio_reset write_probe pair_probe timing_probe mac_basics mac_format bbp_ready bbp_core bbp_front bbp_agc bbp_batch compact agc_more agc_next agc_tail rxc_start rxc_tail txbe_start bbp_table mac_route mac_policy mac_policy_validate mac_protect mac_contention mac_txsw mac_beacon mac_vht mac_buffer mac_fce_observe mac_fce_validate mac_ampdu bbp_after_mac bbp_switch dcoc skey wcid mac_tail mac_fixed efuse_map mac_address mac_address_validate mac_board ant_snapshot ant_init rf_probe rf_table rf_bank5 rf_bank6 rf_vga 5ghz_prereq 5ghz_band 5ghz_channel a20_cycle frontend pa5_cycle bbp5_cycle held_channel trim5_channel dac5 vco5 channel_vco5 cal5 discovery5 power5".split()
         args={'wifi_'+k:True for k in flags}
         if handoff:args['wifi_handoff5']=True
@@ -258,6 +302,7 @@ class InstallTests(unittest.TestCase):
         if dhcp:args['wifi_stream5_dhcp']=True
         if stack:args['wifi_stack5']=True
         if cleanup:args['wifi_cal5_cleanup']=True
+        if http:args['wifi_http5']=True
         if wpa or stream:
             from wifi_wpa5_credentials import MAGIC
             if wpa:args['wifi_wpa5']=True
@@ -274,7 +319,7 @@ class InstallTests(unittest.TestCase):
             release=boot.stage(**args)
             add.assert_called_once()
             manifest=boot.verify(self.stage/release)
-        self.assertEqual(manifest['config_version'],f'ram-usb-wifi-fw-v{138 if cleanup else 137 if stack else 136 if dhcp else 135 if stream else 134 if nop else 133 if reuse else 132 if provider else 131 if data else 130 if wpa else 128 if eapol else 127 if join else 126 if tx else 125 if peer else 124 if handoff else 123}-laptop-probe-12345678-auto-return')
+        self.assertEqual(manifest['config_version'],f'ram-usb-wifi-fw-v{139 if http else 138 if cleanup else 137 if stack else 136 if dhcp else 135 if stream else 134 if nop else 133 if reuse else 132 if provider else 131 if data else 130 if wpa else 128 if eapol else 127 if join else 126 if tx else 125 if peer else 124 if handoff else 123}-laptop-probe-12345678-auto-return')
         self.assertIn('srvros.wifi-power5=1',(self.stage/release/'limine.conf').read_text())
         if handoff:self.assertIn('srvros.wifi-handoff5=1',(self.stage/release/'limine.conf').read_text())
         if peer:self.assertIn('srvros.wifi-peer5=1',(self.stage/release/'limine.conf').read_text())

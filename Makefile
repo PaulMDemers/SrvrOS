@@ -6398,3 +6398,16 @@ build/tests/httpget-wifi-exact-host$(HOST_EXE): tools/test_httpget_wifi_exact.c 
 build/tests/init-network-probe-host$(HOST_EXE): tools/test_init_network_probe.c userspace/init/network_probe.c userspace/init/network_probe.h userspace/lib/src/sys.c $(KERNEL_HEADERS) userspace/lib/include/srvros/sys.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DSRVROS_SYS_HOST_TEST -I shared/include -idirafter userspace/lib/include $< userspace/init/network_probe.c userspace/lib/src/sys.c -Wl,--gc-sections -o $@
+
+.PHONY: test-xhci-http5-bridge
+test-core: test-xhci-http5-bridge
+test-xhci-http5-bridge: build/tests/xhci-http5-bridge-host$(HOST_EXE)
+	$<
+build/tests/xhci-http5-bridge-host$(HOST_EXE): tools/test_xhci_wifi_http5_bridge.c kernel/src/drivers/xhci_wifi_http5.inc $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
+
+.PHONY: test-wifi-http5-log
+test-core: test-wifi-http5-log
+test-wifi-http5-log: build/tests/xhci-stack5-host$(HOST_EXE) build/tests/http-network-probe-host$(HOST_EXE) build/tests/xhci-http5-bridge-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p 'test_wifi_http5_log.py'

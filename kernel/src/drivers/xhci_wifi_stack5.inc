@@ -132,3 +132,5 @@ bool xhci_wifi_capture_stack5_probe(void){
  /* All result emission follows key/endpoint/MAC/parent closure;never live. */
  mt76_stack5_probe_emit(&wifi_stack5_probe_result);return good;
 }
+
+#include "xhci_wifi_http5.inc"
