@@ -31,13 +31,25 @@ managed GPU pages and unaccepted physical tear-free status remain unchanged.
 A software reset/preparation borrow is not proof that all five hardware requests
 remain asserted after BCS reset or that firmware/DMA/cache/readers have retired.
 
-Next integrate the queued main`c3550c82`/PR457 exFAT contiguous-append/storage
-audit and rerun affected local checks. It is absent from this accepted payload;
-new-source results must remain distinct. Subsequent native memory work still
-needs a maintained exclusive interval provider and generation-specific
-write/invalidation/reader-retirement proof before adding any PTE writer.
+Main`c3550c82`/PR457 exFAT contiguous-append/storage audit is now integrated
+without conflict as`64cb597c`. The full local build/check-host/test-core/check-docs
+gate (installed-root explicitly omitted) and all23-image isolation checks pass.
+The native reader/observer objects are byte-identical to the accepted source.
+Exact integrated QEMU release`3345df610e0b0d7d` passes unsupported-GPU refusal
+with zero target loads, prerequisite/result persistence, offline file bytes,
+unmount and automatic safe return. Its stage is retained but not installed;
+current/recovery and the physical acceptance above stay on their exact sources.
+PR457's143 fault-cut comparisons retain81 baseline-known strict allocation
+repair nonpasses; these are not new crash-atomicity or native performance claims.
+Checkpoint:`build/air-held-interval-integration-20261110`; evidence is independently
+verified outside build. Actions stay disabled; PR19/PR379 remain independent.
+
+Next native memory work needs a maintained exclusive interval provider and
+generation-specific write/invalidation/reader-retirement proof before adding
+any PTE writer. The accepted original-entry observation is not that permission.
 Touched GPU subsystems remain held-interval core/adapter, isolated boot/staging
-and strict collectors; no sibling profile or firmware gate is widened.
+and strict collectors; no sibling profile or firmware gate is widened. No new
+hardware trial is armed or justified by this integration alone.
 
 ### Prior readiness: original GGTT entry in held reset
 
