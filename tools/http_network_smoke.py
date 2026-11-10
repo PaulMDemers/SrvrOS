@@ -12,6 +12,7 @@ Standalone --self-test retains an ordinary random unprivileged loopback port.
 import argparse,base64,hashlib,json,os,re,socket,subprocess,sys,tempfile,threading,time
 from pathlib import Path
 from http_network_dns_fixture import DNSPeer,configure_private_resolver,dns_response,capture_proof,QUESTION,verify_local_routes
+from http_dhcp_log import check as check_dhcp_observation
 BODY=bytes(ord('A')+i%26 for i in range(3072))
 REQUEST=b'GET /base64/'+base64.b64encode(BODY)+b' HTTP/1.0\r\nHost: httpbin.org\r\nConnection: close\r\n\r\n'
 RESPONSE=b'HTTP/1.0 200 OK\r\nContent-Length: 3072\r\nConnection: close\r\n\r\n'+BODY
@@ -77,6 +78,8 @@ def check_part(part,real_dns=False):
  assert len(receipt)==1
  reduced=b'\n'.join(x for x in lines if x.startswith(b'wifi-http5-workload: '))+b'\n'+receipt[0]+b'\n'
  w,r=check_receipts(reduced,real_dns)
+ d=check_dhcp_observation(part.decode('utf8'),require_success=True)
+ assert d['discovers']==1+w['retries'] and d['polls']<=w['bootstrap_polls'] and d['elapsed_us']<=w['elapsed_us']
  for k in ('complete','real_elf','real_sockets','clock_ready','worker_finished','rings_stable','provider_dma_retained','receiver_closed'):assert r[k]==1,(k,r[k])
  assert r['pre_go_us']>=1000000 and r['pre_go_ticks']>=100
  assert r['tick_end']>r['tick_start'] and r['worker_identity'] and r['supervisor_identity'] and r['worker_identity']!=r['supervisor_identity']
@@ -88,7 +91,7 @@ def check_part(part,real_dns=False):
  assert r['rx_ready'] in (0,1)
  assert b'http-network-vm: PASS actual ELF exact HTTP worker and terminal TCP proof; native Wi-Fi untested' in part
  assert b'http-network-vm: FAIL' not in part and b'exception:' not in part
- return {'workload':w,'guest':r}
+ return {'workload':w,'guest':r,'dhcp_observation':d}
 def isolated_namespace():
  # Refuse host/root namespaces BEFORE link changes or binding. The explicit
  # inside flag alone grants no authority. A normal invocation self-execs unshare.

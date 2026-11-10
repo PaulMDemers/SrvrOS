@@ -128,6 +128,32 @@ struct net_bounded_probe_io {
     bool (*current)(void *context,uint64_t epoch);
     bool (*retry_ready)(void *context,uint64_t epoch);
 };
+/* Observation only, scoped by the existing CPU0 bounded poll owner. Codes are
+ * stable log metadata, never packet admission or retirement authority. No
+ * address, XID, payload or key is retained. Non-DHCP traffic may contribute
+ * early Ethernet/IP/UDP refusals; message counts require a parsed DHCP type. */
+enum net_dhcp_reject {
+    NET_DHCP_RX_OK, NET_DHCP_RX_OWNER, NET_DHCP_RX_ETHERNET,
+    NET_DHCP_RX_IP_HEADER, NET_DHCP_RX_IP_DESTINATION, NET_DHCP_RX_IP_CHECKSUM,
+    NET_DHCP_RX_IP_FRAGMENT, NET_DHCP_RX_UDP_LENGTH, NET_DHCP_RX_UDP_CHECKSUM,
+    NET_DHCP_RX_UDP_TTL, NET_DHCP_RX_BOOTP, NET_DHCP_RX_XID,
+    NET_DHCP_RX_CLIENT, NET_DHCP_RX_SOURCE, NET_DHCP_RX_OPTION_BOUNDS,
+    NET_DHCP_RX_OPTION_END, NET_DHCP_RX_OPTION_DUPLICATE, NET_DHCP_RX_OPTION_SHAPE,
+    NET_DHCP_RX_ADDRESS, NET_DHCP_RX_OFFER_STATE, NET_DHCP_RX_ACK_STATE,
+    NET_DHCP_RX_ACK_BINDING, NET_DHCP_RX_ACK_CONFIG, NET_DHCP_RX_MESSAGE
+};
+enum net_dhcp_end {
+    NET_DHCP_NOT_RUN, NET_DHCP_SUCCESS, NET_DHCP_GUARD_FAILED,
+    NET_DHCP_TIME_LIMIT, NET_DHCP_POLL_LIMIT, NET_DHCP_SEND_FAILED,
+    NET_DHCP_REQUEST_FAILED, NET_DHCP_BUSY, NET_DHCP_RETRY_FAILED
+};
+struct net_dhcp_observation {
+    uint64_t version,started,finished,success,end_reason;
+    uint64_t discovers,discover_queued,requests,request_queued;
+    uint64_t frames,ipv4,udp,dhcp,offers,acks,naks,accepted_offer,accepted_ack;
+    uint64_t rejected,first_reject,last_reject,reject_mask,last_message,last_options;
+    uint64_t have_offer,request_sent,configured,polls,elapsed_us,elapsed_ticks;
+};
 struct net_bounded_probe {
     uintptr_t identity;
     const struct net_bounded_probe_io *source;
@@ -140,6 +166,7 @@ struct net_bounded_probe {
      * the native owner's proof. Matched pings require exact40-byte ICMP message
      * length and all32 payload bytes,not merely ID/sequence/checksum. */
     uint64_t dhcp_retries,arp_resolutions,dns_queries,pings_sent,pings_matched;
+    struct net_dhcp_observation dhcp_observation;
     bool busy,checking,failed,closed;
 };
 bool net_bounded_probe_init(struct net_bounded_probe *probe,

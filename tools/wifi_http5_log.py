@@ -13,6 +13,7 @@ remain mandatory. Historical accepted v1 logs use their own frozen old checker.
 """
 import re
 import wifi_stack5_log as stack
+import http_dhcp_log as dhcp_observation
 from wifi_eapol5_log import check as parent
 from wifi_cal5_log import fields as cal_fields
 from wifi_cal5_cleanup_log import check as calibration_cleanup
@@ -81,7 +82,7 @@ def check(log,release=None,*,volume=None):
  firmware=[s for s in lines if s.startswith('wifi-firmware-control:')];require(firmware,'missing firmware parent')
  require(lines.index(LOG_PARKED)<lines.index(PREPARE)<lines.index(firmware[0]),'HTTP preparation was not prelive')
  families=[s for s in lines if s.startswith('wifi-http5')]
- require(len(families)==4 and families[0]==PREPARE and families[1].startswith('wifi-http5-bridge: ') and families[2].startswith('wifi-http5-rx-handoff: ') and families[3].startswith('wifi-http5-workload: '),'missing/duplicate/unknown HTTP companions')
+ require(len(families)==5 and families[0]==PREPARE and families[1].startswith('wifi-http5-bridge: ') and families[2].startswith('wifi-http5-rx-handoff: ') and families[3].startswith('wifi-http5-dhcp: ') and families[4].startswith('wifi-http5-workload: '),'missing/duplicate/unknown HTTP companions')
  rows=[s for s in lines if s.startswith(('wifi-stream5','wifi-stack5','wifi-http5')) and s not in (LOG_PARKED,BOOT,PREPARE)]
  require(rows and rows[0]==PROGRESS and lines.index(PREPARE)<lines.index(PROGRESS),'missing native HTTP raw owner')
  raw=stack._owner(log,lines,rows,profile=stack._HTTP_TRANSPORT)
@@ -121,6 +122,8 @@ def check(log,release=None,*,volume=None):
   matched=[a for a in raw['rx_receipts'] if a['token']==handoff['rx_token']]
   require(not matched or matched[0]['ticket']==handoff['rx_ticket'],'retained raw RX ticket differs from actual typed receipt')
  else:require(handoff['rx_ticket']==handoff['rx_token']==0,'phantom raw RX lease at seal')
+ d=take(dhcp_observation.PREFIX,dhcp_observation.KEYS)
+ require(d==dhcp_observation.check(log,require_success=True),'divergent DHCP observation')
  w=take('wifi-http5-workload',WORKLOAD_KEYS)
  canonical_decimal(rows[raw['position']()-1],'wifi-http5-workload',WORKLOAD_KEYS)
  expected=dict(version=2,complete=1,phase=10,reason=0,prepared=1,worker_allocated=1,attempted=1,dhcp=1,dns=1,route=1,handoff=1,go=1,child_status=0,child_observed=1,child_reaped=1,child_retired=1,tcp_empty=1,provider_drained=1,receiver_closed=1,worker_finished=1,quiescent=1,refs_scrubbed=1,test_override=0,request_bytes=4159,body_bytes=3072,body_eof=1,retained=0)
@@ -128,14 +131,15 @@ def check(log,release=None,*,volume=None):
   0<w['bootstrap_polls']<w['worker_polls']<=s['services'] and 0<w['worker_turns']<=w['worker_polls']-w['bootstrap_polls'] and
   0<w['supervisor_turns']<=150000 and 0<w['elapsed_us']<=s['elapsed_us']<15000000 and (not w['retries'] or w['elapsed_us']>=1000000),
   'incomplete actual process HTTP/DHCP/DNS/worker/EOF proof or exhausted original budget')
+ require(d['discovers']==1+w['retries'] and d['polls']<=w['bootstrap_polls'] and d['elapsed_us']<=w['elapsed_us'] and d['frames']<=s['received'],'DHCP observation differs from HTTP/native accounting')
  require(raw['position']()==len(rows),'extra native HTTP owner receipt')
  joinline=next(x for x in lines if x.startswith('wifi-join5:'));raw['unique']('wifi-channel-vco5');rfline=next(x for x in lines if x.startswith('wifi-channel-vco5:'))
- require(lines.index(joinline)<lines.index(PROGRESS)<lines.index(rfline)<lines.index(rows[1])<lines.index(final_line)<lines.index(families[1])<lines.index(families[2])<lines.index(families[3]),'HTTP owner/bridge outside full parent closure')
+ require(lines.index(joinline)<lines.index(PROGRESS)<lines.index(rfline)<lines.index(rows[1])<lines.index(final_line)<lines.index(families[1])<lines.index(families[2])<lines.index(families[3])<lines.index(families[4]),'HTTP owner/bridge outside full parent closure')
  completed=[x for x in lines if x.startswith('wifi-firmware-capture:')];laptop='laptop-capture: completed=yes'
  require(len(completed)==1 and completed[0]=='wifi-firmware-capture: completed=yes; RF and connectivity NOT_TESTED' and lines.count(laptop)==1 and lines.index(rows[-1])<lines.index(completed[0])<lines.index(laptop),'missing complete automatic native HTTP capture')
  def crossings(receipts,d):
   return sum(any(a['token']<=b for a in receipts) and any(a['token']>b for a in receipts) for b in range(63,63*raw['wraps'][d]+1,63))
- result.update(release=release,prefix_bytes=prefix_bytes,http5_complete=True,http5_original_key_owner=True,http5_production_dhcp=True,http5_discover_retries=w['retries'],http5_production_dns=True,
+ result.update(release=release,prefix_bytes=prefix_bytes,http5_complete=True,http5_original_key_owner=True,http5_production_dhcp=True,http5_dhcp_observation=d,http5_discover_retries=w['retries'],http5_production_dns=True,
   http5_real_process=True,http5_tcp=True,http5_http=True,http5_request_bytes=4159,http5_body_bytes=3072,http5_body_eof=True,
   http5_data_tx=s['data_tx'],http5_provider_rx=s['received'],http5_returned_loans=s['released'],http5_tx_fences=s['tx_wraps'],http5_rx_fences=s['rx_wraps'],
   http5_observed_tx_data_crossings=crossings(raw['data'],0),http5_observed_selected_rx_data_crossings=crossings(raw['rx_receipts'],1),

@@ -71,6 +71,12 @@ def modeled(requests=12,rx=20,wraps=None,pending_rx=True):
  w={k:0 for k in h.WORKLOAD_KEYS.split()}
  for k in 'version complete prepared worker_allocated attempted dhcp dns route handoff go child_observed child_reaped child_retired tcp_empty provider_drained receiver_closed worker_finished quiescent refs_scrubbed body_eof'.split():w[k]=1
  w.update(version=2,phase=10,request_bytes=4159,body_bytes=3072,bootstrap_polls=4,worker_polls=100,worker_turns=2,supervisor_turns=3,elapsed_us=100000)
+ d={k:0 for k in h.dhcp_observation.KEYS.split()}
+ d.update(version=1,started=1,finished=1,success=1,end_reason=1,discovers=1,discover_queued=1,
+  requests=1,request_queued=1,frames=2,ipv4=2,udp=2,dhcp=2,offers=1,acks=1,
+  accepted_offer=1,accepted_ack=1,last_message=5,last_options=63,have_offer=1,request_sent=1,
+  configured=1,polls=2,elapsed_us=1000,elapsed_ticks=1)
+ rows.append(emit('wifi-http5-dhcp',**d))
  rows.append(emit('wifi-http5-workload',**w))
  return prefix+rows+['wifi-firmware-capture: completed=yes; RF and connectivity NOT_TESTED','laptop-capture: completed=yes']
 class HTTPTests(unittest.TestCase):
@@ -105,7 +111,7 @@ class HTTPTests(unittest.TestCase):
   for i in owned:
    for changed in (rows[:i]+rows[i+1:],rows[:i]+[rows[i]]+rows[i:],rows[:i]+[rows[i]+' extra=1']+rows[i+1:]):
     with self.subTest(row=i),self.assertRaises((ValueError,StopIteration)):self.check_model(changed)
-  for prefix in ('wifi-http5-bridge:','wifi-http5-rx-handoff:','wifi-http5-workload:'):
+  for prefix in ('wifi-http5-bridge:','wifi-http5-rx-handoff:','wifi-http5-dhcp:','wifi-http5-workload:'):
    at=next(i for i,s in enumerate(rows) if s.startswith(prefix));a=rows[at].split(' ');a[1],a[2]=a[2],a[1];changed=rows.copy();changed[at]=' '.join(a)
    with self.assertRaises(ValueError):self.check_model(changed)
    changed=rows.copy();changed[at]=changed[at].replace('version='+('2' if prefix=='wifi-http5-workload:' else '1'),'version='+('02' if prefix=='wifi-http5-workload:' else '01'))
@@ -152,6 +158,13 @@ class HTTPTests(unittest.TestCase):
   for prefix in ('wifi-http5-rx-handoff:','wifi-http5-workload:'):
    absent=[s for s in rows if not s.startswith(prefix)]
    with self.assertRaises((ValueError,StopIteration)):self.check_model(absent)
+ def test_dhcp_observation_required_and_cross_bound(self):
+  rows=modeled()
+  for k,v in dict(success=0,configured=0,accepted_offer=0,accepted_ack=0,discovers=2,
+    requests=0,request_queued=0,polls=5,frames=17,elapsed_us=100001,last_options=64,
+    first_reject=24,reject_mask=1,version=0,finished=0).items():
+   with self.subTest(key=k),self.assertRaises(ValueError):
+    self.check_model(self.mutate(rows,'wifi-http5-dhcp:',k,v))
  def test_boot_exact_native_profile(self):
   rows=modeled();self.assertEqual(h.boot_identity(finish(rows),RELEASE,VOLUME),RELEASE)
   for token in h.BOOT_FIXED:

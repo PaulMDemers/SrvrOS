@@ -94,14 +94,23 @@ int main(void){
  struct net_device_ops ops={.name="bounded-peer",.context=&caller_token,.priority=40,.send=bounded_send,.poll=bounded_peer_poll,.link=provider_link};
  memcpy(ops.mac,station,6);assert(net_device_register(&ops) && net_init_bounded_probe());
  begin_bounded();assert(net_dhcp_request_bounded(bounded)==0x0a00020f && discovers==1 && requests==1);
+ const struct net_dhcp_observation receipt=bounded->dhcp_observation;
+ assert(receipt.version==1 && receipt.started && receipt.finished && receipt.success &&
+  receipt.end_reason==NET_DHCP_SUCCESS && receipt.discovers==1 && receipt.discover_queued==1 &&
+  receipt.requests==1 && receipt.request_queued==1 && receipt.accepted_offer==1 && receipt.accepted_ack==1 &&
+  receipt.frames==2 && receipt.dhcp==2 && receipt.acks==1 && receipt.offers==1 && !receipt.rejected);
  uint32_t answer=0;assert(!net_dns_resolve_bounded(bounded,"example.com",&answer) && answer==0x01020304 && queries==1);
  for(unsigned i=0;i<64;i++){uint64_t elapsed=999;assert(!net_ping_bounded(bounded,0x0a000202,(uint16_t)i,&elapsed) && elapsed==1);}
  assert(bounded->pings_sent==64 && bounded->pings_matched==64 && bounded->dns_queries==1 && bounded->arp_resolutions==2);
+ assert(!memcmp(&receipt,&bounded->dhcp_observation,sizeof receipt));
  assert(net_bounded_probe_finish(bounded) && bounded->closed && bounded->identity==(uintptr_t)bounded);
+ assert(!memcmp(&receipt,&bounded->dhcp_observation,sizeof receipt));
  assert(!net_bounded_probe_init(bounded,&ios[objects_used-1],42,test_us+15000000));no_more();
  begin_bounded();scenario=DROP_FIRST;assert(net_dhcp_request_bounded(bounded)==0x0a00020f && discovers==2 && ready_calls==1 && bounded->dhcp_retries==1);clean_bounded();
  begin_bounded();scenario=ABSENT;freeze_ticks=freeze_mono=true;
- assert(net_dhcp_request_bounded(bounded)<0 && bpolls==20000 && discovers==1 && !ready_calls);no_more();
+ assert(net_dhcp_request_bounded(bounded)<0 && bpolls==20000 && discovers==1 && !ready_calls);
+ assert(bounded->dhcp_observation.end_reason==NET_DHCP_POLL_LIMIT && !bounded->dhcp_observation.frames &&
+  bounded->dhcp_observation.finished && !bounded->dhcp_observation.success);no_more();
  begin_bounded();scenario=TX_UNCERTAIN;assert(net_dhcp_request_bounded(bounded)<0 && discovers==1 && ready_calls==1);no_more();
  begin_bounded();lose_request=true;assert(net_dhcp_request_bounded(bounded)<0 && discovers==1 && !requests);no_more();
  begin_bounded();scenario=LINK_OWNER_LOST_ACK;assert(net_dhcp_request_bounded(bounded)<0 && discovers==1 && requests==1 && !dhcp_configured);no_more();

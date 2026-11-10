@@ -298,6 +298,11 @@ bool http_network_probe_run(struct http_network_probe *s,const struct http_netwo
 }
 void http_network_probe_emit(const struct http_network_probe *s){
  if(!s)return;
+ const struct net_dhcp_observation *d=&s->bootstrap.dhcp_observation;
+ console_printf("wifi-http5-dhcp: version=%u started=%u finished=%u success=%u end_reason=%u discovers=%u discover_queued=%u requests=%u request_queued=%u frames=%u ipv4=%u udp=%u dhcp=%u offers=%u acks=%u naks=%u accepted_offer=%u accepted_ack=%u rejected=%u first_reject=%u last_reject=%u reject_mask=%u last_message=%u last_options=%u have_offer=%u request_sent=%u configured=%u polls=%u elapsed_us=%u elapsed_ticks=%u\n",
+ d->version,d->started,d->finished,d->success,d->end_reason,d->discovers,d->discover_queued,d->requests,d->request_queued,
+ d->frames,d->ipv4,d->udp,d->dhcp,d->offers,d->acks,d->naks,d->accepted_offer,d->accepted_ack,d->rejected,
+ d->first_reject,d->last_reject,d->reject_mask,d->last_message,d->last_options,d->have_offer,d->request_sent,d->configured,d->polls,d->elapsed_us,d->elapsed_ticks);
  const struct http_network_result *r=&s->result;
  console_printf("wifi-http5-workload: version=%u complete=%u phase=%u reason=%u prepared=%u worker_allocated=%u attempted=%u dhcp=%u retries=%u dns=%u route=%u handoff=%u go=%u child_status=%u child_observed=%u child_reaped=%u child_retired=%u tcp_empty=%u provider_drained=%u receiver_closed=%u worker_finished=%u quiescent=%u refs_scrubbed=%u test_override=%u request_bytes=4159 body_bytes=3072 body_eof=%u bootstrap_polls=%u worker_polls=%u worker_turns=%u supervisor_turns=%u elapsed_us=%u retained=%u\n",
  r->version,(uint64_t)r->complete,r->phase,r->reason,(uint64_t)r->prepared,(uint64_t)r->worker_allocated,(uint64_t)r->attempted,

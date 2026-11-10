@@ -8093,3 +8093,30 @@ pass selected normal/fatal checks and independent review. Clean source1756cb26
 also passes actual-client numeric/production-DNS HTTP guests and independent
 42-frame DNS/TCP capture validation. No new physical acceptance follows; the failed runtime213
 remains installed and Ubuntu unarmed. Persistent lifecycle/UI/reattach remain open.
+
+### Bounded HTTP DHCP observations
+
+The next Pro11,2 diagnostic adds a fixed240-byte transaction receipt to the
+existing bounded bootstrap. It records Discover/Request queued admission, receive
+stages, parsed Offer/ACK/NAK counts, accepted Offer/ACK counts, first/last refusal
+codes and a refusal mask, final state and the existing elapsed/poll bounds.
+`net.h` owns the stable numeric codes; `http_dhcp_log.py` validates the exact
+`wifi-http5-dhcp` schema. Last-message/options describe the last parser visit;
+early Ethernet/IP/UDP refusals may belong to unrelated traffic and must not be
+attributed to an ACK. No address, transaction ID, packet or key bytes are retained.
+
+Only the existing scoped CPU0 poll owner enables receive observations. No new
+borrowed global pointer, allocation, clock read, callback, wait or live console
+output is added. The HTTP emitter prints the retained receipt after its existing
+post-live boundary. Ordinary DHCP admission and the single guarded Discover retry,
+200ticks/2seconds/20000polls transaction bound and original15second parent window
+are unchanged. A receipt neither cancels DMA nor grants key/provider retirement.
+
+The current-source native HTTP checker requires this companion and cross-checks
+successful DORA against workload retries/polls/time and actual provider receives.
+Historical logs use their own frozen checkers. Failure observation parsing alone
+is not HTTP, complete transport, full parent cleanup or hardware acceptance.
+The real-client numeric/DNS VM checker also requires the new successful receipt.
+The native HOST fixture covers missing ACK and parser/network/crypto refusals
+through the actual registry/provider/CCMP and xHCI handlers with modeled USB/AP;
+it runs no HTTP process. Native diagnostic acceptance remains pending.

@@ -6453,3 +6453,12 @@ build/tests/xhci-cal5-cleanup-host$(HOST_EXE) \
  build/tests/xhci-stream5-host$(HOST_EXE) \
  build/tests/xhci-tx5-host$(HOST_EXE) \
  build/tests/xhci-wpa5-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_http5_rx_handoff.inc kernel/src/drivers/xhci_wifi_http5.inc kernel/src/drivers/xhci_wifi_stack5.inc
+
+.PHONY: test-http-dhcp-log test-http-dhcp-native-log
+test-core: test-http-dhcp-log
+test-wifi-completion-foundations: test-http-dhcp-log
+test-http-dhcp-log:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p 'test_http_dhcp_log.py'
+# Optional native provider/CCMP fixture keeps OpenSSL out of portable foundations.
+test-http-dhcp-native-log: build/tests/xhci-stack5-host$(HOST_EXE)
+	WIFI_DHCP_NATIVE_BINARY=build/tests/xhci-stack5-host$(HOST_EXE) PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p 'test_http_dhcp_log.py'
