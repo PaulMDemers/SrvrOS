@@ -241,3 +241,35 @@ payload/sidecar/metadata command costs before selecting a fix. Preserve transpor
 serialization, original command deadlines, controller/event semantics, quarantine
 and all durability checks. This measurement narrows the implementation choice;
 it does not establish hardware latency or justify dropping writes/barriers.
+
+## Native command-role result and next audit (2026-11-09)
+
+PR448/release `690fd179a79d156f` passes the unchanged1800-second1% workload:
+1101 app cycles,4076 verified disk bursts, three exact BMPs, zero recorded audio
+underruns,120.023ms maximum desktop loop, clean retirement and clean offline
+allocation. Independent raw parsing reproduces every retained parent/role join.
+See the [machine result](machines/macbookair6-1.md#native-command-role-attribution-2026-11-09).
+
+The selected2.757894s content window is dominated by root payload callback writes
+(2.365736s). Its354 physical commands include44 writes:15 of512 bytes account
+for43.861ms CSW wall;29 larger writes account for2.114728s. All six CSWs above
+100ms belong to larger root-payload writes. The matched worst is a16KiB WRITE,
+353.884ms wall, with353.673ms before software observation and209us to resume.
+Its sampled service gap is14.661ms. Small metadata and sidecar writes are cheap
+in this selected window; do not generalize the previous unclassified512-byte
+maximum into a metadata optimization. Optional inode0 still cannot identify the
+writer or path, and software observation does not establish device latency.
+
+Complete captures18.798846/23.601685/20.066622s provide median20.066622s, but this
+passive instrumentation trial and the preceding cold boot differ in workload
+interleaving and metadata state. No speed improvement is accepted. Screenshot
+completion remains open despite passing desktop responsiveness and integrity.
+
+Audit the existing serialized payload-command CBW/data/CSW path and controller
+service sampling next. Determine which part of the same slow command remains
+unexplained before choosing an optimization; retain minimal bounded matched
+timing only where existing records are insufficient. Keep the16384-byte command
+bound, BOT sequence, deadlines, event/status validation, DMA quarantine and every
+existing byte proof, ownership and durability barrier. A long CSW does not
+authorize a larger command, extra queue, retry or relaxed completion predicate.
+Keep pixel-transfer pacing separate and the intermittent battery cause open.

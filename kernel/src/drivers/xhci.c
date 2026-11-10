@@ -1086,22 +1086,40 @@ static void storage_service_sample(struct xhci_device *d,uint64_t now,bool final
     if(final)t->completion_gap_us=gap;
     d->bulk_service_at=now;
 }
-static void storage_service_check(void) {
+static bool storage_service_check(void) {
     struct xhci_device *d=storage_timing_device;
-    if(!d)return;
+    if(!d)return false;
     struct usb_bulk_timing *t=&d->bulk_timing;
-    if(t->service_checks==UINT64_MAX) { t->service_valid=false;return; }
+    if(t->service_checks==UINT64_MAX) { t->service_valid=false;return false; }
     if((t->service_checks++&255)==0) {
         if(t->service_samples==UINT64_MAX)t->service_valid=false;
         else t->service_samples++;
         storage_service_sample(d,timer_monotonic_us(),false);
+        return true;
     }
+    return false;
+}
+/* Classify the result of the original cycle-bit read, without another ring or
+ * clock access. A sampled empty head establishes only that no event was visible
+ * there after the existing sample clock; it is not a hardware completion time.
+ * The saved owner must still be the one whose check was counted. */
+static void storage_service_result(struct xhci_device *d,bool sampled,bool available) {
+    if(!d)return;
+    struct usb_bulk_timing *t=&d->bulk_timing;
+    if(storage_timing_device!=d) {t->service_valid=false;return;}
+    uint64_t *count=available?&t->event_checks:&t->empty_checks;
+    if(*count==UINT64_MAX)t->service_valid=false;
+    else (*count)++;
+    if(!available && sampled && t->service_valid)t->last_empty_sample_us=d->bulk_service_at;
 }
 static bool poll_event(struct xhci_trb *event_out) {
-    storage_service_check();
+    struct xhci_device *timed=storage_timing_device;
+    bool sampled=storage_service_check();
     struct xhci_trb *event = &xhci.event_ring[xhci.event_dequeue];
     bool cycle = (((volatile struct xhci_trb *)event)->control & 1u) != 0;
-    if (cycle != xhci.event_cycle) {
+    bool available=cycle==xhci.event_cycle;
+    storage_service_result(timed,sampled,available);
+    if (!available) {
         return false;
     }
 

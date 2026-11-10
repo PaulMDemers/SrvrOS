@@ -145,6 +145,37 @@ static void report_sync_transfers(const char *scope,uint64_t id,const struct usb
         b->submitted,b->observed,b->resumed,(uint64_t)b->seen,(uint64_t)b->service_valid,
         b->service_checks,b->service_samples,b->service_gap_max_us,b->completion_gap_us);
 }
+/* One command window copied with the exact selected content, never an
+ * independent command maximum from another content/sync. */
+static void report_sync_bot(uint64_t at,uint64_t pid,uint64_t id,uint64_t identity,
+    const struct usb_storage_content_timing *t) {
+    const struct usb_storage_command_timing empty={0};
+    const struct usb_storage_command_timing *q=t?&t->command:&empty;
+    console_printf("sync-bot-command: version=1 snapshot_us=%u pid=%u id=%u identity=%u role=%u csw_start_us=%u csw_end_us=%u valid=%u complete=%u ok=%u start_us=%u end_us=%u checkpoint_calls=%u checkpoint_us=%u checkpoint_first_us=%u checkpoint_last_us=%u final=1\n",at,pid,id,identity,q->role,q->csw_start_us,q->csw_end_us,q->valid,q->complete,q->ok,q->start_us,q->end_us,q->checkpoint_calls,q->checkpoint_us,q->checkpoint_first_us,q->checkpoint_last_us);
+    if(!q->complete || q->role>=USB_STORAGE_CONTENT_ROLES)return;
+    for(unsigned phase=0;phase<3;phase++) {
+        const struct usb_storage_command_phase *p=&q->phase[phase];
+        console_printf("sync-bot-phase: version=1 snapshot_us=%u pid=%u id=%u identity=%u role=%u csw_start_us=%u csw_end_us=%u phase=%u calls=%u requested=%u actual=%u us=%u first_us=%u last_us=%u final=1\n",at,pid,id,identity,q->role,q->csw_start_us,q->csw_end_us,(uint64_t)phase,p->calls,p->requested,p->actual,p->us,p->first_us,p->last_us);
+    }
+    const struct usb_bulk_timing *b=&t->roles[q->role].worst.sample;
+    console_printf("sync-bot-service: version=1 snapshot_us=%u pid=%u id=%u identity=%u role=%u csw_start_us=%u csw_end_us=%u empty_checks=%u event_checks=%u last_empty_sample_us=%u final=1\n",at,pid,id,identity,q->role,q->csw_start_us,q->csw_end_us,b->empty_checks,b->event_checks,b->last_empty_sample_us);
+}
+static void report_sync_commands(uint64_t at,const struct sync_timing_record *r) {
+    const struct sync_content_call *c=r?&r->worst.content.worst:NULL;
+    const struct usb_storage_content_timing *t=c?&c->commands:NULL;
+    uint64_t pid=r?r->pid:0,id=r?r->worst.start_us:0,identity=c?c->identity:0;
+    console_printf("sync-command-snapshot: version=1 snapshot_us=%u pid=%u id=%u identity=%u valid=%u active=%u invalid=%u final=1\n",at,pid,id,identity,t?t->valid:1,t?t->active:0,t?t->invalid:0);
+    report_sync_bot(at,pid,id,identity,t);
+    if(!t)return;
+    for(unsigned role=0;role<USB_STORAGE_CONTENT_ROLES;role++) {
+        const struct usb_storage_content_role *q=&t->roles[role];
+        console_printf("sync-command-role: version=1 snapshot_us=%u pid=%u id=%u identity=%u role=%u reads=%u read_bytes=%u writes=%u write_bytes=%u flushes=%u other=%u failed=%u csws=%u csw_us=%u over100ms=%u write512_commands=%u write_csw_us=%u write512_csw_us=%u write_over100ms=%u write512_over100ms=%u final=1\n",at,pid,id,identity,(uint64_t)role,q->read_commands,q->read_bytes,q->write_commands,q->write_bytes,q->flush_commands,q->other_commands,q->failed_commands,q->csw_calls,q->csw_us,q->over100ms,q->write512_commands,q->write_csw_us,q->write512_csw_us,q->write_over100ms,q->write512_over100ms);
+        if(!q->csw_calls)continue;
+        const struct usb_storage_csw_timing *w=&q->worst;
+        const struct usb_bulk_timing *b=&w->sample;
+        console_printf("sync-command-worst: version=1 snapshot_us=%u pid=%u id=%u identity=%u role=%u start_us=%u end_us=%u opcode=%u command_bytes=%u request_bytes=%u actual=%u ok=%u submitted=%u observed=%u resumed=%u seen=%u service_valid=%u service_checks=%u service_samples=%u service_gap_max_us=%u completion_gap_us=%u final=1\n",at,pid,id,identity,(uint64_t)role,w->start_us,w->end_us,w->opcode,w->command_bytes,w->request_bytes,w->actual,w->ok,b->submitted,b->observed,b->resumed,(uint64_t)b->seen,(uint64_t)b->service_valid,b->service_checks,b->service_samples,b->service_gap_max_us,b->completion_gap_us);
+    }
+}
 /* Correlate only final retained worst calls. One selected file-phase owner
  * keeps role detail bounded; all PID summaries permit independent selection. */
 static void report_sync_content(uint64_t at,const struct sync_timing_snapshot *s) {
@@ -156,6 +187,7 @@ static void report_sync_content(uint64_t at,const struct sync_timing_snapshot *s
         if(c->content.calls && (!selected || c->files_end_us-c->start_us>selected->worst.files_end_us-selected->worst.start_us))selected=r;
     }
     console_printf("sync-content-selection: version=1 snapshot_us=%u pid=%u id=%u final=1\n",at,selected?selected->pid:0,selected?selected->worst.start_us:0);
+    report_sync_commands(at,selected);
     if(!selected)return;
     const struct sync_content_call *c=&selected->worst.content.worst;
     console_printf("sync-content-worst: version=1 snapshot_us=%u pid=%u id=%u slot=%u identity=%u inode=%u size=%u start_us=%u end_us=%u ok=%u dirty_after=%u final=1\n",at,selected->pid,selected->worst.start_us,c->slot,c->identity,c->inode,c->size,c->start_us,c->end_us,c->ok,c->dirty_after);

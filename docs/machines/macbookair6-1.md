@@ -10,6 +10,11 @@ limit. This accepts the isolated diagnostic history, not current register
 access, register writes, root-table walking or device ownership. See the dated
 native result below.
 
+Latest desktop checkpoint: the [role-bound command trial](#native-command-role-attribution-2026-11-09)
+passes the unchanged30-minute stress test. Screenshot completion latency remains
+open; the selected sync's slow commands are larger root-payload writes. No
+performance improvement or hardware cause is claimed.
+
 ## Initial inventory (2026-10-22)
 
 - Actual DMI model: MacBookAir6,1; firmware `122.0.0.0.0`.
@@ -10896,3 +10901,229 @@ or remove work based on the VM result.
 Installed/current/recovery payloads and independent backups verify, Ubuntu is
 default, one-shot empty, collector disabled and USB unmounted. No reboot is armed.
 Matching raw evidence has a verified independent trial backup outside build.
+
+### Role-bound USB command timing implementation scope (2026-11-09)
+
+Base `c367f169`, after independently collecting and accepting the correlated
+native baseline. Bounded objective: bind BOT command counts/bytes, slow-CSW
+counts and worst completion observations to the same selected content and six
+filesystem roles, with a seventh explicit unclassified/pre-mutation bucket.
+Touch passive USB storage observation, sync/content and exFAT role bracketing,
+final workspace reporting, strict parsers and host/VM/native collection. User
+authorized subagents; separate agents own transport, parsers and host adapters.
+Root owns integration and physical testing. Preserve every command/validation/
+checkpoint, byte proof, flush/publication barrier, admission/ownership, quarantine,
+watchdog and runtime limit. No latency fix or hardware cause is claimed yet.
+PR19 metadata import/logger options and PR301 process lifetime/scanout edits
+remain separate; inspect current overlapping hunks before integrating. Next
+checkpoint: prove observer-on/off transfer equivalence, exact retained joins and
+whole-record/tail retention, full matched validation, then original unattended
+30-minute1% native stress. Preserve the accepted1991 baseline and old recovery.
+
+### Command-role observer validated and staged (2026-11-09)
+
+Frozen source `ea27948b` / unchanged ports `39ad9d7` adds a passive content-owned
+USB command window inside the existing owned sync observer. Seven roles retain
+command classes/bytes, failures, CSW wall/slow counts/worst samples and512-byte
+WRITE subsets. Brackets precede existing block callbacks; role6 captures otherwise
+unclassified pre-mutation work. The window is copied with the same selected
+content/sync. Refused admission preserves foreign observers. Original commands,
+validation, checkpoints, byte proofs, barriers, quarantine, ownership and limits
+remain unchanged. See the [command evidence contract](../sync-content-timing.md#role-bound-bot-command-observations).
+
+Transport host tests exercise actual command/validation code with simulated
+controller callbacks:512-byte versus16KiB writes and slow samples, read/flush/
+other separation, nested/foreign admission, immutable copies, overflow, clock
+regression, premature end and all original fault/quarantine cases pass. Observer
+on/off controller callbacks, checkpoints, commands, complete media and synthetic
+clock results agree. Real process/exFAT on/off integration, parser and actual C
+capture-wire tests also pass. No native timing equivalence follows from synthetic
+host clocks. Row maxima remain687 bytes within the existing1024-byte writer.
+
+Full matched normal/native/VM/RAM/USB build, core, desktop and docs pass, including
+89 installation/recovery tests in730.450s with one expected skip. Ordinary
+syscall, USB keyboard, fork/exec-vectors/yield and real USB read-only/write/flush/
+reload/input checks pass. Populated-Home KVM400-write-IOPS stress passes22 app
+cycles/175 overlap observations,158861us maximum loop and879605/1681478us
+maximum launch/close under all original requirements. Old and new acceptance
+receipts survive in saved logs with complete atomic app coverage. Ordinary
+immutable screenshot/readback/Preview/repeat/exit passes. Exact stage
+`690fd179a79d156f` passes Q35 native-board refusal/save/unmount/automatic return;
+native positive-device acceptance remains pending.
+
+Independent saved-log parsing exactly reproduces sync, content, command and
+capture JSON. The selected VM content identity120/slot2 (optional inode0),
+3997696 bytes and1121120us span, has330 commands:278 reads/42 writes/10 flushes,
+3955712 read bytes/465920 write bytes and53600us CSW wall. Writes split into
+14x512-byte commands (7168 bytes,2219us CSW) and28x16KiB commands (458752 bytes,
+5728us CSW). Role2 root payload has20x16KiB writes; role4 sidecar has three512-byte
+and eight16KiB writes. All seven roles, size/time subsets, same legacy maximum
+and complete single-capture history validate. There are no CSW callbacks above
+100ms in this VM. This validates observation/retention, not a native cause, a
+writer/path identity, exact hardware latency or a speed gain.
+
+Next native trial repeats the original1800-second1% PCM/disk/app/three-screenshot
+workload, unchanged500ms loop/10s lifecycle/original60s tail, every readback,
+receipt, equality-growth, worker/cache/battery retirement, file/allocation check,
+clean post-PCM protocol marker and all three histories, plus the new seven-role
+command/size/worst joins. Baseline778 prior files and recovery must verify first.
+Keep accepted1991/69a8/318c/8caa, consolec354 and isolated2ddb payloads installed
+with full independent backups. Only the unreferenced historical short-audible
+5bc EFI duplicate may be archived after every file matches its independent
+backup and no boot reference remains; prior listening evidence stays accepted.
+Three old stage-only duplicates were already hash-verified against independent
+payloads and removed, freeing455662890 bytes; installed/current/latest/recovery
+and raw evidence were preserved. Save the full run/armed state and independent
+payload/trial backup before reboot. Keep AC/USB attached; no input is required.
+Ubuntu remains default recovery. Collect the matching return first; if native
+containment halts, photograph the terminal and restart Ubuntu. Battery fault
+cause remains unresolved, with original failed media/photo retained.
+
+### Native command-role attribution (2026-11-09)
+
+PR448, frozen source `ea27948b` / unchanged ports `39ad9d7`, release
+`690fd179a79d156f`, completes the original1800-second1% automated audio/disk/app/
+three-screenshot workload. One matching session completes1101 app cycles and
+4076 verified disk bursts/1068498944 bytes with345763840 PCM bytes, zero recorded
+underruns, worker errors or lifecycle errors. All52905 loop observations are
+valid and below500ms; maximum120023us. Maximum launch2073260us and close3639435us
+remain below10s. Three exact4196406-byte1366x768 BMPs decode, post-capture Files
+activity and normal exit pass, and worker/cache/battery retirement is clean.
+All778 prior files retain their hashes except expected metadata;787 files and
+3375 allocated clusters remain, with zero leaks, allocation mismatches or errors.
+
+Independent raw-log parsing exactly reproduces the legacy sync/write/gate and
+new content/command/history/protocol assessments. Every original receipt and
+all seven command roles survive the unchanged64KiB saved-log tail. The selected
+PID7 sync lasts2.758309s: file phase2.757906s and device phase403us. Its single
+content visit, identity3719/slot0, has4196406 logical bytes and2.757894s wall.
+Optional inode0 remains unavailable; this identifies the content lifetime and
+sync caller, not a writer PID or path. Root payload callback writes329782 bytes
+in2.365736s (85.78% of content wall); prefix proof reads3866624 bytes in202.895ms.
+All role callback wall is2.746199s, leaving11.695ms residual.
+
+The same content window has354 physical commands:300 reads,44 writes and10
+flushes;4252160 read bytes,468480 write bytes and2.167689s CSW callback wall.
+The15 writes of512 bytes account for43.861ms CSW wall; the29 larger writes
+account for2.114728s. All six CSW callbacks above100ms belong to larger root
+payload writes. Root payload has22 writes/330240 physical bytes, including one
+512-byte write; its WRITE CSWs total2.108302s, of which only2.140ms belongs to
+that512-byte write. Sidecar WRITE CSWs total13.607ms with none above100ms.
+Role6 is explicitly present and empty. Physical and logical byte/count totals
+differ because transport splitting and sector read/modify/write are retained.
+
+The exactly matched worst CSW is a16KiB root-payload WRITE(10),353.884ms wall:
+353.673ms submission-to-software-observation,209us observation-to-resumption,
+14.661ms sampled service gap and9.659ms completion-observation gap. These are
+software wall observations, not exact device completion, CPU time or proof of a
+controller defect. The preceding run's unclassified slow512-byte example does
+not predict this run's dominant role/size. Do not combine unrelated maxima or
+remove small metadata writes based on it.
+
+Complete capture lifetimes are18.798846s,23.601685s and20.066622s, median20.066622s.
+This is a diagnostic run with different interleaving and metadata state, not an
+accepted speed gain over the previous complete baseline. The slowest complete
+capture has9.783633s WRITE/6.718911s receive; capture3 has11.207176s WRITE despite
+a shorter total lifetime. Keep each capture's phases paired with its identity.
+
+Battery705 attempts, zero rejections,10590 queries and19 notifications retire
+with one attach/detach and zero heap/errors/denied operations. Epoch1's final
+protocol marker is clean/captured0 after PCM. No intermittent battery failure
+was reproduced; its cause remains unresolved and original failed media/photo
+remain protected. Unattended1% sound is unassessed; prior separate25% listening
+acceptance remains intact.
+
+Next bounded objective: audit the existing serialized payload-command CBW/data/
+CSW and controller-service path against this native evidence, adding only the
+minimal matched-command timing needed if current observations cannot distinguish
+the remaining wait. Preserve the16384-byte command bound, all original runtime
+limits, deadlines, checkpoints, status validation, DMA quarantine, ownership and
+byte/flush/publication proofs. Prefix work and small metadata writes are not the
+dominant measured cost in this selected call. No speculative transport or power
+policy change is justified. Check current PR19/301 overlap before shared edits.
+
+Matching raw evidence, independent review and full payload/trial backups are
+retained outside build. Current/recovery and retained payload hashes verify;
+Ubuntu is default, one-shot consumed, collector disabled and USB unmounted. No
+reboot is armed. The next turn starts from this collected result.
+
+### Same-command completion audit scope (2026-11-09)
+
+Integration base `25594a0f`, after collecting the accepted command-role run.
+The source audit has not established a transport bug: the existing sampled
+ring-service gap and short post-observation resume cannot alone explain the
+selected353.884ms CSW. Existing role maxima omit earlier phases of that exact
+command and do not distinguish empty ring checks from unrelated events.
+
+Bounded objective: retain one fixed CBW/data/CSW/checkpoint companion with the
+same winning command, including final validation outcome, and classify existing
+ring checks using only the existing sampling clock. Touch passive USB/xHCI
+observation, final reporting, strict parser/host fixtures and native collection.
+Separate user-authorized subagents own transport, xHCI audit and strict parsing;
+root owns integration, sequential validation and physical testing. No new ring
+read, USB request, clock read, retry, wait, checkpoint, validation or policy is
+introduced by the observers. Preserve4096-byte bulk/16384-byte command bounds,
+deadlines, quarantine, ownership, durability proofs and500ms/10s runtime limits.
+PR19 has independent xHCI networking additions; keep these narrow observer hunks
+separate. PR301 scanout/process work remains independent. Next checkpoint is
+observer equivalence and strict same-command/tail coverage, followed by the
+unchanged automated30-minute1% native workload. Do not claim a performance fix
+without causal evidence. Retain the accepted690/1991 baselines and recovery.
+
+### Same-command observer validated for native trial (2026-11-09)
+
+Frozen source `725b8e6c` / ports `39ad9d7`, release `1820d7a0297b1b65`, retains
+one240-byte companion with the exact selected content's first maximum CSW.
+CBW/data/CSW callback summaries and original checkpoint clocks are copied after
+full command validation; failed command outcomes remain distinct from successful
+bulk callbacks. The timing envelope ends at the final checkpoint sample, not
+the unmeasured return tail. Existing ring checks gain empty/event counters and
+the last existing sample whose subsequent cycle read found an empty head. That
+pre-check clock is not exact event arrival or device completion. No extra clock,
+ring read, controller operation, wait, checkpoint or policy change is introduced.
+
+Actual transport/controller host tests pass: same-role and cross-role first
+ties, four4096-byte data segments per16KiB command, exact checkpoints, zero-data
+flush, immutable selection, later failed command retention, every original
+failure/quarantine case, overflow and invalid clocks/ownership. Observer on/off
+clock/sample reads, controller callbacks, commands, checkpoints and complete
+media agree. The ring fixture proves513 original checks with exactly three
+existing clock samples,512 empty results and one event. Strict parser regressions
+reject missing/misbound/conflicting companions, later tied maxima, understated
+single-call/checkpoint wall, invalid byte/phase bounds and ring-count mismatches.
+
+Full matched normal/native/VM/RAM/USB builds, core, desktop and docs pass;
+89 installation/recovery tests take759.385s with one expected skip. Ordinary
+syscall, keyboard, fork/exec-vectors/yield and USB read-only/write/flush/reload/
+persistence/input pass. Loaded KVM400-write-IOPS populated Home passes22 app
+cycles/173 overlap windows,139984us maximum loop,1081973us launch and1019149us
+close, with zero recorded audio/worker/lifecycle errors and clean retirement.
+All old and new receipts survive the unchanged64KiB tail with five checkpoints
+and complete atomic app evidence. Ordinary immutable screenshot/readback/Preview/
+repeat/exit passes. Exact stage passes native-board refusal/save/unmount/return;
+positive native acceptance remains pending.
+
+The saved VM companion joins PID7 sync26716386/content119/role2 and its16KiB
+WRITE CSW27692304–27693121. Callback/checkpoint envelope2062us contains CBW174us,
+four data callbacks851us, CSW817us, four checkpoints96us and124us residual.
+The same CSW has33 ring checks:32 empty and one event; last sampled-empty
+pre-check clock27692433 precedes software observation27693096. This proves
+retention and joining, not a native latency fix or a hardware cause. The sync
+snapshot measures30496 bytes within the128KiB kernel stack. The five added rows
+have maximum widths533/434/350 bytes within the unchanged1024-byte atomic writer.
+
+The next native trial keeps1800-second1% PCM plus the original60-second tail,
+500ms loop/10s lifecycle limits, disk readbacks, three exact BMPs and histories,
+equality growth, clean cache/worker/battery retirement, post-PCM protocol marker,
+all prior file hashes and offline allocation/headroom. It additionally requires
+the exact command companion and classified ring checks in a post-PCM snapshot.
+No input is required; keep AC/USB attached. Preserve accepted690/1991/69/8caa,
+consolec354 and isolated2ddb installed payloads and full independent backups.
+Only the unreferenced historical query-only318 EFI duplicate may be archived
+after full manifest/every-file equality and GRUB/firmware reference checks; its
+full payload and accepted history remain backed up. Four older stage-only
+duplicates were separately verified against full independent payloads and removed,
+freeing594453273 bytes without deleting installed payloads or raw evidence.
+Save run/armed state and verified independent payload/trial backups before
+reboot, then collect the matching return first. Original battery failure evidence
+remains protected and its cause unresolved. No speed gain is claimed.

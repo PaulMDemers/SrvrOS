@@ -11,7 +11,103 @@ static uint64_t save_irq(void);
 static void restore_irq(uint64_t flags);
 static bool timing_active,aux_timing_active;
 static struct usb_storage_timing timing,aux_timing;
-bool usb_storage_timing_enabled(void) { return timing_active || aux_timing_active; }
+static struct usb_storage_content_timing content_timing;
+static bool content_active,content_command_active;
+static struct usb_storage_command_timing content_command;
+static bool content_command_peak;
+static unsigned content_role=USB_STORAGE_CONTENT_ROLES-1,content_depth;
+static unsigned content_command_role;
+static void content_bad(void) {
+    content_timing.valid=0;content_timing.invalid=1;
+    if(content_command_active)content_command.valid=0;
+}
+static void content_add(uint64_t *sum,uint64_t value) {
+    if(value>UINT64_MAX-*sum)content_bad();else *sum+=value;
+}
+bool usb_storage_content_begin(void) {
+    uint64_t f=save_irq();
+    bool ok=aux_timing_active && !content_active && !content_command_active;
+    if(ok) {
+        content_timing=(struct usb_storage_content_timing){.valid=1,.active=1};
+        content_role=USB_STORAGE_CONTENT_ROLES-1;content_depth=0;content_active=true;
+    }
+    restore_irq(f);return ok;
+}
+void usb_storage_content_end(struct usb_storage_content_timing *out) {
+    uint64_t f=save_irq();
+    if(!content_active) {if(out)*out=(struct usb_storage_content_timing){0};restore_irq(f);return;}
+    if(content_command_active) {
+        content_bad();if(out)*out=content_timing;restore_irq(f);return;
+    }
+    if(content_depth || content_role!=USB_STORAGE_CONTENT_ROLES-1 || !aux_timing_active)content_bad();
+    content_timing.active=0;if(out)*out=content_timing;
+    content_active=false;content_depth=0;content_role=USB_STORAGE_CONTENT_ROLES-1;
+    restore_irq(f);
+}
+unsigned usb_storage_content_role_begin(unsigned role) {
+    uint64_t f=save_irq();unsigned previous=USB_STORAGE_CONTENT_NO_ROLE;
+    if(content_active) {
+        if(role>=USB_STORAGE_CONTENT_ROLES || content_command_active ||
+           content_depth>=(USB_STORAGE_CONTENT_NO_ROLE>>3))content_bad();
+        else {previous=(content_depth<<3)|content_role;content_depth++;content_role=role;}
+    }
+    restore_irq(f);return previous;
+}
+void usb_storage_content_role_end(unsigned previous) {
+    if(previous==USB_STORAGE_CONTENT_NO_ROLE)return;
+    uint64_t f=save_irq();
+    if(content_active) {
+        if(content_command_active || !content_depth || (previous>>3)!=content_depth-1 ||
+           (previous&7u)>=USB_STORAGE_CONTENT_ROLES)content_bad();
+        else {content_depth--;content_role=previous&7u;}
+    }
+    restore_irq(f);
+}
+/* Called only where the existing command is about to attempt its CBW. The
+ * captured role cannot move until its original validation path returns. */
+static bool content_command_begin(uint8_t opcode,uint32_t bytes) {
+    if(!content_active)return false;
+    if(content_command_active || !aux_timing_active) {content_bad();return false;}
+    content_command_active=true;content_command_role=content_role;
+    content_command=(struct usb_storage_command_timing){.valid=content_timing.valid,.role=content_role};
+    content_command_peak=false;
+    struct usb_storage_content_role *p=&content_timing.roles[content_command_role];
+    if(opcode==0x28) {content_add(&p->read_commands,1);content_add(&p->read_bytes,bytes);}
+    else if(opcode==0x2a) {
+        content_add(&p->write_commands,1);content_add(&p->write_bytes,bytes);
+        if(bytes==512)content_add(&p->write512_commands,1);
+    }
+    else if(opcode==0x35)content_add(&p->flush_commands,1);
+    else content_add(&p->other_commands,1);
+    return true;
+}
+static void content_command_end(bool owned,bool ok) {
+    if(!owned || !content_command_active)return;
+    if(!content_active) {content_bad();content_command_active=false;return;}
+    if(!ok)content_add(&content_timing.roles[content_command_role].failed_commands,1);
+    content_command.complete=1;content_command.ok=ok;
+    if(content_command_peak)content_timing.command=content_command;
+    content_command_active=false;
+}
+static void content_command_bulk(unsigned phase,uint64_t start,uint64_t end,
+    uint32_t requested,uint32_t actual) {
+    if(!content_active || !content_command_active)return;
+    if(phase>2 || end<start || (content_command.end_us && start<content_command.end_us)) {
+        content_bad();return;
+    }
+    struct usb_storage_command_phase *p=&content_command.phase[phase];
+    if(!p->calls)p->first_us=start;
+    content_add(&p->calls,1);content_add(&p->requested,requested);
+    content_add(&p->actual,actual);content_add(&p->us,end-start);p->last_us=end;
+    if(!content_command.start_us)content_command.start_us=start;
+    content_command.end_us=end;
+    if(phase==2) {
+        content_command.csw_start_us=start;content_command.csw_end_us=end;
+        const struct usb_storage_command_timing *old=&content_timing.command;
+        content_command_peak=!old->complete || end-start>old->csw_end_us-old->csw_start_us;
+    }
+}
+bool usb_storage_timing_enabled(void) { return timing_active || aux_timing_active || content_active; }
 bool usb_storage_timing_begin(void) {
     uint64_t flags=save_irq();
     bool ok=!timing_active && timer_reference_ready();
@@ -32,6 +128,7 @@ bool usb_storage_timing_aux_begin(void) {
 }
 void usb_storage_timing_aux_end(struct usb_storage_timing *out) {
     uint64_t flags=save_irq();
+    if(content_active)content_bad();
     if(out)*out=aux_timing_active?aux_timing:(struct usb_storage_timing){0};
     aux_timing_active=false;restore_irq(flags);
 }
@@ -80,12 +177,13 @@ static void record_bulk(struct usb_storage_timing *target,unsigned phase,uint64_
 static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
                        uint32_t length,uint32_t *actual,uint8_t opcode,uint32_t command_bytes) {
     bool legacy=timing_active,auxiliary=aux_timing_active;
-    if(!legacy && !auxiliary)return s->bulk(s->context,in,data,length,actual);
+    if(!legacy && !auxiliary && !content_active)return s->bulk(s->context,in,data,length,actual);
     uint64_t start=timer_monotonic_us();
     bool ok=s->bulk(s->context,in,data,length,actual);
     uint64_t end=timer_monotonic_us();
     struct usb_bulk_timing sample={0};
     if(s->transfer_timing)s->transfer_timing(s->context,&sample);
+    content_command_bulk(phase,start,end,length,*actual);
     /* Capture once, then copy the same observation into independent windows.
      * No additional bulk/controller request or event-service operation. */
     if(legacy)record_bulk(&timing,phase,start,end,ok,s->transfer_timing!=0,&sample);
@@ -96,6 +194,28 @@ static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
         if(peak)aux_timing.csw=(struct usb_storage_csw_timing){
             .start_us=start,.end_us=end,.opcode=opcode,.command_bytes=command_bytes,
             .request_bytes=length,.actual=*actual,.ok=ok,.sample=sample};
+    }
+    if(content_active && phase==2) {
+        if(!content_command_active || !auxiliary || end<start)content_bad();
+        else {
+            struct usb_storage_content_role *p=&content_timing.roles[content_command_role];
+            if(!aux_timing.valid)content_bad();
+            uint64_t elapsed=end-start;
+            bool peak=!p->csw_calls || elapsed>p->worst.end_us-p->worst.start_us;
+            content_add(&p->csw_calls,1);content_add(&p->csw_us,elapsed);
+            if(elapsed>100000)content_add(&p->over100ms,1);
+            if(opcode==0x2a) {
+                content_add(&p->write_csw_us,elapsed);
+                if(command_bytes==512)content_add(&p->write512_csw_us,elapsed);
+                if(elapsed>100000) {
+                    content_add(&p->write_over100ms,1);
+                    if(command_bytes==512)content_add(&p->write512_over100ms,1);
+                }
+            }
+            if(peak)p->worst=(struct usb_storage_csw_timing){
+                .start_us=start,.end_us=end,.opcode=opcode,.command_bytes=command_bytes,
+                .request_bytes=length,.actual=*actual,.ok=ok,.sample=sample};
+        }
     }
     return ok;
 }
@@ -112,6 +232,15 @@ static void timed_checkpoint(void) {
     timing_add(&aux_timing,&aux_timing.checkpoint_calls,1);
     if(end<start)aux_timing.valid=false;
     else timing_add(&aux_timing,&aux_timing.checkpoint_us,end-start);
+    if(content_active && content_command_active) {
+        if(end<start || start<content_command.end_us)content_bad();
+        else {
+            if(!content_command.checkpoint_calls)content_command.checkpoint_first_us=start;
+            content_add(&content_command.checkpoint_calls,1);
+            content_add(&content_command.checkpoint_us,end-start);
+            content_command.checkpoint_last_us=end;content_command.end_us=end;
+        }
+    }
 }
 
 static uint32_t le32(const uint8_t *p) {
@@ -146,6 +275,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     put_le32(cbw,0x43425355); put_le32(cbw+4,tag); put_le32(cbw+8,length);
     cbw[12]=in?0x80:0; cbw[14]=cdb_len; copy(cbw+15,cdb,cdb_len);
     s->commands++;
+    bool content_observed=content_command_begin(cdb[0],length);
     latency_usb(length,cdb[0]);
     uint8_t phase = 1; /* CBW, data, CSW, then full-transfer validation. */
     const char *reason = "cbw-transfer";
@@ -187,6 +317,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
          * after publication cannot establish whether the medium changed. Never
          * resume old geometry/mount/cache state against a replacement medium. */
         if(s->block) {s->failed=true;block_invalidate(s->block);}
+        content_command_end(content_observed,false);
         return 1;
     }
     /* All implemented successful commands require their full requested data. */
@@ -194,6 +325,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     reason="data-length";
     if (le32(csw+8)!=0 || transferred!=length) goto bad;
     timed_checkpoint();
+    content_command_end(content_observed,true);
     return 0;
 bad:
     s->failed=true; s->errors++;
@@ -201,6 +333,7 @@ bad:
     record_error(s,cdb[0],phase,reason,tag,(phase==2 || phase==4)?transferred:actual,csw);
     s->error_status=255; /* No trustworthy command status. */
     console_printf("usb-storage: transport failed; device quarantined commands=%u\n",s->commands);
+    content_command_end(content_observed,false);
     return -1;
 }
 static uint64_t save_irq(void) {

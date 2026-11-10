@@ -2214,7 +2214,7 @@ interrupt-smoke: $(IMAGE) $(EXFAT_IMAGE) test-core
 .PHONY: test-usb-storage usb-storage-smoke
 test-usb-storage: build/tests/usb-storage-host$(HOST_EXE)
 	$<
-build/tests/usb-storage-host$(HOST_EXE): tools/test_usb_storage.c kernel/src/drivers/usb_storage.c $(KERNEL_HEADERS)
+build/tests/usb-storage-host$(HOST_EXE): tools/test_usb_storage.c tools/test_usb_content.inc kernel/src/drivers/usb_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
 test-core: test-usb-storage
@@ -5528,6 +5528,8 @@ test-intel-requester: build/tests/intel-requester-core$(HOST_EXE) build/tests/in
 test-sync-content: $(LIMINE_PROTOCOL_DIR)/.ready build/tests/desktop-session-host$(HOST_EXE)
 	$(PYTHON) tools/test_sync_content_integration.py --limine-include $(LIMINE_PROTOCOL_DIR)/include
 	$(PYTHON) -m unittest discover -s tools -p test_sync_content.py
+	$(PYTHON) -m unittest discover -s tools -p test_sync_commands.py
+	$(PYTHON) -m unittest discover -s tools -p test_sync_command_phases.py
 	$(PYTHON) -m unittest discover -s tools -p test_capture_history.py
 	$(PYTHON) tools/test_capture_history_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
 test-core: test-sync-content
