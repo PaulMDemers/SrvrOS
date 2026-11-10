@@ -8,6 +8,7 @@ import unittest
 from hardware_boot import stage, limine_config
 from intel_joint import joint_capture, joint_result, native_joint_result, joint_recipe
 from intel_display_backing import backing_result, pte_chunk
+from intel_gt_firmware import firmware_result
 
 ROOT = Path(__file__).resolve().parents[1]
 EXE = Path(os.environ.get('INTEL_JOINT_EXE', ROOT / 'build/tests/intel-joint-adapter'))
@@ -114,6 +115,18 @@ class JointAdapterTests(unittest.TestCase):
         for chunk in b['rows']['pte']:
             wrong = dict(chunk, w=8)
             with self.assertRaises(ValueError): pte_chunk(wrong, 3)
+
+    def test_joint_firmware_vectors_keep_both_samples(self):
+        result = firmware_result(self.text)
+        self.assertTrue(result['qualification_complete'])
+        words = [int(vector[i:i + 8], 16)
+                 for vector in re.findall(r'^intel-firmware-vector: .* h=([0-9a-f]{104})$', self.text, re.M)
+                 for i in range(0, 104, 8)]
+        self.assertEqual(len(words), 26)
+        self.assertEqual([row['value'] for row in result['rows']['word']], words)
+        for version in (16, 21):
+            with self.subTest(version=version), self.assertRaises(ValueError):
+                firmware_result(self.text.replace('intel-wake-summary: v=20 ', f'intel-wake-summary: v={version} '))
 
     def test_strict_raw_join_mutations(self):
         for key, value in [('complete', '01'), ('state', 2), ('reason', 4), ('pinned', 1), ('retained', 1), ('root_retired', 0), ('returns', 3), ('hda_pins', 1), ('hda_writes', 1), ('hda_epoch', 0), ('clock_at', 1), ('cache', 21), ('origin', 1), ('assurances', 255), ('managed_pages', 1)]:
