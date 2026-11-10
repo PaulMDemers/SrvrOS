@@ -2,7 +2,39 @@
 
 Updated: 2026-11-09. State: **active reference machine; partial device acceptance**.
 
-### Ready: original first failed admission witness
+### Collected: original query refuses two registered address spaces
+
+Source `e0ab9800`, release `b726c22e43838e36`, session
+`session-00065fe41fc2c614-00` is a **native admission nonpass**. The original
+first-failure row records `queries=3 code=7 pages=1350 phase=1 reason=7
+checked=0 value=2`: the entry context sees two registered non-kernel address
+spaces and refuses before walking the framebuffer range. This identifies the
+failed predicate directly; it is not a missing-leaf or preparation-clock result.
+No wake mappings, write attempts, writes, engine reads or retained state occur;
+exclusion releases. Preparation, PCI action and reset never enter. Combined
+timing and native tear-free acceptance remain open.
+
+The boot log records system init readiness and a background child before the
+capture. Source starts `/init --system` before `workspace_boot` and the GPU
+trial; that init launches the startup shell and remains resident as reaper.
+The receipt does not identify each registered root's owner. Next is to qualify
+the diagnostic's startup ordering so the required sole-kernel-root context is
+actually established, retaining the zero-root/occupancy guards and unchanged
+100/300/500ms limits. Do not ignore registered roots or fall back to a weaker
+query to admit this test.
+
+Strict witness/reset decoding and durable checkpoint verify. Expected attention
+and `completed=NO` preserve the nonpass. All1,437 prior USB files preserve except
+expected metadata; three new logs give1,440files/136sessions. Offline filesystem,
+allocation, writable/headroom, payload/recovery, Ubuntu default and consumed
+one-shot checks pass. Volume1% at dispatch; no reboot armed. Local checkpoint:
+`build/air-admission-witness-20261109`; full evidence is independently backed up.
+All255 completion obligations remain open, zero managed pages and no GPU-memory
+authority. Fetched main`9a218889` merges PR452 capture telemetry; this fixed
+payload still uses main`0d83d045`. Integrate the new baseline before the next
+candidate. PR19 networking and PR379 WebCore remain independent; Actions disabled.
+
+### Prior qualification: original first failed admission witness
 
 Source `e0ab9800`, release `b726c22e43838e36`, integrates main`0d83d045`.
 The new image retains the original first failed backing/window predicate and
@@ -35,7 +67,8 @@ prior admission-refusalb63d remain on EFI. Unreferenced timing-nonpassa252 was
 losslessly archived and banked after full file/SHA equality. Full evidence is
 independently backed up outside build. Checkpoint:`build/air-admission-witness-20261109`.
 
-Next is an automated native trial requiring no input. Safe durable outcomes
+At qualification, the next step was an automated native trial requiring no input.
+Its collected refusal is recorded above. Safe durable outcomes
 return automatically; uncertainty or failed persistence halts visibly. Collect
 the matching session and original failed predicate first after return. Native
 cause, timing improvement and combined acceptance remain pending; all255

@@ -248,3 +248,13 @@ is65,211/65,536 including the unchanged1,536 reserve. The image is installed wit
 recovery retained and no reboot armed; physical cause and timing remain pending.
 The next native collector requires this row from this exact source; no rowless
 legacy receipt can supply its original failed-predicate witness.
+
+The native run `session-00065fe41fc2c614-00` now supplies that row:
+`queries=3 code=7 detail=0 pages=1350 phase=1 reason=7 level=0 checked=0 value=2`.
+The original entry check observes two registered address spaces and refuses
+before the range walk. Wake mapping/write/engine-read counts are zero, exclusion
+releases, and preparation/requester/reset do not enter. Strict decoding,
+checkpoint, saved return and offline integrity checks pass; combined execution
+and timing remain unaccepted. Ordinary system init precedes this diagnostic;
+qualify startup ordering to establish the required sole-kernel-root context.
+Do not drop root/occupancy checks or infer individual root owners from the count.

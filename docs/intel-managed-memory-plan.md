@@ -231,5 +231,9 @@ no native optimization or ownership acceptance is added.
 
 The next bounded diagnostic is source`e0ab9800`, release`b726c22e43838e36`:
 one original first-failure witness, retained through cleanup and printed after
-exclusion. Host/image/VM qualification passes; hardware attribution remains
-pending. It neither removes the strict query context nor adds memory authority.
+exclusion. Host/image/VM qualification passes. Its native run now records the
+entry-context refusal: two registered address spaces (`phase=1 reason=7 value=2`)
+before walking the framebuffer range. No wake mapping/write or reset occurs.
+Next qualify diagnostic startup ordering to establish the existing sole-root
+precondition; retain root/occupancy checks and all deadlines. This evidence
+neither accepts combined timing nor adds GPU-memory authority.

@@ -80,7 +80,11 @@ is the next diagnostic. It grants no GPU range or completion assurance.
 
 The next qualified diagnostic (`e0ab9800`, release`b726c22e43838e36`) retains
 the original first failed predicate and query context without a second probe.
-Its host/image/VM checks pass; native cause and timing remain pending.
+Its host/image/VM checks pass. The native row identifies an entry-context refusal:
+two registered address spaces before the range walk (`phase=1 reason=7 value=2`).
+System init precedes this diagnostic. Next qualify startup ordering to establish
+the existing sole-root context without relaxing root/occupancy gates or any
+deadline. No wake mapping/write/reset occurs and combined timing remains pending.
 
 The complete composition needs host fault injection at every transition.
 It must preserve the existing BCS-only writer gate until a separate review
