@@ -110,6 +110,25 @@ GGTT interval, private backing or managed page is transferred. Physical
 tear-free presentation remains a later milestone in the
 [roadmap](intel-tearfree-roadmap.md).
 
+## Fresh CPU translation comparison
+
+This image alone uses `vmm_diagnostic_contiguous_kernel_range` at each full
+backing endpoint while IRQs are masked. The query requires the current sole
+kernel root, aligned canonical bounds and at most4096 pages. Every4K leaf is
+read and compared; large leaves prove only the covered translation interval.
+Ancestors are shared inside one uninterrupted call and rewalked at leaf-table
+boundaries. Nothing is cached across endpoints or callbacks. IRQ-enabled
+startup and older images keep their scalar path; a failed excluded query never
+falls back. All original raw GGTT/fence/route/endpoint observations and
+provider/lifetime/clock checks remain. No page-table mutation, alias or
+permission proof, pin, DMA assurance or longer deadline is introduced.
+
+Actual VMM tests compare scalar and batched translation, inject a missing or
+wrong mapping at each of1350 framebuffer leaves, cross PT/PDPT/PML4 and large
+leaf boundaries, and check exclusion and unchanged tables/state. The host
+fixture observes5400 scalar table conversions versus11 batched conversions
+for that range. These are lookup counts, not native wall-time acceptance.
+
 
 ## Exact candidate qualification
 

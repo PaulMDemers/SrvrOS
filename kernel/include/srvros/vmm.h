@@ -14,6 +14,12 @@
 /* CPU0, IRQs masked: observational guard only, no lease or SMP proof.
  * Requires current untagged kernel CR3 and no registered nonkernel root. */
 bool vmm_diagnostic_sole_kernel_root(uint64_t expected);
+/* Fresh read-only translation comparison, at most4096 aligned pages. Requires
+ * the same sole-root/IRQ exclusion as above. Reads every 4K leaf (or the large
+ * leaf covering it), sharing ancestors only inside this uninterrupted call.
+ * No permission/cache-type, alias-completeness, pin, DMA or SMP assurance. */
+bool vmm_diagnostic_contiguous_kernel_range(uint64_t root, uint64_t virtual_base,
+    uint64_t physical_base, uint64_t pages);
 void vmm_init(void);
 /* Page operations require canonical virtual addresses; mapping/mutation also
  * require page alignment. Invalid addresses are refused before table access. */

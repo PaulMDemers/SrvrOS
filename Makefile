@@ -5602,8 +5602,17 @@ build/tests/intel-held-reset-adapter$(HOST_EXE): kernel/src/drivers/intel_engine
 .PHONY: test-intel-held-reset
 test-core: test-intel-held-reset
 test-intel-held-reset: build/tests/intel-engine-held-reset$(HOST_EXE) build/tests/intel-held-reset-adapter$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE)
+	build/tests/intel-held-reset-adapter$(HOST_EXE) --range-endpoint
 	$(PYTHON) -m unittest discover -s tools -p test_intel_engine_held_reset.py
 	$(PYTHON) -m unittest discover -s tools -p test_intel_held_reset_adapter.py
 	$(PYTHON) -m unittest discover -s tools -p test_intel_held_reset_staging.py
 	$(PYTHON) -m unittest discover -s tools -p test_intel_held_reset_receipts.py
 	$(PYTHON) -m unittest discover -s tools -p test_intel_held_reset_firmware.py
+
+.PHONY: test-vmm-diagnostic-range
+test-core: test-vmm-diagnostic-range
+test-vmm-diagnostic-range: build/tests/vmm-diagnostic-range$(HOST_EXE)
+	$<
+build/tests/vmm-diagnostic-range$(HOST_EXE): tools/test_vmm_diagnostic_range.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

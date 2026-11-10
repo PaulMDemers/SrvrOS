@@ -2,6 +2,7 @@
 #ifdef SRVROS_INTEL_PREPARE_RESET
 #include <srvros/intel_engine_held_reset.h>
 static unsigned held_reset_boundary,held_reset_reads,held_reset_attempts,held_reset_writes,held_reset_domain_reads,held_reset_clock_fault;
+static unsigned range_calls,range_fail_at;
 static void intel_display_test_held_reset_boundary(bool);
 static void intel_display_test_held_reset_admission(void);
 static bool intel_display_test_held_reset_snapshot_read(unsigned,uint32_t,uint32_t *);
@@ -475,6 +476,15 @@ static unsigned index_of(uint64_t v){
  return (unsigned)((v-CAPTURE_VA)/4096);
 }
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t v,uint64_t *p){assert(space==0x1000);if(backing_mode && v>=fb_virtual && v<fb_virtual+6144*900){if(translation_gap && v==fb_virtual+4096)return false;*p=0xb0000000+v-fb_virtual;return true;}unsigned n=index_of(v);*p=pa[n];return pa[n]!=0;}
+bool vmm_diagnostic_contiguous_kernel_range(uint64_t space,uint64_t va,uint64_t physical,uint64_t pages) {
+ assert(space==0x1000 && wake_irq && !(va&4095) && !(physical&4095) && pages && pages<=4096);
+#ifdef SRVROS_INTEL_PREPARE_RESET
+ if(++range_calls==range_fail_at)return false;
+#endif
+ if(current!=space)return false;
+ for(uint64_t i=0;i<pages;i++){uint64_t p;if(!vmm_virt_to_phys_in_space(space,va+4096*i,&p) || p!=physical+4096*i)return false;}
+ return true;
+}
 bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) {
     bool writable=wake_mode && v==BACKING_VA+0x10000;
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
@@ -628,6 +638,7 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
 static void reset(void) {
 #ifdef SRVROS_INTEL_PREPARE_RESET
     held_reset_boundary=held_reset_reads=held_reset_attempts=held_reset_writes=held_reset_domain_reads=held_reset_clock_fault=0;
+    range_calls=range_fail_at=0;
 #endif
     memset(&intel_boot_state,0,sizeof(intel_boot_state));
     assert(intel_boot_select(INTEL_BOOT_OBSERVER));
@@ -652,6 +663,29 @@ static void reset(void) {
         .memory_model=LIMINE_FRAMEBUFFER_RGB,.red_mask_size=8,.red_mask_shift=16,.green_mask_size=8,.green_mask_shift=8,.blue_mask_size=8};
 }
 int main(int argc,char **argv) {
+#ifdef SRVROS_INTEL_PREPARE_RESET
+    if(argc==2 && !strcmp(argv[1],"--range-endpoint")) {
+        reset();backing_mode=true;memory.entry_count=3;
+        intel_display_probe_boot(&frame);intel_display_backing_probe_boot(&frame);
+        assert(!range_calls); /* IRQ-enabled startup keeps the scalar path. */
+        struct gt_observer g={0};assert(trial_adapter(&g.a));
+        assert(display_access_acquire(0x52414e47,&g.token));wake_irq=true;
+        struct intel_gt_endpoint e={0};
+        assert(gt_guard_endpoint(&g,&e) && range_calls==5);
+        /* Each endpoint of every new census calls the fresh range query.
+         * A refusal never falls back to the scalar walker. */
+        for(unsigned n=1;n<=5;n++) {
+            range_calls=0;range_fail_at=n;
+            assert(!gt_guard_endpoint(&g,&e) && range_calls==n);
+        }
+        range_fail_at=0;range_calls=0;translation_gap=true;
+        assert(!gt_guard_endpoint(&g,&e) && range_calls==1);
+        translation_gap=false;range_calls=0;
+        assert(gt_guard_endpoint(&g,&e) && range_calls==5);
+        assert(display_access_release(&g.token,true));
+        puts("range-endpoint: PASS five fresh endpoint comparisons; scalar startup; refusal never falls back");return 0;
+    }
+#endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
     if(argc==2 && !strcmp(argv[1],"--guard-endpoint")) {
         reset();backing_mode=true;memory.entry_count=3;

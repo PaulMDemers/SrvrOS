@@ -261,6 +261,55 @@ bool vmm_diagnostic_sole_kernel_root(uint64_t expected) {
     return __atomic_load_n(&address_space_occupancy,__ATOMIC_RELAXED) == 0;
 }
 
+bool vmm_diagnostic_contiguous_kernel_range(uint64_t root,uint64_t va,uint64_t pa,uint64_t pages) {
+    if (!pages || pages>4096 || (va&(PAGE_SIZE-1)) || (pa&~PAGE_MASK) ||
+        va>UINT64_MAX-(pages-1)*PAGE_SIZE || pa>PAGE_MASK-(pages-1)*PAGE_SIZE ||
+        !is_canonical(va) || !is_canonical(va+(pages-1)*PAGE_SIZE) ||
+        (va>>47)!=( (va+(pages-1)*PAGE_SIZE)>>47) ||
+        !vmm_diagnostic_sole_kernel_root(root)) return false;
+    /* Boot CPU and IRQ exclusion are observational preconditions, not a lease.
+     * No callbacks, writes, allocations or persistent table pointers. Rewalk
+     * from the root at every leaf-table boundary; read each PTE exactly once. */
+    while (pages) {
+        const volatile uint64_t *table=kernel_pml4;
+        uint64_t entry=table[pml4_index(va)];
+        if (!(entry&VMM_PAGE_PRESENT) || (entry&PAGE_LARGE)) return false;
+        table=entry_table(entry);
+        if (!table || !is_canonical((uint64_t)table)) return false;
+        entry=table[pdpt_index(va)];
+        if (!(entry&VMM_PAGE_PRESENT)) return false;
+        uint64_t chunk,physical;
+        if (entry&PAGE_LARGE) {
+            physical=(entry&PAGE_1G_MASK)+(va&0x3fffffff);
+            chunk=(0x40000000-(va&0x3fffffff))/PAGE_SIZE;
+        } else {
+            table=entry_table(entry);
+            if (!table || !is_canonical((uint64_t)table)) return false;
+            entry=table[pd_index(va)];
+            if (!(entry&VMM_PAGE_PRESENT)) return false;
+            if (entry&PAGE_LARGE) {
+                physical=(entry&PAGE_2M_MASK)+(va&0x1fffff);
+                chunk=(0x200000-(va&0x1fffff))/PAGE_SIZE;
+            } else {
+                table=entry_table(entry);
+                if (!table || !is_canonical((uint64_t)table)) return false;
+                chunk=ENTRIES_PER_TABLE-pt_index(va);
+                if (chunk>pages) chunk=pages;
+                for (uint64_t i=0;i<chunk;i++) {
+                    entry=table[pt_index(va)+i];
+                    if (!(entry&VMM_PAGE_PRESENT) || (entry&PAGE_MASK)!=pa+i*PAGE_SIZE) return false;
+                }
+                physical=pa;
+            }
+        }
+        if (physical!=pa) return false;
+        if (chunk>pages) chunk=pages;
+        pages-=chunk;
+        if (pages) {va+=chunk*PAGE_SIZE;pa+=chunk*PAGE_SIZE;}
+    }
+    return vmm_diagnostic_sole_kernel_root(root);
+}
+
 static bool map_page_in_space(uint64_t address_space,
     uint64_t virtual_address,
     uint64_t physical_address,

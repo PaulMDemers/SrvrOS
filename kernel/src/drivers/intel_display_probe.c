@@ -162,6 +162,9 @@ static struct intel_backing_result backing;
 static struct limine_framebuffer trial_framebuffer;
 static bool backing_attempted;
 struct backing_adapter {struct adapter common;struct limine_framebuffer *fb;uint64_t physical;uint32_t page;bool mapped;};
+#ifdef SRVROS_INTEL_PREPARE_RESET
+static bool backing_pairs_irq_off(void);
+#endif
 static bool backing_range_reserved(uint64_t base,uint64_t bytes) {
     const struct limine_memmap_response *m=memmap_request.response;
     if(!base || !bytes || base>UINT64_MAX-bytes || !m || !m->entries || !m->entry_count || m->entry_count>4096)return false;
@@ -194,8 +197,15 @@ static bool backing_endpoint(void *opaque,struct intel_backing_endpoint *e) {
        physical>UINT64_MAX-bytes || (physical&4095)!=(va&4095))return false;
     uint64_t first=va&~4095ull,last=(va+bytes-1)&~4095ull;
     e->fb_pages=(last-first)/4096+1;
+#ifdef SRVROS_INTEL_PREPARE_RESET
+    if(backing_pairs_irq_off()) {
+        if(!vmm_diagnostic_contiguous_kernel_range(a->common.cr3,first,physical&~4095ull,e->fb_pages))return false;
+    } else
+#endif
+    {
     for(uint64_t i=0;i<e->fb_pages;i++) {
         uint64_t p;if(!vmm_virt_to_phys_in_space(a->common.cr3,first+i*4096,&p) || p!=(physical&~4095ull)+i*4096)return false;
+    }
     }
     const struct limine_memmap_response *m=memmap_request.response;unsigned overlaps=0;
     if(!m || !m->entries || !m->entry_count || m->entry_count>4096)return false;

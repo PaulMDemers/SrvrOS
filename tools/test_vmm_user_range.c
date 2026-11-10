@@ -190,4 +190,5 @@ int main(void) {
     vmm_destroy_address_space(0);vmm_destroy_address_space(kernel_cr3);
     assert(switches==1 && retire_count==3);
     free(pt); free(pd); free(pdpt); free(pml4);
+    return 0;
 }
