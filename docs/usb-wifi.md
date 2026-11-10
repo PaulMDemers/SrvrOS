@@ -8016,3 +8016,12 @@ actually EMPTY after FIN/TIME_WAIT. Ordinary TCP RX allocation/free remains in
 place; finite user calls do not make the entire kernel allocation-free or bound
 wall time spent inside generic syscall admission/cleanup. See the Pro unit record
 for exact source, qualifications and independent native acceptance boundaries.
+
+
+The Pro11,2 controlled e1000 HTTP guest on runtime `e5b3d160` now passes
+actual ELF/socket/IRQ-worker coexistence, exact request/body, genuine TCP EOF
+and full software retirement. Independent packet capture confirms both FINs
+and peer acknowledgements. Its private numeric endpoint intentionally skips
+DNS and does not accept native Wi-Fi. The next explicit v139 native profile
+requires production DHCP/DNS and the existing full key/provider/USB retirement;
+see the machine record for scope and evidence.

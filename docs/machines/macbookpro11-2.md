@@ -16900,3 +16900,39 @@ without host root or a host port80 listener. The VM-only numeric override change
 from10.0.2.100 to10.0.2.2. The actual client, native DHCP/DNS/EOF validation and
 original traffic/time/check budgets remain unchanged. A complete guest pass is
 still required before another native boot; no physical run is armed.
+
+
+## Actual HTTP guest accepted; native HTTP next
+
+Runtime `e5b3d160` completes the controlled e1000 guest with the actual
+`/httpget --wifi-exact 3` ELF, real sockets and IRQ-driven prepared worker.
+The original 15-second window completes in 850,388 us with 87 worker turns
+after a separately measured 1,008,903 us pre-GO sleep. An independent decoder
+checks all 32 captured frames, exact 4,159-byte request and 3,132-byte response
+(including the expected 3,072-byte body), checksums and actual FIN/peer ACK in
+both directions. The client observes EOF/status0; child/lifetime, worker, TCP
+tables and provider references retire. Missing-FIN synthetic captures refuse.
+
+The peer and QEMU run in a verified new unprivileged loopback-only network
+namespace. The VM-only numeric endpoint skips DNS explicitly; no external
+HTTP/DNS traffic or native USB/CCMP/DMA retirement is claimed. The e1000 DMA
+rings remain retained until VM exit. The three earlier failed VM attempts
+remain failed evidence. A separate immutable 98-file software capsule outside
+`build` binds the successful raw run, source, exact products, qualification and
+independent reviews; SHA256SUMS is
+`d2b1bd4a380cbca3f234a62c487cc86216eeeac1dfca18edb164c295dd15c69a`.
+
+The bounded next objective is an explicit v139 native HTTP profile over the
+existing fixed-channel161 original-key provider. Scope: xHCI HTTP callback,
+prelive process/worker preparation, isolated init, staging and strict saved-log
+collector. It depends on the reviewed portable HTTP owner and prepared network
+worker, unchanged 80TX/252RX/four-fence/150,000-poll/15-second bounds, mandatory
+calibration and first-join cleanup, and full existing key/parent retirement.
+Unsafe child/worker/TCP obligations must hold before the legacy owner can erase
+keys. Native DNS is mandatory; the VM numeric override is forbidden. Separate
+new run/evidence paths will preserve the collected/accepted v138 run.
+
+Before a physical trial: matched qualification, exact-image VM, strict collector
+review, capture/stack composition, workspace preservation and recovery checks
+remain required. Installed acceptance remains runtime5b91/release689b; Ubuntu
+is unarmed. Native TCP/HTTP, sustained use, UI and reattach remain unaccepted.
