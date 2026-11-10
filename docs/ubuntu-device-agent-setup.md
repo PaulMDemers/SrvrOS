@@ -1743,3 +1743,17 @@ its collector. All435 prior files/strict metadata (apart from RTC-bounded marker
 atime), offline allocation/fsck, installed candidate and six recovery backups
 pass. Ubuntu is default and unarmed. No identical retry is scheduled; next work
 is bounded DHCP state/refusal evidence and production/native-path qualification.
+
+The next qualified Pro11,2 diagnostic uses runtime070089f5/releasec603901d483d3f86
+and host validation3e61c3b6. Its ONLY new collection owner is
+`build/bringup/wifi-http5-dhcp-diagnostics/run.json` and that directory's
+`run_root.py return_collect` FIRST once after boot. Original normal55/fatal4
+runtime results stay labeled0700; the two-file host absence-checker followup
+passes263 units and all six fresh VM gates, including the437-file strict clone.
+The content-addressed runtime payload retains its original manifest. A separate
+DHCP diagnosis now survives a full-protocol refusal without accepting the run.
+Keep the previous1173-file primary/11-file review and148-file audit unchanged.
+Both USB devices require10seconds OFF-state unplug and same-port reconnect;
+safe progress/save/Ubuntu return is automatic. Installation/arming belongs to
+the saved record; protect all six recoveries and retire only fully backed failed
+776/7c3's EFI duplicate if measured capacity requires it. Native acceptance is pending.

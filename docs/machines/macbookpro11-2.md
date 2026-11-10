@@ -7,6 +7,46 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+The next bounded diagnostic is qualified at runtime070089f5 /
+releasec603901d483d3f86, with host validation3e61c3b6. Its installation/arming
+state belongs to `build/bringup/wifi-http5-dhcp-diagnostics/run.json`. After its
+boot, collect ONLY that matching NEW run FIRST once with its `run_root.py
+return_collect`. Every older collector is closed. The new collector preserves a
+separate source-bound DHCP observation even when the complete success-only
+RF/HTTP proof refuses a safely returned failed workload; observation alone
+grants no native acceptance.
+
+The240-byte receipt records queued sends, receive stages, parsed/accepted DHCP
+types, refusal codes/options presence and the original transaction time/poll
+bounds. It contains no addresses, XIDs, packet or key bytes. Independent review
+caught and closed a mixed last-message/options observation; native case54 covers
+a malformed packet before option53 after a valid Offer. Original0700 qualification
+passes the full Wi-Fi foundations,55 native HOST cases, strict log checks and
+four fatal ASan/UBSan fixtures (14 new native DHCP cases plus full bounded,
+HTTP72 and prepared-worker fixtures). No new packet/retry/ownership policy is
+introduced. Missing post-decapsulation data still cannot distinguish RF absence
+from a rejected encrypted frame.
+
+The staged VM caught a missed host absence-checker update, now fixed with263
+passing unit tests. Only two host Python files differ at3e61;1620 other qualified
+inputs remain exact, so original runtime/normal/fatal reports retain0700 labels.
+The content-addressed payload remainsc603 with its original0700 manifest; it is
+not relabeled. Fresh3e61 numeric and production-DNS actual HTTP guests,34/38-frame
+independent wire checks, exact-stage GPT/missing-workspace and desktop guests,
+and the437-file live-workspace clone all pass. All prior bytes and strict clone
+metadata survive except marker atime in the proven RTC window. The frozen
+runtime-source collector has580 Python modules and nine RF fixtures.
+
+Both USB devices still require10seconds disconnected while OFF, then the same
+ports. Safe completion saves and returns automatically; uncertain ownership
+still holds without disk writes. Protect Ubuntu, factory and all six retained
+recovery payloads. EFI capacity may retire only the exact fully backed failed
+776/7c3 duplicate after accepted7cd promotion and no-reference checks. Hardware
+acceptance remains pending; persistent service, UI/reattach and2.4GHz hardware
+remain separate work.
+
+### Closed previous hardware validation
+
 The November10 hardware validation of runtime776833e0 / release7c3f531966cbbe0f
 is collected FIRST once, session00065fe7075fb554-00. It **FAILED at DHCP before
 DNS or HTTP**, with a complete1896171-byte exit log and safe software quiescence.

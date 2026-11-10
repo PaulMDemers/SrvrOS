@@ -8117,6 +8117,8 @@ successful DORA against workload retries/polls/time and actual provider receives
 Historical logs use their own frozen checkers. Failure observation parsing alone
 is not HTTP, complete transport, full parent cleanup or hardware acceptance.
 The real-client numeric/DNS VM checker also requires the new successful receipt.
+The explicit absent-radio staged VM requires one canonical all-zero unused DHCP
+receipt while retiring its prepared owners; it never accepts DHCP connectivity.
 The native HOST fixture covers missing ACK and parser/network/crypto refusals
 through the actual registry/provider/CCMP and xHCI handlers with modeled USB/AP;
 it runs no HTTP process. Native diagnostic acceptance remains pending.
