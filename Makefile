@@ -2073,8 +2073,12 @@ build/tests/serial-host$(HOST_EXE): tools/test_serial.c kernel/src/arch/x86_64/s
 test-core: test-latency test-workqueue test-serial
 
 .PHONY: test-io-scheduler
-test-io-scheduler: build/tests/io-scheduler-host$(HOST_EXE)
+test-io-scheduler: build/tests/io-scheduler-host$(HOST_EXE) build/tests/io-sync-gate-host$(HOST_EXE)
 	$<
+	build/tests/io-sync-gate-host$(HOST_EXE)
+build/tests/io-sync-gate-host$(HOST_EXE): tools/test_io_scheduler.c tools/test_capture_gate_sync_bridge.c kernel/src/scheduler.c kernel/src/sync_timing.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_GATE_SYNC_INTEGRATION -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_io_scheduler.c tools/test_capture_gate_sync_bridge.c -Wl,--gc-sections -o $@
 build/tests/io-scheduler-host$(HOST_EXE): tools/test_io_scheduler.c kernel/src/scheduler.c kernel/src/capture_gate_timing_state.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
@@ -5089,18 +5093,22 @@ test-core: test-capture-write-timing
 build/tests/process-output-host$(HOST_EXE): kernel/src/capture_write_timing_state.h
 
 .PHONY: test-sync-timing
-test-sync-timing: build/tests/sync-timing-host$(HOST_EXE) build/tests/workspace-sync-content-wire$(HOST_EXE)
+test-sync-timing: build/tests/sync-timing-host$(HOST_EXE) build/tests/workspace-sync-content-wire$(HOST_EXE) build/tests/workspace-sync-gate-wire$(HOST_EXE)
 	build/tests/sync-timing-host$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_sync_timing.py
 	$(PYTHON) -m unittest discover -s tools -p test_sync_content.py
 	$(PYTHON) tools/test_sync_content_wire.py --binary build/tests/sync-timing-host$(HOST_EXE)
 	$(PYTHON) tools/test_sync_content_wire.py --binary build/tests/workspace-sync-content-wire$(HOST_EXE) --production-formatter
+	$(PYTHON) tools/test_capture_gate_sync_wire.py --binary build/tests/workspace-sync-gate-wire$(HOST_EXE)
 build/tests/sync-timing-host$(HOST_EXE): tools/test_sync_timing.c kernel/src/sync_timing.c $(KERNEL_HEADERS)
 	mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
 build/tests/workspace-sync-content-wire$(HOST_EXE): tools/test_sync_timing.c tools/test_workspace_sync_content_wire.c tools/test_workspace_sync_content_wire.h kernel/src/workspace_log.c kernel/src/sync_timing.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_WORKSPACE_SYNC_CONTENT_WIRE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include tools/test_sync_timing.c tools/test_workspace_sync_content_wire.c -Wl,--gc-sections -o $@
+build/tests/workspace-sync-gate-wire$(HOST_EXE): tools/test_sync_timing.c tools/test_workspace_capture_write_wire.c kernel/src/workspace_log.c kernel/src/sync_timing.c kernel/src/capture_write_timing_state.h kernel/src/capture_gate_timing_state.h $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_CAPTURE_GATE_SYNC_WIRE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include tools/test_sync_timing.c tools/test_workspace_capture_write_wire.c -Wl,--gc-sections -o $@
 test-core: test-sync-timing
 
 .PHONY: test-exfat-link-batch
