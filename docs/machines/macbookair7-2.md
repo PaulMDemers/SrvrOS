@@ -2,25 +2,51 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Active scope: pre-user-init held-reset qualification
+### Ready: combined held-reset trial before user init
 
-Integrating main`486b6d2a` (PR452/453 capture telemetry and Air6,1 evidence).
-Next candidate changes only diagnostic startup ordering: specialize the held-reset
-image's main object, and defer system init only for its exact18-token recipe.
-That automatic profile always saves/unmounts and returns or halts; it never
-continues to the desktop without init. Ordinary images and malformed/other
-recipes retain normal init. Kernel workspace/logging, input and timer services
-stay available; root/occupancy guards, full GPU/HDA preservation and100/300/500ms
-limits remain. Qualify the combined preparation/PCI/reset/cancellation lifetime
-in one candidate, with original admission witness and strict return collection.
+Source `9c788f3f`, release `8d3839aaa57f707d`, integrates main`486b6d2a`.
+Only the isolated held-reset image links a specialized main object and defers
+`/init --system` for the exact18-token terminal recipe. Ordinary images and
+incomplete, duplicate or foreign recipes retain normal init/readiness handling.
+Kernel USB/logging/input/timer services remain; no registered root is discarded,
+no query fallback is added, and original root/count/occupancy/entry/exit checks
+and100/300/500ms limits remain. One candidate tests sole-root admission,
+preparation, maintained PCI capture, both BCS8 pulses, settling, reverse
+cancellation, full GPU/display/HDA preservation and verified retirement together.
 
-Touched scope: kernel main/startup helper, held-reset Makefile isolation,
-host startup regressions and exact-stage VM/collector ordering checks. The first
-combined gate also found imported CLI argument parsing in main's new
-`test_capture_transfer_wire.py`; make that wrapper import-safe while preserving
-its explicit C-fixture invocation and every assertion. No capture behavior changes. PR19
-networking and PR379 WebCore are independent; Air6,1 capture telemetry is consumed,
-not reimplemented. No new physical acceptance or reboot is armed by this scope.
+Full local build/check-host/test-core/check-docs (installed-root explicitly
+omitted),21-image isolation,488 fatal core/native-adapter sanitizer cases plus
+actual-VMM sanitizer/2,700leaf faults,8core/14native/8VMM/4observer compiled
+controls pass. The actual startup helper additionally passes two fatal sanitizer
+configurations and three compiled isolation controls. Native object/staged
+writer/clock/width/permission, strict prior/new receipts and118 raw DWORD
+comparisons pass. Worst-width projection65,291/65,536 includes the unchanged
+1,536 reserve. Initial imported-CLI test discovery failure is retained; an
+import-safe wrapper and matched explicit C-wire fixture pass without capture
+behavior changes. A stale-host explicit invocation nonpass is also retained.
+
+Exact immutable MBR EFI refusal/checkpoint/save/unmount/automatic return and
+missing-drive halt pass. Four logs match the compiled18-token recipe and
+pre-init marker, with no user-init creation. A separate ordinary-image VM
+passes normal init/startup and the service lifecycle, with no deferred marker.
+These are software checks; native combined timing remains pending.
+
+All1,440 USB files/136sessions preserve, with clean offline filesystem,
+allocation/writable/headroom and recovery checks. Candidate is installed/current,
+immutable and durable at1%, Ubuntu default, no reboot armed at this ready
+checkpoint. Recovery9aa8, GUIc497, accepted held67a1/reset6365/preparation0caf and
+original count2 witnessb726 remain on EFI. Older unreferenced b63 admission-refusal
+is losslessly archived after full file/SHA equality; its independent bank stays.
+Full evidence is backed up outside build. Checkpoint:
+`build/air-preinit-held-reset-20261110`.
+
+Next is the authorized automated combined trial, with progress and no input
+required. Safe saved/unmounted outcomes return; uncertainty or failed persistence
+halts visibly. Collect first after return, require source-matched pre-init and
+original admission receipts, then full native/reset/checkpoint/integrity proofs.
+All255 completion obligations remain open, zero managed pages and no native
+GPU-memory/tear-free grant. PR19 networking and PR379 WebCore stay independent;
+Air6,1 capture telemetry is consumed from main, not reimplemented. Actions disabled.
 
 ### Collected: original query refuses two registered address spaces
 

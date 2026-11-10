@@ -162,3 +162,13 @@ failed evidence and backups outside disposable build artifacts.
 The next ready-for-hardware checkpoint must name the operation it will prove,
 which obligations it can actually close, and what remains open. Do not schedule
 another observation-only trial unless it resolves a specific protocol decision.
+
+
+The pre-user-init combined retry is now qualified in source`9c788f3f`,
+release`8d3839aaa57f707d` (main`486b6d2a`). Its isolated main defers user init
+only for the exact terminal held-reset recipe; ordinary-image service startup
+and diagnostic save/unmount/return/halt paths pass separate VM regressions.
+Original sole-root/count/occupancy guards, all preservation work and100/300/500ms
+bounds remain. One native trial will exercise the full maintained preparation,
+PCI capture, BCS8 reset and cancellation lifetime. Native timing, all255
+completion obligations and managed GPU-memory/tear-free acceptance remain open.
