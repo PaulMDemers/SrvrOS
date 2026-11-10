@@ -57,6 +57,11 @@ stable entries. It opens only the supplied transferred interval in
 stays protected. The current transaction limits a transfer to16 pages, separate
 from the arena's256MiB bound and unrelated to desktop window limits.
 
+The separate [complete transfer API](scanout-transfer.md) supports up to4,096
+owned original entries and maintained source/provider validation for future
+full-buffer imports. It preserves this native16-entry observation API and its
+zero-assurance gate; expanded software capacity grants no native interval.
+
 An active range pins the CPU lease. Closing requires fresh original-state proof
 and a fully closed arena; exposed, nonretired or quarantined leases prevent
 release. Wrong tokens and missing assurances do not enter a writer. These are

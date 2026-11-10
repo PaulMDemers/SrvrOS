@@ -50,9 +50,10 @@ attempt the allocator release once. A CPU fence, raw PTE readback or matching
 software token cannot substitute for those hardware proofs. Provider contexts
 and the original object must remain pinned through every fault.
 
-The legacy hardware-handoff snapshot still carries at most16entries. This new
-owner can test full-size ranges supplied by synthetic host fixtures, but does
-not expand that native import contract or claim a full-buffer native grant.
+The legacy hardware-handoff snapshot still carries at most16entries. The
+separate [complete transfer contract](scanout-transfer.md) captures up to4,096
+original entries and exercises two full buffers with synthetic providers. It
+does not expand the observed native snapshot or claim a full-buffer native grant.
 Native mapping remains gated until exclusive interval transfer, full manifests,
 owned completion resources and hardware retirement are established together.
 

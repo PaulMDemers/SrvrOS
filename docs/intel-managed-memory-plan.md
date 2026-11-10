@@ -50,6 +50,12 @@ completion and return integrity pass. This accepts private backing use and
 lifetime checks only; no synthetic provider is substituted for native transfer.
 Exclusive GPU interval ownership remains the next milestone.
 
+The separate [complete transfer contract](scanout-transfer.md) now captures
+up to4,096 exact originals, binds the source epoch/provider and drains joined
+buffer/publication leases before terminal original-state validation. This
+removes the software16-entry manifest limit for a future audited provider;
+the legacy native observer remains16entries and no native GPU range is imported.
+
 ## Ordered implementation milestones
 
 | Milestone | Required implementation and reviewable exit evidence |
