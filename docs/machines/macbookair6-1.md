@@ -11720,3 +11720,25 @@ changing backend service windows. A forced queued allocation regression checks
 that the new slot survives old cleanup. The initial b742ffe9 full build was
 stopped for this review and is incomplete, not accepted; a new frozen source
 must pass all integration checks before any physical stage or reboot.
+
+Frozen source `51670ae6` now passes matched images, full core/desktop/docs and
+89 install tests with one existing skip. Ordinary ABI, USB input, fork/exec/yield,
+real USB persistence, ordinary capture and populated Home400-write-IOPS KVM
+stress pass. The loaded trial completes21 app cycles and187 overlap windows,
+zero recorded audio underruns,238.866ms maximum loop,1.238376s ready and
+1.681271s close maxima. Its valid1280×800 screenshot takes9.679639s;63 checked
+raw writes contain24 proved copies and39 ordinary calls, with no growth, error,
+invalid or dropped evidence. Complete saved lifecycle/app/file-service records,
+raw BMP and40-byte disk receipt, captured-prefix companions and all original
+byte/retirement checks pass. This is VM evidence, not native timing or a causal
+speed comparison.
+
+Release `a1397d0b2e7ba0d1` is staged from that exact source with ports `39ad9d70`.
+Its native-board-refusal/save/unmount/automatic-return VM rehearsal passes with
+the exact manifest. Current hardware remainsd551/recoveryc354; no native reboot
+is armed at this checkpoint. The next physical run retains the original1800s1%
+audio/disk/app/three-screenshot workload,60s tail,500ms loop and10s lifecycle
+requirements, all proofs/barriers and automatic collection. Native acceptance
+and the earlier intermittent battery cause remain open. Refreshed PR301/PR19
+heads0778cd1a/3afff099 retain separate graphics/network work; integration main
+remainsc3550c82 before this PR's merge. Actions stay disabled.
