@@ -205,8 +205,12 @@ static void display_tick(struct session *s) {
  * samples instead of reading a physical-stride buffer as tightly packed 1x. */
 static void capture_tick_scaled(struct session *s,const struct desk_canvas *canvas) {
     unsigned scale=desk_canvas_scale(canvas);uint32_t *logical=NULL;
-    int snapshot=s->capture_pending || (s->worker && life_state(&s->worker->prepare.state)==LIFE_DONE);
+    int snapshot=s->capture_owner?capture_owner_state(s->capture_owner)==CAPTURE_OWNER_PREPARED:
+        (s->worker?life_state(&s->worker->prepare.state)==LIFE_DONE:s->capture_pending);
     if(scale==1 || !snapshot) {capture_tick(s,scale==1?canvas->pixels:NULL);return;}
+    if(canvas->width<=0 || canvas->height<=0 || !desk_capture_bytes(canvas->width,canvas->height)) {
+        capture_tick(s,NULL);return;
+    }
     logical=desk_pixels_alloc(canvas->width,canvas->height);
     if(logical)for(int y=0;y<canvas->height;y++)for(int x=0;x<canvas->width;x++) {
         unsigned red=0,green=0,blue=0;

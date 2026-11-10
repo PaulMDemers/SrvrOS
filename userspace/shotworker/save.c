@@ -8,18 +8,16 @@
 #include <errno.h>
 static unsigned verify(const char *path,const unsigned char *data,size_t length,capture_progress_fn progress,void *context,unsigned phase) {
     if(progress)progress(context,phase,0);
-    int fd=open(path,O_RDONLY);if(fd<0) return DESK_CAPTURE_IO;
-    struct stat st;unsigned result=DESK_CAPTURE_OK;
-    if(fstat(fd,&st) || !S_ISREG(st.st_mode) || (uint64_t)st.st_size!=length) result=DESK_CAPTURE_IO;
-    unsigned char buffer[4096];size_t offset=0;
-    while(!result && offset<length) {
-        size_t bytes=length-offset;if(bytes>sizeof(buffer)) bytes=sizeof(buffer);
-        ssize_t n=read(fd,buffer,bytes);
-        if(n<=0 || (size_t)n>bytes || memcmp(buffer,data+offset,n)) result=DESK_CAPTURE_IO;
-        else { offset+=n;if(progress && (!(offset%65536) || offset==length))progress(context,phase,offset); }
-    }
-    if(close(fd)) result=DESK_CAPTURE_IO;
-    return result;
+    struct stat st;
+    if(stat(path,&st) || !S_ISREG(st.st_mode) || (uint64_t)st.st_size!=length)return DESK_CAPTURE_IO;
+    /* Ordinary reopen/read can reuse a live shared RAM buffer. This operation
+     * instead owns a fresh VFS media snapshot through complete comparison and
+     * release, without changing any ordinary reader's shared-file semantics. */
+    struct srv_file_verify_request request={.abi_version=SRV_ABI_VERSION,.struct_size=sizeof(request),
+        .path=path,.data=data,.length=length,.expected_inode=st.st_ino,.expected_mtime=st.st_mtime};
+    if(srv_file_verify(&request))return DESK_CAPTURE_IO;
+    if(progress)progress(context,phase,length);
+    return DESK_CAPTURE_OK;
 }
 unsigned capture_save_progress(const char *path,const unsigned char *data,size_t length,capture_progress_fn progress,void *context) {
     if(progress)progress(context,CAPTURE_PREPARE,0);

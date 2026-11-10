@@ -146,25 +146,48 @@ def saved_app_timing(snapshots):
 
 
 def lifecycle_receipts(snapshots, count):
-    """Recover whole ready/closed records; require every unique cycle and PID."""
-    pattern = re.compile(rb'desktop-life: (ready|closed) cycle=(\d+) pid=(\d+) elapsed_us=(\d+)( errors=0)?')
+    """Join whole source receipts, including the producer's atomic cycle copy.
+
+    Original-console fallback is still needed for app-stage/file-service rows;
+    this copy preserves only the two exact lifecycle durations at close.
+    """
+    maximum = (1 << 64) - 1
+    assert isinstance(count, int) and 0 < count <= maximum, 'invalid lifecycle count'
+    pattern = re.compile(rb'desktop-life: (ready|closed) cycle=([0-9]+) pid=([0-9]+) elapsed_us=([0-9]+)(?: errors=([0-9]+))?')
+    complete = re.compile(rb'desktop-life-cycle: version=([0-9]+) cycle=([0-9]+) pid=([0-9]+) ready_elapsed_us=([0-9]+) closed_elapsed_us=([0-9]+) errors=([0-9]+)')
     records = {b'ready': {}, b'closed': {}}
+    def add(edge, cycle, pid, elapsed):
+        assert 0 <= cycle < count and 0 < pid <= maximum, 'invalid lifecycle identity'
+        assert 0 < elapsed <= 10000000, 'invalid lifecycle elapsed time'
+        value = (cycle, pid, elapsed)
+        assert cycle not in records[edge] or records[edge][cycle] == value, 'conflicting lifecycle receipt'
+        records[edge][cycle] = value
+
     for raw in snapshots:
         seen = set()
         for line in raw.splitlines():
+            # Never recover an embedded record from interleaved UART text.
+            cycle_match = complete.fullmatch(line)
+            if cycle_match:
+                version, cycle, pid, ready_elapsed, closed_elapsed, errors = map(int, cycle_match.groups())
+                assert version == 1 and errors == 0, 'invalid lifecycle cycle receipt'
+                key = b'cycle', cycle
+                assert key not in seen, 'duplicate lifecycle receipt within snapshot'
+                seen.add(key)
+                add(b'ready', cycle, pid, ready_elapsed)
+                add(b'closed', cycle, pid, closed_elapsed)
+                continue
             match = pattern.fullmatch(line)
             if not match:
                 continue
             edge, cycle, pid, elapsed, errors = match.groups()
-            assert bool(errors) == (edge == b'closed'), 'malformed lifecycle receipt'
+            assert (errors is not None) == (edge == b'closed'), 'malformed lifecycle receipt'
+            assert errors is None or int(errors) == 0, 'invalid lifecycle errors'
             cycle, pid, elapsed = int(cycle), int(pid), int(elapsed)
-            assert 0 <= cycle < count and pid > 0 and elapsed > 0
             key = edge, cycle
             assert key not in seen, 'duplicate lifecycle receipt within snapshot'
             seen.add(key)
-            value = (cycle, pid, elapsed)
-            assert cycle not in records[edge] or records[edge][cycle] == value, 'conflicting lifecycle receipt'
-            records[edge][cycle] = value
+            add(edge, cycle, pid, elapsed)
     ready, closed = [sorted(records[edge].values()) for edge in (b'ready', b'closed')]
     assert len(ready) == len(closed) == count, 'missing lifecycle receipt'
     assert [(a, b) for a, b, _ in ready] == [(a, b) for a, b, _ in closed], 'lifecycle identity mismatch'

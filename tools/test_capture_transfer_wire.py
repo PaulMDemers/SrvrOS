@@ -38,5 +38,5 @@ def main():
     print('capture-transfer-wire: PASS actual C immutable three-capture companions, malformed joins and atomic row bounds', bounds)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

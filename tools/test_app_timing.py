@@ -147,11 +147,64 @@ class TimingTests(unittest.TestCase):
 class LifecycleReceipts(unittest.TestCase):
     ready = b'desktop-life: ready cycle=0 pid=8 elapsed_us=20\n'
     closed = b'desktop-life: closed cycle=0 pid=8 elapsed_us=30 errors=0\n'
+    cycle = b'desktop-life-cycle: version=1 cycle=0 pid=8 ready_elapsed_us=20 closed_elapsed_us=30 errors=0\n'
     def test_whole_snapshot_recovers_interleaved_console(self):
         self.assertEqual(lifecycle_receipts([b'desktop-life: reaOTHER\ndy cycle=0 pid=8 elapsed_us=20\n'+self.closed,self.ready+self.closed],1), ([(0,8,20)],[(0,8,30)]))
     def test_missing_conflicting_duplicate_and_identity_refused(self):
         for logs in ([self.ready], [self.ready+self.closed,self.ready.replace(b'20',b'21')], [self.ready+self.ready+self.closed], [self.ready+self.closed.replace(b'pid=8',b'pid=9')]):
             with self.subTest(logs=logs),self.assertRaises(AssertionError):lifecycle_receipts(logs,1)
+
+    def test_complete_cycle_and_agreeing_originals(self):
+        expected = ([(0,8,20)],[(0,8,30)])
+        for logs in ([self.cycle], [self.cycle+self.ready+self.closed],
+                     [self.ready, self.closed+self.cycle, self.cycle],
+                     [b'prefix'+self.ready+self.closed+self.cycle]):
+            with self.subTest(logs=logs):
+                self.assertEqual(lifecycle_receipts(logs,1), expected)
+
+    def test_cycle_conflicts_and_same_format_duplicates_refused(self):
+        for logs in ([self.cycle+self.cycle], [self.cycle+self.ready+self.ready],
+                     [self.cycle+self.closed+self.closed],
+                     [self.cycle, self.cycle.replace(b'pid=8', b'pid=9')],
+                     [self.cycle+self.ready.replace(b'=20', b'=21')],
+                     [self.cycle+self.closed.replace(b'=30', b'=31')],
+                     [self.cycle+self.closed.replace(b'pid=8', b'pid=9')]):
+            with self.subTest(logs=logs), self.assertRaises(AssertionError):
+                lifecycle_receipts(logs,1)
+
+    def test_cycle_malformed_bounds_missing_and_embedded_refused(self):
+        for bad in (self.cycle.replace(b'version=1', b'version=2'),
+                    self.cycle.replace(b'errors=0', b'errors=1'),
+                    self.cycle.replace(b'cycle=0', b'cycle=1'),
+                    self.cycle.replace(b'pid=8', b'pid=0'),
+                    self.cycle.replace(b'pid=8', b'pid=18446744073709551616'),
+                    self.cycle.replace(b'cycle=0', b'cycle=18446744073709551616'),
+                    self.cycle.replace(b'elapsed_us=20', b'elapsed_us=0'),
+                    self.cycle.replace(b'elapsed_us=30', b'elapsed_us=10000001'),
+                    self.cycle.replace(b'elapsed_us=20', b'elapsed_us=-1'),
+                    self.cycle.replace(b' closed_elapsed_us=30', b''),
+                    b'prefix'+self.cycle, self.cycle.rstrip()+b' suffix\n',
+                    self.cycle.replace(b' pid=', b'OTHER\npid=')):
+            with self.subTest(bad=bad), self.assertRaises(AssertionError):
+                lifecycle_receipts([bad],1)
+        for count in (0, -1, 1 << 64):
+            with self.subTest(count=count), self.assertRaises(AssertionError):
+                lifecycle_receipts([self.cycle], count)
+        for bad in (self.ready.replace(b'=20', b'=10000001')+self.closed,
+                    self.ready+self.closed.replace(b'errors=0', b'errors=1'),
+                    self.ready.replace(b'pid=8', b'pid=18446744073709551616')+self.closed):
+            with self.subTest(bad=bad), self.assertRaises(AssertionError):
+                lifecycle_receipts([bad],1)
+
+    def test_every_cycle_unique_pid_and_original_bounds(self):
+        second = self.cycle.replace(b'cycle=0', b'cycle=1').replace(b'pid=8', b'pid=9')
+        self.assertEqual(lifecycle_receipts([self.cycle+second],2),
+                         ([(0,8,20),(1,9,20)],[(0,8,30),(1,9,30)]))
+        for raw in (self.cycle, self.cycle+second.replace(b'pid=9', b'pid=8')):
+            with self.subTest(raw=raw), self.assertRaises(AssertionError):
+                lifecycle_receipts([raw],2)
+        self.assertEqual(lifecycle_receipts([self.cycle.replace(b'elapsed_us=20', b'elapsed_us=10000000')],1)[0],
+                         [(0,8,10000000)])
 
 
 class AsyncServiceTiming(unittest.TestCase):
