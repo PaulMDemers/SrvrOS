@@ -336,3 +336,22 @@ barriers, ownership/quarantine, all runtime limits and power/USB policy unchange
 Storage write cost remains substantial and independent; the intermittent battery
 cause remains open. No additional unchanged-policy repeat is needed for this
 baseline. No reboot is armed after matching collection and verified backup.
+
+## Code audit changes the next implementation order (2026-11-10)
+
+The [three-subagent code audit](macbookair6-1-screenshot-code-audit.md) at
+`486b6d2a` confirms UI-paced sends/responses, storage-gated pipe poll, shared
+lifecycle head-of-line blocking and repeated global commits of growing content.
+An isolated real process/exFAT/VFS corruption reproduction also finds that a
+retained reader can cause a verification reopen to discard fresh media bytes
+and reuse correct shared RAM, including after rename. This is a correctness
+contract gap, not evidence of native corruption or the source of latency.
+
+Prioritize a complete-save retained-reader corruption regression and explicit
+fresh-media verification semantics while preserving normal shared-file behavior.
+Then prove narrow pipe readiness and independent capture ownership with actual
+prepare/transport/exit/cleanup interleaving before the next native performance
+candidate. Keep storage amplification separate; do not remove barriers, prefix
+proofs or change global-sync semantics. The existing stream API refuses this
+USB's128KiB clusters and is not a drop-in replacement. All original limits and
+integrity requirements remain. The audit prepares no new payload or reboot.
