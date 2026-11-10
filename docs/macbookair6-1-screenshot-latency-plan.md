@@ -9,13 +9,15 @@ Air6,1 evidence; PR19 networking, PR301 scanout and PR379 WebCore stay separate.
 
 ## Decision
 
-Correlated content, command-role and same-command ring-result trials now pass
-the unchanged native workload. Their write waits do not establish a causal
-transport policy fix. Move next to the separate pixel-transfer pacing stage
-below, starting with bounded send/readiness/gap observations. Keep first-failure
-battery diagnostics and all existing limits/integrity checks. The dated evidence
-below preserves how the storage attribution narrowed; it does not accept a
-hardware cause or a performance improvement.
+Correlated content, command-role, same-command ring-result and pixel-transfer
+baseline trials pass the unchanged native workload. The November10 code audit
+then reproduces a retained-reader fresh-media verification gap. Prioritize its
+complete-save regression and explicit verification contract before transport
+optimization; preserve normal shared-file semantics. Next prove pipe readiness
+and independent transfer ownership using the measured send gaps. Keep storage
+amplification separate, first-failure battery diagnostics and all existing
+limits/integrity checks. The dated evidence below preserves how attribution
+narrowed; it does not accept a hardware cause or a performance improvement.
 
 ## What the evidence establishes
 
