@@ -164,20 +164,26 @@ int main(int argc,char **argv) {
         assert(!ok && transfer.state==TRANSFER_FAULT && transfer.pinned && transfer.error==TRANSFER_EXCLUSION);
         assert(!display_access_allowed() && !display_access_release(&transfer.exclusion,true));puts("PASS poisoned open stays pinned");return 0;
     }
-    if(!ok) {
-        assert(!strcmp(mode,"failed-open") || !strcmp(mode,"clock-open") || !strcmp(mode,"stuck-open") ||
-            !strcmp(mode,"deadline-open") || !strcmp(mode,"post-open-clock") || !strcmp(mode,"source-open") ||
-            !strcmp(mode,"changed-first") || !strcmp(mode,"changed-last") || !strcmp(mode,"pool-exhausted"));
+    bool admission_failure=!strcmp(mode,"failed-open") || !strcmp(mode,"clock-open") || !strcmp(mode,"stuck-open") ||
+        !strcmp(mode,"deadline-open") || !strcmp(mode,"post-open-clock") || !strcmp(mode,"source-open") ||
+        !strcmp(mode,"changed-first") || !strcmp(mode,"changed-last") || !strcmp(mode,"pool-exhausted");
+    if(admission_failure) {
+        /* Require refusal, not merely a plausible unwind IF it happened.
+         * A provider or deadline bypass must not fall into the happy path. */
+        assert(!ok);
         assert(transfer.state==TRANSFER_CLOSED && !transfer.pinned && !token.object);
         assert(display_access_release(&exclusion,true));puts("PASS read-only admission unwind");return 0;
     }
-    assert(transfer.state==TRANSFER_ACTIVE && transfer.pinned && model.calls[TRANSFER_ADMIT]==1);
+    assert(ok && transfer.state==TRANSFER_ACTIVE && transfer.pinned && model.calls[TRANSFER_ADMIT]==1);
     uint64_t value=0;assert(scanout_transfer_original(&transfer,&token,model.first+model.pages-1,&value) && value==table[model.first+model.pages-1]);
     assert(!scanout_transfer_original(&transfer,&token,model.first+model.pages,&value));
     assert(!scanout_transfer_original(&transfer,&token,model.first-1,&value));
     assert(!scanout_transfer_original(&transfer,&token,8704,&transfer.original[0]));
     copy=transfer;struct scanout_transfer_token rebound=token;rebound.object=&copy;
+    copy.manifest.original=copy.original;copy.space.object=&copy.space;
+    unsigned before_copy=model.calls[TRANSFER_LIVE]+model.calls[TRANSFER_RETIRE];
     assert(!scanout_transfer_check(&copy,&rebound) && !scanout_transfer_close(&copy,&rebound));
+    assert(model.calls[TRANSFER_LIVE]+model.calls[TRANSFER_RETIRE]==before_copy);
     assert(!scanout_transfer_original(&copy,&rebound,8704,&value));
     assert(!scanout_transfer_open(&copy,&pool,&spaces,&exclusion,&manifest,provider(),&rebound));
     assert(!display_access_release(&transfer.exclusion,true));
@@ -197,6 +203,7 @@ int main(int argc,char **argv) {
         if(!strcmp(mode,"clock-close"))model.clock_fail=true;
         if(!strcmp(mode,"changed-close"))table[11415]^=1;
         assert(!scanout_transfer_close(&transfer,&token) && transfer.state==TRANSFER_FAULT && transfer.pinned);
+        model.fail=false;model.clock_fail=false;
         assert(!scanout_transfer_close(&transfer,&token) && !display_access_release(&transfer.exclusion,true));
         puts("PASS failed retirement keeps exclusion");return 0;
     }
