@@ -69,7 +69,11 @@ static void capture_owner_step(struct capture_worker *w) {
     if(state==CAPTURE_OWNER_TRANSFERRING) {
         size_t total=sizeof(w->job.request)+desk_capture_bytes(w->job.request.width,w->job.request.height);
         if(capture_owner_cancelled(w) && w->job.sent<total) {capture_owner_abort(w);return;}
+        size_t sent=w->job.sent,received=w->job.received;
+        unsigned frames=w->job.progress_frames,allocated=w->job.transfer_ready_received;
         int result=desk_capture_job_poll_transfer(&w->job);
+        int progressed=w->job.sent!=sent || w->job.received!=received ||
+            w->job.progress_frames!=frames || w->job.transfer_ready_received!=allocated;
         capture_owner_report(w);
         if(result) {w->result=result;capture_owner_publish(w,CAPTURE_OWNER_RETIRING);return;}
         struct srv_pollfd fds[2]={{.fd=w->job.reader,.events=SRV_POLLIN}};
@@ -78,6 +82,19 @@ static void capture_owner_step(struct capture_worker *w) {
         /* One response read and at most four4096-byte writes per admission.
          * Ready pipes can admit another turn without waiting for a UI frame.
          * The bounded wait also observes cancel/stop without an infinite poll. */
+        if(!progressed) {
+            /* POLLOUT promises some free pipe space, not enough for the next
+             * atomic write. A partial header can leave fewer than4096 free
+             * bytes, so repeating a ready hint after AGAIN would busy-spin.
+             * Probe immediate readiness only after no forward progress. A
+             * positive hint backs off one existing tick; a genuinely blocking
+             * readiness wake below does not acquire another artificial delay. */
+            long immediate=srv_poll(fds,count,0);
+            if((immediate<0 && immediate!=SRV_ERR_INTR) || (fds[0].revents&SRV_POLLNVAL) ||
+               (count==2 && (fds[1].revents&SRV_POLLNVAL))) {capture_owner_abort(w);return;}
+            if(immediate==SRV_ERR_INTR)return;
+            if(immediate>0) {srv_sleep_ticks(1);return;}
+        }
         long ready=srv_poll(fds,count,10);
         if((ready<0 && ready!=SRV_ERR_INTR) || (fds[0].revents&SRV_POLLNVAL) ||
            (count==2 && (fds[1].revents&SRV_POLLNVAL)))capture_owner_abort(w);

@@ -42,8 +42,17 @@ missing write readers, generation exhaustion, descriptor replacement, mode
 changes or unsupported/mixed requests restore the original gated path.
 The fast path neither releases descriptors nor follows a replacement family
 under a foreign I/O owner. It grants no scheduler eligibility; same-process
-storage exclusion remains intact. No general poll, socket or GUI wait contract
-is widened.
+storage exclusion remains intact. Generic readiness semantics, socket/GUI wait contracts and the
+gated fallback remain unchanged.
+
+Generic POLLOUT can mean some free space rather than enough for the next
+atomic4096-byte write. After an admission makes no input, partial-response,
+progress-frame or allocation-READY movement, the owner probes immediate
+readiness. A positive hint backs off one existing tick; otherwise it uses the
+normal bounded wait. Productive admissions and genuinely blocking readiness
+wakes gain no additional tick. This prevents a retry storm without changing
+pipe capacity, write size, generic poll semantics or scheduler eligibility.
+The diagnostic `polls` counter counts job admissions, not SYS_POLL calls.
 
 ## Measurements and regressions
 

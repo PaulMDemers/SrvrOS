@@ -11457,3 +11457,24 @@ that parsed required CLI arguments on unittest import. Its main guard now matche
 the history-wire runner; discovery and the direct actual-C wire test both remain
 required. The interrupted validation is retained locally and is not a pass; rerun
 the full frozen suite after this test-only fix.
+
+The first owner VM candidate5a3e982c/releasea48fa93078681a00 passes the original
+functional checks, but independent inspection finds11047 EAGAIN retries. Generic
+POLLOUT admits any free byte while the next atomic4096-byte write needs its full
+length: a176-byte header plus fifteen writes leaves3920 bytes free. This is a
+new owner retry-storm defect, not evidence to change generic readiness or pipe
+bounds. No native boot uses that candidate. Its complete successful functional
+logs and blocking audit are retained locally as historical evidence.
+
+The corrected owner probes immediate readiness only after an admission makes no
+input/response/frame/READY progress, then backs off one existing tick for a
+positive hint. Otherwise it uses the normal bounded readiness wait; productive
+turns gain no added delay. A portable deterministic64KiB staging model reaches
+that exact61616-byte prefix, observes five EAGAINs/five backoffs, then forwards
+the exact bytes to the real peer and verifies all4196528 input bytes. Focused
+owner/desktop tests pass again; rerun frozen validation before native deployment.
+The VM harness now retains the raw BMP and binary disk receipt for independent
+post-image audit. All byte/receipt validators remain unchanged. The first VM's
+app/file-service evidence uses the existing original-console fallback for a
+PID18 gap; the other fourteen assessments parse from saved logs alone. Do not
+claim complete saved-only app coverage or isolated speed gain from that trial.

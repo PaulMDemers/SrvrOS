@@ -95,7 +95,7 @@ def main():
     args=parser.parse_args()
     if args.write_iops<0 or args.read_iops<0 or not 0<=args.metadata_files<=4000 or (args.stage and (args.populated_home or args.write_iops or args.read_iops or args.metadata_files)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out=out.with_name(out.name+'-air72') if args.air72 else out;out.mkdir(parents=True,exist_ok=True)
-    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','render-attribution.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json','capture-write-timing.json','sync-timing.json'):
+    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','render-attribution.json','automatic-screenshot.png','automatic-screenshot.bmp','disk.receipt','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json','capture-write-timing.json','sync-timing.json'):
         (out/name).unlink(missing_ok=True)
     for pattern in ('saved-*.log','checkpoint-*.log'):
         for old in out.glob(pattern):old.unlink()
@@ -254,7 +254,9 @@ def main():
                     assert start<=first<last<=end and last-first>=56000000
                     assert bursts>0 and written==bursts*262144
                     assert 60*192000<=pcm<=120*192000 and pcm%4==0
-                    assert struct.unpack('<5Q',final.read(directory+'/disk.receipt'))==(first,last,bursts,written,maximum)
+                    disk_receipt=final.read(directory+'/disk.receipt')
+                    (out/'disk.receipt').write_bytes(disk_receipt)
+                    assert struct.unpack('<5Q',disk_receipt)==(first,last,bursts,written,maximum)
                     (out/'receipt.txt').write_bytes(receipt)
                     # UART writers may interleave; saved bootlog records are atomic.
                     ready,closed=lifecycle_receipts([bytes(output),*snapshots],int(lifecycle[1]))
@@ -293,6 +295,7 @@ def main():
                     from PIL import Image
                     import io
                     image_bytes=final.read('srvros-work/Screenshots/'+images[0])
+                    (out/'automatic-screenshot.bmp').write_bytes(image_bytes)
                     from capture_write_timing import capture_write_timing,capture_gate_timing
                     write_timing=capture_write_timing(snapshots,1,len(image_bytes))
                     write_timing['admission']=capture_gate_timing(snapshots,write_timing)

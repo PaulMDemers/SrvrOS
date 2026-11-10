@@ -18,9 +18,18 @@
 
 static unsigned maps,unmaps,spawned,reaped,max_write,map_fail;
 static unsigned snapshot_hold,snapshot_entered,snapshot_release;
+/* A deterministic64KiB simple-pipe admission model. Host poll commonly asks
+ * for a whole PIPE_BUF of free space, masking SrvrOS's any-free-byte POLLOUT.
+ * Stage initial bytes while the peer is gated, then forward that exact prefix
+ * to the real host pipe before allowing ordinary transport to resume. */
+static pthread_mutex_t false_ready_lock=PTHREAD_MUTEX_INITIALIZER;
+static unsigned false_ready_mode,false_ready_sleeps,false_ready_again,false_ready_probes;
+static int false_ready_writer=-1;
+static size_t false_ready_used;
+static unsigned char false_ready_bytes[65536];
 static pthread_mutex_t event_lock=PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t event_changed=PTHREAD_COND_INITIALIZER;
-struct peer_control {unsigned request_seen,ready,accepted,persisted,final,allow_read,allow_persist,allow_exit;};
+struct peer_control {unsigned request_seen,ready,accepted,persisted,final,allow_header,allow_read,allow_persist,allow_exit;};
 static struct peer_control *peer;
 static unsigned load(const unsigned *p){return __atomic_load_n(p,__ATOMIC_ACQUIRE);}
 static void store(unsigned *p,unsigned v){__atomic_store_n(p,v,__ATOMIC_RELEASE);}
@@ -34,7 +43,10 @@ long srv_futex_wake(uint32_t *word,uint64_t count) {
     (void)word;assert(count==1);assert(!pthread_mutex_lock(&event_lock));
     assert(!pthread_cond_broadcast(&event_changed));assert(!pthread_mutex_unlock(&event_lock));return 1;
 }
-long srv_sleep_ticks(uint64_t ticks) {usleep(ticks*10000);return 0;}
+long srv_sleep_ticks(uint64_t ticks) {
+    if(load(&false_ready_mode)==1)__atomic_add_fetch(&false_ready_sleeps,1,__ATOMIC_RELEASE);
+    usleep(ticks*10000);return 0;
+}
 long srv_signal_config(uint64_t signal_number,uint64_t action) {(void)signal_number;(void)action;signal(SIGPIPE,SIG_IGN);return 0;}
 long srv_pipe(int fds[2]) {return pipe(fds);}
 long srv_fcntl(int fd,int command,uint64_t value) {assert(command==SRV_F_SETFL && value==SRV_FD_NONBLOCK);return fcntl(fd,F_SETFL,O_NONBLOCK);}
@@ -42,11 +54,39 @@ long srv_close(int fd) {return close(fd);}
 static long io_result(ssize_t n) {return n<0?(errno==EAGAIN?SRV_ERR_AGAIN:errno==EINTR?SRV_ERR_INTR:-1):n;}
 long srv_write(int fd,const void *data,size_t length) {
     assert(length<=4096);unsigned previous=load(&max_write);while(previous<length && !__atomic_compare_exchange_n(&max_write,&previous,(unsigned)length,0,__ATOMIC_RELEASE,__ATOMIC_ACQUIRE)){}
+    if(load(&false_ready_mode)) {
+        assert(!pthread_mutex_lock(&false_ready_lock));
+        if(load(&false_ready_mode)==1) {
+            if(false_ready_writer<0)false_ready_writer=fd;
+            assert(false_ready_writer==fd);
+            if(length>sizeof(false_ready_bytes)-false_ready_used) {
+                __atomic_add_fetch(&false_ready_again,1,__ATOMIC_RELEASE);
+                assert(!pthread_mutex_unlock(&false_ready_lock));return SRV_ERR_AGAIN;
+            }
+            memcpy(false_ready_bytes+false_ready_used,data,length);false_ready_used+=length;
+            assert(!pthread_mutex_unlock(&false_ready_lock));return (long)length;
+        }
+        assert(!pthread_mutex_unlock(&false_ready_lock));
+    }
     return io_result(write(fd,data,length));
 }
 long srv_read(int fd,void *data,size_t length) {assert(length<=32);return io_result(read(fd,data,length));}
 long srv_poll(struct srv_pollfd *fds,uint64_t count,int64_t timeout) {
-    assert(count>0 && count<=2 && timeout==10);struct pollfd host[2];
+    assert(count>0 && count<=2 && (timeout==0 || timeout==10));struct pollfd host[2];
+    if(load(&false_ready_mode)) {
+        assert(!pthread_mutex_lock(&false_ready_lock));
+        if(load(&false_ready_mode)==1) {
+            int n=0;
+            for(unsigned i=0;i<count;i++) {
+                fds[i].revents=0;
+                if(fds[i].fd==false_ready_writer && (fds[i].events&SRV_POLLOUT) &&
+                   false_ready_used<sizeof(false_ready_bytes)) {fds[i].revents=SRV_POLLOUT;n++;}
+            }
+            if(timeout==0 && n)__atomic_add_fetch(&false_ready_probes,1,__ATOMIC_RELEASE);
+            assert(!pthread_mutex_unlock(&false_ready_lock));return n;
+        }
+        assert(!pthread_mutex_unlock(&false_ready_lock));
+    }
     for(unsigned i=0;i<count;i++)host[i]=(struct pollfd){.fd=fds[i].fd,.events=fds[i].events};
     int n=poll(host,(nfds_t)count,(int)timeout);
     for(unsigned i=0;i<count;i++)fds[i].revents=host[i].revents;
@@ -87,6 +127,7 @@ static void child_frame(int fd,uint32_t magic,uint32_t id,unsigned phase,uint64_
 }
 static void child_main(int input,int output) {
     for(int fd=3;fd<1024;fd++)if(fd!=input && fd!=output)close(fd);
+    while(!load(&peer->allow_header))usleep(1000);
     struct desk_capture_request q;if(child_transfer(input,&q,sizeof(q),0))_exit(0);
     if(q.magic!=DESK_CAPTURE_TRACE_MAGIC || !q.id || strcmp(q.path,"/proof.bmp"))_exit(5);
     store(&peer->request_seen,1);
@@ -120,7 +161,7 @@ static void await_value(const unsigned *p,unsigned value) {
     while(load(p)!=value){assert(srv_monotonic_us()<until);usleep(1000);}
 }
 static void await_state(struct capture_worker *w,unsigned state) {await_value(&w->state,state);}
-static void reset_peer(void) {*peer=(struct peer_control){.allow_read=1,.allow_persist=1,.allow_exit=1};}
+static void reset_peer(void) {*peer=(struct peer_control){.allow_header=1,.allow_read=1,.allow_persist=1,.allow_exit=1};}
 static void submit(struct capture_worker *w,struct desk_capture_job *view,unsigned width,unsigned height) {
     desk_capture_job_init(view);assert(!desk_capture_job_trace(view,1));
     assert(capture_owner_submit(w,view,width,height,"/proof.bmp") && view->busy && !view->pixels && view->reader==-1);
@@ -151,6 +192,38 @@ static void delayed_ui_and_unrelated_work(void) {
     assert(take(&w,&view)==1 && view.transfer.valid && !view.transfer.invalid && view.transfer.write_ok==1026 &&
         view.transfer.write_bytes==4196528 && view.transfer.write_failed==0 && load(&max_write)==4096);
     assert(!capture_owner_stop(&w));store(&unrelated_release,1);assert(!pthread_join(unrelated,NULL));
+}
+static void false_ready_atomic_write(void) {
+    reset_peer();store(&peer->allow_header,0);
+    false_ready_used=0;false_ready_writer=-1;
+    store(&false_ready_sleeps,0);store(&false_ready_again,0);store(&false_ready_probes,0);store(&false_ready_mode,1);
+    struct capture_worker w;struct desk_capture_job view;assert(!capture_owner_start(&w));
+    submit(&w,&view,1366,768);snapshot(&w,&view,1366,768);
+    long until=srv_monotonic_us()+3000000;
+    while(load(&false_ready_sleeps)<5){assert(srv_monotonic_us()<until);usleep(1000);}
+    assert(!pthread_mutex_lock(&false_ready_lock));
+    assert(false_ready_used==sizeof(struct desk_capture_request)+15*4096 &&
+        sizeof(false_ready_bytes)-false_ready_used==3920 && !load(&peer->request_seen));
+    unsigned sleeps=load(&false_ready_sleeps),again=load(&false_ready_again),probes=load(&false_ready_probes);
+    /* One AGAIN can end the last productive admission; every subsequent
+     * immediate-ready/no-progress admission must take a bounded backoff. */
+    assert(sleeps>=5 && probes>=sleeps && probes<=sleeps+1 && again>=sleeps && again<=sleeps+2);
+    store(&false_ready_mode,2);store(&peer->allow_header,1);
+    size_t offset=0;
+    while(offset<false_ready_used) {
+        ssize_t n=write(false_ready_writer,false_ready_bytes+offset,false_ready_used-offset);
+        if(n<0 && (errno==EAGAIN || errno==EINTR)) {
+            struct pollfd fd={.fd=false_ready_writer,.events=POLLOUT};
+            assert(poll(&fd,1,10)>=0);assert(srv_monotonic_us()<until);continue;
+        }
+        assert(n>0);offset+=(size_t)n;
+    }
+    store(&false_ready_mode,0);assert(!pthread_mutex_unlock(&false_ready_lock));
+    assert(take(&w,&view)==1 && view.transfer.valid && view.transfer.write_ok==1026 &&
+        view.transfer.write_bytes==4196528 && view.transfer.write_again>=again && load(&peer->persisted));
+    assert(!capture_owner_stop(&w));
+    printf("capture-owner-false-ready: PASS prefix=%zu free=3920 no_progress_again=%u immediate_probes=%u tick_backoffs=%u full_input=%llu\n",
+        offset,again,probes,sleeps,(unsigned long long)view.transfer.write_bytes);
 }
 static void prepared_and_partial_cancel(void) {
     reset_peer();struct capture_worker w;struct desk_capture_job view;assert(!capture_owner_start(&w));
@@ -212,7 +285,7 @@ static unsigned fd_count(void) {
 }
 int main(void) {
     unsigned fds=fd_count();peer=mmap(NULL,sizeof(*peer),PROT_READ|PROT_WRITE,MAP_SHARED|MAP_ANONYMOUS,-1,0);assert(peer!=MAP_FAILED);
-    delayed_ui_and_unrelated_work();prepared_and_partial_cancel();accepted_cancel_and_buffered_final();stop_joins_and_failure();cancel_during_snapshot();
+    delayed_ui_and_unrelated_work();false_ready_atomic_write();prepared_and_partial_cancel();accepted_cancel_and_buffered_final();stop_joins_and_failure();cancel_during_snapshot();
     assert(load(&maps)==load(&unmaps) && load(&spawned)==load(&reaped) && fd_count()==fds);assert(!munmap(peer,sizeof(*peer)));
-    puts("capture-owner: PASS real job/pipes/threads, full Air immutable input independent of delayed UI/unrelated worker, prepared/partial/accepted cancellation, cancel/stop during snapshot, buffered final/exit, stop joins, allocation failure and exact resource retirement");
+    puts("capture-owner: PASS real job/pipes/threads, full Air immutable input independent of delayed UI/unrelated worker, any-space false-ready atomic-write backoff, prepared/partial/accepted cancellation, cancel/stop during snapshot, buffered final/exit, stop joins, allocation failure and exact resource retirement");
 }
