@@ -307,7 +307,9 @@ static void test_retire(void) {
     assert(retired_diagnostics==1 && irq_enabled);
     puts("usb-storage-retire: PASS busy/diagnostic references, offline tombstones and stale raw callbacks");
 }
+#include "test_usb_content.inc"
 int main(void) {
+    test_content_commands();
     test_retire();
     reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
     unsigned attached_calls=calls;

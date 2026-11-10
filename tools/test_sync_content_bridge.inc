@@ -15,6 +15,29 @@ void usb_storage_timing_aux_end(struct usb_storage_timing *out) {
     assert(sync_fixture_usb_busy);sync_fixture_usb_busy=false;
     *out=(struct usb_storage_timing){.valid=true};
 }
+/* This backend is a host file, not USB. The seam checks paired window/role
+ * ownership and deliberately reports no actual USB commands. */
+static bool sync_fixture_content_active;
+static unsigned sync_fixture_content_role=6,sync_fixture_content_depth;
+bool usb_storage_content_begin(void) {
+ assert(sync_fixture_usb_busy && !sync_fixture_content_active);
+ sync_fixture_content_active=true;sync_fixture_content_role=6;sync_fixture_content_depth=0;return true;
+}
+void usb_storage_content_end(struct usb_storage_content_timing *out) {
+ assert(sync_fixture_content_active && !sync_fixture_content_depth);
+ sync_fixture_content_active=false;*out=(struct usb_storage_content_timing){.valid=1};
+}
+unsigned usb_storage_content_role_begin(unsigned role) {
+ if(!sync_fixture_content_active)return USB_STORAGE_CONTENT_NO_ROLE;
+ assert(role<USB_STORAGE_CONTENT_ROLES && sync_fixture_content_depth<255);
+ unsigned previous=(sync_fixture_content_depth<<8)|sync_fixture_content_role;
+ sync_fixture_content_depth++;sync_fixture_content_role=role;return previous;
+}
+void usb_storage_content_role_end(unsigned previous) {
+ if(previous==USB_STORAGE_CONTENT_NO_ROLE)return;
+ assert(sync_fixture_content_active && sync_fixture_content_depth && previous>>8==sync_fixture_content_depth-1 && (previous&255)<USB_STORAGE_CONTENT_ROLES);
+ sync_fixture_content_depth--;sync_fixture_content_role=previous&255;
+}
 void test_sync_content_arm_failure(void);
 
 static struct process_file_content *sync_fixture_content(const char *path) {

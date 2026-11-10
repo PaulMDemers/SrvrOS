@@ -46,6 +46,29 @@ struct usb_storage_csw_timing {
     uint64_t start_us,end_us,opcode,command_bytes,request_bytes,actual,ok;
     struct usb_bulk_timing sample;
 };
+#define USB_STORAGE_CONTENT_ROLES 7u
+#define USB_STORAGE_CONTENT_NO_ROLE (~0u)
+/* Content-owned diagnostic window, nested inside the auxiliary sync observer.
+ * Roles0..5 mirror the exclusive filesystem callbacks;6 is unclassified work
+ * (including pre-mutation scans). No paths, pointers or command addresses. */
+struct usb_storage_content_role {
+    uint64_t read_commands,read_bytes,write_commands,write_bytes;
+    uint64_t flush_commands,other_commands,failed_commands;
+    uint64_t csw_calls,csw_us,over100ms;
+    uint64_t write512_commands,write_csw_us,write512_csw_us;
+    uint64_t write_over100ms,write512_over100ms;
+    struct usb_storage_csw_timing worst;
+};
+struct usb_storage_content_timing {
+    uint64_t valid,active,invalid;
+    struct usb_storage_content_role roles[USB_STORAGE_CONTENT_ROLES];
+};
+bool usb_storage_content_begin(void);
+void usb_storage_content_end(struct usb_storage_content_timing *out);
+/* Return an opaque previous-role/depth token. No-role is a harmless no-op.
+ * Invalid nesting only invalidates observations; transport work is unchanged. */
+unsigned usb_storage_content_role_begin(unsigned role);
+void usb_storage_content_role_end(unsigned previous);
 struct usb_storage_timing {
     uint64_t calls[3], us[3], failures;
     struct usb_storage_phase_timing phase[3];

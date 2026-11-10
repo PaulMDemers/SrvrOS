@@ -145,6 +145,23 @@ static void report_sync_transfers(const char *scope,uint64_t id,const struct usb
         b->submitted,b->observed,b->resumed,(uint64_t)b->seen,(uint64_t)b->service_valid,
         b->service_checks,b->service_samples,b->service_gap_max_us,b->completion_gap_us);
 }
+/* One command window copied with the exact selected content, never an
+ * independent command maximum from another content/sync. */
+static void report_sync_commands(uint64_t at,const struct sync_timing_record *r) {
+    const struct sync_content_call *c=r?&r->worst.content.worst:NULL;
+    const struct usb_storage_content_timing *t=c?&c->commands:NULL;
+    uint64_t pid=r?r->pid:0,id=r?r->worst.start_us:0,identity=c?c->identity:0;
+    console_printf("sync-command-snapshot: version=1 snapshot_us=%u pid=%u id=%u identity=%u valid=%u active=%u invalid=%u final=1\n",at,pid,id,identity,t?t->valid:1,t?t->active:0,t?t->invalid:0);
+    if(!t)return;
+    for(unsigned role=0;role<USB_STORAGE_CONTENT_ROLES;role++) {
+        const struct usb_storage_content_role *q=&t->roles[role];
+        console_printf("sync-command-role: version=1 snapshot_us=%u pid=%u id=%u identity=%u role=%u reads=%u read_bytes=%u writes=%u write_bytes=%u flushes=%u other=%u failed=%u csws=%u csw_us=%u over100ms=%u write512_commands=%u write_csw_us=%u write512_csw_us=%u write_over100ms=%u write512_over100ms=%u final=1\n",at,pid,id,identity,(uint64_t)role,q->read_commands,q->read_bytes,q->write_commands,q->write_bytes,q->flush_commands,q->other_commands,q->failed_commands,q->csw_calls,q->csw_us,q->over100ms,q->write512_commands,q->write_csw_us,q->write512_csw_us,q->write_over100ms,q->write512_over100ms);
+        if(!q->csw_calls)continue;
+        const struct usb_storage_csw_timing *w=&q->worst;
+        const struct usb_bulk_timing *b=&w->sample;
+        console_printf("sync-command-worst: version=1 snapshot_us=%u pid=%u id=%u identity=%u role=%u start_us=%u end_us=%u opcode=%u command_bytes=%u request_bytes=%u actual=%u ok=%u submitted=%u observed=%u resumed=%u seen=%u service_valid=%u service_checks=%u service_samples=%u service_gap_max_us=%u completion_gap_us=%u final=1\n",at,pid,id,identity,(uint64_t)role,w->start_us,w->end_us,w->opcode,w->command_bytes,w->request_bytes,w->actual,w->ok,b->submitted,b->observed,b->resumed,(uint64_t)b->seen,(uint64_t)b->service_valid,b->service_checks,b->service_samples,b->service_gap_max_us,b->completion_gap_us);
+    }
+}
 /* Correlate only final retained worst calls. One selected file-phase owner
  * keeps role detail bounded; all PID summaries permit independent selection. */
 static void report_sync_content(uint64_t at,const struct sync_timing_snapshot *s) {
@@ -156,6 +173,7 @@ static void report_sync_content(uint64_t at,const struct sync_timing_snapshot *s
         if(c->content.calls && (!selected || c->files_end_us-c->start_us>selected->worst.files_end_us-selected->worst.start_us))selected=r;
     }
     console_printf("sync-content-selection: version=1 snapshot_us=%u pid=%u id=%u final=1\n",at,selected?selected->pid:0,selected?selected->worst.start_us:0);
+    report_sync_commands(at,selected);
     if(!selected)return;
     const struct sync_content_call *c=&selected->worst.content.worst;
     console_printf("sync-content-worst: version=1 snapshot_us=%u pid=%u id=%u slot=%u identity=%u inode=%u size=%u start_us=%u end_us=%u ok=%u dirty_after=%u final=1\n",at,selected->pid,selected->worst.start_us,c->slot,c->identity,c->inode,c->size,c->start_us,c->end_us,c->ok,c->dirty_after);

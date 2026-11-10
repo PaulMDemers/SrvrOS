@@ -3,7 +3,7 @@
 static struct sync_timing_snapshot observed;
 static struct sync_timing_call current;
 static unsigned slot,phase;
-static bool tracing,content_active;
+static bool tracing,content_active,commands_active;
 static uint64_t content_identity;
 static struct sync_content_call content_current;
 static uint64_t lock(void) {
@@ -75,7 +75,18 @@ bool sync_timing_content_begin(uint64_t index,uint64_t identity,uint64_t inode,u
     content_current=(struct sync_content_call){.slot=index,.identity=identity,.inode=inode,
         .size=size,.start_us=timer_monotonic_us()};
     if(!content_current.start_us || content_current.start_us<current.start_us)observed.invalid=1;
+    commands_active=tracing && usb_storage_content_begin();
+    if(!commands_active)observed.records[slot].invalid=1;
     content_active=true;unlock(f);return true;
+}
+unsigned sync_timing_content_role_begin(unsigned role) {
+    if(!content_active || !commands_active)return ~0u;
+    return usb_storage_content_role_begin(role);
+}
+void sync_timing_content_role_end(unsigned token) {
+    if(token==~0u)return;
+    if(!content_active || !commands_active) {observed.invalid=1;return;}
+    usb_storage_content_role_end(token);
 }
 void sync_timing_content_io(unsigned role,unsigned kind,uint64_t bytes,uint64_t us,bool ok) {
     if(!content_active)return;
@@ -94,6 +105,11 @@ void sync_timing_content_end(bool ok,bool dirty_after) {
     uint64_t f=lock();
     if(!content_active || !observed.active || phase) {observed.invalid=1;unlock(f);return;}
     struct sync_timing_record *r=&observed.records[slot];
+    if(commands_active) {
+        usb_storage_content_end(&content_current.commands);
+        if(!content_current.commands.valid || content_current.commands.active || content_current.commands.invalid)r->invalid=1;
+    }
+    commands_active=false;
     content_current.end_us=timer_monotonic_us();content_current.ok=ok;content_current.dirty_after=dirty_after;
     struct sync_content_summary *c=&current.content;
     add(r,&c->calls,1);add(r,&c->bytes,content_current.size);if(!ok)add(r,&c->failures,1);

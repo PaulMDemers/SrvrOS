@@ -63,3 +63,39 @@ retains the previous durable prefix, dirty contents, reader-only survivors and
 quarantine. Host clocks are synthetic costs, not native timing acceptance.
 Actual C capture-report output is parsed and deliberately corrupted; focused
 observer/parser tests cover worst-call replacement and invalid evidence.
+
+## Role-bound BOT command observations
+
+A separate fixed command window nests inside the sync observer while one dirty
+content subcall is active. The root begins it only after acquiring its own
+auxiliary observer; a refused begin never ends a foreign window. The window is
+copied with that same content and worst sync. Filesystem block callbacks bracket
+their exclusive role before transfer and restore it afterwards. Role6 explicitly
+covers unclassified/pre-mutation work, which the old cost-active role counters
+leave in residual wall. Physical command counts need not equal logical block
+callback counts: splitting and read/modify/write remain unchanged.
+
+The passive transport observer counts attempted READ(10), WRITE(10), flush and
+other commands, bytes, failed commands and CSW callbacks. It retains CSW wall,
+counts above100ms and the worst existing CSW observation per role. Separate
+512-byte WRITE counts, CSW wall and slow counts are subsets of all WRITE values;
+larger-write values follow by subtraction. This is a size classification, not
+an adjusted transfer bound, timeout, queue or device policy.
+
+`sync-command-snapshot`, seven `sync-command-role` rows and worst-CSW rows for
+nonempty roles bind snapshot, selected sync PID/start identity and content
+identity. Worst rows retain opcode, command size, callback clocks and existing
+service/event sample. No LBA, paths or file data are reported. The strict
+`tools/sync_commands.py` parser joins these to existing final sync/content proof,
+checks class/size/time subsets, service coverage and parent-CSW bounds, and
+requires a matching legacy worst-CSW context when it lies inside this content.
+Invalid clocks, counters, role nesting or incomplete ownership invalidate only
+the diagnostic evidence; they do not authorize retries or change transport
+validation/quarantine. Every original CBW/data/CSW/checkpoint remains in order.
+
+The largest new row is conservatively687 bytes at maximum-width unsigned values,
+within the existing1024-byte atomic writer. All original and new receipts must
+still survive the unchanged64KiB tail. Actual loaded VM and native evidence,
+not row bounds alone, establish retention. CSW timing is software-observed wall,
+not exact device completion or CPU time. No speed gain or hardware cause follows
+from a long CSW without the corresponding bound evidence.
