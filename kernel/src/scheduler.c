@@ -183,7 +183,14 @@ static void capture_gate_owner_end(unsigned i,uint64_t now) {
     o->scope_end_us=o->overlap_end_us=now;
     uint64_t us=now-o->overlap_start_us;
     capture_gate_add(&w->counts,&w->counts.owned_us,us);
-    if(!w->owner.thread || us>w->owner.overlap_end_us-w->owner.overlap_start_us)w->owner=*o;
+    if(!w->owner.thread || us>w->owner.overlap_end_us-w->owner.overlap_start_us) {
+        /* Sample the exact selected owner while its content observer is still
+         * live, before the backend returns to content retirement. This fixed
+         * copy cannot allocate, log, yield or affect admission. */
+        if(o->syscall==SYS_SYNC)
+            sync_timing_gate_snapshot(o->pid,o->scope_start_us,now,&o->sync);
+        w->owner=*o;
+    }
     *o=(struct capture_gate_owner){0};
 }
 static void capture_gate_owner_edge(bool begin) {

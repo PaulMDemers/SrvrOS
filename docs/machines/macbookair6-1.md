@@ -11793,3 +11793,68 @@ Ubuntu default, consumed one-shot, installed a139/recoveryc354 and independent
 payload/trial backups are verified. The collector is disabled, USB unmounted
 and no reboot armed. No hardware or power-policy gate changes follow from this
 result. Original failure evidence and other machines' acceptance stay separate.
+
+## Active exact gate-correlation scope (2026-11-10)
+
+Bounded objective: identify the actual sync/content operation behind each
+retained screenshot gate owner, then reproduce and reduce demonstrated avoidable
+admission work. Base is main `72d49457`; a139 is fully collected and accepted,
+recovery remainsc354, and no new boot is armed. Scope is fixed diagnostic
+snapshots in sync timing and scheduler gate observation, persistent workspace
+formatting, strict versioned parsing and directed host/VM/native validation.
+Open PR301/PR19 heads455ad5e1/2ed325a4 retain separate graphics/network scope;
+no other-machine task is contacted.
+
+Copy the live parent identity and contained active content counters at the
+selected owner's exact release edge. Label this an in-flight observation, not
+completed writeback or media timing. Do not substitute the unrelated global
+content maximum, treat a missing match as zero work, or change admission,
+ownership, copy/pipe/command caps, proofs, barriers, power policy or500ms/10s/
+1800s+60s requirements. First checkpoints are exact binding/refusal and actual
+producer/formatter/parser regressions, then a frozen matched build and loaded
+VM. Native evidence is required before claiming the remaining cause or a gain.
+
+The [exact gate observation](../capture-gate-correlation.md) now has a fixed
+live reader, copied owner retention and mandatory versioned wire companions.
+Focused actual scheduler/sync-producer composition and production formatter/
+parser checks pass. The previous short VM's maximum owner is file-open, while
+native a139 retains sync owners; preserve those distinct operations rather
+than force matching to the global maximum. Full frozen integration and new
+native observation are pending. No latency fix or new hardware acceptance is
+claimed by this diagnostic-only candidate.
+
+The initial b480 loaded VM completes its workload but fails required app-receipt
+validation: PID19 has incomplete saved phases and interleaved UART fallback
+records. Its failed artifacts are retained. Repeated new correlation rows add
+1,336 bytes per populated periodic observation to the same bounded log. The
+candidate now emits those retained contexts only at final and keeps periodic
+owner output byte-equivalent to the legacy projection, with a directed
+regression. No receipt repair, missing-data waiver, larger log or changed
+workload/timing limit is accepted; the corrected frozen candidate needs a new
+complete loaded run before merge or native preparation.
+
+Corrected frozen source `62670020` passes matched images, full core/desktop/docs,
+89 install tests with one expected skip, ordinary ABI/input/fork/exec/yield,
+USB persistence, ordinary capture and loaded400-write-IOPS KVM validation. The
+loaded run completes23 app cycles and175 overlap windows with zero recorded
+audio underruns,181.267ms maximum loop,797.554ms ready and1.017712s close maxima.
+All required app/file-service receipts are complete in saved logs; no UART
+fallback is needed. The exact BMP and40-byte disk receipt and all16 original
+contracts validate. Full-build image hashes match the already passed corrected
+loaded run, so that exact run is reused rather than repeated.
+
+The new live observation actually matches a selected SYS_SYNC owner to content
+identity88, captured size2949120, whose start precedes the complete847.842ms
+owner interval. Its cumulative callbacks through that edge total842.528ms,
+including676.029ms reading2359296 prefix bytes. These are VM software callback
+spans, not native hardware timing or completed writeback; the separate global
+maximum is not substituted. Screenshot total is11.638868s. No latency gain is
+claimed by this diagnostic change.
+
+Stage `3403de90a056fca3` from that exact source passes the native-board-refusal,
+save/unmount/automatic-return rehearsal. Native hardware remainsaccepteda139/
+recoveryc354 and no new boot is armed at this checkpoint. Next is a source-bound
+native observation at the original1800s1%,60s tail,500ms/10s limits and all
+existing byte, barrier, ownership and retirement requirements. Report actual
+parent/content coverage, including legitimate parent-only device-flush cases,
+before choosing a change to the commit path.
