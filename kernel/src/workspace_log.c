@@ -147,11 +147,25 @@ static void report_sync_transfers(const char *scope,uint64_t id,const struct usb
 }
 /* One command window copied with the exact selected content, never an
  * independent command maximum from another content/sync. */
+static void report_sync_bot(uint64_t at,uint64_t pid,uint64_t id,uint64_t identity,
+    const struct usb_storage_content_timing *t) {
+    const struct usb_storage_command_timing empty={0};
+    const struct usb_storage_command_timing *q=t?&t->command:&empty;
+    console_printf("sync-bot-command: version=1 snapshot_us=%u pid=%u id=%u identity=%u role=%u csw_start_us=%u csw_end_us=%u valid=%u complete=%u ok=%u start_us=%u end_us=%u checkpoint_calls=%u checkpoint_us=%u checkpoint_first_us=%u checkpoint_last_us=%u final=1\n",at,pid,id,identity,q->role,q->csw_start_us,q->csw_end_us,q->valid,q->complete,q->ok,q->start_us,q->end_us,q->checkpoint_calls,q->checkpoint_us,q->checkpoint_first_us,q->checkpoint_last_us);
+    if(!q->complete || q->role>=USB_STORAGE_CONTENT_ROLES)return;
+    for(unsigned phase=0;phase<3;phase++) {
+        const struct usb_storage_command_phase *p=&q->phase[phase];
+        console_printf("sync-bot-phase: version=1 snapshot_us=%u pid=%u id=%u identity=%u role=%u csw_start_us=%u csw_end_us=%u phase=%u calls=%u requested=%u actual=%u us=%u first_us=%u last_us=%u final=1\n",at,pid,id,identity,q->role,q->csw_start_us,q->csw_end_us,(uint64_t)phase,p->calls,p->requested,p->actual,p->us,p->first_us,p->last_us);
+    }
+    const struct usb_bulk_timing *b=&t->roles[q->role].worst.sample;
+    console_printf("sync-bot-service: version=1 snapshot_us=%u pid=%u id=%u identity=%u role=%u csw_start_us=%u csw_end_us=%u empty_checks=%u event_checks=%u last_empty_sample_us=%u final=1\n",at,pid,id,identity,q->role,q->csw_start_us,q->csw_end_us,b->empty_checks,b->event_checks,b->last_empty_sample_us);
+}
 static void report_sync_commands(uint64_t at,const struct sync_timing_record *r) {
     const struct sync_content_call *c=r?&r->worst.content.worst:NULL;
     const struct usb_storage_content_timing *t=c?&c->commands:NULL;
     uint64_t pid=r?r->pid:0,id=r?r->worst.start_us:0,identity=c?c->identity:0;
     console_printf("sync-command-snapshot: version=1 snapshot_us=%u pid=%u id=%u identity=%u valid=%u active=%u invalid=%u final=1\n",at,pid,id,identity,t?t->valid:1,t?t->active:0,t?t->invalid:0);
+    report_sync_bot(at,pid,id,identity,t);
     if(!t)return;
     for(unsigned role=0;role<USB_STORAGE_CONTENT_ROLES;role++) {
         const struct usb_storage_content_role *q=&t->roles[role];

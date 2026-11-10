@@ -6,8 +6,9 @@
 static unsigned depth;
 static uint64_t checkpoint_delay;
 static uint64_t clock_us;
+static uint64_t clock_reads;
 static bool reference=true,regress_clock;
-uint64_t timer_monotonic_us(void) { return clock_us; }
+uint64_t timer_monotonic_us(void) { clock_reads++;return clock_us; }
 bool timer_reference_ready(void) { return reference; }
 static bool irq_enabled, foreign, boot;
 static uint64_t usb_test_irq_save(void) { bool f=irq_enabled; irq_enabled=false; return f; }

@@ -5071,6 +5071,7 @@ test-sync-content: $(LIMINE_PROTOCOL_DIR)/.ready build/tests/desktop-session-hos
 	$(PYTHON) tools/test_sync_content_integration.py --limine-include $(LIMINE_PROTOCOL_DIR)/include
 	$(PYTHON) -m unittest discover -s tools -p test_sync_content.py
 	$(PYTHON) -m unittest discover -s tools -p test_sync_commands.py
+	$(PYTHON) -m unittest discover -s tools -p test_sync_command_phases.py
 	$(PYTHON) -m unittest discover -s tools -p test_capture_history.py
 	$(PYTHON) tools/test_capture_history_wire.py --host build/tests/desktop-session-host$(HOST_EXE)
 test-core: test-sync-content

@@ -11046,3 +11046,84 @@ Matching raw evidence, independent review and full payload/trial backups are
 retained outside build. Current/recovery and retained payload hashes verify;
 Ubuntu is default, one-shot consumed, collector disabled and USB unmounted. No
 reboot is armed. The next turn starts from this collected result.
+
+### Same-command completion audit scope (2026-11-09)
+
+Integration base `25594a0f`, after collecting the accepted command-role run.
+The source audit has not established a transport bug: the existing sampled
+ring-service gap and short post-observation resume cannot alone explain the
+selected353.884ms CSW. Existing role maxima omit earlier phases of that exact
+command and do not distinguish empty ring checks from unrelated events.
+
+Bounded objective: retain one fixed CBW/data/CSW/checkpoint companion with the
+same winning command, including final validation outcome, and classify existing
+ring checks using only the existing sampling clock. Touch passive USB/xHCI
+observation, final reporting, strict parser/host fixtures and native collection.
+Separate user-authorized subagents own transport, xHCI audit and strict parsing;
+root owns integration, sequential validation and physical testing. No new ring
+read, USB request, clock read, retry, wait, checkpoint, validation or policy is
+introduced by the observers. Preserve4096-byte bulk/16384-byte command bounds,
+deadlines, quarantine, ownership, durability proofs and500ms/10s runtime limits.
+PR19 has independent xHCI networking additions; keep these narrow observer hunks
+separate. PR301 scanout/process work remains independent. Next checkpoint is
+observer equivalence and strict same-command/tail coverage, followed by the
+unchanged automated30-minute1% native workload. Do not claim a performance fix
+without causal evidence. Retain the accepted690/1991 baselines and recovery.
+
+### Same-command observer validated for native trial (2026-11-09)
+
+Frozen source `725b8e6c` / ports `39ad9d7`, release `1820d7a0297b1b65`, retains
+one240-byte companion with the exact selected content's first maximum CSW.
+CBW/data/CSW callback summaries and original checkpoint clocks are copied after
+full command validation; failed command outcomes remain distinct from successful
+bulk callbacks. The timing envelope ends at the final checkpoint sample, not
+the unmeasured return tail. Existing ring checks gain empty/event counters and
+the last existing sample whose subsequent cycle read found an empty head. That
+pre-check clock is not exact event arrival or device completion. No extra clock,
+ring read, controller operation, wait, checkpoint or policy change is introduced.
+
+Actual transport/controller host tests pass: same-role and cross-role first
+ties, four4096-byte data segments per16KiB command, exact checkpoints, zero-data
+flush, immutable selection, later failed command retention, every original
+failure/quarantine case, overflow and invalid clocks/ownership. Observer on/off
+clock/sample reads, controller callbacks, commands, checkpoints and complete
+media agree. The ring fixture proves513 original checks with exactly three
+existing clock samples,512 empty results and one event. Strict parser regressions
+reject missing/misbound/conflicting companions, later tied maxima, understated
+single-call/checkpoint wall, invalid byte/phase bounds and ring-count mismatches.
+
+Full matched normal/native/VM/RAM/USB builds, core, desktop and docs pass;
+89 installation/recovery tests take759.385s with one expected skip. Ordinary
+syscall, keyboard, fork/exec-vectors/yield and USB read-only/write/flush/reload/
+persistence/input pass. Loaded KVM400-write-IOPS populated Home passes22 app
+cycles/173 overlap windows,139984us maximum loop,1081973us launch and1019149us
+close, with zero recorded audio/worker/lifecycle errors and clean retirement.
+All old and new receipts survive the unchanged64KiB tail with five checkpoints
+and complete atomic app evidence. Ordinary immutable screenshot/readback/Preview/
+repeat/exit passes. Exact stage passes native-board refusal/save/unmount/return;
+positive native acceptance remains pending.
+
+The saved VM companion joins PID7 sync26716386/content119/role2 and its16KiB
+WRITE CSW27692304–27693121. Callback/checkpoint envelope2062us contains CBW174us,
+four data callbacks851us, CSW817us, four checkpoints96us and124us residual.
+The same CSW has33 ring checks:32 empty and one event; last sampled-empty
+pre-check clock27692433 precedes software observation27693096. This proves
+retention and joining, not a native latency fix or a hardware cause. The sync
+snapshot measures30496 bytes within the128KiB kernel stack. The five added rows
+have maximum widths533/434/350 bytes within the unchanged1024-byte atomic writer.
+
+The next native trial keeps1800-second1% PCM plus the original60-second tail,
+500ms loop/10s lifecycle limits, disk readbacks, three exact BMPs and histories,
+equality growth, clean cache/worker/battery retirement, post-PCM protocol marker,
+all prior file hashes and offline allocation/headroom. It additionally requires
+the exact command companion and classified ring checks in a post-PCM snapshot.
+No input is required; keep AC/USB attached. Preserve accepted690/1991/69/8caa,
+consolec354 and isolated2ddb installed payloads and full independent backups.
+Only the unreferenced historical query-only318 EFI duplicate may be archived
+after full manifest/every-file equality and GRUB/firmware reference checks; its
+full payload and accepted history remain backed up. Four older stage-only
+duplicates were separately verified against full independent payloads and removed,
+freeing594453273 bytes without deleting installed payloads or raw evidence.
+Save run/armed state and verified independent payload/trial backups before
+reboot, then collect the matching return first. Original battery failure evidence
+remains protected and its cause unresolved. No speed gain is claimed.
