@@ -10,13 +10,13 @@ limit. This accepts the isolated diagnostic history, not current register
 access, register writes, root-table walking or device ownership. See the dated
 native result below.
 
-Latest desktop checkpoint: the [same-command native trial](#native-command-phases-and-ring-results-2026-11-09)
-passes the unchanged30-minute stress test. Screenshot completion latency remains
-open. Its slowest command sees6677 empty ring checks before one completion and
-resumes within1us; no causal transport fix is established. The fresh-media and
-independent-capture candidate below passes host/VM validation on release
-`d551c6584bed346e`; native acceptance remains pending. No performance improvement
-or hardware cause is claimed.
+Latest desktop checkpoint: the [fresh-media and independent-capture trial](#native-fresh-media-and-independent-capture-2026-11-10)
+passes the unchanged30-minute stress test on release `d551c6584bed346e`, with
+1101 app cycles,4247 verified disk bursts, three valid screenshots and clean
+retirement. The bounded composition is physically accepted. Screenshot saving
+still takes13.8–19.8s, dominated by write admission under concurrent storage work.
+The next target is shared filesystem serialization and commit amplification;
+no isolated speed improvement or hardware cause is claimed.
 
 ## Initial inventory (2026-10-22)
 
@@ -72,7 +72,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 4,019 verified disk bursts, 1,070 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (129.977 ms maximum); retained-reader fresh-media verification fix passes explicit contract/regression and loaded VM checks, with native validation pending; screenshot completion remains slow; broader interactive/endurance coverage, failure handling and hotplug remain open |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot overlap passes 4,247 verified disk bursts, 1,101 app cycles and three captures with preserved prior files and clean allocation | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (120.184 ms maximum); fresh-media verification and independent capture progress pass native stress, with corruption fault cases covered on host; screenshot completion remains slow; broader interactive/endurance coverage, failure handling and hotplug remain open |
 | Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
@@ -11538,3 +11538,67 @@ Recheck this unit's USB6ADA-85BB, AC, Ubuntu default and recoveryc354 payload,
 full independent backups, offline allocation and exact release before arming.
 No native candidate acceptance is claimed here. The intermittent battery cause,
 screenshot child-status/cleanup receipts and storage amplification remain open.
+
+
+## Native fresh-media and independent capture (2026-11-10)
+
+The automatic trial of release `d551c6584bed346e`, compiled from
+`b4982ee9a3b41eab875c406fbd32b835c05a37cf` with ports
+`39ad9d702d018723457e59415e10e22d9778acb8`, completes in
+`session-00065fe705c67e8a-00`. PR455 is merged at `40767a50`; its documentation-only
+follow-up does not change the tested binaries. This accepts bounded native
+composition of fresh VFS screenshot proofs, independent capture ownership and
+the original workload. Corruption/refusal fault injection remains host coverage,
+not a native media-fault claim.
+
+The original1800s1% workload completes4247 verified disk bursts,1113325568 disk
+bytes and345763840 PCM bytes with zero recorded audio underruns or worker errors.
+The lifecycle controller completes1101 app cycles with no errors,51,600 valid
+loop samples, zero limit excursions and120.184ms maximum loop. Maximum app ready
+and close durations are2.656183s and2.188021s under the unchanged10s limit. Three
+automatic screenshots complete during live PCM, a follow-up app opens after them,
+and ordinary desktop exit, cache retirement and worker cleanup complete normally.
+No subjective listening report is required at1%; the earlier30-second25%
+user-confirmed speaker check remains separate.
+
+All three1366×768 BMPs have exact4196406-byte lengths and decode completely.
+The raw40-byte disk receipt agrees with the workload report. Independent saved
+log parsing reproduces capture transfer/history, write/admission, sync/content/
+command phases, loop/render/operation, equality, clean post-PCM protocol and
+retirement evidence. Native lifecycle evidence retains the original controller
+summary and worst-lifetime records; the four bounded logs do not preserve every
+one of1101 individual app-stage receipts. Do not transfer the shorter VM's full
+saved-only per-cycle coverage claim to this native trial.
+
+Capture totals are13.803511/19.805365/15.025137s, median15.025137s. Sender write
+spans are336.282/647.823/288.122ms, with18/18/12 EAGAINs and1026 successful writes
+each. Allocation spans147.351/117.353/79.467ms precede post-allocation reception
+116.554/448.089/138.002ms. Final-response observation takes62/1703/1036us;
+slowest resource cleanup is2.755ms. The owner response observer and reduced
+verification progress traffic differ from the previous baseline, so these
+absolute measurements do not isolate a transport speed gain.
+
+Residual write phases take10.036229/16.348322/8.630967s. Each has65 full raw writes;
+95.93–98.15% of raw write-call wall time is admission, with actual handler wall
+around21ms per screenshot. The second capture's worst2.8968s gate contains an
+observed2.82064s overlap with PID7's existing SYS_SYNC scope. Its selected
+1441792-byte content commit takes2.820715s, including2.663533s in data-role block
+callbacks. These observations identify shared storage admission and repeated
+content commit work as the next audit target; they do not identify physical
+media timing or justify removing barriers, prefix proofs or ownership gates.
+
+All805 prior files are present with unchanged bytes except expected filesystem
+metadata. There are814 files and3696 allocated clusters after nine new outputs;
+independent offline fsck and allocation traversal report zero leaks, bitmap/FAT
+mismatches or errors. Actual USB hashes match collection. Battery epoch1 retires
+cleanly after705 attempts,10579 queries and five notifications, with zero heap,
+errors or denied operations; its post-PCM first-protocol snapshot is clean.
+The earlier intermittent battery cause remains unresolved and its original
+failed-media archive is retained.
+
+Ubuntu default, consumed one-shot, current/recovery payloads and independent
+payload/trial backups are verified; the collector is disabled, USB unmounted and
+no reboot armed. All500ms/10s/workload/tail/pipe/admission/ownership/durability
+requirements remain unchanged. The next bounded work is a deterministic audit
+of filesystem write admission and global content-commit amplification, preserving
+full integrity checks, existing barriers and all limits.
