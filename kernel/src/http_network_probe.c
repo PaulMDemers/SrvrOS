@@ -19,7 +19,7 @@ static void scrub(void *v,size_t n){volatile uint8_t *p=v;while(n--)*p++=0;}
 static bool fail(struct http_network_probe *s,unsigned reason){if(!s->result.reason)s->result.reason=reason;return false;}
 static bool same(const struct http_network_probe_io *a,const struct http_network_probe_io *b){
  return a->context==b->context && a->current==b->current && a->retry_ready==b->retry_ready &&
-  a->drained==b->drained && a->epoch==b->epoch && a->start_us==b->start_us &&
+  a->drained==b->drained && a->terminal_rx_handoff==b->terminal_rx_handoff && a->epoch==b->epoch && a->start_us==b->start_us &&
   a->deadline_us==b->deadline_us && a->test_ip_override==b->test_ip_override;
 }
 static bool owned(struct http_network_probe *s){return s && s->self==(uintptr_t)s && s->source && same(&s->io,s->source);}
@@ -52,6 +52,38 @@ static bool stop_when_empty(struct http_network_probe *s){
  if(good){s->worker_stopped=true;s->result.tcp_empty=s->result.provider_drained=true;}
  unlock(f);return good;
 }
+/* The atomic stop freezes net software publication, not the independent
+ * controller receive owner. Consume a separate terminal ingress authority after
+ * all process/worker borrowers are gone. A posted raw receive may still exist;
+ * its exact ownership is the callback's obligation, never a fabricated drain. */
+static bool terminal_ready(const struct http_network_probe *s){
+ return s->worker_stopped && s->result.child_observed && s->result.child_reaped &&
+  s->result.child_retired && s->result.worker_finished && s->result.tcp_empty &&
+  s->result.provider_drained && !s->result.receiver_closed;
+}
+static bool terminal_rx_handoff(struct http_network_probe *s){
+ uint64_t f=lock();bool good=false;
+ if(!terminal_ready(s) || !current(s))goto done;
+ const struct http_network_probe_io before=s->io;
+ const struct http_network_probe_io *original=s->source;
+ s->checking=true;
+ bool closed=before.terminal_rx_handoff(before.context,before.epoch);
+ s->checking=false;
+ /* The native provider is legitimately CLOSING now: current()/drained() are
+  * no longer admissible. Freeze identity across this consuming boundary. */
+ if(s->source!=original || !owned(s) || !same(&before,&s->io) ||
+    !same(&before,s->source) || s->guard_failed || !terminal_ready(s)){
+  s->guard_failed=true;fail(s,HTTP_NET_OWNER);goto done;
+ }
+ uint64_t us=timer_monotonic_us(),tick=timer_ticks();
+ if(us<s->last_us || us<before.start_us || us>=before.deadline_us || tick<s->last_tick){
+  s->guard_failed=true;fail(s,HTTP_NET_CLOCK);goto done;
+ }
+ s->last_us=us;s->last_tick=tick;
+ if(!closed){fail(s,HTTP_NET_RX_HANDOFF_FAILED);goto done;}
+ s->result.receiver_closed=true;s->result.quiescent=true;good=true;
+ done:unlock(f);return good;
+}
 static bool tick_due(void *p){return timer_ticks()>=*(uint64_t *)p;}
 static void pause_one(struct http_network_probe *s){
  uint64_t tick=timer_ticks();if(tick==UINT64_MAX)return;
@@ -79,7 +111,7 @@ static bool child_cleanup(struct http_network_probe *s,bool cancel){
 }
 bool http_network_probe_prepare(struct http_network_probe *s){
  if(!s || !zero(s,sizeof *s) || process_current())return false;
- s->self=(uintptr_t)s;s->result.version=1;s->result.phase=HTTP_NET_PREPARE;
+ s->self=(uintptr_t)s;s->result.version=2;s->result.phase=HTTP_NET_PREPARE;
  bool child=http_child_prepare(&s->child,false),worker=false;
  if(child && timer_idle_wakeup_ready()){
   s->result.worker_allocated=net_prepare_probe_worker();
@@ -172,7 +204,7 @@ static bool finish_without_handoff(struct http_network_probe *s){
 }
 bool http_network_probe_run(struct http_network_probe *s,const struct http_network_probe_io *io){
  if(!s || s->self!=(uintptr_t)s || !s->result.prepared || s->result.attempted || s->child.retired || s->worker_stopped || s->result.quiescent || !io ||
-    !io->context || !io->current || !io->retry_ready || !io->drained || !io->epoch ||
+    !io->context || !io->current || !io->retry_ready || !io->drained || !io->terminal_rx_handoff || !io->epoch ||
     io->start_us<s->child.ready_us || io->start_us>INT64_MAX-HTTP_CHILD_WINDOW_US ||
     io->deadline_us!=io->start_us+HTTP_CHILD_WINDOW_US ||
     (io->test_ip_override && (!(io->test_ip_override>>24) || (io->test_ip_override>>24)==127 || (io->test_ip_override>>24)>=224)) ||
@@ -222,10 +254,9 @@ bool http_network_probe_run(struct http_network_probe *s,const struct http_netwo
  s->result.child_reaped=true;
  if(!http_child_retire(&s->child)){fail(s,HTTP_NET_RETIRE_FAILED);goto done;}
  s->result.child_retired=true;
- /* Child/context and worker are gone; no socket/syscall/maintenance publisher
-  * may refill queues after the atomic stop. Recheck provider software drain. */
- s->result.provider_drained=drained(s);s->result.quiescent=s->result.provider_drained;
- if(!s->result.quiescent){good=false;fail(s,HTTP_NET_DRAIN_FAILED);}
+ /* Ordinary posted RX can complete after the stop snapshot. The finished
+  * software borrowers hand its retained ownership to terminal native cleanup. */
+ if(!terminal_rx_handoff(s))good=false;
  done:
  s->result.bootstrap_polls=s->bootstrap.polls;s->result.retries=s->bootstrap.dhcp_retries;
  (void)worker_snapshot(s);
@@ -253,18 +284,18 @@ bool http_network_probe_run(struct http_network_probe *s,const struct http_netwo
  }
  s->result.complete=good && s->result.quiescent && s->result.worker_finished &&
   s->result.child_observed && s->result.child_reaped && s->result.child_retired &&
-  s->result.tcp_empty && s->result.provider_drained && !s->result.child_status && !s->result.reason;
+  s->result.tcp_empty && s->result.provider_drained && s->result.receiver_closed && !s->result.child_status && !s->result.reason;
  if(s->result.complete)s->result.phase=HTTP_NET_DONE;
  return s->result.complete;
 }
 void http_network_probe_emit(const struct http_network_probe *s){
  if(!s)return;
  const struct http_network_result *r=&s->result;
- console_printf("wifi-http5-workload: version=%u complete=%u phase=%u reason=%u prepared=%u worker_allocated=%u attempted=%u dhcp=%u retries=%u dns=%u route=%u handoff=%u go=%u child_status=%u child_observed=%u child_reaped=%u child_retired=%u tcp_empty=%u provider_drained=%u worker_finished=%u quiescent=%u refs_scrubbed=%u test_override=%u request_bytes=4159 body_bytes=3072 body_eof=%u bootstrap_polls=%u worker_polls=%u worker_turns=%u supervisor_turns=%u elapsed_us=%u retained=%u\n",
+ console_printf("wifi-http5-workload: version=%u complete=%u phase=%u reason=%u prepared=%u worker_allocated=%u attempted=%u dhcp=%u retries=%u dns=%u route=%u handoff=%u go=%u child_status=%u child_observed=%u child_reaped=%u child_retired=%u tcp_empty=%u provider_drained=%u receiver_closed=%u worker_finished=%u quiescent=%u refs_scrubbed=%u test_override=%u request_bytes=4159 body_bytes=3072 body_eof=%u bootstrap_polls=%u worker_polls=%u worker_turns=%u supervisor_turns=%u elapsed_us=%u retained=%u\n",
  r->version,(uint64_t)r->complete,r->phase,r->reason,(uint64_t)r->prepared,(uint64_t)r->worker_allocated,(uint64_t)r->attempted,
  r->dhcp,r->retries,r->dns,r->route,(uint64_t)r->handoff,r->go,r->child_status,
  (uint64_t)r->child_observed,(uint64_t)r->child_reaped,(uint64_t)r->child_retired,
- (uint64_t)r->tcp_empty,(uint64_t)r->provider_drained,(uint64_t)r->worker_finished,
+ (uint64_t)r->tcp_empty,(uint64_t)r->provider_drained,(uint64_t)r->receiver_closed,(uint64_t)r->worker_finished,
  (uint64_t)r->quiescent,(uint64_t)r->refs_scrubbed,(uint64_t)r->test_override,(uint64_t)(r->go && r->child_observed && !r->child_status),
  r->bootstrap_polls,r->worker_polls,r->worker_turns,r->supervisor_turns,r->elapsed_us,(uint64_t)!r->quiescent);
 }

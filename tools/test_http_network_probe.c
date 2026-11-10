@@ -10,16 +10,24 @@ static const char *scenario;
 static uint64_t now,irq_flags=512,go_time;
 static unsigned wait_turns,cancels,reaps,releases,dns_calls,publishes,stops,prepare_calls,current_calls;
 static bool child_clean,child_canceled,table_empty,pending,atomic_pending,bootstrap_finished;
+static bool raw_ready,raw_posted,decoded_cache,borrowed,provider_closed,hardware_latched;
+static unsigned handoffs,current_at_handoff;
 static struct net_probe_worker_info wp;
 static const struct net_bounded_probe_io *net_source;
 static struct http_network_probe *object;
 static struct http_network_probe_io source;
-static struct http_network_probe objects[32];
+static struct http_network_probe objects[64];
 static int is(const char *name){return !strcmp(scenario,name);}
 uint64_t http_network_test_irq_save(void){uint64_t f=irq_flags;irq_flags=0;return f;}
 void http_network_test_irq_restore(uint64_t f){
- assert(!object || !object->checking); /* callbacks cannot be preempted mid-check */
+ assert(!f || !object || !object->checking); /* only IRQ re-enable may preempt a checked callback */
  if(f && atomic_pending && wp.active){pending=true;atomic_pending=false;}
+ if(f && wp.stop_requested && !hardware_latched){
+  hardware_latched=true;
+  if(is("terminal-raw-ready"))raw_ready=true;
+  if(is("terminal-cache"))decoded_cache=true;
+  if(is("terminal-loan"))borrowed=true;
+ }
  irq_flags=f;
 }
 uint64_t timer_monotonic_us(void){now+=10;return now;}
@@ -105,13 +113,27 @@ bool net_probe_worker_finish(void){
  wp.finished=1;if(is("worker-finish-failed"))wp.failed=1;return !wp.failed;
 }
 static bool provider_current(void *p,uint64_t epoch){
- assert(p==&source && !irq_flags);current_calls++;return epoch==source.epoch && !is("owner-fail");
+ assert(p==&source && !irq_flags);current_calls++;return !provider_closed && epoch==source.epoch && !is("owner-fail");
 }
 static bool retry_ready(void *p,uint64_t epoch){assert(p==&source && !irq_flags && epoch==source.epoch);return true;}
 static bool provider_drained(void *p,uint64_t epoch){
  assert(p==&source && !irq_flags && epoch==source.epoch);
  if(is("post-stop-pending") && wp.finished)pending=true;
- return !pending;
+ return !pending && !raw_ready && !decoded_cache && !borrowed;
+}
+static bool terminal_rx_handoff(void *p,uint64_t epoch){
+ assert(p==&source && !irq_flags && epoch==source.epoch && !wp.active && wp.finished && wp.parked && wp.parked_waiters==1 && table_empty);
+ assert(object->result.child_observed && object->result.child_reaped && object->result.child_retired && object->result.tcp_empty);
+ handoffs++;
+ if(is("post-stop-pending"))pending=true; /* unknown debt is NOT raw owner handoff */
+ if(pending || decoded_cache || borrowed || is("terminal-refuse"))return false;
+ if(is("terminal-recursive")){assert(!net_source->current(net_source->context,epoch));return true;}
+ if(is("terminal-mutate-pointer")){object->source=(const struct http_network_probe_io *)(uintptr_t)1;return true;}
+ if(is("terminal-mutate")){source.epoch++;return true;}
+ if(is("terminal-mutate-both")){source.epoch++;object->io.epoch++;return true;}
+ if(is("terminal-clock")){now=source.deadline_us;return true;}
+ provider_closed=true;current_at_handoff=current_calls;
+ return true;
 }
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t end){
  (void)q;(void)fn;(void)arg;(void)end;assert(irq_flags==512);wait_turns++;now+=10000;
@@ -127,24 +149,34 @@ static void setup(unsigned i,const char *name){
  scenario=name;object=&objects[i];now=1000000;irq_flags=512;go_time=0;
  wait_turns=cancels=reaps=releases=dns_calls=publishes=stops=prepare_calls=current_calls=0;
  child_clean=child_canceled=pending=atomic_pending=bootstrap_finished=false;table_empty=true;
+ raw_ready=raw_posted=decoded_cache=borrowed=provider_closed=hardware_latched=false;
+ handoffs=current_at_handoff=0;
+ if(is("terminal-raw-pending"))raw_posted=true;
  memset(&wp,0,sizeof wp);net_source=NULL;
- source=(struct http_network_probe_io){&source,provider_current,retry_ready,provider_drained,71,0,0,0};
+ source=(struct http_network_probe_io){.context=&source,.current=provider_current,.retry_ready=retry_ready,.drained=provider_drained,.terminal_rx_handoff=terminal_rx_handoff,.epoch=71};
 }
 int main(void){
- const char *cases[]={"good","vm-target","child-status","publish-fail","dhcp-fail","dns-fail","route-fail","init-fail","dhcp-pending","handoff-fail","mutate-source","owner-fail","table-never-empty","child-never-exit","stop-no-park","post-stop-pending","worker-finish-failed","reap-fail","retire-fail","child-prepare-fail","no-irq","worker-prepare-fail","worker-no-park"};
+ const char *cases[]={"good","vm-target","child-status","publish-fail","dhcp-fail","dns-fail","route-fail","init-fail","dhcp-pending","handoff-fail","mutate-source","owner-fail","table-never-empty","child-never-exit","stop-no-park","post-stop-pending","worker-finish-failed","reap-fail","retire-fail","child-prepare-fail","no-irq","worker-prepare-fail","worker-no-park","terminal-raw-ready","terminal-raw-pending","terminal-cache","terminal-loan","terminal-refuse","terminal-recursive","terminal-mutate","terminal-mutate-both","terminal-clock","terminal-mutate-pointer"};
+ const unsigned count=sizeof cases/sizeof cases[0];
  for(unsigned i=0;i<sizeof cases/sizeof cases[0];i++){
   setup(i,cases[i]);bool prepared=http_network_probe_prepare(object);
-  if(i>=19){assert(!prepared && object->result.reason==HTTP_NET_PRELIVE);continue;}
+  if(is("child-prepare-fail") || is("no-irq") || is("worker-prepare-fail") || is("worker-no-park")){assert(!prepared && object->result.reason==HTTP_NET_PRELIVE);continue;}
   assert(prepared && prepare_calls==1);source.start_us=now;source.deadline_us=now+15000000;
   if(is("vm-target"))source.test_ip_override=0x0a000264;
   bool result=http_network_probe_run(object,&source);
-  if(is("good") || is("vm-target")){
+  if(is("good") || is("vm-target") || is("terminal-raw-ready") || is("terminal-raw-pending")){
    assert(result && object->result.complete && object->result.quiescent && object->result.child_reaped && object->result.child_retired &&
-    object->result.worker_finished && object->result.tcp_empty && object->result.provider_drained && !object->source && !object->answer && !pending);
+    object->result.worker_finished && object->result.tcp_empty && object->result.provider_drained && !object->source && !object->answer && !pending && object->result.receiver_closed && provider_closed && handoffs==1);
+   assert(current_calls==current_at_handoff); /* consumed current() must not be reopened */
+   assert(raw_ready==is("terminal-raw-ready") && raw_posted==is("terminal-raw-pending"));
    assert(object->result.worker_turns>=80 && dns_calls==(is("vm-target")?0u:1u));
   }else{
    if(result || object->result.complete || !object->result.reason)fprintf(stderr,"unexpected %s result=%d complete=%d reason=%llu\n",scenario,result,object->result.complete,(unsigned long long)object->result.reason);
    assert(!result && !object->result.complete && object->result.reason);
+   if(is("terminal-mutate-pointer")){
+    assert(object->source==(const struct http_network_probe_io *)(uintptr_t)1 && object->guard_failed && object->result.reason==HTTP_NET_OWNER && !object->result.quiescent && !object->result.refs_scrubbed);
+    object->source=&source; /* Fixture-only restoration AFTER retained refusal. */
+   }
    bool safe=is("child-status") || is("publish-fail") || is("dhcp-fail") || is("dns-fail") || is("route-fail") || is("init-fail") || is("worker-finish-failed");
    assert(object->result.quiescent==safe);
    if(!safe)assert(object->source==&source && object->io.context==&source && !object->result.refs_scrubbed);
@@ -154,14 +186,17 @@ int main(void){
   assert(!http_network_probe_abort_prepare(object));
   assert(irq_flags==512);
  }
- setup(23,"abort-unrun");assert(http_network_probe_prepare(object));
+ setup(count,"abort-unrun");assert(http_network_probe_prepare(object));
  assert(http_network_probe_abort_prepare(object) && object->result.quiescent && object->result.worker_finished &&
   object->result.child_retired && !object->result.attempted && !object->result.go && !object->source);
  unsigned before_cancel=cancels;assert(http_network_probe_abort_prepare(object) && cancels==before_cancel);
  source.start_us=now;source.deadline_us=now+15000000;
  unsigned before_current=current_calls;
  assert(!http_network_probe_run(object,&source) && !object->source && !object->result.attempted && current_calls==before_current);
- setup(24,"abort-ambiguous");assert(http_network_probe_prepare(object));wp.handoff_started=1;
+ setup(count+1,"abort-ambiguous");assert(http_network_probe_prepare(object));wp.handoff_started=1;
  assert(!http_network_probe_abort_prepare(object) && !object->result.quiescent && !cancels);
- printf("http-network-probe: %zu HOST cases PASS immutable window,atomic stop,FIN wait,retention/failure models; no guest/native acceptance\n",sizeof cases/sizeof cases[0]+2);
+ setup(count+2,"missing-hook");assert(http_network_probe_prepare(object));source.start_us=now;source.deadline_us=now+15000000;source.terminal_rx_handoff=NULL;
+ assert(!http_network_probe_run(object,&source) && !object->result.attempted && !handoffs);
+ assert(http_network_probe_abort_prepare(object) && object->result.quiescent);
+ printf("http-network-probe: %zu HOST cases PASS immutable window,atomic stop,FIN wait,consuming terminal RX handoff/raw retention/cache-loan-mutation refusals; no guest/native acceptance\n",sizeof cases/sizeof cases[0]+3);
 }

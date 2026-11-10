@@ -11,7 +11,7 @@
 #include <stdarg.h>
 #include <inttypes.h>
 #define WIFI_STACK5_TOTAL_US 15000000u
-static struct {struct mt76_net5 net;uint64_t start,services,tx_token;bool selected,running,failed,boundary;} wifi_stack5;
+static struct {struct mt76_net5 net;uint64_t start,services,tx_token,terminal_epoch,terminal_ticket,terminal_token,terminal_posts,terminal_completions;bool selected,running,failed,boundary,terminal_handoff,terminal_pending,terminal_ready,terminal_provider_closing;} wifi_stack5;
 static struct {uint64_t epoch,posts[2];unsigned phase,fault_phase;struct {uint64_t ticket;} loan;
  bool attempted,stack_mode,failed,pending[2],ready_rx,cached_present;} wifi_stream5;
 static struct {unsigned round;} wifi_fence5_native;
@@ -26,6 +26,7 @@ static unsigned prepares,aborts,runs,erasures,held,emits,guard_calls;
 static const char *mode;static jmp_buf escape;static bool key_live;
 static bool is(const char *s){return !strcmp(mode,s);}
 static bool wifi_stack5_probe_current(void *c,uint64_t e){assert(c==&wifi_stream5 && e==31);guard_calls++;return true;}
+static bool wifi_stack5_terminal_rx_handoff(void *c,uint64_t e){return wifi_stack5_probe_current(c,e);}
 static bool wifi_stack5_probe_retry(void *c,uint64_t e){return wifi_stack5_probe_current(c,e);}
 static bool wifi_stack5_probe_observe(void *c,uint64_t e,struct mt76_stack5_observation *o){assert(wifi_stack5_probe_current(c,e));o->drained=!is("not-drained");return true;}
 bool xhci_wifi_capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *context);
@@ -66,7 +67,7 @@ bool http_network_probe_abort_prepare(struct http_network_probe *p){
 }
 bool http_network_probe_run(struct http_network_probe *p,const struct http_network_probe_io *io){
  assert(key_live && p==&wifi_http5_probe && io==&wifi_http5_io && io->context==&wifi_stream5);
- assert(io->current==wifi_stack5_probe_current && io->retry_ready==wifi_stack5_probe_retry && io->drained==wifi_http5_drained);
+ assert(io->current==wifi_stack5_probe_current && io->retry_ready==wifi_stack5_probe_retry && io->drained==wifi_http5_drained && io->terminal_rx_handoff==wifi_stack5_terminal_rx_handoff);
  assert(io->epoch==31 && io->start_us==1000000 && io->deadline_us==16000000 && !io->test_ip_override);
  assert(io->current(io->context,io->epoch) && io->retry_ready(io->context,io->epoch));
  assert(io->drained(io->context,io->epoch)==!is("not-drained"));
@@ -81,12 +82,16 @@ bool http_network_probe_run(struct http_network_probe *p,const struct http_netwo
  p->result.child_status=23;p->result.child_observed=true;p->result.child_reaped=true;
  p->result.attempted=!is("network-no-attempt");p->source=io;
  p->result.quiescent=!is("uncertain") && !is("network-no-attempt") && !is("not-drained") && !is("deadline") && !is("worker-failed") && !is("dhcp-uncertain");
- p->result.child_retired=p->result.worker_finished=p->result.tcp_empty=p->result.provider_drained=p->result.quiescent;
+ p->result.handoff=!is("safe-bootstrap");
+ p->result.receiver_closed=p->result.child_retired=p->result.worker_finished=p->result.tcp_empty=p->result.provider_drained=p->result.quiescent;
+ if(is("safe-bootstrap"))p->result.receiver_closed=false;
+ if(is("missing-receiver"))p->result.receiver_closed=false;
+ wifi_stack5.terminal_handoff=wifi_stack5.terminal_provider_closing=p->result.quiescent && p->result.handoff;
  if(is("missing-child"))p->result.child_retired=false;
  if(is("missing-worker"))p->result.worker_finished=false;
  if(is("missing-tcp"))p->result.tcp_empty=false;
  if(is("missing-provider"))p->result.provider_drained=false;
- p->result.complete=p->result.quiescent && !is("safe-failure");
+ p->result.complete=p->result.quiescent && !is("safe-failure") && !is("safe-bootstrap");
  return p->result.complete;
 }
 void http_network_probe_emit(const struct http_network_probe *p){assert(p==&wifi_http5_probe && !key_live && p->result.quiescent);emits++;}
@@ -115,15 +120,15 @@ static void reset(const char *s){
  wifi_stack5.start=1000000;wifi_stream5.epoch=31;prepares=aborts=runs=erasures=held=emits=guard_calls=0;key_live=false;
 }
 int main(void){
- const char *safe[]={"good","safe-failure","late-parent-fail"};
- for(unsigned i=0;i<3;i++){
+ const char *safe[]={"good","safe-failure","late-parent-fail","safe-bootstrap"};
+ for(unsigned i=0;i<sizeof safe/sizeof *safe;i++){
   reset(safe[i]);assert(xhci_wifi_http5_prepare() && prepares==1);assert(!xhci_wifi_http5_prepare());
   bool good=xhci_wifi_capture_http5();assert(erasures==1 && runs==1 && !key_live && !held && !held_rows && !freezes && !writes && !syncs);
-  bool final=xhci_wifi_http5_finish_capture(good);assert(final==(!is("safe-failure") && !is("late-parent-fail")) && emits==1 && !aborts);
+  bool final=xhci_wifi_http5_finish_capture(good);assert(final==(!is("safe-failure") && !is("late-parent-fail") && !is("safe-bootstrap")) && emits==1 && !aborts);
   assert(!xhci_wifi_capture_http5());
  }
  const char *unsafe[]={"uncertain","network-no-attempt","not-drained","deadline","worker-failed","dhcp-uncertain",
-  "missing-child","missing-worker","missing-tcp","missing-provider","admission"};
+  "missing-child","missing-worker","missing-tcp","missing-provider","missing-receiver","admission"};
  for(unsigned i=0;i<sizeof unsafe/sizeof *unsafe;i++){
   reset(unsafe[i]);assert(xhci_wifi_http5_prepare());mutate_during_output=true;
   if(!setjmp(escape)){(void)xhci_wifi_capture_http5();assert(!"uncertain callback returned to WPA erasure");}

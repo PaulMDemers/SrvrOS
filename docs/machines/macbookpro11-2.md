@@ -26,8 +26,9 @@ independent controller-completion arrival after prepared-worker stop, then
 transfer retained raw RX bookkeeping to the existing outer cleanup only after
 child/worker/TCP and publication authority close. Keep ordinary live drain and
 all key/DMA holds on uncertainty. No new boot is authorized by source alone.
-Source785 remains installed; fetched main0d83d045 is reviewed and must be
-integrated/qualified before a corrected candidate. PR452's capture pacing,
+Source785 remains installed. Actual main0d83d045 is now merged at5942518d;
+the implemented correction is software-tested and still needs matched image,
+VM, stack/capture and recovery qualification before installation. PR452's capture pacing,
 PR301's GPU/process and PR379's WebCore scopes remain separate.
 
 After this correction, separate adapter/connection lifetimes before reconnect,
@@ -17215,3 +17216,39 @@ regression/contract, native handoff and independent photo review. Fetch/inspect
 actual main0d83d045 and open PR19/301/379/452 before integration. Local/fatal,
 strict collector, actual HTTP VM and exact-stage/storage/recovery checks precede
 any new physical run. No identical blind repeat is planned.
+
+
+## Terminal RX handoff implemented; matched qualification pending
+
+The supervisor now requires a consuming terminal RX callback after child/reap/
+retirement, TCP EMPTY and worker finish. The old provider_drained field is the
+PRE-STOP snapshot, explicitly not a promise that raw RX stays empty. Workload v2
+adds mandatory receiver_closed, proving later software publication closure and
+return of retained raw RX to the existing cleanup owner. The consuming boundary
+checks original descriptor identity and original clocks, without calling the
+no-longer-live provider afterward; wild source pointers refuse before dereference.
+
+Native closure uses actual mt76_net5_disconnect into CLOSING with zero callbacks,
+queued/pending TX, decrypted cache or borrowed loans, unchanged counters and exact
+raw DMA epoch/page/lease geometry. Pending or completed original raw RX stays
+owned by outer cleanup. The HTTP-only window accepts that explicit handoff;
+normal IP paths remain separate. Lost software closure restores IRQ flags and
+holds atsite5 before key erasure. Existing MAC drain/exact endpoint Stop, command
+bounds, all original limits and full key/provider/parent proof remain mandatory.
+The frozen at-seal row records raw debt/ticket/token/counters and software closure,
+explicitly endpoint_stop_proof0; it cannot substitute for physical retirement.
+
+The controlled e1000 VM similarly retires real registry and direct software
+delivery while retaining MMIO/rings/IRQs until VM exit. Its complete receipt must
+show receiver_closed1/provider_selected0; an owned raw RX DD is permitted. All
+callers and strict v2 saved-log/absence checks are updated together. Historical
+v1 evidence remains replayable with its unchanged frozen785 checker.
+
+Private normal/fatal generic36-case, native4positive/32refusal/14post-handoff-hold
+and actual registry fixtures pass; crossreviews pass. The first94.36-second root
+integration invocation exposed a stale DNS-v1 fixture and missing console_sync
+HOST stub in old controller fixtures. Those test-only integration corrections
+preserve all runtime guards; the separate84.64-second recheck passes with its
+inputs unchanged. Parser tests pass9groups with one explicit full-composition
+skip pending matched C-formatter composition. The current source is not yet
+image-qualified, installed or physically accepted; no new test is armed.

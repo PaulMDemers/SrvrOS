@@ -21,23 +21,38 @@ from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_q
 HFW_PROFILES=tuple(f"ram-usb-v{i}-hfw-" for i in range(1,9))
 
 def verify_http5_absent_radio(log):
-    """Expected VM absence still requires actual prelive owner retirement."""
+    """Expected VM absence retires unused owners, without a receiver handoff."""
+    from wifi_http5_log import WORKLOAD_KEYS, RX_HANDOFF_KEYS
     text=log.decode('utf-8') if isinstance(log,bytes) else log
     lines=text.splitlines()
-    assert lines.count('wifi-http5-prepare: prepared=1 retained=1')==1
-    assert lines.count('wifi-http5-bridge: version=1 prepared=1 capture_attempted=0 callback_attempted=0 quiescent=1 child_retired=1 worker_finished=1 retained=1')==1
+    prepare='wifi-http5-prepare: prepared=1 retained=1'
+    bridge='wifi-http5-bridge: version=1 prepared=1 capture_attempted=0 callback_attempted=0 quiescent=1 child_retired=1 worker_finished=1 retained=1'
+    assert lines.count(prepare)==lines.count(bridge)==1
     rows=[x for x in lines if x.startswith('wifi-http5-workload: ')]
-    assert len(rows)==1 and not any(x.startswith('wifi-http5-held:') for x in lines)
-    pairs=[x.split('=',1) for x in rows[0].split(': ',1)[1].split()]
-    assert all(len(x)==2 and re.fullmatch(r'0|[1-9][0-9]*',x[1]) for x in pairs)
-    assert len(pairs)==len({x[0] for x in pairs})
-    fields={k:int(v) for k,v in pairs}
-    required=dict(version=1,complete=0,phase=2,reason=15,prepared=1,worker_allocated=1,
-        attempted=0,dhcp=0,retries=0,dns=0,route=0,handoff=0,go=0,child_retired=1,
-        tcp_empty=0,provider_drained=0,worker_finished=1,quiescent=1,refs_scrubbed=1,
+    handoff=[x for x in lines if x.startswith('wifi-http5-rx-handoff: ')]
+    family=[x for x in lines if x.startswith('wifi-http5')]
+    assert len(rows)==1 and len(handoff)<=1
+    assert family==[prepare,bridge]+handoff+rows, 'unknown, held, duplicate or reordered HTTP absence receipt'
+    def exact(row,prefix,keys):
+        assert row.startswith(prefix+': ')
+        pairs=[x.split('=',1) for x in row[len(prefix)+2:].split()]
+        assert all(len(x)==2 and re.fullmatch(r'0|[1-9][0-9]*',x[1]) for x in pairs)
+        assert [x[0] for x in pairs]==keys.split()
+        values={k:int(v) for k,v in pairs}
+        assert all(0<=v<2**64 for v in values.values())
+        assert row==prefix+': '+' '.join(k+'='+str(values[k]) for k in keys.split())
+        return values
+    fields=exact(rows[0],'wifi-http5-workload',WORKLOAD_KEYS)
+    required=dict(version=2,complete=0,phase=2,reason=15,prepared=1,worker_allocated=1,
+        attempted=0,dhcp=0,retries=0,dns=0,route=0,handoff=0,go=0,child_status=137,
+        child_observed=1,child_reaped=1,child_retired=1,tcp_empty=0,provider_drained=0,
+        receiver_closed=0,worker_finished=1,quiescent=1,refs_scrubbed=1,
         test_override=0,request_bytes=4159,body_bytes=3072,body_eof=0,
         bootstrap_polls=0,worker_polls=0,worker_turns=0,supervisor_turns=0,elapsed_us=0,retained=0)
-    assert all(fields.get(k)==v for k,v in required.items())
+    assert fields==required
+    if handoff:
+        h=exact(handoff[0],'wifi-http5-rx-handoff',RX_HANDOFF_KEYS)
+        assert h=={k:int(k in ('version','retained')) for k in RX_HANDOFF_KEYS.split()}
 
 def make_disk(path, loader, source, release, extra_files=None):
     # Same paths and filesystem UUID search as the host entry; only the UUID differs.

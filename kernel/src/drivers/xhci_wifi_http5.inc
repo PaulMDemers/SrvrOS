@@ -75,11 +75,11 @@ static void wifi_http5_freeze_hold(unsigned site) {
 static void wifi_http5_emit_hold(void) {
  const struct http_network_result *r=&wifi_http5_held_state.result;
  const struct net_probe_worker_info *w=&wifi_http5_held_state.worker;
- console_printf("wifi-http5-held-state: version=1 site=%u requested=%u prepared=%u capture_attempted=%u callback_attempted=%u phase=%u reason=%u attempted=%u go=%u child_status=%u child_observed=%u child_reaped=%u child_retired=%u tcp_empty=%u provider_drained=%u worker_finished=%u quiescent=%u guard_failed=%u checking=%u bootstrap_open=%u handoff_attempted=%u worker_stopped=%u\n",
+ console_printf("wifi-http5-held-state: version=1 site=%u requested=%u prepared=%u capture_attempted=%u callback_attempted=%u phase=%u reason=%u attempted=%u go=%u child_status=%u child_observed=%u child_reaped=%u child_retired=%u tcp_empty=%u provider_drained=%u receiver_closed=%u worker_finished=%u quiescent=%u guard_failed=%u checking=%u bootstrap_open=%u handoff_attempted=%u worker_stopped=%u\n",
   wifi_http5_held_state.site,wifi_http5_held_state.requested,wifi_http5_held_state.prepared,
   wifi_http5_held_state.capture_attempted,wifi_http5_held_state.callback_attempted,r->phase,r->reason,(uint64_t)r->attempted,r->go,r->child_status,
   (uint64_t)r->child_observed,(uint64_t)r->child_reaped,(uint64_t)r->child_retired,
-  (uint64_t)r->tcp_empty,(uint64_t)r->provider_drained,(uint64_t)r->worker_finished,(uint64_t)r->quiescent,
+  (uint64_t)r->tcp_empty,(uint64_t)r->provider_drained,(uint64_t)r->receiver_closed,(uint64_t)r->worker_finished,(uint64_t)r->quiescent,
   wifi_http5_held_state.guard_failed,wifi_http5_held_state.checking,wifi_http5_held_state.bootstrap_open,
   wifi_http5_held_state.handoff_attempted,wifi_http5_held_state.worker_stopped);
  console_printf("wifi-http5-held-progress: prepared=%u worker_allocated=%u dhcp=%u retries=%u dns=%u route=%u handoff=%u bootstrap_polls=%u worker_polls=%u worker_turns=%u supervisor_turns=%u elapsed_us=%u\n",
@@ -101,7 +101,7 @@ static void wifi_http5_emit_hold(void) {
   wifi_http5_held_state.boundary,wifi_http5_held_state.fence_round,wifi_http5_held_state.command_pending);
 }
 /* site: 1 callback admission; 2 post-run obligations; 3 unused abort failed;
- * 4 finish not quiescent. A hold never returns to unconditional WPA key erase. */
+ * 4 finish not quiescent; 5 terminal RX software seal lost. A hold never returns to unconditional WPA key erase. */
 static __attribute__((noreturn)) void wifi_http5_hold(unsigned site) {
  wifi_http5_freeze_hold(site);
  wifi_http5_emit_hold();
@@ -134,13 +134,14 @@ static bool wifi_http5_exercise(void *context,struct mt76_net5 *provider) {
   * These exact existing provider guards do not depend on child liveness. */
  wifi_http5_io=(struct http_network_probe_io){.context=&wifi_stream5,
   .current=wifi_stack5_probe_current,.retry_ready=wifi_stack5_probe_retry,
-  .drained=wifi_http5_drained,.epoch=wifi_stream5.epoch,
+  .drained=wifi_http5_drained,.terminal_rx_handoff=wifi_stack5_terminal_rx_handoff,.epoch=wifi_stream5.epoch,
   .start_us=wifi_stack5.start,.deadline_us=wifi_stack5.start+WIFI_STACK5_TOTAL_US,
   .test_ip_override=0};
  bool good=http_network_probe_run(&wifi_http5_probe,&wifi_http5_io);
  if(!wifi_http5_probe.result.quiescent || !wifi_http5_probe.result.child_retired ||
     !wifi_http5_probe.result.worker_finished || !wifi_http5_probe.result.tcp_empty ||
-    !wifi_http5_probe.result.provider_drained)wifi_http5_hold(2);
+    !wifi_http5_probe.result.provider_drained ||
+    (wifi_http5_probe.result.handoff && !wifi_http5_probe.result.receiver_closed))wifi_http5_hold(2);
  return good;
 }
 bool xhci_wifi_capture_http5(void) {
@@ -161,7 +162,13 @@ bool xhci_wifi_http5_finish_capture(bool parent_complete) {
   (uint64_t)wifi_http5_callback_attempted,
   (uint64_t)(!wifi_http5_requested || wifi_http5_probe.result.quiescent),
   (uint64_t)wifi_http5_probe.result.child_retired,(uint64_t)wifi_http5_probe.result.worker_finished);
- if(wifi_http5_requested)http_network_probe_emit(&wifi_http5_probe);
+ if(wifi_http5_requested){
+  console_printf("wifi-http5-rx-handoff: version=1 complete=%u raw_pending=%u raw_ready=%u rx_ticket=%u rx_token=%u posts=%u completions=%u provider_closing=%u cache_empty=%u loans_empty=%u callbacks_idle=%u retained=1 endpoint_stop_proof=0\n",
+   (uint64_t)wifi_stack5.terminal_handoff,(uint64_t)wifi_stack5.terminal_pending,(uint64_t)wifi_stack5.terminal_ready,
+   wifi_stack5.terminal_ticket,wifi_stack5.terminal_token,wifi_stack5.terminal_posts,wifi_stack5.terminal_completions,
+   (uint64_t)wifi_stack5.terminal_provider_closing,(uint64_t)wifi_stack5.terminal_handoff,(uint64_t)wifi_stack5.terminal_handoff,(uint64_t)wifi_stack5.terminal_handoff);
+  http_network_probe_emit(&wifi_http5_probe);
+ }
  return parent_complete && wifi_http5_requested && wifi_http5_prepared &&
   wifi_http5_capture_attempted && wifi_http5_callback_attempted && wifi_http5_probe.result.complete &&
   wifi_http5_probe.result.quiescent && wifi_http5_probe.result.child_retired && wifi_http5_probe.result.worker_finished;

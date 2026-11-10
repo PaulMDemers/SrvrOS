@@ -18,6 +18,12 @@ struct e1000_probe_info {
     uint8_t mac[6];
 };
 bool e1000_probe_sample(struct e1000_probe_info *out);
+/* Explicit one-shot controlled-probe terminal software seal. Caller has retired
+ * process/TCP/worker borrowers. CPU0/IRQ serialized; refuses TX debt or active
+ * receive dispatch. Retires the actual registry provider and blocks direct
+ * legacy send/poll. Raw RX/rings/IRQs remain retained until controller shutdown;
+ * this is NOT DMA quiescence, NIC reset or a reusable ordinary-device API. */
+bool e1000_probe_retire_provider(void);
 struct e1000_link_info { bool up,full_duplex;uint16_t speed_mbps; };
 struct e1000_link_info e1000_decode_link_status(uint32_t status);
 bool e1000_link_info(struct e1000_link_info *info);

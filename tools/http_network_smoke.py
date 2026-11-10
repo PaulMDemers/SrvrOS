@@ -63,8 +63,8 @@ def values(part,prefix):
  return result
 def check_receipts(part,real_dns=False):
  w=values(part,'wifi-http5-workload: ')
- for k in ('complete','prepared','attempted','dhcp','route','handoff','go','child_observed','child_reaped','child_retired','tcp_empty','provider_drained','worker_finished','quiescent','refs_scrubbed','body_eof'):assert w[k]==1,(k,w[k])
- assert w['version']==1 and w['reason']==w['child_status']==w['retained']==0
+ for k in ('complete','prepared','attempted','dhcp','route','handoff','go','child_observed','child_reaped','child_retired','tcp_empty','provider_drained','receiver_closed','worker_finished','quiescent','refs_scrubbed','body_eof'):assert w[k]==1,(k,w[k])
+ assert w['version']==2 and w['reason']==w['child_status']==w['retained']==0
  assert w['test_override']==int(not real_dns) and w['dns']==int(real_dns)
  assert w['request_bytes']==4159 and w['body_bytes']==3072 and 0<w['elapsed_us']<15000000
  assert 0<w['worker_turns']<=w['worker_polls']<150000 and 0<w['bootstrap_polls']<=w['worker_polls'] and w['supervisor_turns']>0
@@ -77,12 +77,15 @@ def check_part(part,real_dns=False):
  assert len(receipt)==1
  reduced=b'\n'.join(x for x in lines if x.startswith(b'wifi-http5-workload: '))+b'\n'+receipt[0]+b'\n'
  w,r=check_receipts(reduced,real_dns)
- for k in ('complete','real_elf','real_sockets','clock_ready','worker_finished','rings_stable','provider_dma_retained'):assert r[k]==1,(k,r[k])
+ for k in ('complete','real_elf','real_sockets','clock_ready','worker_finished','rings_stable','provider_dma_retained','receiver_closed'):assert r[k]==1,(k,r[k])
  assert r['pre_go_us']>=1000000 and r['pre_go_ticks']>=100
  assert r['tick_end']>r['tick_start'] and r['worker_identity'] and r['supervisor_identity'] and r['worker_identity']!=r['supervisor_identity']
  assert r['worker_turns']>0 and r['tx_delta']>0 and r['rx_delta']>0 and r['rx_irq_delta']>0
  for k in ('tcp_empty',):assert r[k]==1
- for k in ('tx_pending','rx_ready','rx_dispatching','tcp_slots','tcp_timewait','listeners','pending','udp','native_wifi'):assert r[k]==0,(k,r[k])
+ for k in ('tx_pending','provider_selected','rx_dispatching','tcp_slots','tcp_timewait','listeners','pending','udp','native_wifi'):assert r[k]==0,(k,r[k])
+ # Software ingress is now sealed; an owned raw RX DD may arrive later.
+ # Retained rings are not a physical endpoint/DMA retirement claim.
+ assert r['rx_ready'] in (0,1)
  assert b'http-network-vm: PASS actual ELF exact HTTP worker and terminal TCP proof; native Wi-Fi untested' in part
  assert b'http-network-vm: FAIL' not in part and b'exception:' not in part
  return {'workload':w,'guest':r}

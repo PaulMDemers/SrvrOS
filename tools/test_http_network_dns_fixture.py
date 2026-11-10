@@ -100,13 +100,15 @@ class Tests(unittest.TestCase):
    f.write_bytes(capture(frames));altered={'queries':1,'records':[{'query_hex':dns['records'][0]['query_hex'],'response_hex':'00'}]}
    with self.assertRaises(AssertionError):d.capture_proof(f,altered,h.REQUEST,h.RESPONSE)
  def test_mode_receipts(self):
-  w={k:1 for k in ("complete prepared attempted dhcp route handoff go child_observed child_reaped child_retired tcp_empty provider_drained worker_finished quiescent refs_scrubbed body_eof").split()}
-  w.update(version=1,reason=0,child_status=0,retained=0,request_bytes=4159,body_bytes=3072,elapsed_us=800000,worker_turns=80,worker_polls=90,bootstrap_polls=10,supervisor_turns=80)
+  w={k:1 for k in ("complete prepared attempted dhcp route handoff go child_observed child_reaped child_retired tcp_empty provider_drained receiver_closed worker_finished quiescent refs_scrubbed body_eof").split()}
+  w.update(version=2,reason=0,child_status=0,retained=0,request_bytes=4159,body_bytes=3072,elapsed_us=800000,worker_turns=80,worker_polls=90,bootstrap_polls=10,supervisor_turns=80)
   for real in (False,True):
    w.update(dns=int(real),test_override=int(not real))
    part=("wifi-http5-workload: "+" ".join(f"{k}={v}" for k,v in w.items())+"\nhttp-network-vm: complete=1\n").encode()
    h.check_receipts(part,real)
    with self.assertRaises(AssertionError):h.check_receipts(part,not real)
+   for old,new in ((b"receiver_closed=1",b"receiver_closed=0"),(b"version=2",b"version=1")):
+    with self.assertRaises(AssertionError):h.check_receipts(part.replace(old,new),real)
  def test_numeric_default(self):
   self.assertEqual(h.output_directory(Path('/repo'),False),Path('/repo/build/review/http-network'));self.assertEqual(h.output_directory(Path('/repo'),True),Path('/repo/build/review/http-network-dns'))
   self.assertIn('user,id=net0,ipv6=off',h.command('image','/tmp/example',80))

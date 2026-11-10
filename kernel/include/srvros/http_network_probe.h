@@ -5,7 +5,9 @@
 #include <srvros/scheduler.h>
 /* CPU0 one-shot supervisor. Original source/context must have STATIC or equally
  * retained lifetime through every failure. Callbacks are finite/nonblocking,
- * no waits/allocations/table changes. current binds exact selected provider,
+ * with no waits/allocations. Live observations do not change tables; the
+ * explicitly consuming terminal callback alone closes publication authority.
+ * current binds exact selected provider,
  * secured epoch and original transport/packet/credit authority; retry_ready
  * proves bootstrap Discover completion; drained proves no pending/queued TX,
  * cached/borrowed RX/fence/command (an ordinary posted RX may remain). Native
@@ -15,6 +17,14 @@ struct http_network_probe_io {
     bool (*current)(void *,uint64_t);
     bool (*retry_ready)(void *,uint64_t);
     bool (*drained)(void *,uint64_t);
+    /* Consuming CPU0/IRQ-off terminal operation, REQUIRED for a run. Called
+     * once only after child reaping/retirement, TCP EMPTY and worker finish.
+     * Must seal every software packet publisher and hand still-owned raw RX
+     * to the retained outer cleanup owner; no decoded cache/borrowed loan or
+     * pending TX may be ignored. Never frees keys, DMA or hardware contexts.
+     * Success may consume current(): post-call checks use frozen descriptor
+     * identity and the ORIGINAL monotonic deadline, not another live drain. */
+    bool (*terminal_rx_handoff)(void *,uint64_t);
     uint64_t epoch,start_us,deadline_us;
     /* Explicit VM test endpoint only. Native MUST pass zero; receipts label
      * override use and native collector must refuse it. This explicit local-VM
@@ -28,12 +38,15 @@ enum http_network_reason {HTTP_NET_OK,HTTP_NET_ADMISSION,HTTP_NET_PRELIVE,
     HTTP_NET_OWNER,HTTP_NET_CLOCK,HTTP_NET_INIT,HTTP_NET_DHCP_FAILED,
     HTTP_NET_DNS_FAILED,HTTP_NET_ROUTE_FAILED,HTTP_NET_DRAIN_FAILED,
     HTTP_NET_HANDOFF_FAILED,HTTP_NET_GO_FAILED,HTTP_NET_CHILD_FAILED,
-    HTTP_NET_WORKER_FAILED,HTTP_NET_RETIRE_FAILED,HTTP_NET_NOT_RUN};
+    HTTP_NET_WORKER_FAILED,HTTP_NET_RETIRE_FAILED,HTTP_NET_NOT_RUN,HTTP_NET_RX_HANDOFF_FAILED};
 struct http_network_result {
     uint64_t version,phase,reason,dhcp,retries,dns,route,go,child_status;
     uint64_t bootstrap_polls,worker_polls,worker_turns,supervisor_turns,elapsed_us;
     bool prepared,worker_allocated,attempted,handoff,child_observed,child_reaped,child_retired;
-    bool tcp_empty,provider_drained,worker_finished,quiescent,complete,refs_scrubbed,test_override;
+    /* provider_drained is the atomic PRE-STOP software drain snapshot; it is
+     * NOT a later claim that raw RX stayed empty. receiver_closed proves the
+     * consuming software ingress handoff; hardware/DMA remains outer-owned. */
+    bool tcp_empty,provider_drained,receiver_closed,worker_finished,quiescent,complete,refs_scrubbed,test_override;
 };
 /* Zero once,retain original address forever after attempted preparation. This
  * contains live capabilities,never copy/scrub/reinitialize while retained. */
@@ -63,7 +76,7 @@ bool http_network_probe_abort_prepare(struct http_network_probe *);
 /* Run only with original live provider selected/attached and worker parked.
  * No pings precede HTTP. Original window is never restarted. False does NOT
  * authorize key/provider/DMA destruction. result.quiescent only proves child,
- * worker/TCP software obligations finished; caller still owns hardware proof.
+ * worker/TCP and software ingress handoff finished; caller still owns hardware proof.
  * If not quiescent, KEEP object/source/context/provider/key alive; halt/quarantine
  * rather than enter ordinary unconditional key teardown or reuse state. */
 bool http_network_probe_run(struct http_network_probe *,const struct http_network_probe_io *);

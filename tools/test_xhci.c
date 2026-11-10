@@ -301,6 +301,9 @@ bool net_device_retire(const struct net_device_ops *ops) { assert(ops && ops->se
 uint64_t vmm_current_address_space(void) { return test_space; }
 uint64_t vmm_kernel_address_space(void) { return 1; }
 void console_write(const char *s) { if(batch_trace)fputs(s,stdout); }
+/* HOST rendering is immediate; terminal holds now remain reachable through
+ * the native HTTP ownership branch even in legacy controller fixtures. */
+bool console_sync(void) { return true; }
 void console_printf(const char *fmt, ...) {
     if(!batch_trace)return;
     va_list a;va_start(a,fmt);

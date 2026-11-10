@@ -6422,3 +6422,34 @@ test-http-network-dns-fixture: build/tests/http-network-vm-mode-host$(HOST_EXE)
 build/tests/http-network-vm-mode-host$(HOST_EXE): tools/test_http_network_vm_mode.c kernel/src/http_network_vm.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-xhci-http5-rx-handoff
+test-core: test-xhci-http5-rx-handoff
+test-wifi-completion-foundations: test-xhci-http5-rx-handoff
+test-xhci-http5-rx-handoff: build/tests/xhci-http5-rx-handoff-host$(HOST_EXE)
+	$<
+build/tests/xhci-http5-rx-handoff-host$(HOST_EXE): tools/test_xhci_http5_rx_handoff.c kernel/src/drivers/xhci_wifi_http5_rx_handoff.inc kernel/src/net_device.c kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/drivers/mt76_net5.c kernel/src/drivers/mt76_dma5.c -Wl,--gc-sections -o $@
+
+# These fixtures include the controller and its private HTTP owner transitively.
+# Keep incremental host builds matched when terminal ownership changes.
+build/tests/xhci-cal5-cleanup-host$(HOST_EXE) \
+ build/tests/xhci-data5-host$(HOST_EXE) \
+ build/tests/xhci-fence5-host$(HOST_EXE) \
+ build/tests/xhci-handoff5-host$(HOST_EXE) \
+ build/tests/xhci-host$(HOST_EXE) \
+ build/tests/xhci-http5-bridge-host$(HOST_EXE) \
+ build/tests/xhci-http5-rx-handoff-host$(HOST_EXE) \
+ build/tests/xhci-join5-host$(HOST_EXE) \
+ build/tests/xhci-nop5-host$(HOST_EXE) \
+ build/tests/xhci-peer5-host$(HOST_EXE) \
+ build/tests/xhci-power5-host$(HOST_EXE) \
+ build/tests/xhci-provider5-host$(HOST_EXE) \
+ build/tests/xhci-reuse5-host$(HOST_EXE) \
+ build/tests/xhci-rx5-host$(HOST_EXE) \
+ build/tests/xhci-stack5-host$(HOST_EXE) \
+ build/tests/xhci-stream5-dhcp-host$(HOST_EXE) \
+ build/tests/xhci-stream5-host$(HOST_EXE) \
+ build/tests/xhci-tx5-host$(HOST_EXE) \
+ build/tests/xhci-wpa5-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_http5_rx_handoff.inc kernel/src/drivers/xhci_wifi_http5.inc kernel/src/drivers/xhci_wifi_stack5.inc

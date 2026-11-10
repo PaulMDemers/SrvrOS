@@ -66,10 +66,11 @@ def modeled(requests=12,rx=20,wraps=None,pending_rx=True):
   emit('wifi-stream5-probe',**{k:int(k=='private_erased') for k in 'complete unsafe setup setup_sends dhcp dns echo sent matched elapsed_us private_erased timed_out exhausted clock_fault polls ignored total_polls'.split()}),
   emit('wifi-stack5',complete=1,parent=1,restored=1,retired=1,empty=1,tx=tx,rx=posted[1],tx_wraps=wraps[0],rx_wraps=wraps[1],data_tx=requests,data_rx=rx-4,tx_after=max(tx-64,0),rx_after=max(rx-63,0) if wraps[1] else 0,commands=6,fences=sum(wraps),rx_receipts=len(selected),dropped=0,borrowed=rx,released=rx,faults=0,services=2000,elapsed_us=1100000,enqueued=requests,submitted=requests,completed=requests,received=rx-4,provider_faults=0,pending=0,retained=1,backend_retired=0),
   emit('wifi-stack5-final',complete=1,detached=1,provider_retired=1,retained=1,backend_retired=0),
-  emit('wifi-http5-bridge',**{k:1 for k in h.BRIDGE_KEYS.split()})]
+  emit('wifi-http5-bridge',**{k:1 for k in h.BRIDGE_KEYS.split()}),
+  emit('wifi-http5-rx-handoff',version=1,complete=1,raw_pending=int(pending_rx),raw_ready=0,rx_ticket=len(td)+1 if pending_rx else 0,rx_token=posted[1] if pending_rx else 0,posts=posted[1],completions=rx,provider_closing=1,cache_empty=1,loans_empty=1,callbacks_idle=1,retained=1,endpoint_stop_proof=0)]
  w={k:0 for k in h.WORKLOAD_KEYS.split()}
- for k in 'version complete prepared worker_allocated attempted dhcp dns route handoff go child_observed child_reaped child_retired tcp_empty provider_drained worker_finished quiescent refs_scrubbed body_eof'.split():w[k]=1
- w.update(phase=10,request_bytes=4159,body_bytes=3072,bootstrap_polls=4,worker_polls=100,worker_turns=2,supervisor_turns=3,elapsed_us=100000)
+ for k in 'version complete prepared worker_allocated attempted dhcp dns route handoff go child_observed child_reaped child_retired tcp_empty provider_drained receiver_closed worker_finished quiescent refs_scrubbed body_eof'.split():w[k]=1
+ w.update(version=2,phase=10,request_bytes=4159,body_bytes=3072,bootstrap_polls=4,worker_polls=100,worker_turns=2,supervisor_turns=3,elapsed_us=100000)
  rows.append(emit('wifi-http5-workload',**w))
  return prefix+rows+['wifi-firmware-capture: completed=yes; RF and connectivity NOT_TESTED','laptop-capture: completed=yes']
 class HTTPTests(unittest.TestCase):
@@ -93,8 +94,8 @@ class HTTPTests(unittest.TestCase):
    with self.subTest(prefix=prefix,key=key),self.assertRaises(ValueError):self.check_model(self.mutate(rows,prefix,key,value))
  def test_http_workload_refusals(self):
   rows=modeled()
-  bad={k:0 for k in 'complete prepared worker_allocated attempted dhcp dns route handoff go child_observed child_reaped child_retired tcp_empty provider_drained worker_finished quiescent refs_scrubbed body_eof'.split()}
-  bad.update(version=2,phase=9,reason=1,child_status=23,test_override=1,request_bytes=4158,body_bytes=3071,retained=1,retries=2,bootstrap_polls=0,worker_polls=150000,worker_turns=0,supervisor_turns=150001,elapsed_us=15000000)
+  bad={k:0 for k in 'complete prepared worker_allocated attempted dhcp dns route handoff go child_observed child_reaped child_retired tcp_empty provider_drained receiver_closed worker_finished quiescent refs_scrubbed body_eof'.split()}
+  bad.update(version=1,phase=9,reason=1,child_status=23,test_override=1,request_bytes=4158,body_bytes=3071,retained=1,retries=2,bootstrap_polls=0,worker_polls=150000,worker_turns=0,supervisor_turns=150001,elapsed_us=15000000)
   for k,v in bad.items():
    with self.subTest(key=k),self.assertRaises(ValueError):self.check_model(self.mutate(rows,'wifi-http5-workload:',k,v))
   for k,v in [('bootstrap_polls',100),('worker_turns',97),('worker_polls',2001),('elapsed_us',1100001),('supervisor_turns',0),('retries',1)]:
@@ -104,13 +105,53 @@ class HTTPTests(unittest.TestCase):
   for i in owned:
    for changed in (rows[:i]+rows[i+1:],rows[:i]+[rows[i]]+rows[i:],rows[:i]+[rows[i]+' extra=1']+rows[i+1:]):
     with self.subTest(row=i),self.assertRaises((ValueError,StopIteration)):self.check_model(changed)
-  for prefix in ('wifi-http5-bridge:','wifi-http5-workload:'):
+  for prefix in ('wifi-http5-bridge:','wifi-http5-rx-handoff:','wifi-http5-workload:'):
    at=next(i for i,s in enumerate(rows) if s.startswith(prefix));a=rows[at].split(' ');a[1],a[2]=a[2],a[1];changed=rows.copy();changed[at]=' '.join(a)
    with self.assertRaises(ValueError):self.check_model(changed)
-   changed=rows.copy();changed[at]=changed[at].replace('version=1','version=01')
+   changed=rows.copy();changed[at]=changed[at].replace('version='+('2' if prefix=='wifi-http5-workload:' else '1'),'version='+('02' if prefix=='wifi-http5-workload:' else '01'))
    with self.assertRaises(ValueError):self.check_model(changed)
   for extra in ['wifi-http5-unknown: complete=1','wifi-stream5-unknown: complete=1','wifi-stack5-pings: 1 2','http-network-vm: complete=1']:
    with self.assertRaises((ValueError,StopIteration)):self.check_model(rows+[extra])
+ def test_rx_handoff_snapshot_and_refusals(self):
+  rows=modeled()
+  result=self.check_model(rows)
+  self.assertTrue(result['http5_receiver_closed'] and result['http5_provider_drain_pre_stop'])
+  self.assertFalse(result['http5_rx_handoff_endpoint_stop_proof'])
+  self.assertEqual((result['http5_rx_handoff_raw_pending'],result['http5_rx_handoff_raw_ready']),(1,0))
+  # Software seal can retain no raw TD even when a later MAC-drain TD is stopped.
+  none=rows
+  for k,v in dict(raw_pending=0,raw_ready=0,rx_ticket=0,rx_token=0,posts=20,completions=20).items():none=self.mutate(none,'wifi-http5-rx-handoff:',k,v)
+  self.check_model(none)
+  # A ready original lease is a separate valid software handoff. Bind its ticket
+  # to the existing typed original-RX identity when that token is selected.
+  last=next(s for s in rows if s.startswith('wifi-stream5-rx:') and s.split()[3]=='20')
+  ticket=int(last.split()[2]);ready=rows
+  for k,v in dict(raw_pending=0,raw_ready=1,rx_ticket=ticket,rx_token=20,posts=20,completions=20).items():ready=self.mutate(ready,'wifi-http5-rx-handoff:',k,v)
+  self.check_model(ready)
+  wrong=self.mutate(ready,'wifi-http5-rx-handoff:','rx_ticket',ticket+1)
+  with self.assertRaises(ValueError):self.check_model(wrong)
+  bad=dict(version=2,complete=0,raw_pending=2,raw_ready=1,rx_ticket=0,rx_token=20,posts=22,completions=19,provider_closing=0,cache_empty=0,loans_empty=0,callbacks_idle=0,retained=0,endpoint_stop_proof=1)
+  for k,v in bad.items():
+   with self.subTest(key=k),self.assertRaises(ValueError):self.check_model(self.mutate(rows,'wifi-http5-rx-handoff:',k,v))
+  for k,v in [('posts',253),('completions',21),('rx_ticket',2**64),('rx_ticket',1000000),('raw_ready',2)]:
+   with self.subTest(key=k,value=v),self.assertRaises(ValueError):self.check_model(self.mutate(rows,'wifi-http5-rx-handoff:',k,v))
+  phantom=self.mutate(none,'wifi-http5-rx-handoff:','rx_ticket',1)
+  with self.assertRaises(ValueError):self.check_model(phantom)
+  # Plausible debt/ticket totals cannot move the software seal before the last
+  # actual selected RX and pre-seal decrypted data accounting.
+  too_early=rows
+  for k,v in dict(rx_ticket=ticket,rx_token=20,posts=20,completions=19).items():too_early=self.mutate(too_early,'wifi-http5-rx-handoff:',k,v)
+  with self.assertRaises(ValueError):self.check_model(too_early)
+  for prefix,key in [('wifi-http5-rx-handoff:','rx_ticket'),('wifi-http5-workload:','receiver_closed')]:
+   changed=rows.copy();at=next(i for i,s in enumerate(changed) if s.startswith(prefix));changed[at]=re.sub(r' '+key+r'=\d+','',changed[at])
+   with self.assertRaises(ValueError):self.check_model(changed)
+  # Native v1 success has no publication-seal authority in the current checker.
+  legacy=rows.copy();at=next(i for i,s in enumerate(legacy) if s.startswith('wifi-http5-workload:'))
+  legacy[at]=legacy[at].replace('version=2','version=1').replace(' receiver_closed=1','')
+  with self.assertRaises(ValueError):self.check_model(legacy)
+  for prefix in ('wifi-http5-rx-handoff:','wifi-http5-workload:'):
+   absent=[s for s in rows if not s.startswith(prefix)]
+   with self.assertRaises((ValueError,StopIteration)):self.check_model(absent)
  def test_boot_exact_native_profile(self):
   rows=modeled();self.assertEqual(h.boot_identity(finish(rows),RELEASE,VOLUME),RELEASE)
   for token in h.BOOT_FIXED:

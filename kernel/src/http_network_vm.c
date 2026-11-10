@@ -16,6 +16,7 @@ static struct {
     struct e1000_probe_info before,after;
     struct http_network_probe_io io;
     uint64_t epoch,checks,drains;
+    bool receiver_closed;
 } vm;
 static bool equal_mac(const uint8_t *a,const uint8_t *b){unsigned bits=0;for(unsigned i=0;i<6;i++)bits|=a[i]^b[i];return !bits;}
 static bool current(void *p,uint64_t epoch){
@@ -30,6 +31,15 @@ static bool drained(void *p,uint64_t epoch){
     struct e1000_probe_info sample={0};vm.drains++;
     return e1000_probe_sample(&sample) && sample.selected && sample.irqs_enabled &&
         !sample.tx_pending && !sample.rx_ready && !sample.rx_dispatching && current(p,epoch);
+}
+static bool terminal_rx_handoff(void *p,uint64_t epoch){
+    if(p!=&vm || vm.receiver_closed || !current(p,epoch))return false;
+    struct e1000_probe_info sample={0};
+    if(!e1000_probe_sample(&sample) || sample.tx_pending || sample.rx_dispatching)return false;
+    /* Registry/direct software delivery is sealed. Raw DD may arrive after the
+     * earlier drain; rings and hardware stay retained, never recycled here. */
+    if(!e1000_probe_retire_provider())return false;
+    vm.receiver_closed=true;return true;
 }
 static bool tick_due(void *p){return timer_ticks()>=*(uint64_t *)p;}
 static bool pre_go_delay(void){
@@ -62,7 +72,7 @@ bool http_network_vm_run(void){
     console_write(real_dns?"http-network-vm: running production DNS bootstrap against private controlled DNS peer; no native acceptance\n":"http-network-vm: running numeric controlled endpoint; real socket/IRQ clocks/worker/TCP retirement; no native acceptance\n");
     uint64_t start=timer_monotonic_us();if(start>INT64_MAX-HTTP_CHILD_WINDOW_US)goto done;
     vm.epoch=UINT64_C(0x6874747000000001);
-    vm.io=(struct http_network_probe_io){.context=&vm,.current=current,.retry_ready=drained,.drained=drained,
+    vm.io=(struct http_network_probe_io){.context=&vm,.current=current,.retry_ready=drained,.drained=drained,.terminal_rx_handoff=terminal_rx_handoff,
         .epoch=vm.epoch,.start_us=start,.deadline_us=start+HTTP_CHILD_WINDOW_US,.test_ip_override=real_dns?0:UINT32_C(0x0a000202)};
     good=http_network_probe_run(&probe,&vm.io);
  done:
@@ -75,13 +85,13 @@ bool http_network_vm_run(void){
     struct srv_net_status_info status={0};bool status_ok=net_status_info(&status)==0;
     bool clocks=tick_end>tick_start && timer_reference_ready() && timer_idle_wakeup_ready();
     good=good && probe.result.test_override==!real_dns && probe.result.dns==(real_dns?1u:0u) && pre_go_us>=1000000 && pre_go_ticks>=100 && status_ok && !status.tcp_connection_count && !status.tcp_time_wait_count && !status.listener_count && !status.pending_count && !status.udp_socket_count && probe.result.complete && probe.result.quiescent && worker_retired && !worker.failed && stable && clocks &&
-        !vm.after.tx_pending && !vm.after.rx_ready && !vm.after.rx_dispatching && vm.after.rx_packets>vm.before.rx_packets && vm.after.tx_packets>vm.before.tx_packets && vm.after.rx_interrupts>vm.before.rx_interrupts;
+        vm.receiver_closed && probe.result.receiver_closed && !vm.after.selected && !vm.after.tx_pending && !vm.after.rx_dispatching && vm.after.rx_packets>vm.before.rx_packets && vm.after.tx_packets>vm.before.tx_packets && vm.after.rx_interrupts>vm.before.rx_interrupts;
     http_network_probe_emit(&probe);
-    console_printf("http-network-vm: complete=%u real_elf=%u real_sockets=%u pre_go_us=%u pre_go_ticks=%u tick_start=%u tick_end=%u clock_ready=%u worker_identity=%u supervisor_identity=%u worker_turns=%u worker_finished=%u tcp_empty=%u tx_delta=%u rx_delta=%u rx_irq_delta=%u tx_pending=%u rx_ready=%u rx_dispatching=%u rings_stable=%u tcp_slots=%u tcp_timewait=%u listeners=%u pending=%u udp=%u provider_dma_retained=1 native_wifi=0\n",
+    console_printf("http-network-vm: complete=%u real_elf=%u real_sockets=%u pre_go_us=%u pre_go_ticks=%u tick_start=%u tick_end=%u clock_ready=%u worker_identity=%u supervisor_identity=%u worker_turns=%u worker_finished=%u tcp_empty=%u tx_delta=%u rx_delta=%u rx_irq_delta=%u tx_pending=%u rx_ready=%u rx_dispatching=%u rings_stable=%u tcp_slots=%u tcp_timewait=%u listeners=%u pending=%u udp=%u provider_dma_retained=1 receiver_closed=%u provider_selected=%u native_wifi=0\n",
         (uint64_t)good,(uint64_t)probe.child.prepared,(uint64_t)(probe.result.complete && probe.result.go && probe.result.child_observed && !probe.result.child_status),pre_go_us,pre_go_ticks,tick_start,tick_end,(uint64_t)clocks,worker.worker_identity,worker.supervisor_identity,worker.turns,
         (uint64_t)worker_retired,(uint64_t)probe.result.tcp_empty,vm.after.tx_packets-vm.before.tx_packets,
         vm.after.rx_packets-vm.before.rx_packets,vm.after.rx_interrupts-vm.before.rx_interrupts,
-        vm.after.tx_pending,vm.after.rx_ready,vm.after.rx_dispatching,(uint64_t)stable,status.tcp_connection_count,status.tcp_time_wait_count,status.listener_count,status.pending_count,status.udp_socket_count);
+        vm.after.tx_pending,vm.after.rx_ready,vm.after.rx_dispatching,(uint64_t)stable,status.tcp_connection_count,status.tcp_time_wait_count,status.listener_count,status.pending_count,status.udp_socket_count,(uint64_t)vm.receiver_closed,(uint64_t)vm.after.selected);
     console_write(good?"http-network-vm: PASS actual ELF exact HTTP worker and terminal TCP proof; native Wi-Fi untested\n":"http-network-vm: FAIL software obligations or controlled guest workload; retained capability on uncertainty\n");
     /* Preserve the stable wrapper/source/context on every uncertain return.
      * e1000 rings remain owned until VM shutdown even on a clean workload. */
