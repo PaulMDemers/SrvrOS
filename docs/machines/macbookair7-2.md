@@ -2,28 +2,26 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Active scope: integrate storage baseline and bind native interval admission
+### Active scope: joint display-HDA inhibition and GPU interval claim
 
-Fetched main`72d49457` (PR458/459), after preserving the accepted native re-arm
-result below. Integrate its reserved-append and interruptible last-release work;
-qualify the full local matrix and exact-stage pre-init refusal/persistence. Keep
-the accepted currente835/recovery9aa8 and independent evidence unchanged. No
-new native operation or reboot is authorized by integration validation alone.
+Main remains`72d49457`; the qualified claim baseline is`5466bdd3`/docs455ad5e1.
+Implement a separate combined display-HDA inhibit/GPU claim lifetime under one
+CPU exclusion, with original HDA400ms, preparation100ms, GT300ms and full500ms
+clocks. The actual original HDA token/borrow must stay registered through GPU
+retirement; only a clean returned GPU/claim may permit HDA restoration. First
+harden HDA dependent registration/reentry and add a cheap guarded endpoint check,
+then compose real cores and qualify the isolated adapter/recipe/collector.
 
-The new [read-only interval claim](../intel-interval-claim.md) implements the
-source-bound software lifetime: it pins the original re-arm child, captures exact
-geometry/entry/epoch and both original clock origins, owns opening and closing
-entry observations, and refuses cancellation with a live/lost dependent.
-Its manifest remains assurances0/obligations255; native transfer still refuses.
-Touched subsystems are claim core, nested child-return bookkeeping and actual
-core fault tests. No native image links the claim, no PTE/flush/command writer
-is added and no hardware trial is warranted by this software contract alone.
-Current qualification covers the integrated full gate, then targeted new-core/
-re-arm regressions, sanitizers/compiled faults and matched VM before checkpoint.
-PR19 networking/PR379 WebCore remain independent. Checkpoint:
-`build/air-native-owner-20261110`; accepted currente835/recovery9aa8 unchanged,
-no reboot armed. Missing hardware witnesses and a real native interval provider
-remain the next implementation boundary, not a callback that asserts success.
+Touched subsystems: HDA owner dependent lifetime, new joint scope/adapter,
+read-only interval claim composition, exact boot/image/staging and strict raw
+collection/tests. No PTE/command/flush/invalidation writer, broader reset domain,
+positive memory assurance or sibling gate is added. Preserve all raw words with
+canonical packed formats if needed; keep log/deadline limits. HDA/GT uncertainty
+must retain both owners and halt. Safely saved/unmounted outcomes return; no
+human input is needed for the eventual trial. PR19's MCU/Wi-Fi calibration and
+PR379 WebCore remain independent. Checkpoint:`build/air-hda-gpu-20261110`;
+accepted currente835/recovery9aa8 and USB37D8-C5D0 evidence retained, no reboot
+armed. Stop at a qualified checkpoint before installing/booting a new operation.
 
 ### Software checkpoint: updated main and nested interval claim qualified
 
