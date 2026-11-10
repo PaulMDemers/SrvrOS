@@ -172,7 +172,9 @@ Each immutable capture completion copies its transfer scalars before job reuse.
 clocks to the unchanged version1 completion. `tools/capture_transfer.py` requires
 all three rows for every expected capture, exact request/pixel/response byte
 counts, original chunk/poll bounds, successful history and complete clock/gap
-partitions. Periodic snapshots remain provisional. Complete input, progress and
+partitions. Transfer companions are emitted only in the final report; immutable
+history retains them between checkpoints. Existing periodic history snapshots
+remain provisional. Complete input, progress and
 one READY/one final frame must agree; absent/disabled/invalid evidence cannot
 establish positive diagnostic acceptance.
 

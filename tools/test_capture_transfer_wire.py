@@ -9,6 +9,8 @@ p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--host', required=True)
 a = p.parse_args()
 blob = subprocess.check_output([a.host, '--capture-transfer-fixture'])
+periodic = subprocess.check_output([a.host, '--capture-transfer-periodic-fixture'])
+assert b'desktop-capture-history:' in periodic and b'desktop-capture-transfer' not in periodic
 result = capture_transfer([blob], expected=3, expected_pixels=4096)
 assert result['status'] == 'VALID'
 assert capture_history([blob])['completed'] == 3

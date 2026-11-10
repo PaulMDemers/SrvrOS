@@ -55,7 +55,9 @@ static inline void capture_history_record(struct capture_history *h,const struct
 static void capture_transfer_completion_report(const struct capture_completion *c,
     unsigned index,uint64_t at,unsigned final) {
     const struct desk_capture_transfer_timing *t=&c->transfer;
-    if(!t->enabled)return;
+    /* Scalars remain immutable in history until final publication. Repeating
+     * three rows per capture in every checkpoint needlessly evicts app events. */
+    if(!t->enabled || !final)return;
     char text[1024];int length;
 #define CAPTURE_TRANSFER_KEYS "version=1 snapshot_us=%llu index=%u id=%u pid=%llu started_us=%llu finished_us=%llu retired_us=%llu"
 #define CAPTURE_TRANSFER_ARGS (unsigned long long)at,index,c->id,(unsigned long long)c->pid,(unsigned long long)c->started_us,(unsigned long long)c->finished_us,(unsigned long long)c->retired_us

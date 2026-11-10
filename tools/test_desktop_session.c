@@ -1165,11 +1165,11 @@ static int render_proof_fixture(void) {
     loop_trace_end(&t,559100,4,13,3);loop_trace_report(&t,1);return 0;
 }
 int main(int argc,char **argv) {
-    if(argc==2 && (!strcmp(argv[1],"--capture-history-fixture") || !strcmp(argv[1],"--capture-transfer-fixture"))) {
+    if(argc==2 && (!strcmp(argv[1],"--capture-history-fixture") || !strcmp(argv[1],"--capture-transfer-fixture") || !strcmp(argv[1],"--capture-transfer-periodic-fixture"))) {
         struct capture_history h={0};
         for(unsigned i=0;i<3;i++) {
             struct capture_trace c=completion_trace(i+1,100+i*100,140+i*120);
-            if(!strcmp(argv[1],"--capture-transfer-fixture")) {
+            if(strcmp(argv[1],"--capture-history-fixture")) {
                 uint64_t begin=c.started_us,end=c.finished_us;
                 c.frames=2;
                 c.transfer=(struct desk_capture_transfer_timing){.enabled=1,.valid=1,.total=4272,
@@ -1181,7 +1181,7 @@ int main(int argc,char **argv) {
             }
             capture_history_record(&h,&c,42+i,150+i*120,1);
         }
-        capture_loop_log=0;capture_history_report(&h,500,1);return 0;
+        capture_loop_log=0;capture_history_report(&h,500,strcmp(argv[1],"--capture-transfer-periodic-fixture")!=0);return 0;
     }
     if(argc==2 && !strcmp(argv[1],"--render-proof"))return render_proof_fixture();
     display_transaction_tests();
