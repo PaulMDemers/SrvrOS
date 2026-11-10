@@ -2,43 +2,43 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Active scope: joint display-HDA inhibition and GPU interval claim
+### Ready for native validation: joint display-HDA and GPU interval claim
 
-Main`8271c254`/PR460 is now integrated; its final-only logging/correlation and
-scheduler changes are consumed without changing the live-stress logging policy.
-The qualified joint-core baseline is`36788a91`/docs3f45ca19 on earlier main72d49457.
-Current checkpoint:`build/air-joint-native-20261110`. Implement a distinct native
-adapter, image/recipe and strict raw collector, then qualify exact-stage VM and
-hardware readiness before installation/reboot. Ordinary boot/older recipes stay
-separate. The same original CPU owner must pin HDA and GPU lifetimes; prepare a
-root HDA alias before stores, account logical inspection borrows separately from
-physical alias retirement, and bind command6/2/2/6 phases and both entry vectors.
-No deadline or log budget extension. PR19's latest reconnect geometry correction
-is independent; preserve PR379 WebCore. No new hardware trial is armed.
+Source `2f114e64` on integrated main `8271c254` (PR460), release
+`116ba4fb62bd563f`. The separate [joint image](../intel-hda-gpu.md)
+uses the exact 21-token recipe. One CPU exclusion covers the original HDA
+owner, GT owner, held reset and both original-entry observations. The HDA
+command is observed in phases 6/2/2/6; the original claim, GT and GPU aliases
+must retire before restoration. This diagnostic is silent and unattended.
 
-Implement and qualify a separate combined display-HDA inhibit/GPU claim lifetime under one
-CPU exclusion, with original HDA400ms, preparation100ms, GT300ms and full500ms
-clocks. The actual original HDA token/borrow must stay registered through GPU
-retirement; only a clean returned GPU/claim may permit HDA restoration. First
-harden HDA dependent registration/reentry and add a cheap guarded endpoint check,
-then compose real cores and qualify the isolated adapter/recipe/collector. The
-[joint software core and native adapter](../intel-hda-gpu.md) are implemented;
-the exact image/collector qualification is underway. The actual-core matrix checks
-the original clock watermark across HDA/GPU boundaries, full232 HDA reads,
-12 claim reads, source loss and retention before any new hardware enablement.
+Local build/host/core/docs/USB image and all 25 linked images passed at
+`6be4ca07`; the final host firmware decoder fix left every payload
+hash unchanged and passed its targeted regressions. QEMU booted
+the exact stage, refused unsupported hardware before any native store, saved
+the checkpoint and typed result, unmounted and returned. A separate boot
+without the workspace halted. Ubuntu's collector re-read the saved exFAT bytes
+and rejected a missing raw claim record. The linked-object checks confirm the HDA
+command halfword and original GPU entry DWORD accesses. The fault model and
+local sanitizers qualified the adapter; QEMU does not accept native timing.
 
-Touched subsystems: HDA owner dependent lifetime, new joint scope/adapter,
-read-only interval claim composition, exact boot/image/staging and strict raw
-collection/tests. No PTE/command/flush/invalidation writer, broader reset domain,
-positive memory assurance or sibling gate is added. Preserve all raw words with
-canonical packed formats if needed; keep log/deadline limits. HDA/GT uncertainty
-must retain both owners and halt. Safely saved/unmounted outcomes return; no
-human input is needed for the eventual trial. PR19's MCU/Wi-Fi calibration and
-PR379 WebCore remain independent. Checkpoint:`build/air-hda-gpu-20261110`;
-accepted currente835/recovery9aa8 and USB37D8-C5D0 evidence retained, no reboot
-armed. Stop at a qualified checkpoint before installing/booting a new operation.
+On this unit, exFAT `37D8-C5D0` passed offline allocation and read-only
+inventory of 1,452 files and 140 sessions. The latest accepted release
+`e83571c874bc17f1`, recovery `9aa8dbf6fbda8252`,
+Ubuntu default and 1% host volume are preserved. The superseded, unreferenced
+original-entry EFI copy was archived with verified hashes to leave space for the
+new release and installer margin. The new stage and evidence are banked outside
+build. It is uninstalled and the one-shot is unarmed.
 
-### Software checkpoint: joint HDA/GPU lifetime qualified
+Next: run this exact stage once, collect the matching session, and check native
+100/300/400/500 ms timing, raw HDA/GPU lifecycle, retirement and unchanged
+inherited backing. Safe saved outcomes return to Ubuntu; missing workspace or
+uncertain ownership halts visibly. All eight ownership obligations remain open
+(mask 255), with zero new assurances, managed pages or physical tear-free
+acceptance. Local
+run record: `build/air-joint-native-20261110/run.json`. PR19 Wi-Fi and PR379
+WebCore scopes remain independent.
+
+### Earlier software checkpoint: joint HDA/GPU lifetime qualified
 
 Source`36788a91` on main`72d49457` implements original HDA owner/borrow
 registration, callback reentry barriers, a fresh guarded endpoint check and the
@@ -58,8 +58,8 @@ pass2KiB function-frame compilation, C ABI/dependency checks and24-image absence
 of the joint/claim. The result object is2,496 bytes and belongs in static/heap
 storage. Initial fixture/runner nonpasses remain in the local checkpoint.
 
-Native adapter, distinct image/recipe, strict phase-correct raw collector and
-exact-stage VM checks remain pending. This core is not a prepared hardware test
+At that checkpoint, the native adapter, distinct image/recipe, strict raw
+collector and exact-stage VM checks were still pending. This core is not a prepared hardware test
 or a native acceptance. Keep HDA400/preparation100/GT300/full500ms and the
 65,536-byte log tail unchanged; preserve every raw word. Existing currente835,
 recovery9aa8/GUIc497 and prior banked payloads verify; USB37D8-C5D0, Ubuntu
@@ -95,11 +95,11 @@ currente835 remains on sourcef2a6c116, recovery9aa8/GUIc497 and prior accepted
 payloads verify, volume1%, Ubuntu default, no uncollected run or reboot armed.
 Evidence is independently SHA-verified outside build; Actions remain disabled.
 
-Next concrete native scope is a joint HDA inhibit/GPU claim lifetime, described
-in the claim guide. The real HDA token/borrow must remain pinned across the GPU
+The next native scope at that checkpoint was the joint HDA inhibit/GPU claim
+lifetime described in the claim guide. The real HDA token/borrow must remain pinned across the GPU
 child under one exclusion and unchanged400/100/300/500ms bounds; original,
-inhibited and restored endpoints need phase-correct collection. This is planned,
-not implemented or physically accepted. No writer, wider reset or native
+inhibited and restored endpoints need phase-correct collection. At that point it was planned,
+with no physical acceptance. No writer, wider reset or native
 assurance is supplied by this software checkpoint; all255 obligations remain.
 
 ### Current checkpoint: native post-reset re-arm and restoration accepted

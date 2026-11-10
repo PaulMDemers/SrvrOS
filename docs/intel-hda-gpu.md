@@ -104,6 +104,32 @@ GPU completion obligations remain open (mask255), assurances and managed pages
 remain zero. A persistent desktop GPU service and page flipping need those
 independent witnesses and their own maintained runtime lifetime.
 
+## Exact-stage qualification
+
+Release `116ba4fb62bd563f` is staged from source `2f114e64` on main
+`8271c254`. The local host/core/build/docs/USB image gate and 25-image linkage
+check passed at `6be4ca07`. The final host firmware decoder fix passed targeted
+regressions and left the payload bytes unchanged. The new adapter, firmware
+request and interval claim link only in the joint image.
+Installed-root tests were omitted because the installed payload and recovery
+stay in place. The actual PCI command is a halfword at offset 4. Native entry
+loads and re-arm stores are DWORD accesses; the retained contexts are static
+and the checked functions fit the 2,048-byte frame limit.
+
+Fatal ASan/UBSan passed 7,732 lifetime cases, 10 registry cases and
+1,902 HDA fault prefixes through the actual adapter. The adapter matrix also
+covers 108 original-entry and source faults, 10 final admission or store
+faults, and map, retirement and admission refusals. The tests detected all four
+compiled negative controls. The local budget projection using the last
+native vector is 61,246 bytes on the normal path and 59,460 bytes for a
+wide-PTE refusal, including the original reserve.
+
+The exact stage passed Q35 zero-store refusal, checkpoint provenance, durable
+results, clean unmount and automatic return, plus a separate missing-workspace
+halt. The stage is ready for an unattended physical test. No installation or
+one-shot was performed. Native timing and successful native retirement still
+need physical evidence.
+
 ## Earlier software qualification
 
 Source`36788a91` is qualified on integrated main`72d49457`. The local matched
