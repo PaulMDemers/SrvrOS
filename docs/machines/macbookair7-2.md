@@ -2,27 +2,56 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Active scope: joined backing and GPU mapping ownership
+### Ready: private backing joined to mapping and retirement
 
-Base main`a2a6d692`, accepted combined payload9c788f3f/8d3839aaa57f707d.
-Implement one address-sealed owner joining private allocator backing, CPU write
-borrows, an admitted handoff range and the existing publication/restore core.
-Retain backing through partial/uncertain publication, pending readers and failed
-retirement; reject copies, stale tokens, callback reentry and duplicate release.
-Add full padded X-tile storage sizing (1356pages on this unit, not1350 visible).
-Native range transfer remains unproved and must still refuse GPU exposure.
+Source `23af85e2`, release `d72619c4e02bb721`, base main`a2a6d692`.
+The new [memory owner](../scanout-memory.md) joins allocator-owned RAM, CPU write
+borrows, an already admitted GPU range and the publication/restore core. Owners
+and arenas are address-sealed; backing stays pinned through pending readers,
+partial/uncertain stores and failed retirement. Release is attempted once and
+never retried after uncertainty. Full padded storage is1,356pages here, distinct
+from1,350 visible pages. No native GPU range importer/encoding/writer is added.
 
-Next hardware boundary is the new actual backing owner/full-size allocation,
-CPU borrow/close/cancel and refusal/retirement accounting with inherited display
-preservation, no GPU PTE/plane writer. This tests the new joined lifetime rather
-than repeating the accepted shadow publication. Host fixtures alone may supply
-synthetic handoff/encoding/completion callbacks. Existing100/300/500ms protocol
-limits stay unchanged; allocation/copy uses the existing30s shadow-trial bound.
+Local PASS: full build/check-host/test-core/check-docs (installed-root omitted),
+22-image isolation,27 fatal ASan/UBSan cases across actual memory/trial/space/
+publication/handoff cores and11 compiled fault controls. The joined core checks
+all1,356 partial-write positions plus restore faults,29 callback failure points,
+CPU close/drain, copies/stale tokens, unknown ranges, release replay and reentry.
+Actual trial producer, malformed/forged-authority accounting and saved collection
+checks pass. Native object review binds zero managed-pointer/count, protected
+8,704-page fence, false callbacks, no apply/exposure call, checkpoint ordering
+and retained-state reboot guard. Log projection57,393/65,536 keeps the unchanged
+1,536 reserve.100/300/500ms GPU limits and the shadow allocation30s bound remain.
 
-Touched: new scanout-memory core/header and tests, isolated native memory trial,
-profile/staging/collector and current ownership docs. PR455 screenshot media
-verification is independent; shared Makefile changes are additive. PR19/379 stay
-separate. No reboot armed and no new native GPU-memory authority is claimed.
+Exact immutable fixture VM exercises real guest PMM, both full buffers, CPU
+borrow/close, zero-range refusal, restoration accounting and expected one-page
+private quarantine. Exact native VM refuses the unsupported GPU and saves/returns;
+missing workspace halts before allocation. Four saved logs bind exact6/7-token
+recipes and committed prerequisite checkpoints. The prior normal-init/shadow/
+publication guest also passes. These are software results; native backing
+acceptance remains pending. Initial fixture warnings/enum correction, deliberately
+interrupted gate for the new checkpoint, and checker adjustment for compiler
+inlining remain recorded; no production safety gate or deadline was weakened.
+
+All1,443 USB files/137sessions preserve with clean offline filesystem,
+allocation/writable/headroom and recovery checks. Candidate is installed/current,
+immutable and durable at1%, Ubuntu default and no reboot armed. Accepted combined
+reset8d38, recovery9aa8, GUIc497 and prior accepted payloads remain retained.
+Older unreferenced count2-refusalb726 is losslessly archived after full file/SHA
+comparison; its independent bank stays. Full evidence is backed up outside build.
+Checkpoint:`build/air-gpu-memory-20261110`.
+
+Next hardware test needs no input: one-page borrow/blocked close/release, two
+concurrent disjoint full padded buffers with complete pattern verification,
+refusal of both unknown GPU ranges before callbacks, and one intentional private
+release refusal. Expected accounting is2,714 allocated/2,713 released/1retained
+frame, with zero GPU callbacks/writes/managed pages and inherited display/backing
+preservation. Unexpected retained state or failed persistence halts visibly;
+safe saved outcomes return automatically. Collect matching native/checkpoint/
+final records first after return. This qualifies actual backing/lifetime use,
+not GPU transfer, command completion or native tear-free; all255 obligations
+and zero native hardware assurances remain. PR455 screenshot media verification,
+PR19 networking and PR379 WebCore remain independent; Actions stay disabled.
 
 ### Accepted: pre-user-init maintained preparation, PCI capture and BCS reset
 

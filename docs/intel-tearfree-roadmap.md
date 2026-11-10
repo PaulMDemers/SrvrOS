@@ -181,3 +181,13 @@ healthy zero-code witness is fixed and reviewed against identical raw logs;
 original classification is retained. This closes the bounded composition gate.
 The next implementation is the exact interval/private-memory/completion owner
 in the managed-memory plan, with no GPU PTE store before transfer is established.
+
+
+The next hardware-ready checkpoint is source`23af85e2`, release`d72619c4e02bb721`:
+[joined backing ownership](scanout-memory.md), full padded sizing and allocator/
+CPU-borrow/range/publication retirement are qualified in host and guest tests.
+The isolated native trial exercises two full private buffers and expected
+unknown-range refusal, with no GPU writer or grant. Its PMM/frame-tag/CPU mapping
+and quarantine accounting resolve the new backing-adapter qualification boundary;
+it does not repeat or replace the accepted shadow publication. Exclusive GGTT
+transfer, owned completion and real buffer/flip publication remain open.

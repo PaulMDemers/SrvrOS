@@ -5,8 +5,9 @@ This software mechanism is the next step after the accepted
 It reserves offsets inside a bounded GPU address arena; it does not establish
 GGTT ownership, encode or write PTEs, map physical RAM to a GPU, or advertise a
 native desktop backend. The [publication transaction](scanout-publication.md) now consumes leases in a
-software-only guest fixture. There is currently **no native caller**. The tested
-managed ranges are synthetic authority supplied by host fixtures.
+software-only guest fixture. The native backing qualification now opens an empty
+arena and verifies refusal; there is still no native positive range importer or
+GGTT writer. Positive managed ranges remain synthetic host-fixture authority.
 
 ## Import and leases
 
