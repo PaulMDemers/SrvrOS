@@ -138,3 +138,50 @@ All original4096-byte bulk/16384-byte command bounds, BOT serialization,2-second
 controller request deadlines, validation, quarantine, checkpoint eligibility,
 durability barriers and owner lifetimes remain unchanged. The companion requires
 the same atomic-record and64KiB saved-tail proof alongside every older receipt.
+
+## Capture transfer cadence and allocation companions
+
+Only the explicit audio/disk capture workload enables capture-job transfer
+observations. Ordinary captures retain their existing clocks and frames. The
+request remains176 bytes and the response32 bytes; `DESK_CAPTURE_TRACE_MAGIC`
+opts into one `DESK_CAPTURE_READY_MAGIC` frame after both successful worker
+allocations and before pixel reception. It carries the current ID, RECEIVE
+status, zero reserved/bytes and a software clock. Normal request magic retains
+the original stream. Malformed/unrequested/duplicate auxiliary frames fail
+protocol validation; an auxiliary clock fault invalidates diagnostics without
+changing the original save outcome. The auxiliary frame does not alter the
+existing twelve progress-phase accounting. In particular, the old RECEIVE span
+still includes allocation and reception.
+
+Fixed scalar observations count active polls, write attempts/outcomes/bytes,
+partial writes, EAGAIN/EINTR, exhausted four-write budgets and response reads.
+Poll begin/end wall and intervening gaps partition the parent poll span. Write
+attempt begin/end wall and gaps partition the write span, including EAGAIN,
+EINTR and failed attempts. These are software syscall/poll observations, not
+CPU time or exact pipe publication. Request/pixel completion clocks observe
+syscall return; the worker may finish reception before the writer resumes.
+Worker RECEIVE, allocation-ready, ENCODE and final-production clocks separately
+bound allocation, reception and final-response observation. The terminal poll
+reuses the original finished clock. Overflow/regression invalidates observations.
+The allocation window includes initial progress-frame emission; the reception
+window includes READY-frame emission. Neither is pure mmap or pipe CPU time.
+
+Each immutable capture completion copies its transfer scalars before job reuse.
+`desktop-capture-transfer`, `desktop-capture-transfer-write` and
+`desktop-capture-transfer-read` join final snapshot/index/ID/worker/lifecycle
+clocks to the unchanged version1 completion. `tools/capture_transfer.py` requires
+all three rows for every expected capture, exact request/pixel/response byte
+counts, original chunk/poll bounds, successful history and complete clock/gap
+partitions. Periodic snapshots remain provisional. Complete input, progress and
+one READY/one final frame must agree; absent/disabled/invalid evidence cannot
+establish positive diagnostic acceptance.
+
+The full-size deterministic sender fixture uses the actual capture-job code and
+a bounded64KiB pipe model. Air6,1 needs4196352 pixel bytes plus176 request bytes:
+1026 full writes and at least257 send polls at the existing four4096-byte bound.
+There are256 intervening caller intervals, even with a continuously ready peer.
+Synthetic cadence is not native timing. Fragmentation, backpressure, interrupted
+reads/writes, buffered progress/final output, reader loss, cancellation and
+retirement retain byte/order/ownership proofs. No blocking UI poll, new transport
+owner, pipe enlargement, pacing change or save/readback shortcut is introduced.
+Matched host/VM and saved-tail evidence are required before the native baseline.

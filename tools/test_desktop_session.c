@@ -17,6 +17,7 @@ int desk_file_job_init(struct desk_file_job *job) {(void)job;assert(!"unexpected
 void desk_file_job_close(struct desk_file_job *job) {(void)job;assert(!"unexpected file helper close");}
 
 static unsigned capture_closes,capture_reap_pending;
+int desk_capture_job_trace(struct desk_capture_job *j,int enabled) {j->transfer.enabled=!!enabled;return 0;}
 int desk_capture_job_prepare(struct desk_capture_job *j,uint32_t width,uint32_t height,const char *path) {
     (void)j;(void)width;(void)height;(void)path;assert(!"unexpected capture preparation");return -1;
 }
@@ -1164,10 +1165,20 @@ static int render_proof_fixture(void) {
     loop_trace_end(&t,559100,4,13,3);loop_trace_report(&t,1);return 0;
 }
 int main(int argc,char **argv) {
-    if(argc==2 && !strcmp(argv[1],"--capture-history-fixture")) {
+    if(argc==2 && (!strcmp(argv[1],"--capture-history-fixture") || !strcmp(argv[1],"--capture-transfer-fixture"))) {
         struct capture_history h={0};
         for(unsigned i=0;i<3;i++) {
             struct capture_trace c=completion_trace(i+1,100+i*100,140+i*120);
+            if(!strcmp(argv[1],"--capture-transfer-fixture")) {
+                uint64_t begin=c.started_us,end=c.finished_us;
+                c.frames=2;
+                c.transfer=(struct desk_capture_transfer_timing){.enabled=1,.valid=1,.total=4272,
+                    .polls=5,.begin_us=begin,.end_us=end,.poll_us=10,.gap_us=end-begin-10,.gap_max_us=20,
+                    .write_calls=2,.write_ok=2,.write_bytes=4272,.write_first_us=begin+1,.write_last_us=begin+11,
+                    .write_us=4,.write_gap_us=6,.write_gap_max_us=6,.request_done_us=begin+3,.pixels_done_us=begin+11,
+                    .read_calls=5,.read_bytes=128,.read_again=1,
+                    .worker_receive_us=begin+4,.worker_allocated_us=begin+8,.worker_read_done_us=begin+14,.worker_final_us=end-2};
+            }
             capture_history_record(&h,&c,42+i,150+i*120,1);
         }
         capture_loop_log=0;capture_history_report(&h,500,1);return 0;

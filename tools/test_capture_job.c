@@ -4,8 +4,9 @@
 #include "../userspace/lib/src/desk_capture_job.c"
 static struct desk_capture_job job;
 static unsigned char outgoing[200000];static struct desk_capture_response reply;
-static struct desk_capture_response frames[4];static unsigned frame_count,frame_index;
-long srv_monotonic_us(void) { return 1000000; }
+static struct desk_capture_response frames[8];static unsigned frame_count,frame_index;
+static uint64_t clock_reads;static long clock_at=1000000;static unsigned clock_regress_on;
+long srv_monotonic_us(void) {clock_reads++;if(clock_reads==clock_regress_on)return clock_at-10;return clock_at++;}
 static size_t sent,received,total;static int reads,writes,alive=1,wait_ready=1,pipe_count,closes,spawn_fail,write_fail,eof;
 long srv_signal_config(uint64_t signal,uint64_t action) { assert(signal==SIGPIPE && action==SRV_SIGNAL_IGNORE);return 0; }
 long srv_pipe(int pair[2]) { pair[0]=pipe_count?10:12;pair[1]=pipe_count?13:11;pipe_count++;return 0; }
@@ -29,8 +30,71 @@ long srv_read(int fd,void *data,size_t n) {
 static void reset(void) {
     wait_ready=1;desk_capture_job_close(&job);desk_capture_job_init(&job);
     frame_count=frame_index=0;sent=received=reads=writes=pipe_count=closes=spawn_fail=write_fail=eof=0;alive=1;
+    clock_reads=clock_regress_on=0;clock_at=1000000;
 }
 static int finish(void) { for(unsigned i=0;i<20000;i++) { int r=desk_capture_job_poll(&job);if(r) return r; }return 0; }
+static void timing_frames(int traced) {
+    frame_count=traced?4:3;
+    frames[0]=(struct desk_capture_response){.magic=DESK_CAPTURE_PROGRESS_MAGIC,.id=job.request.id,.status=CAPTURE_RECEIVE,.at_us=1000010};
+    frames[1]=(struct desk_capture_response){.magic=DESK_CAPTURE_READY_MAGIC,.id=job.request.id,.status=CAPTURE_RECEIVE,.at_us=1000020};
+    frames[2]=(struct desk_capture_response){.magic=DESK_CAPTURE_PROGRESS_MAGIC,.id=job.request.id,.status=CAPTURE_ENCODE,.at_us=1000030,.bytes=sizeof(uint32_t)*191*127};
+    frames[3]=(struct desk_capture_response){.magic=DESK_CAPTURE_MAGIC,.id=job.request.id,.at_us=1000050};
+    if(!traced){frames[1]=frames[2];frames[2]=frames[3];}
+}
+static void timing_tests(uint32_t *pixels,const char *path) {
+    static unsigned char baseline[sizeof(outgoing)];int baseline_writes=0;
+    for(unsigned traced=0;traced<=1;traced++) {
+        reset();assert(!desk_capture_job_trace(&job,traced));
+        assert(!desk_capture_job_start(&job,pixels,191,127,path));
+        assert(job.request.magic==(traced?DESK_CAPTURE_TRACE_MAGIC:DESK_CAPTURE_MAGIC));
+        assert(desk_capture_job_trace(&job,!traced)<0 && job.transfer.enabled==traced);
+        total=sizeof(job.request)+sizeof(uint32_t)*191*127;timing_frames(traced);
+        assert(finish()==1 && job.progress_frames==2);
+        assert(job.phase_us[CAPTURE_RECEIVE]==20 && job.phase_us[CAPTURE_ENCODE]==20);
+        if(!traced) {
+            memcpy(baseline,outgoing,total);baseline_writes=writes;
+            assert(clock_reads==9 && !job.transfer.enabled && !job.transfer.polls);
+        } else {
+            const struct desk_capture_transfer_timing *t=&job.transfer;
+            assert(t->enabled && t->valid && !t->invalid && t->total==total);
+            assert(t->write_bytes==total && t->write_ok && t->short_writes && t->write_intr && !t->write_failed);
+            assert(t->write_calls==t->write_ok+t->write_again+t->write_intr+t->write_failed);
+            assert(t->write_first_us<=t->request_done_us && t->request_done_us<=t->pixels_done_us && t->pixels_done_us<=t->write_last_us);
+            assert(t->end_us==job.finished_us && t->poll_us+t->gap_us==t->end_us-t->begin_us);
+            assert(t->write_us+t->write_gap_us==t->write_last_us-t->write_first_us);
+            assert(t->read_calls==t->polls && t->read_bytes==(job.progress_frames+2)*sizeof(struct desk_capture_response));
+            assert(t->worker_receive_us==1000010 && t->worker_allocated_us==1000020 && t->worker_read_done_us==1000030 && t->worker_final_us==1000050);
+            assert(clock_reads>9 && writes==baseline_writes);
+            assert(!memcmp(outgoing+sizeof(uint32_t),baseline+sizeof(uint32_t),total-sizeof(uint32_t)));
+            pipe_count=0;assert(!desk_capture_job_prepare(&job,191,127,path));
+            assert(job.transfer.enabled && job.transfer.valid && !job.transfer.polls && !job.transfer.write_calls && !job.transfer.worker_receive_us && !job.transfer_ready_received);
+        }
+    }
+    for(unsigned bad=0;bad<6;bad++) {
+        reset();assert(!desk_capture_job_trace(&job,1));assert(!desk_capture_job_start(&job,pixels,191,127,path));timing_frames(1);
+        if(bad==0)frames[1].id++;
+        if(bad==1){frames[4]=frames[3];frames[3]=frames[2];frames[2]=frames[1];frame_count=5;}
+        if(bad==2){frames[0]=frames[1];frame_count=1;}
+        if(bad==3)frames[1].status=CAPTURE_ENCODE;
+        if(bad==4)frames[1].reserved=1;
+        if(bad==5)frames[1].bytes=1;
+        assert(finish()==-1 && !job.pixels);
+    }
+    reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));timing_frames(1);assert(finish()==-1); /* Unrequested auxiliary frame. */
+    reset();assert(!desk_capture_job_trace(&job,1));assert(!desk_capture_job_start(&job,pixels,191,127,path));timing_frames(1);
+    frames[1].at_us=frames[0].at_us-1;assert(finish()==1 && !job.transfer.valid && job.transfer.invalid && job.phase_us[CAPTURE_RECEIVE]==20);
+    reset();assert(!desk_capture_job_trace(&job,1));assert(!desk_capture_job_start(&job,pixels,191,127,path));timing_frames(1);
+    clock_reads=0;clock_regress_on=3;assert(finish()==1 && !job.transfer.valid && job.transfer.invalid);
+    reset();assert(!desk_capture_job_trace(&job,1));assert(!desk_capture_job_start(&job,pixels,191,127,path));timing_frames(1);
+    job.transfer.write_calls=UINT64_MAX;assert(finish()==1 && !job.transfer.valid && job.transfer.invalid);
+    reset();assert(!desk_capture_job_trace(&job,1));assert(!desk_capture_job_start(&job,pixels,191,127,path));timing_frames(1);
+    job.transfer.poll_us=UINT64_MAX;assert(finish()==1 && !job.transfer.valid && job.transfer.invalid);
+    reset();assert(!desk_capture_job_trace(&job,1));assert(!desk_capture_job_start(&job,pixels,191,127,path));write_fail=1;
+    assert(finish()==-1 && job.transfer.write_calls==1 && job.transfer.write_failed==1 && !job.transfer.read_calls && !job.transfer.worker_final_us);
+    reset();assert(!desk_capture_job_trace(&job,1));assert(!desk_capture_job_start(&job,pixels,191,127,path));eof=1;
+    assert(finish()==-1 && job.transfer.read_calls==1 && job.transfer.read_failed==1);
+    reset();puts("capture-transfer-timing: PASS ordinary clock/callback equivalence, exact attempt/poll partitions, split worker allocation receipt, unchanged phases, malformed auxiliary frames, reset and diagnostic-only overflow/clock faults");
+}
 int main(void) {
     desk_capture_job_init(&job);uint32_t pixels[191*127];for(unsigned i=0;i<191*127;i++) pixels[i]=i;
     assert(!desk_capture_job_prepare(&job,191,127,"/fat/home/Screenshots/prepared.bmp"));
@@ -77,5 +141,6 @@ int main(void) {
     assert(!desk_capture_scale(4096,4096) && !desk_capture_scale(UINT32_MAX,1));
     assert(!desk_capture_scale(0,1080));
     assert(desk_capture_bytes(1920,1080)==1920*1080*4 && !desk_capture_bytes(UINT32_MAX,UINT32_MAX));
+    timing_tests(pixels,path);
     puts("capture-job: PASS immutable pixels/path, bounded fragmented transfers, retry, protocol failure, exited worker with buffered reply, EOF and nonblocking reaping without killing writes");
 }
