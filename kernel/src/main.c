@@ -649,7 +649,9 @@ static void boot_virtio_gpu_probe(void) {
         (uint64_t)result.fence_ok,(uint64_t)result.reset_ok,(uint64_t)result.quarantined);
 }
 
+static bool startup_journal_admitted;
 static void startup_checkpoint(uint32_t phase,uint64_t flags) {
+    if(!startup_journal_admitted)return;
     if(startup_journal_checkpoint(phase,flags))return;
     boot_set_framebuffer_quiet(false);
     console_write("Startup diagnostic could not commit its independent record. Earlier records remain on the internal disk. Return to Ubuntu manually.\n");
@@ -779,10 +781,9 @@ void kmain(void) {
     if(startup_diagnostic) {
         boot_set_framebuffer_quiet(false);
         boot_status("Startup diagnostic: saving independent internal-disk checkpoints; no input required\n");
-        if(!ahci_init() || !startup_journal_open()) {
-            console_write("Startup journal unavailable. Return to Ubuntu manually to inspect the armed record.\n");
-            console_sync();halt_forever();
-        }
+        startup_journal_admitted=ahci_init() && startup_journal_open();
+        if(!startup_journal_admitted)
+            console_write("Startup journal unavailable. Trying USB workspace logging to preserve the admission details.\n");
         startup_checkpoint(1,0);
     }
     bool virtio_baseline=cmdline_has_token(cmdline,"srvros.virtio=on");
@@ -1100,15 +1101,23 @@ void kmain(void) {
         if(startup_diagnostic) {
             uint64_t flags=(workspace_active()?1u:0u)|(started?2u:0u)|(init_ready?4u:0u)|(timer_running?8u:0u);
             startup_checkpoint(5,flags);
+            if(!startup_journal_admitted && !started) {
+                console_write("Startup diagnostic: neither persistent destination admitted. Return to Ubuntu manually; the armed empty file records this incomplete attempt.\n");
+                console_sync();halt_forever();
+            }
             bool saved=started && workspace_log_stop();
             bool unmounted=workspace_active() && workspace_unmount();
             flags|=(saved?16u:0u)|(unmounted?32u:0u);
-            console_printf("startup-diagnostic: workspace=%u logger=%u saved=%u unmounted=%u firmware_attempted=0\n",
-                flags&1u,(flags>>1)&1u,(uint64_t)saved,(uint64_t)unmounted);
+            console_printf("startup-diagnostic: independent=%u workspace=%u logger=%u saved=%u unmounted=%u firmware_attempted=0\n",
+                (uint64_t)startup_journal_admitted,flags&1u,(flags>>1)&1u,(uint64_t)saved,(uint64_t)unmounted);
+            if(!startup_journal_admitted && !(saved && unmounted)) {
+                console_write("Startup diagnostic: USB save or unmount failed. Return to Ubuntu manually; available files will be collected.\n");
+                console_sync();halt_forever();
+            }
             startup_checkpoint(6,flags);
-            console_write("Startup diagnostic complete. Results are on the internal EFI partition. Returning to Ubuntu.\n");
+            console_write("Startup diagnostic complete. Persistent results saved. Returning to Ubuntu.\n");
             startup_checkpoint(7,flags);
-            if(!startup_journal_close()){console_sync();halt_forever();}
+            if(startup_journal_admitted && !startup_journal_close()){console_sync();halt_forever();}
             console_sync();timer_delay_us(250000);arch_reboot_unattended();arch_reboot();
             halt_forever();
         }

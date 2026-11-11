@@ -54,3 +54,25 @@ verify prior workspace files, metadata, allocation and recovery payloads. Missin
 or invalid final checkpoints leave the trial incomplete. A complete startup
 journal can establish a workspace or logger refusal even when USB has no session.
 It cannot establish Wi-Fi connectivity or same-boot reconnect acceptance.
+
+If independent admission fails, startup now continues through USB enumeration
+and workspace/logger admission. A working USB logger saves the refusal rows in
+its complete boot/exit transcript and allows a checked return after save and
+unmount. If both destinations refuse admission, the diagnostic holds before
+firmware/network work. The host's initial armed file remains available, while
+runtime details require an admitted destination. An independent write failure
+after admission still holds with earlier committed slots retained.
+
+Admission reasons distinguish repeated open (1), missing/incorrect module (2),
+invalid descriptor geometry (3), zero nonce (4), GPT read/hash (5/6), EFI boot
+sector read/hash (7/8), journal header read/mismatch (9/10), ambiguous matching
+disks (11), raw claim refusal (12) and no matching candidate (13). Candidate
+rows show eligibility and capacity; hash refusals include the compared digests.
+These rows retain the existing disk/file admission and write bounds.
+
+The UEFI fixture also exercises a GPT hash mismatch with a working workspace,
+requiring the actual refusal and digest rows in the USB exit log and zero
+journal changes. Its dual-refusal case requires a held guest, an unchanged
+journal and absence of firmware/network work. Both use the exact staged image;
+the fixture changes only its disposable disk's GPT byte to cause admission
+refusal.

@@ -38,6 +38,20 @@ static void header(uint8_t *p,const char *magic) {
 static bool hash_matches(const uint8_t *p,size_t n,const uint8_t expected[32]) {
     uint8_t digest[32];sha256_digest(p,n,digest);return equal(digest,expected,32);
 }
+static bool refused(uint64_t reason) {
+    console_printf("startup-journal-refused: version=1 reason=%u\n",reason);
+    return false;
+}
+static bool metadata_read(struct block_device *device,uint64_t offset,
+    const uint8_t expected[32],uint64_t read_reason,uint64_t hash_reason) {
+    if(!device->read(device,offset,scratch,SECTOR))return refused(read_reason);
+    if(hash_matches(scratch,SECTOR,expected))return true;
+    uint8_t actual[32];sha256_digest(scratch,SECTOR,actual);
+    console_printf("startup-journal-hash: offset=%u actual0=%x actual1=%x actual2=%x actual3=%x expected0=%x expected1=%x expected2=%x expected3=%x\n",
+        offset,le64(actual),le64(actual+8),le64(actual+16),le64(actual+24),
+        le64(expected),le64(expected+8),le64(expected+16),le64(expected+24));
+    return refused(hash_reason);
+}
 static bool raw_ahci(struct block_device *d) {
     return d && d->used && !d->offline && !d->backing && d->block_size==SECTOR &&
         d->name && d->name[0]=='a' && d->name[1]=='h' && d->name[2]=='c' &&
@@ -45,34 +59,38 @@ static bool raw_ahci(struct block_device *d) {
 }
 
 bool startup_journal_open(void) {
-    if(attempted)return false;
+    if(attempted)return refused(1);
     attempted=true;
     const struct initramfs_file *module=initramfs_find("/startup-journal.bin");
-    if(!module || module->size!=128)return false;
+    if(!module || module->size!=128)return refused(2);
     const uint8_t *d=module->data;
     static const char magic[16]="SRVRSTARTDESC1";
     uint64_t sectors=le64(d+16),offset=le64(d+24),start=le64(d+32),size=le64(d+40);
     if(!equal(d,(const uint8_t *)magic,16) || sectors>UINT64_MAX/SECTOR ||
         !size || start%SECTOR || size%SECTOR || offset%SECTOR ||
         start<1048576 || start>sectors*SECTOR || size>sectors*SECTOR-start ||
-        offset<start+SECTOR || offset-start>size || FILE_BYTES>size-(offset-start))return false;
+        offset<start+SECTOR || offset-start>size || FILE_BYTES>size-(offset-start))return refused(3);
     copy(nonce,d+48,16);
     bool any=false;for(unsigned i=0;i<16;i++)any|=nonce[i]!=0;
-    if(!any)return false;
+    if(!any)return refused(4);
     struct block_device *selected=NULL;
     for(unsigned i=0;i<BLOCK_MAX_DEVICES;i++) {
         struct block_device *candidate=block_device_at(i);
+        if(!candidate)continue;
+        console_printf("startup-journal-candidate: index=%u eligible=%u sectors=%u expected_sectors=%u\n",
+            (uint64_t)i,(uint64_t)raw_ahci(candidate),candidate->block_count,sectors);
         if(!raw_ahci(candidate) || candidate->block_count!=sectors)continue;
-        if(!candidate->read(candidate,SECTOR,scratch,SECTOR) || !hash_matches(scratch,SECTOR,d+64))continue;
-        if(!candidate->read(candidate,start,scratch,SECTOR) || !hash_matches(scratch,SECTOR,d+96))continue;
+        if(!metadata_read(candidate,SECTOR,d+64,5,6))continue;
+        if(!metadata_read(candidate,start,d+96,7,8))continue;
         header(record,"SRVRSTARTFILE1");put64(record+32,FILE_BYTES);
-        if(!candidate->read(candidate,offset,scratch,SECTOR) || !equal(record,scratch,SECTOR))continue;
-        if(selected)return false;
+        if(!candidate->read(candidate,offset,scratch,SECTOR)){refused(9);continue;}
+        if(!equal(record,scratch,SECTOR)){refused(10);continue;}
+        if(selected)return refused(11);
         selected=candidate;
     }
-    if(!selected)return false;
+    if(!selected)return refused(13);
     claim=block_claim_raw(selected,NULL);
-    if(!claim)return false;
+    if(!claim)return refused(12);
     disk=selected;file_offset=offset;healthy=true;
     console_write("startup-journal: independent EFI file admitted; USB not required\n");
     return true;

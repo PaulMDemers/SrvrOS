@@ -46,6 +46,8 @@ def verify_sparse_changes(path, seeds, allowed):
 
 
 def run(args):
+    refusal = args.mode in ('journal-refused', 'both-refused')
+    missing = args.mode in ('missing', 'both-refused')
     source = boot.STAGE / args.release
     manifest = boot.verify(source)
     assert manifest['config_version'].startswith('ram-usb-wifi-fw-v141-')
@@ -73,6 +75,9 @@ def run(args):
         seeds = [(512, (args.host_record/'disk-gpt-sector.bin').read_bytes()),
                  (start, (args.host_record/'esp-bpb-sector.bin').read_bytes()),
                  (offset, journal.initial(descriptor[48:64]))]
+        if refusal:
+            changed = bytearray(seeds[0][1]);changed[16] ^= 1
+            seeds[0] = (512, bytes(changed))
         with internal.open('wb') as stream:
             stream.truncate(sectors*512)
             for at, data in seeds:
@@ -84,7 +89,7 @@ def run(args):
                    '-drive', f'format=raw,file={internal},index=1',
                    '-device', 'qemu-xhci,id=xhci', '-device', 'usb-kbd,bus=xhci.0',
                    '-serial', f'file:{serial}', '-monitor', 'none', '-display', 'none', '-no-reboot']
-        if args.mode != 'missing':
+        if not missing:
             from exfat_test_image import ExfatFixture, check_clean_image
             volume = temp/'workspace.exfat'
             with volume.open('wb') as stream:
@@ -114,8 +119,12 @@ def run(args):
         with (result_dir/'qemu.log').open('wb') as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
-                text = wait_for(serial, lambda s: 'Startup diagnostic complete.' in s, process, 100)
-                assert process.wait(timeout=30) == 0
+                marker = 'neither persistent destination admitted' if args.mode == 'both-refused' else 'Startup diagnostic complete.'
+                text = wait_for(serial, lambda s: marker in s, process, 100)
+                if args.mode == 'both-refused':
+                    assert process.poll() is None
+                else:
+                    assert process.wait(timeout=30) == 0
                 assert not has_fatal_exception(text)
             finally:
                 if process.poll() is None:
@@ -126,27 +135,42 @@ def run(args):
         (result_dir/'journal.bin').write_bytes(raw)
         parsed = journal.decode(raw, descriptor)
         (result_dir/'journal.json').write_text(json.dumps(parsed, indent=2)+'\n')
-        assert parsed['complete'], parsed
-        assert [x['phase'] for x in parsed['records']] == list(range(1,8))
+        if refusal:
+            assert not parsed['complete'] and not parsed['records']
+            assert raw == journal.initial(descriptor[48:64])
+            assert 'startup-journal-refused: version=1 reason=6' in text
+        else:
+            assert parsed['complete'], parsed
+            assert [x['phase'] for x in parsed['records']] == list(range(1,8))
         assert not any(x in text for x in ('wifi-firmware-progress:', 'wifi-cal5-command:', 'wifi-reconnect5-begin:'))
         if args.mode == 'present':
             assert parsed['workspace_ready'] and parsed['logger_started'] and parsed['saved'] and parsed['unmounted']
         elif args.mode == 'full':
             assert parsed['workspace_ready'] and not parsed['logger_started'] and not parsed['saved'] and parsed['unmounted']
             assert 'REFUSED insufficient file/directory slots' in text
-        else:
+        elif not refusal:
             assert not any(parsed[x] for x in ('workspace_ready','logger_started','saved','unmounted'))
         checked = verify_sparse_changes(internal, seeds, (offset+512, offset+journal.FILE_BYTES))
-        if args.mode != 'missing':
+        if not missing:
             with stick.open('rb') as stream:
                 saved = journal.read_at(stream, 1048576, len(fixture.data))
             clean = result_dir/'workspace-after.exfat'
             clean.write_bytes(saved)
             check_clean_image(clean)
-            # Existing guest checker validates allocation as well as fsck.
+            if args.mode == 'journal-refused':
+                final = ExfatFixture(saved)
+                entries = dict(final.entries(final.read('srvros-work/Logs')))
+                assert len(entries) == 1
+                session = next(iter(entries))
+                log = final.read('srvros-work/Logs/'+session+'/exit.log')
+                (result_dir/'fallback-exit.log').write_bytes(log)
+                assert b'startup-journal-refused: version=1 reason=6' in log
+                assert b'startup-journal-hash: offset=512' in log
+                assert b'srvros.desktop-release='+args.release.encode() in log
+                assert b'workspace-log: snapshot=exit.log ' in log
         report = dict(status='PASS', source=manifest['git_head'], release=args.release, mode=args.mode,
                       exact_stage=True, exact_descriptor=True, independent_ahci=True,
-                      native_accepted=False, phases=7, allocated_bytes_compared=checked,
+                      native_accepted=False, phases=len(parsed['records']), refusal_exercised=refusal, fallback_saved=args.mode=='journal-refused', expected_hold=args.mode=='both-refused', allocated_bytes_compared=checked,
                       changed_bytes_confined_to_journal=True, workspace_ready=parsed['workspace_ready'],
                       logger_started=parsed['logger_started'])
         (result_dir/'result.json').write_text(json.dumps(report, indent=2)+'\n')
@@ -158,5 +182,5 @@ if __name__ == '__main__':
     parser.add_argument('--release', required=True)
     parser.add_argument('--host-record', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--mode', choices=('missing','present','bad-marker','full'), required=True)
+    parser.add_argument('--mode', choices=('missing','present','bad-marker','full','journal-refused','both-refused'), required=True)
     run(parser.parse_args())

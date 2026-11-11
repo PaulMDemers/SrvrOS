@@ -16,10 +16,15 @@ static uint8_t medium[3*1024*1024], before[sizeof medium], descriptor[128];
 static struct block_device devices[2];
 static struct initramfs_file module;
 static unsigned writes,flushes,fail_write,fail_flush;
+static uint64_t fail_read_offset,reason_mask;
 static bool claim_refused,corrupt_readback;
 static const uint64_t base=1048576+8192;
 void console_write(const char *s) {(void)s;}
-void console_printf(const char *s,...) {(void)s;}
+void console_printf(const char *s,...) {
+    if(!strstr(s,"startup-journal-refused:"))return;
+    va_list args;va_start(args,s);uint64_t reason=va_arg(args,uint64_t);va_end(args);
+    assert(reason<64);reason_mask|=1ull<<reason;
+}
 const struct initramfs_file *initramfs_find(const char *p) {assert(!strcmp(p,"/startup-journal.bin"));return &module;}
 struct block_device *block_device_at(uint64_t i) {return i<2?&devices[i]:NULL;}
 uint64_t block_claim_raw(struct block_device *d,struct block_device *view) {assert(d==&devices[0] && !view);return claim_refused?0:1;}
@@ -31,6 +36,7 @@ uint64_t bootlog_snapshot(char *out,uint64_t cap,uint64_t *total) {
 }
 static bool read_disk(struct block_device *d,uint64_t offset,void *p,uint64_t size) {
     (void)d;assert(offset<=sizeof medium && size<=sizeof medium-offset);
+    if(fail_read_offset && offset==fail_read_offset)return false;
     memcpy(p,medium+offset,size);
     if(corrupt_readback && writes && offset>=base+SECTOR)((uint8_t *)p)[0]^=1;
     return true;
@@ -78,10 +84,18 @@ static void run(unsigned test,const char *output) {
     case 11:module.size--;break;
     case 12:memset(descriptor+48,0,16);break;
     case 13:devices[0].flush=NULL;break;
+    case 21:fail_read_offset=512;break;
+    case 22:fail_read_offset=1048576;break;
+    case 23:fail_read_offset=base;break;
     default:break;
     }
     bool opened=startup_journal_open();assert(!startup_journal_open());
-    if(test>=1 && test<=13){assert(!opened && !writes && !flushes);return;}
+    if((test>=1 && test<=13) || test>=21) {
+        const unsigned reasons[]={0,3,3,6,8,10,11,12,13,13,13,2,4,13};
+        unsigned reason=test<=13?reasons[test]:test==21?5:test==22?7:9;
+        assert(!opened && !writes && !flushes && (reason_mask&(1ull<<reason)));
+        return;
+    }
     assert(opened);
     if(test==14)medium[base+SECTOR+40]^=1;
     if(test==15)fail_write=1;
@@ -102,10 +116,10 @@ static void run(unsigned test,const char *output) {
     assert(startup_journal_close());assert(!startup_journal_close());
 }
 int main(int argc,char **argv) {
-    for(unsigned test=0;test<=20;test++) {
+    for(unsigned test=0;test<=23;test++) {
         pid_t pid=fork();assert(pid>=0);
         if(!pid){run(test,test==0 && argc==2?argv[1]:NULL);_exit(0);}
         int status;assert(waitpid(pid,&status,0)==pid && WIFEXITED(status) && !WEXITSTATUS(status));
     }
-    puts("startup-journal: PASS 21 actual writer scenarios, bounded writes, readback/commit ordering, identity and partial-I/O refusals");
+    puts("startup-journal: PASS 24 actual writer scenarios, bounded writes, readback/commit ordering, identity and partial-I/O refusals");
 }
