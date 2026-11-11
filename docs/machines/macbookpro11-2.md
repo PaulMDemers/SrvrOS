@@ -7,6 +7,24 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+### Descriptor trial returned without a saved session (November 10)
+
+The collector closed runtime `1423bf12` / release `34ed3937df70ec64` as
+incomplete. GRUB consumed the one-shot entry. The workspace had zero new
+sessions and all 447 prior files and metadata were exactly equal to the
+preboot baseline. Offline fsck and allocation checks passed, along with
+installed payload, recovery and Ubuntu default checks. The closed 1,397-file
+primary has index SHA-256
+`3cde21eb6fb32a2af20c33c54c59bf719fd46eed41af68c562edff5d113867be`.
+
+The exact runtime can return to Ubuntu before Wi-Fi firmware capture when
+the workspace mount or logger startup fails. The saved host evidence cannot
+establish kernel entry, distinguish those startup failures, or validate any
+calibration or connection result. The logger startup code is unchanged from
+the preceding hardware trial. The main integration changes the final
+screenshot gate report, outside logger startup. The next candidate needs
+separate boot, workspace and logger admission evidence. Ubuntu is unarmed.
+
 ### Qualified descriptor and event diagnostic (November 10)
 
 Runtime `1423bf12`, release `34ed3937df70ec64`, is installed for the next cold

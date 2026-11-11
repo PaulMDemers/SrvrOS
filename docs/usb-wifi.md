@@ -8307,3 +8307,11 @@ recovery payloads are preserved; only the fully backed failed9110 EFI duplicate
 was removed. The local run record controls final review/arming and once-only
 collection. This is a diagnostic comparison; the physical cause and native
 disconnect/reconnect are still unproved.
+
+The cold `1423bf12` / `34ed3937df70ec64` return had no saved session.
+GRUB consumed the one-shot and the complete 447-file workspace and its
+metadata matched the baseline exactly. Offline storage and installed
+recovery checks passed. The collector closed the trial as incomplete.
+Startup can return before firmware capture if the workspace mount or
+logger startup fails. The retained evidence cannot distinguish those
+paths or establish kernel entry. No boot is armed.

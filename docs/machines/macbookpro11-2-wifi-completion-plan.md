@@ -9,6 +9,14 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 10)
 
+The `1423bf12` / `34ed3937df70ec64` cold trial returned without a saved
+session. GRUB consumed its one-shot, and all 447 prior files and metadata
+remain exactly equal. Offline storage and installed recovery checks passed.
+The once-only return is closed as incomplete. The host evidence cannot
+confirm kernel entry, workspace/logger admission, or a Wi-Fi result.
+Establish those startup checkpoints before using the MCU diagnostic to
+judge calibration or same-boot reconnect. Ubuntu is unarmed.
+
 Main8271c254 is integrated atcddfd086. Runtime1423bf12/release34ed3937df70ec64
 is qualified and installed for the cold MCU observation/reconnect comparison.
 The original bulk diagnostic stays unchanged; sequence-bound descriptor,
