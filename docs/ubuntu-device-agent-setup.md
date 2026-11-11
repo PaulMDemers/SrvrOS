@@ -1820,3 +1820,23 @@ valid incomplete prefix. Collect the independent raw file and USB files before
 success-only protocol checks. Seven checkpoints prove capture completion, while
 full RF, fresh authentication, DHCP/DNS, traffic and retirement proofs determine
 Wi-Fi acceptance. A populated journal must never be reused for another trial.
+
+
+### Pro11,2 readable HTTP diagnostic handoff (November 11)
+
+Runtime `d413e338` / release `e4e95e7d5e24fc7c` integrates main `ae869c9b` and
+uses24×48 text on the2880×1800 panel. Its held HTTP display is a compact frozen
+panel with error codes and manual-return instructions; ordinary console/desktop
+and all ownership/protocol bounds remain unchanged. Normal/fatal/native-path,
+actual-ELF HTTP, seven exact-stage journal cases, an additional exact-payload
+high-resolution UEFI boot and fresh456-file clone preservation pass. The new
+owner is `build/bringup/wifi-http-readable/run.json`; collect FIRST once with
+that directory's `run_root.py return_collect` after return. Do not recollect the
+closed failed835 primary, its separate return notes or any earlier run.
+
+The user explicitly requests larger fonts and proceeding. Preserve Ubuntu and all
+seven protected recoveries. While OFF, unplug only Wi-Fi for ten seconds, reconnect
+to the same port, then power on; leave the workspace drive connected. Commands and
+safe save/return are automatic. An unsafe hold displays large codes for a photo
+before manual power-off/return. Run.json owns actual arming; this documentation
+neither arms a test nor claims native HTTP-pair acceptance or a resolved cause.

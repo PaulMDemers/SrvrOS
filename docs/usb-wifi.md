@@ -8482,3 +8482,25 @@ and missing-EOF retained ownership. Neither establishes the first hardware fault
 from the compressed photo. No cleanup gate is relaxed and no new trial is armed.
 The two-connection native HTTP result and broader service/UI/reattach/reliability
 acceptance remain open.
+
+
+### Readable diagnostic console (November 11)
+
+Runtime `d413e338` keeps ordinary 8×16 text, while the explicit startup-journal
+profiles select 3× text at framebuffers at least2880×1440, 2× at least1920×960,
+and 1× below that. On the Pro11,2 native panel this is24×48 pixels,120columns and
+37rows. Scaling expands the fixed cached base glyphs without framebuffer reads,
+heap allocation, graphics pixel-coordinate changes or a larger text viewport.
+Boot-only `console_init_scaled` accepts1–3 and refuses invalid scales; no live
+font mutation is introduced. The source-frozen pixel/scroll/ANSI/padded-boundary
+fixtures and fatal sanitizers cover all scales and invalid values.
+
+The HTTP hold keeps the full frozen numeric receipt in the console log and serial
+stream, then shows a short cleared diagnostic panel. All panel fields come from
+the same frozen snapshot, including after simulated preemption. It invokes no
+provider/clock callbacks and does not grant key/DMA cleanup or disk activity.
+Uncertain ownership still requires manual power-off. An exact staged2880×1800
+UEFI guest verifies scale3 and completes journal/save/unmount, with the same loader
+configuration and payload as the installed candidate. This qualifies the display
+path in emulation, not the native Wi-Fi failure cause. See the current
+[Pro record](machines/macbookpro11-2.md) for the fresh collect-first trial.

@@ -7,6 +7,56 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Readable HTTP diagnostic candidate installed (November 11)
+
+Runtime `d413e338`, release `e4e95e7d5e24fc7c` (v143), is installed after
+integrating actual main `ae869c9b` at `37977f68`. Journaled diagnostic boots use
+24×48 text on this 2880×1800 panel, giving 120 columns and 37 rows. The console
+retains its fixed base glyph cache/scanline storage and bounded viewport; ordinary
+console/desktop defaults and graphics pixel APIs are unchanged. The held HTTP
+path preserves its full frozen receipt, then clears the text display and shows
+an eight-line panel with codes, protocol/retirement/native state and power-off
+instructions. Rendering does not invoke network/provider/clock callbacks, change
+keys or authorize cleanup. The first native failure cause remains unconfirmed.
+
+Source-frozen normal qualification passes console pixels/ANSI/scroll/bounds,
+all six native HTTP HOST cases, legacy stack/reconnect and production owner/
+DHCP/parser/child suites, merged scheduler/private-append/storage checks,
+271 boot-profile and 42 collection tests, full unchanged-RF composition and
+matching images. The actual ELF/socket/IRQ/worker production-DNS HTTP VM passes;
+its executed payload is preserved and packed HTTP/init bytes match the candidate.
+Fatal ASan/UBSan passes the enlarged console, frozen held-panel bridge, all six
+native HTTP HOST cases, network worker/supervisor and 27 journal-writer cases.
+The paired HOST fixture still models scheduler, child APIs and USB; no new native
+or dual-lifetime real-scheduler result is claimed.
+
+All seven exact-stage journal cases pass. An additional exact-payload UEFI guest
+with VGA EDID2880×1800 verifies the actual 3× branch, 24×48 cells, seven journal
+phases, unused child/worker retirement, save/unmount and safe return. The loader
+configuration is unchanged. The frozen workflow passes 23 cases, independent
+raw-journal collection five cases and arming/rollback 11 mocked AST cases. A
+fresh private workspace VM preserves all 456 prior files/metadata apart from one
+RTC-bounded marker atime. No failed root-owned clone attempt was needed this run.
+
+The new `wifi-http-readable/run.json` owns final review, shutdown and collection.
+Collect FIRST once after return with
+`python3 -B build/bringup/wifi-http-readable/run_root.py return_collect`.
+Never recollect the closed `835ffb01` failure or reuse its consumed journal. The
+new payload, source/qualification and protected recovery proofs are banked outside
+build as `wifi-http-readable-d413e338`. For EFI capacity, only failed8ef's redundant
+EFI copy was retired after its immutable 1,860-file primary, separate preservation
+review and exact payload backup verified; acceptedc603 was promoted first. All
+seven protected recoveries and Ubuntu default/EFI boot order verify unchanged.
+
+The operator explicitly authorized larger text and proceeding with diagnosis.
+Use the standing cold shutdown authorization: while OFF, unplug only Wi-Fi for
+ten seconds, reconnect to the same port and power on; leave the workspace drive
+connected. All commands/progress are automatic. Safe completion saves and returns
+to Ubuntu; uncertain ownership holds the large frozen panel for a photograph and
+manual power-off/return. The saved record owns actual arming state. Native HTTP
+across reconnects, the earlier failure's cause and physical font readability are
+pending. No ownership, key/DMA retirement or original protocol deadline is relaxed.
+
 ### Readable diagnostic boot scope (November 11)
 
 The operator authorizes larger console text and another diagnostic trial because

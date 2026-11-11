@@ -9,23 +9,25 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
-The `835ffb01` / `8ef237478e0aa29b` (v143) native HTTP-pair trial is now
-closed **failed/incomplete**: session `00065fface312e5e-00`, valid independent
-journal phases 1–5, only USB `boot.log`, no final save/unmount or complete protocol
-result. Preserve its sealed 1,860-file primary. A separate review verifies all
-454 prior ordinary files and only a boot-time marker-atime metadata change.
-Ubuntu remains unarmed. No identical retry is scheduled.
+The readable diagnostic candidate `d413e338` / `e4e95e7d5e24fc7c` is installed
+on merged main `ae869c9b`. This panel gets 24×48 console text; a held HTTP trial
+shows a concise eight-line frozen diagnostic screen after the full scalar receipt.
+All original network/ownership/deadline gates remain. Source-frozen normal/fatal
+checks, actual-process HTTP/DNS VM, seven exact-stage journal cases and a further
+2880×1800 exact-payload UEFI boot pass. The 456-file private workspace VM and
+collection/arming checks pass; all seven recoveries and Ubuntu default verify.
+A fresh journal and `wifi-http-readable/run.json` own the cold trial and collect-
+first handoff. Proceed under the user's explicit larger-font/test authorization;
+shutdown for ten-second Wi-Fi-only unplug, same port, workspace connected. Safe
+completion saves/returns; an unsafe hold displays large codes for manual return.
 
-Diagnostic/test correction `d9b7e95c` binds held flags to the selected connection
-instead of unrelated one-shot globals and adds compact frozen codes. All six
-native-path modeled cases and bridge attribution/containment pass fatal
-sanitizers; failed-child/EOF and missing-EOF cases distinguish safe retirement
-from retained uncertainty. This does not establish the physical cause: the
-attached compressed photo cannot reliably identify the first failure code, and
-saved prefixes end before it. Obtain the original codes, reproduce the actual
-failure, fix and qualify it, then integrate inspected main `d4580da3` before
-another native candidate. No new stage/install/boot follows this diagnostic fix.
-Persistent service/UI/reattach/endurance stay later milestones.
+The preceding `835ffb01` / `8ef237478e0aa29b` native HTTP-pair run is closed
+failed/incomplete (five journal phases, boot log only); its 1,860-file primary,
+separate preservation review and diagnostic qualification remain immutable. The
+original compressed photo cannot establish the first error code. Six native-path
+modeled cases distinguish safe failed-child retirement from missing-EOF retained
+ownership; neither is asserted as the hardware cause. The new trial is diagnosis,
+not acceptance. Persistent service/UI/reattach/endurance stay later milestones.
 
 The following acceptance remains bound to its earlier source.
 
