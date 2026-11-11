@@ -2,7 +2,38 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Hardware-ready: maintained GPU requester hold
+### Latest native requester trial: safe refusal before preparation
+
+Source `6fba6e6c`, release `8d88625b30a0cfab`, session
+`session-00065ff8a6630dff-00` saved its matching prerequisite and exit logs and
+returned to Ubuntu. The requester hold did **not** enter: the earlier cold-takeover
+observer found the BCS ring enabled (mask 16), with geometry mask 15 rather than
+31. Both samples retained start `0x03eef000` and control `0x0000f001`; this
+matches the previously documented enabled inherited ring, rather than the disabled
+entry required by this preparation path. Stable head/tail and reset-control zeros
+do not grant permission to discard its backing. Preparation, reset, re-arm,
+interval claim and GPU Command stores all remained unstarted. This is incomplete
+native evidence, not requester or managed-memory acceptance.
+
+The logs show HDA restoration, all four inspection returns, 14 GPU mappings and
+the HDA root alias retired, with CPU exclusion released. The strict GPU decoder
+classifies the hold as incomplete. The original collection also exposes a separate
+host decoder defect: packed backing PTE-v3 rows permit wake v20 but omit this
+image's v21. Preserve that original collection; correcting its version binding
+cannot turn the observed admission refusal into a pass. The next development
+block should fix and regress that decoder, then qualify an explicit enabled-BCS
+retirement path under the original ownership contract. Do not relax the geometry
+check or increase deadlines to admit this state.
+
+Post-return checks passed: prior file contents and the three new saved log hashes,
+offline exFAT fsck/allocation/writable/headroom, consumed one-shot, Ubuntu default
+and installed/recovery bank equality. The USB is unmounted. Current remains
+`8d88625b30a0cfab`; prior accepted joint `978d9be94b96243a`, independent recovery
+`9aa8dbf6fbda8252` and known-good GUI remain available. Matching raw evidence is
+banked outside `build`; `build/air-gpu-requester-hold-20261110/returned/return-proof.json`
+records **INCOMPLETE** with return integrity **PASS**. No reboot is armed.
+
+### Qualified candidate: maintained GPU requester hold
 
 Integrated main `7e8f70ae` (PR462); PR463 screenshot metadata, PR19 Wi-Fi and
 PR379 WebCore remain independent. Source `6fba6e6c`, exact uninstalled release

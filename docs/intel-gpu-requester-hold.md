@@ -108,3 +108,9 @@ The Air record owns the installed recovery, volume and USB evidence. This
 candidate is banked but uninstalled and unarmed. The next silent physical trial
 must verify its command transitions, pending samples and original claim lifetime
 before recording acceptance; all eight memory/completion obligations remain open.
+
+The first native attempt of this candidate returned safely with **incomplete**
+evidence: the preceding takeover observer found an enabled inherited BCS ring,
+so preparation and this requester hold never entered. No GPU Command stores
+were attempted. See the Air record for the matched session and original collector
+version-binding defect. Fixing that host decoder alone will not accept the hold.
