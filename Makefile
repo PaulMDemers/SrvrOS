@@ -5171,3 +5171,13 @@ test-capture-media-integration: $(LIMINE_PROTOCOL_DIR)/.ready
 test-core: test-capture-media-integration
 
 build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/capture_worker.h
+
+.PHONY: test-exfat-nofat
+test-core: test-exfat-nofat
+test-exfat-nofat: build/tests/exfat-nofat-host$(HOST_EXE)
+	build/tests/exfat-nofat-host$(HOST_EXE)
+	CC="$(HOST_CC)" $(PYTHON) tools/test_populated_save.py --compare-nofat --output build/review/exfat-nofat-save
+	CC="$(HOST_CC)" $(PYTHON) tools/test_contiguous_append.py --compare-nofat --output build/review/exfat-nofat-append
+build/tests/exfat-nofat-host$(HOST_EXE): tools/test_exfat_nofat.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@

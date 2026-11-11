@@ -539,25 +539,32 @@ static bool write_fat_entry(struct exfat_volume *volume, uint32_t cluster, uint3
  * extents, or the ignored FAT of an existing NoFatChain stream. Final tail
  * attachment and every publication barrier remain separate. */
 #if !defined(SRVROS_EXFAT_HOST_TEST) || !defined(SRVROS_EXFAT_APPEND_OFF)
-static bool link_fat_range(struct exfat_volume *volume,uint32_t first,uint64_t count) {
+static bool write_linked_fat_range(struct exfat_volume *volume,uint32_t first,uint64_t count,
+    bool terminal) {
     if(!volume || first<2 || (uint64_t)first-2>=volume->cluster_count ||
        volume->fat_offset_bytes%4 || volume->fat_offset_bytes>UINT64_MAX-(uint64_t)first*4 ||
-       count>volume->cluster_count-((uint64_t)first-2)-1)return false;
+       (terminal && !count) ||
+       count>volume->cluster_count-((uint64_t)first-2)-(terminal?0:1))return false;
 #if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_LINK_BATCH_OFF)
     for(uint64_t i=0;i<count;i++)
-        if(!write_fat_entry(volume,first+(uint32_t)i,first+(uint32_t)i+1))return false;
+        if(!write_fat_entry(volume,first+(uint32_t)i,
+            terminal && i+1==count ? 0xffffffffu : first+(uint32_t)i+1))return false;
 #else
     uint8_t entries[512];
     uint64_t offset=volume->fat_offset_bytes+(uint64_t)first*4;
     while(count) {
         uint64_t n=(sizeof(entries)-offset%sizeof(entries))/4;
         if(n>count)n=count;
-        for(uint64_t i=0;i<n;i++)write_u32(entries+i*4,first+(uint32_t)i+1);
+        for(uint64_t i=0;i<n;i++)write_u32(entries+i*4,
+            terminal && i+1==count ? 0xffffffffu : first+(uint32_t)i+1);
         if(!volume_write(volume,offset,entries,n*4))return false;
         first+=(uint32_t)n;offset+=n*4;count-=n;
     }
 #endif
     return true;
+}
+static bool link_fat_range(struct exfat_volume *volume,uint32_t first,uint64_t count) {
+    return write_linked_fat_range(volume,first,count,false);
 }
 #endif
 
@@ -2064,9 +2071,15 @@ static enum append_result append_file(struct exfat_file *file,const char *path,
 #if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_CONTIGUOUS_APPEND_OFF)
     keep_contiguous=false;
 #endif
-    /* Convert only the allocation links; a NoFatChain old stream still ignores
-     * them until its final stream record publishes the new FAT-backed extent. */
+    /* NoFatChain allocation leaves FAT cells untouched. A newly required chain
+     * must overwrite every cell, including the terminal, before publication.
+     * The old stream ignores its links until its stream record changes. */
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_EAGER_NOFAT)
     if(added && !keep_contiguous && contiguous && !link_fat_range(v,first,added-1))return APPEND_FAILED;
+#else
+    if(added && !keep_contiguous && contiguous &&
+       !write_linked_fat_range(v,first,added,true))return APPEND_FAILED;
+#endif
     if(added && !keep_contiguous && file->no_fat_chain &&
        !link_fat_range(v,file->first_cluster,file->allocated_clusters-1))return APPEND_FAILED;
     uint64_t done=file->size,within=done%v->cluster_size;
@@ -2233,7 +2246,8 @@ static bool write_bitmap_span(struct exfat_volume *volume, uint64_t offset,
 #endif
 }
 
-static bool allocate_contiguous_clusters_impl(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster) {
+static bool allocate_contiguous_clusters_impl(struct exfat_volume *volume, uint64_t count,
+    uint32_t *first_cluster, bool initialize_fat) {
     if (volume->allocation_bitmap_cluster < 2 || count == 0 || first_cluster == NULL) {
         return false;
     }
@@ -2268,7 +2282,7 @@ static bool allocate_contiguous_clusters_impl(struct exfat_volume *volume, uint6
             if (run_length == count) {
                 for (uint64_t i = 0; i < count; i++) bitmap_set_bit(bitmap, run_start + i);
                 uint32_t first = (uint32_t)(run_start + 2);
-                if (!fill_fat_range(volume, first, count, 0xffffffffu) ||
+                if ((initialize_fat && !fill_fat_range(volume, first, count, 0xffffffffu)) ||
                     !write_bitmap_span(volume,bitmap_offset,bitmap,run_start,run_start+count-1)) {
                     /* A failed write blocks further mutation, as before. The
                      * dirty volume must be recovered before it can be reused. */
@@ -2288,10 +2302,17 @@ static bool allocate_contiguous_clusters_impl(struct exfat_volume *volume, uint6
     return false;
 }
 
-static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster) {
+static bool allocate_contiguous_clusters_kind(struct exfat_volume *volume, uint64_t count,
+    uint32_t *first_cluster, bool initialize_fat) {
     enum exfat_io_phase previous=volume->io_phase;volume->io_phase=EXFAT_IO_ALLOCATE;
-    bool ok=allocate_contiguous_clusters_impl(volume,count,first_cluster);
+    bool ok=allocate_contiguous_clusters_impl(volume,count,first_cluster,initialize_fat);
     volume->io_phase=previous;return ok;
+}
+
+/* Directory/system callers retain initialized chains. File NoFatChain streams
+ * instead use the allocation bitmap and exact contiguous extent exclusively. */
+static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster) {
+    return allocate_contiguous_clusters_kind(volume,count,first_cluster,true);
 }
 
 static void clear_fat_entries(struct exfat_volume *volume, const uint32_t *clusters, uint64_t count) {
@@ -2395,7 +2416,11 @@ static bool allocate_clusters(struct exfat_volume *volume,
         *no_fat_chain = true;
         return true;
     }
-    if (allocate_contiguous_clusters(volume, count, first_cluster)) {
+    bool initialize_fat=false;
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_EAGER_NOFAT)
+    initialize_fat=true; /* Exact old work for host-only source-I/O comparisons. */
+#endif
+    if (allocate_contiguous_clusters_kind(volume, count, first_cluster, initialize_fat)) {
         *no_fat_chain = true;
         return true;
     }
@@ -2474,11 +2499,15 @@ static bool free_file_clusters_impl(struct exfat_file *file) {
         }
     }
 
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_EAGER_NOFAT)
     if (file->no_fat_chain && !fill_fat_range(volume, file->first_cluster,
             file->allocated_clusters, 0)) {
         kfree(bitmap);
         return false;
     }
+#endif
+    /* NoFatChain FAT entries are invalid by format; freeing the bitmap is the
+     * same ownership publication without rewriting ignored stale cells. */
     bool ok = write_bitmap_span(volume,bitmap_offset,bitmap,first_bit,last_bit);
     kfree(bitmap);
     return ok;
