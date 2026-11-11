@@ -86,3 +86,7 @@ including 351.745 ms before observed completion and 273 us afterward. This
 physically accepts the bounded association; it does not identify device/firmware/
 controller cause or every screenshot delay. Screenshot saving still reaches
 26.60 seconds, with unchanged policy, limits, proofs and barriers.
+
+The [validated command-tail companion](commit-command-tail.md) adds exact-tag,
+status-anchor, block-range and original full-command validation context without
+changing these original rows, parsers or budgets.

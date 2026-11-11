@@ -90,9 +90,28 @@ void sync_commit_wait_status(uint64_t tag,uint64_t opcode,uint64_t bytes,uint64_
         if(opcode==0x2a && bytes==512) {commit_wait_add(&o->write512,1);commit_wait_add(&o->write512_us,end-start);}
         if(opcode==0x2a && bytes==16384) {commit_wait_add(&o->write16k,1);commit_wait_add(&o->write16k_us,end-start);}
         if(peak) {
+            o->command=(struct commit_command_timing){0};
             o->tag=tag;o->status=(struct usb_storage_csw_timing){.start_us=start,.end_us=end,
                 .opcode=opcode,.command_bytes=bytes,.request_bytes=requested,.actual=actual,.ok=ok,.sample=*sample};
         }
+    }
+    unlock(f);
+}
+void sync_commit_wait_command(const struct commit_command_timing *q) {
+    if(!commit_wait_retained.active || !commit_owner_active.thread)return;
+    uint64_t f=lock();
+    if(!q) {commit_wait_retained.invalid=1;unlock(f);return;}
+    for(unsigned i=0;i<SYNC_TIMING_RECORDS;i++) {
+        struct commit_wait_record *w=&commit_wait_live[i];
+        struct commit_owner_timing *o=&w->live_owner;
+        /* A different command, even on this owner, cannot complete its peak.
+         * Never backfill a waiter/owner that has already returned/released. */
+        if(!w->pid || !o->csws || o->tag!=q->tag || o->status.opcode!=q->opcode ||
+           o->status.start_us!=q->timing.csw_start_us || o->status.end_us!=q->timing.csw_end_us)continue;
+        if(o->seq!=commit_owner_active.seq || o->thread!=commit_owner_active.thread ||
+           q->available!=1 || q->phases>1 || q->timing.complete!=1 || o->command.available)
+            commit_wait_retained.invalid=1;
+        else o->command=*q;
     }
     unlock(f);
 }
