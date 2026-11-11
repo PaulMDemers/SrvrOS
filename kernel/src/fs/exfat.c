@@ -1880,13 +1880,17 @@ static uint16_t entry_set_checksum(const uint8_t *entries, uint64_t entry_count)
     return checksum;
 }
 
-static bool write_file_data_impl(struct exfat_file *file, const uint8_t *data, uint64_t size) {
+static bool write_file_data_impl(struct exfat_file *file, const uint8_t *data,
+    uint64_t size, bool metadata_payload) {
     if (file != NULL && size == 0) {
         return true;
     }
     if (file == NULL || data == NULL || size > file->allocated_clusters * file->volume->cluster_size) {
         return false;
     }
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_METADATA_TAIL_OFF)
+    metadata_payload=false; /* Disposable original-padding comparison only. */
+#endif
 
     /* Group only a proven contiguous allocation. Fragmented FAT chains retain
      * one-cluster traversal, and a large cluster retains its existing buffer.
@@ -1921,7 +1925,19 @@ static bool write_file_data_impl(struct exfat_file *file, const uint8_t *data, u
         uint64_t chunk=bytes;
         if(chunk>size-copied)chunk=size-copied;
         for(uint64_t j=0;j<chunk;j++)cluster_buffer[j]=data[copied+j];
-        if(!volume_write(file->volume,offset,cluster_buffer,bytes)) {
+        uint64_t write_bytes = bytes;
+        /* Internal metadata publishes its exact DataLength/ValidDataLength.
+         * Write every payload byte and zero the final sector, while allocation
+         * slack beyond that sector remains outside the file. Ordinary payloads
+         * retain whole-cluster initialization. Directory lengths fill clusters. */
+        if (metadata_payload && chunk < bytes && file->volume->device) {
+            uint64_t sector = file->volume->sector_size;
+            if (file->volume->device->block_size > sector)
+                sector = file->volume->device->block_size;
+            if (sector && sector <= cluster_size && !(cluster_size % sector))
+                write_bytes = chunk + (sector - chunk % sector) % sector;
+        }
+        if(!volume_write(file->volume,offset,cluster_buffer,write_bytes)) {
             kfree(cluster_buffer);return false;
         }
         copied+=chunk;i+=span;
@@ -1935,11 +1951,12 @@ static bool write_file_data_impl(struct exfat_file *file, const uint8_t *data, u
     return true;
 }
 
-static bool write_file_data(struct exfat_file *file, const uint8_t *data, uint64_t size) {
+static bool write_file_data(struct exfat_file *file, const uint8_t *data,
+    uint64_t size, bool metadata_payload) {
     struct exfat_volume *volume=file?file->volume:NULL;
     enum exfat_io_phase previous=volume?volume->io_phase:EXFAT_IO_METADATA;
     if(volume)volume->io_phase=EXFAT_IO_DATA;
-    bool ok=write_file_data_impl(file,data,size);
+    bool ok=write_file_data_impl(file,data,size,metadata_payload);
     if(volume)volume->io_phase=previous;
     return ok;
 }
@@ -2136,7 +2153,8 @@ static bool overwrite_file(const char *path, const uint8_t *data, uint64_t size)
         .allocated_clusters = cluster_count,
         .no_fat_chain = no_fat_chain,
     };
-    if (!write_file_data(&scratch, data, size)) {
+    bool metadata_payload = metadata_syncing && metadata_path_is_internal(find_mount_for_path(path), path);
+    if (!write_file_data(&scratch, data, size, metadata_payload)) {
         (void)free_file_clusters(&scratch);
         return false;
     }
@@ -2884,7 +2902,8 @@ static bool create_file(const char *path, const uint8_t *data, uint64_t size,uin
         .allocated_clusters = cluster_count,
         .no_fat_chain = no_fat_chain,
     };
-    if (!write_file_data(&scratch, data, size)) {
+    bool metadata_payload = metadata_syncing && metadata_path_is_internal(mount, path);
+    if (!write_file_data(&scratch, data, size, metadata_payload)) {
         (void)free_file_clusters(&scratch);
         return false;
     }
@@ -2965,7 +2984,7 @@ static bool exfat_create_directory_impl(const char *path,uint64_t mode) {
         .allocated_clusters = 1,
         .no_fat_chain = true,
     };
-    if (!write_file_data(&scratch, empty_directory, mount->volume.cluster_size)) {
+    if (!write_file_data(&scratch, empty_directory, mount->volume.cluster_size, false)) {
         kfree(empty_directory);
         release_created_clusters(&mount->volume, first_cluster, 1);
         return false;
