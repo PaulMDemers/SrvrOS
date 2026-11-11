@@ -49,7 +49,7 @@ void console_printf(const char *fmt,...){
   * print the IRQ-off frozen values, never read changing source records. */
  if(mutate_during_output){mutate_during_output=false;mutate_live_state();}
 }
-void console_write(const char *s){assert(irq_flags==512 && strstr(s,"key/provider/DMA retained") && strstr(s,"photograph the five diagnostic rows above"));writes++;}
+void console_write(const char *s){assert(irq_flags==512 && strstr(s,"key/provider/DMA retained") && strstr(s,"photograph the diagnostic rows above"));writes++;}
 bool console_sync(void){assert(irq_flags==512);syncs++;return true;}
 #include "../kernel/src/drivers/xhci_wifi_http5.inc"
 static void mutate_live_state(void){
@@ -119,6 +119,8 @@ static void reset(const char *s){
  memset(&wifi_fence5_native,0,sizeof wifi_fence5_native);memset(&xhci,0,sizeof xhci);
  held_rows=syncs=writes=freezes=0;held_length=0;held_log[0]=0;irq_flags=512;mutate_during_output=false;
  wifi_http5_requested=wifi_http5_prepared=wifi_http5_capture_attempted=wifi_http5_callback_attempted=false;
+ wifi_http5_active_probe=&wifi_http5_probe;wifi_http5_connection_capture_attempted=false;
+ wifi_http5_connection_callback_probe=NULL;wifi_http_reconnect5_reserved=false;
  wifi_stack5.start=1000000;wifi_stream5.epoch=31;prepares=aborts=runs=erasures=held=emits=guard_calls=0;key_live=false;
 }
 int main(void){
@@ -134,7 +136,7 @@ int main(void){
  for(unsigned i=0;i<sizeof unsafe/sizeof *unsafe;i++){
   reset(unsafe[i]);assert(xhci_wifi_http5_prepare());mutate_during_output=true;
   if(!setjmp(escape)){(void)xhci_wifi_capture_http5();assert(!"uncertain callback returned to WPA erasure");}
-  assert(held==1 && !erasures && key_live && !emits && held_rows==5 && writes==1 && syncs==1 && freezes==1);
+  assert(held==1 && !erasures && key_live && !emits && held_rows==7 && writes==1 && syncs==1 && freezes==1);
   assert(wifi_http5_held_state.site==(is("admission")?1u:2u));
   assert(strstr(held_log,is("admission")?
    "requested=1 prepared=1 capture_attempted=1 callback_attempted=0":
@@ -147,6 +149,8 @@ int main(void){
    assert(strstr(held_log,"child_status=23 child_observed=1 child_reaped=1"));
    assert(strstr(held_log,"polls=17 turns=3"));
    assert(wifi_http5_held_state.result.reason==(is("deadline")?HTTP_NET_CLOCK:is("worker-failed")?HTTP_NET_WORKER_FAILED:is("dhcp-uncertain")?HTTP_NET_DHCP_FAILED:HTTP_NET_DNS_FAILED));
+   char code[192];snprintf(code,sizeof code,"wifi-http5-held-code: version=1 site=2 phase=%" PRIu64 " reason=%" PRIu64 " child_status=23 connection=0 disconnected=0\n",wifi_http5_held_state.result.phase,wifi_http5_held_state.result.reason);
+   assert(strstr(held_log,code)); /* same frozen values despite output preemption */
    assert(guard_calls==3); /* only run's IO verification; holding invokes no guard */
   }else assert(!guard_calls && !runs);
   /* A second snapshot request cannot replace the first terminal record. */
@@ -155,10 +159,10 @@ int main(void){
  reset("missing-adapter");assert(xhci_wifi_http5_prepare());assert(!xhci_wifi_http5_finish_capture(false) && aborts==1 && !runs && !erasures && emits==1);
  reset("early-parent-fail");assert(xhci_wifi_http5_prepare());assert(!xhci_wifi_capture_http5());assert(!xhci_wifi_http5_finish_capture(false) && aborts==1 && !runs && emits==1);
  reset("prepare-fail");assert(!xhci_wifi_http5_prepare());assert(!xhci_wifi_http5_finish_capture(false) && aborts==1 && !runs && emits==1);
- reset("abort-fail");assert(xhci_wifi_http5_prepare());if(!setjmp(escape)){(void)xhci_wifi_http5_finish_capture(false);assert(!"uncertain abort reached disk-save return");}assert(held==1 && !erasures && !emits && held_rows==5 && wifi_http5_held_state.site==3);
+ reset("abort-fail");assert(xhci_wifi_http5_prepare());if(!setjmp(escape)){(void)xhci_wifi_http5_finish_capture(false);assert(!"uncertain abort reached disk-save return");}assert(held==1 && !erasures && !emits && held_rows==7 && wifi_http5_held_state.site==3);
  reset("finish-not-quiescent");assert(xhci_wifi_http5_prepare());wifi_http5_probe.result.attempted=true;
  if(!setjmp(escape)){(void)xhci_wifi_http5_finish_capture(false);assert(!"finish uncertainty returned");}
- assert(held==1 && !aborts && !erasures && !emits && held_rows==5 && wifi_http5_held_state.site==4);
+ assert(held==1 && !aborts && !erasures && !emits && held_rows==7 && wifi_http5_held_state.site==4);
  /* Every printed scalar, including unexpected maximum-width counts, fits the
   * console's 1KiB saved-record bound; identities never appear in any format. */
  reset("max-width");memset(&wifi_http5_held_state.result,0,sizeof wifi_http5_held_state.result);
@@ -205,7 +209,20 @@ int main(void){
  wifi_http5_held_state.boundary=UINT64_MAX;
  wifi_http5_held_state.fence_round=UINT64_MAX;
  wifi_http5_held_state.command_pending=UINT64_MAX;
- wifi_http5_emit_hold();assert(held_rows==5);
+ wifi_http5_emit_hold();assert(held_rows==7);
+ /* Connection observations bind the selected retained object. The unused
+  * second object must not inherit the first object's callback-attempt flag. */
+ reset("connection-observation");static struct http_network_probe pair[2];
+ wifi_http_reconnect5_reserved=wifi_http5_connection_capture_attempted=true;
+ wifi_http5_connection_callback_probe=&pair[0];
+ for(unsigned g=0;g<2;g++){
+  memset(&wifi_http5_held_state,0,sizeof wifi_http5_held_state);
+  pair[g].result.prepared=pair[g].result.connection_scope=true;wifi_http5_active_probe=&pair[g];
+  wifi_http5_freeze_hold(7);
+  assert(wifi_http5_held_state.requested && wifi_http5_held_state.prepared && wifi_http5_held_state.capture_attempted);
+  assert(wifi_http5_held_state.callback_attempted==(g==0));
+  assert(!wifi_http5_requested && !wifi_http5_prepared && !wifi_http5_capture_attempted && !wifi_http5_callback_attempted);
+ }
  reset("unprepared");assert(!xhci_wifi_capture_http5());assert(!xhci_wifi_http5_finish_capture(false) && !emits && !prepares);
  reset("already-selected");wifi_stack5.selected=true;assert(!xhci_wifi_http5_prepare() && !prepares);
  puts("xhci-http5-bridge: PASS actual bridge;HOST native-guard/staticIO/originaldeadline/uncertain-no-erasure/frozen-numeric-held-receipts/early-abort models;not USB/key/native acceptance");return 0;

@@ -15,6 +15,7 @@ static bool wifi_http_reconnect5_exercise(void *context,struct mt76_net5 *provid
     wifi_stack5.start>UINT64_MAX-WIFI_STACK5_TOTAL_US)wifi_http5_hold(6);
  struct http_network_probe *p=&wifi_http_reconnect5.probe[g];
  wifi_http5_active_probe=p;
+ wifi_http5_connection_callback_probe=p;
  wifi_http_reconnect5.io[g]=(struct http_network_probe_io){.context=&wifi_stream5,
   .current=wifi_stack5_probe_current,.retry_ready=wifi_stack5_probe_retry,
   .drained=wifi_http5_drained,.terminal_rx_handoff=wifi_stack5_terminal_rx_handoff,
@@ -90,6 +91,7 @@ bool xhci_wifi_capture_http_reconnect5(void){
     wifi_wpa5_requested || wifi_wpa5_data_requested || wifi_provider5_requested ||
     wifi_reuse5_requested || wifi_tx5_nop_child)return false;
  wifi_http_reconnect5.attempted=wifi_reconnect5.attempted=true;
+ wifi_http5_connection_capture_attempted=true;
  wifi_join5_after=wifi_http_reconnect5_window;
  bool good=
 #ifdef SRVROS_XHCI_STREAM5_TEST

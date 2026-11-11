@@ -6,6 +6,8 @@ static struct http_network_probe wifi_http5_probe;
 static struct http_network_probe *wifi_http5_active_probe=&wifi_http5_probe;
 static struct http_network_probe_io wifi_http5_io;
 static bool wifi_http5_requested,wifi_http5_prepared,wifi_http5_capture_attempted,wifi_http5_callback_attempted;
+static bool wifi_http5_connection_capture_attempted;
+static const struct http_network_probe *wifi_http5_connection_callback_probe;
 /* Failure-only CPU0 observation. Take no ownership/clock/provider callbacks and
  * touch no live capabilities. Freeze scalar records with IRQ/preemption excluded,
  * then restore before console locking/rendering or console_sync (which may yield).
@@ -34,10 +36,11 @@ static void wifi_http5_freeze_hold(unsigned site) {
    .stop_requested=w->stop_requested,.finished=w->finished,.failed=w->failed,
    .parked_waiters=w->parked_waiters,.polls=w->polls,.turns=w->turns};
   wifi_http5_held_state.site=site;
-  wifi_http5_held_state.requested=wifi_http5_requested;
-  wifi_http5_held_state.prepared=wifi_http5_prepared;
-  wifi_http5_held_state.capture_attempted=wifi_http5_capture_attempted;
-  wifi_http5_held_state.callback_attempted=wifi_http5_callback_attempted;
+  bool connection=wifi_http5_active_probe!=&wifi_http5_probe;
+  wifi_http5_held_state.requested=connection?wifi_http_reconnect5_reserved:wifi_http5_requested;
+  wifi_http5_held_state.prepared=connection?wifi_http5_active_probe->result.prepared:wifi_http5_prepared;
+  wifi_http5_held_state.capture_attempted=connection?wifi_http5_connection_capture_attempted:wifi_http5_capture_attempted;
+  wifi_http5_held_state.callback_attempted=connection?(wifi_http5_connection_callback_probe==wifi_http5_active_probe):wifi_http5_callback_attempted;
   wifi_http5_held_state.guard_failed=wifi_http5_active_probe->guard_failed;
   wifi_http5_held_state.checking=wifi_http5_active_probe->checking;
   wifi_http5_held_state.bootstrap_open=wifi_http5_active_probe->bootstrap_open;
@@ -76,6 +79,12 @@ static void wifi_http5_freeze_hold(unsigned site) {
 static void wifi_http5_emit_hold(void) {
  const struct http_network_result *r=&wifi_http5_held_state.result;
  const struct net_probe_worker_info *w=&wifi_http5_held_state.worker;
+ /* Keep the discriminating codes on short rows as well as the full frozen
+  * receipt. Long console lines are unreadable in a photograph of this panel. */
+ console_printf("wifi-http5-held-code: version=1 site=%u phase=%u reason=%u child_status=%u connection=%u disconnected=%u\n",
+  wifi_http5_held_state.site,r->phase,r->reason,r->child_status,(uint64_t)r->connection_scope,(uint64_t)r->disconnected);
+ console_printf("wifi-http5-held-stage: dhcp=%u dns=%u route=%u go=%u child_observed=%u quiescent=%u\n",
+  r->dhcp,r->dns,r->route,r->go,(uint64_t)r->child_observed,(uint64_t)r->quiescent);
  console_printf("wifi-http5-held-state: version=1 site=%u requested=%u prepared=%u capture_attempted=%u callback_attempted=%u phase=%u reason=%u attempted=%u go=%u child_status=%u child_observed=%u child_reaped=%u child_retired=%u tcp_empty=%u provider_drained=%u receiver_closed=%u worker_finished=%u quiescent=%u guard_failed=%u checking=%u bootstrap_open=%u handoff_attempted=%u worker_stopped=%u\n",
   wifi_http5_held_state.site,wifi_http5_held_state.requested,wifi_http5_held_state.prepared,
   wifi_http5_held_state.capture_attempted,wifi_http5_held_state.callback_attempted,r->phase,r->reason,(uint64_t)r->attempted,r->go,r->child_status,
@@ -106,7 +115,7 @@ static void wifi_http5_emit_hold(void) {
 static __attribute__((noreturn)) void wifi_http5_hold(unsigned site) {
  wifi_http5_freeze_hold(site);
  wifi_http5_emit_hold();
- console_write("wifi-http5-held: software obligations incomplete; key/provider/DMA retained; no key erase or disk save; photograph the five diagnostic rows above, then power off manually for Ubuntu\n");
+ console_write("wifi-http5-held: software obligations incomplete; key/provider/DMA retained; no key erase or disk save; photograph the diagnostic rows above, then power off manually for Ubuntu\n");
  (void)console_sync();
 #ifdef SRVROS_XHCI_HTTP5_HOST_TEST
  extern __attribute__((noreturn)) void wifi_http5_test_hold(void);

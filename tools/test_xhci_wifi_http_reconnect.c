@@ -84,10 +84,10 @@ bool http_child_publish(struct http_child_owner *o,uint64_t epoch,uint64_t start
 bool http_child_observe(struct http_child_owner *o,uint64_t *status){
  unsigned g=child_count-1;assert(children[g].owner==o);
  if(!children[g].done || o->reaped)return false;
- o->observed=true;*status=0;return true;
+ o->observed=true;*status=trial_case==4?1:0;return true;
 }
 bool http_child_cancel(struct http_child_owner *o){
- unsigned g=child_count-1;assert(children[g].owner==o && !children[g].go);children[g].done=true;return true;
+ unsigned g=child_count-1;assert(children[g].owner==o);if(!children[g].go)children[g].done=true;return true;
 }
 bool http_child_reap(struct http_child_owner *o){
  struct net_probe_worker_info w={0};assert(net_probe_worker_snapshot(&w) && (!w.prepared || w.finished) && !w.active);
@@ -96,23 +96,34 @@ bool http_child_reap(struct http_child_owner *o){
 bool http_child_retire(struct http_child_owner *o){assert(o->reaped);o->retired=true;return true;}
 __attribute__((noreturn)) void wifi_http5_test_hold(void){longjmp(held_run,1);}
 int main(int argc,char **argv){
- trial_case=argc==3 && !strcmp(argv[1],"--case")?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<4);
+ trial_case=argc==3 && !strcmp(argv[1],"--case")?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<6);
  if(argc==19 && !strcmp(argv[1],"--trace")){
   for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)reconnect_seed[d][i]=(uint32_t)strtoull(argv[2+d*8+i],NULL,0);
   reconnect_slot=(unsigned)strtoul(argv[18],NULL,0);assert(reconnect_slot && reconnect_slot<256);reconnect_seeded=true;
  }
  stream_setup();
  if(reconnect_seeded){for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)context_write32(wifi_cal5.d->output_context,d?8:9,i,reconnect_seed[d][i]);wifi_cal5.d->slot_id=(uint8_t)reconnect_slot;}
- http_reconnect_peer=true;reconnect_hook_count=0;reconnect_case_id=trial_case==1?5:0;
+ http_reconnect_peer=true;http_reconnect_peer_no_fin=trial_case==5;reconnect_hook_count=0;reconnect_case_id=trial_case==1?5:0;
  connection_dhcp_fault=trial_case==2?53:0;
  batch_trace=(argc==2 || argc==19) && !strcmp(argv[1],"--trace");
  if(batch_trace)puts("http-reconnect5-host: modeled_usb=1 modeled_scheduler=1 modeled_child=1 acceptance=0");
  if(setjmp(held_run)){
   struct http_network_probe *p=wifi_http5_active_probe;
+  assert(wifi_http5_held_state.requested && wifi_http5_held_state.prepared &&
+   wifi_http5_held_state.capture_attempted && wifi_http5_held_state.callback_attempted);
+  assert(!wifi_http5_requested && !wifi_http5_prepared && !wifi_http5_capture_attempted && !wifi_http5_callback_attempted);
   if(trial_case==2){
    assert(wifi_http5_held_state.site==7 && !wifi_http_reconnect5.connections && p->result.reason==HTTP_NET_DHCP_FAILED && !p->result.quiescent);
    assert(wifi_stream5.exchange.handshake.keys_may_live && !wifi_stream5.exchange.keys_erased && !wifi_stack5.detached && !child_done);
    puts("xhci-http-reconnect5: PASS bad-MIC DHCP refusal through actual native path; live key/provider/worker/child retained;no second connection;acceptance=0");return 0;
+  }
+  if(trial_case==5){
+   assert(wifi_http5_held_state.site==7 && !wifi_http_reconnect5.connections && p->result.reason==HTTP_NET_CLOCK);
+   assert(p->result.handoff && p->result.go && !p->result.child_observed && !p->result.quiescent);
+   assert(children[0].offset==4159 && children[0].parser.body_bytes==3072 && !children[0].eof);
+   assert(!p->child.reaped && !p->child.retired && !p->result.disconnected);
+   assert(wifi_stream5.exchange.handshake.keys_may_live && !wifi_stream5.exchange.keys_erased && !wifi_stack5.detached);
+   puts("xhci-http-reconnect5: PASS missing genuine EOF retains child/worker/key/provider/native ownership at original deadline;no second connection;acceptance=0");return 0;
   }
   fprintf(stderr,"HTTP reconnect held: site=%llu gen=%u phase=%llu reason=%llu quiescent=%u workerfailed=%llu elapsed=%llu services=%llu childoffset=%zu eof=%u\n",
    (unsigned long long)wifi_http5_held_state.site,wifi_http_reconnect5.connections,
@@ -130,6 +141,14 @@ int main(int argc,char **argv){
   assert(wifi_http_reconnect5.probe[1].result.child_retired && !wifi_stream5_slots[1].exchange.handshake.keys_may_live);
   assert(!memcmp(&reconnect_old_stream,&wifi_stream5_slots[0],sizeof reconnect_old_stream) || trial_case==3);
   printf("xhci-http-reconnect5: PASS case%u safe second preparation/handshake refusal, first actual HTTP complete;unused child/worker retired;acceptance=0\n",trial_case);return 0;
+ }
+ if(trial_case==4){
+  const struct http_network_result *r=&wifi_http_reconnect5.probe[0].result;
+  assert(!good && !complete && !wifi_http_reconnect5.connections && child_done==1);
+  assert(r->reason==HTTP_NET_CHILD_FAILED && r->child_status==1 && !r->complete);
+  assert(r->disconnected && r->quiescent && r->child_retired && r->worker_finished && r->tcp_empty && r->provider_drained && r->receiver_closed && r->refs_scrubbed);
+  assert(wifi_stream5_slots[0].exchange.keys_erased && !wifi_http_reconnect5.probe[1].self);
+  puts("xhci-http-reconnect5: PASS modeled nonzero child exit after real TCP/EOF safely retires first lifetime;no second connection;acceptance=0");return 0;
  }
  assert(complete);
  assert(workers==2 && child_count==2 && child_done==2 && reconnect_hook_count==2);

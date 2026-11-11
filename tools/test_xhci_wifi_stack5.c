@@ -57,7 +57,7 @@ static struct {
  bool frozen,provider_loss,wrong_payload;unsigned arp_replies,arp_noise_left,background_left;uint64_t held_ticket;
  uint8_t deferred_dns[1514];size_t deferred_dns_size;
 } ap;
-static bool http_reconnect_peer;
+static bool http_reconnect_peer,http_reconnect_peer_no_fin;
 static uint8_t http_peer_request[4159];static unsigned http_peer_length;
 static unsigned reconnect_case_id,reconnect_hook_count,connection_dhcp_fault;
 static unsigned reconnect_noise(void){return reconnect_case_id==11?2u:reconnect_case_id==12?3u:(reconnect_case_id==10 || (reconnect_case_id>=16 && reconnect_case_id<=18))?1u:0u;}
@@ -204,7 +204,7 @@ static void ap_packet(const uint8_t *p,size_t n){
    ap_http_request_check();
   }else assert(size-header==sizeof stack_request-1 && !memcmp(t+header,stack_request,sizeof stack_request-1));
   uint8_t bytes[sizeof stack_header-1+3072];memcpy(bytes,stack_header,sizeof stack_header-1);for(unsigned i=0;i<3072;i++)bytes[sizeof stack_header-1+i]=(uint8_t)('A'+i%26);
-  for(unsigned at=0;at<sizeof bytes;){unsigned count=(unsigned)sizeof bytes-at;if(count>1100)count=1100;bool last=http_reconnect_peer && at+count==sizeof bytes;ap_tcp_reply(p,last?0x19:0x18,ap.server_seq,seq+size-header,bytes+at,count);ap.server_seq+=count+(unsigned)last;at+=count;}
+  for(unsigned at=0;at<sizeof bytes;){unsigned count=(unsigned)sizeof bytes-at;if(count>1100)count=1100;bool last=http_reconnect_peer && !http_reconnect_peer_no_fin && at+count==sizeof bytes;ap_tcp_reply(p,last?0x19:0x18,ap.server_seq,seq+size-header,bytes+at,count);ap.server_seq+=count+(unsigned)last;at+=count;}
  }else if(flags&1){ap_tcp_reply(p,http_reconnect_peer?0x10:0x11,ap.server_seq,seq+1,NULL,0);if(!http_reconnect_peer)ap.server_seq++;ap.closed=true;}
  else assert(flags==0x10);
 }
