@@ -7,6 +7,27 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Full calibration and two-connection trial scope (November 10)
+
+The next bounded objective carries the accepted startup journal into the full
+Wi-Fi recipe. A separate v142 profile records the existing seven checkpoints
+before USB setup, around workspace/logger admission and after safe capture
+completion. It continues through the fixed161 calibration and two fresh WPA2/
+CCMP connection lifetimes, each with production DHCP, DNS and64 exact gateway
+replies. The existing MCU failure descriptors/events stay enabled. Journal I/O
+runs before radio capture and after it returns, outside the active MCU command
+scope. Deep held ownership remains an incomplete run with available prefixes.
+
+Touched scope is main capture orchestration, explicit profile staging/identity,
+source-frozen collection and exact-stage fixtures. AHCI journal writes, radio
+register/firmware gates,500ms MCU deadline,127-position connection geometry,
+traffic budgets and native retirement logic retain their current behavior.
+Actual main7e8f70ae is already integrated; open PR463 is documentation-only and
+other open scopes do not overlap these files. A fresh file/descriptor and run
+record are required because the previous diagnostic was consumed. The trial
+uses a cold Wi-Fi reset; leave the workspace connected while Wi-Fi is unplugged
+for ten seconds with the laptop off. Existing shutdown authorization applies.
+
 ### Native startup persistence accepted (November 10)
 
 Preparation fix `cc1c3775`, release `7bf30a800c4d68ac`, saved all seven independent
