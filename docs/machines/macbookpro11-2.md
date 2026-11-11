@@ -7,6 +7,53 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### HTTP reconnect candidate installed (November 11)
+
+Source `835ffb01`, release `8ef237478e0aa29b` (v143), is installed for a cold
+native trial. It runs two fresh authenticated connections, each with production
+DHCP/DNS and the actual HTTP child sending an exact 4,159-byte request and reading
+an exact 3,072-byte body through EOF. Each child, supervisor, worker and native
+connection has separate retained storage. The first network/key/endpoint/provider
+cleanup must pass before preparing the second worker. No consumed owner is reset.
+
+Frozen-source qualification passes the new native HTTP path and three refusal/
+containment cases, the 55-case encrypted stack and 19 reconnect cases, the worker
+and HTTP supervisor suites, 271 profile and 42 collector regressions, strict new
+HTTP/parser/transport checks, full unchanged-RF composition, storage regressions
+and matching images. Four native HTTP cases, both worker/supervisor programs and
+27 journal-writer scenarios pass fatal ASan/UBSan. A real-ELF HTTP/DHCP/DNS VM
+passes with real sockets, IRQ clocks, worker and EOF; its exact executed payload
+is preserved and packed HTTP/init bytes match the installed candidate. The paired
+native path uses modeled scheduling/child/USB in its HOST fixture; this does not
+claim a two-connection real-scheduler VM or native acceptance.
+
+All seven exact-image journal VM cases pass, including missing/full workspace,
+refused journal and dirty-state admission. The no-adapter guest retires the unused
+HTTP child/worker before capture. The frozen collector passes 23 workflow and five
+partial-journal cases; arming/rollback passes 11 mocked actual-AST cases. The
+private real-workspace VM preserves all 455 prior files and strict inode/metadata
+records apart from the permitted RTC-bounded marker atime. An initial host-only
+ownership refusal is retained separately; the corrected user-owned verification
+passes. No native workspace bytes were changed by that VM.
+
+The complete candidate and evidence are archived outside build in the unit's
+`wifi-http-reconnect5-835ffb01` record. Ubuntu default/EFI order and seven protected
+recovery equalities verify. For EFI capacity, the redundant consumed `c280` copy
+was removed only after its sealed 1,389-file primary, separate native acceptance
+notes and exact payload backup were verified and accepted `c603` was promoted.
+All closed prior evidence remains unchanged. The fresh independent journal is
+single-use; do not replay the old consumed journal.
+
+The local `wifi-http-reconnect5/run.json` record owns final review, one-shot
+shutdown and collection. While off, unplug only Wi-Fi for ten seconds, reconnect
+to the same port and power on; leave the workspace drive connected. Guest progress
+and saved results need no commands or photos and return automatically on safe
+completion. Collect FIRST once with
+`python3 -B build/bringup/wifi-http-reconnect5/run_root.py return_collect`.
+Native HTTP across reconnects on this source remains pending. Persistent service,
+UI controls, physical reattach, unlimited reuse and reliability remain separate.
+
+
 ### HTTP across connection lifetimes scope (November 11)
 
 Starting from the accepted `0e750c07` two-connection result, extend the native
@@ -23,10 +70,10 @@ The implementation now uses two retained native HTTP supervisors and two fresh
 network workers, with explicit old-worker deconfiguration and DOWN-link admission
 before the second preparation. Native-path development tests complete both exact
 HTTP exchanges and cover bad-MIC DHCP containment plus second-handshake/worker-
-allocation refusal. Source-frozen full-RF/log/staging, fatal sanitizer, actual ELF
-VM and exact-stage workspace/journal qualification are still pending. The accepted
-installed `c280927702804a27` image and all closed evidence remain unchanged; no
-new boot is armed during development.
+allocation refusal. The candidate above now completes source-frozen full-RF/log/staging, fatal
+sanitizer, actual ELF VM and exact-stage workspace/journal qualification. Its
+physical trial remains pending; the accepted `c280` evidence and payload backup
+remain unchanged.
 
 Actual main `3703eaea` was fetched and integrated; PR464 adds only Air6,1 metadata-
 tail test documentation. Submodule pins are unchanged. Current open-PR discovery

@@ -8462,3 +8462,16 @@ supervisor and production worker tests cover further ownership/refusal boundarie
 Actual ELF/scheduler VM qualification and source-bound physical acceptance remain
 required. Desktop controls, persistent service, physical reattach, unrestricted
 reuse and reliability are separate work.
+
+
+Qualification at source `835ffb01` now passes the two-HTTP native path plus safe
+second-handshake/worker-allocation refusal and bad-MIC DHCP containment, full
+existing stack/reconnect regressions and fatal owner/supervisor/journal suites.
+One real-ELF production DHCP/DNS/HTTP VM passes; its executed base payload is
+retained and packed HTTP/init bytes match the staged image. Seven exact v143
+journal/absence cases, 23 frozen workflow cases, five partial-journal cases and
+the 455-file private workspace VM pass. The first host ownership-check refusal is
+preserved separately; corrected verification passes. Release `8ef237478e0aa29b`
+is installed under the unit's collect-first record for the cold physical trial.
+The two-connection native HTTP result and broader service/UI/reattach/reliability
+acceptance remain pending.

@@ -9,6 +9,18 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
+The next source-bound candidate is now installed: `835ffb01` /
+`8ef237478e0aa29b` (v143). It adds two actual HTTP child lifetimes to the native
+reconnect owner, with separate retained workers and strict deconfiguration/DOWN-
+link admission between connections. Local/fatal/native-path fixtures, one real-ELF
+HTTP/DHCP/DNS VM, seven exact-stage journal cases, frozen collection and the
+455-file private workspace clone pass. The initial host ownership refusal is
+preserved; verification under the correct user passes. Ubuntu and recovery checks
+pass. The matching cold native HTTP pair is still pending and owns a fresh journal
+and collect-first run record. Persistent/UI/reattach/reliability work follows.
+
+The following acceptance remains bound to its earlier source.
+
 The cold native `0e750c07` / `c280927702804a27` trial passes full fixed161
 calibration and two fresh authenticated connection epochs within one boot
 (session `00065ff9342c1e07-00`). Each completes production DHCP/DNS and 64 exact
