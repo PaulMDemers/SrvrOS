@@ -9,10 +9,22 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
-Native trace runtime58a48e04/release186c23c85bc94c89 is installed after normal/
-fatal actual-path, seven journal VM and458-file clone checks. No native result
-exists yet; the MCU/HTTP causes remain unproved. Its new run owner is
-`build/bringup/wifi-mcu-loss/run.json`; collect FIRST once after return.
+Native trace runtime58a48e04/release186c23c85bc94c89 returned automatically in
+session00066003c7505e38-00 and is closed failed for Wi-Fi. First R(0) OUT completes;
+the original500ms IN fails and the same retained TD has no late completion
+through1.5s. Both sampled16-byte reply prefixes are zero;75 events are consumed
+and dispatched with zero exact MCU events/claims. No connection starts. This
+narrows the observed loss before reply parsing, without distinguishing firmware
+nonresponse from endpoint/controller delivery. All seven journal records,458
+prior workspace files/metadata,58 other EFI files and seven recoveries pass.
+The1412-file primary and separate return review are closed; never recollect or
+reseal them. Ubuntu is unarmed; MCU and paired-HTTP causes remain unresolved.
+
+Next audit a bounded main-RX-before-calibration comparison with actual native
+publication/dispatch, pending DMA and failure-quarantine coverage. Keep initial
+channel sequencing separate, and do not interpret a future passing trial as a
+root-cause fix without discriminating evidence. No identical blind retry.
+
 An independent clean cold Linux capture has15 matched calibration responses,
 zero monitor drops and exact pinned-code/IVB upload observations: R0=474us,
 FULL901=3454us, max16187us. The first overflowing capture remains partial.
@@ -29,16 +41,16 @@ Main5e72e2dd is integrated at377e2575. A calibration-only native trace now
 separates buffer snapshots, consumed events, dispatch and MCU claim, preserving
 the original500ms failure while observing the same retained TD up to1.5s. Its
 actual-path model cases test distinct losses without claiming a hardware cause.
-Qualification/staging is in progress and no new native result or boot is armed.
+That trace's qualification completed; the native return is recorded above.
 
 External driver/specification research is recorded in the
 [November 11 review](macbookpro11-2-wifi-research-2026-11-11.md). Linux's response
 wait/matching and cancellation policy provide concrete comparison targets;
 running output-context dequeue snapshots cannot prove a stuck controller.
 The research supplies no established physical cause or production correction.
-The research-only checkpoint made no runtime, install or boot changes; the later
-source integration/tracing scope above still requires qualification. The native
-acceptance gates below remain unchanged.
+The research-only checkpoint made no runtime, install or boot changes; later
+source integration/tracing and its failed native return are recorded above.
+The native acceptance gates below remain unchanged.
 
 The `d413e338` / `e4e95e7d5e24fc7c` return is closed failed for Wi-Fi in
 session `000660021b689d1e-00`. The larger24×48 text is natively confirmed readable
@@ -80,6 +92,46 @@ connection lifetimes, then the persistent worker and desktop controls, physical
 adapter reattach, cancellation/failure recovery and repeated endurance runs.
 The current HTTP pair failed/incomplete; historical accepted single HTTP is preserved.
 Demers2.4 remains a different-adapter scope because this Edimax is 5GHz-only.
+
+### Main-RX comparison audit after the trace return
+
+Source58a48e04 confirms the difference, but a direct move of `wifi_cal5_post`
+before calibration is invalid. `wifi_cal5_inspection` calls the calibration
+engine before `mt76_rx5_window_poll`; the latter starts with zero attempts and
+would attempt to publish slot0 again. The native post callback correctly refuses
+that mismatch. Its eight forward slots and eight optional cleanup slots also
+have exact layout, event, stopped-dequeue and retained-buffer contracts; early
+traffic cannot silently become a normal observation or cleanup receipt.
+
+Additional constraints found in this audit:
+
+- `wifi_cal5_owner` rejects pending MCU work for ordinary actions. A preposted
+  data completion may arrive during the actual MCU OUT/IN wait or EP0 guards.
+  Event admission therefore needs an exact memory-only owner for those spans;
+  it must not widen forward register/publish authorization.
+- `wifi_cal5_event` describes one most-recent forward TD, while Linux posts a
+  queue of receives and services it asynchronously. A separate comparison needs
+  per-TD completion accounting rather than assigning every event to the latest
+  post. No buffer can be published twice or reclaimed on timeout.
+- The running output-context dequeue pointer is not a progress oracle. Preserve
+  immutable ring/page identities separately; validate final cessation only after
+  the matching Stop completion. This audit does not identify that guard as the
+  observed R(0) cause: it passed before the failed receive.
+- The current native-C calibration fixture deliberately publishes no data RX;
+  its modeled parent cannot qualify a reordered data queue. The cleanup fixture
+  covers a later phase and does not supply that missing overlap coverage.
+
+Implement the comparison as a separate opt-in bounded owner, retaining all early
+pages and reporting queue exhaustion explicitly. Keep fixed161, the original
+MCU deadline, response-loss observer, RF/firmware gates and ordinary profiles
+unchanged. Do not combine the channel36 hypothesis with this comparison. Before
+installation, tests must drive actual publication/poll/dispatch with data events
+interleaved before OUT completion, during each MCU IN and during EP0 guards;
+cover wrong slot/DCI/TRB, duplicate/late events, malformed completion/residue,
+finite capacity, pending timeout/removal and cessation races. Failure must leave
+all pending DMA retained with no speculative cleanup or network connection.
+A future passing comparison would support the RX-backpressure hypothesis, not
+establish a production correction or accept paired HTTP/lifecycle reliability.
 
 ## Previous checkpoint (November 10)
 

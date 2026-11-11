@@ -22,7 +22,7 @@ live reattach,authentication/network TX or IP. Ordinary startup leaves diagnosti
 radio operations disabled. Dated milestones below must not reinstate withdrawn
 2.4GHz model assumptions or transfer acceptance between sources.
 
-## Calibration response-loss tracing (November 11; software qualification)
+## Calibration response-loss tracing (November 11)
 
 The explicit fixed5GHz calibration path now emits `wifi-mcu-loss-summary` and
 two `wifi-mcu-loss-buffer` rows per attempted receive. The rows separate event
@@ -58,8 +58,16 @@ Linux HCD. The earlier overflowing cold capture is retained as partial. Linux
 posts main RX before calibration and performs its initial power-on calibration
 on36 before later161 selection; native's fixed161 diagnostic differs in both
 respects. Neither difference has been established as the failure cause.
-Source58a48e04/release186c23c85bc94c89 is software-qualified and installed for
-native loss tracing with independent persistence; physical results are pending.
+Source58a48e04/release186c23c85bc94c89 subsequently returned with a complete
+journal and USB trace. First R(0) OUT completes, but the original500ms receive
+fails; the same retained TD has no completion through1.5s. Both stable16-byte
+prefix samples remain zero. Seventy-five events are consumed and dispatched,
+with no exact MCU event or handler claim. This supplies no observed
+consumed-but-dropped reply, and no late-reply evidence for this run. It still
+cannot distinguish firmware nonresponse from endpoint/controller delivery or
+prove wire-level absence. Wi-Fi remains failed for this lifetime; storage and
+recovery pass. Main-RX posting and initial-channel differences remain hypotheses,
+not a justified production correction. See the unit record for the closed bank.
 
 ## Fresh trim lifetime (v117; bounded native acceptance)
 

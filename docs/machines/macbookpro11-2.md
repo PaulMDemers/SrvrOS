@@ -7,6 +7,45 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Native loss trace: no observed reply prefix or exact event (November 11)
+
+Runtime `58a48e04` / release `186c23c85bc94c89` returned automatically in
+session `00066003c7505e38-00`. Once-only collection is closed **failed for Wi-Fi**;
+no connection started. The first R(0) command's16-byte OUT completed, but its
+DCI11 receive hit the original500000us deadline. Observation of that same
+retained TD through1500000us found no late completion. Both stable CPU samples
+of the first16 response bytes are zero. Event consumption and dispatch each
+observe75 other events, zero exact MCU events, zero handler claims and no
+counter overflow. The original failure/quarantine remains unchanged.
+
+This narrows the observed failure before reply parsing: no exact event was
+observed being consumed and subsequently lost in dispatch. It does **not**
+distinguish firmware nonresponse from endpoint/controller delivery or establish
+wire-level absence. Two zero prefix snapshots are not continuous DMA monitoring;
+the16-byte OUT completion does not prove firmware executed calibration. Submitted
+descriptor RAM matches the pinned buffer/cycle/length at index16, but a running
+output-context dequeue pointer still cannot prove controller progress or stall.
+The1.5s horizon supplied no evidence for an ordinary late reply on this run.
+
+All seven independent journal checkpoints and both USB logs saved, with exact
+overlap of all four new diagnostic rows in the journal's final tail. All458 prior
+workspace files and metadata survive apart from one authorized marker atime;
+offline allocation/fsck,58 other EFI files and seven recovery equalities pass.
+Ubuntu is unarmed. The1412-file primary bank `wifi-mcu-loss-58a48e04` has index
+`71b4d77961957ab85e3abe1812a2c376ef7588792399ed51368776a598efb3eb`.
+Never recollect or reseal it. The separate three-file return review
+`wifi-mcu-loss-return-review-58a48e04` retains decoder and journal overlap checks
+outside build, index
+`8fd8ac0d02736bb0f99e4f0faa43a55800f6463ddb3eea127c10582d782d5ac2`.
+
+Next audit a bounded main-RX-before-calibration comparison: Linux posts data RX
+before calibration, while this diagnostic has no main-RX TD posted when R(0)
+fails. Any comparison must cover actual native publication/dispatch, pending
+buffer ownership, cancellation and failure quarantine before installation.
+Initial channel36 versus161 sequencing remains a separate hypothesis. No blind
+retry, deadline increase, speculative endpoint reset or DMA reuse is justified.
+The prior paired-HTTP hold remains unresolved and was not exercised here.
+
 ### Clean cold Linux reference; native trace installed (November 11)
 
 Runtime source `58a48e04`, release `186c23c85bc94c89`, integrates main
