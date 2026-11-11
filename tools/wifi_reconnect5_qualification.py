@@ -50,7 +50,7 @@ def _preserved(lines):
     return [s for s in lines if not s.startswith(OLD_CHILD+IDENTITY+(MARK,)) and s!=TAG]
 
 
-def compose(parent,trace,release,volume):
+def compose(parent,trace,release,volume,*,startup_journal=False):
     require(TAG not in parent and HOST_LABEL not in parent,'synthetic log cannot supply accepted RF parent')
     require(re.fullmatch('[0-9a-f]{16}',release) and re.fullmatch('[0-9a-f]{8}',volume),
             'invalid synthetic qualification identity')
@@ -59,7 +59,9 @@ def compose(parent,trace,release,volume):
     require(actual and actual[0].startswith('wifi-reconnect5-begin:') and
             actual[-1].startswith('wifi-reconnect5-final:'),'fixture lacks complete bracketed native groups')
     original=parent.splitlines();lines=[];seen=set()
-    command=' '.join(sorted(checker.BOOT_FIXED|{'srvros.desktop-release='+release,'srvros.workspace-volume='+volume}))
+    require(type(startup_journal) is bool,'invalid startup journal fixture mode')
+    metadata={'srvros.startup-journal=1'} if startup_journal else set()
+    command=' '.join(sorted(checker.BOOT_FIXED|metadata|{'srvros.desktop-release='+release,'srvros.workspace-volume='+volume}))
     for line in original:
         identity=next((p for p in IDENTITY if line.startswith(p)),None)
         if identity:
@@ -87,7 +89,7 @@ def compose(parent,trace,release,volume):
                      composition_sha256=sha(text.encode()))
 
 
-def generate(parent_path,binary_path,destination,*,release='0123456789abcdef',volume='12345678'):
+def generate(parent_path,binary_path,destination,*,release='0123456789abcdef',volume='12345678',startup_journal=False):
     parent_path=Path(parent_path).resolve();binary_path=Path(binary_path).resolve();destination=Path(destination)
     oldmask=os.umask(0o077)
     try:destination.mkdir(mode=0o700,parents=True,exist_ok=False)
@@ -97,7 +99,8 @@ def generate(parent_path,binary_path,destination,*,release='0123456789abcdef',vo
     run=subprocess.run(argv,capture_output=True,text=True,timeout=120)
     (destination/'host-trace.log').write_text(run.stdout);(destination/'host-stderr.log').write_text(run.stderr)
     require(run.returncode==0,'source-bound native HOST fixture refused captured parent context')
-    composed,proof=compose(parent,run.stdout,release,volume)
+    composed,proof=compose(parent,run.stdout,release,volume,startup_journal=startup_journal)
+    if startup_journal:proof["startup_journal_profile"]=True
     (destination/'synthetic-composition.log').write_text(composed)
     sessions=re.findall(r'^workspace-log: directory=/work/srvros-work/Logs/(session-[0-9a-f]{16}-[0-9a-f]{2})(?: |$)',parent,re.M)
     require(len(sessions)==1,'captured parent lacks unique saved session')
@@ -115,5 +118,6 @@ if __name__=='__main__':
     import argparse
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--parent',required=True);p.add_argument('--binary',required=True);p.add_argument('--output',required=True)
-    args=p.parse_args();_,proof=generate(args.parent,args.binary,args.output)
+    p.add_argument('--startup-journal',action='store_true')
+    args=p.parse_args();_,proof=generate(args.parent,args.binary,args.output,startup_journal=args.startup_journal)
     print(json.dumps({k:proof[k] for k in ('passed','synthetic','native_acceptance','parent_sha256','trace_sha256','composition_sha256')},indent=2))

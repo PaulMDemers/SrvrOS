@@ -51,7 +51,8 @@ def run(args):
     refusal_reason = 8 if args.mode == 'dirty-state' else 6
     source = boot.STAGE / args.release
     manifest = boot.verify(source)
-    assert manifest['config_version'].startswith('ram-usb-wifi-fw-v141-')
+    assert manifest['config_version'].startswith(('ram-usb-wifi-fw-v141-','ram-usb-wifi-fw-v142-'))
+    full_reconnect = manifest['config_version'].startswith('ram-usb-wifi-fw-v142-')
     descriptor = journal.verify_initramfs(source/'initramfs.tar')
     host = json.loads((args.host_record/'journal-host.json').read_text())
     assert descriptor == (args.host_record/'descriptor.bin').read_bytes()
@@ -128,7 +129,8 @@ def run(args):
         with (result_dir/'qemu.log').open('wb') as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
-                marker = 'neither persistent destination admitted' if args.mode == 'both-refused' else 'Startup diagnostic complete.'
+                marker = ('neither persistent destination admitted' if args.mode == 'both-refused' else
+                          'laptop-capture: returning to Ubuntu' if full_reconnect else 'Startup diagnostic complete.')
                 text = wait_for(serial, lambda s: marker in s, process, 100)
                 if args.mode == 'both-refused':
                     assert process.poll() is None
@@ -159,6 +161,10 @@ def run(args):
             assert 'REFUSED insufficient file/directory slots' in text
         elif not refusal:
             assert not any(parsed[x] for x in ('workspace_ready','logger_started','saved','unmounted'))
+        if full_reconnect and args.mode != 'both-refused':
+            from hardware_boot_smoke import verify_reconnect5_absent_radio
+            verify_reconnect5_absent_radio(text)
+            assert 'wifi-journal-summary: version=1 sampled=0' in text
         checked = verify_sparse_changes(internal, seeds, (offset+512, offset+journal.FILE_BYTES))
         if not missing:
             with stick.open('rb') as stream:
@@ -178,7 +184,7 @@ def run(args):
                 assert b'srvros.desktop-release='+args.release.encode() in log
                 assert b'workspace-log: snapshot=exit.log ' in log
         report = dict(status='PASS', source=manifest['git_head'], release=args.release, mode=args.mode,
-                      exact_stage=True, exact_descriptor=True, independent_ahci=True,
+                      exact_stage=True, exact_descriptor=True, independent_ahci=True, full_reconnect_profile=full_reconnect,
                       native_accepted=False, phases=len(parsed['records']), refusal_exercised=refusal, fallback_saved=args.mode in ('journal-refused','dirty-state'), clean_boot_sector_pinned=True, expected_hold=args.mode=='both-refused', allocated_bytes_compared=checked,
                       changed_bytes_confined_to_journal=True, workspace_ready=parsed['workspace_ready'],
                       logger_started=parsed['logger_started'])

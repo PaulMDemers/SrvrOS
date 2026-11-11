@@ -87,6 +87,17 @@ class Tests(unittest.TestCase):
         for checker in (stack.boot_identity,):
             with self.assertRaises(ValueError):checker(text(rows),RELEASE)
 
+    def test_actual_v142_journal_recipe_matches_checker(self):
+        import hardware_boot
+        config=hardware_boot.limine_config(RELEASE,'ram-usb-wifi-fw-v142-laptop-probe-'+VOLUME+'-auto-return')
+        command=next(s.strip()[9:] for s in config.splitlines() if s.strip().startswith('cmdline: '))
+        rows=['cmdline: '+command,c.BOOT,'laptop-capture: boot options='+command]
+        self.assertEqual(c.boot_identity(text(rows),RELEASE,VOLUME),RELEASE)
+        for extra in ('srvros.startup-diagnostic=1','srvros.startup-journal=0',
+                      'srvros.startup-journal=1','srvros.wifi-http5=1'):
+            changed=[s+' '+extra if s.startswith(('cmdline: ','laptop-capture: ')) else s for s in rows]
+            with self.subTest(extra=extra),self.assertRaises(ValueError):c.boot_identity(text(changed))
+
     def test_empty_truncated_owner_refuses(self):
         for value in ('','wifi-reconnect5-begin: version=1 generation=1 adapter_parent_held=1\n'):
             with self.assertRaises(ValueError):c.check_owner(value)
@@ -243,6 +254,20 @@ class FullRFQualificationTests(unittest.TestCase):
     def verify(self,log):
         import wifi_reconnect5_qualification as q
         return c.check_qualification(q.retotal(log),RELEASE,volume=VOLUME)
+
+    def test_journal_profile_preserves_complete_rf_parent(self):
+        import wifi_reconnect5_qualification as q
+        _,proof,directory=self.composition()
+        parent=Path(proof['parent_path']).read_text()
+        trace=(directory/'host-trace.log').read_text()
+        log,journal_proof=q.compose(parent,trace,RELEASE,VOLUME,startup_journal=True)
+        result=self.verify(log)
+        self.assertTrue(result['reconnect5_complete'])
+        self.assertFalse(result['native_accepted'])
+        self.assertEqual(journal_proof['unchanged_outer_sha256'],proof['unchanged_outer_sha256'])
+        self.assertIn('srvros.startup-journal=1',log)
+        with self.assertRaisesRegex(ValueError,'qualification-only'):
+            c.check(log,RELEASE,volume=VOLUME)
 
     def test_actual_full_rf_composition_preserves_parent_and_scope(self):
         import wifi_reconnect5_qualification as q

@@ -663,9 +663,10 @@ void kmain(void) {
     console_write("\n\nsrvros: entering kernel\n");
     const char *cmdline = kernel_cmdline();
     bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
-    if(startup_diagnostic && (!cmdline_has_token(cmdline,"srvros.storage=ram") ||
-        !cmdline_has_token(cmdline,"srvros.wifi-reconnect5=1") ||
-        !cmdline_has_token(cmdline,"srvros.capture-failure=reboot")))halt_forever();
+    bool reconnect_journal=cmdline_has_token(cmdline,"srvros.startup-journal=1");
+    bool startup_journal_requested=startup_diagnostic || reconnect_journal;
+    if(startup_journal_requested && (!wifi_reconnect5_recipe(cmdline) ||
+        (startup_diagnostic && reconnect_journal)))halt_forever();
     boot_verbose = boot_debug_requested(cmdline);
     bool a1466_capture = boot_a1466_capture_requested(cmdline);
 
@@ -778,9 +779,11 @@ void kmain(void) {
 #endif
     }
     pci_init();
-    if(startup_diagnostic) {
+    if(startup_journal_requested) {
         boot_set_framebuffer_quiet(false);
-        boot_status("Startup diagnostic: saving independent internal-disk checkpoints; no input required\n");
+        boot_status(reconnect_journal?
+            "Wi-Fi calibration and two-connection trial: independent checkpoints; no input required\n":
+            "Startup diagnostic: saving independent internal-disk checkpoints; no input required\n");
         startup_journal_admitted=ahci_init() && startup_journal_open();
         if(!startup_journal_admitted)
             console_write("Startup journal unavailable. Trying USB workspace logging to preserve the admission details.\n");
@@ -821,7 +824,7 @@ void kmain(void) {
         cmdline_has_token(cmdline,"srvros.wifi-mac-startup=1"));
     xhci_set_wifi_firmware_enabled(cmdline_has_token(cmdline,"srvros.capture=wifi-firmware"));
     xhci_init();
-    if(startup_diagnostic)startup_checkpoint(2,0);
+    if(startup_journal_requested)startup_checkpoint(2,0);
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",
         mouse_ready ? "yes" : "no",
@@ -1074,9 +1077,9 @@ void kmain(void) {
         console_printf("capture-write-timing: enabled=%s capacity=8\n",process_capture_write_timing_enable()?"yes":"NO");
         console_printf("sync-timing: enabled=%s capacity=8\n",sync_timing_enable()?"yes":"NO");
     }
-    if(startup_diagnostic)startup_checkpoint(3,(init_ready?4u:0u)|(timer_running?8u:0u));
+    if(startup_journal_requested)startup_checkpoint(3,(init_ready?4u:0u)|(timer_running?8u:0u));
     workspace_boot(cmdline);
-    if(startup_diagnostic)startup_checkpoint(4,(workspace_active()?1u:0u)|(init_ready?4u:0u)|(timer_running?8u:0u));
+    if(startup_journal_requested)startup_checkpoint(4,(workspace_active()?1u:0u)|(init_ready?4u:0u)|(timer_running?8u:0u));
     if (automatic_probe || automatic_wifi) {
         /* Capture enumeration/setup failures even if firmware left a misleading
          * PS/2-ready flag. This unattended profile must not require typing. */
@@ -1098,13 +1101,17 @@ void kmain(void) {
             else started=workspace_log_start_capture();
         }
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
-        if(startup_diagnostic) {
-            uint64_t flags=(workspace_active()?1u:0u)|(started?2u:0u)|(init_ready?4u:0u)|(timer_running?8u:0u);
-            startup_checkpoint(5,flags);
+        uint64_t startup_flags=0;
+        if(startup_journal_requested) {
+            startup_flags=(workspace_active()?1u:0u)|(started?2u:0u)|(init_ready?4u:0u)|(timer_running?8u:0u);
+            startup_checkpoint(5,startup_flags);
             if(!startup_journal_admitted && !started) {
                 console_write("Startup diagnostic: neither persistent destination admitted. Return to Ubuntu manually; the armed empty file records this incomplete attempt.\n");
                 console_sync();halt_forever();
             }
+        }
+        if(startup_diagnostic) {
+            uint64_t flags=startup_flags;
             bool saved=started && workspace_log_stop();
             bool unmounted=workspace_active() && workspace_unmount();
             flags|=(saved?16u:0u)|(unmounted?32u:0u);
@@ -1374,9 +1381,23 @@ void kmain(void) {
         bool saved=started && workspace_log_stop();
         bool unmounted=workspace_active() && workspace_unmount();
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
+        if(reconnect_journal) {
+            startup_flags|=(saved?16u:0u)|(unmounted?32u:0u);
+            console_printf("wifi-journal-summary: version=1 sampled=%u saved=%u unmounted=%u independent=%u\n",
+                (uint64_t)sampled,(uint64_t)saved,(uint64_t)unmounted,(uint64_t)startup_journal_admitted);
+            startup_checkpoint(6,startup_flags);
+            if(!startup_journal_admitted && !(saved && unmounted)) {
+                console_write("Wi-Fi capture persistence incomplete. Return to Ubuntu manually; available files will be collected.\n");
+                console_sync();halt_forever();
+            }
+        }
         bool return_safe=(!wifi_desktop_trial && !cmdline_has_token(cmdline,"srvros.wifi-nop5=1") && !cmdline_has_token(cmdline,"srvros.wifi-stream5=1")) || unmounted || !workspace_active();
         if(return_safe && (return_on_failure || (saved && (sampled || automatic_load) && unmounted))) {
             console_write("laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n");
+            if(reconnect_journal) {
+                startup_checkpoint(7,startup_flags);
+                if(startup_journal_admitted && !startup_journal_close()){console_sync();halt_forever();}
+            }
             console_sync();timer_delay_us(250000);
             if(return_on_failure)arch_reboot_unattended();
             arch_reboot();

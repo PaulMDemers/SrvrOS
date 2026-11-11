@@ -24,6 +24,20 @@ class StartupJournalTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             boot.limine_config('0123456789abcdef', version.replace('-auto-return', ''))
 
+    def test_full_reconnect_profile(self):
+        import hardware_boot as boot
+        version = 'ram-usb-wifi-fw-v142-laptop-probe-0e535900-auto-return'
+        config = boot.limine_config('0123456789abcdef', version)
+        base = boot.limine_config('0123456789abcdef', version.replace('v142-', 'v140-'))
+        self.assertEqual(config, base.replace('srvros.storage=ram',
+            'srvros.storage=ram srvros.startup-journal=1'))
+        self.assertNotIn('srvros.startup-diagnostic=1', config)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):
+            boot.stage(wifi_reconnect5=True, wifi_reconnect5_journal=True)
+        with self.assertRaises(ValueError):
+            boot.limine_config('0123456789abcdef', version.replace('-auto-return', ''))
+
     def test_initramfs_binding(self):
         descriptor = (j.magic('SRVRSTARTDESC1')+struct.pack('<QQQQ', 100000, 2097152, 1048576, 10485760)
                       + bytes(range(16)) + bytes(64))

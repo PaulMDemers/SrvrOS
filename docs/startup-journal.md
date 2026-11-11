@@ -115,3 +115,21 @@ recoveries pass. The closed779-file primary and separate acceptance notes are
 retained outside build. Ubuntu is unarmed. The consumed file stays populated;
 future tests use a fresh file, descriptor and run record. Full firmware/network
 capture and repeated lifetimes require their own evidence.
+
+
+## Full Wi-Fi capture profile
+
+The separate opt-in v142 profile uses `srvros.startup-journal=1` and the complete
+v140 reconnect recipe. It retains checkpoints one through five, continues through
+calibration and two fresh connections, then records save/unmount and safe return
+as phases six and seven. It requires a fresh preallocated file and descriptor.
+The startup-only v141 profile remains available for isolated persistence checks.
+
+No journal I/O runs inside an active MCU command or uncertain Wi-Fi ownership
+hold. A held capture can leave a valid partial checkpoint prefix. Preserve that
+prefix and all USB files before applying success-only RF and lifecycle checks.
+A full journal proves the recorded persistence milestones; successful calibration,
+authentication, encrypted data and two independently retired connection lifetimes
+require their own complete native evidence. Exact-stage VMs exercise the full
+orchestration with an absent radio, including destination refusals, without
+claiming physical Wi-Fi results.

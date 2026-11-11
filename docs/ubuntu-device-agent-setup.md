@@ -1809,3 +1809,14 @@ one fresh journal file, archive its descriptor and empty contents, then follow
 the normal matched build, exact-stage VM, protected recovery, one-shot boot and
 once-only collection sequence. See the [startup journal](startup-journal.md)
 for disk binding, bounded data writes, checkpoint format and failure handling.
+
+
+The separate v142 `--wifi-reconnect5-journal` profile carries the same bounded
+journal around the full fixed-channel calibration and two connection lifetimes.
+It requires `--startup-journal` with a fresh descriptor and the complete
+`--wifi-reconnect5` recipe. The journal runs outside active MCU commands. A safe
+return writes phase seven after USB capture cleanup; a held run may retain a
+valid incomplete prefix. Collect the independent raw file and USB files before
+success-only protocol checks. Seven checkpoints prove capture completion, while
+full RF, fresh authentication, DHCP/DNS, traffic and retirement proofs determine
+Wi-Fi acceptance. A populated journal must never be reused for another trial.

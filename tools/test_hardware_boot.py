@@ -171,16 +171,16 @@ class InstallTests(unittest.TestCase):
         names={'wifi_firmware','wifi_ui_capture','wifi_5ghz_prereq','wifi_calibration','wifi_capture','wifi_nop5','wifi_stream5','wifi_stream5_dhcp','wifi_stack5','wifi_http5','wifi_reconnect5'}
         nodes=[n for n in main.body if (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in names for t in n.targets)) or (isinstance(n,ast.If) and isinstance(n.test,ast.Name) and n.test.id in ('wifi_nop5','wifi_stream5'))]
         code=compile(ast.Module(body=nodes,type_ignores=[]),str(source),'exec')
-        for version in (128,130,134,135,136,137,138,139,140):
+        for version in (128,130,134,135,136,137,138,139,140,142):
             config=boot.limine_config('0123456789abcdef',f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return')
             (self.root/'limine.conf').write_text(config)
             env={'probe':True,'manifest':{'config_version':f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return'},'source':self.root}
             exec(code,env)
             self.assertTrue(env['wifi_capture'] and env['wifi_firmware'] and env['wifi_5ghz_prereq'])
-            self.assertEqual(env['wifi_stream5'],version in (135,136,137,138,139,140))
-            self.assertEqual(env['wifi_stack5'],version in (137,138,139,140))
+            self.assertEqual(env['wifi_stream5'],version in (135,136,137,138,139,140,142))
+            self.assertEqual(env['wifi_stack5'],version in (137,138,139,140,142))
             self.assertEqual(env['wifi_http5'],version==139)
-            self.assertEqual(env['wifi_reconnect5'],version==140)
+            self.assertEqual(env['wifi_reconnect5'],version in (140,142))
         for invalid in (config.replace('srvros.wifi-stream5=1','srvros.wifi-stream5=1 srvros.wifi-wpa5=1'),config.replace('srvros.wifi-stream5=1','srvros.wifi-stream5=10')):
             (self.root/'limine.conf').write_text(invalid)
             with self.assertRaises(AssertionError):exec(code,env)
@@ -193,7 +193,7 @@ class InstallTests(unittest.TestCase):
             isinstance(n.test.left,ast.IfExp) and any(isinstance(x,ast.Constant) and x.value==b'tail_limit=4194304' for x in ast.walk(n.test.left))]
         self.assertEqual(len(choices),1)
         code=compile(ast.Expression(choices[0]),str(source),'eval')
-        for version,limit in ((135,2097152),(136,2097152),(137,2097152),(138,4194304),(139,4194304),(140,4194304)):
+        for version,limit in ((135,2097152),(136,2097152),(137,2097152),(138,4194304),(139,4194304),(140,4194304),(142,4194304)):
             self.assertEqual(eval(code,{'manifest':{'config_version':f'ram-usb-wifi-fw-v{version}-laptop-probe-12345678-auto-return'}}),f'tail_limit={limit}'.encode())
 
     def test_http5_smoke_absent_owner_retired(self):

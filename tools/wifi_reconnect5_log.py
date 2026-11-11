@@ -47,7 +47,9 @@ def boot_identity(log,release=None,volume=None):
     require(len(releases)==len(volumes)==1 and
             re.fullmatch(r'srvros.desktop-release=[0-9a-f]{16}',releases[0]) and
             re.fullmatch(r'srvros.workspace-volume=[0-9a-f]{8}',volumes[0]),'invalid reconnect run identity')
-    require(tokens-set(releases+volumes)==BOOT_FIXED,'wrong explicit reconnect recipe')
+    recipe=tokens-set(releases+volumes)
+    require(recipe in (BOOT_FIXED,BOOT_FIXED|{'srvros.startup-journal=1'}),
+            'wrong explicit reconnect recipe')
     actual=releases[0].split('=',1)[1];actual_volume=volumes[0].split('=',1)[1]
     require(release is None or release==actual,'wrong reconnect release')
     require(volume is None or volume==actual_volume,'wrong reconnect workspace')
