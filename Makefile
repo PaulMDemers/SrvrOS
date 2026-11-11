@@ -2166,6 +2166,13 @@ test-sync-commit-boundary: $(LIMINE_PROTOCOL_DIR)/.ready
 	CC="$(HOST_CC)" $(PYTHON) tools/test_sync_commit_boundary.py --limine-include $(LIMINE_PROTOCOL_DIR)/include
 test-core: test-sync-commit-boundary
 
+.PHONY: test-populated-save test-exfat-metadata-tail
+test-populated-save: $(LIMINE_PROTOCOL_DIR)/.ready
+	CC="$(HOST_CC)" $(PYTHON) tools/test_populated_save.py --limine-include $(LIMINE_PROTOCOL_DIR)/include
+test-exfat-metadata-tail:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_metadata_tail.py
+test-core: test-populated-save test-exfat-metadata-tail
+
 .PHONY: test-syscall-io
 test-syscall-io: build/tests/syscall-io-host$(HOST_EXE)
 	$<

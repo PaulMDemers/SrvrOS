@@ -11982,3 +11982,61 @@ proof, barrier and runtime limits remain. This tools/evidence change adds no
 kernel/userspace runtime behavior or new physical acceptance. Next performance
 work needs a demonstrated equivalent reduction in commit work before another
 native stress boot is justified.
+
+## Active populated-save reduction scope (2026-11-10)
+
+Base is main `7e8f70ae`. Extend the actual process/VFS/exFAT replay to the full
+65-write save and foreign-barrier schedule with 832 seeded Home files and
+changing timestamps. Account separately for payload, prefix, sidecar and flush
+work. The first candidate under examination is unnecessary allocation-tail
+padding in newly written internal metadata payloads on 128KiB clusters. Every
+logical metadata byte, final sector padding, required comparison, publication
+and barrier must remain correct, including failed/torn operations and recovery.
+Ordinary file behavior and existing ownership, byte and runtime limits remain
+required. No performance improvement or new hardware acceptance is claimed yet.
+
+Touched scope is exFAT metadata payload emission, disposable populated replay
+and fault fixtures, and this unit's current guides. Open PR301 at74920c2f and
+PR19 at4e0ee3e4 retain separate graphics/network scope. No other-machine task is
+contacted. Current3403/recoveryc354 and original failed media stay protected.
+Next checkpoint is a measured equivalent reduction in the complete populated
+save, with baseline/candidate logical media and failure comparisons.
+
+The first [metadata-padding candidate](../exfat-metadata-tail.md) supplies an
+explicit internal-metadata flag to the existing data writer. It writes every
+serialized byte plus zeroed final-sector padding, preserving the allocation,
+exact logical/valid lengths, publication and all barriers. Ordinary payloads
+and directory initialization retain complete-cluster behavior. Existing byte,
+ownership, proof and runtime limits remain required.
+
+The full populated development replay now has832 initial files, persisted
+timestamps, poisoned free space and time advances across all65 foreign barriers.
+All65 screenshot-size writes, prior files, both full fresh proofs and complete
+allocation pass. The candidate saves2770944 metadata-write bytes in unreserved/
+reserved-sequential controls and1700352 bytes with controlled reserved overlap.
+Logical files and all prefix/read/write-count/flush work match baseline. This
+demonstrates a source-byte reduction. Native performance remains pending.
+
+Frozen implementation `cc4f9278`, based on main `7e8f70ae`, passes matched
+normal/native/VM builds, full core/desktop/docs checks, ordinary ABI/input/USB
+and capture VMs, and the populated Home400writeIOPS KVM audio/disk/apps/
+screenshot trial. Independent saved-receipt checks retain every original
+contract. The source/image hashes remain fixed throughout validation. Stage
+`c95f851e735b98ff` passes the exact native board-refusal/save/unmount/return VM
+rehearsal; it has no native hardware acceptance yet.
+
+All132 metadata-publication fault points match baseline logical contents,
+protected files, exits and pre/post-repair allocation results. The72 inherited
+strict-allocation failures after repair remain incomplete evidence, not a clean
+recovery claim. Raw and repaired images are retained locally. Source changes do
+not alter ownership, integrity checks, flushes, byte caps or timing requirements.
+
+At integration review, PR301 `6d127542` remains separate graphics work with no
+exFAT writer edit; PR19 `6ca94b59` changes metadata import/restore in the same
+file, with distinct hunks and no competing payload-padding implementation or
+format change. Neither is a dependency, and no other-machine task is contacted.
+Next checkpoint is the automated1800-second1% native workload plus60-second
+tail, three exact screenshot receipts, continuous app/disk work, clean battery
+retirement and full USB preservation/allocation checks. Preserve current3403,
+recoveryc354, priora139 and the original failed-media evidence. Different cold
+boot timing is observational; it does not isolate the controller/media cause.
