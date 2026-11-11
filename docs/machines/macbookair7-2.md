@@ -2,10 +2,10 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Active scope: joint-context BCS shutdown qualification
+### Active scope: original-owner HDA/BCS shutdown hardware trial ready
 
 Integrated actual main `ae869c9b` in merge`f3a2f897` (PR465 queued append
-waits and PR466 native Air6,1 results). Implement the separate
+waits and PR466 native Air6,1 results). Implemented the separate
 [original-owner HDA/BCS shutdown diagnostic](../intel-hda-bcs-shutdown.md). PR19
 networking and PR379 WebCore remain independent. The new image/recipe must use
 the original joint HDA inhibition and wake owner, sample the legal awake engine
@@ -23,7 +23,51 @@ Persistent original owner/provider/borrow objects and post-store uncertainty
 retention remain mandatory. Preserve old images/receipts and test their refusal
 contracts. Checkpoint:`build/air-hda-shutdown-20261111`; source78be return fully
 collected, current78be/recovery9aa8/accepted shutdownd260/joint978 preserved,
-no reboot armed. Work to an exact VM-validated hardware-ready checkpoint.
+no reboot armed. Exact staged VM and host qualification now pass; see the
+current checkpoint below. PR467 filesystem, PR19 networking and PR379 WebCore
+remain separate from this frozen candidate.
+
+### Current checkpoint: original-owner HDA/BCS shutdown ready
+
+Candidate`bd77ce8cff00a4a3`, source`a720d774`, contains the isolated pre-init
+HDA/BCS diagnostic. Production C/native objects are source`4972ccd0`; the final
+source adds only CLI registration and its real-command-line regression. The
+full local build/USB/host/core/docs gate passes on4972, and final CLI/collector/
+diagnostic regressions pass with all27 ELF hashes unchanged. This preserves
+that exact qualification rather than claiming a second global run.
+
+Both host branches and all1,363 HDA fault prefixes pass. The full nine-test
+native-adapter matrix passes fatal ASan/UBSan; the final ten-test suite includes
+the added CLI regression. All six compiled clock/source/preservation/borrow/
+permission/lifetime controls are detected. Native object and exact staged
+checks verify one fenced`0xf000` DWORD at`0x2203c`, the original final clock,
+Command-halfword HDA writes, eleven static retained objects and a2KiB frame
+limit. All27 images retain their separate symbols/receipts. The projected tail
+is57,406/65,536 bytes including the unchanged1,536-byte reserve.
+
+Exact MBR/EFI QEMU verifies the16-token compiled recipe, pre-init marker with
+no `/init` start, unsupported-hardware zero-store refusal, matching saved raw
+checkpoint/results and file bytes, clean unmount and automatic return. Missing
+workspace halts. A legacy filename in the local postprocessing wrapper was
+corrected and the existing saved guest evidence verified; both guest runs had
+already passed. The earlier CLI omission is fixed and independently regressed.
+These VM/model results qualify machinery, not physical shutdown acceptance.
+
+Physical readiness verifies all1,467 prior USB files/145 sessions, offline
+fsck/allocation/writable/headroom, installed/current/recovery banks, Ubuntu
+default and unarmed one-shot. Only the unreferenced EFI copy of older private-
+backing diagnostic`d72619c4e02bb721` was retired after full durable-bank equality;
+its exact payload and acceptance evidence remain outside build. Current78be,
+recovery9aa8, GUIc497, accepted joint978 and standalone shutdownd260 remain
+installed. EFI has the installer margin. USB unmounted; volume1%; no candidate
+installed or reboot armed. Exact candidate and evidence are banked outside
+build; local checkpoint:`build/air-hda-shutdown-20261111/run.json`.
+
+Next is the unattended original-owner HDA/BCS shutdown trial with unchanged
+100/150/300/400/500ms bounds and automatic return on a safe saved result.
+Native enabled writer, reset integration and managed-memory acceptance remain
+pending. No reset, interval claim or memory grant is added: obligations255,
+assurances0, managedpages0 and physical tear-free presentation unaccepted.
 
 ### Latest requester retry: repeated enabled-BCS refusal
 

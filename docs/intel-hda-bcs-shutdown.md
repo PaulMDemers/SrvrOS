@@ -89,3 +89,22 @@ remaining stack frames and static object lifetimes, saved-tail capacity, exact
 staged VM save/unmount/return and missing-workspace refusal. Follow the
 [Ubuntu staging/collection workflow](ubuntu-device-agent-setup.md); retain the
 installed recovery and save the exact local run record before reboot.
+
+## Qualified candidate
+
+Source`a720d774`, release`bd77ce8cff00a4a3`, is hardware-ready and uninstalled.
+Its production C and all27 native ELF hashes equal the full local4972ccd0
+build/USB/host/core/docs qualification. The final delta registers the CLI flag
+and tests the real command line; final CLI/collector and ten-test diagnostic
+regressions pass. Fatal ASan/UBSan covers the nine-test actual-adapter matrix,
+including1,363 HDA fault prefixes. Six deliberately broken-source controls are
+detected, including retained stack lifetime and final-store clock removal.
+
+Object/staged instruction, static lifetime and2KiB frame checks pass. The saved
+log projection is57,406/65,536 bytes with the existing1,536 reserve. Exact staged
+MBR/EFI QEMU passes zero-store unsupported refusal, recipe/pre-init/checkpoint
+provenance, matching saved bytes, unmount/automatic return and missing-workspace
+halt. Installed recovery, prior media preservation and installer margin pass.
+No native run has exercised this candidate; enabled shutdown and physical
+tear-free acceptance remain pending. Follow the machine record for the next
+source-bound trial and collection.
