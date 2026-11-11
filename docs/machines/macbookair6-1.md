@@ -12015,5 +12015,28 @@ All65 screenshot-size writes, prior files, both full fresh proofs and complete
 allocation pass. The candidate saves2770944 metadata-write bytes in unreserved/
 reserved-sequential controls and1700352 bytes with controlled reserved overlap.
 Logical files and all prefix/read/write-count/flush work match baseline. This
-demonstrates a source-byte reduction; frozen build/core/VM integration and a new
-native performance observation remain pending.
+demonstrates a source-byte reduction. Native performance remains pending.
+
+Frozen implementation `cc4f9278`, based on main `7e8f70ae`, passes matched
+normal/native/VM builds, full core/desktop/docs checks, ordinary ABI/input/USB
+and capture VMs, and the populated Home400writeIOPS KVM audio/disk/apps/
+screenshot trial. Independent saved-receipt checks retain every original
+contract. The source/image hashes remain fixed throughout validation. Stage
+`c95f851e735b98ff` passes the exact native board-refusal/save/unmount/return VM
+rehearsal; it has no native hardware acceptance yet.
+
+All132 metadata-publication fault points match baseline logical contents,
+protected files, exits and pre/post-repair allocation results. The72 inherited
+strict-allocation failures after repair remain incomplete evidence, not a clean
+recovery claim. Raw and repaired images are retained locally. Source changes do
+not alter ownership, integrity checks, flushes, byte caps or timing requirements.
+
+At integration review, PR301 `6d127542` remains separate graphics work with no
+exFAT writer edit; PR19 `6ca94b59` changes metadata import/restore in the same
+file, with distinct hunks and no competing payload-padding implementation or
+format change. Neither is a dependency, and no other-machine task is contacted.
+Next checkpoint is the automated1800-second1% native workload plus60-second
+tail, three exact screenshot receipts, continuous app/disk work, clean battery
+retirement and full USB preservation/allocation checks. Preserve current3403,
+recoveryc354, priora139 and the original failed-media evidence. Different cold
+boot timing is observational; it does not isolate the controller/media cause.
