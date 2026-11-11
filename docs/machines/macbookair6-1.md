@@ -19,6 +19,11 @@ callbacks cover 87.13% of the 2.894-second bracket. Screenshot totals remain
 6.41/10.68/26.60 seconds, so no performance improvement is accepted. Long USB
 completion latency remains open; no device/firmware/controller cause is proved.
 
+The [validated command-tail candidate](#validated-command-tail-preparation-2026-11-11)
+is installed for the next automatic run. It adds exact command/block and original
+validation context while retaining every existing transport/ownership policy and
+integrity limit. Its native result remains pending.
+
 ## Initial inventory (2026-10-22)
 
 - Actual DMI model: MacBookAir6,1; firmware `122.0.0.0.0`.
@@ -12713,3 +12718,72 @@ contacted. Matching 4598 native return is collected/reviewed and independently
 sealed; accepted4598/80b4/c7 and recoveryc354 are retained. Validate locally,
 publish/self-merge, install a matched candidate and run the native test under
 the existing reboot authorization. New native acceptance remains pending.
+
+## Validated command-tail preparation (2026-11-11)
+
+Runtime `fbea6abe` is based on main `189f6e43` and published through PR474.
+Refreshed PR19 at `b9f78149` changes separate logger startup/Wi-Fi capture hunks;
+PR301 at `890d0fd3` has no competing command or commit hooks. No other task was
+contacted. The [command-tail contract](../commit-command-tail.md) records the
+ownership audit and exact receipt. Normalizing out the new metadata reproduces
+the previous USB transport source byte-for-byte; filesystem, process, scheduler,
+xHCI, syscall and original timing-parser hashes are unchanged.
+
+The audit found transaction mutation/proof/publication and clean-marker flush
+state still live under the shared owner, with pending BOT/DMA lifetime retained.
+The [USB-IF BOT specification](https://www.usb.org/sites/default/files/usbmassbulk_10.pdf),
+section3.4, also requires serialization of outstanding commands on the success
+path. No arbitrary early ownership release is justified. This candidate adds
+command evidence; it does not claim a latency improvement or a device/media/
+controller cause. Command sizes, DMA segments, service/polling policy, timeouts,
+fairness, flushes and all integrity checks remain unchanged.
+
+The existing CSW clocks are copied into a command-local anchor. At the original
+terminal validation path, exact tag/opcode/block context and the full original
+validation verdict attach only to the matching live owner/status interval.
+Already-collected command phases/checkpoints are optional; outside content tracing
+the record explicitly carries command-only context, without invented clocks.
+Larger status peaks clear old context, and late completion cannot backfill a
+returned wait or released owner. Full-validation failures remain failures even
+when the status bulk transfer succeeded. The single final row is at most843bytes;
+all five rows total3803bytes at full field width, within the original4KiB budget.
+Periodic bytes,10-second cadence and64KiB tails are unchanged.
+
+Matched ordinary/native/fixture builds and all245 default core targets pass on
+`fbea6abe`, including the new actual C/production-formatter/parser regressions.
+Desktop/docs, scheduler/USB ownership and malformed-command quarantine, reserved
+append, sync and full media-integration checks pass. The default optional
+exhaustive-I/O setting is retained; no test requirements are weakened. Ordinary
+ABI/input/fork/exec/yield, USB read/write/reload and screenshot VMs pass.
+Exact-stage UEFI rehearsal passes the expected foreign-board refusal and automatic
+return; this does not accept native firmware or battery ownership.
+
+The populated400-IOPS KVM workload completes60seconds at1% with217 verified disk
+bursts (56885248bytes),23 app cycles, an exact screenshot and zero recorded
+underruns. Maximum loop is139.610ms; app ready/close maxima are1.236530/0.686488s,
+within unchanged limits. Independent parsing passes every original16 contract,
+append-wait, actual owner/status and new validated-command companion. Its exact
+selected997us status belongs to a validated16KiB WRITE, tag7843, LBA29824,
+32logical512-byte blocks and zero CDB flags. The selected owner is PID7/thread18/
+SYS_FSYNC53, outside content tracing: phase availability is correctly false with
+role7 and zero uncollected counters. Complete-phase forwarding is covered by the
+real driver fixture and actual C/production formatter tests; VM command-only
+coverage is not mislabeled as complete phase coverage. These are virtual
+observations, not the Air's long hardware completion cause.
+
+Release `0d3f2c1ce3a4aa4c`, run `ef8f650e89c64c4b`, is installed and verified
+against its stage and independent payload copy. The actual877-file USB baseline
+and offline fsck/allocation/headroom pass; only its expiring1% volume preference
+is renewed. Accepted4598/80b4/c7 and recoveryc354 remain verified. Only the fully
+verified, unreferencedbcd EFI duplicate was retired, retaining its entire
+independent payload; previously retireda139/2dd/8caa copies also remain verified.
+Ubuntu stays default and firmware BootOrder is unchanged, with no BootNext or
+GRUB one-shot at the preparation checkpoint. The enabled return collector requires
+the new command context alongside every original receipt. Post-merge arming and
+independent run-record backups precede the existing authorized automatic reboot.
+
+The next native run retains1800seconds at1%, three screenshots,500ms loop and
+10-second app limits, all byte/CRC/fresh-media/allocation proofs and clean
+battery/desktop/worker retirement. No human input is required. Native acceptance
+remains pending its matching return. Screenshot completion and the earlier
+intermittent battery transport-fault cause remain unresolved.
