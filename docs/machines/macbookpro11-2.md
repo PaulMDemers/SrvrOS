@@ -7,6 +7,25 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Readable diagnostic boot scope (November 11)
+
+The operator authorizes larger console text and another diagnostic trial because
+native 2880×1800 text is impractical to photograph. Add bounded boot-time integer
+text scaling to the framebuffer console, opt it into independent journal trials,
+and show a concise held-state screen after preserving the full scalar receipt.
+Keep ordinary console/desktop defaults and all native HTTP ownership, key, DMA
+and deadline gates. This is failure diagnosis, not an assertion of a root cause
+or native acceptance. Existing automatic cold shutdown/reboot authorization
+applies; use a new one-use journal/run record and collect FIRST after return.
+
+Actual main `ae869c9b` (PR465 append-wait runtime plus PR466 Air6,1 native return
+documentation) was fetched and inspected. Integrate it before the candidate and
+rerun affected scheduler/storage/HTTP, console, source-bound collection, exact
+stage and workspace tests. The closed failed `835ffb01` primary and its separate
+return/diagnostic capsules remain immutable. This scope touches console/main,
+held-state display, focused fixtures and the Pro trial record. Other machines'
+GPU/HDA and append admission scopes remain separate.
+
 ### HTTP held-state diagnostics audited (November 11)
 
 Diagnostic/test source `d9b7e95c` fixes a reproduced observation bug: the HTTP
