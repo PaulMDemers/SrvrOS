@@ -12405,3 +12405,28 @@ The new [performance contract](../exfat-io-performance.md) records the controls.
 Next checkpoint is frozen matched build/core/desktop/VM validation before merge.
 Current installedc7/recoveryc354 and all859 USB files remain untouched; no new
 native speed acceptance or reboot is implied by these host measurements.
+
+Frozen runtime `e6d06f2a` now passes matched builds, all 244 default core targets,
+desktop/docs, stream-manager/syscall/process cleanup, ordinary ABI/input/thread
+VMs, real USB transport and ordinary capture. Populated Home KVM at400 write
+IOPS passes all original timing/ownership/content/command/capture contracts,
+including complete saved app records and the post-playback battery observation:
+60 seconds,231 bursts/60,555,264 bytes,24 app cycles and zero audio underruns at1%.
+Exact-stage release `32afb62a63264174` passes foreign-board refusal/save/unmount/
+return in UEFI; it has not been installed or physically accepted.
+
+The first loaded VM is retained as an evidence failure: two adjacent64KiB tails
+left a607-byte gap containing a required begin receipt, and UART interleaved.
+The unchanged retry passed; no inferred records, parser waiver, logger cadence,
+workload or bound changed. Complete coverage on every future run remains unproven.
+Metadata-tail114-cut and append131-cut controls retain their63/81 inherited
+incomplete-repair cases; these optimizations do not claim interruption recovery.
+
+Final review corrects only the host full-bitmap-write control to retain full
+initialized scratch. Its five original exact-media/write/flush comparisons pass;
+preprocessed production/default-host/other measured control tokens remain
+identical to the frozen runtime. Latest main remains `5e72e2dd`; PR19 `58a48e04`
+retains separate metadata-import hunks, and PR301 `037510a8` has no exFAT hunk.
+Shared performance changes are in PR469. Installed c7, recovery c354, the859-file
+USB baseline and independent accepted backups remain unchanged. Native timing
+is the next acceptance step; host callback savings are not a native speed claim.

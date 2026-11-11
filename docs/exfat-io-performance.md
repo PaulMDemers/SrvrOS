@@ -34,6 +34,8 @@ and every bitmap write are unchanged. Unsupported mutation geometry refuses.
 
 The individual bitmap allocation gets smaller. Whole-operation peak heap can
 remain unchanged when a different buffer dominates; it is measured, not inferred.
+The host-only full-bitmap-write control retains a full initialized cluster of
+scratch automatically; it cannot write a compact buffer as a full cluster.
 
 ## Transaction-owned FAT reads
 
@@ -91,3 +93,28 @@ stream implementations, with exact logical files and flush counts. The original
 [reserved append](reserved-append.md) contracts still apply. Inherited interrupted
 write/repair limitations remain visible failures; these passes do not claim a
 recovery fix or authorize dropping a proof/barrier to obtain a speedup.
+
+## Validation and acceptance
+
+Runtime source `e6d06f2a` passed matched ordinary/native/VM builds, all 244 default
+core targets, desktop and documentation checks, stream service ownership tests,
+ordinary ABI/input/thread VMs, real USB transport and ordinary capture VMs.
+The populated Home KVM stress test at 400 write IOPS passed all original
+evidence contracts, including screenshot readback, complete saved app timing,
+commit/command attribution and clean post-playback battery retirement. It ran
+60 seconds at 1% volume, with 231 disk bursts, 24 app cycles and zero recorded
+audio underruns. Exact-stage UEFI also passed the expected foreign-board refusal,
+save/unmount and automatic return; that is not native battery acceptance.
+
+The first stress attempt completed its workload but was rejected for an absent
+app-timing begin receipt: adjacent fixed-size log tails left a gap and serial
+output interleaved. The failure is retained. An unchanged-source/image retry
+passed with complete saved records; no parser, workload, cadence or limit was
+changed. This does not establish lossless timing coverage in every future run.
+
+A subsequent host-only full-bitmap-control scratch correction passes its
+original five-operation exact-media/write/flush comparison. Preprocessed token
+comparisons verify unchanged production, default-host and other measured control
+paths relative to the frozen runtime. Air6,1 installed c7/recovery c354 and USB
+contents remain unchanged. Native filesystem and screenshot latency for these
+passes is still unmeasured.

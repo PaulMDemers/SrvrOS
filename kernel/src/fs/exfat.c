@@ -2258,7 +2258,8 @@ static uint64_t allocation_bitmap_bytes(const struct exfat_volume *volume) {
 static uint64_t allocation_bitmap_io_bytes(const struct exfat_volume *volume) {
     uint64_t bytes=allocation_bitmap_bytes(volume);
     if(!bytes || bytes>volume->cluster_size)return 0;
-#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_BITMAP_CLUSTER_READS)
+#if defined(SRVROS_EXFAT_HOST_TEST) && (defined(SRVROS_EXFAT_BITMAP_CLUSTER_READS) || defined(SRVROS_EXFAT_BITMAP_SPAN_OFF))
+    /* A full-cluster write control also needs full, initialized scratch. */
     return volume->cluster_size; /* Original read/scratch work for comparison. */
 #else
     uint64_t block=volume->device?volume->device->block_size:0;
