@@ -6623,3 +6623,8 @@ test-startup-journal: build/tests/startup-journal-host$(HOST_EXE)
 build/tests/startup-journal-host$(HOST_EXE): tools/test_startup_journal.c kernel/src/startup_journal.c kernel/include/srvros/startup_journal.h kernel/src/sha256.c
 	@mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/sha256.c -o $@
+
+.PHONY: test-stack5-dhcp-receipts
+test-stack5-dhcp-receipts: build/tests/xhci-stack5-host$(HOST_EXE)
+	WIFI_DHCP_NATIVE_BINARY=$< PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_stack5_dhcp_log.py
+test-core: test-stack5-dhcp-receipts

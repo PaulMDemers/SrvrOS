@@ -277,6 +277,8 @@ def check(log, release=None):
     require(any(by_pn[p['pn']]['token'] <= 63 for p in pings) and
             any(by_pn[p['pn']]['token'] > 63 for p in pings),
             'ICMP lacks actual data on both sides of TX fence')
+    from wifi_stack5_dhcp_log import optional as dhcp_optional
+    dhcp_optional(rows,raw,w)
     require(raw['position']() == len(rows), 'extra production receipts')
     joinline = next(x for x in lines if x.startswith('wifi-join5:'))
     raw['unique']('wifi-channel-vco5')

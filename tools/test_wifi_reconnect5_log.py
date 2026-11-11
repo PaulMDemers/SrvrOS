@@ -63,6 +63,19 @@ class Tests(unittest.TestCase):
 
     def check(self,rows):return c.check_owner(text(rows))
 
+    def test_optional_dhcp_receipts_bind_to_each_actual_workload(self):
+        rows=self.fixture();receipts=[r for r in rows if r.startswith('wifi-stack5-dhcp:')]
+        self.assertEqual(len(receipts),2)
+        self.check(rows)
+        self.check([r for r in rows if not r.startswith('wifi-stack5-dhcp:')])
+        for key,value in (('success',0),('discovers',2),('polls',20001),('elapsed_us',2000000)):
+            with self.subTest(key=key),self.assertRaises(ValueError):
+                self.check(mutate(rows,'wifi-stack5-dhcp:',key,value))
+        at=rows.index(receipts[0])
+        for changed in (rows[:at]+[receipts[0]]+rows[at:],
+                        rows[:at]+[rows[at].replace('version=1','version=01')]+rows[at+1:]):
+            with self.assertRaises(ValueError):self.check(changed)
+
     def test_exact_boot_identity_and_old_recipe_refusal(self):
         rows=boot_rows();self.assertEqual(c.boot_identity(text(rows),RELEASE,VOLUME),RELEASE)
         for token in c.BOOT_FIXED:

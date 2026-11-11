@@ -19,8 +19,12 @@ ENDS=('not_run success guard_failed time_limit poll_limit send_failed request_fa
 def check(log,*,require_success=False):
  rows=[s for s in log.splitlines() if s.startswith(PREFIX)]
  require(len(rows)==1,'missing/duplicate DHCP observation')
- pattern=PREFIX+': '+' '.join(k+r'=(0|[1-9][0-9]*)' for k in KEYS.split())
- m=re.fullmatch(pattern,rows[0]);require(m is not None,'wrong DHCP observation schema/order')
+ return check_row(rows[0],require_success=require_success)
+
+def check_row(row,*,prefix=PREFIX,require_success=False):
+ require(prefix in (PREFIX,'wifi-stack5-dhcp'),'unknown DHCP observation prefix')
+ pattern=re.escape(prefix)+': '+' '.join(k+r'=(0|[1-9][0-9]*)' for k in KEYS.split())
+ m=re.fullmatch(pattern,row);require(m is not None,'wrong DHCP observation schema/order')
  d=dict(zip(KEYS.split(),map(int,m.groups())))
  require(all(v<2**64 for v in d.values()),'DHCP observation integer overflow')
  if d['version']==0:

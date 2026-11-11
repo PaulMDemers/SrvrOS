@@ -56,7 +56,7 @@ static struct {
  bool frozen,provider_loss,wrong_payload;unsigned arp_replies,arp_noise_left,background_left;uint64_t held_ticket;
  uint8_t deferred_dns[1514];size_t deferred_dns_size;
 } ap;
-static unsigned reconnect_case_id,reconnect_hook_count;
+static unsigned reconnect_case_id,reconnect_hook_count,connection_dhcp_fault;
 static unsigned reconnect_noise(void){return reconnect_case_id==11?2u:reconnect_case_id==12?3u:(reconnect_case_id==10 || (reconnect_case_id>=16 && reconnect_case_id<=18))?1u:0u;}
 static bool reconnect_keys_seen[2];
 static uint8_t reconnect_first_tk[16];
@@ -87,7 +87,7 @@ static void stack_test_connection(unsigned generation){
  assert(stack5_peer_generation(generation+1));
  if(generation && reconnect_old_usb_size){uint8_t frame[1514];size_t bytes=0;uint64_t pn=0;
   assert(!stack5_peer_open(reconnect_old_usb,reconnect_old_usb_size,frame,sizeof frame,&bytes,&pn));}
- memset(&ap,0,sizeof ap);ap.case_id=55;
+ memset(&ap,0,sizeof ap);ap.case_id=connection_dhcp_fault?connection_dhcp_fault:55;
  if(generation && reconnect_case_id==9){assert(reconnect_old_mpdu_size);memcpy(ap.response[0],reconnect_old_mpdu,reconnect_old_mpdu_size);ap.length[0]=reconnect_old_mpdu_size;ap.count=1;}
  sim.tx_seen=sim.rx_seen=sim.response=sim.index=sim.noise_left=0;sim.m1=sim.m3=false;
  if(!generation && reconnect_case_id==4){sim.fault=36;sim.fault_at=9;}
@@ -116,6 +116,15 @@ static void ap_udp_reply(const uint8_t *p,size_t n){
  unsigned sport=ap_u16(u),dport=ap_u16(u+2);size_t body=size-8;uint8_t *v=r+42;
  if(sport==68 && dport==67){
   ap.dhcp++;assert(body>=240 && u[8]==1 && u[9]==1 && u[10]==6);unsigned type=0;for(size_t i=240;i<body;){unsigned k=u[8+i++];if(k==255)break;if(!k)continue;assert(i<body);unsigned z=u[8+i++];assert(z<=body-i);if(k==53){assert(z==1);type=u[8+i];}i+=z;}assert(type==1 || type==3);if((ap.case_id==1 || ap.case_id==11) && ap.dhcp==1)return;
+  if(ap.case_id==56 || ap.case_id==57){
+   if(ap.case_id==57)for(unsigned i=0;i<(ap.dhcp==1?7u:2u);i++){
+    uint8_t noise[42]={0};memcpy(noise,hs_spa,6);memcpy(noise+6,ap_mac,6);ap_p16(noise+12,0x806);
+    ap_p16(noise+14,1);ap_p16(noise+16,0x800);noise[18]=6;noise[19]=4;ap_p16(noise+20,2);
+    memcpy(noise+22,ap_mac,6);ap_p32(noise+28,ap_ip);memcpy(noise+32,hs_spa,6);ap_p32(noise+38,0x0a00020f);
+    ap_enqueue(noise,sizeof noise);
+   }
+   return;
+  }
   if(ap.case_id==42 && type==3)return; /* no ACK, not a parser rejection */
   body=274;ap_ip_header(r,p,17,8+body);memset(v,0,body);v[0]=2;v[1]=1;v[2]=6;memcpy(v+4,u+12,4);ap_p32(v+16,0x0a00020f);memcpy(v+28,hs_spa,6);ap_p32(v+236,0x63825363);unsigned at=240;v[at++]=53;v[at++]=1;v[at++]=type==1?2:5;
   const unsigned kinds[]={54,1,3,6,51};const uint32_t values[]={0x0a000202,0xffffff00,0x0a000202,0x0a000202,3600};for(unsigned i=0;i<5;i++){v[at++]=kinds[i];v[at++]=4;ap_p32(v+at,values[i]);at+=4;}v[at++]=255;assert(at==body);ap_p32(r+30,0xffffffff);ap_p16(r+24,0);ap_p16(r+24,~ap_sum(r+14,20,0));ap_p16(r+34,67);ap_p16(r+36,68);
@@ -578,7 +587,29 @@ static void reconnect_case(unsigned which){
  assert(!xhci_wifi_capture_reconnect5_probe());
  printf("xhci-reconnect5: PASS case%u completed_connections=%u; no kernel/controller reset between generations; modeled USB/AP; hardware acceptance=0\n",which,wifi_reconnect5.connections);
 }
+/* Exercise the production connection runner, not the older direct DHCP seam.
+ * Only the independent AP peer injects faults; kernel timing/parser are intact. */
+static void connection_dhcp_receipt(unsigned fault){
+ assert(!fault || (fault>=42 && fault<=54) || fault==56 || fault==57);
+ stream_setup();reconnect_case_id=0;reconnect_hook_count=0;connection_dhcp_fault=fault;
+ bool good=xhci_wifi_capture_reconnect5_probe();assert(good==!fault);
+ assert(reconnect_hook_count==(fault?1u:2u));
+ for(unsigned g=0;g<(fault?1u:2u);g++){
+  const struct mt76_stack5_probe *r=&wifi_reconnect5.probe[g];const struct net_dhcp_observation *o=&r->dhcp_observation;
+  assert(r->attempted && r->private_erased && r->connection_scope && o->version==1 && o->started && o->finished);
+  assert(o->success==!fault && o->success==r->dhcp && o->polls<=r->polls && o->elapsed_us<=r->elapsed_us);
+  assert(wifi_stream5_slots[g].exchange.keys_erased);
+  if(!fault)assert(r->complete && r->disconnected && o->accepted_offer==1 && o->accepted_ack==1 && o->end_reason==NET_DHCP_SUCCESS);
+  else{
+   assert(!r->complete && r->phase==MT76_STACK5_DHCP && r->reason==MT76_STACK5_DHCP_FAILED && o->end_reason==NET_DHCP_TIME_LIMIT);
+   if(fault>=56)assert(o->discovers==2 && o->discover_queued==2 && r->retries==1 && !o->requests && !o->accepted_offer && !o->rejected && o->frames==(fault==57?9u:0u) && !o->ipv4);
+   else assert(o->accepted_offer==1 && o->requests==1 && !o->accepted_ack);
+  }
+ }
+ printf("stack-dhcp-fixture: actual_connection_runner=1 fault=%u modeled_usb=1 acceptance=0\n",fault);
+}
 int main(int argc,char **argv){
+ if(argc==3 && !strcmp(argv[1],"--trace-connection-dhcp")){batch_trace=true;connection_dhcp_receipt((unsigned)strtoul(argv[2],NULL,0));return 0;}
  if((argc==2 || argc==19) && !strcmp(argv[1],"--trace-reconnect")){
   if(argc==19){for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)reconnect_seed[d][i]=(uint32_t)strtoull(argv[2+d*8+i],NULL,0);reconnect_slot=(unsigned)strtoul(argv[18],NULL,0);assert(reconnect_slot && reconnect_slot<256);reconnect_seeded=true;}
   batch_trace=true;puts("wifi-reconnect5-host: modeled_usb=1 acceptance=0");reconnect_case(10);return 0;

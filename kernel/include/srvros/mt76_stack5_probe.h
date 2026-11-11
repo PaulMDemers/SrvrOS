@@ -1,6 +1,7 @@
 #ifndef SRVROS_MT76_STACK5_PROBE_H
 #define SRVROS_MT76_STACK5_PROBE_H
 #include <srvros/mt76_net5.h>
+#include <srvros/net.h>
 #define MT76_STACK5_PINGS 64u
 #define MT76_STACK5_BODY 32u
 #define MT76_STACK5_TX_LIMIT 80u
@@ -30,6 +31,9 @@ struct mt76_stack5_probe_io {
  * queued production requests. No proof of TCP/HTTP or connection lifecycle. */
 struct mt76_stack5_probe {
  uint64_t ping_pn[MT76_STACK5_PINGS],polls,services,elapsed_us;
+ /* Categorical CPU-owned receipt only; survives local-scope erasure and is
+  * emitted after the caller closes the live key/endpoint window. */
+ struct net_dhcp_observation dhcp_observation;
  unsigned version,phase,reason,dhcp,retries,dns,requested,started,matched,exact,body_bytes,setup_tx,data_tx,arp;
  bool attempted,complete,private_erased,connection_scope,disconnected;
 };

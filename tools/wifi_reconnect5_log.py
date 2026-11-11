@@ -127,6 +127,8 @@ def _connections(log):
                 0<workload['elapsed_us']<=summary['elapsed_us']<15000000 and
                 (not workload['retries'] or workload['elapsed_us']>=1000000),
                 'incomplete DHCP/DNS/exact ICMP connection workload')
+        from wifi_stack5_dhcp_log import optional as dhcp_optional
+        dhcp_optional(fragment,raw,workload)
         require(raw['position']()==len(fragment),'extra/unknown per-connection native receipt')
         require(pos<len(owned),'missing connection-close receipt')
         end,line=owned[pos];pos+=1

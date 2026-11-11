@@ -84,6 +84,7 @@ static bool run_probe(struct mt76_stack5_probe *r,struct mt76_net5 *p,const stru
  }
  uint64_t now=timer_monotonic_us();if(now<s.start || now<s.last || now>=s.io.deadline_us){good=false;fail(&s,MT76_STACK5_CLOCK);}else r->elapsed_us=now-s.start;
  if(good && !r->reason){r->complete=true;r->phase=MT76_STACK5_DONE;}
+ r->dhcp_observation=s.net.dhcp_observation;
  scrub(&s,sizeof s);r->private_erased=zero(&s,sizeof s);return r->complete && r->private_erased;
 }
 bool mt76_stack5_probe_run(struct mt76_stack5_probe *r,struct mt76_net5 *p,const struct mt76_stack5_probe_io *io){
@@ -96,4 +97,9 @@ void mt76_stack5_probe_emit(const struct mt76_stack5_probe *r){
  if(!r)return;
  if(r->matched){console_write("wifi-stack5-pings:");for(unsigned i=0;i<r->matched && i<MT76_STACK5_PINGS;i++)console_printf(" %u",r->ping_pn[i]);console_write("\n");}
  console_printf("wifi-stack5-workload: version=%u complete=%u phase=%u reason=%u dhcp=%u retries=%u dns=%u requested=%u started=%u matched=%u exact=%u body_bytes=%u icmp_bytes=40 payload_bytes=32 setup_tx=%u data_tx=%u arp=%u polls=%u services=%u elapsed_us=%u private_erased=%u\n",(uint64_t)r->version,(uint64_t)r->complete,(uint64_t)r->phase,(uint64_t)r->reason,(uint64_t)r->dhcp,(uint64_t)r->retries,(uint64_t)r->dns,(uint64_t)r->requested,(uint64_t)r->started,(uint64_t)r->matched,(uint64_t)r->exact,(uint64_t)r->body_bytes,(uint64_t)r->setup_tx,(uint64_t)r->data_tx,(uint64_t)r->arp,r->polls,r->services,r->elapsed_us,(uint64_t)r->private_erased);
+ const struct net_dhcp_observation *d=&r->dhcp_observation;
+ console_printf("wifi-stack5-dhcp: version=%u started=%u finished=%u success=%u end_reason=%u discovers=%u discover_queued=%u requests=%u request_queued=%u frames=%u ipv4=%u udp=%u dhcp=%u offers=%u acks=%u naks=%u accepted_offer=%u accepted_ack=%u rejected=%u first_reject=%u last_reject=%u reject_mask=%u last_message=%u last_options=%u have_offer=%u request_sent=%u configured=%u polls=%u elapsed_us=%u elapsed_ticks=%u\n",
+ d->version,d->started,d->finished,d->success,d->end_reason,d->discovers,d->discover_queued,d->requests,d->request_queued,
+ d->frames,d->ipv4,d->udp,d->dhcp,d->offers,d->acks,d->naks,d->accepted_offer,d->accepted_ack,d->rejected,
+ d->first_reject,d->last_reject,d->reject_mask,d->last_message,d->last_options,d->have_offer,d->request_sent,d->configured,d->polls,d->elapsed_us,d->elapsed_ticks);
 }

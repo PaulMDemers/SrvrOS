@@ -8362,3 +8362,32 @@ accepted. Verification of the 449-file baseline apart from bounded marker atime,
 53 other EFI files, offline storage and seven recoveries pass. The779-file
 primary and separate three-file acceptance notes are immutable. No new boot
 is armed; full Wi-Fi calibration and two-connection testing remain pending.
+
+## Native stack DHCP observations
+
+The bounded stack and two-connection probes retain the existing production
+`net_dhcp_observation` before erasing their local scope. Their caller emits one
+`wifi-stack5-dhcp` row immediately after `wifi-stack5-workload`, after the live
+key/endpoint window closes. The receipt contains categorical counters and
+rejection/end reasons, without addresses, credentials or packet bytes. DHCP
+packet admission, deadlines, retries, native ownership and cleanup are unchanged.
+
+The shared schema in `http_dhcp_log.py` checks the exact row directly. Complete
+stack/reconnect proof accepts the additional row only in that position, requires
+successful DORA and binds its retry/outcome/poll/time counters to the workload.
+Historical logs without the optional row retain their existing proof rules.
+`wifi_stack5_dhcp_log.observe` separately retains failed or partial categorical
+outcomes before success-only RF/transport checking. It grants no native,
+ownership, DMA-retirement or recovery acceptance.
+
+Frame/IPv4/UDP/DHCP counts distinguish traffic delivery stages. Offer, ACK and
+accepted-message counts separate missing replies from validation refusals; the
+first/last rejection and mask identify validation reasons. Version zero with all
+fields zero means DHCP was not observed. An observation alone cannot prove a
+request reached the access point, nor diagnose radio loss or server behavior.
+The full native transport and parent/key retirement checks remain required.
+
+`make test-stack5-dhcp-receipts` exercises the actual connection runner against
+the independent encrypted AP fixture, including two successful generations,
+absent replies, unrelated authenticated traffic, missing ACKs, corrupted crypto
+and rejected DHCP packets. These HOST fixtures do not accept physical Wi-Fi.
