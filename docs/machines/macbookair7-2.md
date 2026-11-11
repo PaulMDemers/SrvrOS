@@ -2,16 +2,28 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Active scope: joint preparation timing retry
+### Ready for native validation: joint preparation timing retry
 
-On integrated main `8271c254`, the Air7,2 branch owns the joint image's
-final preparation guard and borrow return. It will report each interval
-separately and remove a duplicate full backing census from the joint
-requester snapshot path. The provider's admission census, independent exit
-census, live HDA checks and original deadlines still apply. This work
-depends on the existing joint recipe and claim, with no overlap with PR19
-networking or PR379 WebCore. The next checkpoint is an exact staged VM
-run and hardware readiness.
+Release `978d9be94b96243a` at source `e81caf7f` reports the final
+preparation guard and borrow return separately. The joint snapshot runs a
+fresh backing census immediately before the three requester reads. The core
+validates the exclusion and clock before the snapshot and runs a separate
+full exit guard. The adapter model used 132 full guards instead of 148. An
+injected late return still retired cleanly and failed the 100 ms deadline.
+
+The local build, core tests and 25-image linkage check passed, along with
+directed ASan/UBSan tests. The exact QEMU stage saved a zero-store refusal and
+returned with a clean unmount. Missing workspace halted. Ubuntu decoded the
+saved timing receipt and rejected incomplete claim evidence. The projected
+log sizes with reserve are 61,344 and 59,558
+bytes for the normal and wide-entry refusal paths.
+
+USB `37D8-C5D0` passed offline checks and matched 1,455 files
+and 141 sessions from the previous run. Ubuntu recovery is
+verified and volume is 1%. The release is staged and the one-shot is unarmed.
+The next trial needs to measure both intervals on the Air and verify
+retirement within the original bounds. Local run record
+`build/air-joint-timing-20261110/run.json`.
 
 ### Native trial incomplete: joint display-HDA and GPU interval claim
 
