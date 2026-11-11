@@ -76,5 +76,13 @@ VM coverage requires an actual owner; status coverage is reported explicitly.
 The native Air6,1 test retains the original1800-second1% audio/disk/app workload,
 three screenshots and500ms/10s limits. Matching collection must parse this
 companion alongside the original16 contracts and append-wait proof. Missing,
-conflicting, failed or invalid evidence is refused. Physical isolation and
-acceptance remain pending that return.
+conflicting, failed or invalid evidence is refused.
+
+The [Air6,1 native return](machines/macbookair6-1.md#native-commit-wait-isolation-return-2026-11-11)
+on runtime `4f4feeeb` passes these contracts. Its exact worst 2.894034-second
+private wait overlaps a SYS_SYNC owner whose status callbacks cover 2.521687
+seconds (87.13%) of that bracket. The worst 16 KiB WRITE status takes 352.020 ms,
+including 351.745 ms before observed completion and 273 us afterward. This
+physically accepts the bounded association; it does not identify device/firmware/
+controller cause or every screenshot delay. Screenshot saving still reaches
+26.60 seconds, with unchanged policy, limits, proofs and barriers.
