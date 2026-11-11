@@ -2,32 +2,56 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Active scope: original-owner HDA/BCS shutdown hardware trial ready
+### Active scope: record matched-owner observation and integrate main
 
-Integrated actual main `ae869c9b` in merge`f3a2f897` (PR465 queued append
-waits and PR466 native Air6,1 results). Implemented the separate
-[original-owner HDA/BCS shutdown diagnostic](../intel-hda-bcs-shutdown.md). PR19
-networking and PR379 WebCore remain independent. The new image/recipe must use
-the original joint HDA inhibition and wake owner, sample the legal awake engine
-entry through both census and BCS providers, run the existing exact idle-only
-shutdown/observation protocol, and restore HDA only after full original GPU/
-reader/mapping retirement. No pre-wake engine MMIO is justified. It can isolate
-entry/provider agreement and qualify the enabled writer in this context; it
-cannot by itself prove which firmware/handoff action caused the earlier state.
+The original-owner HDA/BCS trial is collected and accepted for its
+already-disabled observation branch only. Record this exact-source evidence,
+then integrate inspected main`5e72e2dd` (PR467 lazy FAT writes and PR468 Air6,1
+native evidence) on the existing device branch and validate affected host
+storage paths. No new physical trial is armed. PR19 networking and PR379
+WebCore remain independent. Current installed source stays the qualified
+`a720d774` payload until a new candidate is staged and qualified.
 
-Scope: shared HDA-companion adapter boundaries, separate firmware/image/recipe,
-explicit receipts/collector and actual-adapter fault tests. No interval claim,
-GPU requester/PTE/reset/Stop Ring/ring-start writer, geometry-gate relaxation or
-memory grant. Keep inherited backing and all100/150/300/400/500ms origins/bounds.
-Persistent original owner/provider/borrow objects and post-store uncertainty
-retention remain mandatory. Preserve old images/receipts and test their refusal
-contracts. Checkpoint:`build/air-hda-shutdown-20261111`; source78be return fully
-collected, current78be/recovery9aa8/accepted shutdownd260/joint978 preserved,
-no reboot armed. Exact staged VM and host qualification now pass; see the
-current checkpoint below. PR467 filesystem, PR19 networking and PR379 WebCore
-remain separate from this frozen candidate.
+The next graphics block is same-owner shutdown/reset-admission composition,
+using actual entry state and original source/epoch/lifetime checks. An
+already-disabled entry may proceed only through its existing legal gates;
+nonzero geometry must not be cleared or hidden to force reset admission.
+Keep100/150/300/400/500ms bounds. The enabled writer remains unexercised; do not
+force an enabled case or repeat unchanged observation boots to claim progress.
+No pre-wake engine MMIO, requester/PTE/Stop Ring/ring-start writer or memory
+assurance is supplied by this observation.
 
-### Current checkpoint: original-owner HDA/BCS shutdown ready
+### Latest native HDA/BCS result: already-disabled observation accepted
+
+Source`a720d774` (production C4972ccd0), release`bd77ce8cff00a4a3`, session
+`session-000660022da620b1-00` completes the pre-init original HDA/GT lifetime
+with zero collector attention. Both eight-DWORD BCS entry groups agree with
+the initial census:0/0/0/0/1/0/512/0. Entry was already disabled; BCS attempts
+and stores remain zero and the engine epoch stays0. This does not exercise or
+accept the enabled shutdown writer. It also shows that pre-init HDA inhibition
+alone does not consistently reproduce the earlier enabled-entry observation;
+the cause remains unestablished.
+
+Full pre/post five-engine vectors, plane and HDA snapshots preserve. HDA
+Command follows6/2/2/6, all four inspection borrows return, all11 GPU aliases
+and the HDA root alias retire, and CPU exclusion releases without clock faults.
+Measured lifetimes: BCS32,723/100,000us; shutdown113,531/150,000us;
+readers105,839/150,000us; GT230,849/300,000us; HDA253,501/400,000us;
+outer307,103/500,000us. This is one bounded pass, not repeatability evidence.
+The exact16-token recipe, durable native checkpoint and completed=yes agree.
+
+All1,467 prior files preserve except expected workspace metadata; three verified
+new logs yield1,470 files/146 sessions. Offline fsck/allocation/writable/headroom,
+boot records, installed/durable payload banks, Ubuntu default, consumed one-shot
+and recovery9aa8 pass. USB unmounted; no reboot armed. Currentbd77, prior78be,
+GUIc497, accepted joint978 and standalone shutdownd260 remain preserved. Raw
+logs and complete source-specific proof are independently banked outside build;
+local checkpoint:`build/air-hda-shutdown-20261111/returned/return-proof.json`.
+Accepted scope is same-owner already-disabled observation/preservation and
+retirement only. Obligations255, assurances0, managedpages0 and physical
+tear-free presentation remain unchanged and unaccepted.
+
+### Earlier qualification: original-owner HDA/BCS shutdown candidate
 
 Candidate`bd77ce8cff00a4a3`, source`a720d774`, contains the isolated pre-init
 HDA/BCS diagnostic. Production C/native objects are source`4972ccd0`; the final

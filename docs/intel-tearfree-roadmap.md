@@ -53,6 +53,17 @@ host fault/sanitizer qualification. It preserves the legacy native16-entry
 observer and has no native provider. The next boundary is genuine maintained
 interval ownership and a one-page mapping, not another synthetic capacity trial.
 
+The separate [original-owner HDA/BCS diagnostic](intel-hda-bcs-shutdown.md) now
+accepts already-disabled observation on source`a720d774`, release
+`bd77ce8cff00a4a3`, session`session-000660022da620b1-00`. Census and BCS entry
+agree, full preservation and HDA6/2/2/6 pass, and GPU11/HDA1 aliases retire in
+307,103/500,000us outer lifetime. BCS attempts/stores0 leave enabled shutdown
+unexercised. This does not identify why an earlier requester boot saw enabled
+entry, or supply a reset/claim/memory grant. Next compose legal entry/shutdown
+and reset admission under the same original owner, retaining all existing
+geometry, source, epoch and deadline checks; do not synthesize an enabled case
+or repeat unchanged observation boots as a substitute for that integration.
+
 ## First decision: how ownership begins
 
 Before another destructive native operation, choose and document a complete

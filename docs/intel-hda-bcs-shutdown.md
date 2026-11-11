@@ -1,7 +1,8 @@
 # Original-owner HDA/BCS shutdown diagnostic
 
 This separate Air7,2 diagnostic qualifies BCS shutdown inside the original
-cooperative HDA/GT lifetime. Native acceptance is pending. It does not grant
+cooperative HDA/GT lifetime. Native already-disabled observation is accepted
+on the exact source below; the enabled writer remains unexercised. It does not grant
 reset, DMA retirement, managed GPU memory or tear-free display support.
 Read it with the [shutdown contract](intel-shutdown.md),
 [HDA/GPU lifetime](intel-hda-gpu.md) and
@@ -92,7 +93,8 @@ installed recovery and save the exact local run record before reboot.
 
 ## Qualified candidate
 
-Source`a720d774`, release`bd77ce8cff00a4a3`, is hardware-ready and uninstalled.
+Source`a720d774`, release`bd77ce8cff00a4a3`, was qualified for the native trial
+recorded below.
 Its production C and all27 native ELF hashes equal the full local4972ccd0
 build/USB/host/core/docs qualification. The final delta registers the CLI flag
 and tests the real command line; final CLI/collector and ten-test diagnostic
@@ -105,6 +107,26 @@ log projection is57,406/65,536 bytes with the existing1,536 reserve. Exact stage
 MBR/EFI QEMU passes zero-store unsupported refusal, recipe/pre-init/checkpoint
 provenance, matching saved bytes, unmount/automatic return and missing-workspace
 halt. Installed recovery, prior media preservation and installer margin pass.
-No native run has exercised this candidate; enabled shutdown and physical
-tear-free acceptance remain pending. Follow the machine record for the next
-source-bound trial and collection.
+The native result below accepts only the already-disabled branch; enabled
+shutdown and physical tear-free acceptance remain pending. Follow the machine
+record for subsequent source-bound trials and collection.
+
+## Native already-disabled result
+
+Air7,2 source`a720d774`, release`bd77ce8cff00a4a3`, session
+`session-000660022da620b1-00` passes the original pre-init HDA/GT owner with
+already-disabled BCS entry. Both eight-word groups agree with the initial
+census, all preservation checks pass, HDA follows6/2/2/6, all borrows return,
+GPU11/HDA1 aliases retire and exclusion releases. BCS attempts/stores0 and
+epoch0→0 leave the enabled writer unexercised. Collector attention is zero.
+
+BCS32,723/100,000us, shutdown113,531/150,000us, readers105,839/150,000us,
+GT230,849/300,000us, HDA253,501/400,000us and outer307,103/500,000us retain
+all original limits. Exact boot/checkpoint/completion, previous-file hashes,
+offline allocation/filesystem/write eligibility and Ubuntu recovery pass.
+This is one source-specific observation and retirement result; it does not
+accept repeatability, reset composition, a GPU interval or tear-free display.
+
+The disabled entry under this pre-init HDA owner does not establish the cause
+of the earlier enabled entry. Keep the enabled branch's strict admission and
+explicit unaccepted status. Do not force geometry changes to exercise a writer.
