@@ -2,6 +2,28 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
+### Active scope: joint-context BCS shutdown qualification
+
+Integrate actual main `ae869c9b` (PR465 queued append waits and PR466 native
+Air6,1 results), then build a separate HDA/BCS shutdown diagnostic. PR19
+networking and PR379 WebCore remain independent. The new image/recipe must use
+the original joint HDA inhibition and wake owner, sample the legal awake engine
+entry through both census and BCS providers, run the existing exact idle-only
+shutdown/observation protocol, and restore HDA only after full original GPU/
+reader/mapping retirement. No pre-wake engine MMIO is justified. It can isolate
+entry/provider agreement and qualify the enabled writer in this context; it
+cannot by itself prove which firmware/handoff action caused the earlier state.
+
+Scope: shared HDA-companion adapter boundaries, separate firmware/image/recipe,
+explicit receipts/collector and actual-adapter fault tests. No interval claim,
+GPU requester/PTE/reset/Stop Ring/ring-start writer, geometry-gate relaxation or
+memory grant. Keep inherited backing and all100/150/300/400/500ms origins/bounds.
+Persistent original owner/provider/borrow objects and post-store uncertainty
+retention remain mandatory. Preserve old images/receipts and test their refusal
+contracts. Checkpoint:`build/air-hda-shutdown-20261111`; source78be return fully
+collected, current78be/recovery9aa8/accepted shutdownd260/joint978 preserved,
+no reboot armed. Work to an exact VM-validated hardware-ready checkpoint.
+
 ### Latest requester retry: repeated enabled-BCS refusal
 
 Source `ed4b63d1` (production code `3028016d`), release `78be06917358b54f`,
