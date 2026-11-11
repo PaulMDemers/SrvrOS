@@ -11919,3 +11919,21 @@ about9GiB free without deleting raw evidence. No new reboot is armed. Next
 bounded work is a deterministic replay of the matched sync/write-completion
 overlap and an audit of exFAT commit ownership and repeated prefix work, with
 all proofs, barriers, ownership, byte caps and runtime/latency limits retained.
+
+## Active matched-commit replay audit (2026-11-10)
+
+Base is main `83c955fd`, following the reviewed3403 native observation. Bounded
+objective is a process/VFS/exFAT replay of the matched2555904-byte committed
+prefix,3145728-byte captured writeback and262144-byte concurrent suffix, then
+an audit of transaction work and quiescent boundaries. A bounded Ubuntu
+new-file reference on this unit's USB may help assess long write completion.
+The local run record retains workspace identity, recovery and original hashes.
+Scope is host replay tools and evidence guides until a relevant equivalent
+reduction is demonstrated. Required data/metadata publication, prefix checks,
+fresh readback, barriers, ownership and all existing byte/runtime limits remain
+in force. Installed3403/recoveryc354 and original failed media stay protected.
+
+Open PR301 at18f0ab6f and PR19 atbd1f2ee6 retain separate graphics/network work.
+No other-machine task is contacted. The next checkpoint is measured source work
+and failure/dirty-survivor equivalence for this captured boundary. An unchanged
+work result alone supplies no performance justification for another native boot.
