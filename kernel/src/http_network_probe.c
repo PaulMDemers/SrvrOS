@@ -115,12 +115,12 @@ static bool child_cleanup(struct http_network_probe *s,bool cancel){
  }
  return false;
 }
-bool http_network_probe_prepare(struct http_network_probe *s){
+static bool prepare(struct http_network_probe *s,bool connection){
  if(!s || !zero(s,sizeof *s) || process_current())return false;
- s->self=(uintptr_t)s;s->result.version=2;s->result.phase=HTTP_NET_PREPARE;
+ s->self=(uintptr_t)s;s->result.version=2;s->result.phase=HTTP_NET_PREPARE;s->result.connection_scope=connection;
  bool child=http_child_prepare(&s->child,false),worker=false;
  if(child && timer_idle_wakeup_ready()){
-  s->result.worker_allocated=net_prepare_probe_worker();
+  s->result.worker_allocated=connection?net_prepare_connection_probe_worker():net_prepare_probe_worker();
  }
  if(child && s->result.worker_allocated){
   uint64_t start=timer_monotonic_us(),last=start;
@@ -137,6 +137,9 @@ bool http_network_probe_prepare(struct http_network_probe *s){
  (void)http_network_probe_abort_prepare(s);
  return false;
 }
+bool http_network_probe_prepare(struct http_network_probe *s){return prepare(s,false);}
+bool http_network_probe_prepare_connection(struct http_network_probe *s){return prepare(s,true);}
+
 bool http_network_probe_abort_prepare(struct http_network_probe *s){
  if(!s || s->self!=(uintptr_t)s || s->result.attempted || s->handoff_attempted ||
     s->source || s->source_guard || s->result.go || s->child.published || s->bootstrap.identity || process_current())return false;
@@ -198,6 +201,7 @@ static bool finish_worker(struct http_network_probe *s){
  return false;
 }
 static bool finish_without_handoff(struct http_network_probe *s){
+ if(s->result.connection_scope && s->bootstrap.identity)return false;
  /* Finish always scrubs this terminal bootstrap, including handled failures.
   * Its return value is success, not the separate reference-closure observation. */
  if(s->bootstrap.identity && !s->bootstrap.closed)(void)net_bounded_probe_finish(&s->bootstrap);
@@ -208,8 +212,8 @@ static bool finish_without_handoff(struct http_network_probe *s){
  s->result.provider_drained=true;s->result.tcp_empty=true;
  return finish_worker(s) && child_cleanup(s,true);
 }
-bool http_network_probe_run(struct http_network_probe *s,const struct http_network_probe_io *io){
- if(!s || s->self!=(uintptr_t)s || !s->result.prepared || s->result.attempted || s->child.retired || s->worker_stopped || s->result.quiescent || !io ||
+static bool run(struct http_network_probe *s,const struct http_network_probe_io *io,const struct net_device_ops *provider){
+ if(!s || s->self!=(uintptr_t)s || !s->result.prepared || s->result.attempted || s->child.retired || s->worker_stopped || s->result.quiescent || s->result.connection_scope!=(provider!=NULL) || !io ||
     !io->context || !io->current || !io->retry_ready || !io->drained || !io->terminal_rx_handoff || !io->epoch ||
     io->start_us<s->child.ready_us || io->start_us>INT64_MAX-HTTP_CHILD_WINDOW_US ||
     io->deadline_us!=io->start_us+HTTP_CHILD_WINDOW_US ||
@@ -220,8 +224,9 @@ bool http_network_probe_run(struct http_network_probe *s,const struct http_netwo
  s->result.test_override=s->io_guard.test_ip_override!=0;s->result.phase=HTTP_NET_DHCP;
  s->net_io=(struct net_bounded_probe_io){s,net_current,net_retry};
  bool good=false;
- if(!current(s) || !net_probe_worker_prepared() || !net_init_bounded_probe() ||
-    !net_bounded_probe_init(&s->bootstrap,&s->net_io,s->io_guard.epoch,s->io_guard.deadline_us)){fail(s,HTTP_NET_INIT);goto done;}
+ if(!current(s) || !net_probe_worker_prepared() ||
+    (provider?!net_bounded_probe_init_connection(&s->bootstrap,&s->net_io,provider,s->io_guard.epoch,s->io_guard.deadline_us):
+     (!net_init_bounded_probe() || !net_bounded_probe_init(&s->bootstrap,&s->net_io,s->io_guard.epoch,s->io_guard.deadline_us)))){fail(s,HTTP_NET_INIT);goto done;}
  s->bootstrap_open=true;
  if(net_dhcp_request_bounded(&s->bootstrap)<0){fail(s,HTTP_NET_DHCP_FAILED);goto done;}s->result.dhcp=1;
  if(!bootstrap_drain(s))goto done;
@@ -261,6 +266,13 @@ bool http_network_probe_run(struct http_network_probe *s,const struct http_netwo
  s->result.child_reaped=true;
  if(!http_child_retire(&s->child)){fail(s,HTTP_NET_RETIRE_FAILED);goto done;}
  s->result.child_retired=true;
+ if(provider){
+  if(!current(s) || !net_probe_worker_disconnect(&s->bootstrap) || !current(s)){
+   good=false;fail(s,HTTP_NET_RETIRE_FAILED);goto done;
+  }
+  s->result.disconnected=s->bootstrap.disconnected;
+  if(!s->result.disconnected){good=false;fail(s,HTTP_NET_RETIRE_FAILED);goto done;}
+ }
  /* Ordinary posted RX can complete after the stop snapshot. The finished
   * software borrowers hand its retained ownership to terminal native cleanup. */
  if(!terminal_rx_handoff(s))good=false;
@@ -290,12 +302,18 @@ bool http_network_probe_run(struct http_network_probe *s,const struct http_netwo
   s->source=s->source_guard=NULL;s->answer=0;
   s->result.refs_scrubbed=true;
  }
- s->result.complete=good && s->result.quiescent && s->result.worker_finished &&
+ s->result.complete=good && (!s->result.connection_scope || s->result.disconnected) && s->result.quiescent && s->result.worker_finished &&
   s->result.child_observed && s->result.child_reaped && s->result.child_retired &&
   s->result.tcp_empty && s->result.provider_drained && s->result.receiver_closed && !s->result.child_status && !s->result.reason;
  if(s->result.complete)s->result.phase=HTTP_NET_DONE;
  return s->result.complete;
 }
+bool http_network_probe_run(struct http_network_probe *s,const struct http_network_probe_io *io){return run(s,io,NULL);}
+bool http_network_probe_run_connection(struct http_network_probe *s,const struct http_network_probe_io *io,const struct net_device_ops *provider){
+ if(!provider)return false;
+ return run(s,io,provider);
+}
+
 void http_network_probe_emit(const struct http_network_probe *s){
  if(!s)return;
  const struct net_dhcp_observation *d=&s->bootstrap.dhcp_observation;
@@ -304,6 +322,7 @@ void http_network_probe_emit(const struct http_network_probe *s){
  d->frames,d->ipv4,d->udp,d->dhcp,d->offers,d->acks,d->naks,d->accepted_offer,d->accepted_ack,d->rejected,
  d->first_reject,d->last_reject,d->reject_mask,d->last_message,d->last_options,d->have_offer,d->request_sent,d->configured,d->polls,d->elapsed_us,d->elapsed_ticks);
  const struct http_network_result *r=&s->result;
+ if(r->connection_scope)console_printf("wifi-http5-connection: version=1 scope=1 disconnected=%u complete=%u retained=1\n",(uint64_t)r->disconnected,(uint64_t)r->complete);
  console_printf("wifi-http5-workload: version=%u complete=%u phase=%u reason=%u prepared=%u worker_allocated=%u attempted=%u dhcp=%u retries=%u dns=%u route=%u handoff=%u go=%u child_status=%u child_observed=%u child_reaped=%u child_retired=%u tcp_empty=%u provider_drained=%u receiver_closed=%u worker_finished=%u quiescent=%u refs_scrubbed=%u test_override=%u request_bytes=4159 body_bytes=3072 body_eof=%u bootstrap_polls=%u worker_polls=%u worker_turns=%u supervisor_turns=%u elapsed_us=%u retained=%u\n",
  r->version,(uint64_t)r->complete,r->phase,r->reason,(uint64_t)r->prepared,(uint64_t)r->worker_allocated,(uint64_t)r->attempted,
  r->dhcp,r->retries,r->dns,r->route,(uint64_t)r->handoff,r->go,r->child_status,

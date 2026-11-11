@@ -48,13 +48,14 @@ def boot_identity(log, release=None):
 # rules. Only production request counts/lengths and the honest unused probe
 # differ. The thousand-line RF chain is reused without any projection/rewrite.
 _HTTP_TRANSPORT = object()  # Internal trusted profile,never a boot token or inferred log value.
+_HTTP_CONNECTION_TRANSPORT = object()  # Explicit two-connection HTTP owner.
 _CONNECTION_TRANSPORT = object()  # Bounded local-parent close; no legacy parent-success projection.
 
 def _owner(log, lines, rows, *, profile=None, expected_epoch=None, previous_context=None):
-    require(profile is None or profile is _HTTP_TRANSPORT or profile is _CONNECTION_TRANSPORT,
+    require(profile is None or profile is _HTTP_TRANSPORT or profile is _CONNECTION_TRANSPORT or profile is _HTTP_CONNECTION_TRANSPORT,
             'unknown raw transport profile')
-    http = profile is _HTTP_TRANSPORT
-    connection = profile is _CONNECTION_TRANSPORT
+    http = profile is _HTTP_TRANSPORT or profile is _HTTP_CONNECTION_TRANSPORT
+    connection = profile is _CONNECTION_TRANSPORT or profile is _HTTP_CONNECTION_TRANSPORT
     require((connection and type(expected_epoch) is int and 0<expected_epoch<2**64) or
             (not connection and expected_epoch is None and previous_context is None),
             'epoch/context override outside explicit connection transport')

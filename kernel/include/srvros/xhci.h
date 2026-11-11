@@ -146,6 +146,9 @@ bool xhci_wifi_capture_reconnect5_probe(void);
 /* Explicit v139: prepare before RF/key/provider ownership; finish retires an
  * unrun child/worker before any disk save. Uncertain callback never returns to
  * legacy unconditional key erasure. Native source/IO are retained statically. */
+bool xhci_wifi_http_reconnect5_prepare(void);
+bool xhci_wifi_capture_http_reconnect5(void);
+bool xhci_wifi_http_reconnect5_finish_capture(bool parent_complete);
 bool xhci_wifi_http5_prepare(void);
 bool xhci_wifi_capture_http5(void);
 bool xhci_wifi_http5_finish_capture(bool parent_complete);

@@ -38,6 +38,7 @@ bool process_should_exit_current(void){
 }
 bool process_signal_pending_current(void){return false;}
 void process_file_poll_wake(void){}
+uint64_t scheduler_current_thread_id(void){return 1;}
 void scheduler_yield(void){}
 void scheduler_wake_all(struct scheduler_wait_queue *q){(void)q;}
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *a){(void)q;(void)fn;(void)a;assert(0);return false;}

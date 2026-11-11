@@ -13,6 +13,7 @@
 #define WIFI_STACK5_TOTAL_US 15000000u
 static struct {uint64_t start,services,tx_token,terminal_epoch,terminal_ticket,terminal_token,terminal_posts,terminal_completions;bool selected,running,failed,boundary,terminal_handoff,terminal_pending,terminal_ready,terminal_provider_closing;} wifi_stack5;
 static struct mt76_net5 wifi_stack5_net;
+static bool wifi_http_reconnect5_reserved;
 static struct {uint64_t epoch,posts[2];unsigned phase,fault_phase;struct {uint64_t ticket;} loan;
  bool attempted,stack_mode,failed,pending[2],ready_rx,cached_present;} wifi_stream5;
 static struct {unsigned round;} wifi_fence5_native;

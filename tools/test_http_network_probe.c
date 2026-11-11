@@ -16,7 +16,9 @@ static struct net_probe_worker_info wp;
 static const struct net_bounded_probe_io *net_source;
 static struct http_network_probe *object;
 static struct http_network_probe_io source;
-static struct http_network_probe objects[96];
+static struct http_network_probe objects[112];
+static bool connection_test;static unsigned disconnects;
+static unsigned provider_identity;
 static struct http_network_probe_io replacement_source;
 static unsigned replacement_context,mutation_count;
 static int is(const char *name){return !strcmp(scenario,name);}
@@ -89,6 +91,7 @@ bool http_child_retire(struct http_child_owner *o){
  o->retired=true;releases++;return true;
 }
 bool net_prepare_probe_worker(void){wp.prepared=!is("worker-prepare-fail");wp.worker_identity=17;wp.supervisor_identity=11;return wp.prepared;}
+bool net_prepare_connection_probe_worker(void){assert(connection_test);return net_prepare_probe_worker();}
 bool net_probe_worker_prepared(void){return wp.prepared && wp.parked && wp.parked_waiters==1 && !wp.ever_active;}
 bool net_probe_worker_snapshot(struct net_probe_worker_info *out){if(!wp.prepared)return false;*out=wp;return true;}
 bool net_init_bounded_probe(void){return !is("init-fail");}
@@ -96,6 +99,19 @@ bool net_bounded_probe_init(struct net_bounded_probe *p,const struct net_bounded
  assert(p==&object->bootstrap && io==&object->net_io && io->context==object && epoch==source.epoch && end==source.deadline_us);
  p->identity=(uintptr_t)p;p->source=io;p->io=p->io_guard=*io;p->epoch=epoch;p->deadline_us=end;net_source=io;return true;
 }
+bool net_bounded_probe_init_connection(struct net_bounded_probe *p,const struct net_bounded_probe_io *io,const struct net_device_ops *provider,uint64_t epoch,uint64_t end){
+ assert(connection_test && provider==(const struct net_device_ops *)&provider_identity);
+ if(!net_init_bounded_probe())return false;
+ bool good=net_bounded_probe_init(p,io,epoch,end);p->connection_scope=true;return good;
+}
+bool net_probe_worker_disconnect(struct net_bounded_probe *p){
+ assert(connection_test && p==&object->bootstrap && p->connection_scope && p->closed &&
+  object->result.child_retired && object->result.child_reaped && wp.finished && !wp.active && table_empty && !provider_closed);
+ disconnects++;
+ if(is("disconnect-refuse"))return false;
+ p->disconnected=true;return true;
+}
+
 bool net_bounded_probe_poll(struct net_bounded_probe *p){assert(p==&object->bootstrap);p->polls++;pending=false;return net_source->current(net_source->context,p->epoch);}
 bool net_bounded_probe_finish(struct net_bounded_probe *p){
  assert(p==&object->bootstrap);p->closed=true;p->source=NULL;memset(&p->io,0,sizeof p->io);memset(&p->io_guard,0,sizeof p->io_guard);bootstrap_finished=true;return !p->failed;
@@ -154,6 +170,7 @@ static bool provider_drained(void *p,uint64_t epoch){
 static bool terminal_rx_handoff(void *p,uint64_t epoch){
  assert(p==&source && !irq_flags && epoch==source.epoch && !wp.active && wp.finished && wp.parked && wp.parked_waiters==1 && table_empty);
  assert(object->result.child_observed && object->result.child_reaped && object->result.child_retired && object->result.tcp_empty);
+ if(connection_test)assert(object->result.disconnected && disconnects==1);
  handoffs++;
  if(is("post-stop-pending"))pending=true; /* unknown debt is NOT raw owner handoff */
  if(pending || decoded_cache || borrowed || is("terminal-refuse"))return false;
@@ -176,7 +193,7 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condit
 void scheduler_yield(void){assert(0);}
 void console_printf(const char *fmt,...){(void)fmt;assert(0);}
 static void setup(unsigned i,const char *name){
- scenario=name;object=&objects[i];now=1000000;irq_flags=512;go_time=0;
+ scenario=name;object=&objects[i];connection_test=false;disconnects=0;now=1000000;irq_flags=512;go_time=0;
  wait_turns=cancels=reaps=releases=dns_calls=publishes=stops=prepare_calls=current_calls=0;
  child_clean=child_canceled=pending=atomic_pending=bootstrap_finished=false;table_empty=true;
  raw_ready=raw_posted=decoded_cache=borrowed=provider_closed=hardware_latched=false;
@@ -257,5 +274,25 @@ int main(void){
  setup(count+2,"missing-hook");assert(http_network_probe_prepare(object));source.start_us=now;source.deadline_us=now+15000000;source.terminal_rx_handoff=NULL;
  assert(!http_network_probe_run(object,&source) && !object->result.attempted && !handoffs);
  assert(http_network_probe_abort_prepare(object) && object->result.quiescent);
+
+ const char *connection_cases[]={"good","good","disconnect-refuse","dhcp-fail","retire-fail","table-never-empty","init-fail"};
+ for(unsigned i=0;i<sizeof connection_cases/sizeof *connection_cases;i++){
+  setup(count+3+i,connection_cases[i]);connection_test=true;
+  assert(http_network_probe_prepare_connection(object) && object->result.connection_scope);
+  source.start_us=now;source.deadline_us=now+15000000;
+  assert(!http_network_probe_run(object,&source) && !object->result.attempted);
+  assert(!http_network_probe_run_connection(object,&source,NULL) && !object->result.attempted);
+  bool good=http_network_probe_run_connection(object,&source,(const struct net_device_ops *)&provider_identity);
+  if(is("good")){
+   assert(good && disconnects==1 && object->result.disconnected && object->result.quiescent && handoffs==1);
+   assert(object->result.child_retired && object->result.worker_finished && !object->source);
+  }else{
+   assert(!good && !object->result.complete && !object->result.disconnected && object->result.quiescent==is("init-fail") && !handoffs);
+   if(!is("init-fail"))assert(object->source==&source && !object->result.refs_scrubbed);
+  }
+  unsigned before=current_calls;
+  assert(!http_network_probe_run_connection(object,&source,(const struct net_device_ops *)&provider_identity) && before==current_calls);
+ }
+ puts("http-network-connection: seven HOST orchestration cases PASS including successful closure and mode/null/stale/disconnect/DHCP/retirement/table/init refusals;production net worker tested separately");
  printf("http-network-probe: %zu HOST cases PASS immutable window,atomic stop,FIN wait,admission descriptor/source/window guard at current/drained/retry,consuming terminal RX handoff/raw retention/cache-loan-mutation refusals; no guest/native acceptance\n",sizeof cases/sizeof cases[0]+3);
 }

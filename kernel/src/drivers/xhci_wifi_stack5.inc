@@ -15,6 +15,7 @@ static struct wifi_stack5_state *wifi_stack5_current=&wifi_stack5_slots[0];
 #define wifi_stack5 (*wifi_stack5_current)
 /* Adapter registry identity, lifetime counters and tokens survive reconnect. */
 static struct mt76_net5 wifi_stack5_net;
+static bool wifi_http_reconnect5_reserved;
 static __attribute__((noreturn)) void wifi_http5_hold(unsigned);
 static enum mt76_join5_send wifi_stack5_terminal_window(bool,void *,uint64_t);
 static bool wifi_stack5_fault(void){wifi_stack5.failed=true;return wifi_stream5_fail();}
@@ -123,7 +124,7 @@ static void wifi_stack5_emit(void){
 /* Caller supplies a bounded production exercise,initializing net.c only after
  * provider attachment. It must return with queue/TX callbacks idle. */
 bool xhci_wifi_capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *context){
- if(!exercise || wifi_stack5.selected || wifi_stream5.attempted || wifi_stream5.stack_mode)return false;
+ if(!exercise || wifi_http_reconnect5_reserved || wifi_stack5.selected || wifi_stream5.attempted || wifi_stream5.stack_mode)return false;
  wifi_stack5.selected=true;wifi_stack5.context=context;wifi_stack5.exercise=exercise;wifi_stream5.stack_mode=true;
  bool good=wifi_stream5_capture(false);
  if(wifi_stack5_net.attached && wifi_stack5_retirement(&wifi_stream5,wifi_stream5.epoch))wifi_stack5.detached=mt76_net5_finish_detach(&wifi_stack5_net,wifi_stream5.epoch);
@@ -161,6 +162,7 @@ static bool wifi_stack5_probe_exercise(void *context,struct mt76_net5 *p){
  return mt76_stack5_probe_run(context,p,&io);
 }
 bool xhci_wifi_capture_stack5_probe(void){
+ if(wifi_http_reconnect5_reserved)return false;
  bool good=xhci_wifi_capture_stack5(wifi_stack5_probe_exercise,&wifi_stack5_probe_result);
  /* All result emission follows key/endpoint/MAC/parent closure;never live. */
  mt76_stack5_probe_emit(&wifi_stack5_probe_result);return good;
@@ -169,3 +171,5 @@ bool xhci_wifi_capture_stack5_probe(void){
 #include "xhci_wifi_http5.inc"
 
 #include "xhci_wifi_reconnect5.inc"
+
+#include "xhci_wifi_http_reconnect5.inc"

@@ -91,7 +91,7 @@ static bool wifi_reconnect5_window(void){
  return true;
 }
 bool xhci_wifi_capture_reconnect5_probe(void){
- if(wifi_reconnect5.attempted || wifi_stack5.selected || wifi_stack5_net.identity ||
+ if(wifi_http_reconnect5_reserved || wifi_reconnect5.attempted || wifi_stack5.selected || wifi_stack5_net.identity ||
     wifi_stream5.attempted || wifi_stream5.stack_mode || wifi_join5_after ||
     wifi_wpa5_requested || wifi_wpa5_data_requested || wifi_provider5_requested ||
     wifi_reuse5_requested || wifi_tx5_nop_child)return false;

@@ -19,6 +19,15 @@ retirement checks. Test the actual native orchestration and production network
 path, including refusal of stale or incomplete prior ownership, before installing
 a new candidate. Closed native evidence remains immutable.
 
+The implementation now uses two retained native HTTP supervisors and two fresh
+network workers, with explicit old-worker deconfiguration and DOWN-link admission
+before the second preparation. Native-path development tests complete both exact
+HTTP exchanges and cover bad-MIC DHCP containment plus second-handshake/worker-
+allocation refusal. Source-frozen full-RF/log/staging, fatal sanitizer, actual ELF
+VM and exact-stage workspace/journal qualification are still pending. The accepted
+installed `c280927702804a27` image and all closed evidence remain unchanged; no
+new boot is armed during development.
+
 Actual main `3703eaea` was fetched and integrated; PR464 adds only Air6,1 metadata-
 tail test documentation. Submodule pins are unchanged. Current open-PR discovery
 reported no results; the local change remains on the published Pro unit branch.

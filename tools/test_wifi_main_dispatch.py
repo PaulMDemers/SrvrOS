@@ -26,7 +26,7 @@ def function(source,name):
 
 def selection(source):
     # The statement is extracted verbatim;do not implement a second dispatcher.
-    start=source.index('sampled=(!cmdline_has_token(cmdline,"srvros.wifi-stack5=1")')
+    start=source.index('sampled=(!wifi_http_reconnect5_requested || wifi_http_reconnect5_trial) && (!cmdline_has_token(cmdline,"srvros.wifi-stack5=1")')
     return source[start:source.index(';',start)+1]
 
 class MainDispatchTests(unittest.TestCase):
@@ -37,7 +37,7 @@ class MainDispatchTests(unittest.TestCase):
         setup=source[begin:source.index('                if(sampled && cmdline_has_token(cmdline,"srvros.wifi-bbp-table=1"))',begin)]
         names=sorted(set(re.findall(r'\b(xhci_wifi_capture_\w+)\(\)',expression)))
         declarations=[]
-        for name in ('wifi_provider_trial','http_child_trial','wifi_stack5_trial','wifi_reconnect5_requested','wifi_reconnect5_trial','wifi_reconnect5_capture_attempted','wifi_http5_requested','wifi_http5_trial','wifi_5ghz_prereq','wifi_channel_diagnosis','wifi_desktop_trial','return_on_failure','wifi_log_isolation'):
+        for name in ('wifi_provider_trial','http_child_trial','wifi_stack5_trial','wifi_reconnect5_requested','wifi_reconnect5_trial','wifi_http_reconnect5_requested','wifi_http_reconnect5_trial','wifi_reconnect5_capture_attempted','wifi_http5_requested','wifi_http5_trial','wifi_5ghz_prereq','wifi_channel_diagnosis','wifi_desktop_trial','return_on_failure','wifi_log_isolation'):
             match=re.search(r'\bbool '+name+r'\s*=[^;]+;',source)
             if not match:raise AssertionError('missing native declaration '+name)
             declarations.append(match.group())
@@ -51,7 +51,7 @@ class MainDispatchTests(unittest.TestCase):
             'unsigned dispatch_network_probe(void){return last_network_probe;}',
             'const char *dispatch(const char *cmdline,unsigned parked,unsigned successful,unsigned *sample,unsigned *count){',
             'calls=setup_calls=0;chosen="none";capture_ok=successful!=0;bool sampled=true;bool nop_logger_parked=parked!=0;bool stream_logger_parked=parked!=0;',
-            *declarations,setup,'if(sampled){',expression,'}','last_reconnect_attempted=wifi_reconnect5_capture_attempted;last_network_probe=(http_child_trial || wifi_http5_trial);*sample=sampled;*count=calls;return chosen;}'))
+            *declarations,setup,'if(sampled){',expression,'}','last_reconnect_attempted=wifi_reconnect5_capture_attempted;last_network_probe=(http_child_trial || wifi_http5_trial || wifi_http_reconnect5_trial);*sample=sampled;*count=calls;return chosen;}'))
         cls.tmp=tempfile.TemporaryDirectory(prefix='srvros-main-dispatch-');cls.addClassCleanup(cls.tmp.cleanup)
         directory=Path(cls.tmp.name);(directory/'dispatch.c').write_text(program)
         command=shlex.split(os.environ.get('WIFI_DISPATCH_CC','cc'))+['-std=c11','-O2','-Wall','-Wextra','-Werror','-fPIC','-shared',str(directory/'dispatch.c'),'-o',str(directory/'dispatch.so')]
@@ -71,9 +71,20 @@ class MainDispatchTests(unittest.TestCase):
         return bool(sample.value),name,count.value
 
     def test_actual_staged_profiles(self):
-        expected={124:'handoff5',125:'peer5',126:'tx5',127:'join5',128:'eapol5',129:'wpa5',130:'wpa5',131:'data5',132:'provider5',133:'reuse5',134:'nop5',135:'stream5',136:'stream5_dhcp',137:'stack5_probe',138:'stack5_probe',139:'http5',140:'reconnect5_probe'}
+        expected={124:'handoff5',125:'peer5',126:'tx5',127:'join5',128:'eapol5',129:'wpa5',130:'wpa5',131:'data5',132:'provider5',133:'reuse5',134:'nop5',135:'stream5',136:'stream5_dhcp',137:'stack5_probe',138:'stack5_probe',139:'http5',140:'reconnect5_probe',143:'http_reconnect5'}
         for version,child in expected.items():
             with self.subTest(version=version):self.assertEqual(self.dispatch(self.recipe(version)),(True,'xhci_wifi_capture_'+child,1))
+
+    def test_http_reconnect_native_dispatch_is_explicit(self):
+        recipe=self.recipe(143)
+        self.assertEqual(self.dispatch(recipe),(True,'xhci_wifi_capture_http_reconnect5',1))
+        self.assertEqual(self.library.dispatch_network_probe(),1)
+        for version in (138,139,140):
+            changed=self.recipe(version)+' srvros.wifi-reconnect5-http=1'
+            self.assertEqual(self.dispatch(changed),(False,'none',0))
+        for token in ('srvros.wifi-reconnect5=1','srvros.wifi-stack5=1','srvros.wifi-cal5-cleanup=1'):
+            self.assertEqual(self.dispatch(recipe.replace(token,'')),(False,'none',0))
+        self.assertEqual(self.dispatch(recipe+' srvros.wifi-http5=1'),(False,'none',0))
 
     def test_cleanup_setup_gate(self):
         self.assertEqual(self.dispatch(self.recipe(138)),(True,'xhci_wifi_capture_stack5_probe',1))

@@ -43,6 +43,7 @@ struct http_network_result {
     uint64_t version,phase,reason,dhcp,retries,dns,route,go,child_status;
     uint64_t bootstrap_polls,worker_polls,worker_turns,supervisor_turns,elapsed_us;
     bool prepared,worker_allocated,attempted,handoff,child_observed,child_reaped,child_retired;
+    bool connection_scope,disconnected;
     /* provider_drained is the atomic PRE-STOP software drain snapshot; it is
      * NOT a later claim that raw RX stayed empty. receiver_closed proves the
      * consuming software ingress handoff; hardware/DMA remains outer-owned. */
@@ -72,6 +73,10 @@ struct http_network_probe {
  * initialization or provider attach here. Failed preparation retains capability
  * state and reports whether cleanup completed; never retry same object. */
 bool http_network_probe_prepare(struct http_network_probe *);
+/* Explicit fresh one-shot object for each connection; at most two worker
+ * lifetimes. Preparation follows complete prior native/provider detach with
+ * link DOWN, before acquiring the next connection's keys. */
+bool http_network_probe_prepare_connection(struct http_network_probe *);
 /* PRELIVE or never-exercised only. Strictly refuses attempted run/handoff/GO.
  * Seals unused worker admission and retires it+child without inventing a source
  * IO or hardware permission. Use after early RF-parent refusal before run().
@@ -84,6 +89,10 @@ bool http_network_probe_abort_prepare(struct http_network_probe *);
  * If not quiescent, KEEP object/source/context/provider/key alive; halt/quarantine
  * rather than enter ordinary unconditional key teardown or reuse state. */
 bool http_network_probe_run(struct http_network_probe *,const struct http_network_probe_io *);
+/* Same original deadline/child/worker/terminal authority, with an exact adapter
+ * identity. Deconfigures protocol state only after child retirement, TCP EMPTY
+ * and worker finish, before consuming terminal RX handoff. */
+bool http_network_probe_run_connection(struct http_network_probe *,const struct http_network_probe_io *,const struct net_device_ops *);
 /* Post-live emission only; no address,packet,key or credential bytes. */
 void http_network_probe_emit(const struct http_network_probe *);
 #endif

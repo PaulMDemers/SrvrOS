@@ -3,7 +3,7 @@
  * No endpoint-stop, DMA-release, key-erasure or command publication is implied. */
 static bool wifi_stack5_terminal_raw_rx(void) {
  const struct mt76_dma5 *d=&wifi_stream5.dma;
- if(d->identity!=(uintptr_t)d || d->epoch!=wifi_stream5.epoch || d->state!=MT76_DMA5_RUNNING || d->positions!=63 || d->noop_only ||
+ if(d->identity!=(uintptr_t)d || d->epoch!=wifi_stream5.epoch || d->state!=MT76_DMA5_RUNNING || d->positions!=wifi_stream5_positions() || d->noop_only ||
     wifi_stream5.pending[0] || wifi_stream5.loan.ticket || wifi_stream5.cached_present || wifi_stream5.cached_size ||
     (wifi_stream5.pending[1] && wifi_stream5.ready_rx) || wifi_stream5.posts[1]>WIFI_STREAM5_RX ||
     wifi_stream5.completions[1]>wifi_stream5.posts[1] || wifi_stream5.posts[1]-wifi_stream5.completions[1]!=(uint64_t)wifi_stream5.pending[1])return false;
@@ -19,7 +19,7 @@ static bool wifi_stack5_terminal_raw_rx(void) {
  if(!device && !complete)return true;
  const struct mt76_dma5_lease *l=&wifi_stream5.lease[1];
  if(l->epoch!=d->epoch || l->direction!=1 || l->index>=MT76_DMA5_PAGES || !l->ticket || !l->token || l->length!=4096 || l->received || l->cycle>1 ||
-    l->page!=wifi_stream5.pages[1][l->index] || l->trb<d->ring[1] || l->trb>=d->ring[1]+63*16 || (l->trb-d->ring[1])%16)return false;
+    l->page!=wifi_stream5.pages[1][l->index] || l->trb<d->ring[1] || l->trb>=d->ring[1]+wifi_stream5_positions()*16 || (l->trb-d->ring[1])%16)return false;
  const struct mt76_dma5_page *p=&d->pages[1][l->index];const struct mt76_dma5_lease *q=&p->lease;
  return p->state==(device?MT76_DMA5_DEVICE:MT76_DMA5_COMPLETE) && q->epoch==l->epoch && q->ticket==l->ticket && q->token==l->token && q->page==l->page &&
   q->trb==l->trb && q->direction==l->direction && q->index==l->index && q->length==l->length && q->cycle==l->cycle &&

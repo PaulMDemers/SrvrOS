@@ -81,6 +81,15 @@ struct net_probe_worker_info {
  * no callbacks,clock reads or ownership/state changes,including after failure. */
 bool net_probe_worker_snapshot(struct net_probe_worker_info *out);
 bool net_prepare_probe_worker(void);
+/* Explicit two-lifetime HTTP experiment. Each call consumes a fresh retained
+ * worker object/thread. Second preparation requires the first successfully
+ * finished and deconfigured, exact adapter identity and a DOWN link. Never
+ * reinitializes a worker, restarts a deadline or admits a third lifetime. */
+bool net_prepare_connection_probe_worker(void);
+/* Consume the exact closed connection bootstrap only after the transferred
+ * worker finished successfully with empty tables. Caller separately proves
+ * child retirement and original live provider guard. Not hardware retirement. */
+bool net_probe_worker_disconnect(struct net_bounded_probe *probe);
 bool net_probe_worker_prepared(void);
 bool net_probe_worker_handoff(struct net_bounded_probe *probe);
 bool net_probe_worker_current(void);
@@ -178,7 +187,8 @@ bool net_bounded_probe_init(struct net_bounded_probe *probe,
  * All scopes use fresh zero objects, bound by an independent scalar active
  * object identity; copied scopes cannot acquire the original authority.
  * Adapter registry identity/MAC, monotonic
- * IDs and epoch high-water survive; no worker or HTTP handoff is permitted.
+ * IDs and epoch high-water survive. A worker handoff is allowed only through the
+ * explicit fresh connection worker; ordinary one-shot workers still refuse.
  * Disconnect consumes an OPEN current scope after empty protocol tables and
  * final owner/link/MAC/clock checks, closes/scrubs it and clears IPv4/DHCP/DNS/
  * ARP/ICMP configuration. It is not provider/key/DMA retirement authority.

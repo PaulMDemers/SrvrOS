@@ -12,6 +12,9 @@ static jmp_buf parked;
 static uint64_t thread_id=1,ticks=100,us=1000000;
 static scheduler_thread_fn captured;static void *captured_arg;
 static unsigned spawns,polls,sends,allocs,frees,wakes,guards,acks;
+static bool provider_match=true;
+static uint64_t owner_epoch=42;
+static struct net_device_ops provider;
 static bool queued_tcp,nested_poll;static unsigned char process_token;
 static bool owner=true,link_up=true,freeze,drop_arp,recurse,mutate,fail_inside_finish;
 static uint32_t queued_arp;
@@ -20,7 +23,7 @@ static struct net_bounded_probe boot;
 static struct net_bounded_probe_io io;
 uint64_t scheduler_current_thread_id(void){return thread_id;}
 bool scheduler_spawn(const char *name,scheduler_thread_fn fn,void *arg){assert(!strcmp(name,"net-probe"));spawns++;captured=fn;captured_arg=arg;return true;}
-bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn ready,void *arg){assert(q==&probe_worker.parked_queue && !ready(arg));q->waiters=1;longjmp(parked,1);}
+bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn ready,void *arg){assert((q==&probe_worker_slots[0].parked_queue || q==&probe_worker_slots[1].parked_queue) && !ready(arg));q->waiters=1;longjmp(parked,1);}
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn ready,void *arg,uint64_t end){assert(q==&rx_wait_queue && end==ticks+1);(void)ready;(void)arg;assert(!"turn driver must not sleep");return false;}
 void scheduler_yield(void){assert(!"unexpected yield");}
 void scheduler_wake_all(struct scheduler_wait_queue *q){wakes++;q->waiters=0;}
@@ -37,6 +40,7 @@ void kfree(void *p){frees++;free(p);}
 const uint8_t *net_device_mac(void){return station;}
 bool net_device_link(struct net_device_link *out){*out=(struct net_device_link){.up=link_up};return true;}
 bool net_device_select(void){return true;}
+bool net_device_selected_is(const struct net_device_ops *p){return provider_match && p->context==provider.context && p->send==provider.send;}
 const char *net_device_name(void){return "HOST-model";}
 bool net_device_rx_wake_ready(void){return false;}
 bool timer_delay_us(uint64_t n){(void)n;assert(!"no delay");return false;}
@@ -54,20 +58,82 @@ uint64_t net_device_poll(uint64_t budget,bool verbose){
  if(queued_arp && !drop_arp){uint8_t r[42]={0};copy_bytes(r,station,6);copy_bytes(r+6,router,6);write_be16(r+12,0x806);write_be16(r+14,1);write_be16(r+16,0x800);r[18]=6;r[19]=4;write_be16(r+20,2);copy_bytes(r+22,router,6);write_be32(r+28,queued_arp);copy_bytes(r+32,station,6);write_be32(r+38,local_ip);queued_arp=0;net_handle_ethernet_frame(r,42);return 1;}
  return 0;
 }
-static bool current(void *c,uint64_t epoch){assert(c==&owner && epoch==42);guards++;if(fail_inside_finish && probe_worker.handoff_started && !probe_worker.ever_active)return false;if(recurse){recurse=false;assert(!probe_worker_guard());}if(mutate)io.context=NULL;return owner;}
-static bool retry(void *c,uint64_t epoch){assert(c==&owner && epoch==42);return owner;}
+static bool current(void *c,uint64_t epoch){assert(c==&owner && epoch==owner_epoch);guards++;if(fail_inside_finish && probe_worker.handoff_started && !probe_worker.ever_active)return false;if(recurse){recurse=false;assert(!probe_worker_guard());}if(mutate)io.context=NULL;return owner;}
+static bool retry(void *c,uint64_t epoch){assert(c==&owner && epoch==owner_epoch);return owner;}
 static void reset(void){
+ probe_worker_selected=&probe_worker_slots[0];memset(probe_worker_slots,0,sizeof probe_worker_slots);memset(&bounded_connection,0,sizeof bounded_connection);provider_match=true;owner_epoch=42;
  memset(&probe_worker,0,sizeof probe_worker);memset(&boot,0,sizeof boot);memset(&io,0,sizeof io);
  memset(tcp_connections,0,sizeof tcp_connections);memset(listeners,0,sizeof listeners);memset(pending_requests,0,sizeof pending_requests);memset(udp_sockets,0,sizeof udp_sockets);memset(arp_cache,0,sizeof arp_cache);
+ const uint8_t default_ip[4]={10,0,2,15};memcpy(local_ip_bytes,default_ip,4);
  initialized=worker_started=net_probe_quiet=dhcp_in_progress=dhcp_retry_active=dns_query_active=dns_waiting=icmp_ping_waiting=false;
  bounded_poll_owner=icmp_bounded_owner=NULL;local_mac=NULL;thread_id=1;ticks=100;us=1000000;spawns=polls=sends=allocs=frees=wakes=guards=acks=0;queued_tcp=nested_poll=false;owner=link_up=true;freeze=drop_arp=recurse=mutate=fail_inside_finish=false;queued_arp=0;captured=NULL;
 }
-static void park_entry(void){thread_id=2;if(!setjmp(parked))captured(captured_arg);thread_id=1;assert(probe_worker.parked && probe_worker.parked_queue.waiters==1);}
+static void park_entry(void){thread_id=1+spawns;if(!setjmp(parked))captured(captured_arg);thread_id=1;assert(probe_worker.parked && probe_worker.parked_queue.waiters==1);}
 static void prepared(void){reset();assert(net_prepare_probe_worker() && spawns==1);assert(!net_probe_worker_prepared());park_entry();assert(net_probe_worker_prepared());assert(!net_prepare_probe_worker() && spawns==1);assert(!net_start_worker());}
 static void bootstrap(void){prepared();assert(net_init_bounded_probe());io=(struct net_bounded_probe_io){&owner,current,retry};assert(net_bounded_probe_init(&boot,&io,42,15000000));}
 static void active(void){bootstrap();assert(net_probe_worker_handoff(&boot));assert(boot.closed && !boot.source && !boot.io.current && !boot.station && worker_started);assert(probe_worker.start_us==1000000 && probe_worker.start_tick==100 && probe_worker.deadline_us==15000000);assert(!net_bounded_probe_poll(&boot));assert(net_probe_worker_current());}
-static void turn(void){thread_id=2;assert(probe_worker_turn());thread_id=1;}
+static void turn(void){thread_id=probe_worker.thread;assert(probe_worker_turn());thread_id=1;}
+static void connection_bootstrap(struct net_bounded_probe *b,struct net_bounded_probe_io *descriptor){
+ *descriptor=(struct net_bounded_probe_io){&owner,current,retry};
+ assert(net_bounded_probe_init_connection(b,descriptor,&provider,owner_epoch,us+15000000));
+ assert(net_probe_worker_handoff(b) && b->closed && !b->failed && !bounded_connection.failed);
+ assert(probe_worker.connection_scope==(uintptr_t)b && bounded_connection.active);
+}
+static void connection_finish(struct net_bounded_probe *b){
+ assert(!net_probe_worker_disconnect(b));
+ assert(net_probe_worker_empty() && net_probe_worker_stop());park_entry();
+ assert(net_probe_worker_finish());
+ assert(net_probe_worker_disconnect(b) && b->disconnected && !bounded_connection.active);
+ assert(!net_probe_worker_disconnect(b));
+}
+static bool provider_send(void *c,const uint8_t *p,uint16_t n){assert(c==&provider);return net_device_send(p,n);}
+static void connection_tests(void){
+ static struct net_bounded_probe b[2];static struct net_bounded_probe_io descriptors[2];
+ reset();memset(b,0,sizeof b);memset(descriptors,0,sizeof descriptors);
+ provider=(struct net_device_ops){.context=&provider,.send=provider_send};memcpy(provider.mac,station,6);
+ assert(net_prepare_connection_probe_worker());park_entry();assert(net_probe_worker_prepared());
+ assert(!net_prepare_connection_probe_worker());
+ connection_bootstrap(&b[0],&descriptors[0]);
+ /* Real production TCP retirement, not application-close or zero refs. */
+ tcp_connections[0]=(struct tcp_connection){.state=TCP_STATE_TIME_WAIT,.close_deadline=ticks+80};
+ assert(!net_probe_worker_disconnect(&b[0]) && !net_probe_worker_empty());
+ while(tcp_connections[0].state!=TCP_STATE_EMPTY)turn();
+ connection_finish(&b[0]);
+ assert(!local_ip && !dhcp_configured && !dns_answer_ready && !bounded_connection.scope_identity);
+ struct probe_worker_state saved=probe_worker;
+ unsigned before=spawns;assert(!net_prepare_connection_probe_worker() && spawns==before); /* still UP */
+ link_up=false;
+ for(unsigned fault=0;fault<9;fault++){
+  if(fault==0)probe_worker.failed=true;
+  if(fault==1)probe_worker.parked_queue.waiters=0;
+  if(fault==2)probe_worker.busy=true;
+  if(fault==3)probe_worker.poll_busy=true;
+  if(fault==4)probe_worker.checking=true;
+  if(fault==5)bounded_connection.active=true;
+  if(fault==6)provider_match=false;
+  if(fault==7)thread_id=99;
+  if(fault==8)tcp_connections[0].tx_history[0].used=true;
+  assert(!net_prepare_connection_probe_worker() && spawns==before && probe_worker_selected==&probe_worker_slots[0]);
+  probe_worker=saved;bounded_connection.active=false;provider_match=true;thread_id=1;tcp_connections[0].tx_history[0].used=false;
+ }
+ assert(net_prepare_connection_probe_worker() && spawns==before+1);
+ assert(!memcmp(&saved,&probe_worker_slots[0],sizeof saved));
+ assert(!probe_worker_runnable(&probe_worker_slots[0]));
+ /* A spurious wake of the original continuation still parks on original queue. */
+ struct probe_worker_state *selected=probe_worker_selected;
+ thread_id=2;if(!setjmp(parked))prepared_net_worker(&probe_worker_slots[0]);thread_id=1;
+ assert(probe_worker_selected==selected && !memcmp(&saved,&probe_worker_slots[0],sizeof saved));
+ park_entry();assert(net_probe_worker_prepared());
+ assert(!net_probe_worker_disconnect(&b[0]) && !net_probe_worker_handoff(&b[0]));
+ owner_epoch=43;link_up=true;connection_bootstrap(&b[1],&descriptors[1]);
+ assert(probe_worker.thread!=probe_worker_slots[0].thread && b[1].start_us>b[0].start_us);
+ connection_finish(&b[1]);link_up=false;
+ assert(!net_prepare_connection_probe_worker() && spawns==2);
+ assert(!memcmp(&saved,&probe_worker_slots[0],sizeof saved));
+ puts("net-connection-workers: PASS two actual stack handoffs/deconfigurations,80tickTIMEWAIT,fresh retained threads,old continuation and nine next-admission refusals;HOST scheduling only");
+}
 int main(void){
+ connection_tests();
  reset();initialized=true;assert(!net_prepare_probe_worker() && !spawns);reset();thread_id=0;assert(!net_prepare_probe_worker() && !spawns);
  prepared();assert(net_probe_worker_stop() && probe_worker.handoff_started && !probe_worker.ever_active);assert(net_probe_worker_finish() && probe_worker.finished);assert(!net_probe_worker_prepared());assert(!net_start_worker());struct net_bounded_probe unused={0};struct net_bounded_probe_io unused_io={&owner,current,retry};assert(!net_bounded_probe_init(&unused,&unused_io,42,us+1000000));
  bootstrap();uint8_t boot_before[sizeof boot];memcpy(boot_before,&boot,sizeof boot);assert(net_probe_worker_stop() && net_probe_worker_finish());assert(!net_probe_worker_prepared() && !net_probe_worker_handoff(&boot) && !memcmp(boot_before,&boot,sizeof boot) && !probe_worker.source);assert(net_bounded_probe_finish(&boot));

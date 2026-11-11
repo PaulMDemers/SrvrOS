@@ -3,6 +3,7 @@
  * UNCERTAIN; never return to that owner with outstanding HTTP obligations. */
 #include <srvros/http_network_probe.h>
 static struct http_network_probe wifi_http5_probe;
+static struct http_network_probe *wifi_http5_active_probe=&wifi_http5_probe;
 static struct http_network_probe_io wifi_http5_io;
 static bool wifi_http5_requested,wifi_http5_prepared,wifi_http5_capture_attempted,wifi_http5_callback_attempted;
 /* Failure-only CPU0 observation. Take no ownership/clock/provider callbacks and
@@ -25,8 +26,8 @@ static struct {
 static void wifi_http5_freeze_hold(unsigned site) {
  uint64_t flags=event_irq_save();
  if(!wifi_http5_held_state.frozen){
-  wifi_http5_held_state.result=wifi_http5_probe.result;
-  const struct net_probe_worker_info *w=&wifi_http5_probe.worker;
+  wifi_http5_held_state.result=wifi_http5_active_probe->result;
+  const struct net_probe_worker_info *w=&wifi_http5_active_probe->worker;
   wifi_http5_held_state.worker=(struct net_probe_worker_info){
    .prepared=w->prepared,.parked=w->parked,.active=w->active,.handoff_started=w->handoff_started,
    .ever_active=w->ever_active,.busy=w->busy,.poll_busy=w->poll_busy,.checking=w->checking,
@@ -37,11 +38,11 @@ static void wifi_http5_freeze_hold(unsigned site) {
   wifi_http5_held_state.prepared=wifi_http5_prepared;
   wifi_http5_held_state.capture_attempted=wifi_http5_capture_attempted;
   wifi_http5_held_state.callback_attempted=wifi_http5_callback_attempted;
-  wifi_http5_held_state.guard_failed=wifi_http5_probe.guard_failed;
-  wifi_http5_held_state.checking=wifi_http5_probe.checking;
-  wifi_http5_held_state.bootstrap_open=wifi_http5_probe.bootstrap_open;
-  wifi_http5_held_state.handoff_attempted=wifi_http5_probe.handoff_attempted;
-  wifi_http5_held_state.worker_stopped=wifi_http5_probe.worker_stopped;
+  wifi_http5_held_state.guard_failed=wifi_http5_active_probe->guard_failed;
+  wifi_http5_held_state.checking=wifi_http5_active_probe->checking;
+  wifi_http5_held_state.bootstrap_open=wifi_http5_active_probe->bootstrap_open;
+  wifi_http5_held_state.handoff_attempted=wifi_http5_active_probe->handoff_attempted;
+  wifi_http5_held_state.worker_stopped=wifi_http5_active_probe->worker_stopped;
   wifi_http5_held_state.selected=wifi_stack5.selected;
   wifi_http5_held_state.running=wifi_stack5.running;
   wifi_http5_held_state.stack_failed=wifi_stack5.failed;
@@ -116,7 +117,7 @@ static __attribute__((noreturn)) void wifi_http5_hold(unsigned site) {
 #endif
 }
 bool xhci_wifi_http5_prepare(void) {
- if(wifi_http5_requested || wifi_stack5.selected || wifi_stream5.attempted || wifi_stream5.stack_mode)return false;
+ if(wifi_http5_requested || wifi_http_reconnect5_reserved || wifi_stack5.selected || wifi_stream5.attempted || wifi_stream5.stack_mode)return false;
  wifi_http5_requested=true;wifi_http5_prepared=http_network_probe_prepare(&wifi_http5_probe);
  console_printf("wifi-http5-prepare: prepared=%u retained=1\n",(uint64_t)wifi_http5_prepared);
  return wifi_http5_prepared;

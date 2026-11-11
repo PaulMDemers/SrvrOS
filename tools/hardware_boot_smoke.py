@@ -67,6 +67,20 @@ def verify_reconnect5_absent_radio(log):
     assert 'srvros.wifi-reconnect5=1' in text and 'srvros.wifi-http5=1' not in text
 
 
+def verify_http_reconnect5_absent_radio(log,*,require_prepare=True):
+    """Exact unused HTTP owner closure; never physical reconnect acceptance."""
+    from wifi_http_reconnect5_log import canonical_decimal,BOOT,FINAL_KEYS
+    text=log.decode('utf-8') if isinstance(log,bytes) else log
+    lines=text.splitlines();rows=[s for s in lines if s.startswith('wifi-http-reconnect5')]
+    final='wifi-http-reconnect5-final: version=1 complete=0 connections=0 parent_restored=0 provider_retired=0 retained_contexts=2 backend_retired=0'
+    prepare='wifi-http-reconnect5-prepare: version=1 generation=1 prepared=1 retained=1'
+    abort='wifi-http-reconnect5-abort: version=1 generation=1 attempted=0 quiescent=1 child_retired=1 worker_allocated=1 worker_finished=1 retained=1'
+    expected=[BOOT,prepare,abort,final] if prepare in rows else [BOOT,final]
+    assert rows==expected and (not require_prepare or prepare in rows),'unused HTTP reconnect owners not retired'
+    assert not any(s.startswith(('wifi-http5','wifi-stack5:','wifi-stack5-final:','wifi-stream5-plan:','wifi-reconnect5')) for s in lines),'absent HTTP reconnect entered live/foreign owner'
+    assert 'srvros.wifi-reconnect5-http=1' in text and 'srvros.startup-journal=1' in text and 'srvros.wifi-http5=1' not in text
+
+
 def make_disk(path, loader, source, release, extra_files=None):
     # Same paths and filesystem UUID search as the host entry; only the UUID differs.
     size = 384 * 1024 * 1024
@@ -212,18 +226,19 @@ def main():
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
     keyboard_negative=args.keyboard_timeout or (args.keyboard_fail and not keyboard_retry)
     if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
-    wifi_firmware=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v1-","ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-","ram-usb-wifi-fw-v6-","ram-usb-wifi-fw-v7-","ram-usb-wifi-fw-v8-","ram-usb-wifi-fw-v9-","ram-usb-wifi-fw-v10-","ram-usb-wifi-fw-v11-","ram-usb-wifi-fw-v12-","ram-usb-wifi-fw-v13-","ram-usb-wifi-fw-v14-","ram-usb-wifi-fw-v15-","ram-usb-wifi-fw-v16-","ram-usb-wifi-fw-v17-","ram-usb-wifi-fw-v18-","ram-usb-wifi-fw-v19-","ram-usb-wifi-fw-v20-","ram-usb-wifi-fw-v21-","ram-usb-wifi-fw-v22-","ram-usb-wifi-fw-v23-","ram-usb-wifi-fw-v24-","ram-usb-wifi-fw-v25-","ram-usb-wifi-fw-v26-","ram-usb-wifi-fw-v27-","ram-usb-wifi-fw-v28-","ram-usb-wifi-fw-v29-","ram-usb-wifi-fw-v30-","ram-usb-wifi-fw-v31-","ram-usb-wifi-fw-v32-","ram-usb-wifi-fw-v33-","ram-usb-wifi-fw-v34-","ram-usb-wifi-fw-v35-","ram-usb-wifi-fw-v36-","ram-usb-wifi-fw-v37-","ram-usb-wifi-fw-v38-","ram-usb-wifi-fw-v39-","ram-usb-wifi-fw-v40-","ram-usb-wifi-fw-v41-","ram-usb-wifi-fw-v42-","ram-usb-wifi-fw-v43-","ram-usb-wifi-fw-v44-","ram-usb-wifi-fw-v45-","ram-usb-wifi-fw-v46-","ram-usb-wifi-fw-v47-","ram-usb-wifi-fw-v48-","ram-usb-wifi-fw-v49-","ram-usb-wifi-fw-v50-","ram-usb-wifi-fw-v51-","ram-usb-wifi-fw-v52-","ram-usb-wifi-fw-v53-","ram-usb-wifi-fw-v54-","ram-usb-wifi-fw-v55-","ram-usb-wifi-fw-v56-","ram-usb-wifi-fw-v57-","ram-usb-wifi-fw-v58-","ram-usb-wifi-fw-v59-","ram-usb-wifi-fw-v60-","ram-usb-wifi-fw-v61-","ram-usb-wifi-fw-v62-","ram-usb-wifi-fw-v63-","ram-usb-wifi-fw-v64-","ram-usb-wifi-fw-v65-","ram-usb-wifi-fw-v66-","ram-usb-wifi-fw-v67-", "ram-usb-wifi-fw-v68-", "ram-usb-wifi-fw-v69-", "ram-usb-wifi-fw-v70-", "ram-usb-wifi-fw-v71-","ram-usb-wifi-fw-v72-","ram-usb-wifi-fw-v73-","ram-usb-wifi-fw-v74-","ram-usb-wifi-fw-v75-","ram-usb-wifi-fw-v76-","ram-usb-wifi-fw-v77-","ram-usb-wifi-fw-v78-","ram-usb-wifi-fw-v79-","ram-usb-wifi-fw-v80-","ram-usb-wifi-fw-v81-","ram-usb-wifi-fw-v82-","ram-usb-wifi-fw-v83-","ram-usb-wifi-fw-v84-","ram-usb-wifi-fw-v85-","ram-usb-wifi-fw-v86-","ram-usb-wifi-fw-v87-","ram-usb-wifi-fw-v88-","ram-usb-wifi-fw-v89-","ram-usb-wifi-fw-v90-","ram-usb-wifi-fw-v91-","ram-usb-wifi-fw-v92-","ram-usb-wifi-fw-v93-","ram-usb-wifi-fw-v94-","ram-usb-wifi-fw-v95-","ram-usb-wifi-fw-v96-","ram-usb-wifi-fw-v97-","ram-usb-wifi-fw-v98-","ram-usb-wifi-fw-v99-","ram-usb-wifi-fw-v100-","ram-usb-wifi-fw-v101-","ram-usb-wifi-fw-v102-","ram-usb-wifi-fw-v116-","ram-usb-wifi-fw-v117-","ram-usb-wifi-fw-v118-","ram-usb-wifi-fw-v119-","ram-usb-wifi-fw-v120-","ram-usb-wifi-fw-v121-","ram-usb-wifi-fw-v122-","ram-usb-wifi-fw-v123-","ram-usb-wifi-fw-v124-","ram-usb-wifi-fw-v125-","ram-usb-wifi-fw-v126-","ram-usb-wifi-fw-v127-","ram-usb-wifi-fw-v128-","ram-usb-wifi-fw-v129-","ram-usb-wifi-fw-v130-","ram-usb-wifi-fw-v131-","ram-usb-wifi-fw-v132-","ram-usb-wifi-fw-v133-","ram-usb-wifi-fw-v134-","ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-")))
+    wifi_firmware=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v1-","ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-","ram-usb-wifi-fw-v6-","ram-usb-wifi-fw-v7-","ram-usb-wifi-fw-v8-","ram-usb-wifi-fw-v9-","ram-usb-wifi-fw-v10-","ram-usb-wifi-fw-v11-","ram-usb-wifi-fw-v12-","ram-usb-wifi-fw-v13-","ram-usb-wifi-fw-v14-","ram-usb-wifi-fw-v15-","ram-usb-wifi-fw-v16-","ram-usb-wifi-fw-v17-","ram-usb-wifi-fw-v18-","ram-usb-wifi-fw-v19-","ram-usb-wifi-fw-v20-","ram-usb-wifi-fw-v21-","ram-usb-wifi-fw-v22-","ram-usb-wifi-fw-v23-","ram-usb-wifi-fw-v24-","ram-usb-wifi-fw-v25-","ram-usb-wifi-fw-v26-","ram-usb-wifi-fw-v27-","ram-usb-wifi-fw-v28-","ram-usb-wifi-fw-v29-","ram-usb-wifi-fw-v30-","ram-usb-wifi-fw-v31-","ram-usb-wifi-fw-v32-","ram-usb-wifi-fw-v33-","ram-usb-wifi-fw-v34-","ram-usb-wifi-fw-v35-","ram-usb-wifi-fw-v36-","ram-usb-wifi-fw-v37-","ram-usb-wifi-fw-v38-","ram-usb-wifi-fw-v39-","ram-usb-wifi-fw-v40-","ram-usb-wifi-fw-v41-","ram-usb-wifi-fw-v42-","ram-usb-wifi-fw-v43-","ram-usb-wifi-fw-v44-","ram-usb-wifi-fw-v45-","ram-usb-wifi-fw-v46-","ram-usb-wifi-fw-v47-","ram-usb-wifi-fw-v48-","ram-usb-wifi-fw-v49-","ram-usb-wifi-fw-v50-","ram-usb-wifi-fw-v51-","ram-usb-wifi-fw-v52-","ram-usb-wifi-fw-v53-","ram-usb-wifi-fw-v54-","ram-usb-wifi-fw-v55-","ram-usb-wifi-fw-v56-","ram-usb-wifi-fw-v57-","ram-usb-wifi-fw-v58-","ram-usb-wifi-fw-v59-","ram-usb-wifi-fw-v60-","ram-usb-wifi-fw-v61-","ram-usb-wifi-fw-v62-","ram-usb-wifi-fw-v63-","ram-usb-wifi-fw-v64-","ram-usb-wifi-fw-v65-","ram-usb-wifi-fw-v66-","ram-usb-wifi-fw-v67-", "ram-usb-wifi-fw-v68-", "ram-usb-wifi-fw-v69-", "ram-usb-wifi-fw-v70-", "ram-usb-wifi-fw-v71-","ram-usb-wifi-fw-v72-","ram-usb-wifi-fw-v73-","ram-usb-wifi-fw-v74-","ram-usb-wifi-fw-v75-","ram-usb-wifi-fw-v76-","ram-usb-wifi-fw-v77-","ram-usb-wifi-fw-v78-","ram-usb-wifi-fw-v79-","ram-usb-wifi-fw-v80-","ram-usb-wifi-fw-v81-","ram-usb-wifi-fw-v82-","ram-usb-wifi-fw-v83-","ram-usb-wifi-fw-v84-","ram-usb-wifi-fw-v85-","ram-usb-wifi-fw-v86-","ram-usb-wifi-fw-v87-","ram-usb-wifi-fw-v88-","ram-usb-wifi-fw-v89-","ram-usb-wifi-fw-v90-","ram-usb-wifi-fw-v91-","ram-usb-wifi-fw-v92-","ram-usb-wifi-fw-v93-","ram-usb-wifi-fw-v94-","ram-usb-wifi-fw-v95-","ram-usb-wifi-fw-v96-","ram-usb-wifi-fw-v97-","ram-usb-wifi-fw-v98-","ram-usb-wifi-fw-v99-","ram-usb-wifi-fw-v100-","ram-usb-wifi-fw-v101-","ram-usb-wifi-fw-v102-","ram-usb-wifi-fw-v116-","ram-usb-wifi-fw-v117-","ram-usb-wifi-fw-v118-","ram-usb-wifi-fw-v119-","ram-usb-wifi-fw-v120-","ram-usb-wifi-fw-v121-","ram-usb-wifi-fw-v122-","ram-usb-wifi-fw-v123-","ram-usb-wifi-fw-v124-","ram-usb-wifi-fw-v125-","ram-usb-wifi-fw-v126-","ram-usb-wifi-fw-v127-","ram-usb-wifi-fw-v128-","ram-usb-wifi-fw-v129-","ram-usb-wifi-fw-v130-","ram-usb-wifi-fw-v131-","ram-usb-wifi-fw-v132-","ram-usb-wifi-fw-v133-","ram-usb-wifi-fw-v134-","ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-")))
     wifi_ui_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v103-","ram-usb-wifi-fw-v104-","ram-usb-wifi-fw-v105-","ram-usb-wifi-fw-v106-","ram-usb-wifi-fw-v107-")))
-    wifi_5ghz_prereq=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v108-","ram-usb-wifi-fw-v109-","ram-usb-wifi-fw-v110-","ram-usb-wifi-fw-v111-","ram-usb-wifi-fw-v112-","ram-usb-wifi-fw-v113-","ram-usb-wifi-fw-v114-","ram-usb-wifi-fw-v115-","ram-usb-wifi-fw-v116-","ram-usb-wifi-fw-v117-","ram-usb-wifi-fw-v118-","ram-usb-wifi-fw-v119-","ram-usb-wifi-fw-v120-","ram-usb-wifi-fw-v121-","ram-usb-wifi-fw-v122-","ram-usb-wifi-fw-v123-","ram-usb-wifi-fw-v124-","ram-usb-wifi-fw-v125-","ram-usb-wifi-fw-v126-","ram-usb-wifi-fw-v127-","ram-usb-wifi-fw-v128-","ram-usb-wifi-fw-v129-","ram-usb-wifi-fw-v130-","ram-usb-wifi-fw-v131-","ram-usb-wifi-fw-v132-","ram-usb-wifi-fw-v133-","ram-usb-wifi-fw-v134-","ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-")))
+    wifi_5ghz_prereq=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v108-","ram-usb-wifi-fw-v109-","ram-usb-wifi-fw-v110-","ram-usb-wifi-fw-v111-","ram-usb-wifi-fw-v112-","ram-usb-wifi-fw-v113-","ram-usb-wifi-fw-v114-","ram-usb-wifi-fw-v115-","ram-usb-wifi-fw-v116-","ram-usb-wifi-fw-v117-","ram-usb-wifi-fw-v118-","ram-usb-wifi-fw-v119-","ram-usb-wifi-fw-v120-","ram-usb-wifi-fw-v121-","ram-usb-wifi-fw-v122-","ram-usb-wifi-fw-v123-","ram-usb-wifi-fw-v124-","ram-usb-wifi-fw-v125-","ram-usb-wifi-fw-v126-","ram-usb-wifi-fw-v127-","ram-usb-wifi-fw-v128-","ram-usb-wifi-fw-v129-","ram-usb-wifi-fw-v130-","ram-usb-wifi-fw-v131-","ram-usb-wifi-fw-v132-","ram-usb-wifi-fw-v133-","ram-usb-wifi-fw-v134-","ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-")))
     wifi_firmware=wifi_firmware or wifi_ui_capture or wifi_5ghz_prereq
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
     wifi_nop5=bool(probe and manifest["config_version"].startswith("ram-usb-wifi-fw-v134-"))
-    wifi_stream5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-")))
+    wifi_stream5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-")))
     wifi_stream5_dhcp=bool(probe and manifest["config_version"].startswith("ram-usb-wifi-fw-v136-"))
-    wifi_stack5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-")))
+    wifi_stack5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-")))
+    wifi_http_reconnect5=bool(probe and manifest["config_version"].startswith("ram-usb-wifi-fw-v143-"))
     wifi_http5=bool(probe and manifest["config_version"].startswith("ram-usb-wifi-fw-v139-"))
-    wifi_reconnect5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-")))
+    wifi_reconnect5=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-")))
     if wifi_stream5:
         config=(source/"limine.conf").read_text()
         commands=[line.split(":",1)[1].split() for line in config.splitlines() if line.strip().startswith("cmdline:")]
@@ -233,9 +248,10 @@ def main():
         assert {"srvros.wifi-stream5=1","srvros.wifi-eapol5=1"}<=tokens
         assert ("srvros.wifi-stream5-dhcp=1" in tokens)==wifi_stream5_dhcp
         assert ("srvros.wifi-stack5=1" in tokens)==wifi_stack5
-        assert ("srvros.wifi-cal5-cleanup=1" in tokens)==manifest["config_version"].startswith(("ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-"))
+        assert ("srvros.wifi-cal5-cleanup=1" in tokens)==manifest["config_version"].startswith(("ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-"))
         assert ("srvros.wifi-http5=1" in tokens)==manifest["config_version"].startswith("ram-usb-wifi-fw-v139-")
         assert ("srvros.wifi-reconnect5=1" in tokens)==wifi_reconnect5
+        assert ("srvros.wifi-reconnect5-http=1" in tokens)==wifi_http_reconnect5
         assert not tokens.intersection({"srvros.wifi-wpa5=1","srvros.wifi-data5=1","srvros.wifi-provider5=1","srvros.wifi-reuse5=1","srvros.wifi-nop5=1"})
     if wifi_nop5:
         config=(source/"limine.conf").read_text()
@@ -398,7 +414,7 @@ def main():
                     print(f"hardware-grub-smoke: PASS ({release}); capacity refusal, no session created, clean unmount")
                     return
                 if args.probe_check:
-                    if args.probe_missing_workspace and manifest["config_version"].startswith("ram-usb-wifi-fw-v142-"):
+                    if args.probe_missing_workspace and manifest["config_version"].startswith(("ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-")):
                         text=wait_for(serial,lambda s:"neither persistent destination admitted" in s,process,args.boot_wait)
                         assert process.poll() is None and "wifi-firmware: slot=" not in text
                         assert "laptop-capture: returning to Ubuntu" not in text
@@ -514,7 +530,7 @@ def main():
                         if wifi_5ghz_prereq:
                             assert b"wifi-5ghz-prereq-progress:" in exit_log
                             assert b"wifi-5ghz-prereq: status=" not in exit_log and b"deskd:" not in exit_log
-                            assert (b"tail_limit=4194304" if manifest["config_version"].startswith(("ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-")) else b"tail_limit=2097152" if manifest["config_version"].startswith(("ram-usb-wifi-fw-v116-","ram-usb-wifi-fw-v117-","ram-usb-wifi-fw-v118-","ram-usb-wifi-fw-v119-","ram-usb-wifi-fw-v120-","ram-usb-wifi-fw-v121-","ram-usb-wifi-fw-v122-","ram-usb-wifi-fw-v123-","ram-usb-wifi-fw-v124-","ram-usb-wifi-fw-v125-","ram-usb-wifi-fw-v126-","ram-usb-wifi-fw-v127-","ram-usb-wifi-fw-v128-","ram-usb-wifi-fw-v129-","ram-usb-wifi-fw-v130-","ram-usb-wifi-fw-v131-","ram-usb-wifi-fw-v132-","ram-usb-wifi-fw-v133-","ram-usb-wifi-fw-v134-","ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-")) else b"tail_limit=1048576") in exit_log
+                            assert (b"tail_limit=4194304" if manifest["config_version"].startswith(("ram-usb-wifi-fw-v138-","ram-usb-wifi-fw-v139-","ram-usb-wifi-fw-v140-","ram-usb-wifi-fw-v142-","ram-usb-wifi-fw-v143-")) else b"tail_limit=2097152" if manifest["config_version"].startswith(("ram-usb-wifi-fw-v116-","ram-usb-wifi-fw-v117-","ram-usb-wifi-fw-v118-","ram-usb-wifi-fw-v119-","ram-usb-wifi-fw-v120-","ram-usb-wifi-fw-v121-","ram-usb-wifi-fw-v122-","ram-usb-wifi-fw-v123-","ram-usb-wifi-fw-v124-","ram-usb-wifi-fw-v125-","ram-usb-wifi-fw-v126-","ram-usb-wifi-fw-v127-","ram-usb-wifi-fw-v128-","ram-usb-wifi-fw-v129-","ram-usb-wifi-fw-v130-","ram-usb-wifi-fw-v131-","ram-usb-wifi-fw-v132-","ram-usb-wifi-fw-v133-","ram-usb-wifi-fw-v134-","ram-usb-wifi-fw-v135-","ram-usb-wifi-fw-v136-","ram-usb-wifi-fw-v137-","ram-usb-wifi-fw-v138-")) else b"tail_limit=1048576") in exit_log
                         if wifi_ui_capture:
                             if manifest["config_version"].startswith("ram-usb-wifi-fw-v107-"):
                                 assert b"wifi-channel-diagnosis: completed=NO" in exit_log and b"desktop_opened=0 network_data_out=0" in exit_log
@@ -522,7 +538,8 @@ def main():
                             else:assert b"wifi-ui-capture: admitted=0" in exit_log
                             assert b"wifi-ui-capture: opening Help" not in exit_log
                         if wifi_http5:verify_http5_absent_radio(exit_log)
-                        if wifi_reconnect5:verify_reconnect5_absent_radio(exit_log)
+                        if wifi_http_reconnect5:verify_http_reconnect5_absent_radio(exit_log)
+                        elif wifi_reconnect5:verify_reconnect5_absent_radio(exit_log)
                         if wifi_firmware:
                             assert b"wifi-firmware-capture: completed=NO" in exit_log
                             assert b"wifi-firmware: slot=" not in exit_log

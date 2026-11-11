@@ -8419,3 +8419,46 @@ This accepts the bounded native two-connection result. Actual TCP/HTTP across
 reconnects on this source, persistent service, UI controls, live physical reattach,
 unlimited reuse and reliability remain open. This 5GHz-only adapter cannot test
 Demers2.4; that requires another compatible adapter.
+
+
+### HTTP across two connection lifetimes: implementation contract
+
+The explicit journaled v143 profile runs the actual HTTP child twice on one held
+adapter, with fresh retained supervisor, source descriptor, child and network
+worker objects for each connection. The native reconnect owner prepares the
+second child/worker only after the first network/key/endpoint/provider cleanup
+passes and the selected provider reports DOWN. It consumes separate USB contexts
+and epochs and retains both backend tombstones; no consumed object is reset.
+The ordinary one-shot HTTP and 64-echo reconnect profiles retain their gates.
+
+`net_prepare_connection_probe_worker` admits at most two disjoint permanent
+worker/thread objects. Each parked continuation waits on its own queue and can
+run only while selected. The second preparation requires successful worker
+finish, exact parked acknowledgement, deconfiguration, empty protocol tables,
+unchanged selected adapter identity/MAC and DOWN link. Old workers cannot borrow
+the new queue or source. Failed or unfinished owners refuse the transition.
+
+`http_network_probe_run_connection` uses the original 15-second source window.
+After actual child observation/reap/retirement, TCP EMPTY (including TIME_WAIT)
+and worker finish, `net_probe_worker_disconnect` consumes the exact closed
+connection bootstrap and clears IPv4/DHCP/DNS/ARP/ICMP configuration. The native
+owner's live provider guard surrounds that transaction. Terminal RX authority
+is then consumed separately; raw RX and DMA stay with the native Stop owner.
+Any uncertain software obligation holds before WPA's unconditional key erase.
+Preparation failure or a rejected second handshake never starts another cycle.
+
+The new trace checker binds per-connection HTTP/EOF, DHCP observations and RX
+software handoff to actual typed USB/command/context/key/Stop receipts, cumulative
+provider counters, fresh rings and epochs. Full proof checks the unchanged RF
+parent once. Modeled owner fixtures and explicitly tagged full-RF compositions
+remain software qualification, never physical acceptance. The collector preserves
+categorical DHCP outcomes before success-only protocol validation.
+
+The development tests exercise two 4,159-byte requests, exact 3,072-byte responses
+and genuine EOF through the native xHCI owner, production network worker/TCP and
+independent encrypted AP peer, with modeled scheduler and child APIs. They also
+cover second-handshake/allocation refusal and bad-MIC DHCP containment. Portable
+supervisor and production worker tests cover further ownership/refusal boundaries.
+Actual ELF/scheduler VM qualification and source-bound physical acceptance remain
+required. Desktop controls, persistent service, physical reattach, unrestricted
+reuse and reliability are separate work.

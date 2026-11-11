@@ -12,6 +12,7 @@
 #include "../kernel/src/net_device.c"
 #define WIFI_STREAM5_RX 252u
 static uint64_t now=1000,irq=512;
+static bool connection_positions;
 static unsigned notifications,submits,services,receives;
 static bool key_live,metadata_ok;
 uint64_t timer_monotonic_us(void){return now;}
@@ -28,8 +29,9 @@ static struct mt76_net5 wifi_stack5_net;
 static struct {
  struct mt76_dma5 dma;struct mt76_dma5_lease lease[2],loan;
  uint64_t epoch,pages[2][4],posts[2],completions[2];uint8_t cached[4096];unsigned cached_size;
- bool pending[2],ready_rx,cached_present,failed,closed,data_active;
+ bool pending[2],ready_rx,cached_present,failed,closed,data_active,connection_mode;
 } wifi_stream5;
+static unsigned wifi_stream5_positions(void){return wifi_stream5.connection_mode?127:63;}
 static struct {unsigned round;} wifi_fence5_native;
 static struct {bool command_pending;} xhci;
 static bool wifi_stream5_data_owned(void *c){return c==&wifi_stream5 && key_live && metadata_ok && wifi_stream5.data_active && !wifi_stream5.closed;}
@@ -49,12 +51,13 @@ static void setup(unsigned raw) {
  memset(providers,0,sizeof providers);memset(identities,0,sizeof identities);memset(names,0,sizeof names);memset(references,0,sizeof references);memset(retiring,0,sizeof retiring);provider_count=0;selected=NULL;sealed=false;
  memset(&wifi_stack5,0,sizeof wifi_stack5);memset(&wifi_stack5_net,0,sizeof wifi_stack5_net);memset(&wifi_stream5,0,sizeof wifi_stream5);memset(&wifi_fence5_native,0,sizeof wifi_fence5_native);memset(&xhci,0,sizeof xhci);
  now=1000;irq=512;key_live=metadata_ok=true;submits=services=receives=notifications=0;
+ wifi_stream5.connection_mode=connection_positions;
  wifi_stack5.selected=wifi_stack5.running=wifi_stream5.data_active=true;wifi_stream5.epoch=31;
  const uint8_t mac[6]={2,1,2,3,4,5};assert(mt76_net5_init(&wifi_stack5_net,mac));assert(net_device_select());
  struct mt76_net5_io io={&wifi_stream5,wifi_stack5_owned,wifi_stack5_submit,wifi_stack5_service,wifi_stack5_receive,wifi_stack5_retirement};
  assert(mt76_net5_attach(&wifi_stack5_net,31,&io));assert(mt76_net5_set_ready(&wifi_stack5_net,31,wifi_stack5_ready));
  uint64_t rings[2]={0x10000,0x20000},pages[2][4];for(unsigned d=0;d<2;d++)for(unsigned i=0;i<4;i++)pages[d][i]=0x30000+(d*4+i)*4096;
- memcpy(wifi_stream5.pages,pages,sizeof pages);assert(mt76_dma5_init_ring(&wifi_stream5.dma,31,rings,pages,63,now));
+ memcpy(wifi_stream5.pages,pages,sizeof pages);assert(mt76_dma5_init_ring(&wifi_stream5.dma,31,rings,pages,wifi_stream5_positions(),now));
  if(raw) {
   assert(mt76_dma5_prepare(&wifi_stream5.dma,1,1,4096,now,&wifi_stream5.lease[1]));assert(mt76_dma5_publish(&wifi_stream5.dma,&wifi_stream5.lease[1],now));wifi_stream5.pending[1]=true;wifi_stream5.posts[1]=1;
   if(raw==2){assert(mt76_dma5_complete(&wifi_stream5.dma,&wifi_stream5.lease[1],13,3728,now));wifi_stream5.pending[1]=false;wifi_stream5.ready_rx=true;wifi_stream5.completions[1]=1;}
@@ -113,4 +116,4 @@ static void lost_after_handoff(unsigned which) {
  if(!setjmp(held)){(void)wifi_stack5_terminal_window(true,&wifi_stream5,31);assert(!"software seal loss returned to legacy key erase");}
  assert(held_site==5 && key_live && wifi_stream5.dma.state==MT76_DMA5_RUNNING);irq=512;
 }
-int main(void){positive(0,false);positive(1,false);positive(2,false);positive(1,true);for(unsigned i=0;i<32;i++)negative(i);for(unsigned i=0;i<14;i++)lost_after_handoff(i);puts("http5 native RX handoff: PASS real registry/provider/DMA with modeled native metadata;4positive32refusal14posthandoffholds; no hardware/key/endpoint retirement acceptance");return 0;}
+int main(void){for(unsigned mode=0;mode<2;mode++){connection_positions=mode;positive(0,false);positive(1,false);positive(2,false);positive(1,true);for(unsigned i=0;i<32;i++)negative(i);for(unsigned i=0;i<14;i++)lost_after_handoff(i);}puts("http5 native RX handoff: PASS real registry/provider/DMA with modeled native metadata;both63/127positions:8positive64refusal28posthandoffholds; no hardware/key/endpoint retirement acceptance");return 0;}

@@ -45,6 +45,7 @@ struct process *process_current(void){return (struct process *)&stack_process;}
 bool process_should_exit_current(void){return false;}
 bool process_signal_pending_current(void){return false;}
 void process_file_poll_wake(void){}
+uint64_t scheduler_current_thread_id(void){return 1;}
 void scheduler_yield(void){test_time+=10000;}
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *a,uint64_t end){(void)q;(void)fn;(void)a;(void)end;test_time+=10000;return false;}
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *a){(void)q;(void)fn;(void)a;assert(0);return false;}
@@ -56,6 +57,8 @@ static struct {
  bool frozen,provider_loss,wrong_payload;unsigned arp_replies,arp_noise_left,background_left;uint64_t held_ticket;
  uint8_t deferred_dns[1514];size_t deferred_dns_size;
 } ap;
+static bool http_reconnect_peer;
+static uint8_t http_peer_request[4159];static unsigned http_peer_length;
 static unsigned reconnect_case_id,reconnect_hook_count,connection_dhcp_fault;
 static unsigned reconnect_noise(void){return reconnect_case_id==11?2u:reconnect_case_id==12?3u:(reconnect_case_id==10 || (reconnect_case_id>=16 && reconnect_case_id<=18))?1u:0u;}
 static bool reconnect_keys_seen[2];
@@ -78,7 +81,8 @@ static void stack_test_connection(unsigned generation){
  }else{
   assert(wifi_stream5_current==&wifi_stream5_slots[1] && wifi_stream5_slots[0].connection_closed);
   assert(wifi_stack5_net.state==MT76_NET5_DOWN && !wifi_stack5_net.attached && !wifi_stack5_net.io.context);
-  assert(wifi_reconnect5.probe[0].complete && wifi_reconnect5.probe[0].disconnected);
+  if(http_reconnect_peer)assert(wifi_http_reconnect5.probe[0].result.complete && wifi_http_reconnect5.probe[0].result.disconnected);
+  else assert(wifi_reconnect5.probe[0].complete && wifi_reconnect5.probe[0].disconnected);
   reconnect_old_stream=wifi_stream5_slots[0];reconnect_old_fence=wifi_fence5_first;
   for(unsigned i=0;i<10;i++)memcpy(reconnect_old_physical[i],i<2?(void *)wifi_stream5_slots[0].ring[i]:(void *)wifi_stream5_slots[0].buffer[(i-2)/4][(i-2)%4],4096);
   if(reconnect_case_id==8)pool_used=(wifi_stream5_slots[0].physical[0]-(uint64_t)pool)/PMM_FRAME_SIZE;
@@ -87,6 +91,7 @@ static void stack_test_connection(unsigned generation){
  assert(stack5_peer_generation(generation+1));
  if(generation && reconnect_old_usb_size){uint8_t frame[1514];size_t bytes=0;uint64_t pn=0;
   assert(!stack5_peer_open(reconnect_old_usb,reconnect_old_usb_size,frame,sizeof frame,&bytes,&pn));}
+ http_peer_length=0;
  memset(&ap,0,sizeof ap);ap.case_id=connection_dhcp_fault?connection_dhcp_fault:55;
  if(generation && reconnect_case_id==9){assert(reconnect_old_mpdu_size);memcpy(ap.response[0],reconnect_old_mpdu,reconnect_old_mpdu_size);ap.length[0]=reconnect_old_mpdu_size;ap.count=1;}
  sim.tx_seen=sim.rx_seen=sim.response=sim.index=sim.noise_left=0;sim.m1=sim.m3=false;
@@ -151,10 +156,22 @@ static void ap_udp_reply(const uint8_t *p,size_t n){
  }
  ap_enqueue(r,42+body);ap.bad_mic=saved_bad_mic;
 }
+static void ap_http_request_check(void){
+ static const char alphabet[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+ static const char suffix[]=" HTTP/1.0\r\nHost: httpbin.org\r\nConnection: close\r\n\r\n";
+ assert(http_peer_length==4159 && !memcmp(http_peer_request,"GET /base64/",12));
+ assert(!memcmp(http_peer_request+12+4096,suffix,sizeof suffix-1));
+ unsigned body=0;
+ for(unsigned i=12;i<12+4096;i+=4){
+  unsigned word=0;for(unsigned j=0;j<4;j++){const char *p=strchr(alphabet,http_peer_request[i+j]);assert(p && *p);word=(word<<6)|(unsigned)(p-alphabet);}
+  for(unsigned j=0;j<3;j++){assert(((word>>(16-8*j))&255)==(unsigned)('A'+body%26));body++;}
+ }
+ assert(body==3072);
+}
 static const char stack_request[]="GET / HTTP/1.0\r\nHost: example.test\r\n\r\n";
 static const char stack_header[]="HTTP/1.0 200 OK\r\nContent-Length: 3072\r\n\r\n";
 static void ap_tcp_reply(const uint8_t *p,unsigned flags,uint32_t seq,uint32_t ack,const uint8_t *body,size_t n){
- uint8_t r[1514];ap_ip_header(r,p,6,20+n);uint8_t *t=r+34;ap_p16(t,80);ap_p16(t+2,ap_u16(p+34));ap_p32(t+4,seq);ap_p32(t+8,ack);t[12]=0x50;t[13]=flags;ap_p16(t+14,65535);if(n)memcpy(t+20,body,n);ap_p16(t+16,~ap_sum(t,20+n,ap_sum(r+26,8,6+20+n)));ap_enqueue(r,54+n);
+ uint8_t r[1514];ap_ip_header(r,p,6,20+n);if(http_reconnect_peer){memcpy(r+26,p+30,4);ap_p16(r+24,0);ap_p16(r+24,~ap_sum(r+14,20,0));}uint8_t *t=r+34;ap_p16(t,80);ap_p16(t+2,ap_u16(p+34));ap_p32(t+4,seq);ap_p32(t+8,ack);t[12]=0x50;t[13]=flags;ap_p16(t+14,65535);if(n)memcpy(t+20,body,n);ap_p16(t+16,~ap_sum(t,20+n,ap_sum(r+26,8,6+20+n)));ap_enqueue(r,54+n);
 }
 static void ap_arp_request(void){
  uint8_t r[42]={0};memcpy(r,hs_spa,6);memcpy(r+6,ap_mac,6);ap_p16(r+12,0x806);ap_p16(r+14,1);ap_p16(r+16,0x800);r[18]=6;r[19]=4;ap_p16(r+20,1);memcpy(r+22,ap_mac,6);ap_p32(r+28,ap_ip);ap_p32(r+38,0x0a00020f);ap_enqueue(r,sizeof r);
@@ -179,9 +196,16 @@ static void ap_packet(const uint8_t *p,size_t n){
  assert(p[23]==6);ap.tcp++;const uint8_t *t=p+34;unsigned header=(t[12]>>4)*4,size=(unsigned)n-34;assert(header>=20 && header<=size && ap_u16(t+2)==80 && ap_sum(t,size,ap_sum(p+26,8,6+size))==65535);uint32_t seq=ap_u32(t+4);unsigned flags=t[13];
  if(flags&2){assert(flags==2);ap.server_seq=9000;ap_tcp_reply(p,0x12,ap.server_seq++,seq+1,NULL,0);}
  else if(size>header){
-  assert(size-header==sizeof stack_request-1 && !memcmp(t+header,stack_request,sizeof stack_request-1));uint8_t bytes[sizeof stack_header-1+3072];memcpy(bytes,stack_header,sizeof stack_header-1);for(unsigned i=0;i<3072;i++)bytes[sizeof stack_header-1+i]=(uint8_t)('A'+i%26);
-  for(unsigned at=0;at<sizeof bytes;){unsigned count=(unsigned)sizeof bytes-at;if(count>1100)count=1100;ap_tcp_reply(p,0x18,ap.server_seq,seq+size-header,bytes+at,count);ap.server_seq+=count;at+=count;}
- }else if(flags&1){ap_tcp_reply(p,0x11,ap.server_seq++,seq+1,NULL,0);ap.closed=true;}
+  if(http_reconnect_peer){
+   assert(size-header<=sizeof http_peer_request-http_peer_length);
+   memcpy(http_peer_request+http_peer_length,t+header,size-header);http_peer_length+=size-header;
+   ap_tcp_reply(p,0x10,ap.server_seq,seq+size-header,NULL,0);
+   if(http_peer_length<sizeof http_peer_request)return;
+   ap_http_request_check();
+  }else assert(size-header==sizeof stack_request-1 && !memcmp(t+header,stack_request,sizeof stack_request-1));
+  uint8_t bytes[sizeof stack_header-1+3072];memcpy(bytes,stack_header,sizeof stack_header-1);for(unsigned i=0;i<3072;i++)bytes[sizeof stack_header-1+i]=(uint8_t)('A'+i%26);
+  for(unsigned at=0;at<sizeof bytes;){unsigned count=(unsigned)sizeof bytes-at;if(count>1100)count=1100;bool last=http_reconnect_peer && at+count==sizeof bytes;ap_tcp_reply(p,last?0x19:0x18,ap.server_seq,seq+size-header,bytes+at,count);ap.server_seq+=count+(unsigned)last;at+=count;}
+ }else if(flags&1){ap_tcp_reply(p,http_reconnect_peer?0x10:0x11,ap.server_seq,seq+1,NULL,0);if(!http_reconnect_peer)ap.server_seq++;ap.closed=true;}
  else assert(flags==0x10);
 }
 static void stack_test_progress(void){
@@ -608,7 +632,10 @@ static void connection_dhcp_receipt(unsigned fault){
  }
  printf("stack-dhcp-fixture: actual_connection_runner=1 fault=%u modeled_usb=1 acceptance=0\n",fault);
 }
-int main(int argc,char **argv){
+#ifndef STACK5_TEST_MAIN
+#define STACK5_TEST_MAIN main
+#endif
+int STACK5_TEST_MAIN(int argc,char **argv){
  if(argc==3 && !strcmp(argv[1],"--trace-connection-dhcp")){batch_trace=true;connection_dhcp_receipt((unsigned)strtoul(argv[2],NULL,0));return 0;}
  if((argc==2 || argc==19) && !strcmp(argv[1],"--trace-reconnect")){
   if(argc==19){for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)reconnect_seed[d][i]=(uint32_t)strtoull(argv[2+d*8+i],NULL,0);reconnect_slot=(unsigned)strtoul(argv[18],NULL,0);assert(reconnect_slot && reconnect_slot<256);reconnect_seeded=true;}

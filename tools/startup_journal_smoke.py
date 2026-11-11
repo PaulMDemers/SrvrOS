@@ -51,8 +51,9 @@ def run(args):
     refusal_reason = 8 if args.mode == 'dirty-state' else 6
     source = boot.STAGE / args.release
     manifest = boot.verify(source)
-    assert manifest['config_version'].startswith(('ram-usb-wifi-fw-v141-','ram-usb-wifi-fw-v142-'))
-    full_reconnect = manifest['config_version'].startswith('ram-usb-wifi-fw-v142-')
+    assert manifest['config_version'].startswith(('ram-usb-wifi-fw-v141-','ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-'))
+    http_reconnect = manifest['config_version'].startswith('ram-usb-wifi-fw-v143-')
+    full_reconnect = manifest['config_version'].startswith(('ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-'))
     descriptor = journal.verify_initramfs(source/'initramfs.tar')
     host = json.loads((args.host_record/'journal-host.json').read_text())
     assert descriptor == (args.host_record/'descriptor.bin').read_bytes()
@@ -162,8 +163,9 @@ def run(args):
         elif not refusal:
             assert not any(parsed[x] for x in ('workspace_ready','logger_started','saved','unmounted'))
         if full_reconnect and args.mode != 'both-refused':
-            from hardware_boot_smoke import verify_reconnect5_absent_radio
-            verify_reconnect5_absent_radio(text)
+            from hardware_boot_smoke import verify_reconnect5_absent_radio,verify_http_reconnect5_absent_radio
+            if http_reconnect:verify_http_reconnect5_absent_radio(text,require_prepare=args.mode in ('present','journal-refused','dirty-state'))
+            else:verify_reconnect5_absent_radio(text)
             assert 'wifi-journal-summary: version=1 sampled=0' in text
         checked = verify_sparse_changes(internal, seeds, (offset+512, offset+journal.FILE_BYTES))
         if not missing:
