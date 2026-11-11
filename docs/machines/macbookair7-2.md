@@ -2,7 +2,30 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Ready for native validation: joint preparation timing retry
+### Native joint timing accepted
+
+Source `e81caf7f`, release `978d9be94b96243a`, session
+`session-00065ff636174005-00` passes strict native joint decoding and checkpoint
+verification with zero collector attention. Preparation measured 91,213 µs
+against the 100,000 µs limit, with 8,787 µs margin. The final guard bracket
+measured 5 µs and the borrow return 3,182 µs. This run used 132 full backing
+guards, compared with 148 in the previous run.
+
+Both opening and closing original-entry observations completed under the
+original claim. HDA followed command phases 6/2/2/6, with all four inspection
+borrows returned. All 14 GPU aliases and the HDA root alias retired. Engine,
+backing, firmware and plane/HDA preservation passed. The HDA lifetime took
+211,487 µs and the outer GPU lifetime took 262,094 µs.
+
+Ubuntu returned with the one-shot consumed. Prior files and all three new log
+hashes verified, offline exFAT checks passed, and current/recovery payloads
+matched their banked copies. Acceptance covers this bounded run on Air7,2.
+All eight completion obligations (mask 255) remain open for managed GPU
+memory and physical tear-free presentation. Evidence and payload backups
+survive `make distclean`. Local record
+`build/air-joint-timing-20261110/returned/return-proof.json`.
+
+### Software qualification for the joint timing retry
 
 Release `978d9be94b96243a` at source `e81caf7f` reports the final
 preparation guard and borrow return separately. The joint snapshot runs a
@@ -20,9 +43,8 @@ bytes for the normal and wide-entry refusal paths.
 
 USB `37D8-C5D0` passed offline checks and matched 1,455 files
 and 141 sessions from the previous run. Ubuntu recovery is
-verified and volume is 1%. The release is staged and the one-shot is unarmed.
-The next trial needs to measure both intervals on the Air and verify
-retirement within the original bounds. Local run record
+verified and volume was 1% at launch. The exact staged release was then
+installed for the accepted native run above. Local run record
 `build/air-joint-timing-20261110/run.json`.
 
 ### Native trial incomplete: joint display-HDA and GPU interval claim

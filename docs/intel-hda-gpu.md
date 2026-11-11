@@ -142,6 +142,19 @@ snapshot path. The joint image's v3 preparation receipt records the final
 guard bracket and borrow-return start separately. Its terminal sample still
 sets the 100 ms outcome, including when safe cleanup finishes after the limit.
 
+## Native timing acceptance
+
+Air7,2 source `e81caf7f`, release `978d9be94b96243a`,
+passes the strict joint collector and original prerequisite checkpoint.
+Preparation measured 91.213 ms against 100 ms. The final guard measured
+5 µs and borrow return 3.182 ms. The native report counted 132 full guards.
+
+The original claim observations, command6/2/2/6 HDA phases, preservation,
+GPU and HDA alias retirement, and clean CPU exclusion release all passed.
+USB file hashes, offline allocation checks and Ubuntu recovery verified after
+return. This accepts one bounded diagnostic lifetime on this unit. Managed
+GPU memory and page-flip ownership still need their completion witnesses.
+
 ## Earlier software qualification
 
 Source`36788a91` is qualified on integrated main`72d49457`. The local matched
