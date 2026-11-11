@@ -255,6 +255,7 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
 int64_t process_file_reserve_append_ram(struct process *process,uint64_t fd,uint64_t limit);
 /* IRQ-masked metadata-only prelude proof; actual copy revalidates its lease. */
 bool process_file_reserved_append_entry_candidate(struct process *process,uint64_t fd,uint64_t requested);
+bool process_file_wait_reserved_append(struct process *process,uint64_t fd,uint64_t requested);
 /* Callback must validate the FULL requested user range before copying count
  * bytes, without allocation, I/O, yielding, signals or IRQ restoration. False
  * may touch only unpublished reserved tail; handled FAULT publishes no size,

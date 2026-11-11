@@ -722,18 +722,22 @@ bool syscall_reserved_append_dispatch(struct isr_frame *frame) {
     }
     uint64_t fd=frame->rdi,requested=frame->rdx;
     const char *buffer=(const char *)frame->rsi;
+    uint64_t handler_at=process_capture_write_clock();
 #if !defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) && !defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)
     if(fd>=3 && requested && requested<=65536) {
         struct reserved_append_input input={.data=buffer,.requested=requested};int64_t result;
-        if(process_file_try_reserved_append(process_current(),fd,requested,reserved_append_copy,&input,&result)) {
-            process_capture_write_fast_result(requested,result);frame->rax=(uint64_t)result;return true;
-        }
+        do {
+            if(process_should_exit_current())break;
+            if(process_file_try_reserved_append(process_current(),fd,requested,reserved_append_copy,&input,&result)) {
+                process_capture_write_fast_result(requested,result);frame->rax=(uint64_t)result;
+                process_capture_write_record(CAP_WRITE_HANDLER,handler_at);return true;
+            }
+        } while(process_file_wait_reserved_append(process_current(),fd,requested));
     }
 #endif
-    /* The retained token and actual helper execute on the same uninterrupted
-     * IF0 entry, so a decline breaks that source proof. Contain it with the
-     * original gate/error behavior; do not accept overlapping timing records. */
-    process_capture_write_invalidate();scheduler_io_set_user_safe(false);
+    /* A full window or a lease revoked across a notified wait retains ordinary
+     * admission. No private pointer or earlier eligibility survives this edge. */
+    scheduler_io_set_user_safe(false);
     uint64_t wait_at=scheduler_io_active()?latency_clock():0;
     uint64_t gate_at=process_capture_write_clock();
     if(gate_at)process_capture_write_gate_wait();else scheduler_io_wait();
@@ -741,7 +745,11 @@ bool syscall_reserved_append_dispatch(struct isr_frame *frame) {
     if(process_should_exit_current()) {
         scheduler_io_wait();process_exit(process_current_kill_status());
     }
-    frame->rax=(uint64_t)syscall_write(fd,buffer,requested);return false;
+    /* Exclude the observed ordinary gate from handler time. Prelude wait wall
+     * remains explicit in the append-wait companion and whole raw-call span. */
+    handler_at=process_capture_write_clock();
+    frame->rax=(uint64_t)syscall_write(fd,buffer,requested);
+    process_capture_write_record(CAP_WRITE_HANDLER,handler_at);return false;
 }
 
 static char tty_filter_input(char c) {

@@ -235,7 +235,7 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
     __asm__ volatile ("cli" : : : "memory");
 #endif
     scheduler_io_set_user_safe(false);
-    process_capture_write_record(CAP_WRITE_HANDLER,handler_at);
+    if(!reserved)process_capture_write_record(CAP_WRITE_HANDLER,handler_at);
     if ((frame->cs & 3) == 3 && process_should_exit_current()) {
         scheduler_io_wait();
         process_exit(process_current_kill_status());

@@ -74,6 +74,8 @@ static void capture_write_checkpoint(bool final) {
          * The copied contexts survive worker retirement; emit the complete
          * extension only at final, without repeating it during live stress. */
         if(final) {
+            console_printf("capture-append-wait: version=1 snapshot_us=%u pid=%u calls=%u wall_us=%u max_us=%u wakes=%u overlap_ready=%u final=1\n",
+                at,r->pid,r->append_wait_calls,r->append_wait_us,r->append_wait_max_us,r->append_wait_wakes,r->append_wait_overlap);
             const struct sync_gate_context *q=&o->sync;
             console_printf("capture-write-gate-sync: version=1 snapshot_us=%u pid=%u state=%u invalid=%u owner_pid=%u sync_id=%u phase=%u slot=%u identity=%u inode=%u size=%u content_start_us=%u final=%u\n",
                 at,r->pid,q->state,q->invalid,q->pid,q->id,q->phase,q->slot,q->identity,q->inode,q->size,q->content_start_us,(uint64_t)final);
