@@ -149,7 +149,7 @@ class JointAdapterTests(unittest.TestCase):
                  for i in range(0, 104, 8)]
         self.assertEqual(len(words), 26)
         self.assertEqual([row['value'] for row in result['rows']['word']], words)
-        for version in (16, 21):
+        for version in (16, 22):
             with self.subTest(version=version), self.assertRaises(ValueError):
                 firmware_result(self.text.replace('intel-wake-summary: v=20 ', f'intel-wake-summary: v={version} '))
 

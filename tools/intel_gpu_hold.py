@@ -37,7 +37,7 @@ def gpu_hold_capture(text):
  if any(s['admit'+str(n)] for n in range(s['admit_reads'],2)):raise ValueError('GPU hold command data past admission')
  if s['returned'] and (s['borrow_active'] or s['claim_borrows']!=s['claim_returns'] or not s['restored']):raise ValueError('GPU hold premature return')
  if s['complete']:
-  if s['state']!=5 or s['reason'] or s['uncertain'] or s['borrow_active'] or s['borrow_fault'] or not all(s[k] for k in ('restored','returned','borrow_object','borrow_claim','borrow_epoch','borrow_sequence')) or s['claim_borrows']!=1 or s['claim_returns']!=1:raise ValueError('GPU hold false completion')
+  if s['state']!=5 or s['phase']!=2 or s['borrow_sequence']!=s['claim_borrows'] or s['reason'] or s['uncertain'] or s['borrow_active'] or s['borrow_fault'] or not all(s[k] for k in ('restored','returned','borrow_object','borrow_claim','borrow_epoch','borrow_sequence')) or s['claim_borrows']!=1 or s['claim_returns']!=1:raise ValueError('GPU hold false completion')
   if s['admit_reads']!=2 or s['admit0']!=phases[0]['words'][1] or s['admit1']!=phases[1]['words'][1]:raise ValueError('GPU hold fresh pre-store command')
   if s['attempts']!=2 or s['writes']!=2 or s['samples']!=3 or any(p['count']!=9 for p in phases):raise ValueError('GPU hold incomplete phases')
   for n,p in enumerate(phases):

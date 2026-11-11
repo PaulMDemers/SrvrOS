@@ -40,7 +40,7 @@ class AdapterTests(unittest.TestCase):
   print('GPU hold adapter fault prefixes:',cases+1)
  def test_mutated_and_missing_receipts(self):
   r=gpu_hold_capture(self.text);self.assertTrue(r['scope_complete'])
-  mutations={'state':4,'reads':26,'pci_reads':26,'attempts':1,'writes':1,'issued':1,'returned':0,'restored':0,'borrow_active':1,'borrow_fault':1,'borrow_epoch':999,'borrow_sequence':0,'claim_returns':0,'origin':1,'owner_origin':1,'obligations':0,'assurances':31,'hardware_ownership':1,'managed_pages':1,'pte_writes':1,'v':2}
+  mutations={'state':4,'phase':1,'reads':26,'pci_reads':26,'attempts':1,'writes':1,'issued':1,'returned':0,'restored':0,'borrow_active':1,'borrow_fault':1,'borrow_epoch':999,'borrow_sequence':2,'claim_returns':0,'origin':1,'owner_origin':1,'obligations':0,'assurances':31,'hardware_ownership':1,'managed_pages':1,'pte_writes':1,'v':2}
   for key,value in mutations.items():
    changed,n=re.subn(r'(^intel-gpu-hold-summary:.*?\b'+key+r'=)[^\s]+',lambda m:m[1]+str(value),self.text,count=1,flags=re.M)
    self.assertEqual(n,1)
