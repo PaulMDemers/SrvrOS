@@ -165,3 +165,34 @@ the one-shot is consumed, collection is disabled and USB is unmounted. Native
 logs retain bounded lifecycle tails and worst records, not every individual app
 event; the VM's complete per-cycle coverage remains separate. Subjective sound
 at1% was not assessed. No policy, limit, proof or barrier changed in this trial.
+
+## Exact private-wait isolation, 2026-11-11
+
+The [owner/status companion](commit-wait-isolation.md) now passes the native
+Air6,1 1,800-second 1% workload on `4598c7e5aac15a6b` / runtime `4f4feeeb`.
+The matching raw-log/binary review retains all 16 original contracts and the
+append-wait proof: 4,062 verified disk bursts, 1,088 app cycles, three exact
+screenshots, zero recorded underruns and clean retirement/allocation. Actual
+rehash preserves all 868 prior files except the expected metadata sidecar;
+877 files/4,445 clusters have zero leaks, mismatches or errors.
+
+The exact worst private wait is 2.894034 seconds. Actual owner intervals cover
+2.893501 seconds; PID7/thread20/SYS_SYNC87 supplies the longest intersection.
+Its completed content separately matches the wait target and enclosing interval.
+Owner status callbacks overlap 2.521687 seconds of the bracket (87.13%). The
+16 KiB WRITE status subset dominates: 43 callbacks total 2.494952 seconds;
+ten 512-byte WRITE statuses total only 19.214 ms. Seven content payload statuses
+exceed 100 ms. The worst is 352.020 ms, with 351.745 ms before observed completion,
+273 us to resume and a 10.079 ms maximum sampled service gap. That separates
+this wait from a multi-second post-completion scheduling delay. Software event
+observations still cannot assign the long completion interval to device media,
+firmware or controller delivery. The observer retains one worst wait, not every
+storage operation.
+
+Screenshot totals are 6.405844/10.675969/26.604312 seconds versus prior
+7.307485/10.890831/12.560273. The third WRITE phase takes 13.554029 seconds;
+fsync and both proof phases also take seconds, while pixel transfer and cleanup
+remain subsecond. No performance improvement is accepted. Next audit the long
+payload status-completion path and shared commit ownership while preserving
+command/request sizes, fairness, deadlines, fresh-media proofs and flushes.
+All limits and integrity checks remain unchanged; no new run is armed.
