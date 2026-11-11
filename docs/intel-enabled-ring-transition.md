@@ -73,3 +73,26 @@ unmounted outcomes return automatically to Ubuntu. Uncertain ownership retains
 the original static objects and halts visibly. Native acceptance remains pending
 until the matching physical release/session is collected; host faults and QEMU's
 unsupported-device refusal cannot establish it.
+
+## Qualification checkpoint
+
+Source `c43d30d0`, release `811ff18f86cf3d17`, passes the local 29-image
+build/USB/host/core/docs gate, fatal ASan/UBSan nine-test actual-adapter matrix,
+seven compiled controls and 63 focused native phase/return clock faults. The
+matrix includes 244 source/provider/word mutations, 819 census/reader/core-clock
+boundaries and 1,345 HDA boundaries. Native object/staged access widths, the one
+fenced control store, read-only other mappings, static retained lifetimes,
+2 KiB frames and image isolation pass. The conservative native saved-tail
+projection is 56,755/65,536 bytes including 1,536 reserve.
+
+The exact staged recipe passes EFI QEMU boot with an MBR workspace: unsupported
+hardware refuses without a store, matched prerequisite/results logs save, the
+workspace unmounts and the safe outcome returns automatically. Missing workspace
+halts. The installed-root test is explicitly omitted because the installer is
+unchanged; actual recovery payload integrity is checked independently. Existing
+post-repair filesystem allocation gaps remain outside this milestone.
+
+This is a hardware-ready candidate, not a physical pass. Installed recovery and
+current payloads remain unchanged; the candidate and qualification evidence are
+banked durably, with no reboot armed. The next native trial must exercise the
+actual enabled source and return the matching original-owner postconditions.

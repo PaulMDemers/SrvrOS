@@ -2,27 +2,55 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Active scope: enabled-ring transition implementation
+### Active scope: enabled-ring transition hardware-ready
 
-Current work starts from integrated main `a611fd9e` (documentation-only PR471
-on top of 91514b3f). Build a separate original-HDA/GT transition image matching
-the failed joint trial's 14 mapped pages and full 92-word source census. Its
-explicit submission-handoff recipe permits only the existing guarded idle BCS
-control disable. It must advance the engine epoch before a possible store,
-obtain a fresh full census at the new epoch, preserve inherited nonzero ring
-geometry and all other engine/context/plane/HDA observations, and return the
-original registered borrow only after verified postconditions. Ambiguous stores,
-failed preservation or terminal timing keep the original owner pinned.
+The separate original-owner transition is qualified on source `c43d30d0`,
+integrating main `a611fd9e`, and staged as release `811ff18f86cf3d17`.
+It is **uninstalled, unarmed and not physically accepted**. Current 0994,
+recovery 9aa8, GUI c497, accepted observation bd77, accepted joint 978 and
+standalone d260 retain verified installed and durable payloads. The unreferenced
+historical e835 EFI-only copy was retired after complete durable-bank equality;
+its exact accepted payload and evidence remain available. Ubuntu stays default.
 
-The first native milestone ends at verified disabled submission ownership and
-clean retirement. It does not feed nonzero geometry into the old reset path;
-that path's gates stay unchanged. No Stop Ring, ring-start, GDRST, requester/PTE
-writer or memory grant is added. Keep BCS 100 ms, transition/readers 150 ms,
-GT 300 ms, HDA 400 ms and outer 500 ms. Touched scope: new transition core/adapter,
-separate image/recipe/receipts/collector, fault and native-width/lifetime tests,
-and exact-stage VM/preflight. Work until hardware-ready; no reboot in this block.
-PR19 networking and PR379 WebCore remain independent. Local checkpoint:
-`build/air-ring-transition-20261111`.
+The [transition contract](../intel-enabled-ring-transition.md) binds the original
+static HDA/GT owners to a captured enabled BCS, one guarded F000 control DWORD,
+epoch advancement before possible issue, a fresh full 92-word census, unchanged
+nonzero geometry and all other engine/context/plane/HDA observations. The
+registered child returns only after verified postconditions; ambiguity or a late
+clock failure retains the original root. No reset, geometry clear, requester/
+GPU-PTE writer, memory grant or old reset gate change is introduced. Bounds stay
+BCS/source age 100 ms, transition/readers 150 ms, GT 300 ms, HDA 400 ms and outer
+500 ms. The first native milestone ends at submission transition and retirement;
+reset from nonzero geometry needs a separate contract and physical evidence.
+
+The full local 29-image build/USB/host/core/docs gate passes. Fatal ASan/UBSan
+passes all nine actual-adapter tests: 244 source/provider/word faults, 819 full
+census/reader/core-clock faults and 1,345 original HDA boundaries, plus targeted
+store/return cases. Another 63 native phase/return clock faults and seven compiled
+source/post/clock/epoch/return/retention controls pass. Historical native accepted
+observation and safe refusal remain distinct. Symbol/receipt isolation, actual
+object/staged single fenced DWORD and read-only BCS8 accesses, mapping flags,
+static lifetimes and 2 KiB frames pass. Projected saved tail is 56,755/65,536 bytes
+including 1,536 reserve. Installed-root is explicitly omitted because the installer
+is unchanged and actual installed/recovery hashes are independently verified.
+The existing post-repair allocation gaps are unchanged, not newly accepted.
+
+The exact 15-token pre-init stage passes QEMU EFI boot with an MBR workspace,
+unsupported-device zero-store refusal, matched saved prerequisites/results,
+unmount and automatic safe return. Missing workspace halts. Host/VM success
+cannot accept native enabled shutdown. All 1,473 prior workspace files and 147
+sessions preserve; offline fsck/allocation/writable/headroom, boot digest, AC,
+recovery and an unarmed Ubuntu default verify. The candidate and evidence are
+banked outside build; volume remains 1% and the trial is silent/unattended.
+
+Next: revalidate host/media/recovery, install the exact banked candidate with the
+previous recovery retained, persist the run record, arm one-shot boot and test.
+No human input is required; safe saved outcomes return automatically, retained
+uncertainty halts. Collect the matching session first on return. Do not repeat
+unchanged 0994 or force an enabled source. Obligations 255, assurances 0, managed
+pages 0 and native tear-free remain unaccepted. PR301 carries this scope; PR19
+networking, PR379 WebCore and PR472 filesystem timing remain independent.
+Local checkpoint: `build/air-ring-transition-20261111/status.md`.
 
 ### Latest result: disabled-entry composition refused enabled ring
 

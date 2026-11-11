@@ -76,7 +76,8 @@ clearing or a saved-observation token cannot supply that route. No memory or
 completion grant is added.
 
 The [enabled-ring transition](intel-enabled-ring-transition.md) is now a separate
-v24 implementation under host/VM qualification. It uses the original HDA/GT
+v24 hardware-ready candidate (`c43d30d0` / `811ff18f86cf3d17`), with host/VM
+qualification complete and native acceptance pending. It uses the original HDA/GT
 owners, the captured enabled ring, one guarded disable, a fresh full census at
 an advanced epoch and exact engine/reader preservation. Its first native
 milestone ends with disabled submission and clean retirement. Reset from that
