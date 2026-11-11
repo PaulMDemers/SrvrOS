@@ -7,6 +7,27 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### DHCP receipt preservation scope (November 10)
+
+The current bounded objective fixes the loss of existing categorical DHCP
+observations when the native stack probe scrubs its local scope. Preserve those
+address-free counters in the result, emit only after the existing live key/
+endpoint window closes, validate the optional receipt strictly, and retain it
+before success-only RF/connection collection. Cover successful DORA, absent
+replies and parser refusals through the actual native connection runner. No
+DHCP timing, retry, packet acceptance, RF, key or DMA policy change is intended.
+The network cause of the last native timeout remains unknown; the next physical
+trial must distinguish delivery from validation rather than repeat unchanged.
+
+Actual main6b185086 (PR463) adds exFAT metadata-tail/save regression fixes and is
+being integrated before qualification. Its filesystem behavior needs fresh
+storage tests and the real-workspace clone gate. Open PRs301 and379 own separate
+Air scanout and WebCore scopes. Touched Wi-Fi scope is the stack probe result/
+emission, host receipt parsing, native fixture tests and frozen collection.
+Preserve the closed1,414-file native primary and separate return review. A new
+physical run requires a fresh journal/descriptor and collect-first record.
+
+
 ### Full capture returned; first DHCP exchange failed (November 10)
 
 Release110b42d5c99de8a0/source164cd6e6 returned automatically in
