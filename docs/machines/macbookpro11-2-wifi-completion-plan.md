@@ -9,15 +9,23 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
-The next source-bound candidate is now installed: `835ffb01` /
-`8ef237478e0aa29b` (v143). It adds two actual HTTP child lifetimes to the native
-reconnect owner, with separate retained workers and strict deconfiguration/DOWN-
-link admission between connections. Local/fatal/native-path fixtures, one real-ELF
-HTTP/DHCP/DNS VM, seven exact-stage journal cases, frozen collection and the
-455-file private workspace clone pass. The initial host ownership refusal is
-preserved; verification under the correct user passes. Ubuntu and recovery checks
-pass. The matching cold native HTTP pair is still pending and owns a fresh journal
-and collect-first run record. Persistent/UI/reattach/reliability work follows.
+The `835ffb01` / `8ef237478e0aa29b` (v143) native HTTP-pair trial is now
+closed **failed/incomplete**: session `00065fface312e5e-00`, valid independent
+journal phases 1–5, only USB `boot.log`, no final save/unmount or complete protocol
+result. Preserve its sealed 1,860-file primary. A separate review verifies all
+454 prior ordinary files and only a boot-time marker-atime metadata change.
+Ubuntu remains unarmed. No identical retry is scheduled.
+
+Diagnostic/test correction `d9b7e95c` binds held flags to the selected connection
+instead of unrelated one-shot globals and adds compact frozen codes. All six
+native-path modeled cases and bridge attribution/containment pass fatal
+sanitizers; failed-child/EOF and missing-EOF cases distinguish safe retirement
+from retained uncertainty. This does not establish the physical cause: the
+attached compressed photo cannot reliably identify the first failure code, and
+saved prefixes end before it. Obtain the original codes, reproduce the actual
+failure, fix and qualify it, then integrate inspected main `d4580da3` before
+another native candidate. No new stage/install/boot follows this diagnostic fix.
+Persistent service/UI/reattach/endurance stay later milestones.
 
 The following acceptance remains bound to its earlier source.
 
@@ -37,7 +45,7 @@ cycles. This is bounded connection reuse acceptance, with no claim of sustained
 reliability or unlimited reuse. Next implement and qualify actual TCP/HTTP across
 connection lifetimes, then the persistent worker and desktop controls, physical
 adapter reattach, cancellation/failure recovery and repeated endurance runs.
-Current-source HTTP remains untested; historical accepted HTTP is preserved.
+The current HTTP pair failed/incomplete; historical accepted single HTTP is preserved.
 Demers2.4 remains a different-adapter scope because this Edimax is 5GHz-only.
 
 ## Previous checkpoint (November 10)

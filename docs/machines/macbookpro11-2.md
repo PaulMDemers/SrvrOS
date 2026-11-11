@@ -7,6 +7,43 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### HTTP held-state diagnostics audited (November 11)
+
+Diagnostic/test source `d9b7e95c` fixes a reproduced observation bug: the HTTP
+reconnect hold copied requested/prepared/capture/callback flags from the older
+single-connection globals, falsely printing zeros. It now observes the selected
+connection and binds callback attempt to that exact retained object; an unused
+second connection cannot inherit the first callback flag. Two short frozen rows
+show site/phase/reason/child status and protocol stage alongside the full receipt.
+No network deadline, admission, drain, key-erasure or DMA retirement gate changes.
+
+Six native HTTP reconnect HOST cases pass, including new modeled nonzero child
+exit after real production TCP/EOF and a peer that sends the exact body but never
+FIN/EOF. The former safely retires its failed first lifetime without preparing a
+second; the latter retains child/worker/key/provider/native ownership at the
+original deadline. Final-source fatal ASan/UBSan passes all six cases plus the
+native bridge's frozen-output, per-object attribution and containment matrix.
+Earlier normal six-case/bridge/seven-parser checks also pass; the final per-object
+callback-binding refinement is covered by the fatal run. Scheduler, child APIs
+and USB remain modeled in these fixtures; this is not new ELF/VM/native acceptance.
+
+The separate return review verifies the 1,860-file primary index, all 454 prior
+ordinary file hashes and the saved boot-prefix/independent-journal overlap. Only
+`boot.log` is new. The sole prior metadata change is marker atime, inside the
+three-second RTC-seeded boot interval. This explains the strict missing-exit-clock
+refusal without changing that failed collection or accepting the HTTP trial.
+Both review and diagnostic qualification are separately banked outside build.
+
+The native failure's exact first reason remains unconfirmed: the attached photo
+is only 1280×200 and neither saved prefix reaches the held receipt. Requested
+original photo/readable numeric codes remain pending. No candidate is staged,
+installed or armed from this diagnostic correction. Installed release remains
+`8ef237478e0aa29b`; Ubuntu is default/unarmed. Preserve the failed primary and
+single-use journal. Next identify the first native refusal, reproduce it in the
+actual native path, then qualify the correction and integrate inspected main
+before another physical trial. A modeled missing EOF is not asserted as the
+hardware cause.
+
 ### HTTP reconnect return audit (November 11)
 
 Runtime `835ffb01` / release `8ef237478e0aa29b` halted during its cold

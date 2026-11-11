@@ -8472,6 +8472,13 @@ retained and packed HTTP/init bytes match the staged image. Seven exact v143
 journal/absence cases, 23 frozen workflow cases, five partial-journal cases and
 the 455-file private workspace VM pass. The first host ownership-check refusal is
 preserved separately; corrected verification passes. Release `8ef237478e0aa29b`
-is installed under the unit's collect-first record for the cold physical trial.
+returned as a held, failed/incomplete native trial: five independent startup
+checkpoints and USB boot log survive, without terminal/protocol closure. Its
+closed primary is immutable. Diagnostic source `d9b7e95c` corrects old one-shot
+flags leaking into reconnect observations, binds callback status to the selected
+retained object and adds compact frozen codes. Six native-path modeled cases and
+the bridge matrix pass fatal sanitizers, including safe nonzero-child retirement
+and missing-EOF retained ownership. Neither establishes the first hardware fault
+from the compressed photo. No cleanup gate is relaxed and no new trial is armed.
 The two-connection native HTTP result and broader service/UI/reattach/reliability
-acceptance remain pending.
+acceptance remain open.
