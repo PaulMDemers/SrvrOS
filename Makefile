@@ -2161,6 +2161,7 @@ test-core: test-append-wait
 .PHONY: test-commit-wait
 test-commit-wait: build/tests/commit-wait-host$(HOST_EXE)
 	$(PYTHON) tools/test_commit_wait.py --binary build/tests/commit-wait-host$(HOST_EXE)
+	$(PYTHON) tools/test_commit_command.py --binary build/tests/commit-wait-host$(HOST_EXE)
 build/tests/commit-wait-host$(HOST_EXE): tools/test_commit_wait.c tools/test_workspace_sync_content_wire.c tools/test_workspace_sync_content_wire.h kernel/src/sync_timing.c kernel/src/commit_wait_timing.inc kernel/src/workspace_log.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include tools/test_commit_wait.c tools/test_workspace_sync_content_wire.c -Wl,--gc-sections -o $@
