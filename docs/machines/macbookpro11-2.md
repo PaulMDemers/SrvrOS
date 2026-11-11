@@ -7,6 +7,22 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+### Startup persistence investigation (November 10)
+
+The current bounded objective is an opt-in startup-only capture for the failed
+1423bf12 return. It records pre/post USB enumeration, workspace admission,
+logger admission and terminal return in a preallocated file on the internal
+EFI partition, independently of USB mounting. The host pins its contiguous
+allocation, disk geometry, GPT identity, file header and per-run nonce before
+arming. Native writes are bounded to that file through the existing AHCI
+transport. Ordinary RAM boots keep AHCI disabled. The trial ends before Wi-Fi
+firmware/calibration/connection work. The touched scope is main startup,
+a dedicated journal writer/host preparation and collection, profile staging,
+and actual-path host/UEFI VM tests. Main8271c254 is the fetched baseline.
+No overlapping open PR owns this mechanism. Persistent firmware variables and
+filesystem metadata writes are outside this implementation. Existing physical
+acceptance and closed evidence records remain historical.
+
 ### Descriptor trial returned without a saved session (November 10)
 
 The collector closed runtime `1423bf12` / release `34ed3937df70ec64` as
