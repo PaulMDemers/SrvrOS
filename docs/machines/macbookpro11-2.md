@@ -7,6 +7,72 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Early main-RX native return and collection correction (November 11)
+
+Runtime `5473623f` / release `ad83869d32dbd00e` returned in session
+`00066005112a7445-00`. The bounded fixed161/20MHz comparison passes all five
+calibration commands with exact16-byte replies, successful MAC disable/drain,
+endpoint Stop and full RF-parent inverse restoration:15719 operations total.
+All five loss traces observe one exact event consumed, dispatched and claimed,
+with matching stable reply prefixes and no overflow or late observation.
+Command elapsed receipts include trace/scheduling overhead; they are not the
+Linux usbmon response intervals and must not be compared as such.
+
+The main endpoint had32 distinct pages posted before MAC start. Six transfers
+completed, with no exhaustion, reuse or payload inspection;26 pending pages
+remain retained after exact Stop. Stop state3, CC26/residue4096 and next pointer
+`ring+0x60` match the saved event/context. Calibration boundary counts are
+1/1,1/1,3/3,3/3,4/5. All six data events were classified outside the MCU and EP0
+wait spans, so this hardware run does not exercise the interleaving tested by
+the native-C fixture. It tests no authentication, credentials, network OUT or
+IP traffic, and leaves the earlier paired-HTTP hold unresolved.
+
+The original once-only collection closed with a host transport refusal: its
+helper required only boot/exit files, then assumed one marker per periodic file.
+The native logger legitimately saved four files and its second `session-a.log`
+prefix contains the earlier A marker. The original record remains failed and
+immutable; it was not recollected or retroactively changed to pass. Separate
+review accepts the bounded calibration/RX/Stop/restoration contract after14
+transport positive/refusal cases, exact four-file prefixes and the unchanged
+frozen full-ledger/common checks. Seven independent journal records and7199
+bytes of final journal/exit overlap pass. All460 prior workspace files survive
+with metadata exact except the authorized marker atime; four new session files,
+offline allocation/fsck,59 other EFI files and seven recovery equalities pass.
+
+The1782-file primary bank `wifi-early5-5473623f` has index
+`7451ecb691a9be9cc8096957758647aaef5b25064c73d3aff04883b71f01b09f`.
+Separate `wifi-early5-return-review-5473623f` has index
+`5bfdc22bb4eab0abe958a4ef22e7646acf75bfd59e3056a721938ff5fa9c79bf`.
+Both survive outside build; never rerun their collectors or reseal them.
+
+Before installation, normal/fatal ASan/UBSan actual native-C coverage passed67
+early-owner cases, old MCU24/15-history/9-observation cases and affected xHCI,
+profile/collector/storage checks. Seven exact-stage journal VM cases and a
+private460-file workspace clone passed. Host `c17221b8` differs from runtime
+only by recognizing v144's4MiB log in the VM verifier; earlier clone refusals
+and their corrected rehearsal remain preserved. The ELF parameter/status/control
+store ordering was inspected; it is not proof of controller DMA visibility.
+
+This supports early main-RX/backpressure as a hypothesis, not an established
+physical cause or production correction. Periodic logging remained active here,
+whereas the preceding failed reconnect profile parked it; the integrated main
+filesystem baseline also changed. Next implement a same-image comparison with
+matched logger state before attributing success to early RX, then qualify
+production connection integration and return to the two-HTTP workload. Keep
+initial-channel sequencing separate and preserve deadlines/quarantine.
+
+Host-only follow-up scope: promote the transport correction into
+`tools/wifi_early5_log.py`, its regression and the existing early5 test target,
+plus current unit/plan/guide updates. It accepts optional periodic files and
+recurring increasing markers while checking exact staged identity, capacity,
+offsets, suffix and common byte prefixes; it grants no calibration or network
+acceptance. Eight transport, five observation, three early ledger and four
+calibration ledger tests pass, including all four actual returned files.
+Fetched main `a611fd9e` (PR471) contains only Air6,1/filesystem documentation and
+is integrated at `46955130`; no new runtime payload follows from that merge.
+Installed ad83869d remains present, Ubuntu is default/unarmed and no next boot
+is scheduled. The new helper does not alter either closed evidence bank.
+
 ### Early main-RX comparison implementation scope (November 11)
 
 User requests the bounded early-receive comparison and actual native-path tests

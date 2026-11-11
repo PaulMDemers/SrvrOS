@@ -69,7 +69,7 @@ prove wire-level absence. Wi-Fi remains failed for this lifetime; storage and
 recovery pass. Main-RX posting and initial-channel differences remain hypotheses,
 not a justified production correction. See the unit record for the closed bank.
 
-## Separate early main-RX comparison (v144; qualification pending)
+## Separate early main-RX comparison (v144; bounded native result)
 
 `--wifi-early5` requires the complete fixed161 calibration parent and an
 independent startup-journal descriptor. Its exact kernel recipe refuses network,
@@ -92,8 +92,32 @@ completion counts and exact Stop event/context, independently of a success-only
 full RF/calibration/cleanup ledger. Ordinary profiles retain their prior path.
 Normal tests cover67 actual native-C cases including the whole new child and a
 1906-receive/Link/event-wrap prefix; HCD, registers and selected RF parent remain
-modeled. Fatal sanitizer, matched-image and physical checks are pending at this
-checkpoint. No physical root cause or Wi-Fi acceptance follows from these tests.
+modeled. Fatal ASan/UBSan and exact-stage VM/private-workspace checks pass.
+
+Pro11,2 runtime5473623f/releasead83869d32dbd00e subsequently returns with all
+five exact calibration replies, successful MAC disable/drain, exact endpoint
+Stop and full parent restoration (15719 operations). Six of32 posted receives
+complete without exhaustion, reuse or payload inspection; pending pages remain
+retained. All six data events occur outside the MCU/EP0 wait spans, so actual
+hardware interleaving is still unexercised. This accepts one bounded comparison
+lifetime, with no credentials, network OUT, authentication or IP data.
+
+The once-only collector refused valid periodic files/recurring markers. Its
+closed record remains unchanged; a separate sealed review validates all four
+complete prefixes, the unchanged frozen protocol ledger, seven independent
+journal records and7199-byte final overlap. Storage/recovery checks pass. The
+reusable `wifi_early5_log.transport` correction permits only boot/exit plus the
+two known periodic files, checks recurring increasing snapshot markers, exact
+recipe/release/session/capacity/offset/suffix and shared byte prefixes. Eight
+regression methods cover valid native shape and malformed/divergent refusals;
+the helper also passes on the actual four returned files. It validates capture
+transport only and cannot grant calibration or network acceptance.
+
+Periodic logging was active in this comparison but parked in the preceding
+failed reconnect profile; the merged filesystem baseline also differs. This
+supports the early-main-RX hypothesis without establishing causality. A matched
+logger/same-image comparison is next, before production connection integration
+or retrying paired HTTP. See the unit record for immutable primary/review banks.
 
 ## Fresh trim lifetime (v117; bounded native acceptance)
 

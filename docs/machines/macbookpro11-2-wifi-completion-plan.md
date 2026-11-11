@@ -9,6 +9,34 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
+The v144 early-main-RX comparison returned on runtime5473623f/release
+ad83869d32dbd00e in session00066005112a7445-00. All five calibration replies,
+MAC disable/drain, exact endpoint Stop and full RF restoration pass. Six of32
+preposted distinct buffers complete without exhaustion, reuse or payload
+inspection. All data events were outside MCU/EP0 wait spans, so native overlap
+coverage still comes only from modeled actual-C-path tests. No connection or
+network OUT ran; the paired-HTTP failure remains unresolved.
+
+Qualification passes normal/fatal67 early-owner cases, prior MCU suites and
+exact-stage persistence/recovery checks. Native preservation accepts all460
+prior files, four new log files,59 other EFI files and seven recoveries. The
+once-only collector closed with a host file-shape/recurring-marker refusal;
+the primary1782-file bank stays unchanged. Separate sealed return review passes
+the corrected transport guard, unchanged full protocol ledger and all seven
+journal records with7199-byte final overlap. See the unit record for hashes.
+The reusable transport checker now covers valid periodic snapshots and strict
+identity/capacity/prefix refusals, including this actual return.
+
+Success supports early-main-RX/backpressure but is not a proved fix. Periodic
+logging was active here and parked in the previous failure; the merged
+filesystem baseline also differs. Next qualify a matched-logging, same-image
+comparison before integrating early receive into the production connection
+path and returning to paired HTTP. Initial-channel sequencing remains a separate
+hypothesis. Maina611fd9e is integrated at46955130 (documentation only); installed
+runtime remains5473623f. Ubuntu is default/unarmed; no new test is scheduled.
+
+### Previous failed trace and implementation checkpoint
+
 Native trace runtime58a48e04/release186c23c85bc94c89 returned automatically in
 session00066003c7505e38-00 and is closed failed for Wi-Fi. First R(0) OUT completes;
 the original500ms IN fails and the same retained TD has no late completion
@@ -20,7 +48,7 @@ prior workspace files/metadata,58 other EFI files and seven recoveries pass.
 The1412-file primary and separate return review are closed; never recollect or
 reseal them. Ubuntu is unarmed; MCU and paired-HTTP causes remain unresolved.
 
-The isolated v144 main-RX-before-calibration comparison is implemented and in
+At that checkpoint, the isolated v144 comparison was implemented and in
 software qualification. It retains32 distinct pages, accounts for completions
 during actual MCU/EP0/Stop spans and reports queue exhaustion. Normal native-C
 coverage passes67 cases including1906-receive histories; fatal/image/physical
