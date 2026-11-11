@@ -97,3 +97,21 @@ runtime have no change for this correction. An actual sector that retains the
 dirty bit still fails admission. Fixtures cover mounted and clean preparation,
 strict refusal of an actual dirty sector, reproduction of the old stale pin,
 and preservation of other state/identity bits.
+
+
+## Native bounded result
+
+MacBookPro11,2 runtime sourcecc1c3775/release7bf30a800c4d68ac saved all seven
+checkpoints in session00065ff73d95cc33-00. Separate binary review verifies commit
+and payload checksums, the source-bound nonce/phase/flags, the immutable header
+and reserved slot, and byte-exact overlap with USB boot/exit logs through the
+26,345-byte reconstructed console prefix. Terminal flags record successful USB
+save and unmount. One native preallocated-file write/flush/readback lifetime
+is accepted. The later raw-claim release has no direct persisted receipt.
+
+All449 prior file/metadata checks pass except one bounded marker atime, with
+two new logs. Offline fsck/allocation,53 other EFI file hashes and seven protected
+recoveries pass. The closed779-file primary and separate acceptance notes are
+retained outside build. Ubuntu is unarmed. The consumed file stays populated;
+future tests use a fresh file, descriptor and run record. Full firmware/network
+capture and repeated lifetimes require their own evidence.

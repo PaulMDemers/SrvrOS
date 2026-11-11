@@ -2,10 +2,40 @@
 
 Updated: 2026-11-10. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
-The sections below retain the dated bring-up sequence. The latest acceptance
-and next scope are recorded at the end; earlier failures are historical.
+The current handoff below records the latest acceptance and next scope.
+Dated sections retain the bring-up history.
 
 ## Current handoff
+
+### Native startup persistence accepted (November 10)
+
+Preparation fixcc1c3775/release7bf30a800c4d68ac, session00065ff73d95cc33-00,
+saved all seven independent EFI checkpoints on this MacBookPro11,2. Direct
+binary review verifies every payload and commit SHA256, phase/flag/nonce,
+immutable header and unused slot, plus exact tail overlap with the USB logs
+and reconstructed26,345-byte console prefix. The terminal records report
+workspace/logger admission, successful USB save and unmount, with firmware
+capture unattempted. The unchanged kernel's strict whole-sector comparison
+now admits the correctly pinned clean FAT sector.
+
+This accepts one bounded native preallocated-file write/flush/readback lifetime.
+The journal's later raw-claim release has no direct receipt; generic filesystem,
+repeatability and Wi-Fi calibration/connection acceptance remain separate.
+All449 prior ordinary bytes and metadata checks pass except one RTC-bounded
+marker atime, with exactly two new logs. Offline fsck/allocation pass at451 files
+and1430 clusters, zero leaks/mismatches/errors and zero inspection writes/flushes.
+All53 other EFI file hashes, seven protected recoveries and installed payload
+match. Ubuntu is default and unarmed.
+
+The779-file primary is closed with index
+`d998fcb918ebba05b3624648e751b6a81ce2e99588dcae215082fafc30b2dc77`.
+Separate three-file acceptance notes have index
+`0c5013b22209212982d65282d64012f66fefac23c1757faec7afd3b838cd2267`.
+Keep both immutable and never recollect this attempt. The populated diagnostic
+file is consumed; another trial requires its own fresh file/descriptor and run
+record. The next scope is carrying this validated startup evidence into the
+full Wi-Fi calibration/two-connection investigation. No new boot is armed.
+
 
 ### Native admission cause identified (November 10)
 

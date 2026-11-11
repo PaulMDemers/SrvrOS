@@ -9,6 +9,18 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 10)
 
+Startup persistence is now natively accepted for one bounded file lifetime on
+cc1c3775/7bf30a800c4d68ac (session00065ff73d95cc33-00). All seven independent
+checkpoints pass binary checksums and exact console overlap; terminal flags
+record USB save/unmount. The clean FAT-sector pin is physically confirmed.
+All449 prior file/metadata checks pass apart from one bounded marker atime,
+plus offline allocation,53 other EFI files and seven protected recoveries.
+The779-file primary and separate three-file acceptance notes are closed.
+Ubuntu is unarmed; the consumed journal cannot be replayed. Next carry the
+validated startup evidence into full calibration/two-connection testing with
+a fresh file, descriptor and run record. Wi-Fi reconnect remains unaccepted.
+
+
 The startup fallback saved session00065ff6e502a291-00 and identified the cause:
 host preparation pinned Linux's mounted FAT state at byte65=1, while native
 boot read the exact clean sector with byte65=0. Controlled direct unmount/

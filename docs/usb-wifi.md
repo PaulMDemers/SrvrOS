@@ -8351,3 +8351,14 @@ stage UEFI cases include actual-dirty refusal with a saved USB transcript and
 clean independent admission with USB absent. The startup-clean-state record
 owns the next no-unplug reboot and collection with449 prior files. Native
 independent write/flush completion and Wi-Fi reconnect remain pending.
+
+
+The clean-state startup trialcc1c3775/7bf30a800c4d68ac now passes native bounded
+journal persistence as session00065ff73d95cc33-00. All seven commit/payload
+checksums and overlapping tails match the complete USB prefix and reconstructed
+terminal output. Terminal flags record USB save/unmount; firmware work was not
+entered. One exact preallocated EFI file write/flush/readback lifetime is
+accepted. All449 prior byte/metadata checks apart from bounded marker atime,
+53 other EFI files, offline storage and seven recoveries pass. The779-file
+primary and separate three-file acceptance notes are immutable. No new boot
+is armed; full Wi-Fi calibration and two-connection testing remain pending.
