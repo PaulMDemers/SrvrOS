@@ -22,8 +22,9 @@ the active captured prefix, or last committed prefix, bounds the optimization.
 A whole request that misses this window may park its metadata-only prelude
 behind a foreign owner. Captured-prefix publication and retirement notify the
 existing wait queue; each wake rechecks process/CR3/lease/FD/buffer and window
-state before copying. Spurious notifications repark. No descriptor/content/data
-pointer survives a wait. A still-full window at ownership release, lost lease
+state before copying. Spurious notifications repark. No resolved descriptor,
+content or reserved-buffer borrow survives a wait; saved user addresses are
+validated again by the actual copy. A still-full window at ownership release, lost lease
 or unsupported context retains ordinary admission. This is not a new short-write
 policy or a global flush-size/latency guarantee. Full originally
 requested user ranges are validated even when FSIZE permits a positive short
@@ -57,7 +58,8 @@ proved copies. Ordinary gate/owner records count only ordinary calls; fast
 copies do not manufacture zero-valued scheduler observations. The actual copy
 remains atomic; a queued copy's handler wall can include a notified eligibility
 wait. Final-only `capture-append-wait` companions retain that wall, wake count
-and ready-with-live-borrow coverage explicitly. An eventual ordinary fallback
+and ready-with-live-borrow coverage explicitly. The `wakes` field counts returned
+wait attempts, not hardware interrupts. An eventual ordinary fallback
 retains its real gate/handler records; its earlier private prelude remains in
 the whole raw-call wall and companion, outside ordinary handler time. Version2 content
 records require a bound `sync-content-prefix` companion proving generation,
@@ -98,3 +100,19 @@ or unbound diagnostic companions. The notification/copy clocks are software wall
 not physical USB completion. Long device status waits remain a distinct cause;
 this fixes avoidable exclusion while a new safe suffix is available, with native
 latency and actual overlap coverage to be measured in the matched stress test.
+
+Frozen source `b11db747` (runtime implementation `8462addd`, followed only by a
+host formatter-test correction) passes matched ordinary/native/VM builds and
+all239 core targets plus desktop/docs coverage. The initial full run passed233
+targets before the formatter test; its correction strictly parses the new final
+companion while retaining exact periodic byte equality. The corrected target,
+remaining six core targets and desktop/docs then pass with identical production
+sources. Initial failure evidence and explicit source equivalence are retained.
+
+The populated400writeIOPS KVM audio/disk/apps/screenshot trial passes all original
+contracts with complete saved lifecycle/app/service receipts. Four notified
+retries become ready under a foreign owner and a live immutable borrow. The
+139940us loop and1289420/1152100us launch/close maxima retain their original
+limits. Exact native stage `bcd7246fbcc828f6` refuses foreign board ownership,
+saves/unmounts and returns in its VM rehearsal. This accepts no native speed
+gain or change to the device's physical status latency.

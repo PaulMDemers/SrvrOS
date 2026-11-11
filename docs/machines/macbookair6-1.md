@@ -12113,3 +12113,39 @@ window and safe notified retry with all original negative/ownership tests,
 matched build/VM validation and an automated1% native stress observation.
 Currentc95f/recoveryc354, all841 USB files and original failed evidence remain
 protected. This active scope is not a new physical acceptance or speed claim.
+
+The missed-window regression now passes with the unchanged64KiB copy and
+256KiB suffix limits, four copies under a live immutable prefix and a refused
+fifth. Spurious notifications, owner completion, cancellation, FD-generation or
+lease changes, failed content and owner/image/sibling/CR3 exclusions retain
+safe behavior. A real-scheduler fixture blocks/wakes the private prelude while
+preserving foreign scope depth, ordinary exclusion and quiescent fallback turns.
+The real borrow publication/retirement notifications and fresh user-memory
+validation after a wait are also exercised. No USB/BOT/xHCI policy changes.
+
+Final freeze `b11db747` contains runtime implementation `8462addd` plus only a
+host formatter-test correction. The initial full core run passes233 of239
+targets before finding the test's periodic projection lacked the new final-only
+companion. The correction requires strict companion parsing and unchanged
+periodic bytes; the corrected target, last six core targets and desktop/docs
+pass against identical production sources. Matched builds and source/image
+hashes are checked; initial failure and source-equivalence records are retained.
+
+Ordinary ABI/input/thread/USB/capture VMs and the populated400writeIOPS KVM
+audio/disk/apps/screenshot trial pass. Independent reparse retains all16 original
+contracts and complete saved lifecycle/app/service evidence. Four queued retries
+become ready while a foreign owner and live writeback borrow remain active.
+The loop maximum is139940us; launch/close maxima are1289420/1152100us. These
+are VM observations, not a native speed comparison. The new final-only wait
+companion exposes all private-prelude wait wall, including eventual fallback;
+no synthetic owner-release or zero-gate observation is fabricated.
+
+Stage `bcd7246fbcc828f6` passes exact native board refusal, save, unmount and
+return. The next native workload remains automatic1800-second1% PCM/disk/apps,
+three exact screenshots and original60-second tail, followed by full receipt,
+retirement and841-prior-file/allocation checks. Native overlap coverage and
+latency remain pending; long device/controller status cause remains unresolved.
+At final scope review, main remains `3703eaea`; PR301 `4e76b63d` and PR19
+`835ffb01` edit distinct lifetime/spawn/pipe/network syscall hunks, with no
+competing reserved-append recheck. Currentc95f/recoveryc354 and prior3403/a139
+remain protected. No other-machine task is contacted.
