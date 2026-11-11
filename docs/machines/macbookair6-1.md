@@ -12149,3 +12149,65 @@ At final scope review, main remains `3703eaea`; PR301 `4e76b63d` and PR19
 `835ffb01` edit distinct lifetime/spawn/pipe/network syscall hunks, with no
 competing reserved-append recheck. Currentc95f/recoveryc354 and prior3403/a139
 remain protected. No other-machine task is contacted.
+
+## Queued-append native return (2026-11-11)
+
+Run `428a58c610984577`, release `bcd7246fbcc828f6`, compiled `b11db747`
+(runtime `8462addd`, implementation PR465 merge `d4580da3`) completed session
+`session-00065ffa3ebd03ab-00` and returned to Ubuntu automatically. Independent
+raw-log/binary parsing passes all16 original contracts and the required queued
+wait companion. The1800-second1% workload records3707 verified256KiB bursts
+(971767808 bytes),345731072 PCM bytes, zero recorded underruns and1066 app
+cycles. Worst loop is121522us, launch1093289us and close1889203us. All original
+limits, fresh proofs, barriers and ownership checks remain unchanged. Subjective
+listening is unassessed at1%; prior audible playback acceptance is separate.
+
+All three exact BMPs decode and their hashes plus the40-byte disk receipt match
+actual USB bytes. Capture/cache/battery/desktop retirement and normal exit pass.
+Native lifecycle logs retain bounded tails, complete summaries and worst records;
+this does not claim every individual cycle/service receipt survived.
+
+The notified retry path is exercised4/6/6 times while a foreign owner and live
+immutable borrow remain active. Screenshot totals are7.479590/7.281154/
+10.530490 seconds, versus8.824182/14.902387/15.328993 in the prior cold run.
+This accepts bounded native retry functionality and records lower observed
+times; different boots/interleavings do not establish isolated causality.
+
+Ordinary admission totals are187/167/185us and their worst samples2/2/3us,
+with no retained owner or live sync context. Private-prelude wait totals are
+4.277356/3.636174/6.719198 seconds,96.44/96.72/97.83% of raw write-call wall;
+the slowest private wait is1.797150 seconds. Remaining waiting is recorded in
+the explicit private prelude; tiny ordinary gates do not show its elimination.
+Successful private wait wall overlaps
+handler time; fallback prelude wall remains in whole-call residual. Do not sum
+these as exclusive phases or invent ordinary owner records for them. Cleanup
+peaks at71.016ms. Capture3's checked rename still takes1.374035 seconds.
+
+The separately bound selected global content call lasts1.796672 seconds, with
+1.667766 seconds payload-write callback wall,41.861ms prefix reads and24.163ms
+metadata-payload writes. Its exact16KiB WRITE(10) status callback takes354.113ms
+with19.352ms maximum sampled service gap. This completed global command is not
+an exact join to any individual private wait: those companions retain aggregate
+and worst wall without per-wait timestamps/owner identity. Source/controller/
+media cause remains open. The selected captured3932160-byte prefix commits,
+while four appends/262144 bytes produce live4194304 and dirty-after state;
+the original generation/immutable-prefix/window proof is preserved.
+
+Read-only rehash matches all850 current files. All841 prior files remain
+unchanged except the expected metadata sidecar. Independent fsck and complete
+allocation find4124 clusters with zero leaks, FAT/bitmap mismatches or errors.
+Installed/staged/independent payloads, recoveryc354 and priorc95f/3403/a139 are
+verified. Only the fully backed, unreferenced historicald551 EFI duplicate was
+retired for install space; its independent full payload remains intact. The
+original failed battery media archive is verified; its intermittent cause stays
+unresolved, with no recurrence captured in this run. Ubuntu remains default,
+the one-shot is consumed, collection is disabled and USB is unmounted.
+
+Next target remains long payload completion and shared commit work, using
+matched command-size/order evidence before further policy changes. Do not infer
+that tiny ordinary gates mean no contention or use unrelated global maxima as
+private-wait attribution. No new reboot is armed during this result review.
+Actual review base is main `d4580da3`; open PR301 `72efc460` and PR19
+`3d8a9c2a` retain separate graphics/network scopes. This result change touches
+only this unit record and the reserved-append guide; no runtime code or other
+machine acceptance changes.
