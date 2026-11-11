@@ -9,6 +9,24 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ### Startup journal refused before USB enumeration (November 10)
 
+The correction is runtime6a39a477/release1aa9a0b4479f5e99 on integrated
+main83c955fd (merge65092a82). It keeps USB enumeration/logging available when
+independent journal admission refuses, adds candidate/read/hash/header/claim
+reasons and retains the same strict journal write authority. Five host tests,
+24 actual writer scenarios, fatal ASan/UBSan and AHCI/block/logger regressions
+pass, along with267 profile and42 collection regressions. Six exact-stage
+UEFI cases pass, including actual USB exit-log retention of a GPT hash refusal,
+zero independent writes on refusal and a held dual-refusal guest. Four extracted
+collector transcript cases pass with only the downstream metadata verifier
+mocked. The old native admission cause remains unproved.
+
+The next record is `build/bringup/startup-admission/run.json`, with once-only
+collection through its `run_root.py return_collect`. This startup-only retry
+requires no unplug cycle and ends before firmware/network work. The local
+record owns installation, final review and automatic reboot. Preserve the
+closed742-file first attempt and its separate screenshot/storage review.
+
+
 The6e620b4a/af216d2c053b59f6 native run halted after registering the internal
 AHCI disk at the expected490234752-sector capacity. The operator screenshot
 shows journal admission failed. The independent file remained exactly initial,

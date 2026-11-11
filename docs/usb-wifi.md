@@ -8326,3 +8326,15 @@ storage/logger and267 profile/42 collection cases pass. Four exact-stage UEFI
 cases save and return with workspace present/missing/bad-marker/full logger,
 with writes confined to the journal data range. Native validation is pending.
 The [startup journal](startup-journal.md) records format, binding and scope.
+
+
+The6e620b4a/af216 native startup trial refused independent admission and halted
+before USB enumeration, leaving its journal initial. All447 workspace file/
+metadata records and51 other EFI files stayed exact; the closed742-file record
+and separate screenshot review retain the failure. Correction6a39a477/1aa9a0b4479f5e99
+emits explicit admission reasons and tries USB logging before a dual-refusal
+hold. All24 actual writer/fatal, storage/logger,267 profile/42 collection and
+six exact-stage UEFI cases pass. The latter save a GPT refusal in an actual USB
+exit transcript and preserve the independent file on refusal. This is the next
+startup-only diagnostic; the native admission cause and Wi-Fi reconnect remain
+unproved. The local startup-admission record owns installation/arming/collection.

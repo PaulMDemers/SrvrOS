@@ -9,6 +9,16 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 10)
 
+The first startup journal trial6e620b4a/af216d2c053b59f6 failed admission and
+halted before USB; its file stayed initial and all447 workspace files/metadata
+and51 other EFI files were preserved. Runtime6a39a477/release1aa9a0b4479f5e99
+keeps USB logging as fallback and emits admission reasons. All24 writer/fatal,
+storage/logger,267 profile/42 collection and six exact-stage UEFI cases pass,
+including a saved USB refusal transcript and dual-refusal hold. Main83c955fd
+is integrated at65092a82. The startup-admission local record owns the next
+no-unplug reboot and collection. Native journal cause/persistence remain open.
+
+
 Startup-only runtime6e620b4a/releaseaf216d2c053b59f6 is installed. Its preallocated
 internal EFI journal records seven phases through the existing AHCI driver even
 with USB absent. Five host tests,21 writer scenarios, fatal sanitizers, storage/
