@@ -8391,3 +8391,31 @@ The full native transport and parent/key retirement checks remain required.
 the independent encrypted AP fixture, including two successful generations,
 absent replies, unrelated authenticated traffic, missing ACKs, corrupted crypto
 and rejected DHCP packets. These HOST fixtures do not accept physical Wi-Fi.
+
+
+### Native bounded two-connection result (November 11)
+
+On Pro11,2, source `0e750c07` / release `c280927702804a27`, session
+`00065ff9342c1e07-00`, completes full fixed US161/20MHz calibration followed by
+two fresh authenticated WPA2/CCMP connection epochs in one cold adapter lifetime.
+Each completes production DHCP, DNS and 64 exact gateway echoes (128 total,
+4,096 exact payload bytes), then deconfigures the stack, erases keys, leaves,
+closes native endpoints and detaches the provider. Distinct DMA contexts,
+continuous command positions and final original RF-parent restoration/provider
+retirement verify. Two backend tombstones remain retained until controller halt.
+
+Preserved categorical observations record one Discover/Request and accepted
+Offer/ACK per connection, no retries or rejection, and elapsed DHCP times of
+144,829 and 239,570 microseconds. The previous DHCP timeout did not recur; its
+network cause remains unknown. The observation change did not alter DHCP
+admission, timing or retry behavior.
+
+Separate acceptance review validates all seven independent journal commits and
+payload hashes, exact USB-log overlap and final save/unmount records, preservation
+of 453 prior workspace files apart from one permitted marker atime, clean offline
+storage checks, other EFI files and seven protected recoveries. Closed primary
+and separate acceptance notes survive outside build; the journal is consumed.
+This accepts the bounded native two-connection result. Actual TCP/HTTP across
+reconnects on this source, persistent service, UI controls, live physical reattach,
+unlimited reuse and reliability remain open. This 5GHz-only adapter cannot test
+Demers2.4; that requires another compatible adapter.

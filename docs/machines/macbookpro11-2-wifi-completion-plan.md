@@ -7,7 +7,28 @@ Edimax7392:a711 MT7610 is5GHz-only. Target Demers5 WPA2-PSK/CCMP,US161/20MHz.
 Demers2.4 requires a different compatible adapter;it is a separate hardware scope.
 
 
-## Current checkpoint (November 10)
+## Current checkpoint (November 11)
+
+The cold native `0e750c07` / `c280927702804a27` trial passes full fixed161
+calibration and two fresh authenticated connection epochs within one boot
+(session `00065ff9342c1e07-00`). Each completes production DHCP/DNS and 64 exact
+gateway replies, followed by key erasure, network deconfiguration, endpoint
+closure and provider detach. Final RF parent restoration/provider retirement
+pass; two backend tombstones remain retained. Separate acceptance review checks
+all seven independent journal records and USB overlap, prior workspace bytes/
+metadata, offline allocation, other EFI files and protected recovery payloads.
+The primary and acceptance notes are sealed outside build. Ubuntu is unarmed.
+
+The earlier DHCP timeout did not recur and remains unexplained. Retained DHCP
+observations now show successful DORA without retries or rejections in both
+cycles. This is bounded connection reuse acceptance, with no claim of sustained
+reliability or unlimited reuse. Next implement and qualify actual TCP/HTTP across
+connection lifetimes, then the persistent worker and desktop controls, physical
+adapter reattach, cancellation/failure recovery and repeated endurance runs.
+Current-source HTTP remains untested; historical accepted HTTP is preserved.
+Demers2.4 remains a different-adapter scope because this Edimax is 5GHz-only.
+
+## Previous checkpoint (November 10)
 
 Startup persistence is now natively accepted for one bounded file lifetime on
 cc1c3775/7bf30a800c4d68ac (session00065ff73d95cc33-00). All seven independent

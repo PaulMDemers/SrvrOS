@@ -1,13 +1,49 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-10. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-11. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed161/20MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
 
 ## Current handoff
 
-### DHCP observation candidate installed
+### Two native connection lifetimes accepted (November 11)
+
+Source `0e750c07`, release `c280927702804a27`, returned automatically as
+`session-00065ff9342c1e07-00`. Full fixed161/20MHz calibration and two fresh
+WPA2/CCMP connection epochs pass in one cold adapter lifetime. Each completes
+authentication, association, M1–M4, production DHCP, DNS and 64 exact gateway
+replies. DHCP takes 144,829 and 239,570 microseconds respectively, with one
+Discover/Request exchange, accepted Offer/ACK and no retry or rejection in either
+cycle. Key erasure, leave, local network deconfiguration, native endpoint close
+and provider detach pass before the next connection. Distinct DMA contexts and
+continuous non-reused command positions verify; final RF parent restoration and
+provider retirement pass. Two backend tombstones remain retained until controller
+halt, so this does not accept unlimited reuse or backend reclamation.
+
+Independent binary review verifies all seven journal commit/payload hashes,
+immutable header/reserved slot and exact overlap with the saved USB logs and
+2,077,747-byte console prefix. Terminal flags record both save and unmount.
+All 453 prior workspace files survive byte-for-byte, with metadata preserved
+apart from one authorized marker atime; exactly two session logs are added.
+Offline filesystem/allocation checks, 55 other EFI files and seven protected
+recovery equalities pass. Ubuntu remains default and unarmed.
+
+The immutable 1,389-file primary is `wifi-dhcp-receipt-0e750c07`, index
+`0b2514ed16cff8a6e9aa005c83d8020e47fc4755f9bc0505ebceb8ec3eeecb7a`.
+Separate three-file acceptance notes are `wifi-reconnect5-accepted-0e750c07`,
+index `08351c872feaf61ac5110c136881ccc5147d4f7465f0fb35c9e111f4dee632bb`.
+Both live in the unit's local archive outside build. Collection is closed;
+never recollect/reseal the primary or reuse its consumed journal.
+
+The earlier DHCP timeout did not recur; its network cause remains unknown.
+The source change preserved observations without relaxing network deadlines,
+retries or validation. Current-source TCP/HTTP across reconnects is the next
+bounded scope. Persistent service, desktop connect/disconnect, live physical
+reattach and repeatability remain separate implementation/acceptance work.
+The adapter is 5GHz-only; Demers2.4 requires different compatible hardware.
+
+### Previous DHCP observation candidate qualification (November 10)
 
 Source0e750c07/releasec280927702804a27 is installed for the next cold native
 trial. It preserves existing DHCP counters before local private-scope erasure
@@ -38,14 +74,9 @@ default and EFI order, plus seven protected recoveries, verify unchanged. Only
 the consumed110b EFI duplicate was retired after its immutable1,414-file backup
 and separate return review were verified and acceptedc603 promoted first.
 
-The local `wifi-dhcp-receipt/run.json` record owns final review and the one-shot
-cold shutdown under existing authorization. Unplug only Wi-Fi for ten seconds
-while off, reconnect to the same port, then power on; leave the workspace drive
-connected. Results save automatically. Collect FIRST once after return with
-`python3 -B build/bringup/wifi-dhcp-receipt/run_root.py return_collect`.
-This is a diagnostic candidate; native calibration, DHCP and two connection
-lifetimes on this source remain pending. Never reuse the prior journal or
-recollect/reseal the closed native primary and return review.
+This preboot qualification is historical. Its matching return has now been
+collected and independently accepted within the bounded scope above. The run
+record and primary remain closed; do not invoke its collector again.
 
 
 ### DHCP receipt preservation scope (November 10)
