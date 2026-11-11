@@ -7,6 +7,29 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+### Startup journal refused before USB enumeration (November 10)
+
+The6e620b4a/af216d2c053b59f6 native run halted after registering the internal
+AHCI disk at the expected490234752-sector capacity. The operator screenshot
+shows journal admission failed. The independent file remained exactly initial,
+and no USB session was created. The once-only742-file primary is closed with
+index4807226ef145248dd940175f24cbc9c18a9a9bca137d975c17ac9df544a7f52a.
+Separate review retains the screenshot and confirms all447 workspace files and
+metadata exactly equal,51 other EFI file hashes equal, offline storage clean,
+protected recoveries intact and Ubuntu unarmed. No native journal acceptance.
+The specific module/identity/read/hash/header/claim refusal is unrecorded.
+
+Current bounded correction adds explicit journal admission reasons and retains
+USB startup/log capture when independent admission fails. The source currently
+halts before USB in that case, preventing the second sink from being tried.
+The next actual-path tests must cover independent refusal with a working USB
+workspace, independent success with missing USB and the dual-refusal hold.
+The descriptor/file/disk admission predicates and write bounds remain strict.
+Touched scope is startup journal,main control flow,host/UEFI fixtures and local
+collection. Main83c955fd adds only Air6,1 evidence documentation and is being
+consumed before qualification. Native AHCI refusal cause and Wi-Fi reconnect
+remain open.
+
 ### Startup persistence investigation (November 10)
 
 Runtime `6e620b4a`, release `af216d2c053b59f6` (v141), is now installed for
