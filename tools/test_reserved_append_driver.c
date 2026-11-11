@@ -25,6 +25,10 @@ static bool reserved_append_flush(struct block_device *d) {reserved_append_backe
 void reserved_append_io_snapshot(struct reserved_append_io *out) {
     *out=(struct reserved_append_io){sync_content_callbacks,read_calls,read_bytes,writes,write_bytes,flushes};
 }
+void reserved_append_model_delay_us(uint64_t usec) {
+    assert(usec<=2000000 && sync_content_us<=UINT64_MAX-usec);
+    sync_content_us+=usec;
+}
 uint64_t reserved_append_allocations(void) {return alloc_calls;}
 unsigned reserved_append_owner_depth(void) {return io_depth;}
 int main(int argc,char **argv) {
