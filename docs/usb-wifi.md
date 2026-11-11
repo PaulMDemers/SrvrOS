@@ -8316,3 +8316,13 @@ Startup can return before firmware capture if the workspace mount or
 logger startup fails. The operator saw SrvrOS briefly and reported that it
 returned automatically. The retained evidence cannot distinguish the two
 startup paths. No boot is armed.
+
+
+The follow-up startup-only v141 runtime6e620b4a/releaseaf216d2c053b59f6 installs
+an independent preallocated EFI journal. Seven bounded checkpoints identify USB
+enumeration, workspace mount, logger admission and return without depending on
+USB storage. Five host tests/21 actual writer cases, fatal sanitizers, existing
+storage/logger and267 profile/42 collection cases pass. Four exact-stage UEFI
+cases save and return with workspace present/missing/bad-marker/full logger,
+with writes confined to the journal data range. Native validation is pending.
+The [startup journal](startup-journal.md) records format, binding and scope.

@@ -9,6 +9,16 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 10)
 
+Startup-only runtime6e620b4a/releaseaf216d2c053b59f6 is installed. Its preallocated
+internal EFI journal records seven phases through the existing AHCI driver even
+with USB absent. Five host tests,21 writer scenarios, fatal sanitizers, storage/
+logger regressions and267 profile/42 collection cases pass. Four exact-stage
+UEFI guests cover mounted/missing/bad-marker/full-logger states and verify all
+other allocated internal-disk bytes unchanged. The new startup record owns
+arming and collection; no unplug cycle is required. Native startup persistence
+and AHCI validation are pending, followed by calibration/reconnect investigation.
+
+
 The `1423bf12` / `34ed3937df70ec64` cold trial returned without a saved
 session. GRUB consumed its one-shot, and all 447 prior files and metadata
 remain exactly equal. Offline storage and installed recovery checks passed.

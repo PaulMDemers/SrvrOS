@@ -9,6 +9,29 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ### Startup persistence investigation (November 10)
 
+Runtime `6e620b4a`, release `af216d2c053b59f6` (v141), is now installed for
+an unattended startup-only reboot. Five host protocol/parser/profile tests,
+21 actual C writer scenarios, fatal ASan/UBSan, AHCI/block/workspace-log
+regressions, 267 historical profile and 42 collection regressions pass. Four
+exact-stage UEFI/GRUB/Limine guests save seven independent AHCI checkpoints
+and return with workspace present, absent, a bad marker and full logger
+capacity. All allocated internal-disk bytes outside the pinned journal data
+range match the seed in each guest. VM disk headers, descriptor and initial
+file bytes match the native run's binding. The native FAT allocation was
+verified independently from both FAT copies and mounted-file/raw equality.
+Native AHCI and startup persistence acceptance remain pending this reboot.
+
+The independent file is preallocated on the internal EFI partition and stays
+available if USB mounting fails. Only the fully backed incomplete34ed EFI
+payload was removed for space after promoting acceptedc603. Factorye47 stays
+the direct fallback and all seven protected recoveries pass equality checks.
+The 447-file workspace baseline and offline checks pass. The new local record
+owns final review and arming, then once-only collection through
+`build/bringup/startup-journal/run_root.py return_collect`. This trial needs no
+unplug cycle and ends before Wi-Fi firmware upload or connection work. See the
+[startup journal](../startup-journal.md) for the format and scope.
+
+
 The current bounded objective is an opt-in startup-only capture for the failed
 1423bf12 return. It records pre/post USB enumeration, workspace admission,
 logger admission and terminal return in a preallocated file on the internal
