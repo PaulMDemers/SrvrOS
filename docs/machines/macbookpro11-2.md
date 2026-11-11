@@ -76,7 +76,8 @@ Installed66b remains present, Ubuntu is default/unarmed and no next boot is arme
 ### Production receive-priming continuation scope
 
 Fetched maina9eacdaa/PR472 adds commit-wait/USB status instrumentation and is
-pending integration after recording this pair. Keep the accepted comparison
+integrated at291ec0be. Local commit-wait, USB storage, scheduler, workspace log,
+capture/sync and native early-RX regressions pass. Keep the accepted comparison
 bound to9f05567d. PR301 GPU/HDA and PR379 WebCore remain separate; PR19 owns this
 Wi-Fi scope. No other task is contacted.
 
@@ -90,6 +91,18 @@ or unchecked context replacement. Cover old/duplicate events during transition,
 allocation prefixes, new-ring aliasing, command failure, first publication and
 full native receive/cleanup under normal/fatal tests before any hardware boot.
 Then qualify authenticated same-boot disconnect/reconnect and actual HTTP.
+
+The implementation will keep priming and the existing discovery window as two
+explicit MAC lifetimes. After the priming MAC's drain/disable and exact Stop,
+an exact Set TR Dequeue command retargets the stopped endpoint to a fresh ring
+without resetting its USB toggle state. A second MAC cycle collects the normal
+eight-frame window without rerunning calibration. The old32 pages/ring remain
+retained; late events for that ring still quarantine while legitimate new-ring
+events route to the ordinary owner. A stopped new endpoint is admitted only for
+its bounded first-publication transition, then normal Running/Stop checks apply.
+No pending producer, generic endpoint reset or speculative rollback is allowed.
+Add this behind an explicit connection/HTTP opt-in; ordinary profiles and the
+accepted comparison recipes keep their existing behavior.
 
 ### Matched-logging RX timing comparison scope (November 11)
 
