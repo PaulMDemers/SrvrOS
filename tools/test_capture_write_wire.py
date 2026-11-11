@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 import subprocess
 from capture_write_timing import capture_write_timing, capture_gate_timing
+from append_wait import append_wait
 
 
 def main():
@@ -13,6 +14,7 @@ def main():
         raw=subprocess.check_output([str(args.binary.resolve()),mode])
         observed=capture_write_timing([raw],1,71000)
         gates=capture_gate_timing([raw],observed)
+        assert append_wait([raw],observed)['overlap_ready']==0
         worker=observed['workers'][0]
         assert observed['version']==2 and worker['ordinary_calls']==ordinary
         assert worker['record']['calls']==2 and worker['record']['fast_calls']==fast
@@ -29,8 +31,9 @@ def main():
             else:raise AssertionError('Corrupt production wire was accepted')
     periodic=subprocess.check_output([str(args.binary.resolve()),'periodic'])
     final=subprocess.check_output([str(args.binary.resolve()),'mixed'])
-    projection=b'\n'.join(line.replace(b'capture-write-gate-owner: version=2',b'capture-write-gate-owner: version=1').replace(b'final=1',b'final=0') for line in final.splitlines() if not line.startswith((b'capture-write-gate-sync:',b'capture-write-gate-sync-io:')))+b'\n'
+    projection=b'\n'.join(line.replace(b'capture-write-gate-owner: version=2',b'capture-write-gate-owner: version=1').replace(b'final=1',b'final=0') for line in final.splitlines() if not line.startswith((b'capture-write-gate-sync:',b'capture-write-gate-sync-io:',b'capture-append-wait:')))+b'\n'
     assert periodic==projection,'New correlation changed periodic byte traffic'
+    assert b'capture-append-wait:' not in periodic
     old=capture_write_timing([periodic],1,71000,require_final=False)
     assert 'sync_context' not in capture_gate_timing([periodic],old)['workers'][0]
     print('capture-write-wire: PASS real fixed C helpers and production formatter; mixed/private-only coverage, explicit zero ordinary gates, bounded copies')
