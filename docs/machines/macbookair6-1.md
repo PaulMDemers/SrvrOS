@@ -11982,3 +11982,22 @@ proof, barrier and runtime limits remain. This tools/evidence change adds no
 kernel/userspace runtime behavior or new physical acceptance. Next performance
 work needs a demonstrated equivalent reduction in commit work before another
 native stress boot is justified.
+
+## Active populated-save reduction scope (2026-11-10)
+
+Base is main `7e8f70ae`. Extend the actual process/VFS/exFAT replay to the full
+65-write save and foreign-barrier schedule with 832 seeded Home files and
+changing timestamps. Account separately for payload, prefix, sidecar and flush
+work. The first candidate under examination is unnecessary allocation-tail
+padding in newly written internal metadata payloads on 128KiB clusters. Every
+logical metadata byte, final sector padding, required comparison, publication
+and barrier must remain correct, including failed/torn operations and recovery.
+Ordinary file behavior and existing ownership, byte and runtime limits remain
+required. No performance improvement or new hardware acceptance is claimed yet.
+
+Touched scope is exFAT metadata payload emission, disposable populated replay
+and fault fixtures, and this unit's current guides. Open PR301 at74920c2f and
+PR19 at4e0ee3e4 retain separate graphics/network scope. No other-machine task is
+contacted. Current3403/recoveryc354 and original failed media stay protected.
+Next checkpoint is a measured equivalent reduction in the complete populated
+save, with baseline/candidate logical media and failure comparisons.
