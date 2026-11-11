@@ -2,6 +2,26 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
+### Active scope: state-aware original-owner ring entry
+
+Start from `e424b043`, integrated main `a9eacdaa`. Implement a separate v25
+entry image and exact recipe that selects only the two captured live states:
+enabled/nonzero legacy BCS gets the existing guarded disable and epoch advance;
+already-disabled zero geometry gets the existing null-writer observation and
+no epoch change. Both retain the original HDA/GT owner, registered borrow,
+fresh full post-census, full engine/context/plane/HDA preservation and clean
+retirement. Branch and enabled-writer evidence must remain distinct. Disabled
+nonzero geometry is ineligible; old v24 and reset contracts stay unchanged.
+
+Bounds remain BCS/source-age100ms, entry/readers150ms, GT300ms, HDA400ms and
+outer500ms. No forcing enable, geometry clear, requester/PTE writer, reset or
+memory grant. Touched scope: entry core/adapter, separate image/boot recipe,
+strict receipts/collector and host fault/isolation/native-width/lifetime/VM
+qualification. First milestone ends at branch-specific entry and retirement;
+reset integration remains separate. No reboot in this work block. PR19 network
+and PR379 WebCore remain independent. Local checkpoint:
+`build/air-ring-entry-20261111/status.md`.
+
 ### Current checkpoint: enabled-ring trial safely refused already-disabled entry
 
 Source `c43d30d0`, release `811ff18f86cf3d17`, session
