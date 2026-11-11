@@ -4915,6 +4915,7 @@ build/tests/profile-ui-host$(HOST_EXE): tools/test_profile_ui.c userspace/apps/d
 	$(HOST_CC) -std=c11 -D_DARWIN_C_SOURCE -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include -I userspace/widgets/include -I ports/upstream/cjson tools/test_profile_ui.c ports/upstream/cjson/cJSON.c -Wl,--gc-sections -o $@
 
 .PHONY: test-file-stream test-exfat-stream
+test-core: test-exfat-stream
 test-file-stream: build/tests/file-stream-manager-host$(HOST_EXE) build/tests/file-stream-syscall-host$(HOST_EXE) build/tests/file-stream-process-host$(HOST_EXE) build/tests/file-stream-cleanup-host$(HOST_EXE)
 	build/tests/file-stream-manager-host$(HOST_EXE)
 	build/tests/file-stream-syscall-host$(HOST_EXE)
@@ -6030,3 +6031,18 @@ build/tests/boot-joint-admit$(HOST_EXE): tools/test_boot_rehold.c tools/test_boo
 test-intel-joint-admit: build/tests/intel-joint-admit-adapter$(HOST_EXE) build/tests/boot-joint-admit$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_entry_admission.py
 	build/tests/boot-joint-admit$(HOST_EXE)
+
+.PHONY: test-exfat-stream-allocation
+test-core: test-exfat-stream-allocation
+test-exfat-stream-allocation:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_stream_allocation.py
+
+.PHONY: test-exfat-fat-window test-exfat-io-stack
+test-core: test-exfat-fat-window test-exfat-io-stack
+test-exfat-fat-window: build/tests/exfat-fat-window-host$(HOST_EXE)
+	build/tests/exfat-fat-window-host$(HOST_EXE)
+build/tests/exfat-fat-window-host$(HOST_EXE): tools/test_exfat_fat_window.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-exfat-io-stack:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_io_stack.py

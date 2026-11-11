@@ -98,8 +98,9 @@ static int stream_preflight(struct exfat_mount *m,const char *path,uint64_t payl
     if(!v->cluster_size || v->cluster_size>SRV_FILE_STREAM_CHUNK)return SRV_ERR_NOTSUP;
     if(!reserve_mutation(m,path,files,0))return SRV_ERR_NOMEM;
     uint64_t base;if(!cluster_offset(v,v->allocation_bitmap_cluster,&base))return SRV_ERR_IO;
-    uint8_t *bits=kmalloc(v->cluster_size);if(!bits)return SRV_ERR_NOMEM;
-    if(!volume_read(v,base,bits,v->cluster_size)){kfree(bits);return SRV_ERR_IO;}
+    uint64_t io_bytes=allocation_bitmap_io_bytes(v);if(!io_bytes)return SRV_ERR_IO;
+    uint8_t *bits=kmalloc(io_bytes);if(!bits)return SRV_ERR_NOMEM;
+    if(!volume_read(v,base,bits,io_bytes)){kfree(bits);return SRV_ERR_IO;}
     uint64_t max=allocation_bitmap_bytes(v)*8;if(max>v->cluster_count)max=v->cluster_count;
     uint64_t free=0;for(uint64_t i=0;i<max;i++)if(!bitmap_bit_is_set(bits,i))free++;
     kfree(bits);
@@ -196,10 +197,19 @@ int64_t exfat_stream_append(uint64_t token,const void *buffer,uint64_t length) {
     }
     bool ok=true;
     if(added && !allocate_clusters(v,added,&first,&contiguous))ok=false;
-    if(ok && added && contiguous)for(uint64_t i=0;i+1<added;i++)
-        if(!write_fat_entry(v,first+(uint32_t)i,first+(uint32_t)i+1)){ok=false;break;}
-    if(ok && added && old_clusters && f->no_fat_chain)for(uint64_t i=0;i+1<old_clusters;i++)
-        if(!write_fat_entry(v,f->first_cluster+(uint32_t)i,f->first_cluster+(uint32_t)i+1)){ok=false;break;}
+    /* The lease excludes aliases/other writers. Preserve NoFatChain only for
+     * an empty file or an exactly adjacent contiguous extension of one. */
+    bool keep_contiguous=added && contiguous && (!old_clusters ||
+        (f->no_fat_chain && (uint64_t)first==(uint64_t)f->first_cluster+old_clusters));
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_STREAM_CONTIGUOUS_OFF)
+    keep_contiguous=false;
+#endif
+    /* Allocation may leave ignored FAT cells stale. Every real chain needs
+     * complete new links AND its terminal before the stream is published. */
+    if(ok && added && !keep_contiguous && contiguous)
+        ok=write_linked_fat_range(v,first,added,true);
+    if(ok && added && !keep_contiguous && old_clusters && f->no_fat_chain)
+        ok=link_fat_range(v,f->first_cluster,old_clusters-1);
     uint64_t done=0,within=f->size%v->cluster_size;
     uint32_t c=within?last:first;bool tail=within!=0;
     enum exfat_io_phase phase=v->io_phase;v->io_phase=EXFAT_IO_DATA;
@@ -215,11 +225,12 @@ int64_t exfat_stream_append(uint64_t token,const void *buffer,uint64_t length) {
     }
     v->io_phase=phase;
     if(ok)ok=volume_flush(v);
-    if(ok && added && old_clusters)ok=write_fat_entry(v,last,first) && volume_flush(v);
+    /* Retain the old publication barrier even when no tail link is needed. */
+    if(ok && added && old_clusters)ok=(keep_contiguous || write_fat_entry(v,last,first)) && volume_flush(v);
     if(ok) {
         if(!old_clusters)f->first_cluster=first;
         f->allocated_clusters=total;
-        if(added)f->no_fat_chain=false;
+        if(added)f->no_fat_chain=keep_contiguous;
         ok=update_file_length(f,path,size) && volume_flush(v) && exfat_metadata_changed(path,NULL);
     }
     ok=mutation_end(&scope,ok);stream_mutation_depth--;
