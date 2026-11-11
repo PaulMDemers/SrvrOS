@@ -89,8 +89,8 @@ HDA and all mappings retire within bounds; this does not accept enabled shutdown
 Next select explicit original-owner routes for both naturally observed entry
 states, preserving old geometry/epoch gates and avoiding unchanged retries.
 
-A separate [state-aware entry contract](intel-ring-entry.md) is now being
-implemented for those two captured sources. It keeps enabled one-store/epoch
+A separate [state-aware entry contract](intel-ring-entry.md) is now host/VM-qualified
+for those two captured sources. It keeps enabled one-store/epoch
 advance distinct from disabled NULL-writer observation, requires fresh full
 post-census and reader preservation on both, and ends before reset. Both old
 recipes and geometry gates remain unchanged; neither observed completion nor
@@ -267,3 +267,16 @@ unknown-range refusal, with no GPU writer or grant. Its PMM/frame-tag/CPU mappin
 and quarantine accounting resolve the new backing-adapter qualification boundary;
 it does not repeat or replace the accepted shadow publication. Exclusive GGTT
 transfer, owned completion and real buffer/flip publication remain open.
+
+## Current state-aware entry candidate
+
+Source `c150c6ad` / release `dd91b264c73a48a6` is hardware-ready after the
+full 30-image gate, fatal dual-route fault matrix, 11 compiled controls, native
+width/lifetime/tail checks and exact-stage EFI VM recovery tests. It selects
+from the actual original census and reports enabled writer and zero-store
+disabled observation separately. See the [entry contract](intel-ring-entry.md)
+and [unit checkpoint](machines/macbookair7-2.md). It remains uninstalled/unarmed
+and physically unaccepted. After native entry evidence, reset-capable nonzero
+geometry and remaining firmware/DMA/cache/translation/reader ownership still
+need separate live-object protocols; no deadline, old reset gate or memory grant
+is changed here.

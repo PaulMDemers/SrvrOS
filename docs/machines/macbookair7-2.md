@@ -2,27 +2,74 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Active scope: state-aware original-owner ring entry
+### Active scope: native state-aware entry trial
 
-Start from `e424b043`, integrated main `a9eacdaa`. Implement a separate v25
-entry image and exact recipe that selects only the two captured live states:
-enabled/nonzero legacy BCS gets the existing guarded disable and epoch advance;
-already-disabled zero geometry gets the existing null-writer observation and
-no epoch change. Both retain the original HDA/GT owner, registered borrow,
-fresh full post-census, full engine/context/plane/HDA preservation and clean
-retirement. Branch and enabled-writer evidence must remain distinct. Disabled
-nonzero geometry is ineligible; old v24 and reset contracts stay unchanged.
+Source `c150c6ad` is qualified on runtime base `a9eacdaa`; documentation from
+main `189f6e43` is integrated separately. The next bounded scope is the silent
+native trial of the separate v25 entry image. It selects only the two captured
+live states and ends at entry verification and clean retirement. Branch-specific
+enabled-writer evidence must remain distinct. Disabled nonzero geometry is
+ineligible; old v24 and reset contracts stay unchanged.
 
-Bounds remain BCS/source-age100ms, entry/readers150ms, GT300ms, HDA400ms and
-outer500ms. No forcing enable, geometry clear, requester/PTE writer, reset or
-memory grant. Touched scope: entry core/adapter, separate image/boot recipe,
-strict receipts/collector and host fault/isolation/native-width/lifetime/VM
-qualification. First milestone ends at branch-specific entry and retirement;
-reset integration remains separate. No reboot in this work block. PR19 network
-and PR379 WebCore remain independent. Local checkpoint:
+Touched scope: entry core/adapter, separate image/boot recipe, strict receipts/
+collector and host fault, isolation, native-width, lifetime and VM qualification.
+No reboot occurred in this work block. No reset or memory grant is added.
+PR474 storage, PR19 network and PR379 WebCore remain independent. Local
+checkpoint: `build/air-ring-entry-20261111/status.md`.
+
+### State-aware entry qualification: hardware-ready, not physically accepted
+
+Source `c150c6ad` is frozen and staged as release `dd91b264c73a48a6`.
+The separate [v25 entry contract](../intel-ring-entry.md) handles both captured
+live sources under the original HDA/GT owner. Kind 1 enabled/nonzero permits the
+existing single guarded F000 control DWORD and epoch 0→1; kind 2 zero geometry
+uses the existing NULL-writer observer and epoch 0→0. Both require a fresh full
+92-word post-census, source/engine/context/plane/HDA preservation, original
+registered child return and clean retirement. Kind 2 completion never supplies
+enabled-writer acceptance. Disabled nonzero geometry remains ineligible.
+
+The full 30-image local host/core/docs/build/USB gate passes. Fatal ASan/UBSan
+passes the nine-test actual-adapter matrix: 504 source/provider/branch/word
+faults, 1,635 census/reader/core-clock cases and 1,342 disabled-route HDA boundaries,
+plus targeted store/source-age/post-stamp/return cases. All 117 additional
+native-clock faults and 11 compiled omission controls are detected. Historical
+v22 accepted observation and v23/v24 safe refusals replay without promotion.
+Symbol/receipt isolation, exact object/staged DWORD/halfword widths and fences,
+static original lifetimes, 14-page permissions and 2 KiB frames pass. Projected
+saved tail is 57,031/65,536 bytes including 1,536 bytes of reserve. The exact 15-token parser,
+staged EFI QEMU/MBR unsupported refusal, matched prerequisite/final checkpoint,
+save/unmount/automatic safe return and missing-workspace halt pass. VM evidence
+does not accept native entry, enabled writing or reset. Installed-root is
+explicitly omitted because the installer is unchanged; actual installed and
+durable recovery hashes are independently verified.
+
+The first gate failed eight overly strict provider-reason assertions: native
+provider replacement returns an invalid clock before the core identity guard.
+All eight already refused and retained the original owner. The test correction
+changes no production code; the focused 504 cases and full gate then pass.
+Both routes retain the original root after failed postproof or terminal timing,
+even if their logical child has already returned.
+
+Main `189f6e43` adds Air6,1 documentation only to the qualified runtime base `a9eacdaa`;
+that documentation is integrated separately. PR474 commit-wait context, PR19
+network and PR379 WebCore scopes remain independent. Current 811f, recovery 9aa8,
+GUI c497 and accepted observation bd77/joint 978/standalone d260 remain installed
+and durably banked. Only the unreferenced failed 0994 EFI duplicate is retired
+after exact complete bank equality; its payload and native evidence survive.
+USB 37D8-C5D0 remains unmounted, with 1,476 files/148 sessions unchanged, Ubuntu default,
+one-shot unarmed, AC and volume 1% verified. Candidate is banked outside build,
+**uninstalled and unarmed**. No reboot occurred in this qualification block.
+
+Next is the silent automated native entry trial, with on-screen progress and
+saved results. Safe saved outcomes return automatically; retained uncertainty
+halts visibly. No human input is required. Collect the matching return before
+another stage. BCS/source age 100 ms, entry/readers 150 ms, GT 300 ms, HDA 400 ms and
+outer 500 ms are unchanged. No forcing enable, geometry clear, old reset gate
+widening, reset/requester/PTE writer, memory grant or native tear-free acceptance.
+Obligations 255, assurances 0 and managed pages 0 remain. Local checkpoint:
 `build/air-ring-entry-20261111/status.md`.
 
-### Current checkpoint: enabled-ring trial safely refused already-disabled entry
+### Previous native checkpoint: enabled-ring trial safely refused already-disabled entry
 
 Source `c43d30d0`, release `811ff18f86cf3d17`, session
 `session-0006600610bfd11f-00` is collected as a **safe refusal, not a pass**.

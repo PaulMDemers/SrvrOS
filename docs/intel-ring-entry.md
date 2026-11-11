@@ -74,3 +74,18 @@ old-contract refusal, image isolation, native access widths/permissions,
 Physical acceptance remains pending until the matching native session is
 collected; a disabled-route pass must explicitly leave the enabled writer
 unexercised.
+
+## Qualification checkpoint
+
+Source `c150c6ad`, release `dd91b264c73a48a6`, passes the full 30-image local
+build/USB/host/core/docs gate, fatal actual-adapter ASan/UBSan fault matrix,
+117 further native-clock faults and 11 compiled omission controls. Both
+routes pass the full synthetic native collector chain while remaining distinct
+from physical acceptance. Historical native formats replay unchanged. Image
+isolation, exact staged instruction widths/fences, original static lifetimes,
+14-page permissions, 2 KiB frames and the 57,031/65,536-byte projected saved tail
+with 1,536 bytes of reserve pass. Exact-stage EFI QEMU/MBR save/unmount/safe return and
+missing-workspace halt pass. The [unit record](machines/macbookair7-2.md) records
+the scope, test-only provider-reason correction and preserved recovery/media.
+Candidate is durably banked, uninstalled and unarmed. Physical entry and enabled
+writer acceptance remain pending; there is no reset or memory grant.
