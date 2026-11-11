@@ -48,6 +48,8 @@ static void poweron_test_bulk(unsigned);
 #ifdef SRVROS_XHCI_CAL5_MCU_TEST
 static struct xhci_device *cal5_mcu_test_device;
 static void cal5_mcu_test_bulk(unsigned);
+static bool early5_test_active;
+static void early5_test_doorbell(uint64_t,unsigned);
 #endif
 static bool rx_guard_model;static uint32_t rx_guard_value;
 static bool mac_cycle_model;
@@ -160,6 +162,7 @@ bool timer_delay_us(uint64_t us) { if(tune_test_device)return tune_test_delay(us
 
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
 #ifdef SRVROS_XHCI_CAL5_MCU_TEST
+    if(early5_test_active){early5_test_doorbell(offset,value);*(uint32_t *)(registers+offset)=value;return;}
     if(cal5_mcu_test_device && offset==xhci.db_base+4*cal5_mcu_test_device->slot_id && (value==11 || value==16))cal5_mcu_test_bulk(value);
 #endif
     if(receive_test_device && offset==xhci.db_base && value==0)receive_test_command();
@@ -6929,6 +6932,7 @@ static void test_wifi_mcu_transport(void) {
 #include "test_xhci_wifi_poweron.inc"
 #ifdef SRVROS_XHCI_CAL5_MCU_TEST
 #include "test_xhci_wifi_cal5_mcu.inc"
+#include "test_xhci_wifi_early5.inc"
 #endif
 #include "test_xhci_wifi_passive.inc"
 #include "test_xhci_wifi_channel.inc"
@@ -7804,6 +7808,8 @@ int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"--wifi-window")){test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-passive")){test_wifi_passive();return 0;}
 #ifdef SRVROS_XHCI_CAL5_MCU_TEST
+    if(argc==2 && !strcmp(argv[1],"--wifi-early5")){test_wifi_early5();return 0;}
+    if(argc==3 && !strcmp(argv[1],"--trace-early5")){batch_trace=true;trace_wifi_early5((unsigned)strtoul(argv[2],NULL,0));return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-cal5-mcu")){test_wifi_cal5_mcu();return 0;}
     if(argc==2 && !strcmp(argv[1],"--trace-cal5-mcu")){batch_trace=true;test_wifi_cal5_mcu();return 0;}
     if(argc==4 && !strcmp(argv[1],"--trace-cal5-mcu")){batch_trace=true;trace_wifi_cal5_mcu((unsigned)strtoul(argv[2],NULL,0),(unsigned)strtoul(argv[3],NULL,0));return 0;}

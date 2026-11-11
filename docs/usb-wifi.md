@@ -69,6 +69,32 @@ prove wire-level absence. Wi-Fi remains failed for this lifetime; storage and
 recovery pass. Main-RX posting and initial-channel differences remain hypotheses,
 not a justified production correction. See the unit record for the closed bank.
 
+## Separate early main-RX comparison (v144; qualification pending)
+
+`--wifi-early5` requires the complete fixed161 calibration parent and an
+independent startup-journal descriptor. Its exact kernel recipe refuses network,
+credential, discovery, other RF and ordinary desktop owners. It preposts32
+distinct4KiB pages on the main receive endpoint before MAC start. Each TD is
+published once; its page remains retained and is never inspected or reused.
+This is a finite queue comparison, not Linux's continuously replenished RX.
+
+The separate event owner accounts for each TD during real MCU OUT/IN, EP0 guard
+and exact Stop-command waits. These callbacks validate memory/state only and
+never perform nested I/O or grant forward ownership. Invalid/duplicate/late
+events quarantine without freeing or resetting DMA. Stop context is validated
+after the exact command completes; a length-invalid notification between queued
+TDs is valid only with its exact next pointer and zero residue. No pending page
+is promoted to a received payload. An exhausted queue is reported explicitly.
+
+The five original calibration commands,500ms failure and retained-TD1.5s loss
+observation are unchanged. Saved records carry publication slot/ring, per-command
+completion counts and exact Stop event/context, independently of a success-only
+full RF/calibration/cleanup ledger. Ordinary profiles retain their prior path.
+Normal tests cover67 actual native-C cases including the whole new child and a
+1906-receive/Link/event-wrap prefix; HCD, registers and selected RF parent remain
+modeled. Fatal sanitizer, matched-image and physical checks are pending at this
+checkpoint. No physical root cause or Wi-Fi acceptance follows from these tests.
+
 ## Fresh trim lifetime (v117; bounded native acceptance)
 
 After the complete restored v116 chain, the new private static owner reads fresh

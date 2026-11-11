@@ -15,7 +15,7 @@ def fields(line,prefix):
  require(' '.join(f'{k}={v}' for k,v in re.findall(r'([a-z_]+)=([^ ]+)',line[len(prefix)+2:]))==line[len(prefix)+2:],'malformed ledger fields')
  return data
 
-def check(log):
+def check(log,*,early=False):
  require('srvros.wifi-cal5=1' in log,'missing calibration profile');r=parent(log);all_lines=log.splitlines();rows=[x for x in all_lines if x.startswith('wifi-cal5') and not x.startswith('wifi-cal5-cleanup')]
  require(rows and rows[0]==PROGRESS,'missing calibration progress')
  # One hook strictly after all77 selected VCO I/O and before inverse BBP.
@@ -60,10 +60,13 @@ def check(log):
  put(2,0,0x13b0,0);delay(2,0,500);usb(2,0,0,0x2124,0xffffffff);put(2,0,0x2124,0xffffff7e);command(2,0x901,255);command(3,1,3);delay(2,0,15000)
  put(2,1,0x2124,0xffffffff);put(2,1,0x13b0,0x2f2f1b1b);guards(2,0,12);command(4,1,2);guards(2,0,12)
  require(take('wifi-cal5-calibration')==dict(status=0,complete=1,restored=3,commands=5,alc=0x2f2f1b1b,ibi=0xffffffff,alc_restored=0x2f2f1b1b,ibi_restored=0xffffffff,ok=1),'incomplete calibration restoration')
- require(rows[pos]==RECEIVE,'missing receive admission');pos+=1;posts=0
- while pos<len(rows) and rows[pos].startswith('wifi-cal5-post:'):
-  require(take('wifi-cal5-post')==dict(index=posts,ok=1,bytes=4096,retained=1,reused=0),'wrong receive post');posts+=1
- require(1<=posts<=8,'wrong receive count');delay(0,0,10000)
+ posts=0
+ if not early:
+  require(rows[pos]==RECEIVE,'missing receive admission');pos+=1
+  while pos<len(rows) and rows[pos].startswith('wifi-cal5-post:'):
+   require(take('wifi-cal5-post')==dict(index=posts,ok=1,bytes=4096,retained=1,reused=0),'wrong receive post');posts+=1
+  require(1<=posts<=8,'wrong receive count')
+ delay(0,0,10000)
  put(0,1,0x1340,txop&~(1<<20))
  for n in range(200):
   a=usb(0,1,0,0x438);b=usb(0,1,0,0xa30);c=usb(0,1,0,0xa34);require(0xffffffff not in (a,b,c),'unknown TX drain')
@@ -78,6 +81,17 @@ def check(log):
   if quiet==7:break
  else:require(False,'RX drain exhausted')
  poll(0x1200,2,1000,1);put(0,1,0x1400,0x17f97);put(0,1,0x1340,txop);guards(0,1,0)
+ if early:
+  from wifi_early5_observation import observe
+  observed=observe(log);require(observed['present'],'missing early queue outcome')
+  require('srvros.wifi-early5=1' in log and observed['summary']['complete']==1 and
+          observed['summary']['operations']==op,'incomplete early calibration/queue')
+  require(pos==len(rows) and all_lines.index(rows[-1])<all_lines.index(after),'extra/misplaced early calibration rows')
+  published=[x for x in all_lines if x.startswith('wifi-early5-publish:')]
+  require(len(published)==1 and all_lines.index(rows[1])<all_lines.index(published[0])<all_lines.index(rows[2]),'early queue outside pre-MAC checkpoint')
+  r.update(operations=r['operations']+op,early5_observation=observed,early5_complete=True,
+           scope='bounded pre-MAC retained main-RX/calibration/Stop comparison;no network or physical-cause acceptance')
+  return r
  stop=take('wifi-cal5-stop');cleanup=cleanup_proof(log,stop)
  stop_keys=set('ok posts state dequeue ring retained'.split()) | ({'cleanup'} if cleanup['cal5_cleanup_enabled'] else set())
  require(set(stop)==stop_keys and stop['ok']==1 and stop['posts']==posts and stop['state']==3 and stop['retained']==1 and stop['ring']>0 and not stop['ring']&4095,'unproven exact endpoint cessation')

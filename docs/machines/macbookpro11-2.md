@@ -32,6 +32,17 @@ normal and fatal sanitizers. Then qualify matched images and exact-stage
 persistence/recovery. Prior native return and separate review remain immutable;
 current installed186c is unarmed, with workspace0E53-5900 and seven recoveries.
 
+Implementation now has a separate32-page retained owner, exact MCU/EP0/Stop
+event-span checks and explicit exhaustion/command boundaries. Original calibration
+and quarantine behavior remain unchanged. Normal native-C coverage passes67
+cases, including the whole child, wrong/duplicate/late events,33 allocation
+prefixes, MCU/EP0 pin mutations, Stop races and valid length-invalid Stop, plus
+1906-receive histories with real Normal/Link publication and event wraps.
+Actual staged recipes compile through the kernel dispatcher and refuse foreign
+owners. Source-frozen result decoders and a full RF/calibration/cleanup ledger
+are being qualified. HCD/registers and selected parent are modeled; this is not
+physical causation or native acceptance. No new image is installed or armed.
+
 ### Native loss trace: no observed reply prefix or exact event (November 11)
 
 Runtime `58a48e04` / release `186c23c85bc94c89` returned automatically in

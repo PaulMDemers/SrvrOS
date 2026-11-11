@@ -14,6 +14,7 @@ static bool cal5_drain_test_parent(void){return cal5_mcu_parent;}
 static void cal5_drain_test_progress(void){assert(!"calibration MCU fixture has no cleanup RX publications");}
 static bool cal5_drain_test_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v){
  assert(d==cal5_mcu_test_device && v);
+ if(early5_test_active)return wifi_mac_private_usb(d,write,a,v);
  if(a==0x13b0){if(write)cal5_mcu_alc=*v;else *v=cal5_mcu_alc;return true;}
  if(a==0x2124){if(write)cal5_mcu_ibi=*v;else *v=cal5_mcu_ibi;return true;}
  if(write)return false;
@@ -150,6 +151,7 @@ static void cal5_mcu_finish(void){
  cal5_mcu_lifetime_active=false;
  native_boundary_clock_hook=NULL;test_time_step=1000;
  memset(&wifi_cal5,0,sizeof wifi_cal5);
+ memset(&wifi_early5,0,sizeof wifi_early5);
 }
 /* Refusal and an independently allocated nested device cannot detach the
  * outer diagnostic window, including when the numeric sequence saturates. */

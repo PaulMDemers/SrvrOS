@@ -14,6 +14,47 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_early5_stage_and_profile(self):
+        import struct
+        import tarfile
+        import startup_journal as journal
+        version='ram-usb-wifi-fw-v144-laptop-probe-12345678-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        base=boot.limine_config('0123456789abcdef',version.replace('v144-','v121-'))
+        self.assertEqual(config,base.replace('srvros.storage=ram','srvros.storage=ram srvros.startup-journal=1').replace('srvros.wifi-cal5=1','srvros.wifi-cal5=1 srvros.wifi-early5=1'))
+        tokens=next(l.split(':',1)[1].split() for l in config.splitlines() if l.strip().startswith('cmdline:'))
+        args={t.split('=',1)[0][7:].replace('-','_'):True for t in tokens if t.startswith('srvros.wifi-')}
+        descriptor=journal.magic('SRVRSTARTDESC1')+struct.pack('<QQQQ',100000,2097152,1048576,10485760)+bytes(range(16))+bytes(64)
+        path=self.root/'early-journal';path.write_bytes(descriptor)
+        args.update(startup_journal=path,laptop_probe_volume='12345678',wifi_firmware_package=self.root/'package')
+        args['wifi_firmware_package'].mkdir()
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf'):
+            p=self.root/'build'/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b'fixture')
+        with tarfile.open(self.root/'build/initramfs.tar','w',format=tarfile.USTAR_FORMAT):pass
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']),patch('wifi_firmware_package.add_to_initramfs'),patch('wifi_firmware_package.verify_initramfs'):
+            release=boot.stage(**args)
+            self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+            self.assertEqual(journal.verify_initramfs(self.stage/release/'initramfs.tar'),descriptor)
+        for field in ('wifi_early5','wifi_cal5','startup_journal'):
+            changed=dict(args);changed[field]=False
+            if field=='wifi_early5':changed['startup_journal']=path
+            with self.subTest(missing=field),self.assertRaises(ValueError):boot.stage(**changed)
+        for field in ('wifi_discovery5','wifi_stack5','wifi_reconnect5','wifi_cal5_cleanup','hold_on_failure','wifi_desktop_trial'):
+            changed=dict(args);changed[field]=True
+            with self.subTest(extra=field),self.assertRaises(ValueError):boot.stage(**changed)
+        for bad in (version.replace('-auto-return',''),):
+            with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',bad)
+
+    def test_early5_absent_radio_receipt(self):
+        from hardware_boot_smoke import verify_early5_absent_radio
+        text='cmdline: srvros.wifi-early5=1 srvros.startup-journal=1\n'
+        bootrow='wifi-early5-boot: calibration_only=1 net_init_deferred=1 worker_deferred=1\n'
+        verify_early5_absent_radio(text+bootrow)
+        for bad in (text, text+bootrow+bootrow, text+bootrow+'wifi-cal5-progress: attempted\n',
+                    text+bootrow+'wifi-early5-boundary: version=1 step=0 completed_before=0 completed_after=0\n'):
+            with self.subTest(bad=bad),self.assertRaises((ValueError,AssertionError)):
+                verify_early5_absent_radio(bad)
+
     def test_power5_profile(self):
         version='ram-usb-wifi-fw-v123-laptop-probe-0e535900-auto-return'
         base=boot.limine_config('0123456789abcdef',version.replace('v123-','v122-'))

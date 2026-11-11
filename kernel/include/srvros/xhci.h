@@ -119,6 +119,7 @@ bool xhci_wifi_capture_channel_vco5(void);
 /* Explicit stack-regression option; allocates retained cleanup RX before MAC entry. */
 bool xhci_wifi_cal5_cleanup_enable(void);
 bool xhci_wifi_capture_cal5(void);
+bool xhci_wifi_capture_early5(void);
 bool xhci_wifi_capture_discovery5(void);
 bool xhci_wifi_capture_power5(void);
 bool xhci_wifi_capture_handoff5(void);

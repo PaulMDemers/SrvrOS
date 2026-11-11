@@ -51,7 +51,8 @@ def run(args):
     refusal_reason = 8 if args.mode == 'dirty-state' else 6
     source = boot.STAGE / args.release
     manifest = boot.verify(source)
-    assert manifest['config_version'].startswith(('ram-usb-wifi-fw-v141-','ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-'))
+    assert manifest['config_version'].startswith(('ram-usb-wifi-fw-v141-','ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v144-'))
+    early_compare = manifest['config_version'].startswith('ram-usb-wifi-fw-v144-')
     http_reconnect = manifest['config_version'].startswith('ram-usb-wifi-fw-v143-')
     full_reconnect = manifest['config_version'].startswith(('ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-'))
     descriptor = journal.verify_initramfs(source/'initramfs.tar')
@@ -131,7 +132,7 @@ def run(args):
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
                 marker = ('neither persistent destination admitted' if args.mode == 'both-refused' else
-                          'laptop-capture: returning to Ubuntu' if full_reconnect else 'Startup diagnostic complete.')
+                          'laptop-capture: returning to Ubuntu' if full_reconnect or early_compare else 'Startup diagnostic complete.')
                 text = wait_for(serial, lambda s: marker in s, process, 100)
                 if args.mode == 'both-refused':
                     assert process.poll() is None
@@ -162,9 +163,10 @@ def run(args):
             assert 'REFUSED insufficient file/directory slots' in text
         elif not refusal:
             assert not any(parsed[x] for x in ('workspace_ready','logger_started','saved','unmounted'))
-        if full_reconnect and args.mode != 'both-refused':
-            from hardware_boot_smoke import verify_reconnect5_absent_radio,verify_http_reconnect5_absent_radio
-            if http_reconnect:verify_http_reconnect5_absent_radio(text,require_prepare=args.mode in ('present','journal-refused','dirty-state'))
+        if (full_reconnect or early_compare) and args.mode != 'both-refused':
+            from hardware_boot_smoke import verify_reconnect5_absent_radio,verify_http_reconnect5_absent_radio,verify_early5_absent_radio
+            if early_compare:verify_early5_absent_radio(text)
+            elif http_reconnect:verify_http_reconnect5_absent_radio(text,require_prepare=args.mode in ('present','journal-refused','dirty-state'))
             else:verify_reconnect5_absent_radio(text)
             assert 'wifi-journal-summary: version=1 sampled=0' in text
         checked = verify_sparse_changes(internal, seeds, (offset+512, offset+journal.FILE_BYTES))
@@ -186,7 +188,7 @@ def run(args):
                 assert b'srvros.desktop-release='+args.release.encode() in log
                 assert b'workspace-log: snapshot=exit.log ' in log
         report = dict(status='PASS', source=manifest['git_head'], release=args.release, mode=args.mode,
-                      exact_stage=True, exact_descriptor=True, independent_ahci=True, full_reconnect_profile=full_reconnect,
+                      exact_stage=True, exact_descriptor=True, independent_ahci=True, full_reconnect_profile=full_reconnect, early_compare_profile=early_compare,
                       native_accepted=False, phases=len(parsed['records']), refusal_exercised=refusal, fallback_saved=args.mode in ('journal-refused','dirty-state'), clean_boot_sector_pinned=True, expected_hold=args.mode=='both-refused', allocated_bytes_compared=checked,
                       changed_bytes_confined_to_journal=True, workspace_ready=parsed['workspace_ready'],
                       logger_started=parsed['logger_started'])

@@ -20,10 +20,13 @@ prior workspace files/metadata,58 other EFI files and seven recoveries pass.
 The1412-file primary and separate return review are closed; never recollect or
 reseal them. Ubuntu is unarmed; MCU and paired-HTTP causes remain unresolved.
 
-Next audit a bounded main-RX-before-calibration comparison with actual native
-publication/dispatch, pending DMA and failure-quarantine coverage. Keep initial
-channel sequencing separate, and do not interpret a future passing trial as a
-root-cause fix without discriminating evidence. No identical blind retry.
+The isolated v144 main-RX-before-calibration comparison is implemented and in
+software qualification. It retains32 distinct pages, accounts for completions
+during actual MCU/EP0/Stop spans and reports queue exhaustion. Normal native-C
+coverage passes67 cases including1906-receive histories; fatal/image/physical
+checks remain pending. Keep initial channel sequencing separate, and do not
+interpret a future passing trial as a root-cause fix without discriminating
+evidence. No identical blind retry or new reboot is armed.
 
 An independent clean cold Linux capture has15 matched calibration responses,
 zero monitor drops and exact pinned-code/IVB upload observations: R0=474us,
