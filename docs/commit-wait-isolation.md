@@ -1,9 +1,9 @@
 # Private wait, I/O owner and USB status isolation
 
 The explicit capture-write diagnostic associates the worst private append wait
-with actual scheduler I/O-owner intervals. It reuses already-timed USB status
-callbacks. No transfers, controller reads, clocks, polling or policy are added
-inside those observation hooks. The original append-wait, capture, sync/content/
+with actual scheduler I/O-owner intervals. It reuses the existing USB status
+timestamp/controller-sample machinery, including otherwise untimed owner scopes.
+No transfers, controller reads, ring reads, polling decisions or policy change. The original append-wait, capture, sync/content/
 command and retirement contracts remain independently required.
 
 ## Why the owner is recorded
@@ -31,9 +31,14 @@ first longest whole prelude is selected using the original aggregate clocks.
 
 ## USB and completed-content companions
 
-Only existing timed status callbacks feed the new sink. It copies the same
-callback/controller sample into the live owner observation without additional
-transfers, controller sampling, event checks or timestamp reads. It retains
+The owner-only VM follow-up identified SYS_UNLINK holding I/O for about880ms,
+outside the old sync/logger timing windows. Explicit owner diagnostics therefore
+also enable the existing timestamp path for status callbacks in these scopes.
+The window starts before bulk entry so a wait beginning inside a callback still
+has a valid start. It adds start/end and existing sampled-service timestamps to
+otherwise untimed status callbacks, with a cached controller-result copy and no
+new device/ring reads, transfers or polling decisions. Already-timed callbacks
+share their same clocks and single cached sample with the new sink. It retains
 callback totals, clipped overlap, 512-byte/16KiB WRITE subsets and the status
 callback with the first longest actual wait overlap, including its original
 command tag/size, dispatch/resume clocks and sampled ring outcomes.
@@ -41,8 +46,8 @@ command tag/size, dispatch/resume clocks and sampled ring outcomes.
 Callback clocks can start before wait entry. They are software observations,
 not hardware arrival or exclusive CPU time. Bulk success is not the later full
 SCSI command validation; all original transport checks remain. A lack of observed
-status does not prove an owner issued no USB I/O: only already-instrumented
-completed callbacks contribute. The owner identity remains useful independently.
+status does not prove an owner issued no USB I/O: unfinished callbacks and
+non-status phases are outside this status companion. The owner identity remains useful independently.
 
 Completed content calls are also copied at their own completion, independently
 of the unrelated global maximum. The first longest intersection within the

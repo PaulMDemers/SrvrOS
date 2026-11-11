@@ -17,6 +17,8 @@ static void usb_test_irq_restore(uint64_t f) { irq_enabled=f; }
 #define SRVROS_COMMIT_WAIT_HOST_TEST
 #include "../kernel/src/drivers/usb_storage.c"
 static uint64_t status_hooks,successful_status_hooks;
+static bool owner_observe;
+bool sync_commit_wait_status_enabled(void) {return owner_observe;}
 void sync_commit_wait_status(uint64_t tag,uint64_t opcode,uint64_t bytes,uint64_t start,uint64_t end,uint64_t requested,uint64_t actual,bool ok,const struct usb_bulk_timing *sample) {
     (void)tag;(void)opcode;(void)bytes;
     assert(sample && requested==13);
@@ -154,6 +156,32 @@ static void get_timing(void *ctx,struct usb_bulk_timing *out) { assert(ctx==&sto
 static bool timing_bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
     (void)ctx;(void)in;(void)data;(void)n;*actual=0;raw_timing_calls++;
     clock_us+=1200000;return true;
+}
+static bool owner_timing_bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
+    assert(usb_storage_timing_enabled()==owner_observe);
+    bool ok=timing_bulk(ctx,in,data,n,actual);*actual=n;return ok;
+}
+static void test_owner_status_window(void) {
+    reset();storage.context=&storage;storage.bulk=owner_timing_bulk;storage.transfer_timing=get_timing;
+    uint32_t actual=0;clock_us=100;
+    fake_timing=(struct usb_bulk_timing){.submitted=110,.observed=1000110,.resumed=1100110,
+        .seen=true,.service_valid=true,.service_checks=512,.service_samples=2,
+        .service_gap_max_us=500000,.completion_gap_us=500000};
+    uint64_t reads=clock_reads,queries=sample_reads,callbacks=raw_timing_calls,hooks=status_hooks;
+    assert(!owner_observe && !usb_storage_timing_enabled());
+    assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,512));
+    assert(clock_reads==reads && sample_reads==queries && status_hooks==hooks && raw_timing_calls==callbacks+1);
+    owner_observe=true;clock_us=100;
+    assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,512));
+    assert(clock_reads==reads+2 && sample_reads==queries+1 && status_hooks==hooks+1 && raw_timing_calls==callbacks+2);
+    assert(!owner_status_active && !usb_storage_timing_enabled());
+    /* An existing trace shares the same two clocks and single cached sample. */
+    clock_us=100;assert(usb_storage_timing_begin());
+    assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));
+    struct usb_storage_timing out;usb_storage_timing_end(&out);
+    assert(out.valid && clock_reads==reads+4 && sample_reads==queries+2 && status_hooks==hooks+2 && raw_timing_calls==callbacks+3);
+    owner_observe=false;assert(!owner_status_active && !usb_storage_timing_enabled());
+    puts("usb-owner-status: PASS disabled clock count, status-only observation, unchanged callback count, one cached sample shared with existing traces");
 }
 static void test_transfer_timing(void) {
     reset();storage.context=&storage;storage.bulk=timing_bulk;storage.transfer_timing=get_timing;
@@ -385,6 +413,7 @@ int main(void) {
         assert(!block.read(&block,512,buf,512) && !block.write(&block,0,buf,512) && !block.flush(&block));
         assert(calls==before && !depth && irq_enabled);
     }
+    test_owner_status_window();
     assert(status_hooks && successful_status_hooks);
     puts("usb-storage-host: PASS (16 KiB commands / 4 KiB segments, 512-4096 byte sectors, BOT wrappers, short/malformed responses, quarantine, Unit Attention, empty media, unaligned I/O, bounds, ownership, flush, read-only)");
 }

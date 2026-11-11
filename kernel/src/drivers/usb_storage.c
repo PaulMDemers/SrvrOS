@@ -11,6 +11,7 @@
 static uint64_t save_irq(void);
 static void restore_irq(uint64_t flags);
 static bool timing_active,aux_timing_active;
+static bool owner_status_active;
 static struct usb_storage_timing timing,aux_timing;
 static struct usb_storage_content_timing content_timing;
 static bool content_active,content_command_active;
@@ -108,7 +109,7 @@ static void content_command_bulk(unsigned phase,uint64_t start,uint64_t end,
         content_command_peak=!old->complete || end-start>old->csw_end_us-old->csw_start_us;
     }
 }
-bool usb_storage_timing_enabled(void) { return timing_active || aux_timing_active || content_active; }
+bool usb_storage_timing_enabled(void) { return timing_active || aux_timing_active || content_active || owner_status_active; }
 bool usb_storage_timing_begin(void) {
     uint64_t flags=save_irq();
     bool ok=!timing_active && timer_reference_ready();
@@ -178,10 +179,14 @@ static void record_bulk(struct usb_storage_timing *target,unsigned phase,uint64_
 static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
                        uint32_t length,uint32_t *actual,uint8_t opcode,uint32_t command_bytes) {
     bool legacy=timing_active,auxiliary=aux_timing_active;
-    if(!legacy && !auxiliary && !content_active)return s->bulk(s->context,in,data,length,actual);
+    bool owner_status=phase==2 && sync_commit_wait_status_enabled();
+    if(!legacy && !auxiliary && !content_active && !owner_status)return s->bulk(s->context,in,data,length,actual);
+    bool previous_owner_status=owner_status_active;
+    owner_status_active=previous_owner_status || owner_status;
     uint64_t start=timer_monotonic_us();
     bool ok=s->bulk(s->context,in,data,length,actual);
     uint64_t end=timer_monotonic_us();
+    owner_status_active=previous_owner_status;
     struct usb_bulk_timing sample={0};
     if(s->transfer_timing)s->transfer_timing(s->context,&sample);
     if(phase==2)sync_commit_wait_status(s->tag,opcode,command_bytes,start,end,length,*actual,ok,&sample);

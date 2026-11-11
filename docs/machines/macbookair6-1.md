@@ -12545,8 +12545,19 @@ source `c2bc6f92` and matching evidence are retained. The revised scope also
 copies existing scheduler owner diagnostic edges and already-timed USB status
 samples, including kernel owners without SYS_SYNC. Scheduler admission/release
 and USB timing/polling/transfer logic remain unchanged; these are metadata sinks
-with no extra clocks or device operations. Version2 reports the longest actual
+with no extra device operations. Version2 reports the longest actual
 owner overlap, partial live ownership and observed status callbacks separately
 from optional completed content. The original fixed tail/cadence and all16
 contracts remain required. Actual real-scheduler/USB forwarding fixtures and
 loaded execution precede native installation.
+
+
+The first version2 owner run identifies PID7/SYS_UNLINK holding the selected I/O
+scope for879761us, with no status sample because unlink was outside the old
+sync/logger timing windows. That run's missing app-stage receipts remain a
+strict evidence failure, separately preserved. The final candidate extends the
+existing read-only timestamp/cached-result path to otherwise untimed status
+callbacks inside observed owners. Already-timed callbacks still share one
+sample; polling/event reads, request count, commands, deadlines and every
+integrity/ownership check remain unchanged. Host controls verify the disabled
+clock count, status-only window and shared-sample behavior before a fresh freeze.

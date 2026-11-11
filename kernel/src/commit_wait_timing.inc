@@ -2,6 +2,11 @@
 static struct commit_wait_record commit_wait_live[SYNC_TIMING_RECORDS];
 static struct commit_wait_snapshot commit_wait_retained;
 static struct commit_owner_timing commit_owner_active;
+bool sync_commit_wait_status_enabled(void) {
+    /* Cover status callbacks already in flight when a new wait begins. This
+     * only requests existing timestamp/cached-sample instrumentation, not I/O. */
+    return observed.enabled && commit_owner_active.thread;
+}
 static void commit_wait_add(uint64_t *v,uint64_t n) {
     if(*v>UINT64_MAX-n)commit_wait_retained.invalid=1;else *v+=n;
 }
