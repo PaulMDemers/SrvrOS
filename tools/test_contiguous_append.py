@@ -80,6 +80,10 @@ def root_seed(layout, inside=False):
     if layout == 'alias':
         record=f.checked_entry('alias.txt',chain[0],old,contiguous=True)
         f.data[root+cursor:root+cursor+len(record)]=record
+    # The bitmap, not stale FAT, owns free clusters. Force true conversion to
+    # replace all needed links and terminal instead of relying on allocation.
+    for n in free:
+        struct.pack_into('<I', f.data, f.fat+n*4, 0xdeadbeef)
     return bytes(f.data), old, [(f.offset(n), min(f.cluster,len(old)-i*f.cluster)) for i,n in enumerate(chain)]
 
 
@@ -123,6 +127,7 @@ def main():
     parser.add_argument('--baseline-exfat',type=Path)
     parser.add_argument('--limine-include',type=Path,default=ROOT/'build/limine-protocol/include')
     parser.add_argument('--skip-faults',action='store_true',help='Only a development smoke; not the full regression')
+    parser.add_argument('--compare-nofat',action='store_true',help='Compare unchanged append policy with old eager invalid FAT writes')
     args=parser.parse_args();out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
     image=out/'work.exfat';result={'status':'RUNNING','scope':__doc__,'cases':[],'faults':[],'commands':[]}
     (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
@@ -131,7 +136,7 @@ def main():
     drivers={}
     baseline=args.baseline_exfat.resolve() if args.baseline_exfat else ROOT/'kernel/src/fs/exfat.c'
     for name,source,flags in [('candidate',ROOT/'kernel/src/fs/exfat.c',()),
-                              ('baseline',baseline,() if args.baseline_exfat else ('-DSRVROS_EXFAT_CONTIGUOUS_APPEND_OFF',))]:
+                              ('baseline',baseline,() if args.baseline_exfat else ('-DSRVROS_EXFAT_EAGER_NOFAT' if args.compare_nofat else '-DSRVROS_EXFAT_CONTIGUOUS_APPEND_OFF',))]:
         drivers[name],command=compile_driver(out,name,source,args.limine_include,flags)
         result['commands'].append(command)
     def run(driver,mode,*numbers,allowed=(0,),env=None):
@@ -181,10 +186,10 @@ def main():
                 if layout=='adjacent' and name=='candidate':
                     assert rows[name]['no_fat_chain'] and rows[name]['first']==first,'Positive predicate not exercised'
                     assert all(raw[at:at+n]==seed[at:at+n] for at,n in extents)
-                    # New allocation FAT initialization remains; only the now-
-                    # irrelevant linking writes may be omitted.
+                    # NoFatChain FAT cells remain invalid/untouched, even if
+                    # free clusters carry stale links from another lifetime.
                     new_count=(len(expected)+f.cluster-1)//f.cluster
-                    assert all(f.u32(f.fat+(first+n)*4)==0xffffffff for n in range(2,new_count))
+                    assert raw[f.fat+first*4:f.fat+(first+new_count)*4] == seed[f.fat+first*4:f.fat+(first+new_count)*4]
                 elif layout in ('nonadjacent','old-fat','fragmented'):
                     assert not rows[name]['no_fat_chain'],'Negative path converted to NoFatChain'
                 elif layout in ('alias','changed-prefix'):
@@ -194,8 +199,8 @@ def main():
                 assert a['payload_sha256']==b['payload_sha256'] and a['flushes']==b['flushes']
                 assert a['nonfat_trace']==b['nonfat_trace'],'Non-FAT operations or flush order changed'
                 if layout=='adjacent':
-                    assert a['writes']<b['writes'] and not b['no_fat_chain']
-                else:
+                    assert a['writes']<b['writes'] and b['no_fat_chain']==args.compare_nofat
+                elif not args.compare_nofat:
                     assert a['trace']==b['trace'],'Negative path changed ordered callbacks'
             result['cases'].append({'layout':layout,'inside_cluster':inside,'results':rows})
             # All original prefix reads remain mandatory; a failed proof must
@@ -297,16 +302,23 @@ def main():
         assert sum(int(r[2]) for r in reads)==136314880,'Full committed-prefix reads changed'
         summary=re.search(r'sync-content-trace: callbacks=(\d+) hash=([0-9a-f]+) writes=(\d+) flushes=(\d+) write_bytes=(\d+)',process.stdout);assert summary
         growth[name]={'callbacks':int(summary[1]),'writes':int(summary[3]),'flushes':int(summary[4]),'write_bytes':int(summary[5]),'callback_hash':summary[2],'prefix_reads':len(reads),'prefix_read_bytes':sum(int(r[2]) for r in reads),'payload_sha256':hashlib.sha256(expected).hexdigest()}
+        growth[name]['nonfat_trace_sha256']=hashlib.sha256(repr(trace(process.stdout,f,True)).encode()).hexdigest()
         if name=='candidate':
             growth[name]['contiguous_counters']=append_contiguity([process.stdout.encode()])
             assert not growth[name]['contiguous_counters']['exercised'],'Ordinary growth adjacency changed; review actual counts'
     if 'baseline' in growth:
         assert growth['candidate']['flushes']==growth['baseline']['flushes']
         assert growth['candidate']['payload_sha256']==growth['baseline']['payload_sha256']
-        assert growth['candidate']['callback_hash']==growth['baseline']['callback_hash']
+        if args.compare_nofat:
+            assert growth['candidate']['nonfat_trace_sha256']==growth['baseline']['nonfat_trace_sha256']
+            assert growth['candidate']['callbacks']<growth['baseline']['callbacks']
+            assert growth['candidate']['writes']<growth['baseline']['writes']
+            assert growth['candidate']['write_bytes']<growth['baseline']['write_bytes']
+        else:
+            assert growth['candidate']['callback_hash']==growth['baseline']['callback_hash']
     if not args.skip_faults:
         assert any(row['local_complete'] for row in result['faults'] if row['kind'] in ('write-fail','flush-fail')), 'Outer failure with local completion was not exercised'
-    result['baseline_comparison']='historical_source' if args.baseline_exfat else 'same_source_host_off'
+    result['baseline_comparison']='historical_source' if args.baseline_exfat else 'same_source_eager_nofat' if args.compare_nofat else 'same_source_host_off'
     result['known_incomplete_repairs']=sum(row['allocation']['status']=='FAIL' for row in result['faults'])
     dependencies=['kernel/src/fs/exfat.c','kernel/src/fs/exfat_stream.inc','kernel/src/process.c',
                   'kernel/src/sync_timing.c','kernel/src/vfs.c','kernel/src/vfs_namespace.c',

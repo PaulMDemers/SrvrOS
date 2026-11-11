@@ -73,6 +73,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "build/review/populated-save")
     parser.add_argument("--limine-include", type=Path, default=ROOT / "build/limine-protocol/include")
+    parser.add_argument("--compare-nofat", action="store_true", help="Compare lazy invalid FAT against the exact eager FAT work")
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -103,7 +104,7 @@ def main():
                     "-I", str(args.limine_include.resolve()), "-DSRVROS_EXFAT_HOST_TEST",
                     "-DSRVROS_EXFAT_COST_TEST", "-DSRVROS_SYNC_CONTENT_HOST_TEST"]
         if implementation == "baseline":
-            command += ["-DSRVROS_EXFAT_METADATA_TAIL_OFF"]
+            command += ["-DSRVROS_EXFAT_EAGER_NOFAT" if args.compare_nofat else "-DSRVROS_EXFAT_METADATA_TAIL_OFF"]
         binary = output / implementation
         command += [str(ROOT / source) for source in SOURCES]
         command += ["-Wl,-dead_strip" if platform.system() == "Darwin" else "-Wl,--gc-sections",
@@ -155,7 +156,15 @@ def main():
         for before, after in zip(old["roles"], new["roles"]):
             assert before.keys() == after.keys()
             for key in before:
-                if before["role"] == 4 and key == "write_bytes":
+                if args.compare_nofat and before["role"] in (0, 1) and key in ("callbacks", "writes", "write_bytes"):
+                    # Required terminal creation moves from allocation into
+                    # append preparation. Compare total write work below;
+                    # every read/proof/flush and non-FAT role stays identical.
+                    if before["role"] == 1:
+                        assert 0 <= after[key] <= before[key], (mode, key, before, after)
+                    if key == "callbacks":
+                        assert before[key]-after[key] == before["writes"]-after["writes"]
+                elif not args.compare_nofat and before["role"] == 4 and key == "write_bytes":
                     assert 0 < after[key] < before[key]
                 else:
                     assert before[key] == after[key], (mode, key, before, after)
@@ -163,6 +172,11 @@ def main():
             before["write_bytes"] - after["write_bytes"]
             for before, after in zip(old["roles"], new["roles"]) if before["phase"] == 0)
         assert pair["whole_save_write_bytes_saved"] > 0
+        pair["whole_save_write_callbacks_saved"] = sum(
+            before["writes"] - after["writes"]
+            for before, after in zip(old["roles"], new["roles"]) if before["phase"] == 0)
+        if args.compare_nofat:
+            assert pair["whole_save_write_callbacks_saved"] > 0
         result["cases"][mode] = pair
         print("populated-save:", mode, "PASS bytes saved", pair["whole_save_write_bytes_saved"], flush=True)
 
@@ -171,6 +185,7 @@ def main():
     result.update(status="PASS", source_sha256=source_hashes)
     (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     print("populated-save: PASS complete65-write/65-barrier controls, exact logical media, "
+          "unchanged prefix/read/barrier work and lower FAT callbacks" if args.compare_nofat else
           "unchanged prefix/read/write-count/barrier work and lower metadata write bytes")
 
 

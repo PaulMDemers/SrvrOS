@@ -21,7 +21,9 @@ def canonical(text,f):
   elif line.startswith('flush-trace:'):rows.append(('flush',))
  return rows
 for shift in (3,8):
- image.write_bytes(empty_image(16*1024*1024,cluster_shift=shift).data);run(a.driver,'append-seed');seed=image.read_bytes();f=ExfatFixture(seed);old=f.read('keep.txt');rows=[]
+ image.write_bytes(empty_image(16*1024*1024,cluster_shift=shift).data);run(a.driver,'append-seed');seed=image.read_bytes()
+ # anchor follows keep, forcing a real FAT-chain conversion, not ignored FAT.
+ f=ExfatFixture(seed);old=f.read('keep.txt');rows=[]
  for name,driver in [('old',a.baseline),('batch',a.driver)]:
   image.write_bytes(seed);text=run(driver,'append-step',True);raw=image.read_bytes();check_clean_image(image)
   current=ExfatFixture(raw);assert current.read('keep.txt')==bytes((i*17+37)&255 for i in range(len(old)+f.cluster*3+512)) and current.read('anchor.txt')==b'unchanged'
