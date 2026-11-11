@@ -12211,3 +12211,23 @@ Actual review base is main `d4580da3`; open PR301 `72efc460` and PR19
 `3d8a9c2a` retain separate graphics/network scopes. This result change touches
 only this unit record and the reserved-append guide; no runtime code or other
 machine acceptance changes.
+
+## Active payload placement and commit scope (2026-11-11)
+
+Base is actual main `ae869c9b`, after the reviewed bcd native return. Investigate
+remaining USB status latency with matched16KiB payload commands and bounded
+scratch-file address-order controls, then audit repeated allocation/commit work
+for a validated reduction. Current allocation searches from bitmap index zero
+for each request; repeated reuse is a hypothesis, not an established media
+cause. Keep every allocation proof, prefix/fresh readback, publication, flush,
+ownership check and byte/runtime limit. No transport timeout, queued BOT command,
+retry, DMA or power-policy relaxation is in scope.
+
+Touched scope is disposable reference/replay tools, a narrowly justified shared
+filesystem/transport fix if supported, and this unit's guides. Open PR301
+`c1220fe9` has no storage hunk; PR19 `acc17976` owns separate xHCI control/network
+and metadata-import hunks, with no allocator change. Preserve those scopes and
+avoid competing implementation. No other-machine task is contacted. Currentbcd,
+recoveryc354, priorc95f/3403/a139, all850 USB files and original failed evidence
+remain protected. Next checkpoint is measured command/address-order behavior
+and a regression-backed equivalent reduction before the next1% native stress.
