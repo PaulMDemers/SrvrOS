@@ -12093,3 +12093,23 @@ No new reboot is armed during this return review. Main `6b185086` is the actual
 review base; open PR301 `e0d68e53` and PR19 `e107870f` retain their independent
 graphics/network scopes. This return change touches only this unit record and
 the metadata-tail guide; no shared runtime code or other-machine acceptance.
+
+## Active queued-append admission scope (2026-11-11)
+
+Base is actual main `3703eaea`, with reviewed c95f native results collected.
+Investigate the full-window raw-entry fallback: a queued private writer can
+miss a later captured-prefix advance and remain excluded through the complete
+foreign USB transaction despite a newly valid bounded RAM suffix. Scope is
+process/syscall/scheduler notification and revalidation, fixed diagnostic
+companions, host regression and this unit's guides. No xHCI/BOT transfer policy,
+hardware timeout, command size, proof, flush, ownership or window limit changes
+are authorized by this mechanism. Long device-status cause remains unresolved.
+
+Open PR301 `0be2519c` changes separate process allocation/lifetime hunks; PR19
+`80518bb9` changes network/xHCI control and process spawn/pipe/metadata-import
+hunks. Neither supplies a competing reserved-append retry. Preserve those scopes;
+no other-machine task is contacted. Next checkpoint is a reproducible missed
+window and safe notified retry with all original negative/ownership tests,
+matched build/VM validation and an automated1% native stress observation.
+Currentc95f/recoveryc354, all841 USB files and original failed evidence remain
+protected. This active scope is not a new physical acceptance or speed claim.
