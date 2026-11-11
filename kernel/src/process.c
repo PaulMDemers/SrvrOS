@@ -4872,6 +4872,9 @@ static int64_t content_flush_observed(struct process_file_content *content,uint6
     const uint8_t *data=content->data;
     uint64_t size=content->size,generation=content->dirty_generation;
     content->writeback=(__typeof__(content->writeback)){.active=true,.data=data,.size=size,.generation=generation};
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_RESERVED_APPEND_WAIT_HOST_TEST)
+    scheduler_io_private_append_progress();
+#endif
     bool timed=observe && sync_timing_content_begin(index,content->diagnostic_identity,
         content->node?content->node->metadata.inode:0,size);
     /* Preserve incoming IF0 through the backend's ownership release and this
@@ -4894,6 +4897,9 @@ static int64_t content_flush_observed(struct process_file_content *content,uint6
         .committed_size=content->committed_size,.append_calls=content->writeback.append_calls,
         .append_bytes=content->writeback.append_bytes};
     content->writeback.active=false;
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_RESERVED_APPEND_WAIT_HOST_TEST)
+    scheduler_io_private_append_progress();
+#endif
     if(timed)sync_timing_content_end_snapshot(ok,content->dirty,&prefix);
     process_irq_restore(irq);return ok?0:SRV_ERR_IO;
 }
@@ -5426,9 +5432,60 @@ done:
 }
 bool process_file_reserved_append_entry_candidate(struct process *process,uint64_t fd,uint64_t requested) {
     uint64_t irq=process_irq_save(),count;
-    bool allowed=reserved_append_count(process,reserved_append_binding(process,fd),requested,true,&count) &&
+    /* Classify a bounded metadata/copy prelude, even when its suffix window
+     * is currently full. No bytes are admitted until the original window and
+     * stronger mutation checks pass in the actual copy helper. */
+    bool allowed=reserved_append_count(process,reserved_append_binding(process,fd),requested,false,&count) &&
         scheduler_io_entry_process_independent(process);
     process_irq_restore(irq);return allowed;
+}
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_RESERVED_APPEND_WAIT_HOST_TEST)
+struct reserved_append_wait {struct process *process;uint64_t fd,requested;};
+static bool reserved_append_ready(void *opaque) {
+    const struct reserved_append_wait *wait=opaque;uint64_t count;
+    /* scheduler_wait invokes this only on the current waiting thread under
+     * CPU0 IRQ exclusion. Never retain a descriptor/content pointer over wait. */
+    return !scheduler_io_busy() || process_should_exit_current() ||
+        !scheduler_io_process_independent(wait->process) ||
+        !reserved_append_count(wait->process,reserved_append_binding(wait->process,wait->fd),wait->requested,false,&count) ||
+        reserved_append_count(wait->process,reserved_append_binding(wait->process,wait->fd),wait->requested,true,&count);
+}
+#endif
+bool process_file_wait_reserved_append(struct process *process,uint64_t fd,uint64_t requested) {
+#if defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_RESERVED_APPEND_WAIT_HOST_TEST)
+    (void)process;(void)fd;(void)requested;return false;
+#else
+    uint64_t irq=process_irq_save(),count;
+    if(!scheduler_io_process_independent(process) || !scheduler_io_busy() ||
+       !reserved_append_count(process,reserved_append_binding(process,fd),requested,false,&count) ||
+       reserved_append_count(process,reserved_append_binding(process,fd),requested,true,&count)) {
+        process_irq_restore(irq);return false;
+    }
+    struct reserved_append_wait wait={process,fd,requested};
+    uint64_t start=process_capture_write_clock(),wakes=0;bool retry=false;
+    while(!reserved_append_ready(&wait)) {
+        if(!scheduler_io_private_append_wait(process,reserved_append_ready,&wait))break;
+        if(wakes!=UINT64_MAX)wakes++;
+    }
+    retry=!process_should_exit_current() && scheduler_io_process_independent(process) &&
+        reserved_append_count(process,reserved_append_binding(process,fd),requested,true,&count);
+    if(start) {
+        uint64_t end=capture_write_now();
+        struct capture_write_record *r=capture_write_find(&capture_writes,capture_write_pid());
+        if(r) {
+            if(end<start || !capture_write_add(&r->append_wait_calls,1) ||
+               !capture_write_add(&r->append_wait_us,end-start) ||
+               !capture_write_add(&r->append_wait_wakes,wakes))r->invalid=1;
+            else if(end-start>r->append_wait_max_us)r->append_wait_max_us=end-start;
+            if(retry && scheduler_io_busy()) {
+                struct process_write_file *write=reserved_append_binding(process,fd);
+                if(write && write->content->writeback.active &&
+                   !capture_write_add(&r->append_wait_overlap,1))r->invalid=1;
+            }
+        }
+    }
+    process_irq_restore(irq);return retry;
+#endif
 }
 bool process_file_try_reserved_append(struct process *process,uint64_t fd,uint64_t requested,
     process_reserved_append_copy_fn copy,void *context,int64_t *result) {

@@ -734,6 +734,28 @@ void scheduler_io_wait_observed(struct capture_gate_summary *summary) {
 
 void scheduler_io_wait(void) { scheduler_io_wait_observed(NULL); }
 
+bool scheduler_io_private_append_wait(void *process,scheduler_wait_condition_fn ready,void *arg) {
+    uint64_t flags=irq_save();
+    /* Retain the stronger mutation proof, including CR3, sole-main and foreign
+     * owner/image exclusion. The caller revalidates its lease after every wake. */
+    if(!ready || !scheduler_io_process_independent(process) ||
+       thread_at(current_thread)->io_syscall!=SYS_WRITE || !scheduler_io_busy()) {
+        irq_restore(flags);return false;
+    }
+    /* Also retain the ordinary quiescent-turn reservation. If no new suffix
+     * opens, a recurring foreign writer must not starve gated fallback. */
+    io_gate_request(thread_at(current_thread));
+    if(!scheduler_wait(&io_waiters,ready,arg))scheduler_yield();
+    io_gate_leave(thread_at(current_thread));
+    irq_restore(flags);return true;
+}
+void scheduler_io_private_append_progress(void) {
+    uint64_t flags=irq_save();
+    /* This is a notification, not an eligibility grant. Ordinary queued
+     * continuations remain excluded until the real owner fully unwinds. */
+    scheduler_wake_all(&io_waiters);irq_restore(flags);
+}
+
 void scheduler_io_handoff(void) {
     uint64_t flags=irq_save();
     if(initialized && io_services_enabled && !switching && !io_depth && io_gate_pending &&

@@ -77,6 +77,10 @@ struct capture_gate_summary;
 /* Fixed-storage observation only, same wait semantics. Summary must remain
  * valid in kernel storage throughout the wait. No callback or allocation. */
 void scheduler_io_wait_observed(struct capture_gate_summary *summary);
+/* A sole-main raw writer may park only its metadata/copy prelude. This never
+ * admits a filesystem continuation or releases another thread's I/O scope. */
+bool scheduler_io_private_append_wait(void *process,scheduler_wait_condition_fn ready,void *arg);
+void scheduler_io_private_append_progress(void);
 void scheduler_io_syscall(uint64_t number);
 /* A nonblocking operation deferred by another I/O owner requests a later
  * quiescent turn without blocking, waking sleepers or widening eligibility. */

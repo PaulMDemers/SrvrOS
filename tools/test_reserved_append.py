@@ -50,12 +50,14 @@ def main():
     unit=compile_case('reserved-unit',['tools/test_reserved_append.c','tools/test_process_teardown_fault.c',
         'kernel/src/vfs_namespace.c','kernel/src/pty.c','kernel/src/pty_model.c'],['-DSRVROS_PTY_HOST_TEST'])
     irq=compile_case('reserved-irq',['tools/test_reserved_append_irq.c'])
+    queued=compile_case('reserved-queued',['tools/test_reserved_append_wait.c','tools/test_process_teardown_fault.c',
+        'kernel/src/vfs_namespace.c','kernel/src/pty.c','kernel/src/pty_model.c'],['-DSRVROS_PTY_HOST_TEST'])
     backend=compile_case('reserved-backend',['tools/test_reserved_append_driver.c','tools/test_reserved_append_process.c',
         'kernel/src/fs/exfat.c','kernel/src/vfs.c','kernel/src/vfs_namespace.c','kernel/src/autotest_storage.c','kernel/src/file_verify.c'],
         ['-DSRVROS_EXFAT_HOST_TEST','-DSRVROS_EXFAT_COST_TEST','-DSRVROS_SYNC_CONTENT_HOST_TEST'])
     if args.compile_only:
         record['status']='COMPILED_NOT_TESTED';(out/'result.json').write_text(json.dumps(record,indent=2)+'\n');return
-    run([str(unit)],'unit');run([str(irq)],'irq')
+    run([str(unit)],'unit');run([str(irq)],'irq');run([str(queued)],'queued')
     fixture=empty_image(32*1024*1024,cluster_shift=8)
     fixture.add_directory_files('work',{'other.txt':b'','anchor.txt':b'unchanged'})
     seed=bytes(fixture.data);image=out/'work.exfat';rows={};mode_text={}
