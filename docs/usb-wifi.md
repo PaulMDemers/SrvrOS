@@ -22,6 +22,35 @@ live reattach,authentication/network TX or IP. Ordinary startup leaves diagnosti
 radio operations disabled. Dated milestones below must not reinstate withdrawn
 2.4GHz model assumptions or transfer acceptance between sources.
 
+## Calibration response-loss tracing (November 11; software qualification)
+
+The explicit fixed5GHz calibration path now emits `wifi-mcu-loss-summary` and
+two `wifi-mcu-loss-buffer` rows per attempted receive. The rows separate event
+consumption, dispatch and handler claim from a later CPU snapshot of the first16
+response bytes and the next event-ring entry. Only decoded calibration metadata
+is printed; buffer stability or a matching prefix does not prove DMA completion.
+The original bulk receipt remains immutable. An elapsed-limit failure can observe
+the same retained TD to1.5s from its original start, but still returns failure and
+retains quarantine. There is no command retry, new TD/doorbell, endpoint recovery
+or buffer reuse. Pin loss and stalled/reversed clocks stop observation. Ordinary
+MCU operations and desktop startup do not attach this calibration observer.
+
+`tools/wifi_mcu_loss_trace.py` validates groups and refuses partial or misbound
+rows. `wifi_mcu_bulk_observation` carries these observations through the existing
+source-frozen collection before success-only parent checks, with no acceptance or
+recovery authority. Tests use actual publication/poll/dispatch/claim helpers;
+faulty delivery is injected, not a reproduced spontaneous hardware cause.
+
+The passive `tools/mt76_linux_mcu_timing.py` uses binary usbmon with per-reader
+loss statistics and filters the exact adapter's command/response endpoints.
+It never changes the device and saves no arbitrary payload. Linux's one driver
+restart plus three reconnects observed36 matched calibration replies without
+monitor drops: R0=454us and FULL901=2601–3316us from OUT submission to reply.
+These are warm80MHz observations, not an identical cold20MHz history. Installed
+firmware files match the pinned bytes; resident-image identity remains unproved.
+See the Pro11,2 record and its external research review for limitations. No new
+native Wi-Fi acceptance follows from this trace implementation.
+
 ## Fresh trim lifetime (v117; bounded native acceptance)
 
 After the complete restored v116 chain, the new private static owner reads fresh

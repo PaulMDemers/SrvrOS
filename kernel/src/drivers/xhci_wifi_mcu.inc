@@ -31,6 +31,62 @@ static bool wifi_mcu_owned(struct xhci_device *d) {
     return d->present && wifi_firmware_owned(d) && d->firmware.ready &&
         !d->firmware.pending && !d->firmware.mcu.failed;
 }
+/* Attached only while the explicit fixed5GHz calibration IN call is alive.
+ * Even a late completion cannot change its original failed return. */
+static struct {
+    struct xhci_device *device;
+    struct xhci_wifi_mcu_loss_trace *trace;
+} wifi_mcu_loss;
+static void wifi_mcu_loss_count(unsigned *n,struct xhci_wifi_mcu_loss_trace *t) {
+    if(*n==UINT32_MAX)t->overflow=1;else (*n)++;
+}
+static void wifi_mcu_loss_event(const struct xhci_trb *e,unsigned phase) {
+    struct xhci_wifi_mcu_loss_trace *t=wifi_mcu_loss.trace;
+    if(!t || !t->published)return;
+    uint64_t p=e->parameter_low|((uint64_t)e->parameter_high<<32);
+    bool exact=((e->control>>10)&63)==XHCI_TRB_TYPE_TRANSFER_EVENT &&
+        (e->control>>24)==t->slot && ((e->control>>16)&31)==11 && p==t->trb;
+    if(phase==0){wifi_mcu_loss_count(&t->consumed,t);if(exact)wifi_mcu_loss_count(&t->consumed_exact,t);}
+    else if(phase==1){wifi_mcu_loss_count(&t->dispatched,t);if(exact)wifi_mcu_loss_count(&t->dispatched_exact,t);}
+    else if(phase==2 && exact)wifi_mcu_loss_count(&t->claimed,t);
+}
+static bool wifi_mcu_loss_pinned(struct xhci_device *d,struct xhci_wifi_mcu_loss_trace *t) {
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    return t->published && wifi_mcu_loss.device==d && wifi_mcu_loss.trace==t &&
+        d->present && !d->removed && !d->retiring && !xhci.stopping &&
+        xhci.present && xhci.operational && xhci.controller_owned && !xhci.reclaimed &&
+        !xhci.reclaiming && xhci.event_ring &&
+        m->configured && m->buffer==t->buffer && m->buffer_phys==t->buffer_phys &&
+        m->buffer==pmm_phys_to_virt(t->buffer_phys) && m->response.ring==t->ring &&
+        m->response.ring_phys==t->ring_phys && m->trb==t->trb && m->dci==11 &&
+        m->requested==MT76_MCU_RESPONSE_MAX && d->slot_id==t->slot && m->bulk_sequence==t->sequence;
+}
+static void wifi_mcu_loss_snapshot(struct xhci_device *d,struct xhci_wifi_mcu_loss_trace *t,
+    struct xhci_wifi_mcu_loss_snapshot *s) {
+    *s=(struct xhci_wifi_mcu_loss_snapshot){0};
+    if(!wifi_mcu_loss_pinned(d,t))return;
+    uint8_t a[16],b[16];const volatile uint8_t *p=t->buffer;
+    for(unsigned i=0;i<16;i++)a[i]=p[i];
+    __asm__ volatile("" ::: "memory");
+    for(unsigned i=0;i<16;i++)b[i]=p[i];
+    s->valid=1;s->stable=1;
+    for(unsigned i=0;i<16;i++){if(a[i])s->nonzero++;if(a[i]!=b[i])s->stable=0;}
+    struct mt76_mcu_response r={0};
+    if(mt76_mcu_decode(a,16,&r)){s->sequence=r.sequence;s->event=r.event;s->length=r.reported_length;}
+    s->reply_match=s->stable && mt76_poweron5_reply(t->step,a,16);
+    s->consumer=(unsigned)xhci.event_dequeue;s->cycle=xhci.event_cycle;
+    const volatile struct xhci_trb *e=&xhci.event_ring[xhci.event_dequeue];
+    s->next.parameter_low=e->parameter_low;s->next.parameter_high=e->parameter_high;
+    s->next.status=e->status;s->next.control=e->control;
+    s->available=(s->next.control&1)==s->cycle;
+}
+static void wifi_mcu_loss_emit_snapshot(const struct xhci_wifi_mcu_loss_trace *t,
+    const struct xhci_wifi_mcu_loss_snapshot *s,unsigned phase) {
+    console_printf("wifi-mcu-loss-buffer: version=1 sequence=%u phase=%u valid=%u nonzero=%u stable=%u reply_match=%u reply_seq=%u reply_event=%u reply_length=%u consumer=%u cycle=%u available=%u next_parameter=%x next_status=%x next_control=%x\n",
+        t->sequence,(uint64_t)phase,(uint64_t)s->valid,(uint64_t)s->nonzero,(uint64_t)s->stable,(uint64_t)s->reply_match,
+        (uint64_t)s->sequence,(uint64_t)s->event,(uint64_t)s->length,(uint64_t)s->consumer,(uint64_t)s->cycle,(uint64_t)s->available,
+        s->next.parameter_low|((uint64_t)s->next.parameter_high<<32),(uint64_t)s->next.status,(uint64_t)s->next.control);
+}
 /* CPU0 diagnostic window, not an event consumer or completion owner. A nested
  * refused/other bulk cannot replace this exact stack receipt. Its storage is
  * detached under the same IRQ exclusion before that invocation returns. */
@@ -111,6 +167,7 @@ static bool wifi_mcu_event(struct xhci_device *d,const struct xhci_trb *event) {
     struct xhci_wifi_mcu *m=&d->firmware.mcu;
     uint64_t pointer=event->parameter_low|((uint64_t)event->parameter_high<<32);
     if(!m->pending || ((event->control>>16)&31)!=m->dci || pointer!=m->trb)return false;
+    if(wifi_mcu_loss.device==d)wifi_mcu_loss_event(event,2);
     m->completion=event->status>>24;m->remaining=event->status&0xffffff;
     m->done=true;m->pending=false;
     bool short_in=m->dci==11 && m->completion==13;
@@ -207,12 +264,18 @@ static int wifi_mcu_bulk(struct xhci_device *d,bool in,size_t size) {
     receipt.published_slot=d->slot_id;receipt.published_cycle=ep->cycle;
     m->trb=ring_push(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&trb);
     receipt.trb=m->trb;receipt.ring=ep->ring_phys;
+    if(in && wifi_mcu_loss.device==d && wifi_mcu_loss.trace && !wifi_mcu_loss.trace->published) {
+        struct xhci_wifi_mcu_loss_trace *t=wifi_mcu_loss.trace;
+        t->published=1;t->sequence=m->bulk_sequence;t->trb=m->trb;t->slot=d->slot_id;
+        t->buffer=m->buffer;t->buffer_phys=m->buffer_phys;t->ring=ep->ring;t->ring_phys=ep->ring_phys;
+    }
     if(!wifi_mcu_observer.receipt) {
         receipt.events.valid=true;receipt.events.slot=d->slot_id;
         wifi_mcu_observer.device=d;wifi_mcu_observer.receipt=&receipt;
     }
     db_write32(d->slot_id,m->dci);event_irq_restore(flags);
     uint64_t start=timer_monotonic_us(),clock=start;unsigned stalled=0;
+    if(in && wifi_mcu_loss.device==d && wifi_mcu_loss.trace)wifi_mcu_loss.trace->start_us=start;
     for(;;) {
         flags=event_irq_save();struct xhci_trb event;
         if(!m->done) {
@@ -238,6 +301,52 @@ static int wifi_mcu_bulk(struct xhci_device *d,bool in,size_t size) {
         if(now!=clock){clock=now;stalled=0;}
         __asm__ volatile("pause");
     }
+}
+/* No retry and no success promotion: a 500ms failure remains failed. Continue
+ * observing the SAME retained TD to at most1.5s from its original start, without
+ * a doorbell, new TD, register I/O, EP0 recovery or DMA reclamation. Only this
+ * explicit calibration diagnostic uses the continuation; ordinary MCU calls do
+ * not attach this observer. Snapshots are CPU observations, never DMA proofs. */
+static int wifi_mcu_calibration_receive(struct xhci_device *d,unsigned step) {
+    if(step>=5 || wifi_mcu_loss.trace)return -1;
+    struct xhci_wifi_mcu_loss_trace trace={.step=step};
+    uint64_t flags=event_irq_save();wifi_mcu_loss.device=d;wifi_mcu_loss.trace=&trace;event_irq_restore(flags);
+    int actual=wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
+    flags=event_irq_save();
+    trace.original_reason=d->firmware.mcu.last_bulk.reason;
+    trace.original_flags=d->firmware.mcu.last_bulk.flags;
+    wifi_mcu_loss_snapshot(d,&trace,&trace.original);
+    event_irq_restore(flags);
+    if(actual<0 && trace.original_reason==WIFI_MCU_BULK_ELAPSED && trace.original_flags==29 && trace.original.valid) {
+        trace.late_attempted=1;uint64_t clock=timer_monotonic_us();unsigned stalled=0;
+        for(;;) {
+            flags=event_irq_save();
+            bool pinned=wifi_mcu_loss_pinned(d,&trace),done=d->firmware.mcu.done;
+            if(pinned && !done){struct xhci_trb event;if(poll_event(&event))dispatch_transfer_event(&event);done=d->firmware.mcu.done;}
+            event_irq_restore(flags);
+            uint64_t now=timer_monotonic_us();
+            if(now<trace.start_us || now<clock){trace.late_reason=3;break;}
+            trace.elapsed_us=now-trace.start_us;
+            if(!pinned){trace.late_reason=4;break;}
+            if(done){trace.late_completed=1;trace.late_reason=1;break;}
+            if(trace.elapsed_us>=1500000){trace.late_reason=2;break;}
+            if(now==clock && ++stalled>=XHCI_TRANSFER_TIMEOUT){trace.late_reason=5;break;}
+            if(now!=clock){clock=now;stalled=0;}
+            __asm__ volatile("pause");
+        }
+    }
+    flags=event_irq_save();wifi_mcu_loss_snapshot(d,&trace,&trace.final);
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    trace.final_flags=(m->pending?1u:0u)|(m->done?2u:0u)|(m->failed?4u:0u)|
+        (d->firmware.failed?8u:0u)|(d->ep0_quarantined?16u:0u);
+    wifi_mcu_loss.trace=NULL;wifi_mcu_loss.device=NULL;m->loss_trace=trace;event_irq_restore(flags);
+    console_printf("wifi-mcu-loss-summary: version=1 sequence=%u step=%u published=%u original_reason=%u original_flags=%u consumed=%u consumed_exact=%u dispatched=%u dispatched_exact=%u claimed=%u overflow=%u late_attempted=%u late_completed=%u late_reason=%u elapsed_us=%u final_flags=%u original_result=%d\n",
+        trace.sequence,(uint64_t)trace.step,(uint64_t)trace.published,(uint64_t)trace.original_reason,(uint64_t)trace.original_flags,
+        (uint64_t)trace.consumed,(uint64_t)trace.consumed_exact,(uint64_t)trace.dispatched,(uint64_t)trace.dispatched_exact,(uint64_t)trace.claimed,
+        (uint64_t)trace.overflow,(uint64_t)trace.late_attempted,(uint64_t)trace.late_completed,(uint64_t)trace.late_reason,trace.elapsed_us,
+        (uint64_t)trace.final_flags,(int64_t)actual);
+    wifi_mcu_loss_emit_snapshot(&trace,&trace.original,0);wifi_mcu_loss_emit_snapshot(&trace,&trace.final,1);
+    return actual;
 }
 static int wifi_mcu_read_identity(struct xhci_device *d,int *queue_sent,int *read_sent) {
     struct xhci_wifi_firmware *f=&d->firmware;

@@ -138,4 +138,20 @@ def observe(log):
     details = observe_details(log, result['rows'])
     if details is not None:
         result['diagnostics'] = details
+    from wifi_mcu_loss_trace import observe as observe_loss
+    loss = observe_loss(log)
+    if loss['groups']:
+        # An OUT/parent failure can occur before this command's traced IN is
+        # attempted. Earlier successful receive groups are still observations,
+        # not a missing trace for the unattempted receive.
+        if result['rows'] and result['rows'][0]['fields']['dci'] == 11:
+            anchor = result['rows'][0]['fields']
+            matching = [g['summary'] for g in loss['groups']
+                        if g['summary']['sequence'] == anchor['sequence'] and
+                        g['summary']['step'] == anchor['cal_step']]
+            _require(len(matching) == 1, 'MCU loss trace lacks unique bulk binding')
+            _require(matching[0]['original_reason'] == anchor['reason'] and
+                     matching[0]['original_flags'] == anchor['flags'],
+                     'MCU loss trace changed original bulk outcome')
+        result['loss_trace'] = loss
     return result

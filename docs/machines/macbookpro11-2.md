@@ -36,6 +36,25 @@ restore ran before its device object reappeared and returned a device-not-found
 error. The connection was subsequently independently confirmed active on5805MHz.
 Raw filtered captures/actions remain private under
 `build/bringup/wifi-linux-mcu-timing/`. No arbitrary packet payload is saved.
+The18-file Linux capture bank is `wifi-linux-mcu-timing-335dec96`, index
+`1b0c5ec3e8599dacf3f37370027a4aace5ae65cc6ea4b4ac8586fc68352331cd`,
+outside build. Main5e72e2dd is now integrated at377e2575; the append-only Makefile
+conflict preserved both Wi-Fi and NoFatChain tests. Main's NoFatChain tests pass.
+
+The new calibration-only trace observes real `poll_event`, dispatch and MCU
+handler claim separately, plus two bounded16-byte CPU buffer reads and the next
+event-ring entry. It does not publish payload bytes or infer controller progress
+from a running endpoint context. After an original elapsed-limit failure, the
+same retained TD can be observed up to1.5s from its original start; result=-1,
+the first500ms receipt and quarantine remain unchanged even if it completes late.
+No resend, doorbell, new TD, recovery register write or DMA release is added.
+Normal MCU calls and ordinary desktop startup do not attach this observer.
+Actual native-C tests now include15 long-history cases after1906 prior receives,
+including late650ms completion with early/delayed buffer writes, DMA-without-event,
+consumed-but-not-dispatched, dispatched-but-not-claimed, lost pins and a stalled
+clock. Those losses are deliberately modeled; spontaneous hardware cause remains
+unproved. Saved observations are decoded before success-only protocol checks.
+Candidate qualification/staging remains in progress; no native boot is armed.
 
 ### External driver/specification research (November 11)
 

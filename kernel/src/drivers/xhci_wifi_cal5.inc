@@ -187,7 +187,7 @@ static bool wifi_cal5_command(void *c,enum mt76_poweron_command cmd,uint32_t arg
  unsigned op=wifi_cal5.operations++;wifi_cal5.commands++;
  for(unsigned i=0;i<16;i++)d->firmware.buffer[i]=packet[i];
  uint64_t start=timer_monotonic_us();int sent=wifi_mcu_bulk(d,false,16),received=-1;
- if(sent==16 && wifi_cal5_cal_owned(c))received=wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
+ if(sent==16 && wifi_cal5_cal_owned(c))received=wifi_mcu_calibration_receive(d,n);
  uint64_t end=timer_monotonic_us();uint32_t words[4]={0};if(received==16)for(unsigned i=0;i<16;i++)words[i/4]|=(uint32_t)m->buffer[i]<<(8*(i%4));
  bool ok=sent==16 && received==16 && (m->completion==1 || m->completion==13) && m->remaining==MT76_MCU_RESPONSE_MAX-16 && end>=start && end-start<=1000000 && mt76_poweron5_reply(n,m->buffer,16) && wifi_cal5_cal_owned(c);
  console_printf("wifi-cal5-command: op=%u step=%u arg=%x sent=%d received=%d cc=%u residue=%u elapsed_us=%u h=%x id=%x value=%x t=%x ok=%u\n",(uint64_t)op,(uint64_t)n,(uint64_t)arg,(int64_t)sent,(int64_t)received,(uint64_t)m->completion,(uint64_t)m->remaining,end>=start?end-start:0,(uint64_t)words[0],(uint64_t)words[1],(uint64_t)words[2],(uint64_t)words[3],(uint64_t)ok);

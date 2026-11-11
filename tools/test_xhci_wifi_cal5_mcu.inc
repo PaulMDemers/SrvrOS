@@ -145,6 +145,7 @@ static enum mt76_calibration_status cal5_mcu_run(void){
 }
 static void cal5_mcu_finish(void){
  assert(!wifi_mcu_observer.receipt && !wifi_mcu_observer.device);
+    assert(!wifi_mcu_loss.trace && !wifi_mcu_loss.device);
  cal5_mcu_test_device=NULL;cal5_mcu_parent=false;wifi_cal5_requested=false;
  cal5_mcu_lifetime_active=false;
  native_boundary_clock_hook=NULL;test_time_step=1000;
@@ -203,7 +204,22 @@ static void cal5_mcu_lifetime_event(struct xhci_trb event){
 static void cal5_mcu_lifetime_clock(void){
  if(cal5_mcu_lifetime.delayed_pending && test_time>=cal5_mcu_lifetime.delayed_at){
   cal5_mcu_lifetime.delayed_pending=false;
+  unsigned mode=cal5_mcu_lifetime.mode;
+  struct xhci_wifi_mcu *m=&cal5_mcu_test_device->firmware.mcu;
+  if(mode==13){m->buffer=(uint8_t *)(uintptr_t)1;native_boundary_clock_hook=NULL;return;}
+  if(mode==14){test_time_step=0;native_boundary_clock_hook=NULL;return;}
+  if(mode==9){
+   const uint32_t words[4]={0x4a010008,1,0,0x4a010008};
+   for(unsigned i=0;i<16;i++)m->buffer[i]=(uint8_t)(words[i/4]>>(8*(i%4)));
+  }
   cal5_mcu_lifetime_event(cal5_mcu_lifetime.delayed);
+  if(mode==11 || mode==12){
+   struct xhci_trb event;assert(poll_event(&event));
+   /* Deliberately faulty modeled consumer/metadata, not an assertion that
+    * production drops events. Use the real poll/dispatch helpers to prove
+    * that the new trace separates consumption,dispatch and claim. */
+   if(mode==12){m->pending=false;dispatch_transfer_event(&event);m->pending=true;}
+  }
   native_boundary_clock_hook=NULL;
  }
 }
@@ -275,7 +291,7 @@ static void cal5_mcu_lifetime_bulk(unsigned dci){
   context_write32(d->output_context,dci,2,(uint32_t)next|(cal5_mcu_lifetime.cycle[dir]?1u:0u));
   context_write32(d->output_context,dci,3,next>>32);
  }
- if(dir){
+ if(dir && !(target && cal5_mcu_lifetime.mode==9)){
   const uint32_t ids[5]={1,12,255,3,2},args[5]={0,161,0x901,1,1};
   uint32_t words[4]={0x4a000008u|((step+1)<<16),ids[step],args[step],0x4a000008u|((step+1)<<16)};
   uint8_t *reply=pmm_phys_to_virt(buffer);
@@ -285,13 +301,16 @@ static void cal5_mcu_lifetime_bulk(unsigned dci){
  struct xhci_trb event={.parameter_low=(uint32_t)pointer,.parameter_high=pointer>>32,
   .status=dir?(13u<<24)|(MT76_MCU_RESPONSE_MAX-16):1u<<24,
   .control=(32u<<10)|(dci<<16)|((uint32_t)d->slot_id<<24)};
- if(target && (cal5_mcu_lifetime.mode==1 || cal5_mcu_lifetime.mode==7)){
+ if(target && cal5_mcu_lifetime.mode==10)return; /* DMA reply, no event */
+ if(target && (cal5_mcu_lifetime.mode==1 || cal5_mcu_lifetime.mode==7 || cal5_mcu_lifetime.mode>=8)){
   cal5_mcu_lifetime.delayed=event;cal5_mcu_lifetime.delayed_pending=true;
-  cal5_mcu_lifetime.delayed_at=test_time+400000;native_boundary_clock_hook=cal5_mcu_lifetime_clock;
+  unsigned mode=cal5_mcu_lifetime.mode;
+  cal5_mcu_lifetime.delayed_at=test_time+(mode==8 || mode==9?650000:mode==13?550000:mode==14?500200:400000);
+  native_boundary_clock_hook=cal5_mcu_lifetime_clock;
  }else cal5_mcu_lifetime_event(event);
 }
 static void test_wifi_cal5_mcu_lifetime(void){
- for(unsigned mode=0;mode<8;mode++){
+ for(unsigned mode=0;mode<15;mode++){
   struct xhci_device *d=cal5_mcu_setup(0,0);struct xhci_wifi_mcu *m=&d->firmware.mcu;
   memset(&cal5_mcu_lifetime,0,sizeof cal5_mcu_lifetime);
   cal5_mcu_lifetime.mode=mode;cal5_mcu_lifetime.prefix=true;
@@ -330,6 +349,32 @@ static void test_wifi_cal5_mcu_lifetime(void){
   }else if(mode==4){
    assert(!wifi_cal5.cal.complete && wifi_cal5.commands==3 && !m->bulk_failure_valid);
    assert(m->last_bulk.reason==WIFI_MCU_BULK_SUCCESS && !m->pending && !m->failed && !d->ep0_quarantined);
+  }else if(mode>=8){
+   const struct xhci_wifi_mcu_loss_trace *t=&m->loss_trace;
+   assert(!wifi_cal5.cal.complete && wifi_cal5.commands==1 && m->bulk_failure_valid);
+   assert(m->bulk_failure.reason==WIFI_MCU_BULK_ELAPSED && m->bulk_failure.flags==29);
+   assert(m->bulk_failure.elapsed_us>=500000 && m->bulk_failure.elapsed_us<501000);
+   assert(t->published && t->sequence==3817 && t->original_reason==WIFI_MCU_BULK_ELAPSED && t->original_flags==29 && !t->overflow);
+   assert(t->original.valid && t->original.stable && t->original.reply_match==(mode!=9));
+   assert(m->failed && d->firmware.failed && d->ep0_quarantined && t->late_attempted);
+   assert(m->bulk_sequence==3817 && m->response.enqueue==17 && !freed);
+   if(mode==8 || mode==9){
+    assert(t->late_completed && t->late_reason==1 && t->elapsed_us>=650000 && t->elapsed_us<652000);
+    assert(t->consumed_exact==1 && t->dispatched_exact==1 && t->claimed==1);
+    assert(!m->pending && m->done && t->final_flags==30 && t->final.reply_match);
+   }else{
+    assert(!t->late_completed && m->pending && !m->done && t->final_flags==29);
+    assert(t->late_reason==(mode==13?4u:mode==14?5u:2u));
+    if(mode!=13 && mode!=14)assert(t->elapsed_us>=1500000 && t->elapsed_us<1501000);
+    assert(t->claimed==0 && t->consumed_exact==(mode==11 || mode==12?1u:0u));
+    assert(t->dispatched_exact==(mode==12?1u:0u));
+    assert(t->final.valid==(mode!=13));
+   }
+   struct xhci_wifi_mcu_bulk_receipt retained=m->bulk_failure;
+   unsigned calls=cal5_mcu_lifetime.calls;uint64_t enqueue=m->response.enqueue;
+   assert(wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX)==-1);
+   assert(cal5_mcu_lifetime.calls==calls && m->response.enqueue==enqueue && !freed);
+   assert(!memcmp(&retained,&m->bulk_failure,sizeof retained));
   }else{
    assert(!wifi_cal5.cal.complete && wifi_cal5.commands==(mode==6?1u:3u) && m->bulk_failure_valid);
    assert(m->bulk_failure.reason==WIFI_MCU_BULK_ELAPSED && m->bulk_failure.flags==29);
@@ -367,7 +412,7 @@ static void test_wifi_cal5_mcu_lifetime(void){
   }
   cal5_mcu_finish();
  }
- puts("xhci-cal5-mcu-lifetime: PASS8 realTRB/Link63 independentconsumer after1906INprefix;FULL and firstR0 delayed/elapsed25foreign-transfer controls,eventwrap,wrongTD/linkcycle,badreply;modeledcontroller/firmware,physicalcauseunproved");
+ puts("xhci-cal5-mcu-lifetime: PASS15 realTRB/Link63 after1906INprefix;original8 controls plus earlyDMA/lateDMA650ms,noevent,consumed-not-dispatched,dispatched-not-claimed,pinloss,stalledclock;original500msfailure and quarantine retained;modeledcontroller/firmware,physicalcauseunproved");
 }
 static void test_wifi_cal5_mcu_observations(void){
  for(unsigned mode=1;mode<=4;mode++){

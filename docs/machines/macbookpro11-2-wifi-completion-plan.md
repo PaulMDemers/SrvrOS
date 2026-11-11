@@ -9,13 +9,24 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
+Linux MCU timing capture is complete for one warm driver restart and three
+reconnects:36 matched replies, no monitor drops, R0=454us and four FULL901
+replies=2601–3316us. The18-file capture bank survives outside build. This is an
+80MHz reference, not a matched cold20MHz or resident-firmware identity proof.
+Main5e72e2dd is integrated at377e2575. A calibration-only native trace now
+separates buffer snapshots, consumed events, dispatch and MCU claim, preserving
+the original500ms failure while observing the same retained TD up to1.5s. Its
+actual-path model cases test distinct losses without claiming a hardware cause.
+Qualification/staging is in progress and no new native result or boot is armed.
+
 External driver/specification research is recorded in the
 [November 11 review](macbookpro11-2-wifi-research-2026-11-11.md). Linux's response
 wait/matching and cancellation policy provide concrete comparison targets;
 running output-context dequeue snapshots cannot prove a stuck controller.
 The research supplies no established physical cause or production correction.
-No runtime, install or boot changes were made. Latest fetched main is5e72e2dd,
-not integrated; the implementation and native gates below remain unchanged.
+The research-only checkpoint made no runtime, install or boot changes; the later
+source integration/tracing scope above still requires qualification. The native
+acceptance gates below remain unchanged.
 
 The `d413e338` / `e4e95e7d5e24fc7c` return is closed failed for Wi-Fi in
 session `000660021b689d1e-00`. The larger24×48 text is natively confirmed readable

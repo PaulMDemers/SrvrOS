@@ -6619,6 +6619,12 @@ test-wifi-mcu-bulk-observation:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_mcu_bulk_observation.py
 
 .PHONY: test-wifi-mcu-failure-details
+.PHONY: test-wifi-mcu-loss-trace
+test-core: test-wifi-mcu-loss-trace
+test-wifi-completion-foundations: test-wifi-mcu-loss-trace
+test-wifi-mcu-loss-trace: build/tests/xhci-cal5-mcu-host$(HOST_EXE)
+	WIFI_MCU_LOSS_BINARY=$< PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_mcu_loss_trace.py
+
 test-core: test-wifi-mcu-failure-details
 test-wifi-completion-foundations: test-wifi-mcu-failure-details
 test-wifi-mcu-failure-details: build/tests/xhci-cal5-mcu-host$(HOST_EXE)

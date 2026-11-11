@@ -357,11 +357,26 @@ struct xhci_wifi_mcu_bulk_receipt {
         struct xhci_trb sample[4];
     } events;
 };
+/* Calibration-only observations. No payload bytes, ownership or recovery grant. */
+struct xhci_wifi_mcu_loss_snapshot {
+    unsigned valid,nonzero,stable,reply_match,sequence,event,length;
+    unsigned consumer,cycle,available;
+    struct xhci_trb next;
+};
+struct xhci_wifi_mcu_loss_trace {
+    uint64_t sequence,trb,buffer_phys,ring_phys,start_us,elapsed_us;
+    uint8_t *buffer;
+    struct xhci_trb *ring;
+    unsigned slot,step,published,consumed,consumed_exact,dispatched,dispatched_exact,claimed;
+    unsigned overflow,late_attempted,late_completed,late_reason,original_reason,original_flags,final_flags;
+    struct xhci_wifi_mcu_loss_snapshot original,final;
+};
 struct xhci_wifi_mcu {
     struct xhci_bulk_endpoint response;
     uint64_t bulk_sequence;
     struct xhci_wifi_mcu_bulk_receipt last_bulk,bulk_failure;
     bool bulk_failure_valid;
+    struct xhci_wifi_mcu_loss_trace loss_trace;
     uint64_t buffer_phys, trb;
     uint8_t *buffer;
     uint32_t remaining, requested, completion;
@@ -791,6 +806,7 @@ static bool configure_wifi_firmware(struct xhci_device *d);
 static bool wifi_firmware_event(struct xhci_device *d,const struct xhci_trb *event);
 static bool wifi_mcu_event(struct xhci_device *d,const struct xhci_trb *event);
 static void wifi_mcu_observe_event(const struct xhci_trb *event);
+static void wifi_mcu_loss_event(const struct xhci_trb *event,unsigned phase);
 static bool wifi_rx_event(struct xhci_device *d,const struct xhci_trb *event);
 static bool wifi_cal5_event(struct xhci_device *,const struct xhci_trb *);
 static bool wifi_tx5_event(struct xhci_device *,const struct xhci_trb *);
@@ -1510,6 +1526,7 @@ static bool poll_event(struct xhci_trb *event_out) {
 
     __atomic_thread_fence(__ATOMIC_ACQUIRE);
     copy_trb(event_out, event);
+    wifi_mcu_loss_event(event_out,0);
     xhci.event_dequeue++;
     if (xhci.event_dequeue >= XHCI_EVENT_TRB_COUNT) {
         xhci.event_dequeue = 0;
@@ -3175,6 +3192,7 @@ bool xhci_reclaim(void) {
 /* Every event-ring consumer routes unrelated transfers here. All callers
  * hold IRQs disabled, including the keyboard service running during disk I/O. */
 static void dispatch_transfer_event(const struct xhci_trb *event) {
+    wifi_mcu_loss_event(event,1);
     wifi_mcu_observe_event(event);
     if(wifi_fence5_command_event(event,0) || wifi_fence5_stop_event(event))return;
     if (((event->control >> 10) & 0x3f) != XHCI_TRB_TYPE_TRANSFER_EVENT) return;
