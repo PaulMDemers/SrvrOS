@@ -7,6 +7,45 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Full capture returned; first DHCP exchange failed (November 10)
+
+Release110b42d5c99de8a0/source164cd6e6 returned automatically in
+session00065ff83bcc909e-00. All seven independent checkpoints committed with
+flags0,0,12,13,15,63,63. Separate binary review checks every payload/commit hash,
+nonce/phase, immutable header and unused slot, plus exact overlap with the USB
+boot/exit logs and the reconstructed1,896,682-byte console prefix. Both capture
+sinks saved successfully and the workspace unmounted. The consumed journal
+must not be reused.
+
+The calibration subgroup records all five acknowledged MCU commands, successful
+temporary-word restoration and controlled RX. The first connection records
+successful authentication, association and M1–M4 activation, followed by key
+erasure and leave. Its production workload fails in DHCP at phase2/reason6
+after about1.99seconds and one retry. Two encrypted data transmissions complete
+and nine authenticated Ethernet frames arrive, but no lease completes. The
+second connection never starts. Outer channel/VCO retirement remains incomplete
+because its child IP workload failed; the success-only parser's VCO cardinality
+refusal is not evidence that the earlier VCO trigger or calibration failed.
+No same-boot reconnect or complete Wi-Fi acceptance is granted.
+
+All451 prior file bytes and metadata survive except one RTC-bounded marker
+atime, with exactly two new logs. Offline fsck/allocation, other EFI files and
+seven protected recoveries pass. Ubuntu is unarmed. The1,414-file primary is
+closed with index0c776864c5619d155e3965d98134a496571fcbf894b32d95f45c5e8d76926e1a.
+Separate two-file review has index
+e531c4d5f47526e3468211a3e223513d120fdcac86e75b7c7045eeb8ab6487be.
+Never recollect or reseal either closed record.
+
+The next bounded audit is first-connection DHCP delivery/validation in the
+native stack recipe. Core DHCP already accumulates categorical observations,
+but `mt76_stack5_probe.c` erases its local bounded probe before preserving those
+fields in the result, so this capture cannot distinguish absent DHCP replies
+from parser refusals. Preserve that existing metadata through closed-window
+emission and cover success/refusal in the actual native-path fixtures before
+another diagnostic candidate. Exact network cause remains unknown. No unchanged
+retry or relaxed deadline, ownership, RF or packet-validation gate is justified.
+
+
 ### Journaled full Wi-Fi trial installed (November 10)
 
 Runtime orchestrationf6da0b1a with host staging correction164cd6e6 is installed
