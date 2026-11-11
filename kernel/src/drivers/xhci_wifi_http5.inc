@@ -110,12 +110,32 @@ static void wifi_http5_emit_hold(void) {
   wifi_http5_held_state.cached_rx,wifi_http5_held_state.borrowed_rx,wifi_http5_held_state.tx_token,
   wifi_http5_held_state.boundary,wifi_http5_held_state.fence_round,wifi_http5_held_state.command_pending);
 }
+static void wifi_http5_emit_panel(void) {
+ const struct http_network_result *r=&wifi_http5_held_state.result;
+ console_set_framebuffer_muted(false);
+ console_clear();
+ console_printf("Wi-Fi HTTP test STOPPED - original owners retained\n");
+ console_printf("Codes: site=%u phase=%u reason=%u child_status=%u connection=%u disconnected=%u\n",
+  wifi_http5_held_state.site,r->phase,r->reason,r->child_status,(uint64_t)r->connection_scope,(uint64_t)r->disconnected);
+ console_printf("Progress: DHCP=%u DNS=%u route=%u GO=%u child_observed=%u elapsed_us=%u\n",
+  r->dhcp,r->dns,r->route,r->go,(uint64_t)r->child_observed,r->elapsed_us);
+ console_printf("Retired: child=%u worker=%u TCP_empty=%u RX_closed=%u quiescent=%u\n",
+  (uint64_t)r->child_retired,(uint64_t)r->worker_finished,(uint64_t)r->tcp_empty,(uint64_t)r->receiver_closed,(uint64_t)r->quiescent);
+ console_printf("Native: stack_failed=%u stream_failed=%u stream_phase=%u fault_phase=%u fence_round=%u\n",
+  wifi_http5_held_state.stack_failed,wifi_http5_held_state.stream_failed,wifi_http5_held_state.stream_phase,wifi_http5_held_state.fault_phase,wifi_http5_held_state.fence_round);
+ console_printf("Pending: TX=%u RX=%u ready=%u cached=%u borrowed=%u command=%u\n",
+  wifi_http5_held_state.tx_pending,wifi_http5_held_state.rx_pending,wifi_http5_held_state.ready_rx,
+  wifi_http5_held_state.cached_rx,wifi_http5_held_state.borrowed_rx,wifi_http5_held_state.command_pending);
+ console_printf("Photograph this screen. No key erase or disk save is safe here.\n");
+ console_printf("Hold Power OFF, then Power ON for Ubuntu. No commands needed.\n");
+}
 /* site: 1 callback admission; 2 post-run obligations; 3 unused abort failed;
  * 4 finish not quiescent; 5 terminal RX software seal lost. A hold never returns to unconditional WPA key erase. */
 static __attribute__((noreturn)) void wifi_http5_hold(unsigned site) {
  wifi_http5_freeze_hold(site);
  wifi_http5_emit_hold();
  console_write("wifi-http5-held: software obligations incomplete; key/provider/DMA retained; no key erase or disk save; photograph the diagnostic rows above, then power off manually for Ubuntu\n");
+ wifi_http5_emit_panel();
  (void)console_sync();
 #ifdef SRVROS_XHCI_HTTP5_HOST_TEST
  extern __attribute__((noreturn)) void wifi_http5_test_hold(void);

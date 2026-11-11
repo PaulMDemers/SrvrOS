@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <inttypes.h>
+#include <stdlib.h>
 #define WIFI_STACK5_TOTAL_US 15000000u
 static struct {uint64_t start,services,tx_token,terminal_epoch,terminal_ticket,terminal_token,terminal_posts,terminal_completions;bool selected,running,failed,boundary,terminal_handoff,terminal_pending,terminal_ready,terminal_provider_closing;} wifi_stack5;
 static struct mt76_net5 wifi_stack5_net;
@@ -20,6 +21,8 @@ static struct {unsigned round;} wifi_fence5_native;
 static struct {bool command_pending;} xhci;
 static uint64_t irq_flags=512;
 static unsigned held_rows,syncs,writes,freezes;
+static unsigned clears;
+static size_t panel_start;
 static bool mutate_during_output;
 static char held_log[8192];static size_t held_length;
 static uint64_t event_irq_save(void){uint64_t f=irq_flags;irq_flags=0;freezes++;return f;}
@@ -35,7 +38,7 @@ bool xhci_wifi_capture_stack5(bool (*exercise)(void *,struct mt76_net5 *),void *
 static void mutate_live_state(void);
 void console_printf(const char *fmt,...){
  assert(irq_flags==512); /* no console lock/render/UART work in snapshot exclusion */
- if(!strstr(fmt,"wifi-http5-held-")){assert(!key_live);assert(strstr(fmt,"wifi-http5-"));return;}
+ if(!strstr(fmt,"wifi-http5-held-") && !clears){assert(!key_live);assert(strstr(fmt,"wifi-http5-"));return;}
  /* Production console %u consumes uint64_t. Adapt that contract for libc QA. */
  char adapted[2048],row[2048];size_t n=0;
  for(size_t i=0;fmt[i];i++){if(fmt[i]=='%' && fmt[i+1]=='u'){
@@ -43,6 +46,7 @@ void console_printf(const char *fmt,...){
  }else adapted[n++]=fmt[i];}adapted[n]=0;
  va_list ap;va_start(ap,fmt);int count=vsnprintf(row,sizeof row,adapted,ap);va_end(ap);
  assert(count>0 && count<1024); /* one saved-console record, even worst scalar values */
+ if(clears)assert(count<=120); /* one physical row at 2880px / 24px text cells */
  assert(held_length+(size_t)count<sizeof held_log);
  memcpy(held_log+held_length,row,(size_t)count+1);held_length+=(size_t)count;held_rows++;
  /* Simulate preemption after the first console call. Later rows must still
@@ -51,6 +55,8 @@ void console_printf(const char *fmt,...){
 }
 void console_write(const char *s){assert(irq_flags==512 && strstr(s,"key/provider/DMA retained") && strstr(s,"photograph the diagnostic rows above"));writes++;}
 bool console_sync(void){assert(irq_flags==512);syncs++;return true;}
+void console_clear(void){assert(irq_flags==512);clears++;panel_start=held_length;}
+void console_set_framebuffer_muted(bool muted){assert(irq_flags==512 && !muted);}
 #include "../kernel/src/drivers/xhci_wifi_http5.inc"
 static void mutate_live_state(void){
  wifi_http5_probe.result.phase=HTTP_NET_DONE;wifi_http5_probe.result.reason=HTTP_NET_OK;
@@ -118,6 +124,7 @@ static void reset(const char *s){
  memset(&wifi_http5_held_state,0,sizeof wifi_http5_held_state);
  memset(&wifi_fence5_native,0,sizeof wifi_fence5_native);memset(&xhci,0,sizeof xhci);
  held_rows=syncs=writes=freezes=0;held_length=0;held_log[0]=0;irq_flags=512;mutate_during_output=false;
+ clears=0;panel_start=0;
  wifi_http5_requested=wifi_http5_prepared=wifi_http5_capture_attempted=wifi_http5_callback_attempted=false;
  wifi_http5_active_probe=&wifi_http5_probe;wifi_http5_connection_capture_attempted=false;
  wifi_http5_connection_callback_probe=NULL;wifi_http_reconnect5_reserved=false;
@@ -136,7 +143,13 @@ int main(void){
  for(unsigned i=0;i<sizeof unsafe/sizeof *unsafe;i++){
   reset(unsafe[i]);assert(xhci_wifi_http5_prepare());mutate_during_output=true;
   if(!setjmp(escape)){(void)xhci_wifi_capture_http5();assert(!"uncertain callback returned to WPA erasure");}
-  assert(held==1 && !erasures && key_live && !emits && held_rows==7 && writes==1 && syncs==1 && freezes==1);
+  assert(held==1 && !erasures && key_live && !emits && held_rows==15 && writes==1 && syncs==1 && freezes==1 && clears==1);
+  assert(!strncmp(held_log+panel_start,"Wi-Fi HTTP test STOPPED",22));
+  assert(strstr(held_log+panel_start,"Codes: site=") && strstr(held_log+panel_start,"No commands needed."));
+  if(is("deadline") && getenv("SRVROS_HELD_PANEL_FIXTURE")){
+   FILE *f=fopen(getenv("SRVROS_HELD_PANEL_FIXTURE"),"wb");assert(f);
+   assert(fputs(held_log+panel_start,f)>=0 && !fclose(f));
+  }
   assert(wifi_http5_held_state.site==(is("admission")?1u:2u));
   assert(strstr(held_log,is("admission")?
    "requested=1 prepared=1 capture_attempted=1 callback_attempted=0":
@@ -159,10 +172,10 @@ int main(void){
  reset("missing-adapter");assert(xhci_wifi_http5_prepare());assert(!xhci_wifi_http5_finish_capture(false) && aborts==1 && !runs && !erasures && emits==1);
  reset("early-parent-fail");assert(xhci_wifi_http5_prepare());assert(!xhci_wifi_capture_http5());assert(!xhci_wifi_http5_finish_capture(false) && aborts==1 && !runs && emits==1);
  reset("prepare-fail");assert(!xhci_wifi_http5_prepare());assert(!xhci_wifi_http5_finish_capture(false) && aborts==1 && !runs && emits==1);
- reset("abort-fail");assert(xhci_wifi_http5_prepare());if(!setjmp(escape)){(void)xhci_wifi_http5_finish_capture(false);assert(!"uncertain abort reached disk-save return");}assert(held==1 && !erasures && !emits && held_rows==7 && wifi_http5_held_state.site==3);
+ reset("abort-fail");assert(xhci_wifi_http5_prepare());if(!setjmp(escape)){(void)xhci_wifi_http5_finish_capture(false);assert(!"uncertain abort reached disk-save return");}assert(held==1 && !erasures && !emits && held_rows==15 && wifi_http5_held_state.site==3);
  reset("finish-not-quiescent");assert(xhci_wifi_http5_prepare());wifi_http5_probe.result.attempted=true;
  if(!setjmp(escape)){(void)xhci_wifi_http5_finish_capture(false);assert(!"finish uncertainty returned");}
- assert(held==1 && !aborts && !erasures && !emits && held_rows==7 && wifi_http5_held_state.site==4);
+ assert(held==1 && !aborts && !erasures && !emits && held_rows==15 && wifi_http5_held_state.site==4);
  /* Every printed scalar, including unexpected maximum-width counts, fits the
   * console's 1KiB saved-record bound; identities never appear in any format. */
  reset("max-width");memset(&wifi_http5_held_state.result,0,sizeof wifi_http5_held_state.result);

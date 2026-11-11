@@ -324,6 +324,8 @@ void console_write(const char *s) { if(batch_trace)fputs(s,stdout); }
 /* HOST rendering is immediate; terminal holds now remain reachable through
  * the native HTTP ownership branch even in legacy controller fixtures. */
 bool console_sync(void) { return true; }
+void console_clear(void) {}
+void console_set_framebuffer_muted(bool muted) {(void)muted;}
 void console_printf(const char *fmt, ...) {
     if(!batch_trace)return;
     va_list a;va_start(a,fmt);

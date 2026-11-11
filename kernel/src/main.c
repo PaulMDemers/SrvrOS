@@ -680,7 +680,12 @@ void kmain(void) {
 
     if (framebuffer_request.response != NULL &&
         framebuffer_request.response->framebuffer_count > 0) {
-        console_init(framebuffer_request.response->framebuffers[0]);
+        struct limine_framebuffer *console_fb=framebuffer_request.response->framebuffers[0];
+        uint64_t console_scale=startup_journal_requested && console_fb->width>=2880 && console_fb->height>=1440?3:
+            startup_journal_requested && console_fb->width>=1920 && console_fb->height>=960?2:1;
+        console_init_scaled(console_fb,console_scale);
+        if(startup_journal_requested)console_printf("diagnostic-console: version=1 scale=%u cell_width=%u cell_height=%u\n",
+            console_scale,8*console_scale,16*console_scale);
         boot_set_framebuffer_quiet(!boot_verbose);
         if (!boot_verbose) {
             boot_status("srvros: booting (quiet mode)\n");
