@@ -2,6 +2,17 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
+### Active scope: joint preparation timing retry
+
+On integrated main `8271c254`, the Air7,2 branch owns the joint image's
+final preparation guard and borrow return. It will report each interval
+separately and remove a duplicate full backing census from the joint
+requester snapshot path. The provider's admission census, independent exit
+census, live HDA checks and original deadlines still apply. This work
+depends on the existing joint recipe and claim, with no overlap with PR19
+networking or PR379 WebCore. The next checkpoint is an exact staged VM
+run and hardware readiness.
+
 ### Native trial incomplete: joint display-HDA and GPU interval claim
 
 Source `2f114e64` on integrated main `8271c254` (PR460), release
