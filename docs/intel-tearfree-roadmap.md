@@ -83,6 +83,12 @@ an advanced epoch and exact engine/reader preservation. Its first native
 milestone ends with disabled submission and clean retirement. Reset from that
 nonzero geometry still needs a separate contract; no old reset gate is widened.
 
+The first native v24 trial (`811ff18f86cf3d17`) instead observes already-disabled,
+zero-geometry entry and safely refuses before its enabled-only child/write.
+HDA and all mappings retire within bounds; this does not accept enabled shutdown.
+Next select explicit original-owner routes for both naturally observed entry
+states, preserving old geometry/epoch gates and avoiding unchanged retries.
+
 ## First decision: how ownership begins
 
 Before another destructive native operation, choose and document a complete

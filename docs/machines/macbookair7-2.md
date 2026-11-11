@@ -2,11 +2,51 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Active scope: enabled-ring transition hardware-ready
+### Current checkpoint: enabled-ring trial safely refused already-disabled entry
+
+Source `c43d30d0`, release `811ff18f86cf3d17`, session
+`session-0006600610bfd11f-00` is collected as a **safe refusal, not a pass**.
+The full original 92-word census is stable, with enabled/pending/flip/TLB masks
+zero and parser idle 3. Both BCS vectors are `0/0/0/0/1/0/0/0`; this differs
+from the earlier enabled/nonzero entry in release 0994. The enabled-ring child
+refuses with reason 1 before borrowing, reading or writing. Epoch stays 0;
+no reset or post-store census enters. `completed=NO` is the correct outcome.
+Enabled shutdown remains physically unexercised; do not force an enabled source.
+
+HDA 6/2/2/6, all four inspection returns, matching HDA raw vectors, all 14 GPU
+aliases and the HDA root alias retire; CPU exclusion releases. No clock fault
+occurs. HDA is 92,917 us, outer 147,714 us and initial census 15,336 us, within
+unchanged limits. All 1,473 prior files preserve except expected workspace
+metadata; three verified logs yield 1,476 files/148 sessions. Offline fsck,
+allocation, writable/headroom, boot digest, installed/durable banks, Ubuntu
+default and consumed one-shot pass. Current 811f, prior 0994, recovery 9aa8,
+GUI c497, observation bd77, joint 978 and standalone d260 remain preserved.
+USB is unmounted and no reboot is armed; evidence is banked outside build.
+
+The original collector flags eight items, including an unnecessary flag on the
+unused claim counters in a correctly retired HDA owner. Host triage now handles
+that owner and the new post-census summary explicitly. Forty-one focused tests,
+including full modeled success/failure collection and legacy paired-owner
+triage, pass. Exact-byte replay removes only that owner flag, leaving seven
+attention items and the same refusal. No kernel, recipe, deadline or native
+acceptance changed. The original classification and raw bytes are preserved.
+
+Next bounded scope: integrate inspected main `a9eacdaa` (PR472 USB/commit timing),
+then review a state-aware original-owner entry composition using the actual live
+census. Both naturally observed entry states need explicit routes; nonzero
+geometry must not be relabeled as eligible for the old zero-geometry reset.
+No unchanged retry, synthetic enable, geometry clearing, wider old gate, deadline
+extension or saved-receipt authority. Obligations 255, assurances 0, managed pages
+0 and native tear-free remain unaccepted. Local checkpoint:
+`build/air-ring-transition-20261111/status.md`. PR301 retains this GPU/collector
+scope; networking and WebCore remain independent.
+
+### Previous qualification: enabled-ring transition hardware-ready
 
 The separate original-owner transition is qualified on source `c43d30d0`,
 integrating main `a611fd9e`, and staged as release `811ff18f86cf3d17`.
-It is **uninstalled, unarmed and not physically accepted**. Current 0994,
+At qualification it was uninstalled and unarmed. Enabled shutdown is still not
+physically accepted; see the collected result above. Former current 0994,
 recovery 9aa8, GUI c497, accepted observation bd77, accepted joint 978 and
 standalone d260 retain verified installed and durable payloads. The unreferenced
 historical e835 EFI-only copy was retired after complete durable-bank equality;
@@ -43,14 +83,9 @@ sessions preserve; offline fsck/allocation/writable/headroom, boot digest, AC,
 recovery and an unarmed Ubuntu default verify. The candidate and evidence are
 banked outside build; volume remains 1% and the trial is silent/unattended.
 
-Next: revalidate host/media/recovery, install the exact banked candidate with the
-previous recovery retained, persist the run record, arm one-shot boot and test.
-No human input is required; safe saved outcomes return automatically, retained
-uncertainty halts. Collect the matching session first on return. Do not repeat
-unchanged 0994 or force an enabled source. Obligations 255, assurances 0, managed
-pages 0 and native tear-free remain unaccepted. PR301 carries this scope; PR19
-networking, PR379 WebCore and PR472 filesystem timing remain independent.
-Local checkpoint: `build/air-ring-transition-20261111/status.md`.
+The qualified trial has now been collected as the already-disabled refusal
+above. Its enabled writer remains unaccepted. PR301 carries the work; see the
+current checkpoint before planning another trial.
 
 ### Latest result: disabled-entry composition refused enabled ring
 

@@ -104,6 +104,44 @@ class RingTests(unittest.TestCase):
   from hardware_desktop import needs_attention
   line=next(l for l in self.text.splitlines() if l.startswith('intel-ring-summary:'))
   self.assertFalse(needs_attention(line));self.assertTrue(needs_attention(field(line,'intel-ring-summary','complete',0)))
+ def test_retired_owner_and_fresh_census_attention(self):
+  from hardware_desktop import needs_attention
+  for prefix in ('intel-ring-owner','intel-ring-post-summary'):
+   line=next(l for l in self.text.splitlines() if l.startswith(prefix+':'))
+   self.assertFalse(needs_attention(line))
+   for text in (line+' extra=0',field(line,prefix,'reason',1)):
+    self.assertTrue(needs_attention(text))
+  owner=next(l for l in self.text.splitlines() if l.startswith('intel-ring-owner:'))
+  for k,v in (('state',3),('pinned',1),('retained',1),('hda_complete',0),('complete',1),('gpu_complete',1),('attached',1),('assurances',1)):
+   with self.subTest(k=k):self.assertTrue(needs_attention(field(owner,'intel-ring-owner',k,v)))
+  post=next(l for l in self.text.splitlines() if l.startswith('intel-ring-post-summary:'))
+  self.assertTrue(needs_attention(field(post,'intel-ring-post-summary','complete',0)))
+  self.assertTrue(needs_attention(field(post,'intel-ring-post-summary','reset_writes',1)))
+  self.assertFalse(needs_attention(owner.replace('intel-ring-owner:','intel-hda-bcs-summary:')))
+  # Full-chain acceptance still requires source/raw/epoch/clock/preservation proof.
+  with self.assertRaises(ValueError):ring_result(owner+'\n'+post)
+ def test_full_collector_accepts_modeled_complete_chain_only(self):
+  import tempfile
+  from hardware_desktop import collect
+  from test_intel_shutdown import ShutdownTests
+  volume='37d8c5d0';session='session-0000000000000001-00'
+  conf=limine_config('0123456789abcdef','ram-usb-v1-intel-ring-transition-laptop-probe-'+volume+'-auto-return')
+  cmd=next(l.split('cmdline:',1)[1].strip() for l in conf.splitlines() if 'cmdline:' in l)
+  prefix='init: deferred=ring-transition-preinit; terminal automatic capture, no user services\nlaptop-capture: boot options='+cmd+'\n'
+  native=ShutdownTests.native(self.text);before,after=native.split('intel-ring-hda:',1)
+  pre=prefix+before+'workspace-log: snapshot=session-a.log\n'
+  final=prefix+before+'intel-wake: preflight checkpoint saved\nintel-ring-hda:'+after+'laptop-capture: completed=yes\n'
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp);work=root/'srvros-work';logs=work/'Logs'/session;logs.mkdir(parents=True)
+   (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 '+volume+'\n')
+   for name,data in (('boot.log',pre),('session-a.log',pre),('exit.log',final)):(logs/name).write_text(data)
+   _,report=collect(root,volume,root/'collected')
+   row,=report['sessions'];self.assertEqual(row['attention'],[])
+   self.assertTrue(row['intel_ring_transition']['native_complete']) # Synthetic chain, not hardware evidence.
+   (logs/'exit.log').write_text(field(final,'intel-ring-summary','complete',0))
+   _,report=collect(root,volume,root/'rejected')
+   self.assertTrue(report['sessions'][0]['attention'])
+   self.assertFalse((report['sessions'][0].get('intel_ring_transition') or {}).get('native_complete',False))
  def test_exact_recipe_real_cli_and_legacy_isolation(self):
   exe=[sys.executable,str(ROOT/'tools/hardware_boot.py')]
   p=subprocess.run(exe+['--help'],capture_output=True,text=True);self.assertEqual(p.returncode,0);self.assertIn('--intel-ring-transition',p.stdout)

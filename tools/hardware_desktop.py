@@ -573,6 +573,10 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-ring-post-summary:'):
+        from intel_completion_audit import summary
+        try:return not summary(line.replace('intel-ring-post-','intel-completion-',1))['complete']
+        except ValueError:return True
     if line.startswith('intel-ring-summary:'):
         from intel_ring_transition import ring_summary
         try:return not ring_summary(line)['complete']
@@ -707,10 +711,10 @@ def needs_attention(line):
             return not summary_result(line)['complete']
         except ValueError:
             return True
-    if line.startswith('intel-hda-bcs-summary:'):
+    if line.startswith(('intel-hda-bcs-summary:','intel-ring-owner:')):
         from intel_joint import fields,SUMMARY,authority
         try:
-            s=fields(line.replace('intel-hda-bcs-summary:','intel-joint-summary:',1),'intel-joint-summary',SUMMARY);authority(s)
+            s=fields(line.replace(line.split(':',1)[0]+':','intel-joint-summary:',1),'intel-joint-summary',SUMMARY);authority(s)
             return bool(s['state']!=4 or s['reason'] or s['pinned'] or s['retained'] or not s['hda_complete'] or s['complete'] or s['gpu_complete'] or s['attached'])
         except ValueError:return True
     if line.startswith('intel-shutdown-summary:'):

@@ -96,3 +96,30 @@ This is a hardware-ready candidate, not a physical pass. Installed recovery and
 current payloads remain unchanged; the candidate and qualification evidence are
 banked durably, with no reboot armed. The next native trial must exercise the
 actual enabled source and return the matching original-owner postconditions.
+
+## Native result: already-disabled entry safely refused
+
+Source `c43d30d0`, release `811ff18f86cf3d17`, session
+`session-0006600610bfd11f-00` finds a stable zero-geometry disabled BCS in the
+original full census. The enabled-only child refuses before borrow or write,
+with reason 1 and epoch unchanged. No post-store census or reset executes.
+`completed=NO` is correct; enabled transition is not physically accepted.
+
+The original HDA 6/2/2/6 vectors preserve, all four inspections return and all
+14 GPU/HDA-root aliases retire with CPU exclusion released. HDA 92,917 us and
+outer 147,714 us remain within unchanged limits, with no clock fault. All prior
+files preserve except expected workspace metadata, and three new logs verify.
+Offline integrity, recovery and consumed one-shot pass; Ubuntu is default.
+
+Host collection now triages the retired non-claim owner and fresh post-census
+summary explicitly, avoiding false attention on a modeled successful chain.
+Forty-one focused tests pass; replaying the unchanged physical log removes one
+spurious owner flag while retaining seven real incomplete/refusal items. This
+changes classification only, not the failed outcome or physical acceptance.
+
+The earlier joint image observed enabled/nonzero entry; this boot did not.
+Future composition must select an explicit route from the original live source
+and retain the source/epoch/geometry/ownership rules. Do not force enabled entry,
+repeat an unchanged diagnostic until lucky, or make disabled nonzero geometry
+pass the older zero-geometry reset gate. Reset from that state still needs its
+own contract and preservation proof.
