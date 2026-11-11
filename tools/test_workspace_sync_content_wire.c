@@ -29,3 +29,6 @@ void workspace_sync_content_wire(uint64_t at,const struct sync_timing_snapshot *
     assert(snapshot && snapshot->enabled && !snapshot->active && !snapshot->invalid);
     report_sync_content(at,snapshot);
 }
+void workspace_commit_wait_wire(uint64_t at,const struct commit_wait_snapshot *snapshot) {
+    assert(snapshot);report_commit_wait(at,snapshot);
+}

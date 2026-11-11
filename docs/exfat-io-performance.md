@@ -156,6 +156,8 @@ is353518us with10069us maximum sampled service gap. Its512-byte allocation
 status maximum is1906us. Software clocks still cannot separate media/firmware
 from controller delivery, and no exact command/owner identity joins an individual
 private wait to that selected global call. These waits remain the next target.
+The subsequent [commit-wait isolation](commit-wait-isolation.md) adds a bounded
+completed-overlap companion rather than assigning an unrelated global maximum.
 
 Installed candidate, c354 recovery, retained c7, retired2dd's independent payload,
 original failed-media archive and trial backup verify. Ubuntu remains default,
