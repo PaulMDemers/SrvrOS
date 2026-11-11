@@ -12382,3 +12382,26 @@ protected. Native source optimization/performance claims require matching new
 evidence; no new reboot is armed by this scope notice. Next checkpoint is a
 regression-backed stream correction and measured, independently attributed
 read/write reductions before broader validation.
+
+
+Three filesystem passes are implemented against `5e72e2dd`. Pass1 (`9327360c`)
+reproduces/corrects the separate bounded-stream FAT-terminal dependency and
+retains eligible contiguous stream extents with all publication flushes. Full
+stream tests, independent fsck and poisoned-FAT/forced-chain controls pass.
+Pass2 (`e386f11a`) clips bitmap reads/scratch to declared bits rounded to the
+existing device block; first-fit order and every allocation check/write remain.
+Pass3 keeps512-byte FAT windows only inside the existing transaction cache for
+large clusters, with fresh full prefix reads bypassing that metadata cache.
+Small clusters retain the original entry path to avoid a measured cache-touch
+regression. Cache capacities, command/stream limits and timeouts are unchanged.
+
+The actual filesystem-plus-block-cache comparison has nine passing cases across
+4/128KiB clusters and512/4096-byte devices. On populated128KiB/512-byte growth,
+device reads fall12868→11755→10825 and bytes179819520→162649088→162172928.
+Replacements fall514→363 reads; metadata rounds642→434. Every complete image,
+logical file map, device write count/bytes and flush count matches. This is host
+work reduction, not native timing; synthetic bitmap sizes differ from this USB.
+The new [performance contract](../exfat-io-performance.md) records the controls.
+Next checkpoint is frozen matched build/core/desktop/VM validation before merge.
+Current installedc7/recoveryc354 and all859 USB files remain untouched; no new
+native speed acceptance or reboot is implied by these host measurements.

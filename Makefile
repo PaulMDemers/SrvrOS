@@ -5187,3 +5187,13 @@ build/tests/exfat-nofat-host$(HOST_EXE): tools/test_exfat_nofat.c kernel/src/fs/
 test-core: test-exfat-stream-allocation
 test-exfat-stream-allocation:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_stream_allocation.py
+
+.PHONY: test-exfat-fat-window test-exfat-io-stack
+test-core: test-exfat-fat-window test-exfat-io-stack
+test-exfat-fat-window: build/tests/exfat-fat-window-host$(HOST_EXE)
+	build/tests/exfat-fat-window-host$(HOST_EXE)
+build/tests/exfat-fat-window-host$(HOST_EXE): tools/test_exfat_fat_window.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-exfat-io-stack:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_io_stack.py

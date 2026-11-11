@@ -428,7 +428,13 @@ static bool volume_read(const struct exfat_volume *volume, uint64_t offset, void
         return true;
     }
 
-    bool cached=mutation_reads.volume==volume && volume->mutation_depth &&
+    bool prefix=sync_prefix_proof;
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_PREFIX_CACHE_ON)
+    prefix=false; /* Original payload-cache pollution for host comparison. */
+#endif
+    /* Prefix proofs still read every byte, directly through the block layer.
+     * They have no reuse here and must not evict owned directory/FAT copies. */
+    bool cached=!prefix && mutation_reads.volume==volume && volume->mutation_depth &&
         length && length<=EXFAT_READ_CACHE_BYTES && !volume->write_blocked;
 #if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_READ_CACHE_OFF)
     cached=false; /* Disposable comparative host driver only. */
@@ -517,6 +523,24 @@ static bool cluster_offset(const struct exfat_volume *volume, uint32_t cluster, 
 
 static bool next_cluster(const struct exfat_volume *volume, uint32_t cluster, uint32_t *next) {
     uint64_t offset = volume->fat_offset_bytes + (uint64_t)cluster * sizeof(uint32_t);
+#if !defined(SRVROS_EXFAT_HOST_TEST) || (!defined(SRVROS_EXFAT_FAT_WINDOW_OFF) && !defined(SRVROS_EXFAT_READ_CACHE_OFF))
+    /* The serialized mutation owns this small read-through window. A normal
+     * read/lease or a proof outside that owner keeps its original direct read.
+     * Successful/failed FAT writes use the existing patch/invalidate protocol.
+     * Smaller clusters keep their FAT sector hot in the block cache; retain
+     * their single-entry path rather than suppressing those useful touches. */
+    if(volume->cluster_size>=EXFAT_READ_CACHE_BYTES && mutation_reads.volume==volume && volume->mutation_depth &&
+       !volume->image && !volume->write_blocked && !sync_prefix_proof &&
+       !(volume->fat_offset_bytes%512) && cluster>=2 &&
+       (uint64_t)cluster<(uint64_t)volume->cluster_count+2) {
+        uint64_t relative=(uint64_t)cluster*4,base=relative-relative%512;
+        uint64_t count=((uint64_t)volume->cluster_count+2)*4-base;
+        if(count>512)count=512;
+        uint8_t window[512];
+        if(!volume_read(volume,volume->fat_offset_bytes+base,window,count))return false;
+        *next=read_u32(window+relative-base);return true;
+    }
+#endif
     uint8_t bytes[sizeof(uint32_t)];
     if (!volume_read(volume, offset, bytes, sizeof(bytes))) {
         return false;
