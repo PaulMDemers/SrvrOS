@@ -2154,6 +2154,11 @@ build/tests/reserved-append-syscall-public-host$(HOST_EXE): tools/test_reserved_
 	$(HOST_CC) -DSRVROS_SIGNAL_PUBLIC_GUEST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-reserved-append
 
+.PHONY: test-sync-commit-boundary
+test-sync-commit-boundary: $(LIMINE_PROTOCOL_DIR)/.ready
+	CC="$(HOST_CC)" $(PYTHON) tools/test_sync_commit_boundary.py --limine-include $(LIMINE_PROTOCOL_DIR)/include
+test-core: test-sync-commit-boundary
+
 .PHONY: test-syscall-io
 test-syscall-io: build/tests/syscall-io-host$(HOST_EXE)
 	$<

@@ -11919,3 +11919,66 @@ about9GiB free without deleting raw evidence. No new reboot is armed. Next
 bounded work is a deterministic replay of the matched sync/write-completion
 overlap and an audit of exFAT commit ownership and repeated prefix work, with
 all proofs, barriers, ownership, byte caps and runtime/latency limits retained.
+
+## Matched-commit replay audit scope (2026-11-10)
+
+Base is main `83c955fd`, following the reviewed3403 native observation. Bounded
+objective is a process/VFS/exFAT replay of the matched2555904-byte committed
+prefix,3145728-byte captured writeback and262144-byte concurrent suffix, then
+an audit of transaction work and quiescent boundaries. A bounded Ubuntu
+new-file reference on this unit's USB may help assess long write completion.
+The local run record retains workspace identity, recovery and original hashes.
+Scope is host replay tools and evidence guides until a relevant equivalent
+reduction is demonstrated. Required data/metadata publication, prefix checks,
+fresh readback, barriers, ownership and all existing byte/runtime limits remain
+in force. Installed3403/recoveryc354 and original failed media stay protected.
+
+Open PR301 at18f0ab6f and PR19 atbd1f2ee6 retain separate graphics/network work.
+No other-machine task is contacted. The next checkpoint is measured source work
+and failure/dirty-survivor equivalence for this captured boundary. An unchanged
+work result alone supplies no performance justification for another native boot.
+
+## Matched-commit audit result (2026-11-10)
+
+The new [commit-boundary replay](../capture-gate-correlation.md#commit-boundary-replay-and-ubuntu-reference-2026-11-10)
+matches the observed old/captured/live lengths and four concurrent64KiB appends
+through real process/VFS/exFAT code. The fifth copy refuses at256KiB, committed
+length stays3145728 and the extra262144 bytes remain dirty. A modeled359.848ms
+data-callback delay preserves ordered source I/O, all eight selected-commit
+flushes and the complete media hash. All65 writes, fresh temporary/final proofs,
+rename guards, independent fsck and full allocation pass. The host turn/clock
+are models, without USB controller or actual scheduler-wait timing.
+
+The ownership audit found that current transaction scope includes required
+proofs, data/allocation, namespace/sidecar publication and the final clean-marker
+barrier. The existing single dirty-content visit and immutable snapshot already
+avoid descriptor duplication and moving-target writeback. No equivalent
+source-work reduction was demonstrated by this bounded replay. Native screenshot
+latency remains unresolved; no runtime optimization is claimed by this result.
+
+Bounded Ubuntu direct-file references add evidence about the same actual USB.
+Sequential25616KiB writes peak at4.183ms. Two mixed references include64 cycles
+of256KiB create/fsync/rename/fresh-read/unlink/volume-sync work and complete main
+prefix readback. Their other-file syscall maxima are264.650/274.095ms, with3/2
+calls above100ms. The second reference's USB trace has11430 fully matched
+commands and zero dropped, pending or unmatched records. A512-byte metadata
+WRITE(10) spends274.030ms awaiting status completion. Its16KiB payload commands
+have at most19.523ms status waits. This proves long software-visible USB status
+waits under Linux too, while differing command sizes and schedules leave the
+native slow16KiB payload command cause open. Linux includes one larger metadata
+command. Native caps and policies are unchanged; physical-packet/media/controller
+timing is not established by either software trace.
+
+All three Ubuntu references exclusively create bounded scratch files, verify
+their exact direct readback and remove them. Before/after hashes match all832
+prior files. Fsck and complete allocation retain3910 clusters with zero leaks,
+FAT/bitmap mismatches or errors. USB is unmounted, Ubuntu remains default and
+no reboot is armed. Current3403/recoveryc354 and independent accepted/failed
+evidence remain protected. The temporary USB monitoring reader has exited.
+
+The new regression, original reserved-append proofs and actual backend failure
+cases, USB transport and xHCI host tests pass locally. Existing byte, ownership,
+proof, barrier and runtime limits remain. This tools/evidence change adds no
+kernel/userspace runtime behavior or new physical acceptance. Next performance
+work needs a demonstrated equivalent reduction in commit work before another
+native stress boot is justified.
