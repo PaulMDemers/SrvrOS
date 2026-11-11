@@ -98,8 +98,9 @@ static int stream_preflight(struct exfat_mount *m,const char *path,uint64_t payl
     if(!v->cluster_size || v->cluster_size>SRV_FILE_STREAM_CHUNK)return SRV_ERR_NOTSUP;
     if(!reserve_mutation(m,path,files,0))return SRV_ERR_NOMEM;
     uint64_t base;if(!cluster_offset(v,v->allocation_bitmap_cluster,&base))return SRV_ERR_IO;
-    uint8_t *bits=kmalloc(v->cluster_size);if(!bits)return SRV_ERR_NOMEM;
-    if(!volume_read(v,base,bits,v->cluster_size)){kfree(bits);return SRV_ERR_IO;}
+    uint64_t io_bytes=allocation_bitmap_io_bytes(v);if(!io_bytes)return SRV_ERR_IO;
+    uint8_t *bits=kmalloc(io_bytes);if(!bits)return SRV_ERR_NOMEM;
+    if(!volume_read(v,base,bits,io_bytes)){kfree(bits);return SRV_ERR_IO;}
     uint64_t max=allocation_bitmap_bytes(v)*8;if(max>v->cluster_count)max=v->cluster_count;
     uint64_t free=0;for(uint64_t i=0;i<max;i++)if(!bitmap_bit_is_set(bits,i))free++;
     kfree(bits);

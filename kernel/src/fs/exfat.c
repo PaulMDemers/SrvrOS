@@ -2229,6 +2229,23 @@ static uint64_t allocation_bitmap_bytes(const struct exfat_volume *volume) {
     return bytes;
 }
 
+/* Only declared bitmap bytes contain allocation bits. The writable layout
+ * already requires that bitmap to fit one cluster; slack is not ownership. */
+static uint64_t allocation_bitmap_io_bytes(const struct exfat_volume *volume) {
+    uint64_t bytes=allocation_bitmap_bytes(volume);
+    if(!bytes || bytes>volume->cluster_size)return 0;
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_BITMAP_CLUSTER_READS)
+    return volume->cluster_size; /* Original read/scratch work for comparison. */
+#else
+    uint64_t block=volume->device?volume->device->block_size:0;
+    /* One aligned request avoids splitting the final physical sector. Its
+     * padding stays outside the bit count and is never treated as ownership. */
+    if(block && block<=volume->cluster_size && !(volume->cluster_size%block))
+        bytes+=(block-bytes%block)%block;
+    return bytes;
+#endif
+}
+
 /* Only bitmap bytes covering changed bits are published. block_write retains
  * its partial-sector read/modify/write protection for neighbouring bits/sectors.
  * The owner still holds the same mutation, FAT ordering and flush boundaries. */
@@ -2250,14 +2267,16 @@ static bool allocate_contiguous_clusters_impl(struct exfat_volume *volume, uint6
         return false;
     }
 
-    uint8_t *bitmap = kmalloc(volume->cluster_size);
+    uint64_t io_bytes=allocation_bitmap_io_bytes(volume);
+    if(!io_bytes)return false;
+    uint8_t *bitmap = kmalloc(io_bytes);
     if (bitmap == NULL) {
         return false;
     }
 
     uint64_t bitmap_offset;
     if (!cluster_offset(volume, volume->allocation_bitmap_cluster, &bitmap_offset) ||
-        !volume_read(volume, bitmap_offset, bitmap, volume->cluster_size)) {
+        !volume_read(volume, bitmap_offset, bitmap, io_bytes)) {
         kfree(bitmap);
         return false;
     }
@@ -2336,9 +2355,11 @@ static bool allocate_fragmented_clusters_impl(struct exfat_volume *volume,
         return false;
     }
 
+    uint64_t io_bytes=allocation_bitmap_io_bytes(volume);
+    if(!io_bytes)return false;
     uint64_t cluster_array_bytes = count * sizeof(uint32_t);
     uint32_t *clusters = kmalloc(cluster_array_bytes);
-    uint8_t *bitmap = kmalloc(volume->cluster_size);
+    uint8_t *bitmap = kmalloc(io_bytes);
     if (clusters == NULL || bitmap == NULL) {
         if (clusters != NULL) {
             kfree(clusters);
@@ -2351,7 +2372,7 @@ static bool allocate_fragmented_clusters_impl(struct exfat_volume *volume,
 
     uint64_t bitmap_offset;
     if (!cluster_offset(volume, volume->allocation_bitmap_cluster, &bitmap_offset) ||
-        !volume_read(volume, bitmap_offset, bitmap, volume->cluster_size)) {
+        !volume_read(volume, bitmap_offset, bitmap, io_bytes)) {
         kfree(clusters);
         kfree(bitmap);
         return false;
@@ -2448,14 +2469,16 @@ static bool free_file_clusters_impl(struct exfat_file *file) {
     }
 
     struct exfat_volume *volume = file->volume;
-    uint8_t *bitmap = kmalloc(volume->cluster_size);
+    uint64_t io_bytes=allocation_bitmap_io_bytes(volume);
+    if(!io_bytes)return false;
+    uint8_t *bitmap = kmalloc(io_bytes);
     if (bitmap == NULL) {
         return false;
     }
 
     uint64_t bitmap_offset;
     if (!cluster_offset(volume, volume->allocation_bitmap_cluster, &bitmap_offset) ||
-        !volume_read(volume, bitmap_offset, bitmap, volume->cluster_size)) {
+        !volume_read(volume, bitmap_offset, bitmap, io_bytes)) {
         kfree(bitmap);
         return false;
     }
@@ -3405,14 +3428,16 @@ static bool check_mount(struct exfat_mount *mount, struct exfat_check_result *re
         return false;
     }
 
-    bitmap = kmalloc(volume->cluster_size);
+    uint64_t io_bytes=allocation_bitmap_io_bytes(volume);
+    if(!io_bytes){check_error(result,mount->mountpoint,"unsupported allocation bitmap size");ok=false;goto out;}
+    bitmap = kmalloc(io_bytes);
     seen = kcalloc(seen_bytes == 0 ? 1 : seen_bytes, 1);
     if (bitmap == NULL || seen == NULL) {
         check_error(result, mount->mountpoint, "out of memory");
         ok = false;
         goto out;
     }
-    if (!volume_read(volume, bitmap_offset, bitmap, volume->cluster_size)) {
+    if (!volume_read(volume, bitmap_offset, bitmap, io_bytes)) {
         check_error(result, mount->mountpoint, "could not read allocation bitmap");
         ok = false;
         goto out;
