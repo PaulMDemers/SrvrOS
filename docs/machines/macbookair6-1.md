@@ -12430,3 +12430,46 @@ retains separate metadata-import hunks, and PR301 `037510a8` has no exFAT hunk.
 Shared performance changes are in PR469. Installed c7, recovery c354, the859-file
 USB baseline and independent accepted backups remain unchanged. Native timing
 is the next acceptance step; host callback savings are not a native speed claim.
+
+## Native filesystem comparison preparation (2026-11-11)
+
+The user authorizes installing and automatically starting the merged PR469
+filesystem candidate. Integration base is `883f79bf`; only this unit record and
+local trial tooling change in this preparation. Rebuild matched images, verify
+the focused filesystem controls, run populated Home stress and the exact native
+stage in VMs, then install with recovery c354 retained and Ubuntu default.
+The native profile keeps the original 1800-second workload, three screenshots,
+app open/close cycles, 1% volume and all limits, allocation/byte proofs, durability
+barriers and ownership requirements. No input is required; progress and results
+are displayed/saved in the guest. Automatic collection must bind this release
+and new session before another trial.
+
+Compare screenshot wall/phase/cleanup, app lifecycle and storage observations
+with the accepted c7 session `session-00065ffc821878bb-00` (runtime `72567e32`):
+capture totals 8.049986/9.633137/17.522316 seconds, 1089 app cycles, 122325us
+maximum loop and zero recorded underruns. Different cold boots/interleavings
+make this an observational native comparison; the deterministic callback
+controls remain separate evidence. Current c7 and recovery c354 stay protected,
+with outside-build evidence and payload backups. EFI space may require retiring
+one verified, unreferenced historical duplicate; its complete independent copy
+must remain. No runtime change or sibling acceptance is part of this trial.
+
+Candidate `80b4e32ef314ae05`, built from clean `820eb85c`, passes the fresh
+stream-allocation, bitmap, FAT-window, actual filesystem/block-cache, stream
+service and documentation checks. Populated Home KVM at400 write IOPS passes
+all original contracts with complete saved app records, screenshot readback,
+224 bursts and zero recorded audio underruns at1%. Independent saved-record
+reviews and the exact-stage UEFI refusal/save/unmount/return also pass. The
+earlier244-target core run is retained with explicit production/default-host
+token equivalence through the host-only bitmap-control correction; no runtime
+code changes were added in this preparation.
+
+The candidate is installed with c354 retained, c7 still verified in EFI and
+independent candidate/current/recovery backups. All859 prior USB files verify;
+only the1% volume override expiry was renewed. Offline fsck, full allocation
+and unchanged headroom checks pass, as do Ubuntu default and unchanged firmware
+BootOrder/no BootNext. Only historical2dd's unreferenced EFI duplicate was
+retired after exact full-tree backup verification; its independent payload
+remains. Automatic matching-session collection is enabled. The local run record
+will record the one-shot arm immediately before the authorized reboot. Native
+results and screenshot performance acceptance remain pending that return.
