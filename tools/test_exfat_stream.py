@@ -8,7 +8,7 @@ import shutil
 import shlex
 import tempfile
 import subprocess
-from exfat_test_image import ExfatFixture
+from exfat_test_image import ExfatFixture, check_clean_image
 from test_storage_leases import empty_image
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -30,6 +30,7 @@ def run(size,mode):
     shutil.copyfile(seed,work)
     p=subprocess.run([str(driver),str(work),str(size),mode],capture_output=True,text=True,timeout=120)
     if p.returncode:raise RuntimeError(f'{size} {mode}: {p.stdout} {p.stderr}')
+    if "fault=" not in p.stdout:check_clean_image(work)
     print(p.stdout.strip(),flush=True)
     return p.stdout
 for size in (0,1,511,512,513,65535,65536,65537,16*1024*1024,24+65536+64*1024*1024):
