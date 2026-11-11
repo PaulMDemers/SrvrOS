@@ -12269,3 +12269,30 @@ is a complete-save reduction, not a claim every phase decreases. These are
 source callbacks rather than physical command counts or native speed evidence.
 Next checkpoint is frozen matched builds/core/VM validation, self-merge and
 an unchanged automated1800-second1% native stress with all prior receipts.
+
+
+Final freeze `72567e32` passes matched ordinary/native/VM kernels and userspace,
+all240 default core targets, desktop and docs checks. The89-case installation
+set has its existing single default-off exhaustive host-I/O matrix skip; no new
+skip is introduced. Metadata-tail comparison now has114 actual fault cuts and63
+matched inherited incomplete repairs; omitted invalid FAT writes account for
+removed cut points, not a general recovery improvement. Both append controls
+retain131 cuts and81 known incomplete repairs. All validators remain strict.
+
+Ordinary ABI/input/thread/USB/capture VMs pass. The populated400writeIOPS KVM
+trial passes all16 original contracts and the required append-wait companion,
+with complete saved app timing,22 app cycles,141368us maximum loop,1260211us
+launch and1357945us close. Six queued waits become ready under a live borrow.
+The ordinary gate's exact completed-content match count is zero in this VM;
+unavailable contexts remain explicit, not fabricated positive attribution.
+The deterministic whole-save controls establish reduced source work; VM wall
+time is not native performance acceptance.
+
+Stage `c7d2293b66b7999b` passes exact board refusal, save, unmount and automatic
+return. The next native test retains1800-second1% PCM/disk/app stress, three exact
+screenshots,60-second tail, all timing/proof/retirement contracts and850-file
+preservation plus fsck/full allocation. Native performance remains pending.
+Actual integration base remains main `ae869c9b`; PR301 `25e6219c` has no storage
+hunk and PR19 `3da01075` retains distinct metadata-import/scheduler-test hunks.
+Actions remain disabled. Currentbcd, recoveryc354, priorc95f/3403/a139 and all
+independent historical payload/evidence backups remain protected.
