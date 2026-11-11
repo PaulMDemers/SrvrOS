@@ -12001,3 +12001,19 @@ PR19 at4e0ee3e4 retain separate graphics/network scope. No other-machine task is
 contacted. Current3403/recoveryc354 and original failed media stay protected.
 Next checkpoint is a measured equivalent reduction in the complete populated
 save, with baseline/candidate logical media and failure comparisons.
+
+The first [metadata-padding candidate](../exfat-metadata-tail.md) supplies an
+explicit internal-metadata flag to the existing data writer. It writes every
+serialized byte plus zeroed final-sector padding, preserving the allocation,
+exact logical/valid lengths, publication and all barriers. Ordinary payloads
+and directory initialization retain complete-cluster behavior. Existing byte,
+ownership, proof and runtime limits remain required.
+
+The full populated development replay now has832 initial files, persisted
+timestamps, poisoned free space and time advances across all65 foreign barriers.
+All65 screenshot-size writes, prior files, both full fresh proofs and complete
+allocation pass. The candidate saves2770944 metadata-write bytes in unreserved/
+reserved-sequential controls and1700352 bytes with controlled reserved overlap.
+Logical files and all prefix/read/write-count/flush work match baseline. This
+demonstrates a source-byte reduction; frozen build/core/VM integration and a new
+native performance observation remain pending.
