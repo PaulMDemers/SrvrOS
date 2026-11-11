@@ -130,6 +130,7 @@ static bool gpu_retired(const struct intel_hda_gpu *s,bool complete) {
  if(!g || g->pinned || g->borrows || g->dependents)return false;
  if(!gpu_empty(g) && (g->object!=g || g->state!=GT_ACCESS_CLOSED))return false;
  if(c && (c->object!=c || c->state!=IIC_CLOSED || c->pinned || c->reason ||
+    c->dependent || c->registered || c->borrows!=c->returns ||
     !c->opening.complete || !c->closing.complete || !c->opening.bound || !c->closing.bound))return false;
  return !complete || (c && s->attachments==1 && g->object==g && g->state==GT_ACCESS_CLOSED);
 }

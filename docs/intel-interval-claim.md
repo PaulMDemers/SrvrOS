@@ -13,8 +13,12 @@ The [complete transfer core](scanout-transfer.md) rejects its data manifest
 before invoking a provider or creating an arena. Only the distinct
 [joint HDA/GPU image](intel-hda-gpu.md) links the claim core. Legacy images keep
 their ordinary zero-dependent child path.
-The new child-return bookkeeping is host/VM qualified separately from accepted
-native source`f2a6c116`.
+The original claim now has native joint-lifetime acceptance in source `e81caf7f`,
+release `978d9be94b96243a`, session `session-00065ff636174005-00`.
+Preparation completed in 91,213/100,000 µs with both original-entry observations,
+HDA inhibition maintained until GPU retirement and all aliases retired.
+The registered consumer and page planner described below are subsequent software
+work, with no new native caller or hardware acceptance.
 
 ## Original source and terminal proof
 
@@ -57,6 +61,50 @@ All objects and callback context must survive retained faults until reboot.
 These are CPU0 serialized trusted-kernel contracts, not an SMP lock or protection
 against arbitrary kernel writes to their public storage.
 
+## Registered interval consumer
+
+`intel_interval_borrow_open` registers one original, zero-initialized consumer
+before the first source callback. Its pointer, independent original registration,
+epoch, sequence and borrow/return counts must continue to agree. Only one consumer
+may be active; a distinct object can borrow after a clean return. Returned
+objects and exhausted counters refuse reuse. Consumer storage cannot overlap
+the claim or its parent graph.
+
+Checks and return use the claim's original source guard and both original clock
+origins. They do not open another GT borrow or restart a deadline. Callback
+reentry refuses without touching either owner. A copied consumer cannot return
+or fault the original. A registered original that loses its source latches a
+fault; restoring its pointer later cannot authorize a retry. Failure retains
+the consumer and parent pin. Caller storage/context must remain alive.
+
+Claim close refuses before callbacks while a consumer or unmatched count exists.
+Joint HDA/GPU retirement independently checks the consumer pointers and counts;
+even a falsely closed claim cannot authorize early HDA restoration. A successful
+consumer return removes only that registration. Claim close must still perform
+its own exact original-entry observation before the re-arm child can return.
+
+`intel_interval_borrow_manifest` exposes captured data with assurances 0 and
+obligations 255. `intel_interval_borrow_page` also calculates one conservative
+Broadwell entry through `intel_bdw_ggtt_page_plan`: a nonzero aligned physical
+address below 4 GiB, the present bit only, a 64-bit exact original, a byte GPU
+address and modification-aperture offset. It rejects a page intersecting the
+protected fence or falling outside the aperture. The planner leaves output
+unchanged on refusal and has no hardware callback. The borrow wrapper prevents
+output from overwriting its lifetime graph.
+
+This is a plan for a future owned transaction, not an ownership receipt.
+Planning does not establish that the supplied physical page is allocated,
+pinned, DMA-addressable or cache coherent. Data access takes no fresh time
+sample; an actual provider must check its original live source at each operation
+and establish all transfer/completion prerequisites before any PTE write.
+
+The encoding follows [Broadwell PRM Volume 5 (Memory Views)](https://cdrdv2.intel.com/v1/dl/getcontent/690798), printed pages 7 and
+44–45, and pinned
+[Linux v6.12 `gen8_ggtt_pte_encode`](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_ggtt.c).
+No high-address encoding, cache-policy bit or translation invalidation sequence
+is inferred from the low-address codec. In particular, a zero read from the
+write-only GFX_FLSH_CNTL register cannot witness completion.
+
 ## Hardware transfer remains a separate boundary
 
 The manifest contains the exact captured original, but always supplies
@@ -89,6 +137,13 @@ changed entries, expired original preparation/owner budgets, copied/rebound
 owners, reentry, mutable caller data, lost registration, unfinished claims,
 repeated close/reuse and early transfer refusal. Existing re-arm tests exercise
 the zero-dependent path. Deliberate retained-fault cases use fresh processes.
+The registered-consumer matrix covers two successive borrowers, every consumer
+clock/guard position, lost/rebound pointers, parent/epoch/sequence changes,
+reentry, overflow, retained faults and output aliasing. The joint core tests
+clean consumer return, a live consumer and an orphan after a forged claim close.
+`make test-intel-bdw-ggtt` exhausts all 1,048,575 supported physical page
+encodings below 4 GiB and checks original high bits, invalid addresses, protected
+fence and aperture limits.
 
 Do not schedule a redundant hardware trial solely to rerun this software
 contract. The joint native operation uses a separate exact image/recipe, actual
@@ -97,7 +152,7 @@ checkpoint, strict raw collector, unchanged bounds and useful physical exit
 criteria under the [Ubuntu workflow](ubuntu-device-agent-setup.md).
 
 
-## Software-qualified checkpoint
+## Historical software-qualified checkpoint
 
 Source`5466bdd3` builds on main`72d49457`, integrated as`2c5f1df1`. The integrated
 baseline passed the full local build/check-host/test-core/check-docs gate with
@@ -126,7 +181,7 @@ their original native evidence remain unchanged; no reboot is armed. The
 [Air checkpoint](machines/macbookair7-2.md) and independent SHA-verified backup
 record the qualified source, all nonpass receipts and remaining hardware gates.
 
-## Next native scope: maintain display-audio inhibition through the claim
+## Joined native scope: maintain display-audio inhibition through the claim
 
 The existing [display-HDA owner](intel-display-hda-lease.md) and GPU preparation
 were accepted separately. The current GPU lifetime preserves HDA command6,
@@ -154,7 +209,7 @@ return automatically. No audio or human input is needed for that diagnostic.
 The [joint lifetime core](intel-hda-gpu.md) now implements the software
 composition with registered HDA dependents, fresh endpoint checks and the
 original clocks. Its distinct native adapter/image/recipe/collector are
-implemented; physical acceptance remains pending. HDA bus-master
+implemented and the joint timing trial above is physically accepted. HDA bus-master
 inhibition and non-posted completion still do not establish posted/prefetch,
 GPU pipeline/cache/TLB, firmware, FBC/PSR/other-reader retirement or GPU interval
 transfer. All255 obligations remain open until their actual witnesses exist.

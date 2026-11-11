@@ -2,8 +2,10 @@
 #define SRVROS_INTEL_INTERVAL_CLAIM_H
 #include <srvros/intel_engine_rehold.h>
 #include <srvros/intel_held_interval.h>
+#include <srvros/intel_bdw_ggtt.h>
 enum intel_interval_claim_state {IIC_EMPTY,IIC_OPENING,IIC_ACTIVE,IIC_CLOSING,IIC_CLOSED,IIC_FAULT};
 enum intel_interval_claim_reason {IIC_INPUT=1,IIC_SOURCE=2,IIC_CLOCK=4,IIC_GUARD=8,IIC_READ=16,IIC_CHANGED=32,IIC_CHILD=64};
+struct intel_interval_borrow;
 /* Read-only source claim, NOT a transferred/address-allocatable GPU interval.
  * Static/heap, zero-init and one-use. Context survives retained faults. */
 struct intel_interval_claim {
@@ -17,7 +19,18 @@ struct intel_interval_claim {
  struct intel_held_interval_result opening,closing;
  uint64_t expected,origin_us,owner_origin_us,begin_us,last_us,end_us,clock_at,clock_prev;
  uint32_t epoch,state,reason;
+ struct intel_interval_borrow *dependent;
+ const struct intel_interval_borrow *registered;
+ uint32_t borrows,returns;
  bool busy,pinned;
+};
+/* One active registered consumer of the original claim. Storage remains alive
+ * through return or a retained fault. A returned object cannot be reused. */
+struct intel_interval_borrow {
+ const struct intel_interval_borrow *object;
+ struct intel_interval_claim *claim;
+ uint32_t epoch,sequence;
+ bool active,busy,fault;
 };
 /* Pins the original live re-arm child before the first observer callback.
  * Captures existing exact one-page candidate, never a free/usable address.
@@ -28,6 +41,14 @@ bool intel_interval_claim_check(struct intel_interval_claim *);
 /* Data only: assurances0 and obligations255, so scanout_transfer_open refuses.
  * No callback or new clock sample; this does not authorize target accesses. */
 bool intel_interval_claim_manifest(const struct intel_interval_claim *,struct scanout_transfer_manifest *);
+bool intel_interval_borrow_open(struct intel_interval_claim *,struct intel_interval_borrow *);
+bool intel_interval_borrow_check(struct intel_interval_borrow *);
+bool intel_interval_borrow_manifest(const struct intel_interval_borrow *,struct scanout_transfer_manifest *);
+/* Captured data for a future owned transaction. No fresh clock or RAM
+ * ownership is established by planning a replacement entry. */
+bool intel_interval_borrow_page(const struct intel_interval_borrow *,uint64_t physical,
+                               struct intel_bdw_ggtt_page *);
+bool intel_interval_borrow_return(struct intel_interval_borrow *);
 /* Fresh source/clock/guard and exact original-state proof precede child unpin.
  * Lost source, clock or observation latches FAULT and retains the dependent.
  * No retry, forced cleanup, PTE write, new GT borrow or deadline extension. */

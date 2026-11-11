@@ -7,11 +7,15 @@ Updated: 2026-11-10. State: **active reference machine; partial device acceptanc
 The device branch has integrated main `83c955fd`, which adds Air6,1
 capture-attribution evidence. Air7,2 work now covers a registered borrower
 on the accepted original interval claim and a conservative Broadwell 4 KiB
-PTE codec for private pages below 4 GiB. Claim closure must wait for its
-borrower, including after a lost pointer or mismatched count. The original
-source and parent deadlines apply. The next checkpoint will qualify these
-contracts against the real held-reset and joint HDA/GPU cores, then record
-the remaining native ownership and completion requirements.
+PTE codec for private pages below 4 GiB. Claim closure and HDA restoration must
+wait for the borrower, including after a lost pointer or mismatched count.
+The original source and parent deadlines apply. Directed real-core tests pass
+consumer clock/guard failure prefixes, callback parent mutation, reentry and
+two successive consumers; the HDA/GPU matrix passes 7,735 cases. The codec
+exhausts 1,048,575 supported page encodings, with exact originals and fence/
+aperture refusal. Full-source, sanitizer, image and VM qualification follows.
+No native consumer, PTE store, interval transfer or positive assurance is added;
+the accepted installed payload and recovery remain unchanged.
 PR462 screenshot work, PR19 networking and PR379 WebCore are independent.
 
 ### Native joint timing accepted

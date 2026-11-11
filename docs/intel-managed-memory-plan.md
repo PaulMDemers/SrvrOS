@@ -83,6 +83,15 @@ close. Copies, lost registration and failed source/clock/read/close retain the
 pin. Its data remains assurances0/obligations255; transfer refuses before arena
 or provider I/O. This does not complete milestone1 or enable a native writer.
 
+The joined HDA/GPU claim now passes on Air7,2 source `e81caf7f`, release
+`978d9be94b96243a`, session `session-00065ff636174005-00`. Preparation takes
+91,213/100,000 µs, with both original-entry observations and clean GPU/HDA
+retirement. The subsequent software consumer registers on that exact claim,
+blocks early closure and supplies a pure low-address, one-page Broadwell entry
+plan. Neither a registered consumer nor a calculated entry supplies the missing
+interval transfer, RAM/DMA/cache admission or hardware completion witnesses.
+Keep these prerequisites distinct from the first native mapping milestone.
+
 ## Ordered implementation milestones
 
 | Milestone | Required implementation and reviewable exit evidence |

@@ -103,6 +103,12 @@ static bool jclaim_observe(void *ctx,struct intel_engine_rehold *r) {
  assert(!intel_hda_gpu_attach(&m->scope,&c->claim));
  c->io=(struct intel_held_interval_io){m,jclaim_guard,cread,jnow};
  if(!intel_interval_claim_open(&c->claim,&c->base.child,&c->base.base.snapshot,c->io))return false;
+ if(jmode(m,"borrow") && !exercise_borrow(c))return false;
+ if(jmode(m,"borrow-live")) {
+  assert(intel_interval_borrow_open(&c->claim,&c->borrow));
+  assert(!intel_interval_claim_close(&c->claim));
+  return true;
+ }
  if(jmode(m,"claim-live"))return true;
  if(!intel_interval_claim_check(&c->claim) || !intel_interval_claim_close(&c->claim))return false;
  return intel_engine_rehold_return(&c->base.child);
@@ -162,10 +168,15 @@ int main(int argc,char **argv) {
    rm->io=(struct intel_engine_rehold_io){&m,rguard,rsample,rcontrol,rtransition,jclaim_observe,jnow,rpause};
    if(gpu_ok)gpu_ok=intel_engine_prepare_with_bcs_reset(&preparation,&g,&pre,true,io,(struct intel_engine_prepare_action){&m,hraction},&reset,resetio);
    if(gpu_ok)gpu_ok=intel_gt_access_close(&g);
+   if(gpu_ok && jmode(&m,"borrow-orphan")) {
+    cm->claim.dependent=&cm->borrow;cm->claim.registered=&cm->borrow;
+    cm->claim.borrows=1;cm->claim.returns=0;
+    cm->borrow=(struct intel_interval_borrow){.object=&cm->borrow,.claim=&cm->claim,.active=true};
+   }
    complete=intel_hda_gpu_close(&m.scope,gpu_ok);
   }
  }
- bool positive=jmode(&m,"normal") || jmode(&m,"reentry");assert((m.scope.complete && complete)==positive);
+ bool positive=jmode(&m,"normal") || jmode(&m,"reentry") || jmode(&m,"borrow");assert((m.scope.complete && complete)==positive);
  if(positive || jmode(&m,"clean-refusal")) {
   assert(m.scope.state==IHG_CLOSED && !m.scope.pinned && !m.scope.retained && !m.mapped && m.command==6 && m.stores==2 && m.retire_calls==1);
   assert(m.reads==232 && m.borrows==m.returns && m.inspects==4);

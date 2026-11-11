@@ -38,6 +38,15 @@ preservation. It closes no memory/completion obligation. The new
 dependent and owns opening/closing original-entry observations. Its software
 lifetime and refusal path supply no native address transfer or positive assurance.
 
+The joined claim now passes on Air7,2 source `e81caf7f`, release
+`978d9be94b96243a`, session `session-00065ff636174005-00`: preparation
+91,213/100,000 µs, HDA command phases 6/2/2/6, both original-entry observations
+and clean alias/owner retirement. The next software layer registers an interval
+consumer before callbacks and blocks early claim/HDA closure. Its conservative
+one-page Broadwell codec calculates an entry for a private physical address
+below 4 GiB; it performs no store or transfer. Actual interval ownership and
+mapping visibility/completion remain the next native boundary.
+
 The separate [complete transfer core](scanout-transfer.md), source`68489058`,
 now supplies4,096-entry owned manifests and joined child drain/retirement with
 host fault/sanitizer qualification. It preserves the legacy native16-entry
