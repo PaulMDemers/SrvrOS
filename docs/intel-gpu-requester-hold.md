@@ -135,3 +135,20 @@ and physical media/recovery preflight pass. It keeps integration `3703eaea`;
 fetched scheduler/append-wait main `d4580da3` is explicitly deferred until the
 bounded retry is collected. The prior shutdown observation cannot authorize this
 new lifetime. Native entry, restoration and complete retirement remain pending.
+
+### Retry result: same enabled-BCS admission refusal
+
+Release `78be06917358b54f`, source `ed4b63d1`, session
+`session-00065ffb07032ce8-00` again refuses before preparation: the joint-owner
+profile observes enabled BCS16/geometry15. The prior standalone shutdown profile
+observed disabled zero geometry. This comparison establishes an entry-state
+difference, not its cause. No GPU Command store or requester consumer entry
+occurs. Native checkpoint/version attribution now validates; the saved result
+remains incomplete. HDA/borrow/mapping/CPU retirement, prior-file/log integrity,
+offline filesystem and Ubuntu recovery checks pass.
+
+Stop unchanged retries. The next diagnostic must isolate HDA/GT/BCS entry under
+the original joint owner and qualify the exact enabled shutdown protocol in that
+context with distinct receipts. Do not promote another boot's observation, clear
+ring start/backing, relax zero-geometry reset admission or extend deadlines.
+All memory/completion authority remains absent.

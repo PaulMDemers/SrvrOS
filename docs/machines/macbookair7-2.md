@@ -2,7 +2,38 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Qualified retry: maintained GPU requester hold
+### Latest requester retry: repeated enabled-BCS refusal
+
+Source `ed4b63d1` (production code `3028016d`), release `78be06917358b54f`,
+session `session-00065ffb07032ce8-00` saved matching logs and returned safely.
+Native prerequisite/checkpoint and exact boot options validate without the
+former version-binding error. The earlier takeover observer again saw BCS
+enabled mask16 and geometry15, so preparation, reset/re-arm, interval claim and
+GPU requester hold never entered. GPU Command attempts/stores remain zero;
+`completed=NO` and collector attention21 correctly retain incomplete status.
+
+The preceding standalone shutdown profile saw disabled zero-geometry entry;
+this joint-owner profile saw enabled inherited geometry again. The observations
+do not prove what causes the difference. Do not repeat unchanged retries or
+remove admission checks. Next integrate deferred main `d4580da3`, then isolate
+entry within the original HDA/GT owner and qualify the existing enabled-BCS
+shutdown protocol in that same context under a separate recipe/result. Capture
+the raw entry before/after the relevant handoff stages. No reset, ring-start
+clearing, backing release, reuse of a standalone-boot receipt or wider deadline
+is justified by these results.
+
+HDA restores and all four inspection borrows return, all 14 GPU aliases and the
+HDA root alias retire, and CPU exclusion releases. Outer lifetime156,328 µs and
+HDA lifetime105,719 µs have no clock fault. All1,464 prior files preserve except
+expected metadata; three new hash-verified logs yield1,467files/145sessions.
+Offline fsck/allocation/writable/headroom, installed/durable banks, Ubuntu default
+and consumed one-shot pass. USB unmounted, no reboot armed. Current78be,
+accepted shutdown d260, accepted joint978, recovery9aa8 and known-good GUI remain.
+Raw logs and strict result are independently banked outside build; local proof:
+`build/air-gpu-requester-retry-20261111/returned/return-proof.json`.
+Native requester acceptance, managed mapping and all255 obligations remain open.
+
+### Earlier qualification: maintained GPU requester hold retry
 
 Exact staged release `78be06917358b54f`, source `ed4b63d1`, passes current
 requester/core/claim fatal sanitizer matrices, all five compiled negative controls,
