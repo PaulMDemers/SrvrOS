@@ -2,7 +2,29 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Active trial: maintained GPU requester hold retry
+### Qualified retry: maintained GPU requester hold
+
+Exact staged release `78be06917358b54f`, source `ed4b63d1`, passes current
+requester/core/claim fatal sanitizer matrices, all five compiled negative controls,
+26-image native isolation, six 2 KiB frame checks, exact Command-halfword/fresh-
+DWORD/final-clock instruction checks and unchanged log bounds. Production code
+and all 26 ELF hashes match validated source `3028016d`; only Markdown differs,
+so its full baseline and affected-source gates are retained without claiming a
+new global test run. Exact-stage QEMU passes zero-store unsupported refusal,
+saved matching checkpoint/results/bytes, clean unmount and automatic return;
+missing workspace halts. The USB's 1,464 prior files/144 sessions, offline
+filesystem and current/recovery banks pass. An unreferenced incomplete requester
+EFI copy was retired only after exact independent-bank equality; its evidence and
+payload remain. Candidate and receipts are banked outside build before install.
+
+This unattended retry uses the existing reboot authorization, volume1%, Ubuntu
+default and recovery9aa8dbf6fbda8252. The on-disk run record owns installed and
+one-shot state. It must capture a fresh original disabled entry and joint claim,
+Command7/3/7, bounded AF clear, consumer return and complete preservation. Enabled
+entry still refuses. No native requester or mapping acceptance is claimed by
+software/VM qualification; deadlines and all255 completion obligations remain.
+
+### Retry scope and integration baseline
 
 Prepare a fresh `intel-gpu-hold` image from the validated `3703eaea` integration
 baseline, with source-equivalent qualification at `3028016d`; subsequent local

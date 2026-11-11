@@ -124,3 +124,14 @@ an unrelated native check cannot hide a missing image binding. Replaying the
 first refused Air7,2 session now verifies the native prerequisite checkpoint,
 while the requester result remains incomplete because the hardware admission
 never entered. The original collection is preserved independently.
+
+### Current-baseline physical retry
+
+Release `78be06917358b54f`, source `ed4b63d1`, retries the requester operation
+with production code and all 26 ELF hashes unchanged from qualified `3028016d`.
+Fresh requester/adapter/claim sanitizer matrices, five compiled controls, native
+instruction/isolation/frame and log-budget checks, exact-image QEMU persistence
+and physical media/recovery preflight pass. It keeps integration `3703eaea`;
+fetched scheduler/append-wait main `d4580da3` is explicitly deferred until the
+bounded retry is collected. The prior shutdown observation cannot authorize this
+new lifetime. Native entry, restoration and complete retirement remain pending.
