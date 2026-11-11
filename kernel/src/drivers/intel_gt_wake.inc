@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_JOINT_ADMIT) && (!defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_GPU_HOLD) || defined(SRVROS_INTEL_HDA_SHUTDOWN))
+#error "Joint admission is a separate original-owner read-only child composition"
+#endif
 #if defined(SRVROS_INTEL_HDA_SHUTDOWN) && (!defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_COMPLETION_TRIAL))
 #error "HDA BCS shutdown is a distinct shutdown image without claim/reset"
 #endif
@@ -46,6 +49,8 @@
 extern volatile struct limine_firmware_type_request intel_hda_shutdown_firmware_request;
 #elif defined(SRVROS_INTEL_GPU_HOLD)
 extern volatile struct limine_firmware_type_request intel_gpu_hold_firmware_request;
+#elif defined(SRVROS_INTEL_JOINT_ADMIT)
+extern volatile struct limine_firmware_type_request intel_joint_admit_firmware_request;
 #elif defined(SRVROS_INTEL_JOINT)
 extern volatile struct limine_firmware_type_request intel_joint_firmware_request;
 #elif defined(SRVROS_INTEL_REHOLD)
@@ -89,6 +94,8 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #define WAKE_MAPS 14u
 #ifdef SRVROS_INTEL_GPU_HOLD
 #define WAKE_VERSION 21u
+#elif defined(SRVROS_INTEL_JOINT_ADMIT)
+#define WAKE_VERSION 23u
 #elif defined(SRVROS_INTEL_JOINT)
 #define WAKE_VERSION 20u
 #elif defined(SRVROS_INTEL_REHOLD)
@@ -425,6 +432,9 @@ static bool shutdown_store_source(struct wake_adapter *,struct intel_gt_access *
 #include "intel_shutdown_trial.inc"
 #endif
 #endif
+#ifdef SRVROS_INTEL_JOINT_ADMIT
+#include "intel_entry_admit_trial.inc"
+#endif
 static bool wake_fw_quiet(const struct intel_fw_result *r) {
     if(r->status!=IFW_OBSERVED || r->endpoint.swsci!=0x8000 || r->sample[0].words[5]!=0x02000000 || r->sample[0].words[6]!=31)return false;
     for(unsigned n=0;n<2;n++)for(unsigned i=7;i<INTEL_FW_WORDS;i++)if(r->sample[n].words[i])return false;
@@ -441,6 +451,8 @@ bool intel_gt_wake_probe_report(void) {
     const struct limine_firmware_type_response *firmware=intel_hda_shutdown_firmware_request.response;
 #elif defined(SRVROS_INTEL_GPU_HOLD)
     const struct limine_firmware_type_response *firmware=intel_gpu_hold_firmware_request.response;
+#elif defined(SRVROS_INTEL_JOINT_ADMIT)
+    const struct limine_firmware_type_response *firmware=intel_joint_admit_firmware_request.response;
 #elif defined(SRVROS_INTEL_JOINT)
     const struct limine_firmware_type_response *firmware=intel_joint_firmware_request.response;
 #elif defined(SRVROS_INTEL_REHOLD)
@@ -483,6 +495,8 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_PREPARE_RESET
 #ifdef SRVROS_INTEL_GPU_HOLD
     f.recipe=cmd && !cmd->revision && intel_gt_boot_gpu_hold_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_JOINT_ADMIT)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_joint_admit_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_JOINT)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_joint_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_REHOLD)
@@ -621,7 +635,11 @@ bool intel_gt_wake_probe_report(void) {
                 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
                 if(checked)(void)intel_completion_observe(&completion,&owner,(struct intel_completion_io){&a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE});
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
-                if(completion.complete)(void)intel_takeover_observe(&takeover,&owner,&completion,(struct intel_takeover_io){&a,engine_guard,takeover_sample,now});
+                if(completion.complete
+#ifdef SRVROS_INTEL_JOINT_ADMIT
+                   && entry_run(&a,&owner,&completion,grants==7 && f.recipe)
+#endif
+                  )(void)intel_takeover_observe(&takeover,&owner,&completion,(struct intel_takeover_io){&a,engine_guard,takeover_sample,now});
                 if(takeover.borrow.active)a.uncertain=true;
 #ifdef SRVROS_INTEL_REQUESTER_AUDIT
                 if(takeover.complete)(void)intel_pci_requester_observe(&requester,&owner,&takeover,(struct intel_pci_requester_io){&a,engine_guard,requester_sample,now});
@@ -714,6 +732,10 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     engine_reads=completion.reads;completion_report(&completion);
+#ifdef SRVROS_INTEL_JOINT_ADMIT
+    entry_report();engine_reads+=entry.result.bcs.reads;
+    complete=complete && entry.result.complete;
+#endif
     complete=complete && completion.complete;
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
     takeover_report(&takeover,&completion);engine_reads+=takeover.reads;

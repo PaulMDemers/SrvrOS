@@ -679,6 +679,13 @@ def main():
                                 take=takeover_result(stored.read(folder+"/exit.log").decode())
                                 assert take and not take['observation_complete'] and not take['summary']['attempts']
                                 (logs/'intel-takeover-result.json').write_text(json.dumps(take,indent=2)+"\n")
+                            if 'srvros.intel-admission=disabled-bcs-v1' in text:
+                                from intel_entry_admission import entry_result,verify_entry_checkpoint
+                                final=stored.read(folder+"/exit.log").decode()
+                                entry=entry_result(final)
+                                assert entry and not entry['complete'] and not entry['summary']['borrowed']
+                                verify_entry_checkpoint(stored.read(folder+"/session-a.log").decode(),final)
+                                (logs/'intel-entry-result.json').write_text(json.dumps(entry,indent=2)+"\n")
                             if 'srvros.intel-hda-bcs=joint-owner-v1' in text:
                                 from intel_hda_shutdown import paired_result,verify_paired_checkpoint
                                 final=stored.read(folder+"/exit.log").decode()

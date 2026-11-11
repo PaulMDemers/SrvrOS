@@ -6000,3 +6000,33 @@ test-exfat-nofat: build/tests/exfat-nofat-host$(HOST_EXE)
 build/tests/exfat-nofat-host$(HOST_EXE): tools/test_exfat_nofat.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+# Same original owner: zero-store BCS child before existing reset admission.
+INTEL_JOINT_ADMIT_FLAGS := $(INTEL_JOINT_FLAGS) -DSRVROS_INTEL_JOINT_ADMIT
+build/intel-joint-admit/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_JOINT_ADMIT_FLAGS) -c $< -o $@
+build/intel-joint-admit/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_JOINT_ADMIT_FLAGS) -c $< -o $@
+build/intel-joint-admit/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_JOINT_ADMIT_FLAGS) -c $< -o $@
+build/intel-joint-admit/entry.o: kernel/diagnostics/intel_entry_admit.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-joint-admit/srvros.elf: build/intel-joint-admit/main.o build/intel-joint-admit/probe.o build/intel-joint-admit/requests.o build/intel-joint-admit/entry.o build/intel-joint/page.o build/intel-joint/claim.o build/intel-joint/joint.o build/intel-joint/rehold.o build/intel-joint/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+INTEL_JOINT_ADMIT_HOST_SOURCES := kernel/diagnostics/intel_entry_admit.c kernel/src/drivers/intel_blitter.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_rehold.c kernel/diagnostics/package_audit_core.c kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_interval_claim.c kernel/diagnostics/intel_hda_gpu.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c
+build/tests/intel-joint-admit-adapter$(HOST_EXE): tools/test_intel_joint_admit_adapter.c tools/test_intel_joint_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_JOINT_ADMIT_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_JOINT_ADMIT -DSRVROS_INTEL_JOINT -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_JOINT_ADMIT_HOST_SOURCES) -o $@
+
+.PHONY: test-intel-joint-admit
+test-core: test-intel-joint-admit
+build/tests/boot-joint-admit$(HOST_EXE): tools/test_boot_rehold.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(INTEL_JOINT_ADMIT_FLAGS) -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+test-intel-joint-admit: build/tests/intel-joint-admit-adapter$(HOST_EXE) build/tests/boot-joint-admit$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_entry_admission.py
+	build/tests/boot-joint-admit$(HOST_EXE)

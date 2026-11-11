@@ -16,14 +16,15 @@ srvros.intel-held-requester=read-only srvros.intel-bcs-reset=held-blitter-only
 srvros.intel-interval=read-only srvros.intel-rehold=request-cancel srvros.intel-joint=hda-claim'''.split()
 
 
-def joint_recipe(cmd, *, requester_hold=False):
+def joint_recipe(cmd, *, requester_hold=False,entry_admit=False):
     if not isinstance(cmd, str) or len(cmd) > 2048 or any(c.isspace() and c != ' ' for c in cmd):
         raise ValueError('joint recipe encoding')
     tokens = cmd.split()
-    expected=22 if requester_hold else 21
+    if requester_hold and entry_admit:raise ValueError('conflicting joint consumers')
+    expected=22 if requester_hold or entry_admit else 21
     if len(tokens) != expected or len(set(tokens)) != expected or len(cmd) + len(tokens) > 2048:
         raise ValueError('joint exact21 recipe')
-    extras = set(tokens) - (set(RECIPE) | ({"srvros.intel-gpu-requester=hold"} if requester_hold else set()))
+    extras = set(tokens) - (set(RECIPE) | ({"srvros.intel-gpu-requester=hold"} if requester_hold else {"srvros.intel-admission=disabled-bcs-v1"} if entry_admit else set()))
     volume = [t for t in extras if re.fullmatch(r'srvros.workspace-volume=[0-9a-f]{8}', t)]
     release = [t for t in extras if re.fullmatch(r'srvros.desktop-release=[0-9a-f]{16}', t)]
     if len(extras) != 2 or len(volume) != 1 or len(release) != 1:
@@ -204,7 +205,7 @@ def joint_result(text):
     from intel_gt_wake import wake_result
     from intel_held_interval import interval_capture
     wake = wake_result(text); held = rehold_result(text); claim = claim_capture(text)
-    if not wake or wake['summary']['v'] not in (20,21) or not held: raise ValueError('joint image/source graph')
+    if not wake or wake['summary']['v'] not in (20,21,23) or not held: raise ValueError('joint image/source graph')
     s = r['summary']; w = wake['summary']; h = held['summary']; c = claim['summary']; opening = interval_capture(text)
     if not opening: raise ValueError('joint opening coverage')
     if not text.index('intel-joint-summary:')<text.index('intel-completion-summary:') or not text.index('intel-held-interval-summary:')<text.index('intel-claim-summary:')<text.index('intel-prepare-summary:'):
@@ -247,7 +248,15 @@ def joint_result(text):
                 raise ValueError('joint phase-correct GPU HDA preservation')
         if not s['end'] <= w['end_us']:
             raise ValueError('joint report/outer completion order')
-    return dict(r, complete=complete, claim=claim, held=held, wake=wake)
+    entry=None
+    if w['v']==23:
+        from intel_entry_admission import entry_capture
+        entry=entry_capture(text)
+        if not entry:raise ValueError('joint admission missing child')
+        if s['complete'] and not entry['complete']:raise ValueError('joint admission false completion')
+        complete=complete and entry['complete']
+    elif 'intel-compose-entry-' in text:raise ValueError('entry receipt on legacy joint image')
+    return dict(r, complete=complete, claim=claim, held=held, wake=wake,entry=entry)
 
 
 def native_hda_context(text):
@@ -278,5 +287,5 @@ def verify_joint_checkpoint(pre, text, native=False):
     if any(len(b) != 1 for b in boots) or boots[0] != boots[1]:
         raise ValueError('joint checkpoint boot provenance')
     from intel_gt_wake import wake_result
-    joint_recipe(boots[0][0],requester_hold=wake_result(text)['summary']['v']==21)
+    joint_recipe(boots[0][0],requester_hold=wake_result(text)['summary']['v']==21,entry_admit=wake_result(text)['summary']['v']==23)
     return True

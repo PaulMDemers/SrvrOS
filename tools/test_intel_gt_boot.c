@@ -4,6 +4,7 @@
 #include <string.h>
 static const char recipe[]="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot";
 int main(int argc,char **argv) {
+ if(argc==3 && !strcmp(argv[1],"joint-admit"))return intel_gt_boot_joint_admit_recipe(argv[2])?0:1;
  if(argc==3 && !strcmp(argv[1],"hda-shutdown"))return intel_gt_boot_hda_shutdown_recipe(argv[2])?0:1;
  if(argc==3 && !strcmp(argv[1],"gpu-hold"))return intel_gt_boot_gpu_hold_recipe(argv[2])?0:1;
  if(argc==3 && !strcmp(argv[1],"joint"))return intel_gt_boot_joint_recipe(argv[2])?0:1;

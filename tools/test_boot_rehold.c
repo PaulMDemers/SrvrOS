@@ -1,6 +1,9 @@
 #ifdef SRVROS_INTEL_GPU_HOLD
 #define BOOT_RECIPE_CHECK intel_gt_boot_gpu_hold_recipe
 #define BOOT_TOKENS 22
+#elif defined(SRVROS_INTEL_JOINT_ADMIT)
+#define BOOT_RECIPE_CHECK intel_gt_boot_joint_admit_recipe
+#define BOOT_TOKENS 22
 #elif defined(SRVROS_INTEL_JOINT)
 #define BOOT_RECIPE_CHECK intel_gt_boot_joint_recipe
 #define BOOT_TOKENS 21
@@ -18,6 +21,9 @@ int main(void) {
 #endif
 #ifdef SRVROS_INTEL_GPU_HOLD
  " srvros.intel-gpu-requester=hold"
+#endif
+#ifdef SRVROS_INTEL_JOINT_ADMIT
+ " srvros.intel-admission=disabled-bcs-v1"
 #endif
  ;
  assert(BOOT_RECIPE_CHECK(recipe) && !intel_gt_boot_held_reset_recipe(recipe));reset();

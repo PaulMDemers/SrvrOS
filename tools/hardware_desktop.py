@@ -588,6 +588,10 @@ def needs_attention(line):
             return result is None or result['summary']['code'] != 0
         except ValueError:
             return True
+    if line.startswith('intel-compose-entry-summary:'):
+        from intel_entry_admission import entry_summary
+        try:return not entry_summary(line)['complete']
+        except ValueError:return True
     if line.startswith('intel-joint-summary:'):
         from intel_joint import fields,SUMMARY,authority
         try:
@@ -1168,6 +1172,15 @@ def collect(mount, volume, output):
                 hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
+        intel_entry_admit=None
+        if 'srvros.intel-admission=disabled-bcs-v1' in text:
+            from intel_entry_admission import native_entry_result,verify_entry_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_entry_admit=native_entry_result(final)
+                verify_entry_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_entry_admit or not intel_entry_admit['native_complete']:attention.append('Intel original-owner disabled-entry/reset composition incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel entry/reset composition: '+str(error))
         intel_hda_bcs=None
         if 'srvros.intel-hda-bcs=joint-owner-v1' in text:
             from intel_hda_shutdown import native_paired_result,verify_paired_checkpoint
@@ -1197,6 +1210,7 @@ def collect(mount, volume, output):
             if not window_proof or not window_proof['source_completed']:
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
         records.append({
+            "intel_entry_admit":intel_entry_admit,
             "intel_hda_bcs":intel_hda_bcs,
             "intel_blitter":intel_blitter,
             "intel_engines":intel_engines,

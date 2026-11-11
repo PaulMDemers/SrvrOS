@@ -34,3 +34,34 @@ Native object, frame, image isolation, saved-tail and exact-stage VM checks are
 required before hardware installation. Safe saved outcomes return automatically;
 retained uncertainty halts visibly. The original already-disabled observation
 remains accepted on its recorded source, not on this new composition.
+
+## Image and collection contract
+
+`build/intel-joint-admit/srvros.elf` uses wake receipt version23 and its own
+`intel_joint_admit_firmware_request`. Stage with `--intel-joint-admit` and the
+local `--laptop-probe-volume`; the exact22-token recipe adds
+`srvros.intel-admission=disabled-bcs-v1` to the21-token joint recipe. The C and
+Python parsers reject missing, duplicate, foreign or conflicting modes.
+Only this recipe defers user init with `init: deferred=joint-admit-preinit;`.
+Ordinary startup does not acquire this child or run this diagnostic.
+
+Four `intel-compose-entry-row:` version1 records contain the raw eight-DWORD
+groups. One `intel-compose-entry-summary:` binds those groups to the original
+census times and epoch, unchanged GT store attempts, the sealed borrow and its
+return, clock failure samples and zero BCS/reset stores or managed pages.
+`tools/intel_entry_admission.py` joins these records with the complete existing
+joint-owner graph. It rejects entry on legacy images, stale or replaced source,
+reset admission before child return, and false completion. The native collector
+also requires the unchanged pre-init recipe in both saved checkpoints.
+
+The additional32 loads reuse the existing mapped BCS page. There are still14
+GPU mappings and no new MMIO destination. A complete host path has619 engine
+reads; the bounded collector maximum is4201. Source snapshots copy data only,
+never a parent, census ownership object, provider or borrow. Failed source or
+registration checks retain the original static owner and child.
+
+`make test-intel-joint-admit` covers positive composition,64 new callback fault
+prefixes, mutation of all92 original census words and1,917 faults in the
+existing HDA boundary path, plus actual CLI and compiled recipe isolation.
+These are model/host checks; only matching native evidence can accept the
+composition on a physical machine.

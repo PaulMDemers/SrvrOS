@@ -12,6 +12,11 @@ static bool boot_system_init(const char *cmdline, bool timer_running) {
         console_write("init: deferred=gpu-hold-preinit; terminal automatic capture, no user services\n");
         return false;
     }
+#elif defined(SRVROS_INTEL_JOINT_ADMIT)
+    if (intel_gt_boot_joint_admit_recipe(cmdline)) {
+        console_write("init: deferred=joint-admit-preinit; terminal automatic capture, no user services\n");
+        return false;
+    }
 #elif defined(SRVROS_INTEL_JOINT)
     if (intel_gt_boot_joint_recipe(cmdline)) {
         console_write("init: deferred=joint-preinit; terminal automatic capture, no user services\n");

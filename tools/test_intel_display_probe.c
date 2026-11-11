@@ -172,6 +172,10 @@ static bool intel_display_test_engine_read(unsigned e,unsigned w,uint32_t *v) {
  if(e==4 && w==2)*v=bcs_entry_disabled?0:0x3eef000;
  if(e==4 && w==3)*v=bcs_ctl;
 #endif
+#ifdef SRVROS_INTEL_JOINT_ADMIT
+ if(!strcmp(engine_mode,"entry-enabled") && e==4 && w==3)*v=0xf001;
+ if((!strcmp(engine_mode,"entry-enabled") || !strcmp(engine_mode,"entry-geometry")) && e==4 && w==2)*v=0x3eef000;
+#endif
  if(!strcmp(engine_mode,"active") && e==0 && w==3)*v=1;
  if(!strcmp(engine_mode,"pending") && e==2 && w==4)*v=0x10;
  if(!strcmp(engine_mode,"changed") && engine_calls>30 && e==1 && w==2)*v=4096;
@@ -293,6 +297,8 @@ static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.stor
 #define intel_wake_firmware_request intel_gpu_hold_firmware_request
 #elif defined(SRVROS_INTEL_HDA_SHUTDOWN)
 #define intel_wake_firmware_request intel_hda_shutdown_firmware_request
+#elif defined(SRVROS_INTEL_JOINT_ADMIT)
+#define intel_wake_firmware_request intel_joint_admit_firmware_request
 #elif defined(SRVROS_INTEL_JOINT)
 #define intel_wake_firmware_request intel_joint_firmware_request
 #elif defined(SRVROS_INTEL_REHOLD)
@@ -921,6 +927,9 @@ int main(int argc,char **argv) {
     static char rehold_recipe[2100];snprintf(rehold_recipe,sizeof rehold_recipe,"%s srvros.intel-rehold=request-cancel",interval_recipe);wake_cmd.cmdline=rehold_recipe;
 #ifdef SRVROS_INTEL_JOINT
     static char joint_recipe[2200];snprintf(joint_recipe,sizeof joint_recipe,"%s srvros.intel-joint=hda-claim",rehold_recipe);wake_cmd.cmdline=joint_recipe;
+#ifdef SRVROS_INTEL_JOINT_ADMIT
+    static char joint_admit_recipe[2300];snprintf(joint_admit_recipe,sizeof joint_admit_recipe,"%s srvros.intel-admission=disabled-bcs-v1",joint_recipe);wake_cmd.cmdline=joint_admit_recipe;
+#endif
 #ifdef SRVROS_INTEL_GPU_HOLD
     static char gpu_hold_recipe[2300];snprintf(gpu_hold_recipe,sizeof gpu_hold_recipe,"%s srvros.intel-gpu-requester=hold",joint_recipe);wake_cmd.cmdline=gpu_hold_recipe;
 #endif
