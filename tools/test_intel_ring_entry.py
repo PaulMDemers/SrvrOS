@@ -85,7 +85,10 @@ class EntryTests(unittest.TestCase):
      with self.subTest(kind=k,mode=mode,n=n):
       t=self.failure(k,f'{mode}:{n}',mode in sources or k==1 and n>=3)
       if mode in sources:
-       reason=int(re.search(r'^intel-ring-entry-summary:.* reason=(\d+) ',t,re.M)[1]);self.assertTrue(reason&4)
+       reason=int(re.search(r'^intel-ring-entry-summary:.* reason=(\d+) ',t,re.M)[1])
+       # A replaced provider makes the native clock refuse before the next
+       # core identity guard. Both paths must remain incomplete and pinned.
+       self.assertTrue(reason & (2 if mode=='ring-copy-provider' else 4))
    for mode in ('ring-source-word','ring-post-word'):
     for n in range(1,93):
      count+=1
