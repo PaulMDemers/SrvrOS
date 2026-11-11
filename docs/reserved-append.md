@@ -116,3 +116,30 @@ retries become ready under a foreign owner and a live immutable borrow. The
 limits. Exact native stage `bcd7246fbcc828f6` refuses foreign board ownership,
 saves/unmounts and returns in its VM rehearsal. This accepts no native speed
 gain or change to the device's physical status latency.
+
+## Air6,1 queued retry observation (2026-11-11)
+
+Native release `bcd7246fbcc828f6`, source `b11db747`, completes the original
+1800-second1% audio/disk/apps/three-screenshot trial with zero recorded underruns
+and clean retirement/Ubuntu return. Independent parsing passes all16 original
+contracts plus the new wait companion. Actual ready-under-live-borrow counts
+are4/6/6, accepting the bounded retry mechanism on this unit. Prior-file hashes,
+all three exact decoded BMPs, binary receipt and offline allocation pass.
+
+Screenshot totals are7.479590/7.281154/10.530490 seconds, versus
+8.824182/14.902387/15.328993 in the preceding cold run. This is an observed
+improvement, without an isolated causal speed claim. Ordinary gates now total
+only187/167/185us, while explicit private-prelude waits total
+4277356/3636174/6719198us:96.44/96.72/97.83% of raw write-call wall.
+The waiting must not be described as eliminated or hidden in a zero gate.
+Wait totals overlap handler time for successful private copies; fallback waits
+remain in raw-call residual. They must not be summed as disjoint phases.
+
+The independent selected global sync/content/command companion still records
+a16KiB WRITE(10) status span of354.113ms, with19.352ms maximum sampled service
+gap. Payload-write callbacks total1.667766s in its1.796672-second content call.
+No exact per-private-wait owner, timestamp or command identity is retained, so
+this global maximum cannot be assigned to an individual worker's private wait.
+Its captured3932160-byte prefix commits with four appends/262144 bytes left
+dirty at live4194304 bytes, retaining the original generation/window proof.
+Physical media/device firmware versus controller delivery remains unresolved.
