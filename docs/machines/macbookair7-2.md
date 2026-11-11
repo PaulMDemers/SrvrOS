@@ -2,28 +2,49 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Active scope: maintained GPU requester hold
+### Hardware-ready: maintained GPU requester hold
 
 Integrated main `7e8f70ae` (PR462); PR463 screenshot metadata, PR19 Wi-Fi and
-PR379 WebCore remain independent. The next native transfer prerequisite is a
+PR379 WebCore remain independent. Source `6fba6e6c`, exact uninstalled release
+`8d88625b30a0cfab`, implements the next native transfer prerequisite: a
 registered, one-use GPU PCI requester hold under the original interval claim
-and joint HDA/GT owner. It will capture the exact Air7,2 AF profile, inhibit
-only PCI Command BME (7→3), require bounded AF pending-clear observation, then
-restore 3→7 before the interval can retire. No restarted clock or extended
-deadline is permitted. Ambiguous stores or failed retirement retain the source.
+and joint HDA/GT owner. It captures the exact Air7,2 AF profile, inhibits only
+PCI Command BME (7→3), requires bounded AF pending-clear observation, then
+restores 3→7 before the consumer returns. Original deadlines remain
+100/300/400/500 ms. Ambiguous stores or failed retirement retain the source.
 
-Scope: a new diagnostic core/adapter, separate image/recipe, strict raw collector
-and tests; ordinary boot and prior images stay separate. The core, native adapter,
-26th image, exact 22-token recipe and strict collector are implemented. Normal
-and pending-drain models pass; the adapter sweep covers 278 fault prefixes,
-including last-admission clock, alias, source and entry changes. Accepted direct
-I/O timestamps now advance the original claim watermark. Full-source, object,
-sanitizer, exact-stage VM and physical-readiness checks follow. Broadwell documents BME
-and AF TP separately: this hold is not a posted-write, prefetch, pipeline,
-cache/TLB or firmware exclusion grant. It will issue no PTE or command-buffer
-write and keep assurances 0, obligations 255 and managed pages 0. The hardware
-checkpoint must qualify exact command/pending transitions, original source and
-full preservation/return, rather than repeat only a software borrower test.
+The separate 26th image, exact 22-token recipe, wake v21/re-arm v3 receipts and
+strict raw collector are qualified. The full local build/host/core/docs/USB
+and 26-image gate passes. Installed-root testing was explicitly omitted because
+no installer changed; actual installed and independent recovery hashes pass.
+Fatal ASan/UBSan passes for the requester core, actual native adapter and original
+claim. All five compiled gate-removal controls are detected; the native adapter
+covers 278 fault prefixes. Accepted direct-I/O timestamps advance the original
+claim watermark. Native object checks confirm a fresh Command DWORD read and
+final clock admission before a Command halfword-only store at offset 4. Six
+objects meet the 2,048-byte frame limit. Image isolation keeps this new writer
+out of ordinary and earlier diagnostic images.
+
+Exact-stage QEMU passes unsupported-hardware zero-store refusal, matching saved
+checkpoint/result, clean unmount and automatic return; missing workspace halts.
+This is refusal/persistence evidence, not native requester acceptance. Projected
+normal, wide-refusal and pending-timeout logs, including a 1,536-byte reserve,
+fit the unchanged 65,536-byte limit (63,460/61,661/60,088 bytes). Host recovery,
+EFI headroom, USB UUID `37D8-C5D0`, offline fsck/allocation/writable/headroom and
+all 1,458 prior files across 142 sessions pass. Current `978d9be94b96243a`,
+recovery `9aa8dbf6fbda8252` and known-good GUI remain installed and preserved.
+No new install or reboot is armed. The silent automated trial needs no human
+input, uses volume 1%, returns after a safely saved outcome and halts on retained
+uncertainty. Evidence and the exact stage are banked outside `build`; local
+checkpoint: `build/air-gpu-requester-hold-20261110/run.json`.
+
+The [requester contract](../intel-gpu-requester-hold.md) distinguishes BME and
+AF TP observations from posted-write, prefetch, pipeline, cache/TLB, display-reader
+or firmware completion. No PTE or command-buffer writer is added; assurances
+remain 0, obligations 255 and managed pages 0. Native acceptance remains pending.
+The next hardware round must qualify actual command/pending transitions,
+original source, complete preservation and clean return. Only after the remaining
+completion witnesses are established can a managed mapping be admitted.
 
 ### Software checkpoint: interval borrower and one-page encoding
 

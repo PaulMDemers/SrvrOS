@@ -95,3 +95,16 @@ prerequisite checkpoint. Use volume 1%. Safe saved outcomes return automatically
 retained uncertainty or unsafe persistence halts visibly. Acceptance requires
 all original source/clock/preservation/retirement checks, exact command and AF
 receipts, a matching saved completion and verified recovery/media on return.
+
+### Air7,2 candidate qualified for a native trial
+
+Source `6fba6e6c`, release `8d88625b30a0cfab`, passes the full local 26-image
+gate, three fatal sanitizer suites, all five compiled negative controls, the
+278-prefix native adapter matrix, native store/frame/isolation checks and the
+unchanged log budget. Exact-stage QEMU verifies unsupported-hardware refusal,
+saved checkpoint, unmount and automatic return; missing workspace halts. These
+results qualify the test machinery, not native GPU completion or memory transfer.
+The Air record owns the installed recovery, volume and USB evidence. This
+candidate is banked but uninstalled and unarmed. The next silent physical trial
+must verify its command transitions, pending samples and original claim lifetime
+before recording acceptance; all eight memory/completion obligations remain open.
