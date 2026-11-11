@@ -428,7 +428,13 @@ static bool volume_read(const struct exfat_volume *volume, uint64_t offset, void
         return true;
     }
 
-    bool cached=mutation_reads.volume==volume && volume->mutation_depth &&
+    bool prefix=sync_prefix_proof;
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_PREFIX_CACHE_ON)
+    prefix=false; /* Original payload-cache pollution for host comparison. */
+#endif
+    /* Prefix proofs still read every byte, directly through the block layer.
+     * They have no reuse here and must not evict owned directory/FAT copies. */
+    bool cached=!prefix && mutation_reads.volume==volume && volume->mutation_depth &&
         length && length<=EXFAT_READ_CACHE_BYTES && !volume->write_blocked;
 #if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_READ_CACHE_OFF)
     cached=false; /* Disposable comparative host driver only. */
@@ -517,6 +523,24 @@ static bool cluster_offset(const struct exfat_volume *volume, uint32_t cluster, 
 
 static bool next_cluster(const struct exfat_volume *volume, uint32_t cluster, uint32_t *next) {
     uint64_t offset = volume->fat_offset_bytes + (uint64_t)cluster * sizeof(uint32_t);
+#if !defined(SRVROS_EXFAT_HOST_TEST) || (!defined(SRVROS_EXFAT_FAT_WINDOW_OFF) && !defined(SRVROS_EXFAT_READ_CACHE_OFF))
+    /* The serialized mutation owns this small read-through window. A normal
+     * read/lease or a proof outside that owner keeps its original direct read.
+     * Successful/failed FAT writes use the existing patch/invalidate protocol.
+     * Smaller clusters keep their FAT sector hot in the block cache; retain
+     * their single-entry path rather than suppressing those useful touches. */
+    if(volume->cluster_size>=EXFAT_READ_CACHE_BYTES && mutation_reads.volume==volume && volume->mutation_depth &&
+       !volume->image && !volume->write_blocked && !sync_prefix_proof &&
+       !(volume->fat_offset_bytes%512) && cluster>=2 &&
+       (uint64_t)cluster<(uint64_t)volume->cluster_count+2) {
+        uint64_t relative=(uint64_t)cluster*4,base=relative-relative%512;
+        uint64_t count=((uint64_t)volume->cluster_count+2)*4-base;
+        if(count>512)count=512;
+        uint8_t window[512];
+        if(!volume_read(volume,volume->fat_offset_bytes+base,window,count))return false;
+        *next=read_u32(window+relative-base);return true;
+    }
+#endif
     uint8_t bytes[sizeof(uint32_t)];
     if (!volume_read(volume, offset, bytes, sizeof(bytes))) {
         return false;
@@ -538,7 +562,6 @@ static bool write_fat_entry(struct exfat_volume *volume, uint32_t cluster, uint3
 /* Prepare consecutive links only while they are unpublished: newly allocated
  * extents, or the ignored FAT of an existing NoFatChain stream. Final tail
  * attachment and every publication barrier remain separate. */
-#if !defined(SRVROS_EXFAT_HOST_TEST) || !defined(SRVROS_EXFAT_APPEND_OFF)
 static bool write_linked_fat_range(struct exfat_volume *volume,uint32_t first,uint64_t count,
     bool terminal) {
     if(!volume || first<2 || (uint64_t)first-2>=volume->cluster_count ||
@@ -566,7 +589,6 @@ static bool write_linked_fat_range(struct exfat_volume *volume,uint32_t first,ui
 static bool link_fat_range(struct exfat_volume *volume,uint32_t first,uint64_t count) {
     return write_linked_fat_range(volume,first,count,false);
 }
-#endif
 
 /* Keep the existing FAT values/ordering, but avoid one sector RMW for every
  * four-byte entry in a contiguous run. Only the requested bytes are passed to
@@ -2239,6 +2261,24 @@ static uint64_t allocation_bitmap_bytes(const struct exfat_volume *volume) {
     return bytes;
 }
 
+/* Only declared bitmap bytes contain allocation bits. The writable layout
+ * already requires that bitmap to fit one cluster; slack is not ownership. */
+static uint64_t allocation_bitmap_io_bytes(const struct exfat_volume *volume) {
+    uint64_t bytes=allocation_bitmap_bytes(volume);
+    if(!bytes || bytes>volume->cluster_size)return 0;
+#if defined(SRVROS_EXFAT_HOST_TEST) && (defined(SRVROS_EXFAT_BITMAP_CLUSTER_READS) || defined(SRVROS_EXFAT_BITMAP_SPAN_OFF))
+    /* A full-cluster write control also needs full, initialized scratch. */
+    return volume->cluster_size; /* Original read/scratch work for comparison. */
+#else
+    uint64_t block=volume->device?volume->device->block_size:0;
+    /* One aligned request avoids splitting the final physical sector. Its
+     * padding stays outside the bit count and is never treated as ownership. */
+    if(block && block<=volume->cluster_size && !(volume->cluster_size%block))
+        bytes+=(block-bytes%block)%block;
+    return bytes;
+#endif
+}
+
 /* Only bitmap bytes covering changed bits are published. block_write retains
  * its partial-sector read/modify/write protection for neighbouring bits/sectors.
  * The owner still holds the same mutation, FAT ordering and flush boundaries. */
@@ -2260,14 +2300,16 @@ static bool allocate_contiguous_clusters_impl(struct exfat_volume *volume, uint6
         return false;
     }
 
-    uint8_t *bitmap = kmalloc(volume->cluster_size);
+    uint64_t io_bytes=allocation_bitmap_io_bytes(volume);
+    if(!io_bytes)return false;
+    uint8_t *bitmap = kmalloc(io_bytes);
     if (bitmap == NULL) {
         return false;
     }
 
     uint64_t bitmap_offset;
     if (!cluster_offset(volume, volume->allocation_bitmap_cluster, &bitmap_offset) ||
-        !volume_read(volume, bitmap_offset, bitmap, volume->cluster_size)) {
+        !volume_read(volume, bitmap_offset, bitmap, io_bytes)) {
         kfree(bitmap);
         return false;
     }
@@ -2346,9 +2388,11 @@ static bool allocate_fragmented_clusters_impl(struct exfat_volume *volume,
         return false;
     }
 
+    uint64_t io_bytes=allocation_bitmap_io_bytes(volume);
+    if(!io_bytes)return false;
     uint64_t cluster_array_bytes = count * sizeof(uint32_t);
     uint32_t *clusters = kmalloc(cluster_array_bytes);
-    uint8_t *bitmap = kmalloc(volume->cluster_size);
+    uint8_t *bitmap = kmalloc(io_bytes);
     if (clusters == NULL || bitmap == NULL) {
         if (clusters != NULL) {
             kfree(clusters);
@@ -2361,7 +2405,7 @@ static bool allocate_fragmented_clusters_impl(struct exfat_volume *volume,
 
     uint64_t bitmap_offset;
     if (!cluster_offset(volume, volume->allocation_bitmap_cluster, &bitmap_offset) ||
-        !volume_read(volume, bitmap_offset, bitmap, volume->cluster_size)) {
+        !volume_read(volume, bitmap_offset, bitmap, io_bytes)) {
         kfree(clusters);
         kfree(bitmap);
         return false;
@@ -2458,14 +2502,16 @@ static bool free_file_clusters_impl(struct exfat_file *file) {
     }
 
     struct exfat_volume *volume = file->volume;
-    uint8_t *bitmap = kmalloc(volume->cluster_size);
+    uint64_t io_bytes=allocation_bitmap_io_bytes(volume);
+    if(!io_bytes)return false;
+    uint8_t *bitmap = kmalloc(io_bytes);
     if (bitmap == NULL) {
         return false;
     }
 
     uint64_t bitmap_offset;
     if (!cluster_offset(volume, volume->allocation_bitmap_cluster, &bitmap_offset) ||
-        !volume_read(volume, bitmap_offset, bitmap, volume->cluster_size)) {
+        !volume_read(volume, bitmap_offset, bitmap, io_bytes)) {
         kfree(bitmap);
         return false;
     }
@@ -3415,14 +3461,16 @@ static bool check_mount(struct exfat_mount *mount, struct exfat_check_result *re
         return false;
     }
 
-    bitmap = kmalloc(volume->cluster_size);
+    uint64_t io_bytes=allocation_bitmap_io_bytes(volume);
+    if(!io_bytes){check_error(result,mount->mountpoint,"unsupported allocation bitmap size");ok=false;goto out;}
+    bitmap = kmalloc(io_bytes);
     seen = kcalloc(seen_bytes == 0 ? 1 : seen_bytes, 1);
     if (bitmap == NULL || seen == NULL) {
         check_error(result, mount->mountpoint, "out of memory");
         ok = false;
         goto out;
     }
-    if (!volume_read(volume, bitmap_offset, bitmap, volume->cluster_size)) {
+    if (!volume_read(volume, bitmap_offset, bitmap, io_bytes)) {
         check_error(result, mount->mountpoint, "could not read allocation bitmap");
         ok = false;
         goto out;

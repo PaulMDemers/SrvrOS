@@ -7,10 +7,11 @@
 #include "../kernel/src/fs/exfat.c"
 #define CLUSTER (128u*1024u)
 static unsigned char media[4*CLUSTER],before[sizeof(media)];
+static uint64_t bitmap_allocation,bitmap_read;
 static unsigned calls;static uint64_t last_offset,last_length;static bool fail;
-void *kmalloc(size_t n){return malloc(n);}
+void *kmalloc(size_t n){bitmap_allocation=n;return malloc(n);}
 void kfree(void *p){free(p);}
-bool block_read(struct block_device *d,uint64_t off,void *p,uint64_t n){(void)d;assert(off+n<=sizeof(media));memcpy(p,media+off,n);return true;}
+bool block_read(struct block_device *d,uint64_t off,void *p,uint64_t n){(void)d;assert(off+n<=sizeof(media));bitmap_read=n;memcpy(p,media+off,n);return true;}
 bool block_write(struct block_device *d,uint64_t off,const void *p,uint64_t n){(void)d;assert(off+n<=sizeof(media));calls++;last_offset=off;last_length=n;memcpy(media+off,p,fail?(n+1)/2:n);return !fail;}
 static void init(struct exfat_volume *v,struct block_device *d){
  memset(media,0,sizeof(media));memset(media+CLUSTER,0xa5,CLUSTER);
@@ -24,6 +25,7 @@ int main(void){
  struct exfat_volume v;struct block_device d={0};uint32_t cluster=0;bool chain=false;
  init(&v,&d);media[CLUSTER]=0x7f;memcpy(before,media,sizeof(media));
  assert(allocate_contiguous_clusters_impl(&v,3,&cluster,true)&&cluster==9);
+ assert(bitmap_allocation==8 && bitmap_read==8);
  assert(last_offset==CLUSTER && last_length==2 && media[CLUSTER]==0xff && media[CLUSTER+1]==3);
  assert(!memcmp(media+CLUSTER+2,before+CLUSTER+2,CLUSTER-2));
  struct exfat_file f={.volume=&v,.first_cluster=cluster,.allocated_clusters=3,.no_fat_chain=true};

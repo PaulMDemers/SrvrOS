@@ -12360,3 +12360,116 @@ remaining hypotheses; neither is implemented or accepted by this return review.
 Actual review base is main `52907f8b`; PR301 `25e6219c`, PR19 `3da01075` and
 PR379 retain independent scopes. This review touches only this unit record and
 the contiguous-allocation guide; no runtime or other-machine acceptance changes.
+
+
+## Active filesystem performance passes (2026-11-11)
+
+Actual base is main `5e72e2dd`, with the c7 native return independently reviewed
+and backed. The user requests several filesystem read/write performance passes.
+Scope is shared exFAT allocation/bitmap reads, FAT-chain traversal and bounded
+stream append/read, with block-layer work only if a measured defect requires it.
+First reproduce the bounded-stream writer's dependency on eager FAT terminal
+initialization, then audit unnecessary bitmap slack reads and transaction-cache
+churn from prefix payload reads. Preserve all allocation/alias/readback proofs,
+publication ordering, barriers, quarantine, lease ownership and existing cache,
+transfer, byte/runtime limits. No USB timeout/command/power-policy change.
+
+PR301 `25e6219c` has no storage hunk; PR19 `882f64fc` changes separate metadata
+import and scheduler-test hunks, with no allocator/read-path implementation.
+PR379 remains independent design work. No other-machine task is contacted.
+Currentc7/recoveryc354, all859 USB files and outside-build accepted backups stay
+protected. Native source optimization/performance claims require matching new
+evidence; no new reboot is armed by this scope notice. Next checkpoint is a
+regression-backed stream correction and measured, independently attributed
+read/write reductions before broader validation.
+
+
+Three filesystem passes are implemented against `5e72e2dd`. Pass1 (`9327360c`)
+reproduces/corrects the separate bounded-stream FAT-terminal dependency and
+retains eligible contiguous stream extents with all publication flushes. Full
+stream tests, independent fsck and poisoned-FAT/forced-chain controls pass.
+Pass2 (`e386f11a`) clips bitmap reads/scratch to declared bits rounded to the
+existing device block; first-fit order and every allocation check/write remain.
+Pass3 keeps512-byte FAT windows only inside the existing transaction cache for
+large clusters, with fresh full prefix reads bypassing that metadata cache.
+Small clusters retain the original entry path to avoid a measured cache-touch
+regression. Cache capacities, command/stream limits and timeouts are unchanged.
+
+The actual filesystem-plus-block-cache comparison has nine passing cases across
+4/128KiB clusters and512/4096-byte devices. On populated128KiB/512-byte growth,
+device reads fall12868→11755→10825 and bytes179819520→162649088→162172928.
+Replacements fall514→363 reads; metadata rounds642→434. Every complete image,
+logical file map, device write count/bytes and flush count matches. This is host
+work reduction, not native timing; synthetic bitmap sizes differ from this USB.
+The new [performance contract](../exfat-io-performance.md) records the controls.
+Next checkpoint is frozen matched build/core/desktop/VM validation before merge.
+Current installedc7/recoveryc354 and all859 USB files remain untouched; no new
+native speed acceptance or reboot is implied by these host measurements.
+
+Frozen runtime `e6d06f2a` now passes matched builds, all 244 default core targets,
+desktop/docs, stream-manager/syscall/process cleanup, ordinary ABI/input/thread
+VMs, real USB transport and ordinary capture. Populated Home KVM at400 write
+IOPS passes all original timing/ownership/content/command/capture contracts,
+including complete saved app records and the post-playback battery observation:
+60 seconds,231 bursts/60,555,264 bytes,24 app cycles and zero audio underruns at1%.
+Exact-stage release `32afb62a63264174` passes foreign-board refusal/save/unmount/
+return in UEFI; it has not been installed or physically accepted.
+
+The first loaded VM is retained as an evidence failure: two adjacent64KiB tails
+left a607-byte gap containing a required begin receipt, and UART interleaved.
+The unchanged retry passed; no inferred records, parser waiver, logger cadence,
+workload or bound changed. Complete coverage on every future run remains unproven.
+Metadata-tail114-cut and append131-cut controls retain their63/81 inherited
+incomplete-repair cases; these optimizations do not claim interruption recovery.
+
+Final review corrects only the host full-bitmap-write control to retain full
+initialized scratch. Its five original exact-media/write/flush comparisons pass;
+preprocessed production/default-host/other measured control tokens remain
+identical to the frozen runtime. Latest main remains `5e72e2dd`; PR19 `58a48e04`
+retains separate metadata-import hunks, and PR301 `037510a8` has no exFAT hunk.
+Shared performance changes are in PR469. Installed c7, recovery c354, the859-file
+USB baseline and independent accepted backups remain unchanged. Native timing
+is the next acceptance step; host callback savings are not a native speed claim.
+
+## Native filesystem comparison preparation (2026-11-11)
+
+The user authorizes installing and automatically starting the merged PR469
+filesystem candidate. Integration base is `883f79bf`; only this unit record and
+local trial tooling change in this preparation. Rebuild matched images, verify
+the focused filesystem controls, run populated Home stress and the exact native
+stage in VMs, then install with recovery c354 retained and Ubuntu default.
+The native profile keeps the original 1800-second workload, three screenshots,
+app open/close cycles, 1% volume and all limits, allocation/byte proofs, durability
+barriers and ownership requirements. No input is required; progress and results
+are displayed/saved in the guest. Automatic collection must bind this release
+and new session before another trial.
+
+Compare screenshot wall/phase/cleanup, app lifecycle and storage observations
+with the accepted c7 session `session-00065ffc821878bb-00` (runtime `72567e32`):
+capture totals 8.049986/9.633137/17.522316 seconds, 1089 app cycles, 122325us
+maximum loop and zero recorded underruns. Different cold boots/interleavings
+make this an observational native comparison; the deterministic callback
+controls remain separate evidence. Current c7 and recovery c354 stay protected,
+with outside-build evidence and payload backups. EFI space may require retiring
+one verified, unreferenced historical duplicate; its complete independent copy
+must remain. No runtime change or sibling acceptance is part of this trial.
+
+Candidate `80b4e32ef314ae05`, built from clean `820eb85c`, passes the fresh
+stream-allocation, bitmap, FAT-window, actual filesystem/block-cache, stream
+service and documentation checks. Populated Home KVM at400 write IOPS passes
+all original contracts with complete saved app records, screenshot readback,
+224 bursts and zero recorded audio underruns at1%. Independent saved-record
+reviews and the exact-stage UEFI refusal/save/unmount/return also pass. The
+earlier244-target core run is retained with explicit production/default-host
+token equivalence through the host-only bitmap-control correction; no runtime
+code changes were added in this preparation.
+
+The candidate is installed with c354 retained, c7 still verified in EFI and
+independent candidate/current/recovery backups. All859 prior USB files verify;
+only the1% volume override expiry was renewed. Offline fsck, full allocation
+and unchanged headroom checks pass, as do Ubuntu default and unchanged firmware
+BootOrder/no BootNext. Only historical2dd's unreferenced EFI duplicate was
+retired after exact full-tree backup verification; its independent payload
+remains. Automatic matching-session collection is enabled. The local run record
+will record the one-shot arm immediately before the authorized reboot. Native
+results and screenshot performance acceptance remain pending that return.

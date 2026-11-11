@@ -33,13 +33,20 @@ void *kmalloc(uint64_t n) {
     return fixture_legacy_kmalloc(n);
 }
 static uint64_t max_read_transfer,max_write_transfer;
+static bool fail_after_mutation_write;
 bool block_read(struct block_device *d,uint64_t o,void *p,uint64_t n) {
     if(n>max_read_transfer)max_read_transfer=n;
     assert(n<=65536);return stream_mock_read(d,o,p,n);
 }
 bool block_write(struct block_device *d,uint64_t o,const void *p,uint64_t n) {
     if(n>max_write_transfer)max_write_transfer=n;
-    assert(n<=65536);return stream_mock_write(d,o,p,n);
+    assert(n<=65536);
+    bool ok=stream_mock_write(d,o,p,n);
+    /* Fault by publication event, not a fragile heap-call ordinal. */
+    if(ok && fail_after_mutation_write && o!=106) {
+        fail_after_mutation_write=false;fail_alloc_at=alloc_calls+1;
+    }
+    return ok;
 }
 
 static unsigned ram_reads;
@@ -148,6 +155,7 @@ int main(int argc,char **argv) {
     if(!strcmp(mode,"alloc-dirty")) {
         stream_alloc_fault_baseline=writes;stream_alloc_fault_armed=true;
     }
+    if(!strcmp(mode,"alloc-publication"))fail_after_mutation_write=true;
     if(!strncmp(mode,"write-fault",11))fail_at=writes+strtoul(mode+11,NULL,10);
     if(!strncmp(mode,"flush-fault",11))fail_flush_at=flushes+strtoul(mode+11,NULL,10);
     if(!strcmp(mode,"alloc-clean")) {
