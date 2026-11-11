@@ -573,6 +573,15 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-ring-entry-summary:'):
+        from intel_ring_entry import entry_summary
+        try:return not entry_summary(line)['complete']
+        except ValueError:return True
+    if line.startswith('intel-ring-entry-post-summary:'):
+        from intel_completion_audit import summary
+        try:return not summary(line.replace('intel-ring-entry-post-','intel-completion-',1))['complete']
+        except ValueError:return True
+
     if line.startswith('intel-ring-post-summary:'):
         from intel_completion_audit import summary
         try:return not summary(line.replace('intel-ring-post-','intel-completion-',1))['complete']
@@ -711,7 +720,7 @@ def needs_attention(line):
             return not summary_result(line)['complete']
         except ValueError:
             return True
-    if line.startswith(('intel-hda-bcs-summary:','intel-ring-owner:')):
+    if line.startswith(('intel-hda-bcs-summary:','intel-ring-owner:','intel-ring-entry-owner:')):
         from intel_joint import fields,SUMMARY,authority
         try:
             s=fields(line.replace(line.split(':',1)[0]+':','intel-joint-summary:',1),'intel-joint-summary',SUMMARY);authority(s)
@@ -1180,6 +1189,15 @@ def collect(mount, volume, output):
                 hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
+        intel_ring_entry=None
+        if 'srvros.intel-ring=entry-v1' in text:
+            from intel_ring_entry import native_entry_result,verify_entry_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_ring_entry=native_entry_result(final)
+                verify_entry_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_ring_entry or not intel_ring_entry['native_complete']:attention.append('Intel state-aware original-owner ring entry incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel state-aware ring entry: '+str(error))
         intel_ring_transition=None
         if 'srvros.intel-ring=handoff-v1' in text:
             from intel_ring_transition import native_ring_result,verify_ring_checkpoint
@@ -1227,6 +1245,7 @@ def collect(mount, volume, output):
             if not window_proof or not window_proof['source_completed']:
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
         records.append({
+            "intel_ring_entry":intel_ring_entry,
             "intel_ring_transition":intel_ring_transition,
             "intel_entry_admit":intel_entry_admit,
             "intel_hda_bcs":intel_hda_bcs,

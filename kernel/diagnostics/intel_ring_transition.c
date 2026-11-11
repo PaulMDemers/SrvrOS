@@ -9,10 +9,15 @@ static bool census_valid(const struct intel_completion_result *c,const struct in
 static bool source_valid(const struct intel_ring_transition *r) {
  const struct intel_gt_access *g=r->parent;const struct intel_completion_result *c=r->source;
  if(r->object!=r || !g || g->object!=g || g->state!=GT_ACCESS_AWAKE || !g->pinned ||
+    r->epoch_before==UINT32_MAX || r->epoch_after!=r->epoch_before+(unsigned)r->epoch_advanced ||
+    r->store_calls!=(unsigned)r->epoch_advanced || (r->kind==IRT_KIND_DISABLED && r->epoch_advanced) ||
     g->engine_epoch!=r->epoch_after || g->write_attempts!=r->parent_attempts ||
-    !display_access_held(&g->exclusion) || !census_valid(c,g,r->epoch_before) || c->enabled!=16 ||
+    !display_access_held(&g->exclusion) || !census_valid(c,g,r->epoch_before) || c->enabled!=(r->kind==IRT_KIND_ENABLED?16u:0u) ||
+    (r->kind!=IRT_KIND_ENABLED && r->kind!=IRT_KIND_DISABLED) ||
     c->begin_us!=r->source_begin || c->end_us!=r->source_end || c->last_us!=r->source_last || c->begin_us<=g->begin || c->end_us>g->last)return false;
  for(unsigned n=0;n<2;n++) {
+  if(r->source_words[n][4][2]!=(r->kind==IRT_KIND_ENABLED?0x3eef000u:0u) ||
+     r->source_words[n][4][3]!=(r->kind==IRT_KIND_ENABLED?0xf001u:0u))return false;
   for(unsigned e=0;e<INTEL_ENGINE_COUNT;e++)for(unsigned i=0;i<INTEL_COMPLETION_WORDS;i++)if(c->words[n][e][i]!=r->source_words[n][e][i])return false;
   for(unsigned i=0;i<INTEL_COMPLETION_CONTEXT;i++)if(c->context[n][i]!=r->source_context[n][i])return false;
  }
@@ -35,7 +40,7 @@ static bool clock_ok(struct ring_call *p,bool admission) {
 }
 static bool guard(void *ctx) {
  struct ring_call *p=ctx;struct intel_ring_transition *r=p->r;
- if(!clock_ok(p,!r->epoch_advanced))return false;
+ if(!clock_ok(p,!r->epoch_advanced && !r->bcs.disabled))return false;
  if(!live(r)){r->reason|=IRT_SOURCE;return false;}
  bool ok=p->io.guard(p->io.ctx);
  if(!live(r) || !ok){r->reason|=IRT_SOURCE;return false;}
@@ -57,7 +62,7 @@ static bool read_bcs(void *ctx,uint32_t out[INTEL_BCS_WORDS]) {
  return true;
 }
 bool intel_ring_transition_store_ready(const struct intel_ring_transition *r) {
- if(!r || !live(r) || !r->policy || !r->blocked || !r->epoch_advanced || r->epoch_before==UINT32_MAX ||
+ if(!r || r->kind!=IRT_KIND_ENABLED || !live(r) || !r->policy || !r->blocked || !r->epoch_advanced || r->epoch_before==UINT32_MAX ||
     r->epoch_after!=r->epoch_before+1 || r->store_calls!=1 || r->post_bound || r->post.object ||
     r->reader_attempts!=1 || r->reader_counts[0]!=INTEL_RING_READER_WORDS || r->reason ||
     r->bcs.object!=&r->bcs || !r->bcs.admitted || r->bcs.attempts!=1 || r->bcs.writes || r->bcs.samples!=2)return false;
@@ -69,7 +74,7 @@ bool intel_ring_transition_store_ready(const struct intel_ring_transition *r) {
 }
 static enum intel_gt_write write_bcs(void *ctx,uint32_t value) {
  struct ring_call *p=ctx;struct intel_ring_transition *r=p->r;
- if(value!=INTEL_BCS_DISABLED || r->epoch_advanced || r->store_calls || r->epoch_before==UINT32_MAX ||
+ if(r->kind!=IRT_KIND_ENABLED || value!=INTEL_BCS_DISABLED || r->epoch_advanced || r->store_calls || r->epoch_before==UINT32_MAX ||
     r->bcs.object!=&r->bcs || !r->bcs.admitted || r->bcs.samples!=2 || r->bcs.attempts!=1 || r->bcs.writes ||
     !guard(p))return GT_WRITE_NONE;
  /* The original source remains immutable history after this point. */
@@ -83,7 +88,7 @@ static uint64_t bcs_now(void *ctx) {
  struct ring_call *p=ctx;struct intel_ring_transition *r=p->r;uint64_t at=p->io.now(p->io.ctx);
  if(!at || at<r->last || at<r->begin || at-r->begin>INTEL_RING_TOTAL_US ||
     (r->bcs.begin_us && (at<r->bcs.last_us || at<r->bcs.begin_us || at-r->bcs.begin_us>100000)) ||
-    (!r->epoch_advanced && (at<=r->source_end || at-r->source_end>INTEL_RING_SOURCE_US))) {
+    (!r->epoch_advanced && !r->bcs.disabled && (at<=r->source_end || at-r->source_end>INTEL_RING_SOURCE_US))) {
   if(!(r->reason&IRT_CLOCK)){r->clock_at=at;r->clock_prev=r->last;}
   r->reason|=IRT_CLOCK;
  } else r->last=at;
@@ -120,16 +125,19 @@ static bool post_valid(const struct intel_ring_transition *r) {
  }
  return true;
 }
-bool intel_ring_transition_run(struct intel_ring_transition *r,struct intel_gt_access *g,
- const struct intel_completion_result *c,bool policy,struct intel_ring_io io) {
+static bool run(struct intel_ring_transition *r,struct intel_gt_access *g,
+ const struct intel_completion_result *c,bool policy,struct intel_ring_io io,bool allow_disabled) {
  if(!r || r->object)return false;
  *r=(struct intel_ring_transition){.object=r,.parent=g,.source=c,.policy=policy};
  if(!g || !policy || !io.guard || !io.read || !io.write || !io.census || !io.reader || !io.now){r->reason=IRT_INPUT;return false;}
  r->epoch_before=r->epoch_after=g->engine_epoch;r->parent_attempts=g->write_attempts;
- if(g->engine_epoch==UINT32_MAX || !census_valid(c,g,r->epoch_before) || c->enabled!=16){r->reason=IRT_INPUT;return false;}
+ if(g->engine_epoch==UINT32_MAX || !census_valid(c,g,r->epoch_before)){r->reason=IRT_INPUT;return false;}
+ if(c->enabled==16)r->kind=IRT_KIND_ENABLED;
+ else if(allow_disabled && !c->enabled)r->kind=IRT_KIND_DISABLED;
+ else {r->reason=IRT_INPUT;return false;}
  for(unsigned n=0;n<2;n++) {
   for(unsigned e=0;e<INTEL_ENGINE_COUNT;e++)for(unsigned i=0;i<INTEL_COMPLETION_WORDS;i++) {
-   uint32_t expected=i==4?1:0;if(e==4 && i==2)expected=0x3eef000;if(e==4 && i==3)expected=0xf001;
+   uint32_t expected=i==4?1:0;if(r->kind==IRT_KIND_ENABLED && e==4 && i==2)expected=0x3eef000;if(r->kind==IRT_KIND_ENABLED && e==4 && i==3)expected=0xf001;
    if(c->words[n][e][i]!=expected){r->reason=IRT_INPUT;return false;}
    r->source_words[n][e][i]=c->words[n][e][i];
   }
@@ -144,8 +152,11 @@ bool intel_ring_transition_run(struct intel_ring_transition *r,struct intel_gt_a
  r->blocked=!intel_gt_access_close(g) && g->state==GT_ACCESS_AWAKE && g->pinned && g->write_attempts==r->parent_attempts;
  if(!r->blocked){r->reason|=IRT_SOURCE;goto done;}
  if(!reader(&call,0))goto done;
- (void)intel_blitter_disable(&r->bcs,g,policy,(struct intel_blitter_io){&call,guard,read_bcs,write_bcs,bcs_now});
- if(!r->bcs.disabled || r->bcs.uncertain){r->reason|=IRT_WRITE;goto done;}
+ if(r->kind==IRT_KIND_ENABLED)
+  (void)intel_blitter_disable(&r->bcs,g,policy,(struct intel_blitter_io){&call,guard,read_bcs,write_bcs,bcs_now});
+ else
+  (void)intel_blitter_observe_disabled(&r->bcs,g,policy,(struct intel_blitter_io){&call,guard,read_bcs,0,bcs_now});
+ if(!r->bcs.disabled || r->bcs.uncertain || r->reason){r->reason|=IRT_WRITE;goto done;}
  if(!guard(&call))goto done;
  if(!io.census(io.ctx,&r->post)){r->reason|=IRT_POST;goto done;}
  if(!guard(&call) || !post_valid(r)){r->reason|=IRT_POST;goto done;}
@@ -157,7 +168,7 @@ bool intel_ring_transition_run(struct intel_ring_transition *r,struct intel_gt_a
   * A source/provider loss cannot be cleaned up using only superficially equal data. */
  bool proven=!r->reason && r->post_bound && r->readers_bound && r->bcs.disabled && !r->bcs.uncertain;
  bool possible=r->uncertain || r->bcs.uncertain || r->bcs.writes;
- if((!possible || proven) && live(r) && io.guard(io.ctx) && live(r) && clock_ok(&call,false)) {
+ if(((!possible && !r->bcs.disabled) || proven) && live(r) && io.guard(io.ctx) && live(r) && clock_ok(&call,false)) {
   r->return_begin=r->last;r->returned=intel_gt_access_return(&r->borrow);
  }
  if(!r->returned)r->reason|=IRT_RETURN;
@@ -167,8 +178,15 @@ bool intel_ring_transition_run(struct intel_ring_transition *r,struct intel_gt_a
   else if(clock_ok(&call,false))r->end=r->last;
   if(r->end && r->end<=r->begin)r->reason|=IRT_CLOCK;
  }
- r->complete=proven && r->returned && r->end && !r->reason && r->bcs.attempts==1 && r->bcs.writes==1 &&
-  r->epoch_advanced && r->epoch_after==r->epoch_before+1 && g->engine_epoch==r->epoch_after;
- r->uncertain=(possible && !r->complete) || r->borrow.active || (r->reason&IRT_SOURCE);
+ bool branch=r->kind==IRT_KIND_ENABLED ?
+  r->bcs.attempts==1 && r->bcs.writes==1 && r->store_calls==1 && r->epoch_advanced && r->epoch_after==r->epoch_before+1 && !r->bcs.entry_disabled :
+  r->kind==IRT_KIND_DISABLED && !r->bcs.attempts && !r->bcs.writes && !r->store_calls && !r->epoch_advanced && r->epoch_after==r->epoch_before && r->bcs.entry_disabled;
+ r->complete=proven && r->returned && r->end && !r->reason && branch && g->engine_epoch==r->epoch_after;
+ r->uncertain=((possible || r->bcs.disabled) && !r->complete) || r->borrow.active || (r->reason&IRT_SOURCE);
  return r->complete;
 }
+
+bool intel_ring_transition_run(struct intel_ring_transition *r,struct intel_gt_access *g,
+ const struct intel_completion_result *c,bool policy,struct intel_ring_io io) {return run(r,g,c,policy,io,false);}
+bool intel_ring_entry_run(struct intel_ring_transition *r,struct intel_gt_access *g,
+ const struct intel_completion_result *c,bool policy,struct intel_ring_io io) {return run(r,g,c,policy,io,true);}

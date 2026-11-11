@@ -23,6 +23,9 @@ static bool intel_display_test_ring_core_clock(uint64_t *);
 static unsigned ring_core_clocks;
 static bool ring_return_faulted;
 static uint32_t ring_ctl=0xf001;
+#ifdef SRVROS_INTEL_RING_ENTRY
+static bool ring_fixture_disabled;
+#endif
 static unsigned ring_writes,ring_reads,ring_census_reads,ring_reader_calls,ring_clocks,ring_store_clock_fault;
 
 struct pci_device;
@@ -99,7 +102,7 @@ static bool intel_display_test_ring_read(uint32_t out[8]) {
   assert(!ring_run(NULL,NULL,NULL,true));assert(ring_native.a==a && ring_native.g==g && ring_native.c==c);
   assert(!intel_gt_access_close(g) && ring_native.result.borrow.active);
  }
- const uint32_t words[8]={0,0,0x3eef000,ring_ctl,1,0,512,0};for(unsigned i=0;i<8;i++)out[i]=words[i];
+ const uint32_t words[8]={0,0,ring_ctl?0x3eef000:0,ring_ctl,1,0,512,0};for(unsigned i=0;i<8;i++)out[i]=words[i];
  if(jf("ring-read",ring_reads))return false;
  if(jf("ring-drift",ring_reads))out[7]^=1;
  if(jf("ring-busy",ring_reads))out[0]=8;
@@ -108,6 +111,11 @@ static bool intel_display_test_ring_read(uint32_t out[8]) {
  if(jf("ring-epoch",ring_reads))ring_native.g->engine_epoch++;
  if(jf("ring-borrow",ring_reads))ring_native.g->dependents=NULL;
  if(jf("ring-alias",ring_reads))pa[INTEL_CAPTURE_PAGES+8]^=4096;
+ if(jf("ring-kind-mask",ring_reads)) {
+  ring_native.result.kind=ring_native.result.kind==1?2:1;
+  ((struct intel_completion_result *)ring_native.c)->enabled=ring_native.result.kind==1?16:0;
+ }
+ if(jf("ring-kind",ring_reads))ring_native.result.kind=ring_native.result.kind==1?2:1;
  if(jf("ring-source-begin",ring_reads))((struct intel_completion_result *)ring_native.c)->begin_us++;
  if(jf("ring-source-last",ring_reads))((struct intel_completion_result *)ring_native.c)->last_us++;
  if(jf("ring-extra-borrow",ring_reads))ring_native.g->borrows++;
@@ -156,6 +164,10 @@ static bool intel_display_test_ring_census(unsigned e,unsigned i,uint32_t *out) 
  return ok;
 }
 static bool intel_display_test_ring_context(unsigned i,uint32_t *out) {
+ #ifdef SRVROS_INTEL_RING_ENTRY
+ if(ring_fixture_disabled && i==1)*out=24704;
+ if(ring_fixture_disabled && i==2)*out=10240;
+#endif
  (void)i;++ring_census_reads;
  if(jf("ring-census-read",ring_census_reads))return false;
  if(jf("ring-census-drift",ring_census_reads))*out^=1;
@@ -168,6 +180,12 @@ static bool intel_display_test_ring_reader(unsigned p,unsigned i,uint32_t *out) 
  if(jf("ring-reader-read",ring_reader_calls))return false;
  if(jf("ring-reader-drift",ring_reader_calls))*out^=1;
  if(jf("ring-reader-time",ring_reader_calls))ticks+=150001;
+ if(ring_native.result.reader_attempts==2 && !p && !i) {
+  if(!strcmp(engine_mode,"ring-observer-tag"))ring_native.result.bcs.entry_disabled=false;
+  if(jf("ring-post-stamp",1))ring_native.result.post.begin_us++;
+  if(jf("ring-post-stamp",2))ring_native.result.post.last_us++;
+  if(jf("ring-post-stamp",3))ring_native.result.post.end_us++;
+ }
  if(ring_native.result.reader_attempts==2 && !p && !i)for(unsigned k=0;k<92;k++)if(jf("ring-post-word",k+1)) {
   struct intel_completion_result *c=&ring_native.result.post;
   if(k<80)c->words[k/40][(k%40)/8][k%8]^=1;else c->context[(k-80)/6][(k-80)%6]^=1;
@@ -204,6 +222,14 @@ __attribute__((noinline)) static void churn_stack(void) {
  for(unsigned i=0;i<sizeof(bytes);i++)bytes[i]=(uint8_t)(i*17+3);
 }
 int main(int argc,char **argv) {
+#ifdef SRVROS_INTEL_RING_ENTRY
+ char selected[160];char *args[3]={argv[0],selected,0};
+ if(argc==2 && !strncmp(argv[1],"--wake-engine-entry-off-",24)) {
+  ring_fixture_disabled=true;ring_ctl=0;
+  assert(strlen(argv[1]+24)<120);snprintf(selected,sizeof selected,"--wake-engine-%s",argv[1]+24);argv=args;
+ }
+ if(argc==2 && !strcmp(argv[1],"--wake-engine-entry-nonzero-disabled"))ring_ctl=0xf000;
+#endif
  if(argc==2 && (!strcmp(argv[1],"--wake-engine-ring-off") || !strcmp(argv[1],"--wake-engine-ring-zero")))ring_ctl=0;
  int code=original_display_fixture_main(argc,argv);churn_stack();
  if(joint.entry)assert(joint.wake && joint.snapshot);
@@ -218,7 +244,14 @@ int main(int argc,char **argv) {
   if(r->borrow.object)assert(r->borrow.object==&r->borrow);
   if(r->uncertain)assert(joint.scope.gpu->pinned && !display_access_allowed());
  }
- if(!strcmp(engine_mode,"report"))assert(r->complete && ring_writes==1 && ring_reads==4 && r->epoch_after==1 && r->post.engine_epoch==1 && r->returned && !r->borrow.active);
+ if(!strcmp(engine_mode,"report")) {
+#ifdef SRVROS_INTEL_RING_ENTRY
+  unsigned expected=ring_fixture_disabled?0:1;
+#else
+  unsigned expected=1;
+#endif
+  assert(r->complete && ring_writes==expected && ring_reads==4 && r->epoch_after==expected && r->post.engine_epoch==expected && r->returned && !r->borrow.active);
+ }
  printf("ring-fixture: hda_reads=%u endpoints=%u cache=%u attempts=%u stores=%u bcs_reads=%u bcs_stores=%u census_reads=%u reader_reads=%u clocks=%u core_clocks=%u\n",hda_reads,hda_endpoints,hda_cache,hda_attempts,hda_stores,ring_reads,ring_writes,ring_census_reads,ring_reader_calls,ring_clocks,ring_core_clocks);
  return code;
 }

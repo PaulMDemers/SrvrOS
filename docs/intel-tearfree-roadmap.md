@@ -89,6 +89,13 @@ HDA and all mappings retire within bounds; this does not accept enabled shutdown
 Next select explicit original-owner routes for both naturally observed entry
 states, preserving old geometry/epoch gates and avoiding unchanged retries.
 
+A separate [state-aware entry contract](intel-ring-entry.md) is now being
+implemented for those two captured sources. It keeps enabled one-store/epoch
+advance distinct from disabled NULL-writer observation, requires fresh full
+post-census and reader preservation on both, and ends before reset. Both old
+recipes and geometry gates remain unchanged; neither observed completion nor
+host modeling accepts a physically unexercised enabled writer.
+
 ## First decision: how ownership begins
 
 Before another destructive native operation, choose and document a complete

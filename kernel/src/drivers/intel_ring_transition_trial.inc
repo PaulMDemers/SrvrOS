@@ -1,4 +1,9 @@
 #include <srvros/intel_ring_transition.h>
+#ifdef SRVROS_INTEL_RING_ENTRY
+#define RING_PREFIX "intel-ring-entry"
+#else
+#define RING_PREFIX "intel-ring"
+#endif
 struct ring_adapter {struct intel_ring_transition result;struct wake_adapter *a;struct intel_gt_access *g;const struct intel_completion_result *c;unsigned store_checks,store_fault;};
 static struct ring_adapter ring_native;
 static bool ring_guard(void *ctx) {
@@ -57,7 +62,7 @@ static uint64_t ring_post_now(void *ctx) {
 }
 static bool ring_census(void *ctx,struct intel_completion_result *out) {
  struct ring_adapter *e=ctx;
- if(out!=&e->result.post || !ring_guard(e) || !e->result.bcs.disabled || !e->result.epoch_advanced || e->result.epoch_after!=e->g->engine_epoch)return false;
+ if(out!=&e->result.post || !ring_guard(e) || !e->result.bcs.disabled || (e->result.kind==IRT_KIND_ENABLED ? !e->result.epoch_advanced : e->result.kind!=IRT_KIND_DISABLED || e->result.epoch_advanced || e->result.store_calls || e->result.bcs.attempts || e->result.bcs.writes) || e->result.epoch_after!=e->g->engine_epoch)return false;
  return intel_completion_observe(out,e->g,(struct intel_completion_io){e->a,engine_guard,completion_group,completion_context,ring_post_now,COMPLETION_SAMPLE});
 }
 static bool ring_reader(void *ctx,unsigned n,struct intel_ring_readers *out,unsigned *count) {
@@ -102,7 +107,13 @@ static uint64_t ring_now(void *ctx) {
 static bool ring_run(struct wake_adapter *a,struct intel_gt_access *g,const struct intel_completion_result *c,bool policy) {
  if(ring_native.result.object)return false;
  ring_native.a=a;ring_native.g=g;ring_native.c=c;
- bool ok=intel_ring_transition_run(&ring_native.result,g,c,policy,(struct intel_ring_io){&ring_native,ring_guard,ring_read,ring_write,ring_census,ring_reader,ring_now});
+ bool ok=
+#ifdef SRVROS_INTEL_RING_ENTRY
+ intel_ring_entry_run(
+#else
+ intel_ring_transition_run(
+#endif
+&ring_native.result,g,c,policy,(struct intel_ring_io){&ring_native,ring_guard,ring_read,ring_write,ring_census,ring_reader,ring_now});
  if(ring_native.result.uncertain || ring_native.result.borrow.active)a->uncertain=true;
  return ok;
 }
@@ -110,17 +121,33 @@ static void ring_report(void) {
  const struct intel_ring_transition *r=&ring_native.result;const struct intel_blitter_result *b=&r->bcs;
  for(unsigned n=0;n<r->read_attempts;n++) {
   const uint32_t *w=b->words[n];
-  console_printf("intel-ring-bcs: v=1 n=%u d=%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
+  console_printf(RING_PREFIX "-bcs: v=1 n=%u d=%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
  }
- completion_report_named(&r->post,"intel-ring-post");
+ completion_report_named(&r->post,RING_PREFIX "-post");
  for(unsigned n=0;n<r->reader_attempts;n++) {
   for(unsigned p=0;p<3;p++) {
    const uint32_t *w=r->readers[n].planes[p];
-   console_printf("intel-ring-reader: v=1 n=%u p=%u d=%u,%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)p,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7],(uint64_t)w[8]);
+   console_printf(RING_PREFIX "-reader: v=1 n=%u p=%u d=%u,%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)p,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7],(uint64_t)w[8]);
   }
   const uint32_t *a=r->readers[n].audio;
-  console_printf("intel-ring-audio: v=1 n=%u d=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)a[0],(uint64_t)a[1],(uint64_t)a[2],(uint64_t)a[3],(uint64_t)a[4],(uint64_t)a[5],(uint64_t)a[6],(uint64_t)a[7],(uint64_t)a[8],(uint64_t)a[9]);
+  console_printf(RING_PREFIX "-audio: v=1 n=%u d=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)a[0],(uint64_t)a[1],(uint64_t)a[2],(uint64_t)a[3],(uint64_t)a[4],(uint64_t)a[5],(uint64_t)a[6],(uint64_t)a[7],(uint64_t)a[8],(uint64_t)a[9]);
  }
- console_printf("intel-ring-summary: v=1 policy=%u borrowed=%u returned=%u blocked=%u post_bound=%u readers_bound=%u complete=%u retained=%u uncertain=%u reason=%u checks=%u read_attempts=%u reader_attempts=%u reader0=%u reader1=%u store_calls=%u store_checks=%u store_fault=%u begin=%u end=%u last=%u source_begin=%u source_end=%u source_last=%u epoch_before=%u epoch_after=%u epoch_advanced=%u parent_attempts=%u clock_at=%u clock_prev=%u store_at=%u store_previous=%u return_begin=%u post_begin=%u post_end=%u post_last=%u bcs_samples=%u bcs_reads=%u bcs_admitted=%u bcs_attempts=%u bcs_writes=%u bcs_disabled=%u bcs_uncertain=%u bcs_reason=%u bcs_begin=%u bcs_end=%u reset_writes=0 managed_pages=0\n",
- (uint64_t)r->policy,(uint64_t)(r->borrow.parent!=0),(uint64_t)r->returned,(uint64_t)r->blocked,(uint64_t)r->post_bound,(uint64_t)r->readers_bound,(uint64_t)r->complete,(uint64_t)r->borrow.active,(uint64_t)r->uncertain,(uint64_t)r->reason,(uint64_t)r->checks,(uint64_t)r->read_attempts,(uint64_t)r->reader_attempts,(uint64_t)r->reader_counts[0],(uint64_t)r->reader_counts[1],(uint64_t)r->store_calls,(uint64_t)ring_native.store_checks,(uint64_t)ring_native.store_fault,r->begin,r->end,r->last,r->source_begin,r->source_end,r->source_last,(uint64_t)r->epoch_before,(uint64_t)r->epoch_after,(uint64_t)r->epoch_advanced,(uint64_t)r->parent_attempts,r->clock_at,r->clock_prev,r->store_at,r->store_previous,r->return_begin,r->post_begin,r->post_end,r->post_last,(uint64_t)b->samples,(uint64_t)b->reads,(uint64_t)b->admitted,(uint64_t)b->attempts,(uint64_t)b->writes,(uint64_t)b->disabled,(uint64_t)b->uncertain,(uint64_t)b->reason,b->begin_us,b->end_us);
+ console_printf(RING_PREFIX "-summary: "
+#ifdef SRVROS_INTEL_RING_ENTRY
+ "v=2 "
+#else
+ "v=1 "
+#endif
+ "policy=%u borrowed=%u returned=%u blocked=%u post_bound=%u readers_bound=%u complete=%u retained=%u uncertain=%u reason=%u checks=%u read_attempts=%u reader_attempts=%u reader0=%u reader1=%u store_calls=%u store_checks=%u store_fault=%u begin=%u end=%u last=%u source_begin=%u source_end=%u source_last=%u epoch_before=%u epoch_after=%u epoch_advanced=%u parent_attempts=%u clock_at=%u clock_prev=%u store_at=%u store_previous=%u return_begin=%u post_begin=%u post_end=%u post_last=%u bcs_samples=%u bcs_reads=%u bcs_admitted=%u bcs_attempts=%u bcs_writes=%u bcs_disabled=%u bcs_uncertain=%u bcs_reason=%u bcs_begin=%u bcs_end=%u reset_writes=0 managed_pages=0"
+#ifdef SRVROS_INTEL_RING_ENTRY
+ " kind=%u"
+#endif
+ "\n",
+ (uint64_t)r->policy,(uint64_t)(r->borrow.parent!=0),(uint64_t)r->returned,(uint64_t)r->blocked,(uint64_t)r->post_bound,(uint64_t)r->readers_bound,(uint64_t)r->complete,(uint64_t)r->borrow.active,(uint64_t)r->uncertain,(uint64_t)r->reason,(uint64_t)r->checks,(uint64_t)r->read_attempts,(uint64_t)r->reader_attempts,(uint64_t)r->reader_counts[0],(uint64_t)r->reader_counts[1],(uint64_t)r->store_calls,(uint64_t)ring_native.store_checks,(uint64_t)ring_native.store_fault,r->begin,r->end,r->last,r->source_begin,r->source_end,r->source_last,(uint64_t)r->epoch_before,(uint64_t)r->epoch_after,(uint64_t)r->epoch_advanced,(uint64_t)r->parent_attempts,r->clock_at,r->clock_prev,r->store_at,r->store_previous,r->return_begin,r->post_begin,r->post_end,r->post_last,(uint64_t)b->samples,(uint64_t)b->reads,(uint64_t)b->admitted,(uint64_t)b->attempts,(uint64_t)b->writes,(uint64_t)b->disabled,(uint64_t)b->uncertain,(uint64_t)b->reason,b->begin_us,b->end_us
+#ifdef SRVROS_INTEL_RING_ENTRY
+ ,(uint64_t)r->kind
+#endif
+ );
 }
+
+#undef RING_PREFIX

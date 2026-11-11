@@ -173,7 +173,7 @@ static bool intel_display_test_engine_read(unsigned e,unsigned w,uint32_t *v) {
  if(e==4 && w==3)*v=bcs_ctl;
 #endif
 #ifdef SRVROS_INTEL_RING_TRANSITION
- if(e==4 && w==2)*v=!strcmp(engine_mode,"ring-zero")?0:0x3eef000;
+ if(e==4 && w==2)*v=(!ring_ctl || !strcmp(engine_mode,"ring-zero"))?0:0x3eef000;
  if(e==4 && w==3)*v=ring_ctl;
 #endif
 #ifdef SRVROS_INTEL_JOINT_ADMIT
@@ -305,7 +305,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#ifdef SRVROS_INTEL_RING_ENTRY
+#define intel_wake_firmware_request intel_ring_entry_firmware_request
+#elif defined(SRVROS_INTEL_RING_TRANSITION)
 #define intel_wake_firmware_request intel_ring_transition_firmware_request
 #elif defined(SRVROS_INTEL_GPU_HOLD)
 #define intel_wake_firmware_request intel_gpu_hold_firmware_request
@@ -932,7 +934,13 @@ int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
 #ifdef SRVROS_INTEL_RING_TRANSITION
-    static char ring_recipe[1400];snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=handoff-v1",completion_recipe);wake_cmd.cmdline=ring_recipe;
+    static char ring_recipe[1400];
+#ifdef SRVROS_INTEL_RING_ENTRY
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=entry-v1",completion_recipe);
+#else
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=handoff-v1",completion_recipe);
+#endif
+    wake_cmd.cmdline=ring_recipe;
 #endif
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
     static char takeover_recipe[1400];snprintf(takeover_recipe,sizeof(takeover_recipe),"%s srvros.intel-takeover=preflight",completion_recipe);wake_cmd.cmdline=takeover_recipe;

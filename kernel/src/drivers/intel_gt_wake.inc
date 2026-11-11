@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_RING_ENTRY) && !defined(SRVROS_INTEL_RING_TRANSITION)
+#error "State-aware entry requires the distinct ring transition image"
+#endif
 #if defined(SRVROS_INTEL_RING_TRANSITION) && (!defined(SRVROS_INTEL_WAKE_TRIAL) || !defined(SRVROS_INTEL_ENGINE_TRIAL) || !defined(SRVROS_INTEL_COMPLETION_TRIAL) || defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_HELD_RESET) || defined(SRVROS_INTEL_HELD_INTERVAL) || defined(SRVROS_INTEL_REHOLD) || defined(SRVROS_INTEL_GPU_HOLD) || defined(SRVROS_INTEL_HDA_LEASE_TRIAL) || defined(SRVROS_INTEL_HDA_OWNER_TRIAL) || defined(SRVROS_INTEL_READER_AUDIT))
 #error "Ring transition is a separate original-owner full-census image without reset/claim"
 #endif
@@ -48,7 +51,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#ifdef SRVROS_INTEL_RING_ENTRY
+extern volatile struct limine_firmware_type_request intel_ring_entry_firmware_request;
+#elif defined(SRVROS_INTEL_RING_TRANSITION)
 extern volatile struct limine_firmware_type_request intel_ring_transition_firmware_request;
 #elif defined(SRVROS_INTEL_HDA_SHUTDOWN)
 extern volatile struct limine_firmware_type_request intel_hda_shutdown_firmware_request;
@@ -95,7 +100,11 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #include <srvros/intel_engine_census.h>
 #ifdef SRVROS_INTEL_RING_TRANSITION
 #define WAKE_MAPS 14u
+#ifdef SRVROS_INTEL_RING_ENTRY
+#define WAKE_VERSION 25u
+#else
 #define WAKE_VERSION 24u
+#endif
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x12000,0x1a000,0x1c000,0x22000,0x4000,0x9000,0x70000,0x71000,0x72000,INTEL_WINDOW_PAGE};
 #elif defined(SRVROS_INTEL_COMPLETION_TRIAL)
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
@@ -459,7 +468,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_RING_TRANSITION
+    #ifdef SRVROS_INTEL_RING_ENTRY
+    const struct limine_firmware_type_response *firmware=intel_ring_entry_firmware_request.response;
+#elif defined(SRVROS_INTEL_RING_TRANSITION)
     const struct limine_firmware_type_response *firmware=intel_ring_transition_firmware_request.response;
 #elif defined(SRVROS_INTEL_HDA_SHUTDOWN)
     const struct limine_firmware_type_response *firmware=intel_hda_shutdown_firmware_request.response;
@@ -501,7 +512,9 @@ bool intel_gt_wake_probe_report(void) {
     f.efi64=firmware && !firmware->revision && firmware->firmware_type==LIMINE_FIRMWARE_TYPE_EFI64;
     f.loader=loader && !loader->revision && wake_text(loader->name,"Limine") && wake_text(loader->version,"11.4.1");
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
-    #ifdef SRVROS_INTEL_RING_TRANSITION
+    #ifdef SRVROS_INTEL_RING_ENTRY
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_ring_entry_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_RING_TRANSITION)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_ring_transition_recipe(cmd->cmdline);
     #elif defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
     #ifdef SRVROS_INTEL_REQUESTER_AUDIT
@@ -592,7 +605,9 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     bool acquired=false,before=false,after=false,released=false,opened=false,checked=false,closed=false,fw_after=false;
     uint32_t grants=0;uint64_t begin=0,end=0;
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#ifdef SRVROS_INTEL_RING_ENTRY
+    console_write("intel-ring-entry: original-owner live entry selection; enabled disable or zero-geometry observation; fresh census and preservation; no reset or memory transfer\n");
+#elif defined(SRVROS_INTEL_RING_TRANSITION)
     console_write("intel-ring: original-owner enabled submission handoff; one idle disable and fresh epoch census; no reset, geometry or memory transfer\n");
 #elif defined(SRVROS_INTEL_PREPARE_RESET)
     console_write("intel-wake: bounded maintained preparation/PCI/BCS8 reset/cancel; no PTE writes or GPU range transfer\n");

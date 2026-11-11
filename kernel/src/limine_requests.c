@@ -36,7 +36,10 @@ volatile struct limine_firmware_type_request intel_hda_firmware_request = {
 };
 #endif
 
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#ifdef SRVROS_INTEL_RING_ENTRY
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_firmware_type_request intel_ring_entry_firmware_request = { .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0 };
+#elif defined(SRVROS_INTEL_RING_TRANSITION)
 __attribute__((used, section(".limine_requests")))
 volatile struct limine_firmware_type_request intel_ring_transition_firmware_request = {
     .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0

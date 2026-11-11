@@ -6,6 +6,7 @@
 #define INTEL_RING_SOURCE_US 100000ull
 #define INTEL_RING_READER_WORDS 37u
 /* An enabled submission transition, never a reset or GPU-memory grant. */
+enum intel_ring_kind {IRT_KIND_NONE=0,IRT_KIND_ENABLED=1,IRT_KIND_DISABLED=2};
 enum intel_ring_reason {IRT_INPUT=1,IRT_CLOCK=2,IRT_SOURCE=4,IRT_READ=8,IRT_WRITE=16,IRT_POST=32,IRT_READER=64,IRT_RETURN=128};
 struct intel_ring_readers {uint32_t planes[3][9],audio[10];};
 struct intel_ring_transition {
@@ -21,7 +22,7 @@ struct intel_ring_transition {
  uint64_t source_begin,source_end,source_last,begin,last,end,clock_at,clock_prev;
  uint64_t store_at,store_previous,return_begin,post_begin,post_end,post_last;
  uint32_t epoch_before,epoch_after,parent_attempts;
- unsigned reason,checks,read_attempts,reader_attempts,reader_counts[2],store_calls;
+ unsigned kind,reason,checks,read_attempts,reader_attempts,reader_counts[2],store_calls;
  bool policy,blocked,epoch_advanced,post_bound,readers_bound,returned,complete,uncertain;
 };
 struct intel_ring_io {
@@ -42,4 +43,8 @@ struct intel_ring_io {
  * uncertain result. Neither result nor post snapshot is future live authority. */
 bool intel_ring_transition_store_ready(const struct intel_ring_transition *);
 bool intel_ring_transition_run(struct intel_ring_transition *,struct intel_gt_access *,const struct intel_completion_result *,bool,struct intel_ring_io);
+/* Separate state-aware contract: zero-geometry disabled entry uses only the
+ * existing null-writer observer, with unchanged epoch and a fresh full census.
+ * Completion never claims that its enabled writer was exercised. */
+bool intel_ring_entry_run(struct intel_ring_transition *,struct intel_gt_access *,const struct intel_completion_result *,bool,struct intel_ring_io);
 #endif

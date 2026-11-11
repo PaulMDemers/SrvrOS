@@ -14,19 +14,23 @@ def ring_recipe(cmd):
  if set(ts)!=set(expected):raise ValueError('ring foreign recipe')
  return dict(volume=v[0],release=r[0])
 
-def ring_summary(line):
- s=_fields(line,'intel-ring-summary:',FIELDS)
- if s['v']!=1 or any(s[k]>1 for k in BOOL) or s['reason']&~255 or s['checks']>20 or s['read_attempts']>4 or s['reader_attempts']>2 or max(s['reader0'],s['reader1'])>37 or max(s['store_calls'],s['store_checks'],s['store_fault'],s['bcs_attempts'],s['bcs_writes'])>1 or s['bcs_samples']>s['read_attempts'] or s['bcs_reads']%8 or s['bcs_reads']>8*s['read_attempts'] or s['bcs_reason']>8 or max(s['epoch_before'],s['epoch_after'])>=1<<32:
+def ring_summary(line,*,entry=False):
+ s=_fields(line,'intel-ring-summary:',FIELDS+(['kind'] if entry else []),versions=(2,) if entry else (1,))
+ kind=s.get('kind',1);enabled=kind==1;disabled=entry and kind==2
+ if s['v']!=(2 if entry else 1) or kind not in ((0,1,2) if entry else (1,)) or any(s[k]>1 for k in BOOL) or s['reason']&~255 or s['checks']>20 or s['read_attempts']>4 or s['reader_attempts']>2 or max(s['reader0'],s['reader1'])>37 or max(s['store_calls'],s['store_checks'],s['store_fault'],s['bcs_attempts'],s['bcs_writes'])>1 or s['bcs_samples']>s['read_attempts'] or s['bcs_reads']%8 or s['bcs_reads']>8*s['read_attempts'] or s['bcs_reason']>8 or max(s['epoch_before'],s['epoch_after'])>=1<<32:
   raise ValueError('ring counts/ranges')
  if s['reset_writes'] or s['managed_pages'] or s['returned']>s['borrowed'] or s['retained']!=s['borrowed']-s['returned'] or s['blocked']>s['borrowed'] or s['bcs_writes']>s['bcs_attempts'] or s['store_checks']>s['store_calls'] or s['store_calls']!=s['epoch_advanced'] or s['epoch_after']!=s['epoch_before']+s['epoch_advanced']:
   raise ValueError('ring authority/lifecycle/epoch')
+ if not enabled and any(s[k] for k in ('store_calls','store_checks','store_fault','bcs_attempts','bcs_writes','epoch_advanced','store_at','store_previous')):raise ValueError('disabled entry cannot write/advance epoch')
  if s['bcs_writes'] and (not s['store_checks'] or s['store_fault'] or not s['store_at'] or not s['bcs_admitted']):raise ValueError('ring unbound store')
- if s['bcs_disabled'] and (s['bcs_samples']!=4 or s['bcs_reads']!=32 or s['bcs_reason'] or s['bcs_uncertain'] or not s['bcs_writes']):raise ValueError('ring false disabled')
+ if s['bcs_disabled'] and (s['bcs_samples']!=4 or s['bcs_reads']!=32 or s['bcs_reason'] or s['bcs_uncertain'] or enabled and not s['bcs_writes'] or not(enabled or disabled)):raise ValueError('ring false disabled')
  if s['complete']:
-  if not all(s[k] for k in ('policy','borrowed','returned','blocked','post_bound','readers_bound','epoch_advanced','bcs_admitted','bcs_disabled')) or any(s[k] for k in ('retained','uncertain','reason','store_fault','clock_at','clock_prev','bcs_reason','bcs_uncertain')) or (s['checks'],s['read_attempts'],s['reader_attempts'],s['reader0'],s['reader1'],s['store_calls'],s['store_checks'],s['bcs_attempts'],s['bcs_writes'],s['parent_attempts'],s['epoch_before'],s['epoch_after'])!=(20,4,2,37,37,1,1,1,1,2,0,1):raise ValueError('ring false completion')
+  expected=(20 if enabled else 19,4,2,37,37,int(enabled),int(enabled),int(enabled),int(enabled),2,0,int(enabled))
+  if not (enabled or disabled) or not all(s[k] for k in ('policy','borrowed','returned','blocked','post_bound','readers_bound','bcs_admitted','bcs_disabled')) or s['epoch_advanced']!=int(enabled) or any(s[k] for k in ('retained','uncertain','reason','store_fault','clock_at','clock_prev','bcs_reason','bcs_uncertain')) or tuple(s[k] for k in ('checks','read_attempts','reader_attempts','reader0','reader1','store_calls','store_checks','bcs_attempts','bcs_writes','parent_attempts','epoch_before','epoch_after'))!=expected:raise ValueError('ring false completion')
   if not 0<s['source_begin']<=s['source_last']<=s['source_end']<s['begin']<=s['bcs_begin']<s['bcs_end']<s['post_begin']<=s['post_last']<=s['post_end']<=s['return_begin']<=s['end']==s['last']<=s['begin']+150000 or s['bcs_end']>s['bcs_begin']+100000:
    raise ValueError('ring original/post/return clocks')
-  if not s['bcs_begin']<=s['store_previous']<=s['store_at']<=s['bcs_end'] or s['store_at']>s['source_end']+100000:raise ValueError('ring source-age/final-store clock')
+  if enabled and (not s['bcs_begin']<=s['store_previous']<=s['store_at']<=s['bcs_end'] or s['store_at']>s['source_end']+100000):raise ValueError('ring source-age/final-store clock')
+  if disabled and s['bcs_end']>s['source_end']+100000:raise ValueError('disabled original source-age')
  return s
 
 def _rows(text,prefix,keys,width):
@@ -42,20 +46,20 @@ def _rows(text,prefix,keys,width):
   rows.append(dict(zip(keys,map(int,m.groups()[:len(keys)])),words=values))
  return rows
 
-def ring_result(text):
+def _ring_result(text,*,entry=False):
  lines=[l for l in text.splitlines() if l.startswith('intel-ring-')]
  if not lines:return None
  allowed=('intel-ring-summary:','intel-ring-bcs:','intel-ring-post-row:','intel-ring-post-context:','intel-ring-post-summary:','intel-ring-reader:','intel-ring-audio:','intel-ring-hda:','intel-ring-owner:')
  if any(not l.startswith(allowed) for l in lines):raise ValueError('ring unknown record')
  if any(l.startswith(('intel-joint-','intel-claim-','intel-held-','intel-prepare-','intel-rehold-','intel-hda-bcs-','intel-blitter-','intel-shutdown-')) for l in text.splitlines()):raise ValueError('ring foreign operation')
- sums=[ring_summary(l) for l in lines if l.startswith('intel-ring-summary:')]
+ sums=[ring_summary(l,entry=entry) for l in lines if l.startswith('intel-ring-summary:')]
  if len(sums)!=1:raise ValueError('ring summary coverage')
  s=sums[0]
  from intel_gt_wake import wake_result
  from intel_completion_audit import completion_result
  from intel_joint import joint_capture,ENDPOINT
  w=wake_result(text)
- if not w or w['summary']['v']!=24:raise ValueError('ring wrong image')
+ if not w or w['summary']['v']!=(25 if entry else 24):raise ValueError('ring wrong image')
  owner=joint_capture(text.replace('intel-ring-hda:','intel-joint-hda:').replace('intel-ring-owner:','intel-joint-summary:'))
  if not owner:raise ValueError('ring missing HDA owner')
  h=owner['summary']
@@ -83,12 +87,12 @@ def ring_result(text):
  complete=bool(s['complete'] and retired and w['lease_complete'])
  if s['complete']:
   a=pre['summary'];z=post['summary']
-  if not a['complete'] or a['enabled']!=16 or not z['complete'] or z['enabled'] or any(a[k] or z[k] for k in ('pending','flip_wait','tlb_pending','reason')) or a['parser_idle']!=3 or z['parser_idle']!=3:raise ValueError('ring fresh census eligibility')
+  if not a['complete'] or a['enabled']!=(16 if s.get('kind',1)==1 else 0) or not z['complete'] or z['enabled'] or any(a[k] or z[k] for k in ('pending','flip_wait','tlb_pending','reason')) or a['parser_idle']!=3 or z['parser_idle']!=3:raise ValueError('ring fresh census eligibility')
   for n in range(2):
    for e in range(5):
     for i in range(8):
      old=pre['rows'][n*5+e]['w'+str(i)];new=post['rows'][n*5+e]['w'+str(i)]
-     if old!=(0x3eef000 if e==4 and i==2 else 0xf001 if e==4 and i==3 else 1 if i==4 else 0) or new!=(old&~1 if e==4 and i==3 else old):raise ValueError('ring geometry/full engine preservation')
+     if old!=(0x3eef000 if s.get('kind',1)==1 and e==4 and i==2 else 0xf001 if s.get('kind',1)==1 and e==4 and i==3 else 1 if i==4 else 0) or new!=(old&~1 if e==4 and i==3 else old):raise ValueError('ring geometry/full engine preservation')
    if any(pre['contexts'][n]['c'+str(i)]!=post['contexts'][n]['c'+str(i)] for i in range(6)):raise ValueError('ring context preservation')
   for n,row in enumerate(bcs):
    src=pre if n<2 else post;sample=n%2
@@ -106,10 +110,10 @@ def ring_result(text):
    if any(p['endpoint'][k]!=phases[0]['endpoint'][k] for k in ENDPOINT if k!='command'):raise ValueError('ring HDA resource drift')
   if not phases[1]['summary']['end']<s['source_begin']<s['end']<=phases[2]['summary']['begin'] or h['end']>w['summary']['end_us']:raise ValueError('ring owner phase order')
  if w['summary']['complete'] and not complete:raise ValueError('ring false enclosing completion')
- return dict(complete=complete,native_complete=False,enabled_writer_complete=complete,summary=s,pre=pre,post=post,bcs=bcs,readers=readers,audio=audio,owner=owner,wake=w,reset=False,hardware_ownership=False,managed_pages=0,physical_tearfree=False)
+ return dict(complete=complete,native_complete=False,enabled_writer_complete=complete and s.get('kind',1)==1,summary=s,pre=pre,post=post,bcs=bcs,readers=readers,audio=audio,owner=owner,wake=w,reset=False,hardware_ownership=False,managed_pages=0,physical_tearfree=False)
 
-def native_ring_result(text):
- r=ring_result(text)
+def _native_ring_result(text,*,entry=False):
+ r=_ring_result(text,entry=entry)
  if r and r['complete']:
   from intel_gt_wake import native_wake_result
   if not native_wake_result(text)['native_wake_complete']:raise ValueError('ring native prerequisites')
@@ -131,3 +135,6 @@ def verify_ring_checkpoint(pre,text,native=False):
  if any(s.count('init: deferred=ring-transition-preinit;')!=1 or 'init: started pid=' in s for s in (pre,text)):raise ValueError('ring preinit provenance')
  if not ring_result(text):raise ValueError('ring missing final result')
  return True
+
+def ring_result(text):return _ring_result(text)
+def native_ring_result(text):return _native_ring_result(text)
