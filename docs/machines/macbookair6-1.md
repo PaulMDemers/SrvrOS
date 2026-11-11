@@ -12360,3 +12360,25 @@ remaining hypotheses; neither is implemented or accepted by this return review.
 Actual review base is main `52907f8b`; PR301 `25e6219c`, PR19 `3da01075` and
 PR379 retain independent scopes. This review touches only this unit record and
 the contiguous-allocation guide; no runtime or other-machine acceptance changes.
+
+
+## Active filesystem performance passes (2026-11-11)
+
+Actual base is main `5e72e2dd`, with the c7 native return independently reviewed
+and backed. The user requests several filesystem read/write performance passes.
+Scope is shared exFAT allocation/bitmap reads, FAT-chain traversal and bounded
+stream append/read, with block-layer work only if a measured defect requires it.
+First reproduce the bounded-stream writer's dependency on eager FAT terminal
+initialization, then audit unnecessary bitmap slack reads and transaction-cache
+churn from prefix payload reads. Preserve all allocation/alias/readback proofs,
+publication ordering, barriers, quarantine, lease ownership and existing cache,
+transfer, byte/runtime limits. No USB timeout/command/power-policy change.
+
+PR301 `25e6219c` has no storage hunk; PR19 `882f64fc` changes separate metadata
+import and scheduler-test hunks, with no allocator/read-path implementation.
+PR379 remains independent design work. No other-machine task is contacted.
+Currentc7/recoveryc354, all859 USB files and outside-build accepted backups stay
+protected. Native source optimization/performance claims require matching new
+evidence; no new reboot is armed by this scope notice. Next checkpoint is a
+regression-backed stream correction and measured, independently attributed
+read/write reductions before broader validation.
