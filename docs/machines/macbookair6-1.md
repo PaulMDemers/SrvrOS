@@ -11858,3 +11858,64 @@ native observation at the original1800s1%,60s tail,500ms/10s limits and all
 existing byte, barrier, ownership and retirement requirements. Report actual
 parent/content coverage, including legitimate parent-only device-flush cases,
 before choosing a change to the commit path.
+
+## Native exact gate-correlation result (2026-11-10)
+
+Release `3403de90a056fca3`, source `62670020`, completes the original1800s1%
+PCM/disk/app stress with1055 app cycles,3836 verified262144-byte disk bursts,
+1005584384 disk bytes,345780224 PCM bytes and zero recorded underruns. Maximum
+desktop loop is120.567ms, app ready1.147130s and close3.789923s, within the
+existing500ms/10s requirements. All three exact1366x768 BMPs save and decode.
+Their total durations are9.990791/14.004349/8.644861s. This diagnostic candidate
+does not establish a causal speed change from previous cold runs.
+
+Separate local raw-log parsing and interval review pass all16 original
+contracts and the new owner/context companions. Every retained longest
+screenshot wait selects the background SYS_SYNC owner and has a valid enclosing
+live content, state3. Admission waits account for95.55/97.23/96.54% of raw write
+call wall time. The ordinary handlers total about1.4ms per screenshot. The
+[detailed attribution](../capture-gate-correlation.md#native-air61-observation-2026-11-10)
+records each capture's actual cumulative roles rather than substituting the
+independent global content maximum.
+
+Capture2 now exactly joins that completed maximum and its command observations
+by parent/content identity and whole interval containment. Its1.595471s owner
+scope observes1.470821s of payload-write callbacks and36.690ms of prefix reads.
+The selected16KiB write spends359.848ms in USB status wait after1.038ms data
+transfer; sampled ring service gaps reach20.058ms, with1us observed-completion
+to caller resumption. This localizes delayed software-visible USB completion,
+while the controller/device cause remains unresolved. Capture1 also spends
+739.293ms in cumulative prefix reads, alongside403.267ms payload writes.
+Capture3 observes1.171760s payload writes and10.535ms prefix reads. Each live
+content begins73–80us before its owner scope. These cumulative callback wall
+spans cover that content through owner release and are not exclusive CPU/media
+measurements or a complete attribution of every wait.
+
+The same completed capture2 content retains four qualified appends/262144 bytes
+beyond its3145728-byte committed prefix, live size3407872, with dirty state
+preserved. This supplies the native active-append dirty-survivor sample absent
+from a139. Each screenshot makes25–27 qualified copies and38–40 ordinary
+writes. The remaining delay is dominated by shared filesystem ownership across
+long commits, with root payload completions and prefix verification contributing.
+Worker receive/allocation spans stay271.578–333.039ms and final status
+observation0.737–1.824ms. Capture retirement finishes within95.016ms.
+
+All prior823 USB files survive, except the expected metadata update. The832
+resulting files occupy3910 clusters with zero leaks, FAT/bitmap mismatches or
+allocation errors. Direct read-only USB hashes agree with collection, all three
+BMPs and the40-byte disk receipt validate, and battery/cache/capture/desktop
+retirement and post-PCM first-protocol checks pass. Native lifecycle records
+retain bounded tails and worst observations. Auditing was performed locally by
+the root agent; complete individual-cycle trace coverage is not claimed. Audio
+has zero recorded underruns at1%; subjective listening was unassessed for this
+run. The earlier intermittent battery failure remains unresolved and its original
+failed-media archive is verified and preserved.
+
+Ubuntu default, consumed one-shot, disabled collector, unmounted USB and exact
+installed/staged/independent payloads are verified. Recoveryc354, prior accepteda139
+and historical acceptance backups remain protected. Cleanup removed19 full-hash
+verified uninstalled stage duplicates and regenerable build outputs, leaving
+about9GiB free without deleting raw evidence. No new reboot is armed. Next
+bounded work is a deterministic replay of the matched sync/write-completion
+overlap and an audit of exFAT commit ownership and repeated prefix work, with
+all proofs, barriers, ownership, byte caps and runtime/latency limits retained.
