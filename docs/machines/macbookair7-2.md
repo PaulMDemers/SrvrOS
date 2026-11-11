@@ -2,13 +2,16 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Active scope: record matched-owner observation and integrate main
+### Active scope: same-owner shutdown/reset composition after observation
 
 The original-owner HDA/BCS trial is collected and accepted for its
-already-disabled observation branch only. Record this exact-source evidence,
-then integrate inspected main`5e72e2dd` (PR467 lazy FAT writes and PR468 Air6,1
-native evidence) on the existing device branch and validate affected host
-storage paths. No new physical trial is armed. PR19 networking and PR379
+already-disabled observation branch only. Acceptance is recorded below.
+Integrated inspected main`5e72e2dd` (PR467 lazy FAT writes and PR468 Air6,1
+native evidence) in merge`a7d4ed4d`. The Makefile append conflict retains both
+independent target groups. Local host/docs/NoFat comparisons and the HDA/BCS
+ELF build pass. The comparison retains its81 baseline-known post-repair strict
+allocation nonpasses; it claims unchanged original invariants, not complete
+crash recovery. Merged filesystem behavior has no new Air7,2 physical acceptance. No new physical trial is armed. PR19 networking and PR379
 WebCore remain independent. Current installed source stays the qualified
 `a720d774` payload until a new candidate is staged and qualified.
 
