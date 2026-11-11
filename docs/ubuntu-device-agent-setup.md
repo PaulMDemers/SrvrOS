@@ -1798,3 +1798,14 @@ allocation/fsck and seven recovery equalities pass, Ubuntu is unarmed. Backend
 tombstones remain retained; repeated connection generations, persistent service,
 UI and reattach remain open. No new trial is scheduled. Integrate/requalify main
 before new runtime/lifecycle work; keep both accepted c603 cold runs immutable.
+
+
+### Pro11,2 independent startup capture
+
+The opt-in v141 startup-only profile writes seven checkpoints to a preallocated
+internal EFI file through the existing AHCI driver, independently of USB
+workspace mounting. It stops before firmware/network capture. Prepare and pin
+one fresh journal file, archive its descriptor and empty contents, then follow
+the normal matched build, exact-stage VM, protected recovery, one-shot boot and
+once-only collection sequence. See the [startup journal](startup-journal.md)
+for disk binding, bounded data writes, checkpoint format and failure handling.

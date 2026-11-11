@@ -1,4 +1,5 @@
 #include <srvros/sync_timing.h>
+#include <srvros/startup_journal.h>
 #include <srvros/ap_probe.h>
 #include <srvros/wifi_service.h>
 #include <srvros/haswell_backing.h>
@@ -648,10 +649,21 @@ static void boot_virtio_gpu_probe(void) {
         (uint64_t)result.fence_ok,(uint64_t)result.reset_ok,(uint64_t)result.quarantined);
 }
 
+static void startup_checkpoint(uint32_t phase,uint64_t flags) {
+    if(startup_journal_checkpoint(phase,flags))return;
+    boot_set_framebuffer_quiet(false);
+    console_write("Startup diagnostic could not commit its independent record. Earlier records remain on the internal disk. Return to Ubuntu manually.\n");
+    console_sync();halt_forever();
+}
+
 void kmain(void) {
     serial_init();
     console_write("\n\nsrvros: entering kernel\n");
     const char *cmdline = kernel_cmdline();
+    bool startup_diagnostic=cmdline_has_token(cmdline,"srvros.startup-diagnostic=1");
+    if(startup_diagnostic && (!cmdline_has_token(cmdline,"srvros.storage=ram") ||
+        !cmdline_has_token(cmdline,"srvros.wifi-reconnect5=1") ||
+        !cmdline_has_token(cmdline,"srvros.capture-failure=reboot")))halt_forever();
     boot_verbose = boot_debug_requested(cmdline);
     bool a1466_capture = boot_a1466_capture_requested(cmdline);
 
@@ -764,6 +776,15 @@ void kmain(void) {
 #endif
     }
     pci_init();
+    if(startup_diagnostic) {
+        boot_set_framebuffer_quiet(false);
+        boot_status("Startup diagnostic: saving independent internal-disk checkpoints; no input required\n");
+        if(!ahci_init() || !startup_journal_open()) {
+            console_write("Startup journal unavailable. Return to Ubuntu manually to inspect the armed record.\n");
+            console_sync();halt_forever();
+        }
+        startup_checkpoint(1,0);
+    }
     bool virtio_baseline=cmdline_has_token(cmdline,"srvros.virtio=on");
     if(virtio_baseline) {
         bool input=virtio_input_init();
@@ -799,6 +820,7 @@ void kmain(void) {
         cmdline_has_token(cmdline,"srvros.wifi-mac-startup=1"));
     xhci_set_wifi_firmware_enabled(cmdline_has_token(cmdline,"srvros.capture=wifi-firmware"));
     xhci_init();
+    if(startup_diagnostic)startup_checkpoint(2,0);
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",
         mouse_ready ? "yes" : "no",
@@ -1051,7 +1073,9 @@ void kmain(void) {
         console_printf("capture-write-timing: enabled=%s capacity=8\n",process_capture_write_timing_enable()?"yes":"NO");
         console_printf("sync-timing: enabled=%s capacity=8\n",sync_timing_enable()?"yes":"NO");
     }
+    if(startup_diagnostic)startup_checkpoint(3,(init_ready?4u:0u)|(timer_running?8u:0u));
     workspace_boot(cmdline);
+    if(startup_diagnostic)startup_checkpoint(4,(workspace_active()?1u:0u)|(init_ready?4u:0u)|(timer_running?8u:0u));
     if (automatic_probe || automatic_wifi) {
         /* Capture enumeration/setup failures even if firmware left a misleading
          * PS/2-ready flag. This unattended profile must not require typing. */
@@ -1073,6 +1097,21 @@ void kmain(void) {
             else started=workspace_log_start_capture();
         }
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
+        if(startup_diagnostic) {
+            uint64_t flags=(workspace_active()?1u:0u)|(started?2u:0u)|(init_ready?4u:0u)|(timer_running?8u:0u);
+            startup_checkpoint(5,flags);
+            bool saved=started && workspace_log_stop();
+            bool unmounted=workspace_active() && workspace_unmount();
+            flags|=(saved?16u:0u)|(unmounted?32u:0u);
+            console_printf("startup-diagnostic: workspace=%u logger=%u saved=%u unmounted=%u firmware_attempted=0\n",
+                flags&1u,(flags>>1)&1u,(uint64_t)saved,(uint64_t)unmounted);
+            startup_checkpoint(6,flags);
+            console_write("Startup diagnostic complete. Results are on the internal EFI partition. Returning to Ubuntu.\n");
+            startup_checkpoint(7,flags);
+            if(!startup_journal_close()){console_sync();halt_forever();}
+            console_sync();timer_delay_us(250000);arch_reboot_unattended();arch_reboot();
+            halt_forever();
+        }
         bool sampled=!automatic_audio_listen && !automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix && !automatic_ap && !automatic_hsw && !automatic_hfw;
         bool nop_logger_parked=false;
         if(cmdline_has_token(cmdline,"srvros.wifi-nop5=1")) {

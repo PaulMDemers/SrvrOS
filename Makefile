@@ -6602,3 +6602,12 @@ test-core: test-wifi-mcu-failure-details
 test-wifi-completion-foundations: test-wifi-mcu-failure-details
 test-wifi-mcu-failure-details: build/tests/xhci-cal5-mcu-host$(HOST_EXE)
 	WIFI_MCU_DETAILS_BINARY=$< PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_mcu_failure_details.py
+
+.PHONY: test-startup-journal
+test-core: test-startup-journal
+test-startup-journal: build/tests/startup-journal-host$(HOST_EXE)
+	./build/tests/startup-journal-host$(HOST_EXE)
+	$(PYTHON) -B -m unittest discover -s tools -p 'test_startup_journal.py'
+build/tests/startup-journal-host$(HOST_EXE): tools/test_startup_journal.c kernel/src/startup_journal.c kernel/include/srvros/startup_journal.h kernel/src/sha256.c
+	@mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/sha256.c -o $@
