@@ -64,6 +64,12 @@ and reset admission under the same original owner, retaining all existing
 geometry, source, epoch and deadline checks; do not synthesize an enabled case
 or repeat unchanged observation boots as a substitute for that integration.
 
+The separate [disabled-entry/reset composition](intel-entry-reset-composition.md)
+now qualifies a sealed zero-store child before the unchanged joint reset path.
+Its original census age, epoch and borrow return remain mandatory. Host/VM
+qualification is complete; native composition is pending. This is the next
+physical trial, with no added enabled writer or memory/completion grant.
+
 ## First decision: how ownership begins
 
 Before another destructive native operation, choose and document a complete

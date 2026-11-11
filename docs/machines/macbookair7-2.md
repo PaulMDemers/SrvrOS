@@ -2,35 +2,52 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Active scope: same-owner shutdown/reset composition after observation
+### Active scope: original-owner disabled entry/reset candidate ready
 
-The original-owner HDA/BCS trial is collected and accepted for its
-already-disabled observation branch only. Acceptance is recorded below.
-Integrated inspected main`5e72e2dd` (PR467 lazy FAT writes and PR468 Air6,1
-native evidence) in merge`a7d4ed4d`. The Makefile append conflict retains both
-independent target groups. Local host/docs/NoFat comparisons and the HDA/BCS
-ELF build pass. The comparison retains its81 baseline-known post-repair strict
-allocation nonpasses; it claims unchanged original invariants, not complete
-crash recovery. Merged filesystem behavior has no new Air7,2 physical acceptance. No new physical trial is armed. PR19 networking and PR379
-WebCore remain independent. Current installed source stays the qualified
-`a720d774` payload until a new candidate is staged and qualified.
+Source`0fadb55b`, release`0994cd9762acfca1`, qualifies the separate
+[disabled-entry/reset composition](../intel-entry-reset-composition.md). It
+registers a read-only child after the original full census, requires exact
+already-disabled BCS/census agreement and returns its borrow before the existing
+takeover/preparation/reset/re-arm/claim cancellation pipeline. No enabled-entry
+relaxation, geometry clearing or added writer. Original census age/epoch and
+child/BCS100ms, GT300ms, HDA400ms and outer500ms bounds remain unchanged.
 
-Implement the [disabled-entry/reset composition](../intel-entry-reset-composition.md)
-in a separate joint-admission image and exact recipe. The accepted zero-store
-BCS observer becomes a sealed read-only child of the original HDA/GT owner,
-after its original full completion census and before existing takeover/reset
-admission. It must return before the unchanged preparation/reset/re-arm/claim
-pipeline. Enabled/nonzero-geometry entry refuses before reset; the separate
-enabled shutdown writer remains unexercised. No geometry clearing, added writer,
-new assurance or deadline extension. Keep100/150/300/400/500ms limits and the
-original census age/epoch; do not refresh or synthesize an admission token.
+Full local28-image build/USB/host/core/docs passes on this source, including the
+merged main5e72e2dd filesystem baseline. Installed-root was explicitly omitted
+(no installer change; actual installed/current/recovery hashes verified).
+The NoFat comparison preserves its81 known post-repair strict nonpasses; this
+is not full crash-recovery acceptance. All8 new tests pass fatal ASan/UBSan,
+including64 child callback faults, all92 immutable sourcewords and1,917 HDA
+boundaries. Six compiled provider/source/age/return/epoch controls are detected.
+Historical accepted joint and HDA/BCS native reports still validate.
 
-Touched scope: new small diagnostics core/actual-adapter wrapper, isolated
-image/firmware/pre-init recipe, strict receipts/collector, host fault/sanitizer
-and staged-VM qualification. Reuse the existing reset pipeline; preserve older
-images and native evidence. Checkpoint:`build/air-entry-compose-20261111`.
-Fetched main remains5e72e2dd. PR469 filesystem, PR19 networking and PR379
-WebCore stay independent. Work to hardware-ready; no reboot in this block.
+All28 images retain separate symbols/receipts. Native object and exact staged
+ELF verify eight read-only BCS DWORDs on the existing page, unchanged existing
+reset/re-arm code, original HDA Command halfword writes, static retained objects
+and2KiB frame limits. The projected native tail is62,884/65,536 bytes including
+the unchanged1,536-byte reserve. Exact-stage MBR/EFI QEMU verifies the compiled
+22-token recipe, pre-init provenance, unsupported zero-borrow/store refusal,
+matching saved raw bytes/checkpoint, unmount/automatic return and missing-
+workspace halt. These are host/VM checks, not native composition acceptance.
+
+Candidate and complete evidence are banked outsidebuild. All1,470 files/146
+sessions preserve; offline fsck/allocation/writable/headroom, boot digest,
+current/recovery/GUI/accepted joint/standalone banks, AC, Ubuntu default and
+unarmed one-shot pass. Only the unreferenced EFI copy of prior failed78be was
+retired after full durable-bank equality; its payload and failure evidence
+remain. Currentbd77/recovery9aa8/GUIc497/accepted joint978/standalone d260 stay
+installed. USB unmounted; volume1%; no new install or reboot armed.
+
+Next is the unattended same-owner disabled entry -> existing reset trial.
+Revalidate host/media/recovery, install the exact banked candidate with
+`--keep-previous`, persist the run record and use one-shot boot under existing
+reboot authorization. Safe saved outcomes return automatically; retained
+uncertainty halts visibly. Collect the matching session first on return.
+No reboot in this work block. Native composition remains pending, enabled
+shutdown unexercised, obligations255, assurances0, managedpages0 and physical
+tear-free presentation unaccepted. PR301 carries the work; PR469 filesystem,
+PR19 networking and PR379 WebCore remain independent. Checkpoint:
+`build/air-entry-compose-20261111/status.md`.
 
 ### Latest native HDA/BCS result: already-disabled observation accepted
 

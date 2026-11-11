@@ -65,3 +65,21 @@ prefixes, mutation of all92 original census words and1,917 faults in the
 existing HDA boundary path, plus actual CLI and compiled recipe isolation.
 These are model/host checks; only matching native evidence can accept the
 composition on a physical machine.
+
+## Qualified candidate, native acceptance pending
+
+Source`0fadb55b` and release`0994cd9762acfca1` pass the full local28-image
+build/USB/host/core/docs gate, fatal ASan/UBSan fault matrix, six compiled
+provider/source/age/return/epoch controls and historical native receipt replay.
+Object and staged checks verify eight read-only BCS DWORDs, unchanged existing
+reset/re-arm code, original HDA halfword writes, retained static lifetimes and
+2KiB frames. The native tail projection is62,884/65,536 including1,536reserve.
+
+Exact-stage MBR/EFI QEMU passes strict compiled recipe and pre-init provenance,
+unsupported-profile zero-borrow/store refusal, saved checkpoint/raw-byte
+verification, unmount/automatic safe return and missing-workspace halt. The
+candidate is banked outsidebuild and uninstalled/unarmed. Physical host/media/
+recovery checks pass, but only its future matching native session can accept
+this composition. The earlier accepted disabled observation and the unexercised
+enabled writer retain their separate scopes. See the machine record for the
+next unattended trial and collection requirements.
