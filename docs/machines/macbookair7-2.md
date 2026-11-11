@@ -31,10 +31,19 @@ triage, pass. Exact-byte replay removes only that owner flag, leaving seven
 attention items and the same refusal. No kernel, recipe, deadline or native
 acceptance changed. The original classification and raw bytes are preserved.
 
-Next bounded scope: integrate inspected main `a9eacdaa` (PR472 USB/commit timing),
-then review a state-aware original-owner entry composition using the actual live
-census. Both naturally observed entry states need explicit routes; nonzero
-geometry must not be relabeled as eligible for the old zero-geometry reset.
+Integrated inspected main `a9eacdaa` (PR472 USB/commit timing) in merge
+`aeb7bb53`; automatic merges preserve the transition and both Makefile target
+groups. Local host/docs, USB transport, I/O scheduler, commit/sync/workspace/
+capture timing, process lifetime and reserved-append scheduler checks, 41 focused
+collector/legacy tests and the diagnostic ELF build pass. GPU implementation
+sources are unchanged by this merge. These affected checks do not establish a
+new global 29-image qualification or native acceptance of merged telemetry;
+installed release remains the frozen c43d source.
+
+Next bounded scope: review a state-aware original-owner entry composition using
+the actual live census. Both naturally observed entry states need explicit
+routes; nonzero geometry must not be relabeled as eligible for the old
+zero-geometry reset.
 No unchanged retry, synthetic enable, geometry clearing, wider old gate, deadline
 extension or saved-receipt authority. Obligations 255, assurances 0, managed pages
 0 and native tear-free remain unaccepted. Local checkpoint:
