@@ -8338,3 +8338,16 @@ six exact-stage UEFI cases pass. The latter save a GPT refusal in an actual USB
 exit transcript and preserve the independent file on refusal. This is the next
 startup-only diagnostic; the native admission cause and Wi-Fi reconnect remain
 unproved. The local startup-admission record owns installation/arming/collection.
+
+
+The6a39a477 startup retry saved a complete USB transcript and identified reason8:
+its native boot-sector hash equals the pinned sector with only FAT byte65 bit0
+cleared. Direct EFI unmount/remount reproduces those exact hashes, consistent
+with Linux's mount-state implementation. Preparation fixcc1c3775/release7bf30a800c4d68ac
+pins the exact clean sector expected after shutdown. The kernel is unchanged
+and retains its entire512-byte hash comparison. Six protocol/27 writer/fatal,
+existing storage/logger and267 profile/42 collection checks pass. Seven exact-
+stage UEFI cases include actual-dirty refusal with a saved USB transcript and
+clean independent admission with USB absent. The startup-clean-state record
+owns the next no-unplug reboot and collection with449 prior files. Native
+independent write/flush completion and Wi-Fi reconnect remain pending.

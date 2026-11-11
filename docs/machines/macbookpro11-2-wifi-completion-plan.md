@@ -9,6 +9,19 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 10)
 
+The startup fallback saved session00065ff6e502a291-00 and identified the cause:
+host preparation pinned Linux's mounted FAT state at byte65=1, while native
+boot read the exact clean sector with byte65=0. Controlled direct unmount/
+remount reproduces both hashes. Preparation fixcc1c3775/release7bf30a800c4d68ac
+pins that clean sector; the unchanged kernel still hashes every actual byte.
+All27 writer/fatal, six protocol,267 profile/42 collection and seven UEFI cases
+pass, including strict dirty-state refusal and clean admission with USB absent.
+Main7e8f70ae is integrated at64534a26. The new startup-clean-state record owns
+installation/review/reboot/collection with449 prior files. Native independent
+write/flush completion is pending. The closed768-file prior primary and separate
+three-file cause review remain immutable.
+
+
 The first startup journal trial6e620b4a/af216d2c053b59f6 failed admission and
 halted before USB; its file stayed initial and all447 workspace files/metadata
 and51 other EFI files were preserved. Runtime6a39a477/release1aa9a0b4479f5e99

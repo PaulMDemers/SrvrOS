@@ -9,6 +9,30 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ### Native admission cause identified (November 10)
 
+Preparation fixcc1c3775/release7bf30a800c4d68ac is qualified for the next
+startup-only validation. Its expected clean-sector SHA256 matches the exact
+prior native read and controlled direct-read unmount. Only host preparation
+clears byte65 bit0 in the expected copy; native comparison still covers all512
+bytes. The kernel is byte-identical to6a39a477/1aa9a0b4479f5e99. Main7e8f70ae
+(PR462) is integrated at64534a26; its added commit-boundary host fixture passes.
+
+Six host protocol tests,27 actual writer scenarios and fatal ASan/UBSan pass,
+including reproduction of the stale mounted pin and strict actual-dirty/other-
+state refusal. AHCI/block/logger,267 profile/42 collection and seven exact-stage
+UEFI cases pass. The dirty-state guest saves reason8 through USB without an
+independent write; clean-state guests save all seven checkpoints, including
+with USB absent. Four extracted collector transcript cases pass with downstream
+metadata verification mocked. The ATA identify words declare both flush forms
+supported, without accepting native flush execution.
+
+The startup-clean-state local record owns installation, final review, automatic
+reboot and once-only collection. Its baseline includes449 files and188 directories.
+Keep both USB devices connected; no unplug cycle is needed. Collect FIRST with
+`python3 -B build/bringup/startup-clean-state/run_root.py return_collect` after
+return. Native independent write/flush/readback and seven-phase completion remain
+pending; calibration and same-boot Wi-Fi reconnect remain separate open work.
+
+
 The6a39a477/1aa9a0b4479f5e99 retry saved a complete USB startup transcript in
 session00065ff6e502a291-00. Its independent journal stayed initial. Admission
 reason8 identifies the EFI boot-sector hash, followed by reason13 (no admitted
