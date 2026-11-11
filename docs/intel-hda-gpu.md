@@ -126,9 +126,13 @@ wide-PTE refusal, including the original reserve.
 
 The exact stage passed Q35 zero-store refusal, checkpoint provenance, durable
 results, clean unmount and automatic return, plus a separate missing-workspace
-halt. The stage is ready for an unattended physical test. No installation or
-one-shot was performed. Native timing and successful native retirement still
-need physical evidence.
+halt.
+
+The unattended Air7,2 run restored HDA and retired the GPU and HDA aliases.
+Engine preparation completed its preservation checks and returned its borrow,
+then recorded a terminal clock of 100,716 µs against the 100,000 µs limit.
+The overall trial remained incomplete. See the raw lifecycle and return
+summary in the [Air7,2 unit record](machines/macbookair7-2.md).
 
 ## Earlier software qualification
 

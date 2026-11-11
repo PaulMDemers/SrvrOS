@@ -2,7 +2,7 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Ready for native validation: joint display-HDA and GPU interval claim
+### Native trial incomplete: joint display-HDA and GPU interval claim
 
 Source `2f114e64` on integrated main `8271c254` (PR460), release
 `116ba4fb62bd563f`. The separate [joint image](../intel-hda-gpu.md)
@@ -26,17 +26,26 @@ inventory of 1,452 files and 140 sessions. The latest accepted release
 `e83571c874bc17f1`, recovery `9aa8dbf6fbda8252`,
 Ubuntu default and 1% host volume are preserved. The superseded, unreferenced
 original-entry EFI copy was archived with verified hashes to leave space for the
-new release and installer margin. The new stage and evidence are banked outside
-build. It is uninstalled and the one-shot is unarmed.
+new release and installer margin. The stage and evidence are banked outside
+build.
 
-Next: run this exact stage once, collect the matching session, and check native
-100/300/400/500 ms timing, raw HDA/GPU lifecycle, retirement and unchanged
-inherited backing. Safe saved outcomes return to Ubuntu; missing workspace or
-uncertain ownership halts visibly. All eight ownership obligations remain open
-(mask 255), with zero new assurances, managed pages or physical tear-free
-acceptance. Local
-run record: `build/air-joint-native-20261110/run.json`. PR19 Wi-Fi and PR379
-WebCore scopes remain independent.
+Native session `session-00065ff4e36a1efe-00` matched the release and passed
+checkpoint verification. Both original-entry observations completed, HDA
+followed command phases 6/2/2/6, and the HDA alias and all 14 GPU aliases
+retired. The final engine preparation clock read 100,716 µs against the
+100,000 µs limit. Preservation and borrow return had completed, so the
+terminal receipt records a clean failure. The HDA lifetime took 236,711 µs
+and the outer GPU lifetime took 287,308 µs.
+Ubuntu is back and GRUB consumed the one-shot. The USB inventory matched
+the prior files and expected metadata update, offline exFAT checks passed,
+and the installed recovery still matches its banked copy.
+
+The timing follow-up is to measure the final guard and borrow return
+separately. The last in-budget preparation sample was at 95,937 µs,
+4,779 µs before the terminal sample. Preserve the original 100 ms deadline.
+All eight ownership obligations remain open (mask 255), with zero new
+assurances or managed pages. Physical tear-free acceptance remains pending.
+Local record `build/air-joint-native-20261110/run.json`.
 
 ### Earlier software checkpoint: joint HDA/GPU lifetime qualified
 
