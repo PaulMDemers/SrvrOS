@@ -242,6 +242,33 @@ static bool intel_display_test_takeover_read(unsigned,uint32_t,uint32_t *);
 #define SRVROS_INTEL_DISPLAY_HOST_TEST
 #include "../kernel/src/drivers/intel_display_probe.c"
 
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+static struct intel_gt_access *shutdown_saved_owner;
+static struct intel_gt_borrow *shutdown_saved_borrow;
+static void *shutdown_saved_context;
+void intel_display_test_shutdown_lifetime(struct intel_gt_access *g,struct intel_gt_borrow *b,void *context) {
+ shutdown_saved_owner=g;shutdown_saved_borrow=b;shutdown_saved_context=context;
+}
+__attribute__((noinline)) static void shutdown_clobber_stack(void) {
+ volatile unsigned char bytes[32768];
+ for(unsigned i=0;i<sizeof bytes;i++)bytes[i]=(unsigned char)i;
+ __asm__ volatile(""::"r"(&bytes[0]):"memory");
+}
+__attribute__((noinline)) static void shutdown_check_lifetime(void) {
+ shutdown_clobber_stack();
+ assert(shutdown_saved_owner && shutdown_saved_borrow && shutdown_saved_context);
+ struct intel_gt_access *g=shutdown_saved_owner;
+ struct intel_gt_borrow *b=shutdown_saved_borrow;
+ if(g->object)assert(g->object==g && g->io.context==shutdown_saved_context);
+ if(b->object)assert(b->object==b && b->parent==g);
+ if(b->active)assert(g->pinned && g->dependents==b && g->borrows==1);
+ /* Reading the retained provider after return also exercises ASan's lifetime
+  * instrumentation. Do not invoke I/O through an uncertain owner. */
+ struct wake_adapter *a=shutdown_saved_context;
+ if(intel_gt_wake_retained())assert(g->pinned || a->uncertain || a->fw.uncertain || trial_mapping_fault);
+}
+#endif
+
 #ifdef SRVROS_INTEL_WAKE_TRIAL
 static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 #ifdef SRVROS_INTEL_JOINT
@@ -962,6 +989,9 @@ int main(int argc,char **argv) {
 if(!strcmp(engine_mode,"gpu-pending"))good=true;
 #endif
 assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
+#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+shutdown_check_lifetime();
+#endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
  if(!strcmp(engine_mode,"blit-uncertain") || !strcmp(engine_mode,"blit-readback") || !strcmp(engine_mode,"blit-late-foreign") || !strcmp(engine_mode,"blit-reader-change") || !strcmp(engine_mode,"blit-audio-change") || !strcmp(engine_mode,"blit-mode-change")) {
   assert(!display_access_allowed());for(unsigned j=0;j<WAKE_MAPS;j++)assert(pa[INTEL_CAPTURE_PAGES+1+j]);

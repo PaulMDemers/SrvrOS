@@ -54,6 +54,22 @@ checks retains the pin, mappings and exclusion until platform reset. No automati
 reboot may bypass retained state. Read-only failure still requires verified pin
 return; invalid parent state remains retained.
 
+## Retained ownership lifetime
+
+The standalone shutdown image keeps the original wake owner, provider context,
+registered shutdown borrow and captured observations in static one-shot storage.
+A retained write or failed retirement must preserve those exact objects after the
+report function returns, while the final diagnostics are saved. Provider callback
+contexts must not point into an expired reporting frame. The synchronous blitter
+callback wrapper stores no deferred callback and ends with the operation; it does
+not replace the retained parent or borrow.
+
+The actual adapter fixture saves the original owner/borrow/context, overwrites the
+caller stack after return and then checks identity and retained registration.
+Fatal stack-use-after-return instrumentation covers the same cases. No callback or
+I/O is attempted through an uncertain owner. The ordinary and other diagnostic
+images keep their existing storage policy; this change grants no new authority.
+
 ## Receipts and collection
 
 Wake version8 identifies this image; versions1–7 keep their meanings. Older row versions remain available for historical images. The new image uses

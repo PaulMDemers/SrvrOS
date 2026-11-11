@@ -511,11 +511,14 @@ bool intel_gt_wake_probe_report(void) {
 #elif defined(SRVROS_INTEL_BLITTER_TRIAL)
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
     f.recipe=cmd && !cmd->revision && intel_gt_boot_shutdown_recipe(cmd->cmdline);
-    struct shutdown_trial shutdown={0};
+    static struct shutdown_trial shutdown;
+    static struct intel_engine_census engines;
+    static struct intel_blitter_result blitter;
+    static struct reader_audit readers;
 #else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_blitter_recipe(cmd->cmdline);
-#endif
     struct intel_engine_census engines={0};struct intel_blitter_result blitter={0};struct reader_audit readers={0};
+#endif
 #elif defined(SRVROS_INTEL_ENGINE_TRIAL)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_engine_recipe(cmd->cmdline);
     struct intel_engine_census engines={0};
@@ -523,7 +526,7 @@ bool intel_gt_wake_probe_report(void) {
     f.recipe=cmd && !cmd->revision && intel_gt_boot_recipe(cmd->cmdline);
 #endif
     f.prerequisites=gt_saved_complete && fw_saved_complete;
-#ifdef SRVROS_INTEL_JOINT
+#if defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
     /* Retained faults survive this reporting call until reset. Ownership and
      * captured callback contexts must not point into an expired stack frame. */
     static struct wake_adapter a;static struct intel_gt_access owner;
@@ -759,6 +762,11 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     console_printf("intel-wake-summary: v=%u compiled=1 contract=1 efi64=%u loader=%u recipe=%u serialized=%u prerequisites=%u profile=%u fw_quiet=%u req_quiet=%u initial_req=%x initial_ack=%x grants=%u acquired=%u before=%u opened=%u checked=%u closed=%u fw_after=%u after=%u released=%u maps=%u retired=%u cache_checks=%u guards=%u retained=%u state=%u reason=%u writes=%u attempts=%u requests=%x ack=%x thread=%x begin_us=%u end_us=%u complete=%u engine_reads=%u pte_writes=0 managed_pages=0 smm_retired=0 hardware_ownership=0\n",
         (uint64_t)WAKE_VERSION,(uint64_t)f.efi64,(uint64_t)f.loader,(uint64_t)f.recipe,(uint64_t)f.serialized,(uint64_t)f.prerequisites,(uint64_t)f.profile,(uint64_t)f.firmware_quiet,(uint64_t)f.requesters_quiet,(uint64_t)fresh_gt.sample[0].requests,(uint64_t)fresh_gt.sample[0].ack,(uint64_t)grants,(uint64_t)acquired,(uint64_t)before,(uint64_t)opened,(uint64_t)checked,(uint64_t)closed,(uint64_t)fw_after,(uint64_t)after,(uint64_t)released,(uint64_t)a.maps,(uint64_t)a.retired,(uint64_t)a.cache_checks,(uint64_t)a.guards,(uint64_t)retained,(uint64_t)owner.state,(uint64_t)owner.reason,(uint64_t)owner.writes,(uint64_t)owner.write_attempts,(uint64_t)owner.requests,(uint64_t)owner.ack,(uint64_t)owner.thread,begin,end,(uint64_t)complete,(uint64_t)engine_reads);
+#if defined(SRVROS_INTEL_DISPLAY_HOST_TEST) && defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
+    /* The actual adapter fixture checks these after this frame is gone. */
+    extern void intel_display_test_shutdown_lifetime(struct intel_gt_access *,struct intel_gt_borrow *,void *);
+    intel_display_test_shutdown_lifetime(&owner,&shutdown.borrow,&a);
+#endif
     return complete;
 #else
     console_write("intel-wake-summary: v=1 compiled=0 contract=0 efi64=0 loader=0 recipe=0 serialized=0 prerequisites=0 profile=0 fw_quiet=0 req_quiet=0 initial_req=0 initial_ack=0 grants=0 acquired=0 before=0 opened=0 checked=0 closed=0 fw_after=0 after=0 released=0 maps=0 retired=0 cache_checks=0 guards=0 retained=0 state=0 reason=0 writes=0 attempts=0 requests=0 ack=0 thread=0 begin_us=0 end_us=0 complete=0 engine_reads=0 pte_writes=0 managed_pages=0 smm_retired=0 hardware_ownership=0\n");return false;
