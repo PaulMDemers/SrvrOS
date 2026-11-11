@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_HDA_SHUTDOWN) && (!defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_COMPLETION_TRIAL))
+#error "HDA BCS shutdown is a distinct shutdown image without claim/reset"
+#endif
 #if defined(SRVROS_INTEL_GPU_HOLD) && !defined(SRVROS_INTEL_JOINT)
 #error "GPU requester hold requires its distinct joint image"
 #endif
@@ -39,7 +42,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_GPU_HOLD
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+extern volatile struct limine_firmware_type_request intel_hda_shutdown_firmware_request;
+#elif defined(SRVROS_INTEL_GPU_HOLD)
 extern volatile struct limine_firmware_type_request intel_gpu_hold_firmware_request;
 #elif defined(SRVROS_INTEL_JOINT)
 extern volatile struct limine_firmware_type_request intel_joint_firmware_request;
@@ -131,7 +136,9 @@ static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x1
 #endif
 #elif defined(SRVROS_INTEL_BLITTER_TRIAL)
 #define WAKE_MAPS 11u
-#ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+#define WAKE_VERSION 22u
+#elif defined(SRVROS_INTEL_SHUTDOWN_TRIAL)
 #define WAKE_VERSION 8u
 #else
 #define WAKE_VERSION 3u
@@ -148,13 +155,21 @@ static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x1
 static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000};
 #endif
 struct wake_adapter {struct fw_observer fw;bool mapped[WAKE_MAPS],uncertain;unsigned maps,retired,guards,cache_checks;
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+ struct shutdown_trial *shutdown_trial;
+ struct intel_gt_access *shutdown_owner;
+ struct intel_blitter_result *shutdown_result;
+ const struct intel_engine_census *shutdown_initial;
+ uint64_t shutdown_begin,store_at,store_previous;
+ unsigned store_checks,store_fault;
+#endif
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
  struct intel_gt_access *bcs_owner;
  const struct intel_bcs_reset_result *bcs_active;
  bool bcs_failed;
 #endif
 };
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
 static bool joint_fast(void);
 #endif
 static bool wake_text(const char *a,const char *b) {
@@ -186,7 +201,7 @@ static bool wake_guard(void *context) {
     struct wake_adapter *a=context;struct intel_gt_endpoint e;
     a->guards++;
     if(a->uncertain || !wake_irq_off() ||
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
        !joint_fast() ||
 #endif
 #if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
@@ -247,7 +262,7 @@ static bool wake_unmap(struct wake_adapter *a,unsigned i) {
        !vmm_unmap_page_in_space(cr3,va,&physical) || physical!=result.mmio_base+wake_pages[i]){a->uncertain=true;return false;}
     a->mapped[i]=false;a->retired++;return true;
 }
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
 #include "intel_joint_trial.inc"
 #endif
 static bool wake_read(void *context,uint32_t reg,uint32_t *out) {
@@ -262,7 +277,7 @@ static bool wake_read(void *context,uint32_t reg,uint32_t *out) {
 static enum intel_gt_write wake_write(void *context,uint32_t reg,uint32_t value) {
     struct wake_adapter *a=context;
     if(reg!=INTEL_GT_REQUEST || (value!=0xffff0000u && value!=0x10001 && value!=0x10000) || !a->mapped[0] || !wake_guard(a))return GT_WRITE_NONE;
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
     if(!now(a))return GT_WRITE_NONE;
 #endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
@@ -401,6 +416,9 @@ static bool bcs_store_clock(struct wake_adapter *a) {
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
 #include "intel_bcs_trial.inc"
 #endif
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+static bool shutdown_store_source(struct wake_adapter *,struct intel_gt_access *,struct intel_blitter_result *);
+#endif
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
 #include "intel_blitter_trial.inc"
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
@@ -419,7 +437,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_GPU_HOLD
+    #ifdef SRVROS_INTEL_HDA_SHUTDOWN
+    const struct limine_firmware_type_response *firmware=intel_hda_shutdown_firmware_request.response;
+#elif defined(SRVROS_INTEL_GPU_HOLD)
     const struct limine_firmware_type_response *firmware=intel_gpu_hold_firmware_request.response;
 #elif defined(SRVROS_INTEL_JOINT)
     const struct limine_firmware_type_response *firmware=intel_joint_firmware_request.response;
@@ -510,7 +530,11 @@ bool intel_gt_wake_probe_report(void) {
 #endif
 #elif defined(SRVROS_INTEL_BLITTER_TRIAL)
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_hda_shutdown_recipe(cmd->cmdline);
+#else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_shutdown_recipe(cmd->cmdline);
+#endif
     static struct shutdown_trial shutdown;
     static struct intel_engine_census engines;
     static struct intel_blitter_result blitter;
@@ -574,7 +598,7 @@ bool intel_gt_wake_probe_report(void) {
             bool mapped=grants!=0;
             for(unsigned i=0;mapped && i<WAKE_MAPS;i++)mapped=wake_map(&a,i);
             if(mapped) {
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
                 mapped=joint_open(&a,&owner,&snapshot,begin,&f);
                 if(joint_terminal() && !mapped)a.uncertain=true;
             }
@@ -587,7 +611,7 @@ bool intel_gt_wake_probe_report(void) {
                     NULL
 #endif
                 };
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
                 opened=intel_gt_access_open_with_guarded_snapshot(&owner,&a.fw.gt.token,grants,wake_io);
 #else
                 opened=intel_gt_access_open(&owner,&a.fw.gt.token,grants,wake_io);
@@ -654,13 +678,15 @@ bool intel_gt_wake_probe_report(void) {
                 after=intel_window_handoff_revalidate(&snapshot) && (!owner.writes || fw_after);
             }
         }
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+        joint_close(after && fw_after,false); /* No interval claim or memory-completion assertion. */
+#elif defined(SRVROS_INTEL_JOINT)
         joint_close(after && fw_after,closed && prepared.action.complete && prepared.reset.complete &&
          prepared.rehold.complete && prepared.claim.state==IIC_CLOSED);
 #endif
         end=timer_monotonic_us();
         bool clean=!owner.pinned && !a.uncertain && !a.fw.uncertain && !trial_mapping_fault && (!before || after);
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
         clean=clean && !joint_terminal();
 #endif
         if(acquired)released=display_access_release(&a.fw.gt.token,clean);
@@ -671,12 +697,14 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     if(released)console_flush();
     bool retained=owner.pinned || a.uncertain || a.fw.uncertain || trial_mapping_fault || (acquired && !released);
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
     retained=retained || joint_terminal();
 #endif
     wake_terminal_retained=retained;
     bool complete=grants==7 && opened && checked && closed && after && released && a.maps==WAKE_MAPS && a.retired==WAKE_MAPS && !retained && begin && end>begin && end-begin<=500000;
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+    joint_report();complete=complete && joint.scope.state==IHG_CLOSED && !joint.scope.reason && !joint_terminal() && joint.scope.hda.complete;
+#elif defined(SRVROS_INTEL_JOINT)
     joint_report();complete=complete && joint.scope.complete;
 #ifdef SRVROS_INTEL_GPU_HOLD
     gpu_hold_report();complete=complete && gpu_hold_native.result.complete;
@@ -750,7 +778,7 @@ bool intel_gt_wake_probe_report(void) {
     engine_reads+=blitter.reads;blitter_report(&blitter,&readers);
     complete=complete && blitter.disabled && !blitter.uncertain && readers.complete;
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
-    engine_reads+=shutdown.post.reads;shutdown_report(&shutdown,&owner,&readers,!retained && a.maps==a.retired);
+    engine_reads+=shutdown.post.reads;shutdown_report(&shutdown,&owner,&readers,!retained && a.maps==a.retired,&a);
     complete=complete && shutdown.complete;
 #endif
 #endif

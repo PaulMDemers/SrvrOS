@@ -699,6 +699,12 @@ def needs_attention(line):
             return not summary_result(line)['complete']
         except ValueError:
             return True
+    if line.startswith('intel-hda-bcs-summary:'):
+        from intel_joint import fields,SUMMARY,authority
+        try:
+            s=fields(line.replace('intel-hda-bcs-summary:','intel-joint-summary:',1),'intel-joint-summary',SUMMARY);authority(s)
+            return bool(s['state']!=4 or s['reason'] or s['pinned'] or s['retained'] or not s['hda_complete'] or s['complete'] or s['gpu_complete'] or s['attached'])
+        except ValueError:return True
     if line.startswith('intel-shutdown-summary:'):
         from intel_shutdown import FIELDS
         from intel_engine_census import _fields
@@ -1162,8 +1168,17 @@ def collect(mount, volume, output):
                 hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
+        intel_hda_bcs=None
+        if 'srvros.intel-hda-bcs=joint-owner-v1' in text:
+            from intel_hda_shutdown import native_paired_result,verify_paired_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_hda_bcs=native_paired_result(final)
+                verify_paired_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_hda_bcs or not intel_hda_bcs['native_complete']:attention.append('Intel original-owner HDA/BCS shutdown incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original-owner HDA/BCS shutdown: '+str(error))
         intel_blitter=None
-        if 'srvros.intel-shutdown=qualify' in text:
+        if 'srvros.intel-shutdown=qualify' in text and 'srvros.intel-hda-bcs=joint-owner-v1' not in text:
             from intel_shutdown import native_shutdown_result
             try:
                 shutdown=native_shutdown_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
@@ -1182,6 +1197,7 @@ def collect(mount, volume, output):
             if not window_proof or not window_proof['source_completed']:
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
         records.append({
+            "intel_hda_bcs":intel_hda_bcs,
             "intel_blitter":intel_blitter,
             "intel_engines":intel_engines,
             "intel_display_capture": intel_display,

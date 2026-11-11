@@ -20,6 +20,19 @@ static bool blitter_group(void *context,uint32_t out[INTEL_BCS_WORDS]) {
 static enum intel_gt_write blitter_store(void *context,uint32_t value) {
  struct wake_adapter *a=context;
  if(value!=INTEL_BCS_DISABLED || !a->mapped[7] || !engine_guard(a))return GT_WRITE_NONE;
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ intel_display_test_paired_admission(a);
+#endif
+ struct intel_gt_access *g=a->shutdown_owner;struct intel_blitter_result *b=a->shutdown_result;
+ if(a!=joint.wake || !g || g!=joint.scope.gpu || g->io.context!=a || g->object!=g || !g->pinned || !b || b->object!=b || b->attempts!=1 || b->writes || !b->admitted || a->store_checks || !shutdown_store_source(a,g,b))return GT_WRITE_NONE;
+ a->store_checks=1;a->store_previous=b->last_us;a->store_at=now(a);
+ uint64_t at=a->store_at;
+ if(!at || at<b->last_us || at<b->begin_us || at-b->begin_us>100000 ||
+    at<g->last || at<g->begin || at-g->last>100000 || at-g->begin>300000 ||
+    at<a->shutdown_begin || at-a->shutdown_begin>150000){a->store_fault=1;return GT_WRITE_NONE;}
+ b->last_us=at;g->last=at;
+#endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  return intel_display_test_blitter_write(value);
 #else

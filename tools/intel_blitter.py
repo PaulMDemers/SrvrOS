@@ -29,7 +29,7 @@ def blitter_result(text):
   return None
  if len(summaries)!=1 or len(rs)!=1:raise ValueError('blitter/reader summary multiplicity')
  b=summaries[0];r=rs[0]
- compact=any(l.startswith('intel-wake-summary: v=8 ') for l in text.splitlines())
+ compact=any(l.startswith(('intel-wake-summary: v=8 ','intel-wake-summary: v=22 ')) for l in text.splitlines())
  if any(x['v']!=(2 if compact else 1) for x in rows+rr+audio):raise ValueError('blitter row version binding')
  if b['contract']!=1 or b['samples']>4 or b['reads']>32 or b['attempts']>1 or b['writes']>b['attempts'] or b['reason']>8 or any(b[k]>1 for k in ('admitted','disabled','uncertain','entry_disabled')) or b['attempts']>b['admitted'] or b['uncertain'] and not b['attempts'] or any(b[k] for k in ('engine_reset','ring_stop','restore','reader_retirement','managed_pages')):raise ValueError('blitter counts/authority')
  if [x['sample'] for x in rows]!=list(range(b['samples'])):raise ValueError('blitter row order')

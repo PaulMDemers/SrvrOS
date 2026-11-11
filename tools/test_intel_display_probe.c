@@ -260,12 +260,17 @@ __attribute__((noinline)) static void shutdown_check_lifetime(void) {
  struct intel_gt_access *g=shutdown_saved_owner;
  struct intel_gt_borrow *b=shutdown_saved_borrow;
  if(g->object)assert(g->object==g && g->io.context==shutdown_saved_context);
- if(b->object)assert(b->object==b && b->parent==g);
+ if(b->object)assert(b->object==b && (b->parent==g || (!b->parent && !b->active)));
  if(b->active)assert(g->pinned && g->dependents==b && g->borrows==1);
  /* Reading the retained provider after return also exercises ASan's lifetime
   * instrumentation. Do not invoke I/O through an uncertain owner. */
  struct wake_adapter *a=shutdown_saved_context;
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+ assert((!joint.wake || a==joint.wake) && a->maps<=WAKE_MAPS && a->retired<=a->maps);
+ if(intel_gt_wake_retained())assert(!display_access_allowed());
+#else
  if(intel_gt_wake_retained())assert(g->pinned || a->uncertain || a->fw.uncertain || trial_mapping_fault);
+#endif
 }
 #endif
 
@@ -286,6 +291,8 @@ static struct limine_bootloader_info_response wake_loader={.name="Limine",.versi
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
 #ifdef SRVROS_INTEL_GPU_HOLD
 #define intel_wake_firmware_request intel_gpu_hold_firmware_request
+#elif defined(SRVROS_INTEL_HDA_SHUTDOWN)
+#define intel_wake_firmware_request intel_hda_shutdown_firmware_request
 #elif defined(SRVROS_INTEL_JOINT)
 #define intel_wake_firmware_request intel_joint_firmware_request
 #elif defined(SRVROS_INTEL_REHOLD)
@@ -323,6 +330,9 @@ static bool intel_display_test_blitter_read(uint32_t *v) {
  assert(wake_irq && !display_access_allowed() && wake_ack==1);bcs_reads++;
  const uint32_t words[8]={0,0,bcs_entry_disabled?0:0x3eef000,bcs_ctl,1,0,0x200,1};
  for(unsigned i=0;i<8;i++)v[i]=words[i];
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+ if((!strcmp(engine_mode,"paired-entry-1") && bcs_reads==1) || (!strcmp(engine_mode,"paired-entry-2") && bcs_reads==2))v[2]^=4096;
+#endif
  if(!strcmp(engine_mode,"blit-notidle"))v[6]=0;
  if(!strcmp(engine_mode,"blit-execlist"))v[7]|=0x8000;
  if(!strcmp(engine_mode,"blit-ppgtt"))v[7]|=0x200;
@@ -452,7 +462,7 @@ static const uint64_t fb_virtual=0xffff8000b0000000ull;
 static bool intel_display_test_uc(uint64_t p){assert(p==0xc0811000);return !window_cache_fail;}
 uint8_t pci_read_config8(const struct pci_device *d,uint8_t off){assert(d==&devices[0] && off==0x62);return 1;}
 uint64_t pci_device_count(void){
-#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_ENGINE_PREPARE)
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN)) || defined(SRVROS_INTEL_ENGINE_PREPARE)
  return 4;
 #else
  return 3;
@@ -460,7 +470,7 @@ uint64_t pci_device_count(void){
 }
 const struct pci_device *pci_device_at(uint64_t i){return i<pci_device_count()?&devices[i]:NULL;}
 uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
-#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || defined(SRVROS_INTEL_JOINT)
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN))
     if(d==&devices[3])return intel_display_test_hda_config(off);
 #endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
@@ -536,7 +546,7 @@ static unsigned index_of(uint64_t v){
 #ifdef SRVROS_INTEL_READER_TRIAL
  if(v==READER_VA)return INTEL_CAPTURE_PAGES+13;
 #endif
-#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || defined(SRVROS_INTEL_JOINT)
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN))
 #ifdef SRVROS_INTEL_JOINT
  if(v==HDA_VA)return INTEL_CAPTURE_PAGES+15;
 #else
@@ -586,7 +596,7 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
 #endif
     assert(space==0x1000 && flags==(writable?(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITABLE):(fw_mode && p==0x12345000)?VMM_PAGE_NO_EXECUTE:(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)));unsigned n=index_of(v);
     assert(!pa[n]);if(n>=INTEL_CAPTURE_PAGES)assert((p>=0xc0000000 && p<0xc1000000)
-#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || defined(SRVROS_INTEL_JOINT)
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN))
  || (p==INTEL_HDA_BASE && v==HDA_VA)
 #endif
  || p==0xfed90000 || (fw_mode && p==0x12345000));else assert(p==0xc0000000ull+intel_capture_pages[n]);pa[n]=p;map_calls++;
@@ -600,7 +610,7 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
  if(!strcmp(engine_mode,"tlb-map") && v==BACKING_VA+0x18000)return false;
 #endif
 #endif
-#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || defined(SRVROS_INTEL_JOINT)
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN))
  if(v==HDA_VA && !intel_display_test_hda_map())return false;
 #endif
  if((window_map_fail && p==0xc0811000) || (gt_map_fail && p==0xc000a000) || (fw_map_fail && p==0x12345000) || (wake_map_fail && v==BACKING_VA+0x10000))return false;
@@ -613,7 +623,7 @@ bool vmm_unmap_page_in_space(uint64_t space,uint64_t v,uint64_t *p){
 #ifdef SRVROS_INTEL_READER_TRIAL
  if(v==READER_VA && !intel_display_test_pinned_retire())return false;
 #endif
-#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || defined(SRVROS_INTEL_JOINT)
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN))
  if(v==HDA_VA && !intel_display_test_hda_retire())return false;
 #endif
 assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);
@@ -633,6 +643,9 @@ assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);
  *p=pa[n];pa[n]=0;unmap_calls++;return true;}
 bool timer_reference_ready(void){return clock_ok;}
 uint64_t timer_monotonic_us(void){
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+ if(paired_clock_fault){unsigned f=paired_clock_fault;paired_clock_fault=0;return f==1?0:1;}
+#endif
 #ifdef SRVROS_INTEL_PREPARE_RESET
  if(held_reset_clock_fault) {
   unsigned fault=held_reset_clock_fault;held_reset_clock_fault=0;
@@ -933,6 +946,9 @@ int main(int argc,char **argv) {
     static char blitter_recipe[1200];snprintf(blitter_recipe,sizeof(blitter_recipe),"%s srvros.intel-blitter=retire",engine_recipe);wake_cmd.cmdline=blitter_recipe;
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
     static char shutdown_recipe[1400];snprintf(shutdown_recipe,sizeof(shutdown_recipe),"%s srvros.intel-shutdown=qualify",blitter_recipe);wake_cmd.cmdline=shutdown_recipe;
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+    static char hda_shutdown_recipe[1600];snprintf(hda_shutdown_recipe,sizeof hda_shutdown_recipe,"%s srvros.intel-hda-bcs=joint-owner-v1",shutdown_recipe);wake_cmd.cmdline=hda_shutdown_recipe;
+#endif
 #endif
 #endif
 #endif
@@ -987,6 +1003,9 @@ int main(int argc,char **argv) {
 
 #ifdef SRVROS_INTEL_GPU_HOLD
 if(!strcmp(engine_mode,"gpu-pending"))good=true;
+#endif
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+if(!strncmp(engine_mode,"joint-",6) || !strncmp(engine_mode,"paired-",7))good=false;
 #endif
 assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL

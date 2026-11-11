@@ -4,8 +4,9 @@ Updated: 2026-11-11. State: **active reference machine; partial device acceptanc
 
 ### Active scope: joint-context BCS shutdown qualification
 
-Integrate actual main `ae869c9b` (PR465 queued append waits and PR466 native
-Air6,1 results), then build a separate HDA/BCS shutdown diagnostic. PR19
+Integrated actual main `ae869c9b` in merge`f3a2f897` (PR465 queued append
+waits and PR466 native Air6,1 results). Implement the separate
+[original-owner HDA/BCS shutdown diagnostic](../intel-hda-bcs-shutdown.md). PR19
 networking and PR379 WebCore remain independent. The new image/recipe must use
 the original joint HDA inhibition and wake owner, sample the legal awake engine
 entry through both census and BCS providers, run the existing exact idle-only
@@ -37,8 +38,9 @@ GPU requester hold never entered. GPU Command attempts/stores remain zero;
 The preceding standalone shutdown profile saw disabled zero-geometry entry;
 this joint-owner profile saw enabled inherited geometry again. The observations
 do not prove what causes the difference. Do not repeat unchanged retries or
-remove admission checks. Next integrate deferred main `d4580da3`, then isolate
-entry within the original HDA/GT owner and qualify the existing enabled-BCS
+remove admission checks. Main`ae869c9b` now includes the previously deferred
+`d4580da3`. The standalone run followed `/init`, while this requester trial
+ran pre-init; startup phase is a confounding difference. Next isolate entry within the original HDA/GT owner and qualify the existing enabled-BCS
 shutdown protocol in that same context under a separate recipe/result. Capture
 the raw entry before/after the relevant handoff stages. No reset, ring-start
 clearing, backing release, reuse of a standalone-boot receipt or wider deadline

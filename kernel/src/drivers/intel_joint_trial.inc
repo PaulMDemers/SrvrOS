@@ -112,6 +112,13 @@ static void joint_close(bool after,bool gpu_complete) {
  if(joint.scope.state==IHG_ACTIVE)(void)intel_hda_gpu_close(&joint.scope,gpu_complete);
  if(!joint_terminal())joint_clock=NULL;
 }
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+#define JOINT_HDA_PREFIX "intel-hda-bcs-hda"
+#define JOINT_SUMMARY_PREFIX "intel-hda-bcs-summary"
+#else
+#define JOINT_HDA_PREFIX "intel-joint-hda"
+#define JOINT_SUMMARY_PREFIX "intel-joint-summary"
+#endif
 static void joint_report(void) {
  const struct intel_hda_gpu *s=&joint.scope;
  for(unsigned p=0;p<4;p++) {
@@ -135,11 +142,11 @@ static void joint_report(void) {
    encoded[k++]=abc[v>>18];encoded[k++]=abc[(v>>12)&63];encoded[k++]=left>1?abc[(v>>6)&63]:'=';encoded[k++]=left>2?abc[v&63]:'=';
   }
   encoded[k]=0;
-  console_printf("intel-joint-hda: v=1 p=%u e=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u d=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u b=%s\n",
+  console_printf(JOINT_HDA_PREFIX ": v=1 p=%u e=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u d=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u b=%s\n",
    (uint64_t)p,(uint64_t)e->id,(uint64_t)e->class_rev,(uint64_t)e->subsystem,(uint64_t)e->command,(uint64_t)e->flags,(uint64_t)e->pm,(uint64_t)e->state,(uint64_t)e->bar,(uint64_t)e->bar_high,(uint64_t)e->reserved,
    (uint64_t)r->maps,(uint64_t)r->retired,(uint64_t)r->retained,(uint64_t)r->samples,(uint64_t)r->reads,(uint64_t)r->stable,(uint64_t)r->run_mask,(uint64_t)r->dma_mask,(uint64_t)r->reason,r->begin_us,r->last_us,r->end_us,(uint64_t)r->complete,encoded);
  }
- console_printf("intel-joint-summary: v=1 entry=%u admission=%u state=%u reason=%u pinned=%u retained=%u complete=%u gpu_complete=%u origin=%u begin=%u end=%u last=%u clock_at=%u clock_prev=%u clock_cause=%u checks=%u attached=%u hda_state=%u hda_reason=%u hda_epoch=%u hda_begin=%u hda_end=%u hda_phases=%u hda_checks=%u hda_attempts=%u hda_writes=%u hda_pins=%u hda_retained=%u hda_complete=%u hda_clock_at=%u hda_clock_prev=%u hda_clock_cause=%u root_maps=%u root_retired=%u borrows=%u returns=%u inspection=%u cache=%u obligations=255 assurances=0 pte_writes=0 managed_pages=0 hardware_ownership=0\n",
+ console_printf(JOINT_SUMMARY_PREFIX ": v=1 entry=%u admission=%u state=%u reason=%u pinned=%u retained=%u complete=%u gpu_complete=%u origin=%u begin=%u end=%u last=%u clock_at=%u clock_prev=%u clock_cause=%u checks=%u attached=%u hda_state=%u hda_reason=%u hda_epoch=%u hda_begin=%u hda_end=%u hda_phases=%u hda_checks=%u hda_attempts=%u hda_writes=%u hda_pins=%u hda_retained=%u hda_complete=%u hda_clock_at=%u hda_clock_prev=%u hda_clock_cause=%u root_maps=%u root_retired=%u borrows=%u returns=%u inspection=%u cache=%u obligations=255 assurances=0 pte_writes=0 managed_pages=0 hardware_ownership=0\n",
   (uint64_t)joint.entry,(uint64_t)joint.admission,(uint64_t)s->state,(uint64_t)s->reason,(uint64_t)s->pinned,(uint64_t)(joint_terminal()),(uint64_t)s->complete,(uint64_t)s->gpu_complete,s->outer_origin_us,s->begin_us,s->end_us,s->last_us,s->clock_at,s->clock_prev,(uint64_t)s->clock_cause,(uint64_t)s->checks,(uint64_t)s->attachments,
   (uint64_t)s->hda.state,(uint64_t)s->hda.reason,s->hda.epoch,s->hda.begin_us,s->hda.end_us,(uint64_t)s->hda.phases,(uint64_t)s->hda.checks,(uint64_t)s->hda.attempts,(uint64_t)s->hda.writes,(uint64_t)s->hda.pins,(uint64_t)s->hda.retained,(uint64_t)s->hda.complete,s->hda.clock_sample,s->hda.clock_previous,(uint64_t)s->hda.clock_cause,
   (uint64_t)joint.maps,(uint64_t)joint.retired,(uint64_t)joint.borrows,(uint64_t)joint.returns,(uint64_t)joint.inspection,(uint64_t)joint.h.cache_checks);

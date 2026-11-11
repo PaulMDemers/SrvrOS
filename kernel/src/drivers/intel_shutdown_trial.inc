@@ -6,21 +6,58 @@ struct shutdown_trial {
  uint64_t begin,end;
  uint32_t epoch_before,epoch_after;
  bool blocked,stable,complete;
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+ const struct shutdown_trial *object;
+ struct intel_blitter_result *result;
+ const struct intel_engine_census *initial;
+ uint32_t entry[2][INTEL_BCS_WORDS];unsigned entry_counts[2],entry_attempts,entry_matches;
+#endif
 };
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+static bool shutdown_store_source(struct wake_adapter *a,struct intel_gt_access *g,struct intel_blitter_result *b) {
+ const struct shutdown_trial *t=a->shutdown_trial;
+ return t && t->object==t && t->result==b && t->initial==a->shutdown_initial &&
+  t->borrow.object==&t->borrow && t->borrow.active && t->borrow.parent==g &&
+  g->dependents==&t->borrow && g->borrows==1 && g->engine_epoch==t->epoch_after &&
+  t->entry_matches==3;
+}
+#endif
 struct shutdown_io {struct wake_adapter *a;struct intel_gt_access *g;struct shutdown_trial *t;};
 static bool shutdown_guard(void *ctx) {
  struct shutdown_io *s=ctx;
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+ if(s->g!=joint.scope.gpu || s->a!=joint.wake || s->g->io.context!=s->a || s->t->initial!=s->a->shutdown_initial)return false;
+#endif
  return s->g->object==s->g && s->t->borrow.object==&s->t->borrow && s->t->borrow.active && s->t->borrow.parent==s->g &&
   s->g->state==GT_ACCESS_AWAKE && s->g->pinned && s->g->borrows==1 &&
   s->g->dependents==&s->t->borrow && s->g->engine_epoch==s->t->epoch_after && engine_guard(s->a);
 }
 static bool shutdown_read(void *ctx,uint32_t out[INTEL_BCS_WORDS]) {
- struct shutdown_io *s=ctx;return shutdown_guard(s) && blitter_group(s->a,out);
+ struct shutdown_io *s=ctx;
+ if(!shutdown_guard(s))return false;
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+ unsigned n=s->t->entry_attempts;
+ if(n<2)s->t->entry_attempts++;
+#endif
+ if(!blitter_group(s->a,out))return false;
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+ if(n<2) {
+  for(unsigned i=0;i<INTEL_BCS_WORDS;i++)s->t->entry[n][i]=out[i];
+  s->t->entry_counts[n]=INTEL_BCS_WORDS;
+  if(!s->t->initial || s->g!=joint.scope.gpu || !s->t->initial->complete || s->g->engine_epoch!=s->t->epoch_after)return false;
+  for(unsigned i=0;i<INTEL_ENGINE_WORDS;i++)if(out[i]!=s->t->initial->words[n][4][i])return false;
+  s->t->entry_matches|=1u<<n;
+ }
+#endif
+ return true;
 }
 static enum intel_gt_write shutdown_write(void *ctx,uint32_t value) {
  struct shutdown_io *s=ctx;
  if(value!=INTEL_BCS_DISABLED || !shutdown_guard(s) || s->t->epoch_after!=s->t->epoch_before || s->g->engine_epoch==UINT32_MAX)return GT_WRITE_NONE;
  /* Invalidate pre-write observations before a possibly issued store, even NONE. */
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+ if(s->t->entry_matches!=3 || s->g!=joint.scope.gpu)return GT_WRITE_NONE;
+#endif
  s->t->epoch_after=++s->g->engine_epoch;
  return blitter_store(s->a,value);
 }
@@ -39,6 +76,9 @@ static void shutdown_run(struct wake_adapter *a,struct intel_gt_access *g,
  if(!policy || !pre->complete || !pre->stable || pre->pending || (pre->enabled!=16 && !off) ||
     g->engine_epoch==UINT32_MAX || g->borrows || g->dependents || !intel_gt_access_borrow(g,&t->borrow))return;
  t->epoch_before=t->epoch_after=g->engine_epoch;t->begin=timer_monotonic_us();
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+ t->object=t;t->result=b;a->shutdown_trial=t;t->initial=pre;a->shutdown_initial=pre;a->shutdown_owner=g;a->shutdown_result=b;a->shutdown_begin=t->begin;
+#endif
  unsigned writes=g->writes;
  t->blocked=!intel_gt_access_close(g) && g->writes==writes && g->state==GT_ACCESS_AWAKE && g->pinned && t->borrow.active;
  if(!t->blocked){a->uncertain=true;return;}
@@ -68,7 +108,15 @@ static void shutdown_run(struct wake_adapter *a,struct intel_gt_access *g,
  if(b->uncertain || (b->writes && !t->complete)){a->uncertain=true;return;}
  if(!intel_gt_access_return(&t->borrow)){a->uncertain=true;t->complete=false;}
 }
-static void shutdown_report(const struct shutdown_trial *t,const struct intel_gt_access *g,const struct reader_audit *r,bool retired) {
+static void shutdown_report(const struct shutdown_trial *t,const struct intel_gt_access *g,const struct reader_audit *r,bool retired,const struct wake_adapter *a) {
+ (void)a;
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+ for(unsigned n=0;n<2;n++) {
+  const uint32_t *w=t->entry[n];
+  console_printf("intel-hda-bcs-entry: v=1 s=%u n=%u d=%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)t->entry_counts[n],(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
+ }
+ console_printf("intel-hda-bcs-io: v=1 entry_attempts=%u entry_matches=%u store_checks=%u at=%u previous=%u phase=%u owner=%u fault=%u\n",(uint64_t)t->entry_attempts,(uint64_t)t->entry_matches,(uint64_t)a->store_checks,a->store_at,a->store_previous,a->shutdown_begin,g->begin,(uint64_t)a->store_fault);
+#endif
  for(unsigned n=0;n<r->samples;n++) {
   const struct package_pci_snapshot *a=&r->audio[n];
   console_printf("intel-shutdown-audio: v=1 sample=%u link_cap=%u link=%u ltr_cap=%u ltr=%u\n",(uint64_t)n,(uint64_t)a->link_cap,(uint64_t)a->link,(uint64_t)a->ltr_cap,(uint64_t)a->ltr);

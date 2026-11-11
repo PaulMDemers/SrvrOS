@@ -36,7 +36,10 @@ volatile struct limine_firmware_type_request intel_hda_firmware_request = {
 };
 #endif
 
-#ifdef SRVROS_INTEL_GPU_HOLD
+#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_firmware_type_request intel_hda_shutdown_firmware_request = { .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0 };
+#elif defined(SRVROS_INTEL_GPU_HOLD)
 __attribute__((used, section(".limine_requests")))
 volatile struct limine_firmware_type_request intel_gpu_hold_firmware_request = { .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0 };
 #elif defined(SRVROS_INTEL_JOINT)

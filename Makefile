@@ -5963,3 +5963,30 @@ test-intel-gpu-hold-adapter: build/tests/intel-gpu-hold-adapter$(HOST_EXE) build
 build/tests/boot-gpu-hold$(HOST_EXE): tools/test_boot_rehold.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -DSRVROS_INTEL_JOINT -DSRVROS_INTEL_GPU_HOLD -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+# Separate original-HDA-owner BCS shutdown, without interval/reset/requester writers.
+INTEL_HDA_SHUTDOWN_FLAGS := -DSRVROS_INTEL_HDA_SHUTDOWN -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_BLITTER_TRIAL -DSRVROS_INTEL_SHUTDOWN_TRIAL
+build/intel-hda-shutdown/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HDA_SHUTDOWN_FLAGS) -c $< -o $@
+build/intel-hda-shutdown/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HDA_SHUTDOWN_FLAGS) -c $< -o $@
+build/intel-hda-shutdown/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_HDA_SHUTDOWN_FLAGS) -c $< -o $@
+build/intel-hda-shutdown/srvros.elf: build/intel-hda-shutdown/main.o build/intel-hda-shutdown/probe.o build/intel-hda-shutdown/requests.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+INTEL_HDA_SHUTDOWN_HOST_SOURCES := kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_blitter.c kernel/diagnostics/package_audit_core.c kernel/diagnostics/intel_hda_gpu.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c
+build/tests/intel-hda-shutdown-adapter$(HOST_EXE): tools/test_intel_hda_shutdown_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_HDA_SHUTDOWN_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_HDA_SHUTDOWN -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_BLITTER_TRIAL -DSRVROS_INTEL_SHUTDOWN_TRIAL -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_HDA_SHUTDOWN_HOST_SOURCES) -o $@
+
+.PHONY: test-intel-hda-shutdown
+test-core: test-intel-hda-shutdown
+build/tests/boot-hda-shutdown$(HOST_EXE): tools/test_boot_hda_shutdown.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_HDA_SHUTDOWN -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+test-intel-hda-shutdown: build/tests/intel-hda-shutdown-adapter$(HOST_EXE) build/tests/boot-hda-shutdown$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_hda_shutdown.py
+	build/tests/boot-hda-shutdown$(HOST_EXE)

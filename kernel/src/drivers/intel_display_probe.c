@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN)
+#define SRVROS_INTEL_HDA_PAIR
+#endif
 #include <srvros/intel_display_capture.h>
 #include <srvros/intel_boot_claim.h>
 #include <srvros/acpi.h>
@@ -89,13 +92,13 @@ static bool read_word(void *opaque,uint32_t off,uint32_t *value) {
         }
     return false;
 }
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
 #include <srvros/intel_hda_gpu.h>
 static struct intel_hda_gpu *joint_clock;
 #endif
 static uint64_t now(void *p) {
  (void)p;uint64_t at=timer_monotonic_us();
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
  if(joint_clock && joint_clock->pinned && !intel_hda_gpu_deadline(joint_clock,at))return 0;
 #endif
  return at;
@@ -321,7 +324,7 @@ bool intel_display_backing_probe_report(void) {
     if(b->status==1) {
         for(unsigned i=0;i<INTEL_BACKING_FENCES;i++)console_printf("intel-backing-fence: v=1 index=%u raw=%x\n",(uint64_t)i,b->sample[0].fence[i]);
         static const char abc[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
         enum { backing_chunk=64,backing_wire=3 };
 #elif defined(SRVROS_INTEL_REHOLD)
         enum { backing_chunk=64,backing_wire=2 };
@@ -331,7 +334,7 @@ bool intel_display_backing_probe_report(void) {
         for(unsigned i=0;i<b->count;i+=backing_chunk) {
             uint8_t bytes[backing_chunk*8];char data[((backing_chunk*8+2)/3)*4+1];unsigned count=b->count-i;if(count>backing_chunk)count=backing_chunk;
             unsigned width=8;uint32_t high=0;
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
             high=(uint32_t)(b->pte[i]>>32);width=4;
             for(unsigned j=1;j<count;j++)if((uint32_t)(b->pte[i+j]>>32)!=high)width=8;
             if(width==8)high=0;
@@ -343,7 +346,7 @@ bool intel_display_backing_probe_report(void) {
                 data[k++]=abc[v>>18];data[k++]=abc[(v>>12)&63];data[k++]=left>1?abc[(v>>6)&63]:'=';data[k++]=left>2?abc[v&63]:'=';
             }
             data[k]=0;
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
             console_printf("intel-backing-pte: v=3 first=%u count=%u w=%u h=%u data=%s\n",(uint64_t)i,(uint64_t)count,(uint64_t)width,(uint64_t)high,data);
 #else
             (void)high;
@@ -975,11 +978,11 @@ bool intel_gt_firmware_probe_report(void) {
     return complete;
 }
 
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_HDA_PAIR
 #include "intel_hda_observer.inc"
 #endif
 #include "intel_gt_wake.inc"
-#ifndef SRVROS_INTEL_JOINT
+#ifndef SRVROS_INTEL_HDA_PAIR
 #include "intel_hda_observer.inc"
 #endif
 

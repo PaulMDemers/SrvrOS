@@ -1,5 +1,11 @@
 # Guarded idle blitter shutdown qualification
 
+The separate [original-owner HDA/BCS diagnostic](intel-hda-bcs-shutdown.md)
+adds pre-init HDA inhibition/restoration around this protocol. It has its own
+image, recipe, version22 receipts and pending native acceptance; its result
+cannot be substituted for this standalone version8 contract.
+
+
 The Air7,2 reset trial on source `9ea439f6` correctly refused its inherited
 BCS ring at enabled mask16/control `0xf001`. The reset core requires a disabled
 zero-geometry entry. Clearing enable preserves the captured start `0x03eef000`

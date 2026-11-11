@@ -82,7 +82,11 @@ def backing_result(text):
         # The requester-hold image inherits the joint packed original-entry
         # format. Keep an explicit image allowlist, including on refusal paths
         # where the interval/consumer never opened; this is no memory grant.
-        if not (wake in (['20'],['21']) or not wake and len(boot)==1 and boot[0].split().count('srvros.intel-joint=hda-claim')==1):raise ValueError('joint PTE image binding')
+        paired_preflight=False
+        if not wake and len(boot)==1 and 'srvros.intel-hda-bcs=joint-owner-v1' in boot[0].split():
+            from intel_hda_shutdown import paired_recipe
+            paired_recipe(boot[0]);paired_preflight=True
+        if not (wake in (['20'],['21'],['22']) or paired_preflight or not wake and len(boot)==1 and boot[0].split().count('srvros.intel-joint=hda-claim')==1):raise ValueError('joint PTE image binding')
     ptes=[]
     for chunk in rows['pte']:
         if chunk['first']!=len(ptes) or chunk['count']!=min(chunk_size,summary['count']-len(ptes)) or chunk['count']<=0:raise ValueError('incomplete/duplicate PTE chunk')

@@ -2,7 +2,7 @@
 from intel_engine_census import _fields,engine_result,WORDS
 from intel_blitter import blitter_result
 FIELDS='v borrowed returned blocked stable begin end epoch_before epoch_after owner_begin owner_end complete reset_writes managed_pages'.split()
-def shutdown_result(text):
+def shutdown_result(text, *, paired=False):
  rows=[l for l in text.splitlines() if l.startswith('intel-shutdown-summary:')]
  if not rows:
   if any(l.startswith('intel-shutdown-') for l in text.splitlines()):raise ValueError('shutdown missing summary')
@@ -22,7 +22,7 @@ def shutdown_result(text):
  b=blitter_result(text);pre=engine_result(text);post=engine_result('\n'.join(postlines))
  from intel_gt_wake import wake_result
  w=wake_result(text)
- if not w or w['summary']['v']!=8 or not b or not pre or not post:raise ValueError('shutdown version/coverage')
+ if not w or w['summary']['v']!=(22 if paired else 8) or not b or not pre or not post:raise ValueError('shutdown version/coverage')
  if any(a[k]>=1<<32 for a in audio for k in ('link_cap','link','ltr_cap','ltr')):raise ValueError('shutdown HDA DWORD width')
  if [a['sample'] for a in audio]!=list(range(b['readers']['samples'])):raise ValueError('shutdown HDA coverage')
  if any(r['v']!=2 for r in pre['rows']+post['rows']+b['rows']+b['reader_rows']+b['audio']):raise ValueError('shutdown compact row version')
@@ -39,7 +39,7 @@ def shutdown_result(text):
    derived|=32
   if derived!=c['why']:raise ValueError('shutdown derived clock')
  if s['complete']:
-  if not all(s[k] for k in ('borrowed','returned','blocked','stable')) or not b['complete'] or not pre['observation_complete'] or not post['observation_complete'] or not w['lease_complete']:raise ValueError('shutdown completion')
+  if not all(s[k] for k in ('borrowed','returned','blocked','stable')) or not b['complete'] or not pre['observation_complete'] or not post['observation_complete'] or (not paired and not w['lease_complete']) or (paired and (not w['summary']['closed'] or w['summary']['state']!=3 or w['summary']['reason'])):raise ValueError('shutdown completion')
   if not pre['stable'] or pre['pending_mask'] or pre['enabled_mask']!=(0 if b['summary']['entry_disabled'] else 16) or not post['stable'] or post['enabled_mask'] or post['pending_mask']:raise ValueError('shutdown census admission')
   if not 0<s['owner_begin']<pre['summary']['begin_us']<pre['summary']['end_us']<s['begin']<b['readers']['begin_us']<b['summary']['begin_us']<b['summary']['end_us']<post['summary']['begin_us']<post['summary']['end_us']<b['readers']['end_us']<s['end']<s['owner_end']<=s['owner_begin']+300000 or s['end']-s['begin']>150000:raise ValueError('shutdown ordering/deadline')
   if s['epoch_after']!=s['epoch_before']+b['summary']['attempts']:raise ValueError('shutdown epoch')
@@ -58,7 +58,7 @@ def shutdown_result(text):
     old=display['rows']['pipe'][3+p];row=b['reader_rows'][n*3+p]
     for key,prior in (('primary_ctl','control'),('primary_surf','surface'),('primary_live','live'),('cursor_ctl','cursor_control'),('cursor_base','cursor_base')):
      if row[key]!=old[prior]:raise ValueError('shutdown inherited reader')
- if w['summary']['complete']!=s['complete']:raise ValueError('shutdown wake binding')
+ if (not paired and w['summary']['complete']!=s['complete']) or (paired and w['summary']['complete'] and not s['complete']):raise ValueError('shutdown wake binding')
  return dict(complete=bool(s['complete']),native_complete=False,summary=s,post=post,audio=audio,reset=False,dma_retirement=False,cache_ownership=False,managed_range=False,physical_tearfree=False)
 def native_shutdown_result(text):
  r=shutdown_result(text)
