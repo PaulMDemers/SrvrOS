@@ -1,4 +1,5 @@
 #include <srvros/sync_timing.h>
+#include <srvros/commit_wait_timing.h>
 /* Ordinary scheduled worker: filesystem work uses the storage service gate. */
 #include <srvros/workspace_log.h>
 #include <srvros/capture_write_timing.h>
@@ -53,9 +54,14 @@ static bool begin(uint64_t *flags) {
 static void end(uint64_t flags) { scheduler_io_end();unlock(flags); }
 /* Copy fixed diagnostic metadata under its own IRQ exclusion, then emit only
  * from this ordinary logger, before entering filesystem I/O. */
+static void report_commit_wait(uint64_t at,const struct commit_wait_snapshot *s);
 static void capture_write_checkpoint(bool final) {
     struct capture_write_snapshot s;process_capture_write_snapshot(&s);if(!s.enabled)return;
     uint64_t at=timer_monotonic_us();
+    if(final) {
+        struct commit_wait_snapshot wait;sync_commit_wait_snapshot(&wait);
+        report_commit_wait(at,&wait);
+    }
     console_printf("capture-write-snapshot: version=2 snapshot_us=%u enabled=%u invalid=%u dropped=%u final=%u\n",at,s.enabled,s.invalid,s.dropped,(uint64_t)final);
     for(unsigned i=0;i<CAPTURE_WRITE_RECORDS;i++) {
         const struct capture_write_record *r=&s.records[i];if(!r->pid)continue;
@@ -213,6 +219,43 @@ static void report_sync_content(uint64_t at,const struct sync_timing_snapshot *s
         const struct sync_content_io *p=&c->io[i];
         console_printf("sync-content-io: version=1 snapshot_us=%u pid=%u id=%u role=%u reads=%u read_bytes=%u read_us=%u writes=%u write_bytes=%u write_us=%u flushes=%u flush_us=%u failures=%u final=1\n",at,selected->pid,selected->worst.start_us,(uint64_t)i,p->reads,p->read_bytes,p->read_us,p->writes,p->write_bytes,p->write_us,p->flushes,p->flush_us,p->failures);
     }
+}
+/* One global worst prelude only: fixed final tail budget, no live log traffic.
+ * The selected content is copied at its own completion, not from sync's
+ * independent worst. Full-call USB clocks can extend before wait entry. */
+static bool commit_sum(uint64_t *out,uint64_t value) {
+    if(*out>UINT64_MAX-value)return false;
+    *out+=value;return true;
+}
+static void report_commit_wait(uint64_t at,const struct commit_wait_snapshot *s) {
+    const struct commit_wait_record *w=&s->worst;
+    const struct sync_content_call *c=&w->content;
+    console_printf("capture-commit-wait: version=2 snapshot_us=%u enabled=%u invalid=%u active=%u waits=%u pid=%u start_us=%u end_us=%u target=%u base=%u live=%u request=%u borrowed=%u retry=%u open_at_end=%u calls=%u overlap_us=%u parent_pid=%u parent_id=%u identity=%u slot=%u size=%u content_start=%u content_end=%u ok=%u dirty_after=%u overlap_start=%u overlap_end=%u owner_calls=%u owned_us=%u final=1\n",at,s->enabled,s->invalid,s->active,s->waits,w->pid,w->start_us,w->end_us,w->target_identity,w->target_base,w->target_size,w->request_bytes,w->borrowed,w->retry,w->open_at_end,w->calls,w->overlap_us,w->parent_pid,w->parent_id,c->identity,c->slot,c->size,c->start_us,c->end_us,c->ok,c->dirty_after,w->overlap_start_us,w->overlap_end_us,w->owner_calls,w->owned_us);
+    const struct commit_owner_timing *o=&w->owner;
+    console_printf("capture-commit-owner: version=2 snapshot_us=%u pid=%u seq=%u thread=%u owner_pid=%u syscall=%u name=%s start_us=%u end_us=%u released=%u overlap_start=%u overlap_end=%u csws=%u csw_us=%u status_overlap_us=%u over100ms=%u write512=%u write512_us=%u write16k=%u write16k_us=%u final=1\n",at,w->pid,o->seq,o->thread,o->pid,o->syscall,o->name[0]?o->name:"none",o->start_us,o->end_us,o->released,o->overlap_start,o->overlap_end,o->csws,o->csw_us,o->csw_overlap_us,o->longs,o->write512,o->write512_us,o->write16k,o->write16k_us);
+    if(o->csws) {
+        const struct usb_storage_csw_timing *v=&o->status;
+        const struct usb_bulk_timing *b=&v->sample;
+        console_printf("capture-commit-status: version=2 snapshot_us=%u pid=%u tag=%u start_us=%u end_us=%u opcode=%u command_bytes=%u requested=%u actual=%u bulk_ok=%u submitted=%u observed=%u resumed=%u seen=%u service_valid=%u checks=%u samples=%u service_gap=%u completion_gap=%u empty_checks=%u event_checks=%u last_empty=%u final=1\n",at,w->pid,o->tag,v->start_us,v->end_us,v->opcode,v->command_bytes,v->request_bytes,v->actual,v->ok,b->submitted,b->observed,b->resumed,(uint64_t)b->seen,(uint64_t)b->service_valid,b->service_checks,b->service_samples,b->service_gap_max_us,b->completion_gap_us,b->empty_checks,b->event_checks,b->last_empty_sample_us);
+    }
+    if(!c->start_us)return;
+    uint64_t io_us=0,sidecar_us=0,failures=0,csws=0,csw_us=0,longs=0;
+    bool valid=true;
+    for(unsigned i=0;i<SYNC_CONTENT_ROLES;i++) {
+        const struct sync_content_io *p=&c->io[i];
+        valid=commit_sum(&io_us,p->read_us) && commit_sum(&io_us,p->write_us) &&
+            commit_sum(&io_us,p->flush_us) && commit_sum(&failures,p->failures) && valid;
+        if(i>=4)valid=commit_sum(&sidecar_us,p->read_us) && commit_sum(&sidecar_us,p->write_us) &&
+            commit_sum(&sidecar_us,p->flush_us) && valid;
+    }
+    const struct usb_storage_content_timing *t=&c->commands;
+    for(unsigned i=0;i<USB_STORAGE_CONTENT_ROLES;i++) {
+        valid=commit_sum(&csws,t->roles[i].csw_calls) && commit_sum(&csw_us,t->roles[i].csw_us) &&
+            commit_sum(&longs,t->roles[i].over100ms) && valid;
+    }
+    const struct usb_storage_content_role *payload=&t->roles[2];
+    console_printf("capture-commit-io: version=2 snapshot_us=%u pid=%u valid=%u io_us=%u payload_us=%u alloc_read_us=%u alloc_write_us=%u prefix_us=%u sidecar_us=%u failures=%u usb_valid=%u usb_invalid=%u usb_active=%u csws=%u csw_us=%u over100ms=%u payload_commands=%u payload_bytes=%u payload_csw_us=%u payload_long=%u final=1\n",at,w->pid,(uint64_t)valid,io_us,c->io[2].write_us,c->io[1].read_us,c->io[1].write_us,c->io[3].read_us,sidecar_us,failures,t->valid,t->invalid,t->active,csws,csw_us,longs,payload->write_commands,payload->write_bytes,payload->csw_us,payload->over100ms);
+
 }
 static void sync_checkpoint(bool final) {
     struct sync_timing_snapshot s;sync_timing_snapshot(&s);if(!s.enabled)return;

@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-11-10. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-11-11. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 Current diagnostic milestone: the exact-source pre-user two-pass read-only
 sampler is physically accepted on release `2ddbd3b285f6bf41`. All24 DWORD reads
@@ -10,13 +10,13 @@ limit. This accepts the isolated diagnostic history, not current register
 access, register writes, root-table walking or device ownership. See the dated
 native result below.
 
-Latest desktop checkpoint: the [fresh-media and independent-capture trial](#native-fresh-media-and-independent-capture-2026-11-10)
-passes the unchanged30-minute stress test on release `d551c6584bed346e`, with
-1101 app cycles,4247 verified disk bursts, three valid screenshots and clean
-retirement. The bounded composition is physically accepted. Screenshot saving
-still takes13.8–19.8s, dominated by write admission under concurrent storage work.
-The next target is shared filesystem serialization and commit amplification;
-no isolated speed improvement or hardware cause is claimed.
+Latest accepted desktop checkpoint: the [native filesystem comparison](#native-filesystem-comparison-return-2026-11-11)
+passes the unchanged 30-minute stress profile on release `80b4e32ef314ae05`,
+with 1,071 app cycles, 3,895 verified disk bursts, three exact screenshots and
+clean retirement/allocation. Screenshot completion remains mixed at
+7.31/10.89/12.56 seconds. The [commit-wait isolation candidate](#commit-wait-isolation-validation-and-native-preparation-2026-11-11)
+is host/VM validated and installed for an automated native run; its physical
+result is pending. No device/controller cause or isolated speedup is established.
 
 ## Initial inventory (2026-10-22)
 
@@ -12516,3 +12516,107 @@ profile; performance remains mixed and the earlier battery-fault cause remains
 unresolved, with no recurrence captured here. Review base is main `91514b3f`;
 this result update changes only this unit record and the filesystem performance
 guide, with no runtime or other-machine acceptance change.
+
+## Active commit-wait isolation (2026-11-11)
+
+From main `a611fd9e`, isolate the missing association between private screenshot
+waits and global commits. Scope is observation hooks in the reserved-append wait,
+fixed sync observer state, a compact final-only logger companion, strict parser
+and regressions. Retain the completed content call with the longest actual
+overlap inside the worst screenshot wait, including its parent sync identity
+and command timing. Report unavailable/incomplete overlap explicitly; whole-call
+USB counters are not exclusive work inside the wait or proof of hardware cause.
+Only one selected wait is emitted to preserve the existing64KiB tail budget.
+
+PR19's process lifetime/pipe work is separate from the reserved-append wait;
+there is no competing sync observer implementation. No other task is contacted.
+Keep scheduler eligibility, notification/polling policy, ownership, durability,
+all proofs and command/cache/byte/runtime limits unchanged. Validate disabled,
+overlapping/partial/unavailable, repeated, failed, overflow and retirement cases,
+plus actual C producer-to-parser wiring and loaded/exact-stage VM evidence.
+Then retain accepted80b4/c354 and run the original1800-second1% automatic stress
+with three screenshots. Native acceptance and causal diagnosis remain pending
+matching collection; no new reboot is armed by this scope notice.
+
+
+The completed-content-only prototype returned a valid no-overlap result for the
+loaded VM's worst wait, despite passing every original workload contract. Its
+source `c2bc6f92` and matching evidence are retained. The revised scope also
+copies existing scheduler owner diagnostic edges and already-timed USB status
+samples, including kernel owners without SYS_SYNC. Scheduler admission/release
+and USB timing/polling/transfer logic remain unchanged; these are metadata sinks
+with no extra device operations. Version2 reports the longest actual
+owner overlap, partial live ownership and observed status callbacks separately
+from optional completed content. The original fixed tail/cadence and all16
+contracts remain required. Actual real-scheduler/USB forwarding fixtures and
+loaded execution precede native installation.
+
+
+The first version2 owner run identifies PID7/SYS_UNLINK holding the selected I/O
+scope for879761us, with no status sample because unlink was outside the old
+sync/logger timing windows. That run's missing app-stage receipts remain a
+strict evidence failure, separately preserved. The final candidate extends the
+existing read-only timestamp/cached-result path to otherwise untimed status
+callbacks inside observed owners. Already-timed callbacks still share one
+sample; polling/event reads, request count, commands, deadlines and every
+integrity/ownership check remain unchanged. Host controls verify the disabled
+clock count, status-only window and shared-sample behavior before a fresh freeze.
+
+## Commit-wait isolation validation and native preparation (2026-11-11)
+
+Runtime `4f4feeeb` is based on main `a611fd9e` and published through PR472.
+Refreshed PR19 at `ef9b60df` and PR301 at `eb938961` have separate process/logger
+hunks; neither owns these reserved-wait, sync-observer, scheduler-diagnostic or
+USB status hooks. No other task was contacted. Policy, deadlines, scheduler
+eligibility/handoff, filesystem proofs, flushes, quarantine and all existing
+workload/integrity limits are unchanged. Otherwise untimed status callbacks gain
+opt-in timestamp observations and one cached sample, without new controller/ring
+reads, transfers or polling decisions. See [the diagnostic contract](../commit-wait-isolation.md).
+
+The full 245-target core suite, desktop/docs checks, ordinary ABI/input/thread
+VMs, USB read/write/reload, ordinary screenshot VM and exact-stage rehearsal
+passed at `9ade1c0f`. A subsequent diagnostic-only clock-edge correction at
+`4f4feeeb` rejects a regressed callback ending before wait entry instead of
+mistaking it for unavailable overlap. Its actual C regression fails before the
+fix and passes afterward with both IRQ states and unchanged clocks/ownership.
+The affected observer, USB, scheduler, sync, reserved-append, capture, logger and
+media-integration tests passed again, followed by rebuilt matched ordinary/native/
+fixture images, a loaded VM run and exact-stage rehearsal. Full-core evidence
+remains explicitly attributed to `9ade1c0f`; it is not relabeled as a final-source
+full-suite run.
+
+The final 60-second 1% KVM workload completes 214 verified disk bursts, 23 app
+cycles and an exact screenshot, with zero recorded underruns and a 140.084 ms
+maximum loop. Maximum app ready/close times are 1.120230/1.516421 seconds within
+the original 10-second limits. Every original timing/integrity contract and the
+append-wait companion passes. Where used, the original strict union of whole
+console records and retained atomic checkpoints is labeled explicitly; no trace
+repair or saved-only acceptance is invented. Earlier prototype unavailable
+coverage and the owner-only attempt's missing app receipts remain preserved
+as incomplete/failed evidence.
+
+The exact worst wait is 1.505666 seconds. Its selected PID7/thread18
+`SYS_OPEN_MODE` owner spans 1.525696 seconds, covers 1.505621 seconds of that wait
+and leaves 45 us uncovered. Fifteen status callbacks total 2.970 ms, with no
+100 ms callbacks. These are virtual-clock observations under the existing
+400-IOPS load, not the hardware's long status tails or exclusive CPU time.
+The native trial will retain actual owner/status intervals rather than infer a
+join from a separately selected global content maximum. Optional completed
+content and partial/unavailable ownership remain explicit.
+
+Release `4598c7e5aac15a6b`, run `e42faf938d164a49`, is installed with matching
+staged/EFI/independent payload hashes and the exact capture-write desktop profile.
+The existing 868-file USB baseline is verified; only its expiring 1% volume
+preference is renewed. Offline fsck/full allocation/headroom checks pass.
+Recovery `c35475f62f154f1e` and accepted `80b4`/`c7` remain verified; only the fully
+backed-up, unreferenced `a139` EFI duplicate was retired, preserving its complete
+independent payload. Ubuntu remains the default, firmware BootOrder is unchanged
+and no BootNext or GRUB one-shot was set at the preparation checkpoint.
+
+The automated 1,800-second audio/disk/app test retains three screenshots,
+500 ms loop and 10-second app limits, every byte/CRC/fresh-media/allocation proof,
+and clean battery/worker retirement. The enabled return collector additionally
+requires the version2 wait/owner/status companion alongside all original receipts.
+Post-merge arming and reboot state are saved in the independent local run record.
+Native acceptance and the cause of long USB completions remain pending matching
+return; the earlier intermittent battery transport failure remains unresolved.

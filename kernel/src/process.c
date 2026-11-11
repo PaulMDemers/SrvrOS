@@ -1,5 +1,6 @@
 #include <srvros/session_scope.h>
 #include <srvros/sync_timing.h>
+#include <srvros/commit_wait_timing.h>
 #include "capture_write_timing_state.h"
 #include <srvros/path_limits.h>
 #include <srvros/audio.h>
@@ -5467,6 +5468,13 @@ bool process_file_wait_reserved_append(struct process *process,uint64_t fd,uint6
     }
     struct reserved_append_wait wait={process,fd,requested};
     uint64_t start=process_capture_write_clock(),wakes=0;bool retry=false;
+    struct process_write_file *binding=reserved_append_binding(process,fd);
+    uint64_t wait_pid=capture_write_pid();
+    bool observed_wait=start && binding && sync_commit_wait_begin(wait_pid,start,
+        binding->content->diagnostic_identity,
+        binding->content->writeback.active?binding->content->writeback.size:binding->content->committed_size,
+        binding->content->size,count,binding->content->writeback.active);
+    binding=NULL; /* Never retain a binding across scheduler turns. */
     while(!reserved_append_ready(&wait)) {
         if(!scheduler_io_private_append_wait(process,reserved_append_ready,&wait))break;
         if(wakes!=UINT64_MAX)wakes++;
@@ -5475,6 +5483,7 @@ bool process_file_wait_reserved_append(struct process *process,uint64_t fd,uint6
         reserved_append_count(process,reserved_append_binding(process,fd),requested,true,&count);
     if(start) {
         uint64_t end=capture_write_now();
+        if(observed_wait)sync_commit_wait_end(wait_pid,start,end,retry);
         struct capture_write_record *r=capture_write_find(&capture_writes,capture_write_pid());
         if(r) {
             if(end<start || !capture_write_add(&r->append_wait_calls,1) ||

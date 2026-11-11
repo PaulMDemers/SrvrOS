@@ -267,3 +267,4 @@ count=0;snapshot_bytes=8;
 void process_capture_write_snapshot(struct capture_write_snapshot *out) {*out=(struct capture_write_snapshot){0};}
 
 void sync_timing_snapshot(struct sync_timing_snapshot *out){*out=sync_fixture;}
+void sync_commit_wait_snapshot(struct commit_wait_snapshot *out){*out=(struct commit_wait_snapshot){0};}

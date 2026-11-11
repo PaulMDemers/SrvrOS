@@ -2175,6 +2175,15 @@ test-append-wait:
 	$(PYTHON) tools/test_append_wait.py
 test-core: test-append-wait
 
+.PHONY: test-commit-wait
+test-commit-wait: build/tests/commit-wait-host$(HOST_EXE)
+	$(PYTHON) tools/test_commit_wait.py --binary build/tests/commit-wait-host$(HOST_EXE)
+build/tests/commit-wait-host$(HOST_EXE): tools/test_commit_wait.c tools/test_workspace_sync_content_wire.c tools/test_workspace_sync_content_wire.h kernel/src/sync_timing.c kernel/src/commit_wait_timing.inc kernel/src/workspace_log.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include tools/test_commit_wait.c tools/test_workspace_sync_content_wire.c -Wl,--gc-sections -o $@
+build/tests/sync-timing-host$(HOST_EXE) build/tests/workspace-sync-content-wire$(HOST_EXE) build/tests/workspace-sync-gate-wire$(HOST_EXE) build/tests/io-sync-gate-host$(HOST_EXE): kernel/src/commit_wait_timing.inc
+test-core: test-commit-wait
+
 .PHONY: test-sync-commit-boundary
 test-sync-commit-boundary: $(LIMINE_PROTOCOL_DIR)/.ready
 	CC="$(HOST_CC)" $(PYTHON) tools/test_sync_commit_boundary.py --limine-include $(LIMINE_PROTOCOL_DIR)/include

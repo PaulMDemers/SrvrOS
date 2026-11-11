@@ -11,6 +11,12 @@
 #define timer_monotonic_us workspace_capture_wire_clock
 #endif
 #include "../kernel/src/workspace_log.c"
+#ifndef SRVROS_CAPTURE_GATE_SYNC_WIRE
+/* This formatter-only fixture has no private wait or live sync producer. */
+void sync_commit_wait_snapshot(struct commit_wait_snapshot *out) {
+    *out=(struct commit_wait_snapshot){.enabled=1};
+}
+#endif
 uint64_t timer_monotonic_us(void) {return 1000;}
 #ifdef SRVROS_CAPTURE_GATE_SYNC_WIRE
 #undef timer_monotonic_us
