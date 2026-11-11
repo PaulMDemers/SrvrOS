@@ -7,6 +7,46 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Journaled full Wi-Fi trial installed (November 10)
+
+Runtime orchestrationf6da0b1a with host staging correction164cd6e6 is installed
+as release110b42d5c99de8a0 for the next native cold trial. The v142 recipe runs
+full fixed161 calibration and two fresh authenticated connection lifetimes in
+one boot, each with production DHCP, DNS and64 exact gateway replies. Independent
+journal milestones surround startup and safe capture completion. Available raw
+journal and USB files are retained before success-only protocol checks. Protocol
+and persistence outcomes are recorded separately; a missing terminal milestone
+leaves the combined trial incomplete.
+
+Full normal regressions, seven fatal sanitizer groups including all19 reconnect
+cases,27 actual journal writer scenarios and16 actual MCU diagnostic traces pass
+atf6da0b1a. Correction164cd6e6 changes only the host staging allowlist and its
+complete-stage tests. Hash/diff review proves all other inputs, including kernel,
+shared code,userspace,ports,boot and Makefile, unchanged. The original execution
+identities remain in the evidence. Fresh269 staging/profile tests,42 collector
+regressions, startup/docs/build checks, seven exact-image UEFI destination cases,
+20 frozen collector workflow cases and five partial-journal collector cases pass.
+The exact-stage VM also preserves all451 prior workspace files and metadata
+apart from one RTC-bounded marker atime, saves capture and resets automatically.
+The private clone matches the preboot workspace baseline.
+
+Installation preserves Ubuntu default/EFI order and seven protected recoveries.
+The consumed accepted startup-only payload has a verified immutable779-file
+backup and separate acceptance notes; its redundant EFI copy was retired only
+after promoting the acceptedc603 recovery. The fresh descriptor/file and full
+candidate payload, source, frozen checkers, VM results and baseline are archived
+outside build. Native calibration and same-boot reconnect on this candidate
+remain pending. No VM or HOST fixture grants physical Wi-Fi acceptance.
+
+The local `wifi-journal-reconnect/run.json` record owns final review and the
+one-shot cold shutdown under existing authorization. Unplug only Wi-Fi for ten
+seconds while off, reconnect to the same port and power on; keep the workspace
+connected. Guest progress and automatic capture need no commands or photographs.
+Collect FIRST once after return with
+`python3 -B build/bringup/wifi-journal-reconnect/run_root.py return_collect`.
+Preserve incomplete prefixes and never recollect the closed startup acceptance.
+
+
 ### Full calibration and two-connection trial scope (November 10)
 
 The next bounded objective carries the accepted startup journal into the full
