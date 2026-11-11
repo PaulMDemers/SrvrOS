@@ -2,7 +2,7 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
-### Active scope: interval borrower and one-page encoding
+### Software checkpoint: interval borrower and one-page encoding
 
 The device branch has integrated main `83c955fd`, which adds Air6,1
 capture-attribution evidence. Air7,2 work now covers a registered borrower
@@ -13,9 +13,27 @@ The original source and parent deadlines apply. Directed real-core tests pass
 consumer clock/guard failure prefixes, callback parent mutation, reentry and
 two successive consumers; the HDA/GPU matrix passes 7,735 cases. The codec
 exhausts 1,048,575 supported page encodings, with exact originals and fence/
-aperture refusal. Full-source, sanitizer, image and VM qualification follows.
+aperture refusal. Final source `02545e7a` passes the local build, host/core/docs
+and USB-image gate, all 25 images, fatal ASan/UBSan for claim/joint/codec and
+eight deliberate gate-removal controls. Installed-root testing was explicitly
+omitted because no installer changed; installed current/recovery bank hashes
+were independently verified. Only the joint image changes; the other 24 match
+the accepted timing checkpoint byte for byte. New consumer/planner APIs are
+unreferenced and absent from all linked images; four diagnostic objects pass
+the 2,048-byte frame limit.
+
+Exact uninstalled release `2ec70810586e32e7` passes QEMU unsupported-hardware
+zero-store refusal, checkpoint/result persistence, offline bytes, clean unmount
+and automatic return. Missing workspace halts as required. This exercises the
+legacy no-consumer refusal path, not native consumer or mapping behavior.
 No native consumer, PTE store, interval transfer or positive assurance is added;
 the accepted installed payload and recovery remain unchanged.
+No reboot is armed. Local receipts are under
+`build/air-interval-borrow-20261110`, with a SHA-verified independent backup.
+The next native boundary is a maintained interval/private-memory transaction
+with actual cache/translation, DMA and reader-completion witnesses before a
+one-page mapping; all eight obligations remain open. Do not schedule a physical
+trial solely to repeat this software contract.
 PR462 screenshot work, PR19 networking and PR379 WebCore are independent.
 
 ### Native joint timing accepted

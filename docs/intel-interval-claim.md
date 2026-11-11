@@ -152,6 +152,32 @@ checkpoint, strict raw collector, unchanged bounds and useful physical exit
 criteria under the [Ubuntu workflow](ubuntu-device-agent-setup.md).
 
 
+## Consumer and codec qualification (2026-11-10)
+
+Source `02545e7a` passes the local build/check-host/test-core/check-docs and
+USB-image gate with all 25 images. Installed-root testing was explicitly omitted
+because no installer changed; installed current/recovery hashes were checked
+against their independent banks. Fatal ASan/UBSan passes the full claim and
+7,735-case joint-core matrices and the exhaustive codec test. Eight compiled
+controls detect missing parent-loss latching, claim drain, original registration,
+borrow accounting, callback owner retention, HDA drain, physical alignment and
+protected-fence checks.
+
+The claim, joint, probe and page objects pass a 2,048-byte freestanding frame
+limit. The new consumer/planner APIs are unused and absent from all 25 linked
+images. Only the joint image differs from the prior accepted timing build;
+the other 24 images match byte for byte. Exact uninstalled release
+`2ec70810586e32e7` passes QEMU unsupported-hardware refusal with zero native
+stores, matching saved checkpoint/result, offline bytes, clean unmount and
+automatic return. Missing workspace halts. This tests the existing no-consumer
+refusal path and grants no native consumer, mapping or completion acceptance.
+
+Current `978d9be94b96243a` and recovery `9aa8dbf6fbda8252` remain installed,
+with no reboot armed. The unit checkpoint and independent backup retain the
+qualified source and receipts, including the intentionally interrupted earlier
+gate and the initial harness failure. Hardware interval transfer and all eight
+completion obligations remain open.
+
 ## Historical software-qualified checkpoint
 
 Source`5466bdd3` builds on main`72d49457`, integrated as`2c5f1df1`. The integrated
@@ -183,13 +209,13 @@ record the qualified source, all nonpass receipts and remaining hardware gates.
 
 ## Joined native scope: maintain display-audio inhibition through the claim
 
-The existing [display-HDA owner](intel-display-hda-lease.md) and GPU preparation
-were accepted separately. The current GPU lifetime preserves HDA command6,
-with bus mastering enabled; it does not maintain the earlier HDA inhibit lease.
-A next explicit diagnostic should join the real original HDA token/borrow and
-GPU/re-arm/claim lifetimes under one CPU exclusion owner. Open and pin HDA
-inhibition before GPU preparation, keep it registered through claim retirement,
-then restore only after both sources and their children retire cleanly.
+The [display-HDA owner](intel-display-hda-lease.md) and GPU preparation
+were first accepted separately. The standalone GPU lifetime preserves HDA
+command 6 with bus mastering enabled. The joined diagnostic instead binds the
+real original HDA token/borrow and GPU/re-arm/claim lifetimes under one CPU
+exclusion owner. It pins HDA inhibition before GPU preparation, keeps it
+registered through claim retirement, then restores only after both sources and
+their children retire cleanly.
 
 Retain the original HDA400ms, preparation100ms, GT300ms and full500ms bounds.
 A child cannot restart a parent clock. Map/admit all required aliases before
