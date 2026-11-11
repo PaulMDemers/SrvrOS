@@ -1,6 +1,7 @@
 """Actual original-owner HDA/BCS adapter, exact recipe and evidence isolation."""
 from pathlib import Path
 import os
+import sys
 import re
 import subprocess
 import unittest
@@ -108,6 +109,14 @@ class PairedShutdownTests(unittest.TestCase):
    with self.subTest(k=k,prefix=prefix),self.assertRaises(ValueError):paired_result(field(self.text,prefix,k,v))
   for prefix in ('intel-claim-summary: v=1','intel-joint-summary: v=1','intel-held-reset-summary: v=1','intel-hda-bcs-future: v=1'):
    with self.subTest(prefix=prefix),self.assertRaises(ValueError):paired_result(self.text+'\n'+prefix)
+ def test_real_command_line_registration_and_required_workspace(self):
+  exe=[sys.executable,str(ROOT/'tools/hardware_boot.py')]
+  p=subprocess.run(exe+['--help'],capture_output=True,text=True)
+  self.assertEqual(p.returncode,0);self.assertIn('--intel-hda-shutdown',p.stdout)
+  for action in ('stage','install'):
+   p=subprocess.run(exe+[action,'--intel-hda-shutdown'],capture_output=True,text=True)
+   self.assertEqual(p.returncode,2);self.assertNotIn('unrecognized arguments',p.stderr);self.assertNotIn('Traceback',p.stderr)
+   self.assertIn('Intel',p.stderr);self.assertIn('--laptop-probe-volume',p.stderr)
  def test_exact_sixteen_token_recipe_and_profile_isolation(self):
   c=limine_config('0123456789abcdef','ram-usb-v1-intel-paired-shutdown-laptop-probe-37d8c5d0-auto-return')
   tokens=next(l.split('cmdline:',1)[1].split() for l in c.splitlines() if 'cmdline:' in l)

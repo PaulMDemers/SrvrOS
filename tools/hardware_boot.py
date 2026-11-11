@@ -783,6 +783,7 @@ def main():
     capture.add_argument("--intel-lifetime-capture",action="store_true",help="exact Air7,2 shadow scanout ownership/lifetime trial; no GPU writes")
     capture.add_argument("--intel-lifetime-fixture",action="store_true",help="synthetic shadow scanout guest fixture; not native acceptance")
     capture.add_argument("--intel-engine-prepare",action="store_true",help="Five-engine prepare/hold/cancel; no reset or memory grant")
+    capture.add_argument("--intel-hda-shutdown",action="store_true",help="Pre-init original HDA/BCS shutdown and preservation; no reset or memory grant")
     capture.add_argument("--intel-gpu-hold",action="store_true",help="Original-claim GPU requester inhibit/drain/restore; no memory grant")
     capture.add_argument("--intel-joint",action="store_true",help="Maintained HDA inhibition and original GPU claim under one owner; no PTE writer")
     capture.add_argument("--intel-rehold",action="store_true",help="Post-reset BCS re-arm and original-borrow child, restoring the old state; no PTE writer")
