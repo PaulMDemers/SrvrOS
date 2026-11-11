@@ -76,6 +76,19 @@ int main(void){
  assert(!s.invalid&&!s.worst.owner.released&&!s.worst.owner.end_us&&s.worst.owner.overlap_end==40&&s.worst.owner.csw_overlap_us==20);
  workspace_commit_wait_wire(41,&s);sync_commit_owner_end(1,55,5,50);
  struct commit_wait_snapshot later;sync_commit_wait_snapshot(&later);assert(!memcmp(&later.worst,&s.worst,sizeof(s.worst)));
+ /* A regressed callback ending before wait entry is invalid, not absent.
+  * Observation must preserve both caller IRQ states and live ownership. */
+ for(unsigned masked=0;masked<2;masked++) {
+  enable();sync_commit_owner_begin(1,55,7,87,1,"disk-worker");
+  assert(sync_commit_wait_begin(11,10,9,0,262144,65536,false));
+  uint64_t saved_irq=masked?0:0x200;irq=saved_irq;before=clocks;
+  sync_commit_wait_status(79,0x2a,512,12,9,13,13,true,&status);
+  assert(irq==saved_irq&&clocks==before&&sync_commit_wait_status_enabled());
+  sync_commit_wait_snapshot(&s);assert(s.invalid&&s.active==1&&s.waits==0);
+  sync_commit_owner_end(1,55,1,20);sync_commit_wait_end(11,10,30,true);
+  sync_commit_wait_snapshot(&s);assert(s.invalid&&!s.active&&s.waits==1&&s.worst.owner.thread==55&&s.worst.owner.csws==0);
+  assert(irq==saved_irq);irq=0x200;
+ }
  /* Multiple real owner intervals are disjoint; retain their actual maximum. */
  enable();sync_commit_owner_begin(1,55,0,0,1,"workspace-log");
  assert(sync_commit_wait_begin(11,10,9,0,262144,65536,false));

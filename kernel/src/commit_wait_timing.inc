@@ -73,6 +73,8 @@ void sync_commit_owner_end(uint64_t seq,uint64_t thread,uint64_t start,uint64_t 
 void sync_commit_wait_status(uint64_t tag,uint64_t opcode,uint64_t bytes,uint64_t start,uint64_t end,uint64_t requested,uint64_t actual,bool ok,const struct usb_bulk_timing *sample) {
     if(!commit_wait_retained.active || !commit_owner_active.thread)return;
     uint64_t f=lock();
+    /* Refuse regressed clocks before filtering callbacks outside the wait. */
+    if(end<start) {commit_wait_retained.invalid=1;unlock(f);return;}
     for(unsigned i=0;i<SYNC_TIMING_RECORDS;i++) {
         struct commit_wait_record *w=&commit_wait_live[i];
         if(!w->pid || end<=w->start_us)continue;
