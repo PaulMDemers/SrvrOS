@@ -21,6 +21,22 @@ Ubuntu's current default network path: perform its brief Linux restart only with
 a local restoration action prepared. Integrate/requalify main before any new
 runtime image. No physical boot is armed at this scope checkpoint.
 
+Linux capture completed at kernel7.0.0-43-generic. One driver unbind/rebind and
+three NetworkManager disconnect/reconnect cycles saved36 calibration exchanges;
+all have one matched reply, zero usbmon drops, no selected orphan completions or
+reused pending tags. The one observed R0 reply took454us from OUT submission
+(416us IN wait); four FULL901 replies took2601–3316us, with maximum observed
+calibration latency16187us. This weakens a routine greater-than500ms latency
+explanation without ruling out a rare stall. Linux connected on161 at80MHz;
+these are not identical20MHz/cold-power histories. Rebind retained firmware:
+no firmware upload-sized OUT was observed. Installed e-image bytes match our
+pinned SHA, but the capture does not prove the resident image's identity.
+NetworkManager autoconnect restored the link; the explicitly prepared immediate
+restore ran before its device object reappeared and returned a device-not-found
+error. The connection was subsequently independently confirmed active on5805MHz.
+Raw filtered captures/actions remain private under
+`build/bringup/wifi-linux-mcu-timing/`. No arbitrary packet payload is saved.
+
 ### External driver/specification research (November 11)
 
 The user requested research before further implementation. Bounded scope:

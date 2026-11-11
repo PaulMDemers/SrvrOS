@@ -6609,6 +6609,10 @@ test-wifi-reconnect5-native-log: build/tests/xhci-stack5-host$(HOST_EXE)
 	WIFI_RECONNECT5_PARENT="$(WIFI_RECONNECT5_PARENT)" WIFI_RECONNECT5_BINARY=$< WIFI_RECONNECT5_TRACE=build/tests/xhci-reconnect5-trace.log PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_reconnect5_log.py
 
 .PHONY: test-wifi-mcu-bulk-observation
+.PHONY: test-mt76-linux-mcu-timing
+test-mt76-linux-mcu-timing:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_mt76_linux_mcu_timing.py
+
 test-core: test-wifi-mcu-bulk-observation test-xhci-cal5-mcu
 test-wifi-completion-foundations: test-wifi-mcu-bulk-observation test-xhci-cal5-mcu
 test-wifi-mcu-bulk-observation:
