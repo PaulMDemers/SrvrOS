@@ -7,6 +7,52 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Readable console accepted; calibration response failed (November 11)
+
+Runtime `d413e338` / release `e4e95e7d5e24fc7c`, session
+`000660021b689d1e-00`, is collected FIRST once and closed failed/incomplete for
+Wi-Fi. The user confirms readable larger text and automatic Ubuntu return, with
+no STOPPED panel. The native log reports2880×1800 and scale3/24×48 cells. This
+accepts journaled-console readability on this Pro only; the held HTTP panel was
+not exercised. Neither connection began, so HTTP reconnect remains unaccepted.
+
+The first explicit failure is the first R0 calibration command (step0,arg0).
+Its16-byte OUT completed, then the DCI11 receive took the original elapsed-limit
+branch at500000us, sequence3817, with pending/quarantined metadata and no recorded
+completion code. The whole command bracket is500076us. The submitted Normal TRB
+snapshot is index16, next producer17, cycle1/control0x425; the observer recorded
+25 dispatched unrelated Transfer Events, zero relevant/exact samples and no
+diagnostic drop/overflow, crossing event62/C1 to23/C0. These are CPU snapshots and
+dispatch observations, not proof of hardware non-arrival or of a stuck controller.
+The installed binary publishes parameter/status before control; no publication
+reordering defect was found. The physical cause remains unknown. The downstream
+success-only VCO row-count refusal must not be mistaken for the first failure.
+
+The prepared but never-run HTTP child/worker retire with quiescent1; the final
+receipt has zero connections and no RF-parent/provider retirement acceptance.
+All seven independent journal hashes/commits and exact USB/console overlap verify
+through1,854,675bytes, with save/unmount and automatic return. All456 prior files
+and metadata survive except one authorized marker atime; exactly two logs are
+added. Offline fsck/allocation,57 other EFI file hashes and seven protected
+recovery equalities pass. Installed release remains e4; Ubuntu is unarmed.
+
+The immutable1,438-file primary is `wifi-http-readable-d413e338`, index
+`befa6b0ae8d2a3250a3f957a007257962ee46320329da5ae4698199d40be25b9`.
+The separate three-file `wifi-http-readable-returned-d413e338` review is sealed
+at `0c327ea6cae9aaeb4969ae94e33a7f303394c745cd3901e1f05c7e10b8c52d62`.
+Never recollect or reseal either. Earlier closed captures remain unchanged.
+
+Bounded next audit: extend the existing long-lifetime native MCU fixture to the
+actual first-R0/index16/event-wrap categorical outcome, preserving its existing
+FULL-calibration controls. Exercise production publication/poll/dispatch and
+quarantine without a timeout increase, automatic retry, reset or DMA release.
+An injected missing response tests containment, not physical causation. No new
+runtime or reboot follows without a justified correction and source qualification.
+Actual main `52907f8b` / PR467 was fetched after collection; its NoFatChain FAT
+work is inspected/deferred and must be integrated/requalified before a future
+runtime candidate. The installed test used mainae869c9b. No other machine's
+acceptance or active storage/GPU scope is adopted by this unit.
+
 ### Readable HTTP diagnostic candidate installed (November 11)
 
 Runtime `d413e338`, release `e4e95e7d5e24fc7c` (v143), is installed after
