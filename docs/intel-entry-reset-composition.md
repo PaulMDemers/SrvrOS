@@ -78,8 +78,29 @@ reset/re-arm code, original HDA halfword writes, retained static lifetimes and
 Exact-stage MBR/EFI QEMU passes strict compiled recipe and pre-init provenance,
 unsupported-profile zero-borrow/store refusal, saved checkpoint/raw-byte
 verification, unmount/automatic safe return and missing-workspace halt. The
-candidate is banked outsidebuild and uninstalled/unarmed. Physical host/media/
-recovery checks pass, but only its future matching native session can accept
-this composition. The earlier accepted disabled observation and the unexercised
+candidate was banked outsidebuild before its native trial. The trial below
+refused; host/VM qualification does not accept this composition. The earlier accepted disabled observation and the unexercised
 enabled writer retain their separate scopes. See the machine record for the
 next unattended trial and collection requirements.
+
+## Native result: enabled entry refused
+
+Source`0fadb55b`, release`0994cd9762acfca1`, session
+`session-000660043f986e6c-00` finds stable enabled BCS in the original full
+census: start`0x3eef000`, control`0xf001`, enabled mask16. The disabled-entry
+child refuses as ineligible source before borrowing, reading or storing; no
+reset/preparation/re-arm/claim is attempted. `completed=NO` and22 attention
+items are a nonpass. HDA restores6/2/2/6, allfour inspections return, GPU14/HDA1
+aliases retire and CPU exclusion releases. The files, filesystem, recovery and
+consumed one-shot verify. No clock fault occurred; HDA86,707us and
+outer137,288us remain within the original bounds.
+
+The already-disabled HDA-only result remains a separate exact-source lifetime;
+the difference's cause is unestablished. Do not repeat this unchanged trial or
+force entry. An enabled shutdown would retain nonzero ring geometry and advance
+the epoch; it cannot simply feed the old zero-geometry/reset contract or reuse
+the old census. A separate explicit transition needs original-source binding,
+fresh post-store observations, defined reset postconditions and retained backing/
+reader ownership through restoration or irreversible takeover. Preserve existing
+gates and deadlines until that route is reviewed and qualified. This result
+accepts no enabled writer, reset composition, managed memory or tear-free scanout.

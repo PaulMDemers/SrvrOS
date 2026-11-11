@@ -2,52 +2,54 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Active scope: original-owner disabled entry/reset candidate ready
+### Active scope: enabled-entry refusal collected; ownership transition planning
 
-Source`0fadb55b`, release`0994cd9762acfca1`, qualifies the separate
-[disabled-entry/reset composition](../intel-entry-reset-composition.md). It
-registers a read-only child after the original full census, requires exact
-already-disabled BCS/census agreement and returns its borrow before the existing
-takeover/preparation/reset/re-arm/claim cancellation pipeline. No enabled-entry
-relaxation, geometry clearing or added writer. Original census age/epoch and
-child/BCS100ms, GT300ms, HDA400ms and outer500ms bounds remain unchanged.
+The exact disabled-entry/reset candidate is collected as a **safe refusal, not
+an acceptance**. Source`0fadb55b`, release`0994cd9762acfca1`, session
+`session-000660043f986e6c-00` finds BCS enabled in both original census samples:
+start`0x3eef000`, control`0xf001`, enabled mask16, parser idle3 and no pending,
+flip-wait or TLB flags. The new child refuses before borrow with reason1
+(ineligible source), zero reads/stores. Takeover, preparation, reset, re-arm and
+claim never enter. `completed=NO` and22 collector attention items correctly keep
+native composition unaccepted. This is not a clock or transport timeout.
 
-Full local28-image build/USB/host/core/docs passes on this source, including the
-merged main5e72e2dd filesystem baseline. Installed-root was explicitly omitted
-(no installer change; actual installed/current/recovery hashes verified).
-The NoFat comparison preserves its81 known post-repair strict nonpasses; this
-is not full crash-recovery acceptance. All8 new tests pass fatal ASan/UBSan,
-including64 child callback faults, all92 immutable sourcewords and1,917 HDA
-boundaries. Six compiled provider/source/age/return/epoch controls are detected.
-Historical accepted joint and HDA/BCS native reports still validate.
+HDA6/2/2/6, allfour inspection returns, matching HDA raw samples,14 GPU aliases
+and the HDA root alias retire; CPU exclusion releases. HDA86,707us and
+outer137,288us remain inside unchanged limits with no clock fault. Full engine/
+plane reset preservation was not exercised. All1,470 prior files preserve
+except expected workspace metadata; three verified logs yield1,473 files/147
+sessions. Exact22-token pre-init/checkpoint provenance, offline fsck/allocation/
+writable/headroom, boot digest, installed/durable payload banks, Ubuntu default
+and consumed one-shot pass. Raw evidence is banked outsidebuild. Current0994,
+prior accepted observationbd77, recovery9aa8, GUIc497, accepted joint978 and
+standalone d260 remain preserved. USB unmounted; no reboot armed.
 
-All28 images retain separate symbols/receipts. Native object and exact staged
-ELF verify eight read-only BCS DWORDs on the existing page, unchanged existing
-reset/re-arm code, original HDA Command halfword writes, static retained objects
-and2KiB frame limits. The projected native tail is62,884/65,536 bytes including
-the unchanged1,536-byte reserve. Exact-stage MBR/EFI QEMU verifies the compiled
-22-token recipe, pre-init provenance, unsupported zero-borrow/store refusal,
-matching saved raw bytes/checkpoint, unmount/automatic return and missing-
-workspace halt. These are host/VM checks, not native composition acceptance.
+The [disabled-entry contract](../intel-entry-reset-composition.md) retains its
+host/VM qualification, but an unchanged retry is not the next test. The cause of
+the difference from the already-disabled HDA-only boot remains unestablished.
+Disabling an enabled ring leaves nonzero start/control geometry; the old reset
+path requires zero geometry and the shutdown store invalidates the old epoch.
+Do not merely weaken those gates, clear geometry, force enabled entry or replay
+an old receipt as live authority. The next graphics block must review and design
+an explicit source-bound enabled-ring transition, fresh post-store census and
+valid reset/preservation/ownership semantics before implementing another native
+candidate. Enabled shutdown is still unexercised on this machine.
 
-Candidate and complete evidence are banked outsidebuild. All1,470 files/146
-sessions preserve; offline fsck/allocation/writable/headroom, boot digest,
-current/recovery/GUI/accepted joint/standalone banks, AC, Ubuntu default and
-unarmed one-shot pass. Only the unreferenced EFI copy of prior failed78be was
-retired after full durable-bank equality; its payload and failure evidence
-remain. Currentbd77/recovery9aa8/GUIc497/accepted joint978/standalone d260 stay
-installed. USB unmounted; volume1%; no new install or reboot armed.
+First integrate inspected main`91514b3f` (PR469/470 filesystem work), which was
+deliberately deferred while this exact candidate was frozen. Touched shared
+scope now: integration of bounded bitmap/FAT/stream tests plus the new GPU entry
+contract and next-transition planning; no new register writer or deadline
+extension. Keep PR19 networking and PR379 WebCore independent. Checkpoint:
+`build/air-entry-compose-20261111/status.md`; source-specific proof:
+`build/air-entry-compose-20261111/returned/return-proof.json`.
 
-Next is the unattended same-owner disabled entry -> existing reset trial.
-Revalidate host/media/recovery, install the exact banked candidate with
-`--keep-previous`, persist the run record and use one-shot boot under existing
-reboot authorization. Safe saved outcomes return automatically; retained
-uncertainty halts visibly. Collect the matching session first on return.
-No reboot in this work block. Native composition remains pending, enabled
-shutdown unexercised, obligations255, assurances0, managedpages0 and physical
-tear-free presentation unaccepted. PR301 carries the work; PR469 filesystem,
-PR19 networking and PR379 WebCore remain independent. Checkpoint:
-`build/air-entry-compose-20261111/status.md`.
+Qualification of0fadb remains historical: full local28-image build/USB/host/
+core/docs, fatalASan/UBSan eight-test suite (64 child faults,92 sourceword
+mutations,1,917 HDA boundaries), six compiled controls, image/native width/
+static lifetime/2KiB frame checks,62,884/65,536 projected tail and exact-stage
+MBR/EFI save/unmount/automatic-return and missing-workspace halt all pass.
+Those host/VM checks do not accept the native composition. Obligations255,
+assurances0, managedpages0 and physical tear-free remain unchanged/unaccepted.
 
 ### Latest native HDA/BCS result: already-disabled observation accepted
 

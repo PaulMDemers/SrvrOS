@@ -67,8 +67,13 @@ or repeat unchanged observation boots as a substitute for that integration.
 The separate [disabled-entry/reset composition](intel-entry-reset-composition.md)
 now qualifies a sealed zero-store child before the unchanged joint reset path.
 Its original census age, epoch and borrow return remain mandatory. Host/VM
-qualification is complete; native composition is pending. This is the next
-physical trial, with no added enabled writer or memory/completion grant.
+qualification is complete. Native source0fadb55b/release0994cd9762acfca1 now
+refuses enabled inherited BCS before its child or reset enters; full native
+composition remains unaccepted. The next step is an explicit source-bound
+enabled-ring ownership transition with fresh epoch/census and valid nonzero-
+geometry reset semantics, preserving the old gates. An unchanged retry, geometry
+clearing or a saved-observation token cannot supply that route. No memory or
+completion grant is added.
 
 ## First decision: how ownership begins
 
