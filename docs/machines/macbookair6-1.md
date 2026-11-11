@@ -12430,3 +12430,26 @@ retains separate metadata-import hunks, and PR301 `037510a8` has no exFAT hunk.
 Shared performance changes are in PR469. Installed c7, recovery c354, the859-file
 USB baseline and independent accepted backups remain unchanged. Native timing
 is the next acceptance step; host callback savings are not a native speed claim.
+
+## Native filesystem comparison preparation (2026-11-11)
+
+The user authorizes installing and automatically starting the merged PR469
+filesystem candidate. Integration base is `883f79bf`; only this unit record and
+local trial tooling change in this preparation. Rebuild matched images, verify
+the focused filesystem controls, run populated Home stress and the exact native
+stage in VMs, then install with recovery c354 retained and Ubuntu default.
+The native profile keeps the original 1800-second workload, three screenshots,
+app open/close cycles, 1% volume and all limits, allocation/byte proofs, durability
+barriers and ownership requirements. No input is required; progress and results
+are displayed/saved in the guest. Automatic collection must bind this release
+and new session before another trial.
+
+Compare screenshot wall/phase/cleanup, app lifecycle and storage observations
+with the accepted c7 session `session-00065ffc821878bb-00` (runtime `72567e32`):
+capture totals 8.049986/9.633137/17.522316 seconds, 1089 app cycles, 122325us
+maximum loop and zero recorded underruns. Different cold boots/interleavings
+make this an observational native comparison; the deterministic callback
+controls remain separate evidence. Current c7 and recovery c354 stay protected,
+with outside-build evidence and payload backups. EFI space may require retiring
+one verified, unreferenced historical duplicate; its complete independent copy
+must remain. No runtime change or sibling acceptance is part of this trial.
