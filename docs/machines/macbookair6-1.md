@@ -12690,3 +12690,26 @@ Next investigate the 16 KiB payload status-completion tails and how long shared
 commit ownership prevents private progress, preserving all request/time/fairness
 bounds, flushes and integrity checks. No additional implementation or trial has
 started at this checkpoint.
+
+## Active payload command-tail and commit-ownership audit (2026-11-11)
+
+From main `189f6e43`, investigate the long 16 KiB WRITE status callbacks inside
+the exactly observed shared commit owner. Scope: existing USB command diagnostic
+completion hook, fixed owner/wait metadata, final-only command companion, strict
+parser and producer/transport regressions. Reuse already collected command-phase
+and checkpoint clocks; associate only the exact tag/status interval, retain
+complete validation separately from bulk success, and expose the logical block
+range where available without retaining pointers. Partial or unavailable command
+completion remains explicit. No additional device/ring reads or transfers.
+
+Audit whether ownership can be shortened while respecting the filesystem's
+mutable transaction and pending BOT/DMA lifetime. Do not release ownership or
+weaken ordering on assumption. Preserve scheduler policy/fairness, command and
+request sizes, all deadlines, flushes, fresh-media/CRC/allocation proofs, log
+cadence/tail bounds and the original 1,800-second 1% workload with three captures.
+PR19 at `f367eb0e` changes separate logger startup/Wi-Fi capture paths; PR301 at
+`84e25638` has no competing command/commit implementation. No other task is
+contacted. Matching 4598 native return is collected/reviewed and independently
+sealed; accepted4598/80b4/c7 and recoveryc354 are retained. Validate locally,
+publish/self-merge, install a matched candidate and run the native test under
+the existing reboot authorization. New native acceptance remains pending.
