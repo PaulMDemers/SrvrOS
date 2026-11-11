@@ -12516,3 +12516,24 @@ profile; performance remains mixed and the earlier battery-fault cause remains
 unresolved, with no recurrence captured here. Review base is main `91514b3f`;
 this result update changes only this unit record and the filesystem performance
 guide, with no runtime or other-machine acceptance change.
+
+## Active commit-wait isolation (2026-11-11)
+
+From main `a611fd9e`, isolate the missing association between private screenshot
+waits and global commits. Scope is observation hooks in the reserved-append wait,
+fixed sync observer state, a compact final-only logger companion, strict parser
+and regressions. Retain the completed content call with the longest actual
+overlap inside the worst screenshot wait, including its parent sync identity
+and command timing. Report unavailable/incomplete overlap explicitly; whole-call
+USB counters are not exclusive work inside the wait or proof of hardware cause.
+Only one selected wait is emitted to preserve the existing64KiB tail budget.
+
+PR19's process lifetime/pipe work is separate from the reserved-append wait;
+there is no competing sync observer implementation. No other task is contacted.
+Keep scheduler eligibility, notification/polling policy, ownership, durability,
+all proofs and command/cache/byte/runtime limits unchanged. Validate disabled,
+overlapping/partial/unavailable, repeated, failed, overflow and retirement cases,
+plus actual C producer-to-parser wiring and loaded/exact-stage VM evidence.
+Then retain accepted80b4/c354 and run the original1800-second1% automatic stress
+with three screenshots. Native acceptance and causal diagnosis remain pending
+matching collection; no new reboot is armed by this scope notice.
