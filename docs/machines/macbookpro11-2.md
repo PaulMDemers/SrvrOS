@@ -7,6 +7,37 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### HTTP reconnect return audit (November 11)
+
+Runtime `835ffb01` / release `8ef237478e0aa29b` halted during its cold
+native HTTP reconnect trial. The matching session is `session-00065fface312e5e-00`.
+Its once-only collector has closed the 1,860-file primary; never recollect or
+reseal it. The independent journal has valid phases 1–5, workspace/logger ready,
+but no terminal save/unmount checkpoints. USB contains only `boot.log`, so there
+is no complete protocol result and **no native acceptance**. Ubuntu is unarmed.
+The operator photo records retained HTTP obligations; its compressed digits are
+not sufficiently reliable to identify the first failure reason.
+
+Current bounded objective: audit the native HTTP bootstrap/worker/child/terminal
+handoff paths and reproduce failed-child and missing-EOF outcomes through the
+actual native bridge. Preserve keys/provider/DMA on uncertain ownership; do not
+relax a cleanup gate or reboot from a guessed photo reading. Touch only native
+HTTP qualification/diagnostics as justified by reproduction. The earlier accepted
+ICMP and single-HTTP evidence stays historical and immutable.
+
+Independent collection passes offline filesystem/allocation checks, exact other
+EFI files and protected recovery checks. The strict metadata checker refuses the
+missing exit-clock allowance: the sole prior metadata difference is the workspace
+marker's atime; prior ordinary file bytes match. A separate read-only return review
+will retain this distinction without changing the failed primary or granting
+protocol acceptance.
+
+Actual `origin/main` is now `d4580da3` (PR465), inspected after collection. It adds
+Air6,1 queued private-append wakeups and syscall/scheduler coverage, including shared
+process/scheduler files. It is not in the installed `835ffb01` runtime and remains
+deferred during this source-bound failure audit; integrate and requalify before
+any new physical candidate. No native Wi-Fi change is inferred from that PR.
+
 ### HTTP reconnect candidate installed (November 11)
 
 Source `835ffb01`, release `8ef237478e0aa29b` (v143), is installed for a cold
