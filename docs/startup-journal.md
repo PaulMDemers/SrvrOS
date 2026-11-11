@@ -76,3 +76,24 @@ journal changes. Its dual-refusal case requires a held guest, an unchanged
 journal and absence of firmware/network work. Both use the exact staged image;
 the fixture changes only its disposable disk's GPT byte to cause admission
 refusal.
+
+## FAT mount-state binding
+
+The native6a39a477 run exposed a host preparation error. Linux sets
+`FAT_STATE_DIRTY` (byte65 bit0 on FAT32) while the EFI filesystem is mounted
+read/write, then clears it on clean unmount. Preparation had hashed the mounted
+sector. The native rejection's digest matches that sector with only this bit
+cleared. Controlled clean unmount and remount with direct sector reads reproduced
+both exact images. Buffered whole-disk reads can retain a stale cache image
+across a partition mount-state update, so that host experiment uses `O_DIRECT`.
+See the [Linux FAT implementation](https://github.com/torvalds/linux/blob/master/fs/fat/inode.c)
+and [on-disk structure](https://github.com/torvalds/linux/blob/master/include/uapi/linux/msdos_fs.h).
+
+Preparation now hashes a copy of the expected clean sector with only byte65
+bit0 cleared. It retains the mounted sector separately in local evidence.
+Every other bit stays in the descriptor hash. The native writer still compares
+the actual entire512-byte sector with that exact digest. The kernel and AHCI
+runtime have no change for this correction. An actual sector that retains the
+dirty bit still fails admission. Fixtures cover mounted and clean preparation,
+strict refusal of an actual dirty sector, reproduction of the old stale pin,
+and preservation of other state/identity bits.

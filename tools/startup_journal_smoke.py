@@ -46,8 +46,9 @@ def verify_sparse_changes(path, seeds, allowed):
 
 
 def run(args):
-    refusal = args.mode in ('journal-refused', 'both-refused')
+    refusal = args.mode in ('journal-refused', 'both-refused', 'dirty-state')
     missing = args.mode in ('missing', 'both-refused')
+    refusal_reason = 8 if args.mode == 'dirty-state' else 6
     source = boot.STAGE / args.release
     manifest = boot.verify(source)
     assert manifest['config_version'].startswith('ram-usb-wifi-fw-v141-')
@@ -75,7 +76,15 @@ def run(args):
         seeds = [(512, (args.host_record/'disk-gpt-sector.bin').read_bytes()),
                  (start, (args.host_record/'esp-bpb-sector.bin').read_bytes()),
                  (offset, journal.initial(descriptor[48:64]))]
-        if refusal:
+        import hashlib
+        clean_sector = seeds[1][1]
+        mounted_sector = (args.host_record/'esp-bpb-mounted.bin').read_bytes()
+        assert clean_sector == journal.clean_boot_sector(mounted_sector)
+        assert clean_sector[65]&1 == 0 and hashlib.sha256(clean_sector).digest() == descriptor[96:]
+        if args.mode == 'dirty-state':
+            changed = bytearray(clean_sector);changed[65] |= 1
+            seeds[1] = (start, bytes(changed))
+        elif refusal:
             changed = bytearray(seeds[0][1]);changed[16] ^= 1
             seeds[0] = (512, bytes(changed))
         with internal.open('wb') as stream:
@@ -138,7 +147,7 @@ def run(args):
         if refusal:
             assert not parsed['complete'] and not parsed['records']
             assert raw == journal.initial(descriptor[48:64])
-            assert 'startup-journal-refused: version=1 reason=6' in text
+            assert f'startup-journal-refused: version=1 reason={refusal_reason}' in text
         else:
             assert parsed['complete'], parsed
             assert [x['phase'] for x in parsed['records']] == list(range(1,8))
@@ -157,20 +166,20 @@ def run(args):
             clean = result_dir/'workspace-after.exfat'
             clean.write_bytes(saved)
             check_clean_image(clean)
-            if args.mode == 'journal-refused':
+            if args.mode in ('journal-refused', 'dirty-state'):
                 final = ExfatFixture(saved)
                 entries = dict(final.entries(final.read('srvros-work/Logs')))
                 assert len(entries) == 1
                 session = next(iter(entries))
                 log = final.read('srvros-work/Logs/'+session+'/exit.log')
                 (result_dir/'fallback-exit.log').write_bytes(log)
-                assert b'startup-journal-refused: version=1 reason=6' in log
-                assert b'startup-journal-hash: offset=512' in log
+                assert f'startup-journal-refused: version=1 reason={refusal_reason}'.encode() in log
+                assert f'startup-journal-hash: offset={start if args.mode == "dirty-state" else 512}'.encode() in log
                 assert b'srvros.desktop-release='+args.release.encode() in log
                 assert b'workspace-log: snapshot=exit.log ' in log
         report = dict(status='PASS', source=manifest['git_head'], release=args.release, mode=args.mode,
                       exact_stage=True, exact_descriptor=True, independent_ahci=True,
-                      native_accepted=False, phases=len(parsed['records']), refusal_exercised=refusal, fallback_saved=args.mode=='journal-refused', expected_hold=args.mode=='both-refused', allocated_bytes_compared=checked,
+                      native_accepted=False, phases=len(parsed['records']), refusal_exercised=refusal, fallback_saved=args.mode in ('journal-refused','dirty-state'), clean_boot_sector_pinned=True, expected_hold=args.mode=='both-refused', allocated_bytes_compared=checked,
                       changed_bytes_confined_to_journal=True, workspace_ready=parsed['workspace_ready'],
                       logger_started=parsed['logger_started'])
         (result_dir/'result.json').write_text(json.dumps(report, indent=2)+'\n')
@@ -182,5 +191,5 @@ if __name__ == '__main__':
     parser.add_argument('--release', required=True)
     parser.add_argument('--host-record', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--mode', choices=('missing','present','bad-marker','full','journal-refused','both-refused'), required=True)
+    parser.add_argument('--mode', choices=('missing','present','bad-marker','full','journal-refused','both-refused','dirty-state'), required=True)
     run(parser.parse_args())

@@ -53,6 +53,7 @@ static void setup(void) {
     put64(descriptor+24,base);put64(descriptor+32,1048576);put64(descriptor+40,sizeof medium-1048576);
     memset(nonce,0x37,16);memcpy(descriptor+48,nonce,16);
     sha256_digest(medium+SECTOR,SECTOR,descriptor+64);
+    medium[1048576+65]=0;
     sha256_digest(medium+1048576,SECTOR,descriptor+96);
     header(medium+base,"SRVRSTARTFILE1");put64(medium+base+32,FILE_BYTES);
     for(unsigned i=0;i<SLOT_COUNT;i++) {
@@ -87,12 +88,16 @@ static void run(unsigned test,const char *output) {
     case 21:fail_read_offset=512;break;
     case 22:fail_read_offset=1048576;break;
     case 23:fail_read_offset=base;break;
+    case 24:medium[1048576+65]=1;break; /* Dirty actual sector cannot match the clean pin. */
+    case 25: /* Reproduce the old host bug: mounted pin, actual clean sector. */
+        medium[1048576+65]=1;sha256_digest(medium+1048576,SECTOR,descriptor+96);medium[1048576+65]=0;break;
+    case 26:medium[1048576+65]=2;break; /* Other state bits remain identity-bound. */
     default:break;
     }
     bool opened=startup_journal_open();assert(!startup_journal_open());
     if((test>=1 && test<=13) || test>=21) {
         const unsigned reasons[]={0,3,3,6,8,10,11,12,13,13,13,2,4,13};
-        unsigned reason=test<=13?reasons[test]:test==21?5:test==22?7:9;
+        unsigned reason=test<=13?reasons[test]:test==21?5:test==22?7:test==23?9:8;
         assert(!opened && !writes && !flushes && (reason_mask&(1ull<<reason)));
         return;
     }
@@ -116,10 +121,10 @@ static void run(unsigned test,const char *output) {
     assert(startup_journal_close());assert(!startup_journal_close());
 }
 int main(int argc,char **argv) {
-    for(unsigned test=0;test<=23;test++) {
+    for(unsigned test=0;test<=26;test++) {
         pid_t pid=fork();assert(pid>=0);
         if(!pid){run(test,test==0 && argc==2?argv[1]:NULL);_exit(0);}
         int status;assert(waitpid(pid,&status,0)==pid && WIFEXITED(status) && !WEXITSTATUS(status));
     }
-    puts("startup-journal: PASS 24 actual writer scenarios, bounded writes, readback/commit ordering, identity and partial-I/O refusals");
+    puts("startup-journal: PASS 27 actual writer scenarios, bounded writes, readback/commit ordering, identity and partial-I/O refusals");
 }

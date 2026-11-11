@@ -44,6 +44,21 @@ def read_at(stream, offset, size):
     return value
 
 
+def clean_boot_sector(bpb):
+    """Pin the exact FAT32 sector expected after Linux cleanly unmounts it.
+
+    Linux changes FAT_STATE_DIRTY at byte 65 on mount/unmount. Only that bit
+    changes in this host-side prediction. Native admission still hashes every
+    byte of the actual sector and requires exact equality with the descriptor.
+    """
+    if (len(bpb) != SECTOR or struct.unpack_from('<H', bpb, 11)[0] != SECTOR or
+            struct.unpack_from('<H', bpb, 22)[0] != 0 or bpb[510:] != b'\x55\xaa'):
+        raise ValueError('clean boot-sector prediction requires FAT32')
+    clean = bytearray(bpb)
+    clean[65] &= ~1
+    return bytes(clean)
+
+
 def file_extent(stream, start, name):
     """Read both FAT chains for one root 8.3 file. Never modify filesystem metadata."""
     from mk_usb_image import short_name
@@ -114,7 +129,7 @@ def bind(stream, disk_sectors, partition_start, name, nonce):
     if read_at(stream, offset, FILE_BYTES) != initial(nonce):
         raise ValueError('journal has stale or modified contents')
     return (magic('SRVRSTARTDESC1') + struct.pack('<QQQQ', disk_sectors, offset, partition_start, size)
-            + nonce + hashlib.sha256(gpt).digest() + hashlib.sha256(bpb).digest())
+            + nonce + hashlib.sha256(gpt).digest() + hashlib.sha256(clean_boot_sector(bpb)).digest())
 
 
 def validate_descriptor(value):

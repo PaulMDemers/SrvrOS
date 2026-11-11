@@ -49,10 +49,36 @@ class StartupJournalTest(unittest.TestCase):
             self.assertEqual(j.validate_descriptor(descriptor), descriptor)
             offset = struct.unpack_from('<Q', descriptor, 24)[0]
             self.assertEqual(image[offset:offset+j.FILE_BYTES], j.initial(nonce))
-            image[offset] ^= 1
+            image[1048576+65] = 1
+        # Preparing while mounted must predict the same exact clean sector
+        # admitted after shutdown. Other state bits remain identity-bound.
+        with io.BytesIO(image) as stream:
+            mounted = j.bind(stream, len(image)//512, 1048576, 'START001.BIN', nonce)
+        self.assertEqual(mounted, descriptor)
+        image[1048576+65] = 3
+        with io.BytesIO(image) as stream:
+            other_state = j.bind(stream, len(image)//512, 1048576, 'START001.BIN', nonce)
+        self.assertNotEqual(other_state[96:], descriptor[96:])
+        image[1048576+65] = 1
+        image[1048576+67] ^= 1
+        with io.BytesIO(image) as stream:
+            changed_identity = j.bind(stream, len(image)//512, 1048576, 'START001.BIN', nonce)
+        self.assertNotEqual(changed_identity[96:], descriptor[96:])
+        image[1048576+67] ^= 1
+        image[offset] ^= 1
         with io.BytesIO(image) as stream:
             with self.assertRaises(ValueError):
                 j.bind(stream, len(image)//512, 1048576, 'START001.BIN', nonce)
+
+    def test_clean_sector_refuses_other_formats(self):
+        with self.assertRaises(ValueError):
+            j.clean_boot_sector(bytes(511))
+        sector = bytearray(j.SECTOR)
+        struct.pack_into('<H', sector, 11, j.SECTOR)
+        struct.pack_into('<H', sector, 22, 1)
+        sector[510:] = b'\x55\xaa'
+        with self.assertRaises(ValueError):
+            j.clean_boot_sector(sector)
 
     def test_actual_writer_and_corruption(self):
         with tempfile.TemporaryDirectory() as temp:
