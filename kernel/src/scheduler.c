@@ -9,6 +9,7 @@
 #include <srvros/pmm.h>
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
+#include <srvros/commit_wait_timing.h>
 #include <srvros/idle_audit.h>
 #include <srvros/scheduler_abi.h>
 #include <srvros/timer.h>
@@ -311,11 +312,13 @@ static void io_observe_begin(void) {
         unsigned char c=(unsigned char)name[i];v->name[i]=c>32 && c<127?(char)c:'_';
     }
     v->name[i]=0;
+    sync_commit_owner_begin(v->seq,v->identity,v->pid,t->io_syscall,v->start,v->name);
 }
 static void io_observe_end(void) {
     if(!io_observed.enabled || !io_observed.active.seq)return;
     struct io_owner_sample *v=&io_observed.active;
     v->end=timer_monotonic_us();
+    sync_commit_owner_end(v->seq,v->identity,v->start,v->end);
     if(v->end<v->start)io_observed.invalid++;
     else if(v->end-v->start>=IO_OBSERVE_MIN_US) {
         io_observed.rows[io_observed.long_scopes%IO_OBSERVE_ROWS]=*v;

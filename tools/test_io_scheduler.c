@@ -23,9 +23,26 @@ static uint64_t scheduler_test_kernel_address(uint64_t address) {
     return 0xffff800000000000ull | address;
 }
 #define SRVROS_SCHEDULER_HOST_TEST
+#ifndef SRVROS_GATE_SYNC_INTEGRATION
+#define SRVROS_COMMIT_WAIT_HOST_TEST
+#endif
 #define SRVROS_AP_PROBE
 #define SRVROS_MWAIT_HOST_TEST
 #include "../kernel/src/scheduler.c"
+#ifndef SRVROS_GATE_SYNC_INTEGRATION
+static uint64_t commit_owner_begins,commit_owner_ends;
+void sync_commit_owner_begin(uint64_t seq,uint64_t thread,uint64_t pid,uint64_t syscall,uint64_t start,const char *name) {
+    assert(seq==io_observed.active.seq && thread==io_observed.active.identity &&
+        pid==io_observed.active.pid && syscall==thread_at(current_thread)->io_syscall &&
+        start==io_observed.active.start && !strcmp(name,io_observed.active.name));
+    commit_owner_begins++;
+}
+void sync_commit_owner_end(uint64_t seq,uint64_t thread,uint64_t start,uint64_t end) {
+    assert(seq==io_observed.active.seq && thread==io_observed.active.identity &&
+        start==io_observed.active.start && end==io_observed.active.end);
+    commit_owner_ends++;
+}
+#endif
 static uint64_t actual_space=1,clock_us,kernel_space=1;
 static unsigned clock_calls;
 static unsigned gate_sync_samples;
@@ -1571,6 +1588,9 @@ int main(void) {
     test_gate_handoff_fairness();
     test_ready_edge_admission();
     test_growth();
+#ifndef SRVROS_GATE_SYNC_INTEGRATION
+    assert(commit_owner_begins && commit_owner_ends);
+#endif
     puts("io-scheduler-host: PASS (boot gating, owner/nesting, service eligibility, task isolation)");
 }
 
