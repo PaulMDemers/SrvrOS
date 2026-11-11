@@ -4,6 +4,7 @@ from pathlib import Path
 from intel_gpu_hold import gpu_hold_result,gpu_hold_capture,native_gpu_hold_result
 from intel_joint import joint_recipe
 from hardware_boot import limine_config
+from intel_display_backing import backing_result
 EXE=Path(os.environ.get('INTEL_GPU_HOLD_ADAPTER_EXE',Path(__file__).resolve().parents[1]/'build/tests/intel-gpu-hold-adapter'))
 def run(mode):
  p=subprocess.run([str(EXE),'--wake-engine-'+mode],capture_output=True,text=True,timeout=15)
@@ -22,6 +23,20 @@ class AdapterTests(unittest.TestCase):
     self.assertEqual([p['words'][1]&65535 for p in r['phases']],[7,3,7])
     self.assertEqual(r['joint']['held']['summary']['live_checks'],62+r['summary']['polls'])
     self.assertEqual(r['summary']['issued'],2)
+ def test_backing_format_binds_both_joint_images(self):
+  # Exercise the prerequisite itself: an unrelated native-proof failure must
+  # not hide a missing image version in this decoder.
+  for version in (20,21):
+   text=self.text.replace('intel-wake-summary: v=21 ','intel-wake-summary: v='+str(version)+' ')
+   r=backing_result(text)
+   self.assertTrue(r['observation_complete'])
+   self.assertFalse(r['scanout_ownership'])
+   self.assertFalse(r['physical_tearfree'])
+  for version in (8,19,22,255):
+   text=self.text.replace('intel-wake-summary: v=21 ','intel-wake-summary: v='+str(version)+' ')
+   with self.subTest(version=version),self.assertRaisesRegex(ValueError,'joint PTE image binding'):backing_result(text)
+  duplicate=self.text+'\n'+next(l for l in self.text.splitlines() if l.startswith('intel-wake-summary:'))
+  with self.assertRaisesRegex(ValueError,'joint PTE image binding'):backing_result(duplicate)
  def test_each_native_read_store_and_last_admission(self):
   cases=0
   for mode,count in [('gpu-read',self.metrics['reads']),('gpu-drift',self.metrics['reads']),('gpu-source',self.metrics['reads']),('gpu-last-time',self.metrics['admissions']),('gpu-last-zero',self.metrics['admissions']),('gpu-last-backward',self.metrics['admissions']),('gpu-last-alias',self.metrics['admissions']),('gpu-last-original',self.metrics['admissions']),('gpu-last-claim',self.metrics['admissions']),('gpu-none',2),('gpu-uncertain',2)]:

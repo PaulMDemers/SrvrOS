@@ -79,7 +79,10 @@ def backing_result(text):
     if wire==3:
         wake=re.findall(r'^intel-wake-summary: v=([0-9]+) ',text,re.M)
         boot=re.findall(r'^laptop-capture: boot options=(.*)$',text,re.M)
-        if not (wake==['20'] or not wake and len(boot)==1 and boot[0].split().count('srvros.intel-joint=hda-claim')==1):raise ValueError('joint PTE image binding')
+        # The requester-hold image inherits the joint packed original-entry
+        # format. Keep an explicit image allowlist, including on refusal paths
+        # where the interval/consumer never opened; this is no memory grant.
+        if not (wake in (['20'],['21']) or not wake and len(boot)==1 and boot[0].split().count('srvros.intel-joint=hda-claim')==1):raise ValueError('joint PTE image binding')
     ptes=[]
     for chunk in rows['pte']:
         if chunk['first']!=len(ptes) or chunk['count']!=min(chunk_size,summary['count']-len(ptes)) or chunk['count']<=0:raise ValueError('incomplete/duplicate PTE chunk')

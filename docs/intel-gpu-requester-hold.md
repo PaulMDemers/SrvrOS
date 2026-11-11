@@ -114,3 +114,13 @@ evidence: the preceding takeover observer found an enabled inherited BCS ring,
 so preparation and this requester hold never entered. No GPU Command stores
 were attempted. See the Air record for the matched session and original collector
 version-binding defect. Fixing that host decoder alone will not accept the hold.
+
+### Receipt attribution repair
+
+The host backing decoder explicitly permits PTE-v3 rows for both joint wake-v20
+and requester-hold wake-v21. Unknown versions and duplicate summaries still
+refuse. Directed tests exercise the backing prerequisite itself, so rejection by
+an unrelated native check cannot hide a missing image binding. Replaying the
+first refused Air7,2 session now verifies the native prerequisite checkpoint,
+while the requester result remains incomplete because the hardware admission
+never entered. The original collection is preserved independently.
