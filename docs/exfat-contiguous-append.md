@@ -90,3 +90,25 @@ above; only omitted invalid FAT writes remove boundaries. The81 inherited
 strict allocation-repair failures remain recorded and compared, never called
 clean. No validator, barrier or recovery requirement is relaxed. Existing
 `links_avoided` telemetry still counts adjacency links, not deferred FAT work.
+
+
+## Air6,1 lazy-FAT native observation (2026-11-11)
+
+Release `c7d2293b66b7999b`, compiled `72567e32` (PR467), completes the original
+1800-second1% audio/disk/apps/three-screenshot workload and automatic Ubuntu
+return. Independent parsing validates all16 original contracts plus the queued
+wait companion, exact BMPs/binary receipt, actual file hashes and full offline
+allocation. All850 prior files are preserved except the expected metadata
+sidecar;859 files and4231 allocated clusters have zero leaks/mismatches/errors.
+This accepts bounded native functionality, not a performance improvement.
+
+Screenshot totals8.049986/9.633137/17.522316 seconds are slower overall than the
+preceding7.479590/7.281154/10.530490-second cold run. This is not an isolated
+causal comparison; the source-work reduction does not establish a latency fix.
+Private-prelude wait still occupies96.36/96.25/98.90% of raw write-call wall,
+while ordinary gates are tiny and cleanup peaks at66.079ms. A separate global
+content call lasts3.584277 seconds, including3.117253 seconds of payload-write
+callbacks. It contains352.037ms16KiB payload and355.361ms512-byte allocation
+status waits. These software observations do not distinguish device/firmware
+from controller delivery, or identify the owner of each private wait. Completion
+tails/shared commit waiting remain open; no integrity check or limit is relaxed.

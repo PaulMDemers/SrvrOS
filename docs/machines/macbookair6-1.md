@@ -12296,3 +12296,67 @@ Actual integration base remains main `ae869c9b`; PR301 `25e6219c` has no storage
 hunk and PR19 `3da01075` retains distinct metadata-import/scheduler-test hunks.
 Actions remain disabled. Currentbcd, recoveryc354, priorc95f/3403/a139 and all
 independent historical payload/evidence backups remain protected.
+
+
+## Lazy-FAT native return (2026-11-11)
+
+Run `7f38790cee114722`, release `c7d2293b66b7999b`, compiled `72567e32`
+(implementation PR467 merge `52907f8b`), completed session
+`session-00065ffc821878bb-00` and returned to Ubuntu automatically. Independent
+raw-log/binary parsing passes all16 original contracts and the required queued
+wait companion. The1800-second1% trial records3954 verified256KiB bursts
+(1036517376 bytes),345862144 PCM bytes, zero recorded underruns and1089 app
+cycles. Maximum loop is122325us, launch3391486us and close2460649us, within the
+unchanged500ms/10s limits. All three exact BMPs decode and match actual USB
+hashes; the40-byte workload receipt, proofs and capture/cache/battery/desktop
+retirement pass. Native logs retain bounded lifecycle tails and worst records,
+not every individual cycle. Subjective sound remains unassessed at1%; previous
+audible acceptance is separate. Earlier intermittent battery fault cause remains
+unresolved, with no recurrence captured in this session.
+
+This accepts the bounded lazy-FAT functional path, not a screenshot speed fix.
+Screenshot totals are8.049986/9.633137/17.522316 seconds, versus7.479590/
+7.281154/10.530490 in the preceding bcd run. Different cold boots, workload
+density and interleavings do not isolate causality, but this observation is
+slower overall. The deterministic source callback reduction remains valid;
+removing invalid FAT work did not eliminate native completion tails.
+
+Queued readiness is exercised6/6/7 times under a live borrow. Ordinary admission
+sums165/181/169us, with worst waits2/2/3us and no attributed owner/context.
+Private-prelude waits total4.393120/4.918529/14.548418 seconds,96.36/96.25/
+98.90% of raw write-call wall. The largest private wait is3.588768 seconds.
+These waits overlap handler time for successful copies; fallback prelude wall
+lies in whole-call residual. Do not add these as exclusive phases or assign an
+unrelated global maximum as the exact owner of an individual private wait.
+
+A separately bound global content call during capture3 lasts3.584277 seconds.
+Payload write callbacks take3.117253 seconds; allocation read/write callbacks
+366737us; prefix reads36857us; metadata-payload read/write29691us. Eight of its
+forty16KiB payload status callbacks exceed100ms, with2.823784 seconds total
+status wall and a352.037ms maximum. Its selected slowest status callback instead
+belongs to a512-byte allocation-phase WRITE(10), lasting355.361ms with14.669ms
+maximum sampled service gap. Long status tails therefore occur in both sampled
+command sizes. Software clocks still do not distinguish media/firmware from
+controller delivery. No command-to-private-wait identity is retained. The exact
+3473408-byte captured prefix commits while four appends totalling262144 bytes leave
+live3735552 and dirty-after state; the original immutable-prefix proof remains.
+Cleanup peaks at66.079ms; capture2's checked rename takes1.891898 seconds.
+
+Read-only rehash verifies all859 actual files. All850 prior files remain
+unchanged except the expected metadata sidecar. Independent fsck and full
+allocation report4231 clusters, zero leaks, FAT/bitmap mismatches or errors.
+Installed/staged/independent c7 payload, recoveryc354 and priorbcd/c95f/3403/a139/
+2dd payloads are verified. Only the fully backed, unreferenced historical8caa
+EFI duplicate was retired for install space; its complete independent payload
+remains verified. The original failed-media archive and returned trial backup
+are intact. Ubuntu remains default, the one-shot is consumed, collection is
+disabled and USB is unmounted. No new reboot is armed.
+
+The next performance target remains long USB completion tails and their exact
+shared-commit ownership, rather than screenshot transfer/cleanup. Preserve all
+proofs, barriers, ownership, command caps and runtime limits. A bounded512B versus
+16KiB reference and exact per-wait owner/command attribution would separate the
+remaining hypotheses; neither is implemented or accepted by this return review.
+Actual review base is main `52907f8b`; PR301 `25e6219c`, PR19 `3da01075` and
+PR379 retain independent scopes. This review touches only this unit record and
+the contiguous-allocation guide; no runtime or other-machine acceptance changes.
