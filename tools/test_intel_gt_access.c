@@ -70,6 +70,26 @@ int main(void) {
     unsigned guards_before=guard_calls;assert(intel_gt_access_check(&g));
     assert(guard_calls-guards_before==3 && g.snapshots==1 && !g.clock_cause);
     assert(intel_gt_access_close(&g) && g.snapshots==2 && write_calls==3 && display_access_release(&token,true));
+    fresh();
+    struct intel_gt_io grouped=io();grouped.snapshot=snapshot;
+    assert(intel_gt_access_open_with_guarded_snapshot(&g,&token,7,grouped));
+    struct intel_gt_borrow borrow={0};
+    assert(intel_gt_access_borrow(&g,&borrow));
+    guards_before=guard_calls;
+    assert(intel_gt_access_return(&borrow) && !borrow.active && !g.borrows && !g.dependents);
+    assert(guard_calls-guards_before==2 && write_calls==2);
+    assert(intel_gt_access_close(&g) && display_access_release(&token,true));
+    /* Both the provider admission and the independent exit can block return. */
+    for(unsigned cut=1;cut<=5;cut+=4) {
+        fresh();
+        assert(intel_gt_access_open_with_guarded_snapshot(&g,&token,7,grouped));
+        borrow=(struct intel_gt_borrow){0};
+        assert(intel_gt_access_borrow(&g,&borrow));
+        fail_at=calls+cut;
+        assert(!intel_gt_access_return(&borrow));
+        assert(calls==fail_at && borrow.active && g.dependents==&borrow && g.borrows==1);
+        retained();
+    }
     for(unsigned f=1;f<=9;f++){
         fresh();assert(intel_gt_access_open(&g,&token,7,io()));g.io.snapshot=snapshot;snapshot_fault=f;
         assert(!intel_gt_access_check(&g) && g.snapshots==1 && write_calls==2);

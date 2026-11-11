@@ -134,6 +134,14 @@ then recorded a terminal clock of 100,716 µs against the 100,000 µs limit.
 The overall trial remained incomplete. See the raw lifecycle and return
 summary in the [Air7,2 unit record](machines/macbookair7-2.md).
 
+The timing retry uses the snapshot provider's fresh backing census as entry
+admission for the three requester reads. The GT core verifies the live CPU
+exclusion and clock before calling it, then independently revalidates the
+adapter and clock before releasing the borrow. Other images keep the original
+snapshot path. The joint image's v3 preparation receipt records the final
+guard bracket and borrow-return start separately. Its terminal sample still
+sets the 100 ms outcome, including when safe cleanup finishes after the limit.
+
 ## Earlier software qualification
 
 Source`36788a91` is qualified on integrated main`72d49457`. The local matched

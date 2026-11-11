@@ -7,16 +7,39 @@ from intel_compact import compact_row
 FIELDS='v begin end epoch attempts writes reads polls snapshots sample_attempts acks ready cancelled blocked admitted held preserved uncertain returned borrowed retained reason stage index clock_at clock_prev plane_samples plane_reads complete obligations reset_writes pte_writes managed_pages hardware_ownership'.split()
 BOOL='blocked admitted held preserved uncertain returned borrowed retained complete'.split()
 def prepare_summary(line):
- version=re.search(r'(?:^| )v=([12])(?: |$)',line.removeprefix('intel-prepare-summary:'))
+ version=re.search(r'(?:^| )v=([123])(?: |$)',line.removeprefix('intel-prepare-summary:'))
  if not version:raise ValueError('prepare summary version')
- reset=version[1]=='2'
- s=_fields(line,'intel-prepare-summary:',FIELDS+(['epoch_after'] if reset else []),versions=(2,) if reset else (1,))
- if any(x>=1<<64 for x in s.values()) or s['v'] not in (1,2) or any(s[k]>1 for k in BOOL) or s['epoch']>=1<<32 or s['attempts']>10 or s['writes']>s['attempts'] or s['acks']!=s['writes'] or s['attempts']-s['writes']>1 or s['reads']>(2600 if reset else 2594) or s['polls']>2560 or s['snapshots']>s['sample_attempts'] or s['sample_attempts']>(5 if reset else 4) or s['ready']>31 or s['cancelled']>31 or s['reason']>4095 or s['stage']>(7 if reset else 6) or s['index']>4 or s['plane_samples']>2 or s['plane_reads']>54:raise ValueError('prepare schema/range')
+ wire=int(version[1])
+ reset=wire>=2
+ extra=['epoch_after'] if reset else []
+ if wire==3:extra+=['guard_begin','guard_end','return_begin']
+ s=_fields(line,'intel-prepare-summary:',FIELDS+extra,versions=(wire,))
+ if any(x>=1<<64 for x in s.values()) or any(s[k]>1 for k in BOOL) or s['epoch']>=1<<32 or s['attempts']>10 or s['writes']>s['attempts'] or s['acks']!=s['writes'] or s['attempts']-s['writes']>1 or s['reads']>(2600 if reset else 2594) or s['polls']>2560 or s['snapshots']>s['sample_attempts'] or s['sample_attempts']>(5 if reset else 4) or s['ready']>31 or s['cancelled']>31 or s['reason']>4095 or s['stage']>(7 if reset else 6) or s['index']>4 or s['plane_samples']>2 or s['plane_reads']>54:raise ValueError('prepare schema/range')
  if s['obligations']!=255 or any(s[k] for k in ('pte_writes','managed_pages','hardware_ownership')) or s['reset_writes']>(2 if reset else 0):raise ValueError('prepare unsupported authority')
  if reset and (s['epoch_after']>=1<<32 or s['epoch_after'] not in (s['epoch'],s['epoch']+1)):raise ValueError('prepare reset epoch')
  if s['returned']+s['retained']!=s['borrowed'] or s['blocked']>s['borrowed'] or s['uncertain']>s['retained'] or s['attempts'] and not s['admitted'] or s['admitted'] and not s['blocked']:raise ValueError('prepare borrow/issue lifecycle')
  if s['retained'] and not s['reason']&512 or s['writes'] and not s['preserved'] and not s['retained']:raise ValueError('prepare unprotected write')
  if (s['clock_at'] or s['clock_prev']) and not s['reason']&(2|128):raise ValueError('prepare unexplained clock sample')
+ if wire==3:
+  start,guard_end,return_begin=(s[k] for k in ('guard_begin','guard_end','return_begin'))
+  if (start and (s['stage'] not in (5,6) or not 0<s['begin']<=start<=s['begin']+100000)
+      or guard_end and (not start or not start<=guard_end<=s['begin']+100000)
+      or s['stage']==6 and not guard_end or return_begin and s['stage']!=6):
+   raise ValueError('prepare timing phase')
+  if not s['reason']&2:
+   if guard_end and guard_end>s['end'] or return_begin and not guard_end<=return_begin<=s['end']:
+    raise ValueError('prepare timing order')
+   if s['stage']==6 and s['returned'] and not return_begin:
+    raise ValueError('prepare missing borrow timing')
+  elif s['stage']==6 and s['returned']:
+   deadline=s['begin']+100000
+   entry_failed=(s['clock_at']==return_begin and s['clock_prev']==guard_end
+                 and not guard_end<=return_begin<=deadline)
+   exit_failed=(s['clock_at']==s['end'] and s['clock_prev']==return_begin
+                and guard_end<=return_begin<=deadline
+                and (s['end']<=s['begin'] or not return_begin<=s['end']<=deadline))
+   if not (entry_failed or exit_failed):raise ValueError('prepare borrow clock evidence')
+
  return s
 
 def _words(encoded,n):
@@ -99,7 +122,8 @@ def prepare_result(text):
   if packed!=1 or legacy_preservation:raise ValueError('prepare interval image requires packed preservation')
  elif packed:raise ValueError('prepare packed preservation wrong image')
  reset=wake['summary']['v'] in (17,18,19,20)
- if s['v']!=(2 if reset else 1):raise ValueError('prepare summary image version')
+ versions=(2,3) if wake['summary']['v']==20 else (2,) if reset else (1,)
+ if s['v'] not in versions:raise ValueError('prepare summary image version')
  if not reset and len(rows)>4:raise ValueError('prepare legacy row count')
  if wake['summary']['v']==14 and (actions or vectors or s['reason']>2047):raise ValueError('prepare unexpected action')
  if wake['summary']['v'] in (16,17,18,19,20):
@@ -143,6 +167,7 @@ def prepare_result(text):
   if mixed_bad and (s['complete'] or not s['reason']&64):raise ValueError('prepare post-reset controls')
   complete=bool(complete and capture['core_complete'] and rs['epoch_after']==s['epoch']+1 and s['reset_writes']==2)
  if s['complete']!=int(complete):raise ValueError('prepare completion declaration')
+ if s['v']==3 and s['guard_begin'] and post['summary']['end_us']>s['guard_begin']:raise ValueError('prepare guard before preservation')
  if complete and not take['summary']['end_us']<s['begin']<post['summary']['begin_us']<post['summary']['end_us']<s['end']<wake['summary']['end_us']:raise ValueError('prepare preservation ordering')
  if not text.index('intel-takeover-summary:')<text.index('intel-prepare-summary:')<text.index('intel-clock:')<text.index('intel-wake-summary:'):raise ValueError('prepare parent receipt order')
  return dict(summary=s,rows=rows,acks=acks,planes=planes,audio=audio,post=post,core_complete=complete,complete=bool(complete and wake['lease_complete']),native_complete=False,reset_admitted=False,hardware_ownership=False,managed_range=False,physical_tearfree=False)

@@ -82,21 +82,28 @@ bool intel_engine_prepare_action_live(const struct intel_engine_prepare_result *
     (r->words[1][e]&0xffffu)!=3 || r->words[0][e]!=r->preflight->words[1][e])return false;
  return !r->words[1][5] && !r->words[0][5];
 }
-static bool clock_ok(struct intel_engine_prepare_result *r,struct intel_engine_prepare_io io) {
- uint64_t t=io.now(io.ctx);
+static bool clock_sample_ok(struct intel_engine_prepare_result *r,uint64_t t) {
  if(!t || t<r->last_us || t<r->begin_us || t-r->begin_us>INTEL_ENGINE_PREPARE_TOTAL_US) {
   r->clock_at=t;r->clock_prev=r->last_us;return fail(r,IEP_CLOCK);
  }
  r->last_us=t;return true;
 }
-static bool guard(struct intel_engine_prepare_result *r,struct intel_engine_prepare_io io,const struct intel_engine_held_reset_result *x) {
+static bool clock_ok(struct intel_engine_prepare_result *r,struct intel_engine_prepare_io io) {
+ return clock_sample_ok(r,io.now(io.ctx));
+}
+static bool guard_with_start(struct intel_engine_prepare_result *r,struct intel_engine_prepare_io io,
+                             const struct intel_engine_held_reset_result *x,uint64_t *begin) {
  if(!clock_ok(r,io))return false;
+ if(begin)*begin=r->last_us;
  if(!parent_mode(r,x))return fail(r,IEP_PARENT);
  bool ok=io.guard(io.ctx);
  if(!parent_mode(r,x))return fail(r,IEP_PARENT);
  if(!clock_ok(r,io))return false;
  if(!parent_mode(r,x))return fail(r,IEP_PARENT);
  return ok?true:fail(r,IEP_GUARD);
+}
+static bool guard(struct intel_engine_prepare_result *r,struct intel_engine_prepare_io io,const struct intel_engine_held_reset_result *x) {
+ return guard_with_start(r,io,x,0);
 }
 static bool valid_control(uint32_t v) {return v!=UINT32_MAX && !(v&0xfffcu);}
 static bool sample(struct intel_engine_prepare_result *r,struct intel_engine_prepare_io io,unsigned n,unsigned low,const struct intel_engine_held_reset_result *x) {
@@ -197,15 +204,24 @@ static bool prepare(struct intel_engine_prepare_result *r,struct intel_gt_access
  if(!guard(r,io,x))goto done;
  r->stage=5;
  bool preserved=io.preserve(io.ctx,t->census);
- if(!guard(r,io,x))goto done;
+ if(!guard_with_start(r,io,x,g->guarded_snapshot?&r->final_guard_begin_us:0))goto done;
+ if(g->guarded_snapshot)r->final_guard_end_us=r->last_us;
  if(!preserved){fail(r,IEP_PRESERVE);goto done;}
  r->preserved=true;r->uncertain=false;r->stage=6;
 done:
- if(!r->uncertain && parent_mode(r,x))r->returned=intel_gt_access_return(&r->borrow);
+ if(!r->uncertain && parent_mode(r,x)) {
+  if(g->guarded_snapshot && r->stage==6) {
+   r->return_begin_us=io.now(io.ctx);
+   /* A missed deadline cannot authorize a pass, but safe retirement
+    * still requires the original fully guarded borrow return. */
+   (void)clock_sample_ok(r,r->return_begin_us);
+  }
+  r->returned=intel_gt_access_return(&r->borrow);
+ }
  if(!r->returned)r->reason|=IEP_RETURN;
  r->end_us=io.now(io.ctx);
- if(!r->end_us || r->end_us<r->last_us || r->end_us<=r->begin_us ||
-    r->end_us-r->begin_us>INTEL_ENGINE_PREPARE_TOTAL_US){r->clock_at=r->end_us;r->clock_prev=r->last_us;r->reason|=IEP_CLOCK;}
+ if(!(r->reason&IEP_CLOCK) && (!r->end_us || r->end_us<r->last_us || r->end_us<=r->begin_us ||
+    r->end_us-r->begin_us>INTEL_ENGINE_PREPARE_TOTAL_US)){r->clock_at=r->end_us;r->clock_prev=r->last_us;r->reason|=IEP_CLOCK;}
  if(r->returned && (g->object!=g || g->state!=GT_ACCESS_AWAKE || !g->pinned || !epoch_matches(r,x) ||
     !display_access_held(&g->exclusion) || g->borrows || g->dependents || !prerequisite(r)))r->reason|=IEP_PARENT;
  r->complete=!r->reason && r->admitted && r->held && r->ready==31 && r->cancelled==31 &&

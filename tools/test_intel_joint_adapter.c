@@ -14,6 +14,7 @@ static void intel_display_test_joint_prepare(void);
 static void intel_display_test_joint_entry(unsigned);
 static bool intel_display_test_joint_inhibited(void);
 static bool intel_display_test_joint_claim_active(void *);
+static void intel_display_test_joint_snapshot_delay(void);
 struct pci_device;
 static bool intel_display_test_hda_command16(const struct pci_device *,unsigned,uint16_t);
 #define main original_display_fixture_main
@@ -90,6 +91,13 @@ static bool intel_display_test_joint_inhibited(void) {
 static bool intel_display_test_joint_claim_active(void *claim) {
  assert(claim==joint.scope.claim && ((struct intel_interval_claim *)claim)->state==IIC_ACTIVE);
  return strcmp(engine_mode,"joint-leave")!=0;
+}
+static void intel_display_test_joint_snapshot_delay(void) {
+ if(strcmp(engine_mode,"joint-return-deadline") || !joint.scope.claim || !joint.scope.claim->object)return;
+ const struct engine_prepare_adapter *adapter=joint.scope.claim->io.ctx;
+ const struct intel_engine_prepare_result *prepare=&adapter->trial->action;
+ if(prepare->return_begin_us && prepare->borrow.active)
+  ticks=prepare->begin_us+INTEL_ENGINE_PREPARE_TOTAL_US;
 }
 __attribute__((noinline)) static void churn_stack(void) {
  volatile uint8_t bytes[32768];

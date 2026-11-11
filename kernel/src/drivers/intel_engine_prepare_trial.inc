@@ -266,7 +266,17 @@ static void eprepare_report(const struct engine_prepare_trial *t) {
  }
 #endif
 #ifdef SRVROS_INTEL_PREPARE_RESET
- console_printf("intel-prepare-summary: v=2 epoch_after=%u begin=%u end=%u epoch=%u attempts=%u writes=%u reads=%u polls=%u snapshots=%u sample_attempts=%u acks=%u ready=%u cancelled=%u blocked=%u admitted=%u held=%u preserved=%u uncertain=%u returned=%u borrowed=%u retained=%u reason=%u stage=%u index=%u clock_at=%u clock_prev=%u plane_samples=%u plane_reads=%u complete=%u obligations=255 reset_writes=%u pte_writes=0 managed_pages=0 hardware_ownership=0\n",(uint64_t)t->reset.epoch_after,r->begin_us,r->end_us,(uint64_t)r->epoch,(uint64_t)r->attempts,(uint64_t)r->writes,(uint64_t)r->reads,(uint64_t)r->polls,(uint64_t)r->snapshots,(uint64_t)r->sample_attempts,(uint64_t)r->acks,(uint64_t)r->ready,(uint64_t)r->cancelled,(uint64_t)r->blocked,(uint64_t)r->admitted,(uint64_t)r->held,(uint64_t)r->preserved,(uint64_t)r->uncertain,(uint64_t)r->returned,(uint64_t)(r->borrow.parent!=NULL),(uint64_t)r->borrow.active,(uint64_t)r->reason,(uint64_t)r->stage,(uint64_t)r->index,r->clock_at,r->clock_prev,(uint64_t)t->samples,(uint64_t)t->plane_reads,(uint64_t)r->complete,(uint64_t)t->reset.writes);
+ console_printf(
+#ifdef SRVROS_INTEL_JOINT
+ "intel-prepare-summary: v=3 guard_begin=%u guard_end=%u return_begin=%u "
+#else
+ "intel-prepare-summary: v=2 "
+#endif
+ "epoch_after=%u begin=%u end=%u epoch=%u attempts=%u writes=%u reads=%u polls=%u snapshots=%u sample_attempts=%u acks=%u ready=%u cancelled=%u blocked=%u admitted=%u held=%u preserved=%u uncertain=%u returned=%u borrowed=%u retained=%u reason=%u stage=%u index=%u clock_at=%u clock_prev=%u plane_samples=%u plane_reads=%u complete=%u obligations=255 reset_writes=%u pte_writes=0 managed_pages=0 hardware_ownership=0\n",
+#ifdef SRVROS_INTEL_JOINT
+ r->final_guard_begin_us,r->final_guard_end_us,r->return_begin_us,
+#endif
+ (uint64_t)t->reset.epoch_after,r->begin_us,r->end_us,(uint64_t)r->epoch,(uint64_t)r->attempts,(uint64_t)r->writes,(uint64_t)r->reads,(uint64_t)r->polls,(uint64_t)r->snapshots,(uint64_t)r->sample_attempts,(uint64_t)r->acks,(uint64_t)r->ready,(uint64_t)r->cancelled,(uint64_t)r->blocked,(uint64_t)r->admitted,(uint64_t)r->held,(uint64_t)r->preserved,(uint64_t)r->uncertain,(uint64_t)r->returned,(uint64_t)(r->borrow.parent!=NULL),(uint64_t)r->borrow.active,(uint64_t)r->reason,(uint64_t)r->stage,(uint64_t)r->index,r->clock_at,r->clock_prev,(uint64_t)t->samples,(uint64_t)t->plane_reads,(uint64_t)r->complete,(uint64_t)t->reset.writes);
 #else
  console_printf("intel-prepare-summary: v=1 begin=%u end=%u epoch=%u attempts=%u writes=%u reads=%u polls=%u snapshots=%u sample_attempts=%u acks=%u ready=%u cancelled=%u blocked=%u admitted=%u held=%u preserved=%u uncertain=%u returned=%u borrowed=%u retained=%u reason=%u stage=%u index=%u clock_at=%u clock_prev=%u plane_samples=%u plane_reads=%u complete=%u obligations=255 reset_writes=0 pte_writes=0 managed_pages=0 hardware_ownership=0\n",r->begin_us,r->end_us,(uint64_t)r->epoch,(uint64_t)r->attempts,(uint64_t)r->writes,(uint64_t)r->reads,(uint64_t)r->polls,(uint64_t)r->snapshots,(uint64_t)r->sample_attempts,(uint64_t)r->acks,(uint64_t)r->ready,(uint64_t)r->cancelled,(uint64_t)r->blocked,(uint64_t)r->admitted,(uint64_t)r->held,(uint64_t)r->preserved,(uint64_t)r->uncertain,(uint64_t)r->returned,(uint64_t)(r->borrow.parent!=NULL),(uint64_t)r->borrow.active,(uint64_t)r->reason,(uint64_t)r->stage,(uint64_t)r->index,r->clock_at,r->clock_prev,(uint64_t)t->samples,(uint64_t)t->plane_reads,(uint64_t)r->complete);
 #endif

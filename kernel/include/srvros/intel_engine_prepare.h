@@ -23,6 +23,10 @@ struct intel_engine_prepare_result {
  /* Callback bracket clocks; last valid clock if the post-guard fails.
   * action_completed additionally requires the matching held sample2. */
  uint64_t action_begin_us,action_end_us;
+ /* The guarded-snapshot image records the final guard's two accepted
+  * samples and a fresh sample just before attempting the borrow return.
+  * end_us is the sample immediately after return. */
+ uint64_t final_guard_begin_us,final_guard_end_us,return_begin_us;
  unsigned reason,attempts,writes,reads,polls,snapshots,sample_attempts,counts[5],acks,ready,cancelled,phase_polls[10],stage,index;
  bool blocked,admitted,held,preserved,uncertain,returned,complete;
  bool action_attempted,action_completed,action_active;

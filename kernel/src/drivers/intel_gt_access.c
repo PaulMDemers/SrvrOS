@@ -57,15 +57,17 @@ static bool wait_state(struct intel_gt_access *g,uint32_t desired,bool c0) {
     }
     return fail(g,GT_ACCESS_TIMEOUT);
 }
-bool intel_gt_access_open(struct intel_gt_access *g,const struct display_access_token *t,uint32_t grants,struct intel_gt_io io) {
+static bool open_access(struct intel_gt_access *g,const struct display_access_token *t,
+                        uint32_t grants,struct intel_gt_io io,bool guarded_snapshot) {
     if(!g)return false;
     if((g->object && g->object!=g) || (g->state!=GT_ACCESS_EMPTY && g->state!=GT_ACCESS_CLOSED))return fail(g,GT_ACCESS_STATE);
     uint32_t missing=GT_ACCESS_REQUIRED&~grants;
     if(!display_access_held(t))missing|=GT_ACCESS_EXCLUSION;
-    if(grants&~GT_ACCESS_REQUIRED || !io.guard || !io.read || !io.write || !io.now || !io.pause)missing|=GT_ACCESS_INPUT;
+    if(grants&~GT_ACCESS_REQUIRED || !io.guard || !io.read || !io.write || !io.now || !io.pause ||
+       (guarded_snapshot && !io.snapshot))missing|=GT_ACCESS_INPUT;
     if(missing){g->reason=missing;return false;}
     struct display_access_token saved=*t;
-    *g=(struct intel_gt_access){.object=g,.exclusion=saved,.io=io};
+    *g=(struct intel_gt_access){.object=g,.exclusion=saved,.io=io,.guarded_snapshot=guarded_snapshot};
     g->begin=g->last=io.now(io.context);
     if(!g->begin || g->begin==UINT64_MAX)return clock_fail(g,g->begin,g->begin,g->begin?GT_CLOCK_SATURATED:GT_CLOCK_ZERO);
     if(!read_pair(g))return false;
@@ -80,15 +82,27 @@ bool intel_gt_access_open(struct intel_gt_access *g,const struct display_access_
     if(g->last==g->begin)return clock_fail(g,g->last,g->begin,GT_CLOCK_FROZEN);
     g->state=GT_ACCESS_AWAKE;return true;
 }
+bool intel_gt_access_open(struct intel_gt_access *g,const struct display_access_token *t,uint32_t grants,struct intel_gt_io io) {
+    return open_access(g,t,grants,io,false);
+}
+bool intel_gt_access_open_with_guarded_snapshot(struct intel_gt_access *g,const struct display_access_token *t,
+                                               uint32_t grants,struct intel_gt_io io) {
+    return open_access(g,t,grants,io,true);
+}
 bool intel_gt_access_check(struct intel_gt_access *g) {
     if(!g)return false;
     if(g->object!=g || g->state!=GT_ACCESS_AWAKE)return fail(g,GT_ACCESS_STATE);
     uint64_t phase=g->last;
-    if(!guarded(g))return false;
+    if(g->guarded_snapshot) {
+        if(!g->io.snapshot || !g->pinned || !display_access_held(&g->exclusion))
+            return fail(g,GT_ACCESS_GUARD);
+    } else if(!guarded(g))return false;
     g->io.pause(g->io.context);
     if(!clock_ok(g,phase))return false;
     if(g->io.snapshot) {
         if(g->snapshots==UINT32_MAX)return fail(g,GT_ACCESS_STATE);
+        if(g->guarded_snapshot && (g->object!=g || g->state!=GT_ACCESS_AWAKE ||
+           !g->pinned || !display_access_held(&g->exclusion)))return fail(g,GT_ACCESS_GUARD);
         ++g->snapshots;
         if(!g->io.snapshot(g->io.context,&g->requests,&g->ack,&g->thread) ||
            g->requests==UINT32_MAX || g->ack==UINT32_MAX || g->thread==UINT32_MAX)return fail(g,GT_ACCESS_IO);

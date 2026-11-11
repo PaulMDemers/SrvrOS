@@ -295,7 +295,7 @@ static bool engine_guard(void *context) {
 }
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
 /* Same three RO DWORDs as engine_guard, under a fresh full adapter guard.
- * The core brackets this ordered group with independent full guards/clocks. */
+ * The joint owner uses this guard for entry and independently guards exit. */
 static bool wake_request_snapshot(void *context,uint32_t *request,uint32_t *ack,uint32_t *thread) {
     struct wake_adapter *a=context;
     if(!request || !ack || !thread || !a->mapped[0] || !a->mapped[1] || !a->mapped[2] || !wake_guard(a))return false;
@@ -566,13 +566,18 @@ bool intel_gt_wake_probe_report(void) {
             }
             if(mapped) {
 #endif
-                opened=intel_gt_access_open(&owner,&a.fw.gt.token,grants,(struct intel_gt_io){&a,wake_guard,wake_read,wake_write,now,wake_pause,
+                const struct intel_gt_io wake_io={&a,wake_guard,wake_read,wake_write,now,wake_pause,
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
                     wake_request_snapshot
 #else
                     NULL
 #endif
-                });
+                };
+#ifdef SRVROS_INTEL_JOINT
+                opened=intel_gt_access_open_with_guarded_snapshot(&owner,&a.fw.gt.token,grants,wake_io);
+#else
+                opened=intel_gt_access_open(&owner,&a.fw.gt.token,grants,wake_io);
+#endif
                 if(opened)checked=intel_gt_access_check(&owner);
                 #ifdef SRVROS_INTEL_ENGINE_TRIAL
                 #ifdef SRVROS_INTEL_COMPLETION_TRIAL

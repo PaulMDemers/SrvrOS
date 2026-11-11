@@ -231,6 +231,9 @@ static bool intel_display_test_uc(uint64_t);
 static bool intel_display_test_read(uint32_t,uint32_t *);
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
 static bool intel_display_test_wake_snapshot(uint32_t *r,uint32_t *a,uint32_t *t) {
+#ifdef SRVROS_INTEL_JOINT
+ intel_display_test_joint_snapshot_delay();
+#endif
  return intel_display_test_wake_read(0xa188,r) && intel_display_test_wake_read(0x130044,a) && intel_display_test_wake_read(0x13805c,t);
 }
 static unsigned takeover_reads;

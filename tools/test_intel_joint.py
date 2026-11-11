@@ -62,6 +62,31 @@ class JointAdapterTests(unittest.TestCase):
                 cases += 1
         print('native joint HDA fault prefixes:', cases)
 
+    def test_separate_guard_and_return_keep_terminal_deadline(self):
+        def preparation(result):
+            return result['held']['interval']['reset']['prepare']['summary']
+
+        good = preparation(joint_result(self.text))
+        self.assertEqual(good['v'], 3)
+        self.assertLessEqual(good['begin'], good['guard_begin'])
+        self.assertLess(good['guard_begin'], good['guard_end'])
+        self.assertLessEqual(good['guard_end'], good['return_begin'])
+        self.assertLess(good['return_begin'], good['end'])
+        for key, value in [('guard_begin', good['guard_end'] + 1),
+                           ('guard_end', good['return_begin'] + 1), ('return_begin', 0)]:
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                joint_result(field(self.text, 'intel-prepare-summary', key, value))
+        late = joint_result(run('joint-return-deadline'))
+        self.assertFalse(late['complete'])
+        timing = preparation(late)
+        self.assertEqual((timing['reason'], timing['stage'], timing['returned'], timing['retained']), (2, 6, 1, 0))
+        self.assertLessEqual(timing['return_begin'] - timing['begin'], 100000)
+        self.assertGreater(timing['end'] - timing['begin'], 100000)
+        self.assertEqual(timing['clock_at'], timing['end'])
+        self.assertEqual(timing['clock_prev'], timing['return_begin'])
+        self.assertEqual(late['summary']['hda_complete'], 1)
+        self.assertEqual(late['wake']['summary']['released'], 1)
+
     def test_native_store_last_admission_and_retirement(self):
         for mode in ('joint-none', 'joint-uncertain', 'joint-store-time', 'joint-store-zero', 'joint-store-backward'):
             for point in (1, 2):

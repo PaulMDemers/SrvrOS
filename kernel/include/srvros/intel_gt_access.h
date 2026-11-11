@@ -58,7 +58,7 @@ struct intel_gt_access {
     uint64_t clock_sample,clock_previous,clock_phase;
     uint32_t clock_cause,snapshots;
     uint32_t state,reason,requests,ack,thread,write_attempts,writes,polls;
-    bool pinned;
+    bool pinned,guarded_snapshot;
     unsigned borrows;
     /* Engine observations cannot cross a possibly issued destructive reset.
      * Increment before its first store; never roll back on an uncertain write. */
@@ -76,6 +76,11 @@ struct intel_gt_borrow {
 bool intel_gt_access_borrow(struct intel_gt_access *,struct intel_gt_borrow *);
 bool intel_gt_access_return(struct intel_gt_borrow *);
 bool intel_gt_access_open(struct intel_gt_access *,const struct display_access_token *,uint32_t grants,struct intel_gt_io);
+/* The snapshot provider must run the full fresh adapter guard immediately
+ * before loading the three requester registers. The core checks exclusion
+ * and clocks at entry and still runs the independent full exit guard. */
+bool intel_gt_access_open_with_guarded_snapshot(struct intel_gt_access *,
+    const struct display_access_token *,uint32_t grants,struct intel_gt_io);
 bool intel_gt_access_check(struct intel_gt_access *);
 /* Faults/uncertain completion retain the CPU exclusion pin until reset. No
  * blind retries, fallback-bit toggles, global resets or forced lease release. */
