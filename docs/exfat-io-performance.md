@@ -115,6 +115,51 @@ changed. This does not establish lossless timing coverage in every future run.
 A subsequent host-only full-bitmap-control scratch correction passes its
 original five-operation exact-media/write/flush comparison. Preprocessed token
 comparisons verify unchanged production, default-host and other measured control
-paths relative to the frozen runtime. Air6,1 installed c7/recovery c354 and USB
-contents remain unchanged. Native filesystem and screenshot latency for these
-passes is still unmeasured.
+paths relative to the frozen runtime. At that host-validation checkpoint,
+Air6,1 installed c7/recovery c354 and USB contents remained unchanged.
+
+## Air6,1 native comparison, 2026-11-11
+
+Release `80b4e32ef314ae05`, compiled from `820eb85c`, completes the original
+1800-second 1% PCM/disk/app/three-screenshot workload in session
+`session-0006600400f302c0-00`. Independent raw-log/binary review passes all16
+original contracts and the queued-append companion:1071 app cycles,120687us
+maximum loop, zero excursions, zero recorded audio underruns and clean capture,
+desktop, file/cache and battery retirement. All859 prior files survive except
+the expected metadata sidecar update. Actual rehash, fsck and full allocation
+verify868 files/4338 clusters, zero leaks, mismatches or errors.
+
+| Capture | Prior c7 total, seconds | Candidate total, seconds | Prior WRITE phase, seconds | Candidate WRITE phase, seconds |
+| --- | ---: | ---: | ---: | ---: |
+|1 |8.049986 |7.307485 |4.562893 |4.378074 |
+|2 |9.633137 |10.890831 |5.180639 |6.668082 |
+|3 |17.522316 |12.560273 |14.780125 |9.959347 |
+
+The worst capture improves about28.3%, while the middle capture worsens about
+13.1%. Burst count is3895 versus3954 previously. This is one observational cold
+boot comparison with different media state and interleaving; sustained throughput
+improvement and isolated causal attribution remain unproved. The native selected
+allocation sample reads59392 bitmap bytes versus131072 in the prior sample,
+confirming reduced bitmap work on the physical geometry. These are selected
+calls, not full-run native I/O counters. The unchanged64KiB stream admission
+gate also leaves generic bounded-stream coverage on this128KiB-cluster drive
+separate from the host stream regressions.
+
+Private prelude wait wall is95.69/97.50/98.45% of raw capture write call wall.
+It overlaps handler time for successful copies; these are not disjoint phases.
+Wait maxima reach3.615494 seconds;17 ready-under-live-borrow retries exercise
+the unchanged recheck. Ordinary gates total only180/165/183us and have
+no retained owner. A separately bound1MiB global content call during capture3
+takes3.614946 seconds, including3.532703 seconds in payload callbacks. Forty
+16KiB payload status waits total3.188556 seconds; nine exceed100ms. The maximum
+is353518us with10069us maximum sampled service gap. Its512-byte allocation
+status maximum is1906us. Software clocks still cannot separate media/firmware
+from controller delivery, and no exact command/owner identity joins an individual
+private wait to that selected global call. These waits remain the next target.
+
+Installed candidate, c354 recovery, retained c7, retired2dd's independent payload,
+original failed-media archive and trial backup verify. Ubuntu remains default,
+the one-shot is consumed, collection is disabled and USB is unmounted. Native
+logs retain bounded lifecycle tails and worst records, not every individual app
+event; the VM's complete per-cycle coverage remains separate. Subjective sound
+at1% was not assessed. No policy, limit, proof or barrier changed in this trial.
