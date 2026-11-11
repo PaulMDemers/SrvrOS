@@ -9,11 +9,11 @@ Dated sections retain the bring-up history.
 
 ### Native startup persistence accepted (November 10)
 
-Preparation fixcc1c3775/release7bf30a800c4d68ac, session00065ff73d95cc33-00,
-saved all seven independent EFI checkpoints on this MacBookPro11,2. Direct
+Preparation fix `cc1c3775`, release `7bf30a800c4d68ac`, saved all seven independent
+EFI checkpoints in session `00065ff73d95cc33-00` on this MacBookPro11,2. Direct
 binary review verifies every payload and commit SHA256, phase/flag/nonce,
 immutable header and unused slot, plus exact tail overlap with the USB logs
-and reconstructed26,345-byte console prefix. The terminal records report
+and reconstructed 26,345-byte console prefix. The terminal records report
 workspace/logger admission, successful USB save and unmount, with firmware
 capture unattempted. The unchanged kernel's strict whole-sector comparison
 now admits the correctly pinned clean FAT sector.
@@ -21,13 +21,13 @@ now admits the correctly pinned clean FAT sector.
 This accepts one bounded native preallocated-file write/flush/readback lifetime.
 The journal's later raw-claim release has no direct receipt; generic filesystem,
 repeatability and Wi-Fi calibration/connection acceptance remain separate.
-All449 prior ordinary bytes and metadata checks pass except one RTC-bounded
-marker atime, with exactly two new logs. Offline fsck/allocation pass at451 files
-and1430 clusters, zero leaks/mismatches/errors and zero inspection writes/flushes.
-All53 other EFI file hashes, seven protected recoveries and installed payload
-match. Ubuntu is default and unarmed.
+Verification of the 449-file baseline passes for prior ordinary file contents
+and metadata, apart from one RTC-bounded marker atime. Exactly two new logs were
+saved. Offline fsck/allocation pass at 451 files and 1,430 clusters, with zero
+leaks, mismatches, errors, inspection writes or flushes. All 53 other EFI file
+hashes, seven protected recoveries and the installed payload match. Ubuntu is default and unarmed.
 
-The779-file primary is closed with index
+The 779-file primary is closed with index
 `d998fcb918ebba05b3624648e751b6a81ce2e99588dcae215082fafc30b2dc77`.
 Separate three-file acceptance notes have index
 `0c5013b22209212982d65282d64012f66fefac23c1757faec7afd3b838cd2267`.

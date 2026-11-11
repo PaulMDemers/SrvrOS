@@ -8358,7 +8358,7 @@ journal persistence as session00065ff73d95cc33-00. All seven commit/payload
 checksums and overlapping tails match the complete USB prefix and reconstructed
 terminal output. Terminal flags record USB save/unmount; firmware work was not
 entered. One exact preallocated EFI file write/flush/readback lifetime is
-accepted. All449 prior byte/metadata checks apart from bounded marker atime,
+accepted. Verification of the 449-file baseline apart from bounded marker atime,
 53 other EFI files, offline storage and seven recoveries pass. The779-file
 primary and separate three-file acceptance notes are immutable. No new boot
 is armed; full Wi-Fi calibration and two-connection testing remain pending.

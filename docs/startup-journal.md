@@ -109,7 +109,7 @@ and reserved slot, and byte-exact overlap with USB boot/exit logs through the
 save and unmount. One native preallocated-file write/flush/readback lifetime
 is accepted. The later raw-claim release has no direct persisted receipt.
 
-All449 prior file/metadata checks pass except one bounded marker atime, with
+Verification of the 449-file baseline passes apart from one bounded marker atime, with
 two new logs. Offline fsck/allocation,53 other EFI file hashes and seven protected
 recoveries pass. The closed779-file primary and separate acceptance notes are
 retained outside build. Ubuntu is unarmed. The consumed file stays populated;
