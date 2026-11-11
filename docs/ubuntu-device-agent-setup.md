@@ -1840,3 +1840,12 @@ to the same port, then power on; leave the workspace drive connected. Commands a
 safe save/return are automatic. An unsafe hold displays large codes for a photo
 before manual power-off/return. Run.json owns actual arming; this documentation
 neither arms a test nor claims native HTTP-pair acceptance or a resolved cause.
+
+
+The readable Pro return is now collected FIRST once and closed failed for Wi-Fi:
+session000660021b689d1e-00 saved all seven checkpoints and both logs, and readable
+24×48 text plus automatic return are user-confirmed. A first-R0 MCU receive timeout
+prevents connection entry. Its1,438-file primary and separate return review stay
+immutable; do not run the readable collector again. Current releasee4 remains
+installed and Ubuntu is unarmed. Test-onlyec98 first-R0 timeout/delay coverage
+passes normal/fatal without a production correction or new native candidate.

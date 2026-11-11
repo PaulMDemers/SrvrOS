@@ -53,6 +53,29 @@ work is inspected/deferred and must be integrated/requalified before a future
 runtime candidate. The installed test used mainae869c9b. No other machine's
 acceptance or active storage/GPU scope is adopted by this unit.
 
+### First-R0 containment coverage completed (November 11)
+
+Test-only source `ec98aa14` adds the actual R0-first failure category to the
+long-lifetime MCU fixture: sequence3817, index16/next17, original500ms limit and
+25 unrelated Transfer Events across event62/C1→23/C0. A separate400ms first-R0
+reply control completes all five calibration commands. Both consume actual
+Normal/Link TRBs and production publication/poll/dispatch/quarantine after1906
+preceding IN transfers, with modeled controller, firmware and RF parent. Normal
+and fatal ASan/UBSan pass24 branch cases, eight long-lifetime cases and nine
+observation scenario groups;14 companion-format/decoder tests pass normally.
+This deliberately withholds a modeled response, so it reproduces containment,
+not the spontaneous hardware defect. Production sources remain byte-for-byte
+unchanged fromd413; no new runtime image is built, installed or armed.
+
+The source-bound installed ELF's Normal-TRB disassembly independently confirms
+parameter/status stores before control. This observes compiler ordering only;
+controller visibility and firmware response behavior remain unproved. The audit
+is separately banked as `wifi-http-readable-mcu-audit-ec98aa14`. The operator also
+explicitly confirms the adapter was unplugged for at least ten seconds while
+fully off before this run. An omitted cold unplug does not explain this sample.
+Next investigate the MCU response/USB completion boundary while keeping all
+original deadlines and quarantine; the earlier HTTP hold is still unexplained.
+
 ### Readable HTTP diagnostic candidate installed (November 11)
 
 Runtime `d413e338`, release `e4e95e7d5e24fc7c` (v143), is installed after

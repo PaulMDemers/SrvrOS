@@ -9,25 +9,25 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
-The readable diagnostic candidate `d413e338` / `e4e95e7d5e24fc7c` is installed
-on merged main `ae869c9b`. This panel gets 24×48 console text; a held HTTP trial
-shows a concise eight-line frozen diagnostic screen after the full scalar receipt.
-All original network/ownership/deadline gates remain. Source-frozen normal/fatal
-checks, actual-process HTTP/DNS VM, seven exact-stage journal cases and a further
-2880×1800 exact-payload UEFI boot pass. The 456-file private workspace VM and
-collection/arming checks pass; all seven recoveries and Ubuntu default verify.
-A fresh journal and `wifi-http-readable/run.json` own the cold trial and collect-
-first handoff. Proceed under the user's explicit larger-font/test authorization;
-shutdown for ten-second Wi-Fi-only unplug, same port, workspace connected. Safe
-completion saves/returns; an unsafe hold displays large codes for manual return.
+The `d413e338` / `e4e95e7d5e24fc7c` return is closed failed for Wi-Fi in
+session `000660021b689d1e-00`. The larger24×48 text is natively confirmed readable
+and the user confirms both automatic return and the required cold unplug. The
+HTTP held panel was not exercised. All seven independent checkpoints and full
+USB logs saved;456 prior files/metadata, offline checks,57 other EFI files and
+seven recovery equalities pass. Preserve the1,438-file primary and separate
+three-file review; never recollect either.
 
-The preceding `835ffb01` / `8ef237478e0aa29b` native HTTP-pair run is closed
-failed/incomplete (five journal phases, boot log only); its 1,860-file primary,
-separate preservation review and diagnostic qualification remain immutable. The
-original compressed photo cannot establish the first error code. Six native-path
-modeled cases distinguish safe failed-child retirement from missing-EOF retained
-ownership; neither is asserted as the hardware cause. The new trial is diagnosis,
-not acceptance. Persistent service/UI/reattach/endurance stay later milestones.
+The first R0 calibration command's16-byte OUT completes, but DCI11 IN reaches
+500000us at sequence3817/index16 before either connection begins. No matching MCU
+completion was observed; this does not prove hardware absence. The original HTTP
+failure and physical MCU cause remain unresolved. Test-onlyec98aa14 adds exact
+first-R0/event-wrap timeout containment and400ms delayed-response controls to the
+existing real-TRB long-lifetime fixture. Normal/fatal24+8+9 cases and14 decoder
+methods pass without production changes or new candidate/boot. Preserve larger
+text, diagnose MCU response/completion causally, then qualify a correction before
+returning to the paired HTTP workload. Main52907f8b/PR467 is inspected/deferred
+and requires integration/requalification before new runtime work. Ubuntu remains
+unarmed; persistent service/UI/reattach/endurance follow these earlier gates.
 
 The following acceptance remains bound to its earlier source.
 

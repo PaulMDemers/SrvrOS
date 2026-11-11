@@ -8504,3 +8504,16 @@ UEFI guest verifies scale3 and completes journal/save/unmount, with the same loa
 configuration and payload as the installed candidate. This qualifies the display
 path in emulation, not the native Wi-Fi failure cause. See the current
 [Pro record](machines/macbookpro11-2.md) for the fresh collect-first trial.
+
+
+The Pro11,2 readable-console native return is now closed: `d413e338` /
+`e4e95e7d5e24fc7c`, session `000660021b689d1e-00`. Actual scale3/24×48 and user
+confirmation accept readable diagnostic text; the held panel was not exercised.
+The first R0 calibration response reaches the original500ms MCU IN limit before
+connection entry. The complete journal/save/unmount and file/recovery review pass,
+but no Wi-Fi/HTTP-pair acceptance follows. The user confirms the cold unplug.
+Test-only`ec98aa14` adds exact first-R0/index16/event-wrap timeout containment and
+400ms delayed-response controls through actual native MCU functions. Normal and
+fatal24 branch/eight lifetime/nine observation groups and14 normal companion
+methods pass, without a runtime change. Injected failure is not physical cause;
+no deadline, retry, reset or quarantine policy changes and no new boot is armed.
