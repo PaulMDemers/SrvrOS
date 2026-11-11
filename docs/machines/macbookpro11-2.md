@@ -7,6 +7,30 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### External driver/specification research (November 11)
+
+The user requested research before further implementation. Bounded scope:
+compare the recurring MCU-response and HTTP/USB retirement failures with pinned
+Linux MT76/xHCI implementations, vendor-source history, USB lifecycle documents
+and Intel specifications/errata. Source baseline is `c8ecd707`; fetched main is
+`5e72e2dd` (PR468, following PR467), inspected but not integrated. Open PR469
+owns Air6,1 filesystem work, PR301 Air7,2 GPU work, PR379 WebCore work; this
+research changes only this unit's documentation and completion-plan references.
+No runtime source, installation, recovery, limits or boot state changes belong
+to this research. Latest failed return remains closed; Ubuntu is unarmed.
+
+Findings and proposed discriminating experiments are recorded in the
+[Wi-Fi research review](macbookpro11-2-wifi-research-2026-11-11.md).
+Linux's longer/multiple response waits and sequence-aware response loop are
+real differences, not an established cause of the absent native completion.
+Linux timeout retries also depend on synchronous USB cancellation; copying its
+retry count into our quarantined pending-transfer path would be unsafe.
+Running output-context dequeue values are undefined by xHCI and cannot diagnose
+a stuck controller. No public reference found establishes the physical cause
+of the latest R0 timeout or the earlier HTTP hold. Diagnose those separately;
+preserve current acceptance boundaries and qualify a causal correction before
+another runtime candidate.
+
 ### Readable console accepted; calibration response failed (November 11)
 
 Runtime `d413e338` / release `e4e95e7d5e24fc7c`, session

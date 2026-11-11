@@ -9,6 +9,14 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
+External driver/specification research is recorded in the
+[November 11 review](macbookpro11-2-wifi-research-2026-11-11.md). Linux's response
+wait/matching and cancellation policy provide concrete comparison targets;
+running output-context dequeue snapshots cannot prove a stuck controller.
+The research supplies no established physical cause or production correction.
+No runtime, install or boot changes were made. Latest fetched main is5e72e2dd,
+not integrated; the implementation and native gates below remain unchanged.
+
 The `d413e338` / `e4e95e7d5e24fc7c` return is closed failed for Wi-Fi in
 session `000660021b689d1e-00`. The larger24×48 text is natively confirmed readable
 and the user confirms both automatic return and the required cold unplug. The
