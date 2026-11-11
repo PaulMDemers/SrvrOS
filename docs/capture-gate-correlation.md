@@ -122,3 +122,64 @@ and fresh-file verification, checked rename, all barriers,256KiB suffix window,
 64KiB writes,16KiB commands and existing timing/runtime limits remain required.
 This diagnostic run establishes attribution and bounded functional acceptance;
 it establishes no causal latency improvement or underlying USB-device diagnosis.
+
+## Commit-boundary replay and Ubuntu reference (2026-11-10)
+
+`make test-sync-commit-boundary` exercises the real process/VFS/exFAT code with
+the captured2555904-byte old prefix,3145728-byte writeback and four concurrent
+64KiB copies. The live length becomes3407872 and the suffix remains dirty after
+the captured prefix commits. The fifth copy refuses at the existing256KiB
+window. The fixture models the independent CPU0 turn and callback clock; its
+small namespace and block callbacks differ from the native USB workload.
+
+Control and an injected359.848ms root-data callback delay produce identical
+ordered source I/O and complete media hashes. The selected commit performs177
+source callbacks,159 reads/2687289 bytes,10 writes/589941 bytes and eight flushes.
+Its final screenshot uses65 bounded process writes and two full fresh proofs, checked
+rename guards, complete allocation traversal and independent fsck. The modeled
+content wall span increases from2.000ms to361.848ms, with the entire injected
+delay appearing in data-write timing. These are synthetic clock results, with
+no physical USB command or real scheduler wait in this fixture. The original
+reserved-append schedule and payload/final-flush fault cases still pass.
+
+The ownership audit follows `process_file_sync_all`, `content_flush_observed`,
+`mutation_begin_result`, `append_file`, `mutation_end_result` and
+`scheduler_io_end`. The content borrow and transaction span the prefix proof,
+allocation/data writes, length/sidecar publication and final clean-marker
+barrier. Waiting filesystem operations regain access after that transaction
+retires. Current global sync visits each live dirty content once, including
+reader-only survivors. No equivalent source-work reduction was found in this
+bounded audit; a runtime latency fix remains open.
+
+Three bounded Ubuntu references used new scratch files on this unit's actual
+USB, verified aligned16KiB direct writes and fresh readback, removed scratch
+data, and verified all832 existing file hashes and clean3910-cluster allocation
+before and after. They retained Ubuntu recovery and the installed SrvrOS payload.
+
+| Ubuntu reference | Main16KiB writes | Main maximum | Other-file maximum | Other-file writes above100ms |
+| --- | --- | --- | --- | --- |
+| Sequential4MiB with256KiB fsync groups | 256 | 4.183ms | — | — |
+|64 mixed256KiB create/fsync/rename/read/unlink/volume-sync bursts | 256 | 5.445ms | 264.650ms | 3 |
+| Same mixed reference with USB monitoring | 256 | 4.251ms | 274.095ms | 2 |
+
+The two mixed references also fsync and reread the complete growing main file
+after every64KiB. They finish in8.446/8.566s. Their direct-file syscall wall spans
+include Linux allocation and metadata work. The references use Linux filesystem
+and transport behavior, without the native30-minute load or an identical
+metadata namespace/command schedule.
+
+The USB-monitored run contains11430 fully matched CBW/data/CSW commands,1826
+writes and1280 exactly16KiB writes, with zero dropped text records, pending
+commands or unmatched events. The slowest write is a512-byte WRITE(10) with
+CDB flags zero. Its command takes274.124ms, of which274.030ms is the submitted
+status URB awaiting software completion. The maximum16KiB write status span is
+19.523ms. Linux also emits one130560-byte metadata command, so this reference
+does not establish matched native command sizing. Existing SrvrOS16KiB command
+caps remain in effect.
+
+Long software-visible USB write-status waits therefore occur under Linux on
+the same hardware too. The native slow16KiB payload commands remain a distinct
+observation. Neither reference timestamps physical packets or identifies media
+firmware versus controller delivery. The evidence supports transaction-coupled
+tail latency and continued work on equivalent commit traffic reduction, without
+claiming a source fix or assigning every native delay to the USB medium.
