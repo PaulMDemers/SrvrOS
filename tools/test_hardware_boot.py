@@ -87,6 +87,12 @@ class InstallTests(unittest.TestCase):
     def test_reconnect5_stage_complete_parent(self):
         self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,reconnect=True)
 
+    def test_reconnect5_journal_stage_complete_parent(self):
+        self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,reconnect=True,journal='reconnect')
+
+    def test_startup_only_stage_complete_parent(self):
+        self._stage_power5_child(True,True,True,True,True,stream=True,stack=True,cleanup=True,reconnect=True,journal='startup')
+
     def test_reconnect5_cli_refusals(self):
         for args in (['stage'],['install','--wifi-stack5','--wifi-cal5-cleanup'],
                      ['stage','--wifi-stack5'],['stage','--wifi-stack5','--wifi-cal5-cleanup','--wifi-http5'],
@@ -349,7 +355,7 @@ class InstallTests(unittest.TestCase):
 
     def test_power5_stage_complete_parent(self):self._stage_power5_child(False)
     def test_handoff5_stage_complete_parent(self):self._stage_power5_child(True)
-    def _stage_power5_child(self,handoff,peer=False,tx=False,join=False,eapol=False,wpa=False,data=False,provider=False,reuse=False,nop=False,stream=False,dhcp=False,stack=False,cleanup=False,http=False,reconnect=False):
+    def _stage_power5_child(self,handoff,peer=False,tx=False,join=False,eapol=False,wpa=False,data=False,provider=False,reuse=False,nop=False,stream=False,dhcp=False,stack=False,cleanup=False,http=False,reconnect=False,journal=None):
         flags="mac_startup mcu_probe radio_reset write_probe pair_probe timing_probe mac_basics mac_format bbp_ready bbp_core bbp_front bbp_agc bbp_batch compact agc_more agc_next agc_tail rxc_start rxc_tail txbe_start bbp_table mac_route mac_policy mac_policy_validate mac_protect mac_contention mac_txsw mac_beacon mac_vht mac_buffer mac_fce_observe mac_fce_validate mac_ampdu bbp_after_mac bbp_switch dcoc skey wcid mac_tail mac_fixed efuse_map mac_address mac_address_validate mac_board ant_snapshot ant_init rf_probe rf_table rf_bank5 rf_bank6 rf_vga 5ghz_prereq 5ghz_band 5ghz_channel a20_cycle frontend pa5_cycle bbp5_cycle held_channel trim5_channel dac5 vco5 channel_vco5 cal5 discovery5 power5".split()
         args={'wifi_'+k:True for k in flags}
         if handoff:args['wifi_handoff5']=True
@@ -367,6 +373,13 @@ class InstallTests(unittest.TestCase):
         if cleanup:args['wifi_cal5_cleanup']=True
         if http:args['wifi_http5']=True
         if reconnect:args['wifi_reconnect5']=True
+        if journal:
+            import struct
+            import startup_journal as j
+            descriptor=j.magic('SRVRSTARTDESC1')+struct.pack('<QQQQ',100000,2097152,1048576,10485760)+bytes(range(16))+bytes(64)
+            args['startup_journal']=self.root/'journal-descriptor'
+            args['startup_journal'].write_bytes(descriptor)
+            args['wifi_reconnect5_journal']=journal=='reconnect'
         if wpa or stream:
             from wifi_wpa5_credentials import MAGIC
             if wpa:args['wifi_wpa5']=True
@@ -383,7 +396,7 @@ class InstallTests(unittest.TestCase):
             release=boot.stage(**args)
             add.assert_called_once()
             manifest=boot.verify(self.stage/release)
-        self.assertEqual(manifest['config_version'],f'ram-usb-wifi-fw-v{140 if reconnect else 139 if http else 138 if cleanup else 137 if stack else 136 if dhcp else 135 if stream else 134 if nop else 133 if reuse else 132 if provider else 131 if data else 130 if wpa else 128 if eapol else 127 if join else 126 if tx else 125 if peer else 124 if handoff else 123}-laptop-probe-12345678-auto-return')
+        self.assertEqual(manifest['config_version'],f'ram-usb-wifi-fw-v{142 if journal=='reconnect' else 141 if journal=='startup' else 140 if reconnect else 139 if http else 138 if cleanup else 137 if stack else 136 if dhcp else 135 if stream else 134 if nop else 133 if reuse else 132 if provider else 131 if data else 130 if wpa else 128 if eapol else 127 if join else 126 if tx else 125 if peer else 124 if handoff else 123}-laptop-probe-12345678-auto-return')
         self.assertIn('srvros.wifi-power5=1',(self.stage/release/'limine.conf').read_text())
         if handoff:self.assertIn('srvros.wifi-handoff5=1',(self.stage/release/'limine.conf').read_text())
         if peer:self.assertIn('srvros.wifi-peer5=1',(self.stage/release/'limine.conf').read_text())
@@ -392,6 +405,12 @@ class InstallTests(unittest.TestCase):
         if nop:self.assertIn('srvros.wifi-nop5=1',(self.stage/release/'limine.conf').read_text())
         if stream:self.assertIn('srvros.wifi-stream5=1',(self.stage/release/'limine.conf').read_text())
         if reconnect:self.assertIn('srvros.wifi-reconnect5=1',(self.stage/release/'limine.conf').read_text())
+        if journal:
+            import startup_journal as j
+            self.assertEqual(j.verify_initramfs(self.stage/release/'initramfs.tar'),descriptor)
+            config=(self.stage/release/'limine.conf').read_text()
+            self.assertEqual('srvros.startup-journal=1' in config,journal=='reconnect')
+            self.assertEqual('srvros.startup-diagnostic=1' in config,journal=='startup')
         for missing in (('wifi_eapol5','wifi_wpa5_pmk') if stream else ())+(('wifi_tx5_owner',) if nop else ())+(('wifi_data5',) if provider else ())+(('wifi_wpa5',) if data else ())+(('wifi_join5',) if eapol else ())+(('wifi_tx5_owner',) if join else ())+ (('wifi_peer5',) if tx else ())+ (('wifi_handoff5',) if peer else ())+ (('wifi_power5',) if handoff else ())+('wifi_discovery5','wifi_cal5','wifi_channel_vco5','wifi_vco5','wifi_rf_vga'):
             with self.subTest(missing=missing),self.assertRaises(ValueError):boot.stage(**dict(args,**{missing:False}))
         for extra in ('hold_on_failure','wifi_desktop_trial','wifi_rf_g20','wifi_scan','haswell_firmware_capture'):
