@@ -9,6 +9,10 @@
 #include <srvros/timer.h>
 #include <srvros/console.h>
 #include <limine.h>
+#ifdef SRVROS_INTEL_GPU_HOLD
+#include <srvros/intel_gpu_requester_hold.h>
+static bool gpu_hold_identity_command(uint32_t observed,uint32_t original);
+#endif
 
 /* Boot-only, kernel CR3, before the existing Intel initializer or GUI clients.
  * Direct in-space mappings never enter the global kernel mapping registry. */
@@ -356,7 +360,11 @@ static struct intel_backing_result trial_after;
 static bool trial_endpoint_same(const struct intel_backing_endpoint *e) {
     const struct intel_backing_endpoint *old=&backing.sample[1].endpoint;
     const struct intel_capture_identity *a=&e->identity,*b=&old->identity;
-    if(a->id!=b->id || a->class_rev!=b->class_rev || a->subsystem!=b->subsystem || a->pch!=b->pch || a->command!=b->command ||
+    bool command_same=a->command==b->command;
+#ifdef SRVROS_INTEL_GPU_HOLD
+    if(!command_same)command_same=gpu_hold_identity_command(a->command,b->command);
+#endif
+    if(a->id!=b->id || a->class_rev!=b->class_rev || a->subsystem!=b->subsystem || a->pch!=b->pch || !command_same ||
        a->pm!=b->pm || a->power_valid!=b->power_valid || a->firmware_match!=b->firmware_match || a->mmio_safe!=b->mmio_safe)return false;
     for(unsigned i=0;i<4;i++)if(a->bar[i]!=b->bar[i])return false;
     for(unsigned i=0;i<8;i++)if(e->config[i]!=old->config[i])return false;

@@ -967,6 +967,9 @@ void kmain(void) {
             if(cmdline_has_token(cmdline,"srvros.intel-firmware=read-only")){bool fw_ok=started && intel_gt_firmware_probe_report();sampled=sampled && fw_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-wake=trial")) {
                 bool held_reset=cmdline_has_token(cmdline,"srvros.intel-bcs-reset=held-blitter-only");
+#ifdef SRVROS_INTEL_GPU_HOLD
+                if(cmdline_has_token(cmdline,"srvros.intel-gpu-requester=hold"))console_write("intel-gpu-hold: automatic original-source PCI requester inhibit, pending-drain and exact restoration. No input needed. Saved safe outcomes return to Ubuntu; uncertainty halts.\n");
+#endif
                 if(cmdline_has_token(cmdline,"srvros.intel-joint=hda-claim"))console_write("intel-joint: automatic HDA inhibit, original GPU claim and restoration. No input needed. Safe saved outcomes return to Ubuntu; retained uncertainty halts visibly.\n");
                 else if(cmdline_has_token(cmdline,"srvros.intel-rehold=request-cancel"))console_write("intel-rehold: automatic post-reset BCS re-arm, original-entry child, restore and preservation. No input needed, no PTE write or memory grant. Safe saved outcomes return to Ubuntu; retained uncertainty halts visibly.\n");
                 else if(cmdline_has_token(cmdline,"srvros.intel-interval=read-only"))console_write("intel-interval: automatic original GGTT entry capture inside held reset, then preservation. No input needed, no PTE writes or memory grant. Safe saved outcomes return to Ubuntu; uncertainty halts visibly.\n");

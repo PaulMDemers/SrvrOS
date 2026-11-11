@@ -70,6 +70,14 @@ may be active; a distinct object can borrow after a clean return. Returned
 objects and exhausted counters refuse reuse. Consumer storage cannot overlap
 the claim or its parent graph.
 
+The pure `intel_interval_borrow_live` predicate validates the same original
+source during a serialized callback without permitting reentry or I/O.
+`intel_interval_borrow_deadline` accepts a fresh timestamp from that same clock
+and advances the original claim watermark; bad samples latch the original
+clock failure and retain the consumer. It takes no clock sample and cannot
+restart either parent budget. Direct native operations must publish accepted
+samples so later source checks/return cannot accept an older time.
+
 Checks and return use the claim's original source guard and both original clock
 origins. They do not open another GT borrow or restart a deadline. Callback
 reentry refuses without touching either owner. A copied consumer cannot return

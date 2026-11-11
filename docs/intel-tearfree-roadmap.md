@@ -134,6 +134,13 @@ positive-assurance provider would not establish transfer. A hold-plus-requester
 observation-only trial is warranted only if its result resolves a specific
 composition decision, not merely because both operations exist separately.
 
+The next isolated native prerequisite is the
+[original-claim GPU requester hold](intel-gpu-requester-hold.md): exact PCI
+Command 7→3, bounded AF pending-clear observation and 3→7 restoration while the
+original interval consumer and HDA/engine owners remain live. It adds no address
+or completion assurance and must qualify independently before being used by a
+future memory provider.
+
 ## Ordered delivery blocks
 
 | Block | Implementation | Observable exit gate |

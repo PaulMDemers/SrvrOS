@@ -14,7 +14,7 @@ def firmware_result(text):
  if vectors:
   if any(l.startswith('intel-firmware-word:') for l in text.splitlines()):raise ValueError('firmware mixed vector/word receipts')
   wakes=[l for l in text.splitlines() if l.startswith('intel-wake-summary:')]
-  if wakes and (len(wakes)!=1 or not wakes[0].startswith(('intel-wake-summary: v=17 ','intel-wake-summary: v=18 ','intel-wake-summary: v=19 ','intel-wake-summary: v=20 '))):raise ValueError('firmware vector wrong image')
+  if wakes and (len(wakes)!=1 or not wakes[0].startswith(('intel-wake-summary: v=17 ','intel-wake-summary: v=18 ','intel-wake-summary: v=19 ','intel-wake-summary: v=20 ','intel-wake-summary: v=21 '))):raise ValueError('firmware vector wrong image')
   if not wakes and not any(l.startswith(('cmdline: ','laptop-capture: boot options=')) and 'srvros.intel-bcs-reset=held-blitter-only' in l.split() for l in text.splitlines()):raise ValueError('firmware vector missing exact recipe')
   normalized=[];sample=0
   for line in text.splitlines():

@@ -67,6 +67,9 @@ static bool einterval_claim_run(struct engine_prepare_adapter *p) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  if(!intel_display_test_joint_claim_active(c))return true;
 #endif
+#ifdef SRVROS_INTEL_GPU_HOLD
+ if(!gpu_hold_run(p))return false;
+#endif
  return intel_interval_claim_check(c) && intel_interval_claim_close(c);
 }
 #endif

@@ -103,7 +103,10 @@ __attribute__((noinline)) static void churn_stack(void) {
  volatile uint8_t bytes[32768];
  for(unsigned i=0;i<sizeof(bytes);i++)bytes[i]=(uint8_t)(i*17+3);
 }
-int main(int argc,char **argv) {
+#ifndef INTEL_JOINT_FIXTURE_MAIN
+#define INTEL_JOINT_FIXTURE_MAIN main
+#endif
+int INTEL_JOINT_FIXTURE_MAIN(int argc,char **argv) {
  if(argc==2 && !strcmp(argv[1],"--joint-codec")) {
   reset();reporting=true;backing_attempted=true;backing.status=1;backing.count=1356;
   for(unsigned i=0;i<backing.count;i++)backing.pte[i]=((uint64_t)(0x12340000u+i/64)<<32)|(0x90000001ull+i*4096);

@@ -198,6 +198,9 @@ static bool eprepare_preserve(void *ctx,const struct intel_completion_result *pr
 #ifdef SRVROS_INTEL_REHOLD
 #include "intel_engine_rehold_trial.inc"
 #endif
+#ifdef SRVROS_INTEL_GPU_HOLD
+#include "intel_gpu_hold_trial.inc"
+#endif
 #include "intel_held_interval_trial.inc"
 #endif
 #include "intel_engine_held_reset_trial.inc"

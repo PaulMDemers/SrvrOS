@@ -92,6 +92,13 @@ plan. Neither a registered consumer nor a calculated entry supplies the missing
 interval transfer, RAM/DMA/cache admission or hardware completion witnesses.
 Keep these prerequisites distinct from the first native mapping milestone.
 
+The next isolated native prerequisite is the
+[original-claim GPU requester hold](intel-gpu-requester-hold.md): exact PCI
+Command 7→3, bounded AF pending-clear observation and 3→7 restoration while the
+original interval consumer and HDA/engine owners remain live. It adds no address
+or completion assurance and must qualify independently before being used by a
+future memory provider.
+
 ## Ordered implementation milestones
 
 | Milestone | Required implementation and reviewable exit evidence |

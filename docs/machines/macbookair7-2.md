@@ -13,7 +13,12 @@ restore 3→7 before the interval can retire. No restarted clock or extended
 deadline is permitted. Ambiguous stores or failed retirement retain the source.
 
 Scope: a new diagnostic core/adapter, separate image/recipe, strict raw collector
-and tests; ordinary boot and prior images stay separate. Broadwell documents BME
+and tests; ordinary boot and prior images stay separate. The core, native adapter,
+26th image, exact 22-token recipe and strict collector are implemented. Normal
+and pending-drain models pass; the adapter sweep covers 278 fault prefixes,
+including last-admission clock, alias, source and entry changes. Accepted direct
+I/O timestamps now advance the original claim watermark. Full-source, object,
+sanitizer, exact-stage VM and physical-readiness checks follow. Broadwell documents BME
 and AF TP separately: this hold is not a posted-write, prefetch, pipeline,
 cache/TLB or firmware exclusion grant. It will issue no PTE or command-buffer
 write and keep assurances 0, obligations 255 and managed pages 0. The hardware

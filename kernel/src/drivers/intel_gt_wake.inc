@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_GPU_HOLD) && !defined(SRVROS_INTEL_JOINT)
+#error "GPU requester hold requires its distinct joint image"
+#endif
 #if defined(SRVROS_INTEL_HELD_INTERVAL) && !defined(SRVROS_INTEL_PREPARE_RESET)
 #error "Held interval requires the isolated held-reset composition"
 #endif
@@ -36,7 +39,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_GPU_HOLD
+extern volatile struct limine_firmware_type_request intel_gpu_hold_firmware_request;
+#elif defined(SRVROS_INTEL_JOINT)
 extern volatile struct limine_firmware_type_request intel_joint_firmware_request;
 #elif defined(SRVROS_INTEL_REHOLD)
 extern volatile struct limine_firmware_type_request intel_rehold_firmware_request;
@@ -77,7 +82,9 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
 #ifdef SRVROS_INTEL_HELD_INTERVAL
 #define WAKE_MAPS 14u
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_GPU_HOLD
+#define WAKE_VERSION 21u
+#elif defined(SRVROS_INTEL_JOINT)
 #define WAKE_VERSION 20u
 #elif defined(SRVROS_INTEL_REHOLD)
 #define WAKE_VERSION 19u
@@ -412,7 +419,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_JOINT
+    #ifdef SRVROS_INTEL_GPU_HOLD
+    const struct limine_firmware_type_response *firmware=intel_gpu_hold_firmware_request.response;
+#elif defined(SRVROS_INTEL_JOINT)
     const struct limine_firmware_type_response *firmware=intel_joint_firmware_request.response;
 #elif defined(SRVROS_INTEL_REHOLD)
     const struct limine_firmware_type_response *firmware=intel_rehold_firmware_request.response;
@@ -452,7 +461,9 @@ bool intel_gt_wake_probe_report(void) {
     struct intel_pci_requester_result requester={0};
 #elif defined(SRVROS_INTEL_ENGINE_PREPARE)
 #ifdef SRVROS_INTEL_PREPARE_RESET
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_GPU_HOLD
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_gpu_hold_recipe(cmd->cmdline);
+#elif defined(SRVROS_INTEL_JOINT)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_joint_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_REHOLD)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_rehold_recipe(cmd->cmdline);
@@ -664,6 +675,9 @@ bool intel_gt_wake_probe_report(void) {
     bool complete=grants==7 && opened && checked && closed && after && released && a.maps==WAKE_MAPS && a.retired==WAKE_MAPS && !retained && begin && end>begin && end-begin<=500000;
 #ifdef SRVROS_INTEL_JOINT
     joint_report();complete=complete && joint.scope.complete;
+#ifdef SRVROS_INTEL_GPU_HOLD
+    gpu_hold_report();complete=complete && gpu_hold_native.result.complete;
+#endif
 #endif
     unsigned engine_reads=0;
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
@@ -739,6 +753,9 @@ bool intel_gt_wake_probe_report(void) {
 #endif
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)
     console_printf("intel-clock: v=1 why=%u at=%u prev=%u phase=%u n=%u\n",(uint64_t)owner.clock_cause,owner.clock_sample,owner.clock_previous,owner.clock_phase,(uint64_t)owner.snapshots);
+#endif
+#ifdef SRVROS_INTEL_GPU_HOLD
+    engine_reads+=gpu_hold_native.result.reads+gpu_hold_native.admit_reads;
 #endif
     console_printf("intel-wake-summary: v=%u compiled=1 contract=1 efi64=%u loader=%u recipe=%u serialized=%u prerequisites=%u profile=%u fw_quiet=%u req_quiet=%u initial_req=%x initial_ack=%x grants=%u acquired=%u before=%u opened=%u checked=%u closed=%u fw_after=%u after=%u released=%u maps=%u retired=%u cache_checks=%u guards=%u retained=%u state=%u reason=%u writes=%u attempts=%u requests=%x ack=%x thread=%x begin_us=%u end_us=%u complete=%u engine_reads=%u pte_writes=0 managed_pages=0 smm_retired=0 hardware_ownership=0\n",
         (uint64_t)WAKE_VERSION,(uint64_t)f.efi64,(uint64_t)f.loader,(uint64_t)f.recipe,(uint64_t)f.serialized,(uint64_t)f.prerequisites,(uint64_t)f.profile,(uint64_t)f.firmware_quiet,(uint64_t)f.requesters_quiet,(uint64_t)fresh_gt.sample[0].requests,(uint64_t)fresh_gt.sample[0].ack,(uint64_t)grants,(uint64_t)acquired,(uint64_t)before,(uint64_t)opened,(uint64_t)checked,(uint64_t)closed,(uint64_t)fw_after,(uint64_t)after,(uint64_t)released,(uint64_t)a.maps,(uint64_t)a.retired,(uint64_t)a.cache_checks,(uint64_t)a.guards,(uint64_t)retained,(uint64_t)owner.state,(uint64_t)owner.reason,(uint64_t)owner.writes,(uint64_t)owner.write_attempts,(uint64_t)owner.requests,(uint64_t)owner.ack,(uint64_t)owner.thread,begin,end,(uint64_t)complete,(uint64_t)engine_reads);

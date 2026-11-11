@@ -141,6 +141,24 @@ static bool borrow_entry(struct intel_interval_borrow *b) {
  if(b->claim->registered==b || b->claim->dependent==b)fail(b->claim,IIC_SOURCE);
  return false;
 }
+bool intel_interval_borrow_live(const struct intel_interval_borrow *b) {
+ if(!registered_borrow(b))return false;
+ const struct intel_interval_claim *c=b->claim;
+ return source(c) && c->opening.bound && c->opening.complete &&
+  c->opening.expected==c->expected && c->opening.manifest.original==&c->opening.expected &&
+  c->last_us>=c->origin_us && c->last_us-c->origin_us<=INTEL_ENGINE_PREPARE_TOTAL_US &&
+  c->last_us>=c->owner_origin_us && c->last_us-c->owner_origin_us<=GT_ACCESS_TOTAL_US;
+}
+bool intel_interval_borrow_deadline(struct intel_interval_borrow *b,uint64_t at) {
+ if(!borrow_entry(b))return false;
+ struct intel_interval_claim *c=b->claim;
+ if(!intel_interval_borrow_live(b)){b->fault=true;return fail(c,IIC_SOURCE);}
+ if(!at || at<c->last_us || at<c->origin_us || at-c->origin_us>INTEL_ENGINE_PREPARE_TOTAL_US ||
+    at<c->owner_origin_us || at-c->owner_origin_us>GT_ACCESS_TOTAL_US) {
+  c->clock_at=at;c->clock_prev=c->last_us;b->fault=true;return fail(c,IIC_CLOCK);
+ }
+ c->last_us=at;return true;
+}
 bool intel_interval_borrow_open(struct intel_interval_claim *c,struct intel_interval_borrow *b) {
  if(!c || c->object!=c || c->busy || c->reason || c->state!=IIC_ACTIVE ||
     !b || b->object || c->dependent || c->registered || c->borrows!=c->returns || c->borrows==UINT32_MAX ||

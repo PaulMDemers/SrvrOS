@@ -5911,3 +5911,43 @@ test-core: test-intel-joint
 test-intel-joint: build/tests/intel-joint-adapter$(HOST_EXE) build/tests/boot-joint$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_joint.py
 	build/tests/boot-joint$(HOST_EXE)
+
+# One original-claim GPU requester hold, separate from address transfer.
+INTEL_GPU_HOLD_SOURCES := kernel/diagnostics/intel_gpu_requester_hold.c kernel/src/drivers/intel_pci_requester.c $(INTEL_INTERVAL_CLAIM_SOURCES)
+.PHONY: test-intel-gpu-hold
+test-core: test-intel-gpu-hold
+build/tests/intel-gpu-hold$(HOST_EXE): tools/test_intel_gpu_hold.c tools/test_intel_interval_claim.c $(INTEL_INTERVAL_CLAIM_FIXTURES) $(INTEL_GPU_HOLD_SOURCES) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -Ikernel/include $< $(INTEL_GPU_HOLD_SOURCES) -o $@
+test-intel-gpu-hold: build/tests/intel-gpu-hold$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_gpu_hold.py
+
+build/tests/intel-gpu-hold-adapter$(HOST_EXE): tools/test_intel_gpu_hold_adapter.c tools/test_intel_joint_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gt_wake.inc kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_trial.inc kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_rehold.c kernel/src/drivers/intel_gpu_hold_trial.inc kernel/src/drivers/intel_joint_trial.inc kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_gpu_requester_hold.c kernel/diagnostics/intel_interval_claim.c kernel/diagnostics/intel_hda_gpu.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_INTEL_GPU_HOLD -DSRVROS_INTEL_JOINT -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL -DSRVROS_INTEL_TAKEOVER_PREFLIGHT -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -DSRVROS_INTEL_HELD_REQUESTER -DSRVROS_INTEL_ENGINE_PREPARE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/src/drivers/intel_gt_preflight.c kernel/src/drivers/intel_gt_firmware.c kernel/src/drivers/intel_gt_boot.c kernel/src/drivers/intel_gt_access.c kernel/src/drivers/intel_engine_census.c kernel/src/drivers/intel_completion_audit.c kernel/src/drivers/intel_takeover_preflight.c kernel/src/drivers/intel_engine_prepare.c kernel/src/drivers/intel_pci_held.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_engine_held_reset.c kernel/diagnostics/intel_held_interval.c kernel/diagnostics/intel_engine_rehold.c kernel/diagnostics/package_audit_core.c kernel/diagnostics/intel_bdw_ggtt.c kernel/diagnostics/intel_gpu_requester_hold.c kernel/diagnostics/intel_interval_claim.c kernel/diagnostics/intel_hda_gpu.c kernel/src/drivers/intel_display_hda.c kernel/src/drivers/intel_hda_owner.c -o $@
+
+
+INTEL_GPU_HOLD_FLAGS := $(INTEL_JOINT_FLAGS) -DSRVROS_INTEL_GPU_HOLD
+build/intel-gpu-hold/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GPU_HOLD_FLAGS) -c $< -o $@
+build/intel-gpu-hold/probe.o: kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_gpu_hold_trial.inc $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GPU_HOLD_FLAGS) -c $< -o $@
+build/intel-gpu-hold/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_GPU_HOLD_FLAGS) -c $< -o $@
+build/intel-gpu-hold/hold.o: kernel/diagnostics/intel_gpu_requester_hold.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-gpu-hold/srvros.elf: build/intel-gpu-hold/main.o build/intel-gpu-hold/probe.o build/intel-gpu-hold/requests.o build/intel-gpu-hold/hold.o build/intel-joint/page.o build/intel-joint/claim.o build/intel-joint/joint.o build/intel-joint/rehold.o build/intel-joint/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+.PHONY: test-intel-gpu-hold-adapter
+test-core: test-intel-gpu-hold-adapter
+test-intel-gpu-hold-adapter: build/tests/intel-gpu-hold-adapter$(HOST_EXE) build/tests/boot-gpu-hold$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_gpu_hold_adapter.py
+	build/tests/boot-gpu-hold$(HOST_EXE)
+
+build/tests/boot-gpu-hold$(HOST_EXE): tools/test_boot_rehold.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_INTEL_PREPARE_RESET -DSRVROS_INTEL_HELD_INTERVAL -DSRVROS_INTEL_REHOLD -DSRVROS_INTEL_JOINT -DSRVROS_INTEL_GPU_HOLD -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@

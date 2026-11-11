@@ -966,6 +966,14 @@ def collect(mount, volume, output):
                     pre=payload.get("session-a.log",b"").decode("utf-8",errors="replace")
                     verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
             except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
+        intel_gpu_hold=None
+        if 'srvros.intel-gpu-requester=hold' in text:
+            try:
+                from intel_gpu_hold import native_gpu_hold_result,verify_gpu_hold_checkpoint
+                intel_gpu_hold=native_gpu_hold_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
+                if not intel_gpu_hold or not intel_gpu_hold['native_complete']:attention.append('Intel GPU requester hold incomplete or refused')
+                else:verify_gpu_hold_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),native=True)
+            except ValueError as error:attention.append('Invalid Intel GPU requester hold receipt: '+str(error))
         intel_joint=None
         if 'srvros.intel-joint=hda-claim' in text:
             try:
@@ -1180,7 +1188,7 @@ def collect(mount, volume, output):
             "intel_display_backing": intel_backing,
             "intel_scanout_lifetime": intel_lifetime,
             "intel_memory": intel_memory,
-            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,"intel_gt_firmware":intel_firmware,"intel_gt_wake":intel_wake,"intel_joint":intel_joint,
+            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,"intel_gt_preflight":intel_gt,"intel_gt_firmware":intel_firmware,"intel_gt_wake":intel_wake,"intel_joint":intel_joint,"intel_gpu_hold":intel_gpu_hold,
             "air61_window": window_proof,
             "ecam_boot": ecam_proof,
             "posix_capture": posix_proof,

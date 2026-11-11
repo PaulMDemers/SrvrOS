@@ -23,6 +23,7 @@ static uint64_t cnow(void *ctx) {
    m->borrower_reentered=true;
    unsigned before=m->clocks;
    struct scanout_transfer_manifest manifest;
+   assert(!intel_interval_borrow_deadline(&m->borrow,m->claim.last_us));
    assert(!intel_interval_borrow_check(&m->borrow));
    assert(!intel_interval_borrow_return(&m->borrow));
    assert(!intel_interval_borrow_manifest(&m->borrow,&manifest));
@@ -60,6 +61,7 @@ static bool cguard(void *ctx) {
  struct intel_interval_borrow *b=m->borrow.active?&m->borrow:&m->second;
  if(b->active && !b->busy) {
   unsigned clocks=m->clocks;
+  assert(intel_interval_borrow_live(b));
   assert(!intel_interval_borrow_check(b));
   assert(!intel_interval_borrow_return(b));
   assert(!b->fault && m->clocks==clocks);
@@ -119,9 +121,18 @@ static bool exercise_borrow(struct claim_model *m) {
  assert(!intel_interval_borrow_open(c,(void *)c));
  assert(!intel_interval_borrow_open(c,(void *)&m->base.child));
  if(!intel_interval_borrow_open(c,b))return false;
+ assert(intel_interval_borrow_live(b));
+ unsigned callbacks=m->clocks;
+ assert(intel_interval_borrow_deadline(b,c->last_us) && callbacks==m->clocks);
+ if(cmode(m,"borrow-observed-deadline")) {
+  assert(!intel_interval_borrow_deadline(b,c->origin_us+100001));
+  assert(b->fault && c->reason==IIC_CLOCK && c->clock_at==c->origin_us+100001);
+  assert(!intel_interval_borrow_return(b));return false;
+ }
  assert(c->dependent==b && c->registered==b && c->borrows==1 && !c->returns);
  unsigned clocks=m->clocks;
  struct intel_interval_borrow copy=*b;copy.object=&copy;
+ assert(!intel_interval_borrow_live(&copy));
  assert(!intel_interval_borrow_check(&copy) && !intel_interval_borrow_return(&copy));
  assert(!intel_interval_claim_close(c) && m->clocks==clocks);
  assert(!intel_interval_borrow_open(c,&m->second));
@@ -154,6 +165,7 @@ static bool exercise_borrow(struct claim_model *m) {
  assert(!intel_interval_borrow_page(b,0x12345000,(void *)b));
  assert(!intel_interval_borrow_page(b,0x12345000,(void *)c->parent));
  if(!intel_interval_borrow_check(b) || !intel_interval_borrow_return(b))return false;
+ assert(!intel_interval_borrow_live(b));
  assert(!b->active && !c->dependent && !c->registered && c->returns==c->borrows);
  assert(!intel_interval_borrow_check(b) && !intel_interval_borrow_return(b));
  assert(!intel_interval_borrow_open(c,b) && !intel_interval_borrow_manifest(b,&manifest));

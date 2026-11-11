@@ -257,7 +257,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_GPU_HOLD
+#define intel_wake_firmware_request intel_gpu_hold_firmware_request
+#elif defined(SRVROS_INTEL_JOINT)
 #define intel_wake_firmware_request intel_joint_firmware_request
 #elif defined(SRVROS_INTEL_REHOLD)
 #define intel_wake_firmware_request intel_rehold_firmware_request
@@ -436,6 +438,9 @@ uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
 #endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
     if(d==&devices[3]){switch(off){case 0:return 0x160c8086;case 4:return 0x00100006;case 8:return 0x04030001;case 0x34:return 0x40;case 0x40:return 0x00030001;case 0x44:return prepare_stores==10 && !strcmp(engine_mode,"prep-audio")?0:3;default:return 0;}}
+#endif
+#ifdef SRVROS_INTEL_GPU_HOLD
+    if(d==&devices[0] && off==4)return 0x00100000|intel_display_test_gpu_hold_command();
 #endif
     config_reads++;assert(config_reads<(wake_mode?10000000:gt_mode?20000:window_mode?5000:1000));
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
@@ -876,6 +881,9 @@ int main(int argc,char **argv) {
     static char rehold_recipe[2100];snprintf(rehold_recipe,sizeof rehold_recipe,"%s srvros.intel-rehold=request-cancel",interval_recipe);wake_cmd.cmdline=rehold_recipe;
 #ifdef SRVROS_INTEL_JOINT
     static char joint_recipe[2200];snprintf(joint_recipe,sizeof joint_recipe,"%s srvros.intel-joint=hda-claim",rehold_recipe);wake_cmd.cmdline=joint_recipe;
+#ifdef SRVROS_INTEL_GPU_HOLD
+    static char gpu_hold_recipe[2300];snprintf(gpu_hold_recipe,sizeof gpu_hold_recipe,"%s srvros.intel-gpu-requester=hold",joint_recipe);wake_cmd.cmdline=gpu_hold_recipe;
+#endif
 #endif
 #endif
 #endif
@@ -949,7 +957,11 @@ int main(int argc,char **argv) {
 #ifdef SRVROS_INTEL_REQUESTER_AUDIT
  good=good && (!strcmp(engine_mode,"report") || !strcmp(engine_mode,"req-pending") || !strcmp(engine_mode,"req-pending-transition") || !strcmp(engine_mode,"take-busy") || !strcmp(engine_mode,"take-mask") || !strcmp(engine_mode,"take-reserved") || !strcmp(engine_mode,"take-domain") || !strcmp(engine_mode,"take-domain-reserved") || !strcmp(engine_mode,"active") || !strcmp(engine_mode,"pending") || !strcmp(engine_mode,"flip-wait") || !strcmp(engine_mode,"tlb-pending"));
 #endif
- assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
+
+#ifdef SRVROS_INTEL_GPU_HOLD
+if(!strcmp(engine_mode,"gpu-pending"))good=true;
+#endif
+assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
 #ifdef SRVROS_INTEL_BLITTER_TRIAL
  if(!strcmp(engine_mode,"blit-uncertain") || !strcmp(engine_mode,"blit-readback") || !strcmp(engine_mode,"blit-late-foreign") || !strcmp(engine_mode,"blit-reader-change") || !strcmp(engine_mode,"blit-audio-change") || !strcmp(engine_mode,"blit-mode-change")) {
   assert(!display_access_allowed());for(unsigned j=0;j<WAKE_MAPS;j++)assert(pa[INTEL_CAPTURE_PAGES+1+j]);

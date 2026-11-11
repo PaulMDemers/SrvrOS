@@ -100,7 +100,9 @@ static void erehold_report(const struct engine_prepare_trial *t) {
  }
  for(unsigned n=0;n<r->writes && n<2;n++)console_printf("intel-rehold-ack: v=1 n=%u d=%u,%u,%u begin=%u end=%u\n",(uint64_t)n,(uint64_t)r->ack[n],(uint64_t)r->final[n],(uint64_t)r->phase_polls[n],r->phase_begin[n],r->phase_end[n]);
  console_printf("intel-rehold-summary: v=%u origin=%u owner_origin=%u begin=%u end=%u epoch=%u attempts=%u writes=%u reads=%u polls=%u acks=%u samples=%u child_borrows=%u child_returns=%u child_started=%u child_completed=%u child_retained=%u restored=%u uncertain=%u stage=%u reason=%u clock_at=%u clock_prev=%u live_checks=%u live_reads=%u live_failed=%u complete=%u obligations=255 assurances=0 pte_writes=0 managed_pages=0 hardware_ownership=0\n",
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_GPU_HOLD
+ (uint64_t)3,
+#elif defined(SRVROS_INTEL_JOINT)
  (uint64_t)2,
 #else
  (uint64_t)1,

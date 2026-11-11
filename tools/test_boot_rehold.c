@@ -1,4 +1,7 @@
-#ifdef SRVROS_INTEL_JOINT
+#ifdef SRVROS_INTEL_GPU_HOLD
+#define BOOT_RECIPE_CHECK intel_gt_boot_gpu_hold_recipe
+#define BOOT_TOKENS 22
+#elif defined(SRVROS_INTEL_JOINT)
 #define BOOT_RECIPE_CHECK intel_gt_boot_joint_recipe
 #define BOOT_TOKENS 21
 #else
@@ -12,6 +15,9 @@ int main(void) {
  const char *recipe="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot srvros.intel-engines=read-only srvros.intel-completion=read-only srvros.intel-takeover=preflight srvros.intel-engines-prepare=request-cancel srvros.intel-held-requester=read-only srvros.intel-bcs-reset=held-blitter-only srvros.intel-interval=read-only srvros.intel-rehold=request-cancel"
 #ifdef SRVROS_INTEL_JOINT
  " srvros.intel-joint=hda-claim"
+#endif
+#ifdef SRVROS_INTEL_GPU_HOLD
+ " srvros.intel-gpu-requester=hold"
 #endif
  ;
  assert(BOOT_RECIPE_CHECK(recipe) && !intel_gt_boot_held_reset_recipe(recipe));reset();

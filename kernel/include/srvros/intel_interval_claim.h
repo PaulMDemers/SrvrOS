@@ -43,6 +43,12 @@ bool intel_interval_claim_check(struct intel_interval_claim *);
 bool intel_interval_claim_manifest(const struct intel_interval_claim *,struct scanout_transfer_manifest *);
 bool intel_interval_borrow_open(struct intel_interval_claim *,struct intel_interval_borrow *);
 bool intel_interval_borrow_check(struct intel_interval_borrow *);
+/* Pure original source predicate, also usable inside its serialized callback.
+ * No I/O, fresh clock, data output, reentry permission or hardware grant. */
+bool intel_interval_borrow_live(const struct intel_interval_borrow *);
+/* Publish a just-sampled timestamp from the SAME source clock. No I/O or
+ * restarted origin. Source/time loss latches fault and retains registration. */
+bool intel_interval_borrow_deadline(struct intel_interval_borrow *,uint64_t);
 bool intel_interval_borrow_manifest(const struct intel_interval_borrow *,struct scanout_transfer_manifest *);
 /* Captured data for a future owned transaction. No fresh clock or RAM
  * ownership is established by planning a replacement entry. */
