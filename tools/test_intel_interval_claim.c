@@ -126,6 +126,14 @@ static bool exercise_borrow(struct claim_model *m) {
  assert(!intel_interval_claim_close(c) && m->clocks==clocks);
  assert(!intel_interval_borrow_open(c,&m->second));
  if(!intel_interval_claim_check(c))return false;
+ if(cmode(m,"borrow-parent-between")) {
+  b->claim=0;
+  assert(!intel_interval_borrow_check(b) && b->fault);
+  b->claim=c;
+  assert(!intel_interval_borrow_return(b) && !intel_interval_claim_check(c));
+  assert(c->reason==IIC_SOURCE && !intel_interval_claim_close(c));
+  return false;
+ }
  if(cmode(m,"borrow-lost-between")) {
   c->dependent=0;
   assert(!intel_interval_borrow_check(b) && b->fault && c->reason==IIC_SOURCE);

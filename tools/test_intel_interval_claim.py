@@ -10,6 +10,7 @@ class ClaimTests(unittest.TestCase):
     def test_registered_borrower_and_failure_prefixes(self):
         baseline=run('borrow')
         run('borrow-lost-between')
+        run('borrow-parent-between')
         clocks,guards=map(int,re.search(r'borrow_clocks=(\d+) borrow_guards=(\d+)',baseline).groups())
         for modes,count in [(('borrow-zero','borrow-backward','borrow-deadline'),clocks),
                             (('borrow-guard','borrow-drop','borrow-count','borrow-register','borrow-rebind',

@@ -131,14 +131,14 @@ static bool registered_borrow(const struct intel_interval_borrow *b) {
   b->claim->state==IIC_ACTIVE && !b->claim->reason && borrower_source(b->claim);
 }
 static bool borrow_entry(struct intel_interval_borrow *b) {
- if(!b || b->object!=b || !b->active || b->busy || b->fault ||
-    !b->claim || b->claim->object!=b->claim || b->claim->busy)return false;
+ if(!b || b->object!=b || !b->active || b->busy || b->fault)return false;
+ if(!b->claim || b->claim->object!=b->claim){b->fault=true;return false;}
+ if(b->claim->busy)return false;
  if(registered_borrow(b))return true;
  /* A copied consumer cannot fault the original owner. A still-registered
   * original whose other source witness was lost must latch that failure. */
- if(b->claim->registered==b || b->claim->dependent==b) {
-  b->fault=true;fail(b->claim,IIC_SOURCE);
- }
+ b->fault=true;
+ if(b->claim->registered==b || b->claim->dependent==b)fail(b->claim,IIC_SOURCE);
  return false;
 }
 bool intel_interval_borrow_open(struct intel_interval_claim *c,struct intel_interval_borrow *b) {
