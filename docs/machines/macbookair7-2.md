@@ -35,12 +35,20 @@ an explicit source-bound enabled-ring transition, fresh post-store census and
 valid reset/preservation/ownership semantics before implementing another native
 candidate. Enabled shutdown is still unexercised on this machine.
 
-First integrate inspected main`91514b3f` (PR469/470 filesystem work), which was
-deliberately deferred while this exact candidate was frozen. Touched shared
-scope now: integration of bounded bitmap/FAT/stream tests plus the new GPU entry
-contract and next-transition planning; no new register writer or deadline
-extension. Keep PR19 networking and PR379 WebCore independent. Checkpoint:
-`build/air-entry-compose-20261111/status.md`; source-specific proof:
+Integrated inspected main`91514b3f` (PR469/470 filesystem work) in merge
+`7d84bfe3` after collecting the frozen trial. The sole Makefile append conflict
+preserves both target groups. Local host/docs, allocation, FAT-window, nine-case
+byte-identical I/O comparison, bitmap-span, large-file/fragment/fault stream
+tests, the full eight-test entry suite (64 callback faults,92 sourcewords and
+1,917 HDA boundaries) and native diagnostic ELF build pass. GPU source is
+unchanged by the merge. No new image is staged or physically accepted; installed
+source remains0fadb. These affected checks do not claim a new global28-image
+qualification or native acceptance of the merged filesystem behavior.
+
+Touched shared scope next: the GPU entry contract and explicit enabled-ring
+transition design; no new register writer or deadline extension is introduced
+by this checkpoint. Keep PR19 networking and PR379 WebCore independent.
+Checkpoint:`build/air-entry-compose-20261111/status.md`; source-specific proof:
 `build/air-entry-compose-20261111/returned/return-proof.json`.
 
 Qualification of0fadb remains historical: full local28-image build/USB/host/
