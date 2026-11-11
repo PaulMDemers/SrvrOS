@@ -2,6 +2,28 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
+### Active trial: maintained GPU requester hold retry
+
+Prepare a fresh `intel-gpu-hold` image from the validated `3703eaea` integration
+baseline, with source-equivalent qualification at `3028016d`; subsequent local
+changes are documentation only. Actual fetched main is `d4580da3` (PR465,
+scheduler/append-wait changes), inspected and deliberately deferred until this
+bounded trial is collected. It is not represented as present or accepted here.
+PR19 networking and PR379 WebCore remain independent. Scope is exact staging,
+current-source requester/claim sanitizers and controls, native object/isolation/
+log-budget checks, VM persistence and physical preflight. No product code,
+geometry/firmware gate, deadline or enabled-ring reset admission change.
+
+The last source-matched standalone observation is fully collected. It does not
+authorize this boot: the new requester trial must obtain its original disabled
+entry, claim and joint owner afresh, observe Command7/3/7 and AF pending-clear,
+return its consumer and prove full preservation/retirement. Enabled entry refuses;
+all255 completion obligations and managed memory remain ungranted. Checkpoint:
+`build/air-gpu-requester-retry-20261111`. Currentd260c6f11f043e51,
+recovery9aa8dbf6fbda8252 and accepted prior joint978 remain preserved. Existing
+unattended reboot authorization and volume1% preference apply after validation;
+save the installed/armed run state before triggering the one-shot test.
+
 ### Latest native shutdown: already-disabled observation accepted
 
 Source `3028016d`, release `d260c6f11f043e51`, session
