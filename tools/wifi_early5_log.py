@@ -7,7 +7,7 @@ def check(log):
     return calibration(log, early=True)
 
 
-def transport(raw, release, *, volume, session):
+def transport(raw, release, *, volume, session, comparison=None):
     """Bind complete logger prefixes, including recurring periodic snapshots.
 
     This validates transport identity only. It does not accept calibration,
@@ -27,7 +27,9 @@ def transport(raw, release, *, volume, session):
             isinstance(volume, str) and re.fullmatch(r'[0-9a-f]{8}', volume) and
             isinstance(session, str) and re.fullmatch(r'session-[0-9a-f]{16}-[0-9a-f]{2}', session),
             'invalid early5 transport identity')
-    config = limine_config(release, f'ram-usb-wifi-fw-v144-laptop-probe-{volume}-auto-return')
+    require(comparison in (None, 'early', 'late'), 'invalid comparison arm')
+    version = {None: 144, 'early': 145, 'late': 146}[comparison]
+    config = limine_config(release, f'ram-usb-wifi-fw-v{version}-laptop-probe-{volume}-auto-return')
     expected = next(l.split(':', 1)[1].split() for l in config.splitlines()
                     if l.strip().startswith('cmdline:'))
     markers = {}

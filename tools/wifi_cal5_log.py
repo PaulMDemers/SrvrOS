@@ -15,7 +15,7 @@ def fields(line,prefix):
  require(' '.join(f'{k}={v}' for k,v in re.findall(r'([a-z_]+)=([^ ]+)',line[len(prefix)+2:]))==line[len(prefix)+2:],'malformed ledger fields')
  return data
 
-def check(log,*,early=False):
+def check(log,*,early=False,early_before_mac=True):
  require('srvros.wifi-cal5=1' in log,'missing calibration profile');r=parent(log);all_lines=log.splitlines();rows=[x for x in all_lines if x.startswith('wifi-cal5') and not x.startswith('wifi-cal5-cleanup')]
  require(rows and rows[0]==PROGRESS,'missing calibration progress')
  # One hook strictly after all77 selected VCO I/O and before inverse BBP.
@@ -83,14 +83,20 @@ def check(log,*,early=False):
  poll(0x1200,2,1000,1);put(0,1,0x1400,0x17f97);put(0,1,0x1340,txop);guards(0,1,0)
  if early:
   from wifi_early5_observation import observe
-  observed=observe(log);require(observed['present'],'missing early queue outcome')
+  observed=observe(log,before_mac=early_before_mac);require(observed['present'],'missing early queue outcome')
   require('srvros.wifi-early5=1' in log and observed['summary']['complete']==1 and
           observed['summary']['operations']==op,'incomplete early calibration/queue')
   require(pos==len(rows) and all_lines.index(rows[-1])<all_lines.index(after),'extra/misplaced early calibration rows')
   published=[x for x in all_lines if x.startswith('wifi-early5-publish:')]
-  require(len(published)==1 and all_lines.index(rows[1])<all_lines.index(published[0])<all_lines.index(rows[2]),'early queue outside pre-MAC checkpoint')
+  require(len(published)==1,'missing unique comparison publication')
+  if early_before_mac:
+   require(all_lines.index(rows[1])<all_lines.index(published[0])<all_lines.index(rows[2]),'early queue outside pre-MAC checkpoint')
+  else:
+   calibrated=[x for x in rows if x.startswith('wifi-cal5-calibration:')]
+   require(len(calibrated)==1 and all_lines.index(calibrated[0])<all_lines.index(published[0])<all_lines.index(rows[-1]),'late queue outside post-calibration checkpoint')
   r.update(operations=r['operations']+op,early5_observation=observed,early5_complete=True,
-           scope='bounded pre-MAC retained main-RX/calibration/Stop comparison;no network or physical-cause acceptance')
+           scope='bounded retained main-RX/calibration/Stop comparison;no network or physical-cause acceptance',
+           before_mac=early_before_mac)
   return r
  stop=take('wifi-cal5-stop');cleanup=cleanup_proof(log,stop)
  stop_keys=set('ok posts state dequeue ring retained'.split()) | ({'cleanup'} if cleanup['cal5_cleanup_enabled'] else set())

@@ -120,6 +120,8 @@ bool xhci_wifi_capture_channel_vco5(void);
 bool xhci_wifi_cal5_cleanup_enable(void);
 bool xhci_wifi_capture_cal5(void);
 bool xhci_wifi_capture_early5(void);
+bool xhci_wifi_capture_rx_compare5_early(void);
+bool xhci_wifi_capture_rx_compare5_late(void);
 bool xhci_wifi_capture_discovery5(void);
 bool xhci_wifi_capture_power5(void);
 bool xhci_wifi_capture_handoff5(void);

@@ -7,6 +7,43 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Matched-logging RX timing comparison scope (November 11)
+
+User requests the controlled comparison, followed by connection/HTTP testing.
+Basee98dde86 includes fetched maina611fd9e; no newer main commit is available.
+PR472 touches Air6,1 commit/USB wait timing and workspace logger instrumentation;
+this comparison changes the logger caller, not that shared instrumentation.
+PR301 GPU/HDA and PR379
+WebCore remain separate scopes. PR19 owns this work. No other task is contacted.
+
+Bounded implementation: two opt-in recipes using one identical kernel/userspace
+image, both with periodic workspace logging quiesced before firmware startup,
+the same32-page allocation/configuration and fixed161/20MHz parent. The selected
+variable is main-RX publication before MAC start versus after successful
+calibration. The late control must publish nothing on calibration failure;
+pending/uncertain DMA stays retained without speculative cleanup. Preserve the
+original500ms failure, same-TD1.5s observer, RF/firmware gates and cold reset.
+Legacyv144 and ordinary connection profiles retain their existing behavior.
+
+Touched scope: early-RX/calibration owner, explicit main dispatch/logger gate,
+host recipes/saved decoders, native-path and profile tests. Qualify both variants
+under normal/fatal native-C tests and exact-stage persistence/recovery before
+installation. Save strict arm identity/logger state with every return; compare
+only matching images/settings. Do not claim causality from one successful arm.
+Use results to choose production connection integration, then test authenticated
+disconnect/reconnect and actual HTTP. Installed ad83869d remains unarmed during
+implementation; workspace/recovery identities remain this unit's own.
+
+The two variants are implemented asv145/v146 with source-extracted logger gate
+and explicit dispatch. Development checks pass75 native-C cases,16 dispatch
+methods,274 profile methods and emitted full-child/parent/transport tests.
+Both whole children cover success/timeout after1906 prior MCU receives, including
+the original sequence3817 failure boundary. The late timeout publishes zero TDs
+and issues no Stop. A misplaced unreachable v144 firmware/no-PMK verifier block
+is moved into actual artifact verification and extended to both new recipes.
+Fatal sanitizers and matched-stage persistence/storage qualification are next;
+no physical acceptance or installation follows from development tests alone.
+
 ### Early main-RX native return and collection correction (November 11)
 
 Runtime `5473623f` / release `ad83869d32dbd00e` returned in session

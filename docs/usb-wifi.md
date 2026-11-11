@@ -69,6 +69,32 @@ prove wire-level absence. Wi-Fi remains failed for this lifetime; storage and
 recovery pass. Main-RX posting and initial-channel differences remain hypotheses,
 not a justified production correction. See the unit record for the closed bank.
 
+## Matched-logging main-RX comparison (v145/v146; native pending)
+
+The two new opt-in recipes use identical kernel, initramfs and firmware bytes,
+including the same bound journal descriptor. Only their command-line selection
+differs: main RX before MAC start (v145) or after all five successful calibration
+commands (v146). Both configure and retain32 pages before MAC start and quiesce
+the periodic logger before firmware startup. Kernel dispatch refuses either
+arm unless that quiesce succeeds. Legacyv144 keeps its original logging policy.
+No credentials, connection owner or network OUT is admitted by these recipes.
+
+The late control cannot publish RX or attempt Stop after a calibration failure.
+Native-C coverage now has75 cases, including both whole children, success and
+first-R0 timeout at sequence3817 after1906 prior receives, original loss
+observation and retained pending ownership. Existing early overlap/Stop/fault
+tests remain. The source-extracted main logger block/dispatch, exact three-profile
+payload equality and full emitted-child/parent decoders are covered by host tests.
+New saved rows bind selected arm, successful logger parking,32-page capacity,
+calibration/publication order and completion accounting. Failure remains failure.
+
+The staging verifier now actually checks firmware and absence of a private PMK
+for v144–146; v144's earlier check was misplaced in unreachable recipe code.
+Both comparison arms still require independent journal and exact-image VM/storage
+qualification. A controlled cold return is pending; software cases do not
+establish physical causality. Compare these two arms on one frozen image before
+production connection integration, same-boot disconnect/reconnect and paired HTTP.
+
 ## Separate early main-RX comparison (v144; bounded native result)
 
 `--wifi-early5` requires the complete fixed161 calibration parent and an

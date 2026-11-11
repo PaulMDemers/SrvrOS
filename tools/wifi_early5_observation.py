@@ -23,7 +23,8 @@ def row(line, prefix, keys):
     return d
 
 
-def observe(log):
+def observe(log, *, before_mac=True):
+    require(type(before_mac) is bool, 'invalid RX timing policy')
     lines = [l for l in log.splitlines() if l.lstrip().startswith('wifi-early5')]
     summaries = [l for l in lines if l.startswith('wifi-early5:')]
     require(len(summaries) <= 1, 'duplicate early5 summary')
@@ -85,6 +86,7 @@ def observe(log):
     previous = 0
     for i, x in enumerate(b):
         before, after = x['completed_before'], x['completed_after']
+        require(before_mac or before == after == 0, 'late control received data during calibration')
         if i < s['commands']:
             require(previous <= before <= after <= s['completed'], 'early5 boundary reversal')
             previous = after
@@ -97,8 +99,8 @@ def observe(log):
                 'version pages slot ring before_mac retained reused'.split())
         require(p['slot'] in range(1, 256) and p['ring'] and p['ring'] % 4096 == 0 and
                 p == dict(version=1, pages=s['posted'], slot=p['slot'], ring=p['ring'],
-                          before_mac=1, retained=1, reused=0),
-                'early5 publication was not before MAC/unique/retained')
+                          before_mac=int(before_mac), retained=1, reused=0),
+                'early5 publication has wrong timing/identity/retention')
         require(lines.index(publishes[0]) < lines.index(summaries[0]), 'late early5 publication row')
     boots = [l for l in lines if l.startswith('wifi-early5-boot:')]
     require(len(boots) <= 1 and all(l == 'wifi-early5-boot: calibration_only=1 net_init_deferred=1 worker_deferred=1' for l in boots),

@@ -16,10 +16,10 @@ from wifi_early5_log import check
 from wifi_cal5_log import parent
 
 
-def fixture():
+def fixture(trace_mode=4):
     binary = Path(os.environ.get('WIFI_EARLY5_BINARY', 'build/tests/xhci-cal5-mcu-host')).resolve()
-    child = subprocess.check_output([str(binary), '--trace-early5', '4'], text=True)
-    lines = [l for l in child.splitlines() if l.startswith(('wifi-cal5', 'wifi-early5', 'wifi-mcu-loss-'))]
+    child = subprocess.check_output([str(binary), '--trace-early5', str(trace_mode)], text=True)
+    lines = [l for l in child.splitlines() if l.startswith(('wifi-cal5', 'wifi-early5', 'wifi-mcu-loss-', 'wifi-rx-compare5'))]
     admission = [i for i, l in enumerate(lines) if l.startswith('wifi-cal5-admission:')]
     assert len(admission) == 1
     lines[admission[0]] = 'wifi-cal5-admission: configured=1 parent=1 selected=1 vco=1 fields=1 context=1 owner=1'

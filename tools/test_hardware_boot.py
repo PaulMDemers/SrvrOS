@@ -31,10 +31,19 @@ class InstallTests(unittest.TestCase):
         for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf'):
             p=self.root/'build'/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b'fixture')
         with tarfile.open(self.root/'build/initramfs.tar','w',format=tarfile.USTAR_FORMAT):pass
-        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']),patch('wifi_firmware_package.add_to_initramfs'),patch('wifi_firmware_package.verify_initramfs'):
-            release=boot.stage(**args)
-            self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
-            self.assertEqual(journal.verify_initramfs(self.stage/release/'initramfs.tar'),descriptor)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']*3),patch('wifi_firmware_package.add_to_initramfs'),patch('wifi_firmware_package.verify_initramfs'):
+            payloads=[]
+            for number,arm in ((144,None),(145,'early'),(146,'late')):
+                staged_args=dict(args,wifi_early5_timing=arm)
+                release=boot.stage(**staged_args)
+                manifest=boot.verify(self.stage/release)
+                self.assertEqual(manifest['config_version'],version.replace('v144-','v'+str(number)+'-'))
+                self.assertEqual(journal.verify_initramfs(self.stage/release/'initramfs.tar'),descriptor)
+                payloads.append({k:v for k,v in manifest['sha256'].items() if not k.endswith('limine.conf')})
+            self.assertEqual(payloads,[payloads[0]]*3)
+        for arm in ('unknown',False,1):
+            with self.subTest(arm=arm),self.assertRaises(ValueError):boot.stage(**dict(args,wifi_early5_timing=arm))
+        with self.assertRaises(ValueError):boot.stage(**dict(args,wifi_early5=False,wifi_early5_timing='late'))
         for field in ('wifi_early5','wifi_cal5','startup_journal'):
             changed=dict(args);changed[field]=False
             if field=='wifi_early5':changed['startup_journal']=path
@@ -54,6 +63,16 @@ class InstallTests(unittest.TestCase):
                     text+bootrow+'wifi-early5-boundary: version=1 step=0 completed_before=0 completed_after=0\n'):
             with self.subTest(bad=bad),self.assertRaises((ValueError,AssertionError)):
                 verify_early5_absent_radio(bad)
+
+    def test_rx_compare_absent_radio_requires_matching_logger(self):
+        from hardware_boot_smoke import verify_early5_absent_radio
+        for arm in ('early','late'):
+            text=('cmdline: srvros.wifi-early5=1 srvros.startup-journal=1 srvros.wifi-early5-timing='+arm+'\n'
+                  'wifi-early5-boot: calibration_only=1 net_init_deferred=1 worker_deferred=1\n')
+            logger=f'wifi-rx-compare5-log: version=1 parked=1 periodic=0 before_mac={int(arm=="early")}\n'
+            verify_early5_absent_radio(text+logger)
+            for bad in (text,text+logger.replace('parked=1','parked=0'),text+logger+logger):
+                with self.assertRaises((ValueError,AssertionError)):verify_early5_absent_radio(bad)
 
     def test_power5_profile(self):
         version='ram-usb-wifi-fw-v123-laptop-probe-0e535900-auto-return'

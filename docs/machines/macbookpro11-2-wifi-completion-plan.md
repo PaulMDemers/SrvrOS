@@ -9,6 +9,16 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
+The controlled continuation now implementsv145 (publish before MAC) andv146
+(publish after calibration) with the same32-page allocation/configuration,
+fixed161/20MHz parent and parked periodic logger. Both use the same runtime
+payload bytes; only the explicit arm token differs. Development native75,
+source-extracted logger/dispatch16, staged-profile274 and full-ledger decoder
+checks pass; fatal/image/persistence qualification and both cold returns are
+pending. Preserve the original500ms failure and retained-TD1.5s observer. A
+failed late calibration must leave RX unpublished and issue no Stop. Compare
+matching arms before deciding production integration and paired HTTP testing.
+
 The v144 early-main-RX comparison returned on runtime5473623f/release
 ad83869d32dbd00e in session00066005112a7445-00. All five calibration replies,
 MAC disable/drain, exact endpoint Stop and full RF restoration pass. Six of32

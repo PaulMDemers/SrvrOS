@@ -4,6 +4,7 @@
 #define WIFI_EARLY5_SLOTS 32u
 static struct {
  bool requested,attempted,armed,failed,frozen,control_active,stop_seen;
+ bool comparison,after_calibration;
  uint64_t physical[WIFI_EARLY5_SLOTS],ring,stop_index,control_setup;
  uintptr_t pointers[WIFI_EARLY5_SLOTS],ring_pointer;
  struct xhci_trb events[WIFI_EARLY5_SLOTS],stop_event,stop_command;

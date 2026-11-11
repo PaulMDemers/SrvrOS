@@ -66,7 +66,8 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
  if(value==9){early5_rx_bells++;assert(wifi_early5_layout());return;}
  if(value==11 || value==16){
   struct xhci_wifi_mcu *m=&d->firmware.mcu;unsigned step=wifi_cal5.commands-1;
-  assert(wifi_early5.armed && step<5 && m->pending);
+  assert((wifi_early5.after_calibration?!wifi_early5.armed:wifi_early5.armed) && step<5 && m->pending);
+  if(wifi_early5.after_calibration)assert(!wifi_early5.published && !early5_rx_bells);
   early5_mcu_calls++;
   if(early5_owner_fault){
    struct xhci_wifi_mcu_bulk_receipt *r=wifi_mcu_observer.receipt;assert(r);
@@ -78,7 +79,7 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
     default:assert(!"unexpected early5 MCU owner mutation");
    }
   }
-  if(wifi_early5.completed<32)early5_data(early5_fault);
+  if(wifi_early5.armed && wifi_early5.completed<32)early5_data(early5_fault);
   if(value==11 && early5_timeout)return;
   if(early5_history_active){
    cal5_mcu_lifetime.event_index=early5_producer;cal5_mcu_lifetime.event_cycle=early5_cycle;
@@ -108,7 +109,7 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
   else{
    assert(v);*v=0;for(unsigned i=0;i<4;i++)*v|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
   }
-  if(early5_control_inject && early5_control_calls%5==0 && wifi_early5.completed<32){
+  if(wifi_early5.armed && early5_control_inject && early5_control_calls%5==0 && wifi_early5.completed<32){
    if(early5_control_fault==1)wifi_early5.control_active=false;
    if(early5_control_fault==2)wifi_early5.control_setup^=0x100000000ull;
    early5_data(0);
@@ -117,7 +118,7 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
    .status=1u<<24,.control=(32u<<10)|(1u<<16)|((uint32_t)d->slot_id<<24)});
  }
 }
-static struct xhci_device *early5_setup_limit(unsigned limit){
+static struct xhci_device *early5_base_setup(void){
  struct xhci_device *d=cal5_mcu_setup(0,0);
  if(early5_history_requested){
   memset(&cal5_mcu_lifetime,0,sizeof cal5_mcu_lifetime);
@@ -135,6 +136,10 @@ static struct xhci_device *early5_setup_limit(unsigned limit){
   assert(d->firmware.mcu.bulk_sequence==3815 && d->firmware.mcu.response.enqueue==16);
   cal5_mcu_lifetime_active=false;cal5_mcu_lifetime.prefix=false;
  }
+ return d;
+}
+static struct xhci_device *early5_setup_limit(unsigned limit){
+ struct xhci_device *d=early5_base_setup();
  memset(&wifi_early5,0,sizeof wifi_early5);wifi_early5.requested=true;
  early5_history_active=early5_history_requested;
  early5_test_active=true;early5_producer=(unsigned)xhci.event_dequeue;
@@ -163,24 +168,46 @@ static bool early5_full_cycle(void){
   wifi_cal5_write,wifi_cal5_delay,wifi_cal5_now,wifi_cal5_inspection};
  return mt76_mac_cycle_run(&wifi_cal5.mac,&io);
 }
-static void early5_whole_native_child(void){
- struct xhci_device *d=cal5_mcu_setup(0,0);
+static void early5_whole_native_variant(unsigned mode,bool timeout){
+ struct xhci_device *d=early5_base_setup();
  memset(&wifi_cal5,0,sizeof wifi_cal5);memset(&wifi_early5,0,sizeof wifi_early5);
- wifi_early5.requested=true;wifi_channel_vco5.d=d;context_write32(d->output_context,9,0,0);
- early5_test_active=true;early5_producer=early5_mcu_calls=early5_control_calls=early5_rx_bells=0;
- early5_cycle=true;early5_control_inject=true;
- early5_timeout=early5_stop_race=early5_stop_length_invalid=false;
+ wifi_early5.requested=true;wifi_early5.comparison=mode!=0;wifi_early5.after_calibration=mode==2;
+ wifi_channel_vco5.d=d;context_write32(d->output_context,9,0,0);
+ early5_test_active=true;early5_producer=(unsigned)xhci.event_dequeue;
+ early5_mcu_calls=early5_control_calls=early5_rx_bells=0;
+ early5_cycle=xhci.event_cycle;early5_control_inject=true;
+ early5_history_active=early5_history_requested;
+ early5_timeout=timeout;early5_stop_race=early5_stop_length_invalid=false;
  early5_fault=early5_stop_fault=early5_owner_fault=early5_control_fault=0;
  early5_mac=0;early5_filter=0x17f97;early5_txop=0x583f;
- assert(wifi_cal5_inspect(&wifi_channel_vco5));
- assert(!wifi_cal5.active && wifi_early5.frozen && wifi_cal5.commands==5);
- assert(early5_rx_bells==1 && early5_mcu_calls==10 && wifi_early5.during_mcu==10);
+ assert(wifi_cal5_inspect(&wifi_channel_vco5)==!timeout);
+ assert(!wifi_cal5.active && wifi_early5.frozen==!timeout && wifi_cal5.commands==(timeout?1u:5u));
+ assert(early5_rx_bells==(mode==2 && timeout?0u:1u) && early5_mcu_calls==(timeout?2u:10u));
+ if(mode==2){
+  assert(!wifi_early5.during_mcu);
+  for(unsigned i=0;i<5;i++)assert(!wifi_early5.at_command[i] && !wifi_early5.at_return[i]);
+  if(timeout){
+   assert(!wifi_early5.published && !wifi_early5.armed && !wifi_cal5.stop_attempted);
+   assert(d->ep0_quarantined && d->firmware.mcu.pending && !wifi_cal5_stop());
+  }
+ }else if(!timeout)assert(wifi_early5.during_mcu==10);
+ if(early5_history_requested){
+  if(timeout)assert(d->firmware.mcu.bulk_failure.sequence==3817);
+  else assert(d->firmware.mcu.bulk_sequence==3825);
+ }
  assert(!wifi_cal5.window.attempted && !wifi_cal5.posts && !wifi_cal5.cleanup_posts);
  assert(!wifi_cal5_inspect(&wifi_channel_vco5));early5_finish();
 }
+static void early5_whole_native_child(void){early5_whole_native_variant(0,false);}
 static void test_wifi_early5(void){
  unsigned cases=0;
  early5_whole_native_child();cases++;
+ for(unsigned mode=1;mode<=2;mode++)for(unsigned timeout=0;timeout<2;timeout++){
+  early5_whole_native_variant(mode,timeout!=0);cases++;
+ }
+ for(unsigned mode=1;mode<=2;mode++)for(unsigned timeout=0;timeout<2;timeout++){
+  early5_history_requested=true;early5_whole_native_variant(mode,timeout!=0);cases++;
+ }
  struct xhci_device *d=early5_setup();
  assert(early5_full_cycle());
  assert(wifi_cal5.cal.complete && wifi_cal5.commands==5 && early5_mcu_calls==10);
@@ -264,6 +291,7 @@ static void test_wifi_early5(void){
 }
 static void trace_wifi_early5(unsigned mode){
  if(mode==4){early5_whole_native_child();return;}
+ if(mode>=5 && mode<=8){early5_whole_native_variant(mode<7?1:2,(mode&1)==0);return;}
  early5_setup();
  if(mode==1)early5_timeout=true;
  if(mode==2)for(unsigned i=0;i<32;i++){early5_data(0);early5_dispatch_one();}

@@ -9,8 +9,8 @@ VOLUME = '0e535900'
 SESSION = 'session-00066005112a7445-00'
 
 
-def fixture():
-    config = limine_config(RELEASE, f'ram-usb-wifi-fw-v144-laptop-probe-{VOLUME}-auto-return')
+def fixture(version=144):
+    config = limine_config(RELEASE, f'ram-usb-wifi-fw-v{version}-laptop-probe-{VOLUME}-auto-return')
     command = next(l.split(':', 1)[1].strip() for l in config.splitlines()
                    if l.strip().startswith('cmdline:'))
     prefix = ('cmdline: ' + command + '\nworkspace-log: directory=/work/srvros-work/Logs/' +
@@ -44,6 +44,14 @@ class EarlyTransportTests(unittest.TestCase):
         raw = fixture()
         for optional in ((), ('session-a.log',), ('session-b.log',)):
             verify({n: raw[n] for n in ('boot.log', 'exit.log', *optional)})
+
+    def test_comparison_transport_binds_exact_selected_arm(self):
+        for number, arm in ((145, 'early'), (146, 'late')):
+            raw = fixture(number)
+            transport(raw, RELEASE, volume=VOLUME, session=SESSION, comparison=arm)
+            for wrong in (None, 'late' if arm == 'early' else 'early', 'unknown'):
+                with self.subTest(arm=arm, wrong=wrong), self.assertRaises(ValueError):
+                    transport(raw, RELEASE, volume=VOLUME, session=SESSION, comparison=wrong)
 
     def test_missing_core_unknown_and_wrong_owner_files(self):
         raw = fixture()

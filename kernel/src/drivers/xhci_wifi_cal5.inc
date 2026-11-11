@@ -324,7 +324,7 @@ static bool wifi_cal5_inspection(void *c,uint32_t tx,uint32_t ibi){
  good=status==MT76_CAL_OK && wifi_cal5.cal.complete && wifi_cal5.cal.cleanup_complete && wifi_cal5.cal.restored_mask==3 && wifi_cal5.commands==5;
  console_printf("wifi-cal5-calibration: status=%u complete=%u restored=%u commands=%u alc=%x ibi=%x alc_restored=%x ibi_restored=%x ok=%u\n",(uint64_t)status,(uint64_t)wifi_cal5.cal.complete,(uint64_t)wifi_cal5.cal.restored_mask,(uint64_t)wifi_cal5.commands,(uint64_t)wifi_cal5.cal.saved[0],(uint64_t)wifi_cal5.cal.saved[1],(uint64_t)wifi_cal5.cal.restored[0],(uint64_t)wifi_cal5.cal.restored[1],(uint64_t)good);
  if(!good)return false;
- if(wifi_early5.requested)return true;
+ if(wifi_early5.requested)return !wifi_early5.after_calibration || wifi_early5_publish();
  wifi_cal5.receiving=true;const struct mt76_rx_window_io window={c,wifi_cal5_owned,wifi_cal5_post,wifi_cal5_poll,NULL,wifi_cal5_now};
  if(wifi_cal5.cleanup_enabled)console_write("wifi-cal5-cleanup-plan: forward=8 reserved=8\n");
  console_write("wifi-cal5-progress: calibration replies verified;passive161/20MHz window up to10seconds;no network OUT\n");
@@ -440,7 +440,9 @@ static bool wifi_cal5_inspect(void *context){
  console_write("wifi-cal5-progress: hold selected161/trim44;configure retained RX;MAC start;fresh IBI probe;R0 VCO161 FULL901 LC1 RXDCOC1;controlled RX;drain disable stop;inverse originals\n");
  bool ok=wifi_cal5_configure();
  console_printf("wifi-cal5-admission: configured=%u parent=%u selected=%u vco=%u fields=%u context=%u owner=%u\n",(uint64_t)ok,(uint64_t)wifi_channel_vco5_owned(&wifi_channel_vco5),(uint64_t)mt76_channel_vco5_selected(&wifi_channel_vco5.state),(uint64_t)mt76_cvco5_valid(&wifi_channel_vco5.state.vco),(uint64_t)wifi_cal5_fields(d),(uint64_t)(context_read32(d->output_context,9,0)&7),(uint64_t)wifi_cal5_owned(&wifi_cal5,false));
- if(ok && wifi_early5.requested)ok=wifi_early5_publish();
+ if(wifi_early5.comparison)console_printf("wifi-rx-compare5-owner: version=1 before_mac=%u capacity=32 configured=%u\n",
+  (uint64_t)!wifi_early5.after_calibration,(uint64_t)ok);
+ if(ok && wifi_early5.requested && !wifi_early5.after_calibration)ok=wifi_early5_publish();
  if(ok){const struct mt76_mac_cycle_io io={&wifi_cal5,wifi_cal5_owned,wifi_cal5_read,wifi_cal5_write,wifi_cal5_delay,wifi_cal5_now,wifi_cal5_inspection};ok=mt76_mac_cycle_run(&wifi_cal5.mac,&io);}
  bool stopped=!wifi_cal5.configured || wifi_cal5_stop();
  if(wifi_early5.requested){bool complete=wifi_early5_emit(ok && stopped);wifi_cal5.active=false;return complete;}
@@ -455,11 +457,15 @@ static bool wifi_cal5_inspect(void *context){
 }
 bool xhci_wifi_capture_cal5(void){if(wifi_cal5_requested || wifi_cal5.attempted)return false;wifi_cal5_requested=true;bool ok=xhci_wifi_capture_channel_vco5();wifi_cal5_requested=false;return ok;}
 
-bool xhci_wifi_capture_early5(void){
+static bool wifi_capture_early5_mode(unsigned mode){
  if(wifi_early5.requested || wifi_early5.attempted || wifi_cal5.cleanup_enabled ||
-    wifi_cal5_requested || wifi_cal5.attempted || wifi_cal5.active || wifi_cal5.configured)return false;
+    wifi_cal5_requested || wifi_cal5.attempted || wifi_cal5.active || wifi_cal5.configured || mode>2)return false;
+ wifi_early5.comparison=mode!=0;wifi_early5.after_calibration=mode==2;
  wifi_early5.requested=true;bool ok=xhci_wifi_capture_cal5();wifi_early5.requested=false;return ok;
 }
+bool xhci_wifi_capture_early5(void){return wifi_capture_early5_mode(0);}
+bool xhci_wifi_capture_rx_compare5_early(void){return wifi_capture_early5_mode(1);}
+bool xhci_wifi_capture_rx_compare5_late(void){return wifi_capture_early5_mode(2);}
 
 bool xhci_wifi_capture_discovery5(void){
  if(wifi_discovery5_requested || wifi_cal5_requested || wifi_cal5.attempted)return false;
