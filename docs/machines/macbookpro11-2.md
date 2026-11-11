@@ -7,6 +7,90 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Matched native pair: receive ordering supported (November 11)
+
+Runtime9f05567d uses the same kernel/initramfs/firmware/journal descriptor for
+v146 late release48e3b667867b1df0 and v145 early release66b411a1fa3c783a. Both
+park periodic logging before firmware startup and configure/retain32 pages.
+Only the selected receive-publication timing differs. These are calibration-only
+lifetimes with no credentials, network OUT, connection or HTTP workload.
+
+Late session00066005f6a4d181-00 receives the first four exact calibration replies,
+then loses RXDCOC1 at sequence3825. The original500ms IN fails; observation of
+the same retained TD through1.5s finds no exact event/claim or late completion.
+Both stable16-byte prefix samples are zero;75 other events are consumed and
+dispatched. No main-RX TD is published, no Stop is attempted, and full MAC/RF
+restoration is unaccepted. Temporary ALC/IBI words restore. This is a failed
+control, not a calibration pass. All464 prior workspace files/metadata survive
+apart from the authorized marker atime; two new logs, offline checks,60 other
+EFI files, seven recoveries and seven independent journal records pass.
+
+Early session00066006ebeaf09a-00 receives all five exact replies, then completes
+MAC drain/disable, exact endpoint Stop and full RF inverse restoration:15719
+operations. Four of32 main receives complete, with no exhaustion, reuse or
+payload inspection;28 pending pages remain retained. Stop state3, CC26/
+residue4096 and ring+0x40 match the saved event/context. Command boundary counts
+are0/2,2/2,3/3,3/3,3/4. All data events are classified outside exact MCU/EP0 waits,
+so hardware interleaving of those owner callbacks remains unexercised. All466
+prior files/metadata, two new logs, offline checks,60 other EFI files and seven
+recoveries pass. All seven journal records and7199 bytes of exit overlap pass.
+
+The early once-only collector closed failed because my workspace-count
+substitution also changed823078460 to823078464 and address11460 to11464 in its
+local common-prefix proof. The guest wrote the correct source-defined values.
+The full source-frozen calibration ledger passed before that independent helper
+refused. Neither original record was recollected, resealed or changed to pass.
+Separate review restores exactly the original two constants, binds both tables
+to runtime9f05567d's unchanged `mt76_mcu.c`, and passes the full prefix, calibration,
+Stop, RF restoration, storage and recovery checks. New `wifi_prefix_tables`
+checks literal proof tables against selected native source; six host tests
+include each accidental count substitution and source/duplicate/expression
+refusals. Future collector preparation must run this guard before freezing a
+legacy common-prefix proof. Workspace counts are metadata, never string rewrites
+over register plans.
+
+Immutable banks outside build: late1797-file `wifi-rx-compare-late-9f05567d`, index
+`0026504e0481178fbedbd449e00733b427a258c28df877b97b27fd528263f2ad`;
+its separate failure review index
+`29934ed8c607898b446c46d4758e9b2ae32ca98fb994c76e603c8fad8fd32205`;
+early1316-file `wifi-rx-compare-early-9f05567d`, index
+`dc3f4f4d53640e7b1192b3c7b3864ff69cba499313b3ebdc57ee80b567e1295a`;
+the separate matched-pair review index
+`ca508711bb31d15650d4fe7d88b00eb2d52b2dfc18b48e20688ada36852e8572`.
+The pair supports receiving before calibration; it does not prove the firmware/
+wire-level cause, continuous RX or sustained reliability. Connection/HTTP
+acceptance remains historical and the earlier paired-HTTP hold is unresolved.
+
+Qualification includes normal/fatal75 actual-native-C cases, source-extracted
+logger/dispatch tests, seven exact-stage journal modes per arm, paired payload
+equality and fresh private workspace clones. A private test-only fifth-command
+fault after1906 prior receives also passes fatal sanitizers at sequence3825,
+retaining MCU/DMA and refusing publication/Stop. HCD/RF remain modeled there.
+Hostef9b60df differs from runtime only in three VM verifier/regression files.
+Failed workspace/collector preparation attempts remain preserved locally. The
+same dedicated66048-byte journal was reset only after sealing the late return;
+filesystem/raw reads and descriptor/extent equality were verified, including
+bounded raw-cache eviction after the filesystem write. No guest payload changed.
+Installed66b remains present, Ubuntu is default/unarmed and no next boot is armed.
+
+### Production receive-priming continuation scope
+
+Fetched maina9eacdaa/PR472 adds commit-wait/USB status instrumentation and is
+pending integration after recording this pair. Keep the accepted comparison
+bound to9f05567d. PR301 GPU/HDA and PR379 WebCore remain separate; PR19 owns this
+Wi-Fi scope. No other task is contacted.
+
+Next audit/implementation is an opt-in connection/HTTP calibration prime: post
+the retained32-page queue before MAC/calibration, validate its complete MAC
+shutdown and exact Stop, then hand a fresh ordinary receive ring to discovery
+and connection without repeating calibration or reusing priming DMA. Preserve
+the existing eight-frame window, cleanup, selection, keys and stream retirement
+contracts. Use an exact stopped-endpoint dequeue transition, not endpoint reset
+or unchecked context replacement. Cover old/duplicate events during transition,
+allocation prefixes, new-ring aliasing, command failure, first publication and
+full native receive/cleanup under normal/fatal tests before any hardware boot.
+Then qualify authenticated same-boot disconnect/reconnect and actual HTTP.
+
 ### Matched-logging RX timing comparison scope (November 11)
 
 User requests the controlled comparison, followed by connection/HTTP testing.

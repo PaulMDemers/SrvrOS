@@ -69,7 +69,7 @@ prove wire-level absence. Wi-Fi remains failed for this lifetime; storage and
 recovery pass. Main-RX posting and initial-channel differences remain hypotheses,
 not a justified production correction. See the unit record for the closed bank.
 
-## Matched-logging main-RX comparison (v145/v146; native pending)
+## Matched-logging main-RX comparison (v145/v146; bounded native pair)
 
 The two new opt-in recipes use identical kernel, initramfs and firmware bytes,
 including the same bound journal descriptor. Only their command-line selection
@@ -90,10 +90,29 @@ calibration/publication order and completion accounting. Failure remains failure
 
 The staging verifier now actually checks firmware and absence of a private PMK
 for v144–146; v144's earlier check was misplaced in unreachable recipe code.
-Both comparison arms still require independent journal and exact-image VM/storage
-qualification. A controlled cold return is pending; software cases do not
-establish physical causality. Compare these two arms on one frozen image before
-production connection integration, same-boot disconnect/reconnect and paired HTTP.
+Both arms subsequently pass exact-image journal/storage qualification. The
+runtime9f05567d native late arm loses only the fifth RXDCOC1 reply; the original
+500ms failure and retained1.5s observation find no exact event or nonzero prefix.
+It publishes no data TD and remains failed. The matching early arm receives all
+five replies, services4/32 TDs without exhaustion, and completes exact Stop,
+MAC shutdown and full RF restoration (15719 operations). Payload bytes and
+logging policy match. All data events occur outside exact MCU/EP0 wait spans;
+those callback overlaps remain modeled-only coverage.
+
+The early primary collector correctly refuses an incorrectly adapted local
+prefix helper: a workspace-count replacement changed two register literals.
+The guest values match pinned native source. Separate review restores only the
+original literals and passes the full source-frozen ledger plus independent
+prefix/storage/recovery checks; both primary records stay unchanged. The new
+`wifi_prefix_tables.check` binds common-proof tables to the selected native MCU
+source before freezing. Six regressions catch count replacements, missing/
+duplicate/nonliteral proofs and changed/invalid native plans.
+
+This matched pair supports receive publication before calibration, without
+establishing firmware/wire causality or sustained reliability. Source acceptance
+is bounded to the early diagnostic; production connection/HTTP is next after
+an explicitly qualified retained-prime-to-fresh-ring transition. See the unit
+record for closed banks, review hashes and remaining acceptance limits.
 
 ## Separate early main-RX comparison (v144; bounded native result)
 

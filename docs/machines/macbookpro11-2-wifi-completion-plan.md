@@ -9,6 +9,29 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
+The matched9f05567d pair is collected and closed. Late publication receives four
+replies and loses final RXDCOC1 at sequence3825, with zero prefix/exact event
+through1.5s and no data queue published. Early publication receives all five,
+services4/32 data TDs without exhaustion, then completes MAC/Stop/RF restoration.
+Both use identical payloads, fixed161/20MHz and parked logging. This supports
+early RX ordering; it does not prove physical causality or sustained reliability.
+
+The early primary remains failed because a local helper's broad workspace-count
+replacement corrupted two register literals. A separate source-bound review
+corrects only those literals and passes the full independent ledger. Both
+primary banks are immutable; see the unit record for hashes and storage/recovery
+proofs. `wifi_prefix_tables` now checks common-proof literals against the pinned
+native MCU source, with six regression methods. Ubuntu is unarmed.
+
+Next integrate fetched maina9eacdaa and qualify an opt-in production receive
+prime/retirement-to-fresh-ring transition. The diagnostic32-page queue is not
+a drop-in eight-frame discovery window or a continuous receiver. Preserve
+pending DMA, exact Stop/dequeue/context admission and all existing connection
+retirement contracts; test actual native transitions before paired connection/
+HTTP hardware validation. No identical diagnostic retry is needed.
+
+### Comparison implementation checkpoint (before the two returns)
+
 The controlled continuation now implementsv145 (publish before MAC) andv146
 (publish after calibration) with the same32-page allocation/configuration,
 fixed161/20MHz parent and parked periodic logger. Both use the same runtime
