@@ -105,7 +105,7 @@ unchanged log budget. Exact-stage QEMU verifies unsupported-hardware refusal,
 saved checkpoint, unmount and automatic return; missing workspace halts. These
 results qualify the test machinery, not native GPU completion or memory transfer.
 The Air record owns the installed recovery, volume and USB evidence. This
-candidate is banked but uninstalled and unarmed. The next silent physical trial
+candidate was banked, uninstalled and unarmed at qualification. A silent physical trial
 must verify its command transitions, pending samples and original claim lifetime
 before recording acceptance; all eight memory/completion obligations remain open.
 

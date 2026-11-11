@@ -33,7 +33,7 @@ and installed/recovery bank equality. The USB is unmounted. Current remains
 banked outside `build`; `build/air-gpu-requester-hold-20261110/returned/return-proof.json`
 records **INCOMPLETE** with return integrity **PASS**. No reboot is armed.
 
-### Qualified candidate: maintained GPU requester hold
+### Earlier qualification: maintained GPU requester hold
 
 Integrated main `7e8f70ae` (PR462); PR463 screenshot metadata, PR19 Wi-Fi and
 PR379 WebCore remain independent. Source `6fba6e6c`, exact uninstalled release
@@ -64,7 +64,7 @@ fit the unchanged 65,536-byte limit (63,460/61,661/60,088 bytes). Host recovery,
 EFI headroom, USB UUID `37D8-C5D0`, offline fsck/allocation/writable/headroom and
 all 1,458 prior files across 142 sessions pass. Current `978d9be94b96243a`,
 recovery `9aa8dbf6fbda8252` and known-good GUI remain installed and preserved.
-No new install or reboot is armed. The silent automated trial needs no human
+At qualification the candidate was uninstalled and unarmed. The silent automated trial needs no human
 input, uses volume 1%, returns after a safely saved outcome and halts on retained
 uncertainty. Evidence and the exact stage are banked outside `build`; local
 checkpoint: `build/air-gpu-requester-hold-20261110/run.json`.
