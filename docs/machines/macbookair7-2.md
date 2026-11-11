@@ -2,6 +2,24 @@
 
 Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
 
+### Active scope: maintained GPU requester hold
+
+Integrated main `7e8f70ae` (PR462); PR463 screenshot metadata, PR19 Wi-Fi and
+PR379 WebCore remain independent. The next native transfer prerequisite is a
+registered, one-use GPU PCI requester hold under the original interval claim
+and joint HDA/GT owner. It will capture the exact Air7,2 AF profile, inhibit
+only PCI Command BME (7→3), require bounded AF pending-clear observation, then
+restore 3→7 before the interval can retire. No restarted clock or extended
+deadline is permitted. Ambiguous stores or failed retirement retain the source.
+
+Scope: a new diagnostic core/adapter, separate image/recipe, strict raw collector
+and tests; ordinary boot and prior images stay separate. Broadwell documents BME
+and AF TP separately: this hold is not a posted-write, prefetch, pipeline,
+cache/TLB or firmware exclusion grant. It will issue no PTE or command-buffer
+write and keep assurances 0, obligations 255 and managed pages 0. The hardware
+checkpoint must qualify exact command/pending transitions, original source and
+full preservation/return, rather than repeat only a software borrower test.
+
 ### Software checkpoint: interval borrower and one-page encoding
 
 The device branch has integrated main `83c955fd`, which adds Air6,1
