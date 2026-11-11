@@ -6662,3 +6662,13 @@ test-wifi-http-reconnect5-log: build/tests/xhci-http-reconnect5-host$(HOST_EXE)
 test-core: test-http-reconnect-collection
 test-http-reconnect-collection:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_http_reconnect_collection.py
+
+.PHONY: test-exfat-nofat
+test-core: test-exfat-nofat
+test-exfat-nofat: build/tests/exfat-nofat-host$(HOST_EXE)
+	build/tests/exfat-nofat-host$(HOST_EXE)
+	CC="$(HOST_CC)" $(PYTHON) tools/test_populated_save.py --compare-nofat --output build/review/exfat-nofat-save
+	CC="$(HOST_CC)" $(PYTHON) tools/test_contiguous_append.py --compare-nofat --output build/review/exfat-nofat-append
+build/tests/exfat-nofat-host$(HOST_EXE): tools/test_exfat_nofat.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@

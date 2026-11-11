@@ -23,7 +23,7 @@ static void init(struct exfat_volume *v,struct block_device *d){
 int main(void){
  struct exfat_volume v;struct block_device d={0};uint32_t cluster=0;bool chain=false;
  init(&v,&d);media[CLUSTER]=0x7f;memcpy(before,media,sizeof(media));
- assert(allocate_contiguous_clusters_impl(&v,3,&cluster)&&cluster==9);
+ assert(allocate_contiguous_clusters_impl(&v,3,&cluster,true)&&cluster==9);
  assert(last_offset==CLUSTER && last_length==2 && media[CLUSTER]==0xff && media[CLUSTER+1]==3);
  assert(!memcmp(media+CLUSTER+2,before+CLUSTER+2,CLUSTER-2));
  struct exfat_file f={.volume=&v,.first_cluster=cluster,.allocated_clusters=3,.no_fat_chain=true};

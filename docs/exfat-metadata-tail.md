@@ -74,6 +74,14 @@ before repair, fsck outcomes and logical/allocation results after repair. In72
 cases strict allocation remains incomplete after repair on both implementations;
 these are preserved inherited gaps, not clean recovery or a recovery fix.
 
+With the later lazy NoFatChain FAT work on source `72567e32`, the same strict
+padding comparison covers114 remaining fault cuts, including63 matched
+incomplete allocation repairs. The historical132/72 counts above belong to the
+eager FAT implementation. Removing invalid FAT writes removes their fault points;
+it does not establish a general recovery improvement. All original logical,
+publication, repair and allocation comparisons still run. See the
+[contiguous allocation contract](exfat-contiguous-append.md#deferring-invalid-contiguous-file-fat-work).
+
 ## Air6,1 native observation (2026-11-10)
 
 Release `c95f851e735b98ff`, compiled from `cc4f9278`, completed the original

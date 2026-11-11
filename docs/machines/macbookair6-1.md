@@ -12211,3 +12211,152 @@ Actual review base is main `d4580da3`; open PR301 `72efc460` and PR19
 `3d8a9c2a` retain separate graphics/network scopes. This result change touches
 only this unit record and the reserved-append guide; no runtime code or other
 machine acceptance changes.
+
+## Active payload placement and commit scope (2026-11-11)
+
+Base is actual main `ae869c9b`, after the reviewed bcd native return. Investigate
+remaining USB status latency with matched16KiB payload commands and bounded
+scratch-file address-order controls, then audit repeated allocation/commit work
+for a validated reduction. Current allocation searches from bitmap index zero
+for each request; repeated reuse is a hypothesis, not an established media
+cause. Keep every allocation proof, prefix/fresh readback, publication, flush,
+ownership check and byte/runtime limit. No transport timeout, queued BOT command,
+retry, DMA or power-policy relaxation is in scope.
+
+Touched scope is disposable reference/replay tools, a narrowly justified shared
+filesystem/transport fix if supported, and this unit's guides. Open PR301
+`c1220fe9` has no storage hunk; PR19 `acc17976` owns separate xHCI control/network
+and metadata-import hunks, with no allocator change. Preserve those scopes and
+avoid competing implementation. No other-machine task is contacted. Currentbcd,
+recoveryc354, priorc95f/3403/a139, all850 USB files and original failed evidence
+remain protected. Next checkpoint is measured command/address-order behavior
+and a regression-backed equivalent reduction before the next1% native stress.
+
+The bounded Ubuntu address-order reference preserves all850 files and clean
+4124-cluster allocation. Its1024 matched16KiB writes include25 status waits
+above100ms in one rotating phase, peaking349.147ms; both hot phases stay below
+1.2ms status and the other rotating phase below17.1ms. Complete CBW/data/CSW
+pairing has zero pending/unmatched/lost events. This reproduces the long wait
+outside SrvrOS with the same command size; it does not establish media versus
+controller cause, or support a rotating allocation policy. No allocation order
+change is planned from this evidence.
+
+Implementation scope narrows to unnecessary FAT work for contiguous NoFatChain
+streams. The format declares those FAT entries invalid; bitmap ownership and
+exact contiguous extent remain authoritative. Defer ignored FAT initialization
+and clearing, and materialize every required link plus the final terminator
+before any transition to a real FAT chain. Direct directory/system allocation
+must retain required chain initialization. Existing validators, prefix/full
+proofs, allocation counts, publication ordering and every barrier stay in place.
+Next checkpoint is poisoned/stale-FAT and conversion/fault regression plus
+measured complete-save command/source-work reduction. No device-latency fix
+or native acceptance is claimed by the reference alone.
+
+
+The implementation now defers only invalid NoFatChain FAT initialization/clear.
+Required FAT-backed conversion explicitly writes all links and terminal before
+publication, including a single-cluster suffix; directory/system and fragmented
+allocation retain initialization. Poisoned FAT, exact bitmap/neighbour checks,
+512/4096-byte geometry, OOM and required-write quarantine pass. The original
+append replay passes131 remaining cuts with unchanged prefix/barrier/negative
+paths and the81 inherited allocation-repair gaps still reported as failures.
+
+Complete populated process/VFS/exFAT screenshot controls preserve all65 writes,
+65 foreign syncs, fresh proofs, logical files, source reads and flushes. Eager
+versus lazy FAT saves393 callbacks/1572 bytes in sequential controls and304/
+1240 under overlap. Required terminal work moves into append preparation; this
+is a complete-save reduction, not a claim every phase decreases. These are
+source callbacks rather than physical command counts or native speed evidence.
+Next checkpoint is frozen matched builds/core/VM validation, self-merge and
+an unchanged automated1800-second1% native stress with all prior receipts.
+
+
+Final freeze `72567e32` passes matched ordinary/native/VM kernels and userspace,
+all240 default core targets, desktop and docs checks. The89-case installation
+set has its existing single default-off exhaustive host-I/O matrix skip; no new
+skip is introduced. Metadata-tail comparison now has114 actual fault cuts and63
+matched inherited incomplete repairs; omitted invalid FAT writes account for
+removed cut points, not a general recovery improvement. Both append controls
+retain131 cuts and81 known incomplete repairs. All validators remain strict.
+
+Ordinary ABI/input/thread/USB/capture VMs pass. The populated400writeIOPS KVM
+trial passes all16 original contracts and the required append-wait companion,
+with complete saved app timing,22 app cycles,141368us maximum loop,1260211us
+launch and1357945us close. Six queued waits become ready under a live borrow.
+The ordinary gate's exact completed-content match count is zero in this VM;
+unavailable contexts remain explicit, not fabricated positive attribution.
+The deterministic whole-save controls establish reduced source work; VM wall
+time is not native performance acceptance.
+
+Stage `c7d2293b66b7999b` passes exact board refusal, save, unmount and automatic
+return. The next native test retains1800-second1% PCM/disk/app stress, three exact
+screenshots,60-second tail, all timing/proof/retirement contracts and850-file
+preservation plus fsck/full allocation. Native performance remains pending.
+Actual integration base remains main `ae869c9b`; PR301 `25e6219c` has no storage
+hunk and PR19 `3da01075` retains distinct metadata-import/scheduler-test hunks.
+Actions remain disabled. Currentbcd, recoveryc354, priorc95f/3403/a139 and all
+independent historical payload/evidence backups remain protected.
+
+
+## Lazy-FAT native return (2026-11-11)
+
+Run `7f38790cee114722`, release `c7d2293b66b7999b`, compiled `72567e32`
+(implementation PR467 merge `52907f8b`), completed session
+`session-00065ffc821878bb-00` and returned to Ubuntu automatically. Independent
+raw-log/binary parsing passes all16 original contracts and the required queued
+wait companion. The1800-second1% trial records3954 verified256KiB bursts
+(1036517376 bytes),345862144 PCM bytes, zero recorded underruns and1089 app
+cycles. Maximum loop is122325us, launch3391486us and close2460649us, within the
+unchanged500ms/10s limits. All three exact BMPs decode and match actual USB
+hashes; the40-byte workload receipt, proofs and capture/cache/battery/desktop
+retirement pass. Native logs retain bounded lifecycle tails and worst records,
+not every individual cycle. Subjective sound remains unassessed at1%; previous
+audible acceptance is separate. Earlier intermittent battery fault cause remains
+unresolved, with no recurrence captured in this session.
+
+This accepts the bounded lazy-FAT functional path, not a screenshot speed fix.
+Screenshot totals are8.049986/9.633137/17.522316 seconds, versus7.479590/
+7.281154/10.530490 in the preceding bcd run. Different cold boots, workload
+density and interleavings do not isolate causality, but this observation is
+slower overall. The deterministic source callback reduction remains valid;
+removing invalid FAT work did not eliminate native completion tails.
+
+Queued readiness is exercised6/6/7 times under a live borrow. Ordinary admission
+sums165/181/169us, with worst waits2/2/3us and no attributed owner/context.
+Private-prelude waits total4.393120/4.918529/14.548418 seconds,96.36/96.25/
+98.90% of raw write-call wall. The largest private wait is3.588768 seconds.
+These waits overlap handler time for successful copies; fallback prelude wall
+lies in whole-call residual. Do not add these as exclusive phases or assign an
+unrelated global maximum as the exact owner of an individual private wait.
+
+A separately bound global content call during capture3 lasts3.584277 seconds.
+Payload write callbacks take3.117253 seconds; allocation read/write callbacks
+366737us; prefix reads36857us; metadata-payload read/write29691us. Eight of its
+forty16KiB payload status callbacks exceed100ms, with2.823784 seconds total
+status wall and a352.037ms maximum. Its selected slowest status callback instead
+belongs to a512-byte allocation-phase WRITE(10), lasting355.361ms with14.669ms
+maximum sampled service gap. Long status tails therefore occur in both sampled
+command sizes. Software clocks still do not distinguish media/firmware from
+controller delivery. No command-to-private-wait identity is retained. The exact
+3473408-byte captured prefix commits while four appends totalling262144 bytes leave
+live3735552 and dirty-after state; the original immutable-prefix proof remains.
+Cleanup peaks at66.079ms; capture2's checked rename takes1.891898 seconds.
+
+Read-only rehash verifies all859 actual files. All850 prior files remain
+unchanged except the expected metadata sidecar. Independent fsck and full
+allocation report4231 clusters, zero leaks, FAT/bitmap mismatches or errors.
+Installed/staged/independent c7 payload, recoveryc354 and priorbcd/c95f/3403/a139/
+2dd payloads are verified. Only the fully backed, unreferenced historical8caa
+EFI duplicate was retired for install space; its complete independent payload
+remains verified. The original failed-media archive and returned trial backup
+are intact. Ubuntu remains default, the one-shot is consumed, collection is
+disabled and USB is unmounted. No new reboot is armed.
+
+The next performance target remains long USB completion tails and their exact
+shared-commit ownership, rather than screenshot transfer/cleanup. Preserve all
+proofs, barriers, ownership, command caps and runtime limits. A bounded512B versus
+16KiB reference and exact per-wait owner/command attribution would separate the
+remaining hypotheses; neither is implemented or accepted by this return review.
+Actual review base is main `52907f8b`; PR301 `25e6219c`, PR19 `3da01075` and
+PR379 retain independent scopes. This review touches only this unit record and
+the contiguous-allocation guide; no runtime or other-machine acceptance changes.
