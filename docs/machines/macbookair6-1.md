@@ -12231,3 +12231,23 @@ avoid competing implementation. No other-machine task is contacted. Currentbcd,
 recoveryc354, priorc95f/3403/a139, all850 USB files and original failed evidence
 remain protected. Next checkpoint is measured command/address-order behavior
 and a regression-backed equivalent reduction before the next1% native stress.
+
+The bounded Ubuntu address-order reference preserves all850 files and clean
+4124-cluster allocation. Its1024 matched16KiB writes include25 status waits
+above100ms in one rotating phase, peaking349.147ms; both hot phases stay below
+1.2ms status and the other rotating phase below17.1ms. Complete CBW/data/CSW
+pairing has zero pending/unmatched/lost events. This reproduces the long wait
+outside SrvrOS with the same command size; it does not establish media versus
+controller cause, or support a rotating allocation policy. No allocation order
+change is planned from this evidence.
+
+Implementation scope narrows to unnecessary FAT work for contiguous NoFatChain
+streams. The format declares those FAT entries invalid; bitmap ownership and
+exact contiguous extent remain authoritative. Defer ignored FAT initialization
+and clearing, and materialize every required link plus the final terminator
+before any transition to a real FAT chain. Direct directory/system allocation
+must retain required chain initialization. Existing validators, prefix/full
+proofs, allocation counts, publication ordering and every barrier stay in place.
+Next checkpoint is poisoned/stale-FAT and conversion/fault regression plus
+measured complete-save command/source-work reduction. No device-latency fix
+or native acceptance is claimed by the reference alone.
