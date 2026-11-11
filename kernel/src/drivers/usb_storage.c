@@ -2,6 +2,7 @@
  * No transport retries: an ambiguous write or halted endpoint quarantines the
  * device for this boot. xHCI retains DMA memory even after timeout/disconnect. */
 #include <srvros/usb_storage.h>
+#include <srvros/commit_wait_timing.h>
 #include <srvros/console.h>
 #include <srvros/latency.h>
 #include <srvros/scheduler.h>
@@ -183,6 +184,7 @@ static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
     uint64_t end=timer_monotonic_us();
     struct usb_bulk_timing sample={0};
     if(s->transfer_timing)s->transfer_timing(s->context,&sample);
+    if(phase==2)sync_commit_wait_status(s->tag,opcode,command_bytes,start,end,length,*actual,ok,&sample);
     content_command_bulk(phase,start,end,length,*actual);
     /* Capture once, then copy the same observation into independent windows.
      * No additional bulk/controller request or event-service operation. */

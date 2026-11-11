@@ -14,7 +14,15 @@ static bool irq_enabled, foreign, boot;
 static uint64_t usb_test_irq_save(void) { bool f=irq_enabled; irq_enabled=false; return f; }
 static void usb_test_irq_restore(uint64_t f) { irq_enabled=f; }
 #define SRVROS_USB_STORAGE_HOST_TEST
+#define SRVROS_COMMIT_WAIT_HOST_TEST
 #include "../kernel/src/drivers/usb_storage.c"
+static uint64_t status_hooks,successful_status_hooks;
+void sync_commit_wait_status(uint64_t tag,uint64_t opcode,uint64_t bytes,uint64_t start,uint64_t end,uint64_t requested,uint64_t actual,bool ok,const struct usb_bulk_timing *sample) {
+    (void)tag;(void)opcode;(void)bytes;
+    assert(sample && requested==13);
+    status_hooks++;
+    if(ok && actual==13 && end>=start)successful_status_hooks++;
+}
 static struct block_device block, alias, other;
 static struct usb_storage storage;
 static uint8_t disk[65536], cdb[16];
@@ -377,6 +385,7 @@ int main(void) {
         assert(!block.read(&block,512,buf,512) && !block.write(&block,0,buf,512) && !block.flush(&block));
         assert(calls==before && !depth && irq_enabled);
     }
+    assert(status_hooks && successful_status_hooks);
     puts("usb-storage-host: PASS (16 KiB commands / 4 KiB segments, 512-4096 byte sectors, BOT wrappers, short/malformed responses, quarantine, Unit Attention, empty media, unaligned I/O, bounds, ownership, flush, read-only)");
 }
 

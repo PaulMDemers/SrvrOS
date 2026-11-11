@@ -12537,3 +12537,16 @@ plus actual C producer-to-parser wiring and loaded/exact-stage VM evidence.
 Then retain accepted80b4/c354 and run the original1800-second1% automatic stress
 with three screenshots. Native acceptance and causal diagnosis remain pending
 matching collection; no new reboot is armed by this scope notice.
+
+
+The completed-content-only prototype returned a valid no-overlap result for the
+loaded VM's worst wait, despite passing every original workload contract. Its
+source `c2bc6f92` and matching evidence are retained. The revised scope also
+copies existing scheduler owner diagnostic edges and already-timed USB status
+samples, including kernel owners without SYS_SYNC. Scheduler admission/release
+and USB timing/polling/transfer logic remain unchanged; these are metadata sinks
+with no extra clocks or device operations. Version2 reports the longest actual
+owner overlap, partial live ownership and observed status callbacks separately
+from optional completed content. The original fixed tail/cadence and all16
+contracts remain required. Actual real-scheduler/USB forwarding fixtures and
+loaded execution precede native installation.

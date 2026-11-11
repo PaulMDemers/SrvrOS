@@ -1,57 +1,75 @@
-# Private append waits and overlapping commits
+# Private wait, I/O owner and USB status isolation
 
-The explicit capture-write diagnostic now retains a completed commit associated
-with an actual private append wait. It adds no transfers or policy changes.
-The original append-wait, capture, sync/content/command and retirement contracts
-remain independently required.
+The explicit capture-write diagnostic associates the worst private append wait
+with actual scheduler I/O-owner intervals. It reuses already-timed USB status
+callbacks. No transfers, controller reads, clocks, polling or policy are added
+inside those observation hooks. The original append-wait, capture, sync/content/
+command and retirement contracts remain independently required.
 
-## Selection and meaning
+## Why the owner is recorded
+
+An initial completed-content-only prototype passed the original loaded VM
+contracts but found no completed SYS_SYNC content inside its worst private wait.
+The accurate unavailable result is retained locally; it is not an isolation pass.
+Kernel work such as workspace logging also owns I/O. The revised observer records
+owner edges from the existing scheduler diagnostic, including kernel PID zero,
+thread identity, scope sequence, syscall, sanitized name and original clocks.
+It does not change acquisition, eligibility, notifications, handoff or release.
 
 The original prelude clocks bracket the wait. The observer copies the target
 content identity, live size, captured/committed prefix base, effective request
-bytes and whether that target already has a live backend borrow. Those fields
-must describe the original full256KiB suffix window and64KiB request bound.
-They do not grant permission to append or retain a content/descriptor pointer.
+bytes and whether that target has a live borrow. They must describe the original
+full256KiB suffix window and64KiB request bound. No descriptor/content pointer
+survives a wait and no observation grants permission to append.
 
-While a wait is active, the sync observer copies each completed content call's
-actual parent sync ID, content identity and closed USB observer. Its overlap is
-`[max(wait_start, content_start), content_end]`. Only calls ending before the
-wait returns contribute. Among them, the first longest overlap is retained;
-across waits, the first longest whole prelude is selected. A global sync/content
-maximum from a different interval cannot substitute for this copy.
+For each wait the first longest owner intersection is retained. Its overlap is
+`[max(wait_start, owner_start), min(wait_end, owner_end)]`. A still-live owner at
+wait return has no end timestamp: it is explicitly partial and never backfilled
+with a later release. Completed owner intervals and the final partial interval
+are disjoint; their sum leaves uncovered wait wall explicit. Across waits, the
+first longest whole prelude is selected using the original aggregate clocks.
 
-The final report includes the selected call's whole I/O/USB counters and exact
-maximum-status command phases and sampled ring observations. These counters can
-include work before wait entry. A matching identity distinguishes the target's
-own content from a different file's global commit; overlapping intervals alone
-do not prove the scheduler owner, an exclusive critical path, device firmware
-latency or controller arrival time. Uncovered wait wall remains explicit.
+## USB and completed-content companions
 
-An unfinished call at wait return is marked open and never retroactively
-attached. No completed overlap, no USB command and an unexercised wait are
-separate explicit outcomes. Failed/invalid/inflight, overflowing, conflicting,
-missing or unbound evidence is refused. Diagnostic invalidity does not change
-the original operation's result, ownership, quarantine or fallback.
+Only existing timed status callbacks feed the new sink. It copies the same
+callback/controller sample into the live owner observation without additional
+transfers, controller sampling, event checks or timestamp reads. It retains
+callback totals, clipped overlap, 512-byte/16KiB WRITE subsets and the status
+callback with the first longest actual wait overlap, including its original
+command tag/size, dispatch/resume clocks and sampled ring outcomes.
+
+Callback clocks can start before wait entry. They are software observations,
+not hardware arrival or exclusive CPU time. Bulk success is not the later full
+SCSI command validation; all original transport checks remain. A lack of observed
+status does not prove an owner issued no USB I/O: only already-instrumented
+completed callbacks contribute. The owner identity remains useful independently.
+
+Completed content calls are also copied at their own completion, independently
+of the unrelated global maximum. The first longest intersection within the
+selected wait supplies optional whole-call I/O counters and parent/content IDs.
+Calls completing after wait return never attach retroactively. This separate
+content selection is not automatically the selected I/O owner or its counters.
 
 ## Bounds and evidence
 
 CPU0 IRQ exclusion protects fixed slots using the existing eight-record bound.
 There is no allocation, console output, polling or scheduling in observer hooks.
-Only one selected wait is reported, at the same final timestamp as the existing
-capture/append counters. Production rows fit the1024-byte atomic console bound
-at full64-bit width; the entire extension is below4KiB. Periodic traffic, the
-10-second logger cadence and64KiB tail are unchanged. All original final
-receipts must still survive and parse; a missing receipt is not a pass.
+One version2 companion is emitted only at the final capture/append timestamp.
+Every production row fits the1024-byte atomic console bound at full64-bit width;
+the entire extension is below4KiB. Periodic traffic,10-second logging and64KiB
+tails are unchanged. All original final receipts must still survive and parse.
 
-`make test-commit-wait` executes the real sync producer through the production
-formatter and strict parser, with explicit time/USB host models. It covers an
-unrelated larger global maximum, clipped/completed and unfinished calls,
-concurrent waits, ties, PID reuse, failures, capacity, clock and overflow
-refusal, malformed companions and record-size bounds. Existing reserved-append
-and scheduler tests retain the actual lease/window/notification/ownership
-checks. Real USB command tests and the loaded VM remain separate requirements.
+`make test-commit-wait` executes the actual producer through the production
+formatter and strict parser with explicit time/USB host models. Cases include
+kernel owners without SYS_SYNC, partial ownership without invented release,
+multiple owners, unrelated content maxima, clipped/unfinished content, concurrent
+waits, ties, reuse, failures, capacity, clocks, overflow and malformed evidence.
+Actual scheduler and USB host fixtures verify forwarding while retaining their
+original policy, command, clock-count, quarantine and ownership checks. Loaded
+VM coverage requires an actual owner; status coverage is reported explicitly.
 
-The native Air6,1 test keeps the original1800-second1% audio/disk/app workload,
-three screenshots and500ms/10s limits. New collection must include this companion
-alongside the original16 contracts and append-wait proof. Actual isolation
-coverage and physical acceptance remain pending the matching native return.
+The native Air6,1 test retains the original1800-second1% audio/disk/app workload,
+three screenshots and500ms/10s limits. Matching collection must parse this
+companion alongside the original16 contracts and append-wait proof. Missing,
+conflicting, failed or invalid evidence is refused. Physical isolation and
+acceptance remain pending that return.

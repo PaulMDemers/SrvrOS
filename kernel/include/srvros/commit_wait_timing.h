@@ -1,13 +1,25 @@
 #ifndef SRVROS_COMMIT_WAIT_TIMING_H
 #define SRVROS_COMMIT_WAIT_TIMING_H
 #include <srvros/sync_timing.h>
+/* Actual scheduler owner intersection. end_us=0/released=0 means still live at
+ * wait return, never a fabricated release. Status counters cover only already-
+ * timed completed callbacks; whole callback wall may begin before wait entry. */
+struct commit_owner_timing;
 /* Completed content calls intersecting one private append prelude. The chosen
  * call has the longest clipped overlap, first on ties. Whole-call counters may
  * include work before wait entry; they are not exclusive blocked/device time. */
+struct commit_owner_timing {
+    uint64_t seq,thread,pid,syscall,start_us,end_us,released,overlap_start,overlap_end;
+    uint64_t csws,csw_us,csw_overlap_us,longs,write512,write512_us,write16k,write16k_us,tag;
+    struct usb_storage_csw_timing status;
+    char name[32];
+};
 struct commit_wait_record {
     uint64_t pid,start_us,end_us,target_identity,retry,open_at_end;
     uint64_t target_base,target_size,request_bytes,borrowed;
     uint64_t calls,overlap_us,overlap_start_us,overlap_end_us,parent_pid,parent_id;
+    uint64_t owner_calls,owned_us;
+    struct commit_owner_timing owner,live_owner;
     struct sync_content_call content;
 };
 struct commit_wait_snapshot {
@@ -28,4 +40,19 @@ bool sync_commit_wait_begin(uint64_t pid,uint64_t start,uint64_t target,uint64_t
 void sync_commit_wait_end(uint64_t pid,uint64_t start,uint64_t end,bool retry);
 #endif
 void sync_commit_wait_snapshot(struct commit_wait_snapshot *out);
+#if (defined(SRVROS_SCHEDULER_HOST_TEST) || defined(SRVROS_USB_STORAGE_HOST_TEST)) && !defined(SRVROS_COMMIT_WAIT_HOST_TEST)
+static inline void sync_commit_owner_begin(uint64_t seq,uint64_t thread,uint64_t pid,uint64_t syscall,uint64_t start,const char *name) {
+    (void)seq;(void)thread;(void)pid;(void)syscall;(void)start;(void)name;
+}
+static inline void sync_commit_owner_end(uint64_t seq,uint64_t thread,uint64_t start,uint64_t end) {
+    (void)seq;(void)thread;(void)start;(void)end;
+}
+static inline void sync_commit_wait_status(uint64_t tag,uint64_t opcode,uint64_t bytes,uint64_t start,uint64_t end,uint64_t requested,uint64_t actual,bool ok,const struct usb_bulk_timing *sample) {
+    (void)tag;(void)opcode;(void)bytes;(void)start;(void)end;(void)requested;(void)actual;(void)ok;(void)sample;
+}
+#else
+void sync_commit_owner_begin(uint64_t seq,uint64_t thread,uint64_t pid,uint64_t syscall,uint64_t start,const char *name);
+void sync_commit_owner_end(uint64_t seq,uint64_t thread,uint64_t start,uint64_t end);
+void sync_commit_wait_status(uint64_t tag,uint64_t opcode,uint64_t bytes,uint64_t start,uint64_t end,uint64_t requested,uint64_t actual,bool ok,const struct usb_bulk_timing *sample);
+#endif
 #endif

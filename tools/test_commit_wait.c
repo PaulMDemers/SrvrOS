@@ -17,7 +17,7 @@ bool usb_storage_timing_aux_begin(void){assert(!busy);busy=true;return true;}
 void usb_storage_timing_aux_end(struct usb_storage_timing *out){assert(busy);busy=false;*out=(struct usb_storage_timing){.valid=true};}
 bool usb_storage_content_begin(void){usb=(struct usb_storage_content_timing){.valid=1,.active=1};return true;}
 void usb_storage_content_end(struct usb_storage_content_timing *out){usb.active=0;*out=usb;}
-static void reset(void){observed=(struct sync_timing_snapshot){0};current=(struct sync_timing_call){0};content_current=(struct sync_content_call){0};content_active=commands_active=tracing=busy=false;memset(commit_wait_live,0,sizeof(commit_wait_live));commit_wait_retained=(struct commit_wait_snapshot){0};now=1;}
+static void reset(void){commit_owner_active=(struct commit_owner_timing){0};observed=(struct sync_timing_snapshot){0};current=(struct sync_timing_call){0};content_current=(struct sync_content_call){0};content_active=commands_active=tracing=busy=false;memset(commit_wait_live,0,sizeof(commit_wait_live));commit_wait_retained=(struct commit_wait_snapshot){0};now=1;}
 static void enable(void){reset();assert(sync_timing_enable());}
 static void content(uint64_t begin,uint64_t identity,uint64_t end) {
  now=begin;assert(sync_timing_content_begin(2,identity,42,16384));
@@ -52,7 +52,37 @@ int main(void){
  assert(s.worst.parent_pid==7&&s.worst.parent_id==10&&s.worst.target_identity==999);
  assert(observed.records[0].worst.content.worst.identity==100); /* Different global maximum. */
  assert(s.worst.content.commands.roles[2].write_bytes==16384&&s.worst.content.commands.command.complete);
+ workspace_commit_wait_wire(1300,&s);
+ /* The loaded VM found a kernel owner without completed SYS_SYNC content.
+  * Retain the actual owner/status, never substitute the independent maximum. */
+ enable();sync_commit_owner_begin(1,55,0,0,1000,"workspace-log");
+ assert(sync_commit_wait_begin(11,1010,999,0,262144,65536,false));
+ struct usb_bulk_timing status={.submitted=1020,.observed=1060,.resumed=1060,
+  .seen=true,.service_valid=true,.service_checks=2,.service_samples=1,
+  .service_gap_max_us=40,.completion_gap_us=40,.empty_checks=1,.event_checks=1,.last_empty_sample_us=1020};
+ sync_commit_wait_status(77,0x2a,16384,1020,1060,13,13,true,&status);
+ sync_commit_owner_end(1,55,1000,1080);sync_commit_wait_end(11,1010,1100,false);
+ sync_commit_wait_snapshot(&s);assert(!s.invalid&&s.worst.owner.thread==55&&s.worst.owner.pid==0);
+ assert(s.worst.owner.released&&s.worst.owned_us==70&&s.worst.owner.csw_overlap_us==40&&s.worst.calls==0);
  workspace_commit_wait_wire(1200,&s);
+ /* A live owner is clipped at wait return, with no invented release/backfill. */
+ enable();sync_commit_owner_begin(1,55,7,87,5,"disk-worker");
+ assert(sync_commit_wait_begin(11,10,9,0,262144,65536,false));
+ status=(struct usb_bulk_timing){.submitted=8,.observed=30,.resumed=30,
+  .seen=true,.service_valid=true,.service_checks=2,.service_samples=1,
+  .service_gap_max_us=22,.completion_gap_us=22,.empty_checks=1,.event_checks=1,.last_empty_sample_us=8};
+ sync_commit_wait_status(78,0x2a,512,8,30,13,13,true,&status);
+ sync_commit_wait_end(11,10,40,true);sync_commit_wait_snapshot(&s);
+ assert(!s.invalid&&!s.worst.owner.released&&!s.worst.owner.end_us&&s.worst.owner.overlap_end==40&&s.worst.owner.csw_overlap_us==20);
+ workspace_commit_wait_wire(41,&s);sync_commit_owner_end(1,55,5,50);
+ struct commit_wait_snapshot later;sync_commit_wait_snapshot(&later);assert(!memcmp(&later.worst,&s.worst,sizeof(s.worst)));
+ /* Multiple real owner intervals are disjoint; retain their actual maximum. */
+ enable();sync_commit_owner_begin(1,55,0,0,1,"workspace-log");
+ assert(sync_commit_wait_begin(11,10,9,0,262144,65536,false));
+ sync_commit_owner_end(1,55,1,20);sync_commit_owner_begin(2,56,7,87,25,"disk-worker");
+ sync_commit_owner_end(2,56,25,40);sync_commit_wait_end(11,10,50,false);
+ sync_commit_wait_snapshot(&s);assert(!s.invalid&&s.worst.owner_calls==2&&s.worst.owned_us==25&&s.worst.owner.thread==56);
+ workspace_commit_wait_wire(51,&s);
  /* Start inside an active call; retain clipped overlap and full-call counters. */
  enable();parent(1);now=10;assert(sync_timing_content_begin(0,77,0,5));
  assert(sync_commit_wait_begin(11,20,9,0,262144,65536,false));assert(sync_commit_wait_begin(12,25,10,0,262144,65536,false));
