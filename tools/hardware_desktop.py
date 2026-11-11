@@ -573,6 +573,10 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-ring-summary:'):
+        from intel_ring_transition import ring_summary
+        try:return not ring_summary(line)['complete']
+        except ValueError:return True
     if line.startswith('intel-memory-summary'):
         from intel_memory import summary
         try:return not summary(line)['complete']
@@ -1172,6 +1176,15 @@ def collect(mount, volume, output):
                 hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
+        intel_ring_transition=None
+        if 'srvros.intel-ring=handoff-v1' in text:
+            from intel_ring_transition import native_ring_result,verify_ring_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_ring_transition=native_ring_result(final)
+                verify_ring_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_ring_transition or not intel_ring_transition['native_complete']:attention.append('Intel original-owner enabled-ring transition incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel enabled-ring transition: '+str(error))
         intel_entry_admit=None
         if 'srvros.intel-admission=disabled-bcs-v1' in text:
             from intel_entry_admission import native_entry_result,verify_entry_checkpoint
@@ -1210,6 +1223,7 @@ def collect(mount, volume, output):
             if not window_proof or not window_proof['source_completed']:
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
         records.append({
+            "intel_ring_transition":intel_ring_transition,
             "intel_entry_admit":intel_entry_admit,
             "intel_hda_bcs":intel_hda_bcs,
             "intel_blitter":intel_blitter,

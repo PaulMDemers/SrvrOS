@@ -75,6 +75,13 @@ geometry reset semantics, preserving the old gates. An unchanged retry, geometry
 clearing or a saved-observation token cannot supply that route. No memory or
 completion grant is added.
 
+The [enabled-ring transition](intel-enabled-ring-transition.md) is now a separate
+v24 implementation under host/VM qualification. It uses the original HDA/GT
+owners, the captured enabled ring, one guarded disable, a fresh full census at
+an advanced epoch and exact engine/reader preservation. Its first native
+milestone ends with disabled submission and clean retirement. Reset from that
+nonzero geometry still needs a separate contract; no old reset gate is widened.
+
 ## First decision: how ownership begins
 
 Before another destructive native operation, choose and document a complete

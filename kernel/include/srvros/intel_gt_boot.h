@@ -34,5 +34,6 @@ bool intel_gt_boot_held_requester_recipe(const char *);
 bool intel_gt_boot_requester_recipe(const char *);
 bool intel_gt_boot_takeover_recipe(const char *);
 bool intel_gt_boot_gpu_hold_recipe(const char *);
+bool intel_gt_boot_ring_transition_recipe(const char *);
 bool intel_gt_boot_joint_admit_recipe(const char *);
 #endif

@@ -1,4 +1,4 @@
-#if defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN)
+#if defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_RING_TRANSITION)
 #define SRVROS_INTEL_HDA_PAIR
 #endif
 #include <srvros/intel_display_capture.h>
@@ -435,7 +435,7 @@ bool intel_scanout_trial_clock(struct intel_scanout_clock *clock) {
     clock->us=timer_monotonic_us();
     return true;
 }
-#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
 /* Read the same raw inherited GGTT words, without re-entering the generic
  * single-DWORD provider for each word. IRQ exclusion is mandatory; the exact
  * live alias and immutable observer claim bracket each <=64-entry group.
@@ -486,7 +486,7 @@ static bool backing_pairs(void *ctx,uint32_t offset,unsigned count,uint64_t *out
 bool intel_scanout_trial_revalidate(void) {
     struct backing_adapter a;if(!trial_adapter(&a))return ADMISSION_FAIL(100,0);
     const struct intel_backing_io io={&a,backing_endpoint,backing_map,backing_unmap,backing_read,now};
-#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
     bool ok=intel_display_backing_batched(&trial_after,&result,&io,backing_pairs_irq_off()?backing_pairs:NULL);
 #else
     bool ok=intel_display_backing(&trial_after,&result,&io);
@@ -811,7 +811,7 @@ static bool gt_guard(void *context) {
        vmm_virt_to_phys_in_space(g->a.common.cr3,BACKING_VA,&old))return false;
     g->guards++;return intel_scanout_trial_revalidate();
 }
-#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL)
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
 /* A successful full census already finishes with a fresh complete endpoint
  * equal to the inherited one. Bind the original adapter to that same source,
  * then read the two firmware request registers without a sixth endpoint walk.
@@ -964,7 +964,7 @@ bool intel_gt_firmware_probe_report(void) {
         (uint64_t)r.status,(uint64_t)r.maps,(uint64_t)r.retained,(uint64_t)acquired,(uint64_t)before,(uint64_t)after,(uint64_t)released,(uint64_t)f.guards,(uint64_t)f.cache_checks,(uint64_t)(trial_mapping_fault && !r.retained),(uint64_t)r.endpoint.asls,(uint64_t)r.endpoint.swsci,r.endpoint.base,r.endpoint.length,r.endpoint.type,(uint64_t)complete);
     for(unsigned n=0;n<2;n++) {
         console_printf("intel-firmware-sample: v=1 sample=%u begin_us=%u end_us=%u reads=%u\n",(uint64_t)n,r.sample[n].begin_us,r.sample[n].end_us,(uint64_t)r.sample[n].reads);
-#ifdef SRVROS_INTEL_PREPARE_RESET
+#if defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_RING_TRANSITION)
         static const char hex[]="0123456789abcdef";
         char raw[INTEL_FW_WORDS*8+1];
         for(unsigned i=0;i<INTEL_FW_WORDS;i++)for(unsigned j=0;j<8;j++)raw[i*8+j]=hex[(r.sample[n].words[i]>>(28-j*4))&15];

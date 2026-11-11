@@ -2,7 +2,12 @@
  * may run its exact terminal capture before user address spaces are created.
  * It still uses all ordinary kernel services and admission checks. */
 static bool boot_system_init(const char *cmdline, bool timer_running) {
-#ifdef SRVROS_INTEL_HDA_SHUTDOWN
+#ifdef SRVROS_INTEL_RING_TRANSITION
+    if (intel_gt_boot_ring_transition_recipe(cmdline)) {
+        console_write("init: deferred=ring-transition-preinit; terminal automatic capture, no user services\n");
+        return false;
+    }
+#elif defined(SRVROS_INTEL_HDA_SHUTDOWN)
     if (intel_gt_boot_hda_shutdown_recipe(cmdline)) {
         console_write("init: deferred=hda-bcs-preinit; terminal automatic capture, no user services\n");
         return false;

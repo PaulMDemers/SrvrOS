@@ -4,9 +4,9 @@ Updated: 2026-11-11. State: **active reference machine; partial device acceptanc
 
 ### Active scope: enabled-ring transition implementation
 
-Current work starts from integrated main`a611fd9e` (documentation-only PR471
-on top of91514b3f). Build a separate original-HDA/GT transition image matching
-the failed joint trial's14 mapped pages and full92-word source census. Its
+Current work starts from integrated main `a611fd9e` (documentation-only PR471
+on top of 91514b3f). Build a separate original-HDA/GT transition image matching
+the failed joint trial's 14 mapped pages and full 92-word source census. Its
 explicit submission-handoff recipe permits only the existing guarded idle BCS
 control disable. It must advance the engine epoch before a possible store,
 obtain a fresh full census at the new epoch, preserve inherited nonzero ring
@@ -17,8 +17,8 @@ failed preservation or terminal timing keep the original owner pinned.
 The first native milestone ends at verified disabled submission ownership and
 clean retirement. It does not feed nonzero geometry into the old reset path;
 that path's gates stay unchanged. No Stop Ring, ring-start, GDRST, requester/PTE
-writer or memory grant is added. Keep BCS100ms, transition/readers150ms,
-GT300ms, HDA400ms and outer500ms. Touched scope: new transition core/adapter,
+writer or memory grant is added. Keep BCS 100 ms, transition/readers 150 ms,
+GT 300 ms, HDA 400 ms and outer 500 ms. Touched scope: new transition core/adapter,
 separate image/recipe/receipts/collector, fault and native-width/lifetime tests,
 and exact-stage VM/preflight. Work until hardware-ready; no reboot in this block.
 PR19 networking and PR379 WebCore remain independent. Local checkpoint:

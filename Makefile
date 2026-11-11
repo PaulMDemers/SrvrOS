@@ -6046,3 +6046,32 @@ build/tests/exfat-fat-window-host$(HOST_EXE): tools/test_exfat_fat_window.c kern
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-exfat-io-stack:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_io_stack.py
+
+# Original HDA owner, actual enabled BCS transition, fresh full census; no reset.
+INTEL_RING_TRANSITION_FLAGS := -DSRVROS_INTEL_RING_TRANSITION -DSRVROS_INTEL_WAKE_TRIAL -DSRVROS_INTEL_ENGINE_TRIAL -DSRVROS_INTEL_COMPLETION_TRIAL
+build/intel-ring-transition/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_TRANSITION_FLAGS) -c $< -o $@
+build/intel-ring-transition/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_TRANSITION_FLAGS) -c $< -o $@
+build/intel-ring-transition/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_TRANSITION_FLAGS) -c $< -o $@
+build/intel-ring-transition/transition.o: kernel/diagnostics/intel_ring_transition.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-ring-transition/srvros.elf: build/intel-ring-transition/main.o build/intel-ring-transition/probe.o build/intel-ring-transition/requests.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+INTEL_RING_TRANSITION_HOST_SOURCES := $(INTEL_HDA_SHUTDOWN_HOST_SOURCES) kernel/src/drivers/intel_completion_audit.c kernel/diagnostics/intel_ring_transition.c
+build/tests/intel-ring-transition-adapter$(HOST_EXE): tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_RING_TRANSITION_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) -o $@
+build/tests/boot-ring-transition$(HOST_EXE): tools/test_boot_ring_transition.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_RING_TRANSITION_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-ring-transition
+test-core: test-intel-ring-transition
+test-intel-ring-transition: build/tests/intel-ring-transition-adapter$(HOST_EXE) build/tests/boot-ring-transition$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_ring_transition.py
+	build/tests/boot-ring-transition$(HOST_EXE)

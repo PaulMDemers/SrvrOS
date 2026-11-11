@@ -86,7 +86,10 @@ def backing_result(text):
         if not wake and len(boot)==1 and 'srvros.intel-hda-bcs=joint-owner-v1' in boot[0].split():
             from intel_hda_shutdown import paired_recipe
             paired_recipe(boot[0]);paired_preflight=True
-        if not (wake in (['20'],['21'],['22'],['23']) or paired_preflight or not wake and len(boot)==1 and boot[0].split().count('srvros.intel-joint=hda-claim')==1):raise ValueError('joint PTE image binding')
+        if not wake and len(boot)==1 and 'srvros.intel-ring=handoff-v1' in boot[0]:
+            from intel_ring_transition import ring_recipe
+            ring_recipe(boot[0]);paired_preflight=True
+        if not (wake in (['20'],['21'],['22'],['23'],['24']) or paired_preflight or not wake and len(boot)==1 and boot[0].split().count('srvros.intel-joint=hda-claim')==1):raise ValueError('joint PTE image binding')
     ptes=[]
     for chunk in rows['pte']:
         if chunk['first']!=len(ptes) or chunk['count']!=min(chunk_size,summary['count']-len(ptes)) or chunk['count']<=0:raise ValueError('incomplete/duplicate PTE chunk')

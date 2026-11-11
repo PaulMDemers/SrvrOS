@@ -32,7 +32,7 @@ static bool completion_context_raw(void *ctx,uint32_t out[INTEL_COMPLETION_CONTE
 static bool completion_context(void *ctx,uint32_t out[INTEL_COMPLETION_CONTEXT]) {
  return engine_guard(ctx) && completion_context_raw(ctx,out);
 }
-#if (defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT)) && !defined(SRVROS_INTEL_CENSUS_SCALAR_TEST)
+#if (defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || defined(SRVROS_INTEL_RING_TRANSITION)) && !defined(SRVROS_INTEL_CENSUS_SCALAR_TEST)
 static bool completion_mapping(void *ctx,unsigned slot) {
  struct wake_adapter *a=ctx;uint64_t physical;
  return slot<WAKE_MAPS && a->mapped[slot] && vmm_current_address_space()==a->fw.gt.a.common.cr3 &&
@@ -62,7 +62,7 @@ static void completion_report_named(const struct intel_completion_result *r,cons
  for(unsigned n=0;n<2;n++) {
   for(unsigned e=0;e<INTEL_ENGINE_COUNT && n*5+e<r->groups;e++) {
    const uint32_t *w=r->words[n][e];
-#if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
+#if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_RING_TRANSITION)
    console_printf("%s-row: v=2 s=%u e=%u d=%u,%u,%u,%u,%u,%u,%u,%u\n",prefix,(uint64_t)n,(uint64_t)e,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
 #else
    console_printf("%s-row: v=1 sample=%u engine=%u w0=%u w1=%u w2=%u w3=%u w4=%u w5=%u w6=%u w7=%u\n",prefix,(uint64_t)n,(uint64_t)e,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
@@ -70,7 +70,7 @@ static void completion_report_named(const struct intel_completion_result *r,cons
   }
   if(n<r->contexts) {
    const uint32_t *w=r->context[n];
-#if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
+#if defined(SRVROS_INTEL_BCS_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_RING_TRANSITION)
    console_printf("%s-context: v=2 s=%u d=%u,%u,%u,%u,%u,%u\n",prefix,(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5]);
 #else
    console_printf("%s-context: v=1 sample=%u c0=%u c1=%u c2=%u c3=%u c4=%u c5=%u\n",prefix,(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5]);

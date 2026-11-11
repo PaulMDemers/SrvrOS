@@ -118,7 +118,7 @@ static uint64_t intel_display_test_wake_irq_save(void){wake_irq=true;return 512;
 static bool intel_display_test_wake_irq_off(void){return wake_irq;}
 static void intel_display_test_wake_irq_restore(uint64_t flags){assert(flags==512);wake_irq=false;}
 static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc0000000ull+o && (o==0xa000 || o==0x130000 || o==0x138000
-#ifdef SRVROS_INTEL_HELD_INTERVAL
+#if defined(SRVROS_INTEL_HELD_INTERVAL) || defined(SRVROS_INTEL_RING_TRANSITION)
  || o==0x811000
 #endif
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
@@ -128,7 +128,7 @@ static bool intel_display_test_wake_uc(uint64_t p,uint32_t o){assert(p==0xc00000
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
  || o==0x9000
 #endif
-#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_RING_TRANSITION)
  || o==0x9000 || o==0x70000 || o==0x71000 || o==0x72000
 #endif
 #endif
@@ -172,6 +172,10 @@ static bool intel_display_test_engine_read(unsigned e,unsigned w,uint32_t *v) {
  if(e==4 && w==2)*v=bcs_entry_disabled?0:0x3eef000;
  if(e==4 && w==3)*v=bcs_ctl;
 #endif
+#ifdef SRVROS_INTEL_RING_TRANSITION
+ if(e==4 && w==2)*v=!strcmp(engine_mode,"ring-zero")?0:0x3eef000;
+ if(e==4 && w==3)*v=ring_ctl;
+#endif
 #ifdef SRVROS_INTEL_JOINT_ADMIT
  if(!strcmp(engine_mode,"entry-enabled") && e==4 && w==3)*v=0xf001;
  if((!strcmp(engine_mode,"entry-enabled") || !strcmp(engine_mode,"entry-geometry")) && e==4 && w==2)*v=0x3eef000;
@@ -195,6 +199,9 @@ static bool intel_display_test_completion_read(unsigned e,unsigned i,uint32_t re
  assert(e<5 && i<8 && wake_irq && wake_ack==1 && !display_access_allowed());
  static const uint32_t base[5]={0x2000,0x12000,0x1a000,0x1c000,0x22000},tlb[5]={0x4260,0x4264,0x4270,0x4268,0x426c},off[7]={0x30,0x34,0x38,0x3c,0x234,0x238,0x2d0};
  assert(reg==(i==7?tlb[e]:base[e]+off[i]));
+#ifdef SRVROS_INTEL_RING_TRANSITION
+ return intel_display_test_ring_census(e,i,out);
+#endif
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
  census_fault(e,i);
 #endif
@@ -214,6 +221,9 @@ static bool intel_display_test_completion_context(unsigned reg,uint32_t *out) {
  for(;i<6 && regs[i]!=reg;i++);
  assert(i<6 && wake_irq && wake_ack==1 && !display_access_allowed());completion_context_reads++;
  *out=(i==0 || i==3)?0x200:i==1?0x4080:0;
+#ifdef SRVROS_INTEL_RING_TRANSITION
+ if(!intel_display_test_ring_context(i,out))return false;
+#endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
  if(bcs_reset_writes && !strcmp(engine_mode,"bcs-postengine") && i==1)*out^=1;
 #endif
@@ -233,15 +243,17 @@ static bool handoff_drift;
 static bool cache_mode,window_mode,window_map_fail,window_retire_fail,window_cache_fail;
 static bool intel_display_test_uc(uint64_t);
 static bool intel_display_test_read(uint32_t,uint32_t *);
-#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+#if defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || defined(SRVROS_INTEL_RING_TRANSITION)
 static bool intel_display_test_wake_snapshot(uint32_t *r,uint32_t *a,uint32_t *t) {
 #ifdef SRVROS_INTEL_JOINT
  intel_display_test_joint_snapshot_delay();
 #endif
  return intel_display_test_wake_read(0xa188,r) && intel_display_test_wake_read(0x130044,a) && intel_display_test_wake_read(0x13805c,t);
 }
+#ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
 static unsigned takeover_reads;
 static bool intel_display_test_takeover_read(unsigned,uint32_t,uint32_t *);
+#endif
 #endif
 #define SRVROS_INTEL_DISPLAY_HOST_TEST
 #include "../kernel/src/drivers/intel_display_probe.c"
@@ -293,7 +305,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_GPU_HOLD
+#ifdef SRVROS_INTEL_RING_TRANSITION
+#define intel_wake_firmware_request intel_ring_transition_firmware_request
+#elif defined(SRVROS_INTEL_GPU_HOLD)
 #define intel_wake_firmware_request intel_gpu_hold_firmware_request
 #elif defined(SRVROS_INTEL_HDA_SHUTDOWN)
 #define intel_wake_firmware_request intel_hda_shutdown_firmware_request
@@ -468,7 +482,7 @@ static const uint64_t fb_virtual=0xffff8000b0000000ull;
 static bool intel_display_test_uc(uint64_t p){assert(p==0xc0811000);return !window_cache_fail;}
 uint8_t pci_read_config8(const struct pci_device *d,uint8_t off){assert(d==&devices[0] && off==0x62);return 1;}
 uint64_t pci_device_count(void){
-#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN)) || defined(SRVROS_INTEL_ENGINE_PREPARE)
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_RING_TRANSITION)) || defined(SRVROS_INTEL_ENGINE_PREPARE)
  return 4;
 #else
  return 3;
@@ -476,7 +490,7 @@ uint64_t pci_device_count(void){
 }
 const struct pci_device *pci_device_at(uint64_t i){return i<pci_device_count()?&devices[i]:NULL;}
 uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
-#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN))
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_RING_TRANSITION))
     if(d==&devices[3])return intel_display_test_hda_config(off);
 #endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
@@ -546,14 +560,14 @@ uint64_t vmm_kernel_address_space(void){return 0x1000;}
 uint64_t vmm_current_address_space(void){return current;}
 bool vmm_virt_to_phys(uint64_t v,uint64_t *p){assert(v==fb_virtual);*p=0xb0000000;return true;}
 static unsigned index_of(uint64_t v){
-#ifdef SRVROS_INTEL_HELD_INTERVAL
+#if defined(SRVROS_INTEL_HELD_INTERVAL) || defined(SRVROS_INTEL_RING_TRANSITION)
  if(v==BACKING_VA+0x1d000)return INTEL_CAPTURE_PAGES+14;
 #endif
 #ifdef SRVROS_INTEL_READER_TRIAL
  if(v==READER_VA)return INTEL_CAPTURE_PAGES+13;
 #endif
-#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN))
-#ifdef SRVROS_INTEL_JOINT
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_RING_TRANSITION))
+#if defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_RING_TRANSITION)
  if(v==HDA_VA)return INTEL_CAPTURE_PAGES+15;
 #else
  if(v==HDA_VA)return INTEL_CAPTURE_PAGES+12;
@@ -596,13 +610,17 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
     writable=writable || (wake_mode && v==BACKING_VA+0x19000);
     if(!strcmp(engine_mode,"hreset-map-slot") && v==BACKING_VA+0x19000)return false;
 #endif
-#ifdef SRVROS_INTEL_HELD_INTERVAL
+#if defined(SRVROS_INTEL_HELD_INTERVAL) || defined(SRVROS_INTEL_RING_TRANSITION)
     if(!strcmp(engine_mode,"interval-map-slot") && v==BACKING_VA+0x1d000)return false;
     if(v==BACKING_VA+0x1d000)assert(!writable && flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE));
 #endif
+#ifdef SRVROS_INTEL_RING_TRANSITION
+    if(v==WAKE_VA+7*4096)writable=true;
+    if(v>=WAKE_VA+3*4096 && v<WAKE_VA+14*4096 && v!=WAKE_VA+7*4096)assert(!writable && !(flags&VMM_PAGE_WRITABLE));
+#endif
     assert(space==0x1000 && flags==(writable?(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|VMM_PAGE_WRITABLE):(fw_mode && p==0x12345000)?VMM_PAGE_NO_EXECUTE:(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)));unsigned n=index_of(v);
     assert(!pa[n]);if(n>=INTEL_CAPTURE_PAGES)assert((p>=0xc0000000 && p<0xc1000000)
-#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN))
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_RING_TRANSITION))
  || (p==INTEL_HDA_BASE && v==HDA_VA)
 #endif
  || p==0xfed90000 || (fw_mode && p==0x12345000));else assert(p==0xc0000000ull+intel_capture_pages[n]);pa[n]=p;map_calls++;
@@ -616,7 +634,7 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
  if(!strcmp(engine_mode,"tlb-map") && v==BACKING_VA+0x18000)return false;
 #endif
 #endif
-#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN))
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_RING_TRANSITION))
  if(v==HDA_VA && !intel_display_test_hda_map())return false;
 #endif
  if((window_map_fail && p==0xc0811000) || (gt_map_fail && p==0xc000a000) || (fw_map_fail && p==0x12345000) || (wake_map_fail && v==BACKING_VA+0x10000))return false;
@@ -629,7 +647,7 @@ bool vmm_unmap_page_in_space(uint64_t space,uint64_t v,uint64_t *p){
 #ifdef SRVROS_INTEL_READER_TRIAL
  if(v==READER_VA && !intel_display_test_pinned_retire())return false;
 #endif
-#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN))
+#if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_RING_TRANSITION))
  if(v==HDA_VA && !intel_display_test_hda_retire())return false;
 #endif
 assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);
@@ -649,6 +667,9 @@ assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);
  *p=pa[n];pa[n]=0;unmap_calls++;return true;}
 bool timer_reference_ready(void){return clock_ok;}
 uint64_t timer_monotonic_us(void){
+#ifdef SRVROS_INTEL_RING_TRANSITION
+ uint64_t ring_at;if(intel_display_test_ring_clock(&ring_at))return ring_at;
+#endif
 #ifdef SRVROS_INTEL_HDA_SHUTDOWN
  if(paired_clock_fault){unsigned f=paired_clock_fault;paired_clock_fault=0;return f==1?0:1;}
 #endif
@@ -765,7 +786,7 @@ static void reset(void) {
     dsdt=(struct acpi_table_info){.physical_address=0x100000,.length=35034};memcpy(dsdt.signature,"DSDT",4);
     ram=(struct limine_memmap_entry){.base=0x100000,.length=0x70000000,.type=LIMINE_MEMMAP_USABLE};
     devices[2]=(struct pci_device){.device=0,.class_code=6};
-#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
+#if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_RING_TRANSITION)
     devices[3]=(struct pci_device){.device=3,.vendor_id=0x8086,.device_id=0x160c,.class_code=4,.subclass=3};
 #endif
     aperture=(struct limine_memmap_entry){.base=0xb0000000,.length=0x10000000,.type=LIMINE_MEMMAP_FRAMEBUFFER};
@@ -910,6 +931,9 @@ int main(int argc,char **argv) {
     wake_cmd.cmdline=engine_recipe;
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
+#ifdef SRVROS_INTEL_RING_TRANSITION
+    static char ring_recipe[1400];snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=handoff-v1",completion_recipe);wake_cmd.cmdline=ring_recipe;
+#endif
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
     static char takeover_recipe[1400];snprintf(takeover_recipe,sizeof(takeover_recipe),"%s srvros.intel-takeover=preflight",completion_recipe);wake_cmd.cmdline=takeover_recipe;
 #ifdef SRVROS_INTEL_REQUESTER_AUDIT
@@ -1015,6 +1039,9 @@ if(!strcmp(engine_mode,"gpu-pending"))good=true;
 #endif
 #ifdef SRVROS_INTEL_HDA_SHUTDOWN
 if(!strncmp(engine_mode,"joint-",6) || !strncmp(engine_mode,"paired-",7))good=false;
+#endif
+#ifdef SRVROS_INTEL_RING_TRANSITION
+ good=good && !strcmp(engine_mode,"report");
 #endif
 assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
