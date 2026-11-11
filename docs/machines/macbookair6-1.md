@@ -12473,3 +12473,46 @@ retired after exact full-tree backup verification; its independent payload
 remains. Automatic matching-session collection is enabled. The local run record
 will record the one-shot arm immediately before the authorized reboot. Native
 results and screenshot performance acceptance remain pending that return.
+
+## Native filesystem comparison return (2026-11-11)
+
+Collected run `347434d70c5c44a5`, release `80b4e32ef314ae05`, compiled `820eb85c`
+(merged PR469 runtime with host-only comparator correction and own-unit docs),
+session `session-0006600400f302c0-00`. The original1800-second1% automatic workload
+passes all16 independently reparsed contracts plus the append-wait companion:
+3895 verified256KiB bursts/1,021,050,880 bytes,345,763,840 PCM bytes, zero recorded
+underruns,1071 app cycles,120687us maximum loop and no excursions at unchanged
+500ms/10s limits. All three exact1366x768 BMPs, final proofs, ownership/cache,
+battery and normal exit/return checks pass. Native bounded tails/worst receipts
+do not retain every individual cycle; no subjective1% sound claim is made.
+
+Screenshot totals are7.307485/10.890831/12.560273 seconds versus c7's
+8.049986/9.633137/17.522316. The worst improves28.3%, while the middle worsens13.1%.
+WRITE phases are4.378074/6.668082/9.959347 seconds. Different cold boots, media
+state and interleaving make this observational; aggregate burst count is lower
+than c7's3954, and an isolated sustained speedup is unproved. One native allocation
+sample now reads59392 bitmap bytes versus131072 previously. Generic bounded
+stream admission remains64KiB; that path's host coverage is separate on this
+128KiB-cluster USB.
+
+Private prelude waits still dominate95.69/97.50/98.45% of raw write call wall,
+with3.615494-second maximum and17 actual ready-under-live-borrow rechecks. Ordinary
+gates total180/165/183us with no retained owner. The separately selected1MiB
+global content call during capture3 takes3.614946 seconds, including3.532703
+seconds of payload callbacks. Forty16KiB payload status waits total3.188556
+seconds; nine exceed100ms and the maximum is353518us. Service gaps peak10069us.
+Its512-byte allocation status maximum is1906us. There is no exact per-private-
+wait owner/command join, and these software clocks do not establish a device,
+firmware or controller cause. Long completion tails remain open.
+
+Fresh read-only actual USB hashes preserve all859 prior files except the expected
+metadata sidecar. Nine new files bring totals to868 files/4338 allocated clusters;
+fsck and full allocation report zero leaks, mismatches or errors. Installed/staged/
+independent80b4, recoveryc354 and retained c7 verify, as do retired2dd's independent
+full tree, the original failed-media archive and the matching trial backup.
+Ubuntu remains default, one-shot consumed, collector disabled and USB unmounted.
+No new reboot is armed. This accepts the bounded native combined filesystem
+profile; performance remains mixed and the earlier battery-fault cause remains
+unresolved, with no recurrence captured here. Review base is main `91514b3f`;
+this result update changes only this unit record and the filesystem performance
+guide, with no runtime or other-machine acceptance change.
