@@ -8313,5 +8313,6 @@ GRUB consumed the one-shot and the complete 447-file workspace and its
 metadata matched the baseline exactly. Offline storage and installed
 recovery checks passed. The collector closed the trial as incomplete.
 Startup can return before firmware capture if the workspace mount or
-logger startup fails. The retained evidence cannot distinguish those
-paths or establish kernel entry. No boot is armed.
+logger startup fails. The operator saw SrvrOS briefly and reported that it
+returned automatically. The retained evidence cannot distinguish the two
+startup paths. No boot is armed.

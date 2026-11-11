@@ -12,8 +12,9 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 The `1423bf12` / `34ed3937df70ec64` cold trial returned without a saved
 session. GRUB consumed its one-shot, and all 447 prior files and metadata
 remain exactly equal. Offline storage and installed recovery checks passed.
-The once-only return is closed as incomplete. The host evidence cannot
-confirm kernel entry, workspace/logger admission, or a Wi-Fi result.
+The once-only return is closed as incomplete. The operator saw SrvrOS run
+for about one second and return automatically. Workspace/logger admission
+and any Wi-Fi result remain unverified.
 Establish those startup checkpoints before using the MCU diagnostic to
 judge calibration or same-boot reconnect. Ubuntu is unarmed.
 
