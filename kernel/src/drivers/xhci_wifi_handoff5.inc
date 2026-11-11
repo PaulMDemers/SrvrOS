@@ -92,7 +92,7 @@ static bool wifi_handoff5_inspect(void){
  wifi_handoff5.plan=(struct mt76_handoff5_plan){.generation=wifi_power5.plan.generation,.old_ring=wifi_cal5.plan.ring,.old_dequeue=wifi_cal5.stop_dequeue,.old_posts=wifi_cal5.posts,.cleanup_posts=wifi_cal5.cleanup_posts,.new_slots=XHCI_TRB_COUNT-1,.slot=d->slot_id};
  for(unsigned i=0;i<8;i++)wifi_handoff5.endpoint[i]=context_read32(d->output_context,9,i);
  if((wifi_handoff5.endpoint[0]&7)!=3 || (wifi_handoff5.endpoint[2]|((uint64_t)wifi_handoff5.endpoint[3]<<32))!=wifi_cal5.stop_dequeue)return false;
- if(!alloc_frame_zero(&wifi_handoff5.plan.new_ring,&ring))return false;
+ if(!alloc_frame_zero(&wifi_handoff5.plan.new_ring,&ring) || wifi_prime5_alias(wifi_handoff5.plan.new_ring))return false;
  wifi_handoff5.ring=ring;wifi_handoff5.new_physical=wifi_handoff5.plan.new_ring;wifi_handoff5.new_pointer=(uintptr_t)ring;write_link_trb(ring,wifi_handoff5.plan.new_ring,true);
  const uint64_t protected[]={d->ep0_ring_phys,d->descriptor_buffer_phys,d->input_context_phys,d->output_context_phys,d->firmware.buffer_phys,d->firmware.ep.ring_phys,d->firmware.mcu.buffer_phys,d->firmware.mcu.response.ring_phys,xhci.command_ring_phys};
  for(unsigned i=0;i<9;i++)wifi_handoff5.plan.protected_pages[wifi_handoff5.plan.protected_count++]=protected[i];

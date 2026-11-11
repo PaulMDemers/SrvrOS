@@ -53,6 +53,7 @@ class MainDispatchTests(unittest.TestCase):
             'bool wifi_early5_trial=trial!=0,return_on_failure=returned!=0,wifi_desktop_trial=desktop!=0;logger_ok=allowed!=0;quiesces=0;',
             logger,'return (wifi_rx_compare5_parked?1u:0u)+quiesces*2u;}',
             'static bool xhci_wifi_cal5_cleanup_enable(void){setup_calls++;return capture_ok;}',
+            'static bool xhci_wifi_cal5_prime_enable(void){setup_calls++;return capture_ok;}',
             'unsigned early5_recipe_allowed(const char *c){return wifi_early5_recipe(c);}',
             'unsigned dispatch_setup_calls(void){return setup_calls;}',
             'unsigned dispatch_reconnect_attempted(void){return last_reconnect_attempted;}',
@@ -83,7 +84,7 @@ class MainDispatchTests(unittest.TestCase):
         return bool(sample.value),name,count.value
 
     def test_actual_staged_profiles(self):
-        expected={124:'handoff5',125:'peer5',126:'tx5',127:'join5',128:'eapol5',129:'wpa5',130:'wpa5',131:'data5',132:'provider5',133:'reuse5',134:'nop5',135:'stream5',136:'stream5_dhcp',137:'stack5_probe',138:'stack5_probe',139:'http5',140:'reconnect5_probe',143:'http_reconnect5',144:'early5',145:'rx_compare5_early',146:'rx_compare5_late'}
+        expected={124:'handoff5',125:'peer5',126:'tx5',127:'join5',128:'eapol5',129:'wpa5',130:'wpa5',131:'data5',132:'provider5',133:'reuse5',134:'nop5',135:'stream5',136:'stream5_dhcp',137:'stack5_probe',138:'stack5_probe',139:'http5',140:'reconnect5_probe',143:'http_reconnect5',144:'early5',145:'rx_compare5_early',146:'rx_compare5_late',147:'http_reconnect5'}
         for version,child in expected.items():
             with self.subTest(version=version):self.assertEqual(self.dispatch(self.recipe(version)),(True,'xhci_wifi_capture_'+child,1))
 
@@ -132,6 +133,17 @@ class MainDispatchTests(unittest.TestCase):
         for token in ('srvros.wifi-reconnect5=1','srvros.wifi-stack5=1','srvros.wifi-cal5-cleanup=1'):
             self.assertEqual(self.dispatch(recipe.replace(token,'')),(False,'none',0))
         self.assertEqual(self.dispatch(recipe+' srvros.wifi-http5=1'),(False,'none',0))
+
+    def test_prime_recipe_and_order(self):
+        recipe=self.recipe(147)
+        self.assertEqual(self.dispatch(recipe),(True,'xhci_wifi_capture_http_reconnect5',1))
+        self.assertEqual(self.library.dispatch_setup_calls(),2)
+        self.assertEqual(self.dispatch(recipe,parked=False),(False,'none',0))
+        for token in ('srvros.wifi-reconnect5-http=1','srvros.startup-journal=1',
+                      'srvros.wifi-cal5-cleanup=1','srvros.wifi-stream5=1'):
+            self.assertEqual(self.dispatch(recipe.replace(token,'')),(False,'none',0))
+        for version in (138,140,142,144,145,146):
+            self.assertEqual(self.dispatch(self.recipe(version)+' srvros.wifi-cal5-prime=1'),(False,'none',0))
 
     def test_cleanup_setup_gate(self):
         self.assertEqual(self.dispatch(self.recipe(138)),(True,'xhci_wifi_capture_stack5_probe',1))

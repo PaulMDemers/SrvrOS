@@ -35,7 +35,8 @@ def boot_identity(log,release=None,volume=None):
  tokens=records['cmdline: '];require(tokens==records['laptop-capture: boot options='],'divergent HTTP reconnect identity')
  releases=[x for x in tokens if x.startswith('srvros.desktop-release=')];volumes=[x for x in tokens if x.startswith('srvros.workspace-volume=')]
  require(len(releases)==len(volumes)==1 and re.fullmatch(r'srvros.desktop-release=[0-9a-f]{16}',releases[0]) and re.fullmatch(r'srvros.workspace-volume=[0-9a-f]{8}',volumes[0]),'invalid HTTP reconnect identity')
- require(tokens-set(releases+volumes) ==BOOT_FIXED,'wrong explicit HTTP reconnect recipe')
+ expected=BOOT_FIXED|({'srvros.wifi-cal5-prime=1'} if 'srvros.wifi-cal5-prime=1' in tokens else set())
+ require(tokens-set(releases+volumes) ==expected,'wrong explicit HTTP reconnect recipe')
  actual=releases[0].split('=',1)[1];actual_volume=volumes[0].split('=',1)[1]
  require(release is None or release==actual,'wrong HTTP reconnect release')
  require(volume is None or volume==actual_volume,'wrong HTTP reconnect workspace')

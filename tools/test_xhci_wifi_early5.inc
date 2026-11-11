@@ -5,6 +5,7 @@ static bool early5_cycle,early5_timeout,early5_control_inject,early5_stop_race,e
 static unsigned early5_fault,early5_stop_fault,early5_owner_fault,early5_control_fault;
 static bool early5_history_requested,early5_history_active;
 static uint32_t early5_mac,early5_filter,early5_txop;
+static unsigned prime5_test_fault,prime5_test_commands,prime5_test_stops,prime5_test_new_posts;
 static void early5_queue(struct xhci_trb e){
  assert(((xhci.event_ring[early5_producer].control&1)!=0)!=early5_cycle);
  e.control=(e.control&~1u)|(early5_cycle?1u:0u);
@@ -34,6 +35,23 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
   if(type==12){
    for(unsigned i=0;i<5;i++)context_write32(d->output_context,9,i,context_read32(d->input_context,10,i));
    context_write32(d->output_context,9,0,1);
+  }else if(type==16){
+   assert(wifi_prime5.switching && ((cmd->control>>16)&31)==9);
+   prime5_test_commands++;
+   context_write32(d->output_context,9,2,cmd->parameter_low);
+   context_write32(d->output_context,9,3,cmd->parameter_high);
+   if(prime5_test_fault==2)context_write32(d->output_context,9,1,1);
+   if(prime5_test_fault==3)context_write32(d->output_context,9,2,cmd->parameter_low^1);
+   if(prime5_test_fault==4)context_write32(d->output_context,9,0,1);
+   if(prime5_test_fault==5)early5_data(0);
+   if(prime5_test_fault==6)((struct xhci_trb *)pmm_phys_to_virt(wifi_early5.ring))[0].status^=1;
+  }else if(wifi_prime5.after){
+   assert(type==15);prime5_test_stops++;
+   uint64_t p=wifi_cal5.plan.ring+16*(wifi_cal5.posts+wifi_cal5.cleanup_posts);
+   context_write32(d->output_context,9,0,3);
+   context_write32(d->output_context,9,2,(uint32_t)(p|1));context_write32(d->output_context,9,3,p>>32);
+   early5_queue((struct xhci_trb){.parameter_low=(uint32_t)p,.parameter_high=p>>32,
+    .status=27u<<24,.control=(32u<<10)|(9u<<16)|((uint32_t)d->slot_id<<24)});
   }else{
    assert(type==15 && ((cmd->control>>16)&31)==9);
    unsigned n=wifi_early5.completed;
@@ -54,7 +72,8 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
   }
   uint64_t p=xhci.command_ring_phys+16*ci;
   early5_queue((struct xhci_trb){.parameter_low=(uint32_t)p,.parameter_high=p>>32,
-   .status=(early5_stop_fault==3?5u:1u)<<24,.control=(33u<<10)|((uint32_t)d->slot_id<<24)});
+   .status=(early5_stop_fault==3 || (type==16 && prime5_test_fault==1) || (type==15 && !wifi_prime5.after && prime5_test_fault==20)?5u:1u)<<24,
+   .control=(33u<<10)|((uint32_t)(type==16 && prime5_test_fault==7?2:d->slot_id)<<24)});
   if(type==15 && early5_stop_fault==2){
    uint64_t ptr=wifi_early5.ring+16*wifi_early5.completed;
    early5_queue((struct xhci_trb){.parameter_low=(uint32_t)ptr,.parameter_high=ptr>>32,
@@ -63,7 +82,20 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
   return;
  }
  if(offset!=xhci.db_base+4*d->slot_id)return;
- if(value==9){early5_rx_bells++;assert(wifi_early5_layout());return;}
+ if(value==9){
+  early5_rx_bells++;
+  if(!wifi_prime5.after){assert(wifi_early5_layout());return;}
+  prime5_test_new_posts++;assert(wifi_prime5.first_post);
+  unsigned state=prime5_test_fault==8?2:prime5_test_fault==9 || ((prime5_test_fault==16 || prime5_test_fault==17) && prime5_test_new_posts==1)?3:prime5_test_fault==18?4:prime5_test_fault==19?0:1;
+  context_write32(d->output_context,9,0,state);
+  if((prime5_test_fault==16 || prime5_test_fault==17) && prime5_test_new_posts==1)return;
+  uint64_t p=wifi_cal5.plan.ring+16*(wifi_cal5.cleanup_pending?8+wifi_cal5.cleanup_posts-1:wifi_cal5.posts-1);
+  if(prime5_test_fault==10 || (prime5_test_fault==23 && wifi_cal5.cleanup_pending))early5_data(0);
+  early5_queue((struct xhci_trb){.parameter_low=(uint32_t)p,.parameter_high=p>>32,
+   .status=prime5_test_fault==22 && wifi_cal5.cleanup_pending?6u<<24:(13u<<24)|4096,
+   .control=(32u<<10)|(9u<<16)|((uint32_t)d->slot_id<<24)});
+  return;
+ }
  if(value==11 || value==16){
   struct xhci_wifi_mcu *m=&d->firmware.mcu;unsigned step=wifi_cal5.commands-1;
   assert((wifi_early5.after_calibration?!wifi_early5.armed:wifi_early5.armed) && step<5 && m->pending);
@@ -80,7 +112,7 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
    }
   }
   if(wifi_early5.armed && wifi_early5.completed<32)early5_data(early5_fault);
-  if(value==11 && early5_timeout)return;
+  if(value==11 && (early5_timeout || (prime5_test_fault==11 && step==4) || prime5_test_fault==12))return;
   if(early5_history_active){
    cal5_mcu_lifetime.event_index=early5_producer;cal5_mcu_lifetime.event_cycle=early5_cycle;
    cal5_mcu_lifetime_bulk(value);
@@ -105,11 +137,12 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
   uint32_t *v=address==0x13b0?&cal5_mcu_alc:address==0x2124?&cal5_mcu_ibi:
    address==0x1004?&early5_mac:address==0x1400?&early5_filter:address==0x1340?&early5_txop:NULL;
   uint32_t word=v?*v:address==0x2000?0xf000f200:address==0x208?0x40000050:0;
+  if(prime5_test_fault>=21 && wifi_prime5.after && wifi_cal5.mac.mac_disabled && address==0xa30 && wifi_cal5.cleanup_completed<3)word=1;
   if(in)for(unsigned i=0;i<4;i++)d->descriptor_buffer[i]=(uint8_t)(word>>(8*i));
   else{
    assert(v);*v=0;for(unsigned i=0;i<4;i++)*v|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
   }
-  if(wifi_early5.armed && early5_control_inject && early5_control_calls%5==0 && wifi_early5.completed<32){
+  if(wifi_early5.armed && !wifi_early5.frozen && early5_control_inject && early5_control_calls%5==0 && wifi_early5.completed<32){
    if(early5_control_fault==1)wifi_early5.control_active=false;
    if(early5_control_fault==2)wifi_early5.control_setup^=0x100000000ull;
    early5_data(0);
@@ -149,7 +182,7 @@ static struct xhci_device *early5_setup_limit(unsigned limit){
  early5_mac=0;early5_filter=0x17f97;early5_txop=0x583f;
  wifi_cal5.configured=false;wifi_cal5.mac=(struct mt76_mac_cycle){0};wifi_cal5.calibrating=false;
  memset(&wifi_cal5.ep,0,sizeof wifi_cal5.ep);context_write32(d->output_context,9,0,0);
- if(limit<33)fail_after=pool_used/4096+limit;
+ if(limit<33)fail_after=pool_used+limit;
  bool configured=wifi_cal5_configure();
  if(limit<33){assert(!configured && !wifi_early5.published && !early5_rx_bells && !freed);return d;}
  assert(configured);assert(wifi_early5.attempted && !wifi_early5.published);
@@ -299,4 +332,65 @@ static void trace_wifi_early5(unsigned mode){
  if(mode==3)early5_stop_fault=2;
  bool stopped=wifi_cal5_stop();assert(stopped==(mode!=1 && mode!=3));
  assert(wifi_early5_emit(ok && stopped)==(mode!=1 && mode!=3));early5_finish();
+}
+
+static void prime5_test_clock(void){
+ if(prime5_test_fault!=16 || !wifi_prime5.after || !wifi_prime5.first_post || prime5_test_new_posts!=1 ||
+    test_time<wifi_prime5.first_post_us+3000 || (context_read32(wifi_cal5.d->output_context,9,0)&7)!=3)return;
+ context_write32(wifi_cal5.d->output_context,9,0,1);
+ uint64_t p=wifi_cal5.plan.ring;
+ early5_queue((struct xhci_trb){.parameter_low=(uint32_t)p,.parameter_high=p>>32,
+  .status=(13u<<24)|4096,.control=(32u<<10)|(9u<<16)|((uint32_t)wifi_cal5.d->slot_id<<24)});
+}
+static void prime5_whole_native(unsigned fault,unsigned allocation_limit){
+ struct xhci_device *d=early5_base_setup();
+ memset(&wifi_cal5,0,sizeof wifi_cal5);memset(&wifi_early5,0,sizeof wifi_early5);
+ wifi_channel_vco5.d=d;context_write32(d->output_context,9,0,0);
+ early5_test_active=true;early5_producer=(unsigned)xhci.event_dequeue;
+ early5_mcu_calls=early5_control_calls=early5_rx_bells=0;
+ early5_cycle=xhci.event_cycle;early5_control_inject=true;
+ early5_history_active=early5_history_requested;
+ early5_timeout=early5_stop_race=early5_stop_length_invalid=false;
+ early5_fault=early5_stop_fault=early5_owner_fault=early5_control_fault=0;
+ early5_mac=0;early5_filter=0x17f97;early5_txop=0x583f;
+ prime5_test_fault=fault;prime5_test_commands=prime5_test_stops=prime5_test_new_posts=0;
+ assert(!xhci_wifi_cal5_prime_enable());assert(xhci_wifi_cal5_cleanup_enable());
+ assert(xhci_wifi_cal5_prime_enable() && !xhci_wifi_cal5_prime_enable());
+ if(fault>=13 && fault<=15){
+  prime5_test_alias_at=pool_used+33+(fault==15?2:0);prime5_test_alias_kind=fault-12;
+ }
+ if(fault==16)native_boundary_clock_hook=prime5_test_clock;
+ if(allocation_limit<50)fail_after=pool_used+allocation_limit;
+ bool ok=wifi_cal5_inspect(&wifi_channel_vco5);
+ if((!fault || fault==16 || fault==21) && allocation_limit==50){
+  assert(ok && wifi_prime5.after && wifi_prime5.resumed && wifi_prime5_held());
+  assert(wifi_early5.frozen && !wifi_early5.failed && wifi_cal5.commands==5 && early5_mcu_calls==10);
+  assert(wifi_cal5.window.complete && wifi_cal5.window.attempts==8 && wifi_cal5.posts==8);
+  assert(prime5_test_commands==1 && prime5_test_stops==1 && prime5_test_new_posts==8+wifi_cal5.cleanup_posts);
+  if(fault==21)assert(wifi_cal5.cleanup_posts==8 && wifi_cal5.cleanup_completed==8);
+  assert(wifi_cal5_cleanup_held() && wifi_cal5.stopped && !wifi_prime5_alias(wifi_cal5.plan.ring));
+  /* Former ring metadata and all 32 pages stay protected after ownership
+   * moves again. A late/duplicate old completion still quarantines. */
+  assert(wifi_prime5_alias(wifi_early5.ring) && wifi_prime5_alias(wifi_early5.physical[31]));
+  assert(wifi_prime5_route_new(wifi_cal5.plan.ring));
+  early5_data(0);early5_dispatch_one();assert(wifi_early5.failed && !wifi_prime5_held());
+ }else{
+  assert(!ok && !wifi_cal5.active && !wifi_cal5.window.complete);
+  if(allocation_limit<33)assert(!prime5_test_commands && !early5_mcu_calls);
+  if(allocation_limit>=33){
+   assert(wifi_cal5.commands==(fault==12?1u:5u) && early5_mcu_calls==(fault==12?2u:10u));
+   if(fault==11 || fault==12)assert(d->firmware.mcu.pending && !wifi_early5.frozen && !prime5_test_commands);
+  }
+  if(allocation_limit<50)assert(!prime5_test_commands && !prime5_test_new_posts);
+  if((fault && fault<8) || (fault>=13 && fault<=15) || fault==20)assert(!prime5_test_new_posts);
+ }
+ assert(!freed);prime5_test_fault=prime5_test_alias_kind=0;early5_finish();
+}
+static void test_wifi_prime5(void){
+ unsigned cases=0;prime5_whole_native(0,50);cases++;
+ early5_history_requested=true;prime5_whole_native(0,50);cases++;
+ for(unsigned i=0;i<50;i++){prime5_whole_native(0,i);cases++;}
+ for(unsigned i=1;i<=23;i++){prime5_whole_native(i,50);cases++;}
+ for(unsigned i=11;i<=12;i++){early5_history_requested=true;prime5_whole_native(i,50);cases++;}
+ printf("xhci-wifi-prime5: %u native-path cases PASS (modeled HCD/RF; no physical acceptance)\n",cases);
 }

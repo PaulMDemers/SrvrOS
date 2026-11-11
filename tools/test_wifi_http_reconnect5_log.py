@@ -61,6 +61,8 @@ class Tests(unittest.TestCase):
   command=' '.join(sorted(c.BOOT_FIXED|{'srvros.desktop-release='+release,'srvros.workspace-volume='+volume}))
   rows=['cmdline: '+command,c.BOOT,'laptop-capture: boot options='+command]
   self.assertEqual(c.boot_identity(text(rows),release,volume),release)
+  primed=[s+' srvros.wifi-cal5-prime=1' if s.startswith(('cmdline: ','laptop-capture: boot options=')) else s for s in rows]
+  self.assertEqual(c.boot_identity(text(primed),release,volume),release)
   for token in c.BOOT_FIXED:
    with self.subTest(token=token),self.assertRaises(ValueError):c.boot_identity(text([s.replace(token,'') for s in rows]))
   with self.assertRaises(ValueError):c.boot_identity(text(rows+[rows[0]]))

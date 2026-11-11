@@ -6,7 +6,11 @@ from wifi_held_log import require
 
 def check(log):
  require('srvros.wifi-discovery5=1' in log,'missing fixed161 discovery profile')
- r=parent(log);lines=log.splitlines();rows=[x for x in lines if x.startswith('wifi-discovery5')]
+ if 'srvros.wifi-cal5-prime=1' in log:
+  from wifi_prime5_log import check as primed_parent
+  r=primed_parent(log)
+ else:r=parent(log)
+ lines=log.splitlines();rows=[x for x in lines if x.startswith('wifi-discovery5')]
  require(len(rows)==1,'missing/duplicate discovery summary')
  d=fields(rows[0],'wifi-discovery5')
  require(set(d)==set('complete inputs parsed rows matches status selected channel rsn_bytes generation retained network_out authenticated'.split()),'wrong discovery fields')

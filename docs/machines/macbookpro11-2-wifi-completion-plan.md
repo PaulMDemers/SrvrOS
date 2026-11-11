@@ -23,12 +23,17 @@ primary banks are immutable; see the unit record for hashes and storage/recovery
 proofs. `wifi_prefix_tables` now checks common-proof literals against the pinned
 native MCU source, with six regression methods. Ubuntu is unarmed.
 
-Next integrate fetched maina9eacdaa and qualify an opt-in production receive
-prime/retirement-to-fresh-ring transition. The diagnostic32-page queue is not
-a drop-in eight-frame discovery window or a continuous receiver. Preserve
-pending DMA, exact Stop/dequeue/context admission and all existing connection
-retirement contracts; test actual native transitions before paired connection/
-HTTP hardware validation. No identical diagnostic retry is needed.
+Maina9eacdaa is integrated at291ec0be. The opt-in v147 production receive
+prime is implemented: retained32 queue and one calibration, complete first MAC
+shutdown/exact Stop, context-preserving Set TR Dequeue to a fresh eight-frame
+window plus eight scratch pages, then the existing connection/HTTP path. It
+never reuses priming DMA or replays calibration. New77 actual-native-C cases and
+the old75 early-owner cases pass; the emitted two-stage decoder and existing
+calibration, cleanup and two-HTTP-lifetime regressions pass with modeled HCD/RF.
+Host stage276 and actual main dispatch17 methods pass. Fatal ASan/UBSan
+checks pass77 prime,75 early and all MCU groups against unchanged source.
+Exact-image/storage/recovery qualification is next. Ubuntu remains unarmed;
+no new physical connection acceptance is claimed.
 
 ### Comparison implementation checkpoint (before the two returns)
 

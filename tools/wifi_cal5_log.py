@@ -15,7 +15,7 @@ def fields(line,prefix):
  require(' '.join(f'{k}={v}' for k,v in re.findall(r'([a-z_]+)=([^ ]+)',line[len(prefix)+2:]))==line[len(prefix)+2:],'malformed ledger fields')
  return data
 
-def check(log,*,early=False,early_before_mac=True):
+def check(log,*,early=False,early_before_mac=True,prime=False):
  require('srvros.wifi-cal5=1' in log,'missing calibration profile');r=parent(log);all_lines=log.splitlines();rows=[x for x in all_lines if x.startswith('wifi-cal5') and not x.startswith('wifi-cal5-cleanup')]
  require(rows and rows[0]==PROGRESS,'missing calibration progress')
  # One hook strictly after all77 selected VCO I/O and before inverse BBP.
@@ -45,9 +45,12 @@ def check(log,*,early=False,early_before_mac=True):
    require(n*50<budget,'poll budget');delay(0,clean,50)
   require(False,'poll exhaustion')
  require(take('wifi-cal5-admission')==dict(configured=1,parent=1,selected=1,vco=1,fields=1,context=1,owner=1),'missing/failed exact5GHz admission')
- guards(0,0,0);usb(0,0,0,0x1400,0x17f97);txop=usb(0,0,0,0x1340);require(txop!=0xffffffff,'unknown TXOP')
- put(0,0,0x1004,4);poll(0x208,10,200000,0);put(0,0,0x1400,0x17f97);put(0,0,0x1004,12);poll(0x208,10,50,0)
- usb(0,0,0,0x2000,0xf000f200);usb(0,0,0,0x13b0,0x2f2f1b1b);usb(0,0,0,0x2124,0xffffffff)
+ def mac_start():
+  guards(0,0,0);usb(0,0,0,0x1400,0x17f97);txop=usb(0,0,0,0x1340);require(txop!=0xffffffff,'unknown TXOP')
+  put(0,0,0x1004,4);poll(0x208,10,200000,0);put(0,0,0x1400,0x17f97);put(0,0,0x1004,12);poll(0x208,10,50,0)
+  usb(0,0,0,0x2000,0xf000f200);usb(0,0,0,0x13b0,0x2f2f1b1b);usb(0,0,0,0x2124,0xffffffff)
+  return txop
+ txop=mac_start()
  guards(1,0,12);usb(1,0,0,0x13b0,0x2f2f1b1b);put(1,0,0x13b0,0);delay(1,0,500);usb(1,0,0,0x2124,0xffffffff);put(1,0,0x2124,0xffffff7e)
  put(1,1,0x2124,0xffffffff);put(1,1,0x13b0,0x2f2f1b1b);guards(1,0,12)
  require(take('wifi-cal5-probe')==dict(status=0,complete=1,matched=1,changed=1,restored=3,alc=0x2f2f1b1b,ibi=0xffffffff,observed=0xffffff7e,ok=1),'probe admission/restoration failed')
@@ -60,27 +63,37 @@ def check(log,*,early=False,early_before_mac=True):
  put(2,0,0x13b0,0);delay(2,0,500);usb(2,0,0,0x2124,0xffffffff);put(2,0,0x2124,0xffffff7e);command(2,0x901,255);command(3,1,3);delay(2,0,15000)
  put(2,1,0x2124,0xffffffff);put(2,1,0x13b0,0x2f2f1b1b);guards(2,0,12);command(4,1,2);guards(2,0,12)
  require(take('wifi-cal5-calibration')==dict(status=0,complete=1,restored=3,commands=5,alc=0x2f2f1b1b,ibi=0xffffffff,alc_restored=0x2f2f1b1b,ibi_restored=0xffffffff,ok=1),'incomplete calibration restoration')
+ def mac_finish(txop):
+  delay(0,0,10000)
+  put(0,1,0x1340,txop&~(1<<20))
+  for n in range(200):
+   a=usb(0,1,0,0x438);b=usb(0,1,0,0xa30);c=usb(0,1,0,0xa34);require(0xffffffff not in (a,b,c),'unknown TX drain')
+   if not a and not b&255 and not c&0xff00ff:break
+   delay(0,1,10000)
+  else:require(False,'TX drain exhausted')
+  poll(0x1200,1,1000,1);put(0,1,0x1004,0);quiet=0
+  for n in range(200):
+   a=usb(0,1,0,0x430);b=usb(0,1,0,0xa30);c=usb(0,1,0,0xa34);require(0xffffffff not in (a,b,c),'unknown RX drain')
+   if not a&0xff0000 and not b and not c:quiet+=1
+   else:quiet=0;delay(0,1,1000)
+   if quiet==7:break
+  else:require(False,'RX drain exhausted')
+  poll(0x1200,2,1000,1);put(0,1,0x1400,0x17f97);put(0,1,0x1340,txop);guards(0,1,0)
+ if prime:
+  require(not early and 'srvros.wifi-cal5-prime=1' in log,'invalid priming profile')
+  mac_finish(txop)
+  from wifi_early5_observation import observe
+  primed=observe(log)
+  require(primed['present'] and primed['summary']['complete']==1 and primed['summary']['operations']==op,'incomplete priming calibration')
+  r.update(prime5_first_operations=op)
+  txop=mac_start()
  posts=0
  if not early:
   require(rows[pos]==RECEIVE,'missing receive admission');pos+=1
   while pos<len(rows) and rows[pos].startswith('wifi-cal5-post:'):
    require(take('wifi-cal5-post')==dict(index=posts,ok=1,bytes=4096,retained=1,reused=0),'wrong receive post');posts+=1
   require(1<=posts<=8,'wrong receive count')
- delay(0,0,10000)
- put(0,1,0x1340,txop&~(1<<20))
- for n in range(200):
-  a=usb(0,1,0,0x438);b=usb(0,1,0,0xa30);c=usb(0,1,0,0xa34);require(0xffffffff not in (a,b,c),'unknown TX drain')
-  if not a and not b&255 and not c&0xff00ff:break
-  delay(0,1,10000)
- else:require(False,'TX drain exhausted')
- poll(0x1200,1,1000,1);put(0,1,0x1004,0);quiet=0
- for n in range(200):
-  a=usb(0,1,0,0x430);b=usb(0,1,0,0xa30);c=usb(0,1,0,0xa34);require(0xffffffff not in (a,b,c),'unknown RX drain')
-  if not a&0xff0000 and not b and not c:quiet+=1
-  else:quiet=0;delay(0,1,1000)
-  if quiet==7:break
- else:require(False,'RX drain exhausted')
- poll(0x1200,2,1000,1);put(0,1,0x1400,0x17f97);put(0,1,0x1340,txop);guards(0,1,0)
+ mac_finish(txop)
  if early:
   from wifi_early5_observation import observe
   observed=observe(log,before_mac=early_before_mac);require(observed['present'],'missing early queue outcome')

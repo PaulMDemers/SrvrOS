@@ -134,6 +134,7 @@ static bool wifi_early5_event(struct xhci_device *d,const struct xhci_trb *e){
  uint64_t p=e->parameter_low|((uint64_t)e->parameter_high<<32),ring=wifi_early5.ring;
  unsigned dci=(e->control>>16)&31,slot=e->control>>24;
  bool retained=p>=ring && p<ring+4096;
+ if(wifi_prime5_route_new(p))return false;
  if(!retained && !(d==wifi_cal5.d && dci==9))return false;
  const uint32_t allowed=1u|(63u<<10)|(31u<<16)|(255u<<24);
  if(!wifi_early5.armed || wifi_early5.failed || wifi_early5.frozen ||

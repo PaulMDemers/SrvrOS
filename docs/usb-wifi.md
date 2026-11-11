@@ -69,6 +69,35 @@ prove wire-level absence. Wi-Fi remains failed for this lifetime; storage and
 recovery pass. Main-RX posting and initial-channel differences remain hypotheses,
 not a justified production correction. See the unit record for the closed bank.
 
+## Production calibration receive prime (v147; software qualification)
+
+The explicit `--wifi-cal5-prime` stage extends only the complete journaled
+`--wifi-reconnect5-http` recipe. It retains the matched comparison's pre-MAC
+32-TD receive queue for the single five-command calibration. After a successful
+MAC drain/disable and exact Stop, Set TR Dequeue moves the stopped endpoint to a
+fresh ring with eight forward and eight separate cleanup pages. It preserves
+all endpoint words except the dequeue/DCS; no endpoint reset, DMA reuse or
+calibration replay occurs. A second MAC lifetime runs the ordinary discovery
+window. All33 original frames remain retained and protected through connection
+and retirement; an event for the frozen ring still quarantines.
+
+The first doorbell admits a bounded100ms Stopped-to-Running transition. A data
+completion requires Running, and a previously Running endpoint cannot become
+Stopped during forward receive. Unknown/failed commands, endpoint context
+changes, aliasing or late old events prevent progress. Default profiles and
+v144–146 keep their existing behavior. The `wifi-prime5` stage/context/handoff
+and final receipts supplement the full existing calibration, cleanup, discovery,
+authentication and HTTP ledgers; they cannot replace those checks.
+
+`make test-xhci-prime5` executes77 cases through the actual native configure,
+calibration, event dispatch, Stop, Set TR Dequeue, second MAC, receive and cleanup
+path with modeled HCD/registers/RF parent. It covers all50 allocation prefixes,
+first/fifth firmware timeouts, old/fresh aliasing, wrong command/context/event
+identities, bounded delayed/no endpoint start, scratch drain and frozen-ring
+faults. Three emitted-child/full-parent decoder methods reject missing/duplicate
+records and broken restoration. These checks confer no physical connection or
+reliability acceptance. Exact-image VM and native v147 results remain required.
+
 ## Matched-logging main-RX comparison (v145/v146; bounded native pair)
 
 The two new opt-in recipes use identical kernel, initramfs and firmware bytes,

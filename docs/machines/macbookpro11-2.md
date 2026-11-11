@@ -104,6 +104,19 @@ No pending producer, generic endpoint reset or speculative rollback is allowed.
 Add this behind an explicit connection/HTTP opt-in; ordinary profiles and the
 accepted comparison recipes keep their existing behavior.
 
+The v147 implementation now supplies the explicit two-stage prime and exact
+context-preserving retarget behind the journaled HTTP reconnect profile. New77
+native-C cases cover50 initial/fresh allocation prefixes, one calibration with
+1906-response history, first/fifth reply timeouts, wrong Set TR Dequeue status/
+slot/context/DCS, old/fresh frame aliases, stale events, delayed/no Running and
+second-stage scratch drain/quarantine. Three emitted-child/full-parent decoder
+methods and host stage276/main dispatch17 methods pass. Existing early75,
+MCU24/history15/observation9, cleanup and two actual production HTTP lifetimes
+also pass with modeled HCD/RF/peer. Fatal ASan/UBSan passes the final77 prime,
+75 early and all MCU groups with source hashes unchanged. Image/storage
+qualification remains pending; no new physical trial is armed. The historical comparison stays bound
+to its exact9f runtime.
+
 ### Matched-logging RX timing comparison scope (November 11)
 
 User requests the controlled comparison, followed by connection/HTTP testing.

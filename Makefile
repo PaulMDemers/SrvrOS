@@ -1933,7 +1933,12 @@ build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c tools/test_xhci_wifi_rx.inc 
 .PHONY: test-xhci-cal5-mcu
 test-xhci-cal5-mcu: build/tests/xhci-cal5-mcu-host$(HOST_EXE)
 	$< --wifi-cal5-mcu
-.PHONY: test-xhci-early5
+.PHONY: test-xhci-early5 test-xhci-prime5
+test-core: test-xhci-prime5
+test-xhci-prime5: build/tests/xhci-cal5-mcu-host$(HOST_EXE)
+	$< --wifi-prime5
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_prime5_log.py
+build/tests/xhci-host$(HOST_EXE) build/tests/xhci-cal5-cleanup-host$(HOST_EXE): kernel/src/drivers/xhci_wifi_prime5.inc
 test-core: test-xhci-early5
 test-xhci-early5: build/tests/xhci-cal5-mcu-host$(HOST_EXE)
 	$< --wifi-early5

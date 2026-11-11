@@ -17,12 +17,17 @@ static struct {
  unsigned cleanup_posts,cleanup_completed,cleanup_stop_seen;
  bool cleanup_enabled,cleanup_started,cleanup_pending,cleanup_stop_pending,cleanup_failed,cleanup_frozen,cleanup_needed,cleanup_fault_valid;
 } wifi_cal5;
+static bool wifi_prime5_alias(uint64_t);
+static bool wifi_prime5_held(void);
+static bool wifi_prime5_route_new(uint64_t);
 static bool wifi_cal5_cleanup_alias(uint64_t physical){
  if(!physical)return false;
+ if(wifi_prime5_alias(physical))return true;
  for(unsigned i=0;i<8;i++)if(wifi_cal5.cleanup_physical[i]==physical)return true;
  return false;
 }
 static bool wifi_cal5_cleanup_held(void){
+ if(!wifi_prime5_held())return false;
  if(!wifi_cal5.cleanup_enabled)return true;
  if(!wifi_cal5.stopped || !wifi_cal5.cleanup_frozen || wifi_cal5.cleanup_pending || wifi_cal5.cleanup_failed || wifi_cal5.cleanup_posts>8 || wifi_cal5.cleanup_completed>wifi_cal5.cleanup_posts)return false;
  for(unsigned i=0;i<8;i++){
@@ -37,6 +42,7 @@ bool xhci_wifi_cal5_cleanup_enable(void){
 }
 static bool wifi_cal5_cleanup_service(void);
 #include "xhci_wifi_early5.inc"
+#include "xhci_wifi_prime5.inc"
 
 static bool wifi_cal5_layout(void){
  if(wifi_early5.requested)return wifi_early5_layout();
@@ -49,6 +55,7 @@ static bool wifi_cal5_layout(void){
  d->firmware.buffer_phys,d->firmware.ep.ring_phys,d->firmware.mcu.buffer_phys,d->firmware.mcu.response.ring_phys,xhci.command_ring_phys};
  for(unsigned n=0;n<9;n++){
   uint64_t phys=n?p->physical[n-1]:p->ring;
+  if(wifi_prime5_alias(phys))return false;
   if(n && (p->buffer[n-1]!=pmm_phys_to_virt(phys) || phys!=wifi_cal5.pin_pages[n-1] || (uintptr_t)p->buffer[n-1]!=wifi_cal5.pin_v[n-1]))return false;
   for(unsigned i=0;i<sizeof used/sizeof used[0];i++)if(phys==used[i])return false;
  }
@@ -70,6 +77,7 @@ static bool wifi_cal5_layout(void){
  }
  __asm__ volatile("" ::: "memory");
  unsigned state=context_read32(d->output_context,9,0)&7;
+ if(wifi_prime5.after && !wifi_cal5.stopped && state==1)return wifi_prime5_held();
  uint64_t deq=context_read32(d->output_context,9,2)|((uint64_t)context_read32(d->output_context,9,3)<<32),ptr=deq&~15ull;
  if((deq&15)!=1 || ptr<p->ring || ptr>p->ring+16*(wifi_cal5.posts+wifi_cal5.cleanup_posts) || (wifi_cal5.stopped?state!=3:(state!=1 && state!=2 && state!=3)))return false;
  return true;
@@ -114,7 +122,7 @@ static bool wifi_cal5_owner(void *context,bool cleanup,bool event){
     !d->firmware.mcu.configured || d->firmware.mcu.pending || !wifi_cal5_layout())return false;
  if(event?!wifi_cal5_event_span(d):(xhci.command_pending || d->control_pending || strict_control.device))return false;
  if(cleanup)return true;
- if((context_read32(d->output_context,9,0)&7)!=1)return false;
+ if(!wifi_prime5_forward_state(context_read32(d->output_context,9,0)&7))return false;
  return !wifi_cal5.failed &&
 #ifdef SRVROS_XHCI_CAL5_DRAIN_TEST
  cal5_drain_test_parent();
@@ -138,8 +146,8 @@ static bool wifi_cal5_usb(bool cleanup,bool write,uint32_t a,uint32_t *v){
  unsigned op=wifi_cal5.operations++;
  wifi_cal5.cleanup_control_setup=(uint64_t)(write?0x40:0xc0)|((uint64_t)(write?6:7)<<8)|((uint64_t)a<<32)|(4ull<<48);
  wifi_cal5.cleanup_control_active=wifi_cal5.cleanup_enabled && wifi_cal5.cleanup_started && wifi_cal5.mac.mac_disabled;
- wifi_early5.control_setup=wifi_cal5.cleanup_control_setup;
  wifi_early5.control_active=wifi_early5.requested && wifi_early5.armed;
+ if(wifi_early5.control_active)wifi_early5.control_setup=wifi_cal5.cleanup_control_setup;
  bool ok=
 #ifdef SRVROS_XHCI_CAL5_DRAIN_TEST
  cal5_drain_test_usb(wifi_cal5.d,write,a,v);
@@ -291,6 +299,10 @@ static bool wifi_cal5_event(struct xhci_device *d,const struct xhci_trb *e){
  if(wifi_cal5.stopped || !wifi_cal5.pending){wifi_cal5.late++;return true;}
  wifi_cal5.pending=false;wifi_cal5.done=true;wifi_cal5.events++;wifi_cal5.completion=e->status>>24;wifi_cal5.remaining=e->status&0xffffff;
  bool normal=(wifi_cal5.completion==1 || wifi_cal5.completion==13) && wifi_cal5.remaining<=4096;
+ if(normal && wifi_prime5.after){
+  unsigned state=context_read32(d->output_context,9,0)&7;
+  if(state!=1 || !wifi_prime5_forward_state(state))normal=false;
+ }
  bool stopped=wifi_cal5.stopping && wifi_cal5.completion>=26 && wifi_cal5.completion<=28;
  if((e->control&4) || (!normal && !stopped))wifi_cal5.failed=true;
  return true;
@@ -301,7 +313,10 @@ static bool wifi_cal5_post(void *c,unsigned i,uint64_t trb,uint64_t physical){
  uint64_t flags=event_irq_save();wifi_cal5.posts++;wifi_cal5.pending=true;wifi_cal5.done=wifi_cal5.delivered=false;wifi_cal5.events=0;
  struct xhci_trb td={.parameter_low=(uint32_t)physical,.parameter_high=physical>>32,.status=4096,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
  uint64_t got=ring_push(wifi_cal5.ep.ring,wifi_cal5.ep.ring_phys,&wifi_cal5.ep.enqueue,&wifi_cal5.ep.cycle,&td);
- bool ok=got==trb;if(ok)db_write32(wifi_cal5.d->slot_id,9);event_irq_restore(flags);
+ bool ok=got==trb;
+ if(ok && wifi_prime5.after && i==0){wifi_prime5.first_post=true;wifi_prime5.first_post_us=timer_monotonic_us();}
+ if(ok)db_write32(wifi_cal5.d->slot_id,9);
+ event_irq_restore(flags);
  console_printf("wifi-cal5-post: index=%u ok=%u bytes=4096 retained=1 reused=0\n",(uint64_t)i,(uint64_t)ok);return ok;
 }
 static bool wifi_cal5_poll(void *c,struct mt76_rx_window_event *out,bool *present){
@@ -329,6 +344,17 @@ static bool wifi_cal5_inspection(void *c,uint32_t tx,uint32_t ibi){
  if(wifi_cal5.cleanup_enabled)console_write("wifi-cal5-cleanup-plan: forward=8 reserved=8\n");
  console_write("wifi-cal5-progress: calibration replies verified;passive161/20MHz window up to10seconds;no network OUT\n");
  good=mt76_rx5_window_poll(&wifi_cal5.window,&wifi_cal5.plan,&window);wifi_cal5.receiving=false;return good;
+}
+static bool wifi_prime5_window(void *c,uint32_t tx,uint32_t ibi){
+ if(tx!=0x2f2f1b1b || ibi!=UINT32_MAX || !wifi_prime5_held() ||
+    !wifi_cal5_owned(c,false) || !wifi_cal5.cal.complete || wifi_cal5.commands!=5 ||
+    wifi_cal5.window.attempted)return wifi_prime5_fail(6);
+ wifi_cal5.receiving=true;
+ const struct mt76_rx_window_io window={c,wifi_cal5_owned,wifi_cal5_post,wifi_cal5_poll,NULL,wifi_cal5_now};
+ console_write("wifi-cal5-cleanup-plan: forward=8 reserved=8\n");
+ console_write("wifi-cal5-progress: calibration replies verified;passive161/20MHz window up to10seconds;no network OUT\n");
+ bool ok=mt76_rx5_window_poll(&wifi_cal5.window,&wifi_cal5.plan,&window);
+ wifi_cal5.receiving=false;return ok;
 }
 static bool wifi_cal5_configure(void){
  struct xhci_device *d=wifi_cal5.d;void *p;
@@ -437,6 +463,11 @@ static bool wifi_cal5_inspect(void *context){
 #endif
  if(!selected || wifi_cal5.attempted || !wifi_cal5_requested)return false;
  struct xhci_device *d=wifi_channel_vco5.d;wifi_cal5.d=d;wifi_cal5.attempted=wifi_cal5.active=true;wifi_cal5.command_ring=xhci.command_ring_phys;wifi_cal5.output=d->output_context_phys;wifi_cal5.input=d->input_context_phys;wifi_cal5.ep0=d->ep0_ring_phys;wifi_cal5.descriptor=d->descriptor_buffer_phys;
+ if(wifi_prime5.enabled){
+  if(!wifi_cal5.cleanup_enabled || wifi_early5.requested || wifi_early5.attempted){wifi_cal5.active=false;return wifi_prime5_fail(1);}
+  wifi_cal5.cleanup_enabled=false;wifi_early5.requested=true;
+  console_write("wifi-prime5-stage: version=1 stage=0 pages=32 calibration_once=1 retained=1\n");
+ }
  console_write("wifi-cal5-progress: hold selected161/trim44;configure retained RX;MAC start;fresh IBI probe;R0 VCO161 FULL901 LC1 RXDCOC1;controlled RX;drain disable stop;inverse originals\n");
  bool ok=wifi_cal5_configure();
  console_printf("wifi-cal5-admission: configured=%u parent=%u selected=%u vco=%u fields=%u context=%u owner=%u\n",(uint64_t)ok,(uint64_t)wifi_channel_vco5_owned(&wifi_channel_vco5),(uint64_t)mt76_channel_vco5_selected(&wifi_channel_vco5.state),(uint64_t)mt76_cvco5_valid(&wifi_channel_vco5.state.vco),(uint64_t)wifi_cal5_fields(d),(uint64_t)(context_read32(d->output_context,9,0)&7),(uint64_t)wifi_cal5_owned(&wifi_cal5,false));
@@ -445,11 +476,21 @@ static bool wifi_cal5_inspect(void *context){
  if(ok && wifi_early5.requested && !wifi_early5.after_calibration)ok=wifi_early5_publish();
  if(ok){const struct mt76_mac_cycle_io io={&wifi_cal5,wifi_cal5_owned,wifi_cal5_read,wifi_cal5_write,wifi_cal5_delay,wifi_cal5_now,wifi_cal5_inspection};ok=mt76_mac_cycle_run(&wifi_cal5.mac,&io);}
  bool stopped=!wifi_cal5.configured || wifi_cal5_stop();
- if(wifi_early5.requested){bool complete=wifi_early5_emit(ok && stopped);wifi_cal5.active=false;return complete;}
+ if(wifi_early5.requested){
+  bool complete=wifi_early5_emit(ok && stopped);
+  if(!wifi_prime5.enabled){wifi_cal5.active=false;return complete;}
+  if(!complete){wifi_cal5.active=false;return wifi_prime5_fail(2);}
+  wifi_early5.requested=false;wifi_cal5.cleanup_enabled=true;
+  if(!wifi_prime5_retarget()){wifi_cal5.active=false;return false;}
+  console_write("wifi-prime5-stage: version=1 stage=1 pages=8 calibration_once=1 retained=1\n");
+  const struct mt76_mac_cycle_io io={&wifi_cal5,wifi_cal5_owned,wifi_cal5_read,wifi_cal5_write,wifi_cal5_delay,wifi_cal5_now,wifi_prime5_window};
+  ok=mt76_mac_cycle_run(&wifi_cal5.mac,&io);stopped=wifi_cal5_stop();
+ }
  wifi_cal5_cleanup_emit();
  if(wifi_cal5.window.attempted){const struct mt76_rx_window_io io={.context=&wifi_cal5,.owned=wifi_cal5_finish_owned};const struct mt76_rx_window_stop stop={.dequeue=wifi_cal5.stop_dequeue,.slot=d->slot_id,.dci=9,.state=wifi_cal5.stop_state,.cleanup_posts=wifi_cal5.cleanup_posts};bool finished=mt76_rx5_window_finish(&wifi_cal5.window,&io,stopped && wifi_cal5.mac.complete?&stop:NULL);ok=finished && ok;}
  for(unsigned i=0;i<wifi_cal5.window.attempts && i<8;i++){const struct mt76_rx_window_item *v=&wifi_cal5.window.item[i];console_printf("wifi-cal5-rx: index=%u submitted=%u completed=%u cc=%u remaining=%u actual=%u inspected=%u view=%u beacon_status=%u beacon=%u mpdu=%u interval=%u ssid_size=%u privacy=%u rsn=%u wpa=%u\n",(uint64_t)i,(uint64_t)v->submitted,(uint64_t)v->completed,(uint64_t)v->completion,(uint64_t)v->remaining,(uint64_t)v->actual,(uint64_t)v->inspected,(uint64_t)v->view_status,(uint64_t)v->beacon_status,(uint64_t)v->beacon,(uint64_t)v->mpdu,(uint64_t)v->interval,(uint64_t)v->ssid_size,(uint64_t)v->privacy,(uint64_t)v->rsn,(uint64_t)v->wpa);}
  ok=ok && stopped && !wifi_cal5.failed && wifi_cal5.cal.complete && wifi_cal5.mac.complete && wifi_cal5.mac.mac_disabled && wifi_cal5.mac.rx_drained && wifi_cal5.mac.tx_drained && wifi_cal5.window.complete;
+ if(wifi_prime5.enabled)ok=wifi_prime5_finish(ok) && ok;
  console_printf("wifi-cal5: ok=%u operations=%u commands=%u probe=%u calibration=%u mac=%u disabled=%u tx_drained=%u rx_drained=%u filter_restored=%u txop_restored=%u stopped=%u window=%u attempts=%u completions=%u beacons=%u elapsed_us=%u retained=1 network_out=0\n",(uint64_t)ok,(uint64_t)wifi_cal5.operations,(uint64_t)wifi_cal5.commands,(uint64_t)wifi_cal5.probe.complete,(uint64_t)wifi_cal5.cal.complete,(uint64_t)wifi_cal5.mac.complete,(uint64_t)wifi_cal5.mac.mac_disabled,(uint64_t)wifi_cal5.mac.tx_drained,(uint64_t)wifi_cal5.mac.rx_drained,(uint64_t)wifi_cal5.mac.filter_restored,(uint64_t)wifi_cal5.mac.txop_restored,(uint64_t)wifi_cal5.stopped,(uint64_t)wifi_cal5.window.complete,(uint64_t)wifi_cal5.window.attempts,(uint64_t)wifi_cal5.window.completions,(uint64_t)wifi_cal5.window.beacons,wifi_cal5.window.elapsed_us);
  if(wifi_discovery5_requested && ok)ok=wifi_discovery5_inspect();
  if(wifi_power5_requested && ok)ok=wifi_power5_inspect();

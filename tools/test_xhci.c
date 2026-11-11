@@ -50,6 +50,8 @@ static struct xhci_device *cal5_mcu_test_device;
 static void cal5_mcu_test_bulk(unsigned);
 static bool early5_test_active;
 static void early5_test_doorbell(uint64_t,unsigned);
+static uint64_t prime5_test_alias_at;
+static unsigned prime5_test_alias_kind;
 #endif
 static bool rx_guard_model;static uint32_t rx_guard_value;
 static bool mac_cycle_model;
@@ -346,6 +348,12 @@ void console_printf(const char *fmt, ...) {
 }
 uint64_t pmm_alloc_frames_tagged(uint64_t count, enum pmm_frame_tag tag) {
     assert(tag == PMM_FRAME_DMA);
+#ifdef SRVROS_XHCI_CAL5_MCU_TEST
+    if(prime5_test_alias_kind && pool_used==prime5_test_alias_at){
+        unsigned kind=prime5_test_alias_kind;prime5_test_alias_kind=0;
+        return kind==1?wifi_early5.physical[0]:kind==2?wifi_early5.ring:wifi_cal5.plan.physical[0];
+    }
+#endif
     if (pool_used + count > fail_after) return 0;
     uint64_t address = (uint64_t)(pool + pool_used * PMM_FRAME_SIZE);
     pool_used += count;
@@ -7808,6 +7816,8 @@ int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"--wifi-window")){test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-passive")){test_wifi_passive();return 0;}
 #ifdef SRVROS_XHCI_CAL5_MCU_TEST
+    if(argc==2 && !strcmp(argv[1],"--wifi-prime5")){test_wifi_prime5();return 0;}
+    if(argc==2 && !strcmp(argv[1],"--trace-prime5")){batch_trace=true;prime5_whole_native(0,50);return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-early5")){test_wifi_early5();return 0;}
     if(argc==3 && !strcmp(argv[1],"--trace-early5")){batch_trace=true;trace_wifi_early5((unsigned)strtoul(argv[2],NULL,0));return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-cal5-mcu")){test_wifi_cal5_mcu();return 0;}

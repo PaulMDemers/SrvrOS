@@ -11,7 +11,7 @@ static void cal5_mcu_lifetime_bulk(unsigned);
 static unsigned cal5_mcu_diagnostic_mode;
 static void cal5_mcu_nested_observation(void);
 static bool cal5_drain_test_parent(void){return cal5_mcu_parent;}
-static void cal5_drain_test_progress(void){assert(!"calibration MCU fixture has no cleanup RX publications");}
+static void cal5_drain_test_progress(void){if(early5_test_active && wifi_prime5.enabled)return;assert(!"calibration MCU fixture has no cleanup RX publications");}
 static bool cal5_drain_test_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v){
  assert(d==cal5_mcu_test_device && v);
  if(early5_test_active)return wifi_mac_private_usb(d,write,a,v);
@@ -26,6 +26,7 @@ static bool cal5_drain_test_usb(struct xhci_device *d,bool write,uint32_t a,uint
 }
 static bool cal5_drain_test_delay(unsigned us){test_time+=us;return true;}
 static bool cal5_drain_test_command(const struct xhci_trb *cmd,unsigned type,uint64_t *slot){
+ if(early5_test_active && wifi_prime5.enabled)return submit_command_trb(cmd,type,slot);
  (void)cmd;(void)type;(void)slot;assert(!"calibration MCU fixture must not publish a Stop command");return false;
 }
 static void cal5_mcu_clock(void){
@@ -104,7 +105,7 @@ static void cal5_mcu_test_bulk(unsigned dci){
 }
 static struct xhci_device *cal5_mcu_setup(unsigned fault,unsigned target){
  assert(!wifi_mcu_observer.receipt && !wifi_mcu_observer.device);
- reset_test();memset(&wifi_cal5,0,sizeof wifi_cal5);memset(&wifi_stream5,0,sizeof wifi_stream5);
+ reset_test();memset(&wifi_cal5,0,sizeof wifi_cal5);memset(&wifi_prime5,0,sizeof wifi_prime5);memset(&wifi_stream5,0,sizeof wifi_stream5);
  memset(&wifi_join5,0,sizeof wifi_join5);memset(&wifi_wpa5,0,sizeof wifi_wpa5);memset(&wifi_fence5_native,0,sizeof wifi_fence5_native);
  test_time=1000;test_time_step=100;complete_control=false;complete_device=NULL;
  cal5_mcu_fault=fault;cal5_mcu_target=target;cal5_mcu_calls=cal5_mcu_clock_calls=0;
