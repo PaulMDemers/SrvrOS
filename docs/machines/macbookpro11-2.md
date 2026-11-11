@@ -7,6 +7,26 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### HTTP across connection lifetimes scope (November 11)
+
+Starting from the accepted `0e750c07` two-connection result, extend the native
+recipe to run the actual HTTP child in each fresh connection. Audit prepared
+worker admission, connection-scoped stack handoff/deconfiguration, child READY/
+GO/reap/retirement, terminal RX authority and the existing reconnect owner.
+Keep separate retained objects for each worker/child/connection; never reset a
+consumed owner or weaken original deadlines, empty TCP/TIME_WAIT, key or DMA
+retirement checks. Test the actual native orchestration and production network
+path, including refusal of stale or incomplete prior ownership, before installing
+a new candidate. Closed native evidence remains immutable.
+
+Actual main `3703eaea` was fetched and integrated; PR464 adds only Air6,1 metadata-
+tail test documentation. Submodule pins are unchanged. Current open-PR discovery
+reported no results; the local change remains on the published Pro unit branch.
+This scope touches net worker/connection ownership, HTTP supervisor/native bridge,
+reconnect recipe, source-bound collection and regression fixtures. Desktop/UI,
+physical reattach, 2.4GHz hardware and unlimited reuse remain separate work.
+
+
 ### Two native connection lifetimes accepted (November 11)
 
 Source `0e750c07`, release `c280927702804a27`, returned automatically as
