@@ -7,6 +7,35 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+### Native admission cause identified (November 10)
+
+The6a39a477/1aa9a0b4479f5e99 retry saved a complete USB startup transcript in
+session00065ff6e502a291-00. Its independent journal stayed initial. Admission
+reason8 identifies the EFI boot-sector hash, followed by reason13 (no admitted
+candidate). The native SHA256 is exactly the preboot sector with only byte65
+changed from1 to0. Linux headers identify this as FAT_STATE_DIRTY; its FAT
+implementation sets the bit on read/write mount and clears it on clean unmount.
+Controlled EFI unmount/remount with O_DIRECT reads reproduced both exact sector
+images and the native digest. A buffered whole-disk read retained a stale cache
+image during the first host experiment; direct reads resolved that artifact.
+
+The768-file primary is closed with index
+051159c4c0469cac633522a1aeaa5fc7d37056428bdb79ce433237415799425b.
+Separate three-file review index
+5864d6c3ea5d0c06c96050577119813f859f2905b1dcb2f809d5a75f5a65f7b6
+retains both direct-read sectors and the cause proof. All447 prior ordinary
+files and metadata survive except the bounded marker atime, with exactly two
+new logs. Offline storage,52 other EFI file hashes and protected recoveries
+pass. The USB fallback physically saved the refusal; independent journal
+writes/flushes remain unaccepted. Ubuntu is unarmed.
+
+The bounded fix is host preparation of the exact clean boot sector expected
+after Ubuntu shutdown. Kernel comparison of the entire512-byte sector and all
+other disk/file/write gates stays strict. Update the staging helper, mounted/
+unmounted host fixture, actual C admission refusal tests and exact-stage UEFI
+transition test. No AHCI runtime change is needed. Main7e8f70ae is being
+inspected before qualification; scope remains startup persistence.
+
 ### Startup journal refused before USB enumeration (November 10)
 
 The correction is runtime6a39a477/release1aa9a0b4479f5e99 on integrated
