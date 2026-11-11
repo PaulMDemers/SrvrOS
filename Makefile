@@ -4838,6 +4838,7 @@ build/tests/profile-ui-host$(HOST_EXE): tools/test_profile_ui.c userspace/apps/d
 	$(HOST_CC) -std=c11 -D_DARWIN_C_SOURCE -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include -I userspace/widgets/include -I ports/upstream/cjson tools/test_profile_ui.c ports/upstream/cjson/cJSON.c -Wl,--gc-sections -o $@
 
 .PHONY: test-file-stream test-exfat-stream
+test-core: test-exfat-stream
 test-file-stream: build/tests/file-stream-manager-host$(HOST_EXE) build/tests/file-stream-syscall-host$(HOST_EXE) build/tests/file-stream-process-host$(HOST_EXE) build/tests/file-stream-cleanup-host$(HOST_EXE)
 	build/tests/file-stream-manager-host$(HOST_EXE)
 	build/tests/file-stream-syscall-host$(HOST_EXE)
@@ -5181,3 +5182,8 @@ test-exfat-nofat: build/tests/exfat-nofat-host$(HOST_EXE)
 build/tests/exfat-nofat-host$(HOST_EXE): tools/test_exfat_nofat.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-exfat-stream-allocation
+test-core: test-exfat-stream-allocation
+test-exfat-stream-allocation:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_stream_allocation.py

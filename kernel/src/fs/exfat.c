@@ -538,7 +538,6 @@ static bool write_fat_entry(struct exfat_volume *volume, uint32_t cluster, uint3
 /* Prepare consecutive links only while they are unpublished: newly allocated
  * extents, or the ignored FAT of an existing NoFatChain stream. Final tail
  * attachment and every publication barrier remain separate. */
-#if !defined(SRVROS_EXFAT_HOST_TEST) || !defined(SRVROS_EXFAT_APPEND_OFF)
 static bool write_linked_fat_range(struct exfat_volume *volume,uint32_t first,uint64_t count,
     bool terminal) {
     if(!volume || first<2 || (uint64_t)first-2>=volume->cluster_count ||
@@ -566,7 +565,6 @@ static bool write_linked_fat_range(struct exfat_volume *volume,uint32_t first,ui
 static bool link_fat_range(struct exfat_volume *volume,uint32_t first,uint64_t count) {
     return write_linked_fat_range(volume,first,count,false);
 }
-#endif
 
 /* Keep the existing FAT values/ordering, but avoid one sector RMW for every
  * four-byte entry in a contiguous run. Only the requested bytes are passed to
