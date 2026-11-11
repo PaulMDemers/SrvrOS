@@ -7,6 +7,47 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### DHCP observation candidate installed
+
+Source0e750c07/releasec280927702804a27 is installed for the next cold native
+trial. It preserves existing DHCP counters before local private-scope erasure
+and emits them after the caller's existing close routine. The saved categorical
+receipt distinguishes Ethernet/IPv4/UDP/DHCP delivery stages, accepted messages
+and rejection/end reasons. It contains no addresses, credentials or packet bytes.
+Full proof validates any receipt against its connection workload; this run's
+frozen collector additionally requires two successful receipts for full success.
+Failed or incomplete counters are retained before success-only RF checking.
+The underlying native DHCP cause remains unknown. No network timeout, retry,
+packet-admission, RF, key or DMA policy was relaxed.
+
+Integrated main6b185086 at10e69531 includes the metadata-tail filesystem fix.
+Fresh local qualification passes the actual55-case stack suite and19 reconnect
+cases, eight connection DHCP scenarios through six regression methods,17 strict
+reconnect/parser tests, the existing HTTP/DHCP checks,269 profile/42 collector
+regressions and the merged filesystem/save regressions. Eleven selected native
+owner/DHCP cases and27 actual journal writer cases pass fatal ASan/UBSan. Seven
+exact-image UEFI journal cases,23 frozen collection workflow cases and five
+partial-journal cases pass. The historical HOST MCU fault used in collector
+mutation testing keeps its original execution provenance.
+
+The exact staged VM preserves all453 prior real-workspace files and metadata
+apart from the permitted RTC-bounded marker atime, saves capture and resets
+automatically. The private clone and current preboot baseline match. Candidate
+payload/source/checkers/baseline/results are archived outside build. Ubuntu
+default and EFI order, plus seven protected recoveries, verify unchanged. Only
+the consumed110b EFI duplicate was retired after its immutable1,414-file backup
+and separate return review were verified and acceptedc603 promoted first.
+
+The local `wifi-dhcp-receipt/run.json` record owns final review and the one-shot
+cold shutdown under existing authorization. Unplug only Wi-Fi for ten seconds
+while off, reconnect to the same port, then power on; leave the workspace drive
+connected. Results save automatically. Collect FIRST once after return with
+`python3 -B build/bringup/wifi-dhcp-receipt/run_root.py return_collect`.
+This is a diagnostic candidate; native calibration, DHCP and two connection
+lifetimes on this source remain pending. Never reuse the prior journal or
+recollect/reseal the closed native primary and return review.
+
+
 ### DHCP receipt preservation scope (November 10)
 
 The current bounded objective fixes the loss of existing categorical DHCP
