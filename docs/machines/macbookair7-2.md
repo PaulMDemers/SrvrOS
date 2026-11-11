@@ -16,8 +16,11 @@ preparation geometry relaxation, enabled-ring force-enable or combined reset is
 in scope: clearing enable leaves the inherited start/length intact and cannot
 satisfy the later zero-geometry reset gate by itself. Native acceptance requires
 the enabled branch to actually run and its full preservation/retirement evidence.
-Touched scope: host receipt parser/tests, unit/contract documentation and local
-qualification/staging scripts. Keep existing protocol and 100/150/300/500 ms
+Touched scope: host receipt parser/tests, unit/contract documentation, the
+standalone shutdown reporting storage lifetime and its actual-adapter regression,
+and local qualification/staging scripts. The audit found automatic owner/provider
+and registered-borrow storage surviving only until the report returned; give this
+image persistent storage and exercise retained objects after stack overwrite. Keep existing protocol and 100/150/300/500 ms
 bounds. Checkpoint: `build/air-enabled-shutdown-20261111`; prior run collected,
 current8d88625b30a0cfab/recovery9aa8dbf6fbda8252 preserved, no reboot armed.
 
