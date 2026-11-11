@@ -2,7 +2,37 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Hardware-ready: enabled-entry shutdown retry
+### Latest native shutdown: already-disabled observation accepted
+
+Source `3028016d`, release `d260c6f11f043e51`, session
+`session-00065ffa15e947d0-00` completes the already-disabled shutdown branch
+with matching exact native prerequisite/checkpoint and boot options, zero
+collector attention and no decoding errors. BCS control attempts/stores remain
+zero; epoch stays 0. Four matching BCS snapshots (32 words), complete 60-word
+pre/post engine vectors, 54 plane words and both 10-field HDA snapshots preserve.
+The original borrow returns, all 11 mappings retire and CPU exclusion releases.
+This accepts one bounded observation with the new persistent reporting storage;
+it does not exercise the enabled writer or retained-uncertainty hardware path.
+
+Measured core 36,525/100,000 µs, shutdown 130,726/150,000 µs,
+reader 119,195/150,000 µs, owner 259,443/300,000 µs and
+outer 333,688/500,000 µs; no clock fault. All 1,461 prior files preserve except
+expected workspace metadata. Three new logs yield 1,464 files/144 sessions,
+with copied raw hashes independently verified. Offline fsck/allocation/writable/
+headroom, installed/durable banks, Ubuntu default and consumed one-shot pass.
+The USB is unmounted, volume was 1%, and no reboot is armed. Current is
+`d260c6f11f043e51`; prior requester `8d88625b30a0cfab`, accepted joint
+`978d9be94b96243a`, recovery `9aa8dbf6fbda8252` and known-good GUI remain.
+Raw logs, strict result and independent analysis are banked outside `build`;
+local proof: `build/air-enabled-shutdown-20261111/returned/return-proof.json`.
+
+Next qualify a fresh maintained GPU requester-hold retry using the current
+code, behind unchanged zero-geometry, ownership and deadline gates. A naturally
+enabled ring must still refuse. Do not force-enable for writer coverage, reuse
+this boot's observations or combine unaccepted writers. The enabled shutdown
+store, managed mapping and all 255 completion obligations remain pending.
+
+### Earlier qualification: enabled-entry shutdown retry
 
 Main `3703eaea` (PR463/464 exFAT initialized-metadata tail writes and Air6,1
 stress evidence) is integrated. Source `3028016d`, exact release

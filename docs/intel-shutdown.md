@@ -210,3 +210,22 @@ no input, uses volume 1% and keeps original deadlines. A naturally enabled entry
 must actually execute the permitted store and all postconditions before accepting
 the writer. An already-disabled completion remains observation only. No start
 clearing, backing release, combined reset or managed-memory grant is introduced.
+
+## Updated-baseline return: already-disabled observation accepted
+
+Source `3028016d`, release `d260c6f11f043e51`, session
+`session-00065ffa15e947d0-00` completes the already-disabled branch: zero BCS
+attempts/stores and no epoch advance; 32 matching BCS words, full 60-word
+engine pre/post vectors, 54 plane words and both 10-field HDA snapshots preserve.
+Original borrow return, all 11 alias retirements and CPU exclusion release pass.
+Core 36,525 µs, shutdown 130,726 µs, reader 119,195 µs, owner 259,443 µs and
+outer 333,688 µs meet the unchanged 100/150/150/300/500 ms limits with no clock
+fault. Native/checkpoint/options validation, prior-file and offline filesystem
+integrity, recovery/default and one-shot checks pass. Evidence is independently
+banked; the Air record owns the local files and installed state.
+
+This accepts observation with persistent reporting storage, not the enabled
+writer or a retained-uncertainty hardware path. A fresh requester-hold attempt
+must obtain zero-geometry admission in its own lifetime; this receipt cannot
+authorize a later boot. Enabled-entry coverage remains pending, with no force-
+enable, deadline increase, reset integration or memory/completion grant.
