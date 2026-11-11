@@ -9,6 +9,18 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
+Native trace runtime58a48e04/release186c23c85bc94c89 is installed after normal/
+fatal actual-path, seven journal VM and458-file clone checks. No native result
+exists yet; the MCU/HTTP causes remain unproved. Its new run owner is
+`build/bringup/wifi-mcu-loss/run.json`; collect FIRST once after return.
+An independent clean cold Linux capture has15 matched calibration responses,
+zero monitor drops and exact pinned-code/IVB upload observations: R0=474us,
+FULL901=3454us, max16187us. The first overflowing capture remains partial.
+Linux's early main-RX posting and initial channel36 power-on calibration are
+additional comparison targets, not established causes. Keep all original RF,
+500ms failure, quarantine and retirement gates. The diagnostic observes the
+same failed TD to1.5s without promoting it to success or resubmitting anything.
+
 Linux MCU timing capture is complete for one warm driver restart and three
 reconnects:36 matched replies, no monitor drops, R0=454us and four FULL901
 replies=2601–3316us. The18-file capture bank survives outside build. This is an

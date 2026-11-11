@@ -51,6 +51,16 @@ firmware files match the pinned bytes; resident-image identity remains unproved.
 See the Pro11,2 record and its external research review for limitations. No new
 native Wi-Fi acceptance follows from this trace implementation.
 
+A later clean cold capture, with the larger8MiB monitor ring, observes15 matched
+replies without drops: R0=474us, FULL901=3454us, maximum16187us. All six body
+uploads and the64-byte IVB match the pinned firmware code and complete at the
+Linux HCD. The earlier overflowing cold capture is retained as partial. Linux
+posts main RX before calibration and performs its initial power-on calibration
+on36 before later161 selection; native's fixed161 diagnostic differs in both
+respects. Neither difference has been established as the failure cause.
+Source58a48e04/release186c23c85bc94c89 is software-qualified and installed for
+native loss tracing with independent persistence; physical results are pending.
+
 ## Fresh trim lifetime (v117; bounded native acceptance)
 
 After the complete restored v116 chain, the new private static owner reads fresh

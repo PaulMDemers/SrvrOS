@@ -7,6 +7,65 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Clean cold Linux reference; native trace installed (November 11)
+
+Runtime source `58a48e04`, release `186c23c85bc94c89`, integrates main
+`5e72e2dd` at `377e2575`. It is installed for an unattended calibration/USB
+response-loss diagnostic followed, if calibration succeeds, by the historical
+two-connection DHCP/DNS/64-ping-per-connection workload. This is instrumentation,
+not a known physical fix. The prior HTTP hold and intermittent MCU cause remain
+unresolved. Ubuntu is default and unarmed at this documentation checkpoint.
+
+The user performed a ten-second Ubuntu cold unplug/replug. The corrected8MiB
+usbmon reader observes15 calibration exchanges with one matching receive each,
+zero drops/orphan completions/pending transfers/tag-reuse ambiguities. R0 takes
+474us from OUT submission to reply, FULL901 takes3454us, and the maximum observed
+calibration takes16187us. Six firmware-body OUT transfers totaling80584bytes and
+the64-byte IVB submission/completion match the pinned e-image code. These are
+Linux HCD observations, not wire capture or executed-code readback. Linux selects
+80MHz for the AP; native remains20MHz. Together with36 earlier clean warm
+exchanges this argues against routine500ms calibration latency, not against rare
+stalls. The first cold attempt dropped414 monitor records and remains partial.
+Its observations do not supply completeness or absence proof.
+
+The seven-file clean cold bank is `wifi-linux-mcu-cold-clean-58a48e04`, index
+`15f6d1a511c59334d562e9d988651003527281520ecff0c32505537fec5f2e16`.
+The separate seven-file partial bank `wifi-linux-mcu-cold-58a48e04` has index
+`95ea5a8dcf617e16d69705a7eef587a9de63d23e53e9d497dc15344d5fbc431c`.
+Both survive outside build; preserve them and the18-file warm bank unchanged.
+
+Two further differences are source/trace confirmed: Linux submits its main RX
+URBs before calibration, while our fixed diagnostic first posts data RX after
+the five commands; Linux's cold power-on R0/VCO is on36/FULL701, followed later
+by161/FULL901 without repeating R0, while native power-on calibration follows
+the fixed161 selection. RX backpressure and initial-channel sequencing are
+hypotheses, not established causes. Do not change RX ownership or widen RF
+channel gates merely to make the comparison match.
+
+Qualification passes normal and fatal ASan/UBSan actual native-C MCU24 branch,
+15 long-history and nine observation groups, plus19 decoder methods; generic
+xHCI,271 boot-profile/42 collection cases, frozen full-RF composition, merged
+NoFatChain/storage checks,27 journal writer cases and seven exact-stage journal
+VM modes pass. A private458-file live-workspace clone preserves prior bytes and
+metadata. The final ELF still stores TRB parameter/status before control; that
+does not establish device visibility. Larger journaled console text is retained.
+
+The first install attempt retained an obsolete release guard and stopped after
+promoting accepted c603, before removing any payload. The corrected explicit
+resume preserves that refusal and helper, verifies the sealed old e4 payload,
+retires only that failed ESP copy to make space, and installs186c with all seven
+protected recoveries and Ubuntu intact. The old1438-file failed return remains
+immutable; no prior collector was rerun.
+
+The new owner is `build/bringup/wifi-mcu-loss/run.json`. After the cold native
+trial, collect FIRST once with that directory's `run_root.py return_collect`.
+Its independent journal and USB raw files are preserved before success-only
+checks; the frozen MCU observer also saves the new loss groups. An original
+500ms timeout remains failure even if the same retained TD completes before
+the1.5s observation horizon. No retry, new TD/doorbell or DMA release is added.
+While OFF, unplug only Wi-Fi for ten seconds, reconnect to the same port, then
+power on with the workspace drive attached. No commands or photos are needed.
+
 ### Linux MCU timing capture and native loss tracing (November 11)
 
 User authorizes capturing Linux firmware timings and tracing the native response
