@@ -12040,3 +12040,56 @@ tail, three exact screenshot receipts, continuous app/disk work, clean battery
 retirement and full USB preservation/allocation checks. Preserve current3403,
 recoveryc354, priora139 and the original failed-media evidence. Different cold
 boot timing is observational; it does not isolate the controller/media cause.
+
+## Metadata-tail native return (2026-11-10)
+
+Run `cb6d24eadf834d66`, release `c95f851e735b98ff`, compiled `cc4f9278`
+(implementation PR463, merge `6b185086`) completed session
+`session-00065ff856a28876-00` and returned to Ubuntu automatically. This unit's
+bounded functional regression passes independent raw-log/binary parsing of all16
+original contracts. The1800-second1% workload records3901 verified256KiB disk
+bursts (1022623744 bytes),345763840 PCM bytes, zero recorded audio underruns,
+1076 app cycles,121478us worst loop,2215821us launch and3018940us close. All
+original caps and runtime/latency requirements remain unchanged. Subjective
+listening is unassessed at1%; earlier audible playback acceptance is separate.
+
+All three exact BMPs decode, their hashes and40-byte disk receipt match the
+actual USB, and capture/cache/battery/desktop retirement plus normal exit pass.
+Native logs retain bounded app-stage tails and complete summaries/worst records;
+this does not claim all1076 individual lifecycle or service receipts survived.
+
+Screenshot totals are8.824182/14.902387/15.328993 seconds. Prior3403 totals
+were9.990791/14.004349/8.644861. The metadata byte reduction is real in the
+controlled replay, but this native run demonstrates no consistent speed gain.
+Shared I/O admission remains95.71/97.02/98.49% of raw write-call wall. Capture1
+selects `SYS_OPEN_MODE` ownership with no live sync context; captures2/3 have
+exact live sync/content observations. Capture3 also joins the selected completed
+content and command by full parent/content identity and interval containment.
+
+That owner scope lasts2.918074 seconds; cumulative payload-write callbacks take
+2.816760 seconds, versus19.927ms for110880 metadata-payload bytes and23.885ms
+for1638400 prefix-read bytes. Its16KiB WRITE(10) status wait is354.680ms,
+with20.053ms maximum sampled service gap. These are software wall observations,
+not physical media timing or exclusive CPU costs. Only retained longest owners
+are correlated. This selected content has equal live/committed2162688-byte
+lengths with zero concurrent appends, unlike the earlier dirty-suffix observation;
+do not transfer the earlier append distribution to this run. Capture2's checked
+rename also takes2.655208 seconds. Cleanup peaks at62.800ms.
+
+Direct read-only rehash matches all841 current files; all832 prior files remain
+unchanged except the expected metadata sidecar. Independent fsck and complete
+allocation find4017 clusters with zero leaks, FAT/bitmap mismatches or errors.
+Currentc95f, recoveryc354, prior3403/a139 and independent accepted/failed evidence
+are verified. Only the fully backed, unreferenced historicaleb3 EFI duplicate
+was retired for install space; its independent payload remains intact. Ubuntu
+remains default, the one-shot is consumed, collection is disabled and USB is
+unmounted. The earlier intermittent battery fault remains unresolved; its
+original failed-media archive is verified, with no recurrence in this run.
+
+The next bounded target is payload USB completion and shared commit ownership,
+including the open/rename waits. A source-equivalent reduction needs evidence
+without weakening integrity, durability, ownership, byte caps or timing limits.
+No new reboot is armed during this return review. Main `6b185086` is the actual
+review base; open PR301 `e0d68e53` and PR19 `e107870f` retain their independent
+graphics/network scopes. This return change touches only this unit record and
+the metadata-tail guide; no shared runtime code or other-machine acceptance.
