@@ -13,8 +13,9 @@ are still required. A byte mismatch, read failure, alias, nonadjacent/fragmented
 suffix or old FAT-backed stream retains its original refusal/replacement/linking
 path. No stream geometry gate, bulk/copy limit or scheduling eligibility changes.
 
-Only unnecessary unpublished FAT link materialization and tail attachment are
-omitted. Allocator FAT initialization and bitmap writes remain. Both the data
+Unnecessary unpublished FAT links, tail attachment and invalid NoFatChain FAT
+initialization/clearing are omitted. Every allocation bitmap update remains.
+Directory/system allocation still initializes its chain. Both the data
 flush and original added-link flush still execute, followed by the existing
 checksummed stream length/flags publication, metadata flush/sidecar work, outer
 mutation flush and clean-marker publication. A failed operation retains the
@@ -53,3 +54,39 @@ The optimization is therefore not a demonstrated fix for that workload's
 admission delay. Do not bypass dirty-content sync or weaken prefix/barrier
 requirements to manufacture a gain. Native use and performance remain unaccepted
 until matching evidence exercises the relevant path.
+
+
+## Deferring invalid contiguous-file FAT work
+
+Contiguous file allocation and release now leave the stream's ignored FAT cells
+untouched. The freshly read allocation bitmap, exact extent, alias ownership and
+all existing validators remain authoritative. This follows the same format
+rule above; stale free FAT values do not authorize an allocation or a chain.
+First-fit allocation order, directory initialization, fragmented allocation,
+command sizes, transport ownership and timeouts are unchanged.
+
+Whenever append needs a real chain, its new contiguous extent is fully
+materialized, including the final EOC, before publication. Existing old-prefix
+links and the final tail attachment retain their ordering and barriers. A single
+new cluster also needs an explicit EOC: allocation no longer supplies it as a
+side effect. Every required FAT write still quarantines on failure. The
+512-byte bounded writer preserves adjacent cells and sector boundaries.
+
+`make test-exfat-nofat` tests poisoned FAT, exact bitmap ownership, directory EOC,
+full-chain terminals across boundaries, allocation failure and required-write
+quarantine. It also runs the actual process/VFS/exFAT populated screenshot save
+against a host-only reproduction of the old eager FAT work. All65 screenshot
+writes,65 foreign syncs, logical files, reads, prefix proofs and flushes match.
+The sequential cases remove393 source write callbacks/1572 bytes; the overlapping
+case removes304 callbacks/1240 bytes. These are source callback counts, not
+physical command counts or a claim of native latency improvement. Required
+terminal work can move into append preparation, so per-phase totals are checked
+alongside complete-save totals rather than assuming every phase decreases.
+
+Both ordinary and eager-FAT append comparisons retain complete prefix checks,
+negative topologies and write/tear/flush fault replay with stale free FAT.
+The current lazy path has131 remaining fault cuts versus the historical143
+above; only omitted invalid FAT writes remove boundaries. The81 inherited
+strict allocation-repair failures remain recorded and compared, never called
+clean. No validator, barrier or recovery requirement is relaxed. Existing
+`links_avoided` telemetry still counts adjacency links, not deferred FAT work.

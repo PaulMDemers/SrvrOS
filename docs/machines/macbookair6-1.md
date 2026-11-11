@@ -12251,3 +12251,21 @@ proofs, allocation counts, publication ordering and every barrier stay in place.
 Next checkpoint is poisoned/stale-FAT and conversion/fault regression plus
 measured complete-save command/source-work reduction. No device-latency fix
 or native acceptance is claimed by the reference alone.
+
+
+The implementation now defers only invalid NoFatChain FAT initialization/clear.
+Required FAT-backed conversion explicitly writes all links and terminal before
+publication, including a single-cluster suffix; directory/system and fragmented
+allocation retain initialization. Poisoned FAT, exact bitmap/neighbour checks,
+512/4096-byte geometry, OOM and required-write quarantine pass. The original
+append replay passes131 remaining cuts with unchanged prefix/barrier/negative
+paths and the81 inherited allocation-repair gaps still reported as failures.
+
+Complete populated process/VFS/exFAT screenshot controls preserve all65 writes,
+65 foreign syncs, fresh proofs, logical files, source reads and flushes. Eager
+versus lazy FAT saves393 callbacks/1572 bytes in sequential controls and304/
+1240 under overlap. Required terminal work moves into append preparation; this
+is a complete-save reduction, not a claim every phase decreases. These are
+source callbacks rather than physical command counts or native speed evidence.
+Next checkpoint is frozen matched builds/core/VM validation, self-merge and
+an unchanged automated1800-second1% native stress with all prior receipts.
