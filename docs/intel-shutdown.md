@@ -2,7 +2,8 @@
 
 The separate [original-owner HDA/BCS diagnostic](intel-hda-bcs-shutdown.md)
 adds pre-init HDA inhibition/restoration around this protocol. It has its own
-image, recipe, version22 receipts and pending native acceptance; its result
+image, recipe and version22 receipts. Already-disabled observation is accepted
+on its recorded source; the enabled writer remains unexercised. Its result
 cannot be substituted for this standalone version8 contract.
 
 

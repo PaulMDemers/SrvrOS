@@ -15,14 +15,22 @@ crash recovery. Merged filesystem behavior has no new Air7,2 physical acceptance
 WebCore remain independent. Current installed source stays the qualified
 `a720d774` payload until a new candidate is staged and qualified.
 
-The next graphics block is same-owner shutdown/reset-admission composition,
-using actual entry state and original source/epoch/lifetime checks. An
-already-disabled entry may proceed only through its existing legal gates;
-nonzero geometry must not be cleared or hidden to force reset admission.
-Keep100/150/300/400/500ms bounds. The enabled writer remains unexercised; do not
-force an enabled case or repeat unchanged observation boots to claim progress.
-No pre-wake engine MMIO, requester/PTE/Stop Ring/ring-start writer or memory
-assurance is supplied by this observation.
+Implement the [disabled-entry/reset composition](../intel-entry-reset-composition.md)
+in a separate joint-admission image and exact recipe. The accepted zero-store
+BCS observer becomes a sealed read-only child of the original HDA/GT owner,
+after its original full completion census and before existing takeover/reset
+admission. It must return before the unchanged preparation/reset/re-arm/claim
+pipeline. Enabled/nonzero-geometry entry refuses before reset; the separate
+enabled shutdown writer remains unexercised. No geometry clearing, added writer,
+new assurance or deadline extension. Keep100/150/300/400/500ms limits and the
+original census age/epoch; do not refresh or synthesize an admission token.
+
+Touched scope: new small diagnostics core/actual-adapter wrapper, isolated
+image/firmware/pre-init recipe, strict receipts/collector, host fault/sanitizer
+and staged-VM qualification. Reuse the existing reset pipeline; preserve older
+images and native evidence. Checkpoint:`build/air-entry-compose-20261111`.
+Fetched main remains5e72e2dd. PR469 filesystem, PR19 networking and PR379
+WebCore stay independent. Work to hardware-ready; no reboot in this block.
 
 ### Latest native HDA/BCS result: already-disabled observation accepted
 
