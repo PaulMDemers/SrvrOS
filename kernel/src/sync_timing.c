@@ -1,4 +1,5 @@
 #include <srvros/sync_timing.h>
+#include <srvros/commit_wait_timing.h>
 #include <srvros/timer.h>
 static struct sync_timing_snapshot observed;
 static struct sync_timing_call current;
@@ -20,6 +21,7 @@ static void unlock(uint64_t f) {
     if(f&(1ull<<9))__asm__ volatile("sti":::"memory");
 #endif
 }
+#include "commit_wait_timing.inc"
 static void add(struct sync_timing_record *r,uint64_t *v,uint64_t n) {
     if(*v>UINT64_MAX-n)r->invalid=1;else *v+=n;
 }
@@ -130,6 +132,7 @@ static void content_end(bool ok,bool dirty_after,const struct sync_content_prefi
     add(r,&c->calls,1);add(r,&c->bytes,content_current.size);if(!ok)add(r,&c->failures,1);
     if(content_current.end_us<content_current.start_us)r->invalid=1;
     else if(!c->worst.start_us || content_current.end_us-content_current.start_us>c->worst.end_us-c->worst.start_us)c->worst=content_current;
+    commit_wait_content_end();
     content_active=false;content_current=(struct sync_content_call){0};unlock(f);
 }
 void sync_timing_content_end(bool ok,bool dirty_after) { content_end(ok,dirty_after,0,false); }

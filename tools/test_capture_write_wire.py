@@ -31,9 +31,10 @@ def main():
             else:raise AssertionError('Corrupt production wire was accepted')
     periodic=subprocess.check_output([str(args.binary.resolve()),'periodic'])
     final=subprocess.check_output([str(args.binary.resolve()),'mixed'])
-    projection=b'\n'.join(line.replace(b'capture-write-gate-owner: version=2',b'capture-write-gate-owner: version=1').replace(b'final=1',b'final=0') for line in final.splitlines() if not line.startswith((b'capture-write-gate-sync:',b'capture-write-gate-sync-io:',b'capture-append-wait:')))+b'\n'
+    projection=b'\n'.join(line.replace(b'capture-write-gate-owner: version=2',b'capture-write-gate-owner: version=1').replace(b'final=1',b'final=0') for line in final.splitlines() if not line.startswith((b'capture-write-gate-sync:',b'capture-write-gate-sync-io:',b'capture-append-wait:',b'capture-commit-')))+b'\n'
     assert periodic==projection,'New correlation changed periodic byte traffic'
     assert b'capture-append-wait:' not in periodic
+    assert b'capture-commit-' not in periodic
     old=capture_write_timing([periodic],1,71000,require_final=False)
     assert 'sync_context' not in capture_gate_timing([periodic],old)['workers'][0]
     print('capture-write-wire: PASS real fixed C helpers and production formatter; mixed/private-only coverage, explicit zero ordinary gates, bounded copies')
