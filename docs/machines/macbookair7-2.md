@@ -2,27 +2,64 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Active scope: enabled-entry shutdown retry and receipt attribution
+### Hardware-ready: enabled-entry shutdown retry
 
-Fetched main `3703eaea` (PR463/464, exFAT initialized-metadata tail writes and
-Air6,1 native stress evidence); integrate it before the next matched image.
-PR19 networking and PR379 WebCore remain separate. This block fixes the host
-backing decoder's explicit wake-v21/PTE-v3 binding, adds positive prerequisite
-and negative version/provenance coverage, and replays the original requester
-refusal without changing its classification. Then qualify the existing separate
-standalone enabled-BCS shutdown image against fresh source, actual native adapter,
-store-width/deadline/isolation checks and exact-stage VM persistence. No joint
-preparation geometry relaxation, enabled-ring force-enable or combined reset is
-in scope: clearing enable leaves the inherited start/length intact and cannot
-satisfy the later zero-geometry reset gate by itself. Native acceptance requires
-the enabled branch to actually run and its full preservation/retirement evidence.
-Touched scope: host receipt parser/tests, unit/contract documentation, the
-standalone shutdown reporting storage lifetime and its actual-adapter regression,
-and local qualification/staging scripts. The audit found automatic owner/provider
-and registered-borrow storage surviving only until the report returned; give this
-image persistent storage and exercise retained objects after stack overwrite. Keep existing protocol and 100/150/300/500 ms
-bounds. Checkpoint: `build/air-enabled-shutdown-20261111`; prior run collected,
-current8d88625b30a0cfab/recovery9aa8dbf6fbda8252 preserved, no reboot armed.
+Main `3703eaea` (PR463/464 exFAT initialized-metadata tail writes and Air6,1
+stress evidence) is integrated. Source `3028016d`, exact release
+`d260c6f11f043e51`, qualifies the separate standalone shutdown trial for the
+naturally enabled BCS state observed by the last requester admission refusal.
+PR19 networking and PR379 WebCore remain independent. No geometry, firmware,
+register eligibility or deadline gate is widened; the shutdown protocol is
+unchanged. A successful enabled branch performs one exact `0xf000` control
+store, two matching readbacks and full engine/plane/HDA preservation, followed
+by original borrow, alias and CPU-exclusion retirement. A disabled entry can
+accept only observation; never force-enable the ring to manufacture coverage.
+
+The audit found the older standalone reporter's retained owner/provider/borrow
+on its stack. This image now uses nine persistent one-shot storage objects.
+The actual adapter checks original identity/registration after the reporting
+frame returns and a 32 KiB caller-stack overwrite. All 36 fatal ASan/UBSan modes
+pass, and restoring stack-based ownership is caught as stack-use-after-return.
+Seven compiled semantic/lifetime controls and five native MMIO controls are
+all detected. Native object and staged-image checks verify static retention,
+the 2,048-byte frame limit, exact fenced DWORD store and read-only targets.
+Isolation across all 26 images keeps the shutdown writer in its own image.
+
+The full local build/host/core/docs/USB and 26-image baseline passes at
+`88d12b49`. The final source changes only the shutdown storage lifetime,
+actual-adapter regression and docs; final affected Intel/Air6,1 fixture,
+host/docs/all/USB and 26-image checks pass. Unchanged filesystem/global fault
+matrices retain the full baseline proof. Installed-root testing is explicitly
+omitted because no installer changed; actual installed/recovery hashes pass.
+The full-width report projection remains 64,793/65,536 bytes, including the
+unchanged 1,536-byte reserve. Exact immutable MBR EFI QEMU passes unsupported
+zero-store refusal, saved matching checkpoint/results and bytes, clean unmount
+and automatic return; missing workspace halts. The compiled 15-token parser
+matches saved boot options. VM evidence does not accept the native writer.
+
+The host backing decoder now explicitly binds PTE-v3 to both wake v20 and v21,
+while unknown versions and duplicate summaries refuse. Exact raw replay of the
+last requester session verifies the native prerequisite checkpoint and keeps
+the actual incomplete admission classification; the original collection remains
+independently preserved. This host fix issues no new hardware access.
+
+Host/USB/recovery and all 1,461 files across 143 sessions verify, with offline
+fsck/allocation/writable/headroom passing and the USB unmounted. Candidate and
+evidence are banked outside `build`; local checkpoint:
+`build/air-enabled-shutdown-20261111/run.json`. Current `8d88625b30a0cfab`,
+accepted joint `978d9be94b96243a`, recovery `9aa8dbf6fbda8252` and known-good GUI
+remain preserved. Only an unreferenced older reset EFI copy was retired after
+complete equality with its independent bank; its payload and acceptance history
+survive. EFI headroom includes the installer's 32 MiB margin. This candidate is
+uninstalled and unarmed; volume 1%, silent, no human input required.
+
+The next physical test must distinguish an exercised enabled writer from an
+already-disabled observation. Safe saved outcomes return automatically;
+uncertain writes/retirement or unsafe persistence halt visibly. The original
+100/150/300/500 ms limits remain. Clearing enable preserves start/length and
+cannot satisfy the later zero-geometry reset gate by itself. No reset, PTE,
+managed backing or DMA/cache/reader retirement is granted; all 255 completion
+obligations and physical tear-free presentation remain open.
 
 ### Latest native requester trial: safe refusal before preparation
 

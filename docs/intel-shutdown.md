@@ -188,3 +188,25 @@ preparation timing, reset, DMA/cache/reader retirement or managed-memory authori
 follows. A new preparation trial must obtain fresh zero-geometry admission in
 its own lifetime; this receipt cannot authorize it. Do not force-enable the ring
 to manufacture writer coverage or widen a gate to make another branch run.
+
+## Enabled-entry retry qualified on the updated baseline (2026-11-11)
+
+Source `3028016d`, release `d260c6f11f043e51`, integrates main `3703eaea` and
+qualifies the unchanged separate shutdown protocol with persistent retained
+ownership storage. The full local baseline at `88d12b49` passes; final affected
+Intel/Air6,1 fixture/host/docs/all/USB checks and all 26 images pass. All 36 fatal
+sanitizer modes, seven compiled semantic/lifetime controls and five native MMIO
+controls pass, including a detected stack-use-after-return regression control.
+Native object/staged checks verify nine static retained objects, the 2 KiB frame
+limit and exact fenced single-control writer. The 64,793-byte projected tail
+retains the original 1,536-byte allowance and 65,536-byte cap. Exact immutable
+QEMU tests verify refusal, checkpoint/save/unmount/return and missing-drive halt;
+the compiled 15-token recipe matches saved options. These are qualification
+results, not native enabled-writer acceptance.
+
+The candidate is banked, uninstalled and unarmed. The Air record owns the actual
+USB, installed/recovery and prior-file proof. The next automated trial requires
+no input, uses volume 1% and keeps original deadlines. A naturally enabled entry
+must actually execute the permitted store and all postconditions before accepting
+the writer. An already-disabled completion remains observation only. No start
+clearing, backing release, combined reset or managed-memory grant is introduced.
