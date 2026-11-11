@@ -73,6 +73,11 @@ class InstallTests(unittest.TestCase):
             verify_early5_absent_radio(text+logger)
             for bad in (text,text+logger.replace('parked=1','parked=0'),text+logger+logger):
                 with self.assertRaises((ValueError,AssertionError)):verify_early5_absent_radio(bad)
+            refused=text+logger.replace('parked=1','parked=0')
+            verify_early5_absent_radio(refused,require_logger_parked=False)
+            for bad in (text,text+logger,refused+'wifi-rx-compare5-owner: version=1 before_mac=0 capacity=32 configured=1\n'):
+                with self.assertRaises((ValueError,AssertionError)):
+                    verify_early5_absent_radio(bad,require_logger_parked=False)
 
     def test_power5_profile(self):
         version='ram-usb-wifi-fw-v123-laptop-probe-0e535900-auto-return'

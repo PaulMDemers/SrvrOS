@@ -165,7 +165,7 @@ def run(args):
             assert not any(parsed[x] for x in ('workspace_ready','logger_started','saved','unmounted'))
         if (full_reconnect or early_compare) and args.mode != 'both-refused':
             from hardware_boot_smoke import verify_reconnect5_absent_radio,verify_http_reconnect5_absent_radio,verify_early5_absent_radio
-            if early_compare:verify_early5_absent_radio(text)
+            if early_compare:verify_early5_absent_radio(text,require_logger_parked=args.mode in ('present','journal-refused','dirty-state'))
             elif http_reconnect:verify_http_reconnect5_absent_radio(text,require_prepare=args.mode in ('present','journal-refused','dirty-state'))
             else:verify_reconnect5_absent_radio(text)
             assert 'wifi-journal-summary: version=1 sampled=0' in text

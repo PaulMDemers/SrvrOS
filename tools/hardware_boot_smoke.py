@@ -57,7 +57,7 @@ def verify_http5_absent_radio(log):
         h=exact(handoff[0],'wifi-http5-rx-handoff',RX_HANDOFF_KEYS)
         assert h=={k:int(k in ('version','retained')) for k in RX_HANDOFF_KEYS.split()}
 
-def verify_early5_absent_radio(log):
+def verify_early5_absent_radio(log,*,require_logger_parked=True):
     """The early queue must remain unattempted when the VM has no adapter."""
     from wifi_early5_observation import observe
     text=log.decode('utf-8') if isinstance(log,bytes) else log
@@ -68,8 +68,15 @@ def verify_early5_absent_radio(log):
         from wifi_rx_compare5_log import observe as compare
         modes=re.findall(r'\bsrvros.wifi-early5-timing=(early|late)\b',text)
         assert modes and len(set(modes))==1
-        observation=compare(text,arm=modes[0])
-        assert observation['logger_parked'] and observation['owner_observation_absent']
+        assert type(require_logger_parked) is bool
+        if require_logger_parked:
+            observation=compare(text,arm=modes[0])
+            assert observation['logger_parked'] and observation['owner_observation_absent']
+        else:
+            # Explicit workspace/logger refusal: no owner is entered. This
+            # recovery fixture cannot grant matched-logging acceptance.
+            rows=[l for l in text.splitlines() if l.lstrip().startswith('wifi-rx-compare5')]
+            assert rows==[f'wifi-rx-compare5-log: version=1 parked=0 periodic=0 before_mac={int(modes[0]=="early")}']
     assert not any(s.startswith(('wifi-cal5','wifi-reconnect5','wifi-http5','wifi-stack5:','wifi-stream5-plan:')) for s in text.splitlines()), 'absent early radio entered an owner'
 
 def verify_reconnect5_absent_radio(log):
