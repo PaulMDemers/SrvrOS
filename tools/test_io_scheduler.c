@@ -131,7 +131,9 @@ void fpu_set_current_user_state(struct fpu_state *state) { (void)state;fpu_set_c
 static unsigned handoff_admissions;
 static struct scheduler_wait_queue high_wait;
 static bool completion_condition(void *arg) { assert(arg==&completion_ready);return completion_ready; }
+static void (*extra_context_switch)(struct scheduler_context *,struct scheduler_context *);
 void scheduler_context_switch(struct scheduler_context *old,struct scheduler_context *next) {
+    if(extra_context_switch){extra_context_switch(old,next);return;}
     if(capture_wait_test) {
         if(old==&threads[0].context) {
             assert(next==&threads[1].context && current_thread==1 && capture_gate_active==1);

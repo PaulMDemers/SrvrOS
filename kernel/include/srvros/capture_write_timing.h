@@ -10,6 +10,7 @@ struct capture_write_sample { uint64_t count,total_us,max_us; };
 struct capture_write_record {
     uint64_t pid,first_us,last_us,retired,attempts,calls,requested,bytes,failures,growths,invalid;
     uint64_t fast_calls,fast_requested,fast_bytes,fast_failures,fast_max_request,fast_max_bytes;
+    uint64_t append_wait_calls,append_wait_us,append_wait_max_us,append_wait_wakes,append_wait_overlap;
     struct capture_write_sample site[CAP_WRITE_SITE_COUNT];
     struct capture_gate_summary gate;
 };

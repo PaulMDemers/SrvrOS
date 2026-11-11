@@ -19,6 +19,8 @@ static void syscall_copy_test_irq_restore(uint64_t f) {entry_flags=f;if(f&0x200)
 static _Alignas(4096) uint8_t source[65536],tail[65536];
 static uint64_t mapped_bytes,allowed_count;
 static bool eligible,decline,late_fault,busy,user_safe,kill_on_wait,killed,replace_on_wait,revoke_on_wait;
+static bool private_progress,private_kill,private_fault;
+static unsigned handler_records,wait_retries;
 static unsigned validations,tries,candidate_calls,fast_calls,invalidations,gate_calls,gate_records,normal_writes,published,reservations;
 static uint64_t last_requested;static int64_t last_result;
 static struct process_file file;
@@ -47,6 +49,14 @@ bool process_file_try_reserved_append(struct process *p,uint64_t fd,uint64_t n,p
     if(!copy(context,tail,allowed_count,n)){*result=SRV_ERR_FAULT;return true;}
     published=(unsigned)allowed_count;*result=(int64_t)allowed_count;return true;
 }
+bool process_file_wait_reserved_append(struct process *p,uint64_t fd,uint64_t n) {
+    assert(p==process_current() && fd==4 && n && n<=65536 && !entry_flags && user_safe);
+    if(!private_progress)return false;
+    assert(decline);private_progress=false;decline=false;wait_retries++;source[0]=0x3c;
+    if(private_kill)killed=true;
+    if(private_fault)mapped_bytes=0;
+    return true;
+}
 int64_t process_file_reserve_append_ram(struct process *p,uint64_t fd,uint64_t limit) {
     assert(p==process_current() && fd==4 && limit==65536);reservations++;return -7;
 }
@@ -55,7 +65,7 @@ void process_capture_write_fast_result(uint64_t n,int64_t result) {
 }
 void process_capture_write_invalidate(void) {invalidations++;}
 uint64_t process_capture_write_clock(void) {return 10;}
-void process_capture_write_record(enum capture_write_site site,uint64_t at) {assert(site==CAP_WRITE_GATE && at==10);gate_records++;}
+void process_capture_write_record(enum capture_write_site site,uint64_t at) {assert(at==10 && (site==CAP_WRITE_GATE || site==CAP_WRITE_HANDLER));if(site==CAP_WRITE_GATE)gate_records++;else handler_records++;}
 void scheduler_io_set_user_safe(bool value) {user_safe=value;}
 bool scheduler_io_active(void) {return busy;}
 bool scheduler_io_busy(void) {return busy;}
@@ -100,6 +110,7 @@ int64_t process_file_set_flags(struct process *p,uint64_t fd,uint64_t flags) {(v
 int64_t process_file_get_lock(struct process *p,uint64_t fd,struct srv_flock *l) {(void)p;(void)fd;(void)l;assert(0);return -1;}
 int64_t process_file_set_lock(struct process *p,uint64_t fd,const struct srv_flock *l,bool wait) {(void)p;(void)fd;(void)l;(void)wait;assert(0);return -1;}
 static void reset_case(void) {
+    private_progress=private_kill=private_fault=false;handler_records=wait_retries=0;
     memset(source,0x5a,sizeof(source));memset(tail,0xa5,sizeof(tail));mapped_bytes=sizeof(source);allowed_count=32;
     entry_flags=0;enabled_restores=validations=tries=candidate_calls=fast_calls=invalidations=gate_calls=gate_records=normal_writes=published=reservations=0;
     eligible=busy=user_safe=true;decline=late_fault=kill_on_wait=killed=replace_on_wait=revoke_on_wait=false;
@@ -141,14 +152,23 @@ int main(void) {
     assert(syscall_reserved_append_dispatch(&f) && (int64_t)f.rax==SRV_ERR_FAULT && !published && !gate_calls);
     reset_case();f=(struct isr_frame){.cs=3,.rax=SYS_WRITE,.rdi=4,.rsi=(uint64_t)source,.rdx=32};
     assert(syscall_reserved_append_candidate(&f));decline=replace_on_wait=true;
-    assert(!syscall_reserved_append_dispatch(&f) && f.rax==32 && invalidations==1 && gate_calls==1 && gate_records==1 &&
+    assert(!syscall_reserved_append_dispatch(&f) && f.rax==32 && invalidations==0 && gate_calls==1 && gate_records==1 &&
         normal_writes==1 && !fast_calls && !user_safe && !enabled_restores);
     reset_case();decline=revoke_on_wait=true;f=(struct isr_frame){.cs=3,.rax=SYS_WRITE,.rdi=4,.rsi=(uint64_t)source,.rdx=32};
     assert(!syscall_reserved_append_dispatch(&f) && (int64_t)f.rax==SRV_ERR_FAULT &&
-        invalidations==1 && gate_calls==1 && !normal_writes && !fast_calls);
+        invalidations==0 && gate_calls==1 && !normal_writes && !fast_calls);
     reset_case();decline=kill_on_wait=true;f=(struct isr_frame){.cs=3,.rax=SYS_WRITE,.rdi=4,.rsi=(uint64_t)source,.rdx=32};
     if(!setjmp(cancelled)){(void)syscall_reserved_append_dispatch(&f);assert(0);}
-    assert(invalidations==1 && !normal_writes && !fast_calls && killed);
+    assert(invalidations==0 && !normal_writes && !fast_calls && killed);
+    reset_case();decline=private_progress=true;f=(struct isr_frame){.cs=3,.rax=SYS_WRITE,.rdi=4,.rsi=(uint64_t)source,.rdx=32};
+    assert(syscall_reserved_append_dispatch(&f) && f.rax==32 && wait_retries==1 && tries==2 &&
+        tail[0]==0x3c && fast_calls==1 && handler_records==1 && !gate_calls && !invalidations);
+    reset_case();decline=private_progress=private_fault=true;f=(struct isr_frame){.cs=3,.rax=SYS_WRITE,.rdi=4,.rsi=(uint64_t)source,.rdx=32};
+    assert(syscall_reserved_append_dispatch(&f) && (int64_t)f.rax==SRV_ERR_FAULT && wait_retries==1 &&
+        !published && tail[0]==0xa5 && handler_records==1 && !gate_calls);
+    reset_case();decline=private_progress=private_kill=true;f=(struct isr_frame){.cs=3,.rax=SYS_WRITE,.rdi=4,.rsi=(uint64_t)source,.rdx=32};
+    if(!setjmp(cancelled)){(void)syscall_reserved_append_dispatch(&f);assert(0);}
+    assert(wait_retries==1 && tries==1 && !published && !fast_calls && !normal_writes && gate_calls==2);
     reset_case();assert(syscall_fcntl(4,SRV_F_RESERVE_APPEND_RAM,65536)==-7 && reservations==1);
     assert(syscall_fcntl(4,9999,0)==-1 && reservations==1); /* Old/default rejection contract. */
     puts("reserved-append-syscall: PASS exact raw token, full-request/FSIZE-short user proof, partial hidden-tail fault, bounded copy, fresh gated refusal/cancellation and explicit reserve command");

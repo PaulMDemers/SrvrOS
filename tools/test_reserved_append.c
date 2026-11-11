@@ -115,7 +115,8 @@ static void window_and_original_tail(void) {
     fresh(1024*1024);struct process_file_content *c=write_files[0].content;
     struct reserved_copy copy={.source=payload,.mapped=sizeof(payload)};int64_t result;
     for(unsigned n=0;n<4;n++)assert(process_file_try_reserved_append(&subject,3,65536,reserved_copy,&copy,&result) && result==65536);
-    refused(3,1);assert(!process_file_reserved_append_entry_candidate(&subject,3,65536));
+    refused(3,1);assert(process_file_reserved_append_entry_candidate(&subject,3,65536));
+    /* Full window permits only a recheck prelude; the actual copy still refuses. */
     assert(process_file_write(&subject,3,payload,65536)==65536 && write_files[0].append.valid);
     assert(c->size==327680 && !c->committed_size);
     c->writeback=(__typeof__(c->writeback)){.active=true,.data=c->data,.size=c->size,.generation=c->dirty_generation};
@@ -226,7 +227,10 @@ static void traced_copy_paths(void) {
         record->site[CAP_WRITE_RESERVE].count==2 && record->site[CAP_WRITE_COPY].count==2 && !record->invalid);
     capture_writes=(struct capture_write_snapshot){0};
 }
-int main(void) {
+#ifndef RESERVED_APPEND_TEST_MAIN
+#define RESERVED_APPEND_TEST_MAIN main
+#endif
+int RESERVED_APPEND_TEST_MAIN(void) {
     for(unsigned n=0;n<sizeof(payload);n++)payload[n]=(uint8_t)(n*37+11);
     guards();window_and_original_tail();hidden_fault_and_rlimit();revocation_and_saturation();failure_and_borrow_guards();traced_copy_paths();
     puts("reserved-append: PASS actual process reservation/private copy, refusal identity, windows, original tail retention, hidden-fault zeroing, RLIMIT, revocation and saturated ordinary fallback");
