@@ -7,6 +7,31 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Early main-RX comparison implementation scope (November 11)
+
+User requests the bounded early-receive comparison and actual native-path tests
+before another physical run. Base `f0853a17`; fetched main `91514b3f` is integrated
+at `28111104`. The sole stream-fixture merge conflict retains both post-write
+allocation fault modes. Other open scopes remain PR301 GPU/HDA and PR379 WebCore;
+PR19 owns this device's Wi-Fi work. No other task is contacted or scheduled.
+
+Bounded change: an explicit fixed161/20MHz calibration-only profile with a
+separate32-page main-RX queue published before MAC start. Per-TD event accounting
+must work during actual MCU OUT/IN and EP0 guard waits, without nested I/O,
+buffer reuse or payload inspection. Retain the original500ms MCU failure and
+same-TD1.5s loss observation. Report finite queue exhaustion; do not treat it as
+proof of Linux-equivalent continuous RX. Keep ordinary calibration, production
+connection profiles, initial channel, firmware/RF gates and retirement limits
+unchanged. A diagnostic pass is not Wi-Fi reliability or root-cause acceptance.
+
+Touched scope: xHCI calibration/early queue, opt-in kernel/host profile routing,
+strict saved observations and native-C tests. Before installation, cover real
+ring publication, event consumption/dispatch, overlapping MCU/EP0 ownership,
+bad/duplicate/late data events, removal/timeout, capacity and Stop ordering under
+normal and fatal sanitizers. Then qualify matched images and exact-stage
+persistence/recovery. Prior native return and separate review remain immutable;
+current installed186c is unarmed, with workspace0E53-5900 and seven recoveries.
+
 ### Native loss trace: no observed reply prefix or exact event (November 11)
 
 Runtime `58a48e04` / release `186c23c85bc94c89` returned automatically in
