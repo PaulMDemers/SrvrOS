@@ -1,6 +1,25 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-10. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
+
+### Active scope: enabled-entry shutdown retry and receipt attribution
+
+Fetched main `3703eaea` (PR463/464, exFAT initialized-metadata tail writes and
+Air6,1 native stress evidence); integrate it before the next matched image.
+PR19 networking and PR379 WebCore remain separate. This block fixes the host
+backing decoder's explicit wake-v21/PTE-v3 binding, adds positive prerequisite
+and negative version/provenance coverage, and replays the original requester
+refusal without changing its classification. Then qualify the existing separate
+standalone enabled-BCS shutdown image against fresh source, actual native adapter,
+store-width/deadline/isolation checks and exact-stage VM persistence. No joint
+preparation geometry relaxation, enabled-ring force-enable or combined reset is
+in scope: clearing enable leaves the inherited start/length intact and cannot
+satisfy the later zero-geometry reset gate by itself. Native acceptance requires
+the enabled branch to actually run and its full preservation/retirement evidence.
+Touched scope: host receipt parser/tests, unit/contract documentation and local
+qualification/staging scripts. Keep existing protocol and 100/150/300/500 ms
+bounds. Checkpoint: `build/air-enabled-shutdown-20261111`; prior run collected,
+current8d88625b30a0cfab/recovery9aa8dbf6fbda8252 preserved, no reboot armed.
 
 ### Latest native requester trial: safe refusal before preparation
 
