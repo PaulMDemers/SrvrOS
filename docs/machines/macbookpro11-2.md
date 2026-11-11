@@ -7,6 +7,20 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Linux MCU timing capture and native loss tracing (November 11)
+
+User authorizes capturing Linux firmware timings and tracing the native response
+loss. Base `f7a8f2ef`, fetched main `5e72e2dd`; other active scopes are unchanged.
+Bounded implementation: a passive, identity/endpoint-filtered Linux USB monitor
+with correlation tests, a local reversible driver restart to observe initialization,
+then response-buffer/event/publication tracing in the production native MCU path
+with actual-path tests. Preserve the original500ms failure and DMA quarantine;
+no retry, command resend or buffer reuse is authorized by a timing comparison.
+Keep credentials and packet contents out of published captures. This adapter is
+Ubuntu's current default network path: perform its brief Linux restart only with
+a local restoration action prepared. Integrate/requalify main before any new
+runtime image. No physical boot is armed at this scope checkpoint.
+
 ### External driver/specification research (November 11)
 
 The user requested research before further implementation. Bounded scope:
