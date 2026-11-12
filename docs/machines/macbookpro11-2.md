@@ -7,6 +7,30 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Bounded discovery continuation implementation scope (November 12)
+
+On maind7c1a08a0 integrated bydfb5a64e, PR19 now owns an explicit connection
+survey: at most16 fresh eight-page windows under one10-second receive deadline,
+with one calibration, complete MAC/exact Stop before each inspection and
+context-preserving stopped retarget between windows. Previous rings and both
+payload/scratch page sets remain retained, immutable and excluded from later
+allocations; stale events quarantine. Only UNAVAILABLE continues. A selected
+target must agree with earlier hidden/same-BSSID observations; ambiguous,
+conflicting, malformed ownership or security failures cannot start a connection.
+Capacity/deadline outcomes are explicit. Missing target permits only proven
+original-parent cleanup and still fails the HTTP workload. Existing profiles
+retain their single-window recipe.
+
+Touched scope: cal5/prime5 native ownership, a separate survey continuation,
+retained selection/history validation, receive deadline/partial-Stop handling,
+the opt-in stage/main recipe and strict source-bound decoders/native fixtures.
+Dependencies remain the merged main7c1a08a0 and existing DHCP failure-closure
+contract. PR478 storage, PR301 GPU/HDA and PR379 WebCore stay separate; no task
+is contacted. Reproduce competing traffic/target-after-eight and absent-target
+RF cleanup through actual native code, including exact command/event faults,
+before preparing any physical run. Current installed1b555afb6e2f942b remains
+unarmed; no new hardware acceptance is claimed.
+
 ### Priming complete; discovery window exhausted before target (November 12)
 
 Runtimef0f77ed7/release1b555afb6e2f942b saved a complete exit and all seven
