@@ -47,6 +47,14 @@ class Tests(unittest.TestCase):
    d=observation['rows'][0]['fields'];self.assertEqual((d['finished'],d['success'],d['end_reason']),(1,1,1) if case==14 else (1,0,3))
    self.assertIn('wifi-http-reconnect5-failed: version=1 generation=1 reason='+str(7 if case==14 else 6),raw)
    self.assertIn('next_allowed=0',raw)
+   from wifi_power5_log import fields
+   summary=[s for s in raw.splitlines() if s.startswith('wifi-http5-failed-rx:')]
+   self.assertEqual(len(summary),1);d=fields(summary[0],'wifi-http5-failed-rx')
+   self.assertEqual(d['observation_only'],1);self.assertEqual(d['parsed'],sum(d['r'+str(i)] for i in range(10)))
+   self.assertEqual(d['r0'],0)
+   if case==2:self.assertGreater(d['r7'],0)
+   if case==12:self.assertEqual(d['parsed'],0)
+   if case==14:self.assertGreaterEqual(d['r9'],3)
    self.assertNotIn('wifi-http-reconnect5-begin: version=1 generation=2',raw)
    with self.assertRaises(ValueError):c.check_owner(raw)
 

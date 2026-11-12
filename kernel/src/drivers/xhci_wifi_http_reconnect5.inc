@@ -26,6 +26,20 @@ static bool wifi_http5_failed_connection_closed(void){
   !s->complete && !s->unsafe && s->keys_activated && s->keys_erased && s->leave_sent &&
   !s->handshake.keys_may_live && wpa2_ccmp_erased(&s->keys,wifi_stream5.epoch);
 }
+static void wifi_http5_failed_rx_emit(void){
+ uint64_t reasons[10]={0},parsed=0,unclassified=0;
+ /* Reuse the already-recorded parser results after native closure. No packet
+  * inspection, address/key/payload logging, admission change or live I/O. Zero
+  * is unclassified here (management/drain); an admission fault cannot qualify
+  * for this handled-failure path. CCMP7 is not a specific MIC diagnosis. */
+ for(unsigned i=0;i<wifi_stream5.record_count && i<WIFI_STREAM5_TX+WIFI_STREAM5_RX;i++){
+  const struct wifi_stream5_record *r=&wifi_stream5.records[i];if(!r->direction)continue;
+  if(r->reason && r->reason<=MT76_DATA5_OK){reasons[r->reason]++;parsed++;}else unclassified++;
+ }
+ console_printf("wifi-http5-failed-rx: version=1 parsed=%u unclassified=%u",parsed,unclassified);
+ for(unsigned i=0;i<10;i++)console_printf(" r%u=%u",(uint64_t)i,reasons[i]);
+ console_write(" observation_only=1\n");
+}
 static bool wifi_http_reconnect5_exercise(void *context,struct mt76_net5 *provider){
  unsigned g=wifi_http_reconnect5.connections;
  if(g>1 || context!=&wifi_http_reconnect5.probe[g] || provider!=&wifi_stack5_net ||
@@ -88,7 +102,10 @@ static bool wifi_http_reconnect5_window(void){
    wifi_stack5.terminal_ticket,wifi_stack5.terminal_token,wifi_stack5.terminal_posts,wifi_stack5.terminal_completions,
    (uint64_t)wifi_stack5.terminal_provider_closing,(uint64_t)wifi_stack5.terminal_handoff,(uint64_t)wifi_stack5.terminal_handoff,(uint64_t)wifi_stack5.terminal_handoff);
   http_network_probe_emit(p);
-  if(failed_closed)console_printf("wifi-http-reconnect5-failed: version=1 generation=%u reason=%u protocol_failed=1 deconfigured=1 child_retired=1 worker_finished=1 receiver_closed=1 keys_erased=1 native_closed=1 provider_detached=1 next_allowed=0 retained_context=1\n",(uint64_t)g+1,p->result.reason);
+  if(failed_closed){
+   wifi_http5_failed_rx_emit();
+   console_printf("wifi-http-reconnect5-failed: version=1 generation=%u reason=%u protocol_failed=1 deconfigured=1 child_retired=1 worker_finished=1 receiver_closed=1 keys_erased=1 native_closed=1 provider_detached=1 next_allowed=0 retained_context=1\n",(uint64_t)g+1,p->result.reason);
+  }
   if(!good)return false;
   wifi_http_reconnect5.epochs[g]=wifi_stream5.epoch;wifi_http_reconnect5.tokens[g]=wifi_stack5_net.next_token;
   wifi_http_reconnect5.connections++;

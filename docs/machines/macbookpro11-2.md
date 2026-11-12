@@ -70,6 +70,10 @@ scenarios and15 actual native HTTP cases with modeled HCD/RF/scheduler/child.
 Native cases include bad-MIC/no-offer DHCP timeouts, configured DNS failure,
 posted raw RX, full named retirement, and an uncertain DHCP TX that must hold.
 The C-emitted failed DHCP/DNS observations survive without protocol acceptance.
+Handled failures also emit a histogram of the already-recorded RX parser
+results after native closure, distinguishing no parsed data from structural,
+peer, generic CCMP or LLC refusals. It performs no new packet inspection or
+live I/O; CCMP refusal is not by itself a specific MIC diagnosis.
 Final frozen-source/fatal/counterfactual/image qualification remains pending.
 The physical DHCP packet-loss cause remains unknown; this corrects the hold
 and missing final diagnostic path. No new boot is armed.
