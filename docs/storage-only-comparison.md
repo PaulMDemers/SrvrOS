@@ -218,7 +218,9 @@ semantic diff of each intermediate expected table. File readbacks and ordinary
 writes can change other timestamps too. Audit internal verification side effects
 and the full field change set before deciding which traffic can safely be removed;
 do not remove persistence, fresh reads or barriers just because the first field
-is an access time. Cold-boot identity restoration also remains open: the prior-
+is an access time. A marker-only change may not avoid the required rewrite when
+actual file writes also advance mtime/ctime; reducing the cost of required
+sidecar updates remains a separate target. Cold-boot identity restoration also remains open: the prior-
 record comparison finds 56 reassigned IDs through the unchanged legacy restore
 path, with unique final IDs and unchanged permission/ownership fields. PR19's
 separate atomic restore implementation is not part of this accepted runtime.

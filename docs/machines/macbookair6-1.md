@@ -13321,6 +13321,9 @@ mtime/ctime. Do not suppress all metadata writes from this observation. The next
 bounded audit should separate kernel verification side effects from application
 accesses and establish the complete changed-field set before reducing persistence
 traffic; preserve normal application timestamps, every byte proof and barrier.
+A marker-only change may leave the rewrite count intact because actual file
+writes also advance mtime/ctime. Optimizing the cost of required sidecar updates
+is a separate target from avoiding verification-only timestamp side effects.
 
 The saved final sidecar has 1100 canonical path-ordered records, up from 1095,
 with five new records for the session directory, three logs and fixture. All
