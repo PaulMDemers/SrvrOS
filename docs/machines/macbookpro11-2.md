@@ -7,6 +7,24 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Integrated-main cold repeat scope (November 12)
+
+The user authorizes integrating fetched maina45032e4, qualifying the corrected
+complete collector and shutting down for another cold Wi-Fi reliability trial.
+PR19 retains the Wi-Fi/native-owner scope; consume the merged sidecar audit and
+directory-read work without widening filesystem, radio or ownership gates.
+Keep channel161/20MHz, credentials, retry/deadline rules and tracing settings
+unchanged. Use a new journal/run/collector, protect accepted05ea plus all seven
+older recoveries, and leave both closed37ae primary/review banks immutable.
+Correct the wrapper's public result-field lookup before complete positive and
+refusal replay, then qualify matched image/journal/real-workspace/HTTP guest and
+recovery paths. Native tests use the actual path; no new physical acceptance or
+arming is implied until the run record says so. Root owns serial build/VM/
+staging/install/power; GPU/WebCore work remains separate. While off, unplug only
+Wi-Fi for10seconds, reconnect the same port, then power on; leave workspace
+attached. Guest progress, saving and safe return need no commands.
+
+
 ### Two encrypted HTTP connections accepted after schema review (November 12)
 
 Runtime37ae8304/release05ea8b93f3524a84 completes one cold fixed161/20MHz
