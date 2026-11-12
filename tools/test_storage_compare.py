@@ -57,14 +57,24 @@ for shift,cluster_shift in ((9,3),(9,8),(12,0)):
                 for old,new in (('valid=1','valid=0'),('ok=1','ok=0'),('retired=1','retired=0'),('claimed=1','claimed=0'),('policy=unchanged','policy=changed'),('actual=13','actual=12'),('complete=yes','complete=NO'),('seq=1 ','seq=99 ')):
                     assert capture_result(log.replace(old,new,1),False) is None,(old,new)
                 if version==2:
-                    for prefix in ('storage-only-roles:','storage-only-role:','storage-only-wire:'):
+                    assert capture_result(log,False,require_sidecar=True) is not None
+                    # Missing/incorrect first-difference accounting is not a
+                    # valid new candidate, even when every legacy row remains.
+                    without='\n'.join(l for l in log.splitlines() if not l.startswith('exfat-sidecar-diff:'))+'\n'
+                    assert capture_result(without,False,require_sidecar=True) is None
+                    assert capture_result(log.replace('exfat-sidecar-diff: version=1','exfat-sidecar-diff: version=0'),False,True) is None
+                    for prefix in ('storage-only-roles:','storage-only-role:','storage-only-sidecar:','storage-only-wire:'):
                         index=next(i for i,l in enumerate(lines) if l.startswith(prefix))
                         assert capture_result('\n'.join(lines[:index]+lines[index+1:])+'\n',False) is None
                         assert capture_result('\n'.join(lines[:index]+[lines[index]]+lines[index:])+'\n',False) is None
                     def mutate_roles(old,new):
                         edited=log.replace(old,new,1)
-                        size=sum(len(l) for l in edited.splitlines(keepends=True) if any(l.startswith(p+':') for p in ('storage-only-sample','storage-only-command','storage-only-service','storage-only-roles','storage-only-role')))
+                        size=sum(len(l) for l in edited.splitlines(keepends=True) if any(l.startswith(p+':') for p in ('storage-only-sample','storage-only-command','storage-only-service','storage-only-roles','storage-only-role','storage-only-sidecar')))
                         return re.sub(r'row_bytes=\d+',f'row_bytes={size}',edited)
+                    reason=next(l for l in lines if l.startswith('storage-only-sidecar:'))
+                    for key,value in [('checks',2),('shape',2),('fields',512),('valid',0),('seq',99),('offset',5)]:
+                        bad=re.sub(r'\b'+key+r'=\d+',f'{key}={value}',reason)
+                        assert capture_result(mutate_roles(reason,bad),False,True) is None,(name,key)
                     for old,new in [('roles=7','roles=6'),('writes512=0','writes512=999'),('failed=0','failed=1'),('other=0','other=1'),('mask=64','mask=65')]:
                         assert capture_result(mutate_roles(old,new),False) is None,(name,old)
                 (OUT/(name+'.json')).write_text(json.dumps(proof,indent=2)+'\n')

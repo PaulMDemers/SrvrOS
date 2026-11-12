@@ -64,7 +64,7 @@ static void raw_contained(void) {
 }
 void console_write(const char *s){if(!strcmp(s,"workspace: ready at /work/srvros-work\n"))raw_contained();}
 void console_printf(const char *fmt,...) {
-    if(strncmp(fmt,"storage-only",12)&&strncmp(fmt,"Storage-only",12))return;
+    if(strncmp(fmt,"storage-only",12)&&strncmp(fmt,"Storage-only",12)&&strncmp(fmt,"exfat-sidecar",13))return;
     va_list args;va_start(args,fmt);
     if(!strncmp(fmt,"storage-only-lease:",19)) {
         va_list copied;va_copy(copied,args);(void)va_arg(copied,uint64_t);raw_offset=va_arg(copied,uint64_t);va_end(copied);
