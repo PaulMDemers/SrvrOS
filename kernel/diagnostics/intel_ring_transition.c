@@ -190,3 +190,32 @@ bool intel_ring_transition_run(struct intel_ring_transition *r,struct intel_gt_a
  const struct intel_completion_result *c,bool policy,struct intel_ring_io io) {return run(r,g,c,policy,io,false);}
 bool intel_ring_entry_run(struct intel_ring_transition *r,struct intel_gt_access *g,
  const struct intel_completion_result *c,bool policy,struct intel_ring_io io) {return run(r,g,c,policy,io,true);}
+
+/* The original returned entry may feed only its own fresh post-census into the
+ * existing zero-geometry reset gate. The caller owns any subsequent borrow. */
+bool intel_ring_entry_reset_ready(const struct intel_ring_transition *r) {
+ if(!r || r->kind!=IRT_KIND_DISABLED || !r->complete || !r->policy || !r->blocked ||
+    !r->returned || !r->post_bound || !r->readers_bound || r->reason || r->uncertain ||
+    r->borrow.object!=&r->borrow || r->borrow.parent!=r->parent || r->borrow.active || r->borrow.next ||
+    r->epoch_before || r->epoch_after || r->epoch_advanced || r->store_calls ||
+    r->read_attempts!=4 || r->reader_attempts!=2 || r->checks!=19 ||
+    r->reader_counts[0]!=37 || r->reader_counts[1]!=37 || !source_valid(r) || !post_valid(r))return false;
+ const struct intel_blitter_result *b=&r->bcs;
+ if(b->object!=b || !b->admitted || !b->disabled || !b->entry_disabled || b->attempts || b->writes ||
+    b->uncertain || b->reason || b->samples!=4 || b->reads!=32 ||
+    !r->begin || r->begin<=r->source_end || b->begin_us<r->begin || b->end_us<=b->begin_us ||
+    b->end_us-b->begin_us>100000 || b->end_us>r->source_end+100000 ||
+    r->post_begin<=b->end_us || r->return_begin<r->post_end || r->end<r->return_begin ||
+    r->end<=r->begin || r->end!=r->last || r->end-r->begin>150000)return false;
+ for(unsigned n=0;n<2;n++)for(unsigned e=0;e<5;e++)for(unsigned i=0;i<8;i++)
+  if(r->source_words[n][e][i]!=(i==4?1u:0u))return false;
+ for(unsigned n=0;n<4;n++) {
+  unsigned a=n%2;
+  for(unsigned i=0;i<6;i++)if(b->words[n][i]!=r->source_words[a][4][i])return false;
+  if(b->words[n][6]!=r->source_context[a][3] || b->words[n][7]!=r->source_context[a][5])return false;
+ }
+ for(unsigned p=0;p<3;p++)for(unsigned i=0;i<9;i++)if(r->readers[0].planes[p][i]!=r->readers[1].planes[p][i])return false;
+ for(unsigned i=0;i<10;i++)if(r->readers[0].audio[i]!=r->readers[1].audio[i])return false;
+ const uint32_t *a=r->readers[0].audio;
+ return a[0]==0x160c8086 && a[1]==0x040300 && a[2]==2 && a[3]==1 && !a[4] && a[5]==1;
+}

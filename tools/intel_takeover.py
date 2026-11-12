@@ -4,8 +4,9 @@ from intel_engine_census import _fields
 FIELDS = 'v attempts samples reads begin_us end_us epoch batches blocked borrowed returned retained stable busy reserved geometry quiescent reason complete obligations reset_writes pte_writes managed_pages hardware_ownership'.split()
 BOOL = 'blocked borrowed returned retained stable quiescent complete'.split()
 def takeover_summary(line):
-    s=_fields(line,'intel-takeover-summary:',FIELDS)
-    if any(v>=1<<64 for v in s.values()) or s['v']!=1 or any(s[k]>1 for k in BOOL) or s['attempts']>2 or s['samples']>s['attempts'] or s['reads']>12 or s['batches']>2 or s['epoch']>=1<<32 or s['busy']>31 or s['reserved']>63 or s['geometry']>31 or s['reason']>511:
+    modern=line.startswith('intel-takeover-summary: v=2 ')
+    s=_fields(line,'intel-takeover-summary:',FIELDS+(['last_us'] if modern else []),versions=(2,) if modern else (1,))
+    if any(v>=1<<64 for v in s.values()) or s['v'] not in (1,2) or any(s[k]>1 for k in BOOL) or s['attempts']>2 or s['samples']>s['attempts'] or s['reads']>12 or s['batches']>2 or s['epoch']>=1<<32 or s['busy']>31 or s['reserved']>63 or s['geometry']>31 or s['reason']>511:
         raise ValueError('takeover schema/range')
     if s['obligations']!=255 or any(s[k] for k in ('reset_writes','pte_writes','managed_pages','hardware_ownership')):
         raise ValueError('takeover unsupported authority')
@@ -43,12 +44,14 @@ def takeover_result(text):
     elif any(s[k] for k in ('busy','reserved','geometry')):raise ValueError('takeover masks before stability')
     from intel_gt_wake import wake_result
     wake=wake_result(text)
-    if not wake or wake['summary']['v'] not in (13,14,15,16,17,18,19,20,21,23):raise ValueError('takeover wrong wake image')
-    from intel_completion_audit import completion_result
-    pre=completion_result(text)
+    if not wake or wake['summary']['v'] not in (13,14,15,16,17,18,19,20,21,23,26):raise ValueError('takeover wrong wake image')
+    if s['v']!=(2 if wake['summary']['v']==26 else 1):raise ValueError('takeover image version binding')
+    if s['v']==2 and s['complete'] and not s['begin_us']<=s['last_us']<=s['end_us']:raise ValueError('takeover terminal clock binding')
+    from intel_completion_audit import completion_result,takeover_source
+    pre=takeover_source(text)
     if not pre:raise ValueError('takeover missing census')
     extra=0
-    if wake['summary']['v'] in (14,16,17,18,19,20,21,23):
+    if wake['summary']['v'] in (14,16,17,18,19,20,21,23,26):
         from intel_engine_prepare import prepare_summary
         from intel_completion_audit import summary as census_summary
         ps=[prepare_summary(l) for l in text.splitlines() if l.startswith('intel-prepare-summary:')]
@@ -60,27 +63,27 @@ def takeover_result(text):
         req=[requester_summary(l) for l in text.splitlines() if l.startswith('intel-requester-summary:')]
         if len(req)!=1:raise ValueError('takeover requester coverage')
         extra=req[0]['reads']
-    if wake['summary']['v'] in (16,17,18,19,20,21,23):
+    if wake['summary']['v'] in (16,17,18,19,20,21,23,26):
         from intel_held_requester import held_summary
         hs=[held_summary(l) for l in text.splitlines() if l.startswith('intel-held-requester-summary:')]
         if len(hs)!=1:raise ValueError('takeover held requester coverage')
         extra+=hs[0]['reads']
-    if wake['summary']['v'] in (17,18,19,20,21,23):
+    if wake['summary']['v'] in (17,18,19,20,21,23,26):
         from intel_engine_held_reset import reset_summary
         rs=[reset_summary(l) for l in text.splitlines() if l.startswith('intel-held-reset-summary:')]
         if len(rs)!=1:raise ValueError('takeover held reset coverage')
         extra+=rs[0]['reads']
-    if wake['summary']['v'] in (18,19,20,21,23):
+    if wake['summary']['v'] in (18,19,20,21,23,26):
         from intel_held_interval import interval_capture
         interval=interval_capture(text)
         if not interval:raise ValueError('takeover missing interval')
         extra+=interval['summary']['reads']
-    if wake['summary']['v'] in (19,20,21,23):
+    if wake['summary']['v'] in (19,20,21,23,26):
         from intel_engine_rehold import rehold_capture
         held=rehold_capture(text)
         if not held:raise ValueError('takeover missing rehold')
         extra+=held['summary']['reads']+held['summary']['live_reads']
-    if wake['summary']['v'] in (20,21,23):
+    if wake['summary']['v'] in (20,21,23,26):
         from intel_joint import claim_capture
         claim=claim_capture(text)
         extra+=claim['final']['summary']['reads'] if claim['final'] else 0
@@ -89,6 +92,9 @@ def takeover_result(text):
         g=gpu_hold_capture(text)
         if not g:raise ValueError('takeover GPU requester coverage')
         extra+=g['summary']['reads']+g['summary']['admit_reads']
+    if wake['summary']['v']==26:
+        from intel_ring_reset import entry_counts
+        extra+=entry_counts(text)
     if wake['summary']['v']==23:
         from intel_entry_admission import entry_summary
         es=[entry_summary(l) for l in text.splitlines() if l.startswith('intel-compose-entry-summary:')]

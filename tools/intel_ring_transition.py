@@ -46,12 +46,12 @@ def _rows(text,prefix,keys,width):
   rows.append(dict(zip(keys,map(int,m.groups()[:len(keys)])),words=values))
  return rows
 
-def _ring_result(text,*,entry=False):
+def _ring_result(text,*,entry=False,composition=False):
  lines=[l for l in text.splitlines() if l.startswith('intel-ring-')]
  if not lines:return None
  allowed=('intel-ring-summary:','intel-ring-bcs:','intel-ring-post-row:','intel-ring-post-context:','intel-ring-post-summary:','intel-ring-reader:','intel-ring-audio:','intel-ring-hda:','intel-ring-owner:')
  if any(not l.startswith(allowed) for l in lines):raise ValueError('ring unknown record')
- if any(l.startswith(('intel-joint-','intel-claim-','intel-held-','intel-prepare-','intel-rehold-','intel-hda-bcs-','intel-blitter-','intel-shutdown-')) for l in text.splitlines()):raise ValueError('ring foreign operation')
+ if not composition and any(l.startswith(('intel-joint-','intel-claim-','intel-held-','intel-prepare-','intel-rehold-','intel-hda-bcs-','intel-blitter-','intel-shutdown-')) for l in text.splitlines()):raise ValueError('ring foreign operation')
  sums=[ring_summary(l,entry=entry) for l in lines if l.startswith('intel-ring-summary:')]
  if len(sums)!=1:raise ValueError('ring summary coverage')
  s=sums[0]
@@ -59,11 +59,11 @@ def _ring_result(text,*,entry=False):
  from intel_completion_audit import completion_result
  from intel_joint import joint_capture,ENDPOINT
  w=wake_result(text)
- if not w or w['summary']['v']!=(25 if entry else 24):raise ValueError('ring wrong image')
- owner=joint_capture(text.replace('intel-ring-hda:','intel-joint-hda:').replace('intel-ring-owner:','intel-joint-summary:'))
+ if not w or w['summary']['v']!=(26 if composition else 25 if entry else 24):raise ValueError('ring wrong image')
+ owner=joint_capture(text if composition else text.replace('intel-ring-hda:','intel-joint-hda:').replace('intel-ring-owner:','intel-joint-summary:'))
  if not owner:raise ValueError('ring missing HDA owner')
  h=owner['summary']
- if h['complete'] or h['gpu_complete'] or h['attached']:raise ValueError('ring unsupported claim')
+ if not composition and (h['complete'] or h['gpu_complete'] or h['attached']):raise ValueError('ring unsupported claim')
  pre=completion_result(text)
  post_text='\n'.join(l.replace('intel-ring-post-','intel-completion-',1) for l in text.splitlines() if l.startswith(('intel-ring-post-','intel-wake-summary:','intel-clock:')))
  post=completion_result(post_text)
@@ -71,7 +71,7 @@ def _ring_result(text,*,entry=False):
  bcs=_rows(text,'intel-ring-bcs',['n'],8);readers=_rows(text,'intel-ring-reader',['n','p'],9);audio=_rows(text,'intel-ring-audio',['n'],10)
  if [r['n'] for r in bcs]!=list(range(s['read_attempts'])) or [(r['n'],r['p']) for r in readers]!=[(n,p) for n in range(s['reader_attempts']) for p in range(3)] or [a['n'] for a in audio]!=list(range(s['reader_attempts'])):raise ValueError('ring row coverage/order')
  # Keep exact interleaving and one final summary; never combine boot halves.
- expected=['intel-ring-hda:']*len(owner['phases'])+['intel-ring-owner:']+['intel-ring-bcs:']*len(bcs)
+ expected=([] if composition else ['intel-ring-hda:']*len(owner['phases'])+['intel-ring-owner:'])+['intel-ring-bcs:']*len(bcs)
  for n in range(2):
   expected+=['intel-ring-post-row:']*min(5,max(0,post['summary']['groups']-n*5))
   if n<post['summary']['contexts']:expected+=['intel-ring-post-context:']
@@ -79,12 +79,12 @@ def _ring_result(text,*,entry=False):
  for _ in range(s['reader_attempts']):expected+=['intel-ring-reader:']*3+['intel-ring-audio:']
  expected+=['intel-ring-summary:']
  if [l.split(' ',1)[0] for l in lines]!=expected:raise ValueError('ring record order')
- if w['summary']['engine_reads']!=pre['summary']['reads']+s['bcs_reads']+post['summary']['reads']:raise ValueError('ring combined read binding')
+ if not composition and w['summary']['engine_reads']!=pre['summary']['reads']+s['bcs_reads']+post['summary']['reads']:raise ValueError('ring combined read binding')
  if s['source_begin'] and (s['source_begin'],s['source_end'])!=(pre['summary']['begin_us'],pre['summary']['end_us']):raise ValueError('ring replaced original source')
  if s['post_bound'] and (s['post_begin'],s['post_end'])!=(post['summary']['begin_us'],post['summary']['end_us']):raise ValueError('ring replaced fresh post source')
  if s['uncertain'] and (not w['summary']['retained'] or w['summary']['released']):raise ValueError('ring uncertainty released root')
  retired=bool(h['entry'] and not h['admission'] and h['state']==4 and not h['reason'] and not h['pinned'] and not h['retained'] and h['hda_state']==2 and not h['hda_reason'] and h['hda_epoch'] and h['hda_phases']==3 and h['hda_checks']==1 and not h['hda_pins'] and not h['hda_retained'] and h['hda_complete'] and h['hda_attempts']==h['hda_writes']==2 and h['root_maps']==h['root_retired']==1 and h['borrows']==h['returns']==4 and not h['inspection'] and h['cache']==22 and not h['clock_cause'] and not h['hda_clock_cause'])
- complete=bool(s['complete'] and retired and w['lease_complete'])
+ complete=bool(s['complete'] and (composition or retired and w['lease_complete']))
  if s['complete']:
   a=pre['summary'];z=post['summary']
   if not a['complete'] or a['enabled']!=(16 if s.get('kind',1)==1 else 0) or not z['complete'] or z['enabled'] or any(a[k] or z[k] for k in ('pending','flip_wait','tlb_pending','reason')) or a['parser_idle']!=3 or z['parser_idle']!=3:raise ValueError('ring fresh census eligibility')
@@ -98,8 +98,9 @@ def _ring_result(text,*,entry=False):
    src=pre if n<2 else post;sample=n%2
    values=[src['rows'][sample*5+4]['w'+str(i)] for i in range(6)]+[src['contexts'][sample]['c3'],src['contexts'][sample]['c5']]
    if row['words']!=values:raise ValueError('ring BCS original/fresh source binding')
+  if any(v==0xffffffff for row in readers for v in row['words']):raise ValueError('ring floating reader')
   if any(readers[p]['words']!=readers[p+3]['words'] for p in range(3)) or audio[0]['words']!=audio[1]['words'] or audio[0]['words'][:6]!=[0x160c8086,0x040300,2,1,0,1]:raise ValueError('ring plane/HDA preservation')
- if complete:
+ if complete and retired:
   if not 0<h['origin']<=h['begin']<=h['hda_begin']<s['source_begin']<s['begin']<s['end']<h['hda_end']<=h['end']==h['last']<=h['origin']+500000 or h['end']>h['hda_begin']+400000:raise ValueError('ring original HDA/outer lifetime')
   phases=owner['phases']
   if len(phases)!=4 or not all(p['quiet'] and p['summary']['complete'] for p in phases) or [p['endpoint']['command'] for p in phases]!=[6,2,2,6] or any(p['samples']!=phases[0]['samples'] for p in phases):raise ValueError('ring HDA inhibition/preservation')

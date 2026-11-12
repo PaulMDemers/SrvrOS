@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_RING_RESET) && (!defined(SRVROS_INTEL_WAKE_TRIAL) || !defined(SRVROS_INTEL_ENGINE_TRIAL) || !defined(SRVROS_INTEL_COMPLETION_TRIAL) || !defined(SRVROS_INTEL_HELD_INTERVAL) || !defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || !defined(SRVROS_INTEL_ENGINE_PREPARE) || !defined(SRVROS_INTEL_HELD_REQUESTER) || !defined(SRVROS_INTEL_JOINT) || !defined(SRVROS_INTEL_REHOLD) || !defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_ENTRY) || defined(SRVROS_INTEL_JOINT_ADMIT) || defined(SRVROS_INTEL_GPU_HOLD) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_HDA_LEASE_TRIAL) || defined(SRVROS_INTEL_HDA_OWNER_TRIAL) || defined(SRVROS_INTEL_READER_AUDIT))
+#error "Ring/reset composition requires its separate original-owner joint image"
+#endif
 #if defined(SRVROS_INTEL_RING_ENTRY) && !defined(SRVROS_INTEL_RING_TRANSITION)
 #error "State-aware entry requires the distinct ring transition image"
 #endif
@@ -51,7 +54,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_RING_ENTRY
+#ifdef SRVROS_INTEL_RING_RESET
+extern volatile struct limine_firmware_type_request intel_ring_reset_firmware_request;
+#elif defined(SRVROS_INTEL_RING_ENTRY)
 extern volatile struct limine_firmware_type_request intel_ring_entry_firmware_request;
 #elif defined(SRVROS_INTEL_RING_TRANSITION)
 extern volatile struct limine_firmware_type_request intel_ring_transition_firmware_request;
@@ -112,6 +117,8 @@ static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x1
 #define WAKE_MAPS 14u
 #ifdef SRVROS_INTEL_GPU_HOLD
 #define WAKE_VERSION 21u
+#elif defined(SRVROS_INTEL_RING_RESET)
+#define WAKE_VERSION 26u
 #elif defined(SRVROS_INTEL_JOINT_ADMIT)
 #define WAKE_VERSION 23u
 #elif defined(SRVROS_INTEL_JOINT)
@@ -453,8 +460,11 @@ static bool shutdown_store_source(struct wake_adapter *,struct intel_gt_access *
 #ifdef SRVROS_INTEL_JOINT_ADMIT
 #include "intel_entry_admit_trial.inc"
 #endif
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
 #include "intel_ring_transition_trial.inc"
+#ifdef SRVROS_INTEL_RING_RESET
+#include "intel_ring_reset_trial.inc"
+#endif
 #endif
 static bool wake_fw_quiet(const struct intel_fw_result *r) {
     if(r->status!=IFW_OBSERVED || r->endpoint.swsci!=0x8000 || r->sample[0].words[5]!=0x02000000 || r->sample[0].words[6]!=31)return false;
@@ -468,7 +478,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_RING_ENTRY
+    #ifdef SRVROS_INTEL_RING_RESET
+    const struct limine_firmware_type_response *firmware=intel_ring_reset_firmware_request.response;
+#elif defined(SRVROS_INTEL_RING_ENTRY)
     const struct limine_firmware_type_response *firmware=intel_ring_entry_firmware_request.response;
 #elif defined(SRVROS_INTEL_RING_TRANSITION)
     const struct limine_firmware_type_response *firmware=intel_ring_transition_firmware_request.response;
@@ -512,7 +524,11 @@ bool intel_gt_wake_probe_report(void) {
     f.efi64=firmware && !firmware->revision && firmware->firmware_type==LIMINE_FIRMWARE_TYPE_EFI64;
     f.loader=loader && !loader->revision && wake_text(loader->name,"Limine") && wake_text(loader->version,"11.4.1");
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
-    #ifdef SRVROS_INTEL_RING_ENTRY
+    #ifdef SRVROS_INTEL_RING_RESET
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_ring_reset_recipe(cmd->cmdline);
+    static struct engine_prepare_trial prepared;
+    static struct intel_takeover_result takeover;
+#elif defined(SRVROS_INTEL_RING_ENTRY)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_ring_entry_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_RING_TRANSITION)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_ring_transition_recipe(cmd->cmdline);
@@ -605,7 +621,9 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     bool acquired=false,before=false,after=false,released=false,opened=false,checked=false,closed=false,fw_after=false;
     uint32_t grants=0;uint64_t begin=0,end=0;
-#ifdef SRVROS_INTEL_RING_ENTRY
+#ifdef SRVROS_INTEL_RING_RESET
+    console_write("intel-reset: live entry then zero-geometry reset under original HDA/GT owner; nonzero refuses; no PTE writes or memory transfer\n");
+#elif defined(SRVROS_INTEL_RING_ENTRY)
     console_write("intel-ring-entry: original-owner live entry selection; enabled disable or zero-geometry observation; fresh census and preservation; no reset or memory transfer\n");
 #elif defined(SRVROS_INTEL_RING_TRANSITION)
     console_write("intel-ring: original-owner enabled submission handoff; one idle disable and fresh epoch census; no reset, geometry or memory transfer\n");
@@ -667,22 +685,30 @@ bool intel_gt_wake_probe_report(void) {
                 #ifdef SRVROS_INTEL_ENGINE_TRIAL
                 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
                 if(checked)(void)intel_completion_observe(&completion,&owner,(struct intel_completion_io){&a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE});
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
                 if(completion.complete)(void)ring_run(&a,&owner,&completion,grants==7 && f.recipe);
 #endif
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
+#ifdef SRVROS_INTEL_RING_RESET
+                if(ring_native.result.complete && !a.uncertain)(void)ring_reset_run(&a,&owner,&takeover,grants==7 && f.recipe);
+#else
                 if(completion.complete
 #ifdef SRVROS_INTEL_JOINT_ADMIT
                    && entry_run(&a,&owner,&completion,grants==7 && f.recipe)
 #endif
                   )(void)intel_takeover_observe(&takeover,&owner,&completion,(struct intel_takeover_io){&a,engine_guard,takeover_sample,now});
+#endif
                 if(takeover.borrow.active)a.uncertain=true;
 #ifdef SRVROS_INTEL_REQUESTER_AUDIT
                 if(takeover.complete)(void)intel_pci_requester_observe(&requester,&owner,&takeover,(struct intel_pci_requester_io){&a,engine_guard,requester_sample,now});
                 if(requester.borrow.active || (requester.reason&IPR_PARENT))a.uncertain=true;
 #endif
 #ifdef SRVROS_INTEL_ENGINE_PREPARE
-                if(takeover.complete && takeover.quiescent)eprepare_run(&a,&owner,&takeover,&prepared,f.recipe);
+                if(takeover.complete && takeover.quiescent
+#ifdef SRVROS_INTEL_RING_RESET
+                   && ring_reset_native.result.complete
+#endif
+                  )eprepare_run(&a,&owner,&takeover,&prepared,f.recipe);
 #endif
 #endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
@@ -768,9 +794,12 @@ bool intel_gt_wake_probe_report(void) {
 #ifdef SRVROS_INTEL_ENGINE_TRIAL
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     engine_reads=completion.reads;completion_report(&completion);
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
     ring_report();engine_reads+=ring_native.result.bcs.reads+ring_native.result.post.reads;
     complete=complete && ring_native.result.complete;
+#ifdef SRVROS_INTEL_RING_RESET
+    ring_reset_report();complete=complete && ring_reset_native.result.complete;
+#endif
 #endif
 #ifdef SRVROS_INTEL_JOINT_ADMIT
     entry_report();engine_reads+=entry.result.bcs.reads;
@@ -778,7 +807,13 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     complete=complete && completion.complete;
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
-    takeover_report(&takeover,&completion);engine_reads+=takeover.reads;
+    takeover_report(&takeover,
+#ifdef SRVROS_INTEL_RING_RESET
+     &ring_native.result.post
+#else
+     &completion
+#endif
+    );engine_reads+=takeover.reads;
 #ifdef SRVROS_INTEL_REQUESTER_AUDIT
     requester_report(&requester);engine_reads+=requester.reads;
     complete=complete && requester.complete;

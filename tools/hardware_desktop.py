@@ -573,6 +573,18 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-reset-entry-summary:'):
+        from intel_ring_transition import ring_summary
+        try:return not ring_summary(line.replace('intel-reset-entry-','intel-ring-',1),entry=True)['complete']
+        except ValueError:return True
+    if line.startswith('intel-reset-entry-post-summary:'):
+        from intel_completion_audit import summary
+        try:return not summary(line.replace('intel-reset-entry-post-','intel-completion-',1))['complete']
+        except ValueError:return True
+    if line.startswith('intel-reset-admit:'):
+        from intel_ring_reset import admit_summary
+        try:return not admit_summary(line)['complete']
+        except ValueError:return True
     if line.startswith('intel-ring-entry-summary:'):
         from intel_ring_entry import entry_summary
         try:return not entry_summary(line)['complete']
@@ -1189,6 +1201,15 @@ def collect(mount, volume, output):
                 hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
+        intel_ring_reset=None
+        if 'srvros.intel-ring=reset-v1' in text:
+            from intel_ring_reset import native_reset_result,verify_reset_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_ring_reset=native_reset_result(final)
+                verify_reset_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_ring_reset or not intel_ring_reset['native_complete']:attention.append('Intel original-owner entry/reset composition incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original-owner entry/reset: '+str(error))
         intel_ring_entry=None
         if 'srvros.intel-ring=entry-v1' in text:
             from intel_ring_entry import native_entry_result,verify_entry_checkpoint
@@ -1245,6 +1266,7 @@ def collect(mount, volume, output):
             if not window_proof or not window_proof['source_completed']:
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
         records.append({
+            "intel_ring_reset":intel_ring_reset,
             "intel_ring_entry":intel_ring_entry,
             "intel_ring_transition":intel_ring_transition,
             "intel_entry_admit":intel_entry_admit,

@@ -76,8 +76,8 @@ def held_reset_result(text):
  admission=admission_result(text)
  if admission and w:
   aw=admission['summary'];ws=w['summary']
-  if ws['v'] not in (17,18,19,20,21,23) or aw['code'] and ws['complete'] or ws['before'] and not aw['queries']:raise ValueError('held reset admission binding')
- if not p or not h or not w or w['summary']['v'] not in (17,18,19,20,21,23) or p['summary']['v'] not in (2,3):raise ValueError('held reset image/prerequisites')
+  if ws['v'] not in (17,18,19,20,21,23,26) or aw['code'] and ws['complete'] or ws['before'] and not aw['queries']:raise ValueError('held reset admission binding')
+ if not p or not h or not w or w['summary']['v'] not in (17,18,19,20,21,23,26) or p['summary']['v'] not in (2,3):raise ValueError('held reset image/prerequisites')
  s=r['summary'];ps=p['summary'];hs=h['summary'];a=h['action']
  if s['epoch_before']!=ps['epoch'] or s['epoch_after']!=ps['epoch_after'] or s['writes']!=ps['reset_writes']:raise ValueError('held reset preparation binding')
  if s['attempted'] and (s['origin']!=ps['begin'] or not ps['held'] or not a['completed'] or not hs['complete'] or not ps['begin']<=a['begin']<=hs['begin']<=hs['end']<=a['end'] or s['begin'] and a['end']>s['begin']):raise ValueError('held reset action ordering')

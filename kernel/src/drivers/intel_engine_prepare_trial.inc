@@ -206,6 +206,9 @@ static bool eprepare_preserve(void *ctx,const struct intel_completion_result *pr
 #include "intel_engine_held_reset_trial.inc"
 #endif
 static void eprepare_run(struct wake_adapter *a,struct intel_gt_access *g,const struct intel_takeover_result *pre,struct engine_prepare_trial *t,bool policy) {
+#if defined(SRVROS_INTEL_RING_RESET) && defined(SRVROS_INTEL_DISPLAY_HOST_TEST)
+ intel_display_test_ring_reset_prepare();
+#endif
  if(!eprepare_planes(a,g,t,0))return;
 #ifdef SRVROS_INTEL_JOINT
  static struct engine_prepare_adapter p;

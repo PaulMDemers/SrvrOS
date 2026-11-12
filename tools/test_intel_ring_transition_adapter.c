@@ -23,13 +23,17 @@ static bool intel_display_test_ring_core_clock(uint64_t *);
 static unsigned ring_core_clocks;
 static bool ring_return_faulted;
 static uint32_t ring_ctl=0xf001;
-#ifdef SRVROS_INTEL_RING_ENTRY
+#if defined(SRVROS_INTEL_RING_ENTRY) || defined(SRVROS_INTEL_RING_RESET)
 static bool ring_fixture_disabled;
 #endif
 static unsigned ring_writes,ring_reads,ring_census_reads,ring_reader_calls,ring_clocks,ring_store_clock_fault;
 
 struct pci_device;
 static bool intel_display_test_hda_command16(const struct pci_device *,unsigned,uint16_t);
+#ifdef SRVROS_INTEL_RING_RESET
+#define INTEL_JOINT_FIXTURE_MAIN original_joint_fixture_main
+#include "test_intel_joint_adapter.c"
+#else
 #define main original_display_fixture_main
 #include "test_intel_display_probe.c"
 #undef main
@@ -95,6 +99,7 @@ static bool intel_display_test_hda_command16(const struct pci_device *d,unsigned
  hda_command=value;++hda_stores;
  return !jf("joint-uncertain",hda_attempts);
 }
+#endif /* shared original joint fixture supplies HDA hooks */
 static bool intel_display_test_ring_read(uint32_t out[8]) {
  ++ring_reads;assert(wake_irq && wake_ack==1 && !display_access_allowed() && hda_command==2);
  if(ring_reads==1) {
@@ -164,7 +169,7 @@ static bool intel_display_test_ring_census(unsigned e,unsigned i,uint32_t *out) 
  return ok;
 }
 static bool intel_display_test_ring_context(unsigned i,uint32_t *out) {
- #ifdef SRVROS_INTEL_RING_ENTRY
+ #if defined(SRVROS_INTEL_RING_ENTRY) || defined(SRVROS_INTEL_RING_RESET)
  if(ring_fixture_disabled && i==1)*out=24704;
  if(ring_fixture_disabled && i==2)*out=10240;
 #endif
@@ -217,12 +222,13 @@ static bool intel_display_test_ring_clock(uint64_t *out) {
  }
  return false;
 }
+#ifndef SRVROS_INTEL_RING_RESET
 __attribute__((noinline)) static void churn_stack(void) {
  volatile uint8_t bytes[32768];
  for(unsigned i=0;i<sizeof(bytes);i++)bytes[i]=(uint8_t)(i*17+3);
 }
 int main(int argc,char **argv) {
-#ifdef SRVROS_INTEL_RING_ENTRY
+#if defined(SRVROS_INTEL_RING_ENTRY) || defined(SRVROS_INTEL_RING_RESET)
  char selected[160];char *args[3]={argv[0],selected,0};
  if(argc==2 && !strncmp(argv[1],"--wake-engine-entry-off-",24)) {
   ring_fixture_disabled=true;ring_ctl=0;
@@ -245,7 +251,7 @@ int main(int argc,char **argv) {
   if(r->uncertain)assert(joint.scope.gpu->pinned && !display_access_allowed());
  }
  if(!strcmp(engine_mode,"report")) {
-#ifdef SRVROS_INTEL_RING_ENTRY
+#if defined(SRVROS_INTEL_RING_ENTRY) || defined(SRVROS_INTEL_RING_RESET)
   unsigned expected=ring_fixture_disabled?0:1;
 #else
   unsigned expected=1;
@@ -255,3 +261,5 @@ int main(int argc,char **argv) {
  printf("ring-fixture: hda_reads=%u endpoints=%u cache=%u attempts=%u stores=%u bcs_reads=%u bcs_stores=%u census_reads=%u reader_reads=%u clocks=%u core_clocks=%u\n",hda_reads,hda_endpoints,hda_cache,hda_attempts,hda_stores,ring_reads,ring_writes,ring_census_reads,ring_reader_calls,ring_clocks,ring_core_clocks);
  return code;
 }
+
+#endif /* standalone ring fixture */

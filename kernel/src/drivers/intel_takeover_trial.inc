@@ -25,6 +25,20 @@ static void takeover_report(const struct intel_takeover_result *r,const struct i
         for(unsigned i=0;i<r->counts[n] && i<INTEL_TAKEOVER_WORDS;i++)console_printf("%s%u",i?",":"",(uint64_t)r->words[n][i]);
         console_write("\n");
     }
-    console_printf("intel-takeover-summary: v=1 attempts=%u samples=%u reads=%u begin_us=%u end_us=%u epoch=%u batches=%u blocked=%u borrowed=%u returned=%u retained=%u stable=%u busy=%u reserved=%u geometry=%u quiescent=%u reason=%u complete=%u obligations=255 reset_writes=0 pte_writes=0 managed_pages=0 hardware_ownership=0\n",
-        (uint64_t)r->attempts,(uint64_t)r->samples,(uint64_t)r->reads,r->begin_us,r->end_us,(uint64_t)r->epoch,(uint64_t)c->batches,(uint64_t)r->blocked,(uint64_t)(r->borrow.parent!=NULL),(uint64_t)r->returned,(uint64_t)r->borrow.active,(uint64_t)r->stable,(uint64_t)r->busy,(uint64_t)r->reserved,(uint64_t)r->geometry,(uint64_t)r->quiescent,(uint64_t)r->reason,(uint64_t)r->complete);
+    console_printf("intel-takeover-summary: "
+#ifdef SRVROS_INTEL_RING_RESET
+        "v=2 "
+#else
+        "v=1 "
+#endif
+        "attempts=%u samples=%u reads=%u begin_us=%u end_us=%u epoch=%u batches=%u blocked=%u borrowed=%u returned=%u retained=%u stable=%u busy=%u reserved=%u geometry=%u quiescent=%u reason=%u complete=%u obligations=255 reset_writes=0 pte_writes=0 managed_pages=0 hardware_ownership=0"
+#ifdef SRVROS_INTEL_RING_RESET
+        " last_us=%u"
+#endif
+        "\n",
+        (uint64_t)r->attempts,(uint64_t)r->samples,(uint64_t)r->reads,r->begin_us,r->end_us,(uint64_t)r->epoch,(uint64_t)c->batches,(uint64_t)r->blocked,(uint64_t)(r->borrow.parent!=NULL),(uint64_t)r->returned,(uint64_t)r->borrow.active,(uint64_t)r->stable,(uint64_t)r->busy,(uint64_t)r->reserved,(uint64_t)r->geometry,(uint64_t)r->quiescent,(uint64_t)r->reason,(uint64_t)r->complete
+#ifdef SRVROS_INTEL_RING_RESET
+        ,r->last_us
+#endif
+    );
 }

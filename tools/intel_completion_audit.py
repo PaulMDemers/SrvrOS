@@ -45,8 +45,8 @@ def completion_result(text):
   if masks!=[s[k] for k in ('enabled','pending','flip_wait','tlb_pending')] or idle!=s['parser_idle']:raise ValueError('completion derived masks')
  from intel_gt_wake import wake_result
  wake=wake_result(text);complete=bool(s['complete'] and wake and wake['lease_complete'])
- if wake and any(r['v']!=(2 if wake['summary']['v'] in (9,10,11,12,14,16,17,18,19,20,21,23,24,25) else 1) for r in rows+contexts):raise ValueError('completion row version binding')
- if wake and wake['summary']['v'] not in (4,5,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,23,24,25):raise ValueError('completion wrong wake image')
+ if wake and any(r['v']!=(2 if wake['summary']['v'] in (9,10,11,12,14,16,17,18,19,20,21,23,24,25,26) else 1) for r in rows+contexts):raise ValueError('completion row version binding')
+ if wake and wake['summary']['v'] not in (4,5,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,23,24,25,26):raise ValueError('completion wrong wake image')
  if complete and not wake['summary']['begin_us']<s['begin_us']<s['end_us']<wake['summary']['end_us']:raise ValueError('completion parent ordering')
  return dict(observation_complete=complete,native_observation_complete=False,posted_drain=False,prefetch_retired=False,pipeline_flushed=False,tlb_invalidation=False,cache_ownership=False,reader_retirement=False,managed_range=False,physical_tearfree=False,summary=s,rows=rows,contexts=contexts)
 def native_completion_result(text):
@@ -56,3 +56,23 @@ def native_completion_result(text):
  w=native_wake_result(text)
  if not w or not w['native_wake_complete']:raise ValueError('completion native wake')
  r['native_observation_complete']=True;return r
+
+def takeover_source(text):
+ from intel_gt_wake import wake_result
+ w=wake_result(text)
+ if w and w['summary']['v']==26:
+  return completion_result('\n'.join(reset_post_lines(text)+[l for l in text.splitlines() if l.startswith(('intel-wake-summary:','intel-clock:'))]))
+ return completion_result(text)
+
+def reset_post_lines(text):
+ """Lossless new-image vectors expand to the established typed census schema."""
+ from intel_engine_prepare import post_vector
+ out=[];samples=[]
+ for line in text.splitlines():
+  if line.startswith('intel-reset-entry-post-vector:'):
+   n,lines=post_vector(line.replace('intel-reset-entry-post-vector:','intel-prepare-post-vector:',1))
+   if n!=len(samples):raise ValueError('reset post vector order')
+   samples.append(n);out.extend(lines)
+  elif line.startswith('intel-reset-entry-post-summary:'):out.append(line.replace('intel-reset-entry-post-','intel-completion-',1))
+  elif line.startswith('intel-reset-entry-post-'):raise ValueError('reset legacy post row')
+ return out

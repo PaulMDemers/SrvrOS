@@ -1,0 +1,70 @@
+# Original-owner state-aware entry and zero-geometry reset
+
+This is a separate v26 diagnostic after the accepted
+[already-disabled entry](intel-ring-entry.md#native-result-already-disabled-route-accepted).
+It keeps the original static HDA/GT owners and composes that entry's actual fresh
+post-census with the existing takeover/preparation/reset/re-arm/claim/preservation
+pipeline. Native acceptance is pending. The [machine record](machines/macbookair7-2.md)
+owns physical results; the earlier v23 [composition](intel-entry-reset-composition.md)
+and v25 entry remain separate exact-source contracts.
+
+The entry core still selects from the full live initial census. Enabled/nonzero
+kind 1 may perform its existing guarded disable and epoch advance, but cannot
+advance to this reset pipeline. The old zero-geometry gate is unchanged. Kind 2
+uses its existing NULL-writer observation, keeps epoch 0 and requires all four
+BCS8 observations, fresh full 92-word census and both complete reader vectors.
+Neither source is forced and no ring geometry is cleared.
+
+The new handoff validates the original entry object, returned registered child,
+unchanged parent/provider/epoch, all source and post data, original timestamps,
+BCS words and preserved reader vectors. It passes the address of that same
+`entry.post` object directly into the original takeover child. It copies no
+owner, census ownership object or borrow. Takeover registers its own child,
+blocks early closure and must return before preparation starts. The existing
+preparation core consumes the original takeover and census under its own source,
+epoch, geometry and registered-borrow rules. After reset advances the epoch, the
+old entry is immutable history, not a new live capability.
+
+BCS and original entry source age remain 100 ms; entry/readers 150 ms; the whole
+handoff/takeover and its fresh source age 100 ms; preparation/reset 100 ms; GT
+300 ms, HDA 400 ms and outer 500 ms. A fresh measured post-census has its own real
+time; no origin is rewritten to buy time. Source/provider/clock/return failure
+after eligible handoff retains the root, including a late clock after takeover's
+logical return. The new-image takeover receipt also retains its original last
+clock, and all three takeover stamps remain bound through the final guard/time.
+Adjacent entry-end/handoff-begin clocks may tie while remaining monotonic.
+Nonzero entry refuses reset and retires only through its existing
+verified entry/reader/HDA cleanup. No receipt or successful prior boot can start
+a later reset.
+
+`build/intel-ring-reset/srvros.elf`, `intel_ring_reset_firmware_request`, the exact
+22-token `srvros.intel-ring=reset-v1` recipe and `ring-reset-preinit` marker are
+unique. Stage with `tools/hardware_boot.py stage --laptop-probe-volume <local-UUID>
+--intel-ring-reset` using the [Ubuntu workflow](ubuntu-device-agent-setup.md).
+The original joint 14-page mapping and existing engine-control/reset destinations
+are retained; no new MMIO destination or GPU PTE/requester writer is introduced.
+Ordinary boot gains no optional AML, writer or diagnostic owner.
+
+The entry uses distinct `intel-reset-entry-*` records and a single
+`intel-reset-admit:` summary. New-image post-census vectors encode every DWORD
+as exactly eight hexadecimal digits. Reader vectors encode all 37 DWORDs per
+sample as canonical little-endian base64. Both preserve partial progress and
+expand into the established typed validators; mixed legacy rows, missing or
+duplicate records, noncanonical encoding and incomplete raw coverage reject.
+The old entry and reset wire formats are unchanged.
+
+The collector joins both full censuses, all BCS and reader data, handoff source
+stamps, takeover return and the entire original joint reset graph. A completed
+entry alone never makes the composed test pass, and kind 1 cannot claim reset.
+Modeled native chains remain model evidence. Physical acceptance requires a
+matching saved prerequisite/final checkpoint, full preservation, clean retirement,
+prior-file/offline allocation checks and Ubuntu recovery.
+
+The guest displays progress and requires no input. Safe saved outcomes return
+automatically; retained uncertainty halts visibly. Qualification must cover the
+actual adapter, all callback/source/clock/return faults, original static lifetimes,
+compiled omission controls, old-contract isolation, exact native access widths and
+permissions, 2 KiB frames, the existing 64 KiB tail with 1,536 reserve, and exact
+staged EFI VM save/unmount/return and missing-workspace halt. No deadline or log
+limit is extended. Firmware/DMA/cache/translation/reader retirement, managed backing
+and native tear-free remain open: obligations 255, assurances 0, managed pages 0.

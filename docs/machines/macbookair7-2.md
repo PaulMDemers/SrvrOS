@@ -19,7 +19,8 @@ preparation 100 ms, GT 300 ms, HDA 400 ms and outer 500 ms remain unchanged.
 No requester/PTE writer or memory grant. New bridge uses a live original object,
 not a saved receipt or copied ownership object. No install or reboot in this
 implementation block. PR476 storage-only comparison, PR19 network and PR379
-WebCore remain independent. Checkpoint: `build/air-entry-reset-20261111/status.md`.
+WebCore remain independent. PR476 also touches shared build/main/stage/VM
+dispatch files; preserve both explicit profile branches when integrating. Checkpoint: `build/air-entry-reset-20261111/status.md`.
 
 ### Latest native result: state-aware already-disabled entry accepted
 

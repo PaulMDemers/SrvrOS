@@ -6110,3 +6110,33 @@ test-core: test-intel-ring-entry
 test-intel-ring-entry: build/tests/intel-ring-entry-adapter$(HOST_EXE) build/tests/boot-ring-entry$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_ring_entry.py
 	build/tests/boot-ring-entry$(HOST_EXE)
+
+# State-aware entry then existing zero-geometry reset under the original owner.
+INTEL_RING_RESET_FLAGS := $(INTEL_JOINT_FLAGS) -DSRVROS_INTEL_RING_RESET
+build/intel-ring-reset/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_RESET_FLAGS) -c $< -o $@
+build/intel-ring-reset/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_RESET_FLAGS) -c $< -o $@
+build/intel-ring-reset/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_RING_RESET_FLAGS) -c $< -o $@
+build/intel-ring-reset/handoff.o: kernel/diagnostics/intel_ring_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-ring-reset/srvros.elf: build/intel-ring-reset/main.o build/intel-ring-reset/probe.o build/intel-ring-reset/requests.o build/intel-ring-reset/handoff.o build/intel-ring-transition/transition.o build/intel-joint/page.o build/intel-joint/claim.o build/intel-joint/joint.o build/intel-joint/rehold.o build/intel-joint/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+INTEL_RING_RESET_HOST_SOURCES := $(filter-out kernel/diagnostics/intel_entry_admit.c,$(INTEL_JOINT_ADMIT_HOST_SOURCES)) kernel/diagnostics/intel_ring_transition.c kernel/diagnostics/intel_ring_reset.c
+build/tests/intel-ring-reset-adapter$(HOST_EXE): tools/test_intel_ring_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_joint_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_RESET_HOST_SOURCES) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_RING_RESET_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_RESET_HOST_SOURCES) -o $@
+build/tests/boot-ring-reset$(HOST_EXE): tools/test_boot_ring_reset.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_RING_RESET_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-ring-reset
+test-core: test-intel-ring-reset
+test-intel-ring-reset: build/tests/intel-ring-reset-adapter$(HOST_EXE) build/tests/boot-ring-reset$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_ring_reset.py
+	build/tests/boot-ring-reset$(HOST_EXE)

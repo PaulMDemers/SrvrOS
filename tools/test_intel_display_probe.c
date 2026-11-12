@@ -172,7 +172,7 @@ static bool intel_display_test_engine_read(unsigned e,unsigned w,uint32_t *v) {
  if(e==4 && w==2)*v=bcs_entry_disabled?0:0x3eef000;
  if(e==4 && w==3)*v=bcs_ctl;
 #endif
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
  if(e==4 && w==2)*v=(!ring_ctl || !strcmp(engine_mode,"ring-zero"))?0:0x3eef000;
  if(e==4 && w==3)*v=ring_ctl;
 #endif
@@ -199,7 +199,7 @@ static bool intel_display_test_completion_read(unsigned e,unsigned i,uint32_t re
  assert(e<5 && i<8 && wake_irq && wake_ack==1 && !display_access_allowed());
  static const uint32_t base[5]={0x2000,0x12000,0x1a000,0x1c000,0x22000},tlb[5]={0x4260,0x4264,0x4270,0x4268,0x426c},off[7]={0x30,0x34,0x38,0x3c,0x234,0x238,0x2d0};
  assert(reg==(i==7?tlb[e]:base[e]+off[i]));
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
  return intel_display_test_ring_census(e,i,out);
 #endif
 #ifdef SRVROS_INTEL_BCS_SHUTDOWN_TRIAL
@@ -221,7 +221,7 @@ static bool intel_display_test_completion_context(unsigned reg,uint32_t *out) {
  for(;i<6 && regs[i]!=reg;i++);
  assert(i<6 && wake_irq && wake_ack==1 && !display_access_allowed());completion_context_reads++;
  *out=(i==0 || i==3)?0x200:i==1?0x4080:0;
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
  if(!intel_display_test_ring_context(i,out))return false;
 #endif
 #ifdef SRVROS_INTEL_BCS_RESET_TRIAL
@@ -305,7 +305,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_RING_ENTRY
+#ifdef SRVROS_INTEL_RING_RESET
+#define intel_wake_firmware_request intel_ring_reset_firmware_request
+#elif defined(SRVROS_INTEL_RING_ENTRY)
 #define intel_wake_firmware_request intel_ring_entry_firmware_request
 #elif defined(SRVROS_INTEL_RING_TRANSITION)
 #define intel_wake_firmware_request intel_ring_transition_firmware_request
@@ -669,7 +671,7 @@ assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);
  *p=pa[n];pa[n]=0;unmap_calls++;return true;}
 bool timer_reference_ready(void){return clock_ok;}
 uint64_t timer_monotonic_us(void){
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
  uint64_t ring_at;if(intel_display_test_ring_clock(&ring_at))return ring_at;
 #endif
 #ifdef SRVROS_INTEL_HDA_SHUTDOWN
@@ -959,6 +961,9 @@ int main(int argc,char **argv) {
     static char rehold_recipe[2100];snprintf(rehold_recipe,sizeof rehold_recipe,"%s srvros.intel-rehold=request-cancel",interval_recipe);wake_cmd.cmdline=rehold_recipe;
 #ifdef SRVROS_INTEL_JOINT
     static char joint_recipe[2200];snprintf(joint_recipe,sizeof joint_recipe,"%s srvros.intel-joint=hda-claim",rehold_recipe);wake_cmd.cmdline=joint_recipe;
+#ifdef SRVROS_INTEL_RING_RESET
+    static char ring_reset_recipe[2300];snprintf(ring_reset_recipe,sizeof ring_reset_recipe,"%s srvros.intel-ring=reset-v1",joint_recipe);wake_cmd.cmdline=ring_reset_recipe;
+#endif
 #ifdef SRVROS_INTEL_JOINT_ADMIT
     static char joint_admit_recipe[2300];snprintf(joint_admit_recipe,sizeof joint_admit_recipe,"%s srvros.intel-admission=disabled-bcs-v1",joint_recipe);wake_cmd.cmdline=joint_admit_recipe;
 #endif
@@ -1048,7 +1053,7 @@ if(!strcmp(engine_mode,"gpu-pending"))good=true;
 #ifdef SRVROS_INTEL_HDA_SHUTDOWN
 if(!strncmp(engine_mode,"joint-",6) || !strncmp(engine_mode,"paired-",7))good=false;
 #endif
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
  good=good && !strcmp(engine_mode,"report");
 #endif
 assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());

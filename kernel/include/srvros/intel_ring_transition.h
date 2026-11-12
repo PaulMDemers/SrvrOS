@@ -47,4 +47,8 @@ bool intel_ring_transition_run(struct intel_ring_transition *,struct intel_gt_ac
  * existing null-writer observer, with unchanged epoch and a fresh full census.
  * Completion never claims that its enabled writer was exercised. */
 bool intel_ring_entry_run(struct intel_ring_transition *,struct intel_gt_access *,const struct intel_completion_result *,bool,struct intel_ring_io);
+/* Live zero-geometry handoff predicate; validates original source/post data,
+ * original returned child and complete entry clocks/readers. No new census,
+ * timestamp refresh, owner copy or reset authority. */
+bool intel_ring_entry_reset_ready(const struct intel_ring_transition *);
 #endif
