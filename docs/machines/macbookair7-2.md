@@ -2,6 +2,27 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
+### Active v30: original state-aware reset/source paths
+
+From `b0142a34` / main `a45032e4`, Air7,2 owns a separate opt-in v30 startup
+source image. It selects only the actual original live entry: kind 1/epoch 1
+with the exact inherited nonzero vector, or kind 2/epoch 0 with exact zero
+geometry and no entry writer. Both routes must retain original parent/source,
+borrow registration, full post-census/readers and unchanged preparation 100 ms,
+GT 300 ms, HDA 400 ms and outer 500 ms origins. The registered read-only source
+child must return before its original reset. No legacy gate is widened and no
+saved receipt supplies authority. Route/epoch drift must retain the root.
+
+Scope: isolated reset/source compile variant and native adapter, exact recipe/
+firmware/pre-init/build/staging, strict route-aware collector and failure tests.
+No new register writer, PTE/cache operation, re-arm/claim/requester or memory
+grant is planned. Ordinary startup and old v28/v29 profiles remain separate.
+All 255 obligations and zero managed pages/assurances remain. No native v30
+acceptance or reboot is armed. PR19 `e3f8d795` now documents independently
+reviewed bounded two-HTTP acceptance; no shared GPU implementation overlap.
+Air6,1 remains on `a45032e4` with its separate stress scope. No tasks contacted
+or delegated. Checkpoint: `build/air-startup-source-20261112/status.md`.
+
 ### Latest native v29: safe source refusal, not accepted
 
 Frozen source `a9418c83`, release `451cd4d6a9f36faa`, session
