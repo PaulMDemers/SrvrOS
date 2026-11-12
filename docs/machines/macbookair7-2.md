@@ -30,11 +30,26 @@ one-shot all verify. Raw logs and strict proof are independently banked outside
 `build`. Current 451c, accepted v28 562d, recovery 9aa8, GUI c497 and other
 accepted banks remain. USB is unmounted; no reboot is armed.
 
-Next integrate inspected main's complete sidecar audit/directory-read reduction
-and preserve distinct storage v1/v2/v3 and v29 staging, then validate affected
-build/host paths. Original-live source binding, re-arm/claim, requester inhibition,
-managed backing/completion and real flips remain pending. All 255 obligations,
-zero assurances and zero managed pages remain; native tear-free is not accepted.
+After matching collection, main `a45032e4` / PR482–484 is integrated as
+`161a5926`. Both storage v1/v2/v3 and GPU profiles survive the shared Makefile,
+staging, smoke and main dispatch merge; 16 added mixed storage/GPU combinations
+refuse. Focused sidecar equality/remount/cost/publication/fault/repair, storage
+versions/roles/BOT, leases/workspace/log/USB/sync and v28/v29 adapter/pre-init
+checks pass locally, along with 109 staging/profile tests and eight exact
+historical native replays. Ordinary, v29 and native battery images build.
+GPU drivers/diagnostics/strict reset/source decoders are byte-identical to frozen
+`a9418c83`; upstream storage implementations are unchanged. These are affected
+integration checks, not a new full 34-image gate or native acceptance for the
+merged runtime. The installed physical payload remains frozen.
+
+Next define explicit original-owner routes for both observed startup states:
+kind 1/nonzero and kind 2/already-disabled zero geometry. Keep their source,
+epoch, registration and deadline proofs distinct; select only from the actual
+live entry and never reconstruct an owner from a saved receipt. Qualify both
+paths and wrong-state refusal before another hardware trial. Original-live
+source binding, re-arm/claim, requester inhibition, managed backing/completion
+and real flips remain pending. All 255 obligations, zero assurances and zero
+managed pages remain; native tear-free is not accepted. No test is armed.
 Checkpoint: `build/air-nonzero-source-20261112/status.md`.
 
 ### Previous local qualification: original live post-reset source binding
