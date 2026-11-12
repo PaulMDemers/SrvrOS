@@ -6795,4 +6795,3 @@ test-sidecar-cost: build/tests/workspace-compare-host$(HOST_EXE) build/tests/wor
 test-core: test-sidecar-directory-faults
 test-sidecar-directory-faults:
 	$(PYTHON) tools/test_exfat_metadata_tail.py --directory-only --output build/review/sidecar-directory-faults
-

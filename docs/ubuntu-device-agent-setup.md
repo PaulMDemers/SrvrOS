@@ -1903,4 +1903,3 @@ same exact-stage, recovery, preflight, one-shot and matching collection sequence
 The [comparison contract](storage-only-comparison.md) defines the fields, strict
 receipt bounds and private-directory END fallback. This does not change v1/v2
 recipes, ordinary metadata restoration, power policy or limits.
-
