@@ -2,6 +2,22 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
+### Active scope: original live post-reset source handoff
+
+Base `019d28d2`, integrated main `9a8d2377`. The next bounded block adds a
+separate registered read-only child of the original live nonzero reset, after
+its full post-census/reader preservation and before original return. It binds
+the actual epoch-2 post-state to the original candidate GGTT entry using two
+high/low/high samples. The original preparation 100 ms and GT 300 ms origins
+remain shared; no fresh budget, copied legacy owner, geometry clear, re-arm,
+requester store or memory grant is introduced. Failure keeps the original root.
+
+Touched scope: nonzero-reset extension/child API, native adapter, isolated
+image/recipe/receiver and local tests. Existing v28/legacy receipts stay distinct.
+Air6,1 storage/power and Pro11,2 networking are independent. No test is armed;
+installed native acceptance remains frozen to `2efa8028`. Checkpoint:
+`build/air-nonzero-source-20261112/status.md`.
+
 ### Native nonzero-geometry reset accepted
 
 Source `2efa8028`, release `562d35107d14e298`, session
