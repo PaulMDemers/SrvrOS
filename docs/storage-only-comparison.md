@@ -197,3 +197,31 @@ This serializer change leaves PR19's separate decoder/atomic-identity-restore
 work untouched. It does not repair the existing offline-recovery limitations,
 accept cold-boot identity restoration or establish why long loaded USB status
 completions occur.
+
+
+## Native canonical/per-sample return
+
+The [Air6,1 return](machines/macbookair6-1.md#native-sidecar-remount-return-2026-11-12)
+accepts the bounded functional/diagnostic checks on `998fdfb9b4f9c5a8` (source
+`9c1bd01a`): twelve samples and six retired leases in 5.703998 seconds, all
+original proofs, 21623 receipt bytes, prior-file preservation and clean offline
+allocation. The final sidecar is canonically ordered. Three filesystem samples
+compare equal; the three post-remount rewrites first differ in atime. Counts
+remain 37/56 and write times remain approximately 47–79 ms; a native performance
+improvement is not established. The host order-only reduction remains separately
+proved. Both 1% boundary cues complete outside measurement.
+
+Mismatch offsets align with the workspace marker atime field in the saved final
+sidecar, and mount verification calls the atime-updating VFS reader. This is a
+source/evidence-supported attribution of the first mismatch, not a complete
+semantic diff of each intermediate expected table. File readbacks and ordinary
+writes can change other timestamps too. Audit internal verification side effects
+and the full field change set before deciding which traffic can safely be removed;
+do not remove persistence, fresh reads or barriers just because the first field
+is an access time. A marker-only change may not avoid the required rewrite when
+actual file writes also advance mtime/ctime; reducing the cost of required
+sidecar updates remains a separate target. Cold-boot identity restoration also remains open: the prior-
+record comparison finds 56 reassigned IDs through the unchanged legacy restore
+path, with unique final IDs and unchanged permission/ownership fields. PR19's
+separate atomic restore implementation is not part of this accepted runtime.
+The long loaded USB waits and screenshot stalls remain unresolved.
