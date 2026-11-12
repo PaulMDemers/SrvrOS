@@ -7,6 +7,18 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Encrypted RX/TX and failed RF continuation scope (November 12)
+
+PR19 owns anonymous encrypted RX structural/class/audit receipts, bounded data-TX
+radio-status observations and explicit failed-workload/closed-parent separation.
+A proved DHCP/DNS failure may authorize outer RF inverse only after the original
+child/worker, keys, DMA/events/contexts and detached provider validate; it must
+remain a failed workload and cannot start connection2. Unknown ownership still
+refuses/holds. Tests must compose the actual native connection close with RF
+inverse and cover faults before another hardware recipe is enabled. Main7f9f3058
+sidecar ordering/equality changes are integrated; GPU/WebCore scopes stay separate.
+The previous v149 primary/review remain immutable. No new boot is armed.
+
 ### v149 return: AUTH trace saved; DHCP Offer absent (November 12)
 
 Runtime4d976eda/release83aefd1acd8829ed is collected once and closed FAILED
