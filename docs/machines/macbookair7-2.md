@@ -2,15 +2,28 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
-### Active scope: collected v27 refusal and nonzero-geometry reset planning
+### Active scope: separate original-owner nonzero-geometry reset protocol
 
-The v27 native run below verifies its enabled-entry suboperation but correctly
-refuses the unsupported reset route. The full requester sequence remains
-incomplete. Collection, offline integrity, durable evidence and inspected main
-integration are complete; no new trial is armed. Next shared implementation
-needs a separate original-owner nonzero-geometry reset/epoch contract, preserving
-all existing admission, geometry, source/provider and deadline rules. Do not
-widen the old kind 2 gate or turn a receipt into a memory capability.
+Base `a8adda70`, integrated main `ca454d7c` (PR479 evidence-only update after
+PR478). Implement a separate native image/API/recipe/collector path for the
+observed kind 1 disabled-after-entry, nonzero-geometry source, binding its actual
+original post-census and advanced epoch through maintained preparation and BCS
+reset. Keep the existing kind 2/zero-geometry predicate and old API/image/receipt
+contracts unchanged. Determine reference-backed post-reset state explicitly;
+source snapshots are immutable, never rewritten to pass a legacy predicate.
+
+Touched scope: original-entry admission, geometry-specific takeover/preparation/
+reset protocol, native adapter integration, exact profile/receipt/collector,
+actual-adapter source/clock/store/return tests, native access/frame/isolation,
+saved-tail and exact-stage VM qualification. Existing BCS/source 100 ms, entry
+150 ms, handoff/fresh-source 100 ms, preparation/reset 100 ms, GT 300 ms, HDA
+400 ms and outer 500 ms remain fixed. No geometry-clearing software store,
+forced enabled state, copied owner, saved-receipt authority or memory grant.
+The latest v27 safe refusal is collected and banked below. Current127a/recovery9aa8,
+USB37D8-C5D0 and accepted payloads remain untouched; no reboot is armed.
+PR19 networking (`41c49fde`) and PR379 WebCore (`817f80bb`) stay independent.
+No delegation or cross-task messages. Checkpoint:
+`build/air-nonzero-reset-20261112/status.md`.
 
 ### Latest native result: enabled entry verified; reset/requester refused
 
