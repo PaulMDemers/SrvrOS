@@ -1879,3 +1879,17 @@ version 2, all role masks/rows, exact command/status sums and the bounded wire
 receipt, alongside every original sample, byte, lease and offline filesystem
 check. It retains the original twelve writes/six pairs, 180-second bound and 1%
 boundary cues. No controller policy, limit or integrity shortcut is enabled.
+
+
+### Pro11,2 initial AUTH observations (v149)
+
+The explicit `--wifi-first-auth5` flag extends the complete v148 survey/primed
+journaled HTTP reconnect recipe. It is refused without that parent; ordinary
+startup and older recipes remain unchanged. The guest records bounded initial
+AUTH EXT/FIFO snapshots and anonymous receive framing under the original750ms
+reply deadline. These are observations, never proof of AP acknowledgement or
+successful authentication. A source-frozen collector preserves them even when
+full RF/protocol success checking refuses. Require the exact-image journal,
+workspace-copy and recovery rehearsals before installing; use this unit's own
+run record and existing cold-shutdown authorization. See the
+[current Pro handoff](machines/macbookpro11-2.md#current-handoff).

@@ -7,7 +7,9 @@ from wifi_held_log import require
 from wifi_join5_cleanup_log import check as cleanup_proof
 PROGRESS='wifi-join5-progress: frozen parent;fresh live RX/data OUT;matched AUTH ASSOC leave;MAC disable;stop/drop/restore;no keys or IP data'
 def check(log):
- require('srvros.wifi-join5=1' in log,'missing live management profile');r=parent(log);lines=log.splitlines();aux=[s for s in lines if s.startswith(('wifi-join5-rx:','wifi-join5-exchange:','wifi-join5-response:','wifi-join5-cleanup:'))];rows=[s for s in lines if s.startswith('wifi-join5') and s not in aux];i=0
+ from wifi_first_auth5_log import observe,TOKEN,PREFIXES
+ trace=observe(log) if TOKEN in log else None
+ require('srvros.wifi-join5=1' in log,'missing live management profile');r=parent(log);lines=log.splitlines();aux=[s for s in lines if s.startswith((*(PREFIXES if trace else ()), 'wifi-join5-rx:','wifi-join5-exchange:','wifi-join5-response:','wifi-join5-cleanup:'))];rows=[s for s in lines if s.startswith('wifi-join5') and s not in aux];i=0
  def take(prefix):
   nonlocal i
   require(i<len(rows),'missing live management receipt');line=rows[i];i+=1;return fields(line,prefix)
@@ -41,7 +43,7 @@ def check(log):
  require(take('wifi-join5-stop-event')==dict(dci=8,cc=27,residue=0,pointer=tx+48,ok=1),'wrong empty OUT forced stop')
  command(5,15,8);contexts(6,48);command(6,16,9);contexts(7);command(7,12,8);contexts(8)
  s=take('wifi-join5');fixed=dict(ok=1,exchange=1,auth=1,assoc=1,leave=1,unsafe=0,sends=3,status=0,commands=6,restored=1,phase=9,retained=1,authenticated=0,ip_data=0)
- require(set(s)==set(fixed)|{'polls','ignored','aid','posts','controls'} and all(s[k]==v for k,v in fixed.items()) and 2<=s['polls']<=16384 and 0<=s['ignored']<=s['polls'] and 1<=s['aid']<=2007 and 3<=s['posts']<=48 and s['controls']==m['reads']+m['writes'],'incomplete matched management or retirement')
+ require(set(s)==set(fixed)|{'polls','ignored','aid','posts','controls'} and all(s[k]==v for k,v in fixed.items()) and 2<=s['polls']<=16384 and 0<=s['ignored']<=s['polls'] and 1<=s['aid']<=2007 and 3<=s['posts']<=48 and s['controls']==m['reads']+m['writes']+(trace['completed_control_reads'] if trace else 0),'incomplete matched management or retirement')
  require(i==len(rows),'extra live management receipt')
  rxrows=[x for x in aux if x.startswith('wifi-join5-rx:')];exrows=[x for x in aux if x.startswith('wifi-join5-exchange:')]
  require(2<=len(rxrows)<=s['posts'] and len(exrows)==1,'missing/extra private RX/exchange diagnostics')
@@ -77,6 +79,9 @@ def check(log):
    require(lines.index(rows[-1])<lines.index(line)<lines.index(cleanup),'response observation outside restored lifetime')
    observed.append(a)
   require(sum(a['polls'] for a in observed)==s['polls'] and sum(a['ignored'] for a in observed)==s['ignored'],'response observations differ from exchange counters')
+ if trace:
+  require(trace["present"] and all(p["summary"]["complete"] for p in trace["phases"]),"incomplete first-AUTH trace")
+  r["first_auth5"]=trace
  r.update(cleanup_proof(log))
  r.update(join5_complete=True,join5_management_out=3,join5_auth_matched=True,join5_assoc_matched=True,join5_leave_submitted=True,join5_originals_restored=True,join5_posts=s['posts'],scope='fresh live RX/data OUT;matched open-system AUTH and association replies;leave submitted;MAC disabled,endpoint/input/parent originals restored;no WPA2 or authenticated IP/data')
  return r

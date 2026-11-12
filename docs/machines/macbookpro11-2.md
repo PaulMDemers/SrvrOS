@@ -7,6 +7,27 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### First-AUTH recipe/collection qualification (November 12)
+
+PR19 now owns v149 first-AUTH tracing recipe and observation decoder. Fetched
+mainca454d7c includes storage command attribution code as well as Air evidence;
+it is integrated with both storage and Wi-Fi profiles retained. PR301 GPU and
+PR379 WebCore stay separate. Require primed/survey HTTP parent, parked logger,
+independent journal, exact-image recovery/475-file successor baseline checks and
+source-frozen collection before installation. Cold shutdown remains authorized;
+no new boot is armed during qualification. Preserve all closed evidence banks.
+
+The explicit v149 recipe now requires `--wifi-first-auth5` with the full v148
+survey/primed HTTP parent. Actual main dispatch admits its four setup calls only
+with that recipe and parked logger. The source-bound observation decoder rejects
+missing/duplicate/unknown fields, phase/entry reordering and mismatched anonymous
+RX companions, while retaining failed AUTH observations without network acceptance.
+Full-parent success separately requires both complete snapshots and accounts for
+the additional control reads. Normal native/survey/prime/HTTP and integrated
+storage regressions,282 stage cases,19 main-dispatch methods and nine decoder
+methods pass. Frozen sanitizer/image/collector/recovery qualification precedes
+any install or shutdown. No new physical acceptance is claimed.
+
 ### Initial AUTH tracing scope (November 12)
 
 PR19 owns an explicit, initially dormant first-join radio trace: bounded EXT/FIFO

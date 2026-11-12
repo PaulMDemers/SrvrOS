@@ -54,6 +54,7 @@ class MainDispatchTests(unittest.TestCase):
             logger,'return (wifi_rx_compare5_parked?1u:0u)+quiesces*2u;}',
             'static bool xhci_wifi_cal5_cleanup_enable(void){setup_calls++;return capture_ok;}',
             'static bool xhci_wifi_cal5_prime_enable(void){setup_calls++;return capture_ok;}',
+            'static bool xhci_wifi_join5_radio_enable(void){setup_calls++;return capture_ok;}',
             'static bool xhci_wifi_cal5_survey_enable(void){setup_calls++;return capture_ok;}',
             'unsigned early5_recipe_allowed(const char *c){return wifi_early5_recipe(c);}',
             'unsigned dispatch_setup_calls(void){return setup_calls;}',
@@ -145,6 +146,16 @@ class MainDispatchTests(unittest.TestCase):
             self.assertEqual(self.dispatch(recipe.replace(token,'')),(False,'none',0))
         for version in (138,140,142,144,145,146):
             self.assertEqual(self.dispatch(self.recipe(version)+' srvros.wifi-cal5-prime=1'),(False,'none',0))
+
+    def test_first_auth_recipe_and_setup(self):
+        recipe=self.recipe(149)
+        self.assertEqual(self.dispatch(recipe),(True,'xhci_wifi_capture_http_reconnect5',1))
+        self.assertEqual(self.library.dispatch_setup_calls(),4)
+        self.assertEqual(self.dispatch(recipe,parked=False),(False,'none',0))
+        for token in ('srvros.wifi-survey5=1','srvros.wifi-cal5-prime=1','srvros.startup-journal=1','srvros.wifi-reconnect5-http=1'):
+            self.assertEqual(self.dispatch(recipe.replace(token,'')),(False,'none',0))
+        for extra in ('srvros.wifi-first-auth5=1','srvros.wifi-first-auth5=0','srvros.wifi-first-auth5=10'):
+            self.assertEqual(self.dispatch(recipe+' '+extra),(False,'none',0))
 
     def test_survey_recipe_and_native_setup(self):
         recipe=self.recipe(148)

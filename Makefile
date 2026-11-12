@@ -6760,3 +6760,8 @@ test-core: test-storage-compare
 build/tests/storage-role-wire$(HOST_EXE): tools/test_storage_role_wire.c kernel/src/storage_compare.inc kernel/src/workspace.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-wifi-first-auth5-log
+test-core: test-wifi-first-auth5-log
+test-wifi-first-auth5-log: build/tests/xhci-join5-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_first_auth5_log.py

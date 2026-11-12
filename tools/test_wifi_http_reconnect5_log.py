@@ -93,6 +93,9 @@ class Tests(unittest.TestCase):
   surveyed=[s+' srvros.wifi-survey5=1' if s.startswith(('cmdline: ','laptop-capture: boot options=')) else s for s in primed]
   self.assertEqual(c.boot_identity(text(surveyed),release,volume),release)
   with self.assertRaises(ValueError):c.boot_identity(text([s.replace('srvros.wifi-cal5-prime=1','') for s in surveyed]))
+  traced=[s+' srvros.wifi-first-auth5=1' if s.startswith(('cmdline: ','laptop-capture: boot options=')) else s for s in surveyed]
+  self.assertEqual(c.boot_identity(text(traced),release,volume),release)
+  with self.assertRaises(ValueError):c.boot_identity(text([s.replace('srvros.wifi-survey5=1','') for s in traced]))
   for token in c.BOOT_FIXED:
    with self.subTest(token=token),self.assertRaises(ValueError):c.boot_identity(text([s.replace(token,'') for s in rows]))
   with self.assertRaises(ValueError):c.boot_identity(text(rows+[rows[0]]))
