@@ -13099,3 +13099,74 @@ allocation integrity. It shows progress and returns automatically, with brief
 acceptance awaits this run's matching return; screenshot and long loaded status
 latency remain unresolved. No policy, hardware gate, watchdog, ownership,
 integrity or workload limit changed.
+
+## Native command-attribution return (2026-11-12)
+
+Merged PR #478 (`a419f045`) release `084167c2be826f2a` completes run
+`d060e1967e7c45b0` in matching session `session-0006600f9a16bacf-00`.
+The immutable manifest records `41ced5f5`; qualified source `68644c19` has the
+same complete kernel/initramfs bytes, as already verified before installation.
+Automatic first collection and independent review pass all twelve samples,
+six exclusive lease retirements, command/service/role sums and subsets, CRCs,
+geometry and exact final sequence-12 bytes. The control takes 5.714710 seconds
+within the unchanged 180-second bound, with two completed 1% boundary cues.
+Role/data rows occupy 19171 bytes and the full receipt 20133 bytes, within the
+original line/32 KiB receipt/64 KiB tail limits. Only this bounded quiet native
+attribution is accepted; no loaded latency or screenshot fix is claimed.
+
+The trace accounts for the previously observed 37/56-command write stages:
+
+| Callback role | Steady 37-command sample | 56-command sample | Difference |
+| --- | ---: | ---: | ---: |
+| Other filesystem metadata | 11 | 11 | 0 |
+| Allocation/free | 8 | 12 | +4 |
+| File data | 8 | 8 | 0 |
+| Sidecar update | 1 | 24 | +23 |
+| Sidecar equality proof | 9 | 1 | −8 |
+| Total | 37 | 56 | +19 |
+
+Samples 5/9 share the first composition; 4/8/12 share the second. The first
+sample also totals 37, with one read assigned differently between metadata and
+allocation. No prefix-proof or unclassified filesystem commands are present.
+The sidecar-update role's 24 commands comprise nine reads, eleven writes and
+four flushes, transferring 131584 read bytes and 119296 write bytes. The cheaper
+path reads 117760 bytes under the equality-proof role and retains one flush;
+the update path's equality proof reads only 16384 bytes. With the unchanged
+source's early mismatch behavior, this is consistent with an equality miss in
+the first chunk followed by normal replacement. The changed serialized field
+and exact dirtying cause are not recorded; timestamps, identities or other
+metadata changes must not be guessed from these counts.
+
+Every filesystem sample transfers **128 KiB of file data for the 32 KiB logical
+write**, as eight 16 KiB commands. This matches the existing full-cluster
+initialization on this unit's 128 KiB clusters; it is transferred-byte
+amplification, not eight logical file writes. Each direct sample remains two
+16 KiB writes/32 KiB. Metadata traffic is additional. No initialization, equality
+proof, barrier, allocation, byte-readback or ownership check was skipped.
+
+Filesystem write/flush/readback legs are 50.782–83.294 ms; direct legs are
+7.803–8.118 ms, excluding mandatory raw proof/retirement/remount costs. The six
+post-raw gaps are 825.558–866.948 ms. The largest measured write-stage CSW
+callback is 4.185 ms, for a 512-byte metadata WRITE; direct maxima are
+1.065–1.072 ms. Every recorded over-100-ms status subset is zero. These software
+observations do not reproduce the earlier seconds-long loaded status waits and
+do not identify hardware completion time or clear the sustained screenshot issue.
+Different boots, file counts and media/cache state prevent a causal speed claim.
+
+All 890 prior paths remain, with only the expected volume-root `.srvros/meta`
+changed and the other 889 hashes identical. Four new files give 894 files and
+4562 allocated clusters. Fresh collector reads, exfatprogs and independent
+allocation checks report zero leaks, FAT/bitmap mismatches or errors; copied
+new files match their media hashes. Current/staged/independent candidate,
+recovery c354, accepted 78cf/0d3/4598/80b4/c7, retired 3403/c95f independent
+payloads, original failed-media archive and trial backup verify. Ubuntu remains
+default, firmware order is stable, one-shot is consumed, BootNext is absent,
+collector is disabled and USB is unmounted. No reboot is armed.
+
+The next concrete target is sidecar write amplification: audit why equality
+misses after remount and which metadata fields changed, then look for a safe
+reduction while retaining all persistence semantics and fresh proofs. PR19
+already owns separate metadata decode/restore work; do not duplicate that
+implementation or infer its native acceptance here. No new implementation or
+physical trial has started. Existing offline-repair limitations and the older
+intermittent battery transport-fault cause remain unresolved.
