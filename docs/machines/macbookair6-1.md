@@ -13395,3 +13395,43 @@ clusters retain their original path. Paired publication/failure/repair controls
 pass, including stale private tail bytes behind END; existing recovery gaps are
 unchanged. Full build, strict-v3 VM, regression qualification and fresh physical
 preflight remain pending. These host results do not establish native savings.
+
+### Complete audit candidate qualified and installed (2026-11-12)
+
+Runtime `a45aaa1d` / release `8a89638dfb0281b5` now passes the matched ordinary
+build, full core/desktop/docs, 95 boot-profile tests, exact-stage GPT v3 capture,
+ordinary syscall/USB keyboard/thread-exec and USB read/write/reload regressions.
+The complete staged kernel and initramfs hashes match the frozen tested source.
+All 108 v1/v2/v3 producer/refusal cases and 72 legacy-role controls pass. The
+complete-field observer covers all eight numeric fields, namespace changes,
+late read/format failure, owner/token refusal and the original wire budget.
+
+The frozen-source directory A/B reproduces 54 to 15 reads and 789504 to 134144
+read bytes over six required updates on 512-byte-sector/128 KiB-cluster media;
+both paths retain 42 writes, 344064 write bytes and 24 flushes. The 4 KiB-sector
+large-cluster control also reduces reads; small clusters retain identical I/O.
+Complete media, ordered write/flush payloads and full metadata-change counts are
+identical. Every paired write/flush/failure/tear control passes, including stale
+bytes after the private directory's END marker. Source audit accounts for every
+driver edit and proves the serializer, authoritative loader, publication writes,
+allocation/free, markers and barrier paths unchanged. Transport, commit ownership,
+VFS, scheduler, synchronization and limits are unchanged.
+
+The original installer matrix retains its one platform skip; contiguous append
+retains the 81 known strict allocation failures after offline repair. Neither is
+new recovery acceptance. Physical preflight separately reports a clean volume,
+898 unchanged prior-file hashes, 4567 allocated clusters, zero leaks/errors,
+admitted writes and available headroom. Installed/staged/independent candidate
+and recovery payloads verify. One unreferenced historical EFI duplicate was
+retired only after independent complete-payload verification; its backup remains.
+Ubuntu default/order and recovery c354 are retained; automatic matching collection
+is enabled. Local run/reboot state and verified backups remain outside Git.
+
+Next checkpoint: self-merge this exact runtime plus documentation, then launch
+the authorized unattended v3 comparison with the original twelve samples/six
+pairs, 180-second bound and 1% boundary cues. Collect and independently review the
+matching session, all complete-field/role/byte proofs, prior hashes and offline
+allocation before accepting native savings. Extra full-table audit reads stay
+charged to proof role 5; directory update work is role 4. Total v2/v3 timing is
+not a causal speed comparison. Cold-ID restoration remains PR19's separate work;
+loaded screenshot/commit latency remains open. No native result is claimed yet.
