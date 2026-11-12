@@ -2,7 +2,7 @@
 import base64,re,struct
 from intel_engine_census import _fields
 S='v policy eligible blocked epoch_before epoch_after epoch_advanced admission_attempts control_samples bcs_samples bcs0 bcs1 readers controls control_writes control_acks resets reset_writes reset_acks control_reads bcs_reads checks stage index post_mode reason preserved returned retained uncertain complete native_controls native_resets obligations managed_pages pte_writes hardware_ownership'.split()
-T='v source_begin source_end source_last entry_end admit_begin admit_end begin end last settle_begin settle_end guard_begin guard_end return_begin clock_at clock_prev'.split()
+T='v source_begin source_end source_last entry_end parent_begin admit_begin admit_end begin end last settle_begin settle_end guard_begin guard_end return_begin clock_at clock_prev'.split()
 A='v n ack final polls begin end store previous'.split()
 B='policy eligible blocked epoch_advanced preserved returned retained uncertain complete'.split()
 def nonzero_recipe(cmd):
@@ -101,7 +101,8 @@ def nonzero_result(text):
  if w['summary']['engine_reads']!=e['pre']['summary']['reads']+e['summary']['bcs_reads']+e['post']['summary']['reads']+s['control_reads']+s['bcs_reads']+post['summary']['reads']:raise ValueError('nonzero total reads')
  if s['complete']:
   if not all(s[k] for k in ('policy','eligible','blocked','epoch_advanced','preserved','returned')) or s['retained'] or s['stage']!=10 or s['index']!=0 or s['post_mode'] not in (1,2) or tuple(s[k] for k in ('admission_attempts','control_samples','bcs_samples','bcs0','bcs1','readers','controls','control_writes','control_acks','resets','reset_writes','reset_acks','native_controls','native_resets'))!=(2,5,2,9,9,37,10,10,10,2,2,2,10,2):raise ValueError('nonzero false completion')
-  if not 0<t['source_begin']<=t['source_last']<t['source_end']<t['entry_end']<=t['admit_begin']<t['admit_end']<=t['begin']<t['settle_begin']<t['settle_end']<t['guard_begin']<=t['guard_end']<=t['return_begin']<=t['end']==t['last']<=t['begin']+100000 or t['begin']>t['admit_begin']+100000 or t['begin']>t['source_end']+100000 or t['clock_at'] or t['clock_prev'] or not 50<=t['settle_end']-t['settle_begin']<=10000:raise ValueError('nonzero deadlines/order')
+  if not 0<t['source_begin']<=t['source_last']<=t['source_end']<t['entry_end']<=t['admit_begin']<t['admit_end']<=t['begin']<t['settle_begin']<t['settle_end']<t['guard_begin']<=t['guard_end']<=t['return_begin']<=t['end']==t['last']<=t['begin']+100000 or t['begin']>t['admit_begin']+100000 or t['begin']>t['source_end']+100000 or t['clock_at'] or t['clock_prev'] or not 50<=t['settle_end']-t['settle_begin']<=10000:raise ValueError('nonzero deadlines/order')
+  if not 0<t['parent_begin']<t['source_begin'] or t['end']>t['parent_begin']+300000:raise ValueError('nonzero GT original deadline')
   if not w['lease_complete'] or not e['complete'] or not post['summary']['complete'] or post['summary']['enabled'] or not t['begin']<post['summary']['begin_us']<post['summary']['end_us']<=t['guard_begin']:raise ValueError('nonzero enclosing/post completion')
   ad,cs,bc=vectors['admit'],vectors['control'],vectors['bcs']
   if any(len(v)!=6 for v in ad+cs) or ad[0]!=ad[1] or cs[0]!=ad[1] or cs[1]!=cs[2] or any(v&0xffff for v in ad[0]) or any((v&0xffff)!=3 for v in cs[1][:5]) or cs[1][5] or cs[3][:4]!=cs[2][:4] or cs[3][4]&0xffff or cs[3][5] or any(v&0xffff for v in cs[4]) or any(v==0xffffffff or v&0xfffc for row in ad+cs for v in row[:5]):raise ValueError('nonzero readiness/post/cancel controls')

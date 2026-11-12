@@ -27,7 +27,8 @@ cancellation, preservation and verified return. Admission has its existing
 100 ms bound and a 100 ms source-age bound. Preparation starts exactly once,
 after complete admission, and has its existing 100 ms budget through final
 return. Every final store has a fresh monotonic check against preparation,
-its 10 ms phase and the 300 ms GT parent. HDA 400 ms and outer 500 ms limits
+its 10 ms phase and the 300 ms GT parent. Every core clock also enforces
+the original GT origin, which is bound immutably and retained in the receipt. HDA 400 ms and outer 500 ms limits
 remain unchanged. No expired phase is restarted to obtain more time.
 
 ## Ordered operations

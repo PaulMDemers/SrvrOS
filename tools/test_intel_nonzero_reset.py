@@ -21,8 +21,8 @@ class Nonzero(unittest.TestCase):
  def test_fault_boundaries(self):
   # Every fresh native source, provider, clock and final-store boundary.
   clocks=int(re.search(r'nonzero-fixture:.* clocks=(\d+)',self.text)[1]);reads=int(re.search(r'nonzero-fixture: reads=(\d+)',self.text)[1])
-  cases={k:12 for k in ('nz-none','nz-uncertain','nz-ack','nz-store-zero','nz-store-backward','nz-store-time','nz-phase-time','nz-epoch','nz-borrow','nz-alias','nz-source','nz-copy','nz-provider','nz-entry-stamp','nz-source-stamp','nz-original-stamp','nz-original-word')}
-  cases.update({k:clocks for k in ('nz-zero','nz-backward','nz-time')});cases.update({k:reads for k in ('nz-read','nz-read-time','nz-drift')});cases.update({'nz-post-read':80,'nz-post-drift':80,'nz-return':1})
+  cases={k:12 for k in ('nz-none','nz-uncertain','nz-ack','nz-store-zero','nz-store-backward','nz-store-time','nz-phase-time','nz-epoch','nz-borrow','nz-alias','nz-source','nz-copy','nz-provider','nz-entry-stamp','nz-parent-stamp','nz-source-stamp','nz-original-stamp','nz-original-word')}
+  cases.update({k:clocks for k in ('nz-zero','nz-backward','nz-time','nz-parent-time')});cases.update({k:reads for k in ('nz-read','nz-read-time','nz-drift')});cases.update({'nz-post-read':80,'nz-post-drift':80,'nz-return':1})
   for name,count in cases.items():
    for n in range(1,count+1):
     with self.subTest(name=name,n=n):

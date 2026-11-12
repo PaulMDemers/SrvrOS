@@ -15,6 +15,7 @@ static bool intel_display_test_nonzero_clock(uint64_t *out) {
  if(jf("nz-zero",nz_clocks)){*out=0;return true;}
  if(jf("nz-backward",nz_clocks)){*out=1;return true;}
  if(jf("nz-time",nz_clocks))ticks+=100001;
+ if(jf("nz-parent-time",nz_clocks))nonzero_native.g->begin=ticks-300000;
  if(nz_fault_clock){*out=nz_fault_clock==1?0:1;nz_fault_clock=0;return true;}
  if(jf("nz-return",1) && nonzero_native.r.returned && !nonzero_native.r.end){*out=0;return true;}
  return false;
@@ -51,6 +52,7 @@ static void intel_display_test_nonzero_admission(bool reset,unsigned e) {
  if(jf("nz-store-backward",nz_admissions))nz_fault_clock=2;
  if(jf("nz-store-time",nz_admissions))ticks=r->begin+100001;
  if(jf("nz-phase-time",nz_admissions))ticks=(reset?r->pulse_begin[e]:r->control_begin[r->controls-1])+10001;
+ if(jf("nz-parent-stamp",nz_admissions))r->parent->begin++;
  if(jf("nz-epoch",nz_admissions))r->parent->engine_epoch++;
  if(jf("nz-borrow",nz_admissions))r->parent->dependents=NULL;
  if(jf("nz-alias",nz_admissions))pa[INTEL_CAPTURE_PAGES+4]^=4096;

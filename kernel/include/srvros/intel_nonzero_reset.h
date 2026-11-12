@@ -24,7 +24,7 @@ struct intel_nonzero_reset {
  struct intel_gt_borrow borrow;
  struct intel_completion_result post;
  struct intel_ring_readers readers;
- uint64_t source_begin,source_end,source_last,entry_end;
+ uint64_t source_begin,source_end,source_last,entry_end,parent_begin;
  uint64_t admit_begin,admit_end,begin,last,end,return_begin,guard_begin,guard_end;
  uint64_t clock_at,clock_prev,settle_begin,settle_end;
  uint64_t control_begin[10],control_end[10],pulse_begin[2],pulse_end[2];

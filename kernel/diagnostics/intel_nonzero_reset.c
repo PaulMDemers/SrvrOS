@@ -27,7 +27,7 @@ static bool source(const struct intel_nonzero_reset *r) {
     e->end!=r->entry_end || e->post.begin_us!=r->source_begin || e->post.end_us!=r->source_end ||
     e->post.last_us!=r->source_last || e->post_begin!=r->source_begin || e->post_end!=r->source_end ||
     e->post_last!=r->source_last || r->epoch_before!=1 || r->epoch_after!=1+(unsigned)r->epoch_advanced ||
-    g->engine_epoch!=r->epoch_after || g->write_attempts!=r->parent_attempts ||
+    g->begin!=r->parent_begin || !r->parent_begin || g->engine_epoch!=r->epoch_after || g->write_attempts!=r->parent_attempts ||
     e->parent_attempts!=r->parent_attempts || g->state!=GT_ACCESS_AWAKE || !g->pinned ||
     !display_access_held(&g->exclusion))return false;
  const struct intel_blitter_result *b=&e->bcs;
@@ -70,6 +70,7 @@ static bool identity(const struct nz_call *p) {
 static bool clock_at(struct intel_nonzero_reset *r,uint64_t at) {
  uint64_t origin=r->begin?r->begin:r->admit_begin;
  if(!at || !origin || at<r->last || at<origin || at-origin>100000 ||
+    at<r->parent->last || at<r->parent->begin || at-r->parent->begin>GT_ACCESS_TOTAL_US ||
     (!r->begin && (at<=r->source_end || at-r->source_end>100000))) {
   if(!(r->reason&INZ_CLOCK)){r->clock_at=at;r->clock_prev=r->last;}
   return fail(r,INZ_CLOCK);
@@ -199,7 +200,7 @@ bool intel_nonzero_reset_run(struct intel_nonzero_reset *r,struct intel_gt_acces
     e->kind!=IRT_KIND_ENABLED || !e->complete){r->reason=INZ_INPUT;return false;}
  r->eligible=true;r->uncertain=true;r->source=&e->post;r->source_begin=e->post.begin_us;
  r->source_end=e->post.end_us;r->source_last=e->post.last_us;r->entry_end=e->end;
- r->epoch_before=r->epoch_after=e->epoch_after;r->parent_attempts=g->write_attempts;
+ r->epoch_before=r->epoch_after=e->epoch_after;r->parent_attempts=g->write_attempts;r->parent_begin=g->begin;
  struct nz_call p={r,io,e,g};
  if(!source(r) || g->borrows || g->dependents){fail(r,INZ_SOURCE);goto done;}
  r->admit_begin=io.now(io.ctx);r->last=r->entry_end;
