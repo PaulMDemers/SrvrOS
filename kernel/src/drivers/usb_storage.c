@@ -47,6 +47,7 @@ void usb_storage_content_end(struct usb_storage_content_timing *out) {
     restore_irq(f);
 }
 unsigned usb_storage_content_role_begin(unsigned role) {
+    if(!content_active)return USB_STORAGE_CONTENT_NO_ROLE;
     uint64_t f=save_irq();unsigned previous=USB_STORAGE_CONTENT_NO_ROLE;
     if(content_active) {
         if(role>=USB_STORAGE_CONTENT_ROLES || content_command_active ||

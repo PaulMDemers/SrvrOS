@@ -13043,3 +13043,16 @@ No other task or subagent is contacted. Current accepted `78cfda46ee1b63a0`,
 validate matched host/VM artifacts, self-merge and run automatically under the
 existing sudo/reboot authorization. Native trace acceptance remains pending its
 own matching return; long loaded status waits and screenshot delays are unresolved.
+
+Actual overlap inspection finds PR19's exFAT edits confined to metadata decoding
+and restore admission around the sidecar loader. The callback labels at read,
+write, flush and dirty-flag I/O are separate; this branch leaves that loader and
+all storage behavior intact. PR301 does not touch these filesystem/USB observer
+files. The published objective remains one local branch with no cross-task contact.
+
+The v2 producer preserves the exact workload and adds sparse role masks/counts,
+status totals/maxima and 512-byte WRITE subsets. A final dry wire count refuses
+oversize evidence within the unchanged 32 KiB receipt and 64 KiB tail. Prototypes
+pass 72 profile/refusal/fault cases plus 36 legacy-adapter controls, with identical
+ordered BOT bytes, callback/clock counts and complete final media. Formal matched
+build, host/VM validation and native installation remain pending.

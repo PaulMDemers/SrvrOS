@@ -78,7 +78,9 @@ struct usb_storage_content_timing {
 };
 bool usb_storage_content_begin(void);
 void usb_storage_content_end(struct usb_storage_content_timing *out);
-/* Return an opaque previous-role/depth token. No-role is a harmless no-op.
+/* ExFAT labels the already-owned window independently of SYS_SYNC. No hook
+ * enables observation, transfers media, samples a clock or grants I/O authority.
+ * Return an opaque previous-role/depth token. No-role is a harmless no-op.
  * Invalid nesting only invalidates observations; transport work is unchanged. */
 unsigned usb_storage_content_role_begin(unsigned role);
 void usb_storage_content_role_end(unsigned previous);
