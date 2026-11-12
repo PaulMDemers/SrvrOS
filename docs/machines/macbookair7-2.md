@@ -2,16 +2,24 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Active scope: record native entry acceptance and prepare reset integration
+### Active scope: same-owner entry/reset composition
 
-The native already-disabled route on frozen `c150c6ad` is collected and accepted
-as described below. Main `f16fa5ab` is integrated after collection; affected
-local checks pass. Next is a live original-owner entry/reset composition with
-distinct zero/nonzero geometry rules. No implementation or new trial is armed
-by this closeout. Preserve original providers, borrows, source/epoch binding,
-all existing limits and independent enabled-writer acceptance. Touched scope:
-return collection/integrity, acceptance documentation and shared-main integration.
-PR19 network and PR379 WebCore remain independent.
+Start from `0be91bc1`, integrated main `f16fa5ab`. Add a separate v26 image and
+exact recipe that feeds the accepted entry's original fresh post-census into
+the existing takeover/preparation/reset/re-arm/claim/preservation pipeline,
+under the same static HDA/GT owner. Only verified kind 2 zero geometry may
+advance to reset. Kind 1 remains a distinct entry writer result and reset
+refusal; nonzero geometry is never cleared or relabeled. Original providers,
+source/epoch binding and registered borrow/return remain mandatory.
+
+Touched subsystems: entry handoff core/native adapter, separate build/boot
+recipe, strict receipts/collector and fault/isolation/native-width/lifetime/VM
+qualification. Existing BCS/source 100 ms, entry/readers 150 ms, takeover and
+preparation 100 ms, GT 300 ms, HDA 400 ms and outer 500 ms remain unchanged.
+No requester/PTE writer or memory grant. New bridge uses a live original object,
+not a saved receipt or copied ownership object. No install or reboot in this
+implementation block. PR476 storage-only comparison, PR19 network and PR379
+WebCore remain independent. Checkpoint: `build/air-entry-reset-20261111/status.md`.
 
 ### Latest native result: state-aware already-disabled entry accepted
 
