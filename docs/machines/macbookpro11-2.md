@@ -7,6 +7,15 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Initial AUTH tracing scope (November 12)
+
+PR19 owns an explicit, initially dormant first-join radio trace: bounded EXT/FIFO
+reads before AUTH and before ASSOC/leave, plus anonymous receive framing.
+Keep the750ms response budget, no retransmission and all native ownership gates.
+Test actual initial native send/poll/Stop paths, including diagnostic control
+failure, before wiring a new physical recipe. Mainca454d7c adds Air evidence
+only since7c1a08a0; PR301 GPU and PR379 WebCore remain separate. No reboot armed.
+
 ### v148 return: target selected; initial AUTH reply absent (November 12)
 
 Runtime772f031c/release6a9d28cc6aefc3e6 is collected once and closed FAILED
