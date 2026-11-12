@@ -1004,7 +1004,7 @@ void kmain(void) {
             if(cmdline_has_token(cmdline,"srvros.intel-firmware=read-only")){bool fw_ok=started && intel_gt_firmware_probe_report();sampled=sampled && fw_ok;}
             if(cmdline_has_token(cmdline,"srvros.intel-wake=trial")) {
                 bool held_reset=cmdline_has_token(cmdline,"srvros.intel-bcs-reset=held-blitter-only");
-#ifdef SRVROS_INTEL_GPU_HOLD
+#if defined(SRVROS_INTEL_GPU_HOLD) && !defined(SRVROS_INTEL_ENTRY_REQUESTER)
                 if(cmdline_has_token(cmdline,"srvros.intel-gpu-requester=hold"))console_write("intel-gpu-hold: automatic original-source PCI requester inhibit, pending-drain and exact restoration. No input needed. Saved safe outcomes return to Ubuntu; uncertainty halts.\n");
 #endif
 #ifdef SRVROS_INTEL_ENTRY_REQUESTER
