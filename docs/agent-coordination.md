@@ -778,3 +778,22 @@ native62ed endurance acceptance belongs to its earlier exact source; the new
 logging/PCM/collector changes are host/VM-tested only. Other machines retain their
 own physical ledgers and device gates. PR19 Wi-Fi and PR252 resolver work remain
 independent. Actions stay disabled and no physical boot is armed by this handoff.
+
+
+## Air original-owner entry/reset handoff
+
+The separate v26 [entry/reset composition](intel-state-aware-reset.md) must use
+the original completed kind 2 entry and the address of its original fresh post
+census under the same static HDA/GT owner. Takeover has its own registered child;
+preparation requires the complete handoff and its original takeover. Recheck
+source/provider/epoch/return and all original takeover stamps through the final
+guard/time. Do not pass copied objects or decoded receipts as live authority.
+Late clock/source/return uncertainty pins the root even after child return.
+Kind 1 enabled/nonzero still refuses reset. All existing geometry/deadline gates
+remain. Old v22–v25 image/recipe/receipt contracts stay distinct. The new lossless
+post/reader vectors must expand into complete typed raw validators, including
+floating-reader rejection. Host/VM qualification is not physical acceptance;
+Air7,2's accepted dd91 result remains entry-only. Other machines retain their
+own profiles and evidence. PR476's independent storage comparison is reviewed
+but deferred from the frozen qualification; retain both profile dispatch paths
+when integrating. No task messaging or automatic delegation is implied.

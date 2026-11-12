@@ -1,8 +1,8 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
-### Active scope: same-owner entry/reset composition
+### Qualified scope: same-owner entry/reset composition
 
 Start from `0be91bc1`, integrated main `f16fa5ab`. Add a separate v26 image and
 exact recipe that feeds the accepted entry's original fresh post-census into
@@ -21,6 +21,65 @@ not a saved receipt or copied ownership object. No install or reboot in this
 implementation block. PR476 storage-only comparison, PR19 network and PR379
 WebCore remain independent. PR476 also touches shared build/main/stage/VM
 dispatch files; preserve both explicit profile branches when integrating. Checkpoint: `build/air-entry-reset-20261111/status.md`.
+
+### Original-owner entry/reset qualification: hardware-ready
+
+Frozen source `9e67bce7`, release `74d46f42447d218e`, separately qualifies
+[the v26 composition](../intel-state-aware-reset.md). Only completed kind 2
+entry with zero geometry advances. The original live entry, original fresh
+post-census address, original provider/epoch/returned registered child and both
+reader vectors remain bound through takeover. Preparation requires the complete
+handoff. Existing reset/re-arm/claim and full preservation use the same original
+static HDA/GT owner. Enabled/nonzero kind 1 completes its distinct entry then
+refuses reset; no geometry is cleared and no old reset gate is widened.
+
+The full 31-image local host/core/docs/build/USB gate passes. The existing
+contiguous-append suite retains its 81 baseline-known strict allocation failures
+after offline repair. Those historical storage gaps remain open.
+Fatal ASan/UBSan passes all 12 actual-adapter tests, covering 1,092 entry census/reader/core-clock,
+252 entry source/provider/word, 373 handoff source/guard/clock and 1,955 original
+HDA boundaries, plus directed nested-reset/claim/return/store/restore cases.
+All 54 additional native entry clock faults and 16 compiled omission controls
+are detected. Late source/clock/return failure retains the original root even
+after a logical child returns. The first invalid handoff clock retains its actual
+value and original prior entry stamp; a monotonic adjacent entry/end tie is valid.
+Historical accepted v22/v25 and refused v23/v24 native records replay distinctly.
+
+All 31 images pass symbol/receipt isolation. Native object/staged audits retain
+one fenced F000 BCS DWORD, eight read-only BCS DWORDs, halfword HDA Command,
+original static objects, unchanged reset/re-arm/map implementations and 2 KiB
+frames. New handoff core imports only the original entry predicate and takeover;
+it adds no MMIO/PCI/PTE writer or owner constructor. Lossless post/reader vectors
+keep the projected tail at 65348/65,536 bytes including the 1,536 reserve.
+Exact 22-token C/Python recipe, EFI QEMU/MBR unsupported-hardware refusal,
+matched prerequisite/final checkpoint, save/unmount/automatic safe return and
+missing-workspace halt pass. VM evidence does not accept native reset composition.
+Installed-root is omitted because the installer is unchanged; actual installed
+and durable payload/recovery hashes are independently checked.
+
+USB 37D8-C5D0 remains unmounted with 1,479 prior files/149 sessions intact.
+Current dd91, recovery 9aa8, GUI c497 and accepted observation bd77/joint 978/
+standalone d260 remain installed and banked. Unreferenced prior 811f EFI-only
+duplicate is removed only after complete equality to its durable payload bank
+and boot-reference checks; payload and refusal evidence remain durable. Ubuntu
+is default, AC and 1% host volume are verified, and no one-shot is armed. The
+candidate and complete proof bundle are banked outside `build` before closeout.
+
+Main `f16fa5ab` is the qualified integration baseline. Subsequently fetched
+`7c1a08a0` / PR476/477 adds an independent storage-only comparison and Air6,1 evidence;
+it is reviewed and deferred during this frozen qualification. Preserve both
+explicit dispatch paths on integration. PR19 network and PR379 WebCore remain
+independent. Actions stay disabled; no task messaging or delegation is used.
+
+Next is one silent automated native test with no human input, after fresh
+host/media/recovery checks and exact candidate installation. BCS/source 100 ms,
+entry 150 ms, handoff/source age and preparation/reset 100 ms, GT 300 ms, HDA
+400 ms and outer 500 ms remain unchanged. Safe persisted outcomes return
+without input; retained uncertainty halts visibly. Candidate is uninstalled and
+unarmed. No native acceptance, GPU memory/requester grant or tear-free claim:
+obligations 255, assurances 0, managed pages 0. Current accepted dd91 entry-only
+physical evidence remains separate. Checkpoint:
+`build/air-entry-reset-20261111/status.md`.
 
 ### Latest native result: state-aware already-disabled entry accepted
 

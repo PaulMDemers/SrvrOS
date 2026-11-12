@@ -68,3 +68,18 @@ permissions, 2 KiB frames, the existing 64 KiB tail with 1,536 reserve, and exac
 staged EFI VM save/unmount/return and missing-workspace halt. No deadline or log
 limit is extended. Firmware/DMA/cache/translation/reader retirement, managed backing
 and native tear-free remain open: obligations 255, assurances 0, managed pages 0.
+
+## Local qualification
+
+Source `9e67bce7` / release `74d46f42447d218e` passes the full 31-image
+local gate, all 12 fatal ASan/UBSan actual-adapter tests, 54 additional
+native-clock faults, 16 compiled omission controls, historical native replay,
+image isolation and exact staged EFI QEMU refusal/save/return and
+missing-workspace checks. Object and linked instructions preserve original
+widths/fences, static lifetimes, unchanged reset/re-arm/map code and 2 KiB
+frames; the new handoff core has no MMIO or writer imports. The projected
+saved tail is 65348/65,536 bytes with the unchanged 1,536-byte reserve.
+These are host/VM proofs. The candidate is banked, uninstalled and unarmed;
+full native entry/reset composition and all remaining memory ownership are
+pending. Prior dd91 acceptance is entry-only. See the machine record for
+exact coverage, recovery and the next automatic native trial.
