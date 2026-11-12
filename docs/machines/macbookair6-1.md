@@ -13490,3 +13490,31 @@ stress at 1%, with full-field tracing off so its extra proof work does not alter
 that workload. Retain every original lifecycle, screenshot, byte, timing and
 integrity requirement; use that trial to assess the optimized ordinary path
 under contention. This result alone does not establish loaded latency savings.
+
+## Active post-sidecar combined stress qualification (2026-11-12)
+
+From fetched main `c44a9e51`, prepare the existing Air6,1 automatic capture-write
+desktop profile against the merged filesystem improvements. Retain the original
+1800-second PCM/disk/app workload at 1%, three exact screenshots, 500 ms loop and
+10-second lifecycle limits, every fresh byte/CRC/allocation proof, flush, ownership
+and retirement requirement. The heavy storage-only full-field audit is off;
+ordinary screenshot/write/commit diagnostics and all collection contracts remain.
+No runtime, scheduler, device gate, power policy or workload-limit edit is planned.
+
+The matching v3 return is reviewed and sealed; no physical run is outstanding.
+Local model, USB identity, installed current and recovery stay in the ignored run
+record. Keep current 8a89, the accepted command-tail stress payload and recovery
+c354 available. Publish only this unit's preparation/evidence; no subagents or
+cross-task contact. PR19 at `37ae8304` retains its separate metadata restoration
+scope; PR301 at `5bfaa366` changes separate display profiles and shared staging
+hunks, without a competing storage or audio/disk-stress implementation.
+
+Runtime source is unchanged from fully qualified `a45aaa1d`; retain its complete
+core/desktop/docs and ordinary boot evidence through an exact source-equivalence
+check. Build matched ordinary, native and synthetic battery kernels; rerun focused
+filesystem/lease/capture/sync/profile checks, populated/throttled positive stress
+with a large sidecar, independently parse its receipts and rehearse the exact
+native stage. Fresh physical preflight must preserve every prior file except the
+explicitly renewed 1% preference, retain verified recovery and save the on-disk
+run/collection record before self-merge and authorized one-shot reboot. Native
+loaded performance remains pending the matching thirty-minute return.
