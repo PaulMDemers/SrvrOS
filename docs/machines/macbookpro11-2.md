@@ -7,6 +7,24 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Fresh encrypted-trace hardware qualification scope (November 12)
+
+The user authorizes fresh-image qualification followed by cold shutdown.
+Prepare a new `wifi-encrypted5-hardware` owner, fresh independent journal,
+workspace baseline and once-only collector; never reuse the closed v149 owner.
+Freeze the encrypted observation decoder with collection, preserve diagnostics
+before success-only checking, and qualify success/refusal imports and exact-stage
+journal/workspace/recovery paths. The edf3e736 native/fatal qualification is reused
+only after exact runtime/tool hash equality; subsequent changes are unit docs.
+Fetched main9a8d2377 changes only Air6/storage-audit documentation since the
+integrated7f9f3058 baseline, with no overlapping runtime change. PR482's sidecar
+work and GPU/WebCore scopes are separate; no new shared runtime edit is planned.
+Verify the captured model/adapter/UUID and all seven protected recoveries before
+install/arming. While off, unplug only Wi-Fi for10seconds, reconnect to the same
+port, then power on; leave workspace attached. Guest progress/save/safe return
+are automatic; the new run record will own actual installation/arming state.
+
+
 ### Encrypted RX/TX and failed RF continuation scope (November 12)
 
 PR19 owns anonymous encrypted RX structural/class/audit receipts, bounded data-TX
