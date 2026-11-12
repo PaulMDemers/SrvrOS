@@ -117,16 +117,16 @@ def prepare_result(text):
  from intel_completion_audit import completion_result,takeover_source
  from intel_takeover import takeover_result
  wake=wake_result(text)
- if not wake or wake['summary']['v'] not in (14,16,17,18,19,20,21,23,26):raise ValueError('prepare wrong image')
- if wake['summary']['v'] in (18,19,20,21,23,26):
+ if not wake or wake['summary']['v'] not in (14,16,17,18,19,20,21,23,26,27):raise ValueError('prepare wrong image')
+ if wake['summary']['v'] in (18,19,20,21,23,26,27):
   if packed!=1 or legacy_preservation:raise ValueError('prepare interval image requires packed preservation')
  elif packed:raise ValueError('prepare packed preservation wrong image')
- reset=wake['summary']['v'] in (17,18,19,20,21,23,26)
- versions=(3,) if wake['summary']['v']==21 else (2,3) if wake['summary']['v'] in (20,23,26) else (2,) if reset else (1,)
+ reset=wake['summary']['v'] in (17,18,19,20,21,23,26,27)
+ versions=(3,) if wake['summary']['v']==21 else (2,3) if wake['summary']['v'] in (20,23,26,27) else (2,) if reset else (1,)
  if s['v'] not in versions:raise ValueError('prepare summary image version')
  if not reset and len(rows)>4:raise ValueError('prepare legacy row count')
  if wake['summary']['v']==14 and (actions or vectors or s['reason']>2047):raise ValueError('prepare unexpected action')
- if wake['summary']['v'] in (16,17,18,19,20,21,23,26):
+ if wake['summary']['v'] in (16,17,18,19,20,21,23,26,27):
   if legacy_post:raise ValueError('prepare held image requires compact post vectors')
   if len(actions)!=1:raise ValueError('prepare action coverage')
   a=actions[0]

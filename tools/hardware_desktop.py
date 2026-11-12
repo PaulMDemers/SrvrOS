@@ -573,6 +573,12 @@ def battery_controls_result(exit_text):
 
 
 def needs_attention(line):
+    if line.startswith('intel-gpu-hold-summary: v=2 '):
+        from intel_gpu_hold import gpu_hold_summary
+        try:
+            s=gpu_hold_summary(line)
+            return not s['complete'] or bool(s['reason'] or s['uncertain'])
+        except ValueError:return True
     if line.startswith('intel-reset-entry-summary:'):
         from intel_ring_transition import ring_summary
         try:return not ring_summary(line.replace('intel-reset-entry-','intel-ring-',1),entry=True)['complete']
@@ -1006,7 +1012,7 @@ def collect(mount, volume, output):
                     verify_wake_checkpoint(pre,payload.get("exit.log",b"").decode("utf-8",errors="replace"),native=True)
             except ValueError as error:attention.append("Invalid Intel wake receipt: "+str(error))
         intel_gpu_hold=None
-        if 'srvros.intel-gpu-requester=hold' in text:
+        if 'srvros.intel-gpu-requester=hold' in text and 'srvros.intel-ring=reset-v1' not in text:
             try:
                 from intel_gpu_hold import native_gpu_hold_result,verify_gpu_hold_checkpoint
                 intel_gpu_hold=native_gpu_hold_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
@@ -1201,8 +1207,17 @@ def collect(mount, volume, output):
                 hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
+        intel_entry_requester=None
+        if 'srvros.intel-ring=reset-v1' in text and 'srvros.intel-gpu-requester=hold' in text:
+            from intel_entry_requester import native_requester_result,verify_requester_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_entry_requester=native_requester_result(final)
+                verify_requester_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_entry_requester or not intel_entry_requester['native_complete']:attention.append('Intel original-owner entry/reset/requester incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original-owner entry/reset/requester: '+str(error))
         intel_ring_reset=None
-        if 'srvros.intel-ring=reset-v1' in text:
+        if 'srvros.intel-ring=reset-v1' in text and 'srvros.intel-gpu-requester=hold' not in text:
             from intel_ring_reset import native_reset_result,verify_reset_checkpoint
             try:
                 final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
@@ -1266,6 +1281,7 @@ def collect(mount, volume, output):
             if not window_proof or not window_proof['source_completed']:
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
         records.append({
+            "intel_entry_requester":intel_entry_requester,
             "intel_ring_reset":intel_ring_reset,
             "intel_ring_entry":intel_ring_entry,
             "intel_ring_transition":intel_ring_transition,

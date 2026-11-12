@@ -2,7 +2,12 @@
  * may run its exact terminal capture before user address spaces are created.
  * It still uses all ordinary kernel services and admission checks. */
 static bool boot_system_init(const char *cmdline, bool timer_running) {
-#ifdef SRVROS_INTEL_RING_RESET
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+    if(intel_gt_boot_entry_requester_recipe(cmdline)) {
+        console_write("init: deferred=entry-requester-preinit; terminal automatic capture, no user services\n");
+        return false;
+    }
+#elif defined(SRVROS_INTEL_RING_RESET)
     if(intel_gt_boot_ring_reset_recipe(cmdline)) {
         console_write("init: deferred=ring-reset-preinit; terminal automatic capture, no user services\n");
         return false;

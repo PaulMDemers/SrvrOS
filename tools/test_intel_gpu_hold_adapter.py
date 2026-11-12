@@ -32,7 +32,7 @@ class AdapterTests(unittest.TestCase):
    self.assertTrue(r['observation_complete'])
    self.assertFalse(r['scanout_ownership'])
    self.assertFalse(r['physical_tearfree'])
-  for version in (8,19,27,255):
+  for version in (8,19,28,255):
    text=self.text.replace('intel-wake-summary: v=21 ','intel-wake-summary: v='+str(version)+' ')
    with self.subTest(version=version),self.assertRaisesRegex(ValueError,'joint PTE image binding'):backing_result(text)
   duplicate=self.text+'\n'+next(l for l in self.text.splitlines() if l.startswith('intel-wake-summary:'))

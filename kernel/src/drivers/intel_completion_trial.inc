@@ -55,10 +55,41 @@ static bool completion_snapshot(void *ctx,uint32_t words[INTEL_ENGINE_COUNT][INT
 #else
 #define COMPLETION_SAMPLE NULL
 #endif
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+/* Lossless canonical raw bytes; reporting occurs after the bounded operation. */
+static void entry_requester_base64(const uint8_t *bytes,unsigned size,char *out) {
+ static const char abc[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";unsigned k=0;
+ for(unsigned i=0;i<size;i+=3) {
+  unsigned left=size-i;uint32_t v=(uint32_t)bytes[i]<<16;
+  if(left>1)v|=(uint32_t)bytes[i+1]<<8;
+  if(left>2)v|=bytes[i+2];
+  out[k++]=abc[v>>18];out[k++]=abc[(v>>12)&63];
+  out[k++]=left>1?abc[(v>>6)&63]:'=';out[k++]=left>2?abc[v&63]:'=';
+ }
+ out[k]=0;
+}
+#endif
 static void completion_report_summary(const struct intel_completion_result *r,const char *prefix) {
  console_printf("%s-summary: v=1 groups=%u samples=%u contexts=%u reads=%u reason=%u stable=%u enabled=%u pending=%u flip_wait=%u tlb_pending=%u parser_idle=%u begin_us=%u end_us=%u complete=%u obligations=255 posted_drain=0 prefetch_retired=0 pipeline_flushed=0 tlb_writes=0 reset_writes=0 engine_writes=0 cache_ownership=0 reader_retirement=0 managed_pages=0\n",prefix,(uint64_t)r->groups,(uint64_t)r->samples,(uint64_t)r->contexts,(uint64_t)r->reads,(uint64_t)r->reason,(uint64_t)r->stable,(uint64_t)r->enabled,(uint64_t)r->pending,(uint64_t)r->flip_wait,(uint64_t)r->tlb_pending,(uint64_t)r->parser_idle,r->begin_us,r->end_us,(uint64_t)r->complete);
 }
 static void completion_report_named(const struct intel_completion_result *r,const char *prefix) {
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+ if(wake_text(prefix,"intel-completion")) {
+  for(unsigned n=0;n<2;n++) {
+   unsigned groups=r->groups>n*5?r->groups-n*5:0;if(groups>5)groups=5;
+   unsigned count=groups*8+(n<r->contexts?6:0);if(!count)continue;
+   uint8_t bytes[184];char encoded[249];
+   for(unsigned i=0;i<count;i++) {
+    uint32_t v=i<40?r->words[n][i/8][i%8]:r->context[n][i-40];
+    for(unsigned b=0;b<4;b++)bytes[i*4+b]=(uint8_t)(v>>(8*b));
+   }
+   entry_requester_base64(bytes,count*4,encoded);
+   console_printf("intel-entry-census: v=1 s=%u n=%u b=%s\n",(uint64_t)n,(uint64_t)count,encoded);
+  }
+  completion_report_summary(r,prefix);return;
+ }
+#endif
+
  for(unsigned n=0;n<2;n++) {
   for(unsigned e=0;e<INTEL_ENGINE_COUNT && n*5+e<r->groups;e++) {
    const uint32_t *w=r->words[n][e];

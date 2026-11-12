@@ -99,6 +99,12 @@ original interval consumer and HDA/engine owners remain live. It adds no address
 or completion assurance and must qualify independently before being used by a
 future memory provider.
 
+The separate [v27 entry/reset/requester composition](intel-entry-requester.md)
+now joins the accepted kind 2 entry/reset to that original-claim requester hold.
+Its implementation and local qualification are pending; old v21/v26 evidence
+does not accept the new composition. Deadlines and all 255 obligations remain
+unchanged. It supplies no native mapping or memory assurance.
+
 ## Ordered implementation milestones
 
 | Milestone | Required implementation and reviewable exit evidence |

@@ -6,11 +6,25 @@ BOOL='restored returned complete borrow_active borrow_fault uncertain borrow_obj
 def _prefix(w):
  n=len(w)
  return not any(x==0xffffffff for x in w) and (not n or w[0]==0x16268086) and (n<2 or w[1]&(1<<20) and w[1]&2) and (n<3 or w[2]==0x03000009) and (n<4 or w[3]==0x011b106b) and (n<5 or w[4]&255==0x90) and (n<6 or w[5]&65535==0xd005) and (n<7 or w[6]&65535==0xa401 and w[6]>>16&7==2) and (n<8 or w[7]==0x03060013) and (n<9 or not w[8]&~256)
+def gpu_hold_summary(line):
+ if line.startswith('intel-gpu-hold-summary: v=2 '):
+  m=re.fullmatch(r'intel-gpu-hold-summary: v=2 b=([A-Za-z0-9+/=]+)',line)
+  if not m:raise ValueError('GPU hold packed summary encoding')
+  try:raw=base64.b64decode(m[1],validate=True)
+  except ValueError:raise ValueError('GPU hold packed summary base64')
+  if len(raw)!=8*len(FIELDS) or base64.b64encode(raw).decode()!=m[1]:raise ValueError('GPU hold packed summary size/canonical')
+  vs=struct.unpack('<'+'Q'*len(FIELDS),raw)
+  if vs[0]!=1:raise ValueError('GPU hold packed schema')
+  line='intel-gpu-hold-summary: '+' '.join(f'{k}={v}' for k,v in zip(FIELDS,vs))
+ s=fields(line,'intel-gpu-hold-summary',FIELDS);authority(s);return s
 def gpu_hold_capture(text):
  lines=[l for l in text.splitlines() if l.startswith('intel-gpu-hold-')]
  if not lines:return None
  if len(lines)!=2 or not lines[0].startswith('intel-gpu-hold-data: v=1 b=') or not lines[1].startswith('intel-gpu-hold-summary: '):raise ValueError('GPU hold receipt coverage/order')
- s=fields(lines[1],'intel-gpu-hold-summary',FIELDS);authority(s)
+ s=gpu_hold_summary(lines[1])
+ from intel_gt_wake import wake_result
+ wake=wake_result(text)
+ if lines[1].startswith('intel-gpu-hold-summary: v=2 ')!=bool(wake and wake['summary']['v']==27):raise ValueError('GPU hold summary image binding')
  if any(s[k]>1 for k in BOOL) or s['state']>6 or s['reason']&~255 or s['phase']>2 or s['polls']>32 or s['attempts']>2 or s['writes']>s['attempts'] or s['issued']!=s['writes'] or s['admit_reads']>s['attempts']:raise ValueError('GPU hold schema/counts')
  encoded=lines[0].split('b=',1)[1]
  try:raw=base64.b64decode(encoded,validate=True)
@@ -52,12 +66,12 @@ def gpu_hold_capture(text):
    if p['count']!=2 or p['command']!=phases[1]['words'][1] or p['pending']!=(0 if n==s['polls']-1 else 256) or not previous<=p['at']<=s['drain_begin']+10000 or p['at']>phases[2]['begin']:raise ValueError('GPU hold pending completion')
    previous=p['at']
  return dict(summary=s,phases=phases,polls=polls[:s['polls']],scope_complete=bool(s['complete']))
-def gpu_hold_result(text):
+def gpu_hold_result(text,*,entry_reset=False):
  r=gpu_hold_capture(text)
  if not r:return None
  from intel_joint import joint_result
  j=joint_result(text)
- if not j or j['wake']['summary']['v']!=21:raise ValueError('GPU hold wrong image/source')
+ if not j or j['wake']['summary']['v']!=(27 if entry_reset else 21):raise ValueError('GPU hold wrong image/source')
  s=r['summary'];c=j['claim']['summary']
  if s['origin'] and (s['origin']!=c['origin'] or s['owner_origin']!=c['owner_origin'] or s['borrow_epoch']!=c['epoch']):raise ValueError('GPU hold replacement source')
  if s['begin'] and (s['begin']<c['begin'] or c['complete'] and s['end']>c['end']):raise ValueError('GPU hold outside original claim')

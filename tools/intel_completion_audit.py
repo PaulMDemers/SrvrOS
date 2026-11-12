@@ -11,7 +11,31 @@ def summary(line):
  if s['reads']!=s['groups']*8+s['contexts']*6:raise ValueError('completion coverage count')
  if s['complete'] and not(s['samples']==s['contexts']==2 and s['groups']==10 and s['reads']==92 and s['stable']==1 and s['reason']==0 and 0<s['begin_us']<s['end_us']<=s['begin_us']+100000):raise ValueError('completion declaration')
  return s
+def entry_census_lines(text):
+ import base64,re,struct
+ from intel_engine_prepare import post_vector
+ from intel_gt_wake import wake_result
+ out=[];samples=[]
+ w=wake_result(text)
+ if not w or w['summary']['v']!=27:raise ValueError('entry census image binding')
+ if any(l.startswith(('intel-completion-row:','intel-completion-context:')) for l in text.splitlines()):raise ValueError('entry census mixed legacy rows')
+ for l in text.splitlines():
+  if not l.startswith('intel-entry-census:'):continue
+  m=re.fullmatch(r'intel-entry-census: v=1 s=([01]) n=(8|16|24|32|40|46) b=([A-Za-z0-9+/=]+)',l)
+  if not m or int(m[1])!=len(samples):raise ValueError('entry census vector order/encoding')
+  try:raw=base64.b64decode(m[3],validate=True)
+  except ValueError:raise ValueError('entry census base64')
+  count=int(m[2])
+  if len(raw)!=count*4 or base64.b64encode(raw).decode()!=m[3]:raise ValueError('entry census size/canonical')
+  words=struct.unpack('<'+'I'*count,raw)
+  _,lines=post_vector(f'intel-prepare-post-vector: v=3 s={m[1]} n={count} h='+''.join(f'{v:08x}' for v in words))
+  samples.append(int(m[1]));out.extend(lines)
+ return out
 def completion_result(text):
+ if 'intel-entry-census:' in text:
+  expanded=entry_census_lines(text)
+  text='\n'.join(expanded+[l for l in text.splitlines() if not l.startswith('intel-entry-census:')])
+
  rows=[];contexts=[];sums=[];order=[]
  for l in text.splitlines():
   if l.startswith('intel-completion-row:'):
@@ -45,8 +69,8 @@ def completion_result(text):
   if masks!=[s[k] for k in ('enabled','pending','flip_wait','tlb_pending')] or idle!=s['parser_idle']:raise ValueError('completion derived masks')
  from intel_gt_wake import wake_result
  wake=wake_result(text);complete=bool(s['complete'] and wake and wake['lease_complete'])
- if wake and any(r['v']!=(2 if wake['summary']['v'] in (9,10,11,12,14,16,17,18,19,20,21,23,24,25,26) else 1) for r in rows+contexts):raise ValueError('completion row version binding')
- if wake and wake['summary']['v'] not in (4,5,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,23,24,25,26):raise ValueError('completion wrong wake image')
+ if wake and any(r['v']!=(2 if wake['summary']['v'] in (9,10,11,12,14,16,17,18,19,20,21,23,24,25,26,27) else 1) for r in rows+contexts):raise ValueError('completion row version binding')
+ if wake and wake['summary']['v'] not in (4,5,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,23,24,25,26,27):raise ValueError('completion wrong wake image')
  if complete and not wake['summary']['begin_us']<s['begin_us']<s['end_us']<wake['summary']['end_us']:raise ValueError('completion parent ordering')
  return dict(observation_complete=complete,native_observation_complete=False,posted_drain=False,prefetch_retired=False,pipeline_flushed=False,tlb_invalidation=False,cache_ownership=False,reader_retirement=False,managed_range=False,physical_tearfree=False,summary=s,rows=rows,contexts=contexts)
 def native_completion_result(text):
@@ -60,7 +84,7 @@ def native_completion_result(text):
 def takeover_source(text):
  from intel_gt_wake import wake_result
  w=wake_result(text)
- if w and w['summary']['v']==26:
+ if w and w['summary']['v'] in (26,27):
   return completion_result('\n'.join(reset_post_lines(text)+[l for l in text.splitlines() if l.startswith(('intel-wake-summary:','intel-clock:'))]))
  return completion_result(text)
 

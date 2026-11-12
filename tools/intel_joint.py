@@ -205,7 +205,7 @@ def joint_result(text):
     from intel_gt_wake import wake_result
     from intel_held_interval import interval_capture
     wake = wake_result(text); held = rehold_result(text); claim = claim_capture(text)
-    if not wake or wake['summary']['v'] not in (20,21,23,26) or not held: raise ValueError('joint image/source graph')
+    if not wake or wake['summary']['v'] not in (20,21,23,26,27) or not held: raise ValueError('joint image/source graph')
     s = r['summary']; w = wake['summary']; h = held['summary']; c = claim['summary']; opening = interval_capture(text)
     if not opening: raise ValueError('joint opening coverage')
     if not text.index('intel-joint-summary:')<text.index('intel-completion-summary:') or not text.index('intel-held-interval-summary:')<text.index('intel-claim-summary:')<text.index('intel-prepare-summary:'):
@@ -255,7 +255,7 @@ def joint_result(text):
         if not entry:raise ValueError('joint admission missing child')
         if s['complete'] and not entry['complete']:raise ValueError('joint admission false completion')
         complete=complete and entry['complete']
-    elif w['v']==26:
+    elif w['v'] in (26,27):
         from intel_ring_reset import entry_capture
         entry=entry_capture(text)
         if not entry or s['complete'] and not entry['complete']:raise ValueError('joint reset entry false completion')
@@ -292,9 +292,9 @@ def verify_joint_checkpoint(pre, text, native=False):
     if any(len(b) != 1 for b in boots) or boots[0] != boots[1]:
         raise ValueError('joint checkpoint boot provenance')
     from intel_gt_wake import wake_result
-    if wake_result(text)['summary']['v']==26:
+    if wake_result(text)['summary']['v'] in (26,27):
         from intel_ring_reset import reset_recipe
-        reset_recipe(boots[0][0])
+        reset_recipe(boots[0][0],requester=wake_result(text)['summary']['v']==27)
     else:
         joint_recipe(boots[0][0],requester_hold=wake_result(text)['summary']['v']==21,entry_admit=wake_result(text)['summary']['v']==23)
     return True

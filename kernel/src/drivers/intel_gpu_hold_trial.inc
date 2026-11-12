@@ -10,7 +10,11 @@ static struct {
 static bool gpu_hold_identity_command(uint32_t observed,uint32_t original) {
  const struct intel_gpu_requester_hold *r=&gpu_hold_native.result;
  const struct engine_prepare_adapter *p=gpu_hold_native.p;
- return original==7 && observed==3 && gpu_hold_native.expected==3 &&
+ return
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+  entry_requester_source(p) &&
+#endif
+  original==7 && observed==3 && gpu_hold_native.expected==3 &&
   gpu_hold_native.issued==1 && !gpu_hold_native.uncertain &&
   p && r->claim==&p->trial->claim && r->borrow.claim==r->claim &&
   intel_gpu_requester_hold_live(r) && intel_hda_gpu_live(&joint.scope) &&
@@ -18,7 +22,11 @@ static bool gpu_hold_identity_command(uint32_t observed,uint32_t original) {
   wake_irq_off() && vmm_current_address_space()==p->a->fw.gt.a.common.cr3;
 }
 static bool gpu_hold_native_live(struct engine_prepare_adapter *p) {
- return p && p==gpu_hold_native.p && !gpu_hold_native.uncertain && !p->failed && !p->a->uncertain &&
+ return
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+  entry_requester_source(p) &&
+#endif
+  p && p==gpu_hold_native.p && !gpu_hold_native.uncertain && !p->failed && !p->a->uncertain &&
   !trial_mapping_fault && wake_irq_off() && intel_gpu_requester_hold_live(&gpu_hold_native.result) &&
   gpu_hold_native.result.claim==&p->trial->claim && joint.scope.claim==&p->trial->claim &&
   joint.scope.gpu==p->g && intel_hda_gpu_live(&joint.scope) &&
@@ -115,6 +123,15 @@ static void gpu_hold_report(void) {
  }
  encoded[k]=0;
  console_printf("intel-gpu-hold-data: v=1 b=%s\n",encoded);
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+ const uint64_t values[]={1,(uint64_t)r->state,(uint64_t)r->reason,(uint64_t)r->phase,(uint64_t)r->samples,(uint64_t)r->reads,(uint64_t)r->attempts,(uint64_t)r->writes,(uint64_t)r->polls,(uint64_t)r->counts[0],(uint64_t)r->counts[1],(uint64_t)r->counts[2],r->origin_us,r->owner_origin_us,r->begin_us,r->last_us,r->end_us,r->clock_at,r->clock_prev,r->drain_begin_us,(uint64_t)r->restored,(uint64_t)r->returned,(uint64_t)r->complete,(uint64_t)r->borrow.active,(uint64_t)r->borrow.fault,(uint64_t)r->borrow.epoch,(uint64_t)r->borrow.sequence,(uint64_t)gpu_hold_native.issued,(uint64_t)gpu_hold_native.pci_reads,(uint64_t)gpu_hold_native.admit_reads,(uint64_t)gpu_hold_native.admission[0],(uint64_t)gpu_hold_native.admission[1],(uint64_t)gpu_hold_native.uncertain,(uint64_t)(gpu_hold_native.p?gpu_hold_native.p->trial->claim.borrows:0),(uint64_t)(gpu_hold_native.p?gpu_hold_native.p->trial->claim.returns:0),(uint64_t)(r->borrow.object==&r->borrow),(uint64_t)(gpu_hold_native.p && r->borrow.claim==&gpu_hold_native.p->trial->claim),255,0,0,0,0};
+ uint8_t bytes[sizeof values];char data[((sizeof(values)+2)/3)*4+1];
+ for(unsigned i=0;i<sizeof(values)/sizeof(values[0]);i++)
+  for(unsigned b=0;b<8;b++)bytes[i*8+b]=(uint8_t)(values[i]>>(8*b));
+ entry_requester_base64(bytes,sizeof bytes,data);
+ console_printf("intel-gpu-hold-summary: v=2 b=%s\n",data);
+#else
  console_printf("intel-gpu-hold-summary: v=1 state=%u reason=%u phase=%u samples=%u reads=%u attempts=%u writes=%u polls=%u n0=%u n1=%u n2=%u origin=%u owner_origin=%u begin=%u last=%u end=%u clock_at=%u clock_prev=%u drain_begin=%u restored=%u returned=%u complete=%u borrow_active=%u borrow_fault=%u borrow_epoch=%u borrow_sequence=%u issued=%u pci_reads=%u admit_reads=%u admit0=%u admit1=%u uncertain=%u claim_borrows=%u claim_returns=%u borrow_object=%u borrow_claim=%u obligations=255 assurances=0 pte_writes=0 managed_pages=0 hardware_ownership=0\n",
   (uint64_t)r->state,(uint64_t)r->reason,(uint64_t)r->phase,(uint64_t)r->samples,(uint64_t)r->reads,(uint64_t)r->attempts,(uint64_t)r->writes,(uint64_t)r->polls,(uint64_t)r->counts[0],(uint64_t)r->counts[1],(uint64_t)r->counts[2],r->origin_us,r->owner_origin_us,r->begin_us,r->last_us,r->end_us,r->clock_at,r->clock_prev,r->drain_begin_us,(uint64_t)r->restored,(uint64_t)r->returned,(uint64_t)r->complete,(uint64_t)r->borrow.active,(uint64_t)r->borrow.fault,(uint64_t)r->borrow.epoch,(uint64_t)r->borrow.sequence,(uint64_t)gpu_hold_native.issued,(uint64_t)gpu_hold_native.pci_reads,(uint64_t)gpu_hold_native.admit_reads,(uint64_t)gpu_hold_native.admission[0],(uint64_t)gpu_hold_native.admission[1],(uint64_t)gpu_hold_native.uncertain,(uint64_t)(gpu_hold_native.p?gpu_hold_native.p->trial->claim.borrows:0),(uint64_t)(gpu_hold_native.p?gpu_hold_native.p->trial->claim.returns:0),(uint64_t)(r->borrow.object==&r->borrow),(uint64_t)(gpu_hold_native.p && r->borrow.claim==&gpu_hold_native.p->trial->claim));
+#endif
 }

@@ -1,4 +1,7 @@
-#if defined(SRVROS_INTEL_RING_RESET) && (!defined(SRVROS_INTEL_WAKE_TRIAL) || !defined(SRVROS_INTEL_ENGINE_TRIAL) || !defined(SRVROS_INTEL_COMPLETION_TRIAL) || !defined(SRVROS_INTEL_HELD_INTERVAL) || !defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || !defined(SRVROS_INTEL_ENGINE_PREPARE) || !defined(SRVROS_INTEL_HELD_REQUESTER) || !defined(SRVROS_INTEL_JOINT) || !defined(SRVROS_INTEL_REHOLD) || !defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_ENTRY) || defined(SRVROS_INTEL_JOINT_ADMIT) || defined(SRVROS_INTEL_GPU_HOLD) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_HDA_LEASE_TRIAL) || defined(SRVROS_INTEL_HDA_OWNER_TRIAL) || defined(SRVROS_INTEL_READER_AUDIT))
+#if defined(SRVROS_INTEL_ENTRY_REQUESTER) && (!defined(SRVROS_INTEL_RING_RESET) || !defined(SRVROS_INTEL_GPU_HOLD))
+#error "Entry requester requires its original entry/reset and requester hold"
+#endif
+#if defined(SRVROS_INTEL_RING_RESET) && (!defined(SRVROS_INTEL_WAKE_TRIAL) || !defined(SRVROS_INTEL_ENGINE_TRIAL) || !defined(SRVROS_INTEL_COMPLETION_TRIAL) || !defined(SRVROS_INTEL_HELD_INTERVAL) || !defined(SRVROS_INTEL_TAKEOVER_PREFLIGHT) || !defined(SRVROS_INTEL_ENGINE_PREPARE) || !defined(SRVROS_INTEL_HELD_REQUESTER) || !defined(SRVROS_INTEL_JOINT) || !defined(SRVROS_INTEL_REHOLD) || !defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_ENTRY) || defined(SRVROS_INTEL_JOINT_ADMIT) || (defined(SRVROS_INTEL_GPU_HOLD) && !defined(SRVROS_INTEL_ENTRY_REQUESTER)) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_SHUTDOWN_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_HDA_LEASE_TRIAL) || defined(SRVROS_INTEL_HDA_OWNER_TRIAL) || defined(SRVROS_INTEL_READER_AUDIT))
 #error "Ring/reset composition requires its separate original-owner joint image"
 #endif
 #if defined(SRVROS_INTEL_RING_ENTRY) && !defined(SRVROS_INTEL_RING_TRANSITION)
@@ -54,7 +57,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_RING_RESET
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+extern volatile struct limine_firmware_type_request intel_entry_requester_firmware_request;
+#elif defined(SRVROS_INTEL_RING_RESET)
 extern volatile struct limine_firmware_type_request intel_ring_reset_firmware_request;
 #elif defined(SRVROS_INTEL_RING_ENTRY)
 extern volatile struct limine_firmware_type_request intel_ring_entry_firmware_request;
@@ -115,7 +120,9 @@ static const uint32_t wake_pages[WAKE_MAPS]={0xa000,0x130000,0x138000,0x2000,0x1
 #if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_ENGINE_PREPARE)
 #ifdef SRVROS_INTEL_HELD_INTERVAL
 #define WAKE_MAPS 14u
-#ifdef SRVROS_INTEL_GPU_HOLD
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+#define WAKE_VERSION 27u
+#elif defined(SRVROS_INTEL_GPU_HOLD)
 #define WAKE_VERSION 21u
 #elif defined(SRVROS_INTEL_RING_RESET)
 #define WAKE_VERSION 26u
@@ -464,6 +471,34 @@ static bool shutdown_store_source(struct wake_adapter *,struct intel_gt_access *
 #include "intel_ring_transition_trial.inc"
 #ifdef SRVROS_INTEL_RING_RESET
 #include "intel_ring_reset_trial.inc"
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+/* This is original-source continuity inside the already registered claim,
+ * never a replacement for that claim's live borrow/hardware/time guards. */
+static bool entry_requester_source(const struct engine_prepare_adapter *p) {
+ const struct intel_ring_reset *r=&ring_reset_native.result;
+ const struct intel_ring_transition *e=&ring_native.result;
+ const struct intel_takeover_result *t=r->takeover;
+ if(!p || !p->trial || !p->g || !p->a || r->object!=r || r->entry!=e ||
+    !r->complete || !r->bound || !r->eligible || r->uncertain || r->reason ||
+    r->checks!=10 || !r->begin || r->end<=r->begin || r->last!=r->end ||
+    r->end-r->begin>100000 || r->end<r->source_end || r->end-r->source_end>100000 || r->clock_at || r->clock_prev ||
+    r->parent!=p->g || r->provider!=&ring_reset_native || r->source!=&e->post ||
+    r->takeover!=p->trial->action.preflight || !t || t->object!=t || t->parent!=p->g ||
+    t->census!=&e->post || !t->complete || !t->quiescent || !t->returned || t->reason ||
+    t->begin_us!=r->take_begin || t->end_us!=r->take_end || t->last_us!=r->take_last ||
+    t->epoch!=r->epoch || e->object!=e || e->parent!=p->g || e->kind!=IRT_KIND_DISABLED ||
+    !e->complete || !e->returned || !e->post_bound || !e->readers_bound ||
+    e->borrow.object!=&e->borrow || e->borrow.parent!=p->g || e->borrow.active || e->borrow.next || e->reason || e->uncertain ||
+    e->store_calls || e->epoch_advanced || e->epoch_after || r->epoch ||
+    e->end!=r->entry_end || e->post.object!=&e->post || e->post.parent!=p->g ||
+    e->post.begin_us!=r->source_begin || e->post.end_us!=r->source_end || e->post.last_us!=r->source_last ||
+    p->trial->action.parent!=p->g || p->trial->action.epoch!=r->epoch ||
+    p->trial->reset.parent!=p->g || !p->trial->reset.epoch_advanced ||
+    p->trial->reset.epoch_before!=r->epoch || p->trial->reset.epoch_after!=p->g->engine_epoch ||
+    p->g->engine_epoch!=1 || p->a!=joint.wake || p->g!=joint.scope.gpu)return false;
+ return true;
+}
+#endif
 #endif
 #endif
 static bool wake_fw_quiet(const struct intel_fw_result *r) {
@@ -478,7 +513,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_RING_RESET
+    #ifdef SRVROS_INTEL_ENTRY_REQUESTER
+    const struct limine_firmware_type_response *firmware=intel_entry_requester_firmware_request.response;
+#elif defined(SRVROS_INTEL_RING_RESET)
     const struct limine_firmware_type_response *firmware=intel_ring_reset_firmware_request.response;
 #elif defined(SRVROS_INTEL_RING_ENTRY)
     const struct limine_firmware_type_response *firmware=intel_ring_entry_firmware_request.response;
@@ -525,7 +562,11 @@ bool intel_gt_wake_probe_report(void) {
     f.loader=loader && !loader->revision && wake_text(loader->name,"Limine") && wake_text(loader->version,"11.4.1");
 #ifdef SRVROS_INTEL_COMPLETION_TRIAL
     #ifdef SRVROS_INTEL_RING_RESET
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_entry_requester_recipe(cmd->cmdline);
+#else
     f.recipe=cmd && !cmd->revision && intel_gt_boot_ring_reset_recipe(cmd->cmdline);
+#endif
     static struct engine_prepare_trial prepared;
     static struct intel_takeover_result takeover;
 #elif defined(SRVROS_INTEL_RING_ENTRY)

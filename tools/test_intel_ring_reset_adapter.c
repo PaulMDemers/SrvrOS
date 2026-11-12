@@ -57,7 +57,10 @@ static bool intel_display_test_ring_reset_clock(uint64_t *out) {
  if(jf("reset-clock-time",reset_clocks))ticks+=100001;
  return false;
 }
-int main(int argc,char **argv) {
+#ifndef INTEL_RING_RESET_FIXTURE_MAIN
+#define INTEL_RING_RESET_FIXTURE_MAIN main
+#endif
+int INTEL_RING_RESET_FIXTURE_MAIN(int argc,char **argv) {
  char selected[160];char *args[3]={argv[0],selected,0};
  ring_fixture_disabled=true;ring_ctl=0;
  if(argc==2 && !strcmp(argv[1],"--wake-engine-reset-tie")) {

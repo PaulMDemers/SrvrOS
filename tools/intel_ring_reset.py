@@ -3,12 +3,12 @@ import re,base64,struct
 from intel_engine_census import _fields
 from intel_ring_transition import _ring_result,ring_summary
 FIELDS='v eligible bound complete uncertain reason checks begin end last source_begin source_end source_last entry_end epoch clock_at clock_prev take_begin take_end take_last'.split()
-def reset_recipe(cmd):
+def reset_recipe(cmd,*,requester=False):
  from hardware_boot import limine_config
  if not isinstance(cmd,str) or len(cmd)>2048 or any(c.isspace() and c!=' ' for c in cmd):raise ValueError('reset recipe encoding')
  ts=cmd.split();v=[t.split('=',1)[1] for t in ts if re.fullmatch(r'srvros.workspace-volume=[0-9a-f]{8}',t)];r=[t.split('=',1)[1] for t in ts if re.fullmatch(r'srvros.desktop-release=[0-9a-f]{16}',t)]
- if len(ts)!=22 or len(set(ts))!=22 or len(cmd)+len(ts)>2048 or len(v)!=1 or len(r)!=1:raise ValueError('reset exact22 recipe')
- conf=limine_config(r[0],'ram-usb-v1-intel-ring-reset-laptop-probe-'+v[0]+'-auto-return')
+ if len(ts)!=(23 if requester else 22) or len(set(ts))!=len(ts) or len(cmd)+len(ts)>2048 or len(v)!=1 or len(r)!=1:raise ValueError('reset exact22 recipe')
+ conf=limine_config(r[0],('ram-usb-v1-intel-entry-requester-laptop-probe-' if requester else 'ram-usb-v1-intel-ring-reset-laptop-probe-')+v[0]+'-auto-return')
  expected=next(l.split('cmdline:',1)[1].strip().split() for l in conf.splitlines() if 'cmdline:' in l)
  if set(ts)!=set(expected):raise ValueError('reset foreign recipe')
  return dict(volume=v[0],release=r[0])
@@ -16,6 +16,8 @@ def _normalize(text):
  if any(l.startswith(('intel-ring-','intel-compose-entry-')) for l in text.splitlines()):raise ValueError('reset mixed legacy entry')
  out=[]
  for l in text.splitlines():
+  if l.startswith('intel-entry-census:'):
+   continue
   if l.startswith('intel-reset-entry-post-vector:'):
    from intel_engine_prepare import post_vector
    _,rows=post_vector(l.replace('intel-reset-entry-post-vector:','intel-prepare-post-vector:',1))
@@ -31,6 +33,9 @@ def _normalize(text):
    out.append(f'intel-ring-audio: v=1 n={n} d='+','.join(map(str,words[27:])))
   elif l.startswith(('intel-reset-entry-reader:','intel-reset-entry-audio:','intel-reset-entry-post-row:','intel-reset-entry-post-context:')):raise ValueError('reset mixed legacy raw rows')
   else:out.append(l.replace('intel-reset-entry-','intel-ring-',1) if l.startswith('intel-reset-entry-') else l)
+ if 'intel-entry-census:' in text:
+  from intel_completion_audit import entry_census_lines
+  out=entry_census_lines(text)+out
  return '\n'.join(out)
 def entry_counts(text):
  from intel_completion_audit import completion_result
@@ -66,9 +71,10 @@ def entry_capture(text):
  if s['uncertain'] and (not w['retained'] or w['released']):raise ValueError('reset handoff lost root')
  if a['kind']==1 and (s['eligible'] or t['borrowed'] or s['complete']):raise ValueError('nonzero geometry accepted reset')
  return dict(complete=bool(e['complete'] and s['complete']),native_complete=False,entry=e,summary=s,enabled_writer_complete=False,reset=False,managed_pages=0,hardware_ownership=False,physical_tearfree=False)
-def reset_result(text):
+def reset_result(text,*,requester=False):
  r=entry_capture(text)
  if not r:return None
+ if r['entry']['wake']['summary']['v']!=(27 if requester else 26):raise ValueError('reset wrong image')
  from intel_joint import joint_result
  j=joint_result(text)
  if not j:raise ValueError('reset missing joint owner graph')
@@ -82,10 +88,10 @@ def native_reset_result(text):
   if not native_wake_result(text)['native_wake_complete']:raise ValueError('reset native prerequisites')
   r['native_complete']=True
  return r
-def verify_reset_checkpoint(pre,text,native=False):
+def verify_reset_checkpoint(pre,text,native=False,*,requester=False):
  if any(l.startswith(('intel-reset-entry-','intel-reset-admit:')) for l in pre.splitlines()):raise ValueError('reset late prerequisite checkpoint')
  from intel_joint import verify_joint_checkpoint
  verify_joint_checkpoint(pre,text,native=native)
- if any(s.count('init: deferred=ring-reset-preinit;')!=1 or 'init: started pid=' in s for s in (pre,text)):raise ValueError('reset preinit provenance')
+ if any(s.count('init: deferred='+('entry-requester' if requester else 'ring-reset')+'-preinit;')!=1 or 'init: started pid=' in s for s in (pre,text)):raise ValueError('reset preinit provenance')
  if not entry_capture(text):raise ValueError('reset missing final result')
  return True

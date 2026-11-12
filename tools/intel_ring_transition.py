@@ -15,6 +15,19 @@ def ring_recipe(cmd):
  return dict(volume=v[0],release=r[0])
 
 def ring_summary(line,*,entry=False):
+ if line.startswith('intel-ring-summary: v=3 '):
+  if not entry:raise ValueError('packed entry on transition')
+  import base64,struct
+  m=re.fullmatch(r'intel-ring-summary: v=3 b=([A-Za-z0-9+/=]+)',line)
+  if not m:raise ValueError('packed entry encoding')
+  try:raw=base64.b64decode(m[1],validate=True)
+  except ValueError:raise ValueError('packed entry base64')
+  keys=FIELDS+['kind']
+  if len(raw)!=8*len(keys) or base64.b64encode(raw).decode()!=m[1]:raise ValueError('packed entry size/canonical')
+  vs=struct.unpack('<'+'Q'*len(keys),raw)
+  if vs[0]!=2:raise ValueError('packed entry schema version')
+  line='intel-ring-summary: '+' '.join(f'{k}={v}' for k,v in zip(keys,vs))
+
  s=_fields(line,'intel-ring-summary:',FIELDS+(['kind'] if entry else []),versions=(2,) if entry else (1,))
  kind=s.get('kind',1);enabled=kind==1;disabled=entry and kind==2
  if s['v']!=(2 if entry else 1) or kind not in ((0,1,2) if entry else (1,)) or any(s[k]>1 for k in BOOL) or s['reason']&~255 or s['checks']>20 or s['read_attempts']>4 or s['reader_attempts']>2 or max(s['reader0'],s['reader1'])>37 or max(s['store_calls'],s['store_checks'],s['store_fault'],s['bcs_attempts'],s['bcs_writes'])>1 or s['bcs_samples']>s['read_attempts'] or s['bcs_reads']%8 or s['bcs_reads']>8*s['read_attempts'] or s['bcs_reason']>8 or max(s['epoch_before'],s['epoch_after'])>=1<<32:
@@ -59,7 +72,8 @@ def _ring_result(text,*,entry=False,composition=False):
  from intel_completion_audit import completion_result
  from intel_joint import joint_capture,ENDPOINT
  w=wake_result(text)
- if not w or w['summary']['v']!=(26 if composition else 25 if entry else 24):raise ValueError('ring wrong image')
+ if not w or w['summary']['v'] not in ((26,27) if composition else (25,) if entry else (24,)):raise ValueError('ring wrong image')
+ if any(l.startswith('intel-ring-summary: v=3 ') for l in text.splitlines())!=(w['summary']['v']==27):raise ValueError('entry wire image binding')
  owner=joint_capture(text if composition else text.replace('intel-ring-hda:','intel-joint-hda:').replace('intel-ring-owner:','intel-joint-summary:'))
  if not owner:raise ValueError('ring missing HDA owner')
  h=owner['summary']

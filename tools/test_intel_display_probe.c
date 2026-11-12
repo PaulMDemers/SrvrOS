@@ -305,7 +305,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_RING_RESET
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+#define intel_wake_firmware_request intel_entry_requester_firmware_request
+#elif defined(SRVROS_INTEL_RING_RESET)
 #define intel_wake_firmware_request intel_ring_reset_firmware_request
 #elif defined(SRVROS_INTEL_RING_ENTRY)
 #define intel_wake_firmware_request intel_ring_entry_firmware_request
@@ -968,7 +970,13 @@ int main(int argc,char **argv) {
     static char joint_admit_recipe[2300];snprintf(joint_admit_recipe,sizeof joint_admit_recipe,"%s srvros.intel-admission=disabled-bcs-v1",joint_recipe);wake_cmd.cmdline=joint_admit_recipe;
 #endif
 #ifdef SRVROS_INTEL_GPU_HOLD
-    static char gpu_hold_recipe[2300];snprintf(gpu_hold_recipe,sizeof gpu_hold_recipe,"%s srvros.intel-gpu-requester=hold",joint_recipe);wake_cmd.cmdline=gpu_hold_recipe;
+    static char gpu_hold_recipe[2400];snprintf(gpu_hold_recipe,sizeof gpu_hold_recipe,"%s srvros.intel-gpu-requester=hold",
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+    ring_reset_recipe
+#else
+    joint_recipe
+#endif
+    );wake_cmd.cmdline=gpu_hold_recipe;
 #endif
 #endif
 #endif
@@ -1054,7 +1062,11 @@ if(!strcmp(engine_mode,"gpu-pending"))good=true;
 if(!strncmp(engine_mode,"joint-",6) || !strncmp(engine_mode,"paired-",7))good=false;
 #endif
 #if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
- good=good && !strcmp(engine_mode,"report");
+ good=good && (!strcmp(engine_mode,"report")
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+ || !strcmp(engine_mode,"gpu-pending")
+#endif
+ );
 #endif
 assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL

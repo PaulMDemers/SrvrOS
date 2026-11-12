@@ -6149,3 +6149,29 @@ build/tests/workspace-compare-host$(HOST_EXE): tools/workspace_compare_host.c to
 	mkdir -p build/tests
 	$(HOST_CC) -D_POSIX_C_SOURCE=200809L -DSRVROS_WORKSPACE_HOST_TEST -DSRVROS_STORAGE_COMPARE_HOST_TEST -DSRVROS_EXFAT_HOST_TEST -DSRVROS_USB_STORAGE_HOST_TEST -DSRVROS_BLOCK_HOST_TEST -DSRVROS_BLOCK_CLAIM_HOST_TEST -include tools/storage_compare_host.h -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_compare_host.c kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/drivers/usb_storage.c kernel/src/vfs.c -Wl,--gc-sections -o $@
 test-core: test-storage-compare
+
+# Original entry/reset plus original-claim requester inhibition/restoration.
+INTEL_ENTRY_REQUESTER_FLAGS := $(INTEL_RING_RESET_FLAGS) -DSRVROS_INTEL_ENTRY_REQUESTER -DSRVROS_INTEL_GPU_HOLD
+build/intel-entry-requester/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_ENTRY_REQUESTER_FLAGS) -c $< -o $@
+build/intel-entry-requester/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_ENTRY_REQUESTER_FLAGS) -c $< -o $@
+build/intel-entry-requester/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_ENTRY_REQUESTER_FLAGS) -c $< -o $@
+build/intel-entry-requester/srvros.elf: build/intel-entry-requester/main.o build/intel-entry-requester/probe.o build/intel-entry-requester/requests.o build/intel-ring-reset/handoff.o build/intel-ring-transition/transition.o build/intel-gpu-hold/hold.o build/intel-joint/page.o build/intel-joint/claim.o build/intel-joint/joint.o build/intel-joint/rehold.o build/intel-joint/interval.o build/intel-held-reset/prepare.o build/intel-held-reset/reset.o $(INTEL_HELD_RESET_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-entry-requester-adapter$(HOST_EXE): tools/test_intel_entry_requester_adapter.c tools/test_intel_ring_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_joint_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_RESET_HOST_SOURCES) kernel/diagnostics/intel_gpu_requester_hold.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_ENTRY_REQUESTER_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_RESET_HOST_SOURCES) kernel/diagnostics/intel_gpu_requester_hold.c -o $@
+
+build/tests/boot-entry-requester$(HOST_EXE): tools/test_boot_entry_requester.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_ENTRY_REQUESTER_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-entry-requester
+test-core: test-intel-entry-requester
+test-intel-entry-requester: build/tests/intel-entry-requester-adapter$(HOST_EXE) build/tests/boot-entry-requester$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_entry_requester.py
+	build/tests/boot-entry-requester$(HOST_EXE)

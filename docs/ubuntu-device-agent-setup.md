@@ -1410,3 +1410,15 @@ brief1% boundary cues outside storage timing. See the
 [comparison contract](storage-only-comparison.md) for twelve samples,180second
 bound, strict receipt/byte/allocation checks and terminal quarantine on uncertain
 I/O. This is a separate control, not a replacement for the combined stress trial.
+
+### Original-owner entry/reset/requester diagnostic
+
+The separate [v27 composition](intel-entry-requester.md) uses
+`--intel-entry-requester --laptop-probe-volume <this-unit-UUID>` with the exact
+23-token recipe and its own image/pre-init marker. It is an unattended, silent
+diagnostic; retain volume at 1%. Follow the same immutable exact-stage VM,
+installation, one-shot and collection sequence above. New-image completion is
+`intel_entry_requester`; old standalone requester/reset results stay separate.
+Local qualification and native acceptance are independent. Safe saved/unmounted
+outcomes return to Ubuntu; retained ownership or unsafe persistence halts.
+No memory grant, GPU PTE or native tear-free acceptance follows from this test.

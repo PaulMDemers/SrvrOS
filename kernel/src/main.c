@@ -1007,7 +1007,12 @@ void kmain(void) {
 #ifdef SRVROS_INTEL_GPU_HOLD
                 if(cmdline_has_token(cmdline,"srvros.intel-gpu-requester=hold"))console_write("intel-gpu-hold: automatic original-source PCI requester inhibit, pending-drain and exact restoration. No input needed. Saved safe outcomes return to Ubuntu; uncertainty halts.\n");
 #endif
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+                console_write("intel-entry-requester: automatic same-owner entry/reset and Command7->3->7 restoration; no input. Safe saved outcomes return; uncertainty halts. No memory grant.\n");
+#endif
+#ifndef SRVROS_INTEL_ENTRY_REQUESTER
                 if(cmdline_has_token(cmdline,"srvros.intel-ring=reset-v1"))console_write("intel-reset: automatic original-owner entry/reset; no input needed. Only zero geometry may reset. Safe saved outcomes return; uncertainty halts. No memory grant.\n");
+#endif
                 if(cmdline_has_token(cmdline,"srvros.intel-ring=entry-v1"))console_write("intel-ring-entry: automatic state-aware original-owner entry; no input needed. Enabled shutdown and already-disabled observation are reported separately. Safe saved outcomes return; uncertainty halts. No reset or memory grant.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-ring=handoff-v1"))console_write("intel-ring: automatic original-owner enabled-ring transition; no input needed. Safe saved outcomes return; retained uncertainty halts. No reset or memory grant.\n");
                 if(cmdline_has_token(cmdline,"srvros.intel-admission=disabled-bcs-v1"))console_write("intel-compose: automatic original-owner disabled BCS observation, then existing reset admission. No input needed; safe saved outcomes return; retained uncertainty halts. No enabled shutdown or memory grant.\n");

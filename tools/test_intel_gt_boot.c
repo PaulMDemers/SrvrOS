@@ -4,6 +4,7 @@
 #include <string.h>
 static const char recipe[]="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot";
 int main(int argc,char **argv) {
+ if(argc==3 && !strcmp(argv[1],"entry-requester"))return intel_gt_boot_entry_requester_recipe(argv[2])?0:1;
  if(argc==3 && !strcmp(argv[1],"ring-reset"))return intel_gt_boot_ring_reset_recipe(argv[2])?0:1;
  if(argc==3 && !strcmp(argv[1],"ring-entry"))return intel_gt_boot_ring_entry_recipe(argv[2])?0:1;
  if(argc==3 && !strcmp(argv[1],"ring-transition"))return intel_gt_boot_ring_transition_recipe(argv[2])?0:1;

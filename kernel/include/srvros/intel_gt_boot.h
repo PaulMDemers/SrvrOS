@@ -38,4 +38,5 @@ bool intel_gt_boot_ring_transition_recipe(const char *);
 bool intel_gt_boot_joint_admit_recipe(const char *);
 bool intel_gt_boot_ring_entry_recipe(const char *);
 bool intel_gt_boot_ring_reset_recipe(const char *);
+bool intel_gt_boot_entry_requester_recipe(const char *);
 #endif

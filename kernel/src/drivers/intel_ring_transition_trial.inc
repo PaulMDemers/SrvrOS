@@ -167,6 +167,15 @@ static void ring_report(void) {
   console_printf(RING_PREFIX "-audio: v=1 n=%u d=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)a[0],(uint64_t)a[1],(uint64_t)a[2],(uint64_t)a[3],(uint64_t)a[4],(uint64_t)a[5],(uint64_t)a[6],(uint64_t)a[7],(uint64_t)a[8],(uint64_t)a[9]);
 #endif
  }
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+ /* The ordered values expand to the existing strict v2 entry schema. */
+ const uint64_t values[]={2,(uint64_t)r->policy,(uint64_t)(r->borrow.parent!=0),(uint64_t)r->returned,(uint64_t)r->blocked,(uint64_t)r->post_bound,(uint64_t)r->readers_bound,(uint64_t)r->complete,(uint64_t)r->borrow.active,(uint64_t)r->uncertain,(uint64_t)r->reason,(uint64_t)r->checks,(uint64_t)r->read_attempts,(uint64_t)r->reader_attempts,(uint64_t)r->reader_counts[0],(uint64_t)r->reader_counts[1],(uint64_t)r->store_calls,(uint64_t)ring_native.store_checks,(uint64_t)ring_native.store_fault,r->begin,r->end,r->last,r->source_begin,r->source_end,r->source_last,(uint64_t)r->epoch_before,(uint64_t)r->epoch_after,(uint64_t)r->epoch_advanced,(uint64_t)r->parent_attempts,r->clock_at,r->clock_prev,r->store_at,r->store_previous,r->return_begin,r->post_begin,r->post_end,r->post_last,(uint64_t)b->samples,(uint64_t)b->reads,(uint64_t)b->admitted,(uint64_t)b->attempts,(uint64_t)b->writes,(uint64_t)b->disabled,(uint64_t)b->uncertain,(uint64_t)b->reason,b->begin_us,b->end_us,0,0,(uint64_t)r->kind};
+ uint8_t bytes[sizeof(values)];char encoded[((sizeof(values)+2)/3)*4+1];
+ for(unsigned i=0;i<sizeof(values)/sizeof(values[0]);i++)
+  for(unsigned b=0;b<8;b++)bytes[i*8+b]=(uint8_t)(values[i]>>(8*b));
+ entry_requester_base64(bytes,sizeof bytes,encoded);
+ console_printf(RING_PREFIX "-summary: v=3 b=%s\n",encoded);
+#else
  console_printf(RING_PREFIX "-summary: "
 #if defined(SRVROS_INTEL_RING_ENTRY) || defined(SRVROS_INTEL_RING_RESET)
  "v=2 "
@@ -183,6 +192,7 @@ static void ring_report(void) {
  ,(uint64_t)r->kind
 #endif
  );
+#endif
 }
 
 #undef RING_PREFIX

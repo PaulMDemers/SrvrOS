@@ -48,6 +48,9 @@ struct engine_prepare_adapter {struct wake_adapter *a;struct intel_gt_access *g;
 #endif
 #endif
 };
+#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+static bool entry_requester_source(const struct engine_prepare_adapter *);
+#endif
 /* Core bookkeeping does not issue target accesses. Every provider below owns
  * its full entry/exit backing validation; these fresh checks keep the core's
  * before/after parent and clock brackets live without repeating that census.

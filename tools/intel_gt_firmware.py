@@ -14,7 +14,7 @@ def firmware_result(text):
  if vectors:
   if any(l.startswith('intel-firmware-word:') for l in text.splitlines()):raise ValueError('firmware mixed vector/word receipts')
   wakes=[l for l in text.splitlines() if l.startswith('intel-wake-summary:')]
-  if wakes and (len(wakes)!=1 or not wakes[0].startswith(('intel-wake-summary: v=17 ','intel-wake-summary: v=18 ','intel-wake-summary: v=19 ','intel-wake-summary: v=20 ','intel-wake-summary: v=21 ','intel-wake-summary: v=23 ','intel-wake-summary: v=24 ','intel-wake-summary: v=25 ','intel-wake-summary: v=26 '))):raise ValueError('firmware vector wrong image')
+  if wakes and (len(wakes)!=1 or not wakes[0].startswith(('intel-wake-summary: v=17 ','intel-wake-summary: v=18 ','intel-wake-summary: v=19 ','intel-wake-summary: v=20 ','intel-wake-summary: v=21 ','intel-wake-summary: v=23 ','intel-wake-summary: v=24 ','intel-wake-summary: v=25 ','intel-wake-summary: v=26 ','intel-wake-summary: v=27 '))):raise ValueError('firmware vector wrong image')
   ring_boot=[l.split('boot options=',1)[1] for l in text.splitlines() if l.startswith('laptop-capture: boot options=') and 'srvros.intel-ring=handoff-v1' in l.split()]
   if not wakes and ring_boot:
    from intel_ring_transition import ring_recipe

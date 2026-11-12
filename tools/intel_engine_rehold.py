@@ -70,9 +70,9 @@ def rehold_result(text):
     from intel_held_interval import interval_result
     from intel_gt_wake import wake_result
     interval=interval_result(text);wake=wake_result(text)
-    if not interval or not wake or wake['summary']['v'] not in (19,20,21,23,26):raise ValueError('rehold wrong image/prerequisites')
+    if not interval or not wake or wake['summary']['v'] not in (19,20,21,23,26,27):raise ValueError('rehold wrong image/prerequisites')
     s=r['summary'];x=interval['reset']['summary'];p=interval['reset']['prepare']['summary'];i=interval['summary']
-    if s['v']!=(3 if wake['summary']['v']==21 else 2 if wake['summary']['v'] in (20,23,26) else 1):raise ValueError('rehold image version binding')
+    if s['v']!=(3 if wake['summary']['v'] in (21,27) else 2 if wake['summary']['v'] in (20,23,26) else 1):raise ValueError('rehold image version binding')
     if s['begin']:
         if s['origin']!=x['origin'] or s['epoch']!=x['epoch_after'] or not x['settle_end']<=s['begin']<=s['end'] or s['end']>x['end'] and not x['reason']&2:raise ValueError('rehold original source binding')
     if i['begin']:
