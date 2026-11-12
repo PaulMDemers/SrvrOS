@@ -131,3 +131,25 @@ range, rerun and full readback checks remain mandatory. Maximum-width actual
 emitters separately verify exact decimal sizing and overflow refusal. Exact-stage
 Q35 additionally requires the v2 role receipt and complete final media bytes;
 native acceptance awaits the corresponding unit's matching return.
+
+## Native v2 attribution baseline
+
+The [Air6,1 trace return](machines/macbookair6-1.md#native-command-attribution-return-2026-11-12)
+accepts release `084167c2be826f2a` for all original bounded checks plus v2 role
+accounting: twelve samples in 5.714710 seconds, exact bytes and retired leases,
+20133 receipt bytes, preserved files and clean offline allocation. No policy,
+limit, barrier or integrity requirement changed.
+
+The native write stages contain eight data commands transferring 128 KiB for
+the 32 KiB logical file replacement, matching full-cluster initialization.
+Steady 37-command samples and 56-command samples differ by +23 sidecar-update
+commands, +4 allocation commands and −8 equality-proof reads. The update role
+has nine reads, eleven writes and four flushes. This identifies additional
+metadata work, but not which serialized field changed or why equality missed.
+The next audit should inspect those decisions without bypassing necessary
+metadata persistence, initialization or fresh equality checks.
+
+Measured CSW callbacks peak at 4.185 ms, with zero recorded over-100-ms status
+subsets. The earlier long loaded status waits and screenshot stalls remain
+unresolved. Direct I/O timings exclude proof/retirement/remount work and do not
+authorize a filesystem bypass or a throughput comparison that omits those costs.
