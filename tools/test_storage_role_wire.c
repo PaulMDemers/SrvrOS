@@ -25,6 +25,7 @@ void console_printf(const char *fmt,...) {
 int main(void) {
     struct storage_compare_sample r={.sequence=12,.kind=1,.start=UINT64_MAX,.end=UINT64_MAX,
         .write_us=UINT64_MAX,.flush_us=UINT64_MAX,.read_us=UINT64_MAX,.crc=UINT64_MAX,.offset=UINT64_MAX,.ok=1,.retired=1};
+    r.sidecar_checks=r.sidecar_equal=r.sidecar_changed=r.sidecar_shape=r.sidecar_fields=r.sidecar_offset=UINT64_MAX;r.sidecar_valid=1;
     r.usb.valid=true;
     for(unsigned i=0;i<3;i++)r.usb.calls[i]=r.usb.us[i]=UINT64_MAX;
     r.content.valid=1;r.content.command=(struct usb_storage_command_timing){.valid=1,.complete=1,.ok=1,.role=6,.start_us=UINT64_MAX,.end_us=UINT64_MAX,.csw_start_us=UINT64_MAX,.csw_end_us=UINT64_MAX,.checkpoint_calls=UINT64_MAX,.checkpoint_us=UINT64_MAX};

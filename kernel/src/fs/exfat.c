@@ -100,6 +100,9 @@ struct exfat_cost { uint64_t start,end;const char *operation;bool active,ok;stru
 static struct exfat_cost slow_costs[EXFAT_COST_ROWS];
 struct sidecar_equality_stats { uint64_t checks,equal,changed,refused,retained_bytes,flush_failed,active,invalid; };
 static struct sidecar_equality_stats sidecar_stats;
+/* First differing serialized field, not a semantic cause or a cached proof. */
+struct sidecar_difference_stats { uint64_t shape,field[10],last_offset; };
+static struct sidecar_difference_stats sidecar_differences;
 struct contiguous_append_stats { uint64_t local_complete,links_avoided,prefix_bytes,invalid; };
 static struct contiguous_append_stats contiguous_appends;
 static uint64_t cost_clock(void) {
@@ -188,6 +191,8 @@ struct exfat_mount {
     uint64_t file_capacity, dir_capacity;
     char *metadata_buffer;
     uint64_t metadata_capacity;
+    const struct vfs_node **metadata_nodes;
+    uint64_t metadata_node_capacity;
     char mountpoint[EXFAT_MAX_PATH];
     uint64_t file_count;
     uint64_t dir_count;
@@ -282,6 +287,15 @@ static uint64_t used_dirs(const struct exfat_mount *m) {
     return n;
 }
 static bool reserve_metadata(struct exfat_mount *m,uint64_t nodes) {
+    if(nodes>EXFAT_MAX_FILES+EXFAT_MAX_DIRS)return false;
+    /* Reserve before the outer dirty marker; serialization never allocates or
+     * reorders live VFS slots. Retained pointers are refilled under FS ownership. */
+    if(nodes>m->metadata_node_capacity) {
+        uint64_t capacity=(nodes+EXFAT_NODE_BLOCK-1)/EXFAT_NODE_BLOCK*EXFAT_NODE_BLOCK;
+        const struct vfs_node **ordered=kmalloc(capacity*sizeof(*ordered));
+        if(!ordered)return false;
+        kfree(m->metadata_nodes);m->metadata_nodes=ordered;m->metadata_node_capacity=capacity;
+    }
     uint64_t needed=nodes*(EXFAT_MAX_PATH+8*21+1)+16;
     if(needed>EXFAT_METADATA_MAX_BYTES) return false;
     if(needed<=m->metadata_capacity) return true;
@@ -1509,6 +1523,31 @@ static bool serialize_metadata_record(char *out,
     return true;
 }
 
+/* Bytewise path order makes the same namespace/metadata serialize identically
+ * after depth-first import or VFS slot reuse. All eight fields remain literal.
+ * In-place heap sort is bounded O(n log n), with no recursion or I/O. */
+static bool metadata_path_less(const struct vfs_node *a,const struct vfs_node *b) {
+    const unsigned char *x=(const void *)a->path,*y=(const void *)b->path;
+    while(*x && *x==*y){x++;y++;}
+    return *x<*y;
+}
+static void metadata_sift(const struct vfs_node **nodes,uint64_t root,uint64_t count) {
+    while(root<count/2) {
+        uint64_t child=root*2+1;
+        if(child+1<count && metadata_path_less(nodes[child],nodes[child+1]))child++;
+        if(!metadata_path_less(nodes[root],nodes[child]))return;
+        const struct vfs_node *swap=nodes[root];nodes[root]=nodes[child];nodes[child]=swap;
+        root=child;
+    }
+}
+static void metadata_sort(const struct vfs_node **nodes,uint64_t count) {
+    for(uint64_t i=count/2;i>0;i--)metadata_sift(nodes,i-1,count);
+    for(uint64_t i=count;i>1;i--) {
+        const struct vfs_node *swap=nodes[0];nodes[0]=nodes[i-1];nodes[i-1]=swap;
+        metadata_sift(nodes,0,i-1);
+    }
+}
+
 /* Serialize a complete mutation while allowing only the existing I/O service
  * threads to run during disk waits. Nested sidecar changes share its dirty bit. */
 struct mutation_scope { struct fs_scope access; struct exfat_volume *volume; };
@@ -1643,10 +1682,22 @@ static void sidecar_add(uint64_t *sum,uint64_t n) {
     if(n>UINT64_MAX-*sum)sidecar_stats.invalid=1;else *sum+=n;
 }
 enum metadata_equality { METADATA_DIFFERENT, METADATA_EQUAL, METADATA_UNPROVED };
+static void sidecar_byte_difference(const uint8_t *expected,uint64_t at) {
+    if(!sidecar_stats.active)return;
+    uint64_t start=at,field=0;
+    while(start && expected[start-1]!='\n')start--;
+    if(!start)field=9; /* Header/format, never omit it from equality. */
+    else for(uint64_t i=start;i<at;i++)if(expected[i]=='\t')field++;
+    if(field>9)field=9;
+    sidecar_add(&sidecar_differences.field[field],1);sidecar_differences.last_offset=at;
+}
 static enum metadata_equality metadata_equal_media(const struct exfat_file *file,const uint8_t *expected,uint64_t size) {
     if(!file || !file->volume || !file->volume->cluster_size || !expected || size>EXFAT_METADATA_MAX_BYTES)return METADATA_UNPROVED;
     if(file->size!=size || file->valid_size!=size || !size ||
-       file->allocated_clusters!=clusters_for_size(file->volume,size))return METADATA_DIFFERENT;
+       file->allocated_clusters!=clusters_for_size(file->volume,size)) {
+        if(sidecar_stats.active)sidecar_add(&sidecar_differences.shape,1);
+        return METADATA_DIFFERENT;
+    }
     uint8_t *buffer=kmalloc(16384);if(!buffer)return METADATA_UNPROVED;
     uint64_t copied=0;uint32_t cluster=file->first_cluster;
     while(copied<size) {
@@ -1656,6 +1707,7 @@ static enum metadata_equality metadata_equal_media(const struct exfat_file *file
             uint64_t count=bytes-n;if(count>16384)count=16384;
             if(!volume_read_device(file->volume,offset+n,buffer,count))goto unproved;
             for(uint64_t j=0;j<count;j++)if(buffer[j]!=expected[copied+n+j]){
+                sidecar_byte_difference(expected,copied+n+j);
                 kfree(buffer);return METADATA_DIFFERENT;
             }
             n+=count;
@@ -1696,6 +1748,7 @@ static bool exfat_sync_mount_metadata_impl(struct exfat_mount *mount) {
     if (ok) {
         ok = append_text(mount->metadata_buffer, mount->metadata_capacity, &offset, "SRVROSMETA1\n");
     }
+    uint64_t records=0;
     for (uint64_t i = 0; ok && i < vfs_count(); i++) {
         const struct vfs_node *node = vfs_node_at(i);
         if (node == NULL ||
@@ -1703,8 +1756,16 @@ static bool exfat_sync_mount_metadata_impl(struct exfat_mount *mount) {
             metadata_path_is_internal(mount, node->path)) {
             continue;
         }
-        ok = serialize_metadata_record(mount->metadata_buffer, mount->metadata_capacity, &offset, node);
+        if(records>=mount->metadata_node_capacity){ok=false;break;}
+        mount->metadata_nodes[records++]=node;
     }
+#if !defined(SRVROS_EXFAT_HOST_TEST) || !defined(SRVROS_EXFAT_SIDECAR_ORDER_OFF)
+    if(ok)metadata_sort(mount->metadata_nodes,records);
+#else
+    (void)metadata_sort; /* Disposable legacy-order comparison only. */
+#endif
+    for(uint64_t i=0;ok && i<records;i++)
+        ok=serialize_metadata_record(mount->metadata_buffer,mount->metadata_capacity,&offset,mount->metadata_nodes[i]);
 #if !defined(SRVROS_EXFAT_HOST_TEST) || !defined(SRVROS_EXFAT_SIDECAR_EQUALITY_OFF)
     /* No pending recovery name or live client may have its normal replacement
      * checks bypassed. Read every matching byte from media; never use a hint or
@@ -3138,6 +3199,7 @@ static void clear_mount(struct exfat_mount *mount) {
     for(uint64_t i=0;i<mount->file_capacity/EXFAT_NODE_BLOCK;i++) kfree(mount->file_blocks[i]);
     for(uint64_t i=0;i<mount->dir_capacity/EXFAT_NODE_BLOCK;i++) kfree(mount->dir_blocks[i]);
     kfree(mount->metadata_buffer);
+    kfree(mount->metadata_nodes);
     uint8_t *bytes = (uint8_t *)mount;
     for (uint64_t i = 0; i < sizeof(*mount); i++) {
         bytes[i] = 0;
@@ -4468,16 +4530,36 @@ bool exfat_same_mount(const char *first,const char *second) {
 
 /* Called by the logger before its own filesystem work; snapshot under CPU0 IRQ
  * exclusion, then format without holding that exclusion or storage ownership. */
-/* Explicit desktop sync diagnostics only; no output in other profiles. */
-void exfat_print_sidecar_equality(void) {
+/* Explicit sync/storage diagnostics only; no output during ordinary I/O. */
+void exfat_sidecar_snapshot(struct exfat_sidecar_trace *out) {
+    if(!out)return;
+    uint64_t irq=fs_irq_save();
+    *out=(struct exfat_sidecar_trace){.checks=sidecar_stats.checks,.equal=sidecar_stats.equal,
+        .changed=sidecar_stats.changed,.refused=sidecar_stats.refused,
+        .flush_failed=sidecar_stats.flush_failed,.active=sidecar_stats.active,.invalid=sidecar_stats.invalid,
+        .shape=sidecar_differences.shape,.last_offset=sidecar_differences.last_offset};
+    for(unsigned i=0;i<10;i++)out->fields[i]=sidecar_differences.field[i];
+    fs_irq_restore(irq);
+}
+void exfat_print_sidecar_equality_at(uint64_t at) {
     uint64_t irq=fs_irq_save();struct sidecar_equality_stats sidecar=sidecar_stats;
-    struct contiguous_append_stats appends=contiguous_appends;fs_irq_restore(irq);
-    if(sidecar.checks || sidecar.invalid)console_printf("exfat-sidecar: version=1 snapshot_us=%u checks=%u equal=%u changed=%u refused=%u retained_bytes=%u flush_failed=%u active=%u invalid=%u\n",
-        timer_monotonic_us(),sidecar.checks,sidecar.equal,sidecar.changed,sidecar.refused,
+    struct sidecar_difference_stats diff=sidecar_differences;
+    fs_irq_restore(irq);
+    if(!sidecar.checks && !sidecar.invalid)return;
+    console_printf("exfat-sidecar: version=1 snapshot_us=%u checks=%u equal=%u changed=%u refused=%u retained_bytes=%u flush_failed=%u active=%u invalid=%u\n",
+        at,sidecar.checks,sidecar.equal,sidecar.changed,sidecar.refused,
         sidecar.retained_bytes,sidecar.flush_failed,sidecar.active,sidecar.invalid);
+    console_printf("exfat-sidecar-diff: version=1 snapshot_us=%u shape=%u path=%u inode=%u mode=%u nlink=%u uid=%u gid=%u atime=%u mtime=%u ctime=%u format=%u last_offset=%u\n",
+        at,diff.shape,diff.field[0],diff.field[1],diff.field[2],diff.field[3],diff.field[4],diff.field[5],diff.field[6],diff.field[7],diff.field[8],diff.field[9],diff.last_offset);
+}
+
+void exfat_print_sidecar_equality(void) {
+    exfat_print_sidecar_equality_at(timer_monotonic_us());
+    uint64_t irq=fs_irq_save();struct contiguous_append_stats appends=contiguous_appends;fs_irq_restore(irq);
     console_printf("exfat-append-contiguous: version=1 snapshot_us=%u local_complete=%u links_avoided=%u prefix_bytes=%u invalid=%u\n",
         timer_monotonic_us(),appends.local_complete,appends.links_avoided,appends.prefix_bytes,appends.invalid);
 }
+
 
 void exfat_print_costs(void) {
     struct exfat_cost rows[EXFAT_COST_ROWS];uint64_t irq=fs_irq_save();
