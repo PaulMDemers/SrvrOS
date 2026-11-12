@@ -46,10 +46,16 @@ int main(void){
  for(unsigned n=0;n<3;n++){
   setup();uint64_t deadline=n==0?0:n==1?100:10000101;
   assert(!mt76_rx5_window_poll_until(&window,&plan,&io,deadline) && !posts && !polls);
+  assert(window.attempted && window.failed && !window.polled);
+  struct mt76_rx_window refused=window;unsigned before_owners=owners;
+  assert(!mt76_rx5_window_poll_until(&window,&plan,&io,900));
+  assert(!mt76_rx5_window_poll_until(&window,&plan,&io,0));
+  assert(!memcmp(&refused,&window,sizeof window) && owners==before_owners && !posts && !polls);
  }
+ assert(!mt76_rx5_window_poll_until(NULL,&plan,&io,0));
  setup();regress=true;assert(!mt76_rx5_window_poll_until(&window,&plan,&io,100000) && window.failed && !window.completions);
  assert(!finish(0,true) && !window.item[0].inspected);
  setup();assert(!mt76_rx_window_poll(&window,&plan,&io) && !posts);
- puts("mt76-rx5-deadline: PASS original-clock shortening, full/quiet/pending and scratch closure, invalid/extended deadline, clock/owner failures and legacy isolation");
+ puts("mt76-rx5-deadline: PASS original-clock shortening, full/quiet/pending and scratch closure, sticky invalid/extended deadline refusal, clock/owner failures and legacy isolation");
  return 0;
 }

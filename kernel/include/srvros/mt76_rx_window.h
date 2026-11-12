@@ -92,7 +92,8 @@ bool mt76_rx_window_run(struct mt76_rx_window *,
 bool mt76_rx5_window_plan_valid(const struct mt76_rx_window_plan *);
 bool mt76_rx5_window_poll(struct mt76_rx_window *,const struct mt76_rx_window_plan *,const struct mt76_rx_window_io *);
 /* Explicit continuation only: an absolute deadline from this same clock may
- * shorten, never extend, the plan's receive budget. No page/ring reuse. */
+ * shorten, never extend, the plan's receive budget. A zero or invalid deadline
+ * consumes this one-shot state and refuses without submissions. No page/ring reuse. */
 bool mt76_rx5_window_poll_until(struct mt76_rx_window *,const struct mt76_rx_window_plan *,const struct mt76_rx_window_io *,uint64_t deadline_us);
 bool mt76_rx5_window_finish(struct mt76_rx_window *,const struct mt76_rx_window_io *,const struct mt76_rx_window_stop *);
 #endif

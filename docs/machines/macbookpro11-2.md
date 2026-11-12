@@ -52,6 +52,15 @@ its exact Stop; partial failures remain observations, never accepted HTTP.
 Fatal sanitizers, frozen source/image/workspace/recovery qualification and
 physical acceptance remain pending. No new boot is armed.
 
+Final admission review reproduced one additional helper defect: a zero absolute
+deadline refused without consuming its one-shot state, allowing a later retry.
+Zero, expired and extended deadlines now latch attempted/failed; retrying with
+either a valid or zero deadline leaves the refused state unchanged and performs
+no submissions. The directed test fails on the previous wrapper and passes with
+the correction. This is an API refusal fix, not a claim about physical packet
+loss. The interrupted earlier sanitizer run is retained; final qualification
+must bind the corrected clean source before any staging or boot.
+
 ### Priming complete; discovery window exhausted before target (November 12)
 
 Runtimef0f77ed7/release1b555afb6e2f942b saved a complete exit and all seven
