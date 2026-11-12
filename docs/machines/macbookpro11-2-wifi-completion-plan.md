@@ -9,6 +9,26 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 12)
 
+The v148 runtime772f031c/6a9d28cc6aefc3e6 return is collected and closed FAILED.
+It saves a full exit and all seven checkpoints, selects Demers5 in the first
+eight-frame window, then expires the initial open AUTH deadline at750104us.
+Seventeen parsed unrelated management frames and two unsupported RX views
+contain no admitted peer AUTH candidate. The60-byte AUTH USB OUT completes;
+that does not establish radio delivery/AP ACK. No ASSOC, keys, DHCP or HTTP
+starts. Local join/endpoint/MAC and all nine power originals report restored;
+the whole RF inverse does not run. The unused child/worker retire.
+
+The new extra-window and missing-target branches are not exercised physically.
+Their native-code/fatal tests and the source-bound exact-image/collector/473-file
+workspace/actual ELF-DNS-HTTP gates passed before installation. The immutable
+primary and separate review hashes are in the unit record. All473 prior files/
+metadata, offline allocation,64 other EFI-file bytes and seven recoveries pass.
+Ubuntu remains default/unarmed. Next diagnose initial AUTH radio delivery/ACK
+versus receive framing under the unchanged750ms budget; existing radio-status
+snapshots cover only later stream AUTH. No unchanged blind retry is planned.
+
+### Qualified v148 implementation before this return
+
 The v148 bounded continuation and missing-target cleanup are implemented on
 main7c1a08a0/dfb5a64e. One calibration precedes up to16 fresh eight-page windows
 under a single10-second receive deadline; exact Stop precedes inspection and
@@ -22,8 +42,10 @@ Normal38 actual-native survey/RF-inverse cases,77 prime/16 HTTP cases, deadline/
 history tests,279 stage/18 main-dispatch checks and strict emitted-row decoders
 pass. The legacy eight-frame missing-target failure is reproduced in the same
 native fixture. HCD/RF/child scheduling are modeled. Final fatal and exact-image
-qualification, installation and physical evidence remain pending; no new boot
-is armed. Keep all previously closed primary/review banks unchanged.
+qualification subsequently passed, followed by the failed native return above.
+Keep all previously closed primary/review banks unchanged.
+
+### Earlier discovery exhaustion and cleanup scope
 
 Thef0f77ed7/1b555afb6e2f942b return saved a full exit and all seven independent
 journal phases. Calibration/prime/local MAC/endpoint cleanup report success,
@@ -45,9 +67,9 @@ Main7c1a08a0/PR476–477 is integrated atdfb5a64e with both capture profiles
 preserved. Merged build/USB image,277 profile/17 actual dispatch checks,
 36 storage cases, affected workspace/logger/USB regressions,77 native priming
 and15 native HTTP integration cases pass in their modeled scopes. Installed
-runtime remainsf0f77ed7; no new payload is staged or boot armed.
+runtime at that checkpoint wasf0f77ed7; it is superseded byv148 above.
 
-Next address two explicit discovery boundaries: semantic target absence must
+That implementation scope addressed two explicit discovery boundaries: semantic target absence must
 permit proven original RF cleanup without granting connection authority; the
 connection scan needs a bounded retained receive design that can outlast the
 first eight unrelated frames. Keep stopped-before-inspection and strict unique

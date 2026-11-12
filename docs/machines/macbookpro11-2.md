@@ -7,6 +7,57 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### v148 return: target selected; initial AUTH reply absent (November 12)
+
+Runtime772f031c/release6a9d28cc6aefc3e6 is collected once and closed FAILED
+for the paired HTTP workload in session00066016021dcc7a-00. The full exit and
+all seven independent checkpoints survive. All five calibration replies and
+priming/local receive cleanup report success. Discovery selects one matching
+PSK/CCMP Demers5 advertisement in the first eight-frame window: six parsed
+beacons, three rows,22 RSN bytes,266065us receive time. The complete survey
+takes300496us. No additional window or missing-target cleanup runs, so those
+new branches remain software-qualified only.
+
+The first60-byte open AUTH request completes its USB OUT transfer. No matching
+peer AUTH reply appears before the unchanged750000us deadline: reason8,
+750104us,430 polls,17 parsed unrelated management frames and two unsupported
+RX views. The parsed frames are beacons/action frames; the unsupported views
+do not expose frame-control evidence. No ASSOC, four-way key or IP workload
+starts. USB completion does not prove radio transmission or AP acknowledgement;
+no peer rejection or specific receive-parser defect is established. The existing
+radio-status snapshots belong to later stream AUTH, which this run never reaches.
+
+Leave submission, join MAC disable/TX/RX drain/filter/TXOP restoration, exact
+endpoint Stop and context restoration report success, as does restoration of
+all nine power originals. The enclosing RF inverse does not run: restored0,
+operations2636. The complete-parent checker correctly refuses. The unused
+prepared child and parked worker retire; neither HTTP connection begins.
+Do not treat local cleanup or target selection as complete-parent acceptance.
+
+All473 prior file bytes and strict metadata survive apart from one authorized
+marker atime; two log files are new. Offline fsck/allocation,64 other EFI-file
+bytes and seven protected recovery checks pass. Ubuntu is default/unarmed.
+The immutable1445-file primary index is
+`0d51888c8503fc9a768d4e5503854d5ca855c16648d7f1ef4bcc0cfe9a81cea9`.
+A separate source-frozen observation review rehashes every primary file and
+has index`698e13af41249b996e7d6817f6a0d426d93b1b44db191e435fd2e1ec8f7b4ac5`.
+Neither bank may be recollected or resealed.
+
+Before installation, normal/fatal38 survey,77 prime,75 early,16 HTTP,37 API
+and72 supervisor cases passed. Native source774504f5 is explicitly bound by
+unchanged C/header/fixture/Makefile and binary hashes to collector-only source
+772f031c. A corrected immutable boot-token union, affected decoders,279 stage/
+18 actual-main checks, eight frozen-checker/five partial-journal/11 power
+rollback cases, seven exact-stage recovery VMs,473-file private workspace VM
+and actual ELF/production-DNS/exact-HTTP guest passed. Those software gates do
+not accept the new native continuation or explain the AUTH packet loss.
+
+Next bounded diagnosis distinguishes initial AUTH radio delivery/ACK from
+receive framing/response admission, using the existing later-AUTH diagnostic
+as a reference. Preserve the750ms reply budget, no replay and immutable stopped
+ownership. Audit and reproduce the actual initial native path before proposing
+another hardware candidate; do not retry this unchanged image blindly.
+
 ### Bounded discovery continuation implementation scope (November 12)
 
 On main7c1a08a0 integrated bydfb5a64e, PR19 now owns an explicit connection
