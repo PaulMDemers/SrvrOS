@@ -23,4 +23,10 @@ bool mt76_discovery5_collect(struct mt76_discovery *,const struct mt76_rx_window
 enum mt76_discovery5_status mt76_discovery5_choose(struct mt76_discovery5_choice *,
  const struct mt76_discovery *,const struct mt76_rx_window *,const struct mt76_discovery_io *,
  uint64_t generation,const uint8_t *ssid,unsigned size);
+/* Revalidate an earlier stopped window and refuse conflicting observations of
+ * the chosen BSSID, including hidden advertisements with a different RSNE.
+ * The caller must also retain all windows and bind the selected current owner.
+ * No selection, hardware or connection authority is created here. */
+enum mt76_discovery5_status mt76_discovery5_history(const struct mt76_discovery5_choice *,
+ const struct mt76_discovery *,const struct mt76_rx_window *,const struct mt76_discovery_io *);
 #endif

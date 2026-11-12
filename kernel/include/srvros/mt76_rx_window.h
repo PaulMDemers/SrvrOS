@@ -61,6 +61,9 @@ struct mt76_rx_window {
     struct mt76_rx_window_plan plan;
     unsigned attempts, completions, ignored, polls, beacons;
     uint64_t elapsed_us;
+    /* Nonzero only for the explicitly shortened 5GHz continuation API. */
+    uint64_t deadline_us;
+    uint64_t start_us;
     struct mt76_rx_window_item item[MT76_RX_WINDOW_SLOTS];
 };
 /* Return the effective pilot channel, or0 for invalid/mixed region bindings. */
@@ -88,5 +91,8 @@ bool mt76_rx_window_run(struct mt76_rx_window *,
  * Native caller supplies selected RF/calibration and exclusive endpoint proof. */
 bool mt76_rx5_window_plan_valid(const struct mt76_rx_window_plan *);
 bool mt76_rx5_window_poll(struct mt76_rx_window *,const struct mt76_rx_window_plan *,const struct mt76_rx_window_io *);
+/* Explicit continuation only: an absolute deadline from this same clock may
+ * shorten, never extend, the plan's receive budget. No page/ring reuse. */
+bool mt76_rx5_window_poll_until(struct mt76_rx_window *,const struct mt76_rx_window_plan *,const struct mt76_rx_window_io *,uint64_t deadline_us);
 bool mt76_rx5_window_finish(struct mt76_rx_window *,const struct mt76_rx_window_io *,const struct mt76_rx_window_stop *);
 #endif

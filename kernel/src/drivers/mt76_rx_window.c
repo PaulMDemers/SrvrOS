@@ -41,7 +41,7 @@ static void inspect(struct mt76_rx_window_item *s,const uint8_t *p,unsigned chan
 }
 static bool poll_for(bool high,struct mt76_rx_window *s,
                         const struct mt76_rx_window_plan *plan,
-                        const struct mt76_rx_window_io *io) {
+                        const struct mt76_rx_window_io *io,uint64_t deadline) {
     if (!s || s->attempted) return false;
     *s=(struct mt76_rx_window){.attempted=true};
     for (unsigned i=0;i<MT76_RX_WINDOW_SLOTS;i++)
@@ -53,8 +53,14 @@ static bool poll_for(bool high,struct mt76_rx_window *s,
     const struct mt76_rx_window_plan p=*plan;s->plan=p;
     const struct mt76_rx_window_io f=*io;
     uint64_t start=f.now(f.context),previous=start;
+    s->start_us=start;
     unsigned stalled=0;bool pending=false,ok=true,finished=false;
     uint64_t budget=p.budget_us?p.budget_us:MT76_RX_WINDOW_US;
+    if(deadline) {
+        if(!high || deadline<=start || deadline-start>budget){s->failed=true;return false;}
+        s->deadline_us=deadline;
+        budget=deadline-start;
+    }
     unsigned cap=budget==MT76_RX_WINDOW_LONG_US?20000000:2000000;
     for (unsigned n=0;n<cap;n++) {
         uint64_t now=f.now(f.context);
@@ -107,7 +113,8 @@ static bool finish_for(bool high,struct mt76_rx_window *s,
     if (s->attempts && s->attempts<=MT76_RX_WINDOW_SLOTS) {
         s->stop_attempted=stop!=0;
         unsigned cleanup=stop?stop->cleanup_posts:0;
-        bool extra=!cleanup || (high && s->attempts==8 && cleanup<=8);
+        bool extra=!cleanup || (high && cleanup<=8 &&
+            (s->attempts==8 || (s->deadline_us && s->attempts>0 && s->attempts<8)));
         uint64_t current=s->plan.ring+16*(s->plan.first_index+s->attempts+cleanup-1);
         uint64_t dequeue=stop?stop->dequeue&~15ull:0;
         s->stopped=extra && stop && stop->state==3 && stop->slot==s->plan.slot &&
@@ -125,9 +132,10 @@ static bool finish_for(bool high,struct mt76_rx_window *s,
     }
     s->failed=!ok;s->complete=ok;return ok;
 }
-bool mt76_rx_window_poll(struct mt76_rx_window *s,const struct mt76_rx_window_plan *p,const struct mt76_rx_window_io *io){return poll_for(false,s,p,io);}
+bool mt76_rx_window_poll(struct mt76_rx_window *s,const struct mt76_rx_window_plan *p,const struct mt76_rx_window_io *io){return poll_for(false,s,p,io,0);}
 bool mt76_rx_window_finish(struct mt76_rx_window *s,const struct mt76_rx_window_io *io,const struct mt76_rx_window_stop *q){return finish_for(false,s,io,q);}
-bool mt76_rx5_window_poll(struct mt76_rx_window *s,const struct mt76_rx_window_plan *p,const struct mt76_rx_window_io *io){return poll_for(true,s,p,io);}
+bool mt76_rx5_window_poll(struct mt76_rx_window *s,const struct mt76_rx_window_plan *p,const struct mt76_rx_window_io *io){return poll_for(true,s,p,io,0);}
+bool mt76_rx5_window_poll_until(struct mt76_rx_window *s,const struct mt76_rx_window_plan *p,const struct mt76_rx_window_io *io,uint64_t deadline){return deadline && poll_for(true,s,p,io,deadline);}
 bool mt76_rx5_window_finish(struct mt76_rx_window *s,const struct mt76_rx_window_io *io,const struct mt76_rx_window_stop *q){return finish_for(true,s,io,q);}
 bool mt76_rx_window_run(struct mt76_rx_window *s,
                         const struct mt76_rx_window_plan *plan,

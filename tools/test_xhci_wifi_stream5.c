@@ -6,6 +6,7 @@ struct xhci_device;struct xhci_trb;struct usb_setup_packet;struct initramfs_file
 static void stream_test_progress(void);
 static bool stream_test_parent(void);
 static bool stream_test_capture_parent(void);
+static bool (*stream_test_before_connection)(void);
 static bool stream_test_delay(unsigned);
 static bool stream_test_nonce(uint8_t [32]);
 static bool stream_test_command(const struct xhci_trb *,unsigned,uint64_t *);
@@ -248,7 +249,7 @@ static const unsigned char *stream_oracle_rx(unsigned i){assert(i<stream_oracle_
 static unsigned stream_oracle_tx_size(unsigned i){assert(i<stream_oracle_count());return sim.dhcp_mode && sim.drop_first?stream5_dhcp_fixture[i].tx_size:stream5_fixture[i].tx_size;}
 static unsigned stream_oracle_rx_size(unsigned i){assert(i<stream_oracle_count());return sim.dhcp_mode && sim.drop_first?stream5_dhcp_fixture[i].rx_size:stream5_fixture[i].rx_size;}
 static bool stream_test_parent(void){return sim.parent;}
-static bool stream_test_capture_parent(void){assert(wifi_join5_after);bool good=sim.parent && wifi_join5_after();return good && !sim.parent_after_fail;}
+static bool stream_test_capture_parent(void){assert(wifi_join5_after);if(stream_test_before_connection)return stream_test_before_connection();bool good=sim.parent && wifi_join5_after();return good && !sim.parent_after_fail;}
 static bool stream_test_delay(unsigned us){test_time+=(sim.fault==7 || (sim.fault==23 && sim.index==sim.fault_at && wifi_stream5.data_active))?2000000:us;return true;}
 static bool stream_test_nonce(uint8_t out[32]){
 #ifdef SRVROS_XHCI_STACK5_TEST

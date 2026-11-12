@@ -10,7 +10,7 @@ def check(log):
  old_ring,old_dequeue,new_ring=(summary[k] for k in ('old_ring','old_dequeue','new_ring'))
  require(0<old_ring<=2**64-4096 and 0<new_ring<=2**64-4096 and not old_ring%4096 and not new_ring%4096 and old_ring!=new_ring,'invalid/aliased handoff rings')
  require(old_dequeue&15==1 and old_ring<=(old_dequeue&~15)<=old_ring+16*(8+r.get('cal5_cleanup_posts',0)),'invalid old dequeue')
- stops=[fields(s,'wifi-cal5-stop') for s in lines if s.startswith('wifi-cal5-stop:')];require(len(stops)==1 and stops[0]==dict(dict(ok=1,posts=8,state=3,dequeue=old_dequeue,ring=old_ring,retained=1),**({'cleanup':r['cal5_cleanup_posts']} if r.get('cal5_cleanup_enabled') else {})),'handoff differs from exact old stop')
+ stops=[r['survey5']['final_stop']] if r.get('survey5') else [fields(s,'wifi-cal5-stop') for s in lines if s.startswith('wifi-cal5-stop:')];require(len(stops)==1 and stops[0]==dict(dict(ok=1,posts=8,state=3,dequeue=old_dequeue,ring=old_ring,retained=1),**({'cleanup':r['cal5_cleanup_posts']} if r.get('cal5_cleanup_enabled') else {})),'handoff differs from exact old stop')
  writes=[fields(s,'wifi-power5-usb') for s in lines if s.startswith('wifi-power5-usb:')];writes=[s for s in writes if s['cleanup']==0 and s['write']==1]
  require(len(writes)==9 and [s['address'] for s in writes]==list(ADDRESSES),'missing held selected power writes');selected=[s['value'] for s in writes]
  pos=1

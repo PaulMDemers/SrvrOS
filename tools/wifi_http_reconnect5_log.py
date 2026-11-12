@@ -36,6 +36,9 @@ def boot_identity(log,release=None,volume=None):
  releases=[x for x in tokens if x.startswith('srvros.desktop-release=')];volumes=[x for x in tokens if x.startswith('srvros.workspace-volume=')]
  require(len(releases)==len(volumes)==1 and re.fullmatch(r'srvros.desktop-release=[0-9a-f]{16}',releases[0]) and re.fullmatch(r'srvros.workspace-volume=[0-9a-f]{8}',volumes[0]),'invalid HTTP reconnect identity')
  expected=BOOT_FIXED|({'srvros.wifi-cal5-prime=1'} if 'srvros.wifi-cal5-prime=1' in tokens else set())
+ if 'srvros.wifi-survey5=1' in tokens:
+  require('srvros.wifi-cal5-prime=1' in tokens,'survey without priming')
+  expected.add('srvros.wifi-survey5=1')
  require(tokens-set(releases+volumes) ==expected,'wrong explicit HTTP reconnect recipe')
  actual=releases[0].split('=',1)[1];actual_volume=volumes[0].split('=',1)[1]
  require(release is None or release==actual,'wrong HTTP reconnect release')

@@ -62,5 +62,22 @@ int main(void){
  setup();uint8_t copy[4096];memcpy(copy,pages[0],4096);assert(!mt76_discovery5_collect((void *)pages[0],&window,&io) && !memcmp(copy,pages[0],4096));
  assert(mt76_discovery5_choose((void *)pages[0],&cache,&window,&io,1,name,7)==MT76_DISC5_INVALID && !memcmp(copy,pages[0],4096));
  struct mt76_discovery saved_cache=cache;assert(mt76_discovery5_choose((void *)&cache,&cache,&window,&io,1,name,7)==MT76_DISC5_INVALID && !memcmp(&saved_cache,&cache,sizeof cache));
+ /* A fresh selection may only follow windows with no earlier visible target.
+  * Hidden observations of its BSSID must agree on the full security IE. */
+ setup();assert(select()==MT76_DISC5_OK);struct mt76_discovery5_choice selected=choice;
+ for(unsigned i=0;i<8;i++){frame(i,1,(const uint8_t *)"",0,1);}finish();
+ assert(mt76_discovery5_history(&selected,&cache,&window,&io)==MT76_DISC5_OK);
+ unsigned history_calls=calls;
+ for(unsigned n=1;n<=history_calls;n++){
+  for(unsigned i=0;i<8;i++){frame(i,1,(const uint8_t *)"",0,1);}finish();fail_at=n;
+  assert(mt76_discovery5_history(&selected,&cache,&window,&io)==MT76_DISC5_OWNERSHIP);
+ }
+ for(unsigned variant=0;variant<5;variant++){
+  for(unsigned i=0;i<8;i++)frame(i,1,variant==1?name:variant==2?(const uint8_t *)"other":(const uint8_t *)"",variant==1?7:variant==2?5:0,variant==0?0:1);
+  if(variant==3)pages[7][60+12+2+3+20]=12;
+  finish();if(variant==4)cache.row[0].observations++;
+  assert(mt76_discovery5_history(&selected,&cache,&window,&io)!=MT76_DISC5_OK);
+ }
+ assert(mt76_discovery5_history(NULL,&cache,&window,&io)==MT76_DISC5_INVALID);
  puts("mt76-discovery5: PASS fixed161 copied aggregation,explicit unique target/RSN selection,all ownership cancellation points,ambiguity/conflict/security/tamper/generation refusal,legacy isolation and retained-page alias protection;no authentication authority");return 0;
 }

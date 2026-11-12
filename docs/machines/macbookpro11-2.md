@@ -9,7 +9,7 @@ Dated sections retain the bring-up history.
 
 ### Bounded discovery continuation implementation scope (November 12)
 
-On maind7c1a08a0 integrated bydfb5a64e, PR19 now owns an explicit connection
+On main7c1a08a0 integrated bydfb5a64e, PR19 now owns an explicit connection
 survey: at most16 fresh eight-page windows under one10-second receive deadline,
 with one calibration, complete MAC/exact Stop before each inspection and
 context-preserving stopped retarget between windows. Previous rings and both
@@ -30,6 +30,27 @@ is contacted. Reproduce competing traffic/target-after-eight and absent-target
 RF cleanup through actual native code, including exact command/event faults,
 before preparing any physical run. Current installed1b555afb6e2f942b remains
 unarmed; no new hardware acceptance is claimed.
+
+The opt-in v148 implementation is now present.38 actual native survey cases
+compose calibration/prime/receive/selection with the real RF inverse engine;
+registers, RF traffic, HCD and the unused child allocation are modeled. They
+cover target-after-eight, capacity/quiet/partial deadlines, hidden/security/
+ambiguity/history refusals, all17 fresh-allocation prefixes, context/DCS/slot/
+completion/timeout faults, late retained events and sticky memory corruption.
+The unchanged eight-frame profile reproduces the prior missing-target refusal
+before RF inverse; the new profile closes the same absence safely. The existing
+connection handoff still requires eight completed forward TDs; a partial-window
+target never authorizes power or AUTH. Old rings/pages remain retained.
+
+Normal build/USB image,38 survey/77 prime/16 HTTP native cases, the shortened-
+deadline helper, retained-history selection tests,279 stage/18 actual dispatch
+checks and five C-emitted survey decoder groups pass. The16th HTTP case uses
+real preparation/abort to retire its unused child/parked worker after a modeled
+missing-target parent return, with no key/provider/IP/GO or second generation.
+Strict complete-parent decoding now follows the last source-bound window and
+its exact Stop; partial failures remain observations, never accepted HTTP.
+Fatal sanitizers, frozen source/image/workspace/recovery qualification and
+physical acceptance remain pending. No new boot is armed.
 
 ### Priming complete; discovery window exhausted before target (November 12)
 

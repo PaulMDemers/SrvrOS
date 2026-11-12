@@ -10,6 +10,13 @@ def check(log):
   from wifi_prime5_log import check as primed_parent
   r=primed_parent(log)
  else:r=parent(log)
+ if 'srvros.wifi-survey5=1' in log:
+  from wifi_survey5_log import check as survey_check
+  survey=survey_check(log);last=survey['windows'][-1]
+  r.update(survey5=survey,operations=r['operations']+last['end']-r['cal5_operations'],
+           cal5_completions=last['completions'],cal5_beacons=last['beacons'],
+           cal5_cleanup_posts=last['stop'].get('cleanup',0))
+  if last.get('slot'):r['cal5_cleanup_slot']=last['slot']
  lines=log.splitlines();rows=[x for x in lines if x.startswith('wifi-discovery5')]
  require(len(rows)==1,'missing/duplicate discovery summary')
  d=fields(rows[0],'wifi-discovery5')

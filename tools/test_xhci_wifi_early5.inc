@@ -6,6 +6,10 @@ static unsigned early5_fault,early5_stop_fault,early5_owner_fault,early5_control
 static bool early5_history_requested,early5_history_active;
 static uint32_t early5_mac,early5_filter,early5_txop;
 static unsigned prime5_test_fault,prime5_test_commands,prime5_test_stops,prime5_test_new_posts;
+static bool survey5_test_active;
+static bool survey5_test_drop_command;
+static void survey5_test_command(void);
+static bool survey5_test_receive(void);
 static void early5_queue(struct xhci_trb e){
  assert(((xhci.event_ring[early5_producer].control&1)!=0)!=early5_cycle);
  e.control=(e.control&~1u)|(early5_cycle?1u:0u);
@@ -36,10 +40,11 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
    for(unsigned i=0;i<5;i++)context_write32(d->output_context,9,i,context_read32(d->input_context,10,i));
    context_write32(d->output_context,9,0,1);
   }else if(type==16){
-   assert(wifi_prime5.switching && ((cmd->control>>16)&31)==9);
+   assert((wifi_prime5.switching || wifi_survey5.switching) && ((cmd->control>>16)&31)==9);
    prime5_test_commands++;
    context_write32(d->output_context,9,2,cmd->parameter_low);
    context_write32(d->output_context,9,3,cmd->parameter_high);
+   if(survey5_test_active)survey5_test_command();
    if(prime5_test_fault==2)context_write32(d->output_context,9,1,1);
    if(prime5_test_fault==3)context_write32(d->output_context,9,2,cmd->parameter_low^1);
    if(prime5_test_fault==4)context_write32(d->output_context,9,0,1);
@@ -47,11 +52,12 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
    if(prime5_test_fault==6)((struct xhci_trb *)pmm_phys_to_virt(wifi_early5.ring))[0].status^=1;
   }else if(wifi_prime5.after){
    assert(type==15);prime5_test_stops++;
-   uint64_t p=wifi_cal5.plan.ring+16*(wifi_cal5.posts+wifi_cal5.cleanup_posts);
+   bool pending=wifi_cal5.cleanup_pending || wifi_cal5.pending;
+   uint64_t p=wifi_cal5.plan.ring+16*(wifi_cal5.posts+wifi_cal5.cleanup_posts-(pending?1:0));
    context_write32(d->output_context,9,0,3);
    context_write32(d->output_context,9,2,(uint32_t)(p|1));context_write32(d->output_context,9,3,p>>32);
    early5_queue((struct xhci_trb){.parameter_low=(uint32_t)p,.parameter_high=p>>32,
-    .status=27u<<24,.control=(32u<<10)|(9u<<16)|((uint32_t)d->slot_id<<24)});
+    .status=pending?(26u<<24)|4096:27u<<24,.control=(32u<<10)|(9u<<16)|((uint32_t)d->slot_id<<24)});
   }else{
    assert(type==15 && ((cmd->control>>16)&31)==9);
    unsigned n=wifi_early5.completed;
@@ -71,6 +77,7 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
    if(early5_stop_fault!=1 && early5_stop_fault!=2)early5_queue(stop);
   }
   uint64_t p=xhci.command_ring_phys+16*ci;
+  if(survey5_test_active && survey5_test_drop_command)return;
   early5_queue((struct xhci_trb){.parameter_low=(uint32_t)p,.parameter_high=p>>32,
    .status=(early5_stop_fault==3 || (type==16 && prime5_test_fault==1) || (type==15 && !wifi_prime5.after && prime5_test_fault==20)?5u:1u)<<24,
    .control=(33u<<10)|((uint32_t)(type==16 && prime5_test_fault==7?2:d->slot_id)<<24)});
@@ -88,6 +95,7 @@ static void early5_test_doorbell(uint64_t offset,unsigned value){
   prime5_test_new_posts++;assert(wifi_prime5.first_post);
   unsigned state=prime5_test_fault==8?2:prime5_test_fault==9 || ((prime5_test_fault==16 || prime5_test_fault==17) && prime5_test_new_posts==1)?3:prime5_test_fault==18?4:prime5_test_fault==19?0:1;
   context_write32(d->output_context,9,0,state);
+  if(survey5_test_active && survey5_test_receive())return;
   if((prime5_test_fault==16 || prime5_test_fault==17) && prime5_test_new_posts==1)return;
   uint64_t p=wifi_cal5.plan.ring+16*(wifi_cal5.cleanup_pending?8+wifi_cal5.cleanup_posts-1:wifi_cal5.posts-1);
   if(prime5_test_fault==10 || (prime5_test_fault==23 && wifi_cal5.cleanup_pending))early5_data(0);

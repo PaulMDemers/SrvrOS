@@ -23,6 +23,7 @@ static bool wifi_prime5_fail(unsigned fault){
  return false;
 }
 static bool wifi_prime5_alias(uint64_t p){
+ if(wifi_survey5_alias(p))return true;
  if(!wifi_prime5.enabled || !p)return false;
  if(p==wifi_early5.ring)return true;
  for(unsigned i=0;i<WIFI_EARLY5_SLOTS;i++)if(p==wifi_early5.physical[i])return true;

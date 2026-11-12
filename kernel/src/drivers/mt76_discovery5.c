@@ -67,3 +67,42 @@ enum mt76_discovery5_status mt76_discovery5_choose(struct mt76_discovery5_choice
  if(status!=MT76_DISC5_OK){unsigned matches=out->matches;scrub(out,sizeof *out);out->attempted=true;out->matches=matches;}
  return status;
 }
+
+enum mt76_discovery5_status mt76_discovery5_history(const struct mt76_discovery5_choice *chosen,
+ const struct mt76_discovery *cache,const struct mt76_rx_window *w,const struct mt76_discovery_io *io){
+ if(!chosen || !chosen->attempted || !chosen->selected || !chosen->generation || chosen->matches!=1 ||
+    !chosen->row.ssid_size || chosen->row.ssid_size>32 || chosen->row.channel!=161 ||
+    chosen->rsn_size<20 || chosen->rsn_size>257 || !cache || !w || !io || !io->owned)
+  return MT76_DISC5_INVALID;
+ /* choose() rebuilds the immutable history cache and checks every retained
+  * parser receipt. A past visible target would have ended the survey already. */
+ struct mt76_discovery5_choice prior={0};
+ enum mt76_discovery5_status status=mt76_discovery5_choose(&prior,cache,w,io,
+  chosen->generation,chosen->row.ssid,chosen->row.ssid_size);
+ scrub(&prior,sizeof prior);
+ if(status!=MT76_DISC5_UNAVAILABLE)return status==MT76_DISC5_OK?MT76_DISC5_CONFLICT:status;
+ for(unsigned i=0;i<cache->count;i++){
+  const struct mt76_discovery_row *r=&cache->row[i];
+  if(!equal(r->bssid,chosen->row.bssid,6))continue;
+  if(r->ssid_conflict || r->security_conflict || !r->hidden || !r->privacy || !r->rsn || r->wpa)
+   return MT76_DISC5_CONFLICT;
+ }
+ for(unsigned i=0;i<w->completions;i++){
+  if(!io->owned(io->context,w))return MT76_DISC5_OWNERSHIP;
+  const struct mt76_rx_window_item *item=&w->item[i];if(!item->beacon)continue;
+  struct mt76_rx_beacon5 b={0};struct mt76_rx_view v={0};
+  if(mt76_rx_beacon5(w->plan.buffer[i],item->actual,161,20,&b)!=MT76_RX_OK ||
+     mt76_rx_usb_view(w->plan.buffer[i],item->actual,&v)!=MT76_RX_OK)return MT76_DISC5_INVALID;
+  bool match=equal(b.beacon.bssid,chosen->row.bssid,6);scrub(&b,sizeof b);if(!match)continue;
+  const uint8_t *rsn=NULL;unsigned bytes=0;
+  for(size_t pos=12;pos<v.body_size;){
+   if(v.body_size-pos<2)return MT76_DISC5_INVALID;
+   unsigned id=v.body[pos],n=v.body[pos+1];if(n>v.body_size-pos-2)return MT76_DISC5_INVALID;
+   if(id==48){if(rsn)return MT76_DISC5_INVALID;rsn=v.body+pos;bytes=n+2;}
+   pos+=n+2;
+  }
+  if(!rsn || bytes!=chosen->rsn_size || !equal(rsn,chosen->rsn,bytes))return MT76_DISC5_CONFLICT;
+  if(!io->owned(io->context,w))return MT76_DISC5_OWNERSHIP;
+ }
+ return io->owned(io->context,w)?MT76_DISC5_OK:MT76_DISC5_OWNERSHIP;
+}

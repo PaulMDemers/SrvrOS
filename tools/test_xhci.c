@@ -6941,6 +6941,7 @@ static void test_wifi_mcu_transport(void) {
 #ifdef SRVROS_XHCI_CAL5_MCU_TEST
 #include "test_xhci_wifi_cal5_mcu.inc"
 #include "test_xhci_wifi_early5.inc"
+#include "test_xhci_wifi_survey5.inc"
 #endif
 #include "test_xhci_wifi_passive.inc"
 #include "test_xhci_wifi_channel.inc"
@@ -7816,6 +7817,8 @@ int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"--wifi-window")){test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-passive")){test_wifi_passive();return 0;}
 #ifdef SRVROS_XHCI_CAL5_MCU_TEST
+    if(argc==2 && !strcmp(argv[1],"--wifi-survey5")){test_wifi_survey5();return 0;}
+    if(argc==3 && !strcmp(argv[1],"--trace-survey5")){batch_trace=true;survey5_whole_native((unsigned)strtoul(argv[2],NULL,0),0);return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-prime5")){test_wifi_prime5();return 0;}
     if(argc==2 && !strcmp(argv[1],"--trace-prime5")){batch_trace=true;prime5_whole_native(0,50);return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-early5")){test_wifi_early5();return 0;}

@@ -106,6 +106,9 @@ static void cal5_mcu_test_bulk(unsigned dci){
 static struct xhci_device *cal5_mcu_setup(unsigned fault,unsigned target){
  assert(!wifi_mcu_observer.receipt && !wifi_mcu_observer.device);
  reset_test();memset(&wifi_cal5,0,sizeof wifi_cal5);memset(&wifi_prime5,0,sizeof wifi_prime5);memset(&wifi_stream5,0,sizeof wifi_stream5);
+ memset(&wifi_survey5,0,sizeof wifi_survey5);memset(&wifi_survey5_next,0,sizeof wifi_survey5_next);
+ memset(&wifi_http_reconnect5,0,sizeof wifi_http_reconnect5);wifi_http_reconnect5_reserved=false;
+ wifi_discovery5_requested=wifi_power5_requested=false;memset(&wifi_power5,0,sizeof wifi_power5);
  memset(&wifi_join5,0,sizeof wifi_join5);memset(&wifi_wpa5,0,sizeof wifi_wpa5);memset(&wifi_fence5_native,0,sizeof wifi_fence5_native);
  test_time=1000;test_time_step=100;complete_control=false;complete_device=NULL;
  cal5_mcu_fault=fault;cal5_mcu_target=target;cal5_mcu_calls=cal5_mcu_clock_calls=0;

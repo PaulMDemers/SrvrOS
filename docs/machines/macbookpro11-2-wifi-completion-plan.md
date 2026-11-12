@@ -9,6 +9,22 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 12)
 
+The v148 bounded continuation and missing-target cleanup are implemented on
+main7c1a08a0/dfb5a64e. One calibration precedes up to16 fresh eight-page windows
+under a single10-second receive deadline; exact Stop precedes inspection and
+retarget, all old DMA remains retained and late/corrupt ownership fuses forward
+admission. Earlier hidden/security/BSSID observations must agree with the final
+target. Only a complete eight-frame window can authorize the unchanged power/
+connection handoff. A normal absent/ambiguous/security/deadline outcome closes
+its proven RF parent and unused HTTP allocation while the workload stays failed.
+
+Normal38 actual-native survey/RF-inverse cases,77 prime/16 HTTP cases, deadline/
+history tests,279 stage/18 main-dispatch checks and strict emitted-row decoders
+pass. The legacy eight-frame missing-target failure is reproduced in the same
+native fixture. HCD/RF/child scheduling are modeled. Final fatal and exact-image
+qualification, installation and physical evidence remain pending; no new boot
+is armed. Keep all previously closed primary/review banks unchanged.
+
 Thef0f77ed7/1b555afb6e2f942b return saved a full exit and all seven independent
 journal phases. Calibration/prime/local MAC/endpoint cleanup report success,
 but eight receive slots fill in259541us with competing traffic and no target.

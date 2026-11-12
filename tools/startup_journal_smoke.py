@@ -51,10 +51,10 @@ def run(args):
     refusal_reason = 8 if args.mode == 'dirty-state' else 6
     source = boot.STAGE / args.release
     manifest = boot.verify(source)
-    assert manifest['config_version'].startswith(('ram-usb-wifi-fw-v141-','ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-','ram-usb-wifi-fw-v144-','ram-usb-wifi-fw-v145-','ram-usb-wifi-fw-v146-'))
+    assert manifest['config_version'].startswith(('ram-usb-wifi-fw-v141-','ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-','ram-usb-wifi-fw-v148-','ram-usb-wifi-fw-v144-','ram-usb-wifi-fw-v145-','ram-usb-wifi-fw-v146-'))
     early_compare = manifest['config_version'].startswith(('ram-usb-wifi-fw-v144-','ram-usb-wifi-fw-v145-','ram-usb-wifi-fw-v146-'))
-    http_reconnect = manifest['config_version'].startswith(('ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-'))
-    full_reconnect = manifest['config_version'].startswith(('ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-'))
+    http_reconnect = manifest['config_version'].startswith(('ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-','ram-usb-wifi-fw-v148-'))
+    full_reconnect = manifest['config_version'].startswith(('ram-usb-wifi-fw-v142-','ram-usb-wifi-fw-v143-','ram-usb-wifi-fw-v147-','ram-usb-wifi-fw-v148-'))
     descriptor = journal.verify_initramfs(source/'initramfs.tar')
     host = json.loads((args.host_record/'journal-host.json').read_text())
     assert descriptor == (args.host_record/'descriptor.bin').read_bytes()

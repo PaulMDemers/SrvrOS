@@ -8,6 +8,13 @@ static struct {
  unsigned connections;
  uint64_t epochs[2],tokens[2];
 } wifi_http_reconnect5;
+static bool wifi_http_reconnect5_unattempted(void){
+ const struct http_network_probe *p=&wifi_http_reconnect5.probe[0];
+ return wifi_http_reconnect5_reserved && wifi_http_reconnect5.requested &&
+  wifi_http_reconnect5.attempted && wifi_http_reconnect5.prepared && !wifi_http_reconnect5.connections &&
+  p->self==(uintptr_t)p && !p->result.attempted && !p->result.go && !p->child.published &&
+  !p->bootstrap.identity && !wifi_stream5.attempted && !wifi_stack5_net.identity;
+}
 static bool wifi_http5_failed_connection_closed(void){
  unsigned g=wifi_http_reconnect5.connections;if(g>1)return false;
  const struct http_network_probe *p=&wifi_http_reconnect5.probe[g];
