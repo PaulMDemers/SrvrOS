@@ -13170,3 +13170,27 @@ already owns separate metadata decode/restore work; do not duplicate that
 implementation or infer its native acceptance here. No new implementation or
 physical trial has started. Existing offline-repair limitations and the older
 intermittent battery transport-fault cause remain unresolved.
+
+## Active sidecar remount/equality audit (2026-11-12)
+
+From fetched main `ca454d7c`, reproduce the sidecar equality miss after a raw
+lease/remount and distinguish record order from real path/identity/permission/
+timestamp changes. Scope is exFAT serialization/equality diagnostics and bounded
+host regressions, the existing storage-only command trace/strict collection and
+this unit's trial records. If proved redundant, reduce serialization-order
+traffic while retaining every fresh-media byte comparison, required metadata
+field, publication/flush barrier, dirty marking, owner/client exclusion and
+quarantine. No cache of equality, deferred persistence or limits change is allowed.
+Keep twelve 32 KiB samples/six pairs, 180 seconds, 16 KiB commands/4 KiB DMA,
+unchanged transport policy and brief 1% boundary cues outside measurement.
+
+PR19 at `41c49fde` owns metadata decoder/atomic restore changes; its actual
+exFAT diff remains confined to parse/apply/load admission. Do not duplicate that
+implementation. PR301 at `537eed80` has no exFAT/VFS overlap. Work stays in the
+existing local device checkout with no subagents or cross-task contact. Model
+MacBookAir6,1 and USB UUID `6ADA-85BB` are confirmed; current accepted `084167c2`,
+recovery `c35475f6`, prior accepted payloads and outside-build evidence remain
+protected. The previous run is collected, independently reviewed and sealed.
+Publish the bounded candidate, run matched host/core/desktop and exact-stage VM
+checks, self-merge and run automatically under existing authorization. Native
+acceptance and any sustained screenshot benefit await matching evidence.
