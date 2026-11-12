@@ -2,34 +2,53 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
-### Active scope: separate original-owner nonzero-geometry reset protocol
+### Hardware-ready: original nonzero-geometry reset protocol
 
-Base `a8adda70`, integrated main `ca454d7c` (PR479 evidence-only update after
-PR478). Implement a separate native image/API/recipe/collector path for the
-observed kind 1 disabled-after-entry, nonzero-geometry source, binding its actual
-original post-census and advanced epoch through maintained preparation and BCS
-reset. Keep the existing kind 2/zero-geometry predicate and old API/image/receipt
-contracts unchanged. Determine reference-backed post-reset state explicitly;
-source snapshots are immutable, never rewritten to pass a legacy predicate.
+Frozen source `2efa8028`, release `562d35107d14e298`, integrated main
+`ca454d7c` / PR479. The separate [v28 protocol](../intel-nonzero-reset.md)
+binds the original kind 1 entry and actual fresh nonzero post-census under the
+same static HDA/GT root. Its registered child spans admission, maintained
+five-engine readiness, two BCS8 pulses, settling, reverse cancellation, full
+92-word census/37-word reader preservation and verified return. Both whole
+preserved and strict reset-default geometry postconditions are modeled; no
+software geometry clear or restore is used to manufacture a pass.
 
-Touched scope: original-entry admission, geometry-specific takeover/preparation/
-reset protocol, native adapter integration, exact profile/receipt/collector,
-actual-adapter source/clock/store/return tests, native access/frame/isolation,
-saved-tail and exact-stage VM qualification. Existing BCS/source 100 ms, entry
-150 ms, handoff/fresh-source 100 ms, preparation/reset 100 ms, GT 300 ms, HDA
-400 ms and outer 500 ms remain fixed. No geometry-clearing software store,
-forced enabled state, copied owner, saved-receipt authority or memory grant.
-The latest v27 safe refusal is collected and banked below. Current127a/recovery9aa8,
-USB37D8-C5D0 and accepted payloads remain untouched; no reboot is armed.
-The separate [v28 protocol](../intel-nonzero-reset.md) is implemented for local
-qualification. Its native-adapter model completes preserved and strict
-reset-default geometry with original source/epoch/readers, clean return and
-no requester or memory transfer. Exhaustive source/clock/store/read/return
-faults and strict receipt/preinit tests pass; full image/core/sanitizer/VM
-qualification remains before hardware-ready. This is not native acceptance.
-PR19 networking (`41c49fde`) and PR379 WebCore (`817f80bb`) stay independent.
-No delegation or cross-task messages. Checkpoint:
-`build/air-nonzero-reset-20261112/status.md`.
+The existing kind 2 zero-geometry guard, APIs and old image/receipt contracts
+are unchanged. Admission/source 100 ms, entry 150 ms, preparation 100 ms, GT 300 ms,
+HDA 400 ms and outer 500 ms remain fixed. The original GT start is bound through
+every clock; clock-time parent mutation refuses before any target store.
+This block stops before re-arm, interval claim, GPU requester and memory
+transfer. All 255 obligations remain; assurances and managed pages 0 and native
+tear-free remain pending. **No v28 physical acceptance is claimed.**
+
+Local qualification passes: 33 images, core/USB/host/docs; nine-test fatal ASan/UBSan
+actual native-adapter matrix with source/provider/clock/store/read/post/return
+faults and both timeout paths; 14 compiled defence controls; six historical native
+contract replays retaining each original pass/refusal; distinct recipe/preinit/
+receipt/symbol isolation; actual object/staged DWORD offsets, fenced writes,
+final clock/source identity, static retained lifetimes and 2 KiB frames. Exact
+15-token EFI/MBR staging verifies zero-store VM refusal, durable prerequisite
+and final reports, unmount and automatic safe return; missing workspace halts.
+Saved-tail projection is `59794/65536` bytes including 1,536 reserve. These
+are local/model/VM results, never native target access or timing acceptance.
+The original storage test still reports 81 baseline-known strict allocation
+repair gaps; this GPU scope does not change or hide them.
+
+Current 127a/recovery 9aa8, accepted GUI c497/HDA-bd77/joint978/standalone d260
+and all historical durable banks remain. The USB's 1,485 files/151 sessions,
+boot digest, offline fsck/allocation/writable/headroom and Ubuntu-default/
+consumed-one-shot recovery are verified. Candidate is banked separately,
+**not installed or armed**; no reboot was performed in this implementation
+block. Next explicitly authorized trial is silent at 1%, unattended, with guest
+progress, persistent reports and automatic return for proved safe saved outcomes.
+Uncertain ownership/return or unsafe persistence retains the original root and
+halts visibly; collect the matching session before another run.
+
+PR19 networking (`41c49fde`) and PR379 WebCore (`817f80bb`) remain independent;
+no delegation, task messages or Actions were used. Checkpoint:
+`build/air-nonzero-reset-20261112/status.md`; durable payload/evidence survive
+`make distclean` in the local SrvrOS bank. Source snapshots remain immutable;
+never use a historical receipt or copied owner as live authority.
 
 ### Latest native result: enabled entry verified; reset/requester refused
 

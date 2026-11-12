@@ -845,3 +845,10 @@ not construct an old takeover/preparation object from a nonzero receipt.
 Strict whole-vector postconditions and original deadlines apply. This block
 stops before re-arm/requester/memory transfer. Native acceptance is pending;
 other device profiles retain their own gates and evidence.
+
+Air7,2 frozen source `2efa8028` / release `562d35107d14e298` is locally
+hardware-ready for this distinct v28 protocol. 33-image/core, fatal sanitizer,
+compiled defence controls, preserved/default models, historical replays and
+exact-stage VM persistence/return checks pass. Native acceptance is pending;
+no install or boot is armed. Existing zero guards and all deadlines remain;
+all 255 obligations stay open. Other unit scopes/acceptance are unchanged.

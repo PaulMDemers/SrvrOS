@@ -1,8 +1,8 @@
 # Original nonzero-geometry BCS reset
 
 This is the separate opt-in v28 `intel-nonzero-reset` diagnostic for the
-MacBookAir7,2 reference unit. It is under local qualification; native acceptance
-is pending. It follows the enabled-entry suboperation observed in the v27
+MacBookAir7,2 reference unit. Local qualification passes on frozen source `2efa8028`;
+native acceptance is pending. It follows the enabled-entry suboperation observed in the v27
 trial. The v27 whole entry/reset/requester sequence remains incomplete.
 
 The existing `intel_ring_entry_reset_ready` guard, takeover geometry gate and

@@ -46,3 +46,10 @@ physical evidence and remaining unknowns. Integrate through the shared branch's
 owner/review process; other machines should record the new base and rerun relevant
 regressions. An agent should not assume remote changes or another device's work
 have landed until it fetches and inspects the actual commits.
+
+The reference Air7,2 now has a separate [nonzero-geometry reset diagnostic](../intel-nonzero-reset.md)
+locally qualified on source `2efa8028` / release `562d35107d14e298`. Its
+original kind1 source/epoch/borrow, maintained readiness, strict postconditions
+and preservation are modeled and VM recovery is checked; native acceptance
+remains pending. It does not widen the legacy zero-geometry gate or any sibling
+profile, or grant requester/managed-memory/native tear-free acceptance.
