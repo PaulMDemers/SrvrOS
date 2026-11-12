@@ -690,7 +690,7 @@ def main():
     parser.add_argument("--battery-preflight",action="store_true",help="passive Air6,1 PM1/GPE/EC-status capture; no live battery sampling")
     parser.add_argument("--battery-air61",action="store_true",help="exact Air6,1 battery kernel; use a capture or --desktop-battery --desktop-volume")
     parser.add_argument("--storage-wait-capture",action="store_true",help="counterbalanced fixed-file USB polling/wait comparison; saves and returns automatically")
-    parser.add_argument("--storage-only-capture",action="store_true",help="isolated fixed32KiB filesystem/direct-extent write/flush/readback comparison at1% volume")
+    parser.add_argument("--storage-only-capture",action="store_true",help="isolated fixed32KiB filesystem/direct-extent write/flush/readback comparison at1%% volume")
     args = parser.parse_args()
     if args.desktop_navigation_trial and (args.action != "stage" or not args.desktop_volume or not args.desktop_services or not args.desktop_battery):
         parser.error("--desktop-navigation-trial requires stage and combined battery/services desktop volume")
