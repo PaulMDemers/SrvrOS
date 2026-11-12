@@ -25,8 +25,13 @@ supervisor normal/fatal cases, the old-supervisor hold counterfactual,77 native
 priming cases, seven exact-stage journal modes,471-file clone and actual guest
 ELF/DNS/HTTP. Software qualification and physical acceptance stay distinct.
 
-Next integrate inspected main7c1a08a0/PR476–477, preserve the Air storage profile,
-then address two explicit discovery boundaries: semantic target absence must
+Main7c1a08a0/PR476–477 is integrated atdfb5a64e with both capture profiles
+preserved. Merged build/USB image,277 profile/17 actual dispatch checks,
+36 storage cases, affected workspace/logger/USB regressions,77 native priming
+and15 native HTTP integration cases pass in their modeled scopes. Installed
+runtime remainsf0f77ed7; no new payload is staged or boot armed.
+
+Next address two explicit discovery boundaries: semantic target absence must
 permit proven original RF cleanup without granting connection authority; the
 connection scan needs a bounded retained receive design that can outlast the
 first eight unrelated frames. Keep stopped-before-inspection and strict unique

@@ -49,10 +49,14 @@ cause, not physical packet-loss causation.77 native priming cases, seven
 exact-stage journal/recovery VMs, the471-file private clone and actual guest
 ELF/production-DNS/exact-HTTP VM also pass within their stated modeled scopes.
 
-Next bounded scope: integrate inspected main7c1a08a0 (PR476/477 isolated Air6,1
-storage comparison/evidence), preserving both explicit capture profiles. PR478
+Inspected main7c1a08a0 (PR476/477 isolated Air6,1 storage comparison/evidence)
+is integrated atdfb5a64e, preserving both explicit capture profiles. Merged
+build/USB image,277 boot-profile and17 actual Wi-Fi dispatch checks,36 storage
+comparison cases and workspace/logger/USB-storage/commit-wait regressions pass;
+77 native priming and15 native HTTP integration cases also pass with modeled
+HCD/RF/child. No new payload is staged or installed. PR478
 storage command accounting, PR301 GPU/HDA and PR379 WebCore remain separate;
-PR19 owns Wi-Fi. Then fix target-unavailable cleanup without granting power,
+PR19 owns Wi-Fi. Next fix target-unavailable cleanup without granting power,
 handoff, AUTH or IP authority, and replace the connection trial's accidental
 eight-frame discovery limit with a separately bounded retained receive design.
 Preserve stopped-before-inspection, original RF/USB guards, no uncertain DMA

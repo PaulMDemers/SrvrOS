@@ -1861,3 +1861,14 @@ brief1% boundary cues outside storage timing. See the
 [comparison contract](storage-only-comparison.md) for twelve samples,180second
 bound, strict receipt/byte/allocation checks and terminal quarantine on uncertain
 I/O. This is a separate control, not a replacement for the combined stress trial.
+
+Pro11,2 November12 return: `build/bringup/wifi-bootstrap-abort5/run.json` is
+collected exactly once and closed failed. A complete exit and seven independent
+checkpoints survive; the eight-frame discovery window filled without the target
+before any AUTH/DHCP/HTTP attempt. Its immutable primary and separate review
+must not be recollected/resealed. See the [current unit handoff](machines/macbookpro11-2.md#current-handoff)
+for source-bound software qualification, storage/recovery results and the next
+discovery/cleanup scope. Main7c1a08a0 is integrated; installed runtime remains
+f0f77ed7/release1b555afb6e2f942b. Ubuntu is default/unarmed and no next candidate
+is installed. The unit's existing shutdown/unplug authorization is unchanged;
+never copy it, its UUID or credentials to another machine.
