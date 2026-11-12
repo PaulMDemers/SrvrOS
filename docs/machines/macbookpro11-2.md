@@ -61,6 +61,16 @@ the correction. This is an API refusal fix, not a claim about physical packet
 loss. The interrupted earlier sanitizer run is retained; final qualification
 must bind the corrected clean source before any staging or boot.
 
+The source774504f5 normal/fatal native qualification subsequently passes all
+38 survey,77 prime,75 early,16 HTTP,37 bootstrap API and72 supervisor cases.
+The follow-on HTTP boot-identity test then catches a host-only decoder defect:
+the new survey token was added with mutable-set syntax to a frozen union.
+Use a new immutable union instead. This changes no native C/header/fixture
+inputs; preserve the source774 native qualification and explicitly verify those
+inputs/binary hashes before carrying its result to the corrected collector
+source. Repeat affected decoders, staging, frozen imports and exact image/VM
+checks before installing. No physical trial is armed.
+
 ### Priming complete; discovery window exhausted before target (November 12)
 
 Runtimef0f77ed7/release1b555afb6e2f942b saved a complete exit and all seven
