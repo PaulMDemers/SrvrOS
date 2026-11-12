@@ -111,6 +111,11 @@ bool net_probe_worker_disconnect(struct net_bounded_probe *p){
  if(is("disconnect-refuse"))return false;
  p->disconnected=true;return true;
 }
+bool net_probe_worker_abort_connection(struct net_bounded_probe *p,const struct net_bounded_probe_io *io,uint64_t epoch,uint64_t deadline){
+ assert(connection_test && p==&object->bootstrap && io==&object->net_io && p->failed && p->protocol_failed &&
+  epoch==source.epoch && deadline==source.deadline_us && object->result.child_retired && wp.finished && !wp.ever_active && table_empty);
+ disconnects++;p->closed=p->disconnected=true;p->source=NULL;memset(&p->io,0,sizeof p->io);memset(&p->io_guard,0,sizeof p->io_guard);bootstrap_finished=true;return true;
+}
 
 bool net_bounded_probe_poll(struct net_bounded_probe *p){assert(p==&object->bootstrap);p->polls++;pending=false;return net_source->current(net_source->context,p->epoch);}
 bool net_bounded_probe_finish(struct net_bounded_probe *p){
@@ -119,7 +124,7 @@ bool net_bounded_probe_finish(struct net_bounded_probe *p){
 int64_t net_dhcp_request_bounded(struct net_bounded_probe *p){
  assert(net_source->current(net_source->context,p->epoch));p->polls+=3;
  if(starts("live-retry-") && !net_source->retry_ready(net_source->context,p->epoch)){p->failed=true;return -1;}
- if(is("dhcp-fail") || is("dhcp-pending")){p->failed=true;pending=is("dhcp-pending");return -1;}return 0;
+ if(is("dhcp-fail") || is("dhcp-pending")){p->failed=p->protocol_failed=true;pending=is("dhcp-pending");return -1;}return 0;
 }
 int64_t net_dns_resolve_bounded(struct net_bounded_probe *p,const char *name,uint32_t *ip){
  assert(p==&object->bootstrap && !strcmp(name,"httpbin.org"));dns_calls++;p->polls+=2;
@@ -286,6 +291,11 @@ int main(void){
   if(is("good")){
    assert(good && disconnects==1 && object->result.disconnected && object->result.quiescent && handoffs==1);
    assert(object->result.child_retired && object->result.worker_finished && !object->source);
+  }else if(is("dhcp-fail")){
+   assert(!good && !object->result.complete && object->result.reason==HTTP_NET_DHCP_FAILED);
+   assert(object->result.disconnected && object->result.quiescent && object->result.receiver_closed && object->result.refs_scrubbed);
+   assert(object->result.child_retired && object->result.worker_finished && !object->source && handoffs==1 && disconnects==1);
+   assert(object->bootstrap.failed && object->bootstrap.protocol_failed && object->bootstrap.closed && !publishes);
   }else{
    assert(!good && !object->result.complete && !object->result.disconnected && object->result.quiescent==is("init-fail") && !handoffs);
    if(!is("init-fail"))assert(object->source==&source && !object->result.refs_scrubbed);

@@ -50,8 +50,29 @@ safe closure and retain ownership on every unknown boundary before another
 physical run. Full protocol success and RF acceptance remain separate.
 
 Fetched mainf16fa5ab/PR475 adds only Air6,1 command-tail evidence documentation;
-integrate it before shared implementation. PR19 owns this net/HTTP scope;
+it is integrated atcc1018b7 before shared implementation. PR19 owns this net/HTTP scope;
 GPU/HDA, WebCore and Air storage work remain separate. No task is contacted.
+
+The implementation now preserves a separate protocol-failure marker without
+clearing failed. Guard failures revoke that marker. The terminal API binds the
+original scope/IO/epoch/window, stopped unused worker, link/MAC, clocks and empty
+tables; it scrubs/deconfigures only after final checks and fuses later admission.
+Foreign copied scopes refuse without faulting the original. Callback mutation
+or a refused original scope cannot regain permission by restoring a field.
+HTTP retires its never-published child and parked worker, closes the failed
+protocol scope and consumes the original raw-RX authority. The native owner
+then performs its unchanged key/leave/MAC/exact Stop/event/DMA/provider cleanup,
+with an independent software-seal guard. Semantic failure remains false and
+connection2 is never prepared. Unknown TX/cache/loan/guard state still holds.
+
+Initial normal checks pass37 actual terminal-API scenarios,72 generic supervisor
+scenarios and15 actual native HTTP cases with modeled HCD/RF/scheduler/child.
+Native cases include bad-MIC/no-offer DHCP timeouts, configured DNS failure,
+posted raw RX, full named retirement, and an uncertain DHCP TX that must hold.
+The C-emitted failed DHCP/DNS observations survive without protocol acceptance.
+Final frozen-source/fatal/counterfactual/image qualification remains pending.
+The physical DHCP packet-loss cause remains unknown; this corrects the hold
+and missing final diagnostic path. No new boot is armed.
 
 ### Priming return: first HTTP complete, second AUTH reply absent (November 11)
 

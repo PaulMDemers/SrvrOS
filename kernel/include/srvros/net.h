@@ -8,6 +8,7 @@
 
 struct process;
 struct net_bounded_probe;
+struct net_bounded_probe_io;
 struct net_device_ops;
 
 /* Checked transfers run callbacks before consuming queued bytes or accepting a
@@ -90,6 +91,12 @@ bool net_prepare_connection_probe_worker(void);
  * worker finished successfully with empty tables. Caller separately proves
  * child retirement and original live provider guard. Not hardware retirement. */
 bool net_probe_worker_disconnect(struct net_bounded_probe *probe);
+/* Terminal pre-handoff protocol failure only: unused prepared worker must be
+ * stopped/finished and all protocol tables empty. Bind original IO/epoch/window
+ * independently, preserve failed history, deconfigure and fuse later admission.
+ * Caller separately proves child retirement and transport/RX ownership. */
+bool net_probe_worker_abort_connection(struct net_bounded_probe *probe,
+    const struct net_bounded_probe_io *original,uint64_t epoch,uint64_t deadline_us);
 bool net_probe_worker_prepared(void);
 bool net_probe_worker_handoff(struct net_bounded_probe *probe);
 bool net_probe_worker_current(void);
@@ -177,7 +184,10 @@ struct net_bounded_probe {
      * length and all32 payload bytes,not merely ID/sequence/checksum. */
     uint64_t dhcp_retries,arp_resolutions,dns_queries,pings_sent,pings_matched;
     struct net_dhcp_observation dhcp_observation;
-    bool busy,checking,failed,closed,connection_scope,disconnected;
+    /* Set only by an ordinary negative protocol result while all preceding
+     * guards were healthy. Any guard failure clears it. Never permits forward
+     * progress or clears failed; only explicit terminal cleanup may consume it. */
+    bool busy,checking,failed,protocol_failed,closed,connection_scope,disconnected;
 };
 bool net_bounded_probe_init(struct net_bounded_probe *probe,
     const struct net_bounded_probe_io *io,uint64_t epoch,uint64_t deadline_us);

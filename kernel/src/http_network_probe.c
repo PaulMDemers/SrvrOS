@@ -201,7 +201,24 @@ static bool finish_worker(struct http_network_probe *s){
  return false;
 }
 static bool finish_without_handoff(struct http_network_probe *s){
- if(s->result.connection_scope && s->bootstrap.identity)return false;
+ if(s->result.connection_scope && s->bootstrap.identity){
+  /* A failed DHCP/DNS transaction never lent its scope to the worker. Seal
+   * that unused worker and retire the never-published child, then consume the
+   * separately checked protocol-failure scope. Never clear a failure latch
+   * or call the forward bootstrap APIs after failure. */
+  if(!s->bootstrap.failed || !s->bootstrap.protocol_failed || s->bootstrap.closed ||
+     s->handoff_attempted || s->result.handoff || s->result.go || s->child.published ||
+     s->net_io.context!=s || s->net_io.current!=net_current || s->net_io.retry_ready!=net_retry ||
+     !current(s) || !worker_snapshot(s) || s->worker.handoff_started || s->worker.ever_active ||
+     s->worker.active || s->worker.busy || s->worker.poll_busy || s->worker.checking ||
+     s->worker.failed || !s->worker.parked || s->worker.parked_waiters!=1 || !drained(s))return false;
+  s->result.provider_drained=s->result.tcp_empty=true;
+  if(!finish_worker(s) || !child_cleanup(s,true) || !current(s) ||
+     !net_probe_worker_abort_connection(&s->bootstrap,&s->net_io,s->io_guard.epoch,s->io_guard.deadline_us) ||
+     !current(s))return false;
+  s->bootstrap_open=false;s->result.disconnected=s->bootstrap.disconnected;
+  return s->result.disconnected && terminal_rx_handoff(s);
+ }
  /* Finish always scrubs this terminal bootstrap, including handled failures.
   * Its return value is success, not the separate reference-closure observation. */
  if(s->bootstrap.identity && !s->bootstrap.closed)(void)net_bounded_probe_finish(&s->bootstrap);

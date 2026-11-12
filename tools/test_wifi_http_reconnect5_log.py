@@ -1,5 +1,5 @@
 """Actual two-generation native C trace; modeled RF bindings grant no acceptance."""
-import os,re,unittest
+import os,re,subprocess,unittest
 from pathlib import Path
 import wifi_http_reconnect5_log as c
 from test_wifi_reconnect5_log import modeled_bindings,mutate,text,emit
@@ -37,6 +37,18 @@ class Tests(unittest.TestCase):
   prefix='wifi-http5-dhcp:';at=next(i for i,s in enumerate(rows) if s.startswith(prefix))
   for changed in (rows[:at]+[rows[at]]+rows[at:],mutate(rows,prefix,'version',99)):
    with self.assertRaises(ValueError):c.observe_dhcp(text(changed))
+ def test_actual_failed_bootstrap_observations_are_saved_without_success(self):
+  binary=os.environ.get('WIFI_HTTP_RECONNECT5_BINARY')
+  if not binary:self.skipTest('actual native C binary required')
+  for case in (2,12,14):
+   raw=subprocess.check_output([binary,'--trace-case',str(case)],text=True)
+   observation=c.observe_dhcp(raw)
+   self.assertFalse(observation['native_accepted']);self.assertEqual(len(observation['rows']),1)
+   d=observation['rows'][0]['fields'];self.assertEqual((d['finished'],d['success'],d['end_reason']),(1,1,1) if case==14 else (1,0,3))
+   self.assertIn('wifi-http-reconnect5-failed: version=1 generation=1 reason='+str(7 if case==14 else 6),raw)
+   self.assertIn('next_allowed=0',raw)
+   self.assertNotIn('wifi-http-reconnect5-begin: version=1 generation=2',raw)
+   with self.assertRaises(ValueError):c.check_owner(raw)
 
  def test_every_retirement_and_workload_obligation(self):
   for prefix,key,value in (

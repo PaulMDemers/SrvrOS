@@ -138,6 +138,7 @@ static void ap_udp_reply(const uint8_t *p,size_t n){
   body=274;ap_ip_header(r,p,17,8+body);memset(v,0,body);v[0]=2;v[1]=1;v[2]=6;memcpy(v+4,u+12,4);ap_p32(v+16,0x0a00020f);memcpy(v+28,hs_spa,6);ap_p32(v+236,0x63825363);unsigned at=240;v[at++]=53;v[at++]=1;v[at++]=type==1?2:5;
   const unsigned kinds[]={54,1,3,6,51};const uint32_t values[]={0x0a000202,0xffffff00,0x0a000202,0x0a000202,3600};for(unsigned i=0;i<5;i++){v[at++]=kinds[i];v[at++]=4;ap_p32(v+at,values[i]);at+=4;}v[at++]=255;assert(at==body);ap_p32(r+30,0xffffffff);ap_p16(r+24,0);ap_p16(r+24,~ap_sum(r+14,20,0));ap_p16(r+34,67);ap_p16(r+36,68);
  }else if(dport==53){
+  if(ap.case_id==59)return;
   ap.dns++;assert(body>=17 && ap_u16(u+12)==1);size_t query=body;body+=16;ap_ip_header(r,p,17,8+body);memcpy(v,u+8,query);ap_p16(v+2,0x8180);ap_p16(v+6,1);ap_p16(v+8,0);ap_p16(v+10,0);uint8_t *a=v+query;ap_p16(a,0xc00c);ap_p16(a+2,1);ap_p16(a+4,1);ap_p32(a+6,60);ap_p16(a+10,4);ap_p32(a+12,ap_ip);ap_p16(r+34,53);ap_p16(r+36,sport);
  }else{
   assert(dport==9000 && body==256);ap.udp++;ap_ip_header(r,p,17,8+body);memcpy(v,u+8,body);ap_p16(r+34,dport);ap_p16(r+36,sport);
@@ -258,6 +259,7 @@ static void stack_test_progress(void){
   assert(sim.tx_seen+1==wifi_stream5.posts[0]);sim.tx_seen++;
   if(wifi_stream5.connection_mode && reconnect_hook_count==1 && !reconnect_old_usb_size){reconnect_old_usb_size=l->length;memcpy(reconnect_old_usb,wifi_stream5.buffer[0][l->index],l->length);}
   uint8_t eth[1514];size_t n=0;uint64_t pn=0;assert(stack5_peer_open(wifi_stream5.buffer[0][l->index],l->length,eth,sizeof eth,&n,&pn));assert(pn==++ap.tx_pn);ap_packet(eth,n);
+  if(ap.case_id==58 && ap.dhcp){ap.held_ticket=l->ticket;return;}
   if(ap.case_id==15 && ap.icmp==64){ap.held_ticket=l->ticket;return;}
   uint64_t q=wifi_stream5.physical[0]+16*wifi_stream5.enqueue[0];context_write32(wifi_stream5.d->output_context,8,0,1);context_write32(wifi_stream5.d->output_context,8,2,q|wifi_stream5.cycle[0]);context_write32(wifi_stream5.d->output_context,8,3,q>>32);
   struct xhci_trb e={.parameter_low=l->trb,.parameter_high=l->trb>>32,.status=1u<<24,.control=(32u<<10)|(8u<<16)|((uint32_t)wifi_stream5.slot<<24)};if(ap.wrong_event)e.parameter_low+=16;stream_enqueue(&e,0);if(ap.case_id==9)stream_enqueue(&e,1);return;

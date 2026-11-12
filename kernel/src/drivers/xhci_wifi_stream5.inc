@@ -6,6 +6,7 @@
 static enum mt76_join5_send wifi_stack5_window(void *,struct wpa2_ccmp *,uint64_t,const struct mt76_peer5 *);
 static bool wifi_stack5_complete(void);
 static void wifi_stack5_emit(void);
+static bool wifi_http5_failed_connection_closed(void);
 #define WIFI_STREAM5_RX 252u
 #define WIFI_STREAM5_TX 80u
 #define WIFI_STREAM5_FENCES 4u
@@ -485,12 +486,18 @@ static unsigned wifi_stream5_emit(void){
  return rx_receipts;
 }
 static bool wifi_stream5_close(bool good,bool adapter_complete){
+ bool accepted=good;
+ /* Semantic failure is never success. Only the independently bound HTTP
+  * pre-handoff abort may request ordinary exact physical retirement afterward. */
+ bool failed_http=!good && !adapter_complete && wifi_stream5.connection_mode &&
+  wifi_stream5.stack_mode && wifi_http5_failed_connection_closed();
+ good=good || failed_http;
  /* Connection close proves restoration to the still-owned adapter window;
   * only the outer capture return may claim full adapter-parent restoration. */
  wifi_stream5.parent_complete=good && adapter_complete;
  if(!adapter_complete && (!wifi_stream5.connection_mode || !wifi_stream5_parent() ||
     !wifi_stream5.restored || wifi_stream5.active || wifi_stream5.failed ||
-    !wifi_stream5.exchange.complete || !wifi_stream5.exchange.keys_erased ||
+    (!wifi_stream5.exchange.complete && !failed_http) || !wifi_stream5.exchange.keys_erased ||
     !wifi_stream5.exchange.leave_sent))good=false;
  if(good && !wifi_stream5.pending[0] && !wifi_fence5_native.round && !xhci.command_pending){uint64_t f=event_irq_save();struct xhci_trb e;bool empty=false;
   for(unsigned i=0;i<32;i++){if(!poll_event(&e)){empty=true;break;}uint64_t p=e.parameter_low|((uint64_t)e.parameter_high<<32);bool ours=false;for(unsigned d=0;d<2;d++)if(p>=wifi_stream5.physical[d] && p<wifi_stream5.physical[d]+4096)ours=true;if(((e.control>>10)&63)!=32 || ours){good=false;break;}dispatch_transfer_event(&e);}
@@ -501,7 +508,7 @@ static bool wifi_stream5_close(bool good,bool adapter_complete){
  wifi_stream5.connection_closed=good && !adapter_complete;
  wifi_stream5.closed=true;wifi_stream5.data_active=false;uint64_t emit_flags=event_irq_save();
  unsigned rx_receipts=wifi_stream5_emit();if(wifi_stream5.stack_mode)wifi_stack5_emit();else console_printf("wifi-stream5: complete=%u parent=%u restored=%u retired=%u empty=%u tx=%u rx=%u tx_wraps=%u rx_wraps=%u data_tx=%u data_rx=%u tx_after=%u rx_after=%u borrowed=%u released=%u faults=%u commands=%u fences=%u rx_receipts=%u retained=1 ordinary_rx=0 tcp=0 http=0 backend_retired=0\n",(uint64_t)good,(uint64_t)wifi_stream5.parent_complete,(uint64_t)wifi_stream5.restored,(uint64_t)wifi_stream5.retired,(uint64_t)wifi_stream5.events_empty,wifi_stream5.posts[0],wifi_stream5.posts[1],(uint64_t)wifi_stream5.wraps[0],(uint64_t)wifi_stream5.wraps[1],(uint64_t)wifi_stream5.data_sends,(uint64_t)wifi_stream5.data_received,(uint64_t)wifi_stream5.data_after_txwrap,(uint64_t)wifi_stream5.data_after_rxwrap,wifi_stream5.dma.borrowed,wifi_stream5.dma.released,wifi_stream5.dma.faults,(uint64_t)wifi_stream5.commands,wifi_stream5.dma.wraps,(uint64_t)rx_receipts);
- event_irq_restore(emit_flags);return good;
+ event_irq_restore(emit_flags);return accepted && good;
 }
 
 static bool wifi_stream5_finish(bool good){return wifi_stream5_close(good,true);}

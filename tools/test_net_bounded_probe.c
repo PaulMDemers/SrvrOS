@@ -198,7 +198,10 @@ static void connection_tests(const struct net_device_ops *ops){
   int status=0;assert(waitpid(child,&status,0)==child && WIFEXITED(status) && !WEXITSTATUS(status));
  }
 }
-int main(void){
+#ifndef BOUNDED_TEST_MAIN
+#define BOUNDED_TEST_MAIN main
+#endif
+int BOUNDED_TEST_MAIN(void){
  struct net_device_ops ops={.name="bounded-peer",.context=&caller_token,.priority=40,.send=bounded_send,.poll=bounded_peer_poll,.link=provider_link};
  memcpy(ops.mac,station,6);assert(net_device_register(&ops) && net_init_bounded_probe());
  begin_bounded();assert(net_dhcp_request_bounded(bounded)==0x0a00020f && discovers==1 && requests==1);

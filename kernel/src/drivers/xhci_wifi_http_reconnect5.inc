@@ -8,6 +8,24 @@ static struct {
  unsigned connections;
  uint64_t epochs[2],tokens[2];
 } wifi_http_reconnect5;
+static bool wifi_http5_failed_connection_closed(void){
+ unsigned g=wifi_http_reconnect5.connections;if(g>1)return false;
+ const struct http_network_probe *p=&wifi_http_reconnect5.probe[g];
+ const struct http_network_result *r=&p->result;const struct mt76_wpa5 *s=&wifi_stream5.exchange;
+ return wifi_http_reconnect5.requested && wifi_http_reconnect5.attempted &&
+  wifi_http5_active_probe==p && wifi_http5_connection_callback_probe==p && p->self==(uintptr_t)p &&
+  r->connection_scope && r->attempted && !r->complete && r->reason && !r->handoff && !r->go &&
+  r->quiescent && r->refs_scrubbed && r->disconnected && r->child_observed && r->child_reaped && r->child_retired &&
+  r->worker_finished && r->tcp_empty && r->provider_drained && r->receiver_closed &&
+  p->bootstrap.closed && p->bootstrap.disconnected && p->bootstrap.failed && p->bootstrap.protocol_failed &&
+  p->child.retired && !p->child.published && p->worker.finished && !p->worker.ever_active && !p->worker.failed &&
+  !p->guard_failed && !p->checking && !p->handoff_attempted && !p->bootstrap_open && p->worker_stopped &&
+  !p->source && !p->source_guard && !p->bootstrap.source && !p->bootstrap.station &&
+  wifi_stream5_current==&wifi_stream5_slots[g] && wifi_stream5.epoch==g+1 &&
+  wifi_stack5_terminal_software_closed(&wifi_stream5,wifi_stream5.epoch) &&
+  !s->complete && !s->unsafe && s->keys_activated && s->keys_erased && s->leave_sent &&
+  !s->handshake.keys_may_live && wpa2_ccmp_erased(&s->keys,wifi_stream5.epoch);
+}
 static bool wifi_http_reconnect5_exercise(void *context,struct mt76_net5 *provider){
  unsigned g=wifi_http_reconnect5.connections;
  if(g>1 || context!=&wifi_http_reconnect5.probe[g] || provider!=&wifi_stack5_net ||
@@ -24,7 +42,7 @@ static bool wifi_http_reconnect5_exercise(void *context,struct mt76_net5 *provid
  bool good=http_network_probe_run_connection(p,&wifi_http_reconnect5.io[g],&provider->ops);
  if(!p->result.quiescent || !p->result.child_retired || !p->result.worker_finished ||
     !p->result.tcp_empty || !p->result.provider_drained || !p->result.disconnected ||
-    (p->result.handoff && !p->result.receiver_closed))wifi_http5_hold(7);
+    !p->result.receiver_closed)wifi_http5_hold(7);
  return good;
 }
 bool xhci_wifi_http_reconnect5_prepare(void){
@@ -54,10 +72,12 @@ static bool wifi_http_reconnect5_window(void){
   stack_test_connection(g);
 #endif
   bool good=wifi_stream5_inspect();
+  bool failed_closed=!good && wifi_http5_failed_connection_closed();
   if(good){zero_bytes(wifi_stream5.pmk,sizeof wifi_stream5.pmk);zero_bytes(wifi_stream5.usb,sizeof wifi_stream5.usb);zero_bytes(&wifi_stream5.scratch,sizeof wifi_stream5.scratch);}
   good=wifi_stream5_close(good,false) && good;
-  if(good && wifi_stack5_retirement(&wifi_stream5,wifi_stream5.epoch))
+  if((good || failed_closed) && wifi_stack5_retirement(&wifi_stream5,wifi_stream5.epoch))
    wifi_stack5.detached=mt76_net5_finish_detach(&wifi_stack5_net,wifi_stream5.epoch);
+  if(failed_closed && (!wifi_stream5.connection_closed || !wifi_stream5.retired || !wifi_stack5.detached))wifi_http5_hold(10);
   good=good && p->result.complete && p->result.connection_scope && p->result.disconnected &&
    p->result.refs_scrubbed && wifi_reconnect5_closed(&wifi_stream5,wifi_stream5.epoch,&wifi_stream5.dma);
   wifi_stack5.exercise=NULL;wifi_stack5.context=NULL;
@@ -68,6 +88,7 @@ static bool wifi_http_reconnect5_window(void){
    wifi_stack5.terminal_ticket,wifi_stack5.terminal_token,wifi_stack5.terminal_posts,wifi_stack5.terminal_completions,
    (uint64_t)wifi_stack5.terminal_provider_closing,(uint64_t)wifi_stack5.terminal_handoff,(uint64_t)wifi_stack5.terminal_handoff,(uint64_t)wifi_stack5.terminal_handoff);
   http_network_probe_emit(p);
+  if(failed_closed)console_printf("wifi-http-reconnect5-failed: version=1 generation=%u reason=%u protocol_failed=1 deconfigured=1 child_retired=1 worker_finished=1 receiver_closed=1 keys_erased=1 native_closed=1 provider_detached=1 next_allowed=0 retained_context=1\n",(uint64_t)g+1,p->result.reason);
   if(!good)return false;
   wifi_http_reconnect5.epochs[g]=wifi_stream5.epoch;wifi_http_reconnect5.tokens[g]=wifi_stack5_net.next_token;
   wifi_http_reconnect5.connections++;

@@ -23,6 +23,15 @@ Do not clear guard failures, relax original budgets or advance to connection2.
 This fixes failure containment/log delivery; the physical DHCP miss remains a
 separate diagnosis requiring the saved packet/radio observations.
 
+That cleanup is implemented with an independent terminal protocol-failure
+marker and original-scope abort, retired unused child/worker, consuming raw-RX
+handoff and exact native/key/provider closure. It never converts the failed
+workload to success or permits connection2. Initial37 API/72 supervisor/15
+native scenarios and C-emitted failed-observation checks pass with modeled
+HCD/RF/child/scheduler. Final frozen-source, fatal, counterfactual and matched
+image qualification precede a new physical trial; the Wi-Fi miss itself is
+not yet explained.
+
 The v147 b9f78149/1d4200b78462bde8 return is closed failed for the complete
 paired workload. Priming, all five calibration replies, fresh discovery and
 the first actual-process DHCP/DNS/HTTP lifetime succeed; its keys, software

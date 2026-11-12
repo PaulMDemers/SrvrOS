@@ -2833,8 +2833,11 @@ done:
 }
 
 static bool bounded_probe_fail(struct net_bounded_probe *p) {
-    if (p && p->identity==(uintptr_t)p && !p->closed) p->failed=true;
+    if (p && p->identity==(uintptr_t)p && !p->closed) {p->failed=true;p->protocol_failed=false;}
     return false;
+}
+static void bounded_probe_protocol_fail(struct net_bounded_probe *p) {
+    if(p && p->identity==(uintptr_t)p && !p->closed && !p->failed){p->protocol_failed=true;p->failed=true;}
 }
 
 static void bounded_probe_scrub(void *data,size_t size) {
@@ -3319,6 +3322,79 @@ bool net_probe_worker_disconnect(struct net_bounded_probe *p) {
     probe_worker_unlock(f);return ok;
 }
 
+static bool bounded_abort_worker_ready(void) {
+    const struct net_bounded_probe_io empty={0};
+    return scheduler_current_thread_id()==probe_worker.supervisor && probe_worker.connection_mode &&
+        probe_worker.prepared && probe_worker.finished && probe_worker.stop_requested &&
+        !probe_worker.ever_active && !probe_worker.active && !probe_worker.busy && !probe_worker.poll_busy &&
+        !probe_worker.checking && !probe_worker.failed && !probe_worker.disconnected && !probe_worker.connection_scope &&
+        probe_worker.parked && probe_worker.parked_queue.waiters==1 && !probe_worker.source && !probe_worker.station &&
+        bounded_io_same(&probe_worker.io,&empty) && bounded_io_same(&probe_worker.guard,&empty) &&
+        !worker_started && initialized && net_probe_quiet;
+}
+static bool bounded_abort_binding(const struct net_bounded_probe *p,
+    const struct net_bounded_probe_io *original,const struct net_bounded_probe_io *guard,
+    uint64_t epoch,uint64_t deadline) {
+    /* Check address identity before dereferencing the mutable source. The
+     * caller supplies its independently retained original static IO address. */
+    return p->identity==(uintptr_t)p && p->source==original && p->busy && p->checking &&
+        p->failed && p->protocol_failed && !p->closed && !p->disconnected && p->connection_scope &&
+        p->epoch==epoch && p->epoch_guard==epoch && p->deadline_us==deadline && p->deadline_guard==deadline &&
+        bounded_io_same(&p->io,guard) && bounded_io_same(&p->io_guard,guard) && bounded_io_same(original,guard) &&
+        bounded_connection.started && bounded_connection.active && !bounded_connection.failed &&
+        !bounded_connection.disconnecting && bounded_connection.scope_identity==(uintptr_t)p && bounded_connection.epoch==epoch &&
+        bounded_abort_worker_ready();
+}
+bool net_probe_worker_abort_connection(struct net_bounded_probe *p,
+    const struct net_bounded_probe_io *original,uint64_t epoch,uint64_t deadline) {
+    uint64_t f=probe_worker_lock();bool ok=false;
+    if(!p || p->identity!=(uintptr_t)p || !bounded_connection.started || !bounded_connection.active ||
+       bounded_connection.scope_identity!=(uintptr_t)p || bounded_connection.epoch!=epoch)goto done;
+    if(!p || !original || !epoch || p->identity!=(uintptr_t)p || p->source!=original ||
+       p->busy || p->checking || !p->failed || !p->protocol_failed || p->closed || p->disconnected ||
+       !p->connection_scope || p->epoch!=epoch || p->epoch_guard!=epoch ||
+       p->deadline_us!=deadline || p->deadline_guard!=deadline ||
+       scheduler_current_thread_id()!=probe_worker.supervisor || !probe_worker.connection_mode ||
+       !probe_worker.prepared || !probe_worker.finished || !probe_worker.stop_requested ||
+       probe_worker.ever_active || probe_worker.active || probe_worker.busy || probe_worker.poll_busy ||
+       probe_worker.checking || probe_worker.failed || probe_worker.disconnected || probe_worker.connection_scope ||
+       !probe_worker.parked || probe_worker.parked_queue.waiters!=1 || probe_worker.source || probe_worker.station ||
+       worker_started || !initialized || !net_probe_quiet || !probe_worker_table_empty())goto done;
+    const struct net_bounded_probe_io guard=*original;
+    const uint64_t start_us=p->start_us,start_tick=p->start_tick,last_us=p->last_us,last_tick=p->last_tick,polls=p->polls;
+    if(!guard.context || !guard.current || !guard.retry_ready)goto done;
+    p->busy=p->checking=true;
+    struct net_device_link link={0};
+    if(!bounded_abort_binding(p,original,&guard,epoch,deadline) ||
+       !guard.current(guard.context,epoch) || !bounded_abort_binding(p,original,&guard,epoch,deadline) ||
+       !net_device_link(&link) || !link.up || !bounded_abort_binding(p,original,&guard,epoch,deadline) ||
+       !bounded_connection_adapter() || !p->station || p->station!=local_mac || net_device_mac()!=p->station)goto failed;
+    for(unsigned i=0;i<6;i++)if(p->mac[i]!=p->station[i])goto failed;
+    if(!guard.current(guard.context,epoch) || !bounded_abort_binding(p,original,&guard,epoch,deadline) ||
+       !bounded_connection_adapter() || !p->station || p->station!=local_mac || net_device_mac()!=p->station ||
+       !probe_worker_table_empty() || process_should_exit_current())goto failed;
+    for(unsigned i=0;i<6;i++)if(p->mac[i]!=p->station[i])goto failed;
+    if(p->start_us!=start_us || p->start_tick!=start_tick || p->last_us!=last_us || p->last_tick!=last_tick || p->polls!=polls)goto failed;
+    uint64_t us=timer_monotonic_us(),tick=timer_ticks();
+    if(us<p->last_us || us<p->start_us || us>=deadline || tick<p->last_tick || tick-p->start_tick>=1500 || p->polls>=150000u)goto failed;
+    p->last_us=us;p->last_tick=tick;
+    /* No callback follows the final guard/clock/table checks. Close only
+     * software references; failed history and all native DMA/keys remain. */
+    bounded_connection_deconfigure();bounded_connection.failed=true;
+    p->closed=p->disconnected=true;p->busy=p->checking=false;
+    bounded_probe_scrub(&p->io,sizeof p->io);bounded_probe_scrub(&p->io_guard,sizeof p->io_guard);
+    bounded_probe_scrub(p->mac,sizeof p->mac);p->source=NULL;p->station=NULL;
+    probe_worker.disconnected=true;ok=true;goto done;
+ failed:
+    p->busy=p->checking=false;bounded_connection.failed=true;bounded_probe_fail(p);
+ done:
+    /* A refused original live scope cannot regain cleanup permission by
+     * restoring the bad field later. Foreign/stale scopes cannot fuse it. */
+    if(!ok && p && p->identity==(uintptr_t)p && bounded_connection.active &&
+       bounded_connection.scope_identity==(uintptr_t)p){bounded_connection.failed=true;bounded_probe_fail(p);}
+    probe_worker_unlock(f);return ok;
+}
+
 static bool bounded_probe_alias(const struct net_bounded_probe *p,const void *out,size_t size) {
     uintptr_t a=(uintptr_t)p,b=(uintptr_t)out;
     return a<=b?b-a<sizeof *p:a-b<size;
@@ -3396,7 +3472,7 @@ int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) {
     o->end_reason=NET_DHCP_POLL_LIMIT;
 done:
     if (started) {dhcp_in_progress=dhcp_retry_active=false;if (result<0) dhcp_configured=false;}
-    if (result<0) bounded_probe_fail(p);
+    if (result<0) bounded_probe_protocol_fail(p);
     else if (!bounded_probe_check(p)) {result=-1;dhcp_configured=false;}
     o->success=result>=0;o->finished=1;
     if(o->success)o->end_reason=NET_DHCP_SUCCESS;
@@ -3442,7 +3518,7 @@ done:
         dns_server_ip=dns_answer_ip=0;bounded_probe_scrub(dns_question_name,sizeof dns_question_name);
     }
     bounded_probe_scrub(mac,sizeof mac);
-    if (result<0) bounded_probe_fail(p);
+    if (result<0) bounded_probe_protocol_fail(p);
     p->busy=false;return result;
 }
 
@@ -3473,7 +3549,7 @@ done:
         icmp_ping_ip=0;icmp_ping_sequence=0;icmp_ping_start_tick=0;
     }
     bounded_probe_scrub(mac,sizeof mac);
-    if (result<0) bounded_probe_fail(p);
+    if (result<0) bounded_probe_protocol_fail(p);
     p->busy=false;return result;
 }
 
