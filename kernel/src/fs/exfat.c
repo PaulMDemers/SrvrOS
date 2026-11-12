@@ -4531,6 +4531,16 @@ bool exfat_same_mount(const char *first,const char *second) {
 /* Called by the logger before its own filesystem work; snapshot under CPU0 IRQ
  * exclusion, then format without holding that exclusion or storage ownership. */
 /* Explicit sync/storage diagnostics only; no output during ordinary I/O. */
+void exfat_sidecar_snapshot(struct exfat_sidecar_trace *out) {
+    if(!out)return;
+    uint64_t irq=fs_irq_save();
+    *out=(struct exfat_sidecar_trace){.checks=sidecar_stats.checks,.equal=sidecar_stats.equal,
+        .changed=sidecar_stats.changed,.refused=sidecar_stats.refused,
+        .flush_failed=sidecar_stats.flush_failed,.active=sidecar_stats.active,.invalid=sidecar_stats.invalid,
+        .shape=sidecar_differences.shape,.last_offset=sidecar_differences.last_offset};
+    for(unsigned i=0;i<10;i++)out->fields[i]=sidecar_differences.field[i];
+    fs_irq_restore(irq);
+}
 void exfat_print_sidecar_equality_at(uint64_t at) {
     uint64_t irq=fs_irq_save();struct sidecar_equality_stats sidecar=sidecar_stats;
     struct sidecar_difference_stats diff=sidecar_differences;

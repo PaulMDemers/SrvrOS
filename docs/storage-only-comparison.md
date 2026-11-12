@@ -181,8 +181,13 @@ expected serialized field**: path, inode, mode, nlink, uid, gid, atime, mtime,
 ctime or format. A path difference can mean ordering or a real namespace change;
 this is not a complete semantic diff. No path or actual field value is logged.
 Classification adds no reads, clocks, allocations or yields. Counters are
-boot-wide and include preparation; native attribution must not treat them as
-per-sample deltas. Their sum must exactly match changed comparisons; unavailable
+boot-wide and include preparation. Separate `storage-only-sidecar` rows retain
+one bounded before/after counter delta for each original timed write: equal,
+changed, shape or first-field mask/byte offset. Each filesystem write must own
+one completed comparison; each raw write must own none. Fixed RAM snapshots
+add no clocks, allocations, I/O or scheduler calls, and their overhead remains
+inside the unchanged write interval. Per-sample deltas must reconcile with the
+boot-wide counters and fit the existing dry-counted row budget. Their sum must exactly match changed comparisons; unavailable
 proofs remain refusals. New candidates require the strict paired diagnostic in
 addition to every original receipt and integrity check. Legacy v1/v2 receipts
 remain readable. Maximum-width companion/control/lease/audio rows fit the same

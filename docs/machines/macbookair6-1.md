@@ -13213,3 +13213,12 @@ remain. Maximum-width diagnostics fit the original receipt reserve. PR19's
 metadata decoder/restore code is unchanged. Focused regression/failure validation
 is in progress; the initial diagnostic-unit adapter failures are retained locally.
 No native benefit, cold-boot identity restore or screenshot fix is accepted yet.
+
+Before native testing, the candidate also retains a strict per-sample equality/
+first-field delta for each of the original twelve writes. This separates remount
+association from actual timestamp/namespace changes directly. Fixed RAM-only
+snapshots are charged inside the write interval; no clock, I/O, allocation or
+scheduler operation is added. One filesystem comparison and zero raw-path
+comparisons are required, with all sums bounded by final counters. The first
+build/focused/exact-stage VM pass is retained; its incomplete broad suite was
+stopped deliberately for this refinement and is not represented as a pass.

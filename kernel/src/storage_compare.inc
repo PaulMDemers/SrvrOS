@@ -8,6 +8,8 @@ struct storage_compare_sample {
     uint64_t sequence,kind,start,end,write_us,flush_us,read_us,crc,offset,ok,retired;
     struct usb_storage_timing usb,flush_io,read_io;
     struct usb_storage_content_timing content;
+    uint64_t sidecar_checks,sidecar_equal,sidecar_changed,sidecar_shape;
+    uint64_t sidecar_fields,sidecar_offset,sidecar_valid;
 };
 static uint8_t compare_payload[STORAGE_COMPARE_BYTES],compare_read[STORAGE_COMPARE_CHUNK];
 static struct storage_compare_sample compare_samples[STORAGE_COMPARE_SAMPLES];
@@ -42,6 +44,25 @@ static bool compare_trace_end(struct storage_compare_sample *r) {
     return r->usb.valid && !r->usb.failures && r->content.valid && !r->content.active &&
         !r->content.invalid && q->valid && q->complete && q->ok && q->role<USB_STORAGE_CONTENT_ROLES &&
         q->csw_start_us==c->start_us && q->csw_end_us==c->end_us;
+}
+static void compare_sidecar_end(struct storage_compare_sample *r,const struct exfat_sidecar_trace *before) {
+    struct exfat_sidecar_trace after;exfat_sidecar_snapshot(&after);
+    bool valid=!before->active && !after.active && !before->invalid && !after.invalid &&
+        after.refused==before->refused && after.flush_failed==before->flush_failed;
+#define SIDECAR_DELTA(field) do { \
+    if(after.field<before->field || after.field-before->field>1)valid=false; \
+    r->sidecar_##field=after.field-before->field; \
+}while(0)
+    SIDECAR_DELTA(checks);SIDECAR_DELTA(equal);SIDECAR_DELTA(changed);SIDECAR_DELTA(shape);
+#undef SIDECAR_DELTA
+    uint64_t differences=r->sidecar_shape;
+    for(unsigned i=0;i<10;i++) {
+        if(after.fields[i]<before->fields[i] || after.fields[i]-before->fields[i]>1)valid=false;
+        if(after.fields[i]!=before->fields[i]){r->sidecar_fields|=1u<<i;differences++;}
+    }
+    if(r->sidecar_fields)r->sidecar_offset=after.last_offset;
+    r->sidecar_valid=valid && r->sidecar_checks==!r->kind &&
+        r->sidecar_equal+r->sidecar_changed==r->sidecar_checks && differences==r->sidecar_changed;
 }
 /* Exact decimal wire sizing for these fixed, unsigned-only row formats. This
  * runs after measurements. Refuse excess evidence; never grow or truncate logs. */
@@ -88,6 +109,8 @@ static bool compare_emit_roles(const struct storage_compare_sample *r,uint64_t *
             r->sequence,(uint64_t)i,p->read_commands,p->read_bytes,p->write_commands,p->write_bytes,p->flush_commands,p->other_commands,p->failed_commands,
             p->csw_calls,p->csw_us,p->write512_commands,p->write_csw_us,p->write512_csw_us,p->worst.end_us-p->worst.start_us,p->over100ms,p->write_over100ms,p->write512_over100ms);
     }
+    COMPARE_ROW("storage-only-sidecar: version=1 seq=%u checks=%u equal=%u changed=%u shape=%u fields=%u offset=%u valid=%u\n",
+        r->sequence,r->sidecar_checks,r->sidecar_equal,r->sidecar_changed,r->sidecar_shape,r->sidecar_fields,r->sidecar_offset,r->sidecar_valid);
     return true;
 }
 #undef COMPARE_ROW
@@ -142,13 +165,17 @@ static bool storage_compare_run(bool roles) {
             ok=false;break;
         }
         r->start=timer_monotonic_us();
+        struct exfat_sidecar_trace before;
+        if(roles)exfat_sidecar_snapshot(&before);
         if(r->kind)ok=workspace_parked_device()==volume && writer(parent,r->offset,compare_payload,STORAGE_COMPARE_CHUNK) &&
             writer(parent,r->offset+STORAGE_COMPARE_CHUNK,compare_payload+STORAGE_COMPARE_CHUNK,STORAGE_COMPARE_CHUNK);
         else ok=active==volume && exfat_write_file(path,compare_payload,STORAGE_COMPARE_BYTES);
+        if(roles)compare_sidecar_end(r,&before);
         uint64_t written=timer_monotonic_us();
         bool trace_ok=compare_trace_end(r);
         r->write_us=written>=r->start?written-r->start:0;
         ok=ok && trace_ok && written>=r->start;
+        if(roles)ok=ok && r->sidecar_valid;
         uint64_t flushed=written;
         if(ok) {
             bool timed=usb_storage_timing_aux_begin();

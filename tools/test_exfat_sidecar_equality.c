@@ -60,6 +60,8 @@ int main(void){
  sidecar_stats=(struct sidecar_equality_stats){UINT64_MAX,UINT64_MAX,UINT64_MAX,UINT64_MAX,UINT64_MAX,UINT64_MAX,UINT64_MAX,UINT64_MAX};
  sidecar_differences.shape=sidecar_differences.last_offset=UINT64_MAX;
  for(unsigned i=0;i<10;i++)sidecar_differences.field[i]=UINT64_MAX;
+ struct exfat_sidecar_trace view;unsigned old_reads=reads;exfat_sidecar_snapshot(&view);
+ assert(reads==old_reads && view.checks==UINT64_MAX && view.shape==UINT64_MAX && view.fields[9]==UINT64_MAX);
  exfat_print_sidecar_equality_at(UINT64_MAX);
  assert(!line_bytes && max_line<1024 && emitted==686);
  /* begin<=207, six leases<=732, complete<=175, wire<=112, audio<=96. */
