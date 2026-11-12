@@ -9,6 +9,25 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 12)
 
+The37ae8304/05ea return now independently accepts one cold two-HTTP connection
+lifetime: fresh authenticated epochs, DHCP/DNS,4159-byte request/3072-byte exact
+body+EOF each, same-boot disconnect/reconnect and full key/native/provider/RF
+restoration. The second DHCP exchange needs one retry, so reliability remains
+open. Failed-DHCP RF continuation is still physically unexercised.
+
+The original once-collector saved all evidence but its wrapper used connections
+instead of the physical checker's reconnect5_connection_receipts. Its failed
+record and primary remain immutable. The separate review changes only that key,
+passes every original complete guard and11 actual-log regression/refusal checks;
+see the unit handoff for bank hashes and the required corrected future template.
+Protect accepted05ea alongside all seven old recoveries.477-file/strict metadata,
+66-other-EFI/offline/recovery checks pass. Ubuntu is unarmed. Next inspect and
+integrate maina45032e4's new storage code, requalify complete positive/refusal
+wrapper composition, then repeat with unchanged Wi-Fi settings. No new test is
+armed; do not rerun the closed collector.
+
+### Pre-return qualification history
+
 Encrypted completion/receive-class tracing and proved failed-workload RF
 continuation are software-qualified atedf3e736 (runtime changed ind84b4568).
 The actual HTTP-close/actual RF-engine composition reproduces the old stop at

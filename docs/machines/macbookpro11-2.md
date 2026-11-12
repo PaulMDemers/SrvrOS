@@ -1,11 +1,67 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-12. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed161/20MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-12. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed161/20MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed161/20MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
 
 ## Current handoff
+
+### Two encrypted HTTP connections accepted after schema review (November 12)
+
+Runtime37ae8304/release05ea8b93f3524a84 completes one cold fixed161/20MHz
+lifetime in session0006601bff174f81-00. Both fresh WPA2/CCMP epochs complete
+DHCP DORA, DNS, route setup and actual-process HTTP: each sends4159 request
+bytes and receives the exact3072-byte body with genuine EOF and child status0.
+The same boot disconnects the first scope, erases its keys, retires native DMA/
+endpoint state and detaches its provider before preparing epoch2. Final child/
+worker/TCP/receiver/key/native/provider and full named RF-parent closure pass;
+RF inverse reports status0/complete1/valid1/restored1 and3844 operations. Retained
+backend tombstones remain intentional. This accepts the bounded two-HTTP lifetime,
+not persistent service, physical USB reattach, desktop controls or reliability.
+The second DHCP exchange needs one retry; its DORA finishes in1235648us. The
+previous missing-Offer cause is unresolved, and a successful run does not exercise
+the newly allowed failed-DHCP RF continuation on physical hardware.
+
+The once-only collector saved the complete2103247-byte exit, both logs and all
+seven independent checkpoints, but its final wrapper raised KeyError connections.
+The frozen full physical HTTP checker publishes reconnect5_connection_receipts;
+connections is the different HOST-owner API. The strict physical parser had
+already passed before the wrapper read the wrong key. Preserve that original
+failed collection record: it is not a network failure and must not be rerun.
+A separate review corrects only that field name in a copy, uses all original
+source-frozen RF/protocol/common-prefix/identity guards, and passes the complete
+physical proof. Eleven actual-log regression checks reproduce the old KeyError,
+accept the corrected full proof and refuse missing EOF/DHCP/key erase/provider
+closure/RF restore, false radio proof and wrong source/release/session. The
+corrected wrapper in the review is the required template for future recipes;
+qualify its full positive composition before another hardware run. The closed
+primary and its frozen checker are unchanged.
+
+The new anonymous observations independently decode both epochs:21/22 encrypted
+TX completions and20/19 delivered authenticated Ethernet frames. Additional RX
+includes73 beacons and22 action frames, two LLC-category refusals, one span
+refusal and one CCMP-category refusal. CCMP is not a specific MIC diagnosis;
+background frames and a successful run do not explain the earlier missing Offers.
+USB completion/ACK intent still does not alone prove radio delivery. Actual
+matched HTTP responses provide this run's end-to-end transfer evidence.
+
+All477 prior files' non-sidecar bytes and checked persisted metadata survive,
+except the authorized workspace-marker atime. Offline filesystem/allocation,
+66 other EFI file bytes and the seven previous recoveries pass independent
+review. Ubuntu is unarmed. Protect current05ea in addition to the six resident
+and one archived previous recoveries; the mutable checkpoint records its new
+review-backed protection even though the immutable primary's collector status
+remains failed.
+
+Primary1387-file index:
+`a331a15c5719b2ae68456c3a027f096d63fdbef268b476013b11c194c0f68d7b`.
+Separate review at `~/.local/share/srvros/macbookpro11-2/wifi-encrypted5-37ae8304-return-review`, index:
+`656697f604ea3e00b94cb2cc91e174eebca7ba7e0c68105a1e2b670545ace2fb`.
+Next inspect/integrate fetched maina45032e4's storage changes before a new image,
+requalify the corrected complete wrapper, then run a controlled cold repeat with
+unchanged Wi-Fi settings. Do not recollect or reseal either closed bank.
+
 
 ### Fresh encrypted-trace hardware qualification scope (November 12)
 
