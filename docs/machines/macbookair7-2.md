@@ -22,7 +22,7 @@ substitution of the historical v28 receipt is justified.
 
 HDA Command 6/2/2/6, all four inspections, 14 GPU aliases, the HDA root alias
 and CPU exclusion retire cleanly, without clock/retention/uncertainty faults.
-GT lifetime is 248,299/500,000 us and HDA 193,490/400,000 us. Every prior USB
+Outer wake lifetime is 248,299/500,000 us and HDA 193,490/400,000 us. Every prior USB
 file preserves except expected `.srvros/meta`; three exact logs yield 1,491
 files/153 sessions. Boot digest, offline fsck/allocation/writable/headroom,
 installed versus durable payloads, recovery, Ubuntu default and consumed

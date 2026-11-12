@@ -1418,6 +1418,16 @@ receipt, alongside every original sample, byte, lease and offline filesystem
 check. It retains the original twelve writes/six pairs, 180-second bound and 1%
 boundary cues. No controller policy, limit or integrity shortcut is enabled.
 
+The separate v3 full-field trial uses `--storage-metadata-trace` with the same
+storage-only command. Require version 3, twelve complete metadata rows, all role
+and first-difference companions, and every original byte/lease/retirement check.
+It reads the complete old sidecar, with that extra diagnostic cost charged to
+the sample's proof role; compare directory-update reads separately. Keep the
+same exact-stage, recovery, preflight, one-shot and matching collection sequence.
+The [comparison contract](storage-only-comparison.md) defines the fields, strict
+receipt bounds and private-directory END fallback. This does not change v1/v2
+recipes, ordinary metadata restoration, power policy or limits.
+
 ### Original-owner entry/reset/requester diagnostic
 
 The separate [v27 composition](intel-entry-requester.md) uses

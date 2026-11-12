@@ -225,3 +225,65 @@ record comparison finds 56 reassigned IDs through the unchanged legacy restore
 path, with unique final IDs and unchanged permission/ownership fields. PR19's
 separate atomic restore implementation is not part of this accepted runtime.
 The long loaded USB waits and screenshot stalls remain unresolved.
+
+## Complete metadata audit and private-directory read cost (v3)
+
+Add `--storage-metadata-trace` to the explicit `--storage-only-capture` laptop
+stage command. This selects a separate v3 recipe, command roles and
+`srvros.storage-metadata=on`; v1/v2 configuration remains unchanged. It keeps the
+original twelve 32 KiB samples/six pairs, 180-second bound, 1% boundary cues,
+16 KiB transport commands, 4 KiB DMA and all original integrity/ownership limits.
+
+Each filesystem sample opens a token-bound, single-comparison observation under
+the existing storage owner. It reads the entire old sidecar freshly, including
+bytes after the first mismatch, and stream-compares canonical path records and
+all eight numeric fields with the newly serialized table. Namespace additions/
+removals, changed rows, per-field counts, byte-only representation changes and
+field masks for the diagnostic subject and workspace marker are retained. No
+paths or values are printed. Missing, malformed, unordered, duplicate, overflowing,
+truncated, unreadable or unterminated input refuses the diagnostic. This decoder
+never applies metadata and does not replace PR19's authoritative restore work.
+The normal writer/equality path stays unchanged when full audit is off.
+
+`storage-only-metadata` rows use numeric bits 0–7 for inode, mode, nlink, uid,
+gid, atime, mtime, ctime (different from the first-byte record's path-inclusive
+mask). Each filesystem sample requires a complete old/new row partition, field
+counts/masks and agreement with the primary equality result; raw samples require
+zero metadata activity. These rows pass the same actual-format dry count and
+strict collection, inside the original line/32 KiB receipt/64 KiB tail bounds.
+Full-audit reads and parsing time are charged to the write interval and role 5;
+they are extra diagnostic work. Compare update role 4 separately, rather than
+calling an overall v2/v3 timing difference a performance result.
+
+Required sidecar replacement still creates `meta.tmp`, publishes/replaces the
+committed entry and retires the old allocation with every existing write/barrier.
+For large directory clusters, the writer can prove reusable inactive slots in
+the first sector of the exact private metadata directory **before any END**.
+The legacy prefix preparer cannot modify the tail for such a run. Reuse the
+existing transaction read-through cache and return that same first-fit offset;
+no new cache or saved equality result is introduced. Small clusters, END
+consumption, later sectors/clusters, long/ambiguous runs and growth keep the
+original full scan and prefix/tail clearing. An unreadable proof fails. Scratch,
+allocation checks, successful/failed-write cache invalidation, timestamps and
+publication/failure semantics retain their original limits and behavior.
+
+Host controls disable only this directory optimization. Under a step-bound
+metadata clock, the real BOT/exFAT producer must produce identical complete
+media, ordered write/flush commands and full-field evidence while reducing
+private-directory reads on 128 KiB clusters. Small clusters keep identical I/O.
+Exhaustive inactive/deleted/END layouts verify first-fit equivalence. Paired
+write/flush/failure/tear sweeps additionally preserve complete media, filesystem
+checks and baseline-matched repair outcomes, including a private END with stale
+tail bytes that requires the full preparation path. None of these fixtures
+accepts native performance, cold-ID restoration or the older recovery gaps.
+
+Air6,1 release `8a89638dfb0281b5` now accepts this bounded native v3 observation:
+twelve samples in 5.874794 s, complete-field/role/byte/lease proof, preserved prior
+files and clean independent offline checks. Required updates use one 512-byte
+directory read instead of the previous nine reads/131584 bytes, with eleven
+writes/four flushes retained. All three rewrites include diagnostic-file
+atime/mtime/ctime plus marker atime, confirming that required persistence extends
+beyond the first differing field. Extra full-table audit work remains charged;
+neither total v2/v3 time nor this quiet run accepts loaded screenshot latency or
+cold-ID restoration. See the [unit record](machines/macbookair6-1.md) for the
+exact source, acceptance boundary and remaining work.

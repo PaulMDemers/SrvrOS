@@ -19,6 +19,11 @@
 static int fd;static uint64_t image_size,clock_us=100,irq=0x200,raw_offset;
 static unsigned depth,phase,done,command_length,command_tag,raw_leases,raw_bytes;
 static uint64_t bulk_calls,clock_calls,bulk_trace=1469598103934665603ull;
+static uint64_t mutation_trace=1469598103934665603ull,mutation_commands,logical_sample;
+static bool logical_metadata_clock;
+static void mutation_fold(const void *p,unsigned n) {
+    const uint8_t *b=p;for(unsigned i=0;i<n;i++){mutation_trace^=b[i];mutation_trace*=1099511628211ull;}
+}
 static bool busy,unavailable,clock_jump;static const char *mode;
 static struct usb_storage storage;static uint8_t cdb[16];
 static struct usb_bulk_timing sample;
@@ -32,7 +37,7 @@ void *kcalloc(uint64_t n,uint64_t size){return calloc(n,size);}
 void kfree(void *p){free(p);}
 uint64_t timer_monotonic_us(void){clock_calls++;return clock_us;}
 uint64_t timer_ticks(void){return clock_us/10000+1;}
-int64_t timer_realtime_us(void){return 1794438000000000LL+(int64_t)clock_us;}
+int64_t timer_realtime_us(void){return 1794438000000000LL+(int64_t)(logical_metadata_clock?logical_sample*1000000:clock_us);}
 bool timer_reference_ready(void){return !unavailable;}
 bool scheduler_io_begin(void){depth++;return true;}
 void scheduler_io_end(void){assert(depth);depth--;}
@@ -66,6 +71,9 @@ void console_write(const char *s){if(!strcmp(s,"workspace: ready at /work/srvros
 void console_printf(const char *fmt,...) {
     if(strncmp(fmt,"storage-only",12)&&strncmp(fmt,"Storage-only",12)&&strncmp(fmt,"exfat-sidecar",13))return;
     va_list args;va_start(args,fmt);
+    if(logical_metadata_clock && !strncmp(fmt,"Storage-only comparison: sample",31)) {
+        va_list copied;va_copy(copied,args);logical_sample=va_arg(copied,uint64_t);va_end(copied);
+    }
     if(!strncmp(fmt,"storage-only-lease:",19)) {
         va_list copied;va_copy(copied,args);(void)va_arg(copied,uint64_t);raw_offset=va_arg(copied,uint64_t);va_end(copied);
         assert(!raw_before && storage.block && !storage.block->write && !storage.block->flush);
@@ -90,7 +98,9 @@ static bool bulk(void *ctx,bool in,void *buffer,uint32_t n,uint32_t *actual) {
         uint8_t *p=buffer;assert(!in&&n==31&&le32(p)==0x43425355);
         command_tag=le32(p+4);command_length=le32(p+8);memcpy(cdb,p+15,16);done=0;
         assert(command_length<=16384);phase=command_length?1:2;
+        if(cdb[0]==0x2a || cdb[0]==0x35){mutation_commands++;mutation_fold(cdb,16);}
     } else if(phase==1) {
+        if(cdb[0]==0x2a)mutation_fold(buffer,n);
         assert(n==(command_length-done>4096?4096:command_length-done));
         if(cdb[0]==0x12)memset(buffer,0,n);
         else if(cdb[0]==0x25){putbe(buffer,(uint32_t)(image_size/sectorsize-1));putbe((uint8_t *)buffer+4,sectorsize);}
@@ -126,16 +136,16 @@ static bool bulk(void *ctx,bool in,void *buffer,uint32_t n,uint32_t *actual) {
 }
 static void timing(void *ctx,struct usb_bulk_timing *out){assert(ctx==&storage);*out=sample;}
 int main(int argc,char **argv) {
-    assert(argc==3||argc==4);bool trace=argc==4;assert(!trace||!strcmp(argv[3],"roles"));mode=argv[2];fd=open(argv[1],O_RDWR);assert(fd>=0);struct stat st;assert(!fstat(fd,&st)&&S_ISREG(st.st_mode));image_size=st.st_size;
+    assert(argc==3||argc==4);bool trace=argc==4,full=trace&&!strcmp(argv[3],"metadata");assert(!trace||full||!strcmp(argv[3],"roles"));mode=argv[2];logical_metadata_clock=getenv("SRVROS_METADATA_LOGICAL_CLOCK")!=NULL;fd=open(argv[1],O_RDWR);assert(fd>=0);struct stat st;assert(!fstat(fd,&st)&&S_ISREG(st.st_mode));image_size=st.st_size;
     uint8_t boot[512];assert(pread(fd,boot,512,0)==512);sectorsize=1u<<boot[108];
     assert(usb_storage_attach(&storage,&storage,bulk,true));storage.transfer_timing=timing;
     vfs_init();assert(usb_storage_disable_volume_writes(storage.block));assert(workspace_mount("5a1b2c3d"));
     clock_us=100000;busy=!strcmp(mode,"busy");unavailable=!strcmp(mode,"timer");
     uint64_t held=!strcmp(mode,"held")?workspace_mount_hold_acquire():0;
-    bool passed=trace?workspace_storage_compare_trace():workspace_storage_compare();raw_contained();
+    bool passed=full?workspace_storage_compare_metadata():trace?workspace_storage_compare_trace():workspace_storage_compare();raw_contained();
     if(!strcmp(mode,"workload")||!strcmp(mode,"unsampled")) {
         assert(passed&&raw_leases==6&&raw_bytes==6*32768&&workspace_active());
-        unsigned prior=raw_bytes;assert(!workspace_storage_compare()&&!workspace_storage_compare_trace()&&raw_bytes==prior);assert(workspace_unmount());
+        unsigned prior=raw_bytes;assert(!workspace_storage_compare()&&!workspace_storage_compare_trace()&&!workspace_storage_compare_metadata()&&raw_bytes==prior);assert(workspace_unmount());
     } else {
         assert(!passed);
         if(!strcmp(mode,"alias")||!strcmp(mode,"partial")||!strcmp(mode,"mismatch")||!strcmp(mode,"flush")||!strcmp(mode,"clock")||!strcmp(mode,"deadline")) {
@@ -143,5 +153,5 @@ int main(int argc,char **argv) {
             assert(!block_device_online(storage.block)&&!block_claim_mount(storage.block));
         } else {assert(!raw_leases);if(held)assert(workspace_mount_hold_valid(held)&&workspace_mount_hold_release(held));}
     }
-    assert(depth==0);assert(fsync(fd)==0);close(fd);printf("workspace-control-trace: calls=%"PRIu64" hash=%016"PRIx64" clocks=%"PRIu64"\n",bulk_calls,bulk_trace,clock_calls);puts("workspace-storage-control-host: PASS real stack containment/refusal/retirement");return 0;
+    assert(depth==0);assert(fsync(fd)==0);close(fd);printf("workspace-control-trace: calls=%"PRIu64" hash=%016"PRIx64" clocks=%"PRIu64"\n",bulk_calls,bulk_trace,clock_calls);printf("workspace-mutation-trace: commands=%"PRIu64" hash=%016"PRIx64"\n",mutation_commands,mutation_trace);puts("workspace-storage-control-host: PASS real stack containment/refusal/retirement");return 0;
 }

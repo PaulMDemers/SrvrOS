@@ -10,6 +10,7 @@ struct storage_compare_sample {
     struct usb_storage_content_timing content;
     uint64_t sidecar_checks,sidecar_equal,sidecar_changed,sidecar_shape;
     uint64_t sidecar_fields,sidecar_offset,sidecar_valid;
+    struct exfat_metadata_audit metadata;
 };
 static uint8_t compare_payload[STORAGE_COMPARE_BYTES],compare_read[STORAGE_COMPARE_CHUNK];
 static struct storage_compare_sample compare_samples[STORAGE_COMPARE_SAMPLES];
@@ -113,12 +114,20 @@ static bool compare_emit_roles(const struct storage_compare_sample *r,uint64_t *
         r->sequence,r->sidecar_checks,r->sidecar_equal,r->sidecar_changed,r->sidecar_shape,r->sidecar_fields,r->sidecar_offset,r->sidecar_valid);
     return true;
 }
+static bool compare_emit_metadata(const struct storage_compare_sample *r,uint64_t *wire) {
+    const struct exfat_metadata_audit *m=&r->metadata;
+    COMPARE_ROW("storage-only-metadata: version=1 seq=%u valid=%u old_bytes=%u new_bytes=%u old_rows=%u new_rows=%u matched=%u added=%u removed=%u changed=%u f0=%u f1=%u f2=%u f3=%u f4=%u f5=%u f6=%u f7=%u subject=%u marker=%u representation=%u\n",
+        r->sequence,m->valid,m->old_bytes,m->new_bytes,m->old_rows,m->new_rows,m->matched,m->added,m->removed,m->changed,
+        m->fields[0],m->fields[1],m->fields[2],m->fields[3],m->fields[4],m->fields[5],m->fields[6],m->fields[7],m->subject_fields,m->marker_fields,m->representation);
+    return true;
+}
 #undef COMPARE_ROW
 static void compare_poison(struct block_device *parent) {
     comparison_poisoned=failed=true;
     if(parent)block_invalidate(parent); /* Terminal identity; never reset/reuse pending DMA. */
 }
-static bool storage_compare_run(bool roles) {
+static bool storage_compare_run(unsigned version) {
+    bool roles=version>=2,full=version==3;
     struct scope scope;if(!begin(&scope)){end(&scope);return false;}
     bool ok=false;unsigned completed=0;uint64_t claim=0;
     struct block_device *volume=active,*parent=block_parent(active);
@@ -131,7 +140,7 @@ static bool storage_compare_run(bool roles) {
     for(unsigned i=0;i<16;i++)path[sizeof("/work/srvros-work/storage-compare-")-1+i]="0123456789abcdef"[(nonce>>(60-i*4))&15];
     if(vfs_lookup(path))goto out; /* Existing paths are never overwritten. */
     compare_ran=true;compare_pattern(0);
-    console_printf("storage-only: begin version=%u path=%s start_us=%u bytes=32768 pairs=6 samples=12 limit_us=180000000 policy=unchanged\n",(uint64_t)(roles?2:1),path,start);
+    console_printf("storage-only: begin version=%u path=%s start_us=%u bytes=32768 pairs=6 samples=12 limit_us=180000000 policy=unchanged\n",(uint64_t)version,path,start);
     if(!exfat_write_file(path,compare_payload,STORAGE_COMPARE_BYTES) || !sync_locked() || !compare_file_read(path,parent)) {
         compare_poison(parent);goto finish;
     }
@@ -164,12 +173,18 @@ static bool storage_compare_run(bool roles) {
             if(claim && block_claim_release(claim)) {claim=0;(void)workspace_mount(uuid);}
             ok=false;break;
         }
+        r->metadata.valid=1;
         r->start=timer_monotonic_us();
         struct exfat_sidecar_trace before;
         if(roles)exfat_sidecar_snapshot(&before);
-        if(r->kind)ok=workspace_parked_device()==volume && writer(parent,r->offset,compare_payload,STORAGE_COMPARE_CHUNK) &&
+        bool auditing=full && !r->kind;
+        uint64_t audit_token=auditing?exfat_metadata_audit_begin(path,"/work/srvros-work/.workspace"):0;
+        bool audit_ready=!auditing || audit_token;
+        if(!audit_ready)ok=false;
+        if(audit_ready && r->kind)ok=workspace_parked_device()==volume && writer(parent,r->offset,compare_payload,STORAGE_COMPARE_CHUNK) &&
             writer(parent,r->offset+STORAGE_COMPARE_CHUNK,compare_payload+STORAGE_COMPARE_CHUNK,STORAGE_COMPARE_CHUNK);
-        else ok=active==volume && exfat_write_file(path,compare_payload,STORAGE_COMPARE_BYTES);
+        else if(audit_ready)ok=active==volume && exfat_write_file(path,compare_payload,STORAGE_COMPARE_BYTES);
+        if(auditing && audit_ready) {bool complete=exfat_metadata_audit_end(audit_token,&r->metadata);ok=ok && complete;}
         if(roles)compare_sidecar_end(r,&before);
         uint64_t written=timer_monotonic_us();
         bool trace_ok=compare_trace_end(r);
@@ -216,19 +231,21 @@ finish:
     }
     uint64_t row_bytes=0;bool wire_ok=true;
     if(roles)for(unsigned i=0;wire_ok && i<completed;i++)
-        wire_ok=compare_emit(&compare_samples[i],&row_bytes) && compare_emit_roles(&compare_samples[i],&row_bytes);
+        wire_ok=compare_emit(&compare_samples[i],&row_bytes) && compare_emit_roles(&compare_samples[i],&row_bytes) && (!full || compare_emit_metadata(&compare_samples[i],&row_bytes));
     ok=ok && wire_ok;
     if(ok && (timer_monotonic_us()<start || timer_monotonic_us()-start>STORAGE_COMPARE_LIMIT_US))ok=false;
     uint64_t finish_at=timer_monotonic_us();
     console_printf("storage-only: complete=%s samples=%u elapsed_us=%u mounted=%u clean=%u final_seq=%u\n",ok?"yes":"NO",(uint64_t)completed,finish_at-start,(uint64_t)(active==volume),(uint64_t)!comparison_poisoned,(uint64_t)completed);
     end(&scope);
     if(roles)console_printf("storage-only-wire: version=1 row_bytes=%u reserve=2048 limit=32768 valid=%u\n",row_bytes,(uint64_t)wire_ok);
-    if(wire_ok)for(unsigned i=0;i<completed;i++) {compare_emit(&compare_samples[i],NULL);if(roles)compare_emit_roles(&compare_samples[i],NULL);}
+    if(wire_ok)for(unsigned i=0;i<completed;i++) {compare_emit(&compare_samples[i],NULL);if(roles)compare_emit_roles(&compare_samples[i],NULL);if(full)compare_emit_metadata(&compare_samples[i],NULL);}
     if(roles && completed)exfat_print_sidecar_equality_at(finish_at);
     return ok;
 out:
     end(&scope);return false;
 }
 
-bool workspace_storage_compare(void) {return storage_compare_run(false);}
-bool workspace_storage_compare_trace(void) {return storage_compare_run(true);}
+bool workspace_storage_compare(void) {return storage_compare_run(1);}
+bool workspace_storage_compare_trace(void) {return storage_compare_run(2);}
+
+bool workspace_storage_compare_metadata(void) {return storage_compare_run(3);}

@@ -192,6 +192,29 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(boot.limine_config('0123456789abcdef',old),boot.limine_config('0123456789abcdef',new))
         self.assertNotEqual(boot.release_id({},old),boot.release_id({},new))
 
+
+    def test_storage_metadata_gpu_profiles_are_exclusive(self):
+        for flag in ('intel_nonzero_source','intel_nonzero_reset','intel_ring_entry','intel_ring_reset',
+                     'intel_entry_requester','intel_joint','intel_gpu_hold','intel_display_capture'):
+            for storage in (False,True):
+                with self.subTest(flag=flag,storage=storage),self.assertRaises(ValueError):
+                    boot.stage(laptop_probe_volume='37d8c5d0',storage_only_capture=storage,
+                               storage_metadata_trace=True,**{flag:True})
+
+    def test_storage_metadata_profile(self):
+        version='ram-usb-v3-storage-only-laptop-probe-6ada85bb-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        for token in ('srvros.storage-metadata=on','srvros.storage-roles=on','srvros.capture=storage-only','srvros.capture-failure=reboot'):
+            self.assertIn(token,config)
+        for number in (1,2):self.assertNotIn('srvros.storage-metadata=',boot.limine_config('0123456789abcdef',f'ram-usb-v{number}-storage-only-laptop-probe-6ada85bb-auto-return'))
+        for options in ({},dict(laptop_probe_volume='6ada85bb'),dict(laptop_probe_volume='6ada85bb',storage_only_capture=True,hold_on_failure=True),dict(laptop_probe_volume='6ada85bb',storage_only_capture=True,desktop_battery=True)):
+            with self.assertRaises(ValueError):boot.stage(storage_metadata_trace=True,**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']):
+            release=boot.stage(laptop_probe_volume='6ada85bb',storage_only_capture=True,storage_metadata_trace=True)
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
     def test_storage_command_attribution_profile(self):
         config=boot.limine_config('0123456789abcdef','ram-usb-v2-storage-only-laptop-probe-6ada85bb-auto-return')
         self.assertIn('srvros.storage-roles=on',config)

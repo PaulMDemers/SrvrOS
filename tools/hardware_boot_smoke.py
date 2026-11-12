@@ -177,7 +177,7 @@ def main():
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-nonzero-source-","ram-usb-v1-intel-nonzero-reset-","ram-usb-v1-intel-entry-requester-","ram-usb-v1-intel-ring-reset-","ram-usb-v1-intel-ring-entry-","ram-usb-v1-intel-ring-transition-","ram-usb-v1-intel-paired-shutdown-","ram-usb-v1-intel-gpu-hold-","ram-usb-v1-intel-joint-","ram-usb-v1-intel-rehold-","ram-usb-v1-intel-held-interval-","ram-usb-v1-intel-memory-","ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
-    storage_only_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-storage-only-","ram-usb-v2-storage-only-")))
+    storage_only_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-storage-only-","ram-usb-v2-storage-only-","ram-usb-v3-storage-only-")))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
     battery_preflight=bool(probe and manifest["config_version"].startswith("ram-usb-v60-"))
@@ -818,8 +818,8 @@ def main():
                         from storage_only_result import capture_result,payload
                         comparison=capture_result(stored.read(folder+"/exit.log").decode())
                         assert comparison is not None, 'Incomplete storage-only comparison'
-                        if manifest['config_version'].startswith('ram-usb-v2-storage-only-'):
-                            assert comparison['version']==2 and comparison['roles'] and 'srvros.storage-roles=on' in text
+                        if manifest['config_version'].startswith(('ram-usb-v2-storage-only-','ram-usb-v3-storage-only-')):
+                            assert comparison['version']==(3 if manifest['config_version'].startswith('ram-usb-v3-storage-only-') else 2) and comparison['roles'] and 'srvros.storage-roles=on' in text
                         assert stored.read(comparison['path'].removeprefix('/work/'))==payload(12)
                         assert 'srvros.battery=on' not in text and 'srvros.aml=probe' not in text
                         (logs/'storage-only-result.json').write_text(json.dumps(comparison,indent=2)+'\n')
