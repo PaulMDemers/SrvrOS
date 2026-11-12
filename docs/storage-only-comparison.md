@@ -59,3 +59,24 @@ checks partition exactly into event and empty observations. Empty checks between
 clock samples need not produce a last-empty timestamp; a present timestamp must
 be bounded by submission/observation and retain full sampled-service coverage.
 These checks add no ring/clock reads and change no controller policy or limits.
+
+
+## Collection paths and native baseline
+
+The private filesystem sidecar is volume-relative `.srvros/meta`, at
+`/work/.srvros/meta` in SrvrOS. `srvros-work` is Home within that volume, not the
+mount root. A known sidecar update may be accounted for explicitly; every other
+prior file still requires an identical hash. Do not exempt a directory tree or
+silently discard an earlier failed assessment when correcting a collector path.
+
+The [Air6,1 return record](machines/macbookair6-1.md#native-storage-only-comparison-return-2026-11-12)
+accepts the quiet control in release `78cfda46ee1b63a0`: all twelve samples in
+5.602029 seconds, exact final bytes, six retired leases and preserved prior files
+with clean offline allocation. Measured filesystem write/flush/readback legs are
+50.755–82.691 ms versus 7.807–7.822 ms for the direct data path. Mandatory raw
+proof/retirement/remount work is outside those per-leg numbers; six post-raw gaps
+are 817.078–833.309 ms. Filesystem write stages issue 37/56 BOT commands versus
+two direct writes. Seconds-long loaded status waits do not reproduce here, and
+no sustained-load or screenshot latency fix is accepted. Next diagnostics should
+separate command amplification from load-dependent completion tails, with all
+original limits and integrity requirements intact.
