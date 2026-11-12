@@ -1872,3 +1872,10 @@ discovery/cleanup scope. Main7c1a08a0 is integrated; installed runtime remains
 f0f77ed7/release1b555afb6e2f942b. Ubuntu is default/unarmed and no next candidate
 is installed. The unit's existing shutdown/unplug authorization is unchanged;
 never copy it, its UUID or credentials to another machine.
+
+The separate v2 attribution trial adds `--storage-command-trace` to that same
+explicit storage-only stage command. Rehearse the exact GPT/MBR layout and require
+version 2, all role masks/rows, exact command/status sums and the bounded wire
+receipt, alongside every original sample, byte, lease and offline filesystem
+check. It retains the original twelve writes/six pairs, 180-second bound and 1%
+boundary cues. No controller policy, limit or integrity shortcut is enabled.

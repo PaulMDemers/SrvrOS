@@ -80,3 +80,76 @@ two direct writes. Seconds-long loaded status waits do not reproduce here, and
 no sustained-load or screenshot latency fix is accepted. Next diagnostics should
 separate command amplification from load-dependent completion tails, with all
 original limits and integrity requirements intact.
+
+## Opt-in filesystem command attribution (v2)
+
+Add `--storage-command-trace` to `stage --laptop-probe-volume <this-unit-UUID>
+--storage-only-capture`. This selects a distinct v2 recipe with
+`srvros.storage-roles=on`. The v1 recipe is unchanged. Both use the same six
+balanced pairs, twelve 32 KiB samples, payload, deadlines and integrity checks;
+v2 adds observation of the existing repeated writes, not a larger workload.
+
+The generic, already-owned USB content window receives exFAT's existing callback
+labels. A role hook neither starts a window nor reads a clock, issues a transfer,
+adds a checkpoint or grants I/O eligibility. Its inactive path returns immediately.
+SYS_SYNC still owns its original observer/lifecycle checks. Standalone host
+filesystem models keep their existing role adapters; the dedicated BOT fixture
+and kernel exercise the generic USB hook directly. PR19's separate metadata
+restore changes are not part of this attribution change.
+
+| Role | Meaning of the existing callback label |
+| --- | --- |
+| 0 | Other active filesystem metadata work |
+| 1 | Allocation or free phase |
+| 2 | File data phase |
+| 3 | Immutable prefix equality proof |
+| 4 | Sidecar metadata update |
+| 5 | Sidecar equality proof |
+| 6 | Unclassified work, including pre-mutation scans and direct I/O |
+
+Final-only `storage-only-roles` masks account for all seven roles, with zero
+roles implicit. Each present `storage-only-role` row records read/write/flush
+commands, transferred bytes, failures/other commands, CSW count/wall time/maximum,
+512-byte WRITE count/status time, and the existing over-100-ms status subsets. The strict parser requires exact command
+and CSW-time sums against the original sample, the selected command's role and
+maximum, payload/512-byte subset consistency and zero failures/unknown commands.
+Every direct write sample remains two 16 KiB writes under role 6. Unclassified
+work stays unclassified; these labels do not infer an operation or device cause.
+
+A dry count through the actual row formats runs after measurement and before
+success is reported. Rows must fit the existing 1024-byte line bound and 30720
+bytes total, reserving 2048 bytes for control/lease/audio/wire lines within the
+unchanged 32768-byte receipt and 64 KiB tail. Oversize evidence refuses completion;
+it is never truncated or granted a larger log. The saved wire count is checked
+against every actual row byte. The count uses fixed local metadata and no media,
+clock, scheduler or heap operation.
+
+Host checks compare both v1/v2 against a control using the previous inactive role
+adapter: complete ordered BOT bytes, callback/clock counts and final media must
+match for positive, refused and faulted cases. Existing quarantine, exclusive
+range, rerun and full readback checks remain mandatory. Maximum-width actual
+emitters separately verify exact decimal sizing and overflow refusal. Exact-stage
+Q35 additionally requires the v2 role receipt and complete final media bytes;
+native acceptance awaits the corresponding unit's matching return.
+
+## Native v2 attribution baseline
+
+The [Air6,1 trace return](machines/macbookair6-1.md#native-command-attribution-return-2026-11-12)
+accepts release `084167c2be826f2a` for all original bounded checks plus v2 role
+accounting: twelve samples in 5.714710 seconds, exact bytes and retired leases,
+20133 receipt bytes, preserved files and clean offline allocation. No policy,
+limit, barrier or integrity requirement changed.
+
+The native write stages contain eight data commands transferring 128 KiB for
+the 32 KiB logical file replacement, matching full-cluster initialization.
+Steady 37-command samples and 56-command samples differ by +23 sidecar-update
+commands, +4 allocation commands and −8 equality-proof reads. The update role
+has nine reads, eleven writes and four flushes. This identifies additional
+metadata work, but not which serialized field changed or why equality missed.
+The next audit should inspect those decisions without bypassing necessary
+metadata persistence, initialization or fresh equality checks.
+
+Measured CSW callbacks peak at 4.185 ms, with zero recorded over-100-ms status
+subsets. The earlier long loaded status waits and screenshot stalls remain
+unresolved. Direct I/O timings exclude proof/retirement/remount work and do not
+authorize a filesystem bypass or a throughput comparison that omits those costs.

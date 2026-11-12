@@ -13014,3 +13014,159 @@ writes, retaining all proofs, barriers, sizes and deadlines. Separate the
 37/56-command metadata/proof work from load-dependent status-completion tails;
 this control alone cannot explain or clear the screenshot delays. No new
 implementation or physical trial has started at this checkpoint.
+
+## Active bounded filesystem command attribution (2026-11-12)
+
+From main `7c1a08a0`, add per-role BOT command/byte/status accounting to the
+existing bounded repeated 32 KiB storage control. Retain six balanced pairs,
+twelve samples, 180 seconds, 16 KiB commands, 4 KiB DMA, current polling and all
+original transport deadlines, filesystem proofs/barriers, exclusive leases,
+fresh-byte/CRC readback and quarantine/retirement checks. Use a separate explicit
+v2 trace profile; preserve the v1 recipe and receipt reader. Brief 1% boundary
+cues remain outside measurement, with no desktop, battery or sustained PCM load.
+
+Scope: existing exFAT callback role hooks, generic USB content observer fast
+inactive path, compact per-role receipts/strict collection, stage/controller
+selection and actual producer/observer equivalence and failure fixtures. Roles
+retain the established metadata, allocation/free, data, prefix proof, sidecar
+update/equality and unclassified mapping. Observe existing work without new media
+operations, scheduler checkpoints or clocks in the role hooks. Reconcile totals
+with the original callback counts and selected command; missing/overflowing or
+conflicting evidence remains invalid. Keep the unchanged 64 KiB log tail and
+32 KiB receipt bound. Preserve all accepted evidence and original collector-path
+failure; the volume-root sidecar exception stays exactly `.srvros/meta`.
+
+PR19 `f0f77ed7` and PR301 `6d2482b2` have separate network/graphics scopes;
+inspect actual overlapping files before implementing the shared observer hooks.
+No other task or subagent is contacted. Current accepted `78cfda46ee1b63a0`,
+0d3/4598/80b4/c7 and recovery c354 remain protected. Publish the bounded change,
+validate matched host/VM artifacts, self-merge and run automatically under the
+existing sudo/reboot authorization. Native trace acceptance remains pending its
+own matching return; long loaded status waits and screenshot delays are unresolved.
+
+Actual overlap inspection finds PR19's exFAT edits confined to metadata decoding
+and restore admission around the sidecar loader. The callback labels at read,
+write, flush and dirty-flag I/O are separate; this branch leaves that loader and
+all storage behavior intact. PR301 does not touch these filesystem/USB observer
+files. The published objective remains one local branch with no cross-task contact.
+
+The v2 producer preserves the exact workload and adds sparse role masks/counts,
+status totals/maxima and 512-byte WRITE subsets. A final dry wire count refuses
+oversize evidence within the unchanged 32 KiB receipt and 64 KiB tail. Prototypes
+pass 72 profile/refusal/fault cases plus 36 legacy-adapter controls, with identical
+ordered BOT bytes, callback/clock counts and complete final media. Formal matched
+build, host/VM validation and native installation remain pending.
+
+
+### Ready native command-attribution trial
+
+Final source `68644c19` passes all 72 v1/v2 profile/refusal/fault executions
+and 36 legacy-role controls with identical ordered BOT bytes, callback/clock
+counts and final media, maximum-width actual row sizing/overflow refusal,
+94 boot/installer tests, original storage leases/SYS_SYNC observation checks,
+the full core/desktop/docs suite and ordinary sysabi, USB input, thread exec
+and USB write/reload VM regressions. An initial standalone-host linkage failure
+was corrected by selecting its existing disabled-runtime role adapter; that
+failed attempt is retained. Existing offline-repair fixture limitations remain
+unchanged, including 81 baseline-known strict allocation failures after repair.
+No native fault-recovery or loaded-latency fix is claimed.
+
+Candidate `084167c2be826f2a` uses the explicit v2 trace recipe. Its content-addressed
+stage retains the original `41ced5f5` manifest rather than rewriting provenance:
+the final-source complete kernel/initramfs and all five loaded kernel sections
+are byte-identical and separately verified. The exact staged GPT trial passes
+all twelve original samples and role/status/512-byte subsets, exact command/time
+sums and wire byte counts, full fixture readback, saved logs, clean filesystem,
+unmount and automatic return. Its receipt is about 20 KiB inside the unchanged
+32 KiB bound and 64 KiB tail. Transferred data-byte totals include required
+padding/initialization; they are not a claim about logical user-file length.
+
+Fresh Air6,1/UUID `6ADA-85BB`, AC, all 890 prior file hashes, offline fsck/full
+allocation/headroom, accepted payloads and the original failed-media archive
+verify. The candidate is installed and independently backed up. Ubuntu remains
+default with recovery `c35475f62f154f1e`; accepted 78cf/0d3/4598/80b4/c7 remain
+on EFI and independently retained. Only the unreferenced, completely verified
+3403 EFI duplicate was retired, with its full independent payload preserved.
+PR19 is now `b0aa87df` and PR301 `cef27b1c`; final observer-file changes do not
+overlap this bounded work, and neither branch is merged or rewritten.
+
+Saved local run `d060e1967e7c45b0` requires the v2 receipt, all original byte/CRC,
+command/service and six-lease retirement proofs, exact final sequence-12 bytes,
+all prior files except the exact volume-root metadata update, and offline
+allocation integrity. It shows progress and returns automatically, with brief
+1% boundary cues outside the same six balanced pairs/twelve 32 KiB samples and
+180-second bound. No input or listening report is required. Native attribution
+acceptance awaits this run's matching return; screenshot and long loaded status
+latency remain unresolved. No policy, hardware gate, watchdog, ownership,
+integrity or workload limit changed.
+
+## Native command-attribution return (2026-11-12)
+
+Merged PR #478 (`a419f045`) release `084167c2be826f2a` completes run
+`d060e1967e7c45b0` in matching session `session-0006600f9a16bacf-00`.
+The immutable manifest records `41ced5f5`; qualified source `68644c19` has the
+same complete kernel/initramfs bytes, as already verified before installation.
+Automatic first collection and independent review pass all twelve samples,
+six exclusive lease retirements, command/service/role sums and subsets, CRCs,
+geometry and exact final sequence-12 bytes. The control takes 5.714710 seconds
+within the unchanged 180-second bound, with two completed 1% boundary cues.
+Role/data rows occupy 19171 bytes and the full receipt 20133 bytes, within the
+original line/32 KiB receipt/64 KiB tail limits. Only this bounded quiet native
+attribution is accepted; no loaded latency or screenshot fix is claimed.
+
+The trace accounts for the previously observed 37/56-command write stages:
+
+| Callback role | Steady 37-command sample | 56-command sample | Difference |
+| --- | ---: | ---: | ---: |
+| Other filesystem metadata | 11 | 11 | 0 |
+| Allocation/free | 8 | 12 | +4 |
+| File data | 8 | 8 | 0 |
+| Sidecar update | 1 | 24 | +23 |
+| Sidecar equality proof | 9 | 1 | −8 |
+| Total | 37 | 56 | +19 |
+
+Samples 5/9 share the first composition; 4/8/12 share the second. The first
+sample also totals 37, with one read assigned differently between metadata and
+allocation. No prefix-proof or unclassified filesystem commands are present.
+The sidecar-update role's 24 commands comprise nine reads, eleven writes and
+four flushes, transferring 131584 read bytes and 119296 write bytes. The cheaper
+path reads 117760 bytes under the equality-proof role and retains one flush;
+the update path's equality proof reads only 16384 bytes. With the unchanged
+source's early mismatch behavior, this is consistent with an equality miss in
+the first chunk followed by normal replacement. The changed serialized field
+and exact dirtying cause are not recorded; timestamps, identities or other
+metadata changes must not be guessed from these counts.
+
+Every filesystem sample transfers **128 KiB of file data for the 32 KiB logical
+write**, as eight 16 KiB commands. This matches the existing full-cluster
+initialization on this unit's 128 KiB clusters; it is transferred-byte
+amplification, not eight logical file writes. Each direct sample remains two
+16 KiB writes/32 KiB. Metadata traffic is additional. No initialization, equality
+proof, barrier, allocation, byte-readback or ownership check was skipped.
+
+Filesystem write/flush/readback legs are 50.782–83.294 ms; direct legs are
+7.803–8.118 ms, excluding mandatory raw proof/retirement/remount costs. The six
+post-raw gaps are 825.558–866.948 ms. The largest measured write-stage CSW
+callback is 4.185 ms, for a 512-byte metadata WRITE; direct maxima are
+1.065–1.072 ms. Every recorded over-100-ms status subset is zero. These software
+observations do not reproduce the earlier seconds-long loaded status waits and
+do not identify hardware completion time or clear the sustained screenshot issue.
+Different boots, file counts and media/cache state prevent a causal speed claim.
+
+All 890 prior paths remain, with only the expected volume-root `.srvros/meta`
+changed and the other 889 hashes identical. Four new files give 894 files and
+4562 allocated clusters. Fresh collector reads, exfatprogs and independent
+allocation checks report zero leaks, FAT/bitmap mismatches or errors; copied
+new files match their media hashes. Current/staged/independent candidate,
+recovery c354, accepted 78cf/0d3/4598/80b4/c7, retired 3403/c95f independent
+payloads, original failed-media archive and trial backup verify. Ubuntu remains
+default, firmware order is stable, one-shot is consumed, BootNext is absent,
+collector is disabled and USB is unmounted. No reboot is armed.
+
+The next concrete target is sidecar write amplification: audit why equality
+misses after remount and which metadata fields changed, then look for a safe
+reduction while retaining all persistence semantics and fresh proofs. PR19
+already owns separate metadata decode/restore work; do not duplicate that
+implementation or infer its native acceptance here. No new implementation or
+physical trial has started. Existing offline-repair limitations and the older
+intermittent battery transport-fault cause remain unresolved.

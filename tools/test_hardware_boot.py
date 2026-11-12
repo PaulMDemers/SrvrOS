@@ -695,6 +695,16 @@ class InstallTests(unittest.TestCase):
         for options in ({},dict(wifi_rf_vga=True),dict(wifi_rf_vga=True,wifi_firmware_package=Path('unused'),wifi_rf_g20=True),dict(wifi_rf_vga=True,wifi_firmware_package=Path('unused'),hold_on_failure=True)):
             with self.assertRaises(ValueError):boot.stage(wifi_5ghz_prereq=True,**options)
 
+    def test_storage_command_attribution_profile(self):
+        config=boot.limine_config('0123456789abcdef','ram-usb-v2-storage-only-laptop-probe-6ada85bb-auto-return')
+        self.assertIn('srvros.storage-roles=on',config)
+        self.assertIn('srvros.capture=storage-only',config)
+        old=boot.limine_config('0123456789abcdef','ram-usb-v1-storage-only-laptop-probe-6ada85bb-auto-return')
+        self.assertNotIn('srvros.storage-roles=',old)
+        self.assertEqual(hashlib.sha256(old.encode()).hexdigest(),'ada06e6310d14b5884dd588e73d233cf411d1eabae9300684f9f2339f5d44efd')
+        for options in ({},dict(laptop_probe_volume='6ada85bb'),dict(laptop_probe_volume='6ada85bb',storage_only_capture=True,battery_air61=True),dict(laptop_probe_volume='6ada85bb',storage_only_capture=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(storage_command_trace=True,**options)
+
     def test_storage_only_isolated_profile(self):
         version='ram-usb-v1-storage-only-laptop-probe-6ada85bb-auto-return'
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
