@@ -6176,6 +6176,13 @@ test-core: test-intel-entry-requester
 test-intel-entry-requester: build/tests/intel-entry-requester-adapter$(HOST_EXE) build/tests/boot-entry-requester$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_entry_requester.py
 	build/tests/boot-entry-requester$(HOST_EXE)
+.PHONY: test-exfat-sidecar-remount
+test-core: test-exfat-sidecar-remount
+test-exfat-sidecar-remount: build/tests/exfat-sidecar-remount$(HOST_EXE) build/tests/exfat-sidecar-legacy-order$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_sidecar_remount.py --driver build/tests/exfat-sidecar-remount$(HOST_EXE) --baseline build/tests/exfat-sidecar-legacy-order$(HOST_EXE)
+build/tests/exfat-sidecar-remount$(HOST_EXE) build/tests/exfat-sidecar-legacy-order$(HOST_EXE): tools/test_exfat_sidecar_remount.c tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) $(if $(findstring legacy-order,$@),-DSRVROS_EXFAT_SIDECAR_ORDER_OFF,) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
 build/tests/storage-role-wire$(HOST_EXE): tools/test_storage_role_wire.c kernel/src/storage_compare.inc kernel/src/workspace.c $(KERNEL_HEADERS)
 	mkdir -p build/tests

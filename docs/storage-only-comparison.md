@@ -153,3 +153,75 @@ Measured CSW callbacks peak at 4.185 ms, with zero recorded over-100-ms status
 subsets. The earlier long loaded status waits and screenshot stalls remain
 unresolved. Direct I/O timings exclude proof/retirement/remount work and do not
 authorize a filesystem bypass or a throughput comparison that omits those costs.
+
+## Stable metadata serialization and first-difference diagnostics
+
+Sidecar records retain the same `SRVROSMETA1` format and all eight metadata
+fields, but new serializations use bytewise path order. Live VFS enumeration
+slots are not changed. A bounded pointer scratch is reserved before dirty
+marking, sorted without recursion or I/O and released with the mount. Existing
+unsorted sidecars remain readable and may need one ordinary replacement to
+normalize order. Actual field/namespace changes still require persistence;
+no equality result is cached and every matching byte is still read freshly.
+Pending recovery names, live clients, allocation ownership, failure quarantine
+and all publication/flush barriers retain their original behavior.
+
+The real importer regression creates interleaved directory/file nodes and reuses
+a VFS hole. A remount changes record order with identical per-path fields.
+The legacy serializer rewrites that sidecar; stable serialization retains exact
+bytes through four remounts. Fixed-clock no-op transactions retain their two
+volume-flag writes and four flushes, while actual access-time, permission,
+change-time and rename mutations remain persisted and independently checked.
+These host results do not yet accept a native or sustained screenshot benefit.
+
+The v2 control additionally emits paired final `exfat-sidecar` and
+`exfat-sidecar-diff` counters at the existing completion timestamp. Differences
+are classified by shape (length/valid length/allocation) or the **first differing
+expected serialized field**: path, inode, mode, nlink, uid, gid, atime, mtime,
+ctime or format. A path difference can mean ordering or a real namespace change;
+this is not a complete semantic diff. No path or actual field value is logged.
+Classification adds no reads, clocks, allocations or yields. Counters are
+boot-wide and include preparation. Separate `storage-only-sidecar` rows retain
+one bounded before/after counter delta for each original timed write: equal,
+changed, shape or first-field mask/byte offset. Each filesystem write must own
+one completed comparison; each raw write must own none. Fixed RAM snapshots
+add no clocks, allocations, I/O or scheduler calls, and their overhead remains
+inside the unchanged write interval. Per-sample deltas must reconcile with the
+boot-wide counters and fit the existing dry-counted row budget. Their sum must exactly match changed comparisons; unavailable
+proofs remain refusals. New candidates require the strict paired diagnostic in
+addition to every original receipt and integrity check. Legacy v1/v2 receipts
+remain readable. Maximum-width companion/control/lease/audio rows fit the same
+2048-byte reserve; the 32 KiB receipt and 64 KiB tail are unchanged.
+
+This serializer change leaves PR19's separate decoder/atomic-identity-restore
+work untouched. It does not repair the existing offline-recovery limitations,
+accept cold-boot identity restoration or establish why long loaded USB status
+completions occur.
+
+
+## Native canonical/per-sample return
+
+The [Air6,1 return](machines/macbookair6-1.md#native-sidecar-remount-return-2026-11-12)
+accepts the bounded functional/diagnostic checks on `998fdfb9b4f9c5a8` (source
+`9c1bd01a`): twelve samples and six retired leases in 5.703998 seconds, all
+original proofs, 21623 receipt bytes, prior-file preservation and clean offline
+allocation. The final sidecar is canonically ordered. Three filesystem samples
+compare equal; the three post-remount rewrites first differ in atime. Counts
+remain 37/56 and write times remain approximately 47–79 ms; a native performance
+improvement is not established. The host order-only reduction remains separately
+proved. Both 1% boundary cues complete outside measurement.
+
+Mismatch offsets align with the workspace marker atime field in the saved final
+sidecar, and mount verification calls the atime-updating VFS reader. This is a
+source/evidence-supported attribution of the first mismatch, not a complete
+semantic diff of each intermediate expected table. File readbacks and ordinary
+writes can change other timestamps too. Audit internal verification side effects
+and the full field change set before deciding which traffic can safely be removed;
+do not remove persistence, fresh reads or barriers just because the first field
+is an access time. A marker-only change may not avoid the required rewrite when
+actual file writes also advance mtime/ctime; reducing the cost of required
+sidecar updates remains a separate target. Cold-boot identity restoration also remains open: the prior-
+record comparison finds 56 reassigned IDs through the unchanged legacy restore
+path, with unique final IDs and unchanged permission/ownership fields. PR19's
+separate atomic restore implementation is not part of this accepted runtime.
+The long loaded USB waits and screenshot stalls remain unresolved.
