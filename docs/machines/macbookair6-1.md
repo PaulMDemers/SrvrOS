@@ -13344,3 +13344,38 @@ mismatches or errors. Current/staged/independent candidate, recovery c354, prior
 media archive and trial backup verify. Ubuntu remains default, firmware order
 is stable, the one-shot is consumed, BootNext is absent, the collector is disabled
 and USB is unmounted. No reboot is armed and no next trial has started.
+
+## Active complete-metadata audit and sidecar update cost (2026-11-12)
+
+From fetched main `9a8d2377`, audit every serialized metadata field for the
+existing bounded storage comparison and reduce required sidecar-update work.
+Preserve normal atime/mtime/ctime, all eight persisted fields, canonical format,
+fresh complete byte proofs, temporary-name publication, dirty/clean markers,
+barriers, ownership/client exclusions, quarantine and every existing limit.
+The completed previous native trial and its full independent backup are sealed;
+no run is outstanding. This remains one local device checkout with no subagents
+or cross-task contact. Local model, designated USB identity, installed current
+998f and retained recovery c354 are recorded and rechecked before physical work.
+
+Writer scope: prove a reusable inactive entry run in the first sector of the
+private metadata directory, before any END marker, to avoid the redundant whole-
+cluster directory read. Only this narrow case may return early. END consumption,
+ambiguous/long runs, later sectors/clusters and growth retain the original full
+scan and prefix/tail preparation. All media writes and flush order must match
+legacy behavior. No equality/prefix byte proof may use a cached substitute.
+Diagnostics scope: a separate explicit full-field storage trace reads the complete
+old sidecar and merge-compares canonical path records/all eight numeric fields
+with the newly serialized table. Count all changed fields and namespace changes,
+not merely the first mismatch. Retain the existing v1/v2 readers/recipes and the
+same twelve 32 KiB samples, six pairs, 180 seconds, 16 KiB commands, 4 KiB DMA,
+transport deadlines, 32 KiB receipt/64 KiB tail and 1% boundary cues. Diagnostic
+read overhead must remain visible and distinct from update work.
+
+Actual PR19 at `3225dca2` still owns the separate metadata decoder/atomic restore
+loader hunks; do not alter or duplicate its authoritative restoration work.
+PR301 at `2efa8028` has no overlap with these storage/boot files. Retain the
+unresolved cold-ID persistence and loaded USB/screenshot issues. Publish the
+bounded candidate, validate actual full-field observation and byte/write/barrier
+compatibility/fault paths, run the matched host/VM checks, self-merge and launch
+the authorized automatic native comparison. No performance acceptance before its
+matching physical return; no limits, recovery protocol or hardware gate changes.
