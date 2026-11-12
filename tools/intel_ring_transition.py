@@ -72,8 +72,8 @@ def _ring_result(text,*,entry=False,composition=False,nonzero=False):
  from intel_completion_audit import completion_result
  from intel_joint import joint_capture,ENDPOINT
  w=wake_result(text)
- if not w or w['summary']['v'] not in ((28,) if nonzero else (26,27) if composition else (25,) if entry else (24,)):raise ValueError('ring wrong image')
- if any(l.startswith('intel-ring-summary: v=3 ') for l in text.splitlines())!=(w['summary']['v'] in (27,28)):raise ValueError('entry wire image binding')
+ if not w or w['summary']['v'] not in ((28,29) if nonzero else (26,27) if composition else (25,) if entry else (24,)):raise ValueError('ring wrong image')
+ if any(l.startswith('intel-ring-summary: v=3 ') for l in text.splitlines())!=(w['summary']['v'] in (27,28,29)):raise ValueError('entry wire image binding')
  owner=joint_capture(text if composition else text.replace('intel-ring-hda:','intel-joint-hda:').replace('intel-ring-owner:','intel-joint-summary:'))
  if not owner:raise ValueError('ring missing HDA owner')
  h=owner['summary']

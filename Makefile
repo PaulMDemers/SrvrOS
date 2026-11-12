@@ -6216,3 +6216,36 @@ test-core: test-intel-nonzero-reset
 test-intel-nonzero-reset: build/tests/intel-nonzero-reset-adapter$(HOST_EXE) build/tests/boot-nonzero-reset$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_nonzero_reset.py
 	build/tests/boot-nonzero-reset$(HOST_EXE)
+
+# Separate original nonzero-geometry reset lifetime; legacy gates unchanged.
+INTEL_NONZERO_SOURCE_FLAGS := $(INTEL_NONZERO_RESET_FLAGS) -DSRVROS_INTEL_NONZERO_SOURCE
+build/intel-nonzero-source/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_NONZERO_SOURCE_FLAGS) -c $< -o $@
+build/intel-nonzero-source/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_NONZERO_SOURCE_FLAGS) -c $< -o $@
+build/intel-nonzero-source/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_NONZERO_SOURCE_FLAGS) -c $< -o $@
+build/intel-nonzero-source/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-nonzero-source/srvros.elf: build/intel-nonzero-source/main.o build/intel-nonzero-source/probe.o build/intel-nonzero-source/requests.o build/intel-nonzero-source/reset.o build/intel-nonzero-source/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-nonzero-source-adapter$(HOST_EXE): tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_NONZERO_SOURCE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/tests/boot-nonzero-source$(HOST_EXE): tools/test_boot_nonzero_source.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_NONZERO_SOURCE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-nonzero-source
+test-core: test-intel-nonzero-source
+test-intel-nonzero-source: build/tests/intel-nonzero-source-adapter$(HOST_EXE) build/tests/boot-nonzero-source$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_nonzero_source.py
+	build/tests/boot-nonzero-source$(HOST_EXE)
+
+build/intel-nonzero-source/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@

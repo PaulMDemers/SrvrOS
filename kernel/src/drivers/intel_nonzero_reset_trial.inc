@@ -1,4 +1,7 @@
 #include <srvros/intel_nonzero_reset.h>
+#ifdef SRVROS_INTEL_NONZERO_SOURCE
+#include <srvros/intel_nonzero_source.h>
+#endif
 struct nonzero_adapter {
  struct intel_nonzero_reset r;
  struct wake_adapter *a;
@@ -6,6 +9,12 @@ struct nonzero_adapter {
  unsigned issued_controls,issued_resets;
  uint64_t store_at[12],store_previous[12];
  bool failed;
+#ifdef SRVROS_INTEL_NONZERO_SOURCE
+ struct intel_nonzero_source source;
+ struct scanout_handoff_snapshot source_input;
+ unsigned source_reads;
+ uint64_t source_at[6],source_previous[6];
+#endif
 };
 static struct nonzero_adapter nonzero_native;
 static bool nonzero_guard(void *ctx) {
@@ -168,10 +177,66 @@ static bool nonzero_readers(void *ctx,struct intel_ring_readers *out,unsigned *c
  for(unsigned i=0;i<10;i++){out->audio[i]=values[i];++*count;}
  nonzero_exit(p);return true;
 }
+#ifdef SRVROS_INTEL_NONZERO_SOURCE
+static bool nonzero_source_guard(void *ctx) {
+ struct nonzero_adapter *p=ctx;
+ return p==&nonzero_native && p->source.reset==&p->r && p->source.input==&p->source_input &&
+  p->source.provider==p && intel_nonzero_source_live(&p->source) && nonzero_guard(p);
+}
+static bool nonzero_source_sample(void *ctx,uint32_t out[2][3],unsigned *count) {
+ struct nonzero_adapter *p=ctx;struct intel_nonzero_source *s=&p->source;
+ if(out!=s->words || count!=&s->count || *count || p->source_reads ||
+    !nonzero_source_guard(p) || !nonzero_enter(p))return false;
+ for(unsigned i=0;i<6;i++) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+  intel_display_test_nonzero_source_admission(i);
+#endif
+  if(!nonzero_source_guard(p) || !completion_mapping(p->a,13))return false;
+  uint64_t previous=s->last,at=nonzero_now(p);p->source_at[i]=at;p->source_previous[i]=previous;
+  /* Final same-origin clock, then direct immutable source loads only. */
+  if(!at || at<previous || at<p->r.last || at<p->g->last || at<s->origin || at-s->origin>100000 ||
+     at<s->parent_begin || at-s->parent_begin>300000) {
+   if(!(s->reason&INS_CLOCK)){s->clock_at=at;s->clock_prev=previous;}s->reason|=INS_CLOCK;return false;
+  }
+  if(s->object!=s || s->reset!=&p->r || s->parent!=p->g || s->post!=&p->r.post ||
+     s->entry!=&ring_native.result || s->input!=&p->source_input || s->provider!=p ||
+     p->r.dependent!=s || p->r.registered!=s || p->r.stage!=INZ_PRESERVE_STAGE ||
+     !intel_nonzero_source_live(s) || p->r.returned || p->r.complete || p->r.parent!=p->g || p->r.object!=&p->r ||
+     p->r.epoch_after!=2 || p->g->engine_epoch!=2 || s->origin!=p->r.begin ||
+     s->parent_begin!=p->g->begin || p->source_reads!=i || *count!=i) {s->reason|=INS_PARENT;return false;}
+  s->last=p->r.last=p->g->last=at;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+  bool ok=intel_display_test_nonzero_source_read(INTEL_WINDOW_PAGE+(i%3==1?0:4),&out[i/3][i%3]);
+#else
+  out[i/3][i%3]=*(volatile const uint32_t *)(WAKE_VA+13*4096+(i%3==1?0:4));bool ok=true;
+#endif
+  if(!ok)return false;
+  ++p->source_reads;++*count;
+ }
+ nonzero_exit(p);return !p->failed;
+}
+static bool nonzero_source_observe(void *ctx,struct intel_nonzero_reset *r) {
+ struct nonzero_adapter *p=ctx;
+ if(p!=&nonzero_native || r!=&p->r || !intel_window_handoff_snapshot(&p->source_input))return false;
+ return intel_nonzero_source_run(&p->source,r,&p->source_input,
+  (struct intel_nonzero_source_io){p,nonzero_source_guard,nonzero_source_sample,nonzero_now});
+}
+static void nonzero_source_report(void) {
+ const struct nonzero_adapter *p=&nonzero_native;const struct intel_nonzero_source *s=&p->source;
+ for(unsigned i=0;i<6;i++)console_printf("intel-nzsource-read: v=1 n=%u value=%u at=%u previous=%u\n",(uint64_t)i,(uint64_t)s->words[i/3][i%3],p->source_at[i],p->source_previous[i]);
+ console_printf("intel-nzsource: v=1 origin=%u parent_begin=%u post_begin=%u post_end=%u post_last=%u begin=%u end=%u last=%u read_begin=%u read_end=%u return_begin=%u clock_at=%u clock_prev=%u expected=%u epoch=%u post_mode=%u count=%u native_reads=%u borrows=%u returns=%u entered=%u observed=%u registered=%u blocked=%u stable=%u returned=%u reason=%u complete=%u obligations=255 assurances=0 managed_pages=0 pte_writes=0 hardware_ownership=0\n",
+ s->origin,s->parent_begin,s->post_begin,s->post_end,s->post_last,s->begin,s->end,s->last,s->read_begin,s->read_end,s->return_begin,s->clock_at,s->clock_prev,s->expected,(uint64_t)s->epoch,(uint64_t)s->post_mode,(uint64_t)s->count,(uint64_t)p->source_reads,(uint64_t)p->r.child_borrows,(uint64_t)p->r.child_returns,(uint64_t)p->r.observer_entered,(uint64_t)p->r.observer_complete,(uint64_t)s->registered,(uint64_t)s->blocked,(uint64_t)s->stable,(uint64_t)s->returned,(uint64_t)s->reason,(uint64_t)s->complete);
+}
+#endif
 static void nonzero_run(struct wake_adapter *a,struct intel_gt_access *g,bool policy) {
  struct nonzero_adapter *p=&nonzero_native;if(p->r.object)return;
  p->a=a;p->g=g;
- (void)intel_nonzero_reset_run(&p->r,g,&ring_native.result,policy,(struct intel_nonzero_io){p,nonzero_guard,nonzero_sample,nonzero_control,nonzero_request,nonzero_bcs,nonzero_domain,nonzero_reset,nonzero_post,nonzero_readers,nonzero_now,nonzero_pause});
+ const struct intel_nonzero_io io={p,nonzero_guard,nonzero_sample,nonzero_control,nonzero_request,nonzero_bcs,nonzero_domain,nonzero_reset,nonzero_post,nonzero_readers,nonzero_now,nonzero_pause};
+#ifdef SRVROS_INTEL_NONZERO_SOURCE
+ (void)intel_nonzero_reset_observe(&p->r,g,&ring_native.result,policy,io,nonzero_source_observe,p);
+#else
+ (void)intel_nonzero_reset_run(&p->r,g,&ring_native.result,policy,io);
+#endif
  if(p->r.uncertain || p->r.borrow.active)a->uncertain=true;
 }
 static void nonzero_words(const char *kind,unsigned n,const uint32_t *words,unsigned count) {
@@ -181,6 +246,9 @@ static void nonzero_words(const char *kind,unsigned n,const uint32_t *words,unsi
  console_printf("intel-nonzero-%s: v=1 n=%u count=%u b=%s\n",kind,(uint64_t)n,(uint64_t)count,count?encoded:"-");
 }
 static void nonzero_report(void) {
+#ifdef SRVROS_INTEL_NONZERO_SOURCE
+ nonzero_source_report();
+#endif
  const struct nonzero_adapter *p=&nonzero_native;const struct intel_nonzero_reset *r=&p->r;
  for(unsigned n=0;n<2;n++)nonzero_words("admit",n,r->admission[n],r->admission_count[n]);
  for(unsigned n=0;n<5;n++)nonzero_words("control",n,r->control[n],r->control_count[n]);

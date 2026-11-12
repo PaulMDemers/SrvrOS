@@ -15,6 +15,7 @@ enum intel_nonzero_reason {INZ_INPUT=1,INZ_SOURCE=2,INZ_CLOCK=4,INZ_GUARD=8,
 enum intel_nonzero_stage {INZ_ADMIT=1,INZ_PREPARE,INZ_HELD,INZ_RESET,INZ_SETTLE,
  INZ_POST,INZ_CANCEL,INZ_PRESERVE_STAGE,INZ_RETURN_STAGE,INZ_DONE};
 enum intel_nonzero_post {INZ_POST_NONE=0,INZ_POST_PRESERVED=1,INZ_POST_RESET_DEFAULT=2};
+struct intel_nonzero_source;
 struct intel_nonzero_reset {
  const struct intel_nonzero_reset *object;
  struct intel_gt_access *parent;
@@ -36,6 +37,10 @@ struct intel_nonzero_reset {
  unsigned controls,control_writes,control_acks,resets,reset_writes,reset_acks;
  unsigned control_reads,bcs_reads,checks,stage,index,post_mode,reason;
  bool policy,eligible,blocked,epoch_advanced,preserved,returned,uncertain,complete;
+ /* Optional distinct read-only child. Never a legacy preparation/claim. */
+ const struct intel_nonzero_source *dependent,*registered;
+ unsigned child_borrows,child_returns;
+ bool observer_entered,observer_complete;
 };
 struct intel_nonzero_io {
  void *ctx;
@@ -57,6 +62,11 @@ struct intel_nonzero_io {
  * Unknown post-state or lost source/clock/return retains the original root. */
 bool intel_nonzero_reset_run(struct intel_nonzero_reset *,struct intel_gt_access *,
  const struct intel_ring_transition *,bool,struct intel_nonzero_io);
+/* The observer must retire its original registered child inside this same
+ * preparation deadline. Any failure pins the enclosing reset/root. */
+bool intel_nonzero_reset_observe(struct intel_nonzero_reset *,struct intel_gt_access *,
+ const struct intel_ring_transition *,bool,struct intel_nonzero_io,
+ bool (*)(void *,struct intel_nonzero_reset *),void *);
 /* Pure original-object predicates for the native adapter's final admission. */
 bool intel_nonzero_reset_live(const struct intel_nonzero_reset *);
 bool intel_nonzero_reset_write_ready(const struct intel_nonzero_reset *,bool,unsigned,uint32_t);

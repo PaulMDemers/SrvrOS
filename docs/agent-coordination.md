@@ -857,3 +857,15 @@ as `c38ae968` has affected local checks only. No new boot is armed. Existing
 zero guards, deadlines, all 255 obligations and other units' acceptance remain
 unchanged. Re-arm/claim/requester/memory are separate original-live-owner work;
 never construct legacy objects from the saved new receipt.
+
+## Air live nonzero post-reset source
+
+Air7,2 owns the separate [v29 read-only source child](intel-nonzero-source.md),
+based on `019d28d2` / main `9a8d2377`. It binds the original live nonzero reset,
+actual epoch-2 post-census/readers and original candidate GGTT entry within the
+same preparation 100 ms/GT 300 ms origins. Shared scope is the optional observer
+and registration contract, isolated native image/recipe/collector and tests.
+Old reset/claim/requester gates stay unchanged; the child is not an ownership
+or memory token. Other machines keep their independent gates and evidence.
+This records development scope only; v29 native acceptance is pending and no
+new trial is armed. The accepted v28 payload/evidence remains frozen.

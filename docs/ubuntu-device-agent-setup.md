@@ -1451,3 +1451,14 @@ dedicated strict native result and full lifecycle, not an empty generic alert
 list. This does not accept re-arm/requester/managed backing or a sibling device.
 Main `9a8d2377` integrated after collection has affected local checks only;
 the installed physical payload and its acceptance remain frozen.
+
+### Original live nonzero post-reset source
+
+The separate [v29 source-binding image](intel-nonzero-source.md) uses
+`--intel-nonzero-source --laptop-probe-volume LOCAL_UUID`, an exact 15-token
+recipe and its own pre-init/collector. It adds six read-only original-candidate
+GGTT loads as a registered child before reset return, sharing the original
+preparation 100 ms and GT 300 ms origins. It adds no ownership/managed-memory
+permission. Use the same unattended, silent 1% exact-stage and recovery flow;
+collect `intel_nonzero_source` and full media/retirement evidence afterward.
+Safe saved results return automatically; uncertain state halts visibly.

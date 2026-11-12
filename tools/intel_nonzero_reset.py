@@ -47,17 +47,20 @@ def _vector(line,kind,width):
  raw=base64.b64decode(m[3],validate=True)
  if len(raw)!=4*count or base64.b64encode(raw).decode()!=m[3]:raise ValueError('nonzero vector canonical/size')
  return n,list(struct.unpack('<'+'I'*count,raw))
-def nonzero_result(text):
+def nonzero_result(text, *, source=False):
  if 'intel-nonzero-summary:' not in text:
   if any(l.startswith('intel-nonzero-') for l in text.splitlines()):raise ValueError('nonzero missing summary')
   return None
  from intel_gt_wake import wake_result
  from intel_completion_audit import completion_result
  w=wake_result(text)
- if not w or w['summary']['v']!=28:raise ValueError('nonzero wrong image')
+ if not w or w['summary']['v']!=(29 if source else 28):raise ValueError('nonzero wrong image')
  boots=re.findall(r'^laptop-capture: boot options=(.*)$',text,re.M)
  if len(boots)!=1:raise ValueError('nonzero recipe coverage')
- nonzero_recipe(boots[0])
+ if source:
+  from intel_nonzero_source import source_recipe
+  source_recipe(boots[0])
+ else:nonzero_recipe(boots[0])
  e=_entry(text)
  if not e:raise ValueError('nonzero original entry missing')
  lines=[l for l in text.splitlines() if l.startswith('intel-nonzero-') and not l.startswith(('intel-nonzero-entry-','intel-nonzero-census:'))]
@@ -101,7 +104,11 @@ def nonzero_result(text):
  post_lines += [l for l in text.splitlines() if l.startswith(('intel-clock:','intel-wake-summary:'))]
  post=completion_result('\n'.join(post_lines))
  if len(vectors['readers'][0])!=s['readers'] or [len(v) for v in vectors['bcs']]!=[min(s[k],8) for k in ('bcs0','bcs1')]:raise ValueError('nonzero raw count binding')
- if w['summary']['engine_reads']!=e['pre']['summary']['reads']+e['summary']['bcs_reads']+e['post']['summary']['reads']+s['control_reads']+s['bcs_reads']+post['summary']['reads']:raise ValueError('nonzero total reads')
+ extra=0
+ if source:
+  from intel_nonzero_source import source_summary
+  extra=source_summary(text)['native_reads']
+ if w['summary']['engine_reads']!=extra+e['pre']['summary']['reads']+e['summary']['bcs_reads']+e['post']['summary']['reads']+s['control_reads']+s['bcs_reads']+post['summary']['reads']:raise ValueError('nonzero total reads')
  if s['complete']:
   if not all(s[k] for k in ('policy','eligible','blocked','epoch_advanced','preserved','returned')) or s['retained'] or s['stage']!=10 or s['index']!=0 or s['post_mode'] not in (1,2) or tuple(s[k] for k in ('admission_attempts','control_samples','bcs_samples','bcs0','bcs1','readers','controls','control_writes','control_acks','resets','reset_writes','reset_acks','native_controls','native_resets'))!=(2,5,2,9,9,37,10,10,10,2,2,2,10,2):raise ValueError('nonzero false completion')
   if not 0<t['source_begin']<=t['source_last']<=t['source_end']<t['entry_end']<=t['admit_begin']<t['admit_end']<=t['begin']<t['settle_begin']<t['settle_end']<t['guard_begin']<=t['guard_end']<=t['return_begin']<=t['end']==t['last']<=t['begin']+100000 or t['begin']>t['admit_begin']+100000 or t['begin']>t['source_end']+100000 or t['clock_at'] or t['clock_prev'] or not 50<=t['settle_end']-t['settle_begin']<=10000:raise ValueError('nonzero deadlines/order')
@@ -142,13 +149,17 @@ def native_nonzero_result(text):
   if not native_wake_result(text)['native_wake_complete']:raise ValueError('nonzero native prerequisites')
   r['native_complete']=True
  return r
-def verify_nonzero_checkpoint(pre,text,native=False):
+def verify_nonzero_checkpoint(pre,text,native=False, *, source=False):
  from intel_gt_wake import verify_wake_checkpoint
  if 'intel-nonzero-summary:' in pre or 'intel-nonzero-entry-summary:' in pre:raise ValueError('nonzero late prerequisite')
  verify_wake_checkpoint(pre,text,native=native)
  boots=[re.findall(r'^laptop-capture: boot options=(.*)$',s,re.M) for s in (pre,text)]
  if any(len(b)!=1 for b in boots) or boots[0]!=boots[1]:raise ValueError('nonzero boot provenance')
- nonzero_recipe(boots[0][0])
- if any(s.count('init: deferred=nonzero-reset-preinit;')!=1 or 'init: started pid=' in s for s in (pre,text)):raise ValueError('nonzero preinit provenance')
- if not nonzero_result(text):raise ValueError('nonzero missing final result')
+ if source:
+  from intel_nonzero_source import source_recipe
+  source_recipe(boots[0][0])
+ else:nonzero_recipe(boots[0][0])
+ marker='init: deferred=nonzero-source-preinit;' if source else 'init: deferred=nonzero-reset-preinit;'
+ if any(s.count(marker)!=1 or 'init: started pid=' in s for s in (pre,text)):raise ValueError('nonzero preinit provenance')
+ if not nonzero_result(text,source=source):raise ValueError('nonzero missing final result')
  return True

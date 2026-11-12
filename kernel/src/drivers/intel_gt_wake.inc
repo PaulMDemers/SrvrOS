@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_NONZERO_SOURCE) && !defined(SRVROS_INTEL_NONZERO_RESET)
+#error "Nonzero source requires its original reset source"
+#endif
 #if defined(SRVROS_INTEL_NONZERO_RESET) && (!defined(SRVROS_INTEL_RING_ENTRY) || defined(SRVROS_INTEL_RING_RESET) || defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_GPU_HOLD))
 #error "Nonzero reset requires its separate original-entry image without legacy reset or claim"
 #endif
@@ -60,7 +63,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_NONZERO_RESET
+#ifdef SRVROS_INTEL_NONZERO_SOURCE
+extern volatile struct limine_firmware_type_request intel_nonzero_source_firmware_request;
+#elif defined(SRVROS_INTEL_NONZERO_RESET)
 extern volatile struct limine_firmware_type_request intel_nonzero_reset_firmware_request;
 #elif defined(SRVROS_INTEL_ENTRY_REQUESTER)
 extern volatile struct limine_firmware_type_request intel_entry_requester_firmware_request;
@@ -115,7 +120,9 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #include <srvros/intel_engine_census.h>
 #ifdef SRVROS_INTEL_RING_TRANSITION
 #define WAKE_MAPS 14u
-#ifdef SRVROS_INTEL_NONZERO_RESET
+#ifdef SRVROS_INTEL_NONZERO_SOURCE
+#define WAKE_VERSION 29u
+#elif defined(SRVROS_INTEL_NONZERO_RESET)
 #define WAKE_VERSION 28u
 #elif defined(SRVROS_INTEL_RING_ENTRY)
 #define WAKE_VERSION 25u
@@ -523,7 +530,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_NONZERO_RESET
+    #ifdef SRVROS_INTEL_NONZERO_SOURCE
+    const struct limine_firmware_type_response *firmware=intel_nonzero_source_firmware_request.response;
+#elif defined(SRVROS_INTEL_NONZERO_RESET)
     const struct limine_firmware_type_response *firmware=intel_nonzero_reset_firmware_request.response;
 #elif defined(SRVROS_INTEL_ENTRY_REQUESTER)
     const struct limine_firmware_type_response *firmware=intel_entry_requester_firmware_request.response;
@@ -581,6 +590,8 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     static struct engine_prepare_trial prepared;
     static struct intel_takeover_result takeover;
+#elif defined(SRVROS_INTEL_NONZERO_SOURCE)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_nonzero_source_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_NONZERO_RESET)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_nonzero_reset_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_RING_ENTRY)
@@ -858,6 +869,9 @@ bool intel_gt_wake_probe_report(void) {
     ring_report();engine_reads+=ring_native.result.bcs.reads+ring_native.result.post.reads;
 #ifdef SRVROS_INTEL_NONZERO_RESET
     nonzero_report();engine_reads+=nonzero_native.r.control_reads+nonzero_native.r.bcs_reads+nonzero_native.r.post.reads;
+#ifdef SRVROS_INTEL_NONZERO_SOURCE
+    engine_reads+=nonzero_native.source_reads;
+#endif
     complete=complete && nonzero_native.r.complete;
 #endif
     complete=complete && ring_native.result.complete;

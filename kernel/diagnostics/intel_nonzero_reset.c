@@ -194,8 +194,9 @@ static bool preserve(struct nz_call *p) {
  for(unsigned i=0;i<10;i++)if(r->readers.audio[i]!=r->entry->readers[1].audio[i])return fail(r,INZ_PRESERVE);
  r->guard_begin=r->last;if(!guard(p))return false;r->guard_end=r->last;r->preserved=true;return true;
 }
-bool intel_nonzero_reset_run(struct intel_nonzero_reset *r,struct intel_gt_access *g,
- const struct intel_ring_transition *e,bool policy,struct intel_nonzero_io io) {
+static bool run(struct intel_nonzero_reset *r,struct intel_gt_access *g,
+ const struct intel_ring_transition *e,bool policy,struct intel_nonzero_io io,
+ bool (*observe)(void *,struct intel_nonzero_reset *),void *ctx) {
  if(!r || r->object)return false;
  *r=(struct intel_nonzero_reset){.object=r,.parent=g,.entry=e,.provider=io.ctx,.policy=policy};
  if(!g || !e || !policy || !io.guard || !io.sample || !io.control || !io.request || !io.bcs ||
@@ -246,6 +247,15 @@ bool intel_nonzero_reset_run(struct intel_nonzero_reset *r,struct intel_gt_acces
  if(!ctl_snapshot(&p,4))goto done;
  for(unsigned i=0;i<6;i++)if((r->control[4][i]&0xffffu)!=(r->control[0][i]&0xffffu)){fail(r,INZ_STATE);goto done;}
  r->stage=INZ_PRESERVE_STAGE;if(!preserve(&p))goto done;
+ if(observe) {
+  r->observer_entered=true;
+  bool observed=observe(ctx,r);
+  if(!guard(&p) || !observed || r->dependent || r->registered ||
+     r->child_borrows!=1 || r->child_returns!=1){fail(r,INZ_PRESERVE);goto done;}
+  r->observer_complete=true;
+  r->guard_begin=r->last;if(!guard(&p))goto done;r->guard_end=r->last;
+ }
+ if((!observe && (r->child_borrows || r->child_returns || r->observer_entered || r->observer_complete)) || r->dependent || r->registered || r->child_borrows!=r->child_returns){fail(r,INZ_RETURN);goto done;}
  r->stage=INZ_RETURN_STAGE;r->return_begin=io.now(io.ctx);
  if(!clock_at(&p,r->return_begin) || !identity(&p) || !source(r)){fail(r,INZ_RETURN);goto done;}
  r->returned=intel_gt_access_return(&r->borrow);if(!r->returned){fail(r,INZ_RETURN);goto done;}
@@ -255,4 +265,14 @@ bool intel_nonzero_reset_run(struct intel_nonzero_reset *r,struct intel_gt_acces
  r->stage=INZ_DONE;r->complete=true;r->uncertain=false;
  done:
  return r->complete;
+}
+bool intel_nonzero_reset_run(struct intel_nonzero_reset *r,struct intel_gt_access *g,
+ const struct intel_ring_transition *e,bool policy,struct intel_nonzero_io io) {
+ return run(r,g,e,policy,io,0,0);
+}
+bool intel_nonzero_reset_observe(struct intel_nonzero_reset *r,struct intel_gt_access *g,
+ const struct intel_ring_transition *e,bool policy,struct intel_nonzero_io io,
+ bool (*observe)(void *,struct intel_nonzero_reset *),void *ctx) {
+ if(!observe)return false;
+ return run(r,g,e,policy,io,observe,ctx);
 }

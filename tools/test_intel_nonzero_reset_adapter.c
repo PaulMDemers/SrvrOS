@@ -12,6 +12,9 @@ static unsigned nz_reads,nz_writes,nz_clocks,nz_admissions,nz_census,nz_polls,nz
 static uint32_t nz_control[5],nz_domain;
 static bool intel_display_test_nonzero_clock(uint64_t *out) {
  ++nz_clocks;
+#ifdef SRVROS_INTEL_NONZERO_SOURCE
+ if(intel_display_test_nonzero_source_clock(out))return true;
+#endif
  if(jf("nz-clock-parent",nz_clocks))nonzero_native.r.parent=NULL;
  if(jf("nz-zero",nz_clocks)){*out=0;return true;}
  if(jf("nz-backward",nz_clocks)){*out=1;return true;}
@@ -85,7 +88,10 @@ static enum intel_gt_write intel_display_test_nonzero_write(unsigned reg,uint32_
  if(jf("nz-ack",nz_writes))*out=UINT32_MAX;
  return GT_WRITE_DONE;
 }
-int main(int argc,char **argv) {
+#ifndef INTEL_NONZERO_FIXTURE_MAIN
+#define INTEL_NONZERO_FIXTURE_MAIN main
+#endif
+int INTEL_NONZERO_FIXTURE_MAIN(int argc,char **argv) {
  if(argc==2 && !strcmp(argv[1],"--wake-engine-nz-kind2")){ring_fixture_disabled=true;ring_ctl=0;}
  int result=original_display_fixture_main(argc,argv);
  printf("laptop-capture: boot options=%s\n",wake_cmd.cmdline);
