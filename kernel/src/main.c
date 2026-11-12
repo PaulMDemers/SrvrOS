@@ -702,6 +702,42 @@ static bool audio_listen_control(unsigned op,unsigned value) {
         audio_listen_pause();}while(timer_monotonic_us()<until);
     return false;
 }
+/* Two brief cues bracket isolated storage measurements; no PCM load overlaps. */
+static bool storage_only_cue(void) {
+    struct srv_audio_status before,now;audio_status(&before);
+    if(before.state!=SRV_AUDIO_READY || before.pending || before.volume!=1 ||
+       (before.capabilities&SRV_AUDIO_CAP_PCM_BUSY) || audio_request(SRV_AUDIO_TEST,0))return false;
+    uint64_t start=timer_monotonic_us();
+    do {
+        audio_status(&now);
+        if(!now.pending && now.state==SRV_AUDIO_READY && !now.error &&
+           now.tests_completed==before.tests_completed+1 && now.volume==1)return true;
+        if(now.error || timer_monotonic_us()<start)return false;
+        audio_listen_pause();
+    }while(timer_monotonic_us()-start<2000000);
+    return false;
+}
+static bool storage_only_capture(void) {
+    console_write("Storage-only comparison: six balanced32KiB pairs, maximum180seconds.\n"
+        "Volume1%; brief start/end cues only. No input required; automatic Ubuntu return.\n");
+    bool quiesced=workspace_log_quiesce(5000);
+    bool configured=quiesced && audio_listen_control(SRV_AUDIO_OUTPUT,SRV_AUDIO_SPEAKERS) &&
+        audio_listen_control(SRV_AUDIO_VOLUME,1);
+    bool first=configured && storage_only_cue();
+    bool measured=first && workspace_storage_compare();
+    bool second=measured && storage_only_cue();
+    bool stopped=audio_listen_control(SRV_AUDIO_STOP,0);
+    bool quiet=stopped && audio_listen_control(SRV_AUDIO_VOLUME,1);
+    bool ok=measured && second && quiet;
+    console_printf("storage-only-audio: volume=1 cues=%u stopped=%s quiet=%s clean=%s\n",
+        (uint64_t)first+(uint64_t)second,stopped?"yes":"NO",quiet?"yes":"NO",ok?"yes":"NO");
+    if(!ok) {
+        console_write("Storage-only comparison FAILED/incomplete; live ownership retained on uncertainty.\n"
+            "Photograph this screen if needed. Automatic Ubuntu return in30seconds.\n");
+        console_sync();timer_delay_us(30000000);
+    }
+    return ok;
+}
 static bool audio_listen_capture(void) {
     struct srv_audio_status s;audio_status(&s);
     if(s.state!=SRV_AUDIO_READY || s.pending || (s.capabilities&SRV_AUDIO_CAP_PCM_BUSY)) {
@@ -1175,6 +1211,7 @@ void kmain(void) {
     bool automatic_battery=home_battery||smbus_battery||query_battery||controls_battery||text_battery||desktop_battery||service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
     bool automatic_audio_listen=cmdline_has_token(cmdline,"srvros.capture=audio-listen-30");
     bool automatic_posix=cmdline_has_token(cmdline,"srvros.capture=posix");
+    bool automatic_storage_only=cmdline_has_token(cmdline,"srvros.capture=storage-only");
     bool automatic_storage_wait=cmdline_has_token(cmdline,"srvros.capture=storage-wait");
     bool automatic_hfw=cmdline_has_token(cmdline,"srvros.capture=haswell-firmware");
     bool automatic_hsw=cmdline_has_token(cmdline,"srvros.capture=haswell-backing");
@@ -1213,7 +1250,7 @@ void kmain(void) {
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(automatic_audio_listen || automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi || automatic_storage_wait || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
+    if(automatic_audio_listen || automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi || automatic_storage_only || automatic_storage_wait || automatic_posix || automatic_ap || automatic_hsw || automatic_hfw) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         if(wifi_5ghz_prereq)console_write("wifi-5ghz-prereq-progress: common init then read-only MAC/PA/RF selectors; no band/tune/RX/network OUT; warm-state inventory\n");
         bool started=false;
@@ -1254,7 +1291,7 @@ void kmain(void) {
             console_sync();timer_delay_us(250000);arch_reboot_unattended();arch_reboot();
             halt_forever();
         }
-        bool sampled=!automatic_audio_listen && !automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix && !automatic_ap && !automatic_hsw && !automatic_hfw;
+        bool sampled=!automatic_audio_listen && !automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_only && !automatic_storage_wait && !automatic_posix && !automatic_ap && !automatic_hsw && !automatic_hfw;
         bool nop_logger_parked=false;
         if(cmdline_has_token(cmdline,"srvros.wifi-nop5=1")) {
             nop_logger_parked=started && return_on_failure && !wifi_desktop_trial && workspace_log_quiesce(5000);
@@ -1487,6 +1524,7 @@ void kmain(void) {
             console_printf("cpu-load-capture: returned=yes process_ok=%s\n",sampled?"yes":"NO");
             thermal_print_status();smc_print_status();
         }
+        if(automatic_storage_only && started && init_ready && timer_running)sampled=storage_only_capture();
         if (started && cmdline_has_token(cmdline,"srvros.capture=keyboard")) keyboard_capture();
         if(automatic_desktop_idle && started && init_ready && timer_running) {
             sampled=process_run_elf_args("/fat/bin/deskd","--idle-capture");
