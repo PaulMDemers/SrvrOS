@@ -2302,20 +2302,20 @@ test-portable-profiles:
 .PHONY: test-exfat-entries
 test-exfat-entries: build/tests/exfat-entries-host$(HOST_EXE)
 	$<
-build/tests/exfat-entries-host$(HOST_EXE): tools/test_exfat_entries.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+build/tests/exfat-entries-host$(HOST_EXE): tools/test_exfat_entries.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-exfat-entries
 
 .PHONY: test-exfat-hardening
 .PHONY: test-workspace-image
-build/tests/workspace-image-host$(HOST_EXE): tools/workspace_image_host.c kernel/src/workspace_image.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c $(KERNEL_HEADERS)
+build/tests/workspace-image-host$(HOST_EXE): tools/workspace_image_host.c kernel/src/workspace_image.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_image_host.c kernel/src/fs/exfat.c kernel/src/vfs.c -Wl,--gc-sections -o $@
 test-workspace-image: build/tests/workspace-image-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/test_workspace_image.py
 
-build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-hardening: build/tests/exfat-driver$(HOST_EXE)
@@ -4350,14 +4350,14 @@ build/tests/lifetime-trace-host$(HOST_EXE): tools/test_lifetime_trace.c userspac
 test-core: test-exfat-read-cache
 test-exfat-read-cache: build/tests/exfat-read-cache$(HOST_EXE)
 	$<
-build/tests/exfat-read-cache$(HOST_EXE): tools/test_exfat_read_cache.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+build/tests/exfat-read-cache$(HOST_EXE): tools/test_exfat_read_cache.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
 .PHONY: test-exfat-read-reuse
 test-exfat-read-reuse: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-uncached-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_read_reuse.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-uncached-driver$(HOST_EXE)
-build/tests/exfat-uncached-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-uncached-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_READ_CACHE_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
@@ -4370,19 +4370,19 @@ build/tests/desktop-probe$(HOST_EXE): tools/test_desktop_probe.c userspace/lib/s
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
 
 .PHONY: test-exfat-bitmap-span test-exfat-bitmap-io
-build/tests/exfat-bitmap-span-host$(HOST_EXE): tools/test_exfat_bitmap_span.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+build/tests/exfat-bitmap-span-host$(HOST_EXE): tools/test_exfat_bitmap_span.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-exfat-bitmap-span: build/tests/exfat-bitmap-span-host$(HOST_EXE)
 	$<
-build/tests/exfat-bitmap-full-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-bitmap-full-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_BITMAP_SPAN_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-bitmap-io: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-bitmap-full-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_bitmap_io.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-bitmap-full-driver$(HOST_EXE)
 test-core: test-exfat-bitmap-span
 
-build/tests/exfat-cost-host$(HOST_EXE): tools/test_exfat_cost.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+build/tests/exfat-cost-host$(HOST_EXE): tools/test_exfat_cost.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 .PHONY: test-exfat-cost
@@ -4391,7 +4391,7 @@ test-exfat-cost: build/tests/exfat-cost-host$(HOST_EXE)
 test-core: test-exfat-cost
 
 .PHONY: test-exfat-append
-build/tests/exfat-noappend-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-noappend-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_APPEND_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-append: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-noappend-driver$(HOST_EXE)
@@ -4621,7 +4621,7 @@ test-profile-desktop: test-portable-profiles test-preferences build/tests/profil
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_startup.c userspace/lib/src/desk_preferences.c -o build/tests/profile-startup-host$(HOST_EXE)
 	build/tests/profile-startup-host$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_profile_image.py -v
-build/tests/profile-image-driver$(HOST_EXE): tools/profile_image_driver.c tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/profile-image-driver$(HOST_EXE): tools/profile_image_driver.c tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	@mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/profile_image_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
@@ -4783,11 +4783,11 @@ test-core: test-signal-experimental-admission
 test-signal-experimental-admission:
 	$(PYTHON) tools/test_signal_experimental_admission.py --output build/tests/signal-experimental-admission
 
-build/tests/installation-inspect-driver$(HOST_EXE): tools/installation_inspect_driver.c tools/installation_readonly_host.h kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/installation-inspect-driver$(HOST_EXE): tools/installation_inspect_driver.c tools/installation_readonly_host.h kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/installation_inspect_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
-build/tests/installation-export-driver$(HOST_EXE): tools/installation_export_driver.c tools/installation_readonly_host.h kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/installation-export-driver$(HOST_EXE): tools/installation_export_driver.c tools/installation_readonly_host.h kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/installation_export_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
@@ -5144,10 +5144,10 @@ test-core: test-exfat-link-batch
 test-exfat-link-batch: build/tests/exfat-link-batch-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-unbatched-links-driver$(HOST_EXE)
 	build/tests/exfat-link-batch-host$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_link_io.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-unbatched-links-driver$(HOST_EXE)
-build/tests/exfat-link-batch-host$(HOST_EXE): tools/test_exfat_link_batch.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+build/tests/exfat-link-batch-host$(HOST_EXE): tools/test_exfat_link_batch.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
-build/tests/exfat-unbatched-links-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-unbatched-links-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_LINK_BATCH_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
@@ -5157,10 +5157,10 @@ test-exfat-sidecar-equality: build/tests/exfat-sidecar-equality-host$(HOST_EXE) 
 	build/tests/exfat-sidecar-equality-host$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_sidecar_equality.py
 	$(PYTHON) tools/test_exfat_sidecar_io.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-sidecar-rewrite-driver$(HOST_EXE)
-build/tests/exfat-sidecar-equality-host$(HOST_EXE): tools/test_exfat_sidecar_equality.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+build/tests/exfat-sidecar-equality-host$(HOST_EXE): tools/test_exfat_sidecar_equality.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
-build/tests/exfat-sidecar-rewrite-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-sidecar-rewrite-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_SIDECAR_EQUALITY_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
@@ -5189,7 +5189,7 @@ test-exfat-nofat: build/tests/exfat-nofat-host$(HOST_EXE)
 	build/tests/exfat-nofat-host$(HOST_EXE)
 	CC="$(HOST_CC)" $(PYTHON) tools/test_populated_save.py --compare-nofat --output build/review/exfat-nofat-save
 	CC="$(HOST_CC)" $(PYTHON) tools/test_contiguous_append.py --compare-nofat --output build/review/exfat-nofat-append
-build/tests/exfat-nofat-host$(HOST_EXE): tools/test_exfat_nofat.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+build/tests/exfat-nofat-host$(HOST_EXE): tools/test_exfat_nofat.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
@@ -5202,7 +5202,7 @@ test-exfat-stream-allocation:
 test-core: test-exfat-fat-window test-exfat-io-stack
 test-exfat-fat-window: build/tests/exfat-fat-window-host$(HOST_EXE)
 	build/tests/exfat-fat-window-host$(HOST_EXE)
-build/tests/exfat-fat-window-host$(HOST_EXE): tools/test_exfat_fat_window.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
+build/tests/exfat-fat-window-host$(HOST_EXE): tools/test_exfat_fat_window.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-exfat-io-stack:
@@ -5213,7 +5213,7 @@ test-exfat-io-stack:
 test-storage-compare: build/tests/workspace-compare-host$(HOST_EXE) build/tests/workspace-compare-legacy$(HOST_EXE) build/tests/storage-role-wire$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
 	build/tests/storage-role-wire$(HOST_EXE)
 	$(PYTHON) tools/test_storage_compare.py
-build/tests/workspace-compare-host$(HOST_EXE) build/tests/workspace-compare-legacy$(HOST_EXE): tools/workspace_compare_host.c tools/storage_compare_host.h kernel/src/storage_compare.inc kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/usb_storage.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c $(KERNEL_HEADERS)
+build/tests/workspace-compare-host$(HOST_EXE) build/tests/workspace-compare-legacy$(HOST_EXE): tools/workspace_compare_host.c tools/storage_compare_host.h kernel/src/storage_compare.inc kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/usb_storage.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) $(if $(findstring legacy,$@),-DSRVROS_EXFAT_LEGACY_ROLE_MODEL,) -D_POSIX_C_SOURCE=200809L -DSRVROS_WORKSPACE_HOST_TEST -DSRVROS_STORAGE_COMPARE_HOST_TEST -DSRVROS_EXFAT_HOST_TEST -DSRVROS_USB_STORAGE_HOST_TEST -DSRVROS_BLOCK_HOST_TEST -DSRVROS_BLOCK_CLAIM_HOST_TEST -include tools/storage_compare_host.h -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_compare_host.c kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/drivers/usb_storage.c kernel/src/vfs.c -Wl,--gc-sections -o $@
 test-core: test-storage-compare
@@ -5222,10 +5222,25 @@ test-core: test-storage-compare
 test-core: test-exfat-sidecar-remount
 test-exfat-sidecar-remount: build/tests/exfat-sidecar-remount$(HOST_EXE) build/tests/exfat-sidecar-legacy-order$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_sidecar_remount.py --driver build/tests/exfat-sidecar-remount$(HOST_EXE) --baseline build/tests/exfat-sidecar-legacy-order$(HOST_EXE)
-build/tests/exfat-sidecar-remount$(HOST_EXE) build/tests/exfat-sidecar-legacy-order$(HOST_EXE): tools/test_exfat_sidecar_remount.c tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-sidecar-remount$(HOST_EXE) build/tests/exfat-sidecar-legacy-order$(HOST_EXE): tools/test_exfat_sidecar_remount.c tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) $(if $(findstring legacy-order,$@),-DSRVROS_EXFAT_SIDECAR_ORDER_OFF,) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
 build/tests/storage-role-wire$(HOST_EXE): tools/test_storage_role_wire.c kernel/src/storage_compare.inc kernel/src/workspace.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+# Sidecar update comparison keeps the original full-scan build as a host control.
+build/tests/workspace-compare-directory-old$(HOST_EXE): tools/workspace_compare_host.c tools/storage_compare_host.h kernel/src/storage_compare.inc kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/usb_storage.c kernel/src/fs/exfat.c kernel/src/fs/sidecar_audit.inc kernel/src/fs/exfat_stream.inc kernel/src/vfs.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_SIDECAR_DIRECTORY_OFF -D_POSIX_C_SOURCE=200809L -DSRVROS_WORKSPACE_HOST_TEST -DSRVROS_STORAGE_COMPARE_HOST_TEST -DSRVROS_EXFAT_HOST_TEST -DSRVROS_USB_STORAGE_HOST_TEST -DSRVROS_BLOCK_HOST_TEST -DSRVROS_BLOCK_CLAIM_HOST_TEST -include tools/storage_compare_host.h -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_compare_host.c kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/drivers/usb_storage.c kernel/src/vfs.c -Wl,--gc-sections -o $@
+
+.PHONY: test-sidecar-cost
+test-core: test-sidecar-cost
+test-sidecar-cost: build/tests/workspace-compare-host$(HOST_EXE) build/tests/workspace-compare-directory-old$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_sidecar_cost.py
+
+.PHONY: test-sidecar-directory-faults
+test-core: test-sidecar-directory-faults
+test-sidecar-directory-faults:
+	$(PYTHON) tools/test_exfat_metadata_tail.py --directory-only --output build/review/sidecar-directory-faults

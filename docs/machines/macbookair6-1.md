@@ -13344,3 +13344,94 @@ mismatches or errors. Current/staged/independent candidate, recovery c354, prior
 media archive and trial backup verify. Ubuntu remains default, firmware order
 is stable, the one-shot is consumed, BootNext is absent, the collector is disabled
 and USB is unmounted. No reboot is armed and no next trial has started.
+
+## Active complete-metadata audit and sidecar update cost (2026-11-12)
+
+From fetched main `9a8d2377`, audit every serialized metadata field for the
+existing bounded storage comparison and reduce required sidecar-update work.
+Preserve normal atime/mtime/ctime, all eight persisted fields, canonical format,
+fresh complete byte proofs, temporary-name publication, dirty/clean markers,
+barriers, ownership/client exclusions, quarantine and every existing limit.
+The completed previous native trial and its full independent backup are sealed;
+no run is outstanding. This remains one local device checkout with no subagents
+or cross-task contact. Local model, designated USB identity, installed current
+998f and retained recovery c354 are recorded and rechecked before physical work.
+
+Writer scope: prove a reusable inactive entry run in the first sector of the
+private metadata directory, before any END marker, to avoid the redundant whole-
+cluster directory read. Only this narrow case may return early. END consumption,
+ambiguous/long runs, later sectors/clusters and growth retain the original full
+scan and prefix/tail preparation. All media writes and flush order must match
+legacy behavior. No equality/prefix byte proof may use a cached substitute.
+Diagnostics scope: a separate explicit full-field storage trace reads the complete
+old sidecar and merge-compares canonical path records/all eight numeric fields
+with the newly serialized table. Count all changed fields and namespace changes,
+not merely the first mismatch. Retain the existing v1/v2 readers/recipes and the
+same twelve 32 KiB samples, six pairs, 180 seconds, 16 KiB commands, 4 KiB DMA,
+transport deadlines, 32 KiB receipt/64 KiB tail and 1% boundary cues. Diagnostic
+read overhead must remain visible and distinct from update work.
+
+Actual PR19 at `3225dca2` still owns the separate metadata decoder/atomic restore
+loader hunks; do not alter or duplicate its authoritative restoration work.
+PR301 at `2efa8028` has no overlap with these storage/boot files. Retain the
+unresolved cold-ID persistence and loaded USB/screenshot issues. Publish the
+bounded candidate, validate actual full-field observation and byte/write/barrier
+compatibility/fault paths, run the matched host/VM checks, self-merge and launch
+the authorized automatic native comparison. No performance acceptance before its
+matching physical return; no limits, recovery protocol or hardware gate changes.
+
+The complete audit prototype confirms that a rewrite can include the diagnostic
+file's atime/mtime/ctime and the marker's atime together; marker suppression alone
+would miss required persistence. The v3 observation reads the full old table and
+counts every field/namespace change without applying data or changing ordinary
+v1/v2 equality behavior. Its additional reads/CPU time remain inside the existing
+write interval and proof role, not hidden from the comparison.
+
+The first large-cluster BOT host A/B reduces six updates' directory input from
+789504 to 134144 bytes, with identical complete media, ordered writes/flushes and
+full metadata-change evidence. The first END-consuming allocation still falls
+back; subsequent pre-END deleted-slot reuses avoid the full cluster read. Small
+clusters retain their original path. Paired publication/failure/repair controls
+pass, including stale private tail bytes behind END; existing recovery gaps are
+unchanged. Full build, strict-v3 VM, regression qualification and fresh physical
+preflight remain pending. These host results do not establish native savings.
+
+### Complete audit candidate qualified and installed (2026-11-12)
+
+Runtime `a45aaa1d` / release `8a89638dfb0281b5` now passes the matched ordinary
+build, full core/desktop/docs, 95 boot-profile tests, exact-stage GPT v3 capture,
+ordinary syscall/USB keyboard/thread-exec and USB read/write/reload regressions.
+The complete staged kernel and initramfs hashes match the frozen tested source.
+All 108 v1/v2/v3 producer/refusal cases and 72 legacy-role controls pass. The
+complete-field observer covers all eight numeric fields, namespace changes,
+late read/format failure, owner/token refusal and the original wire budget.
+
+The frozen-source directory A/B reproduces 54 to 15 reads and 789504 to 134144
+read bytes over six required updates on 512-byte-sector/128 KiB-cluster media;
+both paths retain 42 writes, 344064 write bytes and 24 flushes. The 4 KiB-sector
+large-cluster control also reduces reads; small clusters retain identical I/O.
+Complete media, ordered write/flush payloads and full metadata-change counts are
+identical. Every paired write/flush/failure/tear control passes, including stale
+bytes after the private directory's END marker. Source audit accounts for every
+driver edit and proves the serializer, authoritative loader, publication writes,
+allocation/free, markers and barrier paths unchanged. Transport, commit ownership,
+VFS, scheduler, synchronization and limits are unchanged.
+
+The original installer matrix retains its one platform skip; contiguous append
+retains the 81 known strict allocation failures after offline repair. Neither is
+new recovery acceptance. Physical preflight separately reports a clean volume,
+898 unchanged prior-file hashes, 4567 allocated clusters, zero leaks/errors,
+admitted writes and available headroom. Installed/staged/independent candidate
+and recovery payloads verify. One unreferenced historical EFI duplicate was
+retired only after independent complete-payload verification; its backup remains.
+Ubuntu default/order and recovery c354 are retained; automatic matching collection
+is enabled. Local run/reboot state and verified backups remain outside Git.
+
+Next checkpoint: self-merge this exact runtime plus documentation, then launch
+the authorized unattended v3 comparison with the original twelve samples/six
+pairs, 180-second bound and 1% boundary cues. Collect and independently review the
+matching session, all complete-field/role/byte proofs, prior hashes and offline
+allocation before accepting native savings. Extra full-table audit reads stay
+charged to proof role 5; directory update work is role 4. Total v2/v3 timing is
+not a causal speed comparison. Cold-ID restoration remains PR19's separate work;
+loaded screenshot/commit latency remains open. No native result is claimed yet.

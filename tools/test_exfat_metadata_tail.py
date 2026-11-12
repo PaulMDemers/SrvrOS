@@ -23,6 +23,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "build/review/exfat-metadata-tail")
+    parser.add_argument("--directory-only",action="store_true",help="Compare private directory-prefix optimization with unchanged payload publication")
+    parser.add_argument("--case",help="Run one named geometry; preserve other recorded cases separately")
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -32,7 +34,7 @@ def main():
     sources = ["tools/exfat_host_driver.c", "kernel/src/fs/exfat.c",
                "kernel/src/vfs.c", "kernel/src/autotest_storage.c"]
     dependencies = sources + ["tools/test_exfat_metadata_tail.c", "tools/test_exfat_metadata_tail.py",
-        "tools/test_populated_save.py", "kernel/src/fs/exfat_stream.inc"]
+        "tools/test_populated_save.py", "kernel/src/fs/exfat_stream.inc","kernel/src/fs/sidecar_audit.inc"]
     source_hashes = {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
                      for path in dependencies}
     record = dict(status="RUNNING", cases=[], faults=[], commands=[])
@@ -65,7 +67,7 @@ def main():
     unit = compile_binary("unit", ["tools/test_exfat_metadata_tail.c"])
     run([str(unit)], "unit")
     drivers = {name: compile_binary(name, sources,
-        ["-DSRVROS_EXFAT_HOST_TEST", *(["-DSRVROS_EXFAT_METADATA_TAIL_OFF"] if name == "baseline" else [])])
+        ["-DSRVROS_EXFAT_HOST_TEST", *(["-DSRVROS_EXFAT_SIDECAR_DIRECTORY_OFF" if args.directory_only else "-DSRVROS_EXFAT_METADATA_TAIL_OFF"] if name == "baseline" else [])])
         for name in ("baseline", "candidate")}
 
     def archive(name, raw):
@@ -81,12 +83,24 @@ def main():
     geometries = [("small", bytes(empty_image(16 * 1024 * 1024, cluster_shift=3).data), 512),
                   ("4k-sector", bytes(empty_image(16 * 1024 * 1024, sector_shift=12, cluster_shift=5).data), 4096),
                   ("populated", populated_seed(), 512)]
+    if args.directory_only:
+        geometries.append(("private-stale-end",bytes(empty_image(16*1024*1024,cluster_shift=8).data),512))
+    if args.case:
+        geometries=[g for g in geometries if g[0]==args.case]
+        assert geometries,'Unknown geometry'
     for label, initial, block_size in geometries:
         image = output / "work.exfat"
         image.write_bytes(initial)
         environment = {"SRVROS_TEST_BLOCK_BYTES": str(block_size), "SRVROS_TRACE_WRITES": "1"}
         run([str(drivers["baseline"]), str(image), "sidecar-seed"], label + "-seed", env=environment)
         seed = image.read_bytes()
+        if label=='private-stale-end':
+            f=ExfatFixture(seed);root=dict(f.entries(f.chain(f.root)))
+            cluster=struct.unpack_from('<I',root['.srvros'],52)[0];base=f.offset(cluster)
+            raw=bytearray(seed);assert raw[base]==0x85
+            end=base+(raw[base+1]+1)*32
+            raw[end:base+f.cluster]=bytes([0xa5])*(base+f.cluster-end);raw[end]=0
+            seed=bytes(raw)
         original = logical_files(seed)
         success = {}
         for implementation, driver in drivers.items():
@@ -120,7 +134,9 @@ def main():
             if new_fields["bytes"] < old_fields["bytes"]:
                 assert new_fields["bytes"] % block_size == 0
                 shortened.append(dict(before=old_fields, after=new_fields))
-        assert shortened and after["write_bytes"] < before["write_bytes"]
+        if args.directory_only:
+            assert not shortened and after['write_bytes']==before['write_bytes'] and before['raw_sha256']==after['raw_sha256']
+        else:assert shortened and after["write_bytes"] < before["write_bytes"]
         record["cases"].append(dict(geometry=label, result=success, shortened=shortened))
         save()
 
@@ -163,6 +179,7 @@ def main():
                         after_allocation=after_allocation.stdout,
                         repaired_sha256=archive(name + "-repaired", repaired))
                 old, new = pair["baseline"], pair["candidate"]
+                if args.directory_only:assert old['raw_sha256']==new['raw_sha256'] and old['repaired_sha256']==new['repaired_sha256']
                 for key in ("exit", "files", "allocation_exit", "allocation", "repair_exit",
                             "repaired_files", "after_allocation_exit", "after_allocation"):
                     assert old[key] == new[key], (label, kind, number, key)

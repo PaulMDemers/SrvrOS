@@ -88,5 +88,13 @@ struct exfat_sidecar_trace {
 };
 /* Fixed CPU0 counters only; no clock, allocation, media or scheduler operation. */
 void exfat_sidecar_snapshot(struct exfat_sidecar_trace *out);
+/* Explicit diagnostic, under the existing storage owner. No authority grant.
+ * Numeric field bits: inode/mode/nlink/uid/gid/atime/mtime/ctime, in that order. */
+struct exfat_metadata_audit {
+    uint64_t valid,old_bytes,new_bytes,old_rows,new_rows,matched,added,removed,changed;
+    uint64_t fields[8],subject_fields,marker_fields,representation;
+};
+uint64_t exfat_metadata_audit_begin(const char *subject,const char *marker);
+bool exfat_metadata_audit_end(uint64_t token,struct exfat_metadata_audit *out);
 
 #endif
