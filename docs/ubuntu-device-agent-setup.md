@@ -1442,3 +1442,12 @@ and memory transfer; all original deadlines remain. The distinct collector
 field is `intel_nonzero_reset`. Native acceptance requires this unit's matching
 complete evidence. Safe saved outcomes return automatically; retained uncertainty
 or unsafe persistence halts visibly. No human input is required for this trial.
+
+Air7,2 source `2efa8028` / release `562d35107d14e298` now has one accepted
+native v28 lifetime with strict reset-default geometry, preservation, clean
+retirement and offline return integrity. Preparation is 94,051/100,000 us.
+Four generic nested-capability attention rows are retained; acceptance uses the
+dedicated strict native result and full lifecycle, not an empty generic alert
+list. This does not accept re-arm/requester/managed backing or a sibling device.
+Main `9a8d2377` integrated after collection has affected local checks only;
+the installed physical payload and its acceptance remain frozen.

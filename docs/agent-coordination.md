@@ -843,12 +843,17 @@ admission, maintained five-engine readiness, BCS8 reset, cancellation, full
 preservation and return. The legacy zero-geometry guard remains unchanged; do
 not construct an old takeover/preparation object from a nonzero receipt.
 Strict whole-vector postconditions and original deadlines apply. This block
-stops before re-arm/requester/memory transfer. Native acceptance is pending;
-other device profiles retain their own gates and evidence.
+stops before re-arm/requester/memory transfer. The bounded native result below
+applies only to Air7,2; other profiles retain their own gates and evidence.
 
-Air7,2 frozen source `2efa8028` / release `562d35107d14e298` is locally
-hardware-ready for this distinct v28 protocol. 33-image/core, fatal sanitizer,
-compiled defence controls, preserved/default models, historical replays and
-exact-stage VM persistence/return checks pass. Native acceptance is pending;
-no install or boot is armed. Existing zero guards and all deadlines remain;
-all 255 obligations stay open. Other unit scopes/acceptance are unchanged.
+Air7,2 frozen source `2efa8028` / release `562d35107d14e298` now accepts
+this distinct v28 protocol in session `session-000660180c506d6a-00`:
+94,051/100,000 us preparation, strict reset-default geometry, complete
+preservation and clean retirement. Exact checkpoint/native collector and offline
+return integrity pass; all four generic nested-capability attention rows remain
+in the evidence. Local 33-image/fatal-sanitizer/compiled-control/exact-stage
+qualification stays source-matched. Main `9a8d2377` integrated after collection
+as `c38ae968` has affected local checks only. No new boot is armed. Existing
+zero guards, deadlines, all 255 obligations and other units' acceptance remain
+unchanged. Re-arm/claim/requester/memory are separate original-live-owner work;
+never construct legacy objects from the saved new receipt.

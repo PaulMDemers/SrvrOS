@@ -2,7 +2,7 @@
 
 This is the separate opt-in v28 `intel-nonzero-reset` diagnostic for the
 MacBookAir7,2 reference unit. Local qualification passes on frozen source `2efa8028`;
-native acceptance is pending. It follows the enabled-entry suboperation observed in the v27
+the bounded native lifetime is accepted as recorded below. It follows the enabled-entry suboperation observed in the v27
 trial. The v27 whole entry/reset/requester sequence remains incomplete.
 
 The existing `intel_ring_entry_reset_ready` guard, takeover geometry gate and
@@ -106,3 +106,34 @@ root and halts visibly. Do not retry, release aliases or restore unknown hardwar
 merely to obtain a report or automatic reboot. Missing completion remains a
 failure/incomplete trial. See the unit record for the installed candidate,
 matching collection, recovery and later physical acceptance.
+
+## Native result: original nonzero reset accepted
+
+Air7,2 source `2efa8028` / release `562d35107d14e298`, session
+`session-000660180c506d6a-00`, completes the original kind 1 entry and this
+separate registered nonzero reset child. Entry performs one enable-bit disable
+and epoch 0→1. The new lifetime verifies two admission snapshots, all ten
+readiness/cancellation writes and acknowledgements, two BCS8 pulses and
+self-clear, epoch 1→2, 50 us settling, both full post-census samples and all
+37 reader words before original-child return.
+
+Hardware selects **post mode 2**: START `0x03eef000` / CTL `0xf000` become zero;
+the other six BCS/context words are unchanged. All other engines and complete
+contexts/readers preserve. No software geometry clear or restore is used.
+Preparation is 94,051/100,000 us, including preservation and return; admission
+10,292 us, pulses 6,813/6,832 us, final guard 7 us and return 3,387 us.
+GT age at child return is 265,369/300,000 us, HDA 301,896/400,000 us and outer
+356,303/500,000 us. Original limits remain fixed; this is one native lifetime.
+
+Four HDA inspections, Command 6/2/2/6, 14 GPU aliases/HDA-root mapping and CPU
+exclusion retire. Exact recipe, prerequisite/final logs, strict native receipt
+and `completed=yes` verify. Four generic nested-capability attention rows remain
+in the evidence; they grant no broader capability. Prior files, offline media
+integrity, boot recovery and consumed one-shot pass. Raw logs and strict proof
+are independently hash-banked outside `build`; see the unit record.
+
+This accepts the v28 bounded reset/preservation sequence only. It does not
+retroactively accept old standalone images, re-arm/claim, requester inhibition,
+managed backing or native tear-free. All 255 obligations remain open. Main
+`9a8d2377` integrated afterward has affected local checks; the installed native
+release and physical evidence stay frozen to `2efa8028`.

@@ -2,7 +2,60 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
-### Hardware-ready: original nonzero-geometry reset protocol
+### Native nonzero-geometry reset accepted
+
+Source `2efa8028`, release `562d35107d14e298`, session
+`session-000660180c506d6a-00` accepts the separate [v28 original-owner
+nonzero-geometry reset](../intel-nonzero-reset.md#native-result-original-nonzero-reset-accepted)
+on this Air7,2. The original kind 1 entry disables the enabled BCS once,
+preserving its nonzero geometry and advancing epoch 0→1. Its actual fresh
+post-census feeds the separate registered child under the same HDA/GT root.
+Two admission snapshots, five-engine readiness, both BCS8 pulses, 50 us settling,
+reverse cancellation, full 92-word post-census and all 37 original reader words
+verify, with epoch 1→2. Hardware selects the strict reset-default postcondition:
+only BCS START/CTL become zero; the remaining BCS/context words and all other
+engines/display/HDA readers preserve. Software does not clear or restore geometry.
+
+Admission takes 10,292 us. Preparation/reset/cancellation/preservation/return is
+94,051/100,000 us (5,949 us margin); pulses are 6,813 and 6,832/10,000 us,
+with one poll apiece. Final guard is 7 us and original child return 3,387 us.
+Entry is 101,756/150,000 us, BCS 40,701/100,000 us and original source age at
+entry store 45,797/100,000 us. GT age at child return is 265,369/300,000 us,
+HDA 301,896/400,000 us and outer 356,303/500,000 us. Limits are unchanged.
+This is one bounded native lifetime, without a repeatability guarantee.
+
+All four HDA inspections, Command 6/2/2/6, 14 GPU aliases, HDA root mapping and
+CPU exclusion retire. No clock, retention or uncertainty fault occurs. Exact
+15-token boot identity, pre-init marker, prerequisite/final checkpoint and
+`completed=yes` verify. The strict dedicated collector reports native completion.
+Four generic attention rows describing nested unclaimed capabilities remain
+preserved with the raw logs; none is an invalid-collector exception.
+
+All 1,485 prior files preserve except expected `.srvros/meta`; three exact logs
+yield 1,488 files/152 sessions. Offline fsck/allocation/writable/headroom, unchanged
+boot digest, installed/durable payloads, Ubuntu default and consumed one-shot
+pass. Current 562d, prior 127a, recovery 9aa8, GUI c497 and accepted bd77/joint978/
+standalone d260 remain intact; accepted 74d and raw evidence survive in the
+durable bank. USB is unmounted and no trial is armed.
+
+Main `9a8d2377` / PR480–481 is integrated **after collection** as `c38ae968`.
+The Makefile conflict preserves both GPU and cold-sidecar-remount targets.
+Affected ordinary/USB/native builds, sidecar equality/remount/legacy-order,
+storage v1/v2/role/BOT, USB/workspace/sync, the nine-test v28 matrix/compiled
+pre-init, staging, 16 mixed-profile refusals and exact native replay pass locally.
+GPU implementation and decoder files are unchanged. These checks do not extend
+the frozen source's full qualification or native acceptance to the merged runtime.
+
+Next is the original live post-reset handoff for re-arm/claim and requester
+inhibition, then managed GPU backing/completion and real flip publication.
+The old kind 2/zero-geometry gate stays unchanged; do not construct legacy owner
+objects or use this saved receipt as live authority. All 255 outstanding
+memory/cache/translation/reader obligations remain, with assurances and managed
+pages zero. Native tear-free remains pending. PR19 networking remains independent
+at `3225dca2`; Actions remain disabled. Checkpoint:
+`build/air-nonzero-reset-20261112/status.md`.
+
+### Previous local qualification: original nonzero-geometry reset protocol
 
 Frozen source `2efa8028`, release `562d35107d14e298`, integrated main
 `ca454d7c` / PR479. The separate [v28 protocol](../intel-nonzero-reset.md)
