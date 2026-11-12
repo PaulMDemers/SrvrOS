@@ -34,7 +34,7 @@
 
 /* Standalone media fixtures provide their existing SYS_SYNC role model. The
  * kernel and real BOT fixture use the generic already-owned USB window. */
-#if defined(SRVROS_EXFAT_HOST_TEST) && (!defined(SRVROS_USB_STORAGE_HOST_TEST) || defined(SRVROS_EXFAT_LEGACY_ROLE_MODEL))
+#if defined(SRVROS_SYNC_CONTENT_DISABLED_HOST_TEST) || (defined(SRVROS_EXFAT_HOST_TEST) && (!defined(SRVROS_USB_STORAGE_HOST_TEST) || defined(SRVROS_EXFAT_LEGACY_ROLE_MODEL)))
 #define exfat_content_role_begin sync_timing_content_role_begin
 #define exfat_content_role_end sync_timing_content_role_end
 #else
