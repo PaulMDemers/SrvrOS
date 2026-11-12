@@ -67,6 +67,13 @@ static bool nonzero_store_admit(struct nonzero_adapter *p,bool reset,unsigned e,
     at<p->g->last || at<p->g->begin || at-p->g->begin>300000) {
   if(!(r->reason&INZ_CLOCK)){r->clock_at=at;r->clock_prev=previous;}r->reason|=INZ_CLOCK;return false;
  }
+ /* No callback follows the final clock. Revalidate the original pointer and
+  * origin fields with direct loads before dereferencing or issuing the store. */
+ if(r->object!=r || r->provider!=p || r->parent!=p->g || r->entry!=&ring_native.result ||
+    r->source!=&ring_native.result.post || r->parent_begin!=p->g->begin || !r->policy ||
+    ring_native.result.parent!=p->g || ring_native.result.object!=&ring_native.result) {
+  r->reason|=INZ_SOURCE;return false;
+ }
  r->last=at;p->g->last=at;return true;
 }
 static enum intel_gt_write nonzero_request(void *ctx,unsigned e,uint32_t value,uint32_t *out) {

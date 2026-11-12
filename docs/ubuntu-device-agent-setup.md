@@ -1429,3 +1429,16 @@ installation, one-shot and collection sequence above. New-image completion is
 Local qualification and native acceptance are independent. Safe saved/unmounted
 outcomes return to Ubuntu; retained ownership or unsafe persistence halts.
 No memory grant, GPU PTE or native tear-free acceptance follows from this test.
+
+### Separate original nonzero-geometry reset
+
+The [v28 protocol](intel-nonzero-reset.md) uses its own
+`--intel-nonzero-reset --laptop-probe-volume <this-unit-UUID>` image and exact
+15-token recipe. It accepts only the original completed kind1 entry/post-census
+under the same HDA/GT owner, maintains readiness through BCS8 reset and checks
+strict whole-vector preservation/reset-default postconditions before return.
+The old zero-geometry guard remains unchanged. It stops before requester/claim
+and memory transfer; all original deadlines remain. The distinct collector
+field is `intel_nonzero_reset`. Native acceptance requires this unit's matching
+complete evidence. Safe saved outcomes return automatically; retained uncertainty
+or unsafe persistence halts visibly. No human input is required for this trial.

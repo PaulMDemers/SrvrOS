@@ -67,10 +67,13 @@ static bool identity(const struct nz_call *p) {
  return p->r->object==p->r && p->r->provider==p->io.ctx &&
   p->r->entry==p->entry && p->r->parent==p->parent;
 }
-static bool clock_at(struct intel_nonzero_reset *r,uint64_t at) {
+static bool clock_at(struct nz_call *p,uint64_t at) {
+ struct intel_nonzero_reset *r=p->r;
+ if(!identity(p))return fail(r,INZ_SOURCE);
+ const struct intel_gt_access *g=p->parent;
  uint64_t origin=r->begin?r->begin:r->admit_begin;
  if(!at || !origin || at<r->last || at<origin || at-origin>100000 ||
-    at<r->parent->last || at<r->parent->begin || at-r->parent->begin>GT_ACCESS_TOTAL_US ||
+    at<g->last || at<g->begin || at-g->begin>GT_ACCESS_TOTAL_US ||
     (!r->begin && (at<=r->source_end || at-r->source_end>100000))) {
   if(!(r->reason&INZ_CLOCK)){r->clock_at=at;r->clock_prev=r->last;}
   return fail(r,INZ_CLOCK);
@@ -80,11 +83,11 @@ static bool clock_at(struct intel_nonzero_reset *r,uint64_t at) {
 static bool guard(struct nz_call *p) {
  struct intel_nonzero_reset *r=p->r;
  if(!identity(p) || !intel_nonzero_reset_live(r))return fail(r,INZ_SOURCE);
- if(!clock_at(r,p->io.now(p->io.ctx)))return false;
+ if(!clock_at(p,p->io.now(p->io.ctx)))return false;
  if(!identity(p) || !intel_nonzero_reset_live(r))return fail(r,INZ_SOURCE);
  bool ok=p->io.guard(p->io.ctx);
  if(!identity(p) || !intel_nonzero_reset_live(r))return fail(r,INZ_SOURCE);
- if(!clock_at(r,p->io.now(p->io.ctx)))return false;
+ if(!clock_at(p,p->io.now(p->io.ctx)))return false;
  if(!identity(p) || !intel_nonzero_reset_live(r))return fail(r,INZ_SOURCE);
  if(!ok)return fail(r,INZ_GUARD);
  ++r->checks;return true;
@@ -204,7 +207,7 @@ bool intel_nonzero_reset_run(struct intel_nonzero_reset *r,struct intel_gt_acces
  struct nz_call p={r,io,e,g};
  if(!source(r) || g->borrows || g->dependents){fail(r,INZ_SOURCE);goto done;}
  r->admit_begin=io.now(io.ctx);r->last=r->entry_end;
- if(!clock_at(r,r->admit_begin))goto done;
+ if(!clock_at(&p,r->admit_begin))goto done;
  if(!source(r) || !intel_gt_access_borrow(g,&r->borrow)){fail(r,INZ_SOURCE);goto done;}
  unsigned attempts=g->write_attempts;r->blocked=!intel_gt_access_close(g) && attempts==g->write_attempts;
  r->stage=INZ_ADMIT;if(!r->blocked || !guard(&p)){fail(r,INZ_SOURCE);goto done;}
@@ -218,7 +221,7 @@ bool intel_nonzero_reset_run(struct intel_nonzero_reset *r,struct intel_gt_acces
  /* Preparation starts once here, after complete admission. Its100ms includes
   * every readiness/reset/cancel/preservation operation and the final return. */
  uint64_t prepared_at=io.now(io.ctx);
- if(!clock_at(r,prepared_at) || !identity(&p) || !source(r)){fail(r,INZ_SOURCE);goto done;}
+ if(!clock_at(&p,prepared_at) || !identity(&p) || !source(r)){fail(r,INZ_SOURCE);goto done;}
  r->begin=prepared_at;r->stage=INZ_PREPARE;
  if(!ctl_snapshot(&p,0))goto done;
  for(unsigned i=0;i<6;i++)if(r->control[0][i]!=r->admission[1][i]){fail(r,INZ_STATE);goto done;}
@@ -244,10 +247,10 @@ bool intel_nonzero_reset_run(struct intel_nonzero_reset *r,struct intel_gt_acces
  for(unsigned i=0;i<6;i++)if((r->control[4][i]&0xffffu)!=(r->control[0][i]&0xffffu)){fail(r,INZ_STATE);goto done;}
  r->stage=INZ_PRESERVE_STAGE;if(!preserve(&p))goto done;
  r->stage=INZ_RETURN_STAGE;r->return_begin=io.now(io.ctx);
- if(!clock_at(r,r->return_begin) || !identity(&p) || !source(r)){fail(r,INZ_RETURN);goto done;}
+ if(!clock_at(&p,r->return_begin) || !identity(&p) || !source(r)){fail(r,INZ_RETURN);goto done;}
  r->returned=intel_gt_access_return(&r->borrow);if(!r->returned){fail(r,INZ_RETURN);goto done;}
  r->end=io.now(io.ctx);
- if(!clock_at(r,r->end) || !identity(&p) || !source(r) || g->borrows || g->dependents ||
+ if(!clock_at(&p,r->end) || !identity(&p) || !source(r) || g->borrows || g->dependents ||
     r->borrow.object!=&r->borrow || r->borrow.parent!=g || r->borrow.active || r->borrow.next){fail(r,INZ_RETURN);goto done;}
  r->stage=INZ_DONE;r->complete=true;r->uncertain=false;
  done:

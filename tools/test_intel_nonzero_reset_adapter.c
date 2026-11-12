@@ -12,6 +12,7 @@ static unsigned nz_reads,nz_writes,nz_clocks,nz_admissions,nz_census,nz_polls,nz
 static uint32_t nz_control[5],nz_domain;
 static bool intel_display_test_nonzero_clock(uint64_t *out) {
  ++nz_clocks;
+ if(jf("nz-clock-parent",nz_clocks))nonzero_native.r.parent=NULL;
  if(jf("nz-zero",nz_clocks)){*out=0;return true;}
  if(jf("nz-backward",nz_clocks)){*out=1;return true;}
  if(jf("nz-time",nz_clocks))ticks+=100001;
