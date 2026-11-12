@@ -9,6 +9,20 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
+The c19df1e793c3da81/5248f3cb diagnostic was manually restarted at first-DHCP
+failure (site7/phase3/reason6,2.000804s), with no recorded native ownership fault
+and one posted RX. Five journal checkpoints and the boot log survive; no exit
+or radio-status observations were persisted. The primary and separate photo/
+metadata review are closed incomplete. Prior bytes survive; marker-atime
+authorization remains unproved without an exit clock. Ubuntu is unarmed.
+
+Audit now targets the missing pre-handoff connection failure-cleanup path:
+retire the unused child/parked worker, explicitly deconfigure a proved protocol
+failure, and consume the original raw-RX authority into exact native teardown.
+Do not clear guard failures, relax original budgets or advance to connection2.
+This fixes failure containment/log delivery; the physical DHCP miss remains a
+separate diagnosis requiring the saved packet/radio observations.
+
 The v147 b9f78149/1d4200b78462bde8 return is closed failed for the complete
 paired workload. Priming, all five calibration replies, fresh discovery and
 the first actual-process DHCP/DNS/HTTP lifetime succeed; its keys, software

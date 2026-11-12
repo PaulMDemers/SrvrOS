@@ -7,6 +7,52 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### AUTH-status trial held at first DHCP failure (November 11)
+
+Runtime5248f3cb/releasec19df1e793c3da81 was manually restarted after the HTTP
+STOPPED panel. The once-only collection is closed incomplete in
+session0006600be3e09144-00: one boot log, five valid independent checkpoints,
+no exit log and no saved AUTH-radio/DHCP receipts. The readable photo identifies
+site7/phase3/reason6, connection_scope1/disconnected0 and elapsed2000804us:
+first-connection DHCP failed before child GO. It records stack_failed0,
+stream_failed0, stream_phase3/fault_phase0/fence_round0; TX0/RX1 pending,
+ready/cache/loan/command0. This does not diagnose physical packet loss or
+establish any radio-status result.
+
+All470 prior files retain their non-sidecar bytes. The current metadata tree
+differs only in the workspace marker atime; strict preservation remains refused
+because the exit-derived RTC window is absent. Only one boot log/session
+directory is new. Offline fsck/allocation,62 other EFI-file bytes and all seven
+protected recovery checks pass. The immutable1356-file primary index is
+`297c721896c8cbc4c183f6d3593f45a83812d37f761a3fdd9e0570cd065fc041`.
+Separate three-file photo/observation review rehashes all primary files and has
+index`0c8606c9951b1194d8843e6f649380de9c2551d3c1033a7e0f6407e7987d0d0f`.
+Neither bank may be recollected/resealed. Ubuntu is default/unarmed.
+
+Source audit identifies the hold's immediate software cause:
+`finish_without_handoff` unconditionally refuses an initialized connection
+bootstrap. A normal DHCP timeout marks that bootstrap failed, with no safe
+pre-handoff abort/deconfiguration API. The unused child and parked worker
+therefore remain retained at site7 even when native TX/cache/loan/ownership
+are healthy. This explains the photographed hold and absent final logs, not
+the DHCP packet-loss cause.
+
+Bounded implementation scope: explicit terminal protocol-failure bookkeeping
+and pre-handoff connection abort in net.c/net.h; HTTP supervisor worker/child/
+network closure and consuming raw-RX handoff; native HTTP failure fixtures and
+strict observations. Preserve the original deadlines and all forward failure
+latches. No clearing a failed bit, forced freeing, arbitrary callbacks, unknown
+TX debt, cache/loan disposal or next connection after failure. Distinguish an
+ordinary protocol failure from latched owner/clock/source corruption; only a
+proved protocol failure may close through the new path. Actual native C and
+fatal tests must reproduce this first-DHCP timeout with posted raw RX, prove
+safe closure and retain ownership on every unknown boundary before another
+physical run. Full protocol success and RF acceptance remain separate.
+
+Fetched mainf16fa5ab/PR475 adds only Air6,1 command-tail evidence documentation;
+integrate it before shared implementation. PR19 owns this net/HTTP scope;
+GPU/HDA, WebCore and Air storage work remain separate. No task is contacted.
+
 ### Priming return: first HTTP complete, second AUTH reply absent (November 11)
 
 Runtimeb9f78149/release1d4200b78462bde8 returned automatically with all seven
