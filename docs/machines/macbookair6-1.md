@@ -12873,3 +12873,82 @@ of that fault captured here. A useful next control is bounded storage-only
 write/flush work to separate filesystem/interleaving effects from completion
 latency under the same sizes, polling, deadlines and integrity checks. No further
 implementation or physical test has started at this checkpoint.
+
+## Active bounded storage-only comparison (2026-11-11)
+
+From main `f16fa5ab`, prepare a separate fixed32KiB filesystem/direct-extent
+write/flush/readback control, six balanced pairs within the existing180-second
+comparison bound. Keep16KiB transport commands,4KiB DMA segments, current polling,
+all deadlines, filesystem barriers/proofs and allocation/claim/quarantine checks.
+The old4096-byte battery scratch API remains unchanged; use the existing general
+exclusive-range proof for a fresh32KiB fixture, park the outer filesystem, revoke
+all public write aliases and retain the whole-device raw claim during direct I/O.
+No caller-supplied raw offset/length or reuse of user documents. Any uncertain
+write/readback poisons the capability and refuses filesystem reentry for that boot.
+
+Scope: explicit opt-in workspace comparison, automatic boot profile/controller,
+compact bounded receipts, strict collection, actual producer and lease/fault
+fixtures. Pause periodic logging while measuring; verify all sample bytes/CRC,
+raw containment, fresh readback, clean lease retirement and offline file/allocation
+preservation. Use1% volume with brief boundary cues outside measured storage;
+there is no continuous desktop/app/battery/audio workload in this isolated
+control. Historical30-minute stress requirements and acceptance stay separate.
+PR19 `b9f78149` owns separate logger startup/Wi-Fi capture hunks; PR301 `890d0fd3`
+has no competing workspace/direct-extent control. No other task is contacted.
+Current0d3/accepted4598/80b4/c7 and recoveryc354 plus their evidence are retained.
+Validate, self-merge and run automatically under existing sudo/reboot authorization;
+new native acceptance remains pending matching return.
+
+Implementation in PR476 adds the explicit `--storage-only-capture` ordinary-kernel
+profile and fixed twelve-sample producer. Disposable-media tests use the actual
+workspace/exFAT/VFS/BOT/block/claim code, including512/4096-byte sectors,
+4/128KiB clusters, exact authorized-range containment and terminal quarantine
+for partial writes, bad flushes, readback mismatch and invalid clocks/deadlines.
+The strict receipt checks all samples, CRCs, command/service clocks and retired
+leases; offline native collection additionally requires all prior files and
+allocation preservation. Source/VM validation and native installation remain
+pending; no physical performance or new acceptance result is claimed.
+
+Fresh pre-validation fetch keeps main at`f16fa5ab`; PR19 is now`5248f3cb`
+and PR301`42facdb0`. Their actual main/staging/smoke diffs add separate
+network/scanout profiles; this isolated workspace control remains independent.
+No other branch is merged or rewritten.
+
+The full core/desktop/docs baseline and ordinary sysabi, USB input, thread exec
+and USB write/reload VM regressions passed at`7c89275d`. Final review strengthens
+only the new optional fixture/collector: distinct512-byte sectors and16KiB
+chunks catch a transport that aliases both reads and writes, and ring-counter
+validation respects unsampled empty observations while requiring the exact
+empty/event partition and original service coverage. Final affected-path,
+matched-image and exact-stage requalification is pending. Controller limits,
+policies, integrity proofs, existing payloads and ordinary startup are unchanged.
+
+
+### Ready isolated native comparison
+
+Final optional fixture/collector source`527bbb81` passed36 real-stack cases,
+including distinct-sector/chunk alias corruption and legitimate unsampled-empty
+observations, original block/USB/workspace/image leases and logger checks,
+93 boot/installer unit tests, documentation, exact-stage GPT saved receipt/full
+fixture/offline fsck and ordinary sysabi/USB input/thread exec/USB write-reload
+VM regressions. The separately retained full core/desktop/docs baseline is
+`7c89275d`; only the new payload and collector/fault fixture changed afterward.
+No controller, filesystem, scheduler, polling, deadline or integrity limit changed.
+
+Release`78cfda46ee1b63a0` is installed from the matched ordinary kernel/initramfs.
+The exact-stage run completes all12 samples and saves the stronger final payload.
+Actual Air6,1 UUID`6ADA-85BB`, AC, all886 prior file hashes, headroom/full allocation,
+independent accepted payloads and original failed-media archive verify. Ubuntu
+remains default with recovery`c35475f62f154f1e`; accepted0d3/4598/80b4/c7 remain on
+EFI and independently backed up. Only the unreferenced, fully verifiedc95f EFI
+duplicate was retired; its complete independent payload is retained. Five old
+inactive synthetic stream fixtures were losslessly archived with per-file SHA
+verification to keep build headroom; native evidence and active fixtures remain.
+
+The saved local run is`2923b641532e4681`; its new automatic collector requires
+one matching session, all12 CRC/byte/command/service samples, six retired leases,
+exact final sequence12 bytes, prior-file preservation and offline fsck/allocation.
+The guest runs six balanced32KiB pairs within180seconds with brief1% boundary
+cues outside measurements, shows progress and returns automatically. No human
+input or listening report is required. Implementation/host/VM validation is
+complete; native performance/acceptance awaits this run's matching return.
