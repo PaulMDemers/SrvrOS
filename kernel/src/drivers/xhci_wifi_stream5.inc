@@ -10,7 +10,10 @@ static bool wifi_http5_failed_connection_closed(void);
 #define WIFI_STREAM5_RX 252u
 #define WIFI_STREAM5_TX 80u
 #define WIFI_STREAM5_FENCES 4u
-struct wifi_stream5_record {struct xhci_trb event;uint64_t ticket,token,pn;unsigned direction,page,cycle,bytes,ethernet,reason,kind;};
+/* DATA is not a mt76_wpa5_tx member; the RX enum uses a different value. */
+#define WIFI_STREAM5_DATA_TX 5u
+/* Anonymous scalar observations only; never retain packet or key bytes. */
+struct wifi_stream5_record {struct xhci_trb event;uint64_t ticket,token,pn;uint64_t started_us,finished_us;unsigned flags,frame,audit,span,dma,mpdu,trailing,ethertype,rate,ack,wcid;unsigned direction,page,cycle,bytes,ethernet,reason,kind;};
 struct wifi_stream5_state {
  struct xhci_device *d;struct mt76_peer5 peer;struct mt76_wpa5 exchange;struct mt76_mac_cycle mac;
  struct mt76_dma5 dma;struct mt76_dma5_lease lease[2],loan;
@@ -134,9 +137,14 @@ static bool wifi_stream5_event(struct xhci_device *d,const struct xhci_trb *e){
  }else if(good){struct mt76_dma5_lease *l=&wifi_stream5.lease[dir];unsigned index=(unsigned)((l->trb-wifi_stream5.physical[dir])/16);
   good=wifi_stream5.phase>=3 && wifi_stream5.phase<=4 && wifi_stream5.pending[dir] && index<wifi_stream5_positions() && p==l->trb &&
    (dir?((cc==1 || cc==13) && res<=4096):(cc==1 && !res)) && wifi_stream5.shadow[dir][index].parameter_low==(uint32_t)l->page && wifi_stream5.shadow[dir][index].parameter_high==(uint32_t)(l->page>>32) && wifi_stream5.shadow[dir][index].status==l->length && wifi_stream5.shadow[dir][index].control==((XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|(dir?XHCI_TRB_ISP:0)|l->cycle);
-  if(good)good=mt76_dma5_complete(&wifi_stream5.dma,l,cc,res,timer_monotonic_us());
-  if(good){unsigned i=wifi_stream5.record_count;if(i>=WIFI_STREAM5_RX+WIFI_STREAM5_TX)good=false;else{
-    wifi_stream5.records[i]=(struct wifi_stream5_record){.event=*e,.ticket=l->ticket,.token=l->token,.pn=wifi_stream5.data_pn,.direction=dir,.kind=dir?0:wifi_stream5.tx_kind,.page=l->index,.cycle=l->cycle,.bytes=l->length-res};wifi_stream5.record_count++;
+  uint64_t finished=good?timer_monotonic_us():0;
+  if(good)good=mt76_dma5_complete(&wifi_stream5.dma,l,cc,res,finished);
+  if(good){uint64_t started=wifi_stream5.dma.pages[dir][l->index].started;unsigned i=wifi_stream5.record_count;if(i>=WIFI_STREAM5_RX+WIFI_STREAM5_TX)good=false;else{
+    wifi_stream5.records[i]=(struct wifi_stream5_record){.started_us=started,.finished_us=finished,.event=*e,.ticket=l->ticket,.token=l->token,.pn=wifi_stream5.data_pn,.direction=dir,.kind=dir?0:wifi_stream5.tx_kind,.page=l->index,.cycle=l->cycle,.bytes=l->length-res};wifi_stream5.record_count++;
+    if(!dir && wifi_stream5.tx_kind==WIFI_STREAM5_DATA_TX && l->length>=24){
+     const uint8_t *b=wifi_stream5.buffer[0][l->index];struct wifi_stream5_record *r=&wifi_stream5.records[i];
+     r->rate=b[6]|((unsigned)b[7]<<8);r->ack=b[8]&1;r->wcid=b[9];r->mpdu=b[10]|((unsigned)b[11]<<8);
+    }
     wifi_stream5.pending[dir]=false;wifi_stream5.completions[dir]++;if(dir){wifi_stream5.ready_rx=true;wifi_stream5.rx_residue=res;wifi_stream5.rx_record=i;}else copy_bytes(wifi_stream5.page_shadow[0][l->index],wifi_stream5.buffer[0][l->index],4096);
    }}
  }
@@ -160,6 +168,13 @@ static bool wifi_stream5_collect(enum mt76_wpa5_rx type,bool drain){
   if(!drain){
    if(type==MT76_WPA5_DATA){if(!wifi_stream5.data_active || wifi_stream5.exchange.keys.phase!=WPA2_CCMP_ACTIVE || wifi_stream5.exchange.keys.generation!=wifi_stream5.epoch)good=false;
     else {struct mt76_data5_rx_result r=mt76_data5_rx_report(&wifi_stream5.scratch,&wifi_stream5.exchange.keys,wifi_stream5.epoch,wifi_stream5.buffer[1][p],bytes,wifi_stream5.cached,MT76_DATA5_ETH_MAX);n=r.bytes;wifi_stream5.records[wifi_stream5.rx_record].reason=r.reason;wifi_stream5.records[wifi_stream5.rx_record].ethernet=(unsigned)n;
+     struct wifi_stream5_record *record=&wifi_stream5.records[wifi_stream5.rx_record];
+     record->flags=r.flags;record->frame=r.frame;record->audit=r.audit;
+     if(n>=14)record->ethertype=((unsigned)wifi_stream5.cached[12]<<8)|wifi_stream5.cached[13];
+     if(bytes>=36){const uint8_t *b=wifi_stream5.buffer[1][p];unsigned dma=b[0]|((unsigned)b[1]<<8),mpdu=(b[10]|((unsigned)b[11]<<8))&0x3fff;
+      if(dma>=32 && !(dma&3) && dma<=bytes-4 && mpdu>=2 && mpdu<=dma-32){record->span=1;record->dma=dma;record->mpdu=mpdu;record->trailing=(unsigned)bytes-4-dma;}
+     }
+
      if(r.reason==MT76_DATA5_ADMISSION)good=false;
      if(n){wifi_stream5.data_received++;if(wifi_stream5.wraps[1])wifi_stream5.data_after_rxwrap++;}}
    }else if(type==MT76_WPA5_EAPOL){struct mt76_eapol5_peer peer={.channel=161,.bandwidth=20};copy_bytes(peer.station,wifi_stream5.peer.peer.station,6);copy_bytes(peer.bssid,wifi_stream5.peer.peer.bssid,6);struct mt76_eapol5_view v={0};if(mt76_eapol5_rx(&peer,wifi_stream5.buffer[1][p],bytes,&v)==MT76_RX_OK && v.eapol_size<=sizeof wifi_stream5.cached){n=v.eapol_size;copy_bytes(wifi_stream5.cached,v.eapol,n);}zero_bytes(&peer,sizeof peer);
@@ -267,7 +282,7 @@ static enum mt76_join5_send wifi_stream5_data_send(void *c,const uint8_t *frame,
  if(!wifi_stream5_data_owned(c) || (frame!=p->setup.tx && frame!=p->tx) || length>1514 || wifi_stream5.data_sends>=70u+(unsigned)wifi_stream5.discover_retry || wifi_stream5.posts[0]!=4+wifi_stream5.data_sends)return MT76_JOIN5_REFUSED;
  uint64_t pn=k->tx_pn;size_t bytes=mt76_data5_tx(&wifi_stream5.scratch,k,wifi_stream5.epoch,frame,length,9+wifi_stream5.data_sends,wifi_stream5.usb,sizeof wifi_stream5.usb);
  if(!bytes || k->tx_pn!=pn+1){zero_bytes(wifi_stream5.usb,sizeof wifi_stream5.usb);return k->tx_pn==pn?MT76_JOIN5_REFUSED:MT76_JOIN5_UNCERTAIN;}wifi_stream5.data_pn=k->tx_pn;
- wifi_stream5.tx_kind=5;enum mt76_join5_send result=wifi_stream5_transmit(wifi_stream5.usb,(unsigned)bytes);zero_bytes(wifi_stream5.usb,sizeof wifi_stream5.usb);
+ wifi_stream5.tx_kind=WIFI_STREAM5_DATA_TX;enum mt76_join5_send result=wifi_stream5_transmit(wifi_stream5.usb,(unsigned)bytes);zero_bytes(wifi_stream5.usb,sizeof wifi_stream5.usb);
  if(result==MT76_JOIN5_SENT){wifi_stream5.data_sends++;if(wifi_stream5.wraps[0])wifi_stream5.data_after_txwrap++;}return result;
 }
 static bool wifi_stream5_data_poll(void *c,uint8_t *out,size_t cap,size_t *n,bool *present){struct mt76_stream5_probe *p=&wifi_stream5.probe;return wifi_stream5_data_owned(c) && (out==p->setup.rx || out==p->rx) && cap==1514 && wifi_stream5_poll(c,MT76_WPA5_DATA,out,cap,n,present);}
@@ -457,6 +472,19 @@ static unsigned wifi_stream5_rx_select(unsigned selected[8]){
 }
 static unsigned wifi_stream5_emit(void){
  unsigned selected[8];unsigned rx_receipts=wifi_stream5_rx_select(selected);
+ if(wifi_stream5.connection_mode && wifi_stream5.stack_mode){
+  unsigned tx=0,rx=0;for(unsigned i=0;i<wifi_stream5.record_count;i++){
+   const struct wifi_stream5_record *r=&wifi_stream5.records[i];
+   tx+=!r->direction && r->kind==WIFI_STREAM5_DATA_TX;rx+=r->direction && r->reason;
+  }
+  console_printf("wifi-encrypted5: version=1 epoch=%u tx=%u rx=%u records=%u keys_erased=%u retired=%u observation_only=1\n",wifi_stream5.epoch,(uint64_t)tx,(uint64_t)rx,(uint64_t)wifi_stream5.record_count,(uint64_t)wifi_stream5.exchange.keys_erased,(uint64_t)wifi_stream5.retired);
+ }
+ if(wifi_stream5.connection_mode && wifi_stream5.stack_mode)for(unsigned i=0;i<wifi_stream5.record_count;i++){
+  const struct wifi_stream5_record *r=&wifi_stream5.records[i];
+  if(!r->direction && r->kind==WIFI_STREAM5_DATA_TX)console_printf("wifi-encrypted5-tx: index=%u ticket=%u token=%u pn=%u bytes=%u mpdu=%u rate=%u ack=%u wcid=%u cc=%u residue=%u started_us=%u finished_us=%u radio_delivery_proved=0\n",(uint64_t)i,r->ticket,r->token,r->pn,(uint64_t)r->bytes,(uint64_t)r->mpdu,(uint64_t)r->rate,(uint64_t)r->ack,(uint64_t)r->wcid,(uint64_t)(r->event.status>>24),(uint64_t)(r->event.status&0xffffff),r->started_us,r->finished_us);
+  if(r->direction && r->reason)console_printf("wifi-encrypted5-rx: index=%u ticket=%u token=%u bytes=%u reason=%u flags=%u frame=%u audit=%u span=%u dma=%u mpdu=%u trailing=%u ethernet=%u ethertype=%u\n",(uint64_t)i,r->ticket,r->token,(uint64_t)r->bytes,(uint64_t)r->reason,(uint64_t)r->flags,(uint64_t)r->frame,(uint64_t)r->audit,(uint64_t)r->span,(uint64_t)r->dma,(uint64_t)r->mpdu,(uint64_t)r->trailing,(uint64_t)r->ethernet,(uint64_t)r->ethertype);
+ }
+
  if(wifi_stream5.connection_mode && wifi_stream5.stack_mode)for(unsigned p=0;p<2;p++){
   console_printf("wifi-stream5-radio: version=1 phase=%u attempted=%u complete=%u reads=%u empty=%u saturated=%u observation_only=1\n",(uint64_t)p,(uint64_t)wifi_stream5.auth_radio.attempted[p],(uint64_t)wifi_stream5.auth_radio.complete[p],(uint64_t)wifi_stream5.auth_radio.count[p],(uint64_t)wifi_stream5.auth_radio.empty[p],(uint64_t)(wifi_stream5.auth_radio.complete[p] && !wifi_stream5.auth_radio.empty[p]));
   for(unsigned i=0;i<wifi_stream5.auth_radio.count[p] && i<17;i++)console_printf("wifi-stream5-radio-entry: phase=%u i=%u ext=%x fifo=%x\n",(uint64_t)p,(uint64_t)i,(uint64_t)wifi_stream5.auth_radio.ext[p][i],(uint64_t)wifi_stream5.auth_radio.fifo[p][i]);
@@ -464,7 +492,7 @@ static unsigned wifi_stream5_emit(void){
  console_printf("wifi-stream5-plan: tx=%x rx=%x epoch=%u slot=%u pages=4 positions=%u max_tx=80 max_rx=252 max_fences=%u\n",wifi_stream5.physical[0],wifi_stream5.physical[1],wifi_stream5.epoch,(uint64_t)wifi_stream5.slot,(uint64_t)wifi_stream5_positions(),(uint64_t)wifi_stream5_fence_limit());
  for(unsigned i=0;i<wifi_stream5.record_count && i<WIFI_STREAM5_TX+WIFI_STREAM5_RX;i++){const struct wifi_stream5_record *r=&wifi_stream5.records[i];uint64_t ptr=r->event.parameter_low|((uint64_t)r->event.parameter_high<<32);console_printf("wifi-stream5-td: %u %u %x %u %u\n",(uint64_t)i,(uint64_t)r->direction,ptr,(uint64_t)r->event.status,(uint64_t)r->event.control);}
  for(unsigned i=0;i<wifi_stream5.record_count && i<WIFI_STREAM5_TX+WIFI_STREAM5_RX;i++){const struct wifi_stream5_record *r=&wifi_stream5.records[i];
- if(!r->direction && r->kind==5)console_printf("wifi-stream5-data: %u %u %u %u %u %u %u\n",(uint64_t)i,r->ticket,r->token,(uint64_t)r->page,(uint64_t)r->cycle,r->pn,(uint64_t)r->bytes);
+ if(!r->direction && r->kind==WIFI_STREAM5_DATA_TX)console_printf("wifi-stream5-data: %u %u %u %u %u %u %u\n",(uint64_t)i,r->ticket,r->token,(uint64_t)r->page,(uint64_t)r->cycle,r->pn,(uint64_t)r->bytes);
  bool selected_rx=false;for(unsigned n=0;n<rx_receipts;n++)selected_rx=selected_rx || selected[n]==i;
  if(selected_rx)console_printf("wifi-stream5-rx: %u %u %u %u %u %u %u\n",(uint64_t)i,r->ticket,r->token,(uint64_t)r->page,(uint64_t)r->cycle,(uint64_t)r->ethernet,(uint64_t)r->reason);
  }

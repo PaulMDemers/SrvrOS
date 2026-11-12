@@ -10,15 +10,17 @@ static struct {
 
 /* Native proof for the exact old connection, while the adapter parent window
  * remains owned. This is deliberately not whole-adapter/backend retirement. */
-static bool wifi_reconnect5_closed(void *owner,uint64_t epoch,const struct mt76_dma5 *dma){
+static bool wifi_http5_failed_detached(void);
+static bool wifi_reconnect5_closed_state(void *owner,uint64_t epoch,const struct mt76_dma5 *dma,bool failed){
+ if(failed && !wifi_http5_failed_detached())return false;
  struct wifi_stream5_state *s=owner;
  if((s!=&wifi_stream5_slots[0] && s!=&wifi_stream5_slots[1]) || s!=wifi_stream5_current ||
     !s->connection_mode || !s->connection_closed || s->epoch!=epoch || dma!=&s->dma ||
     dma->identity!=(uintptr_t)dma || dma->positions!=127 || dma->epoch!=epoch || dma->state!=MT76_DMA5_RETIRED ||
-    !s->retired || !s->restored || !s->events_empty || !s->complete || s->failed ||
+    !s->retired || !s->restored || !s->events_empty || (!s->complete && !failed) || s->failed ||
     s->phase!=9 || s->active || s->data_active || !s->closed || s->pending[0] || s->pending[1] ||
     s->ready_rx || s->cached_present || s->loan.ticket || dma->borrowed!=dma->released || dma->faults ||
-    !s->exchange.complete || !s->exchange.keys_erased || !s->exchange.leave_sent || s->exchange.unsafe ||
+    (!s->exchange.complete && !failed) || !s->exchange.keys_erased || !s->exchange.leave_sent || s->exchange.unsafe ||
     s->exchange.handshake.keys_may_live || !wpa2_ccmp_erased(&s->exchange.keys,epoch) ||
     !s->mac.mac_disabled || !s->mac.tx_drained || !s->mac.rx_drained ||
     !s->mac.filter_restored || !s->mac.txop_restored || s->stop_events[0]!=1 || s->stop_events[1]!=1 ||
@@ -42,6 +44,9 @@ static bool wifi_reconnect5_closed(void *owner,uint64_t epoch,const struct mt76_
   !wifi_stack5_net.io_busy && !wifi_stack5_net.polling && !wifi_stack5_net.delivering &&
   !wifi_stack5_net.faults && !wifi_stack5_net.dropped && !wifi_stack5_net.retire_requested &&
   wifi_stack5_net.enqueued==wifi_stack5_net.submitted && wifi_stack5_net.submitted==wifi_stack5_net.completed;
+}
+static bool wifi_reconnect5_closed(void *owner,uint64_t epoch,const struct mt76_dma5 *dma){
+ return wifi_reconnect5_closed_state(owner,epoch,dma,false);
 }
 static bool wifi_reconnect5_exercise(void *context,struct mt76_net5 *p){
  if(wifi_reconnect5.connections>1 || context!=&wifi_reconnect5.probe[wifi_reconnect5.connections] ||

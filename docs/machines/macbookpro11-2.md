@@ -10,7 +10,9 @@ Dated sections retain the bring-up history.
 ### Encrypted RX/TX and failed RF continuation scope (November 12)
 
 PR19 owns anonymous encrypted RX structural/class/audit receipts, bounded data-TX
-radio-status observations and explicit failed-workload/closed-parent separation.
+completion/timing/PHY-intent observations and explicit failed-workload/closed-parent
+separation. Data-TX radio/AP delivery remains unproved; this scope adds no new
+firmware reads inside the live encrypted window.
 A proved DHCP/DNS failure may authorize outer RF inverse only after the original
 child/worker, keys, DMA/events/contexts and detached provider validate; it must
 remain a failed workload and cannot start connection2. Unknown ownership still
@@ -18,6 +20,36 @@ refuses/holds. Tests must compose the actual native connection close with RF
 inverse and cover faults before another hardware recipe is enabled. Main7f9f3058
 sidecar ordering/equality changes are integrated; GPU/WebCore scopes stay separate.
 The previous v149 primary/review remain immutable. No new boot is armed.
+
+### Encrypted tracing and RF failure continuation implemented; qualification pending
+
+The failed HTTP callback formerly returned the workload result to the held
+adapter inspector. A DHCP/DNS timeout therefore blocked the outer RF inverse
+even after the existing native close erased keys, retired DMA and detached the
+provider. The callback now grants continuation only after the same owner/epoch,
+failed unused child/worker, scrubbed sources, software terminal handoff, erased
+keys, exact endpoint/context/event restoration and detached provider validate.
+The workload remains failed, connections stays zero and generation2 never starts.
+Unknown ownership still refuses or holds; completion flags are not fabricated.
+
+An actual native HTTP/production network/CCMP/independent AP fixture is composed
+with the actual channel-VCO inverse engine. Discarding the safe-close result
+reproduces the2636-operation incomplete RF state; accepting the proved close
+restores the original state at3844 operations. Controller/registers, scheduler
+and child execution remain modeled. This is not physical RF acceptance or a
+full native calibration-parent trace; separate parent regressions remain required.
+The refusal matrix covers wrong terminal epoch, live keys, loans/cache/pending
+TX, callbacks, missing Stop, faults and mutated probe guards/GO/worker state.
+
+Anonymous encrypted receipts retain completion timing, PN/token, TX PHY/ACK
+intent, RX parser reason/frame/flag/audit categories, bounded descriptor/MPDU
+lengths and authenticated Ethernet type. Scalars are emitted by existing close
+logging, with no packet/address/key bytes, extra live firmware commands, changed
+replay rules or longer budgets. USB completion and ACK-request intent are not
+radio/AP acknowledgement. Structural trailing bytes are not aggregation proof.
+The dedicated observation decoder binds TX receipts to the original completion
+ledger, rejects malformed/missing/duplicate records and never grants acceptance.
+Qualification is in progress; no new image is installed or boot armed.
 
 ### v149 return: AUTH trace saved; DHCP Offer absent (November 12)
 

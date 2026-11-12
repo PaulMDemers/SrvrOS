@@ -4,7 +4,7 @@
 static struct {
  struct http_network_probe probe[2];
  struct http_network_probe_io io[2];
- bool requested,prepared,attempted,complete,parent_complete,provider_retired;
+ bool requested,prepared,attempted,complete,parent_complete,provider_retired,failure_closed;
  unsigned connections;
  uint64_t epochs[2],tokens[2];
 } wifi_http_reconnect5;
@@ -15,7 +15,7 @@ static bool wifi_http_reconnect5_unattempted(void){
   p->self==(uintptr_t)p && !p->result.attempted && !p->result.go && !p->child.published &&
   !p->bootstrap.identity && !wifi_stream5.attempted && !wifi_stack5_net.identity;
 }
-static bool wifi_http5_failed_connection_closed(void){
+static bool wifi_http5_failed_scope(bool detached){
  unsigned g=wifi_http_reconnect5.connections;if(g>1)return false;
  const struct http_network_probe *p=&wifi_http_reconnect5.probe[g];
  const struct http_network_result *r=&p->result;const struct mt76_wpa5 *s=&wifi_stream5.exchange;
@@ -29,10 +29,12 @@ static bool wifi_http5_failed_connection_closed(void){
   !p->guard_failed && !p->checking && !p->handoff_attempted && !p->bootstrap_open && p->worker_stopped &&
   !p->source && !p->source_guard && !p->bootstrap.source && !p->bootstrap.station &&
   wifi_stream5_current==&wifi_stream5_slots[g] && wifi_stream5.epoch==g+1 &&
-  wifi_stack5_terminal_software_closed(&wifi_stream5,wifi_stream5.epoch) &&
+  (detached?(wifi_stack5.terminal_handoff && wifi_stack5.terminal_provider_closing && wifi_stack5.terminal_epoch==wifi_stream5.epoch && wifi_stream5.connection_closed && wifi_stream5.retired && wifi_stack5.detached):wifi_stack5_terminal_software_closed(&wifi_stream5,wifi_stream5.epoch)) &&
   !s->complete && !s->unsafe && s->keys_activated && s->keys_erased && s->leave_sent &&
   !s->handshake.keys_may_live && wpa2_ccmp_erased(&s->keys,wifi_stream5.epoch);
 }
+static bool wifi_http5_failed_connection_closed(void){return wifi_http5_failed_scope(false);}
+static bool wifi_http5_failed_detached(void){return wifi_http5_failed_scope(true);}
 static void wifi_http5_failed_rx_emit(void){
  uint64_t reasons[10]={0},parsed=0,unclassified=0;
  /* Reuse the already-recorded parser results after native closure. No packet
@@ -113,7 +115,15 @@ static bool wifi_http_reconnect5_window(void){
    wifi_http5_failed_rx_emit();
    console_printf("wifi-http-reconnect5-failed: version=1 generation=%u reason=%u protocol_failed=1 deconfigured=1 child_retired=1 worker_finished=1 receiver_closed=1 keys_erased=1 native_closed=1 provider_detached=1 next_allowed=0 retained_context=1\n",(uint64_t)g+1,p->result.reason);
   }
-  if(!good)return false;
+  if(!good){
+   if(!failed_closed)return false;
+   /* A consumed terminal failure closes only this adapter inspection. Never
+    * clear protocol failure or count a connection; return before generation2. */
+   if(!wifi_reconnect5_closed_state(&wifi_stream5,wifi_stream5.epoch,&wifi_stream5.dma,true))wifi_http5_hold(10);
+   wifi_http_reconnect5.failure_closed=true;
+   console_write("wifi-http-reconnect5-parent-cleanup: version=1 protocol_failed=1 local_closed=1 next_allowed=0 workload_success=0 parent_cleanup_allowed=1\n");
+   return true;
+  }
   wifi_http_reconnect5.epochs[g]=wifi_stream5.epoch;wifi_http_reconnect5.tokens[g]=wifi_stack5_net.next_token;
   wifi_http_reconnect5.connections++;
   console_printf("wifi-http-reconnect5-connection: version=1 generation=%u complete=1 epoch=%u submitted=%u received=%u next_token=%u max_fences=2 stack_deconfigured=1 keys_erased=1 leave=1 native_closed=1 provider_detached=1 adapter_parent_restored=0 backend_retired=0\n",
