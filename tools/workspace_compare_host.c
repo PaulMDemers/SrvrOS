@@ -95,6 +95,8 @@ static bool bulk(void *ctx,bool in,void *buffer,uint32_t n,uint32_t *actual) {
         else {
             assert((cdb[0]==0x28&&in)||(cdb[0]==0x2a&&!in));
             uint64_t offset=(uint64_t)be32(cdb+2)*sectorsize+done;assert(offset<=image_size&&n<=image_size-offset);
+            /* Model a bad transport aliasing both second-half writes and reads. */
+            if(direct&&!strcmp(mode,"alias")&&offset>=raw_offset+16384&&offset<raw_offset+32768)offset-=16384;
             if(direct&&cdb[0]==0x2a) {
                 assert(offset>=raw_offset&&n<=raw_offset+32768-offset);raw_bytes+=n;
                 if(!strcmp(mode,"partial")&&raw_leases==1) {
@@ -115,6 +117,7 @@ static bool bulk(void *ctx,bool in,void *buffer,uint32_t n,uint32_t *actual) {
     if(direct&&!strcmp(mode,"clock")&&!clock_jump){clock_us=1;clock_jump=true;}
     sample=(struct usb_bulk_timing){.submitted=start+1,.observed=clock_us-1,.resumed=clock_us,.seen=true,.service_valid=true,
         .service_checks=1,.service_samples=1,.service_gap_max_us=clock_us-start-2,.completion_gap_us=clock_us-start-2,.event_checks=1};
+    if(!strcmp(mode,"unsampled")){sample.service_checks=3;sample.empty_checks=1;sample.event_checks=2;}
     (void)prior;return true;
 }
 static void timing(void *ctx,struct usb_bulk_timing *out){assert(ctx==&storage);*out=sample;}
@@ -126,12 +129,12 @@ int main(int argc,char **argv) {
     clock_us=100000;busy=!strcmp(mode,"busy");unavailable=!strcmp(mode,"timer");
     uint64_t held=!strcmp(mode,"held")?workspace_mount_hold_acquire():0;
     bool passed=workspace_storage_compare();raw_contained();
-    if(!strcmp(mode,"workload")) {
+    if(!strcmp(mode,"workload")||!strcmp(mode,"unsampled")) {
         assert(passed&&raw_leases==6&&raw_bytes==6*32768&&workspace_active());
         unsigned prior=raw_bytes;assert(!workspace_storage_compare()&&raw_bytes==prior);assert(workspace_unmount());
     } else {
         assert(!passed);
-        if(!strcmp(mode,"partial")||!strcmp(mode,"mismatch")||!strcmp(mode,"flush")||!strcmp(mode,"clock")||!strcmp(mode,"deadline")) {
+        if(!strcmp(mode,"alias")||!strcmp(mode,"partial")||!strcmp(mode,"mismatch")||!strcmp(mode,"flush")||!strcmp(mode,"clock")||!strcmp(mode,"deadline")) {
             assert(raw_leases==1&&!workspace_parked_device()&&!workspace_mount("5a1b2c3d"));
             assert(!block_device_online(storage.block)&&!block_claim_mount(storage.block));
         } else {assert(!raw_leases);if(held)assert(workspace_mount_hold_valid(held)&&workspace_mount_hold_release(held));}

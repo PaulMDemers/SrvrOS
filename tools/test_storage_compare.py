@@ -13,7 +13,7 @@ results=[]
 for shift,cluster_shift in ((9,3),(9,8),(12,0)):
     baseline=empty_image(16*1024*1024,0x5a1b2c3d,shift,cluster_shift)
     baseline.add_directory_files('srvros-work',{'.workspace':b'SRVROS-WORKSPACE-V1 5a1b2c3d\n','anchor.txt':b'preserve this anchor\n'})
-    for mode in ('workload','partial','flush','mismatch','clock','deadline','busy','held','timer','existing'):
+    for mode in ('workload','unsampled','alias','partial','flush','mismatch','clock','deadline','busy','held','timer','existing'):
         fixture=copy.deepcopy(baseline)
         if mode=='existing':
             fixture=empty_image(16*1024*1024,0x5a1b2c3d,shift,cluster_shift)
@@ -27,8 +27,13 @@ for shift,cluster_shift in ((9,3),(9,8),(12,0)):
         assert actual.read('srvros-work/anchor.txt')==b'preserve this anchor\n'
         assert actual.read('srvros-work/.workspace')==b'SRVROS-WORKSPACE-V1 5a1b2c3d\n'
         proof=capture_result(log,False)
-        if mode=='workload':
+        if mode in ('workload','unsampled'):
             assert proof is not None,name
+            expected=payload(12)
+            assert len({expected[i:i+512] for i in range(0,32768,512)})==64
+            audio=log+'\nstorage-only-audio: volume=1 cues=2 stopped=yes quiet=yes clean=yes\nlaptop-capture: completed=yes\n'
+            assert capture_result(audio) is not None
+            assert capture_result(audio+'storage-only-audio: volume=1 cues=0 stopped=NO quiet=NO clean=NO\n') is None
             assert actual.read(proof['path'].removeprefix('/work/'))==payload(12)
             check_clean_image(image)
             check=subprocess.run([str(ROOT/'build/tests/exfat-driver'),str(image),'allocation-check'],capture_output=True,text=True)

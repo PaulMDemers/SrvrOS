@@ -51,3 +51,11 @@ rerun/existing-path/held/busy/clock refusal, partial write/flush/readback/deadli
 quarantine, and strict receipt negative controls. Hardware service clocks are
 modeled in this fixture; the actual USB command framing and completion validation
 are production code.
+
+Each512-byte payload sector and each16KiB command chunk has distinct data, in
+addition to its sample sequence. A transport that aliases both reads and writes
+of the second half is explicitly fault-tested and quarantined. Controller ring
+checks partition exactly into event and empty observations. Empty checks between
+clock samples need not produce a last-empty timestamp; a present timestamp must
+be bounded by submission/observation and retain full sampled-service coverage.
+These checks add no ring/clock reads and change no controller policy or limits.

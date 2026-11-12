@@ -20,7 +20,7 @@ static uint32_t compare_crc(const uint8_t *p,unsigned size) {
     return ~crc;
 }
 static void compare_pattern(unsigned sequence) {
-    for(unsigned i=0;i<STORAGE_COMPARE_BYTES;i++)compare_payload[i]=(uint8_t)(i*37u+sequence*29u+11u);
+    for(unsigned i=0;i<STORAGE_COMPARE_BYTES;i++)compare_payload[i]=(uint8_t)(i*37u+(i>>8)*17u+sequence*29u+11u);
 }
 static bool compare_file_read(const char *path,struct block_device *parent) {
     block_forget(parent); /* Never validate against a clean block-cache alias. */

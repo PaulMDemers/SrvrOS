@@ -11,7 +11,7 @@ LIMIT=180000000
 ORDER=[((i//2)^(i%2))&1 for i in range(12)]
 
 def payload(sequence):
-    return bytes((i*37+sequence*29+11)&255 for i in range(BYTES))
+    return bytes((i*37+(i>>8)*17+sequence*29+11)&255 for i in range(BYTES))
 
 def rows(text,prefix):
     result=[]
@@ -71,10 +71,12 @@ def capture_result(text,require_audio=True):
             observe=b['observed']-b['submitted']
             assert b['completion_gap']<=b['gap']<=observe and observe<=(b['samples']+1)*b['gap']
             assert b['gap']<=b['end_us']-b['start_us'] and b['completion_gap']<=b['end_us']-b['start_us']
-            assert (b['empty']>0)==(b['last_empty']>0)
-            if b['last_empty']:assert b['start_us']<=b['last_empty']<=b['observed']
+            assert b['empty']+b['events']==b['checks']
+            if b['last_empty']:assert b['empty'] and b['submitted']<=b['last_empty']<=b['observed']
+            if not b['empty']:assert not b['last_empty']
         assert len('\n'.join(l for l in text.splitlines() if l.startswith('storage-only'))) <32768
         if require_audio:
+            assert text.count('storage-only-audio:')==1
             assert len(re.findall(r'^storage-only-audio: volume=1 cues=2 stopped=yes quiet=yes clean=yes$',text,re.M))==1
             assert 'laptop-capture: completed=yes' in text
         return dict(status='PASS',path=path,bytes=BYTES,pairs=6,samples=12,elapsed_us=int(elapsed),volume=1,

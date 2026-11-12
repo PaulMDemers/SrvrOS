@@ -12913,3 +12913,12 @@ Fresh pre-validation fetch keeps main at`f16fa5ab`; PR19 is now`5248f3cb`
 and PR301`42facdb0`. Their actual main/staging/smoke diffs add separate
 network/scanout profiles; this isolated workspace control remains independent.
 No other branch is merged or rewritten.
+
+The full core/desktop/docs baseline and ordinary sysabi, USB input, thread exec
+and USB write/reload VM regressions passed at`7c89275d`. Final review strengthens
+only the new optional fixture/collector: distinct512-byte sectors and16KiB
+chunks catch a transport that aliases both reads and writes, and ring-counter
+validation respects unsampled empty observations while requiring the exact
+empty/event partition and original service coverage. Final affected-path,
+matched-image and exact-stage requalification is pending. Controller limits,
+policies, integrity proofs, existing payloads and ordinary startup are unchanged.
