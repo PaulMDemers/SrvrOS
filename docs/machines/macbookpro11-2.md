@@ -16,6 +16,26 @@ Test actual initial native send/poll/Stop paths, including diagnostic control
 failure, before wiring a new physical recipe. Mainca454d7c adds Air evidence
 only since7c1a08a0; PR301 GPU and PR379 WebCore remain separate. No reboot armed.
 
+The explicit first-join trace is implemented but remains dormant in boot
+recipes. It records up to17 EXT-before-FIFO pairs before AUTH and before the
+first ASSOC/leave; the latter excludes those later transmissions. It stops at
+empty, records saturation, never waits/replays and treats diagnostic I/O or
+ownership failure as uncertain native ownership. Receive tracing records only
+anonymous framing scalars, including the raw frame-control and RXINFO category
+when the existing parser refuses a view. No addresses, packet payload or key
+material are emitted, and no rejected view becomes a management reply.
+
+Actual production join send/poll/MAC/Stop/context code passes the host owner
+suite with bounded empty/saturated snapshots, success, original750ms AUTH
+timeout and each diagnostic-read failure. Fatal ASan/UBSan passes that native
+suite and separate RX-inside-EP0 success/timeout fixtures. An AUTH-shaped frame
+with an unsupported RXINFO flag is observed as raw_fc176/view2, remains refused
+and still reaches the original deadline; normal/fatal directed checks pass.
+HCD/RF remain modeled. Full kernel build passes. This is software evidence only:
+a separate explicit boot recipe and source-frozen result-schema qualification
+must precede hardware enablement. Installed6a9d28cc6aefc3e6 and closed evidence
+banks remain unchanged; no new boot is staged or armed.
+
 ### v148 return: target selected; initial AUTH reply absent (November 12)
 
 Runtime772f031c/release6a9d28cc6aefc3e6 is collected once and closed FAILED

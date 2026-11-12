@@ -120,6 +120,8 @@ bool xhci_wifi_capture_channel_vco5(void);
 bool xhci_wifi_cal5_cleanup_enable(void);
 bool xhci_wifi_cal5_prime_enable(void);
 bool xhci_wifi_cal5_survey_enable(void);
+/* Explicit first-AUTH observation; no ordinary startup enablement. */
+bool xhci_wifi_join5_radio_enable(void);
 bool xhci_wifi_capture_cal5(void);
 bool xhci_wifi_capture_early5(void);
 bool xhci_wifi_capture_rx_compare5_early(void);

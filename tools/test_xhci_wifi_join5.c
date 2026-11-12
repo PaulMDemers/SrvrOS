@@ -53,6 +53,8 @@ static void db_write32(unsigned slot,unsigned dci);
 static bool poll_event(struct xhci_trb *e);
 static void dispatch_transfer_event(const struct xhci_trb *e);
 static bool submit_command_trb(const struct xhci_trb *t,unsigned type,uint64_t *slot);
+static unsigned radio_reads,radio_fault,radio_entries;
+static bool radio_unsupported;
 static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v);
 bool xhci_wifi_capture_tx5(void);
 #include "../kernel/src/drivers/xhci_wifi_join5.inc"
@@ -92,6 +94,7 @@ static unsigned response(void){
  unsigned i=wifi_join5.posts-1;uint8_t *p=wifi_join5.buffer[i];memset(p,0,4096);bool auth=fake.reply==1;size_t n=auth?(fake.auth_extra?41:30):40;uint8_t *h=p+36,*body=h+24+(fake.pad?2:0);
  put32(p+4,fake.pad?1u<<14:0);put32(p+8,(uint32_t)n<<16);put16(h,auth?0xb0:0x10);memcpy(h+4,wifi_join5.peer.peer.station,6);memcpy(h+10,wifi_join5.peer.peer.bssid,6);memcpy(h+16,wifi_join5.peer.peer.bssid,6);
  if(auth){put16(body+2,2);put16(body+4,fake.reject?13:0);if(fake.auth_extra){body[6]=221;body[7]=fake.auth_bad_ie?10:9;for(unsigned k=0;k<9;k++)body[8+k]=(uint8_t)(k+1);}}else{put16(body,0x411);put16(body+2,(fake.reject || fake.reject_assoc)?13:0);put16(body+4,0xc007);body[6]=1;body[7]=8;memcpy(body+8,(uint8_t[]){0x8c,18,0x98,36,0xb0,72,96,108},8);}
+ if(radio_unsupported && auth)put32(p+4,1u<<11);
  unsigned dma=(32+n+(fake.pad?2:0)+3)&~3u;put16(p,dma);if(fake.noise)h[10]^=2;else fake.reply=0;return dma+4;
 }
 static unsigned eapol_response(void){
@@ -119,11 +122,19 @@ static bool poll_event(struct xhci_trb *e){
 static void dispatch_transfer_event(const struct xhci_trb *e){assert(wifi_join5_event(&device,e));if(fake.cleanup_duplicate && wifi_join5.cleanup_started)assert(wifi_join5_event(&device,e));}
 static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v){
  assert(d==&device && !fake.quarantine);fake.controls++;
+ if(a==0x1798 || a==0x1718){
+  assert(!write && wifi_join5.radio_enabled && fake.sends<=1);
+  assert(a==(radio_reads%2?0x1718u:0x1798u));
+  unsigned entry=radio_reads/2;radio_reads++;
+  *v=a==0x1798?0x1234:((entry%17)<radio_entries?1:0);
+  if(radio_reads==radio_fault)return false;
+ }
+
  if(write){if(a==0x1004){fake.mac=*v;if(!*v && fake.drain_busy)fake.cleanup_left=fake.cleanup_frames;}else if(a==0x1400)fake.filter=*v;else{assert(a==0x1340);fake.txop=*v;}}
- else {*v=a==0x1004?fake.mac:a==0x2000?0xf000f200:a==0x208?0x40000050:a==0x1400?fake.filter:a==0x1340?fake.txop:a==0x13b0?0x2f2f1313:a==0x2124?~0u:0;}
+ else if(a!=0x1798 && a!=0x1718){*v=a==0x1004?fake.mac:a==0x2000?0xf000f200:a==0x208?0x40000050:a==0x1400?fake.filter:a==0x1340?fake.txop:a==0x13b0?0x2f2f1313:a==0x2124?~0u:0;}
  if(fake.pending_tail && !write && a==0xa30 && wifi_join5.cleanup_posts==1 && wifi_join5.cleanup_completed==1)*v=0x500;
  if(fake.drain_busy && !write && a==0xa30 && wifi_join5.mac.mac_disabled && (fake.cleanup_left || fake.persistent_busy))*v=0x500;
- if((fake.cleanup_ep0 && wifi_join5.cleanup_started) || (fake.pre_disable && wifi_join5.sends==3 && !fake.pre_completed)){
+ if((fake.pre_disable && (a==0x1798 || a==0x1718)) || (fake.cleanup_ep0 && wifi_join5.cleanup_started) || (fake.pre_disable && wifi_join5.sends==3 && !fake.pre_completed)){
   uint64_t setup=wifi_join5.cleanup_control_setup;device.control_pending=true;xhci.sync_users=true;strict_control=(typeof(strict_control)){.device=&device,.setup=device.ep0_ring_phys,.length=4,.data_in=!write};
   device.ep0_ring[0]=(struct xhci_trb){setup,setup>>32,8,2u<<10};
   if(fake.ep0_mode==1)device.ep0_ring[0].parameter_low^=1;
@@ -143,6 +154,7 @@ static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uin
 }
 bool xhci_wifi_capture_tx5(void){return wifi_join5_inspect();}
 static void setup(void){
+ radio_reads=radio_fault=radio_entries=0;radio_unsupported=false;
  memset(&wifi_eapol5,0,sizeof wifi_eapol5);memset(&fake,0,sizeof fake);memset(&wifi_join5,0,sizeof wifi_join5);memset(&device,0,sizeof device);fake.next=30;fake.parent=true;fake.filter=0x17f97;fake.txop=0x583f;fake.time=1000;wifi_join5_requested=firmware_command_failed=firmware_command_exact=false;wifi_join5_after=0;
  xhci=(typeof(xhci)){.command_ring_phys=9*4096,.command_ring=(void *)fake.pages[9],.command_cycle=true};strict_control=(typeof(strict_control)){0};wifi_cal5.cleanup_enabled=false;
  device=(struct xhci_device){.slot_id=7,.present=true,.vendor_id=0x7392,.product_id=0xa711,.device_bcd=0x100,.input_context=fake.input,.output_context=fake.output,.input_context_phys=3*4096,.output_context_phys=4*4096,.ep0_ring=(void *)fake.pages[1],.ep0_ring_phys=4096,.descriptor_buffer_phys=2*4096};device.firmware.buffer_phys=5*4096;device.firmware.ep.ring_phys=6*4096;device.firmware.mcu.buffer_phys=7*4096;device.firmware.mcu.response.ring_phys=8*4096;
@@ -162,6 +174,13 @@ static bool late_child(void){
  assert(wifi_join5.cleanup_frozen && wifi_join5.active);assert(wifi_join5_event(&device,&e));return true;
 }
 int main(int argc,char **argv){
+ setup();if(argc==2 && (!strcmp(argv[1],"--radio-trace") || !strcmp(argv[1],"--radio-timeout-trace") || !strcmp(argv[1],"--radio-unsupported-trace"))){
+  wifi_cal5.cleanup_enabled=true;fake.pre_disable=true;fake.trace=true;
+  fake.empty=!strcmp(argv[1],"--radio-timeout-trace");radio_unsupported=!strcmp(argv[1],"--radio-unsupported-trace");
+  assert(xhci_wifi_join5_radio_enable());bool ok=xhci_wifi_capture_join5();
+  assert(ok==!(fake.empty || radio_unsupported) && fake.pre_completed && wifi_join5.restored && !fake.quarantine);
+  assert(wifi_join5.radio[0].complete && wifi_join5.radio[1].complete);return 0;
+ }
  setup();if(argc==2 && !strcmp(argv[1],"--cleanup-suite")){
   wifi_cal5.cleanup_enabled=true;fake.drain_busy=true;fake.cleanup_frames=3;wifi_eapol5.requested=true;
   assert(xhci_wifi_capture_join5());assert(wifi_join5.cleanup_posts==2 && wifi_join5.cleanup_completed==2 && wifi_join5.cleanup_forward==1 && wifi_join5.cleanup_frozen && wifi_join5.rx_copied==wifi_join5.posts && wifi_join5.mac.rx_rounds>=7);
@@ -219,5 +238,18 @@ int main(int argc,char **argv){
  setup();fake.eapol_missing=true;assert(!xhci_wifi_capture_eapol5() && wifi_join5.restored && !fake.quarantine && fake.sends==3 && wifi_eapol5.polls<30);
  setup();fake.eapol_bad=true;assert(!xhci_wifi_capture_eapol5() && wifi_join5.restored && !fake.quarantine && fake.sends==3 && wifi_eapol5.frames==1);
  setup();fake.eapol_fault=true;assert(!xhci_wifi_capture_eapol5() && fake.quarantine && !wifi_join5.restored && fake.sends==2);
+ setup();radio_entries=17;assert(xhci_wifi_join5_radio_enable());
+ assert(xhci_wifi_capture_join5() && wifi_join5.restored && radio_reads==68);
+ assert(wifi_join5.radio[0].count==17 && wifi_join5.radio[1].count==17);
+ /* Execute the real native send/receive/Stop path with the opt-in trace. */
+ setup();assert(xhci_wifi_join5_radio_enable());assert(!xhci_wifi_join5_radio_enable());
+ assert(xhci_wifi_capture_join5() && wifi_join5.restored);
+ assert(wifi_join5.radio[0].complete && wifi_join5.radio[1].complete && wifi_join5.radio[0].count==1 && wifi_join5.radio[1].count==1);
+ setup();fake.empty=true;assert(xhci_wifi_join5_radio_enable());
+ assert(!xhci_wifi_capture_join5() && wifi_join5.restored && wifi_join5.exchange.response[0].reason==MT76_JOIN5_RESPONSE_DEADLINE && wifi_join5.radio[1].complete && fake.sends==2);
+ for(unsigned n=1;n<=4;n++){
+  setup();assert(xhci_wifi_join5_radio_enable());radio_fault=n;
+  bool result=xhci_wifi_capture_join5();assert(!result && fake.quarantine && !wifi_join5.restored);
+ }
  puts("xhci-join5: PASS actual fresh live RX/OUT owner,matched AUTH/ASSOC/leave,padded RX,all command/control/ownership boundaries,send uncertainty,no replay,semantic rejection/timeout cleanup,frame/event/pin/parent mutation quarantine,input and exact old RX restoration;mocked RF parent;no physical or WPA2/IP acceptance");return 0;
 }

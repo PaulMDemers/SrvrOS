@@ -7,6 +7,8 @@ static struct {bool requested,active,attempted,complete;unsigned polls,frames,ma
 static bool (*wifi_join5_after)(void);
 #define WIFI_JOIN5_RX 48
 static struct {
+ bool radio_enabled;
+ struct {bool attempted,complete;unsigned count;uint32_t ext[17],fifo[17];}radio[2];
  struct xhci_device *d;struct mt76_peer5 peer;struct mt76_join5 exchange;struct mt76_mac_cycle mac;
  struct xhci_trb *rx,*tx;uint64_t rx_phys,tx_phys,pages[WIFI_JOIN5_RX+3],pins[WIFI_JOIN5_RX+5];
  uintptr_t pointers[WIFI_JOIN5_RX+5];uint8_t *buffer[WIFI_JOIN5_RX+3];
@@ -23,6 +25,11 @@ static struct {
  bool cleanup_enabled,cleanup_started,cleanup_needed,cleanup_frozen,cleanup_control_active;
  bool eapol_required,attempted,active,failed,rx_pending,rx_done,rx_delivered,tx_pending,tx_done,restored;
 }wifi_join5;
+bool xhci_wifi_join5_radio_enable(void){
+ if(wifi_join5.radio_enabled || wifi_join5.attempted)return false;
+ wifi_join5.radio_enabled=true;return true;
+}
+static bool wifi_join5_radio(unsigned);
 static bool wifi_join5_fail(void){wifi_join5.failed=true;return wifi_join5.d?wifi_mcu_fail(wifi_join5.d):false;}
 static bool wifi_join5_cleanup_service(void);
 static bool wifi_join5_cleanup_held(void){
@@ -197,6 +204,7 @@ static enum mt76_join5_send wifi_join5_send(void *c,enum mt76_mgmt5_kind kind,co
  unsigned n=wifi_join5.sends;uint8_t expected[124]={0};size_t want=mt76_mgmt5_usb_request(&wifi_join5.peer.peer,kind,(unsigned)kind+1,false,expected,sizeof expected);
  bool order=(kind==MT76_MGMT5_AUTH && n==0) || (kind==MT76_MGMT5_ASSOC && n==1 && wifi_join5.exchange.auth_matched) || (kind==MT76_MGMT5_LEAVE && n>=1 && n<=2 && wifi_join5.exchange.auth_sent);
  if(c!=&wifi_join5 || !packet || !want || want>124 || wifi_join5.phase!=3 || n>=3 || !order || !wifi_join5.mac.started || !wifi_join5.mac.snapshot_complete || !wifi_join5_owned(c,false) || length!=want || !wifi_handoff5_equal(packet,expected,want)){zero_bytes(expected,sizeof expected);return MT76_JOIN5_REFUSED;}
+ if(wifi_join5.radio_enabled && !wifi_join5_radio(kind==MT76_MGMT5_AUTH?0:1))return MT76_JOIN5_UNCERTAIN;
  copy_bytes(wifi_join5.buffer[WIFI_JOIN5_RX+n],packet,length);copy_bytes(wifi_join5.packets[n],packet,length);wifi_join5.lengths[n]=length;wifi_join5.kinds[n]=kind;zero_bytes(expected,sizeof expected);
  struct xhci_trb td={.parameter_low=wifi_join5.pages[WIFI_JOIN5_RX+n],.parameter_high=wifi_join5.pages[WIFI_JOIN5_RX+n]>>32,.status=length,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC};
  uint64_t flags=event_irq_save();wifi_join5.sends++;wifi_join5.tx_pending=true;wifi_join5.tx_done=false;wifi_join5.tx_events=0;
@@ -234,6 +242,10 @@ static bool wifi_join5_poll(void *c,uint8_t *out,size_t cap,size_t *size,bool *p
   }else{
   struct mt76_rx_view v={0};
   enum mt76_rx_status status=mt76_rx_usb_view(wifi_join5.buffer[i],bytes,&v);
+  if(wifi_join5.radio_enabled && bytes>=40){
+   const uint8_t *b=wifi_join5.buffer[i];uint32_t info=0;for(unsigned k=0;k<4;k++)info|=(uint32_t)b[4+k]<<(8*k);
+   console_printf("wifi-join5-framing: index=%u bytes=%u dma=%u rxinfo=%x raw_fc=%u view=%u consumed=%u\n",(uint64_t)i,(uint64_t)bytes,(uint64_t)(b[0]|((unsigned)b[1]<<8)),(uint64_t)info,(uint64_t)(b[36]|((unsigned)b[37]<<8)),(uint64_t)status,(uint64_t)v.consumed);
+  }
   wifi_join5.rx_delivered=true;
   if(status==MT76_RX_OK && v.mpdu_size>=24 && v.mpdu_size<=cap && v.body_size==v.mpdu_size-24){copy_bytes(out,v.header,24);copy_bytes(out+24,v.body,v.body_size);*size=v.mpdu_size;*present=true;}
   /* Read-only bounded diagnostic;no address,SSID,IE or packet bytes. The
@@ -253,13 +265,31 @@ static bool wifi_join5_delay(void *c,unsigned us){return c==&wifi_join5 && us==1
 static uint64_t wifi_join5_now(void *c){(void)c;return timer_monotonic_us();}
 static bool wifi_join5_usb(void *c,bool write,uint32_t a,uint32_t *v,bool cleanup){
  if(!v || c!=&wifi_join5 || !wifi_join5_owned(c,cleanup))return false;
- switch(a){case 0x1004:case 0x2000:case 0x208:case 0x1400:case 0x1340:case 0x13b0:case 0x2124:case 0x438:case 0xa30:case 0xa34:case 0x1200:case 0x430:break;default:return false;}
+ switch(a){case 0x1798:case 0x1718:if(!wifi_join5.radio_enabled || write)return false;break;case 0x1004:case 0x2000:case 0x208:case 0x1400:case 0x1340:case 0x13b0:case 0x2124:case 0x438:case 0xa30:case 0xa34:case 0x1200:case 0x430:break;default:return false;}
  if(write && a!=0x1004 && a!=0x1400 && a!=0x1340)return false;
  wifi_join5.cleanup_control_setup=(uint64_t)(write?0x40:0xc0)|((uint64_t)(write?6:7)<<8)|((uint64_t)a<<32)|(4ull<<48);
  wifi_join5.cleanup_control_active=wifi_join5.cleanup_enabled;
  wifi_join5.usb_ops++;bool ok=wifi_mac_private_usb(wifi_join5.d,write,a,v);
  wifi_join5.cleanup_control_active=false;
  return ok && wifi_join5_owned(c,cleanup)?true:wifi_join5_fail();
+}
+/* Explicit diagnostic only. Read EXT before the consuming FIFO; never wait,
+ * retransmit, treat an ACK as a peer reply, or read after the first empty entry.
+ * Phase1 precedes ASSOC/leave so their status cannot contaminate AUTH evidence. */
+static bool wifi_join5_radio(unsigned phase){
+ if(phase>1)return wifi_join5_fail();
+ if(wifi_join5.radio[phase].attempted)return wifi_join5.radio[phase].complete;
+ wifi_join5.radio[phase].attempted=true;
+ if((!phase && wifi_join5.sends) || (phase && (!wifi_join5.radio[0].complete || wifi_join5.sends!=1 || wifi_join5.tx_pending)))return wifi_join5_fail();
+ for(unsigned i=0;i<17;i++){
+  uint32_t ext=0,fifo=0;
+  if(!wifi_join5_usb(&wifi_join5,false,0x1798,&ext,false) ||
+     !wifi_join5_usb(&wifi_join5,false,0x1718,&fifo,false))return wifi_join5_fail();
+  wifi_join5.radio[phase].ext[i]=ext;wifi_join5.radio[phase].fifo[i]=fifo;
+  wifi_join5.radio[phase].count++;
+  if(!(fifo&1))break;
+ }
+ wifi_join5.radio[phase].complete=true;return true;
 }
 static bool wifi_join5_read(void *c,uint32_t a,uint32_t *v,bool cleanup){
  if(!v || (cleanup && !wifi_join5_cleanup_service()))return false;
@@ -352,6 +382,11 @@ static bool wifi_join5_inspection(void *c,uint32_t alc,uint32_t ibi){
  return complete;
 }
 static void wifi_join5_emit_responses(void){
+ if(wifi_join5.radio_enabled)for(unsigned p=0;p<2;p++){
+  console_printf("wifi-join5-radio: phase=%u attempted=%u complete=%u reads=%u observation_only=1\n",(uint64_t)p,(uint64_t)wifi_join5.radio[p].attempted,(uint64_t)wifi_join5.radio[p].complete,(uint64_t)wifi_join5.radio[p].count);
+  for(unsigned i=0;i<wifi_join5.radio[p].count;i++)console_printf("wifi-join5-radio-entry: phase=%u i=%u ext=%x fifo=%x\n",(uint64_t)p,(uint64_t)i,(uint64_t)wifi_join5.radio[p].ext[i],(uint64_t)wifi_join5.radio[p].fifo[i]);
+ }
+
  for(unsigned i=0;i<2;i++){
   const struct mt76_join5_response_observation *o=&wifi_join5.exchange.response[i];
   console_printf("wifi-join5-response: phase=%u attempted=%u reason=%u polls=%u present=%u ignored=%u peer=%u clocks=%u span_us=%u\n",(uint64_t)i,(uint64_t)o->attempted,(uint64_t)o->reason,(uint64_t)o->polls,(uint64_t)o->present,(uint64_t)o->ignored,(uint64_t)o->peer,(uint64_t)o->clocks,o->span_us);
