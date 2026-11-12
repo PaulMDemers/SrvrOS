@@ -58,8 +58,13 @@ bool intel_ring_reset_admit(struct intel_ring_reset *r,struct intel_gt_access *g
  r->source_end=e->post.end_us;r->source_last=e->post.last_us;r->entry_end=e->end;r->epoch=e->epoch_after;
  struct reset_call p={r,io,e,g,t};
  if(!source(r) || g->borrows || g->dependents){r->reason|=IRH_SOURCE;goto done;}
- r->begin=r->last=io.now(io.ctx);
- if(!r->begin || r->begin<e->end || !sample_time(&p)){r->reason|=IRH_CLOCK;goto done;}
+ r->begin=io.now(io.ctx);r->last=r->entry_end;
+ if(!r->begin || r->begin<r->entry_end || r->begin<=r->source_end ||
+    r->begin-r->source_end>INTEL_RING_RESET_ADMIT_US) {
+  r->clock_at=r->begin;r->clock_prev=r->entry_end;r->reason|=IRH_CLOCK;goto done;
+ }
+ r->last=r->begin;
+ if(!sample_time(&p))goto done;
  if(!guard(&p))goto done;
  (void)intel_takeover_observe(t,g,r->source,(struct intel_takeover_io){&p,guard,sample,sample_time});
  if(!t->complete || !t->quiescent){r->reason|=IRH_TAKEOVER;goto done;}

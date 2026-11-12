@@ -58,7 +58,9 @@ class RingResetTests(unittest.TestCase):
    for n in range(1,self.stats['clocks']+1):
     count+=1
     with self.subTest(mode=mode,n=n):
-     t=self.failure(f'{mode}:{n}',retained=True,no_reset=True);self.assertFalse(entry_capture(t)['complete'])
+     t=self.failure(f'{mode}:{n}',retained=True,no_reset=True);parsed=entry_capture(t);self.assertFalse(parsed['complete'])
+     if n==1 and mode in ('reset-clock-zero','reset-clock-backward','reset-clock-age'):
+      s=parsed['summary'];self.assertEqual(s['clock_prev'],s['entry_end']);self.assertEqual(s['clock_at'],0 if mode=='reset-clock-zero' else 1 if mode=='reset-clock-backward' else s['source_end']+100001)
   for n in range(2,self.stats['guards']+1):self.failure(f'reset-takeover-source:{n}',retained=True,no_reset=True);count+=1
   for n in (1,2,3):self.failure(f'reset-takeover-stamp:{n}',retained=True,no_reset=True);count+=1
   for n in range(1,4):self.failure(f'reset-post-stamp:{n}',retained=True,no_reset=True);count+=1
