@@ -73,7 +73,22 @@ allocation/repair gaps remain documented. Exact-stage EFI/MBR VM tests verify
 zero-store refusal, persistence, automatic safe return and missing-workspace
 halt. None of these accepts native target reads or timing.
 
-The installed accepted v28 payload and recovery remain unchanged. The new
-candidate is independently banked, not installed or armed. Host, prior-file,
-offline media and capacity checks pass; see the [Air7,2 unit
-record](machines/macbookair7-2.md). Native acceptance remains pending.
+## Native result: already-disabled source safely refused
+
+Air7,2 source `a9418c83` / release `451cd4d6a9f36faa`, session
+`session-0006601c19f940ac-00`, observes kind 2/epoch 0 with already-disabled,
+zero BCS geometry. Original entry completes in 97,092/150,000 us without stores.
+The nonzero-reset child correctly refuses the absent kind 1/epoch 1 source
+before admission or target operations; the source child does not enter and its
+six target reads remain unperformed. Exact recipe, prerequisite/final checkpoint
+and strict collector verify `completed=NO`: **incomplete, not native acceptance**.
+The differing initial state supplies no source timing data and does not authorize
+an unchanged retry or widening the legacy kind 2 gate.
+
+HDA 6/2/2/6, 14 GPU aliases, HDA mapping and CPU exclusion retire cleanly.
+Prior-file hashes, three exact new logs, boot digest, offline filesystem and
+recovery/Ubuntu default/consumed one-shot verify. Current v29, accepted v28 and
+recovery are retained; no reboot is armed. Raw logs and strict proof are banked
+outside build storage. See the [Air7,2 unit record](machines/macbookair7-2.md).
+All 255 obligations remain, with zero assurances/managed pages; source binding,
+re-arm/claim/requester and native tear-free remain pending.

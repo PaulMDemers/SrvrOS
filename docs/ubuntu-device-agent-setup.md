@@ -1465,7 +1465,10 @@ Safe saved results return automatically; uncertain state halts visibly.
 
 Air7,2 v29 frozen `a9418c83` / release `451cd4d6a9f36faa` is locally qualified,
 including exact staged EFI/MBR refusal/persistence/automatic return and
-missing-workspace halt. Native source reads/timing remain pending. Require
-both source-child completion and enclosing reset/retirement plus media integrity;
-never promote a partial child or VM receipt to native ownership. The accepted
-v28 installation and recovery stay available; the candidate is not armed.
+missing-workspace halt. Its matching native session safely refuses an original
+kind 2/epoch 0 already-disabled zero-geometry source before reset admission or
+GGTT reads, with clean retirement and media/recovery checks. This is incomplete,
+not source-read/timing acceptance. Require both source-child completion and
+enclosing reset/retirement plus media integrity; never promote a partial child
+or VM receipt to native ownership. Installed v29, accepted v28 and recovery stay
+available; no reboot is armed. See the [strict result](intel-nonzero-source.md#native-result-already-disabled-source-safely-refused).

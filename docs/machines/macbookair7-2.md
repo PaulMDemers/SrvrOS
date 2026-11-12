@@ -2,7 +2,42 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
-### Hardware-ready: original live post-reset source binding
+### Latest native v29: safe source refusal, not accepted
+
+Frozen source `a9418c83`, release `451cd4d6a9f36faa`, session
+`session-0006601c19f940ac-00` saved the matching prerequisite and final reports
+and returned to Ubuntu. The strict original live post-reset source collector
+verifies an **incomplete safe refusal**, not native v29 acceptance.
+
+Firmware supplied an already-disabled BCS with zero START/CTL geometry. All
+four BCS snapshots agree (`0,0,0,0,1,0,512,0`); the original kind 2 entry completes
+without stores or epoch advancement, in 97,092/150,000 us (BCS 35,760/100,000 us).
+The separate nonzero-reset protocol requires original kind 1/epoch 1, so it
+refuses eligibility with reason 1 before admission, controls or reset pulses.
+The source child never enters and performs zero GGTT loads. `completed=NO` and
+all ten generic attention rows remain preserved. This is a different observed
+initial state from accepted v28; it is not a source-child timing measurement.
+No firmware-state assumption, unchanged retry, legacy kind 2 gate widening or
+substitution of the historical v28 receipt is justified.
+
+HDA Command 6/2/2/6, all four inspections, 14 GPU aliases, the HDA root alias
+and CPU exclusion retire cleanly, without clock/retention/uncertainty faults.
+GT lifetime is 248,299/500,000 us and HDA 193,490/400,000 us. Every prior USB
+file preserves except expected `.srvros/meta`; three exact logs yield 1,491
+files/153 sessions. Boot digest, offline fsck/allocation/writable/headroom,
+installed versus durable payloads, recovery, Ubuntu default and consumed
+one-shot all verify. Raw logs and strict proof are independently banked outside
+`build`. Current 451c, accepted v28 562d, recovery 9aa8, GUI c497 and other
+accepted banks remain. USB is unmounted; no reboot is armed.
+
+Next integrate inspected main's complete sidecar audit/directory-read reduction
+and preserve distinct storage v1/v2/v3 and v29 staging, then validate affected
+build/host paths. Original-live source binding, re-arm/claim, requester inhibition,
+managed backing/completion and real flips remain pending. All 255 obligations,
+zero assurances and zero managed pages remain; native tear-free is not accepted.
+Checkpoint: `build/air-nonzero-source-20261112/status.md`.
+
+### Previous local qualification: original live post-reset source binding
 
 Frozen source `a9418c83`, release `451cd4d6a9f36faa`, based on `019d28d2` /
 main `9a8d2377`, adds the separate [v29 source child](../intel-nonzero-source.md).

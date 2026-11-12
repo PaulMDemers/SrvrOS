@@ -57,8 +57,9 @@ legacy zero-geometry gate or any sibling
 profile, or grant requester/managed-memory/native tear-free acceptance.
 
 The separate [v29 original live post-reset source child](../intel-nonzero-source.md)
-is locally hardware-ready on Air7,2 source `a9418c83` / release
+is locally qualified on Air7,2 source `a9418c83` / release
 `451cd4d6a9f36faa`: 34-image/core, fatal sanitizer/clock matrices, historical
-replays and exact-stage VM persistence/recovery pass. Its six read-only GGTT
-loads remain within the original live reset/preparation/GT lifetime. Native
-acceptance is pending; no memory/claim/requester or sibling acceptance follows.
+replays and exact-stage VM persistence/recovery pass. The matching native run
+safely refuses an already-disabled kind 2/epoch 0 source before reset admission
+or GGTT reads. Full retirement/media/recovery verify; this is incomplete, not
+native source acceptance. No memory/claim/requester or sibling acceptance follows.
