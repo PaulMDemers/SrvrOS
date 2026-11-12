@@ -13014,3 +13014,32 @@ writes, retaining all proofs, barriers, sizes and deadlines. Separate the
 37/56-command metadata/proof work from load-dependent status-completion tails;
 this control alone cannot explain or clear the screenshot delays. No new
 implementation or physical trial has started at this checkpoint.
+
+## Active bounded filesystem command attribution (2026-11-12)
+
+From main `7c1a08a0`, add per-role BOT command/byte/status accounting to the
+existing bounded repeated 32 KiB storage control. Retain six balanced pairs,
+twelve samples, 180 seconds, 16 KiB commands, 4 KiB DMA, current polling and all
+original transport deadlines, filesystem proofs/barriers, exclusive leases,
+fresh-byte/CRC readback and quarantine/retirement checks. Use a separate explicit
+v2 trace profile; preserve the v1 recipe and receipt reader. Brief 1% boundary
+cues remain outside measurement, with no desktop, battery or sustained PCM load.
+
+Scope: existing exFAT callback role hooks, generic USB content observer fast
+inactive path, compact per-role receipts/strict collection, stage/controller
+selection and actual producer/observer equivalence and failure fixtures. Roles
+retain the established metadata, allocation/free, data, prefix proof, sidecar
+update/equality and unclassified mapping. Observe existing work without new media
+operations, scheduler checkpoints or clocks in the role hooks. Reconcile totals
+with the original callback counts and selected command; missing/overflowing or
+conflicting evidence remains invalid. Keep the unchanged 64 KiB log tail and
+32 KiB receipt bound. Preserve all accepted evidence and original collector-path
+failure; the volume-root sidecar exception stays exactly `.srvros/meta`.
+
+PR19 `f0f77ed7` and PR301 `6d2482b2` have separate network/graphics scopes;
+inspect actual overlapping files before implementing the shared observer hooks.
+No other task or subagent is contacted. Current accepted `78cfda46ee1b63a0`,
+0d3/4598/80b4/c7 and recovery c354 remain protected. Publish the bounded change,
+validate matched host/VM artifacts, self-merge and run automatically under the
+existing sudo/reboot authorization. Native trace acceptance remains pending its
+own matching return; long loaded status waits and screenshot delays are unresolved.
