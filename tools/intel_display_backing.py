@@ -83,6 +83,11 @@ def backing_result(text):
         # format. Keep an explicit image allowlist, including on refusal paths
         # where the interval/consumer never opened; this is no memory grant.
         paired_preflight=False
+        if wake==['28']:
+            from intel_nonzero_reset import nonzero_recipe
+            if len(boot)!=1:raise ValueError('joint PTE image binding: missing nonzero recipe')
+            try:nonzero_recipe(boot[0])
+            except ValueError as error:raise ValueError('joint PTE image binding: '+str(error)) from error
         if not wake and len(boot)==1 and 'srvros.intel-hda-bcs=joint-owner-v1' in boot[0].split():
             from intel_hda_shutdown import paired_recipe
             paired_recipe(boot[0]);paired_preflight=True

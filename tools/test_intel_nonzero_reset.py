@@ -12,6 +12,14 @@ def run(mode):
 class Nonzero(unittest.TestCase):
  @classmethod
  def setUpClass(cls):cls.text=run('report');cls.proof=nonzero_result(cls.text)
+ def test_backing_and_firmware_recipe_binding(self):
+  from intel_display_backing import backing_result
+  from intel_gt_firmware import firmware_result
+  self.assertTrue(backing_result(self.text)['observation_complete'])
+  self.assertTrue(firmware_result(self.text)['qualification_complete'])
+  bad=self.text.replace('srvros.intel-ring=nonzero-reset-v1','srvros.intel-ring=entry-v1')
+  for fn in (backing_result,firmware_result,nonzero_result):
+   with self.assertRaises(ValueError):fn(bad)
  def test_success(self):
   p=self.proof;self.assertTrue(p['complete']);self.assertFalse(p['native_complete']);self.assertEqual(p['summary']['post_mode'],1)
   self.assertFalse(p['hardware_ownership']);self.assertEqual(p['managed_pages'],0);self.assertFalse(p['physical_tearfree'])

@@ -88,6 +88,7 @@ static enum intel_gt_write intel_display_test_nonzero_write(unsigned reg,uint32_
 int main(int argc,char **argv) {
  if(argc==2 && !strcmp(argv[1],"--wake-engine-nz-kind2")){ring_fixture_disabled=true;ring_ctl=0;}
  int result=original_display_fixture_main(argc,argv);
+ printf("laptop-capture: boot options=%s\n",wake_cmd.cmdline);
  const struct intel_nonzero_reset *r=&nonzero_native.r;
  if(r->object) {
   assert(r->object==r);

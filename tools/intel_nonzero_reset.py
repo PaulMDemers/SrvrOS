@@ -55,6 +55,9 @@ def nonzero_result(text):
  from intel_completion_audit import completion_result
  w=wake_result(text)
  if not w or w['summary']['v']!=28:raise ValueError('nonzero wrong image')
+ boots=re.findall(r'^laptop-capture: boot options=(.*)$',text,re.M)
+ if len(boots)!=1:raise ValueError('nonzero recipe coverage')
+ nonzero_recipe(boots[0])
  e=_entry(text)
  if not e:raise ValueError('nonzero original entry missing')
  lines=[l for l in text.splitlines() if l.startswith('intel-nonzero-') and not l.startswith(('intel-nonzero-entry-','intel-nonzero-census:'))]

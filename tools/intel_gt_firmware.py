@@ -31,6 +31,11 @@ def firmware_result(text):
    if len(nonzero_boot)!=1:raise ValueError('firmware nonzero recipe coverage')
    nonzero_recipe(nonzero_boot[0])
   if not wakes and not nonzero_boot and not ring_boot and not entry_boot and not any(l.startswith(('cmdline: ','laptop-capture: boot options=')) and 'srvros.intel-bcs-reset=held-blitter-only' in l.split() for l in text.splitlines()):raise ValueError('firmware vector missing exact recipe')
+  if wakes and wakes[0].startswith('intel-wake-summary: v=28 '):
+   boots=[l.split('boot options=',1)[1] for l in text.splitlines() if l.startswith('laptop-capture: boot options=')]
+   from intel_nonzero_reset import nonzero_recipe
+   if len(boots)!=1:raise ValueError('firmware nonzero recipe coverage')
+   nonzero_recipe(boots[0])
   normalized=[];sample=0
   for line in text.splitlines():
    if line.startswith('intel-firmware-vector:'):
