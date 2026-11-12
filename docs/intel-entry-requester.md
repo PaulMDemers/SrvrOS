@@ -63,3 +63,22 @@ The original reference and scope remain in the requester contract above. All
 255 completion obligations remain open; assurances and managed pages remain 0.
 The [managed-memory plan](intel-managed-memory-plan.md) still requires genuine
 interval/RAM transfer and completion/retirement before a native GPU mapping.
+
+## Local qualification
+
+Source `cef27b1c` / release `127a222d11cc79fc` passes the full 32-image local
+gate, eleven fatal ASan/UBSan composed-adapter tests, 847 requester fault cases
+plus the original entry/handoff/HDA/reset/return matrix, native clock faults and
+25 compiled omission controls. Five historical native contracts remain distinct.
+Actual object/staged instruction audits, exact widths/final clocks/static
+lifetimes/2 KiB frames and image/wire isolation pass. The corrected saved-tail
+projection is 65,405/65,536 bytes including 1,536 reserve. Exact staged EFI/MBR
+unsupported-hardware refusal, saved checkpoint/unmount/automatic return and
+missing-workspace halt pass. This does not accept a native operative requester
+transition or timing. The candidate is hardware-ready, uninstalled and unarmed.
+
+The earlier bbc77 gate was intentionally interrupted after finding that its
+banner projection substituted an old rehold message for the actual combined
+messages. The follow-up removes redundant standalone GPU progress only in the
+new image and audits the actual joint/banner selection. Store sequences,
+ownership gates, all deadlines and old-image output remain unchanged.

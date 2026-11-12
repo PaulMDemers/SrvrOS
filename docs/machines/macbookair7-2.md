@@ -2,25 +2,58 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
-### Active scope: compose accepted entry/reset with original-claim requester hold
+### Active scope: v27 original-owner entry/reset/requester locally qualified
 
-Base `c7895b6d`, integrated main `7c1a08a0`. Add a separate v27 image and exact
-23-token recipe that routes the accepted kind 2 entry/reset/re-arm/claim through
-the existing bounded GPU Command 7→3→7 halfword hold, AF pending observation and
-exact original-source restoration under the same original live HDA/GT owner.
-Old v21 requester and v26 entry/reset remain separate contracts. No copied
-owner, receipt authority, nonzero reset, geometry clearing or new native writer.
+Frozen source `cef27b1c`, release `127a222d11cc79fc`, integrated main
+`7c1a08a0`, qualifies the separate [entry/reset/requester diagnostic](../intel-entry-requester.md).
+It composes the accepted kind 2 entry, actual original fresh post-census,
+original takeover/preparation/reset/re-arm/claim and the existing bounded GPU
+Command 7→3→7 halfword hold/restoration under the same live HDA/GT owner.
+The candidate is **hardware-ready, uninstalled, unarmed and not physically accepted**.
+Current `74d46f42447d218e` and recovery `9aa8dbf6fbda8252` remain installed.
 
-Touched scope: native adapter composition/firmware/boot/staging, strict joined
-receipts and collection, actual-adapter failure/source/clock tests, native access/
-frame/image isolation and exact-stage VM qualification. Keep BCS/source 100 ms,
-entry 150 ms, handoff/fresh source and preparation 100 ms, GT 300 ms, HDA 400 ms,
-outer 500 ms and requester 32 polls/10 ms unchanged. Maintain the existing 64 KiB
-saved tail with 1,536 reserve. No memory assurance is inferred from BME/TP clear.
-The remaining managed-memory/ownership protocol stays separate. No install or
-reboot is armed by this work block. PR19 networking and PR379 WebCore remain
-independent; no task messaging or delegation. Checkpoint:
+All 32 local images, full core/USB/host/docs, eleven fatal ASan/UBSan adapter
+tests, 847 requester fault cases plus original entry/handoff/HDA/reset/return
+faults, additional native clock boundaries and 25 compiled omission controls
+pass. Five historical native contracts replay without promoting old evidence.
+Symbol/wire isolation, actual object/staged GPU Command halfword and final
+clock/source guards, static lifetimes, 2 KiB frames, exact 23-token C/Python
+recipe and exact-stage EFI/MBR refusal/checkpoint/save/unmount/automatic return
+plus missing-workspace halt pass. Existing storage baseline retains 81 known
+strict allocation-repair failures; this GPU scope does not claim to fix them.
+
+Canonical lossless raw census/entry/requester encoding projects 65,405/65,536
+bytes, including the unchanged 1,536 reserve. The first bbc77 gate was deliberately
+interrupted when the banner audit found an inaccurate historical-banner substitution;
+cef27 removes redundant new-image progress only and the corrected audit/full gate
+use the frozen source above. Old v21/v26 image/recipe/wire contracts stay separate.
+No forced enable, geometry clearing, old gate widening or new native writer.
+All 255 obligations remain open; assurances/managed pages 0 and tear-free pending.
+
+All 1,482 prior USB files/150 sessions, boot digest, offline fsck/allocation/
+writable/headroom, AC, Ubuntu default/consumed one-shot, volume 1% and 32 MiB EFI
+installation margin verify. Current/recovery/GUI and accepted observation/joint/
+standalone payloads are protected. The unreferenced prior dd91 EFI-only duplicate
+is retired after full durable-bank equality and boot-reference checks; its exact
+payload and native entry-only evidence remain banked. Candidate and full proof
+are hash-verified outside `build`. No installation or reboot is armed.
+
+Next is an explicitly authorized unattended native trial with progress/checkpoints.
+Safe saved/unmounted outcomes return automatically; uncertain ownership or unsafe
+persistence halts visibly. Collect the matching session first on return. Original
+BCS/source 100 ms, entry 150 ms, handoff/fresh-source 100 ms, preparation/reset
+100 ms, GT 300 ms, HDA 400 ms, outer 500 ms and pending 32 polls/10 ms stay fixed.
+Native composed timing/restoration and remaining firmware/DMA/cache/translation/
+reader ownership remain pending. PR19 networking and PR379 WebCore are independent;
+Actions remain disabled; no delegation or task messaging. Checkpoint:
 `build/air-entry-requester-20261112/status.md`.
+
+Fresh main `a419f045` / PR478 adds independent storage-command tracing and an
+explicit v2 storage profile. Its 18-file delta is inspected and deferred until
+this frozen native trial is collected. It changes no GPU protocol. Preserve
+both storage v1/v2 and v27 GPU profile/collector dispatch when integrating.
+PR19 networking at `772f031c` and PR379 WebCore at `817f80bb` remain independent.
+No other task is contacted.
 
 ### Latest native result: original-owner entry/reset accepted
 

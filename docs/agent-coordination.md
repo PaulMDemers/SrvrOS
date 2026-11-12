@@ -804,3 +804,19 @@ Main `7c1a08a0` / PR476/477 is integrated after native collection, with both
 explicit profile dispatch paths retained and affected local checks passed.
 Installed physical acceptance remains on frozen source `9e67bce7`. No task
 messaging or automatic delegation is implied.
+
+## Air entry/reset/requester local qualification
+
+The separate [v27 composition](intel-entry-requester.md) retains the original
+kind 2 entry/post-census/provider and takeover stamps through its registered
+claim, existing GPU requester hold and exact restoration. Source `cef27b1c`
+passes local qualification; native acceptance remains pending. Do not promote
+the old v21 requester or accepted v26 reset receipt into this new lifetime.
+The canonical new wire format expands into the established strict validators;
+old image/recipe/collector contracts remain separate. All original deadlines
+and 255 outstanding obligations remain; no managed-memory assurance is added.
+
+Main `a419f045` / PR478 is an inspected independent storage-tracing update,
+deferred through exact-source native collection. Later integration must retain
+its explicit v1/v2 storage dispatch beside the new v27 GPU dispatch. Current
+Air7,2 recovery and evidence are unchanged; this notice schedules no task or boot.
