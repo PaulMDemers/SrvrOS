@@ -95,7 +95,7 @@ def main():
     args=parser.parse_args()
     if args.write_iops<0 or args.read_iops<0 or not 0<=args.metadata_files<=4000 or (args.stage and (args.populated_home or args.write_iops or args.read_iops or args.metadata_files)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out=out.with_name(out.name+'-air72') if args.air72 else out;out.mkdir(parents=True,exist_ok=True)
-    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','render-attribution.json','automatic-screenshot.png','automatic-screenshot.bmp','disk.receipt','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json','capture-write-timing.json','append-wait.json','commit-wait.json','sync-timing.json','capture-history.json','capture-transfer.json','sync-content.json','sync-commands.json','sync-command-phases.json','sidecar-equality.json','append-contiguity.json','battery-protocol.json','binary-evidence-error.txt'):
+    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','render-attribution.json','automatic-screenshot.png','automatic-screenshot.bmp','disk.receipt','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json','capture-write-timing.json','append-wait.json','commit-wait.json','commit-command.json','sync-timing.json','capture-history.json','capture-transfer.json','sync-content.json','sync-commands.json','sync-command-phases.json','sidecar-equality.json','append-contiguity.json','battery-protocol.json','binary-evidence-error.txt'):
         (out/name).unlink(missing_ok=True)
     for pattern in ('saved-*.log','checkpoint-*.log'):
         for old in out.glob(pattern):old.unlink()
@@ -318,7 +318,11 @@ def main():
                         (out/'append-wait.json').write_text(json.dumps(queued,indent=2)+'\n')
                         if any(b'capture-commit-wait:' in blob for blob in snapshots):
                             from commit_wait import commit_wait
-                            (out/'commit-wait.json').write_text(json.dumps(commit_wait(snapshots,write_timing,queued),indent=2)+'\n')
+                            isolation=commit_wait(snapshots,write_timing,queued)
+                            (out/'commit-wait.json').write_text(json.dumps(isolation,indent=2)+'\n')
+                            if any(b'capture-owner-command:' in b for b in snapshots):
+                                from commit_command import commit_command
+                                (out/'commit-command.json').write_text(json.dumps(commit_command(snapshots,isolation),indent=2)+'\n')
                     from sync_timing import sync_timing
                     sync_observed=sync_timing(snapshots)
                     (out/'sync-timing.json').write_text(json.dumps(sync_observed,indent=2)+'\n')

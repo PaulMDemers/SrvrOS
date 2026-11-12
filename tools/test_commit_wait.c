@@ -61,6 +61,18 @@ int main(void){
   .seen=true,.service_valid=true,.service_checks=2,.service_samples=1,
   .service_gap_max_us=40,.completion_gap_us=40,.empty_checks=1,.event_checks=1,.last_empty_sample_us=1020};
  sync_commit_wait_status(77,0x2a,16384,1020,1060,13,13,true,&status);
+ struct commit_command_timing command={.available=1,.phases=1,.tag=77,.opcode=0x2a,
+  .lba=64,.blocks=32,.sector_size=512,
+  .timing={.valid=1,.complete=1,.ok=1,.role=2,.start_us=1012,.end_us=1062,
+   .csw_start_us=1020,.csw_end_us=1060,.checkpoint_calls=4,.checkpoint_us=2,
+   .checkpoint_first_us=1013,.checkpoint_last_us=1062,
+   .phase={{.calls=1,.requested=31,.actual=31,.us=1,.first_us=1012,.last_us=1013},
+           {.calls=4,.requested=16384,.actual=16384,.us=3,.first_us=1014,.last_us=1018},
+           {.calls=1,.requested=13,.actual=13,.us=40,.first_us=1020,.last_us=1060}}}};
+ struct commit_command_timing unrelated=command;unrelated.tag=78;
+ before=clocks;sync_commit_wait_command(&unrelated);unrelated=command;unrelated.timing.csw_start_us++;
+ sync_commit_wait_command(&unrelated);sync_commit_wait_snapshot(&s);assert(!s.invalid&&!commit_wait_live[0].live_owner.command.available);
+ sync_commit_wait_command(&command);assert(clocks==before&&irq==0x200);
  sync_commit_owner_end(1,55,1000,1080);sync_commit_wait_end(11,1010,1100,false);
  sync_commit_wait_snapshot(&s);assert(!s.invalid&&s.worst.owner.thread==55&&s.worst.owner.pid==0);
  assert(s.worst.owner.released&&s.worst.owned_us==70&&s.worst.owner.csw_overlap_us==40&&s.worst.calls==0);
@@ -72,9 +84,13 @@ int main(void){
   .seen=true,.service_valid=true,.service_checks=2,.service_samples=1,
   .service_gap_max_us=22,.completion_gap_us=22,.empty_checks=1,.event_checks=1,.last_empty_sample_us=8};
  sync_commit_wait_status(78,0x2a,512,8,30,13,13,true,&status);
+ command=(struct commit_command_timing){.available=1,.tag=78,.opcode=0x2a,.lba=96,.blocks=1,.sector_size=512,
+  .timing={.valid=1,.complete=1,.ok=1,.role=USB_STORAGE_CONTENT_ROLES,.csw_start_us=8,.csw_end_us=30}};
+ sync_commit_wait_command(&command);
  sync_commit_wait_end(11,10,40,true);sync_commit_wait_snapshot(&s);
  assert(!s.invalid&&!s.worst.owner.released&&!s.worst.owner.end_us&&s.worst.owner.overlap_end==40&&s.worst.owner.csw_overlap_us==20);
  workspace_commit_wait_wire(41,&s);sync_commit_owner_end(1,55,5,50);
+ command.phases=1;sync_commit_wait_command(&command);
  struct commit_wait_snapshot later;sync_commit_wait_snapshot(&later);assert(!memcmp(&later.worst,&s.worst,sizeof(s.worst)));
  /* A regressed callback ending before wait entry is invalid, not absent.
   * Observation must preserve both caller IRQ states and live ownership. */
@@ -89,6 +105,36 @@ int main(void){
   sync_commit_wait_snapshot(&s);assert(s.invalid&&!s.active&&s.waits==1&&s.worst.owner.thread==55&&s.worst.owner.csws==0);
   assert(irq==saved_irq);irq=0x200;
  }
+ /* Duplicate completion is evidence corruption, never a second command. */
+ enable();sync_commit_owner_begin(1,55,7,87,5,"disk-worker");
+ assert(sync_commit_wait_begin(11,10,9,0,262144,65536,false));
+ sync_commit_wait_status(78,0x2a,512,8,30,13,13,true,&status);
+ command.phases=0;sync_commit_wait_command(&command);sync_commit_wait_command(&command);
+ sync_commit_wait_snapshot(&s);assert(s.invalid&&irq==0x200);
+ /* A later larger peak clears old command context; late old completion
+  * cannot attach to the new callback, even on the same live owner. */
+ enable();sync_commit_owner_begin(1,55,7,87,1,"disk-worker");
+ assert(sync_commit_wait_begin(11,10,9,0,262144,65536,false));
+ status=(struct usb_bulk_timing){.submitted=20,.observed=40,.resumed=40,.seen=true,.service_valid=true,
+  .service_checks=1,.service_samples=1,.service_gap_max_us=20,.completion_gap_us=20,.event_checks=1};
+ sync_commit_wait_status(1,0x2a,512,20,40,13,13,true,&status);
+ command=(struct commit_command_timing){.available=1,.tag=1,.opcode=0x2a,.lba=64,.blocks=1,.sector_size=512,
+  .timing={.valid=1,.complete=1,.ok=1,.role=USB_STORAGE_CONTENT_ROLES,.csw_start_us=20,.csw_end_us=40}};
+ /* Full command failure is distinct from its successful status bulk callback. */
+ command.timing.ok=0;sync_commit_wait_command(&command);
+ assert(commit_wait_live[0].live_owner.command.available&&!commit_wait_live[0].live_owner.command.timing.ok);
+ sync_commit_owner_end(1,55,1,50);sync_commit_wait_end(11,10,60,false);sync_commit_wait_snapshot(&s);
+ workspace_commit_wait_wire(70,&s);
+ enable();sync_commit_owner_begin(1,55,7,87,1,"disk-worker");
+ assert(sync_commit_wait_begin(11,10,9,0,262144,65536,false));
+ command.timing.ok=1;
+ sync_commit_wait_status(1,0x2a,512,20,40,13,13,true,&status);sync_commit_wait_command(&command);
+ status.submitted=50;status.observed=status.resumed=90;status.service_gap_max_us=status.completion_gap_us=40;
+ sync_commit_wait_status(2,0x2a,512,50,90,13,13,true,&status);
+ assert(!commit_wait_live[0].live_owner.command.available);sync_commit_wait_command(&command);
+ assert(!commit_wait_live[0].live_owner.command.available);
+ command.tag=2;command.timing.csw_start_us=50;command.timing.csw_end_us=90;sync_commit_wait_command(&command);
+ sync_commit_owner_end(1,55,1,95);sync_commit_wait_end(11,10,100,false);sync_commit_wait_snapshot(&s);workspace_commit_wait_wire(110,&s);
  /* Multiple real owner intervals are disjoint; retain their actual maximum. */
  enable();sync_commit_owner_begin(1,55,0,0,1,"workspace-log");
  assert(sync_commit_wait_begin(11,10,9,0,262144,65536,false));

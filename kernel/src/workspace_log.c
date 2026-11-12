@@ -237,6 +237,11 @@ static void report_commit_wait(uint64_t at,const struct commit_wait_snapshot *s)
         const struct usb_bulk_timing *b=&v->sample;
         console_printf("capture-commit-status: version=2 snapshot_us=%u pid=%u tag=%u start_us=%u end_us=%u opcode=%u command_bytes=%u requested=%u actual=%u bulk_ok=%u submitted=%u observed=%u resumed=%u seen=%u service_valid=%u checks=%u samples=%u service_gap=%u completion_gap=%u empty_checks=%u event_checks=%u last_empty=%u final=1\n",at,w->pid,o->tag,v->start_us,v->end_us,v->opcode,v->command_bytes,v->request_bytes,v->actual,v->ok,b->submitted,b->observed,b->resumed,(uint64_t)b->seen,(uint64_t)b->service_valid,b->service_checks,b->service_samples,b->service_gap_max_us,b->completion_gap_us,b->empty_checks,b->event_checks,b->last_empty_sample_us);
     }
+    {
+        const struct commit_command_timing *q=&o->command;
+        const struct usb_storage_command_timing *t=&q->timing;
+        console_printf("capture-owner-command: version=1 snapshot_us=%u pid=%u available=%u phases=%u tag=%u opcode=%u lba=%u blocks=%u sector=%u flags=%u valid=%u complete=%u ok=%u role=%u start_us=%u end_us=%u csw_start=%u csw_end=%u cbw_calls=%u cbw_us=%u data_calls=%u data_req=%u data_actual=%u data_us=%u csw_calls=%u csw_us=%u ck_calls=%u ck_us=%u final=1\n",at,w->pid,q->available,q->phases,q->available?q->tag:o->tag,q->opcode,q->lba,q->blocks,q->sector_size,q->flags,t->valid,t->complete,t->ok,t->role,t->start_us,t->end_us,t->csw_start_us,t->csw_end_us,t->phase[0].calls,t->phase[0].us,t->phase[1].calls,t->phase[1].requested,t->phase[1].actual,t->phase[1].us,t->phase[2].calls,t->phase[2].us,t->checkpoint_calls,t->checkpoint_us);
+    }
     if(!c->start_us)return;
     uint64_t io_us=0,sidecar_us=0,failures=0,csws=0,csw_us=0,longs=0;
     bool valid=true;

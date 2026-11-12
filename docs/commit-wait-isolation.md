@@ -86,3 +86,13 @@ including 351.745 ms before observed completion and 273 us afterward. This
 physically accepts the bounded association; it does not identify device/firmware/
 controller cause or every screenshot delay. Screenshot saving still reaches
 26.60 seconds, with unchanged policy, limits, proofs and barriers.
+
+The [validated command-tail companion](commit-command-tail.md) adds exact-tag,
+status-anchor, block-range and original full-command validation context without
+changing these original rows, parsers or budgets.
+
+The subsequent [complete-command native return](machines/macbookair6-1.md#native-validated-command-tail-return-2026-11-11)
+on runtime `fbea6abe` also passes. Status callbacks overlap91.87% of its exact
+3.124572-second worst wait; the validated selected16KiB payload WRITE takes
+1.028ms in data and370.267ms in status. Device/controller cause and sustained
+performance improvement remain unproved; every original bound/proof is retained.
