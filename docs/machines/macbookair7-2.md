@@ -2,17 +2,25 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
-### Active scope: entry/reset closeout and next memory ownership milestone
+### Active scope: compose accepted entry/reset with original-claim requester hold
 
-The exact native v26 zero-geometry entry/reset composition is collected and
-accepted below. Main `7c1a08a0` is integrated after collection with both profile
-branches retained and affected local checks passed. No new operation or trial
-is armed. Touched scope: return collection/integrity, acceptance documentation
-and shared-main integration. Next work must preserve original live providers,
-registered borrows, source/epoch binding, geometry and all current deadlines
-while addressing remaining firmware/DMA/cache/translation/reader ownership and
-managed backing. The completed receipt grants no future operation or memory
-capability. Other machine profiles and PR19/PR379 scopes remain independent.
+Base `c7895b6d`, integrated main `7c1a08a0`. Add a separate v27 image and exact
+23-token recipe that routes the accepted kind 2 entry/reset/re-arm/claim through
+the existing bounded GPU Command 7→3→7 halfword hold, AF pending observation and
+exact original-source restoration under the same original live HDA/GT owner.
+Old v21 requester and v26 entry/reset remain separate contracts. No copied
+owner, receipt authority, nonzero reset, geometry clearing or new native writer.
+
+Touched scope: native adapter composition/firmware/boot/staging, strict joined
+receipts and collection, actual-adapter failure/source/clock tests, native access/
+frame/image isolation and exact-stage VM qualification. Keep BCS/source 100 ms,
+entry 150 ms, handoff/fresh source and preparation 100 ms, GT 300 ms, HDA 400 ms,
+outer 500 ms and requester 32 polls/10 ms unchanged. Maintain the existing 64 KiB
+saved tail with 1,536 reserve. No memory assurance is inferred from BME/TP clear.
+The remaining managed-memory/ownership protocol stays separate. No install or
+reboot is armed by this work block. PR19 networking and PR379 WebCore remain
+independent; no task messaging or delegation. Checkpoint:
+`build/air-entry-requester-20261112/status.md`.
 
 ### Latest native result: original-owner entry/reset accepted
 
