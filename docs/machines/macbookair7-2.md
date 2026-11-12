@@ -2,27 +2,75 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
-### Qualified scope: same-owner entry/reset composition
+### Active scope: entry/reset closeout and next memory ownership milestone
 
-Start from `0be91bc1`, integrated main `f16fa5ab`. Add a separate v26 image and
-exact recipe that feeds the accepted entry's original fresh post-census into
-the existing takeover/preparation/reset/re-arm/claim/preservation pipeline,
-under the same static HDA/GT owner. Only verified kind 2 zero geometry may
-advance to reset. Kind 1 remains a distinct entry writer result and reset
-refusal; nonzero geometry is never cleared or relabeled. Original providers,
-source/epoch binding and registered borrow/return remain mandatory.
+The exact native v26 zero-geometry entry/reset composition is collected and
+accepted below. Main `7c1a08a0` is integrated after collection with both profile
+branches retained and affected local checks passed. No new operation or trial
+is armed. Touched scope: return collection/integrity, acceptance documentation
+and shared-main integration. Next work must preserve original live providers,
+registered borrows, source/epoch binding, geometry and all current deadlines
+while addressing remaining firmware/DMA/cache/translation/reader ownership and
+managed backing. The completed receipt grants no future operation or memory
+capability. Other machine profiles and PR19/PR379 scopes remain independent.
 
-Touched subsystems: entry handoff core/native adapter, separate build/boot
-recipe, strict receipts/collector and fault/isolation/native-width/lifetime/VM
-qualification. Existing BCS/source 100 ms, entry/readers 150 ms, takeover and
-preparation 100 ms, GT 300 ms, HDA 400 ms and outer 500 ms remain unchanged.
-No requester/PTE writer or memory grant. New bridge uses a live original object,
-not a saved receipt or copied ownership object. No install or reboot in this
-implementation block. PR476 storage-only comparison, PR19 network and PR379
-WebCore remain independent. PR476 also touches shared build/main/stage/VM
-dispatch files; preserve both explicit profile branches when integrating. Checkpoint: `build/air-entry-reset-20261111/status.md`.
+### Latest native result: original-owner entry/reset accepted
 
-### Original-owner entry/reset qualification: hardware-ready
+Source `9e67bce7`, release `74d46f42447d218e`, session
+`session-0006600e477bf0c3-00` accepts the **same-original-owner zero-geometry
+entry/reset composition** on Air7,2. The live full census selects kind 2. Entry
+uses the NULL writer, four BCS8 observations, original registered-child return,
+a fresh full 92-word post-census and both complete reader vectors. Entry stores
+are zero and entry epoch remains 0. Its actual original post-census and original
+provider/owner/epoch feed the takeover child and existing preparation/reset/
+re-arm/claim/preservation path. Reset uses the existing two stores and advances
+epoch 0→1. Nonzero geometry and the enabled entry writer remain unaccepted.
+
+Entry takes 90,760/150,000 us and BCS 33,419/100,000 us.
+Original source age at BCS completion is 54,132/100,000 us.
+Handoff/takeover takes 31,895/100,000 us, with actual fresh-source age
+50,985/100,000 us at completion. Preparation/reset/
+cancellation/preservation takes 91,213/100,000 us; final guard
+6 us and borrow return 3,179 us.
+Reset is 5,924 us, re-arm 2,384 us and claim 2,061 us.
+HDA is 318,012/400,000 us and outer lifetime 368,571/500,000 us.
+All original limits, including GT 300 ms and entry/readers 150 ms, are unchanged.
+This is one bounded pass, without a repeatability or latency guarantee.
+
+Full engine/context/plane/HDA preservation, reset/re-arm/claim restoration,
+original child returns and all four HDA inspections pass. HDA Command follows
+6/2/2/6; all 14 GPU aliases, the HDA root and CPU exclusion retire. The strict
+collector binds all 713 engine reads, including actual reset polls.
+No clock faults or collector alerts occur. `completed=yes` and the exact
+22-token prerequisite/final checkpoint verify. The saved receipt is history;
+a later operation still requires its own original live owners and fresh source.
+
+All 1,479 prior files preserve except expected `.srvros/meta`; three exact logs
+yield 1,482 files/150 sessions. Offline fsck/allocation/writable/headroom,
+unchanged boot digest, installed/durable banks, Ubuntu default and consumed
+one-shot pass. Current 74d, prior dd91, recovery 9aa8, GUI c497 and accepted
+observation bd77/joint 978/standalone d260 remain preserved. USB is unmounted,
+no reboot is armed, and raw logs/strict proof are banked outside `build`.
+
+Main `7c1a08a0` (PR476 storage comparison and PR477 Air6,1 evidence) is integrated
+after collection in `69eef1ed`. Shared build/main/stage/VM/test conflicts preserve
+both explicit GPU and storage profile branches. Affected host/docs, ordinary and
+USB image, new storage comparison, USB/workspace-log/sync-content, staging/parser,
+modeled combined/reset provenance and native diagnostic ELF checks pass locally.
+These affected checks do not extend the earlier full 31-image/sanitizer gate or
+physical acceptance to the merged runtime. GPU implementation files are unchanged;
+installed native payload remains the exact frozen `9e67bce7`. PR19 networking
+and PR379 WebCore remain independent; Actions stay disabled.
+
+The bounded entry/reset composition milestone is complete for this source and
+observed route. Next are the remaining firmware/DMA/cache/translation/reader
+ownership protocol, managed GPU backing and real flip publication. Obligations
+255, assurances 0 and managed pages 0 remain unchanged. Native tear-free and
+nonzero-geometry reset are pending. No unchanged reset retry, forced enable,
+geometry clearing or old gate widening is planned. Checkpoint:
+`build/air-entry-reset-20261111/status.md`.
+
+### Previous local qualification: original-owner entry/reset
 
 Frozen source `9e67bce7`, release `74d46f42447d218e`, separately qualifies
 [the v26 composition](../intel-state-aware-reset.md). Only completed kind 2
@@ -75,13 +123,14 @@ Next is one silent automated native test with no human input, after fresh
 host/media/recovery checks and exact candidate installation. BCS/source 100 ms,
 entry 150 ms, handoff/source age and preparation/reset 100 ms, GT 300 ms, HDA
 400 ms and outer 500 ms remain unchanged. Safe persisted outcomes return
-without input; retained uncertainty halts visibly. Candidate is uninstalled and
-unarmed. No native acceptance, GPU memory/requester grant or tear-free claim:
+without input; retained uncertainty halts visibly. At qualification the candidate was uninstalled and
+unarmed. The subsequent exact-source native result appears above. No GPU
+memory/requester grant or tear-free claim:
 obligations 255, assurances 0, managed pages 0. Current accepted dd91 entry-only
 physical evidence remains separate. Checkpoint:
 `build/air-entry-reset-20261111/status.md`.
 
-### Latest native result: state-aware already-disabled entry accepted
+### Previous native result: state-aware already-disabled entry accepted
 
 Source `c150c6ad`, release `dd91b264c73a48a6`, session
 `session-0006600b199573e1-00` accepts the **already-disabled route only**.

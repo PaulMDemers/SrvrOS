@@ -792,8 +792,15 @@ Late clock/source/return uncertainty pins the root even after child return.
 Kind 1 enabled/nonzero still refuses reset. All existing geometry/deadline gates
 remain. Old v22–v25 image/recipe/receipt contracts stay distinct. The new lossless
 post/reader vectors must expand into complete typed raw validators, including
-floating-reader rejection. Host/VM qualification is not physical acceptance;
-Air7,2's accepted dd91 result remains entry-only. Other machines retain their
-own profiles and evidence. PR476's independent storage comparison is reviewed
-but deferred from the frozen qualification; retain both profile dispatch paths
-when integrating. No task messaging or automatic delegation is implied.
+floating-reader rejection.
+
+Host/VM qualification is not physical acceptance. Air7,2 now accepts the exact
+v26 kind 2 original-owner entry/reset composition on source `9e67bce7`, with
+full preservation and clean retirement at unchanged limits. Its earlier dd91
+result remains entry-only. Neither receipt authorizes a later operation or
+managed GPU memory. Other machines retain their own profiles and evidence.
+
+Main `7c1a08a0` / PR476/477 is integrated after native collection, with both
+explicit profile dispatch paths retained and affected local checks passed.
+Installed physical acceptance remains on frozen source `9e67bce7`. No task
+messaging or automatic delegation is implied.

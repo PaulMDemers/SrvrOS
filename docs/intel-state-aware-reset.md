@@ -4,8 +4,8 @@ This is a separate v26 diagnostic after the accepted
 [already-disabled entry](intel-ring-entry.md#native-result-already-disabled-route-accepted).
 It keeps the original static HDA/GT owners and composes that entry's actual fresh
 post-census with the existing takeover/preparation/reset/re-arm/claim/preservation
-pipeline. Native acceptance is pending. The [machine record](machines/macbookair7-2.md)
-owns physical results; the earlier v23 [composition](intel-entry-reset-composition.md)
+pipeline. Air7,2 accepts the exact bounded native route recorded below.
+The [machine record](machines/macbookair7-2.md) owns physical results; the earlier v23 [composition](intel-entry-reset-composition.md)
 and v25 entry remain separate exact-source contracts.
 
 The entry core still selects from the full live initial census. Enabled/nonzero
@@ -79,7 +79,26 @@ missing-workspace checks. Object and linked instructions preserve original
 widths/fences, static lifetimes, unchanged reset/re-arm/map code and 2 KiB
 frames; the new handoff core has no MMIO or writer imports. The projected
 saved tail is 65348/65,536 bytes with the unchanged 1,536-byte reserve.
-These are host/VM proofs. The candidate is banked, uninstalled and unarmed;
-full native entry/reset composition and all remaining memory ownership are
-pending. Prior dd91 acceptance is entry-only. See the machine record for
+These are host/VM proofs. At qualification the candidate was banked, uninstalled
+and unarmed. The subsequent native result below accepts the bounded composition;
+all remaining memory ownership is pending. Prior dd91 acceptance is entry-only. See the machine record for
 exact coverage, recovery and the next automatic native trial.
+
+## Native result: original-owner entry/reset accepted
+
+Air7,2 source `9e67bce7` / release `74d46f42447d218e`, session
+`session-0006600e477bf0c3-00`, completes kind 2 entry and the original-owner
+zero-geometry reset/re-arm/claim/preservation lifetime. Entry uses zero stores
+and epoch 0; the existing reset advances epoch 0→1. All raw census, BCS, reader,
+takeover, preparation, reset, re-arm, claim, HDA and prerequisite/final bindings
+verify. All 14 GPU aliases/HDA root, registered children and CPU exclusion retire.
+
+Entry is 90,760/150,000 us, handoff 31,895/100,000 us with
+fresh-source age 50,985/100,000 us, preparation 91,213/100,000 us,
+HDA 318,012/400,000 us and outer 368,571/500,000 us. Limits remain
+unchanged. Zero clock faults/collector alerts, full file preservation, offline
+filesystem/allocation and Ubuntu recovery pass. The [unit record](machines/macbookair7-2.md)
+owns exact evidence and the later main integration's separate local validation.
+This is one bounded pass. Enabled entry writing, nonzero-geometry reset,
+managed memory, remaining ownership obligations and native tear-free remain open.
+A saved result cannot authorize a later reset or memory operation.

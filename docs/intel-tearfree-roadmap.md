@@ -268,21 +268,29 @@ and quarantine accounting resolve the new backing-adapter qualification boundary
 it does not repeat or replace the accepted shadow publication. Exclusive GGTT
 transfer, owned completion and real buffer/flip publication remain open.
 
-## Current state-aware entry result
+## Current original-owner entry/reset result
 
-Source `c150c6ad` / release `dd91b264c73a48a6` accepts the already-disabled
-kind 2 route on Air7,2, session `session-0006600b199573e1-00`. Original child,
-zero writes/epoch 0, four BCS8 samples, fresh full 92-word post-census and all
-engine/context/plane/HDA preservation and retirement verify. Entry is
-97,088/150,000 us, HDA 193,406/400,000 us and outer 248,203/500,000 us. Exact
-saved provenance, prior files, offline allocation and Ubuntu recovery pass.
-The enabled writer remains unexercised, with separate acceptance still false.
-See the [entry contract](intel-ring-entry.md) and [unit record](machines/macbookair7-2.md).
+Air7,2 source `9e67bce7` / release `74d46f42447d218e`, session
+`session-0006600e477bf0c3-00`, accepts the bounded same-owner kind 2
+zero-geometry entry/reset/re-arm/claim/preservation path. Original full initial
+census, four read-only BCS8 samples, fresh full post-census/readers, source and
+provider/epoch binding, registered returns and clean GPU/HDA/exclusion retirement
+verify. Entry stores remain zero/epoch 0; the existing reset advances epoch 0→1.
+Entry is 90,760/150,000 us, handoff 31,895/100,000 us, preparation
+91,213/100,000 us, HDA 318,012/400,000 us and outer 368,571/500,000 us.
+All deadlines remain unchanged; exact raw checkpoint, all prior files, offline
+allocation and Ubuntu recovery pass. This one bounded pass does not establish
+repeatability or native tear-free presentation. See the
+[composition contract](intel-state-aware-reset.md) and [unit record](machines/macbookair7-2.md).
 
-Next compose this zero-geometry entry with reset under the same live original
-objects, retaining valid source/epoch/borrow and deadline checks. Nonzero geometry
-needs separate reset semantics and physical evidence; do not clear it, force an
-enabled source, widen old gates or use a completed receipt as live authority.
-Firmware/DMA/cache/translation/reader retirement, exclusive memory transfer,
-managed backing and real flip publication remain open. Obligations 255,
-assurances 0 and managed pages 0 remain unchanged. No new trial is armed.
+The entry/reset composition milestone is complete for this exact source and
+observed route. Main `7c1a08a0` is integrated afterward with affected local
+checks; the installed native payload remains frozen `9e67bce7`. Nonzero geometry
+and enabled entry writing remain separately unaccepted. Next is the remaining
+firmware/DMA/cache/translation/reader retirement and exclusive GPU address/RAM
+ownership protocol, then managed backing, actual command completion where
+required and real flip publication. Blocks 3–7 above remain open. A reset alone
+does not close those obligations: mask 255, assurances 0 and managed pages 0.
+Keep full original live-object/deadline rules; no geometry clearing, forced
+enable, saved-receipt authority or unchanged observation/reset retry. No new
+trial is armed.

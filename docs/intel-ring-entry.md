@@ -99,7 +99,9 @@ owners. Zero-geometry source, four BCS8 observations, fresh full 92-word census,
 all engine/context/plane/HDA preservation, registered return and retirement
 verify. BCS attempts/stores are zero, epoch stays 0 and
 `native_enabled_writer_complete` is false. The enabled route remains physically
-unexercised; reset, managed memory and tear-free acceptance remain pending.
+unexercised. This entry-only result grants no reset, managed memory or tear-free
+acceptance. The later [v26 composition](intel-state-aware-reset.md) has its own
+exact-source bounded native result.
 
 Entry is 97,088/150,000 us, BCS 35,784/100,000 us, original source age at BCS
 completion 57,909/100,000 us, HDA 193,406/400,000 us and outer lifetime
