@@ -57,6 +57,12 @@ for shift,cluster_shift in ((9,3),(9,8),(12,0)):
                 for old,new in (('valid=1','valid=0'),('ok=1','ok=0'),('retired=1','retired=0'),('claimed=1','claimed=0'),('policy=unchanged','policy=changed'),('actual=13','actual=12'),('complete=yes','complete=NO'),('seq=1 ','seq=99 ')):
                     assert capture_result(log.replace(old,new,1),False) is None,(old,new)
                 if version==2:
+                    assert capture_result(log,False,require_sidecar=True) is not None
+                    # Missing/incorrect first-difference accounting is not a
+                    # valid new candidate, even when every legacy row remains.
+                    without='\n'.join(l for l in log.splitlines() if not l.startswith('exfat-sidecar-diff:'))+'\n'
+                    assert capture_result(without,False,require_sidecar=True) is None
+                    assert capture_result(log.replace('exfat-sidecar-diff: version=1','exfat-sidecar-diff: version=0'),False,True) is None
                     for prefix in ('storage-only-roles:','storage-only-role:','storage-only-wire:'):
                         index=next(i for i,l in enumerate(lines) if l.startswith(prefix))
                         assert capture_result('\n'.join(lines[:index]+lines[index+1:])+'\n',False) is None

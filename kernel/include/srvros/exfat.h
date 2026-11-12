@@ -79,5 +79,8 @@ void exfat_print_mounts(void);
 void exfat_print_costs(void);
 /* Cached counters; caller must select the explicit sync diagnostic profile. */
 void exfat_print_sidecar_equality(void);
+/* Same fixed counters with a caller-supplied final timestamp; no clock or I/O
+ * in the measured interval. Paths and actual field values are never logged. */
+void exfat_print_sidecar_equality_at(uint64_t at);
 
 #endif

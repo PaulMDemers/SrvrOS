@@ -27,7 +27,7 @@ def rows(text,prefix):
         result.append(values)
     return result
 
-def capture_result(text,require_audio=True):
+def capture_result(text,require_audio=True,require_sidecar=False):
     try:
         begin=re.findall(r'^storage-only: begin version=([12]) path=(/work/srvros-work/storage-compare-[0-9a-f]{16}\.bin) start_us=(\d+) bytes=32768 pairs=6 samples=12 limit_us=180000000 policy=unchanged$',text,re.M)
         end=re.findall(r'^storage-only: complete=(\S+) samples=(\d+) elapsed_us=(\d+) mounted=(\d+) clean=(\d+) final_seq=(\d+)$',text,re.M)
@@ -118,12 +118,18 @@ def capture_result(text,require_audio=True):
                 role_result.append(dict(seq=sample['seq'],mask=head['mask'],roles=found))
         else:
             assert not any(rows(text,p) for p in ('storage-only-roles','storage-only-role','storage-only-wire'))
-        assert len('\n'.join(l for l in text.splitlines() if l.startswith('storage-only'))) <32768
+        sidecar=None
+        if require_sidecar or 'exfat-sidecar-diff:' in text:
+            from sidecar_equality import sidecar_equality
+            sidecar=sidecar_equality([text.encode()],require_differences=True,require_equal=False)
+            assert version==2 and start<=sidecar['snapshot_us']<=start+int(elapsed)
+            assert sidecar['differences']['format']==0
+        assert len('\n'.join(l for l in text.splitlines() if l.startswith(('storage-only','exfat-sidecar')))) <32768
         if require_audio:
             assert text.count('storage-only-audio:')==1
             assert len(re.findall(r'^storage-only-audio: volume=1 cues=2 stopped=yes quiet=yes clean=yes$',text,re.M))==1
             assert 'laptop-capture: completed=yes' in text
-        return dict(status='PASS',version=version,roles=role_result,path=path,bytes=BYTES,pairs=6,samples=12,elapsed_us=int(elapsed),volume=1,
+        return dict(status='PASS',version=version,roles=role_result,sidecar=sidecar,path=path,bytes=BYTES,pairs=6,samples=12,elapsed_us=int(elapsed),volume=1,
                     filesystem=[r for r in groups[0] if not r['kind']],direct=[r for r in groups[0] if r['kind']],
                     commands=groups[1],service=groups[2],native_acceptance=False)
     except (AssertionError,KeyError,ValueError,TypeError):return None

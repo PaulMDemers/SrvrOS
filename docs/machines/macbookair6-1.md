@@ -13194,3 +13194,22 @@ protected. The previous run is collected, independently reviewed and sealed.
 Publish the bounded candidate, run matched host/core/desktop and exact-stage VM
 checks, self-merge and run automatically under existing authorization. Native
 acceptance and any sustained screenshot benefit await matching evidence.
+
+The real importer/slot-reuse reproducer now confirms an order-only rewrite:
+every path and all eight fields match before/after remount, but VFS enumeration
+order changes. Stable bytewise-path serialization keeps the sidecar identical
+through four remounts. On both 4 KiB and 128 KiB host geometries the no-op path
+retains only two volume-flag writes (four bytes) and four flushes; legacy order
+requires eight writes and seven flushes. Actual atime, mode/ctime and rename
+changes still persist, with complete file and allocation verification. A slow
+BOT fixture also observes genuine timestamp-driven differences, so those writes
+must remain. First-difference diagnostics classify shape or expected field, not
+an inferred semantic cause; no actual values or paths are logged.
+
+Scratch is reserved before dirty marking, bounded by existing node limits and
+freed with the mount. Fresh media equality, all eight serialized fields, pending
+name/client checks, dirty/clean markers, flush/publication order and quarantine
+remain. Maximum-width diagnostics fit the original receipt reserve. PR19's
+metadata decoder/restore code is unchanged. Focused regression/failure validation
+is in progress; the initial diagnostic-unit adapter failures are retained locally.
+No native benefit, cold-boot identity restore or screenshot fix is accepted yet.

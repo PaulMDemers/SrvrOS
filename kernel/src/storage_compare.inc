@@ -192,10 +192,12 @@ finish:
         wire_ok=compare_emit(&compare_samples[i],&row_bytes) && compare_emit_roles(&compare_samples[i],&row_bytes);
     ok=ok && wire_ok;
     if(ok && (timer_monotonic_us()<start || timer_monotonic_us()-start>STORAGE_COMPARE_LIMIT_US))ok=false;
-    console_printf("storage-only: complete=%s samples=%u elapsed_us=%u mounted=%u clean=%u final_seq=%u\n",ok?"yes":"NO",(uint64_t)completed,timer_monotonic_us()-start,(uint64_t)(active==volume),(uint64_t)!comparison_poisoned,(uint64_t)completed);
+    uint64_t finish_at=timer_monotonic_us();
+    console_printf("storage-only: complete=%s samples=%u elapsed_us=%u mounted=%u clean=%u final_seq=%u\n",ok?"yes":"NO",(uint64_t)completed,finish_at-start,(uint64_t)(active==volume),(uint64_t)!comparison_poisoned,(uint64_t)completed);
     end(&scope);
     if(roles)console_printf("storage-only-wire: version=1 row_bytes=%u reserve=2048 limit=32768 valid=%u\n",row_bytes,(uint64_t)wire_ok);
     if(wire_ok)for(unsigned i=0;i<completed;i++) {compare_emit(&compare_samples[i],NULL);if(roles)compare_emit_roles(&compare_samples[i],NULL);}
+    if(roles && completed)exfat_print_sidecar_equality_at(finish_at);
     return ok;
 out:
     end(&scope);return false;
