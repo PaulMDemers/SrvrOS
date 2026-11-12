@@ -13056,3 +13056,46 @@ oversize evidence within the unchanged 32 KiB receipt and 64 KiB tail. Prototype
 pass 72 profile/refusal/fault cases plus 36 legacy-adapter controls, with identical
 ordered BOT bytes, callback/clock counts and complete final media. Formal matched
 build, host/VM validation and native installation remain pending.
+
+
+### Ready native command-attribution trial
+
+Final source `68644c19` passes all 72 v1/v2 profile/refusal/fault executions
+and 36 legacy-role controls with identical ordered BOT bytes, callback/clock
+counts and final media, maximum-width actual row sizing/overflow refusal,
+94 boot/installer tests, original storage leases/SYS_SYNC observation checks,
+the full core/desktop/docs suite and ordinary sysabi, USB input, thread exec
+and USB write/reload VM regressions. An initial standalone-host linkage failure
+was corrected by selecting its existing disabled-runtime role adapter; that
+failed attempt is retained. Existing offline-repair fixture limitations remain
+unchanged, including 81 baseline-known strict allocation failures after repair.
+No native fault-recovery or loaded-latency fix is claimed.
+
+Candidate `084167c2be826f2a` uses the explicit v2 trace recipe. Its content-addressed
+stage retains the original `41ced5f5` manifest rather than rewriting provenance:
+the final-source complete kernel/initramfs and all five loaded kernel sections
+are byte-identical and separately verified. The exact staged GPT trial passes
+all twelve original samples and role/status/512-byte subsets, exact command/time
+sums and wire byte counts, full fixture readback, saved logs, clean filesystem,
+unmount and automatic return. Its receipt is about 20 KiB inside the unchanged
+32 KiB bound and 64 KiB tail. Transferred data-byte totals include required
+padding/initialization; they are not a claim about logical user-file length.
+
+Fresh Air6,1/UUID `6ADA-85BB`, AC, all 890 prior file hashes, offline fsck/full
+allocation/headroom, accepted payloads and the original failed-media archive
+verify. The candidate is installed and independently backed up. Ubuntu remains
+default with recovery `c35475f62f154f1e`; accepted 78cf/0d3/4598/80b4/c7 remain
+on EFI and independently retained. Only the unreferenced, completely verified
+3403 EFI duplicate was retired, with its full independent payload preserved.
+PR19 is now `b0aa87df` and PR301 `cef27b1c`; final observer-file changes do not
+overlap this bounded work, and neither branch is merged or rewritten.
+
+Saved local run `d060e1967e7c45b0` requires the v2 receipt, all original byte/CRC,
+command/service and six-lease retirement proofs, exact final sequence-12 bytes,
+all prior files except the exact volume-root metadata update, and offline
+allocation integrity. It shows progress and returns automatically, with brief
+1% boundary cues outside the same six balanced pairs/twelve 32 KiB samples and
+180-second bound. No input or listening report is required. Native attribution
+acceptance awaits this run's matching return; screenshot and long loaded status
+latency remain unresolved. No policy, hardware gate, watchdog, ownership,
+integrity or workload limit changed.

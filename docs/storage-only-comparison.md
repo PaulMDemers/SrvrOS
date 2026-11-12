@@ -109,7 +109,7 @@ restore changes are not part of this attribution change.
 
 Final-only `storage-only-roles` masks account for all seven roles, with zero
 roles implicit. Each present `storage-only-role` row records read/write/flush
-commands, payload bytes, failures/other commands, CSW count/wall time/maximum,
+commands, transferred bytes, failures/other commands, CSW count/wall time/maximum,
 512-byte WRITE count/status time, and the existing over-100-ms status subsets. The strict parser requires exact command
 and CSW-time sums against the original sample, the selected command's role and
 maximum, payload/512-byte subset consistency and zero failures/unknown commands.
