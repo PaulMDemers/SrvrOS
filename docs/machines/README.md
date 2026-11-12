@@ -23,6 +23,12 @@ results do not add a native ARM64 machine to the hardware support table.
 | MacBookPro11,3 / A1398 | [macbookpro11-3](macbookpro11-3.md) | Planned; no local inventory or physical results |
 | Macmini7,1 / A1347 | [macmini7-1](macmini7-1.md) | Planned; no local inventory or physical results |
 
+Latest Air7,2 v27 trial (`cef27b1c` / `127a222d11cc79fc`) verifies a bounded
+enabled-entry suboperation, then safely refuses reset/requester admission from
+nonzero geometry. The full sequence remains incomplete; all alerts, return
+integrity and unchanged recovery are recorded in the unit ledger. No sibling,
+requester, managed-memory or native tear-free acceptance is inferred.
+
 Use the [record template](TEMPLATE.md). Put portable observations, source
 commits and acceptance summaries in Git. Keep raw inventories, images, local
 mount paths, UUID/reboot state and full logs in the machine's ignored `build/`

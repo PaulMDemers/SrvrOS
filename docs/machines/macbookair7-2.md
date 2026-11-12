@@ -2,60 +2,70 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
-### Active scope: v27 original-owner entry/reset/requester locally qualified
+### Active scope: collected v27 refusal and nonzero-geometry reset planning
 
-Frozen source `cef27b1c`, release `127a222d11cc79fc`, integrated main
-`7c1a08a0`, qualifies the separate [entry/reset/requester diagnostic](../intel-entry-requester.md).
-It composes the accepted kind 2 entry, actual original fresh post-census,
-original takeover/preparation/reset/re-arm/claim and the existing bounded GPU
-Command 7→3→7 halfword hold/restoration under the same live HDA/GT owner.
-The candidate is **hardware-ready, uninstalled, unarmed and not physically accepted**.
-Current `74d46f42447d218e` and recovery `9aa8dbf6fbda8252` remain installed.
+The v27 native run below verifies its enabled-entry suboperation but correctly
+refuses the unsupported reset route. The full requester sequence remains
+incomplete. Collection, offline integrity, durable evidence and inspected main
+integration are complete; no new trial is armed. Next shared implementation
+needs a separate original-owner nonzero-geometry reset/epoch contract, preserving
+all existing admission, geometry, source/provider and deadline rules. Do not
+widen the old kind 2 gate or turn a receipt into a memory capability.
 
-All 32 local images, full core/USB/host/docs, eleven fatal ASan/UBSan adapter
-tests, 847 requester fault cases plus original entry/handoff/HDA/reset/return
-faults, additional native clock boundaries and 25 compiled omission controls
-pass. Five historical native contracts replay without promoting old evidence.
-Symbol/wire isolation, actual object/staged GPU Command halfword and final
-clock/source guards, static lifetimes, 2 KiB frames, exact 23-token C/Python
-recipe and exact-stage EFI/MBR refusal/checkpoint/save/unmount/automatic return
-plus missing-workspace halt pass. Existing storage baseline retains 81 known
-strict allocation-repair failures; this GPU scope does not claim to fix them.
+### Latest native result: enabled entry verified; reset/requester refused
 
-Canonical lossless raw census/entry/requester encoding projects 65,405/65,536
-bytes, including the unchanged 1,536 reserve. The first bbc77 gate was deliberately
-interrupted when the banner audit found an inaccurate historical-banner substitution;
-cef27 removes redundant new-image progress only and the corrected audit/full gate
-use the frozen source above. Old v21/v26 image/recipe/wire contracts stay separate.
-No forced enable, geometry clearing, old gate widening or new native writer.
-All 255 obligations remain open; assurances/managed pages 0 and tear-free pending.
+Source `cef27b1c`, release `127a222d11cc79fc`, session
+`session-000660160f4a668b-00` records a **verified enabled-entry suboperation
+and safe refusal of the full v27 sequence**. Firmware supplied BCS start
+`0x03eef000`, control `0x0000f001`, enabled mask 16, with the other engines
+quiet. The original registered entry child performs the existing single guarded
+`0xf000` control DWORD, advancing epoch 0→1. Four BCS8 observations, the fresh
+full 92-word post-census, both complete reader vectors, engine/context state and
+inherited display/HDA binding verify. Only the intended BCS enable bit changes;
+ring start, length and context remain intact. This is evidence for the bounded
+entry suboperation in this v27 image; old standalone v24/v25 images are not
+retroactively accepted.
 
-All 1,482 prior USB files/150 sessions, boot digest, offline fsck/allocation/
-writable/headroom, AC, Ubuntu default/consumed one-shot, volume 1% and 32 MiB EFI
-installation margin verify. Current/recovery/GUI and accepted observation/joint/
-standalone payloads are protected. The unreferenced prior dd91 EFI-only duplicate
-is retired after full durable-bank equality and boot-reference checks; its exact
-payload and native entry-only evidence remain banked. Candidate and full proof
-are hash-verified outside `build`. No installation or reboot is armed.
+Entry takes 95,637/150,000 us, BCS 38,262/100,000 us and original
+source age at the store is 43,047/100,000 us. Entry borrow return
+takes 4,775 us. HDA is 185,544/400,000 us and outer lifetime
+236,132/500,000 us. HDA Command 6/2/2/6, four original inspections and all
+14 GPU aliases/HDA root/CPU exclusion retire. There is no clock fault, retained
+uncertainty or unreturned child. All original limits remain unchanged.
 
-Next is an explicitly authorized unattended native trial with progress/checkpoints.
-Safe saved/unmounted outcomes return automatically; uncertain ownership or unsafe
-persistence halts visibly. Collect the matching session first on return. Original
-BCS/source 100 ms, entry 150 ms, handoff/fresh-source 100 ms, preparation/reset
-100 ms, GT 300 ms, HDA 400 ms, outer 500 ms and pending 32 polls/10 ms stay fixed.
-Native composed timing/restoration and remaining firmware/DMA/cache/translation/
-reader ownership remain pending. PR19 networking and PR379 WebCore are independent;
-Actions remain disabled; no delegation or task messaging. Checkpoint:
-`build/air-entry-requester-20261112/status.md`.
+Reset admission reason 1 correctly rejects kind 1/nonzero geometry; preparation,
+reset, re-arm/claim and GPU requester hold never enter. Requester PCI reads and
+stores are zero. `completed=NO` and all 23 collector alerts remain recorded.
+**The full entry/reset/requester trial is incomplete, not a pass.** No requester,
+managed-memory or native tear-free acceptance follows. All 255 obligations stay
+open, assurances and managed pages remain zero. Earlier v26 kind 2 entry/reset
+acceptance below remains exact-source historical evidence.
 
-Fresh main `a419f045` / PR478 adds independent storage-command tracing and an
-explicit v2 storage profile. Its 18-file delta is inspected and deferred until
-this frozen native trial is collected. It changes no GPU protocol. Preserve
-both storage v1/v2 and v27 GPU profile/collector dispatch when integrating.
-PR19 networking at `772f031c` and PR379 WebCore at `817f80bb` remain independent.
-No other task is contacted.
+All 1,482 prior files preserve except expected `.srvros/meta`; three exact logs
+produce 1,485 files/151 sessions. Offline fsck/allocation/writable/headroom,
+boot digest, installed/durable payload hashes, Ubuntu default, consumed one-shot
+and recovery pass. USB is unmounted; current 127a, prior accepted 74d, recovery
+9aa8, GUI c497 and accepted observation/joint/standalone payloads remain intact.
+Raw report, retained alerts and strict proof are banked outside `build`. No trial
+is armed. Return and persistence are safe; they do not convert refusal to success.
 
-### Latest native result: original-owner entry/reset accepted
+Main `a419f045` / PR478 is integrated after collection as `d582c510`. The explicit
+storage v1/v2 tracing dispatch and v27 GPU dispatch both survive. Affected
+ordinary/USB/native diagnostic builds, storage/role/BOT, USB/workspace-log/sync,
+staging, five targeted composed adapter tests, fourteen mixed-profile refusals
+and exact native report/checkpoint replay pass. GPU protocol implementation and
+decoder files are unchanged. These are affected local integration checks; frozen
+full 32-image/sanitizer qualification and the physical result remain source `cef27b1c`.
+PR19 networking and PR379 WebCore remain independent; Actions stay disabled.
+
+Next is an explicit nonzero-geometry reset ownership/epoch contract for this
+observed route. Preserve existing kind 2/zero-geometry gates. Do not clear
+geometry, force an entry state, retry unchanged for a different firmware result,
+or use this saved receipt as live authority. Managed GPU address/RAM transfer,
+completion/retirement and real flip publication remain separate milestones.
+Checkpoint: `build/air-entry-requester-20261112/status.md`.
+
+### Previous native result: original-owner entry/reset accepted
 
 Source `9e67bce7`, release `74d46f42447d218e`, session
 `session-0006600e477bf0c3-00` accepts the **same-original-owner zero-geometry

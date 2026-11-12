@@ -3,7 +3,7 @@
 This separate v27 diagnostic composes the accepted
 [zero-geometry entry/reset](intel-state-aware-reset.md) with the existing
 [original-claim requester hold](intel-gpu-requester-hold.md). Native acceptance
-is pending. The [Air7,2 record](machines/macbookair7-2.md) owns exact physical
+of the full sequence is pending. The [Air7,2 record](machines/macbookair7-2.md) owns exact physical
 results; a prior reset receipt cannot start another operation.
 
 The original full census selects the entry route. Only completed kind 2 entry,
@@ -75,10 +75,35 @@ lifetimes/2 KiB frames and image/wire isolation pass. The corrected saved-tail
 projection is 65,405/65,536 bytes including 1,536 reserve. Exact staged EFI/MBR
 unsupported-hardware refusal, saved checkpoint/unmount/automatic return and
 missing-workspace halt pass. This does not accept a native operative requester
-transition or timing. The candidate is hardware-ready, uninstalled and unarmed.
+transition or timing. At local qualification the candidate was hardware-ready, uninstalled and unarmed.
+The subsequent native result is recorded below.
 
 The earlier bbc77 gate was intentionally interrupted after finding that its
 banner projection substituted an old rehold message for the actual combined
 messages. The follow-up removes redundant standalone GPU progress only in the
 new image and audits the actual joint/banner selection. Store sequences,
 ownership gates, all deadlines and old-image output remain unchanged.
+
+## Native result: enabled entry completed; reset/requester safely refused
+
+Air7,2 source `cef27b1c` / release `127a222d11cc79fc`, session
+`session-000660160f4a668b-00`, arrives with an enabled BCS and nonzero
+start/control geometry. The original kind 1 entry performs one guarded disable
+and epoch 0→1, completes the fresh full census/readers and returns in
+95,637/150,000 us. Expected engine/context/display/HDA preservation verifies;
+HDA and all GPU/root aliases/exclusion retire. Source-age, BCS and outer bounds
+remain fixed, with no clock or retention fault. This verifies the bounded entry
+suboperation in this image, without accepting old standalone images.
+
+The subsequent admission correctly refuses kind 1/nonzero geometry with reason 1.
+Preparation/reset/claim/requester never enter; requester reads/stores remain zero.
+The saved run says `completed=NO`; all 23 collector alerts are retained. The full
+sequence remains incomplete. USB/file/allocation/recovery and exact raw
+checkpoint proofs pass independently; safe return is not requester acceptance.
+The [unit ledger](machines/macbookair7-2.md) owns full timing and evidence.
+
+Both naturally observed entry states now have native observations, but the
+existing reset accepts only the original kind 2 zero-geometry route. A new
+nonzero-geometry reset contract must explicitly own source/epoch, contexts and
+retirement; widening the old gate or clearing the ring is not that contract.
+All 255 broader obligations, managed backing and native tear-free remain open.

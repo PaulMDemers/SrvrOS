@@ -110,3 +110,16 @@ all four inspections, 14 GPU aliases/HDA root and CPU exclusion retire cleanly.
 The saved checkpoint, all prior files, offline filesystem and Ubuntu recovery
 verify; [the unit record](machines/macbookair7-2.md) owns exact acceptance limits.
 This is one bounded pass; its receipt cannot authorize a later boot or reset.
+
+## Later enabled-entry observation in the composed image
+
+Air7,2 source `cef27b1c` / release `127a222d11cc79fc` observes and verifies
+the bounded kind 1 entry writer inside the separate
+[v27 composition](intel-entry-requester.md#native-result-enabled-entry-completed-resetrequester-safely-refused).
+One guarded BCS control DWORD clears the enable bit, preserves nonzero start/
+length/context, advances epoch 0→1 and completes fresh census/readers/return in
+95,637/150,000 us. HDA/display preservation and clean retirement verify.
+The next reset correctly refuses nonzero geometry; the full sequence is
+incomplete and requester operations remain unentered. This is evidence only
+for that suboperation in the exact v27 image, not standalone v24/v25 acceptance
+or a memory grant. See the [unit record](machines/macbookair7-2.md).

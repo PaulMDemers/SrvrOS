@@ -105,6 +105,14 @@ Its implementation and local qualification now pass; native acceptance remains
 pending. Old v21/v26 evidence does not accept the new composition. Deadlines and all 255 obligations remain
 unchanged. It supplies no native mapping or memory assurance.
 
+The first native v27 trial (`cef27b1c` / `127a222d11cc79fc`) instead sees
+kind 1 enabled/nonzero entry. Its bounded single-store entry and preservation
+verify, but reset/requester admission correctly refuses; the full sequence stays
+incomplete. The [unit record](machines/macbookair7-2.md) retains all alerts and
+return integrity. Next requires an explicit nonzero-geometry reset/epoch ownership
+contract, preserving the original zero-geometry gate. No memory milestone below
+is promoted by the safe refusal or by the completed entry suboperation.
+
 ## Ordered implementation milestones
 
 | Milestone | Required implementation and reviewable exit evidence |

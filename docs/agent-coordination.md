@@ -820,3 +820,17 @@ Main `a419f045` / PR478 is an inspected independent storage-tracing update,
 deferred through exact-source native collection. Later integration must retain
 its explicit v1/v2 storage dispatch beside the new v27 GPU dispatch. Current
 Air7,2 recovery and evidence are unchanged; this notice schedules no task or boot.
+
+## Air v27 native refusal and main integration
+
+Source `cef27b1c` / release `127a222d11cc79fc` verifies its enabled-entry
+suboperation and clean retirement, then correctly refuses nonzero geometry
+before reset/requester. The full trial remains incomplete; retain `completed=NO`
+and its collector alerts. Standalone images and other devices gain no acceptance.
+A nonzero-geometry reset route needs a separate source/epoch/ownership contract;
+do not weaken kind 2 admission, clear geometry or reuse the saved receipt.
+
+Main `a419f045` is integrated after collection as `d582c510`, preserving both
+storage v1/v2 and v27 dispatch. Affected local checks pass; GPU implementation
+and decoder files are unchanged. The installed physical payload remains frozen
+`cef27b1c` and incomplete for requester acceptance. No new trial or task is scheduled.

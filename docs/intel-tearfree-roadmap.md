@@ -294,3 +294,16 @@ does not close those obligations: mask 255, assurances 0 and managed pages 0.
 Keep full original live-object/deadline rules; no geometry clearing, forced
 enable, saved-receipt authority or unchanged observation/reset retry. No new
 trial is armed.
+
+## Current entry/requester trial: safe nonzero-geometry refusal
+
+The v27 trial on Air7,2 source `cef27b1c` / release `127a222d11cc79fc`
+verifies the naturally enabled kind 1 entry writer, fresh post-census/readers,
+original return and clean HDA/GPU retirement. Its reset guard then refuses the
+nonzero geometry, leaving preparation/reset/requester unentered. Full completion
+is **not** accepted. The [composition result](intel-entry-requester.md#native-result-enabled-entry-completed-resetrequester-safely-refused)
+and [unit ledger](machines/macbookair7-2.md) retain `completed=NO`, all alerts and
+independent safe file/recovery proofs. Previous kind 2 zero-geometry reset
+acceptance remains unchanged. A separate nonzero-geometry ownership/epoch protocol
+is needed before this route can continue; no geometry clearing, forced state,
+old-gate widening or unchanged retry is planned. Managed memory/real flips remain open.
