@@ -34,6 +34,9 @@ bool workspace_scratch_prepare(void);
 bool workspace_scratch_ready(void);
 bool workspace_scratch_cycle(const uint8_t data[4096]);
 bool workspace_scratch_end(void);
+/* Explicit fixed32KiB diagnostic only; six balanced filesystem/direct extent
+ * pairs, no caller-supplied range and no change to the4096-byte scratch API. */
+bool workspace_storage_compare(void);
 void workspace_status(void);
 void workspace_boot(const char *cmdline);
 #endif

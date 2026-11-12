@@ -1278,3 +1278,15 @@ Checkpoint observation calls the existing scheduler checkpoint exactly once;
 it does not add a yield, grant eligibility or change transfer policy. Time
 outside callbacks/checkpoints remains unassigned, and software event timestamps
 must not be described as device completion or CPU time.
+
+### Isolated fixed-file storage control
+
+For the separate bounded filesystem/direct-extent comparison, use the ordinary
+matched kernel and `--laptop-probe-volume <this-unit-UUID>
+--storage-only-capture`, then the usual exact-stage `hardware_boot_smoke.py
+--probe-check --workspace-table gpt`, verified recovery/install, saved run record,
+one-shot and matching collection sequence. The guest needs no input and plays
+brief1% boundary cues outside storage timing. See the
+[comparison contract](storage-only-comparison.md) for twelve samples,180second
+bound, strict receipt/byte/allocation checks and terminal quarantine on uncertain
+I/O. This is a separate control, not a replacement for the combined stress trial.

@@ -5207,3 +5207,12 @@ build/tests/exfat-fat-window-host$(HOST_EXE): tools/test_exfat_fat_window.c kern
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-exfat-io-stack:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_io_stack.py
+
+# Isolated real workspace/exFAT/VFS/BOT comparison on disposable regular media.
+.PHONY: test-storage-compare
+test-storage-compare: build/tests/workspace-compare-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_storage_compare.py
+build/tests/workspace-compare-host$(HOST_EXE): tools/workspace_compare_host.c tools/storage_compare_host.h kernel/src/storage_compare.inc kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/usb_storage.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -D_POSIX_C_SOURCE=200809L -DSRVROS_WORKSPACE_HOST_TEST -DSRVROS_STORAGE_COMPARE_HOST_TEST -DSRVROS_EXFAT_HOST_TEST -DSRVROS_USB_STORAGE_HOST_TEST -DSRVROS_BLOCK_HOST_TEST -DSRVROS_BLOCK_CLAIM_HOST_TEST -include tools/storage_compare_host.h -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_compare_host.c kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/drivers/usb_storage.c kernel/src/vfs.c -Wl,--gc-sections -o $@
+test-core: test-storage-compare

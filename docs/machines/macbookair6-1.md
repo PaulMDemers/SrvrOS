@@ -12898,3 +12898,18 @@ has no competing workspace/direct-extent control. No other task is contacted.
 Current0d3/accepted4598/80b4/c7 and recoveryc354 plus their evidence are retained.
 Validate, self-merge and run automatically under existing sudo/reboot authorization;
 new native acceptance remains pending matching return.
+
+Implementation in PR476 adds the explicit `--storage-only-capture` ordinary-kernel
+profile and fixed twelve-sample producer. Disposable-media tests use the actual
+workspace/exFAT/VFS/BOT/block/claim code, including512/4096-byte sectors,
+4/128KiB clusters, exact authorized-range containment and terminal quarantine
+for partial writes, bad flushes, readback mismatch and invalid clocks/deadlines.
+The strict receipt checks all samples, CRCs, command/service clocks and retired
+leases; offline native collection additionally requires all prior files and
+allocation preservation. Source/VM validation and native installation remain
+pending; no physical performance or new acceptance result is claimed.
+
+Fresh pre-validation fetch keeps main at`f16fa5ab`; PR19 is now`5248f3cb`
+and PR301`42facdb0`. Their actual main/staging/smoke diffs add separate
+network/scanout profiles; this isolated workspace control remains independent.
+No other branch is merged or rewritten.
