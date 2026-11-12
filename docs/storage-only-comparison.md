@@ -276,3 +276,14 @@ write/flush/failure/tear sweeps additionally preserve complete media, filesystem
 checks and baseline-matched repair outcomes, including a private END with stale
 tail bytes that requires the full preparation path. None of these fixtures
 accepts native performance, cold-ID restoration or the older recovery gaps.
+
+Air6,1 release `8a89638dfb0281b5` now accepts this bounded native v3 observation:
+twelve samples in 5.874794 s, complete-field/role/byte/lease proof, preserved prior
+files and clean independent offline checks. Required updates use one 512-byte
+directory read instead of the previous nine reads/131584 bytes, with eleven
+writes/four flushes retained. All three rewrites include diagnostic-file
+atime/mtime/ctime plus marker atime, confirming that required persistence extends
+beyond the first differing field. Extra full-table audit work remains charged;
+neither total v2/v3 time nor this quiet run accepts loaded screenshot latency or
+cold-ID restoration. See the [unit record](machines/macbookair6-1.md) for the
+exact source, acceptance boundary and remaining work.

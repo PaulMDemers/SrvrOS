@@ -13435,3 +13435,58 @@ allocation before accepting native savings. Extra full-table audit reads stay
 charged to proof role 5; directory update work is role 4. Total v2/v3 timing is
 not a causal speed comparison. Cold-ID restoration remains PR19's separate work;
 loaded screenshot/commit latency remains open. No native result is claimed yet.
+
+### Native complete-field audit and directory reuse accepted (2026-11-12)
+
+Merged PR482 runtime `a45aaa1d` / release `8a89638dfb0281b5` completed native v3
+session `000660193a9f9efb-00`: all twelve 32 KiB samples/six pairs in 5.874794 s,
+both 1% cues, exact final sequence, CRC/readback/extent/claim retirement and clean
+automatic Ubuntu return. Independent review reparses the complete receipt,
+recomputes payload/CRC and wire bounds, rereads every file on a read-only mount,
+and repeats offline fsck/allocation. The bounded trial passes unchanged limits.
+
+Each required rewrite (samples 4/8/12) now uses one 512-byte directory read,
+versus nine reads/131584 bytes in the prior trial. Update-role commands fall from
+24 to 16, retaining eleven writes and four flushes. That avoids exactly 128 KiB
+of directory input per update. Native write bytes grow from 119808 to 120320 as
+the sidecar gains records; the host A/B remains the controlled proof of identical
+media and ordered writes/flushes. Equal samples 1/5/9 retain zero sidecar payload
+writes and their original clean flush.
+
+All six complete comparisons cover 1104 matched records with no namespace or
+representation changes. Each rewrite changes exactly two records: the diagnostic
+file's atime/mtime/ctime and the workspace marker's atime. Inode, permissions,
+link count and ownership are unchanged inside these comparisons. Thus marker-only
+timestamp suppression would still miss required file metadata persistence.
+Full audit reads nine commands/118784 bytes per filesystem sample in proof role
+5, charged inside the write interval. The 22989 row bytes/24241 receipt bytes fit
+the original 32 KiB receipt and 64 KiB tail. Maximum observed CSW callback is
+4.184 ms, with no callbacks over 100 ms in this quiet run.
+
+Filesystem writes take 53.203–84.312 ms versus 47.070–78.938 ms previously; no
+overall timing improvement follows from this v2/v3 comparison because full-table
+diagnostics and table growth differ. Direct writes remain 5.366–5.532 ms. Ordinary
+32 KiB filesystem replacement still transfers 128 KiB in eight data commands.
+The directory-read reduction is accepted; loaded screenshot/commit latency and
+end-to-end performance remain unaccepted.
+
+All 898 prior files remain; 897 non-sidecar hashes are identical and only the
+exact volume-root sidecar changes. The volume now has 902 files/4572 clusters,
+zero leaks, bitmap/FAT mismatches or errors. Final metadata has 1105 canonical
+records and unique nonzero IDs. Across the cold boot, 72 prior IDs are reassigned
+through the untouched legacy sequential restore path; other prior fields retain
+their values except the marker's atime. Stable cold identity remains unresolved,
+owned by PR19's separate restoration work, not accepted by this trial. Existing
+offline repair gaps likewise remain open.
+
+Installed/staged/independent payloads, retained recovery c354, prior accepted
+payloads, retired independent payloads, original failed-media archive and trial
+backup verify. Ubuntu remains default, the one-shot is consumed, BootNext is
+absent, the collector is disabled and USB is unmounted. The full return evidence
+is sealed outside build storage. No reboot or new trial is armed.
+
+Next useful checkpoint is the original automated audio/disk/app/three-screenshot
+stress at 1%, with full-field tracing off so its extra proof work does not alter
+that workload. Retain every original lifecycle, screenshot, byte, timing and
+integrity requirement; use that trial to assess the optimized ordinary path
+under contention. This result alone does not establish loaded latency savings.
