@@ -25,6 +25,7 @@ class Tests(unittest.TestCase):
   rows=self.rows
   at=next(i for i,s in enumerate(rows) if s.startswith('wifi-stream5-radio:'))
   with self.assertRaises(ValueError):self.check(rows[:at]+rows[at+4:])
+  with self.assertRaises(ValueError):self.check(rows[:at+4]+[rows[at+3]]+rows[at+4:])
   with self.assertRaises(ValueError):self.check(mutate(rows,'wifi-stream5-radio:','observation_only',0))
  def test_categorical_observations_survive_partial_protocol(self):
   rows=self.rows;result=c.observe_dhcp(text(rows))

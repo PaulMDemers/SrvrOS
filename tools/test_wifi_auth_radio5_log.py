@@ -22,7 +22,13 @@ class Tests(unittest.TestCase):
         rows=fixture()
         for i in range(len(rows)):
             for changed in (rows[:i]+rows[i+1:],rows[:i]+[rows[i]]+rows[i:]):
-                with self.subTest(i=i),self.assertRaises(ValueError):decode(changed)
+                with self.subTest(i=i):
+                    try:unused,n=decode(changed)
+                    except ValueError:continue
+                    # The composable decoder returns its consumed prefix;
+                    # the enclosing owner must reject any extra owned row.
+                    self.assertLess(n,len(changed))
+                    self.assertTrue(changed[n].startswith('wifi-stream5-radio-entry:'))
         with self.assertRaises(ValueError):decode(rows[2:]+rows[:2])
 
     def test_strict_schema_bounds_and_pop_order(self):
