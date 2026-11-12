@@ -196,3 +196,30 @@ remain subsecond. No performance improvement is accepted. Next audit the long
 payload status-completion path and shared commit ownership while preserving
 command/request sizes, fairness, deadlines, fresh-media proofs and flushes.
 All limits and integrity checks remain unchanged; no new run is armed.
+
+## Validated payload command tail, 2026-11-11
+
+[Complete native command context](commit-command-tail.md#native-complete-command-observation)
+on `0d3f2c1ce3a4aa4c` / runtime `fbea6abe` passes the same1,800-second1% stress:
+3,993 verified disk bursts,1,078 app cycles, three screenshots, zero recorded
+underruns,129.790ms maximum loop and clean worker/cache/battery retirement.
+Independent review retains all16 original contracts and both wait companions.
+Fresh rehash preserves all877 old files except expected metadata;886files/
+4552clusters have zero leaks, mismatches or errors.
+
+The exact worst3.124572-second private wait joins a SYS_SYNC owner and matching
+completed target content. Status callbacks overlap2.870563seconds (91.87%).
+The new selected payload WRITE has full original validation and complete phases:
+16KiB takes four data transfers totalling1.028ms, followed by370.267ms of status
+inside371.324ms of total command wall. The99.715% status share and198us
+post-observation resume separate that command's long completion wait from its
+data-upload interval. Source command flags are zero; logical range is16KiB
+aligned and contained within one128KiB cluster under read-only post-return
+geometry inspection. No flash location or historical allocation is inferred.
+
+Screenshot totals remain8.991598/16.109374/12.285139seconds, versus prior
+6.405844/10.675969/26.604312. Different media/interleaving and cold boots prevent
+a causal speed claim. Twelve matched content-payload statuses exceed100ms;
+long completion latency remains unresolved. A bounded storage-only write/flush
+control is the next useful comparison, preserving sizes, polling, deadlines,
+flushes and proofs. No new test or ownership/cache policy change is armed.
