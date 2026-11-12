@@ -12952,3 +12952,65 @@ The guest runs six balanced32KiB pairs within180seconds with brief1% boundary
 cues outside measurements, shows progress and returns automatically. No human
 input or listening report is required. Implementation/host/VM validation is
 complete; native performance/acceptance awaits this run's matching return.
+
+
+## Native storage-only comparison return (2026-11-12)
+
+Merged PR #476 (`087fff1b`) release `78cfda46ee1b63a0`, compiled from
+`527bbb81`, completed run `2923b641532e4681` in matching session
+`session-0006600cc8c0dd00-00`. All twelve balanced 32 KiB samples completed in
+5.602029 seconds, within the unchanged 180-second bound. The production parser
+and independent review validate each sequence CRC, complete fresh readback,
+six exclusive leases/alias revocations/retirements, command/service clocks and
+two completed 1% boundary cues. The final sequence-12 fixture independently
+matches all 32768 bytes, with 64 distinct sectors. No sustained PCM, desktop,
+battery, screenshot or human listening acceptance follows from this control.
+
+| Measured phase, per 32 KiB | Filesystem, milliseconds | Direct extent, milliseconds |
+| --- | ---: | ---: |
+| Write, including existing filesystem work/barriers | 46.004–77.938 | 5.371–5.390 |
+| Explicit flush | 0.404–0.405 | 0.577–0.579 |
+| Fresh readback | 4.347–4.352 | 1.852–1.858 |
+| Total measured I/O leg | 50.755–82.691 | 7.807–7.822 |
+
+The filesystem write stage issues 37 or 56 BOT commands versus two direct
+writes. Its slower samples follow a remount and have 19 additional commands;
+this is an observed association, not attribution to a particular metadata
+operation. The slowest selected write-stage CSW callback is 4.177 ms for a
+512-byte filesystem WRITE; direct 16 KiB WRITE maxima are 1.072–1.080 ms.
+The earlier seconds-long status waits do not reproduce in these short quiet
+measurements. Filesystem command amplification remains visible, and the prior
+loaded completion delay remains unresolved; this accepts no performance fix.
+
+The measured I/O legs total 0.449364 seconds. The remaining 5.152665 seconds
+include preparation, exclusive proofs, parking, retirement, remount/readback and
+final checks. Six gaps after direct I/O and before the next sample are
+817.078–833.309 ms; no individual operation inside those gaps is timed here.
+The direct data phase excludes those mandatory costs, so its smaller number
+must not be presented as end-to-end filesystem throughput or a safe bypass.
+Different order/cache/media state also prevents a causal speed claim.
+
+The automatic collector initially stopped on an incorrect Home-relative metadata
+exception. The sidecar is at the **volume root**, `.srvros/meta` (SrvrOS
+`/work/.srvros/meta`), as defined by the existing filesystem implementation.
+The original failed assessment/script/checks are retained with hashes. The local
+collector now uses that exact path; an explicit review of the same returned
+media passes without rearming, another boot or any device/acceptance-limit change.
+All 886 prior files remain, with only this expected private metadata sidecar
+changed and all other 885 hashes identical. Four new files yield 890 files and
+4557 allocated clusters; exfatprogs and independent traversal report zero leaks,
+FAT/bitmap mismatches or errors. New logs and the fixture match collected hashes.
+
+Current/staged/independent candidate, recovery `c35475f62f154f1e`, accepted
+0d3/4598/80b4/c7 payloads, retired c95f's independent full payload, the original
+failed-media archive and the matching trial backup verify. Ubuntu remains the
+default, firmware order is preserved, one-shot is consumed, BootNext is absent,
+collector is disabled and USB is unmounted. No reboot is armed. The bounded
+quiet control is accepted for this unit; sustained status latency and the older
+intermittent battery transport-fault cause remain unresolved.
+
+A useful next step is per-role filesystem/BOT accounting during bounded repeated
+writes, retaining all proofs, barriers, sizes and deadlines. Separate the
+37/56-command metadata/proof work from load-dependent status-completion tails;
+this control alone cannot explain or clear the screenshot delays. No new
+implementation or physical trial has started at this checkpoint.
