@@ -15,6 +15,7 @@
 static struct block_device *active, *parked;
 static char active_uuid[9];
 static bool failed;
+static bool comparison_poisoned;
 static uint64_t mount_generation, hold_serial;
 static struct {
     uint64_t token, generation;
@@ -147,7 +148,7 @@ bool workspace_mount_held(void) {
  * keep the workspace unmounted and must not enable writes during the lease. */
 struct block_device *workspace_parked_device(void) {
     struct block_device *parent=block_parent(parked);
-    return !active && !failed && parked && parent && block_device_online(parked) &&
+    return !active && !failed && !comparison_poisoned && parked && parent && block_device_online(parked) &&
         usb_storage_is_device(parked) && !parked->write && !parent->write &&
         !parent->flush ? parked : NULL;
 }
@@ -163,7 +164,7 @@ bool workspace_mount(const char *uuid) {
     struct scope scope;
     if (!begin(&scope)) { end(&scope); return false; }
     bool ok = false;
-    if (mount_hold.token || mount_generation==UINT64_MAX || workspace_image_busy() || scratch.open || scratch.poisoned || active || vfs_lookup("/work")) { console_write("workspace: /work is busy\n"); goto out; }
+    if (mount_hold.token || mount_generation==UINT64_MAX || workspace_image_busy() || scratch.open || scratch.poisoned || comparison_poisoned || active || vfs_lookup("/work")) { console_write("workspace: /work is busy\n"); goto out; }
     struct block_device *device = find_volume(serial);
     struct block_device *parent = block_parent(device);
     if (!device || !parent || parent->write) {
@@ -233,7 +234,7 @@ bool workspace_scratch_prepare(void) {
     struct scope scope;
     if(!begin(&scope)){end(&scope);return false;}
     bool ok=false;
-    if(mount_hold.token||scratch.open||scratch.poisoned||!active||failed||
+    if(mount_hold.token||scratch.open||scratch.poisoned||comparison_poisoned||!active||failed||
        !block_claim_available(block_parent(active),active)||process_has_open_vfs_prefix("/work"))goto out;
     char path[]="/work/srvros-work/battery-io-0000000000000000.bin";
     uint64_t nonce=timer_monotonic_us();
@@ -288,6 +289,12 @@ bool workspace_scratch_end(void) {
     console_printf("workspace-scratch: revoked clean=%s\n",ok?"yes":"NO");
     end(&scope);return ok;
 }
+
+#if !defined(SRVROS_WORKSPACE_HOST_TEST) || defined(SRVROS_STORAGE_COMPARE_HOST_TEST)
+#include "storage_compare.inc"
+#else
+bool workspace_storage_compare(void) {return false;}
+#endif
 
 void workspace_boot(const char *cmdline) {
     static const char key[] = "srvros.workspace-volume=";

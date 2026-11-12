@@ -192,6 +192,17 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(boot.limine_config('0123456789abcdef',old),boot.limine_config('0123456789abcdef',new))
         self.assertNotEqual(boot.release_id({},old),boot.release_id({},new))
 
+    def test_storage_only_isolated_profile(self):
+        version='ram-usb-v1-storage-only-laptop-probe-6ada85bb-auto-return'
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        config=boot.limine_config('0123456789abcdef',version)
+        for token in ('srvros.capture=storage-only','srvros.audio=hda','srvros.capture-failure=reboot','srvros.workspace-volume=6ada85bb'):
+            self.assertIn(token,config)
+        for token in ('srvros.battery=on','srvros.aml=probe','srvros.desktop=session','probe-autoreboot','srvros.power=','srvros.vtd-window=','srvros.capture-write-timing='):
+            self.assertNotIn(token,config)
+        for options in ({},dict(laptop_probe_volume='6ada85bb',hold_on_failure=True),dict(laptop_probe_volume='6ada85bb',battery_air61=True),dict(laptop_probe_volume='6ada85bb',desktop_volume='6ada85bb'),dict(laptop_probe_volume='6ada85bb',storage_wait_capture=True),dict(laptop_probe_volume='6ada85bb',audio_listen=True),dict(laptop_probe_volume='6ada85bb',repeat=2)):
+            with self.assertRaises(ValueError):boot.stage(storage_only_capture=True,**options)
+
     def test_capture_write_timing_opt_in(self):
         for model,uuid in [('air61','6ada85bb'),('air72','37d8c5d0')]:
             version=f'ram-usb-v1-capture-write-{model}-desktop-{uuid}'

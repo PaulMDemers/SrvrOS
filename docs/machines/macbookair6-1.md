@@ -12873,3 +12873,144 @@ of that fault captured here. A useful next control is bounded storage-only
 write/flush work to separate filesystem/interleaving effects from completion
 latency under the same sizes, polling, deadlines and integrity checks. No further
 implementation or physical test has started at this checkpoint.
+
+## Active bounded storage-only comparison (2026-11-11)
+
+From main `f16fa5ab`, prepare a separate fixed32KiB filesystem/direct-extent
+write/flush/readback control, six balanced pairs within the existing180-second
+comparison bound. Keep16KiB transport commands,4KiB DMA segments, current polling,
+all deadlines, filesystem barriers/proofs and allocation/claim/quarantine checks.
+The old4096-byte battery scratch API remains unchanged; use the existing general
+exclusive-range proof for a fresh32KiB fixture, park the outer filesystem, revoke
+all public write aliases and retain the whole-device raw claim during direct I/O.
+No caller-supplied raw offset/length or reuse of user documents. Any uncertain
+write/readback poisons the capability and refuses filesystem reentry for that boot.
+
+Scope: explicit opt-in workspace comparison, automatic boot profile/controller,
+compact bounded receipts, strict collection, actual producer and lease/fault
+fixtures. Pause periodic logging while measuring; verify all sample bytes/CRC,
+raw containment, fresh readback, clean lease retirement and offline file/allocation
+preservation. Use1% volume with brief boundary cues outside measured storage;
+there is no continuous desktop/app/battery/audio workload in this isolated
+control. Historical30-minute stress requirements and acceptance stay separate.
+PR19 `b9f78149` owns separate logger startup/Wi-Fi capture hunks; PR301 `890d0fd3`
+has no competing workspace/direct-extent control. No other task is contacted.
+Current0d3/accepted4598/80b4/c7 and recoveryc354 plus their evidence are retained.
+Validate, self-merge and run automatically under existing sudo/reboot authorization;
+new native acceptance remains pending matching return.
+
+Implementation in PR476 adds the explicit `--storage-only-capture` ordinary-kernel
+profile and fixed twelve-sample producer. Disposable-media tests use the actual
+workspace/exFAT/VFS/BOT/block/claim code, including512/4096-byte sectors,
+4/128KiB clusters, exact authorized-range containment and terminal quarantine
+for partial writes, bad flushes, readback mismatch and invalid clocks/deadlines.
+The strict receipt checks all samples, CRCs, command/service clocks and retired
+leases; offline native collection additionally requires all prior files and
+allocation preservation. Source/VM validation and native installation remain
+pending; no physical performance or new acceptance result is claimed.
+
+Fresh pre-validation fetch keeps main at`f16fa5ab`; PR19 is now`5248f3cb`
+and PR301`42facdb0`. Their actual main/staging/smoke diffs add separate
+network/scanout profiles; this isolated workspace control remains independent.
+No other branch is merged or rewritten.
+
+The full core/desktop/docs baseline and ordinary sysabi, USB input, thread exec
+and USB write/reload VM regressions passed at`7c89275d`. Final review strengthens
+only the new optional fixture/collector: distinct512-byte sectors and16KiB
+chunks catch a transport that aliases both reads and writes, and ring-counter
+validation respects unsampled empty observations while requiring the exact
+empty/event partition and original service coverage. Final affected-path,
+matched-image and exact-stage requalification is pending. Controller limits,
+policies, integrity proofs, existing payloads and ordinary startup are unchanged.
+
+
+### Ready isolated native comparison
+
+Final optional fixture/collector source`527bbb81` passed36 real-stack cases,
+including distinct-sector/chunk alias corruption and legitimate unsampled-empty
+observations, original block/USB/workspace/image leases and logger checks,
+93 boot/installer unit tests, documentation, exact-stage GPT saved receipt/full
+fixture/offline fsck and ordinary sysabi/USB input/thread exec/USB write-reload
+VM regressions. The separately retained full core/desktop/docs baseline is
+`7c89275d`; only the new payload and collector/fault fixture changed afterward.
+No controller, filesystem, scheduler, polling, deadline or integrity limit changed.
+
+Release`78cfda46ee1b63a0` is installed from the matched ordinary kernel/initramfs.
+The exact-stage run completes all12 samples and saves the stronger final payload.
+Actual Air6,1 UUID`6ADA-85BB`, AC, all886 prior file hashes, headroom/full allocation,
+independent accepted payloads and original failed-media archive verify. Ubuntu
+remains default with recovery`c35475f62f154f1e`; accepted0d3/4598/80b4/c7 remain on
+EFI and independently backed up. Only the unreferenced, fully verifiedc95f EFI
+duplicate was retired; its complete independent payload is retained. Five old
+inactive synthetic stream fixtures were losslessly archived with per-file SHA
+verification to keep build headroom; native evidence and active fixtures remain.
+
+The saved local run is`2923b641532e4681`; its new automatic collector requires
+one matching session, all12 CRC/byte/command/service samples, six retired leases,
+exact final sequence12 bytes, prior-file preservation and offline fsck/allocation.
+The guest runs six balanced32KiB pairs within180seconds with brief1% boundary
+cues outside measurements, shows progress and returns automatically. No human
+input or listening report is required. Implementation/host/VM validation is
+complete; native performance/acceptance awaits this run's matching return.
+
+
+## Native storage-only comparison return (2026-11-12)
+
+Merged PR #476 (`087fff1b`) release `78cfda46ee1b63a0`, compiled from
+`527bbb81`, completed run `2923b641532e4681` in matching session
+`session-0006600cc8c0dd00-00`. All twelve balanced 32 KiB samples completed in
+5.602029 seconds, within the unchanged 180-second bound. The production parser
+and independent review validate each sequence CRC, complete fresh readback,
+six exclusive leases/alias revocations/retirements, command/service clocks and
+two completed 1% boundary cues. The final sequence-12 fixture independently
+matches all 32768 bytes, with 64 distinct sectors. No sustained PCM, desktop,
+battery, screenshot or human listening acceptance follows from this control.
+
+| Measured phase, per 32 KiB | Filesystem, milliseconds | Direct extent, milliseconds |
+| --- | ---: | ---: |
+| Write, including existing filesystem work/barriers | 46.004–77.938 | 5.371–5.390 |
+| Explicit flush | 0.404–0.405 | 0.577–0.579 |
+| Fresh readback | 4.347–4.352 | 1.852–1.858 |
+| Total measured I/O leg | 50.755–82.691 | 7.807–7.822 |
+
+The filesystem write stage issues 37 or 56 BOT commands versus two direct
+writes. Its slower samples follow a remount and have 19 additional commands;
+this is an observed association, not attribution to a particular metadata
+operation. The slowest selected write-stage CSW callback is 4.177 ms for a
+512-byte filesystem WRITE; direct 16 KiB WRITE maxima are 1.072–1.080 ms.
+The earlier seconds-long status waits do not reproduce in these short quiet
+measurements. Filesystem command amplification remains visible, and the prior
+loaded completion delay remains unresolved; this accepts no performance fix.
+
+The measured I/O legs total 0.449364 seconds. The remaining 5.152665 seconds
+include preparation, exclusive proofs, parking, retirement, remount/readback and
+final checks. Six gaps after direct I/O and before the next sample are
+817.078–833.309 ms; no individual operation inside those gaps is timed here.
+The direct data phase excludes those mandatory costs, so its smaller number
+must not be presented as end-to-end filesystem throughput or a safe bypass.
+Different order/cache/media state also prevents a causal speed claim.
+
+The automatic collector initially stopped on an incorrect Home-relative metadata
+exception. The sidecar is at the **volume root**, `.srvros/meta` (SrvrOS
+`/work/.srvros/meta`), as defined by the existing filesystem implementation.
+The original failed assessment/script/checks are retained with hashes. The local
+collector now uses that exact path; an explicit review of the same returned
+media passes without rearming, another boot or any device/acceptance-limit change.
+All 886 prior files remain, with only this expected private metadata sidecar
+changed and all other 885 hashes identical. Four new files yield 890 files and
+4557 allocated clusters; exfatprogs and independent traversal report zero leaks,
+FAT/bitmap mismatches or errors. New logs and the fixture match collected hashes.
+
+Current/staged/independent candidate, recovery `c35475f62f154f1e`, accepted
+0d3/4598/80b4/c7 payloads, retired c95f's independent full payload, the original
+failed-media archive and the matching trial backup verify. Ubuntu remains the
+default, firmware order is preserved, one-shot is consumed, BootNext is absent,
+collector is disabled and USB is unmounted. No reboot is armed. The bounded
+quiet control is accepted for this unit; sustained status latency and the older
+intermittent battery transport-fault cause remain unresolved.
+
+A useful next step is per-role filesystem/BOT accounting during bounded repeated
+writes, retaining all proofs, barriers, sizes and deadlines. Separate the
+37/56-command metadata/proof work from load-dependent status-completion tails;
+this control alone cannot explain or clear the screenshot delays. No new
+implementation or physical trial has started at this checkpoint.
