@@ -7,6 +7,53 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Priming return: first HTTP complete, second AUTH reply absent (November 11)
+
+Runtimeb9f78149/release1d4200b78462bde8 returned automatically with all seven
+independent journal checkpoints and saved USB logs in
+session0006600b0d6b96c3-00. The once-only collection is closed FAILED for the
+complete two-connection/RF-parent workload. The unchanged full checker refuses
+the missing channel-VCO inverse rows after the second connection fails; this
+must not be bypassed to label the whole capture successful.
+
+The retained32-page early queue receives all five calibration replies. Exact
+Stop and context-preserving Set TR Dequeue hand a fresh ring to the ordinary
+eight-frame discovery window, which receives six beacons and selects the target.
+No calibration replay, priming-buffer reuse or payload inspection occurs.
+Connection1 then completes authentication, four-way software CCMP, production
+DHCP/DNS and actual-process HTTP:4159 request bytes,3072 body bytes, genuine EOF,
+child/worker/TCP closure, key erasure, leave submission, native endpoint closure
+and provider detach. It takes1.395319s. This is a bounded successful first
+lifetime within an overall failed run, not a new full-parent acceptance.
+
+Connection2 allocates fresh native rings, submits AUTH and receives25 unrelated
+management frames in751568us. There is no matching peer AUTH response, rejection
+or malformed peer response, and no ASSOC/key/IP attempt. The native stream has
+no recorded ownership/HCD fault; exact Stop/context restoration completes and
+the unused child/worker is retired. USB OUT completion proves host transport
+completion, not AP acknowledgement. The cause of the missing AUTH reply remains
+unproved; a historical single-connection AUTH miss also disappeared on a later
+run without a causal correction.
+
+All468 prior files retain their non-sidecar bytes and metadata except one
+authorized marker atime; only two session logs are new. Offline fsck/allocation,
+61 other EFI-file bytes and seven protected recovery checks pass. The immutable
+1309-file primary index is
+`7fb8fce2b49a4b23f56d0886eb451147530dacf4657c546d16e000d92656bde1`.
+Separate two-file observation review rehashes every primary file and records
+the failed protocol and complete journal independently; its index is
+`1fdd75e6449c45ca30aaa1ff1a27e783aa8c7c68bc1495f053941641112e9daa`.
+Never recollect/reseal either bank. Ubuntu is default/unarmed, with installed
+1d4200b78462bde8 and e47dca3a6b30c6c1 direct fallback retained.
+
+Next bounded scope: integrate fetched main61b60f83 (PR473/474 commit-wait and
+USB status diagnostics; no Wi-Fi overlap), then audit the stream AUTH transmit,
+USB toggle handoff, RX framing and management response path. Add a source-bound
+actual-native-path reproduction and discriminating delivery observations before
+another hardware run. Do not hide the miss with an unproved delay, relaxed
+ownership check or larger timeout. PR19 owns this Wi-Fi work; PR301 GPU/HDA,
+PR379 WebCore and Air6,1 storage diagnostics remain separate. No task is contacted.
+
 ### Matched native pair: receive ordering supported (November 11)
 
 Runtime9f05567d uses the same kernel/initramfs/firmware/journal descriptor for

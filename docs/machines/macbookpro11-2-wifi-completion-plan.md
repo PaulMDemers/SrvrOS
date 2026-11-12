@@ -9,6 +9,20 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 11)
 
+The v147 b9f78149/1d4200b78462bde8 return is closed failed for the complete
+paired workload. Priming, all five calibration replies, fresh discovery and
+the first actual-process DHCP/DNS/HTTP lifetime succeed; its keys, software
+owners and native endpoints close. The second fresh connection sends AUTH but
+sees25 unrelated management frames and no peer AUTH reply within751568us.
+No association, key or IP attempt follows. Independent journal/storage/recovery
+proofs pass; the whole RF parent remains incomplete. See the unit record for
+immutable primary/review hashes. Do not recollect or call this full acceptance.
+
+Next audit distinguishes USB completion from radio delivery/AP acknowledgement
+and checks receive framing/response admission. Integrate fetched main61b60f83
+before a new candidate and cover any changes through actual native C, fatal
+sanitizers and matched image/recovery checks. Ubuntu remains default/unarmed.
+
 The matched9f05567d pair is collected and closed. Late publication receives four
 replies and loses final RXDCOC1 at sequence3825, with zero prefix/exact event
 through1.5s and no data queue published. Early publication receives all five,
