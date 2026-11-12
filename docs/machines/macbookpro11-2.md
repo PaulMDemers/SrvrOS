@@ -1,11 +1,65 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-11. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed161/20MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-12. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed161/20MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
 
 ## Current handoff
+
+### Priming complete; discovery window exhausted before target (November 12)
+
+Runtimef0f77ed7/release1b555afb6e2f942b saved a complete exit and all seven
+independent checkpoints in session0006600d65d218e7-00. The once-only collection
+is closed FAILED for the paired HTTP workload. This attempt never starts AUTH,
+keys, DHCP or HTTP, so it does not physically exercise the new failed-bootstrap
+cleanup. The unused prepared child and parked worker retire normally.
+
+All five calibration replies, the32-page prime, exact stopped-ring retarget and
+ordinary eight-page receive/MAC/Stop cleanup report success. The ordinary window
+ends after259541us because all eight slots complete, not because its10-second
+time limit expires. Six parsed beacons produce two other rows and zero target
+matches; selection returns UNAVAILABLE. A fresh Linux scan after collection
+still sees Demers5 on US161/5805MHz. That observation does not prove what the AP
+transmitted during SrvrOS. The finite eight-frame snapshot can miss the target
+in competing traffic; it cannot be treated as a ten-second discovery guarantee.
+
+The power child then refuses admission because no target was selected. Its
+false return aborts the enclosing channel-VCO inspection before inverse RF
+operations: parent_restored=0, zero connections. The unchanged full checker
+correctly rejects missing inverse rows. Calibration/local endpoint cleanup is
+an observation within a failed parent, not complete RF or connection acceptance.
+The physical DHCP/AUTH misses from previous runs remain unexplained.
+
+All471 prior workspace files and metadata survive apart from one authorized
+marker atime; only boot.log and exit.log are new. Offline fsck/allocation,
+63 other EFI-file bytes, installed payload and seven protected recoveries pass.
+The immutable1396-file primary index is
+`912d9c71ccf872b5a9de7fcee180429fee48299d06f02d76841ac9871da85783`.
+A separate two-file return review rehashes every primary file and has index
+`553d2748b828c9a29000f5066e850a066ce33c60497d76d6fb0f2bde623a59c3`.
+Never recollect or reseal either bank. Ubuntu is default/unarmed; installed
+1b555afb6e2f942b and direct e47dca3a6b30c6c1 fallback remain retained.
+
+Qualification before this boot completed on frozenf0f77ed7:15 native connection
+cases,37 terminal-API and72 supervisor cases pass normal and fatal ASan/UBSan;
+restoring only the old supervisor reproduces the earlier photographed DHCP
+hold with the new native no-offer fixture. This establishes the hold's software
+cause, not physical packet-loss causation.77 native priming cases, seven
+exact-stage journal/recovery VMs, the471-file private clone and actual guest
+ELF/production-DNS/exact-HTTP VM also pass within their stated modeled scopes.
+
+Next bounded scope: integrate inspected main7c1a08a0 (PR476/477 isolated Air6,1
+storage comparison/evidence), preserving both explicit capture profiles. PR478
+storage command accounting, PR301 GPU/HDA and PR379 WebCore remain separate;
+PR19 owns Wi-Fi. Then fix target-unavailable cleanup without granting power,
+handoff, AUTH or IP authority, and replace the connection trial's accidental
+eight-frame discovery limit with a separately bounded retained receive design.
+Preserve stopped-before-inspection, original RF/USB guards, no uncertain DMA
+reuse and unique PSK/CCMP target validation. Cover competing/hidden/malformed
+traffic, absent/ambiguous target, capacity/deadline, late events, teardown and
+actual native continuation before another physical trial. Do not retry this
+image blindly or infer DHCP-failure cleanup acceptance from this return.
 
 ### AUTH-status trial held at first DHCP failure (November 11)
 
@@ -74,7 +128,8 @@ Handled failures also emit a histogram of the already-recorded RX parser
 results after native closure, distinguishing no parsed data from structural,
 peer, generic CCMP or LLC refusals. It performs no new packet inspection or
 live I/O; CCMP refusal is not by itself a specific MIC diagnosis.
-Final frozen-source/fatal/counterfactual/image qualification remains pending.
+Final frozen-source/fatal/counterfactual/image qualification subsequently passed
+onf0f77ed7, as recorded in the November12 return above.
 The physical DHCP packet-loss cause remains unknown; this corrects the hold
 and missing final diagnostic path. No new boot is armed.
 

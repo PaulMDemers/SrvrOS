@@ -7,7 +7,33 @@ Edimax7392:a711 MT7610 is5GHz-only. Target Demers5 WPA2-PSK/CCMP,US161/20MHz.
 Demers2.4 requires a different compatible adapter;it is a separate hardware scope.
 
 
-## Current checkpoint (November 11)
+## Current checkpoint (November 12)
+
+Thef0f77ed7/1b555afb6e2f942b return saved a full exit and all seven independent
+journal phases. Calibration/prime/local MAC/endpoint cleanup report success,
+but eight receive slots fill in259541us with competing traffic and no target.
+No AUTH, keys, DHCP or HTTP starts; the new DHCP failure cleanup is unexercised.
+The later power admission refusal aborts RF inverse cleanup, so the paired
+workload and whole parent remain failed. All471 prior files/metadata, offline
+allocation,63 other EFI files and seven recoveries pass. Primary1396-file and
+separate return-review banks are closed; their hashes are in the unit record.
+Ubuntu is default/unarmed. Linux still sees Demers5 on161 after the run; that
+does not prove its transmissions during the native window.
+
+Frozen-source qualification before that boot passes15 native/37 API/72
+supervisor normal/fatal cases, the old-supervisor hold counterfactual,77 native
+priming cases, seven exact-stage journal modes,471-file clone and actual guest
+ELF/DNS/HTTP. Software qualification and physical acceptance stay distinct.
+
+Next integrate inspected main7c1a08a0/PR476–477, preserve the Air storage profile,
+then address two explicit discovery boundaries: semantic target absence must
+permit proven original RF cleanup without granting connection authority; the
+connection scan needs a bounded retained receive design that can outlast the
+first eight unrelated frames. Keep stopped-before-inspection and strict unique
+SSID/RSN choice, capacity/deadline/late-event/ownership refusal and exact native
+teardown. Qualify the actual native path before installing another trial.
+
+### Earlier DHCP hold and software correction
 
 The c19df1e793c3da81/5248f3cb diagnostic was manually restarted at first-DHCP
 failure (site7/phase3/reason6,2.000804s), with no recorded native ownership fault
