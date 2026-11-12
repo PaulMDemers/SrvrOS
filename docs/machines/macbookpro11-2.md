@@ -7,6 +7,55 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### v149 return: AUTH trace saved; DHCP Offer absent (November 12)
+
+Runtime4d976eda/release83aefd1acd8829ed is collected once and closed FAILED
+in session0006601712182ae8-00. A full1909896-byte exit and all seven independent
+checkpoints survive. The new frozen observation decoder passes the actual
+initial AUTH trace: one empty pre-AUTH FIFO pair, then one valid post-AUTH
+entry followed by empty, six control reads total. Raw FIFO entries alone are
+not interpreted as AP acknowledgement. A matched peer AUTH reply arrives
+in2691us and association in709us; both views normalize successfully. Discovery
+selects the target in its first window. This exercises trace delivery/decoding,
+not extra discovery windows, missing-target cleanup or sustained AUTH reliability.
+One successful run does not establish a causal timing fix.
+
+The first encrypted production epoch completes AUTH/ASSOC/M1/M2/M3/M4, activates
+keys and submits/completes two encrypted DHCP Discover transfers. The original
+one retry/two-second budget expires before any Offer, Request or ACK. One
+authenticated54-byte Ethernet frame reaches DHCP and is rejected in the
+Ethernet/non-IPv4 category; no IPv4/UDP/DHCP message reaches that parser.
+USB completion does not prove AP reception of the Discover. Neither router
+loss nor a specific transmit, receive or cryptographic defect is established.
+
+The saved failed-RX histogram classifies45 records:44 at DATA5_FRAME,one OK,
+zero CCMP/peer/LLC/flags/shape refusals; seven records remain unclassified
+(management/drain). FRAME means the protected-from-DS shape was not admitted,
+not proof that all44 were irrelevant beacons. Their detailed frame class and
+USB entry/aggregation structure are not recorded here. No MIC failure is
+demonstrated. Next diagnose encrypted Discover delivery and receive framing/
+classification before protocol admission, keeping the original security gates,
+reply budgets and no-unsafe-replay rule; do not retry this image blindly.
+
+The failed-bootstrap cleanup is physically exercised: child status137 with
+GO0, child/worker retired, TCP empty, receiver closed, software references
+scrubbed, key erasure/leave, local endpoint/input restoration and all nine power
+originals report complete. Both Discover TXs finish;52 raw RX completions are
+borrowed/released and the remaining posted RX authority is consumed into the
+terminal handoff. No native/provider faults are recorded. The outer RF inverse
+does not run (restored0,operations2636); the full success checker correctly
+refuses. Connection2 and HTTP never start. Summary observations are not a full
+independent failure-ledger or whole-parent acceptance.
+
+All475 prior files/strict metadata survive except one authorized marker atime;
+two logs are new. Offline fsck/allocation,65 other EFI-file bytes and seven
+protected recovery checks pass. Ubuntu is default/unarmed. The immutable1444-
+file primary index is
+`ed7e3551fedd00b7b3d1b96f009617a0fd39558bb074eda7e1d1737928e54aa8`.
+The separate source-frozen return review rehashes every primary file and has
+index`b438074bec722eab66b3ad9e9774a8522c46b1f9bbc06a3548b7a5ee4c9ddcf5`.
+Do not recollect or reseal either bank. No new boot is armed.
+
 ### First-AUTH recipe/collection qualification (November 12)
 
 PR19 now owns v149 first-AUTH tracing recipe and observation decoder. Fetched

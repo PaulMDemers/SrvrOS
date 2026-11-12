@@ -9,6 +9,27 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 12)
 
+The v1494d976eda/83aefd1acd8829ed return is collected once and closed FAILED.
+Its first-AUTH trace is saved and passes the frozen decoder: matched AUTH in
+2691us, association in709us, six bounded radio control reads and anonymous
+normalized framing. The first encrypted epoch completes four-way/key activation
+but DHCP times out after two submitted/completed Discovers, before any Offer/
+Request/ACK. Only one authenticated non-IPv4 Ethernet reaches DHCP. The RX
+histogram has44 FRAME refusals,one OK,zero recorded CCMP refusals and seven
+unclassified records. That does not identify a MIC failure or prove AP reception
+of the transmitted packets. Detailed encrypted RX frame/aggregation classes and
+Discover radio delivery are the next diagnostic boundary, under unchanged gates.
+
+Failed-bootstrap child/worker/receiver/TCP/reference/key/local-native cleanup
+is exercised and reports closure. The outer RF inverse does not run; connection2
+and HTTP do not start. Full exit/seven checkpoints,475-file/metadata preservation,
+offline checks,65 other EFI bytes and seven recoveries pass. The primary1444-file
+and separate return-review banks are immutable; hashes are in the unit record.
+Ubuntu is default/unarmed. No unchanged blind retry or new whole-parent/network
+acceptance follows; one fast AUTH does not accept sustained reliability.
+
+### Earlier v148 return
+
 The v148 runtime772f031c/6a9d28cc6aefc3e6 return is collected and closed FAILED.
 It saves a full exit and all seven checkpoints, selects Demers5 in the first
 eight-frame window, then expires the initial open AUTH deadline at750104us.
