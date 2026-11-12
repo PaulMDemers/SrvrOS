@@ -49,9 +49,16 @@ The next authorized trial is unattended and silent at 1%, with guest progress,
 persistent reports and automatic return for proved safe saved outcomes. Uncertain
 ownership/persistence halts visibly. Collect the matching session before any
 other run. Native v29 acceptance and tear-free remain pending; all 255 obligations
-remain, with assurances/managed pages zero. PR19 networking (`1bb1d9f0`) and
+remain, with assurances/managed pages zero. PR19 networking (`37ae8304`) and
 Air6,1 storage/power stay independent. Checkpoint:
 `build/air-nonzero-source-20261112/status.md`.
+
+Main advanced to `c44a9e51` / PR482–483 during qualification. Its complete
+sidecar audit, reusable metadata-directory-slot proof and storage-only v3/main/
+staging changes were inspected; Intel GPU implementation files are unchanged.
+Integration is deferred until this exact candidate's matching collection. Keep
+its shared v1/v2/v3 storage dispatch beside v29 when merging; do not silently
+replace the frozen payload or infer acceptance for the later runtime.
 
 ### Native nonzero-geometry reset accepted
 

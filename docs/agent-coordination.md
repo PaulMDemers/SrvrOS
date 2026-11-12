@@ -877,3 +877,9 @@ and exact-stage VM refusal/save/return pass. Candidate is banked, not installed
 or armed; accepted v28/recovery remain. Native source reads/timing stay pending.
 All original budgets and 255 obligations remain unchanged. This does not
 schedule or contact another task, grant memory, or accept another machine.
+
+Main `c44a9e51` / PR482–483 landed during v29 qualification. The inspected changes
+add full sidecar audit, reusable directory-slot reads and storage-only v3; Intel
+GPU implementation files are unchanged. Defer integration through matching
+native collection of frozen `a9418c83` / `451cd4d6a9f36faa`. Preserve both shared
+v1/v2/v3 storage and GPU profile branches afterward; no task or boot is scheduled.
