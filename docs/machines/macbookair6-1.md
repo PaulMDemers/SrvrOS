@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-11-11. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-11-12. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 Current diagnostic milestone: the exact-source pre-user two-pass read-only
 sampler is physically accepted on release `2ddbd3b285f6bf41`. All24 DWORD reads
@@ -19,6 +19,11 @@ status callbacks cover 91.87% of the worst 3.125-second private wait.
 Screenshot totals remain 8.99/16.11/12.29 seconds. This accepts bounded diagnostic
 and functional coverage; long completion latency and its device/controller cause
 remain unresolved, with no isolated performance improvement claimed.
+
+Latest isolated storage checkpoint: release `084167c2be826f2a` accepts the
+[bounded command attribution](#native-command-attribution-return-2026-11-12).
+The [next sidecar trial](#ready-native-sidecar-remount-trial) is installed on
+`998fdfb9b4f9c5a8`, with host/VM validation complete and native acceptance pending.
 
 ## Initial inventory (2026-10-22)
 
@@ -13187,8 +13192,8 @@ unchanged transport policy and brief 1% boundary cues outside measurement.
 PR19 at `41c49fde` owns metadata decoder/atomic restore changes; its actual
 exFAT diff remains confined to parse/apply/load admission. Do not duplicate that
 implementation. PR301 at `537eed80` has no exFAT/VFS overlap. Work stays in the
-existing local device checkout with no subagents or cross-task contact. Model
-MacBookAir6,1 and USB UUID `6ADA-85BB` are confirmed; current accepted `084167c2`,
+existing local device checkout with no subagents or cross-task contact. The local
+MacBookAir6,1 and designated USB UUID are confirmed in the ignored run record; current accepted `084167c2`,
 recovery `c35475f6`, prior accepted payloads and outside-build evidence remain
 protected. The previous run is collected, independently reviewed and sealed.
 Publish the bounded candidate, run matched host/core/desktop and exact-stage VM
@@ -13222,3 +13227,46 @@ scheduler operation is added. One filesystem comparison and zero raw-path
 comparisons are required, with all sums bounded by final counters. The first
 build/focused/exact-stage VM pass is retained; its incomplete broad suite was
 stopped deliberately for this refinement and is not represented as a pass.
+
+### Ready native sidecar remount trial
+
+Source `9c1bd01a` passes the matched ordinary build, canonical/legacy-order real
+importer regression, original sidecar publication/refusal/fault controls, 72
+v1/v2 producer cases and 36 legacy observer controls with identical ordered BOT
+bytes/clock calls/media, maximum-width wire/scratch bounds, storage leases and
+SYS_SYNC checks, boot tests, full core/desktop/docs and ordinary syscall ABI,
+USB input, thread exec and USB write/reload VM regressions. The 89-case installer
+matrix retains its one platform skip; the existing 81 strict-allocation failures
+after offline repair remain baseline limitations, not accepted recovery. Initial
+diagnostic-unit setup failures and the superseded partial broad run are retained.
+
+Candidate `998fdfb9b4f9c5a8` has exact final-source kernel/initramfs provenance.
+Its exact GPT stage passes all twelve samples, full bytes/CRC/lease/role/service
+checks and required paired final/per-sample first-field evidence. Five filesystem
+samples compare equal; sample four first differs in atime. That identifies the
+first changed field in this VM, not every changed field or a native cause. The
+host interleaved-node fixture separately proves and removes order-only traffic.
+No timestamp suppression, persistence deferral, cache of equality, changed limit
+or native/sustained screenshot improvement is claimed.
+
+Fresh local model/USB/AC and all 894 prior file hashes verify, along with clean
+exfatprogs, full allocation, writable admission and headroom. The candidate is
+installed and independently backed up. Ubuntu remains default, firmware order
+is stable and recovery `c35475f62f154f1e` is retained. Current accepted 0841 and
+prior 0d3/4598/80b4/c7 payloads remain installed and independently protected. Only
+the unreferenced 78cf EFI duplicate was retired after complete independent-payload
+verification; its payload and accepted evidence remain outside build storage.
+PR19 at `4d976eda` still changes only the separate decoder/restore loader hunks;
+PR301 at `8353e4e3` has no overlap with this writer/trace scope. Neither is consumed
+or contacted. The payload's runtime source remains exactly the tested revision.
+
+The saved local run requires twelve original 32 KiB samples/six balanced pairs,
+180 seconds, unchanged transport/ownership/proof/retirement checks and every prior
+file hash except the exact volume-root sidecar update. It adds one valid equality
+comparison per filesystem write, none per raw write, reconciled first-field/shape
+counters and unchanged receipt bounds. Brief 1% cues remain outside measurement.
+Progress and results are automatic; no human input is needed. The return collector
+is enabled; this recorded ready checkpoint is unarmed. Self-merge, save the full
+independent run backup and arm the authorized one-shot next. On Ubuntu return,
+collect and review the matching evidence before staging another trial. Long loaded
+USB waits and screenshot latency remain unresolved.
