@@ -43,25 +43,59 @@ static bool compare_trace_end(struct storage_compare_sample *r) {
         !r->content.invalid && q->valid && q->complete && q->ok && q->role<USB_STORAGE_CONTENT_ROLES &&
         q->csw_start_us==c->start_us && q->csw_end_us==c->end_us;
 }
-static void compare_emit(const struct storage_compare_sample *r) {
+/* Exact decimal wire sizing for these fixed, unsigned-only row formats. This
+ * runs after measurements. Refuse excess evidence; never grow or truncate logs. */
+static bool compare_row_budget(uint64_t *wire,unsigned length,const uint64_t *values,unsigned count) {
+    uint64_t bytes=length-2u*count;
+    for(unsigned i=0;i<count;i++) {
+        uint64_t v=values[i];do {bytes++;v/=10;}while(v);
+    }
+    if(bytes>=1024 || bytes>30720 || *wire>30720-bytes)return false;
+    *wire+=bytes;return true;
+}
+#define COMPARE_ROW(fmt,...) do { \
+    if(wire) {const uint64_t values[]={__VA_ARGS__}; \
+        if(!compare_row_budget(wire,sizeof(fmt)-1,values,sizeof(values)/sizeof(values[0])))return false;} \
+    else console_printf(fmt,__VA_ARGS__); \
+}while(0)
+static bool compare_emit(const struct storage_compare_sample *r,uint64_t *wire) {
     const struct usb_storage_timing *u=&r->usb;
-    console_printf("storage-only-sample: version=1 seq=%u kind=%u start_us=%u end_us=%u bytes=32768 write_us=%u flush_us=%u read_us=%u crc=%u offset=%u retired=%u cbws=%u cbw_us=%u data_calls=%u data_us=%u csws=%u csw_us=%u failures=%u valid=%u flush_csws=%u flush_valid=%u read_csws=%u read_valid=%u ok=%u\n",
+    COMPARE_ROW("storage-only-sample: version=1 seq=%u kind=%u start_us=%u end_us=%u bytes=32768 write_us=%u flush_us=%u read_us=%u crc=%u offset=%u retired=%u cbws=%u cbw_us=%u data_calls=%u data_us=%u csws=%u csw_us=%u failures=%u valid=%u flush_csws=%u flush_valid=%u read_csws=%u read_valid=%u ok=%u\n",
         r->sequence,r->kind,r->start,r->end,r->write_us,r->flush_us,r->read_us,r->crc,r->offset,r->retired,
         u->calls[0],u->us[0],u->calls[1],u->us[1],u->calls[2],u->us[2],u->failures,(uint64_t)u->valid,r->flush_io.calls[2],(uint64_t)(r->flush_io.valid&&!r->flush_io.failures),r->read_io.calls[2],(uint64_t)(r->read_io.valid&&!r->read_io.failures),r->ok);
     const struct usb_storage_command_timing *q=&r->content.command;
     const struct usb_storage_csw_timing *c=&u->csw;
-    console_printf("storage-only-command: version=1 seq=%u opcode=%u bytes=%u valid=%u complete=%u ok=%u role=%u start_us=%u end_us=%u csw_start=%u csw_end=%u cbw_calls=%u cbw_us=%u data_calls=%u data_req=%u data_actual=%u data_us=%u csw_calls=%u csw_us=%u ck_calls=%u ck_us=%u\n",
+    COMPARE_ROW("storage-only-command: version=1 seq=%u opcode=%u bytes=%u valid=%u complete=%u ok=%u role=%u start_us=%u end_us=%u csw_start=%u csw_end=%u cbw_calls=%u cbw_us=%u data_calls=%u data_req=%u data_actual=%u data_us=%u csw_calls=%u csw_us=%u ck_calls=%u ck_us=%u\n",
         r->sequence,c->opcode,c->command_bytes,q->valid,q->complete,q->ok,q->role,q->start_us,q->end_us,q->csw_start_us,q->csw_end_us,
         q->phase[0].calls,q->phase[0].us,q->phase[1].calls,q->phase[1].requested,q->phase[1].actual,q->phase[1].us,q->phase[2].calls,q->phase[2].us,q->checkpoint_calls,q->checkpoint_us);
     const struct usb_bulk_timing *b=&c->sample;
-    console_printf("storage-only-service: version=1 seq=%u start_us=%u end_us=%u requested=%u actual=%u ok=%u submitted=%u observed=%u resumed=%u seen=%u valid=%u checks=%u samples=%u gap=%u completion_gap=%u empty=%u events=%u last_empty=%u\n",
+    COMPARE_ROW("storage-only-service: version=1 seq=%u start_us=%u end_us=%u requested=%u actual=%u ok=%u submitted=%u observed=%u resumed=%u seen=%u valid=%u checks=%u samples=%u gap=%u completion_gap=%u empty=%u events=%u last_empty=%u\n",
         r->sequence,c->start_us,c->end_us,c->request_bytes,c->actual,c->ok,b->submitted,b->observed,b->resumed,(uint64_t)b->seen,(uint64_t)b->service_valid,b->service_checks,b->service_samples,b->service_gap_max_us,b->completion_gap_us,b->empty_checks,b->event_checks,b->last_empty_sample_us);
+    return true;
 }
+/* All seven role totals are represented by this mask, including implicit zeros.
+ * Fixed metadata only; print after all measured operations and scope retirement. */
+static bool compare_emit_roles(const struct storage_compare_sample *r,uint64_t *wire) {
+    uint64_t mask=0;
+    for(unsigned i=0;i<USB_STORAGE_CONTENT_ROLES;i++) {
+        const struct usb_storage_content_role *p=&r->content.roles[i];
+        if(p->read_commands || p->write_commands || p->flush_commands || p->other_commands || p->failed_commands || p->csw_calls)mask|=1u<<i;
+    }
+    COMPARE_ROW("storage-only-roles: version=1 seq=%u mask=%u roles=7 valid=%u\n",r->sequence,mask,r->content.valid);
+    for(unsigned i=0;i<USB_STORAGE_CONTENT_ROLES;i++)if(mask&(1u<<i)) {
+        const struct usb_storage_content_role *p=&r->content.roles[i];
+        COMPARE_ROW("storage-only-role: version=1 seq=%u role=%u reads=%u read_bytes=%u writes=%u write_bytes=%u flushes=%u other=%u failed=%u csws=%u csw_us=%u writes512=%u write_csw_us=%u write512_csw_us=%u max_us=%u slow=%u write_slow=%u write512_slow=%u\n",
+            r->sequence,(uint64_t)i,p->read_commands,p->read_bytes,p->write_commands,p->write_bytes,p->flush_commands,p->other_commands,p->failed_commands,
+            p->csw_calls,p->csw_us,p->write512_commands,p->write_csw_us,p->write512_csw_us,p->worst.end_us-p->worst.start_us,p->over100ms,p->write_over100ms,p->write512_over100ms);
+    }
+    return true;
+}
+#undef COMPARE_ROW
 static void compare_poison(struct block_device *parent) {
     comparison_poisoned=failed=true;
     if(parent)block_invalidate(parent); /* Terminal identity; never reset/reuse pending DMA. */
 }
-bool workspace_storage_compare(void) {
+static bool storage_compare_run(bool roles) {
     struct scope scope;if(!begin(&scope)){end(&scope);return false;}
     bool ok=false;unsigned completed=0;uint64_t claim=0;
     struct block_device *volume=active,*parent=block_parent(active);
@@ -74,7 +108,7 @@ bool workspace_storage_compare(void) {
     for(unsigned i=0;i<16;i++)path[sizeof("/work/srvros-work/storage-compare-")-1+i]="0123456789abcdef"[(nonce>>(60-i*4))&15];
     if(vfs_lookup(path))goto out; /* Existing paths are never overwritten. */
     compare_ran=true;compare_pattern(0);
-    console_printf("storage-only: begin version=1 path=%s start_us=%u bytes=32768 pairs=6 samples=12 limit_us=180000000 policy=unchanged\n",path,start);
+    console_printf("storage-only: begin version=%u path=%s start_us=%u bytes=32768 pairs=6 samples=12 limit_us=180000000 policy=unchanged\n",(uint64_t)(roles?2:1),path,start);
     if(!exfat_write_file(path,compare_payload,STORAGE_COMPARE_BYTES) || !sync_locked() || !compare_file_read(path,parent)) {
         compare_poison(parent);goto finish;
     }
@@ -153,11 +187,19 @@ finish:
         if(!block_claim_release(claim))compare_poison(parent);
         else {claim=0;if(!workspace_mount(uuid))ok=false;}
     }
+    uint64_t row_bytes=0;bool wire_ok=true;
+    if(roles)for(unsigned i=0;wire_ok && i<completed;i++)
+        wire_ok=compare_emit(&compare_samples[i],&row_bytes) && compare_emit_roles(&compare_samples[i],&row_bytes);
+    ok=ok && wire_ok;
     if(ok && (timer_monotonic_us()<start || timer_monotonic_us()-start>STORAGE_COMPARE_LIMIT_US))ok=false;
     console_printf("storage-only: complete=%s samples=%u elapsed_us=%u mounted=%u clean=%u final_seq=%u\n",ok?"yes":"NO",(uint64_t)completed,timer_monotonic_us()-start,(uint64_t)(active==volume),(uint64_t)!comparison_poisoned,(uint64_t)completed);
     end(&scope);
-    for(unsigned i=0;i<completed;i++)compare_emit(&compare_samples[i]);
+    if(roles)console_printf("storage-only-wire: version=1 row_bytes=%u reserve=2048 limit=32768 valid=%u\n",row_bytes,(uint64_t)wire_ok);
+    if(wire_ok)for(unsigned i=0;i<completed;i++) {compare_emit(&compare_samples[i],NULL);if(roles)compare_emit_roles(&compare_samples[i],NULL);}
     return ok;
 out:
     end(&scope);return false;
 }
+
+bool workspace_storage_compare(void) {return storage_compare_run(false);}
+bool workspace_storage_compare_trace(void) {return storage_compare_run(true);}

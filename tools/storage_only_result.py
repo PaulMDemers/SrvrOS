@@ -29,10 +29,10 @@ def rows(text,prefix):
 
 def capture_result(text,require_audio=True):
     try:
-        begin=re.findall(r'^storage-only: begin version=1 path=(/work/srvros-work/storage-compare-[0-9a-f]{16}\.bin) start_us=(\d+) bytes=32768 pairs=6 samples=12 limit_us=180000000 policy=unchanged$',text,re.M)
+        begin=re.findall(r'^storage-only: begin version=([12]) path=(/work/srvros-work/storage-compare-[0-9a-f]{16}\.bin) start_us=(\d+) bytes=32768 pairs=6 samples=12 limit_us=180000000 policy=unchanged$',text,re.M)
         end=re.findall(r'^storage-only: complete=(\S+) samples=(\d+) elapsed_us=(\d+) mounted=(\d+) clean=(\d+) final_seq=(\d+)$',text,re.M)
         assert len(begin)==len(end)==1
-        path,start=begin[0];start=int(start);status,count,elapsed,mounted,clean,final=end[0]
+        version,path,start=begin[0];version=int(version);start=int(start);status,count,elapsed,mounted,clean,final=end[0]
         assert status=='yes' and count==final=='12' and mounted==clean=='1' and 0<int(elapsed)<=LIMIT
         assert start and int(path[-20:-4],16)==start
         groups=[rows(text,p) for p in ('storage-only-sample','storage-only-command','storage-only-service')]
@@ -74,12 +74,56 @@ def capture_result(text,require_audio=True):
             assert b['empty']+b['events']==b['checks']
             if b['last_empty']:assert b['empty'] and b['submitted']<=b['last_empty']<=b['observed']
             if not b['empty']:assert not b['last_empty']
+        role_result=[]
+        if version==2:
+            heads=rows(text,'storage-only-roles');details=rows(text,'storage-only-role');wire=rows(text,'storage-only-wire')
+            assert len(heads)==12 and [x['seq'] for x in heads]==list(range(1,13))
+            assert len(wire)==1 and wire[0]['version']==wire[0]['valid']==1 and wire[0]['reserve']==2048 and wire[0]['limit']==32768
+            actual_rows=[l for l in text.splitlines(keepends=True) if any(l.startswith(p+':') for p in ('storage-only-sample','storage-only-command','storage-only-service','storage-only-roles','storage-only-role'))]
+            assert all(l.endswith('\n') for l in actual_rows)
+            assert sum(map(len,actual_rows))==wire[0]['row_bytes']<=30720
+            assert len(details)==sum(x['mask'].bit_count() for x in heads)
+            assert [(x['seq'],x['role']) for x in details]==sorted({(x['seq'],x['role']) for x in details})
+            for sample,command,head in zip(groups[0],groups[1],heads):
+                assert head['version']==head['valid']==1 and head['roles']==7 and 0<head['mask']<128
+                found=[x for x in details if x['seq']==sample['seq']]
+                assert {x['role'] for x in found}=={i for i in range(7) if head['mask']&(1<<i)}
+                assert sum(x['csws'] for x in found)==sample['csws']
+                assert sum(x['csw_us'] for x in found)==sample['csw_us']
+                for x in found:
+                    assert x['version']==1 and x['failed']==x['other']==0
+                    assert x['csws']==x['reads']+x['writes']+x['flushes']>0
+                    for count,byte in [('reads','read_bytes'),('writes','write_bytes')]:
+                        assert x[byte]%512==0 and x[count]*512<=x[byte]<=x[count]*16384
+                    assert x['writes512']<=x['writes'] and x['writes512']*512<=x['write_bytes']
+                    assert x['write512_csw_us']<=x['write_csw_us']<=x['csw_us']
+                    if not x['writes']:assert x['write_csw_us']==0
+                    if not x['writes512']:assert x['write512_csw_us']==0
+                    if x['writes512']==x['writes']:
+                        assert x['write_bytes']==x['writes512']*512 and x['write_csw_us']==x['write512_csw_us']
+                    assert x['write512_slow']<=x['write_slow']<=x['slow']<=x['csws']
+                    assert x['write512_slow']<=x['writes512'] and x['write_slow']<=x['writes']
+                    assert bool(x['slow'])==(x['max_us']>100000)
+                    for count,total in [('slow','csw_us'),('write_slow','write_csw_us'),('write512_slow','write512_csw_us')]:
+                        if x[count]:assert x[total]>x[count]*100000
+                    assert x['max_us']<=x['csw_us']
+                    if x['csws']==1:assert x['max_us']==x['csw_us']
+                selected=next(x for x in found if x['role']==command['role'])
+                assert selected['max_us']==command['csw_us']==max(x['max_us'] for x in found)
+                if sample['kind']:
+                    assert head['mask']==64
+                    raw=found[0];assert raw['writes']==2 and raw['write_bytes']==32768 and raw['reads']==raw['flushes']==raw['writes512']==0
+                else:
+                    assert head['mask']&63 and any(x['role']==2 and x['write_bytes']>=32768 for x in found)
+                role_result.append(dict(seq=sample['seq'],mask=head['mask'],roles=found))
+        else:
+            assert not any(rows(text,p) for p in ('storage-only-roles','storage-only-role','storage-only-wire'))
         assert len('\n'.join(l for l in text.splitlines() if l.startswith('storage-only'))) <32768
         if require_audio:
             assert text.count('storage-only-audio:')==1
             assert len(re.findall(r'^storage-only-audio: volume=1 cues=2 stopped=yes quiet=yes clean=yes$',text,re.M))==1
             assert 'laptop-capture: completed=yes' in text
-        return dict(status='PASS',path=path,bytes=BYTES,pairs=6,samples=12,elapsed_us=int(elapsed),volume=1,
+        return dict(status='PASS',version=version,roles=role_result,path=path,bytes=BYTES,pairs=6,samples=12,elapsed_us=int(elapsed),volume=1,
                     filesystem=[r for r in groups[0] if not r['kind']],direct=[r for r in groups[0] if r['kind']],
                     commands=groups[1],service=groups[2],native_acceptance=False)
     except (AssertionError,KeyError,ValueError,TypeError):return None

@@ -1411,6 +1411,13 @@ brief1% boundary cues outside storage timing. See the
 bound, strict receipt/byte/allocation checks and terminal quarantine on uncertain
 I/O. This is a separate control, not a replacement for the combined stress trial.
 
+The separate v2 attribution trial adds `--storage-command-trace` to that same
+explicit storage-only stage command. Rehearse the exact GPT/MBR layout and require
+version 2, all role masks/rows, exact command/status sums and the bounded wire
+receipt, alongside every original sample, byte, lease and offline filesystem
+check. It retains the original twelve writes/six pairs, 180-second bound and 1%
+boundary cues. No controller policy, limit or integrity shortcut is enabled.
+
 ### Original-owner entry/reset/requester diagnostic
 
 The separate [v27 composition](intel-entry-requester.md) uses

@@ -6143,11 +6143,12 @@ test-intel-ring-reset: build/tests/intel-ring-reset-adapter$(HOST_EXE) build/tes
 
 # Isolated real workspace/exFAT/VFS/BOT comparison on disposable regular media.
 .PHONY: test-storage-compare
-test-storage-compare: build/tests/workspace-compare-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
+test-storage-compare: build/tests/workspace-compare-host$(HOST_EXE) build/tests/workspace-compare-legacy$(HOST_EXE) build/tests/storage-role-wire$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
+	build/tests/storage-role-wire$(HOST_EXE)
 	$(PYTHON) tools/test_storage_compare.py
-build/tests/workspace-compare-host$(HOST_EXE): tools/workspace_compare_host.c tools/storage_compare_host.h kernel/src/storage_compare.inc kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/usb_storage.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c $(KERNEL_HEADERS)
+build/tests/workspace-compare-host$(HOST_EXE) build/tests/workspace-compare-legacy$(HOST_EXE): tools/workspace_compare_host.c tools/storage_compare_host.h kernel/src/storage_compare.inc kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/usb_storage.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
-	$(HOST_CC) -D_POSIX_C_SOURCE=200809L -DSRVROS_WORKSPACE_HOST_TEST -DSRVROS_STORAGE_COMPARE_HOST_TEST -DSRVROS_EXFAT_HOST_TEST -DSRVROS_USB_STORAGE_HOST_TEST -DSRVROS_BLOCK_HOST_TEST -DSRVROS_BLOCK_CLAIM_HOST_TEST -include tools/storage_compare_host.h -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_compare_host.c kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/drivers/usb_storage.c kernel/src/vfs.c -Wl,--gc-sections -o $@
+	$(HOST_CC) $(if $(findstring legacy,$@),-DSRVROS_EXFAT_LEGACY_ROLE_MODEL,) -D_POSIX_C_SOURCE=200809L -DSRVROS_WORKSPACE_HOST_TEST -DSRVROS_STORAGE_COMPARE_HOST_TEST -DSRVROS_EXFAT_HOST_TEST -DSRVROS_USB_STORAGE_HOST_TEST -DSRVROS_BLOCK_HOST_TEST -DSRVROS_BLOCK_CLAIM_HOST_TEST -include tools/storage_compare_host.h -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_compare_host.c kernel/src/workspace.c kernel/src/block.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/drivers/usb_storage.c kernel/src/vfs.c -Wl,--gc-sections -o $@
 test-core: test-storage-compare
 
 # Original entry/reset plus original-claim requester inhibition/restoration.
@@ -6175,3 +6176,7 @@ test-core: test-intel-entry-requester
 test-intel-entry-requester: build/tests/intel-entry-requester-adapter$(HOST_EXE) build/tests/boot-entry-requester$(HOST_EXE) build/tests/intel-gt-boot$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_entry_requester.py
 	build/tests/boot-entry-requester$(HOST_EXE)
+
+build/tests/storage-role-wire$(HOST_EXE): tools/test_storage_role_wire.c kernel/src/storage_compare.inc kernel/src/workspace.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
