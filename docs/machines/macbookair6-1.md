@@ -13490,3 +13490,77 @@ stress at 1%, with full-field tracing off so its extra proof work does not alter
 that workload. Retain every original lifecycle, screenshot, byte, timing and
 integrity requirement; use that trial to assess the optimized ordinary path
 under contention. This result alone does not establish loaded latency savings.
+
+## Active post-sidecar combined stress qualification (2026-11-12)
+
+From fetched main `c44a9e51`, prepare the existing Air6,1 automatic capture-write
+desktop profile against the merged filesystem improvements. Retain the original
+1800-second PCM/disk/app workload at 1%, three exact screenshots, 500 ms loop and
+10-second lifecycle limits, every fresh byte/CRC/allocation proof, flush, ownership
+and retirement requirement. The heavy storage-only full-field audit is off;
+ordinary screenshot/write/commit diagnostics and all collection contracts remain.
+No runtime, scheduler, device gate, power policy or workload-limit edit is planned.
+
+The matching v3 return is reviewed and sealed; no physical run is outstanding.
+Local model, USB identity, installed current and recovery stay in the ignored run
+record. Keep current 8a89, the accepted command-tail stress payload and recovery
+c354 available. Publish only this unit's preparation/evidence; no subagents or
+cross-task contact. PR19 at `37ae8304` retains its separate metadata restoration
+scope; PR301 at `5bfaa366` changes separate display profiles and shared staging
+hunks, without a competing storage or audio/disk-stress implementation.
+
+Runtime source is unchanged from fully qualified `a45aaa1d`; retain its complete
+core/desktop/docs and ordinary boot evidence through an exact source-equivalence
+check. Build matched ordinary, native and synthetic battery kernels; rerun focused
+filesystem/lease/capture/sync/profile checks, populated/throttled positive stress
+with a large sidecar, independently parse its receipts and rehearse the exact
+native stage. Fresh physical preflight must preserve every prior file except the
+explicitly renewed 1% preference, retain verified recovery and save the on-disk
+run/collection record before self-merge and authorized one-shot reboot. Native
+loaded performance remains pending the matching thirty-minute return.
+
+### Post-sidecar stress candidate qualified and installed (2026-11-12)
+
+Source `dca44437` / release `9463151939d54175` passes fresh matched ordinary,
+native Air6,1 and synthetic battery builds, sampler-isolation checks, focused
+filesystem/lease/reserved-append/audio/capture/sync/commit/battery/profile/desktop
+regressions, 95 boot-profile tests, ordinary screenshot VM and exact-stage UEFI
+rehearsal. The latter correctly refuses the foreign board and returns; positive
+workload execution is separately verified by the synthetic battery fixture.
+All runtime/build/dependency/test sources remain byte-identical to fully tested
+`a45aaa1d`, and complete ordinary kernel/initramfs hashes are identical. Its sealed
+full core/desktop/docs and ordinary ABI/input/thread/USB qualification is retained
+explicitly rather than reported as a new suite execution.
+
+The populated 400-write-IOPS KVM run adds 1100 preserved archive records and
+existing Home files. It completes sixty seconds at 1%, 179 verified disk bursts
+(46923776 bytes), 21 app cycles, an exact screenshot and zero recorded underruns.
+Maximum loop is 141.350 ms; ready/close maxima are 1.059933/1.366323 s, within the
+unchanged bounds. Independent parsing passes the original saved contracts, raw
+BMP/binary receipt, append waits, exact owner/status correlation and validated
+command context with complete phases. No guest input is injected. These are
+virtual qualification results, not native speed acceptance.
+
+The existing capture-write Air6,1 profile is unchanged. Its configuration and
+positive saved logs omit heavy full-field metadata activation and rows. Original
+ordinary fresh-byte sidecar equality, screenshot/write/commit diagnostics and
+all timing/integrity checks remain. The candidate retains thirty-minute PCM,
+the existing audio tail allowance, continuous verified disk work, app cycles,
+three screenshots, 500 ms loop and 10-second lifecycle limits, and clean desktop,
+battery, cache and worker retirement.
+
+Physical preflight retains all 902 prior files, renewing only the explicit 1%
+volume preference expiry. Before/after fsck, allocation, headroom and write
+admission pass with 4572 clusters and zero leaks/errors. Installed/staged/
+independent candidate and prior payloads verify. Current 8a89, accepted stress
+0d3, prior 998f/80b4/c7 and recovery c354 stay installed. Only the independently
+verified, unreferenced 4598 EFI duplicate is retired; its full payload remains
+outside build storage. Ubuntu default/firmware order remain unchanged, the USB
+is unmounted and the matching automatic return collector is enabled.
+
+Next checkpoint is the authorized self-merge and one-shot launch, with the full
+run/recovery/volume/check record and independent backup saved before reboot.
+No native loaded result is claimed until the matching thirty-minute session,
+all three screenshot byte proofs, every original receipt, prior-file hashes and
+offline allocation are collected and independently reviewed. The earlier battery
+transport-fault cause, cold-ID restoration and offline repair gaps remain open.
