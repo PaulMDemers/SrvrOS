@@ -177,7 +177,8 @@ static void record_bulk(struct usb_storage_timing *target,unsigned phase,uint64_
     }
 }
 static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
-                       uint32_t length,uint32_t *actual,uint8_t opcode,uint32_t command_bytes) {
+                       uint32_t length,uint32_t *actual,uint8_t opcode,uint32_t command_bytes,
+                       struct commit_command_anchor *anchor) {
     bool legacy=timing_active,auxiliary=aux_timing_active;
     bool owner_status=phase==2 && sync_commit_wait_status_enabled();
     if(!legacy && !auxiliary && !content_active && !owner_status)return s->bulk(s->context,in,data,length,actual);
@@ -186,6 +187,7 @@ static bool timed_bulk(struct usb_storage *s,unsigned phase,bool in,void *data,
     uint64_t start=timer_monotonic_us();
     bool ok=s->bulk(s->context,in,data,length,actual);
     uint64_t end=timer_monotonic_us();
+    if(anchor)*anchor=(struct commit_command_anchor){start,end};
     owner_status_active=previous_owner_status;
     struct usb_bulk_timing sample={0};
     if(s->transfer_timing)s->transfer_timing(s->context,&sample);
@@ -265,6 +267,19 @@ static void put_be32(uint8_t *p, uint32_t n) {
 static void copy(void *out, const void *in, uint32_t n) {
     for (uint32_t i=0;i<n;i++) ((uint8_t *)out)[i]=((const uint8_t *)in)[i];
 }
+static void commit_command_done(struct usb_storage *s,const uint8_t *cdb,uint8_t cdb_len,
+    bool traced,bool ok,const struct commit_command_anchor *anchor) {
+    if(!sync_commit_wait_status_enabled() || !anchor->start_us || !anchor->end_us ||
+       cdb_len!=10 || (cdb[0]!=0x28 && cdb[0]!=0x2a && cdb[0]!=0x35))return;
+    struct commit_command_timing q={.available=1,.phases=traced,.tag=s->tag,
+        .opcode=cdb[0],.lba=be32(cdb+2),.blocks=((uint32_t)cdb[7]<<8)|cdb[8],
+        .sector_size=s->sector_size,.flags=cdb[1]};
+    if(traced)q.timing=content_command;
+    else q.timing=(struct usb_storage_command_timing){.valid=1,.role=USB_STORAGE_CONTENT_ROLES};
+    q.timing.complete=1;q.timing.ok=ok;
+    q.timing.csw_start_us=anchor->start_us;q.timing.csw_end_us=anchor->end_us;
+    sync_commit_wait_command(&q);
+}
 static void record_error(struct usb_storage *s, uint8_t opcode, uint8_t phase,
     const char *reason, uint32_t tag, uint32_t actual, const uint8_t csw[13]) {
     s->error_command=s->commands; s->error_opcode=opcode; s->error_phase=phase;
@@ -278,6 +293,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     bool in, void *data, uint32_t length) {
     if (s->failed || cdb_len==0 || cdb_len>16 || length>sizeof(s->data)) return -1;
     uint8_t cbw[31]={0}, csw[13]={0};
+    struct commit_command_anchor anchor={0};
     uint32_t actual=0, transferred=0, tag=++s->tag;
     put_le32(cbw,0x43425355); put_le32(cbw+4,tag); put_le32(cbw+8,length);
     cbw[12]=in?0x80:0; cbw[14]=cdb_len; copy(cbw+15,cdb,cdb_len);
@@ -286,7 +302,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     latency_usb(length,cdb[0]);
     uint8_t phase = 1; /* CBW, data, CSW, then full-transfer validation. */
     const char *reason = "cbw-transfer";
-    if (!timed_bulk(s,0,false,cbw,sizeof(cbw),&actual,cdb[0],length)) goto bad;
+    if (!timed_bulk(s,0,false,cbw,sizeof(cbw),&actual,cdb[0],length,NULL)) goto bad;
     reason="cbw-length";
     if (actual!=sizeof(cbw)) goto bad;
     phase = 2;
@@ -297,7 +313,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
         uint32_t chunk=length-transferred;
         if(chunk>USB_STORAGE_BULK_BYTES)chunk=USB_STORAGE_BULK_BYTES;
         actual=0;reason="data-transfer";
-        if(!timed_bulk(s,1,in,(uint8_t *)data+transferred,chunk,&actual,cdb[0],length)) {
+        if(!timed_bulk(s,1,in,(uint8_t *)data+transferred,chunk,&actual,cdb[0],length,NULL)) {
             if(actual<=chunk)transferred+=actual;
             goto bad;
         }
@@ -311,7 +327,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     }
     phase = 3;
     actual=0; reason="csw-transfer";
-    if (!timed_bulk(s,2,true,csw,sizeof(csw),&actual,cdb[0],length)) goto bad;
+    if (!timed_bulk(s,2,true,csw,sizeof(csw),&actual,cdb[0],length,&anchor)) goto bad;
     reason="csw-length"; if (actual!=sizeof(csw)) goto bad;
     reason="csw-signature"; if (le32(csw)!=0x53425355) goto bad;
     reason="csw-tag"; if (le32(csw+4)!=tag) goto bad;
@@ -324,6 +340,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
          * after publication cannot establish whether the medium changed. Never
          * resume old geometry/mount/cache state against a replacement medium. */
         if(s->block) {s->failed=true;block_invalidate(s->block);}
+        commit_command_done(s,cdb,cdb_len,content_observed,false,&anchor);
         content_command_end(content_observed,false);
         return 1;
     }
@@ -332,6 +349,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     reason="data-length";
     if (le32(csw+8)!=0 || transferred!=length) goto bad;
     timed_checkpoint();
+    commit_command_done(s,cdb,cdb_len,content_observed,true,&anchor);
     content_command_end(content_observed,true);
     return 0;
 bad:
@@ -340,6 +358,7 @@ bad:
     record_error(s,cdb[0],phase,reason,tag,(phase==2 || phase==4)?transferred:actual,csw);
     s->error_status=255; /* No trustworthy command status. */
     console_printf("usb-storage: transport failed; device quarantined commands=%u\n",s->commands);
+    commit_command_done(s,cdb,cdb_len,content_observed,false,&anchor);
     content_command_end(content_observed,false);
     return -1;
 }

@@ -25,6 +25,9 @@ void sync_commit_wait_status(uint64_t tag,uint64_t opcode,uint64_t bytes,uint64_
     status_hooks++;
     if(ok && actual==13 && end>=start)successful_status_hooks++;
 }
+static uint64_t command_hooks;
+static struct commit_command_timing last_command;
+void sync_commit_wait_command(const struct commit_command_timing *q) { assert(q);command_hooks++;last_command=*q; }
 static struct block_device block, alias, other;
 static struct usb_storage storage;
 static uint8_t disk[65536], cdb[16];
@@ -169,15 +172,15 @@ static void test_owner_status_window(void) {
         .service_gap_max_us=500000,.completion_gap_us=500000};
     uint64_t reads=clock_reads,queries=sample_reads,callbacks=raw_timing_calls,hooks=status_hooks;
     assert(!owner_observe && !usb_storage_timing_enabled());
-    assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,512));
+    assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,512,NULL));
     assert(clock_reads==reads && sample_reads==queries && status_hooks==hooks && raw_timing_calls==callbacks+1);
     owner_observe=true;clock_us=100;
-    assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,512));
+    assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,512,NULL));
     assert(clock_reads==reads+2 && sample_reads==queries+1 && status_hooks==hooks+1 && raw_timing_calls==callbacks+2);
     assert(!owner_status_active && !usb_storage_timing_enabled());
     /* An existing trace shares the same two clocks and single cached sample. */
     clock_us=100;assert(usb_storage_timing_begin());
-    assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));
+    assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384,NULL));
     struct usb_storage_timing out;usb_storage_timing_end(&out);
     assert(out.valid && clock_reads==reads+4 && sample_reads==queries+2 && status_hooks==hooks+2 && raw_timing_calls==callbacks+3);
     owner_observe=false;assert(!owner_status_active && !usb_storage_timing_enabled());
@@ -188,7 +191,7 @@ static void test_transfer_timing(void) {
     uint32_t actual;struct usb_storage_timing out;
     clock_us=100;fake_timing=(struct usb_bulk_timing){.submitted=110,.observed=1000110,.resumed=1100110,.seen=true,.service_valid=true,.service_checks=512,.service_samples=2,.service_gap_max_us=500000,.completion_gap_us=500000};
     assert(usb_storage_timing_begin() && usb_storage_timing_enabled());
-    assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));usb_storage_timing_end(&out);
+    assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384,NULL));usb_storage_timing_end(&out);
     assert(out.valid && out.phase[2].max_us==1200000 && out.phase[2].observed_calls==1);
     assert(out.phase[2].observe_us==1000000 && out.phase[2].resume_us==100000);
     assert(out.phase[2].over20ms==1 && out.phase[2].over100ms==1 && out.phase[2].over1s==1);
@@ -209,7 +212,7 @@ static void test_transfer_timing(void) {
         if(bad==10)fake_timing.service_gap_max_us=100000;
         assert(usb_storage_timing_begin());
         if(bad==5)timing.phase[2].observe_us=UINT64_MAX;
-        assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));usb_storage_timing_end(&out);assert(!out.valid);
+        assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384,NULL));usb_storage_timing_end(&out);assert(!out.valid);
     }
 }
 static void test_timing_overlap(void) {
@@ -219,10 +222,10 @@ static void test_timing_overlap(void) {
     assert(usb_storage_timing_begin() && usb_storage_timing_aux_begin());
     assert(!usb_storage_timing_begin() && !usb_storage_timing_aux_begin());
     unsigned raw_before=raw_timing_calls,samples_before=sample_reads;
-    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));
+    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384,NULL));
     assert(raw_timing_calls==raw_before+1 && sample_reads==samples_before+1);
     usb_storage_timing_end(&legacy);assert(usb_storage_timing_enabled());
-    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));
+    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384,NULL));
     usb_storage_timing_aux_end(&aux);assert(!usb_storage_timing_enabled());
     assert(legacy.valid && aux.valid && legacy.calls[2]==1 && aux.calls[2]==2);
     assert(aux.csw.opcode==0x2a && aux.csw.command_bytes==16384 && aux.csw.request_bytes==13);
@@ -230,17 +233,17 @@ static void test_timing_overlap(void) {
     assert(!legacy.csw.start_us); /* The legacy observer is unchanged. */
     assert(aux.us[2]==2*legacy.us[2] && aux.phase[2].observe_us==2*legacy.phase[2].observe_us);
     assert(usb_storage_timing_aux_begin());usb_storage_timing_end(&none);assert(!none.valid && usb_storage_timing_enabled());
-    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));
+    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384,NULL));
     assert(usb_storage_timing_begin());
-    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));
+    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384,NULL));
     usb_storage_timing_aux_end(&aux);assert(usb_storage_timing_enabled());
     usb_storage_timing_aux_end(&none);assert(!none.valid && usb_storage_timing_enabled());
-    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));usb_storage_timing_end(&legacy);
+    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384,NULL));usb_storage_timing_end(&legacy);
     assert(legacy.valid && aux.valid && legacy.calls[2]==2 && aux.calls[2]==2);
     assert(!usb_storage_timing_enabled());
     /* Overflow in one window cannot invalidate or overwrite its peer. */
     assert(usb_storage_timing_begin() && usb_storage_timing_aux_begin());timing.us[2]=UINT64_MAX;
-    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384));usb_storage_timing_end(&legacy);usb_storage_timing_aux_end(&aux);
+    clock_us=100;assert(timed_bulk(&storage,2,true,NULL,13,&actual,0x2a,16384,NULL));usb_storage_timing_end(&legacy);usb_storage_timing_aux_end(&aux);
     assert(!legacy.valid && aux.valid && aux.calls[2]==1);
     puts("usb-timing-overlap: PASS independent starts/ends, legacy refusal, same observations, stopped/foreign scope preservation and isolated overflow");
 }
@@ -345,8 +348,45 @@ static void test_retire(void) {
     puts("usb-storage-retire: PASS busy/diagnostic references, offline tombstones and stale raw callbacks");
 }
 #include "test_usb_content.inc"
+static void test_validated_owner_command(void) {
+    static uint8_t bytes[16384];
+    uint64_t baseline_clocks=0;unsigned baseline_callbacks=0;
+    for(unsigned observe=0;observe<2;observe++) {
+        content_fixture();owner_observe=observe;content_open();
+        unsigned role=usb_storage_content_role_begin(2);
+        uint64_t hooks=command_hooks,before=clock_reads;unsigned callbacks=calls;
+        assert(block.write(&block,8192,bytes,sizeof(bytes)));
+        assert(command_hooks==hooks+observe);
+        if(observe) {
+            assert(last_command.available&&last_command.phases&&last_command.tag==storage.tag);
+            assert(last_command.opcode==0x2a&&last_command.lba==16&&last_command.blocks==32&&last_command.sector_size==512&&!last_command.flags);
+            assert(last_command.timing.valid&&last_command.timing.complete&&last_command.timing.ok&&last_command.timing.role==2);
+            assert(last_command.timing.phase[1].calls==4&&last_command.timing.phase[1].requested==16384&&last_command.timing.phase[1].actual==16384);
+            assert(last_command.timing.checkpoint_calls==4&&last_command.timing.csw_start_us==content_command.csw_start_us);
+            assert(clock_reads-before==baseline_clocks&&calls-callbacks==baseline_callbacks);
+        } else {baseline_clocks=clock_reads-before;baseline_callbacks=calls-callbacks;}
+        usb_storage_content_role_end(role);struct usb_storage_content_timing c;struct usb_storage_timing a;
+        content_close(&c,&a);owner_observe=false;
+    }
+    content_fixture();owner_observe=true;
+    uint64_t hooks=command_hooks;
+    assert(block.write(&block,8192,bytes,512));
+    assert(command_hooks==hooks+1&&last_command.available&&!last_command.phases&&last_command.timing.ok);
+    assert(last_command.timing.role==USB_STORAGE_CONTENT_ROLES&&!last_command.timing.start_us&&!last_command.timing.end_us&&!last_command.timing.phase[1].calls);
+    assert(last_command.lba==16&&last_command.blocks==1&&last_command.timing.csw_start_us<last_command.timing.csw_end_us);
+    owner_observe=false;
+    for(unsigned failure=0;failure<2;failure++) {
+        content_fixture();owner_observe=true;content_open();fault=failure?3:5;
+        hooks=command_hooks;
+        assert(!block.write(&block,8192,bytes,sizeof(bytes))&&storage.failed&&block.offline);
+        assert(command_hooks==hooks+1&&last_command.available&&last_command.phases&&last_command.timing.complete&&!last_command.timing.ok);
+        struct usb_storage_content_timing c;struct usb_storage_timing a;content_close(&c,&a);owner_observe=false;
+    }
+    puts("usb-owner-command: PASS exact CDB/block/phase/CSW context, original full validation failures, explicit absent phases, unchanged callback and clock counts");
+}
 int main(void) {
     test_content_commands();
+    test_validated_owner_command();
     test_retire();
     reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
     unsigned attached_calls=calls;

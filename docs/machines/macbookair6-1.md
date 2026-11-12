@@ -10,13 +10,19 @@ limit. This accepts the isolated diagnostic history, not current register
 access, register writes, root-table walking or device ownership. See the dated
 native result below.
 
-Latest accepted desktop checkpoint: the [native filesystem comparison](#native-filesystem-comparison-return-2026-11-11)
-passes the unchanged 30-minute stress profile on release `80b4e32ef314ae05`,
-with 1,071 app cycles, 3,895 verified disk bursts, three exact screenshots and
-clean retirement/allocation. Screenshot completion remains mixed at
-7.31/10.89/12.56 seconds. The [commit-wait isolation candidate](#commit-wait-isolation-validation-and-native-preparation-2026-11-11)
-is host/VM validated and installed for an automated native run; its physical
-result is pending. No device/controller cause or isolated speedup is established.
+Latest accepted desktop checkpoint: the [commit-wait isolation return](#native-commit-wait-isolation-return-2026-11-11)
+completes the unchanged 30-minute 1% audio/disk/app/three-screenshot profile on
+release `4598c7e5aac15a6b`, with 1,088 app cycles, 4,062 verified disk bursts,
+zero recorded underruns and clean retirement/allocation. The exact worst private
+wait now joins a SYS_SYNC owner and overlapping USB status callbacks; those
+callbacks cover 87.13% of the 2.894-second bracket. Screenshot totals remain
+6.41/10.68/26.60 seconds, so no performance improvement is accepted. Long USB
+completion latency remains open; no device/firmware/controller cause is proved.
+
+The [validated command-tail candidate](#validated-command-tail-preparation-2026-11-11)
+is installed for the next automatic run. It adds exact command/block and original
+validation context while retaining every existing transport/ownership policy and
+integrity limit. Its native result remains pending.
 
 ## Initial inventory (2026-10-22)
 
@@ -12620,3 +12626,164 @@ requires the version2 wait/owner/status companion alongside all original receipt
 Post-merge arming and reboot state are saved in the independent local run record.
 Native acceptance and the cause of long USB completions remain pending matching
 return; the earlier intermittent battery transport failure remains unresolved.
+
+## Native commit-wait isolation return (2026-11-11)
+
+Release `4598c7e5aac15a6b`, runtime `4f4feeeb`, completes run
+`e42faf938d164a49` in session `session-00066006bde6accb-00` and returns to Ubuntu
+automatically. Independent reparse of the matching raw logs and binary receipts
+passes all 16 original contracts, the original append-wait companion and the
+new version2 owner/status companion. The 1,800-second 1% workload completes
+4,062 verified disk bursts (1,064,828,928 bytes), 345,747,456 PCM bytes, zero
+recorded underruns and 1,088 app cycles. Maximum loop is 127.664 ms, ready/close
+3.505205/7.308982 seconds, within the unchanged 500 ms/10-second limits.
+Every screenshot, cache/file worker, desktop and battery lifetime retires cleanly.
+Native tails retain summaries and worst records, not every individual app event.
+Subjective audio at 1% is unassessed; earlier listening acceptance is separate.
+
+The selected screenshot PID952 waits 2.894034 seconds with target identity7265,
+a 3,407,872-byte captured prefix, 3,670,016-byte live file and a 65,536-byte
+request. Four actual I/O-owner intersections cover 2.893501 seconds, leaving
+533 us uncovered. The longest is PID7/thread20/SYS_SYNC87, spanning
+2.892890 seconds and overlapping 2.891353 seconds of the wait. Independently
+completed content has the same target identity, parent PID and enclosing
+interval in this run; that match is checked rather than inferred from a global
+maximum. The private window, request bounds and live-borrow rechecks are unchanged.
+
+That owner records 261 completed status callbacks totalling 2.522982 seconds;
+their exact wait overlap is 2.521687 seconds (87.13% of the bracket). Forty-three
+16 KiB WRITE statuses total 2.494952 seconds, versus 19.214 ms for ten 512-byte
+WRITE statuses. The completed content's payload subset has 36 commands/589,824
+bytes with 2.487495 seconds of status wall and seven callbacks over 100 ms.
+The retained worst status is a 16 KiB WRITE at tag542510 taking 352.020 ms:
+351.745 ms from submission to observed completion, then 273 us to resume.
+It records 39,716 empty checks and one event check, maximum sampled service gap
+10.079 ms and final sampled gap 9.598 ms. These observations isolate long status
+completion from a multi-second post-observation wakeup delay in this bracket.
+They do not identify hardware arrival time or separate device firmware/media
+from controller delivery; only one worst private wait is retained.
+
+| Capture | Prior 80b4 total, seconds | Candidate total, seconds | Candidate WRITE phase, seconds |
+| --- | ---: | ---: | ---: |
+| 1 | 7.307485 | 6.405844 | 4.308990 |
+| 2 | 10.890831 | 10.675969 | 5.351022 |
+| 3 | 12.560273 | 26.604312 | 13.554029 |
+
+The third capture additionally spends 3.606016 seconds in fsync, 5.065401 seconds
+in temporary-file proof and 2.334707 seconds in final proof. Sender pixel transfer
+is 139.921 ms, allocation 12.148 ms, and final worker-result observation 61 us;
+worker cleanup completes in 77.912 ms. Long total completion therefore remains
+storage work/waits rather than pixel transfer or final notification in this
+capture. The private prelude totals 13.268134 seconds across its 40 waits.
+Different cold boots, media state and interleaving prevent causal speed claims;
+the slower third screenshot is retained, not classified as an improvement.
+No barrier, fresh-media proof, owner check, command size or runtime limit changed.
+
+Fresh read-only USB rehash preserves every one of the 868 prior files except
+the expected `.srvros/meta` sidecar update. Nine new files yield 877 files and
+4,445 allocated clusters, with zero leaks, FAT/bitmap mismatches or errors in
+both collector and independent allocation checks. Installed/staged/independent
+candidate, recoveryc354, accepted80b4/c7, retireda139's complete independent tree,
+the original failed-media archive and matching trial backup all verify.
+Ubuntu is default, the one-shot is consumed, firmware BootNext is absent,
+collection is disabled and USB is unmounted. No reboot is armed.
+
+This accepts bounded native owner/status diagnostics and the original combined
+functional/integrity profile. Screenshot performance remains open, as does the
+earlier intermittent battery transport-fault cause; no recurrence is captured.
+Next investigate the 16 KiB payload status-completion tails and how long shared
+commit ownership prevents private progress, preserving all request/time/fairness
+bounds, flushes and integrity checks. No additional implementation or trial has
+started at this checkpoint.
+
+## Active payload command-tail and commit-ownership audit (2026-11-11)
+
+From main `189f6e43`, investigate the long 16 KiB WRITE status callbacks inside
+the exactly observed shared commit owner. Scope: existing USB command diagnostic
+completion hook, fixed owner/wait metadata, final-only command companion, strict
+parser and producer/transport regressions. Reuse already collected command-phase
+and checkpoint clocks; associate only the exact tag/status interval, retain
+complete validation separately from bulk success, and expose the logical block
+range where available without retaining pointers. Partial or unavailable command
+completion remains explicit. No additional device/ring reads or transfers.
+
+Audit whether ownership can be shortened while respecting the filesystem's
+mutable transaction and pending BOT/DMA lifetime. Do not release ownership or
+weaken ordering on assumption. Preserve scheduler policy/fairness, command and
+request sizes, all deadlines, flushes, fresh-media/CRC/allocation proofs, log
+cadence/tail bounds and the original 1,800-second 1% workload with three captures.
+PR19 at `f367eb0e` changes separate logger startup/Wi-Fi capture paths; PR301 at
+`84e25638` has no competing command/commit implementation. No other task is
+contacted. Matching 4598 native return is collected/reviewed and independently
+sealed; accepted4598/80b4/c7 and recoveryc354 are retained. Validate locally,
+publish/self-merge, install a matched candidate and run the native test under
+the existing reboot authorization. New native acceptance remains pending.
+
+## Validated command-tail preparation (2026-11-11)
+
+Runtime `fbea6abe` is based on main `189f6e43` and published through PR474.
+Refreshed PR19 at `b9f78149` changes separate logger startup/Wi-Fi capture hunks;
+PR301 at `890d0fd3` has no competing command or commit hooks. No other task was
+contacted. The [command-tail contract](../commit-command-tail.md) records the
+ownership audit and exact receipt. Normalizing out the new metadata reproduces
+the previous USB transport source byte-for-byte; filesystem, process, scheduler,
+xHCI, syscall and original timing-parser hashes are unchanged.
+
+The audit found transaction mutation/proof/publication and clean-marker flush
+state still live under the shared owner, with pending BOT/DMA lifetime retained.
+The [USB-IF BOT specification](https://www.usb.org/sites/default/files/usbmassbulk_10.pdf),
+section3.4, also requires serialization of outstanding commands on the success
+path. No arbitrary early ownership release is justified. This candidate adds
+command evidence; it does not claim a latency improvement or a device/media/
+controller cause. Command sizes, DMA segments, service/polling policy, timeouts,
+fairness, flushes and all integrity checks remain unchanged.
+
+The existing CSW clocks are copied into a command-local anchor. At the original
+terminal validation path, exact tag/opcode/block context and the full original
+validation verdict attach only to the matching live owner/status interval.
+Already-collected command phases/checkpoints are optional; outside content tracing
+the record explicitly carries command-only context, without invented clocks.
+Larger status peaks clear old context, and late completion cannot backfill a
+returned wait or released owner. Full-validation failures remain failures even
+when the status bulk transfer succeeded. The single final row is at most843bytes;
+all five rows total3803bytes at full field width, within the original4KiB budget.
+Periodic bytes,10-second cadence and64KiB tails are unchanged.
+
+Matched ordinary/native/fixture builds and all245 default core targets pass on
+`fbea6abe`, including the new actual C/production-formatter/parser regressions.
+Desktop/docs, scheduler/USB ownership and malformed-command quarantine, reserved
+append, sync and full media-integration checks pass. The default optional
+exhaustive-I/O setting is retained; no test requirements are weakened. Ordinary
+ABI/input/fork/exec/yield, USB read/write/reload and screenshot VMs pass.
+Exact-stage UEFI rehearsal passes the expected foreign-board refusal and automatic
+return; this does not accept native firmware or battery ownership.
+
+The populated400-IOPS KVM workload completes60seconds at1% with217 verified disk
+bursts (56885248bytes),23 app cycles, an exact screenshot and zero recorded
+underruns. Maximum loop is139.610ms; app ready/close maxima are1.236530/0.686488s,
+within unchanged limits. Independent parsing passes every original16 contract,
+append-wait, actual owner/status and new validated-command companion. Its exact
+selected997us status belongs to a validated16KiB WRITE, tag7843, LBA29824,
+32logical512-byte blocks and zero CDB flags. The selected owner is PID7/thread18/
+SYS_FSYNC53, outside content tracing: phase availability is correctly false with
+role7 and zero uncollected counters. Complete-phase forwarding is covered by the
+real driver fixture and actual C/production formatter tests; VM command-only
+coverage is not mislabeled as complete phase coverage. These are virtual
+observations, not the Air's long hardware completion cause.
+
+Release `0d3f2c1ce3a4aa4c`, run `ef8f650e89c64c4b`, is installed and verified
+against its stage and independent payload copy. The actual877-file USB baseline
+and offline fsck/allocation/headroom pass; only its expiring1% volume preference
+is renewed. Accepted4598/80b4/c7 and recoveryc354 remain verified. Only the fully
+verified, unreferencedbcd EFI duplicate was retired, retaining its entire
+independent payload; previously retireda139/2dd/8caa copies also remain verified.
+Ubuntu stays default and firmware BootOrder is unchanged, with no BootNext or
+GRUB one-shot at the preparation checkpoint. The enabled return collector requires
+the new command context alongside every original receipt. Post-merge arming and
+independent run-record backups precede the existing authorized automatic reboot.
+
+The next native run retains1800seconds at1%, three screenshots,500ms loop and
+10-second app limits, all byte/CRC/fresh-media/allocation proofs and clean
+battery/desktop/worker retirement. No human input is required. Native acceptance
+remains pending its matching return. Screenshot completion and the earlier
+intermittent battery transport-fault cause remain unresolved.
