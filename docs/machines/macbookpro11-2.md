@@ -21,7 +21,7 @@ inverse and cover faults before another hardware recipe is enabled. Main7f9f3058
 sidecar ordering/equality changes are integrated; GPU/WebCore scopes stay separate.
 The previous v149 primary/review remain immutable. No new boot is armed.
 
-### Encrypted tracing and RF failure continuation implemented; qualification pending
+### Encrypted tracing and RF failure continuation software-qualified (November 12)
 
 The failed HTTP callback formerly returned the workload result to the held
 adapter inspector. A DHCP/DNS timeout therefore blocked the outer RF inverse
@@ -49,7 +49,32 @@ replay rules or longer budgets. USB completion and ACK-request intent are not
 radio/AP acknowledgement. Structural trailing bytes are not aggregation proof.
 The dedicated observation decoder binds TX receipts to the original completion
 ledger, rejects malformed/missing/duplicate records and never grants acceptance.
-Qualification is in progress; no new image is installed or boot armed.
+Runtime changed ind84b4568; frozen qualification sourceedf3e736 includes a
+historical stack-test correction only. The actual native HTTP path/production
+stack/independent CCMP peer and real RF inverse composition pass all18 fatal
+ASan/UBSan cases. Normal success and DHCP/DNS-failure traces pass the new5-method
+observation decoder, existing9-method HTTP decoder and4-method AUTH-radio
+regressions. Original encrypted stream, native power/calibration cleanup,
+exhaustive channel-VCO failure/ownership/inverse, merged storage/sidecar,
+kernel build and docs checks pass. Two existing historical full-parent
+composition tests skip without their external parent fixture; they are not
+physical or exact-image acceptance. The stale negative test now explicitly
+permits the already-optional historical DHCP diagnostic while retaining all
+present-row mutation/cardinality/order checks; no decoder gate was weakened.
+
+The35-file software bank is outside build at
+`~/.local/share/srvros/macbookpro11-2/wifi-encrypted-rf-edf3e736-software`;
+SHA256SUMS index
+`f7b5217ec9b4ad16fb25db726ba508b125092760b1edc54530975c5c5293859f`.
+It preserves the earlier aggregate's stale-test failure alongside the unchanged
+passed native groups and the corrected frozen qualification. Six final native
+traces independently decode; none grants radio, DHCP or physical acceptance.
+
+Next build a fresh source-bound recipe, freeze the observation decoder with
+collection, and exact-stage/VM/storage/recovery-check that image before a cold
+hardware run. Inspect both encrypted RX/TX and full RF restoration even when
+DHCP fails. The cause of missing hardware DHCP Offers remains open. No new image
+is installed, no boot is armed, and the v149 primary/review remain immutable.
 
 ### v149 return: AUTH trace saved; DHCP Offer absent (November 12)
 

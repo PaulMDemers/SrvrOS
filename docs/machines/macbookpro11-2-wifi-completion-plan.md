@@ -10,12 +10,18 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 ## Current checkpoint (November 12)
 
 Encrypted completion/receive-class tracing and proved failed-workload RF
-continuation are implemented, with native regression qualification in progress.
+continuation are software-qualified atedf3e736 (runtime changed ind84b4568).
 The actual HTTP-close/actual RF-engine composition reproduces the old stop at
 2636 and tests restoration at3844 without counting the failed workload as success.
 The native HCD/registers/scheduler/child remain modeled; physical acceptance is
-unchanged. Next finish normal/fatal and saved-decoder qualification, then build
-and exact-stage-check a fresh recipe before any installation or cold boot.
+unchanged. All18 ASan/UBSan native HTTP cases, new5-method anonymous trace
+observation checks, existing HTTP/AUTH decoders, original stream/power/calibration/
+RF/storage regressions and kernel/docs build pass. Two existing historical
+full-parent composition tests skip without their external fixture. The sealed
+35-file software bank/index is recorded in the unit handoff; no failed workload
+is accepted as success. Next build a fresh recipe with the frozen observation
+decoder/collector and exact-stage VM/storage/recovery checks before installation
+or cold boot. DHCP packet loss still needs hardware diagnosis.
 Do not reuse/reseal the v149 return bank. No new image is armed.
 
 The v1494d976eda/83aefd1acd8829ed return is collected once and closed FAILED.
