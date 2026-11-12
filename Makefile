@@ -6180,3 +6180,32 @@ test-intel-entry-requester: build/tests/intel-entry-requester-adapter$(HOST_EXE)
 build/tests/storage-role-wire$(HOST_EXE): tools/test_storage_role_wire.c kernel/src/storage_compare.inc kernel/src/workspace.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+# Separate original nonzero-geometry reset lifetime; legacy gates unchanged.
+INTEL_NONZERO_RESET_FLAGS := $(INTEL_RING_ENTRY_FLAGS) -DSRVROS_INTEL_NONZERO_RESET
+build/intel-nonzero-reset/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_NONZERO_RESET_FLAGS) -c $< -o $@
+build/intel-nonzero-reset/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_NONZERO_RESET_FLAGS) -c $< -o $@
+build/intel-nonzero-reset/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_NONZERO_RESET_FLAGS) -c $< -o $@
+build/intel-nonzero-reset/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/intel-nonzero-reset/srvros.elf: build/intel-nonzero-reset/main.o build/intel-nonzero-reset/probe.o build/intel-nonzero-reset/requests.o build/intel-nonzero-reset/reset.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-nonzero-reset-adapter$(HOST_EXE): tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_nonzero_reset.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_NONZERO_RESET_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_nonzero_reset.c -o $@
+
+build/tests/boot-nonzero-reset$(HOST_EXE): tools/test_boot_nonzero_reset.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_NONZERO_RESET_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-nonzero-reset
+test-core: test-intel-nonzero-reset
+test-intel-nonzero-reset: build/tests/intel-nonzero-reset-adapter$(HOST_EXE) build/tests/boot-nonzero-reset$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_nonzero_reset.py
+	build/tests/boot-nonzero-reset$(HOST_EXE)

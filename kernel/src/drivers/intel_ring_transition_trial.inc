@@ -1,5 +1,7 @@
 #include <srvros/intel_ring_transition.h>
-#ifdef SRVROS_INTEL_RING_RESET
+#ifdef SRVROS_INTEL_NONZERO_RESET
+#define RING_PREFIX "intel-nonzero-entry"
+#elif defined(SRVROS_INTEL_RING_RESET)
 #define RING_PREFIX "intel-reset-entry"
 #elif defined(SRVROS_INTEL_RING_ENTRY)
 #define RING_PREFIX "intel-ring-entry"
@@ -125,7 +127,7 @@ static void ring_report(void) {
   const uint32_t *w=b->words[n];
   console_printf(RING_PREFIX "-bcs: v=1 n=%u d=%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3],(uint64_t)w[4],(uint64_t)w[5],(uint64_t)w[6],(uint64_t)w[7]);
  }
-#ifdef SRVROS_INTEL_RING_RESET
+#if defined(SRVROS_INTEL_RING_RESET) || defined(SRVROS_INTEL_NONZERO_RESET)
  for(unsigned n=0;n<2;n++) {
   unsigned groups=r->post.groups>n*5?r->post.groups-n*5:0;if(groups>5)groups=5;
   unsigned count=groups*8+(n<r->post.contexts?6:0);if(!count)continue;
@@ -142,7 +144,7 @@ static void ring_report(void) {
  completion_report_named(&r->post,RING_PREFIX "-post");
 #endif
  for(unsigned n=0;n<r->reader_attempts;n++) {
-#ifdef SRVROS_INTEL_RING_RESET
+#if defined(SRVROS_INTEL_RING_RESET) || defined(SRVROS_INTEL_NONZERO_RESET)
   uint8_t bytes[148];char encoded[201];static const char abc[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   for(unsigned i=0;i<37;i++) {
    uint32_t word=i<27?r->readers[n].planes[i/9][i%9]:r->readers[n].audio[i-27];
@@ -167,7 +169,7 @@ static void ring_report(void) {
   console_printf(RING_PREFIX "-audio: v=1 n=%u d=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)n,(uint64_t)a[0],(uint64_t)a[1],(uint64_t)a[2],(uint64_t)a[3],(uint64_t)a[4],(uint64_t)a[5],(uint64_t)a[6],(uint64_t)a[7],(uint64_t)a[8],(uint64_t)a[9]);
 #endif
  }
-#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+#if defined(SRVROS_INTEL_ENTRY_REQUESTER) || defined(SRVROS_INTEL_NONZERO_RESET)
  /* The ordered values expand to the existing strict v2 entry schema. */
  const uint64_t values[]={2,(uint64_t)r->policy,(uint64_t)(r->borrow.parent!=0),(uint64_t)r->returned,(uint64_t)r->blocked,(uint64_t)r->post_bound,(uint64_t)r->readers_bound,(uint64_t)r->complete,(uint64_t)r->borrow.active,(uint64_t)r->uncertain,(uint64_t)r->reason,(uint64_t)r->checks,(uint64_t)r->read_attempts,(uint64_t)r->reader_attempts,(uint64_t)r->reader_counts[0],(uint64_t)r->reader_counts[1],(uint64_t)r->store_calls,(uint64_t)ring_native.store_checks,(uint64_t)ring_native.store_fault,r->begin,r->end,r->last,r->source_begin,r->source_end,r->source_last,(uint64_t)r->epoch_before,(uint64_t)r->epoch_after,(uint64_t)r->epoch_advanced,(uint64_t)r->parent_attempts,r->clock_at,r->clock_prev,r->store_at,r->store_previous,r->return_begin,r->post_begin,r->post_end,r->post_last,(uint64_t)b->samples,(uint64_t)b->reads,(uint64_t)b->admitted,(uint64_t)b->attempts,(uint64_t)b->writes,(uint64_t)b->disabled,(uint64_t)b->uncertain,(uint64_t)b->reason,b->begin_us,b->end_us,0,0,(uint64_t)r->kind};
  uint8_t bytes[sizeof(values)];char encoded[((sizeof(values)+2)/3)*4+1];

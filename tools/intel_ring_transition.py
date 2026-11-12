@@ -59,7 +59,7 @@ def _rows(text,prefix,keys,width):
   rows.append(dict(zip(keys,map(int,m.groups()[:len(keys)])),words=values))
  return rows
 
-def _ring_result(text,*,entry=False,composition=False):
+def _ring_result(text,*,entry=False,composition=False,nonzero=False):
  lines=[l for l in text.splitlines() if l.startswith('intel-ring-')]
  if not lines:return None
  allowed=('intel-ring-summary:','intel-ring-bcs:','intel-ring-post-row:','intel-ring-post-context:','intel-ring-post-summary:','intel-ring-reader:','intel-ring-audio:','intel-ring-hda:','intel-ring-owner:')
@@ -72,8 +72,8 @@ def _ring_result(text,*,entry=False,composition=False):
  from intel_completion_audit import completion_result
  from intel_joint import joint_capture,ENDPOINT
  w=wake_result(text)
- if not w or w['summary']['v'] not in ((26,27) if composition else (25,) if entry else (24,)):raise ValueError('ring wrong image')
- if any(l.startswith('intel-ring-summary: v=3 ') for l in text.splitlines())!=(w['summary']['v']==27):raise ValueError('entry wire image binding')
+ if not w or w['summary']['v'] not in ((28,) if nonzero else (26,27) if composition else (25,) if entry else (24,)):raise ValueError('ring wrong image')
+ if any(l.startswith('intel-ring-summary: v=3 ') for l in text.splitlines())!=(w['summary']['v'] in (27,28)):raise ValueError('entry wire image binding')
  owner=joint_capture(text if composition else text.replace('intel-ring-hda:','intel-joint-hda:').replace('intel-ring-owner:','intel-joint-summary:'))
  if not owner:raise ValueError('ring missing HDA owner')
  h=owner['summary']
@@ -93,7 +93,7 @@ def _ring_result(text,*,entry=False,composition=False):
  for _ in range(s['reader_attempts']):expected+=['intel-ring-reader:']*3+['intel-ring-audio:']
  expected+=['intel-ring-summary:']
  if [l.split(' ',1)[0] for l in lines]!=expected:raise ValueError('ring record order')
- if not composition and w['summary']['engine_reads']!=pre['summary']['reads']+s['bcs_reads']+post['summary']['reads']:raise ValueError('ring combined read binding')
+ if not composition and not nonzero and w['summary']['engine_reads']!=pre['summary']['reads']+s['bcs_reads']+post['summary']['reads']:raise ValueError('ring combined read binding')
  if s['source_begin'] and (s['source_begin'],s['source_end'])!=(pre['summary']['begin_us'],pre['summary']['end_us']):raise ValueError('ring replaced original source')
  if s['post_bound'] and (s['post_begin'],s['post_end'])!=(post['summary']['begin_us'],post['summary']['end_us']):raise ValueError('ring replaced fresh post source')
  if s['uncertain'] and (not w['summary']['retained'] or w['summary']['released']):raise ValueError('ring uncertainty released root')

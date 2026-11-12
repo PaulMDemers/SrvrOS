@@ -1007,7 +1007,9 @@ void kmain(void) {
 #if defined(SRVROS_INTEL_GPU_HOLD) && !defined(SRVROS_INTEL_ENTRY_REQUESTER)
                 if(cmdline_has_token(cmdline,"srvros.intel-gpu-requester=hold"))console_write("intel-gpu-hold: automatic original-source PCI requester inhibit, pending-drain and exact restoration. No input needed. Saved safe outcomes return to Ubuntu; uncertainty halts.\n");
 #endif
-#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+#ifdef SRVROS_INTEL_NONZERO_RESET
+                console_write("intel-nonzero: automatic original nonzero entry/reset/preservation; no input. Safe saved outcomes return; uncertainty halts. No memory grant.\n");
+#elif defined(SRVROS_INTEL_ENTRY_REQUESTER)
                 console_write("intel-entry-requester: automatic same-owner entry/reset and Command7->3->7 restoration; no input. Safe saved outcomes return; uncertainty halts. No memory grant.\n");
 #endif
 #ifndef SRVROS_INTEL_ENTRY_REQUESTER

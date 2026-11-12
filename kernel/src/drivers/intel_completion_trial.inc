@@ -55,7 +55,7 @@ static bool completion_snapshot(void *ctx,uint32_t words[INTEL_ENGINE_COUNT][INT
 #else
 #define COMPLETION_SAMPLE NULL
 #endif
-#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+#if defined(SRVROS_INTEL_ENTRY_REQUESTER) || defined(SRVROS_INTEL_NONZERO_RESET)
 /* Lossless canonical raw bytes; reporting occurs after the bounded operation. */
 static void entry_requester_base64(const uint8_t *bytes,unsigned size,char *out) {
  static const char abc[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";unsigned k=0;
@@ -73,7 +73,7 @@ static void completion_report_summary(const struct intel_completion_result *r,co
  console_printf("%s-summary: v=1 groups=%u samples=%u contexts=%u reads=%u reason=%u stable=%u enabled=%u pending=%u flip_wait=%u tlb_pending=%u parser_idle=%u begin_us=%u end_us=%u complete=%u obligations=255 posted_drain=0 prefetch_retired=0 pipeline_flushed=0 tlb_writes=0 reset_writes=0 engine_writes=0 cache_ownership=0 reader_retirement=0 managed_pages=0\n",prefix,(uint64_t)r->groups,(uint64_t)r->samples,(uint64_t)r->contexts,(uint64_t)r->reads,(uint64_t)r->reason,(uint64_t)r->stable,(uint64_t)r->enabled,(uint64_t)r->pending,(uint64_t)r->flip_wait,(uint64_t)r->tlb_pending,(uint64_t)r->parser_idle,r->begin_us,r->end_us,(uint64_t)r->complete);
 }
 static void completion_report_named(const struct intel_completion_result *r,const char *prefix) {
-#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+#if defined(SRVROS_INTEL_ENTRY_REQUESTER) || defined(SRVROS_INTEL_NONZERO_RESET)
  if(wake_text(prefix,"intel-completion")) {
   for(unsigned n=0;n<2;n++) {
    unsigned groups=r->groups>n*5?r->groups-n*5:0;if(groups>5)groups=5;
@@ -84,7 +84,13 @@ static void completion_report_named(const struct intel_completion_result *r,cons
     for(unsigned b=0;b<4;b++)bytes[i*4+b]=(uint8_t)(v>>(8*b));
    }
    entry_requester_base64(bytes,count*4,encoded);
-   console_printf("intel-entry-census: v=1 s=%u n=%u b=%s\n",(uint64_t)n,(uint64_t)count,encoded);
+   console_printf(
+#ifdef SRVROS_INTEL_NONZERO_RESET
+"intel-nonzero-census:"
+#else
+"intel-entry-census:"
+#endif
+" v=1 s=%u n=%u b=%s\n",(uint64_t)n,(uint64_t)count,encoded);
   }
   completion_report_summary(r,prefix);return;
  }

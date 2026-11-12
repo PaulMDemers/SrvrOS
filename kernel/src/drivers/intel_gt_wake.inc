@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_NONZERO_RESET) && (!defined(SRVROS_INTEL_RING_ENTRY) || defined(SRVROS_INTEL_RING_RESET) || defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_GPU_HOLD))
+#error "Nonzero reset requires its separate original-entry image without legacy reset or claim"
+#endif
 #if defined(SRVROS_INTEL_ENTRY_REQUESTER) && (!defined(SRVROS_INTEL_RING_RESET) || !defined(SRVROS_INTEL_GPU_HOLD))
 #error "Entry requester requires its original entry/reset and requester hold"
 #endif
@@ -57,7 +60,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+#ifdef SRVROS_INTEL_NONZERO_RESET
+extern volatile struct limine_firmware_type_request intel_nonzero_reset_firmware_request;
+#elif defined(SRVROS_INTEL_ENTRY_REQUESTER)
 extern volatile struct limine_firmware_type_request intel_entry_requester_firmware_request;
 #elif defined(SRVROS_INTEL_RING_RESET)
 extern volatile struct limine_firmware_type_request intel_ring_reset_firmware_request;
@@ -110,7 +115,9 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #include <srvros/intel_engine_census.h>
 #ifdef SRVROS_INTEL_RING_TRANSITION
 #define WAKE_MAPS 14u
-#ifdef SRVROS_INTEL_RING_ENTRY
+#ifdef SRVROS_INTEL_NONZERO_RESET
+#define WAKE_VERSION 28u
+#elif defined(SRVROS_INTEL_RING_ENTRY)
 #define WAKE_VERSION 25u
 #else
 #define WAKE_VERSION 24u
@@ -282,10 +289,10 @@ static bool wake_map(struct wake_adapter *a,unsigned i) {
 #if defined(SRVROS_INTEL_BLITTER_TRIAL) || defined(SRVROS_INTEL_RESET_READY_TRIAL) || defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_RING_TRANSITION)
     if(i==7)flags|=VMM_PAGE_WRITABLE;
 #endif
-#ifdef SRVROS_INTEL_ENGINE_PREPARE
+#if defined(SRVROS_INTEL_ENGINE_PREPARE) || defined(SRVROS_INTEL_NONZERO_RESET)
     if(i>=3 && i<=7)flags|=VMM_PAGE_WRITABLE;
 #endif
-#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_PREPARE_RESET)
+#if defined(SRVROS_INTEL_BCS_RESET_TRIAL) || defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_NONZERO_RESET)
     if(i==9)flags|=VMM_PAGE_WRITABLE;
 #endif
     if(!vmm_map_page_in_space(a->fw.gt.a.common.cr3,va,physical,flags)) {
@@ -469,6 +476,9 @@ static bool shutdown_store_source(struct wake_adapter *,struct intel_gt_access *
 #endif
 #if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
 #include "intel_ring_transition_trial.inc"
+#ifdef SRVROS_INTEL_NONZERO_RESET
+#include "intel_nonzero_reset_trial.inc"
+#endif
 #ifdef SRVROS_INTEL_RING_RESET
 #include "intel_ring_reset_trial.inc"
 #ifdef SRVROS_INTEL_ENTRY_REQUESTER
@@ -513,7 +523,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_ENTRY_REQUESTER
+    #ifdef SRVROS_INTEL_NONZERO_RESET
+    const struct limine_firmware_type_response *firmware=intel_nonzero_reset_firmware_request.response;
+#elif defined(SRVROS_INTEL_ENTRY_REQUESTER)
     const struct limine_firmware_type_response *firmware=intel_entry_requester_firmware_request.response;
 #elif defined(SRVROS_INTEL_RING_RESET)
     const struct limine_firmware_type_response *firmware=intel_ring_reset_firmware_request.response;
@@ -569,6 +581,8 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     static struct engine_prepare_trial prepared;
     static struct intel_takeover_result takeover;
+#elif defined(SRVROS_INTEL_NONZERO_RESET)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_nonzero_reset_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_RING_ENTRY)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_ring_entry_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_RING_TRANSITION)
@@ -662,7 +676,9 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     bool acquired=false,before=false,after=false,released=false,opened=false,checked=false,closed=false,fw_after=false;
     uint32_t grants=0;uint64_t begin=0,end=0;
-#ifdef SRVROS_INTEL_RING_RESET
+#ifdef SRVROS_INTEL_NONZERO_RESET
+    console_write("intel-nonzero: original enabled entry, maintained readiness and BCS8 reset; inherited backing protected; no requester or memory grant\n");
+#elif defined(SRVROS_INTEL_RING_RESET)
     console_write("intel-reset: live entry then zero-geometry reset under original HDA/GT owner; nonzero refuses; no PTE writes or memory transfer\n");
 #elif defined(SRVROS_INTEL_RING_ENTRY)
     console_write("intel-ring-entry: original-owner live entry selection; enabled disable or zero-geometry observation; fresh census and preservation; no reset or memory transfer\n");
@@ -728,6 +744,9 @@ bool intel_gt_wake_probe_report(void) {
                 if(checked)(void)intel_completion_observe(&completion,&owner,(struct intel_completion_io){&a,engine_guard,completion_group,completion_context,now,COMPLETION_SAMPLE});
 #if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
                 if(completion.complete)(void)ring_run(&a,&owner,&completion,grants==7 && f.recipe);
+#ifdef SRVROS_INTEL_NONZERO_RESET
+                if(ring_native.result.complete && !a.uncertain)nonzero_run(&a,&owner,grants==7 && f.recipe);
+#endif
 #endif
 #ifdef SRVROS_INTEL_TAKEOVER_PREFLIGHT
 #ifdef SRVROS_INTEL_RING_RESET
@@ -837,6 +856,10 @@ bool intel_gt_wake_probe_report(void) {
     engine_reads=completion.reads;completion_report(&completion);
 #if defined(SRVROS_INTEL_RING_TRANSITION) || defined(SRVROS_INTEL_RING_RESET)
     ring_report();engine_reads+=ring_native.result.bcs.reads+ring_native.result.post.reads;
+#ifdef SRVROS_INTEL_NONZERO_RESET
+    nonzero_report();engine_reads+=nonzero_native.r.control_reads+nonzero_native.r.bcs_reads+nonzero_native.r.post.reads;
+    complete=complete && nonzero_native.r.complete;
+#endif
     complete=complete && ring_native.result.complete;
 #ifdef SRVROS_INTEL_RING_RESET
     ring_reset_report();complete=complete && ring_reset_native.result.complete;

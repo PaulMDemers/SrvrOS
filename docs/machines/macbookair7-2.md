@@ -21,6 +21,12 @@ saved-tail and exact-stage VM qualification. Existing BCS/source 100 ms, entry
 forced enabled state, copied owner, saved-receipt authority or memory grant.
 The latest v27 safe refusal is collected and banked below. Current127a/recovery9aa8,
 USB37D8-C5D0 and accepted payloads remain untouched; no reboot is armed.
+The separate [v28 protocol](../intel-nonzero-reset.md) is implemented for local
+qualification. Its native-adapter model completes preserved and strict
+reset-default geometry with original source/epoch/readers, clean return and
+no requester or memory transfer. Exhaustive source/clock/store/read/return
+faults and strict receipt/preinit tests pass; full image/core/sanitizer/VM
+qualification remains before hardware-ready. This is not native acceptance.
 PR19 networking (`41c49fde`) and PR379 WebCore (`817f80bb`) stay independent.
 No delegation or cross-task messages. Checkpoint:
 `build/air-nonzero-reset-20261112/status.md`.

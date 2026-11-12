@@ -834,3 +834,14 @@ Main `a419f045` is integrated after collection as `d582c510`, preserving both
 storage v1/v2 and v27 dispatch. Affected local checks pass; GPU implementation
 and decoder files are unchanged. The installed physical payload remains frozen
 `cef27b1c` and incomplete for requester acceptance. No new trial or task is scheduled.
+
+## Air nonzero-geometry reset protocol
+
+The separate [v28 protocol](intel-nonzero-reset.md) binds the original kind 1
+entry/post-census under the same HDA/GT owner. Its own registered child spans
+admission, maintained five-engine readiness, BCS8 reset, cancellation, full
+preservation and return. The legacy zero-geometry guard remains unchanged; do
+not construct an old takeover/preparation object from a nonzero receipt.
+Strict whole-vector postconditions and original deadlines apply. This block
+stops before re-arm/requester/memory transfer. Native acceptance is pending;
+other device profiles retain their own gates and evidence.

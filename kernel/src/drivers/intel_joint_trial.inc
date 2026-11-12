@@ -112,7 +112,10 @@ static void joint_close(bool after,bool gpu_complete) {
  if(joint.scope.state==IHG_ACTIVE)(void)intel_hda_gpu_close(&joint.scope,gpu_complete);
  if(!joint_terminal())joint_clock=NULL;
 }
-#ifdef SRVROS_INTEL_RING_ENTRY
+#ifdef SRVROS_INTEL_NONZERO_RESET
+#define JOINT_HDA_PREFIX "intel-nonzero-entry-hda"
+#define JOINT_SUMMARY_PREFIX "intel-nonzero-entry-owner"
+#elif defined(SRVROS_INTEL_RING_ENTRY)
 #define JOINT_HDA_PREFIX "intel-ring-entry-hda"
 #define JOINT_SUMMARY_PREFIX "intel-ring-entry-owner"
 #elif defined(SRVROS_INTEL_RING_TRANSITION)

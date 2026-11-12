@@ -162,6 +162,9 @@ static void intel_display_test_ring_admission(void *ctx) {
 }
 static bool intel_display_test_ring_census(unsigned e,unsigned i,uint32_t *out) {
  ++ring_census_reads;
+#ifdef SRVROS_INTEL_NONZERO_RESET
+ if(nonzero_native.r.post.object)return intel_display_test_nonzero_census(e,i,out);
+#endif
  bool ok=i<6?intel_display_test_engine_read(e,i,out):(*out=(!strcmp(engine_mode,"flip-wait") && i==6)?0x100000:(!strcmp(engine_mode,"tlb-pending") && i==7)?1:0,true);
  if(jf("ring-census-read",ring_census_reads))return false;
  if(jf("ring-census-drift",ring_census_reads))*out^=1;
@@ -222,7 +225,7 @@ static bool intel_display_test_ring_clock(uint64_t *out) {
  }
  return false;
 }
-#ifndef SRVROS_INTEL_RING_RESET
+#if !defined(SRVROS_INTEL_RING_RESET) && !defined(SRVROS_INTEL_NONZERO_RESET)
 __attribute__((noinline)) static void churn_stack(void) {
  volatile uint8_t bytes[32768];
  for(unsigned i=0;i<sizeof(bytes);i++)bytes[i]=(uint8_t)(i*17+3);

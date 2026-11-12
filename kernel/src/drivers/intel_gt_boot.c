@@ -20,9 +20,9 @@ static bool recipe(const char *p,unsigned mode) {
   for(unsigned i=0;i<10;i++)if(equal(start,n,i==8 && (mode==5 || mode==6)?"srvros.intel-hda=lease-trial":i==8 && mode==4?"srvros.intel-hda=owner-trial":mode==3 && i==8?"srvros.intel-hda=read-only":names[i]))bit=i;
   if(suffix_hex(start,n,"srvros.workspace-volume=",8))bit=10;
   if(suffix_hex(start,n,"srvros.desktop-release=",16))bit=11;
-  if((mode==24 || mode==23 || mode==1 || mode==2 || mode==7 || mode==8 || mode==9 || mode==10 || mode==11 || mode==12 || mode==13 || mode==14 || mode==15 || (mode==16 || mode==17 || mode==18 || mode==19 || mode==20 || mode==22 || (mode==25 || mode==26))) && equal(start,n,"srvros.intel-engines=read-only"))bit=12;
+  if((mode==27 || mode==24 || mode==23 || mode==1 || mode==2 || mode==7 || mode==8 || mode==9 || mode==10 || mode==11 || mode==12 || mode==13 || mode==14 || mode==15 || (mode==16 || mode==17 || mode==18 || mode==19 || mode==20 || mode==22 || (mode==25 || mode==26))) && equal(start,n,"srvros.intel-engines=read-only"))bit=12;
   if((mode==4 || mode==5 || mode==6) && equal(start,n,"srvros.intel-hda-policy=cooperative-efi-v1"))bit=12;
-  if((mode==24 || mode==23 || mode==7 || mode==8 || mode==9 || mode==11 || mode==12 || mode==13 || mode==14 || mode==15 || (mode==16 || mode==17 || mode==18 || mode==19 || mode==20 || mode==22 || (mode==25 || mode==26))) && equal(start,n,"srvros.intel-completion=read-only"))bit=13;
+  if((mode==27 || mode==24 || mode==23 || mode==7 || mode==8 || mode==9 || mode==11 || mode==12 || mode==13 || mode==14 || mode==15 || (mode==16 || mode==17 || mode==18 || mode==19 || mode==20 || mode==22 || (mode==25 || mode==26))) && equal(start,n,"srvros.intel-completion=read-only"))bit=13;
   if(mode==6 && equal(start,n,"srvros.intel-readers=read-only"))bit=13;
   if((mode==2 || mode==10 || mode==21) && equal(start,n,"srvros.intel-blitter=retire"))bit=13;
   if((mode==10 || mode==21) && equal(start,n,"srvros.intel-shutdown=qualify"))bit=14;
@@ -42,13 +42,14 @@ static bool recipe(const char *p,unsigned mode) {
   if(mode==22 && equal(start,n,"srvros.intel-admission=disabled-bcs-v1"))bit=21;
   if((mode==25 || mode==26) && equal(start,n,"srvros.intel-ring=reset-v1"))bit=21;
   if(mode==23 && equal(start,n,"srvros.intel-ring=handoff-v1"))bit=14;
+  if(mode==27 && equal(start,n,"srvros.intel-ring=nonzero-reset-v1"))bit=14;
   if(mode==24 && equal(start,n,"srvros.intel-ring=entry-v1"))bit=14;
   if(mode==21 && equal(start,n,"srvros.intel-engines=read-only"))bit=12;
   if(mode==21 && equal(start,n,"srvros.intel-hda-bcs=joint-owner-v1"))bit=15;
   if(bit==23 || (seen&(1u<<bit)))return false;
   seen|=1u<<bit;
  }
- return seen==(mode==26?0x7fffffu:(mode==23 || mode==24)?0x7fffu:(mode==22 || (mode==25 || mode==26))?0x3fffffu:mode==21?0xffffu:mode==20?0x3fffffu:mode==19?0x1fffffu:mode==18?0xfffffu:mode==17?0x7ffffu:(mode==16 || mode==17 || mode==18 || mode==19 || mode==20)?0x3ffffu:mode==15?0x1ffffu:(mode==11 || mode==13 || mode==14 || mode==15 || (mode==16 || mode==17 || mode==18 || mode==19 || mode==20 || mode==22 || (mode==25 || mode==26)))?0xffffu:(mode==8 || mode==9 || mode==10 || mode==11 || mode==12 || mode==13 || mode==14 || mode==15 || (mode==16 || mode==17 || mode==18 || mode==19 || mode==20 || mode==22 || (mode==25 || mode==26)))?0x7fffu:(mode==2 || mode==6 || mode==7)?0x3fffu:(mode==1 || mode==4 || mode==5)?0x1fffu:0xfffu);
+ return seen==(mode==26?0x7fffffu:(mode==27 || mode==23 || mode==24)?0x7fffu:(mode==22 || (mode==25 || mode==26))?0x3fffffu:mode==21?0xffffu:mode==20?0x3fffffu:mode==19?0x1fffffu:mode==18?0xfffffu:mode==17?0x7ffffu:(mode==16 || mode==17 || mode==18 || mode==19 || mode==20)?0x3ffffu:mode==15?0x1ffffu:(mode==11 || mode==13 || mode==14 || mode==15 || (mode==16 || mode==17 || mode==18 || mode==19 || mode==20 || mode==22 || (mode==25 || mode==26)))?0xffffu:(mode==8 || mode==9 || mode==10 || mode==11 || mode==12 || mode==13 || mode==14 || mode==15 || (mode==16 || mode==17 || mode==18 || mode==19 || mode==20 || mode==22 || (mode==25 || mode==26)))?0x7fffu:(mode==2 || mode==6 || mode==7)?0x3fffu:(mode==1 || mode==4 || mode==5)?0x1fffu:0xfffu);
 }
 uint32_t intel_gt_boot_grants(const struct intel_gt_boot_facts *f) {
  if(!f || !f->compiled || !f->recipe || !f->loader || !f->efi64 || !f->profile || !f->serialized || !f->excluded || !f->prerequisites || !f->firmware_quiet || !f->requesters_quiet)return 0;
@@ -107,3 +108,5 @@ bool intel_gt_boot_ring_entry_recipe(const char *p){return recipe(p,24);}
 bool intel_gt_boot_ring_reset_recipe(const char *p){return recipe(p,25);}
 
 bool intel_gt_boot_entry_requester_recipe(const char *p){return recipe(p,26);}
+
+bool intel_gt_boot_nonzero_reset_recipe(const char *p){return recipe(p,27);}

@@ -305,7 +305,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_ENTRY_REQUESTER
+#ifdef SRVROS_INTEL_NONZERO_RESET
+#define intel_wake_firmware_request intel_nonzero_reset_firmware_request
+#elif defined(SRVROS_INTEL_ENTRY_REQUESTER)
 #define intel_wake_firmware_request intel_entry_requester_firmware_request
 #elif defined(SRVROS_INTEL_RING_RESET)
 #define intel_wake_firmware_request intel_ring_reset_firmware_request
@@ -620,7 +622,9 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) 
     if(!strcmp(engine_mode,"interval-map-slot") && v==BACKING_VA+0x1d000)return false;
     if(v==BACKING_VA+0x1d000)assert(!writable && flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE));
 #endif
-#ifdef SRVROS_INTEL_RING_TRANSITION
+#ifdef SRVROS_INTEL_NONZERO_RESET
+    if((v>=WAKE_VA+3*4096 && v<=WAKE_VA+7*4096) || v==WAKE_VA+9*4096)writable=true;
+#elif defined(SRVROS_INTEL_RING_TRANSITION)
     if(v==WAKE_VA+7*4096)writable=true;
     if(v>=WAKE_VA+3*4096 && v<WAKE_VA+14*4096 && v!=WAKE_VA+7*4096)assert(!writable && !(flags&VMM_PAGE_WRITABLE));
 #endif
@@ -939,7 +943,9 @@ int main(int argc,char **argv) {
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
 #ifdef SRVROS_INTEL_RING_TRANSITION
     static char ring_recipe[1400];
-#ifdef SRVROS_INTEL_RING_ENTRY
+#ifdef SRVROS_INTEL_NONZERO_RESET
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=nonzero-reset-v1",completion_recipe);
+#elif defined(SRVROS_INTEL_RING_ENTRY)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=entry-v1",completion_recipe);
 #else
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=handoff-v1",completion_recipe);
@@ -1067,6 +1073,9 @@ if(!strncmp(engine_mode,"joint-",6) || !strncmp(engine_mode,"paired-",7))good=fa
  || !strcmp(engine_mode,"gpu-pending")
 #endif
  );
+#endif
+#ifdef SRVROS_INTEL_NONZERO_RESET
+good=!strcmp(engine_mode,"report") || !strcmp(engine_mode,"nz-default") || !strcmp(engine_mode,"nz-poll");
 #endif
 assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
