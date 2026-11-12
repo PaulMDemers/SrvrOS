@@ -60,5 +60,18 @@ command-only/unavailable evidence and malformed clocks/bytes/counts. Real USB
 fixtures retain all original malformed-wrapper/quarantine/ownership cases and
 compare callback and clock counts with the new observer on/off. The automated
 native trial retains 1,800 seconds at 1% volume, three screenshots and the
-original 500 ms loop / 10-second app limits. Native command-context acceptance
-remains pending the matching return.
+original 500 ms loop / 10-second app limits.
+
+## Native complete-command observation
+
+The [Air6,1 return](machines/macbookair6-1.md#native-validated-command-tail-return-2026-11-11)
+on runtime `fbea6abe` accepts the bounded companion with complete phases. Its
+exact payload WRITE at tag274626 requests and transfers all16KiB through four
+existing data callbacks in1.028ms. The full command spans371.324ms, including a
+370.267ms status callback (99.715%). Original full command validation succeeds;
+submission-to-observation is370.067ms and observation-to-resume198us.
+The exact worst3.124572-second private wait has2.870563seconds of status overlap
+(91.87%). These observations localize the selected delay without identifying
+hardware arrival or a device/media/firmware/controller cause. They cover one
+selected command/wait, not every screenshot or an isolated speed improvement.
+Original flush/proof/retirement checks remain mandatory and pass this return.
