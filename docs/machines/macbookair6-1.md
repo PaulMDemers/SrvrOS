@@ -12922,3 +12922,33 @@ validation respects unsampled empty observations while requiring the exact
 empty/event partition and original service coverage. Final affected-path,
 matched-image and exact-stage requalification is pending. Controller limits,
 policies, integrity proofs, existing payloads and ordinary startup are unchanged.
+
+
+### Ready isolated native comparison
+
+Final optional fixture/collector source`527bbb81` passed36 real-stack cases,
+including distinct-sector/chunk alias corruption and legitimate unsampled-empty
+observations, original block/USB/workspace/image leases and logger checks,
+93 boot/installer unit tests, documentation, exact-stage GPT saved receipt/full
+fixture/offline fsck and ordinary sysabi/USB input/thread exec/USB write-reload
+VM regressions. The separately retained full core/desktop/docs baseline is
+`7c89275d`; only the new payload and collector/fault fixture changed afterward.
+No controller, filesystem, scheduler, polling, deadline or integrity limit changed.
+
+Release`78cfda46ee1b63a0` is installed from the matched ordinary kernel/initramfs.
+The exact-stage run completes all12 samples and saves the stronger final payload.
+Actual Air6,1 UUID`6ADA-85BB`, AC, all886 prior file hashes, headroom/full allocation,
+independent accepted payloads and original failed-media archive verify. Ubuntu
+remains default with recovery`c35475f62f154f1e`; accepted0d3/4598/80b4/c7 remain on
+EFI and independently backed up. Only the unreferenced, fully verifiedc95f EFI
+duplicate was retired; its complete independent payload is retained. Five old
+inactive synthetic stream fixtures were losslessly archived with per-file SHA
+verification to keep build headroom; native evidence and active fixtures remain.
+
+The saved local run is`2923b641532e4681`; its new automatic collector requires
+one matching session, all12 CRC/byte/command/service samples, six retired leases,
+exact final sequence12 bytes, prior-file preservation and offline fsck/allocation.
+The guest runs six balanced32KiB pairs within180seconds with brief1% boundary
+cues outside measurements, shows progress and returns automatically. No human
+input or listening report is required. Implementation/host/VM validation is
+complete; native performance/acceptance awaits this run's matching return.
