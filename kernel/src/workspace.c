@@ -294,6 +294,7 @@ bool workspace_scratch_end(void) {
 #include "storage_compare.inc"
 #else
 bool workspace_storage_compare(void) {return false;}
+bool workspace_storage_compare_trace(void) {return false;}
 #endif
 
 void workspace_boot(const char *cmdline) {

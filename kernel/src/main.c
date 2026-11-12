@@ -496,14 +496,14 @@ static bool storage_only_cue(void) {
     }while(timer_monotonic_us()-start<2000000);
     return false;
 }
-static bool storage_only_capture(void) {
+static bool storage_only_capture(bool roles) {
     console_write("Storage-only comparison: six balanced32KiB pairs, maximum180seconds.\n"
         "Volume1%; brief start/end cues only. No input required; automatic Ubuntu return.\n");
     bool quiesced=workspace_log_quiesce(5000);
     bool configured=quiesced && audio_listen_control(SRV_AUDIO_OUTPUT,SRV_AUDIO_SPEAKERS) &&
         audio_listen_control(SRV_AUDIO_VOLUME,1);
     bool first=configured && storage_only_cue();
-    bool measured=first && workspace_storage_compare();
+    bool measured=first && (roles?workspace_storage_compare_trace():workspace_storage_compare());
     bool second=measured && storage_only_cue();
     bool stopped=audio_listen_control(SRV_AUDIO_STOP,0);
     bool quiet=stopped && audio_listen_control(SRV_AUDIO_VOLUME,1);
@@ -1051,7 +1051,7 @@ void kmain(void) {
             console_printf("cpu-load-capture: returned=yes process_ok=%s\n",sampled?"yes":"NO");
             thermal_print_status();smc_print_status();
         }
-        if(automatic_storage_only && started && init_ready && timer_running)sampled=storage_only_capture();
+        if(automatic_storage_only && started && init_ready && timer_running)sampled=storage_only_capture(cmdline_has_token(cmdline,"srvros.storage-roles=on"));
         if (started && cmdline_has_token(cmdline,"srvros.capture=keyboard")) keyboard_capture();
         if(automatic_desktop_idle && started && init_ready && timer_running) {
             sampled=process_run_elf_args("/fat/bin/deskd","--idle-capture");
