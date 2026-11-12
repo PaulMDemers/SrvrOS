@@ -13379,3 +13379,19 @@ bounded candidate, validate actual full-field observation and byte/write/barrier
 compatibility/fault paths, run the matched host/VM checks, self-merge and launch
 the authorized automatic native comparison. No performance acceptance before its
 matching physical return; no limits, recovery protocol or hardware gate changes.
+
+The complete audit prototype confirms that a rewrite can include the diagnostic
+file's atime/mtime/ctime and the marker's atime together; marker suppression alone
+would miss required persistence. The v3 observation reads the full old table and
+counts every field/namespace change without applying data or changing ordinary
+v1/v2 equality behavior. Its additional reads/CPU time remain inside the existing
+write interval and proof role, not hidden from the comparison.
+
+The first large-cluster BOT host A/B reduces six updates' directory input from
+789504 to 134144 bytes, with identical complete media, ordered writes/flushes and
+full metadata-change evidence. The first END-consuming allocation still falls
+back; subsequent pre-END deleted-slot reuses avoid the full cluster read. Small
+clusters retain their original path. Paired publication/failure/repair controls
+pass, including stale private tail bytes behind END; existing recovery gaps are
+unchanged. Full build, strict-v3 VM, regression qualification and fresh physical
+preflight remain pending. These host results do not establish native savings.

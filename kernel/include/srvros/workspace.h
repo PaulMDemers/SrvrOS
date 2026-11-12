@@ -39,6 +39,7 @@ bool workspace_scratch_end(void);
 bool workspace_storage_compare(void);
 /* Same bounded workload, with explicit per-role command attribution receipts. */
 bool workspace_storage_compare_trace(void);
+bool workspace_storage_compare_metadata(void);
 void workspace_status(void);
 void workspace_boot(const char *cmdline);
 #endif

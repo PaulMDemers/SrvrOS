@@ -27,9 +27,15 @@ for shift,cluster_shift in ((9,3),(9,8),(12,0)):
         control_trace=re.search(r'workspace-control-trace: calls=(\d+) hash=([0-9a-f]{16}) clocks=(\d+)',control.stdout)
         assert control_trace
         reference=(control_trace.groups(),hashlib.sha256(control_image.read_bytes()).hexdigest())
-        for version in (1,2):
+        control_image.write_bytes(fixture.data)
+        full_control=subprocess.run([str(ROOT/'build/tests/workspace-compare-legacy'),str(control_image),mode,'metadata'],capture_output=True,text=True,timeout=30)
+        assert full_control.returncode==0,full_control.stderr
+        full_trace=re.search(r'workspace-control-trace: calls=(\d+) hash=([0-9a-f]{16}) clocks=(\d+)',full_control.stdout)
+        assert full_trace
+        full_reference=(full_trace.groups(),hashlib.sha256(control_image.read_bytes()).hexdigest())
+        for version in (1,2,3):
             image=OUT/'candidate.exfat';image.write_bytes(fixture.data)
-            p=subprocess.run([str(ROOT/'build/tests/workspace-compare-host'),str(image),mode]+(['roles'] if version==2 else []),capture_output=True,text=True,timeout=30)
+            p=subprocess.run([str(ROOT/'build/tests/workspace-compare-host'),str(image),mode]+(['metadata'] if version==3 else ['roles'] if version==2 else []),capture_output=True,text=True,timeout=30)
             log=p.stdout+p.stderr;name=f'{shift}-{cluster_shift}-{mode}-v{version}'
             (OUT/(name+'.log')).write_text(log)
             assert p.returncode==0,(name,log[-2000:])
@@ -56,7 +62,7 @@ for shift,cluster_shift in ((9,3),(9,8),(12,0)):
                     assert capture_result('\n'.join(lines[:index]+[lines[index]]+lines[index:]),False) is None
                 for old,new in (('valid=1','valid=0'),('ok=1','ok=0'),('retired=1','retired=0'),('claimed=1','claimed=0'),('policy=unchanged','policy=changed'),('actual=13','actual=12'),('complete=yes','complete=NO'),('seq=1 ','seq=99 ')):
                     assert capture_result(log.replace(old,new,1),False) is None,(old,new)
-                if version==2:
+                if version>=2:
                     assert capture_result(log,False,require_sidecar=True) is not None
                     # Missing/incorrect first-difference accounting is not a
                     # valid new candidate, even when every legacy row remains.
@@ -69,7 +75,7 @@ for shift,cluster_shift in ((9,3),(9,8),(12,0)):
                         assert capture_result('\n'.join(lines[:index]+[lines[index]]+lines[index:])+'\n',False) is None
                     def mutate_roles(old,new):
                         edited=log.replace(old,new,1)
-                        size=sum(len(l) for l in edited.splitlines(keepends=True) if any(l.startswith(p+':') for p in ('storage-only-sample','storage-only-command','storage-only-service','storage-only-roles','storage-only-role','storage-only-sidecar')))
+                        size=sum(len(l) for l in edited.splitlines(keepends=True) if any(l.startswith(p+':') for p in ('storage-only-sample','storage-only-command','storage-only-service','storage-only-roles','storage-only-role','storage-only-sidecar','storage-only-metadata')))
                         return re.sub(r'row_bytes=\d+',f'row_bytes={size}',edited)
                     reason=next(l for l in lines if l.startswith('storage-only-sidecar:'))
                     for key,value in [('checks',2),('shape',2),('fields',512),('valid',0),('seq',99),('offset',5)]:
@@ -77,6 +83,18 @@ for shift,cluster_shift in ((9,3),(9,8),(12,0)):
                         assert capture_result(mutate_roles(reason,bad),False,True) is None,(name,key)
                     for old,new in [('roles=7','roles=6'),('writes512=0','writes512=999'),('failed=0','failed=1'),('other=0','other=1'),('mask=64','mask=65')]:
                         assert capture_result(mutate_roles(old,new),False) is None,(name,old)
+                if version==3:
+                    assert len(proof['metadata'])==12
+                    first=next(l for l in lines if l.startswith('storage-only-metadata:'))
+                    def mutate_metadata(key,value):
+                        bad=re.sub(r'\b'+key+r'=\d+',f'{key}={value}',first)
+                        edited=log.replace(first,bad,1)
+                        size=sum(len(l) for l in edited.splitlines(keepends=True) if l.startswith(('storage-only-sample:','storage-only-command:','storage-only-service:','storage-only-roles:','storage-only-role:','storage-only-sidecar:','storage-only-metadata:')))
+                        return re.sub(r'row_bytes=\d+',f'row_bytes={size}',edited)
+                    for key,value in [('valid',0),('old_rows',0),('matched',0),('changed',99999),('f0',99999),('subject',256),('marker',256),('representation',2)]:
+                        assert capture_result(mutate_metadata(key,value),False,True) is None,(name,key)
+                    missing='\n'.join(l for l in lines if not l.startswith('storage-only-metadata:'))+'\n'
+                    assert capture_result(missing,False,True) is None
                 (OUT/(name+'.json')).write_text(json.dumps(proof,indent=2)+'\n')
             else:
                 assert proof is None
@@ -87,6 +105,6 @@ for shift,cluster_shift in ((9,3),(9,8),(12,0)):
             trace=re.search(r'workspace-control-trace: calls=(\d+) hash=([0-9a-f]{16}) clocks=(\d+)',log)
             assert trace
             signature=(trace.groups(),hashlib.sha256(actual.data).hexdigest())
-            assert signature==reference,(name,'observer changed ordered BOT data, clocks or media')
+            assert signature==(full_reference if version==3 else reference),(name,'observer changed ordered BOT data, clocks or media')
 (OUT/'result.json').write_text(json.dumps(results,indent=2)+'\n')
 print('storage-only: PASS real producer, exact containment, failures, retirement, parser negatives')

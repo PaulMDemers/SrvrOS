@@ -6,7 +6,8 @@
 #define SRVROS_EXFAT_HOST_TEST
 #define SRVROS_SYNC_CONTENT_DISABLED_HOST_TEST /* Direct fixture has no sync runtime. */
 #include "../kernel/src/fs/exfat.c"
-static uint8_t disk[65536],expected[20000];static unsigned reads;static bool fail,oom;
+static uint8_t disk[65536],expected[20000];static unsigned reads,fail_read_call;static bool fail,oom,audit_owner;
+bool scheduler_io_active(void){return audit_owner;}
 static uint64_t emitted;static unsigned line_bytes,max_line;
 #include <stdarg.h>
 void console_printf(const char *format,...) {
@@ -22,7 +23,7 @@ void console_printf(const char *format,...) {
 uint64_t timer_monotonic_us(void){return 0;}
 void *kmalloc(uint64_t n){return oom?NULL:malloc(n);}
 void kfree(void *p){free(p);}
-bool block_read(struct block_device *d,uint64_t off,void *out,uint64_t n){(void)d;assert(off+n<=sizeof(disk)&&n<=16384);reads++;if(fail)return false;memcpy(out,disk+off,n);return true;}
+bool block_read(struct block_device *d,uint64_t off,void *out,uint64_t n){(void)d;assert(off+n<=sizeof(disk)&&n<=16384);reads++;if(fail || reads==fail_read_call)return false;memcpy(out,disk+off,n);return true;}
 int main(void){
  struct block_device d={0};struct exfat_volume v={.device=&d,.image_size=sizeof(disk),.cluster_size=4096,.cluster_count=14,.cluster_heap_offset_bytes=4096,.fat_offset_bytes=512};
  struct exfat_file f={.volume=&v,.first_cluster=2,.size=sizeof(expected),.valid_size=sizeof(expected),.allocated_clusters=5,.no_fat_chain=true};
@@ -44,6 +45,44 @@ int main(void){
  unsigned before=reads;f.valid_size--;assert(metadata_equal_media(&f,expected,sizeof(expected))==METADATA_DIFFERENT&&reads==before);f.valid_size++;
  assert(metadata_equal_media(&f,expected,sizeof(expected)-1)==METADATA_DIFFERENT);
  assert(metadata_equal_media(&f,NULL,sizeof(expected))==METADATA_UNPROVED);
+ /* Complete diagnostic compares every field after the first mismatch, with
+  * width changes, added/removed names, chunk boundaries and late I/O failure. */
+ char old_meta[30000],new_meta[30000];uint64_t old_size=12,new_size=12;
+ memcpy(old_meta,"SRVROSMETA1\n",12);memcpy(new_meta,"SRVROSMETA1\n",12);
+ for(unsigned i=0;i<450;i++) {
+  uint64_t values[8]={1000+i,33188,1,10,20,30,40,50};
+  if(i!=350)old_size+=(uint64_t)snprintf(old_meta+old_size,sizeof(old_meta)-old_size,"/vol/%04u\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\n",i,
+   (unsigned long long)values[0],(unsigned long long)values[1],(unsigned long long)values[2],(unsigned long long)values[3],(unsigned long long)values[4],(unsigned long long)values[5],(unsigned long long)values[6],(unsigned long long)values[7]);
+  if(i<8)values[i]=i?values[i]+1:UINT64_MAX;
+  if(i!=351)new_size+=(uint64_t)snprintf(new_meta+new_size,sizeof(new_meta)-new_size,"/vol/%04u\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\n",i,
+   (unsigned long long)values[0],(unsigned long long)values[1],(unsigned long long)values[2],(unsigned long long)values[3],(unsigned long long)values[4],(unsigned long long)values[5],(unsigned long long)values[6],(unsigned long long)values[7]);
+ }
+ assert(old_size>16384 && old_size<30000 && new_size<30000);
+ memcpy(disk+4096,old_meta,old_size);copy_cstr(metadata_audit_subject,sizeof(metadata_audit_subject),"/vol/0000");copy_cstr(metadata_audit_marker,sizeof(metadata_audit_marker),"/vol/0005");
+ f.no_fat_chain=true;f.size=f.valid_size=old_size;f.allocated_clusters=clusters_for_size(&v,old_size);
+ unsigned full_reads=reads;assert(metadata_full_equal_media(&f,(uint8_t *)new_meta,new_size)==METADATA_DIFFERENT);
+ assert(reads-full_reads==f.allocated_clusters && metadata_audit_result.valid);
+ assert(metadata_audit_result.old_rows==449 && metadata_audit_result.new_rows==449 && metadata_audit_result.matched==448 && metadata_audit_result.added==1 && metadata_audit_result.removed==1 && metadata_audit_result.changed==8);
+ for(unsigned i=0;i<8;i++)assert(metadata_audit_result.fields[i]==1);
+ assert(metadata_audit_result.subject_fields==1 && metadata_audit_result.marker_fields==32);
+ metadata_audit_result=(struct exfat_metadata_audit){0};fail_read_call=reads+(unsigned)f.allocated_clusters;
+ assert(metadata_full_equal_media(&f,(uint8_t *)new_meta,new_size)==METADATA_UNPROVED && !metadata_audit_result.valid);fail_read_call=0;
+ disk[4096]='X';assert(metadata_full_equal_media(&f,(uint8_t *)new_meta,new_size)==METADATA_UNPROVED);disk[4096]='S';
+ assert(metadata_full_equal_media(&f,(uint8_t *)old_meta,old_size)==METADATA_EQUAL && metadata_audit_result.changed==0 && metadata_audit_result.added==0 && metadata_audit_result.removed==0);
+ /* The same full proof also crosses a real 16 KiB command boundary. */
+ v.cluster_size=32768;f.allocated_clusters=1;full_reads=reads;
+ assert(metadata_full_equal_media(&f,(uint8_t *)new_meta,new_size)==METADATA_DIFFERENT && reads-full_reads==2);
+ assert(!exfat_metadata_audit_begin("/vol/a","/vol/b"));audit_owner=true;
+ uint64_t audit_token=exfat_metadata_audit_begin("/vol/a","/vol/b");assert(audit_token && !exfat_metadata_audit_begin("/vol/a","/vol/b"));
+ struct exfat_metadata_audit observation;
+ assert(!exfat_metadata_audit_end(audit_token+1,&observation) && metadata_audit_armed);
+ assert(metadata_equal_media(&f,(uint8_t *)old_meta,old_size)==METADATA_EQUAL);
+ assert(exfat_metadata_audit_end(audit_token,&observation) && observation.valid && !exfat_metadata_audit_end(audit_token,&observation));
+ uint64_t next_token=exfat_metadata_audit_begin("/vol/a","/vol/b");assert(next_token!=audit_token);
+ assert(!exfat_metadata_audit_end(audit_token,&observation) && metadata_audit_armed);
+ assert(!exfat_metadata_audit_end(next_token,&observation));audit_owner=false;
+ v.cluster_size=4096;
+ f.size=f.valid_size=sizeof(expected);f.allocated_clusters=clusters_for_size(&v,f.size);
  /* A difference label describes the expected field at the first changed
   * byte. It must not turn an unreadable or partial proof into equality. */
  sidecar_stats.active=1;sidecar_differences=(struct sidecar_difference_stats){0};
@@ -89,5 +128,6 @@ int main(void){
  free(many);free(paths);
  kfree(m.metadata_nodes);kfree(m.metadata_buffer);
  sidecar_stats.checks=UINT64_MAX;sidecar_add(&sidecar_stats.checks,1);assert(sidecar_stats.invalid&&sidecar_stats.checks==UINT64_MAX);
+ puts("metadata-audit: PASS all8 fields, namespace additions/removals, width/chunk boundaries, late failed read, token/nesting/stale refusal");
  puts("sidecar-equality: PASS complete uncached bytes, last-byte mismatch, unavailable read/allocation, exact length/validity, FAT termination/cycle refusal and bounded scratch");
 }
