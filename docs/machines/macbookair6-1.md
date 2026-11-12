@@ -12873,3 +12873,28 @@ of that fault captured here. A useful next control is bounded storage-only
 write/flush work to separate filesystem/interleaving effects from completion
 latency under the same sizes, polling, deadlines and integrity checks. No further
 implementation or physical test has started at this checkpoint.
+
+## Active bounded storage-only comparison (2026-11-11)
+
+From main `f16fa5ab`, prepare a separate fixed32KiB filesystem/direct-extent
+write/flush/readback control, six balanced pairs within the existing180-second
+comparison bound. Keep16KiB transport commands,4KiB DMA segments, current polling,
+all deadlines, filesystem barriers/proofs and allocation/claim/quarantine checks.
+The old4096-byte battery scratch API remains unchanged; use the existing general
+exclusive-range proof for a fresh32KiB fixture, park the outer filesystem, revoke
+all public write aliases and retain the whole-device raw claim during direct I/O.
+No caller-supplied raw offset/length or reuse of user documents. Any uncertain
+write/readback poisons the capability and refuses filesystem reentry for that boot.
+
+Scope: explicit opt-in workspace comparison, automatic boot profile/controller,
+compact bounded receipts, strict collection, actual producer and lease/fault
+fixtures. Pause periodic logging while measuring; verify all sample bytes/CRC,
+raw containment, fresh readback, clean lease retirement and offline file/allocation
+preservation. Use1% volume with brief boundary cues outside measured storage;
+there is no continuous desktop/app/battery/audio workload in this isolated
+control. Historical30-minute stress requirements and acceptance stay separate.
+PR19 `b9f78149` owns separate logger startup/Wi-Fi capture hunks; PR301 `890d0fd3`
+has no competing workspace/direct-extent control. No other task is contacted.
+Current0d3/accepted4598/80b4/c7 and recoveryc354 plus their evidence are retained.
+Validate, self-merge and run automatically under existing sudo/reboot authorization;
+new native acceptance remains pending matching return.
