@@ -295,7 +295,7 @@ def main():
     audio_listen=bool(probe and manifest["config_version"].startswith("ram-usb-v1-audio-listen-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
-    storage_only_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-storage-only-","ram-usb-v2-storage-only-")))
+    storage_only_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-storage-only-","ram-usb-v2-storage-only-","ram-usb-v3-storage-only-")))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
     battery_preflight=bool(probe and manifest["config_version"].startswith("ram-usb-v60-"))
@@ -735,8 +735,8 @@ def main():
                         from storage_only_result import capture_result,payload
                         comparison=capture_result(stored.read(folder+"/exit.log").decode())
                         assert comparison is not None, 'Incomplete storage-only comparison'
-                        if manifest['config_version'].startswith('ram-usb-v2-storage-only-'):
-                            assert comparison['version']==2 and comparison['roles'] and 'srvros.storage-roles=on' in text
+                        if manifest['config_version'].startswith(('ram-usb-v2-storage-only-','ram-usb-v3-storage-only-')):
+                            assert comparison['version']==(3 if manifest['config_version'].startswith('ram-usb-v3-storage-only-') else 2) and comparison['roles'] and 'srvros.storage-roles=on' in text
                         assert stored.read(comparison['path'].removeprefix('/work/'))==payload(12)
                         assert 'srvros.battery=on' not in text and 'srvros.aml=probe' not in text
                         (logs/'storage-only-result.json').write_text(json.dumps(comparison,indent=2)+'\n')

@@ -103,6 +103,10 @@ static struct sidecar_equality_stats sidecar_stats;
 /* First differing serialized field, not a semantic cause or a cached proof. */
 struct sidecar_difference_stats { uint64_t shape,field[10],last_offset; };
 static struct sidecar_difference_stats sidecar_differences;
+static bool metadata_audit_armed;
+static uint64_t metadata_audit_seen,metadata_audit_generation;
+static char metadata_audit_subject[EXFAT_MAX_PATH],metadata_audit_marker[EXFAT_MAX_PATH];
+static struct exfat_metadata_audit metadata_audit_result;
 struct contiguous_append_stats { uint64_t local_complete,links_avoided,prefix_bytes,invalid; };
 static struct contiguous_append_stats contiguous_appends;
 static uint64_t cost_clock(void) {
@@ -1691,7 +1695,12 @@ static void sidecar_byte_difference(const uint8_t *expected,uint64_t at) {
     if(field>9)field=9;
     sidecar_add(&sidecar_differences.field[field],1);sidecar_differences.last_offset=at;
 }
+#include "sidecar_audit.inc"
 static enum metadata_equality metadata_equal_media(const struct exfat_file *file,const uint8_t *expected,uint64_t size) {
+    if(metadata_audit_armed) {
+        if(metadata_audit_seen++)return METADATA_UNPROVED;
+        return metadata_full_equal_media(file,expected,size);
+    }
     if(!file || !file->volume || !file->volume->cluster_size || !expected || size>EXFAT_METADATA_MAX_BYTES)return METADATA_UNPROVED;
     if(file->size!=size || file->valid_size!=size || !size ||
        file->allocated_clusters!=clusters_for_size(file->volume,size)) {
@@ -2677,6 +2686,19 @@ static bool scan_directory_cluster_for_free(const uint8_t *cluster_buffer,
     return false;
 }
 
+/* Strictly inactive slots only: END cannot participate in this proof. */
+static bool scan_directory_inactive_prefix(const uint8_t *bytes,uint64_t size,uint64_t needed,uint64_t *out) {
+    if(!bytes || !out || !needed || needed>size/EXFAT_ENTRY_SIZE)return false;
+    uint64_t run=0;
+    for(uint64_t at=0;at+EXFAT_ENTRY_SIZE<=size;at+=EXFAT_ENTRY_SIZE) {
+        uint8_t type=bytes[at];if(type==EXFAT_ENTRY_END)return false;
+        if(root_entry_is_free(type)) {
+            if(++run==needed){*out=at-(run-1)*EXFAT_ENTRY_SIZE;return true;}
+        } else run=0;
+    }
+    return false;
+}
+
 /* Prepare only the prefix that will actually be published. Allocation
  * exhaustion must not retire END markers. Bytes following END are undefined,
  * so clear them when consuming the marker rather than resurrecting stale names. */
@@ -2728,6 +2750,33 @@ static bool directory_free_offset(struct exfat_volume *volume,
     if (cluster_buffer == NULL) {
         return false;
     }
+
+    /* Reusing inactive slots before any END in the first sector requires no
+     * tail preparation: the legacy preparer cannot modify bytes beyond this
+     * run. Keep its complete path for END consumption, growth or uncertainty.
+     * Scratch size, transaction cache/invalidation and all writes are unchanged. */
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_SIDECAR_DIRECTORY_OFF)
+    (void)scan_directory_inactive_prefix;
+#else
+    struct exfat_mount *owner=find_mount_for_path(directory->path);
+    char private_path[EXFAT_MAX_PATH];
+    if(metadata_syncing && owner && &owner->volume==volume &&
+       metadata_directory_path(owner,private_path,sizeof(private_path)) &&
+       streq(private_path,directory->path) && volume->sector_size>=512 &&
+       volume->sector_size<=4096 && volume->cluster_size>16384 &&
+       volume->sector_size<volume->cluster_size &&
+       needed_entries<=volume->sector_size/EXFAT_ENTRY_SIZE) {
+        uint64_t base;
+        if(!cluster_offset(volume,directory->first_cluster,&base) ||
+           !volume_read(volume,base,cluster_buffer,volume->sector_size)) {
+            kfree(cluster_buffer);return false;
+        }
+        uint64_t offset;
+        if(scan_directory_inactive_prefix(cluster_buffer,volume->sector_size,needed_entries,&offset)) {
+            *offset_out=base+offset;kfree(cluster_buffer);return true;
+        }
+    }
+#endif
 
     uint32_t cluster = directory->first_cluster;
     uint32_t previous = 0;
@@ -4539,6 +4588,24 @@ bool exfat_same_mount(const char *first,const char *second) {
 /* Called by the logger before its own filesystem work; snapshot under CPU0 IRQ
  * exclusion, then format without holding that exclusion or storage ownership. */
 /* Explicit sync/storage diagnostics only; no output during ordinary I/O. */
+uint64_t exfat_metadata_audit_begin(const char *subject,const char *marker) {
+    if(!subject || !marker || streq(subject,marker) || ascii_length(subject)>=EXFAT_MAX_PATH || ascii_length(marker)>=EXFAT_MAX_PATH)return 0;
+    uint64_t irq=fs_irq_save();bool ok=!metadata_audit_armed && metadata_audit_generation!=UINT64_MAX && !sidecar_stats.active && scheduler_io_active();
+    if(ok) {
+        copy_cstr(metadata_audit_subject,sizeof(metadata_audit_subject),subject);
+        copy_cstr(metadata_audit_marker,sizeof(metadata_audit_marker),marker);
+        metadata_audit_result=(struct exfat_metadata_audit){0};metadata_audit_seen=0;metadata_audit_armed=true;metadata_audit_generation++;
+    }
+    uint64_t token=ok?metadata_audit_generation:0;fs_irq_restore(irq);return token;
+}
+bool exfat_metadata_audit_end(uint64_t token,struct exfat_metadata_audit *out) {
+    if(!out)return false;
+    uint64_t irq=fs_irq_save();
+    if(!metadata_audit_armed || !token || token!=metadata_audit_generation || !scheduler_io_active()){fs_irq_restore(irq);return false;}
+    bool ok=metadata_audit_seen==1 && metadata_audit_result.valid;
+    *out=metadata_audit_result;metadata_audit_armed=false;metadata_audit_seen=0;
+    fs_irq_restore(irq);return ok;
+}
 void exfat_sidecar_snapshot(struct exfat_sidecar_trace *out) {
     if(!out)return;
     uint64_t irq=fs_irq_save();

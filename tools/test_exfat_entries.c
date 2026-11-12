@@ -54,6 +54,20 @@ static void test_fat_ranges(void) {
 }
 int main(void) {
     test_fat_ranges();
+    /* Exhaust all active/deleted/END layouts and run lengths. An optimized
+     * result must be the legacy first fit, wholly before its first END. */
+    uint8_t proof_slots[8*EXFAT_ENTRY_SIZE];
+    for(unsigned pattern=0;pattern<6561;pattern++) {
+        unsigned value=pattern;memset(proof_slots,0xa7,sizeof(proof_slots));
+        for(unsigned i=0;i<8;i++){proof_slots[i*32]=(uint8_t[]){0x85,0x05,0}[value%3];value/=3;}
+        for(unsigned needed=1;needed<=8;needed++) {
+            uint64_t fast=999,legacy=999;
+            if(scan_directory_inactive_prefix(proof_slots,4*32,needed,&fast)) {
+                assert(scan_directory_cluster_for_free(proof_slots,sizeof(proof_slots),needed,&legacy) && fast==legacy && fast+needed*32<=4*32);
+                for(unsigned i=0;i<(fast+needed*32)/32;i++)assert(proof_slots[i*32]!=0);
+            }
+        }
+    }
     uint8_t slots[8 * EXFAT_ENTRY_SIZE];
     memset(slots,0,sizeof(slots));
     for(unsigned i=0;i<8;i++) slots[i*EXFAT_ENTRY_SIZE]=0x85;
