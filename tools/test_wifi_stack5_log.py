@@ -156,7 +156,13 @@ class Tests(unittest.TestCase):
         rows = minimal_parent(self.actual())
         indices = [i for i, s in enumerate(rows) if s.startswith(('wifi-stream5', 'wifi-stack5'))]
         for i in indices:
-            for changed in (rows[:i] + rows[i + 1:], rows[:i] + [rows[i]] + rows[i:]):
+            # DHCP observations were added after v137 and are optional in
+            # historical owner proofs. Present rows still have exact schema,
+            # accounting, cardinality and ordering requirements.
+            changes = [rows[:i] + [rows[i]] + rows[i:]]
+            if not rows[i].startswith('wifi-stack5-dhcp:'):
+                changes.append(rows[:i] + rows[i + 1:])
+            for changed in changes:
                 with self.subTest(row=i), self.assertRaises(ValueError):
                     self.check_owner(changed)
             changed = rows.copy()
@@ -168,6 +174,14 @@ class Tests(unittest.TestCase):
             changed[a], changed[b] = changed[b], changed[a]
             with self.subTest(a=a, b=b), self.assertRaises(ValueError):
                 self.check_owner(changed)
+
+    def test_historical_owner_without_optional_dhcp_diagnostic(self):
+        rows = minimal_parent(self.actual())
+        diagnostic = [s for s in rows if s.startswith('wifi-stack5-dhcp:')]
+        self.assertEqual(len(diagnostic), 1)
+        before = self.check_owner(rows)
+        after = self.check_owner([s for s in rows if s not in diagnostic])
+        self.assertEqual(before, after)
 
     def test_production_and_private_probe_mutations(self):
         rows = minimal_parent(self.actual())
