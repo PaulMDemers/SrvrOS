@@ -87,5 +87,24 @@ isolation, exact staged instruction widths/fences, original static lifetimes,
 with 1,536 bytes of reserve pass. Exact-stage EFI QEMU/MBR save/unmount/safe return and
 missing-workspace halt pass. The [unit record](machines/macbookair7-2.md) records
 the scope, test-only provider-reason correction and preserved recovery/media.
-Candidate is durably banked, uninstalled and unarmed. Physical entry and enabled
-writer acceptance remain pending; there is no reset or memory grant.
+At qualification the candidate was durably banked, uninstalled and unarmed.
+The later native result below accepts only its observed route; there is no reset
+or memory grant.
+
+## Native result: already-disabled route accepted
+
+Air7,2 source `c150c6ad`, release `dd91b264c73a48a6`, session
+`session-0006600b199573e1-00` completes kind 2 under the original static HDA/GT
+owners. Zero-geometry source, four BCS8 observations, fresh full 92-word census,
+all engine/context/plane/HDA preservation, registered return and retirement
+verify. BCS attempts/stores are zero, epoch stays 0 and
+`native_enabled_writer_complete` is false. The enabled route remains physically
+unexercised; reset, managed memory and tear-free acceptance remain pending.
+
+Entry is 97,088/150,000 us, BCS 35,784/100,000 us, original source age at BCS
+completion 57,909/100,000 us, HDA 193,406/400,000 us and outer lifetime
+248,203/500,000 us. No clock fault or collector attention occurs. HDA 6/2/2/6,
+all four inspections, 14 GPU aliases/HDA root and CPU exclusion retire cleanly.
+The saved checkpoint, all prior files, offline filesystem and Ubuntu recovery
+verify; [the unit record](machines/macbookair7-2.md) owns exact acceptance limits.
+This is one bounded pass; its receipt cannot authorize a later boot or reset.

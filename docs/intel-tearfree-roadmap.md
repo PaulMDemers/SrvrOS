@@ -86,11 +86,11 @@ nonzero geometry still needs a separate contract; no old reset gate is widened.
 The first native v24 trial (`811ff18f86cf3d17`) instead observes already-disabled,
 zero-geometry entry and safely refuses before its enabled-only child/write.
 HDA and all mappings retire within bounds; this does not accept enabled shutdown.
-Next select explicit original-owner routes for both naturally observed entry
-states, preserving old geometry/epoch gates and avoiding unchanged retries.
+These contrasting captures motivated explicit original-owner routes for both
+naturally observed entry states, preserving old geometry/epoch gates.
 
-A separate [state-aware entry contract](intel-ring-entry.md) is now host/VM-qualified
-for those two captured sources. It keeps enabled one-store/epoch
+A separate [state-aware entry contract](intel-ring-entry.md) has host/VM qualification
+for both captured sources and native acceptance of its already-disabled route. It keeps enabled one-store/epoch
 advance distinct from disabled NULL-writer observation, requires fresh full
 post-census and reader preservation on both, and ends before reset. Both old
 recipes and geometry gates remain unchanged; neither observed completion nor
@@ -268,15 +268,21 @@ and quarantine accounting resolve the new backing-adapter qualification boundary
 it does not repeat or replace the accepted shadow publication. Exclusive GGTT
 transfer, owned completion and real buffer/flip publication remain open.
 
-## Current state-aware entry candidate
+## Current state-aware entry result
 
-Source `c150c6ad` / release `dd91b264c73a48a6` is hardware-ready after the
-full 30-image gate, fatal dual-route fault matrix, 11 compiled controls, native
-width/lifetime/tail checks and exact-stage EFI VM recovery tests. It selects
-from the actual original census and reports enabled writer and zero-store
-disabled observation separately. See the [entry contract](intel-ring-entry.md)
-and [unit checkpoint](machines/macbookair7-2.md). It remains uninstalled/unarmed
-and physically unaccepted. After native entry evidence, reset-capable nonzero
-geometry and remaining firmware/DMA/cache/translation/reader ownership still
-need separate live-object protocols; no deadline, old reset gate or memory grant
-is changed here.
+Source `c150c6ad` / release `dd91b264c73a48a6` accepts the already-disabled
+kind 2 route on Air7,2, session `session-0006600b199573e1-00`. Original child,
+zero writes/epoch 0, four BCS8 samples, fresh full 92-word post-census and all
+engine/context/plane/HDA preservation and retirement verify. Entry is
+97,088/150,000 us, HDA 193,406/400,000 us and outer 248,203/500,000 us. Exact
+saved provenance, prior files, offline allocation and Ubuntu recovery pass.
+The enabled writer remains unexercised, with separate acceptance still false.
+See the [entry contract](intel-ring-entry.md) and [unit record](machines/macbookair7-2.md).
+
+Next compose this zero-geometry entry with reset under the same live original
+objects, retaining valid source/epoch/borrow and deadline checks. Nonzero geometry
+needs separate reset semantics and physical evidence; do not clear it, force an
+enabled source, widen old gates or use a completed receipt as live authority.
+Firmware/DMA/cache/translation/reader retirement, exclusive memory transfer,
+managed backing and real flip publication remain open. Obligations 255,
+assurances 0 and managed pages 0 remain unchanged. No new trial is armed.

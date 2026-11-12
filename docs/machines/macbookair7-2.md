@@ -2,22 +2,63 @@
 
 Updated: 2026-11-11. State: **active reference machine; partial device acceptance**.
 
-### Active scope: native state-aware entry trial
+### Active scope: record native entry acceptance and prepare reset integration
 
-Source `c150c6ad` is qualified on runtime base `a9eacdaa`; documentation from
-main `189f6e43` is integrated separately. The next bounded scope is the silent
-native trial of the separate v25 entry image. It selects only the two captured
-live states and ends at entry verification and clean retirement. Branch-specific
-enabled-writer evidence must remain distinct. Disabled nonzero geometry is
-ineligible; old v24 and reset contracts stay unchanged.
+The native already-disabled route on frozen `c150c6ad` is collected and accepted
+as described below. Main `f16fa5ab` is integrated after collection; affected
+local checks pass. Next is a live original-owner entry/reset composition with
+distinct zero/nonzero geometry rules. No implementation or new trial is armed
+by this closeout. Preserve original providers, borrows, source/epoch binding,
+all existing limits and independent enabled-writer acceptance. Touched scope:
+return collection/integrity, acceptance documentation and shared-main integration.
+PR19 network and PR379 WebCore remain independent.
 
-Touched scope: entry core/adapter, separate image/boot recipe, strict receipts/
-collector and host fault, isolation, native-width, lifetime and VM qualification.
-No reboot occurred in this work block. No reset or memory grant is added.
-PR474 storage, PR19 network and PR379 WebCore remain independent. Local
-checkpoint: `build/air-ring-entry-20261111/status.md`.
+### Latest native result: state-aware already-disabled entry accepted
 
-### State-aware entry qualification: hardware-ready, not physically accepted
+Source `c150c6ad`, release `dd91b264c73a48a6`, session
+`session-0006600b199573e1-00` accepts the **already-disabled route only**.
+The original full 92-word census selects kind 2: zero geometry, parser idle 3,
+no enabled/pending/flip/TLB flags. The registered child blocks early GT close,
+uses the NULL-writer observer and returns after four BCS8 observations, a fresh
+full 92-word post-census and both complete plane/PCI-reader vectors. All engine,
+context, plane and HDA data preserve. BCS attempts/stores are zero and epoch
+stays 0. Enabled-writer acceptance remains false; this run performs no reset.
+
+Entry is 97,088/150,000 us; BCS is 35,784/100,000 us; original source age at
+BCS completion is 57,909/100,000 us. Initial/post census take 15,362/15,335 us.
+HDA is 193,406/400,000 us and outer lifetime 248,203/500,000 us. No clock fault
+or collector attention occurs. HDA Command 6/2/2/6, all four inspection returns,
+14 GPU aliases, the HDA root alias and CPU exclusion retire cleanly.
+`completed=yes` and the source-matched prerequisite/final checkpoint verify.
+This is one bounded pass, without a repeatability or latency guarantee.
+
+All 1,476 prior files preserve except expected `.srvros/meta`; three exact new
+logs yield 1,479 files/149 sessions. Offline fsck, allocation, writable/headroom,
+unchanged boot digest, installed/durable banks, Ubuntu default and consumed
+one-shot pass. Current dd91, prior 811f, recovery 9aa8, GUI c497 and accepted
+observation bd77/joint 978/standalone d260 are preserved. USB is unmounted and
+no reboot is armed. Exact raw logs, return proof and integrity results are
+banked outside build. The enabled writer, new reset composition, managed
+backing and native tear-free remain unaccepted: obligations 255, assurances 0,
+managed pages 0. The ordinary desktop remains on inherited scanout.
+
+Main `f16fa5ab` (PR474 command-tail diagnostics and PR475 native Air6,1 report)
+is integrated after collection in `06d7de48`. Host/docs, USB transport, commit
+wait/command-tail, capture-write timing, workspace-log, sync-content checks and
+the entry diagnostic ELF build pass on the combined tree. The GPU implementation
+is unchanged by this merge. These are affected local checks, not a new global
+30-image qualification or physical acceptance of merged telemetry. Installed
+release remains the frozen c150 source. PR19 networking and PR379 WebCore remain
+independent; Actions remain disabled.
+
+Next: integrate the accepted zero-geometry entry with reset under the same live
+original owner, preserving all source/epoch/borrow and deadline rules. Nonzero
+disabled geometry still needs a separate reset protocol. Do not force enable,
+clear geometry, widen old gates or treat this saved receipt as live authority.
+No unchanged observation retry is needed. Local checkpoint:
+`build/air-ring-entry-20261111/status.md`.
+
+### Previous qualification: state-aware entry hardware-ready
 
 Source `c150c6ad` is frozen and staged as release `dd91b264c73a48a6`.
 The separate [v25 entry contract](../intel-ring-entry.md) handles both captured
@@ -57,11 +98,11 @@ GUI c497 and accepted observation bd77/joint 978/standalone d260 remain installe
 and durably banked. Only the unreferenced failed 0994 EFI duplicate is retired
 after exact complete bank equality; its payload and native evidence survive.
 USB 37D8-C5D0 remains unmounted, with 1,476 files/148 sessions unchanged, Ubuntu default,
-one-shot unarmed, AC and volume 1% verified. Candidate is banked outside build,
-**uninstalled and unarmed**. No reboot occurred in this qualification block.
+one-shot unarmed, AC and volume 1% verified. At qualification the candidate was banked outside build,
+**uninstalled and unarmed**. The subsequent native result is recorded above.
 
-Next is the silent automated native entry trial, with on-screen progress and
-saved results. Safe saved outcomes return automatically; retained uncertainty
+At qualification the next planned step was the silent native entry trial,
+with on-screen progress and saved results. Safe saved outcomes return automatically; retained uncertainty
 halts visibly. No human input is required. Collect the matching return before
 another stage. BCS/source age 100 ms, entry/readers 150 ms, GT 300 ms, HDA 400 ms and
 outer 500 ms are unchanged. No forcing enable, geometry clear, old reset gate
