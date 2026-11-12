@@ -20,6 +20,12 @@ class Tests(unittest.TestCase):
   for g,row in enumerate(result['connections'],1):
    self.assertEqual((row['generation'],row['epoch'],row['request_bytes'],row['body_bytes']),(g,g,4159,3072))
    self.assertEqual(row['http']['dhcp']['success'],1)
+   self.assertEqual(len(row['auth_radio']),2)
+ def test_radio_does_not_replace_protocol_or_allow_mixed_generations(self):
+  rows=self.rows
+  at=next(i for i,s in enumerate(rows) if s.startswith('wifi-stream5-radio:'))
+  with self.assertRaises(ValueError):self.check(rows[:at]+rows[at+4:])
+  with self.assertRaises(ValueError):self.check(mutate(rows,'wifi-stream5-radio:','observation_only',0))
  def test_categorical_observations_survive_partial_protocol(self):
   rows=self.rows;result=c.observe_dhcp(text(rows))
   self.assertEqual([r['generation'] for r in result['rows']],[1,2]);self.assertFalse(result['native_accepted'])

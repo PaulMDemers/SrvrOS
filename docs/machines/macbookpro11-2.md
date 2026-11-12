@@ -54,6 +54,27 @@ another hardware run. Do not hide the miss with an unproved delay, relaxed
 ownership check or larger timeout. PR19 owns this Wi-Fi work; PR301 GPU/HDA,
 PR379 WebCore and Air6,1 storage diagnostics remain separate. No task is contacted.
 
+### AUTH delivery diagnostic implementation checkpoint
+
+Actual main61b60f83 is integrated at0e522e46. The merged commit-wait, USB
+storage, workspace-log and capture-write checks pass. Audit found no proven
+USB toggle or sequence-assignment cause. The connection-only native owner now
+captures bounded read-to-pop TX status before AUTH and after its response or
+unchanged timeout, before any ASSOC publication. EXT precedes FIFO as in Linux;
+17 pairs bound each snapshot and saturation is explicit. No active-MAC console,
+status wait/retry, deadline change or status-based protocol success is added.
+Read/ownership failure retains the existing quarantine. Historical profiles
+without connection mode issue no new status reads.
+
+The native test reproduces the returned failure through actual production
+xHCI/CCMP/network/HTTP code with modeled RF/HCD: first HTTP completes, then
+second AUTH sees25 unrelated management frames and times out, keys stay
+inactive and the unused child/worker retires. Additional independent modeled
+ACK/no-ACK/empty/saturated/control-failure outcomes cannot authorize a second
+IP lifetime. Deferred status decoding retains strict phase/pop order and never
+replaces the unchanged full parent checker. Final source/fatal/decoder/image
+qualification is pending; no new boot is armed and no physical fix is claimed.
+
 ### Matched native pair: receive ordering supported (November 11)
 
 Runtime9f05567d uses the same kernel/initramfs/firmware/journal descriptor for

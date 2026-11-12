@@ -22,6 +22,10 @@ struct wifi_stream5_state {
  struct {uint64_t pointer,event_pointer,dequeue,delta;unsigned type,dci,slot,cc;} sync[6];
  struct xhci_trb fault_event;bool fault_event_valid;unsigned fault_phase;
  struct {unsigned present,peer,ok,invalid,rejected,clocks;uint64_t first,last;bool rollback;} auth_observation;
+ /* Read-to-pop radio status is distinct from USB completion. Phase0 drains
+  * older traffic before AUTH; phase1 follows AUTH response/timeout. An empty
+  * FIFO is not RF failure evidence. No status authorizes protocol progress. */
+ struct {uint32_t ext[2][17],fifo[2][17];unsigned count[2];bool attempted[2],empty[2],complete[2];} auth_radio;
  struct xhci_trb stops[2];uint32_t snapshots[10][2][8];
  struct wifi_stream5_record records[WIFI_STREAM5_RX+WIFI_STREAM5_TX];unsigned record_count,rx_record;
  uint64_t posts[2],completions[2];unsigned tx_kind;unsigned slot;unsigned wraps[2],phase,commands,stop_dci,stop_events[2],rx_residue,cached_type,cached_size,data_sends,data_received,data_after_txwrap,data_after_rxwrap,drained;
@@ -232,11 +236,14 @@ static bool wifi_stream5_poll(void *c,enum mt76_wpa5_rx type,uint8_t *out,size_t
  }
  return wifi_stream5_owned(c,false);
 }
+static bool wifi_stream5_auth_radio(unsigned phase);
 static enum mt76_join5_send wifi_stream5_send(void *c,enum mt76_wpa5_tx kind,const uint8_t *packet,size_t length){
  struct mt76_wpa5 *s=&wifi_stream5.exchange;uint64_t count=wifi_stream5.posts[0];
  bool good=c==&wifi_stream5 && packet==s->packet && length && length<=sizeof s->packet && wifi_stream5_owned(c,false) &&
  ((kind==MT76_WPA5_AUTH && !count) || (kind==MT76_WPA5_ASSOC && count==1 && s->auth_matched) || (kind==MT76_WPA5_M2 && count==2 && s->m1_matched) || (kind==MT76_WPA5_M4 && count==3 && s->m3_mic && s->keys_installed) || (kind==MT76_WPA5_LEAVE && count==4+wifi_stream5.data_sends && s->keys_erased && s->handshake.phase==WPA2_HS_CLOSED && wifi_stream5.closed));
  if(!good)return MT76_JOIN5_REFUSED;
+ /* Finish observing AUTH before any ASSOC/EAPOL publication. */
+ if(kind==MT76_WPA5_ASSOC && !wifi_stream5_auth_radio(1))return MT76_JOIN5_UNCERTAIN;
  wifi_stream5.tx_kind=(unsigned)kind;return wifi_stream5_transmit(packet,(unsigned)length);
 }
 static bool wifi_stream5_delay(void *c,unsigned us){return c==&wifi_stream5 && us==100 && wifi_stream5_owned(c,false) && wifi_stream5_delay_us(us);}
@@ -291,13 +298,42 @@ static bool wifi_stream5_usb(void *c,bool write,uint32_t a,uint32_t *v,bool clea
 #endif
  wifi_stream5_owned(c,cleanup)?true:wifi_stream5_fail();
 }
+static bool wifi_stream5_auth_radio(unsigned phase){
+ if(!wifi_stream5.connection_mode || !wifi_stream5.stack_mode)return true;
+ if(phase>1 || wifi_stream5.auth_radio.attempted[phase])return phase<2 && wifi_stream5.auth_radio.complete[phase];
+ wifi_stream5.auth_radio.attempted[phase]=true;
+ if((!phase && wifi_stream5.posts[0]) || (phase && (!wifi_stream5.auth_radio.complete[0] || wifi_stream5.posts[0]!=1 || wifi_stream5.pending[0])))return wifi_stream5_fail();
+ /* Linux mt76x02 reads EXT before FIFO and drains16 hardware entries. A
+  * seventeenth read proves emptiness or records saturation explicitly. No
+  * waiting for radio status, replay, or AUTH deadline extension. */
+ for(unsigned i=0;i<17;i++){
+  uint32_t words[2]={0};const uint32_t addresses[]={0x1798,0x1718};
+  for(unsigned j=0;j<2;j++){
+   if(!wifi_stream5_owned(&wifi_stream5,false))return wifi_stream5_fail();
+   bool good=
+#ifdef SRVROS_XHCI_STREAM5_TEST
+    stream_test_usb(wifi_stream5.d,false,addresses[j],&words[j]);
+#else
+    wifi_mac_private_usb(wifi_stream5.d,false,addresses[j],&words[j]);
+#endif
+   if(!good || !wifi_stream5_owned(&wifi_stream5,false))return wifi_stream5_fail();
+  }
+  wifi_stream5.auth_radio.ext[phase][i]=words[0];wifi_stream5.auth_radio.fifo[phase][i]=words[1];wifi_stream5.auth_radio.count[phase]++;
+  if(!(words[1]&1)){wifi_stream5.auth_radio.empty[phase]=true;break;}
+ }
+ wifi_stream5.auth_radio.complete[phase]=true;return true;
+}
 static bool wifi_stream5_read(void *c,uint32_t a,uint32_t *v,bool cleanup){if(!v)return false;*v=0;return (!cleanup || wifi_stream5_drain()) && wifi_stream5_usb(c,false,a,v,cleanup);}
 static bool wifi_stream5_write(void *c,uint32_t a,uint32_t v,bool cleanup){return wifi_stream5_usb(c,true,a,&v,cleanup);}
 static bool wifi_stream5_mac_delay(void *c,unsigned us,bool cleanup){return us<=10000 && (!cleanup || wifi_stream5_drain()) && wifi_stream5_owned(c,cleanup) && wifi_stream5_delay_us(us);}
 static bool wifi_stream5_inspection(void *c,uint32_t alc,uint32_t ibi){
  if(c!=&wifi_stream5 || alc!=wifi_power5.cycle.chosen[0] || ibi!=UINT32_MAX || !wifi_stream5_owned(c,false))return false;
  const struct mt76_wpa5_io io={c,wifi_stream5_owned,wifi_stream5_nonce,wifi_stream5_send,wifi_stream5_poll,wifi_stream5_delay,wifi_stream5_now};const struct mt76_wpa5_data data={c,wifi_stream5_window};
- bool good=mt76_wpa5_run_data(&wifi_stream5.exchange,&wifi_stream5.peer,wifi_stream5.pmk,&io,&data);zero_bytes(wifi_stream5.pmk,sizeof wifi_stream5.pmk);return good;
+ bool good=wifi_stream5_auth_radio(0) && mt76_wpa5_run_data(&wifi_stream5.exchange,&wifi_stream5.peer,wifi_stream5.pmk,&io,&data);
+ /* A timed-out AUTH never reaches the ASSOC callback. Observe its unchanged
+  * unsuccessful transaction before MAC teardown. */
+ if(wifi_stream5.exchange.auth_sent && !wifi_stream5.auth_radio.attempted[1])good=wifi_stream5_auth_radio(1) && good;
+ zero_bytes(wifi_stream5.pmk,sizeof wifi_stream5.pmk);return good;
 }
 static bool wifi_stream5_command(unsigned type,unsigned dci,uint64_t dequeue,unsigned next){
  struct xhci_device *d=wifi_stream5.d;if(!wifi_stream5_owned(&wifi_stream5,true) || xhci.command_pending || xhci.command_enqueue>=63)return wifi_stream5_fail();
@@ -420,6 +456,10 @@ static unsigned wifi_stream5_rx_select(unsigned selected[8]){
 }
 static unsigned wifi_stream5_emit(void){
  unsigned selected[8];unsigned rx_receipts=wifi_stream5_rx_select(selected);
+ if(wifi_stream5.connection_mode && wifi_stream5.stack_mode)for(unsigned p=0;p<2;p++){
+  console_printf("wifi-stream5-radio: version=1 phase=%u attempted=%u complete=%u reads=%u empty=%u saturated=%u observation_only=1\n",(uint64_t)p,(uint64_t)wifi_stream5.auth_radio.attempted[p],(uint64_t)wifi_stream5.auth_radio.complete[p],(uint64_t)wifi_stream5.auth_radio.count[p],(uint64_t)wifi_stream5.auth_radio.empty[p],(uint64_t)(wifi_stream5.auth_radio.complete[p] && !wifi_stream5.auth_radio.empty[p]));
+  for(unsigned i=0;i<wifi_stream5.auth_radio.count[p] && i<17;i++)console_printf("wifi-stream5-radio-entry: phase=%u i=%u ext=%x fifo=%x\n",(uint64_t)p,(uint64_t)i,(uint64_t)wifi_stream5.auth_radio.ext[p][i],(uint64_t)wifi_stream5.auth_radio.fifo[p][i]);
+ }
  console_printf("wifi-stream5-plan: tx=%x rx=%x epoch=%u slot=%u pages=4 positions=%u max_tx=80 max_rx=252 max_fences=%u\n",wifi_stream5.physical[0],wifi_stream5.physical[1],wifi_stream5.epoch,(uint64_t)wifi_stream5.slot,(uint64_t)wifi_stream5_positions(),(uint64_t)wifi_stream5_fence_limit());
  for(unsigned i=0;i<wifi_stream5.record_count && i<WIFI_STREAM5_TX+WIFI_STREAM5_RX;i++){const struct wifi_stream5_record *r=&wifi_stream5.records[i];uint64_t ptr=r->event.parameter_low|((uint64_t)r->event.parameter_high<<32);console_printf("wifi-stream5-td: %u %u %x %u %u\n",(uint64_t)i,(uint64_t)r->direction,ptr,(uint64_t)r->event.status,(uint64_t)r->event.control);}
  for(unsigned i=0;i<wifi_stream5.record_count && i<WIFI_STREAM5_TX+WIFI_STREAM5_RX;i++){const struct wifi_stream5_record *r=&wifi_stream5.records[i];

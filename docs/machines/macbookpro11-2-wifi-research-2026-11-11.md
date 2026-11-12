@@ -8,6 +8,43 @@ here. PR469 filesystem, PR301 GPU and PR379 WebCore scopes remain independent.
 
 ## Sources and applicability
 
+### Subsequent AUTH-delivery audit
+
+The b9f78149 native return receives all five calibration replies and completes
+the first production DHCP/DNS/HTTP lifetime. The second AUTH has one successful
+USB OUT completion but no peer reply within the original750ms;25 unrelated
+management frames pass the receive decoder. There is no recorded xHCI/ownership
+fault. These observations cannot distinguish a request lost before radio TX,
+an unacknowledged radio request, or reply loss/filtering after AP acknowledgement.
+
+[Linux's MT76 TX status reader](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c#L252)
+reads EXT0x1798 before read-to-pop FIFO0x1718. The
+[register definitions](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h#L579)
+describe valid, success, ACK-request, WCID, rate, retry and packet-ID fields.
+Linux resets up to16 entries and regularly consumes TX status. This provides a
+bounded diagnostic; an empty status FIFO cannot prove a packet was not sent.
+SrvrOS's current TXWI uses ACK_REQ, WCIDff and packet-ID80. A USB success is
+therefore not a substitute for inspecting a separately reported radio result.
+
+The audit found no demonstrated OUT-toggle mismatch: the fresh connection
+explicitly clears endpoint04 halt/toggle, then configures a fresh DCI8 ring.
+Management requests carry manual sequence numbers with hardware assignment
+disabled. Linux's TXWI NSEQ bit requests hardware assignment; setting it
+speculatively would change the sequence contract. Repeated fixed sequence
+numbers across connection generations deserve later protocol work, but are
+not established as this AUTH miss's cause. Neither is USB aggregation: the
+configured DMA policy leaves aggregation disabled. The current scalar logs
+do not establish that every possible received frame survived filtering.
+
+The next connection-only diagnostic drains older TX status before AUTH and
+samples again after the AUTH response or unchanged timeout, before any ASSOC
+publication. Each snapshot reads at most17 EXT/FIFO pairs, records saturation
+and emptiness, retains raw nonsecret status words and prints only after MAC
+and endpoint cleanup. There is no added wait, retransmission or status-based
+success rule. A control/ownership failure retains native quarantine. Modeled
+ACK, failed-ACK, no-status and saturated histories must all leave a missing
+AUTH unsuccessful through the actual native connection/HTTP path.
+
 Linux references were downloaded at **v6.12**
 (`adc218676eef25575469234709c2d87185ca223a`) and **v7.0**
 (`028ef9c96e96197026887c0f092424679298aae8`). The relevant response policy and

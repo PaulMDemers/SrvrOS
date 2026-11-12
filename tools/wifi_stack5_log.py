@@ -72,6 +72,11 @@ def _owner(log, lines, rows, *, profile=None, expected_epoch=None, previous_cont
         require(set(values) == set(keys.split()) and all(0 <= x < 2**64 for x in values.values()),
                 'wrong production schema/range')
         return values
+    radio=None
+    if pos<len(rows) and rows[pos].startswith('wifi-stream5-radio:'):
+        from wifi_auth_radio5_log import decode
+        require(connection,'AUTH radio observation outside connection recipe')
+        radio,used=decode(rows[pos:]);pos+=used
     plan=take('wifi-stream5-plan','tx rx epoch slot pages positions max_tx max_rx max_fences')
     require(all(plan[k]==v for k,v in dict(epoch=expected_epoch if connection else 1,pages=4,positions=positions,max_tx=80,max_rx=252,max_fences=2 if connection else 4).items()),'wrong finite stream plan')
     rings=[plan['tx'],plan['rx']];slot=plan['slot']
@@ -205,7 +210,7 @@ def _owner(log, lines, rows, *, profile=None, expected_epoch=None, previous_cont
     return dict(take=take, compact=compact, position=lambda:pos, requests=requests,
                 counts=counts, data=data, selected=selected, rx_receipts=rx_receipts,
                 wraps=wraps, stops=stops, fences=fences, sync=sync, unique=unique,
-                plan=plan, contexts=contexts, commands=commands, rings=rings)
+                plan=plan, contexts=contexts, commands=commands, rings=rings, radio=radio)
 
 
 def check(log, release=None):

@@ -97,6 +97,10 @@ static void stack_test_connection(unsigned generation){
  sim.tx_seen=sim.rx_seen=sim.response=sim.index=sim.noise_left=0;sim.m1=sim.m3=false;
  if(!generation && reconnect_case_id==4){sim.fault=36;sim.fault_at=9;}
  if(generation && reconnect_case_id==5)sim.fail_nonce=true;
+ if(generation && reconnect_case_id==19)ap.case_id=24;
+ if(generation && reconnect_case_id>=20 && reconnect_case_id<=24){
+  ap.case_id=24;memset(&radio_sim,0,sizeof radio_sim);radio_sim.mode=reconnect_case_id-19;
+ }
  if(generation && reconnect_case_id==3){struct xhci_trb old={.parameter_low=(uint32_t)wifi_stream5_slots[0].sync[0].pointer,.parameter_high=wifi_stream5_slots[0].sync[0].pointer>>32,.status=1u<<24,.control=(33u<<10)|(1u<<24)};stream_enqueue(&old,0);}
 }
 static unsigned ap_u16(const uint8_t *p){return (unsigned)p[0]*256+p[1];}
@@ -239,11 +243,13 @@ static void stack_test_progress(void){
   /* Fault only the modeled AP response,after actual AUTH publication. The
    * production owner,decoder,timeout,cleanup and workload remain unmodified. */
   if(ap.case_id==21 && sim.response==1)sim.response=0;
+  if(ap.case_id==24 && !wifi_stream5.pending[0] && wifi_stream5.pending[1] && sim.tx_seen==1)
+   sim.response=sim.rx_seen<25?6:0;
   bool negative=(ap.case_id==22 || ap.case_id==23) && sim.response==1 && !wifi_stream5.pending[0] && wifi_stream5.pending[1];
   unsigned page=wifi_stream5.lease[1].index;
   stream_test_progress();
   if(negative)stream_le16(wifi_stream5.buffer[1][page]+36+(ap.case_id==22?28:24),ap.case_id==22?13:1);
-  if(ap.case_id==21 && wifi_stream5.exchange.auth_sent && !wifi_stream5.exchange.auth_matched)test_time+=1000;
+  if((ap.case_id==21 || ap.case_id==24) && wifi_stream5.exchange.auth_sent && !wifi_stream5.exchange.auth_matched)test_time+=1000;
   return;
  }
  if(wifi_stream5.pending[0] && wifi_stream5.lease[0].ticket!=ap.held_ticket){

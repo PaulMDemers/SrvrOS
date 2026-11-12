@@ -240,6 +240,8 @@ static struct pci_device stream_pci={.vendor_id=0x8086,.device_id=0x8c31};
 static _Alignas(4096) struct xhci_trb stream_commands[64],stream_events[256];
 static struct {unsigned response,index,tx_seen,rx_seen,fault,fault_at,noise,noise_left,ambient;bool dhcp_mode,drop_first,no_offer,parent,parent_after_fail,link,m1,m3,fail_nonce;uint32_t mac,filter,txop;uint8_t credential[73];} sim;
 static struct initramfs_file stream_credential={.path="/cfg/wifi-wpa5.pmk",.size=73,.mode=0600};
+/* Modeled RF status is independent of the actual USB completion fixture. */
+static struct {unsigned mode,pop[2],reads;bool ext_read;} radio_sim;
 static unsigned stream_oracle_count(void){return sim.dhcp_mode && sim.drop_first?71:70;}
 static const unsigned char *stream_oracle_tx(unsigned i){assert(i<stream_oracle_count());return sim.dhcp_mode && sim.drop_first?stream5_dhcp_fixture[i].tx:stream5_fixture[i].tx;}
 static const unsigned char *stream_oracle_rx(unsigned i){assert(i<stream_oracle_count());return sim.dhcp_mode && sim.drop_first?stream5_dhcp_fixture[i].rx:stream5_fixture[i].rx;}
@@ -258,6 +260,16 @@ static bool stream_test_nonce(uint8_t out[32]){
 static const struct initramfs_file *stream_test_credential(void){stream_credential.data=sim.credential;return &stream_credential;}
 static bool stream_test_toggle(struct xhci_device *d,const struct usb_setup_packet *p,int *actual){assert(d==wifi_stream5.d && p->request_type==2 && p->request==1 && p->index==4 && !p->length);*actual=sim.fault==20?1:0;return true;}
 static bool stream_test_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v){
+ if(radio_sim.mode && (a==0x1798 || a==0x1718)){
+  assert(!write && d==wifi_stream5.d && wifi_stream5.connection_mode && !wifi_stream5.data_active);
+  unsigned p=wifi_stream5.auth_radio.attempted[1],i=radio_sim.pop[p];radio_sim.reads++;
+  if(a==0x1798){assert(!radio_sim.ext_read);radio_sim.ext_read=true;*v=p?0x8002:0x8000;}
+  else{assert(radio_sim.ext_read);radio_sim.ext_read=false;radio_sim.pop[p]++;
+   if(radio_sim.mode==4 && p)return false;
+   *v=(!p && radio_sim.mode==3)?0x2000ffa1:(p && !i && radio_sim.mode!=5)?(radio_sim.mode==2?0x2000ff81:0x2000ffa1):0;
+  }
+  return true;
+ }
  assert(d==wifi_stream5.d);if(write){if(a==0x1004)sim.mac=*v;else if(a==0x1400)sim.filter=*v;else{assert(a==0x1340);sim.txop=*v;}}
  else *v=a==0x1004?sim.mac:a==0x2000?0xf000f200:a==0x208?0x40000050:a==0x1400?sim.filter:a==0x1340?sim.txop:a==0x13b0?0x2f2f1313:a==0x2124?UINT32_MAX:0;
  return sim.fault!=21;

@@ -137,7 +137,7 @@ def _connections(log):
         groups.append(dict(generation=generation,epoch=receipt['epoch'],next_token=receipt['next_token'],
                            submitted=receipt['submitted'],received=receipt['received'],commands=current_commands,
                            rings=raw['rings'],request_bytes=4159,body_bytes=3072,http=http,tx_fences=raw['wraps'][0],rx_fences=raw['wraps'][1],
-                           begin_line=start,close_line=end))
+                           begin_line=start,close_line=end,auth_radio=raw['radio']))
         previous_context={d:raw['contexts'][9,d].copy() for d in (0,1)}
         prior_counters={k:summary[k] for k in prior_counters}
     require(pos<len(owned),'missing outer adapter final receipt')
@@ -146,6 +146,8 @@ def _connections(log):
     require(final==dict(version=1,complete=1,connections=2,parent_restored=1,provider_retired=1,
                         retained_contexts=2,backend_retired=0),'outer adapter/full parent/provider not retired')
     require(pos==len(owned),'extra/reordered reconnect owner receipt')
+    require(all(g['auth_radio'] is None for g in groups) or all(g['auth_radio'] is not None for g in groups),
+            'mixed AUTH radio observation generations')
     return dict(connections=groups,final_line=final_line,provider_retired=True,backend_retired=False,
                 backend_tombstones_retained=True,native_accepted=False)
 

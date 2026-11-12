@@ -96,7 +96,7 @@ bool http_child_reap(struct http_child_owner *o){
 bool http_child_retire(struct http_child_owner *o){assert(o->reaped);o->retired=true;return true;}
 __attribute__((noreturn)) void wifi_http5_test_hold(void){longjmp(held_run,1);}
 int main(int argc,char **argv){
- trial_case=argc==3 && !strcmp(argv[1],"--case")?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<6);
+ trial_case=argc==3 && (!strcmp(argv[1],"--case") || !strcmp(argv[1],"--trace-case"))?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<12);
  if(argc==19 && !strcmp(argv[1],"--trace")){
   for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)reconnect_seed[d][i]=(uint32_t)strtoull(argv[2+d*8+i],NULL,0);
   reconnect_slot=(unsigned)strtoul(argv[18],NULL,0);assert(reconnect_slot && reconnect_slot<256);reconnect_seeded=true;
@@ -105,7 +105,8 @@ int main(int argc,char **argv){
  if(reconnect_seeded){for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)context_write32(wifi_cal5.d->output_context,d?8:9,i,reconnect_seed[d][i]);wifi_cal5.d->slot_id=(uint8_t)reconnect_slot;}
  http_reconnect_peer=true;http_reconnect_peer_no_fin=trial_case==5;reconnect_hook_count=0;reconnect_case_id=trial_case==1?5:0;
  connection_dhcp_fault=trial_case==2?53:0;
- batch_trace=(argc==2 || argc==19) && !strcmp(argv[1],"--trace");
+ if(trial_case>=6)reconnect_case_id=trial_case+13;
+ batch_trace=((argc==2 || argc==19) && !strcmp(argv[1],"--trace")) || (argc==3 && !strcmp(argv[1],"--trace-case"));
  if(batch_trace)puts("http-reconnect5-host: modeled_usb=1 modeled_scheduler=1 modeled_child=1 acceptance=0");
  if(setjmp(held_run)){
   struct http_network_probe *p=wifi_http5_active_probe;
@@ -135,6 +136,27 @@ int main(int argc,char **argv){
  assert(!xhci_wifi_capture_reconnect5_probe() && !xhci_wifi_http5_prepare() && !xhci_wifi_capture_stack5_probe());
  bool good=xhci_wifi_capture_http_reconnect5();
  bool complete=xhci_wifi_http_reconnect5_finish_capture(good);
+ if(trial_case>=6){
+  const struct wifi_stream5_state *s=&wifi_stream5_slots[1];
+  assert(!good && !complete && wifi_http_reconnect5.connections==1 && child_done==1);
+  assert(wifi_http_reconnect5.probe[0].result.complete && wifi_http_reconnect5.probe[1].result.quiescent && !wifi_http_reconnect5.probe[1].result.attempted);
+  assert(wifi_http_reconnect5.probe[1].result.child_retired && wifi_http_reconnect5.probe[1].result.worker_finished);
+  assert(s->posts[0]==1 && s->completions[0]==1 && !s->fault_event_valid);
+  assert(s->exchange.auth_sent && !s->exchange.auth_matched && !s->exchange.assoc_sent && !s->exchange.keys_activated && s->exchange.keys_erased && !s->exchange.leave_sent);
+  assert(s->auth_observation.present==25 && !s->auth_observation.peer && !s->auth_observation.invalid && !s->auth_observation.rejected);
+  assert(s->auth_observation.last-s->auth_observation.first>=750000 && s->auth_observation.last-s->auth_observation.first<755000);
+  assert(s->auth_radio.complete[0] && s->auth_radio.empty[0]==(trial_case!=9));
+  if(trial_case==10){assert(s->failed && !s->auth_radio.complete[1] && !s->restored && !s->stop_events[0] && !s->stop_events[1]);}
+  else{assert(!s->failed && s->phase==9 && s->auth_radio.complete[1] && s->auth_radio.empty[1]);}
+  if(trial_case>=7){
+   assert(!radio_sim.ext_read && radio_sim.pop[0]==(trial_case==9?17u:1u));
+   if(trial_case!=10){assert(radio_sim.pop[1]==(trial_case==11?1u:2u));}
+   if(trial_case==7 || trial_case==9)assert(s->auth_radio.fifo[1][0]==0x2000ffa1);
+   if(trial_case==8)assert(s->auth_radio.fifo[1][0]==0x2000ff81);
+  }
+  assert(!memcmp(&reconnect_old_stream,&wifi_stream5_slots[0],sizeof reconnect_old_stream));
+  printf("xhci-http-reconnect5: PASS case%u first HTTP success/second AUTH miss with25 unrelated frames; original750ms budget; independent radio ACK/no-ACK/absent/saturated/control-failure outcomes never authorize IP;unused child/worker retired;acceptance=0\n",trial_case);return 0;
+ }
  if(trial_case==1 || trial_case==3){
   assert(!good && !complete && wifi_http_reconnect5.connections==1 && child_done==1);
   assert(wifi_http_reconnect5.probe[0].result.complete && wifi_http_reconnect5.probe[1].result.quiescent && !wifi_http_reconnect5.probe[1].result.attempted);
