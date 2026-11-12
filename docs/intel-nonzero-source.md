@@ -63,6 +63,17 @@ volume at 1%. A proved safe saved/unmounted result returns automatically to
 Ubuntu; uncertain ownership or persistence halts visibly. A VM identity refusal
 checks persistence/recovery, never native source reads or timing acceptance.
 
-The implementation is under local qualification. The installed accepted v28
-payload remains unchanged; no new test is armed. See the [Air7,2 unit
-record](machines/macbookair7-2.md) for qualification and later physical evidence.
+Frozen source `a9418c83` / release `451cd4d6a9f36faa` is locally hardware-ready.
+The 34-image/core/USB/host/docs gate, seven-test fatal ASan/UBSan native-adapter
+suite, 780 additional clock faults, seven historical native replays, image/
+receipt isolation, native object/staged-source inspection, unchanged writer/
+legacy-guard/map checks and 2 KiB frames pass. Projected saved tail is
+61,089/65,536 bytes including reserve. The existing 81 baseline-known strict
+allocation/repair gaps remain documented. Exact-stage EFI/MBR VM tests verify
+zero-store refusal, persistence, automatic safe return and missing-workspace
+halt. None of these accepts native target reads or timing.
+
+The installed accepted v28 payload and recovery remain unchanged. The new
+candidate is independently banked, not installed or armed. Host, prior-file,
+offline media and capacity checks pass; see the [Air7,2 unit
+record](machines/macbookair7-2.md). Native acceptance remains pending.

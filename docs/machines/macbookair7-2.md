@@ -2,20 +2,55 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
-### Active scope: original live post-reset source handoff
+### Hardware-ready: original live post-reset source binding
 
-Base `019d28d2`, integrated main `9a8d2377`. The next bounded block adds a
-separate registered read-only child of the original live nonzero reset, after
-its full post-census/reader preservation and before original return. It binds
-the actual epoch-2 post-state to the original candidate GGTT entry using two
-high/low/high samples. The original preparation 100 ms and GT 300 ms origins
-remain shared; no fresh budget, copied legacy owner, geometry clear, re-arm,
-requester store or memory grant is introduced. Failure keeps the original root.
+Frozen source `a9418c83`, release `451cd4d6a9f36faa`, based on `019d28d2` /
+main `9a8d2377`, adds the separate [v29 source child](../intel-nonzero-source.md).
+It binds the actual original epoch-2 nonzero-reset post-census and complete
+preserved readers to the original candidate GGTT entry. The original registered
+reset child stays active through six read-only high/low/high DWORD samples
+and the source child's verified return. Lost source/clock/mapping/registration,
+a partial read or drift retains the original root. Returned data supplies no
+later live authority. No re-arm, claim, requester store or memory grant is added.
 
-Touched scope: nonzero-reset extension/child API, native adapter, isolated
-image/recipe/receiver and local tests. Existing v28/legacy receipts stay distinct.
-Air6,1 storage/power and Pro11,2 networking are independent. No test is armed;
-installed native acceptance remains frozen to `2efa8028`. Checkpoint:
+The preparation 100 ms, GT 300 ms, HDA 400 ms and outer 500 ms origins/limits
+remain unchanged. The old zero-geometry APIs/gates and existing native writer
+sources/mapping machinery remain unchanged. The dedicated exact 15-token recipe,
+firmware request, pre-init marker, image and collector keep v29 distinct from
+accepted v28 and earlier receipts. Old receivers refuse the new image.
+
+Local qualification passes: all 34 diagnostic images plus ordinary/core/USB/
+host/docs; seven-test actual native-adapter suite under fatal ASan/UBSan;
+780 additional original-reset clock faults (all 156 points across five fault
+classes) under those same sanitizers; seven historical native contract replays
+retaining original pass/refusal classifications; image/receipt/writer isolation;
+actual object/staged DWORD/fence/final-clock/source checks, static retained
+lifetimes, unchanged writer/legacy-guard sources/maps and 2 KiB frames. Saved-tail
+projection is 61,089/65,536 bytes including 1,536 reserve. The existing storage
+test still reports 81 baseline-known strict allocation/repair gaps; no storage
+fix is claimed here. No Actions or delegation were used.
+
+Exact-stage EFI/MBR VM trials verify zero-store identity refusal, prerequisite
+and final persistence, unmount/automatic safe return, and missing-workspace
+halt. These are model/host/VM results, **not v29 native reads or timing acceptance**.
+The successful v28 native preparation was 94,051/100,000 us; the new child must
+fit its remaining budget on hardware without extending or restarting it.
+
+All 1,488 prior USB files/152 sessions, boot digest, offline fsck/allocation/
+writable/headroom, installed recovery and Ubuntu default/unarmed one-shot verify.
+Candidate is independently banked, **not installed or armed**. Current accepted
+562d/recovery 9aa8/GUI c497 and accepted bd77/joint978/standalone d260 remain.
+Only the unreferenced EFI-only 127a v27 copy was retired after byte/hash equality
+with its durable bank; its payload and raw safe-refusal evidence remain. EFI
+space includes the candidate plus 32 MiB margin. All accepted durable banks survive
+`make distclean`.
+
+The next authorized trial is unattended and silent at 1%, with guest progress,
+persistent reports and automatic return for proved safe saved outcomes. Uncertain
+ownership/persistence halts visibly. Collect the matching session before any
+other run. Native v29 acceptance and tear-free remain pending; all 255 obligations
+remain, with assurances/managed pages zero. PR19 networking (`1bb1d9f0`) and
+Air6,1 storage/power stay independent. Checkpoint:
 `build/air-nonzero-source-20261112/status.md`.
 
 ### Native nonzero-geometry reset accepted

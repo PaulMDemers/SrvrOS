@@ -1462,3 +1462,10 @@ preparation 100 ms and GT 300 ms origins. It adds no ownership/managed-memory
 permission. Use the same unattended, silent 1% exact-stage and recovery flow;
 collect `intel_nonzero_source` and full media/retirement evidence afterward.
 Safe saved results return automatically; uncertain state halts visibly.
+
+Air7,2 v29 frozen `a9418c83` / release `451cd4d6a9f36faa` is locally qualified,
+including exact staged EFI/MBR refusal/persistence/automatic return and
+missing-workspace halt. Native source reads/timing remain pending. Require
+both source-child completion and enclosing reset/retirement plus media integrity;
+never promote a partial child or VM receipt to native ownership. The accepted
+v28 installation and recovery stay available; the candidate is not armed.

@@ -869,3 +869,11 @@ Old reset/claim/requester gates stay unchanged; the child is not an ownership
 or memory token. Other machines keep their independent gates and evidence.
 This records development scope only; v29 native acceptance is pending and no
 new trial is armed. The accepted v28 payload/evidence remains frozen.
+
+The v29 source child is now locally hardware-ready on frozen `a9418c83` /
+release `451cd4d6a9f36faa`. Full 34-image/core, fatal sanitizer and 780-clock
+matrix, seven historical native replays, unchanged writer/guard/map isolation
+and exact-stage VM refusal/save/return pass. Candidate is banked, not installed
+or armed; accepted v28/recovery remain. Native source reads/timing stay pending.
+All original budgets and 255 obligations remain unchanged. This does not
+schedule or contact another task, grant memory, or accept another machine.

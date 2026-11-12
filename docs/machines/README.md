@@ -55,3 +55,10 @@ and preservation verify on native hardware, including strict reset-default
 geometry, clean retirement and offline return integrity. It does not widen the
 legacy zero-geometry gate or any sibling
 profile, or grant requester/managed-memory/native tear-free acceptance.
+
+The separate [v29 original live post-reset source child](../intel-nonzero-source.md)
+is locally hardware-ready on Air7,2 source `a9418c83` / release
+`451cd4d6a9f36faa`: 34-image/core, fatal sanitizer/clock matrices, historical
+replays and exact-stage VM persistence/recovery pass. Its six read-only GGTT
+loads remain within the original live reset/preparation/GT lifetime. Native
+acceptance is pending; no memory/claim/requester or sibling acceptance follows.
