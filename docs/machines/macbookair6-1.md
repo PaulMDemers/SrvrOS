@@ -13827,3 +13827,29 @@ then identify which storage-independent work can safely progress. Preserve every
 ownership, authority, mapping, durability and workload limit; no generic gate
 bypass or admission-limit increase follows from this pass. No new implementation,
 stage or reboot is started by recording these results.
+
+
+### Active native launch/fcntl gate trace (2026-11-13)
+
+From actual main `b3d45130`, trace the remaining SYS_EXEC and SYS_FCNTL admission
+waits observed in accepted bounded workload7acb756c. The previous matching run
+is collected, independently reviewed and sealed; performance and native private
+route coverage remain open. Publish bounded opt-in counters/refusal reasons and
+exact scalar fcntl operation/descriptor context, bound to stable caller/owner and
+wait clocks. Keep normal and private admission, all resource/authority/mapping
+proofs, native policies, original limits and workload unchanged. Hooks must not
+allocate, print, yield, dereference user pointers or retain pointers in metadata.
+Final-only fixed records must survive worker retirement without expanding the
+existing log tail or old observation caps. Validate malformed/missing/crossed
+records as failures rather than filling absent fields with zero.
+
+Touched scope: scheduler/process/syscall diagnostic seams, fixed wire/parser and
+host/VM regressions, current diagnostic guide and this unit record. PR19 at
+`00f3b718` owns separate Wi-Fi/pipe/network work on its older base; preserve that
+scope rather than consuming or reverting it. PR301 at `ca06bd3d` has consumed
+PR486 and retains its separate user-scope owner-loss/Intel audit work; do not
+change its authority behavior. One local checkout, no subagents or cross-task
+contact. After matched qualification and self-merge, run the original automatic
+1800-second audio/disk/app/three-screenshot test at1%, with full-field metadata
+audit off and all original completion/integrity checks intact. Native diagnostic
+acceptance remains pending fresh matching evidence.
