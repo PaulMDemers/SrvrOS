@@ -52,3 +52,12 @@ source/destination and IPv4 checksum. Group noise uses a valid PN above the
 synthetic M3 RSC; no production replay check is relaxed. Guard-page malformed
 and truncated-span tests verify the comparison helper reads only bounded input.
 HCD/AP/registers/scheduler/child remain modeled; physical acceptance is pending.
+
+All 35 native HTTP cases pass normally and with ASan/UBSan at `26e25ced`.
+Final source `0db97fbb` changes only the sidecar test and unit record; every
+native runtime/fixture input is byte-identical, so those results carry forward.
+The guard-page comparison suite and seven native-trace decoder tests pass. Shared native/HTTP/packet/empty-stack/workspace regressions and actual
+guest ELF/socket/IRQ-worker HTTP/DNS pass separately. These tests reproduce the
+no-ACK failure and reject a wrong-XID client echo; they do not identify the
+physical loss's cause or accept a new hardware image. The installed8f/d81
+hardware attempt remains closed failed and its hub service was never reached.

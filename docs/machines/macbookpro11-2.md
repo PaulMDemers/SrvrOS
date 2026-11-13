@@ -7,7 +7,7 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
-### Request/ACK tracing implemented; native qualification next (November13)
+### Request/ACK identity tracing qualified in software (November13)
 
 The merged sidecar fixture initially assumed a 64KiB backing array, conflicting
 with this branch's pre-existing larger Wi-Fi capture reservation. Its integration
@@ -29,9 +29,18 @@ bug or physical missing-ACK cause has been proved by this instrumentation.
 New actual native HTTP/RF cases reproduce the saved late-Offer/matched-Request-
 echo/no-ACK pattern and a mismatched-XID echo; a delayed valid ACK must complete
 two fresh HTTP lifetimes. The independent AP now also checks client-ID,
-parameter list, source/destination and IPv4 checksum. Guarded comparison tests
-and seven actual-native-trace decoder tests pass in development. Full final-
-source native/sanitizer/shared/kernel/guest qualification is next. The old closed
+parameter list, source/destination and IPv4 checksum. All 35 native HTTP cases
+pass normally and under ASan/UBSan at source `26e25ced`. Final source `0db97fbb`
+changes only the sidecar test and this record; every native runtime/fixture input
+is byte-identical, so those results carry forward. Guarded malformed/truncated/
+checksum comparisons and seven actual-native-trace decoder tests pass. Kernel compilation, shared native reconnect,
+HTTP/encrypted/packet/empty-stack/workspace/bootstrap regressions and actual
+guest ELF/socket/IRQ-worker HTTP/DNS also pass. Both successful HTTP lifetimes
+retain exact4159-byte requests/3072-byte bodies/EOF and RF3844 restoration;
+missing-ACK cases preserve the original deadline and full failed-workload RF
+cleanup. No invalid Request construction or physical loss cause is proved.
+Next qualify a fresh source-bound collector that saves this observer before
+success-only proof, then a matched image/workspace/recovery trial. The old closed
 8f/d81 primary/review and all eight recoveries remain immutable; no hardware boot
 or acceptance is armed by these software tests.
 
