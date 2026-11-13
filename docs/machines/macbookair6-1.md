@@ -13734,3 +13734,43 @@ cadence unchanged; those larger capture limits and profile APIs are not consumed
 here. Preserve both start/phase-control semantics when integrating that branch.
 PR301 at `ad1b1110` has no additional common runtime overlap after the previously
 reviewed owner-loss changes. No other device's acceptance is inherited.
+
+
+### Independent lifecycle qualification and next native run (2026-11-12)
+
+PR486 runtime `4629fced` passed the fresh complete core/desktop/docs
+suite (including the 89-case installation matrix with its default-skipped
+opt-in exhaustive I/O case), boot-tool regressions, matched ordinary/native/Q35
+builds, ordinary
+syscall/UEFI-USB/fork/exec-vector/yield guests, USB storage and ordinary screenshot
+smokes. The full core rerun followed verified archival of inactive staging
+artifacts after a fixture link exhausted disk; the failed attempt is preserved.
+No completed core prefix was skipped. The affected 46 host fixture binaries also
+compile and link, with focused ownership/lifecycle/rollback regressions passing.
+
+The populated KVM workload at 400 write IOPS and 1,100 metadata files passed 23
+app cycles, 176 verified disk bursts and 178 observed PCM/I/O overlaps, one exact
+screenshot, 139.971 ms maximum loop and zero recorded underruns. All 1,167 prior
+files remained intact. Independent saved-log validation passed the original
+contracts and append/commit/command companions, including complete startup
+phases without UART reconstruction. The unchanged 64 KiB tail and declared
+1,000-tick capture period retain their original caps; observed snapshot deltas
+were at most 61,266 bytes. The exact staged native payload also passed its separate
+foreign-board refusal/automatic-return VM rehearsal; that is not native ownership
+acceptance.
+
+The next installed candidate, release `7acb756c0ac5f4bb`, runs the original fully
+automatic 1,800-second
+PCM/disk/app/three-screenshot stress test at 1%, with heavy full-field metadata
+audit off. Every deadline, byte/CRC/readback/flush/allocation, ownership and
+retirement requirement remains unchanged. Fresh local model/USB/recovery,
+prior-file hashes, independent payloads, offline writable/allocation checks and
+Ubuntu-default/one-shot state were verified; only the explicit quiet-volume
+expiry was renewed. A saved local run record and automatic return collector bind
+its release/source to the next session. Known-good recovery and prior failed
+9463 evidence remain retained. Self-merge and one-shot launch are the next local
+steps; native acceptance remains pending until the matching return is collected
+and independently reviewed. PR19 refreshed to `86a239a4` changes separate Wi-Fi
+reconnect/fence helpers, with no new common process/scheduler/logger overlap;
+PR301 remains at the previously inspected `ad1b1110`. No sibling hardware
+acceptance is implied.
