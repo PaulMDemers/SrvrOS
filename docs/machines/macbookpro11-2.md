@@ -7,6 +7,57 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Integrated-main repeat: first HTTP passes; transition refuses (November 12)
+
+Runtimed634433c/releasec9c4d051c9c8f2db is collected FIRST once and CLOSED
+FAILED in session0006601d6d008572-00. The corrected complete collector saves
+all observations and correctly refuses the incomplete RF/pair; no schema
+KeyError recurs. The1923911-byte exit and all seven independent checkpoints
+survive. All479 prior files' non-sidecar bytes and checked persisted metadata,
+except the authorized marker atime, pass; offline checks,67 other EFI files
+and all eight protected recoveries verify. Ubuntu is unarmed. The earlier
+37ae/05ea bounded two-HTTP acceptance remains historical and protected; this
+new integrated candidate receives no full-pair or RF-restoration acceptance.
+
+The first fresh authenticated encrypted connection completes DHCP without a
+retry (DORA159412us), DNS/route setup,4159-byte actual-process request, exact
+3072-byte response/genuine EOF and child status0. Original source-frozen
+first-group native/crypto/HTTP receipt checks independently pass. It completes
+21 data TXs and17 delivered Ethernet frames;61 borrowed RX completions are
+released with no recorded native/provider fault. Key erase/leave, MAC drains,
+exact Stop/context/event/DMA restoration and provider detach are reported and
+validated for that local scope. Full adapter/backend retirement remains separate.
+
+There is one complete close receipt but no generation2 preparation or begin.
+The inspected source control flow localizes refusal to
+wifi_fence5_connection_next after the successful first close and before the
+second allocation. RF inverse stops at2636, restored0, and final connections1/
+complete0/parent_restored0/provider_retired0. The saved six command receipts
+end at frontier49, leaving the required setup/cleanup reserve at that snapshot;
+there is no at-refusal predicate snapshot, so later frontier/state changes
+cannot be excluded. Last recorded local state is phase9, failed0, no pending
+TX/RX/command, round0 and no fault event. These are observations before the
+transition, not authority to bypass it. The global event-ring-empty check is
+one race hypothesis, not an established cause or proof of an unrelated HID event.
+This is distinct from the earlier missing DHCP Offer: first-connection IP/HTTP
+works here, while admission to the next connection does not complete.
+
+Next audit the exact transition predicates and add bounded retained refusal
+facts for controller/command state, global event type/slot/DCI/pointer, old fence
+records/closure stamps and virgin next context. Exercise arrivals/mutations at
+this boundary through the actual native path before another hardware image.
+Do not weaken emptiness/ownership/reservation checks, discard old Wi-Fi events,
+recycle retained DMA, reset the controller or lengthen reply budgets to pass.
+Preserve the accepted05ea/e47 recovery paths and all eight old recoveries.
+No unchanged blind repeat or new boot is armed.
+
+Primary1379-file index:
+`1bf7c4e480dbe8b74a2c3b99a7e571145df25710c8f710d170bbb7a2fd894332`.
+Separate `wifi-reliability-main-d634433c-return-review` index:
+`bf1365352877f0ba93f615b70ea7454a91f6f8cd6db899fe081e096e633e20d8`.
+The primary and review are closed and must not be recollected/resealed.
+
+
 ### Integrated-main cold repeat scope (November 12)
 
 The user authorizes integrating fetched maina45032e4, qualifying the corrected

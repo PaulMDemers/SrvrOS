@@ -9,6 +9,25 @@ Demers2.4 requires a different compatible adapter;it is a separate hardware scop
 
 ## Current checkpoint (November 12)
 
+The integrated d634/c9c4 cold repeat is collected once and CLOSED FAILED.
+First-epoch DHCP/DNS/actual HTTP+EOF and local key/native/provider close pass,
+but no second preparation begins. Source flow localizes the refusal to the
+connection-next fence handoff after the first complete close receipt. RF inverse
+remains incomplete at2636; this is not a repeated missing-Offer symptom.
+Saved frontier49 has reserve at its snapshot; exact failing predicate is absent.
+A pending global event is only one hypothesis. Next audit/instrument controller,
+event, old-owner/fence and next-context checks and test actual-native boundary
+arrivals/refusals before another image. Keep all ownership/event/command gates
+and original budgets. No blind repeat is armed.
+
+Full exit/seven checkpoints,479-file/strict metadata preservation,67-other-EFI,
+offline and eight-recovery checks pass. The corrected collector refuses the
+actual incomplete pair without the old schema error. Primary1379-file and
+separate review hashes are in the unit record; leave both immutable. Protect
+historically accepted05ea/e47 and all older recoveries. Ubuntu is unarmed.
+
+### Previous accepted cold pair
+
 The37ae8304/05ea return now independently accepts one cold two-HTTP connection
 lifetime: fresh authenticated epochs, DHCP/DNS,4159-byte request/3072-byte exact
 body+EOF each, same-boot disconnect/reconnect and full key/native/provider/RF
