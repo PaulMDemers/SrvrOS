@@ -344,4 +344,13 @@ registered child of the actual live source. Full verification and exactly-once
 release follow clean outer retirement; uncertainty retains RAM/root. Encodings
 remain data only and transfer refuses with zero assurances/255 obligations.
 This implementation does not complete the exclusive interval or first GPU PTE
-store milestones. Native timing and ownership binding need their own exact run.
+store milestones. The subsequent exact native kind 2 run now accepts this binding, as below.
+
+
+V31 now [accepts one native original kind 2 buffer lifetime](intel-startup-buffers.md#native-result-original-already-disabled-route-accepted)
+on runtime876b500e/releasec154: both full RAM holds survive actual outer
+retirement, four full patterns pass and 2,712 pages release exactly once,
+DMA57→57. Preparation98,198/100,000 us and full parent deadlines/retirement pass.
+Enabled entry and repeatability remain pending. Exclusive live GPU interval,
+usable GPU addresses, cache/completion/reader ownership and PTE publication are
+still required; all255 obligations/0assurances/0managed GPU pages remain.

@@ -943,3 +943,13 @@ capacity checks pass. Native v31 timing/ownership binding is still pending;
 current v30 remains installed and no new reboot is armed. Review the unit's
 actual checkpoint before installing; historical 451c and d260 are now bank-only.
 No other task was contacted or delegated, and Actions remain disabled.
+
+
+Air7,2 now accepts one native v31 original kind 2 source/private-buffer lifetime
+on runtime `876b500e`, release c154, session00066022f9ae48c3-00: preparation
+98,198/100,000 us, clean original source/root/alias return, four full padded
+patterns and exactly-once 2,712-page release with unchanged DMA total. Raw and
+proof/media/recovery evidence are banked; current c154, no one-shot armed. This
+adds no managed GPU interval/PTE/cache authority, enabled-route acceptance or
+native tear-free. Main e6ca1a94/PR488 is fetched but deferred until after this
+source-matched checkpoint. No other task was contacted or scheduled.

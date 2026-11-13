@@ -93,3 +93,12 @@ Two full private buffers remain held through the actual source/reset/outer root,
 then verify and release only after clean retirement. Transfer remains refused
 with zero assurances/managed pages and all 255 obligations. Candidate is banked,
 not installed or armed; native v31 and tear-free acceptance remain pending.
+
+
+The subsequent [native v31 Air7,2 result](macbookair7-2.md#native-v31-original-source-private-buffers-accepted)
+accepts one original kind 2 already-disabled source/private-buffer lifetime on
+runtime `876b500e` / release `c154f8b4a6534d11`: two full buffers remain held through
+outer retirement, verify and release exactly once (2,712 pages, DMA57→57).
+Preparation is 98,198/100,000 us; full preservation/retirement and media/recovery
+verify. Enabled entry and repeatability remain pending. No managed GPU page or
+tear-free grant; c154 current, recovery retained, no reboot armed.

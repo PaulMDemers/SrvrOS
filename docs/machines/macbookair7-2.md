@@ -2,7 +2,50 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
-### Hardware-ready v31: original-source private buffer ownership
+### Native v31 original-source private buffers accepted
+
+Runtime `876b500e`, staged source `7c3a7531`, release `c154f8b4a6534d11`,
+session `session-00066022f9ae48c3-00` accept **one bounded original kind 2
+already-disabled lifetime**. Entry performs zero stores at epoch 0; reset
+advances 0→1 and the registered source/buffer child binds epoch 1. The two
+disjoint 1,356-page allocations keep their original memory objects, owner IDs,
+epochs, serials, extents and enclosing-root holds. Both return only after full
+outer retirement, pass four full padded pattern checks, and release exactly
+once: 2,712 pages allocated/released, DMA allocation count 57→57. Child time is
+4 us; source is 3,498 us with six DWORD reads in 3,478 us and return in 9 us.
+Alternative page encodings remain data; zero-assurance transfer refuses with
+zero callbacks and no GPU PTE write or managed GPU page.
+
+Preparation is 98,198/100,000 us (1,802 us margin), admission 10,346 us, reset
+pulses 6,867/6,853 us and settling 56 us. Final guard is 7 us, original reset
+return 3,405 us, GT return 265,313/300,000 us, HDA 302,089/400,000 us and outer
+356,883/500,000 us. No limit was extended; one pass does not prove repeatability.
+Full 92-word engine/context and 37-reader preservation, HDA Command 6/2/2/6,
+four inspections, original borrows, 14 GPU aliases, HDA root alias and CPU
+exclusion retire. Exact recipe/pre-init/checkpoint and strict v31 full collector
+verify `completed=yes`; its v30 result field remains empty. All six raw nested
+capability/obligation alerts are retained, with no positive hardware assurance.
+
+All 1,494 prior USB files preserve except expected `.srvros/meta`; three exact
+logs yield 1,497 files/155 sessions. Boot digest, offline fsck/allocation/
+writable/headroom, installed versus banked hashes, Ubuntu default and consumed
+one-shot pass. Raw files were independently sealed before collection; full proof
+is banked outside build under `air-startup-buffers-20261112`. The supplementary
+return checker initially passed raw v31 to a strict older firmware helper and
+refused; using the existing checked internal schema view resolved that checker
+invocation. Runtime, collector and raw evidence were unchanged; the refusal log
+is retained. Current is c154; prior accepted 327a, recovery 9aa8, GUI c497 and
+other protected payloads remain installed/banked. USB is unmounted; no reboot
+is armed. Hardware sound/input were not part of this silent unattended trial.
+
+Enabled v31 entry and repeatability remain unaccepted. All 255 firmware/DMA/
+cache/translation/reader obligations, zero assurances and zero managed GPU pages
+remain. Next is live exclusive GPU interval/address transfer and completion/cache
+ownership, followed by real buffer publication and tear-free presentation.
+New main `e6ca1a94` / PR488 was fetched after return and remains deferred until
+the next implementation block; the physical source and collector stay frozen.
+
+### Prior hardware-ready qualification: original-source private buffers
 
 Release `c154f8b4a6534d11` joins two private 1,356-page padded buffers to the
 actual original startup reset/source. Their original memory objects, owner IDs,

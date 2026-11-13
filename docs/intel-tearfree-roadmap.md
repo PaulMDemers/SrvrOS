@@ -317,3 +317,12 @@ holds to that same live reset/source lifetime, without substituting a saved
 receipt. Two full padded buffers must stay pinned through source, reset and
 outer cleanup, then verify and release exactly once. Host/model evidence is not
 native timing acceptance; this still grants no GGTT interval or GPU PTE writer.
+
+
+The [v31 original-source buffer trial](intel-startup-buffers.md#native-result-original-already-disabled-route-accepted)
+now passes one native kind 2 lifetime on runtime876b500e/releasec154. Both full
+private buffers stay pinned through actual outer retirement, then pass full
+patterns and release exactly once; preparation98,198/100,000 us. This closes
+that route's RAM/source binding prerequisite only. Exclusive GPU address/range
+transfer, completion/cache/reader ownership and actual GPU publication remain
+open; no managed GPU pages or tear-free presentation are accepted.

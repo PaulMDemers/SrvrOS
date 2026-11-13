@@ -1539,3 +1539,13 @@ boot-reference verification to provide candidate plus 32 MiB capacity. Current
 accepted 327a, recovery, GUI and other protected payloads remain installed;
 451c and the earlier d260 remain banked. Consult current state before using an
 older helper that assumes every historical diagnostic still has an EFI copy.
+
+
+Air7,2's subsequent [v31 native return](machines/macbookair7-2.md#native-v31-original-source-private-buffers-accepted)
+accepts one original already-disabled route on c154: full buffer holds through
+outer retirement, pattern verification and exactly-once release, within original
+limits. Current is now c154, accepted prior327a and recovery9aa8 remain installed;
+1,497 files/155 sessions and offline media/recovery verify. Raw evidence and proof
+are separately banked; no reboot is armed. Enabled route, managed GPU mapping and
+native tear-free remain pending. Use the existing checked internal schema view
+for supplementary shared decoders; never relabel raw v31 as a legacy receipt.

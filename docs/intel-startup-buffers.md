@@ -4,7 +4,8 @@ The opt-in v31 `intel-startup-buffers` image joins two private padded buffer
 allocations to the actual original startup reset/source lifetime. It is the
 buffer ownership prerequisite for managed GPU memory. It does not transfer a
 GGTT interval, expose RAM to a GPU, invalidate a translation or publish a plane.
-Native acceptance is pending; the inherited framebuffer remains the desktop.
+One native original already-disabled route is accepted below; the enabled route
+and repeatability remain pending. The inherited framebuffer remains the desktop.
 
 ## Lifetime
 
@@ -91,7 +92,7 @@ keeps volume 1%, shows progress and persists results. Proved safe saved/unmounte
 results return automatically; retained uncertainty halts visibly. Collect the
 matching session before another run and accept only the startup route observed.
 
-## Local qualification and current trial boundary
+## Pretrial local qualification
 
 Frozen native `876b500e` passes the full 36-image/core/USB/host/docs gate, eight
 actual-adapter tests under fatal ASan/UBSan, fatal RAM-hold tests, nine historical
@@ -115,5 +116,28 @@ independent payload/evidence banks and candidate plus 32 MiB EFI margin verify.
 Only an unreferenced older unaccepted diagnostic's EFI duplicate was retired;
 its verified payload and raw refusal remain durable. Current accepted v30 and
 recovery remain installed. This candidate is banked, **not installed or armed**.
-Native binding and timing remain pending for each observed route. Host/VM
-success does not grant managed GPU pages or accept native tear-free presentation.
+The subsequent native result below accepts only the observed kind 2 route.
+Host/VM success does not grant managed GPU pages or native tear-free presentation.
+
+## Native result: original already-disabled route accepted
+
+Air7,2 runtime `876b500e` / stage `7c3a7531` / release `c154f8b4a6534d11`,
+session `session-00066022f9ae48c3-00`, passes one bounded original kind 2 source
+and private-buffer lifetime. Entry stores 0/epoch 0, reset 0→1, source/buffer
+epoch 1; both full original RAM holds remain pinned through actual outer
+retirement. Four full padded pattern checks and exactly-once releases verify:
+2,712 pages allocated/released, DMA count 57→57. Child 4 us; source 3,498 us.
+Preparation 98,198/100,000 us, final guard 7 us, reset return 3,405 us,
+GT 265,313/300,000 us, HDA 302,089/400,000 us and outer 356,883/500,000 us.
+Full engine/reader/HDA preservation and original borrow/alias/exclusion return,
+recipe/pre-init/checkpoint, strict v31 collection and `completed=yes` pass.
+All six raw capability/obligation alerts remain; the v30 result field is empty.
+
+Prior files preserve except expected workspace metadata; three exact logs yield
+1,497 files/155 sessions. Offline filesystem/allocation/writable/headroom,
+boot digest, recovery/banked payload equality and consumed one-shot verify.
+Raw and proof banks survive `make distclean`. Current c154 and recovery remain
+installed; USB is unmounted, no new reboot armed. This accepts only one observed
+kind 2 binding/retirement lifetime. Enabled entry and repeatability remain
+pending; no GPU mapping, managed GPU page, cache assurance or native tear-free
+presentation is accepted. See the [unit result](machines/macbookair7-2.md#native-v31-original-source-private-buffers-accepted).
