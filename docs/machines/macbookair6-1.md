@@ -13631,3 +13631,35 @@ that gate without proving descriptor, worker, rights and memory lifetimes would
 be unsafe. Preserve the original cycle budget and live-owner protection rather
 than resetting the deadline, pacing away contention or releasing an active
 transaction. No runtime change or new trial has started at this checkpoint.
+
+## Active independent launch/exit admission audit (2026-11-12)
+
+From fetched main `f61b40eb`, fix the observed storage-gated desktop app launch
+and exit without changing the whole-cycle deadline, workload, owner protection
+or integrity rules. The failed 9463 run and all 760 backup files are reviewed and
+sealed; no run is outstanding. One local device checkout is used, without
+subagents or cross-task contact. Current/recovery/USB identity and reboot state
+remain in the ignored local record and are rechecked before physical work.
+
+Scope: process/syscall/scheduler admission and narrowly bounded RAM-backed image,
+descriptor/worker/rights/memory lifetime proofs, their regressions and current
+contract documentation. Permit independent progress only after the complete
+request/resources qualify; preserve ordinary gated fallback for storage,
+callbacks, shared/uncertain resources and unsupported cases. Never release or
+borrow a foreign live transaction, omit file flushes/cleanup, waive handle or
+mapping checks, pace away contention or reset the ten-second lifecycle budget.
+
+PR19 at `d634433c` owns separate pipe-handoff/network and metadata-restore work;
+its process hunks affect background kernel spawn/pipe handoff, not the targeted
+user exec/exit gates. PR301 at `5488e9d7` changes user-scope owner-loss handling;
+preserve its authority model and existing detach behavior, without implementing
+that separate change here. Inspect and retain those boundaries when adding
+eligibility checks. Keep cold-ID restoration and device/power policy separate.
+
+Publish a bounded candidate and real negative/refusal/ownership tests, then run
+matched ordinary/native/fixture builds, full regression checks, populated loaded
+VM and exact-stage rehearsal. Preserve failed/accepted payloads and recovery;
+verify all prior files and renew only the explicit 1% volume preference. After
+self-merge and saved independent run/collection records, launch the original
+fully automated 1800-second PCM/disk/app/three-screenshot workload at 1%, with
+heavy full-field metadata audit off and every original limit/proof intact.
