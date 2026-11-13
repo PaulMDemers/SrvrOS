@@ -228,9 +228,6 @@ static bool buffers_finish(bool outer_safe) {
   buffers_native.dma_before==buffers_native.dma_after;
 }
 static void buffers_report(bool complete) {
-#ifdef SRVROS_INTEL_SOURCE_ENGINES
- source_engines_report();
-#endif
 #ifdef SRVROS_INTEL_SOURCE_REQUESTER
  source_requester_report();
 #endif
@@ -256,5 +253,8 @@ static void buffers_report(bool complete) {
   (uint64_t)t->registered,(uint64_t)t->borrows,(uint64_t)t->returns,(uint64_t)t->source_blocked,(uint64_t)t->holds_blocked,(uint64_t)t->refused,
   (uint64_t)t->opened,(uint64_t)t->checked,(uint64_t)t->closed,(uint64_t)t->callbacks,(uint64_t)t->clocks,(uint64_t)t->owner.state,
   (uint64_t)t->owner.pinned,(uint64_t)(t->token.object!=0),t->pool.epoch,t->space_pool.epoch,(uint64_t)t->assurances,(uint64_t)t->obligations);
+#endif
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+ source_engines_report();
 #endif
 }

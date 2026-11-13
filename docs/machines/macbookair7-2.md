@@ -39,6 +39,14 @@ version dispatch and older-stage precedence regression were caught and corrected
 failed attempts remain local evidence. Full corrected-source 12-test/fatal
 sanitizer/control/image/object/frame/log/VM qualification remains required.
 No native v34 acceptance or hardware-ready label follows yet.
+The first frozen-source full gate was intentionally interrupted to move the
+new raw/summary report after parent receipts, keeping a failure's cause/clock
+visible near the halt screen without adding bytes or changing operations.
+Its partial results remain nonpassing. A preliminary 35-mode saved-tail
+projection fits at65,364/65,536 bytes including1,536reserve+1,024header; final
+source-matched projection and full qualification still must pass. Read-only
+preflight verifies all1,503files/157sessions, current/recovery banks, unchanged
+boot digest, AC and Ubuntu default/no one-shot.
 
 ### Native v33 maintained requester lifetime accepted
 
