@@ -1,3 +1,4 @@
+#include <srvros/packet_observation.h>
 /* Explicit v135:independent live owner,never widens historical WPA/data bounds.
  * One original handshake/key lifetime;four pages/direction;finite real fences.
  * All DMA/context survives uncertainty. No console inside active MAC window. */
@@ -13,8 +14,9 @@ static bool wifi_http5_failed_connection_closed(void);
 /* DATA is not a mt76_wpa5_tx member; the RX enum uses a different value. */
 #define WIFI_STREAM5_DATA_TX 5u
 /* Anonymous scalar observations only; never retain packet or key bytes. */
-struct wifi_stream5_record {struct xhci_trb event;uint64_t ticket,token,pn;uint64_t started_us,finished_us;unsigned flags,frame,audit,span,dma,mpdu,trailing,ethertype,rate,ack,wcid;unsigned direction,page,cycle,bytes,ethernet,reason,kind;};
+struct wifi_stream5_record {struct packet_observation packet;unsigned sequence;struct xhci_trb event;uint64_t ticket,token,pn;uint64_t started_us,finished_us;unsigned flags,frame,audit,span,dma,mpdu,trailing,ethertype,rate,ack,wcid;unsigned direction,page,cycle,bytes,ethernet,reason,kind;};
 struct wifi_stream5_state {
+ struct packet_observation tx_packet;
  struct xhci_device *d;struct mt76_peer5 peer;struct mt76_wpa5 exchange;struct mt76_mac_cycle mac;
  struct mt76_dma5 dma;struct mt76_dma5_lease lease[2],loan;
  struct mt76_data5_scratch scratch;struct mt76_stream5_probe probe;
@@ -143,7 +145,8 @@ static bool wifi_stream5_event(struct xhci_device *d,const struct xhci_trb *e){
     wifi_stream5.records[i]=(struct wifi_stream5_record){.started_us=started,.finished_us=finished,.event=*e,.ticket=l->ticket,.token=l->token,.pn=wifi_stream5.data_pn,.direction=dir,.kind=dir?0:wifi_stream5.tx_kind,.page=l->index,.cycle=l->cycle,.bytes=l->length-res};wifi_stream5.record_count++;
     if(!dir && wifi_stream5.tx_kind==WIFI_STREAM5_DATA_TX && l->length>=24){
      const uint8_t *b=wifi_stream5.buffer[0][l->index];struct wifi_stream5_record *r=&wifi_stream5.records[i];
-     r->rate=b[6]|((unsigned)b[7]<<8);r->ack=b[8]&1;r->wcid=b[9];r->mpdu=b[10]|((unsigned)b[11]<<8);
+     r->rate=b[6]|((unsigned)b[7]<<8);r->ack=b[8]&1;r->wcid=b[9];r->mpdu=b[10]|((unsigned)b[11]<<8);r->packet=wifi_stream5.tx_packet;
+     if(l->length>=48)r->sequence=(b[46]|((unsigned)b[47]<<8))>>4;
     }
     wifi_stream5.pending[dir]=false;wifi_stream5.completions[dir]++;if(dir){wifi_stream5.ready_rx=true;wifi_stream5.rx_residue=res;wifi_stream5.rx_record=i;}else copy_bytes(wifi_stream5.page_shadow[0][l->index],wifi_stream5.buffer[0][l->index],4096);
    }}
@@ -170,6 +173,7 @@ static bool wifi_stream5_collect(enum mt76_wpa5_rx type,bool drain){
     else {struct mt76_data5_rx_result r=mt76_data5_rx_report(&wifi_stream5.scratch,&wifi_stream5.exchange.keys,wifi_stream5.epoch,wifi_stream5.buffer[1][p],bytes,wifi_stream5.cached,MT76_DATA5_ETH_MAX);n=r.bytes;wifi_stream5.records[wifi_stream5.rx_record].reason=r.reason;wifi_stream5.records[wifi_stream5.rx_record].ethernet=(unsigned)n;
      struct wifi_stream5_record *record=&wifi_stream5.records[wifi_stream5.rx_record];
      record->flags=r.flags;record->frame=r.frame;record->audit=r.audit;
+     if(n>=14){record->packet=packet_observe(wifi_stream5.cached,n);record->sequence=(wifi_stream5.buffer[1][p][58]|((unsigned)wifi_stream5.buffer[1][p][59]<<8))>>4;}
      if(n>=14)record->ethertype=((unsigned)wifi_stream5.cached[12]<<8)|wifi_stream5.cached[13];
      if(bytes>=36){const uint8_t *b=wifi_stream5.buffer[1][p];unsigned dma=b[0]|((unsigned)b[1]<<8),mpdu=(b[10]|((unsigned)b[11]<<8))&0x3fff;
       if(dma>=32 && !(dma&3) && dma<=bytes-4 && mpdu>=2 && mpdu<=dma-32){record->span=1;record->dma=dma;record->mpdu=mpdu;record->trailing=(unsigned)bytes-4-dma;}
@@ -469,6 +473,24 @@ static unsigned wifi_stream5_rx_select(unsigned selected[8]){
  unsigned count=0;for(unsigned i=0;i<wifi_stream5.record_count && i<WIFI_STREAM5_TX+WIFI_STREAM5_RX;i++){
   bool keep=i==first || i==last;for(unsigned n=0;n<3;n++)keep=keep || i==before[n] || i==after[n];if(keep && count<8)selected[count++]=i;
  }return count;
+}
+static __attribute__((unused)) void wifi_stream5_packet_emit(const struct wifi_stream5_state *s){
+ /* Format only after the HTTP supervisor has checked all child/worker
+  * quiescence and the adapter capture/guard returned. No extra console work
+  * occurs between connection close and next-owner admission. */
+ if(s->connection_mode && s->stack_mode && s->closed){
+  unsigned count=0;for(unsigned i=0;i<s->record_count;i++){
+   const struct wifi_stream5_record *r=&s->records[i];
+   if((!r->direction && r->kind==WIFI_STREAM5_DATA_TX) || (r->direction && r->ethernet))count++;
+  }
+  console_printf("wifi-packet5: version=1 epoch=%u records=%u observation_only=1\n",s->epoch,(uint64_t)count);
+  for(unsigned i=0;i<s->record_count;i++){
+   const struct wifi_stream5_record *r=&s->records[i];
+   if((!r->direction && r->kind==WIFI_STREAM5_DATA_TX) || (r->direction && r->ethernet))
+    console_printf("wifi-packet5-frame: index=%u ticket=%u token=%u direction=%u ethernet=%u role=%u message=%u sequence=%u started_us=%u finished_us=%u radio_delivery_proved=0\n",
+     (uint64_t)i,r->ticket,r->token,(uint64_t)r->direction,(uint64_t)r->packet.bytes,(uint64_t)r->packet.role,(uint64_t)r->packet.message,(uint64_t)r->sequence,r->started_us,r->finished_us);
+  }
+ }
 }
 static unsigned wifi_stream5_emit(void){
  unsigned selected[8];unsigned rx_receipts=wifi_stream5_rx_select(selected);

@@ -39,6 +39,7 @@ static enum mt76_net5_submit wifi_stack5_submit(void *c,uint64_t epoch,uint64_t 
  wifi_stream5.data_pn=k->tx_pn;wifi_stream5.tx_kind=5;
  /* Both cursor guards precede PN reservation;publish cannot enter its legacy
   * blocking fence path. Original key seals once;publication uncertainty pins. */
+ wifi_stream5.tx_packet=packet_observe(frame,length);
  bool good=wifi_stream5_publish(0,wifi_stream5.usb,(unsigned)bytes);zero_bytes(wifi_stream5.usb,sizeof wifi_stream5.usb);
  if(!good){wifi_stack5_fault();return MT76_NET5_UNCERTAIN;}
  wifi_stack5.tx_token=token;wifi_stack5.tx_ticket=wifi_stream5.lease[0].ticket;wifi_stack5.tx_completion=wifi_stream5.completions[0];wifi_stream5.data_sends++;if(wifi_stream5.wraps[0])wifi_stream5.data_after_txwrap++;

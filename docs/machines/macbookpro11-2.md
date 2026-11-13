@@ -7,6 +7,28 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Request/ACK witnesses implemented (November 13)
+
+Merged mainb3d45130 in4c6cacc0. Both Makefile test groups and the workspace-log
+snapshot limit plus new delayed-save clock behavior are retained; focused
+workspace/process-private/scheduler merge checks pass. Native HTTP cases24/25
+now cover an accepted Offer, authenticated client-UDP echo, completed Request
+and68 management frames with either absent ACK (original timeout and RF3844
+cleanup) or350ms delayed ACK (both full HTTP lifetimes). The independent AP
+also checks Request XID/client/requested-address/server-selection construction.
+These software fixtures do not identify the physical loss's cause.
+
+New [packet witnesses](../wifi-packet5-observations.md) retain only structural
+roles, DHCP option53, submitted/received sequence and existing USB completion
+clocks, bound to the original ledger. No packet/address/XID/key bytes, firmware
+reads, additional clock reads, waits or admission/budget changes are added.
+Formatting follows the adapter capture/guard and child/worker quiescence; no new
+console work is inserted in the close-to-handoff gap. The observer never grants
+radio, DHCP or native ownership acceptance. Guarded truncation/malformed-input
+checks pass. Full frozen-source native/sanitizer/image/collector qualification
+is next before a fresh cold trial under the existing shutdown authorization.
+Keep both prior closed banks and all eight recoveries immutable/protected.
+
 ### First DHCP Request/ACK audit scope (November 13)
 
 Bounded active scope: consume fetched mainb3d45130's process-retirement fixes,

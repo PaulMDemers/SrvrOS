@@ -51,8 +51,8 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condit
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *a){(void)q;(void)fn;(void)a;assert(0);return false;}
 static struct {
  uint8_t response[8][1600];size_t length[8];unsigned head,count;
- uint64_t tx_pn,rx_pn;unsigned arp,tcp,udp,icmp,dhcp,dns,case_id;
- uint32_t server_seq,client_ack;unsigned response_offset;
+ uint64_t tx_pn,rx_pn,ack_release;unsigned ack_noise;unsigned arp,tcp,udp,icmp,dhcp,dns,case_id;
+ uint32_t server_seq,client_ack,dhcp_xid;unsigned response_offset;
  bool quiet,bad_mic,wrong_event,drop_tx,closed;
  bool frozen,provider_loss,wrong_payload;unsigned arp_replies,arp_noise_left,background_left;uint64_t held_ticket;
  uint8_t deferred_dns[1514];size_t deferred_dns_size;
@@ -124,7 +124,11 @@ static void ap_udp_reply(const uint8_t *p,size_t n){
  uint8_t r[1514];const uint8_t *u=p+34;unsigned size=ap_u16(u+4);assert(n>=42 && size>=8 && n==34+size);
  unsigned sport=ap_u16(u),dport=ap_u16(u+2);size_t body=size-8;uint8_t *v=r+42;
  if(sport==68 && dport==67){
-  ap.dhcp++;assert(body>=240 && u[8]==1 && u[9]==1 && u[10]==6);unsigned type=0;for(size_t i=240;i<body;){unsigned k=u[8+i++];if(k==255)break;if(!k)continue;assert(i<body);unsigned z=u[8+i++];assert(z<=body-i);if(k==53){assert(z==1);type=u[8+i];}i+=z;}assert(type==1 || type==3);if((ap.case_id==1 || ap.case_id==11) && ap.dhcp==1)return;
+  ap.dhcp++;assert(body>=240 && u[8]==1 && u[9]==1 && u[10]==6);unsigned type=0,requested=0,selected_server=0;for(size_t i=240;i<body;){unsigned k=u[8+i++];if(k==255)break;if(!k)continue;assert(i<body);unsigned z=u[8+i++];assert(z<=body-i);if(k==53){assert(z==1);type=u[8+i];}if(k==50){assert(z==4);requested=ap_u32(u+8+i);}if(k==54){assert(z==4);selected_server=ap_u32(u+8+i);}i+=z;}assert(type==1 || type==3);
+  assert(!memcmp(u+8+28,hs_spa,6) && (ap_u16(u+8+10)&0x8000) && !ap_u32(u+8+12));
+  if(type==1){assert(!requested && !selected_server);if(ap.dhcp_xid)assert(ap.dhcp_xid==ap_u32(u+12));ap.dhcp_xid=ap_u32(u+12);}
+  else{assert(ap.dhcp_xid==ap_u32(u+12) && requested==0x0a00020f && selected_server==ap_ip);}
+  if((ap.case_id==1 || ap.case_id==11) && ap.dhcp==1)return;
   if(ap.case_id==56 || ap.case_id==57){
    if(ap.case_id==57)for(unsigned i=0;i<(ap.dhcp==1?7u:2u);i++){
     uint8_t noise[42]={0};memcpy(noise,hs_spa,6);memcpy(noise+6,ap_mac,6);ap_p16(noise+12,0x806);
@@ -134,7 +138,10 @@ static void ap_udp_reply(const uint8_t *p,size_t n){
    }
    return;
   }
-  if(ap.case_id==42 && type==3)return; /* no ACK, not a parser rejection */
+  /* A unicast AP echo of client UDP is authenticated, not a server reply. */
+  if((ap.case_id==60 || ap.case_id==61) && type==1){memcpy(r,p,n);memcpy(r,hs_spa,6);ap_enqueue(r,n);}
+  if((ap.case_id==60 || ap.case_id==61) && type==3){ap.ack_noise=68;if(ap.case_id==60)ap.ack_release=test_time+350000;}
+  if((ap.case_id==42 || ap.case_id==61) && type==3)return; /* no ACK, not a parser rejection */
   body=274;ap_ip_header(r,p,17,8+body);memset(v,0,body);v[0]=2;v[1]=1;v[2]=6;memcpy(v+4,u+12,4);ap_p32(v+16,0x0a00020f);memcpy(v+28,hs_spa,6);ap_p32(v+236,0x63825363);unsigned at=240;v[at++]=53;v[at++]=1;v[at++]=type==1?2:5;
   const unsigned kinds[]={54,1,3,6,51};const uint32_t values[]={0x0a000202,0xffffff00,0x0a000202,0x0a000202,3600};for(unsigned i=0;i<5;i++){v[at++]=kinds[i];v[at++]=4;ap_p32(v+at,values[i]);at+=4;}v[at++]=255;assert(at==body);ap_p32(r+30,0xffffffff);ap_p16(r+24,0);ap_p16(r+24,~ap_sum(r+14,20,0));ap_p16(r+34,67);ap_p16(r+36,68);
  }else if(dport==53){
@@ -267,7 +274,9 @@ static void stack_test_progress(void){
  if(wifi_stream5.pending[1]){
   if(ap.case_id>=10 && !ap.frozen && !ap.count)test_time+=1000;
   unsigned bytes=0;
-  if(wifi_stream5.connection_mode && reconnect_noise() && ap.background_left){uint8_t beacon[24]={0x80};bytes=stream_wrap(beacon,sizeof beacon);ap.background_left--;}
+  if(ap.ack_noise && ap.dhcp==2){uint8_t beacon[64]={0x80};bytes=stream_wrap(beacon,sizeof beacon);ap.ack_noise--;}
+  else if(ap.ack_release && test_time<ap.ack_release){test_time+=1000;}
+  else if(wifi_stream5.connection_mode && reconnect_noise() && ap.background_left){uint8_t beacon[24]={0x80};bytes=stream_wrap(beacon,sizeof beacon);ap.background_left--;}
   else if(ap.count){bytes=stream_wrap(ap.response[ap.head],(unsigned)ap.length[ap.head]);ap.head=(ap.head+1)%8;ap.count--;if(wifi_stream5.connection_mode && reconnect_noise())ap.background_left=reconnect_noise();}
   else if(!ap.quiet && wifi_stack5.boundary){uint8_t beacon[24]={0x80};bytes=stream_wrap(beacon,sizeof beacon);}
   if(bytes){struct mt76_dma5_lease *l=&wifi_stream5.lease[1];uint64_t q=wifi_stream5.posts[1]%wifi_stream5_positions()?wifi_stream5.physical[1]+16*wifi_stream5.enqueue[1]:wifi_stream5.physical[1]+wifi_stream5_positions()*16;unsigned cycle=wifi_stream5.posts[1]%wifi_stream5_positions()?(unsigned)wifi_stream5.cycle[1]:l->cycle;context_write32(wifi_stream5.d->output_context,9,0,1);context_write32(wifi_stream5.d->output_context,9,2,q|cycle);context_write32(wifi_stream5.d->output_context,9,3,q>>32);struct xhci_trb e={.parameter_low=l->trb,.parameter_high=l->trb>>32,.status=(13u<<24)|(4096-bytes),.control=(32u<<10)|(9u<<16)|((uint32_t)wifi_stream5.slot<<24)};if(ap.provider_loss)wifi_stream5.d->removed=true;stream_enqueue(&e,0);return;}

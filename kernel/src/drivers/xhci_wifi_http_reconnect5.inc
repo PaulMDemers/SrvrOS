@@ -177,6 +177,7 @@ bool xhci_wifi_http_reconnect5_finish_capture(bool parent_complete){
    (uint64_t)g+1,(uint64_t)p->result.quiescent,(uint64_t)p->result.child_retired,
    (uint64_t)p->result.worker_allocated,(uint64_t)p->result.worker_finished);
  }
+ for(unsigned g=0;g<2;g++)wifi_stream5_packet_emit(&wifi_stream5_slots[g]);
  console_printf("wifi-http-reconnect5-final: version=1 complete=%u connections=%u parent_restored=%u provider_retired=%u retained_contexts=2 backend_retired=0\n",
   (uint64_t)(parent_complete && wifi_http_reconnect5.complete),(uint64_t)wifi_http_reconnect5.connections,
   (uint64_t)wifi_http_reconnect5.parent_complete,(uint64_t)wifi_http_reconnect5.provider_retired);
