@@ -13774,3 +13774,56 @@ and independently reviewed. PR19 refreshed to `86a239a4` changes separate Wi-Fi
 reconnect/fence helpers, with no new common process/scheduler/logger overlap;
 PR301 remains at the previously inspected `ad1b1110`. No sibling hardware
 acceptance is implied.
+
+
+### Native independent-lifecycle stress result — release 7acb756c0ac5f4bb
+
+PR486 compiled runtime `4629fced` (integration `35f3702a`) completed the original
+1,800-second automated audio/disk/app/three-screenshot workload at 1%, session
+`session-000660201c5dd794-00`. Independent saved-record and fresh offline media
+review accept that bounded workload: 1,339 app cycles, 4,293 verified 256 KiB disk
+bursts (1,125,384,192 bytes), 345,731,072 PCM bytes, zero recorded underruns or
+worker errors, and automatic Ubuntu return. Maximum desktop loop was 121.488 ms
+against the unchanged 500 ms limit. Maximum ready and close intervals were
+5.116564 s and 5.159948 s in separate cycles; the original ten-second whole-cycle
+budget remains unchanged. This is an automated recorded-audio observation;
+audibility at 1% was not assessed.
+
+All three exact 1366×768 BMPs and complete transfer/write/readback/flush/rename/
+retirement records survived. Capture lifetimes were 21.743185 s, 19.762422 s and
+7.474774 s; their write phases were 9.794711 s, 18.233933 s and 4.819995 s.
+Largest retained cleanup was 85.167 ms, with no pending capture or exit work.
+The normal-exit follow-up app also passed in 619.973 ms. These are observations
+from this interleaving, not a causal speed comparison to another cold boot.
+Screenshot completion latency remains open.
+
+Independent parsing reproduced the loop/render/lifetime/operations/cache,
+sync/content/command/phase, capture/history/transfer/admission, sidecar,
+battery-protocol and append/commit/validated-command companions. Battery epoch1
+retired with 703 attempts, 10,560 queries, one notification, matched attach/detach
+and zero heap/errors/denied. All 909 prior file paths and all 908 non-sidecar
+content hashes are intact; only the expected sidecar changed. Fresh traversal
+matches all 918 collected file hashes. Both offline fsck and independent
+allocation checks pass: 209 directories, 4,752 allocated clusters, zero leaked
+clusters, FAT/bitmap mismatches or errors. Recovery and independent payload
+hashes, Ubuntu default/firmware order and consumed one-shot were verified; the
+collector is disabled and USB unmounted. The full evidence backup is independently
+sealed outside build. Prior failed9463 evidence remains failed and retained.
+
+This passes the original native workload; it does not accept a general app
+latency cure or prove that the guarded private route covered native launches.
+The worst-ready Files cycle7 still contains SYS_EXEC admission at PID4/thread17
+waiting 4.211043 s behind disk PID7/thread20, sequence33731. A separate Files
+cycle439/PID571 contains a 5.443485 s SYS_FCNTL gate wait behind the same disk
+worker, sequence1071048, spanning its close request. A retained SYS_EXIT wait
+also remains at 1.601383 s. The operation/arguments of fcntl and private-admission
+refusal reasons were not captured. Do not infer that the existing resource,
+same-process or mapping bounds may be relaxed. Native rolling logs preserve
+tails and worst records, not complete source phases for all 1,339 cycles.
+
+Next bounded audit: capture private-admission success/refusal reasons (including
+parent mapping/sibling/descriptor/source checks) and exact fcntl control identity,
+then identify which storage-independent work can safely progress. Preserve every
+ownership, authority, mapping, durability and workload limit; no generic gate
+bypass or admission-limit increase follows from this pass. No new implementation,
+stage or reboot is started by recording these results.
