@@ -351,7 +351,7 @@ USER_CRT0_OBJ := build/userspace/lib/crt0.S.o
 USER_LIB_A := build/userspace/lib/libsrvros.a
 USER_SYSROOT := build/sysroot/srvros
 USER_SYSROOT_HEADERS := $(shell find shared/include userspace/lib/include -type f 2>/dev/null | LC_ALL=C sort)
-KERNEL_HEADERS := $(shell find shared/include kernel/include -type f 2>/dev/null | LC_ALL=C sort) $(wildcard kernel/src/process_private_*.inc)
+KERNEL_HEADERS := $(shell find shared/include kernel/include -type f 2>/dev/null | LC_ALL=C sort) $(wildcard kernel/src/process_private_*.inc kernel/src/launch_gate_trace.inc)
 
 KERNEL_C := $(shell find kernel/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 KERNEL_C += kernel/diagnostics/package_audit_core.c
@@ -6363,3 +6363,7 @@ test-core: test-intel-startup-buffers
 test-intel-startup-buffers: build/tests/intel-startup-buffers-adapter$(HOST_EXE) build/tests/boot-startup-buffers$(HOST_EXE)
 	$(PYTHON) -m unittest discover -f -s tools -p test_intel_startup_buffers.py
 	build/tests/boot-startup-buffers$(HOST_EXE)
+.PHONY: test-launch-gate-trace
+test-core: test-launch-gate-trace
+test-launch-gate-trace: $(LIMINE_PROTOCOL_DIR)/.ready
+	SRVROS_LIMINE_INCLUDE="$(LIMINE_PROTOCOL_DIR)/include" CC="$(HOST_CC)" $(PYTHON) tools/test_launch_gate_trace.py

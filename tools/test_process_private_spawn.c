@@ -15,6 +15,7 @@ static void process_private_test_halt(void) __attribute__((noreturn));
 #define SRVROS_PROCESS_IRQ_HOST_TEST
 #define SRVROS_PRIVATE_LIFECYCLE_HOST_TEST
 #include "../kernel/src/process.c"
+static uint64_t trace_reason,trace_maps,trace_atomic,trace_detail;
 static bool irq,safe=true,refuse_view,fail_prepared,oom,fail_kernel,fail_root;
 static uint64_t foreign_depth=2,foreign_owner=7,root=0x1000;
 static struct process *subject;
@@ -126,8 +127,9 @@ int main(void){
  struct elf64_program_header *ph=(void *)(image+h->phoff);*ph=(struct elf64_program_header){.type=PT_LOAD,.flags=PF_X,.offset=4096,.vaddr=0x500000,.filesz=1,.memsz=4096,.align=4096};image[4096]=0xcc;
  next_pid=2;subject=&processes[0];subject->allocated=subject->active=true;subject->pid=1;subject->address_space=root;subject->cwd[0]='/';
  const char *args[]={executable.path};int64_t result=-99;
- refuse_view=true;assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==-99 && !allocations);refuse_view=false;
- safe=false;assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && !allocations);safe=true;
+ refuse_view=true;assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==-99 && !allocations);refuse_view=false;assert(trace_reason==LAUNCH_TRACE_SOURCE && trace_detail==3);
+ safe=false;assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && !allocations);safe=true;assert(trace_reason==LAUNCH_TRACE_ATOMIC && trace_atomic==LAUNCH_ATOMIC_CALLER);
+ subject->mapping_count=4097;assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && !allocations);assert(trace_reason==LAUNCH_TRACE_MAPPINGS && trace_maps==4097);subject->mapping_count=0;
  uint64_t old_memsz=ph->memsz;ph->memsz=4096ull*4096;
  assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && !allocations);ph->memsz=old_memsz;
  for(unsigned i=1;i<PROCESS_MAX_PROCESSES;i++)processes[i].allocated=true;
@@ -146,3 +148,6 @@ int main(void){
  assert(!live_heap && allocations==freed_frames && !ordinary_spawns && !reads && !waits && foreign_depth==2 && foreign_owner==7);
  puts("private-spawn: PASS full checked ELF copy, prepared entry, real exit/context return and final runtime/reap publication without waiting or changing foreign ownership");
 }
+
+uint64_t scheduler_io_process_atomic_reason(void *p){return scheduler_io_process_atomic(p)?LAUNCH_ATOMIC_OK:LAUNCH_ATOMIC_CALLER;}
+void scheduler_launch_trace_exec(uint64_t r,uint64_t q,uint64_t m,uint64_t a,uint64_t d){assert(!irq && !q);trace_reason=r;trace_maps=m;trace_atomic=a;trace_detail=d;}

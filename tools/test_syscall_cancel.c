@@ -6,7 +6,7 @@
 
 static jmp_buf exited;
 static bool killed, kill_during_call, in_call;
-static unsigned calls;
+static unsigned calls,trace_registered,trace_observed;
 static uint64_t exit_status;
 static bool safe_call, user_safe, kill_while_waiting;
 static bool reserved_route,reserved_decline;
@@ -27,10 +27,10 @@ void scheduler_io_handoff(void) {
     assert(user_safe && !in_call); /* Only a fully unwound syscall may hand off. */
     handoffs++;if(kill_during_handoff)killed=true;
 }
-void scheduler_io_syscall(uint64_t number) { (void)number; }
+void scheduler_io_syscall(uint64_t number) { (void)number;trace_registered++; }
 void scheduler_io_set_user_safe(bool safe) { if(safe) safe_publications++; user_safe=safe; }
 void scheduler_user_enter(void) { assert(!simulated_if); user_entries++; user_safe=true; }
-void scheduler_io_wait(void) { assert(!user_safe); waits++; if(kill_while_waiting) killed=true; }
+void scheduler_io_wait(void) { assert(trace_observed==trace_registered);assert(!user_safe); waits++; if(kill_while_waiting) killed=true; }
 bool syscall_io_safe(const struct isr_frame *frame) { (void)frame; return safe_call; }
 bool syscall_reserved_append_candidate(const struct isr_frame *frame) {
     assert(!user_safe);
@@ -223,3 +223,5 @@ void process_capture_write_result(uint64_t start,uint64_t n,int64_t result) {
     if(!start)return;
     assert(write_tracing && !user_safe && n==12345 && result==42 && ++write_edges==5);
 }
+
+void syscall_gate_trace(const struct isr_frame *frame){(void)frame;assert(!user_safe && trace_observed+1==trace_registered);trace_observed++;}

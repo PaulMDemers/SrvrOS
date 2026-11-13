@@ -3,7 +3,8 @@
 #define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
 static bool console_fd,busy,user_safe,startup_killed,kill_on_wait,invalidate_on_wait;
-static bool exec_test,exec_private;
+static bool exec_test,exec_private,trace_on;
+static unsigned trace_fcntls,trace_entries,trace_requests;
 static unsigned exec_attempts,exec_spawns,exec_refreshes;
 static const char *exec_user_path,*exec_user_arg,*exec_user_env;
 bool process_should_exit_current(void) { return startup_killed; }
@@ -340,6 +341,19 @@ int main(void) {
     byte_safe=false;assert(io_defer_pipe_write(10,4096) && io_defer_pipe_read(10,32));
     assert(user_safe && turn_requests==before+4);
 
-    exec_syscall_contract();
+    struct isr_frame traced={.cs=3,.rax=SYS_FCNTL,.rdi=10,.rsi=SRV_F_GETLK,.rdx=0xdeadbeef};
+    pipe_file.type=PROCESS_FILE_PIPE_DUPLEX;pipe_file.flags=SRV_FD_NONBLOCK;busy=true;user_safe=false;trace_on=true;
+    syscall_gate_trace(&traced);assert(trace_fcntls==1 && !syscall_io_safe(&traced) && busy && !user_safe);
+    traced.cs=0;syscall_gate_trace(&traced);assert(trace_fcntls==1);
+    traced.cs=3;trace_on=false;syscall_gate_trace(&traced);assert(trace_fcntls==1);
+    trace_on=true;traced.rax=SYS_EXEC;syscall_gate_trace(&traced);assert(trace_entries==1 && busy && !user_safe);
+    exec_syscall_contract();assert(trace_requests>0);trace_on=false;
+    puts("launch-trace-entry: PASS disabled/kernel exclusions, early scalar snapshot without pointer dereference or changed admission");
     puts("syscall-io-host: PASS (bounded desktop admission, bounded retained-snapshot reads, nonblocking pipe deferral, redirected I/O/lifecycle/mapping/filesystem/default-deny)");
 }
+
+bool scheduler_launch_trace_enabled(void){return trace_on;}
+void scheduler_launch_trace_exec(uint64_t r,uint64_t q,uint64_t m,uint64_t a,uint64_t d){if(trace_on){assert(r==LAUNCH_TRACE_REQUEST && q && q<=63 && !m && !a && !d);trace_requests++;}}
+void scheduler_launch_trace_fcntl(uint64_t f,uint64_t c,uint64_t a,uint64_t t,uint64_t g){assert(trace_on && !user_safe && busy && f==10 && c==SRV_F_GETLK && a==0xdeadbeef && t==PROCESS_FILE_PIPE_DUPLEX && g==SRV_FD_NONBLOCK);trace_fcntls++;}
+
+void scheduler_launch_trace_entry(void){assert(trace_on && !user_safe && busy);trace_entries++;}

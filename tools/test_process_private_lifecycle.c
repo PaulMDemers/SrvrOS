@@ -83,3 +83,6 @@ int main(void){
  assert(!begin_calls && !end_calls && !wait_calls);
  puts("private-lifecycle: PASS foreign owner retained, callback resources refuse, checked PTE/TLS retirement, unexpected unmap retains frame and fail-stops");
 }
+
+uint64_t scheduler_io_process_atomic_reason(void *p){return scheduler_io_process_atomic(p)?LAUNCH_ATOMIC_OK:LAUNCH_ATOMIC_CALLER;}
+void scheduler_launch_trace_exec(uint64_t r,uint64_t q,uint64_t m,uint64_t a,uint64_t d){(void)r;(void)q;(void)m;(void)a;(void)d;}

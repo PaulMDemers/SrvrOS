@@ -1439,10 +1439,12 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request,uint
         argv[argc++] = path;
     }
 
-    if(!scope_token && request.flags==SRV_EXEC_BACKGROUND && request.stdin_fd==-1 &&
-       request.stdout_fd==-1 && request.stderr_fd==-1 && !request.process_group &&
-       !request.foreground && !request.file_action_count &&
-       process_try_spawn_private(path,argc,argv,envc,envp,&result))return result;
+    uint64_t request_mask=(scope_token?1ull:0)|(request.flags!=SRV_EXEC_BACKGROUND?2ull:0)|
+        ((request.stdin_fd!=-1 || request.stdout_fd!=-1 || request.stderr_fd!=-1)?4ull:0)|
+        (request.process_group?8ull:0)|(request.foreground?16ull:0)|(request.file_action_count?32ull:0);
+    if(!request_mask) {
+        if(process_try_spawn_private(path,argc,argv,envc,envp,&result))return result;
+    } else scheduler_launch_trace_exec(LAUNCH_TRACE_REQUEST,request_mask,0,0,0);
     scheduler_io_set_user_safe(false);scheduler_io_wait();
     flags = irq_save();
     if ((request.flags & SRV_EXEC_REPLACE) != 0) {
@@ -3597,6 +3599,16 @@ static bool io_snapshot_read(uint64_t fd,uint64_t length) {
  * a foreign owner is never borrowed or released. Memory/thread calls admit
  * only a validated bounded atomic attempt. Generic
  * allocation, thread creation, mapping and retirement retain gated fallback. */
+void syscall_gate_trace(const struct isr_frame *frame) {
+    if(!scheduler_launch_trace_enabled() || (frame->cs&3)!=3)return;
+    if(frame->rax==SYS_EXEC)scheduler_launch_trace_entry();
+    else if(frame->rax==SYS_FCNTL) {
+        uint64_t flags=irq_save();
+        const struct process_file *f=process_file_at(process_current(),frame->rdi);
+        scheduler_launch_trace_fcntl(frame->rdi,frame->rsi,frame->rdx,f?(uint64_t)f->type:0,f?f->flags:0);
+        irq_restore(flags);
+    }
+}
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
     case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: case SYS_MMAP: case SYS_THREAD_CREATE:

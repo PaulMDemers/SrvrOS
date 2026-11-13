@@ -2,6 +2,7 @@
 #define SRVROS_SCHEDULER_H
 
 #include <stdbool.h>
+#include <srvros/launch_gate_trace.h>
 #include <stdint.h>
 struct srv_sched_trace;
 

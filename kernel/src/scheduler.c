@@ -54,6 +54,7 @@ struct thread {
     void *arg;
     void *user_context;
     uint64_t io_syscall;
+    struct launch_gate_context launch_context;
     bool io_user_safe;
     bool io_gate_waiting;
     void *user_thread_context;
@@ -292,6 +293,8 @@ static void irq_restore(uint64_t flags) {
 #endif
 }
 
+#include "launch_gate_trace.inc"
+
 bool scheduler_io_observe_reset(void) {
     uint64_t flags=irq_save();
     if(!initialized || switching || io_depth || !timer_reference_ready()) {
@@ -299,6 +302,7 @@ bool scheduler_io_observe_reset(void) {
     }
     io_observed=(__typeof__(io_observed)){.enabled=true};
     io_gates=(__typeof__(io_gates)){0};
+    launch_trace_reset();
     irq_restore(flags);return true;
 }
 static void io_observe_begin(void) {
@@ -549,21 +553,25 @@ bool scheduler_io_process_helper_memory(void *process,struct scheduler_wait_queu
  * retirement. Other same-image continuations must be audited safe or parked
  * inside the ordinary I/O admission wait, before resuming mutable work. The
  * exact park marker is cleared on dispatch. None may run during the operation. This never grants a service window. */
-bool scheduler_io_process_atomic(void *process) {
+uint64_t scheduler_io_process_atomic_reason(void *process) {
     if(!initialized || !io_services_enabled || switching || !process || thread_capacity>4096 ||
-       current_thread>=thread_capacity || !io_depth || io_owner>=thread_capacity || io_owner==current_thread ||
-       io_private_image==process || thread_at(io_owner)->user_context==process)return false;
+       current_thread>=thread_capacity)return LAUNCH_ATOMIC_STATE;
+    if(!io_depth || io_owner>=thread_capacity || io_owner==current_thread)return LAUNCH_ATOMIC_NO_FOREIGN;
+    if(io_private_image==process || thread_at(io_owner)->user_context==process)return LAUNCH_ATOMIC_SAME_IMAGE;
     struct thread *caller=thread_at(current_thread);
-    if(caller->state!=THREAD_RUNNING || caller->user_context!=process || !caller->io_user_safe ||
-       vmm_current_address_space()!=thread_address_space(caller))return false;
+    if(caller->state!=THREAD_RUNNING || caller->user_context!=process || !caller->io_user_safe)return LAUNCH_ATOMIC_CALLER;
+    if(vmm_current_address_space()!=thread_address_space(caller))return LAUNCH_ATOMIC_ROOT;
     for(uint64_t i=0;i<thread_capacity;i++)if(i!=current_thread) {
         struct thread *t=thread_at(i);
         if(t->state==THREAD_UNUSED || t->state==THREAD_DEAD || t->user_context!=process)continue;
         bool parked=t->memory_park_queue==&io_waiters;
-        if((t->state!=THREAD_READY && t->state!=THREAD_BLOCKED) || (!t->io_user_safe && !parked) ||
-           thread_address_space(t)!=thread_address_space(caller))return false;
+        if((t->state!=THREAD_READY && t->state!=THREAD_BLOCKED) || (!t->io_user_safe && !parked))return LAUNCH_ATOMIC_SIBLING;
+        if(thread_address_space(t)!=thread_address_space(caller))return LAUNCH_ATOMIC_SIBLING_ROOT;
     }
-    return true;
+    return LAUNCH_ATOMIC_OK;
+}
+bool scheduler_io_process_atomic(void *process) {
+    return scheduler_io_process_atomic_reason(process)==LAUNCH_ATOMIC_OK;
 }
 
 void scheduler_io_request_turn(void) {
@@ -619,7 +627,10 @@ void scheduler_io_end(void) {
 
 void scheduler_io_syscall(uint64_t number) {
     uint64_t flags=irq_save();
-    if(initialized)thread_at(current_thread)->io_syscall=number;
+    if(initialized) {
+        thread_at(current_thread)->io_syscall=number;
+        if(launch_trace_configured)thread_at(current_thread)->launch_context=(struct launch_gate_context){0};
+    }
     irq_restore(flags);
 }
 void scheduler_io_set_user_safe(bool safe) {
@@ -739,9 +750,11 @@ static bool io_available(void *arg) {
 void scheduler_io_wait_observed(struct capture_gate_summary *summary) {
     uint64_t flags=irq_save();
     unsigned observed=capture_gate_start(summary);
-    struct io_gate_sample sample={0};bool observe=io_observed.enabled && !io_available(NULL);
+    struct io_gate_sample sample={0};struct launch_gate_context context={0};
+    bool observe=io_observed.enabled && !io_available(NULL);
     if(observe) {
         const struct thread *caller=thread_at(current_thread),*owner=thread_at(io_owner);
+        context=caller->launch_context;
         sample=(struct io_gate_sample){.pid=process_pid(caller->user_context),.identity=caller->identity,
             .syscall=caller->io_syscall,.owner_pid=process_pid(owner->user_context),
             .owner_identity=owner->identity,.owner_seq=io_observed.active.seq,.start=timer_monotonic_us()};
@@ -752,7 +765,7 @@ void scheduler_io_wait_observed(struct capture_gate_summary *summary) {
         if (!scheduler_wait(&io_waiters,io_available,NULL)) scheduler_yield();
     }
     io_gate_leave(thread_at(current_thread));
-    if(observe){sample.end=timer_monotonic_us();io_gate_record(sample);}
+    if(observe){sample.end=timer_monotonic_us();io_gate_record(sample);launch_trace_gate(sample,context);}
     capture_gate_finish(observed);
     irq_restore(flags);
 }
