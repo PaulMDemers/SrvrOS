@@ -331,7 +331,9 @@ void console_write(const char *s) { if(batch_trace)fputs(s,stdout); }
 bool console_sync(void) { return true; }
 void console_clear(void) {}
 void console_set_framebuffer_muted(bool muted) {(void)muted;}
+static void (*test_console_printf_hook)(const char *);
 void console_printf(const char *fmt, ...) {
+    if(test_console_printf_hook)test_console_printf_hook(fmt);
     if(!batch_trace)return;
     va_list a;va_start(a,fmt);
     for(const char *p=fmt;*p;p++){

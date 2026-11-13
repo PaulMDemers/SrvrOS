@@ -7,6 +7,33 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Targeted second-connection guard audit (November 12)
+
+Bounded active scope: audit `xhci_wifi_fence5.inc`, the native HTTP handoff and
+closed-owner proof; retain exact refusal predicates without changing admission,
+then inject boundary events/state mutations through the production native HTTP
+fixture. No hardware image, install or reboot is authorized by a software pass
+alone in this block: identify the refusal before the next physical run. Fetched
+mainf61b40eb adds only the Air6,1 record since the integrateda45032e4 baseline;
+PR486 concerns process/storage exit, PR301 scanout and PR379 WebCore. No competing
+Wi-Fi handoff edit is visible. Keep the current source baseline while auditing.
+The previous run and both sealed evidence banks remain immutable.
+
+The audit reproduces the admission gap through the actual native HTTP supervisor:
+a controller event queued at the first close receipt, or an old Wi-Fi RX-ring
+event there, refuses at global-ring-empty reason41 before any second owner,
+child or DMA preparation. Pending command, depleted reserve, nonvirgin next
+engine and changed closed-owner proof refuse independently. These reproduce the
+same outward failure; they do not identify which happened in the closed physical
+run, whose log omitted the predicate. No event is consumed and no guard is
+relaxed. The retained first-refusal snapshot and separate closure predicate are
+mapped in [the diagnostic reference](../wifi-handoff5-refusal.md). The additional
+revalidation tests inject a new event and fence/DMA/frontier/user changes during
+the close callback. This is native C path testing with modeled USB/AP/scheduler/
+child and parent fixtures, not a physical acceptance or full outer RF proof.
+Hardware remains blocked because the historical failing predicate is unproved.
+
+
 ### Integrated-main repeat: first HTTP passes; transition refuses (November 12)
 
 Runtimed634433c/releasec9c4d051c9c8f2db is collected FIRST once and CLOSED

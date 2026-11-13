@@ -134,7 +134,7 @@ static bool wifi_http_reconnect5_window(void){
    bool next=wifi_stream5.epoch!=UINT64_MAX && wifi_fence5_connection_next(&wifi_stream5,wifi_stream5.epoch,
     &wifi_stream5.dma,&wifi_stream5_slots[1],wifi_stream5.epoch+1,wifi_reconnect5_closed);
    if(next){wifi_stream5_current=&wifi_stream5_slots[1];wifi_stack5_current=&wifi_stack5_slots[1];}
-   event_irq_restore(flags);if(!next)return false;
+   event_irq_restore(flags);if(!next){wifi_fence5_handoff_emit();console_printf("wifi-handoff5-closure: version=1 reason=%u observation_only=1\n",(uint64_t)wifi_reconnect5_closed_reason);return false;}
   }
  }
  return true;

@@ -274,6 +274,46 @@ static bool wifi_fence5_closed_records(const struct wifi_fence5_native_state *s)
  }
  return true;
 }
+/* First refusal only, captured under the same IRQ exclusion as admission.
+ * Observation never consumes events, changes ownership, or grants a retry. */
+static struct {
+ unsigned reason,frontier,first,dequeue,event_owner;uint64_t sync_users,poll_users;
+ bool captured,event_valid,cycle,pending,command_failed;
+ uint32_t event_control,event_status;
+} wifi_fence5_handoff;
+static void wifi_fence5_handoff_capture(unsigned reason){
+ if(wifi_fence5_handoff.captured)return;
+ wifi_fence5_handoff.captured=true;wifi_fence5_handoff.reason=reason;
+ wifi_fence5_handoff.frontier=xhci.command_enqueue;wifi_fence5_handoff.first=wifi_fence5_first.first;
+ wifi_fence5_handoff.sync_users=xhci.sync_users;wifi_fence5_handoff.poll_users=xhci.poll_users;
+ wifi_fence5_handoff.pending=xhci.command_pending;wifi_fence5_handoff.command_failed=xhci.command_failed;
+ wifi_fence5_handoff.dequeue=xhci.event_dequeue;wifi_fence5_handoff.cycle=xhci.event_cycle;
+ /* Only an emptiness refusal has already admitted the controller and ring.
+  * Earlier refusals must not inspect potentially reclaimed event storage. */
+ if((reason==41 || reason==56) && xhci.event_ring && xhci.event_dequeue<XHCI_EVENT_TRB_COUNT){
+  volatile const struct xhci_trb *e=&xhci.event_ring[xhci.event_dequeue];
+  uint32_t c=e->control;__atomic_thread_fence(__ATOMIC_ACQUIRE);
+  if(!!(c&1)==xhci.event_cycle){wifi_fence5_handoff.event_valid=true;
+   wifi_fence5_handoff.event_control=c;wifi_fence5_handoff.event_status=e->status;
+   uint64_t pointer=e->parameter_low|((uint64_t)e->parameter_high<<32);
+   const struct wifi_fence5_native_state *s=&wifi_fence5_first;
+   unsigned type=(c>>10)&63;
+   if(type==33 && s->command_phys && pointer>=s->command_phys && pointer-s->command_phys<4096)wifi_fence5_handoff.event_owner=1;
+   if(type==32)for(unsigned d=0;d<2;d++)if(s->rings[d] && pointer>=s->rings[d] && pointer-s->rings[d]<16*(uint64_t)(s->positions+1))wifi_fence5_handoff.event_owner=2+d;
+  }
+ }
+}
+static void __attribute__((unused)) wifi_fence5_handoff_emit(void){
+ console_printf("wifi-handoff5-refusal: version=1 captured=%u reason=%u frontier=%u first=%u sync_users=%u poll_users=%u pending=%u command_failed=%u dequeue=%u cycle=%u event_valid=%u event_type=%u event_slot=%u event_dci=%u event_cc=%u event_owner=%u observation_only=1\n",
+  (uint64_t)wifi_fence5_handoff.captured,(uint64_t)wifi_fence5_handoff.reason,
+  (uint64_t)wifi_fence5_handoff.frontier,(uint64_t)wifi_fence5_handoff.first,
+  (uint64_t)wifi_fence5_handoff.sync_users,(uint64_t)wifi_fence5_handoff.poll_users,
+  (uint64_t)wifi_fence5_handoff.pending,(uint64_t)wifi_fence5_handoff.command_failed,
+  (uint64_t)wifi_fence5_handoff.dequeue,(uint64_t)wifi_fence5_handoff.cycle,
+  (uint64_t)wifi_fence5_handoff.event_valid,(uint64_t)((wifi_fence5_handoff.event_control>>10)&63),
+  (uint64_t)(wifi_fence5_handoff.event_control>>24),(uint64_t)((wifi_fence5_handoff.event_control>>16)&31),
+  (uint64_t)(wifi_fence5_handoff.event_status>>24),(uint64_t)wifi_fence5_handoff.event_owner);
+}
 /* Root's native connection-close callback must independently prove exact Stop,
  * restored contexts/parent, erased keys and drained software borrowers. This
  * operation allocates nothing, never clears an old engine, and grants no DMA
@@ -281,21 +321,63 @@ static bool wifi_fence5_closed_records(const struct wifi_fence5_native_state *s)
 static __attribute__((unused)) bool wifi_fence5_connection_next(void *old_owner,uint64_t old_epoch,struct mt76_dma5 *old_dma,
  void *next_owner,uint64_t next_epoch,bool (*closed)(void *,uint64_t,const struct mt76_dma5 *)){
  uint64_t f=event_irq_save();bool ok=false;struct wifi_fence5_native_state *s=&wifi_fence5_first;
- if(wifi_fence5_active!=s || wifi_fence5_connection_switched || !s->bound || s->retired || s->failed || s->round || s->busy || s->noop ||
-    !old_owner || s->owner!=old_owner || s->epoch!=old_epoch || !old_epoch || !old_dma || s->dma!=old_dma ||
-    old_dma->identity!=(uintptr_t)old_dma || old_dma->epoch!=old_epoch || old_dma->state!=MT76_DMA5_RETIRED || old_dma->positions!=s->positions ||
-    !next_owner || next_owner==old_owner || next_epoch<=old_epoch || !closed ||
-    !xhci.operational || !xhci.controller_owned || xhci.stopping || xhci.stopped || xhci.reclaiming || xhci.reclaimed ||
-    xhci.command_pending || xhci.command_failed || xhci.sync_users || xhci.poll_users ||
-    xhci.command_ring!=s->command_ring || xhci.command_ring_phys!=s->command_phys || xhci.command_cycle!=s->cycle ||
-    s->first>=63 || xhci.command_enqueue>=63 || xhci.command_enqueue<s->first || xhci.command_enqueue+2+WIFI_FENCE5_CLEANUP_COMMANDS>63 ||
-    !wifi_fence5_closed_records(s) || !wifi_fence5_empty())goto done;
- for(size_t i=0;i<sizeof wifi_fence5_second;i++)if(((const uint8_t *)&wifi_fence5_second)[i])goto done;
+ if(wifi_fence5_active!=s){wifi_fence5_handoff_capture(1);goto done;}
+ if(wifi_fence5_connection_switched){wifi_fence5_handoff_capture(2);goto done;}
+ if(!s->bound){wifi_fence5_handoff_capture(3);goto done;}
+ if(s->retired){wifi_fence5_handoff_capture(4);goto done;}
+ if(s->failed){wifi_fence5_handoff_capture(5);goto done;}
+ if(s->round){wifi_fence5_handoff_capture(6);goto done;}
+ if(s->busy){wifi_fence5_handoff_capture(7);goto done;}
+ if(s->noop){wifi_fence5_handoff_capture(8);goto done;}
+ if(!old_owner){wifi_fence5_handoff_capture(9);goto done;}
+ if(s->owner!=old_owner){wifi_fence5_handoff_capture(10);goto done;}
+ if(s->epoch!=old_epoch){wifi_fence5_handoff_capture(11);goto done;}
+ if(!old_epoch){wifi_fence5_handoff_capture(12);goto done;}
+ if(!old_dma){wifi_fence5_handoff_capture(13);goto done;}
+ if(s->dma!=old_dma){wifi_fence5_handoff_capture(14);goto done;}
+ if(old_dma->identity!=(uintptr_t)old_dma){wifi_fence5_handoff_capture(15);goto done;}
+ if(old_dma->epoch!=old_epoch){wifi_fence5_handoff_capture(16);goto done;}
+ if(old_dma->state!=MT76_DMA5_RETIRED){wifi_fence5_handoff_capture(17);goto done;}
+ if(old_dma->positions!=s->positions){wifi_fence5_handoff_capture(18);goto done;}
+ if(!next_owner){wifi_fence5_handoff_capture(19);goto done;}
+ if(next_owner==old_owner){wifi_fence5_handoff_capture(20);goto done;}
+ if(next_epoch<=old_epoch){wifi_fence5_handoff_capture(21);goto done;}
+ if(!closed){wifi_fence5_handoff_capture(22);goto done;}
+ if(!xhci.operational){wifi_fence5_handoff_capture(23);goto done;}
+ if(!xhci.controller_owned){wifi_fence5_handoff_capture(24);goto done;}
+ if(xhci.stopping){wifi_fence5_handoff_capture(25);goto done;}
+ if(xhci.stopped){wifi_fence5_handoff_capture(26);goto done;}
+ if(xhci.reclaiming){wifi_fence5_handoff_capture(27);goto done;}
+ if(xhci.reclaimed){wifi_fence5_handoff_capture(28);goto done;}
+ if(xhci.command_pending){wifi_fence5_handoff_capture(29);goto done;}
+ if(xhci.command_failed){wifi_fence5_handoff_capture(30);goto done;}
+ if(xhci.sync_users){wifi_fence5_handoff_capture(31);goto done;}
+ if(xhci.poll_users){wifi_fence5_handoff_capture(32);goto done;}
+ if(xhci.command_ring!=s->command_ring){wifi_fence5_handoff_capture(33);goto done;}
+ if(xhci.command_ring_phys!=s->command_phys){wifi_fence5_handoff_capture(34);goto done;}
+ if(xhci.command_cycle!=s->cycle){wifi_fence5_handoff_capture(35);goto done;}
+ if(s->first>=63){wifi_fence5_handoff_capture(36);goto done;}
+ if(xhci.command_enqueue>=63){wifi_fence5_handoff_capture(37);goto done;}
+ if(xhci.command_enqueue<s->first){wifi_fence5_handoff_capture(38);goto done;}
+ if(xhci.command_enqueue+2+WIFI_FENCE5_CLEANUP_COMMANDS>63){wifi_fence5_handoff_capture(39);goto done;}
+ if(!wifi_fence5_closed_records(s)){wifi_fence5_handoff_capture(40);goto done;}
+ if(!wifi_fence5_empty()){wifi_fence5_handoff_capture(41);goto done;}
+ for(size_t i=0;i<sizeof wifi_fence5_second;i++)if(((const uint8_t *)&wifi_fence5_second)[i]){wifi_fence5_handoff_capture(42);goto done;}
  uint64_t stamp=wifi_fence5_state_stamp(s,sizeof *s),dma_stamp=wifi_fence5_state_stamp(old_dma,sizeof *old_dma),frontier=xhci.command_enqueue;
- if(!closed(old_owner,old_epoch,old_dma) || stamp!=wifi_fence5_state_stamp(s,sizeof *s) ||
-    dma_stamp!=wifi_fence5_state_stamp(old_dma,sizeof *old_dma) || wifi_fence5_active!=s || wifi_fence5_connection_switched ||
-    xhci.command_ring!=s->command_ring || xhci.command_ring_phys!=s->command_phys || xhci.command_cycle!=s->cycle ||
-    xhci.command_enqueue!=frontier || xhci.command_pending || xhci.command_failed || xhci.sync_users || xhci.poll_users || !wifi_fence5_empty())goto done;
+ if(!closed(old_owner,old_epoch,old_dma)){wifi_fence5_handoff_capture(43);goto done;}
+ if(stamp!=wifi_fence5_state_stamp(s,sizeof *s)){wifi_fence5_handoff_capture(44);goto done;}
+ if(dma_stamp!=wifi_fence5_state_stamp(old_dma,sizeof *old_dma)){wifi_fence5_handoff_capture(45);goto done;}
+ if(wifi_fence5_active!=s){wifi_fence5_handoff_capture(46);goto done;}
+ if(wifi_fence5_connection_switched){wifi_fence5_handoff_capture(47);goto done;}
+ if(xhci.command_ring!=s->command_ring){wifi_fence5_handoff_capture(48);goto done;}
+ if(xhci.command_ring_phys!=s->command_phys){wifi_fence5_handoff_capture(49);goto done;}
+ if(xhci.command_cycle!=s->cycle){wifi_fence5_handoff_capture(50);goto done;}
+ if(xhci.command_enqueue!=frontier){wifi_fence5_handoff_capture(51);goto done;}
+ if(xhci.command_pending){wifi_fence5_handoff_capture(52);goto done;}
+ if(xhci.command_failed){wifi_fence5_handoff_capture(53);goto done;}
+ if(xhci.sync_users){wifi_fence5_handoff_capture(54);goto done;}
+ if(xhci.poll_users){wifi_fence5_handoff_capture(55);goto done;}
+ if(!wifi_fence5_empty()){wifi_fence5_handoff_capture(56);goto done;}
  wifi_fence5_previous_frontier=(unsigned)frontier;wifi_fence5_next_owner=next_owner;wifi_fence5_next_epoch=next_epoch;
  wifi_fence5_connection_switched=true;wifi_fence5_active=&wifi_fence5_second;ok=true;
  done:event_irq_restore(f);return ok;

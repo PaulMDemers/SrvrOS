@@ -11,39 +11,76 @@ static struct {
 /* Native proof for the exact old connection, while the adapter parent window
  * remains owned. This is deliberately not whole-adapter/backend retirement. */
 static bool wifi_http5_failed_detached(void);
+static unsigned wifi_reconnect5_closed_reason;
 static bool wifi_reconnect5_closed_state(void *owner,uint64_t epoch,const struct mt76_dma5 *dma,bool failed){
- if(failed && !wifi_http5_failed_detached())return false;
+ wifi_reconnect5_closed_reason=0;
+ if(failed && !wifi_http5_failed_detached()){wifi_reconnect5_closed_reason=1;return false;}
  struct wifi_stream5_state *s=owner;
- if((s!=&wifi_stream5_slots[0] && s!=&wifi_stream5_slots[1]) || s!=wifi_stream5_current ||
-    !s->connection_mode || !s->connection_closed || s->epoch!=epoch || dma!=&s->dma ||
-    dma->identity!=(uintptr_t)dma || dma->positions!=127 || dma->epoch!=epoch || dma->state!=MT76_DMA5_RETIRED ||
-    !s->retired || !s->restored || !s->events_empty || (!s->complete && !failed) || s->failed ||
-    s->phase!=9 || s->active || s->data_active || !s->closed || s->pending[0] || s->pending[1] ||
-    s->ready_rx || s->cached_present || s->loan.ticket || dma->borrowed!=dma->released || dma->faults ||
-    (!s->exchange.complete && !failed) || !s->exchange.keys_erased || !s->exchange.leave_sent || s->exchange.unsafe ||
-    s->exchange.handshake.keys_may_live || !wpa2_ccmp_erased(&s->exchange.keys,epoch) ||
-    !s->mac.mac_disabled || !s->mac.tx_drained || !s->mac.rx_drained ||
-    !s->mac.filter_restored || !s->mac.txop_restored || s->stop_events[0]!=1 || s->stop_events[1]!=1 ||
-    !s->d || s->d!=wifi_cal5.d || s->d->input_context_phys!=s->input_phys ||
-    s->d->output_context_phys!=s->output_phys || (uintptr_t)s->d->input_context!=s->input_pointer ||
-    (uintptr_t)s->d->output_context!=s->output_pointer || !wifi_stream5_parent() ||
-    !wifi_handoff5_equal(s->d->input_context,s->input,4096) ||
-    !wifi_handoff5_equal(&wifi_join5,s->parent,sizeof wifi_join5) ||
-    !wifi_handoff5_equal(&wifi_cal5,s->cal,sizeof wifi_cal5) ||
-    !wifi_handoff5_equal(&wifi_power5,s->power,sizeof wifi_power5) ||
-    !wifi_handoff5_equal(&wifi_handoff5,s->handoff,sizeof wifi_handoff5) ||
-    !wifi_handoff5_equal(&wifi_peer5,s->binding,sizeof wifi_peer5) ||
-    !wifi_handoff5_equal(&wifi_tx5,s->preview,sizeof wifi_tx5) ||
-    (context_read32(s->d->output_context,8,0)&7))return false;
+ if((s!=&wifi_stream5_slots[0] && s!=&wifi_stream5_slots[1])){wifi_reconnect5_closed_reason=2;return false;}
+ if(s!=wifi_stream5_current){wifi_reconnect5_closed_reason=3;return false;}
+ if(!s->connection_mode){wifi_reconnect5_closed_reason=4;return false;}
+ if(!s->connection_closed){wifi_reconnect5_closed_reason=5;return false;}
+ if(s->epoch!=epoch){wifi_reconnect5_closed_reason=6;return false;}
+ if(dma!=&s->dma){wifi_reconnect5_closed_reason=7;return false;}
+ if(dma->identity!=(uintptr_t)dma){wifi_reconnect5_closed_reason=8;return false;}
+ if(dma->positions!=127){wifi_reconnect5_closed_reason=9;return false;}
+ if(dma->epoch!=epoch){wifi_reconnect5_closed_reason=10;return false;}
+ if(dma->state!=MT76_DMA5_RETIRED){wifi_reconnect5_closed_reason=11;return false;}
+ if(!s->retired){wifi_reconnect5_closed_reason=12;return false;}
+ if(!s->restored){wifi_reconnect5_closed_reason=13;return false;}
+ if(!s->events_empty){wifi_reconnect5_closed_reason=14;return false;}
+ if((!s->complete && !failed)){wifi_reconnect5_closed_reason=15;return false;}
+ if(s->failed){wifi_reconnect5_closed_reason=16;return false;}
+ if(s->phase!=9){wifi_reconnect5_closed_reason=17;return false;}
+ if(s->active){wifi_reconnect5_closed_reason=18;return false;}
+ if(s->data_active){wifi_reconnect5_closed_reason=19;return false;}
+ if(!s->closed){wifi_reconnect5_closed_reason=20;return false;}
+ if(s->pending[0]){wifi_reconnect5_closed_reason=21;return false;}
+ if(s->pending[1]){wifi_reconnect5_closed_reason=22;return false;}
+ if(s->ready_rx){wifi_reconnect5_closed_reason=23;return false;}
+ if(s->cached_present){wifi_reconnect5_closed_reason=24;return false;}
+ if(s->loan.ticket){wifi_reconnect5_closed_reason=25;return false;}
+ if(dma->borrowed!=dma->released){wifi_reconnect5_closed_reason=26;return false;}
+ if(dma->faults){wifi_reconnect5_closed_reason=27;return false;}
+ if((!s->exchange.complete && !failed)){wifi_reconnect5_closed_reason=28;return false;}
+ if(!s->exchange.keys_erased){wifi_reconnect5_closed_reason=29;return false;}
+ if(!s->exchange.leave_sent){wifi_reconnect5_closed_reason=30;return false;}
+ if(s->exchange.unsafe){wifi_reconnect5_closed_reason=31;return false;}
+ if(s->exchange.handshake.keys_may_live){wifi_reconnect5_closed_reason=32;return false;}
+ if(!wpa2_ccmp_erased(&s->exchange.keys,epoch)){wifi_reconnect5_closed_reason=33;return false;}
+ if(!s->mac.mac_disabled){wifi_reconnect5_closed_reason=34;return false;}
+ if(!s->mac.tx_drained){wifi_reconnect5_closed_reason=35;return false;}
+ if(!s->mac.rx_drained){wifi_reconnect5_closed_reason=36;return false;}
+ if(!s->mac.filter_restored){wifi_reconnect5_closed_reason=37;return false;}
+ if(!s->mac.txop_restored){wifi_reconnect5_closed_reason=38;return false;}
+ if(s->stop_events[0]!=1){wifi_reconnect5_closed_reason=39;return false;}
+ if(s->stop_events[1]!=1){wifi_reconnect5_closed_reason=40;return false;}
+ if(!s->d){wifi_reconnect5_closed_reason=41;return false;}
+ if(s->d!=wifi_cal5.d){wifi_reconnect5_closed_reason=42;return false;}
+ if(s->d->input_context_phys!=s->input_phys){wifi_reconnect5_closed_reason=43;return false;}
+ if(s->d->output_context_phys!=s->output_phys){wifi_reconnect5_closed_reason=44;return false;}
+ if((uintptr_t)s->d->input_context!=s->input_pointer){wifi_reconnect5_closed_reason=45;return false;}
+ if((uintptr_t)s->d->output_context!=s->output_pointer){wifi_reconnect5_closed_reason=46;return false;}
+ if(!wifi_stream5_parent()){wifi_reconnect5_closed_reason=47;return false;}
+ if(!wifi_handoff5_equal(s->d->input_context,s->input,4096)){wifi_reconnect5_closed_reason=48;return false;}
+ if(!wifi_handoff5_equal(&wifi_join5,s->parent,sizeof wifi_join5)){wifi_reconnect5_closed_reason=49;return false;}
+ if(!wifi_handoff5_equal(&wifi_cal5,s->cal,sizeof wifi_cal5)){wifi_reconnect5_closed_reason=50;return false;}
+ if(!wifi_handoff5_equal(&wifi_power5,s->power,sizeof wifi_power5)){wifi_reconnect5_closed_reason=51;return false;}
+ if(!wifi_handoff5_equal(&wifi_handoff5,s->handoff,sizeof wifi_handoff5)){wifi_reconnect5_closed_reason=52;return false;}
+ if(!wifi_handoff5_equal(&wifi_peer5,s->binding,sizeof wifi_peer5)){wifi_reconnect5_closed_reason=53;return false;}
+ if(!wifi_handoff5_equal(&wifi_tx5,s->preview,sizeof wifi_tx5)){wifi_reconnect5_closed_reason=54;return false;}
+ if((context_read32(s->d->output_context,8,0)&7)){wifi_reconnect5_closed_reason=55;return false;}
  const unsigned dcis[]={0,11,16,9};
  for(unsigned i=0;i<4;i++)for(unsigned w=0;w<8;w++)
-  if(context_read32(s->d->output_context,dcis[i],w)!=s->context[i==3?4:i][w])return false;
- return !wifi_stack5.running && wifi_stack5.detached && !wifi_stack5.tx_token &&
+  if(context_read32(s->d->output_context,dcis[i],w)!=s->context[i==3?4:i][w]){wifi_reconnect5_closed_reason=56+i*8+w;return false;}
+ bool closed=!wifi_stack5.running && wifi_stack5.detached && !wifi_stack5.tx_token &&
   wifi_stack5_net.state==MT76_NET5_DOWN && !wifi_stack5_net.attached && !wifi_stack5_net.io.context &&
   !wifi_stack5_net.pending && !wifi_stack5_net.count && !wifi_stack5_net.callbacks &&
   !wifi_stack5_net.io_busy && !wifi_stack5_net.polling && !wifi_stack5_net.delivering &&
   !wifi_stack5_net.faults && !wifi_stack5_net.dropped && !wifi_stack5_net.retire_requested &&
   wifi_stack5_net.enqueued==wifi_stack5_net.submitted && wifi_stack5_net.submitted==wifi_stack5_net.completed;
+ if(!closed)wifi_reconnect5_closed_reason=88;
+ return closed;
 }
 static bool wifi_reconnect5_closed(void *owner,uint64_t epoch,const struct mt76_dma5 *dma){
  return wifi_reconnect5_closed_state(owner,epoch,dma,false);
