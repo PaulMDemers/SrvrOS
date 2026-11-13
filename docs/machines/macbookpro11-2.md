@@ -7,6 +7,22 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Authorized diagnostic cold run (November 12)
+
+The user now explicitly authorizes an instrumented hardware run to capture the
+exact handoff refusal, qualification/install and shutdown. This supersedes the
+previous no-boot audit checkpoint. Keep admission, channel161/20MHz, firmware,
+credentials, retry/deadline rules and success-path logging unchanged. Qualify a
+new source-bound image/journal/collector, preserve the closed d634 primary/review
+and all eight protected recoveries, and collect FIRST once after return. Save
+retained guard/closure observations before success-only full-pair proof; a refusal
+is evidence, not physical acceptance. Ubuntu remains recovery/default. Cold test:
+while fully off, unplug only Wi-Fi for10seconds, reconnect the same port, power
+on, leaving the workspace drive connected. Guest progress and automatic saving/
+return require no commands. Root owns serial build/VM/staging/install/power work.
+Fetched mainf61b40eb is unchanged; no additional runtime merge is needed here.
+
+
 ### Targeted second-connection guard audit (November 12)
 
 Bounded active scope: audit `xhci_wifi_fence5.inc`, the native HTTP handoff and
