@@ -2344,6 +2344,9 @@ static int64_t load_elf_image_source(const char *path, struct process *process, 
     int64_t error = node == NULL ? SRV_ERR_NOENT :
         node->type != VFS_NODE_FILE || !(node->metadata.mode & 0111) ? SRV_ERR_ACCES : 0;
     if (!error && !view && !vfs_read_all(node, &data, &size)) error = SRV_ERR_IO;
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PRIVATE_LIFECYCLE_HOST_TEST)
+    if(!error && view)vfs_note_read(node);
+#endif
     if (error) {
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;

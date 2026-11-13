@@ -15,7 +15,7 @@ static void process_private_test_halt(void) __attribute__((noreturn));
 #define SRVROS_PROCESS_IRQ_HOST_TEST
 #define SRVROS_PRIVATE_LIFECYCLE_HOST_TEST
 #include "../kernel/src/process.c"
-static bool irq,safe=true,refuse_view,fail_prepared,oom;
+static bool irq,safe=true,refuse_view,fail_prepared,oom,fail_kernel,fail_root;
 static uint64_t foreign_depth=2,foreign_owner=7,root=0x1000;
 static struct process *subject;
 static unsigned allocations,freed_frames,live_heap,prepared_calls,waits,ordinary_spawns,reads,notes;
@@ -61,7 +61,7 @@ void scheduler_yield(void){assert(0);}
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn f,void *p){(void)q;(void)f;(void)p;assert(0);return false;}
 uint64_t vmm_current_address_space(void){return root;}
 uint64_t vmm_kernel_address_space(void){return 0x9000;}
-bool vmm_create_address_space(uint64_t *p){*p=next_root;next_root+=4096;return true;}
+bool vmm_create_address_space(uint64_t *p){if(fail_root)return false;*p=next_root;next_root+=4096;return true;}
 bool vmm_prepare_user_kernel_mappings(uint64_t p){assert(!irq && p);return true;}
 void vmm_refresh_kernel_mappings(uint64_t p){assert(!irq && p==root);}
 bool vmm_map_page_in_space(uint64_t r,uint64_t v,uint64_t p,uint64_t f){(void)r;(void)v;(void)f;assert(!irq && p && frame_used[p/4096]);return true;}
@@ -76,7 +76,9 @@ bool vmm_unmap_page_in_space(uint64_t r,uint64_t v,uint64_t *p){return vmm_virt_
 void vmm_destroy_address_space(uint64_t r){assert(!irq && r && r!=root);}
 void *pmm_phys_to_virt(uint64_t p){assert(p<sizeof(frames));return (uint8_t *)frames+p;}
 uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t minimum,enum pmm_frame_tag tag){
- (void)minimum;(void)tag;assert(!irq && n && allocations+n<4096);uint64_t at=allocations+1;
+ (void)minimum;assert(!irq && n && allocations+n<4096);
+ if(fail_kernel && tag==PMM_FRAME_KERNEL_STACK)return 0;
+ uint64_t at=allocations+1;
  for(unsigned i=0;i<n;i++)frame_used[at+i]=true;
  allocations+=(unsigned)n;return at*4096;
 }
@@ -128,9 +130,14 @@ int main(void){
  safe=false;assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && !allocations);safe=true;
  uint64_t old_memsz=ph->memsz;ph->memsz=4096ull*4096;
  assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && !allocations);ph->memsz=old_memsz;
+ for(unsigned i=1;i<PROCESS_MAX_PROCESSES;i++)processes[i].allocated=true;
+ assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==SRV_ERR_AGAIN && !notes && !allocations);
+ for(unsigned i=1;i<PROCESS_MAX_PROCESSES;i++)processes[i].allocated=false;
+ fail_kernel=true;assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==SRV_ERR_NOMEM && !notes && !allocations);fail_kernel=false;
+ fail_root=true;assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==SRV_ERR_NOMEM && !notes && allocations==freed_frames);fail_root=false;
  oom=true;assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==SRV_ERR_NOMEM && !live_heap && allocations==freed_frames);oom=false;
  fail_prepared=true;assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==SRV_ERR_AGAIN && !live_heap && allocations==freed_frames);fail_prepared=false;
- assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==4 && notes==3 && prepared_calls==2);
+ assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==6 && notes==3 && prepared_calls==2);
  struct process *child=selected_arg;assert(child->mapping_count==USER_STACK_PAGES+1 && !child->private_retiring);
  uint64_t physical;assert(vmm_virt_to_phys_in_space(child->address_space,0x500000,&physical) && *(uint8_t *)pmm_phys_to_virt(physical)==0xcc);
  subject=child;root=child->address_space;

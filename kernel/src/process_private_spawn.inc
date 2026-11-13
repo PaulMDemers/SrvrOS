@@ -29,7 +29,6 @@ bool process_try_spawn_private(const char *path,uint64_t argc,const char *const 
         if(n>4096-pages)goto refused;
         pages+=n;
     }
-    vfs_note_read(view.node);
     *result=process_spawn_exec_source(0,path,argc,argv,envc,envp,true,-1,-1,-1,0,false,
         NULL,0,SRV_EXEC_BACKGROUND,0,0,&view);
     /* Kernel allocations may add shared kernel mappings. Preserve the existing
