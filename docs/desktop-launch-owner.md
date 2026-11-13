@@ -62,3 +62,13 @@ Syscall fixtures retain copied-input validation and gated fresh-lookup fallback.
 Matched loaded VM and native evidence remain separate acceptance steps. The
 original 1800-second audio/disk/app/three-screenshot workload, 500ms desktop loop,
 ten-second whole-app cycle and all durability/allocation checks still apply.
+
+
+For the canonical profile-switch rehearsal on Ubuntu, first complete a real
+`tools/host-env.sh make -j2 all`, then run the platform-neutral
+`python3 tools/macos/build_manifest.py` producer. Its legacy output path is
+`build/macos-build.json`; retain the actual Linux host/build record with the run.
+The profile harness verifies the exact current source, nested submodules and
+ordinary-image hashes before creating its disposable guest. The macOS wrapper
+itself remains specific to Apple Silicon. A completed profile rehearsal adds VM
+ownership evidence, not native device acceptance.

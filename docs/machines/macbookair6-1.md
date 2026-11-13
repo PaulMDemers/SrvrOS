@@ -14085,3 +14085,68 @@ header dependency and early focused invocation are now explicit. Runtime code
 is unchanged by this correction. The failed full log and first loaded guest,
 including one documented serial-only app event, are retained; full qualification
 is restarted without skipping the completed core prefix.
+
+
+### Small launch owner qualification and next native test (PR490)
+
+Frozen source `7a118678` passes matched ordinary/native/Q35 fixture
+builds, optional-sampler isolation and required symbol checks, broad compile/link
+preflight, focused protocol/process/scheduler/IDT/descriptor/retirement regressions,
+and the full fresh core/desktop/documentation suite. No core prefix is skipped;
+the normal opt-in exhaustive-I/O installation case remains its original skip.
+Ordinary syscall/UEFI-USB/fork/exec-vector/yield, real USB-storage and ordinary
+screenshot guests pass. The unchanged contiguous-append fault harness retains
+its explicitly reported baseline repair/allocation gaps; this is no new power-loss
+repair acceptance, and no predicate was waived by this work. The profile-switch guest separately checks
+cooperative
+session ownership, late descendants, cancellation and repeated lifetimes.
+
+The loaded KVM guest completes 23 app cycles and 173
+verified 256 KiB disk bursts over 60 seconds at 1%, with one exact BMP, zero recorded
+underruns and 140.051 ms maximum desktop loop. Original
+application phase/file-service and workload/byte/readback/flush/allocation/
+ownership/retirement contracts pass, alongside all saved diagnostic companions.
+Independent saved-only validation retains lifecycle source, app timing and file
+service. The small owner's final immutable receipt proves 24
+launches/24 final reaps, empty retirement and zero errors. The launch
+trace is valid with 27 raw exec entries/27 decisions,
+32 fcntl observations, 19 private handled results and
+zero invalid records. This is controlled-guest coverage, not native acceptance.
+
+Exact native release `00460b3ddba044cf` separately passes its foreign-board
+refusal/automatic-return rehearsal. It is installed for the original automatic
+1800-second 1% audio/disk/app/three-screenshot trial, with the original 60-second
+audio tail, 500 ms loop, 10 s whole-app cycle and every integrity check unchanged;
+heavy full-field metadata audit remains off. Preflight preserves all 925
+prior USB paths except the renewed 1% volume expiry, checks full hashes,
+read-only write-eligibility/allocation/fsck and independent payload/recovery proofs.
+Ubuntu stays default and recovery `c35475f62f154f1e` is retained alongside current
+failed/accepted payloads and sealed evidence. No source is physically accepted
+before the matching new session is collected. Self-merge and a saved/sealed
+one-shot launch are next under the existing reboot authorization.
+
+
+The ordinary exec-vector rehearsal first stopped at Limine without reaching the
+kernel or suite; that failure remains retained. Repeating the identical original
+20-second boot/90-second test bounds passes all five ordinary guests. The profile
+harness initially refused missing build provenance and insufficient disk space,
+both before starting a guest. A real Ubuntu build followed by the existing
+platform-neutral manifest producer satisfies its unchanged source/submodule/hash
+checks; the legacy receipt filename does not claim Darwin execution. Sixteen
+inactive staging trees were fully hashed, compressed, independently rehashed and
+retained outside build before removing only those copies, giving 5.9 GiB free and
+preserving the harness's full space allowances and 1 GiB reserve. The canonical
+profile guest then passes A→B→A, file persistence, cooperative close/cancellation
+and late-descendant retirement, with three clean launch owners (10/10,2/2,2/2
+launches/reaps), all with zero errors. Its 42 proof/log/screenshot files are retained.
+
+The final exact native-stage refusal passes automatically with no input; it is
+not positive Air6,1 runtime proof. Installation keeps the accepted7ac/quiet8a/
+comparison0d3/failed188/946 payloads and recoveryc354. To fit the roughly 145 MiB candidate,
+only historical c7d2293b66b7999b's unreferenced EFI duplicate was removed after complete backup
+hashes and no GRUB/firmware references were verified; its independent payload
+and evidence remain intact. Fresh install/payload/default/firmware-order proofs
+pass. Latest fetched main remains 5a950ce4; PR19 at 76fac408 and PR301 at 7473da65
+have no additional overlapping process/syscall/private-retirement/lifecycle hunks
+since the preceding inspection. The new run is ready but unarmed at this
+checkpoint; source/runtime acceptance awaits matching native collection.

@@ -96,3 +96,13 @@ screenshots. Diagnostic validity does not accept the failed workload, permit
 raising4096 mappings or establish the fcntl handler's eventual descriptor state.
 See the [unit record](machines/macbookair6-1.md) for the failed-cycle helper gate
 and retained integrity/partial-evidence scope.
+
+
+With the small desktop launch owner, raw exec observations belong to that actual
+parent PID rather than the compositor's worker thread. Native helper49 attempts
+are not raw exec calls and do not increment exec decision/private-handled counts.
+SETFL still records pre-gate scalar context; a proved simple-pipe metadata attempt
+may now finish without a gate wait. Zero completed long waits remain explicit
+counter evidence, never invented records. The [launch owner contract](desktop-launch-owner.md)
+retains the original4096 mapping bound, complete resource proofs and ordinary
+fallback for refused operations.
