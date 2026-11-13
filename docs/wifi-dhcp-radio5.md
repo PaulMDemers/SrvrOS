@@ -60,6 +60,12 @@ positive matching; the overwrite case exercises the realistic loss separately.
 The AP, HCD, registers, scheduler and child are modeled. These tests cannot
 identify the physical no-Offer/no-ACK cause.
 
+Qualification on source `6b8b821b` passed all 49 native cases normally
+and under ASan/UBSan, pure helper/guard-page sanitizer checks, nine strict decoder
+tests, all eleven saved native trace decodes, full synthetic RF-parent/legacy
+composition, kernel/shared/control-timing regressions and a separate actual
+guest ELF HTTP/DNS smoke. No physical acceptance follows from these models.
+
 Before a physical run, qualify a source-specific collector that saves this
 observer alongside DHCP identity and the existing full protocol/retirement
 proof, plus the preparation-v2 requirement and an exact matched staged image.

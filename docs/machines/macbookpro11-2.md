@@ -23,13 +23,26 @@ trace and preserve its source/tests; PR301 and PR379 have separate scopes.
 The closed04b/792 primary and review remain immutable. Qualify software before
 any new source-bound collector/image; no hardware boot is armed by this audit.
 
-The implementation now has separate `wifi-dhcp-radio5` scalar receipts, a strict
-observer and eleven added production native-path cases (38–48). The development
-pure tag/binding test and nine decoder tests pass, including retained partial
-reads and disjoint two-generation bindings before the doorbell. See the
-[correlation contract](../wifi-dhcp-radio5.md). Full clean-source native,
-sanitizer, kernel/shared and guest qualification is next. The physical
-no-Offer/no-ACK cause remains unknown; no image or boot has been armed.
+Runtime source `6b8b821b` is now software-qualified. All 49 production
+native HTTP/CCMP/provider/RF C cases pass normally and under ASan/UBSan, including
+eleven added radio-status cases. The pure tag/binding helper passes guard-page
+and sanitizer checks; nine strict radio decoder tests pass. All eleven actual
+native traces decode separately, including frozen partial failures. Full
+synthetic RF-parent composition preserves the pinned accepted parent and
+refuses physical acceptance; kernel/shared tests and main's desktop-control
+timing checks pass. Separate actual guest ELF/socket/IRQ-worker HTTP/DNS also
+passes. HCD/AP/registers/scheduler/child remain modeled in the native C fixture;
+no physical Offer/ACK-loss cause is identified by this qualification.
+
+See the [correlation contract](../wifi-dhcp-radio5.md). Only diagnostic TXWI IDs
+change; encrypted MPDUs, PN/IV/MIC, rate, ACK intent, WCID, DHCP waits/retries and
+native/RF retirement gates remain unchanged. Missing, duplicate, stale,
+wrong-WCID, saturated or overwritten statuses are inconclusive. Held output
+retains partial scalar observations without adding hardware reads or unsafe
+writes. The closed04b/792 primary/review remain immutable and installed04b/792
+is unchanged, with no new image or boot armed. Next qualify a source-specific
+collector saving this observer before success-only proof, requiring preparation
+version2, and then an exact matched image/workspace/recovery before hardware.
 
 ### Late HTTP child preparation software-qualified (November 13)
 
