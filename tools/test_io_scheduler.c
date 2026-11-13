@@ -98,6 +98,9 @@ bool process_resolve_user_binding(void *p,void *worker,uint64_t generation,uint6
     (void)p;(void)generation;(void)as;if(!resolver_ok)return false;
     *out=worker && worker!=fixture_parent_worker ? resolved_binding : resolved_parent_binding;return true;
 }
+bool process_admit_prepared_child(void *parent,void *child,uint64_t generation,uint64_t root,struct process_user_binding *out) {
+    return child!=parent && process_resolve_user_binding(child,NULL,generation,root,out);
+}
 bool process_admit_user_worker(void *p,void *worker,uint64_t generation,uint64_t as,struct process_user_binding *out) {
     return process_resolve_user_binding(p,worker,generation,as,out);
 }
@@ -662,6 +665,35 @@ static void test_independent_process_memory(void) {
     puts("independent-memory: PASS current main only, siblings/worker/image/owner/CR3/scan bounds, unchanged foreign ownership");
 }
 
+static void test_atomic_lifecycle(void) {
+    void *p=(void *)0x10,*other=(void *)0x20;
+    initialized=io_services_enabled=true;current_thread=3;actual_space=1;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=p,.io_user_safe=true,.address_space=1};
+    threads[5]=(struct thread){.state=THREAD_BLOCKED,.user_context=other};io_depth=2;io_owner=5;
+    assert(scheduler_io_process_atomic(p));
+    threads[4]=(struct thread){.state=THREAD_BLOCKED,.user_context=p,.address_space=1};
+    assert(!scheduler_io_process_atomic(p));
+    struct scheduler_wait_queue wrong={0};threads[4].memory_park_queue=&wrong;
+    assert(!scheduler_io_process_atomic(p));threads[4].memory_park_queue=&io_waiters;
+    assert(scheduler_io_process_atomic(p));threads[4].state=THREAD_READY;
+    assert(scheduler_io_process_atomic(p));threads[4].memory_park_queue=NULL;
+    assert(!scheduler_io_process_atomic(p));threads[4].io_user_safe=true;
+    assert(scheduler_io_process_atomic(p));threads[4].state=THREAD_READY;
+    assert(scheduler_io_process_atomic(p));threads[3].user_thread_context=(void *)0x40;
+    assert(scheduler_io_process_atomic(p));
+    threads[4].state=THREAD_QUARANTINED;assert(!scheduler_io_process_atomic(p));threads[4].state=THREAD_BLOCKED;
+    threads[4].address_space=2;assert(!scheduler_io_process_atomic(p));threads[4].address_space=1;
+    actual_space=2;assert(!scheduler_io_process_atomic(p));actual_space=1;
+    io_private_image=p;assert(!scheduler_io_process_atomic(p));io_private_image=NULL;
+    io_owner=3;assert(!scheduler_io_process_atomic(p));io_owner=5;
+    threads[5].user_context=p;assert(!scheduler_io_process_atomic(p));threads[5].user_context=other;
+    io_depth=0;assert(!scheduler_io_process_atomic(p));io_depth=2;
+    threads[3].io_user_safe=false;assert(!scheduler_io_process_atomic(p));threads[3].io_user_safe=true;
+    assert(io_depth==2 && io_owner==5);
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;current_thread=0;io_depth=0;
+    puts("atomic-lifecycle: PASS safe/exact-gate-parked siblings only, CR3/foreign owner/image, worker/main and unchanged ownership");
+}
+
 static void test_helper_atomic_memory(void) {
     void *p=(void *)0x10,*other=(void *)0x20;
     struct scheduler_wait_queue parked={0},wrong={0};
@@ -766,6 +798,48 @@ static void test_user_thread_publication(void) {
     assert(!t->io_gate_waiting);pmm_free_frame_range(t->stack_physical,SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE);
     thread_storage_bytes=bytes;frees=saved_frees;growing_allocations=false;memset(threads,0,sizeof(threads));current_thread=0;io_depth=io_gate_pending=0;initialized=io_services_enabled=false;
     puts("user-thread-publication: PASS complete READY identity/TLS/FPU, foreign eligibility, same-process exclusion, failure atomicity and pre-entry cancellation");
+}
+
+static void test_prepared_process_publication(void) {
+    if(setjmp(bind_failure))assert(!"Unexpected prepared binding failure");
+    unsigned saved_frees=frees;ready_edge_setup();threads[3].address_space=1;growing_allocations=true;
+    threads[5]=(struct thread){.state=THREAD_BLOCKED,.user_context=(void *)5};io_depth=2;io_owner=5;
+    struct fpu_state image_fpu={0};void *child=(void *)0x42;
+    resolved_parent_binding=(struct process_user_binding){.user_fpu=&image_fpu,.fs_base=42,.kernel_stack_top=0x8000,.new_worker_allowed=true};
+    uint64_t bytes=thread_storage_bytes,id=next_identity;unsigned live=live_allocations;
+    assert(!scheduler_spawn_prepared_process("zero root",empty_worker,child,0,88));
+    assert(!scheduler_spawn_prepared_process("zero generation",empty_worker,child,2,0));
+    resolver_ok=false;assert(!scheduler_spawn_prepared_process("child",empty_worker,child,2,88));resolver_ok=true;
+    prepare_ok=false;assert(!scheduler_spawn_prepared_process("child",empty_worker,child,2,88));prepare_ok=true;
+    assert(!scheduler_spawn_prepared_process("alias",empty_worker,(void *)3,2,88));
+    io_private_image=child;assert(!scheduler_spawn_prepared_process("alias",empty_worker,child,2,88));io_private_image=NULL;
+    threads[4]=(struct thread){.state=THREAD_BLOCKED,.user_context=child};
+    assert(!scheduler_spawn_prepared_process("already live",empty_worker,child,2,88));threads[4]=(struct thread){0};
+    fail_stack=true;assert(!scheduler_spawn_prepared_process("oom",empty_worker,child,2,88));fail_stack=false;
+    assert(thread_storage_bytes==bytes && next_identity==id && live_allocations==live);
+    assert(scheduler_spawn_prepared_process("child",empty_worker,child,2,88));
+    struct thread *t=&threads[1];
+    assert(t->state==THREAD_READY && t->user_context==child && !t->user_thread_context &&
+        t->address_space==2 && t->image_generation==88 && t->user_fpu==&image_fpu &&
+        t->user_fs_base==42 && t->kernel_stack_top==0x8000 && t->io_user_safe && io_thread_allowed(1));
+    threads[5].user_context=child;assert(!io_thread_allowed(1));threads[5].user_context=(void *)5;
+    assert(io_depth==2 && io_owner==5);
+    /* Enter consumes the exact one-shot tuple. Generic bind/clear still refuse
+     * this foreign owner in the independent binding tests below. */
+    threads[3].state=THREAD_READY;current_thread=1;t->state=THREAD_RUNNING;actual_space=2;kernel_space=0x1000;
+    assert(!scheduler_enter_prepared_process(child,2,0x8010,88) && t->process_entry_pending);
+    resolver_ok=false;assert(!scheduler_enter_prepared_process(child,2,0x8000,88));resolver_ok=true;
+    assert(scheduler_enter_prepared_process(child,2,0x8000,88) && !t->process_entry_pending && !t->io_user_safe);
+    assert(!scheduler_enter_prepared_process(child,2,0x8000,88));
+    assert(!scheduler_clear_user_context_private(child)); /* Unsafe body. */
+    t->io_user_safe=true;
+    assert(scheduler_clear_user_context_private(child) && !t->user_context && !t->user_fpu && !t->address_space);
+    assert(io_depth==2 && io_owner==5);
+    pmm_free_frame_range(t->stack_physical,SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE);
+    thread_storage_bytes=bytes;frees=saved_frees;growing_allocations=false;memset(threads,0,sizeof(threads));
+    current_thread=0;io_depth=io_gate_pending=0;initialized=io_services_enabled=false;
+    kernel_space=1;
+    puts("prepared-process: PASS fresh complete main identity/root/FPU/stack before READY, foreign eligibility, aliases/refusal/OOM unchanged ownership");
 }
 
 static void test_private_image_scope(void) {
@@ -1397,8 +1471,10 @@ int main(void) {
     test_mwait();
     test_coordinated_mwait();
     test_independent_process_memory();
+    test_atomic_lifecycle();
     test_helper_atomic_memory();
     test_user_thread_publication();
+    test_prepared_process_publication();
     test_private_image_scope();
     test_wait_trace();
     test_cpu_accounting();

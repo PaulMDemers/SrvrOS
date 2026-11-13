@@ -456,6 +456,10 @@ int64_t gui_surface_copy(uint64_t pid,
     return 0;
 }
 
+bool gui_process_surfaces_owned(uint64_t pid) {
+    for(struct gui_surface *s=surfaces;s;s=s->next)if(s->owner_pid==pid)return true;
+    return false;
+}
 void gui_process_cleanup(uint64_t pid) {
     struct gui_surface *retired=NULL;
     uint64_t flags_saved=irq_save();

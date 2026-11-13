@@ -350,6 +350,10 @@ const struct vfs_node *vfs_lookup(const char *path) {
     return mutable_lookup(path);
 }
 
+void vfs_note_read(const struct vfs_node *node) {
+    if(node && node->used)((struct vfs_node *)node)->metadata.atime=metadata_time();
+}
+
 bool vfs_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *size) {
     if (node == NULL || !node->used || node->type != VFS_NODE_FILE || node->read_all == NULL) {
         return false;
@@ -357,7 +361,7 @@ bool vfs_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *s
 
     bool ok = node->read_all(node, data, size);
     if (ok) {
-        ((struct vfs_node *)node)->metadata.atime = metadata_time();
+        vfs_note_read(node);
     }
     return ok;
 }

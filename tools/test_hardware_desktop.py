@@ -32,6 +32,26 @@ class CollectionTests(unittest.TestCase):
                 self.assertEqual(completion_line(b'earlier output\n'+line+b'later'),line)
         self.assertIsNone(completion_line(b'unrelated: result=PASS unmounted=yes\n'))
 
+    def test_audio_overlap_query_distinguishes_exit_from_live_failure(self):
+        import subprocess
+        from unittest.mock import Mock
+        from audio_io_stress_smoke import sampled_usb_written
+        process=Mock();process.poll.return_value=None
+        qmp=Mock();qmp.call.return_value=[{'device':'stick','stats':{'wr_bytes':123}}]
+        self.assertEqual(sampled_usb_written(qmp,process),123)
+        process.poll.return_value=0;qmp.reset_mock()
+        self.assertIsNone(sampled_usb_written(qmp,process));qmp.call.assert_not_called()
+        process.poll.return_value=None;qmp.call.side_effect=BrokenPipeError('closing')
+        process.wait.return_value=0
+        self.assertIsNone(sampled_usb_written(qmp,process));process.wait.assert_called_with(timeout=2)
+        process.wait.side_effect=subprocess.TimeoutExpired('qemu',2)
+        with self.assertRaises(BrokenPipeError):sampled_usb_written(qmp,process)
+        # A live protocol error and a missing stick remain test failures.
+        qmp.call.side_effect=RuntimeError('QMP error')
+        with self.assertRaises(RuntimeError):sampled_usb_written(qmp,process)
+        qmp.call.side_effect=None;qmp.call.return_value=[]
+        with self.assertRaises(StopIteration):sampled_usb_written(qmp,process)
+
     def test_saved_load_receipts_require_complete_independent_agreement(self):
         from audio_io_stress_smoke import saved_load_receipts
         audio=b'audio-io: result=PASS seconds=60 start_us=1000000 end_us=63000000 first_io_us=1000100 last_io_us=59000000 bursts=30 bytes=7864320 max_burst_us=3000000 pcm_bytes=11520000 underruns=0 worker_status=0 volume=1\n'

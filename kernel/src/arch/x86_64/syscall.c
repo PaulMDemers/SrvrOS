@@ -1439,6 +1439,11 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request,uint
         argv[argc++] = path;
     }
 
+    if(!scope_token && request.flags==SRV_EXEC_BACKGROUND && request.stdin_fd==-1 &&
+       request.stdout_fd==-1 && request.stderr_fd==-1 && !request.process_group &&
+       !request.foreground && !request.file_action_count &&
+       process_try_spawn_private(path,argc,argv,envc,envp,&result))return result;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();
     flags = irq_save();
     if ((request.flags & SRV_EXEC_REPLACE) != 0) {
         result = process_exec_replace(path,
@@ -3588,11 +3593,14 @@ static bool io_snapshot_read(uint64_t fd,uint64_t length) {
  * than validated console or strict simple-pipe metadata observation.
  * Close likewise admits only an atomic simple-pipe attempt before gating all
  * other descriptor cleanup; queued rights may recursively flush files.
- * Memory/thread calls admit only a validated bounded atomic attempt. Generic
+ * Exec/exit likewise admit only copied-request or resource-proof preludes;
+ * a foreign owner is never borrowed or released. Memory/thread calls admit
+ * only a validated bounded atomic attempt. Generic
  * allocation, thread creation, mapping and retirement retain gated fallback. */
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
-    case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: case SYS_MMAP: case SYS_THREAD_CREATE: return true; /* Validated prelude, gated fallback. */
+    case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: case SYS_MMAP: case SYS_THREAD_CREATE:
+    case SYS_EXEC: case SYS_EXIT: case SYS_THREAD_EXIT: return true; /* Validated prelude, gated fallback. */
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
     case SYS_WAIT: return true; /* Validated retired-child claim; gated fallback. */
@@ -3600,7 +3608,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     /* Bounded queues/mouse state use IRQ exclusion. Surface copies use private
      * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.
      * Process listing and memory counters are read-only snapshots.
-     * Process spawn/kill remain gated. The memory/first-thread preludes above
+     * General process spawn/kill remain gated. The lifecycle/memory/thread preludes above
      * require ownership/bounds proofs; all refusals regain ordinary admission. */
     case SYS_GUI_WAIT_IO: case SYS_GUI_CANCEL_WAIT:
     case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_GUI_WAIT: case SYS_GUI_SERVER_WAIT: case SYS_MOUSE_SCAN:

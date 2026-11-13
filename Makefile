@@ -351,7 +351,7 @@ USER_CRT0_OBJ := build/userspace/lib/crt0.S.o
 USER_LIB_A := build/userspace/lib/libsrvros.a
 USER_SYSROOT := build/sysroot/srvros
 USER_SYSROOT_HEADERS := $(shell find shared/include userspace/lib/include -type f 2>/dev/null | LC_ALL=C sort)
-KERNEL_HEADERS := $(shell find shared/include kernel/include -type f 2>/dev/null | LC_ALL=C sort)
+KERNEL_HEADERS := $(shell find shared/include kernel/include -type f 2>/dev/null | LC_ALL=C sort) $(wildcard kernel/src/process_private_*.inc)
 
 KERNEL_C := $(shell find kernel/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 KERNEL_C += kernel/diagnostics/package_audit_core.c
@@ -6296,3 +6296,26 @@ test-core: test-intel-startup-source
 test-intel-startup-source: build/tests/intel-startup-source-adapter$(HOST_EXE) build/tests/boot-startup-source$(HOST_EXE)
 	$(PYTHON) -m unittest discover -f -s tools -p test_intel_startup_source.py
 	build/tests/boot-startup-source$(HOST_EXE)
+.PHONY: test-process-private-lifecycle
+test-core: test-process-private-lifecycle
+test-process-private-lifecycle: build/tests/process-private-lifecycle-host$(HOST_EXE)
+	build/tests/process-private-lifecycle-host$(HOST_EXE)
+build/tests/process-private-lifecycle-host$(HOST_EXE): tools/test_process_private_lifecycle.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-process-private-spawn
+test-core: test-process-private-spawn
+test-process-private-spawn: build/tests/process-private-spawn-host$(HOST_EXE)
+	$<
+build/tests/process-private-spawn-host$(HOST_EXE): tools/test_process_private_spawn.c kernel/src/process.c kernel/src/arch/x86_64/process_context.S $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/process_context.S -Wl,--gc-sections -o $@
+
+.PHONY: test-exfat-memory-view
+test-core: test-exfat-memory-view
+test-exfat-memory-view: build/tests/exfat-memory-view-host$(HOST_EXE)
+	$<
+build/tests/exfat-memory-view-host$(HOST_EXE): tools/test_exfat_memory_view.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
