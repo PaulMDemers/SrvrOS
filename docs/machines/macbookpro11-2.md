@@ -1,11 +1,53 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-12. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed161/20MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed161/20MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
+Updated: 2026-11-13. State: **native desktop/input/brightness/sound/CPU/fans/USB Ethernet and bounded5GHz production IP plus actual-process TCP/HTTP/EOF/full named retirement accepted historically; two source-bound cold runs complete DHCP/DNS/actual HTTP and full named retirement with independent bounded acceptance; one cold fixed161/20MHz lifetime with two fresh authenticated connections, DHCP/DNS and 128 exact gateway replies accepted; one cold fixed161/20MHz lifetime with two fresh authenticated DHCP/DNS/actual-process HTTP/EOF connections and full restoration now independently accepted; persistent connection lifecycle, reattach, desktop controls and reliability remain open**.
 
 The current handoff below records the latest acceptance and next scope.
 Dated sections retain the bring-up history.
 
 ## Current handoff
+
+### Diagnostic return: DHCP ACK timeout before the guard (November 13)
+
+Runtime9e0e5988/release19882512325117ed is collected FIRST once and CLOSED
+FAILED in session0006602143f1f23b-00. The complete2070640-byte exit and all
+seven independent journal checkpoints survive. The saved handoff observer is
+present=false: no complete first connection, second preparation, or guard call
+occurs. This run therefore cannot identify the earlier d634 handoff predicate.
+Do not treat an absent guard observation as a successful guard test.
+
+Calibration/authentication/key activation reach the encrypted first DHCP lifetime.
+One Discover and one Request are queued. A DHCP Offer is accepted, but no ACK
+is observed/accepted before the original two-second deadline. Both encrypted
+TXs (PN1/2) complete over USB with CC1/residue0; radio/AP delivery remains
+unproved. The encrypted trace contains70 classified RXs:68 excluded management
+frames and two successfully authenticated IPv4 frames, with no parsed CCMP
+rejection. These metadata do not prove what happened to the missing ACK. DNS,
+route publication, child GO and HTTP do not start. Child status137 is the
+prepared child's cancellation; worker/child/TCP/receiver quiescence is reported.
+
+The explicit failed-DHCP branch erases keys, closes the local native scope,
+detaches the provider and refuses a second connection. RF receipt reports
+status0/complete1/valid1/restored1 at3844 operations; local closure receipts are
+consistent and final local stream state is phase9/failed0 with no pending debt
+or recorded fault. This physically observes the failed-workload cleanup branch,
+but the separate review grants no full native-closure or connection acceptance.
+The original full success checker correctly refuses missing production traffic.
+The public native capability ledger stays unchanged.
+
+Independent review verifies all1405 primary files, all481 prior non-sidecar
+files and every checked persisted metadata field except the one authorized
+marker atime; only the two new session logs appear. Offline fsck/allocation,
+all68 other EFI files and all eight protected recoveries pass. Ubuntu is unarmed.
+Preserve both closed banks; do not recollect or reseal this attempt. Next inspect
+the first Request transmission/ACK receive path and its native fixtures before
+another image; the guard diagnostic remains available. No blind repeat is armed.
+
+Primary `wifi-handoff5-hardware-9e0e5988` index:
+`b4666f69a097921ba37ffa1d808490c49235129ebb496c55d0e17d14614e5d0d`.
+Separate `wifi-handoff5-hardware-9e0e5988-return-review` index:
+`d89d412bd0bee43de58ff3246bc680f7bfdcafa8abbc4879f8d2082a3b63a6e2`.
+
 
 ### Authorized diagnostic cold run (November 12)
 

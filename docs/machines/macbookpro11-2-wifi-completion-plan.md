@@ -7,7 +7,23 @@ Edimax7392:a711 MT7610 is5GHz-only. Target Demers5 WPA2-PSK/CCMP,US161/20MHz.
 Demers2.4 requires a different compatible adapter;it is a separate hardware scope.
 
 
-## Current checkpoint (November 12)
+## Current checkpoint (November 13)
+
+The diagnostic9e0e5988/1988 run is collected once and CLOSED FAILED before
+handoff admission. First authentication/key activation and DHCP Offer acceptance
+work, but no DHCP ACK is observed/accepted within the original two-second budget.
+Two encrypted USB TX completions do not prove radio/AP delivery. There are two
+authenticated IPv4 deliveries and no parsed CCMP rejection; those bounded facts
+do not identify the missing ACK's cause. HTTP/child GO and connection2 never start.
+The saved guard observer is present=false, so the previous handoff cause remains
+unproved. Failed-DHCP local closure and full RF3844 restoration are reported,
+with no new full closure/protocol acceptance. All481 prior files/checked metadata,
+68 other EFI files, offline checks and eight recoveries verify. The full2070640-
+byte exit and all seven checkpoints are sealed; primary/review indices are in
+the unit handoff. Ubuntu is unarmed. Inspect the first Request/ACK path and native
+fixtures before a fresh image; preserve the guard diagnostics and original gates.
+
+## Previous checkpoint (November 12)
 
 The integrated d634/c9c4 cold repeat is collected once and CLOSED FAILED.
 First-epoch DHCP/DNS/actual HTTP+EOF and local key/native/provider close pass,
