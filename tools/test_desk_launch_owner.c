@@ -4,13 +4,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <srvros/desk_launch_owner.h>
-static int server,again,interrupted,bad_reply;
+static int server,again,interrupted,bad_reply,wait_failure;
 static unsigned char input[8192],output[8192],wire[sizeof(struct desk_launch_request)];
 static size_t input_size,input_at,output_size,wire_size;
 static unsigned execs,waits,kills,polls,closes,next_fd;
 static uint64_t child_status;
 static void reset(int serving) {
- server=serving;again=interrupted=bad_reply=0;input_size=input_at=output_size=wire_size=0;
+ server=serving;again=interrupted=bad_reply=wait_failure=0;input_size=input_at=output_size=wire_size=0;
  execs=waits=kills=polls=closes=0;next_fd=10;child_status=0;
 }
 static void queue(unsigned operation,uint64_t pid) {
@@ -54,7 +54,7 @@ long srv_exec(const struct srv_exec_request *r) {
  assert(!strcmp(r->path,"/fat/bin/desktools") && !strcmp(r->argv[1],"files") && !strcmp(r->argv[2],"sample.txt") && !r->argv[3]);
  assert(r->envp && !strcmp(r->envp[1],"HOME=/work/srvros-work") && !r->file_action_count);execs++;return 501;
 }
-long srv_wait(uint64_t pid,uint64_t *status,uint64_t flags){assert(pid==(server?501u:900u) && !flags);waits++;*status=child_status;return (long)pid;}
+long srv_wait(uint64_t pid,uint64_t *status,uint64_t flags){assert(pid==(server?501u:900u) && !flags);waits++;if(wait_failure)return SRV_ERR_IO;*status=child_status;return (long)pid;}
 long srv_kill(int64_t pid){assert(server && pid==501);kills++;return 0;}
 int main(void) {
  reset(1);queue(0,0);queue(1,0);queue(2,999);queue(2,501);queue(2,501);queue(3,0);
@@ -75,5 +75,8 @@ int main(void) {
  reset(0);assert(!desk_launch_owner_start(&owner));bad_reply=1;
  assert(desk_launch_owner_launch(&owner,"/fat/bin/desktools","files","sample.txt",&profile)==SRV_ERR_IO && owner.failed && !owner.launches);
  assert(desk_launch_owner_finish(&owner)==-1 && !owner.pid && waits==1);
+ reset(0);assert(!desk_launch_owner_start(&owner));wait_failure=1;
+ assert(desk_launch_owner_finish(&owner)==-1 && owner.pid==900 && owner.failed && owner.reader==-1 && owner.writer==-1);
+ wait_failure=0;assert(desk_launch_owner_finish(&owner)==-1 && !owner.pid && waits==2);
  puts("desk-launch-owner: PASS private stdio-independent IPC, exact profile/vectors, ownership refusals, short/readiness/interrupted I/O, final reap and ambiguous-reply EOF cleanup");
 }

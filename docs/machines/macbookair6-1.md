@@ -14049,3 +14049,14 @@ their original code. Real process fixtures now cover complete helper entry/exit,
 unchanged pipe refs/foreign owner, EOF-only endpoints and refusal without partial
 closure. The refined protocol/private lifecycle/syscall/reserved-append tests
 pass; fresh complete qualification is required for the corrected source.
+
+
+The refined `ed8e5f04` loaded KVM run passes its original60-second workload:
+23 app cycles,24 owner launches/final reaps, zero owner errors, complete saved
+phase records and140.038ms maximum loop. All diagnostic companion reviews pass.
+Qualification was deliberately held before the full suite for one last ownership
+edge: a failed final wait must retain the launcher's PID and report incomplete
+retirement. The client now keeps that identity until a real final wait succeeds;
+a new error/retry regression passes. The prior VM and hold record remain retained;
+complete qualification is restarted for the final corrected source, with no
+native acceptance inherited from the earlier attempt.

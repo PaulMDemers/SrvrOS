@@ -102,7 +102,8 @@ static inline int desk_launch_owner_finish(struct desk_launch_owner *o) {
     o->writer=o->reader=-1;
     uint64_t status=1;long waited;
     do {waited=srv_wait((uint64_t)o->pid,&status,0);}while(waited==SRV_ERR_INTR);
-    if(waited!=o->pid || status)clean=0;
+    if(waited!=o->pid){o->failed=1;return -1;} /* Retain identity until a real final wait. */
+    if(status)clean=0;
     o->pid=0;return clean?0:-1;
 }
 static inline int desk_launch_owner_serve(void) {
