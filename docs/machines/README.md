@@ -130,3 +130,10 @@ USB is unmounted and no reboot is armed. Disabled v33 route, pending-drain
 branch, repeatability and all actual GPU memory/completion/tear-free grants
 remain unaccepted. The [unit result](macbookair7-2.md#native-v33-maintained-requester-lifetime-accepted)
 records the exact boundary and next ownership work.
+
+
+Air7,2 is implementing a separate [v34 source-bound five-engine readiness hold](../intel-source-engines.md)
+beneath its maintained requester, after integrating main0e3e86ae. This adds no
+reset/PTE/submission/display operation or completion grant. The exact native
+v33 pass stays source-specific; host/model v34 work is not hardware acceptance.
+No new reboot is armed.

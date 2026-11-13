@@ -1592,3 +1592,15 @@ and recheck local run/media/recovery state before install and one-shot boot;
 another unit must establish its own evidence. Eventual unattended trials show
 progress, persist results,
 retain volume1% and return on safe outcomes; unknown ownership halts visibly.
+
+
+For the separately gated [v34 original-source engine hold](intel-source-engines.md),
+use `--intel-source-engines --laptop-probe-volume LOCAL_UUID`. Its own ELF,
+firmware request, exact15-token recipe/pre-init and `intel_source_engines`
+receiver prevent older receipts from accepting the new lifetime. All five
+readiness requests remain held during its child, then reverse cancellation and
+requester restoration precede the full closing guard. All deadlines and native
+memory refusal remain. Local qualification is in progress; do not install until
+the exact unit checkpoint says hardware-ready. Automated trials need no human
+input, show progress, save/unmount and return on safe outcomes at volume1%;
+unknown ownership halts visibly. Native v34 remains unaccepted.

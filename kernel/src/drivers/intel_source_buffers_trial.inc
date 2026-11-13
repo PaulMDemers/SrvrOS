@@ -16,6 +16,16 @@ static struct {
  bool uncertain;
 } source_requester_native;
 #endif
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+#include <srvros/intel_source_engines.h>
+static struct {
+ struct intel_source_engines result;
+ unsigned issued,reads,admit_reads;
+ uint32_t admission[10];
+ uint64_t store_at[10],store_previous[10];
+ bool uncertain;
+} source_engines_native;
+#endif
 static struct {
  struct scanout_memory memory[2];
  struct scanout_memory_pool pool;
@@ -79,6 +89,10 @@ static bool buffers_prepare(void) {
 #ifdef SRVROS_INTEL_SOURCE_REQUESTER
  volatile unsigned char *requester_storage=(volatile unsigned char *)&source_requester_native;
  for(unsigned i=0;i<sizeof(source_requester_native);i++)requester_storage[i]=0;
+#endif
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+ volatile unsigned char *engine_storage=(volatile unsigned char *)&source_engines_native;
+ for(unsigned i=0;i<sizeof(source_engines_native);i++)engine_storage[i]=0;
 #endif
  buffers_native.dma_before=pmm_tagged_frames(PMM_FRAME_DMA);buffers_native.begin=timer_monotonic_us();
  struct scanout_profile p={0};struct scanout_memory_layout l={0};
@@ -214,6 +228,9 @@ static bool buffers_finish(bool outer_safe) {
   buffers_native.dma_before==buffers_native.dma_after;
 }
 static void buffers_report(bool complete) {
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+ source_engines_report();
+#endif
 #ifdef SRVROS_INTEL_SOURCE_REQUESTER
  source_requester_report();
 #endif

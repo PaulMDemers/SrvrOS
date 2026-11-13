@@ -1,4 +1,4 @@
-/* Source-transfer image only. Full hardware guards enclose this complete batch;
+/* Source-requester images only. Full hardware guards enclose this complete batch;
  * raw loads/stores additionally retain original root/map/clock admission. */
 static bool source_requester_guard(void *ctx) {
  struct nonzero_adapter *p=ctx;const struct intel_source_requester *r=&source_requester_native.result;
@@ -86,7 +86,11 @@ static enum intel_gt_write source_requester_command(void *ctx,uint16_t value) {
     r->source->provider!=p || r->source->reset!=&p->r || r->attempts!=n+1 || r->writes!=n ||
     source_requester_native.issued!=n || source_requester_native.uncertain || r->phase!=phase ||
     r->samples!=(n?3u:1u) || (n?(!r->child_complete || r->state!=ISR_RESTORING):r->state!=ISR_INHIBITING) ||
-    source_requester_native.admission[n]!=r->words[phase][1])return GT_WRITE_NONE;
+    source_requester_native.admission[n]!=r->words[phase][1]
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+    || (n && !intel_source_requester_child_returned(r))
+#endif
+    )return GT_WRITE_NONE;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  enum intel_gt_write issued=intel_display_test_source_requester_command16(value);
 #else
@@ -96,6 +100,9 @@ static enum intel_gt_write source_requester_command(void *ctx,uint16_t value) {
  if(issued==GT_WRITE_UNCERTAIN)source_requester_native.uncertain=true;
  return issued;
 }
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+#include "intel_source_engines_trial.inc"
+#endif
 static bool source_requester_child(void *ctx,struct intel_source_requester *r) {
  struct nonzero_adapter *p=ctx;
  if(r!=&source_requester_native.result || r->state!=ISR_INHIBITED || !source_requester_guard(p) ||
@@ -104,6 +111,9 @@ static bool source_requester_child(void *ctx,struct intel_source_requester *r) {
   * and closure interlocks; this is not a positive DMA or address assurance. */
  if(intel_source_transfer_check(&source_transfer_native) || intel_source_transfer_close(&source_transfer_native) ||
     scanout_memory_hold_end(&buffers_native.hold[0]) || scanout_memory_hold_end(&buffers_native.hold[1]))return false;
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+ if(!source_engines_run(p))return false;
+#endif
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  return intel_display_test_source_requester_child(r);
 #else

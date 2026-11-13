@@ -84,7 +84,9 @@ static void intel_display_test_buffer_admission(void) {
  if(jf("buffer-guard",buffer_guards))b->hold[0]=&held_copy;
 }
 int transfer_fixture_main(int argc,char **argv) {
-#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+ puts("init: deferred=source-engines-preinit; terminal automatic capture, no user services");
+#elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
  puts("init: deferred=source-requester-preinit; terminal automatic capture, no user services");
 #else
  puts("init: deferred=startup-transfer-preinit; terminal automatic capture, no user services");

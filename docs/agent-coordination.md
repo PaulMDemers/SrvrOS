@@ -999,3 +999,14 @@ and actual interval/completion/tear-free remain open. Integrate deferred
 main0e3e86ae after this completed collection; no unchanged refusal retry is needed.
 PR19 MT7610 and PR379 WebCore remain independent; no cross-task messages or
 subagents were requested.
+
+
+Air7,2 has integrated main0e3e86ae after complete v33 collection, with targeted
+network/syscall/logging/sidecar and actual requester fault regressions passing.
+Its next bounded scope is the separate [v34 original-source engine hold](intel-source-engines.md),
+a child beneath the actual inhibited requester/source/RAM/root registration.
+Five documented readiness requests, held child, reverse cancellation and exact
+restoration add control lifetime only; no reset or memory/completion grant.
+Old images and100/300/400/500ms origins stay fixed. Host/model qualification is
+in progress; accepted native runtime remains a7c84ce5, no new hardware trial is
+armed. PR19/379 remain independent; no cross-task messaging or delegation.

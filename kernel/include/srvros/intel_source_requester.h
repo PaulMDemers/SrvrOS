@@ -31,6 +31,10 @@ struct intel_source_requester {
  uint32_t epoch,kind,post_mode,state,reason,words[4][9],poll_words[INTEL_SOURCE_REQUESTER_POLLS][2];
  unsigned counts[4],poll_counts[INTEL_SOURCE_REQUESTER_POLLS],samples,reads,attempts,writes,polls,phase,borrows,returns;
  bool busy,registered,parent_blocked,holds_blocked,child_entered,child_complete,restored,complete;
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+ const void *dependent,*registered_child;
+ unsigned child_borrows,child_returns;
+#endif
 };
 bool intel_source_requester_run(struct intel_source_requester *,struct intel_source_transfer *,
  struct intel_source_requester_io,bool (*)(void *,struct intel_source_requester *),void *);
@@ -39,4 +43,8 @@ bool intel_source_requester_run(struct intel_source_requester *,struct intel_sou
 bool intel_source_requester_live(const struct intel_source_requester *);
 bool intel_source_requester_time(const struct intel_source_requester *,uint64_t);
 bool intel_source_requester_deadline(struct intel_source_requester *,uint64_t);
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+/* Pure parent-return gate used by the actual restore path, not a grant. */
+bool intel_source_requester_child_returned(const struct intel_source_requester *);
+#endif
 #endif

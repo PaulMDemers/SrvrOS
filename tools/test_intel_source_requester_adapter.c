@@ -39,6 +39,12 @@ static bool intel_display_test_source_requester_clock(uint64_t *at) {
   if(jf("requester-final-writes",requester_final_clock))r->writes++;
   if(jf("requester-final-issued",requester_final_clock))source_requester_native.issued++;
   if(jf("requester-final-child",requester_final_clock))r->child_complete=false;
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+  if(jf("requester-final-engine-returns",requester_final_clock))r->child_returns=0;
+  if(jf("requester-final-engine-counts",requester_final_clock))r->child_borrows=r->child_returns=0;
+  if(jf("requester-final-engine-borrow",requester_final_clock))r->child_borrows++;
+  if(jf("requester-final-engine-pointer",requester_final_clock))r->registered_child=&source_engines_native.result;
+#endif
   if(jf("requester-final-admit",requester_final_clock))r->words[requester_final_clock==1?0:2][1]^=4;
   requester_final_clock=0;
  }
@@ -86,7 +92,10 @@ static bool intel_display_test_source_requester_child(struct intel_source_reques
  if(strstr(engine_mode,"requester-child-backing"))gt_bad_pci=true;
  return true;
 }
-int main(int argc,char **argv) {
+#ifndef INTEL_REQUESTER_FIXTURE_MAIN
+#define INTEL_REQUESTER_FIXTURE_MAIN main
+#endif
+int INTEL_REQUESTER_FIXTURE_MAIN(int argc,char **argv) {
  requester_stall=argc==2 && strstr(argv[1],"requester-stall");
  int code=transfer_adapter_main(argc,argv);
  struct intel_source_requester *r=&source_requester_native.result;

@@ -20,6 +20,13 @@ bool intel_source_requester_live(const struct intel_source_requester *r) {
     t->input!=r->input || t->lifetime!=r->lifetime || t->epoch!=r->epoch ||
     t->kind!=r->kind || t->post_mode!=r->post_mode || t->origin!=r->origin ||
     t->parent_begin!=r->parent_begin || t->last!=r->last || !r->begin || r->begin>r->last || r->end)return false;
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+ if(r->child_returns>r->child_borrows || r->child_borrows>1 ||
+    (r->dependent && (r->dependent!=r->registered_child || r->child_borrows!=1 || r->child_returns ||
+                     r->state!=ISR_INHIBITED || !r->child_entered || r->child_complete)) ||
+    (!r->dependent && (r->registered_child || r->child_borrows!=r->child_returns)) ||
+    (r->child_complete && !intel_source_requester_child_returned(r)))return false;
+#endif
  return r->io.ctx==r->original_io.ctx && r->io.guard==r->original_io.guard &&
   r->io.sample==r->original_io.sample && r->io.command16==r->original_io.command16 &&
   r->io.pending==r->original_io.pending && r->io.now==r->original_io.now && r->io.pause==r->original_io.pause;
@@ -38,6 +45,11 @@ bool intel_source_requester_deadline(struct intel_source_requester *r,uint64_t a
  r->last=r->transfer->last=r->buffers->last=r->source->last=r->source->reset->last=r->source->parent->last=at;
  return true;
 }
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+bool intel_source_requester_child_returned(const struct intel_source_requester *r) {
+ return r && r->object==r && !r->dependent && !r->registered_child && r->child_borrows==1 && r->child_returns==1;
+}
+#endif
 static bool tick(struct intel_source_requester *r) {
  if(!intel_source_requester_live(r))return fail(r,ISR_SOURCE);
  unsigned state=r->state;struct intel_source_requester_io io=r->io;uint64_t at=io.now(io.ctx);
@@ -119,6 +131,9 @@ bool intel_source_requester_run(struct intel_source_requester *r,struct intel_so
  r->child_begin=r->last;r->child_entered=true;
  if(!observe(ctx,r)){fail(r,ISR_CHILD);goto done;}
  if(!intel_source_requester_live(r) || r->state!=ISR_INHIBITED){fail(r,ISR_SOURCE);goto done;}
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+ if(!intel_source_requester_child_returned(r)){fail(r,ISR_CHILD);goto done;}
+#endif
  if(!guard(r))goto done;
  r->child_end=r->last;r->child_complete=true;
  /* Fresh inhibited profile after the child, before restoring the requester. */

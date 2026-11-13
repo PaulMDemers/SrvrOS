@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_SOURCE_ENGINES) && !defined(SRVROS_INTEL_SOURCE_REQUESTER)
+#error "Source engine hold requires the original maintained requester"
+#endif
 #if defined(SRVROS_INTEL_SOURCE_REQUESTER) && !defined(SRVROS_INTEL_SOURCE_TRANSFER)
 #error "Source requester requires its original transfer parent"
 #endif
@@ -75,7 +78,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+extern volatile struct limine_firmware_type_request intel_source_engines_firmware_request;
+#elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
 extern volatile struct limine_firmware_type_request intel_source_requester_firmware_request;
 #elif defined(SRVROS_INTEL_SOURCE_TRANSFER)
 extern volatile struct limine_firmware_type_request intel_startup_transfer_firmware_request;
@@ -140,7 +145,9 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #include <srvros/intel_engine_census.h>
 #ifdef SRVROS_INTEL_RING_TRANSITION
 #define WAKE_MAPS 14u
-#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+#ifdef SRVROS_INTEL_SOURCE_ENGINES
+#define WAKE_VERSION 34u
+#elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
 #define WAKE_VERSION 33u
 #elif defined(SRVROS_INTEL_SOURCE_TRANSFER)
 #define WAKE_VERSION 32u
@@ -558,7 +565,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_SOURCE_REQUESTER
+    #ifdef SRVROS_INTEL_SOURCE_ENGINES
+    const struct limine_firmware_type_response *firmware=intel_source_engines_firmware_request.response;
+#elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
     const struct limine_firmware_type_response *firmware=intel_source_requester_firmware_request.response;
 #elif defined(SRVROS_INTEL_SOURCE_TRANSFER)
     const struct limine_firmware_type_response *firmware=intel_startup_transfer_firmware_request.response;
@@ -626,6 +635,8 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     static struct engine_prepare_trial prepared;
     static struct intel_takeover_result takeover;
+#elif defined(SRVROS_INTEL_SOURCE_ENGINES)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_source_engines_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_SOURCE_REQUESTER)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_source_requester_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_SOURCE_TRANSFER)

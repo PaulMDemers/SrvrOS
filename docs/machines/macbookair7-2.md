@@ -10,8 +10,8 @@ collection. The Makefile merge retains the requester and empty-network tests;
 the machine index retains this unit's evidence and the Air6,1 agent's newer
 independent result. Native acceptance remains exactly source `a7c84ce5`.
 
-Next bounded objective: a separately gated, original-source engine-control
-lifetime inside the maintained PCI requester child. Audit the documented
+Next bounded objective: a separately gated [original-source engine-control
+lifetime](../intel-source-engines.md) inside the maintained PCI requester child. Audit the documented
 five-engine RESET_CTL readiness handshake, retain original source/route/epoch,
 RAM/root/CPU exclusion, exercise a child only while all five requests are held,
 and restore exact controls before requester/source return. This fills the
@@ -28,6 +28,17 @@ actual-object and exact-stage VM qualification precede a hardware-ready label.
 PR19 MT7610 and PR379 WebCore remain independent; no task was contacted or
 subagent requested. Local checkpoint: `build/air-source-engine-hold-20261113`.
 Current accepted v33/recovery and USB evidence stay untouched; no trial is armed.
+
+The v34 implementation now builds its native image and both modeled routes,
+including delayed acknowledgements. The initial 11-test actual-adapter matrix
+passes (312.168 s). Review then added requester-child registration invariants
+and final-clock lost-return tests; four directed route/native-collection/raw/
+parent-return tests pass after that correction. All 117 installer/staging/
+rollback tests and 1,572 local documentation links pass. A collector shared-wake
+version dispatch and older-stage precedence regression were caught and corrected;
+failed attempts remain local evidence. Full corrected-source 12-test/fatal
+sanitizer/control/image/object/frame/log/VM qualification remains required.
+No native v34 acceptance or hardware-ready label follows yet.
 
 ### Native v33 maintained requester lifetime accepted
 
