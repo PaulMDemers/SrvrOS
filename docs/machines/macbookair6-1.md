@@ -13564,3 +13564,70 @@ No native loaded result is claimed until the matching thirty-minute session,
 all three screenshot byte proofs, every original receipt, prior-file hashes and
 offline allocation are collected and independently reviewed. The earlier battery
 transport-fault cause, cold-ID restoration and offline repair gaps remain open.
+
+### Native post-sidecar stress failed at the lifecycle deadline (2026-11-12)
+
+Release `9463151939d54175`, source `dca44437`, returned from session
+`0006601c3d51eefb-00` after about ten minutes, before the original thirty-minute
+workload completed. This is a failed native run. The automatic collector first
+reports incomplete capture history; raw review establishes an actual lifecycle
+failure, with two completed images rather than the required three. No parser,
+deadline, capture count, workload or integrity requirement is relaxed.
+
+At 620.300462 s monotonic, cycle 360 hits phase 3 (close/reap), PID479 Text,
+elapsed 10.009502 s against the unchanged whole-cycle ten-second limit. It has
+360 completed cycles, zero child errors and no measured loop excursion: retained
+maximum loop is 120.025 ms. Launch/ready maximum is 4.721952 s; completed-close
+maximum is 2.461250 s. The failing cycle's close remains pending at the deadline,
+so that completed-close maximum does not describe its unresolved wait.
+
+The same PID's actual exec takes 4.682070 s. A matching desktop-worker `SYS_EXEC`
+gate waits 4.676039 s behind PID7/thread20's storage scope, which lasts 5.226930 s.
+Text then becomes ready, receives Close, releases its surface/mappings and stops
+its unused file service. Main return is at 615.630785 s; its `SYS_EXIT` gate then
+waits 6.145917 s behind another PID7/thread20 scope. These separate storage waits
+consume the cycle budget. Text eventually exits status zero during failure
+cleanup, after the deadline has already failed the trial.
+
+The second selected owner is a `SYS_SYNC` scope lasting 6.470787 s. The strict
+append/owner/command companions bind its actual screenshot overlap and completed
+content; no unrelated global maximum is substituted. It records 155 status
+callbacks totaling 6.009694 s, with 6.008411 s overlapping the wait, including 47
+16 KiB WRITE statuses totaling 5.634261 s. Selected tag245440 is a fully validated
+16 KiB WRITE: 1.389 ms data transfer, 378.360 ms status callback and 19.994 ms of
+existing checkpoints, within its 399.759 ms total command. This is software
+completion-observation timing, not a hardware-arrival or flash-geometry proof.
+
+Both exact 1366x768 BMPs are saved and their workers retire, the second during
+failed-session cleanup. Their lifetimes are 19.767119/17.820727 s, with WRITE
+phases 12.498196/14.249399 s. Capture history has zero dropped/invalid entries;
+the third capture is never requested. Partial analysis of these two completed
+records is explicitly separate from original expected-three acceptance, which
+remains failed. There is no completed audio/disk receipt. The last active PCM
+snapshot records zero underruns at 1%, but sustained thirty-minute audio/disk
+coverage and audible quality are not accepted. Normal desktop/battery controls
+report failure and the workload is terminated by failed-session teardown.
+The battery service itself retires with zero errors/denied operations and no
+retained heap; its first-protocol observation is clean. The enclosing controls
+verdict follows the desktop failure, not a new battery transport fault.
+
+Fresh independent read-only rehash preserves all 902 prior paths and all 901
+non-sidecar hashes; only the exact volume-root metadata sidecar changes. Seven
+new files include the four logs, two BMPs and interrupted payload.tmp. Offline
+fsck and independent allocation both report 909 files/4645 clusters and zero
+leaks, FAT/bitmap mismatches or errors. Matching raw logs, BMP headers/pixels,
+partial timing/ownership/command records, installed/staged/independent payloads,
+retained recovery and original failure archive verify. Ubuntu is default, the
+one-shot is consumed, collector disabled, USB unmounted and no reboot armed.
+The failed trial and review are sealed outside build storage; accepted prior
+stress/recovery payloads remain available.
+
+The quiet directory-read saving remains accepted. Loaded screenshot and app
+latency are still unresolved, and this run supplies no overall speedup or full
+endurance acceptance. Next audit storage-independent process launch and exit
+admission alongside long shared-sync payload/status waits. `SYS_EXIT` currently
+regains ordinary admission and `process_exit_gate` waits before teardown; skipping
+that gate without proving descriptor, worker, rights and memory lifetimes would
+be unsafe. Preserve the original cycle budget and live-owner protection rather
+than resetting the deadline, pacing away contention or releasing an active
+transaction. No runtime change or new trial has started at this checkpoint.
