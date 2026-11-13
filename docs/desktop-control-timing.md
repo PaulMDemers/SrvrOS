@@ -22,6 +22,9 @@ report-worker handoff. The UI turn performs no new logging or allocation.
 
 `desktop-loop-control` carries sequence, schema/version, validity, base clock,
 relative edges and inner clocks, execution bits and child/result fields.
+Flag bits 0 through 10 are due, state_checked, snapshot_called, submit_called,
+accepted, audio_enabled, finished_before, finished_after, wait_called,
+notice_called and io_enabled, respectively; higher bits must be zero.
 `desktop-loop-control-sched` carries the same sequence/final identity, a region
 index (report=0, audio=1, I/O=2), and all 21 existing scheduler fields in their
 original order: version, start_us, end_us, start_tick, end_tick, blocked_us,
