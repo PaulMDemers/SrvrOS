@@ -15,4 +15,6 @@ int64_t file_stream_stat(uint64_t owner,uint64_t token,struct srv_file_stream_st
 int64_t file_stream_sync(uint64_t owner,uint64_t token);
 int64_t file_stream_close(uint64_t owner,uint64_t token);
 bool file_stream_cleanup(uint64_t owner);
+/* Read-only presence snapshot; caller holds IF0 until consuming the result. */
+bool file_stream_owned(uint64_t owner);
 #endif

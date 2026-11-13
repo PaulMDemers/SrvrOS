@@ -63,6 +63,7 @@ void scheduler_invalidate_current_user_trap(void) {
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *p) {(void)q;(void)fn;(void)p;abort();}
 void scheduler_yield(void) {abort();}
 void scheduler_io_wait(void) {
+    if(main_exit_test || worker_exit_test) {assert(!(simulated_flags&(1ull<<9)));return;}
     const char *mode=getenv("SRVROS_EXEC_PENDING_TEST");
     assert(exec_success && mode && (!strcmp(mode,"fatal") || !strcmp(mode,"earlier")));
     uint64_t usr1=1ull<<SRV_SIGNAL_USR1,usr2=1ull<<SRV_SIGNAL_USR2;
@@ -81,7 +82,7 @@ void scheduler_io_wait(void) {
         (current->pending_signals&retained)==retained && !user_entry_visited && earlier_fatal_injected==earlier);
     fatal_exit_visited=true;simulated_flags|=1ull<<9;longjmp(exec_entry,1);
 }
-void scheduler_io_set_user_safe(bool safe) {assert(exec_success && !safe && !(simulated_flags&(1ull<<9)));}
+void scheduler_io_set_user_safe(bool safe) {assert((exec_success || main_exit_test || worker_exit_test) && !safe && !(simulated_flags&(1ull<<9)));}
 void scheduler_kill_user_threads(void *p,void *except) {(void)p;(void)except;abort();}
 void audio_process_cleanup(uint64_t pid) {(void)pid;abort();}
 void gui_process_cleanup(uint64_t pid) {(void)pid;abort();}

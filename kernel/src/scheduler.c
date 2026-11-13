@@ -50,6 +50,7 @@ struct thread {
     uint64_t identity;
     scheduler_thread_fn entry;
     scheduler_wait_condition_fn io_eligible;
+    bool process_entry_pending;
     void *arg;
     void *user_context;
     uint64_t io_syscall;
@@ -544,6 +545,25 @@ bool scheduler_io_process_helper_memory(void *process,struct scheduler_wait_queu
     return true;
 }
 
+/* Only for IF0, callback-free private child construction or checked final
+ * retirement. Other same-image continuations must already be audited safe;
+ * none may run during the operation. This never grants a service window. */
+bool scheduler_io_process_atomic(void *process) {
+    if(!initialized || !io_services_enabled || switching || !process || thread_capacity>4096 ||
+       current_thread>=thread_capacity || !io_depth || io_owner>=thread_capacity || io_owner==current_thread ||
+       io_private_image==process || thread_at(io_owner)->user_context==process)return false;
+    struct thread *caller=thread_at(current_thread);
+    if(caller->state!=THREAD_RUNNING || caller->user_context!=process || !caller->io_user_safe ||
+       vmm_current_address_space()!=thread_address_space(caller))return false;
+    for(uint64_t i=0;i<thread_capacity;i++)if(i!=current_thread) {
+        struct thread *t=thread_at(i);
+        if(t->state==THREAD_UNUSED || t->state==THREAD_DEAD || t->user_context!=process)continue;
+        if((t->state!=THREAD_READY && t->state!=THREAD_BLOCKED) || !t->io_user_safe ||
+           thread_address_space(t)!=thread_address_space(caller))return false;
+    }
+    return true;
+}
+
 void scheduler_io_request_turn(void) {
     uint64_t flags=irq_save();
     if(initialized && io_services_enabled && !switching && scheduler_io_busy() &&
@@ -899,7 +919,7 @@ static uint64_t worker_stack_view(uint64_t physical,const void *backing) {
 }
 
 static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
-    scheduler_wait_condition_fn io_eligible,bool user,struct fpu_state *user_fpu,uint64_t user_fs_base,uint64_t generation) {
+    scheduler_wait_condition_fn io_eligible,bool user,struct fpu_state *user_fpu,uint64_t user_fs_base,uint64_t generation,uint64_t prepared) {
     if (!initialized || entry == NULL) {
         return false;
     }
@@ -907,6 +927,17 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
     uint64_t flags=irq_save();
     if(current_thread>=thread_capacity || switching) {irq_restore(flags);return false;}
     struct thread *parent=thread_at(current_thread);
+    struct process_user_binding image={0};
+    if(prepared && (!scheduler_io_process_atomic(parent->user_context) || !arg ||
+       !process_admit_prepared_child(parent->user_context,arg,generation,prepared,&image) ||
+       !image.new_worker_allowed || !image.kernel_stack_top || !vmm_prepare_user_kernel_mappings(prepared))) {irq_restore(flags);return false;}
+    if(prepared) {
+        if(io_private_image==arg || thread_at(io_owner)->user_context==arg) {irq_restore(flags);return false;}
+        for(uint64_t n=0;n<thread_capacity;n++) {
+            struct thread *t=thread_at(n);
+            if(t->state!=THREAD_UNUSED && t->state!=THREAD_DEAD && t->user_context==arg) {irq_restore(flags);return false;}
+        }
+    }
     if(user) {
         struct process_user_binding binding,parent_binding;
         if(!arg || !user_fpu || !generation || parent->state!=THREAD_RUNNING || !parent->identity ||
@@ -980,6 +1011,12 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
         slot->user_thread_context=arg;slot->user_fpu=user_fpu;
         slot->user_fs_base=user_fs_base;slot->io_user_safe=true;
     }
+    if(prepared) {
+        slot->user_context=arg;slot->address_space=prepared;
+        slot->image_generation=generation;slot->user_fpu=image.user_fpu;
+        slot->user_fs_base=image.fs_base;slot->kernel_stack_top=image.kernel_stack_top;
+        slot->io_user_safe=true;slot->process_entry_pending=true;
+    }
     if(grow) {
         thread_chunks[thread_capacity/SCHEDULER_INITIAL_THREADS]=chunk;
         thread_capacity+=SCHEDULER_INITIAL_THREADS;
@@ -990,17 +1027,22 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
 }
 
 bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
-    return spawn_thread(name, entry, arg, NULL,false,NULL,0,0);
+    return spawn_thread(name, entry, arg, NULL,false,NULL,0,0,false);
 }
 
 bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void *thread,struct fpu_state *fpu,uint64_t fs_base,uint64_t generation) {
-    return spawn_thread(name,entry,thread,NULL,true,fpu,fs_base,generation);
+    return spawn_thread(name,entry,thread,NULL,true,fpu,fs_base,generation,false);
 }
 
 bool scheduler_spawn_io_service(const char *name, scheduler_thread_fn entry,
     void *arg, scheduler_wait_condition_fn eligible) {
     if (eligible == NULL) return false;
-    return spawn_thread(name, entry, arg, eligible,false,NULL,0,0);
+    return spawn_thread(name, entry, arg, eligible,false,NULL,0,0,false);
+}
+
+bool scheduler_spawn_prepared_process(const char *name,scheduler_thread_fn entry,void *process,uint64_t root,uint64_t generation) {
+    if(!process || !root || !generation)return false;
+    return spawn_thread(name,entry,process,NULL,false,NULL,0,generation,root);
 }
 
 static uint64_t next_ready_thread(uint64_t old_index) {
@@ -1319,9 +1361,10 @@ static __attribute__((noreturn)) void invalid_user_binding(void) {
 }
 
 static void bind_user_context(void *process,uint64_t address_space,uint64_t kernel_stack_top,
-    struct fpu_state *explicit_fpu,uint64_t generation,bool require_fpu) {
+    struct fpu_state *explicit_fpu,uint64_t generation,bool require_fpu,bool prepared) {
     uint64_t flags=irq_save();
-    if(!initialized || current_thread>=thread_capacity || switching || (io_depth && io_owner!=current_thread)) invalid_user_binding();
+    if(!initialized || current_thread>=thread_capacity || switching ||
+       (io_depth && io_owner!=current_thread && !prepared)) invalid_user_binding();
     struct thread *thread=thread_at(current_thread);
     struct process_user_binding binding;
     if(thread->state!=THREAD_RUNNING || !thread->identity || thread->user_thread_context || !process || !generation || !address_space ||
@@ -1332,6 +1375,7 @@ static void bind_user_context(void *process,uint64_t address_space,uint64_t kern
     fpu_invalidate_user_trap(&thread->kernel_fpu);
     account_current_at(timer_monotonic_us());
     thread->account_user=false;
+    thread->process_entry_pending=false;
     thread->user_context = process;
     thread->user_thread_context = NULL;
     thread->io_user_safe = false;
@@ -1350,19 +1394,35 @@ static void bind_user_context(void *process,uint64_t address_space,uint64_t kern
 }
 
 void scheduler_set_user_context_fpu(void *process,uint64_t address_space,uint64_t kernel_stack_top,struct fpu_state *fpu,uint64_t generation) {
-    bind_user_context(process,address_space,kernel_stack_top,fpu,generation,true);
+    bind_user_context(process,address_space,kernel_stack_top,fpu,generation,true,false);
 }
 void scheduler_set_user_context(void *process,uint64_t address_space,uint64_t kernel_stack_top,uint64_t generation) {
-    bind_user_context(process,address_space,kernel_stack_top,NULL,generation,false);
+    bind_user_context(process,address_space,kernel_stack_top,NULL,generation,false,false);
 }
 
-void scheduler_clear_user_context(void) {
+bool scheduler_enter_prepared_process(void *process,uint64_t root,uint64_t stack,uint64_t generation) {
+    uint64_t flags=irq_save();
+    if(!initialized || current_thread>=thread_capacity || switching)goto refused;
+    struct thread *t=thread_at(current_thread);struct process_user_binding b;
+    if(!t->process_entry_pending || !t->io_user_safe || t->user_context!=process ||
+       t->user_thread_context || t->address_space!=root || t->kernel_stack_top!=stack ||
+       t->image_generation!=generation || vmm_current_address_space()!=root ||
+       (io_depth && !scheduler_io_process_atomic(process)) ||
+       !process_resolve_user_binding(process,NULL,generation,root,&b) || !b.new_worker_allowed ||
+       b.user_fpu!=t->user_fpu || b.fs_base!=t->user_fs_base || b.kernel_stack_top!=stack)goto refused;
+    bind_user_context(process,root,stack,NULL,generation,false,true);
+    irq_restore(flags);return true;
+refused:
+    irq_restore(flags);return false;
+}
+
+static void clear_user_context(bool atomic) {
     if (!initialized) {
         return;
     }
 
     uint64_t flags=irq_save();
-    if(current_thread>=thread_capacity || switching || (io_depth && io_owner!=current_thread)) invalid_user_binding();
+    if(current_thread>=thread_capacity || switching || (io_depth && io_owner!=current_thread && !atomic)) invalid_user_binding();
     struct thread *thread = thread_at(current_thread);
     uint64_t kernel_address_space=vmm_kernel_address_space(), default_stack=gdt_default_kernel_stack_top();
     uint64_t default_view=default_stack;
@@ -1375,6 +1435,7 @@ void scheduler_clear_user_context(void) {
     fpu_invalidate_user_trap(&thread->kernel_fpu);
     account_current_at(timer_monotonic_us());
     thread->account_user=false;
+    thread->process_entry_pending=false;
     thread->user_context = NULL;
     thread->io_user_safe = false;
     thread->user_thread_context = NULL;
@@ -1390,6 +1451,13 @@ void scheduler_clear_user_context(void) {
     vmm_switch_address_space(kernel_address_space);
     gdt_set_kernel_stack(default_stack);
     irq_restore(flags);
+}
+
+void scheduler_clear_user_context(void) {clear_user_context(false);}
+bool scheduler_clear_user_context_private(void *process) {
+    uint64_t flags=irq_save();
+    if(!scheduler_io_process_atomic(process)) {irq_restore(flags);return false;}
+    clear_user_context(true);irq_restore(flags);return true;
 }
 
 void *scheduler_current_user_context(void) {

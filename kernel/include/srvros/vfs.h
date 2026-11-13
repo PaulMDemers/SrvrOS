@@ -70,6 +70,7 @@ bool vfs_reserve_nodes(uint64_t additional);
 const struct vfs_node *vfs_node_at(uint64_t index);
 const struct vfs_node *vfs_lookup(const char *path);
 bool vfs_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *size);
+void vfs_note_read(const struct vfs_node *node);
 void vfs_release_data(const struct vfs_node *node, const uint8_t *data);
 void vfs_set_metadata_changed_callback(vfs_metadata_changed_fn callback);
 bool vfs_update_file_size(const char *path, uint64_t size);

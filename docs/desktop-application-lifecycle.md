@@ -205,6 +205,27 @@ leave the live tracking prefix before a window; process slots remain reserved
 until initialization or retirement finishes. Byte/frame bounds, poisoning and
 failure/refusal behavior remain in force.
 
+A separate checked exec prelude can copy a background child's image from a
+completed read-only memory exFAT mount while another process owns storage.
+The current namespace, executable permission, file identity, contiguous full
+ValidDataLength and byte/cluster bounds must all qualify. It runs the same ELF,
+stack, TLS and vector validation and the same allocation-failure cleanup. It
+accepts only default console/closed standard descriptors and no file actions,
+replacement, foreground changes or explicit user scope. The prepared main tuple
+is published with READY and consumed once by a checked entry transition; ordinary
+scheduler bind/clear still refuse a foreign owner.
+
+Independent exit requires the matching current image, safe paused siblings,
+verified tracked PTEs, only console/closed descriptors, no stream/network/audio/
+surface/display ownership and no owned user scope. Worker retirement separately
+checks and unmaps its exact TLS ownership. IRQs stay masked through final image
+cleanup, runtime release and reap publication, preserving the foreign owner.
+An unexpected checked unmap failure retains its frame and fail-stops. All
+refusals use ordinary admission and original flushing/rights/cleanup. The 4,096
+mapping bound applies only to the atomic attempt; larger images retain the
+original loader/mapping limits and service windows. Stress deadlines and storage
+integrity/durability rules are unchanged. Native acceptance is recorded per unit.
+
 Graphics output and surface transfers keep their private copy allocation under
 that owner until it is freed, and restore the scheduler-recorded address space
 before a checkpoint. Surface initialization keeps its existing quota reservation

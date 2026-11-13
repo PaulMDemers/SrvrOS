@@ -50,6 +50,7 @@ void console_set_framebuffer_muted_owner(uint64_t owner_pid, bool muted);
 void console_release_framebuffer_mute_owner(uint64_t owner_pid);
 bool console_framebuffer_muted(void);
 bool console_framebuffer_muted_by(uint64_t pid);
+bool console_framebuffer_owned_by(uint64_t pid);
 void console_get_size(uint64_t *columns_out, uint64_t *rows_out);
 void console_set_cursor(uint64_t x, uint64_t y);
 void console_putc(char c);

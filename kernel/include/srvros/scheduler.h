@@ -47,6 +47,17 @@ bool scheduler_io_busy(void); /* Another thread owns storage state. IRQs masked.
  * Allocating callers must separately bound and audit IRQ-safe PMM/VMM work.
  * Refuse siblings, worker contexts, image/owner aliases and unbounded scans. */
 bool scheduler_io_process_independent(void *process);
+/* IF0 atomic lifecycle proof: foreign owner, matching CR3, all siblings safe.
+ * No callbacks, IRQ enable, service windows or yielding may follow success. */
+bool scheduler_io_process_atomic(void *process);
+/* One-shot entry consumes the exact freshly published main tuple. Ordinary
+ * bind/clear keep their foreign-owner refusal. Retirement requires the atomic
+ * lifecycle proof again; caller must already have proved resource cleanup. */
+bool scheduler_enter_prepared_process(void *process,uint64_t root,uint64_t stack,uint64_t generation);
+bool scheduler_clear_user_context_private(void *process);
+/* Publish an already prepared main-image context with READY. Its quiet entry
+ * continuation must perform no callback, storage or yielding before user entry. */
+bool scheduler_spawn_prepared_process(const char *name,scheduler_thread_fn entry,void *process,uint64_t root,uint64_t generation);
 /* Read-only, exact raw SYS_WRITE entry proof under IF0. Same sole-main,
  * address-space and foreign-owner exclusions as the mutation proof above,
  * without requiring the user-safe flag that IDT deliberately cleared first.

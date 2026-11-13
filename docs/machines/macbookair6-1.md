@@ -13651,7 +13651,7 @@ mapping checks, pace away contention or reset the ten-second lifecycle budget.
 
 PR19 at `d634433c` owns separate pipe-handoff/network and metadata-restore work;
 its process hunks affect background kernel spawn/pipe handoff, not the targeted
-user exec/exit gates. PR301 at `5488e9d7` changes user-scope owner-loss handling;
+user exec/exit gates. PR301, refreshed through `82dd3da8`, changes user-scope owner-loss handling;
 preserve its authority model and existing detach behavior, without implementing
 that separate change here. Inspect and retain those boundaries when adding
 eligibility checks. Keep cold-ID restoration and device/power policy separate.
@@ -13663,3 +13663,24 @@ verify all prior files and renew only the explicit 1% volume preference. After
 self-merge and saved independent run/collection records, launch the original
 fully automated 1800-second PCM/disk/app/three-screenshot workload at 1%, with
 heavy full-field metadata audit off and every original limit/proof intact.
+
+### Independent lifecycle candidate implementation (PR486)
+
+The audit also found two scheduler barriers after the original exec/exit wait:
+fresh kernel startup had no eligible user tuple, and context binding/clearing
+explicitly refused foreign ownership. The candidate publishes and consumes a
+fresh prepared child tuple, and provides a separately checked atomic retirement
+transition; ordinary bind/clear guards stay intact. The complete same-loader
+RAM copy, entry, exit, real context return and reap-publication host fixture holds
+a foreign owner throughout, forbids storage callbacks/waits, and checks rollback
+on allocation/scheduler refusal. Separate fixtures cover immutable-source
+identity/ranges/refusals, real prepared-child resolution, safe sibling/owner/CR3
+qualification, TLS/PTE ownership and fail-stop retention on unexpected unmap.
+
+Scope includes the read-only exFAT view/ready-publication marker and fixed
+GUI/network/stream/display resource-presence snapshots needed by those proofs.
+It does not admit VFS descriptors, pipes/queued rights, live device resources,
+user-scope-owner teardown or mutable/storage-backed executable reads. The
+existing redirected-file teardown/flush and ordinary image/thread regressions
+remain required. Qualification and native boot evidence are still pending;
+9463 remains failed evidence, and the original workload/limits remain unchanged.

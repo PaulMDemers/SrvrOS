@@ -68,7 +68,30 @@ static void refused(struct process *p,const struct isr_frame *frame,const struct
     unsigned prior=copies;assert(!process_copy_user_frame_current(frame,source,0x1ff0,32));
     assert(!memcmp(p,&original,sizeof(original)) && !memcmp(before,destination_bytes,sizeof(before)) && copies==prior);
 }
+static void test_prepared_child_binding(void) {
+    struct process *p=&processes[0],*parent=&processes[1];setup(p);
+    *parent=(struct process){.allocated=true,.active=true,.pid=99,.address_space=0x3000};
+    p->parent_pid=99;p->quiet=p->detached=true;p->entry=0x500000;p->stack_top=0x800000;
+    struct process_user_binding out;
+    assert(process_admit_prepared_child(parent,p,1,0x2000,&out) && out.kernel_stack_top==p->kernel_stack_top);
+    for(unsigned reason=0;reason<10;reason++) {
+        switch(reason) {
+        case 0:p->parent_pid=98;break;case 1:p->quiet=false;break;case 2:p->detached=false;break;
+        case 3:p->startup_ready=true;break;case 4:p->fork_resume=true;break;case 5:p->killed=true;break;
+        case 6:p->user_threads[0].used=true;break;case 7:parent->active=false;break;
+        case 8:parent->address_space=p->address_space;break;case 9:p->mapping_count=4097;break;
+        }
+        assert(!process_admit_prepared_child(parent,p,1,0x2000,&out));
+        p->parent_pid=99;p->quiet=p->detached=true;p->startup_ready=p->fork_resume=p->killed=false;
+        p->user_threads[0].used=false;parent->active=true;parent->address_space=0x3000;p->mapping_count=2;
+    }
+    assert(!process_admit_prepared_child(p,p,1,0x2000,&out));
+    memset(parent,0,sizeof(*parent));
+    puts("prepared-child-binding: PASS real slot/image/kernel-stack resolver, fresh parent/child, quiet detached image only");
+}
+
 int main(void) {
+    test_prepared_child_binding();
     struct process *p=&processes[0];struct isr_frame frame={0};struct user_frame_source source={{0}};
     for(unsigned i=0;i<32;i++)source.bytes[i]=(uint8_t)(i+1);
     setup(p);struct process_user_binding initial;
