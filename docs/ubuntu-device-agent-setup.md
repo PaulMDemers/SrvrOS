@@ -1510,3 +1510,32 @@ no reboot is armed. Enabled-route acceptance stays pending. See the
 retired only the unreferenced d260 EFI duplicate after full durable/evidence and
 boot-reference equality checks; do not generalize that cleanup to another host.
 Current, recovery, known GUI and latest accepted reset remain installed.
+
+
+### Original-source private buffers
+
+The separate [v31 contract](intel-startup-buffers.md) stages with
+`--intel-startup-buffers --laptop-probe-volume LOCAL_UUID`. Its dedicated image,
+firmware request, exact 15-token `startup-buffers-v1` recipe, own pre-init and
+`intel_startup_buffers` collector bind two private full padded RAM holds to the
+actual original live source, then retain RAM through outer retirement. Old raw
+v28/v29/v30 receivers refuse it. The full collector saves raw bytes and validates
+the new envelope before its internal shared-schema parsing; it never exports
+v30 acceptance for a v31 run.
+
+Air7,2 release `c154f8b4a6534d11` is locally qualified and independently banked,
+not installed or armed. Runtime `876b500e` and host staging fix `7c3a7531` have
+separate recorded qualification sources, with every runtime image hash equal.
+Native v31 timing remains pending. Require complete source/reset/outer return,
+full buffer patterns and release accounting, preserved readers/HDA/aliases and
+media integrity; no partial child, safe refusal or VM result supplies acceptance.
+Keep volume 1%, guest progress and automatic saved/unmounted safe return. Retained
+uncertainty halts visibly; no interactive input is required. This still grants
+no GPU interval, PTE store or managed GPU page.
+
+On this reference host only, the unreferenced unaccepted v29 451c EFI duplicate
+was retired after byte-identical durable payload, sealed refusal evidence and
+boot-reference verification to provide candidate plus 32 MiB capacity. Current
+accepted 327a, recovery, GUI and other protected payloads remain installed;
+451c and the earlier d260 remain banked. Consult current state before using an
+older helper that assumes every historical diagnostic still has an EFI copy.

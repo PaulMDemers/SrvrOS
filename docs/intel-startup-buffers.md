@@ -90,3 +90,30 @@ checks and recorded one-shot installation. The automated trial needs no input,
 keeps volume 1%, shows progress and persists results. Proved safe saved/unmounted
 results return automatically; retained uncertainty halts visibly. Collect the
 matching session before another run and accept only the startup route observed.
+
+## Local qualification and current trial boundary
+
+Frozen native `876b500e` passes the full 36-image/core/USB/host/docs gate, eight
+actual-adapter tests under fatal ASan/UBSan, fatal RAM-hold tests, nine historical
+native replays and image/receipt isolation. Both original routes, every original
+reset/source clock point, new child clocks and original token/object/owner-ID,
+backing, provider, registration, plan and return faults are covered. Native object
+and staged writer/alias/static-lifetime checks and 2 KiB frames pass. Saved tail
+is 60,134/65,536 bytes including 1,536 reserve; no deadline or log limit changed.
+
+Host-only `7c3a7531` registers the profile-name allowlist and adds a positive
+actual staging regression after the first staging attempt refused. All 111
+staging tests pass and every native image hash remains exactly the qualified
+`876b500e` artifact. The qualification bridge records these distinct sources;
+it does not pretend the broad/sanitizer commands ran on a later commit.
+Release `c154f8b4a6534d11` passes its exact staged EFI/MBR VM persistence/unmount/
+automatic return, own compiled recipe/pre-init and missing-workspace halt checks.
+Foreign-board VM refusal performs no GPU stores or private buffer allocations.
+
+Local USB integrity, offline media, installed recovery/default/unarmed one-shot,
+independent payload/evidence banks and candidate plus 32 MiB EFI margin verify.
+Only an unreferenced older unaccepted diagnostic's EFI duplicate was retired;
+its verified payload and raw refusal remain durable. Current accepted v30 and
+recovery remain installed. This candidate is banked, **not installed or armed**.
+Native binding and timing remain pending for each observed route. Host/VM
+success does not grant managed GPU pages or accept native tear-free presentation.

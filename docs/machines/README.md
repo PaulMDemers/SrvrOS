@@ -82,3 +82,14 @@ original rejection and strict replay proof are sealed. Offline media/recovery
 verify; current is v30, recovery retained and no reboot armed. Enabled v30 route
 and managed memory/native tear-free remain unaccepted. See the
 [latest unit result](macbookair7-2.md#native-v30-original-already-disabled-resetsource-accepted).
+
+
+Air7,2 now has a hardware-ready [v31 original-source private-buffer
+binding](../intel-startup-buffers.md). Native code `876b500e` passes 36-image/core,
+fatal adapter/hold sanitizer, nine historical native replay and isolation checks;
+host-only staging fix `7c3a7531` passes 111 profile tests with all runtime bytes
+unchanged. Exact release `c154f8b4a6534d11` passes EFI/MBR VM persistence/recovery.
+Two full private buffers remain held through the actual source/reset/outer root,
+then verify and release only after clean retirement. Transfer remains refused
+with zero assurances/managed pages and all 255 obligations. Candidate is banked,
+not installed or armed; native v31 and tear-free acceptance remain pending.

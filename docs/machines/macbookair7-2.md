@@ -1,8 +1,65 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
-### Active scope: original-source private buffer ownership
+### Hardware-ready v31: original-source private buffer ownership
+
+Release `c154f8b4a6534d11` joins two private 1,356-page padded buffers to the
+actual original startup reset/source. Their original memory objects, owner IDs,
+epochs, serials, allocator, full extents and enclosing-root pins stay bound.
+The registered source child blocks early return; RAM remains held through the
+entire outer retirement. Only clean GPU/HDA/alias/exclusion return permits fresh
+CPU pattern verification and exactly-once release. Source/clock/ownership loss
+retains the root and buffers. A backing failure found after clean GPU retirement
+quarantines RAM without falsely claiming the GPU remains owned. Alternative
+one-page encodings are data only; actual transfer refuses before provider or
+arena activity with zero assurances and all 255 obligations. No GPU PTE writer,
+managed GPU page or native tear-free capability is added.
+
+Frozen native code `876b500e` passes the full 36-image/core/USB/host/docs gate,
+eight-test actual-adapter suite under fatal ASan/UBSan, separate fatal RAM-hold
+regressions, nine exact historical native classifications, image isolation and
+log-size projection. Both original entry routes and every original reset/source
+clock point are exercised, with additional child clock/route/provider/token/
+backing/owner-copy/owner-ID/registration/plan faults. Full native-chain/actual
+collection and corruption tests pass. The native object/staged checks retain
+14 GPU aliases, static fault lifetimes, existing fenced DWORD/PCI16 writer
+addresses and 2 KiB frames. Saved-tail projection is 60,134/65,536 bytes including
+1,536 reserve. All original 100/300/400/500 ms limits remain fixed; the existing
+final source guard brackets the pure child without an extra full admission.
+
+The first staging attempt caught a missing host profile-name registration.
+Host-only `7c3a7531` fixes that allowlist and adds a real positive staging test;
+all 111 staging/rollback/profile tests pass. Every one of the 36 runtime image
+hashes is unchanged from `876b500e`, and an explicit qualification bridge records
+both execution sources; the earlier broad/sanitizer results are not relabeled.
+The exact `7c3a7531` stage passes EFI/MBR VM refusal, checkpoint/final persistence,
+unmount/automatic safe return, compiled exact 15-token recipe, own pre-init and
+missing-workspace halt. These are host/model/VM checks, **not native v31 timing
+or acceptance for either route**. The stopped development gate and inspection/
+staging failures remain preserved as nonpasses.
+
+All 1,494 prior USB files/154 sessions, boot digest, offline fsck/allocation/
+writable/headroom, current/recovery/durable hashes, AC and Ubuntu default/unarmed
+one-shot verify. Candidate and qualification evidence are independently banked
+outside build. EFI capacity includes the candidate plus 32 MiB margin. Only the
+unreferenced unaccepted v29 451c EFI duplicate was retired after exact bank,
+sealed safe-refusal evidence and boot-reference verification. Its payload/raw
+reports remain banked; current accepted 327a, recovery 9aa8, GUI c497, accepted
+v28 562d and joint978/HDA-bd77 remain installed. The earlier d260 bank-only
+retirement is unchanged. Old helpers requiring 451c installed must be adapted.
+
+The candidate is **not installed or armed**. The next trial is silent at 1%,
+automatic and needs no input. Guest progress and durable reports precede safe
+unmount/return; retained uncertainty halts visibly. Collect the unique matching
+session before another run and accept only the actual original route observed.
+Main `35f3702a` / PR486 is integrated; no sibling acceptance or cross-task messages
+are inferred. Native v31 binding/timing, usable GPU addresses, cache/completion
+ownership and native tear-free remain pending. See the
+[buffer contract](../intel-startup-buffers.md) and checkpoint
+`build/air-startup-buffers-20261112/status.md`.
+
+### Prior implementation scope: original-source private buffer ownership
 
 Starting from accepted v30 and collector `c507f0a6`, integrate main `35f3702a`
 (PR486 independent process lifecycle) before freezing a new candidate. Air owns

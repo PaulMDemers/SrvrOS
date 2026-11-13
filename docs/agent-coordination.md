@@ -926,3 +926,20 @@ copy is retired after full durable/raw-evidence/reference verification, while
 its accepted backup and current/recovery/GUI/latest reset stay intact. Consult
 the unit's latest checkpoint before installing; do not reuse earlier helpers'
 assumption that every historical accepted image still has an EFI duplicate.
+
+
+## Air original-source private buffer integration
+
+Air7,2 owns the opt-in [v31 buffer-binding image](intel-startup-buffers.md), on
+integrated main `35f3702a` / PR486. Shared scope is the serialized private RAM
+hold/drain API, original source child registration, original memory token/object/
+owner binding and strict image/recipe/collector. Both full private allocations
+stay held until actual outer retirement; unknown source/return retains them.
+No positive firmware, cache, DMA, interval or presentation assurance is added.
+The native runtime `876b500e` passes the 36-image/core and fatal adapter/hold
+checks; host-only `7c3a7531` fixes profile registration with 111 staging tests and
+exactly unchanged runtime images. Exact `c154f8b4a6534d11` VM, media/recovery and
+capacity checks pass. Native v31 timing/ownership binding is still pending;
+current v30 remains installed and no new reboot is armed. Review the unit's
+actual checkpoint before installing; historical 451c and d260 are now bank-only.
+No other task was contacted or delegated, and Actions remain disabled.
