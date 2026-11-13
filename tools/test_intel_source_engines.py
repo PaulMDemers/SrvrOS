@@ -34,7 +34,7 @@ class Engines(unittest.TestCase):
     self.assertFalse(any(s[k] for k in ('registered','busy','reason','uncertain','managed_pages','pte_writes','hardware_ownership','assurances')))
     with self.assertRaises(ValueError):native_engines_result(text)
  def test_every_clock_and_original_source_identity_fault_retains(self):
-  modes=('engines-zero','engines-backward','engines-time','engines-owner-time','engines-source','engines-requester','engines-transfer','engines-provider','engines-epoch','engines-route','engines-mode','engines-root','engines-registration','engines-io','engines-busy','engines-borrow','engines-state')
+  modes=('engines-zero','engines-backward','engines-time','engines-owner-time','engines-source','engines-requester','engines-transfer','engines-provider','engines-epoch','engines-route','engines-mode','engines-root','engines-registration','engines-io','engines-busy','engines-borrow','engines-state','engines-count','engines-complete','engines-restored')
   for off,text in zip(('','entry-off-'),self.texts):
    for mode in modes:
     for n in range(1,fixture(text)['clocks']+1):
@@ -59,7 +59,7 @@ class Engines(unittest.TestCase):
      self.assertEqual(f['actual'],n);self.assertEqual(f['writes'],n-1);self.assertEqual(f['issued'],n-1);self.assertEqual(f['command'],3)
  def test_final_clock_phase_index_counts_and_fresh_admission_issue_no_store(self):
   for off in ('','entry-off-'):
-   for mode in ('engines-final-phase','engines-final-step','engines-final-index','engines-final-samples','engines-final-writes','engines-final-issued','engines-final-admit','engines-final-child','engines-final-state'):
+   for mode in ('engines-final-phase','engines-final-step','engines-final-index','engines-final-samples','engines-final-writes','engines-final-issued','engines-final-admit','engines-final-child','engines-final-state','engines-final-count','engines-final-origin'):
     for n in range(1,11):
      if mode=='engines-final-child' and n<6:continue
      with self.subTest(off=off,mode=mode,n=n):

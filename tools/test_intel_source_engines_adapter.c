@@ -30,8 +30,13 @@ static bool intel_display_test_source_engines_clock(uint64_t *at) {
  if(jf("engines-busy",engines_clocks))r->busy=false;
  if(jf("engines-borrow",engines_clocks))r->borrows++;
  if(jf("engines-state",engines_clocks))r->state=ISE_CLOSED;
+ if(jf("engines-count",engines_clocks) && r->phase<4)r->counts[r->phase]++;
+ if(jf("engines-complete",engines_clocks))r->complete=true;
+ if(jf("engines-restored",engines_clocks))r->restored=true;
  if(engines_final_clock) {
   unsigned n=engines_final_clock;engines_final_clock=0;
+  if(jf("engines-final-count",n) && r->phase<4)r->counts[r->phase]--;
+  if(jf("engines-final-origin",n)){ticks=r->phase_begin[n-1]+10001;r->phase_begin[n-1]=ticks;}
   if(jf("engines-final-phase",n))r->phase++;
   if(jf("engines-final-step",n))r->step++;
   if(jf("engines-final-index",n))r->index=(r->index+1)%5;
@@ -90,6 +95,12 @@ int main(int argc,char **argv) {
  printf("source-engines-fixture: state=%u reason=%u complete=%u registered=%u returns=%u writes=%u issued=%u actual=%u reads=%u admissions=%u clocks=%u stores=%u samples=%u polls=%u child=%u child_done=%u epoch=%u kind=%u begin=%llu end=%llu command=%u\n",
  r->state,r->reason,r->complete,r->registered,r->returns,r->writes,source_engines_native.issued,engines_actual,engines_reads,engines_admissions,engines_clocks,engines_stores,r->samples,r->polls,r->child_entered,r->child_complete,r->epoch,r->kind,(unsigned long long)r->begin,(unsigned long long)r->end,requester_command);
  if(r->complete)assert(r->state==ISE_CLOSED && r->restored && !r->registered && r->samples==4 && r->writes==10 && r->acks==10 && r->borrows==r->returns && r->child_complete);
+ if(r->complete) {
+  struct intel_source_engines saved=*r;
+  assert(!intel_source_engines_deadline(r,r->end+1));
+  assert(!intel_source_engines_run(r,r->requester,r->io,source_engines_child,&nonzero_native));
+  assert(!memcmp(&saved,r,sizeof(saved)));
+ }
  else if(r->object)assert(r->registered && !r->returns && source_requester_native.result.dependent==r && buffers_native.retained);
  return code;
 }

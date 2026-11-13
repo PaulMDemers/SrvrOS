@@ -48,6 +48,15 @@ source-matched projection and full qualification still must pass. Read-only
 preflight verifies all1,503files/157sessions, current/recovery banks, unchanged
 boot digest, AC and Ubuntu default/no one-shot.
 
+A second qualification run was intentionally interrupted after review found
+that a callback could change the recorded phase start before the final clock
+check. The driver now captures that start independently, preserves it through
+every callback, and checks completed raw profiles before stores and final return.
+New clock faults cover phase-origin/count changes and false completion flags;
+closed one-use receipts stay immutable. Four directed route/final-store/parent/
+collector tests pass after correction. Both interrupted gates remain nonpasses;
+a fresh frozen-source full qualification is required, with all deadlines intact.
+
 ### Native v33 maintained requester lifetime accepted
 
 Frozen source `a7c84ce5`, release `6f8fea336425b123`, session

@@ -20,9 +20,12 @@ static bool source_engines_admit(struct nonzero_adapter *p) {
  struct intel_source_engines *r=&source_engines_native.result;
  unsigned state=r->state,phase=r->phase,step=r->step,index=r->index,attempts=r->attempts,writes=r->writes;
  unsigned samples=r->samples,acks=r->acks,polls=r->polls,issued=source_engines_native.issued;
+ unsigned counts[4];for(unsigned n=0;n<4;n++)counts[n]=r->counts[n];
+ uint64_t phase_origin=step<10?r->phase_begin[step]:0;
  uint64_t at=source_engines_now(p);
  if(!intel_source_engines_deadline(r,at))return false;
- if(r->state!=state || r->phase!=phase || r->step!=step || r->index!=index || r->attempts!=attempts || r->writes!=writes ||
+ bool profile_changed=false;for(unsigned n=0;n<4;n++)if(counts[n]!=r->counts[n])profile_changed=true;
+ if(profile_changed || (step<10 && r->phase_begin[step]!=phase_origin) || r->state!=state || r->phase!=phase || r->step!=step || r->index!=index || r->attempts!=attempts || r->writes!=writes ||
     r->samples!=samples || r->acks!=acks || r->polls!=polls || source_engines_native.issued!=issued || source_engines_native.uncertain) {
   r->reason|=ISE_SOURCE;r->state=ISE_FAULT;return false;
  }
@@ -66,6 +69,7 @@ static enum intel_gt_write source_engines_transition(void *ctx,unsigned e,uint32
  ++source_engines_native.admit_reads;
  unsigned phase=n<5?0:2;
  if(source_engines_native.admission[n]!=r->words[phase][e] || !source_engines_guard(p))return GT_WRITE_NONE;
+ const uint64_t phase_origin=r->phase_begin[n];
  source_engines_native.store_previous[n]=r->last;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  intel_display_test_source_engines_store_admission(n);
@@ -77,7 +81,7 @@ static enum intel_gt_write source_engines_transition(void *ctx,unsigned e,uint32
     r->source!=&p->source || r->provider!=p || r->source->provider!=p || r->source->reset!=&p->r ||
     source_engines_native.issued!=n || source_engines_native.uncertain || r->step!=n || r->phase!=phase ||
     source_engines_native.admission[n]!=r->words[phase][e] || !intel_source_engines_write_ready(r,e,value) ||
-    !r->phase_begin[n] || at<r->phase_begin[n] || at-r->phase_begin[n]>10000)return GT_WRITE_NONE;
+    !phase_origin || r->phase_begin[n]!=phase_origin || at<phase_origin || at-phase_origin>10000)return GT_WRITE_NONE;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  enum intel_gt_write wrote=intel_display_test_source_engines_write(e,value);
 #else
