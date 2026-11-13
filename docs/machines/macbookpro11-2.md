@@ -7,6 +7,38 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### DHCP comparison cold run: no Offer (November 13)
+
+Runtime `04b7b381` / release `79235e8eda6bc8e4`, session
+`session-0006602df9865cbf-00`, is collected once and closed failed. The new
+source-frozen comparison observer survived the protocol refusal: two valid
+Discovers were constructed and queued, zero Requests were sent, and no Offer
+or ACK candidate reached the network comparison hook. One authenticated
+client-port Discover matches all current transaction/selecting/checksum fields
+(mask1023). This remains field equality, not AP/server receipt proof. The only
+other delivered Ethernet frame is62 bytes, too short for a DHCP reply.
+Both data TXs finish USB successfully; encrypted RX classifies64 management
+and two authenticated Ethernet deliveries, without a parsed CCMP rejection.
+The original200-tick DHCP deadline remains unchanged. Neither HTTP nor the
+second-connection hub guard is reached; the earlier Request/ACK loss is unproved.
+
+The prepared child exits24, which maps to `WIFI_EXACT_DEADLINE`, before GO.
+This separately exposes a pre-GO child-lifetime/deadline issue to audit against
+the actual calibration/connection orchestration; do not mistake it for HTTP
+traffic or merely assert the modeled kill-status137. Child/worker/TCP/receiver
+retirement, local key/native/provider closure and full RF3844 restoration are
+reported and independently consistent, without granting full native acceptance.
+
+All seven independent checkpoints and the2,070,181-byte exit log survive.
+Independent review verifies1546 sealed primary files,487 prior workspace files
+and checked metadata except the authorized marker atime,71 other EFI files,
+clean offline fsck/allocation and eight protected recoveries. Ubuntu is unarmed.
+Primary index `56f83e0dec986f1465e6d7695863933ebbf44bb31d63cee0195b779713b08538`;
+separate review index
+`69bb8f86a9e8cbba1291d7eed12fe079d16e15b1e1e26f0d85bb7e106a242d29`.
+Next audit the pre-GO lifetime and initial Discover radio/receive path with
+native tests before a changed candidate; no identical blind retry or new boot.
+
 ### DHCP identity collector and cold-image qualification (November 13)
 
 Prepare a fresh source-bound owner for the qualified DHCP comparisons. Preserve

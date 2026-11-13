@@ -61,3 +61,13 @@ guest ELF/socket/IRQ-worker HTTP/DNS pass separately. These tests reproduce the
 no-ACK failure and reject a wrong-XID client echo; they do not identify the
 physical loss's cause or accept a new hardware image. The installed8f/d81
 hardware attempt remains closed failed and its hub service was never reached.
+
+The first cold comparison run, source `04b7b381` / release `79235e8eda6bc8e4`,
+saved the observer despite full protocol refusal. It records two valid client
+Discovers, one received current-field/checksum-matched Discover (mask1023),
+zero Requests and no server Offer/ACK candidates. It therefore cannot localize
+the earlier Request/ACK failure; it instead records an earlier no-Offer outcome.
+USB TX success and matching client fields still do not prove server receipt.
+The prepared HTTP child also exits with its pre-GO deadline status24. Full
+calibration/child lifetime orchestration needs separate native-path audit before
+another hardware candidate; no timeout or admission relaxation is accepted.
