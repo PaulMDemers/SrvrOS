@@ -13709,3 +13709,15 @@ an exited QEMU from a broken live connection, stops overlap sampling after the
 PCM result and drains serial after exit; it still requires the complete terminal
 receipt, every original saved workload/retirement proof and clean QEMU exit.
 Mocked live-error/missing-device/exit races supplement the required fresh VM run.
+
+A later unchanged-runtime VM completed 24 app cycles and 180 verified PCM/disk
+bursts with zero errors/underruns, but strict phase validation correctly failed:
+two saved snapshot starts were 11.723334 s apart and 73,161 log bytes apart,
+leaving 7,625 bytes outside the original 65,536-byte tail. Missing startup phases
+were not accepted from interleaved UART. The logger had armed the next ten-second
+period after completing the preceding write, adding storage latency each time.
+The candidate now anchors that same 1,000-tick period to capture start, including
+the boot capture; an overrun skips missed periods and retains a full idle period,
+without queued catch-up writes. Tail/file/checkpoint caps, workload, all record
+requirements, deadlines, write/readback/flush and ownership checks are unchanged.
+Delayed-write/overrun/failure regressions and fresh full qualification are required.

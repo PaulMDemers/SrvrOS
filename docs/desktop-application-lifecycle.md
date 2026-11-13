@@ -228,6 +228,12 @@ mapping bound applies only to the atomic attempt; larger images retain the
 original loader/mapping limits and service windows. Stress deadlines and storage
 integrity/durability rules are unchanged. Native acceptance is recorded per unit.
 
+Periodic workspace captures keep their declared ten-second interval anchored to
+capture start, so write completion latency does not accumulate between captures.
+A write that overruns the period skips missed periods and arms a full next period;
+there is no queued catch-up. The 64 KiB tail and rotation/checkpoint caps remain
+unchanged, and missing startup/retirement evidence still fails qualification.
+
 Graphics output and surface transfers keep their private copy allocation under
 that owner until it is freed, and restore the scheduler-recorded address space
 before a checkpoint. Surface initialization keeps its existing quota reservation
