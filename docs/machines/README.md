@@ -102,3 +102,13 @@ outer retirement, verify and release exactly once (2,712 pages, DMA57→57).
 Preparation is 98,198/100,000 us; full preservation/retirement and media/recovery
 verify. Enabled entry and repeatability remain pending. No managed GPU page or
 tear-free grant; c154 current, recovery retained, no reboot armed.
+
+
+Air7,2 now has a [hardware-ready v32 source transfer owner](macbookair7-2.md#hardware-ready-v32-original-source-transfer-owner)
+on sourcef638ae7c/release8d0181c0ed0a4708. The 37-image/core gate, fatal nine-test
+adapter/hold checks,113 staging tests, ten historical replays, isolation and exact
+EFI/MBR VM pass. It binds the generic provider-facing lifetime to original
+source/RAM/exclusion, while native transfer still refuses before provider/arena
+activity. Media/recovery/capacity verify; accepted562d is now bank-only, current
+c154/prior327a and recovery remain installed. Candidate is banked, not armed;
+native v32/managed GPU mapping/tear-free acceptance remain pending.

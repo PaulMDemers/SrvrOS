@@ -1557,3 +1557,13 @@ collector. It tests provider-facing ownership lifetime inside the original
 source, with native transfer refused before provider/clock/arena activity.
 Positive model providers are not native authority. Do not install until the
 unit's matching host/image/VM/media/recovery checkpoint says hardware-ready.
+
+
+Air7,2 v32 release8d0181c0ed0a4708/sourcef638ae7c is now host/VM qualified and
+banked, not installed or armed. Fresh1,497files/155sessions, offline filesystem,
+current/recovery hashes and Ubuntu default verify. For candidate plus32MiB EFI
+capacity, unreferenced older accepted562d was retired only after exact durable
+payload, sealed native evidence and boot-reference checks. Its acceptance/raw
+logs remain banked, with current c154/prior327a/recovery/GUI/joint/HDA retained.
+Consult current state before using a helper that expects562d still installed.
+Native v32 remains pending and supplies no GPU interval/PTE authority.

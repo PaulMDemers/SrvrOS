@@ -961,3 +961,15 @@ bind the generic transfer phases to the original source/RAM/CPU-exclusion and
 100/300 ms origins. Native missing authority still refuses; positive provider
 fixtures remain models. V31 acceptance and older APIs/recipes are separate.
 No actual native GPU interval or PTE writer is supplied by this bridge.
+
+
+The v32 bridge is hardware-ready on frozenf638ae7c/release8d0181c0ed0a4708:
+full37-image/core gate, fatal nine-test actual adapter/hold checks,113 stage tests,
+ten historical native classifications, isolated native guards/maps/2KiB frames,
+log projection and exact EFI/MBR VM pass. Main e6ca1a94 is the runtime baseline;
+doc-only main5a950ce4 is subsequently integrated without relabeling runtime tests.
+Native still refuses missing address authority; no native v32 acceptance or GPU
+PTE writer exists. Media/recovery/capacity verify. The accepted562d EFI duplicate
+is now bank-only after exact bank/raw-acceptance/reference verification, alongside
+earlier451c/d260. Currentc154/prior327a/recovery/GUI/joint/HDA remain installed.
+No reboot armed, candidate/evidence independently banked, Actions disabled.

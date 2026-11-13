@@ -2,7 +2,70 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
-### Active scope: source-bound GPU interval transfer
+### Hardware-ready v32: original source transfer owner
+
+Frozen source `f638ae7c`, release `8d0181c0ed0a4708`, adds the provider-facing
+[original source transfer owner](../intel-startup-transfer.md). It registers
+beneath the actual source/buffer child and seals the original RAM objects,
+owner IDs, serials, extents, provider, input/epoch and live CPU exclusion.
+Admission, live checks and close share the original parent clock watermarks;
+callbacks cannot re-enter the owner or return its source early. Pending address
+leases stop admission and drain before terminal validation. Lost source, clock,
+provider or return retains source/RAM/root. The complete static storage is
+first-touched before the native census and bounded hardware lifetime.
+
+Native supplies zero assurances/all 255 obligations: actual transfer refuses
+before its provider, transfer clock or arena is called. No interval is imported,
+GPU PTE written or managed GPU page exposed. Positive provider/lease/drain cases
+are host models only. This new native trial tests the registration/refusal and
+original retirement lifetime, not a mapping or tear-free desktop. All original
+100/300/400/500 ms limits remain unchanged, including generic transfer phases.
+
+The full 37-image/core/USB/host/docs gate passes on `f638ae7c`. Nine actual-adapter
+tests pass under fatal ASan/UBSan, along with separate fatal RAM-hold checks.
+Both startup routes, each new native clock and original reset/source/buffer
+bounds, copied/stale owner and hold identities, callback re-entry, each missing
+assurance/open obligation, positive modeled phase failures and pending child
+drain are covered. All 113 staging/profile/rollback tests and ten exact historical
+native classifications pass. Linked/object checks retain 14 GPU aliases, static
+fault lifetimes, unchanged target writers/map logic and 2 KiB frames for all five
+native objects. All 37 images retain their isolated recipes/receipts. Saved tail
+projects 61,794/65,536 bytes, including 1,536 reserve plus 1,024 for new runtime
+log headers; neither deadline nor log limit changed. The supplemental projection
+initially refused a strict legacy helper's raw v31 input; its retry uses the
+existing checked internal schema view. Runtime/receivers and raw evidence are
+unchanged; the refused checker log remains preserved.
+
+The exact immutable stage passes EFI/MBR VM refusal, own firmware/compiled
+15-token recipe/pre-init, checkpoint/final persistence, unmount/automatic safe
+return and missing-workspace halt. The foreign-board VM issues zero target
+stores and allocates zero private buffers. These are host/model/VM results;
+**native v32 timing and registration acceptance remain pending**. Runtime main
+e6ca1a94/PR488 is integrated; later documentation-only main 5a950ce4/PR489 is
+integrated without rebuilding/relabeling the qualified runtime.
+
+Fresh local checks preserve all 1,497 USB files/155 sessions and the boot digest.
+Offline fsck/allocation/writable/headroom, installed/durable payload equality,
+AC, Ubuntu default and unarmed one-shot verify. To provide candidate plus32MiB
+EFI margin, only the unreferenced older accepted v28 562d duplicate was retired
+after exact payload, sealed native acceptance/raw evidence and boot-reference
+verification. Its payload/acceptance remains banked; current accepted c154,
+prior327a, recovery9aa8, GUIc497 and joint978/HDA-bd77 remain installed. Existing
+451c/d260 bank-only retirement is unchanged. Old helpers requiring 562d on EFI
+must be adapted. Byte-identical immutable Node Git objects were deduplicated,
+freeing about1.6GiB without removing working files or native evidence.
+
+The candidate and complete qualification evidence are independently banked
+outside build. It is **not installed or armed**. The next unattended trial is
+silent at1%, needs no input, shows guest progress and saves/unmounts/returns on
+safe outcomes; retained uncertainty halts visibly. Collect its unique matching
+session before any new run. Current native acceptance remains the v31 kind2
+result below; all255 obligations/0assurances/0managed GPU pages remain open.
+After this lifetime qualification, resolve an actual hardware takeover/interval/
+DMA/cache/reader witness before a first PTE writer, rather than retrying an
+unchanged observation. See `build/air-source-transfer-20261113/status.md`.
+
+### Prior implementation scope: source-bound GPU interval transfer
 
 Integrate actual main `e6ca1a94` / PR488 as `88e2bb65` before a new source
 freeze. Air7,2 owns the original-source transfer/reservation bridge: original

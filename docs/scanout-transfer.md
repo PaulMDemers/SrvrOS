@@ -3,8 +3,8 @@
 `scanout_transfer` is the expanded software transfer contract for an audited
 graphics owner. It captures up to4,096 exact original entries in owned storage,
 enough for two full padded Air buffers. The legacy16-entry `scanout_handoff`
-observation and its native profile remain unchanged. No native provider calls
-this new contract or supplies its required hardware assurances.
+observation and its native profile remain unchanged. Opt-in native diagnostics exercise its missing-authority refusal path; no native
+provider supplies its required hardware assurances or imports an interval.
 
 The mechanism does not decide that a range is free. Its input must describe an
 already transferred, non-display interval, its full inherited protection fence,
@@ -103,3 +103,12 @@ write/posting/invalidation and every reader's retirement before a one-page GPU
 store. See the [managed-memory plan](intel-managed-memory-plan.md) and
 [tear-free roadmap](intel-tearfree-roadmap.md). No new hardware trial is warranted
 by this software contract alone.
+
+
+The [original-source bridge](intel-startup-transfer.md) now supplies the
+provider-facing registration between this owner and the original live source,
+full private RAM holds and CPU exclusion. All transfer phases share the original
+100/300ms watermarks. Models cover positive admission/draining/close and failures;
+native remains an explicit zero-assurance/all255-obligation refusal before any
+provider/transfer-clock/arena activity. Its hardware-ready profile is separate
+from the accepted v31 source/buffer lifetime and has no native acceptance yet.

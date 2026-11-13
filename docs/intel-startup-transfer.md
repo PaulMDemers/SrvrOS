@@ -11,6 +11,7 @@ GPU-visible address activity. No GPU PTE writer is added.
 ## Original registration and deadlines
 
 `intel_source_transfer` is a one-use original object in static/heap storage.
+Providers must not mutate owned bridge/transfer storage or bypass its APIs.
 Inside the live buffer child it captures the actual source, provider, input,
 entry kind, reset epoch, post mode, original one-page entry, original two RAM
 objects/tokens/owner IDs/serials/full extents and enclosing root. Its CPU
@@ -90,3 +91,23 @@ independent banks, local USB/recovery checks and durable one-shot run record.
 No input is required; keep volume 1%, display progress, save/unmount and return
 automatically on safe outcomes. Retained uncertainty halts visibly. Collect the
 matching session and media integrity before any further candidate.
+
+## Local hardware-ready checkpoint
+
+Frozen `f638ae7c`, release `8d0181c0ed0a4708`, passes the full37-image/core/USB/
+host/docs gate, nine actual-adapter tests under fatal ASan/UBSan, separate fatal
+RAM-hold tests,113 staging tests, ten exact historical native classifications
+and image isolation. Native object/staged guards/maps/writer checks and five
+2KiB frames pass. Projected tail61,794/65,536 includes1,536 reserve plus1,024
+runtime-header margin. Exact EFI/MBR VM persistence/unmount/automatic safe return,
+compiled recipe/own pre-init and missing-workspace halt pass; zero target stores
+or private allocations occur on the foreign board.
+
+Local USB/file integrity, offline media, recovery/default/unarmed one-shot and
+EFI candidate plus32MiB margin pass. Only unreferenced accepted562d's duplicate
+EFI copy was retired after full bank/evidence/reference checks; its verified
+payload and native acceptance remain durable. Current accepted c154/prior327a,
+recovery/GUI/joint/HDA remain installed. Candidate/evidence banks survive
+`make distclean`; candidate is not installed or armed. Native v32 acceptance
+remains pending, with zero GPU address/ownership grant. See the
+[unit checkpoint](machines/macbookair7-2.md#hardware-ready-v32-original-source-transfer-owner).
