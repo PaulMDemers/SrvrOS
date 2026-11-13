@@ -4838,6 +4838,14 @@ int64_t net_close(uint64_t handle) {
     return -1;
 }
 
+bool net_process_owned(struct process *p) {
+    if(!p)return false;
+    for(unsigned i=0;i<NET_PENDING_REQUESTS;i++)if(pending_requests[i].used && pending_requests[i].owner==p)return true;
+    for(unsigned i=0;i<NET_LISTENERS;i++)if(listeners[i].used && listeners[i].owner==p)return true;
+    for(unsigned i=0;i<TCP_MAX_CONNECTIONS;i++)if(tcp_connections[i].state!=TCP_STATE_EMPTY && tcp_connections[i].owner==p)return true;
+    for(unsigned i=0;i<UDP_MAX_SOCKETS;i++)if(udp_sockets[i].used && udp_sockets[i].owner==p)return true;
+    return false;
+}
 void net_process_cleanup(struct process *process) {
     if (process == 0) {
         return;

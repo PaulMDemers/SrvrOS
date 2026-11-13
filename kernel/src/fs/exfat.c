@@ -188,6 +188,7 @@ struct exfat_directory {
 struct exfat_file_slot { struct exfat_file file; char path[EXFAT_MAX_PATH]; };
 struct exfat_mount {
     bool used;
+    bool ready;
     uint64_t block_claim;
     struct exfat_volume volume;
     struct exfat_file_slot *file_blocks[EXFAT_MAX_FILES/EXFAT_NODE_BLOCK];
@@ -754,6 +755,42 @@ static uint64_t clusters_for_size(const struct exfat_volume *volume, uint64_t si
         return 0;
     }
     return size / volume->cluster_size + (size % volume->cluster_size != 0);
+}
+
+bool exfat_readonly_memory_view(const struct vfs_node *node,const uint8_t **data,uint64_t *size) {
+    if(!node || !node->path || !data || !size || !node->used || node->type!=VFS_NODE_FILE ||
+       node->read_all!=exfat_read_all || node->release_data!=exfat_release_data ||
+       vfs_lookup(node->path)!=node)return false;
+    for(unsigned m=0;m<EXFAT_MAX_VOLUMES;m++) {
+        struct exfat_mount *mount=&mounts[m];
+        if(!mount->used || !mount->ready || mount->volume.mutation_depth ||
+           mount->file_count>mount->file_capacity || mount->file_capacity>EXFAT_MAX_FILES)continue;
+        struct exfat_volume *v=&mount->volume;
+        const uint8_t *image=v->image;uint64_t bytes=v->image_size;
+        if(v->device) {
+            if(v->device->write || !block_device_online(v->device))continue;
+            image=block_memory_data(v->device,&bytes);
+        }
+        if(!image || bytes<v->image_size || !v->cluster_size)continue;
+        for(uint64_t i=0;i<mount->file_count;i++) {
+            struct exfat_file *file=file_slot(mount,i);
+            if(node->private_data!=file)continue;
+            uint64_t offset=0,clusters=clusters_for_size(v,file->size);
+            const char *registered=path_slot(mount,i);uint64_t n=0;
+            while(node->path[n] && node->path[n]==registered[n])n++;
+            if(node->path[n]!=registered[n])return false;
+            if(file->volume!=v || !path_slot(mount,i)[0] ||
+               node->path==NULL ||
+               !file->no_fat_chain || !file->size || file->size!=file->valid_size ||
+               node->size!=file->size || file->allocated_clusters!=clusters ||
+               file->first_cluster<2 || file->first_cluster-2>=v->cluster_count ||
+               clusters>v->cluster_count-(file->first_cluster-2) ||
+               !cluster_offset(v,file->first_cluster,&offset) ||
+               offset>v->image_size || file->size>v->image_size-offset)return false;
+            *data=image+offset;*size=file->size;return true;
+        }
+    }
+    return false;
 }
 
 static bool mount_has_file_slot(const struct exfat_mount *mount) {
@@ -4345,6 +4382,7 @@ static bool mount_image_impl(const char *mountpoint, const uint8_t *image, uint6
         mountpoint,
         mount->file_count,
         mount->volume.cluster_size);
+    mount->ready=true;
     return true;
 }
 
@@ -4420,6 +4458,7 @@ static bool mount_block_device(const char *mountpoint, struct block_device *devi
         device->name,
         mount->file_count,
         mount->volume.cluster_size);
+    mount->ready=true;
     return true;
 }
 

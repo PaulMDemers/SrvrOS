@@ -517,6 +517,8 @@ void console_release_framebuffer_mute_owner(uint64_t owner_pid) {
     }
 }
 
+bool console_framebuffer_owned_by(uint64_t pid) { return pid && framebuffer_console_mute_owner==pid; }
+
 bool console_framebuffer_muted_by(uint64_t pid) {
     return pid && framebuffer_console_muted && framebuffer_console_mute_owner == pid;
 }

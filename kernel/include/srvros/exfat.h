@@ -5,6 +5,11 @@
 #include <stdint.h>
 
 struct block_device;
+struct vfs_node;
+/* IF0, callback-free borrowed view of a completely mounted, immutable memory
+ * volume only. Never a lease: the caller must consume it before enabling IRQs,
+ * yielding, or invoking a callback. Writable/fragmented/partial-VDL files refuse. */
+bool exfat_readonly_memory_view(const struct vfs_node *node,const uint8_t **data,uint64_t *size);
 
 /* Diagnostic observation only, while the caller owns filesystem I/O exclusion.
  * Labels describe the current synchronous operation, not permission to reenter. */

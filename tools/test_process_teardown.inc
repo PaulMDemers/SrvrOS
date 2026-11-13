@@ -58,6 +58,12 @@ void gui_process_cleanup(uint64_t pid) {
 }
 void console_release_framebuffer_mute_owner(uint64_t pid) { assert(pid==teardown_target->pid); }
 void net_process_cleanup(struct process *p) { assert(p==teardown_target); }
+bool vmm_virt_to_phys_in_space(uint64_t root,uint64_t page,uint64_t *physical) {
+    assert(teardown_running && teardown_target && root==teardown_target->address_space);
+    int64_t i=process_mapping_index(teardown_target,page);
+    if(i<0)return false;
+    *physical=teardown_target->mappings[i].physical_address;return true;
+}
 bool vmm_unmap_page_in_space(uint64_t root,uint64_t page,uint64_t *physical) {
     assert(root==0x1000 && page==0x5000 && teardown_workers_killed);
     assert(!teardown_irq && !teardown_foreign && !teardown_target->active && !teardown_target->image_generation);

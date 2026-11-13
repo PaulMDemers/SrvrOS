@@ -66,6 +66,9 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     const char *args,
     const char *stdout_path,
     bool append);
+/* Copied vectors only; IF0 private-image attempt, false means ordinary gate. */
+bool process_try_spawn_private(const char *path,uint64_t argc,const char *const *argv,
+    uint64_t envc,const char *const *envp,int64_t *result);
 int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
     uint64_t argc,
     const char *const *argv,
@@ -430,6 +433,9 @@ struct process_user_binding {
  * worker admission refuses them. Neither operation establishes an FPU proof. */
 bool process_resolve_user_binding(void *process, void *user_thread,
     uint64_t image_generation, uint64_t address_space,
+    struct process_user_binding *out);
+/* Fresh quiet detached child main entry, before its first scheduler publish. */
+bool process_admit_prepared_child(void *parent,void *child,uint64_t generation,uint64_t root,
     struct process_user_binding *out);
 /* New worker READY admission; IRQs already excluded. */
 bool process_admit_user_worker(void *process, void *worker,

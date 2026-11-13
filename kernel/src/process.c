@@ -254,6 +254,7 @@ struct process {
     uint64_t process_group;
     uint64_t lifetime; /* Immutable across exec, job control and orphaning. */
     uint64_t owned_user_scope;
+    bool private_retiring,private_build,private_prepared;
     uint64_t session_id;
     uint64_t controlling_tty;
     uint64_t pid;
@@ -423,7 +424,11 @@ static bool process_apply_stdio_fds(struct process *process,
  * instructions exact; unexpected host entry must fail rather than emulate it. */
 #ifdef SRVROS_PROCESS_HOST_TEST
 #define PROCESS_ARCH_STI() __builtin_trap()
+#ifdef SRVROS_PRIVATE_LIFECYCLE_HOST_TEST
+#define PROCESS_ARCH_HALT() process_private_test_halt()
+#else
 #define PROCESS_ARCH_HALT() __builtin_trap()
+#endif
 #else
 #define PROCESS_ARCH_STI() __asm__ volatile ("sti" : : : "memory")
 #define PROCESS_ARCH_HALT() __asm__ volatile ("hlt")
@@ -551,6 +556,19 @@ bool process_resolve_user_binding(void *candidate, void *worker,
         .kernel_stack_frames=thread?0:process->kernel_stack_frames,
         .new_worker_allowed=!process->killed && !process->exiting};
     return true;
+}
+
+bool process_admit_prepared_child(void *parent,void *candidate,uint64_t generation,uint64_t root,
+    struct process_user_binding *out) {
+    struct process_user_binding binding;
+    if(!parent || candidate==parent || !process_resolve_user_binding(candidate,NULL,generation,root,&binding))return false;
+    struct process *p=candidate,*owner=parent;
+    if(!owner->allocated || !owner->active || p->parent_pid!=owner->pid ||
+       root==owner->address_space || !p->quiet || !p->detached || p->startup_ready ||
+       p->fork_resume || !p->entry || !p->stack_top || !binding.new_worker_allowed ||
+       !binding.kernel_stack_top || p->mapping_count>4096)return false;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(p->user_threads[i].used)return false;
+    *out=binding;return true;
 }
 
 bool process_admit_user_worker(void *candidate, void *worker, uint64_t generation,
@@ -908,9 +926,11 @@ static bool process_stream_cleanup(uint64_t owner) {
 #elif defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
     return file_stream_cleanup(owner);
 #else
+    uint64_t irq=process_irq_save();
+    if(!file_stream_owned(owner)) {process_irq_restore(irq);return true;}
     struct process_service_scope scope=process_service_begin();
-    if(!scope.held) { process_service_end(scope);return false; }
-    bool okay=file_stream_cleanup(owner);process_service_end(scope);return okay;
+    if(!scope.held) { process_service_end(scope);process_irq_restore(irq);return false; }
+    bool okay=file_stream_cleanup(owner);process_service_end(scope);process_irq_restore(irq);return okay;
 #endif
 }
 static void process_service_checkpoint(void) {
@@ -1930,7 +1950,7 @@ static bool validate_elf(const uint8_t *data, uint64_t size, const struct elf64_
 static bool map_process_page_mode(struct process *process, uint64_t virtual_page, uint64_t flags,bool service) {
     if (process == NULL || process->mapping_count >= PROCESS_MAX_MAPPINGS ||
         (process->mapping_count && !process->mappings)) {
-        if(service)console_printf("run: map page rejected process=%x count=%u limit=%u virt=%x\n",
+        if(service && (!process || !process->private_build))console_printf("run: map page rejected process=%x count=%u limit=%u virt=%x\n",
             (uint64_t)process,
             process != NULL ? process->mapping_count : 0,
             (uint64_t)PROCESS_MAX_MAPPINGS,
@@ -1960,13 +1980,13 @@ static bool map_process_page_mode(struct process *process, uint64_t virtual_page
         PROCESS_USER_PAGE_MIN_PHYSICAL,
         PMM_FRAME_USER);
     if (physical == 0) {
-        if(service)console_printf("run: map page pmm exhausted virt=%x\n", virtual_page);
+        if(service && (!process || !process->private_build))console_printf("run: map page pmm exhausted virt=%x\n", virtual_page);
         return false;
     }
 
     zero_page(pmm_phys_to_virt(physical));
     if (!vmm_map_page_in_space(process->address_space, virtual_page, physical, flags)) {
-        if(service)console_printf("run: map page failed as=%x virt=%x phys=%x flags=%x count=%u\n",
+        if(service && (!process || !process->private_build))console_printf("run: map page failed as=%x virt=%x phys=%x flags=%x count=%u\n",
             process->address_space,
             virtual_page,
             physical,
@@ -2044,7 +2064,10 @@ static void cleanup_process_mappings(struct process *process) {
      * remains in the live tracking prefix, including failure/rollback cleanup. */
     unsigned batch=0;
     while(process->mapping_count) {
-        process_unmap_mapping_at(process,process->mapping_count-1);
+        if(process->private_retiring) {
+            uint64_t page=process->mappings[process->mapping_count-1].virtual_address;
+            if(!process_unmap_tracked_page_checked(process,page))for(;;)PROCESS_ARCH_HALT();
+        } else process_unmap_mapping_at(process,process->mapping_count-1);
         if(!(++batch&31))process_service_checkpoint();
     }
     struct process_mapping *retired=process->mappings;
@@ -2125,7 +2148,7 @@ static bool load_segment(struct process *process, const uint8_t *file, uint64_t 
     if (program->memsz < program->filesz ||
         program->offset > file_size ||
         program->filesz > file_size - program->offset) {
-        console_printf("run: bad segment off=%x filesz=%x memsz=%x file=%x\n",
+        if(!process->private_build)console_printf("run: bad segment off=%x filesz=%x memsz=%x file=%x\n",
             program->offset,
             program->filesz,
             program->memsz,
@@ -2181,7 +2204,7 @@ static bool map_user_stack(struct process *process, uint64_t stack_top) {
     return true;
 }
 
-static bool choose_process_stack_top(uint64_t image_end, uint64_t requested_stack_top, uint64_t *stack_top_out) {
+static bool choose_process_stack_top(uint64_t image_end, uint64_t requested_stack_top, uint64_t *stack_top_out,bool quiet) {
     uint64_t stack_size = USER_STACK_PAGES * PAGE_SIZE;
     uint64_t guard_size = USER_STACK_GUARD_PAGES * PAGE_SIZE;
     uint64_t stack_top = requested_stack_top;
@@ -2201,7 +2224,7 @@ static bool choose_process_stack_top(uint64_t image_end, uint64_t requested_stac
     }
     stack_bottom = stack_top - stack_size;
     if (page_up(image_end) + guard_size > stack_bottom) {
-        console_printf("run: image too large for user stack image_end=%x stack_bottom=%x\n",
+        if(!quiet)console_printf("run: image too large for user stack image_end=%x stack_bottom=%x\n",
             image_end,
             stack_bottom);
         return false;
@@ -2223,7 +2246,7 @@ static bool process_capture_tls_template(struct process *process,
         program->memsz > PROCESS_TLS_TEMPLATE_MAX ||
         program->offset > file_size ||
         program->filesz > file_size - program->offset) {
-        console_printf("run: unsupported TLS filesz=%x memsz=%x\n",
+        if(!process->private_build)console_printf("run: unsupported TLS filesz=%x memsz=%x\n",
             program->filesz,
             program->memsz);
         return false;
@@ -2312,24 +2335,28 @@ static void process_release_thread_tls(struct process_user_thread *thread) {
     thread->tls_base=0;thread->tls_thread_pointer=0;
 }
 
-static int64_t load_elf_image_checked_impl(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
+struct process_exec_view { const struct vfs_node *node;const uint8_t *data;uint64_t size; };
+static int64_t load_elf_image_source(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out,const struct process_exec_view *view) {
     if (process == NULL || process->address_space != 0) {
         return SRV_ERR_NOMEM;
     }
     if (!vmm_create_address_space(&process->address_space)) {
-        console_write("run: failed to create address space\n");
+        if(!view)console_write("run: failed to create address space\n");
         return SRV_ERR_NOMEM;
     }
 
 
-    const struct vfs_node *node = vfs_lookup(path);
-    const uint8_t *data;
-    uint64_t size;
+    const struct vfs_node *node = view?view->node:vfs_lookup(path);
+    const uint8_t *data=view?view->data:NULL;
+    uint64_t size=view?view->size:0;
     const struct elf64_header *header;
 
     int64_t error = node == NULL ? SRV_ERR_NOENT :
         node->type != VFS_NODE_FILE || !(node->metadata.mode & 0111) ? SRV_ERR_ACCES : 0;
-    if (!error && !vfs_read_all(node, &data, &size)) error = SRV_ERR_IO;
+    if (!error && !view && !vfs_read_all(node, &data, &size)) error = SRV_ERR_IO;
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PRIVATE_LIFECYCLE_HOST_TEST)
+    if(!error && view)vfs_note_read(node);
+#endif
     if (error) {
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
@@ -2337,8 +2364,8 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
     }
 
     if (!validate_elf(data, size, &header)) {
-        console_printf("run: invalid executable: %s\n", path);
-        vfs_release_data(node, data);
+        if(!view)console_printf("run: invalid executable: %s\n", path);
+        if(!view)vfs_release_data(node, data);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
         return SRV_ERR_NOEXEC;
@@ -2360,8 +2387,8 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
         }
     }
 
-    if (!choose_process_stack_top(image_end, stack_top, &stack_top)) {
-        vfs_release_data(node, data);
+    if (!choose_process_stack_top(image_end, stack_top, &stack_top,view!=NULL)) {
+        if(!view)vfs_release_data(node, data);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
         return SRV_ERR_NOMEM;
@@ -2369,8 +2396,8 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
 
     for (uint64_t i = 0; i < header->phnum; i++) {
         if (programs[i].type == PT_LOAD && !load_segment(process, data, size, &programs[i])) {
-            console_printf("run: failed to load segment %u\n", i);
-            vfs_release_data(node, data);
+            if(!view)console_printf("run: failed to load segment %u\n", i);
+            if(!view)vfs_release_data(node, data);
             cleanup_process_mappings(process);
             vmm_destroy_address_space(process->address_space);
             process->address_space = 0;
@@ -2380,7 +2407,7 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
 
     if (tls_program != UINT64_MAX &&
         !process_capture_tls_template(process, data, size, &programs[tls_program])) {
-        vfs_release_data(node, data);
+        if(!view)vfs_release_data(node, data);
         cleanup_process_mappings(process);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
@@ -2388,8 +2415,8 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
     }
 
     if (!process_setup_tls_block(process, 0, &process->tls_base, &process->tls_thread_pointer)) {
-        console_write("run: failed to map TLS block\n");
-        vfs_release_data(node, data);
+        if(!view)console_write("run: failed to map TLS block\n");
+        if(!view)vfs_release_data(node, data);
         cleanup_process_mappings(process);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
@@ -2397,8 +2424,8 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
     }
 
     if (!map_user_stack(process, stack_top)) {
-        console_write("run: failed to map user stack\n");
-        vfs_release_data(node, data);
+        if(!view)console_write("run: failed to map user stack\n");
+        if(!view)vfs_release_data(node, data);
         cleanup_process_mappings(process);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
@@ -2412,8 +2439,12 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
     process->program_break = process->heap_base;
     process->mapped_break = process->heap_base;
     process->heap_limit = stack_top - (USER_STACK_PAGES * PAGE_SIZE) - (USER_STACK_GUARD_PAGES * PAGE_SIZE);
-    vfs_release_data(node, data);
+    if(!view)vfs_release_data(node, data);
     return 0;
+}
+
+static int64_t load_elf_image_checked_impl(const char *path,struct process *p,uint64_t top,uint64_t *entry) {
+    return load_elf_image_source(path,p,top,entry,NULL);
 }
 
 static int64_t load_elf_image_checked(const char *path,struct process *process,uint64_t stack_top,uint64_t *entry_out) {
@@ -2526,8 +2557,18 @@ static void cleanup_process_address_space(struct process *process) {
 }
 
 static bool enter_process(struct process *process, const char *label) {
+    if(process->private_prepared)(void)process_irq_save();
     uint64_t restored = process_context_save(&process->context);
     if (restored == 0) {
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PRIVATE_LIFECYCLE_HOST_TEST)
+        if(process->private_prepared) {
+            if(!scheduler_enter_prepared_process(process,process->address_space,process->kernel_stack_top,process->image_generation)) {
+                scheduler_io_set_user_safe(false);scheduler_io_wait();
+                scheduler_set_user_context(process,process->address_space,process->kernel_stack_top,process->image_generation);
+            }
+            process->private_prepared=false;
+        } else
+#endif
         scheduler_set_user_context(process, process->address_space, process->kernel_stack_top, process->image_generation);
         if (!process->quiet) {
             console_printf("%s: entering pid=%u %s entry=%x stack=%x\n",
@@ -2546,6 +2587,7 @@ static bool enter_process(struct process *process, const char *label) {
 #endif
             usermode_resume(&process->fork_frame,process->tls_thread_pointer);
         }
+        if(process_should_exit_current())process_exit(process_current_kill_status());
         usermode_enter(process->entry,
             process->stack_top,
             process->argc,
@@ -2554,8 +2596,10 @@ static bool enter_process(struct process *process, const char *label) {
             process->tls_thread_pointer);
     }
 
-    scheduler_clear_user_context();
-    PROCESS_ARCH_STI();
+    if(!process->private_retiring) {
+        scheduler_clear_user_context();
+        PROCESS_ARCH_STI();
+    }
     return process->exit_status == 0;
 }
 
@@ -2702,7 +2746,7 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     return status;
 }
 
-int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
+static int64_t process_spawn_exec_source(uint64_t scope_token,const char *path,
     uint64_t argc,
     const char *const *argv,
     uint64_t envc,
@@ -2717,7 +2761,7 @@ int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
     uint64_t file_action_count,
     uint64_t signal_flags,
     uint64_t signal_mask,
-    uint64_t signal_default) {
+    uint64_t signal_default,const struct process_exec_view *view) {
     struct process *parent = process_current();
     if (parent == NULL || path == NULL || path[0] == '\0') {
         return SRV_ERR_INVAL;
@@ -2728,16 +2772,17 @@ int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
 
     struct process *child = alloc_process_lifetime(path, detached, scope_token);
     if (child == NULL) {
-        console_write("exec: process table full\n");
+        if(!view)console_write("exec: process table full\n");
         return SRV_ERR_AGAIN;
     }
     if (!allocate_kernel_stack(child)) {
-        console_write("exec: kernel stack alloc failed\n");
+        if(!view)console_write("exec: kernel stack alloc failed\n");
         release_process(child);
         return SRV_ERR_NOMEM;
     }
 
-    int64_t error=load_spawn_image_checked(parent,child,path);
+    child->private_build=view!=NULL;
+    int64_t error=view?load_elf_image_source(path,child,USER_STACK_TOP,&child->entry,view):load_spawn_image_checked(parent,child,path);
     if(!error && !setup_process_vectors(child,argc,argv,envc,envp)) error=SRV_ERR_NOMEM;
     if(!error) error=process_prepare_image(child);
     if(!error && (signal_flags&SRV_EXEC_INHERIT_FILES)) {
@@ -2776,8 +2821,14 @@ int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
     if (detached) {
         uint64_t pid = child->pid;
         child->quiet = true;
-        if (!scheduler_spawn("user", background_process_thread, child)) {
-            console_write("exec: scheduler admission failed (stack/storage resources)\n");
+        child->private_build=false;child->private_prepared=view!=NULL;
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PRIVATE_LIFECYCLE_HOST_TEST)
+        if (!(view?scheduler_spawn_prepared_process("user",background_process_thread,child,child->address_space,child->image_generation):
+                    scheduler_spawn("user", background_process_thread, child))) {
+#else
+        if (!scheduler_spawn("user",background_process_thread,child)) {
+#endif
+            if(!view)console_write("exec: scheduler admission failed (stack/storage resources)\n");
             cleanup_process_address_space(child);
             cleanup_process_files(child);
             release_process(child);
@@ -2809,6 +2860,16 @@ int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
     release_process(child);
     return status;
 }
+
+int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,uint64_t argc,const char *const *argv,
+    uint64_t envc,const char *const *envp,bool detached,int64_t in,int64_t out,int64_t err,
+    uint64_t group,bool foreground,const struct process_spawn_file_action *actions,uint64_t count,
+    uint64_t flags,uint64_t mask,uint64_t defaults) {
+    return process_spawn_exec_source(scope_token,path,argc,argv,envc,envp,detached,in,out,err,group,foreground,
+        actions,count,flags,mask,defaults,NULL);
+}
+
+#include "process_private_spawn.inc"
 
 int64_t process_spawn_exec(const char *path,uint64_t argc,const char *const *argv,
     uint64_t envc,const char *const *envp,bool detached,int64_t stdin_fd,
@@ -2977,9 +3038,11 @@ static void background_process_thread(void *arg) {
     }
     release_process_runtime(process);
     process_notify_parent_child_exit(process);
+    bool atomic=process->private_retiring;
     /* No access to process after publication: another thread may reap it. */
     process->reapable = true;
     scheduler_wake_all(&process_wait_queue);
+    if(atomic)scheduler_exit_current();
 }
 
 /* Eager cloning is intentional for the first CLI fork profile. There is no
@@ -4331,7 +4394,12 @@ static bool process_last_user_thread_done(void *arg) {
     return true;
 }
 
+#include "process_private_retirement.inc"
+
 void process_thread_exit(uint64_t value) {
+    (void)process_irq_save();
+    bool atomic=process_private_thread_retire();
+    if(!atomic) {scheduler_io_set_user_safe(false);scheduler_io_wait();}
     struct process_user_thread *thread = process_current_user_thread();
     if (thread == NULL || thread->owner == NULL) {
         struct process *process = process_current();
@@ -4363,12 +4431,17 @@ void process_thread_exit(uint64_t value) {
     thread->return_value = value;
     thread->active = false;
     scheduler_wake_all(&thread->owner->thread_wait_queue);
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PRIVATE_LIFECYCLE_HOST_TEST)
+    if(atomic) {
+        if(!scheduler_clear_user_context_private(thread->owner))for(;;)PROCESS_ARCH_HALT();
+    } else
+#endif
     scheduler_clear_user_context();
     process_release_thread_tls(thread);
     if (thread->detached) {
         thread->used = false;
     }
-    process_irq_restore(1ull << 9);
+    if(!atomic)process_irq_restore(1ull << 9);
     scheduler_exit_current();
 }
 
@@ -8814,6 +8887,7 @@ static int64_t process_msync_impl(struct process *process,
 }
 
 static void process_exit_gate(void) {
+    if(process_private_exit_admit())return;
     /* A parked initial thread can resume here after a worker fault. Keep the
      * gate and teardown indivisible even when that continuation enabled IRQs. */
     (void)process_irq_save();
@@ -8867,6 +8941,11 @@ void process_exit(uint64_t status) {
     console_release_framebuffer_mute_owner(process->pid);
     net_process_cleanup(process);
     process->active = false;
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PRIVATE_LIFECYCLE_HOST_TEST)
+    if(process->private_retiring) {
+        if(!scheduler_clear_user_context_private(process))for(;;)PROCESS_ARCH_HALT();
+    } else
+#endif
     scheduler_clear_user_context();
     process->image_generation=0;
     cleanup_process_address_space(process);
