@@ -947,6 +947,7 @@ void kmain(void) {
     if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
     if(cmdline_has_token(cmdline,"srvros.capture-write-timing=on")) {
         console_printf("capture-write-timing: enabled=%s capacity=8\n",process_capture_write_timing_enable()?"yes":"NO");
+        console_printf("launch-trace: enabled=%s\n",scheduler_launch_trace_enable()?"yes":"NO");
         console_printf("sync-timing: enabled=%s capacity=8\n",sync_timing_enable()?"yes":"NO");
     }
     workspace_boot(cmdline);
