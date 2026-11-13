@@ -9,6 +9,12 @@ Dated sections retain the bring-up history.
 
 ### Request/ACK tracing implemented; native qualification next (November13)
 
+The merged sidecar fixture initially assumed a 64KiB backing array, conflicting
+with this branch's pre-existing larger Wi-Fi capture reservation. Its integration
+check now verifies that reservation separately and asserts the original ordinary
+64KiB limit both before and after sidecar sampling. No runtime buffer or limit
+changed; the initial shared-suite refusal remains failed evidence.
+
 Merged main6d107ae1's empty-stack/status and live filesystem-sample changes in
 6a018b58, retaining both workspace-log dependency sets and both filesystem
 guide sections. New [DHCP comparisons](../wifi-dhcp-identity5.md) witness current

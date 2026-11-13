@@ -98,7 +98,10 @@ void console_printf(const char *fmt,...) {
 }
 void console_write(const char *text) { (void)text;total++; }
 static void test_sidecar_retention(void) {
-    assert(sizeof(snapshot)==65536);
+    /* The Wi-Fi capture profile reserves a larger backing array. Ordinary
+     * logging and sidecar sampling must retain their original 64 KiB limit. */
+    assert(sizeof(snapshot)==BOOTLOG_CAL5_CAPTURE_CAPACITY);
+    assert(snapshot_limit==BOOTLOG_DEFAULT_CAPACITY && snapshot_limit==65536);
     sidecar_fixture=(struct exfat_sidecar_trace){.checks=10,.equal=4,.changed=6,.retained_bytes=4096};
     pcm_fixture=(struct srv_pcm_status){.version=SRV_PCM_VERSION,.state=SRV_PCM_PLAYING,.handle=11,.position_bytes=4};pcm_owner=9;
     clock_us=1000;
@@ -126,6 +129,7 @@ static void test_sidecar_retention(void) {
     sidecar_fixture=(struct exfat_sidecar_trace){0};pcm_fixture=(struct srv_pcm_status){.version=SRV_PCM_VERSION};pcm_owner=0;
     clock_us=0;sidecar_reports=emitted_sidecar_count=0;
     /* Leave a prior stream behind: the real start_log below must clear it. */
+    assert(snapshot_limit==BOOTLOG_DEFAULT_CAPACITY && snapshot_limit==65536);
     puts("sidecar-retention: PASS original clocks and immutable copies; incomplete/post-PCM/growth refusal; handle/owner boundaries;64KiB unchanged");
 }
 int main(void) {
