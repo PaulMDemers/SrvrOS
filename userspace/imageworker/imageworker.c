@@ -40,7 +40,7 @@ static unsigned load(const char *path,uint32_t **pixels,uint32_t *width,uint32_t
     }
     munmap(data,size);return result;
 }
-int main(void) {
+static int worker_main(void) {
     srv_signal_config(SIGPIPE,SRV_SIGNAL_IGNORE);
     for(;;) {
         struct desk_image_request q;
@@ -54,4 +54,13 @@ int main(void) {
         image_decode_free(pixels);if(failed) break;
     }
     return 0;
+}
+
+/* Retire the protocol endpoints through the existing validated close syscall
+ * before exit. This retains ordinary fallback for non-simple descriptors and
+ * lets the unchanged resource-free exit proof succeed for normal helpers. */
+int main(void) {
+    int result=worker_main();
+    long input=srv_close(0),output=srv_close(1);
+    return result?result:(input<0 || output<0?1:0);
 }

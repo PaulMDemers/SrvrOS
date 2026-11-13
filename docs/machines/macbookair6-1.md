@@ -14011,3 +14011,25 @@ implementation and refusal/failure/cleanup regressions, then matched full local
 qualification and the original automated1800-second1% native stress with three
 screenshots,500ms loop and10s whole-app limit. Ubuntu/current/recovery and raw
 failed/accepted evidence stay protected; no reboot is armed by this scope notice.
+
+
+The candidate uses a small `deskclient --launch-owner` mode with private
+nonblocking fd3/fd4 channels, exact profile/vectors, real parent ownership and
+explicit child ledgers. The lifecycle worker serializes launch/wait IPC; the UI
+never waits on it during ordinary dispatch. EOF/lost replies retain server-owned
+child cleanup and final wait; normal shutdown requires empty ledgers and a joined
+zero-status server. The existing process-table capacity and4096 mapping/image
+bounds remain unchanged. A separately proved empty-argument helper attempt
+retains immutable source, simple pipe/no-rights/ref-headroom proofs and IF0
+rollback without global rights collection. Pipe SETFL has a scalar-only attempt;
+other operations retain the ordinary gate. File/image/screenshot helpers close
+protocol stdin/stdout using the existing validated syscall before exit, keeping
+general resource retirement strict. The [ownership contract](../desktop-launch-owner.md)
+records the full scope and refusal behavior.
+
+Initial protocol, real private-spawn/pipe rollback, syscall fallback and desktop
+regressions pass. Broad compile preflight found an unused native-only predicate
+in host fixtures; it was made inline without changing its proof. The initial
+failure log remains retained. Fresh frozen-source builds/full tests, loaded and
+profile-switch guests and exact native staging remain pending; no native latency
+or new hardware acceptance is claimed at this checkpoint.

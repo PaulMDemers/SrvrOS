@@ -1980,6 +1980,10 @@ static void service(struct session *s) {
                 }
             }
             (void)life_reap_take(s->worker,*session_children(s,i),&waited,&status);
+        } else if(s->worker && s->worker->owner.pid && desk_launch_index(s->worker->owner.children,*session_children(s,i))>=0) {
+            /* Only the launch owner can reap this child. Keep IPC off the UI
+             * while the worker runs; after join shutdown owns the channel. */
+            if(life_state(&s->worker->stop))waited=desk_launch_owner_wait(&s->worker->owner,*session_children(s,i),&status,SRV_WAIT_NOHANG);
         } else waited=srv_wait((*session_children(s,i)),&status,SRV_WAIT_NOHANG);
         uint64_t elapsed=(uint64_t)srv_monotonic_us()-began;
         if(elapsed>50000)desk_log("desktop-reap: elapsed_us=%llu\n",(unsigned long long)elapsed);
@@ -2392,7 +2396,7 @@ int main(int argc,char **argv) {
     if(life_start(&worker,1)){gfx_console_mute(0);return 1;}s.worker=&worker;s.startup_trace=audio_io;ui_logger=&worker;
     static struct capture_worker capture_worker;
     if(capture_owner_start(&capture_worker)) {
-        ui_logger=NULL;(void)life_stop(&worker);gfx_console_mute(0);return 1;
+        ui_logger=NULL;(void)life_stop(&worker);(void)desk_launch_owner_finish(&worker.owner);gfx_console_mute(0);return 1;
     }
     s.capture_owner=&capture_worker;
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
@@ -3455,9 +3459,9 @@ int main(int argc,char **argv) {
             /* A storage wait can cross the grace deadline after the client
              * exits. Reap that completion before treating it as a forced kill. */
             uint64_t status=0,pid=(*session_children(&s,i));
-            long waited=srv_wait(pid,&status,SRV_WAIT_NOHANG);
+            long waited=desk_launch_owner_wait(&worker.owner,pid,&status,SRV_WAIT_NOHANG);
             if(waited!=(long)pid) {
-                srv_kill(pid);waited=srv_wait(pid,&status,0);
+                srv_kill(pid);waited=desk_launch_owner_wait(&worker.owner,pid,&status,0);
                 if(coexist) failed=1;
             }
             if(waited==(long)pid) {
@@ -3514,6 +3518,12 @@ int main(int argc,char **argv) {
         desk_capture_job_close(&s.capture);
     }
     cache_free(&s);life_work(&worker);lifecycle_poll(&s);s.worker=NULL;
+    long owner_pid=worker.owner.pid;
+    int owner_result=desk_launch_owner_finish(&worker.owner);
+    desk_log("desktop-launch-owner: version=1 pid=%lld launches=%llu reaps=%llu retired=%u errors=%u\n",
+        (long long)owner_pid,(unsigned long long)worker.owner.launches,(unsigned long long)worker.owner.reaps,
+        !worker.owner.pid,owner_result!=0);
+    if(owner_result)failed=1;
     unsigned retained=0;
     for(unsigned n=0;n<2;n++)retained+=s.retained_cache[n].job!=NULL;
     if(s.cache_bytes || retained)failed=1;

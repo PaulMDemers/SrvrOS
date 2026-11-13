@@ -152,7 +152,7 @@ static void perform(const struct desk_file_request *q,struct desk_file_response 
     if(r->status) r->length=r->count=0;
     r->crc=desk_file_crc(output,r->length);
 }
-int main(void) {
+static int worker_main(void) {
     srv_signal_config(SIGPIPE,SRV_SIGNAL_IGNORE);
     for(;;) {
         struct desk_file_request q;
@@ -163,4 +163,13 @@ int main(void) {
         struct desk_file_response r;perform(&q,&r);
         if(transfer(1,&r,sizeof(r),1) || (r.length && transfer(1,output,r.length,1))) return 0;
     }
+}
+
+/* Retire the protocol endpoints through the existing validated close syscall
+ * before exit. This retains ordinary fallback for non-simple descriptors and
+ * lets the unchanged resource-free exit proof succeed for normal helpers. */
+int main(void) {
+    int result=worker_main();
+    long input=srv_close(0),output=srv_close(1);
+    return result?result:(input<0 || output<0?1:0);
 }

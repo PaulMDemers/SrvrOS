@@ -11,6 +11,10 @@ static void test_registry_free(void *p,size_t bytes);
 #include "../userspace/deskd/deskd.c"
 #undef main
 
+long srv_write(int fd,const void *p,size_t n){(void)fd;(void)p;(void)n;assert(!"unexpected owner IPC");return -1;}
+long srv_read(int fd,void *p,size_t n){(void)fd;(void)p;(void)n;assert(!"unexpected owner IPC");return -1;}
+long srv_poll(struct srv_pollfd *p,size_t n,int64_t timeout){(void)p;(void)n;(void)timeout;assert(!"unexpected owner IPC");return -1;}
+
 /* This scene fixture never starts a persistence helper. Final-save helper
  * restart and retirement are exercised by test_preferences_finish.c. */
 int desk_file_job_init(struct desk_file_job *job) {(void)job;assert(!"unexpected file helper start");return -1;}

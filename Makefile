@@ -5273,3 +5273,12 @@ build/tests/exfat-memory-view-host$(HOST_EXE): tools/test_exfat_memory_view.c ke
 test-core: test-launch-gate-trace
 test-launch-gate-trace: $(LIMINE_PROTOCOL_DIR)/.ready
 	SRVROS_LIMINE_INCLUDE="$(LIMINE_PROTOCOL_DIR)/include" CC="$(HOST_CC)" $(PYTHON) tools/test_launch_gate_trace.py
+
+.PHONY: test-desk-launch-owner
+test-desk-launch-owner: build/tests/desk-launch-owner-host$(HOST_EXE)
+	$<
+build/tests/desk-launch-owner-host$(HOST_EXE): tools/test_desk_launch_owner.c userspace/lib/include/srvros/desk_launch_owner.h $(SHARED_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< -o $@
+test-core test-desktop: test-desk-launch-owner
+build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ) $(DESKCLIENT_OBJ): userspace/lib/include/srvros/desk_launch_owner.h
