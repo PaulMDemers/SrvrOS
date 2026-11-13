@@ -14416,3 +14416,30 @@ Fetched main is `6d107ae1`; PR19 `26e25ced`, PR301 `c75328eb` and PR379
 inside the retained control interval, especially report handoff and nonblocking
 child-wait admission, alongside the remaining screenshot write costs. The cause
 is not yet proved, and this review implements no speculative fix or new test run.
+
+## Active desktop control-phase attribution (2026-11-13)
+
+From fetched main `0e3e86ae`, trace the internally unattributed 411.886 ms control
+interval in the prior accepted native 419.979 ms worst loop. The previous run is
+fully reviewed and sealed, current `772f95d189e4dcfc` and recovery
+`c35475f62f154f1e` are protected, and no reboot is armed.
+
+Bounded scope: fixed current/worst-loop control records with disjoint report,
+audio-control and I/O-trial wall/scheduler intervals, inner snapshot/submission/
+nonblocking-child-wait/notice clocks and explicit execution/result fields; emit
+from the existing report worker and preserve exact sequence/clock joins through
+rotation and final logging. Add strict producer/parser/retention regressions and
+require the new companion in loaded and native stress assessment. No timing,
+queue, row, log, cadence, workload, ownership or integrity limit changes; no
+speculative optimization. The original 1800-second 1% workload, 500 ms loop,
+ten-second whole-app cycle and all media/retirement checks remain required.
+
+PR19 `04b7b381` changes only separate Wi-Fi trial setup in deskd, not this loop
+bracket. PR301 `0abd2338` has no competing edits in the loop sources; its large
+Makefile scope stays independent. PR379 `817f80bb` owns WebCore audit. Publish
+this scope before implementation; inspect actual heads again before merging,
+import no unmerged scope and contact no other task. Next checkpoint is reviewed
+bounded instrumentation and failure/sequence/row-budget regressions, then frozen
+matched builds, local tests, loaded/exact-stage rehearsals, guarded installation,
+self-merge and a saved/sealed one-shot automated native boot under the user's
+existing explicit authorization. Native attribution awaits matching new evidence.
