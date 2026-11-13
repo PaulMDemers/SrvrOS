@@ -13985,3 +13985,29 @@ ownership scope. No other task was contacted. This results update changes no
 runtime source, limits, integrity checks, stage or installed payload, and starts
 no next reboot. Native trace observation is accepted for this scoped run; full
 workload/performance acceptance is failed and sibling acceptance is unchanged.
+
+
+### Active small launch owner and pipe-helper audit (2026-11-13)
+
+From actual main `5a950ce4`, address the measured oversized-desktop exec fallback
+and legacy helper49/pipe SETFL waits. The prior failed run is independently
+reviewed and sealed. Audit a small dedicated userspace owner for app creation
+and reaping, with bounded private IPC, explicit child ownership, cancellation,
+EOF handling and joined shutdown; retain normal standard descriptors and exact
+profile/vector propagation. The compositor must keep launching during screenshot
+and disk load with the original cadence and whole-cycle clocks. Neither the
+4096 parent/image bounds nor any ownership, callback, retirement, workload or
+integrity check may be weakened. Audit a separate strict simple-pipe helper
+attempt after copied request validation, with ordinary fallback for every refusal.
+
+Touched scope: desktop lifecycle/launch owner, helper library/process/syscall
+admission, strict pipe metadata control and host/VM regressions, matched staging
+and this unit's guides. PR19 at `cad9f4f7` owns kernel-origin lifetime pipe-handoff
+and Wi-Fi/network changes; this work must preserve those distinct constructors
+and not import their unmerged scope. PR301 at `e1ac4092` owns separate scanout/
+user-scope owner-loss changes. Inspect actual overlapping hunks before merging;
+no other task or subagent is contacted. Next checkpoint is a reviewed bounded
+implementation and refusal/failure/cleanup regressions, then matched full local
+qualification and the original automated1800-second1% native stress with three
+screenshots,500ms loop and10s whole-app limit. Ubuntu/current/recovery and raw
+failed/accepted evidence stay protected; no reboot is armed by this scope notice.
