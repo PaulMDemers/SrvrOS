@@ -30,6 +30,9 @@ struct net_device_ops {
 };
 bool net_device_register(const struct net_device_ops *ops);
 bool net_device_select(void);
+/* Callback-free registry proof. Caller keeps IF0 through its use; even a
+ * retired registration refuses, since its metadata belongs to the provider. */
+bool net_device_registry_empty(void);
 /* CPU0 retirement: identity is the registered (context,send) pair. Blocks new
  * callbacks immediately; false means unknown identity or references still held.
  * Retry after callbacks unwind. True is idempotent and releases this

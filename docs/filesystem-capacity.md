@@ -194,3 +194,32 @@ not physical bytes saved. Strict collection requires complete non-overflowing
 counters, no refused proofs/flush errors, and positive equality exercise. The
 Air6,1 trial additionally requires counter growth inside live PCM playback.
 Legacy cost output and other profiles' retention models/limits stay unchanged.
+
+## Retaining live sidecar-equality evidence
+
+Ordinary workspace logs still use two alternating 64 KiB periodic files at the
+original ten-second cadence. When sync diagnostics are enabled, the logger keeps
+two fixed immutable sidecar observations: the first complete equality snapshot
+during playing/draining PCM with a positive playback position, and the latest
+complete snapshot for that same owner/handle with equality growth. Active,
+refused, invalid, failed-flush, inconsistent, in-flight I/O or non-playing samples cannot replace
+those endpoints. A new logger lifetime or observed PCM identity resets retention.
+
+Final logging renders those copied counters and differences with their original
+sample timestamps after verbose diagnostics. It never resamples current counters
+under old clocks, grows the log buffer or skips media equality checks. The strict
+`sidecar_equality_window` validator still requires two distinct completed samples
+inside the actual workload's live PCM interval, positive equality growth and a
+completed post-playback snapshot. PCM-state observations select candidates; only
+the independent workload clocks establish temporal acceptance. Missing coverage
+still fails. Final cumulative counters, old releases and post-playback samples
+cannot supply a missing live endpoint.
+
+
+Air6,1 source `07b4efa7` / release `772f95d189e4dcfc` physically accepts this
+retention in the original native 30-minute stress workload: the final 64 KiB
+log alone contains both completed live endpoints and equality growth of 3,165,
+followed by completed post-playback evidence. Fresh full-file hashes, fsck and
+allocation checks pass. The earlier incomplete run remains incomplete; its
+missing sample is not supplied retroactively. No buffer, cadence, workload,
+retirement or integrity limit changes. See the [native return](machines/macbookair6-1.md#native-network-status-and-sample-retention-return-2026-11-13).

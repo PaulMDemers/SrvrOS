@@ -2758,6 +2758,13 @@ int64_t net_list(uint64_t index, struct srv_net_info *info) {
     return 0;
 }
 
+bool net_status_info_try_without_device(struct srv_net_status_info *info) {
+    if(!info || initialized || worker_started || !net_device_registry_empty())return false;
+    /* With IF0 held by the caller, inventory is empty and link is unreachable.
+     * The ordinary formatter reads only fixed boot-lifetime RAM tables. */
+    return net_status_info(info)==0;
+}
+
 int64_t net_status_info(struct srv_net_status_info *info) {
     if (info == 0) {
         return -1;

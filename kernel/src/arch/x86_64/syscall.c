@@ -3118,6 +3118,19 @@ static int64_t syscall_net_list(uint64_t index, struct srv_net_info *info) {
 }
 
 static int64_t syscall_net_status_info(struct srv_net_status_info *info) {
+    struct srv_net_status_info idle;
+    _Static_assert(sizeof(idle)<=1024,"bounded callback-free network snapshot");
+    uint64_t flags=irq_save();
+    if(net_status_info_try_without_device(&idle)) {
+        /* Keep IF0 across registry proof, fixed-table reads and the existing
+         * size-negotiated, mapping-revalidated copy. No heap or device work. */
+        int64_t result=copy_net_struct_to_user(info,&idle,sizeof(idle))?0:-1;
+        irq_restore(flags);return result;
+    }
+    irq_restore(flags);
+    uint64_t wait_at=scheduler_io_active()?latency_clock():0;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();latency_gate(wait_at,SYS_NET_STATUS_INFO);
+    if(process_should_exit_current())return SRV_ERR_INTR;
     struct srv_net_status_info *copy = kmalloc(sizeof(*copy));
     if (copy == NULL) {
         return -1;
@@ -3624,7 +3637,8 @@ void syscall_gate_trace(const struct isr_frame *frame) {
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
     case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: case SYS_MMAP: case SYS_THREAD_CREATE:
-    case SYS_EXEC: case SYS_EXIT: case SYS_THREAD_EXIT: case SYS_SPAWN_BG_ARGS_FDS: return true; /* Validated prelude, gated fallback. */
+    case SYS_EXEC: case SYS_EXIT: case SYS_THREAD_EXIT: case SYS_SPAWN_BG_ARGS_FDS:
+    case SYS_NET_STATUS_INFO: return true; /* Validated prelude, gated fallback. */
     case SYS_FCNTL: return frame->rsi==SRV_F_SETFL; /* Scalar pipe attempt; all other controls retain the original entry gate. */
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);

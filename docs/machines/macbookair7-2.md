@@ -2,6 +2,33 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
+### Active integration and source-bound engine-hold work
+
+The Air7,2 agent is integrating main `0e3e86ae` (PR492 status/sample retention
+and PR493 Air6,1 result) on this existing device branch after complete v33
+collection. The Makefile merge retains the requester and empty-network tests;
+the machine index retains this unit's evidence and the Air6,1 agent's newer
+independent result. Native acceptance remains exactly source `a7c84ce5`.
+
+Next bounded objective: a separately gated, original-source engine-control
+lifetime inside the maintained PCI requester child. Audit the documented
+five-engine RESET_CTL readiness handshake, retain original source/route/epoch,
+RAM/root/CPU exclusion, exercise a child only while all five requests are held,
+and restore exact controls before requester/source return. This fills the
+currently unheld engine-control interval; it must not reinterpret ready bits,
+PCI BME/AF status or snapshots as DMA/prefetch/cache/translation/display-reader
+completion. All 255 completion obligations and native memory refusal remain.
+
+Touched scope is a new typed diagnostic/adapter/receiver and host fixtures,
+optional image/recipe/pre-init wiring and current guides. Old protocols/images,
+ordinary desktop and 100/300/400/500 ms origins stay unchanged. Dependencies are
+the original source/RAM/transfer/requester registrations, exact captured
+Air7,2 profile and pinned Broadwell readiness documentation. Host/core/fault,
+actual-object and exact-stage VM qualification precede a hardware-ready label.
+PR19 MT7610 and PR379 WebCore remain independent; no task was contacted or
+subagent requested. Local checkpoint: `build/air-source-engine-hold-20261113`.
+Current accepted v33/recovery and USB evidence stay untouched; no trial is armed.
+
 ### Native v33 maintained requester lifetime accepted
 
 Frozen source `a7c84ce5`, release `6f8fea336425b123`, session
