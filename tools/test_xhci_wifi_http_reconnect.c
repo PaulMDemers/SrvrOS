@@ -101,6 +101,9 @@ static bool discard_closed_failure(void){assert(wifi_join5_after());return false
 static bool legacy_rf_parent(bool (*callback)(void),bool expected){
  (void)callback;(void)expected;return http5_test_RF_parent(discard_closed_failure,false);
 }
+static bool handoff_rf_parent(bool (*callback)(void),bool expected){
+ (void)expected;return http5_test_RF_parent(callback,false);
+}
 static bool no_target_parent(void){assert(wifi_http_reconnect5_unattempted() && !wifi_stream5.attempted);return true;}
 /* Inject only after production HTTP has emitted its proved first close.
  * No shortcut invokes the guard instead of the actual supervisor path. */
@@ -127,7 +130,8 @@ static void handoff_boundary(const char *fmt){
  if(trial_case==18 || trial_case==19){
   assert(wifi_fence5_empty());
   xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){
-   .parameter_low=(uint32_t)(uintptr_t)wifi_stream5.ring[1],.parameter_high=(uint32_t)((uintptr_t)wifi_stream5.ring[1]>>32),
+   .parameter_low=trial_case==18?(1u<<24):(uint32_t)(uintptr_t)wifi_stream5.ring[1],
+   .parameter_high=trial_case==18?0u:(uint32_t)((uintptr_t)wifi_stream5.ring[1]>>32),
    .status=1u<<24,.control=(trial_case==18?(34u<<10):((32u<<10)|(9u<<16)|(wifi_cal5.d->slot_id<<24)))|(xhci.event_cycle?1u:0u)};
  }else if(trial_case==20)xhci.command_pending=true;
  else if(trial_case==21)xhci.command_enqueue=56;
@@ -145,6 +149,7 @@ int main(int argc,char **argv){
  if(trial_case==15)stream_test_before_connection=no_target_parent;
  if(trial_case==16)stream_test_outer_capture=http5_test_RF_parent;
  if(trial_case==17)stream_test_outer_capture=legacy_rf_parent;
+ if(trial_case==18)stream_test_outer_capture=handoff_rf_parent;
  if(reconnect_seeded){for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)context_write32(wifi_cal5.d->output_context,d?8:9,i,reconnect_seed[d][i]);wifi_cal5.d->slot_id=(uint8_t)reconnect_slot;}
  http_reconnect_peer=true;http_reconnect_peer_no_fin=trial_case==5;reconnect_hook_count=0;reconnect_case_id=trial_case==1?5:0;
  connection_dhcp_fault=(trial_case==2 || trial_case==16 || trial_case==17)?53:trial_case==12?56:trial_case==13?58:trial_case==14?59:0;

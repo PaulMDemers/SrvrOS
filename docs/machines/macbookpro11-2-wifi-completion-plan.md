@@ -15,10 +15,16 @@ but no second preparation begins. Source flow localizes the refusal to the
 connection-next fence handoff after the first complete close receipt. RF inverse
 remains incomplete at2636; this is not a repeated missing-Offer symptom.
 Saved frontier49 has reserve at its snapshot; exact failing predicate is absent.
-A pending global event is only one hypothesis. Next audit/instrument controller,
-event, old-owner/fence and next-context checks and test actual-native boundary
-arrivals/refusals before another image. Keep all ownership/event/command gates
-and original budgets. No blind repeat is armed.
+The targeted audit now reproduces a queued global event at the first close
+receipt refusing at ring-empty reason41. The actual native HTTP callback
+composed with the actual RF engine also stops at2636 in that case. Command
+state/reserve, next-engine and closed-owner changes reproduce distinct guard
+refusals with the same outward one-connection result. Retained exact-predicate
+and event/command snapshots now distinguish these paths; see the
+[diagnostic map](../wifi-handoff5-refusal.md). No gate or budget is relaxed, no
+event is consumed, and no retry/reuse permission is added. The original hardware
+predicate was not logged and remains unproved. No new image or boot is armed;
+identify that predicate before proceeding with hardware.
 
 Full exit/seven checkpoints,479-file/strict metadata preservation,67-other-EFI,
 offline and eight-recovery checks pass. The corrected collector refuses the

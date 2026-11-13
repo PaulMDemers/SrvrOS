@@ -30,7 +30,18 @@ relaxed. The retained first-refusal snapshot and separate closure predicate are
 mapped in [the diagnostic reference](../wifi-handoff5-refusal.md). The additional
 revalidation tests inject a new event and fence/DMA/frontier/user changes during
 the close callback. This is native C path testing with modeled USB/AP/scheduler/
-child and parent fixtures, not a physical acceptance or full outer RF proof.
+child and parent fixtures, not physical acceptance. One strengthened case also
+composes the actual RF engine with the actual HTTP callback: guard reason41
+leaves the RF engine incomplete at2636, reproducing both observed symptoms.
+This does not prove which event or predicate occurred on hardware.
+Software qualification passes24 native HTTP cases normally and under ASan/UBSan,
+then all six strengthened boundary cases under a fresh sanitizer build with
+source hashes checked before/after. These include the coupled RF case, exact
+second-check event/fence/DMA/frontier/user mutations and refusal without reading
+a deliberately invalid event pointer on an earlier command-state failure.
+All18 saved-log checks and the freestanding kernel build pass. Accepted buffers
+remain retained; sanitizer leak reporting is disabled for that intentional
+fixture policy. No candidate is staged or installed.
 Hardware remains blocked because the historical failing predicate is unproved.
 
 
