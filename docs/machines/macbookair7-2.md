@@ -2,6 +2,19 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
+### Authorized native v33 trial
+
+The user authorized the automated trial of frozen source `a7c84ce5` / release
+`6f8fea336425b123`. Fresh preflight preserves all 1,500 files/156 sessions and
+passes offline media/recovery checks. Keep recovery `9aa8dbf6fbda8252`; show
+progress, save/unmount and return automatically on safe outcomes, with no human
+input and volume 1%. Unknown ownership halts visibly. No native pass is claimed.
+The local `build/air-source-requester-20261113/run.json` records actual install,
+one-shot and reboot state; collect its matching new session before another run.
+Fetched main `6d107ae1` (PR492 network-status/sample retention) is deferred to
+preserve the exact qualified runtime through collection. Older qualification
+and installed-state descriptions below precede this trial.
+
 ### Active implementation: maintained source requester
 
 The separate [v33 maintained source requester](../intel-source-requester.md) is
