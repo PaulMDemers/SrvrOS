@@ -44,11 +44,15 @@ pipe handoff in PR19 is a separate constructor and remains untouched.
 Only scalar SETFL with zero or NONBLOCK on a revalidated simple read/write pipe
 has an atomic metadata attempt. Other flags, descriptor families, queued rights
 and commands retain the ordinary gate and fresh handler lookup. No foreign I/O
-owner is borrowed, released or reclassified. General process exit and resource
-retirement retain their existing strict checks. File, image and screenshot
-helpers explicitly close their protocol stdin/stdout through the existing close
-syscall before exit. Simple endpoints can retire atomically; every non-simple
-close retains ordinary admission. Close failure remains a nonzero exit result.
+owner is borrowed, released or reclassified. General process exit retains the complete mapping, scheduler and callback-resource
+proofs. Its private retirement step first proves the entire FD set is standard
+metadata or live simple pipes with no queued rights. Only then does it close
+those pipes using the existing atomic close operation under the same IRQ
+exclusion, before resource-free retirement. Any VFS-backed stdio, queued rights
+or other descriptor keeps the original flush/cleanup gate. A post-proof close
+invariant failure fail-stops rather than invoking a generic callback under a
+foreign owner. User helpers keep their original exit/stdio semantics, including
+flushing shared redirected output before exit.
 
 Host regressions exercise actual protocol framing, exact profile/vector
 construction, foreign-PID and malformed-request refusal, readiness/short/

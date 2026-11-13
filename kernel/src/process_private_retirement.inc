@@ -56,7 +56,18 @@ static bool process_private_exit_admit(void) {
     /* Even a clean-looking VFS fd or a pipe with queued rights may flush on
      * final release. Retain all of those descriptors on the gated path. */
     for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++)if(p->files[i].used &&
-        (p->files[i].type!=PROCESS_FILE_STDIO || p->files[i].handle>2))goto refused;
+        (p->files[i].type!=PROCESS_FILE_STDIO || p->files[i].handle>2) &&
+        !process_private_closeable_pipe(&p->files[i]))goto refused;
+    /* Prove the complete resource set before changing any descriptor. Closing
+     * only these simple endpoints is the same audited atomic close operation;
+     * VFS-backed stdio must retain finish_process_files' explicit flush even
+     * while another process still owns a reference. Keep IF0 through the final
+     * resource-free exit, without global rights collection or callbacks. */
+    for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++)if(p->files[i].used &&
+        (p->files[i].type==PROCESS_FILE_PIPE_READ || p->files[i].type==PROCESS_FILE_PIPE_WRITE)) {
+        int64_t result;
+        if(!process_file_try_close_pipe(p,i,&result) || result)for(;;)PROCESS_ARCH_HALT();
+    }
     p->private_retiring=true;
     return true;
 refused:

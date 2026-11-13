@@ -5277,7 +5277,7 @@ test-launch-gate-trace: $(LIMINE_PROTOCOL_DIR)/.ready
 .PHONY: test-desk-launch-owner
 test-desk-launch-owner: build/tests/desk-launch-owner-host$(HOST_EXE)
 	$<
-build/tests/desk-launch-owner-host$(HOST_EXE): tools/test_desk_launch_owner.c userspace/lib/include/srvros/desk_launch_owner.h $(SHARED_HEADERS)
+build/tests/desk-launch-owner-host$(HOST_EXE): tools/test_desk_launch_owner.c userspace/lib/include/srvros/desk_launch_owner.h $(USER_SYSROOT_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< -o $@
 test-core test-desktop: test-desk-launch-owner

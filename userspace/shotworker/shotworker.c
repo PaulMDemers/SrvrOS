@@ -40,7 +40,7 @@ static void allocated(struct progress_writer *writer) {
         .status=CAPTURE_RECEIVE,.at_us=now>0?(uint64_t)now:0};
     if(transfer(1,&frame,sizeof(frame),1))writer->broken=1;
 }
-static int worker_main(void) {
+int main(void) {
     if(srv_signal_config(SIGPIPE,SRV_SIGNAL_IGNORE) ||
        srv_fcntl(0,SRV_F_SETFL,SRV_FD_NONBLOCK)<0 || srv_fcntl(1,SRV_F_SETFL,SRV_FD_NONBLOCK)<0)return 1;
     struct desk_capture_request q;
@@ -67,13 +67,4 @@ static int worker_main(void) {
 reply:
     { long now=srv_monotonic_us();r.at_us=now>0?(uint64_t)now:0; }
     return transfer(1,&r,sizeof(r),1)?1:0;
-}
-
-/* Retire the protocol endpoints through the existing validated close syscall
- * before exit. This retains ordinary fallback for non-simple descriptors and
- * lets the unchanged resource-free exit proof succeed for normal helpers. */
-int main(void) {
-    int result=worker_main();
-    long input=srv_close(0),output=srv_close(1);
-    return result?result:(input<0 || output<0?1:0);
 }

@@ -219,6 +219,7 @@ static void helper_and_flag_contract(void) {
     assert(syscall_spawn_bg_args_fds(path,"",11,12)==91 && busy && user_safe && close_waits==before);
     helper_private=false;
     assert(syscall_spawn_bg_args_fds(path,"",11,12)==92 && !busy && !user_safe && close_waits==before+1 && helper_attempts==2 && helper_slow==1);
+    assert(syscall_io_safe(&(struct isr_frame){.rax=SYS_FCNTL,.rsi=SRV_F_SETFL}));
     busy=user_safe=pipe_flags_private=true;before=close_waits;
     assert(!syscall_fcntl(10,SRV_F_SETFL,SRV_FD_NONBLOCK) && busy && user_safe && close_waits==before);
     pipe_flags_private=false;pipe_file.handle=123;
@@ -377,7 +378,7 @@ int main(void) {
 
     struct isr_frame traced={.cs=3,.rax=SYS_FCNTL,.rdi=10,.rsi=SRV_F_GETLK,.rdx=0xdeadbeef};
     pipe_file.type=PROCESS_FILE_PIPE_DUPLEX;pipe_file.flags=SRV_FD_NONBLOCK;busy=true;user_safe=false;trace_on=true;
-    syscall_gate_trace(&traced);assert(trace_fcntls==1 && syscall_io_safe(&traced) && busy && !user_safe);
+    syscall_gate_trace(&traced);assert(trace_fcntls==1 && !syscall_io_safe(&traced) && busy && !user_safe);
     traced.cs=0;syscall_gate_trace(&traced);assert(trace_fcntls==1);
     traced.cs=3;trace_on=false;syscall_gate_trace(&traced);assert(trace_fcntls==1);
     trace_on=true;traced.rax=SYS_EXEC;syscall_gate_trace(&traced);assert(trace_entries==1 && busy && !user_safe);

@@ -165,8 +165,12 @@ int main(void){
  struct process *helper=selected_arg;
  assert(helper->files[0].type==PROCESS_FILE_PIPE_READ && helper->files[1].type==PROCESS_FILE_PIPE_WRITE);
  assert(!(helper->files[0].flags&SRV_FD_CLOEXEC) && !helper->files[5].used && pipes[0].refs==refs+1 && pipes[1].refs==refs+1);
- assert(process_private_spawn_cleanup(helper));cleanup_process_address_space(helper);release_process(helper);
+ struct process *parent=subject;uint64_t parent_root=root;
+ subject=helper;root=helper->address_space;
+ if(!setjmp(exited)){selected_entry(helper);assert(0);}
+ assert(helper->reapable && !helper->active && !helper->files[0].used && !helper->files[1].used && helper->private_retiring);
  assert(pipes[0].refs==refs && pipes[1].refs==refs && !live_heap && allocations==freed_frames);
+ release_process(helper);subject=parent;root=parent_root;
  subject->files[5]=subject->files[6]=(struct process_file){0};
  assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==8 && notes==5 && prepared_calls==4);
  struct process *child=selected_arg;assert(child->mapping_count==USER_STACK_PAGES+1 && !child->private_retiring);

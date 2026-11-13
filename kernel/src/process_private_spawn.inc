@@ -1,13 +1,18 @@
 /* Private spawn may duplicate only existing simple endpoints. IF0 spans the
  * proof, image copy, refs and publication/rollback; no global rights collector
  * or generic descriptor release is allowed in this transaction. */
-static inline bool process_private_spawn_pipe(const struct process_file *f,bool writing) {
-    if(!f || f->type!=(writing?PROCESS_FILE_PIPE_WRITE:PROCESS_FILE_PIPE_READ))return false;
+static inline bool process_private_closeable_pipe(const struct process_file *f) {
+    if(!f || (f->type!=PROCESS_FILE_PIPE_READ && f->type!=PROCESS_FILE_PIPE_WRITE))return false;
     struct process_pipe *p=pipe_at(f->handle);
-    if(!p || !p->refs || !p->read_refs || !p->write_refs || p->refs>UINT64_MAX-2 ||
-       p->read_refs>UINT64_MAX-2 || p->write_refs>UINT64_MAX-2)return false;
+    if(!p || !p->refs || !(f->type==PROCESS_FILE_PIPE_WRITE?p->write_refs:p->read_refs))return false;
     for(unsigned i=0;i<PROCESS_PIPE_RIGHTS_QUEUE;i++)if(p->rights[i].used)return false;
     return true;
+}
+static inline bool process_private_spawn_pipe(const struct process_file *f,bool writing) {
+    if(!process_private_closeable_pipe(f) || f->type!=(writing?PROCESS_FILE_PIPE_WRITE:PROCESS_FILE_PIPE_READ))return false;
+    struct process_pipe *p=pipe_at(f->handle);
+    return p->read_refs && p->write_refs && p->refs<=UINT64_MAX-2 &&
+        p->read_refs<=UINT64_MAX-2 && p->write_refs<=UINT64_MAX-2;
 }
 static bool process_private_spawn_cleanup(struct process *child) {
     bool ok=true;

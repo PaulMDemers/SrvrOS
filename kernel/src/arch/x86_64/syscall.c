@@ -2351,9 +2351,11 @@ static int64_t syscall_poll_prepared(struct syscall_pollfd *user_fds,uint64_t nf
 #endif
 
 static int64_t syscall_fcntl(uint64_t fd, uint64_t command, uint64_t arg) {
-    int64_t result;
-    if(command==SRV_F_SETFL && process_file_try_set_pipe_flags(process_current(),fd,arg,&result))return result;
-    scheduler_io_set_user_safe(false);scheduler_io_wait();
+    if(command==SRV_F_SETFL) {
+        int64_t result;
+        if(process_file_try_set_pipe_flags(process_current(),fd,arg,&result))return result;
+        scheduler_io_set_user_safe(false);scheduler_io_wait();
+    }
     if(command==SRV_F_RESERVE_APPEND_RAM) {
 #if defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) || defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)
         return SRV_ERR_NOTSUP;
@@ -3619,7 +3621,8 @@ void syscall_gate_trace(const struct isr_frame *frame) {
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
     case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: case SYS_MMAP: case SYS_THREAD_CREATE:
-    case SYS_EXEC: case SYS_EXIT: case SYS_THREAD_EXIT: case SYS_SPAWN_BG_ARGS_FDS: case SYS_FCNTL: return true; /* Validated prelude, gated fallback. */
+    case SYS_EXEC: case SYS_EXIT: case SYS_THREAD_EXIT: case SYS_SPAWN_BG_ARGS_FDS: return true; /* Validated prelude, gated fallback. */
+    case SYS_FCNTL: return frame->rsi==SRV_F_SETFL; /* Scalar pipe attempt; all other controls retain the original entry gate. */
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
     case SYS_WAIT: return true; /* Validated retired-child claim; gated fallback. */

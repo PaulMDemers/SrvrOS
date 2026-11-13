@@ -14033,3 +14033,19 @@ in host fixtures; it was made inline without changing its proof. The initial
 failure log remains retained. Fresh frozen-source builds/full tests, loaded and
 profile-switch guests and exact native staging remain pending; no native latency
 or new hardware acceptance is claimed at this checkpoint.
+
+
+The first frozen attempt `dda8b6ff` is retained without native acceptance. Its
+focused suite caught the broadened fcntl entry classification; only SETFL now
+enters the scalar prelude, while reservation/lock/other commands retain their
+original entry gate. Review also caught that explicit user-side close of shared
+VFS stdout could lose exit's unconditional redirected-output flush. Those helper
+changes were removed. Instead, private exit first proves the complete existing
+mapping/scheduler/callback-resource contract and every FD; it atomically closes
+only proved simple pipes with no queued rights, then reaches the original
+resource-free retirement. A later VFS/rights-bearing FD refuses before any pipe
+is changed. Shared VFS output retains its original flush path and helpers retain
+their original code. Real process fixtures now cover complete helper entry/exit,
+unchanged pipe refs/foreign owner, EOF-only endpoints and refusal without partial
+closure. The refined protocol/private lifecycle/syscall/reserved-append tests
+pass; fresh complete qualification is required for the corrected source.
