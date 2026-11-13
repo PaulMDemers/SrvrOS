@@ -301,6 +301,7 @@ static bool save(const char *name) {
     sync_checkpoint(name[0]=='e' && name[1]=='x' && name[2]=='i' && name[3]=='t' && name[4]=='.');
     capture_write_checkpoint(name[0]=='e' && name[1]=='x' && name[2]=='i' && name[3]=='t' && name[4]=='.');
     device_checkpoint();
+    if(name[0]=='e' && name[1]=='x' && name[2]=='i' && name[3]=='t' && name[4]=='.')scheduler_print_launch_trace();
     uint64_t snapshot_us=timer_monotonic_us();
     console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=%u\n",name,snapshot_us,bootlog_total(),snapshot_limit);
     uint64_t total,count=bootlog_snapshot(snapshot,snapshot_limit,&total),flags;

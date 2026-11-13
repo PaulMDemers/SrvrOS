@@ -72,6 +72,20 @@ int main(void){
   reset();p.files[4]=(struct process_file){.used=true,.type=type};
   assert(!process_private_exit_admit() && !freed && !unmapped);
  }
+ /* Complete FD proof precedes every close: a later callback or rights-bearing
+  * endpoint must leave an earlier simple pipe and all refs untouched. */
+ reset();pipes[0]=(struct process_pipe){.used=true,.refs=2,.read_refs=1,.write_refs=1};
+ p.files[4]=(struct process_file){.used=true,.type=PROCESS_FILE_PIPE_READ,.handle=1};
+ p.files[5]=(struct process_file){.used=true,.type=PROCESS_FILE_VFS_WRITE,.handle=1};
+ assert(!process_private_exit_admit() && p.files[4].used && pipes[0].refs==2 && !p.private_retiring);
+ p.files[5]=(struct process_file){0};pipes[0].rights[0].used=true;
+ assert(!process_private_exit_admit() && p.files[4].used && pipes[0].refs==2);
+ pipes[0].rights[0].used=false;
+ assert(process_private_exit_admit() && !p.files[4].used && pipes[0].refs==1 && !pipes[0].read_refs && p.private_retiring);
+ /* EOF endpoint without a peer remains a valid, callback-free close. */
+ reset();pipes[0]=(struct process_pipe){.used=true,.refs=1,.read_refs=1};
+ p.files[0]=(struct process_file){.used=true,.type=PROCESS_FILE_PIPE_READ,.handle=1};
+ assert(process_private_exit_admit() && !p.files[0].used && !pipes[0].used);
  reset();worker=&p.user_threads[0];struct process_user_thread *t=worker;
  *t=(struct process_user_thread){.used=true,.active=true,.owner=&p};
  p.tls_memsz=16;p.tls_align=16;t->tls_base=USER_TLS_BASE+4096;t->tls_thread_pointer=t->tls_base+16;
@@ -83,3 +97,6 @@ int main(void){
  assert(!begin_calls && !end_calls && !wait_calls);
  puts("private-lifecycle: PASS foreign owner retained, callback resources refuse, checked PTE/TLS retirement, unexpected unmap retains frame and fail-stops");
 }
+
+uint64_t scheduler_io_process_atomic_reason(void *p){return scheduler_io_process_atomic(p)?LAUNCH_ATOMIC_OK:LAUNCH_ATOMIC_CALLER;}
+void scheduler_launch_trace_exec(uint64_t r,uint64_t q,uint64_t m,uint64_t a,uint64_t d){(void)r;(void)q;(void)m;(void)a;(void)d;}

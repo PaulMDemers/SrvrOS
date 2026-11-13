@@ -227,6 +227,8 @@ refusals use ordinary admission and original flushing/rights/cleanup. The 4,096
 mapping bound applies only to the atomic attempt; larger images retain the
 original loader/mapping limits and service windows. Stress deadlines and storage
 integrity/durability rules are unchanged. Native acceptance is recorded per unit.
+The explicit [launch/fcntl gate diagnostic](launch-gate-trace.md) records coverage
+and first refusal reasons without changing these predicates or limits.
 
 Periodic workspace captures keep their declared ten-second interval anchored to
 capture start, so write completion latency does not accumulate between captures.

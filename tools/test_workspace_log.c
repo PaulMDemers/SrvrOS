@@ -53,6 +53,7 @@ void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
 bool scheduler_io_observe_reset(void) { assert(!depth);return true; }
 void exfat_print_costs(void) { assert(!depth); }
 void exfat_print_sidecar_equality(void) { assert(!depth);sidecar_reports++; }
+static unsigned launch_trace_prints;
 void scheduler_print_io_owners(void) { assert(!depth); }
 void scheduler_print_activity(void) { assert(!depth); }
 void scheduler_snapshot(struct scheduler_stats *out) { assert(!depth);*out=(struct scheduler_stats){100,90,200,50}; }
@@ -105,7 +106,7 @@ int main(void) {
     char checkpoint_path[160];strcpy(checkpoint_path,directory);strcat(checkpoint_path,"/exit.log");
     assert(!find(checkpoint_path)); /* A pause must never fabricate completion. */
     mounted=false;assert(!workspace_log_stop());mounted=true;
-    assert(workspace_log_stop() && !enabled && writes==4 && flushes==4);
+    assert(workspace_log_stop() && !enabled && writes==4 && flushes==4 && launch_trace_prints==1);
     assert(workspace_log_start() && strcmp(first,directory)); /* Same RTC still gets a fresh folder. */
     unsigned before=writes;open_file=true;assert(!save("session-a.log") && writes==before);open_file=false;
     unsigned durable_before=durable_reports;
@@ -280,3 +281,5 @@ void process_capture_write_snapshot(struct capture_write_snapshot *out) {*out=(s
 
 void sync_timing_snapshot(struct sync_timing_snapshot *out){*out=sync_fixture;}
 void sync_commit_wait_snapshot(struct commit_wait_snapshot *out){*out=(struct commit_wait_snapshot){0};}
+
+void scheduler_print_launch_trace(void){assert(!depth);launch_trace_prints++;}

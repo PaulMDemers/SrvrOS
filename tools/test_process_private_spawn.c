@@ -15,12 +15,13 @@ static void process_private_test_halt(void) __attribute__((noreturn));
 #define SRVROS_PROCESS_IRQ_HOST_TEST
 #define SRVROS_PRIVATE_LIFECYCLE_HOST_TEST
 #include "../kernel/src/process.c"
+static uint64_t trace_reason,trace_maps,trace_atomic,trace_detail;
 static bool irq,safe=true,refuse_view,fail_prepared,oom,fail_kernel,fail_root;
 static uint64_t foreign_depth=2,foreign_owner=7,root=0x1000;
 static struct process *subject;
 static unsigned allocations,freed_frames,live_heap,prepared_calls,waits,ordinary_spawns,reads,notes;
-static unsigned char frames[4096][4096],image[8192];
-static bool frame_used[4096];
+static unsigned char frames[8192][4096],image[8192];
+static bool frame_used[8192];
 static uint64_t next_root=0x2000;
 static scheduler_thread_fn selected_entry;
 static void *selected_arg;
@@ -76,7 +77,7 @@ bool vmm_unmap_page_in_space(uint64_t r,uint64_t v,uint64_t *p){return vmm_virt_
 void vmm_destroy_address_space(uint64_t r){assert(!irq && r && r!=root);}
 void *pmm_phys_to_virt(uint64_t p){assert(p<sizeof(frames));return (uint8_t *)frames+p;}
 uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t minimum,enum pmm_frame_tag tag){
- (void)minimum;assert(!irq && n && allocations+n<4096);
+ (void)minimum;assert(!irq && n && allocations+n<8192);
  if(fail_kernel && tag==PMM_FRAME_KERNEL_STACK)return 0;
  uint64_t at=allocations+1;
  for(unsigned i=0;i<n;i++)frame_used[at+i]=true;
@@ -126,8 +127,9 @@ int main(void){
  struct elf64_program_header *ph=(void *)(image+h->phoff);*ph=(struct elf64_program_header){.type=PT_LOAD,.flags=PF_X,.offset=4096,.vaddr=0x500000,.filesz=1,.memsz=4096,.align=4096};image[4096]=0xcc;
  next_pid=2;subject=&processes[0];subject->allocated=subject->active=true;subject->pid=1;subject->address_space=root;subject->cwd[0]='/';
  const char *args[]={executable.path};int64_t result=-99;
- refuse_view=true;assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==-99 && !allocations);refuse_view=false;
- safe=false;assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && !allocations);safe=true;
+ refuse_view=true;assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==-99 && !allocations);refuse_view=false;assert(trace_reason==LAUNCH_TRACE_SOURCE && trace_detail==3);
+ safe=false;assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && !allocations);safe=true;assert(trace_reason==LAUNCH_TRACE_ATOMIC && trace_atomic==LAUNCH_ATOMIC_CALLER);
+ subject->mapping_count=4097;assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && !allocations);assert(trace_reason==LAUNCH_TRACE_MAPPINGS && trace_maps==4097);subject->mapping_count=0;
  uint64_t old_memsz=ph->memsz;ph->memsz=4096ull*4096;
  assert(!process_try_spawn_private(executable.path,1,args,0,NULL,&result) && !allocations);ph->memsz=old_memsz;
  for(unsigned i=1;i<PROCESS_MAX_PROCESSES;i++)processes[i].allocated=true;
@@ -137,7 +139,40 @@ int main(void){
  fail_root=true;assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==SRV_ERR_NOMEM && !notes && allocations==freed_frames);fail_root=false;
  oom=true;assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==SRV_ERR_NOMEM && !live_heap && allocations==freed_frames);oom=false;
  fail_prepared=true;assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==SRV_ERR_AGAIN && !live_heap && allocations==freed_frames);fail_prepared=false;
- assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==6 && notes==3 && prepared_calls==2);
+ /* Real simple endpoint duplication/rollback, with every refusal retaining refs. */
+ pipes[0]=(struct process_pipe){.used=true,.refs=2,.read_refs=1,.write_refs=1};
+ pipes[1]=pipes[0];
+ subject->files[5]=(struct process_file){.used=true,.type=PROCESS_FILE_PIPE_READ,.handle=1,.flags=SRV_FD_CLOEXEC};
+ subject->files[6]=(struct process_file){.used=true,.type=PROCESS_FILE_PIPE_WRITE,.handle=2};
+ int64_t flag_result=-99;
+ assert(process_file_try_set_pipe_flags(subject,5,SRV_FD_NONBLOCK,&flag_result) && !flag_result);
+ assert(pipes[0].read_flags==SRV_FD_NONBLOCK && subject->files[5].flags==(SRV_FD_NONBLOCK|SRV_FD_CLOEXEC));
+ assert(!process_file_try_set_pipe_flags(subject,5,SRV_FD_APPEND,&flag_result));
+ pipes[0].rights[0].used=true;
+ assert(!process_try_spawn_private_helper(executable.path,"",5,6,&result));
+ assert(!process_file_try_set_pipe_flags(subject,5,0,&flag_result));
+ pipes[0].rights[0].used=false;
+ assert(!process_try_spawn_private_helper(executable.path,"nonempty",5,6,&result));
+ subject->files[6].type=PROCESS_FILE_VFS;
+ assert(!process_try_spawn_private_helper(executable.path,"",5,6,&result));
+ subject->files[6].type=PROCESS_FILE_PIPE_WRITE;
+ uint64_t refs=pipes[0].refs;
+ fail_prepared=true;
+ assert(process_try_spawn_private_helper(executable.path,"",5,6,&result) && result==SRV_ERR_AGAIN);
+ fail_prepared=false;
+ assert(pipes[0].refs==refs && pipes[1].refs==refs && !live_heap && allocations==freed_frames);
+ assert(process_try_spawn_private_helper(executable.path,"",5,6,&result) && result>0);
+ struct process *helper=selected_arg;
+ assert(helper->files[0].type==PROCESS_FILE_PIPE_READ && helper->files[1].type==PROCESS_FILE_PIPE_WRITE);
+ assert(!(helper->files[0].flags&SRV_FD_CLOEXEC) && !helper->files[5].used && pipes[0].refs==refs+1 && pipes[1].refs==refs+1);
+ struct process *parent=subject;uint64_t parent_root=root;
+ subject=helper;root=helper->address_space;
+ if(!setjmp(exited)){selected_entry(helper);assert(0);}
+ assert(helper->reapable && !helper->active && !helper->files[0].used && !helper->files[1].used && helper->private_retiring);
+ assert(pipes[0].refs==refs && pipes[1].refs==refs && !live_heap && allocations==freed_frames);
+ release_process(helper);subject=parent;root=parent_root;
+ subject->files[5]=subject->files[6]=(struct process_file){0};
+ assert(process_try_spawn_private(executable.path,1,args,0,NULL,&result) && result==8 && notes==5 && prepared_calls==4);
  struct process *child=selected_arg;assert(child->mapping_count==USER_STACK_PAGES+1 && !child->private_retiring);
  uint64_t physical;assert(vmm_virt_to_phys_in_space(child->address_space,0x500000,&physical) && *(uint8_t *)pmm_phys_to_virt(physical)==0xcc);
  subject=child;root=child->address_space;
@@ -146,3 +181,6 @@ int main(void){
  assert(!live_heap && allocations==freed_frames && !ordinary_spawns && !reads && !waits && foreign_depth==2 && foreign_owner==7);
  puts("private-spawn: PASS full checked ELF copy, prepared entry, real exit/context return and final runtime/reap publication without waiting or changing foreign ownership");
 }
+
+uint64_t scheduler_io_process_atomic_reason(void *p){return scheduler_io_process_atomic(p)?LAUNCH_ATOMIC_OK:LAUNCH_ATOMIC_CALLER;}
+void scheduler_launch_trace_exec(uint64_t r,uint64_t q,uint64_t m,uint64_t a,uint64_t d){assert(!irq && !q);trace_reason=r;trace_maps=m;trace_atomic=a;trace_detail=d;}

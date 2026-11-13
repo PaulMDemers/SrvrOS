@@ -3,7 +3,8 @@
 #define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
 static bool console_fd,busy,user_safe,startup_killed,kill_on_wait,invalidate_on_wait;
-static bool exec_test,exec_private;
+static bool exec_test,exec_private,trace_on;
+static unsigned trace_fcntls,trace_entries,trace_requests;
 static unsigned exec_attempts,exec_spawns,exec_refreshes;
 static const char *exec_user_path,*exec_user_arg,*exec_user_env;
 bool process_should_exit_current(void) { return startup_killed; }
@@ -190,6 +191,46 @@ int64_t process_spawn_exec_scoped(uint64_t t,const char *p,uint64_t a,const char
     assert(!busy && !user_safe && detached);exec_copied(p,a,v,e,ev);exec_spawns++;return 88;
 }
 #pragma GCC diagnostic pop
+static bool helper_private,pipe_flags_private;
+static unsigned helper_attempts,helper_slow,flag_attempts,flag_slow;
+bool process_try_spawn_private_helper(const char *p,const char *a,int64_t in,int64_t out,int64_t *result) {
+    assert(p!=(const char *)exec_user_path && !__builtin_strcmp(p,"/fat/bin/desktools") && !a[0] && in==11 && out==12 && busy && user_safe);
+    helper_attempts++;if(!helper_private)return false;*result=91;return true;
+}
+int64_t process_spawn_background_elf_args_fds(const char *p,const char *a,int64_t in,int64_t out) {
+    (void)p;(void)a;assert(in==11 && out==12 && !busy && !user_safe);helper_slow++;return 92;
+}
+bool process_file_try_set_pipe_flags(struct process *p,uint64_t fd,uint64_t flags,int64_t *result) {
+    assert(p==(struct process *)1 && fd==10 && flags==SRV_FD_NONBLOCK && busy && user_safe);
+    flag_attempts++;if(!pipe_flags_private)return false;*result=0;return true;
+}
+int64_t process_file_set_flags(struct process *p,uint64_t fd,uint64_t flags){assert(p==(struct process *)1 && fd==10 && flags==SRV_FD_NONBLOCK && !busy && !user_safe && pipe_file.handle==456);flag_slow++;return -9;}
+int64_t process_file_reserve_append_ram(struct process *p,uint64_t fd,uint64_t n){(void)p;(void)fd;(void)n;assert(0);return -1;}
+int64_t process_file_dup_min(struct process *p,uint64_t fd,uint64_t n,bool cloexec){(void)p;(void)fd;(void)n;(void)cloexec;assert(0);return -1;}
+int64_t process_file_get_fd_flags(struct process *p,uint64_t fd){(void)p;(void)fd;assert(0);return -1;}
+int64_t process_file_set_fd_flags(struct process *p,uint64_t fd,uint64_t flags){(void)p;(void)fd;(void)flags;assert(0);return -1;}
+int64_t process_file_get_flags(struct process *p,uint64_t fd){(void)p;(void)fd;assert(0);return -1;}
+int64_t process_file_get_lock(struct process *p,uint64_t fd,struct srv_flock *l){(void)p;(void)fd;(void)l;assert(0);return -1;}
+int64_t process_file_set_lock(struct process *p,uint64_t fd,const struct srv_flock *l,bool wait){(void)p;(void)fd;(void)l;(void)wait;assert(0);return -1;}
+static void helper_and_flag_contract(void) {
+    const char *path="/fat/bin/desktools";exec_user_path=path;
+    busy=user_safe=helper_private=true;unsigned before=close_waits;
+    assert(syscall_io_safe(&(struct isr_frame){.rax=SYS_SPAWN_BG_ARGS_FDS}));
+    assert(syscall_spawn_bg_args_fds(path,"",11,12)==91 && busy && user_safe && close_waits==before);
+    helper_private=false;
+    assert(syscall_spawn_bg_args_fds(path,"",11,12)==92 && !busy && !user_safe && close_waits==before+1 && helper_attempts==2 && helper_slow==1);
+    assert(syscall_io_safe(&(struct isr_frame){.rax=SYS_FCNTL,.rsi=SRV_F_SETFL}));
+    busy=user_safe=pipe_flags_private=true;before=close_waits;
+    assert(!syscall_fcntl(10,SRV_F_SETFL,SRV_FD_NONBLOCK) && busy && user_safe && close_waits==before);
+    pipe_flags_private=false;pipe_file.handle=123;
+    assert(syscall_fcntl(10,SRV_F_SETFL,SRV_FD_NONBLOCK)==-9 && !busy && !user_safe && close_waits==before+1 && flag_attempts==2 && flag_slow==1);
+    busy=user_safe=kill_on_wait=true;
+    assert(syscall_spawn_bg_args_fds(path,"",11,12)==SRV_ERR_INTR && startup_killed && helper_slow==1);
+    startup_killed=false;busy=user_safe=true;
+    assert(syscall_fcntl(10,SRV_F_SETFL,SRV_FD_NONBLOCK)==SRV_ERR_INTR && startup_killed && flag_slow==1);
+    startup_killed=kill_on_wait=false;
+    puts("helper/pipe-flags: PASS copied prelude, strict attempt or ordinary fresh-lookup fallback;foreign ownership unchanged on success");
+}
 static void scope_syscall_contract(void) {
     uint64_t token=999;scope_write_ok=false;
     assert(syscall_session_scope(SRV_SCOPE_CREATE,0,&token)==SRV_ERR_FAULT && token==999 && !scope_live);
@@ -238,7 +279,10 @@ static void exec_syscall_contract(void) {
     }
     request.flags=UINT64_MAX;busy=user_safe=true;unsigned before=close_waits;
     assert(syscall_exec(&request,0)==SRV_ERR_INVAL && busy && user_safe && close_waits==before && exec_attempts==2);
-    exec_test=false;busy=false;kill_on_wait=invalidate_on_wait=false;wait_pointer_ok=true;
+    request.flags=SRV_EXEC_BACKGROUND;request.stdin_fd=-1;request.process_group=request.foreground=request.file_action_count=0;
+    busy=user_safe=kill_on_wait=true;exec_private=false;unsigned spawns=exec_spawns,refreshes=exec_refreshes;
+    assert(syscall_exec(&request,0)==SRV_ERR_INTR && startup_killed && exec_spawns==spawns && exec_refreshes==refreshes);
+    startup_killed=false;exec_test=false;busy=false;kill_on_wait=invalidate_on_wait=false;wait_pointer_ok=true;
     puts("exec-prelude: PASS copied kernel snapshots, checked private result, foreign owner retained; unsupported/refused requests regain ordinary admission and refresh");
 }
 
@@ -340,6 +384,20 @@ int main(void) {
     byte_safe=false;assert(io_defer_pipe_write(10,4096) && io_defer_pipe_read(10,32));
     assert(user_safe && turn_requests==before+4);
 
-    exec_syscall_contract();
+    struct isr_frame traced={.cs=3,.rax=SYS_FCNTL,.rdi=10,.rsi=SRV_F_GETLK,.rdx=0xdeadbeef};
+    pipe_file.type=PROCESS_FILE_PIPE_DUPLEX;pipe_file.flags=SRV_FD_NONBLOCK;busy=true;user_safe=false;trace_on=true;
+    syscall_gate_trace(&traced);assert(trace_fcntls==1 && !syscall_io_safe(&traced) && busy && !user_safe);
+    traced.cs=0;syscall_gate_trace(&traced);assert(trace_fcntls==1);
+    traced.cs=3;trace_on=false;syscall_gate_trace(&traced);assert(trace_fcntls==1);
+    trace_on=true;traced.rax=SYS_EXEC;syscall_gate_trace(&traced);assert(trace_entries==1 && busy && !user_safe);
+    exec_syscall_contract();assert(trace_requests>0);trace_on=false;
+    helper_and_flag_contract();
+    puts("launch-trace-entry: PASS disabled/kernel exclusions, early scalar snapshot without pointer dereference or changed admission");
     puts("syscall-io-host: PASS (bounded desktop admission, bounded retained-snapshot reads, nonblocking pipe deferral, redirected I/O/lifecycle/mapping/filesystem/default-deny)");
 }
+
+bool scheduler_launch_trace_enabled(void){return trace_on;}
+void scheduler_launch_trace_exec(uint64_t r,uint64_t q,uint64_t m,uint64_t a,uint64_t d){if(trace_on){assert(r==LAUNCH_TRACE_REQUEST && q && q<=63 && !m && !a && !d);trace_requests++;}}
+void scheduler_launch_trace_fcntl(uint64_t f,uint64_t c,uint64_t a,uint64_t t,uint64_t g){assert(trace_on && !user_safe && busy && f==10 && c==SRV_F_GETLK && a==0xdeadbeef && t==PROCESS_FILE_PIPE_DUPLEX && g==SRV_FD_NONBLOCK);trace_fcntls++;}
+
+void scheduler_launch_trace_entry(void){assert(trace_on && !user_safe && busy);trace_entries++;}
