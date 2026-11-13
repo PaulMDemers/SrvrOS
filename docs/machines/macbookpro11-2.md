@@ -7,6 +7,18 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### DHCP identity collector and cold-image qualification (November 13)
+
+Prepare a fresh source-bound owner for the qualified DHCP comparisons. Preserve
+the comparison result before success-only protocol/RF proof; missing, malformed,
+duplicate or tampered diagnostics must refuse acceptance while retaining raw
+logs. Qualify full collector composition, exact staged recovery/journal VMs,
+the current 487-file workspace clone, actual guest HTTP/DNS and all eight
+protected recoveries before installation and the user-authorized cold shutdown.
+Main `6d107ae1` was fetched again and has no unintegrated changes. The previous
+8f/d81 attempt is closed and must not be collected or resealed again. No DHCP
+deadline, retry, admission or native ownership policy changes in this scope.
+
 ### Request/ACK identity tracing qualified in software (November13)
 
 The merged sidecar fixture initially assumed a 64KiB backing array, conflicting
