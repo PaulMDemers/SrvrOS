@@ -13909,3 +13909,79 @@ remain retained. Self-merge and a saved/sealed one-shot launch are next; native
 trace acceptance and any latency fix remain pending matching collection. No
 ownership, authority, mapping, I/O, timeout, watchdog, log or workload limit is
 relaxed by these observations.
+
+
+### Native launch/fcntl trace return: valid diagnostics, failed workload (2026-11-13)
+
+PR488 merged as `e6ca1a94`; compiled source `126a0f18`, installed release
+`188dda5f0fbb1a52`, returned one matching session `session-0006602363b84771-00`.
+The original workload **failed**, rather than completing its 1800-second test:
+442 app cycles completed before the next Files cycle (index442, PID577)
+exceeded the unchanged ten-second whole-cycle deadline during close, at
+10.009736 s. The saved session checkpoint retains the deadline/result even
+though final telemetry displaced those lines from the exit tail. The automatic
+assessment's incomplete-three-capture failure remains retained alongside the
+independent failed-run review. No UART reconstruction or missing-as-zero repair
+is used.
+
+The new final trace is valid native diagnostic evidence: 445 raw exec entries,
+445 decisions, 286 fcntl classifications, zero invalid observations and 385
+private handled results. First-refusal counts are request2, mappings11 and
+atomic47; other refusals/errors are zero. This proves guarded native private
+coverage, not a general launch latency cure or complete per-cycle histories.
+
+The worst exec gate binds directly to failed Files cycle442: desktop
+PID4/thread17 waits 6.406077 s, from622400499 to628806576 us, with initial disk
+owner PID7/thread20/sequence1078400. Total launch takes6.412008 s. Its first
+refusal is **5095 parent mappings against the existing4096 bound**; the atomic
+check is `not_evaluated`. The guard is functioning correctly and must not be
+raised or bypassed. After readiness and the normal dwell, Files PID577/thread886
+also waits4.677246 s in legacy `SYS_SPAWN_BG_ARGS_FDS` (49), from629152834 to
+633830080 us, initial disk owner7/20/sequence1078490. That wait begins before
+close request629340167 us and spans the original failure clock632410107 us.
+Exit/reap completion is absent in the retained failed-cycle record. A separate
+completed cycle has4.961453 s close latency; a separate retained `SYS_EXIT` wait
+is4.131786 s. Do not combine those earlier cycles into the failed cycle.
+
+The independent worst fcntl record identifies an earlier operation, PID398/
+thread615, fd5: `SETFL`, scalar argument1 (`SRV_FD_NONBLOCK`), descriptor type7
+(`PROCESS_FILE_PIPE_READ`), flags0 at gate entry. Its wait is787.806 ms,
+428021684–428809490 us, initial disk owner7/20/sequence742073. This is a pre-gate
+snapshot; the descriptor can change while waiting and no post-handler outcome
+is captured. It is not the helper-creation gate spanning failed Files close,
+and does not identify the operation in the prior release's5.44-second record.
+Initial-owner joins are correlation anchors, not proof of uninterrupted ownership
+or time spent in hardware.
+
+The maximum desktop loop is120.060 ms with zero500 ms excursions/invalid samples.
+Two complete, exact BMPs saved in18.551984/31.700795 s, with WRITE phases
+12.251516/25.056447 s; the required third screenshot was not reached. Partial
+history/transfer/write parsing explicitly analyses two of three only. There is
+no completed audio/disk receipt. Retained PCM snapshots show zero underruns at1%
+before abort; this is neither30-minute nor audible audio acceptance. Battery
+runtime retires with247 attempts,3705 queries, one notification, one
+attach/detach and zero heap/errors/denied; first-protocol evidence is clean.
+The controls FAIL follows the desktop failure, not an independently diagnosed
+new EC fault.
+
+Fresh independent read-only full-file hashes, fsck and allocation checks pass:
+all918 prior paths and all917 non-sidecar hashes remain, with only the expected
+sidecar change;925 files/211 directories/4825 allocated clusters, zero leaks,
+FAT/bitmap mismatches or errors. New files are four logs, two BMPs and an
+interrupted payload temporary file. Current/recovery and independent payload
+hashes verify; recovery `c35475f62f154f1e`, prior accepted7ac and failed9463 evidence
+remain retained. Ubuntu stays default, the one-shot is consumed, collector is
+disabled, USB unmounted and no reboot is armed. Evidence and the original failed
+assessment are sealed outside build.
+
+Next bounded objective: audit how to launch from a suitably small owned parent
+without enlarging the mapping bound, plus legacy helper49 and pipe-only scalar
+flag admission under the existing same-process/foreign-owner lifetime proofs.
+PR19 at `fe9d0af2` already owns related background-spawn/pipe-handoff work;
+coordinate by actual repository records/diffs before implementing an overlapping
+fix rather than importing its unmerged network scope wholesale. Fresh main
+remains `e6ca1a94`; PR301 at `190a4530` retains its separate scanout/process
+ownership scope. No other task was contacted. This results update changes no
+runtime source, limits, integrity checks, stage or installed payload, and starts
+no next reboot. Native trace observation is accepted for this scoped run; full
+workload/performance acceptance is failed and sibling acceptance is unchanged.

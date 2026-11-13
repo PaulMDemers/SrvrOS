@@ -85,3 +85,14 @@ loaded guest, add `--require-launch-gate-trace` to
 hardware refusal only; that is not positive native diagnostic acceptance.
 Original workload, byte/readback/flush/allocation and retirement checks remain
 mandatory alongside these observations. Acceptance is per physical unit.
+
+
+The Air6,1 native source `126a0f18` now supplies scoped positive diagnostic
+coverage: valid counters, 385 private handled results, a 6.406077-second exec
+wait refused at5095 parent mappings, and a separate787.806-ms SETFL/nonblock
+wait on a descriptor observed as PIPE_READ at entry. The original stress run
+failed its unchanged whole-app deadline and completed only two of three
+screenshots. Diagnostic validity does not accept the failed workload, permit
+raising4096 mappings or establish the fcntl handler's eventual descriptor state.
+See the [unit record](machines/macbookair6-1.md) for the failed-cycle helper gate
+and retained integrity/partial-evidence scope.
