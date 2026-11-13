@@ -224,6 +224,11 @@ static void helper_and_flag_contract(void) {
     assert(!syscall_fcntl(10,SRV_F_SETFL,SRV_FD_NONBLOCK) && busy && user_safe && close_waits==before);
     pipe_flags_private=false;pipe_file.handle=123;
     assert(syscall_fcntl(10,SRV_F_SETFL,SRV_FD_NONBLOCK)==-9 && !busy && !user_safe && close_waits==before+1 && flag_attempts==2 && flag_slow==1);
+    busy=user_safe=kill_on_wait=true;
+    assert(syscall_spawn_bg_args_fds(path,"",11,12)==SRV_ERR_INTR && startup_killed && helper_slow==1);
+    startup_killed=false;busy=user_safe=true;
+    assert(syscall_fcntl(10,SRV_F_SETFL,SRV_FD_NONBLOCK)==SRV_ERR_INTR && startup_killed && flag_slow==1);
+    startup_killed=kill_on_wait=false;
     puts("helper/pipe-flags: PASS copied prelude, strict attempt or ordinary fresh-lookup fallback;foreign ownership unchanged on success");
 }
 static void scope_syscall_contract(void) {
@@ -274,7 +279,10 @@ static void exec_syscall_contract(void) {
     }
     request.flags=UINT64_MAX;busy=user_safe=true;unsigned before=close_waits;
     assert(syscall_exec(&request,0)==SRV_ERR_INVAL && busy && user_safe && close_waits==before && exec_attempts==2);
-    exec_test=false;busy=false;kill_on_wait=invalidate_on_wait=false;wait_pointer_ok=true;
+    request.flags=SRV_EXEC_BACKGROUND;request.stdin_fd=-1;request.process_group=request.foreground=request.file_action_count=0;
+    busy=user_safe=kill_on_wait=true;exec_private=false;unsigned spawns=exec_spawns,refreshes=exec_refreshes;
+    assert(syscall_exec(&request,0)==SRV_ERR_INTR && startup_killed && exec_spawns==spawns && exec_refreshes==refreshes);
+    startup_killed=false;exec_test=false;busy=false;kill_on_wait=invalidate_on_wait=false;wait_pointer_ok=true;
     puts("exec-prelude: PASS copied kernel snapshots, checked private result, foreign owner retained; unsupported/refused requests regain ordinary admission and refresh");
 }
 

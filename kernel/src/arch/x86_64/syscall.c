@@ -1344,6 +1344,7 @@ static int64_t syscall_spawn_bg_args_fds(const char *user_path,
 
     if(process_try_spawn_private_helper(path,args,stdin_fd,stdout_fd,&result))return result;
     scheduler_io_set_user_safe(false);scheduler_io_wait();
+    if(process_should_exit_current())return SRV_ERR_INTR;
     flags = irq_save();
     result = process_spawn_background_elf_args_fds(path, args, stdin_fd, stdout_fd);
     irq_restore(flags);
@@ -1448,6 +1449,7 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request,uint
         if(process_try_spawn_private(path,argc,argv,envc,envp,&result))return result;
     } else scheduler_launch_trace_exec(LAUNCH_TRACE_REQUEST,request_mask,0,0,0);
     scheduler_io_set_user_safe(false);scheduler_io_wait();
+    if(process_should_exit_current())return SRV_ERR_INTR;
     flags = irq_save();
     if ((request.flags & SRV_EXEC_REPLACE) != 0) {
         result = process_exec_replace(path,
@@ -2355,6 +2357,7 @@ static int64_t syscall_fcntl(uint64_t fd, uint64_t command, uint64_t arg) {
         int64_t result;
         if(process_file_try_set_pipe_flags(process_current(),fd,arg,&result))return result;
         scheduler_io_set_user_safe(false);scheduler_io_wait();
+        if(process_should_exit_current())return SRV_ERR_INTR;
     }
     if(command==SRV_F_RESERVE_APPEND_RAM) {
 #if defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) || defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)

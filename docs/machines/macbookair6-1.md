@@ -14060,3 +14060,13 @@ retirement. The client now keeps that identity until a real final wait succeeds;
 a new error/retry regression passes. The prior VM and hold record remain retained;
 complete qualification is restarted for the final corrected source, with no
 native acceptance inherited from the earlier attempt.
+
+
+The final cancellation audit restores the original entry-gate cancellation
+semantics inside copied preludes: after an ordinary fallback wait, helper49,
+exec and SETFL recheck cancellation before constructing a child, refreshing
+mappings or applying backend flag changes. Cancel-during-wait regressions prove
+no constructor/flag side effects, alongside the existing IDT cancellation and
+reserved-append suites. The `ece9f280` build completed while its qualification
+driver was held; that build is not claimed as full qualification. Fresh complete
+validation proceeds only from the next clean committed source.
