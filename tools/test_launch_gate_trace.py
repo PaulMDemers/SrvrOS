@@ -18,7 +18,7 @@ class LaunchGateTraceTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):cls.temp.cleanup()
     def test_actual_formatter_and_overlap(self):
-        d=launch_gate_trace([self.raw,self.raw]);self.assertEqual(d['exec']['reason'],'mappings');self.assertEqual(d['exec']['record']['mappings'],5000)
+        d=launch_gate_trace([self.raw,self.raw]);self.assertEqual(d['exec']['reason'],'mappings');self.assertEqual(d['exec']['record']['mappings'],5000);self.assertEqual(d['exec']['atomic_reason'],'not_evaluated')
         self.assertEqual(d['fcntl']['command'],'SETFL');self.assertEqual(d['summary']['entries'],1);self.assertEqual(d['summary']['fcntl_calls'],3)
         self.assertNotIn(b'3735928559',b''.join(self.rows))
     def test_missing_rows_duplicate_and_truncated(self):

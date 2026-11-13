@@ -60,6 +60,7 @@ def launch_gate_trace(blobs,require_calls=True):
             elif r['request_mask']:raise ValueError('Request mask outside request refusal')
             if code==0 and any(r[k] for k in ['mappings','atomic','detail']):raise ValueError('Invalid raw-entry context')
             if code==3 and r['mappings']<=4096:raise ValueError('Invalid mapping refusal')
+            if code>=4 and r['mappings']>4096:raise ValueError('Post-bound refusal exceeds mapping bound')
             if (code==5)!=(r['atomic']>0):raise ValueError('Invalid atomic refusal')
             if code==6 and ((r['detail']&255)>2 or ((r['detail']>>8)&255)>12 or r['detail']>>17):raise ValueError('Invalid stdio detail')
             if code==7 and r['detail'] not in (1,2):raise ValueError('Invalid resolution detail')
@@ -67,7 +68,7 @@ def launch_gate_trace(blobs,require_calls=True):
             if code in (0,1,3,4,5,9) and r['detail']:raise ValueError('Unexpected exec detail')
             if code==10 and not r['detail']:raise ValueError('Missing image bound detail')
             if code and not h[REASONS[code]]:raise ValueError('Worst exec reason absent from counters')
-            result[kind]={'record':r,'reason':REASONS[code],'atomic_reason':ATOMIC[r['atomic']]}
+            result[kind]={'record':r,'reason':REASONS[code],'atomic_reason':'not_evaluated' if code<5 else ATOMIC[r['atomic']]}
         else:
             if r['scalar'] not in (0,1) or bool(r['scalar'])!=(r['command'] in SCALAR) or (not r['scalar'] and r['arg']) or r['type']>12:raise ValueError('Invalid/unredacted fcntl context')
             result[kind]={'record':r,'command':COMMANDS.get(r['command'],'UNKNOWN'),'descriptor_scope':'Pre-gate scalar snapshot only; descriptor may change while waiting'}

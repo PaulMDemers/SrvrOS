@@ -38,7 +38,9 @@ source histories or causal latency improvements.
 | 11 | Private attempt handled successfully | Coverage counter only |
 | 12 | Private attempt returned error | Coverage counter only |
 
-Atomic codes are0:success,1:state/capacity,2:no eligible foreign owner,
+For reasons0–4 the atomic check has not run; its zero field is decoded as
+`not_evaluated`, never success. After reaching that check, atomic codes are
+0:success,1:state/capacity,2:no eligible foreign owner,
 3:same-image/owner alias,4:caller,5:root,6:sibling state/safety,
 7:sibling root. No process path, argument/environment bytes, address-space root,
 user pointer or storage payload is recorded. Source reason3 is the composite
