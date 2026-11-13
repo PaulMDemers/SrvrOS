@@ -1559,11 +1559,16 @@ Positive model providers are not native authority. Do not install until the
 unit's matching host/image/VM/media/recovery checkpoint says hardware-ready.
 
 
-Air7,2 v32 release8d0181c0ed0a4708/sourcef638ae7c is now host/VM qualified and
-banked, not installed or armed. Fresh1,497files/155sessions, offline filesystem,
-current/recovery hashes and Ubuntu default verify. For candidate plus32MiB EFI
-capacity, unreferenced older accepted562d was retired only after exact durable
-payload, sealed native evidence and boot-reference checks. Its acceptance/raw
-logs remain banked, with current c154/prior327a/recovery/GUI/joint/HDA retained.
-Consult current state before using a helper that expects562d still installed.
-Native v32 remains pending and supplies no GPU interval/PTE authority.
+Air7,2 source `f638ae7c` / release `8d0181c0ed0a4708` now accepts one native
+v32 original kind 2 [registered source-transfer lifetime](intel-startup-transfer.md#native-original-kind-2-lifetime-accepted):
+known authority refusal/check/close in45 us, preparation97,996/100,000 us,
+complete source/buffer/root preservation and retirement, four padded patterns
+and exactly-once2,712-page release. All1,497 prior files preserve apart from
+expected metadata; three logs yield1,500files/156sessions. Raw/strict proof,
+offline media/recovery/default and consumed one-shot pass. Current8d01,
+acceptedc154/prior327a and recovery retained; USB unmounted, no reboot armed.
+Zero transfer provider/clock/arena/PTE activity does not imply zero enclosing
+wake/reset stores. Enabled route, repeatability and actual interval ownership
+remain open; all255 obligations/0assurances/0managed GPU pages. No native
+tear-free acceptance. Next integrate deferred main, then resolve hardware
+ownership witnesses before a GPU writer; no unchanged refusal retry is needed.

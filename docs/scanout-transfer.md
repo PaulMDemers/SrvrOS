@@ -110,5 +110,7 @@ provider-facing registration between this owner and the original live source,
 full private RAM holds and CPU exclusion. All transfer phases share the original
 100/300ms watermarks. Models cover positive admission/draining/close and failures;
 native remains an explicit zero-assurance/all255-obligation refusal before any
-provider/transfer-clock/arena activity. Its hardware-ready profile is separate
-from the accepted v31 source/buffer lifetime and has no native acceptance yet.
+provider/transfer-clock/arena activity. Its separate v32 profile now accepts one native kind 2 registration/refusal/
+check/close lifetime, with full source/RAM/root retirement on `f638ae7c`.
+This supplies no positive interval assurance; enabled entry and real hardware
+transfer remain unaccepted. See the [native result](intel-startup-transfer.md#native-original-kind-2-lifetime-accepted).

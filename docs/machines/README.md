@@ -104,11 +104,16 @@ verify. Enabled entry and repeatability remain pending. No managed GPU page or
 tear-free grant; c154 current, recovery retained, no reboot armed.
 
 
-Air7,2 now has a [hardware-ready v32 source transfer owner](macbookair7-2.md#hardware-ready-v32-original-source-transfer-owner)
-on sourcef638ae7c/release8d0181c0ed0a4708. The 37-image/core gate, fatal nine-test
-adapter/hold checks,113 staging tests, ten historical replays, isolation and exact
-EFI/MBR VM pass. It binds the generic provider-facing lifetime to original
-source/RAM/exclusion, while native transfer still refuses before provider/arena
-activity. Media/recovery/capacity verify; accepted562d is now bank-only, current
-c154/prior327a and recovery remain installed. Candidate is banked, not armed;
-native v32/managed GPU mapping/tear-free acceptance remain pending.
+Air7,2 source `f638ae7c` / release `8d0181c0ed0a4708` now accepts one native
+v32 original kind 2 [registered source-transfer lifetime](../intel-startup-transfer.md#native-original-kind-2-lifetime-accepted):
+known authority refusal/check/close in45 us, preparation97,996/100,000 us,
+complete source/buffer/root preservation and retirement, four padded patterns
+and exactly-once2,712-page release. All1,497 prior files preserve apart from
+expected metadata; three logs yield1,500files/156sessions. Raw/strict proof,
+offline media/recovery/default and consumed one-shot pass. Current8d01,
+acceptedc154/prior327a and recovery retained; USB unmounted, no reboot armed.
+Zero transfer provider/clock/arena/PTE activity does not imply zero enclosing
+wake/reset stores. Enabled route, repeatability and actual interval ownership
+remain open; all255 obligations/0assurances/0managed GPU pages. No native
+tear-free acceptance. Next integrate deferred main, then resolve hardware
+ownership witnesses before a GPU writer; no unchanged refusal retry is needed.

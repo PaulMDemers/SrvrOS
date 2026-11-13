@@ -2,7 +2,48 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
-### Hardware-ready v32: original source transfer owner
+### Native v32 original-source transfer lifetime accepted
+
+Frozen source `f638ae7c`, release `8d0181c0ed0a4708`, session
+`session-0006602a2ba4e885-00` accept **one original kind 2 already-disabled
+source/buffer/transfer lifetime**. The source-bound transfer registers beneath
+the original source and both full RAM holds, blocks early return, refuses known
+missing hardware authority, passes its final guarded check and closes before
+its original registration returns. The child takes 45 us, with zero transfer
+provider/clock/arena callbacks, tokens, imported intervals or GPU PTE stores.
+This accepts the refusal/registration/retirement protocol, not a GPU mapping.
+Underlying wake/reset MMIO writes still occur; zero transfer activity does not
+mean zero total GPU MMIO.
+
+Preparation takes 97,996/100,000 us (2,004 us margin); admission 10,343 us,
+source 3,542 us including six DWORD reads in 3,477 us and source return in 8 us.
+Final guard is 7 us, reset return 3,391 us, GT return 264,788/300,000 us,
+HDA 301,473/400,000 us and outer 356,215/500,000 us. Original deadlines are
+unchanged. Entry stores zero at epoch 0, reset advances 0→1 and the child binds
+that original epoch. Full engine/reader/HDA6/2/2/6 preservation, four inspections,
+original borrows, 14 GPU aliases, HDA root and CPU exclusion all retire.
+Two 1,356-page private buffers pass four full padded patterns and release exactly
+once: 2,712 pages allocated/released, DMA total 57→57. Buffer child is 50 us.
+
+Raw evidence was independently copied and sealed before classification. The
+exact 15-token v32 recipe/pre-init/checkpoint and strict complete native receiver
+pass; v31/v30 result fields stay empty. All seven raw capability/obligation
+alerts remain available. All 1,497 prior USB files preserve except expected
+`.srvros/meta`; three exact logs yield 1,500 files/156 sessions. Offline fsck,
+allocation, writable/headroom, boot digest, installed/banked payloads, Ubuntu
+default and consumed one-shot pass. Raw and full return proof survive build
+cleanup under the `air-source-transfer-20261113` evidence bank. Current is 8d01;
+accepted c154/prior327a, recovery9aa8, GUI/joint/HDA remain installed; older
+562d/451c/d260 remain verified bank-only. USB is unmounted; no reboot is armed.
+
+Enabled v32 entry, repeatability, all 255 hardware completion obligations,
+positive assurances and managed GPU pages remain unaccepted. This closes the
+registered original-source transfer-lifetime milestone. Next integrate deferred
+main, then establish a real cooperative interval/requester/DMA/cache/reader
+witness before the first GPU PTE writer; do not repeat unchanged refusal trials
+as a substitute for ownership. No native tear-free acceptance follows.
+
+### Prior hardware-ready v32: original source transfer owner
 
 Frozen source `f638ae7c`, release `8d0181c0ed0a4708`, adds the provider-facing
 [original source transfer owner](../intel-startup-transfer.md). It registers

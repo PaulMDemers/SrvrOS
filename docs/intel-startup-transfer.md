@@ -5,7 +5,7 @@ source/private-buffer lifetime to `scanout_transfer`. This closes a software
 lifetime gap: a provider-facing address owner could previously exist without
 keeping that original source registered. It does not establish native firmware,
 DMA, cache or reader ownership. Native evidence is `{assurances=0, obligations=255}`,
-so native transfer admission refuses before provider, transfer clock, arena or
+so native transfer admission refuses before its provider, transfer clock, arena or
 GPU-visible address activity. No GPU PTE writer is added.
 
 ## Original registration and deadlines
@@ -74,7 +74,7 @@ or exported as v31/v30 acceptance; those result fields remain empty. Positive
 model-provider flags, missing/duplicate rows, spliced source/epochs and changed
 counts are rejected by the native receiver. All raw alerts remain available.
 
-## Qualification and next trial
+## Qualification and native boundary
 
 Actual-core/adapter tests cover both startup routes, every new and original
 clock, source/hold/provider/registration changes, callback re-entry, each missing
@@ -82,17 +82,35 @@ assurance and open obligation, positive modeled admission/close and pending
 child drain. A modeled provider is not native hardware acceptance. Host/VM and
 native qualification results are recorded separately in the unit ledger.
 
-The next native diagnostic tests this registered provider-facing lifetime and
-its timing inside the real original source. It must show zero transfer/provider/
-arena/GPU-store activity while native authority remains absent, then clean root
-and RAM retirement. It is not a trial of a GPU mapping or tear-free desktop.
-Follow the [Ubuntu workflow](ubuntu-device-agent-setup.md): exact-stage VM,
-independent banks, local USB/recovery checks and durable one-shot run record.
-No input is required; keep volume 1%, display progress, save/unmount and return
-automatically on safe outcomes. Retained uncertainty halts visibly. Collect the
-matching session and media integrity before any further candidate.
+The native diagnostic tests this registered provider-facing lifetime inside the
+real original source. It requires zero transfer-provider/transfer-clock/arena/
+PTE activity while native authority remains absent, then clean root and RAM
+retirement. Existing wake/reset stores remain part of the enclosing lifetime.
+It does not test a GPU mapping or tear-free desktop. Follow the
+[Ubuntu workflow](ubuntu-device-agent-setup.md): exact-stage VM, independent banks,
+local USB/recovery checks and durable one-shot run record. No input is required;
+keep volume 1%, show progress, save/unmount and return automatically on safe
+outcomes. Retained uncertainty halts visibly. Collect before a further candidate.
 
-## Local hardware-ready checkpoint
+## Native original kind 2 lifetime accepted
+
+Source `f638ae7c` / release `8d0181c0ed0a4708`, session
+`session-0006602a2ba4e885-00`, accepts one bounded registration, known missing-
+authority refusal, final guarded check/close and original return. The transfer
+child takes 45 us with no transfer provider/clock/arena/address activity.
+Preparation is 97,996/100,000 us, GT return 264,788/300,000 us, HDA
+301,473/400,000 us and outer 356,215/500,000 us. Full preservation, original
+root/alias retirement, four full padded patterns and exactly-once 2,712-page
+release pass. Raw provenance, strict receiver/checkpoint, prior-file integrity,
+offline media and recovery also pass. See the
+[unit result](machines/macbookair7-2.md#native-v32-original-source-transfer-lifetime-accepted).
+
+The enabled route and repeatability remain unaccepted. Hardware assurances
+remain zero, all 255 obligations stay open and no GPU page is managed. The next
+boundary is a real exclusive interval and hardware completion witnesses, rather
+than another unchanged refusal trial. The inherited framebuffer remains active.
+
+## Prior local hardware-ready checkpoint
 
 Frozen `f638ae7c`, release `8d0181c0ed0a4708`, passes the full37-image/core/USB/
 host/docs gate, nine actual-adapter tests under fatal ASan/UBSan, separate fatal

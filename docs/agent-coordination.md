@@ -963,13 +963,16 @@ fixtures remain models. V31 acceptance and older APIs/recipes are separate.
 No actual native GPU interval or PTE writer is supplied by this bridge.
 
 
-The v32 bridge is hardware-ready on frozenf638ae7c/release8d0181c0ed0a4708:
-full37-image/core gate, fatal nine-test actual adapter/hold checks,113 stage tests,
-ten historical native classifications, isolated native guards/maps/2KiB frames,
-log projection and exact EFI/MBR VM pass. Main e6ca1a94 is the runtime baseline;
-doc-only main5a950ce4 is subsequently integrated without relabeling runtime tests.
-Native still refuses missing address authority; no native v32 acceptance or GPU
-PTE writer exists. Media/recovery/capacity verify. The accepted562d EFI duplicate
-is now bank-only after exact bank/raw-acceptance/reference verification, alongside
-earlier451c/d260. Currentc154/prior327a/recovery/GUI/joint/HDA remain installed.
-No reboot armed, candidate/evidence independently banked, Actions disabled.
+Air7,2 source `f638ae7c` / release `8d0181c0ed0a4708` now accepts one native
+v32 original kind 2 [registered source-transfer lifetime](intel-startup-transfer.md#native-original-kind-2-lifetime-accepted):
+known authority refusal/check/close in45 us, preparation97,996/100,000 us,
+complete source/buffer/root preservation and retirement, four padded patterns
+and exactly-once2,712-page release. All1,497 prior files preserve apart from
+expected metadata; three logs yield1,500files/156sessions. Raw/strict proof,
+offline media/recovery/default and consumed one-shot pass. Current8d01,
+acceptedc154/prior327a and recovery retained; USB unmounted, no reboot armed.
+Zero transfer provider/clock/arena/PTE activity does not imply zero enclosing
+wake/reset stores. Enabled route, repeatability and actual interval ownership
+remain open; all255 obligations/0assurances/0managed GPU pages. No native
+tear-free acceptance. Next integrate deferred main, then resolve hardware
+ownership witnesses before a GPU writer; no unchanged refusal retry is needed.
