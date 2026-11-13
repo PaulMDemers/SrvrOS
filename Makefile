@@ -351,7 +351,7 @@ USER_CRT0_OBJ := build/userspace/lib/crt0.S.o
 USER_LIB_A := build/userspace/lib/libsrvros.a
 USER_SYSROOT := build/sysroot/srvros
 USER_SYSROOT_HEADERS := $(shell find shared/include userspace/lib/include -type f 2>/dev/null | LC_ALL=C sort)
-KERNEL_HEADERS := $(shell find shared/include kernel/include -type f 2>/dev/null | LC_ALL=C sort) $(wildcard kernel/src/process_private_*.inc)
+KERNEL_HEADERS := $(shell find shared/include kernel/include -type f 2>/dev/null | LC_ALL=C sort) $(wildcard kernel/src/process_private_*.inc kernel/src/launch_gate_trace.inc)
 
 KERNEL_C := $(shell find kernel/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 KERNEL_S := $(shell find kernel/src -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
@@ -5268,3 +5268,8 @@ test-exfat-memory-view: build/tests/exfat-memory-view-host$(HOST_EXE)
 build/tests/exfat-memory-view-host$(HOST_EXE): tools/test_exfat_memory_view.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-launch-gate-trace
+test-core: test-launch-gate-trace
+test-launch-gate-trace: $(LIMINE_PROTOCOL_DIR)/.ready
+	SRVROS_LIMINE_INCLUDE="$(LIMINE_PROTOCOL_DIR)/include" CC="$(HOST_CC)" $(PYTHON) tools/test_launch_gate_trace.py

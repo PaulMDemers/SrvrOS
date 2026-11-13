@@ -200,6 +200,7 @@ void idt_init(void) {
 static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
     scheduler_io_syscall(frame->rax);
     scheduler_io_set_user_safe(false);
+    syscall_gate_trace(frame);
     /* I/O service windows defer owner cancellation until the surrounding
      * syscall has released its cache/filesystem state. Do not rely on a
      * later timer tick: fast userspace can immediately issue another call

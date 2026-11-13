@@ -28,3 +28,5 @@ int main(void) {
     f.vector=18; assert(!dispatch_user_fault(&f));
     return 0;
 }
+
+void syscall_gate_trace(const struct isr_frame *frame){(void)frame;}

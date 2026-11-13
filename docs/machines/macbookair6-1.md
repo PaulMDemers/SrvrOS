@@ -13853,3 +13853,13 @@ contact. After matched qualification and self-merge, run the original automatic
 1800-second audio/disk/app/three-screenshot test at1%, with full-field metadata
 audit off and all original completion/integrity checks intact. Native diagnostic
 acceptance remains pending fresh matching evidence.
+
+
+The candidate records bounded raw-entry/request refusal counters and two retained
+exec/fcntl worst waits, including exact caller/initial-owner clocks, mapping count,
+atomic refusal and scalar descriptor/command snapshots. Raw-entry observation
+precedes cancellation; pointer/ignored fcntl arguments are redacted. It is enabled
+only by the existing explicit capture-write profile and emits final records only;
+ordinary logging remains unchanged. See the [wire/meaning contract](../launch-gate-trace.md).
+Original gates and all limits remain authoritative; no runtime speed fix is
+claimed. Host/VM/native qualification is pending this candidate's frozen source.

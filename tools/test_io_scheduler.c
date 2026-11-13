@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -1011,7 +1012,24 @@ static void test_idle_audit(void) {
 /* Observation must retain the outer owner identity across nesting, foreign
  * attempts and slot reuse, without changing admission or emitting in a scope. */
 static unsigned owner_prints;
-void console_printf(const char *format,...) { assert(!io_depth && (!strncmp(format,"io-owner",8) || !strncmp(format,"io-gate",7)));owner_prints++; }
+static unsigned launch_prints;
+static bool launch_wire;
+void console_printf(const char *format,...) {
+    assert(!io_depth);
+    if(!strncmp(format,"launch-gate-",12)) {
+        launch_prints++;
+        if(launch_wire) {
+            char mapped[2048];size_t n=0;
+            for(size_t i=0;format[i];i++) {
+                if(format[i]=='%' && format[i+1]=='u') {memcpy(mapped+n,"%llu",4);n+=4;i++;}
+                else mapped[n++]=format[i];
+            }
+            assert(n<sizeof(mapped));mapped[n]=0;va_list args;va_start(args,format);vprintf(mapped,args);va_end(args);
+        }
+        return;
+    }
+    assert(!strncmp(format,"io-owner",8) || !strncmp(format,"io-gate",7));owner_prints++;
+}
 uint64_t process_pid(const struct process *p) { return (uint64_t)(uintptr_t)p; }
 static void test_io_observation(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;
@@ -1458,6 +1476,55 @@ static void test_capture_gate_observation(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;current_thread=io_depth=io_gate_pending=0;
     puts("capture-gate: PASS unchanged admission, nested/multiple owners, blocked/READY partition, stable worst-owner overlap, copied retention, incomplete/clock/overflow/capacity evidence");
 }
+static void test_launch_gate_trace(void) {
+    memset(threads,0,sizeof(threads));thread_chunks[0]=threads;thread_capacity=SCHEDULER_INITIAL_THREADS;
+    initialized=io_services_enabled=reference=true;switching=false;current_thread=1;io_depth=0;actual_space=1;clock_us=100000;
+    threads[1]=(struct thread){.state=THREAD_RUNNING,.identity=101,.user_context=(void *)1,.address_space=1,.io_user_safe=true};
+    threads[2]=(struct thread){.state=THREAD_READY,.identity=202,.user_context=(void *)2,.address_space=2,.io_user_safe=true};
+    launch_trace_configured=false;io_observed.enabled=true;scheduler_io_syscall(SYS_EXEC);scheduler_launch_trace_entry();
+    scheduler_launch_trace_exec(LAUNCH_TRACE_MAPPINGS,0,5000,0,0);assert(!threads[1].launch_context.kind);
+    unsigned disabled_prints=launch_prints;scheduler_print_launch_trace();assert(launch_prints==disabled_prints);
+    assert(scheduler_launch_trace_enable() && !scheduler_launch_trace_enable());
+    assert(scheduler_io_observe_reset());uint64_t epoch=launch_trace.epoch;
+    scheduler_launch_trace_entry();scheduler_launch_trace_exec(LAUNCH_TRACE_MAPPINGS,0,5000,0,0);
+    assert(launch_trace.entries==1 && launch_trace.decisions==1 && launch_trace.reasons[LAUNCH_TRACE_MAPPINGS]==1);
+    struct launch_gate_context saved=threads[1].launch_context;assert(saved.exec.mappings==5000);
+    struct io_gate_sample e={.pid=1,.identity=101,.syscall=SYS_EXEC,.owner_pid=2,.owner_identity=202,.owner_seq=7,.start=100000,.end=700000};
+    launch_trace_gate(e,saved);assert(launch_trace.waits[0]==1 && launch_trace.worst[0].gate.end==700000);
+    e.end=650000;launch_trace_gate(e,saved);assert(launch_trace.waits[0]==2 && launch_trace.worst[0].gate.end==700000);
+    scheduler_io_syscall(SYS_FCNTL);assert(!threads[1].launch_context.kind);
+    scheduler_launch_trace_fcntl(9,SRV_F_SETLKW,0xdeadbeef,PROCESS_FILE_VFS_WRITE,0);
+    assert(!threads[1].launch_context.fcntl.scalar && !threads[1].launch_context.fcntl.arg);
+    scheduler_launch_trace_fcntl(9,SRV_F_GETFL,0xdeadbeef,PROCESS_FILE_PIPE_DUPLEX,SRV_FD_NONBLOCK);
+    assert(!threads[1].launch_context.fcntl.scalar && !threads[1].launch_context.fcntl.arg);
+    scheduler_launch_trace_fcntl(9,SRV_F_SETFL,SRV_FD_NONBLOCK,PROCESS_FILE_PIPE_DUPLEX,0);
+    saved=threads[1].launch_context;assert(saved.fcntl.scalar && saved.fcntl.arg==SRV_FD_NONBLOCK);
+    struct io_gate_sample f={.pid=1,.identity=101,.syscall=SYS_FCNTL,.owner_pid=2,.owner_identity=202,.owner_seq=8,.start=800000,.end=1500000};
+    launch_trace_gate(f,saved);assert(launch_trace.waits[1]==1 && !launch_trace.invalid);
+    scheduler_io_syscall(SYS_WRITE);assert(!threads[1].launch_context.kind);
+    assert(launch_trace.worst[1].context.fcntl.command==SRV_F_SETFL && launch_trace.worst[1].context.fcntl.arg==SRV_FD_NONBLOCK);
+    /* No grants, owner release, yielding or printing in a held scope. */
+    io_owner=2;io_depth=1;unsigned prints=launch_prints;scheduler_print_launch_trace();assert(prints==launch_prints && io_owner==2 && io_depth==1);
+    assert(scheduler_io_process_atomic_reason((void *)1)==LAUNCH_ATOMIC_OK);
+    threads[3]=(struct thread){.state=THREAD_READY,.identity=303,.user_context=(void *)1,.address_space=1};
+    assert(scheduler_io_process_atomic_reason((void *)1)==LAUNCH_ATOMIC_SIBLING);
+    threads[3].memory_park_queue=&io_waiters;assert(scheduler_io_process_atomic_reason((void *)1)==LAUNCH_ATOMIC_OK);
+    threads[3].address_space=3;assert(scheduler_io_process_atomic_reason((void *)1)==LAUNCH_ATOMIC_SIBLING_ROOT);
+    threads[3]=(struct thread){0};io_depth=0;clock_us=2000000;
+#ifdef SRVROS_LAUNCH_TRACE_WIRE
+    launch_wire=true;
+#endif
+    scheduler_print_launch_trace();launch_wire=false;assert(launch_prints==prints+3);
+    assert(launch_trace.epoch==epoch && io_owner==2 && !io_depth);
+    e.end=e.start-1;launch_trace_gate(e,launch_trace.worst[0].context);assert(launch_trace.invalid==1);
+    assert(scheduler_io_observe_reset() && launch_trace.epoch==epoch+1 && !launch_trace.entries);
+    launch_trace_gate(f,saved);assert(launch_trace.invalid==1 && !launch_trace.worst[1].gate.end);
+    launch_trace.decisions=UINT64_MAX;scheduler_io_syscall(SYS_EXEC);scheduler_launch_trace_exec(LAUNCH_TRACE_SOURCE,0,1,0,3);
+    assert(launch_trace.decisions==UINT64_MAX && launch_trace.invalid==2);
+    launch_trace_configured=false;io_observed.enabled=false;initialized=io_services_enabled=false;memset(threads,0,sizeof(threads));
+    puts("launch-trace-host: PASS disabled hooks, fixed retention, request/atomic reasons, scalar redaction, stable identity, reset epoch and overflow; no owner/eligibility changes");
+}
+
 int main(void) {
     test_capture_gate_observation();
     test_binding_contract();
@@ -1664,6 +1731,7 @@ int main(void) {
     test_gate_handoff_fairness();
     test_ready_edge_admission();
     test_growth();
+    test_launch_gate_trace();
 #ifndef SRVROS_GATE_SYNC_INTEGRATION
     assert(commit_owner_begins && commit_owner_ends);
 #endif
