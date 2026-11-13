@@ -7,6 +7,21 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Request identity/ACK trace scope (November13)
+
+Trace the saved first-DHCP failure through production construction, encrypted
+provider delivery and network admission. Add only bounded scalar identity and
+checksum comparisons against the current transaction; retain no addresses,
+XID, packet bytes, equality digests or key material. Emit after existing local
+closure, keep diagnostic masks out of admission and preserve all original
+budgets/ownership/Request retry policy while locating the loss. Exercise the
+actual native HTTP/RF path with a late Offer, matched and mismatched reflected
+Request, absent ACK and delayed valid ACK. Publish limits before another image;
+no physical boot is armed by this audit. Fetch main6d107ae1's independent
+empty-stack/status changes before editing shared net.h/net.c; preserve its
+read-only status behavior and other units' filesystem sample-retention scope.
+Preserve both closed hub/packet banks and all eight recoveries.
+
 ### Hub-fix cold return: first DHCP ACK absent (November13)
 
 Runtime8f0daff9/released81daa7bea1c28a7 is collected FIRST once and CLOSED
