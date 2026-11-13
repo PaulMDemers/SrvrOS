@@ -48,3 +48,11 @@ regressions. The loaded stress harness accepts `--require-control-timing` to
 require the companion in saved workspace logs. Native assessment must require
 it alongside all original workload, saved-log and retirement predicates; a
 foreign-profile exact-stage refusal remains refusal evidence only.
+
+
+Native Air6,1 source `fb8247d5` / release `bfe6ca6ff45fe078` now passes the
+original 1800-second stress workload with the full control companion recovered
+from the final 64 KiB log alone. The worst loop was 127.140 ms with 46 us in
+control; the previous 411.886 ms control stall did not recur. This accepts the
+instrumentation and retained proof, without identifying or curing the old cause.
+See the [machine record](machines/macbookair6-1.md) for scoped observations.

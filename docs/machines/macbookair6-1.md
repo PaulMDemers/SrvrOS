@@ -14499,3 +14499,68 @@ a missing completion marker or timing companion is incomplete evidence.
 
 Latest pre-merge scope inspection: PR379 `817f80bb`, PR301 `3432e008`, PR19
 `95236e01`. Their actual loop/setup diffs remain independent.
+
+
+### Native control-phase trace accepted; prior stall not reproduced (2026-11-13)
+
+Return-review scope is documentation and independent evidence only, from fetched
+main `15eb67ad` (merged PR494). No runtime change, new build, installation or reboot
+is started. Open PR19 `0382faa1`, PR301 `4fd81b45` and PR379 `817f80bb` remain
+separate; no unmerged scope is imported and no other task is contacted.
+
+Frozen source `fb8247d5`, release `bfe6ca6ff45fe078`, run `765fe64ceb414a4d`
+and matching session `session-0006602f3d3da2ff-00` pass the original fully
+automated 1800-second 1% audio/disk/app/three-screenshot workload and the new
+control-trace contract. Independent raw saved-log parsing verifies 1,306 complete
+app cycles, 3,904 verified 256 KiB disk bursts (1,023,410,176 bytes),
+345,780,224 PCM bytes, zero recorded underruns and worker status zero. All three
+exact 1366×768 BMPs pass readback/hash/header checks. Launcher 6 has 1,307 launches
+and final reaps, zero errors and terminal retirement; battery, cache, capture and
+file-service retirement and all original timing/ownership contracts pass.
+Audibility remains unassessed at 1%.
+
+All 53,765 loop samples are valid, with zero excursions over the unchanged
+500 ms bound. The worst loop is 127.140 ms, sequence 8,147, with 126.917 ms in
+waiting: the matching scheduler trace reports 98.378 ms blocked and 28.506 ms
+ready, including a 28.172 ms maximum individual ready interval. Its control
+phase is only 46 us: bookkeeping 4/report 10/audio 22/I/O 10 us. Report submission
+was not due; the original NOHANG child wait returned pending in 6 us. All three
+control scheduler vectors are valid with zero blocked/ready time. The compact
+same-sequence control and scheduler companions, plus both original live
+sidecar-equality endpoints (growth 3,205), replay independently from the final
+64 KiB log alone, preserving all required final completion receipts.
+
+The previous 411.886 ms control stall did not recur: even this run's global
+maximum loop is smaller. This accepts native instrumentation/retention and the
+original workload, not a causal cure or retrospective attribution. Different
+cold boots and interleavings cannot establish a tracing-induced improvement;
+records remain bounded worst observations rather than an exhaustive call history.
+
+Ready/close maxima are 1.085371/5.640914 s, within the unchanged ten-second
+whole-app limit. For the slowest close, the visual change took 30.066 ms but
+exit was not observed until 5.629837 s after the request. Actual final reap took
+0.895 ms after 2.684 ms queued. Close overlapped the third capture and exit was
+observed 19.973 ms after its retirement. This is a clock correlation, not proof
+of a shared owner or particular blocking syscall; the retained log has no
+per-call context for that child. Investigate the child-exit interval before
+blaming desktop rendering or final reaping.
+
+Capture lifetimes are 6.601244/11.954495/12.811269 s; WRITE is
+3.859606/8.356341/4.140561 s and temporary verification is
+0.502063/0.565303/1.057135 s. The current/longest-capture final cleanup snapshot
+is 67.912 ms with pending 0; this is not an exhaustive cleanup maximum. Shared
+append/commit waits and long storage completion/publication phases remain
+performance work, alongside the child-exit delay. All original limits and
+integrity checks remain unchanged.
+
+Fresh read-only file hashing, fsck and allocation traversal pass: all 943 prior
+paths and 942 non-sidecar hashes are unchanged; only expected `.srvros/meta`
+changed. Four logs, three BMPs and two workload receipts bring the volume to
+952 files/215 directories/5,146 clusters, with zero leaks, FAT/bitmap mismatches
+or errors. Installed/staged/independent payload and recovery hashes pass.
+Ubuntu stays default, the one-shot is consumed, the collector is disabled and
+USB is unmounted. Current stays this trial, recovery stays `c35475f62f154f1e`;
+no recovery promotion or reboot is armed. Matching raw and reviewed evidence is
+sealed outside build. Next should target the observed pre-exit child delay and
+remaining screenshot/storage waits; the historical control stall remains
+unexplained unless it recurs with the new trace.
