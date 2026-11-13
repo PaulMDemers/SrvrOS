@@ -40,6 +40,7 @@ static enum mt76_net5_submit wifi_stack5_submit(void *c,uint64_t epoch,uint64_t 
  /* Both cursor guards precede PN reservation;publish cannot enter its legacy
   * blocking fence path. Original key seals once;publication uncertainty pins. */
  wifi_stream5.tx_packet=packet_observe(frame,length);
+ (void)dhcp_radio5_tag(&wifi_stream5.data_radio,&wifi_stream5.tx_packet,9+wifi_stream5.data_sends,wifi_stream5.usb,bytes);
  bool good=wifi_stream5_publish(0,wifi_stream5.usb,(unsigned)bytes);zero_bytes(wifi_stream5.usb,sizeof wifi_stream5.usb);
  if(!good){wifi_stack5_fault();return MT76_NET5_UNCERTAIN;}
  wifi_stack5.tx_token=token;wifi_stack5.tx_ticket=wifi_stream5.lease[0].ticket;wifi_stack5.tx_completion=wifi_stream5.completions[0];wifi_stream5.data_sends++;if(wifi_stream5.wraps[0])wifi_stream5.data_after_txwrap++;
@@ -98,6 +99,12 @@ static bool wifi_stack5_retirement(void *c,uint64_t epoch){
 }
 static enum mt76_join5_send wifi_stack5_window(void *c,struct wpa2_ccmp *keys,uint64_t epoch,const struct mt76_peer5 *peer){
  if(c!=&wifi_stream5 || !wifi_stack5.selected || wifi_stack5.running || !wifi_stack5.exercise || keys!=&wifi_stream5.exchange.keys || epoch!=wifi_stream5.epoch || peer!=&wifi_stream5.peer || wifi_stream5.posts[0]!=4 || wifi_stream5.data_active)return MT76_JOIN5_REFUSED;
+ if(wifi_stream5.connection_mode && wifi_http_reconnect5_reserved){
+  struct dhcp_radio5 *r=&wifi_stream5.data_radio;
+  if(r->enabled)return MT76_JOIN5_UNCERTAIN;
+  r->enabled=1;r->epoch=epoch;r->slot=wifi_stream5_current==&wifi_stream5_slots[1];
+  if(!wifi_stream5_data_radio(0))return MT76_JOIN5_UNCERTAIN;
+ }
  wifi_stream5.data_active=true;wifi_stack5.running=true;wifi_stack5.start=wifi_stack5.last=timer_monotonic_us();
  const struct mt76_net5_io io={c,wifi_stack5_owned,wifi_stack5_submit,wifi_stack5_service,wifi_stack5_receive,wifi_stack5_retirement};
  bool registered=wifi_stream5_data_owned(c) && (wifi_stream5.connection_mode && wifi_stack5_net.identity?

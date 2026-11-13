@@ -15,6 +15,16 @@ static bool wifi_http_reconnect5_unattempted(void){
   !p->self && !p->result.attempted && !p->result.go && !p->child.published &&
   !p->bootstrap.identity && !wifi_stream5.attempted && !wifi_stack5_net.identity;
 }
+static bool wifi_http5_data_radio_ready(void){
+ unsigned g=wifi_http_reconnect5.connections;if(g>1)return false;
+ const struct http_network_probe *p=&wifi_http_reconnect5.probe[g];const struct http_network_result *r=&p->result;
+ return wifi_http_reconnect5.requested && wifi_http_reconnect5.attempted &&
+  wifi_http5_active_probe==p && wifi_http5_connection_callback_probe==p && p->self==(uintptr_t)p &&
+  r->connection_scope && r->attempted && r->quiescent && r->refs_scrubbed && r->disconnected &&
+  r->child_retired && p->child.retired && r->worker_finished && r->receiver_closed && r->tcp_empty &&
+  r->provider_drained && !p->source && !p->source_guard && !p->checking && !p->bootstrap_open &&
+  !wifi_stack5.running && !wifi_stack5.tx_token && !wifi_stack5_net.pending && !wifi_stack5_net.count;
+}
 static bool wifi_http5_failed_scope(bool detached){
  unsigned g=wifi_http_reconnect5.connections;if(g>1)return false;
  const struct http_network_probe *p=&wifi_http_reconnect5.probe[g];
@@ -178,7 +188,7 @@ bool xhci_wifi_http_reconnect5_finish_capture(bool parent_complete){
    (uint64_t)g+1,(uint64_t)p->result.quiescent,(uint64_t)p->result.child_retired,
    (uint64_t)p->result.worker_allocated,(uint64_t)p->result.worker_finished);
  }
- for(unsigned g=0;g<2;g++)wifi_stream5_packet_emit(&wifi_stream5_slots[g]);
+ for(unsigned g=0;g<2;g++){wifi_stream5_packet_emit(&wifi_stream5_slots[g]);wifi_stream5_data_radio_record_emit(&wifi_stream5_slots[g].data_radio,false);}
  console_printf("wifi-http-reconnect5-final: version=1 complete=%u connections=%u parent_restored=%u provider_retired=%u retained_contexts=2 backend_retired=0\n",
   (uint64_t)(parent_complete && wifi_http_reconnect5.complete),(uint64_t)wifi_http_reconnect5.connections,
   (uint64_t)wifi_http_reconnect5.parent_complete,(uint64_t)wifi_http_reconnect5.provider_retired);

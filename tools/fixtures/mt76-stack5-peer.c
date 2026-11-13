@@ -175,7 +175,7 @@ bool stack5_peer_open(const uint8_t *usb, size_t usb_n,
     if (dma < 68 || dma + 8 != usb_n || dma != ((20 + n + 3) & ~(size_t)3) ||
         stack5_le32(usb) != (dma | (1u << 19) | (1u << 24) | (2u << 25)) ||
         !stack5_zero(usb + 4, 2) || stack5_le16(usb + 6) != 0x2000 ||
-        usb[8] != 1 || usb[9] != 255 || !stack5_zero(usb + 12, 11) || usb[23] != 128 ||
+        usb[8] != 1 || usb[9] != 255 || !stack5_zero(usb + 12, 11) || (usb[23] != 128 && (usb[23] < 3 || usb[23] > 8)) ||
         n < 48 || n > STACK5_PLAIN_MAX + 40 || n + 24 > usb_n ||
         !stack5_zero(usb + 24 + n, usb_n - 24 - n)) return false;
     const uint8_t *h = usb + 24, *iv = h + 24;

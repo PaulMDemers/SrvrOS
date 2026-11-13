@@ -23,6 +23,14 @@ trace and preserve its source/tests; PR301 and PR379 have separate scopes.
 The closed04b/792 primary and review remain immutable. Qualify software before
 any new source-bound collector/image; no hardware boot is armed by this audit.
 
+The implementation now has separate `wifi-dhcp-radio5` scalar receipts, a strict
+observer and eleven added production native-path cases (38–48). The development
+pure tag/binding test and nine decoder tests pass, including retained partial
+reads and disjoint two-generation bindings before the doorbell. See the
+[correlation contract](../wifi-dhcp-radio5.md). Full clean-source native,
+sanitizer, kernel/shared and guest qualification is next. The physical
+no-Offer/no-ACK cause remains unknown; no image or boot has been armed.
+
 ### Late HTTP child preparation software-qualified (November 13)
 
 Source `27af43ef` moves first preparation past the full RF/first-join parent;

@@ -1,4 +1,5 @@
 #include <srvros/packet_observation.h>
+#include <srvros/dhcp_radio5.h>
 /* Explicit v135:independent live owner,never widens historical WPA/data bounds.
  * One original handshake/key lifetime;four pages/direction;finite real fences.
  * All DMA/context survives uncertainty. No console inside active MAC window. */
@@ -8,6 +9,7 @@ static enum mt76_join5_send wifi_stack5_window(void *,struct wpa2_ccmp *,uint64_
 static bool wifi_stack5_complete(void);
 static void wifi_stack5_emit(void);
 static bool wifi_http5_failed_connection_closed(void);
+static bool wifi_http5_data_radio_ready(void);
 #define WIFI_STREAM5_RX 252u
 #define WIFI_STREAM5_TX 80u
 #define WIFI_STREAM5_FENCES 4u
@@ -16,6 +18,7 @@ static bool wifi_http5_failed_connection_closed(void);
 /* Anonymous scalar observations only; never retain packet or key bytes. */
 struct wifi_stream5_record {struct packet_observation packet;unsigned sequence;struct xhci_trb event;uint64_t ticket,token,pn;uint64_t started_us,finished_us;unsigned flags,frame,audit,span,dma,mpdu,trailing,ethertype,rate,ack,wcid;unsigned direction,page,cycle,bytes,ethernet,reason,kind;};
 struct wifi_stream5_state {
+ struct dhcp_radio5 data_radio;
  struct packet_observation tx_packet;
  struct xhci_device *d;struct mt76_peer5 peer;struct mt76_wpa5 exchange;struct mt76_mac_cycle mac;
  struct mt76_dma5 dma;struct mt76_dma5_lease lease[2],loan;
@@ -147,6 +150,7 @@ static bool wifi_stream5_event(struct xhci_device *d,const struct xhci_trb *e){
      const uint8_t *b=wifi_stream5.buffer[0][l->index];struct wifi_stream5_record *r=&wifi_stream5.records[i];
      r->rate=b[6]|((unsigned)b[7]<<8);r->ack=b[8]&1;r->wcid=b[9];r->mpdu=b[10]|((unsigned)b[11]<<8);r->packet=wifi_stream5.tx_packet;
      if(l->length>=48)r->sequence=(b[46]|((unsigned)b[47]<<8))>>4;
+     dhcp_radio5_complete(&wifi_stream5.data_radio,b[23],r->packet.message,r->sequence,l->ticket,l->token,finished);
     }
     wifi_stream5.pending[dir]=false;wifi_stream5.completions[dir]++;if(dir){wifi_stream5.ready_rx=true;wifi_stream5.rx_residue=res;wifi_stream5.rx_record=i;}else copy_bytes(wifi_stream5.page_shadow[0][l->index],wifi_stream5.buffer[0][l->index],4096);
    }}
@@ -222,6 +226,11 @@ static bool wifi_stream5_publish(unsigned dir,const uint8_t *packet,unsigned len
  if(!wifi_stream5_owned(&wifi_stream5,false) || dir>1 || wifi_stream5.pending[dir] || (wifi_stream5.dma.cursor[dir]==wifi_stream5_positions() && !wifi_stream5_fences()) || (dir && (wifi_stream5.ready_rx || wifi_stream5.cached_present)) || wifi_stream5.posts[dir]>=(dir?WIFI_STREAM5_RX:WIFI_STREAM5_TX))return false;
  uint64_t f=event_irq_save();struct mt76_dma5_lease *l=&wifi_stream5.lease[dir];bool good=mt76_dma5_prepare(&wifi_stream5.dma,dir,wifi_stream5.posts[dir]+1,length,timer_monotonic_us(),l);
  if(good){unsigned p=l->index,index=(unsigned)wifi_stream5.enqueue[dir];zero_bytes(wifi_stream5.buffer[dir][p],4096);if(!dir){copy_bytes(wifi_stream5.buffer[0][p],packet,length);copy_bytes(wifi_stream5.page_shadow[0][p],wifi_stream5.buffer[0][p],4096);}good=index<wifi_stream5_positions() && l->trb==wifi_stream5.physical[dir]+16*index && l->cycle==wifi_stream5.cycle[dir] && mt76_dma5_publish(&wifi_stream5.dma,l,timer_monotonic_us());
+  if(good && !dir && wifi_stream5.data_radio.enabled && length>=48){
+   unsigned base=3+wifi_stream5.data_radio.slot*DHCP_RADIO5_TAGS,pid=packet[23];
+   if(pid>=base && pid<base+wifi_stream5.data_radio.count)
+    dhcp_radio5_bind(&wifi_stream5.data_radio,pid-base+1,l->ticket,l->token);
+  }
   if(good){struct xhci_trb td={.parameter_low=l->page,.parameter_high=l->page>>32,.status=length,.control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|(dir?XHCI_TRB_ISP:0)};wifi_stream5.pending[dir]=true;wifi_stream5.posts[dir]++;uint64_t ptr=wifi_stream5_push(dir,&td);wifi_stream5.shadow[dir][index]=td;wifi_stream5.shadow[dir][index].control|=l->cycle;if(index+1==wifi_stream5_positions())wifi_stream5_link(wifi_stream5.shadow[dir],wifi_stream5.physical[dir],l->cycle);good=ptr==l->trb;if(good)db_write32(wifi_stream5.slot,dir?9:8);}
  }
  event_irq_restore(f);return good?true:wifi_stream5_fail();
@@ -343,6 +352,44 @@ static bool wifi_stream5_auth_radio(unsigned phase){
  }
  wifi_stream5.auth_radio.complete[phase]=true;return true;
 }
+/* Bounded consuming reads only outside provider callbacks. No status wait,
+ * logging, retries or protocol decision. Partial/failed reads remain retained. */
+static bool wifi_stream5_data_radio(unsigned phase){
+ struct dhcp_radio5 *s=&wifi_stream5.data_radio;
+ if(!s->enabled)return true;
+ if(phase>1 || s->phase[phase].attempted)return false;
+ struct dhcp_radio5_phase *p=&s->phase[phase];p->attempted=1;p->started=timer_monotonic_us();
+ if(!wifi_stream5.connection_mode || !wifi_stream5.stack_mode || s->epoch!=wifi_stream5.epoch ||
+    wifi_stream5.data_active || wifi_stream5.pending[0] || wifi_stream5.loan.ticket ||
+    wifi_fence5_native.round || xhci.command_pending ||
+    (phase?(!s->phase[0].complete || !wifi_http5_data_radio_ready() || !wifi_stream5.closed ||
+      !wifi_stream5.exchange.keys_erased || wifi_stream5.exchange.handshake.keys_may_live ||
+      !wifi_stream5.mac.mac_disabled || !wifi_stream5.mac.tx_drained || !wifi_stream5.mac.rx_drained):
+     (wifi_stream5.posts[0]!=4 || wifi_stream5.completions[0]!=4 || wifi_stream5.closed ||
+      !wifi_stream5.exchange.keys_activated || wifi_stream5.exchange.keys_erased))){p->error=2;return wifi_stream5_fail();}
+ uint64_t last=p->started;
+ for(unsigned i=0;i<DHCP_RADIO5_READS;i++){
+  const uint32_t addresses[2]={0x1798,0x1718};
+  for(unsigned j=0;j<2;j++){
+   if(!wifi_stream5_owned(&wifi_stream5,phase!=0)){p->error=2;goto failed;}
+   uint32_t value=0;bool good=
+#ifdef SRVROS_XHCI_STREAM5_TEST
+    stream_test_usb(wifi_stream5.d,false,addresses[j],&value);
+#else
+    wifi_mac_private_usb(wifi_stream5.d,false,addresses[j],&value);
+#endif
+   if(good){if(!j){p->ext[i]=value;p->ext_reads++;}else{p->fifo[i]=value;p->fifo_reads++;}}
+   if(!good){p->error=1;goto failed;}
+   if(!wifi_stream5_owned(&wifi_stream5,phase!=0)){p->error=2;goto failed;}
+   uint64_t now=timer_monotonic_us();p->finished=now;
+   if(now<last || now<p->started || now-p->started>=DHCP_RADIO5_US){p->error=3;goto failed;}
+   last=now;
+  }
+  if(!(p->fifo[i]&1)){p->empty=1;break;}
+ }
+ p->complete=1;return true;
+failed:return wifi_stream5_fail();
+}
 static bool wifi_stream5_read(void *c,uint32_t a,uint32_t *v,bool cleanup){if(!v)return false;*v=0;return (!cleanup || wifi_stream5_drain()) && wifi_stream5_usb(c,false,a,v,cleanup);}
 static bool wifi_stream5_write(void *c,uint32_t a,uint32_t v,bool cleanup){return wifi_stream5_usb(c,true,a,&v,cleanup);}
 static bool wifi_stream5_mac_delay(void *c,unsigned us,bool cleanup){return us<=10000 && (!cleanup || wifi_stream5_drain()) && wifi_stream5_owned(c,cleanup) && wifi_stream5_delay_us(us);}
@@ -447,6 +494,7 @@ static bool wifi_stream5_inspect(void){
  if(!wifi_stream5_post())return false;
  const struct mt76_mac_cycle_io io={&wifi_stream5,wifi_stream5_owned,wifi_stream5_read,wifi_stream5_write,wifi_stream5_mac_delay,wifi_stream5_now,wifi_stream5_inspection};bool exchanged=mt76_mac_cycle_run(&wifi_stream5.mac,&io);
  bool good=!wifi_stream5.failed && wifi_stream5.exchange.keys_erased && wifi_stream5.mac.mac_disabled && wifi_stream5.mac.tx_drained && wifi_stream5.mac.rx_drained && wifi_stream5.mac.filter_restored && wifi_stream5.mac.txop_restored && wifi_stream5_owned(&wifi_stream5,true);
+ if(good)good=wifi_stream5_data_radio(1);
  if(good)good=wifi_stream5_command(15,9,0,4);
  if(good)good=wifi_stream5_command(15,8,0,5);
  uint64_t old_dequeue=wifi_stream5.context[4][2]|((uint64_t)wifi_stream5.context[4][3]<<32);if(good)good=wifi_stream5_command(16,9,old_dequeue,6);
@@ -490,6 +538,21 @@ static __attribute__((unused)) void wifi_stream5_packet_emit(const struct wifi_s
     console_printf("wifi-packet5-frame: index=%u ticket=%u token=%u direction=%u ethernet=%u role=%u message=%u sequence=%u started_us=%u finished_us=%u radio_delivery_proved=0\n",
      (uint64_t)i,r->ticket,r->token,(uint64_t)r->direction,(uint64_t)r->packet.bytes,(uint64_t)r->packet.role,(uint64_t)r->packet.message,(uint64_t)r->sequence,r->started_us,r->finished_us);
   }
+ }
+}
+/* Scalar-only emission after the outer capture/guard; never live I/O. */
+static void wifi_stream5_data_radio_record_emit(const struct dhcp_radio5 *s,bool held){
+ if(!s->enabled)return;
+ console_printf("wifi-dhcp-radio5: version=1 epoch=%u slot=%u tags=%u overflow=%u binding_error=%u held=%u observation_only=1\n",s->epoch,(uint64_t)s->slot,(uint64_t)s->count,(uint64_t)s->overflow,(uint64_t)s->binding_error,(uint64_t)held);
+ for(unsigned i=0;i<s->count && i<DHCP_RADIO5_TAGS;i++){
+  const struct dhcp_radio5_tx *t=&s->tx[i];
+  console_printf("wifi-dhcp-radio5-tx: i=%u pid=%u message=%u sequence=%u ticket=%u token=%u completed=%u finished_us=%u\n",(uint64_t)i,(uint64_t)t->pid,(uint64_t)t->message,(uint64_t)t->sequence,t->ticket,t->token,(uint64_t)t->completed,t->finished);
+ }
+ for(unsigned phase=0;phase<2;phase++){
+  const struct dhcp_radio5_phase *p=&s->phase[phase];
+  console_printf("wifi-dhcp-radio5-phase: phase=%u attempted=%u complete=%u ext_reads=%u fifo_reads=%u empty=%u error=%u started_us=%u finished_us=%u\n",(uint64_t)phase,(uint64_t)p->attempted,(uint64_t)p->complete,(uint64_t)p->ext_reads,(uint64_t)p->fifo_reads,(uint64_t)p->empty,(uint64_t)p->error,p->started,p->finished);
+  for(unsigned i=0;i<p->ext_reads && i<DHCP_RADIO5_READS;i++)
+   console_printf("wifi-dhcp-radio5-entry: phase=%u i=%u ext=%u fifo_present=%u fifo=%u\n",(uint64_t)phase,(uint64_t)i,(uint64_t)p->ext[i],(uint64_t)(i<p->fifo_reads),(uint64_t)p->fifo[i]);
  }
 }
 static unsigned wifi_stream5_emit(void){

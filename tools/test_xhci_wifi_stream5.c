@@ -12,6 +12,7 @@ static bool stream_test_delay(unsigned);
 static bool stream_test_nonce(uint8_t [32]);
 static bool stream_test_command(const struct xhci_trb *,unsigned,uint64_t *);
 static bool stream_test_usb(struct xhci_device *,bool,uint32_t,uint32_t *);
+static bool (*stream_test_data_radio_read)(struct xhci_device *,bool,uint32_t,uint32_t *);
 static bool stream_test_toggle(struct xhci_device *,const struct usb_setup_packet *,int *);
 static const struct initramfs_file *stream_test_credential(void);
 #define SRVROS_XHCI_STREAM5_TEST
@@ -262,6 +263,7 @@ static bool stream_test_nonce(uint8_t out[32]){
 static const struct initramfs_file *stream_test_credential(void){stream_credential.data=sim.credential;return &stream_credential;}
 static bool stream_test_toggle(struct xhci_device *d,const struct usb_setup_packet *p,int *actual){assert(d==wifi_stream5.d && p->request_type==2 && p->request==1 && p->index==4 && !p->length);*actual=sim.fault==20?1:0;return true;}
 static bool stream_test_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v){
+ if(stream_test_data_radio_read && wifi_stream5.data_radio.enabled && (a==0x1798 || a==0x1718))return stream_test_data_radio_read(d,write,a,v);
  if(radio_sim.mode && (a==0x1798 || a==0x1718)){
   assert(!write && d==wifi_stream5.d && wifi_stream5.connection_mode && !wifi_stream5.data_active);
   unsigned p=wifi_stream5.auth_radio.attempted[1],i=radio_sim.pop[p];radio_sim.reads++;

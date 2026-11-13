@@ -15,6 +15,7 @@ static const struct http_network_probe *wifi_http5_connection_callback_probe;
  * proof. Native fields are direct scalar reads, never packet/key/address bytes.
  * Holding retains every original owner even if workers progress while printing. */
 static struct {
+ struct dhcp_radio5 data_radio;
  struct http_network_result result;
  struct net_probe_worker_info worker;
  uint64_t site,requested,prepared,capture_attempted,callback_attempted;
@@ -29,6 +30,7 @@ static void wifi_http5_freeze_hold(unsigned site) {
  uint64_t flags=event_irq_save();
  if(!wifi_http5_held_state.frozen){
   wifi_http5_held_state.result=wifi_http5_active_probe->result;
+  wifi_http5_held_state.data_radio=wifi_stream5.data_radio;
   const struct net_probe_worker_info *w=&wifi_http5_active_probe->worker;
   wifi_http5_held_state.worker=(struct net_probe_worker_info){
    .prepared=w->prepared,.parked=w->parked,.active=w->active,.handoff_started=w->handoff_started,
@@ -77,6 +79,7 @@ static void wifi_http5_freeze_hold(unsigned site) {
  event_irq_restore(flags);
 }
 static void wifi_http5_emit_hold(void) {
+ wifi_stream5_data_radio_record_emit(&wifi_http5_held_state.data_radio,true);
  const struct http_network_result *r=&wifi_http5_held_state.result;
  const struct net_probe_worker_info *w=&wifi_http5_held_state.worker;
  /* Keep the discriminating codes on short rows as well as the full frozen
