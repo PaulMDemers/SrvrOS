@@ -7,6 +7,57 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Hub-fix cold return: first DHCP ACK absent (November13)
+
+Runtime8f0daff9/released81daa7bea1c28a7 is collected FIRST once and CLOSED
+FAILED/incomplete in session0006602b1e59eff7-00. All1443 primary files verify;
+the2069648-byte exit and all seven independent journal checkpoints survive.
+The hub guard observer is present=false: first DHCP fails before a complete
+connection or second preparation. This run neither exercises nor physically
+accepts the new owned-hub completion service. No unchanged retry is armed.
+
+Calibration/authentication/key activation reach encrypted DHCP. Two Discovers
+and one Request are queued and complete over USB (PN1/2/3,CC1,residue0).
+An Offer is accepted, but no ACK is observed/accepted before the original
+200-tick/two-second deadline. The packet witness records eight Ethernet rows:
+two TX Discovers, two RX client-port Discovers, one54-byte other IPv4 frame,
+one server-port Offer, one TX Request and one RX client-port Request. The latter
+completes84.621ms after Request USB completion. Structural roles do not bind its
+XID/client/payload to our Request and do not independently prove AP/server
+receipt. No server-port ACK appears. One Ethernet-gate rejection is reported;
+the sole non-DHCP Ethernet frame is54 bytes, too short to be a BOOTP ACK.
+Do not call that rejection the missing ACK or a DHCP option/checksum rejection.
+
+The encrypted observer has61 classified RXs:56 management exclusions and five
+authenticated Ethernet deliveries, with no parsed CCMP rejection. Sixty bounded
+RX tails are4bytes and one is8bytes; no classified tail can contain a whole
+additional DHCP frame. This still does not locate an absent radio/USB response.
+The present bounded DHCP code retries only Discover, never an outstanding
+Request; after this late Offer there is less than one second of the original
+window left. That is a resilience gap to audit, not proof of this loss's cause
+or authorization to hide it by extending deadlines or weakening admission.
+
+Prepared child status137 is cancellation before GO; DNS/route/HTTP never start.
+Child/worker/TCP/receiver quiescence, local key/native/provider closure and full
+RF restoration (status0,complete1,valid1,restored1,3844 operations) are reported.
+The independent source-bound review finds those failure-path receipts consistent;
+it grants no complete connection/pair/full-native-closure acceptance. The full
+success checker correctly refuses missing production traffic.
+
+All485 prior non-sidecar files and checked persisted metadata survive apart
+from one authorized marker atime; only two new session logs appear. Offline
+fsck/allocation,70 other EFI files and all eight protected recoveries verify.
+Ubuntu is unarmed. Keep the closed primary and separate review immutable.
+Next audit Request construction/identity and ACK receive classification through
+the actual native path, plus explicit bounded Request-retransmission semantics
+under the original deadline. Do not assume reflected client traffic proves our
+server received a valid Request, and do not schedule a blind identical boot.
+
+Primary `wifi-hubfix-hardware-8f0daff9` index:
+`458c77f745db3b459faf306ccc5a8bee6c75a6399741bd331d65676a6911b020`.
+Separate `wifi-hubfix-hardware-8f0daff9-return-review` index:
+`92f3582131c3c9d9a5c2df9098e4ce59f0421237608a9695730b229f32bd7265`.
+
 ### Fresh hub-fix hardware qualification scope (November13)
 
 The user authorizes fresh-image qualification, installation and cold shutdown.
