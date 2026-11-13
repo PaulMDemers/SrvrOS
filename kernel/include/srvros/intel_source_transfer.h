@@ -35,6 +35,10 @@ struct intel_source_transfer {
  struct intel_source_transfer_io original_io;
  uint32_t callbacks,clocks,borrows,returns;
  bool busy,registered,source_blocked,holds_blocked,refused,opened,checked,closed;
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+ const void *dependent,*registered_child;
+ unsigned child_borrows,child_returns;
+#endif
 };
 /* True may mean known refusal: inspect state. Refused admission still owns a
  * source child until close. Missing assurances/open obligations must cause no

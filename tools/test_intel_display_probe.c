@@ -305,7 +305,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+#define intel_wake_firmware_request intel_source_requester_firmware_request
+#elif defined(SRVROS_INTEL_SOURCE_TRANSFER)
 #define intel_wake_firmware_request intel_startup_transfer_firmware_request
 #elif defined(SRVROS_INTEL_STARTUP_BUFFERS)
 #define intel_wake_firmware_request intel_startup_buffers_firmware_request
@@ -506,6 +508,9 @@ uint64_t pci_device_count(void){
 }
 const struct pci_device *pci_device_at(uint64_t i){return i<pci_device_count()?&devices[i]:NULL;}
 uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+    if(d==&devices[0] && off==4)return 0x00100000|intel_display_test_source_requester_command();
+#endif
 #if defined(SRVROS_INTEL_HDA_OBSERVER) || defined(SRVROS_INTEL_HDA_OWNER) || (defined(SRVROS_INTEL_JOINT) || defined(SRVROS_INTEL_HDA_SHUTDOWN) || defined(SRVROS_INTEL_RING_TRANSITION))
     if(d==&devices[3])return intel_display_test_hda_config(off);
 #endif
@@ -553,7 +558,7 @@ uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
         return gt_bad_pci?UINT32_MAX:gt_mode?0x12345000:0;case 0xe8:return gt_mode?0x8000:0;
     case 0x10:return 0xc0000004;case 0x18:return 0xb000000c;case 0x2c:return 0x011b106b;
     case 0x50:return window_mode?0x2c0:0x140;case 0x5c:return window_mode?0x8c000001:0x90000001;
-#if defined(SRVROS_INTEL_REQUESTER_AUDIT) || defined(SRVROS_INTEL_HELD_REQUESTER)
+#if defined(SRVROS_INTEL_REQUESTER_AUDIT) || defined(SRVROS_INTEL_HELD_REQUESTER) || defined(SRVROS_INTEL_SOURCE_REQUESTER)
     case 0x34:return 0x90;case 0x90:return 0x0000d005;case 0xd0:return 0x0002a401;
     case 0xa4:return 0x03060013;
 #ifdef SRVROS_INTEL_REQUESTER_AUDIT
@@ -951,7 +956,9 @@ int main(int argc,char **argv) {
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
 #ifdef SRVROS_INTEL_RING_TRANSITION
     static char ring_recipe[1400];
-#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=source-requester-v1",completion_recipe);
+#elif defined(SRVROS_INTEL_SOURCE_TRANSFER)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=startup-transfer-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_STARTUP_BUFFERS)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=startup-buffers-v1",completion_recipe);
@@ -1101,6 +1108,9 @@ good=good || !strncmp(engine_mode,"source-reenter:",15);
 #endif
 #ifdef SRVROS_INTEL_SOURCE_TRANSFER
 good=good || !strncmp(engine_mode,"transfer-missing-assurance:",27) || !strncmp(engine_mode,"transfer-open-obligation:",25);
+#endif
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+good=good || !strcmp(engine_mode,"requester-pending");
 #endif
 assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);
 #ifdef SRVROS_INTEL_STARTUP_BUFFERS

@@ -1008,7 +1008,9 @@ void kmain(void) {
 #if defined(SRVROS_INTEL_GPU_HOLD) && !defined(SRVROS_INTEL_ENTRY_REQUESTER)
                 if(cmdline_has_token(cmdline,"srvros.intel-gpu-requester=hold"))console_write("intel-gpu-hold: automatic original-source PCI requester inhibit, pending-drain and exact restoration. No input needed. Saved safe outcomes return to Ubuntu; uncertainty halts.\n");
 #endif
-#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+                console_write("intel-requester: automatic original-source PCI hold with inhibited child; no input. Same deadlines; no GPU mapping. Safe saved outcomes return; uncertainty halts.\n");
+#elif defined(SRVROS_INTEL_SOURCE_TRANSFER)
                 console_write("intel-transfer: automatic original-source address-owner lifetime; no input. Missing hardware assurances refuse transfer. Same deadlines; safe saved outcomes return; uncertainty halts.\n");
 #elif defined(SRVROS_INTEL_STARTUP_BUFFERS)
                 console_write("intel-source: automatic original live post-reset GGTT binding; no input. Same deadlines; no new stores or memory grant. Safe saved outcomes return; uncertainty halts.\n");

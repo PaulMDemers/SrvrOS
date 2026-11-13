@@ -6415,3 +6415,47 @@ build/tests/desk-launch-owner-host$(HOST_EXE): tools/test_desk_launch_owner.c us
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< -o $@
 test-core test-desktop: test-desk-launch-owner
 build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ) $(DESKCLIENT_OBJ): userspace/lib/include/srvros/desk_launch_owner.h
+
+INTEL_SOURCE_REQUESTER_FLAGS := $(INTEL_STARTUP_TRANSFER_FLAGS) -DSRVROS_INTEL_SOURCE_REQUESTER
+build/tests/intel-source-requester-adapter$(HOST_EXE): tools/test_intel_source_requester_adapter.c tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_SOURCE_REQUESTER_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_source_requester.c kernel/src/drivers/intel_pci_requester.c kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/intel-source-requester/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+build/intel-source-requester/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+build/intel-source-requester/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+build/intel-source-requester/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+build/intel-source-requester/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+build/intel-source-requester/transfer.o: kernel/diagnostics/intel_source_transfer.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+build/intel-source-requester/srvros.elf: build/intel-source-requester/requester.o build/kernel/src/drivers/intel_pci_requester.c.o build/intel-source-requester/transfer.o build/intel-source-requester/buffers.o build/intel-joint/page.o build/intel-source-requester/main.o build/intel-source-requester/probe.o build/intel-source-requester/requests.o build/intel-source-requester/reset.o build/intel-source-requester/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+
+build/intel-source-requester/requester.o: kernel/diagnostics/intel_source_requester.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+
+build/intel-source-requester/buffers.o: kernel/diagnostics/intel_source_buffers.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_SOURCE_REQUESTER_FLAGS) -c $< -o $@
+
+build/tests/boot-source-requester$(HOST_EXE): tools/test_boot_source_requester.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_SOURCE_REQUESTER_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+.PHONY: test-intel-source-requester
+test-core: test-intel-source-requester
+test-intel-source-requester: build/tests/intel-source-requester-adapter$(HOST_EXE) build/tests/boot-source-requester$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-handoff-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -f -s tools -p test_intel_source_requester.py
+	build/tests/boot-source-requester$(HOST_EXE)

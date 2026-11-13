@@ -976,3 +976,14 @@ wake/reset stores. Enabled route, repeatability and actual interval ownership
 remain open; all255 obligations/0assurances/0managed GPU pages. No native
 tear-free acceptance. Next integrate deferred main, then resolve hardware
 ownership witnesses before a GPU writer; no unchanged refusal retry is needed.
+
+
+After collecting native v32, Air7,2 owns the separate [maintained original-source
+requester](intel-source-requester.md) on integrated mainbc326e39. The optional
+v33 child pins source/transfer/RAM/root through PCI7→3, inhibited child, fresh
+inhibited profile, PCI3→7, restored profile and full closing validation. All old
+images/APIs and deadlines stay strict. Nine actual-adapter tests and115 staging
+checks pass preliminarily; full frozen-source/image/sanitizer/control/VM/media
+qualification remains pending. No native v33 acceptance or new reboot is armed.
+PR19 MT7610 and PR379 WebCore remain independent; no cross-task messages or
+subagents were requested.

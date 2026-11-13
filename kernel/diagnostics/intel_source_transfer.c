@@ -158,9 +158,15 @@ bool intel_source_transfer_open(struct intel_source_transfer *t,struct intel_sou
 }
 bool intel_source_transfer_check(struct intel_source_transfer *t) {
  if(!t || t->object!=t || t->busy || t->state==IST_CLOSED || t->state==IST_FAULT)return false;
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+ if(t->dependent || t->registered_child || t->child_borrows!=t->child_returns)return false;
+#endif
  t->busy=true;bool ok=transfer_check(t);t->busy=false;return ok;
 }
 bool intel_source_transfer_close(struct intel_source_transfer *t) {
  if(!t || t->object!=t || t->busy || t->state==IST_CLOSED || t->state==IST_FAULT)return false;
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+ if(t->dependent || t->registered_child || t->child_borrows!=t->child_returns)return false;
+#endif
  t->busy=true;bool ok=transfer_close(t);t->busy=false;return ok;
 }

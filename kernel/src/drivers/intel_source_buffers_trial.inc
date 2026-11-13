@@ -6,6 +6,16 @@
 #include <srvros/intel_source_transfer.h>
 static struct intel_source_transfer source_transfer_native;
 #endif
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+#include <srvros/intel_source_requester.h>
+static struct {
+ struct intel_source_requester result;
+ unsigned issued,reads,admit_reads;
+ uint32_t admission[2];
+ uint64_t store_at[2],store_previous[2];
+ bool uncertain;
+} source_requester_native;
+#endif
 static struct {
  struct scanout_memory memory[2];
  struct scanout_memory_pool pool;
@@ -65,6 +75,10 @@ static bool buffers_prepare(void) {
   * to introduce inside the original 100ms preparation interval. */
  volatile unsigned char *storage=(volatile unsigned char *)&source_transfer_native;
  for(unsigned i=0;i<sizeof(source_transfer_native);i++)storage[i]=0;
+#endif
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+ volatile unsigned char *requester_storage=(volatile unsigned char *)&source_requester_native;
+ for(unsigned i=0;i<sizeof(source_requester_native);i++)requester_storage[i]=0;
 #endif
  buffers_native.dma_before=pmm_tagged_frames(PMM_FRAME_DMA);buffers_native.begin=timer_monotonic_us();
  struct scanout_profile p={0};struct scanout_memory_layout l={0};
@@ -127,6 +141,9 @@ static bool transfer_provider(void *ctx,const struct scanout_transfer_manifest *
  return buffers_forbidden(ctx,m,phase);
 #endif
 }
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+#include "intel_source_requester_trial.inc"
+#endif
 static bool transfer_visit(void *ctx,struct intel_source_buffers *b) {
  struct nonzero_adapter *p=ctx;
  if(p!=&nonzero_native || b!=&buffers_native.binding)return false;
@@ -140,6 +157,13 @@ static bool transfer_visit(void *ctx,struct intel_source_buffers *b) {
  if(source_transfer_native.opened)intel_display_test_transfer_active(&source_transfer_native);
 #endif
  buffers_native.grant_refused=source_transfer_native.refused && !source_transfer_native.opened;
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+ if(!source_requester_run(p))return false;
+ /* Source loads and requester control share one original full hardware
+  * bracket. Each I/O retains its source/map/requester and final-clock checks. */
+ nonzero_exit(p);if(p->failed || p->a->uncertain)return false;
+ p->source_batch_checked=true;
+#endif
  return intel_source_transfer_check(&source_transfer_native) &&
   intel_source_transfer_close(&source_transfer_native);
 }
@@ -190,6 +214,9 @@ static bool buffers_finish(bool outer_safe) {
   buffers_native.dma_before==buffers_native.dma_after;
 }
 static void buffers_report(bool complete) {
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+ source_requester_report();
+#endif
  const struct intel_source_buffers *b=&buffers_native.binding;
  for(unsigned i=0;i<2;i++) {
   const struct scanout_memory *m=&buffers_native.memory[i];const struct scanout_memory_hold *h=&buffers_native.hold[i];

@@ -13,6 +13,9 @@ struct nonzero_adapter {
  struct intel_nonzero_source source;
  struct scanout_handoff_snapshot source_input;
  unsigned source_reads;
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+ bool source_batch_entered,source_batch_checked;
+#endif
  uint64_t source_at[6],source_previous[6];
 #endif
 };
@@ -193,6 +196,9 @@ static bool nonzero_source_sample(void *ctx,uint32_t out[2][3],unsigned *count) 
  struct nonzero_adapter *p=ctx;struct intel_nonzero_source *s=&p->source;
  if(out!=s->words || count!=&s->count || *count || p->source_reads ||
     !nonzero_source_guard(p) || !nonzero_enter(p))return false;
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+ p->source_batch_entered=true;
+#endif
  for(unsigned i=0;i<6;i++) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
   intel_display_test_nonzero_source_admission(i);
@@ -224,7 +230,10 @@ static bool nonzero_source_sample(void *ctx,uint32_t out[2][3],unsigned *count) 
   if(!ok)return false;
   ++p->source_reads;++*count;
  }
- nonzero_exit(p);return !p->failed;
+#ifndef SRVROS_INTEL_SOURCE_REQUESTER
+ nonzero_exit(p);
+#endif
+ return !p->failed;
 }
 #ifdef SRVROS_INTEL_STARTUP_BUFFERS
 #include "intel_source_buffers_trial.inc"

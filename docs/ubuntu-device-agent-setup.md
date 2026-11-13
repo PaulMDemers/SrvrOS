@@ -1572,3 +1572,15 @@ wake/reset stores. Enabled route, repeatability and actual interval ownership
 remain open; all255 obligations/0assurances/0managed GPU pages. No native
 tear-free acceptance. Next integrate deferred main, then resolve hardware
 ownership witnesses before a GPU writer; no unchanged refusal retry is needed.
+
+
+The separate [v33 maintained source requester](intel-source-requester.md) uses
+`--intel-source-requester --laptop-probe-volume LOCAL_UUID`, its own image,
+firmware request, exact15-token recipe/pre-init and `intel_source_requester`
+receiver. Its inhibited child remains nested beneath the actual source and both
+RAM holds through verified Command restoration and the closing full hardware
+guard. It adds only the exact PCI Command-halfword operation; no GPU mapping or
+completion assurance follows. Old recipes/receivers stay distinct. Qualification
+is in progress; do not install until the unit's exact host/image/VM/media/recovery
+checkpoint says ready. Eventual unattended trials show progress, persist results,
+retain volume1% and return on safe outcomes; unknown ownership halts visibly.

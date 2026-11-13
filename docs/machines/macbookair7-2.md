@@ -2,6 +2,32 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
+### Active implementation: maintained source requester
+
+On main `bc326e39` with the preserved `5bffbd20` branch checkpoint, the Air
+agent is implementing the separate [v33 maintained source requester](../intel-source-requester.md).
+The new original object registers below the actual refused source transfer,
+keeps both RAM holds and CPU exclusion live through its inhibited child, and
+retains uncertain state. Its native operation adds only exact captured PCI
+Command-halfword 7→3→7 control, four complete profile/prefix samples, bounded
+AF pending drain and final admissions. GPU PTE/interval authority is absent.
+Source reads/control share the original full opening/closing hardware bracket;
+per-I/O source/root/map/requester/final-clock checks remain intact. All prior
+images, recipes and 100/300/400/500 ms origins stay unchanged.
+
+Both actual-adapter modeled routes and strict decode complete. All nine directed
+requester tests pass, including the full new-clock/read/store/original-owner
+fault matrix and modeled native collection (213.645 s). The new prefix test
+found command mismatch was detected only at full-profile completion; native
+per-word validation now refuses immediately before further reads. The new stage
+profile initially exposed a missing allowed-option entry and an old/new version
+precedence error; both were corrected, and all 115 installer/staging/rollback
+tests pass. These preliminary host results are not final source-matched
+qualification or native v33 acceptance. Full fault/sanitizer/compiled-control,
+image/store/map/frame/log, historical and exact-stage VM checks remain required.
+No candidate/reboot is armed; accepted v32/recovery stay intact. The current
+ignored checkpoint is `build/air-source-requester-20261113/status.md`.
+
 ### Current scope after native v32 collection
 
 PR301 records the completed original source/RAM/transfer lifetime. Main

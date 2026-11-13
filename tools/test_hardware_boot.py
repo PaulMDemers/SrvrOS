@@ -14,6 +14,23 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_source_requester_dedicated_stage_and_recipe(self):
+        version='ram-usb-v1-intel-source-requester-laptop-probe-37d8c5d0-auto-return'
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-startup-source/srvros.elf','intel-source-requester/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_source_requester=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-source-requester/srvros.elf')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        from intel_source_requester import requester_recipe
+        cmd=next(l.split('cmdline:',1)[1].strip() for l in (self.stage/release/'limine.conf').read_text().splitlines() if 'cmdline:' in l)
+        self.assertEqual(requester_recipe(cmd),dict(volume='37d8c5d0',release=release))
+        self.assertEqual(len(cmd.split()),15)
+
+    def test_source_requester_refuses_mixed_profile_before_artifacts(self):
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',intel_startup_buffers=True),dict(laptop_probe_volume='37d8c5d0',intel_startup_source=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',desktop_audio=True),dict(laptop_probe_volume='37d8c5d0',repeat=2),dict(laptop_probe_volume='37d8c5d0',desktop_scale=2)):
+            with self.assertRaises(ValueError):boot.stage(intel_source_requester=True,**options)
+
     def test_startup_transfer_dedicated_stage_and_recipe(self):
         version='ram-usb-v1-intel-startup-transfer-laptop-probe-37d8c5d0-auto-return'
         for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-startup-source/srvros.elf','intel-startup-transfer/srvros.elf','initramfs.tar'):

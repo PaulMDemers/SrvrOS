@@ -84,7 +84,11 @@ static void intel_display_test_buffer_admission(void) {
  if(jf("buffer-guard",buffer_guards))b->hold[0]=&held_copy;
 }
 int transfer_fixture_main(int argc,char **argv) {
+#ifdef SRVROS_INTEL_SOURCE_REQUESTER
+ puts("init: deferred=source-requester-preinit; terminal automatic capture, no user services");
+#else
  puts("init: deferred=startup-transfer-preinit; terminal automatic capture, no user services");
+#endif
  int code=original_startup_fixture_main(argc,argv);
  printf("source-buffers-fixture: clocks=%u guards=%u allocations=%u retained=%u\n",buffer_clocks,buffer_guards,buffer_allocations,(unsigned)buffers_native.retained);
  return code;
@@ -148,7 +152,10 @@ static void intel_display_test_transfer_active(struct intel_source_transfer *t) 
   assert(scanout_space_release(&t->owner.space,&lease));
  }
 }
-int main(int argc,char **argv) {
+#ifndef INTEL_TRANSFER_FIXTURE_MAIN
+#define INTEL_TRANSFER_FIXTURE_MAIN main
+#endif
+int INTEL_TRANSFER_FIXTURE_MAIN(int argc,char **argv) {
  if(argc==2) {
   transfer_stall=strstr(argv[1],"transfer-stall")!=0;
   transfer_model=strstr(argv[1],"transfer-model") || strstr(argv[1],"transfer-provider-fail");
