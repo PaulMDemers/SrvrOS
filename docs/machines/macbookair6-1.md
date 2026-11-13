@@ -13863,3 +13863,49 @@ only by the existing explicit capture-write profile and emits final records only
 ordinary logging remains unchanged. See the [wire/meaning contract](../launch-gate-trace.md).
 Original gates and all limits remain authoritative; no runtime speed fix is
 claimed. Host/VM/native qualification is pending this candidate's frozen source.
+
+
+### Native launch/fcntl trace qualification (PR488)
+
+Frozen source `126a0f18` passed matched ordinary/native/Q35 fixture
+builds, source isolation/symbol checks, focused IDT/process/scheduler/logger and
+wire/parser regressions, the full fresh core/desktop suite and documentation
+checks. No completed prefix was skipped. The installation matrix retains its
+normal opt-in exhaustive-I/O skip. All 46 affected host fixture binaries link;
+ordinary syscall/UEFI-USB/fork/exec-vector/yield, real USB-storage and ordinary
+screenshot guests pass. Exact native release `188dda5f0fbb1a52` separately passes
+its foreign-board refusal/automatic-return rehearsal, not positive native proof.
+
+The loaded KVM guest preserves 1167 prior files with 1,100
+metadata files and 400 write IOPS, completes 23 app cycles/173 verified
+disk bursts at 1%, saves one exact BMP and returns cleanly with zero recorded
+underruns. Maximum loop is 143.942 ms. Original saved workload,
+application phase, byte/readback/flush/allocation, ownership and retirement
+contracts plus all existing diagnostic companions pass independently, alongside
+the new final-only trace. No UART reconstruction or missing-as-zero fallback is
+used. The trace observes 26 raw exec entries, 26 decisions,
+27 fcntl classifications, 13 private handled results and
+zero invalid observations. The retained VM exec gate was 343.820 ms, reason `mappings`, parent mappings=5045, atomic result `not_evaluated`.
+The retained VM fcntl gate was 114.455 ms: SETFL, fd=1, type=8, scalar=1, argument=1 (pre-gate snapshot only).
+These are controlled-guest observations; native operation identity, private-route
+coverage and the prior multi-second waits still require the next physical run.
+
+The first attempt's decoder incorrectly labelled an atomic check not reached
+as success after an earlier refusal. That attempt and its raw VM evidence are
+retained without native acceptance. The corrected decoder explicitly reports
+`not_evaluated`; the full fresh qualification above belongs to the corrected
+frozen source. Admission predicates and limits did not change. Verified archival
+of inactive historical staging copies retains every byte outside build and
+provides host-disk headroom without discarding accepted/failed/recovery evidence.
+
+The original fully automated 1,800-second audio/disk/app/three-screenshot workload
+is installed for this unit at 1%, with full-field metadata audit off. Fresh
+preflight preserves all 918 prior USB paths except the explicitly renewed volume
+expiry, verifies offline writable/allocation/fsck, independent payload/evidence
+hashes and Ubuntu recovery/default/one-shot state. Only an independently verified,
+unreferenced historical EFI duplicate was retired to fit the candidate. The
+accepted 7ac workload, prior failed 9463, known quiet/stress payloads and recovery
+remain retained. Self-merge and a saved/sealed one-shot launch are next; native
+trace acceptance and any latency fix remain pending matching collection. No
+ownership, authority, mapping, I/O, timeout, watchdog, log or workload limit is
+relaxed by these observations.
