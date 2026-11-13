@@ -35,7 +35,16 @@ def entry_census_lines(text,*,nonzero=False,startup=False):
 def completion_result(text):
  if 'intel-nonzero-census:' in text:
   if 'intel-entry-census:' in text:raise ValueError('mixed census image')
-  expanded=entry_census_lines(text,nonzero=True)
+  from intel_gt_wake import wake_result
+  wake=wake_result(text)
+  startup=bool(wake and wake['summary']['v']==30)
+  if startup:
+   import re
+   from intel_startup_source import startup_recipe
+   boots=re.findall(r'^laptop-capture: boot options=(.*)$',text,re.M)
+   if len(boots)!=1:raise ValueError('startup census boot coverage')
+   startup_recipe(boots[0])
+  expanded=entry_census_lines(text,nonzero=True,startup=startup)
   text='\n'.join(expanded+[l for l in text.splitlines() if not l.startswith('intel-nonzero-census:')])
  if 'intel-entry-census:' in text:
   expanded=entry_census_lines(text)

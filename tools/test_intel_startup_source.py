@@ -8,6 +8,14 @@ def run(mode):
  p=subprocess.run([str(BIN),'--wake-engine-'+mode],capture_output=True,text=True,preexec_fn=limit)
  if p.returncode:raise AssertionError((mode,p.returncode,p.stderr,p.stdout[-900:]))
  return p.stdout
+def native_chain(text):
+ # Synthetic prerequisites exercise the complete receiver, never hardware acceptance.
+ from test_intel_shutdown import ShutdownTests
+ final='init: deferred=startup-source-preinit; terminal automatic capture, no user services\n'+ShutdownTests.native(text)
+ final=final.replace('intel-nonzero-entry-hda:','intel-wake: preflight checkpoint saved\nintel-nonzero-entry-hda:',1)
+ cmd=next(l for l in final.splitlines() if l.startswith('laptop-capture: boot options='))
+ pre=cmd+'\n'+final.split('intel-wake: preflight checkpoint saved',1)[0]+'workspace-log: snapshot=session-a.log\n'
+ return pre,final+'laptop-capture: completed=yes\n'
 class Startup(unittest.TestCase):
  @classmethod
  def setUpClass(cls):cls.texts=[run('report'),run('entry-off-report')]
@@ -87,4 +95,47 @@ class Startup(unittest.TestCase):
  def test_bad_initial_geometry_and_entry_faults_do_not_reset(self):
   for mode in ('entry-nonzero-disabled','active','pending','flip-wait','tlb-pending'):
    p=startup_result(run(mode));self.assertFalse(p['complete']);self.assertEqual(p['reset']['summary']['reset_writes'],0);self.assertEqual(p['summary']['count'],0)
+ def test_complete_modeled_native_chain_both_routes(self):
+  from intel_startup_source import native_startup_result,verify_startup_checkpoint
+  from intel_completion_audit import native_completion_result
+  from intel_gt_wake import native_wake_result
+  for text in self.texts:
+   pre,final=native_chain(text)
+   self.assertTrue(native_startup_result(final)['native_complete'])
+   self.assertTrue(native_completion_result(final)['native_observation_complete'])
+   self.assertTrue(native_wake_result(final)['native_wake_complete'])
+   self.assertTrue(verify_startup_checkpoint(pre,final,native=True))
+   with self.assertRaises(ValueError):native_startup_result(final.replace('Limine 11.4.1','Limine 11.4.2'))
+ def test_completion_census_dispatch_keeps_image_recipe_and_raw_binding(self):
+  from intel_completion_audit import completion_result,entry_census_lines
+  for text in self.texts:
+   self.assertTrue(completion_result(text)['observation_complete'])
+   # The old helper remains strict; only explicit v30 dispatch selects startup.
+   with self.assertRaises(ValueError):entry_census_lines(text,nonzero=True)
+   census=next(l for l in text.splitlines() if l.startswith('intel-nonzero-census:'))
+   boot=next(l for l in text.splitlines() if l.startswith('laptop-capture: boot options='))
+   for bad in (text.replace(census+'\n','',1),text.replace(census,census+'\n'+census,1),text.replace(boot+'\n','',1),text+'\n'+boot+'\n',text.replace('startup-source-v1','nonzero-source-v1'),text+'intel-entry-census: v=1\n'):
+    with self.assertRaises(ValueError):completion_result(bad)
+   with self.assertRaises(ValueError):startup_result(text.replace('intel-wake-summary: v=30','intel-wake-summary: v=29'))
+ def test_full_collector_modeled_native_routes_and_corruption(self):
+  import tempfile
+  from hardware_desktop import collect
+  volume='37d8c5d0';session='session-0000000000000001-00'
+  for text in self.texts:
+   pre,final=native_chain(text)
+   with tempfile.TemporaryDirectory() as tmp:
+    root=Path(tmp);work=root/'srvros-work';logs=work/'Logs'/session;logs.mkdir(parents=True)
+    (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 '+volume+'\n')
+    for name,data in (('boot.log',pre),('session-a.log',pre),('exit.log',final)):(logs/name).write_text(data)
+    _,report=collect(root,volume,root/'collected');row,=report['sessions']
+    self.assertTrue(row['intel_startup_source']['native_complete'])
+    self.assertTrue(row['intel_gt_wake']['native_wake_complete'])
+    # Preserve nested capability alerts; never silence raw rows to obtain a pass.
+    self.assertEqual([l.split(' ',1)[0] for l in row['attention']],['intel-nonzero-entry-owner:','intel-nonzero-entry-post-summary:','intel-nonzero-post-summary:','intel-nonzero-summary:','intel-nzsource:'])
+    line=next(l for l in final.splitlines() if l.startswith('intel-nzsource-read:'))
+    bad=final.replace(line,re.sub(r' value=\d+', ' value=4294967295',line),1)
+    (logs/'exit.log').write_text(bad)
+    _,report=collect(root,volume,root/'rejected');row,=report['sessions']
+    self.assertTrue(row['attention'])
+    self.assertFalse((row['intel_startup_source'] or {}).get('native_complete',False))
 if __name__=='__main__':unittest.main()

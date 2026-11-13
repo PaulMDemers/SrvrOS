@@ -2,6 +2,20 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
+### Current return review: v30 shared collector dispatch
+
+Release `327a401a69ca3855` returned with one matching session,
+`session-0006601f0dd19f83-00`. Its original already-disabled route reports
+complete reset/source operations, but the shared completion-census decoder
+omits v30 dispatch and rejects native validation. Raw reports and the original
+collector rejection are independently sealed; **native acceptance is not yet
+claimed**. The bounded follow-up fixes host collector dispatch and adds full
+native-chain/collection regressions for both routes, then replays these exact
+unchanged logs and checks offline media/recovery. No kernel, deadline, recipe,
+writer, firmware gate or installed payload changes are planned. No reboot is
+armed for a new trial. Main remains `f61b40eb`; independent Air6,1 process and
+Pro11,2 Wi-Fi work remain separate. No tasks contacted or delegated.
+
 ### Hardware-ready v30: both original startup states
 
 Frozen source `82dd3da8`, release `327a401a69ca3855`, implements the separate
