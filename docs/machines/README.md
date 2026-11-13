@@ -64,9 +64,14 @@ safely refuses an already-disabled kind 2/epoch 0 source before reset admission
 or GGTT reads. Full retirement/media/recovery verify; this is incomplete, not
 native source acceptance. No memory/claim/requester or sibling acceptance follows.
 
-Air7,2 is implementing a separate [v30 original state-aware startup
+Air7,2 has locally qualified a separate [v30 original state-aware startup
 reset/source](../intel-startup-source.md) image. It binds either actual original
 kind 1/nonzero or kind 2/zero entry, preserving each epoch/source/borrow and all
 existing limits. Old APIs/images remain strict. Native v30 acceptance, managed
 backing and tear-free remain pending; no sibling or historical receipt supplies
 live authority.
+
+Frozen v30 source `82dd3da8` / release `327a401a69ca3855` passes 35-image/core,
+fatal sanitizer/two-route matrices, historical replay, native object and exact
+stage VM persistence/recovery checks. It is banked, not installed or armed;
+native source/timing acceptance remains pending separately for both routes.

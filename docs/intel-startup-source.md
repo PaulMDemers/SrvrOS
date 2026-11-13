@@ -85,3 +85,21 @@ the matching session before another run. Trials need no human input and stay at
 1% volume. The guest shows progress; safe durable save/unmount results return to
 Ubuntu, while uncertain ownership or persistence halts visibly. VM success and
 safe refusal do not accept either native route.
+
+## Local qualification
+
+Frozen `82dd3da8` / release `327a401a69ca3855` passes the full 35-image/core/USB/host/
+docs gate, eight-test actual adapter suite under fatal ASan/UBSan (both routes
+and every reset/source clock point), eight historical native contract replays,
+image/receipt isolation, native object/staged DWORD/alias/lifetime inspection
+and 2 KiB frames. Saved tail is 61,194/65,536 bytes including 1,536 reserve.
+The existing 81 baseline-known strict allocation/repair gaps remain documented.
+Exact staged EFI/MBR VM tests prove zero-store foreign-board refusal, checkpoint
+identity, persistence/unmount/automatic return and missing-workspace halt.
+
+Prior-file/offline media and recovery checks pass. Payload and evidence are
+independently banked outside build; candidate is not installed or armed. Only
+an unreferenced older d260 EFI duplicate was retired after complete durable-bank,
+accepted-evidence and boot-reference checks; current/recovery/GUI/latest accepted
+reset remain installed. Native v30 reads/timing are pending separately per route;
+none of these local results grants memory or native tear-free acceptance.

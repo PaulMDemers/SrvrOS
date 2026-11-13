@@ -1497,3 +1497,11 @@ Safe durable save/unmount results return automatically; uncertainty halts visibl
 Require both source and enclosing reset/retirement, strict route and checkpoint
 identity, and complete media evidence. Acceptance is independent for each route;
 VM completion or safe refusal accepts neither native route.
+
+Air7,2 frozen `82dd3da8` / `327a401a69ca3855` is locally hardware-ready after the
+35-image/core, fatal sanitizer/two-route, native object/receipt/replay and exact
+EFI/MBR VM gates plus host/media/recovery checks. It is independently banked,
+not installed or armed. Native acceptance remains pending per route. This unit
+retired only the unreferenced d260 EFI duplicate after full durable/evidence and
+boot-reference equality checks; do not generalize that cleanup to another host.
+Current, recovery, known GUI and latest accepted reset remain installed.

@@ -2,7 +2,59 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
-### Active v30: original state-aware reset/source paths
+### Hardware-ready v30: both original startup states
+
+Frozen source `82dd3da8`, release `327a401a69ca3855`, implements the separate
+[v30 original startup reset/source](../intel-startup-source.md) image. It binds
+only the actual original kind 1/nonzero entry (epoch 1→2) or kind 2/already-disabled
+zero entry (epoch 0→1), then preserves the full 92-word census/37 readers and
+binds six read-only original-candidate GGTT DWORDs as a registered child before
+original reset return. Route/mode/source/epoch loss retains the original root.
+Old APIs stay kind 1 only even inside v30; old zero-geometry gates and old
+images/recipes/receipts remain separate. No source from a saved receipt, owner
+copy, speculative fallback or refreshed deadline is accepted.
+
+Local qualification passes: complete 35-image/core/USB/host/docs gate; eight-test
+actual native-adapter matrix under fatal ASan/UBSan, covering both routes and
+all original reset/source clock points, route/mode/alias/provider/registration/
+reader/writer faults; eight historical native contracts retain their exact
+accepted/refused classifications. Image isolation, actual object/staged alias/
+static-lifetime/source-read inspection, existing fenced DWORD writers, the new
+pure final-route guard and 2 KiB frames pass. Saved-tail projection is
+61,194/65,536 bytes including 1,536 reserve. Existing 81 baseline-known strict
+allocation/repair gaps remain; no filesystem repair fix is claimed.
+
+The exact staged EFI/MBR VM verifies foreign-board zero-store refusal, matching
+prerequisite/final reports, durable save/unmount/automatic safe return, compiled
+exact 15-token parser/pre-init and missing-workspace visible halt. These are
+model/host/VM results, **not native reads, timing or acceptance for either v30
+route**. Preparation 100 ms, GT 300 ms, HDA 400 ms, outer 500 ms and all phase
+limits remain unchanged. All 255 obligations remain; assurances and managed
+pages are zero. Native tear-free remains pending.
+
+All 1,491 prior USB files/153 sessions, boot digest, offline fsck/allocation/
+writable/headroom, Ubuntu default/unarmed one-shot and current/recovery/durable
+payload hashes verify. Candidate is independently banked, **not installed or
+armed**. Current v29 451c, accepted v28 562d, recovery 9aa8, GUI c497 and joint978/
+HDA-bd77 remain installed. To restore candidate plus 32 MiB EFI headroom, only
+the unreferenced older d260 standalone diagnostic's EFI duplicate was retired
+after exact bank equality, sealed accepted-evidence verification and all boot
+reference checks. Its complete payload and raw acceptance remain outside build;
+other protected payloads and boot settings are unchanged. Obsolete generated
+host stream images also yielded about 2.5 GiB without touching native evidence.
+
+Doc-only main `f61b40eb` / PR485 integrates after qualification; its
+Air6,1 stress failure does not change runtime bytes or this unit's evidence.
+Qualified runtime remains frozen `82dd3da8`. PR19 `9d1d92b4` retains its
+independent Wi-Fi/cold-handoff scope; no task was contacted. Actions stay disabled.
+The next trial is silent at 1%, unattended, with guest progress and persistent
+reports. Safe durable results return automatically; retained uncertainty halts.
+Collect matching evidence first and accept only the route actually observed;
+no unchanged firmware-state retry or deadline extension is planned. Checkpoint:
+`build/air-startup-source-20261112/status.md`.
+
+### Previous v30 implementation scope
+
 
 From `b0142a34` / main `a45032e4`, Air7,2 owns a separate opt-in v30 startup
 source image. It selects only the actual original live entry: kind 1/epoch 1
