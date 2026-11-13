@@ -14237,3 +14237,30 @@ proved network-status admission wait and preserve completed live sidecar
 endpoints, while adding an exact join for the remaining close delay. Keep all
 ownership, callback, cancellation, integrity and original timing limits. This
 review implements none of those changes and starts no build, stage or reboot.
+
+## Active network-status admission and live-sample retention (2026-11-13)
+
+Bounded objective from main `bc326e39`: remove the reproduced 4.500-second
+network-status admission wait for this unit's empty network stack, and preserve
+two completed sidecar-equality endpoints during active PCM without enlarging
+the alternating 64 KiB logs or relaxing the original temporal proof. The prior
+run is independently reviewed, sealed and unarmed; its full diagnostic contract
+remains incomplete. Current/recovery remain `00460b3ddba044cf`/`c35475f62f154f1e`.
+
+Scope: callback-free empty-stack snapshot proof, syscall prelude with unchanged
+ABI/user-copy checks and gated/cancellation-aware fallback, bounded logger
+retention and exact snapshot rendering, focused refusal/regression tests and
+matched ordinary/native/loaded guests. Any registered provider, including a
+retired tombstone, retains the original callback/ownership gate. No networking
+hardware, power policy, timeout, capacity, filesystem proof or workload limit is
+widened. The original 1800-second 1% workload and three captures remain required.
+
+Fetched PR19 is `8f0daff9`; its network/device and logger work is separate.
+Inspection finds no edits to the existing network-status function, while its
+new selected-device accessor and optional larger Wi-Fi capture logs must remain
+independent. PR301 `7473da65` owns GPU lifetimes and PR379 `817f80bb` owns WebCore
+audit. Publish this bounded scope before implementation, inspect actual overlap
+again before merge, and contact no other task. Next checkpoint: reviewed proofs
+and targeted regressions, fresh full local qualification, exact-stage refusal
+rehearsal, protected installation, self-merge and saved one-shot automated boot
+under the user's existing explicit authorization. No reboot is armed yet.
