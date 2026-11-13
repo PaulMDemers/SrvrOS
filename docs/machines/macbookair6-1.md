@@ -13699,3 +13699,13 @@ Final retirement qualification also requires the quiet detached background
 continuation used by desktop app launches. Foreground commands must restore a
 waiting parent's context and retain ordinary admission. Positive background
 return/reap and negative foreground/nonquiet retirement are covered separately.
+
+The first loaded VM on runtime `e012fe23` reached a 60-second PCM PASS (179
+verified bursts, zero recorded underruns), 24 clean app cycles, clean desktop
+retirement and USB unmount, but the host sampled QMP as QEMU exited before it
+drained the complete terminal line. That attempt remains failed validation with
+its six checkpoints/serial/audio preserved locally. The harness now distinguishes
+an exited QEMU from a broken live connection, stops overlap sampling after the
+PCM result and drains serial after exit; it still requires the complete terminal
+receipt, every original saved workload/retirement proof and clean QEMU exit.
+Mocked live-error/missing-device/exit races supplement the required fresh VM run.
