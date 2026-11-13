@@ -10,6 +10,10 @@ static bool intel_display_test_nonzero_source_clock(uint64_t *at) {
  struct intel_nonzero_source *s=&nonzero_native.source;
  if(!s->object || !s->registered)return false;
  ++source_clocks;
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+ if(jf("source-clock-route",source_clocks))nonzero_native.r.entry_kind=3-nonzero_native.r.entry_kind;
+ if(jf("source-clock-mode",source_clocks))nonzero_native.r.startup=false;
+#endif
  if(jf("source-zero",source_clocks)){*at=0;return true;}
  if(jf("source-backward",source_clocks)){*at=1;return true;}
  if(jf("source-time",source_clocks))ticks=s->origin+100001;
@@ -41,14 +45,17 @@ static bool intel_display_test_nonzero_source_read(unsigned off,uint32_t *out) {
  struct nonzero_adapter *p=&nonzero_native;struct intel_nonzero_source *s=&p->source;
  unsigned n=source_reads++;
  assert(n<6 && off==INTEL_WINDOW_PAGE+(n%3==1?0:4) && s->registered && p->r.borrow.active && p->r.child_borrows==1 && !p->r.child_returns);
- assert(nz_writes==12 && hda_command==2 && p->g->engine_epoch==2 && wake_irq);
+ assert(nz_writes==12 && hda_command==2 && p->g->engine_epoch==p->r.epoch_before+1 && wake_irq);
  if(jf("source-read",n+1))return false;
  *out=(uint32_t)(s->expected>>(n%3==1?0:32));
  if(jf("source-drift",n+1))*out^=1;
  if(jf("source-read-time",n+1))ticks=s->origin+100001;
  return true;
 }
-int main(int argc,char **argv) {
+#ifndef INTEL_SOURCE_FIXTURE_MAIN
+#define INTEL_SOURCE_FIXTURE_MAIN main
+#endif
+int INTEL_SOURCE_FIXTURE_MAIN(int argc,char **argv) {
  int result=original_nonzero_fixture_main(argc,argv);
  const struct intel_nonzero_source *s=&nonzero_native.source;
  if(s->object) {

@@ -14,13 +14,13 @@ def nonzero_recipe(cmd):
  expected=next(l.split('cmdline:',1)[1].strip().split() for l in conf.splitlines() if 'cmdline:' in l)
  if set(ts)!=set(expected):raise ValueError('nonzero foreign recipe')
  return dict(volume=vs[0],release=rs[0])
-def _entry(text):
+def _entry(text,*,startup=False):
  from intel_engine_prepare import post_vector
  from intel_completion_audit import entry_census_lines
  from intel_ring_transition import _ring_result
  if any(l.startswith(('intel-ring-','intel-reset-','intel-entry-census:','intel-completion-row:','intel-completion-context:')) for l in text.splitlines()):raise ValueError('nonzero mixed entry image')
  out=[]
- if 'intel-nonzero-census:' in text:out+=entry_census_lines(text,nonzero=True)
+ if 'intel-nonzero-census:' in text:out+=entry_census_lines(text,nonzero=True,startup=startup)
  for l in text.splitlines():
   if l.startswith('intel-nonzero-census:'):continue
   if l.startswith('intel-nonzero-entry-post-vector:'):
@@ -35,7 +35,7 @@ def _entry(text):
    for p in range(3):out.append(f'intel-ring-reader: v=1 n={n} p={p} d='+','.join(map(str,ws[p*9:p*9+9])))
    out.append(f'intel-ring-audio: v=1 n={n} d='+','.join(map(str,ws[27:])))
   else:out.append(l.replace('intel-nonzero-entry-','intel-ring-',1) if l.startswith('intel-nonzero-entry-') else l)
- return _ring_result('\n'.join(out),entry=True,nonzero=True)
+ return _ring_result('\n'.join(out),entry=True,nonzero=True,startup=startup)
 def _vector(line,kind,width):
  m=re.fullmatch(re.escape('intel-nonzero-'+kind)+r': v=1 n=([0-9]) count=([0-9]{1,2}) b=([A-Za-z0-9+/=]+|-)',line)
  if not m:raise ValueError('nonzero vector encoding')
@@ -47,21 +47,24 @@ def _vector(line,kind,width):
  raw=base64.b64decode(m[3],validate=True)
  if len(raw)!=4*count or base64.b64encode(raw).decode()!=m[3]:raise ValueError('nonzero vector canonical/size')
  return n,list(struct.unpack('<'+'I'*count,raw))
-def nonzero_result(text, *, source=False):
+def nonzero_result(text, *, source=False,startup=False):
  if 'intel-nonzero-summary:' not in text:
   if any(l.startswith('intel-nonzero-') for l in text.splitlines()):raise ValueError('nonzero missing summary')
   return None
  from intel_gt_wake import wake_result
  from intel_completion_audit import completion_result
  w=wake_result(text)
- if not w or w['summary']['v']!=(29 if source else 28):raise ValueError('nonzero wrong image')
+ if not w or w['summary']['v']!=(30 if startup else 29 if source else 28):raise ValueError('nonzero wrong image')
  boots=re.findall(r'^laptop-capture: boot options=(.*)$',text,re.M)
  if len(boots)!=1:raise ValueError('nonzero recipe coverage')
- if source:
+ if startup:
+  from intel_startup_source import startup_recipe
+  startup_recipe(boots[0])
+ elif source:
   from intel_nonzero_source import source_recipe
   source_recipe(boots[0])
  else:nonzero_recipe(boots[0])
- e=_entry(text)
+ e=_entry(text,startup=startup)
  if not e:raise ValueError('nonzero original entry missing')
  lines=[l for l in text.splitlines() if l.startswith('intel-nonzero-') and not l.startswith(('intel-nonzero-entry-','intel-nonzero-census:'))]
  kinds=[('admit',2,6),('control',5,6),('bcs',2,8),('domain',1,4)]
@@ -86,7 +89,7 @@ def nonzero_result(text, *, source=False):
  if not 0<=s['control_acks']<=s['control_writes']<=s['controls'] or not 0<=s['reset_acks']<=s['reset_writes']<=s['resets'] or s['native_controls']>s['controls'] or s['native_resets']>s['resets']:raise ValueError('nonzero issue lifecycle')
  if s['eligible']:
   a=e['summary']
-  if not a['complete'] or a['kind']!=1 or s['epoch_before']!=1 or s['epoch_after']!=1+s['epoch_advanced'] or (t['source_begin'],t['source_end'],t['source_last'],t['entry_end'])!=(a['post_begin'],a['post_end'],a['post_last'],a['end']):raise ValueError('nonzero original source/epoch')
+  if not a['complete'] or a['kind'] not in ((1,2) if startup else (1,)) or s['epoch_before']!=(a['epoch_after'] if startup else 1) or s['epoch_after']!=s['epoch_before']+s['epoch_advanced'] or (t['source_begin'],t['source_end'],t['source_last'],t['entry_end'])!=(a['post_begin'],a['post_end'],a['post_last'],a['end']):raise ValueError('nonzero original source/epoch')
  if s['uncertain'] and (not w['summary']['retained'] or w['summary']['released']):raise ValueError('nonzero lost uncertain root')
  if bool(s['uncertain'])!=bool(s['eligible'] and not s['complete']):raise ValueError('nonzero uncertainty lifecycle')
  if s['returned'] and s['retained'] or s['complete'] and (s['uncertain'] or s['reason']):raise ValueError('nonzero return lifecycle')
@@ -149,17 +152,20 @@ def native_nonzero_result(text):
   if not native_wake_result(text)['native_wake_complete']:raise ValueError('nonzero native prerequisites')
   r['native_complete']=True
  return r
-def verify_nonzero_checkpoint(pre,text,native=False, *, source=False):
+def verify_nonzero_checkpoint(pre,text,native=False, *, source=False,startup=False):
  from intel_gt_wake import verify_wake_checkpoint
  if 'intel-nonzero-summary:' in pre or 'intel-nonzero-entry-summary:' in pre:raise ValueError('nonzero late prerequisite')
  verify_wake_checkpoint(pre,text,native=native)
  boots=[re.findall(r'^laptop-capture: boot options=(.*)$',s,re.M) for s in (pre,text)]
  if any(len(b)!=1 for b in boots) or boots[0]!=boots[1]:raise ValueError('nonzero boot provenance')
- if source:
+ if startup:
+  from intel_startup_source import startup_recipe
+  startup_recipe(boots[0][0])
+ elif source:
   from intel_nonzero_source import source_recipe
   source_recipe(boots[0][0])
  else:nonzero_recipe(boots[0][0])
- marker='init: deferred=nonzero-source-preinit;' if source else 'init: deferred=nonzero-reset-preinit;'
+ marker='init: deferred=startup-source-preinit;' if startup else 'init: deferred=nonzero-source-preinit;' if source else 'init: deferred=nonzero-reset-preinit;'
  if any(s.count(marker)!=1 or 'init: started pid=' in s for s in (pre,text)):raise ValueError('nonzero preinit provenance')
- if not nonzero_result(text,source=source):raise ValueError('nonzero missing final result')
+ if not nonzero_result(text,source=source,startup=startup):raise ValueError('nonzero missing final result')
  return True

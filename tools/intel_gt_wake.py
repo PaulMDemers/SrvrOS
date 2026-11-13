@@ -21,15 +21,15 @@ def wake_result(text, *, summary_only=False):
   s[k]=int(v,16 if k in HEX else 10)
   if s[k]>=1<<64:raise ValueError('wake overflow')
  if any(s.get(k,0)>=1<<32 for k in HEX):raise ValueError('wake DWORD width')
- if set(s)!=set(FIELDS) or s['v'] not in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29) or any(s[k]>1 for k in BOOL):raise ValueError('wake schema/boolean')
+ if set(s)!=set(FIELDS) or s['v'] not in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30) or any(s[k]>1 for k in BOOL):raise ValueError('wake schema/boolean')
  if any(s[k] for k in ('pte_writes','managed_pages','smm_retired','hardware_ownership')):raise ValueError('wake unsupported ownership')
- if s['grants'] not in (0,7) or s['engine_reads']>({1:0,2:60,3:92,4:92,5:92,6:184,7:184,8:152,9:216,10:216,11:216,12:216,13:104,14:2790,15:122,16:2808,17:3344,18:3350,19:3983,20:4169,21:4457,22:152,23:4201,24:216,25:216,26:4293,27:4581,28:3508,29:3514}[s['v']]) or s['maps']>({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14}[s['v']]) or s['retired']>s['maps'] or s['cache_checks']>({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14}[s['v']]) or s['writes']>3 or s['attempts']>3 or s['writes']>s['attempts'] or s['state']>4 or s['reason']&~2047 or s['guards']>200000:raise ValueError('wake counts')
+ if s['grants'] not in (0,7) or s['engine_reads']>({1:0,2:60,3:92,4:92,5:92,6:184,7:184,8:152,9:216,10:216,11:216,12:216,13:104,14:2790,15:122,16:2808,17:3344,18:3350,19:3983,20:4169,21:4457,22:152,23:4201,24:216,25:216,26:4293,27:4581,28:3508,29:3514,30:3514}[s['v']]) or s['maps']>({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14,30:14}[s['v']]) or s['retired']>s['maps'] or s['cache_checks']>({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14,30:14}[s['v']]) or s['writes']>3 or s['attempts']>3 or s['writes']>s['attempts'] or s['state']>4 or s['reason']&~2047 or s['guards']>200000:raise ValueError('wake counts')
  if s['contract']!=s['compiled'] or s['checked']>s['opened'] or s['closed']>s['checked'] or max(s['before'],s['after'],s['released'])>s['acquired'] or s['retained'] and s['released']:raise ValueError('wake lifecycle')
  if s['grants'] and not all(s[k] for k in ('compiled','contract','efi64','loader','recipe','serialized','prerequisites','profile','fw_quiet','req_quiet','acquired','before')):raise ValueError('wake missing contract')
- if s['attempts'] and (not s['grants'] or s['maps']!=({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14}[s['v']]) or s['cache_checks']!=({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14}[s['v']])):raise ValueError('wake issued without prerequisites')
+ if s['attempts'] and (not s['grants'] or s['maps']!=({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14,30:14}[s['v']]) or s['cache_checks']!=({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14,30:14}[s['v']])):raise ValueError('wake issued without prerequisites')
  if s['state']==4 and not s['retained']:raise ValueError('wake fault not retained')
  if not s['compiled'] and any(v for k,v in s.items() if k!='v'):raise ValueError('wake ordinary writer')
- complete=all(s[k] for k in ('compiled','contract','efi64','loader','recipe','serialized','prerequisites','profile','fw_quiet','req_quiet','acquired','before','opened','checked','closed','fw_after','after','released')) and s['grants']==7 and s['maps']==s['retired']==s['cache_checks']==({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14}[s['v']]) and s['writes']==s['attempts']==3 and s['engine_reads']==({1:0,2:60,3:92,4:92,5:92,6:184,7:184,8:152,9:216,10:216,11:216,12:216,13:104,14:(s['engine_reads'] if s['engine_reads']>=230 else -1),15:122,16:(s['engine_reads'] if s['engine_reads']>=248 else -1),17:(s['engine_reads'] if s['engine_reads']>=274 else -1),18:(s['engine_reads'] if s['engine_reads']>=280 else -1),19:(s['engine_reads'] if s['engine_reads']>=401 else -1),20:(s['engine_reads'] if s['engine_reads']>=587 else -1),21:(s['engine_reads'] if s['engine_reads']>=651 else -1),22:152,23:(s['engine_reads'] if s['engine_reads']>=619 else -1),24:216,25:216,26:(s['engine_reads'] if s['engine_reads']>=711 else -1),27:(s['engine_reads'] if s['engine_reads']>=775 else -1),28:(s['engine_reads'] if s['engine_reads']>=380 else -1),29:(s['engine_reads'] if s['engine_reads']>=386 else -1)}[s['v']]) and not s['retained'] and s['state']==3 and not s['reason'] and not s['initial_req']&65535 and not s['initial_ack'] and not s['requests']&65535 and not s['ack'] and not s['thread']&7 and 0<s['begin_us']<s['end_us']<=s['begin_us']+500000 and s['guards']>0
+ complete=all(s[k] for k in ('compiled','contract','efi64','loader','recipe','serialized','prerequisites','profile','fw_quiet','req_quiet','acquired','before','opened','checked','closed','fw_after','after','released')) and s['grants']==7 and s['maps']==s['retired']==s['cache_checks']==({1:3,2:8,3:11,4:9,5:9,6:13,7:13,8:11,9:13,10:13,11:13,12:13,13:10,14:13,15:10,16:13,17:13,18:14,19:14,20:14,21:14,22:11,23:14,24:14,25:14,26:14,27:14,28:14,29:14,30:14}[s['v']]) and s['writes']==s['attempts']==3 and s['engine_reads']==({1:0,2:60,3:92,4:92,5:92,6:184,7:184,8:152,9:216,10:216,11:216,12:216,13:104,14:(s['engine_reads'] if s['engine_reads']>=230 else -1),15:122,16:(s['engine_reads'] if s['engine_reads']>=248 else -1),17:(s['engine_reads'] if s['engine_reads']>=274 else -1),18:(s['engine_reads'] if s['engine_reads']>=280 else -1),19:(s['engine_reads'] if s['engine_reads']>=401 else -1),20:(s['engine_reads'] if s['engine_reads']>=587 else -1),21:(s['engine_reads'] if s['engine_reads']>=651 else -1),22:152,23:(s['engine_reads'] if s['engine_reads']>=619 else -1),24:216,25:216,26:(s['engine_reads'] if s['engine_reads']>=711 else -1),27:(s['engine_reads'] if s['engine_reads']>=775 else -1),28:(s['engine_reads'] if s['engine_reads']>=380 else -1),29:(s['engine_reads'] if s['engine_reads']>=386 else -1),30:(s['engine_reads'] if s['engine_reads']>=386 else -1)}[s['v']]) and not s['retained'] and s['state']==3 and not s['reason'] and not s['initial_req']&65535 and not s['initial_ack'] and not s['requests']&65535 and not s['ack'] and not s['thread']&7 and 0<s['begin_us']<s['end_us']<=s['begin_us']+500000 and s['guards']>0
  # Line-by-line triage cannot validate a separate clock receipt. Return a
  # summary predicate only, never a lease/native acceptance result in this mode.
  if summary_only:
@@ -38,7 +38,7 @@ def wake_result(text, *, summary_only=False):
   return dict(summary=s,summary_complete=bool(complete and s['complete']))
  clock_lines=[l for l in text.splitlines() if l.startswith('intel-clock')]
  clock=None
- if s['v'] in (7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29):
+ if s['v'] in (7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30):
   if len(clock_lines)!=1:raise ValueError('clock coverage')
   clock=clock_row(clock_lines[0])
   if text.index(clock_lines[0])>text.index(lines[0]):raise ValueError('clock order')
@@ -72,7 +72,7 @@ def native_wake_result(text):
    if decoded is None or decoded[0]!=0 or decoded[2]!=0:raise ValueError('wake UC MTRR/effective type')
  if r['summary']['v']>=2:
   from intel_engine_census import engine_result,PAGES
-  if r['summary']['v'] in (4,5,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,23,24,25,26,27,28,29):
+  if r['summary']['v'] in (4,5,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,23,24,25,26,27,28,29,30):
    from intel_completion_audit import completion_result
    completion=completion_result(text)
    if not completion or not completion['observation_complete']:raise ValueError('completion native coverage')
@@ -85,7 +85,7 @@ def native_wake_result(text):
     decoded=_page(s,regions,gt['summary']['mmio']+offset,2)
     if decoded is None or decoded[0]!=0 or decoded[2]!=0:raise ValueError('engine UC MTRR/effective type')
  if r['summary']['v'] in (2,3,8,22) and any(row['v']!=(2 if r['summary']['v'] in (8,22) else 1) for row in engines['rows']):raise ValueError('engine row version binding')
- if r['summary']['v'] in (4,5,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,23,24,25,26,27,28,29):
+ if r['summary']['v'] in (4,5,6,7,9,10,11,12,13,14,15,16,17,18,19,20,21,23,24,25,26,27,28,29,30):
   for n,s in enumerate(cache['rows']['sample']):
    regions=_snapshot(s,[x for x in cache['rows']['variable'] if x['sample']==n],[x for x in cache['rows']['fixed'] if x['sample']==n])
    d=_page(s,regions,gt['summary']['mmio']+0x4000,2)
@@ -198,7 +198,10 @@ def native_wake_result(text):
  if r['summary']['v'] in (28,29):
   from intel_nonzero_reset import nonzero_result
   from intel_joint import native_hda_context
-  if r['summary']['v']==29:
+  if r['summary']['v']==30:
+   from intel_startup_source import startup_result
+   sr=startup_result(text);tr=sr['reset'] if sr and sr['complete'] else None
+  elif r['summary']['v']==29:
    from intel_nonzero_source import source_result
    sr=source_result(text);tr=sr['reset'] if sr and sr['complete'] else None
   else:tr=nonzero_result(text)

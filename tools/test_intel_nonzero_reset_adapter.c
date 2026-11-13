@@ -12,6 +12,10 @@ static unsigned nz_reads,nz_writes,nz_clocks,nz_admissions,nz_census,nz_polls,nz
 static uint32_t nz_control[5],nz_domain;
 static bool intel_display_test_nonzero_clock(uint64_t *out) {
  ++nz_clocks;
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+ if(jf("nz-clock-route",nz_clocks))nonzero_native.r.entry_kind=3-nonzero_native.r.entry_kind;
+ if(jf("nz-clock-mode",nz_clocks))nonzero_native.r.startup=false;
+#endif
 #ifdef SRVROS_INTEL_NONZERO_SOURCE
  if(intel_display_test_nonzero_source_clock(out))return true;
 #endif
@@ -75,7 +79,7 @@ static enum intel_gt_write intel_display_test_nonzero_write(unsigned reg,uint32_
  if(jf("nz-none",nz_writes+1))return GT_WRITE_NONE;
  ++nz_writes;
  if(reg==0x941c) {
-  assert(value==8 && r->epoch_after==2 && r->parent->engine_epoch==2 && nz_writes>=6 && nz_writes<=7);
+  assert(value==8 && r->epoch_after==r->epoch_before+1 && r->parent->engine_epoch==r->epoch_after && nz_writes>=6 && nz_writes<=7);
   for(unsigned i=0;i<5;i++)assert(nz_control[i]==3 || (i==4 && nz_writes==7 && !nz_control[i]));
   nz_control[4]=0;nz_domain=(!strcmp(engine_mode,"nz-poll") || !strcmp(engine_mode,"nz-stuck-reset"))?8:0;*out=nz_domain;
  } else {
@@ -104,7 +108,11 @@ int INTEL_NONZERO_FIXTURE_MAIN(int argc,char **argv) {
   if(r->uncertain)assert(joint.scope.gpu->pinned && !display_access_allowed());
   if(r->complete) {
    assert(r->returned && !r->borrow.active && r->preserved && nz_writes==12 && r->reset_writes==2 && r->control_writes==10);
+   #ifdef SRVROS_INTEL_STARTUP_SOURCE
+   assert(r->entry_kind==ring_native.result.kind && r->startup);
+#else
    assert(!intel_ring_entry_reset_ready(&ring_native.result));
+#endif
   }
  }
  printf("nonzero-fixture: reads=%u writes=%u clocks=%u admissions=%u census=%u polls=%u\n",nz_reads,nz_writes,nz_clocks,nz_admissions,nz_census,nz_polls);

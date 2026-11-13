@@ -1482,3 +1482,18 @@ not source-read/timing acceptance. Require both source-child completion and
 enclosing reset/retirement plus media integrity; never promote a partial child
 or VM receipt to native ownership. Installed v29, accepted v28 and recovery stay
 available; no reboot is armed. See the [strict result](intel-nonzero-source.md#native-result-already-disabled-source-safely-refused).
+
+### Original state-aware startup source
+
+The separate [v30 protocol](intel-startup-source.md) uses
+`--intel-startup-source --laptop-probe-volume LOCAL_UUID`, an exact 15-token
+recipe, own firmware/pre-init and collector `intel_startup_source`. It selects
+only the actual original enabled/nonzero or disabled/zero entry and binds its
+route/epochs through reset, preservation and six read-only GGTT DWORDs before
+return. Old v28/v29 and zero-geometry gates remain unchanged. Follow the same
+immutable exact-stage VM, independent banks, offline media/recovery, recorded
+one-shot and matching collection workflow. Keep volume 1%; no input is required.
+Safe durable save/unmount results return automatically; uncertainty halts visibly.
+Require both source and enclosing reset/retirement, strict route and checkpoint
+identity, and complete media evidence. Acceptance is independent for each route;
+VM completion or safe refusal accepts neither native route.

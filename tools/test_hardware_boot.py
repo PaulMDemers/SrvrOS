@@ -193,8 +193,24 @@ class InstallTests(unittest.TestCase):
         self.assertNotEqual(boot.release_id({},old),boot.release_id({},new))
 
 
+    def test_startup_source_dedicated_profile(self):
+        version='ram-usb-v1-intel-startup-source-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        from intel_startup_source import startup_recipe
+        cmd=next(l.split('cmdline:',1)[1].strip() for l in config.splitlines() if 'cmdline:' in l)
+        self.assertEqual(startup_recipe(cmd),dict(release='0123456789abcdef',volume='37d8c5d0'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',intel_nonzero_source=True),dict(laptop_probe_volume='37d8c5d0',intel_nonzero_reset=True),dict(laptop_probe_volume='37d8c5d0',storage_metadata_trace=True)):
+            with self.assertRaises(ValueError):boot.stage(intel_startup_source=True,**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','intel-nonzero-source/srvros.elf','intel-startup-source/srvros.elf','initramfs.tar'):
+            p=self.root/'build'/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_startup_source=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+        self.assertEqual((self.stage/release/'srvros.elf').read_text(),'intel-startup-source/srvros.elf')
+
     def test_storage_metadata_gpu_profiles_are_exclusive(self):
-        for flag in ('intel_nonzero_source','intel_nonzero_reset','intel_ring_entry','intel_ring_reset',
+        for flag in ('intel_startup_source','intel_nonzero_source','intel_nonzero_reset','intel_ring_entry','intel_ring_reset',
                      'intel_entry_requester','intel_joint','intel_gpu_hold','intel_display_capture'):
             for storage in (False,True):
                 with self.subTest(flag=flag,storage=storage),self.assertRaises(ValueError):

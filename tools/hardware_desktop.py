@@ -1207,6 +1207,15 @@ def collect(mount, volume, output):
                 hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
+        intel_startup_source=None
+        if 'srvros.intel-ring=startup-source-v1' in text:
+            from intel_startup_source import native_startup_result,verify_startup_checkpoint
+            try:
+                final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_startup_source=native_startup_result(final)
+                verify_startup_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_startup_source or not intel_startup_source['native_complete']:attention.append('Intel original state-aware startup source incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original startup source: '+str(error))
         intel_nonzero_source=None
         if 'srvros.intel-ring=nonzero-source-v1' in text:
             from intel_nonzero_source import native_source_result,verify_source_checkpoint
@@ -1299,6 +1308,7 @@ def collect(mount, volume, output):
             if not window_proof or not window_proof['source_completed']:
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
         records.append({
+            "intel_startup_source":intel_startup_source,
             "intel_nonzero_source":intel_nonzero_source,
             "intel_nonzero_reset":intel_nonzero_reset,
             "intel_entry_requester":intel_entry_requester,

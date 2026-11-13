@@ -59,7 +59,7 @@ def _rows(text,prefix,keys,width):
   rows.append(dict(zip(keys,map(int,m.groups()[:len(keys)])),words=values))
  return rows
 
-def _ring_result(text,*,entry=False,composition=False,nonzero=False):
+def _ring_result(text,*,entry=False,composition=False,nonzero=False,startup=False):
  lines=[l for l in text.splitlines() if l.startswith('intel-ring-')]
  if not lines:return None
  allowed=('intel-ring-summary:','intel-ring-bcs:','intel-ring-post-row:','intel-ring-post-context:','intel-ring-post-summary:','intel-ring-reader:','intel-ring-audio:','intel-ring-hda:','intel-ring-owner:')
@@ -72,8 +72,8 @@ def _ring_result(text,*,entry=False,composition=False,nonzero=False):
  from intel_completion_audit import completion_result
  from intel_joint import joint_capture,ENDPOINT
  w=wake_result(text)
- if not w or w['summary']['v'] not in ((28,29) if nonzero else (26,27) if composition else (25,) if entry else (24,)):raise ValueError('ring wrong image')
- if any(l.startswith('intel-ring-summary: v=3 ') for l in text.splitlines())!=(w['summary']['v'] in (27,28,29)):raise ValueError('entry wire image binding')
+ if not w or w['summary']['v'] not in ((30,) if startup else (28,29) if nonzero else (26,27) if composition else (25,) if entry else (24,)):raise ValueError('ring wrong image')
+ if any(l.startswith('intel-ring-summary: v=3 ') for l in text.splitlines())!=(w['summary']['v'] in (27,28,29,30)):raise ValueError('entry wire image binding')
  owner=joint_capture(text if composition else text.replace('intel-ring-hda:','intel-joint-hda:').replace('intel-ring-owner:','intel-joint-summary:'))
  if not owner:raise ValueError('ring missing HDA owner')
  h=owner['summary']

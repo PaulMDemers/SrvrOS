@@ -83,6 +83,13 @@ def backing_result(text):
         # format. Keep an explicit image allowlist, including on refusal paths
         # where the interval/consumer never opened; this is no memory grant.
         paired_preflight=False
+        if wake==['30']:
+            from intel_startup_source import startup_recipe
+            if len(boot)!=1:raise ValueError('startup PTE image binding')
+            startup_recipe(boot[0])
+        if not wake and len(boot)==1 and 'srvros.intel-ring=startup-source-v1' in boot[0].split():
+            from intel_startup_source import startup_recipe
+            startup_recipe(boot[0]);paired_preflight=True
         if wake==['29']:
             from intel_nonzero_source import source_recipe
             if len(boot)!=1:raise ValueError('source PTE image binding')
@@ -107,7 +114,7 @@ def backing_result(text):
         if not wake and len(boot)==1 and 'srvros.intel-ring=nonzero-reset-v1' in boot[0].split():
             from intel_nonzero_reset import nonzero_recipe
             nonzero_recipe(boot[0]);paired_preflight=True
-        if not (wake in (['20'],['21'],['22'],['23'],['24'],['25'],['26'],['27'],['28'],['29']) or paired_preflight or not wake and len(boot)==1 and boot[0].split().count('srvros.intel-joint=hda-claim')==1):raise ValueError('joint PTE image binding')
+        if not (wake in (['20'],['21'],['22'],['23'],['24'],['25'],['26'],['27'],['28'],['29'],['30']) or paired_preflight or not wake and len(boot)==1 and boot[0].split().count('srvros.intel-joint=hda-claim')==1):raise ValueError('joint PTE image binding')
     ptes=[]
     for chunk in rows['pte']:
         if chunk['first']!=len(ptes) or chunk['count']!=min(chunk_size,summary['count']-len(ptes)) or chunk['count']<=0:raise ValueError('incomplete/duplicate PTE chunk')

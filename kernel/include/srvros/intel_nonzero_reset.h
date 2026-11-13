@@ -41,6 +41,11 @@ struct intel_nonzero_reset {
  const struct intel_nonzero_source *dependent,*registered;
  unsigned child_borrows,child_returns;
  bool observer_entered,observer_complete;
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+ /* Only the separate startup API sets this mode; old entrypoints stay kind1. */
+ bool startup;
+ unsigned entry_kind;
+#endif
 };
 struct intel_nonzero_io {
  void *ctx;
@@ -70,4 +75,10 @@ bool intel_nonzero_reset_observe(struct intel_nonzero_reset *,struct intel_gt_ac
 /* Pure original-object predicates for the native adapter's final admission. */
 bool intel_nonzero_reset_live(const struct intel_nonzero_reset *);
 bool intel_nonzero_reset_write_ready(const struct intel_nonzero_reset *,bool,unsigned,uint32_t);
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+/* Separate entrypoint; both exact initial vectors, unchanged original limits. */
+bool intel_startup_reset_observe(struct intel_nonzero_reset *,struct intel_gt_access *,
+ const struct intel_ring_transition *,bool,struct intel_nonzero_io,
+ bool (*)(void *,struct intel_nonzero_reset *),void *);
+#endif
 #endif

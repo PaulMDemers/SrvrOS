@@ -893,3 +893,17 @@ original-owner routes for both observed kind 1/nonzero and kind 2/zero startup
 states, preserving each original source, epoch, registration and deadline proof.
 No unchanged firmware-state retry or old-gate widening is planned. PR19 remains
 independent at `37ae8304`; no task was contacted or scheduled.
+
+## Air original state-aware startup source scope
+
+Air7,2 owns the separate [v30 reset/source image](intel-startup-source.md) from
+`b0142a34` / main `a45032e4`. Scope is an explicit new compiled entrypoint,
+route-bound original reset/source validation, exact firmware/recipe/pre-init,
+staging/strict collector and fault/legacy isolation tests. The actual original
+kind 1/nonzero or kind 2/zero entry supplies its source and epochs; every old API
+retains its old gate, even inside the new image. Registration, preservation and
+100/300/400/500 ms origins remain. No requester, memory, cache or flip grant is
+added. PR19 `e3f8d795` documents independent two-HTTP acceptance; no overlapping
+GPU implementation was observed. No other task was contacted or scheduled.
+Native v30 acceptance is pending separately for both routes. Check the unit
+ledger and ignored checkpoint before another run; no trial is armed.

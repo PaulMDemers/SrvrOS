@@ -14,9 +14,15 @@ bool intel_nonzero_source_live(const struct intel_nonzero_source *s) {
     !s->reset || !intel_nonzero_reset_live(s->reset))return false;
  const struct intel_nonzero_reset *r=s->reset;
  const struct intel_completion_result *p=&r->post;
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+ if(!r->startup || (r->entry_kind!=IRT_KIND_ENABLED && r->entry_kind!=IRT_KIND_DISABLED))return false;
+ const unsigned expected_epoch=r->entry_kind==IRT_KIND_DISABLED?1u:2u;
+#else
+ const unsigned expected_epoch=2;
+#endif
  if(r->stage!=INZ_PRESERVE_STAGE || !r->preserved || !r->observer_entered || r->observer_complete ||
     r->dependent!=s || r->registered!=s || r->child_borrows!=1 || r->child_returns ||
-    r->entry!=s->entry || r->parent!=s->parent || s->post!=p || s->epoch!=2 ||
+    r->entry!=s->entry || r->parent!=s->parent || s->post!=p || s->epoch!=expected_epoch ||
     r->epoch_after!=s->epoch || s->parent->engine_epoch!=s->epoch ||
     s->origin!=r->begin || s->parent_begin!=r->parent_begin ||
     s->parent_begin!=s->parent->begin || s->post_mode!=r->post_mode ||

@@ -16,7 +16,7 @@ static bool process_wait_startup(uint64_t pid,uint64_t ticks) {
 }
 static uint64_t timer_monotonic_us(void) {return ++clocks;}
 static void console_printf(const char *fmt,...) {(void)fmt;}
-static void console_write(const char *s) {if(strstr(s,"deferred=nonzero-source-preinit") || strstr(s,"deferred=nonzero-reset-preinit") || strstr(s,"deferred=entry-requester-preinit") || strstr(s,"deferred=ring-reset-preinit") || strstr(s,"deferred=ring-entry-preinit") || strstr(s,"deferred=ring-transition-preinit") || strstr(s,"deferred=joint-admit-preinit") || strstr(s,"deferred=hda-bcs-preinit") || strstr(s,"deferred=gpu-hold-preinit") || strstr(s,"deferred=joint-preinit") || strstr(s,"deferred=rehold-preinit") || strstr(s,"deferred=held-reset-preinit") || strstr(s,"deferred=held-interval-preinit"))deferred++;}
+static void console_write(const char *s) {if(strstr(s,"deferred=startup-source-preinit") || strstr(s,"deferred=nonzero-source-preinit") || strstr(s,"deferred=nonzero-reset-preinit") || strstr(s,"deferred=entry-requester-preinit") || strstr(s,"deferred=ring-reset-preinit") || strstr(s,"deferred=ring-entry-preinit") || strstr(s,"deferred=ring-transition-preinit") || strstr(s,"deferred=joint-admit-preinit") || strstr(s,"deferred=hda-bcs-preinit") || strstr(s,"deferred=gpu-hold-preinit") || strstr(s,"deferred=joint-preinit") || strstr(s,"deferred=rehold-preinit") || strstr(s,"deferred=held-reset-preinit") || strstr(s,"deferred=held-interval-preinit"))deferred++;}
 #include "../kernel/src/boot_system_init.inc"
 
 static void reset(void) {

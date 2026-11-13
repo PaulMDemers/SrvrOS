@@ -18,21 +18,24 @@ def source_summary(text):
  if s['obligations']!=255 or any(s[k] for k in ('assurances','managed_pages','pte_writes','hardware_ownership')):raise ValueError('source unsupported grant')
  if s['native_reads']!=s['count']:raise ValueError('source completed prefix')
  return s
-def source_result(text):
+def source_result(text,*,startup=False):
  if any(l.startswith('intel-nzsource') and not l.startswith(('intel-nzsource: v=','intel-nzsource-read:')) for l in text.splitlines()):raise ValueError('source unknown record')
  from intel_gt_wake import wake_result
  from intel_nonzero_reset import nonzero_result
  w=wake_result(text)
- if not w or w['summary']['v']!=29:raise ValueError('source image')
+ if not w or w['summary']['v']!=(30 if startup else 29):raise ValueError('source image')
  boots=re.findall(r'^laptop-capture: boot options=(.*)$',text,re.M)
  if len(boots)!=1:raise ValueError('source boot coverage')
- source_recipe(boots[0])
+ if startup:
+  from intel_startup_source import startup_recipe
+  startup_recipe(boots[0])
+ else:source_recipe(boots[0])
  s=source_summary(text)
  rows=[_fields(l,'intel-nzsource-read:','v n value at previous'.split()) for l in text.splitlines() if l.startswith('intel-nzsource-read:')]
  if len(rows)!=6 or [l['n'] for l in rows]!=list(range(6)) or any(l['v']!=1 or l['value']>=1<<32 for l in rows):raise ValueError('source read coverage/order')
  typed=[l for l in text.splitlines() if l.startswith(('intel-nzsource-read:','intel-nzsource: v='))]
  if [l.split(' ',1)[0] for l in typed]!=['intel-nzsource-read:']*6+['intel-nzsource:']:raise ValueError('source record order')
- reset=nonzero_result(text,source=True)
+ reset=nonzero_result(text,source=True,startup=startup)
  if not reset:raise ValueError('source missing reset')
  if bool(s['complete'])!=bool(reset['complete']):raise ValueError('source enclosing completion')
  if s['complete']:
@@ -50,8 +53,8 @@ def source_result(text):
    previous=row['at']
  if s['registered'] and (not w['summary']['retained'] or w['summary']['released']):raise ValueError('source lost registered root')
  return dict(complete=bool(s['complete']),native_complete=False,summary=s,reads=rows,reset=reset,hardware_ownership=False,managed_pages=0,physical_tearfree=False)
-def native_source_result(text):
- r=source_result(text)
+def native_source_result(text,*,startup=False):
+ r=source_result(text,startup=startup)
  if r['complete']:
   from intel_gt_wake import native_wake_result
   if not native_wake_result(text)['native_wake_complete']:raise ValueError('source native prerequisites')
@@ -59,9 +62,9 @@ def native_source_result(text):
   if not native_window_result(text)['native_observation_complete']:raise ValueError('source native window')
   r['native_complete']=True
  return r
-def verify_source_checkpoint(pre,text,native=False):
+def verify_source_checkpoint(pre,text,native=False,*,startup=False):
  from intel_nonzero_reset import verify_nonzero_checkpoint
  if any(l.startswith(('intel-nzsource: v=','intel-nzsource-read:')) for l in pre.splitlines()):raise ValueError('source late preflight')
- verify_nonzero_checkpoint(pre,text,native=native,source=True)
- source_result(text)
+ verify_nonzero_checkpoint(pre,text,native=native,source=True,startup=startup)
+ source_result(text,startup=startup)
  return True

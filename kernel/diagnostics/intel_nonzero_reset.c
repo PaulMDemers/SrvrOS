@@ -1,38 +1,48 @@
 #include <srvros/intel_nonzero_reset.h>
 struct nz_call {struct intel_nonzero_reset *r;struct intel_nonzero_io io;
- const struct intel_ring_transition *entry;struct intel_gt_access *parent;};
+ const struct intel_ring_transition *entry;struct intel_gt_access *parent;
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+ bool startup;unsigned entry_kind;
+#endif
+};
 static bool fail(struct intel_nonzero_reset *r,unsigned why){r->reason|=why;return false;}
 /* Historical entry/census identity remains immutable after the reset epoch.
  * This is continuity inside the new registered child, not an old ready token. */
 static bool source(const struct intel_nonzero_reset *r) {
  if(!r)return false;
  const struct intel_ring_transition *e=r->entry;const struct intel_gt_access *g=r->parent;
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+ if(!e || r->entry_kind!=e->kind || (r->entry_kind!=IRT_KIND_ENABLED && r->entry_kind!=IRT_KIND_DISABLED))return false;
+ const bool disabled=r->startup && r->entry_kind==IRT_KIND_DISABLED;
+#else
+ const bool disabled=false;
+#endif
  if(!r || r->object!=r || !e || e->object!=e || !g || g->object!=g || e->parent!=g ||
-    e->kind!=IRT_KIND_ENABLED || !e->complete || !e->policy || !e->blocked || !e->returned ||
+    e->kind!=(disabled?IRT_KIND_DISABLED:IRT_KIND_ENABLED) || !e->complete || !e->policy || !e->blocked || !e->returned ||
     !e->post_bound || !e->readers_bound || e->reason || e->uncertain ||
-    e->epoch_before || e->epoch_after!=1 || !e->epoch_advanced || e->store_calls!=1 ||
-    e->checks!=20 || e->read_attempts!=4 || e->reader_attempts!=2 ||
+    e->epoch_before || e->epoch_after!=(disabled?0u:1u) || e->epoch_advanced==disabled || e->store_calls!=(disabled?0u:1u) ||
+    e->checks!=(disabled?19u:20u) || e->read_attempts!=4 || e->reader_attempts!=2 ||
     e->reader_counts[0]!=37 || e->reader_counts[1]!=37 ||
     e->borrow.object!=&e->borrow || e->borrow.parent!=g || e->borrow.active || e->borrow.next ||
     !e->source || e->source->object!=e->source || e->source->parent!=g ||
     e->source->engine_epoch || !e->source->complete || !e->source->stable || e->source->reason ||
     e->source->samples!=2 || e->source->contexts!=2 || e->source->groups!=10 || e->source->reads!=92 ||
     e->source->begin_us!=e->source_begin || e->source->end_us!=e->source_end || e->source->last_us!=e->source_last ||
-    e->source->batches!=2 || e->source->enabled!=16 || e->source->pending || e->source->flip_wait ||
+    e->source->batches!=2 || e->source->enabled!=(disabled?0u:16u) || e->source->pending || e->source->flip_wait ||
     e->source->tlb_pending || e->source->parser_idle!=3 ||
-    r->source!=&e->post || e->post.object!=&e->post || e->post.parent!=g || e->post.engine_epoch!=1 ||
+    r->source!=&e->post || e->post.object!=&e->post || e->post.parent!=g || e->post.engine_epoch!=(disabled?0u:1u) ||
     !e->post.complete || !e->post.stable || e->post.reason || e->post.enabled || e->post.pending ||
     e->post.flip_wait || e->post.tlb_pending || e->post.parser_idle!=3 ||
     e->post.samples!=2 || e->post.groups!=10 || e->post.contexts!=2 || e->post.reads!=92 || e->post.batches!=2 ||
     e->end!=r->entry_end || e->post.begin_us!=r->source_begin || e->post.end_us!=r->source_end ||
     e->post.last_us!=r->source_last || e->post_begin!=r->source_begin || e->post_end!=r->source_end ||
-    e->post_last!=r->source_last || r->epoch_before!=1 || r->epoch_after!=1+(unsigned)r->epoch_advanced ||
+    e->post_last!=r->source_last || r->epoch_before!=(disabled?0u:1u) || r->epoch_after!=r->epoch_before+(unsigned)r->epoch_advanced ||
     g->begin!=r->parent_begin || !r->parent_begin || g->engine_epoch!=r->epoch_after || g->write_attempts!=r->parent_attempts ||
     e->parent_attempts!=r->parent_attempts || g->state!=GT_ACCESS_AWAKE || !g->pinned ||
     !display_access_held(&g->exclusion))return false;
  const struct intel_blitter_result *b=&e->bcs;
- if(b->object!=b || !b->admitted || !b->disabled || b->entry_disabled || b->attempts!=1 ||
-    b->writes!=1 || b->uncertain || b->reason || b->samples!=4 || b->reads!=32 ||
+ if(b->object!=b || !b->admitted || !b->disabled || b->entry_disabled!=disabled || b->attempts!=(disabled?0u:1u) ||
+    b->writes!=(disabled?0u:1u) || b->uncertain || b->reason || b->samples!=4 || b->reads!=32 ||
     !e->begin || e->begin<=e->source_end || !b->begin_us || b->end_us<=b->begin_us ||
     b->end_us-b->begin_us>100000 || b->end_us>e->source_end+100000 ||
     e->post_begin<=b->end_us || e->return_begin<e->post_end || e->end<e->return_begin ||
@@ -44,9 +54,9 @@ static bool source(const struct intel_nonzero_reset *r) {
       e->post.context[n][k]!=e->source_context[n][k])return false;
   if(!(e->source_context[n][0]&512) || !(e->source_context[n][3]&512))return false;
   for(unsigned eng=0;eng<5;eng++)for(unsigned i=0;i<8;i++) {
-   uint32_t expected=i==4?1u:eng==4 && i==2?0x3eef000u:eng==4 && i==3?0xf001u:0u;
+   uint32_t expected=i==4?1u:!disabled && eng==4 && i==2?0x3eef000u:!disabled && eng==4 && i==3?0xf001u:0u;
    if(e->source_words[n][eng][i]!=expected || e->source->words[n][eng][i]!=expected ||
-      e->post.words[n][eng][i]!=(eng==4 && i==3?0xf000u:expected))return false;
+      e->post.words[n][eng][i]!=(!disabled && eng==4 && i==3?0xf000u:expected))return false;
   }
  }
  for(unsigned n=0;n<4;n++) {
@@ -65,7 +75,11 @@ bool intel_nonzero_reset_live(const struct intel_nonzero_reset *r) {
 }
 static bool identity(const struct nz_call *p) {
  return p->r->object==p->r && p->r->provider==p->io.ctx &&
-  p->r->entry==p->entry && p->r->parent==p->parent;
+  p->r->entry==p->entry && p->r->parent==p->parent
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+  && p->r->startup==p->startup && p->r->entry_kind==p->entry_kind
+#endif
+  ;
 }
 static bool clock_at(struct nz_call *p,uint64_t at) {
  struct intel_nonzero_reset *r=p->r;
@@ -196,16 +210,27 @@ static bool preserve(struct nz_call *p) {
 }
 static bool run(struct intel_nonzero_reset *r,struct intel_gt_access *g,
  const struct intel_ring_transition *e,bool policy,struct intel_nonzero_io io,
- bool (*observe)(void *,struct intel_nonzero_reset *),void *ctx) {
+ bool (*observe)(void *,struct intel_nonzero_reset *),void *ctx,bool startup) {
  if(!r || r->object)return false;
  *r=(struct intel_nonzero_reset){.object=r,.parent=g,.entry=e,.provider=io.ctx,.policy=policy};
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+ r->startup=startup;r->entry_kind=e?e->kind:0;
+ bool route=e && (e->kind==IRT_KIND_ENABLED || (startup && e->kind==IRT_KIND_DISABLED));
+#else
+ (void)startup;
+ bool route=e && e->kind==IRT_KIND_ENABLED;
+#endif
  if(!g || !e || !policy || !io.guard || !io.sample || !io.control || !io.request || !io.bcs ||
     !io.domain || !io.reset || !io.post || !io.readers || !io.now || !io.pause ||
-    e->kind!=IRT_KIND_ENABLED || !e->complete){r->reason=INZ_INPUT;return false;}
+    !route || !e->complete){r->reason=INZ_INPUT;return false;}
  r->eligible=true;r->uncertain=true;r->source=&e->post;r->source_begin=e->post.begin_us;
  r->source_end=e->post.end_us;r->source_last=e->post.last_us;r->entry_end=e->end;
  r->epoch_before=r->epoch_after=e->epoch_after;r->parent_attempts=g->write_attempts;r->parent_begin=g->begin;
- struct nz_call p={r,io,e,g};
+ struct nz_call p={.r=r,.io=io,.entry=e,.parent=g
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+  ,.startup=r->startup,.entry_kind=r->entry_kind
+#endif
+ };
  if(!source(r) || g->borrows || g->dependents){fail(r,INZ_SOURCE);goto done;}
  r->admit_begin=io.now(io.ctx);r->last=r->entry_end;
  if(!clock_at(&p,r->admit_begin))goto done;
@@ -268,11 +293,20 @@ static bool run(struct intel_nonzero_reset *r,struct intel_gt_access *g,
 }
 bool intel_nonzero_reset_run(struct intel_nonzero_reset *r,struct intel_gt_access *g,
  const struct intel_ring_transition *e,bool policy,struct intel_nonzero_io io) {
- return run(r,g,e,policy,io,0,0);
+ return run(r,g,e,policy,io,0,0,false);
 }
 bool intel_nonzero_reset_observe(struct intel_nonzero_reset *r,struct intel_gt_access *g,
  const struct intel_ring_transition *e,bool policy,struct intel_nonzero_io io,
  bool (*observe)(void *,struct intel_nonzero_reset *),void *ctx) {
  if(!observe)return false;
- return run(r,g,e,policy,io,observe,ctx);
+ return run(r,g,e,policy,io,observe,ctx,false);
 }
+
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+bool intel_startup_reset_observe(struct intel_nonzero_reset *r,struct intel_gt_access *g,
+ const struct intel_ring_transition *e,bool policy,struct intel_nonzero_io io,
+ bool (*observe)(void *,struct intel_nonzero_reset *),void *ctx) {
+ if(!observe)return false;
+ return run(r,g,e,policy,io,observe,ctx,true);
+}
+#endif

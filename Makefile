@@ -6264,3 +6264,35 @@ test-sidecar-cost: build/tests/workspace-compare-host$(HOST_EXE) build/tests/wor
 test-core: test-sidecar-directory-faults
 test-sidecar-directory-faults:
 	$(PYTHON) tools/test_exfat_metadata_tail.py --directory-only --output build/review/sidecar-directory-faults
+
+# Own state-aware startup image; no legacy gate is compiled with this mode.
+INTEL_STARTUP_SOURCE_FLAGS := $(INTEL_NONZERO_SOURCE_FLAGS) -DSRVROS_INTEL_STARTUP_SOURCE
+build/intel-startup-source/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_SOURCE_FLAGS) -c $< -o $@
+build/intel-startup-source/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_SOURCE_FLAGS) -c $< -o $@
+build/intel-startup-source/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_SOURCE_FLAGS) -c $< -o $@
+build/intel-startup-source/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_SOURCE_FLAGS) -c $< -o $@
+build/intel-startup-source/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_SOURCE_FLAGS) -c $< -o $@
+build/intel-startup-source/srvros.elf: build/intel-startup-source/main.o build/intel-startup-source/probe.o build/intel-startup-source/requests.o build/intel-startup-source/reset.o build/intel-startup-source/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-startup-source-adapter$(HOST_EXE): tools/test_intel_startup_source_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_STARTUP_SOURCE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/tests/boot-startup-source$(HOST_EXE): tools/test_boot_startup_source.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_STARTUP_SOURCE_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+.PHONY: test-intel-startup-source
+test-core: test-intel-startup-source
+test-intel-startup-source: build/tests/intel-startup-source-adapter$(HOST_EXE) build/tests/boot-startup-source$(HOST_EXE)
+	$(PYTHON) -m unittest discover -f -s tools -p test_intel_startup_source.py
+	build/tests/boot-startup-source$(HOST_EXE)

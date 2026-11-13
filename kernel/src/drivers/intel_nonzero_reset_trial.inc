@@ -83,6 +83,12 @@ static bool nonzero_store_admit(struct nonzero_adapter *p,bool reset,unsigned e,
     ring_native.result.parent!=p->g || ring_native.result.object!=&ring_native.result) {
   r->reason|=INZ_SOURCE;return false;
  }
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+ /* No callback/MMIO after the final clock: recheck the complete pure source
+  * and captured route before this separate image may issue its DWORD. */
+ if(!r->startup || r->entry_kind!=ring_native.result.kind ||
+    !intel_nonzero_reset_write_ready(r,reset,e,value)){r->reason|=INZ_SOURCE;return false;}
+#endif
  r->last=at;p->g->last=at;return true;
 }
 static enum intel_gt_write nonzero_request(void *ctx,unsigned e,uint32_t value,uint32_t *out) {
@@ -202,7 +208,12 @@ static bool nonzero_source_sample(void *ctx,uint32_t out[2][3],unsigned *count) 
      s->entry!=&ring_native.result || s->input!=&p->source_input || s->provider!=p ||
      p->r.dependent!=s || p->r.registered!=s || p->r.stage!=INZ_PRESERVE_STAGE ||
      !intel_nonzero_source_live(s) || p->r.returned || p->r.complete || p->r.parent!=p->g || p->r.object!=&p->r ||
-     p->r.epoch_after!=2 || p->g->engine_epoch!=2 || s->origin!=p->r.begin ||
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+     p->r.epoch_after!=s->epoch || p->g->engine_epoch!=s->epoch ||
+#else
+     p->r.epoch_after!=2 || p->g->engine_epoch!=2 ||
+#endif
+     s->origin!=p->r.begin ||
      s->parent_begin!=p->g->begin || p->source_reads!=i || *count!=i) {s->reason|=INS_PARENT;return false;}
   s->last=p->r.last=p->g->last=at;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
@@ -221,6 +232,15 @@ static bool nonzero_source_observe(void *ctx,struct intel_nonzero_reset *r) {
  return intel_nonzero_source_run(&p->source,r,&p->source_input,
   (struct intel_nonzero_source_io){p,nonzero_source_guard,nonzero_source_sample,nonzero_now});
 }
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+static void startup_source_report(void) {
+ const struct nonzero_adapter *p=&nonzero_native;
+ console_printf("intel-startup-route: v=1 startup=%u selected=%u original=%u entry_epoch=%u reset_before=%u reset_after=%u source_epoch=%u complete=%u\n",
+  (uint64_t)p->r.startup,(uint64_t)p->r.entry_kind,(uint64_t)ring_native.result.kind,
+  (uint64_t)ring_native.result.epoch_after,(uint64_t)p->r.epoch_before,
+  (uint64_t)p->r.epoch_after,(uint64_t)p->source.epoch,(uint64_t)(p->r.complete && p->source.complete));
+}
+#endif
 static void nonzero_source_report(void) {
  const struct nonzero_adapter *p=&nonzero_native;const struct intel_nonzero_source *s=&p->source;
  for(unsigned i=0;i<6;i++)console_printf("intel-nzsource-read: v=1 n=%u value=%u at=%u previous=%u\n",(uint64_t)i,(uint64_t)s->words[i/3][i%3],p->source_at[i],p->source_previous[i]);
@@ -232,7 +252,9 @@ static void nonzero_run(struct wake_adapter *a,struct intel_gt_access *g,bool po
  struct nonzero_adapter *p=&nonzero_native;if(p->r.object)return;
  p->a=a;p->g=g;
  const struct intel_nonzero_io io={p,nonzero_guard,nonzero_sample,nonzero_control,nonzero_request,nonzero_bcs,nonzero_domain,nonzero_reset,nonzero_post,nonzero_readers,nonzero_now,nonzero_pause};
-#ifdef SRVROS_INTEL_NONZERO_SOURCE
+#ifdef SRVROS_INTEL_STARTUP_SOURCE
+ (void)intel_startup_reset_observe(&p->r,g,&ring_native.result,policy,io,nonzero_source_observe,p);
+#elif defined(SRVROS_INTEL_NONZERO_SOURCE)
  (void)intel_nonzero_reset_observe(&p->r,g,&ring_native.result,policy,io,nonzero_source_observe,p);
 #else
  (void)intel_nonzero_reset_run(&p->r,g,&ring_native.result,policy,io);
