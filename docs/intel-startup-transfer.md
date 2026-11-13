@@ -97,7 +97,9 @@ outcomes. Retained uncertainty halts visibly. Collect before a further candidate
 Source `f638ae7c` / release `8d0181c0ed0a4708`, session
 `session-0006602a2ba4e885-00`, accepts one bounded registration, known missing-
 authority refusal, final guarded check/close and original return. The transfer
-child takes 45 us with no transfer provider/clock/arena/address activity.
+child takes 45 us with no generic transfer-provider/transfer-clock/arena/address
+activity. Original bridge guards and their parent-clock checks still run; the
+zero counters describe callbacks into the generic address owner.
 Preparation is 97,996/100,000 us, GT return 264,788/300,000 us, HDA
 301,473/400,000 us and outer 356,215/500,000 us. Full preservation, original
 root/alias retirement, four full padded patterns and exactly-once 2,712-page

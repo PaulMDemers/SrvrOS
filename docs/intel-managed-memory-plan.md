@@ -362,3 +362,18 @@ obligations, so no interval is imported. This is the provider-facing lifetime
 needed by a future audited takeover, not completion of native milestone1 or
 permission for a first PTE store. Both full buffers and original CPU exclusion
 remain bound through the original parent clocks and retirement.
+
+
+## Current registered-transfer checkpoint
+
+The separate v32 [original-source transfer owner](intel-startup-transfer.md#native-original-kind-2-lifetime-accepted)
+now accepts one native kind 2 registration/refusal/check/close lifetime on
+`f638ae7c` / `8d0181c0ed0a4708`, with full preservation, original source/RAM/root
+retirement and verified media/recovery. This closes the software lifetime
+prerequisite; milestone 1 above remains open. The next bounded implementation
+is the [maintained original-source requester hold](intel-tearfree-roadmap.md#current-original-source-transfer-result-and-next-ownership-step),
+which must enclose its child rather than restore before that child starts.
+Existing PCI observations and old claim receipts cannot supply this lifetime.
+Keep all255 completion obligations and zero positive hardware assurances until
+their real witnesses are implemented; no first PTE writer is authorized by the
+new acceptance alone.

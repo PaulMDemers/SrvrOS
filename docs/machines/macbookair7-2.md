@@ -2,6 +2,31 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
+### Current scope after native v32 collection
+
+PR301 records the completed original source/RAM/transfer lifetime. Main
+`bc326e39` (PR490 launch ownership and PR491 Air6,1 result) is now integrated
+as `839167b4`; that newer runtime is not relabeled as the physically accepted
+`f638ae7c`. The Makefile merge retains both the distinct transfer diagnostic and
+new launch-owner targets; the machine index retains each unit's own evidence.
+Targeted launch/lifecycle/private-process/syscall and source-transfer/range host
+regressions pass, followed by the full desktop, process-lifetime, spawn-failure
+and image-lifecycle host targets. These merged-tree host results are separate
+from source-matched native acceptance. No new stage or physical run is armed.
+
+Next local scope is the maintained original-source requester hold, touching
+only its new typed diagnostic/adapter/receiver, relevant host fixtures and
+current guides. The old claim-based hold restores Command before return and
+cannot enclose this source's child. Dependencies are the accepted original
+source/RAM/transfer lifetime and exact local PCI profile; neither is a native
+memory grant. Preserve all old images/recipes and 100/300/400/500 ms limits.
+The [next-step protocol](../intel-tearfree-roadmap.md#current-original-source-transfer-result-and-next-ownership-step)
+requires source-bound child retention, exact read/store prefixes, bounded
+pending/restore and actual-core failure coverage before native staging.
+PR19 MT7610 and PR379 WebCore remain separate; no other task was contacted or
+scheduled. GPU PTE writes, actual interval/completion witnesses and native
+tear-free remain open.
+
 ### Native v32 original-source transfer lifetime accepted
 
 Frozen source `f638ae7c`, release `8d0181c0ed0a4708`, session

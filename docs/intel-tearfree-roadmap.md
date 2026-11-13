@@ -326,3 +326,54 @@ patterns and release exactly once; preparation98,198/100,000 us. This closes
 that route's RAM/source binding prerequisite only. Exclusive GPU address/range
 transfer, completion/cache/reader ownership and actual GPU publication remain
 open; no managed GPU pages or tear-free presentation are accepted.
+
+
+## Current original-source transfer result and next ownership step
+
+Source `f638ae7c`, release `8d0181c0ed0a4708`, now accepts one native v32
+kind 2 source/buffer/transfer registration and known-authority refusal lifetime.
+The transfer child is 45 us; preparation is 97,996/100,000 us and all original
+source/root/alias holds retire, followed by full patterns and exactly-once RAM
+release. The [unit result](machines/macbookair7-2.md#native-v32-original-source-transfer-lifetime-accepted)
+records strict raw/checkpoint, media and recovery proofs. All five hardware
+assurances remain absent and all eight completion obligations remain open.
+No further identical refusal trial is needed for this completed prerequisite.
+
+The next bounded implementation is a **maintained original-source requester
+hold**, followed by an actual interval/completion proof. The existing
+`intel_gpu_requester_hold_run` belongs to the older interval-claim graph and
+restores Command 7 before returning. Its receipt cannot authorize a child of
+the newer state-aware source, nor supply requester inhibition during mapping.
+Do not transplant its claim pointer, use a receipt from another boot, or treat
+Command 3/AF pending-clear as device-wide DMA completion.
+
+1. Define an original one-use hold beneath the real state-aware source/buffer
+   registration. It must retain the exact route, source/reset epoch, original
+   provider, RAM holds and CPU exclusion. Its inhibited state must enclose the
+   intended child and prevent parent return; restoring state follows child
+   retirement, rather than preceding it.
+2. Reuse the exact captured PCI capability/profile checks and Command-halfword
+   7→3→7 operation semantics. Bind every full profile, pre-store read, issued
+   prefix and pending sample to this original hold. Scope the expected Command
+   change to the original native owner only. Lost source, ambiguous stores or
+   unknown retirement retain the full chain and never replay restoration.
+3. Enforce the original preparation 100 ms, GT 300 ms, HDA 400 ms and outer
+   500 ms origins throughout. The latest 2,004 us preparation margin is measured
+   once, not spare capacity promised to new work. Qualify batching or admission
+   changes against actual guard/source/map/clock fault controls before adding
+   the operation. Preserve each required full validation and final store clock;
+   do not extend deadlines, skip witnesses or add an unbounded poll.
+4. Exercise both naturally observed entry routes in actual-core/model tests,
+   plus every read/store/clock/child/return failure. Native enablement needs a
+   separate exact image/recipe/strict receiver, source-matched VM persistence,
+   capacity and recovery checks, then one bounded physical trial. Its result
+   accepts only the observed route and exact control/retirement scope.
+5. After maintained requester control, specify the real cooperative firmware,
+   engine/prefetch, translation/cache, inherited backing and display-reader
+   witnesses for the proposed interval. These are independent requirements;
+   neither this hold nor the BCS reset clears them. Only their reviewed live
+   composition may reach the first one-page PTE transaction.
+
+The next test is not ready yet. Ordinary desktop continues to use the inherited
+framebuffer. The newly integrated main launch-owner changes have separate
+host/desktop regression evidence and do not relabel the accepted f638 runtime.
