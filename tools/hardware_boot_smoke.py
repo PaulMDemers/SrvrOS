@@ -21,6 +21,9 @@ from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_q
 HFW_PROFILES=tuple(f"ram-usb-v{i}-hfw-" for i in range(1,9))
 
 def shared_receipt(text):
+    if 'srvros.intel-ring=startup-transfer-v1' in text:
+        from intel_startup_transfer import shared_view
+        return shared_view(text)
     if 'srvros.intel-ring=startup-buffers-v1' in text:
         from intel_startup_buffers import buffers_view
         return buffers_view(text)
@@ -181,7 +184,7 @@ def main():
     cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     audio_listen=bool(probe and manifest["config_version"].startswith("ram-usb-v1-audio-listen-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
-    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-startup-buffers-","ram-usb-v1-intel-startup-source-","ram-usb-v1-intel-nonzero-source-","ram-usb-v1-intel-nonzero-reset-","ram-usb-v1-intel-entry-requester-","ram-usb-v1-intel-ring-reset-","ram-usb-v1-intel-ring-entry-","ram-usb-v1-intel-ring-transition-","ram-usb-v1-intel-paired-shutdown-","ram-usb-v1-intel-gpu-hold-","ram-usb-v1-intel-joint-","ram-usb-v1-intel-rehold-","ram-usb-v1-intel-held-interval-","ram-usb-v1-intel-memory-","ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")))
+    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-startup-transfer-","ram-usb-v1-intel-startup-buffers-","ram-usb-v1-intel-startup-source-","ram-usb-v1-intel-nonzero-source-","ram-usb-v1-intel-nonzero-reset-","ram-usb-v1-intel-entry-requester-","ram-usb-v1-intel-ring-reset-","ram-usb-v1-intel-ring-entry-","ram-usb-v1-intel-ring-transition-","ram-usb-v1-intel-paired-shutdown-","ram-usb-v1-intel-gpu-hold-","ram-usb-v1-intel-joint-","ram-usb-v1-intel-rehold-","ram-usb-v1-intel-held-interval-","ram-usb-v1-intel-memory-","ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_only_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-storage-only-","ram-usb-v2-storage-only-","ram-usb-v3-storage-only-")))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
@@ -246,7 +249,7 @@ def main():
                    "-monitor", "none", "-display", "none", "-no-reboot"]
         # Explicit cache-only CPU observation in TCG; absent Intel GPU still
         # refuses native address binding and aggregate display acceptance.
-        if manifest["config_version"].startswith(("ram-usb-v1-intel-startup-buffers-","ram-usb-v1-intel-startup-source-","ram-usb-v1-intel-nonzero-source-","ram-usb-v1-intel-nonzero-reset-","ram-usb-v1-intel-entry-requester-","ram-usb-v1-intel-ring-reset-","ram-usb-v1-intel-ring-entry-","ram-usb-v1-intel-ring-transition-","ram-usb-v1-intel-paired-shutdown-","ram-usb-v1-intel-gpu-hold-","ram-usb-v1-intel-joint-","ram-usb-v1-intel-rehold-","ram-usb-v1-intel-held-interval-","ram-usb-v1-intel-memory-","ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-")):
+        if manifest["config_version"].startswith(("ram-usb-v1-intel-startup-transfer-","ram-usb-v1-intel-startup-buffers-","ram-usb-v1-intel-startup-source-","ram-usb-v1-intel-nonzero-source-","ram-usb-v1-intel-nonzero-reset-","ram-usb-v1-intel-entry-requester-","ram-usb-v1-intel-ring-reset-","ram-usb-v1-intel-ring-entry-","ram-usb-v1-intel-ring-transition-","ram-usb-v1-intel-paired-shutdown-","ram-usb-v1-intel-gpu-hold-","ram-usb-v1-intel-joint-","ram-usb-v1-intel-rehold-","ram-usb-v1-intel-held-interval-","ram-usb-v1-intel-memory-","ram-usb-v1-intel-held-reset-","ram-usb-v1-intel-held-requester-","ram-usb-v1-intel-requester-","ram-usb-v1-intel-engine-prepare-","ram-usb-v1-intel-takeover-","ram-usb-v1-intel-bcs-shutdown-","ram-usb-v1-intel-shutdown-","ram-usb-v1-intel-bcs-reset-","ram-usb-v1-intel-reset-ready-","ram-usb-v1-intel-completion-","ram-usb-v1-intel-readers-","ram-usb-v1-intel-hda-lease-","ram-usb-v1-intel-hda-owner-","ram-usb-v1-intel-hda-","ram-usb-v1-intel-blitter-","ram-usb-v1-intel-engines-","ram-usb-v1-intel-wake-","ram-usb-v1-intel-gt-firmware-","ram-usb-v1-intel-gt-preflight-","ram-usb-v1-intel-handoff-","ram-usb-v1-intel-window-","ram-usb-v1-intel-cache-")):
             command += ["-cpu","Broadwell"]
         if hfw_capture or ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
         if scaled_desktop:
@@ -641,7 +644,8 @@ def main():
                         if 'srvros.intel-wake=trial' in text:
                             from intel_gt_wake import native_wake_result,verify_wake_checkpoint
                             wake=native_wake_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
-                            if "srvros.intel-ring=startup-buffers-v1" in text:wake["summary"]["v"]=31
+                            if "srvros.intel-ring=startup-transfer-v1" in text:wake["summary"]["v"]=32
+                            elif "srvros.intel-ring=startup-buffers-v1" in text:wake["summary"]["v"]=31
                             if 'srvros.intel-bcs-reset=held-blitter-only' in text:
                                 from intel_engine_held_reset import held_reset_result
                                 reset=held_reset_result(shared_receipt(stored.read(folder+"/exit.log").decode()))
@@ -661,7 +665,14 @@ def main():
                                 assert ring and not ring['complete'] and not ring['entry']['summary']['borrowed'] and not ring['entry']['summary']['store_calls'] and not ring['summary']['eligible']
                                 assert verify_reset_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
                                 (logs/'intel-ring-reset-result.json').write_text(json.dumps(ring,indent=2)+'\n')
-                            if 'srvros.intel-ring=startup-buffers-v1' in text:
+                            if 'srvros.intel-ring=startup-transfer-v1' in text:
+                                from intel_startup_transfer import transfer_result,verify_transfer_checkpoint
+                                final=stored.read(folder+'/exit.log').decode()
+                                proof=transfer_result(final)
+                                assert proof and not proof['complete'] and not proof['buffers']['summary']['allocated']
+                                assert verify_transfer_checkpoint(stored.read(folder+'/session-a.log').decode(),final)
+                                (logs/'intel-startup-transfer-result.json').write_text(json.dumps(proof,indent=2)+'\n')
+                            elif 'srvros.intel-ring=startup-buffers-v1' in text:
                                 from intel_startup_buffers import buffers_result,verify_buffers_checkpoint
                                 final=stored.read(folder+'/exit.log').decode()
                                 proof=buffers_result(final)

@@ -1549,3 +1549,11 @@ limits. Current is now c154, accepted prior327a and recovery9aa8 remain installe
 are separately banked; no reboot is armed. Enabled route, managed GPU mapping and
 native tear-free remain pending. Use the existing checked internal schema view
 for supplementary shared decoders; never relabel raw v31 as a legacy receipt.
+
+The subsequent [v32 source-bound transfer profile](intel-startup-transfer.md)
+uses `--intel-startup-transfer --laptop-probe-volume LOCAL_UUID`, its own image,
+firmware request, exact 15-token recipe/pre-init and `intel_startup_transfer`
+collector. It tests provider-facing ownership lifetime inside the original
+source, with native transfer refused before provider/clock/arena activity.
+Positive model providers are not native authority. Do not install until the
+unit's matching host/image/VM/media/recovery checkpoint says hardware-ready.

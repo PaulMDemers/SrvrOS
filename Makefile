@@ -6367,3 +6367,42 @@ test-intel-startup-buffers: build/tests/intel-startup-buffers-adapter$(HOST_EXE)
 test-core: test-launch-gate-trace
 test-launch-gate-trace: $(LIMINE_PROTOCOL_DIR)/.ready
 	SRVROS_LIMINE_INCLUDE="$(LIMINE_PROTOCOL_DIR)/include" CC="$(HOST_CC)" $(PYTHON) tools/test_launch_gate_trace.py
+
+INTEL_STARTUP_TRANSFER_FLAGS := $(INTEL_STARTUP_BUFFERS_FLAGS) -DSRVROS_INTEL_SOURCE_TRANSFER
+INTEL_STARTUP_TRANSFER_HOST_EXTRA := kernel/diagnostics/intel_source_transfer.c kernel/diagnostics/intel_source_buffers.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c
+build/intel-startup-transfer/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+build/intel-startup-transfer/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+build/intel-startup-transfer/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+build/intel-startup-transfer/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+build/intel-startup-transfer/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+build/intel-startup-transfer/transfer.o: kernel/diagnostics/intel_source_transfer.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+build/intel-startup-transfer/srvros.elf: build/intel-startup-transfer/transfer.o build/intel-startup-transfer/buffers.o build/intel-joint/page.o build/intel-startup-transfer/main.o build/intel-startup-transfer/probe.o build/intel-startup-transfer/requests.o build/intel-startup-transfer/reset.o build/intel-startup-transfer/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-startup-transfer-adapter$(HOST_EXE): tools/test_intel_startup_transfer_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_STARTUP_TRANSFER_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_TRANSFER_HOST_EXTRA) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/tests/boot-startup-transfer$(HOST_EXE): tools/test_boot_startup_transfer.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_STARTUP_TRANSFER_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+build/intel-startup-transfer/buffers.o: kernel/diagnostics/intel_source_buffers.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_TRANSFER_FLAGS) -c $< -o $@
+.PHONY: test-intel-startup-transfer
+test-core: test-intel-startup-transfer
+test-intel-startup-transfer: build/tests/intel-startup-transfer-adapter$(HOST_EXE) build/tests/boot-startup-transfer$(HOST_EXE)
+	$(PYTHON) -m unittest discover -f -s tools -p test_intel_startup_transfer.py
+	build/tests/boot-startup-transfer$(HOST_EXE)

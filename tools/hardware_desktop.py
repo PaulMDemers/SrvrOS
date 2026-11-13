@@ -854,14 +854,17 @@ def collect(mount, volume, output):
             if (saved / filename).read_bytes() != data:
                 raise OSError("Local collection verification failed")
         raw_payload=payload
+        startup_transfer_profile=any(b'srvros.intel-ring=startup-transfer-v1' in data for data in raw_payload.values())
         startup_buffers_profile=any(b'srvros.intel-ring=startup-buffers-v1' in data for data in raw_payload.values())
         buffers_decode_error=None
-        if startup_buffers_profile:
+        if startup_buffers_profile or startup_transfer_profile:
             from intel_startup_buffers import buffers_view
+            from intel_startup_transfer import shared_view
+            decode=shared_view if startup_transfer_profile else buffers_view
             try:
                 # Only the checked v31 dispatch may normalize shared wire schemas.
                 # Saved files above remain exact raw bytes; never publish a v30 result.
-                payload={name:buffers_view(data.decode('utf-8',errors='replace')).encode() for name,data in raw_payload.items()}
+                payload={name:decode(data.decode('utf-8',errors='replace')).encode() for name,data in raw_payload.items()}
             except ValueError as error:
                 buffers_decode_error=str(error)
                 payload=raw_payload
@@ -1219,6 +1222,15 @@ def collect(mount, volume, output):
                 hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
+        intel_startup_transfer=None
+        if startup_transfer_profile:
+            from intel_startup_transfer import native_transfer_result,verify_transfer_checkpoint
+            try:
+                final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_startup_transfer=native_transfer_result(final)
+                verify_transfer_checkpoint(raw_payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_startup_transfer['native_complete']:attention.append('Intel original-source transfer lifetime incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original-source transfer lifetime: '+str(error))
         intel_startup_buffers=None
         if startup_buffers_profile:
             from intel_startup_buffers import native_buffers_result,verify_buffers_checkpoint
@@ -1230,7 +1242,7 @@ def collect(mount, volume, output):
                 if not intel_startup_buffers['native_complete']:attention.append('Intel original-source private buffers incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel original-source private buffers: '+str(error))
         intel_startup_source=None
-        if not startup_buffers_profile and 'srvros.intel-ring=startup-source-v1' in text:
+        if not startup_transfer_profile and not startup_buffers_profile and 'srvros.intel-ring=startup-source-v1' in text:
             from intel_startup_source import native_startup_result,verify_startup_checkpoint
             try:
                 final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
@@ -1329,9 +1341,10 @@ def collect(mount, volume, output):
             window_proof=window_result(payload.get('window.log',b'').decode('utf-8',errors='replace'),payload.get('ecam.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),name)
             if not window_proof or not window_proof['source_completed']:
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
-        if startup_buffers_profile and intel_wake:
-            intel_wake["summary"]["v"]=31
+        if (startup_buffers_profile or startup_transfer_profile) and intel_wake:
+            intel_wake["summary"]["v"]=32 if startup_transfer_profile else 31
         records.append({
+            "intel_startup_transfer":intel_startup_transfer,
             "intel_startup_buffers":intel_startup_buffers,
             "intel_startup_source":intel_startup_source,
             "intel_nonzero_source":intel_nonzero_source,

@@ -354,3 +354,11 @@ DMA57→57. Preparation98,198/100,000 us and full parent deadlines/retirement pa
 Enabled entry and repeatability remain pending. Exclusive live GPU interval,
 usable GPU addresses, cache/completion/reader ownership and PTE publication are
 still required; all255 obligations/0assurances/0managed GPU pages remain.
+
+The next [source-bound transfer bridge](intel-startup-transfer.md) closes the
+software registration gap between original RAM/source and generic address-owner
+admission/live/close. Its native adapter supplies zero assurances and all255
+obligations, so no interval is imported. This is the provider-facing lifetime
+needed by a future audited takeover, not completion of native milestone1 or
+permission for a first PTE store. Both full buffers and original CPU exclusion
+remain bound through the original parent clocks and retirement.

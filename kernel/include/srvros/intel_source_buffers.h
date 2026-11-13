@@ -18,6 +18,11 @@ struct intel_source_buffers {
  struct intel_bdw_ggtt_page page[2];
  uint32_t epoch,kind,post_mode,reason,planned;
  bool registered,blocked,complete,returned;
+#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+ const void *dependent,*registered_child;
+ unsigned child_borrows,child_returns;
+ bool observer_entered,observer_complete;
+#endif
 };
 /* Private full-buffer storage is prepared before source entry. This callback
  * performs only pure identity/codec checks and same-origin clocks; enclosing
@@ -25,4 +30,9 @@ struct intel_source_buffers {
 bool intel_source_buffers_run(struct intel_source_buffers *,struct intel_nonzero_source *,
  struct scanout_memory_hold *,struct scanout_memory_hold *,struct intel_source_buffers_io);
 bool intel_source_buffers_live(const struct intel_source_buffers *);
+#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+bool intel_source_buffers_transfer_run(struct intel_source_buffers *,struct intel_nonzero_source *,
+ struct scanout_memory_hold *,struct scanout_memory_hold *,struct intel_source_buffers_io,
+ bool (*)(void *,struct intel_source_buffers *),void *);
+#endif
 #endif

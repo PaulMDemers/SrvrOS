@@ -2,6 +2,10 @@
  * initialization/checking and allocator validation occur outside GPU budgets. */
 #include <srvros/intel_source_buffers.h>
 #include <srvros/scanout_transfer.h>
+#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+#include <srvros/intel_source_transfer.h>
+static struct intel_source_transfer source_transfer_native;
+#endif
 static struct {
  struct scanout_memory memory[2];
  struct scanout_memory_pool pool;
@@ -55,6 +59,13 @@ static bool buffers_pattern(unsigned n,bool initialize) {
  buffers_native.words+=words;buffers_native.patterns++;return true;
 }
 static bool buffers_prepare(void) {
+#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+ /* Touch the entire owned static transfer storage before the excluded native
+  * lifetime/census. First-touch CPU A/D updates and cold zeroing are not work
+  * to introduce inside the original 100ms preparation interval. */
+ volatile unsigned char *storage=(volatile unsigned char *)&source_transfer_native;
+ for(unsigned i=0;i<sizeof(source_transfer_native);i++)storage[i]=0;
+#endif
  buffers_native.dma_before=pmm_tagged_frames(PMM_FRAME_DMA);buffers_native.begin=timer_monotonic_us();
  struct scanout_profile p={0};struct scanout_memory_layout l={0};
  if(!intel_scanout_trial_profile(&p) || p.width!=1440 || p.height!=900 || p.pitch!=6144 ||
@@ -88,13 +99,59 @@ static bool buffers_guard(void *ctx) {
   nonzero_native.source.input==&nonzero_native.source_input &&
   intel_nonzero_source_live(&nonzero_native.source);
 }
+#if !defined(SRVROS_INTEL_SOURCE_TRANSFER) || !defined(SRVROS_INTEL_DISPLAY_HOST_TEST)
 static bool buffers_forbidden(void *ctx,const struct scanout_transfer_manifest *m,enum scanout_transfer_phase phase) {
  (void)ctx;(void)m;(void)phase;buffers_native.callbacks++;return false;
 }
+#endif
+#ifndef SRVROS_INTEL_SOURCE_TRANSFER
 static uint64_t buffers_forbidden_clock(void *ctx){(void)ctx;buffers_native.callbacks++;return 0;}
+#endif
+#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+static uint64_t transfer_now(void *ctx) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ uint64_t at;if(intel_display_test_transfer_clock(&at))return at;
+#endif
+ return buffers_now(ctx);
+}
+static bool transfer_guard(void *ctx) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ if(!intel_display_test_transfer_admission())return false;
+#endif
+ return buffers_guard(ctx);
+}
+static bool transfer_provider(void *ctx,const struct scanout_transfer_manifest *m,enum scanout_transfer_phase phase) {
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ return intel_display_test_transfer_provider(ctx,m,phase);
+#else
+ return buffers_forbidden(ctx,m,phase);
+#endif
+}
+static bool transfer_visit(void *ctx,struct intel_source_buffers *b) {
+ struct nonzero_adapter *p=ctx;
+ if(p!=&nonzero_native || b!=&buffers_native.binding)return false;
+ struct intel_source_transfer_evidence evidence={0,255};
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ intel_display_test_transfer_evidence(&evidence);
+#endif
+ if(!intel_source_transfer_open(&source_transfer_native,b,&p->a->fw.gt.token,evidence,
+    (struct intel_source_transfer_io){p,transfer_guard,transfer_now,transfer_provider}))return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+ if(source_transfer_native.opened)intel_display_test_transfer_active(&source_transfer_native);
+#endif
+ buffers_native.grant_refused=source_transfer_native.refused && !source_transfer_native.opened;
+ return intel_source_transfer_check(&source_transfer_native) &&
+  intel_source_transfer_close(&source_transfer_native);
+}
+#endif
 static bool buffers_observe(void *ctx,struct intel_nonzero_source *s) {
  struct nonzero_adapter *p=ctx;
  if(p!=&nonzero_native || s!=&p->source || buffers_native.prepared!=2)return false;
+#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+ bool ok=intel_source_buffers_transfer_run(&buffers_native.binding,s,&buffers_native.hold[0],&buffers_native.hold[1],
+     (struct intel_source_buffers_io){p,buffers_guard,buffers_now},transfer_visit,p);
+ return ok;
+#else
  bool ok=intel_source_buffers_run(&buffers_native.binding,s,&buffers_native.hold[0],&buffers_native.hold[1],
      (struct intel_source_buffers_io){p,buffers_guard,buffers_now});
  if(!ok)return false;
@@ -107,6 +164,7 @@ static bool buffers_observe(void *ctx,struct intel_nonzero_source *s) {
   !buffers_native.refused.object && !buffers_native.transfer_pool.epoch && !buffers_native.space_pool.epoch &&
   !token.object && !buffers_native.callbacks;
  return buffers_native.grant_refused;
+#endif
 }
 static bool buffers_finish(bool outer_safe) {
  bool ok=outer_safe;
@@ -146,4 +204,13 @@ static void buffers_report(bool complete) {
   (uint64_t)nonzero_native.source.child_borrows,(uint64_t)nonzero_native.source.child_returns,(uint64_t)nonzero_native.source.observer_entered,(uint64_t)nonzero_native.source.observer_complete,
   (uint64_t)buffers_native.prepared,(uint64_t)buffers_native.patterns,buffers_native.words,buffers_native.allocated,buffers_native.released,buffers_native.dma_before,buffers_native.dma_after,
   (uint64_t)buffers_native.grant_refused,(uint64_t)buffers_native.callbacks,(uint64_t)buffers_native.retained,(uint64_t)complete);
+#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+ const struct intel_source_transfer *t=&source_transfer_native;
+ console_printf("intel-source-transfer: v=1 state=%u reason=%u epoch=%u kind=%u post_mode=%u expected=%u first=%u physical0=%u physical1=%u origin=%u parent_begin=%u begin=%u end=%u last=%u clock_at=%u clock_prev=%u registered=%u borrows=%u returns=%u source_blocked=%u holds_blocked=%u refused=%u opened=%u checked=%u closed=%u callbacks=%u clocks=%u owner_state=%u owner_pinned=%u token=%u pool=%u space_pool=%u assurances=%u obligations=%u managed_pages=0 pte_writes=0 hardware_ownership=0\n",
+  (uint64_t)t->state,(uint64_t)t->reason,(uint64_t)t->epoch,(uint64_t)t->kind,(uint64_t)t->post_mode,t->expected,
+  (uint64_t)(t->input?t->input->first:0),t->physical[0],t->physical[1],t->origin,t->parent_begin,t->begin,t->end,t->last,t->clock_at,t->clock_prev,
+  (uint64_t)t->registered,(uint64_t)t->borrows,(uint64_t)t->returns,(uint64_t)t->source_blocked,(uint64_t)t->holds_blocked,(uint64_t)t->refused,
+  (uint64_t)t->opened,(uint64_t)t->checked,(uint64_t)t->closed,(uint64_t)t->callbacks,(uint64_t)t->clocks,(uint64_t)t->owner.state,
+  (uint64_t)t->owner.pinned,(uint64_t)(t->token.object!=0),t->pool.epoch,t->space_pool.epoch,(uint64_t)t->assurances,(uint64_t)t->obligations);
+#endif
 }

@@ -17,6 +17,11 @@ bool intel_source_buffers_live(const struct intel_source_buffers *b) {
  if(!b || b->object!=b || !b->registered || b->returned || b->complete || b->reason ||
     !b->source || !intel_nonzero_source_live(b->source))return false;
  const struct intel_nonzero_source *s=b->source;
+#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+ if(b->child_returns>b->child_borrows || b->child_borrows>1 ||
+    (b->dependent && (b->dependent!=b->registered_child || b->child_borrows!=1 || b->child_returns)) ||
+    (!b->dependent && (b->registered_child || b->child_borrows!=b->child_returns)))return false;
+#endif
  if(s->dependent!=b || s->registered_child!=b || s->child_borrows!=1 || s->child_returns ||
     !s->observer_entered || s->observer_complete || !s->stable || s->count!=6 ||
     s->expected!=b->expected || s->origin!=b->origin || s->parent_begin!=b->parent_begin ||
@@ -57,8 +62,12 @@ static bool guard(struct intel_source_buffers *b) {
  if(!ok)return fail(b,ISB_GUARD);
  return tick(b);
 }
-bool intel_source_buffers_run(struct intel_source_buffers *b,struct intel_nonzero_source *s,
- struct scanout_memory_hold *a,struct scanout_memory_hold *c,struct intel_source_buffers_io io) {
+static bool buffers_run(struct intel_source_buffers *b,struct intel_nonzero_source *s,
+ struct scanout_memory_hold *a,struct scanout_memory_hold *c,struct intel_source_buffers_io io
+#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+ ,bool (*observe)(void *,struct intel_source_buffers *),void *observer
+#endif
+ ) {
  if(!b || b->object)return false;
  if(!s || !a || !c || !io.guard || !io.now || a==c ||
     overlap(a,sizeof(*a),c,sizeof(*c)) ||
@@ -91,6 +100,15 @@ bool intel_source_buffers_run(struct intel_source_buffers *b,struct intel_nonzer
   if(!intel_bdw_ggtt_page_plan(&m,b->physical[i],&b->page[i]))return fail(b,ISB_INPUT);
   ++b->planned;
  }
+#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+ if(observe) {
+  b->observer_entered=true;
+  if(!observe(observer,b) || !intel_source_buffers_live(b) || b->dependent || b->registered_child ||
+     b->child_borrows!=1 || b->child_returns!=1)return fail(b,ISB_SOURCE);
+  b->observer_complete=true;
+ }
+ if(b->dependent || b->registered_child || b->child_borrows!=b->child_returns)return fail(b,ISB_SOURCE);
+#endif
  if(!guard(b))return false;
  b->end=b->last;if(b->end<=b->begin){b->clock_at=b->end;b->clock_prev=b->begin;return fail(b,ISB_CLOCK);}
  /* Only the final same-origin guard permits this original registered return. */
@@ -98,3 +116,18 @@ bool intel_source_buffers_run(struct intel_source_buffers *b,struct intel_nonzer
  a->dependent=a->registered=c->dependent=c->registered=0;
  b->registered=false;b->returned=true;b->complete=true;return true;
 }
+bool intel_source_buffers_run(struct intel_source_buffers *b,struct intel_nonzero_source *s,
+ struct scanout_memory_hold *a,struct scanout_memory_hold *c,struct intel_source_buffers_io io) {
+ return buffers_run(b,s,a,c,io
+#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+ ,0,0
+#endif
+ );
+}
+#ifdef SRVROS_INTEL_SOURCE_TRANSFER
+bool intel_source_buffers_transfer_run(struct intel_source_buffers *b,struct intel_nonzero_source *s,
+ struct scanout_memory_hold *a,struct scanout_memory_hold *c,struct intel_source_buffers_io io,
+ bool (*observe)(void *,struct intel_source_buffers *),void *observer) {
+ return observe && buffers_run(b,s,a,c,io,observe,observer);
+}
+#endif

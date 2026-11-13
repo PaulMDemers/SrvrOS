@@ -953,3 +953,11 @@ proof/media/recovery evidence are banked; current c154, no one-shot armed. This
 adds no managed GPU interval/PTE/cache authority, enabled-route acceptance or
 native tear-free. Main e6ca1a94/PR488 is fetched but deferred until after this
 source-matched checkpoint. No other task was contacted or scheduled.
+
+Air7,2's next bounded scope is the separate [original-source transfer
+bridge](intel-startup-transfer.md), after integrating main e6ca1a94/PR488.
+Shared changes add an optional registered child to the v32 buffer owner and
+bind the generic transfer phases to the original source/RAM/CPU-exclusion and
+100/300 ms origins. Native missing authority still refuses; positive provider
+fixtures remain models. V31 acceptance and older APIs/recipes are separate.
+No actual native GPU interval or PTE writer is supplied by this bridge.
