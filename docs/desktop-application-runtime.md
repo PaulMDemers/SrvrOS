@@ -611,3 +611,14 @@ is newly allowed under a foreign storage owner; no hardware/network gate changes
 `test-net-empty-snapshot` exercises the actual registry/formatter, while
 `test-syscall-io` checks the foreign-owner attempt, short ABI copies, mapping
 faults, fresh gated fallback and cancellation before backend effects.
+
+
+Air6,1 source `07b4efa7` / release `772f95d189e4dcfc` now passes the original
+native 30-minute workload and diagnostic contract with valid empty-stack status
+refreshes during load. No long network-status wait is retained; the bounded
+wait rows are not a complete per-query counter. Observed whole-app ready/close
+maxima are 0.941/1.470 s, with no claim of new provider hardware acceptance or
+an isolated speed comparison. The worst desktop loop remains within 500 ms at
+419.979 ms, including an internally unattributed 411.886 ms control interval.
+See the [native return](machines/macbookair6-1.md#native-network-status-and-sample-retention-return-2026-11-13)
+for complete evidence and remaining performance work.
