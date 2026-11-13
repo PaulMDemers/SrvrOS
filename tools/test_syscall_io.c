@@ -3,6 +3,9 @@
 #define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
 static bool console_fd,busy,user_safe,startup_killed,kill_on_wait,invalidate_on_wait;
+static bool exec_test,exec_private;
+static unsigned exec_attempts,exec_spawns,exec_refreshes;
+static const char *exec_user_path,*exec_user_arg,*exec_user_env;
 bool process_should_exit_current(void) { return startup_killed; }
 bool scheduler_io_active(void) {return busy;}
 uint64_t latency_clock(void) {return 1;}
@@ -76,7 +79,7 @@ static void test_unmap_admission(void) {
     assert(!syscall_munmap(0x400000,8192) && busy && user_safe && close_waits==before && unmap_calls==1 && !unmap_handoffs);
     private_unmap=false;assert(syscall_munmap(0x400000,8192)==-8);
     assert(!busy && !user_safe && close_waits==before+1 && unmap_calls==2 && unmap_slow==1 && unmap_handoffs==1);
-    puts("private-unmap-admission: PASS atomic attempt or ordinary gated fallback; EXIT remains gated");
+    puts("private-unmap-admission: PASS atomic attempt or ordinary gated fallback; unsupported memory remains gated");
 }
 
 static bool startup_fast;static unsigned startup_attempts,startup_slow;
@@ -168,11 +171,24 @@ int64_t process_scope_control(unsigned op,uint64_t token,struct srv_scope_status
     return 0;
 }
 int64_t process_scope_reap(uint64_t token) {(void)token;return 0;}
-void process_refresh_mappings(struct process *p) {(void)p;}
+void process_refresh_mappings(struct process *p) {assert(p==(struct process *)1);if(exec_test)exec_refreshes++;}
+static void exec_copied(const char *p,uint64_t a,const char *const *v,uint64_t e,const char *const *ev) {
+    assert(p!=exec_user_path && !__builtin_strcmp(p,"/fat/bin/desktools"));
+    assert(a==2 && e==1 && v[0]!=exec_user_arg && ev[0]!=exec_user_env);
+    assert(!__builtin_strcmp(v[0],"app") && !__builtin_strcmp(v[1],"--test") && !__builtin_strcmp(ev[0],"A=B"));
+}
+bool process_try_spawn_private(const char *p,uint64_t a,const char *const *v,uint64_t e,const char *const *ev,int64_t *result) {
+    assert(exec_test && user_safe && busy);exec_copied(p,a,v,e,ev);exec_attempts++;
+    if(!exec_private)return false;
+    *result=77;return true;
+}
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 int64_t process_exec_replace(const char *p,uint64_t a,const char *const *v,uint64_t e,const char *const *ev,int64_t in,int64_t out,int64_t err,uint64_t f,uint64_t m,uint64_t d) {return SRV_ERR_INVAL;}
-int64_t process_spawn_exec_scoped(uint64_t t,const char *p,uint64_t a,const char *const *v,uint64_t e,const char *const *ev,bool detached,int64_t in,int64_t out,int64_t err,uint64_t g,bool fg,const struct process_spawn_file_action *actions,uint64_t count,uint64_t f,uint64_t m,uint64_t d) {return SRV_ERR_INVAL;}
+int64_t process_spawn_exec_scoped(uint64_t t,const char *p,uint64_t a,const char *const *v,uint64_t e,const char *const *ev,bool detached,int64_t in,int64_t out,int64_t err,uint64_t g,bool fg,const struct process_spawn_file_action *actions,uint64_t count,uint64_t f,uint64_t m,uint64_t d) {
+    if(!exec_test)return SRV_ERR_INVAL;
+    assert(!busy && !user_safe && detached);exec_copied(p,a,v,e,ev);exec_spawns++;return 88;
+}
 #pragma GCC diagnostic pop
 static void scope_syscall_contract(void) {
     uint64_t token=999;scope_write_ok=false;
@@ -197,6 +213,35 @@ static void scope_syscall_contract(void) {
     puts("session-scope-syscall: PASS output fault rollback, validation, stale handle and failed deep copy cleanup");
 }
 
+static void exec_syscall_contract(void) {
+    char path[]="/fat/bin/desktools",arg[]="app",env[]="A=B";
+    char *argv[]={arg,"--test",NULL},*envp[]={env,NULL};
+    exec_user_path=path;exec_user_arg=arg;exec_user_env=env;exec_test=true;
+    struct syscall_exec_request request={.path=path,.argv=argv,.envp=envp,.flags=SRV_EXEC_BACKGROUND,
+        .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
+    unsigned waits_before=close_waits;
+    busy=user_safe=exec_private=true;
+    assert(syscall_exec(&request,0)==77 && busy && user_safe && exec_attempts==1 && !exec_spawns && !exec_refreshes && close_waits==waits_before);
+    exec_private=false;
+    assert(syscall_exec(&request,0)==88 && !busy && !user_safe && exec_attempts==2 && exec_spawns==1 && exec_refreshes==1 && close_waits==waits_before+1);
+    /* Unsupported request shapes never enter the private attempt. */
+    for(unsigned reason=0;reason<6;reason++) {
+        request.stdin_fd=-1;request.flags=SRV_EXEC_BACKGROUND;request.process_group=request.foreground=request.file_action_count=0;
+        uint64_t scope=0;struct process_spawn_file_action action={.type=SRV_SPAWN_FILE_ACTION_DUP2,.fd=0,.new_fd=1};
+        switch(reason) {
+        case 0:request.stdin_fd=0;break;case 1:request.process_group=5;break;
+        case 2:request.foreground=1;break;case 3:request.flags|=SRV_EXEC_SET_SIGNAL_MASK;break;
+        case 4:scope=42;break;case 5:request.file_action_count=1;request.file_actions=&action;break;
+        }
+        busy=user_safe=exec_private=true;
+        assert(syscall_exec(&request,scope)==88 && exec_attempts==2 && !busy && !user_safe);
+    }
+    request.flags=UINT64_MAX;busy=user_safe=true;unsigned before=close_waits;
+    assert(syscall_exec(&request,0)==SRV_ERR_INVAL && busy && user_safe && close_waits==before && exec_attempts==2);
+    exec_test=false;busy=false;kill_on_wait=invalidate_on_wait=false;wait_pointer_ok=true;
+    puts("exec-prelude: PASS copied kernel snapshots, checked private result, foreign owner retained; unsupported/refused requests regain ordinary admission and refresh");
+}
+
 int main(void) {
     scope_syscall_contract();
     struct srv_scope_status source={.version=SRV_SCOPE_VERSION,.size=sizeof(source),.members=17}, destination={.members=99};
@@ -217,7 +262,7 @@ int main(void) {
     frame.rax=SYS_GUI_CANCEL_WAIT;assert(syscall_io_safe(&frame));
     frame.rax=SYS_SCHED_TRACE;assert(syscall_io_safe(&frame));
     frame.rax=SYS_GUI_SERVER_WAIT;assert(syscall_io_safe(&frame));
-    const uint64_t blocked[]={SYS_SIGNAL_POLL,SYS_SIGNAL_CONSUME,SYS_OPEN,SYS_FS_WRITE,SYS_SYNC,SYS_EXIT,SYS_PREAD,SYS_PWRITE,SYS_VECTOR_IO,SYS_PIPE2,SYS_DUP3,SYS_PIPE_PAIR_FLAGS,SYS_THREAD_SIGNAL,
+    const uint64_t blocked[]={SYS_SIGNAL_POLL,SYS_SIGNAL_CONSUME,SYS_OPEN,SYS_FS_WRITE,SYS_SYNC,SYS_PREAD,SYS_PWRITE,SYS_VECTOR_IO,SYS_PIPE2,SYS_DUP3,SYS_PIPE_PAIR_FLAGS,SYS_THREAD_SIGNAL,
         SYS_SOCKET_TRY_IO,SYS_PIPE_MESSAGE,SYS_SESSION_SCOPE,SYS_KILL,SYS_SPAWN,SYS_FILE_CHANGE,UINT64_MAX};
     for(unsigned i=0;i<sizeof(blocked)/sizeof(*blocked);i++) {
         frame.rax=blocked[i];assert(!syscall_io_safe(&frame));
@@ -270,11 +315,17 @@ int main(void) {
     busy=user_safe=true;unsigned identity_waits=close_waits,identity_turns=turn_requests;
     frame.rax=SYS_THREAD_SELF;assert(syscall_io_safe(&frame));
     assert(busy && user_safe && close_waits==identity_waits && turn_requests==identity_turns);
-    const uint64_t thread_gated[]={SYS_THREAD_JOIN,SYS_THREAD_DETACH,SYS_THREAD_STATUS,SYS_SBRK,SYS_EXIT};
+    const uint64_t thread_gated[]={SYS_THREAD_JOIN,SYS_THREAD_DETACH,SYS_THREAD_STATUS,SYS_SBRK};
     for(unsigned n=0;n<sizeof(thread_gated)/sizeof(thread_gated[0]);n++) {
         frame.rax=thread_gated[n];assert(!syscall_io_safe(&frame));
     }
 
+    /* Lifecycle calls admit only validation; the kernel proof/fallback tests
+     * separately reject storage/device resources and ordinary teardown. */
+    const uint64_t lifecycle_preludes[]={SYS_EXEC,SYS_EXIT,SYS_THREAD_EXIT};
+    for(unsigned n=0;n<sizeof(lifecycle_preludes)/sizeof(*lifecycle_preludes);n++) {
+        frame.rax=lifecycle_preludes[n];assert(syscall_io_safe(&frame) && busy && user_safe);
+    }
     frame.rax=SYS_KEY_SCAN;assert(syscall_io_safe(&frame));
     frame.rax=SYS_TTY_GETATTR;assert(syscall_io_safe(&frame));
     test_startup_admission();
@@ -289,5 +340,6 @@ int main(void) {
     byte_safe=false;assert(io_defer_pipe_write(10,4096) && io_defer_pipe_read(10,32));
     assert(user_safe && turn_requests==before+4);
 
+    exec_syscall_contract();
     puts("syscall-io-host: PASS (bounded desktop admission, bounded retained-snapshot reads, nonblocking pipe deferral, redirected I/O/lifecycle/mapping/filesystem/default-deny)");
 }
