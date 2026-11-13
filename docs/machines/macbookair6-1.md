@@ -14416,3 +14416,86 @@ Fetched main is `6d107ae1`; PR19 `26e25ced`, PR301 `c75328eb` and PR379
 inside the retained control interval, especially report handoff and nonblocking
 child-wait admission, alongside the remaining screenshot write costs. The cause
 is not yet proved, and this review implements no speculative fix or new test run.
+
+## Active desktop control-phase attribution (2026-11-13)
+
+From fetched main `0e3e86ae`, trace the internally unattributed 411.886 ms control
+interval in the prior accepted native 419.979 ms worst loop. The previous run is
+fully reviewed and sealed, current `772f95d189e4dcfc` and recovery
+`c35475f62f154f1e` are protected, and no reboot is armed.
+
+Bounded scope: fixed current/worst-loop control records with disjoint report,
+audio-control and I/O-trial wall/scheduler intervals, inner snapshot/submission/
+nonblocking-child-wait/notice clocks and explicit execution/result fields; emit
+from the existing report worker and preserve exact sequence/clock joins through
+rotation and final logging. Add strict producer/parser/retention regressions and
+require the new companion in loaded and native stress assessment. No timing,
+queue, row, log, cadence, workload, ownership or integrity limit changes; no
+speculative optimization. The original 1800-second 1% workload, 500 ms loop,
+ten-second whole-app cycle and all media/retirement checks remain required.
+
+PR19 `04b7b381` changes only separate Wi-Fi trial setup in deskd, not this loop
+bracket. PR301 `0abd2338` has no competing edits in the loop sources; its large
+Makefile scope stays independent. PR379 `817f80bb` owns WebCore audit. Publish
+this scope before implementation; inspect actual heads again before merging,
+import no unmerged scope and contact no other task. Next checkpoint is reviewed
+bounded instrumentation and failure/sequence/row-budget regressions, then frozen
+matched builds, local tests, loaded/exact-stage rehearsals, guarded installation,
+self-merge and a saved/sealed one-shot automated native boot under the user's
+existing explicit authorization. Native attribution awaits matching new evidence.
+
+
+### Control-phase trace qualification and ready native trial (PR494)
+
+Frozen source `fb8247d5` adds a fixed same-worst-loop control companion,
+with reporting/snapshot/handoff, audio-child nonblocking wait/notice and I/O
+bookkeeping clocks, explicit execution/result fields and full disjoint scheduler
+vectors. Compact versioned records retain all fields within the original atomic
+row and 64 KiB log caps. Original loop stages, 500 ms/ten-second bounds, cadence,
+workload, ownership and integrity checks remain unchanged. See the
+[wire and validation contract](../desktop-control-timing.md).
+
+Actual C producer, immutable async handoff, shorter-loop retention, failed-BEGIN
+foreign-trace isolation, owned-END/abort failure and malformed/overflow/sequence/
+clock/NOHANG/parser regressions pass. Late-session four-row output fits under
+1 KiB and each full-width row fits the existing 1024-byte buffer. Matched
+ordinary/native/Q35 builds, symbol/isolation checks, affected fixture links and
+the fresh complete core/desktop/documentation suite pass. Existing explicitly
+reported optional exhaustive-I/O skip and baseline append-repair/allocation
+coverage gaps remain visible; no new power-loss acceptance is claimed.
+
+The loaded KVM guest passes 25 app cycles and 166 verified
+256 KiB disk bursts over 60 seconds at 1%, one exact screenshot, zero recorded
+underruns and 339.336 ms maximum loop. All original saved
+contracts pass independently, with 26 launcher launches/reaps,
+zero errors, both live sidecar endpoints and growth 116.
+The same-worst-loop control companion passes saved-only and final-log-only
+replay, alongside original final lifecycle/file-service receipts. Its control
+phases conserve the original interval. This VM does not attribute the previous
+native 411.886 ms stall or establish a native improvement. Ordinary syscall,
+network ABI, CLI/editing, UEFI USB input, display, USB-storage/screenshot guests
+and exact native-stage foreign-profile refusal pass. Profile-switch construction
+is unchanged and not claimed as newly exercised.
+
+Release `bfe6ca6ff45fe078` is installed for the unchanged fully automated
+1800-second 1% audio/disk/app/three-screenshot workload and original 60-second
+audio tail. The guest displays progress, saves results and returns automatically;
+no human input is needed. Matching native collection requires all original
+contracts plus full control attribution and final-log-only replay. Heavy metadata
+audit and optional power/ownership probes stay off. All 943
+prior USB paths/hashes are preserved except explicitly renewing 1% expiry;
+read-only fsck, allocation/headroom/write admission and installed/staged/
+independent recovery hashes pass. Ubuntu stays default; previously accepted
+`772f95d189e4dcfc` remains installed. Recovery `c35475f62f154f1e` and known-good
+stress payload `7acb756c0ac5f4bb` stay protected. Only obsolete
+`00460b3ddba044cf`'s unreferenced EFI duplicate was retired after full
+stage/payload/file-hash and firmware/GRUB reference verification. Its stage,
+independent payload and historical trial evidence remain retained.
+
+PR19/301/379 remain independent, no unmerged scope is imported and Actions stay
+disabled. Self-merge and sealed one-shot launch follow under existing explicit
+authorization. Physical attribution and acceptance await the matching return;
+a missing completion marker or timing companion is incomplete evidence.
+
+Latest pre-merge scope inspection: PR379 `817f80bb`, PR301 `3432e008`, PR19
+`95236e01`. Their actual loop/setup diffs remain independent.

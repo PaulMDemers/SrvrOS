@@ -5290,3 +5290,9 @@ test-net-empty-snapshot: build/tests/net-empty-snapshot-host$(HOST_EXE)
 build/tests/net-empty-snapshot-host$(HOST_EXE): tools/test_net_empty_snapshot.c kernel/src/net.c kernel/src/net_device.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-control-timing
+test-core test-desktop: test-control-timing
+test-control-timing: build/tests/desktop-session-host$(HOST_EXE)
+	$(PYTHON) tools/test_control_timing.py
+build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ): userspace/deskd/control_timing.h
