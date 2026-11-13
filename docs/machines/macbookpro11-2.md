@@ -7,6 +7,22 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### DHCP radio-status correlation audit scope (November 13)
+
+Add bounded per-DHCP TXWI diagnostic packet IDs, disjoint across the two
+connection contexts, and bind them to original packet kind/sequence and native
+USB ticket/token/completion. Capture EXT before the consuming FIFO before data
+provider attachment and only after local worker/key/MAC closure, outside live
+callbacks. Preserve raw bounded entries and categorical missing/duplicate/
+baseline-collision/saturation outcomes; no MAC status replaces DHCP replies or
+grants protocol/ownership acceptance. Keep encrypted MPDU bytes, ACK intent,
+rate, WCID, all waits/retries and native/RF retirement guards unchanged.
+Scope is native xHCI HTTP/data diagnostics, pure comparison/decoder helpers and
+actual native-path fixtures. Fetch main15eb67ad's independent desktop control
+trace and preserve its source/tests; PR301 and PR379 have separate scopes.
+The closed04b/792 primary and review remain immutable. Qualify software before
+any new source-bound collector/image; no hardware boot is armed by this audit.
+
 ### Late HTTP child preparation software-qualified (November 13)
 
 Source `27af43ef` moves first preparation past the full RF/first-join parent;
