@@ -23,6 +23,7 @@ struct scanout_memory;
 struct scanout_memory_pool {uint64_t epoch;};
 struct scanout_memory_token {const struct scanout_memory *object;uint64_t epoch,owner;};
 struct scanout_memory_cpu {struct scanout_memory_token memory;uint64_t serial,physical,bytes;};
+struct scanout_memory_hold;
 /* CPU borrow bytes covers every allocated page, including row/page padding.
  * Initialize that complete span before exposing it through a GPU mapping. */
 struct scanout_memory_binding {
@@ -42,8 +43,32 @@ struct scanout_memory {
     struct scanout_publish_token publication_token;
     uint64_t entries[SCANOUT_PUBLISH_PAGES];
     uint32_t state,error,allocations,release_attempts,releases;
+    struct scanout_memory_hold *dependent;
+    const struct scanout_memory_hold *registered;
+    uint64_t hold_serial;
     bool busy,closing;
 };
+/* Original-address, one-use private RAM hold. This never supplies GPU address,
+ * cache/DMA permission or a hardware completion. Keep storage through faults.
+ * A pending hold blocks CPU access, mapping and release, including close. */
+struct scanout_memory_hold {
+    const struct scanout_memory_hold *object;
+    struct scanout_memory_token memory;
+    struct scanout_memory_io allocator;
+    struct scanout_memory_layout layout;
+    uint64_t physical,bytes,serial;
+    const void *dependent,*registered;
+    /* Trusted adapter's enclosing root pin. Set before publication to that
+     * root; clear only after its actual clean retirement, never on timeout. */
+    const void *lifetime;
+    bool active,busy,fault;
+};
+bool scanout_memory_hold_begin(struct scanout_memory *,const struct scanout_memory_token *,struct scanout_memory_hold *);
+/* Pure original-token/backing identity check; no fresh allocator validation. */
+bool scanout_memory_hold_live(const struct scanout_memory_hold *);
+/* Validates allocator backing before returning the registered original hold.
+ * Failed validation retains it; no forced release or repeated free. */
+bool scanout_memory_hold_end(struct scanout_memory_hold *);
 /* Zero-init, original-address sealed; reuse only after complete release, with a
  * fresh pool epoch. Outputs/pool must not alias the object. */
 bool scanout_memory_create(struct scanout_memory *,struct scanout_memory_pool *,uint64_t owner,

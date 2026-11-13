@@ -18,6 +18,11 @@ struct intel_nonzero_source {
  uint32_t epoch,post_mode,words[2][3];
  unsigned count,reason;
  bool registered,blocked,stable,returned,complete;
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+ const void *dependent,*registered_child;
+ unsigned child_borrows,child_returns;
+ bool observer_entered,observer_complete;
+#endif
 };
 struct intel_nonzero_source_io {
  void *ctx;
@@ -32,4 +37,11 @@ struct intel_nonzero_source_io {
 bool intel_nonzero_source_run(struct intel_nonzero_source *,struct intel_nonzero_reset *,
  const struct scanout_handoff_snapshot *,struct intel_nonzero_source_io);
 bool intel_nonzero_source_live(const struct intel_nonzero_source *);
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+/* A separately compiled child inside the original stable source lifetime.
+ * Ordinary source_run never invokes this observer. No new deadline/grant. */
+bool intel_startup_buffers_source_run(struct intel_nonzero_source *,struct intel_nonzero_reset *,
+ const struct scanout_handoff_snapshot *,struct intel_nonzero_source_io,
+ bool (*observe)(void *,struct intel_nonzero_source *),void *);
+#endif
 #endif

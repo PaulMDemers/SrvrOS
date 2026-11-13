@@ -307,3 +307,13 @@ independent safe file/recovery proofs. Previous kind 2 zero-geometry reset
 acceptance remains unchanged. A separate nonzero-geometry ownership/epoch protocol
 is needed before this route can continue; no geometry clearing, forced state,
 old-gate widening or unchanged retry is planned. Managed memory/real flips remain open.
+
+## Current buffer ownership integration
+
+The [original startup source](intel-startup-source.md) now accepts one native
+already-disabled route, while its enabled route remains unaccepted. The next
+[private-buffer binding image](intel-startup-buffers.md) connects original RAM
+holds to that same live reset/source lifetime, without substituting a saved
+receipt. Two full padded buffers must stay pinned through source, reset and
+outer cleanup, then verify and release exactly once. Host/model evidence is not
+native timing acceptance; this still grants no GGTT interval or GPU PTE writer.

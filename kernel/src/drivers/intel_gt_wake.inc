@@ -1,3 +1,6 @@
+#if defined(SRVROS_INTEL_STARTUP_BUFFERS) && !defined(SRVROS_INTEL_STARTUP_SOURCE)
+#error "Buffers require their distinct source image"
+#endif
 #if defined(SRVROS_INTEL_STARTUP_SOURCE) && !defined(SRVROS_INTEL_NONZERO_SOURCE)
 #error "Startup source requires its own source/reset adapter"
 #endif
@@ -66,7 +69,9 @@
 #if defined(SRVROS_AP_PROBE) || defined(SRVROS_ACPI_BATTERY)
 #error "Wake trial requires the CPU0-only ordinary runtime without AML providers"
 #endif
-#ifdef SRVROS_INTEL_STARTUP_SOURCE
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+extern volatile struct limine_firmware_type_request intel_startup_buffers_firmware_request;
+#elif defined(SRVROS_INTEL_STARTUP_SOURCE)
 extern volatile struct limine_firmware_type_request intel_startup_source_firmware_request;
 #elif defined(SRVROS_INTEL_NONZERO_SOURCE)
 extern volatile struct limine_firmware_type_request intel_nonzero_source_firmware_request;
@@ -125,7 +130,9 @@ extern volatile struct limine_executable_cmdline_request executable_cmdline_requ
 #include <srvros/intel_engine_census.h>
 #ifdef SRVROS_INTEL_RING_TRANSITION
 #define WAKE_MAPS 14u
-#ifdef SRVROS_INTEL_STARTUP_SOURCE
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+#define WAKE_VERSION 31u
+#elif defined(SRVROS_INTEL_STARTUP_SOURCE)
 #define WAKE_VERSION 30u
 #elif defined(SRVROS_INTEL_NONZERO_SOURCE)
 #define WAKE_VERSION 29u
@@ -537,7 +544,9 @@ bool intel_gt_wake_probe_report(void) {
     static bool once;if(once)return false;once=true;
 #ifdef SRVROS_INTEL_WAKE_TRIAL
     struct intel_gt_boot_facts f={.compiled=true};
-    #ifdef SRVROS_INTEL_STARTUP_SOURCE
+    #ifdef SRVROS_INTEL_STARTUP_BUFFERS
+    const struct limine_firmware_type_response *firmware=intel_startup_buffers_firmware_request.response;
+#elif defined(SRVROS_INTEL_STARTUP_SOURCE)
     const struct limine_firmware_type_response *firmware=intel_startup_source_firmware_request.response;
 #elif defined(SRVROS_INTEL_NONZERO_SOURCE)
     const struct limine_firmware_type_response *firmware=intel_nonzero_source_firmware_request.response;
@@ -599,6 +608,8 @@ bool intel_gt_wake_probe_report(void) {
 #endif
     static struct engine_prepare_trial prepared;
     static struct intel_takeover_result takeover;
+#elif defined(SRVROS_INTEL_STARTUP_BUFFERS)
+    f.recipe=cmd && !cmd->revision && intel_gt_boot_startup_buffers_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_STARTUP_SOURCE)
     f.recipe=cmd && !cmd->revision && intel_gt_boot_startup_source_recipe(cmd->cmdline);
 #elif defined(SRVROS_INTEL_NONZERO_SOURCE)
@@ -722,6 +733,11 @@ bool intel_gt_wake_probe_report(void) {
     console_write("intel-wake: bounded BCS reset request/ready/cancel; no engine reset, cache flush, PTE writes or GPU range transfer\n");
 #else
     console_write("intel-wake: bounded cooperative-UEFI wake lease; no engine control, PTE writes or GPU range transfer\n");
+#endif
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+    console_write("intel-buffers: preparing two private full buffers; original-source binding follows; no input or GPU PTE writes\n");
+    bool buffers_ready=f.efi64 && f.loader && f.recipe && f.prerequisites && buffers_prepare();
+    f.prerequisites=f.prerequisites && buffers_ready;
 #endif
     uint64_t flags=wake_irq_save();
 #ifdef SRVROS_INTEL_PREPARE_RESET
@@ -978,6 +994,12 @@ bool intel_gt_wake_probe_report(void) {
 #endif
 #ifdef SRVROS_INTEL_GPU_HOLD
     engine_reads+=gpu_hold_native.result.reads+gpu_hold_native.admit_reads;
+#endif
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+    bool buffers_clean=buffers_finish(!retained && (!acquired || released));
+    complete=complete && buffers_ready && buffers_native.binding.complete && buffers_native.grant_refused && buffers_clean;
+    wake_terminal_retained=retained || buffers_native.retained;
+    buffers_report(complete);
 #endif
     console_printf("intel-wake-summary: v=%u compiled=1 contract=1 efi64=%u loader=%u recipe=%u serialized=%u prerequisites=%u profile=%u fw_quiet=%u req_quiet=%u initial_req=%x initial_ack=%x grants=%u acquired=%u before=%u opened=%u checked=%u closed=%u fw_after=%u after=%u released=%u maps=%u retired=%u cache_checks=%u guards=%u retained=%u state=%u reason=%u writes=%u attempts=%u requests=%x ack=%x thread=%x begin_us=%u end_us=%u complete=%u engine_reads=%u pte_writes=0 managed_pages=0 smm_retired=0 hardware_ownership=0\n",
         (uint64_t)WAKE_VERSION,(uint64_t)f.efi64,(uint64_t)f.loader,(uint64_t)f.recipe,(uint64_t)f.serialized,(uint64_t)f.prerequisites,(uint64_t)f.profile,(uint64_t)f.firmware_quiet,(uint64_t)f.requesters_quiet,(uint64_t)fresh_gt.sample[0].requests,(uint64_t)fresh_gt.sample[0].ack,(uint64_t)grants,(uint64_t)acquired,(uint64_t)before,(uint64_t)opened,(uint64_t)checked,(uint64_t)closed,(uint64_t)fw_after,(uint64_t)after,(uint64_t)released,(uint64_t)a.maps,(uint64_t)a.retired,(uint64_t)a.cache_checks,(uint64_t)a.guards,(uint64_t)retained,(uint64_t)owner.state,(uint64_t)owner.reason,(uint64_t)owner.writes,(uint64_t)owner.write_attempts,(uint64_t)owner.requests,(uint64_t)owner.ack,(uint64_t)owner.thread,begin,end,(uint64_t)complete,(uint64_t)engine_reads);

@@ -146,4 +146,5 @@ int main(void) {
     assert(!scanout_memory_create(&a,(struct scanout_memory_pool *)&a,7,&layout,0x100000000ull,allocator(),&sentinel));
     assert(!scanout_memory_create(&a,&pool,7,&layout,0x100000000ull,allocator(),(struct scanout_memory_token *)&a));
     printf("scanout-memory: PASS padded1356-page storage, joined publication/restore, pending readers, CPU borrow/close, copies/stale/reentry, %u callback and1356 partial-write failures\n",operations);
+    return 0;
 }

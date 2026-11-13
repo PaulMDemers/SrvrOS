@@ -331,3 +331,17 @@ Original sole-root/count/occupancy guards, all preservation work and100/300/500m
 bounds remain. One native trial will exercise the full maintained preparation,
 PCI capture, BCS8 reset and cancellation lifetime. Native timing, all255
 completion obligations and managed GPU-memory/tear-free acceptance remain open.
+
+## Current follow-up: original-source buffer ownership
+
+The [v30 original already-disabled source](intel-startup-source.md#native-result-original-already-disabled-route-accepted)
+now passes one native lifetime on runtime `82dd3da8`; preparation is
+97,434/100,000 us. It supplies the live source boundary for the separate
+[v31 private-buffer binding](intel-startup-buffers.md), not a later memory grant.
+V31 prepares two full private padded allocations outside the hardware budgets,
+registers RAM holds through the complete outer lifetime and binds them as a
+registered child of the actual live source. Full verification and exactly-once
+release follow clean outer retirement; uncertainty retains RAM/root. Encodings
+remain data only and transfer refuses with zero assurances/255 obligations.
+This implementation does not complete the exclusive interval or first GPU PTE
+store milestones. Native timing and ownership binding need their own exact run.

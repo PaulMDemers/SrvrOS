@@ -118,3 +118,20 @@ The pinned [managed-memory references](intel-managed-memory-plan.md#pinned-instr
 describe why copying a PTE store/flush operation would omit required ownership
 context. This implementation therefore adds no native encoding or invalidation
 callback. New actual hardware operations require a separate source-bound audit.
+
+## Private backing holds
+
+`scanout_memory_hold_begin/live/end` registers an original-address, one-use
+private RAM hold before a trusted adapter's external ownership lifetime. It
+captures the exact memory token, serial, allocator, layout and full padded
+extent. CPU access, mapping preparation and release cannot begin while the hold
+is registered. Close shuts admission and waits without freeing. Hold return
+revalidates backing and every captured identity around the allocator callback;
+failed validation, copies, stale epochs or callback drift retain the hold.
+An adapter's enclosing-root pin and registered child also block return. The
+adapter clears its root pin only after actual clean retirement, never on timeout.
+
+The [original-source buffer trial](intel-startup-buffers.md) joins two such
+private spans to a registered child inside the actual live startup source. It
+leaves the GPU range/transfer, cache/DMA, completion and publication gates intact.
+A RAM hold is not a GPU-visible address or a positive hardware assurance.

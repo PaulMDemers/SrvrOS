@@ -853,6 +853,18 @@ def collect(mount, volume, output):
             (saved / filename).write_bytes(data)
             if (saved / filename).read_bytes() != data:
                 raise OSError("Local collection verification failed")
+        raw_payload=payload
+        startup_buffers_profile=any(b'srvros.intel-ring=startup-buffers-v1' in data for data in raw_payload.values())
+        buffers_decode_error=None
+        if startup_buffers_profile:
+            from intel_startup_buffers import buffers_view
+            try:
+                # Only the checked v31 dispatch may normalize shared wire schemas.
+                # Saved files above remain exact raw bytes; never publish a v30 result.
+                payload={name:buffers_view(data.decode('utf-8',errors='replace')).encode() for name,data in raw_payload.items()}
+            except ValueError as error:
+                buffers_decode_error=str(error)
+                payload=raw_payload
         text = "\n".join(data.decode("utf-8", errors="replace") for data in payload.values())
         releases = session_releases(text)
         attention = sorted(set(line for line in text.splitlines() if needs_attention(line)))
@@ -1207,8 +1219,18 @@ def collect(mount, volume, output):
                 hda=native_hda_result(payload.get('exit.log',b'').decode('utf-8',errors='replace'))
                 if not hda or not hda['native_observation_complete'] or not verify_hda_checkpoint(payload.get('session-a.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace')):attention.append('Intel display-HDA census incomplete or refused')
             except ValueError as error:attention.append('Invalid Intel display-HDA census: '+str(error))
+        intel_startup_buffers=None
+        if startup_buffers_profile:
+            from intel_startup_buffers import native_buffers_result,verify_buffers_checkpoint
+            try:
+                if buffers_decode_error:raise ValueError(buffers_decode_error)
+                final=raw_payload.get('exit.log',b'').decode('utf-8',errors='replace')
+                intel_startup_buffers=native_buffers_result(final)
+                verify_buffers_checkpoint(raw_payload.get('session-a.log',b'').decode('utf-8',errors='replace'),final,native=True)
+                if not intel_startup_buffers['native_complete']:attention.append('Intel original-source private buffers incomplete or refused')
+            except ValueError as error:attention.append('Invalid Intel original-source private buffers: '+str(error))
         intel_startup_source=None
-        if 'srvros.intel-ring=startup-source-v1' in text:
+        if not startup_buffers_profile and 'srvros.intel-ring=startup-source-v1' in text:
             from intel_startup_source import native_startup_result,verify_startup_checkpoint
             try:
                 final=payload.get('exit.log',b'').decode('utf-8',errors='replace')
@@ -1307,7 +1329,10 @@ def collect(mount, volume, output):
             window_proof=window_result(payload.get('window.log',b'').decode('utf-8',errors='replace'),payload.get('ecam.log',b'').decode('utf-8',errors='replace'),payload.get('exit.log',b'').decode('utf-8',errors='replace'),name)
             if not window_proof or not window_proof['source_completed']:
                 attention.append('collection: window-only raw proof missing, refused or incomplete')
+        if startup_buffers_profile and intel_wake:
+            intel_wake["summary"]["v"]=31
         records.append({
+            "intel_startup_buffers":intel_startup_buffers,
             "intel_startup_source":intel_startup_source,
             "intel_nonzero_source":intel_nonzero_source,
             "intel_nonzero_reset":intel_nonzero_reset,

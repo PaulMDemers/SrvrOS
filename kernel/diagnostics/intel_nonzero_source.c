@@ -12,6 +12,11 @@ static bool geometry(const struct scanout_handoff_snapshot *s) {
 bool intel_nonzero_source_live(const struct intel_nonzero_source *s) {
  if(!s || s->object!=s || !s->registered || s->returned || s->complete || s->reason ||
     !s->reset || !intel_nonzero_reset_live(s->reset))return false;
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+ if(s->child_returns>s->child_borrows || s->child_borrows>1 ||
+    (s->dependent && (s->dependent!=s->registered_child || s->child_borrows!=1 || s->child_returns)) ||
+    (!s->dependent && (s->registered_child || s->child_borrows!=s->child_returns)))return false;
+#endif
  const struct intel_nonzero_reset *r=s->reset;
  const struct intel_completion_result *p=&r->post;
 #ifdef SRVROS_INTEL_STARTUP_SOURCE
@@ -64,8 +69,12 @@ static bool guard(struct intel_nonzero_source *s,struct intel_nonzero_source_io 
  if(!clock_at(s,io))return false;
  return ok || fail(s,INS_GUARD);
 }
-bool intel_nonzero_source_run(struct intel_nonzero_source *s,struct intel_nonzero_reset *r,
- const struct scanout_handoff_snapshot *input,struct intel_nonzero_source_io io) {
+static bool source_run(struct intel_nonzero_source *s,struct intel_nonzero_reset *r,
+ const struct scanout_handoff_snapshot *input,struct intel_nonzero_source_io io
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+ ,bool (*observe)(void *,struct intel_nonzero_source *),void *observer
+#endif
+ ) {
  if(!s || s->object)return false;
  if(r && (overlap(s,sizeof(*s),r,sizeof(*r)) || (r->parent && overlap(s,sizeof(*s),r->parent,sizeof(*r->parent))) ||
     (r->entry && overlap(s,sizeof(*s),r->entry,sizeof(*r->entry))) || (r->source && overlap(s,sizeof(*s),r->source,sizeof(*r->source)))))return false;
@@ -92,10 +101,36 @@ bool intel_nonzero_source_run(struct intel_nonzero_source *s,struct intel_nonzer
  bool guarded=guard(s,io);s->read_end=s->last;
  if(!ok || s->count!=6)fail(s,INS_READ);
  if(!guarded || s->reason)return false;
- s->stable=true;s->return_begin=s->last;
+ s->stable=true;
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+ if(observe) {
+  s->observer_entered=true;
+  if(!observe(observer,s) || !guard(s,io) || s->dependent || s->registered_child ||
+     s->child_borrows!=1 || s->child_returns!=1)return fail(s,INS_RETURN);
+  s->observer_complete=true;
+ }
+ if(s->dependent || s->registered_child || s->child_borrows!=s->child_returns)return fail(s,INS_RETURN);
+#endif
+ s->return_begin=s->last;
  if(!guard(s,io))return false;
  s->end=s->last;
  if(s->end<=s->begin || s->read_end<=s->read_begin)return fail(s,INS_CLOCK);
  r->dependent=r->registered=0;++r->child_returns;s->registered=false;s->returned=true;s->complete=true;
  return true;
 }
+bool intel_nonzero_source_run(struct intel_nonzero_source *s,struct intel_nonzero_reset *r,
+ const struct scanout_handoff_snapshot *input,struct intel_nonzero_source_io io) {
+ return source_run(s,r,input,io
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+ ,0,0
+#endif
+ );
+}
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+bool intel_startup_buffers_source_run(struct intel_nonzero_source *s,struct intel_nonzero_reset *r,
+ const struct scanout_handoff_snapshot *input,struct intel_nonzero_source_io io,
+ bool (*observe)(void *,struct intel_nonzero_source *),void *observer) {
+ if(!observe)return false;
+ return source_run(s,r,input,io,observe,observer);
+}
+#endif

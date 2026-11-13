@@ -6319,3 +6319,47 @@ test-exfat-memory-view: build/tests/exfat-memory-view-host$(HOST_EXE)
 build/tests/exfat-memory-view-host$(HOST_EXE): tools/test_exfat_memory_view.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-scanout-memory-hold
+test-core: test-scanout-memory-hold
+test-scanout-memory-hold: build/tests/scanout-memory-hold$(HOST_EXE)
+	$<
+build/tests/scanout-memory-hold$(HOST_EXE): tools/test_scanout_memory_hold.c tools/test_scanout_memory.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c -o $@
+
+INTEL_STARTUP_BUFFERS_FLAGS := $(INTEL_STARTUP_SOURCE_FLAGS) -DSRVROS_INTEL_STARTUP_BUFFERS
+INTEL_STARTUP_BUFFERS_HOST_EXTRA := kernel/diagnostics/intel_source_buffers.c kernel/diagnostics/intel_bdw_ggtt.c kernel/src/scanout_memory.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/src/scanout_transfer.c
+build/intel-startup-buffers/main.o: kernel/src/main.c kernel/src/boot_system_init.inc $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_BUFFERS_FLAGS) -c $< -o $@
+build/intel-startup-buffers/probe.o: kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_BUFFERS_FLAGS) -c $< -o $@
+build/intel-startup-buffers/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_BUFFERS_FLAGS) -c $< -o $@
+build/intel-startup-buffers/reset.o: kernel/diagnostics/intel_nonzero_reset.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_BUFFERS_FLAGS) -c $< -o $@
+build/intel-startup-buffers/source.o: kernel/diagnostics/intel_nonzero_source.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_BUFFERS_FLAGS) -c $< -o $@
+build/intel-startup-buffers/srvros.elf: build/intel-startup-buffers/buffers.o build/intel-joint/page.o build/intel-startup-buffers/main.o build/intel-startup-buffers/probe.o build/intel-startup-buffers/requests.o build/intel-startup-buffers/reset.o build/intel-startup-buffers/source.o build/intel-ring-transition/transition.o build/intel-joint/joint.o $(filter-out build/kernel/src/main.c.o,$(INTEL_WAKE_BASE)) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(filter %.o,$^) -o $@
+build/tests/intel-startup-buffers-adapter$(HOST_EXE): tools/test_intel_startup_buffers_adapter.c tools/test_intel_nonzero_source_adapter.c tools/test_intel_nonzero_reset_adapter.c tools/test_intel_ring_transition_adapter.c tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c $(wildcard kernel/src/drivers/*.inc) $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_BUFFERS_HOST_EXTRA) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_STARTUP_BUFFERS_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< $(INTEL_RING_TRANSITION_HOST_SOURCES) $(INTEL_STARTUP_BUFFERS_HOST_EXTRA) kernel/diagnostics/intel_nonzero_reset.c kernel/diagnostics/intel_nonzero_source.c -o $@
+
+build/tests/boot-startup-buffers$(HOST_EXE): tools/test_boot_startup_buffers.c tools/test_boot_system_init.c kernel/src/boot_system_init.inc kernel/src/drivers/intel_gt_boot.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(INTEL_STARTUP_BUFFERS_FLAGS) -std=c11 -O2 -Wall -Wextra -Werror -Ikernel/include $< kernel/src/drivers/intel_gt_boot.c -o $@
+
+build/intel-startup-buffers/buffers.o: kernel/diagnostics/intel_source_buffers.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INTEL_STARTUP_BUFFERS_FLAGS) -c $< -o $@
+.PHONY: test-intel-startup-buffers
+test-core: test-intel-startup-buffers
+test-intel-startup-buffers: build/tests/intel-startup-buffers-adapter$(HOST_EXE) build/tests/boot-startup-buffers$(HOST_EXE)
+	$(PYTHON) -m unittest discover -f -s tools -p test_intel_startup_buffers.py
+	build/tests/boot-startup-buffers$(HOST_EXE)

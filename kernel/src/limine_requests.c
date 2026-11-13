@@ -36,7 +36,10 @@ volatile struct limine_firmware_type_request intel_hda_firmware_request = {
 };
 #endif
 
-#ifdef SRVROS_INTEL_STARTUP_SOURCE
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+__attribute__((used, section(".limine_requests")))
+volatile struct limine_firmware_type_request intel_startup_buffers_firmware_request = { .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0 };
+#elif defined(SRVROS_INTEL_STARTUP_SOURCE)
 __attribute__((used, section(".limine_requests")))
 volatile struct limine_firmware_type_request intel_startup_source_firmware_request = { .id = LIMINE_FIRMWARE_TYPE_REQUEST_ID, .revision = 0 };
 #elif defined(SRVROS_INTEL_NONZERO_SOURCE)

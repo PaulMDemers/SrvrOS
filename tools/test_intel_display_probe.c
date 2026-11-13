@@ -305,7 +305,9 @@ static enum intel_gt_write intel_display_test_wake_write(uint32_t v){
 static struct limine_firmware_type_response wake_firmware={.firmware_type=2};
 static struct limine_bootloader_info_response wake_loader={.name="Limine",.version="11.4.1"};
 static struct limine_executable_cmdline_response wake_cmd={.cmdline="srvros.storage=ram srvros.workspace-volume=37d8c5d0 srvros.desktop-release=0123456789abcdef srvros.capture=intel-display srvros.intel-backing=read-only srvros.intel-cache=read-only srvros.intel-window=read-only srvros.intel-handoff=qualify srvros.intel-gt-preflight=read-only srvros.intel-firmware=read-only srvros.intel-wake=trial srvros.capture-failure=reboot"};
-#ifdef SRVROS_INTEL_STARTUP_SOURCE
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+#define intel_wake_firmware_request intel_startup_buffers_firmware_request
+#elif defined(SRVROS_INTEL_STARTUP_SOURCE)
 #define intel_wake_firmware_request intel_startup_source_firmware_request
 #elif defined(SRVROS_INTEL_NONZERO_SOURCE)
 #define intel_wake_firmware_request intel_nonzero_source_firmware_request
@@ -947,7 +949,9 @@ int main(int argc,char **argv) {
     static char completion_recipe[1200];snprintf(completion_recipe,sizeof(completion_recipe),"%s srvros.intel-completion=read-only",engine_recipe);wake_cmd.cmdline=completion_recipe;
 #ifdef SRVROS_INTEL_RING_TRANSITION
     static char ring_recipe[1400];
-#ifdef SRVROS_INTEL_STARTUP_SOURCE
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+    snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=startup-buffers-v1",completion_recipe);
+#elif defined(SRVROS_INTEL_STARTUP_SOURCE)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=startup-source-v1",completion_recipe);
 #elif defined(SRVROS_INTEL_NONZERO_SOURCE)
     snprintf(ring_recipe,sizeof ring_recipe,"%s srvros.intel-ring=nonzero-source-v1",completion_recipe);
@@ -1091,7 +1095,13 @@ good=good || !strcmp(engine_mode,"nz-kind2") || !strcmp(engine_mode,"ring-off") 
 good=good || !strncmp(engine_mode,"source-reenter:",15);
 #endif
 #endif
-assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);assert(intel_gt_wake_retained()==!display_access_allowed());
+assert(intel_gt_wake_probe_report()==good);assert(!wake_irq);
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+/* Private unexposed RAM can quarantine after the GPU root retired safely. */
+assert(intel_gt_wake_retained()==(!display_access_allowed() || buffers_native.retained));
+#else
+assert(intel_gt_wake_retained()==!display_access_allowed());
+#endif
 #ifdef SRVROS_INTEL_SHUTDOWN_TRIAL
 shutdown_check_lifetime();
 #endif

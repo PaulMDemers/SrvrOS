@@ -226,11 +226,19 @@ static bool nonzero_source_sample(void *ctx,uint32_t out[2][3],unsigned *count) 
  }
  nonzero_exit(p);return !p->failed;
 }
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+#include "intel_source_buffers_trial.inc"
+#endif
 static bool nonzero_source_observe(void *ctx,struct intel_nonzero_reset *r) {
  struct nonzero_adapter *p=ctx;
  if(p!=&nonzero_native || r!=&p->r || !intel_window_handoff_snapshot(&p->source_input))return false;
+#ifdef SRVROS_INTEL_STARTUP_BUFFERS
+ return intel_startup_buffers_source_run(&p->source,r,&p->source_input,
+  (struct intel_nonzero_source_io){p,nonzero_source_guard,nonzero_source_sample,nonzero_now},buffers_observe,p);
+#else
  return intel_nonzero_source_run(&p->source,r,&p->source_input,
   (struct intel_nonzero_source_io){p,nonzero_source_guard,nonzero_source_sample,nonzero_now});
+#endif
 }
 #ifdef SRVROS_INTEL_STARTUP_SOURCE
 static void startup_source_report(void) {
