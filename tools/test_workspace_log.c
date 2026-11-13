@@ -8,7 +8,7 @@ static unsigned count,depth,writes,flushes,device_reads;
 static bool capacity_ok=true;
 static unsigned expected_capacity=32;
 static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
-static uint64_t ticks=10,total=100,clock_us;
+static uint64_t ticks=10,total=100,clock_us,save_tick_delay;
 static bool tracing,reference=true,power_enabled=true;
 static unsigned cost_reports;
 static struct sync_timing_snapshot sync_fixture;
@@ -27,7 +27,7 @@ bool exfat_creation_capacity(const char *p,uint64_t f,uint64_t d) {
 }
 bool exfat_create_directory(const char *p) { assert(depth);if(find(p) || !io_ok) return false;add(p)->node.type=VFS_NODE_DIRECTORY;return true; }
 bool exfat_write_file(const char *p,const uint8_t *data,uint64_t n) {
-    assert(depth && n<=65536);writes++;clock_us+=100;if(!io_ok) return false;
+    assert(depth && n<=65536);writes++;ticks+=save_tick_delay;clock_us+=100+save_tick_delay*10000;if(!io_ok) return false;
     struct item *f=find(p);if(!f) f=add(p);f->node.type=VFS_NODE_FILE;f->node.size=n;memcpy(f->bytes,data,n);return true;
 }
 bool vfs_read_all(const struct vfs_node *n,const uint8_t **data,uint64_t *size) {
@@ -148,6 +148,18 @@ int main(void) {
     assert(workspace_log_start() && !ecam_saved && workspace_log_quiesce(5000));
     corrupt=true;assert(!workspace_log_ecam_snapshot() && !ecam_saved && !healthy);corrupt=false;
     old_writes=writes;assert(!workspace_log_ecam_snapshot() && writes==old_writes);
+    /* A seven-second write must not turn a ten-second capture cadence into
+     * seventeen seconds and overwrite startup records in the 64KiB tail. */
+    count=0;enabled=busy=false;mounted=io_ok=sync_ok=true;expected_capacity=32;save_tick_delay=0;
+    assert(workspace_log_start());ticks=due;uint64_t capture_start=ticks;
+    save_tick_delay=700;periodic_attempt();
+    assert(healthy && enabled && !busy && ticks==capture_start+700 && due==capture_start+1000 && !ready(NULL));
+    ticks=due;save_tick_delay=0;periodic_attempt();assert(due==ticks+1000 && enabled);
+    capture_start=ticks=due;save_tick_delay=1500;periodic_attempt();
+    assert(ticks==capture_start+1500 && due==ticks+1000 && !ready(NULL));
+    save_tick_delay=0;io_ok=false;ticks=due;periodic_attempt();assert(!healthy && !enabled && !busy);io_ok=true;
+    assert(periodic_deadline(UINT64_MAX-100,UINT64_MAX-1)==UINT64_MAX);
+    puts("workspace-log-cadence: PASS original1000ticks/64KiB/two-slot bounds, delayed-write drift prevented, overrun skips catch-up, failure stops");
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
 }
 

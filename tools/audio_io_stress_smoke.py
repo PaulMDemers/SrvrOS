@@ -75,6 +75,19 @@ def completion_line(output):
     return match.group(0) if match else None
 
 
+def sampled_usb_written(qmp,process):
+    # QEMU can close QMP just before poll observes its automatic exit. Sampling
+    # is observational; termination never substitutes for any guest receipt.
+    if process.poll() is not None:return None
+    try:
+        rows=qmp.call('query-blockstats')
+    except (OSError,json.JSONDecodeError) as error:
+        try:process.wait(timeout=2)
+        except subprocess.TimeoutExpired:raise error
+        return None
+    return next(x['stats']['wr_bytes'] for x in rows if x.get('device')=='stick')
+
+
 def cache_retirement(output):
     rows=re.findall(rb'^desktop-cache-retired: version=1 bytes=([0-9]+) retained=([0-9]+) reuses=([0-9]+)\r?\n',output,re.M)
     if len(rows)!=1:return None
@@ -181,9 +194,10 @@ def main():
                     output.extend(read_for(serial,seconds));(out/'serial.log').write_bytes(output)
                     retain_checkpoint()
                     now=time.monotonic()
-                    if now-sample_at>=.2 and b'desktop-audio-io: result=' not in output:
+                    if now-sample_at>=.2 and b'audio-io: result=' not in output:
                         sample_at=now
-                        written=next(x['stats']['wr_bytes'] for x in qmp.call('query-blockstats') if x.get('device')=='stick')
+                        written=sampled_usb_written(qmp,process)
+                        if written is None:return
                         pcm=(out/'tone.wav').stat().st_size if (out/'tone.wav').exists() else 0
                         if previous and pcm>previous[1] and written-previous[0]>=65536:
                             with (out/'tone.wav').open('rb') as capture:
@@ -202,13 +216,15 @@ def main():
                 if args.write_iops or args.read_iops:qmp.call('block_set_io_throttle',{'device':'stick','bps':0,'bps_rd':0,'bps_wr':0,'iops':0,'iops_rd':args.read_iops,'iops_wr':args.write_iops})
                 started=time.monotonic()
                 while completion_line(output) is None:
-                    assert time.monotonic()-started<180 and process.poll() is None
+                    assert time.monotonic()-started<180
+                    ended=process.poll() is not None
                     pump(.2)
+                    if ended:assert completion_line(output) is not None,'Missing complete terminal receipt after QEMU exit'
                     assert b'battery: HALTED' not in output
                 # Keep atomic failure diagnostics too: a clean automatic return
                 # is not a workload pass. Read only after QEMU exits, before any
                 # PASS assertion can discard the disposable backing image.
-                process.wait(timeout=30)
+                assert process.wait(timeout=30)==0,'QEMU failed during automatic return'
                 data=stick.read_bytes();assert data[:2048*512]==original[:2048*512] and data[end:]==original[end:]
                 final=ExfatFixture(data[2048*512:end]);snapshots=list(checkpoints)
                 if not stage:

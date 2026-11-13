@@ -349,15 +349,25 @@ static bool periodic_save(void) {
     } else copy(name,checkpoint&1?"session-b.log":"session-a.log");
     checkpoint++;return save(name);
 }
+/* Preserve the declared ten-second capture period instead of adding the
+ * preceding storage latency to every interval. Overruns skip missed periods;
+ * they never queue catch-up writes or spin on a past deadline. */
+static uint64_t periodic_deadline(uint64_t start,uint64_t finished) {
+    uint64_t base=finished>=start && finished-start<1000?start:finished;
+    return base<=UINT64_MAX-1000?base+1000:UINT64_MAX;
+}
+static void periodic_attempt(void) {
+    uint64_t start=timer_ticks();busy=true;
+    healthy=periodic_save();
+    if(!healthy)enabled=false;
+    due=periodic_deadline(start,timer_ticks());busy=false;scheduler_wake_all(&wake);
+}
 static void worker(void *arg) {
     (void)arg;
     for(;;) {
         if(!enabled) { scheduler_wait(&wake,activated,NULL);continue; }
         if(!ready(NULL)) { scheduler_wait_timeout(&wake,ready,NULL,due);continue; }
-        busy=true;
-        healthy=periodic_save();
-        if(!healthy) enabled=false;
-        due=timer_ticks()+1000;busy=false;scheduler_wake_all(&wake);
+        periodic_attempt();
     }
 }
 static bool start_log(bool retain) {
@@ -385,10 +395,11 @@ static bool start_log(bool retain) {
     end(flags);
     if(!ok || !created) { console_write("workspace-log: cannot create session directory\n");return false; }
     console_printf("workspace-log: directory=%s periodic_seconds=10\n",directory);
+    uint64_t capture_start=timer_ticks();
     retain_checkpoints=retain;checkpoint=0;ecam_saved=window_saved=false;healthy=save("boot.log");
     if(!healthy) return false;
     if(!started) started=scheduler_spawn("workspace-log",worker,NULL);
-    enabled=started;due=timer_ticks()+1000;scheduler_wake_all(&wake);
+    enabled=started;due=periodic_deadline(capture_start,timer_ticks());scheduler_wake_all(&wake);
     if(!started) console_write("workspace-log: worker unavailable; boot/exit snapshots only\n");
     return started;
 }

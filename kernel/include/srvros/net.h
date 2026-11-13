@@ -73,4 +73,6 @@ int64_t net_close(uint64_t handle);
 void net_process_cleanup(struct process *process);
 void net_process_wake(struct process *process);
 
+/* Read-only presence snapshot; caller holds IF0 until consuming the result. */
+bool net_process_owned(struct process *process);
 #endif

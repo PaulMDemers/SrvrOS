@@ -13631,3 +13631,146 @@ that gate without proving descriptor, worker, rights and memory lifetimes would
 be unsafe. Preserve the original cycle budget and live-owner protection rather
 than resetting the deadline, pacing away contention or releasing an active
 transaction. No runtime change or new trial has started at this checkpoint.
+
+## Active independent launch/exit admission audit (2026-11-12)
+
+From fetched main `f61b40eb`, fix the observed storage-gated desktop app launch
+and exit without changing the whole-cycle deadline, workload, owner protection
+or integrity rules. The failed 9463 run and all 760 backup files are reviewed and
+sealed; no run is outstanding. One local device checkout is used, without
+subagents or cross-task contact. Current/recovery/USB identity and reboot state
+remain in the ignored local record and are rechecked before physical work.
+
+Scope: process/syscall/scheduler admission and narrowly bounded RAM-backed image,
+descriptor/worker/rights/memory lifetime proofs, their regressions and current
+contract documentation. Permit independent progress only after the complete
+request/resources qualify; preserve ordinary gated fallback for storage,
+callbacks, shared/uncertain resources and unsupported cases. Never release or
+borrow a foreign live transaction, omit file flushes/cleanup, waive handle or
+mapping checks, pace away contention or reset the ten-second lifecycle budget.
+
+PR19 at `d634433c` owns separate pipe-handoff/network and metadata-restore work;
+its process hunks affect background kernel spawn/pipe handoff, not the targeted
+user exec/exit gates. PR301, refreshed through `82dd3da8`, changes user-scope owner-loss handling;
+preserve its authority model and existing detach behavior, without implementing
+that separate change here. Inspect and retain those boundaries when adding
+eligibility checks. Keep cold-ID restoration and device/power policy separate.
+
+Publish a bounded candidate and real negative/refusal/ownership tests, then run
+matched ordinary/native/fixture builds, full regression checks, populated loaded
+VM and exact-stage rehearsal. Preserve failed/accepted payloads and recovery;
+verify all prior files and renew only the explicit 1% volume preference. After
+self-merge and saved independent run/collection records, launch the original
+fully automated 1800-second PCM/disk/app/three-screenshot workload at 1%, with
+heavy full-field metadata audit off and every original limit/proof intact.
+
+### Independent lifecycle candidate implementation (PR486)
+
+The audit also found two scheduler barriers after the original exec/exit wait:
+fresh kernel startup had no eligible user tuple, and context binding/clearing
+explicitly refused foreign ownership. The candidate publishes and consumes a
+fresh prepared child tuple, and provides a separately checked atomic retirement
+transition; ordinary bind/clear guards stay intact. The complete same-loader
+RAM copy, entry, exit, real context return and reap-publication host fixture holds
+a foreign owner throughout, forbids storage callbacks/waits, and checks rollback
+on allocation/scheduler refusal. Separate fixtures cover immutable-source
+identity/ranges/refusals, real prepared-child resolution, safe sibling/owner/CR3
+qualification, TLS/PTE ownership and fail-stop retention on unexpected unmap.
+
+Scope includes the read-only exFAT view/ready-publication marker and fixed
+GUI/network/stream/display resource-presence snapshots needed by those proofs.
+It does not admit VFS descriptors, pipes/queued rights, live device resources,
+user-scope-owner teardown or mutable/storage-backed executable reads. The
+existing redirected-file teardown/flush and ordinary image/thread regressions
+remain required. Qualification and native boot evidence are still pending;
+9463 remains failed evidence, and the original workload/limits remain unchanged.
+
+A final admission pass distinguishes a helper blocked inside the ordinary I/O
+entry wait from an unsafe continuation doing mutable work. The exact I/O wait
+park marker may qualify an otherwise unsafe sibling; it is cleared on dispatch.
+An arbitrary wait queue, an unparked unsafe sibling, a mismatched CR3, or any
+same-process owner/private-image alias still refuses. This prevents a desktop
+report writer awaiting admission from defeating a proven private child/clean
+exit, without admitting its I/O or changing the existing memory/helper gates.
+The first build/focused validation attempt was stopped before any VM/native
+launch to qualify this additional exact-park case in the final candidate.
+
+Final retirement qualification also requires the quiet detached background
+continuation used by desktop app launches. Foreground commands must restore a
+waiting parent's context and retain ordinary admission. Positive background
+return/reap and negative foreground/nonquiet retirement are covered separately.
+
+The first loaded VM on runtime `e012fe23` reached a 60-second PCM PASS (179
+verified bursts, zero recorded underruns), 24 clean app cycles, clean desktop
+retirement and USB unmount, but the host sampled QMP as QEMU exited before it
+drained the complete terminal line. That attempt remains failed validation with
+its six checkpoints/serial/audio preserved locally. The harness now distinguishes
+an exited QEMU from a broken live connection, stops overlap sampling after the
+PCM result and drains serial after exit; it still requires the complete terminal
+receipt, every original saved workload/retirement proof and clean QEMU exit.
+Mocked live-error/missing-device/exit races supplement the required fresh VM run.
+
+A later unchanged-runtime VM completed 24 app cycles and 180 verified PCM/disk
+bursts with zero errors/underruns, but strict phase validation correctly failed:
+two saved snapshot starts were 11.723334 s apart and 73,161 log bytes apart,
+leaving 7,625 bytes outside the original 65,536-byte tail. Missing startup phases
+were not accepted from interleaved UART. The logger had armed the next ten-second
+period after completing the preceding write, adding storage latency each time.
+The candidate now anchors that same 1,000-tick period to capture start, including
+the boot capture; an overrun skips missed periods and retains a full idle period,
+without queued catch-up writes. Tail/file/checkpoint caps, workload, all record
+requirements, deadlines, write/readback/flush and ownership checks are unchanged.
+Delayed-write/overrun/failure regressions and fresh full qualification are required.
+
+The stream absence check is IRQ-protected through its admission transition, with
+both enabled/disabled caller-state and nonempty-stream refusal coverage. The
+full-capacity mapping fixture also covers the checked private teardown seam.
+A development sweep now links all 46 lifecycle/scheduler/syscall host fixtures;
+their runtime assertions and the fresh full suite remain required.
+
+Integration refresh remains `f61b40eb`. PR19 at `9d1d92b4` has independent extended
+Wi-Fi capture/phase controls in the logger, but leaves the periodic worker's
+cadence unchanged; those larger capture limits and profile APIs are not consumed
+here. Preserve both start/phase-control semantics when integrating that branch.
+PR301 at `ad1b1110` has no additional common runtime overlap after the previously
+reviewed owner-loss changes. No other device's acceptance is inherited.
+
+
+### Independent lifecycle qualification and next native run (2026-11-12)
+
+PR486 runtime `4629fced` passed the fresh complete core/desktop/docs
+suite (including the 89-case installation matrix with its default-skipped
+opt-in exhaustive I/O case), boot-tool regressions, matched ordinary/native/Q35
+builds, ordinary
+syscall/UEFI-USB/fork/exec-vector/yield guests, USB storage and ordinary screenshot
+smokes. The full core rerun followed verified archival of inactive staging
+artifacts after a fixture link exhausted disk; the failed attempt is preserved.
+No completed core prefix was skipped. The affected 46 host fixture binaries also
+compile and link, with focused ownership/lifecycle/rollback regressions passing.
+
+The populated KVM workload at 400 write IOPS and 1,100 metadata files passed 23
+app cycles, 176 verified disk bursts and 178 observed PCM/I/O overlaps, one exact
+screenshot, 139.971 ms maximum loop and zero recorded underruns. All 1,167 prior
+files remained intact. Independent saved-log validation passed the original
+contracts and append/commit/command companions, including complete startup
+phases without UART reconstruction. The unchanged 64 KiB tail and declared
+1,000-tick capture period retain their original caps; observed snapshot deltas
+were at most 61,266 bytes. The exact staged native payload also passed its separate
+foreign-board refusal/automatic-return VM rehearsal; that is not native ownership
+acceptance.
+
+The next installed candidate, release `7acb756c0ac5f4bb`, runs the original fully
+automatic 1,800-second
+PCM/disk/app/three-screenshot stress test at 1%, with heavy full-field metadata
+audit off. Every deadline, byte/CRC/readback/flush/allocation, ownership and
+retirement requirement remains unchanged. Fresh local model/USB/recovery,
+prior-file hashes, independent payloads, offline writable/allocation checks and
+Ubuntu-default/one-shot state were verified; only the explicit quiet-volume
+expiry was renewed. A saved local run record and automatic return collector bind
+its release/source to the next session. Known-good recovery and prior failed
+9463 evidence remain retained. Self-merge and one-shot launch are the next local
+steps; native acceptance remains pending until the matching return is collected
+and independently reviewed. PR19 refreshed to `86a239a4` changes separate Wi-Fi
+reconnect/fence helpers, with no new common process/scheduler/logger overlap;
+PR301 remains at the previously inspected `ad1b1110`. No sibling hardware
+acceptance is implied.
