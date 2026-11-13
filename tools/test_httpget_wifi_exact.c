@@ -102,7 +102,7 @@ int __wrap_http_exact_build_request(char *p,size_t n,size_t *out){assert(!ready_
 void __wrap_http_exact_init(struct http_exact_parser *p){assert(!ready_calls && !parser_ready);__real_http_exact_init(p);parser_ready=true;}
 enum http_exact_result __wrap_http_exact_feed(struct http_exact_parser *p,const void *b,size_t n){feed_calls++;return __real_http_exact_feed(p,b,n);}
 static int run(const char *s){
- scenario=s;now=1000000;previous=prepared=deadline=0;clocks=queries=flags_calls=ready_calls=yields=sleeps=connects=sends=receives=pipe_closes=net_closes=feed_calls=0;
+ scenario=s;now=is("after-slow-parent")?71000000:1000000;previous=prepared=deadline=0;clocks=queries=flags_calls=ready_calls=yields=sleeps=connects=sends=receives=pipe_closes=net_closes=feed_calls=0;
  frozen=is("frozen-no-go") || is("frozen-no-eof");clock_failed=built=parser_ready=pipe_closed=eof_seen=false;pipe_at=response_at=request_at=0;
  const char *header=is("duplicate-length")?"HTTP/1.1 200 OK\r\nContent-Length: 3072\r\nContent-Length: 3072\r\n\r\n":"HTTP/1.1 200 OK\r\nContent-Length: 3072\r\n\r\n";
  response_size=strlen(header);memcpy(response,header,response_size);
@@ -124,7 +124,7 @@ int main(void){
  assert(wifi_exact_main(0,NULL)==WIFI_EXACT_ARGS);
  char *bad[]={"httpget","--wifi-exact",NULL};assert(httpget_dispatch_main(2,bad)==WIFI_EXACT_ARGS);
  struct {const char *name;int result;} cases[]={
- {"go-sleep",0},{"late-go-sleep",24},{"rollback-go-sleep",13},{"go-sleep-error",25},{"preflight",0},{"good",0},{"send-again",0},{"recv-again",0},{"old-abi",11},{"bad-fd-flags",12},{"negative-clock",13},
+ {"after-slow-parent",0},{"go-sleep",0},{"late-go-sleep",24},{"rollback-go-sleep",13},{"go-sleep-error",25},{"preflight",0},{"good",0},{"send-again",0},{"recv-again",0},{"old-abi",11},{"bad-fd-flags",12},{"negative-clock",13},
  {"rollback-ready",13},{"late-ready",24},{"ready-error",14},{"short-pipe",15},{"extra-pipe",15},
  {"missing-pipe-eof",24},{"bad-pid",16},{"bad-version",16},{"bad-size",16},{"zero-epoch",16},{"reserved",16},
  {"stale-go",16},{"future-go",16},{"bad-span",16},{"bad-ip",16},{"bad-port",16},{"connect-again",17},{"connect-error",17},

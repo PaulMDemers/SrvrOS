@@ -139,6 +139,18 @@ static void ap_udp_reply(const uint8_t *p,size_t n){
    }
    return;
   }
+  if(ap.case_id==65){
+   /* Saved no-Offer pattern: only the retry is reflected, plus a short
+    * unrelated multicast IPv4 delivery; neither is a server reply. */
+   assert(type==1);
+   if(ap.dhcp==2){
+    ap.ack_noise=64;
+    memcpy(r,p,n);memcpy(r,hs_spa,6);ap_enqueue(r,n);
+    uint8_t noise[1514];ap_ip_header(noise,p,6,28);noise[0]|=1;
+    ap.rx_pn=1ull<<47;ap_enqueue(noise,62);
+   }
+   return;
+  }
   if(ap.case_id>=62 && ap.case_id<=64){
    /* Model the hardware pattern: first Discover echoed, late Offer after the
     * existing Discover retry, then Request echoed with no/delayed ACK. */

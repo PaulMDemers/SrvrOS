@@ -4,15 +4,15 @@
 static struct {
  struct http_network_probe probe[2];
  struct http_network_probe_io io[2];
- bool requested,prepared,attempted,complete,parent_complete,provider_retired,failure_closed;
+ bool requested,admitted,prepared,attempted,complete,parent_complete,provider_retired,failure_closed;
  unsigned connections;
  uint64_t epochs[2],tokens[2];
 } wifi_http_reconnect5;
 static bool wifi_http_reconnect5_unattempted(void){
  const struct http_network_probe *p=&wifi_http_reconnect5.probe[0];
  return wifi_http_reconnect5_reserved && wifi_http_reconnect5.requested &&
-  wifi_http_reconnect5.attempted && wifi_http_reconnect5.prepared && !wifi_http_reconnect5.connections &&
-  p->self==(uintptr_t)p && !p->result.attempted && !p->result.go && !p->child.published &&
+  wifi_http_reconnect5.attempted && wifi_http_reconnect5.admitted && !wifi_http_reconnect5.prepared && !wifi_http_reconnect5.connections &&
+  !p->self && !p->result.attempted && !p->result.go && !p->child.published &&
   !p->bootstrap.identity && !wifi_stream5.attempted && !wifi_stack5_net.identity;
 }
 static bool wifi_http5_failed_scope(bool detached){
@@ -73,21 +73,22 @@ bool xhci_wifi_http_reconnect5_prepare(void){
     wifi_stack5.selected || wifi_stream5.attempted || wifi_stream5.stack_mode)return false;
  wifi_http_reconnect5_reserved=wifi_http_reconnect5.requested=true;
  wifi_http5_active_probe=&wifi_http_reconnect5.probe[0];
- wifi_http_reconnect5.prepared=http_network_probe_prepare_connection(wifi_http5_active_probe);
- console_printf("wifi-http-reconnect5-prepare: version=1 generation=1 prepared=%u retained=1\n",(uint64_t)wifi_http_reconnect5.prepared);
- return wifi_http_reconnect5.prepared;
+ /* Reserve the diagnostic before the RF parent, but create no child/worker.
+  * Calibration/discovery is outside the child's unchanged60s pre-GO budget. */
+ wifi_http_reconnect5.admitted=true;
+ console_write("wifi-http-reservation5: version=1 reserved=1 retained=1\n");
+ return true;
 }
 static bool wifi_http_reconnect5_window(void){
  for(unsigned g=0;g<2;g++){
   struct http_network_probe *p=&wifi_http_reconnect5.probe[g];
   wifi_http5_active_probe=p;
-  if(g){
-   /* First key/network/endpoint/provider closure has already passed. The
-    * adapter parents remain held, but neither connection holds live keys. */
-   wifi_http_reconnect5.prepared=http_network_probe_prepare_connection(p);
-   console_printf("wifi-http-reconnect5-prepare: version=1 generation=2 prepared=%u retained=1\n",(uint64_t)wifi_http_reconnect5.prepared);
-   if(!wifi_http_reconnect5.prepared)return false;
-  }
+  /* The RF/first-join parent is ready. On generation2 the first key/network/
+   * endpoint/provider closure also passed. Neither connection holds live keys.
+   * Prepare both fresh children here, before their own stream inspection. */
+  wifi_http_reconnect5.prepared=http_network_probe_prepare_connection(p);
+  console_printf("wifi-http-reconnect5-prepare: version=2 generation=%u prepared=%u retained=1\n",(uint64_t)g+1,(uint64_t)wifi_http_reconnect5.prepared);
+  if(!wifi_http_reconnect5.prepared)return false;
   wifi_stream5.connection_mode=wifi_stream5.stack_mode=true;
   wifi_stack5.selected=true;wifi_stack5.exercise=wifi_http_reconnect5_exercise;wifi_stack5.context=p;
   console_printf("wifi-http-reconnect5-begin: version=1 generation=%u adapter_parent_held=1\n",(uint64_t)g+1);
@@ -140,7 +141,7 @@ static bool wifi_http_reconnect5_window(void){
  return true;
 }
 bool xhci_wifi_capture_http_reconnect5(void){
- if(!wifi_http_reconnect5_reserved || !wifi_http_reconnect5.requested || !wifi_http_reconnect5.prepared || wifi_http_reconnect5.attempted ||
+ if(!wifi_http_reconnect5_reserved || !wifi_http_reconnect5.requested || !wifi_http_reconnect5.admitted || wifi_http_reconnect5.attempted ||
     wifi_reconnect5.attempted || wifi_stack5.selected || wifi_stack5_net.identity ||
     wifi_stream5.attempted || wifi_stream5.stack_mode || wifi_join5_after ||
     wifi_wpa5_requested || wifi_wpa5_data_requested || wifi_provider5_requested ||

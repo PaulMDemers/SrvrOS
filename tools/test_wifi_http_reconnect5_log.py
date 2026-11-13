@@ -10,9 +10,28 @@ class Tests(unittest.TestCase):
   if not name:raise unittest.SkipTest('actual native two-connection HTTP trace required')
   raw=Path(name).read_text()
   assert 'xhci-http-reconnect5: PASS two fresh native' in raw
-  fragment=[s for s in raw.splitlines() if s.startswith(('wifi-http-reconnect5','wifi-stream5','wifi-stack5','wifi-http5'))]
+  fragment=[s for s in raw.splitlines() if s.startswith(('wifi-http-reservation5','wifi-http-reconnect5','wifi-stream5','wifi-stack5','wifi-http5'))]
   cls.rows=modeled_bindings(fragment)+fragment
  def check(self,rows):return c.check_owner(text(rows))
+ def test_preparation_version_and_rf_order(self):
+  rows=[c.stack.LOG_PARKED,'wifi-http-reservation5: version=1 reserved=1 retained=1',
+   'wifi-firmware-control: fixture','wifi-join5: fixture',
+   'wifi-http-reconnect5-prepare: version=2 generation=1 prepared=1 retained=1','begin1','close1',
+   'wifi-http-reconnect5-prepare: version=2 generation=2 prepared=1 retained=1','begin2','close2']
+  groups=[dict(begin_line=5,close_line=6),dict(begin_line=8,close_line=9)]
+  self.assertEqual(c.preparation_order(text(rows),groups,physical=True),2)
+  early=list(rows);early[1],early[4]=early[4],early[1]
+  with self.assertRaises(ValueError):c.preparation_order(text(early),groups,physical=True)
+  for bad in (rows[:1]+rows[2:],rows[:2]+[rows[1]]+rows[2:],
+              mutate(rows,'wifi-http-reservation5:','reserved',0),
+              mutate(rows,'wifi-http-reconnect5-prepare:','version',1,1)):
+   with self.assertRaises(ValueError):c.preparation_order(text(bad),groups,physical=True)
+  legacy=[c.stack.LOG_PARKED,'wifi-http-reconnect5-prepare: version=1 generation=1 prepared=1 retained=1',
+   'wifi-firmware-control: fixture','wifi-join5: fixture','begin1','close1',
+   'wifi-http-reconnect5-prepare: version=1 generation=2 prepared=1 retained=1','begin2','close2']
+  self.assertEqual(c.preparation_order(text(legacy),[dict(begin_line=4,close_line=5),dict(begin_line=7,close_line=8)],physical=True),1)
+  native='\n'.join(self.rows)+'\n';result=c.check_owner(native)
+  self.assertEqual(c.preparation_order(native,result['connections']),2)
  def test_two_actual_http_lifetimes(self):
   result=self.check(self.rows)
   self.assertFalse(result['native_accepted']);self.assertTrue(result['modeled_transport_only'])

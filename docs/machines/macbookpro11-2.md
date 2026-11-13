@@ -9,6 +9,17 @@ Dated sections retain the bring-up history.
 
 ### Pre-GO lifetime and no-Offer native audit scope (November 13)
 
+The implementation now reserves early and prepares both children/workers at
+the existing key-free boundary; [receipt and test contract](../wifi-http-preparation.md).
+Development reproduces the original early child's status24 across a modeled70s
+parent, while late preparation completes both HTTP lifetimes. The saved no-Offer
+pattern, missing-target zero-allocation and first-worker failure also pass.
+Actual httpget source passes49 syscall-model cases; ten decoder tests and full
+synthetic RF-parent composition pass. The fixture generator now preserves the
+accepted parent's optional calibration/discovery/first-AUTH profile instead of
+dropping it. Full final-source native/sanitizer/kernel/guest qualification is
+next; no installed payload or physical acceptance changes.
+
 Audit and move first-child/worker preparation from before the full RF parent
 to the existing key-free connection boundary, using a distinct reservation and
 versioned preparation receipt. Keep the child60s and HTTP15s deadlines, DHCP2s

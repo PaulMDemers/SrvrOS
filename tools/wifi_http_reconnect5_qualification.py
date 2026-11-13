@@ -19,7 +19,7 @@ from wifi_power5_log import fields
 
 HOST_LABEL='http-reconnect5-host: modeled_usb=1 modeled_scheduler=1 modeled_child=1 acceptance=0'
 MARK='workspace-log: snapshot=exit.log '
-OLD_CHILD=('wifi-stream5','wifi-stack5','wifi-http5','wifi-reconnect5','wifi-http-reconnect5')
+OLD_CHILD=('wifi-stream5','wifi-stack5','wifi-http5','wifi-reconnect5','wifi-http-reconnect5','wifi-http-reservation5')
 IDENTITY=('cmdline: ','laptop-capture: boot options=')
 TAG=checker.QUALIFICATION_TAG
 
@@ -56,18 +56,22 @@ def compose(parent,trace,release,volume,*,startup_journal=False):
             'invalid synthetic qualification identity')
     require(trace.splitlines().count(HOST_LABEL)==1,'fixture lacks explicit modeled label')
     actual=[s for s in trace.splitlines() if s.startswith(OLD_CHILD) and s!=HOST_LABEL]
-    require(actual and actual[0]=='wifi-http-reconnect5-prepare: version=1 generation=1 prepared=1 retained=1' and
+    require(actual and actual[0] in ('wifi-http-reconnect5-prepare: version=1 generation=1 prepared=1 retained=1','wifi-http-reservation5: version=1 reserved=1 retained=1') and
             actual[-1].startswith('wifi-http-reconnect5-final:'),'fixture lacks complete bracketed native groups')
     original=parent.splitlines();lines=[];seen=set()
     require(type(startup_journal) is bool,'invalid startup journal fixture mode')
     metadata={'srvros.startup-journal=1'} if startup_journal else set()
+    optional={'srvros.wifi-cal5-prime=1','srvros.wifi-survey5=1','srvros.wifi-first-auth5=1'}
+    profiles=[set(s[len(p):].split())&optional for s in original for p in IDENTITY if s.startswith(p)]
+    require(len(profiles)==2 and profiles[0]==profiles[1],'divergent captured RF profile')
+    metadata|=profiles[0]
     command=' '.join(sorted(checker.BOOT_FIXED|metadata|{'srvros.desktop-release='+release,'srvros.workspace-volume='+volume}))
     for line in original:
         identity=next((p for p in IDENTITY if line.startswith(p)),None)
         if identity:
             require(identity not in seen,'duplicate qualification boot identity');seen.add(identity)
             lines.append(identity+command)
-        elif line in (checker.stack.BOOT,checker.reconnect.BOOT):lines.append(checker.BOOT)
+        elif line in (checker.BOOT,checker.stack.BOOT,checker.reconnect.BOOT):lines.append(checker.BOOT)
         elif line==checker.stack.LOG_PARKED:lines.append(line)
         elif not line.startswith(OLD_CHILD):lines.append(line)
     require(seen==set(IDENTITY) and lines.count(checker.BOOT)==1 and

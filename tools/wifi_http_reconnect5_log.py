@@ -165,6 +165,28 @@ def check_owner(log):
     return result
 
 
+def preparation_order(log,groups,*,physical=False):
+    lines=log.splitlines()
+    prepares=[i for i,s in enumerate(lines) if s.startswith('wifi-http-reconnect5-prepare:')]
+    reserve=[i for i,s in enumerate(lines) if s.startswith('wifi-http-reservation5')]
+    require(len(prepares)==2,'missing HTTP reconnect worker preparations')
+    rows=[canonical_decimal(lines[i],'wifi-http-reconnect5-prepare','version generation prepared retained') for i in prepares]
+    version=rows[0]['version']
+    require(version in (1,2) and rows==[dict(version=version,generation=g,prepared=1,retained=1) for g in (1,2)],'failed/mixed HTTP preparation versions')
+    require(prepares[0]<groups[0]['begin_line'] and groups[0]['close_line']<prepares[1]<groups[1]['begin_line'],'HTTP preparation outside connection lifetime')
+    if version==2:
+        require(len(reserve)==1 and canonical_decimal(lines[reserve[0]],'wifi-http-reservation5','version reserved retained')==dict(version=1,reserved=1,retained=1),'missing/invalid HTTP reservation')
+        require(reserve[0]<prepares[0],'late HTTP reservation')
+    else:require(not reserve,'legacy preparation with new reservation')
+    if physical:
+        parked=lines.index(stack.LOG_PARKED)
+        firmware=next(i for i,s in enumerate(lines) if s.startswith('wifi-firmware-control:'))
+        join=next(i for i,s in enumerate(lines) if s.startswith('wifi-join5:'))
+        require(parked<(reserve[0] if version==2 else prepares[0])<firmware,'missing/late early reservation')
+        require(version==1 or join<prepares[0],'first child prepared before RF/first-join parent')
+    return version
+
+
 def _check(log,release=None,*,volume=None,session=None,profile=None):
     require(profile is None or profile is _QUALIFICATION_ONLY,'unknown reconnect collection profile')
     qualification=profile is _QUALIFICATION_ONLY
@@ -194,12 +216,7 @@ def _check(log,release=None,*,volume=None,session=None,profile=None):
             native['connections'][0]['begin_line']<native['connections'][0]['close_line']<
             native['connections'][1]['begin_line']<native['connections'][1]['close_line']<
             rf[0]<native['final_line'],'connection lifetimes outside held/restored adapter parent')
-    prepares=[i for i,s in enumerate(lines) if s.startswith('wifi-http-reconnect5-prepare:')]
-    require(len(prepares)==2,'missing HTTP reconnect worker preparations')
-    for g,i in enumerate(prepares):
-        require(canonical_decimal(lines[i],'wifi-http-reconnect5-prepare','version generation prepared retained')==dict(version=1,generation=g+1,prepared=1,retained=1),'failed/reordered HTTP connection preparation')
-    firmware_begin=next(i for i,s in enumerate(lines) if s.startswith('wifi-firmware-control:'))
-    require(lines.index(stack.LOG_PARKED)<prepares[0]<firmware_begin and native['connections'][0]['close_line']<prepares[1]<native['connections'][1]['begin_line'],'HTTP worker/child prepared with wrong connection lifetime')
+    preparation_order(log,native['connections'],physical=True)
     firmware=[i for i,s in enumerate(lines) if s.startswith('wifi-firmware-capture:')]
     laptop=[i for i,s in enumerate(lines) if s=='laptop-capture: completed=yes']
     require(len(firmware)==len(laptop)==1 and lines[firmware[0]]==
