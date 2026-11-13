@@ -14564,3 +14564,117 @@ no recovery promotion or reboot is armed. Matching raw and reviewed evidence is
 sealed outside build. Next should target the observed pre-exit child delay and
 remaining screenshot/storage waits; the historical control stall remains
 unexplained unless it recurs with the new trace.
+
+
+### Active Files exit/admission work (2026-11-13)
+
+From fetched main `44b414bf`, investigate Files cycle880/pid1167's5.640914-second
+close during the third screenshot. All matching prior evidence is reviewed and
+sealed, current `bfe6ca6ff45fe078` and recovery `c35475f62f154f1e` are protected,
+USB is unmounted, the previous one-shot is consumed and no reboot is armed.
+
+The checked source maps cycle880 to Files. Its file worker pid1168 has a matching
+4.199220-second `SYS_PATH_CONTEXT` wait during that close/capture. The directory
+worker currently calls POSIX `open`, which first resolves the pathname through
+one filesystem admission, then calls `SYS_OPEN_MODE`, whose production path
+repeats the same component/namespace resolution under a second admission before
+opening. The second gate permits another writer to interpose. Do not attribute
+all remaining close time to that single retained wait or change accepted-job
+retirement semantics.
+
+Bounded objective: remove this redundant directory-worker path/admission round
+using the existing atomic kernel open contract; preserve every traversed-
+component/directory/namespace/flags/mapping/cancellation check and all mutation,
+CRC/readback, FD, service, child and final-reap ownership. Audit the actual path
+and cover original errors/cancellation/EOF and competing-writer admission with
+regressions before claiming the implementation. Candidate files are
+`userspace/deskfs/deskfs.c`, its real-worker/contract tests and test wiring or
+loaded-stress proof if needed. No kernel/scheduler, filesystem mutation,
+shared ABI, log/row/cadence, power-policy or limit changes are planned. If the
+reproduction requires another subsystem, update this bounded scope before edits.
+
+PR19 `0382faa1`, PR301 `4fd81b45` and PR379 `817f80bb` have no competing directory
+worker edit; their independent Makefile/subsystem scopes remain separate.
+Publish the objective, then reproduce/test the checked source change, freeze
+matched images, run relevant/full local and loaded/exact-stage checks, self-merge
+and prepare/seal a one-shot original1800-second1% automated audio/disk/app/three-
+screenshot stress run under the user's existing reboot authorization. Keep the
+original500ms loop/ten-second whole-app and every integrity/retirement criterion.
+Native latency improvement remains pending the matching next physical result.
+
+
+### Directory-open admission fix qualified; ready native trial (PR496)
+
+Frozen source `2eaea67b` changes only the LIST directory open in
+`deskfs`: it calls the existing `OPEN_MODE` contract directly with the immutable
+absolute path and the same READ/DIRECTORY/CLOEXEC flags. That production kernel
+operation checks all traversed components, namespace and directory type and
+publishes the fd under one admission. The previous libc path performed a
+separate gated `PATH_CONTEXT` check before repeating resolution in `OPEN_MODE`.
+Removing that extra round prevents an intervening commit between the two checks;
+it does not grant access to filesystem state while another transaction owns it.
+
+The earlier scope's association of worker 1168 with Files cycle 880 is a
+source-backed inference from the automated sequence and overlapping
+4.199220-second path wait,
+not a retained explicit parent/child join. Neither that interval nor this change
+attributes all 5.640914 seconds of the native close. Remaining true storage waits
+and native improvement must be assessed on the next matching run.
+
+The old real C worker fails the new direct-admission regression; the new worker
+passes exact flags, directory-open failure, missing/regular-file traversed-prefix
+refusal, full metadata/EOF boundaries and all prior guarded read/write/mutation,
+CRC/readback/corruption tests. Production process open tests also verify raw
+file/../missing-prefix refusal, relative cwd and CLOEXEC. Full service admission,
+private mapping/thread/retirement, accepted-job drain, EOF/reap and ownership
+regressions pass. There is no kernel/scheduler/shared ABI/libc/ports change;
+protocol, cancellation, accepted mutations and all limits are unchanged.
+
+Matched ordinary/native/Q35 builds, affected fixture links and source/object
+checks, including exact runtime-ELF binding inside the embedded filesystem,
+pass together with the fresh complete core/desktop/documentation suite.
+The existing optional exhaustive-I/O skip and baseline append-repair allocation
+gaps remain visible; no new power-loss repair acceptance is claimed. Ordinary
+syscall/network ABI, CLI/editing, UEFI USB input/display, USB-storage and ordinary
+screenshot guests pass, as does exact native-stage foreign-profile refusal.
+Profile-switch construction remains unchanged and was not newly exercised.
+
+The loaded KVM guest passes 24 app cycles and 171 verified
+256 KiB bursts over 60 seconds at 1%, one exact screenshot and zero recorded
+underruns. Ready/close are 1.160565/1.110121 s;
+maximum loop is 127.503 ms under unchanged 500 ms/ten-second limits.
+All original saved-only contracts pass independently. Launcher has
+25 launches/reaps and zero errors; live equality growth
+121 and same-worst-loop control/scheduler companions also
+pass using only the final 64 KiB log. This is contract qualification rather than
+an isolated native latency comparison.
+
+Release `d26b9b1b2a825384` is installed for the original automated 1800-second 1%
+audio/disk/app/three-screenshot workload, with its original 60-second audio tail.
+Progress and results are shown/saved in the guest, with automatic return and
+collection and no input required. Heavy metadata audit and optional ownership/
+power probes stay off. Preflight preserves all 952 prior USB
+paths/hashes except renewing the explicit 1% expiry, and verifies fresh read-only
+fsck/allocation/headroom/write admission and installed/staged/independent payload
+and recovery hashes. Ubuntu remains default; prior accepted `bfe6ca6ff45fe078`
+and `772f95d189e4dcfc`, plus known-good `7acb756c0ac5f4bb`, remain installed.
+Recovery stays `c35475f62f154f1e`. Only failed `188dda5f0fbb1a52`'s unreferenced
+EFI duplicate was retired after full stage/payload/file-hash, sealed failed-trial
+and firmware/GRUB reference verification. Its independent payload, full stage
+and failed evidence remain retained.
+
+The first loaded VM completed its workload but lacked three saved app-timing
+events and needed console fallback, so its saved-only evidence is incomplete.
+That raw attempt and its explicit assessment remain archived. A single repeat
+using identical source/images/flags/limits passed the full strict saved-only
+contract. No bounds, cadence or checks were changed; broader qualification was
+not repeated because all runtime bytes remained identical.
+
+PR19/301/379 remain independent and Actions remain disabled. Source tests prove
+the removed admission round; a matching native run is required before accepting
+latency improvement. Self-merge and a sealed one-shot reboot follow under the
+user's existing explicit authorization. No original time, row, log, queue,
+workload, integrity or complete-retirement criterion was relaxed.
+
+Latest pre-merge scope inspection: PR379 `817f80bb`, PR301 `d829acb0`, PR19
+`b3115e02`. No competing directory-worker/test edit is imported.

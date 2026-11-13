@@ -1,9 +1,30 @@
 #define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <stdarg.h>
+#include <unistd.h>
+static unsigned legacy_directory_opens,native_directory_opens;
+static int fail_directory_open;
+static int worker_posix_open(const char *path,int flags,...) {
+    mode_t mode=0;
+    if(flags&O_CREAT) {va_list args;va_start(args,flags);mode=(mode_t)va_arg(args,int);va_end(args);}
+    legacy_directory_opens+=(flags&O_DIRECTORY)!=0;
+    return open(path,flags,mode);
+}
+#define open worker_posix_open
 #define main deskfs_guest_main
 #include "../userspace/deskfs/deskfs.c"
 #undef main
+#undef open
+long srv_open_mode(const char *path,uint64_t flags) {
+    /* The real worker must enter the atomic resolver/open contract directly;
+     * a separate libc path resolver can lose the next quiescent storage turn. */
+    assert(flags==(SRV_OPEN_READ|SRV_OPEN_DIRECTORY|SRV_OPEN_CLOEXEC));
+    native_directory_opens++;
+    if(fail_directory_open)return SRV_ERR_IO;
+    return open(path,O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+}
 static int write_failure,sync_failure,writes,corrupt_copy;
 static unsigned batch_calls,synthetic_entries,synthetic_at,synthetic_failure,synthetic_malformed;
 static DIR *listing_dir;
@@ -80,6 +101,17 @@ int main(void) {
     }
     assert(file==1 && folder==1);
     assert(batch_calls==1 && !listing_dir); /* short batch already reached EOF */
+    assert(native_directory_opens==1 && !legacy_directory_opens);
+    fail_directory_open=1;batch_calls=0;perform(&q,&r);
+    assert(r.status==DESK_FILE_IO && !r.count && !r.length && !batch_calls && !listing_dir);
+    fail_directory_open=0;
+    /* Error paths never fold a regular-file/.. into an accepted directory or
+     * fabricate a listing for a missing prefix; the raw path reaches open. */
+    snprintf(q.path,sizeof(q.path),"%s/document/..",dir);perform(&q,&r);
+    assert(r.status==DESK_FILE_IO && !r.count && !r.length && !batch_calls);
+    snprintf(q.path,sizeof(q.path),"%s/absent/..",dir);perform(&q,&r);
+    assert(r.status==DESK_FILE_IO && !r.count && !r.length && !batch_calls);
+    strcpy(q.path,dir);
     /* A directory syscall may wait a complete storage turn. Never issue an
      * avoidable EOF-only turn after a short batch; full batches still need the
      * next call to distinguish EOF from more entries. */
@@ -144,5 +176,6 @@ int main(void) {
     corrupt_copy=1;perform(&q,&r);assert(r.status==DESK_FILE_IO);corrupt_copy=0;assert(!unlink(change.destination));
     change.size=DESK_FILE_COPY_BYTES+1;memcpy(input,&change,sizeof(change));perform(&q,&r);assert(r.status==DESK_FILE_TOO_LARGE);assert(!unlink(q.path));
     snprintf(q.path,sizeof(q.path),"%s/folder",dir);assert(!rmdir(q.path));assert(!rmdir(dir));
-    puts("deskfs: PASS create, guarded overwrite, changed/missing files, empty save, readback, write/sync failure, listing, mkdir, size limits, guarded large duplicate/rename/delete, streamed verification and corruption rejection");
+    assert(!legacy_directory_opens && native_directory_opens>1);
+    puts("deskfs: PASS atomic native directory-open admission, prefix/error refusal, create, guarded overwrite, changed/missing files, empty save, readback, write/sync failure, listing, mkdir, size limits, guarded large duplicate/rename/delete, streamed verification and corruption rejection");
 }

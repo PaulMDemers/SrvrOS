@@ -764,6 +764,15 @@ static void path_context_regression(void) {
     assert(!process_path_context(SRV_PATH_RESOLVE,"../output",out,sizeof(out)) && !strcmp(out,"/test/output"));
     assert(process_path_context(SRV_PATH_RESOLVE,"../output/..",out,sizeof(out))==SRV_ERR_NOTDIR);
     assert(process_path_context(SRV_PATH_RESOLVE,"../absent/..",out,sizeof(out))==SRV_ERR_NOENT);
+    /* deskfs passes its immutable raw path to OPEN_MODE without a preliminary
+     * PATH_CONTEXT call. The production open must retain the same traversal
+     * checks, including components which would disappear during dot folding. */
+    assert(process_file_open_flags(&subject,"/test/output/..",SRV_OPEN_READ|SRV_OPEN_DIRECTORY|SRV_OPEN_CLOEXEC)==SRV_ERR_NOTDIR);
+    assert(process_file_open_flags(&subject,"/test/absent/..",SRV_OPEN_READ|SRV_OPEN_DIRECTORY|SRV_OPEN_CLOEXEC)==SRV_ERR_NOENT);
+    assert(process_file_open_flags(&subject,"../output/..",SRV_OPEN_READ|SRV_OPEN_DIRECTORY|SRV_OPEN_CLOEXEC)==SRV_ERR_NOTDIR);
+    long checked_open=process_file_open_flags(&subject,"../dir",SRV_OPEN_READ|SRV_OPEN_DIRECTORY|SRV_OPEN_CLOEXEC);
+    assert(checked_open>=0 && process_file_get_fd_flags(&subject,checked_open)==SRV_FD_CLOEXEC);
+    assert(!process_file_close(&subject,checked_open));
     assert(process_path_context(SRV_PATH_CHDIR,"/test/output",NULL,0)==SRV_ERR_NOTDIR);
     assert(process_path_context(SRV_PATH_CHDIR,"",NULL,0)==SRV_ERR_NOENT);
     assert(process_path_context(SRV_PATH_CHDIR,NULL,NULL,0)==SRV_ERR_FAULT);
