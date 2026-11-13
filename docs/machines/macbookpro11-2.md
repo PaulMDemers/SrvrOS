@@ -7,6 +7,28 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Request/ACK tracing implemented; native qualification next (November13)
+
+Merged main6d107ae1's empty-stack/status and live filesystem-sample changes in
+6a018b58, retaining both workspace-log dependency sets and both filesystem
+guide sections. New [DHCP comparisons](../wifi-dhcp-identity5.md) witness current
+transaction/client/selecting-option/checksum matches without retaining values,
+packets, pointers or equality digests. A diagnostic-only TX alias covers sends
+outside the RX poll and is cleared before return; existing admission owners
+and clocks stay unchanged. Counters/masks render only after local closure.
+The existing DHCP observation schema, parser gates, two-second deadline and
+Discover-only retry policy remain unchanged. No malformed Request/ACK parser
+bug or physical missing-ACK cause has been proved by this instrumentation.
+
+New actual native HTTP/RF cases reproduce the saved late-Offer/matched-Request-
+echo/no-ACK pattern and a mismatched-XID echo; a delayed valid ACK must complete
+two fresh HTTP lifetimes. The independent AP now also checks client-ID,
+parameter list, source/destination and IPv4 checksum. Guarded comparison tests
+and seven actual-native-trace decoder tests pass in development. Full final-
+source native/sanitizer/shared/kernel/guest qualification is next. The old closed
+8f/d81 primary/review and all eight recoveries remain immutable; no hardware boot
+or acceptance is armed by these software tests.
+
 ### Request identity/ACK trace scope (November13)
 
 Trace the saved first-DHCP failure through production construction, encrypted

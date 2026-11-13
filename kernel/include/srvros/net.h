@@ -171,6 +171,12 @@ struct net_dhcp_observation {
     uint64_t rejected,first_reject,last_reject,reject_mask,last_message,last_options;
     uint64_t have_offer,request_sent,configured,polls,elapsed_us,elapsed_ticks;
 };
+/* Categorical diagnostic only; no packet/identity values or admission grant. */
+struct net_dhcp_identity5 {
+    uint64_t version,tx_discover,tx_request,tx_request_mask,tx_invalid;
+    uint64_t rx_client,rx_self_discover,rx_self_request,rx_client_mismatch,rx_client_mask;
+    uint64_t rx_offer,rx_ack,rx_server_other,rx_server_mask,rx_malformed;
+};
 struct net_bounded_probe {
     uintptr_t identity;
     const struct net_bounded_probe_io *source;
@@ -184,6 +190,7 @@ struct net_bounded_probe {
      * length and all32 payload bytes,not merely ID/sequence/checksum. */
     uint64_t dhcp_retries,arp_resolutions,dns_queries,pings_sent,pings_matched;
     struct net_dhcp_observation dhcp_observation;
+    struct net_dhcp_identity5 dhcp_identity;
     /* Set only by an ordinary negative protocol result while all preceding
      * guards were healthy. Any guard failure clears it. Never permits forward
      * progress or clears failed; only explicit terminal cleanup may consume it. */

@@ -1,4 +1,5 @@
 #include <srvros/dns_wire.h>
+#include <srvros/dhcp_identity5.h>
 #include <srvros/console.h>
 #include <srvros/net_device.h>
 #include <srvros/heap.h>
@@ -205,6 +206,9 @@ static uint32_t dhcp_retry_source_ip,dhcp_retry_relay_ip;
  * explicit quiet first-init profile. Scoped polls never yield or replace a
  * nested context;IRQ-nested publication uses the same frozen owner. */
 static struct net_bounded_probe *bounded_poll_owner,*icmp_bounded_owner;
+/* Diagnostic-only alias during the synchronous DHCP call, including sends
+ * outside an RX poll. Never consulted by protocol/worker/provider admission. */
+static struct net_bounded_probe *dhcp_identity_owner;
 static struct net_dhcp_observation *bounded_dhcp_observation(void) {
     struct net_bounded_probe *p=bounded_poll_owner;
     return p && p->identity==(uintptr_t)p && p->busy && !p->closed &&
@@ -550,6 +554,7 @@ static bool arp_cache_lookup(uint32_t ip, uint8_t *mac_out) {
     return false;
 }
 
+static void dhcp_identity5_record(const uint8_t *,uint16_t,bool);
 static bool send_ipv4_packet_from(const uint8_t *dst_mac,
     const uint8_t *src_ip_bytes,
     uint32_t dst_ip,
@@ -581,6 +586,7 @@ static bool send_ipv4_packet_from(const uint8_t *dst_mac,
     write_be16(ip + 10, checksum_bytes(ip, 20, 0));
 
     copy_bytes(ip + 20, payload, payload_length);
+    dhcp_identity5_record(frame,ETH_HEADER_SIZE+total_length,true);
     return send_ethernet(frame, ETH_HEADER_SIZE + total_length);
 }
 
@@ -812,6 +818,33 @@ static bool send_dhcp_message(uint8_t message_type, const uint8_t *requested_ip,
         DHCP_SERVER_PORT,
         packet,
         sizeof(packet));
+}
+
+/* The existing bounded owner scopes this observation. It adds no guard/clock
+ * callbacks, retains no packet and cannot change send or receive admission. */
+static void dhcp_identity5_record(const uint8_t *frame,uint16_t length,bool tx){
+    struct net_bounded_probe *p=tx?dhcp_identity_owner:bounded_poll_owner;
+    if(!p || p->identity!=(uintptr_t)p || !p->busy || p->closed ||
+       !p->dhcp_observation.started || p->dhcp_observation.finished)return;
+    struct net_dhcp_identity5 *t=&p->dhcp_identity;
+    struct dhcp_identity5 r=dhcp_identity5_observe(frame,length,local_mac,dhcp_xid,
+        read_be32(dhcp_offered_ip_bytes),read_be32(dhcp_server_ip_bytes));
+    if(r.role!=4 && r.role!=5)return;
+    if(tx){
+        if(r.role!=4)return;
+        t->tx_discover+=r.message==1;t->tx_request+=r.message==3;
+        if(r.message==3)t->tx_request_mask=r.mask;
+        t->tx_invalid+=r.mask!=DHCP_IDENTITY5_ALL;
+    }else if(r.role==4){
+        t->rx_client++;t->rx_client_mask=r.mask;
+        bool self=r.mask==DHCP_IDENTITY5_ALL && (r.message==1 || r.message==3);
+        t->rx_self_discover+=self && r.message==1;t->rx_self_request+=self && r.message==3;
+        t->rx_client_mismatch+=!self;
+    }else{
+        t->rx_offer+=r.message==2;t->rx_ack+=r.message==5;
+        t->rx_server_other+=r.message!=2 && r.message!=5;t->rx_server_mask=r.mask;
+    }
+    if(!tx)t->rx_malformed+=!r.message || !(r.mask&1);
 }
 
 static bool dhcp_retry_unicast(uint32_t ip) {
@@ -2494,6 +2527,7 @@ void net_handle_ethernet_frame(const uint8_t *frame, uint16_t length) {
     if (!probe_worker_packet_allowed()) {
         (void)dhcp_rx_refused(NET_DHCP_RX_OWNER);return;
     }
+    dhcp_identity5_record(frame,length,false);
     if (!initialized || frame == 0 || length < ETH_HEADER_SIZE || !is_for_local_mac(frame)) {
         (void)dhcp_rx_refused(NET_DHCP_RX_ETHERNET);return;
     }
@@ -3436,9 +3470,11 @@ int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) {
     int64_t result=-1;bool started=false,retried=false;unsigned polls=0;
     struct net_dhcp_observation *o=&p->dhcp_observation;
     clear_bytes((uint8_t *)o,sizeof *o);o->version=1;o->end_reason=NET_DHCP_GUARD_FAILED;
+    clear_bytes((uint8_t *)&p->dhcp_identity,sizeof p->dhcp_identity);p->dhcp_identity.version=1;
     uint64_t tick=p->last_tick,us=p->last_us;
     if (dhcp_in_progress || dhcp_retry_active) {o->end_reason=NET_DHCP_BUSY;goto done;}
     dhcp_retry_active=dhcp_in_progress=started=true;o->started=1;
+    dhcp_identity_owner=p;
     dhcp_xid+=0x1021u;if (!dhcp_xid) dhcp_xid=0x73727672u;
     uint32_t xid=dhcp_xid;
     dhcp_configured=dhcp_have_offer=dhcp_request_sent=false;
@@ -3471,7 +3507,7 @@ int64_t net_dhcp_request_bounded(struct net_bounded_probe *p) {
     }
     o->end_reason=NET_DHCP_POLL_LIMIT;
 done:
-    if (started) {dhcp_in_progress=dhcp_retry_active=false;if (result<0) dhcp_configured=false;}
+    if (started) {dhcp_identity_owner=NULL;dhcp_in_progress=dhcp_retry_active=false;if (result<0) dhcp_configured=false;}
     if (result<0) bounded_probe_protocol_fail(p);
     else if (!bounded_probe_check(p)) {result=-1;dhcp_configured=false;}
     o->success=result>=0;o->finished=1;

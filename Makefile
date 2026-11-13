@@ -6721,6 +6721,9 @@ test-xhci-http-reconnect5: build/tests/xhci-http-reconnect5-host$(HOST_EXE)
 	$< --case 29
 	$< --case 30
 	$< --case 31
+	$< --case 32
+	$< --case 33
+	$< --case 34
 build/tests/xhci-http-reconnect5-host$(HOST_EXE): tools/test_xhci_wifi_http_reconnect.c tools/test_mt76_http_rf_parent.c tools/test_mt76_survey5_parent.c tools/test_mt76_channel_vco5.c userspace/wifihttpprobe/http_exact.c userspace/wifihttpprobe/http_exact.h tools/test_xhci_wifi_stack5.c tools/test_http_native_guard.c kernel/src/http_network_probe.c tools/test_xhci_wifi_stream5.c tools/fixtures/mt76-stream5-dhcp-synthetic.h tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_wifi_fence5.inc kernel/src/drivers/xhci_wifi_nop5.inc kernel/src/drivers/xhci_wifi_stream5.inc kernel/include/srvros/mt76_stream5_probe.h $(WIFI_PROVIDER5_SOURCE) $(KERNEL_HEADERS) build/tests/xhci-host$(HOST_EXE) tools/fixtures/mt76-stack5-peer.c tools/fixtures/mt76-stack5-peer.h kernel/src/net.c kernel/src/net_device.c kernel/src/drivers/xhci_wifi_stack5.inc kernel/src/drivers/mt76_stack5_probe.c kernel/include/srvros/mt76_stack5_probe.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_MT76_NET5_HOST_TEST -DSRVROS_NET_DEVICE_HOST_TEST -DSRVROS_NET_PREPARED_WORKER_HOST_TEST $(HOST_OPENSSL_CFLAGS) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< tools/test_mt76_http_rf_parent.c kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_power5.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_handoff5.c kernel/src/drivers/mt76_peer5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_join5.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c $(WIFI_PROVIDER5_SOURCE) $(filter-out kernel/src/sha256.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_eapol5.c kernel/src/drivers/mt76_rsn.c,$(WPA5_SOURCES)) kernel/src/wpa2_nonce.c kernel/src/drivers/mt76_stream5_probe.c kernel/src/initramfs.c kernel/src/drivers/mt76_stack5_probe.c kernel/src/net.c kernel/src/net_device.c tools/test_http_native_guard.c tools/fixtures/mt76-stack5-peer.c userspace/wifihttpprobe/http_exact.c -Wl,--gc-sections $(HOST_OPENSSL_LIBS) -o $@
@@ -6869,3 +6872,13 @@ test-net-empty-snapshot: build/tests/net-empty-snapshot-host$(HOST_EXE)
 build/tests/net-empty-snapshot-host$(HOST_EXE): tools/test_net_empty_snapshot.c kernel/src/net.c kernel/src/net_device.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-dhcp-identity5 test-wifi-dhcp-identity5-log
+test-core: test-dhcp-identity5 test-wifi-dhcp-identity5-log
+test-dhcp-identity5: build/tests/dhcp-identity5-host$(HOST_EXE)
+	$<
+build/tests/dhcp-identity5-host$(HOST_EXE): tools/test_dhcp_identity5.c kernel/include/srvros/dhcp_identity5.h kernel/include/srvros/packet_observation.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+test-wifi-dhcp-identity5-log: build/tests/xhci-http-reconnect5-host$(HOST_EXE)
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_dhcp_identity5_log.py

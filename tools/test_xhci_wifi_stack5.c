@@ -124,7 +124,8 @@ static void ap_udp_reply(const uint8_t *p,size_t n){
  uint8_t r[1514];const uint8_t *u=p+34;unsigned size=ap_u16(u+4);assert(n>=42 && size>=8 && n==34+size);
  unsigned sport=ap_u16(u),dport=ap_u16(u+2);size_t body=size-8;uint8_t *v=r+42;
  if(sport==68 && dport==67){
-  ap.dhcp++;assert(body>=240 && u[8]==1 && u[9]==1 && u[10]==6);unsigned type=0,requested=0,selected_server=0;for(size_t i=240;i<body;){unsigned k=u[8+i++];if(k==255)break;if(!k)continue;assert(i<body);unsigned z=u[8+i++];assert(z<=body-i);if(k==53){assert(z==1);type=u[8+i];}if(k==50){assert(z==4);requested=ap_u32(u+8+i);}if(k==54){assert(z==4);selected_server=ap_u32(u+8+i);}i+=z;}assert(type==1 || type==3);
+  ap.dhcp++;assert(body>=240 && u[8]==1 && u[9]==1 && u[10]==6);unsigned type=0,requested=0,selected_server=0;bool client_id=false,parameters=false;for(size_t i=240;i<body;){unsigned k=u[8+i++];if(k==255)break;if(!k)continue;assert(i<body);unsigned z=u[8+i++];assert(z<=body-i);if(k==53){assert(z==1);type=u[8+i];}if(k==61){assert(z==7 && u[8+i]==1 && !memcmp(u+9+i,hs_spa,6));client_id=true;}if(k==55){assert(z==4 && u[8+i]==1 && u[9+i]==3 && u[10+i]==6 && u[11+i]==15);parameters=true;}if(k==50){assert(z==4);requested=ap_u32(u+8+i);}if(k==54){assert(z==4);selected_server=ap_u32(u+8+i);}i+=z;}assert((type==1 || type==3) && client_id && parameters);
+  assert(!memcmp(p+6,hs_spa,6) && ap_u32(p+26)==0 && ap_u32(p+30)==0xffffffff && ap_sum(p+14,20,0)==65535);
   assert(!memcmp(u+8+28,hs_spa,6) && (ap_u16(u+8+10)&0x8000) && !ap_u32(u+8+12));
   if(type==1){assert(!requested && !selected_server);if(ap.dhcp_xid)assert(ap.dhcp_xid==ap_u32(u+12));ap.dhcp_xid=ap_u32(u+12);}
   else{assert(ap.dhcp_xid==ap_u32(u+12) && requested==0x0a00020f && selected_server==ap_ip);}
@@ -137,6 +138,23 @@ static void ap_udp_reply(const uint8_t *p,size_t n){
     ap_enqueue(noise,sizeof noise);
    }
    return;
+  }
+  if(ap.case_id>=62 && ap.case_id<=64){
+   /* Model the hardware pattern: first Discover echoed, late Offer after the
+    * existing Discover retry, then Request echoed with no/delayed ACK. */
+   memcpy(r,p,n);memcpy(r,hs_spa,6);
+   if(type==3 && ap.case_id==64)r[46]^=1; /* wrong transaction, valid IPv4 */
+   ap_enqueue(r,n);
+   if(type==1 && ap.dhcp==1){
+    uint8_t noise[1514];ap_ip_header(noise,p,6,20);noise[0]|=1;
+    /* Use a valid group PN above the synthetic M3 RSC, not a replay. */
+    ap.rx_pn=1ull<<47;
+    ap_enqueue(noise,54);return;
+   }
+   if(type==3){
+    if(ap.case_id!=63)return;
+    ap.ack_noise=16;ap.ack_release=test_time+350000;
+   }
   }
   /* A unicast AP echo of client UDP is authenticated, not a server reply. */
   if((ap.case_id==60 || ap.case_id==61) && type==1){memcpy(r,p,n);memcpy(r,hs_spa,6);ap_enqueue(r,n);}
@@ -274,7 +292,7 @@ static void stack_test_progress(void){
  if(wifi_stream5.pending[1]){
   if(ap.case_id>=10 && !ap.frozen && !ap.count)test_time+=1000;
   unsigned bytes=0;
-  if(ap.ack_noise && ap.dhcp==2){uint8_t beacon[64]={0x80};bytes=stream_wrap(beacon,sizeof beacon);ap.ack_noise--;}
+  if(ap.ack_noise && (ap.dhcp==2 || (ap.case_id>=62 && ap.case_id<=64))){uint8_t beacon[64]={0x80};bytes=stream_wrap(beacon,sizeof beacon);ap.ack_noise--;}
   else if(ap.ack_release && test_time<ap.ack_release){test_time+=1000;}
   else if(wifi_stream5.connection_mode && reconnect_noise() && ap.background_left){uint8_t beacon[24]={0x80};bytes=stream_wrap(beacon,sizeof beacon);ap.background_left--;}
   else if(ap.count){bytes=stream_wrap(ap.response[ap.head],(unsigned)ap.length[ap.head]);ap.head=(ap.head+1)%8;ap.count--;if(wifi_stream5.connection_mode && reconnect_noise())ap.background_left=reconnect_noise();}

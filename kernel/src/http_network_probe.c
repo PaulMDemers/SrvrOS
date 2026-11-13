@@ -333,6 +333,11 @@ bool http_network_probe_run_connection(struct http_network_probe *s,const struct
 
 void http_network_probe_emit(const struct http_network_probe *s){
  if(!s)return;
+ const struct net_dhcp_identity5 *t=&s->bootstrap.dhcp_identity;
+ if(t->version)console_printf("wifi-dhcp-identity5: version=%u epoch=%u tx_discover=%u tx_request=%u tx_request_mask=%u tx_invalid=%u rx_client=%u rx_self_discover=%u rx_self_request=%u rx_client_mismatch=%u rx_client_mask=%u rx_offer=%u rx_ack=%u rx_server_other=%u rx_server_mask=%u rx_malformed=%u observation_only=1\n",
+ t->version,s->bootstrap.epoch,t->tx_discover,t->tx_request,t->tx_request_mask,t->tx_invalid,
+ t->rx_client,t->rx_self_discover,t->rx_self_request,t->rx_client_mismatch,t->rx_client_mask,
+ t->rx_offer,t->rx_ack,t->rx_server_other,t->rx_server_mask,t->rx_malformed);
  const struct net_dhcp_observation *d=&s->bootstrap.dhcp_observation;
  console_printf("wifi-http5-dhcp: version=%u started=%u finished=%u success=%u end_reason=%u discovers=%u discover_queued=%u requests=%u request_queued=%u frames=%u ipv4=%u udp=%u dhcp=%u offers=%u acks=%u naks=%u accepted_offer=%u accepted_ack=%u rejected=%u first_reject=%u last_reject=%u reject_mask=%u last_message=%u last_options=%u have_offer=%u request_sent=%u configured=%u polls=%u elapsed_us=%u elapsed_ticks=%u\n",
  d->version,d->started,d->finished,d->success,d->end_reason,d->discovers,d->discover_queued,d->requests,d->request_queued,
