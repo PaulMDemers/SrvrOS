@@ -127,7 +127,14 @@ static void handoff_boundary(const char *fmt){
  assert(wifi_http_reconnect5.connections==1 && child_done==1 && wifi_reconnect5_closed(
   &wifi_stream5,wifi_stream5.epoch,&wifi_stream5.dma));
  handoff_injections++;
- if(trial_case==18 || trial_case==19){
+ if(trial_case==26){
+  /* Exact saved hardware category: another slot EP0 success at the shared
+   * head after local HTTP/Stop/key closure. Do not fabricate DMA ownership. */
+  assert(wifi_fence5_empty());
+  xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){
+   .parameter_low=0x400010,.status=1u<<24,
+   .control=(32u<<10)|(1u<<16)|(2u<<24)|(xhci.event_cycle?1u:0u)};
+ }else if(trial_case==18 || trial_case==19){
   assert(wifi_fence5_empty());
   xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){
    .parameter_low=trial_case==18?(1u<<24):(uint32_t)(uintptr_t)wifi_stream5.ring[1],
@@ -139,13 +146,13 @@ static void handoff_boundary(const char *fmt){
  else if(trial_case==23)wifi_stream5.events_empty=false;
 }
 int main(int argc,char **argv){
- trial_case=argc==3 && (!strcmp(argv[1],"--case") || !strcmp(argv[1],"--trace-case"))?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<26);
+ trial_case=argc==3 && (!strcmp(argv[1],"--case") || !strcmp(argv[1],"--trace-case"))?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<27);
  if(argc==19 && !strcmp(argv[1],"--trace")){
   for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)reconnect_seed[d][i]=(uint32_t)strtoull(argv[2+d*8+i],NULL,0);
   reconnect_slot=(unsigned)strtoul(argv[18],NULL,0);assert(reconnect_slot && reconnect_slot<256);reconnect_seeded=true;
  }
  stream_setup();
- if(trial_case>=18 && trial_case<24)test_console_printf_hook=handoff_boundary;
+ if((trial_case>=18 && trial_case<24) || trial_case==26)test_console_printf_hook=handoff_boundary;
  if(trial_case==15)stream_test_before_connection=no_target_parent;
  if(trial_case==16)stream_test_outer_capture=http5_test_RF_parent;
  if(trial_case==17)stream_test_outer_capture=legacy_rf_parent;
@@ -189,12 +196,12 @@ int main(int argc,char **argv){
  assert(!xhci_wifi_capture_reconnect5_probe() && !xhci_wifi_http5_prepare() && !xhci_wifi_capture_stack5_probe());
  bool good=xhci_wifi_capture_http_reconnect5();
  bool complete=xhci_wifi_http_reconnect5_finish_capture(good);
- if(trial_case>=18 && trial_case<24){
+ if((trial_case>=18 && trial_case<24) || trial_case==26){
   static const unsigned reasons[]={41,41,29,39,42,43};
   assert(!good && !complete && handoff_injections==1 && wifi_http_reconnect5.connections==1);
   assert(workers==1 && child_count==1 && child_done==1 && !wifi_http_reconnect5.probe[1].self);
   assert(wifi_http_reconnect5.probe[0].result.complete && wifi_http_reconnect5.probe[0].result.quiescent);
-  assert(wifi_fence5_handoff.captured && wifi_fence5_handoff.reason==reasons[trial_case-18]);
+  assert(wifi_fence5_handoff.captured && wifi_fence5_handoff.reason==(trial_case==26?41:reasons[trial_case-18]));
   assert(!wifi_fence5_connection_switched && wifi_fence5_active==&wifi_fence5_first &&
    wifi_stream5_current==&wifi_stream5_slots[0] && !wifi_fence5_next_owner);
   assert(wifi_stream5.exchange.keys_erased && wifi_stream5.retired && wifi_stack5.detached);
@@ -202,6 +209,14 @@ int main(int argc,char **argv){
    assert(wifi_fence5_handoff.event_valid && !wifi_fence5_empty());
    assert(((wifi_fence5_handoff.event_control>>10)&63)==(trial_case==18?34u:32u));
    assert(wifi_fence5_handoff.event_owner==(trial_case==18?0u:3u));
+  }
+  if(trial_case==26){
+   assert(wifi_fence5_handoff.event_valid && !wifi_fence5_empty());
+   assert(wifi_fence5_handoff.event_owner==0 &&
+    (wifi_fence5_handoff.event_control>>24)==2 &&
+    ((wifi_fence5_handoff.event_control>>16)&31)==1 &&
+    ((wifi_fence5_handoff.event_control>>10)&63)==32 &&
+    (wifi_fence5_handoff.event_status>>24)==1);
   }
   if(trial_case==23)assert(wifi_reconnect5_closed_reason==14);
   unsigned reason=wifi_fence5_handoff.reason;wifi_fence5_handoff_capture(999);

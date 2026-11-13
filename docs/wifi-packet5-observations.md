@@ -10,7 +10,8 @@ The witness stores only Ethernet byte count, structural role and DHCP option53,
 sequence and existing USB publish/completion clocks. No packet bytes, addresses,
 XID, credentials, keys or private fingerprints are retained. TX sequence is the
 submitted header's intent; hardware/radio transmission is unproved. RX sequence
-comes from the authenticated header. RX start is the receive-post time, and finish
+is structural header metadata observed after authenticated Ethernet delivery;
+CCMP does not authenticate the sequence-number field. RX start is the receive-post time, and finish
 is USB completion; neither claims an over-the-air arrival timestamp.
 
 | Role | Structural meaning |

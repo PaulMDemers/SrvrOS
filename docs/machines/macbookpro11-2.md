@@ -7,6 +7,55 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Packet diagnostic return: shared-event handoff refusal (November 13)
+
+Runtimefe9d0af2/released33d2d9894d8cc4b is collected FIRST once and CLOSED
+FAILED/incomplete in session000660238f6815ce-00. Its1938404-byte exit and
+all seven independent journal checkpoints survive. Independent review verifies
+all1433 primary files,483 prior workspace files and checked metadata except the
+one authorized marker atime, only two new session logs,69 other EFI files,
+offline fsck/allocation and all eight protected recoveries. Ubuntu is unarmed.
+Do not recollect or reseal the primary bank.
+
+The first authenticated connection completes production DHCP/DNS and actual
+HTTP:4159 request bytes,3072 body bytes, genuine EOF and child status0, with
+child/worker/TCP/receiver quiescence and local key/native/provider closure.
+DHCP uses two Discovers and one Request; its ACK is accepted in1.137345s.
+The new38 packet witnesses include an authenticated client-UDP Discover echo,
+an Offer and an ACK. Request USB completion to ACK USB completion is87.724ms;
+these are software-observed USB clocks, not radio delivery/arrival timestamps.
+The earlier missing-ACK failure does not recur and its cause remains unresolved.
+
+The retained guard now proves reason41 at frontier49: a nonempty shared event
+head, type32 Transfer Event, slot2,DCI1 (EP0),CC1, outside the recorded first
+Wi-Fi data-ring ranges. The saved inventory identifies slot2 as the internal
+USB hub (class9,0a5c:4500); its exact outstanding TD match was not captured. No command is pending/failed and both sync/poll user
+counts are zero. Closure reason0 means the local closed-owner proof passed.
+Generation2 is never prepared. Parent RF restoration remains incomplete at2636
+operations, final connections1/complete0/restored0; the full source-frozen
+success checker correctly refuses. This is no full pair, reliability or parent
+retirement acceptance. It identifies this run's immediate refusal, not the
+unobserved historical d634 event or the exact producer/TRB identity of slot2.
+
+Next bounded scope: reproduce this exact non-Wi-Fi EP0 event at the native
+HTTP supervisor boundary, then implement owned, bounded shared-event service
+before atomic handoff. Audit normal control/hub completion routing, fail closed
+on old Wi-Fi events, unknown ownership, topology changes and new pending debt;
+retain the atomic empty-head recheck and all closed-state/key/DMA predicates.
+Do not skip the event or relax the guard. Test successful unrelated completion,
+late arrivals, malformed/old events, bounded exhaustion and RF failure cleanup
+through the actual native path before another candidate or physical boot.
+The newcase26 preserves the current failure as an exact-category regression;
+all27 native HTTP cases and the five strict guard-decoder tests pass. This
+is not a fix or physical acceptance. Fetched maine6ca1a94 adds launch/fcntl
+gate tracing; the tested runtime remains on merged baselineb3d45130. Review
+that separate integration before another source/image qualification.
+
+Primary `wifi-packet5-hardware-fe9d0af2` index:
+`eb5563db2dc34f09669208b4dd3578c116d39a56bec4a059c574fae6a38f857d`.
+Separate `wifi-packet5-hardware-fe9d0af2-return-review` index:
+`f145c3bef9295143d1a68647ef419f23343992a2017c05baf70cd6ef2471b9c0`.
+
 ### Request/ACK witnesses implemented (November 13)
 
 Merged mainb3d45130 in4c6cacc0. Both Makefile test groups and the workspace-log

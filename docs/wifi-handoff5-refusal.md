@@ -131,3 +131,16 @@ means that proof passed). It is relevant to guard reason43.
 | 55 | `(context_read32(s->d->output_context,8,0)&7)` |
 | 56–87 | restored context mismatch: base + context index ×8 + word; DCIs0/11/16/9 |
 | 88 | stack/provider detached or drained proof failed |
+
+## Native observation, November13
+
+Runtimefe9d0af2/released33d2d9894d8cc4b captured reason41 after one
+complete actual-process HTTP connection. The retained head is type32/slot2/
+DCI1/CC1/event_owner0 with no pending command or sync/poll users and closure0.
+This proves the shared empty-head guard refused a control-endpoint completion
+outside the old Wi-Fi data rings. Inventory identifies slot2 as the internal
+class9 hub0a5c:4500. The observation does not identify the pointer's exact TD owner
+or accept consuming that event. Parent RF restoration remains incomplete2636;
+second preparation never runs. Native supervisorcase26 reproduces this category
+without changing production admission. An owned dispatch correction and its
+native success/late/invalid/topology/exhaustion tests remain pending.
