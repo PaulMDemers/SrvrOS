@@ -2,6 +2,27 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
+### Active scope: original-source private buffer ownership
+
+Starting from accepted v30 and collector `c507f0a6`, integrate main `35f3702a`
+(PR486 independent process lifecycle) before freezing a new candidate. Air owns
+an isolated original-source buffer-binding image: two private full padded buffers
+allocated/initialized before the bounded GPU lifetime, registered original RAM
+holds through that lifetime, source/epoch/parent binding inside the actual live
+post-reset source child, and release only after proved complete outer retirement.
+Lost source/clock/alias or uncertain retirement retains both buffers and root.
+No inherited GGTT interval becomes free, no GPU PTE is written and no hardware
+assurance is fabricated. The immediate exit is a qualified automated native
+binding/retirement trial, not native mapping or tear-free acceptance.
+
+Shared scope: scanout memory hold/drain API, separate source-child binding core,
+new opt-in image/recipe/pre-init/adapter/collector and actual-core failure tests.
+Existing source/reset gates, writer addresses and 100/300/400/500 ms limits stay
+unchanged. Pro PR19 `9e0e5988` Wi-Fi and PR379 `817f80bb` WebCore remain separate;
+no tasks contacted or delegated. Current accepted 327a/recovery retained, prior
+trial collected, no reboot armed. Checkpoint:
+`build/air-startup-buffers-20261112/status.md`.
+
 ### Native v30: original already-disabled reset/source accepted
 
 Frozen runtime `82dd3da8`, release `327a401a69ca3855`, session
