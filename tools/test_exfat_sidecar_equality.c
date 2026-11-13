@@ -8,10 +8,17 @@
 #include "../kernel/src/fs/exfat.c"
 static uint8_t disk[65536],expected[20000];static unsigned reads,fail_read_call;static bool fail,oom,audit_owner;
 bool scheduler_io_active(void){return audit_owner;}
+static uint64_t last_sidecar[9];static unsigned sidecar_lines;
 static uint64_t emitted;static unsigned line_bytes,max_line;
 #include <stdarg.h>
 void console_printf(const char *format,...) {
  va_list args;va_start(args,format);
+ if(!strncmp(format,"exfat-sidecar: ",15)) {
+  va_list values;va_copy(values,args);
+  for(unsigned i=0;i<9;i++)last_sidecar[i]=va_arg(values,uint64_t);
+  va_end(values);sidecar_lines++;
+ }
+
  for(const char *p=format;*p;p++) {
   unsigned n=1;
   if(*p=='%'){p++;assert(*p=='u');char b[32];n=(unsigned)snprintf(b,sizeof(b),"%llu",(unsigned long long)va_arg(args,uint64_t));}
@@ -100,11 +107,22 @@ int main(void){
  sidecar_differences.shape=sidecar_differences.last_offset=UINT64_MAX;
  for(unsigned i=0;i<10;i++)sidecar_differences.field[i]=UINT64_MAX;
  struct exfat_sidecar_trace view;unsigned old_reads=reads;exfat_sidecar_snapshot(&view);
+ assert(view.retained_bytes==sidecar_stats.retained_bytes);
  assert(reads==old_reads && view.checks==UINT64_MAX && view.shape==UINT64_MAX && view.fields[9]==UINT64_MAX);
  exfat_print_sidecar_equality_at(UINT64_MAX);
  assert(!line_bytes && max_line<1024 && emitted==686);
  /* begin<=207, six leases<=732, complete<=175, wire<=112, audio<=96. */
  assert(emitted+207+732+175+112+96<=2048);
+ /* Separate retained-snapshot rendering from the original row/reserve budget. */
+ struct sidecar_equality_stats saved_stats=sidecar_stats;
+ sidecar_stats.retained_bytes++;sidecar_stats.equal++;
+ unsigned before_lines=sidecar_lines;
+ exfat_print_sidecar_trace(12345,&view);
+ assert(sidecar_lines==before_lines+1 && last_sidecar[0]==12345 && last_sidecar[2]==view.equal && last_sidecar[5]==view.retained_bytes);
+ exfat_print_sidecar_trace(67890,NULL);assert(sidecar_lines==before_lines+1);
+ sidecar_stats=saved_stats;
+
+
  /* Pointer scratch is reserved before mutation, bounded by existing node
   * limits and retained on allocation refusal without publishing media. */
  struct exfat_mount m={0};oom=true;assert(!reserve_metadata(&m,1));assert(!m.metadata_nodes && !m.metadata_buffer);

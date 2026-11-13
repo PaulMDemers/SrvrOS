@@ -14264,3 +14264,18 @@ again before merge, and contact no other task. Next checkpoint: reviewed proofs
 and targeted regressions, fresh full local qualification, exact-stage refusal
 rehearsal, protected installation, self-merge and saved one-shot automated boot
 under the user's existing explicit authorization. No reboot is armed yet.
+
+The candidate adds the strict empty-stack formatter attempt and original gated
+provider fallback. The actual registry/formatter and syscall regressions pass,
+including retired-provider refusal, short ABI copies, mapping faults, IRQ-state
+restoration and cancellation before fallback effects. Logger retention tests
+exercise immutable clocks/counters, positive growth, owner/handle boundaries,
+in-flight-I/O and active/failed/post-playback refusal, lifetime reset and unchanged
+64 KiB/cadence bounds. Replay of the previous native logs remains refused by both
+the original and shared two-live-sample checker. The ordinary/native/Q35 build
+and 46 affected process/syscall fixture links pass in development. One added
+render test initially ran before the original exact-width budget assertion;
+it now runs separately after that unchanged 686-byte/2048-byte check. The failed
+fixture log is retained, and all corrected focused fixtures pass. No native
+acceptance is claimed; frozen-source loaded/full/ordinary/exact-stage checks
+remain required before installation or reboot.

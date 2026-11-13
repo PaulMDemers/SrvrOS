@@ -88,11 +88,15 @@ void exfat_print_sidecar_equality(void);
  * in the measured interval. Paths and actual field values are never logged. */
 void exfat_print_sidecar_equality_at(uint64_t at);
 struct exfat_sidecar_trace {
-    uint64_t checks,equal,changed,refused,flush_failed,active,invalid,shape;
+    uint64_t checks,equal,changed,refused,flush_failed,active,invalid,shape,retained_bytes;
     uint64_t fields[10],last_offset;
 };
 /* Fixed CPU0 counters only; no clock, allocation, media or scheduler operation. */
 void exfat_sidecar_snapshot(struct exfat_sidecar_trace *out);
+/* Render the supplied immutable observation with its original clock; never
+ * resample counters under an old timestamp. Ordinary logger context only. */
+void exfat_print_sidecar_trace(uint64_t at,const struct exfat_sidecar_trace *s);
+void exfat_print_append_contiguity(void);
 /* Explicit diagnostic, under the existing storage owner. No authority grant.
  * Numeric field bits: inode/mode/nlink/uid/gid/atime/mtime/ctime, in that order. */
 struct exfat_metadata_audit {

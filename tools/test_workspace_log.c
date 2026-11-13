@@ -14,6 +14,21 @@ static unsigned cost_reports;
 static struct sync_timing_snapshot sync_fixture;
 static unsigned sync_headers,sync_records,sync_worst,sync_usb,sync_command,sidecar_reports;
 static unsigned global_syncs,durable_reports;
+static struct srv_pcm_status pcm_fixture={.version=SRV_PCM_VERSION};
+static uint64_t pcm_owner;
+static bool foreign_io;
+bool scheduler_io_active(void) {return depth || foreign_io;}
+static struct exfat_sidecar_trace sidecar_fixture;
+static struct {uint64_t at;struct exfat_sidecar_trace trace;} emitted_sidecars[8];
+static unsigned emitted_sidecar_count;
+void exfat_sidecar_snapshot(struct exfat_sidecar_trace *out) {*out=sidecar_fixture;}
+void exfat_print_sidecar_trace(uint64_t at,const struct exfat_sidecar_trace *s) {
+    assert(!depth);sidecar_reports++;
+    emitted_sidecars[emitted_sidecar_count%8].at=at;
+    emitted_sidecars[emitted_sidecar_count++%8].trace=*s;
+}
+void exfat_print_append_contiguity(void) {assert(!depth);}
+
 static uint64_t test_policy=20000;
 bool xhci_storage_wait_policy(uint64_t policy,uint64_t *old) { assert(depth && (policy==0||policy==4000||policy==20000));*old=test_policy;test_policy=policy;return true; }
 bool timer_reference_ready(void) { return reference; }
@@ -58,7 +73,7 @@ uint64_t bootlog_total(void) { return total; }
 uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity>=8);memcpy(out,"test log",8);*seq=total;return 8; }
 void smc_status(struct srv_smc_status *out) { assert(!depth);*out=(struct srv_smc_status){.version=SRV_SMC_VERSION}; }
 void power_status(struct power_snapshot *out) { assert(!depth);*out=(struct power_snapshot){.state=power_enabled?POWER_ACTIVE:POWER_DISABLED,.flags=3,.package_mw=10000,.active_mhz=2200}; }
-void audio_stream_snapshot(struct srv_pcm_status *out,uint64_t *owner) { assert(!depth);*out=(struct srv_pcm_status){.version=SRV_PCM_VERSION};*owner=0; }
+void audio_stream_snapshot(struct srv_pcm_status *out,uint64_t *owner) { assert(!depth);*out=pcm_fixture;*owner=pcm_owner; }
 void audio_status(struct srv_audio_status *out) { assert(!depth);device_reads++;*out=(struct srv_audio_status){.version=SRV_AUDIO_VERSION,.state=SRV_AUDIO_READY,.tests_started=2,.tests_completed=2}; }
 void thermal_status(struct srv_thermal_status *out) { assert(!depth);device_reads++;*out=(struct srv_thermal_status){.version=SRV_THERMAL_VERSION,.state=SRV_THERMAL_UNAVAILABLE}; }
 void console_printf(const char *fmt,...) {
@@ -72,7 +87,39 @@ void console_printf(const char *fmt,...) {
     total++;
 }
 void console_write(const char *text) { (void)text;total++; }
+static void test_sidecar_retention(void) {
+    assert(sizeof(snapshot)==65536);
+    sidecar_fixture=(struct exfat_sidecar_trace){.checks=10,.equal=4,.changed=6,.retained_bytes=4096};
+    pcm_fixture=(struct srv_pcm_status){.version=SRV_PCM_VERSION,.state=SRV_PCM_PLAYING,.handle=11,.position_bytes=4};pcm_owner=9;
+    clock_us=1000;
+    foreign_io=true;sidecar_checkpoint();assert(!sidecar_pcm.first.at);foreign_io=false;
+    sidecar_fixture.active=1;sidecar_checkpoint();assert(!sidecar_pcm.first.at);sidecar_fixture.active=0;
+    pcm_fixture.state=SRV_PCM_BUFFERING;sidecar_checkpoint();assert(!sidecar_pcm.first.at);
+    pcm_fixture.state=SRV_PCM_PLAYING;pcm_owner=0;sidecar_checkpoint();assert(!sidecar_pcm.first.at);pcm_owner=9;
+    pcm_fixture.position_bytes=0;sidecar_checkpoint();assert(!sidecar_pcm.first.at);pcm_fixture.position_bytes=4;
+    sidecar_checkpoint();assert(sidecar_pcm.first.at==1000 && sidecar_pcm.first.trace.equal==4 && !sidecar_pcm.last.at);
+    clock_us=2000;sidecar_checkpoint();assert(!sidecar_pcm.last.at);
+    sidecar_fixture.checks=11;sidecar_fixture.equal=5;sidecar_fixture.retained_bytes=5000;clock_us=3000;
+    sidecar_checkpoint();assert(sidecar_pcm.last.at==3000 && sidecar_pcm.last.trace.equal==5);
+    sidecar_fixture.active=1;clock_us=4000;sidecar_checkpoint();assert(sidecar_pcm.last.at==3000);sidecar_fixture.active=0;
+    sidecar_fixture.checks=12;sidecar_fixture.equal=6;sidecar_fixture.retained_bytes=6000;
+    uint64_t *bad[]={&sidecar_fixture.invalid,&sidecar_fixture.refused,&sidecar_fixture.flush_failed};
+    for(unsigned i=0;i<3;i++){*bad[i]=1;sidecar_checkpoint();assert(sidecar_pcm.last.at==3000);*bad[i]=0;}
+    sidecar_fixture.changed++;sidecar_checkpoint();assert(sidecar_pcm.last.at==3000);sidecar_fixture.changed--;
+    pcm_fixture.state=SRV_PCM_DONE;clock_us=5000;sidecar_checkpoint();assert(sidecar_pcm.last.at==3000);
+    unsigned before=emitted_sidecar_count;sidecar_history_print();assert(emitted_sidecar_count==before+2);
+    assert(emitted_sidecars[before%8].at==1000 && emitted_sidecars[before%8].trace.equal==4);
+    assert(emitted_sidecars[(before+1)%8].at==3000 && emitted_sidecars[(before+1)%8].trace.equal==5);
+    pcm_fixture.state=SRV_PCM_DRAINING;pcm_fixture.handle=12;clock_us=6000;sidecar_checkpoint();
+    assert(sidecar_pcm.first.at==6000 && !sidecar_pcm.last.at);
+    pcm_owner=8;clock_us=7000;sidecar_checkpoint();assert(sidecar_pcm.first.at==7000 && !sidecar_pcm.last.at);
+    sidecar_fixture=(struct exfat_sidecar_trace){0};pcm_fixture=(struct srv_pcm_status){.version=SRV_PCM_VERSION};pcm_owner=0;
+    clock_us=0;sidecar_reports=emitted_sidecar_count=0;
+    /* Leave a prior stream behind: the real start_log below must clear it. */
+    puts("sidecar-retention: PASS original clocks and immutable copies; incomplete/post-PCM/growth refusal; handle/owner boundaries;64KiB unchanged");
+}
 int main(void) {
+    test_sidecar_retention();
     sync_checkpoint(false);assert(!sync_headers && !sync_records && !sync_worst && !sync_usb && !sidecar_reports);
     sync_fixture.enabled=1;sync_fixture.records[0].pid=7;
     sync_checkpoint(false);assert(sync_headers==1 && sync_records==1 && !sync_worst && !sync_usb && sidecar_reports==1);
@@ -83,6 +130,7 @@ int main(void) {
     mounted=false;assert(!workspace_log_start() && !writes);mounted=true;
     capacity_ok=false;assert(!workspace_log_start() && !writes && !count && !directory[0]);capacity_ok=true;
     assert(workspace_log_start() && enabled && healthy && writes==1 && flushes==1);
+    assert(!sidecar_pcm.first.at && !sidecar_pcm.last.at && !sidecar_pcm.owner && !sidecar_pcm.handle);
     assert(!global_syncs && durable_reports==1);
     assert(device_reads==2);
     assert(previous_save.pending && previous_save.ok && previous_save.valid);

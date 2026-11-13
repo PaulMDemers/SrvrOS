@@ -40,6 +40,9 @@ int64_t net_dhcp_request(void);
 int64_t net_dns_resolve(const char *name, uint32_t *ip_out);
 int64_t net_list(uint64_t index, struct srv_net_info *info);
 int64_t net_status_info(struct srv_net_status_info *info);
+/* IF0 through proof and consumption. Complete current RAM snapshot only when
+ * no provider, initialized stack or worker exists; no allocation/callbacks. */
+bool net_status_info_try_without_device(struct srv_net_status_info *info);
 int64_t net_arp_list(uint64_t index, struct srv_arp_info *info);
 int64_t net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, uint64_t *elapsed_ticks_out);
 int64_t net_listen(uint16_t port);
