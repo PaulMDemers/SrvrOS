@@ -45,7 +45,7 @@ void scheduler_io_end(void){end_calls++;assert(0);}
 void scheduler_io_wait(void){wait_calls++;assert(0);}
 static void reset(void){
  memset(&p,0,sizeof(p));memset(mappings,0,sizeof(mappings));
- p.allocated=p.active=true;p.pid=42;p.address_space=0x2000;p.mappings=mappings;p.mapping_count=3;p.stream_instance=7;
+ p.allocated=p.active=p.detached=p.quiet=true;p.pid=42;p.address_space=0x2000;p.mappings=mappings;p.mapping_count=3;p.stream_instance=7;
  for(unsigned i=0;i<3;i++)mappings[i]=(struct process_mapping){.virtual_address=0x400000+i*4096,.physical_address=0x800000+i*4096};
  for(unsigned i=0;i<3;i++)p.files[i]=(struct process_file){.used=true,.type=PROCESS_FILE_STDIO,.handle=i};
  worker=NULL;atomic=true;stream_owned=network_owned=server_owned=surface_owned=mute_owned=bad_pte=unmap_fail=false;
@@ -58,13 +58,13 @@ int main(void){
  reset();assert(process_private_exit_admit());unmap_fail=true;
  if(!setjmp(stopped)){cleanup_process_mappings(&p);assert(0);}
  assert(!freed && p.mapping_count==3 && p.mappings==mappings && unmapped==1);
- for(unsigned reason=0;reason<13;reason++){
+ for(unsigned reason=0;reason<15;reason++){
   reset();switch(reason){
    case 0:atomic=false;break;case 1:stream_owned=true;break;case 2:network_owned=true;break;
    case 3:server_owned=true;break;case 4:surface_owned=true;break;case 5:mute_owned=true;break;
    case 6:audio_owner=p.pid;break;case 7:p.owned_user_scope=1;break;case 8:bad_pte=true;break;
    case 9:worker=&p.user_threads[0];break;case 10:p.mapping_count=4097;break;
-   case 11:p.address_space=0x1000;break;case 12:p.active=false;break;
+   case 11:p.address_space=0x1000;break;case 12:p.active=false;break;case 13:p.detached=false;break;case 14:p.quiet=false;break;
   }
   assert(!process_private_exit_admit() && !p.private_retiring && !freed && !unmapped);
  }

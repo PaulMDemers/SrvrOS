@@ -13694,3 +13694,8 @@ report writer awaiting admission from defeating a proven private child/clean
 exit, without admitting its I/O or changing the existing memory/helper gates.
 The first build/focused validation attempt was stopped before any VM/native
 launch to qualify this additional exact-park case in the final candidate.
+
+Final retirement qualification also requires the quiet detached background
+continuation used by desktop app launches. Foreground commands must restore a
+waiting parent's context and retain ordinary admission. Positive background
+return/reap and negative foreground/nonquiet retirement are covered separately.

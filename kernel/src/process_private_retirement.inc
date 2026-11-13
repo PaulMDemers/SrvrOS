@@ -44,7 +44,9 @@ refused:
 static bool process_private_exit_admit(void) {
 #if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PRIVATE_LIFECYCLE_HOST_TEST)
     uint64_t irq=process_irq_save();struct process *p=process_current();
-    if(!p || process_current_user_thread() || !scheduler_io_process_atomic(p) ||
+    /* Only background_process_thread has the audited atomic return/reap
+     * continuation. Foreground calls must restore their waiting parent. */
+    if(!p || !p->detached || !p->quiet || process_current_user_thread() || !scheduler_io_process_atomic(p) ||
        !process_private_mappings_valid(p) || p->owned_user_scope ||
        file_stream_owned(p->stream_instance) || net_process_owned(p) ||
        gui_server_is_owner(p->pid) || gui_process_surfaces_owned(p->pid) ||
