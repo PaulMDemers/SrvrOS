@@ -34,3 +34,27 @@ def sidecar_equality(blobs,require_differences=False,require_equal=True):
     if require_differences and r['snapshot_us'] not in differences:raise ValueError('Missing final sidecar difference record')
     if r['snapshot_us'] in differences:result['differences']=differences[r['snapshot_us']]
     return result
+
+
+def sidecar_equality_window(blobs,start,end):
+    """Original two-completed-live-sample requirement, including equality growth.
+
+    Re-emitted immutable snapshots retain their original sample clock; a final
+    cumulative counter or a post-playback sample never supplies a live endpoint.
+    """
+    if not __debug__:raise RuntimeError('evidence validation requires Python assertions')
+    assert 0<start<end,'Invalid live PCM interval'
+    final=sidecar_equality(blobs);rows={}
+    for blob in blobs:
+        for line in blob.splitlines():
+            if not line.startswith(b'exfat-sidecar:'):continue
+            try:r=sidecar_equality([line])
+            except ValueError:continue
+            at=r['snapshot_us']
+            if start<=at<=end:rows[at]=r
+    assert len(rows)>=2,'Need two complete equality samples during live PCM'
+    first,last=rows[min(rows)],rows[max(rows)]
+    assert last['equal']>first['equal'],'No equality growth during live PCM'
+    assert final['snapshot_us']>=end,'No completed post-playback sidecar evidence'
+    return dict(status='PASS',pcm_start_us=start,pcm_end_us=end,first=first,last=last,
+                equal_delta=last['equal']-first['equal'],final=final)

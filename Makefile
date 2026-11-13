@@ -3286,7 +3286,7 @@ test-core: test-workspace-log
 test-workspace-log: build/tests/workspace-log-host$(HOST_EXE) build/tests/bootlog-host$(HOST_EXE)
 	build/tests/workspace-log-host$(HOST_EXE)
 	build/tests/bootlog-host$(HOST_EXE)
-build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/bootlog.h kernel/include/srvros/power.h kernel/include/srvros/workspace_log.h kernel/include/srvros/audio.h kernel/include/srvros/thermal.h shared/include/srvros/audio_abi.h shared/include/srvros/thermal_abi.h
+build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/bootlog.h kernel/include/srvros/power.h kernel/include/srvros/workspace_log.h kernel/include/srvros/audio.h kernel/include/srvros/thermal.h kernel/include/srvros/exfat.h shared/include/srvros/audio_stream_abi.h shared/include/srvros/audio_abi.h shared/include/srvros/thermal_abi.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
 build/tests/bootlog-host$(HOST_EXE): tools/test_bootlog.c kernel/src/bootlog.c kernel/include/srvros/bootlog.h
@@ -6861,3 +6861,11 @@ build/tests/desk-launch-owner-host$(HOST_EXE): tools/test_desk_launch_owner.c us
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< -o $@
 test-core test-desktop: test-desk-launch-owner
 build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ) $(DESKCLIENT_OBJ): userspace/lib/include/srvros/desk_launch_owner.h
+
+.PHONY: test-net-empty-snapshot
+test-core: test-net-empty-snapshot
+test-net-empty-snapshot: build/tests/net-empty-snapshot-host$(HOST_EXE)
+	$<
+build/tests/net-empty-snapshot-host$(HOST_EXE): tools/test_net_empty_snapshot.c kernel/src/net.c kernel/src/net_device.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@

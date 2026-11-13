@@ -70,6 +70,7 @@ bool net_device_select(void) {
     return selected!=NULL;
 }
 const char *net_device_name(void) { return selected?selected->name:"none"; }
+bool net_device_registry_empty(void) { return !provider_count && !selected; }
 const uint8_t *net_device_mac(void) { return selected?selected->mac:NULL; }
 bool net_device_selected_is(const struct net_device_ops *identity) {
     if (!identity || !identity->send) return false;

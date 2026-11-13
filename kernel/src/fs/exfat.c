@@ -4651,24 +4651,29 @@ void exfat_sidecar_snapshot(struct exfat_sidecar_trace *out) {
     *out=(struct exfat_sidecar_trace){.checks=sidecar_stats.checks,.equal=sidecar_stats.equal,
         .changed=sidecar_stats.changed,.refused=sidecar_stats.refused,
         .flush_failed=sidecar_stats.flush_failed,.active=sidecar_stats.active,.invalid=sidecar_stats.invalid,
-        .shape=sidecar_differences.shape,.last_offset=sidecar_differences.last_offset};
+        .shape=sidecar_differences.shape,.last_offset=sidecar_differences.last_offset,
+        .retained_bytes=sidecar_stats.retained_bytes};
     for(unsigned i=0;i<10;i++)out->fields[i]=sidecar_differences.field[i];
     fs_irq_restore(irq);
 }
 void exfat_print_sidecar_equality_at(uint64_t at) {
-    uint64_t irq=fs_irq_save();struct sidecar_equality_stats sidecar=sidecar_stats;
-    struct sidecar_difference_stats diff=sidecar_differences;
-    fs_irq_restore(irq);
-    if(!sidecar.checks && !sidecar.invalid)return;
+    struct exfat_sidecar_trace s;exfat_sidecar_snapshot(&s);
+    exfat_print_sidecar_trace(at,&s);
+}
+void exfat_print_sidecar_trace(uint64_t at,const struct exfat_sidecar_trace *s) {
+    if(!s || (!s->checks && !s->invalid))return;
     console_printf("exfat-sidecar: version=1 snapshot_us=%u checks=%u equal=%u changed=%u refused=%u retained_bytes=%u flush_failed=%u active=%u invalid=%u\n",
-        at,sidecar.checks,sidecar.equal,sidecar.changed,sidecar.refused,
-        sidecar.retained_bytes,sidecar.flush_failed,sidecar.active,sidecar.invalid);
+        at,s->checks,s->equal,s->changed,s->refused,
+        s->retained_bytes,s->flush_failed,s->active,s->invalid);
     console_printf("exfat-sidecar-diff: version=1 snapshot_us=%u shape=%u path=%u inode=%u mode=%u nlink=%u uid=%u gid=%u atime=%u mtime=%u ctime=%u format=%u last_offset=%u\n",
-        at,diff.shape,diff.field[0],diff.field[1],diff.field[2],diff.field[3],diff.field[4],diff.field[5],diff.field[6],diff.field[7],diff.field[8],diff.field[9],diff.last_offset);
+        at,s->shape,s->fields[0],s->fields[1],s->fields[2],s->fields[3],s->fields[4],s->fields[5],s->fields[6],s->fields[7],s->fields[8],s->fields[9],s->last_offset);
 }
 
 void exfat_print_sidecar_equality(void) {
     exfat_print_sidecar_equality_at(timer_monotonic_us());
+    exfat_print_append_contiguity();
+}
+void exfat_print_append_contiguity(void) {
     uint64_t irq=fs_irq_save();struct contiguous_append_stats appends=contiguous_appends;fs_irq_restore(irq);
     console_printf("exfat-append-contiguous: version=1 snapshot_us=%u local_complete=%u links_avoided=%u prefix_bytes=%u invalid=%u\n",
         timer_monotonic_us(),appends.local_complete,appends.links_avoided,appends.prefix_bytes,appends.invalid);

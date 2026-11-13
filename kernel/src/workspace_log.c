@@ -43,6 +43,43 @@ static void unlock(uint64_t flags) {
     if(flags&(1ull<<9)) __asm__ volatile("sti":::"memory");
 #endif
 }
+/* Two completed observations, not a larger log or a replacement for the
+ * validator's live-PCM clocks. Reset for each logger lifetime/PCM identity. */
+static struct {
+    uint64_t owner,handle;
+    struct { uint64_t at;struct exfat_sidecar_trace trace; } first,last;
+} sidecar_pcm;
+static void sidecar_checkpoint(void) {
+    struct exfat_sidecar_trace s;struct srv_pcm_status pcm;uint64_t owner;
+    uint64_t flags=lock(),at=timer_monotonic_us();
+    exfat_sidecar_snapshot(&s);audio_stream_snapshot(&pcm,&owner);
+    bool complete=!scheduler_io_active() && s.checks && s.equal && s.retained_bytes>=s.equal &&
+        !s.active && !s.invalid && !s.refused && !s.flush_failed &&
+        s.equal<=s.checks && s.changed==s.checks-s.equal;
+    bool live=pcm.version==SRV_PCM_VERSION && owner && pcm.handle &&
+        (pcm.state==SRV_PCM_PLAYING || pcm.state==SRV_PCM_DRAINING) && pcm.position_bytes;
+    if(live && complete && at) {
+        if(sidecar_pcm.owner!=owner || sidecar_pcm.handle!=pcm.handle) {
+            sidecar_pcm.owner=owner;sidecar_pcm.handle=pcm.handle;
+            sidecar_pcm.first.at=sidecar_pcm.last.at=0;
+        }
+        if(!sidecar_pcm.first.at) {
+            sidecar_pcm.first.at=at;sidecar_pcm.first.trace=s;
+        } else if(at>sidecar_pcm.first.at && s.equal>sidecar_pcm.first.trace.equal &&
+                  s.checks>=sidecar_pcm.first.trace.checks) {
+            sidecar_pcm.last.at=at;sidecar_pcm.last.trace=s;
+        }
+    }
+    unlock(flags);
+    exfat_print_sidecar_trace(at,&s);exfat_print_append_contiguity();
+}
+static void sidecar_history_print(void) {
+    /* Called by the same joined logger, after the verbose final diagnostics.
+     * Original timestamps and complete counter/difference copies survive the
+     * two rotating files; post-playback samples never replace these endpoints. */
+    if(sidecar_pcm.first.at)exfat_print_sidecar_trace(sidecar_pcm.first.at,&sidecar_pcm.first.trace);
+    if(sidecar_pcm.last.at)exfat_print_sidecar_trace(sidecar_pcm.last.at,&sidecar_pcm.last.trace);
+}
 static unsigned copy(char *out,const char *text) { unsigned n=0;while(text[n]) { out[n]=text[n];n++; }out[n]=0;return n; }
 static void hex(char *out,uint64_t v,unsigned digits) { for(unsigned i=0;i<digits;i++) out[i]="0123456789abcdef"[(v>>(4*(digits-1-i)))&15];out[digits]=0; }
 static bool directory_exists(const char *p) { const struct vfs_node *n=vfs_lookup(p);return n && n->type==VFS_NODE_DIRECTORY; }
@@ -264,7 +301,7 @@ static void report_commit_wait(uint64_t at,const struct commit_wait_snapshot *s)
 }
 static void sync_checkpoint(bool final) {
     struct sync_timing_snapshot s;sync_timing_snapshot(&s);if(!s.enabled)return;
-    exfat_print_sidecar_equality();
+    sidecar_checkpoint();
     uint64_t at=timer_monotonic_us();
     console_printf("sync-snapshot: version=1 snapshot_us=%u enabled=%u active=%u invalid=%u dropped=%u final=%u\n",at,s.enabled,s.active,s.invalid,s.dropped,(uint64_t)final);
     for(unsigned i=0;i<SYNC_TIMING_RECORDS;i++) {
@@ -302,6 +339,7 @@ static bool save(const char *name) {
     capture_write_checkpoint(name[0]=='e' && name[1]=='x' && name[2]=='i' && name[3]=='t' && name[4]=='.');
     device_checkpoint();
     if(name[0]=='e' && name[1]=='x' && name[2]=='i' && name[3]=='t' && name[4]=='.')scheduler_print_launch_trace();
+    if(name[0]=='e' && name[1]=='x' && name[2]=='i' && name[3]=='t' && name[4]=='.')sidecar_history_print();
     uint64_t snapshot_us=timer_monotonic_us();
     console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=%u\n",name,snapshot_us,bootlog_total(),snapshot_limit);
     uint64_t total,count=bootlog_snapshot(snapshot,snapshot_limit,&total),flags;
@@ -407,7 +445,9 @@ static bool start(uint64_t limit,bool retain) {
     if(!ok || !created) { console_write("workspace-log: cannot create session directory\n");return false; }
     console_printf("workspace-log: directory=%s periodic_seconds=10\n",directory);
     uint64_t capture_start=timer_ticks();
-    retain_checkpoints=retain;checkpoint=0;ecam_saved=window_saved=false;healthy=save("boot.log");
+    retain_checkpoints=retain;checkpoint=0;ecam_saved=window_saved=false;
+    sidecar_pcm.owner=sidecar_pcm.handle=sidecar_pcm.first.at=sidecar_pcm.last.at=0;
+    healthy=save("boot.log");
     if(!healthy) return false;
     if(!started) started=scheduler_spawn("workspace-log",worker,NULL);
     enabled=started;due=periodic_deadline(capture_start,timer_ticks());scheduler_wake_all(&wake);
