@@ -35,7 +35,7 @@ def firmware_result(text):
    from intel_nonzero_source import source_recipe
    if len(source_boot)!=1:raise ValueError('firmware source recipe coverage')
    source_recipe(source_boot[0])
-  if wakes and wakes[0].startswith('intel-wake-summary: v=29 ','intel-wake-summary: v=30 '):
+  if wakes and wakes[0].startswith('intel-wake-summary: v=29 '):
    boots=[l.split('boot options=',1)[1] for l in text.splitlines() if l.startswith('laptop-capture: boot options=')]
    from intel_nonzero_source import source_recipe
    if len(boots)!=1:raise ValueError('firmware source recipe coverage')

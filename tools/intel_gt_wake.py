@@ -195,7 +195,7 @@ def native_wake_result(text):
   paired=paired_result(text)
   if not paired or not paired['complete']:raise ValueError('HDA BCS source/preservation')
   native_hda_context(text)
- if r['summary']['v'] in (28,29):
+ if r['summary']['v'] in (28,29,30):
   from intel_nonzero_reset import nonzero_result
   from intel_joint import native_hda_context
   if r['summary']['v']==30:

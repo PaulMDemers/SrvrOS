@@ -65,6 +65,16 @@ class Startup(unittest.TestCase):
    for n in range(15):
     for bad in (' '.join(ts[:n]+ts[n+1:]),cmd+' '+ts[n]):
      with self.assertRaises(ValueError):startup_recipe(bad)
+ def test_metadata_binds_exact_image_and_refuses_model_native_acceptance(self):
+  from intel_gt_firmware import firmware_result
+  from intel_display_backing import backing_result
+  from intel_startup_source import native_startup_result
+  for t in self.texts:
+   self.assertIsNotNone(firmware_result(t));self.assertIsNotNone(backing_result(t))
+   for bad in (t.replace('startup-source-v1','nonzero-source-v1'),t.replace('startup-source-v1','nonzero-reset-v1')):
+    for fn in (firmware_result,backing_result,startup_result):
+     with self.assertRaises(ValueError):fn(bad)
+   with self.assertRaises(ValueError):native_startup_result(t)
  def test_route_wire_and_epoch_cannot_be_spliced(self):
   for t in self.texts:
    line=next(l for l in t.splitlines() if l.startswith('intel-startup-route:'))
