@@ -2,6 +2,24 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
+### Active scope: source-bound GPU interval transfer
+
+Integrate actual main `e6ca1a94` / PR488 as `88e2bb65` before a new source
+freeze. Air7,2 owns the original-source transfer/reservation bridge: original
+RAM holds, source/provider/epoch, exact one-page candidate/original vector and
+CPU exclusion remain registered through transfer admission, live checks and
+close. Capture a separate immutable receipt and retain source/RAM/root on
+uncertain owner return. The existing private buffers stay full-sized. The
+source-bound owner must not turn an observed/populated entry into availability
+or supply positive hardware assurances. Native remains refused without actual
+firmware/DMA/cache/reader witnesses; host positive-provider paths are models.
+Keep the accepted v31 image/recipe and original 100/300/400/500 ms limits intact.
+Exit: actual-core fault qualification, separate image/parser/collector, exact
+VM refusal/persistence and a bounded native ownership-lifetime trial ready.
+No new reboot is armed. PR19 MT7610 and PR379 WebCore remain separate; no other
+task was contacted or delegated. Prior c154 evidence is already collected and
+independently banked; it is not authority for a later live owner.
+
 ### Native v31 original-source private buffers accepted
 
 Runtime `876b500e`, staged source `7c3a7531`, release `c154f8b4a6534d11`,
