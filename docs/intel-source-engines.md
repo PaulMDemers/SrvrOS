@@ -35,7 +35,10 @@ the full closing hardware guard before source/RAM/root return.
 Every target access retains original source/map/requester/clock admission.
 The final store also checks phase, step, target index, sample/ack/write counts,
 issued prefix, child completion and fresh control admission after its final
-clock, using pure checks only. Provider callbacks and result objects are sealed
+clock, using pure checks only. Each phase retains an independently captured
+start across callbacks; completed raw profiles and final read/poll bookkeeping
+must remain exact. Closed one-use receipts cannot be restarted or mutated by
+a later deadline call. Provider callbacks and result objects are sealed
 to their originals. Copies, re-entry, changed callbacks, lost registration,
 partial reads, reserved/floating controls, source loss, expired/stalled clocks,
 unknown stores and failed children retain the ownership chain. There is no
@@ -81,11 +84,21 @@ state. Full completion requires the complete enclosing native requester,
 transfer/source/RAM/reset/HDA/outer chain and its closing hardware guard.
 A completed engine suboperation with a failed outer guard remains incomplete.
 
-Implementation is under local qualification. Both actual-adapter modeled
-routes and delayed acknowledgements complete, but fatal fault/control, full
-image/object/frame/log and exact-stage VM/media/recovery checks must pass before
-a hardware-ready label. The [unit checkpoint](machines/macbookair7-2.md#active-integration-and-source-bound-engine-hold-work)
-records progress. Native v34 timing/behavior is unaccepted; no new physical
-trial is armed. Eventual automated tests show progress and save/unmount/return
-on safe outcomes at volume1%; unknown ownership halts visibly. Use the
-[Ubuntu workflow](ubuntu-device-agent-setup.md) and keep accepted recovery.
+Frozen source `4fd81b45` / release `90dfc6ca035e19f7` is **hardware-ready**:
+39-image host/core, 117 staging/rollback tests, 12 fatal sanitizer adapter tests,
+RAM-hold sanitizers, six compiled weakness controls, 12 historical raw replays,
+native object/linked store and seven 2 KiB frame checks pass. All 40 saved-tail
+projections fit (worst 65,364 / 65,536 bytes including 1,536 reserve + 1,024 header).
+Exact-stage EFI/MBR VM persistence/refusal/unmount/return and missing-workspace
+halt pass. Both interrupted gates stay nonpasses; the corrected frozen source
+has its own full passing gate. Installed-root testing was explicitly omitted
+because installer core is unchanged; baseline-known injected exFAT repair gaps
+remain documented.
+
+The immutable payload and complete proof bank survive build cleanup. The
+[unit checkpoint](machines/macbookair7-2.md#active-integration-and-source-bound-engine-hold-work)
+records recovery, media integrity and exact scope. The candidate is uninstalled
+and unarmed. Native v34 timing/behavior and all managed memory/tear-free grants
+remain unaccepted. Automated trials need no human input, show progress and
+save/unmount/return on safe outcomes at volume 1%; unknown ownership halts visibly.
+Use the [Ubuntu workflow](ubuntu-device-agent-setup.md) and keep accepted recovery.

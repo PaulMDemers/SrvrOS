@@ -1001,12 +1001,16 @@ PR19 MT7610 and PR379 WebCore remain independent; no cross-task messages or
 subagents were requested.
 
 
-Air7,2 has integrated main0e3e86ae after complete v33 collection, with targeted
-network/syscall/logging/sidecar and actual requester fault regressions passing.
-Its next bounded scope is the separate [v34 original-source engine hold](intel-source-engines.md),
-a child beneath the actual inhibited requester/source/RAM/root registration.
-Five documented readiness requests, held child, reverse cancellation and exact
-restoration add control lifetime only; no reset or memory/completion grant.
-Old images and100/300/400/500ms origins stay fixed. Host/model qualification is
-in progress; accepted native runtime remains a7c84ce5, no new hardware trial is
-armed. PR19/379 remain independent; no cross-task messaging or delegation.
+Air7,2 integrated main `0e3e86ae` after complete v33 collection. Its separate
+[v34 original-source engine hold](intel-source-engines.md), frozen `4fd81b45` /
+release `90dfc6ca035e19f7`, is hardware-ready after full 39-image/core, fatal sanitizer,
+compiled fault controls, 12 historical raw replays, native object/log/frame and
+exact-stage VM/media/recovery checks. It maintains five readiness requests
+inside the actual inhibited requester and restores exact controls before parent
+return. Immutable phase starts/completed profiles and final-clock admissions
+remain mandatory; 100/300/400/500 ms origins and 10 ms/256-poll caps did not change.
+Two interrupted gates remain nonpasses; corrected-source qualification is separate.
+No memory/reset/submission/display or DMA/cache/reader completion grant follows.
+Payload/proofs are independently banked; candidate is uninstalled/unarmed and
+native acceptance remains a7c84ce5 for v33 only. PR19/379 remain independent;
+no cross-task messaging or delegation. See the unit record before physical work.

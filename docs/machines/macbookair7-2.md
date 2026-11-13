@@ -4,58 +4,63 @@ Updated: 2026-11-13. State: **active reference machine; partial device acceptanc
 
 ### Active integration and source-bound engine-hold work
 
-The Air7,2 agent is integrating main `0e3e86ae` (PR492 status/sample retention
-and PR493 Air6,1 result) on this existing device branch after complete v33
-collection. The Makefile merge retains the requester and empty-network tests;
-the machine index retains this unit's evidence and the Air6,1 agent's newer
-independent result. Native acceptance remains exactly source `a7c84ce5`.
+The separate [v34 original-source engine hold](../intel-source-engines.md) is
+**ready for an automated hardware trial** on frozen source `4fd81b45` /
+release `90dfc6ca035e19f7`, after integrating main `0e3e86ae` (PR492/493).
+The exact payload and qualification evidence are banked independently of build
+cleanup. It is uninstalled and unarmed; native v34 remains unaccepted.
+The v33 native result below remains specific to runtime `a7c84ce5`.
 
-Next bounded objective: a separately gated [original-source engine-control
-lifetime](../intel-source-engines.md) inside the maintained PCI requester child. Audit the documented
-five-engine RESET_CTL readiness handshake, retain original source/route/epoch,
-RAM/root/CPU exclusion, exercise a child only while all five requests are held,
-and restore exact controls before requester/source return. This fills the
-currently unheld engine-control interval; it must not reinterpret ready bits,
-PCI BME/AF status or snapshots as DMA/prefetch/cache/translation/display-reader
-completion. All 255 completion obligations and native memory refusal remain.
+The new original registration holds all five RESET_CTL readiness requests during
+its child inside the inhibited requester, then cancels in reverse order and
+compares exact original controls before returning. Source/route/epoch, both
+private RAM holds, root and CPU exclusion remain live. Immutable phase starts,
+completed raw profiles and final-clock admission gate stores; changed phase/count/
+completion fields, uncertain issuance or failed callbacks retain ownership.
+Requester restoration additionally requires the original child return history.
+Full opening/closing hardware checks and all 100/300/400/500 ms origins and
+10 ms/256-poll phase caps remain unchanged. No GDRST/PTE/submission/display
+operation or managed GPU-memory/completion grant is added. All 255 obligations,
+zero assurances and zero managed GPU pages remain.
 
-Touched scope is a new typed diagnostic/adapter/receiver and host fixtures,
-optional image/recipe/pre-init wiring and current guides. Old protocols/images,
-ordinary desktop and 100/300/400/500 ms origins stay unchanged. Dependencies are
-the original source/RAM/transfer/requester registrations, exact captured
-Air7,2 profile and pinned Broadwell readiness documentation. Host/core/fault,
-actual-object and exact-stage VM qualification precede a hardware-ready label.
-PR19 MT7610 and PR379 WebCore remain independent; no task was contacted or
-subagent requested. Local checkpoint: `build/air-source-engine-hold-20261113`.
-Current accepted v33/recovery and USB evidence stay untouched; no trial is armed.
+Frozen-source local qualification passes:
 
-The v34 implementation now builds its native image and both modeled routes,
-including delayed acknowledgements. The initial 11-test actual-adapter matrix
-passes (312.168 s). Review then added requester-child registration invariants
-and final-clock lost-return tests; four directed route/native-collection/raw/
-parent-return tests pass after that correction. All 117 installer/staging/
-rollback tests and 1,572 local documentation links pass. A collector shared-wake
-version dispatch and older-stage precedence regression were caught and corrected;
-failed attempts remain local evidence. Full corrected-source 12-test/fatal
-sanitizer/control/image/object/frame/log/VM qualification remains required.
-No native v34 acceptance or hardware-ready label follows yet.
-The first frozen-source full gate was intentionally interrupted to move the
-new raw/summary report after parent receipts, keeping a failure's cause/clock
-visible near the halt screen without adding bytes or changing operations.
-Its partial results remain nonpassing. A preliminary 35-mode saved-tail
-projection fits at65,364/65,536 bytes including1,536reserve+1,024header; final
-source-matched projection and full qualification still must pass. Read-only
-preflight verifies all1,503files/157sessions, current/recovery banks, unchanged
-boot digest, AC and Ubuntu default/no one-shot.
+- Full host/core/USB/docs gate and 39 ELF images (2,627.52 s). Installer-root
+  integration is explicitly omitted because installer core is unchanged and
+  recovery is retained; 117 staging/installer/rollback profile tests pass separately.
+- Twelve actual-adapter tests under fatal ASan/UBSan, plus RAM-hold sanitizers,
+  both modeled routes, every-clock identity/count/completion faults, all ten
+  final-store phase/origin/profile boundaries, delayed/stalled ACKs, unknown
+  already-issued stores, closing failures and strict synthetic native collection.
+- Six compiled weakness controls, 12 unchanged historical native classifications,
+  39-image isolation, actual native/linked DWORD and PCI-halfword admissions,
+  unchanged 14 GPU aliases and seven 2 KiB frame checks.
+- 40 saved-tail projections, worst 65,364 / 65,536 bytes including 1,536 reserve
+  and 1,024 header/runtime margin. Exact staged EFI/MBR VM refusal, immutable recipe/
+  parser/pre-init provenance, persistence/unmount/automatic return and missing
+  workspace halt pass. VM evidence supplies no native acceptance.
 
-A second qualification run was intentionally interrupted after review found
-that a callback could change the recorded phase start before the final clock
-check. The driver now captures that start independently, preserves it through
-every callback, and checks completed raw profiles before stores and final return.
-New clock faults cover phase-origin/count changes and false completion flags;
-closed one-use receipts stay immutable. Four directed route/final-store/parent/
-collector tests pass after correction. Both interrupted gates remain nonpasses;
-a fresh frozen-source full qualification is required, with all deadlines intact.
+Two interrupted full gates remain nonpasses: report placement was corrected
+first, then review found and fixed mutable phase-origin/profile admission.
+The corrected source passed the full fresh gate. Existing injected exFAT repair
+cases retain their explicit baseline-known gaps; no universal repair claim.
+
+Fresh host/media/recovery checks preserve all 1,503 files / 157 sessions, boot digest,
+Ubuntu default and no one-shot; offline fsck/allocation/writable/headroom pass.
+Current accepted v33 `6f8fea336425b123`, accepted v32 `8d0181c0ed0a4708`, recovery
+`9aa8dbf6fbda8252`, GUI/joint/HDA remain installed. The unreferenced v31 EFI
+duplicate alone was retired after full payload/native-manifest/reference checks;
+its exact independent payload and native evidence remain banked. Older 327a/
+562d/451c/d260 also remain bank-only. EFI retains candidate space plus 32 MiB.
+Seven inactive historical VM/audio artifacts were archived losslessly with a
+persistent hash ledger, recovering roughly 900 MiB; no accepted bank was removed.
+
+Next is the exact automated native trial: no human input, volume 1%, visible
+progress and save/unmount/return on safe outcomes; unknown ownership halts.
+Native timing/behavior, internal DMA/prefetch/cache/translation/display-reader
+ownership and tear-free remain open. PR19/379 remain independent; no task was
+contacted and no subagent used. PR301 and the local checkpoint
+`build/air-source-engine-hold-20261113` record this bounded scope.
 
 ### Native v33 maintained requester lifetime accepted
 

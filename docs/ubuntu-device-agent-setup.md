@@ -1600,7 +1600,9 @@ firmware request, exact15-token recipe/pre-init and `intel_source_engines`
 receiver prevent older receipts from accepting the new lifetime. All five
 readiness requests remain held during its child, then reverse cancellation and
 requester restoration precede the full closing guard. All deadlines and native
-memory refusal remain. Local qualification is in progress; do not install until
-the exact unit checkpoint says hardware-ready. Automated trials need no human
-input, show progress, save/unmount and return on safe outcomes at volume1%;
+memory refusal remain. Air7,2 source `4fd81b45` / release `90dfc6ca035e19f7` is
+hardware-ready after 39-image/core/fatal-fault/object/log/exact-stage VM and media/
+recovery qualification. Its independently banked payload remains uninstalled
+and unarmed; use the exact unit checkpoint before install. Automated trials need
+no human input, show progress, save/unmount and return on safe outcomes at volume 1%;
 unknown ownership halts visibly. Native v34 remains unaccepted.

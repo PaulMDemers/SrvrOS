@@ -132,8 +132,12 @@ remain unaccepted. The [unit result](macbookair7-2.md#native-v33-maintained-requ
 records the exact boundary and next ownership work.
 
 
-Air7,2 is implementing a separate [v34 source-bound five-engine readiness hold](../intel-source-engines.md)
-beneath its maintained requester, after integrating main0e3e86ae. This adds no
-reset/PTE/submission/display operation or completion grant. The exact native
-v33 pass stays source-specific; host/model v34 work is not hardware acceptance.
-No new reboot is armed.
+Air7,2 now has a hardware-ready [v34 source-bound five-engine readiness hold](../intel-source-engines.md)
+on frozen source `4fd81b45` / release `90dfc6ca035e19f7`, with main `0e3e86ae`
+integrated. Full 39-image/core, fatal sanitizer/fault/control/replay/object/log
+and exact-stage VM/media/recovery checks pass. This adds a maintained child
+inside its inhibited requester, with reverse cancellation and exact return;
+no GDRST/PTE/submission/display operation or completion grant. Payload/proofs
+are banked, candidate uninstalled/unarmed, native v34 and tear-free unaccepted.
+The [unit checkpoint](macbookair7-2.md#active-integration-and-source-bound-engine-hold-work)
+records the exact boundary, preserved 1,503 files / 157 sessions and recovery.
