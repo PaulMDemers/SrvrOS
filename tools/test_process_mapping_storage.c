@@ -39,6 +39,11 @@ bool vmm_unmap_page_in_space(uint64_t root,uint64_t va,uint64_t *out) {
  assert(root==7 && image.mapping_count);struct process_mapping *last=&image.mappings[image.mapping_count-1];
  assert(last->virtual_address==va);*out=last->physical_address;return true;
 }
+bool vmm_virt_to_phys_in_space(uint64_t root,uint64_t va,uint64_t *out) {
+ assert(root==7);int64_t i=process_mapping_index(&image,va);
+ if(i<0)return false;
+ *out=image.mappings[i].physical_address;return true;
+}
 void console_printf(const char *s,...){(void)s;}
 int main(void) {
  assert(PROCESS_MAX_MAPPINGS==65536 && PROCESS_MAX_PROCESSES==64);
@@ -61,7 +66,7 @@ int main(void) {
  move_process_image(&image,&other);cleanup_process_mappings(&image);
  assert(!image.mappings && !image.mapping_count && retired==65536 && frees==2);
  attempts=allocations;assert(!map_process_page_mode(&image,0x1000,VMM_PAGE_USER,false) && allocations==attempts && !image.mappings);
- assert(map_process_page(&image,0x1000,VMM_PAGE_USER));cleanup_process_mappings(&image);
+ assert(map_process_page(&image,0x1000,VMM_PAGE_USER));image.private_retiring=true;cleanup_process_mappings(&image);
  assert(frees==3);cleanup_process_mappings(&image);assert(frees==3);
  puts("process-mapping-storage PASS: deferred full capacity, private zeroing, failure before page publication, 65536 entries, atomic exec transfer, cleanup and reuse");
 }

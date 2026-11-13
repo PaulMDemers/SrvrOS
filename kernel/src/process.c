@@ -917,10 +917,11 @@ static bool process_stream_cleanup(uint64_t owner) {
 #elif defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
     return file_stream_cleanup(owner);
 #else
-    if(!file_stream_owned(owner))return true;
+    uint64_t irq=process_irq_save();
+    if(!file_stream_owned(owner)) {process_irq_restore(irq);return true;}
     struct process_service_scope scope=process_service_begin();
-    if(!scope.held) { process_service_end(scope);return false; }
-    bool okay=file_stream_cleanup(owner);process_service_end(scope);return okay;
+    if(!scope.held) { process_service_end(scope);process_irq_restore(irq);return false; }
+    bool okay=file_stream_cleanup(owner);process_service_end(scope);process_irq_restore(irq);return okay;
 #endif
 }
 static void process_service_checkpoint(void) {

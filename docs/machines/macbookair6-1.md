@@ -13721,3 +13721,16 @@ the boot capture; an overrun skips missed periods and retains a full idle period
 without queued catch-up writes. Tail/file/checkpoint caps, workload, all record
 requirements, deadlines, write/readback/flush and ownership checks are unchanged.
 Delayed-write/overrun/failure regressions and fresh full qualification are required.
+
+The stream absence check is IRQ-protected through its admission transition, with
+both enabled/disabled caller-state and nonempty-stream refusal coverage. The
+full-capacity mapping fixture also covers the checked private teardown seam.
+A development sweep now links all 46 lifecycle/scheduler/syscall host fixtures;
+their runtime assertions and the fresh full suite remain required.
+
+Integration refresh remains `f61b40eb`. PR19 at `9d1d92b4` has independent extended
+Wi-Fi capture/phase controls in the logger, but leaves the periodic worker's
+cadence unchanged; those larger capture limits and profile APIs are not consumed
+here. Preserve both start/phase-control semantics when integrating that branch.
+PR301 at `ad1b1110` has no additional common runtime overlap after the previously
+reviewed owner-loss changes. No other device's acceptance is inherited.
