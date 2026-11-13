@@ -103,6 +103,7 @@ def main():
     parser.add_argument('--accel',choices=('tcg','kvm'),default='tcg')
     parser.add_argument('--air72',action='store_true',help='use Air7,2 synthetic ownership fixture; stages infer their own profile')
     parser.add_argument('--populated-home',action='store_true',help='Exercise Files startup with 64 existing Home files')
+    parser.add_argument('--require-control-timing',action='store_true',help='Require same-worst-loop control regions, inner calls and complete scheduler companions')
     parser.add_argument('--require-live-sidecar-window',action='store_true',help='Require two completed equality snapshots with growth during actual PCM and a completed post-playback sample')
     parser.add_argument('--metadata-files',type=int,default=0,help='Add up to4000 preserved empty archive files to exercise a large metadata sidecar')
     parser.add_argument('--write-iops',type=int,default=0,help='Limit disposable VM USB write IOPS without pacing the guest workload')
@@ -110,7 +111,7 @@ def main():
     args=parser.parse_args()
     if args.write_iops<0 or args.read_iops<0 or not 0<=args.metadata_files<=4000 or (args.stage and (args.populated_home or args.write_iops or args.read_iops or args.metadata_files)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out=out.with_name(out.name+'-air72') if args.air72 else out;out.mkdir(parents=True,exist_ok=True)
-    for name in ('launch-gate-trace.json','result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','render-attribution.json','automatic-screenshot.png','automatic-screenshot.bmp','disk.receipt','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json','capture-write-timing.json','append-wait.json','commit-wait.json','commit-command.json','sync-timing.json','capture-history.json','capture-transfer.json','sync-content.json','sync-commands.json','sync-command-phases.json','sidecar-equality.json','sidecar-window.json','append-contiguity.json','battery-protocol.json','binary-evidence-error.txt'):
+    for name in ('launch-gate-trace.json','result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','render-attribution.json','automatic-screenshot.png','automatic-screenshot.bmp','disk.receipt','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json','capture-write-timing.json','append-wait.json','commit-wait.json','commit-command.json','sync-timing.json','capture-history.json','capture-transfer.json','sync-content.json','sync-commands.json','sync-command-phases.json','sidecar-equality.json','sidecar-window.json','control-timing.json','append-contiguity.json','battery-protocol.json','binary-evidence-error.txt'):
         (out/name).unlink(missing_ok=True)
     for pattern in ('saved-*.log','checkpoint-*.log'):
         for old in out.glob(pattern):old.unlink()
@@ -299,6 +300,9 @@ def main():
                     services=file_service_receipts([bytes(output),*snapshots],{row['pid']:row['role'] for row in timing if row['role'] in (1,2)})
                     (out/'file-service.json').write_text(json.dumps(services,indent=2)+'\n')
                     worst=validate_loop_timing(snapshots,int(lifecycle[2]))
+                    if args.require_control_timing:
+                        from control_timing import validate_control_timing
+                        (out/'control-timing.json').write_text(json.dumps(validate_control_timing(snapshots,int(lifecycle[2])),indent=2)+'\n')
                     assert worst['version']==2, 'Missing wait/scheduler diagnostic companions'
                     (out/'loop-timing.json').write_text(json.dumps(worst,indent=2)+'\n')
                     attribution=validate_render_timing(snapshots,int(lifecycle[2]))
@@ -374,6 +378,7 @@ def main():
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
                 (out/'allocation.log').write_text(allocation);(out/'overlap.json').write_text(json.dumps(overlap,indent=2)+'\n')
                 result=dict(status='PASS',accelerator=args.accel,stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,observed_overlap_windows=len(overlap),input_injected=False,automatic_return=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False,model='MacBookAir7,2' if air72 else 'MacBookAir6,1')
+                result['control_timing']='VALID' if args.require_control_timing and not stage else 'native_profile_refusal_only' if args.require_control_timing else 'not_required'
                 result['live_sidecar_window']='VALID' if args.require_live_sidecar_window and not stage else 'native_profile_refusal_only' if args.require_live_sidecar_window else 'not_required'
                 result['launch_gate_trace']='VALID' if args.require_launch_gate_trace and not stage else 'native_profile_refusal_only' if args.require_launch_gate_trace else 'not_required'
                 result.update(app_timing_evidence=timing_evidence,retained_checkpoints=len(checkpoints),populated_home=args.populated_home,write_iops=args.write_iops,read_iops=args.read_iops,prior_files_preserved=len(prior)+len(archive),metadata_files=args.metadata_files)

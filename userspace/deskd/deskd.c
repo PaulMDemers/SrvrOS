@@ -72,6 +72,39 @@ static int stress_volume_request(void) {
 static struct desk_clipboard_store clipboard;
 #define DESK_INPUT_BATCH 8
 
+static void control_trace_report(const struct loop_record *w,unsigned final) {
+    const struct loop_control_record *c=&w->control;char text[1024];int length;
+#define U(v) (unsigned long long)(v)
+#define EMIT_CONTROL() do { if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);else srv_puts("desktop-loop-control: invalid=record-overflow\n"); }while(0)
+    uint64_t flags=c->due|(c->state_checked<<1)|(c->snapshot_called<<2)|(c->submit_called<<3)|
+        (c->accepted<<4)|(c->audio_enabled<<5)|(c->finished_before<<6)|(c->finished_after<<7)|
+        (c->wait_called<<8)|(c->notice_called<<9)|(c->io_enabled<<10);
+    /* Relative inner clocks and fixed positional scheduler vectors save log
+     * bytes, not evidence. Flags distinguish uncalled from zero-duration work. */
+    int valid=control_record_complete(c);
+    const uint64_t bits[]={c->due,c->state_checked,c->snapshot_called,c->submit_called,c->accepted,c->audio_enabled,c->finished_before,c->finished_after,c->wait_called,c->notice_called,c->io_enabled};
+    for(unsigned i=0;i<sizeof(bits)/sizeof(bits[0]);i++)if(bits[i]>1)valid=0;
+    uint64_t base=c->at[0];
+    const uint64_t pairs[][3]={{c->snapshot_called,c->snapshot_begin,c->snapshot_end},{c->submit_called,c->submit_begin,c->submit_end},{c->wait_called,c->wait_begin,c->wait_end},{c->notice_called,c->notice_begin,c->notice_end}};
+    for(unsigned i=0;i<4;i++)if(pairs[i][0]?(pairs[i][1]<base || pairs[i][2]<pairs[i][1]):(pairs[i][1] || pairs[i][2]))valid=0;
+#define OFFSET(v) ((v)>=base?(v)-base:0)
+    if((c->snapshot_called && c->snapshot_begin<base) || (c->submit_called && c->submit_begin<base) ||
+       (c->wait_called && c->wait_begin<base) || (c->notice_called && c->notice_begin<base))valid=0;
+    length=snprintf(text,sizeof(text),"desktop-loop-control: seq=%llu version=1 valid=%u base_us=%llu edges=%llu,%llu,%llu,%llu flags=%llu state=%llu snapshot=%llu,%llu submit=%llu,%llu wait=%llu,%llu notice=%llu,%llu child=%llu,%llu waited=%llu wait_flags=%llu result=%lld final=%u\n",
+        U(w->sequence),valid,U(base),U(OFFSET(c->at[1])),U(OFFSET(c->at[2])),U(OFFSET(c->at[3])),U(OFFSET(c->at[4])),U(flags),U(c->report_state),
+        U(c->snapshot_called?OFFSET(c->snapshot_begin):0),U(c->snapshot_called?OFFSET(c->snapshot_end):0),
+        U(c->submit_called?OFFSET(c->submit_begin):0),U(c->submit_called?OFFSET(c->submit_end):0),
+        U(c->wait_called?OFFSET(c->wait_begin):0),U(c->wait_called?OFFSET(c->wait_end):0),
+        U(c->notice_called?OFFSET(c->notice_begin):0),U(c->notice_called?OFFSET(c->notice_end):0),U(c->child_before),U(c->child_after),U(c->wait_pid),U(c->wait_flags),(long long)c->wait_result,final);EMIT_CONTROL();
+#undef OFFSET
+    for(unsigned region=0;region<CONTROL_REGIONS;region++) {
+        const struct srv_sched_trace *q=&c->scheduler[region];
+        length=snprintf(text,sizeof(text),"desktop-loop-control-sched: seq=%llu version=1 region=%u data=%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu final=%u\n",
+            U(w->sequence),region,U(q->version),U(q->start_us),U(q->end_us),U(q->start_tick),U(q->end_tick),U(q->blocked_us),U(q->ready_us),U(q->blocks),U(q->signals),U(q->timeouts),U(q->dispatches),U(q->exclusions),U(q->invalid),U(q->max_ready_us),U(q->wake_us),U(q->run_us),U(q->wake_tick),U(q->deadline_tick),U(q->reason),U(q->ready_exclusions),U(q->late_ticks),final);EMIT_CONTROL();
+    }
+#undef EMIT_CONTROL
+#undef U
+}
 static void loop_trace_report(const struct loop_trace *,unsigned);
 static void life_launch_log(int application,int64_t pid,uint64_t elapsed) {
     desk_log("desktop-launch: app=%d pid=%lld exec_us=%llu async=yes\n",
@@ -255,6 +288,33 @@ static uint64_t loop_sample(uint64_t *last,uint64_t *maximum,uint64_t now) {
 static void loop_trace_stamp(struct loop_trace *t,unsigned stage) {
     if(t->active)loop_trace_mark(t,stage,(uint64_t)srv_monotonic_us());
 }
+/* Control traces are disjoint on the UI thread. The report worker owns its
+ * separate immutable copy; no emission, allocation or admission changes here. */
+static void control_region_begin(struct loop_trace *t,unsigned region) {
+    if(!t->active)return;
+    struct loop_control_record *r=&t->current.control;
+    control_record_mark(r,region+1,(uint64_t)srv_monotonic_us());
+    if(!r->valid)return;
+    if(srv_sched_trace(SRV_SCHED_TRACE_BEGIN,&r->scheduler[region]))r->valid=0;
+    else r->tracing|=1ull<<region;
+}
+static void control_region_end(struct loop_trace *t,unsigned region) {
+    if(!t->active || !(t->current.control.tracing&(1ull<<region)))return;
+    t->current.control.tracing&=~(1ull<<region);
+    if(srv_sched_trace(SRV_SCHED_TRACE_END,&t->current.control.scheduler[region]))t->current.control.valid=0;
+}
+static void control_trace_abort(struct loop_trace *t) {
+    if(!t->active || !t->current.control.tracing)return;
+    t->current.control.valid=0;
+    for(unsigned region=0;region<CONTROL_REGIONS;region++)control_region_end(t,region);
+}
+static void control_messages_begin(struct loop_trace *t) {
+    if(!t->active)return;
+    control_region_end(t,CONTROL_IO);
+    uint64_t now=(uint64_t)srv_monotonic_us();
+    control_record_mark(&t->current.control,4,now);
+    loop_trace_mark(t,LOOP_MESSAGES,now);
+}
 static void render_scheduler_report(const char *kind,uint64_t sequence,const struct srv_sched_trace *q,unsigned final) {
     char text[1024];
     int length=snprintf(text,sizeof(text),"desktop-loop-%s-sched: seq=%llu version=%llu start_us=%llu end_us=%llu start_tick=%llu end_tick=%llu blocked_us=%llu ready_us=%llu blocks=%llu signals=%llu timeouts=%llu dispatches=%llu exclusions=%llu invalid=%llu max_ready_us=%llu wake_us=%llu run_us=%llu wake_tick=%llu deadline_tick=%llu reason=%llu ready_exclusions=%llu late_ticks=%llu final=%u\n",
@@ -328,6 +388,7 @@ static void loop_trace_report(const struct loop_trace *t,unsigned final) {
     if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
     else srv_puts("desktop-loop-sched: invalid=record-overflow\n");
     render_trace_report(w,final);
+    control_trace_report(w,final);
 }
 static int window_lifetime_valid(const struct session *s,int i,uint64_t identity) {
     return i>=0 && i<session_capacity(s) && session_client(s,i)->pid &&
@@ -2478,11 +2539,25 @@ int main(int argc,char **argv) {
             uint64_t gap=loop_sample(&loop_last,&loop_max,loop_now);
             loop_trace_end(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
             loop_trace_begin(&loop_trace,loop_now,life_cycles,life_pid,life_phase);
-            if(loop_now-loop_report_at>=10000000 && life_state(&worker.report_state)==LIFE_IDLE) {
+            struct loop_control_record *c=&loop_trace.current.control;
+            control_record_begin(c,loop_now);control_region_begin(&loop_trace,CONTROL_REPORT);
+            c->due=loop_now-loop_report_at>=10000000;
+            if(c->due) {c->state_checked=1;c->report_state=life_state(&worker.report_state);}
+            if(c->due && c->report_state==LIFE_IDLE) {
+                c->snapshot_called=1;c->snapshot_begin=(uint64_t)srv_monotonic_us();
                 struct operation_trace operations=operation_snapshot(&s,loop_now);
-                if(life_report_submit(&worker,&loop_trace,&operations))loop_report_at=loop_now;
+                c->snapshot_end=(uint64_t)srv_monotonic_us();
+                c->submit_called=1;c->submit_begin=(uint64_t)srv_monotonic_us();
+                int accepted=life_report_submit(&worker,&loop_trace,&operations);
+                c->submit_end=(uint64_t)srv_monotonic_us();c->accepted=!!accepted;
+                if(accepted)loop_report_at=loop_now;
             }
             if(gap>500000)desk_log("desktop-loop: gap_us=%llu phase=%u\n",(unsigned long long)gap,life_phase);
+        }
+        if(loop_trace.active) {
+            control_region_end(&loop_trace,CONTROL_REPORT);control_region_begin(&loop_trace,CONTROL_AUDIO);
+            struct loop_control_record *c=&loop_trace.current.control;
+            c->audio_enabled=!!audio_io;c->finished_before=!!audio_io_finished;c->child_before=audio_io_pid;
         }
         if(audio_io && !audio_io_finished) {
             uint64_t now=(uint64_t)srv_monotonic_us();
@@ -2501,7 +2576,10 @@ int main(int argc,char **argv) {
                     /* Lifecycle fixture launches actual apps after playback starts. */
                 } else if(now-audio_io_begin>15000000) {failed=1;break;}
             } else {
+                struct loop_control_record *c=&loop_trace.current.control;
+                if(loop_trace.active) {c->wait_called=1;c->wait_pid=audio_io_pid;c->wait_flags=SRV_WAIT_NOHANG;c->wait_begin=(uint64_t)srv_monotonic_us();}
                 uint64_t status=1;long done=srv_wait(audio_io_pid,&status,SRV_WAIT_NOHANG);
+                if(loop_trace.active) {c->wait_end=(uint64_t)srv_monotonic_us();c->wait_result=done;}
                 if(done==(long)audio_io_pid) {
                     audio_io_complete=status==0;audio_io_finished=1;audio_io_pid=0;failed=!audio_io_complete;
 
@@ -2513,13 +2591,21 @@ int main(int argc,char **argv) {
                 if(now-audio_io_begin>((uint64_t)audio_io_seconds+90)*1000000){failed=1;break;}
             }
             if(!audio_io_finished && now-audio_io_notice>=1000000) {
+                if(loop_trace.active) {loop_trace.current.control.notice_called=1;loop_trace.current.control.notice_begin=(uint64_t)srv_monotonic_us();}
                 audio_io_notice=now;
                 snprintf(s.scene.notice,sizeof(s.scene.notice),audio_io_attended?"Audio + USB: %llu / %u sec. Follow Help checklist; save before leaving.":"Audio + USB + apps: %llu / %u sec. Listen only; automatic return.",(unsigned long long)((now-audio_io_begin)/1000000),audio_io_seconds);
                 desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height});
+                if(loop_trace.active)loop_trace.current.control.notice_end=(uint64_t)srv_monotonic_us();
             }
         }
+        if(loop_trace.active) {
+            struct loop_control_record *c=&loop_trace.current.control;
+            c->finished_after=!!audio_io_finished;c->child_after=audio_io_pid;
+            control_region_end(&loop_trace,CONTROL_AUDIO);control_region_begin(&loop_trace,CONTROL_IO);
+            c->io_enabled=!!s.io.enabled;
+        }
         io_trial_loop_begin(&s.io);
-        loop_trace_stamp(&loop_trace,LOOP_MESSAGES);
+        control_messages_begin(&loop_trace);
         uint64_t message_begin=(uint64_t)srv_monotonic_us();
         for (int n=0;n<32;n++) {
             struct desk_packet p; uint64_t pid=0;
@@ -3375,6 +3461,7 @@ int main(int argc,char **argv) {
             if(wait->scheduler.invalid)loop_trace.invalid++;
         }
     }
+    control_trace_abort(&loop_trace);
     if(present_lease) {
         if(gfx_present_end()!=0) { ui_puts("deskd: gfx-present end failed\n");failed=1; }
         else desk_log("deskd: gfx-present end\n");

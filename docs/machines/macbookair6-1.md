@@ -10,20 +10,21 @@ limit. This accepts the isolated diagnostic history, not current register
 access, register writes, root-table walking or device ownership. See the dated
 native result below.
 
-Latest desktop return: the [small launch-owner trial](#native-small-launch-owner-return-2026-11-13)
-completes the original 30-minute 1% audio/disk/app/three-screenshot workload on
-release `00460b3ddba044cf`, with 1,310 app cycles, 3,855 verified disk bursts,
-zero recorded underruns, 120.026 ms maximum loop and clean ownership/retirement.
-The full diagnostic contract remains **incomplete**: only one of the required
-two completed sidecar-equality samples survives within live playback. No
-requirement was waived. All prior files and allocation checks pass. The launch
-owner records 1,311 launches/final reaps, zero errors and no mapping refusals;
-no completed exec admission wait of at least 100 ms is recorded. Startup still
-reaches 4.587 s, with a directly joined 4.500 s network-status admission wait;
-close reaches 4.721 s and screenshots take 8.35/23.44/10.46 s. These remain
-performance work, with no general latency cure claimed. The earlier fully
-accepted diagnostic return on release `7acb756c0ac5f4bb` remains historical
-independent evidence, rather than supplying this run's missing live samples.
+Latest desktop return: the [network-status and sample-retention trial](#native-network-status-and-sample-retention-return-2026-11-13)
+on release `772f95d189e4dcfc` / source `07b4efa7` passes the full original
+30-minute 1% audio/disk/app/three-screenshot workload and diagnostic contract.
+It completes 1,328 app cycles and 3,845 verified disk bursts, with zero recorded
+underruns and clean retirement. Both required completed live sidecar-equality
+samples survive in the final 64 KiB log alone, with equality growth of 3,165.
+The empty stack reports valid status during load; no long network-status wait
+is retained. Observed ready/close maxima are 0.941/1.470 s, versus 4.587/4.721 s
+in the preceding run. Captures take 7.32/6.59/6.93 s. These are distinct-boot
+observations, not an isolated causal speed claim or a general latency cure.
+The worst loop is 419.979 ms within the unchanged 500 ms limit, with 411.886 ms
+in its control phase; its internal operation remains unproved. Screenshot WRITE
+and verification costs also remain. All prior files and allocation checks pass.
+The preceding source `7a118678` retains its historical diagnostic-incomplete
+result; the new run supplies its own complete proof.
 
 Latest isolated storage checkpoint: release `998fdfb9b4f9c5a8` completes the
 [native sidecar remount trial](#native-sidecar-remount-return-2026-11-12).
@@ -88,7 +89,7 @@ Air7,2/Pro11,2 firmware. These require independent profiles, not a model rename.
 | Boot/display | Console and full native desktop exercised at 1366×768 | Broader layout and extended-session coverage |
 | Keyboard | Typing, Up/Down, Backspace and Enter accepted | Explicit Caps Lock/repeat and broader input coverage pending |
 | Trackpad/gestures | Exact PID0290 profile; bounded pointer/drag/scroll, primary tap, typing suppression and study feedback accepted | Bounded app coexistence exercised; secondary tap, broad-contact rejection and long sessions pending |
-| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest 30-minute automated audio/app/screenshot workload passes 3,855 verified disk bursts, 1,310 app cycles and three captures with preserved prior files and clean allocation; full diagnostic acceptance remains incomplete because only one required live sidecar-equality sample survives | Latest screenshot-inclusive run stays within the unchanged 500 ms loop limit (120.026 ms maximum); fresh-media verification and independent capture progress pass native stress, with corruption fault cases covered on host; screenshot completion remains slow; broader interactive/endurance coverage, failure handling and hotplug remain open |
+| USB workspace | File saves/navigation, 60-round concurrent workload and rerun refusal accepted; latest source `07b4efa7` passes the full 30-minute audio/app/three-screenshot workload and diagnostic contract with 3,845 verified disk bursts, 1,328 app cycles, both completed live equality endpoints, intact prior files and clean allocation | Maximum loop 419.979 ms within the original 500 ms limit; ready/close 0.941/1.470 s and captures 6.59–7.32 s. The 411.886 ms control interval lacks internal attribution; screenshot WRITE/verification costs, broader interactive/endurance coverage, failure handling and hotplug remain open |
 | Sound/routes | User-confirmed headphone/speaker operation, manual route changes and Stop/recovery; 30-minute playback during automated disk/app work completed with zero underruns and user-confirmed steady sound | Route changes during the long run, jack disconnect and detailed channel/isolation observations not separately recorded |
 | Brightness | Exact-gated read-only capture and visible 5–100% adjustment accepted | Broader endurance; no reboot persistence claim |
 | Temperature/fan | Basic native read-only CPU/one-fan display and freshness accepted | Longer desktop/file/audio coexistence; Pause/Refresh/reopen observations |
@@ -14333,3 +14334,168 @@ current/recovery/accepted/comparison/quiet/failed188 payloads remain installed.
 Fresh installed/staged/independent hashes, Ubuntu default, empty one-shot and
 unchanged firmware order pass. The automatic collector is installed; the new
 run is ready and unarmed until its exact qualified code is self-merged and sealed.
+
+
+## Native network-status and sample-retention return (2026-11-13)
+
+The matching session for release `772f95d189e4dcfc`, compiled from `07b4efa7`
+and integrated by [PR492](https://github.com/PaulMDemers/SrvrOS/pull/492), passes
+independent review of the **full original workload and diagnostic contract**.
+Original automatic PASS, raw matching logs, binary/text receipts, exact images
+and fresh integrity checks are retained. This return review changes only
+results documentation and local evidence state; no new runtime, stage, install
+or physical trial starts here. All original limits and integrity checks remain.
+
+The original 1,800-second test at 1% completes 1,328 app cycles and 3,845 verified
+256 KiB disk bursts (1,007,943,680 bytes), with a matching binary disk receipt,
+345,731,072 PCM bytes, zero recorded underruns and zero worker status. All three
+screenshots finish and retire during live PCM; a final app follow-up succeeds
+before normal desktop exit. The launcher records 1,329 launches/final reaps,
+zero errors and empty retirement. Battery ownership/controls, runtime, cache,
+capture workers and diagnostic companions retire cleanly, with no battery heap,
+errors or denied operations. Audibility is unassessed at 1%; the earlier separate
+short listening check remains independent history.
+
+The complete saved window proof has samples at 12.739766 and 1802.041408 seconds
+within the actual 7.489902–1808.172656-second live PCM interval. Their equality
+counts grow from 15 to 3,180, a delta of 3,165. The final completed snapshot is
+after playback. **The final 64 KiB log alone proves both endpoints and growth**;
+rotated middle files and final cumulative counts are not used as substitutes.
+This physically accepts bounded immutable retention with the original two-file,
+64 KiB, ten-second cadence and two-completed-live-sample conditions. The preceding
+run's missing endpoint remains missing and its old assessment stays incomplete.
+
+Boot reports no supported provider and no network worker. Retained System status
+refreshes during live load are valid with initialized=0, preserving actual RAM
+fields rather than fabricating an unavailable response. No network-status gate
+wait is retained in the bounded general wait records. Those rows are not a
+complete per-query wait counter; positive saved refreshes plus the source-bound
+empty-stack proof establish the scoped native behavior. Registered/retired
+provider, callback and cancellation fallback coverage remains host/VM evidence,
+not new native networking acceptance.
+
+The valid launch trace records 1,332 raw entries/decisions, 1,207 private handled
+results, no parent/mapping/image-bound refusals, zero invalid records and no
+completed exec admission wait of at least 100 ms. One retained append reservation
+wait is 389.002 ms. Original ready/close maxima are now 0.940837/1.470150 s,
+compared with 4.586727/4.720533 s in the preceding workload. These cold boots
+have different media/interleaving and cannot establish an isolated causal speed
+improvement. The original ten-second whole-app bound stays unchanged.
+
+All 51,282 loop samples are valid, with zero excursions over the unchanged
+500 ms bound. The worst loop is 419.979 ms at the third capture, with 411.886 ms
+charged to control, 1.446 ms to render and 4.739 ms to waiting; measured scheduler
+ready time in that wait is 4.652 ms. The control bracket contains periodic report
+handoff and the nonblocking audio-child wait, but no retained operation clock
+identifies the internal cause. Do not substitute an unrelated gate maximum or
+call the whole interval rendering, wake-up delay or disk-device time. This is
+the next bounded attribution target, without changing the limit.
+
+Capture lifetimes are 7.316496/6.586876/6.929357 s; WRITE is
+3.774660/3.376451/4.195739 s and temporary verification is
+0.491762/0.257854/0.272053 s. Capture-worker retirement follows completion by
+22.366/73.631/89.415 ms. The largest of the two retained final cleanup snapshots
+is 69.388 ms; this is not a global per-capture cleanup maximum, because the
+`slowest` group belongs to the longest overall capture. All pending/worker state
+clears. Captures are faster than the prior 8.35/23.44/10.46-second observations,
+but long WRITE/verification and reservation costs remain performance work.
+
+Fresh read-only full-file hashing, fsck and allocation traversal pass: all 934
+prior paths and 933 non-sidecar hashes remain identical, with only expected
+`.srvros/meta` changed. The nine new files are four matching logs, three exact
+1366×768 BMPs and two workload receipts. The volume contains 943 files/215
+directories/5,039 allocated clusters, zero leaks, FAT/bitmap mismatches or errors.
+Installed/current/staged/independent payloads and recovery proofs pass. Ubuntu
+remains default, the one-shot is consumed, the collector is disabled and USB
+unmounted. Current stays this trial and recovery stays `c35475f62f154f1e`; no
+recovery promotion or new reboot is armed. Reviewed evidence is sealed outside
+build.
+
+Fetched main is `6d107ae1`; PR19 `26e25ced`, PR301 `c75328eb` and PR379
+`817f80bb` remain separate scopes. Next should be per-operation attribution
+inside the retained control interval, especially report handoff and nonblocking
+child-wait admission, alongside the remaining screenshot write costs. The cause
+is not yet proved, and this review implements no speculative fix or new test run.
+
+## Active desktop control-phase attribution (2026-11-13)
+
+From fetched main `0e3e86ae`, trace the internally unattributed 411.886 ms control
+interval in the prior accepted native 419.979 ms worst loop. The previous run is
+fully reviewed and sealed, current `772f95d189e4dcfc` and recovery
+`c35475f62f154f1e` are protected, and no reboot is armed.
+
+Bounded scope: fixed current/worst-loop control records with disjoint report,
+audio-control and I/O-trial wall/scheduler intervals, inner snapshot/submission/
+nonblocking-child-wait/notice clocks and explicit execution/result fields; emit
+from the existing report worker and preserve exact sequence/clock joins through
+rotation and final logging. Add strict producer/parser/retention regressions and
+require the new companion in loaded and native stress assessment. No timing,
+queue, row, log, cadence, workload, ownership or integrity limit changes; no
+speculative optimization. The original 1800-second 1% workload, 500 ms loop,
+ten-second whole-app cycle and all media/retirement checks remain required.
+
+PR19 `04b7b381` changes only separate Wi-Fi trial setup in deskd, not this loop
+bracket. PR301 `0abd2338` has no competing edits in the loop sources; its large
+Makefile scope stays independent. PR379 `817f80bb` owns WebCore audit. Publish
+this scope before implementation; inspect actual heads again before merging,
+import no unmerged scope and contact no other task. Next checkpoint is reviewed
+bounded instrumentation and failure/sequence/row-budget regressions, then frozen
+matched builds, local tests, loaded/exact-stage rehearsals, guarded installation,
+self-merge and a saved/sealed one-shot automated native boot under the user's
+existing explicit authorization. Native attribution awaits matching new evidence.
+
+
+### Control-phase trace qualification and ready native trial (PR494)
+
+Frozen source `fb8247d5` adds a fixed same-worst-loop control companion,
+with reporting/snapshot/handoff, audio-child nonblocking wait/notice and I/O
+bookkeeping clocks, explicit execution/result fields and full disjoint scheduler
+vectors. Compact versioned records retain all fields within the original atomic
+row and 64 KiB log caps. Original loop stages, 500 ms/ten-second bounds, cadence,
+workload, ownership and integrity checks remain unchanged. See the
+[wire and validation contract](../desktop-control-timing.md).
+
+Actual C producer, immutable async handoff, shorter-loop retention, failed-BEGIN
+foreign-trace isolation, owned-END/abort failure and malformed/overflow/sequence/
+clock/NOHANG/parser regressions pass. Late-session four-row output fits under
+1 KiB and each full-width row fits the existing 1024-byte buffer. Matched
+ordinary/native/Q35 builds, symbol/isolation checks, affected fixture links and
+the fresh complete core/desktop/documentation suite pass. Existing explicitly
+reported optional exhaustive-I/O skip and baseline append-repair/allocation
+coverage gaps remain visible; no new power-loss acceptance is claimed.
+
+The loaded KVM guest passes 25 app cycles and 166 verified
+256 KiB disk bursts over 60 seconds at 1%, one exact screenshot, zero recorded
+underruns and 339.336 ms maximum loop. All original saved
+contracts pass independently, with 26 launcher launches/reaps,
+zero errors, both live sidecar endpoints and growth 116.
+The same-worst-loop control companion passes saved-only and final-log-only
+replay, alongside original final lifecycle/file-service receipts. Its control
+phases conserve the original interval. This VM does not attribute the previous
+native 411.886 ms stall or establish a native improvement. Ordinary syscall,
+network ABI, CLI/editing, UEFI USB input, display, USB-storage/screenshot guests
+and exact native-stage foreign-profile refusal pass. Profile-switch construction
+is unchanged and not claimed as newly exercised.
+
+Release `bfe6ca6ff45fe078` is installed for the unchanged fully automated
+1800-second 1% audio/disk/app/three-screenshot workload and original 60-second
+audio tail. The guest displays progress, saves results and returns automatically;
+no human input is needed. Matching native collection requires all original
+contracts plus full control attribution and final-log-only replay. Heavy metadata
+audit and optional power/ownership probes stay off. All 943
+prior USB paths/hashes are preserved except explicitly renewing 1% expiry;
+read-only fsck, allocation/headroom/write admission and installed/staged/
+independent recovery hashes pass. Ubuntu stays default; previously accepted
+`772f95d189e4dcfc` remains installed. Recovery `c35475f62f154f1e` and known-good
+stress payload `7acb756c0ac5f4bb` stay protected. Only obsolete
+`00460b3ddba044cf`'s unreferenced EFI duplicate was retired after full
+stage/payload/file-hash and firmware/GRUB reference verification. Its stage,
+independent payload and historical trial evidence remain retained.
+
+PR19/301/379 remain independent, no unmerged scope is imported and Actions stay
+disabled. Self-merge and sealed one-shot launch follow under existing explicit
+authorization. Physical attribution and acceptance await the matching return;
+a missing completion marker or timing companion is incomplete evidence.
+
+Latest pre-merge scope inspection: PR379 `817f80bb`, PR301 `3432e008`, PR19
+`95236e01`. Their actual loop/setup diffs remain independent.

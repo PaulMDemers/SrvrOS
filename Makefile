@@ -6885,3 +6885,8 @@ build/tests/dhcp-identity5-host$(HOST_EXE): tools/test_dhcp_identity5.c kernel/i
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
 test-wifi-dhcp-identity5-log: build/tests/xhci-http-reconnect5-host$(HOST_EXE)
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_dhcp_identity5_log.py
+.PHONY: test-control-timing
+test-core test-desktop: test-control-timing
+test-control-timing: build/tests/desktop-session-host$(HOST_EXE)
+	$(PYTHON) tools/test_control_timing.py
+build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ): userspace/deskd/control_timing.h

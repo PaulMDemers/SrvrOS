@@ -253,3 +253,12 @@ completed post-playback snapshot. PCM-state observations select candidates; only
 the independent workload clocks establish temporal acceptance. Missing coverage
 still fails. Final cumulative counters, old releases and post-playback samples
 cannot supply a missing live endpoint.
+
+
+Air6,1 source `07b4efa7` / release `772f95d189e4dcfc` physically accepts this
+retention in the original native 30-minute stress workload: the final 64 KiB
+log alone contains both completed live endpoints and equality growth of 3,165,
+followed by completed post-playback evidence. Fresh full-file hashes, fsck and
+allocation checks pass. The earlier incomplete run remains incomplete; its
+missing sample is not supplied retroactively. No buffer, cadence, workload,
+retirement or integrity limit changes. See the [native return](machines/macbookair6-1.md#native-network-status-and-sample-retention-return-2026-11-13).

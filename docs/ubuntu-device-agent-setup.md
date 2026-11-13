@@ -1903,3 +1903,12 @@ same exact-stage, recovery, preflight, one-shot and matching collection sequence
 The [comparison contract](storage-only-comparison.md) defines the fields, strict
 receipt bounds and private-directory END fallback. This does not change v1/v2
 recipes, ordinary metadata restoration, power policy or limits.
+
+### Desktop control-phase attribution
+
+For the explicit audio/disk/app stress profile, see
+[the control timing contract](desktop-control-timing.md). Qualification and native
+review require the same worst-loop companion with all three scheduler vectors
+in saved workspace logs. Compact records preserve the existing row and 64 KiB
+log caps; missing final workload or control evidence is incomplete, never repaired
+from interleaved serial output. All original limits and integrity checks apply.

@@ -1159,6 +1159,81 @@ static void display_transaction_tests(void) {
     now=1;
     puts("desktop-display: PASS mode admission, transaction ownership, cancellation, keep, timeout and disconnect rollback");
 }
+static int control_api_active,control_api_fail_begin,control_api_fail_end;
+static unsigned control_api_ends;
+long srv_sched_trace(unsigned operation,struct srv_sched_trace *out) {
+    if(operation==SRV_SCHED_TRACE_BEGIN) {
+        if(control_api_fail_begin || control_api_active)return -1;
+        control_api_active=1;*out=(struct srv_sched_trace){.version=1,.start_us=now*10000};return 0;
+    }
+    assert(operation==SRV_SCHED_TRACE_END);control_api_ends++;
+    if(control_api_fail_end || !control_api_active)return -1;
+    control_api_active=0;out->end_us=now*10000;return 0;
+}
+static void control_producer_tests(void) {
+    struct loop_trace t={0};loop_trace_begin(&t,100,1,2,2);control_record_begin(&t.current.control,100);
+    control_api_active=1;unsigned ends=control_api_ends;
+    control_region_begin(&t,CONTROL_REPORT);assert(!t.current.control.valid && !t.current.control.tracing);
+    control_region_end(&t,CONTROL_REPORT);assert(control_api_active && control_api_ends==ends);
+    control_api_active=0;
+    memset(&t,0,sizeof(t));loop_trace_begin(&t,100,1,2,2);control_record_begin(&t.current.control,100);
+    control_region_begin(&t,CONTROL_REPORT);assert(control_api_active && t.current.control.tracing==1);
+    control_api_fail_end=1;control_region_end(&t,CONTROL_REPORT);assert(!t.current.control.valid);
+    control_api_fail_end=control_api_active=0;
+    memset(&t,0,sizeof(t));loop_trace_begin(&t,100,1,2,2);control_record_begin(&t.current.control,100);
+    control_region_begin(&t,CONTROL_REPORT);assert(control_api_active);
+    control_trace_abort(&t);assert(!control_api_active && !t.current.control.tracing && !t.current.control.valid);
+    struct loop_control_record c;control_record_begin(&c,100);control_record_mark(&c,1,99);assert(!c.valid);
+    control_record_begin(&c,100);control_record_mark(&c,2,101);assert(!c.valid);
+    control_record_begin(&c,100);
+    for(unsigned i=1;i<5;i++)control_record_mark(&c,i,100+i);
+    assert(control_record_complete(&c));c.tracing=1;assert(!control_record_complete(&c));
+}
+static void control_shift_scheduler(struct srv_sched_trace *q,uint64_t shift) {
+    q->start_us+=shift;q->end_us+=shift;
+    if(q->wake_us)q->wake_us+=shift;
+    if(q->run_us)q->run_us+=shift;
+    q->start_tick+=200000;q->end_tick+=200000;
+    if(q->wake_tick)q->wake_tick+=200000;
+    if(q->deadline_tick)q->deadline_tick+=200000;
+}
+static int control_proof_fixture(int wide) {
+    control_producer_tests();
+    struct loop_trace t={0};loop_trace_begin(&t,100,4,13,2);
+    struct loop_control_record *c=&t.current.control;control_record_begin(c,100);
+    control_record_mark(c,1,200);control_record_mark(c,2,1200);control_record_mark(c,3,411200);control_record_mark(c,4,411986);
+    c->due=c->state_checked=c->snapshot_called=c->submit_called=c->accepted=1;
+    c->snapshot_begin=250;c->snapshot_end=450;c->submit_begin=500;c->submit_end=800;
+    c->audio_enabled=c->wait_called=c->notice_called=1;c->child_before=c->child_after=c->wait_pid=8;c->wait_flags=SRV_WAIT_NOHANG;
+    c->wait_begin=1500;c->wait_end=410900;c->notice_begin=410950;c->notice_end=411000;
+    c->scheduler[CONTROL_REPORT]=(struct srv_sched_trace){.version=1,.start_us=210,.end_us=1190};
+    c->scheduler[CONTROL_AUDIO]=(struct srv_sched_trace){.version=1,.start_us=1210,.end_us=411190,.end_tick=42,.blocked_us=120000,.ready_us=280000,.blocks=1,.signals=1,.dispatches=1,.max_ready_us=280000,.wake_us=130000,.run_us=410000,.wake_tick=13,.reason=1};
+    c->scheduler[CONTROL_IO]=(struct srv_sched_trace){.version=1,.start_us=411210,.end_us=411976,.end_tick=42};
+    assert(control_record_complete(c));loop_trace_mark(&t,LOOP_MESSAGES,411986);loop_trace_mark(&t,LOOP_WAIT,411986);
+    t.current.wait=(struct loop_wait_record){.valid=1,.begin=411996,.sleep_begin=412016,.sleep_end=420019,.end=420039,
+        .scheduler={.version=1,.start_us=412006,.end_us=420029,.end_tick=43,.blocked_us=1000,.ready_us=1000,.blocks=1,.signals=1,.dispatches=1,.max_ready_us=1000,.wake_us=414000,.run_us=415000,.wake_tick=41,.reason=1}};
+    loop_trace_end(&t,420079,4,13,3);
+    struct loop_control_record saved=t.worst.control;
+    struct lifecycle_worker worker={0};struct operation_trace operations={0};
+    assert(life_report_submit(&worker,&t,&operations));
+    loop_trace_begin(&t,500000,5,14,1);t.current.control.wait_begin=123;loop_trace_end(&t,500100,5,14,2);
+    assert(!memcmp(&t.worst.control,&saved,sizeof(saved)) && !memcmp(&worker.report.worst.control,&saved,sizeof(saved)));
+    t.worst.control.wait_result=-99;assert(worker.report.worst.control.wait_result==0);t.worst.control=saved;
+    if(wide==2) {
+        uint64_t shift=2000000000ull;t.worst.start+=shift;t.worst.end+=shift;
+        t.worst.sequence=50000;t.samples=50001;
+        for(unsigned i=0;i<5;i++)t.worst.control.at[i]+=shift;
+        uint64_t *clocks[]={&t.worst.control.snapshot_begin,&t.worst.control.snapshot_end,&t.worst.control.submit_begin,&t.worst.control.submit_end,&t.worst.control.wait_begin,&t.worst.control.wait_end,&t.worst.control.notice_begin,&t.worst.control.notice_end,&t.worst.wait.begin,&t.worst.wait.end,&t.worst.wait.sleep_begin,&t.worst.wait.sleep_end};
+        for(unsigned i=0;i<sizeof(clocks)/sizeof(clocks[0]);i++)*clocks[i]+=shift;
+        for(unsigned i=0;i<CONTROL_REGIONS;i++)control_shift_scheduler(&t.worst.control.scheduler[i],shift);
+        control_shift_scheduler(&t.worst.wait.scheduler,shift);loop_trace_report(&t,1);
+    } else if(wide) {
+        memset(&t.worst.control,255,sizeof(t.worst.control));t.worst.sequence=UINT64_MAX;
+        t.worst.control.next=5;t.worst.control.tracing=0;t.worst.control.wait_result=INT64_MIN;
+        control_trace_report(&t.worst,1);
+    } else loop_trace_report(&t,1);
+    return 0;
+}
 static int render_proof_fixture(void) {
     struct loop_trace t={0};loop_trace_begin(&t,100,4,13,3);
     loop_trace_mark(&t,LOOP_RENDER,1100);
@@ -1219,6 +1294,9 @@ int main(int argc,char **argv) {
         }
         capture_loop_log=0;capture_history_report(&h,500,strcmp(argv[1],"--capture-transfer-periodic-fixture")!=0);return 0;
     }
+    if(argc==2 && !strcmp(argv[1],"--control-proof"))return control_proof_fixture(0);
+    if(argc==2 && !strcmp(argv[1],"--control-late"))return control_proof_fixture(2);
+    if(argc==2 && !strcmp(argv[1],"--control-wide"))return control_proof_fixture(1);
     if(argc==2 && !strcmp(argv[1],"--render-proof"))return render_proof_fixture();
     display_transaction_tests();
     deferred_ui_diagnostics();
