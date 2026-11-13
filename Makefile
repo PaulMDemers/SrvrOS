@@ -4126,7 +4126,7 @@ build/tests/desktop-power$(HOST_EXE): tools/test_desktop_power.c userspace/deskd
 test-core: test-lifecycle-wait
 test-lifecycle-wait: build/tests/lifecycle-wait$(HOST_EXE)
 	$<
-build/tests/lifecycle-wait$(HOST_EXE): tools/test_lifecycle_wait.c userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
+build/tests/lifecycle-wait$(HOST_EXE): tools/test_lifecycle_wait.c userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/desk_launch_owner.h userspace/lib/include/srvros/sys.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread -idirafter userspace/lib/include -I shared/include $< -o $@
 

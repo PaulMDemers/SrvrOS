@@ -14070,3 +14070,18 @@ no constructor/flag side effects, alongside the existing IDT cancellation and
 reserved-append suites. The `ece9f280` build completed while its qualification
 driver was held; that build is not claimed as full qualification. Fresh complete
 validation proceeds only from the next clean committed source.
+
+
+The `1ff1c060` full host run reached a compile-only failure in the separate
+lifecycle-wait fixture after the installation89-case matrix and its original
+optional skip, storage/metadata/capture checks and earlier process suites passed.
+That fixture had hand-written syscall ABI types; it now includes the actual
+header, uses typed launch-backend adapters for its thread/event tests and keeps
+all original wake/race/stall/shutdown assertions. Added start/finalize accounting
+also checks that the fixture leaves no owner handle. The real owner protocol is
+still tested separately, and loaded guests exercise the complete composition.
+The corrected fixture, desktop suite and actual owner regressions pass. Its
+header dependency and early focused invocation are now explicit. Runtime code
+is unchanged by this correction. The failed full log and first loaded guest,
+including one documented serial-only app event, are retained; full qualification
+is restarted without skipping the completed core prefix.
