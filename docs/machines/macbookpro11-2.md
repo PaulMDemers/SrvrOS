@@ -7,6 +7,22 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### First DHCP Request/ACK audit scope (November 13)
+
+Bounded active scope: consume fetched mainb3d45130's process-retirement fixes,
+then reproduce accepted Offer/queued Request/missing ACK through the actual
+native HTTP and RF callbacks. Existing HTTP case12 suppresses the Offer too;
+add the missing exact failure fixture rather than claiming it covers this run.
+Inspect TX construction/completion and authenticated RX delivery, adding passive
+categorical packet-role and existing completion-clock witnesses if needed.
+Touch native stream/provider diagnostics, their saved decoder and native fixtures;
+keep radio/parser/key/ownership gates and deadlines unchanged. PR301 scanout and
+PR379 WebCore remain separate; main's net_process_owned addition is read-only
+process ownership, not DHCP packet handling. Preserve both closed hardware banks
+and all recoveries. Next checkpoint is tested source and explicit evidence limits;
+no unchanged hardware repeat is armed by this audit.
+
+
 ### Diagnostic return: DHCP ACK timeout before the guard (November 13)
 
 Runtime9e0e5988/release19882512325117ed is collected FIRST once and CLOSED
