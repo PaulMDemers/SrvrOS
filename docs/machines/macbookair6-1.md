@@ -13985,3 +13985,168 @@ ownership scope. No other task was contacted. This results update changes no
 runtime source, limits, integrity checks, stage or installed payload, and starts
 no next reboot. Native trace observation is accepted for this scoped run; full
 workload/performance acceptance is failed and sibling acceptance is unchanged.
+
+
+### Active small launch owner and pipe-helper audit (2026-11-13)
+
+From actual main `5a950ce4`, address the measured oversized-desktop exec fallback
+and legacy helper49/pipe SETFL waits. The prior failed run is independently
+reviewed and sealed. Audit a small dedicated userspace owner for app creation
+and reaping, with bounded private IPC, explicit child ownership, cancellation,
+EOF handling and joined shutdown; retain normal standard descriptors and exact
+profile/vector propagation. The compositor must keep launching during screenshot
+and disk load with the original cadence and whole-cycle clocks. Neither the
+4096 parent/image bounds nor any ownership, callback, retirement, workload or
+integrity check may be weakened. Audit a separate strict simple-pipe helper
+attempt after copied request validation, with ordinary fallback for every refusal.
+
+Touched scope: desktop lifecycle/launch owner, helper library/process/syscall
+admission, strict pipe metadata control and host/VM regressions, matched staging
+and this unit's guides. PR19 at `cad9f4f7` owns kernel-origin lifetime pipe-handoff
+and Wi-Fi/network changes; this work must preserve those distinct constructors
+and not import their unmerged scope. PR301 at `e1ac4092` owns separate scanout/
+user-scope owner-loss changes. Inspect actual overlapping hunks before merging;
+no other task or subagent is contacted. Next checkpoint is a reviewed bounded
+implementation and refusal/failure/cleanup regressions, then matched full local
+qualification and the original automated1800-second1% native stress with three
+screenshots,500ms loop and10s whole-app limit. Ubuntu/current/recovery and raw
+failed/accepted evidence stay protected; no reboot is armed by this scope notice.
+
+
+The candidate uses a small `deskclient --launch-owner` mode with private
+nonblocking fd3/fd4 channels, exact profile/vectors, real parent ownership and
+explicit child ledgers. The lifecycle worker serializes launch/wait IPC; the UI
+never waits on it during ordinary dispatch. EOF/lost replies retain server-owned
+child cleanup and final wait; normal shutdown requires empty ledgers and a joined
+zero-status server. The existing process-table capacity and4096 mapping/image
+bounds remain unchanged. A separately proved empty-argument helper attempt
+retains immutable source, simple pipe/no-rights/ref-headroom proofs and IF0
+rollback without global rights collection. Pipe SETFL has a scalar-only attempt;
+other operations retain the ordinary gate. File/image/screenshot helpers close
+protocol stdin/stdout using the existing validated syscall before exit, keeping
+general resource retirement strict. The [ownership contract](../desktop-launch-owner.md)
+records the full scope and refusal behavior.
+
+Initial protocol, real private-spawn/pipe rollback, syscall fallback and desktop
+regressions pass. Broad compile preflight found an unused native-only predicate
+in host fixtures; it was made inline without changing its proof. The initial
+failure log remains retained. Fresh frozen-source builds/full tests, loaded and
+profile-switch guests and exact native staging remain pending; no native latency
+or new hardware acceptance is claimed at this checkpoint.
+
+
+The first frozen attempt `dda8b6ff` is retained without native acceptance. Its
+focused suite caught the broadened fcntl entry classification; only SETFL now
+enters the scalar prelude, while reservation/lock/other commands retain their
+original entry gate. Review also caught that explicit user-side close of shared
+VFS stdout could lose exit's unconditional redirected-output flush. Those helper
+changes were removed. Instead, private exit first proves the complete existing
+mapping/scheduler/callback-resource contract and every FD; it atomically closes
+only proved simple pipes with no queued rights, then reaches the original
+resource-free retirement. A later VFS/rights-bearing FD refuses before any pipe
+is changed. Shared VFS output retains its original flush path and helpers retain
+their original code. Real process fixtures now cover complete helper entry/exit,
+unchanged pipe refs/foreign owner, EOF-only endpoints and refusal without partial
+closure. The refined protocol/private lifecycle/syscall/reserved-append tests
+pass; fresh complete qualification is required for the corrected source.
+
+
+The refined `ed8e5f04` loaded KVM run passes its original60-second workload:
+23 app cycles,24 owner launches/final reaps, zero owner errors, complete saved
+phase records and140.038ms maximum loop. All diagnostic companion reviews pass.
+Qualification was deliberately held before the full suite for one last ownership
+edge: a failed final wait must retain the launcher's PID and report incomplete
+retirement. The client now keeps that identity until a real final wait succeeds;
+a new error/retry regression passes. The prior VM and hold record remain retained;
+complete qualification is restarted for the final corrected source, with no
+native acceptance inherited from the earlier attempt.
+
+
+The final cancellation audit restores the original entry-gate cancellation
+semantics inside copied preludes: after an ordinary fallback wait, helper49,
+exec and SETFL recheck cancellation before constructing a child, refreshing
+mappings or applying backend flag changes. Cancel-during-wait regressions prove
+no constructor/flag side effects, alongside the existing IDT cancellation and
+reserved-append suites. The `ece9f280` build completed while its qualification
+driver was held; that build is not claimed as full qualification. Fresh complete
+validation proceeds only from the next clean committed source.
+
+
+The `1ff1c060` full host run reached a compile-only failure in the separate
+lifecycle-wait fixture after the installation89-case matrix and its original
+optional skip, storage/metadata/capture checks and earlier process suites passed.
+That fixture had hand-written syscall ABI types; it now includes the actual
+header, uses typed launch-backend adapters for its thread/event tests and keeps
+all original wake/race/stall/shutdown assertions. Added start/finalize accounting
+also checks that the fixture leaves no owner handle. The real owner protocol is
+still tested separately, and loaded guests exercise the complete composition.
+The corrected fixture, desktop suite and actual owner regressions pass. Its
+header dependency and early focused invocation are now explicit. Runtime code
+is unchanged by this correction. The failed full log and first loaded guest,
+including one documented serial-only app event, are retained; full qualification
+is restarted without skipping the completed core prefix.
+
+
+### Small launch owner qualification and next native test (PR490)
+
+Frozen source `7a118678` passes matched ordinary/native/Q35 fixture
+builds, optional-sampler isolation and required symbol checks, broad compile/link
+preflight, focused protocol/process/scheduler/IDT/descriptor/retirement regressions,
+and the full fresh core/desktop/documentation suite. No core prefix is skipped;
+the normal opt-in exhaustive-I/O installation case remains its original skip.
+Ordinary syscall/UEFI-USB/fork/exec-vector/yield, real USB-storage and ordinary
+screenshot guests pass. The unchanged contiguous-append fault harness retains
+its explicitly reported baseline repair/allocation gaps; this is no new power-loss
+repair acceptance, and no predicate was waived by this work. The profile-switch guest separately checks
+cooperative
+session ownership, late descendants, cancellation and repeated lifetimes.
+
+The loaded KVM guest completes 23 app cycles and 173
+verified 256 KiB disk bursts over 60 seconds at 1%, with one exact BMP, zero recorded
+underruns and 140.051 ms maximum desktop loop. Original
+application phase/file-service and workload/byte/readback/flush/allocation/
+ownership/retirement contracts pass, alongside all saved diagnostic companions.
+Independent saved-only validation retains lifecycle source, app timing and file
+service. The small owner's final immutable receipt proves 24
+launches/24 final reaps, empty retirement and zero errors. The launch
+trace is valid with 27 raw exec entries/27 decisions,
+32 fcntl observations, 19 private handled results and
+zero invalid records. This is controlled-guest coverage, not native acceptance.
+
+Exact native release `00460b3ddba044cf` separately passes its foreign-board
+refusal/automatic-return rehearsal. It is installed for the original automatic
+1800-second 1% audio/disk/app/three-screenshot trial, with the original 60-second
+audio tail, 500 ms loop, 10 s whole-app cycle and every integrity check unchanged;
+heavy full-field metadata audit remains off. Preflight preserves all 925
+prior USB paths except the renewed 1% volume expiry, checks full hashes,
+read-only write-eligibility/allocation/fsck and independent payload/recovery proofs.
+Ubuntu stays default and recovery `c35475f62f154f1e` is retained alongside current
+failed/accepted payloads and sealed evidence. No source is physically accepted
+before the matching new session is collected. Self-merge and a saved/sealed
+one-shot launch are next under the existing reboot authorization.
+
+
+The ordinary exec-vector rehearsal first stopped at Limine without reaching the
+kernel or suite; that failure remains retained. Repeating the identical original
+20-second boot/90-second test bounds passes all five ordinary guests. The profile
+harness initially refused missing build provenance and insufficient disk space,
+both before starting a guest. A real Ubuntu build followed by the existing
+platform-neutral manifest producer satisfies its unchanged source/submodule/hash
+checks; the legacy receipt filename does not claim Darwin execution. Sixteen
+inactive staging trees were fully hashed, compressed, independently rehashed and
+retained outside build before removing only those copies, giving 5.9 GiB free and
+preserving the harness's full space allowances and 1 GiB reserve. The canonical
+profile guest then passes A→B→A, file persistence, cooperative close/cancellation
+and late-descendant retirement, with three clean launch owners (10/10,2/2,2/2
+launches/reaps), all with zero errors. Its 42 proof/log/screenshot files are retained.
+
+The final exact native-stage refusal passes automatically with no input; it is
+not positive Air6,1 runtime proof. Installation keeps the accepted7ac/quiet8a/
+comparison0d3/failed188/946 payloads and recoveryc354. To fit the roughly 145 MiB candidate,
+only historical c7d2293b66b7999b's unreferenced EFI duplicate was removed after complete backup
+hashes and no GRUB/firmware references were verified; its independent payload
+and evidence remain intact. Fresh install/payload/default/firmware-order proofs
+pass. Latest fetched main remains 5a950ce4; PR19 at 76fac408 and PR301 at 7473da65
+have no additional overlapping process/syscall/private-retirement/lifecycle hunks
+since the preceding inspection. The new run is ready but unarmed at this
+checkpoint; source/runtime acceptance awaits matching native collection.

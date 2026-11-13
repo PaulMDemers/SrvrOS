@@ -1342,6 +1342,9 @@ static int64_t syscall_spawn_bg_args_fds(const char *user_path,
         return -1;
     }
 
+    if(process_try_spawn_private_helper(path,args,stdin_fd,stdout_fd,&result))return result;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();
+    if(process_should_exit_current())return SRV_ERR_INTR;
     flags = irq_save();
     result = process_spawn_background_elf_args_fds(path, args, stdin_fd, stdout_fd);
     irq_restore(flags);
@@ -1446,6 +1449,7 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request,uint
         if(process_try_spawn_private(path,argc,argv,envc,envp,&result))return result;
     } else scheduler_launch_trace_exec(LAUNCH_TRACE_REQUEST,request_mask,0,0,0);
     scheduler_io_set_user_safe(false);scheduler_io_wait();
+    if(process_should_exit_current())return SRV_ERR_INTR;
     flags = irq_save();
     if ((request.flags & SRV_EXEC_REPLACE) != 0) {
         result = process_exec_replace(path,
@@ -2349,6 +2353,12 @@ static int64_t syscall_poll_prepared(struct syscall_pollfd *user_fds,uint64_t nf
 #endif
 
 static int64_t syscall_fcntl(uint64_t fd, uint64_t command, uint64_t arg) {
+    if(command==SRV_F_SETFL) {
+        int64_t result;
+        if(process_file_try_set_pipe_flags(process_current(),fd,arg,&result))return result;
+        scheduler_io_set_user_safe(false);scheduler_io_wait();
+        if(process_should_exit_current())return SRV_ERR_INTR;
+    }
     if(command==SRV_F_RESERVE_APPEND_RAM) {
 #if defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) || defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)
         return SRV_ERR_NOTSUP;
@@ -3598,7 +3608,9 @@ static bool io_snapshot_read(uint64_t fd,uint64_t length) {
  * Exec/exit likewise admit only copied-request or resource-proof preludes;
  * a foreign owner is never borrowed or released. Memory/thread calls admit
  * only a validated bounded atomic attempt. Generic
- * allocation, thread creation, mapping and retirement retain gated fallback. */
+ * allocation, thread creation, mapping and retirement retain gated fallback.
+ * Native helpers and fcntl likewise enter only copied-input/simple-pipe
+ * attempts; their general constructors and all other controls regain the gate. */
 void syscall_gate_trace(const struct isr_frame *frame) {
     if(!scheduler_launch_trace_enabled() || (frame->cs&3)!=3)return;
     if(frame->rax==SYS_EXEC)scheduler_launch_trace_entry();
@@ -3612,7 +3624,8 @@ void syscall_gate_trace(const struct isr_frame *frame) {
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
     case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: case SYS_MMAP: case SYS_THREAD_CREATE:
-    case SYS_EXEC: case SYS_EXIT: case SYS_THREAD_EXIT: return true; /* Validated prelude, gated fallback. */
+    case SYS_EXEC: case SYS_EXIT: case SYS_THREAD_EXIT: case SYS_SPAWN_BG_ARGS_FDS: return true; /* Validated prelude, gated fallback. */
+    case SYS_FCNTL: return frame->rsi==SRV_F_SETFL; /* Scalar pipe attempt; all other controls retain the original entry gate. */
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
     case SYS_WAIT: return true; /* Validated retired-child claim; gated fallback. */

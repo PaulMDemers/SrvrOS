@@ -106,6 +106,7 @@ int64_t process_file_dup_min(struct process *p,uint64_t fd,uint64_t min,bool ce)
 int64_t process_file_get_fd_flags(struct process *p,uint64_t fd) {(void)p;(void)fd;assert(0);return -1;}
 int64_t process_file_set_fd_flags(struct process *p,uint64_t fd,uint64_t flags) {(void)p;(void)fd;(void)flags;assert(0);return -1;}
 int64_t process_file_get_flags(struct process *p,uint64_t fd) {(void)p;(void)fd;assert(0);return -1;}
+bool process_file_try_set_pipe_flags(struct process *p,uint64_t fd,uint64_t flags,int64_t *result) {(void)p;(void)fd;(void)flags;(void)result;assert(!"reservation must retain ordinary entry admission");return false;}
 int64_t process_file_set_flags(struct process *p,uint64_t fd,uint64_t flags) {(void)p;(void)fd;(void)flags;assert(0);return -1;}
 int64_t process_file_get_lock(struct process *p,uint64_t fd,struct srv_flock *l) {(void)p;(void)fd;(void)l;assert(0);return -1;}
 int64_t process_file_set_lock(struct process *p,uint64_t fd,const struct srv_flock *l,bool wait) {(void)p;(void)fd;(void)l;(void)wait;assert(0);return -1;}

@@ -4126,7 +4126,7 @@ build/tests/desktop-power$(HOST_EXE): tools/test_desktop_power.c userspace/deskd
 test-core: test-lifecycle-wait
 test-lifecycle-wait: build/tests/lifecycle-wait$(HOST_EXE)
 	$<
-build/tests/lifecycle-wait$(HOST_EXE): tools/test_lifecycle_wait.c userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
+build/tests/lifecycle-wait$(HOST_EXE): tools/test_lifecycle_wait.c userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/desk_launch_owner.h userspace/lib/include/srvros/sys.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread -idirafter userspace/lib/include -I shared/include $< -o $@
 
@@ -5273,3 +5273,12 @@ build/tests/exfat-memory-view-host$(HOST_EXE): tools/test_exfat_memory_view.c ke
 test-core: test-launch-gate-trace
 test-launch-gate-trace: $(LIMINE_PROTOCOL_DIR)/.ready
 	SRVROS_LIMINE_INCLUDE="$(LIMINE_PROTOCOL_DIR)/include" CC="$(HOST_CC)" $(PYTHON) tools/test_launch_gate_trace.py
+
+.PHONY: test-desk-launch-owner
+test-desk-launch-owner: build/tests/desk-launch-owner-host$(HOST_EXE)
+	$<
+build/tests/desk-launch-owner-host$(HOST_EXE): tools/test_desk_launch_owner.c userspace/lib/include/srvros/desk_launch_owner.h $(USER_SYSROOT_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< -o $@
+test-core test-desktop: test-desk-launch-owner
+build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ) $(DESKCLIENT_OBJ): userspace/lib/include/srvros/desk_launch_owner.h
