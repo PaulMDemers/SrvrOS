@@ -2,7 +2,10 @@
 
 The first refusal is retained under IRQ exclusion. `wifi-handoff5-refusal`
 is observation only: it neither drains an event nor permits reuse or retry.
-Reasons are checked in order, preserving the original short-circuit guard.
+All original short-circuit predicates remain. Bounded owned hub servicing now
+runs after reason40 admission and before the reason41 empty-head check; its
+post-consumption failure is reason57. The final reason56 empty-head recheck
+never services or retries a late event.
 Only reasons41/56 sample an event, after controller/ring admission; earlier
 refusals do not dereference potentially retired event storage. A sampled event
 is the current head at capture, not proof of radio delivery.
@@ -68,6 +71,7 @@ OUT ring,3 first IN ring. A range match is not completion or retirement proof.
 | 54 | `xhci.sync_users` |
 | 55 | `xhci.poll_users` |
 | 56 | `!wifi_fence5_empty()` |
+| 57 | consumed hub event failed its owner/port completion postcondition |
 
 `wifi-handoff5-closure` identifies the last closed-owner proof failure (zero
 means that proof passed). It is relevant to guard reason43.
@@ -144,3 +148,29 @@ or accept consuming that event. Parent RF restoration remains incomplete2636;
 second preparation never runs. Native supervisorcase26 reproduces this category
 without changing production admission. An owned dispatch correction and its
 native success/late/invalid/topology/exhaustion tests remain pending.
+
+## Owned hub service before handoff
+
+Only a live configured class9 hub with a pending status-request owner qualifies.
+The pointer must match its final control TD, with success and zero residue; the
+three distinct ordered TDs, GET_STATUS(port,4), DMA buffers and port status must
+match. Stable empty ports qualify only without retained children. Unknown,
+malformed, old Wi-Fi, changed/reset/suspended/overcurrent or disconnected-child
+work remains at the head for the original refusal. At most eight completions
+are dispatched under the existing IRQ exclusion, using the normal dispatcher;
+no control request is published and no wait or retry is added.
+
+A consumed completion must clear both pending flags, report success, advance to
+the expected next port and leave its hub live/configured. Reason57 terminates
+handoff if this fails, including after the head becomes empty. Like other
+non-emptiness reasons it carries no sampled event metadata. Only reasons41/56
+may sample a retained head. Observation never grants ownership or acceptance.
+
+Native cases27/28/30 complete both actual HTTP paths plus the actual RF inverse
+with owned completions, event/EP0 wrap and a stable unused port. Case29 proves
+the ninth event stays retained;case31 removes the hub after event consumption
+and proves reason57 with an empty head and no second owner. Case27 also covers
+28 invalid ownership/descriptor/topology variants;case18 retains a known hub
+arrival at the original final recheck. All32 cases pass normally and with
+ASan/UBSan. Hardware, AP, scheduler and child remain modeled; native physical
+acceptance still requires the fresh exact-source hardware run.

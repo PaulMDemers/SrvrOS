@@ -18,8 +18,19 @@ class HandoffObservation(unittest.TestCase):
         for text in (ROW, CLOSE, CLOSE+'\n'+ROW, ROW+'\n'+ROW+'\n'+CLOSE, ROW+'\n'+CLOSE+'\n'+CLOSE):
             with self.subTest(text=text), self.assertRaises(ValueError): h.observe(text)
     def test_bad_fields_and_false_event_facts_refuse(self):
-        for text in (ROW.replace('reason=41','reason=57'), ROW.replace('cycle=1','cycle=2'), ROW.replace('event_valid=1','event_valid=0'), ROW.replace('reason=41','reason=29'), ROW.replace('frontier=49','frontier=049'), ROW+' unknown=1'):
+        for text in (ROW.replace('reason=41','reason=58'), ROW.replace('cycle=1','cycle=2'), ROW.replace('event_valid=1','event_valid=0'), ROW.replace('reason=41','reason=29'), ROW.replace('frontier=49','frontier=049'), ROW+' unknown=1'):
             with self.subTest(text=text), self.assertRaises(ValueError): h.observe(text+'\n'+CLOSE)
     def test_unknown_closure_and_version_refuse(self):
         for text in (CLOSE.replace('reason=0','reason=89'), CLOSE.replace('version=1','version=2')):
             with self.assertRaises(ValueError): h.observe(ROW+'\n'+text)
+
+    def test_post_dispatch_failure_is_not_an_empty_ring_or_acceptance(self):
+        row = ROW.replace('reason=41', 'reason=57')
+        for key in ('event_valid', 'event_type', 'event_slot', 'event_dci', 'event_cc', 'event_owner'):
+            import re
+            row = re.sub(r'\b'+key+r'=[0-9]+', key+'=0', row)
+        result = h.observe(row+'\n'+CLOSE)
+        self.assertFalse(result['ring_empty_refusal'])
+        self.assertFalse(result['native_accepted'])
+        with self.assertRaises(ValueError):
+            h.observe(ROW.replace('reason=41', 'reason=57')+'\n'+CLOSE)

@@ -16,7 +16,7 @@ def observe(text):
     closure = canonical_decimal(closures[0][1], 'wifi-handoff5-closure', CLOSURE_KEYS)
     if guard['version'] != 1 or closure['version'] != 1 or guard['observation_only'] != 1 or closure['observation_only'] != 1:
         raise ValueError('unsupported handoff observation')
-    if guard['captured'] not in (0, 1) or not 0 <= guard['reason'] <= 56 or bool(guard['reason']) != bool(guard['captured']) or not 0 <= closure['reason'] <= 88:
+    if guard['captured'] not in (0, 1) or not 0 <= guard['reason'] <= 57 or bool(guard['reason']) != bool(guard['captured']) or not 0 <= closure['reason'] <= 88:
         raise ValueError('invalid refusal reason')
     for key in ('pending', 'command_failed', 'cycle', 'event_valid'):
         if guard[key] not in (0, 1):

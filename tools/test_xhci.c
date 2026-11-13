@@ -134,6 +134,7 @@ static uint32_t xhci_test_read32(uint64_t offset) {
 }
 
 static bool command_nested,event_flood,stop_on_doorbell;
+static void (*native_boundary_mmio_hook)(uint64_t,uint32_t);
 /* Model independent DMA event arrival at a clock sample; no production hook. */
 static void (*native_boundary_clock_hook)(void);
 static bool disable_auto,disable_wrong_slot,start_status_model;
@@ -163,6 +164,7 @@ static uint64_t rf_wait_expected_delay;
 bool timer_delay_us(uint64_t us) { if(tune_test_device)return tune_test_delay(us);if(mac_cycle_model)return xhci_test_mac_delay(us);assert(us==(rf_wait_expected_delay?rf_wait_expected_delay:10000)); return recovery_delay_ok; }
 
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if(native_boundary_mmio_hook)native_boundary_mmio_hook(offset,value);
 #ifdef SRVROS_XHCI_CAL5_MCU_TEST
     if(early5_test_active){early5_test_doorbell(offset,value);*(uint32_t *)(registers+offset)=value;return;}
     if(cal5_mcu_test_device && offset==xhci.db_base+4*cal5_mcu_test_device->slot_id && (value==11 || value==16))cal5_mcu_test_bulk(value);
@@ -378,7 +380,7 @@ void pmm_free_frame(uint64_t address) {
 void pmm_free_frame_range(uint64_t address,uint64_t count) {for(uint64_t i=0;i<count;i++)pmm_free_frame(address+i*PMM_FRAME_SIZE);}
 
 static void reset_test(void) {
-    native_boundary_clock_hook=NULL;
+    native_boundary_clock_hook=NULL;native_boundary_mmio_hook=NULL;
     trim_reply_device=NULL;trim_reply_value=0;rf_wait_expected_delay=0;
     firmware_command_exact=firmware_command_failed=wifi_firmware_enabled=wifi_mac_startup=false;
     tt_calls=tt_fail_at=tt_change_address_at=0;

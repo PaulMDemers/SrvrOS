@@ -314,6 +314,70 @@ static void __attribute__((unused)) wifi_fence5_handoff_emit(void){
   (uint64_t)(wifi_fence5_handoff.event_control>>24),(uint64_t)((wifi_fence5_handoff.event_control>>16)&31),
   (uint64_t)(wifi_fence5_handoff.event_status>>24),(uint64_t)wifi_fence5_handoff.event_owner);
 }
+/* IRQs are excluded by connection_next, and its controller/old DMA/command
+ * records have passed admission. Service only an existing hub status owner,
+ * never an arbitrary shared event. In particular, a slot/DCI match alone is
+ * insufficient. Unknown/failed/topology events remain at the head for refusal.
+ * False means consumption failed its owner postcondition. True leaves the
+ * original empty-head check authoritative, including unknown and excess work.
+ * No requests, waits, clocks or retries are introduced here. */
+static bool wifi_fence5_service_hub(void){
+ for(unsigned n=0;n<8 && !wifi_fence5_empty();n++){
+  if(!xhci.event_ring || xhci.event_dequeue>=XHCI_EVENT_TRB_COUNT || strict_control.device)return true;
+  uint32_t head=((volatile struct xhci_trb *)xhci.event_ring)[xhci.event_dequeue].control;
+  if(!!(head&1)!=xhci.event_cycle)return true;
+  __atomic_thread_fence(__ATOMIC_ACQUIRE);
+  struct xhci_trb e;copy_trb(&e,&xhci.event_ring[xhci.event_dequeue]);
+  if(((e.control>>10)&63)!=32 || (e.control&~(1u|(63u<<10)|(31u<<16)|(255u<<24))) || ((e.control>>16)&31)!=1 || e.status!=(1u<<24))return true;
+  struct xhci_device *d=device_by_slot(e.control>>24);
+  if(!d || d==wifi_fence5_first.device || !d->configured || device_removed(d) ||
+     d->device_class!=9 || !d->hub_ports || !d->hub_poll_port || d->hub_poll_port>d->hub_ports ||
+     !d->hub_status_pending || !d->control_pending || d->control_failed || d->control_short ||
+     d->ep0_quarantined || d->tt_cleanup_owner || d->control_td_count!=3 ||
+     !d->ep0_ring || !d->ep0_ring_phys || (d->ep0_ring_phys&4095) ||
+     !d->descriptor_buffer || !d->descriptor_buffer_phys || (d->descriptor_buffer_phys&4095) ||
+     d->ep0_ring_phys==d->descriptor_buffer_phys ||
+     d->ep0_ring!=pmm_phys_to_virt(d->ep0_ring_phys) || d->descriptor_buffer!=pmm_phys_to_virt(d->descriptor_buffer_phys) ||
+     wifi_fence5_previous_alias(d->ep0_ring_phys) || wifi_fence5_previous_alias(d->descriptor_buffer_phys) ||
+     d->ep0_ring_phys==xhci.command_ring_phys || d->ep0_ring_phys==xhci.event_ring_phys)return true;
+  uint64_t pointer=e.parameter_low|((uint64_t)e.parameter_high<<32);
+  if(pointer!=d->control_td[2])return true;
+  for(unsigned i=0;i<3;i++){
+   uint64_t p=d->control_td[i];
+   if(p<d->ep0_ring_phys || p-d->ep0_ring_phys>=16*(XHCI_TRB_COUNT-1) || (p&15))return true;
+   if(i && p!=d->ep0_ring_phys+(d->control_td[i-1]-d->ep0_ring_phys+16)%(16*(XHCI_TRB_COUNT-1)))return true;
+  }
+  /* Match the queued GET_STATUS(port,4) rather than trusting owner booleans.
+   * The final status event orders the four DMA bytes before this read. */
+  const struct xhci_trb *setup=&d->ep0_ring[(d->control_td[0]-d->ep0_ring_phys)/16];
+  const struct xhci_trb *data=&d->ep0_ring[(d->control_td[1]-d->ep0_ring_phys)/16];
+  const struct xhci_trb *status=&d->ep0_ring[(d->control_td[2]-d->ep0_ring_phys)/16];
+  uint64_t request=0xa3ull|((uint64_t)d->hub_poll_port<<32)|(4ull<<48);
+  if((setup->parameter_low|((uint64_t)setup->parameter_high<<32))!=request ||
+     setup->status!=8 || (setup->control&~1u)!=((2u<<10)|XHCI_TRB_IDT|XHCI_SETUP_TRT_IN) ||
+     (data->parameter_low|((uint64_t)data->parameter_high<<32))!=d->descriptor_buffer_phys ||
+     data->status!=4 || (data->control&~1u)!=((3u<<10)|XHCI_TRB_ISP|XHCI_DATA_DIR_IN) ||
+     status->parameter_low || status->parameter_high || status->status ||
+     (status->control&~1u)!=((4u<<10)|XHCI_TRB_IOC))return true;
+  uint32_t port=(uint32_t)d->descriptor_buffer[0]|((uint32_t)d->descriptor_buffer[1]<<8)|
+   ((uint32_t)d->descriptor_buffer[2]<<16)|((uint32_t)d->descriptor_buffer[3]<<24);
+  if(port&(0xffff0000u|0x1cu))return true;
+  if((port&3)!=3){
+   if(port&3)return true;
+   /* A stable unused port is normal hub polling. Never admit a disconnect
+    * for a port with any retained child record, even a quarantined one. */
+   for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)if(xhci.devices[i].present &&
+    xhci.devices[i].parent_slot_id==d->slot_id && xhci.devices[i].hub_port_id==d->hub_poll_port)return true;
+  }
+  unsigned next_port=d->hub_poll_port==d->hub_ports?1u:d->hub_poll_port+1u;
+  struct xhci_trb consumed;
+  if(!poll_event(&consumed))return false;
+  dispatch_transfer_event(&consumed);
+  if(d->hub_status_pending || d->control_pending || d->control_failed || !d->configured ||
+     d->control_completion!=1 || d->hub_poll_port!=next_port || device_removed(d))return false;
+ }
+ return true;
+}
 /* Root's native connection-close callback must independently prove exact Stop,
  * restored contexts/parent, erased keys and drained software borrowers. This
  * operation allocates nothing, never clears an old engine, and grants no DMA
@@ -361,6 +425,7 @@ static __attribute__((unused)) bool wifi_fence5_connection_next(void *old_owner,
  if(xhci.command_enqueue<s->first){wifi_fence5_handoff_capture(38);goto done;}
  if(xhci.command_enqueue+2+WIFI_FENCE5_CLEANUP_COMMANDS>63){wifi_fence5_handoff_capture(39);goto done;}
  if(!wifi_fence5_closed_records(s)){wifi_fence5_handoff_capture(40);goto done;}
+ if(!wifi_fence5_service_hub()){wifi_fence5_handoff_capture(57);goto done;}
  if(!wifi_fence5_empty()){wifi_fence5_handoff_capture(41);goto done;}
  for(size_t i=0;i<sizeof wifi_fence5_second;i++)if(((const uint8_t *)&wifi_fence5_second)[i]){wifi_fence5_handoff_capture(42);goto done;}
  uint64_t stamp=wifi_fence5_state_stamp(s,sizeof *s),dma_stamp=wifi_fence5_state_stamp(old_dma,sizeof *old_dma),frontier=xhci.command_enqueue;

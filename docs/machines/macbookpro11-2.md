@@ -7,6 +7,49 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Owned hub completion correction: software qualified (November13)
+
+The handoff now services up to eight already-pending, exactly owned hub EP0
+GET_STATUS completions after the original controller/old-DMA/command-record
+admission. It validates the final event pointer, success/residue, distinct mapped
+hub backing, all three queued TD stages (including Link wrap), request/port/length
+and unchanged port status. A stable empty port is eligible only without any
+retained child record. The existing dispatcher clears the owner; completion,
+next-port and live/configured postconditions must then pass. No new request,
+wait, deadline extension, reset, old-memory reuse or console work is added.
+
+Unknown/malformed/old Wi-Fi events and topology changes remain unconsumed and
+refused. The original empty-head and closed-state/stamp/frontier rechecks still
+apply. More than eight completions leaves the ninth at the head and refuses.
+A failure after consumption is separately refused as reason57 even if the head
+is now empty; the source-bound observer recognizes this observation without
+sampling new event storage or granting acceptance. A known hub event arriving
+during the final callback still refuses at the original reason56 recheck.
+
+Final-source qualification passes all32 actual native HTTP C cases normally and
+under ASan/UBSan, including28 independent malformed/ownership/topology variants
+at the completed first HTTP boundary. New cases27/28/30 service one completion,
+eight completions across event/EP0 ring wrap, and an unused stable empty port;
+each completes both4159-byte requests/exact3072-byte bodies/genuine EOF and the
+actual RF3844 restoration engine. Case29 retains excess work;case31 models a
+hub removal at the ERDP acknowledgement, proves the consumed event cannot hide
+failed owner completion and refuses before second preparation with RF2636.
+The updated late-event revalidation fixture also retains the new hub completion.
+Kernel xHCI compilation, native fence/shared reconnect regressions and strict
+HTTP/encrypted/packet/guard decoders pass; the guard observer has six tests.
+HCD/AP/registers/scheduler/child are modeled: none of this grants physical
+acceptance. Qualification verifies tracked files stayed unchanged throughout.
+
+Touched subsystems: native connection fence admission, the saved guard observer,
+actual HTTP/RF fixtures and test-only MMIO arrival injection. Shared ordinary
+hub behavior, firmware/radio/key/network policies and other unit scopes remain
+unchanged. Fetched main5a950ce4 adds separate launch tracing; this isolated fix
+is based on the already merged b3d45130 baseline. Review integration before the
+next image qualification. The installed runtime remainsfe9d0af2/d33d2d9894d8cc4b;
+Ubuntu is unarmed and all prior primary/review/recovery banks stay immutable.
+Next: fresh source-bound exact-image/collector/workspace qualification before
+installation and a cold hardware trial. No physical boot is armed by these tests.
+
 ### Packet diagnostic return: shared-event handoff refusal (November 13)
 
 Runtimefe9d0af2/released33d2d9894d8cc4b is collected FIRST once and CLOSED

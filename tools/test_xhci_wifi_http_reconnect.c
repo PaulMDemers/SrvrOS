@@ -107,6 +107,74 @@ static bool handoff_rf_parent(bool (*callback)(void),bool expected){
 static bool no_target_parent(void){assert(wifi_http_reconnect5_unattempted() && !wifi_stream5.attempted);return true;}
 /* Inject only after production HTTP has emitted its proved first close.
  * No shortcut invokes the guard instead of the actual supervisor path. */
+/* Queue a real production hub GET_STATUS TD; only DMA/arrival is modeled. */
+static void handoff_hub(unsigned index,unsigned offset){
+ struct xhci_device *d=&xhci.devices[1+index];
+ *d=(struct xhci_device){.present=true,.configured=true,.addressed=true,
+  .slot_id=2+index,.port_id=8,.device_class=9,.hub_ports=2,.hub_poll_port=1,.hub_status_pending=true};
+ assert(allocate_device_runtime(d));
+ if(trial_case==28)d->ep0_enqueue=62; /* TD crosses its Link TRB too. */
+ struct usb_setup_packet q={.request_type=0xa3,.request=USB_REQ_GET_STATUS,.index=1,.length=4};
+ queue_control_transfer(d,&q,d->descriptor_buffer_phys,4,true);
+ d->descriptor_buffer[0]=3;
+ struct xhci_trb e={.parameter_low=d->control_td[2],.parameter_high=d->control_td[2]>>32,
+  .status=1u<<24,.control=(32u<<10)|(1u<<16)|((uint32_t)d->slot_id<<24)};
+ stream_enqueue(&e,offset);
+}
+static unsigned hub_removed_after_consume;
+static void handoff_hub_remove(uint64_t offset,uint32_t value){
+ (void)value;if(offset!=xhci.rt_base+XHCI_INTR0+XHCI_INTR_ERDP)return;
+ native_boundary_mmio_hook=NULL;hub_removed_after_consume++;
+ *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS+7*16)=0;
+}
+static void handoff_hub_refusals(void){
+ struct xhci_device *d=&xhci.devices[1];struct xhci_device saved=*d;
+ struct xhci_trb original=xhci.event_ring[xhci.event_dequeue];
+ struct xhci_trb setup=d->ep0_ring[0],data=d->ep0_ring[1],status=d->ep0_ring[2];
+ unsigned head=xhci.event_dequeue,frontier=xhci.command_enqueue;
+ for(unsigned fault=0;fault<28;fault++){
+  struct xhci_trb *e=&xhci.event_ring[head];
+  switch(fault){
+  case 0:e->parameter_low+=16;break;
+  case 1:e->status=13u<<24;break;
+  case 2:e->status|=1;break;
+  case 3:e->control|=4;break;
+  case 4:d->hub_status_pending=false;break;
+  case 5:d->control_pending=false;break;
+  case 6:d->control_short=true;break;
+  case 7:d->control_failed=true;break;
+  case 8:d->ep0_quarantined=true;break;
+  case 9:d->control_td_count=4;break;
+  case 10:d->control_td[0]=d->ep0_ring_phys+4096;break;
+  case 11:d->control_td[0]=d->control_td[2];break;
+  case 12:d->ep0_ring[0].parameter_high^=1;break;
+  case 13:d->ep0_ring[1].parameter_low^=16;break;
+  case 14:d->ep0_ring[2].control^=XHCI_TRB_IOC;break;
+  case 15:d->descriptor_buffer[0]=0;xhci.devices[31]=(struct xhci_device){.present=true,.parent_slot_id=2,.hub_port_id=1};break;
+  case 16:d->descriptor_buffer[2]=1;break;
+  case 17:d->descriptor_buffer[0]=3|16;break;
+  case 18:d->tt_cleanup_owner=1;break;
+  case 19:strict_control.device=d;break;
+  case 20:d->device_class=0;break;
+  case 21:d->hub_poll_port=3;break;
+  case 22:d->ep0_ring[1].control|=XHCI_TRB_IDT;break;
+  case 23:d->ep0_ring[2].parameter_low=1;break;
+  case 24:d->ep0_ring[1].status|=1u<<17;break;
+  case 25:d->ep0_ring[0].control^=XHCI_TRB_IDT;break;
+  case 26:d->control_td[1]+=16;break;
+  case 27:d->descriptor_buffer[0]=1;break;
+  default:abort();
+  }
+  assert(!wifi_fence5_connection_next(&wifi_stream5,wifi_stream5.epoch,&wifi_stream5.dma,
+   &wifi_stream5_slots[1],wifi_stream5.epoch+1,wifi_reconnect5_closed));
+  assert(wifi_fence5_handoff.reason==41 && xhci.event_dequeue==head &&
+   xhci.command_enqueue==frontier && !wifi_fence5_connection_switched && !wifi_fence5_next_owner);
+  memset(&xhci.devices[31],0,sizeof xhci.devices[31]);
+  *d=saved;d->descriptor_buffer[0]=3;d->descriptor_buffer[2]=0;
+  d->ep0_ring[0]=setup;d->ep0_ring[1]=data;d->ep0_ring[2]=status;
+  *e=original;strict_control.device=NULL;memset(&wifi_fence5_handoff,0,sizeof wifi_fence5_handoff);
+ }
+}
 static unsigned handoff_recheck_mode;
 static bool handoff_recheck(void *owner,uint64_t epoch,const struct mt76_dma5 *dma){
  assert(wifi_reconnect5_closed(owner,epoch,dma));
@@ -117,6 +185,7 @@ static bool handoff_recheck(void *owner,uint64_t epoch,const struct mt76_dma5 *d
  case 3:xhci.command_enqueue++;break;
  case 4:xhci.sync_users++;break;
  case 5:return false;
+ case 6:handoff_hub(0,0);break;
  default:abort();
  }
  return true;
@@ -127,7 +196,22 @@ static void handoff_boundary(const char *fmt){
  assert(wifi_http_reconnect5.connections==1 && child_done==1 && wifi_reconnect5_closed(
   &wifi_stream5,wifi_stream5.epoch,&wifi_stream5.dma));
  handoff_injections++;
- if(trial_case==26){
+ if(trial_case>=27){
+  unsigned count=(trial_case==27 || trial_case==30 || trial_case==31)?1:trial_case==28?8:9;
+  if(trial_case==28 || trial_case==29){
+   xhci.event_dequeue=XHCI_EVENT_TRB_COUNT-4;
+   for(unsigned i=0;i<XHCI_EVENT_TRB_COUNT;i++)
+    xhci.event_ring[i].control=(i>=xhci.event_dequeue?!xhci.event_cycle:xhci.event_cycle)?1:0;
+  }
+  for(unsigned i=0;i<count;i++)handoff_hub(i,i);
+  if(trial_case==27)handoff_hub_refusals();
+  if(trial_case==30)xhci.devices[1].descriptor_buffer[0]=0;
+  if(trial_case==31){
+   xhci.port_count=8;
+   *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS+7*16)=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;
+   native_boundary_mmio_hook=handoff_hub_remove;
+  }
+ }else if(trial_case==26){
   /* Exact saved hardware category: another slot EP0 success at the shared
    * head after local HTTP/Stop/key closure. Do not fabricate DMA ownership. */
   assert(wifi_fence5_empty());
@@ -146,18 +230,18 @@ static void handoff_boundary(const char *fmt){
  else if(trial_case==23)wifi_stream5.events_empty=false;
 }
 int main(int argc,char **argv){
- trial_case=argc==3 && (!strcmp(argv[1],"--case") || !strcmp(argv[1],"--trace-case"))?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<27);
+ trial_case=argc==3 && (!strcmp(argv[1],"--case") || !strcmp(argv[1],"--trace-case"))?(unsigned)strtoul(argv[2],NULL,10):0;assert(trial_case<32);
  if(argc==19 && !strcmp(argv[1],"--trace")){
   for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)reconnect_seed[d][i]=(uint32_t)strtoull(argv[2+d*8+i],NULL,0);
   reconnect_slot=(unsigned)strtoul(argv[18],NULL,0);assert(reconnect_slot && reconnect_slot<256);reconnect_seeded=true;
  }
  stream_setup();
- if((trial_case>=18 && trial_case<24) || trial_case==26)test_console_printf_hook=handoff_boundary;
+ if((trial_case>=18 && trial_case<24) || trial_case>=26)test_console_printf_hook=handoff_boundary;
  if(trial_case==15)stream_test_before_connection=no_target_parent;
  if(trial_case==16)stream_test_outer_capture=http5_test_RF_parent;
  if(trial_case==17)stream_test_outer_capture=legacy_rf_parent;
- if(trial_case==18)stream_test_outer_capture=handoff_rf_parent;
- if(trial_case==24 || trial_case==25)stream_test_outer_capture=http5_test_RF_parent;
+ if(trial_case==18 || trial_case==29 || trial_case==31)stream_test_outer_capture=handoff_rf_parent;
+ if(trial_case==24 || trial_case==25 || trial_case==27 || trial_case==28 || trial_case==30)stream_test_outer_capture=http5_test_RF_parent;
  if(reconnect_seeded){for(unsigned d=0;d<2;d++)for(unsigned i=0;i<8;i++)context_write32(wifi_cal5.d->output_context,d?8:9,i,reconnect_seed[d][i]);wifi_cal5.d->slot_id=(uint8_t)reconnect_slot;}
  http_reconnect_peer=true;http_reconnect_peer_no_fin=trial_case==5;reconnect_hook_count=0;reconnect_case_id=trial_case==1?5:0;
  connection_dhcp_fault=(trial_case==2 || trial_case==16 || trial_case==17)?53:trial_case==12?56:trial_case==13?58:trial_case==14?59:trial_case==24?61:trial_case==25?60:0;
@@ -196,6 +280,26 @@ int main(int argc,char **argv){
  assert(!xhci_wifi_capture_reconnect5_probe() && !xhci_wifi_http5_prepare() && !xhci_wifi_capture_stack5_probe());
  bool good=xhci_wifi_capture_http_reconnect5();
  bool complete=xhci_wifi_http_reconnect5_finish_capture(good);
+ if(trial_case==31){
+  assert(!good && !complete && hub_removed_after_consume==1 && child_done==1 && workers==1 &&
+   wifi_http_reconnect5.connections==1 && !wifi_http_reconnect5.probe[1].self);
+  assert(wifi_fence5_handoff.reason==57 && !wifi_fence5_handoff.event_valid && wifi_fence5_empty() &&
+   !wifi_fence5_connection_switched && xhci.devices[1].removed && !wifi_fence5_next_owner);
+  puts("xhci-http-reconnect5: PASS hub removed after consumption; empty head never overrides failed dispatch ownership; RF remains incomplete; no second connection;acceptance=0");return 0;
+ }
+ if(trial_case==29){
+  assert(!good && !complete && handoff_injections==1 && child_done==1 && workers==1 &&
+   wifi_http_reconnect5.connections==1 && !wifi_http_reconnect5.probe[1].self);
+  assert(wifi_fence5_handoff.reason==41 && wifi_fence5_handoff.event_valid &&
+   (wifi_fence5_handoff.event_control>>24)==10 && !wifi_fence5_connection_switched);
+  for(unsigned i=1;i<=9;i++)assert(xhci.devices[i].hub_status_pending==(i==9));
+  puts("xhci-http-reconnect5: PASS eight owned hub completions bounded across wrap; ninth remains retained; no second connection;acceptance=0");return 0;
+ }
+ if(trial_case==27 || trial_case==28 || trial_case==30){
+  assert(handoff_injections==1 && !wifi_fence5_handoff.captured);
+  for(unsigned i=1;i<=(trial_case==28?8u:1u);i++)assert(!xhci.devices[i].hub_status_pending &&
+   !xhci.devices[i].control_pending && xhci.devices[i].control_completion==1 && xhci.devices[i].hub_poll_port==2);
+ }
  if((trial_case>=18 && trial_case<24) || trial_case==26){
   static const unsigned reasons[]={41,41,29,39,42,43};
   assert(!good && !complete && handoff_injections==1 && wifi_http_reconnect5.connections==1);
@@ -235,8 +339,8 @@ int main(int argc,char **argv){
     &wifi_stream5_slots[1],wifi_stream5.epoch+1,wifi_reconnect5_closed));
    assert(wifi_fence5_handoff.reason==29 && !wifi_fence5_handoff.event_valid);
    xhci.command_pending=false;xhci.event_ring=event_ring;
-   static const unsigned expected[]={56,44,45,51,54,43};
-   for(handoff_recheck_mode=0;handoff_recheck_mode<6;handoff_recheck_mode++){
+   static const unsigned expected[]={56,44,45,51,54,43,56};
+   for(handoff_recheck_mode=0;handoff_recheck_mode<7;handoff_recheck_mode++){
     struct wifi_fence5_native_state saved=wifi_fence5_first;
     struct mt76_dma5 dma=wifi_stream5.dma;unsigned frontier=xhci.command_enqueue;uint64_t users=xhci.sync_users;
     memset(&wifi_fence5_handoff,0,sizeof wifi_fence5_handoff);
