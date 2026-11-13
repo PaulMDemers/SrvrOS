@@ -62,6 +62,17 @@ ownership and tear-free remain open. PR19/379 remain independent; no task was
 contacted and no subagent used. PR301 and the local checkpoint
 `build/air-source-engine-hold-20261113` record this bounded scope.
 
+### Authorized automated v34 trial and future reboots
+
+On November13 the user explicitly authorized booting the exact qualified
+v34 release `90dfc6ca035e19f7` at volume1%. The user also grants standing
+authorization to start needed test reboots without another confirmation;
+if the machine is off, the user will handle it. Keep recovery/Ubuntu default,
+persist the run before reboot, show progress and collect the matching returned
+session before another trial. Tests requiring human actions still need an
+in-guest checklist and advance notice. Safe automated outcomes return; unknown
+ownership retains state and halts visibly. No native v34 pass is claimed.
+
 ### Native v33 maintained requester lifetime accepted
 
 Frozen source `a7c84ce5`, release `6f8fea336425b123`, session
