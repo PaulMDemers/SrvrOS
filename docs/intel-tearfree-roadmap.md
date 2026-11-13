@@ -374,6 +374,21 @@ Command 3/AF pending-clear as device-wide DMA completion.
    neither this hold nor the BCS reset clears them. Only their reviewed live
    composition may reach the first one-page PTE transaction.
 
-The next test is not ready yet. Ordinary desktop continues to use the inherited
-framebuffer. The newly integrated main launch-owner changes have separate
-host/desktop regression evidence and do not relabel the accepted f638 runtime.
+Steps 1–4 above are now implemented and one native enabled-entry lifetime is
+accepted in the [v33 maintained requester result](intel-source-requester.md#native-result-original-enabled-entry-lifetime-accepted):
+source `a7c84ce5`, release `6f8fea336425b123`, session
+`session-0006602d3e4e59ec-00`. Original kind 1 entry0→1/reset1→2, both RAM
+holds, transfer and CPU/root registration enclose PCI7→3→3→7, the inhibited child
+and full closing validation. Requester scope is658us, child38us;
+preparation98,884/100,000us, complete preservation and exactly-once RAM release,
+strict raw/checkpoint and media/recovery proofs pass. Disabled v33 entry,
+pending-drain branch and repeatability remain unaccepted. This closes the
+requester-control lifetime prerequisite, not the actual interval/completion
+requirements in step5. All255 obligations and zero positive assurances remain.
+
+Next integrate deferred main, then specify and implement those real live
+witnesses before any GPU PTE writer. A completed requester hold, clear AF status
+or a saved reset receipt must never be promoted to internal graphics/display
+DMA, prefetch, cache or translation retirement. No unchanged refusal retry or
+new hardware test is armed. Ordinary desktop still uses the inherited
+framebuffer; native tear-free remains pending.

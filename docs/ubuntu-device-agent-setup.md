@@ -1582,7 +1582,11 @@ RAM holds through verified Command restoration and the closing full hardware
 guard. It adds only the exact PCI Command-halfword operation; no GPU mapping or
 completion assurance follows. Old recipes/receivers stay distinct. Air7,2 frozen
 source `a7c84ce5` / release `6f8fea336425b123` passes its full local/VM/media/
-recovery gate and is banked, uninstalled and unarmed; native v33 is pending.
+recovery gate and now accepts one native kind 1 enabled-entry control lifetime:
+PCI7→3→3→7, full closing guard/retirement and98,884/100,000 us preparation.
+Raw/strict/media/recovery proofs are banked;1,503files/157sessions verify.
+No reboot is armed. Disabledv33 entry, pending-drain behavior, repeatability
+and all actual memory/completion/tear-free grants remain unaccepted.
 Use the [unit checkpoint](machines/macbookair7-2.md#active-implementation-maintained-source-requester)
 and recheck local run/media/recovery state before install and one-shot boot;
 another unit must establish its own evidence. Eventual unattended trials show

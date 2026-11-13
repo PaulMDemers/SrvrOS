@@ -377,3 +377,23 @@ Existing PCI observations and old claim receipts cannot supply this lifetime.
 Keep all255 completion obligations and zero positive hardware assurances until
 their real witnesses are implemented; no first PTE writer is authorized by the
 new acceptance alone.
+
+
+## Maintained source-requester checkpoint
+
+The separate [v33 original-source requester](intel-source-requester.md#native-result-original-enabled-entry-lifetime-accepted)
+now accepts one native kind 1 lifetime on source `a7c84ce5` / release
+`6f8fea336425b123`. The actual source/epoch, both RAM holds, transfer/root and
+CPU exclusion remain registered through PCI7→3→3→7, inhibited child and full
+closing validation. Requester658us, child38us, preparation98,884/100,000us,
+complete preservation/retirement and full RAM patterns/exactly-once release pass;
+strict raw, media and recovery proofs are banked. Disabledv33 route,
+pending-drain branch and repeatability remain unaccepted.
+
+This closes a control/lifetime prerequisite for native milestone1; it does not
+complete that milestone or import any interval. All255 completion obligations,
+zero positive assurances/managed GPU pages, cache/prefetch/translation and
+actual display-reader ownership remain open. Command readback and AF clear do
+not prove internal graphics accesses have retired. Integrate deferred main,
+then establish the actual reviewed live witnesses before the first GPU PTE
+transaction; no unchanged refusal retry is needed.

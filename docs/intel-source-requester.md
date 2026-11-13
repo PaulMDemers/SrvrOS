@@ -106,7 +106,40 @@ runtime margin. Fresh media/recovery/capacity checks pass; all 1,500 existing
 files and 156 sessions remain unchanged. The [unit record](machines/macbookair7-2.md#active-implementation-maintained-source-requester)
 records the exact boundary and verified bank-only EFI retirement.
 
-Native v33 timing/behavior remains pending. The candidate is uninstalled and
-no reboot is armed. An eventual trial needs no human input, shows
-progress, uses volume 1%, persists/unmounts and returns automatically on a safe
-outcome. Unknown ownership halts visibly and remains incomplete evidence.
+The matching native result below now accepts one observed enabled-entry
+lifetime. Further trials need no human input, show progress, retain volume 1%,
+persist/unmount and return automatically on a safe outcome. Unknown ownership
+halts visibly and remains incomplete evidence. No new trial is armed.
+
+## Native result: original enabled-entry lifetime accepted
+
+Source `a7c84ce5`, release `6f8fea336425b123`, session
+`session-0006602d3e4e59ec-00`, collector `e31587bc` pass one original kind 1
+lifetime. Enabled entry advances 0→1; the original nonzero reset advances 1→2.
+Requester, transfer/source and both RAM holds bind epoch 2. Four full PCI
+profiles observe Command 7→3→3→7, with two halfword writes, two admissions and
+38 target reads; requester scope is 658 us and the inhibited child 38 us.
+Restoration, full closing hardware validation and every enclosing original
+return verify. AF pending was clear, so its drain branch was not exercised.
+
+Preparation is 98,884/100,000 us (1,116 us margin), GT 271,126/300,000 us,
+HDA 307,884/400,000 us and outer 362,747/500,000 us. Final guard is 8 us and
+reset return 3,403 us. These are one-run measurements with unchanged deadlines.
+Full engine/reader/HDA preservation, aliases/root/CPU retirement and four full
+RAM patterns pass; 2,712 pages release exactly once with DMA 57→57. Transfer
+still refuses native range authority with zero provider/clock/arena/PTE activity;
+requester PCI and underlying wake/reset stores occurred.
+
+Raw and complete proof banks survive build cleanup. Strict native recipe,
+pre-init/checkpoint and original-source binding pass; all eight raw
+lack-of-authority alerts remain. All 1,500 prior files preserve apart from
+expected metadata; three logs yield 1,503 files/157 sessions. Offline media,
+boot digest, installed/banked payloads, recovery, Ubuntu default and consumed
+one-shot verify; USB is unmounted. See the [unit result](machines/macbookair7-2.md#native-v33-maintained-requester-lifetime-accepted).
+
+This accepts requester control and original lifetime only. Disabled v33 entry,
+pending-drain behavior and repeatability remain unaccepted. All 255 completion
+obligations, zero positive assurances/managed GPU pages and actual GPU
+interval/DMA/prefetch/cache/translation/display-reader ownership remain open.
+No GPU PTE writer or native tear-free acceptance follows. Do not repeat an
+unchanged refusal as a substitute for the next actual ownership witness.

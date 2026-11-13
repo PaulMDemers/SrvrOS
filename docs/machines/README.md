@@ -119,11 +119,14 @@ tear-free acceptance. Next integrate deferred main, then resolve hardware
 ownership witnesses before a GPU writer; no unchanged refusal retry is needed.
 
 
-Air7,2 has locally qualified the separate [v33 maintained source requester](../intel-source-requester.md)
-after its accepted v32 lifetime. This retains the actual source/RAM/root while
-Command3 encloses the child and verifies Command7 restoration before parent
-return. Host/model results do not accept native timing or GPU interval/DMA/cache/
-reader ownership. The [unit checkpoint](macbookair7-2.md#active-implementation-maintained-source-requester)
-records frozen source `a7c84ce5` / release `6f8fea336425b123`, full local/VM/media
-qualification and the next native boundary. The candidate is independently
-banked, uninstalled and unarmed; native v33 remains pending.
+Air7,2 now [accepts one native v33 maintained source-requester lifetime](../intel-source-requester.md#native-result-original-enabled-entry-lifetime-accepted)
+on source `a7c84ce5` / release `6f8fea336425b123`: original kind 1 enabled entry,
+PCI 7→3→3→7 with inhibited child and full closing validation, 658 us requester
+scope, preparation 98,884/100,000 us and complete preservation/retirement.
+All 1,500 prior files preserve except expected metadata; three logs yield
+1,503 files/157 sessions. Strict raw/native/media/recovery proofs are banked.
+Current v33 and accepted v32/prior v31/recovery/GUI/joint/HDA stay installed;
+USB is unmounted and no reboot is armed. Disabled v33 route, pending-drain
+branch, repeatability and all actual GPU memory/completion/tear-free grants
+remain unaccepted. The [unit result](macbookair7-2.md#native-v33-maintained-requester-lifetime-accepted)
+records the exact boundary and next ownership work.

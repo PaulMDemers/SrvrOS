@@ -2,7 +2,63 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
-### Authorized native v33 trial
+### Native v33 maintained requester lifetime accepted
+
+Frozen source `a7c84ce5`, release `6f8fea336425b123`, session
+`session-0006602d3e4e59ec-00`, collector `e31587bc` accept **one original
+kind 1 enabled-entry requester lifetime**. Four complete nine-DWORD PCI
+profiles observe Command 7→3→3→7, with exactly two Command-halfword writes,
+two fresh pre-store admissions and 38 target reads. The requester takes 658 us;
+its inhibited child takes 38 us. Original source/epoch, transfer, both full RAM
+holds, root and CPU exclusion remain registered until verified restoration and
+the full closing guard. Both batch endpoints and the enclosing native chain
+complete. AF pending is already clear: zero polls do not accept the pending-drain
+branch. There is no positive GPU memory/completion grant.
+
+The naturally enabled entry writes once and advances epoch 0→1; the original
+nonzero reset advances 1→2, with the source and requester bound to epoch 2.
+Preparation is 98,884/100,000 us, leaving 1,116 us in this one observation.
+Admission is 10,333 us, source 4,200 us including six reads in 1,776 us and
+source return in 9 us. Final guard is 8 us, reset return 3,403 us, GT return
+271,126/300,000 us, HDA 307,884/400,000 us and outer 362,747/500,000 us.
+All original deadlines remain unchanged; this margin is not promised capacity
+or repeatability. Entry itself takes 102,223/150,000 us.
+
+Full engine/37-reader/HDA6/2/2/6 preservation, four inspections, original
+borrows, 14 GPU aliases, HDA root and CPU exclusion retire. Both 1,356-page RAM
+buffers pass four full padded patterns; 2,712 pages allocate/release exactly once
+and DMA remains 57→57. The enclosing transfer still refuses missing native
+range authority, with zero provider/clock/arena/PTE activity. Requester PCI and
+underlying wake/reset MMIO writes occurred; zero transfer activity is not zero
+total hardware activity.
+
+Raw logs were independently sealed before strict classification. Exact v33
+recipe/pre-init/checkpoint, native result and original-source binding pass;
+earlier result fields remain empty. All eight raw lack-of-authority alerts are
+preserved. All 1,500 prior files preserve except expected `.srvros/meta`; three
+exact logs yield 1,503 files/157 sessions. Offline fsck/allocation/writable/
+headroom, boot digest, installed/banked payloads, Ubuntu default and consumed
+one-shot pass. Raw and complete proof banks survive build cleanup under
+`air-source-requester-20261113`; the physical proof is
+`physical-session-0006602d3e4e59ec-00`.
+
+Current is accepted v33 `6f8fea336425b123`; accepted v32 `8d0181c0ed0a4708`,
+prior v31, recovery `9aa8dbf6fbda8252`, GUI/joint/HDA remain installed. Older
+327a/562d/451c/d260 remain verified bank-only. USB is unmounted and no reboot
+is armed. Disabled v33 entry, pending-drain behavior and repeatability remain
+unaccepted. All 255 completion obligations, zero positive assurances/managed
+GPU pages and native tear-free remain open.
+
+This closes the maintained original-source requester-control lifetime boundary.
+Next integrate deferred main, then establish actual interval/firmware/DMA,
+engine/prefetch, translation/cache and display-reader witnesses before a GPU PTE
+writer. Command readback, AF clear and this successful lifetime alone cannot
+supply those witnesses. No unchanged refusal retry or new physical test is armed.
+Post-collection fetch observes main `0e3e86ae` (PR492 status/sample retention
+and PR493 Air6,1 result). Those changes are deferred to the next integration;
+the accepted native runtime remains exactly `a7c84ce5`.
+
+### Historical authorization for native v33 trial
 
 The user authorized the automated trial of frozen source `a7c84ce5` / release
 `6f8fea336425b123`. Fresh preflight preserves all 1,500 files/156 sessions and
@@ -16,6 +72,8 @@ preserve the exact qualified runtime through collection. Older qualification
 and installed-state descriptions below precede this trial.
 
 ### Active implementation: maintained source requester
+
+This qualification checkpoint preceded the native acceptance above.
 
 The separate [v33 maintained source requester](../intel-source-requester.md) is
 **ready for an automated hardware trial**, on frozen source `a7c84ce5` and release

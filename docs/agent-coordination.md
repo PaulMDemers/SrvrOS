@@ -986,10 +986,16 @@ images/APIs and deadlines stay strict. Frozen source `a7c84ce5` / release
 `6f8fea336425b123` now passes the 38-image full gate, ten fatal sanitizer/adapter
 tests, four compiled weakness controls, 115 staging checks, 11 historical raw
 replays, native store/map/frame/log isolation and exact-stage EFI/MBR VM recovery.
-Fresh media/recovery/capacity checks preserve all 1,500 files/156 sessions.
-Current8d01/recovery9aa8/priorv31/GUI/joint/HDA stay installed; older unreferenced
-v30 is now bank-only after exact payload/native/reference verification. Candidate
-and complete proofs are independently banked, uninstalled and unarmed. Native
-v33 timing/behavior and all hardware memory grants remain unaccepted.
+Its matching native session `session-0006602d3e4e59ec-00` now accepts one
+original kind 1 enabled-entry requester lifetime: PCI7→3→3→7, 658 us requester,
+38 us inhibited child, full closing validation and original retirement,
+preparation98,884/100,000 us. Strict raw/checkpoint and full media/recovery
+proofs are independently banked. All1,500prior files preserve except metadata;
+three logs yield1,503files/157sessions. Currentv33, acceptedv32/priorv31/recovery/
+GUI/joint/HDA stay installed;327a/562d/451c/d260 are verified bank-only. USB is
+unmounted; no reboot armed. Disabledv33 route, pending-drain branch and
+repeatability remain unaccepted. All255 obligations/0assurances/0managedpages
+and actual interval/completion/tear-free remain open. Integrate deferred
+main0e3e86ae after this completed collection; no unchanged refusal retry is needed.
 PR19 MT7610 and PR379 WebCore remain independent; no cross-task messages or
 subagents were requested.
