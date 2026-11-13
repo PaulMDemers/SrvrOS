@@ -72,3 +72,22 @@ The profile harness verifies the exact current source, nested submodules and
 ordinary-image hashes before creating its disposable guest. The macOS wrapper
 itself remains specific to Apple Silicon. A completed profile rehearsal adds VM
 ownership evidence, not native device acceptance.
+
+
+On Air6,1, source `7a118678`/release `00460b3ddba044cf` completes the original
+native 1,800-second workload with 1,310 app cycles, three exact captures,
+zero recorded underruns and 120.026 ms maximum loop. The owner retires all
+1,311 launches with zero errors, and no completed exec admission wait of at
+least 100 ms is retained. This is bounded native ownership coverage, not a
+claim that every cycle used a private path or that all startup/exit latency is
+fixed. The worst-ready launch RPC is 1.986 ms, followed by a directly joined
+4.500 s network-status admission wait. The worst close still reaches 4.721 s
+without a retained exact gate join; screenshot writes/verification remain slow.
+
+Full diagnostic acceptance for this return remains incomplete: only one of the
+two required completed sidecar-equality samples survives inside playback. The
+alternating 64 KiB logs retain the other completed periodic sample just after
+PCM ends. Preserve the original temporal proof requirement; final counters,
+post-playback samples and earlier releases cannot supply the missing endpoint.
+See the [unit's native return](machines/macbookair6-1.md#native-small-launch-owner-return-2026-11-13)
+for independent workload, integrity and remaining timing evidence.
