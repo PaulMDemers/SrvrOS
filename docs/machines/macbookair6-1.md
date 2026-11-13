@@ -14564,3 +14564,40 @@ no recovery promotion or reboot is armed. Matching raw and reviewed evidence is
 sealed outside build. Next should target the observed pre-exit child delay and
 remaining screenshot/storage waits; the historical control stall remains
 unexplained unless it recurs with the new trace.
+
+
+### Active Files exit/admission work (2026-11-13)
+
+From fetched main `44b414bf`, investigate Files cycle880/pid1167's5.640914-second
+close during the third screenshot. All matching prior evidence is reviewed and
+sealed, current `bfe6ca6ff45fe078` and recovery `c35475f62f154f1e` are protected,
+USB is unmounted, the previous one-shot is consumed and no reboot is armed.
+
+The checked source maps cycle880 to Files. Its file worker pid1168 has a matching
+4.199220-second `SYS_PATH_CONTEXT` wait during that close/capture. The directory
+worker currently calls POSIX `open`, which first resolves the pathname through
+one filesystem admission, then calls `SYS_OPEN_MODE`, whose production path
+repeats the same component/namespace resolution under a second admission before
+opening. The second gate permits another writer to interpose. Do not attribute
+all remaining close time to that single retained wait or change accepted-job
+retirement semantics.
+
+Bounded objective: remove this redundant directory-worker path/admission round
+using the existing atomic kernel open contract; preserve every traversed-
+component/directory/namespace/flags/mapping/cancellation check and all mutation,
+CRC/readback, FD, service, child and final-reap ownership. Audit the actual path
+and cover original errors/cancellation/EOF and competing-writer admission with
+regressions before claiming the implementation. Candidate files are
+`userspace/deskfs/deskfs.c`, its real-worker/contract tests and test wiring or
+loaded-stress proof if needed. No kernel/scheduler, filesystem mutation,
+shared ABI, log/row/cadence, power-policy or limit changes are planned. If the
+reproduction requires another subsystem, update this bounded scope before edits.
+
+PR19 `0382faa1`, PR301 `4fd81b45` and PR379 `817f80bb` have no competing directory
+worker edit; their independent Makefile/subsystem scopes remain separate.
+Publish the objective, then reproduce/test the checked source change, freeze
+matched images, run relevant/full local and loaded/exact-stage checks, self-merge
+and prepare/seal a one-shot original1800-second1% automated audio/disk/app/three-
+screenshot stress run under the user's existing reboot authorization. Keep the
+original500ms loop/ten-second whole-app and every integrity/retirement criterion.
+Native latency improvement remains pending the matching next physical result.
