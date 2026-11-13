@@ -14237,3 +14237,99 @@ proved network-status admission wait and preserve completed live sidecar
 endpoints, while adding an exact join for the remaining close delay. Keep all
 ownership, callback, cancellation, integrity and original timing limits. This
 review implements none of those changes and starts no build, stage or reboot.
+
+## Active network-status admission and live-sample retention (2026-11-13)
+
+Bounded objective from main `bc326e39`: remove the reproduced 4.500-second
+network-status admission wait for this unit's empty network stack, and preserve
+two completed sidecar-equality endpoints during active PCM without enlarging
+the alternating 64 KiB logs or relaxing the original temporal proof. The prior
+run is independently reviewed, sealed and unarmed; its full diagnostic contract
+remains incomplete. Current/recovery remain `00460b3ddba044cf`/`c35475f62f154f1e`.
+
+Scope: callback-free empty-stack snapshot proof, syscall prelude with unchanged
+ABI/user-copy checks and gated/cancellation-aware fallback, bounded logger
+retention and exact snapshot rendering, focused refusal/regression tests and
+matched ordinary/native/loaded guests. Any registered provider, including a
+retired tombstone, retains the original callback/ownership gate. No networking
+hardware, power policy, timeout, capacity, filesystem proof or workload limit is
+widened. The original 1800-second 1% workload and three captures remain required.
+
+Fetched PR19 is `8f0daff9`; its network/device and logger work is separate.
+Inspection finds no edits to the existing network-status function, while its
+new selected-device accessor and optional larger Wi-Fi capture logs must remain
+independent. PR301 `7473da65` owns GPU lifetimes and PR379 `817f80bb` owns WebCore
+audit. Publish this bounded scope before implementation, inspect actual overlap
+again before merge, and contact no other task. Next checkpoint: reviewed proofs
+and targeted regressions, fresh full local qualification, exact-stage refusal
+rehearsal, protected installation, self-merge and saved one-shot automated boot
+under the user's existing explicit authorization. No reboot is armed yet.
+
+The candidate adds the strict empty-stack formatter attempt and original gated
+provider fallback. The actual registry/formatter and syscall regressions pass,
+including retired-provider refusal, short ABI copies, mapping faults, IRQ-state
+restoration and cancellation before fallback effects. Logger retention tests
+exercise immutable clocks/counters, positive growth, owner/handle boundaries,
+in-flight-I/O and active/failed/post-playback refusal, lifetime reset and unchanged
+64 KiB/cadence bounds. Replay of the previous native logs remains refused by both
+the original and shared two-live-sample checker. The ordinary/native/Q35 build
+and 46 affected process/syscall fixture links pass in development. One added
+render test initially ran before the original exact-width budget assertion;
+it now runs separately after that unchanged 686-byte/2048-byte check. The failed
+fixture log is retained, and all corrected focused fixtures pass. No native
+acceptance is claimed; frozen-source loaded/full/ordinary/exact-stage checks
+remain required before installation or reboot.
+
+
+### Network-status/live-sample qualification and ready native trial (PR492)
+
+Frozen source `07b4efa7` passes matched ordinary/native/Q35 fixture
+builds and symbol/isolation checks, all affected fixture links, actual empty-stack
+registry/formatter and syscall admission/copy/IRQ/cancellation regressions,
+immutable sidecar rendering and bounded retention/window tests, and the fresh
+complete core/desktop/documentation suite. The original optional exhaustive-I/O
+skip and explicitly reported baseline append-repair/allocation gaps remain
+visible; no new power-loss repair acceptance is claimed. Ordinary syscall,
+network ABI, CLI/editing, UEFI USB input and display guests, real USB storage,
+ordinary screenshot and exact native-stage foreign-profile refusal guests pass.
+Profile-switch construction is unchanged and is not claimed as newly tested.
+
+The loaded KVM guest completes 24 app cycles and 181
+verified 256 KiB disk bursts over 60 seconds at 1%, with one exact BMP,
+zero recorded underruns and 129.149 ms maximum loop under the
+original 500 ms/10 s limits. All saved-only lifecycle/app/file-service and
+capture/transfer/sync/command/ownership/retirement companions pass independently.
+The launcher has 25 launches/25 final reaps and zero
+errors. The original two-completed-live-sample condition passes with equality
+growth 130; an independent replay using only the final 64 KiB
+log also passes. The previous incomplete native session still fails the same
+checker. No native latency improvement or new acceptance is inferred from this VM.
+
+Exact native release `772f95d189e4dcfc` is installed for the original fully
+automated 1800-second 1% audio/disk/app/three-screenshot workload, with the
+original 60-second audio tail, 500 ms loop, 10 s whole-app bounds and all integrity
+checks unchanged. The guest displays progress and saves results, exits and
+returns automatically. No interaction or listening report is required. Heavy
+full-field metadata audit and optional power/ownership probes stay off.
+Preflight preserves all 934 prior USB paths except renewing the
+explicit 1% expiry, verifies full hashes, read-only fsck/allocation/headroom/
+write-admission and independent payload/recovery copies. Ubuntu remains default;
+recovery `c35475f62f154f1e` and known-good stress payload `7acb756c0ac5f4bb` remain installed.
+Only failed `9463151939d54175`’s unreferenced EFI duplicate was retired after
+complete stage/payload/hash and no-reference verification; its independent
+payload, stage and failed evidence remain retained. The preceding current,
+accepted/comparison/quiet and failed188 payloads remain installed. Self-merge
+and a sealed one-shot launch follow under the existing
+explicit authorization; physical acceptance awaits the matching returned run.
+
+The final integration refresh still finds main `bc326e39`. PR19 is now
+`6c900138`, with no additional touched-subsystem changes since the initial
+inspection. PR301 is now `a7c84ce5`; its syscall delta only consumes the already
+merged helper/flag changes and its syscall file exactly matches main. PR379
+remains `817f80bb`. No unmerged scope is imported. Installation actually retired
+only failed946's fully verified unreferenced EFI duplicate, retaining its
+independent payload, full stage and failed evidence; all other protected
+current/recovery/accepted/comparison/quiet/failed188 payloads remain installed.
+Fresh installed/staged/independent hashes, Ubuntu default, empty one-shot and
+unchanged firmware order pass. The automatic collector is installed; the new
+run is ready and unarmed until its exact qualified code is self-merged and sealed.

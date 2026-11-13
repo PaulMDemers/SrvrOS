@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
 static bool console_fd,busy,user_safe,startup_killed,kill_on_wait,invalidate_on_wait;
@@ -11,7 +12,7 @@ bool process_should_exit_current(void) { return startup_killed; }
 bool scheduler_io_active(void) {return busy;}
 uint64_t latency_clock(void) {return 1;}
 static unsigned gate_samples;
-void latency_gate(uint64_t at,uint64_t call) {assert(at==1 && (call==SYS_MMAP || call==SYS_THREAD_CREATE));gate_samples++;}
+void latency_gate(uint64_t at,uint64_t call) {assert(at==1 && (call==SYS_MMAP || call==SYS_THREAD_CREATE || call==SYS_NET_STATUS_INFO));gate_samples++;}
 static unsigned turn_requests;
 static bool retired;
 static bool wait_pointer_ok=true,scope_write_ok=true;static unsigned wait_attempts;
@@ -286,7 +287,48 @@ static void exec_syscall_contract(void) {
     puts("exec-prelude: PASS copied kernel snapshots, checked private result, foreign owner retained; unsupported/refused requests regain ordinary admission and refresh");
 }
 
+static bool network_empty=true;
+static unsigned network_slow,network_allocations;
+bool net_status_info_try_without_device(struct srv_net_status_info *out) {
+    if(!network_empty)return false;
+    *out=(struct srv_net_status_info){.abi_version=SRV_NET_ABI_VERSION,.struct_size=sizeof(*out),.rx_frames=17};return true;
+}
+int64_t net_status_info(struct srv_net_status_info *out) {
+    assert(!busy && !user_safe);network_slow++;
+    *out=(struct srv_net_status_info){.abi_version=SRV_NET_ABI_VERSION,.struct_size=sizeof(*out),.initialized=1};return 0;
+}
+void *kmalloc(size_t n) {assert(!busy && !user_safe && n==sizeof(struct srv_net_status_info));network_allocations++;return malloc(n);}
+void kfree(void *p) {assert(!busy && !user_safe);free(p);}
+static void test_network_snapshot(void) {
+    struct srv_net_status_info out={.abi_version=SRV_NET_ABI_VERSION,.struct_size=sizeof(out)};
+    struct isr_frame frame={.rax=SYS_NET_STATUS_INFO};assert(syscall_io_safe(&frame));
+    unsigned waits=close_waits,gates=gate_samples;
+    busy=user_safe=true;
+    assert(syscall_net_status_info(&out)==0 && out.rx_frames==17 && !out.initialized);
+    assert(busy && user_safe && close_waits==waits && !network_slow && !network_allocations);
+    struct {struct srv_abi_header header;uint64_t canary;} short_out={{SRV_NET_ABI_VERSION,sizeof(struct srv_abi_header)},123};
+    assert(syscall_net_status_info((void *)&short_out)==0 && short_out.canary==123 && short_out.header.struct_size==sizeof(out));
+    out.abi_version=0;assert(syscall_net_status_info(&out)==-1);out.abi_version=SRV_NET_ABI_VERSION;
+    assert(syscall_net_status_info(NULL)==-1);
+    scope_write_ok=false;assert(syscall_net_status_info(&out)==-1);scope_write_ok=true;
+    wait_pointer_ok=false;assert(syscall_net_status_info(&out)==-1);wait_pointer_ok=true;
+    assert(busy && user_safe && close_waits==waits && !network_slow && !network_allocations);
+    network_empty=false;
+    assert(syscall_net_status_info(&out)==0 && out.initialized && network_slow==1 && network_allocations==1);
+    assert(!busy && !user_safe && close_waits==waits+1 && gate_samples==gates+1);
+    busy=user_safe=kill_on_wait=true;
+    assert(syscall_net_status_info(&out)==SRV_ERR_INTR && startup_killed && network_slow==1 && network_allocations==1);
+    assert(close_waits==waits+2 && gate_samples==gates+2);
+    startup_killed=kill_on_wait=false;busy=user_safe=true;invalidate_on_wait=true;
+    assert(syscall_net_status_info(&out)==-1 && network_slow==2 && network_allocations==2);
+    invalidate_on_wait=false;wait_pointer_ok=true;network_empty=true;busy=user_safe=false;
+    puts("network-status-admission: PASS no-device snapshot, negotiated copy and intact gated/cancelled fallback");
+}
+
 int main(void) {
+    test_network_snapshot();
+    /* Existing independent fixtures start their own gate counters. */
+    close_waits=gate_samples=0;
     scope_syscall_contract();
     struct srv_scope_status source={.version=SRV_SCOPE_VERSION,.size=sizeof(source),.members=17}, destination={.members=99};
     wait_pointer_ok=false;assert(!scope_publish(&destination,&source,sizeof(source)) && destination.members==99);

@@ -194,3 +194,23 @@ not physical bytes saved. Strict collection requires complete non-overflowing
 counters, no refused proofs/flush errors, and positive equality exercise. The
 Air6,1 trial additionally requires counter growth inside live PCM playback.
 Legacy cost output and other profiles' retention models/limits stay unchanged.
+
+## Retaining live sidecar-equality evidence
+
+Ordinary workspace logs still use two alternating 64 KiB periodic files at the
+original ten-second cadence. When sync diagnostics are enabled, the logger keeps
+two fixed immutable sidecar observations: the first complete equality snapshot
+during playing/draining PCM with a positive playback position, and the latest
+complete snapshot for that same owner/handle with equality growth. Active,
+refused, invalid, failed-flush, inconsistent, in-flight I/O or non-playing samples cannot replace
+those endpoints. A new logger lifetime or observed PCM identity resets retention.
+
+Final logging renders those copied counters and differences with their original
+sample timestamps after verbose diagnostics. It never resamples current counters
+under old clocks, grows the log buffer or skips media equality checks. The strict
+`sidecar_equality_window` validator still requires two distinct completed samples
+inside the actual workload's live PCM interval, positive equality growth and a
+completed post-playback snapshot. PCM-state observations select candidates; only
+the independent workload clocks establish temporal acceptance. Missing coverage
+still fails. Final cumulative counters, old releases and post-playback samples
+cannot supply a missing live endpoint.
