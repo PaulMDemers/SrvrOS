@@ -97,8 +97,34 @@ remain documented.
 
 The immutable payload and complete proof bank survive build cleanup. The
 [unit checkpoint](machines/macbookair7-2.md#active-integration-and-source-bound-engine-hold-work)
-records recovery, media integrity and exact scope. The candidate is uninstalled
-and unarmed. Native v34 timing/behavior and all managed memory/tear-free grants
-remain unaccepted. Automated trials need no human input, show progress and
+records recovery, media integrity and exact scope. At qualification the candidate
+was uninstalled/unarmed; the subsequent native result below accepts only its
+observed route. All managed memory/tear-free grants remain unaccepted. Automated trials need no human input, show progress and
 save/unmount/return on safe outcomes at volume 1%; unknown ownership halts visibly.
 Use the [Ubuntu workflow](ubuntu-device-agent-setup.md) and keep accepted recovery.
+
+## Native result: original already-disabled lifetime accepted
+
+Air7,2 source `4fd81b45` / release `90dfc6ca035e19f7`, session
+`session-000660308088581c-00`, collector `b5694a5a` pass one original kind 2
+already-disabled lifetime: entry epoch 0, reset 0→1/source 1. All five requests
+remain held through the child, reverse cancellation restores exact controls,
+and four full six-word profiles/10 stores/10 admissions/10 ACKs/44 reads verify.
+Engine scope 1,352 us, child 48 us, phases 58–87 us; parent PCI 7→3→3→7 restores
+before full closing validation and complete original source/RAM/root retirement.
+No pending polls occur, so delayed acknowledgements remain unaccepted.
+
+Preparation 99,793/100,000 us leaves only 207 us; this is one bounded pass, not
+repeatability. GT 266,183/300,000 us, HDA 302,774/400,000 us and outer 357,288/500,000 us;
+all limits unchanged. Four padded patterns, exactly-once 2,712-page release,
+DMA 57→57, original borrows and 14 GPU/HDA 1 alias retirement pass. Raw logs and
+all nine lack-of-authority alerts remain sealed. All 1,503 prior files preserve
+apart from expected metadata; three logs yield 1,506 files/158 sessions. Offline
+media/recovery/default/consumed-one-shot verification passes; no new boot armed.
+
+This accepts the maintained readiness-control lifetime only. New v34 enabled
+entry, delayed ACK/AF pending branches, repeatability and every actual managed
+GPU-memory/completion/tear-free grant remain pending. All 255 obligations and
+zero assurances/managed pages remain. See the
+[unit result](machines/macbookair7-2.md#native-v34-original-source-five-engine-readiness-hold-accepted)
+for exact evidence and the next timing/ownership boundary.

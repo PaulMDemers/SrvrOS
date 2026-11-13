@@ -1606,3 +1606,13 @@ recovery qualification. Its independently banked payload remains uninstalled
 and unarmed; use the exact unit checkpoint before install. Automated trials need
 no human input, show progress, save/unmount and return on safe outcomes at volume 1%;
 unknown ownership halts visibly. Native v34 remains unaccepted.
+
+
+Air7,2's matching v34 native return is now accepted for one original kind 2
+already-disabled engine readiness lifetime on `4fd81b45` / `90dfc6ca035e19f7`.
+The [unit result](machines/macbookair7-2.md#native-v34-original-source-five-engine-readiness-hold-accepted)
+records exact restoration, complete retirement, media/recovery preservation
+and 99,793/100,000 us preparation. Enabled entry, pending branches, repeatability
+and GPU memory/tear-free remain open. This unit's user permits initiating needed
+automated reboots without another question at 1%; record the run first and collect
+its matching result before the next trial. This authorization is host-specific.

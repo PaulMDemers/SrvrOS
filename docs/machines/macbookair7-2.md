@@ -2,13 +2,62 @@
 
 Updated: 2026-11-13. State: **active reference machine; partial device acceptance**.
 
+### Native v34 original-source five-engine readiness hold accepted
+
+Frozen runtime `4fd81b45` / release `90dfc6ca035e19f7`, session
+`session-000660308088581c-00`, collector `b5694a5a` accept **one original
+kind 2 already-disabled entry lifetime**. Entry makes no BCS store and stays
+epoch 0; the state-aware reset advances 0→1. Source, transfer, requester
+and engine child stay bound to that actual original source/epoch.
+
+All five readiness requests remain acknowledged through the child, then reverse
+cancellation restores exact original controls. Four full six-DWORD snapshots,
+10 fenced stores, 10 fresh admissions, 10 acknowledgements and 44 native target
+reads verify; zero additional polls. The engine lifetime takes 1,352 us and its
+held child 48 us; individual phases take 58–87 us against 10,000 us. Parent PCI
+profiles are 7→3→3→7 with two halfword stores/38 reads, taking 2,024 us including
+its 1,372 us child. Original child registrations and both full hardware brackets
+verify before requester/source/RAM/root return.
+
+Preparation is 99,793/100,000 us: only 207 us margin, **not repeatability or spare
+capacity**. Final guard 8 us, reset borrow return 3,388 us, GT 266,183/300,000 us,
+HDA 302,774/400,000 us and outer 357,288/500,000 us. Source reads take 1,793 us;
+all original deadlines remain unchanged. Full engine/37-reader/HDA 6/2/2/6
+preservation, original borrows, 14 GPU aliases, HDA root and CPU exclusion retire.
+Both 1,356-page private RAM buffers pass four padded patterns; 2,712 pages release
+exactly once and DMA stays 57→57. Transfer still refuses native interval authority.
+
+Raw logs were sealed before classification; exact recipe/pre-init/checkpoint,
+strict native receiver and enclosing chain pass. Nine raw lack-of-authority
+alerts remain intact. All 1,503 prior files preserve except expected metadata;
+three exact logs yield 1,506 files/158 sessions. Offline fsck/allocation/writable/
+headroom, boot digest, installed/banked payloads, Ubuntu default and consumed
+one-shot pass. Raw and complete physical proof banks survive build cleanup under
+`air-source-engine-hold-20261113`; physical proof is
+`physical-session-000660308088581c-00`.
+
+Current is accepted v34 `90dfc6ca035e19f7`; accepted v33/v32, recovery
+`9aa8dbf6fbda8252`, GUI/joint/HDA stay installed. v31/c154 and older 327a/562d/
+451c/d260 remain bank-only. USB is unmounted; no reboot is armed or uncollected
+run remains. New v34 enabled-entry, delayed ACK/AF pending and repeatability
+remain unaccepted. Readiness and PCI inhibition are not internal DMA/prefetch/
+cache/translation/display-reader retirement: all 255 obligations, zero positive
+assurances/managed GPU pages and native tear-free remain open.
+
+Next integrate main observed at `44b414bf` after this exact-source collection,
+then reduce measured admission overhead within the unchanged limits before
+adding further ownership witnesses. Do not retry an unchanged refusal. Standing
+authorization permits needed automated test reboots at 1%; no repeated permission
+question. The reference unit retains its own evidence, not sibling acceptance.
+
 ### Active integration and source-bound engine-hold work
 
-The separate [v34 original-source engine hold](../intel-source-engines.md) is
+This qualification checkpoint preceded the native result above. The separate
+[v34 original-source engine hold](../intel-source-engines.md) was
 **ready for an automated hardware trial** on frozen source `4fd81b45` /
 release `90dfc6ca035e19f7`, after integrating main `0e3e86ae` (PR492/493).
 The exact payload and qualification evidence are banked independently of build
-cleanup. It is uninstalled and unarmed; native v34 remains unaccepted.
+cleanup. At that point it was uninstalled/unarmed and native v34 was pending.
 The v33 native result below remains specific to runtime `a7c84ce5`.
 
 The new original registration holds all five RESET_CTL readiness requests during

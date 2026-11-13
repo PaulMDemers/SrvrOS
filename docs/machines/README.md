@@ -132,12 +132,12 @@ remain unaccepted. The [unit result](macbookair7-2.md#native-v33-maintained-requ
 records the exact boundary and next ownership work.
 
 
-Air7,2 now has a hardware-ready [v34 source-bound five-engine readiness hold](../intel-source-engines.md)
-on frozen source `4fd81b45` / release `90dfc6ca035e19f7`, with main `0e3e86ae`
-integrated. Full 39-image/core, fatal sanitizer/fault/control/replay/object/log
-and exact-stage VM/media/recovery checks pass. This adds a maintained child
-inside its inhibited requester, with reverse cancellation and exact return;
-no GDRST/PTE/submission/display operation or completion grant. Payload/proofs
-are banked, candidate uninstalled/unarmed, native v34 and tear-free unaccepted.
-The [unit checkpoint](macbookair7-2.md#active-integration-and-source-bound-engine-hold-work)
-records the exact boundary, preserved 1,503 files / 157 sessions and recovery.
+Air7,2 now [accepts one native v34 original kind 2 readiness lifetime](macbookair7-2.md#native-v34-original-source-five-engine-readiness-hold-accepted)
+on runtime `4fd81b45` / release `90dfc6ca035e19f7`: all five requests held through
+child, reverse cancellation/exact restoration, 10 stores/ACKs, 1,352 us engine scope
+and full requester/source/RAM/root retirement. Preparation 99,793/100,000 us
+leaves only 207 us; no repeatability claim. All 1,503 prior files preserve except
+metadata; three logs yield 1,506 files/158 sessions. Raw/strict/offline/recovery
+proofs are banked; current v34, accepted v33/v32/recovery retained, USB unmounted
+and no boot armed. Enabled v34 entry, pending branches and actual GPU memory/
+DMA/cache/reader/tear-free ownership remain unaccepted; all 255 obligations stay.

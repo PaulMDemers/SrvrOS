@@ -1014,3 +1014,20 @@ No memory/reset/submission/display or DMA/cache/reader completion grant follows.
 Payload/proofs are independently banked; candidate is uninstalled/unarmed and
 native acceptance remains a7c84ce5 for v33 only. PR19/379 remain independent;
 no cross-task messaging or delegation. See the unit record before physical work.
+
+
+Air7,2 subsequently accepted one original kind 2 native v34 engine-control
+lifetime on `4fd81b45` / `90dfc6ca035e19f7`, session `session-000660308088581c-00`:
+five held readiness requests through child, exact reverse cancellation,
+1,352 us scope/48 us child and complete requester/source/RAM/root retirement.
+Preparation 99,793/100,000 us leaves 207 us, not repeatability; limits unchanged.
+All prior 1,503 files preserve except metadata, three exact logs yield 1,506 files/
+158 sessions, and offline media/recovery/default/consumed one-shot pass. Raw
+and physical banks are sealed. Enabled v34 entry, pending branches, actual
+DMA/prefetch/cache/translation/display-reader and managed-memory grants remain
+open (all 255 obligations/0 assurances/0 managed pages). Do not import this unit's
+acceptance or resource policy into a sibling. Main observed `44b414bf` stays
+deferred until this source-specific collection is published; next integrate it
+and address measured admission overhead before further ownership witnesses.
+The user grants standing needed automated reboots at 1%, preserving recovery,
+progress/persistence and collect-before-next-run rules. No task was contacted.
