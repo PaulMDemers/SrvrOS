@@ -2753,6 +2753,9 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     return status;
 }
 
+static struct process_pipe *pipe_at(uint64_t);
+static bool process_private_spawn_stdio(struct process *,struct process *,int64_t,int64_t,int64_t);
+static bool process_private_spawn_cleanup(struct process *);
 static int64_t process_spawn_exec_source(uint64_t scope_token,const char *path,
     uint64_t argc,
     const char *const *argv,
@@ -2796,11 +2799,12 @@ static int64_t process_spawn_exec_source(uint64_t scope_token,const char *path,
         error=process_inherit_files(child,parent);
         if(!error) error=process_posix_spawn_actions(child,file_actions,file_action_count);
         if(!error) close_cloexec_files(child);
-    } else if(!error && (!process_configure_stdio_fds(child,parent,stdin_fd,stdout_fd,stderr_fd) ||
+    } else if(!error && (!(view?process_private_spawn_stdio(child,parent,stdin_fd,stdout_fd,stderr_fd):
+        process_configure_stdio_fds(child,parent,stdin_fd,stdout_fd,stderr_fd)) ||
         !process_apply_spawn_file_actions(child,parent,file_actions,file_action_count))) error=SRV_ERR_BADF;
     if(error) {
         cleanup_process_address_space(child);
-        cleanup_process_files(child);
+        if(view)(void)process_private_spawn_cleanup(child);else (void)cleanup_process_files(child);
         release_process(child);
         return error;
     }
@@ -2837,7 +2841,7 @@ static int64_t process_spawn_exec_source(uint64_t scope_token,const char *path,
 #endif
             if(!view)console_write("exec: scheduler admission failed (stack/storage resources)\n");
             cleanup_process_address_space(child);
-            cleanup_process_files(child);
+            if(view)(void)process_private_spawn_cleanup(child);else (void)cleanup_process_files(child);
             release_process(child);
             return SRV_ERR_AGAIN;
         }
@@ -7785,6 +7789,22 @@ int64_t process_file_get_flags(struct process *process, uint64_t fd) {
     }
     uint64_t *status=endpoint_status_flags(file);
     return access|((status?*status:file->flags)&SRV_FD_NONBLOCK);
+}
+/* Scalar simple-pipe metadata only, revalidated under IF0. No allocation,
+ * ref release, rights collection, callback or foreign-owner mutation. */
+bool process_file_try_set_pipe_flags(struct process *process,uint64_t fd,uint64_t flags,int64_t *result) {
+    uint64_t irq=process_irq_save();
+    struct process_file *f=process_file_at(process,fd);
+    if(!result || flags&~SRV_FD_NONBLOCK || !f ||
+       (f->type!=PROCESS_FILE_PIPE_READ && f->type!=PROCESS_FILE_PIPE_WRITE))goto refused;
+    struct process_pipe *p=pipe_at(f->handle);
+    if(!p || !p->refs || !(f->type==PROCESS_FILE_PIPE_WRITE?p->write_refs:p->read_refs))goto refused;
+    for(unsigned i=0;i<PROCESS_PIPE_RIGHTS_QUEUE;i++)if(p->rights[i].used)goto refused;
+    uint64_t *status=f->type==PROCESS_FILE_PIPE_WRITE?&p->write_flags:&p->read_flags;
+    *status=flags;f->flags=(f->flags&SRV_FD_CLOEXEC)|flags;*result=0;
+    process_irq_restore(irq);return true;
+refused:
+    process_irq_restore(irq);return false;
 }
 int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t flags) {
     struct process_file *file=process_file_at(process,fd);

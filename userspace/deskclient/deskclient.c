@@ -4,6 +4,7 @@
 #include <srvros/desk_widgets.h>
 #include <srvros/gui.h>
 #include <srvros/sys.h>
+#include <srvros/desk_launch_owner.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -69,6 +70,7 @@ static void draw(struct desk_canvas *c,const char *input,int large,
     desk_button_draw(c,&visual,"Text size",theme);
 }
 int main(int argc,char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--launch-owner"))return desk_launch_owner_serve();
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
     struct desk_packet open=desk_packet_new(DESK_OPEN);
     open.width=600; open.height=320;

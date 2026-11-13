@@ -66,6 +66,10 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     const char *args,
     const char *stdout_path,
     bool append);
+/* Copied empty-argument native helper; strict simple pipes and immutable RAM
+ * image only. False performs no work and requires ordinary admission. */
+bool process_try_spawn_private_helper(const char *path,const char *args,int64_t in,int64_t out,int64_t *result);
+bool process_file_try_set_pipe_flags(struct process *process,uint64_t fd,uint64_t flags,int64_t *result);
 /* Copied vectors only; IF0 private-image attempt, false means ordinary gate. */
 bool process_try_spawn_private(const char *path,uint64_t argc,const char *const *argv,
     uint64_t envc,const char *const *envp,int64_t *result);
