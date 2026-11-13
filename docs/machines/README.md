@@ -119,9 +119,11 @@ tear-free acceptance. Next integrate deferred main, then resolve hardware
 ownership witnesses before a GPU writer; no unchanged refusal retry is needed.
 
 
-Air7,2 is qualifying the separate [v33 maintained source requester](../intel-source-requester.md)
+Air7,2 has locally qualified the separate [v33 maintained source requester](../intel-source-requester.md)
 after its accepted v32 lifetime. This retains the actual source/RAM/root while
 Command3 encloses the child and verifies Command7 restoration before parent
 return. Host/model results do not accept native timing or GPU interval/DMA/cache/
 reader ownership. The [unit checkpoint](macbookair7-2.md#active-implementation-maintained-source-requester)
-owns qualification and the next physical boundary; no new reboot is armed.
+records frozen source `a7c84ce5` / release `6f8fea336425b123`, full local/VM/media
+qualification and the next native boundary. The candidate is independently
+banked, uninstalled and unarmed; native v33 remains pending.

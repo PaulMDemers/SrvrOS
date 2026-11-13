@@ -1580,7 +1580,11 @@ firmware request, exact15-token recipe/pre-init and `intel_source_requester`
 receiver. Its inhibited child remains nested beneath the actual source and both
 RAM holds through verified Command restoration and the closing full hardware
 guard. It adds only the exact PCI Command-halfword operation; no GPU mapping or
-completion assurance follows. Old recipes/receivers stay distinct. Qualification
-is in progress; do not install until the unit's exact host/image/VM/media/recovery
-checkpoint says ready. Eventual unattended trials show progress, persist results,
+completion assurance follows. Old recipes/receivers stay distinct. Air7,2 frozen
+source `a7c84ce5` / release `6f8fea336425b123` passes its full local/VM/media/
+recovery gate and is banked, uninstalled and unarmed; native v33 is pending.
+Use the [unit checkpoint](machines/macbookair7-2.md#active-implementation-maintained-source-requester)
+and recheck local run/media/recovery state before install and one-shot boot;
+another unit must establish its own evidence. Eventual unattended trials show
+progress, persist results,
 retain volume1% and return on safe outcomes; unknown ownership halts visibly.

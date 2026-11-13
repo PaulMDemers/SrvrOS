@@ -4,37 +4,68 @@ Updated: 2026-11-13. State: **active reference machine; partial device acceptanc
 
 ### Active implementation: maintained source requester
 
-On main `bc326e39` with the preserved `5bffbd20` branch checkpoint, the Air
-agent is implementing the separate [v33 maintained source requester](../intel-source-requester.md).
-The new original object registers below the actual refused source transfer,
-keeps both RAM holds and CPU exclusion live through its inhibited child, and
-retains uncertain state. Its native operation adds only exact captured PCI
-Command-halfword 7→3→7 control, four complete profile/prefix samples, bounded
-AF pending drain and final admissions. GPU PTE/interval authority is absent.
-Source reads/control share the original full opening/closing hardware bracket;
-per-I/O source/root/map/requester/final-clock checks remain intact. All prior
-images, recipes and 100/300/400/500 ms origins stay unchanged.
+The separate [v33 maintained source requester](../intel-source-requester.md) is
+**ready for an automated hardware trial**, on frozen source `a7c84ce5` and release
+`6f8fea336425b123`. Main `bc326e39` is integrated; the v32 native result below
+continues to apply only to its own source. The candidate is independently banked,
+uninstalled and unarmed. Current accepted v32 `8d0181c0ed0a4708`, recovery
+`9aa8dbf6fbda8252`, prior v31 and GUI/joint/HDA payloads remain installed.
 
-Both actual-adapter modeled routes and strict decode complete. All nine directed
-requester tests pass, including the full new-clock/read/store/original-owner
-fault matrix and modeled native collection (213.645 s). The new prefix test
-found command mismatch was detected only at full-profile completion; native
-per-word validation now refuses immediately before further reads. The new stage
-profile initially exposed a missing allowed-option entry and an old/new version
-precedence error; both were corrected, and all 115 installer/staging/rollback
-tests pass. These preliminary host results are not final source-matched
-qualification or native v33 acceptance. Full fault/sanitizer/compiled-control,
-image/store/map/frame/log, historical and exact-stage VM checks remain required.
-A subsequent review found the final store needed to retain its exact phase,
-profile/admission and issue counters across the final clock. Pure checks now
-revalidate those fields after the clock and before the halfword. New controls
-mutate phase, state, samples, write/issue counters, child completion and fresh
-admission at that precise point and require zero additional target stores.
-All ten directed tests pass (217.093 s). The first full gate was intentionally
-stopped before source correction; its partial log remains nonpassing evidence.
-Qualification will restart on the corrected frozen source.
-No candidate/reboot is armed; accepted v32/recovery stay intact. The current
-ignored checkpoint is `build/air-source-requester-20261113/status.md`.
+The new original object registers beneath the actual known-refused source
+transfer, keeps both RAM holds, root and CPU exclusion live through the inhibited
+child, and retains uncertain state. Native control adds only captured PCI
+Command-halfword 7→3→7, four full nine-DWORD profiles, bounded AF pending drain
+and final admissions. Source loads and control share the original full opening
+and closing hardware bracket; per-I/O source/root/map/requester/final-clock
+checks remain. No GPU PTE/interval authority is added. All old images/recipes
+and preparation/GT/HDA/outer 100/300/400/500 ms origins remain unchanged.
+
+Qualification on that exact frozen source passes:
+
+- Full local host/core/USB/documentation gate and 38 ELF builds; installed-root
+  integration is explicitly omitted because installer core is unchanged and
+  installed recovery must remain intact. Separately, 115 staging/installer/
+  rollback profile tests pass.
+- Ten actual-adapter tests under fatal ASan/UBSan, separate RAM-hold sanitizer,
+  both modeled source routes, over 2,000 clock/identity faults, every new read/
+  admission prefix, both store boundaries, child/closing-guard failures and
+  strict synthetic native collection. Models supply no native acceptance.
+- Four compiled weakness controls expose missing final phase, original deadline,
+  per-word command-prefix and full closing validation; 11 historical raw native
+  classifications replay without relabeling their original evidence.
+- Isolation of all 38 images, linked/object halfword-store and unchanged GPU
+  writer/map checks, six 2 KiB frame checks, and 24 saved-log projections. Worst
+  projected log is 63,625/65,536 bytes including 1,536-byte reserve and 1,024-byte
+  runtime/header margin.
+- Exact immutable-stage EFI/MBR VM save, offline file-byte verification, clean
+  unmount/automatic return and missing-workspace halt. Its exact 15-token recipe,
+  native pre-init/banner and strict v33 result dispatch verify. The foreign VM
+  performs zero native requester stores and accepts no native timing.
+- Fresh host/model/AC/recovery checks, all 1,500 USB files and 156 sessions
+  unchanged, offline exFAT/allocation/writable/headroom and unchanged boot digest,
+  Ubuntu default and no pending one-shot. Volume is 1%.
+
+The early full-gate attempt was intentionally stopped after review found missing
+final-clock phase/profile/issue revalidation. The corrected full gate passed in
+2,608.19 s. Raw failed attempts remain alongside passing evidence. The native
+object checker initially expected literal `true` instead of preprocessed `1`;
+only that checker lookup was corrected before the full exact-stage VM retry.
+Runtime source and stage were unchanged.
+
+The unreferenced older v30 `327a401a69ca3855` EFI duplicate was retired only after
+byte equality with its independent payload bank, sealed native acceptance and
+boot-reference checks. Its payload/evidence remain outside build; current,
+recovery, prior v31, GUI/joint/HDA and configuration hashes remain intact. EFI now
+has about 207 MiB free and passes candidate size plus 32 MiB margin. Older
+562d/451c/d260 remain verified bank-only. USB is unmounted.
+
+The next trial needs no human input: show progress, save/unmount and return on
+safe outcomes, retain volume 1%, and halt visibly on unknown ownership. Native
+v33 timing/behavior, enabled-route coverage and repeatability remain pending.
+All 255 completion obligations, zero positive assurances/managed GPU pages and
+native tear-free remain open. The immutable candidate, run record and complete
+qualification live under `build/air-source-requester-20261113`; independent
+payload/evidence banks survive build cleanup. No reboot has been requested.
 
 ### Current scope after native v32 collection
 

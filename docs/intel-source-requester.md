@@ -20,7 +20,7 @@ reading the next capability. Four complete nine-DWORD profiles bind the actual
 source and one original transaction:
 
 1. Capture Command 7, identity, status, class, subsystem, capability chain and
-   PM/AF state. Reject any malformed prefix before another target read.
+   PM-capability/AF state. Reject any malformed prefix before another target read.
 2. Freshly sample the Command/Status DWORD, perform the final original-source/
    alias/requester and clock admission, then write only the Command halfword 3.
    Memory and I/O decoding remain enabled; Status is never acknowledged.
@@ -97,7 +97,16 @@ gate, fatal sanitizer/control matrices, image/store/map/frame/log isolation,
 exact-stage EFI/MBR persistence and missing-workspace checks, plus fresh local
 media/recovery/capacity checks in the [Ubuntu workflow](ubuntu-device-agent-setup.md).
 
-This implementation is under qualification; no native v33 pass, installed
-candidate or reboot is implied. An eventual trial needs no human input, shows
+Frozen source `a7c84ce5`, release `6f8fea336425b123`, is locally qualified and
+independently banked. The 38-image full gate, ten fatal sanitizer/adapter tests,
+four compiled weakness controls, 115 staging checks, 11 historical raw replays,
+native object/store/map/2 KiB frames and exact-stage EFI/MBR VM checks pass.
+The 24-mode worst log projection is 63,625/65,536 bytes including reserve and
+runtime margin. Fresh media/recovery/capacity checks pass; all 1,500 existing
+files and 156 sessions remain unchanged. The [unit record](machines/macbookair7-2.md#active-implementation-maintained-source-requester)
+records the exact boundary and verified bank-only EFI retirement.
+
+Native v33 timing/behavior remains pending. The candidate is uninstalled and
+no reboot is armed. An eventual trial needs no human input, shows
 progress, uses volume 1%, persists/unmounts and returns automatically on a safe
 outcome. Unknown ownership halts visibly and remains incomplete evidence.

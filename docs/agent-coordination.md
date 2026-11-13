@@ -982,8 +982,14 @@ After collecting native v32, Air7,2 owns the separate [maintained original-sourc
 requester](intel-source-requester.md) on integrated mainbc326e39. The optional
 v33 child pins source/transfer/RAM/root through PCI7→3, inhibited child, fresh
 inhibited profile, PCI3→7, restored profile and full closing validation. All old
-images/APIs and deadlines stay strict. Nine actual-adapter tests and115 staging
-checks pass preliminarily; full frozen-source/image/sanitizer/control/VM/media
-qualification remains pending. No native v33 acceptance or new reboot is armed.
+images/APIs and deadlines stay strict. Frozen source `a7c84ce5` / release
+`6f8fea336425b123` now passes the 38-image full gate, ten fatal sanitizer/adapter
+tests, four compiled weakness controls, 115 staging checks, 11 historical raw
+replays, native store/map/frame/log isolation and exact-stage EFI/MBR VM recovery.
+Fresh media/recovery/capacity checks preserve all 1,500 files/156 sessions.
+Current8d01/recovery9aa8/priorv31/GUI/joint/HDA stay installed; older unreferenced
+v30 is now bank-only after exact payload/native/reference verification. Candidate
+and complete proofs are independently banked, uninstalled and unarmed. Native
+v33 timing/behavior and all hardware memory grants remain unaccepted.
 PR19 MT7610 and PR379 WebCore remain independent; no cross-task messages or
 subagents were requested.
