@@ -7,6 +7,20 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Pre-GO lifetime and no-Offer native audit scope (November 13)
+
+Audit and move first-child/worker preparation from before the full RF parent
+to the existing key-free connection boundary, using a distinct reservation and
+versioned preparation receipt. Keep the child60s and HTTP15s deadlines, DHCP2s
+policy and all native ownership/cleanup guards. Cover a slow parent and the
+saved two-Discover/matched-reflection/no-Offer outcome through production native
+HTTP/CCMP/provider/RF C, plus actual userspace deadline tests and strict receipt
+ordering/legacy compatibility. Scope is xHCI HTTP orchestration, its collector
+and fixtures; no RF register, parser-admission or retry changes. Main
+`0e3e86ae` adds only Air6,1 evidence since the integrated baseline; inspected
+PR494 owns independent desktop control-phase tracing. No conflicting HTTP work
+or new hardware boot is armed. The closed04b/792 bank stays immutable.
+
 ### DHCP comparison cold run: no Offer (November 13)
 
 Runtime `04b7b381` / release `79235e8eda6bc8e4`, session
