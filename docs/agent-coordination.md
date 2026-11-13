@@ -905,15 +905,23 @@ retains its old gate, even inside the new image. Registration, preservation and
 100/300/400/500 ms origins remain. No requester, memory, cache or flip grant is
 added. PR19 `e3f8d795` documents independent two-HTTP acceptance; no overlapping
 GPU implementation was observed. No other task was contacted or scheduled.
-Native v30 acceptance is pending separately for both routes. Check the unit
-ledger and ignored checkpoint before another run; no trial is armed.
+The matching native result accepts one original already-disabled v30 route;
+the enabled route remains pending. Check the unit ledger and ignored checkpoint
+before another run; no trial is armed.
 
 V30 is locally qualified on `82dd3da8` / `327a401a69ca3855`: 35-image/core, fatal
 ASan/UBSan8-test two-route matrix, eight historical native classifications,
 object/receipt/alias/frame checks and exact EFI/MBR persistence/recovery pass.
-Installed payload remains v29; no v30 native acceptance or boot is armed.
+The matching `327a401a69ca3855` session now accepts one original kind 2/epoch 0
+entry → reset epoch 1 → registered source child lifetime, with preparation
+97,434/100,000 us and six original GGTT DWORDs in 3,456 us. Collector-only
+`c0dcda2e` fixes shared v30 census dispatch; both modeled native-chain/full-collector
+regressions pass, and unchanged native bytes verify with original errors retained.
+All preservation, borrows/aliases, offline media and recovery checks pass. Current
+is v30; enabled-route acceptance and managed memory/tear-free stay pending.
+No reboot is armed. Historical receipts never supply future live authority.
 Doc-only main `f61b40eb` integrates after qualification with no runtime
-diff; PR19 `9d1d92b4` remains independent. The unreferenced d260 EFI
+diff; PR19 `9e0e5988` and Air6,1 `4629fced` remain independent. The unreferenced d260 EFI
 copy is retired after full durable/raw-evidence/reference verification, while
 its accepted backup and current/recovery/GUI/latest reset stay intact. Consult
 the unit's latest checkpoint before installing; do not reuse earlier helpers'

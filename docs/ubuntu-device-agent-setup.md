@@ -1500,8 +1500,13 @@ VM completion or safe refusal accepts neither native route.
 
 Air7,2 frozen `82dd3da8` / `327a401a69ca3855` is locally hardware-ready after the
 35-image/core, fatal sanitizer/two-route, native object/receipt/replay and exact
-EFI/MBR VM gates plus host/media/recovery checks. It is independently banked,
-not installed or armed. Native acceptance remains pending per route. This unit
+EFI/MBR VM gates plus host/media/recovery checks. Its matching native run now
+accepts one original already-disabled kind 2 reset/source lifetime: preparation
+97,434/100,000 us, six original GGTT DWORDs in 3,456 us, full preservation and
+clean retirement/media/recovery. Collector `c0dcda2e` fixes v30 shared census
+dispatch; exact unchanged logs and original errors are sealed. Current is v30;
+no reboot is armed. Enabled-route acceptance stays pending. See the
+[native result](intel-startup-source.md#native-result-original-already-disabled-route-accepted). This unit
 retired only the unreferenced d260 EFI duplicate after full durable/evidence and
 boot-reference equality checks; do not generalize that cleanup to another host.
 Current, recovery, known GUI and latest accepted reset remain installed.

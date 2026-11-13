@@ -67,11 +67,18 @@ native source acceptance. No memory/claim/requester or sibling acceptance follow
 Air7,2 has locally qualified a separate [v30 original state-aware startup
 reset/source](../intel-startup-source.md) image. It binds either actual original
 kind 1/nonzero or kind 2/zero entry, preserving each epoch/source/borrow and all
-existing limits. Old APIs/images remain strict. Native v30 acceptance, managed
-backing and tear-free remain pending; no sibling or historical receipt supplies
-live authority.
+existing limits. Old APIs/images remain strict. One native already-disabled
+v30 lifetime is accepted below; enabled-route acceptance, managed backing and
+tear-free remain pending. No sibling or historical receipt supplies live authority.
 
 Frozen v30 source `82dd3da8` / release `327a401a69ca3855` passes 35-image/core,
 fatal sanitizer/two-route matrices, historical replay, native object and exact
-stage VM persistence/recovery checks. It is banked, not installed or armed;
-native source/timing acceptance remains pending separately for both routes.
+stage VM persistence/recovery checks. Its matching native session
+`session-0006601f0dd19f83-00` now accepts one original already-disabled/zero-entry
+reset/source lifetime: preparation 97,434/100,000 us, six original GGTT DWORDs
+in 3,456 us, complete preservation/return and 14 GPU/HDA1 alias retirement.
+Collector-only `c0dcda2e` corrects shared v30 census dispatch; unchanged raw bytes,
+original rejection and strict replay proof are sealed. Offline media/recovery
+verify; current is v30, recovery retained and no reboot armed. Enabled v30 route
+and managed memory/native tear-free remain unaccepted. See the
+[latest unit result](macbookair7-2.md#native-v30-original-already-disabled-resetsource-accepted).

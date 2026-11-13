@@ -2,21 +2,56 @@
 
 Updated: 2026-11-12. State: **active reference machine; partial device acceptance**.
 
-### Current return review: v30 shared collector dispatch
+### Native v30: original already-disabled reset/source accepted
 
-Release `327a401a69ca3855` returned with one matching session,
-`session-0006601f0dd19f83-00`. Its original already-disabled route reports
-complete reset/source operations, but the shared completion-census decoder
-omits v30 dispatch and rejects native validation. Raw reports and the original
-collector rejection are independently sealed; **native acceptance is not yet
-claimed**. The bounded follow-up fixes host collector dispatch and adds full
-native-chain/collection regressions for both routes, then replays these exact
-unchanged logs and checks offline media/recovery. No kernel, deadline, recipe,
-writer, firmware gate or installed payload changes are planned. No reboot is
-armed for a new trial. Main remains `f61b40eb`; independent Air6,1 process and
-Pro11,2 Wi-Fi work remain separate. No tasks contacted or delegated.
+Frozen runtime `82dd3da8`, release `327a401a69ca3855`, session
+`session-0006601f0dd19f83-00` accepts one bounded original **kind 2/already-disabled**
+startup reset/source lifetime. The actual original entry performs zero stores
+and stays at epoch 0. The registered reset advances 0→1; its registered source
+child binds the original epoch-1 post-census and reads the six original-candidate
+GGTT DWORDs before original reset return. No enabled entry writer is claimed;
+the enabled/nonzero v30 route remains physically unaccepted.
 
-### Hardware-ready v30: both original startup states
+Preparation is 97,434/100,000 us (2,566 us margin). Source scope is 3,464 us,
+including six DWORD reads in 3,456 us and an 8 us child return. Admission is
+10,262 us; two BCS8 pulses take 6,817/6,802 us, followed by 52 us settling,
+reverse cancellation, full 92-word census/37-reader preservation, a 7 us final
+guard and 3,379 us original reset return. Entry is 96,689/150,000 us;
+GT at return 263,671/300,000 us, HDA 300,188/400,000 us and outer
+354,630/500,000 us. All limits are unchanged; this is one lifetime, not a
+repeatability or managed-memory result.
+
+The original collector rejected the completed native chain because shared
+completion-census dispatch omitted v30. Collector-only fix `c0dcda2e` validates
+the exact unchanged saved bytes; original rejection/raw logs are independently
+sealed. Full modeled native chains, checkpoint and full collection/corruption
+regressions now cover both routes. All 31 affected host tests and eight historical
+native accepted/refused classifications pass. Five raw nested capability alerts
+remain visible, with no invalid-receipt alerts; strict source/reset/outer native
+proof, matching exact recipe/pre-init and prerequisite/final identity pass.
+No kernel, firmware gate, writer, deadline or installed payload changed to obtain
+this result.
+
+HDA Command 6/2/2/6, all four preserved inspections, both original borrows,
+14 GPU aliases, HDA root alias and CPU exclusion retire cleanly. `completed=yes`
+is present. All 1,491 prior USB files preserve except expected `.srvros/meta`;
+three exact logs yield 1,494 files/154 sessions. Boot digest, offline
+fsck/allocation/writable/headroom (zero leaked clusters), installed versus banked
+payloads, Ubuntu default and consumed one-shot verify. USB is unmounted; no
+reboot is armed. Raw logs, original and corrected reports, strict proof and
+return records are independently banked outside `build`.
+
+Current 327a, prior 451c, accepted v28 562d, recovery 9aa8, GUI c497 and joint978/
+HDA-bd77 remain installed. The d260 standalone diagnostic stays bank-only after
+its previously verified EFI duplicate retirement. Main remains `f61b40eb`;
+Air6,1 `4629fced` process-admission and Pro11,2 `9e0e5988` Wi-Fi/cold-handoff work
+remain independent and unmerged. No tasks contacted or delegated; Actions stay
+disabled. Next is same-original-root ownership/memory protocol planning; the
+historical source receipt supplies no future live authority. All 255 obligations,
+zero assurances/managed pages and pending native tear-free remain. Checkpoint:
+`build/air-startup-source-20261112/status.md`.
+
+### Prior local qualification: v30 both original startup states
 
 Frozen source `82dd3da8`, release `327a401a69ca3855`, implements the separate
 [v30 original startup reset/source](../intel-startup-source.md) image. It binds

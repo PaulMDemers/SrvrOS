@@ -3,8 +3,8 @@
 The opt-in v30 `intel-startup-source` image handles both startup states actually
 observed on Air7,2. It binds the original live entry, reset and read-only GGTT
 source child under one original HDA/GT root. It grants no managed GPU memory,
-requester inhibition, re-arm, claim or tear-free presentation. Native acceptance
-is pending, separately for each route.
+requester inhibition, re-arm, claim or tear-free presentation. One native
+already-disabled route is accepted below; enabled-route acceptance remains pending.
 
 ## Explicit routes
 
@@ -97,9 +97,40 @@ The existing 81 baseline-known strict allocation/repair gaps remain documented.
 Exact staged EFI/MBR VM tests prove zero-store foreign-board refusal, checkpoint
 identity, persistence/unmount/automatic return and missing-workspace halt.
 
-Prior-file/offline media and recovery checks pass. Payload and evidence are
-independently banked outside build; candidate is not installed or armed. Only
-an unreferenced older d260 EFI duplicate was retired after complete durable-bank,
-accepted-evidence and boot-reference checks; current/recovery/GUI/latest accepted
-reset remain installed. Native v30 reads/timing are pending separately per route;
-none of these local results grants memory or native tear-free acceptance.
+Prior-file/offline media and recovery checks passed before installation, with
+payload and qualification evidence independently banked outside build. Only the
+unreferenced older d260 EFI duplicate was retired after full durable-bank,
+accepted-evidence and boot-reference checks. That local capacity decision does
+not authorize deleting another host's recovery or accepted payloads.
+
+## Native result: original already-disabled route accepted
+
+Runtime `82dd3da8` / release `327a401a69ca3855`, session
+`session-0006601f0dd19f83-00`, completes one native kind 2/zero-entry lifetime:
+zero entry stores/epoch 0, reset 0→1 and the registered original epoch-1 source
+child returned before its parent. Six read-only DWORDs match the original
+candidate in 3,456 us; source scope is 3,464 us. Preparation is
+97,434/100,000 us (2,566 us margin), original GT return 263,671/300,000 us,
+HDA 300,188/400,000 us and outer 354,630/500,000 us. No deadline changed.
+Full census/readers, HDA 6/2/2/6, four inspections, borrows, 14 GPU aliases,
+HDA root alias and CPU exclusion preserve/retire cleanly.
+
+The first collector rejected shared completion-census image binding; it omitted
+v30 dispatch. Collector-only `c0dcda2e` adds explicit v30/exact-recipe dispatch
+without widening old entry helpers. Both modeled native chains and complete
+collection/corruption paths now have regressions. All 31 affected host tests
+and eight historical accepted/refused native classifications pass. Strict replay
+of the unchanged native bytes validates prerequisite/final provenance and
+complete source/reset/outer retirement. Original errors and five raw nested
+capability alerts remain archived; the alerts do not grant the unclaimed
+capabilities they describe. No installed kernel or hardware behavior changed.
+
+All prior files preserve except expected workspace metadata; three logs yield
+1,494 files/154 sessions. Offline fsck/allocation/writable/headroom, boot digest,
+current/recovery banks, Ubuntu default and consumed one-shot verify. Raw evidence
+and proof survive `make distclean`; no new reboot is armed. See the
+[unit ledger](machines/macbookair7-2.md#native-v30-original-already-disabled-resetsource-accepted).
+This accepts only the actually observed already-disabled route and one bounded
+lifetime. The enabled v30 route, requester/memory/cache ownership, managed pages
+and native tear-free remain pending; a saved receipt never supplies future live
+authority. All 255 obligations and zero assurances/managed pages remain.
