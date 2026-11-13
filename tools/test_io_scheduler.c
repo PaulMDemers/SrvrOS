@@ -672,6 +672,11 @@ static void test_atomic_lifecycle(void) {
     threads[5]=(struct thread){.state=THREAD_BLOCKED,.user_context=other};io_depth=2;io_owner=5;
     assert(scheduler_io_process_atomic(p));
     threads[4]=(struct thread){.state=THREAD_BLOCKED,.user_context=p,.address_space=1};
+    assert(!scheduler_io_process_atomic(p));
+    struct scheduler_wait_queue wrong={0};threads[4].memory_park_queue=&wrong;
+    assert(!scheduler_io_process_atomic(p));threads[4].memory_park_queue=&io_waiters;
+    assert(scheduler_io_process_atomic(p));threads[4].state=THREAD_READY;
+    assert(scheduler_io_process_atomic(p));threads[4].memory_park_queue=NULL;
     assert(!scheduler_io_process_atomic(p));threads[4].io_user_safe=true;
     assert(scheduler_io_process_atomic(p));threads[4].state=THREAD_READY;
     assert(scheduler_io_process_atomic(p));threads[3].user_thread_context=(void *)0x40;
@@ -686,7 +691,7 @@ static void test_atomic_lifecycle(void) {
     threads[3].io_user_safe=false;assert(!scheduler_io_process_atomic(p));threads[3].io_user_safe=true;
     assert(io_depth==2 && io_owner==5);
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;current_thread=0;io_depth=0;
-    puts("atomic-lifecycle: PASS safe siblings only, CR3/foreign owner/image, worker/main and unchanged ownership");
+    puts("atomic-lifecycle: PASS safe/exact-gate-parked siblings only, CR3/foreign owner/image, worker/main and unchanged ownership");
 }
 
 static void test_helper_atomic_memory(void) {

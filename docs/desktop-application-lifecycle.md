@@ -215,7 +215,8 @@ replacement, foreground changes or explicit user scope. The prepared main tuple
 is published with READY and consumed once by a checked entry transition; ordinary
 scheduler bind/clear still refuse a foreign owner.
 
-Independent exit requires the matching current image, safe paused siblings,
+Independent exit requires the matching current image, audited safe siblings or
+siblings explicitly parked in the ordinary I/O admission wait,
 verified tracked PTEs, only console/closed descriptors, no stream/network/audio/
 surface/display ownership and no owned user scope. Worker retirement separately
 checks and unmaps its exact TLS ownership. IRQs stay masked through final image

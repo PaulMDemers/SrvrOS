@@ -48,6 +48,7 @@ bool scheduler_io_busy(void); /* Another thread owns storage state. IRQs masked.
  * Refuse siblings, worker contexts, image/owner aliases and unbounded scans. */
 bool scheduler_io_process_independent(void *process);
 /* IF0 atomic lifecycle proof: foreign owner, matching CR3, all siblings safe.
+ * Siblings must be audited safe or exactly parked in the I/O gate wait.
  * No callbacks, IRQ enable, service windows or yielding may follow success. */
 bool scheduler_io_process_atomic(void *process);
 /* One-shot entry consumes the exact freshly published main tuple. Ordinary

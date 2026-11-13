@@ -13684,3 +13684,13 @@ user-scope-owner teardown or mutable/storage-backed executable reads. The
 existing redirected-file teardown/flush and ordinary image/thread regressions
 remain required. Qualification and native boot evidence are still pending;
 9463 remains failed evidence, and the original workload/limits remain unchanged.
+
+A final admission pass distinguishes a helper blocked inside the ordinary I/O
+entry wait from an unsafe continuation doing mutable work. The exact I/O wait
+park marker may qualify an otherwise unsafe sibling; it is cleared on dispatch.
+An arbitrary wait queue, an unparked unsafe sibling, a mismatched CR3, or any
+same-process owner/private-image alias still refuses. This prevents a desktop
+report writer awaiting admission from defeating a proven private child/clean
+exit, without admitting its I/O or changing the existing memory/helper gates.
+The first build/focused validation attempt was stopped before any VM/native
+launch to qualify this additional exact-park case in the final candidate.

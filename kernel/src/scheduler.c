@@ -546,8 +546,9 @@ bool scheduler_io_process_helper_memory(void *process,struct scheduler_wait_queu
 }
 
 /* Only for IF0, callback-free private child construction or checked final
- * retirement. Other same-image continuations must already be audited safe;
- * none may run during the operation. This never grants a service window. */
+ * retirement. Other same-image continuations must be audited safe or parked
+ * inside the ordinary I/O admission wait, before resuming mutable work. The
+ * exact park marker is cleared on dispatch. None may run during the operation. This never grants a service window. */
 bool scheduler_io_process_atomic(void *process) {
     if(!initialized || !io_services_enabled || switching || !process || thread_capacity>4096 ||
        current_thread>=thread_capacity || !io_depth || io_owner>=thread_capacity || io_owner==current_thread ||
@@ -558,7 +559,8 @@ bool scheduler_io_process_atomic(void *process) {
     for(uint64_t i=0;i<thread_capacity;i++)if(i!=current_thread) {
         struct thread *t=thread_at(i);
         if(t->state==THREAD_UNUSED || t->state==THREAD_DEAD || t->user_context!=process)continue;
-        if((t->state!=THREAD_READY && t->state!=THREAD_BLOCKED) || !t->io_user_safe ||
+        bool parked=t->memory_park_queue==&io_waiters;
+        if((t->state!=THREAD_READY && t->state!=THREAD_BLOCKED) || (!t->io_user_safe && !parked) ||
            thread_address_space(t)!=thread_address_space(caller))return false;
     }
     return true;
