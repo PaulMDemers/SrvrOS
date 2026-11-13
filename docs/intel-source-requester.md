@@ -64,7 +64,9 @@ The new adapter batches source loads and requester control between the same
 opening and closing full hardware validations. Each actual target read retains
 the original source, root, exact aliases, requesters and immediate clock checks;
 each store also has a fresh Command/Status read and final clock followed only
-by pure identity/count loads. The full closing validation runs after known
+by pure identity/phase/profile/count loads. The exact inhibiting/restoring
+state, phase, samples, child completion, issued prefix and fresh admission must
+still match after that clock. The full closing validation runs after known
 restoration, while the original source/transfer still holds its registration.
 This avoids introducing another full-census bracket inside the latest measured
 2,004 us preparation margin. Actual timing remains a physical acceptance step.

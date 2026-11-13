@@ -9,6 +9,7 @@ static unsigned intel_display_test_source_requester_command(void);
 #define INTEL_TRANSFER_FIXTURE_MAIN transfer_adapter_main
 #include "test_intel_startup_transfer_adapter.c"
 static unsigned requester_command=7,requester_reads,requester_admissions,requester_clocks,requester_store_admissions;
+static unsigned requester_final_clock,requester_actual_stores;
 static bool requester_stall;
 static unsigned intel_display_test_source_requester_command(void){return requester_command;}
 static bool intel_display_test_source_requester_clock(uint64_t *at) {
@@ -31,6 +32,16 @@ static bool intel_display_test_source_requester_clock(uint64_t *at) {
  if(jf("requester-borrow",requester_clocks))r->borrows++;
  if(jf("requester-state",requester_clocks))r->state=r->state==ISR_RESTORING?ISR_OPENING:ISR_RESTORING;
  if(strstr(engine_mode,"requester-drain-time") && r->drain_begin && !r->child_entered)ticks=r->drain_begin+10001;
+ if(requester_final_clock) {
+  if(jf("requester-final-state",requester_final_clock))r->state=r->state==ISR_RESTORING?ISR_INHIBITING:ISR_RESTORING;
+  if(jf("requester-final-phase",requester_final_clock))r->phase++;
+  if(jf("requester-final-samples",requester_final_clock))r->samples++;
+  if(jf("requester-final-writes",requester_final_clock))r->writes++;
+  if(jf("requester-final-issued",requester_final_clock))source_requester_native.issued++;
+  if(jf("requester-final-child",requester_final_clock))r->child_complete=false;
+  if(jf("requester-final-admit",requester_final_clock))r->words[requester_final_clock==1?0:2][1]^=4;
+  requester_final_clock=0;
+ }
  return false;
 }
 static void intel_display_test_source_requester_admission(void) {
@@ -45,6 +56,7 @@ static void intel_display_test_source_requester_admission(void) {
 }
 static void intel_display_test_source_requester_store_admission(unsigned n) {
  ++requester_store_admissions;
+ requester_final_clock=n+1;
  if(jf("requester-store-time",n+1))ticks=source_requester_native.result.origin+100001;
  if(jf("requester-store-source",n+1))source_requester_native.result.epoch++;
 }
@@ -65,7 +77,7 @@ static enum intel_gt_write intel_display_test_source_requester_command16(uint16_
  assert((n==1 && requester_command==7 && value==3) || (n==2 && requester_command==3 && value==7));
  if(jf("requester-none",n))return GT_WRITE_NONE;
  if(jf("requester-uncertain",n))return GT_WRITE_UNCERTAIN;
- requester_command=value;return GT_WRITE_DONE;
+ ++requester_actual_stores;requester_command=value;return GT_WRITE_DONE;
 }
 static bool intel_display_test_source_requester_child(struct intel_source_requester *r) {
  assert(r->state==ISR_INHIBITED && requester_command==3 && r->writes==1 && r->registered);
@@ -78,8 +90,8 @@ int main(int argc,char **argv) {
  requester_stall=argc==2 && strstr(argv[1],"requester-stall");
  int code=transfer_adapter_main(argc,argv);
  struct intel_source_requester *r=&source_requester_native.result;
- printf("source-requester-fixture: state=%u reason=%u complete=%u registered=%u returns=%u writes=%u issued=%u reads=%u admissions=%u clocks=%u stores=%u command=%u samples=%u polls=%u child=%u child_done=%u epoch=%u kind=%u begin=%llu end=%llu\n",
-  r->state,r->reason,r->complete,r->registered,r->returns,r->writes,source_requester_native.issued,requester_reads,requester_admissions,requester_clocks,requester_store_admissions,requester_command,r->samples,r->polls,r->child_entered,r->child_complete,r->epoch,r->kind,(unsigned long long)r->begin,(unsigned long long)r->end);
+ printf("source-requester-fixture: state=%u reason=%u complete=%u registered=%u returns=%u writes=%u issued=%u actual=%u reads=%u admissions=%u clocks=%u stores=%u command=%u samples=%u polls=%u child=%u child_done=%u epoch=%u kind=%u begin=%llu end=%llu\n",
+  r->state,r->reason,r->complete,r->registered,r->returns,r->writes,source_requester_native.issued,requester_actual_stores,requester_reads,requester_admissions,requester_clocks,requester_store_admissions,requester_command,r->samples,r->polls,r->child_entered,r->child_complete,r->epoch,r->kind,(unsigned long long)r->begin,(unsigned long long)r->end);
  if(r->complete)assert(r->state==ISR_CLOSED && r->restored && !r->registered && r->borrows==r->returns && requester_command==7 && r->samples==4 && r->child_complete && r->writes==2);
  else if(r->object)assert(r->registered && !r->returns && !r->restored && source_transfer_native.dependent==r && buffers_native.retained);
  return code;

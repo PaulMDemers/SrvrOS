@@ -58,6 +58,13 @@ class Requester(unittest.TestCase):
   for off in ('','entry-off-'):
    for mode in ('requester-stuck','requester-drain-time','requester-stall','requester-child-fail','requester-child-source'):
     self.retained(run(off+mode))
+ def test_final_clock_phase_counter_and_admission_drift_issue_no_store(self):
+  for off in ('','entry-off-'):
+   for mode in ('requester-final-state','requester-final-phase','requester-final-samples','requester-final-writes','requester-final-issued','requester-final-admit','requester-final-child'):
+    for n in (1,2):
+     if mode=='requester-final-child' and n==1:continue
+     with self.subTest(off=off,mode=mode,n=n):
+      t=run(f'{off}{mode}:{n}');self.retained(t);self.assertEqual(fixture(t)['actual'],n-1)
  def test_full_post_batch_guard_cannot_be_omitted(self):
   for off in ('','entry-off-'):
    t=run(off+'requester-child-backing');s=requester_capture(t)['summary']

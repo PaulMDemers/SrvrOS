@@ -25,6 +25,14 @@ precedence error; both were corrected, and all 115 installer/staging/rollback
 tests pass. These preliminary host results are not final source-matched
 qualification or native v33 acceptance. Full fault/sanitizer/compiled-control,
 image/store/map/frame/log, historical and exact-stage VM checks remain required.
+A subsequent review found the final store needed to retain its exact phase,
+profile/admission and issue counters across the final clock. Pure checks now
+revalidate those fields after the clock and before the halfword. New controls
+mutate phase, state, samples, write/issue counters, child completion and fresh
+admission at that precise point and require zero additional target stores.
+All ten directed tests pass (217.093 s). The first full gate was intentionally
+stopped before source correction; its partial log remains nonpassing evidence.
+Qualification will restart on the corrected frozen source.
 No candidate/reboot is armed; accepted v32/recovery stay intact. The current
 ignored checkpoint is `build/air-source-requester-20261113/status.md`.
 

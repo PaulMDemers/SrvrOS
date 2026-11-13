@@ -20,8 +20,14 @@ static bool source_requester_admit(struct nonzero_adapter *p) {
 #endif
  if(!source_requester_guard(p))return false;
  struct intel_source_requester *r=&source_requester_native.result;
+ unsigned state=r->state,phase=r->phase,attempts=r->attempts,writes=r->writes;
+ unsigned samples=r->samples,polls=r->polls,issued=source_requester_native.issued;
  uint64_t at=source_requester_now(p);
  if(!intel_source_requester_deadline(r,at))return false;
+ if(r->state!=state || r->phase!=phase || r->attempts!=attempts || r->writes!=writes ||
+    r->samples!=samples || r->polls!=polls || source_requester_native.issued!=issued || source_requester_native.uncertain) {
+  r->reason|=ISR_SOURCE;r->state=ISR_FAULT;return false;
+ }
  if(r->state==ISR_INHIBITED && !r->child_entered && r->drain_begin &&
     at-r->drain_begin>INTEL_SOURCE_REQUESTER_DRAIN_US) {
   r->reason|=ISR_PENDING;r->state=ISR_FAULT;return false;
@@ -78,7 +84,9 @@ static enum intel_gt_write source_requester_command(void *ctx,uint16_t value) {
   * Adjacent PCI Status and AF control are never written. */
  if(r->object!=r || r->transfer!=&source_transfer_native || r->source!=&p->source ||
     r->source->provider!=p || r->source->reset!=&p->r || r->attempts!=n+1 || r->writes!=n ||
-    source_requester_native.issued!=n)return GT_WRITE_NONE;
+    source_requester_native.issued!=n || source_requester_native.uncertain || r->phase!=phase ||
+    r->samples!=(n?3u:1u) || (n?(!r->child_complete || r->state!=ISR_RESTORING):r->state!=ISR_INHIBITING) ||
+    source_requester_native.admission[n]!=r->words[phase][1])return GT_WRITE_NONE;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  enum intel_gt_write issued=intel_display_test_source_requester_command16(value);
 #else
