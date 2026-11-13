@@ -56,6 +56,13 @@ static bool intel_display_test_buffer_clock(uint64_t *at) {
  if(jf("buffer-layout",buffer_clocks))buffers_native.memory[1].layout.pages--;
  if(jf("buffer-tag",buffer_clocks))tag_lost=true;
  if(jf("buffer-root",buffer_clocks))buffers_native.hold[0].lifetime=0;
+ if(jf("buffer-owner",buffer_clocks))for(unsigned i=0;i<2;i++) {
+  ++buffers_native.memory[i].owner;++buffers_native.hold[i].memory.owner;
+ }
+ if(jf("buffer-memory-object",buffer_clocks)) {
+  static struct scanout_memory copy;copy=buffers_native.memory[0];copy.object=&copy;
+  buffers_native.hold[0].memory.object=&copy;
+ }
  if(jf("buffer-plan",buffer_clocks) && b->planned)b->page[0].replacement^=4096;
  return false;
 }

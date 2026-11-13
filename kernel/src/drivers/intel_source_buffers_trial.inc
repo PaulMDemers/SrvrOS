@@ -81,7 +81,10 @@ static bool buffers_guard(void *ctx) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  intel_display_test_buffer_admission();
 #endif
- return ctx==&nonzero_native && nonzero_native.source.provider==ctx &&
+ for(unsigned i=0;i<2;i++)if(buffers_native.binding.hold[i]!=&buffers_native.hold[i] ||
+    buffers_native.hold[i].memory.object!=&buffers_native.memory[i] ||
+    buffers_native.hold[i].lifetime!=&buffers_native || buffers_native.memory[i].owner!=0x42554646455253ull)return false;
+ return ctx==&nonzero_native && buffers_native.binding.source==&nonzero_native.source && nonzero_native.source.provider==ctx &&
   nonzero_native.source.input==&nonzero_native.source_input &&
   intel_nonzero_source_live(&nonzero_native.source);
 }
@@ -132,8 +135,8 @@ static void buffers_report(bool complete) {
  const struct intel_source_buffers *b=&buffers_native.binding;
  for(unsigned i=0;i<2;i++) {
   const struct scanout_memory *m=&buffers_native.memory[i];const struct scanout_memory_hold *h=&buffers_native.hold[i];
-  console_printf("intel-source-buffer: v=1 n=%u physical=%u epoch=%u serial=%u bytes=%u pages=%u state=%u error=%u release_attempts=%u releases=%u active=%u fault=%u replacement=%u original=%u index=%u offset=%u\n",
-   (uint64_t)i,m->physical,m->epoch,h->serial,(uint64_t)m->layout.pages*4096,(uint64_t)m->layout.pages,
+  console_printf("intel-source-buffer: v=1 n=%u physical=%u epoch=%u owner=%u serial=%u bytes=%u pages=%u state=%u error=%u release_attempts=%u releases=%u active=%u fault=%u replacement=%u original=%u index=%u offset=%u\n",
+   (uint64_t)i,m->physical,m->epoch,m->owner,h->serial,(uint64_t)m->layout.pages*4096,(uint64_t)m->layout.pages,
    (uint64_t)m->state,(uint64_t)m->error,(uint64_t)m->release_attempts,(uint64_t)m->releases,
    (uint64_t)h->active,(uint64_t)h->fault,b->page[i].replacement,b->page[i].original,(uint64_t)b->page[i].index,(uint64_t)b->page[i].mmio_offset);
  }

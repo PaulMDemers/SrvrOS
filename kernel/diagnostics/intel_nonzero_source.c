@@ -105,7 +105,9 @@ static bool source_run(struct intel_nonzero_source *s,struct intel_nonzero_reset
 #ifdef SRVROS_INTEL_STARTUP_BUFFERS
  if(observe) {
   s->observer_entered=true;
-  if(!observe(observer,s) || !guard(s,io) || s->dependent || s->registered_child ||
+  /* The existing final source guard below brackets this read-only/pure child.
+   * Recheck registration now, without duplicating that full native guard. */
+  if(!observe(observer,s) || !intel_nonzero_source_live(s) || s->dependent || s->registered_child ||
      s->child_borrows!=1 || s->child_returns!=1)return fail(s,INS_RETURN);
   s->observer_complete=true;
  }

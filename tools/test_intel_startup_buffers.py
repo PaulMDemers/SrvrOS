@@ -28,7 +28,7 @@ class Buffers(unittest.TestCase):
  def test_every_child_clock_fault_and_ownership_loss_retains(self):
   for off,text in zip(('','entry-off-'),self.texts):
    clocks=int(re.search(r'source-buffers-fixture: clocks=(\d+)',text)[1])
-   for mode in ('buffer-zero','buffer-backward','buffer-time','buffer-parent-time','buffer-epoch','buffer-provider','buffer-source','buffer-post','buffer-route','buffer-mode','buffer-registration','buffer-hold','buffer-physical','buffer-layout','buffer-root'):
+   for mode in ('buffer-zero','buffer-backward','buffer-time','buffer-parent-time','buffer-epoch','buffer-provider','buffer-source','buffer-post','buffer-route','buffer-mode','buffer-registration','buffer-hold','buffer-physical','buffer-layout','buffer-root','buffer-owner','buffer-memory-object'):
     for n in range(1,clocks+1):
      with self.subTest(off=off,mode=mode,n=n):
       t=run(f'{off}{mode}:{n}');self.assertIn('retained=1 success=0',t)

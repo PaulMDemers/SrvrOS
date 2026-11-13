@@ -21,7 +21,7 @@ def buffers_view(text):
  if wake and (len(wake)!=1 or not wake[0].startswith('intel-wake-summary: v=31 ')):raise ValueError('buffers image binding')
  return text.replace('laptop-capture: boot options='+boots[0],'laptop-capture: boot options='+boots[0].replace(TOKEN,OLD),1).replace(marker,'init: deferred=startup-source-preinit;',1).replace('intel-wake-summary: v=31 ','intel-wake-summary: v=30 ',1)
 FIELDS='v epoch kind post_mode expected origin parent_begin begin end last clock_at clock_prev registered blocked returned complete reason borrows returns entered observed prepared patterns words allocated released dma_before dma_after grant_refused callbacks retained success obligations assurances managed_pages pte_writes hardware_ownership'.split()
-ROW='v n physical epoch serial bytes pages state error release_attempts releases active fault replacement original index offset'.split()
+ROW='v n physical epoch owner serial bytes pages state error release_attempts releases active fault replacement original index offset'.split()
 def buffers_result(text):
  view=buffers_view(text);source=startup_result(view)
  summaries=[_fields(l,'intel-source-buffers:',FIELDS) for l in text.splitlines() if l.startswith('intel-source-buffers:')]
@@ -41,7 +41,7 @@ def buffers_result(text):
   if not s['read_end']<=b['begin']<b['end']==b['last']<=s['return_begin']<=s['end']<=s['origin']+100000:raise ValueError('buffers original deadline/order')
   if b['end']>s['parent_begin']+300000:raise ValueError('buffers original GT deadline')
   for r in rows:
-   if not r['physical'] or r['physical']&4095 or r['physical']>0x100000000-5554176 or r['epoch']!=r['n']+1 or r['serial']!=2 or r['bytes']!=5554176 or r['pages']!=1356 or r['state']!=5 or any(r[k] for k in ('error','active','fault')) or r['release_attempts']!=r['releases'] or r['releases']!=1:raise ValueError('buffers exact private RAM retirement')
+   if not r['physical'] or r['physical']&4095 or r['physical']>0x100000000-5554176 or r['epoch']!=r['n']+1 or r['owner']!=0x42554646455253 or r['serial']!=2 or r['bytes']!=5554176 or r['pages']!=1356 or r['state']!=5 or any(r[k] for k in ('error','active','fault')) or r['release_attempts']!=r['releases'] or r['releases']!=1:raise ValueError('buffers exact private RAM retirement')
    if (r['replacement'],r['original'],r['index'],r['offset'])!=(r['physical']|1,b['expected'],8704,0x811000):raise ValueError('buffers pure one-page plan')
   if not(rows[0]['physical']+rows[0]['bytes']<=rows[1]['physical'] or rows[1]['physical']+rows[1]['bytes']<=rows[0]['physical']):raise ValueError('buffers backing overlap')
  # Restore actual raw image identity on the returned data; never export v30 authority.

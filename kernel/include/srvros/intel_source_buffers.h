@@ -13,7 +13,8 @@ struct intel_source_buffers {
  struct scanout_memory_hold *hold[2];
  struct intel_source_buffers_io io;
  const void *lifetime;
- uint64_t physical[2],serial[2],memory_epoch[2],expected,origin,parent_begin,begin,end,last,clock_at,clock_prev;
+ struct scanout_memory_token memory[2];
+ uint64_t physical[2],serial[2],expected,origin,parent_begin,begin,end,last,clock_at,clock_prev;
  struct intel_bdw_ggtt_page page[2];
  uint32_t epoch,kind,post_mode,reason,planned;
  bool registered,blocked,complete,returned;

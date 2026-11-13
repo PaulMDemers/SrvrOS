@@ -26,7 +26,8 @@ bool intel_source_buffers_live(const struct intel_source_buffers *b) {
  for(unsigned i=0;i<2;i++) {
   const struct scanout_memory_hold *h=b->hold[i];
   if(!full(h) || !b->lifetime || h->lifetime!=b->lifetime || h->dependent!=b || h->registered!=b || h->physical!=b->physical[i] ||
-     h->serial!=b->serial[i] || h->memory.epoch!=b->memory_epoch[i])return false;
+     h->serial!=b->serial[i] || h->memory.object!=b->memory[i].object ||
+     h->memory.epoch!=b->memory[i].epoch || h->memory.owner!=b->memory[i].owner)return false;
   if(i<b->planned) {
    const struct intel_bdw_ggtt_page *p=&b->page[i];
    if(p->physical!=b->physical[i] || p->original!=b->expected || p->replacement!=(b->physical[i]|1) ||
@@ -75,7 +76,7 @@ bool intel_source_buffers_run(struct intel_source_buffers *b,struct intel_nonzer
  b->lifetime=a->lifetime;b->epoch=s->epoch;b->kind=s->entry->kind;b->post_mode=s->post_mode;b->expected=s->expected;
  b->origin=s->origin;b->parent_begin=s->parent_begin;b->last=s->last;
  for(unsigned i=0;i<2;i++) {
-  struct scanout_memory_hold *h=b->hold[i];b->physical[i]=h->physical;b->serial[i]=h->serial;b->memory_epoch[i]=h->memory.epoch;
+  struct scanout_memory_hold *h=b->hold[i];b->physical[i]=h->physical;b->serial[i]=h->serial;b->memory[i]=h->memory;
  }
  if(a->memory.object==c->memory.object || a->memory.owner!=c->memory.owner ||
     !(a->physical+a->bytes<=c->physical || c->physical+c->bytes<=a->physical))return fail(b,ISB_BACKING);
