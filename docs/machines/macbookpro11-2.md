@@ -7,6 +7,34 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Late HTTP child preparation software-qualified (November 13)
+
+Source `27af43ef` moves first preparation past the full RF/first-join parent;
+both generations use the existing key-free connection boundary. Reservation
+creates no child/worker. The child budget of60s, HTTP budget of15s and DHCP2s/one-Discover-retry policy
+and all native/key/provider/RF refusal gates remain unchanged. The legacy
+single-HTTP diagnostic remains outside this fix. See
+[preparation contract](../wifi-http-preparation.md).
+
+All 38 production native HTTP/CCMP/provider/RF C cases pass normally and under
+ASan/UBSan, including the saved no-Offer/current-Discover reflection pattern,
+70s simulated parent without a child, missing target and first-worker failure.
+The original early boundary reproduces a modeled child deadline24 in an isolated
+source overlay. Actual httpget source passes 49 cases with modeled syscalls, strict
+preparation/legacy decoder and shared ownership/cleanup regressions pass, and
+full synthetic RF-parent composition preserves the accepted parent rows and
+refuses physical acceptance. Kernel build and actual guest ELF/socket/IRQ-worker
+HTTP/DNS pass separately. HCD/AP/registers/scheduler/child remain modeled in the
+native C cases; physical acceptance of this change is pending.
+
+The separate data-TX audit still finds ACK intent/USB completion, not radio or
+DHCP-server receipt proof. The no-Offer/earlier missing-ACK cause is unresolved;
+no RF register, data admission or retry policy changed. The closed04b/792 primary
+and review remain immutable, the installed payload remains04b/792, and no new
+image or boot is armed. Next audit the radio-side data status/receive evidence
+and qualify a source-specific version-2 collector and matched image before any
+changed hardware test; no identical blind repeat.
+
 ### Pre-GO lifetime and no-Offer native audit scope (November 13)
 
 The implementation now reserves early and prepares both children/workers at
@@ -14,7 +42,7 @@ the existing key-free boundary; [receipt and test contract](../wifi-http-prepara
 Development reproduces the original early child's status24 across a modeled70s
 parent, while late preparation completes both HTTP lifetimes. The saved no-Offer
 pattern, missing-target zero-allocation and first-worker failure also pass.
-Actual httpget source passes49 syscall-model cases; ten decoder tests and full
+Actual httpget source passes 49 cases with modeled syscalls; ten decoder tests and full
 synthetic RF-parent composition pass. The fixture generator now preserves the
 accepted parent's optional calibration/discovery/first-AUTH profile instead of
 dropping it. Full final-source native/sanitizer/kernel/guest qualification is

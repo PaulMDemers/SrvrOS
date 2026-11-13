@@ -36,3 +36,19 @@ HCD, AP, registers, scheduler and child remain modeled. Separate actual httpget
 source tests retain status24 at the unchanged pre-GO deadline and accept launch
 after a slow parent. Neither those tests nor USB completion prove AP/server
 receipt or physical acceptance of this change.
+
+Source `27af43ef` passes all 38 native cases normally and under ASan/UBSan,
+49 actual httpget cases with modeled syscalls, strict preparation/legacy decoding,
+full synthetic RF composition and separate actual guest HTTP/DNS. Hardware
+acceptance and the separate Offer/ACK-loss cause remain unproved. A fresh
+source-specific collector must require version2 for this candidate using the
+preparation-order check; the generic parser's historical version1 support alone
+must not authorize an old preparation layout under a new image identity.
+
+The pinned [Linux packet-ID definitions](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76.h)
+identify128 as HAS_RATE, while NO_ACK is0. SrvrOS's data descriptor still
+requests an ACK;128 is not evidence that ACKs were disabled. [Linux's MAC status reader](https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_mac.c)
+reads EXT before the consuming FIFO and reports success, ACK request, retry, WCID and packet ID separately from USB completion.
+Existing SrvrOS FIFO companions bracket AUTH, not DHCP data.
+Future data status correlation must distinguish late management/earlier receipts; an AP link ACK still cannot prove DHCP-server receipt.
+This fix introduces no new consuming reads or descriptor changes.
