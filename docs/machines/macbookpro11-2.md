@@ -7,6 +7,21 @@ Dated sections retain the bring-up history.
 
 ## Current handoff
 
+### Fresh hub-fix hardware qualification scope (November13)
+
+The user authorizes fresh-image qualification, installation and cold shutdown.
+Fetch and integrate actual mainf55a3634 (launch ownership/pipe-helper changes),
+then rerun the affected native/process tests before freezing a new owner and
+source-bound stage. Preserve the closed packet primary/review, qualified76fac408
+software bank and all eight protected recoveries. Use a fresh journal, strict
+collector and full485-file workspace clone; confirm the actual local model,
+UUID and recovery. Qualify exact-stage failure/recovery VMs and actual guest
+HTTP/DNS, then install and save the complete on-disk run record before one-shot
+arming/shutdown. Guest progress and saved results are mandatory. After poweroff,
+unplug only Wi-Fi for10seconds, reconnect the same port, then power on; leave
+the workspace connected. Collect the matching new session FIRST once on return.
+No current physical acceptance or identical retry is inferred from host tests.
+
 ### Owned hub completion correction: software qualified (November13)
 
 The handoff now services up to eight already-pending, exactly owned hub EP0
