@@ -66,7 +66,7 @@ def audit_result(text):
  if r['scope_complete']:
   if s['end']>p['child_end']:raise ValueError('source audit child return order')
   reset=e['requester']['transfer']['buffers']['source']['reset'];old=reset['vectors']['readers'][0][:27]
-  pci=e['requester']['phases'][1]['words']
+  pci=e['requester']['phases'][1]['words'][:8]+[0]
   for q in r['samples']:
    if q['pci']!=pci or q['pci'][1]&65535!=3 or q['pci'][8] or [w for row in q['planes'] for w in row]!=old:raise ValueError('source audit requester/reader preservation')
  e['requester']['transfer']['buffers']['source']['reset']['wake']['summary']['v']=35

@@ -18,8 +18,10 @@ phases remain unchanged. There is no new child budget or deadline refresh.
 
 While PCI Command is 3 and all five readiness requests are acknowledged, capture
 two complete nine-DWORD GPU PCI/AF profiles with capability-prefix validation
-before each next access. Require the original inhibited profile, BME clear and AF
-pending clear. Within each sample, independently bracket the existing nine-DWORD
+before each next access. Require the original inhibited stable fields, BME clear
+and a fresh AF pending-clear value. The first inhibited parent sample may have
+observed pending before its bounded drain; that earlier transient value is not
+required to persist after drain completion. Within each sample, independently bracket the existing nine-DWORD
 primary/cursor/sprite vector on each of three admitted pages. Each load receives
 a fresh same-origin clock and pure live-parent check; the exact page group has
 fresh full source/root/map/requester validation on both sides. Compare all words

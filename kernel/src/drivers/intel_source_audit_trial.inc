@@ -51,7 +51,7 @@ static bool source_audit_run(void) {
    if(!ok)return source_audit_fail(8);
    ++a->pci_count[n];++a->pci_reads;
    if(!source_audit_tick())return false;
-   if(!intel_pci_requester_prefix(a->pci[n],a->pci_count[n]) || a->pci[n][i]!=source_requester_native.result.words[1][i] ||
+   if(!intel_pci_requester_prefix(a->pci[n],a->pci_count[n]) || (i<8 && a->pci[n][i]!=source_requester_native.result.words[1][i]) ||
       (i==1 && (a->pci[n][i]&65535)!=3) || (i==8 && a->pci[n][i]))return source_audit_fail(16);
   }
   for(unsigned p=0;p<3;p++) {
@@ -105,7 +105,7 @@ static bool source_audit_returned(void) {
  for(unsigned n=0;n<2;n++) {
   if(a->pci_count[n]!=9 || !a->cache_ok[n] || !a->cache_reads[n] || a->sample_begin[n]<previous ||
      a->cache_begin[n]<a->sample_begin[n] || a->cache_end[n]<=a->cache_begin[n] || a->cache_end[n]>a->sample_end[n] || a->sample_end[n]>a->end)return false;
-  for(unsigned i=0;i<9;i++)if(a->pci[n][i]!=source_requester_native.result.words[1][i])return false;
+  for(unsigned i=0;i<9;i++)if(i<8?a->pci[n][i]!=source_requester_native.result.words[1][i]:a->pci[n][i]!=0)return false;
   for(unsigned p=0;p<3;p++) {
    if(a->plane_count[n][p]!=9)return false;
    for(unsigned i=0;i<9;i++)if(a->planes[n][p][i]!=nonzero_native.r.readers.planes[p][i])return false;

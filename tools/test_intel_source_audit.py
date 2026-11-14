@@ -31,12 +31,13 @@ class Audit(unittest.TestCase):
   except ValueError:return
   self.assertFalse(r['complete'])
  def test_two_original_routes_live_owner_and_exact_raw_vectors(self):
-  for text in self.texts:
-   r=audit_result(text);self.assertTrue(r['complete']);self.assertFalse(r['native_complete']);self.assertEqual((r['summary']['pci_reads'],r['summary']['plane_reads'],r['summary']['cache_checks']),(18,54,2))
-   self.assertEqual(r['samples'][0]['pci'],r['samples'][1]['pci']);self.assertEqual(r['samples'][0]['planes'],r['samples'][1]['planes']);self.assertEqual(r['summary']['obligations'],255)
-   self.assertFalse(any(r['summary'][k] for k in ('assurances','managed_pages','pte_writes','hardware_ownership','registered')))
-   with self.assertRaises(ValueError):engines_result(text)
-   with self.assertRaises(ValueError):native_audit_result(text)
+  for off in ('','entry-off-'):
+   for mode in ('report','nz-default','nz-poll','engines-poll','requester-pending'):
+    text=run(off+mode);r=audit_result(text);self.assertTrue(r['complete']);self.assertFalse(r['native_complete']);self.assertEqual((r['summary']['pci_reads'],r['summary']['plane_reads'],r['summary']['cache_checks']),(18,54,2))
+    self.assertEqual(r['samples'][0]['pci'],r['samples'][1]['pci']);self.assertEqual(r['samples'][0]['planes'],r['samples'][1]['planes']);self.assertEqual(r['summary']['obligations'],255)
+    self.assertFalse(any(r['summary'][k] for k in ('assurances','managed_pages','pte_writes','hardware_ownership','registered')))
+    with self.assertRaises(ValueError):engines_result(text)
+    with self.assertRaises(ValueError):native_audit_result(text)
  def test_each_clock_source_counts_registration_and_original_deadlines(self):
   modes=('audit-zero','audit-backward','audit-time','audit-parent-time','audit-source','audit-provider','audit-epoch','audit-kind','audit-mode','audit-origin','audit-parent-origin','audit-count','audit-samples','audit-state','audit-registration','audit-root','audit-parent-registration','audit-io')
   for off,text in zip(('','entry-off-'),self.texts):
