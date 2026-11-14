@@ -15,8 +15,16 @@ For v35 only, pre-touch a bounded value-only census record array before the
 outer clock. Report aggregate census envelopes and preparation-contained spans
 after exclusion ends, using existing begin/end timestamps only. No new timer
 callback or admission token, and no ownership assurance from cost observations.
-Keep the136-byte auxiliary receipt within the existing64KiB saved-tail budget;
+Keep the100-byte auxiliary receipt within the existing64KiB saved-tail budget;
 old receipt3 histories retain their previous scope without cost acceptance.
+
+Inspection found the modern v35 build does not define the old PREPARE_RESET
+macro, so its framebuffer admission still uses the scalar per-page path. Enable
+the existing bounded span observer specifically for SOURCE_AUDIT: every leaf is
+still checked; ancestor sharing is confined to one uninterrupted IRQ-masked call,
+with fresh sole-root/registry checks at both ends. Startup retains the scalar
+path; a span refusal must not fall back. Extend actual v35 wiring/failure tests
+and original first-failure witnesses, without enabling other legacy reset code.
 
 Touch backing digest/core tests, v35 census accounting/report and strict optional
 receiver/tests, plus own current guides. Main4016 is integrated; PR19/379 remain
