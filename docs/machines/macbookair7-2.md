@@ -2,7 +2,44 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
-### Active census cost attribution and exact digest optimization
+### Qualified v35 span admission and census cost trial
+
+Frozen runtime `42b17c5f` / release `0ffffc98d1e656e9` enables the existing
+bounded span walker specifically for v35. Every framebuffer leaf and every fresh
+endpoint remains checked; entry/exit sole-root/IRQ guards remain. IRQ-enabled
+startup stays scalar; each of five endpoint refusals stops without fallback.
+No old PREPARE_RESET writer path is enabled. Both original GGTT vectors retain
+all high/low/high DWORD loads, callbacks, equality/layout/permission checks and
+original deadlines. Only exact eight-byte FNV arithmetic is folded for zero
+upper halves, with the arbitrary-width fallback and independent byte oracle.
+
+A pre-touched 512-row value-only recorder uses existing sample timestamps only.
+The separate76-byte census-cost receipt reports total and preparation-contained
+sample envelopes and read/PTE counts, plus overflow/invalid flags; no new clock
+callback or admission authority. Control brackets overlap census work and must
+not be added to it. Initial endpoint and post-sample comparison overhead remains
+outside sample envelopes; residual time is not called hardware waiting.
+
+Local qualification passes13 actual adapter/receiver methods, seven affected
+fatal ASan/UBSan methods, both actual VMM observer paths, independent hash/recorder
+sanitizers,15 freshly compiled weakness controls,18 historical native replays,
+40 image isolation,119 staging tests, native stores/maps/2KiB frames and exact-stage
+EFI/MBR refusal/persistence/unmount/return plus missing-workspace halt. Projection
+is65512/65,536 including reserved logs. Nine alternating
+fixed-CPU host rounds observe FNV median reductions of49.3% with
+Clang and45.8% with GCC; this is not native timing acceptance.
+Actions remain disabled. Payload and qualification are banked outside build.
+
+Next is the authorized automated trial at1%, no human input. Preserve Ubuntu
+recovery9aa8, current5a and prior4751 plus GUI/joint/HDA payloads. Retire only the
+unreferenced byte-identical EFI duplicate679a after checking its durable native
+proof. Collect the unique matching session against1,521files/163sessions first,
+require complete current cost/first-failure evidence and the full original native
+chain, then offline media/teardown checks. All255 obligations remain open,
+zero assurances/managed GPU pages; physical tear-free is not accepted.
+Checkpoint: `build/air-census-cost-20261114`.
+
+### Census optimization implementation notes
 
 Bounded objective: attribute full backing-census cost using sample timestamps
 already captured by each original guard, enable the existing span path for v35,
