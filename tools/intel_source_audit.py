@@ -108,7 +108,9 @@ def audit_result(text):
  from intel_admission_cost import admission_cost
  reset=e['requester']['transfer']['buffers']['source']['reset'];t=reset['time'];w=reset['wake']['summary']
  cost=admission_cost(text,t['begin'],t['end'],w['end_us']-w['begin_us'],complete)
- return dict(r,engines=e,complete=complete,native_complete=False,admission_cost=cost,managed_pages=0,hardware_ownership=False,physical_tearfree=False)
+ from intel_alias_inventory import alias_inventory
+ inventory=alias_inventory(text,r['samples'],complete)
+ return dict(r,engines=e,complete=complete,native_complete=False,admission_cost=cost,alias_inventory=inventory,unique_aliases=bool(complete and inventory and inventory['scope_complete']),managed_pages=0,hardware_ownership=False,physical_tearfree=False)
 def native_audit_result(text):
  r=audit_result(text)
  if r['complete']:

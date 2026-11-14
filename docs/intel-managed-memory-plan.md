@@ -34,6 +34,14 @@ must still bind to the original source before a private GPU interval, PTE or
 submission grant. Clear AF/readers/cache endpoints are observations, not retirement.
 All 255 hardware obligations stay open; ordinary desktop uses inherited framebuffer.
 
+The latest42b/0ffff trial now records93,392/100,000us preparation with6,608us
+margin, one original kind2 lifetime. The56 census sample envelopes account for
+83,843us and overlap control brackets. Checks/deadlines and all255 hardware
+obligations remain. See the [current measured result](machines/macbookair7-2.md#native-v35-span-admission-and-census-timing-accepted).
+The next bounded step is the [whole-root CPU alias inventory](vmm-alias-inventory.md),
+which does not establish GPU/IOMMU aliases, stale TLB coverage, cache coherence,
+DMA completion or a native interval grant. Existing requested-alias checks remain.
+
 ## What is established
 
 The accepted source `f68ab030` completes an already-disabled, zero-geometry BCS

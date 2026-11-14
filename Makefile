@@ -6614,3 +6614,11 @@ build/tests/intel-admission-cost$(HOST_EXE): tools/test_intel_admission_cost.c k
 
 # The private census recorder participates only in the v35 diagnostic image.
 build/intel-source-audit/probe.o build/tests/intel-source-audit-adapter$(HOST_EXE): kernel/src/drivers/intel_admission_cost.inc
+
+.PHONY: test-vmm-alias-inventory
+test-core: test-vmm-alias-inventory
+test-vmm-alias-inventory: build/tests/vmm-alias-inventory$(HOST_EXE)
+	$<
+build/tests/vmm-alias-inventory$(HOST_EXE): tools/test_vmm_alias_inventory.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c kernel/src/memory/vmm_alias_inventory.inc $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -ffunction-sections -fdata-sections -Ikernel/include -I$(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

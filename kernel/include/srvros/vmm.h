@@ -54,6 +54,30 @@ struct vmm_alias_observation {
 bool vmm_diagnostic_kernel_alias(uint64_t root,uint64_t virtual_base,
     uint64_t physical_base,uint32_t pages,unsigned physical_bits,
     struct vmm_alias_observation *,struct vmm_range_observation *);
+/* Read-only, bounded whole-root reverse lookup for at most two private spans.
+ * Caller: boot CPU, IRQs already excluded, immutable captured RAM ranges;
+ * four-level paging without PCID/PKU/PKS, no other live address space. Physical
+ * width and NX/1GiB support bind to CPU0; CR4/EFER rechecked before return. Every
+ * reachable present leaf is examined. Any overlap outside the expected alias
+ * refuses, including aliases with identical attributes. No allocator, mapping,
+ * pin, SMP/TLB/coherence/DMA/firmware authority or persistent table pointers.
+ * RAM ranges are sorted/nonoverlapping; table pages and requested spans must
+ * fit wholly within them. A partial scan leaves the output untouched. */
+#define VMM_ALIAS_SPANS 2u
+#define VMM_ALIAS_TABLE_LIMIT 256u
+#define VMM_ALIAS_RAM_LIMIT 256u
+struct vmm_alias_span {uint64_t virtual_base,physical;uint32_t pages;};
+struct vmm_alias_ram {uint64_t base,length;};
+struct vmm_alias_inventory {uint32_t tables,entries,leaves,matches[VMM_ALIAS_SPANS],pages[VMM_ALIAS_SPANS];};
+enum vmm_alias_reason {VMM_ALIAS_INPUT=1,VMM_ALIAS_ROOT,VMM_ALIAS_MODE,
+ VMM_ALIAS_RAM,VMM_ALIAS_TABLE,VMM_ALIAS_CYCLE,VMM_ALIAS_LIMIT,
+ VMM_ALIAS_RESERVED,VMM_ALIAS_FOREIGN,VMM_ALIAS_COVERAGE,VMM_ALIAS_TABLE_BACKING};
+struct vmm_alias_detail {uint32_t reason,level;struct vmm_range_observation root;};
+bool vmm_diagnostic_unique_kernel_aliases(uint64_t root,
+ const struct vmm_alias_span *,unsigned count,unsigned physical_bits,
+ const struct vmm_alias_ram *,unsigned ram_count,
+ struct vmm_alias_inventory *,struct vmm_alias_detail *);
+
 void vmm_init(void);
 /* Page operations require canonical virtual addresses; mapping/mutation also
  * require page alignment. Invalid addresses are refused before table access. */

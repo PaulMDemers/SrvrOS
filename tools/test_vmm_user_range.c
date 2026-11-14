@@ -4,8 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 static uint64_t test_cr3;
+#ifdef SRVROS_VMM_ALIAS_INVENTORY_TEST
+static uint64_t test_cr4=1ull<<5;
+#endif
 static unsigned switches;
 static uint64_t test_rflags, test_efer=1ull<<11;
+static uint32_t test_physical_bits=52;
 static uint32_t test_maxext=0x80000001u, test_nx=1u<<20;
 static unsigned cpuid_calls, efer_calls, table_reads;
 static uint64_t vmm_test_rflags(void) { return test_rflags; }
@@ -15,10 +19,14 @@ static void vmm_test_cpuid(uint32_t leaf,uint32_t *eax,uint32_t *ebx,uint32_t *e
     cpuid_calls++; *eax=*ebx=*ecx=*edx=0;
     if(leaf==0x80000000u) *eax=test_maxext;
     if(leaf==0x80000001u) *edx=test_nx;
+    if(leaf==0x80000008u) *eax=test_physical_bits;
 }
 static uint64_t vmm_test_efer(void) { efer_calls++; return test_efer; }
 static void vmm_test_write_cr3(uint64_t value) { test_cr3=value;switches++; }
 static uint64_t vmm_test_cr3(void) { return test_cr3; }
+#ifdef SRVROS_VMM_ALIAS_INVENTORY_TEST
+static uint64_t vmm_test_cr4(void) { return test_cr4; }
+#endif
 #define SRVROS_VMM_HOST_TEST
 #include "../kernel/src/memory/vmm.c"
 uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t minimum,enum pmm_frame_tag tag) {

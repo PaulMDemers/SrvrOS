@@ -58,7 +58,7 @@ class Audit(unittest.TestCase):
      with self.subTest(off=off,mode=mode,n=n):self.retained(run(f'{off}audit-cache-{mode}:{n}'))
  def test_final_parent_restore_requires_original_completed_audit(self):
   for off in ('','entry-off-'):
-   for mode in ('complete','parent','registered','count','pci','plane','cache','cache-raw','range-count','range-base','range-pages','range-index','range-type','range-checks','alias-count','alias-root','alias-va','alias-pages','alias-leaves','alias-index','alias-write','alias-user','alias-nx','alias-size'):
+   for mode in ('complete','parent','registered','count','pci','plane','cache','cache-raw','range-count','range-base','range-pages','range-index','range-type','range-checks','alias-count','alias-root','alias-va','alias-pages','alias-leaves','alias-index','alias-write','alias-user','alias-nx','alias-size','inventory-count','inventory-reason','inventory-tables','inventory-entries','inventory-leaves','inventory-matches','inventory-pages'):
     with self.subTest(off=off,mode=mode):
      text=run(f'{off}audit-final-{mode}:2');f=fixture(text);self.assertEqual((f['actual'],f['command']),(10,3));self.assertIn('retained=1 success=0',text)
      row=next(l for l in text.splitlines() if l.startswith('source-requester-fixture:'));self.assertIn('actual=1',row);self.assertIn('complete=0',row)
@@ -128,6 +128,7 @@ class Audit(unittest.TestCase):
     s=summary.replace('v=3',f'v={version}').replace(' alias_checks=4','')
     if version==1:s=s.replace(' range_checks=4','')
     old_text=text.replace(line,row).replace(summary,s)
+    old_text=re.sub(r'(?m)^intel-alias-census:.*\n','',old_text)
     self.assertTrue(audit_result(old_text)['complete']);self.assertFalse(audit_result(old_text)['actual_aliases'])
    # All four actual PAT indices may be4 (WB in the captured PAT). No fixed0.
    data=bytearray(raw)
@@ -158,6 +159,25 @@ class Audit(unittest.TestCase):
     bad_rows.append('intel-census-cost: v=1 b='+base64.b64encode(data).decode())
    for bad in bad_rows:
     with self.subTest(row=bad),self.assertRaises(ValueError):audit_result(text.replace(row,bad))
+ def test_captured_table_ram_bounds_sort_and_no_changes(self):
+  p=subprocess.run([str(BIN),'--inventory-ram'],capture_output=True,text=True);self.assertEqual(p.returncode,0,p.stderr);self.assertIn('inventory-ram: PASS',p.stdout)
+ def test_whole_root_census_bindings_faults_and_historical_absence(self):
+  import struct
+  for off,text in zip(('','entry-off-'),self.texts):
+   r=audit_result(text);self.assertTrue(r['unique_aliases']);self.assertEqual(r['alias_inventory']['count'],2)
+   self.assertFalse(r['alias_inventory']['coherence']);self.assertFalse(r['alias_inventory']['ownership'])
+   row=next(l for l in text.splitlines() if l.startswith('intel-alias-census:'));raw=base64.b64decode(row.split('b=',1)[1]);self.assertEqual(len(raw),60)
+   old=text.replace(row+'\n','');self.assertTrue(audit_result(old)['complete']);self.assertFalse(audit_result(old)['unique_aliases'])
+   _,native=native_chain(text);self.assertTrue(native_audit_result(native)['unique_aliases'])
+   _,native=native_chain(old);self.assertFalse(native_audit_result(native)['unique_aliases'])
+   for mode in ('fail','tables','entries','leaves','matches','pages','time'):
+    for n in (1,2):
+     with self.subTest(mode=mode,n=n):self.retained(run(f'{off}audit-inventory-{mode}:{n}'))
+   bad=[row+'\n'+row,row.replace('v=1','v=2'),row+'=',row[:-1],row[:-4]]
+   for pos in (0,1,2,3,*range(4,60,4)):
+    data=bytearray(raw);data[pos]^=255;bad.append('intel-alias-census: v=1 b='+base64.b64encode(data).decode())
+   for line in bad:
+    with self.subTest(line=line),self.assertRaises(ValueError):audit_result(text.replace(row,line))
  def test_cache_context_actual_fresh_read_comparison(self):
   subprocess.run(['build/tests/intel-cache-probe','context'],check=True,capture_output=True)
 if __name__=='__main__':unittest.main()

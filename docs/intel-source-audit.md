@@ -344,3 +344,11 @@ retirement, exact2,712-page release/DMA57→57, three logs and offline preservat
 pass. The [unit result](machines/macbookair7-2.md#native-v35-span-admission-and-census-timing-accepted)
 owns precise timing, source, route and evidence scope. All255 actual hardware
 ownership obligations remain open; no native tear-free or managed GPU grant.
+
+
+The next optional [whole-root CPU alias inventory](vmm-alias-inventory.md) walks
+all reachable leaf mappings for both original private spans in each held sample.
+It retains the requested-alias/cache checks and original deadlines, rejects
+unexpected aliases or incomplete bounds, and keeps all hardware obligations open.
+Its new auxiliary receipt and native lifetime require fresh qualification; the
+accepted42b receipt supplies no whole-root inventory acceptance.

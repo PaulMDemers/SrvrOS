@@ -5,6 +5,7 @@ static bool intel_display_test_source_audit_clock(uint64_t *);
 static bool intel_display_test_source_audit_pci(unsigned,uint32_t *);
 static bool intel_display_test_source_audit_plane(unsigned,unsigned,uint32_t *);
 static bool intel_display_test_source_audit_cache(struct x86_cache_snapshot *);
+static bool intel_display_test_source_audit_inventory(uint64_t,const struct vmm_alias_span *,unsigned,const struct vmm_alias_ram *,unsigned,struct vmm_alias_inventory *,struct vmm_alias_detail *);
 #define INTEL_ENGINES_FIXTURE_MAIN engines_adapter_main
 #include "test_intel_source_engines_adapter.c"
 static unsigned audit_clocks,audit_pci,audit_planes,audit_caches,audit_aliases;
@@ -84,12 +85,42 @@ static bool intel_display_test_source_audit_alias(uint64_t root,uint64_t va,uint
  if(jf("audit-alias-time",audit_aliases))ticks=source_audit_native.origin+100001;
  return true;
 }
+static unsigned audit_inventories;
+static bool intel_display_test_source_audit_inventory(uint64_t root,const struct vmm_alias_span *s,unsigned bits,const struct vmm_alias_ram *ram,unsigned nr,struct vmm_alias_inventory *out,struct vmm_alias_detail *d) {
+ assert(source_audit_live() && wake_irq && requester_command==3 && engines_actual==5 && root==0x1000 && bits==39 && ram && nr);
+ for(unsigned b=0;b<2;b++)assert(s[b].pages==1356 && s[b].physical==buffers_native.binding.physical[b] && s[b].virtual_base==s[b].physical);
+ ++audit_inventories;
+ if(jf("audit-inventory-fail",audit_inventories)){d->reason=VMM_ALIAS_FOREIGN;return false;}
+ *out=(struct vmm_alias_inventory){.tables=9,.entries=4608,.leaves=3072,.matches={1356,1356},.pages={1356,1356}};
+ if(jf("audit-inventory-tables",audit_inventories))out->tables=257;
+ if(jf("audit-inventory-entries",audit_inventories))out->entries--;
+ if(jf("audit-inventory-leaves",audit_inventories))out->leaves=4609;
+ if(jf("audit-inventory-matches",audit_inventories))out->matches[1]--;
+ if(jf("audit-inventory-pages",audit_inventories))out->pages[1]--;
+ if(jf("audit-inventory-time",audit_inventories))ticks=source_audit_native.origin+100001;
+ return true;
+}
 int main(int argc,char **argv) {
+ if(argc==2 && !strcmp(argv[1],"--inventory-ram")) {
+  reset();assert(source_audit_ram_prepare() && source_audit_ram.count==1 && !source_audit_native.inventory_reason);
+  struct limine_memmap_entry regions[3]={{.base=0x300000,.length=4096,.type=LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE},{.base=0x100000,.length=4096,.type=LIMINE_MEMMAP_USABLE},{.base=0x200000,.length=4096,.type=LIMINE_MEMMAP_FRAMEBUFFER}};
+  struct limine_memmap_entry *ptrs[3]={&regions[0],&regions[1],&regions[2]};struct limine_memmap_entry saved[3];memcpy(saved,regions,sizeof(saved));
+  struct limine_memmap_response m={.entries=ptrs,.entry_count=3};memmap_request.response=&m;
+  assert(source_audit_ram_prepare() && source_audit_ram.count==2 && source_audit_ram.ranges[0].base==0x100000 && source_audit_ram.ranges[1].base==0x300000 && !memcmp(saved,regions,sizeof(saved)));
+  regions[0].base=0x100000;assert(!source_audit_ram_prepare() && source_audit_native.inventory_reason==VMM_ALIAS_RAM);
+  regions[0].base=UINT64_MAX-1;assert(!source_audit_ram_prepare());regions[0].base=0x300000;regions[0].length=0;assert(!source_audit_ram_prepare());
+  m.entry_count=0;assert(!source_audit_ram_prepare());m.entry_count=4097;assert(!source_audit_ram_prepare());memmap_request.response=0;assert(!source_audit_ram_prepare());
+  static struct limine_memmap_entry many[257];static struct limine_memmap_entry *mp[257];
+  for(unsigned i=0;i<257;i++){many[i]=(struct limine_memmap_entry){.base=0x100000+4096ull*i,.length=4096,.type=LIMINE_MEMMAP_USABLE};mp[i]=&many[i];}
+  m=(struct limine_memmap_response){.entry_count=257,.entries=mp};memmap_request.response=&m;assert(!source_audit_ram_prepare());
+  m.entry_count=256;assert(source_audit_ram_prepare() && source_audit_ram.count==256 && !source_audit_native.inventory_reason);
+  puts("inventory-ram: PASS captured sorted RAM only, malformed/overlap/capacity refusal, no writes");return 0;
+ }
  if(argc==2 && (!strcmp(argv[1],"--range-endpoint") || !strcmp(argv[1],"--admission-witness")))return original_display_fixture_main(argc,argv);
  int code=engines_adapter_main(argc,argv);
  struct intel_source_audit_native *a=&source_audit_native;
  printf("source-audit-fixture: state=%u complete=%u registered=%u clocks=%u pci=%u planes=%u caches=%u actual=%u command=%u\n",a->state,a->complete,a->registered,audit_clocks,audit_pci,audit_planes,audit_caches,engines_actual,requester_command);
- if(a->complete && source_requester_native.result.complete){assert(range_calls && admission_capture.queries==range_calls && !admission_capture.code);assert(admission_cost_capture.count && !admission_cost_capture.flags);}
+ if(a->complete && source_requester_native.result.complete){assert(range_calls && admission_capture.queries==range_calls && !admission_capture.code);assert(admission_cost_capture.count && !admission_cost_capture.flags);assert(audit_inventories==2 && a->inventory_count==2 && !a->inventory_reason);}
  if(a->complete && source_requester_native.result.complete)assert(a->samples==2 && a->pci_reads==18 && a->plane_reads==54 && a->cache_checks==2 && a->range_checks==4 && !a->registered);
  return code;
 }

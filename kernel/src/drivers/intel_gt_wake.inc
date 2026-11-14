@@ -781,6 +781,9 @@ bool intel_gt_wake_probe_report(void) {
     console_write("intel-buffers: preparing two private full buffers; original-source binding follows; no input or GPU PTE writes\n");
     bool buffers_ready=f.efi64 && f.loader && f.recipe && f.prerequisites && buffers_prepare();
     f.prerequisites=f.prerequisites && buffers_ready;
+#ifdef SRVROS_INTEL_SOURCE_AUDIT
+    f.prerequisites=f.prerequisites && source_audit_ram_prepare();
+#endif
 #endif
     uint64_t flags=wake_irq_save();
 #if defined(SRVROS_INTEL_PREPARE_RESET) || defined(SRVROS_INTEL_SOURCE_AUDIT)

@@ -1,4 +1,21 @@
 /* v35 only: observations inside the original all-five held child. No grant. */
+static struct {struct vmm_alias_ram ranges[VMM_ALIAS_RAM_LIMIT];unsigned count;bool ready;} source_audit_ram;
+static bool source_audit_ram_prepare(void) {
+ source_audit_ram=(__typeof__(source_audit_ram)){0};source_audit_native.inventory_reason=VMM_ALIAS_RAM;
+ const struct limine_memmap_response *m=memmap_request.response;
+ if(!m || !m->entries || !m->entry_count || m->entry_count>4096)return false;
+ for(uint64_t i=0;i<m->entry_count;i++) {
+  const struct limine_memmap_entry *e=m->entries[i];
+  if(!e || !e->length || e->base>UINT64_MAX-e->length)return false;
+  if(e->type!=LIMINE_MEMMAP_USABLE && e->type!=LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && e->type!=LIMINE_MEMMAP_EXECUTABLE_AND_MODULES)continue;
+  if(source_audit_ram.count==VMM_ALIAS_RAM_LIMIT)return false;
+  unsigned at=source_audit_ram.count++;
+  while(at && source_audit_ram.ranges[at-1].base>e->base){source_audit_ram.ranges[at]=source_audit_ram.ranges[at-1];--at;}
+  source_audit_ram.ranges[at]=(struct vmm_alias_ram){e->base,e->length};
+ }
+ for(unsigned i=1;i<source_audit_ram.count;i++)if(source_audit_ram.ranges[i].base<source_audit_ram.ranges[i-1].base+source_audit_ram.ranges[i-1].length)return false;
+ source_audit_ram.ready=source_audit_ram.count!=0;if(source_audit_ram.ready)source_audit_native.inventory_reason=0;return source_audit_ram.ready;
+}
 static bool source_audit_fail(unsigned reason) {
  source_audit_native.reason|=reason;source_audit_native.state=3;return false;
 }
@@ -7,6 +24,7 @@ static bool source_audit_live(void) {
  const struct intel_source_engines *r=&source_engines_native.result;
  return a->object==a && a->parent==r && a->provider==&nonzero_native && a->state==1 && a->registered && !a->complete && !a->reason &&
   a->epoch==r->epoch && a->kind==r->kind && a->mode==r->post_mode && a->origin==r->origin && a->parent_begin==r->parent_begin &&
+  source_audit_ram.ready && source_audit_ram.count && source_audit_ram.count<=VMM_ALIAS_RAM_LIMIT && a->inventory_count<=2 && !a->inventory_reason &&
   a->samples<3 && a->pci_reads<=18 && a->plane_reads<=54 && a->cache_checks<=2 && a->range_checks<=4 && a->alias_checks<=4 && a->root==nonzero_native.a->fw.gt.a.common.cr3 &&
   r->state==ISE_HELD && r->child_entered && !r->child_complete && r->samples==2 && r->writes==5 && r->acks==5 &&
   source_engines_native.issued==5 && intel_source_engines_live(r);
@@ -14,14 +32,14 @@ static bool source_audit_live(void) {
 static bool source_audit_tick(void) {
  struct intel_source_audit_native *a=&source_audit_native;
  if(!source_audit_live())return source_audit_fail(1);
- unsigned samples=a->samples,pc=a->pci_reads,pr=a->plane_reads,cc=a->cache_checks,rc=a->range_checks,ac=a->alias_checks;
+ unsigned samples=a->samples,pc=a->pci_reads,pr=a->plane_reads,cc=a->cache_checks,rc=a->range_checks,ac=a->alias_checks,ic=a->inventory_count;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
  uint64_t at=0;bool injected=intel_display_test_source_audit_clock(&at);
  if(!injected)at=source_engines_now(&nonzero_native);
 #else
  uint64_t at=source_engines_now(&nonzero_native);
 #endif
- if(!source_audit_live() || a->samples!=samples || a->pci_reads!=pc || a->plane_reads!=pr || a->cache_checks!=cc || a->range_checks!=rc || a->alias_checks!=ac)return source_audit_fail(1);
+ if(!source_audit_live() || a->samples!=samples || a->pci_reads!=pc || a->plane_reads!=pr || a->cache_checks!=cc || a->range_checks!=rc || a->alias_checks!=ac || a->inventory_count!=ic)return source_audit_fail(1);
  if(!at || at<a->last || !intel_source_engines_deadline(&source_engines_native.result,at)) {
   a->clock_at=at;a->clock_prev=a->last;return source_audit_fail(2);
  }
@@ -109,11 +127,24 @@ static bool source_audit_run(void) {
    ++a->range_checks;
    if(!source_audit_tick())return false;
   }
+  struct vmm_alias_span expected[2];
+  for(unsigned b=0;b<2;b++)expected[b]=(struct vmm_alias_span){a->range[n][b].virtual_base,a->range[n][b].physical,a->range[n][b].pages};
+  struct vmm_alias_detail detail={0};
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+  bool unique=intel_display_test_source_audit_inventory(a->root,expected,current->cpu.physical_bits,source_audit_ram.ranges,source_audit_ram.count,&a->inventory[n],&detail);
+#else
+  bool unique=vmm_diagnostic_unique_kernel_aliases(a->root,expected,2,current->cpu.physical_bits,source_audit_ram.ranges,source_audit_ram.count,&a->inventory[n],&detail);
+#endif
+  if(!unique){a->inventory_reason=detail.reason;return source_audit_fail(128);}
+  const struct vmm_alias_inventory *v=&a->inventory[n];
+  if(!v->tables || v->tables>VMM_ALIAS_TABLE_LIMIT || v->entries!=v->tables*512 || !v->leaves || v->leaves>v->entries)return source_audit_fail(128);
+  for(unsigned b=0;b<2;b++)if(v->pages[b]!=expected[b].pages || v->matches[b]!=a->range[n][b].alias.leaves)return source_audit_fail(128);
+  ++a->inventory_count;
   if(!source_audit_guard())return false;
   a->sample_end[n]=a->last;++a->samples;
  }
  (void)offsets;
- if(!source_audit_guard() || a->samples!=2 || a->pci_reads!=18 || a->plane_reads!=54 || a->cache_checks!=2 || a->range_checks!=4 || a->alias_checks!=4 || a->last<=a->begin)return source_audit_fail(1);
+ if(!source_audit_guard() || a->samples!=2 || a->pci_reads!=18 || a->plane_reads!=54 || a->cache_checks!=2 || a->range_checks!=4 || a->alias_checks!=4 || a->inventory_count!=2 || a->inventory_reason || a->last<=a->begin)return source_audit_fail(1);
  a->end=a->last;a->state=2;a->registered=false;a->complete=true;return true;
 }
 /* Pure original-result gate used after the parent's final restore clock. */
@@ -122,7 +153,7 @@ static bool source_audit_returned(void) {
  const struct intel_source_engines *r=&source_engines_native.result;
  if(a->object!=a || a->parent!=r || a->provider!=&nonzero_native || a->state!=2 || !a->complete || a->registered || a->reason || a->clock_at || a->clock_prev ||
     a->epoch!=r->epoch || a->kind!=r->kind || a->mode!=r->post_mode || a->origin!=r->origin || a->parent_begin!=r->parent_begin ||
-    a->samples!=2 || a->pci_reads!=18 || a->plane_reads!=54 || a->cache_checks!=2 || a->range_checks!=4 || a->alias_checks!=4 ||
+    a->samples!=2 || a->pci_reads!=18 || a->plane_reads!=54 || a->cache_checks!=2 || a->range_checks!=4 || a->alias_checks!=4 || a->inventory_count!=2 || a->inventory_reason ||
     r->object!=r || !r->complete || !r->child_complete || r->registered || r->state!=ISE_CLOSED ||
     !a->begin || a->begin<r->child_begin || a->end!=a->last || a->end<=a->begin || a->end>r->child_end)return false;
  uint64_t previous=a->begin;
@@ -146,6 +177,10 @@ static bool source_audit_returned(void) {
       q->mtrr!=6 || q->pat!=6 || q->effective!=6 || !q->checks || q->checks>1+2*a->cache_context[n].count ||
       q->checks!=first->checks)return false;
   }
+  const struct vmm_alias_inventory *v=&a->inventory[n],*first=&a->inventory[0];
+  if(!v->tables || v->tables>VMM_ALIAS_TABLE_LIMIT || v->entries!=512*v->tables || !v->leaves || v->leaves>v->entries ||
+     v->tables!=first->tables || v->entries!=first->entries || v->leaves!=first->leaves)return false;
+  for(unsigned b=0;b<2;b++)if(v->pages[b]!=a->range[n][b].pages || v->matches[b]!=a->range[n][b].alias.leaves)return false;
   previous=a->sample_end[n];
  }
  for(unsigned n=0;n<2;n++)if(a->cache_context[n].status!=CACHE_OBSERVED || a->cache_context[n].reads!=a->cache_reads[n] ||
@@ -178,6 +213,15 @@ static void source_audit_report(void) {
  (uint64_t)a->samples,(uint64_t)a->pci_reads,(uint64_t)a->plane_reads,(uint64_t)a->cache_checks,(uint64_t)a->range_checks,(uint64_t)a->alias_checks,(uint64_t)a->registered,(uint64_t)a->complete);
  admission_report();
  admission_cost_report(nonzero_native.r.begin,nonzero_native.r.end);
+ static uint8_t inv[60];static char inv64[81];unsigned pos=4;
+ inv[0]=(uint8_t)a->inventory_count;inv[1]=(uint8_t)a->inventory_reason;inv[2]=inv[3]=0;
+ for(unsigned n=0;n<2;n++){
+  const struct vmm_alias_inventory *v=&a->inventory[n];
+  source_audit_u32(inv,&pos,v->tables);source_audit_u32(inv,&pos,v->entries);source_audit_u32(inv,&pos,v->leaves);
+  for(unsigned b=0;b<2;b++)source_audit_u32(inv,&pos,v->matches[b]);
+  for(unsigned b=0;b<2;b++)source_audit_u32(inv,&pos,v->pages[b]);
+ }
+ entry_requester_base64(inv,60,inv64);console_printf("intel-alias-census: v=1 b=%s\n",inv64);
 }
 static void source_audit_reset_report(const struct nonzero_adapter *p) {
  const struct intel_nonzero_reset *r=&p->r;static uint8_t raw[528];static char encoded[705];unsigned k=0;

@@ -68,6 +68,13 @@ static bool intel_display_test_source_requester_clock(uint64_t *at) {
   if(jf("audit-final-alias-user",requester_final_clock))source_audit_native.range[1][0].alias.user=1;
   if(jf("audit-final-alias-nx",requester_final_clock))source_audit_native.range[1][0].alias.no_execute=0;
   if(jf("audit-final-alias-size",requester_final_clock))source_audit_native.range[1][0].alias.leaf_sizes=0;
+  if(jf("audit-final-inventory-count",requester_final_clock))source_audit_native.inventory_count--;
+  if(jf("audit-final-inventory-reason",requester_final_clock))source_audit_native.inventory_reason=1;
+  if(jf("audit-final-inventory-tables",requester_final_clock))source_audit_native.inventory[1].tables--;
+  if(jf("audit-final-inventory-entries",requester_final_clock))source_audit_native.inventory[1].entries--;
+  if(jf("audit-final-inventory-leaves",requester_final_clock))source_audit_native.inventory[1].leaves--;
+  if(jf("audit-final-inventory-matches",requester_final_clock))source_audit_native.inventory[1].matches[1]--;
+  if(jf("audit-final-inventory-pages",requester_final_clock))source_audit_native.inventory[1].pages[1]--;
   if(jf("audit-final-range-type",requester_final_clock))source_audit_native.range[1][0].effective=0;
   if(jf("audit-final-range-checks",requester_final_clock))source_audit_native.range[1][0].checks++;
 #endif

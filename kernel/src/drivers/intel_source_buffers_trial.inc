@@ -40,6 +40,8 @@ static struct intel_source_audit_native {
   struct vmm_alias_observation alias;
  } range[2][2];
  unsigned samples,pci_reads,plane_reads,cache_checks,range_checks,alias_checks,pci_count[2],plane_count[2][3],cache_reads[2];
+ struct vmm_alias_inventory inventory[2];
+ unsigned inventory_count,inventory_reason;
  bool cache_ok[2],registered,complete;
 } source_audit_native;
 static bool source_audit_returned(void);

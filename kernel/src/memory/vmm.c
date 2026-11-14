@@ -382,6 +382,11 @@ bool vmm_diagnostic_contiguous_kernel_range(uint64_t root,uint64_t va,uint64_t p
     return vmm_diagnostic_contiguous_kernel_range_observe(root,va,pa,pages,NULL);
 }
 
+#if !defined(SRVROS_VMM_HOST_TEST) || defined(SRVROS_VMM_ALIAS_INVENTORY_TEST)
+#include "vmm_alias_inventory.inc"
+#endif
+
+
 static bool map_page_in_space(uint64_t address_space,
     uint64_t virtual_address,
     uint64_t physical_address,
