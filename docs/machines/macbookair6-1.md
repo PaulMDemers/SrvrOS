@@ -14877,7 +14877,7 @@ DIRECTORY from namespace exclusion or weaken the existing atomic proof.
 Fresh read-only hashing/fsck/allocation checks preserve all 960 prior paths and
 959 non-sidecar hashes; only expected `.srvros/meta` changed. Four logs, three
 BMPs and two completed workload receipts bring the volume to 969 files,
-219 directories and 5360 allocated clusters, with zero leaks/mismatches/errors.
+5360 allocated clusters, with zero leaks/mismatches/errors.
 Strict original control/scheduler companions and both completed live sidecar
 endpoints replay from the final 64 KiB log; all transfer/commit/launch/protocol
 companions also validate. Installed, staged and independent payload/recovery
