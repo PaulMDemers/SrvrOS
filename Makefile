@@ -6584,3 +6584,14 @@ test-vmm-kernel-alias: build/tests/vmm-kernel-alias$(HOST_EXE)
 build/tests/vmm-kernel-alias$(HOST_EXE): tools/test_vmm_kernel_alias.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+# Optional timings only; functional assertions still use the actual walker.
+.PHONY: bench-vmm-diagnostic-range
+bench-vmm-diagnostic-range: build/tests/bench-vmm-diagnostic-range$(HOST_EXE)
+	$< translation-4k 10000
+	$< translation-large 10000
+	$< alias-4k 10000
+	$< alias-large 10000
+build/tests/bench-vmm-diagnostic-range$(HOST_EXE): tools/bench_vmm_diagnostic_range.c tools/test_vmm_user_range.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -UNDEBUG -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

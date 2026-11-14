@@ -109,6 +109,23 @@ does not accept these native observations. Native acceptance requires the new
 exact source/release, same run's prerequisite checkpoint, full receipt chain,
 original reader/control preservation and offline workspace/recovery checks.
 
+## Translation observer specialization
+
+The translation-only framebuffer guard and requested-alias observer use the
+same bounded VMM walk body. Marking that body for compile-time inlining lets
+the compiler remove unused attribute accumulation and optional-output branches
+from translation-only calls. This retains every fresh volatile leaf, exact
+translation check, table-boundary rewalk and entry/exit sole-root/IRQ check.
+Actual requested-alias calls retain full PAT and combined permission validation.
+No result is cached between calls, no full guard is omitted, and no timer,
+recipe, wire receipt, register target or deadline changes.
+
+`make bench-vmm-diagnostic-range` runs optional actual-core host timings with
+assertions enabled, including checked outputs and table-conversion counts.
+Timings are not pass thresholds or native acceptance. The before/after evidence
+uses alternating order, a fixed CPU and both GCC and Clang; source-specific
+native preparation remains a separate trial.
+
 ## Automated trial
 
 ```sh

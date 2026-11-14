@@ -287,7 +287,11 @@ static bool alias_leaf(struct vmm_alias_observation *o,uint64_t leaf,unsigned le
     o->pat_index=pat;o->writable=rw;o->user=user;o->no_execute=nx;
     ++o->leaves;o->leaf_sizes|=1u<<(4-level);return true;
 }
-static bool diagnostic_range(uint64_t root,uint64_t va,uint64_t pa,uint64_t pages,
+/* Both callers supply a compile-time alias mode. Specialize this one body so
+ * the frequent translation-only observer pays for no attribute accumulation or
+ * optional-output dispatch. Fresh volatile leaves and both root guards remain;
+ * nothing is cached between calls, and no native deadline is changed. */
+static inline __attribute__((always_inline)) bool diagnostic_range(uint64_t root,uint64_t va,uint64_t pa,uint64_t pages,
     struct vmm_range_observation *d,struct vmm_alias_observation *alias,unsigned bits) {
     struct vmm_alias_observation result={0};
     uint64_t allowed=PAGE_MASK;
