@@ -126,6 +126,15 @@ Timings are not pass thresholds or native acceptance. The before/after evidence
 uses alternating order, a fixed CPU and both GCC and Clang; source-specific
 native preparation remains a separate trial.
 
+Frozen specialization source`634ab653` / release`5a204843df11446b` passes local
+VMM/sanitizer/native-object/40-image/exact-stage qualification. In nine interleaved
+fixed-CPU host rounds the translation-only path is37.4% faster by median
+with Clang and31.6% with GCC, with unchanged checked results and table
+conversions. The unchanged audit adapter is byte-identical and seven modes are
+rerun; prior exhaustive adapter/weakness evidence retains its original source.
+Native preparation improvement and source-specific receipt3 remain pending the
+separate automated1% trial. Limits and hardware ownership obligations stay fixed.
+
 ## Automated trial
 
 ```sh

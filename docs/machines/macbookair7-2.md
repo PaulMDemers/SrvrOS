@@ -2,6 +2,49 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Qualified diagnostic range specialization timing trial
+
+Frozen source `634ab653` / release `5a204843df11446b` is locally qualified for
+an unchanged receipt3 automated timing trial. The one VMM walk body is forced
+into compile-time specialization: translation-only calls lose unused alias
+attribute accumulation/dispatch while every volatile leaf, exact translation,
+table-boundary walk and entry/exit root/IRQ check remains. Actual-alias calls
+retain PAT and combined permissions. Native object checks prove both root guards
+in both paths, no generic dispatch and no alias accumulation in the translation
+path, with2KiB frames. No cached admission, new timer/target/writer or deadline.
+
+Nine alternating rounds on a fixed host CPU observe median1,356-page translation
+cost reductions of37.4% with Clang and31.6% with GCC.
+All result/table-conversion assertions agree; assertions are explicitly enabled.
+These host measurements do not accept native preparation or prove its timing
+cause/repeatability. The previous physical source4b still has only307us margin.
+
+Affected actual VMM/process-copy tests, default/USB rebuild,40 images, fatal
+ASan/UBSan on both VMM observer paths, native object/guard/frame gates,17 historical
+raw classifications,119 staging cases, saved-tail projection65199/65,536
+and exact-stage EFI/MBR safe refusal/persistence/unmount/return plus missing-media
+halt pass. The audit producer/receiver and host-fixture inputs remain unchanged
+from4b and the fresh adapter rebuild is byte-identical. Seven route/failure modes
+are rerun; prior11-method normal/five-method fatal adapter and15 compiled weakness
+results retain their original scope, not a new whole-matrix claim.
+
+Payload and qualification evidence are banked outside build. All1,518 files/
+162sessions preserve; offline fsck/allocation/writable/headroom, boot digest,
+Ubuntu default and unarmed recovery pass. Unreferencedf1a9's EFI duplicate alone
+was retired against its accepted-native and complete payload manifests; current
+4751, prior679a, recovery9aa8 and GUI/joint/HDA stay installed. All old payload/raw
+evidence remains banked. Three additional byte-identical historical build-stage
+duplicates reclaimed456,821,112bytes against complete independent banks/ledger.
+
+Candidate native preparation/mapping acceptance remains pending. Standing
+unattended reboot authorization at1% applies; no input required, persist/unmount/
+return on safe outcomes and retain uncertainty visibly. Collect the unique
+matching session against1,518files/162sessions before another trial. Main4016 is
+integrated, PR19/379 independent, Actions disabled and no parallel agents.
+All255 hardware ownership obligations, zero positive assurances/managed GPU pages
+and native tear-free remain open. Checkpoint:
+`build/air-range-specialization-20261114`.
+
 ### Active diagnostic range specialization
 
 Bounded objective: measure and remove optional-attribute dispatch overhead from
