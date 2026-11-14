@@ -269,12 +269,14 @@ time, event-loop responsiveness and native audio acceptance are distinct checks.
 
 ## Directory metadata during foreign storage commits
 
-The READ_INFO handler contains a callback-free live VFS metadata attempt under
-CPU0 interrupt exclusion. PR498's public namespace dispatcher still acquires
-storage ownership before reaching it; the Air6,1 native return records zero
-handled entries. This path is **not yet active or natively accepted**. Route the
-validated attempt ahead of outer ownership, with a public-dispatch regression
-and positive VM/native counters, while retaining the entire owned fallback. VFS publication depth spans metadata/retire callbacks and
+Public dispatch invokes the callback-free READ_INFO prelude before acquiring
+namespace ownership. A refused proof retains the complete original owned span
+through fresh cancellation, user-mapping and FD checks, enumeration and copy.
+Other directory operations retain that span. The previous PR498 native run had
+zero handled entries because the wrapper acquired ownership first; it remains
+failed feature evidence. The public-dispatch regression compiles the actual
+helpers/wrapper together and fails against that old wrapper. Positive loaded-VM
+and native admission counts are required before accepting the corrected route. VFS publication depth spans metadata/retire callbacks and
 rollback; node publication and system namespace changes are excluded. The
 existing scheduler proof rejects foreign-owner image aliases, unsafe sibling
 continuations and wrong roots. Shared directory cursors and stale/retired node

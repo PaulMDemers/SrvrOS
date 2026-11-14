@@ -5296,3 +5296,8 @@ test-core test-desktop: test-control-timing
 test-control-timing: build/tests/desktop-session-host$(HOST_EXE)
 	$(PYTHON) tools/test_control_timing.py
 build/tests/desktop-session-host$(HOST_EXE) $(DESKD_OBJ): userspace/deskd/control_timing.h
+
+.PHONY: test-directory-dispatch
+test-core: test-directory-dispatch
+test-directory-dispatch:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_directory_dispatch.py --output build/tests/directory-dispatch
