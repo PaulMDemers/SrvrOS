@@ -2,6 +2,29 @@
 
 Updated: 2026-11-14. State: **active reference machine; partial device acceptance**.
 
+### Active whole-root CPU alias inventory
+
+Bounded next step: implement an allocation-free, read-only walk of the sole
+active four-level kernel root for both private buffer spans together. Check
+all reachable present leaves, reject unexpected virtual aliases, unsupported
+entries, cycles, noncanonical mappings, missing coverage and bounded-work
+exhaustion. Revalidate original root/registry/IRQ conditions at entry and exit.
+Keep the existing requested-alias and cache-context checks independently intact.
+No cache/TLB operation, PTE writer, DMA completion or hardware assurance follows.
+
+Touch the VMM diagnostic API/tests and v35 held-source adapter/receiver, dedicated
+auxiliary receipt, own guides and the current unit record. Preserve original
+100/300/400/500ms limits and every existing fresh census. Two whole-root samples
+must bind the same source/root/buffers while all five engine and requester holds
+remain live. Compact the duplicate progress banner if needed to retain the
+64KiB saved-tail limit; keep explicit automatic/no-input/uncertainty instructions.
+
+Main4016 is integrated; PR19/379 are independent. No subagents or overlapping
+harnesses. Previous42b/0ffff native run is collected and banked, no one-shot.
+Qualify actual-core failures and strict receiver/history/native object isolation,
+then exact-stage VM and media/recovery before any authorized1% automatic trial.
+Checkpoint: `build/air-alias-inventory-20261114`.
+
 ### Native v35 span admission and census timing accepted
 
 Frozen runtime `42b17c5f` / release `0ffffc98d1e656e9`, session
