@@ -12,6 +12,7 @@ static uint64_t ticks=10,total=100,clock_us,save_tick_delay;
 static bool tracing,reference=true,power_enabled=true;
 static unsigned cost_reports;
 static struct sync_timing_snapshot sync_fixture;
+void process_directory_admission_snapshot(struct process_directory_admission *out) { *out=(struct process_directory_admission){.handled=3,.entries=17}; }
 static unsigned sync_headers,sync_records,sync_worst,sync_usb,sync_command,sidecar_reports;
 static unsigned global_syncs,durable_reports;
 static struct srv_pcm_status pcm_fixture={.version=SRV_PCM_VERSION};

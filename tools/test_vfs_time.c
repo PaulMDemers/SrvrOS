@@ -2,12 +2,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#define SRVROS_EXFAT_HOST_TEST
 #include "../kernel/src/vfs.c"
 static bool fail_alloc;
 void *kcalloc(size_t n,size_t size) { return fail_alloc?NULL:calloc(n,size); }
 void kfree(void *p) { free(p); }
 static int64_t wall=-1;
 static unsigned notifications;
+static bool fail_notification;
 static const struct initramfs_file boot_files[]={
     {"/etc/motd",(const uint8_t *)"welcome",7,0640},{"/share/test/note",(const uint8_t *)"note",4,0600},
     {"/init",(const uint8_t *)"init",4,0755},{"/init/invalid",NULL,0,0},{"relative",NULL,0,0},
@@ -21,9 +23,14 @@ static bool read_test(const struct vfs_node *n,const uint8_t **data,uint64_t *si
     (void)n;*data=(const uint8_t *)"abc";*size=3;return true;
 }
 static bool changed(const char *path,const struct vfs_metadata *m) {
-    assert(!strcmp(path,"/test") && m->mtime<=1792326900);notifications++;return true;
+    assert(!vfs_view_snapshot_ready());
+    assert(!strcmp(path,"/test") && m->mtime<=1792326900);notifications++;return !fail_notification;
 }
 int main(void) {
+    assert(vfs_view_snapshot_ready());
+    uint64_t outer=vfs_view_write_begin(),inner=vfs_view_write_begin();
+    assert(!vfs_view_snapshot_ready());vfs_view_write_end(inner);
+    assert(!vfs_view_snapshot_ready());vfs_view_write_end(outer);assert(vfs_view_snapshot_ready());
     vfs_init();assert(vfs_count()==7);
     const char *folders[]={"/","/etc","/share","/share/test"};
     for(unsigned i=0;i<4;i++) { struct vfs_metadata m;uint64_t type,size;
@@ -59,6 +66,11 @@ int main(void) {
     wall=-1;assert(vfs_register_directory("/unknown"));assert(!vfs_lookup("/unknown")->metadata.ctime);
     /* Persisted IDs can collide with files imported from Linux or with another
      * persisted record. Attributes survive; aliases must never reach a picker. */
+    struct vfs_metadata rollback=file->metadata;
+    fail_notification=true;
+    assert(!vfs_chmod("/test",0777) && !memcmp(&rollback,&file->metadata,sizeof(rollback)) && vfs_view_snapshot_ready());
+    assert(!vfs_utime("/test",1,2) && !memcmp(&rollback,&file->metadata,sizeof(rollback)) && vfs_view_snapshot_ready());
+    fail_notification=false;
     vfs_set_metadata_changed_callback(NULL);
     struct vfs_metadata saved = file->metadata;
     saved.inode = early->metadata.inode;
@@ -113,5 +125,6 @@ int main(void) {
     fail_alloc=false;assert(!vfs_reserve_nodes(UINT64_MAX));
     assert(vfs_unregister_prefix("/scale")==6000 && vfs_count()==old_count);
     assert(vfs_lookup("/test")==retained);
+    assert(vfs_view_snapshot_ready());
     puts("vfs-time: PASS boot root/parent directories, conflicting paths, UTC create/read/write/change timestamps, explicit utime, imported metadata and unavailable-clock sentinel");
 }

@@ -47,6 +47,11 @@ struct vfs_node {
  * must not mutate the VFS. A prefix event includes the named path and subtree. */
 typedef void (*vfs_retire_fn)(const char *path, bool prefix);
 void vfs_set_retire_callback(vfs_retire_fn callback);
+/* CPU0 only. Snapshot proof and consumption require continuous IRQ exclusion;
+ * these do not acquire/release storage ownership or authorize callbacks. */
+uint64_t vfs_view_write_begin(void);
+void vfs_view_write_end(uint64_t flags);
+bool vfs_view_snapshot_ready(void);
 void vfs_init(void);
 bool vfs_register_file(const char *path, uint64_t size, const void *private_data, vfs_read_all_fn read_all);
 bool vfs_register_directory(const char *path);

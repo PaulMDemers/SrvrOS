@@ -12,7 +12,7 @@ bool process_should_exit_current(void) { return startup_killed; }
 bool scheduler_io_active(void) {return busy;}
 uint64_t latency_clock(void) {return 1;}
 static unsigned gate_samples;
-void latency_gate(uint64_t at,uint64_t call) {assert(at==1 && (call==SYS_MMAP || call==SYS_THREAD_CREATE || call==SYS_NET_STATUS_INFO));gate_samples++;}
+void latency_gate(uint64_t at,uint64_t call) {assert(at==1 && (call==SYS_MMAP || call==SYS_THREAD_CREATE || call==SYS_NET_STATUS_INFO || call==SYS_DIRECTORY));gate_samples++;}
 static unsigned turn_requests;
 static bool retired;
 static bool wait_pointer_ok=true,scope_write_ok=true;static unsigned wait_attempts;
@@ -325,7 +325,35 @@ static void test_network_snapshot(void) {
     puts("network-status-admission: PASS no-device snapshot, negotiated copy and intact gated/cancelled fallback");
 }
 
+static bool directory_fast;
+static unsigned directory_attempts,directory_reads;
+bool process_directory_try_read_info(uint64_t fd,void *out,uint64_t cap,int64_t *result) {
+    assert(fd==3 && cap==sizeof(struct srv_dirent_info));directory_attempts++;
+    if(!directory_fast)return false;
+    *(struct srv_dirent_info *)out=(struct srv_dirent_info){.size=77};*result=1;return true;
+}
+int64_t process_directory(uint64_t op,uint64_t fd,void *out,uint64_t cap) {
+    assert(op==SRV_DIRECTORY_READ_INFO && fd==3 && cap==sizeof(struct srv_dirent_info) && !user_safe && !busy);
+    *(struct srv_dirent_info *)out=(struct srv_dirent_info){.size=88};directory_reads++;return 1;
+}
+static void directory_admission_regression(void) {
+    struct srv_dirent_info out={0};directory_fast=true;busy=true;user_safe=true;
+    unsigned waits=close_waits;
+    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,&out,sizeof(out))==1 && out.size==77 && close_waits==waits && busy);
+    directory_fast=false;user_safe=true;
+    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,&out,sizeof(out))==1 && out.size==88 && directory_reads==1 && close_waits==waits+1);
+    busy=true;user_safe=true;kill_on_wait=true;
+    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,&out,sizeof(out))==SRV_ERR_INTR && directory_reads==1);
+    kill_on_wait=startup_killed=false;busy=true;user_safe=true;invalidate_on_wait=true;
+    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,&out,sizeof(out))==SRV_ERR_FAULT && directory_reads==1);
+    invalidate_on_wait=false;wait_pointer_ok=true;
+    unsigned attempts=directory_attempts;
+    assert(syscall_directory(SRV_DIRECTORY_READ_INFO,3,&out,sizeof(out)-1)==SRV_ERR_INVAL && directory_attempts==attempts);
+    busy=false;user_safe=false;
+}
+
 int main(void) {
+    directory_admission_regression();
     test_network_snapshot();
     /* Existing independent fixtures start their own gate counters. */
     close_waits=gate_samples=0;
@@ -339,7 +367,9 @@ int main(void) {
     assert(!syscall_io_safe(&frame));console_fd=true;assert(syscall_io_safe(&frame));
     frame.rax=SYS_WRITE;frame.rdi=1;assert(syscall_io_safe(&frame));
     console_fd=false;assert(!syscall_io_safe(&frame));
-    frame.rax=SYS_DIRECTORY;frame.rdi=SRV_DIRECTORY_READ_INFO;assert(!syscall_io_safe(&frame));
+    frame.rax=SYS_DIRECTORY;frame.rdi=SRV_DIRECTORY_READ_INFO;assert(syscall_io_safe(&frame));
+    frame.rdi=SRV_DIRECTORY_CHDIR;assert(!syscall_io_safe(&frame));
+    frame.rdi=SRV_DIRECTORY_READ;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_POINTER_WAIT;assert(syscall_io_safe(&frame));
     frame.rax=SYS_BATTERY_STATUS;assert(syscall_io_safe(&frame));
     frame.rax=SYS_BATTERY_CONTROL;assert(syscall_io_safe(&frame));

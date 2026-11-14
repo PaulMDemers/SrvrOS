@@ -155,12 +155,12 @@ static void system_retire(const char *path, bool prefix) {
     system_view.count = kept;
 }
 
-void vfs_namespace_system_reset(void) {
+static void vfs_namespace_system_reset_impl(void) {
     system_view.count = 0;
     vfs_set_retire_callback(NULL);
 }
 
-bool vfs_namespace_system_activate(void) {
+static bool vfs_namespace_system_activate_impl(void) {
     static const char *const sources[] = {"/bin", "/usr", "/var", "/home"};
     static const char *const targets[] = {"/fat/bin", "/fat", "/fat/var", "/fat/home"};
     struct vfs_namespace candidate;
@@ -289,4 +289,16 @@ int vfs_namespace_system_list(uint64_t index, char *out, size_t capacity,
         }
     }
     return 0;
+}
+
+void vfs_namespace_system_reset(void) {
+    uint64_t flags=vfs_view_write_begin();
+    vfs_namespace_system_reset_impl();
+    vfs_view_write_end(flags);
+}
+
+bool vfs_namespace_system_activate(void) {
+    uint64_t flags=vfs_view_write_begin();
+    bool result=vfs_namespace_system_activate_impl();
+    vfs_view_write_end(flags);return result;
 }

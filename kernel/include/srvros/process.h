@@ -326,6 +326,12 @@ int64_t process_rename_file(const char *old_path, const char *new_path);
 int64_t process_path_context(uint64_t operation,const char *path,char *out,uint64_t capacity);
 /* Caller holds CPU0 filesystem exclusion across resolution and use. */
 int64_t process_resolve_storage_path(const char *input,char *out,uint64_t capacity);
+struct process_directory_admission {
+    uint64_t handled,entries,policy_refused,publication_refused,descriptor_refused;
+};
+void process_directory_admission_snapshot(struct process_directory_admission *out);
+/* IF0 callback-free READ_INFO attempt; refusal leaves cookie/output untouched. */
+bool process_directory_try_read_info(uint64_t fd,void *out,uint64_t capacity,int64_t *result);
 int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity);
 bool process_open_file_size(const char *path,uint64_t *size);
 int64_t process_file_stat(struct process *process,

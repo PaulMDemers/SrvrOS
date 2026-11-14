@@ -152,6 +152,10 @@ static const struct vfs_node fixture_directory={.used=true,.type=VFS_NODE_DIRECT
 uint64_t vfs_count(void) { return 0; }
 const struct vfs_node *vfs_node_at(uint64_t i) { (void)i;return NULL; }
 void vfs_set_retire_callback(vfs_retire_fn callback) { (void)callback; }
+static unsigned view_depth;
+uint64_t vfs_view_write_begin(void) { view_depth++;return 0; }
+void vfs_view_write_end(uint64_t flags) { (void)flags;assert(view_depth);view_depth--; }
+
 const struct vfs_node *vfs_lookup(const char *path) {
     if(!strcmp(path,"/") || !strcmp(path,"/fat") || !strcmp(path,"/fat/bin")) return &fixture_directory;
     return &executable;
